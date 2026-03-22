@@ -129,7 +129,7 @@ function getArtistryConfig() {
       },
     }
   }
-  catch (e) {
+  catch {
     return {}
   }
 }

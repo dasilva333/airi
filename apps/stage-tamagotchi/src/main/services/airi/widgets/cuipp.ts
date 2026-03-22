@@ -15,7 +15,7 @@ function debugLog(message: string, count?: number) {
   try {
     appendFileSync(LOG_FILE, line)
   }
-  catch (e) {
+  catch {
     // fallback if file is locked
   }
 }

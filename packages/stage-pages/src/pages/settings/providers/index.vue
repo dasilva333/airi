@@ -182,7 +182,7 @@ const providerBlocks = computed(() => {
           :description="provider.localizedDescription"
           :icon="provider.icon"
           :icon-color="provider.iconColor"
-          :icon-image="provider.iconImage"
+          :icon-image="'iconImage' in provider ? provider.iconImage : undefined"
           :to="`/settings/providers/${provider.category === 'vision' ? 'chat' : provider.category}/${provider.id}`"
           :configured="provider.configured"
           @click="trackProviderClick(provider.id, provider.category)"

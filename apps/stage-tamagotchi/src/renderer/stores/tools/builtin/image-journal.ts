@@ -29,7 +29,7 @@ function getArtistryConfig() {
       },
     }
   }
-  catch (e) {
+  catch {
     return {}
   }
 }
@@ -90,10 +90,10 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
       const parts = artistryResult.base64.split(',')
       const contentType = parts[0].split(':')[1].split(';')[0]
       const byteCharacters = atob(parts[1])
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
+      const byteNumbers = Array.from(
+        { length: byteCharacters.length },
+        (_, i) => byteCharacters.charCodeAt(i),
+      )
       const byteArray = new Uint8Array(byteNumbers)
       blob = new Blob([byteArray], { type: contentType })
     }

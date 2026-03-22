@@ -41,8 +41,9 @@ async function generateReport(zipPath: string) {
 
   // 1. Enumerate Files and Check Non-ASCII
   console.log(`[1] Enumerating ${allFiles.length} files...`)
+  const hasNonAscii = (value: string) => Array.from(value).some(char => char.charCodeAt(0) > 0x7F)
   allFiles.forEach((f) => {
-    if (/[^\x00-\x7F]/.test(f)) {
+    if (hasNonAscii(f)) {
       report.issues.push(`Non-ASCII filename detected: "${f}" (Ensure middleware handles this)`)
     }
   })

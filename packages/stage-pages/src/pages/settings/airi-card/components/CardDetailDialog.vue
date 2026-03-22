@@ -580,7 +580,7 @@ function getModuleDisplayValue(value: string | undefined, defaultValue: string |
                   :class="{ 'ring-2 ring-primary-500 border-primary-500': activeBackgroundId === entry.id }"
                 >
                   <img
-                    :src="backgroundStore.getBackgroundUrl(entry.id)"
+                    :src="backgroundStore.getBackgroundUrl(entry.id) || undefined"
                     class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                     loading="lazy"
                   >

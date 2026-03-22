@@ -6,3 +6,5 @@
 //   ...DEFAULT_POSTHOG_CONFIG,
 //   // Project-specific config...
 // })
+
+export {}
