@@ -71,7 +71,12 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     source?: TextJournalEntrySource
     characterId?: string
   }) {
-    await load()
+    try {
+      await load()
+    }
+    catch (err) {
+      throw new Error(`text_journal: failed to load entries before creating: ${err instanceof Error ? err.message : String(err)}`)
+    }
 
     const targetCard = input.characterId
       ? cards.value.get(input.characterId)
@@ -98,7 +103,12 @@ export const useTextJournalStore = defineStore('text-journal', () => {
       throw new Error('Active character could not be resolved for text journal entry creation.')
 
     const nextEntries = [nextEntry, ...entries.value]
-    await persist(nextEntries)
+    try {
+      await persist(nextEntries)
+    }
+    catch (err) {
+      throw new Error(`text_journal: failed to persist new entry "${nextEntry.title}": ${err instanceof Error ? err.message : String(err)}`)
+    }
     return nextEntry
   }
 
@@ -122,7 +132,12 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     limit?: number
     characterId?: string
   }) {
-    await load()
+    try {
+      await load()
+    }
+    catch (err) {
+      throw new Error(`text_journal: failed to load entries before searching: ${err instanceof Error ? err.message : String(err)}`)
+    }
 
     const normalizedQuery = input.query.trim().toLowerCase()
     if (!normalizedQuery)

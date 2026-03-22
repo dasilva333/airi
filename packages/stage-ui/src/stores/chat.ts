@@ -58,6 +58,9 @@ interface QueuedSend {
   }
 }
 
+// NOTICE: gated to DEV builds to avoid console spam during streaming in production.
+const chatLog = import.meta.env.DEV ? console.log.bind(console, '[ChatDebug]') : () => {}
+
 // NOTICE: The hooks event bus is intentionally a module-level singleton, NOT created
 // inside the defineStore setup function. During Vite HMR, Pinia re-runs the store's
 // setup function which would create a new hooks instance. Long-lived components like
@@ -122,7 +125,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     generation: number,
     sessionId: string,
   ) {
-    console.log('[ChatDebug] performSend starting with message:', sendingMessage)
+    chatLog('performSend starting with message:', sendingMessage)
 
     if (!sendingMessage && !options.attachments?.length)
       return
@@ -205,7 +208,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       chatSession.setSessionMessages(sessionId, nextMessages)
 
       if (options.skipAssistant) {
-        console.log('[ChatDebug] skipAssistant is true, ending ingest.')
+        chatLog('skipAssistant is true, ending ingest.')
         return
       }
 
@@ -269,7 +272,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         if (!tool)
           return false
 
-        console.log(`[ChatDebug] Bridging marker to tool call: ${toolName}`)
+        chatLog(`Bridging marker to tool call: ${toolName}`)
         try {
           const args: Record<string, any> = {}
           const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
@@ -330,7 +333,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
       const parser = useLlmmarkerParser({
         onLiteral: async (text) => {
-          console.log('[ChatDebug] onLiteral:', text)
+          chatLog('onLiteral:', text)
           if (shouldAbort())
             return
 
@@ -348,7 +351,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           }
         },
         onSpecial: async (special) => {
-          console.log('[ChatDebug] onSpecial:', special)
+          chatLog('onSpecial:', special)
           if (shouldAbort())
             return
 
@@ -358,7 +361,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           await hooks.emitTokenSpecialHooks(special, streamingMessageContext)
         },
         onEnd: async (fullText) => {
-          console.log('[ChatDebug] parser.onEnd triggered with fullText length:', fullText.length)
+          chatLog('parser.onEnd triggered with fullText length:', fullText.length)
           if (isStaleGeneration())
             return
 
@@ -398,7 +401,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 const tool = resolvedTools?.find(t => (t.function?.name || (t as any).name) === toolCall.function.name)
 
                 if (tool && (tool as any).execute) {
-                  console.log(`[ChatDebug] Manually executing bridged tool: ${toolCall.function.name}`)
+                  chatLog(`Manually executing bridged tool: ${toolCall.function.name}`)
                   try {
                     const result = await (tool as any).execute(JSON.parse(toolCall.function.arguments))
                     toolCallQueue.enqueue({
@@ -590,7 +593,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       }
     }
     catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Error sending message:', { sessionId, generation, error })
       throw error
     }
     finally {
@@ -606,7 +609,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     targetSessionId?: string,
   ) {
     const sessionId = targetSessionId || activeSessionId.value
-    console.log('[ChatDebug] Ingesting message:', { sendingMessage, sessionId, sending: sending.value })
+    chatLog('Ingesting message:', { sendingMessage, sessionId, sending: sending.value })
     const generation = chatSession.getSessionGeneration(sessionId)
 
     return new Promise<void>((resolve, reject) => {
