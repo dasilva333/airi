@@ -46,8 +46,8 @@ export function setupOnboardingWindowManager(params: {
       transparent: false,
       backgroundColor: '#0f0f0f',
       webPreferences: {
-        preload: join(getElectronMainDirname(), '../preload/index.mjs'),
-        sandbox: false,
+        preload: join(getElectronMainDirname(), '../preload/index.cjs'),
+        sandbox: true,
       },
     })
 

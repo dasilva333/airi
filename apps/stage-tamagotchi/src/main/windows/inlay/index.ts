@@ -24,8 +24,8 @@ export async function setupInlayWindow(params: {
     show: false,
     icon,
     webPreferences: {
-      preload: join(getElectronMainDirname(), '../preload/index.mjs'),
-      sandbox: false,
+      preload: join(getElectronMainDirname(), '../preload/index.cjs'),
+      sandbox: true,
     },
     ...spotlightLikeWindowConfig(),
   })

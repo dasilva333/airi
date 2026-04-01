@@ -27,9 +27,9 @@ export function setupDevtoolsWindow(): DevtoolsWindowManager {
       show: false,
       icon,
       webPreferences: {
-        preload: join(getElectronMainDirname(), '../preload/index.mjs'),
+        preload: join(getElectronMainDirname(), '../preload/index.cjs'),
         // Preload exposes Electron APIs and needs Node access.
-        sandbox: false,
+        sandbox: true,
       },
     })
 

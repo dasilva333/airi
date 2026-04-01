@@ -76,10 +76,16 @@ export default defineConfig({
 
   preload: {
     build: {
+      rollupOptions: {
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          chunkFileNames: '[name]-[hash].cjs',
+        },
+      },
       lib: {
         entry: {
-          'index': resolve(join(import.meta.dirname, 'src', 'preload', 'index.ts')),
-          'beat-sync': resolve(join(import.meta.dirname, 'src', 'preload', 'beat-sync.ts')),
+          index: resolve(join(import.meta.dirname, 'src', 'preload', 'index.ts')),
         },
       },
     },

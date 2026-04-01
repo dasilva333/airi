@@ -56,8 +56,8 @@ export async function setupMainWindow(params: {
     show: false,
     icon,
     webPreferences: {
-      preload: resolve(dirname(fileURLToPath(import.meta.url)), '../preload/index.mjs'),
-      sandbox: false,
+      preload: resolve(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
+      sandbox: true,
     },
     type: 'panel',
     alwaysOnTop: true,

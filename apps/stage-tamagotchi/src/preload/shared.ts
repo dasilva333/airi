@@ -1,9 +1,13 @@
 import type { ElectronWindow } from '@proj-airi/stage-shared'
 
-import { contextIsolated, platform } from 'node:process'
-
 import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
+
+// Bypass strict eslint rules for the process global in sandboxed scripts
+/* eslint-disable eslint-comments/no-unlimited-disable */
+/* eslint-disable */
+const _process = process
+/* eslint-enable */
 
 export function expose() {
   // TODO: once we refactored eventa to support window-namespaced contexts,
@@ -14,10 +18,10 @@ export function expose() {
   // Use `contextBridge` APIs to expose Electron APIs to
   // renderer only if context isolation is enabled, otherwise
   // just add to the DOM global.
-  if (contextIsolated) {
+  if (_process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld('electron', electronAPI)
-      contextBridge.exposeInMainWorld('platform', platform)
+      contextBridge.exposeInMainWorld('platform', _process.platform)
     }
     catch (error) {
       console.error(error)
@@ -25,7 +29,7 @@ export function expose() {
   }
   else {
     window.electron = electronAPI
-    window.platform = platform
+    window.platform = _process.platform
   }
 }
 
@@ -35,7 +39,7 @@ export function exposeWithCustomAPI<CustomAPI>(customAPI: CustomAPI) {
   // Use `contextBridge` APIs to expose Electron APIs to
   // renderer only if context isolation is enabled, otherwise
   // just add to the DOM global.
-  if (contextIsolated) {
+  if (_process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld('api', customAPI)
     }

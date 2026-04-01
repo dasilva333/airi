@@ -10,8 +10,8 @@ export async function setupBeatSync() {
   const window = new BrowserWindow({
     show: false,
     webPreferences: {
-      preload: join(dirname(fileURLToPath(import.meta.url)), '../preload/beat-sync.mjs'),
-      sandbox: false,
+      preload: join(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
+      sandbox: true,
     },
   })
 

@@ -73,8 +73,8 @@ export async function setupDashboardWindow(params: {
     show: false,
     icon,
     webPreferences: {
-      preload: join(dirname(fileURLToPath(import.meta.url)), '../preload/index.mjs'),
-      sandbox: false,
+      preload: join(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
+      sandbox: true,
     },
   })
 
