@@ -404,6 +404,31 @@ sudo pnpm dev:tamagotchi
 
 Then enable secure websocket in tamagotchi `settings/system/general`.
 
+### Troubleshooting
+
+#### Error: Electron uninstall (pnpm 10+)
+
+If you see `Error: Electron uninstall` when running `pnpm dev:tamagotchi`, it means the Electron binary wasn't correctly downloaded or extracted into your `node_modules`. This is a common issue with pnpm 10+ security defaults.
+
+**Fix 1: Approve the build (Recommended for pnpm 10+)**
+Pnpm 10+ blocks postinstall scripts by default. You may need to explicitly allow electron to run its installation script:
+```shell
+pnpm approve-builds
+# Select 'electron' and any related packages, then press Enter
+```
+
+**Fix 2: Rebuild the package**
+```shell
+cd apps/stage-tamagotchi
+pnpm rebuild electron
+```
+
+**Fix 3: Manual extraction (fallback)**
+If rebuilding doesn't work, you can manually extract the cached binary:
+1. Locate the electron zip in `~/.cache/electron/`.
+2. Extract it into `node_modules/.pnpm/electron@<version>/node_modules/electron/dist/`.
+3. Create a `path.txt` file in `node_modules/.pnpm/electron@<version>/node_modules/electron/` containing the string `electron` (no trailing newline).
+
 ### Documentation Site
 
 ```shell
