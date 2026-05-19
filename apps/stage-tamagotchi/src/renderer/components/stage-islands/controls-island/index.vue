@@ -32,6 +32,10 @@ import {
   electronWindowSetAlwaysOnTop,
 } from '../../../../shared/eventa'
 
+defineProps<{
+  isLocked?: boolean
+}>()
+
 const emit = defineEmits<{
   (e: 'take-photo'): void
 }>()

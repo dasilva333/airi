@@ -257,6 +257,7 @@ async function handleSend() {
 
   // optimistic clear
   messageInput.value = ''
+  localStorage.removeItem('airi-chatbox-draft')
   attachments.value = []
 
   if (isImagineMode.value) {
@@ -415,6 +416,7 @@ function removeAttachment(index: number) {
 
 onAfterMessageComposed(async () => {
   messageInput.value = ''
+  localStorage.removeItem('airi-chatbox-draft')
   attachments.value.forEach(att => URL.revokeObjectURL(att.url))
   attachments.value = []
 })
@@ -476,6 +478,12 @@ const contextPercentage = computed(() => {
 
 onMounted(() => {
   updateWindowTitle()
+  
+  const savedDraft = localStorage.getItem('airi-chatbox-draft')
+  if (savedDraft) {
+    messageInput.value = savedDraft
+  }
+  
   textJournalStore.load()
   shortTermMemory.load()
   echoesStore.load()
@@ -490,8 +498,28 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
 })
 
-watch(messageInput, () => {
+let lastSaveTime = 0
+let throttleTimeout: ReturnType<typeof setTimeout> | null = null
+
+watch(messageInput, (newVal) => {
   updateWindowTitle()
+  
+  const now = Date.now()
+  const timeSinceLastSave = now - lastSaveTime
+
+  if (timeSinceLastSave >= 5000) {
+    localStorage.setItem('airi-chatbox-draft', newVal)
+    lastSaveTime = now
+  }
+  else {
+    if (throttleTimeout) {
+      clearTimeout(throttleTimeout)
+    }
+    throttleTimeout = setTimeout(() => {
+      localStorage.setItem('airi-chatbox-draft', newVal)
+      lastSaveTime = Date.now()
+    }, 5000 - timeSinceLastSave)
+  }
 })
 </script>
 

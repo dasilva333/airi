@@ -414,6 +414,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       await echoesStore.synthesizeForCharacter(characterId, {
         fromTimestamp: config.lastProcessedAt ?? null,
         toTimestamp: lastTurnAt,
+        force: options?.force,
       })
 
       airiCardStore.updateCard(characterId, {
@@ -605,6 +606,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
         if (!activeProviderId) {
           console.warn('[Proactivity] Aborted: No active LLM provider found.')
+          return
+        }
+
+        if (!options?.force && !providersStore.configuredProviders[activeProviderId]) {
+          // eslint-disable-next-line no-console
+          console.log(`[Proactivity] Aborted: Active LLM provider "${activeProviderId}" is not configured or offline.`)
           return
         }
 

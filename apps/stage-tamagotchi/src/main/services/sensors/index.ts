@@ -163,6 +163,40 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
 
   const MAX_HISTORY = 50
   let pollInterval: NodeJS.Timeout | null = null
+  let systemLoadInterval: NodeJS.Timeout | null = null
+  let cachedSystemLoad = { cpu: [0, 0, 0] as [number, number, number], gpuAvg: 0 }
+
+  async function updateSystemLoadCache() {
+    let cpuLoads: [number, number, number] = [0, 0, 0]
+    let gpuLoad = 0
+
+    try {
+      if (!si)
+        throw new Error('systeminformation is not loaded')
+      const load = await si.currentLoad()
+      const val = load.currentLoad / 100
+      cpuLoads = [val, val, val]
+    }
+    catch (err) {
+      log.withError(err).warn('Failed to get CPU load via systeminformation')
+      cpuLoads = loadavg() as [number, number, number]
+    }
+
+    try {
+      if (!si)
+        throw new Error('systeminformation is not loaded')
+      const graphics = await si.graphics()
+      gpuLoad = Math.max(0, ...graphics.controllers.map((c: any) => (c.utilizationGpu || 0) as number))
+    }
+    catch (err) {
+      log.withError(err).warn('Failed to get GPU load via systeminformation')
+    }
+
+    cachedSystemLoad = {
+      cpu: cpuLoads,
+      gpuAvg: gpuLoad,
+    }
+  }
 
   function startTracking() {
     if (pollInterval)
@@ -192,6 +226,12 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
           activeWindowHistory.shift()
       }
     }, 10000)
+
+    // Background update system load cache every 30 seconds
+    void updateSystemLoadCache()
+    systemLoadInterval = setInterval(async () => {
+      await updateSystemLoadCache()
+    }, 30000)
   }
 
   function stopTracking() {
@@ -199,6 +239,11 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
       log.debug('Stopping active window tracking background loop.')
       clearInterval(pollInterval)
       pollInterval = null
+    }
+    if (systemLoadInterval) {
+      log.debug('Stopping system load background polling.')
+      clearInterval(systemLoadInterval)
+      systemLoadInterval = null
     }
   }
 
@@ -262,43 +307,22 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     },
   )
 
-  async function getSystemLoad() {
-    let cpuLoads: [number, number, number] = [0, 0, 0]
-    let gpuLoad = 0
-
-    try {
-      if (!si)
-        throw new Error('systeminformation is not loaded')
-      const load = await si.currentLoad()
-      const val = load.currentLoad / 100
-      cpuLoads = [val, val, val]
-    }
-    catch (err) {
-      log.withError(err).warn('Failed to get CPU load via systeminformation')
-      cpuLoads = loadavg() as [number, number, number]
-    }
-
-    try {
-      if (!si)
-        throw new Error('systeminformation is not loaded')
-      const graphics = await si.graphics()
-      gpuLoad = Math.max(0, ...graphics.controllers.map((c: any) => (c.utilizationGpu || 0) as number))
-    }
-    catch (err) {
-      log.withError(err).warn('Failed to get GPU load via systeminformation')
-    }
-
-    return {
-      cpu: cpuLoads,
-      gpuAvg: gpuLoad,
-    }
-  }
-
   defineInvokeHandler(
     context,
     sensorsGetSystemLoad,
     async () => {
-      return getSystemLoad()
+      // If we have background tracking active, return the cached value immediately
+      if (systemLoadInterval) {
+        return cachedSystemLoad
+      }
+      // Otherwise, do a quick sync update using native loadavg
+      const cpuLoads = loadavg() as [number, number, number]
+      // Dispatch a background update to refresh the cache without blocking the IPC call
+      void updateSystemLoadCache()
+      return {
+        cpu: cachedSystemLoad.cpu[0] > 0 ? cachedSystemLoad.cpu : cpuLoads,
+        gpuAvg: cachedSystemLoad.gpuAvg,
+      }
     },
   )
 

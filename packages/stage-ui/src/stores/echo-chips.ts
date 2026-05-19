@@ -36,6 +36,7 @@ interface SynthesizeEchoOptions {
   toTimestamp?: number
   maxMessages?: number
   fallbackLookbackMs?: number
+  force?: boolean
 }
 
 interface WindowMessage {
@@ -248,6 +249,12 @@ Output a JSON object with a "pills" array.
 
       if (!providerId || !modelId)
         throw new Error('No provider/model configured for echo synthesis.')
+
+      if (!options?.force && !providersStore.configuredProviders[providerId]) {
+        // eslint-disable-next-line no-console
+        console.log(`[Echo Synthesis] Aborted: Provider "${providerId}" is offline/unconfigured.`)
+        return []
+      }
 
       const provider = await providersStore.getProviderInstance<ChatProvider>(providerId)
       if (!provider)

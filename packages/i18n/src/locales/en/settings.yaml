@@ -826,6 +826,14 @@ pages:
         title: App (Local)
         description: Private Voice Engine - High-performance local speech synthesis
           (xsai-transformers)
+      openai-audio-transcription:
+        description: Industry Standard - Reliable and widely compatible Whisper API
+      openai-compatible-audio-transcription:
+        description: Bring Your Own Endpoint - Custom OpenAI-compatible STT endpoint
+      aliyun-nls-transcription:
+        description: Multilingual Powerhouse - Robust real-time STT with deep Chinese dialect support
+      comet-api-transcription:
+        description: Enterprise-grade cloud transcription
       aws-polly-tts:
         title: Amazon AWS Polly
         description: AWS Ecosystem - Native High-Quality Neural Voices from Amazon Polly
