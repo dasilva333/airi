@@ -44,6 +44,7 @@ import {
   electronPluginSetEnabled,
   electronPluginUnload,
   electronPluginUpdateCapability,
+  electronShowToastEvent,
   electronStartTrackMousePosition,
   i18nSetLocale,
   pluginProtocolListProviders,
@@ -226,6 +227,21 @@ onMounted(async () => {
 
   // Listen for open-settings IPC message from main process
   defineInvokeHandler(context.value, electronOpenSettings, payload => router.push(payload?.route || '/settings'))
+
+  // Listen for custom toast notifications from main process
+  watch(context, (ctx) => {
+    if (!ctx)
+      return
+    ctx.on(electronShowToastEvent, (event) => {
+      const payload = event?.body
+      if (!payload)
+        return
+      toast(payload.message, {
+        description: payload.description,
+        duration: payload.duration || 4000,
+      })
+    })
+  }, { immediate: true })
 })
 
 watch(themeColorsHue, () => {

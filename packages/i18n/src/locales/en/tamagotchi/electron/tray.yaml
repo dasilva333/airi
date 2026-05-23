@@ -9,7 +9,7 @@ menu:
       half_height: Half Height
       full_screen: Full Screen
       align_to: Align to
-      position: Position
+      position: Control Strip Position
       lock: Lock
       snapshot: Set As Home
       restore: Restore Home

@@ -32,7 +32,7 @@
 
 <p float="left" align="center">
   <!-- readme-section:release-binary-windows -->
-  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.1-stable.20260512/AIRI-0.9.1-stable.20260512-windows-x64-setup.exe">
+  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.2-stable.20260522/AIRI-0.9.2-stable.20260522-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -48,7 +48,7 @@
     </picture>
   </a>
   <!-- readme-section:release-binary-macos -->
-  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.1-stable.20260512/AIRI-0.9.1-stable.20260512-darwin-arm64.dmg">
+  <a href="https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v0.9.2-stable.20260522/AIRI-0.9.2-stable.20260522-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"

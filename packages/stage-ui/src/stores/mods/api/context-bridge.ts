@@ -40,7 +40,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   let remoteStreamReceivedLiteral = false
   const isInitialized = ref(false)
 
-  function ensureRemoteReplayGuard(sessionId = chatSession.activeSessionId) {
+  function ensureRemoteReplayGuard(sessionId = chatSession.activeSessionId, messageId?: string, createdAt?: number) {
     if (remoteStreamGuard) {
       if (remoteStreamGuard.sessionId !== sessionId) {
         console.warn('[Context Bridge] Rebinding remote replay guard to incoming session', {
@@ -50,6 +50,12 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         })
       }
       else {
+        if (messageId && !chatStream.streamingMessage.id) {
+          chatStream.streamingMessage.id = messageId
+        }
+        if (createdAt && !chatStream.streamingMessage.createdAt) {
+          chatStream.streamingMessage.createdAt = createdAt
+        }
         return remoteStreamGuard
       }
     }
@@ -64,7 +70,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
     }
     remoteStreamReceivedLiteral = false
     chatOrchestrator.sending = true
-    chatStream.beginStream()
+    chatStream.beginStream(messageId, createdAt)
     return remoteStreamGuard
   }
 
@@ -226,7 +232,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
             return
           }
 
-          console.log(`[PipelineTTS:Bridge] Broadcasting token-literal in ${window.location.hash || 'main'}`, { literal: literal.slice(0, 50) })
+          // console.log(`[PipelineTTS:Bridge] Broadcasting token-literal in ${window.location.hash || 'main'}`, { literal: literal.slice(0, 50) })
           broadcastStreamEvent({ type: 'token-literal', literal, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onTokenSpecial(async (special, context) => {
@@ -298,7 +304,9 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         if (!event)
           return
 
-        console.log(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
+        if (event.type !== 'token-literal' && event.type !== 'token-special') {
+          console.log(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
+        }
         isProcessingRemoteStream = true
 
         try {
@@ -312,14 +320,14 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               break
             case 'before-send':
               await chatOrchestrator.emitBeforeSendHooks(event.message, event.context)
-              ensureRemoteReplayGuard(event.sessionId)
+              ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
               break
             case 'after-send':
               await chatOrchestrator.emitAfterSendHooks(event.message, event.context)
               break
             case 'token-literal':
               {
-                const guard = ensureRemoteReplayGuard(event.sessionId)
+                const guard = ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
                 if (guard.sessionId !== event.sessionId)
                   return
                 if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation)
@@ -349,7 +357,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               break
             case 'assistant-end':
               {
-                const guard = ensureRemoteReplayGuard(event.sessionId)
+                const guard = ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
                 if (guard.sessionId !== event.sessionId)
                   break
                 if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation)

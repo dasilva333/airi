@@ -13,13 +13,12 @@ const props = withDefaults(defineProps<{
   disableBackButton: false,
 })
 
-const router = useRouter()
-const route = useRoute()
-const attrs = useAttrs()
-
 const emit = defineEmits<{
   (e: 'back'): void
 }>()
+const router = useRouter()
+const route = useRoute()
+const attrs = useAttrs()
 
 function handleBack() {
   if (finalizedDisableBackButton.value)

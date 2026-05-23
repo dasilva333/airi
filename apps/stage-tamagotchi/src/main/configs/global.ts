@@ -14,6 +14,7 @@ export const globalAppConfigSchema = object({
     enabled: optional(boolean()),
     dock: optional(string()),
     locked: optional(boolean()),
+    orientation: optional(picklist(['vertical', 'horizontal'])),
     snapshot: optional(object({
       x: number(),
       y: number(),

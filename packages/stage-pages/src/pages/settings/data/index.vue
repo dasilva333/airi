@@ -136,9 +136,9 @@ const formattedLastBackupTime = computed(() => {
 })
 
 async function handleTriggerBackup() {
-  const success = await backupStore.triggerBackup()
-  if (success) {
-    setStatus('Backup completed successfully!')
+  const backupPathResult = await backupStore.triggerBackup()
+  if (backupPathResult) {
+    setStatus(`Backup completed successfully at: ${backupPathResult}`)
   }
   else {
     setStatus('Backup failed!', 'error')

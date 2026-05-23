@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 
 // Use the 15:51 backup as the golden source (discovered to be cleaner than 17:02)
 const goldenPath = 'C:\\Users\\h4rdc\\Documents\\Github\\coding-agent\\VRMs\\recovery\\airi-characters-2026-05-01T15_51_30.329Z.json'

@@ -11,7 +11,7 @@ diff --git a/cubism/.vscode/tasks.json b/cubism/.vscode/tasks.json
 deleted file mode 100644
 index 7cd3fffed85da69d5af154f63480bce8766a038f..0000000000000000000000000000000000000000
 diff --git a/dist/cubism2.es.js b/dist/cubism2.es.js
-index 0d40d5d40533881d154e3c2cdda9b360c57eaaa6..8dbdb1b36e2da42da264dc3533523e61745102f7 100644
+index 0d40d5d40533881d154e3c2cdda9b360c57eaaa6..efa12c5fb1784378bb9d2c1cb26b5240d8375759 100644
 --- a/dist/cubism2.es.js
 +++ b/dist/cubism2.es.js
 @@ -1373,7 +1373,7 @@ const _FileLoader = class {
@@ -33,7 +33,7 @@ index 0d40d5d40533881d154e3c2cdda9b360c57eaaa6..8dbdb1b36e2da42da264dc3533523e61
          throw new Error("Settings file not found");
        }
 diff --git a/dist/cubism2.js b/dist/cubism2.js
-index c3db490f8dbfdd63ad40648fe0e0325604f22e95..4b452db0b109ba7deaddf397ef351ae7bcfe145c 100644
+index c3db490f8dbfdd63ad40648fe0e0325604f22e95..4e41c65aa4feab3d624a680c66f2868e3c4253fd 100644
 --- a/dist/cubism2.js
 +++ b/dist/cubism2.js
 @@ -1373,7 +1373,7 @@ var __async = (__this, __arguments, generator) => {
@@ -55,10 +55,113 @@ index c3db490f8dbfdd63ad40648fe0e0325604f22e95..4b452db0b109ba7deaddf397ef351ae7
            throw new Error("Settings file not found");
          }
 diff --git a/dist/cubism4.es.js b/dist/cubism4.es.js
-index f21619f5794c00542bb2a9df340e50d4453a0367..38bd069a5d1ec37380c376c2ff2d7fed9c0042b2 100644
+index f21619f5794c00542bb2a9df340e50d4453a0367..4bae9d3be4a3c08b17637fa4a1eefa4503cf2e06 100644
 --- a/dist/cubism4.es.js
 +++ b/dist/cubism4.es.js
-@@ -5012,7 +5012,7 @@ const _FileLoader = class {
+@@ -1132,6 +1132,32 @@ class CubismModel {
+     const constantFlags = this._model.drawables.constantFlags;
+     return Live2DCubismCore.Utils.hasIsInvertedMaskBit(constantFlags[drawableIndex]);
+   }
++  getDrawableMultiplyColor(drawableIndex) {
++    const multiplyColors = this._model.drawables.multiplyColors;
++    if (multiplyColors) {
++      const offset = drawableIndex * 4;
++      return {
++        R: multiplyColors[offset],
++        G: multiplyColors[offset + 1],
++        B: multiplyColors[offset + 2],
++        A: multiplyColors[offset + 3]
++      };
++    }
++    return { R: 1, G: 1, B: 1, A: 1 };
++  }
++  getDrawableScreenColor(drawableIndex) {
++    const screenColors = this._model.drawables.screenColors;
++    if (screenColors) {
++      const offset = drawableIndex * 4;
++      return {
++        R: screenColors[offset],
++        G: screenColors[offset + 1],
++        B: screenColors[offset + 2],
++        A: screenColors[offset + 3]
++      };
++    }
++    return { R: 0, G: 0, B: 0, A: 1 };
++  }
+   getDrawableMasks() {
+     return this._model.drawables.masks;
+   }
+@@ -3186,7 +3212,7 @@ class CubismShader_WebGL {
+   release() {
+     this.releaseShaderProgram();
+   }
+-  setupShaderProgram(renderer, textureId, vertexCount, vertexArray, indexArray, uvArray, bufferData, opacity, colorBlendMode, baseColor, isPremultipliedAlpha, matrix4x4, invertedMask) {
++  setupShaderProgram(renderer, textureId, vertexCount, vertexArray, indexArray, uvArray, bufferData, opacity, colorBlendMode, baseColor, isPremultipliedAlpha, matrix4x4, invertedMask, multiplyColor = { R: 1, G: 1, B: 1, A: 1 }, screenColor = { R: 0, G: 0, B: 0, A: 1 }) {
+     if (!isPremultipliedAlpha) {
+       CubismLogError("NoPremultipliedAlpha is not allowed");
+     }
+@@ -3287,6 +3313,12 @@ class CubismShader_WebGL {
+       this.gl.uniform1i(shaderSet.samplerTexture0Location, 0);
+       this.gl.uniformMatrix4fv(shaderSet.uniformMatrixLocation, false, matrix4x4.getArray());
+       this.gl.uniform4f(shaderSet.uniformBaseColorLocation, baseColor.R, baseColor.G, baseColor.B, baseColor.A);
++      if (shaderSet.uniformMultiplyColorLocation) {
++        this.gl.uniform4f(shaderSet.uniformMultiplyColorLocation, multiplyColor.R, multiplyColor.G, multiplyColor.B, multiplyColor.A);
++      }
++      if (shaderSet.uniformScreenColorLocation) {
++        this.gl.uniform4f(shaderSet.uniformScreenColorLocation, screenColor.R, screenColor.G, screenColor.B, screenColor.A);
++      }
+     }
+     if (bufferData.index == null) {
+       bufferData.index = this.gl.createBuffer();
+@@ -3385,6 +3417,10 @@ class CubismShader_WebGL {
+     this._shaderSets[9].uniformClipMatrixLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_clipMatrix");
+     this._shaderSets[9].uniformChannelFlagLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_channelFlag");
+     this._shaderSets[9].uniformBaseColorLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_baseColor");
++    for (let i = 1; i <= 9; i++) {
++      this._shaderSets[i].uniformMultiplyColorLocation = this.gl.getUniformLocation(this._shaderSets[i].shaderProgram, "u_multiplyColor");
++      this._shaderSets[i].uniformScreenColorLocation = this.gl.getUniformLocation(this._shaderSets[i].shaderProgram, "u_screenColor");
++    }
+   }
+   loadShaderProgram(vertexShaderSource, fragmentShaderSource) {
+     let shaderProgram = this.gl.createProgram();
+@@ -3452,9 +3488,9 @@ const vertexShaderSrcSetupMask = "attribute vec4     a_position;attribute vec2
+ const fragmentShaderSrcsetupMask = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_myPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;void main(){   float isInside =        step(u_baseColor.x, v_myPos.x/v_myPos.w)       * step(u_baseColor.y, v_myPos.y/v_myPos.w)       * step(v_myPos.x/v_myPos.w, u_baseColor.z)       * step(v_myPos.y/v_myPos.w, u_baseColor.w);   gl_FragColor = u_channelFlag * texture2D(s_texture0, v_texCoord).a * isInside;}";
+ const vertexShaderSrc = "attribute vec4     a_position;attribute vec2     a_texCoord;varying vec2       v_texCoord;uniform mat4       u_matrix;void main(){   gl_Position = u_matrix * a_position;   v_texCoord = a_texCoord;   v_texCoord.y = 1.0 - v_texCoord.y;}";
+ const vertexShaderSrcMasked = "attribute vec4     a_position;attribute vec2     a_texCoord;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform mat4       u_matrix;uniform mat4       u_clipMatrix;void main(){   gl_Position = u_matrix * a_position;   v_clipPos = u_clipMatrix * a_position;   v_texCoord = a_texCoord;   v_texCoord.y = 1.0 - v_texCoord.y;}";
+-const fragmentShaderSrcPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;uniform vec4       u_baseColor;uniform sampler2D  s_texture0;void main(){   gl_FragColor = texture2D(s_texture0 , v_texCoord) * u_baseColor;}";
+-const fragmentShaderSrcMaskPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;uniform sampler2D  s_texture1;void main(){   vec4 col_formask = texture2D(s_texture0 , v_texCoord) * u_baseColor;   vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;   float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;   col_formask = col_formask * maskVal;   gl_FragColor = col_formask;}";
+-const fragmentShaderSrcMaskInvertedPremultipliedAlpha = "precision mediump float;varying vec2 v_texCoord;varying vec4 v_clipPos;uniform sampler2D s_texture0;uniform sampler2D s_texture1;uniform vec4 u_channelFlag;uniform vec4 u_baseColor;void main(){vec4 col_formask = texture2D(s_texture0, v_texCoord) * u_baseColor;vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;col_formask = col_formask * (1.0 - maskVal);gl_FragColor = col_formask;}";
++const fragmentShaderSrcPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;uniform vec4       u_baseColor;uniform sampler2D  s_texture0;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){   vec4 color = texture2D(s_texture0 , v_texCoord) * u_baseColor;   color.rgb = color.rgb * u_multiplyColor.rgb;   color.rgb = color.rgb + u_screenColor.rgb * color.a - color.rgb * u_screenColor.rgb;   color.a=color.a*u_multiplyColor.a;   color.rgb=color.rgb*u_multiplyColor.a;   gl_FragColor = color;}";
++const fragmentShaderSrcMaskPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;uniform sampler2D  s_texture1;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){   vec4 col_formask = texture2D(s_texture0 , v_texCoord) * u_baseColor;   col_formask.rgb = col_formask.rgb * u_multiplyColor.rgb;   col_formask.rgb = col_formask.rgb + u_screenColor.rgb * col_formask.a - col_formask.rgb * u_screenColor.rgb;   col_formask.a=col_formask.a*u_multiplyColor.a;   col_formask.rgb=col_formask.rgb*u_multiplyColor.a;   vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;   float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;   col_formask = col_formask * maskVal;   gl_FragColor = col_formask;}";
++const fragmentShaderSrcMaskInvertedPremultipliedAlpha = "precision mediump float;varying vec2 v_texCoord;varying vec4 v_clipPos;uniform sampler2D s_texture0;uniform sampler2D s_texture1;uniform vec4 u_channelFlag;uniform vec4 u_baseColor;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){vec4 col_formask = texture2D(s_texture0, v_texCoord) * u_baseColor;col_formask.rgb = col_formask.rgb * u_multiplyColor.rgb;col_formask.rgb = col_formask.rgb + u_screenColor.rgb * col_formask.a - col_formask.rgb * u_screenColor.rgb;col_formask.a=col_formask.a*u_multiplyColor.a;col_formask.rgb=col_formask.rgb*u_multiplyColor.a;vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;col_formask = col_formask * (1.0 - maskVal);gl_FragColor = col_formask;}";
+ class CubismRenderer_WebGL extends CubismRenderer {
+   constructor() {
+     super();
+@@ -3527,10 +3563,12 @@ class CubismRenderer_WebGL extends CubismRenderer {
+       }
+       this.setClippingContextBufferForDraw(this._clippingManager != null ? this._clippingManager.getClippingContextListForDraw()[drawableIndex] : null);
+       this.setIsCulling(this.getModel().getDrawableCulling(drawableIndex));
+-      this.drawMesh(this.getModel().getDrawableTextureIndices(drawableIndex), this.getModel().getDrawableVertexIndexCount(drawableIndex), this.getModel().getDrawableVertexCount(drawableIndex), this.getModel().getDrawableVertexIndices(drawableIndex), this.getModel().getDrawableVertices(drawableIndex), this.getModel().getDrawableVertexUvs(drawableIndex), this.getModel().getDrawableOpacity(drawableIndex), this.getModel().getDrawableBlendMode(drawableIndex), this.getModel().getDrawableInvertedMaskBit(drawableIndex));
++      const multiplyColor = this.getModel().getDrawableMultiplyColor ? this.getModel().getDrawableMultiplyColor(drawableIndex) : { R: 1, G: 1, B: 1, A: 1 };
++      const screenColor = this.getModel().getDrawableScreenColor ? this.getModel().getDrawableScreenColor(drawableIndex) : { R: 0, G: 0, B: 0, A: 1 };
++      this.drawMesh(this.getModel().getDrawableTextureIndices(drawableIndex), this.getModel().getDrawableVertexIndexCount(drawableIndex), this.getModel().getDrawableVertexCount(drawableIndex), this.getModel().getDrawableVertexIndices(drawableIndex), this.getModel().getDrawableVertices(drawableIndex), this.getModel().getDrawableVertexUvs(drawableIndex), this.getModel().getDrawableOpacity(drawableIndex), this.getModel().getDrawableBlendMode(drawableIndex), this.getModel().getDrawableInvertedMaskBit(drawableIndex), multiplyColor, screenColor);
+     }
+   }
+-  drawMesh(textureNo, indexCount, vertexCount, indexArray, vertexArray, uvArray, opacity, colorBlendMode, invertedMask) {
++  drawMesh(textureNo, indexCount, vertexCount, indexArray, vertexArray, uvArray, opacity, colorBlendMode, invertedMask, multiplyColor = { R: 1, G: 1, B: 1, A: 1 }, screenColor = { R: 0, G: 0, B: 0, A: 1 }) {
+     if (this.isCulling()) {
+       this.gl.enable(this.gl.CULL_FACE);
+     } else {
+@@ -3550,7 +3588,7 @@ class CubismRenderer_WebGL extends CubismRenderer {
+     if (this._textures[textureNo] != null) {
+       drawtexture = this._textures[textureNo];
+     }
+-    CubismShader_WebGL.getInstance().setupShaderProgram(this, drawtexture, vertexCount, vertexArray, indexArray, uvArray, this._bufferData, opacity, colorBlendMode, modelColorRGBA, this.isPremultipliedAlpha(), this.getMvpMatrix(), invertedMask);
++    CubismShader_WebGL.getInstance().setupShaderProgram(this, drawtexture, vertexCount, vertexArray, indexArray, uvArray, this._bufferData, opacity, colorBlendMode, modelColorRGBA, this.isPremultipliedAlpha(), this.getMvpMatrix(), invertedMask, multiplyColor, screenColor);
+     this.gl.drawElements(this.gl.TRIANGLES, indexCount, this.gl.UNSIGNED_SHORT, 0);
+     this.gl.useProgram(null);
+     this.setClippingContextBufferForDraw(null);
+@@ -5012,7 +5050,7 @@ const _FileLoader = class {
    }
    static createSettings(files) {
      return __async(this, null, function* () {
@@ -67,7 +170,7 @@ index f21619f5794c00542bb2a9df340e50d4453a0367..38bd069a5d1ec37380c376c2ff2d7fed
        if (!settingsFile) {
          throw new TypeError("Settings file not found");
        }
-@@ -5097,7 +5097,7 @@ const _ZipLoader = class {
+@@ -5097,7 +5135,7 @@ const _ZipLoader = class {
    static createSettings(reader) {
      return __async(this, null, function* () {
        const filePaths = yield _ZipLoader.getFilePaths(reader);
@@ -77,10 +180,113 @@ index f21619f5794c00542bb2a9df340e50d4453a0367..38bd069a5d1ec37380c376c2ff2d7fed
          throw new Error("Settings file not found");
        }
 diff --git a/dist/cubism4.js b/dist/cubism4.js
-index 03c1fb2b32b3b908a8b0e604aa3ee50aa9130169..99fc587e3ca7e6f433099e13f33e0e480a10c25a 100644
+index 03c1fb2b32b3b908a8b0e604aa3ee50aa9130169..a8d16361d1141bab4f3d4ca920ad8aad2ae02d96 100644
 --- a/dist/cubism4.js
 +++ b/dist/cubism4.js
-@@ -5012,7 +5012,7 @@ var __async = (__this, __arguments, generator) => {
+@@ -1132,6 +1132,32 @@ var __async = (__this, __arguments, generator) => {
+       const constantFlags = this._model.drawables.constantFlags;
+       return Live2DCubismCore.Utils.hasIsInvertedMaskBit(constantFlags[drawableIndex]);
+     }
++    getDrawableMultiplyColor(drawableIndex) {
++      const multiplyColors = this._model.drawables.multiplyColors;
++      if (multiplyColors) {
++        const offset = drawableIndex * 4;
++        return {
++          R: multiplyColors[offset],
++          G: multiplyColors[offset + 1],
++          B: multiplyColors[offset + 2],
++          A: multiplyColors[offset + 3]
++        };
++      }
++      return { R: 1, G: 1, B: 1, A: 1 };
++    }
++    getDrawableScreenColor(drawableIndex) {
++      const screenColors = this._model.drawables.screenColors;
++      if (screenColors) {
++        const offset = drawableIndex * 4;
++        return {
++          R: screenColors[offset],
++          G: screenColors[offset + 1],
++          B: screenColors[offset + 2],
++          A: screenColors[offset + 3]
++        };
++      }
++      return { R: 0, G: 0, B: 0, A: 1 };
++    }
+     getDrawableMasks() {
+       return this._model.drawables.masks;
+     }
+@@ -3186,7 +3212,7 @@ var __async = (__this, __arguments, generator) => {
+     release() {
+       this.releaseShaderProgram();
+     }
+-    setupShaderProgram(renderer, textureId, vertexCount, vertexArray, indexArray, uvArray, bufferData, opacity, colorBlendMode, baseColor, isPremultipliedAlpha, matrix4x4, invertedMask) {
++    setupShaderProgram(renderer, textureId, vertexCount, vertexArray, indexArray, uvArray, bufferData, opacity, colorBlendMode, baseColor, isPremultipliedAlpha, matrix4x4, invertedMask, multiplyColor = { R: 1, G: 1, B: 1, A: 1 }, screenColor = { R: 0, G: 0, B: 0, A: 1 }) {
+       if (!isPremultipliedAlpha) {
+         CubismLogError("NoPremultipliedAlpha is not allowed");
+       }
+@@ -3287,6 +3313,12 @@ var __async = (__this, __arguments, generator) => {
+         this.gl.uniform1i(shaderSet.samplerTexture0Location, 0);
+         this.gl.uniformMatrix4fv(shaderSet.uniformMatrixLocation, false, matrix4x4.getArray());
+         this.gl.uniform4f(shaderSet.uniformBaseColorLocation, baseColor.R, baseColor.G, baseColor.B, baseColor.A);
++        if (shaderSet.uniformMultiplyColorLocation) {
++          this.gl.uniform4f(shaderSet.uniformMultiplyColorLocation, multiplyColor.R, multiplyColor.G, multiplyColor.B, multiplyColor.A);
++        }
++        if (shaderSet.uniformScreenColorLocation) {
++          this.gl.uniform4f(shaderSet.uniformScreenColorLocation, screenColor.R, screenColor.G, screenColor.B, screenColor.A);
++        }
+       }
+       if (bufferData.index == null) {
+         bufferData.index = this.gl.createBuffer();
+@@ -3385,6 +3417,10 @@ var __async = (__this, __arguments, generator) => {
+       this._shaderSets[9].uniformClipMatrixLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_clipMatrix");
+       this._shaderSets[9].uniformChannelFlagLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_channelFlag");
+       this._shaderSets[9].uniformBaseColorLocation = this.gl.getUniformLocation(this._shaderSets[9].shaderProgram, "u_baseColor");
++      for (let i = 1; i <= 9; i++) {
++        this._shaderSets[i].uniformMultiplyColorLocation = this.gl.getUniformLocation(this._shaderSets[i].shaderProgram, "u_multiplyColor");
++        this._shaderSets[i].uniformScreenColorLocation = this.gl.getUniformLocation(this._shaderSets[i].shaderProgram, "u_screenColor");
++      }
+     }
+     loadShaderProgram(vertexShaderSource, fragmentShaderSource) {
+       let shaderProgram = this.gl.createProgram();
+@@ -3452,9 +3488,9 @@ var __async = (__this, __arguments, generator) => {
+   const fragmentShaderSrcsetupMask = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_myPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;void main(){   float isInside =        step(u_baseColor.x, v_myPos.x/v_myPos.w)       * step(u_baseColor.y, v_myPos.y/v_myPos.w)       * step(v_myPos.x/v_myPos.w, u_baseColor.z)       * step(v_myPos.y/v_myPos.w, u_baseColor.w);   gl_FragColor = u_channelFlag * texture2D(s_texture0, v_texCoord).a * isInside;}";
+   const vertexShaderSrc = "attribute vec4     a_position;attribute vec2     a_texCoord;varying vec2       v_texCoord;uniform mat4       u_matrix;void main(){   gl_Position = u_matrix * a_position;   v_texCoord = a_texCoord;   v_texCoord.y = 1.0 - v_texCoord.y;}";
+   const vertexShaderSrcMasked = "attribute vec4     a_position;attribute vec2     a_texCoord;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform mat4       u_matrix;uniform mat4       u_clipMatrix;void main(){   gl_Position = u_matrix * a_position;   v_clipPos = u_clipMatrix * a_position;   v_texCoord = a_texCoord;   v_texCoord.y = 1.0 - v_texCoord.y;}";
+-  const fragmentShaderSrcPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;uniform vec4       u_baseColor;uniform sampler2D  s_texture0;void main(){   gl_FragColor = texture2D(s_texture0 , v_texCoord) * u_baseColor;}";
+-  const fragmentShaderSrcMaskPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;uniform sampler2D  s_texture1;void main(){   vec4 col_formask = texture2D(s_texture0 , v_texCoord) * u_baseColor;   vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;   float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;   col_formask = col_formask * maskVal;   gl_FragColor = col_formask;}";
+-  const fragmentShaderSrcMaskInvertedPremultipliedAlpha = "precision mediump float;varying vec2 v_texCoord;varying vec4 v_clipPos;uniform sampler2D s_texture0;uniform sampler2D s_texture1;uniform vec4 u_channelFlag;uniform vec4 u_baseColor;void main(){vec4 col_formask = texture2D(s_texture0, v_texCoord) * u_baseColor;vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;col_formask = col_formask * (1.0 - maskVal);gl_FragColor = col_formask;}";
++  const fragmentShaderSrcPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;uniform vec4       u_baseColor;uniform sampler2D  s_texture0;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){   vec4 color = texture2D(s_texture0 , v_texCoord) * u_baseColor;   color.rgb = color.rgb * u_multiplyColor.rgb;   color.rgb = color.rgb + u_screenColor.rgb * color.a - color.rgb * u_screenColor.rgb;   color.a=color.a*u_multiplyColor.a;   color.rgb=color.rgb*u_multiplyColor.a;   gl_FragColor = color;}";
++  const fragmentShaderSrcMaskPremultipliedAlpha = "precision mediump float;varying vec2       v_texCoord;varying vec4       v_clipPos;uniform vec4       u_baseColor;uniform vec4       u_channelFlag;uniform sampler2D  s_texture0;uniform sampler2D  s_texture1;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){   vec4 col_formask = texture2D(s_texture0 , v_texCoord) * u_baseColor;   col_formask.rgb = col_formask.rgb * u_multiplyColor.rgb;   col_formask.rgb = col_formask.rgb + u_screenColor.rgb * col_formask.a - col_formask.rgb * u_screenColor.rgb;   col_formask.a=col_formask.a*u_multiplyColor.a;   col_formask.rgb=col_formask.rgb*u_multiplyColor.a;   vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;   float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;   col_formask = col_formask * maskVal;   gl_FragColor = col_formask;}";
++  const fragmentShaderSrcMaskInvertedPremultipliedAlpha = "precision mediump float;varying vec2 v_texCoord;varying vec4 v_clipPos;uniform sampler2D s_texture0;uniform sampler2D s_texture1;uniform vec4 u_channelFlag;uniform vec4 u_baseColor;uniform vec4 u_multiplyColor;uniform vec4 u_screenColor;void main(){vec4 col_formask = texture2D(s_texture0, v_texCoord) * u_baseColor;col_formask.rgb = col_formask.rgb * u_multiplyColor.rgb;col_formask.rgb = col_formask.rgb + u_screenColor.rgb * col_formask.a - col_formask.rgb * u_screenColor.rgb;col_formask.a=col_formask.a*u_multiplyColor.a;col_formask.rgb=col_formask.rgb*u_multiplyColor.a;vec4 clipMask = (1.0 - texture2D(s_texture1, v_clipPos.xy / v_clipPos.w)) * u_channelFlag;float maskVal = clipMask.r + clipMask.g + clipMask.b + clipMask.a;col_formask = col_formask * (1.0 - maskVal);gl_FragColor = col_formask;}";
+   class CubismRenderer_WebGL extends CubismRenderer {
+     constructor() {
+       super();
+@@ -3527,10 +3563,12 @@ var __async = (__this, __arguments, generator) => {
+         }
+         this.setClippingContextBufferForDraw(this._clippingManager != null ? this._clippingManager.getClippingContextListForDraw()[drawableIndex] : null);
+         this.setIsCulling(this.getModel().getDrawableCulling(drawableIndex));
+-        this.drawMesh(this.getModel().getDrawableTextureIndices(drawableIndex), this.getModel().getDrawableVertexIndexCount(drawableIndex), this.getModel().getDrawableVertexCount(drawableIndex), this.getModel().getDrawableVertexIndices(drawableIndex), this.getModel().getDrawableVertices(drawableIndex), this.getModel().getDrawableVertexUvs(drawableIndex), this.getModel().getDrawableOpacity(drawableIndex), this.getModel().getDrawableBlendMode(drawableIndex), this.getModel().getDrawableInvertedMaskBit(drawableIndex));
++        const multiplyColor = this.getModel().getDrawableMultiplyColor ? this.getModel().getDrawableMultiplyColor(drawableIndex) : { R: 1, G: 1, B: 1, A: 1 };
++        const screenColor = this.getModel().getDrawableScreenColor ? this.getModel().getDrawableScreenColor(drawableIndex) : { R: 0, G: 0, B: 0, A: 1 };
++        this.drawMesh(this.getModel().getDrawableTextureIndices(drawableIndex), this.getModel().getDrawableVertexIndexCount(drawableIndex), this.getModel().getDrawableVertexCount(drawableIndex), this.getModel().getDrawableVertexIndices(drawableIndex), this.getModel().getDrawableVertices(drawableIndex), this.getModel().getDrawableVertexUvs(drawableIndex), this.getModel().getDrawableOpacity(drawableIndex), this.getModel().getDrawableBlendMode(drawableIndex), this.getModel().getDrawableInvertedMaskBit(drawableIndex), multiplyColor, screenColor);
+       }
+     }
+-    drawMesh(textureNo, indexCount, vertexCount, indexArray, vertexArray, uvArray, opacity, colorBlendMode, invertedMask) {
++    drawMesh(textureNo, indexCount, vertexCount, indexArray, vertexArray, uvArray, opacity, colorBlendMode, invertedMask, multiplyColor = { R: 1, G: 1, B: 1, A: 1 }, screenColor = { R: 0, G: 0, B: 0, A: 1 }) {
+       if (this.isCulling()) {
+         this.gl.enable(this.gl.CULL_FACE);
+       } else {
+@@ -3550,7 +3588,7 @@ var __async = (__this, __arguments, generator) => {
+       if (this._textures[textureNo] != null) {
+         drawtexture = this._textures[textureNo];
+       }
+-      CubismShader_WebGL.getInstance().setupShaderProgram(this, drawtexture, vertexCount, vertexArray, indexArray, uvArray, this._bufferData, opacity, colorBlendMode, modelColorRGBA, this.isPremultipliedAlpha(), this.getMvpMatrix(), invertedMask);
++      CubismShader_WebGL.getInstance().setupShaderProgram(this, drawtexture, vertexCount, vertexArray, indexArray, uvArray, this._bufferData, opacity, colorBlendMode, modelColorRGBA, this.isPremultipliedAlpha(), this.getMvpMatrix(), invertedMask, multiplyColor, screenColor);
+       this.gl.drawElements(this.gl.TRIANGLES, indexCount, this.gl.UNSIGNED_SHORT, 0);
+       this.gl.useProgram(null);
+       this.setClippingContextBufferForDraw(null);
+@@ -5012,7 +5050,7 @@ var __async = (__this, __arguments, generator) => {
      }
      static createSettings(files) {
        return __async(this, null, function* () {
@@ -89,7 +295,7 @@ index 03c1fb2b32b3b908a8b0e604aa3ee50aa9130169..99fc587e3ca7e6f433099e13f33e0e48
          if (!settingsFile) {
            throw new TypeError("Settings file not found");
          }
-@@ -5097,7 +5097,7 @@ var __async = (__this, __arguments, generator) => {
+@@ -5097,7 +5135,7 @@ var __async = (__this, __arguments, generator) => {
      static createSettings(reader) {
        return __async(this, null, function* () {
          const filePaths = yield _ZipLoader.getFilePaths(reader);
@@ -99,7 +305,7 @@ index 03c1fb2b32b3b908a8b0e604aa3ee50aa9130169..99fc587e3ca7e6f433099e13f33e0e48
            throw new Error("Settings file not found");
          }
 diff --git a/dist/index.es.js b/dist/index.es.js
-index f969d304f346c4e420b6798dbd4dec81b902a5e4..7e6b4d3ef53f1ea0648030899de9debd291fc551 100644
+index f969d304f346c4e420b6798dbd4dec81b902a5e4..f784916baff9c129055cbc7fc725137956a3bdfe 100644
 --- a/dist/index.es.js
 +++ b/dist/index.es.js
 @@ -1373,7 +1373,7 @@ const _FileLoader = class {
@@ -121,7 +327,7 @@ index f969d304f346c4e420b6798dbd4dec81b902a5e4..7e6b4d3ef53f1ea0648030899de9debd
          throw new Error("Settings file not found");
        }
 diff --git a/dist/index.js b/dist/index.js
-index bc3d800c45889979190175cc88cdd8251feb9b5e..d1a660708ff81e1379f173709a32c6f4aa16696a 100644
+index bc3d800c45889979190175cc88cdd8251feb9b5e..7be56b64bd3234d60310ea4e7d1203f34332b481 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -1373,7 +1373,7 @@ var __async = (__this, __arguments, generator) => {

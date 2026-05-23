@@ -6,7 +6,7 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { safeParse } from 'valibot'
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import {
@@ -236,7 +236,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const live2dStore = useLive2d()
   const vrmStore = useModelStore()
   const backgroundStore = useBackgroundStore()
-  const isModelSyncPrevented = ref(false)
+  const isModelSyncPrevented = useLocalStorageManualReset<boolean>('airi-card/is-model-sync-prevented', false)
 
   // Production Watcher: Monitor concept stack for manifestation triggers
   watch(() => activeCard.value?.extensions?.airi?.active_concepts, (next, prev) => {
@@ -443,6 +443,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   async function activateCard(id: string, force = false) {
+    isModelSyncPrevented.value = false
     activeCardId.value = id
     await syncCardState(cards.value.get(id), force)
   }
@@ -942,6 +943,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   function resetState() {
     activeCardId.reset()
     cards.reset()
+    isModelSyncPrevented.reset()
   }
 
   return {

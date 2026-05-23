@@ -5,9 +5,10 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { refDebounced, useBroadcastChannel } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged, electronSetIgnoreMouseEvents } from '../../shared/eventa'
+import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged, electronCaptionSetFollowWindow, electronSetIgnoreMouseEvents } from '../../shared/eventa'
 
 const setIgnoreMouseEvents = useElectronEventaInvoke(electronSetIgnoreMouseEvents)
+const setFollowWindow = useElectronEventaInvoke(electronCaptionSetFollowWindow)
 const attached = ref(true)
 const scrollContainer = ref<HTMLElement | null>(null)
 const settingsStore = useSettings()
@@ -53,7 +54,11 @@ onMounted(async () => {
 
   try {
     context.value.on(captionIsFollowingWindowChanged, (event) => {
-      attached.value = Boolean(event?.body)
+      const val = Boolean(event?.body)
+      attached.value = val
+      if (settingsStore.captionFollowStage !== val) {
+        settingsStore.captionFollowStage = val
+      }
     })
   }
   catch {}
@@ -72,6 +77,7 @@ onMounted(async () => {
     watch(() => settingsStore.captionFollowStage, (shouldFollow) => {
       console.log('[Caption] Follow status changed:', shouldFollow)
       attached.value = shouldFollow
+      setFollowWindow(shouldFollow)
     }, { immediate: true })
 
     // Listen for Layout Mode transitions

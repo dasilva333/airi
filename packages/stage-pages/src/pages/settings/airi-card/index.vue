@@ -839,7 +839,7 @@ function getDisplayModelId(id: string) {
       :class="{ 'grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 grid-auto-rows-[minmax(min-content,max-content)] grid-auto-flow-dense sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-5 md:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(250px,1fr))]': cards.size > 0 }"
     >
       <!-- Upload card -->
-      <InputFile v-model="inputFiles" accept="*.json,*.png">
+      <InputFile v-model="inputFiles" accept="*.json,*.png" class="h-[280px]">
         <template #default="{ isDragging }">
           <template v-if="!isDragging">
             <div flex flex-col items-center>
@@ -864,7 +864,7 @@ function getDisplayModelId(id: string) {
       </InputFile>
 
       <!-- Create card -->
-      <CardCreate @click="handleCardCreationDialog" />
+      <CardCreate class="h-[280px]" @click="handleCardCreationDialog" />
 
       <!-- Card Items -->
       <template v-if="cards.size > 0">

@@ -8,7 +8,7 @@ menu:
       half_height: 一半高度
       full_screen: 全螢幕
       align_to: 對齊
-      position: 位置
+      position: 控制條位置
       lock: 鎖定
       snapshot: 設為預設
       restore: 恢復預設

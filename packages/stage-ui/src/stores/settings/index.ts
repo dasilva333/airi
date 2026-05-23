@@ -3,6 +3,7 @@ import { toRef } from 'vue'
 
 import { useSettingsCaptions } from './captions'
 import { useSettingsChat } from './chat'
+import { useSettingsControlStrip } from './control-strip'
 import { useSettingsControlsIsland } from './controls-island'
 import { useSettingsGeneral } from './general'
 import { useSettingsLive2d } from './live2d'
@@ -12,6 +13,7 @@ import { useSettingsTheme } from './theme'
 // Export sub-stores
 export * from './audio-device'
 export * from './chat'
+export * from './control-strip'
 export * from './controls-island'
 export * from './general'
 export * from './live2d'
@@ -34,6 +36,7 @@ export const useSettings = defineStore('settings', () => {
   const live2d = useSettingsLive2d()
   const theme = useSettingsTheme()
   const controlsIsland = useSettingsControlsIsland()
+  const controlStrip = useSettingsControlStrip()
   const captions = useSettingsCaptions()
 
   async function resetState() {
@@ -43,6 +46,7 @@ export const useSettings = defineStore('settings', () => {
     live2d.resetState()
     theme.resetState()
     controlsIsland.resetState()
+    controlStrip.resetState()
     captions.resetState()
   }
 
@@ -83,6 +87,13 @@ export const useSettings = defineStore('settings', () => {
     allowVisibleOnAllWorkspaces: toRef(controlsIsland, 'allowVisibleOnAllWorkspaces'),
     alwaysOnTop: toRef(controlsIsland, 'alwaysOnTop'),
     controlsIslandIconSize: toRef(controlsIsland, 'controlsIslandIconSize'),
+
+    // Control Strip settings
+    controlStripOrientation: toRef(controlStrip, 'orientation'),
+    controlStripInteractionMode: toRef(controlStrip, 'interactionMode'),
+    controlStripStageMode: toRef(controlStrip, 'stageMode'),
+    controlStripStageEnabled: toRef(controlStrip, 'stageEnabled'),
+    controlStripButtons: toRef(controlStrip, 'buttons'),
 
     // Caption settings
     showCaptions: toRef(captions, 'showCaptions'),

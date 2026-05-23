@@ -6,10 +6,12 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useSettings } from '../../../../stores/settings'
 import { Container } from '../../../data-pane'
 
 const live2dStore = useLive2d()
 const airiCardStore = useAiriCardStore()
+const settingsStore = useSettings()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const {
   availableExpressions,
@@ -22,6 +24,12 @@ const {
 
 const saveLive2dState = useDebounceFn(() => {
   if (!activeCard.value)
+    return
+
+  // Only auto-save customization state if this model is actually applied to the active character card.
+  // This prevents auto-save triggers from corrupting/polluting the active card before "Apply" is clicked,
+  // and avoids cross-process local storage sync race conditions that revert the selected preview model.
+  if (settingsStore.stageModelSelected !== airiCardStore.getCardDisplayModelId(activeCardId.value))
     return
 
   const extensions = JSON.parse(JSON.stringify(activeCard.value.extensions))

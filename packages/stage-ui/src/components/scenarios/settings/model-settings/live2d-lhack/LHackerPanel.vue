@@ -7,7 +7,7 @@ import { artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-air
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { useArtistryStore, useLHackStore } from '../../../../../stores'
 import { useSettings } from '../../../../../stores/settings'

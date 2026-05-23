@@ -29,7 +29,6 @@ import {
   electronOpenSettings,
   electronStartDraggingWindow,
   electronWindowHide,
-  electronWindowSetAlwaysOnTop,
 } from '../../../../shared/eventa'
 
 defineProps<{
@@ -82,7 +81,7 @@ const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const openChat = useElectronEventaInvoke(electronOpenChat)
 const isLinux = ref(false)
 const hideWindow = useElectronEventaInvoke(electronWindowHide)
-const setAlwaysOnTop = useElectronEventaInvoke(electronWindowSetAlwaysOnTop)
+
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
 const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 
@@ -161,11 +160,6 @@ watch(expanded, (isExp) => {
     settingsStore.stageViewControlsEnabled = false // Disable view controls overlay when collapsing
   }
 })
-
-// Apply alwaysOnTop on mount and when it changes
-watch(alwaysOnTop, (val) => {
-  setAlwaysOnTop(val)
-}, { immediate: true })
 
 function toggleAlwaysOnTop() {
   alwaysOnTop.value = !alwaysOnTop.value

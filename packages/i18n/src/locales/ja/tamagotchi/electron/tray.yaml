@@ -8,7 +8,7 @@ menu:
       half_height: 高さ半分
       full_screen: フルスクリーン
       align_to: 揃える
-      position: 位置
+      position: コントロールストリップの位置
       lock: ロック
       snapshot: スナップショット
       restore: 復元

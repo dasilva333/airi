@@ -20,8 +20,8 @@ Update the `version` in `apps/stage-tamagotchi/package.json`. Follow the format:
 ### Step 3: Local Tagging
 Create a git tag matching the version (with a `v` prefix) and push it to your fork or upstream:
 ```bash
-git tag v0.9.1-stable.20260429
-git push origin v0.9.1-stable.20260429
+git tag v0.9.1-stable.20260520
+git push origin v0.9.1-stable.20260520
 ```
 
 ### Step 4: Build Windows Executable

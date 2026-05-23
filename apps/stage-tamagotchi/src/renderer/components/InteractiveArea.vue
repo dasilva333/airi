@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
-import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import {
@@ -35,8 +34,6 @@ import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-
-import { builtinTools } from '../stores/tools/builtin'
 
 const router = useRouter()
 const messageInput = ref('')
@@ -270,21 +267,21 @@ async function handleSend() {
     const providerConfig = providersStore.getProviderConfig(activeProvider.value)
     await ingest(textToSend, {
       model: activeModel.value,
-      chatProvider: await providersStore.getProviderInstance<ChatProvider>(activeProvider.value),
+      chatProvider: activeProvider.value,
       providerConfig,
       attachments: attachmentsToSend,
-      tools: builtinTools,
     })
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
   }
-  catch (error) {
+  catch {
     // restore on failure
     messageInput.value = textToSend
     attachments.value = attachmentsToSend.map(att => ({
       ...att,
       url: URL.createObjectURL(new Blob([Uint8Array.from(atob(att.data), c => c.charCodeAt(0))], { type: att.mimeType })),
     }))
+    toast.error('Message failed to send. Draft restored.')
   }
 }
 
@@ -478,12 +475,12 @@ const contextPercentage = computed(() => {
 
 onMounted(() => {
   updateWindowTitle()
-  
+
   const savedDraft = localStorage.getItem('airi-chatbox-draft')
   if (savedDraft) {
     messageInput.value = savedDraft
   }
-  
+
   textJournalStore.load()
   shortTermMemory.load()
   echoesStore.load()
@@ -503,7 +500,7 @@ let throttleTimeout: ReturnType<typeof setTimeout> | null = null
 
 watch(messageInput, (newVal) => {
   updateWindowTitle()
-  
+
   const now = Date.now()
   const timeSinceLastSave = now - lastSaveTime
 

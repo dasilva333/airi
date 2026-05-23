@@ -5,6 +5,7 @@ import type { DirectorNote } from '../../types/director'
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
+import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -34,6 +35,46 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const isProcessing = ref(false)
   const directorNotes = ref<DirectorNote[]>([])
 
+  type DirectorNotesSyncEvent
+    = | { type: 'director-note-added', sessionId: string, note: DirectorNote }
+      | { type: 'director-note-updated', sessionId: string, noteId: string, updates: Partial<DirectorNote> }
+      | { type: 'director-notes-archived', sessionId: string }
+      | { type: 'director-notes-refreshed', sessionId: string }
+
+  const { post: broadcastDirectorEvent, data: incomingDirectorEvent } = useBroadcastChannel<DirectorNotesSyncEvent, DirectorNotesSyncEvent>({ name: 'airi:director-notes-sync' })
+
+  watch(incomingDirectorEvent, (event) => {
+    if (!event)
+      return
+    const { type, sessionId } = event
+    if (sessionId !== chatSessionStore.activeSessionId)
+      return
+
+    if (type === 'director-note-added') {
+      const { note } = event
+      if (!directorNotes.value.some(n => n.id === note.id)) {
+        directorNotes.value.push(note)
+      }
+    }
+    else if (type === 'director-note-updated') {
+      const { noteId, updates } = event
+      const note = directorNotes.value.find(n => n.id === noteId)
+      if (note) {
+        Object.assign(note, updates)
+      }
+    }
+    else if (type === 'director-notes-archived') {
+      directorNotes.value.forEach((note) => {
+        if (note.sessionId === sessionId) {
+          note.isArchived = true
+        }
+      })
+    }
+    else if (type === 'director-notes-refreshed') {
+      void loadDirectorNotes(sessionId)
+    }
+  })
+
   async function loadDirectorNotes(sessionId: string) {
     directorNotes.value = await directorNotesRepo.getNotes(sessionId)
   }
@@ -41,6 +82,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   async function recordDirectorDecision(note: DirectorNote) {
     directorNotes.value.push(note)
     await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+    broadcastDirectorEvent({ type: 'director-note-added', sessionId: note.sessionId, note: toRaw(note) })
   }
 
   async function updateDirectorDecision(noteId: string, updates: Partial<DirectorNote>) {
@@ -48,6 +90,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     if (note) {
       Object.assign(note, updates)
       await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
+      broadcastDirectorEvent({ type: 'director-note-updated', sessionId: note.sessionId, noteId, updates: toRaw(updates) })
     }
   }
 
@@ -58,6 +101,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
     })
     await directorNotesRepo.saveNotes(sessionId, directorNotes.value)
+    broadcastDirectorEvent({ type: 'director-notes-archived', sessionId })
   }
 
   // Auto-load notes when session changes
@@ -306,6 +350,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
    * Safe IPC Invoker for headless generation
    */
   const widgetsAdd = defineInvokeEventa<string | undefined, any>('eventa:invoke:electron:windows:widgets:add')
+  const electronShowToast = defineInvokeEventa<void, { message: string, description?: string, duration?: number }>('eventa:invoke:electron:show-toast')
 
   const getGenerateHeadless = () => {
     const win = window as any
@@ -314,6 +359,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       return {
         generate: defineInvoke(context, artistryGenerateHeadless),
         addWidget: defineInvoke(context, widgetsAdd),
+        showToast: defineInvoke(context, electronShowToast),
       }
     }
 
@@ -329,6 +375,12 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       addWidget: async (payload: any) => {
         artistLog('Widget spawning is disabled in Web environment.', payload)
         toast.info('Scene generated! Check your Gallery.')
+      },
+      showToast: async (payload: any) => {
+        toast(payload.message, {
+          description: payload.description,
+          duration: payload.duration || 4000,
+        })
       },
     }
   }
@@ -536,7 +588,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       )
 
       // Build the final prompt from the Director's base prompt + folded concept snippets
-      let finalPrompt = analysis.prompt + folded.promptSnippets
+      const finalPrompt = analysis.prompt + folded.promptSnippets
       artistLog('Stack Folding: Final resolved values:', {
         provider: folded.provider,
         model: folded.model,
@@ -552,7 +604,9 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         notificationDescription += `\n🎯 Concepts: ${selectedConcepts.join(', ')}`
       }
 
-      toast('Director\'s Decision', {
+      const invoker = getGenerateHeadless()
+      invoker.showToast({
+        message: 'Director\'s Decision',
         description: notificationDescription,
         duration: 7000,
       })
@@ -586,9 +640,9 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         }
 
         // 3.7 Artistry Bridge: Use folded stack values for generation resolution
-        let resolvedProvider = folded.provider
-        let resolvedModel = folded.model
-        let resolvedOptions = folded.options
+        const resolvedProvider = folded.provider
+        const resolvedModel = folded.model
+        const resolvedOptions = folded.options
 
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {

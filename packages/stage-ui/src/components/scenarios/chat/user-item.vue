@@ -2,7 +2,7 @@
 import type { ChatHistoryItem, ChatMessage } from '../../../types/chat'
 
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 
 import JournalMomentModal from './JournalMomentModal.vue'
@@ -32,6 +32,11 @@ const emit = defineEmits<{
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
 const showJournalModal = ref(false)
+
+const isEditing = ref(false)
+const isSavingEdit = ref(false)
+const editContent = ref('')
+const editorRef = useTemplateRef<HTMLDivElement>('editorRef')
 
 const formattedTime = computed(() => {
   if (!props.message.createdAt)
@@ -228,6 +233,98 @@ async function handleForkAndSwitch() {
     toast.success('Conversation forked and switched!')
   }
 }
+
+function handleEdit() {
+  isEditing.value = true
+  editContent.value = content.value
+
+  // Set the text manually to avoid cursor jumping with v-text/v-model
+  setTimeout(() => {
+    if (editorRef.value) {
+      editorRef.value.textContent = editContent.value
+      editorRef.value.focus()
+
+      // Move cursor to the end
+      const range = document.createRange()
+      const sel = window.getSelection()
+      if (sel) {
+        range.selectNodeContents(editorRef.value)
+        range.collapse(false)
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+    }
+  }, 0)
+}
+
+function handleCancelEdit() {
+  isEditing.value = false
+}
+
+async function handleCommitEdit() {
+  if (!props.message.id || isSavingEdit.value)
+    return
+
+  const activeSessionId = chatSession.activeSessionId
+  if (!activeSessionId)
+    return
+
+  if (editorRef.value) {
+    const newText = (editorRef.value.textContent || '').trim()
+    if (!newText) {
+      toast.error('Message content cannot be empty.')
+      return
+    }
+
+    isSavingEdit.value = true
+    try {
+      const messages = chatSession.getSessionMessages(activeSessionId)
+      const index = messages.findIndex(msg => msg.id === props.message.id)
+
+      if (index === -1)
+        return
+
+      // Construct updated content while preserving VLM image attachments
+      const raw = props.message.content
+      let updatedContent: any
+      if (typeof raw === 'string') {
+        updatedContent = newText
+      }
+      else if (Array.isArray(raw)) {
+        updatedContent = raw.map((part) => {
+          if (part && typeof part === 'object' && 'type' in part && part.type === 'text') {
+            return { ...part, text: newText }
+          }
+          return part
+        })
+      }
+      else {
+        updatedContent = newText
+      }
+
+      // Truncate subsequent messages: slice history up to the edited user message (inclusive)
+      const nextMessages = JSON.parse(JSON.stringify(messages.slice(0, index + 1)))
+      nextMessages[index].content = updatedContent
+
+      // Save history
+      await chatSession.setSessionMessages(activeSessionId, nextMessages)
+
+      isEditing.value = false
+
+      // Resubmit for reply generation
+      await chatOrchestrator.ingest('', { triggerOnly: true }, activeSessionId)
+
+      toast.success('Message updated, generating response...')
+    }
+    catch (err) {
+      console.error('[EditCommit] Failed:', err)
+      toast.error('Failed to update message.')
+    }
+    finally {
+      isSavingEdit.value = false
+    }
+  }
+}
 </script>
 
 <template>
@@ -249,6 +346,7 @@ async function handleForkAndSwitch() {
       @delete-following="handleDeleteFollowing"
       @fork-switch="handleForkAndSwitch"
       @journal="handleJournal"
+      @edit="handleEdit"
     >
       <template #default="{ setMeasuredElement }">
         <div
@@ -269,10 +367,41 @@ async function handleForkAndSwitch() {
           </div>
 
           <MarkdownRenderer
-            v-if="content"
+            v-if="content && !isEditing"
             :content="content as string"
             class="break-words"
           />
+
+          <div
+            v-show="isEditing"
+            ref="editorRef"
+            contenteditable="true"
+            class="my-0 min-h-[1lh] w-full break-words rounded-md bg-white/5 p-2 shadow-inner outline-none ring-2 ring-primary-500/50 transition-colors -mx-2 dark:bg-black/10"
+            @keydown.shift.enter.prevent="handleCommitEdit"
+            @keydown.esc.prevent="handleCancelEdit"
+          />
+
+          <div
+            v-if="isEditing"
+            class="absolute z-10 flex gap-1 border border-neutral-200 rounded-full bg-white/95 p-1 shadow-md backdrop-blur-sm -bottom-3 -right-3 dark:border-neutral-700 dark:bg-neutral-800/95"
+          >
+            <button
+              :disabled="isSavingEdit"
+              title="Cancel (Esc)"
+              class="h-6 w-6 flex items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/50"
+              @click="handleCancelEdit"
+            >
+              <div class="i-solar:close-circle-bold text-sm" />
+            </button>
+            <button
+              :disabled="isSavingEdit"
+              title="Commit (Shift+Enter)"
+              class="h-6 w-6 flex items-center justify-center rounded-full text-emerald-500 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-950/50"
+              @click="handleCommitEdit"
+            >
+              <div class="i-solar:check-circle-bold text-sm" />
+            </button>
+          </div>
 
           <div
             v-if="variant === 'desktop' && formattedTime"

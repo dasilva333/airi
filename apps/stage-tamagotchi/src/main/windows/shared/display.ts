@@ -163,3 +163,34 @@ export function heightFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size, 
 
   return val
 }
+
+export function ensureWindowInVisibleBounds(bounds: Rectangle): Rectangle {
+  const displays = screen.getAllDisplays()
+
+  const hasOverlap = displays.some((display) => {
+    const db = display.bounds
+    return (
+      bounds.x < db.x + db.width
+      && bounds.x + bounds.width > db.x
+      && bounds.y < db.y + db.height
+      && bounds.y + bounds.height > db.y
+    )
+  })
+
+  if (hasOverlap) {
+    return bounds
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const workArea = primaryDisplay.workArea
+
+  const x = Math.round(workArea.x + (workArea.width - bounds.width) / 2)
+  const y = Math.round(workArea.y + (workArea.height - bounds.height) / 2)
+
+  return {
+    x,
+    y,
+    width: bounds.width,
+    height: bounds.height,
+  }
+}

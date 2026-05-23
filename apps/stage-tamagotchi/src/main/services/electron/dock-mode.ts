@@ -94,6 +94,11 @@ export function createDockModeService(params: {
     currentConfig = config
 
     const poller = createWindowBoundsPoller(config.targetWindowId, (targetBounds) => {
+      if (params.window.isDestroyed()) {
+        stopDocking()
+        return
+      }
+
       if (!targetBounds) {
         // Target window is gone, stop docking
         stopDocking()

@@ -68,7 +68,8 @@ export function createWindowService(params: { context: ReturnType<typeof createC
 
     if (params.window.webContents.id === options?.raw.ipcMainEvent.sender.id) {
       if (flag) {
-        params.window.setAlwaysOnTop(true, 'screen-saver', 1)
+        const level = (params.window as any).__is_main_window ? 2 : 1
+        params.window.setAlwaysOnTop(true, 'screen-saver', level)
       }
       else {
         params.window.setAlwaysOnTop(false)

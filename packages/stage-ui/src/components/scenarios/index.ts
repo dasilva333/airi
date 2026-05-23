@@ -1,6 +1,7 @@
 export * from './about'
 export * from './chat'
 export * from './dialogs'
+export * from './layout'
 export * from './providers'
 export * from './settings'
 export * from './stickers'

@@ -1,5 +1,4 @@
 import { env, pipeline } from '@huggingface/transformers'
-import { create, getByID, insert, load, save } from '@orama/orama'
 
 // Suppress noisy ONNX Runtime warnings
 env.backends.onnx.logLevel = 'error'
@@ -12,14 +11,14 @@ interface SearchDocument {
   source: string
   timestamp: string
   embedding?: number[]
+  tokens?: string[]
+  tokenFreqs?: Record<string, number>
 }
 
 interface SearchSnapshot {
-  db: any
   documents: SearchDocument[]
 }
 
-let db: any = null
 let embedder: any = null
 let documents = new Map<string, SearchDocument>()
 let averageDocumentLength = 0
@@ -110,28 +109,6 @@ async function getEmbedder() {
   return embedder
 }
 
-async function initDb(snapshot?: any) {
-  if (db && !snapshot)
-    return db
-
-  db = await create({
-    schema: {
-      who: 'string',
-      what: 'string',
-      fact: 'string',
-      kind: 'string',
-      source: 'string',
-      timestamp: 'string',
-      embedding: 'vector[384]',
-    },
-  })
-
-  if (snapshot)
-    await load(db, snapshot)
-
-  return db
-}
-
 async function getVector(text: string) {
   const extractor = await getEmbedder()
   const output = await extractor(text, { pooling: 'mean', normalize: true })
@@ -142,15 +119,29 @@ function getDocumentContent(document: SearchDocument) {
   return document.fact || document.what || ''
 }
 
-function normalizeToken(token: string) {
-  return token.toLowerCase().replace(/[^a-z0-9]+/g, '')
+function tokenize(input: string) {
+  const normalized = input.toLowerCase()
+  // Matches individual CJK chars (Kanji, Katakana, Hiragana, Hangul) or English words
+  const regex = /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF66-\uFF9F\uAC00-\uD7AF]|[a-z0-9]+/gi
+  const matches = normalized.match(regex) || []
+
+  return matches
+    .map(token => token.trim())
+    .filter(token => token.length > 0 && !STOPWORDS.has(token))
 }
 
-function tokenize(input: string) {
-  return input
-    .split(/\s+/)
-    .map(normalizeToken)
-    .filter(token => token.length > 1 && !STOPWORDS.has(token))
+function ensureDocumentCache(document: SearchDocument) {
+  if (document.tokens && document.tokenFreqs)
+    return
+
+  const content = getDocumentContent(document)
+  const tokens = tokenize(content)
+  const freqs: Record<string, number> = {}
+  for (const token of tokens) {
+    freqs[token] = (freqs[token] ?? 0) + 1
+  }
+  document.tokens = tokens
+  document.tokenFreqs = freqs
 }
 
 function rebuildKeywordStats() {
@@ -158,7 +149,8 @@ function rebuildKeywordStats() {
   let totalLength = 0
 
   for (const document of documents.values()) {
-    const tokens = tokenize(getDocumentContent(document))
+    ensureDocumentCache(document)
+    const tokens = document.tokens!
     totalLength += tokens.length
 
     const uniqueTerms = new Set(tokens)
@@ -218,17 +210,16 @@ function getKeywordCandidates(query: string, limit: number) {
 
   const scored = [...documents.values()]
     .map((document) => {
-      const tokens = tokenize(getDocumentContent(document))
+      ensureDocumentCache(document)
+      const tokens = document.tokens!
       if (!tokens.length)
         return null
 
-      const frequencies = new Map<string, number>()
-      for (const token of tokens)
-        frequencies.set(token, (frequencies.get(token) ?? 0) + 1)
+      const frequencies = document.tokenFreqs!
 
       let score = 0
       for (const term of queryTerms) {
-        const tf = frequencies.get(term) ?? 0
+        const tf = frequencies[term] ?? 0
         if (!tf)
           continue
 
@@ -275,11 +266,14 @@ function normalizeSnapshot(snapshot: any): SearchSnapshot | null {
   if (!snapshot)
     return null
 
-  if (snapshot.db && Array.isArray(snapshot.documents))
+  if (Array.isArray(snapshot.documents))
     return snapshot as SearchSnapshot
 
+  if (Array.isArray(snapshot)) {
+    return { documents: snapshot }
+  }
+
   return {
-    db: snapshot,
     documents: [],
   }
 }
@@ -291,35 +285,23 @@ globalThis.addEventListener('message', async (e) => {
     switch (type) {
       case 'init': {
         const normalizedSnapshot = normalizeSnapshot(payload?.snapshot)
-        await initDb(normalizedSnapshot?.db)
         hydrateDocuments(normalizedSnapshot?.documents)
         globalThis.postMessage({ id, type: 'ready' })
         break
       }
 
       case 'index': {
-        await initDb()
         const { documents: nextDocuments } = payload
         let indexedCount = 0
 
         for (const document of nextDocuments as SearchDocument[]) {
-          const exists = await getByID(db, document.id)
-          if (exists && documents.has(document.id))
-            continue
-
           const embedding = document.embedding?.length
             ? document.embedding
             : await getVector(getDocumentContent(document))
 
           const persistedDocument = { ...document, embedding }
+          ensureDocumentCache(persistedDocument)
 
-          if (exists) {
-            upsertDocument(persistedDocument)
-            indexedCount++
-            continue
-          }
-
-          await insert(db, { ...persistedDocument, embedding })
           upsertDocument(persistedDocument)
           indexedCount++
         }
@@ -330,21 +312,30 @@ globalThis.addEventListener('message', async (e) => {
       }
 
       case 'search': {
-        await initDb()
         const { query, limit = 10 } = payload
         const queryVector = await getVector(query)
         const candidateLimit = Math.max(limit * 5, 20)
 
+        const vectorHits = getVectorCandidates(queryVector, candidateLimit)
+        const keywordHits = getKeywordCandidates(query, candidateLimit)
+        const candidateIds = new Set([
+          ...vectorHits.map(h => h.id),
+          ...keywordHits.map(h => h.id),
+        ])
+
         const results = {
-          vectorHits: getVectorCandidates(queryVector, candidateLimit),
-          keywordHits: getKeywordCandidates(query, candidateLimit),
-          documents: [...documents.values()].map(document => ({
-            id: document.id,
-            content: getDocumentContent(document),
-            kind: document.kind,
-            timestamp: document.timestamp,
-            source: document.source,
-          })),
+          vectorHits,
+          keywordHits,
+          documents: [...documents.values()]
+            .filter(document => candidateIds.has(document.id))
+            .map(document => ({
+              id: document.id,
+              content: getDocumentContent(document),
+              kind: document.kind,
+              timestamp: document.timestamp,
+              source: document.source,
+              embedding: document.embedding,
+            })),
         }
 
         globalThis.postMessage({ id, type: 'results', results })
@@ -352,12 +343,11 @@ globalThis.addEventListener('message', async (e) => {
       }
 
       case 'persist': {
-        if (!db)
-          throw new Error('DB not initialized')
-
         const snapshot: SearchSnapshot = {
-          db: await save(db),
-          documents: [...documents.values()],
+          documents: [...documents.values()].map((doc) => {
+            const { tokens, tokenFreqs, ...persistedDoc } = doc
+            return persistedDoc
+          }),
         }
 
         globalThis.postMessage({ id, type: 'snapshot', snapshot })

@@ -7,15 +7,17 @@ const { t } = useI18n()
 <template>
   <!-- Style from ui/InputFile component, may be centralized later -->
   <div
-    relative
-    class="min-h-[120px] flex flex-col cursor-pointer items-center justify-center border-neutral-200 rounded-xl bg-white/60 p-6 dark:border-neutral-700 hover:border-primary-300 dark:bg-black/30 hover:bg-white/80 dark:hover:border-primary-700 dark:hover:bg-black/40"
-    border="solid 2"
-    transition="all duration-300"
-    cursor-pointer opacity-95
-    hover="scale-100 opacity-100 shadow-md dark:shadow-lg"
+    :class="[
+      'relative flex flex-col cursor-pointer items-center justify-center p-6 rounded-xl border-2 border-solid transition-all duration-300 opacity-95',
+      'border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/30',
+      'hover:border-primary-300 dark:hover:border-primary-700 hover:bg-white/80 dark:hover:bg-neutral-900/40 hover:scale-100 hover:opacity-100 hover:shadow-md dark:hover:shadow-lg',
+    ]"
   >
-    <div i-solar:add-square-line-duotone mb-4 text-5xl text="neutral-400 dark:neutral-500" />
-    <p font-medium text="neutral-600 dark:neutral-300">
+    <div
+      i-solar:add-square-line-duotone
+      :class="['mb-4 text-5xl text-neutral-400 dark:text-neutral-500']"
+    />
+    <p :class="['font-medium text-neutral-600 dark:text-neutral-300']">
       {{ t('settings.pages.card.create_card') }}
     </p>
   </div>

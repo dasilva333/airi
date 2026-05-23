@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ProfileSwitcherPopover } from '@proj-airi/stage-ui/components'
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import HeaderAvatar from './HeaderAvatar.vue'

@@ -148,9 +148,21 @@ export function setupWidgetsWindowManager(params: {
       window.setBounds(computeDefaultBounds())
     }
 
-    const persist = () => update({ bounds: window.getBounds() })
-    window.on('resize', persist)
-    window.on('move', persist)
+    const persist = () => {
+      if (!window.isDestroyed()) {
+        update({ bounds: window.getBounds() })
+      }
+    }
+    window.on('resize', () => {
+      if (!window.isDestroyed()) {
+        persist()
+      }
+    })
+    window.on('move', () => {
+      if (!window.isDestroyed()) {
+        persist()
+      }
+    })
 
     const initialRoute = pendingRoute ?? defaultRoute
     await loadWithRoute(window, initialRoute)

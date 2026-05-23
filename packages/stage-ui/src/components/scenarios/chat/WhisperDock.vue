@@ -1,36 +1,31 @@
 <script setup lang="ts">
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
-import { useLiveSessionStore } from '../../../stores/modules/live-session'
-import { useProvidersStore } from '../../../stores/providers'
-import { StickerManager } from '../stickers'
 
 const props = defineProps<{
   /** Tool definitions to pass through to chat.ingest */
   tools?: any[]
+  open?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'spawn-standalone', id: string): void
+  (e: 'update:open', val: boolean): void
 }>()
 
-const isOpen = ref(false)
-const showStickers = ref(false)
+const isOpen = ref(props.open ?? false)
 const inputText = ref('')
 const inputRef = ref<HTMLInputElement>()
 const isSending = ref(false)
 
 const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
-const providersStore = useProvidersStore()
 const chatStore = useChatOrchestratorStore()
-const liveSessionStore = useLiveSessionStore()
 
 const { activeCard } = storeToRefs(cardStore)
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
@@ -39,8 +34,15 @@ const characterName = computed(() => activeCard.value?.name ?? 'AIRI')
 
 defineExpose({ isOpen })
 
+watch(() => props.open, (val) => {
+  if (val !== undefined && val !== isOpen.value) {
+    isOpen.value = val
+  }
+})
+
 // Auto-focus input when dock opens
 watch(isOpen, async (open) => {
+  emit('update:open', open)
   if (open) {
     await nextTick()
     inputRef.value?.focus()
@@ -66,55 +68,35 @@ async function send() {
   if (!text || isSending.value)
     return
 
-  console.log('[WhisperDock] Triggered send() with text:', text)
-  console.log('[WhisperDock] liveSessionStore state -> isActive:', liveSessionStore.isActive, 'isConnecting:', liveSessionStore.isConnecting)
+  console.info('[WhisperDock] Triggered send() with text:', text)
 
   isSending.value = true
 
   try {
-    const DEBUG_FORCE_NO_FALLBACK = false
-
-    // Priority 1: Gemini Live Session (if active or connecting)
-    if (liveSessionStore.isActive || liveSessionStore.isConnecting || DEBUG_FORCE_NO_FALLBACK) {
-      console.log('[WhisperDock] Routing to Gemini Live execution block.')
-      if (liveSessionStore.isActive) {
-        console.log('[WhisperDock] Executing liveSessionStore.sendText()...')
-        liveSessionStore.sendText(text)
-        inputText.value = ''
-        isSending.value = false
-        dismiss()
-      }
-      else {
-        // Still connecting or disconnected, but we are enforcing Live-only for debugging.
-        console.warn(`[WhisperDock] Blocked! Live session is connecting (${liveSessionStore.isConnecting}) or inactive (${liveSessionStore.isActive}), and custom LLM fallback is disabled for debugging.`)
-        isSending.value = false
-      }
-      return
-    }
-
-    // Priority 2: Standard LLM Pipeline
-    const provider = await providersStore.getProviderInstance(activeProvider.value)
-    if (!provider || !activeModel.value) {
-      console.warn('[WhisperDock] No provider or model configured')
+    if (!activeModel.value) {
+      console.warn('[WhisperDock] No model configured')
       isSending.value = false
       return
     }
 
-    // Clear the input immediately for snappy feel
+    // Clear input optimistically for snappy feel
     inputText.value = ''
 
     await chatStore.ingest(text, {
       model: activeModel.value,
-      chatProvider: provider as ChatProvider,
+      chatProvider: activeProvider.value,
       tools: props.tools,
     })
 
-    // Auto-close after sending
+    // Auto-close after successful send
     dismiss()
   }
   catch (err) {
     console.error('[WhisperDock] Failed to send:', err)
     isSending.value = false
+    // Restore text draft so it is not lost
+    inputText.value = text
+    toast.error('Message failed to send. Draft restored.')
   }
 }
 
@@ -145,15 +127,11 @@ function handleKeydown(e: KeyboardEvent) {
       :class="[
         'fixed bottom-2.5 left-1/2 z-90',
         '-translate-x-1/2',
-        'flex items-center justify-center',
-        'size-8 rounded-full',
-        'bg-white/60 dark:bg-neutral-900/60',
-        'backdrop-blur-md',
-        'border border-neutral-200/40 dark:border-neutral-700/40',
-        'shadow-lg shadow-black/5 dark:shadow-black/20',
-        'cursor-pointer',
-        'transition-all duration-300 ease-out',
-        'hover:scale-110 hover:shadow-xl hover:bg-white/80 dark:hover:bg-neutral-800/80',
+        'border-2 border-solid border-neutral-200/60 dark:border-neutral-800/10',
+        'bg-neutral-50/80 dark:bg-neutral-800/70',
+        'w-fit flex items-center justify-center p-2 rounded-xl backdrop-blur-md',
+        'cursor-pointer shadow-lg shadow-black/5 dark:shadow-black/20',
+        'transition-all hover:transition-none duration-300 ease-out',
         'active:scale-95',
         'group',
       ]"
@@ -162,8 +140,8 @@ function handleKeydown(e: KeyboardEvent) {
       <div
         :class="[
           'i-ph:keyboard-light',
-          'size-4',
-          'text-neutral-400 dark:text-neutral-500',
+          'size-5',
+          'text-neutral-800 dark:text-neutral-300',
           'transition-colors duration-200',
           'group-hover:text-primary-500 dark:group-hover:text-primary-400',
         ]"
@@ -174,30 +152,29 @@ function handleKeydown(e: KeyboardEvent) {
   <!-- Input Dock -->
   <Transition
     enter-active-class="transition-all duration-400 cubic-bezier(0.32, 0.72, 0, 1)"
-    enter-from-class="opacity-0 translate-y-6 scale-95"
-    enter-to-class="opacity-100 translate-y-0 scale-100"
+    enter-from-class="opacity-0 translate-y-6"
+    enter-to-class="opacity-100 translate-y-0"
     leave-active-class="transition-all duration-250 cubic-bezier(0.32, 0.72, 0, 1)"
-    leave-from-class="opacity-100 translate-y-0 scale-100"
-    leave-to-class="opacity-0 translate-y-6 scale-95"
+    leave-from-class="opacity-100 translate-y-0"
+    leave-to-class="opacity-0 translate-y-6"
   >
     <div
       v-if="isOpen"
       :class="[
-        'fixed bottom-2.5 left-1/2 z-90',
-        '-translate-x-1/2',
-        'w-[min(calc(100vw-120px),420px)]',
-        'flex items-center gap-2',
-        'rounded-2xl',
-        'bg-white/70 dark:bg-neutral-900/70',
-        'backdrop-blur-xl',
-        'border border-neutral-200/30 dark:border-neutral-700/30',
+        'fixed bottom-0 left-0 z-90',
+        'w-full',
+        'flex items-center gap-3',
+        'rounded-t-2xl',
+        'bg-white/70 dark:bg-neutral-900/75',
+        'backdrop-blur-2xl',
+        'border-t border-neutral-200/30 dark:border-neutral-800/20',
         'shadow-2xl shadow-black/10 dark:shadow-black/30',
-        'px-4 py-2.5',
+        'px-6 py-4 pb-5',
         isSending ? 'whisper-dock-sending' : '',
       ]"
     >
-      <!-- Sticker Toggle -->
-      <button
+      <!-- Sticker Toggle (Hidden for future customizable panel integration) -->
+      <!-- <button
         :class="[
           'size-7 rounded-lg flex items-center justify-center',
           'transition-all duration-200',
@@ -206,10 +183,10 @@ function handleKeydown(e: KeyboardEvent) {
         @click="showStickers = !showStickers"
       >
         <div class="i-ph:stamp-bold size-4" />
-      </button>
+      </button> -->
 
-      <!-- Sticker Library Popover -->
-      <Transition
+      <!-- Sticker Library Popover (Hidden for future customizable panel integration) -->
+      <!-- <Transition
         enter-active-class="transition-all duration-300 ease-out"
         enter-from-class="opacity-0 translate-y-2 scale-95"
         enter-to-class="opacity-100 translate-y-0 scale-100"
@@ -230,7 +207,7 @@ function handleKeydown(e: KeyboardEvent) {
         >
           <StickerManager @spawn-standalone="id => emit('spawn-standalone', id)" />
         </div>
-      </Transition>
+      </Transition> -->
 
       <input
         ref="inputRef"
@@ -266,6 +243,20 @@ function handleKeydown(e: KeyboardEvent) {
           ]"
         />
       </Transition>
+
+      <!-- Exit/Close Button -->
+      <button
+        :class="[
+          'size-7 rounded-lg flex items-center justify-center',
+          'text-neutral-400 hover:bg-red-500/10 hover:text-red-500',
+          'transition-all duration-200',
+          'cursor-pointer',
+        ]"
+        title="Close input (Esc)"
+        @click="dismiss"
+      >
+        <div class="i-ph:x-bold size-4" />
+      </button>
     </div>
   </Transition>
 </template>

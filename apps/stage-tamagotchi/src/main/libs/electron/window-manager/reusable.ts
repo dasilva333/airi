@@ -16,6 +16,7 @@ export function createReusableWindow(setupFn: () => BrowserWindow | Promise<Brow
     windowSetupFnPromise = Promise.resolve(setupFn()).then((created) => {
       window = created
       windowSetupFnPromise = undefined
+      ;(created as any).__created_at = Date.now()
 
       created.on?.('closed', () => {
         if (window === created)

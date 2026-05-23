@@ -60,8 +60,8 @@ function clampBoundsWithinRect(bounds: Rectangle, rect: Rectangle): Rectangle {
   return { x, y, width: bounds.width, height: bounds.height }
 }
 
-function computeInitialCaptionBounds(params: { mainWindow: BrowserWindow, captionOptions?: Partial<Rectangle> }): Rectangle {
-  const mainBounds = params.mainWindow.getBounds()
+function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, captionOptions?: Partial<Rectangle> }): Rectangle {
+  const mainBounds = params.stageWindow.getBounds()
   const displayWorkArea = screen.getDisplayMatching(mainBounds).workArea
 
   // Base sizing from display width with sensible caps
@@ -78,7 +78,7 @@ function computeInitialCaptionBounds(params: { mainWindow: BrowserWindow, captio
   const height = Math.max(Math.floor(width / 3.2), 120)
 
   const margin = 16
-  // Prefer to the right of main window, else to the left, else bottom centered
+  // Prefer to the right of stage window, else to the left, else bottom centered
   let x = mainBounds.x + mainBounds.width + margin
   let y = mainBounds.y + mainBounds.height - height
 
@@ -149,6 +149,7 @@ function createCaptionWindow(options?: BrowserWindowConstructorOptions) {
 
 export function setupCaptionWindowManager(params: {
   mainWindow: BrowserWindow
+  stageWindow: BrowserWindow
   serverChannel: ServerChannel
   i18n: I18n
   appConfig: Config<typeof globalAppConfigSchema>
@@ -178,12 +179,12 @@ export function setupCaptionWindowManager(params: {
 
   function computeRelativeOffset(win: BrowserWindow): { dx: number, dy: number } {
     const caption = win.getBounds()
-    const main = params.mainWindow.getBounds()
+    const main = params.stageWindow.getBounds()
     return { dx: caption.x - main.x, dy: caption.y - main.y }
   }
 
   function calculateDockingBounds(win: BrowserWindow, dock?: 'top' | 'bottom'): Rectangle {
-    const main = params.mainWindow.getBounds()
+    const main = params.stageWindow.getBounds()
     const b = win.getBounds()
 
     if (dock === 'bottom') {
@@ -270,7 +271,7 @@ export function setupCaptionWindowManager(params: {
     }
   }
 
-  function followMainWindow(win: BrowserWindow) {
+  function followStageWindow(win: BrowserWindow) {
     const cfg = getConfig() ?? { isFollowing, matrices: {} }
     const initialOffset = cfg?.matrices?.[matrixHash]?.relativeToMain ?? computeRelativeOffset(win)
 
@@ -279,7 +280,7 @@ export function setupCaptionWindowManager(params: {
     updateConfig(cfgToSave)
 
     const syncNow = () => {
-      if (win.isDestroyed() || params.mainWindow.isDestroyed())
+      if (win.isDestroyed() || params.stageWindow.isDestroyed())
         return
 
       const config = params.appConfig.get()
@@ -291,7 +292,7 @@ export function setupCaptionWindowManager(params: {
       }
       else {
         const stored = getConfig()?.matrices[matrixHash]?.relativeToMain ?? initialOffset
-        const main = params.mainWindow.getBounds()
+        const main = params.stageWindow.getBounds()
         const b = win.getBounds()
         target = {
           x: main.x + stored.dx,
@@ -327,13 +328,15 @@ export function setupCaptionWindowManager(params: {
       onMainChange()
     }
     onMainChange()
-    params.mainWindow.on('move', onMainChange)
-    params.mainWindow.on('resize', onMainChange)
+    params.stageWindow.on('move', onMainChange)
+    params.stageWindow.on('resize', onMainChange)
     detachMainMoveListener = () => {
       moveThrottled.cancel()
       settleDebounced.cancel()
-      params.mainWindow.removeListener('move', onMainChange)
-      params.mainWindow.removeListener('resize', onMainChange)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.removeListener('move', onMainChange)
+        params.stageWindow.removeListener('resize', onMainChange)
+      }
       triggerMoveInternal = undefined
     }
 
@@ -378,11 +381,13 @@ export function setupCaptionWindowManager(params: {
       window.setBounds(clamped)
     }
     else {
-      const initialBounds = computeInitialCaptionBounds({ mainWindow: params.mainWindow })
+      const initialBounds = computeInitialCaptionBounds({ stageWindow: params.stageWindow })
       window.setBounds(initialBounds)
     }
 
     const persistBounds = () => {
+      if (window.isDestroyed())
+        return
       const config = getConfig() ?? { isFollowing, matrices: {} }
       const b = window.getBounds()
       config.matrices[matrixHash] = { ...config.matrices[matrixHash], bounds: b }
@@ -399,10 +404,18 @@ export function setupCaptionWindowManager(params: {
     window.on('show', () => {
       emitVisibilityChanged()
       syncGlobalConfig()
+      console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window shown, broadcasting state')
+      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
+        params.mainWindow.webContents.send('caption-window-state', true)
+      }
     })
     window.on('hide', () => {
       emitVisibilityChanged()
       syncGlobalConfig()
+      console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window hidden, broadcasting state')
+      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
+        params.mainWindow.webContents.send('caption-window-state', false)
+      }
     })
 
     await load(window, withHashRoute(baseUrl(resolve(getElectronMainDirname(), '..', 'renderer')), '/caption'))
@@ -414,7 +427,7 @@ export function setupCaptionWindowManager(params: {
     catch {}
 
     if (isFollowing) {
-      followMainWindow(window)
+      followStageWindow(window)
     }
 
     window.on('closed', () => {
@@ -429,6 +442,10 @@ export function setupCaptionWindowManager(params: {
       }
       eventaContext = undefined
       emitVisibilityChanged()
+      console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window closed, broadcasting state')
+      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
+        params.mainWindow.webContents.send('caption-window-state', false)
+      }
     })
 
     // Captions are click-through by default so you can click whatever is behind them.
@@ -450,7 +467,7 @@ export function setupCaptionWindowManager(params: {
       const cfg = getConfig() ?? { isFollowing, matrices: {} }
       cfg.matrices[matrixHash] = { ...cfg.matrices[matrixHash], relativeToMain: rel }
       updateConfig(cfg)
-      followMainWindow(window)
+      followStageWindow(window)
     }
     else {
       detachFromMain()
@@ -480,7 +497,7 @@ export function setupCaptionWindowManager(params: {
   async function resetToSide() {
     const window = await reusable.getWindow()
     lastProgrammaticMoveAt = Date.now()
-    const initialBounds = computeInitialCaptionBounds({ mainWindow: params.mainWindow })
+    const initialBounds = computeInitialCaptionBounds({ stageWindow: params.stageWindow })
     window.setBounds(initialBounds)
 
     const config = getConfig() ?? { isFollowing, matrices: {} }
@@ -495,18 +512,33 @@ export function setupCaptionWindowManager(params: {
     return Boolean(currentWindow && !currentWindow.isDestroyed() && currentWindow.isVisible())
   }
 
-  async function toggleVisibility() {
-    if (isVisible()) {
-      currentWindow?.hide()
+  async function toggleVisibility(enabled?: boolean) {
+    if (enabled === undefined) {
+      if (isVisible()) {
+        currentWindow?.hide()
+      }
+      else {
+        const window = await reusable.getWindow()
+        if (window.isMinimized()) {
+          window.restore()
+        }
+        window.show()
+        window.focus()
+      }
       return
     }
 
-    const window = await reusable.getWindow()
-    if (window.isMinimized()) {
-      window.restore()
+    if (enabled) {
+      const window = await reusable.getWindow()
+      if (window.isMinimized()) {
+        window.restore()
+      }
+      window.show()
+      window.focus()
     }
-    window.show()
-    window.focus()
+    else {
+      currentWindow?.hide()
+    }
   }
 
   function onVisibilityChanged(listener: () => void): () => void {

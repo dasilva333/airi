@@ -313,7 +313,7 @@ patchedDependencies:
     hash: 08679b8378cb1389c3cd42804e0c2710c122e10e7b0a81da52c8b06728fbdebb
     path: patches/node-gyp@11.5.0.patch
   pixi-live2d-display:
-    hash: 122ac09349321d5bfe9d9817aa095cd1c9c4132af86345aa9e27ba8b63dadf2c
+    hash: fe957d02ee79f8ff3f2b8eaa4b3f2b4586a8182f002f1bf12d6a70df58cd4af4
     path: patches/pixi-live2d-display.patch
   srvx:
     hash: c761d25a70e22a0925c88fe91a9dd1c3153dd341d8fd4f260166678156c4df2d
@@ -2450,6 +2450,9 @@ importers:
       dompurify:
         specifier: ^3.3.1
         version: 3.3.1
+      jszip:
+        specifier: 'catalog:'
+        version: 3.10.1
       nanoid:
         specifier: 'catalog:'
         version: 5.1.6
@@ -3013,7 +3016,7 @@ importers:
         version: 4.2.0(5af797a0b5bd919a06578c24a7479046)
       pixi-live2d-display:
         specifier: ^0.4.0
-        version: 0.4.0(patch_hash=122ac09349321d5bfe9d9817aa095cd1c9c4132af86345aa9e27ba8b63dadf2c)(0736f5bd67d2e4de7e9fff36ad63fa2e)
+        version: 0.4.0(patch_hash=fe957d02ee79f8ff3f2b8eaa4b3f2b4586a8182f002f1bf12d6a70df58cd4af4)(0736f5bd67d2e4de7e9fff36ad63fa2e)
       three:
         specifier: ^0.183.1
         version: 0.183.1
@@ -29990,7 +29993,7 @@ snapshots:
       - '@pixi/settings'
       - '@pixi/utils'
 
-  pixi-live2d-display@0.4.0(patch_hash=122ac09349321d5bfe9d9817aa095cd1c9c4132af86345aa9e27ba8b63dadf2c)(0736f5bd67d2e4de7e9fff36ad63fa2e):
+  pixi-live2d-display@0.4.0(patch_hash=fe957d02ee79f8ff3f2b8eaa4b3f2b4586a8182f002f1bf12d6a70df58cd4af4)(0736f5bd67d2e4de7e9fff36ad63fa2e):
     dependencies:
       '@pixi/core': 6.5.10(@pixi/constants@6.5.10)(@pixi/extensions@6.5.10)(@pixi/math@6.5.10)(@pixi/runner@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))(@pixi/ticker@6.5.10(@pixi/extensions@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))(@pixi/utils@6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))
       '@pixi/display': 6.5.10(@pixi/constants@6.5.10)(@pixi/math@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))(@pixi/utils@6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10)))

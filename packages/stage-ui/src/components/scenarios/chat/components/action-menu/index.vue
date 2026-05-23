@@ -31,6 +31,7 @@ import { chatScrollContainerKey } from '../../constants'
 const props = withDefaults(defineProps<{
   canCopy?: boolean
   canDelete?: boolean
+  canEdit?: boolean
   copyText?: string
   menuLabel?: string
   placement?: 'left' | 'right'
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   canCopy: true,
   canDelete: true,
+  canEdit: true,
   copyText: '',
   menuLabel: 'Message actions',
   placement: 'right',
@@ -86,6 +88,7 @@ const shouldDisableDropdownMenu = computed(() => (isStageWeb() || isStageCapacit
 const menuItems = computed(() => createChatActionMenuItems({
   canCopy: props.canCopy && props.copyText.trim().length > 0,
   canDelete: props.canDelete,
+  canEdit: props.canEdit,
 }))
 const hasMenuItems = computed(() => menuItems.value.length > 0)
 const forceVisible = computed(() => contextMenuOpen.value)

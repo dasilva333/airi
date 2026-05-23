@@ -2,7 +2,7 @@
 import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
 
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -38,18 +38,8 @@ function injectActorColors(content: string): string {
   if (!content)
     return ''
 
-  console.log('[ChatDebug:injectActorColors] Translating actor tags to safe text markers [ACTOR:xxx]...', {
-    contentPreview: content.slice(0, 150) + (content.length > 150 ? '...' : ''),
-  })
-
-  // Translate actor tags to stable plain text markers so the markdown parser won't strip them
-  const result = content.replace(/<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi, '[ACTOR:$1]')
-
-  console.log('[ChatDebug:injectActorColors] Translation complete:', {
-    resultPreview: result.slice(0, 150) + (result.length > 150 ? '...' : ''),
-  })
-
-  return result
+  // Translate actor tags to safe text markers so the markdown parser won't strip them
+  return content.replace(/<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi, '[ACTOR:$1]')
 }
 
 const showJournalModal = ref(false)
@@ -269,15 +259,6 @@ async function handleForkAndSwitch() {
 
 // Visual FX state parsing (re-injected from main)
 const showLoader = computed(() => props.showPlaceholder)
-
-onMounted(() => {
-  console.log('[ChatDebug:AssistantItem] Message data received:', {
-    id: props.message.id,
-    content: props.message.content,
-    rawContent: (props.message as any).rawContent,
-    slices: JSON.parse(JSON.stringify(props.message.slices || [])),
-  })
-})
 
 function getMoodArchetype(text: string): string | null {
   if (!text || typeof text !== 'string')
@@ -501,13 +482,6 @@ const resolvedSlices = computed(() => {
 
 function getSegmentedText(sliceText: string): string {
   const raw = (props.message as any).rawContent
-  console.log('[ChatDebug:getSegmentedText] Processing text segment:', {
-    messageId: props.message.id,
-    sliceTextLength: sliceText?.length,
-    hasRaw: !!raw,
-    rawLength: raw?.length,
-    containsActorTag: raw ? raw.includes('<|ACTOR:') : false,
-  })
 
   if (!raw || typeof raw !== 'string' || !raw.includes('<|ACTOR:')) {
     return injectActorColors(sliceText)
@@ -522,11 +496,9 @@ function getSegmentedText(sliceText: string): string {
       .replace(/<\|ACT\b[\s\S]*?(?:\|>|>)/gi, '')
       .replace(/<\|DELAY\b[\s\S]*?(?:\|>|>)/gi, '')
 
-    console.log('[ChatDebug:getSegmentedText] Single text slice found. Cleaned rawContent (emotion/delay tags stripped):', cleanedRaw)
     return injectActorColors(cleanedRaw)
   }
 
-  console.log('[ChatDebug:getSegmentedText] Multiple text slices found, falling back to standard sliceText')
   return injectActorColors(sliceText)
 }
 
@@ -576,6 +548,7 @@ const dynamicStyles = computed(() => {
     />
     <ChatActionMenu
       :copy-text="copyText"
+      :can-edit="false"
       placement="right"
       @copy="handleCopy"
       @delete="handleDelete"

@@ -130,6 +130,16 @@ function handleScaleChange(newScale: number) {
   const current = positioningStore.getPosition(key)
   positioningStore.setPosition(key, { ...current, scale: newScale })
 }
+
+function handleOffsetChange(offset: { x: number, y: number }) {
+  const key = stageModelSelected.value
+  const current = positioningStore.getPosition(key)
+  positioningStore.setPosition(key, {
+    ...current,
+    x: offset.x,
+    y: stageModelRenderer.value === 'live2d' ? -offset.y : offset.y,
+  })
+}
 </script>
 
 <template>
@@ -219,6 +229,9 @@ function handleScaleChange(newScale: number) {
         :live2d-force-auto-blink-enabled="live2dForceAutoBlinkEnabled"
         :live2d-shadow-enabled="live2dShadowEnabled"
         :live2d-max-fps="live2dMaxFps"
+        :draggable="true"
+        @scale-change="handleScaleChange"
+        @offset-change="handleOffsetChange"
       />
     </div>
   </template>

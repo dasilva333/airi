@@ -34,18 +34,18 @@ onMounted(() => screenSafeArea.update())
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
-  
+
   <DrawerRoot v-else :open="showDialog" should-scale-background @update:open="value => showDialog = value">
     <DrawerPortal>
       <DrawerOverlay class="fixed inset-0 z-[9999]" />
-      <DrawerContent 
-        class="fixed bottom-0 left-0 right-0 z-[9999] mt-20 h-full max-h-[85%] flex flex-col rounded-t-2xl bg-neutral-50 px-4 pt-4 outline-none backdrop-blur-md dark:bg-neutral-900/95" 
+      <DrawerContent
+        class="fixed bottom-0 left-0 right-0 z-[9999] mt-20 h-full max-h-[85%] flex flex-col rounded-t-2xl bg-neutral-50 px-4 pt-4 outline-none backdrop-blur-md dark:bg-neutral-900/95"
         :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '') || '0'), 24)}px` }"
       >
         <DrawerHandle />
         <StageBackgroundPicker
           :card-id="props.cardId"
-          class="min-h-0 flex-1 mt-4"
+          class="mt-4 min-h-0 flex-1"
         />
       </DrawerContent>
     </DrawerPortal>

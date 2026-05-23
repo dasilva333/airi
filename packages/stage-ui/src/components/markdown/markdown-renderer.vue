@@ -17,7 +17,7 @@ const processedContent = ref('')
 const { process, processSync } = useMarkdown()
 
 function formatActorName(id: string): string {
-  let name = id.replace(/^(actress_|actor_)/i, '')
+  const name = id.replace(/^(actress_|actor_)/i, '')
   const customNames: Record<string, string> = {
     cg1: 'Nia',
     cg2: 'Vara',
@@ -38,10 +38,6 @@ function postProcessActorColors(html: string): string {
   if (!html.includes('[ACTOR:'))
     return html
 
-  console.log('[ChatDebug:postProcessActorColors] Post-processing HTML to color segments...', {
-    htmlLength: html.length,
-  })
-
   // Match standard paragraph <p>...</p> or list item <li>...</li> blocks
   const blockRegex = /(<p>|<li>)([\s\S]*?)(<\/p>|<\/li>)/gi
   let activeActorId: string | null = null
@@ -57,7 +53,6 @@ function postProcessActorColors(html: string): string {
       // Strip the marker from the block content
       innerContent = innerContent.replace(markerRegex, '')
       isNewMarker = true
-      console.log(`[ChatDebug:postProcessActorColors] Actor marker matched: "${activeActorId}". Setting as active speaker.`)
     }
 
     if (activeActorId) {
@@ -74,7 +69,6 @@ function postProcessActorColors(html: string): string {
     return match
   })
 
-  console.log('[ChatDebug:postProcessActorColors] Post-processing finished.')
   return result
 }
 

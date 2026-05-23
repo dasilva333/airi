@@ -14,7 +14,7 @@ import {
   buildSystemPrompt,
   useAiriCardStore,
 } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { Button, Select } from '@proj-airi/ui'
+import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
   DialogContent,

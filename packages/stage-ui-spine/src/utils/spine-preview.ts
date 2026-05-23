@@ -24,7 +24,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
   try {
     assets = await loadSpineZip(file)
 
-    let detectedVersion = assets.layout.skeletonFormat === 'binary'
+    const detectedVersion = assets.layout.skeletonFormat === 'binary'
       ? detectSpineVersionFromBinary(assets.rawData[assets.layout.skeletonPath] as Uint8Array)
       : detectSpineVersionFromJson(assets.rawData[assets.layout.skeletonPath] as string)
 

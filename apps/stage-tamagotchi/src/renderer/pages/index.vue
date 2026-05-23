@@ -1,86 +1,82 @@
 <script setup lang="ts">
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
-import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { electron } from '@proj-airi/electron-eventa'
 import {
   useElectronEventaInvoke,
-  useElectronMouseAroundWindowBorder,
   useElectronMouseInElement,
   useElectronMouseInWindow,
-  useElectronRelativeMouse,
 } from '@proj-airi/electron-vueuse'
-import { useThreeSceneIsTransparentAtPoint } from '@proj-airi/stage-ui-three'
-import { StickerStack, WhisperDock } from '@proj-airi/stage-ui/components'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
-import { useCanvasPixelIsTransparentAtPoint } from '@proj-airi/stage-ui/composables/canvas-alpha'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
-import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
+import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
+import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
-import { Button } from '@proj-airi/ui'
-import { useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel, useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, provide, ref, toRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import ControlsIsland from '../components/stage-islands/controls-island/index.vue'
-import ResourceStatusIsland from '../components/stage-islands/resource-status-island/index.vue'
-
 import {
+  electronApplySizePreset,
+  electronAppQuit,
+  electronCaptionSyncDocking,
+  electronCaptionToggleVisibility,
+  electronControlStripSyncState,
+  electronCustomizerToggleVisibility,
   electronGetMainWindowConfig,
-  widgetsAdd,
+  electronOpenChat,
+  electronOpenSettings,
+  electronStageSetAlwaysOnTop,
+  electronStageToggleVisibility,
+  electronStartDraggingWindow,
 } from '../../shared/eventa'
-import { useControlsIslandStore } from '../stores/controls-island'
 import { builtinTools } from '../stores/tools/builtin'
 import { useWindowStore } from '../stores/window'
 
-const controlsIslandRef = ref<InstanceType<typeof ControlsIsland>>()
-const whisperDockRef = ref<InstanceType<typeof WhisperDock>>()
 const widgetStageRef = ref<InstanceType<typeof WidgetStage>>()
 const tools = ref<any[]>([])
-const stageCanvas = toRef(() => widgetStageRef.value?.canvasElement())
-const controlsIslandRoot = computed(() => controlsIslandRef.value?.rootElement)
-const geminiIslandRoot = computed(() => controlsIslandRef.value?.geminiRootElement)
-const geminiPanelRoot = computed(() => controlsIslandRef.value?.geminiPanelElement)
+const controlStripRoot = computed(() => widgetStageRef.value?.controlStripElement)
 const componentStateStage = ref<'pending' | 'loading' | 'mounted'>('pending')
+
+const openChat = useElectronEventaInvoke(electronOpenChat)
+const openSettings = useElectronEventaInvoke(electronOpenSettings)
+const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
+const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
+const quitApp = useElectronEventaInvoke(electronAppQuit)
+const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
+const startDraggingWindow = useElectronEventaInvoke(electronStartDraggingWindow)
+const getBounds = useElectronEventaInvoke(electron.window.getBounds)
+const setBounds = useElectronEventaInvoke(electron.window.setBounds)
+const syncControlStripState = useElectronEventaInvoke(electronControlStripSyncState)
+const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
+const getMainWindowConfig = useElectronEventaInvoke(electronGetMainWindowConfig)
+const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
+
+const colorMode = useColorMode()
+const modelStore = useModelStore()
 
 const isLoading = ref(true)
 
 const isIgnoringMouseEvents = ref(false)
-const shouldFadeOnCursorWithin = ref(false)
-const isSpineHitAreaHovered = ref(false)
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
-const { isOutside: isOutsideMain } = useElectronMouseInElement(controlsIslandRoot)
-const { isOutside: isOutsideGemini } = useElectronMouseInElement(geminiIslandRoot)
-const { isOutside: isOutsideGeminiPanel } = useElectronMouseInElement(geminiPanelRoot)
-const isOutside = computed(() => isOutsideMain.value && isOutsideGemini.value && isOutsideGeminiPanel.value)
+const { isOutside: isOutsideControlStrip } = useElectronMouseInElement(controlStripRoot)
+const isOutside = computed(() => isOutsideControlStrip.value)
 const isOutsideForInstant = isOutside
-const { x: relativeMouseX, y: relativeMouseY } = useElectronRelativeMouse()
-// NOTICE: In real-world use cases of Fade on Hover feature, the cursor may move around the edge of the
-// model rapidly, causing flickering effects when checking pixel transparency strictly.
-// Here we use render-target pixel sampling to keep detection aligned with the actual render output.
-const isTransparentByPixels = useCanvasPixelIsTransparentAtPoint(
-  stageCanvas,
-  relativeMouseX,
-  relativeMouseY,
-  { regionRadius: 25 },
-)
-const isTransparentByThree = useThreeSceneIsTransparentAtPoint(
-  widgetStageRef,
-  relativeMouseX,
-  relativeMouseY,
-  { regionRadius: 25 },
-)
 
 const { stageModelRenderer, stageModelSelected } = storeToRefs(useSettings())
 
@@ -91,34 +87,77 @@ const { activeProvider: activeChatProvider, activeModel: activeChatModel } = sto
 
 watch([activeChatProvider, activeChatModel], async () => {
   if (activeChatProvider.value && activeChatModel.value) {
-    console.log('[Main Page] Discovering tools compatibility for:', activeChatModel.value)
+    console.info('[Main Page] Discovering tools compatibility for:', activeChatModel.value)
     const provider = await providersStore.getProviderInstance<ChatProvider>(activeChatProvider.value)
     if (provider) {
       await llmStore.discoverToolsCompatibility(activeChatModel.value, provider, [])
     }
   }
 }, { immediate: true })
-const isTransparent = computed(() => {
-  if (stageModelRenderer.value === 'vrm')
-    return isTransparentByThree.value
 
-  if (stageModelRenderer.value === 'live2d')
-    return isTransparentByPixels.value
+const { stageViewControlsEnabled, alwaysOnTop } = storeToRefs(useSettings())
+const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
 
-  return true
+const settingsStore = useSettings()
+const positioningStore = usePositioningStore()
+const controlStripStore = useSettingsControlStrip()
+const { stageEnabled, captionOpen, collapsed } = storeToRefs(controlStripStore)
+const controlsIslandStore = useSettingsControlsIsland()
+const { fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
+const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
+const liveSessionStore = useLiveSessionStore()
+
+const cardStore = useAiriCardStore()
+const { activeCard } = storeToRefs(cardStore)
+const customVrmAnimationsStore = useCustomVrmAnimationsStore()
+const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
+
+watch(stageEnabled, (val) => {
+  toggleStageVisibility(val)
+}, { immediate: true })
+
+watch(captionOpen, (val) => {
+  toggleCaptionVisibility(val)
+}, { immediate: true })
+
+// Treat stage and caption as partners when captionFollowStage is enabled
+watch(stageEnabled, (newVal) => {
+  if (settingsStore.captionFollowStage) {
+    if (captionOpen.value !== newVal) {
+      captionOpen.value = newVal
+    }
+  }
 })
 
-const { isNearAnyBorder: isAroundWindowBorder } = useElectronMouseAroundWindowBorder({ threshold: 30 })
-const isAroundWindowBorderForInstant = isAroundWindowBorder
+watch(captionOpen, (newVal) => {
+  if (settingsStore.captionFollowStage) {
+    if (stageEnabled.value !== newVal) {
+      controlStripStore.stageEnabled = newVal
+    }
+  }
+})
 
-const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
+watch(() => settingsStore.captionFollowStage, (newVal) => {
+  if (newVal) {
+    // Immediately sync caption state to stage state
+    if (captionOpen.value !== stageEnabled.value) {
+      captionOpen.value = stageEnabled.value
+    }
+  }
+})
 
-const { stageViewControlsEnabled, lastReloadReason } = storeToRefs(useSettings())
-const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
-const { fadeOnHoverEnabled } = storeToRefs(useControlsIslandStore())
-const viewControlsActiveMode = ref<'x' | 'y' | 'z' | 'scale'>('scale')
+watch(alwaysOnTop, (val) => {
+  setAlwaysOnTop(val)
+}, { immediate: true })
 
-const positioningStore = usePositioningStore()
+const { data: broadcastAction } = useBroadcastChannel<string, string>({ name: 'airi-control-strip-actions' })
+watch(broadcastAction, (action) => {
+  if (action) {
+    console.info(`[Main Page] Received broadcasted control strip action: "${action}"`)
+    const event = new CustomEvent('control-strip:action', { detail: { action } })
+    handleControlStripAction(event)
+  }
+})
 
 const computedScale = computed(() => {
   return positioningStore.getPosition(stageModelSelected.value).scale
@@ -136,142 +175,163 @@ const computedYOffset = computed(() => {
   return y
 })
 
-watch(componentStateStage, () => isLoading.value = componentStateStage.value !== 'mounted', { immediate: true })
-
-const { pause, resume } = watch(isTransparent, (transparent) => {
-  shouldFadeOnCursorWithin.value = fadeOnHoverEnabled.value && !transparent
-}, { immediate: true })
-
-const isLocked = ref(false)
-provide('isLocked', isLocked)
-
-const isFlashing = ref(false)
-const isCountingDown = ref(false)
-const backgroundStore = useBackgroundStore()
-
-async function handleTakePhoto() {
-  const t = toast.info('Image taken will be saved to image journal', {
-    duration: 5000,
-  })
-
-  // Start Countdown
-  isCountingDown.value = true
-
-  try {
-    // 3-2-1 Countdown
-    for (let i = 3; i > 0; i--) {
-      toast.info(`Taking photo in ${i}...`, { id: t })
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-
-    // Capture Toast feedback
-    toast.info('📸 Capturing...', { id: t })
-
-    // Flash
-    isFlashing.value = true
-
-    // Wait a bit for the flash to start
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Capture Blob
-    const blob = await widgetStageRef.value?.captureFrame()
-    if (!blob)
-      throw new Error('Failed to capture stage image')
-
-    const dateStr = new Date().toLocaleString()
-    const title = `Selfie - ${dateStr}`
-
-    await backgroundStore.addBackground('selfie', blob, title)
-
-    toast.success('Photo saved to journal!', { id: t })
-  }
-  catch (err) {
-    console.error('[Photo Mode] Capture failed:', err)
-    toast.error('Failed to capture photo', { id: t })
-  }
-  finally {
-    isCountingDown.value = false
-    // Delay flash end slightly for visual feedback
-    setTimeout(() => {
-      isFlashing.value = false
-    }, 300)
-  }
+function handleScaleChange(newScale: number) {
+  const key = stageModelSelected.value
+  const current = positioningStore.getPosition(key)
+  positioningStore.setPosition(key, { ...current, scale: newScale })
 }
 
-const getMainWindowConfig = useElectronEventaInvoke(electronGetMainWindowConfig)
+function handleOffsetChange(offset: { x: number, y: number }) {
+  const key = stageModelSelected.value
+  const current = positioningStore.getPosition(key)
+  positioningStore.setPosition(key, {
+    ...current,
+    x: offset.x,
+    y: stageModelRenderer.value === 'live2d' ? -offset.y : offset.y,
+  })
+}
 
-onMounted(async () => {
-  const config = await getMainWindowConfig() as any
-  if (config) {
-    isLocked.value = !!config.locked
+watch(componentStateStage, () => isLoading.value = componentStateStage.value !== 'mounted', { immediate: true })
+
+// Main window control strip sizing and smart popovers state
+const activePopover = ref<string | null>(null)
+const lastPlacement = ref<'left' | 'right' | 'top' | 'bottom' | null>(null)
+const lastOrientation = ref<'vertical' | 'horizontal'>('vertical')
+
+const activeButtons = computed(() => {
+  return controlStripStore.buttons.filter((btn: any) => btn.enabled)
+})
+
+const stripLength = computed(() => {
+  if (collapsed.value) {
+    return 60
+  }
+  const N = activeButtons.value.length
+  return N === 0 ? 60 : 60 + 46 * N
+})
+
+async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
+  const current = await getBounds()
+  if (!current)
+    return
+
+  // 1. Calculate the unexpanded strip bounds from the current window bounds
+  let x = current.x
+  let y = current.y
+  const w = lastOrientation.value === 'vertical' ? 56 : stripLength.value
+  const h = lastOrientation.value === 'vertical' ? stripLength.value : 56
+
+  if (activePopover.value) {
+    const placement = lastPlacement.value || 'bottom'
+    if (lastOrientation.value === 'vertical') {
+      x = current.x + (placement === 'left' ? 268 : 0)
+      y = current.y + (current.height - stripLength.value) / 2
+    }
+    else {
+      x = current.x + (current.width - stripLength.value) / 2
+      y = current.y + (placement === 'top' ? 280 : 0)
+    }
   }
 
-  if (window.electron?.ipcRenderer) {
-    window.electron.ipcRenderer.on('eventa:event:electron:windows:main:config-changed', (_event, config: any) => {
-      if (config) {
-        isLocked.value = !!config.locked
-      }
-    })
+  // 2. Calculate the target window bounds
+  let targetX = x
+  let targetY = y
+  let targetW = w
+  let targetH = h
+
+  if (nextPopover) {
+    if (controlStripStore.orientation === 'vertical') {
+      targetW = 324
+      targetH = Math.max(336, h)
+      targetX = x - (nextPlacement === 'left' ? 268 : 0)
+      targetY = y - (targetH - h) / 2
+    }
+    else {
+      targetW = Math.max(336, w)
+      targetH = 336
+      targetX = x - (targetW - w) / 2
+      targetY = y - (nextPlacement === 'top' ? 280 : 0)
+    }
+  }
+
+  await setBounds([{
+    x: Math.round(targetX),
+    y: Math.round(targetY),
+    width: Math.round(targetW),
+    height: Math.round(targetH),
+  }])
+
+  activePopover.value = nextPopover
+  lastPlacement.value = nextPlacement
+  lastOrientation.value = controlStripStore.orientation
+}
+
+watch([stripLength, () => controlStripStore.orientation], async ([newLength, newOrientation]) => {
+  if (activePopover.value) {
+    await applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
+  }
+  else {
+    const w = newOrientation === 'vertical' ? 56 : newLength
+    const h = newOrientation === 'vertical' ? newLength : 56
+    const current = await getBounds()
+    if (current) {
+      await setBounds([{
+        x: current.x,
+        y: current.y,
+        width: w,
+        height: h,
+      }])
+    }
+    lastOrientation.value = newOrientation
   }
 })
 
-const hearingDialogOpen = computed(() => controlsIslandRef.value?.hearingDialogOpen ?? false)
-const whisperDockOpen = computed(() => whisperDockRef.value?.isOpen ?? false)
+watch(
+  [activePopover, lastPlacement, () => controlStripStore.orientation, stripLength],
+  async ([popover, placement, orient, len]) => {
+    await syncControlStripState({
+      activePopover: popover,
+      lastPlacement: placement || 'bottom',
+      orientation: orient || 'vertical',
+      stripLength: len,
+    })
+  },
+  { immediate: true },
+)
 
-const addWidget = useElectronEventaInvoke(widgetsAdd)
-
-async function handleSpawnStandalone(stickerId: string) {
-  // We use 128x128 as a safe default for stickers to allow rotation "crook"
-  const width = 128
-  const height = 128
-  const x = Math.floor(Math.random() * (window.screen.availWidth - width))
-  const y = Math.floor(Math.random() * (window.screen.availHeight - height))
-
-  await addWidget({
-    componentName: 'sticker',
-    componentProps: { stickerId },
-    size: 's',
-    ttlMs: 60000,
-    bounds: { x, y, width, height },
-  })
+async function handleApplySizePreset(e: Event) {
+  const { target, preset } = (e as CustomEvent).detail
+  await applySizePreset({ target, preset })
 }
 
-watch([isOutsideForInstant, isAroundWindowBorderForInstant, isOutsideWindow, isTransparent, hearingDialogOpen, whisperDockOpen, fadeOnHoverEnabled, isSpineHitAreaHovered], () => {
-  if (hearingDialogOpen.value || whisperDockOpen.value) {
-    // Hearing dialog or whisper dock is open; keep window interactive
+const hearingDialogOpen = ref(false)
+const whisperDockOpen = ref(false)
+
+function applyTransparencyState() {
+  if (hearingDialogOpen.value || whisperDockOpen.value || stageViewControlsEnabled.value || activePopover.value) {
     isIgnoringMouseEvents.value = false
-    shouldFadeOnCursorWithin.value = false
     setIgnoreMouseEvents([false, { forward: true }])
-    pause()
     return
   }
 
   const insideControls = !isOutsideForInstant.value
-  const nearBorder = isAroundWindowBorderForInstant.value
-  const insideHitArea = isSpineHitAreaHovered.value
 
-  if (insideControls || nearBorder || insideHitArea) {
-    // Inside interactive controls, near resize border, or inside Spine hit area: do NOT ignore events
+  if (insideControls) {
     isIgnoringMouseEvents.value = false
-    shouldFadeOnCursorWithin.value = false
     setIgnoreMouseEvents([false, { forward: true }])
-    pause()
   }
   else {
-    const fadeEnabled = fadeOnHoverEnabled.value
-    // Otherwise allow click-through while we fade UI based on transparency (when enabled)
-    isIgnoringMouseEvents.value = fadeEnabled
-    shouldFadeOnCursorWithin.value = fadeEnabled && !isOutsideWindow.value && !isTransparent.value
-    setIgnoreMouseEvents([fadeEnabled, { forward: true }])
-    if (fadeEnabled)
-      resume()
-    else
-      pause()
+    const insideWindow = !isOutsideWindow.value
+    const ignore = insideWindow
+    isIgnoringMouseEvents.value = ignore
+    setIgnoreMouseEvents([ignore, { forward: true }])
   }
-})
+}
+
+watch([isOutsideForInstant, isOutsideWindow, hearingDialogOpen, whisperDockOpen, stageViewControlsEnabled, activePopover], applyTransparencyState)
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()
-const { stream, enabled, selectedAudioInputLabel } = storeToRefs(settingsAudioDeviceStore)
+const { stream, enabled } = storeToRefs(settingsAudioDeviceStore)
 const { askPermission, startStream } = settingsAudioDeviceStore
 const { startRecord, stopRecord, onStopRecord, dispose: disposeRecorder } = useAudioRecorder(stream)
 const hearingPipeline = useHearingSpeechInputPipeline()
@@ -317,21 +377,16 @@ const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionCh
 async function handleSpeechStart() {
   console.info('[Main Page] Speech Start detected')
   if (shouldUseStreamInput.value) {
-    // For streaming providers, ChatArea component handles transcription manually via transcription pipeline.
-    // The main page should not start automatic transcription to avoid duplicate sessions when ChatArea is active.
     return
   }
-
   startRecord()
 }
 
 async function handleSpeechEnd() {
   console.info('[Main Page] Speech End detected')
   if (shouldUseStreamInput.value) {
-    // Keep streaming session alive; idle timer in pipeline will handle teardown.
     return
   }
-
   stopRecord()
 }
 
@@ -343,11 +398,10 @@ async function startAudioInteraction() {
 
   isStartingAudio.value = true
   try {
-    console.info('[Main Page] Starting audio interaction with device:', selectedAudioInputLabel.value)
+    console.info('[Main Page] Starting audio interaction')
 
     if (stream.value) {
       if (hearingDetectionMode.value === 'vad' && !shouldUseStreamInput.value) {
-        // Only use separate VAD if not in streaming mode (streaming providers handle their own VAD/segmentation)
         console.info('[Main Page] Initializing separate VAD for non-streaming mode')
         await initVAD()
         await startVAD(stream.value)
@@ -356,7 +410,6 @@ async function startAudioInteraction() {
         console.info('[Main Page] Skipping separate VAD in streaming mode (provider handles segmentation)')
       }
       else {
-        // Manual mode: start recording immediately if not streaming
         if (!shouldUseStreamInput.value) {
           console.info('[Main Page] Manual mode enabled, starting recording immediately')
           startRecord()
@@ -375,14 +428,12 @@ async function startAudioInteraction() {
         return
       }
 
-      // Use sentence deltas for live captions and speech end for final text.
       await transcribeForMediaStream(stream.value, {
         onSentenceEnd: (delta) => {
           console.info('[Main Page] Received transcription delta:', delta)
           if (!delta || !delta.trim()) {
             return
           }
-
           postCaption({ type: 'caption-speaker', text: delta })
         },
         onSpeechEnd: (text) => {
@@ -403,10 +454,6 @@ async function startAudioInteraction() {
 
               toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
               console.info('[Main Page] Sending transcription to chat:', text)
-              console.log('[Main Page] Ingesting with tools:', {
-                model: activeChatModel.value,
-                hasTools: !!builtinTools,
-              })
 
               const { autoSendEnabled } = storeToRefs(hearingStore)
               await chatStore.ingest(text, {
@@ -436,7 +483,6 @@ async function startAudioInteraction() {
     if (stopOnStopRecord)
       stopOnStopRecord()
 
-    // Hook once
     stopOnStopRecord = onStopRecord(async (recording) => {
       console.info('[Main Page] Voice recording stopped, size:', recording?.size, 'bytes')
       if (!recording || recording.size === 0) {
@@ -455,7 +501,6 @@ async function startAudioInteraction() {
 
       toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
 
-      // Update caption overlay speaker text via BroadcastChannel
       postCaption({ type: 'caption-speaker', text })
 
       if (hearingDialogOpen.value) {
@@ -467,11 +512,6 @@ async function startAudioInteraction() {
         const provider = await providersStore.getProviderInstance(activeChatProvider.value)
         if (!provider || !activeChatModel.value)
           return
-
-        console.log('[Main Page] Ingesting (Manual) with tools:', {
-          model: activeChatModel.value,
-          hasTools: !!builtinTools,
-        })
 
         const { autoSendEnabled } = storeToRefs(hearingStore)
         await chatStore.ingest(text, {
@@ -496,16 +536,10 @@ async function startAudioInteraction() {
 
 async function stopAudioInteraction() {
   try {
-    // Await the final recording chunk to ensure full transcription
     await stopRecord()
-
     stopOnStopRecord?.()
     stopOnStopRecord = undefined
-
-    // Gracefully stop transcription without abrupt abort
     await stopStreamingTranscription(false)
-
-    // Stop VAD processing loop without disposing the model
     stopVAD()
   }
   catch (e) {
@@ -514,16 +548,9 @@ async function stopAudioInteraction() {
 }
 
 watch(enabled, async (val) => {
-  /*
-  if (window.electron?.ipcRenderer) {
-    window.electron.ipcRenderer.send('mic-state-changed', val, selectedAudioInputLabel.value)
-  }
-  */
-
   console.info('[Main Page] Audio enabled changed:', val, 'stream available:', !!stream.value)
   if (val) {
     await askPermission()
-    // Force a fresh stream acquisition on every enable
     await startStream()
     await startAudioInteraction()
   }
@@ -540,26 +567,224 @@ watch(stream, async (newStream) => {
   }
 })
 
+async function handleOpenCustomizer(e?: Event) {
+  const group = (e as CustomEvent)?.detail?.group
+  console.info('[Main Page] [Control Strip Action] Toggling Customizer Window with group:', group)
+  await toggleCustomizerVisibility({ enabled: true, group })
+}
+
+function handleOpenSettings(e: Event) {
+  const route = (e as CustomEvent).detail?.route
+  console.info(`[Main Page] [Control Strip Action] Opening settings for route: "${route}"`)
+  openSettings({ route })
+}
+
+function cycleAnimation() {
+  if (stageModelRenderer.value === 'mmd') {
+    const mmdStore = useMmd()
+    const allKeys = mmdStore.availableMotions
+    if (allKeys.length === 0) {
+      toast.error('No MMD motions available', { id: 'animation-cycle' })
+      return
+    }
+    const currentKey = mmdStore.currentMotion
+    const currentIndex = allKeys.indexOf(currentKey)
+    const nextIndex = (currentIndex + 1) % allKeys.length
+    const nextAnimation = allKeys[nextIndex]
+
+    mmdStore.currentMotion = nextAnimation
+    toast.info(`Cycling MMD: ${nextAnimation}`, { id: 'animation-cycle' })
+    return
+  }
+
+  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  const allKeys = customVrmAnimationsStore.animationKeys
+  const hasCardSubset = cardIdleAnimations.length > 0
+
+  if (cardIdleAnimations.length === 1) {
+    const currentKey = cardIdleAnimations[0]
+    const currentIndex = allKeys.indexOf(currentKey)
+    const nextIndex = (currentIndex + 1) % allKeys.length
+    const nextAnimation = allKeys[nextIndex]
+
+    if (activeCard.value?.extensions?.airi?.acting) {
+      activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
+    }
+    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+    return
+  }
+
+  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
+  const finalKeys = keys.length > 0 ? keys : allKeys
+
+  const currentKey = vrmIdleAnimation.value
+  const currentIndex = finalKeys.indexOf(currentKey)
+  const nextIndex = (currentIndex + 1) % finalKeys.length
+  const nextAnimation = finalKeys[nextIndex]
+
+  vrmIdleAnimation.value = nextAnimation
+  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+}
+
+function handleControlStripAction(e: Event) {
+  const action = (e as CustomEvent).detail.action
+  console.info(`[Main Page] [Control Strip Action] Received action: "${action}"`)
+  if (action === 'chat') {
+    controlStripStore.chatOpen = !controlStripStore.chatOpen
+    console.info(`[Main Page] [Control Strip Action] Invoking openChat(${controlStripStore.chatOpen})...`)
+    openChat(controlStripStore.chatOpen)
+  }
+  else if (action === 'settings') {
+    openSettings()
+  }
+  else if (action === 'caption') {
+    controlStripStore.captionOpen = !controlStripStore.captionOpen
+  }
+  else if (action === 'mic') {
+    settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
+  }
+  else if (action === 'stage') {
+    controlStripStore.stageEnabled = !controlStripStore.stageEnabled
+  }
+  else if (action === 'gemini-session') {
+    liveSessionStore.toggle()
+  }
+  else if (action === 'always-on-top') {
+    alwaysOnTop.value = !alwaysOnTop.value
+  }
+  else if (action === 'theme-mode') {
+    colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
+  }
+  else if (action === 'caption-follow-stage') {
+    settingsStore.captionFollowStage = !settingsStore.captionFollowStage
+  }
+  else if (action === 'caption-docking') {
+    const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
+    settingsStore.captionDocking = next
+    syncCaptionDocking(next)
+  }
+  else if (action === 'caption-layout-mode') {
+    settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
+  }
+  else if (action === 'exit-app') {
+    quitApp()
+  }
+  else if (action === 'viewport-tactile') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = false
+    controlStripStore.stageMode = 'tactileMode'
+  }
+  else if (action === 'viewport-drag') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = true
+    controlStripStore.stageMode = 'dragMode'
+  }
+  else if (action === 'viewport-positioning') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = true
+    controlStripStore.stageMode = 'positionMode'
+  }
+  else if (action === 'viewport-orbit') {
+    modelStore.interactionMode = 'orbit'
+    stageViewControlsEnabled.value = false
+    controlStripStore.stageMode = 'orbitMode'
+  }
+  else if (action === 'viewport-cycle-modes') {
+    controlStripStore.cycleStageMode()
+    const mode = controlStripStore.stageMode
+    if (mode === 'tactileMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = false
+    }
+    else if (mode === 'dragMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = true
+    }
+    else if (mode === 'positionMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = true
+    }
+    else if (mode === 'orbitMode') {
+      modelStore.interactionMode = 'orbit'
+      stageViewControlsEnabled.value = false
+    }
+  }
+  else if (action === 'viewport-auto-hide') {
+    fadeOnHoverEnabled.value = !fadeOnHoverEnabled.value
+  }
+  else if (action === 'viewport-reset-coordinates') {
+    const key = stageModelSelected.value
+    positioningStore.setPosition(key, { x: 0, y: 0, scale: 1 })
+    if (stageModelRenderer.value === 'live2d') {
+      const live2dStore = useLive2d()
+      live2dStore.resetState()
+    }
+    else {
+      modelStore.modelOffset = { x: 0, y: 0, z: 0 }
+      modelStore.cameraDistance = modelStore.modelSize.z * 10
+    }
+  }
+  else if (action === 'actor-idle-animations') {
+    cycleAnimation()
+  }
+}
+
 onMounted(async () => {
+  chatStore.setToolsResolver(builtinTools)
   tools.value = await builtinTools()
-  // Initialize VAD model immediately to avoid startup lag
   initVAD().catch((err) => {
     console.error('[Main Page] VAD initialization failed:', err)
   })
 
+  // Initialize orientation from main process config
+  const mainConfig = await getMainWindowConfig()
+  if (mainConfig?.orientation) {
+    controlStripStore.orientation = mainConfig.orientation
+  }
+
+  // Resize window to fit Control Strip initially
+  lastOrientation.value = controlStripStore.orientation
+  const w = controlStripStore.orientation === 'vertical' ? 56 : stripLength.value
+  const h = controlStripStore.orientation === 'vertical' ? stripLength.value : 56
+  const current = await getBounds()
+  if (current) {
+    await setBounds([{
+      x: current.x,
+      y: current.y,
+      width: w,
+      height: h,
+    }])
+  }
+
   if (window.electron?.ipcRenderer) {
     window.electron.ipcRenderer.on('toggle-mic-from-shortcut', () => {
-      const oldState = settingsAudioDeviceStore.enabled
-      console.info(`[Renderer] Received 'toggle-mic-from-shortcut' event. Current mic enabled: ${oldState}`)
       settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
-      console.info(`[Renderer] Mic state flipped to: ${settingsAudioDeviceStore.enabled}`)
     })
+    window.electron.ipcRenderer.on('chat-window-state', (_, isOpen: boolean) => {
+      controlStripStore.chatOpen = isOpen
+    })
+    window.electron.ipcRenderer.on('caption-window-state', (_, isOpen: boolean) => {
+      controlStripStore.captionOpen = isOpen
+    })
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('control-strip:action', handleControlStripAction as EventListener)
+    window.addEventListener('control-strip:open-customizer', handleOpenCustomizer as EventListener)
+    window.addEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    window.addEventListener('control-strip:drag-start', () => {
+      startDraggingWindow()
+    })
+    window.addEventListener('control-strip:popover-changed', async (e: Event) => {
+      const { activePopover: nextPopover, placement: nextPlacement } = (e as CustomEvent).detail
+      await applyBoundsUpdate(nextPopover, nextPlacement)
+    })
+    window.addEventListener('control-strip:apply-size-preset', handleApplySizePreset as EventListener)
   }
 })
 
-watch(hearingDetectionMode, async (val) => {
+watch(hearingDetectionMode, async () => {
   if (enabled.value) {
-    console.info('[Main Page] Detection Mode changed to:', val, 'restarting audio interaction')
     await stopAudioInteraction()
     await startAudioInteraction()
   }
@@ -569,6 +794,13 @@ onUnmounted(async () => {
   await stopAudioInteraction()
   disposeVAD()
   await disposeRecorder()
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('control-strip:action', handleControlStripAction as EventListener)
+    window.removeEventListener('control-strip:open-customizer', handleOpenCustomizer as EventListener)
+    window.removeEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    window.removeEventListener('control-strip:apply-size-preset', handleApplySizePreset as EventListener)
+  }
 })
 
 watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
@@ -581,247 +813,29 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
     }
   }
 })
-
-// Assistant caption is broadcast from Stage.vue via the same channel
 </script>
 
 <template>
-  <!-- Camera Flash Overlay -->
-  <div v-show="isFlashing" class="animate-camera-flash pointer-events-none fixed inset-0 z-9999" />
+  <div :class="['relative w-full h-full', 'bg-transparent flex flex-col']">
+    <WidgetStage
+      ref="widgetStageRef"
+      v-model:state="componentStateStage"
+      :class="['w-full h-full', 'flex-1']"
+      :focus-at="{ x: live2dLookAtX, y: live2dLookAtY }"
+      :scale="computedScale"
+      :x-offset="computedXOffset"
+      :y-offset="computedYOffset"
+      @scale-change="handleScaleChange"
+      @offset-change="handleOffsetChange"
+    />
 
-  <div
-    max-h="[100vh]"
-    max-w="[100vw]"
-    flex="~ col"
-    relative z-2 h-full overflow-hidden rounded-xl
-    transition="opacity duration-500 ease-in-out"
-  >
-    <div
-      :class="[
-        'relative h-full w-full items-end gap-2',
-        'transition-opacity duration-250 ease-in-out',
-        isLoading ? 'opacity-0 pointer-events-none' : 'opacity-100',
-      ]"
-    >
-      <div
-        :class="[
-          shouldFadeOnCursorWithin ? 'op-0' : 'op-100',
-          'absolute',
-          'top-0 left-0 w-full h-full',
-          'overflow-hidden',
-          'rounded-2xl',
-          'transition-opacity duration-250 ease-in-out',
-        ]"
-      >
-        <ResourceStatusIsland />
-        <WidgetStage
-          ref="widgetStageRef"
-          v-model:state="componentStateStage"
-          h-full w-full
-          flex-1
-          :focus-at="{ x: live2dLookAtX, y: live2dLookAtY }"
-          :scale="computedScale"
-          :x-offset="computedXOffset"
-          :y-offset="computedYOffset"
-          mb="<md:18"
-          @hit-area-hover="(val) => isSpineHitAreaHovered = val?.hovered || false"
-        />
-        <ControlsIsland
-          ref="controlsIslandRef"
-          v-model:view-controls-active-mode="viewControlsActiveMode"
-          :is-locked="isLocked"
-          @take-photo="handleTakePhoto"
-        />
-
-        <!-- Spatial Controls Overlay -->
-        <Transition name="fade">
-          <div v-if="stageViewControlsEnabled" class="pointer-events-none absolute left-0 top-0 z-100 h-full w-full">
-            <!-- Axis Selectors (Top Left) -->
-            <div class="pointer-events-auto absolute left-4 top-4 flex gap-1 rounded-2xl bg-neutral-100/60 p-1 backdrop-blur-md dark:bg-neutral-900/60">
-              <Button
-                variant="secondary-muted"
-                size="sm"
-                :toggled="viewControlsActiveMode === 'x'"
-                class="min-w-10 font-bold font-mono"
-                @click="viewControlsActiveMode = 'x'"
-              >
-                X
-              </Button>
-              <Button
-                variant="secondary-muted"
-                size="sm"
-                :toggled="viewControlsActiveMode === 'y'"
-                class="min-w-10 font-bold font-mono"
-                @click="viewControlsActiveMode = 'y'"
-              >
-                Y
-              </Button>
-              <Button
-                v-if="stageModelRenderer === 'vrm'"
-                variant="secondary-muted"
-                size="sm"
-                :toggled="viewControlsActiveMode === 'z'"
-                class="min-w-10 font-bold font-mono"
-                @click="viewControlsActiveMode = 'z'"
-              >
-                Z
-              </Button>
-              <Button
-                variant="secondary-muted"
-                size="sm"
-                :toggled="viewControlsActiveMode === 'scale'"
-                class="min-w-10 font-bold font-mono"
-                @click="viewControlsActiveMode = 'scale'"
-              >
-                S
-              </Button>
-            </div>
-
-            <!-- Vertical Slider (Left Edge) -->
-            <div class="pointer-events-auto absolute left-4 top-1/2 -translate-y-1/2">
-              <ViewControlInputs :mode="viewControlsActiveMode" />
-            </div>
-          </div>
-        </Transition>
-        <WhisperDock
-          ref="whisperDockRef"
-          :tools="tools"
-          @spawn-standalone="handleSpawnStandalone"
-        />
-        <StickerStack />
-      </div>
-    </div>
-    <div v-if="isLoading" class="pointer-events-none absolute left-0 top-0 z-100 h-full w-full">
-      <div class="absolute left-0 top-0 z-99 h-full w-full flex cursor-grab items-center justify-center overflow-hidden">
-        <div
-          :class="[
-            'absolute h-24 w-full overflow-hidden rounded-xl',
-            'flex items-center justify-center',
-            'bg-white/80 dark:bg-neutral-950/80',
-            'backdrop-blur-md',
-          ]"
-        >
-          <div
-            :class="[
-              'drag-region',
-              'absolute left-0 top-0',
-              'h-full w-full flex items-center justify-center',
-              'text-1.5rem text-primary-600 dark:text-primary-400 font-normal',
-              'select-none',
-              'animate-flash animate-duration-5s animate-count-infinite',
-            ]"
-          >
-            <div class="flex flex-col items-center gap-1">
-              <div>Loading...</div>
-              <div v-if="lastReloadReason" class="text-1rem font-normal opacity-50">
-                Triggered by: {{ lastReloadReason }}
-              </div>
-            </div>
-          </div>
-        </div>
+    <div v-if="isLoading" :class="['absolute inset-0 z-100', 'flex items-center justify-center', 'bg-transparent']">
+      <div :class="['w-8 h-8', 'flex items-center justify-center', 'text-primary-600 dark:text-primary-400']">
+        <div :class="['i-solar:spinner-bold animate-spin', 'text-2xl']" />
       </div>
     </div>
   </div>
-  <Transition
-    enter-active-class="transition-opacity duration-250"
-    enter-from-class="opacity-0"
-    enter-to-class="opacity-100"
-    leave-active-class="transition-opacity duration-250"
-    leave-from-class="opacity-100"
-    leave-to-class="opacity-0"
-  >
-    <div
-      v-if="false"
-      class="absolute left-0 top-0 z-99 h-full w-full flex cursor-grab items-center justify-center overflow-hidden drag-region"
-    >
-      <div
-        class="absolute h-32 w-full flex items-center justify-center overflow-hidden rounded-xl"
-        bg="white/80 dark:neutral-950/80" backdrop-blur="md"
-      >
-        <div class="wall absolute top-0 h-8" />
-        <div class="absolute left-0 top-0 h-full w-full flex animate-flash animate-duration-5s animate-count-infinite select-none items-center justify-center text-1.5rem text-primary-400 font-normal drag-region">
-          DRAG HERE TO MOVE
-        </div>
-        <div class="wall absolute bottom-0 h-8 drag-region" />
-      </div>
-    </div>
-  </Transition>
-  <Transition
-    enter-active-class="transition-opacity duration-250 ease-in-out"
-    enter-from-class="opacity-50"
-    enter-to-class="opacity-100"
-    leave-active-class="transition-opacity duration-250 ease-in-out"
-    leave-from-class="opacity-100"
-    leave-to-class="opacity-50"
-  >
-    <div v-if="isAroundWindowBorderForInstant && !isLoading" class="pointer-events-none absolute left-0 top-0 z-999 h-full w-full">
-      <div
-        :class="[
-          'b-primary/50',
-          'h-full w-full animate-flash animate-duration-3s animate-count-infinite b-4 rounded-2xl',
-        ]"
-      />
-    </div>
-  </Transition>
-
-  <!-- Viewfinder Overlay -->
-  <Transition
-    enter-active-class="transition-all duration-500 ease-out"
-    enter-from-class="opacity-0 scale-105"
-    enter-to-class="opacity-100 scale-100"
-    leave-active-class="transition-all duration-300 ease-in"
-    leave-from-class="opacity-100 scale-100"
-    leave-to-class="opacity-0 scale-95"
-  >
-    <div
-      v-if="isCountingDown"
-      class="pointer-events-none fixed inset-0 z-50 flex items-start justify-center"
-    >
-      <div
-        class="relative mt-24 w-85% border-4 border-primary-500/50 rounded-2xl border-dashed"
-        :style="{ aspectRatio: '16 / 9' }"
-      >
-        <!-- Viewfinder Corners -->
-        <div class="absolute h-8 w-8 border-l-6 border-t-6 border-primary-500 rounded-tl-lg -left-2 -top-2" />
-        <div class="absolute h-8 w-8 border-r-6 border-t-6 border-primary-500 rounded-tr-lg -right-2 -top-2" />
-        <div class="absolute h-8 w-8 border-b-6 border-l-6 border-primary-500 rounded-bl-lg -bottom-2 -left-2" />
-        <div class="absolute h-8 w-8 border-b-6 border-r-6 border-primary-500 rounded-br-lg -bottom-2 -right-2" />
-
-        <!-- Label -->
-        <div class="absolute left-1/2 flex items-center gap-2 rounded-full bg-primary-500 px-4 py-1 text-xs text-white font-black tracking-widest uppercase shadow-lg -top-10 -translate-x-1/2">
-          <div i-solar:camera-bold text-sm />
-          AIRI Card Viewfinder (15% Offset)
-        </div>
-      </div>
-    </div>
-  </Transition>
 </template>
-
-<style scoped>
-@keyframes wall-move {
-  0% {
-    transform: translateX(calc(var(--wall-width) * -2));
-  }
-  100% {
-    transform: translateX(calc(var(--wall-width) * 1));
-  }
-}
-
-.wall {
-  --at-apply: text-primary-300;
-
-  --wall-width: 8px;
-  animation: wall-move 1s linear infinite;
-  background-image: repeating-linear-gradient(
-    45deg,
-    currentColor,
-    currentColor var(--wall-width),
-    #ff00 var(--wall-width),
-    #ff00 calc(var(--wall-width) * 2)
-  );
-  width: calc(100% + 4 * var(--wall-width));
-}
-</style>
 
 <route lang="yaml">
 meta:

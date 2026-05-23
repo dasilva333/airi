@@ -23,31 +23,6 @@ import { onAppBeforeQuit } from '../libs/bootkit/lifecycle'
 import { setupInlayWindow } from '../windows/inlay'
 import { toggleWindowShow } from '../windows/shared/window'
 
-const RECOMMENDED_WIDTH = 450
-const RECOMMENDED_HEIGHT = 600
-const MINI_WIDTH = 220
-const MINI_HEIGHT = 315
-const ASPECT_RATIO = RECOMMENDED_WIDTH / RECOMMENDED_HEIGHT
-
-function applyWindowSize(window: BrowserWindow, width: number, height: number, display: Electron.Display, x?: number, y?: number): void {
-  window.setResizable(true)
-  const { x: areaX, y: areaY, width: areaWidth, height: areaHeight } = display.workArea
-
-  const targetWidth = Math.round(width)
-  const targetHeight = Math.round(height)
-
-  const targetX = x !== undefined ? Math.round(x) : Math.round(areaX + (areaWidth - targetWidth) / 2)
-  const targetY = y !== undefined ? Math.round(y) : Math.round(areaY + (areaHeight - targetHeight) / 2)
-
-  window.setBounds({
-    x: targetX,
-    y: targetY,
-    width: targetWidth,
-    height: targetHeight,
-  })
-  window.show()
-}
-
 function alignWindow(window: BrowserWindow, position: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right', display?: Electron.Display): void {
   const { width: windowWidth, height: windowHeight } = window.getBounds()
   const targetDisplay = display || screen.getDisplayMatching(window.getBounds())
@@ -71,11 +46,6 @@ function alignWindow(window: BrowserWindow, position: 'center' | 'top-left' | 't
       break
   }
   window.show()
-}
-
-function isSizeMatch(window: BrowserWindow, targetWidth: number, targetHeight: number): boolean {
-  const { width, height } = window.getBounds()
-  return Math.abs(width - Math.round(targetWidth)) <= 2 && Math.abs(height - Math.round(targetHeight)) <= 2
 }
 
 function isPositionMatch(window: BrowserWindow, targetX: number, targetY: number): boolean {
@@ -106,7 +76,7 @@ export function setupTray(params: {
     })
 
     const rebuildContextMenu = debounce((): void => {
-      if (!appTray || appTray.isDestroyed())
+      if (!appTray || appTray.isDestroyed() || !params.mainWindow || params.mainWindow.isDestroyed())
         return
 
       const { width: windowWidth, height: windowHeight } = params.mainWindow.getBounds()
@@ -120,52 +90,6 @@ export function setupTray(params: {
       const contextMenu = Menu.buildFromTemplate([
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.show'), click: () => toggleWindowShow(params.mainWindow) },
         { type: 'separator' },
-        {
-          label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.adjust_sizes'),
-          submenu: screen.getAllDisplays().map((display, index) => {
-            const { x: areaX, y: areaY, width: areaWidth, height: areaHeight } = display.workArea
-            const fullHeightTarget = areaHeight
-            const fullWidthTarget = Math.min(Math.floor(areaHeight * ASPECT_RATIO), Math.floor(areaWidth * 0.75))
-            const halfHeightTarget = Math.floor(areaHeight / 2)
-            const halfWidthTarget = Math.min(Math.floor(halfHeightTarget * ASPECT_RATIO), Math.floor(areaWidth * 0.75))
-
-            return {
-              label: `Monitor ${index + 1}${display.id === screen.getPrimaryDisplay().id ? ' (Primary)' : ''}`,
-              submenu: [
-                {
-                  label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.recommended_size'),
-                  type: 'checkbox',
-                  checked: isSizeMatch(params.mainWindow, RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT) && isPositionMatch(params.mainWindow, areaX + (areaWidth - RECOMMENDED_WIDTH) / 2, areaY + (areaHeight - RECOMMENDED_HEIGHT) / 2),
-                  click: () => applyWindowSize(params.mainWindow, RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT, display),
-                },
-                {
-                  label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.mini_size'),
-                  type: 'checkbox',
-                  checked: isSizeMatch(params.mainWindow, MINI_WIDTH, MINI_HEIGHT) && isPositionMatch(params.mainWindow, areaX + (areaWidth - MINI_WIDTH) / 2, areaY + (areaHeight - MINI_HEIGHT) / 2),
-                  click: () => applyWindowSize(params.mainWindow, MINI_WIDTH, MINI_HEIGHT, display),
-                },
-                {
-                  label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.full_height'),
-                  type: 'checkbox',
-                  checked: isSizeMatch(params.mainWindow, fullWidthTarget, fullHeightTarget) && isPositionMatch(params.mainWindow, areaX + (areaWidth - fullWidthTarget) / 2, areaY + (areaHeight - fullHeightTarget) / 2),
-                  click: () => applyWindowSize(params.mainWindow, fullWidthTarget, fullHeightTarget, display),
-                },
-                {
-                  label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.half_height'),
-                  type: 'checkbox',
-                  checked: isSizeMatch(params.mainWindow, halfWidthTarget, halfHeightTarget) && isPositionMatch(params.mainWindow, areaX + (areaWidth - halfWidthTarget) / 2, areaY + (areaHeight - halfHeightTarget) / 2),
-                  click: () => applyWindowSize(params.mainWindow, halfWidthTarget, halfHeightTarget, display),
-                },
-                {
-                  label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.full_screen'),
-                  type: 'checkbox',
-                  checked: isSizeMatch(params.mainWindow, areaWidth, areaHeight) && isPositionMatch(params.mainWindow, areaX, areaY),
-                  click: () => applyWindowSize(params.mainWindow, areaWidth, areaHeight, display, areaX, areaY),
-                },
-              ],
-            }
-          }),
-        },
         {
           label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.align_to'),
           submenu: [

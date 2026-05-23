@@ -1,5 +1,3 @@
-import type { BrowserWindow } from 'electron'
-
 import type { I18n } from '../../../libs/i18n'
 import type { ServerChannel } from '../../../services/airi/channel-server'
 import type { McpStdioManager } from '../../../services/airi/mcp-servers'
@@ -13,10 +11,11 @@ import clickDragPlugin from 'electron-click-drag-plugin'
 
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { isLinux } from 'std-env'
 
 import {
+  electronControlStripSyncState,
   electronGetMainWindowConfig,
   electronOpenChat,
   electronOpenMainDevtools,
@@ -43,6 +42,7 @@ export async function setupMainWindowElectronInvokes(params: {
   mcpStdioManager: McpStdioManager
   i18n: I18n
   onboardingWindowManager: OnboardingWindowManager
+  appConfig: any
 }) {
   // TODO: once we refactored eventa to support window-namespaced contexts,
   // we can remove the setMaxListeners call below since eventa will be able to dispatch and
@@ -60,17 +60,65 @@ export async function setupMainWindowElectronInvokes(params: {
 
   defineInvokeHandler(context, electronOpenMainDevtools, () => params.window.webContents.openDevTools({ mode: 'detach' }))
   defineInvokeHandler(context, electronOpenSettings, async payload => params.settingsWindow.openWindow(payload?.route))
-  defineInvokeHandler(context, electronOpenChat, async () => toggleWindowShow(await params.chatWindow()))
+  defineInvokeHandler(context, electronOpenChat, async (enabled?: boolean) => {
+    const win = await params.chatWindow()
+    console.info(`[Main Process] [Chat Window] openChat handler called. enabled: ${enabled}, window exists: ${!!win}`)
+    if (win && !win.isDestroyed()) {
+      if (enabled === undefined) {
+        toggleWindowShow(win)
+      }
+      else if (enabled) {
+        console.info('[Main Process] [Chat Window] Showing chat window')
+        win.show()
+        win.focus()
+      }
+      else {
+        console.info('[Main Process] [Chat Window] Hiding chat window')
+        win.hide()
+      }
+    }
+  })
   defineInvokeHandler(context, noticeWindowEventa.openWindow, payload => params.noticeWindow.open(payload))
 
   defineInvokeHandler(context, electronGetMainWindowConfig, () => {
     return (params.window as any).__airi_config
   })
 
+  defineInvokeHandler(context, electronControlStripSyncState, (payload) => {
+    if (payload) {
+      ;(params.window as any).__control_strip_state = payload
+
+      const config = params.appConfig.get()
+      if (config) {
+        if (!config.windows) {
+          config.windows = []
+        }
+        const existingConfigIndex = config.windows.findIndex((w: any) => w.title === 'AIRI' && w.tag === 'main')
+        if (existingConfigIndex !== -1) {
+          config.windows[existingConfigIndex].orientation = payload.orientation
+          params.appConfig.update(config)
+          ;(params.window as any).__airi_config = config.windows[existingConfigIndex]
+        }
+        else {
+          const newWin = {
+            title: 'AIRI',
+            tag: 'main',
+            orientation: payload.orientation,
+          }
+          config.windows.push(newWin)
+          params.appConfig.update(config)
+          ;(params.window as any).__airi_config = newWin
+        }
+      }
+    }
+  })
+
   if (!isLinux) {
-    defineInvokeHandler(context, electronStartDraggingWindow, () => {
+    defineInvokeHandler(context, electronStartDraggingWindow, (_payload, handlerOptions: any) => {
       try {
-        const windowId = params.window.getNativeWindowHandle()
+        const sender = handlerOptions?.raw?.ipcMainEvent?.sender
+        const win = sender ? (BrowserWindow.fromWebContents(sender) ?? params.window) : params.window
+        const windowId = win.getNativeWindowHandle()
         clickDragPlugin.startDrag(windowId)
       }
       catch (error) {

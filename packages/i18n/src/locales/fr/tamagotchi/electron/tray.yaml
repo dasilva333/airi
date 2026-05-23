@@ -8,7 +8,7 @@ menu:
       half_height: Demi-hauteur
       full_screen: Plein écran
       align_to: Aligner sur
-      position: Position
+      position: Position de la barre de contrôle
       lock: Verrouiller
       snapshot: Instantanée
       restore: Restaurer

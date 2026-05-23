@@ -65,9 +65,9 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
       postPlugins.push(plugin)
   }
 
-  function runPlugins(plugins: MotionManagerPlugin[], ctx: MotionManagerPluginContext) {
+  function runPlugins(plugins: MotionManagerPlugin[], ctx: MotionManagerPluginContext, breakOnHandled = true) {
     for (const plugin of plugins) {
-      if (ctx.handled)
+      if (breakOnHandled && ctx.handled)
         break
       plugin(ctx)
     }
@@ -106,7 +106,7 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
         ctx.handled = true
     }
 
-    runPlugins(postPlugins, ctx)
+    runPlugins(postPlugins, ctx, false)
 
     lastUpdateTime.value = now
     return ctx.handled
@@ -357,5 +357,113 @@ export function useMotionUpdatePluginAutoEyeBlink(): MotionManagerPlugin {
     ctx.model.setParameterValueById('ParamEyeROpen', clamp01(blinkRight * baseRight))
 
     ctx.markHandled()
+  }
+}
+
+export interface ArtMeshColorApplyStats {
+  applied: number
+  missed: number
+  missedIds: string[]
+}
+
+function hexToRGBA(hex: string): [number, number, number, number] {
+  const r = Number.parseInt(hex.substring(0, 2), 16) / 255
+  const g = Number.parseInt(hex.substring(2, 4), 16) / 255
+  const b = Number.parseInt(hex.substring(4, 6), 16) / 255
+  const a = Number.parseInt(hex.substring(6, 8), 16) / 255
+  return [r, g, b, a]
+}
+
+/**
+ * Writes VTube multiply/screen colors onto Cubism drawable buffers.
+ * Must run after coreModel.update() ÔÇö that step recalculates drawables and clears earlier writes.
+ */
+export function applyArtMeshColorsToDrawables(
+  internalModel: PixiLive2DInternalModel,
+  artMeshColors: Record<string, string>,
+): ArtMeshColorApplyStats {
+  const stats: ArtMeshColorApplyStats = { applied: 0, missed: 0, missedIds: [] }
+
+  if (!artMeshColors || Object.keys(artMeshColors).length === 0)
+    return stats
+
+  if (!internalModel?.coreModel)
+    return stats
+
+  const coreModel = internalModel.coreModel
+  const drawables = (coreModel as any).getModel?.()?.drawables
+  if (!drawables?.multiplyColors || !drawables?.screenColors)
+    return stats
+
+  for (const [artMeshId, colorValue] of Object.entries(artMeshColors)) {
+    try {
+      const [multiplyHex, screenHex] = colorValue.split('|')
+      const drawableIndex = typeof internalModel.getDrawableIndex === 'function'
+        ? internalModel.getDrawableIndex(artMeshId)
+        : (coreModel as any).getDrawableIndex?.(artMeshId) ?? -1
+
+      if (drawableIndex < 0) {
+        stats.missed++
+        if (stats.missedIds.length < 5)
+          stats.missedIds.push(artMeshId)
+        continue
+      }
+
+      if (multiplyHex) {
+        const [r, g, b, a] = hexToRGBA(multiplyHex)
+        const offset = drawableIndex * 4
+        drawables.multiplyColors[offset] = r
+        drawables.multiplyColors[offset + 1] = g
+        drawables.multiplyColors[offset + 2] = b
+        drawables.multiplyColors[offset + 3] = a
+        // NOTICE: VTube uses multiply alpha (RRGGBBAA last byte) for mesh visibility.
+        // pixi-live2d-display shaders tint RGB only; map sub-1 multiply alpha to drawable opacity.
+        if (drawables.opacities && a < 1)
+          drawables.opacities[drawableIndex] = a
+      }
+
+      if (screenHex) {
+        const [r, g, b, a] = hexToRGBA(screenHex)
+        const offset = drawableIndex * 4
+        drawables.screenColors[offset] = r
+        drawables.screenColors[offset + 1] = g
+        drawables.screenColors[offset + 2] = b
+        drawables.screenColors[offset + 3] = a
+      }
+
+      stats.applied++
+    }
+    catch {
+      stats.missed++
+    }
+  }
+
+  return stats
+}
+
+export function hookArtMeshColorsAfterModelUpdate(
+  internalModel: PixiLive2DInternalModel,
+  artMeshColors: Ref<Record<string, string>>,
+) {
+  const originalUpdate = internalModel.update.bind(internalModel)
+  let diagLogged = false
+
+  internalModel.update = function (dt: number, now: number) {
+    originalUpdate(dt, now)
+    const stats = applyArtMeshColorsToDrawables(internalModel, artMeshColors.value)
+    if (!diagLogged && Object.keys(artMeshColors.value).length > 0) {
+      diagLogged = true
+      console.info(
+        `[Live2D] ArtMesh colors applied after model.update: ${stats.applied} ok, ${stats.missed} drawable not found`,
+        stats.missedIds.length > 0 ? `(examples: ${stats.missedIds.join(', ')})` : '',
+      )
+    }
+  }
+}
+
+/** @deprecated Use hookArtMeshColorsAfterModelUpdate ÔÇö motion tick runs before coreModel.update() */
+export function useMotionUpdatePluginArtMeshColors(artMeshColors: Ref<Record<string, string>>): MotionManagerPlugin {
+  return (ctx) => {
+    applyArtMeshColorsToDrawables(ctx.internalModel, artMeshColors.value)
   }
 }

@@ -8,7 +8,7 @@ menu:
       half_height: 半高
       full_screen: 全屏
       align_to: 对齐到...
-      position: 位置
+      position: 控制条位置
       lock: 锁定
       snapshot: 设为默认
       restore: 恢复默认
