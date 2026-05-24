@@ -11,6 +11,8 @@ export interface ProvisioningSession {
   totalChunks: number
   completedChunks: number
   updatedAt: number
+  targetTokens?: number
+  contextLimitTokens?: number
 }
 
 export const provisioningSessionRepo = {

@@ -146,10 +146,6 @@ watch(() => settingsStore.captionFollowStage, (newVal) => {
   }
 })
 
-watch(alwaysOnTop, (val) => {
-  setAlwaysOnTop(val)
-}, { immediate: true })
-
 const { data: broadcastAction } = useBroadcastChannel<string, string>({ name: 'airi-control-strip-actions' })
 watch(broadcastAction, (action) => {
   if (action) {

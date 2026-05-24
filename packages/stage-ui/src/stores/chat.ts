@@ -390,7 +390,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       const categorizer = createStreamingCategorizer(effectiveProviderId)
       let streamPosition = 0
 
-      const literalInterceptor = createLlmJsonInterceptor({
+      const createLiteralInterceptor = () => createLlmJsonInterceptor({
         onText: async (text) => {
           if (shouldAbort())
             return
@@ -434,6 +434,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           await hooks.emitWidgetHooks(json, streamingMessageContext)
         },
       })
+
+      let literalInterceptor = createLiteralInterceptor()
 
       /**
        * Evaluates a potential tool marker string.
@@ -600,61 +602,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         return { matchedText: matchedMarkerText, bridged: false }
       }
 
-      const parser = useLlmmarkerParser({
-        onLiteral: async (text) => {
-          chatLog('onLiteral:', text)
-          if (shouldAbort())
-            return
-
-          // Catch hallucinated markers - Loop to handle multiple markers in one delta
-          let currentText = text
-          let lastMatch: { matchedText: string, bridged: boolean }
-          while ((lastMatch = await tryBridgeMarker(currentText)).matchedText !== '') {
-            currentText = currentText.replace(lastMatch.matchedText, '')
-            if (lastMatch.bridged)
-              needsBridgedFollowUp = true
-          }
-
-          if (currentText.trim()) {
-            await literalInterceptor.consume(currentText)
-          }
-        },
-        onSpecial: async (special) => {
-          chatLog('onSpecial:', special)
-          if (shouldAbort())
-            return
-
-          // Use the refactored tryBridgeMarker which returns the match info
-          const bridgeResult = await tryBridgeMarker(special)
-          if (bridgeResult.bridged) {
-            needsBridgedFollowUp = true
-            return
-          }
-
-          await hooks.emitTokenSpecialHooks(special, streamingMessageContext)
-        },
-
-        onEnd: async (fullText) => {
-          chatLog('parser.onEnd triggered with fullText length:', fullText.length)
-          if (isStaleGeneration())
-            return
-
-          const finalCategorization = categorizeResponse(fullText, effectiveProviderId)
-
-          ;(buildingMessage as any).categorization = {
-            speech: finalCategorization.speech,
-            reasoning: ((buildingMessage as any).categorization?.reasoning ?? '') + (finalCategorization.reasoning ? `\n\n${finalCategorization.reasoning}` : ''),
-          }
-
-          if (buildingMessage.content !== finalCategorization.speech) {
-            buildingMessage.content = finalCategorization.speech
-          }
-
-          updateUI()
-        },
-        minLiteralEmitLength: 24,
-      })
-
       const toolCallQueue = createQueue<ChatSlices>({
         handlers: [
           async (ctx) => {
@@ -739,6 +686,63 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         turnRawContent = ''
 
         chatLog(`[ChatDebug] Starting inference step ${bridgedSteps}`)
+
+        const createParser = () => useLlmmarkerParser({
+          onLiteral: async (text) => {
+            chatLog('onLiteral:', text)
+            if (shouldAbort())
+              return
+
+            // Catch hallucinated markers - Loop to handle multiple markers in one delta
+            let currentText = text
+            let lastMatch: { matchedText: string, bridged: boolean }
+            while ((lastMatch = await tryBridgeMarker(currentText)).matchedText !== '') {
+              currentText = currentText.replace(lastMatch.matchedText, '')
+              if (lastMatch.bridged)
+                needsBridgedFollowUp = true
+            }
+
+            if (currentText.trim()) {
+              await literalInterceptor.consume(currentText)
+            }
+          },
+          onSpecial: async (special) => {
+            chatLog('onSpecial:', special)
+            if (shouldAbort())
+              return
+
+            // Use the refactored tryBridgeMarker which returns the match info
+            const bridgeResult = await tryBridgeMarker(special)
+            if (bridgeResult.bridged) {
+              needsBridgedFollowUp = true
+              return
+            }
+
+            await hooks.emitTokenSpecialHooks(special, streamingMessageContext)
+          },
+
+          onEnd: async (_parserText) => {
+            chatLog('parser.onEnd triggered with parserText length:', _parserText.length)
+            if (isStaleGeneration())
+              return
+
+            const finalCategorization = categorizeResponse(fullText, effectiveProviderId)
+
+            ;(buildingMessage as any).categorization = {
+              speech: finalCategorization.speech,
+              reasoning: finalCategorization.reasoning || ((buildingMessage as any).categorization?.reasoning ?? ''),
+            }
+
+            if (buildingMessage.content !== finalCategorization.speech) {
+              buildingMessage.content = finalCategorization.speech
+            }
+
+            updateUI()
+          },
+          minLiteralEmitLength: 24,
+        })
+
+        let parser = createParser()
 
         let noReplyBuffer = ''
         let isCheckingNoReply = true
@@ -858,6 +862,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
             resetStreamIdleTimeout()
             switch (event.type) {
               case 'tool-call':
+                await parser.end()
+                await literalInterceptor.end()
+                // Re-create the parser and interceptor so that subsequent text-delta calls are not ignored
+                parser = createParser()
+                literalInterceptor = createLiteralInterceptor()
                 toolCallQueue.enqueue({
                   type: 'tool-call',
                   toolCall: event,
@@ -940,6 +949,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         clearStreamIdleTimeout()
         await parser.end()
+        await literalInterceptor.end()
 
         // Wait for all tools (bridged or native) to finish processing for this turn
         await new Promise<void>((resolve) => {

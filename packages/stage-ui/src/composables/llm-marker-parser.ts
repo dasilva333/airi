@@ -239,6 +239,7 @@ export function useLlmmarkerParser(options: {
   minLiteralEmitLength?: number
 }) {
   let fullText = ''
+  let ended = false
   const { stream, write, close } = createPushStream<string>()
 
   const markerStream = createLlmMarkerStream(stream, { minLiteralEmitLength: options.minLiteralEmitLength })
@@ -256,6 +257,8 @@ export function useLlmmarkerParser(options: {
      * @param textPart The chunk of text to consume.
      */
     async consume(textPart: string) {
+      if (ended)
+        return
       fullText += textPart
       write(textPart)
     },
@@ -266,6 +269,9 @@ export function useLlmmarkerParser(options: {
      * This should be called after the stream has ended.
      */
     async end() {
+      if (ended)
+        return
+      ended = true
       close()
       await processing
       await options.onEnd?.(fullText)

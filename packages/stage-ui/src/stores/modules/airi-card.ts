@@ -58,6 +58,11 @@ export interface DreamStateConfig {
   dailyRunCount?: number
 }
 
+export interface ShortTermMemoryConfig {
+  windowSize: number
+  tokenBudgetPerDay: number
+}
+
 export interface ActingConfig {
   modelExpressionPrompt: string
   speechExpressionPrompt: string
@@ -168,6 +173,7 @@ export interface AiriExtension {
 
   heartbeats?: HeartbeatConfig
   dreamState?: DreamStateConfig
+  shortTermMemory?: ShortTermMemoryConfig
   groundingEnabled?: boolean
   visual_assets?: Record<string, {
     description: string
@@ -500,6 +506,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       dailyRunCount: 0,
     }
 
+    const defaultShortTermMemory: ShortTermMemoryConfig = {
+      windowSize: 3,
+      tokenBudgetPerDay: 1000,
+    }
+
     const defaultArtistry = {
       widgetInstruction: DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT,
     }
@@ -531,6 +542,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         agents: {},
         heartbeats: defaultHeartbeats,
         dreamState: defaultDreamState,
+        shortTermMemory: defaultShortTermMemory,
         artistry: defaultArtistry,
         generation: defaultGeneration,
         groundingEnabled: false,
@@ -679,6 +691,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         lastProcessedAt: existingExtension?.dreamState?.lastProcessedAt ?? defaultDreamState.lastProcessedAt,
         dailyRunDate: existingExtension?.dreamState?.dailyRunDate ?? defaultDreamState.dailyRunDate,
         dailyRunCount: existingExtension?.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
+      },
+      shortTermMemory: {
+        windowSize: existingExtension?.shortTermMemory?.windowSize ?? defaultShortTermMemory.windowSize,
+        tokenBudgetPerDay: existingExtension?.shortTermMemory?.tokenBudgetPerDay ?? defaultShortTermMemory.tokenBudgetPerDay,
       },
       proactivity_metrics: {
         ...existingExtension?.proactivity_metrics,

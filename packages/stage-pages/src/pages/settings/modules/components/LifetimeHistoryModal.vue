@@ -46,7 +46,7 @@ function close() {
 
 async function handleResynthesize() {
   if (confirm('This will skip the history collection phase and re-run the synthesis and distillation based on these chunks. Proceed?')) {
-    await lifetimeStore.reprovisionFromChunks(props.characterId, 2) // Default 2s interval
+    await lifetimeStore.reprovisionFromChunks(props.characterId, 2, artifact.value?.metadata?.targetTokens) // Default 2s interval
   }
 }
 </script>

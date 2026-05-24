@@ -23,5 +23,6 @@ export interface LifetimeMemoryArtifact {
     model: string
     totalElapsedMs: number
     chunkCount: number
+    targetTokens?: number
   }
 }

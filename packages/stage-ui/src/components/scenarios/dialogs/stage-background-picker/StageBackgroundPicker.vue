@@ -74,6 +74,17 @@ async function handleDownloadEntry(id: string, title: string) {
   link.click()
   document.body.removeChild(link)
 }
+
+const previewImageUrl = ref<string | null>(null)
+const previewImageTitle = ref<string | null>(null)
+
+function handlePreviewEntry(id: string, title: string) {
+  const url = backgroundStore.getBackgroundUrl(id)
+  if (url) {
+    previewImageUrl.value = url
+    previewImageTitle.value = title
+  }
+}
 </script>
 
 <template>
@@ -155,8 +166,14 @@ async function handleDownloadEntry(id: string, title: string) {
             <div :class="activeBackgroundId === entry.id ? 'i-solar:pin-bold' : 'i-solar:pin-linear'" />
             {{ activeBackgroundId === entry.id ? 'ACTIVE' : 'SELECT' }}
           </button>
-
           <div class="flex gap-2">
+            <button
+              class="h-8 w-8 flex items-center justify-center rounded-full bg-neutral-500/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-neutral-600"
+              title="Preview"
+              @click="handlePreviewEntry(entry.id, entry.title)"
+            >
+              <div class="i-solar:eye-linear text-sm" />
+            </button>
             <button
               class="h-8 w-8 flex items-center justify-center rounded-full bg-blue-500/80 text-white backdrop-blur-md transition-all active:scale-95 hover:bg-blue-500"
               title="Download"
@@ -183,6 +200,33 @@ async function handleDownloadEntry(id: string, title: string) {
         <!-- Active Indicator -->
         <div v-if="activeBackgroundId === entry.id" class="absolute right-2 top-2 rounded-full bg-primary-500 p-1 text-white shadow-lg">
           <div class="i-solar:check-circle-bold text-[10px]" />
+        </div>
+      </div>
+      <!-- Image Preview Overlay -->
+      <div
+        v-if="previewImageUrl"
+        class="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/95 p-4 transition-all duration-300"
+        @click="previewImageUrl = null"
+      >
+        <!-- Close Button -->
+        <button
+          class="absolute right-6 top-6 h-12 w-12 flex items-center justify-center rounded-full bg-white/10 text-white transition-all active:scale-95 hover:bg-white/20"
+          @click="previewImageUrl = null"
+        >
+          <div class="i-solar:close-circle-bold text-2xl" />
+        </button>
+
+        <!-- Fullscreen Image -->
+        <div class="animate-in zoom-in-95 relative max-h-[80vh] max-w-[90vw] flex flex-col items-center gap-4 duration-200" @click.stop>
+          <img
+            :src="previewImageUrl"
+            class="max-h-[75vh] max-w-full rounded-2xl object-contain shadow-2xl"
+          >
+          <div class="text-center">
+            <h4 class="text-sm text-white/90 font-semibold">
+              {{ previewImageTitle }}
+            </h4>
+          </div>
         </div>
       </div>
     </div>

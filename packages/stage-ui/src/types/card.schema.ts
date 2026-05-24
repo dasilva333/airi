@@ -83,6 +83,11 @@ const AiriDreamStateSchema = object({
   dailyRunCount: optional(number()),
 })
 
+const AiriShortTermMemorySchema = object({
+  windowSize: number(),
+  tokenBudgetPerDay: number(),
+})
+
 const AiriOutfitSchema = object({
   id: string(),
   name: string(),
@@ -95,6 +100,7 @@ const AiriExtensionSchema = looseObject({
   modules: optional(AiriModulesSchema),
   heartbeats: optional(AiriHeartbeatSchema),
   dreamState: optional(AiriDreamStateSchema),
+  shortTermMemory: optional(AiriShortTermMemorySchema),
   groundingEnabled: optional(boolean()),
   generation: optional(looseObject({
     enabled: boolean(),

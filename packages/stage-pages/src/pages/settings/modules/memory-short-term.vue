@@ -116,6 +116,40 @@ watch(characterOptions, (options) => {
     selectedCharacter.value = activeCardId.value || options[0]?.value || ''
   }
 }, { immediate: true })
+
+watch(selectedCharacter, (newVal) => {
+  if (newVal) {
+    const card = cards.value.get(newVal)
+    if (card) {
+      windowSize.value = card.extensions?.airi?.shortTermMemory?.windowSize ?? 3
+      tokensPerDay.value = card.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000
+    }
+  }
+}, { immediate: true })
+
+watch([windowSize, tokensPerDay], ([newWindowSize, newTokensPerDay]) => {
+  if (!selectedCharacter.value)
+    return
+  const card = cards.value.get(selectedCharacter.value)
+  if (card) {
+    const currentWindowSize = card.extensions?.airi?.shortTermMemory?.windowSize ?? 3
+    const currentTokensPerDay = card.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000
+    if (Number(newWindowSize) !== currentWindowSize || Number(newTokensPerDay) !== currentTokensPerDay) {
+      cardStore.updateCard(selectedCharacter.value, {
+        extensions: {
+          ...card.extensions,
+          airi: {
+            ...card.extensions?.airi,
+            shortTermMemory: {
+              windowSize: Number(newWindowSize),
+              tokenBudgetPerDay: Number(newTokensPerDay),
+            },
+          },
+        },
+      } as any)
+    }
+  }
+})
 </script>
 
 <template>

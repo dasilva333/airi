@@ -100,21 +100,21 @@ export function healMozibake(text: string): string {
     const bytes: number[] = []
     let changed = false
 
-    for (let i = 0; i < healed.length; i++) {
-      const code = healed.charCodeAt(i)
+    for (const char of healed) {
+      const code = char.codePointAt(0) ?? 0
 
-      // If it's a character that COULD be a mis-decoded byte (0x80-0xFF or mapping)
-      if (code <= 0xFF || WIN1252_TO_BYTE[code] !== undefined) {
+      // If it's a single-unit character that COULD be a mis-decoded byte (0x80-0xFF or mapping)
+      if (char.length === 1 && (code <= 0xFF || WIN1252_TO_BYTE[code] !== undefined)) {
         const byte = (code <= 0xFF) ? code : WIN1252_TO_BYTE[code]
         bytes.push(byte)
         if (code !== byte)
           changed = true
       }
       else {
-        // It's a high-range character (> 255).
-        // To preserve it, we'll encode it back to its UTF-8 bytes and push those.
+        // It's a high-range character or a surrogate pair (multiple code units).
+        // To preserve it, we'll encode the whole code point back to its UTF-8 bytes and push those.
         // This keeps the byte stream consistent for the final TextDecoder.
-        const encoded = new TextEncoder().encode(healed[i])
+        const encoded = new TextEncoder().encode(char)
         for (const b of encoded) bytes.push(b)
       }
     }

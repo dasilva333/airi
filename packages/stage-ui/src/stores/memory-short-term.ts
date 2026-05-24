@@ -290,11 +290,12 @@ export const useShortTermMemoryStore = defineStore('short-term-memory', () => {
     if (!transcript.trim())
       return null
 
+    const budget = options?.tokenBudgetPerDay ?? card?.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000
     const response = await llmStore.generate(modelId, provider, buildSummarizerMessages(
       card,
       bucket.date,
       transcript,
-      options?.tokenBudgetPerDay ?? 1000,
+      budget,
     ))
 
     const summary = (response.text || '').trim()

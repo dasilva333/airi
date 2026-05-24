@@ -547,30 +547,19 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     const runStart = Date.now()
 
     try {
-      let session: ProvisioningSession
+      let session!: ProvisioningSession
       let docs: SourceDoc[] = []
       const chunks: SourceDoc[][] = []
-      const contextLimitChars = contextLimitTokens * 1024 * 4 // ~4 chars per token
 
       if (resume && activeSession.value) {
         session = activeSession.value
-        docs = await collectSourceDocs(characterId)
-
-        // Budgeted Chunking (Loosey-Goosey)
-        let currentChunk: SourceDoc[] = []
-        let currentChars = 0
-        for (const doc of docs) {
-          const docChars = doc.text.length
-          if (currentChars + docChars > contextLimitChars && currentChunk.length > 0) {
-            chunks.push(currentChunk)
-            currentChunk = []
-            currentChars = 0
-          }
-          currentChunk.push(doc)
-          currentChars += docChars
+        if (session.targetTokens) {
+          targetTokens = session.targetTokens
         }
-        if (currentChunk.length > 0)
-          chunks.push(currentChunk)
+        if (session.contextLimitTokens) {
+          contextLimitTokens = session.contextLimitTokens
+        }
+        docs = await collectSourceDocs(characterId)
       }
       else {
         progress.value = {
@@ -582,23 +571,27 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           message: 'Collecting relationship history...',
         }
         docs = await collectSourceDocs(characterId)
+      }
 
-        // Budgeted Chunking (Loosey-Goosey)
-        let currentChunk: SourceDoc[] = []
-        let currentChars = 0
-        for (const doc of docs) {
-          const docChars = doc.text.length
-          if (currentChars + docChars > contextLimitChars && currentChunk.length > 0) {
-            chunks.push(currentChunk)
-            currentChunk = []
-            currentChars = 0
-          }
-          currentChunk.push(doc)
-          currentChars += docChars
-        }
-        if (currentChunk.length > 0)
+      const contextLimitChars = contextLimitTokens * 1024 * 4 // ~4 chars per token
+
+      // Budgeted Chunking (Loosey-Goosey)
+      let currentChunk: SourceDoc[] = []
+      let currentChars = 0
+      for (const doc of docs) {
+        const docChars = doc.text.length
+        if (currentChars + docChars > contextLimitChars && currentChunk.length > 0) {
           chunks.push(currentChunk)
+          currentChunk = []
+          currentChars = 0
+        }
+        currentChunk.push(doc)
+        currentChars += docChars
+      }
+      if (currentChunk.length > 0)
+        chunks.push(currentChunk)
 
+      if (!resume || !activeSession.value) {
         session = {
           characterId,
           phase: 'chunking',
@@ -607,6 +600,8 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           totalChunks: chunks.length,
           completedChunks: 0,
           updatedAt: Date.now(),
+          targetTokens,
+          contextLimitTokens,
         }
         await provisioningSessionRepo.save(session)
         activeSession.value = session
@@ -695,6 +690,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         progress.value.completedCalls = chunks.length + 1
         progress.value.message = 'Distilling relational essence (Pass 1/2)...'
 
+        const ratio = targetTokens / 1000
         const distillPass1Prompt = [
           `Compress this ${card.name} archive into a reload-grade lifetime context pack.`,
           '',
@@ -708,12 +704,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           '- optimize for model context efficiency, not literary beauty',
           '',
           'Desired shape:',
-          '- relationship_core: 6-12 bullets',
-          '- user_patterns: 6-12 bullets',
-          '- shared_rituals: 4-10 bullets',
-          '- stable_topics: 6-12 bullets',
-          '- meaningful_old_moments: 6-12 bullets',
-          '- inside_jokes_or_motifs: 6-12 bullets',
+          `- relationship_core: ${Math.round(6 * ratio)}-${Math.round(12 * ratio)} bullets`,
+          `- user_patterns: ${Math.round(6 * ratio)}-${Math.round(12 * ratio)} bullets`,
+          `- shared_rituals: ${Math.round(4 * ratio)}-${Math.round(10 * ratio)} bullets`,
+          `- stable_topics: ${Math.round(6 * ratio)}-${Math.round(12 * ratio)} bullets`,
+          `- meaningful_old_moments: ${Math.round(6 * ratio)}-${Math.round(12 * ratio)} bullets`,
+          `- inside_jokes_or_motifs: ${Math.round(6 * ratio)}-${Math.round(12 * ratio)} bullets`,
           '- compression_notes: short notes on what was merged/removed',
           '',
           'Archive to compress:',
@@ -740,7 +736,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             '- keep technical truth, drop fluff',
             '- preserve grounded specifics',
             '- prefer dense and memorable phrasing',
-            '- target a compressed reload pack around 1000 tokens or less',
+            `- target a compressed reload pack around ${targetTokens} tokens or less`,
             '- do not write an essay paragraph unless absolutely needed',
             '- prefer dense bullet lists over prose',
             '- do not rewrite based on system prompt fantasy',
@@ -838,6 +834,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             model: modelId,
             totalElapsedMs: Date.now() - runStart,
             chunkCount: chunks.length,
+            targetTokens,
           },
         }
 
@@ -861,7 +858,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     }
   }
 
-  async function reprovisionFromChunks(characterId: string, intervalSeconds = 0) {
+  async function reprovisionFromChunks(characterId: string, intervalSeconds = 0, targetTokens?: number) {
     const artifact = artifacts.value.get(characterId)
     if (!artifact || !artifact.chunkSummaries?.length) {
       throw new Error('No cached chunks found for re-synthesis')
@@ -876,6 +873,8 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     const provider = await providersStore.getProviderInstance<ChatProvider>(providerId!)
     if (!provider || !modelId)
       throw new Error('Counsciousness not configured')
+
+    const resolvedTarget = targetTokens ?? artifact.metadata?.targetTokens ?? 1000
 
     isProvisioning.value = true
     error.value = null
@@ -901,11 +900,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         baseContent: artifact.baseContent,
         distillPass1Pack: artifact.distillPass1Pack,
         updatedAt: Date.now(),
+        targetTokens: resolvedTarget,
       }
       activeSession.value = session
 
       // Use the existing provision logic but starting from synthesis
-      await provision(characterId, true, intervalSeconds)
+      await provision(characterId, true, intervalSeconds, 64, resolvedTarget)
     }
     finally {
       isProvisioning.value = false

@@ -39,12 +39,14 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - **ACT Pipeline**: `packages/stage-ui/src/composables/use-llm-marker-parser.ts` (Parser) | `packages/stage-ui-three/src/services/expression.ts` (Execution)
 - **Memory (Long-term / Semantic)**: `packages/stage-ui/src/stores/memory-text-journal.ts` (IndexedDB) | `Settings -> Memory -> Long Term`
 - **Memory (Short-term / Episodic)**: `packages/stage-ui/src/stores/memory-short-term.ts` (Daily summaries / Episode segmentation)
+- **Memory (Lifetime Artifact / Eternal Thread)**: `packages/stage-ui/src/stores/memory-lifetime.ts` (Pinia store & generation pipeline) | `packages/stage-ui/src/types/lifetime-memory.ts` (Type models) | `packages/stage-ui/src/database/repos/lifetime-memory.repo.ts` (IndexedDB persistence) | `packages/stage-ui/src/database/repos/provisioning-session.repo.ts` (Draft/session persistence) | `packages/stage-pages/src/pages/settings/modules/components/LifetimeProvisioningModal.vue` (Setup modal with token budget selector) | `packages/stage-pages/src/pages/settings/modules/components/LifetimeHistoryModal.vue` (Foundation history / re-synthesis)
 - **Cognitive Dreaming (Consolidation)**: `packages/stage-ui/src/stores/proactivity.ts` (Idle task logic)
 - **Text Journal Operations**: `write`, `search` (Involved in tool definitions)
 - **Semantic Search Index**: `Transformers.js` / `Orama` / `Voy` (Local indexing in `IndexedDB`)
 - **VRM Animations**: `packages/stage-ui-three/src/assets/vrm/animations/index.ts` (Assets) | `packages/stage-ui-three/src/stores/model-store.ts` (State)
 - **Artistry/ComfyUI**: `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` (Native HTTP API)
 - **Scene/Background**: `packages/stage-ui/src/components/scenes/Stage.vue` (Layer) | `packages/stage-pages/src/pages/settings/scene/index.vue` (UI)
+- **Stage Style Picker / Background Gallery**: `packages/stage-ui/src/components/scenarios/dialogs/stage-background-picker/StageBackgroundPicker.vue` (Grid list, active backdrop mapping, download, delete, and fullscreen lightbox preview overlay) | `packages/stage-ui/src/components/scenarios/dialogs/stage-background-picker/StageBackgroundDialogPicker.vue` (Reka Dialog/Drawer portal container)
 - **Model Position/Lights**: `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue`
 - **Proactivity/Heartbeats**: `packages/stage-ui/src/stores/proactivity.ts` (Idle logic / Amusement loop)
 - **Control Island State**: `packages/stage-ui/src/stores/settings/controls-island.ts` (Shared) | `apps/stage-tamagotchi/src/renderer/stores/controls-island.ts` (Renderer)
@@ -73,6 +75,28 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - `docs/content/en/docs/advanced/architecture/`: Source for all detailed architecture specifications.
 - `docs/design-prospective-rich-journal.md`: Specification for the Cognitive Memory / Dreaming UI.
 
+## Memory (Short-Term Memory / Active Pulse) Settings & Injection
+
+- **Configuration Fields**: Stored under `extensions.airi.shortTermMemory` in `airi-card.ts` / `card.schema.ts`:
+  - `windowSize` (default `3`): Number of past daily summaries injected into the prompt.
+  - `tokenBudgetPerDay` (default `1000`): Target token limit for daily summarizations.
+- **Settings Screen**: `packages/stage-pages/src/pages/settings/modules/memory-short-term.vue` (Active Pulse dashboard)
+- **Rebuilding & Synthesis**: `rebuildFromHistory()` and `rebuildToday()` in `memory-short-term.ts` process daily buckets scoped to the character's `tokenBudgetPerDay`.
+- **Prompt Injection**: `buildShortTermMemoryContext()` in `session-store.ts` slices character summaries by `windowSize` and appends them as hidden context during message/session generation.
+
+## Memory & Lifetime Artifact (Eternal Thread) Pipeline
+
+- **Aggregate Source Docs**: `collectSourceDocs()` aggregates data across three tiers:
+  1. Raw turn history (`chatSessionsRepo`)
+  2. Short-term memory blocks (`shortTermMemoryRepo`)
+  3. Long-term journal entries (`textJournalRepo`)
+- **Chunking & Durable Fact Extraction**: Processes documents in chunks defined by `contextLimitTokens` (~64K tokens default). Extracts key facts using `ChunkArchiveJsonSchema`.
+- **Base Synthesis**: Flattens facts across chunks and uses `buildBaseArchivePrompt` to write the first canonical profile with `LifetimeArchiveJsonSchema`.
+- **Relational Distillation Passes**:
+  - **Pass 1 (Dedupe & Core Framing)**: Compresses the base content into bullet lists using `DistillPass1Schema`. Desired bullet counts are scaled dynamically by `ratio = targetTokens / 1000`.
+  - **Pass 2 (Caveman Refinement)**: Final compaction enforcing target size budget (`targetTokens`), removal of articles/pleasantries, and duplication pruning.
+- **Persistence**: Saved as `LifetimeMemoryArtifact` in `lifetime-memory.repo.ts`. Session draft status is kept in `provisioning-session.repo.ts`.
+
 ## Nicknames Index
 
 - **"chatbox"** -> `ChatArea.vue` / `InteractiveArea.vue` / `renderer/pages/chat.vue`
@@ -100,6 +124,9 @@ Concise mapping of conceptual features to technical file paths for rapid context
   3. When the main window processes the input and writes it to history, the `session-store` broadcasts `session-updated` cross-window.
   4. The secondary window's store receives the broadcast, appends the message, and the watcher resolves the promise.
   5. If it times out, the promise rejects, allowing the UI (`InteractiveArea` and `WhisperDock`) to restore the draft text/attachments and show a toast warning.
+- **Unicode & Mojibake Healing**: The system intercepts LLM text streaming deltas and final outputs using `healMozibake` (in `packages/stage-shared/src/text.ts`) to repair UTF-8 byte streams that were mis-decoded as Windows-1252/Latin-1 (common in raw SSE streams).
+  - *Pitfall*: Iterating over text characters by UTF-16 code units (e.g. `healed[i]` or `healed.charCodeAt(i)`) splits supplementary plane characters (like emojis and compound emojis with Zero-Width Joiners) into individual surrogates. Each isolated surrogate is invalid UTF-16 and gets encoded by `TextEncoder` to the replacement character `\uFFFD` (``), corrupting all emojis.
+  - *Fix*: The loop iterates by code point (`for (const char of healed)`). Multi-unit characters (`char.length > 1`) bypass the mis-decoded byte check and are encoded as unified code points, successfully preserving all emojis, ZWJs, and complex pictograms.
 
 ## Toast Notifications & Event Bridging (Lessons Learned)
 
