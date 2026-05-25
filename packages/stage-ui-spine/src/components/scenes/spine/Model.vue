@@ -192,7 +192,7 @@ function onCanvasClick(event: MouseEvent) {
 
         // Play audio (if leader)
         const hash = window.location.hash || '#/'
-        const isStage = hash === '#/' || hash.startsWith('#/stage')
+        const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
         console.log(`[Spine Audio] hash="${hash}", isStage=${isStage}, config.sound="${config.sound}"`)
         console.log(`[Spine Audio] loadedBlobUrls exists=${!!loadedBlobUrls}, hasSoundKey=${!!(loadedBlobUrls && loadedBlobUrls[config.sound])}`)
         if (loadedBlobUrls) {
@@ -638,7 +638,7 @@ function applyActiveAnimations(activeAnims: Record<string, boolean>) {
         if (config.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
           // Leadership Election: Only the "Stage" window handles audio playback
           const hash = window.location.hash || '#/'
-          const isStage = hash === '#/' || hash.startsWith('#/stage')
+          const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
 
           if (isStage) {
             // Stop any previously playing audio first

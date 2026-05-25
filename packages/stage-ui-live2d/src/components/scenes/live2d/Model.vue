@@ -53,6 +53,7 @@ const props = withDefaults(defineProps<{
   live2dForceAutoBlinkEnabled?: boolean
   live2dShadowEnabled?: boolean
   idleAnimations?: string[]
+  interactionMode?: 'orbit' | 'tactile'
 }>(), {
   mouthOpenSize: 0,
   paused: false,
@@ -66,11 +67,13 @@ const props = withDefaults(defineProps<{
   live2dForceAutoBlinkEnabled: false,
   live2dShadowEnabled: true,
   idleAnimations: () => [],
+  interactionMode: 'orbit',
 })
 
 const emits = defineEmits<{
   (e: 'modelLoaded'): void
   (e: 'error', error: Error): void
+  (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
 }>()
 
 // Global Model Access for LHacker
@@ -378,7 +381,7 @@ async function resolveMetadata() {
 
 async function loadModel() {
   const hash = window.location.hash || '#/'
-  const isStage = hash === '#/' || hash.startsWith('#/stage')
+  const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
   config.sound = isStage
 
   await until(modelLoading).not.toBeTruthy()
@@ -479,6 +482,9 @@ async function loadModel() {
     setScaleAndPosition()
 
     // --- Interaction
+
+    const declaredHitAreas = (live2DModel.internalModel?.settings as any)?.hitAreas || []
+    console.info(`[Live2D Tactile] Loaded model has ${declaredHitAreas.length} hitboxes:`, declaredHitAreas.map((h: any) => `${h.Name || h.name} -> ${h.Id || h.id}`))
 
     model.value.on('hit', (hitAreas) => {
       if (model.value && hitAreas.includes('body'))
@@ -646,7 +652,7 @@ async function loadModel() {
       localCurrentMotion.value = { group, index }
 
       const hash = window.location.hash || '#/'
-      const isStage = hash === '#/' || hash.startsWith('#/stage')
+      const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
 
       if (!isStage && audio) {
         try {
@@ -1158,6 +1164,7 @@ onMounted(async () => {
 onUnmounted(() => {
   isUnmounted = true
   disposeShouldUpdateView?.()
+  cleanupCanvasListeners()
 
   // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
   // guard inside the loop is the primary defense, but cancelling the pending frame
@@ -1167,6 +1174,138 @@ onUnmounted(() => {
     dropShadowAnimationId.value = 0
   }
 })
+
+const interactionMode = toRef(() => props.interactionMode)
+let hoveredArea: string | null = null
+let boundCanvas: HTMLCanvasElement | null = null
+
+function onCanvasMouseMove(event: MouseEvent) {
+  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+    return
+
+  const canvasEl = props.app.view as HTMLCanvasElement
+  if (!canvasEl)
+    return
+
+  const rect = canvasEl.getBoundingClientRect()
+  const mouseX = event.clientX - rect.left
+  const mouseY = event.clientY - rect.top
+
+  const globalX = mouseX * (props.app.screen.width / rect.width)
+  const globalY = mouseY * (props.app.screen.height / rect.height)
+
+  const hitAreas = model.value.hitTest(globalX, globalY)
+
+  if (hitAreas && hitAreas.length > 0) {
+    const hitArea = hitAreas[0]
+    if (hoveredArea !== hitArea) {
+      hoveredArea = hitArea
+      console.info(`[Live2D Tactile] Hovered hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
+      emits('hitAreaHover', { name: hitArea, x: mouseX, y: mouseY, hovered: true })
+    }
+    else {
+      // Glow follows the cursor: emit updated cursor position
+      emits('hitAreaHover', { name: hitArea, x: mouseX, y: mouseY, hovered: true })
+    }
+  }
+  else if (hoveredArea) {
+    hoveredArea = null
+    emits('hitAreaHover', null)
+  }
+}
+
+function onCanvasClick(event: MouseEvent) {
+  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+    return
+
+  const canvasEl = props.app.view as HTMLCanvasElement
+  if (!canvasEl)
+    return
+
+  const rect = canvasEl.getBoundingClientRect()
+  const mouseX = event.clientX - rect.left
+  const mouseY = event.clientY - rect.top
+
+  const globalX = mouseX * (props.app.screen.width / rect.width)
+  const globalY = mouseY * (props.app.screen.height / rect.height)
+
+  const hitAreas = model.value.hitTest(globalX, globalY)
+  if (hitAreas && hitAreas.length > 0) {
+    const hitArea = hitAreas[0]
+    console.info(`[Live2D Tactile] Clicked hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
+
+    const internalModel = model.value.internalModel
+    const motionManager = internalModel?.motionManager
+    if (!motionManager)
+      return
+
+    const groups = Object.keys(motionManager.definitions || {})
+
+    // Smart matching rules for hitArea mapping to motion definitions:
+    // 1. Exact match (case insensitive)
+    let matchedGroup = groups.find(g => g.toLowerCase() === hitArea.toLowerCase())
+    // 2. Definition group starts with hitArea
+    if (!matchedGroup) {
+      matchedGroup = groups.find(g => g.toLowerCase().startsWith(hitArea.toLowerCase()))
+    }
+    // 3. HitArea starts with definition group
+    if (!matchedGroup) {
+      matchedGroup = groups.find(g => hitArea.toLowerCase().startsWith(g.toLowerCase()))
+    }
+    // 4. Definition group contains hitArea
+    if (!matchedGroup) {
+      matchedGroup = groups.find(g => g.toLowerCase().includes(hitArea.toLowerCase()))
+    }
+    // 5. HitArea contains definition group
+    if (!matchedGroup) {
+      matchedGroup = groups.find(g => hitArea.toLowerCase().includes(g.toLowerCase()))
+    }
+
+    if (matchedGroup) {
+      const definitions = motionManager.definitions[matchedGroup]
+      if (definitions && definitions.length > 0) {
+        const randomIndex = Math.floor(Math.random() * definitions.length)
+        console.info(`[Live2D Tactile] Playing motion for matched group: group="${matchedGroup}", index=${randomIndex}`)
+        model.value.motion(matchedGroup, randomIndex, MotionPriority.FORCE)
+      }
+    }
+    else {
+      console.warn(`[Live2D Tactile] No matching motion group found starting with or related to hitArea: ${hitArea}`)
+      if (hitArea.toLowerCase().includes('body')) {
+        model.value.motion('tap_body')
+      }
+    }
+  }
+}
+
+function setupCanvasListeners() {
+  cleanupCanvasListeners()
+
+  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+    return
+
+  const canvasEl = props.app.view as HTMLCanvasElement
+  if (!canvasEl)
+    return
+
+  canvasEl.addEventListener('mousemove', onCanvasMouseMove)
+  canvasEl.addEventListener('click', onCanvasClick)
+  boundCanvas = canvasEl
+  console.info('[Live2D Tactile] Registered canvas tactile listeners')
+}
+
+function cleanupCanvasListeners() {
+  if (boundCanvas) {
+    boundCanvas.removeEventListener('mousemove', onCanvasMouseMove)
+    boundCanvas.removeEventListener('click', onCanvasClick)
+    boundCanvas = null
+    console.info('[Live2D Tactile] Unregistered canvas tactile listeners')
+  }
+}
+
+watch([interactionMode, model, () => props.app], () => {
+  setupCanvasListeners()
+}, { immediate: true })
 
 function listMotionGroups() {
   return availableMotions.value

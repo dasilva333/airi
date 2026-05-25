@@ -154,7 +154,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   function findLive2dReferences(obj: any, refs: string[] = []): string[] {
     if (typeof obj === 'string') {
       const lower = obj.toLowerCase()
-      const exts = ['.moc3', '.png', '.json', '.jpg', '.jpeg']
+      const exts = ['.moc3', '.png', '.json', '.jpg', '.jpeg', '.wav', '.mp3', '.ogg', '.aac', '.flac', '.m4a']
       if (exts.some(ext => lower.endsWith(ext))) {
         if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
           refs.push(obj)
@@ -253,63 +253,271 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
         }
 
-        if (modernModels.length >= 2) {
-          toast.info(`Multi-model Live2D ZIP detected! Extracting ${modernModels.length} models...`)
-          console.log(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modernModels.length} models:`)
+        // Unified Self-Healing Compiler and Splitter
+        const needsSplitting = modernModels.length >= 2
+        let needsCleansing = false
+        const modelsToProcess: any[] = []
+
+        if (needsSplitting) {
+          needsCleansing = true
+          modelsToProcess.push(...modernModels)
+        }
+        else if (modernModels.length === 1) {
+          const model = modernModels[0]
+          const manifestBasename = model.manifestPath.split(/[\\/]/).pop()!
+          const needsManifestRename = !manifestBasename.toLowerCase().endsWith('.model3.json')
+
+          // Check for orphaned/loose motions
+          let needsMotionInjection = false
+          let modelIndex = null
+          const mocMatch = model.mocFile.match(/Moc_(\d+)\.moc3$/i)
+          if (mocMatch) {
+            modelIndex = mocMatch[1]
+          }
+
+          if (!model.data.FileReferences) {
+            model.data.FileReferences = {}
+          }
+          if (!model.data.FileReferences.Motions) {
+            model.data.FileReferences.Motions = {}
+          }
+
+          const isMultiModelNaming = modelIndex !== null
+          const motionRegex = isMultiModelNaming
+            ? new RegExp(`^Motions_(.+)_(\\d+)_File_${modelIndex}\\.json$`, 'i')
+            : new RegExp(`^Motions_(.+)\\.json$|motions?[\\/](.+)\\.(?:motion3\\.)?json$`, 'i')
+
+          const excludeSuffixes = [
+            '.moc3',
+            '.png',
+            '.jpg',
+            '.jpeg',
+            '.exp3.json',
+            '.physics3.json',
+            '.physics.json',
+            '.pose3.json',
+            '.pose.json',
+            '.userdata3.json',
+            '.cdi3.json',
+            '.vtube.json',
+            '.vtube-settings.json',
+            'manifest.json',
+          ]
+
+          for (const pathKey of allPaths) {
+            if (zipInstance.files[pathKey].dir)
+              continue
+            const filename = pathKey.split(/[\\/]/).pop()!
+            if (excludeSuffixes.some(s => filename.toLowerCase().endsWith(s)))
+              continue
+            if (filename.toLowerCase() === manifestBasename.toLowerCase())
+              continue
+
+            // Is it a JSON or motion file?
+            const isJson = filename.toLowerCase().endsWith('.json')
+            const isMotion = isJson || filename.toLowerCase().endsWith('.motion3.json') || pathKey.toLowerCase().includes('/motions/') || pathKey.toLowerCase().includes('/motion/')
+            if (!isMotion)
+              continue
+
+            const match = filename.match(motionRegex) || pathKey.match(motionRegex)
+            if (match) {
+              const groupName = (match[1] || match[2] || match[3] || 'Idle').trim()
+              const groupList = model.data.FileReferences.Motions[groupName] || []
+              const alreadyExists = groupList.some((m: any) => m.File && m.File.toLowerCase() === filename.toLowerCase())
+              if (!alreadyExists) {
+                needsMotionInjection = true
+                break
+              }
+            }
+          }
+
+          if (needsManifestRename || needsMotionInjection) {
+            needsCleansing = true
+            modelsToProcess.push(model)
+            console.log(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
+          }
+        }
+
+        if (needsCleansing && modelsToProcess.length > 0) {
+          if (needsSplitting) {
+            toast.info(`Multi-model Live2D ZIP detected! Extracting ${modelsToProcess.length} models...`)
+            console.log(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modelsToProcess.length} models:`)
+          }
+          else {
+            toast.info(`Live2D ZIP requires self-healing! Repairing package...`)
+          }
+
+          // Self-Healing Step: Identify a "master" model (the one with the largest motions dictionary)
+          let masterModel: any = null
+          let maxMotionsCount = 0
+          for (const m of modelsToProcess) {
+            let count = 0
+            if (m.data && m.data.FileReferences && m.data.FileReferences.Motions) {
+              for (const group of Object.keys(m.data.FileReferences.Motions)) {
+                count += m.data.FileReferences.Motions[group]?.length || 0
+              }
+            }
+            if (count > maxMotionsCount) {
+              maxMotionsCount = count
+              masterModel = m
+            }
+          }
+
+          if (masterModel) {
+            console.log(`[DisplayModels] Selected master model for motion dictionary: "${masterModel.manifestPath.split(/[\\/]/).pop()!}" with ${maxMotionsCount} motions.`)
+          }
 
           let index = 1
-          for (const model of modernModels) {
+          for (const model of modelsToProcess) {
             const manifestBasename = model.manifestPath.split(/[\\/]/).pop()!
             const modelName = manifestBasename.replace(/\.model3\.json$/i, '').replace(/\.json$/i, '')
 
-            // Auto-discover loose motion files for this model index in the original ZIP
+            // Auto-discover loose motion files for this model in the original ZIP
             let modelIndex = null
             const mocMatch = model.mocFile.match(/Moc_(\d+)\.moc3$/i)
             if (mocMatch) {
               modelIndex = mocMatch[1]
             }
 
-            if (modelIndex !== null) {
-              if (!model.data.FileReferences) {
-                model.data.FileReferences = {}
-              }
-              if (!model.data.FileReferences.Motions) {
-                model.data.FileReferences.Motions = {}
+            if (!model.data.FileReferences) {
+              model.data.FileReferences = {}
+            }
+            if (!model.data.FileReferences.Motions) {
+              model.data.FileReferences.Motions = {}
+            }
+
+            // Detect if this model has empty or barebones motions list
+            let motionsCount = 0
+            for (const group of Object.keys(model.data.FileReferences.Motions)) {
+              motionsCount += model.data.FileReferences.Motions[group]?.length || 0
+            }
+
+            // If it is barebones, copy and adapt from master model
+            if (motionsCount < 10 && masterModel && model !== masterModel) {
+              let masterIndex = null
+              const masterMocMatch = masterModel.mocFile.match(/Moc_(\d+)\.moc3$/i)
+              if (masterMocMatch) {
+                masterIndex = masterMocMatch[1]
               }
 
-              const motionRegex = new RegExp(`^Motions_(.+)_(\\d+)_File_${modelIndex}\\.json$`, 'i')
-              for (const pathKey of allPaths) {
-                if (zipInstance.files[pathKey].dir)
-                  continue
-                const filename = pathKey.split(/[\\/]/).pop()!
-                const match = filename.match(motionRegex)
-                if (match) {
-                  const groupName = match[1]
-                  const groupList = model.data.FileReferences.Motions[groupName] || []
-                  const alreadyExists = groupList.some((m: any) => m.File && m.File.toLowerCase() === filename.toLowerCase())
-                  if (!alreadyExists) {
-                    if (!model.data.FileReferences.Motions[groupName]) {
-                      model.data.FileReferences.Motions[groupName] = []
+              if (masterIndex !== null && modelIndex !== null) {
+                console.log(`[DisplayModels] [Self-Healing] Restoring empty motions dictionary from master model index ${masterIndex} -> ${modelIndex}...`)
+                const copiedMotions = JSON.parse(JSON.stringify(masterModel.data.FileReferences.Motions))
+
+                // Adapt motions: replace file path endings from masterIndex to modelIndex
+                const adaptMotions = (obj: any): any => {
+                  if (typeof obj === 'string') {
+                    const fromRegex = new RegExp(`_File_${masterIndex}`, 'gi')
+                    const toStr = `_File_${modelIndex}`
+                    if (obj.toLowerCase().endsWith('.json') && fromRegex.test(obj)) {
+                      return obj.replace(fromRegex, toStr)
                     }
-                    model.data.FileReferences.Motions[groupName].push({
-                      File: filename,
-                      FadeIn: 0,
-                      FadeOut: 0,
-                    })
-                    console.log(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
                   }
+                  else if (Array.isArray(obj)) {
+                    return obj.map(adaptMotions)
+                  }
+                  else if (obj && typeof obj === 'object') {
+                    const newObj: any = {}
+                    for (const key of Object.keys(obj)) {
+                      newObj[key] = adaptMotions(obj[key])
+                    }
+                    return newObj
+                  }
+                  return obj
+                }
+
+                model.data.FileReferences.Motions = adaptMotions(copiedMotions)
+                console.log(`[DisplayModels] [Self-Healing] Restored motions successfully: ${Object.keys(model.data.FileReferences.Motions).length} groups.`)
+              }
+            }
+
+            // Generic typo correction (e.g. `.ogg3` -> `.ogg` in Sound properties)
+            const cleanseMotions = (obj: any): any => {
+              if (typeof obj === 'string') {
+                if (obj.toLowerCase().endsWith('.ogg3')) {
+                  return obj.substring(0, obj.length - 1)
+                }
+              }
+              else if (Array.isArray(obj)) {
+                return obj.map(cleanseMotions)
+              }
+              else if (obj && typeof obj === 'object') {
+                const newObj: any = {}
+                for (const key of Object.keys(obj)) {
+                  newObj[key] = cleanseMotions(obj[key])
+                }
+                return newObj
+              }
+              return obj
+            }
+            model.data.FileReferences.Motions = cleanseMotions(model.data.FileReferences.Motions)
+
+            const isMultiModelNaming = modelIndex !== null
+            const motionRegex = isMultiModelNaming
+              ? new RegExp(`^Motions_(.+)_(\\d+)_File_${modelIndex}\\.json$`, 'i')
+              : new RegExp(`^Motions_(.+)\\.json$|motions?[\\/](.+)\\.(?:motion3\\.)?json$`, 'i')
+
+            const excludeSuffixes = [
+              '.moc3',
+              '.png',
+              '.jpg',
+              '.jpeg',
+              '.exp3.json',
+              '.physics3.json',
+              '.physics.json',
+              '.pose3.json',
+              '.pose.json',
+              '.userdata3.json',
+              '.cdi3.json',
+              '.vtube.json',
+              '.vtube-settings.json',
+              'manifest.json',
+            ]
+
+            for (const pathKey of allPaths) {
+              if (zipInstance.files[pathKey].dir)
+                continue
+              const filename = pathKey.split(/[\\/]/).pop()!
+              if (excludeSuffixes.some(s => filename.toLowerCase().endsWith(s)))
+                continue
+              if (filename.toLowerCase() === manifestBasename.toLowerCase())
+                continue
+
+              // Is it a JSON or motion file?
+              const isJson = filename.toLowerCase().endsWith('.json')
+              const isMotion = isJson || filename.toLowerCase().endsWith('.motion3.json') || pathKey.toLowerCase().includes('/motions/') || pathKey.toLowerCase().includes('/motion/')
+              if (!isMotion)
+                continue
+
+              const match = filename.match(motionRegex) || pathKey.match(motionRegex)
+              if (match) {
+                const groupName = (match[1] || match[2] || match[3] || 'Idle').trim()
+                const groupList = model.data.FileReferences.Motions[groupName] || []
+                const alreadyExists = groupList.some((m: any) => m.File && m.File.toLowerCase() === filename.toLowerCase())
+                if (!alreadyExists) {
+                  if (!model.data.FileReferences.Motions[groupName]) {
+                    model.data.FileReferences.Motions[groupName] = []
+                  }
+                  model.data.FileReferences.Motions[groupName].push({
+                    File: filename,
+                    FadeIn: 0,
+                    FadeOut: 0,
+                  })
+                  console.log(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
                 }
               }
             }
 
-            if (index > 1) {
-              toast.info(`[${index}/${modernModels.length}] Extracting next model "${modelName}"...`)
+            if (modelsToProcess.length > 1) {
+              if (index > 1) {
+                toast.info(`[${index}/${modelsToProcess.length}] Extracting next model "${modelName}"...`)
+              }
+              else {
+                toast.info(`[${index}/${modelsToProcess.length}] Extracting and compiling "${modelName}"...`)
+              }
             }
-            else {
-              toast.info(`[${index}/${modernModels.length}] Extracting and compiling "${modelName}"...`)
-            }
-            const subZip = new JSZip()
 
+            const subZip = new JSZip()
             const manifestDir = model.manifestPath.split(/[\\/]/).slice(0, -1).join('/')
             const rawRefs = findLive2dReferences(model.data)
             const uniqueRefs = [...new Set(rawRefs)].filter((r) => {
@@ -342,13 +550,21 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             const subZipBlob = await subZip.generateAsync({ type: 'blob' })
             const subZipFile = new File([subZipBlob], `${modelName}.zip`, { type: 'application/zip' })
 
-            console.log(`[DisplayModels] Splitted sub-model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+            console.log(`[DisplayModels] Sanitized/Splitted model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
 
-            toast.info(`[${index}/${modernModels.length}] Ingesting "${modelName}" into catalog...`)
+            if (modelsToProcess.length > 1) {
+              toast.info(`[${index}/${modelsToProcess.length}] Ingesting "${modelName}" into catalog...`)
+            }
 
             // Add the splitted model recursively (which gets treated as single-model zip)
             await addDisplayModel(DisplayModelFormat.Live2dZip, subZipFile)
-            toast.success(`[${index}/${modernModels.length}] Successfully imported: ${modelName}`)
+
+            if (modelsToProcess.length > 1) {
+              toast.success(`[${index}/${modelsToProcess.length}] Successfully imported: ${modelName}`)
+            }
+            else {
+              toast.success(`Successfully repaired and imported model: ${modelName}`)
+            }
             index++
           }
 
@@ -357,7 +573,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         }
       }
       catch (err) {
-        console.error('[DisplayModels] Failed to analyze ZIP for multi-models:', err)
+        console.error('[DisplayModels] Failed to analyze ZIP for multi-models/sanitization:', err)
       }
     }
 

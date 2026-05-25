@@ -214,5 +214,6 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - Always run `pnpm typecheck` and `pnpm lint:fix` after finishing a task.
 - **Commit & Push Etiquette**:
   - **Never** commit or push untested changes. Verify that your specific changes work as expected in the target environment.
+  - **Strict No-Push Policy**: Never push commits to the remote repository (e.g. `git push`) unless the user explicitly requests you to push in the chat. Keep commits local to allow the user to review and test them before they go live on upstream branches.
   - Commit messages must signify **what is actually being submitted**, not just the intent or a vague "fix". If you fixed X, say `fix: X`; if you refactored Y, say `refactor: Y`.
 - Use Conventional Commits for commit messages (e.g., `feat: add runner reconnect backoff`).

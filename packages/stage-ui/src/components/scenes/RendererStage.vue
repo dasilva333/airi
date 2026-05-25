@@ -125,8 +125,10 @@ defineExpose({
       :live2d-max-fps="live2dMaxFps"
       :idle-animations="activeCard?.extensions?.airi?.acting?.idleAnimations"
       :draggable="stageViewControlsEnabled"
+      :interaction-mode="vrmStore.interactionMode"
       @scale-change="(val) => emits('scaleChange', val)"
       @offset-change="(val) => emits('offsetChange', val)"
+      @hit-area-hover="(val) => emits('hitAreaHover', val)"
     />
     <ThreeScene
       v-if="stageModelRenderer === 'vrm'"

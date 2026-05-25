@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   yOffset?: number | string
   idleAnimations?: string[]
   draggable?: boolean
+  interactionMode?: 'orbit' | 'tactile'
 }>(), {
   paused: false,
   focusAt: () => ({ x: 0, y: 0 }),
@@ -45,11 +46,13 @@ const props = withDefaults(defineProps<{
   live2dMaxFps: 0,
   idleAnimations: () => [],
   draggable: false,
+  interactionMode: 'orbit',
 })
 
 const emits = defineEmits<{
   (e: 'scaleChange', value: number): void
   (e: 'offsetChange', value: { x: number, y: number }): void
+  (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
 }>()
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 const componentStateCanvas = defineModel<'pending' | 'loading' | 'mounted'>('canvasState', { default: 'pending' })
@@ -59,6 +62,18 @@ const live2dCanvasRef = ref<InstanceType<typeof Live2DCanvas>>()
 
 const live2d = useLive2d()
 const { positionInPercentageString, scale: storeScale } = storeToRefs(live2d)
+
+const hoverState = ref<{ name: string, x: number, y: number } | null>(null)
+
+function handleHitAreaHover(value: { name: string, x: number, y: number, hovered: boolean } | null) {
+  if (value && value.hovered) {
+    hoverState.value = value
+  }
+  else {
+    hoverState.value = null
+  }
+  emits('hitAreaHover', value)
+}
 
 watch([componentStateModel, componentStateCanvas], () => {
   componentState.value = (componentStateModel.value === 'mounted' && componentStateCanvas.value === 'mounted')
@@ -190,7 +205,30 @@ defineExpose({
         :live2d-force-auto-blink-enabled="live2dForceAutoBlinkEnabled"
         :live2d-shadow-enabled="live2dShadowEnabled"
         :idle-animations="idleAnimations"
+        :interaction-mode="interactionMode"
+        @hit-area-hover="handleHitAreaHover"
       />
     </Live2DCanvas>
+
+    <!-- SVG Overlay for Hover Effect -->
+    <svg
+      v-if="hoverState && interactionMode === 'tactile'"
+      class="pointer-events-none absolute inset-0"
+      :width="width"
+      :height="height"
+    >
+      <defs>
+        <radialGradient id="pink-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(249, 168, 212, 0.4)" />
+          <stop offset="100%" stop-color="rgba(249, 168, 212, 0)" />
+        </radialGradient>
+      </defs>
+      <circle
+        :cx="hoverState.x"
+        :cy="hoverState.y"
+        r="40"
+        fill="url(#pink-glow)"
+      />
+    </svg>
   </Screen>
 </template>

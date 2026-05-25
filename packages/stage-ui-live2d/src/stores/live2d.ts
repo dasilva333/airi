@@ -72,13 +72,13 @@ export const useLive2d = defineStore('live2d', () => {
     y: `${position.value.y}%`,
   }))
   const currentMotion = useLocalStorageManualReset<{ group: string, index?: number }>('settings/live2d/current-motion', () => ({ group: 'Idle', index: 0 }))
-  const availableMotions = useLocalStorageManualReset<{ motionName: string, motionIndex: number, fileName: string }[]>('settings/live2d/available-motions', () => [])
+  const availableMotions = ref<{ motionName: string, motionIndex: number, fileName: string }[]>([])
   const motionMap = useLocalStorageManualReset<Record<string, string>>('settings/live2d/motion-map', {})
   const scale = useLocalStorageManualReset('settings/live2d/scale', 1)
 
-  // Meta information from CDI and EXP files
-  const availableExpressions = useLocalStorageManualReset<{ name: string, fileName: string }[]>('settings/live2d/available-expressions', () => [])
-  const parameterMetadata = useLocalStorageManualReset<{ id: string, name: string, groupId?: string, groupName?: string }[]>('settings/live2d/parameter-metadata', () => [])
+  // Meta information from CDI and EXP files (In-memory refs to prevent localStorage QuotaExceededError)
+  const availableExpressions = ref<{ name: string, fileName: string }[]>([])
+  const parameterMetadata = ref<{ id: string, name: string, groupId?: string, groupName?: string }[]>([])
   const emotionMappings = useLocalStorageManualReset<Record<string, string>>('settings/live2d/emotion-mappings', {})
   const activeExpressions = useLocalStorageManualReset<Record<string, number>>('settings/live2d/active-expressions', {})
   const expressionData = ref<Array<{ name: string, fileName: string, data: any }>>([])
@@ -89,11 +89,11 @@ export const useLive2d = defineStore('live2d', () => {
   function resetState() {
     position.reset()
     currentMotion.reset()
-    availableMotions.reset()
+    availableMotions.value = []
     motionMap.reset()
     scale.reset()
-    availableExpressions.reset()
-    parameterMetadata.reset()
+    availableExpressions.value = []
+    parameterMetadata.value = []
     emotionMappings.reset()
     activeExpressions.reset()
     modelParameters.reset()
