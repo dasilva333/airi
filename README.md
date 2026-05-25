@@ -35,17 +35,16 @@
 
 ## Why This Fork Exists
 
-The original AIRI project is a fascinating base — it has real character cards, memory systems, Live2D/VRM support, speech synthesis, proactivity, and a widget system. But it was built as a cross-platform web-first project, and the desktop experience often took a backseat.
+The original AIRI project is a fascinating base — it has real character cards, memory systems, Live2D/VRM support, speech synthesis, proactivity, and a widget system. But it was built as a cross-platform web-first project.
 
 This fork exists to:
 
-- **Make AIRI a Linux desktop experience** — not an afterthought, but the primary target
-- **Keep the desktop path stable and testable** — no more "works on my machine"
-- **Preserve upstream intent where genuinely useful** — the original author's work on character cards, memory, and stage presentation is excellent
-- **Selectively forward-port worthwhile upstream work** — not blindly rebasing everything
-- **Ship tangible UX, performance, and workflow improvements** for real daily usage on Linux
+- **Make AIRI a Linux desktop experience** 
+- **Preserve upstream intent where genuinely useful** 
+- **Selectively forward-port worthwhile upstream work**
+- **Ship tangible UX, performance, and workflow improvements** 
 
-If you want the original project with broader platform support, see [`moeru-ai/airi`](https://github.com/moeru-ai/airi). If you want a Linux-tuned build that treats the desktop as a first-class citizen, this is that branch.
+If you want the original project with broader platform support, see [dasilva333/airi](https://github.com/dasilva333/airi) or [`moeru-ai/airi`](https://github.com/moeru-ai/airi). If you want a Linux-focused build, this is that branch.
 
 ## What Makes This Fork Different
 
@@ -54,9 +53,6 @@ If you want the original project with broader platform support, see [`moeru-ai/a
 This fork treats Linux as the primary platform. That means:
 
 - **Native Wayland support** with proper Ozone platform flags, PipeWire screen capture, and window decorations
-- **F12 dev tools** always available regardless of build mode
-- **Proper `.desktop` integration** with application icons and system menu entries
-- **Build scripts** (`build.sh` + `install.sh`) for easy local packaging and installation as a native Linux app
 - **Electron desktop stage** as the primary interface, not a web wrapper
 
 ### What We Kept From Upstream (And Why It's Good)
@@ -81,17 +77,7 @@ The original AIRI project has genuinely excellent work that this fork preserves 
 
 **Speech Pipeline** — The original author fixed a major audio degradation issue in the speech path, replaced the weak library, and added OpenAI-compatible voice discovery. This fork keeps those improvements.
 
-**Widget System** — The `stage_widgets` tool lets AIRI spawn, update, and remove floating desktop widgets. Pre-built weather and map widgets, plus a generic JSON fallback.
-
-### What This Fork Adds on Top
-
-- **Wayland-native rendering** with Ozone platform hints and PipeWire capture
-- **Build & install scripts** for native Linux packaging (deb/rpm)
-- **F12 keyboard shortcut** for dev tools in all windows
-- **Desktop entry** with proper icon and application menu integration
-- **Selective upstream sync** — only pulling in what's genuinely useful for the Linux desktop path
-- **Biome linter** replacing ESLint for faster formatting
-- **Debug logging infrastructure** for VRM/Live2D model loading pipelines
+**Widget System** — The `stage_widgets` tool lets AIRI spawn, update, and remove floating desktop widgets. Pre-built weather and map widgets, plus a generic JSON fallback. <!-- TODO native GTK windows -->
 
 ## The Vision: AiriOS
 
@@ -131,10 +117,12 @@ Capable of:
   - [x] Window snapping and position persistence
   - [x] Wayland native support
 - [ ] **AiriOS** (WIP)
-  - [ ] System tray integration
+  - [x] System tray integration
   - [ ] Global shortcuts
-  - [ ] Screen capture integration
-  - [ ] Desktop widget composition
+  - [?] Screen capture integration
+  - [ ] Generate and open native GTK3/4 windows instead of widgets.
+  - [ ] [computer-use-linux](https://github.com/vi70x3/computer-use-linux) integration
+  - [ ] Render Airi as wlroots wallpaper if compatible compositor detected
 
 ## Development
 ![Alt](https://repobeats.axiom.co/api/embed/30d3825941402ebcdc6dd5f21a116bb68fb2f4a3.svg "Repobeats analytics image")
@@ -143,7 +131,7 @@ Capable of:
 
 - Node.js >= 20.14.0
 - pnpm >= 10.0.0
-- Linux (primary target platform)
+- Linux
 
 ### Quick Start
 
@@ -161,19 +149,6 @@ cd apps/stage-tamagotchi
 ```
 
 This produces `.deb` and `.rpm` packages in `dist/`, plus generates an `install.sh` for system-wide installation.
-
-### Nix
-
-```shell
-nix run github:moeru-ai/airi
-```
-
-On NixOS:
-
-```shell
-nix develop .#fhs
-pnpm dev:tamagotchi
-```
 
 ### Troubleshooting
 
@@ -201,33 +176,14 @@ ELECTRON_OZONE_PLATFORM_HINT=wayland pnpm dev:tamagotchi
 - [x] [Together.ai](https://www.together.ai/)
 - [x] [vLLM](https://github.com/vllm-project/vllm)
 - [x] [SGLang](https://github.com/sgl-project/sglang)
-- ...and more
-
-## Community
-
-<p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Join Discord Server</a>]
-  [<a href="https://x.com/proj_airi">Twitter</a>]
-  [<a href="https://t.me/+7M_ZKO3zUHFlOThh">Telegram</a>]
-</p>
-
-<p align="center">
-  <a href="https://github.com/moeru-ai/airi/blob/main/LICENSE"><img src="https://img.shields.io/github/license/moeru-ai/airi.svg?style=flat&colorA=080f12&colorB=1fa669"></a>
-  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20members&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
-</p>
+- ...and [more](https://github.com/moeru-ai/xsai)
 
 > Heavily inspired by [Neuro-sama](https://www.youtube.com/@Neurosama)
 
-> [!WARNING]
-> **Attention:** We **do not** have any officially minted cryptocurrency or token associated with this project. Please check the information and proceed with caution.
-
 ## Acknowledgements
 
-- Original [moeru-ai/airi](https://github.com/moeru-ai/airi) project and its contributors
+- Original [moeru-ai/airi](https://github.com/moeru-ai/airi) project and [dasilva333/airi](https://github.com/dasilva333/airi)
 - [Reka UI](https://github.com/unovue/reka-ui) — UI components
 - [pixiv/ChatVRM](https://github.com/pixiv/ChatVRM)
 - [xsai](https://github.com/moeru-ai/xsai) — LLM interaction layer
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)
