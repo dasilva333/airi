@@ -8,6 +8,7 @@ import { useVRMLoader } from './loader'
 import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 interface GLTFUserdata extends Record<string, unknown> {
+  vrm?: VRM
   vrmCore?: VRMCore
 }
 
