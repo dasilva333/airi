@@ -125,3 +125,9 @@ plugins-development
 
 apps/stage-pocket/ios/buildServer.json
 .ghfs/
+
+# Local tooling & IDE configs
+.roo/
+
+# Playwright browser cache
+.cache/ms-playwright/
