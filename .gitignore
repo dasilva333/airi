@@ -136,5 +136,3 @@ recovery_artifacts/
 *.patch
 extract.js
 fixed_data.txt
-
-install.sh
