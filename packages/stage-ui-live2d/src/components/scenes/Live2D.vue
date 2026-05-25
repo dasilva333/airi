@@ -66,12 +66,7 @@ const { positionInPercentageString, scale: storeScale } = storeToRefs(live2d)
 const hoverState = ref<{ name: string, x: number, y: number } | null>(null)
 
 function handleHitAreaHover(value: { name: string, x: number, y: number, hovered: boolean } | null) {
-  if (value && value.hovered) {
-    hoverState.value = value
-  }
-  else {
-    hoverState.value = null
-  }
+  hoverState.value = value?.hovered ? value : null
   emits('hitAreaHover', value)
 }
 
@@ -88,77 +83,81 @@ function handleWheel(event: WheelEvent) {
   emits('scaleChange', newScale)
 }
 
-const isDragging = ref(false)
-let dragStartX = 0
-let dragStartY = 0
-let initialOffsetX = 0
-let initialOffsetY = 0
+// Wrap drag state in an IIFE to avoid polluting module scope
+const useDragHandlers = (() => {
+  const isDragging = ref(false)
+  let dragStartX = 0
+  let dragStartY = 0
+  let initialOffsetX = 0
+  let initialOffsetY = 0
 
-function handlePointerDown(event: PointerEvent) {
-  if (!props.draggable)
-    return
+  function handlePointerDown(event: PointerEvent) {
+    if (!props.draggable)
+      return
 
-  const target = event.currentTarget as HTMLElement
-  if (target && typeof target.setPointerCapture === 'function') {
-    target.setPointerCapture(event.pointerId)
+    const target = event.currentTarget as HTMLElement
+    target?.setPointerCapture?.(event.pointerId)
+
+    isDragging.value = true
+    dragStartX = event.clientX
+    dragStartY = event.clientY
+
+    let currentX = Number(props.xOffset)
+    if (String(props.xOffset).endsWith('%')) {
+      currentX = (Number.parseFloat(String(props.xOffset).replace('%', '')) / 100) * (live2dCanvasRef.value?.canvasElement()?.clientWidth ?? 0)
+    }
+    if (Number.isNaN(currentX)) {
+      currentX = 0
+    }
+
+    let currentY = Number(props.yOffset)
+    if (String(props.yOffset).endsWith('%')) {
+      currentY = (Number.parseFloat(String(props.yOffset).replace('%', '')) / 100) * (live2dCanvasRef.value?.canvasElement()?.clientHeight ?? 0)
+    }
+    if (Number.isNaN(currentY)) {
+      currentY = 0
+    }
+
+    initialOffsetX = currentX
+    initialOffsetY = currentY
   }
 
-  isDragging.value = true
-  dragStartX = event.clientX
-  dragStartY = event.clientY
+  function handlePointerMove(event: PointerEvent) {
+    if (!isDragging.value)
+      return
 
-  let currentX = Number(props.xOffset)
-  if (String(props.xOffset).endsWith('%')) {
-    currentX = (Number.parseFloat(String(props.xOffset).replace('%', '')) / 100) * (live2dCanvasRef.value?.canvasElement()?.clientWidth || 0)
-  }
-  if (Number.isNaN(currentX)) {
-    currentX = 0
-  }
+    const deltaX = event.clientX - dragStartX
+    const deltaY = event.clientY - dragStartY
 
-  let currentY = Number(props.yOffset)
-  if (String(props.yOffset).endsWith('%')) {
-    currentY = (Number.parseFloat(String(props.yOffset).replace('%', '')) / 100) * (live2dCanvasRef.value?.canvasElement()?.clientHeight || 0)
-  }
-  if (Number.isNaN(currentY)) {
-    currentY = 0
+    const newX = initialOffsetX + deltaX
+    const newY = initialOffsetY + deltaY
+
+    emits('offsetChange', { x: newX, y: newY })
   }
 
-  initialOffsetX = currentX
-  initialOffsetY = currentY
-}
+  function handlePointerUp(event: PointerEvent) {
+    if (!isDragging.value)
+      return
 
-function handlePointerMove(event: PointerEvent) {
-  if (!isDragging.value)
-    return
+    const target = event.currentTarget as HTMLElement
+    target?.releasePointerCapture?.(event.pointerId)
 
-  const deltaX = event.clientX - dragStartX
-  const deltaY = event.clientY - dragStartY
-
-  const newX = initialOffsetX + deltaX
-  const newY = initialOffsetY + deltaY
-
-  emits('offsetChange', { x: newX, y: newY })
-}
-
-function handlePointerUp(event: PointerEvent) {
-  if (!isDragging.value)
-    return
-
-  const target = event.currentTarget as HTMLElement
-  if (target && typeof target.releasePointerCapture === 'function') {
-    target.releasePointerCapture(event.pointerId)
+    isDragging.value = false
   }
 
-  isDragging.value = false
-}
+  return {
+    isDragging,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+  }
+})()
+
+const { isDragging, handlePointerDown, handlePointerMove, handlePointerUp } = useDragHandlers
 
 defineExpose({
-  canvasElement: () => {
-    return live2dCanvasRef.value?.canvasElement()
-  },
-  captureFrame: () => {
-    return live2dCanvasRef.value?.captureFrame()
-  },
+  canvasElement: () => live2dCanvasRef.value?.canvasElement(),
+  captureFrame: () => live2dCanvasRef.value?.captureFrame(),
 })
 </script>
 

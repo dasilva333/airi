@@ -39,8 +39,6 @@ import {
   electronGetMainWindowConfig,
   electronOpenChat,
   electronOpenSettings,
-  //  electronStageSetAlwaysOnTop,
-
   electronStageToggleVisibility,
   electronStartDraggingWindow,
 } from '../../shared/eventa'
@@ -56,7 +54,6 @@ const openChat = useElectronEventaInvoke(electronOpenChat)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
-// const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
 const quitApp = useElectronEventaInvoke(electronAppQuit)
 const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 const startDraggingWindow = useElectronEventaInvoke(electronStartDraggingWindow)

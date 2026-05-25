@@ -31,6 +31,53 @@ import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
 
+interface Live2DCdiParameter {
+  Id?: string
+  id?: string
+  Name?: string
+  name?: string
+  GroupId?: string
+  groupId?: string
+}
+
+interface Live2DCdiGroup {
+  Id?: string
+  id?: string
+  Name?: string
+  name?: string
+}
+
+interface Live2DExpressionFile {
+  name: string
+  fileName: string
+  data?: unknown
+}
+
+interface Live2DExpressionEntry {
+  name: string
+  fileName: string
+  data?: { Parameters?: Live2DCdiParameter[] }
+}
+
+interface Live2DHitArea {
+  Name?: string
+  name?: string
+  Id?: string
+  id?: string
+}
+
+interface Live2DMotionDefinition {
+  File?: string
+  file?: string
+}
+
+interface ResolvedMetadata {
+  cdiData: Record<string, unknown> | null
+  expFiles: Live2DExpressionFile[]
+  savedActiveExpressions: string[]
+  artMeshColors: Record<string, string>
+}
+
 const props = withDefaults(defineProps<{
   modelSrc?: string
   modelId?: string
@@ -78,7 +125,7 @@ const emits = defineEmits<{
 
 // Global Model Access for LHacker
 setOnZipLoaded((buffer) => {
-  (window as any).__LHACK_LAST_ZIP_BUFFER__ = buffer
+  (window as unknown as Record<string, unknown>).__LHACK_LAST_ZIP_BUFFER__ = buffer
 })
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -104,7 +151,7 @@ const modelSrcRef = toRef(() => props.modelSrc)
 
 const modelLoading = ref(false)
 // NOTICE: boolean is sufficient; this flag is only used inside loadModel to bail out if the component unmounts mid-load.
-let isUnmounted = false
+const isUnmounted = ref(false)
 
 const modelLoadMutex = new Mutex()
 
@@ -132,18 +179,15 @@ const dropShadowFilter = shallowRef(new DropShadowFilter({
   rotation: 45,
 }))
 
-function getCoreModel() {
-  return model.value?.internalModel?.coreModel as any
+function getCoreModel(): PixiLive2DInternalModel['coreModel'] | undefined {
+  return model.value?.internalModel?.coreModel as PixiLive2DInternalModel['coreModel'] | undefined
 }
 
 function setScaleAndPosition() {
   if (!model.value)
     return
 
-  let offsetFactor = 1.0
-  if (isMobile.value) {
-    offsetFactor = 1.0
-  }
+  const offsetFactor = isMobile.value ? 1.0 : 1.0
 
   const heightScale = (props.height * 0.95 / initialModelHeight.value * offsetFactor)
   const widthScale = (props.width * 0.95 / initialModelWidth.value * offsetFactor)
@@ -214,9 +258,88 @@ function parseVTubeJson(text: string): { savedActiveExpressions: string[], artMe
   }
 }
 
-async function resolveMetadata() {
-  let cdiData: any = null
-  const expFiles: any[] = []
+async function extractFromZip(zip: JSZip, filePaths: string[]): Promise<{ cdiData: Record<string, unknown> | null, expFiles: Live2DExpressionFile[], savedActiveExpressions: string[], artMeshColors: Record<string, string> }> {
+  let cdiData: Record<string, unknown> | null = null
+  const expFiles: Live2DExpressionFile[] = []
+  let savedActiveExpressions: string[] = []
+  let artMeshColors: Record<string, string> = {}
+
+  const cdiPath = filePaths.find((f: string) => f.toLowerCase().endsWith('.cdi3.json'))
+  if (cdiPath) {
+    const text = await zip.file(cdiPath)?.async('text')
+    if (text)
+      cdiData = JSON.parse(text)
+  }
+
+  const expPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.exp3.json'))
+  for (const expPath of expPaths) {
+    const text = await zip.file(expPath)?.async('text')
+    if (text) {
+      const baseName = expPath.split('/').pop()?.replace('.exp3.json', '') || expPath
+      expFiles.push({
+        name: baseName,
+        fileName: expPath,
+        data: JSON.parse(text),
+      })
+    }
+  }
+
+  const vtubePath = filePaths.find((f: string) => f.toLowerCase().endsWith('.vtube.json'))
+  if (vtubePath) {
+    try {
+      const text = await zip.file(vtubePath)?.async('text')
+      if (text) {
+        const parsed = parseVTubeJson(text)
+        savedActiveExpressions = parsed.savedActiveExpressions
+        artMeshColors = parsed.artMeshColors
+      }
+    }
+    catch {}
+  }
+
+  return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
+}
+
+async function extractFromFiles(cachedFiles: File[]): Promise<{ cdiData: Record<string, unknown> | null, expFiles: Live2DExpressionFile[], savedActiveExpressions: string[], artMeshColors: Record<string, string> }> {
+  let cdiData: Record<string, unknown> | null = null
+  const expFiles: Live2DExpressionFile[] = []
+  let savedActiveExpressions: string[] = []
+  let artMeshColors: Record<string, string> = {}
+
+  const cdiFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.cdi3.json'))
+  if (cdiFile) {
+    const text = await cdiFile.text()
+    cdiData = JSON.parse(text)
+  }
+
+  const cachedExpFiles = cachedFiles.filter((f: File) => f.name.toLowerCase().endsWith('.exp3.json'))
+  for (const expFile of cachedExpFiles) {
+    const text = await expFile.text()
+    const baseName = expFile.name.split('/').pop()?.replace('.exp3.json', '') || expFile.name
+    expFiles.push({
+      name: baseName,
+      fileName: expFile.webkitRelativePath || expFile.name,
+      data: JSON.parse(text),
+    })
+  }
+
+  const vtubeFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.vtube.json'))
+  if (vtubeFile) {
+    try {
+      const text = await vtubeFile.text()
+      const parsed = parseVTubeJson(text)
+      savedActiveExpressions = parsed.savedActiveExpressions
+      artMeshColors = parsed.artMeshColors
+    }
+    catch {}
+  }
+
+  return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
+}
+
+async function resolveMetadata(): Promise<ResolvedMetadata> {
+  const cdiData: Record<string, unknown> | null = null
+  const expFiles: Live2DExpressionFile[] = []
   let savedActiveExpressions: string[] = []
   let artMeshColors: Record<string, string> = {}
 
@@ -226,40 +349,13 @@ async function resolveMetadata() {
       const buffer = await props.modelFile.arrayBuffer()
       const zip = await JSZip.loadAsync(buffer)
       const filePaths = Object.keys(zip.files)
-
-      const cdiPath = filePaths.find((f: string) => f.toLowerCase().endsWith('.cdi3.json'))
-      if (cdiPath) {
-        const text = await zip.file(cdiPath)!.async('text')
-        cdiData = JSON.parse(text)
-      }
-
-      const expPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.exp3.json'))
-      for (const expPath of expPaths) {
-        const text = await zip.file(expPath)!.async('text')
-        const baseName = expPath.split('/').pop()?.replace('.exp3.json', '') || expPath
-        expFiles.push({
-          name: baseName,
-          fileName: expPath,
-          data: JSON.parse(text),
-        })
-      }
-
-      const vtubePath = filePaths.find((f: string) => f.toLowerCase().endsWith('.vtube.json'))
-      if (vtubePath) {
-        try {
-          const text = await zip.file(vtubePath)!.async('text')
-          const parsed = parseVTubeJson(text)
-          savedActiveExpressions = parsed.savedActiveExpressions
-          artMeshColors = parsed.artMeshColors
-        }
-        catch {}
-      }
+      const result = await extractFromZip(zip, filePaths)
 
       console.info(
         '[Live2D Metadata] Extracted CDI, EXP & VTube config directly from uploaded ZIP file',
-        Object.keys(artMeshColors).length > 0 ? `(${Object.keys(artMeshColors).length} ArtMesh colors)` : '(no ArtMesh colors in .vtube.json)',
+        Object.keys(result.artMeshColors).length > 0 ? `(${Object.keys(result.artMeshColors).length} ArtMesh colors)` : '(no ArtMesh colors in .vtube.json)',
       )
-      return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
+      return { ...result, cdiData: result.cdiData }
     }
     catch (e) {
       console.warn('[Live2D Metadata] Failed to parse uploaded ZIP file:', e)
@@ -271,76 +367,20 @@ async function resolveMetadata() {
     try {
       const cachedFiles = await OPFSCacheV2.get(props.modelId, props.modelSrc)
       if (cachedFiles) {
-        // Sometimes OPFS stores the ZIP file itself, or individual files
         const zipFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.zip'))
         if (zipFile) {
           const buffer = await zipFile.arrayBuffer()
           const zip = await JSZip.loadAsync(buffer)
           const filePaths = Object.keys(zip.files)
-
-          const cdiPath = filePaths.find((f: string) => f.toLowerCase().endsWith('.cdi3.json'))
-          if (cdiPath) {
-            const text = await zip.file(cdiPath)!.async('text')
-            cdiData = JSON.parse(text)
-          }
-
-          const expPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.exp3.json'))
-          for (const expPath of expPaths) {
-            const text = await zip.file(expPath)!.async('text')
-            const baseName = expPath.split('/').pop()?.replace('.exp3.json', '') || expPath
-            expFiles.push({
-              name: baseName,
-              fileName: expPath,
-              data: JSON.parse(text),
-            })
-          }
-
-          const vtubePath = filePaths.find((f: string) => f.toLowerCase().endsWith('.vtube.json'))
-          if (vtubePath) {
-            try {
-              const text = await zip.file(vtubePath)!.async('text')
-              const parsed = parseVTubeJson(text)
-              savedActiveExpressions = parsed.savedActiveExpressions
-              artMeshColors = parsed.artMeshColors
-            }
-            catch {}
-          }
-
+          const result = await extractFromZip(zip, filePaths)
           console.info('[Live2D Metadata] Extracted CDI, EXP & VTube config from cached ZIP file in OPFS')
+          return { ...result, cdiData: result.cdiData }
         }
         else {
-          // It's a flat directory of files
-          const cdiFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.cdi3.json'))
-          if (cdiFile) {
-            const text = await cdiFile.text()
-            cdiData = JSON.parse(text)
-          }
-
-          const cachedExpFiles = cachedFiles.filter((f: File) => f.name.toLowerCase().endsWith('.exp3.json'))
-          for (const expFile of cachedExpFiles) {
-            const text = await expFile.text()
-            const baseName = expFile.name.split('/').pop()?.replace('.exp3.json', '') || expFile.name
-            expFiles.push({
-              name: baseName,
-              fileName: expFile.webkitRelativePath || expFile.name,
-              data: JSON.parse(text),
-            })
-          }
-
-          const vtubeFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.vtube.json'))
-          if (vtubeFile) {
-            try {
-              const text = await vtubeFile.text()
-              const parsed = parseVTubeJson(text)
-              savedActiveExpressions = parsed.savedActiveExpressions
-              artMeshColors = parsed.artMeshColors
-            }
-            catch {}
-          }
-
+          const result = await extractFromFiles(cachedFiles)
           console.info('[Live2D Metadata] Extracted CDI, EXP & VTube config directly from cached files in OPFS')
+          return { ...result, cdiData: result.cdiData }
         }
-        return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
       }
     }
     catch (e) {
@@ -361,7 +401,7 @@ async function resolveMetadata() {
 
     for (const vtubeFileName of vtubeCandidates) {
       try {
-        const resp = await fetch(baseUrl + encodeURIComponent(vtubeFileName))
+        const resp = await fetch(`${baseUrl}${encodeURIComponent(vtubeFileName)}`)
         if (!resp.ok)
           continue
         const parsed = parseVTubeJson(await resp.text())
@@ -379,26 +419,469 @@ async function resolveMetadata() {
   return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
 }
 
-async function loadModel() {
+function isStageRoute(): boolean {
   const hash = window.location.hash || '#/'
-  const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-  config.sound = isStage
+  return hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
+}
+
+function setupModelScene(live2DModel: Live2DModel<PixiLive2DInternalModel>) {
+  model.value = live2DModel
+  pixiApp.value?.stage?.addChild(model.value)
+  model.value.update(0)
+  const bounds = model.value.getLocalBounds()
+  const logicalWidth = model.value.internalModel.width
+  const logicalHeight = model.value.internalModel.height
+
+  console.info(`[Live2D Load] Logical Canvas: ${logicalWidth}x${logicalHeight} | True Bounds: ${bounds.width.toFixed(0)}x${bounds.height.toFixed(0)}`)
+
+  if (bounds.width > logicalWidth || bounds.height > logicalHeight) {
+    initialModelWidth.value = bounds.width
+    initialModelHeight.value = bounds.height
+  }
+  else {
+    initialModelWidth.value = logicalWidth
+    initialModelHeight.value = logicalHeight
+  }
+
+  model.value.anchor.set(0.5, 0.5)
+  setScaleAndPosition()
+}
+
+function setupModelInteraction(live2DModel: Live2DModel<PixiLive2DInternalModel>) {
+  const settings = live2DModel.internalModel?.settings as { hitAreas?: Live2DHitArea[] } | undefined
+  const declaredHitAreas = settings?.hitAreas ?? []
+  console.info(`[Live2D Tactile] Loaded model has ${declaredHitAreas.length} hitboxes:`, declaredHitAreas.map((h: Live2DHitArea) => `${h.Name || h.name} -> ${h.Id || h.id}`))
+
+  model.value?.on('hit', (hitAreas) => {
+    if (model.value && hitAreas.includes('body'))
+      model.value.motion('tap_body')
+  })
+}
+
+function buildAvailableMotions(motionManager: PixiLive2DInternalModel['motionManager']): void {
+  availableMotions.value = Object
+    .entries(motionManager.definitions)
+    .flatMap(([motionName, definition]) => ((definition as Live2DMotionDefinition[] | undefined)?.map((motion: Live2DMotionDefinition, index: number) => ({
+      motionName,
+      motionIndex: index,
+      fileName: motion.File ?? motion.file ?? '',
+    })) || []))
+    .filter(Boolean)
+}
+
+function configureMotionLoop(motionManager: PixiLive2DInternalModel['motionManager'], groupName: string, indexStr: string) {
+  const groups = motionManager.groups as unknown as Record<string, number | undefined>
+  const groupIndex = groups[groupName]
+  if (groupIndex !== undefined && motionManager.motionGroups[groupIndex]) {
+    const motionIndex = Number.parseInt(indexStr)
+    const motion = motionManager.motionGroups[groupIndex][motionIndex]
+    if (motion && motion._looper) {
+      motion._looper.loopDuration = 0
+      console.info('[Live2D Cycle] Configured motion to loop infinitely:', groupName, motionIndex)
+    }
+  }
+}
+
+function parseCycleMotions() {
+  return props.idleAnimations
+    ?.filter(k => k.startsWith('live2d:'))
+    .map((k) => {
+      const [_, group, indexStr] = k.split(':')
+      return {
+        group,
+        index: Number.parseInt(indexStr),
+      }
+    }) ?? []
+}
+
+function setupMotionLooping(motionManager: PixiLive2DInternalModel['motionManager']) {
+  const cycleMotions = parseCycleMotions()
+
+  if (cycleMotions.length > 0) {
+    cycleMotions.forEach(m => configureMotionLoop(motionManager, m.group, String(m.index)))
+  }
+  else {
+    const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
+    const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
+    if (selectedMotionGroup !== null && selectedMotionIndex) {
+      configureMotionLoop(motionManager, selectedMotionGroup, selectedMotionIndex)
+    }
+  }
+}
+
+function scheduleInitialMotion() {
+  const cycleMotions = parseCycleMotions()
+
+  if (cycleMotions.length > 0) {
+    setTimeout(() => {
+      console.info('[Live2D Cycle] Playing initial motion from card cycle subset:', cycleMotions[0].group, cycleMotions[0].index)
+      currentMotion.value = {
+        group: cycleMotions[0].group,
+        index: cycleMotions[0].index,
+      }
+    }, 300)
+  }
+  else {
+    const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
+    const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
+    if (selectedMotionGroup !== null && selectedMotionIndex) {
+      setTimeout(() => {
+        console.info('Playing selected runtime motion:', selectedMotionGroup, selectedMotionIndex)
+        currentMotion.value = {
+          group: selectedMotionGroup,
+          index: Number.parseInt(selectedMotionIndex),
+        }
+      }, 300)
+    }
+  }
+}
+
+function removeIdleEyeBallMovements(motionManager: PixiLive2DInternalModel['motionManager']) {
+  if (motionManager.groups.idle) {
+    motionManager.motionGroups[motionManager.groups.idle]?.forEach((motion) => {
+      motion._motionData.curves.forEach((curve: { id: string }) => {
+        if (curve.id === 'ParamEyeBallX' || curve.id === 'ParamEyeBallY') {
+          curve.id = `_${curve.id}`
+        }
+      })
+    })
+  }
+}
+
+function setupMotionManagerPlugins(internalModel: PixiLive2DInternalModel, motionManager: PixiLive2DInternalModel['motionManager']) {
+  const motionManagerUpdate = useLive2DMotionManagerUpdate({
+    internalModel,
+    motionManager,
+    modelParameters,
+    live2dIdleAnimationEnabled,
+    live2dAutoBlinkEnabled,
+    live2dForceAutoBlinkEnabled,
+    lastUpdateTime,
+  })
+
+  motionManagerUpdate.register(useMotionUpdatePluginBeatSync(beatSync), 'pre')
+  motionManagerUpdate.register(useMotionUpdatePluginIdleDisable(), 'pre')
+  motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(), 'post')
+  motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
+
+  hookArtMeshColorsAfterModelUpdate(internalModel, artMeshColors)
+
+  const standardKeys = new Set([
+    'angleX',
+    'angleY',
+    'angleZ',
+    'leftEyeOpen',
+    'rightEyeOpen',
+    'leftEyeSmile',
+    'rightEyeSmile',
+    'leftEyebrowLR',
+    'rightEyebrowLR',
+    'leftEyebrowY',
+    'rightEyebrowY',
+    'leftEyebrowAngle',
+    'rightEyebrowAngle',
+    'leftEyebrowForm',
+    'rightEyebrowForm',
+    'mouthOpen',
+    'mouthForm',
+    'cheek',
+    'bodyAngleX',
+    'bodyAngleY',
+    'bodyAngleZ',
+    'breath',
+  ])
+
+  motionManagerUpdate.register((ctx) => {
+    const params = ctx.modelParameters.value
+    for (const key in params) {
+      if (!standardKeys.has(key) && key.startsWith('Param')) {
+        try {
+          ctx.model.setParameterValueById(key, params[key] as number)
+        }
+        catch {}
+      }
+    }
+  }, 'post')
+
+  const hookedUpdate = motionManager.update as (model: PixiLive2DInternalModel['coreModel'], now: number) => boolean
+  motionManager.update = function (m: PixiLive2DInternalModel['coreModel'], now: number) {
+    return motionManagerUpdate.hookUpdate(m, now, hookedUpdate)
+  }
+}
+
+function setupMotionEventHandlers(motionManager: PixiLive2DInternalModel['motionManager']) {
+  motionManager.on('motionStart', (group, index, audio) => {
+    localCurrentMotion.value = { group, index }
+
+    if (!isStageRoute() && audio) {
+      try {
+        audio.muted = true
+        audio.pause()
+      }
+      catch (e) {
+        console.warn('[Live2D Audio] Failed to mute/pause non-leader audio:', e)
+      }
+    }
+  })
+
+  motionManager.on('motionFinish', () => {
+    if (!live2dIdleAnimationEnabled.value)
+      return
+
+    const cycleMotions = parseCycleMotions()
+
+    if (cycleMotions.length > 0) {
+      let nextMotion = cycleMotions[0]
+      if (cycleMotions.length > 1) {
+        const current = currentMotion.value
+        const choices = cycleMotions.filter(
+          m => m.group !== current?.group || m.index !== current?.index,
+        )
+        const selection = choices.length > 0 ? choices : cycleMotions
+        nextMotion = selection[Math.floor(Math.random() * selection.length)]
+      }
+      console.info('[Live2D Cycle] Motion finished, playing next subset motion:', nextMotion.group, nextMotion.index)
+      requestAnimationFrame(() => {
+        currentMotion.value = { group: nextMotion.group, index: nextMotion.index }
+      })
+      return
+    }
+
+    const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
+    const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
+    if (selectedMotionGroup !== null && selectedMotionIndex) {
+      console.info('Motion finished, restarting runtime motion:', selectedMotionGroup, selectedMotionIndex)
+      requestAnimationFrame(() => {
+        currentMotion.value = {
+          group: selectedMotionGroup,
+          index: Number.parseInt(selectedMotionIndex),
+        }
+      })
+    }
+  })
+}
+
+function applyStoredParameters(coreModel: PixiLive2DInternalModel['coreModel']) {
+  coreModel.setParameterValueById('ParamMouthOpenY', modelParameters.value.mouthOpen)
+  coreModel.setParameterValueById('ParamMouthForm', modelParameters.value.mouthForm)
+  coreModel.setParameterValueById('ParamCheek', modelParameters.value.cheek)
+  coreModel.setParameterValueById('ParamBodyAngleX', modelParameters.value.bodyAngleX)
+  coreModel.setParameterValueById('ParamBodyAngleY', modelParameters.value.bodyAngleY)
+  coreModel.setParameterValueById('ParamBodyAngleZ', modelParameters.value.bodyAngleZ)
+  coreModel.setParameterValueById('ParamBreath', modelParameters.value.breath)
+}
+
+async function parseAndApplyMetadata(internalModel: PixiLive2DInternalModel) {
+  try {
+    const settings = internalModel.settings as { json?: Record<string, unknown>, _cdiData?: Record<string, unknown>, _expFiles?: Live2DExpressionFile[] } | undefined
+    const rawJson = settings?.json as Record<string, unknown> | undefined
+    const fileRefs = rawJson?.FileReferences as Record<string, unknown> | undefined || rawJson?.fileReferences as Record<string, unknown> | undefined
+
+    const resolvedMeta = await resolveMetadata()
+    let cdiData = resolvedMeta.cdiData || settings?._cdiData || null
+    artMeshColors.value = resolvedMeta.artMeshColors || {}
+    if (Object.keys(artMeshColors.value).length > 0) {
+      console.info('[Live2D] Loaded ArtMesh colors from .vtube.json:', Object.keys(artMeshColors.value).length)
+    }
+
+    if (!cdiData) {
+      const cdiFileName = fileRefs?.DisplayInfo as string | undefined || fileRefs?.Cdi as string | undefined
+      if (cdiFileName && props.modelSrc && !props.modelSrc.startsWith('blob:')) {
+        const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
+        try {
+          const resp = await fetch(`${baseUrl}${encodeURIComponent(cdiFileName)}`)
+          if (resp.ok && !isUnmounted.value && model.value)
+            cdiData = await resp.json() as Record<string, unknown>
+        }
+        catch {}
+      }
+    }
+
+    if (cdiData && !isUnmounted.value && model.value) {
+      const cdiParams = cdiData?.Parameters as Live2DCdiParameter[] | undefined || cdiData?.parameters as Live2DCdiParameter[] | undefined
+      if (cdiParams) {
+        cdiParams.forEach((p: Live2DCdiParameter) => {
+          const id = p.Id || p.id
+          if (id && modelParameters.value[id] === undefined) {
+            try {
+              modelParameters.value[id] = (internalModel.coreModel as unknown as { getParameterValueById: (id: string) => number }).getParameterValueById(id) || 0
+            }
+            catch {
+              modelParameters.value[id] = 0
+            }
+          }
+        })
+
+        parameterMetadata.value = cdiParams.map((p: Live2DCdiParameter) => ({
+          id: p.Id || p.id || '',
+          name: p.Name || p.name || p.Id || p.id || '',
+          groupId: p.GroupId || p.groupId,
+        }))
+
+        const groups = cdiData?.ParameterGroups as Live2DCdiGroup[] | undefined || cdiData?.parameterGroups as Live2DCdiGroup[] | undefined
+        if (groups) {
+          parameterMetadata.value.forEach((p) => {
+            const group = groups.find((g: Live2DCdiGroup) => (g.Id || g.id) === p.groupId)
+            if (group)
+              p.groupName = group.Name || group.name
+          })
+        }
+        console.info('Populated parameterMetadata from CDI:', parameterMetadata.value.length)
+      }
+    }
+
+    if (parameterMetadata.value.length === 0) {
+      try {
+        const core = internalModel.coreModel as unknown as { _parameterIds?: string[], _model?: { _parameterIds?: string[] } }
+        const paramIds = core?._parameterIds || core?._model?._parameterIds || []
+        if (paramIds.length > 0) {
+          parameterMetadata.value = paramIds.map((id: string) => ({ id, name: id }))
+          parameterMetadata.value.forEach((p) => {
+            if (modelParameters.value[p.id] === undefined) {
+              try {
+                modelParameters.value[p.id] = (internalModel.coreModel as unknown as { getParameterValueById: (id: string) => number }).getParameterValueById(p.id) || 0
+              }
+              catch {
+                modelParameters.value[p.id] = 0
+              }
+            }
+          })
+        }
+      }
+      catch (e) {
+        console.warn('Could not extract parameter IDs from core model:', e)
+      }
+    }
+
+    const expFiles = (resolvedMeta.expFiles && resolvedMeta.expFiles.length > 0) ? resolvedMeta.expFiles : (settings?._expFiles ?? [])
+    if (expFiles && expFiles.length > 0) {
+      availableExpressions.value = expFiles.map((exp: Live2DExpressionFile) => ({
+        name: exp.name,
+        fileName: exp.fileName,
+      }))
+      expressionData.value = expFiles.map((exp: Live2DExpressionFile) => ({
+        name: exp.name,
+        fileName: exp.fileName,
+        data: exp.data ?? {},
+      }))
+      console.info('Populated expressions from zip-extracted files:', expFiles.length)
+    }
+    else {
+      const expressions = fileRefs?.Expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined || fileRefs?.expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined
+      if (expressions && Array.isArray(expressions)) {
+        availableExpressions.value = expressions.map(exp => ({
+          name: exp.Name || exp.name || exp.File?.split('/').pop()?.replace('.exp3.json', '') || '',
+          fileName: exp.File || exp.file || '',
+        }))
+
+        if (props.modelSrc && !props.modelSrc.startsWith('blob:')) {
+          const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
+          const fetchPromises = availableExpressions.value.map(async (exp) => {
+            try {
+              const resp = await fetch(`${baseUrl}${encodeURIComponent(exp.fileName)}`)
+              if (resp.ok) {
+                const data = await resp.json() as Record<string, unknown>
+                return { name: exp.name, fileName: exp.fileName, data }
+              }
+            }
+            catch (err) {
+              console.warn(`[Live2D] Failed to fetch expression ${exp.fileName}:`, err)
+            }
+            return null
+          })
+          const results = await Promise.all(fetchPromises)
+          if (!isUnmounted.value && model.value) {
+            expressionData.value = results.filter((r): r is { name: string, fileName: string, data: Record<string, unknown> } => r !== null)
+            console.info('Fetched expression data from URLs:', expressionData.value.length)
+          }
+        }
+        console.info('Populated expressions from FileRefs:', availableExpressions.value.length)
+      }
+      else {
+        const expressionManager = (internalModel as unknown as { expressionManager?: { definitions?: Record<string, { File?: string, file?: string }> } }).expressionManager
+        if (expressionManager?.definitions) {
+          const defs = expressionManager.definitions
+          availableExpressions.value = Object.keys(defs).map(name => ({
+            name,
+            fileName: defs[name]?.File || defs[name]?.file || name,
+          }))
+          console.info('Populated expressions from expressionManager:', availableExpressions.value.length)
+        }
+      }
+    }
+
+    const modelKey = props.modelId || props.modelSrc
+    const defaultsLoadedKey = modelKey ? `live2d_vtube_defaults_loaded_${modelKey}` : null
+    const hasLoadedDefaults = defaultsLoadedKey ? localStorage.getItem(defaultsLoadedKey) === 'true' : false
+
+    if (!hasLoadedDefaults && resolvedMeta.savedActiveExpressions && resolvedMeta.savedActiveExpressions.length > 0) {
+      console.info('[Live2D] Activating saved active expressions from .vtube.json:', resolvedMeta.savedActiveExpressions)
+      for (const savedExp of resolvedMeta.savedActiveExpressions) {
+        const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => {
+          const eName = e.fileName.split('/').pop()?.toLowerCase()
+          const sName = savedExp.split('/').pop()?.toLowerCase()
+          return eName === sName
+        })
+        if (expEntry) {
+          activeExpressions.value[expEntry.fileName] = 1
+        }
+      }
+      if (defaultsLoadedKey) {
+        localStorage.setItem(defaultsLoadedKey, 'true')
+      }
+    }
+
+    const validKeys = new Set(availableExpressions.value.map(e => e.fileName))
+    const nextActiveExpressions = { ...activeExpressions.value }
+    let hasDeletes = false
+    for (const key of Object.keys(nextActiveExpressions)) {
+      if (!validKeys.has(key)) {
+        delete nextActiveExpressions[key]
+        hasDeletes = true
+      }
+    }
+    if (hasDeletes) {
+      activeExpressions.value = nextActiveExpressions
+    }
+
+    if (expressionData.value.length > 0 && Object.keys(activeExpressions.value).length > 0) {
+      for (const [fileName, weight] of Object.entries(activeExpressions.value)) {
+        if (weight > 0) {
+          const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => e.fileName === fileName)
+          if (expEntry?.data && typeof expEntry.data === 'object') {
+            const params = (expEntry.data as { Parameters?: Array<{ Id?: string, id?: string, Value?: number, value?: number }> }).Parameters
+            if (params) {
+              for (const param of params) {
+                const id = param.Id || param.id
+                const value = param.Value ?? param.value
+                if (id !== undefined && value !== undefined) {
+                  modelParameters.value[id] = value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  catch (e) {
+    console.error('[Live2D-Alpha] Metadata parsing failure:', e)
+  }
+}
+
+async function loadModel() {
+  config.sound = isStageRoute()
 
   await until(modelLoading).not.toBeTruthy()
-
   await modelLoadMutex.acquire()
 
   modelLoading.value = true
   availableExpressions.value = []
   expressionData.value = []
-
-  // activeExpressions.value is NOT wiped here to preserve card state, ghost keys are cleaned up later
   componentState.value = 'loading'
 
   if (!pixiApp.value || !pixiApp.value.stage) {
     try {
-      // NOTICE: shouldUpdateView can fire while the canvas (pixiApp) is being torn down/recreated.
-      // Wait briefly for the new stage instead of bailing out, otherwise we keep a blank screen.
       await until(() => !!pixiApp.value && !!pixiApp.value.stage).toBeTruthy({ timeout: 1500 })
     }
     catch {
@@ -408,7 +891,6 @@ async function loadModel() {
     }
   }
 
-  // REVIEW: here as await until(...) guarded the pixiApp and stage to be valid.
   if (model.value && pixiApp.value?.stage) {
     try {
       pixiApp.value.stage.removeChild(model.value)
@@ -427,7 +909,7 @@ async function loadModel() {
   }
 
   try {
-    if (isUnmounted) {
+    if (isUnmounted.value) {
       modelLoading.value = false
       componentState.value = 'mounted'
       return
@@ -436,8 +918,7 @@ async function loadModel() {
     const live2DModel = new Live2DModel<PixiLive2DInternalModel>()
     await Live2DFactory.setupLive2DModel(live2DModel, { url: modelSrcRef.value, id: props.modelId, file: props.modelFile }, { autoInteract: false })
 
-    // NOTICE: setupLive2DModel is async; pixiApp or stage could have been destroyed during the wait.
-    if (isUnmounted || !pixiApp.value || !pixiApp.value.stage) {
+    if (isUnmounted.value || !pixiApp.value || !pixiApp.value.stage) {
       live2DModel.destroy()
       modelLoading.value = false
       componentState.value = 'mounted'
@@ -453,488 +934,27 @@ async function loadModel() {
       }
     })
 
-    // --- Scene
-    model.value = live2DModel
-    // REVIEW: pixiApp and stage are guaranteed to be valid here due to the check above.
-    pixiApp.value.stage.addChild(model.value)
-    // Safety fallback: if the logical canvas is missing or tiny (common in certain exports),
-    // use the actual container bounds to prevent a massive scale explosion.
-    // Always force an update and use local bounds to account for meshes extending beyond logical canvas
-    model.value.update(0)
-    const bounds = model.value.getLocalBounds()
-    const logicalWidth = model.value.internalModel.width
-    const logicalHeight = model.value.internalModel.height
+    setupModelScene(live2DModel)
+    setupModelInteraction(live2DModel)
 
-    console.info(`[Live2D Load] Logical Canvas: ${logicalWidth}x${logicalHeight} | True Bounds: ${bounds.width.toFixed(0)}x${bounds.height.toFixed(0)}`)
-
-    // Use true bounds if they are significantly larger than the logical canvas
-    if (bounds.width > logicalWidth || bounds.height > logicalHeight) {
-      initialModelWidth.value = bounds.width
-      initialModelHeight.value = bounds.height
-    }
-    else {
-      initialModelWidth.value = logicalWidth
-      initialModelHeight.value = logicalHeight
-    }
-
-    // Set anchor to 0.5 to center the model correctly when positioned at width/2, height/2
-    model.value.anchor.set(0.5, 0.5)
-    setScaleAndPosition()
-
-    // --- Interaction
-
-    const declaredHitAreas = (live2DModel.internalModel?.settings as any)?.hitAreas || []
-    console.info(`[Live2D Tactile] Loaded model has ${declaredHitAreas.length} hitboxes:`, declaredHitAreas.map((h: any) => `${h.Name || h.name} -> ${h.Id || h.id}`))
-
-    model.value.on('hit', (hitAreas) => {
-      if (model.value && hitAreas.includes('body'))
-        model.value.motion('tap_body')
-    })
-
-    // --- Motion
-
-    const internalModel = model.value.internalModel
+    const internalModel = model.value!.internalModel
     const coreModel = internalModel.coreModel
     const motionManager = internalModel.motionManager
     coreModel.setParameterValueById('ParamMouthOpenY', mouthOpenSize.value)
 
-    availableMotions.value = Object
-      .entries(motionManager.definitions)
-      .flatMap(([motionName, definition]) => (definition?.map((motion: any, index: number) => ({
-        motionName,
-        motionIndex: index,
-        fileName: motion.File,
-      })) || []))
-      .filter(Boolean)
-
-    // Configure the loop settings for motions in the cycle subset or selected motion
-    const cycleMotions = props.idleAnimations
-      ?.filter(k => k.startsWith('live2d:'))
-      .map((k) => {
-        const [_, group, indexStr] = k.split(':')
-        return {
-          group,
-          index: Number.parseInt(indexStr),
-        }
-      }) || []
-
-    const configureMotionLoop = (groupName: string, indexStr: string) => {
-      const groupIndex = (motionManager.groups as Record<string, any>)[groupName]
-      if (groupIndex !== undefined && motionManager.motionGroups[groupIndex]) {
-        const motionIndex = Number.parseInt(indexStr)
-        const motion = motionManager.motionGroups[groupIndex][motionIndex]
-        if (motion && motion._looper) {
-          // Force the motion to loop
-          motion._looper.loopDuration = 0 // 0 means infinite loop
-          console.info('[Live2D Cycle] Configured motion to loop infinitely:', groupName, motionIndex)
-        }
-      }
-    }
-
-    if (cycleMotions.length > 0) {
-      cycleMotions.forEach(m => configureMotionLoop(m.group, String(m.index)))
-    }
-    else {
-      const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-      const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
-      if (selectedMotionGroup !== null && selectedMotionIndex) {
-        configureMotionLoop(selectedMotionGroup, selectedMotionIndex)
-      }
-    }
+    buildAvailableMotions(motionManager)
+    setupMotionLooping(motionManager)
 
     if (live2dIdleAnimationEnabled.value) {
-      if (cycleMotions.length > 0) {
-        setTimeout(() => {
-          console.info('[Live2D Cycle] Playing initial motion from card cycle subset:', cycleMotions[0].group, cycleMotions[0].index)
-          currentMotion.value = {
-            group: cycleMotions[0].group,
-            index: cycleMotions[0].index,
-          }
-        }, 300)
-      }
-      else {
-        const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-        const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
-        if (selectedMotionGroup !== null && selectedMotionIndex) {
-          setTimeout(() => {
-            console.info('Playing selected runtime motion:', selectedMotionGroup, selectedMotionIndex)
-            currentMotion.value = {
-              group: selectedMotionGroup,
-              index: Number.parseInt(selectedMotionIndex),
-            }
-          }, 300)
-        }
-      }
+      scheduleInitialMotion()
     }
 
-    // Remove eye ball movements from idle motion group to prevent conflicts
-    // This is too hacky
-    // FIXME: it cannot blink if loading a model only have idle motion
-    if (motionManager.groups.idle) {
-      motionManager.motionGroups[motionManager.groups.idle]?.forEach((motion) => {
-        motion._motionData.curves.forEach((curve: any) => {
-        // TODO: After emotion mapper, stage editor, eye related parameters should be take cared to be dynamical instead of hardcoding
-          if (curve.id === 'ParamEyeBallX' || curve.id === 'ParamEyeBallY') {
-            curve.id = `_${curve.id}`
-          }
-        })
-      })
-    }
+    removeIdleEyeBallMovements(motionManager)
+    setupMotionManagerPlugins(internalModel, motionManager)
+    setupMotionEventHandlers(motionManager)
 
-    // This is hacky too
-    const motionManagerUpdate = useLive2DMotionManagerUpdate({
-      internalModel,
-      motionManager,
-      modelParameters,
-      live2dIdleAnimationEnabled,
-      live2dAutoBlinkEnabled,
-      live2dForceAutoBlinkEnabled,
-      lastUpdateTime,
-    })
-
-    motionManagerUpdate.register(useMotionUpdatePluginBeatSync(beatSync), 'pre')
-    motionManagerUpdate.register(useMotionUpdatePluginIdleDisable(), 'pre')
-    motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(), 'post')
-    motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
-
-    // NOTICE: ArtMesh colors must be applied after coreModel.update(), not in the motion hook.
-    // See Cubism4InternalModel.update(): motionManager.update → … → model.update() → draw.
-    hookArtMeshColorsAfterModelUpdate(internalModel, artMeshColors)
-
-    // Pre-allocate the standardKeys set outside the ticker loop to prevent massive GC pressure (60fps)
-    const standardKeys = new Set([
-      'angleX',
-      'angleY',
-      'angleZ',
-      'leftEyeOpen',
-      'rightEyeOpen',
-      'leftEyeSmile',
-      'rightEyeSmile',
-      'leftEyebrowLR',
-      'rightEyebrowLR',
-      'leftEyebrowY',
-      'rightEyebrowY',
-      'leftEyebrowAngle',
-      'rightEyebrowAngle',
-      'leftEyebrowForm',
-      'rightEyebrowForm',
-      'mouthOpen',
-      'mouthForm',
-      'cheek',
-      'bodyAngleX',
-      'bodyAngleY',
-      'bodyAngleZ',
-      'breath',
-    ])
-
-    // Custom parameters plugin: applies toggle/slider/expression values from the store
-    motionManagerUpdate.register((ctx) => {
-      const params = ctx.modelParameters.value
-      // Only apply keys that start with "Param" and aren't the standard ones managed by other plugins
-      for (const key in params) {
-        if (!standardKeys.has(key) && key.startsWith('Param')) {
-          try {
-            ctx.model.setParameterValueById(key, params[key] as number)
-          }
-          catch {
-            // Silently ignore if parameter doesn't exist on this model
-          }
-        }
-      }
-    }, 'post')
-
-    const hookedUpdate = motionManager.update as (model: PixiLive2DInternalModel['coreModel'], now: number) => boolean
-    motionManager.update = function (model: PixiLive2DInternalModel['coreModel'], now: number) {
-      return motionManagerUpdate.hookUpdate(model, now, hookedUpdate)
-    }
-
-    motionManager.on('motionStart', (group, index, audio) => {
-      localCurrentMotion.value = { group, index }
-
-      const hash = window.location.hash || '#/'
-      const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-
-      if (!isStage && audio) {
-        try {
-          audio.muted = true
-          audio.pause()
-        }
-        catch (e) {
-          console.warn('[Live2D Audio] Failed to mute/pause non-leader audio:', e)
-        }
-      }
-    })
-
-    // Listen for motion finish to restart runtime motion for looping
-    motionManager.on('motionFinish', () => {
-      if (!live2dIdleAnimationEnabled.value) {
-        return
-      }
-
-      // Parse current card cycle subset
-      const cycleMotions = props.idleAnimations
-        ?.filter(k => k.startsWith('live2d:'))
-        .map((k) => {
-          const [_, group, indexStr] = k.split(':')
-          return {
-            group,
-            index: Number.parseInt(indexStr),
-          }
-        }) || []
-
-      if (cycleMotions.length > 0) {
-        let nextMotion = cycleMotions[0]
-
-        if (cycleMotions.length > 1) {
-          // Select a random motion from the subset (ideally excluding the one that just finished)
-          const current = currentMotion.value
-          const choices = cycleMotions.filter(
-            m => m.group !== current?.group || m.index !== current?.index,
-          )
-          const selection = choices.length > 0 ? choices : cycleMotions
-          nextMotion = selection[Math.floor(Math.random() * selection.length)]
-        }
-
-        console.info('[Live2D Cycle] Motion finished, playing next subset motion:', nextMotion.group, nextMotion.index)
-        requestAnimationFrame(() => {
-          currentMotion.value = {
-            group: nextMotion.group,
-            index: nextMotion.index,
-          }
-        })
-        return
-      }
-
-      const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-      const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
-
-      if (selectedMotionGroup !== null && selectedMotionIndex) {
-        // Restart the selected runtime motion immediately for seamless looping
-        console.info('Motion finished, restarting runtime motion:', selectedMotionGroup, selectedMotionIndex)
-        // Use requestAnimationFrame to restart on the next frame for smooth transition
-        requestAnimationFrame(() => {
-          currentMotion.value = {
-            group: selectedMotionGroup,
-            index: Number.parseInt(selectedMotionIndex),
-          }
-        })
-      }
-    })
-
-    // Apply all stored parameters to the model
-    coreModel.setParameterValueById('ParamMouthOpenY', modelParameters.value.mouthOpen)
-    coreModel.setParameterValueById('ParamMouthForm', modelParameters.value.mouthForm)
-    coreModel.setParameterValueById('ParamCheek', modelParameters.value.cheek)
-    coreModel.setParameterValueById('ParamBodyAngleX', modelParameters.value.bodyAngleX)
-    coreModel.setParameterValueById('ParamBodyAngleY', modelParameters.value.bodyAngleY)
-    coreModel.setParameterValueById('ParamBodyAngleZ', modelParameters.value.bodyAngleZ)
-    coreModel.setParameterValueById('ParamBreath', modelParameters.value.breath)
-
-    // --- Metadata Parsing (CDI & EXP) - ALPHA DEBUG MODE
-    try {
-      const settings = internalModel.settings as any
-      const rawJson = settings?.json
-
-      const fileRefs = rawJson?.FileReferences || rawJson?.fileReferences
-
-      // 1. CDI Parsing - Priority: zip-extracted > http fetch > core model fallback
-      const resolvedMeta = await resolveMetadata()
-      let cdiData = resolvedMeta.cdiData || settings?._cdiData
-      artMeshColors.value = resolvedMeta.artMeshColors || {}
-      if (Object.keys(artMeshColors.value).length > 0) {
-        console.info('[Live2D] Loaded ArtMesh colors from .vtube.json:', Object.keys(artMeshColors.value).length)
-      }
-
-      if (!cdiData) {
-        // Try HTTP fetch for non-zip models
-        const cdiFileName = fileRefs?.DisplayInfo || fileRefs?.Cdi
-        if (cdiFileName && props.modelSrc && !props.modelSrc.startsWith('blob:')) {
-          const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
-          try {
-            const resp = await fetch(baseUrl + encodeURIComponent(cdiFileName))
-            if (resp.ok && !isUnmounted && model.value)
-              cdiData = await resp.json()
-          }
-          catch {}
-        }
-      }
-
-      if (cdiData && !isUnmounted && model.value) {
-        const params = cdiData?.Parameters || cdiData?.parameters
-        if (params) {
-          // Initialize missing modelParameters from core model defaults BEFORE setting metadata
-          // This avoids the UI rendering sliders with undefined/NaN values
-          params.forEach((p: any) => {
-            const id = p.Id || p.id
-            if (modelParameters.value[id] === undefined) {
-              try {
-                modelParameters.value[id] = (internalModel.coreModel as any).getParameterValueById(id) || 0
-              }
-              catch {
-                modelParameters.value[id] = 0
-              }
-            }
-          })
-
-          parameterMetadata.value = params.map((p: any) => ({
-            id: p.Id || p.id,
-            name: p.Name || p.name,
-            groupId: p.GroupId || p.groupId,
-          }))
-
-          const groups = cdiData?.ParameterGroups || cdiData?.parameterGroups
-          if (groups) {
-            parameterMetadata.value.forEach((p) => {
-              const group = groups.find((g: any) => (g.Id || g.id) === p.groupId)
-              if (group)
-                p.groupName = group.Name || group.name
-            })
-          }
-          console.info('✅ Populated parameterMetadata from CDI:', parameterMetadata.value.length)
-        }
-      }
-
-      // Fallback: extract IDs directly from the core model
-      if (parameterMetadata.value.length === 0) {
-        try {
-          const core = internalModel.coreModel as any
-          // Try various known Cubism SDK structures
-          const paramIds = core?._parameterIds || core?._model?._parameterIds || []
-          if (paramIds.length > 0) {
-            parameterMetadata.value = paramIds.map((id: string) => ({ id, name: id }))
-
-            // Initialize missing modelParameters from core model defaults
-            parameterMetadata.value.forEach((p) => {
-              if (modelParameters.value[p.id] === undefined) {
-                try {
-                  modelParameters.value[p.id] = (internalModel.coreModel as any).getParameterValueById(p.id) || 0
-                }
-                catch {
-                  modelParameters.value[p.id] = 0
-                }
-              }
-            })
-          }
-        }
-        catch (e) {
-          console.warn('⚠️ Could not extract parameter IDs from core model:', e)
-        }
-      }
-
-      // 2. Expressions Parsing - Priority: zip-extracted > FileRefs > expressionManager
-      const expFiles = (resolvedMeta.expFiles && resolvedMeta.expFiles.length > 0) ? resolvedMeta.expFiles : settings?._expFiles
-      if (expFiles && expFiles.length > 0) {
-        availableExpressions.value = expFiles.map((exp: any) => ({
-          name: exp.name,
-          fileName: exp.fileName,
-        }))
-        // Also store the full expression data so the UI can apply them
-        expressionData.value = expFiles
-        console.info('✅ Populated expressions from zip-extracted files:', expFiles.length)
-      }
-      else {
-        const expressions = fileRefs?.Expressions || fileRefs?.expressions
-        if (expressions && Array.isArray(expressions)) {
-          availableExpressions.value = expressions.map((exp: any) => ({
-            name: exp.Name || exp.name || exp.File?.split('/').pop()?.replace('.exp3.json', ''),
-            fileName: exp.File || exp.file,
-          }))
-
-          // Fetch expression data for URL-based models so they can be restored
-          if (props.modelSrc && !props.modelSrc.startsWith('blob:')) {
-            const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
-            const fetchPromises = availableExpressions.value.map(async (exp) => {
-              try {
-                const resp = await fetch(baseUrl + encodeURIComponent(exp.fileName))
-                if (resp.ok) {
-                  const data = await resp.json()
-                  return { name: exp.name, fileName: exp.fileName, data }
-                }
-              }
-              catch (err) {
-                console.warn(`[Live2D] Failed to fetch expression ${exp.fileName}:`, err)
-              }
-              return null
-            })
-            const results = await Promise.all(fetchPromises)
-            if (!isUnmounted && model.value) {
-              expressionData.value = results.filter((r): r is any => r !== null)
-              console.info('✅ Fetched expression data from URLs:', expressionData.value.length)
-            }
-          }
-          console.info('✅ Populated expressions from FileRefs:', availableExpressions.value.length)
-        }
-        else {
-          const expressionManager = (internalModel as any).expressionManager
-          if (expressionManager?.definitions) {
-            const defs = expressionManager.definitions
-            availableExpressions.value = Object.keys(defs).map(name => ({
-              name,
-              fileName: defs[name]?.File || defs[name]?.file || name,
-            }))
-            console.info('✅ Populated expressions from expressionManager:', availableExpressions.value.length)
-          }
-        }
-      }
-
-      // 2b. Initialize activeExpressions from .vtube.json saved active expressions if available
-      const modelKey = props.modelId || props.modelSrc
-      const defaultsLoadedKey = modelKey ? `live2d_vtube_defaults_loaded_${modelKey}` : null
-      const hasLoadedDefaults = defaultsLoadedKey ? localStorage.getItem(defaultsLoadedKey) === 'true' : false
-
-      if (!hasLoadedDefaults && resolvedMeta.savedActiveExpressions && resolvedMeta.savedActiveExpressions.length > 0) {
-        console.info('[Live2D] Activating saved active expressions from .vtube.json:', resolvedMeta.savedActiveExpressions)
-        for (const savedExp of resolvedMeta.savedActiveExpressions) {
-          const expEntry = expressionData.value.find((e: any) => {
-            const eName = e.fileName.split('/').pop()?.toLowerCase()
-            const sName = savedExp.split('/').pop()?.toLowerCase()
-            return eName === sName
-          })
-          if (expEntry) {
-            activeExpressions.value[expEntry.fileName] = 1
-          }
-        }
-        if (defaultsLoadedKey) {
-          localStorage.setItem(defaultsLoadedKey, 'true')
-        }
-      }
-
-      // 2c. Clean up any activeExpressions keys that do not exist in the current availableExpressions
-      // This ensures we don't keep ghost expressions from previously loaded models when switching.
-      const validKeys = new Set(availableExpressions.value.map(e => e.fileName))
-      const nextActiveExpressions = { ...activeExpressions.value }
-      let hasDeletes = false
-      for (const key of Object.keys(nextActiveExpressions)) {
-        if (!validKeys.has(key)) {
-          delete nextActiveExpressions[key]
-          hasDeletes = true
-        }
-      }
-      if (hasDeletes) {
-        activeExpressions.value = nextActiveExpressions
-      }
-
-      // 3. Restore saved active expressions on model load
-      if (expressionData.value.length > 0 && Object.keys(activeExpressions.value).length > 0) {
-        for (const [fileName, weight] of Object.entries(activeExpressions.value)) {
-          if (weight > 0) {
-            const expEntry = expressionData.value.find((e: any) => e.fileName === fileName)
-            if (expEntry?.data?.Parameters) {
-              for (const param of expEntry.data.Parameters) {
-                const id = param.Id || param.id
-                const value = param.Value ?? param.value
-                if (id !== undefined && value !== undefined) {
-                  modelParameters.value[id] = value
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    catch (e) {
-      console.error('❌ [Live2D-Alpha] Metadata parsing failure:', e)
-    }
+    applyStoredParameters(coreModel)
+    await parseAndApplyMetadata(internalModel)
 
     emits('modelLoaded')
   }
@@ -950,7 +970,6 @@ async function loadModel() {
 }
 
 async function setMotion(motionName: string, index?: number) {
-  // TODO: motion? Not every Live2D model has motion, we do need to help users to set motion
   if (!model.value) {
     console.warn('Cannot set motion: model not loaded')
     return
@@ -1017,31 +1036,31 @@ watch([model, themeColorsHue], updateDropShadowFilter)
 watch(live2dShadowEnabled, updateDropShadowFilter)
 watch([offset, () => props.scale, () => props.xOffset, () => props.yOffset], setScaleAndPosition)
 
-let dropShadowFrameCounter = 0
-// TODO: This is hacky!
-function updateDropShadowFilterLoop() {
-  // NOTICE: Guard against orphaned RAF loops. When the component unmounts during
-  // an ACTOR swap, the old loop must die immediately, otherwise it retains the
-  // full Live2DModel in closure memory and keeps calling getComputedStyle on a
-  // detached DOM node, eventually crashing the renderer via OOM / main-thread lockup.
-  if (isUnmounted) {
-    dropShadowAnimationId.value = 0
-    return
+// Wrap drop shadow loop state in an IIFE to avoid polluting module scope
+const { updateDropShadowFilterLoop } = (() => {
+  let dropShadowFrameCounter = 0
+
+  function updateDropShadowFilterLoop() {
+    if (isUnmounted.value) {
+      dropShadowAnimationId.value = 0
+      return
+    }
+
+    dropShadowFrameCounter++
+    if (dropShadowFrameCounter % 10 === 0) {
+      updateDropShadowFilter()
+    }
+
+    if (!live2dShadowEnabled.value) {
+      dropShadowAnimationId.value = 0
+      return
+    }
+
+    dropShadowAnimationId.value = requestAnimationFrame(updateDropShadowFilterLoop)
   }
 
-  dropShadowFrameCounter++
-  // Throttle the getComputedStyle DOM read to prevent layout thrashing (1fps lag)
-  if (dropShadowFrameCounter % 10 === 0) {
-    updateDropShadowFilter()
-  }
-
-  if (!live2dShadowEnabled.value) {
-    dropShadowAnimationId.value = 0
-    return
-  }
-
-  dropShadowAnimationId.value = requestAnimationFrame(updateDropShadowFilterLoop)
-}
+  return { updateDropShadowFilterLoop }
+})()
 
 watch([themeColorsHueDynamic, live2dShadowEnabled], ([dynamic, shadowEnabled]) => {
   if (dynamic && shadowEnabled) {
@@ -1062,14 +1081,12 @@ watch(mouthOpenSize, (value) => {
 watch(currentMotion, value => setMotion(value.group, value.index))
 watch(paused, value => value ? pixiApp.value?.stop() : pixiApp.value?.start())
 
-// Watch for model changes to apply current parameters once
 watch(model, (currModel) => {
   if (currModel) {
-    applyParameters(currModel.internalModel.coreModel as any, modelParameters.value)
+    applyParameters(currModel.internalModel.coreModel as PixiLive2DInternalModel['coreModel'], modelParameters.value)
   }
 })
 
-// Watch parameters deeply but apply only if model exists
 watch(modelParameters, (params) => {
   const coreModel = getCoreModel()
   if (coreModel) {
@@ -1077,8 +1094,31 @@ watch(modelParameters, (params) => {
   }
 }, { deep: true })
 
-function applyParameters(coreModel: any, params: Record<string, number>) {
-  // Standard parameters
+const STANDARD_PARAM_KEYS = [
+  'angleX',
+  'angleY',
+  'angleZ',
+  'leftEyeOpen',
+  'rightEyeOpen',
+  'leftEyeSmile',
+  'leftEyebrowLR',
+  'rightEyebrowLR',
+  'leftEyebrowY',
+  'rightEyebrowY',
+  'leftEyebrowAngle',
+  'rightEyebrowAngle',
+  'leftEyebrowForm',
+  'rightEyebrowForm',
+  'mouthOpen',
+  'mouthForm',
+  'cheek',
+  'bodyAngleX',
+  'bodyAngleY',
+  'bodyAngleZ',
+  'breath',
+]
+
+function applyParameters(coreModel: PixiLive2DInternalModel['coreModel'], params: Record<string, number>) {
   coreModel.setParameterValueById('ParamAngleX', params.angleX)
   coreModel.setParameterValueById('ParamAngleY', params.angleY)
   coreModel.setParameterValueById('ParamAngleZ', params.angleZ)
@@ -1101,56 +1141,148 @@ function applyParameters(coreModel: any, params: Record<string, number>) {
   coreModel.setParameterValueById('ParamBodyAngleZ', params.bodyAngleZ)
   coreModel.setParameterValueById('ParamBreath', params.breath)
 
-  // Dynamic parameters (from CDI)
   Object.entries(params).forEach(([key, value]) => {
-    // If it's not one of our standard keys, it's a dynamic one
-    const standardKeys = [
-      'angleX',
-      'angleY',
-      'angleZ',
-      'leftEyeOpen',
-      'rightEyeOpen',
-      'leftEyeSmile',
-      'leftEyebrowLR',
-      'rightEyebrowLR',
-      'leftEyebrowY',
-      'rightEyebrowY',
-      'leftEyebrowAngle',
-      'rightEyebrowAngle',
-      'leftEyebrowForm',
-      'rightEyebrowForm',
-      'mouthOpen',
-      'mouthForm',
-      'cheek',
-      'bodyAngleX',
-      'bodyAngleY',
-      'bodyAngleZ',
-      'breath',
-    ]
-    if (!standardKeys.includes(key)) {
+    if (!STANDARD_PARAM_KEYS.includes(key)) {
       coreModel.setParameterValueById(key, value)
     }
   })
 }
 
-// Watch for idle animation setting changes and stop motions if disabled
 watch(live2dIdleAnimationEnabled, (enabled) => {
   if (!enabled && model.value) {
     const internalModel = model.value.internalModel
-    if (internalModel?.motionManager) {
-      internalModel.motionManager.stopAllMotions()
-    }
+    internalModel?.motionManager?.stopAllMotions()
   }
 })
 
 watch(focusAt, (value) => {
-  if (!model.value)
+  if (!model.value || props.disableFocusAt)
     return
-  if (props.disableFocusAt)
-    return
-
   model.value.focus(value.x, value.y)
 })
+
+// Wrap canvas interaction state in an IIFE to avoid polluting module scope
+const { setupCanvasListeners, cleanupCanvasListeners, interactionMode } = (() => {
+  const interactionMode = toRef(() => props.interactionMode)
+  let hoveredArea: string | null = null
+  let boundCanvas: HTMLCanvasElement | null = null
+
+  function onCanvasMouseMove(event: MouseEvent) {
+    if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+      return
+
+    const canvasEl = props.app.view as HTMLCanvasElement
+    if (!canvasEl)
+      return
+
+    const rect = canvasEl.getBoundingClientRect()
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+
+    const globalX = mouseX * (props.app.screen.width / rect.width)
+    const globalY = mouseY * (props.app.screen.height / rect.height)
+
+    const hitAreas = model.value.hitTest(globalX, globalY)
+
+    if (hitAreas && hitAreas.length > 0) {
+      const hitArea = hitAreas[0]
+      if (hoveredArea !== hitArea) {
+        hoveredArea = hitArea
+        console.info(`[Live2D Tactile] Hovered hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
+      }
+      emits('hitAreaHover', { name: hitArea, x: mouseX, y: mouseY, hovered: true })
+    }
+    else if (hoveredArea) {
+      hoveredArea = null
+      emits('hitAreaHover', null)
+    }
+  }
+
+  function findMatchingMotionGroup(motionManager: PixiLive2DInternalModel['motionManager'], hitArea: string): string | undefined {
+    const groups = Object.keys(motionManager.definitions || {})
+    const hitLower = hitArea.toLowerCase()
+
+    return groups.find(g => g.toLowerCase() === hitLower)
+      || groups.find(g => g.toLowerCase().startsWith(hitLower))
+      || groups.find(g => hitLower.startsWith(g.toLowerCase()))
+      || groups.find(g => g.toLowerCase().includes(hitLower))
+      || groups.find(g => hitLower.includes(g.toLowerCase()))
+  }
+
+  function onCanvasClick(event: MouseEvent) {
+    if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+      return
+
+    const canvasEl = props.app.view as HTMLCanvasElement
+    if (!canvasEl)
+      return
+
+    const rect = canvasEl.getBoundingClientRect()
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+
+    const globalX = mouseX * (props.app.screen.width / rect.width)
+    const globalY = mouseY * (props.app.screen.height / rect.height)
+
+    const hitAreas = model.value.hitTest(globalX, globalY)
+    if (hitAreas && hitAreas.length > 0) {
+      const hitArea = hitAreas[0]
+      console.info(`[Live2D Tactile] Clicked hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
+
+      const internalModel = model.value.internalModel
+      const motionManager = internalModel?.motionManager
+      if (!motionManager)
+        return
+
+      const matchedGroup = findMatchingMotionGroup(motionManager, hitArea)
+      if (matchedGroup) {
+        const definitions = motionManager.definitions[matchedGroup] as Live2DMotionDefinition[] | undefined
+        if (definitions && definitions.length > 0) {
+          const randomIndex = Math.floor(Math.random() * definitions.length)
+          console.info(`[Live2D Tactile] Playing motion for matched group: group="${matchedGroup}", index=${randomIndex}`)
+          model.value.motion(matchedGroup, randomIndex, MotionPriority.FORCE)
+        }
+      }
+      else {
+        console.warn(`[Live2D Tactile] No matching motion group found starting with or related to hitArea: ${hitArea}`)
+        if (hitArea.toLowerCase().includes('body')) {
+          model.value.motion('tap_body')
+        }
+      }
+    }
+  }
+
+  function setupCanvasListeners() {
+    cleanupCanvasListeners()
+
+    if (interactionMode.value !== 'tactile' || !model.value || !props.app)
+      return
+
+    const canvasEl = props.app.view as HTMLCanvasElement
+    if (!canvasEl)
+      return
+
+    canvasEl.addEventListener('mousemove', onCanvasMouseMove)
+    canvasEl.addEventListener('click', onCanvasClick)
+    boundCanvas = canvasEl
+    console.info('[Live2D Tactile] Registered canvas tactile listeners')
+  }
+
+  function cleanupCanvasListeners() {
+    if (boundCanvas) {
+      boundCanvas.removeEventListener('mousemove', onCanvasMouseMove)
+      boundCanvas.removeEventListener('click', onCanvasClick)
+      boundCanvas = null
+      console.info('[Live2D Tactile] Unregistered canvas tactile listeners')
+    }
+  }
+
+  return { setupCanvasListeners, cleanupCanvasListeners, interactionMode }
+})()
+
+watch([interactionMode, model, () => props.app], () => {
+  setupCanvasListeners()
+}, { immediate: true })
 
 onMounted(() => {
   const removeListener = listenBeatSyncBeatSignal(() => beatSync.scheduleBeat())
@@ -1162,150 +1294,15 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  isUnmounted = true
+  isUnmounted.value = true
   disposeShouldUpdateView?.()
   cleanupCanvasListeners()
 
-  // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
-  // guard inside the loop is the primary defense, but cancelling the pending frame
-  // prevents even one extra tick from firing after teardown.
   if (dropShadowAnimationId.value) {
     cancelAnimationFrame(dropShadowAnimationId.value)
     dropShadowAnimationId.value = 0
   }
 })
-
-const interactionMode = toRef(() => props.interactionMode)
-let hoveredArea: string | null = null
-let boundCanvas: HTMLCanvasElement | null = null
-
-function onCanvasMouseMove(event: MouseEvent) {
-  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
-    return
-
-  const canvasEl = props.app.view as HTMLCanvasElement
-  if (!canvasEl)
-    return
-
-  const rect = canvasEl.getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const mouseY = event.clientY - rect.top
-
-  const globalX = mouseX * (props.app.screen.width / rect.width)
-  const globalY = mouseY * (props.app.screen.height / rect.height)
-
-  const hitAreas = model.value.hitTest(globalX, globalY)
-
-  if (hitAreas && hitAreas.length > 0) {
-    const hitArea = hitAreas[0]
-    if (hoveredArea !== hitArea) {
-      hoveredArea = hitArea
-      console.info(`[Live2D Tactile] Hovered hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
-      emits('hitAreaHover', { name: hitArea, x: mouseX, y: mouseY, hovered: true })
-    }
-    else {
-      // Glow follows the cursor: emit updated cursor position
-      emits('hitAreaHover', { name: hitArea, x: mouseX, y: mouseY, hovered: true })
-    }
-  }
-  else if (hoveredArea) {
-    hoveredArea = null
-    emits('hitAreaHover', null)
-  }
-}
-
-function onCanvasClick(event: MouseEvent) {
-  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
-    return
-
-  const canvasEl = props.app.view as HTMLCanvasElement
-  if (!canvasEl)
-    return
-
-  const rect = canvasEl.getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const mouseY = event.clientY - rect.top
-
-  const globalX = mouseX * (props.app.screen.width / rect.width)
-  const globalY = mouseY * (props.app.screen.height / rect.height)
-
-  const hitAreas = model.value.hitTest(globalX, globalY)
-  if (hitAreas && hitAreas.length > 0) {
-    const hitArea = hitAreas[0]
-    console.info(`[Live2D Tactile] Clicked hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
-
-    const internalModel = model.value.internalModel
-    const motionManager = internalModel?.motionManager
-    if (!motionManager)
-      return
-
-    const groups = Object.keys(motionManager.definitions || {})
-
-    // Smart matching rules for hitArea mapping to motion definitions:
-    // 1. Exact match (case insensitive)
-    let matchedGroup = groups.find(g => g.toLowerCase() === hitArea.toLowerCase())
-    // 2. Definition group starts with hitArea
-    if (!matchedGroup) {
-      matchedGroup = groups.find(g => g.toLowerCase().startsWith(hitArea.toLowerCase()))
-    }
-    // 3. HitArea starts with definition group
-    if (!matchedGroup) {
-      matchedGroup = groups.find(g => hitArea.toLowerCase().startsWith(g.toLowerCase()))
-    }
-    // 4. Definition group contains hitArea
-    if (!matchedGroup) {
-      matchedGroup = groups.find(g => g.toLowerCase().includes(hitArea.toLowerCase()))
-    }
-    // 5. HitArea contains definition group
-    if (!matchedGroup) {
-      matchedGroup = groups.find(g => hitArea.toLowerCase().includes(g.toLowerCase()))
-    }
-
-    if (matchedGroup) {
-      const definitions = motionManager.definitions[matchedGroup]
-      if (definitions && definitions.length > 0) {
-        const randomIndex = Math.floor(Math.random() * definitions.length)
-        console.info(`[Live2D Tactile] Playing motion for matched group: group="${matchedGroup}", index=${randomIndex}`)
-        model.value.motion(matchedGroup, randomIndex, MotionPriority.FORCE)
-      }
-    }
-    else {
-      console.warn(`[Live2D Tactile] No matching motion group found starting with or related to hitArea: ${hitArea}`)
-      if (hitArea.toLowerCase().includes('body')) {
-        model.value.motion('tap_body')
-      }
-    }
-  }
-}
-
-function setupCanvasListeners() {
-  cleanupCanvasListeners()
-
-  if (interactionMode.value !== 'tactile' || !model.value || !props.app)
-    return
-
-  const canvasEl = props.app.view as HTMLCanvasElement
-  if (!canvasEl)
-    return
-
-  canvasEl.addEventListener('mousemove', onCanvasMouseMove)
-  canvasEl.addEventListener('click', onCanvasClick)
-  boundCanvas = canvasEl
-  console.info('[Live2D Tactile] Registered canvas tactile listeners')
-}
-
-function cleanupCanvasListeners() {
-  if (boundCanvas) {
-    boundCanvas.removeEventListener('mousemove', onCanvasMouseMove)
-    boundCanvas.removeEventListener('click', onCanvasClick)
-    boundCanvas = null
-    console.info('[Live2D Tactile] Unregistered canvas tactile listeners')
-  }
-}
-
-watch([interactionMode, model, () => props.app], () => {
-  setupCanvasListeners()
-}, { immediate: true })
 
 function listMotionGroups() {
   return availableMotions.value
