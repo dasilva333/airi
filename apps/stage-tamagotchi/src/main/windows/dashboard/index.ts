@@ -89,6 +89,13 @@ export async function setupDashboardWindow(params: {
     }
   }
 
+  // Always allow F12 to toggle dev tools
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      window.webContents.toggleDevTools()
+    }
+  })
+
   function handleNewBounds(newBounds: Rectangle) {
     if (window.isDestroyed()) return
 

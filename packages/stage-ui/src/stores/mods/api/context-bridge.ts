@@ -1,4 +1,4 @@
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import type { UserMessage } from '@xsai/shared-chat'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
@@ -301,7 +301,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               },
               message,
               'stage-tamagotchi': isStageTamagotchi(),
-              'stage-web': isStageWeb(),
+              
             },
             type: 'output:gen-ai:chat:message',
           })
@@ -319,7 +319,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               },
               message: chat.output,
               'stage-tamagotchi': isStageTamagotchi(),
-              'stage-web': isStageWeb(),
+              
               // TODO: tool calls should be captured properly
               toolCalls: [],
               // TODO: Properly calculate usage data

@@ -5,8 +5,10 @@ import type { Mesh, Object3D, Scene } from 'three'
 import { Box3, Group, Quaternion, Vector3 } from 'three'
 
 import { useVRMLoader } from './loader'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
-interface GLTFUserdata extends Record<string, any> {
+interface GLTFUserdata extends Record<string, unknown> {
+  vrm?: VRM
   vrmCore?: VRMCore
 }
 
@@ -29,15 +31,20 @@ export async function loadVrm(
     }
   | undefined
 > {
+  vrmLogger.log('loadVrm: starting GLTF load...', { model })
+  vrmLogger.time('vrm:gltfLoad')
   const loader = useVRMLoader()
   const gltf = await loader.loadAsync(model, (progress) => options?.onProgress?.(progress))
+  vrmLogger.timeEnd('vrm:gltfLoad')
 
   const userData = gltf.userData as GLTFUserdata
   if (!userData.vrm) {
+    vrmLogger.error('loadVrm: GLTF loaded but no VRM data found in userData')
     return
   }
 
   const _vrm = userData.vrm
+  vrmLogger.log('loadVrm: VRM data found ✓', { expressionCount: Object.keys(_vrm.expressionManager?.expressionMap ?? {}).length })
 
   // calling these functions greatly improves the performance
   // VRMUtils.removeUnnecessaryVertices(_vrm.scene)

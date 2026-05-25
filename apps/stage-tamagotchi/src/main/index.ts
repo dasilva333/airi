@@ -156,10 +156,21 @@ if (isLinux) {
   app.commandLine.appendSwitch('enable-unsafe-webgpu')
   app.commandLine.appendSwitch('enable-features', 'Vulkan')
 
-  if (env.XDG_SESSION_TYPE === 'wayland') {
-    app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
+  // Detect Wayland session
+  const isWayland = env.XDG_SESSION_TYPE === 'wayland'
+    || env.WAYLAND_DISPLAY !== undefined
+    || (env.XDG_SESSION_TYPE === undefined && env.DISPLAY === undefined && env.WAYLAND_DISPLAY !== undefined)
+
+  if (isWayland) {
+    log.log('Wayland session detected, enabling Wayland-specific features')
+    // Enable native Wayland support via Ozone platform
     app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
     app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
+    app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
+    // WebRTC screen capture over PipeWire (xdg-desktop-portal)
+    app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer')
+    // Set Ozone platform hint to Wayland
+    app.commandLine.appendSwitch('ozone-platform-hint', 'wayland')
   }
 }
 

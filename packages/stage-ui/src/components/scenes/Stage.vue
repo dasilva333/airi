@@ -4,11 +4,12 @@ import { MMDScene } from '@proj-airi/stage-ui-mmd'
 import type { SpineScene } from '@proj-airi/stage-ui-spine'
 import { type ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { useAiriCardStore } from '../../stores/modules'
 import { useSettings } from '../../stores/settings'
 import { useVHackStore } from '../../stores/vhack'
+import { rendererLogger } from '@proj-airi/stage-shared/debug'
 
 const props = withDefaults(
   defineProps<{
@@ -67,6 +68,11 @@ const {
 } = storeToRefs(settingsStore)
 
 const vrmStore = useModelStore()
+
+// Debug: log when model source or renderer type changes
+watch([stageModelRenderer, stageModelSelectedUrl, stageModelSelectedFile, stageModelSelected], ([renderer, url, file, id]) => {
+  rendererLogger.log('Stage model config changed', { renderer, url: url?.slice(0, 100), fileName: file?.name, id })
+})
 
 const reducedRenderScale = computed(() => {
   const nextScale = Math.min(vrmStore.renderScale, 0.75)

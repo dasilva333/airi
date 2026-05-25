@@ -204,7 +204,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
           } else {
             // New fallback: try to find motion by name in availableMotions (Ground Truth)
             const motionMappings =
-              ((activeCard.value as unknown as Record<string, unknown>)?.extensions?.airi?.modules?.live2d
+              ((activeCard.value as any)?.extensions?.airi?.modules?.live2d
                 ?.motionMappings as Record<string, string> | undefined) || {}
             const matchedMotion = live2dStore.availableMotions.find(
               (m: { fileName: string; motionName: string; motionIndex: number }) => {
@@ -734,7 +734,7 @@ function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
 // Hardware-level turn reset: clear everything when a new user message enters the session
 // This is the absolute truth for turn boundaries and prevents 'blob' accumulation.
 chatHookCleanups.push(
-  watch(sessionUpdate, (event) => {
+  watch(sessionUpdate, (event: any) => {
     if (event?.type === 'session-updated' && event.message?.role === 'user') {
       console.info('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
       assistantCaptionSegments.value = []
