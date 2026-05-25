@@ -162,7 +162,7 @@ if (isLinux) {
     || (env.XDG_SESSION_TYPE === undefined && env.DISPLAY === undefined && env.WAYLAND_DISPLAY !== undefined)
 
   if (isWayland) {
-    log.info('Wayland session detected, enabling Wayland-specific features')
+    log.log('Wayland session detected, enabling Wayland-specific features')
     // Enable native Wayland support via Ozone platform
     app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
     app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
