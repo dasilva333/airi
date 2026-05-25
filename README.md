@@ -137,6 +137,7 @@ Capable of:
   - [ ] Desktop widget composition
 
 ## Development
+![Alt](https://repobeats.axiom.co/api/embed/30d3825941402ebcdc6dd5f21a116bb68fb2f4a3.svg "Repobeats analytics image")
 
 ### Prerequisites
 
