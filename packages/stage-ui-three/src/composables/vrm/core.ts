@@ -7,7 +7,7 @@ import { Box3, Group, Quaternion, Vector3 } from 'three'
 import { useVRMLoader } from './loader'
 import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
-interface GLTFUserdata extends Record<string, any> {
+interface GLTFUserdata extends Record<string, unknown> {
   vrmCore?: VRMCore
 }
 

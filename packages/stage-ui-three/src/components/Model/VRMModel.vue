@@ -334,8 +334,8 @@ async function loadModel() {
         vrmLogger.warn('Precise binary capture failed:', e)
       }
 
-      if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
-        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', { hasVrm: !!_vrmInfo?._vrm, hasGroup: !!_vrmInfo?._vrmGroup })
+      if (!_vrmInfo || !Boolean(_vrmInfo._vrm) || !Boolean(_vrmInfo?._vrmGroup)) {
+        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', { hasVrm: Boolean(_vrmInfo?._vrm), hasGroup: Boolean(_vrmInfo?._vrmGroup) })
         return
       }
       vrmLogger.log('VRM model loaded successfully', { modelCenter: _vrmInfo.modelCenter, modelSize: _vrmInfo.modelSize })
@@ -514,7 +514,8 @@ async function loadModel() {
       // ASYNC GUARD: Check again after animation loading
       if (isUnmounted || loadId !== currentLoadId) {
         vrmLogger.warn('Discarding model after animation load - stale/unmounted:', loadId)
-        componentCleanUp()
+        // Only dispose the local resources — do NOT call componentCleanUp() as it
+        // would destroy the shared model state which may belong to a newer load.
         VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
         _vrmGroup.removeFromParent()
         return
