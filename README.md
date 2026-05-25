@@ -18,6 +18,7 @@
   <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=code+coverage&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
   <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=active+issues&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
   <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=resolved+issues&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
+  <br>
   <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20members&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
   <a href="https://x.com/proj_airi"><img src="https://img.shields.io/badge/%40proj__airi-black?style=flat&logo=x&labelColor=%23101419&color=%232d2e30"></a>
   <a href="https://t.me/+7M_ZKO3zUHFlOThh"><img src="https://img.shields.io/badge/Telegram-%235AA9E6?logo=telegram&labelColor=FFFFFF"></a>
