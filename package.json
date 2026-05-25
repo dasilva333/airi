@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@google/genai": "catalog:",
+    "@playwright/test": "catalog:vitest",
     "ws": "catalog:"
   },
   "devDependencies": {
