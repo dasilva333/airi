@@ -120,6 +120,19 @@ ollama pull dolphin-phi:2.7b
 
 > **Note**: Other uncensored models exist on Ollama (e.g., `llama2-uncensored:7b`, `wizardlm-uncensored:13b`, `wizard-vicuna-uncensored:7b`) but they are **all >3B parameters** and will not fit in 3GB VRAM. The two models above are the only verified uncensored options that work on a GTX 1060 3GB.
 
+### Large Models (7B/13B) — 8GB+ VRAM Recommended
+
+If you have a more powerful GPU (8GB+ VRAM), these uncensored models offer significantly better quality:
+
+| Model | Parameters | Size | Speed (t/s) | Description |
+|-------|-----------|------|-------------|-------------|
+| `llama2-uncensored:7b-chat-q2_K` | 7B | ~2.8 GB | 5–15 | Minimum VRAM uncensored |
+| `llama2-uncensored:7b-chat-q3_K_M` | 7B | ~3.3 GB | 5–15 | Better quality |
+| `wizard-vicuna-uncensored:7b` | 7B | ~3.8 GB | 5–15 | Good uncensored chat |
+| `wizardlm-uncensored:13b` | 13B | ~7.4 GB | 2–8 | Best uncensored quality |
+
+> ⚠️ **GTX 1060 3GB warning**: These models will stutter severely on 3GB VRAM. Only use them with 8GB+ VRAM.
+
 ## Context Window Strategy
 
 The KV Cache scales linearly with token count (~50–150 MB per 1024 tokens).
@@ -140,7 +153,7 @@ The Ollama provider auto-discovers all pulled models — no manual configuration
 
 ## Helper Script
 
-Use [`scripts/setup-local-models.sh`](/scripts/setup-local-models.sh) to automate the full setup:
+Use [`scripts/setup-local-models.sh`](https://github.com/moeru-ai/airi/blob/main/scripts/setup-local-models.sh) to automate the full setup:
 
 ```bash
 # Make executable
@@ -154,6 +167,21 @@ chmod +x scripts/setup-local-models.sh
 
 # Auto-pull recommended + uncensored models
 ./scripts/setup-local-models.sh --auto --uncensored
+
+# Auto-pull recommended + uncensored + large models (8GB+ VRAM)
+./scripts/setup-local-models.sh --auto --uncensored --large
+```
+
+**CLI flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--auto` | Non-interactive, pull recommended models |
+| `--models "m1,m2"` | Pull specific models (comma-separated) |
+| `--check` | Check Ollama status only |
+| `--uncensored` | Include uncensored models (≤3B) |
+| `--large` | Include large 7B/13B models (8GB+ VRAM recommended) |
+| `--help` | Show usage information |
 ```
 
 ## Troubleshooting
