@@ -172,7 +172,7 @@ export const providerOllama = defineProvider<OllamaConfig>({
         intervalMs: 15_000,
       },
       connectivityFailureReason: ({ errorMessage }) =>
-        `Failed to reach Ollama server, error: ${errorMessage} occurred.\n\nIf you are using Ollama locally, this is likely the CORS (Cross-Origin Resource Sharing) security issue, where you will need to set OLLAMA_ORIGINS=* or OLLAMA_ORIGINS=https://airi.moeru.ai,http://localhost environment variable before launching Ollama server to make this work.`,
+        `Failed to reach Ollama server, error: ${errorMessage} occurred.\n\nIf you are using Ollama locally, you need to set two environment variables before starting Ollama:\n\n1. OLLAMA_ORIGINS=* (or OLLAMA_ORIGINS=https://airi.moeru.ai,http://localhost) — required for CORS\n2. OLLAMA_HOST=0.0.0.0 — ensures Ollama binds to all interfaces\n\nExample:\n  export OLLAMA_ORIGINS="*"\n  export OLLAMA_HOST="0.0.0.0"\n  ollama serve\n\nFor systemd:\n  sudo systemctl edit ollama\n  # Add:\n  # [Service]\n  # Environment="OLLAMA_ORIGINS=*"\n  # Environment="OLLAMA_HOST=0.0.0.0"\n  sudo systemctl restart ollama`,
     })!.validateProvider,
   },
   business: ({ t }) => ({

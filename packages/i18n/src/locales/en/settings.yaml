@@ -787,12 +787,11 @@ pages:
                     content: "Sorry to hear that Connectivity check failed for Ollama. Don't worry,
                       for Ollama instances, extra configuration is needed for
                       making it pass for Ollama. You need to set
-                      <code>OLLAMA_HOST</code> explicitly when start the Ollama
-                      application or Ollama CLI server, for detailed
-                      information, check <a
-                      href=\"https://airi.moeru.ai/docs/en/docs/manual/integrat\
-                      ions/providers/chat/ollama\">Ollama integration
-                      guide</a>."
+                      <code>OLLAMA_HOST</code> and <code>OLLAMA_ORIGINS</code>
+                      explicitly when starting the Ollama application or Ollama
+                      CLI server. For detailed information, check the
+                      <a href=\"https://airi.moeru.ai/docs/en/docs/manual/config/ollama\">
+                      Ollama integration guide</a>."
     common:
       continueAnyway: Continue Anyway
       goToModelSelection: Select Model →
