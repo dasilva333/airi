@@ -5,7 +5,7 @@ import type { Configuration } from 'electron-builder'
 
 import { x } from 'tinyexec'
 
-import * as yaml from 'yaml'
+import { parse as yamlParse } from 'yaml'
 
 import packageJSON from '../package.json' with { type: 'json' }
 
@@ -51,9 +51,7 @@ export async function getVersion(options: { release: boolean; autoTag: boolean; 
 }
 
 export async function getElectronBuilderConfig() {
-  return yaml.parse(
-    await readFile(resolve(import.meta.dirname, '..', 'electron-builder.yml'), 'utf-8'),
-  ) as Configuration
+  return yamlParse(await readFile(resolve(import.meta.dirname, '..', 'electron-builder.yml'), 'utf-8')) as Configuration
 }
 
 export function applyTemplateOfArtifactName(

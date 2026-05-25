@@ -96,7 +96,7 @@ const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionCh
 
 // NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
 // This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
-const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat-stream' })
+const { data: sessionUpdate } = useBroadcastChannel<unknown, unknown>({ name: 'airi-chat-stream' })
 
 const actorColors = new Map<string, string>()
 const parserActorId = ref<string>('default')
@@ -163,11 +163,11 @@ const resizeStateEventName = useElectronWindowResizeStateEvent()
 const isWindowResizing = ref(false)
 function handleResizeStateChange(event: Event) {
   const customEvent = event as CustomEvent<{ active?: boolean }>
-  isWindowResizing.value = !!customEvent.detail?.active
+  isWindowResizing.value = Boolean(customEvent.detail?.active)
 }
 
 useEventListener(typeof window !== 'undefined' ? window : null, 'vrm-node-visibility-toggle', (e: Event) => {
-  const customEvent = e as CustomEvent<{ uuid: string; node: any }>
+  const customEvent = e as CustomEvent<{ uuid: string; node: unknown }>
   vhackStore.toggleNodeVisibility(customEvent.detail.uuid, customEvent.detail.node)
 })
 
@@ -198,23 +198,27 @@ const emotionsQueue = createQueue<EmotionPayload>({
         const triggered = live2dStore.triggerEmotion(emotionName, intensity)
         if (!triggered) {
           // Final fallback: try motion mapping
-          const motionGroup = (EMOTION_EmotionMotionName_value as any)[emotionName]
+          const motionGroup = (EMOTION_EmotionMotionName_value as Record<string, unknown>)[emotionName]
           if (motionGroup) {
-            currentMotion.value = { group: motionGroup }
+            currentMotion.value = { group: motionGroup as string }
           } else {
             // New fallback: try to find motion by name in availableMotions (Ground Truth)
-            const motionMappings = (activeCard.value as any)?.extensions?.airi?.modules?.live2d?.motionMappings || {}
-            const matchedMotion = live2dStore.availableMotions.find((m: any) => {
-              const name = m.fileName.split('/').pop() || m.fileName
-              const cleanName = name.replace('.motion3.json', '').replace('.json', '')
-              const mappedName = motionMappings[m.fileName]
-              return (
-                name === emotionName ||
-                m.fileName === emotionName ||
-                cleanName === emotionName ||
-                mappedName === emotionName
-              )
-            })
+            const motionMappings =
+              ((activeCard.value as unknown as Record<string, unknown>)?.extensions?.airi?.modules?.live2d
+                ?.motionMappings as Record<string, string> | undefined) || {}
+            const matchedMotion = live2dStore.availableMotions.find(
+              (m: { fileName: string; motionName: string; motionIndex: number }) => {
+                const name = m.fileName.split('/').pop() || m.fileName
+                const cleanName = name.replace('.motion3.json', '').replace('.json', '')
+                const mappedName = motionMappings[m.fileName]
+                return (
+                  name === emotionName ||
+                  m.fileName === emotionName ||
+                  cleanName === emotionName ||
+                  mappedName === emotionName
+                )
+              },
+            )
             if (matchedMotion) {
               currentMotion.value = { group: matchedMotion.motionName, index: matchedMotion.motionIndex }
               console.info('[Stage] Triggered Live2D motion from dropdown name:', emotionName)
@@ -464,6 +468,64 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
   play: playFunction,
 })
 
+function createDefaultVoice(provider: string, voiceId: string) {
+  return {
+    description: voiceId,
+    gender: 'neutral',
+    id: voiceId,
+    languages: [{ code: 'en', title: 'English' }],
+    name: voiceId,
+    previewURL: '',
+    provider,
+  }
+}
+
+function resolveOpenAIVoice(
+  providerConfig: Record<string, unknown> | undefined,
+  activeVoice: typeof activeSpeechVoice.value,
+  activeProvider: string,
+) {
+  if (activeVoice) return activeVoice
+  const configVoice = providerConfig?.voice as string | undefined
+  return createDefaultVoice(activeProvider, configVoice || 'alloy')
+}
+
+function resolveModelAndVoice(providerConfig: Record<string, unknown> | undefined) {
+  let model = activeSpeechModel.value
+  let voice = activeSpeechVoice.value
+
+  if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
+    model = model || (providerConfig?.model as string) || 'tts-1'
+    voice = resolveOpenAIVoice(providerConfig, voice, activeSpeechProvider.value)
+    console.info('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
+  }
+
+  return { model, voice }
+}
+
+async function synthesizeAudio(
+  provider: SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>,
+  model: string,
+  voice: { id: string },
+  input: string,
+  providerConfig: Record<string, unknown> | undefined,
+  signal: AbortSignal,
+): Promise<AudioBuffer | null> {
+  const res = await generateSpeech({
+    ...provider.speech(model, providerConfig),
+    input,
+    voice: voice.id,
+  })
+
+  if (signal.aborted || !res || res.byteLength === 0) return null
+
+  // Tap into the audio stream for Discord Voice Notes
+  // We slice() because decodeAudioData(res) will detach the original buffer.
+  discordStore.addAudioToTurn(res.slice(0))
+
+  return audioContext.decodeAudioData(res)
+}
+
 const speechPipeline = createSpeechPipeline<AudioBuffer>({
   playback: playbackManager,
   tts: async (request, signal) => {
@@ -488,9 +550,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       }
     }
 
-    if (activeSpeechProvider.value === 'speech-noop') return null
-
-    if (!activeSpeechProvider.value) return null
+    if (activeSpeechProvider.value === 'speech-noop' || !activeSpeechProvider.value) return null
 
     const provider = (await providersStore.getProviderInstance(
       activeSpeechProvider.value,
@@ -503,42 +563,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (!request.text && !request.special) return null
 
     const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
-
-    // For OpenAI Compatible providers, always use provider config for model and voice
-    // since these are manually configured in provider settings
-    let model = activeSpeechModel.value
-    let voice = activeSpeechVoice.value
-
-    if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
-      // Prioritize global selections, then provider settings, then defaults
-      model = model || (providerConfig?.model as string) || 'tts-1'
-
-      if (!voice) {
-        if (providerConfig?.voice) {
-          voice = {
-            description: providerConfig.voice as string,
-            gender: 'neutral',
-            id: providerConfig.voice as string,
-            languages: [{ code: 'en', title: 'English' }],
-            name: providerConfig.voice as string,
-            previewURL: '',
-            provider: activeSpeechProvider.value,
-          }
-        } else {
-          voice = {
-            description: 'alloy',
-            gender: 'neutral',
-            id: 'alloy',
-            languages: [{ code: 'en', title: 'English' }],
-            name: 'alloy',
-            previewURL: '',
-            provider: activeSpeechProvider.value,
-          }
-        }
-      }
-
-      console.info('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
-    }
+    const { model, voice } = resolveModelAndVoice(providerConfig)
 
     if (!model || !voice) return null
 
@@ -551,20 +576,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       : transformedText
 
     try {
-      const res = await generateSpeech({
-        ...provider.speech(model, providerConfig),
-        input,
-        voice: voice.id,
-      })
-
-      if (signal.aborted || !res || res.byteLength === 0) return null
-
-      // Tap into the audio stream for Discord Voice Notes
-      // We slice() because decodeAudioData(res) will detach the original buffer.
-      discordStore.addAudioToTurn(res.slice(0))
-
-      const audioBuffer = await audioContext.decodeAudioData(res)
-      return audioBuffer
+      return await synthesizeAudio(provider, model, voice, input, providerConfig, signal)
     } catch {
       return null
     }
@@ -921,7 +933,7 @@ onUnmounted(() => {
   }
 })
 
-const controlStripRef = ref<any>()
+const controlStripRef = ref<InstanceType<typeof ControlStrip> | undefined>()
 
 defineExpose({
   canvasElement,
