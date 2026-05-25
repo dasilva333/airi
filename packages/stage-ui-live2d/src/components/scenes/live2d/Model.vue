@@ -294,7 +294,9 @@ async function extractFromZip(zip: JSZip, filePaths: string[]): Promise<{ cdiDat
         artMeshColors = parsed.artMeshColors
       }
     }
-    catch {}
+    catch {
+      // intentionally empty - vtube.json parsing failure is non-critical
+    }
   }
 
   return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
@@ -331,7 +333,9 @@ async function extractFromFiles(cachedFiles: File[]): Promise<{ cdiData: Record<
       savedActiveExpressions = parsed.savedActiveExpressions
       artMeshColors = parsed.artMeshColors
     }
-    catch {}
+    catch {
+      // intentionally empty - vtube.json parsing failure is non-critical
+    }
   }
 
   return { cdiData, expFiles, savedActiveExpressions, artMeshColors }
@@ -412,7 +416,9 @@ async function resolveMetadata(): Promise<ResolvedMetadata> {
           break
         }
       }
-      catch {}
+      catch {
+        // intentionally empty - vtube.json fetching failure is non-critical
+      }
     }
   }
 
@@ -598,7 +604,9 @@ function setupMotionManagerPlugins(internalModel: PixiLive2DInternalModel, motio
         try {
           ctx.model.setParameterValueById(key, params[key] as number)
         }
-        catch {}
+        catch {
+          // intentionally empty - parameter setting failure is non-critical
+        }
       }
     }
   }, 'post')
@@ -671,6 +679,247 @@ function applyStoredParameters(coreModel: PixiLive2DInternalModel['coreModel']) 
   coreModel.setParameterValueById('ParamBreath', modelParameters.value.breath)
 }
 
+function getParameterValue(internalModel: PixiLive2DInternalModel, id: string): number {
+  try {
+    return (internalModel.coreModel as unknown as { getParameterValueById: (id: string) => number }).getParameterValueById(id) || 0
+  }
+  catch {
+    return 0
+  }
+}
+
+function populateParameterMetadataFromCdi(
+  cdiData: Record<string, unknown>,
+  internalModel: PixiLive2DInternalModel,
+): void {
+  const cdiParams = cdiData?.Parameters as Live2DCdiParameter[] | undefined || cdiData?.parameters as Live2DCdiParameter[] | undefined
+  if (!cdiParams)
+    return
+
+  cdiParams.forEach((p: Live2DCdiParameter) => {
+    const id = p.Id || p.id
+    if (id && modelParameters.value[id] === undefined) {
+      modelParameters.value[id] = getParameterValue(internalModel, id)
+    }
+  })
+
+  parameterMetadata.value = cdiParams.map((p: Live2DCdiParameter) => ({
+    id: p.Id || p.id || '',
+    name: p.Name || p.name || p.Id || p.id || '',
+    groupId: p.GroupId || p.groupId,
+  }))
+
+  const groups = cdiData?.ParameterGroups as Live2DCdiGroup[] | undefined || cdiData?.parameterGroups as Live2DCdiGroup[] | undefined
+  if (groups) {
+    parameterMetadata.value.forEach((p) => {
+      const group = groups.find((g: Live2DCdiGroup) => (g.Id || g.id) === p.groupId)
+      if (group)
+        p.groupName = group.Name || group.name
+    })
+  }
+  console.info('Populated parameterMetadata from CDI:', parameterMetadata.value.length)
+}
+
+function populateParameterMetadataFromCore(internalModel: PixiLive2DInternalModel): void {
+  try {
+    const core = internalModel.coreModel as unknown as { _parameterIds?: string[], _model?: { _parameterIds?: string[] } }
+    const paramIds = core?._parameterIds || core?._model?._parameterIds || []
+    if (paramIds.length === 0)
+      return
+
+    parameterMetadata.value = paramIds.map((id: string) => ({ id, name: id }))
+    parameterMetadata.value.forEach((p) => {
+      if (modelParameters.value[p.id] === undefined) {
+        modelParameters.value[p.id] = getParameterValue(internalModel, p.id)
+      }
+    })
+  }
+  catch (e) {
+    console.warn('Could not extract parameter IDs from core model:', e)
+  }
+}
+
+async function fetchCdiFromUrl(cdiFileName: string): Promise<Record<string, unknown> | null> {
+  if (!props.modelSrc || props.modelSrc.startsWith('blob:'))
+    return null
+
+  const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
+  try {
+    const resp = await fetch(`${baseUrl}${encodeURIComponent(cdiFileName)}`)
+    if (resp.ok && !isUnmounted.value && model.value)
+      return await resp.json() as Record<string, unknown>
+  }
+  catch {
+    // intentionally empty - CDI fetching failure is non-critical
+  }
+  return null
+}
+
+async function resolveCdiData(
+  resolvedMeta: ResolvedMetadata,
+  settings: { _cdiData?: Record<string, unknown> } | undefined,
+  fileRefs: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown> | null> {
+  const cdiData = resolvedMeta.cdiData || settings?._cdiData || null
+  if (cdiData)
+    return cdiData
+
+  const cdiFileName = fileRefs?.DisplayInfo as string | undefined || fileRefs?.Cdi as string | undefined
+  if (!cdiFileName)
+    return null
+
+  return await fetchCdiFromUrl(cdiFileName)
+}
+
+function applyExpressionFiles(expFiles: Live2DExpressionFile[]): void {
+  availableExpressions.value = expFiles.map((exp: Live2DExpressionFile) => ({
+    name: exp.name,
+    fileName: exp.fileName,
+  }))
+  expressionData.value = expFiles.map((exp: Live2DExpressionFile) => ({
+    name: exp.name,
+    fileName: exp.fileName,
+    data: exp.data ?? {},
+  }))
+  console.info('Populated expressions from zip-extracted files:', expFiles.length)
+}
+
+async function fetchExpressionDataFromUrls(): Promise<void> {
+  if (!props.modelSrc || props.modelSrc.startsWith('blob:'))
+    return
+
+  const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
+  const fetchPromises = availableExpressions.value.map(async (exp) => {
+    try {
+      const resp = await fetch(`${baseUrl}${encodeURIComponent(exp.fileName)}`)
+      if (resp.ok) {
+        const data = await resp.json() as Record<string, unknown>
+        return { name: exp.name, fileName: exp.fileName, data }
+      }
+    }
+    catch (err) {
+      console.warn(`[Live2D] Failed to fetch expression ${exp.fileName}:`, err)
+    }
+    return null
+  })
+  const results = await Promise.all(fetchPromises)
+  if (!isUnmounted.value && model.value) {
+    expressionData.value = results.filter((r): r is { name: string, fileName: string, data: Record<string, unknown> } => r !== null)
+    console.info('Fetched expression data from URLs:', expressionData.value.length)
+  }
+}
+
+function populateExpressionsFromFileRefs(
+  expressions: Array<{ Name?: string, name?: string, File?: string, file?: string }>,
+): void {
+  availableExpressions.value = expressions.map(exp => ({
+    name: exp.Name || exp.name || exp.File?.split('/').pop()?.replace('.exp3.json', '') || '',
+    fileName: exp.File || exp.file || '',
+  }))
+  console.info('Populated expressions from FileRefs:', availableExpressions.value.length)
+}
+
+function populateExpressionsFromManager(internalModel: PixiLive2DInternalModel): void {
+  const expressionManager = (internalModel as unknown as { expressionManager?: { definitions?: Record<string, { File?: string, file?: string }> } }).expressionManager
+  if (!expressionManager?.definitions)
+    return
+
+  const defs = expressionManager.definitions
+  availableExpressions.value = Object.keys(defs).map(name => ({
+    name,
+    fileName: defs[name]?.File || defs[name]?.file || name,
+  }))
+  console.info('Populated expressions from expressionManager:', availableExpressions.value.length)
+}
+
+async function resolveExpressionMetadata(
+  resolvedMeta: ResolvedMetadata,
+  settings: { _expFiles?: Live2DExpressionFile[] } | undefined,
+  fileRefs: Record<string, unknown> | undefined,
+  internalModel: PixiLive2DInternalModel,
+): Promise<void> {
+  const expFiles = (resolvedMeta.expFiles && resolvedMeta.expFiles.length > 0) ? resolvedMeta.expFiles : (settings?._expFiles ?? [])
+  if (expFiles && expFiles.length > 0) {
+    applyExpressionFiles(expFiles)
+    return
+  }
+
+  const expressions = fileRefs?.Expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined || fileRefs?.expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined
+  if (expressions && Array.isArray(expressions)) {
+    populateExpressionsFromFileRefs(expressions)
+    await fetchExpressionDataFromUrls()
+    return
+  }
+
+  populateExpressionsFromManager(internalModel)
+}
+
+function applySavedActiveExpressions(
+  savedActiveExpressions: string[],
+  modelKey: string,
+): void {
+  const defaultsLoadedKey = `live2d_vtube_defaults_loaded_${modelKey}`
+  if (localStorage.getItem(defaultsLoadedKey) === 'true')
+    return
+
+  if (!savedActiveExpressions || savedActiveExpressions.length === 0)
+    return
+
+  console.info('[Live2D] Activating saved active expressions from .vtube.json:', savedActiveExpressions)
+  for (const savedExp of savedActiveExpressions) {
+    const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => {
+      const eName = e.fileName.split('/').pop()?.toLowerCase()
+      const sName = savedExp.split('/').pop()?.toLowerCase()
+      return eName === sName
+    })
+    if (expEntry) {
+      activeExpressions.value[expEntry.fileName] = 1
+    }
+  }
+  localStorage.setItem(defaultsLoadedKey, 'true')
+}
+
+function pruneInvalidActiveExpressions(): void {
+  const validKeys = new Set(availableExpressions.value.map(e => e.fileName))
+  const nextActiveExpressions = { ...activeExpressions.value }
+  let hasDeletes = false
+  for (const key of Object.keys(nextActiveExpressions)) {
+    if (!validKeys.has(key)) {
+      delete nextActiveExpressions[key]
+      hasDeletes = true
+    }
+  }
+  if (hasDeletes) {
+    activeExpressions.value = nextActiveExpressions
+  }
+}
+
+function applyExpressionParameters(): void {
+  if (expressionData.value.length === 0 || Object.keys(activeExpressions.value).length === 0)
+    return
+
+  for (const [fileName, weight] of Object.entries(activeExpressions.value)) {
+    if (weight <= 0)
+      continue
+
+    const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => e.fileName === fileName)
+    if (!expEntry?.data || typeof expEntry.data !== 'object')
+      continue
+
+    const params = (expEntry.data as { Parameters?: Array<{ Id?: string, id?: string, Value?: number, value?: number }> }).Parameters
+    if (!params)
+      continue
+
+    for (const param of params) {
+      const id = param.Id || param.id
+      const value = param.Value ?? param.value
+      if (id !== undefined && value !== undefined) {
+        modelParameters.value[id] = value
+      }
+    }
+  }
+}
+
 async function parseAndApplyMetadata(internalModel: PixiLive2DInternalModel) {
   try {
     const settings = internalModel.settings as { json?: Record<string, unknown>, _cdiData?: Record<string, unknown>, _expFiles?: Live2DExpressionFile[] } | undefined
@@ -678,195 +927,110 @@ async function parseAndApplyMetadata(internalModel: PixiLive2DInternalModel) {
     const fileRefs = rawJson?.FileReferences as Record<string, unknown> | undefined || rawJson?.fileReferences as Record<string, unknown> | undefined
 
     const resolvedMeta = await resolveMetadata()
-    let cdiData = resolvedMeta.cdiData || settings?._cdiData || null
+    const cdiData = await resolveCdiData(resolvedMeta, settings, fileRefs)
+
     artMeshColors.value = resolvedMeta.artMeshColors || {}
     if (Object.keys(artMeshColors.value).length > 0) {
       console.info('[Live2D] Loaded ArtMesh colors from .vtube.json:', Object.keys(artMeshColors.value).length)
     }
 
-    if (!cdiData) {
-      const cdiFileName = fileRefs?.DisplayInfo as string | undefined || fileRefs?.Cdi as string | undefined
-      if (cdiFileName && props.modelSrc && !props.modelSrc.startsWith('blob:')) {
-        const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
-        try {
-          const resp = await fetch(`${baseUrl}${encodeURIComponent(cdiFileName)}`)
-          if (resp.ok && !isUnmounted.value && model.value)
-            cdiData = await resp.json() as Record<string, unknown>
-        }
-        catch {}
-      }
-    }
-
     if (cdiData && !isUnmounted.value && model.value) {
-      const cdiParams = cdiData?.Parameters as Live2DCdiParameter[] | undefined || cdiData?.parameters as Live2DCdiParameter[] | undefined
-      if (cdiParams) {
-        cdiParams.forEach((p: Live2DCdiParameter) => {
-          const id = p.Id || p.id
-          if (id && modelParameters.value[id] === undefined) {
-            try {
-              modelParameters.value[id] = (internalModel.coreModel as unknown as { getParameterValueById: (id: string) => number }).getParameterValueById(id) || 0
-            }
-            catch {
-              modelParameters.value[id] = 0
-            }
-          }
-        })
-
-        parameterMetadata.value = cdiParams.map((p: Live2DCdiParameter) => ({
-          id: p.Id || p.id || '',
-          name: p.Name || p.name || p.Id || p.id || '',
-          groupId: p.GroupId || p.groupId,
-        }))
-
-        const groups = cdiData?.ParameterGroups as Live2DCdiGroup[] | undefined || cdiData?.parameterGroups as Live2DCdiGroup[] | undefined
-        if (groups) {
-          parameterMetadata.value.forEach((p) => {
-            const group = groups.find((g: Live2DCdiGroup) => (g.Id || g.id) === p.groupId)
-            if (group)
-              p.groupName = group.Name || group.name
-          })
-        }
-        console.info('Populated parameterMetadata from CDI:', parameterMetadata.value.length)
-      }
+      populateParameterMetadataFromCdi(cdiData, internalModel)
     }
 
     if (parameterMetadata.value.length === 0) {
-      try {
-        const core = internalModel.coreModel as unknown as { _parameterIds?: string[], _model?: { _parameterIds?: string[] } }
-        const paramIds = core?._parameterIds || core?._model?._parameterIds || []
-        if (paramIds.length > 0) {
-          parameterMetadata.value = paramIds.map((id: string) => ({ id, name: id }))
-          parameterMetadata.value.forEach((p) => {
-            if (modelParameters.value[p.id] === undefined) {
-              try {
-                modelParameters.value[p.id] = (internalModel.coreModel as unknown as { getParameterValueById: (id: string) => number }).getParameterValueById(p.id) || 0
-              }
-              catch {
-                modelParameters.value[p.id] = 0
-              }
-            }
-          })
-        }
-      }
-      catch (e) {
-        console.warn('Could not extract parameter IDs from core model:', e)
-      }
+      populateParameterMetadataFromCore(internalModel)
     }
 
-    const expFiles = (resolvedMeta.expFiles && resolvedMeta.expFiles.length > 0) ? resolvedMeta.expFiles : (settings?._expFiles ?? [])
-    if (expFiles && expFiles.length > 0) {
-      availableExpressions.value = expFiles.map((exp: Live2DExpressionFile) => ({
-        name: exp.name,
-        fileName: exp.fileName,
-      }))
-      expressionData.value = expFiles.map((exp: Live2DExpressionFile) => ({
-        name: exp.name,
-        fileName: exp.fileName,
-        data: exp.data ?? {},
-      }))
-      console.info('Populated expressions from zip-extracted files:', expFiles.length)
-    }
-    else {
-      const expressions = fileRefs?.Expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined || fileRefs?.expressions as Array<{ Name?: string, name?: string, File?: string, file?: string }> | undefined
-      if (expressions && Array.isArray(expressions)) {
-        availableExpressions.value = expressions.map(exp => ({
-          name: exp.Name || exp.name || exp.File?.split('/').pop()?.replace('.exp3.json', '') || '',
-          fileName: exp.File || exp.file || '',
-        }))
-
-        if (props.modelSrc && !props.modelSrc.startsWith('blob:')) {
-          const baseUrl = props.modelSrc.substring(0, props.modelSrc.lastIndexOf('/') + 1)
-          const fetchPromises = availableExpressions.value.map(async (exp) => {
-            try {
-              const resp = await fetch(`${baseUrl}${encodeURIComponent(exp.fileName)}`)
-              if (resp.ok) {
-                const data = await resp.json() as Record<string, unknown>
-                return { name: exp.name, fileName: exp.fileName, data }
-              }
-            }
-            catch (err) {
-              console.warn(`[Live2D] Failed to fetch expression ${exp.fileName}:`, err)
-            }
-            return null
-          })
-          const results = await Promise.all(fetchPromises)
-          if (!isUnmounted.value && model.value) {
-            expressionData.value = results.filter((r): r is { name: string, fileName: string, data: Record<string, unknown> } => r !== null)
-            console.info('Fetched expression data from URLs:', expressionData.value.length)
-          }
-        }
-        console.info('Populated expressions from FileRefs:', availableExpressions.value.length)
-      }
-      else {
-        const expressionManager = (internalModel as unknown as { expressionManager?: { definitions?: Record<string, { File?: string, file?: string }> } }).expressionManager
-        if (expressionManager?.definitions) {
-          const defs = expressionManager.definitions
-          availableExpressions.value = Object.keys(defs).map(name => ({
-            name,
-            fileName: defs[name]?.File || defs[name]?.file || name,
-          }))
-          console.info('Populated expressions from expressionManager:', availableExpressions.value.length)
-        }
-      }
-    }
+    await resolveExpressionMetadata(resolvedMeta, settings, fileRefs, internalModel)
 
     const modelKey = props.modelId || props.modelSrc
-    const defaultsLoadedKey = modelKey ? `live2d_vtube_defaults_loaded_${modelKey}` : null
-    const hasLoadedDefaults = defaultsLoadedKey ? localStorage.getItem(defaultsLoadedKey) === 'true' : false
-
-    if (!hasLoadedDefaults && resolvedMeta.savedActiveExpressions && resolvedMeta.savedActiveExpressions.length > 0) {
-      console.info('[Live2D] Activating saved active expressions from .vtube.json:', resolvedMeta.savedActiveExpressions)
-      for (const savedExp of resolvedMeta.savedActiveExpressions) {
-        const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => {
-          const eName = e.fileName.split('/').pop()?.toLowerCase()
-          const sName = savedExp.split('/').pop()?.toLowerCase()
-          return eName === sName
-        })
-        if (expEntry) {
-          activeExpressions.value[expEntry.fileName] = 1
-        }
-      }
-      if (defaultsLoadedKey) {
-        localStorage.setItem(defaultsLoadedKey, 'true')
-      }
+    if (modelKey) {
+      applySavedActiveExpressions(resolvedMeta.savedActiveExpressions, modelKey)
     }
 
-    const validKeys = new Set(availableExpressions.value.map(e => e.fileName))
-    const nextActiveExpressions = { ...activeExpressions.value }
-    let hasDeletes = false
-    for (const key of Object.keys(nextActiveExpressions)) {
-      if (!validKeys.has(key)) {
-        delete nextActiveExpressions[key]
-        hasDeletes = true
-      }
-    }
-    if (hasDeletes) {
-      activeExpressions.value = nextActiveExpressions
-    }
-
-    if (expressionData.value.length > 0 && Object.keys(activeExpressions.value).length > 0) {
-      for (const [fileName, weight] of Object.entries(activeExpressions.value)) {
-        if (weight > 0) {
-          const expEntry = expressionData.value.find((e: Live2DExpressionEntry) => e.fileName === fileName)
-          if (expEntry?.data && typeof expEntry.data === 'object') {
-            const params = (expEntry.data as { Parameters?: Array<{ Id?: string, id?: string, Value?: number, value?: number }> }).Parameters
-            if (params) {
-              for (const param of params) {
-                const id = param.Id || param.id
-                const value = param.Value ?? param.value
-                if (id !== undefined && value !== undefined) {
-                  modelParameters.value[id] = value
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    pruneInvalidActiveExpressions()
+    applyExpressionParameters()
   }
   catch (e) {
     console.error('[Live2D-Alpha] Metadata parsing failure:', e)
   }
+}
+
+function resetLoadingState(): void {
+  availableExpressions.value = []
+  expressionData.value = []
+  componentState.value = 'loading'
+}
+
+async function waitForPixiApp(): Promise<boolean> {
+  if (pixiApp.value && pixiApp.value.stage)
+    return true
+
+  try {
+    await until(() => !!pixiApp.value && !!pixiApp.value.stage).toBeTruthy({ timeout: 1500 })
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
+function destroyOldModel(): void {
+  if (!model.value || !pixiApp.value?.stage)
+    return
+
+  try {
+    pixiApp.value.stage.removeChild(model.value)
+    model.value.destroy()
+  }
+  catch (error) {
+    console.warn('Error removing old model:', error)
+  }
+  model.value = undefined
+}
+
+function populateMotionMap(): void {
+  availableMotions.value.forEach((motion) => {
+    if (motion.motionName in Emotion) {
+      motionMap.value[motion.fileName] = motion.motionName
+    }
+    else {
+      motionMap.value[motion.fileName] = EmotionNeutralMotionName
+    }
+  })
+}
+
+function setupModelPipeline(live2DModel: Live2DModel<PixiLive2DInternalModel>): void {
+  setupModelScene(live2DModel)
+  setupModelInteraction(live2DModel)
+
+  if (!model.value) {
+    console.warn('[Live2D] setupModelPipeline called but model is not set')
+    return
+  }
+  const internalModel = model.value.internalModel
+  const coreModel = internalModel.coreModel
+  const motionManager = internalModel.motionManager
+  coreModel.setParameterValueById('ParamMouthOpenY', mouthOpenSize.value)
+
+  buildAvailableMotions(motionManager)
+  setupMotionLooping(motionManager)
+
+  if (live2dIdleAnimationEnabled.value) {
+    scheduleInitialMotion()
+  }
+
+  removeIdleEyeBallMovements(motionManager)
+  setupMotionManagerPlugins(internalModel, motionManager)
+  setupMotionEventHandlers(motionManager)
+
+  applyStoredParameters(coreModel)
+}
+
+function finalizeModelLoad(live2DModel: Live2DModel<PixiLive2DInternalModel>): void {
+  populateMotionMap()
+  setupModelPipeline(live2DModel)
 }
 
 async function loadModel() {
@@ -876,31 +1040,16 @@ async function loadModel() {
   await modelLoadMutex.acquire()
 
   modelLoading.value = true
-  availableExpressions.value = []
-  expressionData.value = []
-  componentState.value = 'loading'
+  resetLoadingState()
 
-  if (!pixiApp.value || !pixiApp.value.stage) {
-    try {
-      await until(() => !!pixiApp.value && !!pixiApp.value.stage).toBeTruthy({ timeout: 1500 })
-    }
-    catch {
-      modelLoading.value = false
-      componentState.value = 'mounted'
-      return
-    }
+  if (!await waitForPixiApp()) {
+    modelLoading.value = false
+    componentState.value = 'mounted'
+    return
   }
 
-  if (model.value && pixiApp.value?.stage) {
-    try {
-      pixiApp.value.stage.removeChild(model.value)
-      model.value.destroy()
-    }
-    catch (error) {
-      console.warn('Error removing old model:', error)
-    }
-    model.value = undefined
-  }
+  destroyOldModel()
+
   if (!modelSrcRef.value) {
     console.warn('No Live2D model source provided.')
     modelLoading.value = false
@@ -908,13 +1057,13 @@ async function loadModel() {
     return
   }
 
-  try {
-    if (isUnmounted.value) {
-      modelLoading.value = false
-      componentState.value = 'mounted'
-      return
-    }
+  if (isUnmounted.value) {
+    modelLoading.value = false
+    componentState.value = 'mounted'
+    return
+  }
 
+  try {
     const live2DModel = new Live2DModel<PixiLive2DInternalModel>()
     await Live2DFactory.setupLive2DModel(live2DModel, { url: modelSrcRef.value, id: props.modelId, file: props.modelFile }, { autoInteract: false })
 
@@ -925,36 +1074,12 @@ async function loadModel() {
       return
     }
 
-    availableMotions.value.forEach((motion) => {
-      if (motion.motionName in Emotion) {
-        motionMap.value[motion.fileName] = motion.motionName
-      }
-      else {
-        motionMap.value[motion.fileName] = EmotionNeutralMotionName
-      }
-    })
-
-    setupModelScene(live2DModel)
-    setupModelInteraction(live2DModel)
-
-    const internalModel = model.value!.internalModel
-    const coreModel = internalModel.coreModel
-    const motionManager = internalModel.motionManager
-    coreModel.setParameterValueById('ParamMouthOpenY', mouthOpenSize.value)
-
-    buildAvailableMotions(motionManager)
-    setupMotionLooping(motionManager)
-
-    if (live2dIdleAnimationEnabled.value) {
-      scheduleInitialMotion()
+    finalizeModelLoad(live2DModel)
+    if (!model.value) {
+      console.warn('[Live2D] model not set after finalizeModelLoad')
+      return
     }
-
-    removeIdleEyeBallMovements(motionManager)
-    setupMotionManagerPlugins(internalModel, motionManager)
-    setupMotionEventHandlers(motionManager)
-
-    applyStoredParameters(coreModel)
-    await parseAndApplyMetadata(internalModel)
+    await parseAndApplyMetadata(model.value.internalModel)
 
     emits('modelLoaded')
   }
