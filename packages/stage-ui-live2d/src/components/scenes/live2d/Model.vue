@@ -26,6 +26,7 @@ import { useLive2d } from '../../../stores/live2d'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
+import { live2dLogger } from '@proj-airi/stage-shared/debug'
 
 interface Live2DCdiParameter {
   Id?: string
@@ -1060,6 +1061,8 @@ function finalizeModelLoad(live2DModel: Live2DModel<PixiLive2DInternalModel>): v
 }
 
 async function loadModel() {
+  live2dLogger.log('loadModel() called', { modelSrc: modelSrcRef.value, modelId: props.modelId, modelFile: props.modelFile?.name })
+  live2dLogger.time('live2d:loadModel')
   config.sound = isStageRoute()
 
   await until(modelLoading).not.toBeTruthy()
@@ -1069,6 +1072,7 @@ async function loadModel() {
   resetLoadingState()
 
   if (!(await waitForPixiApp())) {
+    live2dLogger.warn('Pixi app not ready after timeout')
     modelLoading.value = false
     componentState.value = 'mounted'
     return
@@ -1077,43 +1081,54 @@ async function loadModel() {
   destroyOldModel()
 
   if (!modelSrcRef.value) {
-    console.warn('No Live2D model source provided.')
+    live2dLogger.warn('No Live2D model source provided')
     modelLoading.value = false
     componentState.value = 'mounted'
     return
   }
 
   if (isUnmounted.value) {
+    live2dLogger.warn('Component unmounted before load could start')
     modelLoading.value = false
     componentState.value = 'mounted'
     return
   }
 
   try {
+    live2dLogger.log('Creating Live2DModel instance...')
     const live2DModel = new Live2DModel<PixiLive2DInternalModel>()
+    live2dLogger.log('Calling Live2DFactory.setupLive2DModel...', { url: modelSrcRef.value, id: props.modelId, file: props.modelFile?.name })
+    live2dLogger.time('live2d:setupLive2DModel')
     await Live2DFactory.setupLive2DModel(
       live2DModel,
       { file: props.modelFile, id: props.modelId, url: modelSrcRef.value },
       { autoInteract: false },
     )
+    live2dLogger.timeEnd('live2d:setupLive2DModel')
+    live2dLogger.log('Live2DFactory.setupLive2DModel completed ✓')
 
     if (isUnmounted.value || !pixiApp.value || !pixiApp.value.stage) {
+      live2dLogger.warn('Component unmounted or Pixi app lost during load')
       live2DModel.destroy()
       modelLoading.value = false
       componentState.value = 'mounted'
       return
     }
 
+    live2dLogger.log('Finalizing model load (scene, interaction, motions, metadata)...')
     finalizeModelLoad(live2DModel)
     if (!model.value) {
-      console.warn('[Live2D] model not set after finalizeModelLoad')
+      live2dLogger.warn('model not set after finalizeModelLoad')
       return
     }
+    live2dLogger.log('Parsing and applying metadata...')
     await parseAndApplyMetadata(model.value.internalModel)
 
     emits('modelLoaded')
+    live2dLogger.log('Live2D model fully loaded and mounted ✓')
+    live2dLogger.timeEnd('live2d:loadModel')
   } catch (error) {
-    console.error('[Live2D] Failed to load model:', error)
+    live2dLogger.error('Failed to load Live2D model:', error)
     emits('error', error instanceof Error ? error : new Error(String(error)))
   } finally {
     modelLoading.value = false

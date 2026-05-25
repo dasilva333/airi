@@ -9,27 +9,31 @@ import { ref } from 'vue'
 
 import { useVRMLoader } from './loader'
 import { randomSaccadeInterval } from './utils/eye-motions'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 export interface GLTFUserdata extends Record<string, any> {
   vrmAnimations: VRMAnimation[]
 }
 
 export async function loadVRMAnimation(url: string) {
+  vrmLogger.log('loadVRMAnimation: loading...', { url })
+  vrmLogger.time('vrm:loadAnimation')
   const loader = useVRMLoader()
 
-  // load VRM Animation .vrma file
   const gltf = await loader.loadAsync(url)
 
   const userData = gltf.userData as GLTFUserdata
   if (!userData.vrmAnimations) {
-    console.warn('No VRM animations found in the .vrma file')
+    vrmLogger.warn('loadVRMAnimation: no VRM animations found in .vrma file')
     return
   }
   if (userData.vrmAnimations.length === 0) {
-    console.warn('No VRM animations found in the .vrma file')
+    vrmLogger.warn('loadVRMAnimation: VRM animations array is empty')
     return
   }
 
+  vrmLogger.log('loadVRMAnimation: loaded ✓', { animationCount: userData.vrmAnimations.length })
+  vrmLogger.timeEnd('vrm:loadAnimation')
   return userData.vrmAnimations[0]
 }
 

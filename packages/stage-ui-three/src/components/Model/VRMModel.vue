@@ -29,6 +29,7 @@ import { useVRMLipSync } from '../../composables/vrm/lip-sync'
 import { useVRMClothInteraction } from '../../composables/vrm/use-vrm-cloth-interaction'
 import type { Vec3 } from '../../stores/model-store'
 import { useModelStore } from '../../stores/model-store'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 /*
  * Props:
@@ -281,22 +282,24 @@ function defaultTookAt(eyeHeight: number): Vec3 {
 }
 
 async function loadModel() {
+  vrmLogger.log('loadModel() called', { modelSrc: modelSrc.value, modelIdentity: modelIdentity.value })
+  vrmLogger.time('vrm:loadModel')
   try {
     if (!scene.value) {
-      console.warn('Scene is not ready, cannot load VRM model.')
+      vrmLogger.warn('Scene is not ready, cannot load VRM model.')
       return
     }
 
-    // console.log('[VRMModel] Loading:', modelSrc.value)
-
     const loadId = ++currentLoadId
+    vrmLogger.log(`Starting load #${loadId}`)
 
     if (vrmGroup.value || scene.value) {
+      vrmLogger.log('Cleaning up previous model')
       componentCleanUp()
     }
 
     if (!modelSrc.value) {
-      console.warn('NO model src, cannot load VRM model.')
+      vrmLogger.warn('No model src, cannot load VRM model.')
       return
     }
     // Local file models are loaded through blob URLs, so a stable model identity
@@ -307,28 +310,35 @@ async function loadModel() {
 
     try {
       emit('loadStart')
-      // Load vrm model
       modelLoaded.value = false
+      vrmLogger.log('Calling loadVrm...', { modelSrc: modelSrc.value })
+      vrmLogger.time('vrm:loadVrm')
       const _vrmInfo = await loadVrm(modelSrc.value, {
         lookAt: true,
-        onProgress: (progress) =>
-          emit('loadingProgress', Number(((100 * progress.loaded) / progress.total).toFixed(2))),
+        onProgress: (progress) => {
+          const pct = Number(((100 * progress.loaded) / progress.total).toFixed(2))
+          vrmLogger.log(`Loading progress: ${pct}%`)
+          emit('loadingProgress', pct)
+        },
         scene: scene.value,
       })
+      vrmLogger.timeEnd('vrm:loadVrm')
 
       // Phase A: Binary Capture for Surgical Persistence
       try {
+        vrmLogger.log('Capturing binary for surgical persistence...')
         const response = await fetch(modelSrc.value)
         const buffer = await response.arrayBuffer()
         emit('binaryLoaded', buffer)
       } catch (e) {
-        console.warn('[VRMModel] Precise binary capture failed:', e)
+        vrmLogger.warn('Precise binary capture failed:', e)
       }
 
       if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
-        console.warn('VRM model loading failure!')
+        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', { hasVrm: !!_vrmInfo?._vrm, hasGroup: !!_vrmInfo?._vrmGroup })
         return
       }
+      vrmLogger.log('VRM model loaded successfully', { modelCenter: _vrmInfo.modelCenter, modelSize: _vrmInfo.modelSize })
       const {
         _vrm,
         _vrmGroup,
@@ -405,12 +415,16 @@ async function loadModel() {
       /*
        * Animation setting
        */
+      vrmLogger.log('Loading VRM animation...', { idleAnimation: idleAnimation.value })
+      vrmLogger.time('vrm:loadAnimation')
       const animation = await loadVRMAnimation(idleAnimation.value)
       const clip = await clipFromVRMAnimation(_vrm, animation)
+      vrmLogger.timeEnd('vrm:loadAnimation')
       if (!clip) {
-        console.warn('No VRM animation loaded')
+        vrmLogger.warn('No VRM animation loaded')
         return
       }
+      vrmLogger.log('VRM animation loaded', { clipName: clip.name, tracks: clip.tracks.length })
       // Re-anchor the root position track to the model origin
       reAnchorRootPositionTrack(clip, _vrm, initialHipWorldPosition.value ?? undefined)
 
@@ -499,9 +513,8 @@ async function loadModel() {
 
       // ASYNC GUARD: Check again after animation loading
       if (isUnmounted || loadId !== currentLoadId) {
-        console.warn('[VRMModel] Discarding model after animation load - stale/unmounted:', loadId)
-        componentCleanUp() // This will use the latest vrm.value, but we should be careful
-        // Better: dispose the specific ones we just loaded if they aren't assigned yet
+        vrmLogger.warn('Discarding model after animation load - stale/unmounted:', loadId)
+        componentCleanUp()
         VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
         _vrmGroup.removeFromParent()
         return
@@ -513,19 +526,22 @@ async function loadModel() {
         modelSrc: modelSrc.value,
       })
       modelLoaded.value = true
+      vrmLogger.log('VRM model fully loaded and mounted ✓')
+      vrmLogger.timeEnd('vrm:loadModel')
     } catch (err) {
-      console.error(err)
+      vrmLogger.error('VRM model loading error:', err)
       emit('error', err)
     }
   } catch (err) {
-    console.error(err)
+    vrmLogger.error('VRM model loading error:', err)
     emit('error', err)
   }
 }
 
 onMounted(async () => {
-  // wait until scene is not undefined
+  vrmLogger.log('onMounted: waiting for scene...')
   await until(() => scene.value).toBeTruthy()
+  vrmLogger.log('onMounted: scene ready, calling loadModel()')
   await loadModel()
 
   /*

@@ -13,6 +13,7 @@ import { toast } from 'vue-sonner'
 
 import '@proj-airi/stage-ui-live2d/utils/live2d-zip-loader'
 import '@proj-airi/stage-ui-live2d/utils/live2d-opfs-registration'
+import { rendererLogger } from '@proj-airi/stage-shared/debug'
 
 // Hoisted RegExp literals to module scope to avoid recompilation in loops
 const MOTION_REGEX_SINGLE = /^Motions_(.+)\.json$|motions?\/(.+)\.(?:motion3\.)?json$/i
@@ -753,17 +754,24 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function addDisplayModel(format: DisplayModelFormat, file: File) {
+    rendererLogger.log('addDisplayModel called', { format, fileName: file.name, fileSize: file.size })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (format === DisplayModelFormat.Live2dZip) {
+      rendererLogger.log('Trying to handle as Live2D ZIP...')
       const handled = await tryHandleLive2dZip(file)
-      if (handled) return
+      if (handled) {
+        rendererLogger.log('Handled as Live2D multi-model ZIP ✓')
+        return
+      }
     }
 
     const newDisplayModel = createDisplayModelEntry(format, file)
+    rendererLogger.log('Created display model entry', { id: newDisplayModel.id, format })
 
     const previewImage = await generatePreviewForFormat(format, file)
     if (format === DisplayModelFormat.SpineZip && !previewImage) {
+      rendererLogger.warn('Spine model has no preview image, skipping')
       return
     }
     if (previewImage) {
@@ -771,6 +779,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
 
     displayModels.value.unshift(newDisplayModel)
+    rendererLogger.log('Display model added to list', { totalModels: displayModels.value.length })
 
     localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel).catch((err) => console.error(err))
   }
