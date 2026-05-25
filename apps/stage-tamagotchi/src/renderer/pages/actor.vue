@@ -33,6 +33,7 @@ import {
   electronCustomizerToggleVisibility,
   electronOpenChat,
   electronOpenSettings,
+  electronStageSetAlwaysOnTop,
   electronStageToggleVisibility,
   electronStartDraggingWindow,
 } from '../../shared/eventa'
@@ -64,9 +65,8 @@ const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 const applySizePresetInvoke = useElectronEventaInvoke(electronApplySizePreset)
 const syncControlStripState = useElectronEventaInvoke(electronControlStripSyncState)
-const getBounds = useElectronEventaInvoke(electron.window.getBounds)
-const setBounds = useElectronEventaInvoke(electron.window.setBounds)
 const setIgnoreMouseEventsInvoke = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
+const setAlwaysOnTopInvoke = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
 
 // Control strip state
 const activePopover = ref<string | null>(null)
@@ -151,16 +151,19 @@ const dragHandleRef = ref<HTMLDivElement | null>(null)
 const whisperDockWrapperRef = ref<HTMLDivElement | null>(null)
 const positioningSelectorsRef = ref<HTMLDivElement | null>(null)
 const positioningSliderRef = ref<HTMLDivElement | null>(null)
+const controlStripWrapperRef = ref<HTMLDivElement | null>(null)
 
 const { isOutside: isOutsideDragHandle } = useElectronMouseInElement(dragHandleRef)
 const { isOutside: isOutsideWhisperDock } = useElectronMouseInElement(whisperDockWrapperRef)
 const { isOutside: isOutsidePositioningSelectors } = useElectronMouseInElement(positioningSelectorsRef)
 const { isOutside: isOutsidePositioningSlider } = useElectronMouseInElement(positioningSliderRef)
+const { isOutside: isOutsideControlStrip } = useElectronMouseInElement(controlStripWrapperRef)
 
 const isOverControls = computed(() => {
   return !isOutsideDragHandle.value
     || !isOutsideWhisperDock.value
     || whisperDockIsOpen.value
+    || !isOutsideControlStrip.value
     || (stageViewControlsEnabled.value && controlStripStore.stageMode === 'positionMode' && (!isOutsidePositioningSelectors.value || !isOutsidePositioningSlider.value))
 })
 
@@ -221,75 +224,19 @@ watch(() => settingsStore.captionFollowStage, (newVal) => {
 })
 
 async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
-  const current = await getBounds()
-  if (!current)
-    return
-
-  let x = current.x
-  let y = current.y
-  const w = lastOrientation.value === 'vertical' ? 56 : stripLength.value
-  const h = lastOrientation.value === 'vertical' ? stripLength.value : 56
-
-  if (activePopover.value) {
-    const placement = lastPlacement.value || 'bottom'
-    if (lastOrientation.value === 'vertical') {
-      x = current.x + (placement === 'left' ? 268 : 0)
-      y = current.y + (current.height - stripLength.value) / 2
-    }
-    else {
-      x = current.x + (current.width - stripLength.value) / 2
-      y = current.y + (placement === 'top' ? 280 : 0)
-    }
-  }
-
-  let targetX = x
-  let targetY = y
-  let targetW = w
-  let targetH = h
-
-  if (nextPopover) {
-    if (controlStripStore.orientation === 'vertical') {
-      targetW = 324
-      targetH = Math.max(336, h)
-      targetX = x - (nextPlacement === 'left' ? 268 : 0)
-      targetY = y - (targetH - h) / 2
-    }
-    else {
-      targetW = Math.max(336, w)
-      targetH = 336
-      targetX = x - (targetW - w) / 2
-      targetY = y - (nextPlacement === 'top' ? 280 : 0)
-    }
-  }
-
-  await setBounds([{
-    x: Math.round(targetX),
-    y: Math.round(targetY),
-    width: Math.round(targetW),
-    height: Math.round(targetH),
-  }])
-
+  // NOTE: Window resizing is intentionally disabled since the control strip
+  // is now an overlay within the stage window. The window should maintain its
+  // stage dimensions to avoid clipping the character. Only sync state.
   activePopover.value = nextPopover
   lastPlacement.value = nextPlacement
   lastOrientation.value = controlStripStore.orientation
 }
 
-watch([stripLength, () => controlStripStore.orientation], async ([newLength, newOrientation]) => {
+watch([stripLength, () => controlStripStore.orientation], async ([_newLength, newOrientation]) => {
   if (activePopover.value) {
     await applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
   }
   else {
-    const w = newOrientation === 'vertical' ? 56 : newLength
-    const h = newOrientation === 'vertical' ? newLength : 56
-    const current = await getBounds()
-    if (current) {
-      await setBounds([{
-        x: current.x,
-        y: current.y,
-        width: w,
-        height: h,
-      }])
-    }
     lastOrientation.value = newOrientation
   }
 })
@@ -383,6 +330,7 @@ function handleControlStripAction(e: Event) {
   }
   else if (action === 'always-on-top') {
     alwaysOnTop.value = !alwaysOnTop.value
+    setAlwaysOnTopInvoke(alwaysOnTop.value)
   }
   else if (action === 'theme-mode') {
     colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
@@ -625,7 +573,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Floating Modular Control Strip Overlay -->
-      <div class="pointer-events-none absolute inset-0 z-50 overflow-hidden">
+      <div ref="controlStripWrapperRef" class="pointer-events-none absolute inset-0 z-50 overflow-hidden">
         <ControlStrip />
       </div>
 
