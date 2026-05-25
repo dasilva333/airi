@@ -16,8 +16,7 @@ const { isDark } = useTheme()
 // explain: https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Visualizations_with_Web_Audio_API
 // reference: https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Simple_synth
 function fetchAnalyserDataDuringFrames() {
-  if (!analyser.value || !analyserDataBuffer.value || !canvasElemRef.value)
-    return
+  if (!analyser.value || !analyserDataBuffer.value || !canvasElemRef.value) return
 
   // https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
   requestAnimationFrame(fetchAnalyserDataDuringFrames)
@@ -28,18 +27,14 @@ function fetchAnalyserDataDuringFrames() {
 
   const context = canvasElemRef.value.getContext('2d')!
 
-  if (isDark.value)
-    context.fillStyle = 'rgba(34, 34, 34, 1)'
-  else
-    context.fillStyle = 'rgba(255, 255, 255, 1)'
+  if (isDark.value) context.fillStyle = 'rgba(34, 34, 34, 1)'
+  else context.fillStyle = 'rgba(255, 255, 255, 1)'
 
   context.fillRect(0, 0, canvasElemRef.value.width, canvasElemRef.value.height)
 
   context.lineWidth = 2
-  if (isDark.value)
-    context.strokeStyle = 'rgb(255 255 255)'
-  else
-    context.strokeStyle = 'rgb(0 0 0)'
+  if (isDark.value) context.strokeStyle = 'rgb(255 255 255)'
+  else context.strokeStyle = 'rgb(0 0 0)'
 
   context.beginPath()
 
@@ -50,10 +45,8 @@ function fetchAnalyserDataDuringFrames() {
     const v = analyserDataBuffer.value[i] / 128.0
     const y = (v * canvasElemRef.value.height) / 2
 
-    if (i === 0)
-      context.moveTo(x, y)
-    else
-      context.lineTo(x, y)
+    if (i === 0) context.moveTo(x, y)
+    else context.lineTo(x, y)
 
     x += sliceWidth
   }
@@ -75,8 +68,7 @@ defineExpose({
 })
 
 onMounted(async () => {
-  if (!containerRef.value || !canvasElemRef.value)
-    return
+  if (!containerRef.value || !canvasElemRef.value) return
 
   const containerElementBounding = useElementBounding(containerRef.value)
   containerElementBounding.update()

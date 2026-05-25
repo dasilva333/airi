@@ -3,7 +3,7 @@ import { animate } from 'animejs'
 import { useData } from 'vitepress'
 import { ref, watchEffect } from 'vue'
 
-import CharacterShowcase from './CharacterShowcase.vue'
+import type CharacterShowcase from './CharacterShowcase.vue'
 
 interface Character {
   value: string
@@ -11,23 +11,26 @@ interface Character {
 }
 
 function interpolate(characters: string[], initial?: Character[]) {
-  return characters.reduce<Character[][]>((chars, c) => {
-    return [
-      ...chars,
-      [
-        ...chars.length > 0 ? chars[chars.length - 1]! : [],
-        { value: c, variant: 'dotted' },
-      ],
-    ]
-  }, initial ? [initial] : [])
+  return characters.reduce<Character[][]>(
+    (chars, c) => {
+      return [...chars, [...(chars.length > 0 ? chars[chars.length - 1]! : []), { value: c, variant: 'dotted' }]]
+    },
+    initial ? [initial] : [],
+  )
 }
 
 const STATES: Character[][] = [
   ...interpolate([...'💆🏼‍♀️'].splice(0, 2)),
   ...interpolate([...'💆🏼‍♀️'].splice(2), [{ value: '💆🏼', variant: 'default' }]),
   ...interpolate([...'👩🏻‍💻'].splice(0, 2), [{ value: '💆🏼‍♀️', variant: 'default' }]),
-  ...interpolate([...'👩🏻‍💻'].splice(2), [{ value: '💆🏼‍♀️', variant: 'active' }, { value: '👩🏻', variant: 'default' }]),
-  [{ value: '💆🏼‍♀️', variant: 'active' }, { value: '👩🏻‍💻', variant: 'active' }],
+  ...interpolate([...'👩🏻‍💻'].splice(2), [
+    { value: '💆🏼‍♀️', variant: 'active' },
+    { value: '👩🏻', variant: 'default' },
+  ]),
+  [
+    { value: '💆🏼‍♀️', variant: 'active' },
+    { value: '👩🏻‍💻', variant: 'active' },
+  ],
 ]
 
 const { lang } = useData()
@@ -38,21 +41,21 @@ const animationHandle = ref<number>()
 
 function enterAnimator(e: Element, done: () => void) {
   return animate(e, {
+    duration: 200,
+    ease: 'outQuad',
+    onComplete: done,
     opacity: [0, 1],
     scale: [0.5, 1],
-    ease: 'outQuad',
-    duration: 200,
-    onComplete: done,
   })
 }
 
 function leaveAnimator(e: Element, done: () => void) {
   return animate(e, {
+    duration: 200,
+    ease: 'outQuad',
+    onComplete: done,
     opacity: [1, 0],
     scale: [1, 0.5],
-    ease: 'outQuad',
-    duration: 200,
-    onComplete: done,
   })
 }
 
@@ -62,8 +65,7 @@ watchEffect(() => {
       animationHandle.value = window.setInterval(() => {
         stateIndex.value = (stateIndex.value + 1) % STATES.length
       }, 1000)
-    }
-    else {
+    } else {
       if (animationHandle.value) {
         window.clearInterval(animationHandle.value)
         animationHandle.value = undefined

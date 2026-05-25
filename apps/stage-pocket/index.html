@@ -25,7 +25,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:creator" content="Moeru AI">
     <script>
-      ;(function () {
+      ;(() => {
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
         const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
         if (setting === 'light' || (prefersDark && setting !== 'dark'))
@@ -33,7 +33,7 @@
       })()
     </script>
     <script>
-      ;(function () {
+      ;(() => {
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
         const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
         if (setting === 'dark' || (prefersDark && setting !== 'light'))
@@ -43,7 +43,7 @@
     <!-- Privacy-friendly analytics by Plausible -->
     <script async src="https://moeru-ai-airi-helper.kwaa.workers.dev/remote-assets/page-external-data/js/script.js"></script>
     <script>
-      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||((i)=> {plausible.o=i||{}});
       plausible.init({
         endpoint: "https://moeru-ai-airi-helper.kwaa.workers.dev/api/v1/page-external-data/submit"
       })

@@ -13,10 +13,8 @@ function getNodeText(sourceFile: ts.SourceFile, node: ts.Node): string {
 }
 
 function getVariableKeyword(flags: ts.NodeFlags): 'const' | 'let' | 'var' {
-  if (flags & ts.NodeFlags.Const)
-    return 'const'
-  if (flags & ts.NodeFlags.Let)
-    return 'let'
+  if (flags & ts.NodeFlags.Const) return 'const'
+  if (flags & ts.NodeFlags.Let) return 'let'
   return 'var'
 }
 
@@ -39,8 +37,7 @@ function normalizeVariableStatement(sourceFile: ts.SourceFile, statement: ts.Var
 }
 
 function applyReplacements(code: string, replacements: TextReplacement[]): string {
-  if (replacements.length === 0)
-    return code
+  if (replacements.length === 0) return code
 
   let output = code
   const sorted = [...replacements].sort((a, b) => b.start - a.start)
@@ -52,36 +49,36 @@ function applyReplacements(code: string, replacements: TextReplacement[]): strin
 
 export function normalizeReplScript(code: string): string {
   const sourceFile = ts.createSourceFile('repl.ts', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  const diagnostics = (sourceFile as ts.SourceFile & {
-    parseDiagnostics?: readonly ts.DiagnosticWithLocation[]
-  }).parseDiagnostics
+  const diagnostics = (
+    sourceFile as ts.SourceFile & {
+      parseDiagnostics?: readonly ts.DiagnosticWithLocation[]
+    }
+  ).parseDiagnostics
 
-  if (diagnostics && diagnostics.length > 0)
-    return code
+  if (diagnostics && diagnostics.length > 0) return code
 
   const replacements: TextReplacement[] = []
 
   for (const statement of sourceFile.statements) {
-    if (!ts.isVariableStatement(statement))
-      continue
+    if (!ts.isVariableStatement(statement)) continue
 
     const start = statement.getStart(sourceFile, false)
     const end = statement.getEnd()
     replacements.push({
-      start,
       end,
+      start,
       value: normalizeVariableStatement(sourceFile, statement),
     })
   }
 
-  const hasTopLevelReturn = sourceFile.statements.some(statement => ts.isReturnStatement(statement))
+  const hasTopLevelReturn = sourceFile.statements.some((statement) => ts.isReturnStatement(statement))
   if (!hasTopLevelReturn && sourceFile.statements.length > 0) {
     const lastStatement = sourceFile.statements[sourceFile.statements.length - 1]
     if (ts.isExpressionStatement(lastStatement)) {
       const expressionText = getNodeText(sourceFile, lastStatement.expression)
       replacements.push({
-        start: lastStatement.getStart(sourceFile, false),
         end: lastStatement.getEnd(),
+        start: lastStatement.getStart(sourceFile, false),
         value: `return (${expressionText})`,
       })
     }

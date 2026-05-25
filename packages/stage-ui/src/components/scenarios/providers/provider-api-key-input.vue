@@ -13,7 +13,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
-const modelValue = defineModel<string>({ required: false, default: '' })
+const modelValue = defineModel<string>({ default: '', required: false })
 
 const computedDescription = computed(() => {
   return props.description || `API Key for ${props.providerName}`

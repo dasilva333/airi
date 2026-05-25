@@ -21,7 +21,7 @@ const { powerState } = storeToRefs(liveSessionStore)
 const { alwaysOnTop, fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
 
 const activeButtons = computed(() => {
-  return buttons.value.filter(btn => btn.enabled)
+  return buttons.value.filter((btn) => btn.enabled)
 })
 
 const colorPresets = [
@@ -86,8 +86,7 @@ function onDragStart(index: number, event: DragEvent) {
 
 function onDragOver(index: number, event: DragEvent) {
   event.preventDefault()
-  if (dragIndex.value === null)
-    return
+  if (dragIndex.value === null) return
   dragOverIndex.value = index
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
@@ -108,7 +107,7 @@ function onDrop(index: number, event: DragEvent) {
     activeList.splice(dragIndex.value, 1)
     activeList.splice(index, 0, draggedItem)
 
-    const disabledList = buttons.value.filter(btn => !btn.enabled)
+    const disabledList = buttons.value.filter((btn) => !btn.enabled)
     buttons.value = [...activeList, ...disabledList]
   }
   dragIndex.value = null
@@ -131,7 +130,7 @@ function resetOrderOnly() {
 }
 
 function disableButton(id: string) {
-  buttons.value = buttons.value.map(b => b.id === id ? { ...b, enabled: false } : b)
+  buttons.value = buttons.value.map((b) => (b.id === id ? { ...b, enabled: false } : b))
 }
 
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
@@ -144,7 +143,9 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
     return colorMode.value === 'light' ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
   }
   if (btnId === 'caption-docking') {
-    return settingsStore.captionDocking === 'top' ? 'i-solar:align-top-line-duotone' : 'i-solar:align-bottom-line-duotone'
+    return settingsStore.captionDocking === 'top'
+      ? 'i-solar:align-top-line-duotone'
+      : 'i-solar:align-bottom-line-duotone'
   }
   if (btnId === 'caption-layout-mode') {
     return settingsStore.captionLayoutMode === 'multi' ? 'i-solar:layers-linear' : 'i-solar:window-frame-linear'
@@ -158,56 +159,42 @@ const modelSelected = computed(() => settingsStore.stageModelSelected || 'defaul
 const activeGroupId = ref('stage-view')
 
 const activeGroup = computed(() => {
-  return CUSTOMIZER_CATALOG.find(g => g.id === activeGroupId.value) || CUSTOMIZER_CATALOG[0]
+  return CUSTOMIZER_CATALOG.find((g) => g.id === activeGroupId.value) || CUSTOMIZER_CATALOG[0]
 })
 
 // Bound state resolvers (for items with a catalog binding field)
-function isBoundActive(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined): boolean {
-  if (!binding)
-    return false
-  if (binding === 'chatOpen')
-    return controlStripStore.chatOpen
-  if (binding === 'stageEnabled')
-    return controlStripStore.stageEnabled
-  if (binding === 'captionOpen')
-    return controlStripStore.captionOpen
-  if (binding === 'micEnabled')
-    return settingsAudioDeviceStore.enabled
-  if (binding === 'geminiSession')
-    return powerState.value !== 'off'
+function isBoundActive(
+  binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined,
+): boolean {
+  if (!binding) return false
+  if (binding === 'chatOpen') return controlStripStore.chatOpen
+  if (binding === 'stageEnabled') return controlStripStore.stageEnabled
+  if (binding === 'captionOpen') return controlStripStore.captionOpen
+  if (binding === 'micEnabled') return settingsAudioDeviceStore.enabled
+  if (binding === 'geminiSession') return powerState.value !== 'off'
   return false
 }
 
-function toggleBoundState(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined) {
-  if (!binding)
-    return
-  if (binding === 'chatOpen')
-    postControlStripAction('chat')
-  else if (binding === 'stageEnabled')
-    postControlStripAction('stage')
-  else if (binding === 'captionOpen')
-    postControlStripAction('caption')
-  else if (binding === 'micEnabled')
-    postControlStripAction('mic')
-  else if (binding === 'geminiSession')
-    postControlStripAction('gemini-session')
+function toggleBoundState(
+  binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined,
+) {
+  if (!binding) return
+  if (binding === 'chatOpen') postControlStripAction('chat')
+  else if (binding === 'stageEnabled') postControlStripAction('stage')
+  else if (binding === 'captionOpen') postControlStripAction('caption')
+  else if (binding === 'micEnabled') postControlStripAction('mic')
+  else if (binding === 'geminiSession') postControlStripAction('gemini-session')
 }
 
 // Un-bound toggle state resolvers (always-on-top, viewport-auto-hide, etc.)
 // These catalog items have no binding field but still expose a live toggle state.
 function isUnboundToggleActive(itemId: string): boolean {
-  if (itemId === 'always-on-top')
-    return alwaysOnTop.value
-  if (itemId === 'viewport-auto-hide')
-    return fadeOnHoverEnabled.value
-  if (itemId === 'theme-mode')
-    return colorMode.value === 'dark'
-  if (itemId === 'caption-follow-stage')
-    return settingsStore.captionFollowStage
-  if (itemId === 'caption-docking')
-    return settingsStore.captionDocking === 'bottom'
-  if (itemId === 'caption-layout-mode')
-    return settingsStore.captionLayoutMode === 'multi'
+  if (itemId === 'always-on-top') return alwaysOnTop.value
+  if (itemId === 'viewport-auto-hide') return fadeOnHoverEnabled.value
+  if (itemId === 'theme-mode') return colorMode.value === 'dark'
+  if (itemId === 'caption-follow-stage') return settingsStore.captionFollowStage
+  if (itemId === 'caption-docking') return settingsStore.captionDocking === 'bottom'
+  if (itemId === 'caption-layout-mode') return settingsStore.captionLayoutMode === 'multi'
   return false
 }
 
@@ -220,12 +207,17 @@ function toggleUnboundState(itemId: string) {
 }
 
 function hasToggleButton(item: (typeof CUSTOMIZER_CATALOG)[0]['items'][0]): boolean {
-  if (item.type !== 'toggle' && item.id !== 'caption-layout-mode')
-    return false
+  if (item.type !== 'toggle' && item.id !== 'caption-layout-mode') return false
   // Show toggle button for bound items and for known unbound toggles
-  if (item.binding)
-    return true
-  return ['always-on-top', 'viewport-auto-hide', 'theme-mode', 'caption-follow-stage', 'caption-docking', 'caption-layout-mode'].includes(item.id)
+  if (item.binding) return true
+  return [
+    'always-on-top',
+    'viewport-auto-hide',
+    'theme-mode',
+    'caption-follow-stage',
+    'caption-docking',
+    'caption-layout-mode',
+  ].includes(item.id)
 }
 
 const geminiDotClasses = computed(() => {
@@ -246,28 +238,27 @@ const geminiDotClasses = computed(() => {
 
 // Control strip items inclusion getters
 function isItemOnStrip(itemId: string): boolean {
-  const btn = buttons.value.find(b => b.id === itemId)
+  const btn = buttons.value.find((b) => b.id === itemId)
   return btn ? btn.enabled : false
 }
 
 function toggleItemOnStrip(itemId: string) {
-  if (itemId === 'layout')
-    return
-  const idx = buttons.value.findIndex(b => b.id === itemId)
+  if (itemId === 'layout') return
+  const idx = buttons.value.findIndex((b) => b.id === itemId)
   if (idx !== -1) {
-    buttons.value = buttons.value.map((btn, i) =>
-      i === idx ? { ...btn, enabled: !btn.enabled } : btn,
-    )
-  }
-  else {
-    const catalogItem = CUSTOMIZER_CATALOG.flatMap(g => g.items).find(i => i.id === itemId)
+    buttons.value = buttons.value.map((btn, i) => (i === idx ? { ...btn, enabled: !btn.enabled } : btn))
+  } else {
+    const catalogItem = CUSTOMIZER_CATALOG.flatMap((g) => g.items).find((i) => i.id === itemId)
     if (catalogItem) {
-      buttons.value = [...buttons.value, {
-        id: catalogItem.id,
-        enabled: true,
-        label: catalogItem.label,
-        icon: catalogItem.icon,
-      }]
+      buttons.value = [
+        ...buttons.value,
+        {
+          enabled: true,
+          icon: catalogItem.icon,
+          id: catalogItem.id,
+          label: catalogItem.label,
+        },
+      ]
     }
   }
 }
@@ -288,7 +279,7 @@ async function closeWindow() {
 onMounted(() => {
   if (window.electron?.ipcRenderer) {
     const handleSetGroup = (_event: any, group: string) => {
-      if (CUSTOMIZER_CATALOG.some(g => g.id === group)) {
+      if (CUSTOMIZER_CATALOG.some((g) => g.id === group)) {
         activeGroupId.value = group
       }
     }

@@ -12,19 +12,18 @@ export interface PreviewModalState {
 export const useJournalPreviewStore = defineStore('journal-preview', () => {
   const previewModal = ref<PreviewModalState | null>(null)
 
-  function openTextPreview(entry: { title: string, content: string }) {
-    previewModal.value = { type: 'text', title: entry.title, content: entry.content }
+  function openTextPreview(entry: { title: string; content: string }) {
+    previewModal.value = { content: entry.content, title: entry.title, type: 'text' }
   }
 
-  function openImagePreview(entry: { title: string, url: string | null, prompt?: string, id?: string }) {
-    if (!entry.url)
-      return
+  function openImagePreview(entry: { title: string; url: string | null; prompt?: string; id?: string }) {
+    if (!entry.url) return
     previewModal.value = {
-      type: 'image',
-      title: entry.title,
       content: entry.url,
-      prompt: entry.prompt,
       id: entry.id,
+      prompt: entry.prompt,
+      title: entry.title,
+      type: 'image',
     }
   }
 
@@ -33,8 +32,7 @@ export const useJournalPreviewStore = defineStore('journal-preview', () => {
   }
 
   function downloadImage(url: string, title?: string) {
-    if (!url)
-      return
+    if (!url) return
     const link = document.createElement('a')
     link.href = url
     // Sanitizing the filename for OS compatibility
@@ -46,10 +44,10 @@ export const useJournalPreviewStore = defineStore('journal-preview', () => {
   }
 
   return {
-    previewModal,
-    openTextPreview,
-    openImagePreview,
     closePreview,
     downloadImage,
+    openImagePreview,
+    openTextPreview,
+    previewModal,
   }
 })

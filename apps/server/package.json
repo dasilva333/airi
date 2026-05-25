@@ -1,16 +1,4 @@
 {
-  "name": "@proj-airi/server",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "scripts": {
-    "apply:env": "dotenvx run -f .env -f .env.local --overload --ignore=MISSING_ENV_FILE",
-    "auth:generate": "pnpm run apply:env -- better-auth generate --config src/scripts/auth.ts --output src/schemas/accounts.ts -y",
-    "dev": "pnpm run apply:env -- tsx --watch src/app.ts",
-    "start": "tsx src/app.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "pnpm run apply:env -- drizzle-kit push"
-  },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.5.3",
     "@dotenvx/dotenvx": "^1.52.0",
@@ -46,5 +34,17 @@
     "@better-auth/cli": "^1.4.21",
     "@types/pg": "^8.11.11",
     "drizzle-kit": "^0.31.9"
-  }
+  },
+  "name": "@proj-airi/server",
+  "private": true,
+  "scripts": {
+    "apply:env": "dotenvx run -f .env -f .env.local --overload --ignore=MISSING_ENV_FILE",
+    "auth:generate": "pnpm run apply:env -- better-auth generate --config src/scripts/auth.ts --output src/schemas/accounts.ts -y",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "pnpm run apply:env -- drizzle-kit push",
+    "dev": "pnpm run apply:env -- tsx --watch src/app.ts",
+    "start": "tsx src/app.ts"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

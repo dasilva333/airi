@@ -1,5 +1,5 @@
-@import './transitions.css';
-@import './vue-transitions.css';
+@import "./transitions.css";
+@import "./vue-transitions.css";
 
 :root {
   --bg-color-light: rgb(255 255 255);
@@ -52,7 +52,10 @@ html.dark {
 }
 
 .dark #nprogress .bar {
-  background: `color-mix(in srgb, oklch(95% var(--chromatic-chroma-900) calc(var(--chromatic-hue) + ${0})) 90%, oklch(90% 0 360))`;
+  background: `color-mix(in srgb, oklch(95% var(--chromatic-chroma-900) calc(var(--chromatic-hue) + ${0;
+}
+)) 90%,
+oklch(90% 0 360))`;
 }
 
 @media (display-mode: standalone) {

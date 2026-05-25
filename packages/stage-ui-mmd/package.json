@@ -1,32 +1,8 @@
 {
-  "name": "@proj-airi/stage-ui-mmd",
-  "type": "module",
-  "private": true,
-  "description": "MMD scene components and stores for Project AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-ui-mmd"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./components": "./src/components/index.ts",
-    "./components/scenes": "./src/components/scenes/index.ts",
-    "./components/scenes/MMD.vue": "./src/components/scenes/MMD.vue",
-    "./composables/mmd": "./src/composables/mmd/index.ts",
-    "./stores": "./src/stores/index.ts",
-    "./stores/mmd": "./src/stores/mmd.ts",
-    "./utils/mmd-preview": "./src/utils/mmd-preview.ts",
-    "./utils/mmd-zip-extractor": "./src/utils/mmd-zip-extractor.ts"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@moeru/three-mmd": "^0.1.0-beta.3",
@@ -40,8 +16,32 @@
     "three": "^0.184.0",
     "vue": "catalog:"
   },
+  "description": "MMD scene components and stores for Project AIRI",
   "devDependencies": {
     "@types/three": "^0.184.0",
     "vue-tsc": "^3.2.6"
-  }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./components/scenes": "./src/components/scenes/index.ts",
+    "./components/scenes/MMD.vue": "./src/components/scenes/MMD.vue",
+    "./composables/mmd": "./src/composables/mmd/index.ts",
+    "./stores": "./src/stores/index.ts",
+    "./stores/mmd": "./src/stores/mmd.ts",
+    "./utils/mmd-preview": "./src/utils/mmd-preview.ts",
+    "./utils/mmd-zip-extractor": "./src/utils/mmd-zip-extractor.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-ui-mmd",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-ui-mmd",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

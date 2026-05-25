@@ -2,28 +2,23 @@
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import { useResourcesStore } from '../../../stores/resources'
 import WindowRouterLink from '../../WindowRouterLink.vue'
 import LoadingComponent from './loading-component.vue'
-
-import { useResourcesStore } from '../../../stores/resources'
 
 const { t } = useI18n()
 
 const { resources, pendingResources, atLeastOneLoading } = storeToRefs(useResourcesStore())
 
 const totalProgress = computed(() => {
-  return Array
-    .from(resources.value.values())
-    .reduce((acc, module) => {
-      return acc + Array
-        .from(module.value.components.values())
-        .reduce((acc, component) => {
-          return acc + Array
-            .from(component.files.values())
-            .reduce((acc, file) => acc + file.progress, 0)
-        }, 0)
-    }, 0)
+  return Array.from(resources.value.values()).reduce((acc, module) => {
+    return (
+      acc +
+      Array.from(module.value.components.values()).reduce((acc, component) => {
+        return acc + Array.from(component.files.values()).reduce((acc, file) => acc + file.progress, 0)
+      }, 0)
+    )
+  }, 0)
 })
 </script>
 

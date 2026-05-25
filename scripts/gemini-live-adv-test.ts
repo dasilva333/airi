@@ -1,6 +1,5 @@
-import WebSocket from 'ws'
-
 import * as dotenv from 'dotenv'
+import WebSocket from 'ws'
 
 dotenv.config()
 
@@ -16,7 +15,6 @@ ws.on('open', () => {
 
   const setupMessage = {
     setup: {
-      model: MODEL,
       generationConfig: {
         responseModalities: ['AUDIO'],
         speechConfig: {
@@ -27,8 +25,13 @@ ws.on('open', () => {
           },
         },
       },
+      model: MODEL,
       systemInstruction: {
-        parts: [{ text: 'You are Rick Sanchez. Analyze the provided image. Be cynical, scientific, and track your token usage.' }],
+        parts: [
+          {
+            text: 'You are Rick Sanchez. Analyze the provided image. Be cynical, scientific, and track your token usage.',
+          },
+        ],
       },
     },
   }
@@ -45,10 +48,14 @@ ws.on('message', (data) => {
       console.log('\n===== METRICS REPORT =====')
       console.log(`Total Tokens: ${response.usageMetadata.totalTokenCount}`)
       if (response.usageMetadata.promptTokensDetails) {
-        response.usageMetadata.promptTokensDetails.forEach((d: any) => console.log(`  Input ${d.modality}: ${d.tokenCount}`))
+        response.usageMetadata.promptTokensDetails.forEach((d: any) =>
+          console.log(`  Input ${d.modality}: ${d.tokenCount}`),
+        )
       }
       if (response.usageMetadata.responseTokensDetails) {
-        response.usageMetadata.responseTokensDetails.forEach((d: any) => console.log(`  Output ${d.modality}: ${d.tokenCount}`))
+        response.usageMetadata.responseTokensDetails.forEach((d: any) =>
+          console.log(`  Output ${d.modality}: ${d.tokenCount}`),
+        )
       }
       console.log('==========================\n')
     }
@@ -57,11 +64,13 @@ ws.on('message', (data) => {
       console.log('Setup Complete. Sending Grounding query...')
 
       // Sending text asking about the game (Grounding test)
-      ws.send(JSON.stringify({
-        realtimeInput: {
-          text: 'Rick, who won the game between the Dodgers and the Orioles last night? Also, are we in a simulation where 1007 errors are common?',
-        },
-      }))
+      ws.send(
+        JSON.stringify({
+          realtimeInput: {
+            text: 'Rick, who won the game between the Dodgers and the Orioles last night? Also, are we in a simulation where 1007 errors are common?',
+          },
+        }),
+      )
     }
 
     if (response.serverContent) {
@@ -71,13 +80,11 @@ ws.on('message', (data) => {
       }
       if (content.modelTurn?.parts) {
         content.modelTurn.parts.forEach((p: any) => {
-          if (p.text)
-            process.stdout.write(p.text)
+          if (p.text) process.stdout.write(p.text)
         })
       }
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Message Parse Error:', err)
   }
 })

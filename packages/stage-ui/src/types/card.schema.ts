@@ -1,4 +1,19 @@
-import { array, boolean, intersect, literal, looseObject, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
+import {
+  array,
+  boolean,
+  intersect,
+  literal,
+  looseObject,
+  number,
+  object,
+  optional,
+  pipe,
+  record,
+  regex,
+  string,
+  union,
+  unknown,
+} from 'valibot'
 
 /**
  * Message Example Item Schema
@@ -21,181 +36,225 @@ export const MessageExampleSchema = array(
  * AIRI Extension Schema parts
  */
 const AiriModulesSchema = object({
-  consciousness: optional(object({
-    provider: string(),
-    model: string(),
-    moduleConfigs: optional(record(string(), unknown())),
-  })),
-  speech: optional(object({
-    provider: string(),
-    model: string(),
-    voice_id: string(),
-    pitch: optional(number()),
-    rate: optional(number()),
-    ssml: optional(boolean()),
-    language: optional(string()),
-  })),
+  consciousness: optional(
+    object({
+      model: string(),
+      moduleConfigs: optional(record(string(), unknown())),
+      provider: string(),
+    }),
+  ),
   displayModelId: optional(string()),
-  vrm: optional(object({
-    source: optional(union([literal('file'), literal('url')])),
-    file: optional(string()),
-    url: optional(string()),
-  })),
-  live2d: optional(object({
-    source: optional(union([literal('file'), literal('url')])),
-    file: optional(string()),
-    url: optional(string()),
-    activeExpressions: optional(record(string(), number())),
-    modelParameters: optional(record(string(), number())),
-  })),
+  live2d: optional(
+    object({
+      activeExpressions: optional(record(string(), number())),
+      file: optional(string()),
+      modelParameters: optional(record(string(), number())),
+      source: optional(union([literal('file'), literal('url')])),
+      url: optional(string()),
+    }),
+  ),
+  preferredBackgroundDataUrl: optional(string()),
   preferredBackgroundId: optional(string()),
   preferredBackgroundName: optional(string()),
-  preferredBackgroundDataUrl: optional(string()),
+  speech: optional(
+    object({
+      language: optional(string()),
+      model: string(),
+      pitch: optional(number()),
+      provider: string(),
+      rate: optional(number()),
+      ssml: optional(boolean()),
+      voice_id: string(),
+    }),
+  ),
+  vrm: optional(
+    object({
+      file: optional(string()),
+      source: optional(union([literal('file'), literal('url')])),
+      url: optional(string()),
+    }),
+  ),
 })
 
 const AiriHeartbeatSchema = object({
+  contextOptions: optional(
+    object({
+      systemLoad: boolean(),
+      usageMetrics: boolean(),
+      windowHistory: boolean(),
+    }),
+  ),
   enabled: boolean(),
+  injectIntoPrompt: boolean(),
   intervalMinutes: number(),
   prompt: string(),
-  injectIntoPrompt: boolean(),
-  useAsLocalGate: boolean(),
-  contextOptions: optional(object({
-    windowHistory: boolean(),
-    systemLoad: boolean(),
-    usageMetrics: boolean(),
-  })),
   schedule: object({
-    start: string(),
     end: string(),
+    start: string(),
   }),
+  useAsLocalGate: boolean(),
 })
 
 const AiriDreamStateSchema = object({
-  enabled: boolean(),
-  strictAfkGating: boolean(),
-  journalingThreshold: union([literal('minimal'), literal('balanced'), literal('lush')]),
-  maxSessionsPerDay: number(),
-  sessionTimeoutMinutes: number(),
   afkThresholdMinutes: number(),
-  minConversationTurns: number(),
-  lastProcessedAt: optional(number()),
-  dailyRunDate: optional(string()),
   dailyRunCount: optional(number()),
+  dailyRunDate: optional(string()),
+  enabled: boolean(),
+  journalingThreshold: union([literal('minimal'), literal('balanced'), literal('lush')]),
+  lastProcessedAt: optional(number()),
+  maxSessionsPerDay: number(),
+  minConversationTurns: number(),
+  sessionTimeoutMinutes: number(),
+  strictAfkGating: boolean(),
 })
 
 const AiriShortTermMemorySchema = object({
-  windowSize: number(),
   tokenBudgetPerDay: number(),
+  windowSize: number(),
 })
 
 const AiriOutfitSchema = object({
+  expressions: record(string(), number()),
+  icon: string(),
   id: string(),
   name: string(),
-  icon: string(),
   type: union([literal('base'), literal('overlay')]),
-  expressions: record(string(), number()),
 })
 
 const AiriExtensionSchema = looseObject({
-  modules: optional(AiriModulesSchema),
-  heartbeats: optional(AiriHeartbeatSchema),
-  dreamState: optional(AiriDreamStateSchema),
-  shortTermMemory: optional(AiriShortTermMemorySchema),
-  groundingEnabled: optional(boolean()),
-  generation: optional(looseObject({
-    enabled: boolean(),
-    provider: optional(string()),
-    model: optional(string()),
-    known: optional(looseObject({
-      maxTokens: optional(number()),
-      temperature: optional(number()),
-      topP: optional(number()),
-    })),
-    advanced: optional(record(string(), unknown())),
-    importedPresetMeta: optional(looseObject({
-      source: optional(string()),
-      originalKeys: optional(array(string())),
-      importedAt: optional(string()),
-    })),
-  })),
-  acting: optional(looseObject({
-    modelExpressionPrompt: string(),
-    speechExpressionPrompt: string(),
-    speechMannerismPrompt: string(),
-    idleAnimations: optional(array(string())),
-  })),
-  outfits: optional(array(AiriOutfitSchema)),
-  artistry: optional(looseObject({
-    provider: optional(string()),
-    model: optional(string()),
-    promptPrefix: optional(string()),
-    widgetInstruction: optional(string()),
-    options: optional(record(string(), unknown())),
-    autonomousEnabled: optional(boolean()),
-    autonomousThreshold: optional(number()),
-    autonomousHistoryDepth: optional(number()),
-    autonomousMonitorEnabled: optional(boolean()),
-  })),
-  agents: optional(record(string(), looseObject({
-    prompt: string(),
-    enabled: optional(boolean()),
-  }))),
-  imageJournal: optional(looseObject({
-    selfie: optional(boolean()),
-  })),
-  visual_assets: optional(record(string(), looseObject({
-    description: string(),
-    prompt: optional(string()),
-    isBase: optional(boolean()),
-    artistry: optional(looseObject({
-      provider: optional(string()),
+  acting: optional(
+    looseObject({
+      idleAnimations: optional(array(string())),
+      modelExpressionPrompt: string(),
+      speechExpressionPrompt: string(),
+      speechMannerismPrompt: string(),
+    }),
+  ),
+  active_concepts: optional(array(string())),
+  active_state: optional(
+    looseObject({
+      active_expressions: optional(record(string(), number())),
+      activeBackgroundId: optional(string()),
+      displayModelId: optional(string()),
+    }),
+  ),
+  agents: optional(
+    record(
+      string(),
+      looseObject({
+        enabled: optional(boolean()),
+        prompt: string(),
+      }),
+    ),
+  ),
+  artistry: optional(
+    looseObject({
+      autonomousEnabled: optional(boolean()),
+      autonomousHistoryDepth: optional(number()),
+      autonomousMonitorEnabled: optional(boolean()),
+      autonomousThreshold: optional(number()),
       model: optional(string()),
       options: optional(record(string(), unknown())),
-    })),
-    manifestation: optional(looseObject({
-      modelId: optional(string()),
-      mood: optional(string()),
-    })),
-  }))),
-  active_concepts: optional(array(string())),
-  eternal_record: optional(looseObject({
-    relational_milestones: optional(array(string())),
-    lore_bits: optional(array(string())),
-  })),
-  proactivity_metrics: optional(looseObject({
-    ttsCount: number(),
-    sttCount: number(),
-    chatCount: number(),
-    totalTurns: number(),
-  })),
-  active_state: optional(looseObject({
-    displayModelId: optional(string()),
-    activeBackgroundId: optional(string()),
-    active_expressions: optional(record(string(), number())),
-  })),
+      promptPrefix: optional(string()),
+      provider: optional(string()),
+      widgetInstruction: optional(string()),
+    }),
+  ),
+  dreamState: optional(AiriDreamStateSchema),
+  eternal_record: optional(
+    looseObject({
+      lore_bits: optional(array(string())),
+      relational_milestones: optional(array(string())),
+    }),
+  ),
+  generation: optional(
+    looseObject({
+      advanced: optional(record(string(), unknown())),
+      enabled: boolean(),
+      importedPresetMeta: optional(
+        looseObject({
+          importedAt: optional(string()),
+          originalKeys: optional(array(string())),
+          source: optional(string()),
+        }),
+      ),
+      known: optional(
+        looseObject({
+          maxTokens: optional(number()),
+          temperature: optional(number()),
+          topP: optional(number()),
+        }),
+      ),
+      model: optional(string()),
+      provider: optional(string()),
+    }),
+  ),
+  groundingEnabled: optional(boolean()),
+  heartbeats: optional(AiriHeartbeatSchema),
+  imageJournal: optional(
+    looseObject({
+      selfie: optional(boolean()),
+    }),
+  ),
+  modules: optional(AiriModulesSchema),
+  outfits: optional(array(AiriOutfitSchema)),
+  proactivity_metrics: optional(
+    looseObject({
+      chatCount: number(),
+      sttCount: number(),
+      totalTurns: number(),
+      ttsCount: number(),
+    }),
+  ),
+  shortTermMemory: optional(AiriShortTermMemorySchema),
+  visual_assets: optional(
+    record(
+      string(),
+      looseObject({
+        artistry: optional(
+          looseObject({
+            model: optional(string()),
+            options: optional(record(string(), unknown())),
+            provider: optional(string()),
+          }),
+        ),
+        description: string(),
+        isBase: optional(boolean()),
+        manifestation: optional(
+          looseObject({
+            modelId: optional(string()),
+            mood: optional(string()),
+          }),
+        ),
+        prompt: optional(string()),
+      }),
+    ),
+  ),
 })
 
 /**
  * Main AIRI Card Schema (V1)
  */
 export const AiriCardSchema = looseObject({
-  name: string('Card name is required'),
-  nickname: optional(string()),
-  version: string('Version is required'),
   description: optional(string()),
-  notes: optional(string()),
-  personality: optional(string()),
-  scenario: optional(string()),
-  systemPrompt: optional(string()),
-  postHistoryInstructions: optional(string()),
+  extensions: optional(
+    intersect([
+      record(string(), unknown()),
+      looseObject({
+        airi: optional(AiriExtensionSchema),
+      }),
+    ]),
+  ),
   greetings: optional(array(string())),
   messageExample: optional(MessageExampleSchema),
-  extensions: optional(intersect([
-    record(string(), unknown()),
-    looseObject({
-      airi: optional(AiriExtensionSchema),
-    }),
-  ])),
+  name: string('Card name is required'),
+  nickname: optional(string()),
+  notes: optional(string()),
+  personality: optional(string()),
+  postHistoryInstructions: optional(string()),
+  scenario: optional(string()),
+  systemPrompt: optional(string()),
+  version: string('Version is required'),
 })
 // Exporting for use in the main schema later if needed
 export { AiriExtensionSchema }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
+import { useModelStore } from '@proj-airi/stage-ui-three'
 import { RoundRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
@@ -42,8 +42,7 @@ const viewControlsValueX = computed({
       case 'vrm':
       case 'live2d':
       case 'spine': {
-        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value)
-          break
+        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value) break
 
         const current = positioningStore.getPosition(stageModelSelected.value)
         positioningStore.setPosition(stageModelSelected.value, { ...current, x: value })
@@ -56,18 +55,14 @@ const viewControlsValueX = computed({
 })
 
 const viewControlsValueXMin = computed(() => {
-  if (stageModelRenderer.value === 'live2d')
-    return -1000
-  if (stageModelRenderer.value === 'spine')
-    return -2000
+  if (stageModelRenderer.value === 'live2d') return -1000
+  if (stageModelRenderer.value === 'spine') return -2000
   return (-vrmModelSize.value.x - 10) * 10
 })
 
 const viewControlsValueXMax = computed(() => {
-  if (stageModelRenderer.value === 'live2d')
-    return 1000
-  if (stageModelRenderer.value === 'spine')
-    return 2000
+  if (stageModelRenderer.value === 'live2d') return 1000
+  if (stageModelRenderer.value === 'spine') return 2000
   return (vrmModelSize.value.x + 10) * 10
 })
 
@@ -91,8 +86,7 @@ const viewControlsValueY = computed({
       case 'vrm':
       case 'live2d':
       case 'spine': {
-        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value)
-          break
+        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value) break
 
         const current = positioningStore.getPosition(stageModelSelected.value)
         positioningStore.setPosition(stageModelSelected.value, { ...current, y: value })
@@ -105,18 +99,14 @@ const viewControlsValueY = computed({
 })
 
 const viewControlsValueYMin = computed(() => {
-  if (stageModelRenderer.value === 'live2d')
-    return -1000
-  if (stageModelRenderer.value === 'spine')
-    return -2000
+  if (stageModelRenderer.value === 'live2d') return -1000
+  if (stageModelRenderer.value === 'spine') return -2000
   return (-vrmModelSize.value.y - 10) * 10
 })
 
 const viewControlsValueYMax = computed(() => {
-  if (stageModelRenderer.value === 'live2d')
-    return 1000
-  if (stageModelRenderer.value === 'spine')
-    return 2000
+  if (stageModelRenderer.value === 'live2d') return 1000
+  if (stageModelRenderer.value === 'spine') return 2000
   return (vrmModelSize.value.y + 10) * 10
 })
 
@@ -136,8 +126,7 @@ const viewControlsValueZ = computed({
       case 'live2d':
         break
       case 'vrm':
-        if (vrmControlsDisabled.value)
-          break
+        if (vrmControlsDisabled.value) break
         vrmPosition.value.z = value
         break
       default:
@@ -170,8 +159,7 @@ const viewControlsValueScale = computed({
       case 'vrm':
       case 'live2d':
       case 'spine': {
-        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value)
-          break
+        if (stageModelRenderer.value === 'vrm' && vrmControlsDisabled.value) break
 
         const current = positioningStore.getPosition(stageModelSelected.value)
         positioningStore.setPosition(stageModelSelected.value, { ...current, scale: value })

@@ -10,26 +10,24 @@ export default defineConfig(({ mode }) => ({
     projects: [
       {
         test: {
-          name: 'node',
-          root: dirname(fileURLToPath(import.meta.url)),
           env: loadEnv(mode, dirname(fileURLToPath(import.meta.url))),
           exclude: ['**/*.browser.{spec,test}.ts', '**/node_modules/**'],
+          name: 'node',
+          root: dirname(fileURLToPath(import.meta.url)),
         },
       },
       {
         test: {
-          name: 'browser',
-          root: dirname(fileURLToPath(import.meta.url)),
-          include: ['**/*.browser.{spec,test}.ts'],
-          exclude: ['**/node_modules/**'],
           browser: {
-            provider: playwright(),
             enabled: true,
             // at least one instance is required
-            instances: [
-              { browser: 'chromium' },
-            ],
+            instances: [{ browser: 'chromium' }],
+            provider: playwright(),
           },
+          exclude: ['**/node_modules/**'],
+          include: ['**/*.browser.{spec,test}.ts'],
+          name: 'browser',
+          root: dirname(fileURLToPath(import.meta.url)),
         },
       },
     ],

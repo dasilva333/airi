@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import type { HearingTranscriptionResult } from '../../../stores/modules/hearing'
-
 import { Button, FieldRange, FieldSelect } from '@proj-airi/ui'
 import { until } from '@vueuse/core'
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
 import { useAudioAnalyzer } from '../../../composables/audio/audio-analyzer'
 import { useAudioRecorder } from '../../../composables/audio/audio-recorder'
 import { useAudioDevice } from '../../../composables/audio/device'
+import type { HearingTranscriptionResult } from '../../../stores/modules/hearing'
 import { LevelMeter, TestDummyMarker, ThresholdMeter } from '../../gadgets'
 
 const props = defineProps<{
@@ -52,7 +50,8 @@ watch(selectedAudioInput, async () => {
 
 watch(audioInputs, () => {
   if (!selectedAudioInput.value && audioInputs.value.length > 0) {
-    selectedAudioInput.value = audioInputs.value.find(input => input.deviceId === 'default')?.deviceId || audioInputs.value[0].deviceId
+    selectedAudioInput.value =
+      audioInputs.value.find((input) => input.deviceId === 'default')?.deviceId || audioInputs.value[0].deviceId
   }
 })
 
@@ -72,8 +71,7 @@ async function setupAudioMonitoring() {
     // Set up data array for analysis
     const bufferLength = analyzer!.frequencyBinCount
     dataArray.value = new Uint8Array(bufferLength)
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error setting up audio monitoring:', error)
     errorMessage.value = error instanceof Error ? error.message : String(error)
   }
@@ -86,7 +84,7 @@ async function stopAudioMonitoring() {
     animationFrame.value = undefined
   }
   if (stream.value) {
-    stream.value.getTracks().forEach(track => track.stop())
+    stream.value.getTracks().forEach((track) => track.stop())
     stream.value = undefined
   }
   if (audioContext.value) {
@@ -111,9 +109,9 @@ onStopRecord(async (recording) => {
 
       const file = new File([recording], 'recording.wav')
       console.info('[Transcription Playground] Sending recording for transcription:', {
+        fileName: file.name,
         size: recording.size,
         type: recording.type,
-        fileName: file.name,
       })
 
       const result = await props.generateTranscription(file)
@@ -123,9 +121,7 @@ onStopRecord(async (recording) => {
         throw new Error('Transcription result is undefined')
       }
 
-      const text = result.mode === 'stream'
-        ? await (result as any).text
-        : result.text
+      const text = result.mode === 'stream' ? await (result as any).text : result.text
 
       if (typeof text !== 'string') {
         console.warn('[Transcription Playground] Result text is not a string:', text)
@@ -135,25 +131,23 @@ onStopRecord(async (recording) => {
       // Clear error message on success
       errorMessage.value = ''
     }
-  }
-  catch (err: any) {
+  } catch (err: any) {
     // String(err) can throw if err is an object with a broken toString() or if it's null/undefined in some weird way
     try {
       errorMessage.value = err instanceof Error ? err.message : String(err)
-    }
-    catch (sErr) {
+    } catch (sErr) {
       errorMessage.value = 'Unknown error (failed to stringify error)'
       console.error('Critical: Error stringification failed', sErr)
     }
 
     console.error('Error generating transcription:', {
-      message: errorMessage.value,
-      originalError: err,
-      stack: err?.stack,
-      name: err?.name,
       // Some errors (like DOMException) have extra properties
       code: err?.code,
       details: err?.details,
+      message: errorMessage.value,
+      name: err?.name,
+      originalError: err,
+      stack: err?.stack,
     })
   }
 })
@@ -163,7 +157,7 @@ async function toggleMonitoring() {
   if (!isMonitoring.value) {
     // Clear previous recordings and transcriptions when starting a new monitoring session
     // Clean up previous audio URLs
-    audioCleanups.value.forEach(cleanup => cleanup())
+    audioCleanups.value.forEach((cleanup) => cleanup())
     audioCleanups.value = []
     audios.value = []
     transcriptions.value = []
@@ -173,8 +167,7 @@ async function toggleMonitoring() {
     await setupAudioMonitoring()
     await startRecord()
     isMonitoring.value = true
-  }
-  else {
+  } else {
     await stopAudioMonitoring()
     await stopRecord()
 

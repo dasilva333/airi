@@ -12,10 +12,4 @@ export const allEventDefinitions = [
   damageTakenEvent,
 ]
 
-export {
-  armSwingEvent,
-  damageTakenEvent,
-  entityMovedEvent,
-  sneakToggleEvent,
-  systemMessageEvent,
-}
+export { armSwingEvent, damageTakenEvent, entityMovedEvent, sneakToggleEvent, systemMessageEvent }

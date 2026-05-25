@@ -1,53 +1,45 @@
 import type { ChatHistoryItem } from '../../types/chat'
 
 function extractMessageContent(message: ChatHistoryItem) {
-  if (typeof message.content === 'string')
-    return message.content
+  if (typeof message.content === 'string') return message.content
 
   if (Array.isArray(message.content)) {
-    return message.content.map((part) => {
-      if (typeof part === 'string')
-        return part
-      if (part && typeof part === 'object' && 'text' in part)
-        return String(part.text ?? '')
-      return ''
-    }).join('')
+    return message.content
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part && typeof part === 'object' && 'text' in part) return String(part.text ?? '')
+        return ''
+      })
+      .join('')
   }
 
   return ''
 }
 
 function getMessageFingerprint(message: ChatHistoryItem) {
-  return [
-    message.id ?? '',
-    message.role,
-    message.createdAt ?? '',
-    extractMessageContent(message),
-  ].join('\u001F')
+  return [message.id ?? '', message.role, message.createdAt ?? '', extractMessageContent(message)].join('\u001F')
 }
 
 export function mergeLoadedSessionMessages(storedMessages: ChatHistoryItem[], currentMessages: ChatHistoryItem[]) {
-  if (currentMessages.length === 0)
-    return storedMessages
+  if (currentMessages.length === 0) return storedMessages
 
-  const storedIds = new Set(storedMessages.map(m => m.id).filter(Boolean))
+  const storedIds = new Set(storedMessages.map((m) => m.id).filter(Boolean))
   const storedFingerprints = new Set(storedMessages.map(getMessageFingerprint))
 
   const uniqueNewMessages = currentMessages.filter((message) => {
-    if (message.id && storedIds.has(message.id))
-      return false
+    if (message.id && storedIds.has(message.id)) return false
     const fingerprint = getMessageFingerprint(message)
-    if (storedFingerprints.has(fingerprint))
-      return false
+    if (storedFingerprints.has(fingerprint)) return false
     return true
   })
 
-  if (uniqueNewMessages.length === 0)
-    return storedMessages
+  if (uniqueNewMessages.length === 0) return storedMessages
 
   // If storedMessages already has a system message, avoid adding redundant ones from uniqueNewMessages
   // unless they are significantly different (e.g. environmental context).
-  const hasStoredPersona = storedMessages.some(m => m.role === 'system' && !extractMessageContent(m).includes('[ENVIRONMENTAL AWARENESS]'))
+  const hasStoredPersona = storedMessages.some(
+    (m) => m.role === 'system' && !extractMessageContent(m).includes('[ENVIRONMENTAL AWARENESS]'),
+  )
 
   const finalNewMessages = uniqueNewMessages.filter((m) => {
     if (m.role === 'system') {

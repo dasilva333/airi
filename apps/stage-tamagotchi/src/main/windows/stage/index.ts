@@ -1,23 +1,18 @@
-import type { globalAppConfigSchema } from '../../configs/global'
-import type { Config } from '../../libs/electron/persistence'
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { BrowserWindow, ipcMain } from 'electron'
+import clickDragPlugin from 'electron-click-drag-plugin'
 import { throttle } from 'es-toolkit'
 import { isLinux } from 'std-env'
-
 import icon from '../../../../resources/icon.png?asset'
-
 import { electronControlStripSyncState, electronStartDraggingWindow } from '../../../shared/eventa'
+import type { globalAppConfigSchema } from '../../configs/global'
 import { baseUrl, load, withHashRoute } from '../../libs/electron/location'
+import type { Config } from '../../libs/electron/persistence'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
 import { ensureWindowInVisibleBounds } from '../shared/display'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
 
@@ -32,7 +27,8 @@ export async function setupActorStageWindow(params: {
   serverChannel: ServerChannel
   i18n: I18n
 }) {
-  const getConfig = () => params.appConfig.get() ?? { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' as const }
+  const getConfig = () =>
+    params.appConfig.get() ?? { language: 'en', microphoneToggleHotkey: 'Scroll' as const, windows: [] }
   const actorConfig = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'actor')
 
   let initialWidth = actorConfig?.width ?? 450.0
@@ -42,10 +38,10 @@ export async function setupActorStageWindow(params: {
 
   if (initialX !== undefined && initialY !== undefined) {
     const valid = ensureWindowInVisibleBounds({
+      height: Math.round(initialHeight),
+      width: Math.round(initialWidth),
       x: Math.round(initialX),
       y: Math.round(initialY),
-      width: Math.round(initialWidth),
-      height: Math.round(initialHeight),
     })
     initialX = valid.x
     initialY = valid.y
@@ -54,19 +50,19 @@ export async function setupActorStageWindow(params: {
   }
 
   const window = new BrowserWindow({
-    title: 'AIRI - Actor Stage',
-    width: initialWidth,
+    alwaysOnTop: true,
     height: initialHeight,
-    x: initialX,
-    y: initialY,
-    show: false,
     icon,
+    show: false,
+    title: 'AIRI - Actor Stage',
+    type: 'panel',
     webPreferences: {
       preload: resolve(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
       sandbox: true,
     },
-    type: 'panel',
-    alwaysOnTop: true,
+    width: initialWidth,
+    x: initialX,
+    y: initialY,
     ...transparentWindowConfig(),
   })
 
@@ -74,7 +70,7 @@ export async function setupActorStageWindow(params: {
   window.setResizable(true)
 
   const { context } = createContext(ipcMain, window)
-  await setupBaseWindowElectronInvokes({ context, window, serverChannel: params.serverChannel, i18n: params.i18n })
+  await setupBaseWindowElectronInvokes({ context, i18n: params.i18n, serverChannel: params.serverChannel, window })
 
   if (!isLinux) {
     defineInvokeHandler(context, electronStartDraggingWindow, (_payload, handlerOptions: any) => {
@@ -83,8 +79,7 @@ export async function setupActorStageWindow(params: {
         const win = sender ? (BrowserWindow.fromWebContents(sender) ?? window) : window
         const windowId = win.getNativeWindowHandle()
         clickDragPlugin.startDrag(windowId)
-      }
-      catch (error) {
+      } catch (error) {
         console.error(error)
       }
     })
@@ -97,16 +92,17 @@ export async function setupActorStageWindow(params: {
         if (!config.windows) {
           config.windows = []
         }
-        const existingConfigIndex = config.windows.findIndex((w: { tag?: string, orientation?: string }) => w.tag === 'actor')
+        const existingConfigIndex = config.windows.findIndex(
+          (w: { tag?: string; orientation?: string }) => w.tag === 'actor',
+        )
         if (existingConfigIndex !== -1) {
           config.windows[existingConfigIndex].orientation = payload.orientation
           params.appConfig.update(config)
-        }
-        else {
+        } else {
           config.windows.push({
-            title: 'AIRI - Actor Stage',
-            tag: 'actor',
             orientation: payload.orientation,
+            tag: 'actor',
+            title: 'AIRI - Actor Stage',
           })
           params.appConfig.update(config)
         }
@@ -123,10 +119,10 @@ export async function setupActorStageWindow(params: {
     const height = currentActorConfig?.height ?? 600.0
     if (x !== undefined && y !== undefined) {
       const valid = ensureWindowInVisibleBounds({
+        height: Math.round(height),
+        width: Math.round(width),
         x: Math.round(x),
         y: Math.round(y),
-        width: Math.round(width),
-        height: Math.round(height),
       })
       window.setBounds(valid)
     }
@@ -140,9 +136,8 @@ export async function setupActorStageWindow(params: {
     setTimeout(() => restoreBounds(), 500)
   })
 
-  function handleNewBounds(newBounds: { x: number, y: number, width: number, height: number }) {
-    if (window.isDestroyed())
-      return
+  function handleNewBounds(newBounds: { x: number; y: number; width: number; height: number }) {
+    if (window.isDestroyed()) return
 
     const config = getConfig()
     if (!config.windows || !Array.isArray(config.windows)) {
@@ -153,22 +148,21 @@ export async function setupActorStageWindow(params: {
 
     if (existingConfigIndex === -1) {
       config.windows.push({
-        title: 'AIRI',
+        height: Math.round(newBounds.height),
         tag: 'actor',
+        title: 'AIRI',
+        width: Math.round(newBounds.width),
         x: Math.round(newBounds.x),
         y: Math.round(newBounds.y),
-        width: Math.round(newBounds.width),
-        height: Math.round(newBounds.height),
       })
-    }
-    else {
+    } else {
       const currentConfig = config.windows[existingConfigIndex]
       config.windows[existingConfigIndex] = {
         ...currentConfig,
+        height: Math.round(newBounds.height),
+        width: Math.round(newBounds.width),
         x: Math.round(newBounds.x),
         y: Math.round(newBounds.y),
-        width: Math.round(newBounds.width),
-        height: Math.round(newBounds.height),
       }
     }
 
@@ -188,7 +182,10 @@ export async function setupActorStageWindow(params: {
     }
   })
 
-  await load(window, withHashRoute(baseUrl(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'renderer')), '/actor'))
+  await load(
+    window,
+    withHashRoute(baseUrl(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'renderer')), '/actor'),
+  )
 
   return window
 }

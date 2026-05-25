@@ -13,7 +13,7 @@ export interface DiscordServiceStatus {
   ping: number | null
   guilds: DiscordGuildInfo[]
   activeChannelId: string | null
-  botUser: { id: string, tag: string, avatarUrl: string | null } | null
+  botUser: { id: string; tag: string; avatarUrl: string | null } | null
   error: string | null
 }
 
@@ -56,7 +56,7 @@ export interface DiscordCommandOption {
   name: string
   description: string
   required?: boolean
-  choices?: Array<{ name: string, value: string | number }>
+  choices?: Array<{ name: string; value: string | number }>
   autocomplete?: boolean
 }
 
@@ -94,9 +94,7 @@ export const discordServiceStart = defineInvokeEventa<DiscordServiceStatus, { to
 )
 
 /** Stop the Discord service and disconnect the bot. */
-export const discordServiceStop = defineInvokeEventa<DiscordServiceStatus>(
-  'eventa:invoke:electron:discord:stop',
-)
+export const discordServiceStop = defineInvokeEventa<DiscordServiceStatus>('eventa:invoke:electron:discord:stop')
 
 /** Poll the current service status (connection, ping, guilds). */
 export const discordServiceGetStatus = defineInvokeEventa<DiscordServiceStatus>(
@@ -153,9 +151,7 @@ export const discordServiceStatusChanged = defineEventa<DiscordServiceStatus>(
 )
 
 /** Raw event log entries for the Developer Console. */
-export const discordServiceEventLog = defineEventa<DiscordEventLogEntry>(
-  'eventa:event:electron:discord:event-log',
-)
+export const discordServiceEventLog = defineEventa<DiscordEventLogEntry>('eventa:event:electron:discord:event-log')
 
 /** A Discord user sent a message that should be routed to the chat pipeline. */
 export const discordServiceInboundMessage = defineEventa<DiscordInboundMessage>(

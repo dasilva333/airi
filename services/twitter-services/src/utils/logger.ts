@@ -1,6 +1,5 @@
-import type { Logg } from '@guiiai/logg'
-
 import path from 'node:path'
+import type { Logg } from '@guiiai/logg'
 
 import { Format, LogLevel, setGlobalFormat, setGlobalLogLevel, useLogg } from '@guiiai/logg'
 
@@ -22,11 +21,11 @@ export function initLogger(): void {
   const config = useConfigManager().getConfig()
 
   const logLevelMap: Record<string, LogLevel> = {
+    debug: LogLevel.Debug,
     error: LogLevel.Error,
-    warn: LogLevel.Warning,
     info: LogLevel.Log,
     verbose: LogLevel.Verbose,
-    debug: LogLevel.Debug,
+    warn: LogLevel.Warning,
   }
 
   setGlobalLogLevel(logLevelMap[config.system?.logLevel] || LogLevel.Debug)
@@ -34,8 +33,7 @@ export function initLogger(): void {
   // Set format based on configuration
   if (config.system?.logFormat === 'pretty') {
     setGlobalFormat(Format.Pretty)
-  }
-  else {
+  } else {
     setGlobalFormat(Format.JSON)
   }
 
@@ -47,8 +45,7 @@ export function initLogger(): void {
  * @returns logger instance configured with "directoryName/filename"
  */
 export function useLogger(name?: string): Logg {
-  if (name)
-    return useLogg(name).useGlobalConfig()
+  if (name) return useLogg(name).useGlobalConfig()
 
   const stack = new Error('logger').stack
   const caller = stack?.split('\n')[2]
@@ -64,12 +61,12 @@ export function useLogger(name?: string): Logg {
 
 // Create pre-configured loggers for various services
 export const logger = {
-  auth: useLogger('auth-service'),
-  timeline: useLogger('timeline-service'),
-  browser: useLogger('browser-adapter'),
   airi: useLogger('airi-adapter'),
+  auth: useLogger('auth-service'),
+  browser: useLogger('browser-adapter'),
+  config: useLogger('config'),
+  main: useLogger('twitter-service'),
   mcp: useLogger('mcp-adapter'),
   parser: useLogger('parser'),
-  main: useLogger('twitter-service'),
-  config: useLogger('config'),
+  timeline: useLogger('timeline-service'),
 }

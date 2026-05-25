@@ -1,10 +1,8 @@
 import { env } from 'node:process'
-
-import pLimit from 'p-limit'
-
 import { embed } from '@xsai/embed'
 import { eq, isNull } from 'drizzle-orm'
 import { chunk } from 'es-toolkit'
+import pLimit from 'p-limit'
 
 import { initDb, useDrizzle } from '../src/db'
 import { chatMessagesTable } from '../src/db/schema'
@@ -22,7 +20,7 @@ async function main() {
   // Create a concurrency limiter
   const limit = pLimit(WORKER_POOL_SIZE)
 
-  let messages: typeof chatMessagesTable.$inferSelect[] = []
+  let messages: (typeof chatMessagesTable.$inferSelect)[] = []
 
   switch (env.EMBEDDING_DIMENSION) {
     case '1536':
@@ -53,17 +51,17 @@ async function main() {
   // Split messages into batches
   const batches = chunk(messages, BATCH_SIZE)
   // Process each batch with worker pool
-  const processedCount = { success: 0, error: 0 }
+  const processedCount = { error: 0, success: 0 }
 
   for (const batch of batches) {
     await limit(async () => {
       const embedPromises = batch.map(async (message) => {
         try {
           const embeddingRes = await embed({
-            baseURL: env.EMBEDDING_API_BASE_URL!,
             apiKey: env.EMBEDDING_API_KEY!,
-            model: env.EMBEDDING_MODEL!,
+            baseURL: env.EMBEDDING_API_BASE_URL!,
             input: message.content,
+            model: env.EMBEDDING_MODEL!,
           })
 
           switch (env.EMBEDDING_DIMENSION) {
@@ -95,8 +93,7 @@ async function main() {
           if (processedCount.success % 100 === 0) {
             console.info(`Processed ${processedCount.success} messages so far`)
           }
-        }
-        catch (error) {
+        } catch (error) {
           processedCount.error++
           console.error(`Error embedding message ${message.id}:`, error)
         }
@@ -107,8 +104,10 @@ async function main() {
   }
 }
 
-main().then(() => {
-  console.info('Done')
-}).catch((err) => {
-  console.error(err)
-})
+main()
+  .then(() => {
+    console.info('Done')
+  })
+  .catch((err) => {
+    console.error(err)
+  })

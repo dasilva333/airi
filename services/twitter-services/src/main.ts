@@ -1,11 +1,8 @@
+import process from 'node:process'
 import type { Context } from 'node:vm'
-
+import { useAdapter } from './adapters/adapter'
 import type { AiriAdapter } from './adapters/airi-adapter'
 import type { MCPAdapter } from './adapters/mcp-adapter'
-
-import process from 'node:process'
-
-import { useAdapter } from './adapters/adapter'
 import { useConfigManager } from './config'
 import { initBrowser, useContext } from './core/browser/context'
 import { useTwitterAuthServices } from './core/services/auth'
@@ -14,7 +11,7 @@ import { initLogger, logger } from './utils/logger'
 /**
  * Clean up application resources
  */
-async function cleanup(adapters: { airi?: AiriAdapter, mcp?: MCPAdapter }, browserCtx: Context) {
+async function cleanup(adapters: { airi?: AiriAdapter; mcp?: MCPAdapter }, browserCtx: Context) {
   logger.main.log('Stopping Twitter service...')
 
   if (adapters.mcp) {
@@ -33,7 +30,7 @@ async function cleanup(adapters: { airi?: AiriAdapter, mcp?: MCPAdapter }, brows
 /**
  * Set up process shutdown hooks
  */
-function setupShutdownHooks(adapters: { airi?: AiriAdapter, mcp?: MCPAdapter }, browserCtx: Context) {
+function setupShutdownHooks(adapters: { airi?: AiriAdapter; mcp?: MCPAdapter }, browserCtx: Context) {
   const handleShutdown = async (signal: string) => {
     logger.main.log(`Received ${signal} signal...`)
     await cleanup(adapters, browserCtx)
@@ -68,8 +65,8 @@ async function initializeApp() {
 
   return {
     adapters,
-    context: ctx.context,
     browser: ctx.browser,
+    context: ctx.context,
   }
 }
 
@@ -83,8 +80,7 @@ async function bootstrap() {
     const resources = await initializeApp()
     setupShutdownHooks(resources.adapters, resources.context)
     logger.main.log('Twitter service successfully started!')
-  }
-  catch (error) {
+  } catch (error) {
     logger.main.withError(error).error('Startup failed')
     process.exit(1)
   }

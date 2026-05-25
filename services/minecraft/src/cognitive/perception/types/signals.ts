@@ -1,11 +1,11 @@
-export type PerceptionSignalType
-  = | 'chat_message'
-    | 'entity_attention' // e.g. someone waving, punching
-    | 'environmental_anomaly' // e.g. sudden loud sound
-    | 'saliency_high' // generic high-priority event (e.g. damage)
-    | 'social_gesture' // e.g. waving
-    | 'social_presence'
-    | 'system_message' // e.g. death messages, join/leave
+export type PerceptionSignalType =
+  | 'chat_message'
+  | 'entity_attention' // e.g. someone waving, punching
+  | 'environmental_anomaly' // e.g. sudden loud sound
+  | 'saliency_high' // generic high-priority event (e.g. damage)
+  | 'social_gesture' // e.g. waving
+  | 'social_presence'
+  | 'system_message' // e.g. death messages, join/leave
 
 export interface PerceptionSignal {
   type: PerceptionSignalType

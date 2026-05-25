@@ -9,8 +9,7 @@ const { x: cursorX, y: cursorY } = useElectronMouse()
 const windowSize = useWindowSize()
 
 const displayBounds = computed(() => {
-  if (!allDisplays.value.length)
-    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 }
+  if (!allDisplays.value.length) return { height: 0, maxX: 0, maxY: 0, minX: 0, minY: 0, width: 0 }
 
   let minX = Infinity
   let minY = Infinity
@@ -25,12 +24,12 @@ const displayBounds = computed(() => {
   }
 
   return {
-    minX,
-    minY,
+    height: maxY - minY,
     maxX,
     maxY,
+    minX,
+    minY,
     width: maxX - minX,
-    height: maxY - minY,
   }
 })
 
@@ -38,8 +37,7 @@ const displayBounds = computed(() => {
 const scale = computed(() => {
   const { width: totalWidth, height: totalHeight } = displayBounds.value
 
-  if (totalWidth === 0 || totalHeight === 0)
-    return 0.2
+  if (totalWidth === 0 || totalHeight === 0) return 0.2
 
   // Use window size with some padding for responsive scaling
   const padding = 100
@@ -58,10 +56,10 @@ const scale = computed(() => {
 function transformDisplay(display: any) {
   const { minX, minY } = displayBounds.value
   return {
+    height: display.bounds.height * scale.value,
+    width: display.bounds.width * scale.value,
     x: (display.bounds.x - minX) * scale.value,
     y: (display.bounds.y - minY) * scale.value,
-    width: display.bounds.width * scale.value,
-    height: display.bounds.height * scale.value,
   }
 }
 
@@ -78,8 +76,8 @@ const transformedCursor = computed(() => {
 const containerDimensions = computed(() => {
   const { width, height } = displayBounds.value
   return {
-    width: width * scale.value,
     height: height * scale.value,
+    width: width * scale.value,
   }
 })
 </script>

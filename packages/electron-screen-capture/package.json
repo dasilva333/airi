@@ -1,46 +1,13 @@
 {
-  "name": "@proj-airi/electron-screen-capture",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Screen capture",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/electron-screen-capture"
-  },
-  "exports": {
-    ".": "./dist/index.js",
-    "./main": "./dist/main.mjs",
-    "./renderer": "./dist/renderer.js",
-    "./vue": "./dist/vue.js",
-    "./package.json": "./package.json"
-  },
-  "types": "./dist/index.d.ts",
-  "files": [
-    "README.md",
-    "dist",
-    "package.json"
-  ],
-  "scripts": {
-    "dev": "pnpm run build",
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit"
-  },
-  "peerDependencies": {
-    "@guiiai/logg": ">=1 <2",
-    "electron": ">=39 <40",
-    "vue": ">=3"
   },
   "dependencies": {
     "std-env": "catalog:"
   },
+  "description": "Screen capture",
   "devDependencies": {
     "@electron-toolkit/preload": "catalog:",
     "@moeru/eventa": "catalog:",
@@ -48,5 +15,38 @@
     "async-mutex": "catalog:",
     "nanoid": "catalog:",
     "vite": "catalog:"
-  }
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./main": "./dist/main.mjs",
+    "./package.json": "./package.json",
+    "./renderer": "./dist/renderer.js",
+    "./vue": "./dist/vue.js"
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "package.json"
+  ],
+  "license": "MIT",
+  "name": "@proj-airi/electron-screen-capture",
+  "peerDependencies": {
+    "@guiiai/logg": ">=1 <2",
+    "electron": ">=39 <40",
+    "vue": ">=3"
+  },
+  "private": true,
+  "repository": {
+    "directory": "packages/electron-screen-capture",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "pnpm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "0.9.0-alpha.15"
 }

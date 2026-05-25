@@ -1,23 +1,17 @@
-import type { createContext } from '@moeru/eventa/adapters/electron/main'
-import type { BrowserWindow } from 'electron'
-import type { UpdateInfo } from 'electron-updater'
-
-import type { AutoUpdaterState } from '../../../shared/eventa'
-
-import electronUpdater from 'electron-updater'
-
 import { is } from '@electron-toolkit/utils'
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
+import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import { errorMessageFrom, tryCatch } from '@moeru/std'
-import { committerDate } from '~build/git'
+import type { BrowserWindow } from 'electron'
 import { app } from 'electron'
+import type { UpdateInfo } from 'electron-updater'
+import electronUpdater from 'electron-updater'
 import { Semaphore } from 'es-toolkit'
+import { committerDate } from '~build/git'
+import type { AutoUpdaterState } from '../../../shared/eventa'
 
-import {
-  autoUpdater as autoUpdaterEventa,
-  electronAutoUpdaterStateChanged,
-} from '../../../shared/eventa'
+import { autoUpdater as autoUpdaterEventa, electronAutoUpdaterStateChanged } from '../../../shared/eventa'
 import { MockAutoUpdater } from './mock-auto-updater'
 
 export interface AppUpdaterLike {
@@ -65,49 +59,49 @@ export function setupAutoUpdater(): AutoUpdater {
     for (const listener of hooks) {
       try {
         listener(next)
-      }
-      catch (error) {
+      } catch (error) {
         log.withError(error).error('Failed to notify listener')
       }
     }
   }
 
-  autoUpdater.on('error', error => broadcast({ status: 'error', error: { message: errorMessageFrom(error) || String(error) } }))
+  autoUpdater.on('error', (error) =>
+    broadcast({ error: { message: errorMessageFrom(error) || String(error) }, status: 'error' }),
+  )
   autoUpdater.on('checking-for-update', () => broadcast({ status: 'checking' }))
-  autoUpdater.on('update-available', (info: UpdateInfo) => broadcast({ status: 'available', info }))
-  autoUpdater.on('update-downloaded', (info: UpdateInfo) => broadcast({ status: 'downloaded', info }))
-  autoUpdater.on('update-not-available', () => broadcast({ status: 'not-available', info: { version: app.getVersion(), files: [], releaseDate: committerDate } }))
-  autoUpdater.on('download-progress', progress => broadcast({
-    ...state,
-    status: 'downloading',
-    progress: {
-      percent: progress.percent,
-      bytesPerSecond: progress.bytesPerSecond,
-      transferred: progress.transferred,
-      total: progress.total,
-    },
-  }))
+  autoUpdater.on('update-available', (info: UpdateInfo) => broadcast({ info, status: 'available' }))
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => broadcast({ info, status: 'downloaded' }))
+  autoUpdater.on('update-not-available', () =>
+    broadcast({ info: { files: [], releaseDate: committerDate, version: app.getVersion() }, status: 'not-available' }),
+  )
+  autoUpdater.on('download-progress', (progress) =>
+    broadcast({
+      ...state,
+      progress: {
+        bytesPerSecond: progress.bytesPerSecond,
+        percent: progress.percent,
+        total: progress.total,
+        transferred: progress.transferred,
+      },
+      status: 'downloading',
+    }),
+  )
 
-  autoUpdater.checkForUpdates().catch(error => log.withError(error).error('checkForUpdates() failed'))
+  autoUpdater.checkForUpdates().catch((error) => log.withError(error).error('checkForUpdates() failed'))
 
   return {
-    get state() {
-      return state
-    },
     async checkForUpdates() {
       broadcast({ status: 'checking' })
-      await autoUpdater.checkForUpdates().catch(error => log.withError(error).error('checkForUpdates() failed'))
+      await autoUpdater.checkForUpdates().catch((error) => log.withError(error).error('checkForUpdates() failed'))
     },
     async downloadUpdate() {
-      if (state.status === 'downloading' || state.status === 'downloaded')
-        return
+      if (state.status === 'downloading' || state.status === 'downloaded') return
 
       await semaphore.acquire()
 
       try {
         await autoUpdater.downloadUpdate()
-      }
-      finally {
+      } finally {
         semaphore.release()
       }
     },
@@ -116,18 +110,19 @@ export function setupAutoUpdater(): AutoUpdater {
 
       try {
         autoUpdater.quitAndInstall()
-      }
-      finally {
+      } finally {
         semaphore.release()
       }
+    },
+    get state() {
+      return state
     },
     subscribe(callback) {
       hooks.add(callback)
       // Send current state immediately
       try {
         callback(state)
-      }
-      catch {}
+      } catch {}
 
       return () => {
         hooks.delete(callback)
@@ -136,28 +131,29 @@ export function setupAutoUpdater(): AutoUpdater {
   }
 }
 
-export function createAutoUpdaterService(params: { context: MainContext, window: BrowserWindow, service: AutoUpdater }) {
+export function createAutoUpdaterService(params: {
+  context: MainContext
+  window: BrowserWindow
+  service: AutoUpdater
+}) {
   const { context, window, service } = params
 
   const log = useLogg('auto-updater-service').useGlobalConfig()
 
   // Subscribe to state changes and forward to the context
   const unsubscribe = service.subscribe((state) => {
-    if (window.isDestroyed())
-      return
+    if (window.isDestroyed()) return
 
     tryCatch(() => context.emit(electronAutoUpdaterStateChanged, state))
   })
 
   const cleanups: Array<() => void> = [unsubscribe]
 
-  cleanups.push(
-    defineInvokeHandler(context, autoUpdaterEventa.getState, () => service.state),
-  )
+  cleanups.push(defineInvokeHandler(context, autoUpdaterEventa.getState, () => service.state))
 
   cleanups.push(
     defineInvokeHandler(context, autoUpdaterEventa.checkForUpdates, async () => {
-      await service.checkForUpdates().catch(error => log.withError(error).error('checkForUpdates() failed'))
+      await service.checkForUpdates().catch((error) => log.withError(error).error('checkForUpdates() failed'))
       return service.state
     }),
   )
@@ -176,8 +172,7 @@ export function createAutoUpdaterService(params: { context: MainContext, window:
   )
 
   const cleanup = () => {
-    for (const fn of cleanups)
-      fn()
+    for (const fn of cleanups) fn()
   }
 
   window.on('closed', cleanup)

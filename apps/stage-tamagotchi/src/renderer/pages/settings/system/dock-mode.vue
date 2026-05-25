@@ -9,22 +9,15 @@ import { useDockModeStore } from '../../../stores/dock-mode'
 
 const { t } = useI18n()
 const dockMode = useDockModeStore()
-const {
-  status,
-  availableWindows,
-  isLoadingWindows,
-  savedPosition,
-  savedOffsetX,
-  savedOffsetY,
-} = storeToRefs(dockMode)
+const { status, availableWindows, isLoadingWindows, savedPosition, savedOffsetX, savedOffsetY } = storeToRefs(dockMode)
 
 const selectedWindowId = ref<string>('')
 
-const positionOptions: { value: DockPosition, labelKey: string }[] = [
-  { value: 'left', labelKey: 'tamagotchi.dock-mode.position.left' },
-  { value: 'right', labelKey: 'tamagotchi.dock-mode.position.right' },
-  { value: 'top', labelKey: 'tamagotchi.dock-mode.position.top' },
-  { value: 'bottom', labelKey: 'tamagotchi.dock-mode.position.bottom' },
+const positionOptions: { value: DockPosition; labelKey: string }[] = [
+  { labelKey: 'tamagotchi.dock-mode.position.left', value: 'left' },
+  { labelKey: 'tamagotchi.dock-mode.position.right', value: 'right' },
+  { labelKey: 'tamagotchi.dock-mode.position.top', value: 'top' },
+  { labelKey: 'tamagotchi.dock-mode.position.bottom', value: 'bottom' },
 ]
 
 onMounted(() => {
@@ -35,8 +28,7 @@ onMounted(() => {
 async function handleToggleDock() {
   if (status.value.active) {
     await dockMode.stopDock()
-  }
-  else if (selectedWindowId.value) {
+  } else if (selectedWindowId.value) {
     await dockMode.startDock(selectedWindowId.value)
   }
 }

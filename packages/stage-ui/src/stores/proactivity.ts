@@ -1,8 +1,5 @@
-import type { ActiveWindowEntry, SystemLoadAverages } from '@proj-airi/stage-shared'
-
-import type { ChatStreamEventContext, StreamingAssistantMessage } from '../types/chat'
-
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import type { ActiveWindowEntry, SystemLoadAverages } from '@proj-airi/stage-shared'
 import {
   isWithinSchedule,
   sensorsGetActiveWindow,
@@ -17,10 +14,10 @@ import { useIntervalFn } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
-
 import { useLlmmarkerParser } from '../composables/llm-marker-parser'
 import { categorizeResponse, createStreamingCategorizer } from '../composables/response-categoriser'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
+import type { ChatStreamEventContext, StreamingAssistantMessage } from '../types/chat'
 import { useAuthStore } from './auth'
 import { useBackgroundStore } from './background'
 import { useChatOrchestratorStore } from './chat'
@@ -60,8 +57,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   function registerTools(tools: any | any[] | (() => Promise<any[] | undefined>)) {
     if (Array.isArray(tools)) {
       registeredTools.value.push(...tools)
-    }
-    else {
+    } else {
       registeredTools.value.push(tools)
     }
   }
@@ -94,16 +90,20 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const recentJournalEntryCount = ref(0)
 
   const sessionMetrics = ref({
-    ttsCount: 0,
-    sttCount: 0,
     chatCount: 0,
+    sttCount: 0,
+    ttsCount: 0,
   })
   const totalTurns = computed(() => chatSession.messages.length)
   const nextMilestone = computed(() => Math.ceil(Math.max(1, totalTurns.value + 1) / 100) * 100)
 
-  watch(activeCard, () => {
-    // We now derive metrics from history, but we keep this watch for potential future extension syncs
-  }, { immediate: true })
+  watch(
+    activeCard,
+    () => {
+      // We now derive metrics from history, but we keep this watch for potential future extension syncs
+    },
+    { immediate: true },
+  )
 
   /** @deprecated Metrics are now derived from chat history in sensorPayload */
   function incrementMetric(_type: 'tts' | 'stt' | 'chat') {
@@ -123,7 +123,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     console.time('[Proactivity] updateSensors')
     // Fallback for non-electron or missing invoker
     const now = new Date()
-    locTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    locTime.value = now.toLocaleTimeString([], { hour: '2-digit', hour12: false, minute: '2-digit' })
 
     if (!isElectron) {
       console.timeEnd('[Proactivity] updateSensors')
@@ -179,7 +179,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       const journalEntries = textJournalStore.entries ?? []
       recentJournalEntryCount.value = journalEntries.reduce((count, entry) => {
-        return (entry.characterId === currentCardId && (entry.createdAt || 0) > oneHourAgo) ? count + 1 : count
+        return entry.characterId === currentCardId && (entry.createdAt || 0) > oneHourAgo ? count + 1 : count
       }, 0)
 
       // Combined message metrics (TTS, STT, Total) in one pass
@@ -190,35 +190,28 @@ export const useProactivityStore = defineStore('proactivity', () => {
       for (const m of messages) {
         if ((m.createdAt || 0) > oneHourAgo) {
           total++
-          if (m.role === 'assistant')
-            tts++
-          else if (m.role === 'user')
-            stt++
+          if (m.role === 'assistant') tts++
+          else if (m.role === 'user') stt++
         }
       }
       recentTtsCount.value = tts
       recentSttCount.value = stt
       recentChatCount.value = total
-    }
-    catch (err) {
+    } catch (err) {
       console.warn('[Proactivity] Failed to poll sensors for preview:', err)
-    }
-    finally {
+    } finally {
       console.timeEnd('[Proactivity] updateSensors')
       isUpdatingSensors.value = false
     }
   }
 
   async function refreshIdleTimeOnly() {
-    if (!isElectron || !getIdleTimeInvoke)
-      return
+    if (!isElectron || !getIdleTimeInvoke) return
 
     try {
       const idleMs = await getIdleTimeInvoke()
-      if (idleMs !== undefined)
-        idleTimeSec.value = Math.floor(idleMs / 1000)
-    }
-    catch (err) {
+      if (idleMs !== undefined) idleTimeSec.value = Math.floor(idleMs / 1000)
+    } catch (err) {
       console.warn('[Proactivity] Failed to poll idle time:', err)
     }
   }
@@ -231,20 +224,23 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   const { pause, resume } = useIntervalFn(updateSensors, 10000, { immediate: false })
 
-  watch(isProactivityLoopNeeded, (needed) => {
-    if (needed) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Resuming sensor polling loop.')
-      resume()
-      setTrackingEnabledInvoke?.({ enabled: true })
-    }
-    else {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Pausing sensor polling loop (idle).')
-      pause()
-      setTrackingEnabledInvoke?.({ enabled: false })
-    }
-  }, { immediate: true })
+  watch(
+    isProactivityLoopNeeded,
+    (needed) => {
+      if (needed) {
+        // eslint-disable-next-line no-console
+        console.log('[Proactivity] Resuming sensor polling loop.')
+        resume()
+        setTrackingEnabledInvoke?.({ enabled: true })
+      } else {
+        // eslint-disable-next-line no-console
+        console.log('[Proactivity] Pausing sensor polling loop (idle).')
+        pause()
+        setTrackingEnabledInvoke?.({ enabled: false })
+      }
+    },
+    { immediate: true },
+  )
 
   onUnmounted(() => {
     pause()
@@ -253,9 +249,10 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const sensorPayload = computed(() => {
     const config = activeCard.value?.extensions?.airi?.heartbeats
     const activeBackgroundId = activeCard.value?.extensions?.airi?.modules?.activeBackgroundId
-    const resolvedDefaultBackgroundName = activeBackgroundId && activeBackgroundId !== 'none'
-      ? (backgroundStore.entries.get(activeBackgroundId)?.title ?? 'unknown')
-      : 'none'
+    const resolvedDefaultBackgroundName =
+      activeBackgroundId && activeBackgroundId !== 'none'
+        ? (backgroundStore.entries.get(activeBackgroundId)?.title ?? 'unknown')
+        : 'none'
 
     let payload = '[Sensor Data]\n'
 
@@ -276,20 +273,26 @@ export const useProactivityStore = defineStore('proactivity', () => {
         if (history.length > 0) {
           payload += '\n[ Previous History ]\n'
           history.reverse().forEach((entry) => {
-            const start = new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-            const end = new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+            const start = new Date(entry.startTime).toLocaleTimeString([], {
+              hour: '2-digit',
+              hour12: false,
+              minute: '2-digit',
+            })
+            const end = new Date(entry.endTime).toLocaleTimeString([], {
+              hour: '2-digit',
+              hour12: false,
+              minute: '2-digit',
+            })
             const durationSec = Math.floor(entry.durationMs / 1000)
             const durationStr = durationSec < 60 ? `${durationSec}s` : `${Math.floor(durationSec / 60)}m`
 
-            const name = (entry.window.processName && entry.window.processName !== 'Unknown')
-              ? `${entry.window.processName} | `
-              : ''
+            const name =
+              entry.window.processName && entry.window.processName !== 'Unknown' ? `${entry.window.processName} | ` : ''
             payload += `[ ${name}${entry.window.title} ] [ ${durationStr} ] [ ${start} - ${end} ]\n`
           })
         }
       }
-    }
-    else {
+    } else {
       payload += 'Window History: [DISABLED]\n'
     }
 
@@ -298,8 +301,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         payload += `CPU Load (1/5/15): ${sysLoad.value.cpu[0].toFixed(2)} | ${sysLoad.value.cpu[1].toFixed(2)} | ${sysLoad.value.cpu[2].toFixed(2)}\n`
         payload += `GPU Load (Avg): ${sysLoad.value.gpuAvg.toFixed(2)}\n`
       }
-    }
-    else {
+    } else {
       payload += 'System Load: [DISABLED]\n'
     }
 
@@ -317,8 +319,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       payload += `Chat (Last Hr): ${recentChatCount.value}\n`
       payload += `Journal Entries (Last Hr): ${recentJournalEntryCount.value}\n`
       payload += `Turn Count: ${turnCount} (Next Target: ${nextMilestone.value})\n`
-    }
-    else {
+    } else {
       payload += '\n[Metrics]: [DISABLED]\n'
     }
 
@@ -333,12 +334,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const currentUserId = userId.value || 'local'
     const index = await chatSessionsRepo.getIndex(currentUserId)
     const characterSessions = index?.characters?.[characterId]
-    if (!characterSessions)
-      return []
+    if (!characterSessions) return []
 
     const inMemorySessions = chatSession.getAllSessions()
     const sessionMetas = Object.values(characterSessions.sessions || {})
-    const sessionRecords = await Promise.all(sessionMetas.map(meta => chatSessionsRepo.getSession(meta.sessionId)))
+    const sessionRecords = await Promise.all(sessionMetas.map((meta) => chatSessionsRepo.getSession(meta.sessionId)))
 
     const mergedMessages = sessionRecords.flatMap((session, index) => {
       const sessionId = sessionMetas[index]?.sessionId
@@ -376,12 +376,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
     const now = Date.now()
     const firstDreamFallbackMs = 24 * 60 * 60 * 1000
     const effectiveFromTimestamp = config.lastProcessedAt ?? Math.max(0, now - firstDreamFallbackMs)
-    const unprocessedMessages = conversationalMessages.filter(msg => (msg.createdAt || 0) > effectiveFromTimestamp)
+    const unprocessedMessages = conversationalMessages.filter((msg) => (msg.createdAt || 0) > effectiveFromTimestamp)
     if (unprocessedMessages.length < (config.minConversationTurns || 4)) {
       return
     }
 
-    const lastTurnAt = Math.max(...unprocessedMessages.map(msg => msg.createdAt || 0))
+    const lastTurnAt = Math.max(...unprocessedMessages.map((msg) => msg.createdAt || 0))
     const quietWindowMinutes = config.sessionTimeoutMinutes || 60
     const quietWindowMs = quietWindowMinutes * 60 * 1000
 
@@ -390,10 +390,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
     }
 
     if (config.strictAfkGating) {
-      if (idleTimeSec.value === undefined)
-        await refreshIdleTimeOnly()
-      else
-        await refreshIdleTimeOnly()
+      if (idleTimeSec.value === undefined) await refreshIdleTimeOnly()
+      else await refreshIdleTimeOnly()
 
       const afkThresholdSec = (config.afkThresholdMinutes || 5) * 60
       if (!options?.force && (idleTimeSec.value ?? 0) < afkThresholdSec) {
@@ -412,9 +410,9 @@ export const useProactivityStore = defineStore('proactivity', () => {
     try {
       await echoesStore.load()
       await echoesStore.synthesizeForCharacter(characterId, {
+        force: options?.force,
         fromTimestamp: config.lastProcessedAt ?? null,
         toTimestamp: lastTurnAt,
-        force: options?.force,
       })
 
       airiCardStore.updateCard(characterId, {
@@ -424,21 +422,19 @@ export const useProactivityStore = defineStore('proactivity', () => {
             ...card.extensions?.airi,
             dreamState: {
               ...card.extensions?.airi?.dreamState,
-              lastProcessedAt: lastTurnAt,
-              dailyRunDate: todayKey,
               dailyRunCount: dailyRunCount + 1,
+              dailyRunDate: todayKey,
+              lastProcessedAt: lastTurnAt,
             },
           },
         },
       } as any)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[Dream State] Synthesis failed.', {
         characterId,
         error: err,
       })
-    }
-    finally {
+    } finally {
       isDreamStateEvaluating.value = false
     }
   }
@@ -476,7 +472,9 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
         if (!isInWindow) {
           // eslint-disable-next-line no-console
-          console.log(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
+          console.log(
+            `[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`,
+          )
           return
         }
       }
@@ -505,21 +503,21 @@ export const useProactivityStore = defineStore('proactivity', () => {
             console.log(`[Proactivity] OS Sensor -> Idle Time: ${idleTime}ms`)
 
             // If useAsLocalGate is true, abort if user is idle for more than 60 seconds (likely AFK)
-            if (!options?.force && config!.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
+            if (!options?.force && config!.useAsLocalGate && idleTime !== undefined && idleTime > 60000) {
               // eslint-disable-next-line no-console
-              console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', { idleTime })
+              console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', {
+                idleTime,
+              })
               return
             }
 
             if (config!.injectIntoPrompt) {
               await updateSensors()
             }
-          }
-          catch (err) {
+          } catch (err) {
             console.warn('[Proactivity] Failed to fetch OS sensors:', err)
           }
-        }
-        else {
+        } else {
           // eslint-disable-next-line no-console
           console.log('[Proactivity] Skipping sensors: Browser environment or invokers missing.')
         }
@@ -533,16 +531,18 @@ export const useProactivityStore = defineStore('proactivity', () => {
         // eslint-disable-next-line no-console
         console.log(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
 
-        const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
+        const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = []
 
         if (airiCardStore.systemPrompt) {
           // I know this nu uh, better than loading all language on rehypeShiki (from chat session store)
-          const codeBlockSystemPrompt = '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
-          const mathSyntaxSystemPrompt = '- For any math equation, use LaTeX format, eg: $ x^3 $, always escape dollar sign outside math equation\n'
+          const codeBlockSystemPrompt =
+            '- For any programming code block, always specify the programming language that supported on @shikijs/rehype on the rendered markdown, eg. ```python ... ```\n'
+          const mathSyntaxSystemPrompt =
+            '- For any math equation, use LaTeX format, eg: $ x^3 $, always escape dollar sign outside math equation\n'
 
           messages.push({
-            role: 'system',
             content: codeBlockSystemPrompt + mathSyntaxSystemPrompt + airiCardStore.systemPrompt,
+            role: 'system',
           })
         }
 
@@ -552,24 +552,27 @@ export const useProactivityStore = defineStore('proactivity', () => {
         if (Object.keys(contextsSnapshot).length > 0 || sensorPayloadRaw) {
           let contextContent = ''
           if (Object.keys(contextsSnapshot).length > 0) {
-            contextContent += 'These are the contextual information retrieved or on-demand updated from other modules:\n'
-              + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`
+            contextContent +=
+              'These are the contextual information retrieved or on-demand updated from other modules:\n' +
+              `${Object.entries(contextsSnapshot)
+                .map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`)
+                .join('\n')}\n`
           }
 
           if (sensorPayloadRaw) {
-            contextContent += `${contextContent ? '\n---\n' : ''
-            }[ENVIRONMENTAL AWARENESS]\n`
-            + `The following telemetry describes your current environmental context. `
-            + `Use it to stay grounded in the user's reality and inform your response. `
-            + `You may reference specific values (like time or active applications) if relevant `
-            + `to the conversation, but avoid a dry, technical recitation of the data.\n`
-            + `---\n`
-            + `${sensorPayloadRaw}\n`
+            contextContent +=
+              `${contextContent ? '\n---\n' : ''}[ENVIRONMENTAL AWARENESS]\n` +
+              `The following telemetry describes your current environmental context. ` +
+              `Use it to stay grounded in the user's reality and inform your response. ` +
+              `You may reference specific values (like time or active applications) if relevant ` +
+              `to the conversation, but avoid a dry, technical recitation of the data.\n` +
+              `---\n` +
+              `${sensorPayloadRaw}\n`
           }
 
           messages.push({
-            role: 'system',
             content: contextContent.trim(),
+            role: 'system',
           })
         }
 
@@ -583,23 +586,22 @@ export const useProactivityStore = defineStore('proactivity', () => {
             let msgContent = ''
             if (typeof msg.content === 'string') {
               msgContent = msg.content as string
-            }
-            else if (Array.isArray(msg.content)) {
-              msgContent = (msg.content as any[]).map((part: any) => {
-                if (typeof part === 'string')
-                  return part
-                if (part && typeof part === 'object' && 'text' in part)
-                  return String(part.text ?? '')
-                return ''
-              }).join('')
+            } else if (Array.isArray(msg.content)) {
+              msgContent = (msg.content as any[])
+                .map((part: any) => {
+                  if (typeof part === 'string') return part
+                  if (part && typeof part === 'object' && 'text' in part) return String(part.text ?? '')
+                  return ''
+                })
+                .join('')
             }
             if (msgContent) {
-              messages.push({ role: msg.role as 'user' | 'assistant', content: msgContent })
+              messages.push({ content: msgContent, role: msg.role as 'user' | 'assistant' })
             }
           }
         }
 
-        messages.push({ role: 'user', content: promptText })
+        messages.push({ content: promptText, role: 'user' })
 
         const activeProviderId = consciousnessStore.activeProvider
         const activeModel = consciousnessStore.activeModel
@@ -616,8 +618,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
         }
 
         // eslint-disable-next-line no-console
-        console.log('[Proactivity] Resolving Provider Instance:', { activeProviderId, activeModel })
-        const activeProvider = await providersStore.getProviderInstance(activeProviderId) as any
+        console.log('[Proactivity] Resolving Provider Instance:', { activeModel, activeProviderId })
+        const activeProvider = (await providersStore.getProviderInstance(activeProviderId)) as any
 
         if (!activeProvider) {
           console.warn('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
@@ -628,14 +630,15 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const resolvedTools = resolveRegisteredTools
 
         const llmResponse = await llmStore.generate(activeModel, activeProvider, messages, {
-          tools: resolvedTools,
           supportsTools: true,
+          tools: resolvedTools,
         })
         const rawReply = llmResponse.text
 
         // Record token usage for persistent tracking
         if (llmResponse.usage) {
-          const totalTokens = llmResponse.usage.total_tokens || (llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens) || 0
+          const totalTokens =
+            llmResponse.usage.total_tokens || llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens || 0
           liveSessionStore.recordInferenceUsage(totalTokens)
         }
 
@@ -653,21 +656,21 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const composedMessageSnapshot = toRaw(chatSession.sessionMessages[sessionId] || [])
 
         const rawStreamingContext: ChatStreamEventContext = {
-          message: { role: 'user', content: '[Heartbeat Check]', createdAt: Date.now(), id: nanoid() },
-          contexts: toRaw(chatContext.getContextsSnapshot()),
           composedMessage: composedMessageSnapshot as any,
+          contexts: toRaw(chatContext.getContextsSnapshot()),
+          message: { content: '[Heartbeat Check]', createdAt: Date.now(), id: nanoid(), role: 'user' },
         }
 
         // Deep clone to ensure serializability for IPC (prevents DataCloneError)
         const streamingContext = JSON.parse(JSON.stringify(rawStreamingContext))
 
         const buildingMessage: StreamingAssistantMessage = {
-          role: 'assistant',
           content: '',
-          slices: [],
-          tool_results: [],
           createdAt: Date.now(),
           id: nanoid(),
+          role: 'assistant',
+          slices: [],
+          tool_results: [],
         }
 
         await chatOrchestrator.emitBeforeMessageComposedHooks('[Proactive Heartbeat]', streamingContext)
@@ -682,6 +685,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
         }
 
         const parser = useLlmmarkerParser({
+          onEnd: (fullText) => {
+            const finalCategorization = categorizeResponse(fullText, activeProviderId)
+            buildingMessage.categorization = {
+              reasoning: finalCategorization.reasoning,
+              speech: finalCategorization.speech,
+            }
+            updateUI()
+          },
           onLiteral: async (literal) => {
             categorizer.consume(literal)
             const speechOnly = categorizer.filterToSpeech(literal, streamPosition)
@@ -694,23 +705,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
               const lastSlice = buildingMessage.slices.at(-1)
               if (lastSlice?.type === 'text') {
                 lastSlice.text += speechOnly
-              }
-              else {
-                buildingMessage.slices.push({ type: 'text', text: speechOnly })
+              } else {
+                buildingMessage.slices.push({ text: speechOnly, type: 'text' })
               }
             }
             updateUI()
           },
           onSpecial: async (special) => {
             await chatOrchestrator.emitTokenSpecialHooks(special, streamingContext)
-          },
-          onEnd: (fullText) => {
-            const finalCategorization = categorizeResponse(fullText, activeProviderId)
-            buildingMessage.categorization = {
-              speech: finalCategorization.speech,
-              reasoning: finalCategorization.reasoning,
-            }
-            updateUI()
           },
         })
 
@@ -735,15 +737,18 @@ export const useProactivityStore = defineStore('proactivity', () => {
         chatSession.inscribeTurn(buildingMessage as any, sessionId)
 
         if (sessionId === chatSession.activeSessionId) {
-          chatOrchestrator.streamingMessage = { role: 'assistant', content: '', slices: [], tool_results: [] }
+          chatOrchestrator.streamingMessage = { content: '', role: 'assistant', slices: [], tool_results: [] }
         }
 
         await chatOrchestrator.emitAssistantMessageHooks(buildingMessage, trimmedReply, streamingContext)
-        await chatOrchestrator.emitChatTurnCompleteHooks({
-          output: buildingMessage,
-          outputText: trimmedReply,
-          toolCalls: [],
-        }, streamingContext)
+        await chatOrchestrator.emitChatTurnCompleteHooks(
+          {
+            output: buildingMessage,
+            outputText: trimmedReply,
+            toolCalls: [],
+          },
+          streamingContext,
+        )
 
         // Piggyback vision capture onto the proactivity heartbeat when Live API is active.
         // This eliminates the need for a separate vision polling loop — proactivity's AFK,
@@ -752,22 +757,19 @@ export const useProactivityStore = defineStore('proactivity', () => {
           console.log('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
           await visionStore.heartbeat({ force: true })
         }
-      }
-      catch (err) {
+      } catch (err) {
         console.error('[Proactivity] Error during heartbeat evaluation:', err)
-      }
-      finally {
+      } finally {
         isHeartbeatEvaluating.value = false
       }
-    }
-    finally {
+    } finally {
       console.timeEnd('[Proactivity] evaluateHeartbeat')
     }
   }
 
   // Diagnostic Hook
   if (typeof window !== 'undefined') {
-    (window as any).triggerHeartbeat = (force = true) => {
+    ;(window as any).triggerHeartbeat = (force = true) => {
       // eslint-disable-next-line no-console
       console.log('[Proactivity] Manual trigger initiated via window.triggerHeartbeat')
       return evaluateHeartbeat({ force })
@@ -778,8 +780,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   function startHeartbeatLoop() {
-    if (heartbeatInterval)
-      stopHeartbeatLoop()
+    if (heartbeatInterval) stopHeartbeatLoop()
 
     // eslint-disable-next-line no-console
     console.log('[Proactivity] Starting global heartbeat loop (10s tick)...')
@@ -803,10 +804,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
     for (const t of registeredTools.value) {
       if (typeof t === 'function') {
         const resolved = await t()
-        if (resolved)
-          all.push(...resolved)
-      }
-      else {
+        if (resolved) all.push(...resolved)
+      } else {
         all.push(t)
       }
     }
@@ -828,14 +827,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
   function cycleHeartbeatInterval() {
     const current = heartbeatIntervalMinutes.value
     const idx = HEARTBEAT_INTERVAL_PRESETS.indexOf(current)
-    const next = idx === -1
-      ? HEARTBEAT_INTERVAL_PRESETS[0] // Custom value → snap to first preset
-      : HEARTBEAT_INTERVAL_PRESETS[(idx + 1) % HEARTBEAT_INTERVAL_PRESETS.length]
+    const next =
+      idx === -1
+        ? HEARTBEAT_INTERVAL_PRESETS[0] // Custom value → snap to first preset
+        : HEARTBEAT_INTERVAL_PRESETS[(idx + 1) % HEARTBEAT_INTERVAL_PRESETS.length]
 
     const cardId = activeCardId.value
     const card = activeCard.value
-    if (!card || !cardId)
-      return
+    if (!card || !cardId) return
 
     airiCardStore.updateCard(cardId, {
       extensions: {
@@ -864,8 +863,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   function toggleRespectSchedule() {
     const cardId = activeCardId.value
     const card = activeCard.value
-    if (!card || !cardId)
-      return
+    if (!card || !cardId) return
 
     const next = !isRespectScheduleEnabled.value
 
@@ -886,30 +884,30 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   return {
-    sessionMetrics,
-    totalTurns,
-    nextMilestone,
-    incrementMetric,
-    updateSensors,
-    sensorPayload,
-    idleTimeSec,
     activeWinStr,
-    winHistory,
-    sysLoad,
-    locTime,
-    lastHeartbeatTime,
-    isHeartbeatEvaluating,
+    cycleHeartbeatInterval,
+    evaluateDreamState,
+    evaluateHeartbeat,
+    heartbeatIntervalMinutes,
+    idleTimeSec,
+    incrementMetric,
     isDreamStateEvaluating,
+    isHeartbeatEvaluating,
+    isRespectScheduleEnabled,
+    lastHeartbeatTime,
+    locTime,
+    nextMilestone,
     registeredTools,
     registerTools,
     resolveRegisteredTools,
-    evaluateHeartbeat,
-    evaluateDreamState,
+    sensorPayload,
+    sessionMetrics,
     startHeartbeatLoop,
     stopHeartbeatLoop,
-    heartbeatIntervalMinutes,
-    cycleHeartbeatInterval,
-    isRespectScheduleEnabled,
+    sysLoad,
     toggleRespectSchedule,
+    totalTurns,
+    updateSensors,
+    winHistory,
   }
 })

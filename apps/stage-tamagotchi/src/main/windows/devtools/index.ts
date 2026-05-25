@@ -19,18 +19,18 @@ export function setupDevtoolsWindow(): DevtoolsWindowManager {
 
   const reusable = createReusableWindow(async () => {
     const window = new BrowserWindow({
-      title: 'Devtools',
-      width: 1020,
       height: 720,
-      minWidth: 640,
-      minHeight: 480,
-      show: false,
       icon,
+      minHeight: 480,
+      minWidth: 640,
+      show: false,
+      title: 'Devtools',
       webPreferences: {
         preload: join(getElectronMainDirname(), '../preload/index.cjs'),
         // Preload exposes Electron APIs and needs Node access.
         sandbox: true,
       },
+      width: 1020,
     })
 
     window.on('ready-to-show', () => window.show())
@@ -44,8 +44,7 @@ export function setupDevtoolsWindow(): DevtoolsWindowManager {
   })
 
   async function openWindow(route?: string) {
-    if (route)
-      currentRoute = route
+    if (route) currentRoute = route
 
     const window = await reusable.getWindow()
     const targetRoute = route ?? currentRoute
@@ -61,7 +60,7 @@ export function setupDevtoolsWindow(): DevtoolsWindowManager {
   }
 
   return {
-    openWindow,
     getWindow: reusable.getWindow,
+    openWindow,
   }
 }

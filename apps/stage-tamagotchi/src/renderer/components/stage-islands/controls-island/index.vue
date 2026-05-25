@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { useMmd } from '@proj-airi/stage-ui-mmd'
-import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
@@ -9,19 +7,13 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-
-import ControlButtonTooltip from './control-button-tooltip.vue'
-import ControlButton from './control-button.vue'
-import ControlsIslandFadeOnHover from './controls-island-fade-on-hover.vue'
-import ControlsIslandHearingConfig from './controls-island-hearing-config.vue'
-import GeminiControls from './gemini-controls.vue'
-import IndicatorMicVolume from './indicator-mic-volume.vue'
-
 import {
   electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
@@ -30,14 +22,18 @@ import {
   electronStartDraggingWindow,
   electronWindowHide,
 } from '../../../../shared/eventa'
+import ControlButton from './control-button.vue'
+import ControlButtonTooltip from './control-button-tooltip.vue'
+import ControlsIslandFadeOnHover from './controls-island-fade-on-hover.vue'
+import ControlsIslandHearingConfig from './controls-island-hearing-config.vue'
+import GeminiControls from './gemini-controls.vue'
+import IndicatorMicVolume from './indicator-mic-volume.vue'
 
 defineProps<{
   isLocked?: boolean
 }>()
 
-const emit = defineEmits<{
-  (e: 'take-photo'): void
-}>()
+const emit = defineEmits<(e: 'take-photo') => void>()
 const viewControlsActiveMode = defineModel<'x' | 'y' | 'z' | 'scale'>('viewControlsActiveMode', { default: 'scale' })
 const { t } = useI18n()
 
@@ -90,18 +86,23 @@ const geminiExpanded = ref(false)
 const islandRef = ref<HTMLElement>()
 
 // === Sub-menu state ===
-const view = ref<'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window' | 'wardrobe-discovery' | 'placement'>('main')
+const view = ref<
+  'main' | 'emotions' | 'wardrobe' | 'profiles' | 'captions' | 'view-window' | 'wardrobe-discovery' | 'placement'
+>('main')
 
 // Auto-expand to wardrobe-discovery when a tactile hit detects sibling outfits
-watch(() => detectedWardrobe.value.siblings, (siblings) => {
-  if (siblings.length > 0) {
-    expanded.value = true
-    view.value = 'wardrobe-discovery'
-  }
-})
+watch(
+  () => detectedWardrobe.value.siblings,
+  (siblings) => {
+    if (siblings.length > 0) {
+      expanded.value = true
+      view.value = 'wardrobe-discovery'
+    }
+  },
+)
 
 // Swap outfit by toggling VRM expression weights
-function swapOutfit(sibling: { display: string, raw: string }) {
+function swapOutfit(sibling: { display: string; raw: string }) {
   // Deactivate all siblings for this slot (including current active)
   const allSiblings = [...detectedWardrobe.value.siblings]
   if (detectedWardrobe.value.active) {
@@ -112,8 +113,7 @@ function swapOutfit(sibling: { display: string, raw: string }) {
   const nextExpressions = { ...activeExpressions.value }
 
   for (const s of allSiblings) {
-    if (s.raw)
-      nextExpressions[s.raw] = 0
+    if (s.raw) nextExpressions[s.raw] = 0
   }
 
   // 2. Activate the target
@@ -123,7 +123,7 @@ function swapOutfit(sibling: { display: string, raw: string }) {
   activeExpressions.value = nextExpressions
 
   // 4. Update the detection state so the UI reflects the swap (clicked item becomes active)
-  const newSiblings = allSiblings.filter(s => s.raw !== sibling.raw)
+  const newSiblings = allSiblings.filter((s) => s.raw !== sibling.raw)
   detectedWardrobe.value = {
     active: sibling,
     siblings: newSiblings,
@@ -131,7 +131,7 @@ function swapOutfit(sibling: { display: string, raw: string }) {
   }
 
   // [WIRED] Ensure expressions are registered in modelStore so they are applied on next update
-  const rawNames = [sibling.raw, ...newSiblings.map(s => s.raw)]
+  const rawNames = [sibling.raw, ...newSiblings.map((s) => s.raw)]
   rawNames.forEach((raw) => {
     if (raw && !modelStore.availableExpressions.includes(raw)) {
       modelStore.availableExpressions.push(raw)
@@ -145,17 +145,16 @@ const geminiRef = ref<HTMLElement>()
 const geminiPanelRef = ref<HTMLElement>()
 
 defineExpose({
+  geminiPanelElement: geminiPanelRef,
+  geminiRootElement: geminiRef,
   hearingDialogOpen,
   rootElement: islandRef,
-  geminiRootElement: geminiRef,
-  geminiPanelElement: geminiPanelRef,
 })
 
 watch(expanded, (isExp) => {
   if (isExp) {
     geminiExpanded.value = false
-  }
-  else {
+  } else {
     view.value = 'main' // Reset sub-menu when collapsing
     settingsStore.stageViewControlsEnabled = false // Disable view controls overlay when collapsing
   }
@@ -168,7 +167,9 @@ function toggleAlwaysOnTop() {
 
 function toggleInteractionMode() {
   interactionMode.value = interactionMode.value === 'orbit' ? 'tactile' : 'orbit'
-  toast.success(`Switched to ${interactionMode.value === 'orbit' ? 'Orbit (Camera)' : 'Tactile (Poke)'} Mode`, { id: 'interaction-mode' })
+  toast.success(`Switched to ${interactionMode.value === 'orbit' ? 'Orbit (Camera)' : 'Tactile (Poke)'} Mode`, {
+    id: 'interaction-mode',
+  })
 }
 
 function handleOpenSettings() {
@@ -218,16 +219,14 @@ const adjustStyleClasses = computed(() => {
   const icon = isLarge ? 'size-5' : 'size-3'
   const border = isLarge ? 'border-2' : 'border-0'
   const padding = isLarge ? 'p-2' : 'p-0.5'
-  return { icon, border, padding, button: `${border} ${padding}` }
+  return { border, button: `${border} ${padding}`, icon, padding }
 })
 
 const geminiColorClasses = computed(() => {
   if (powerState.value === 'busy')
     return 'text-purple-500 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.6)] animate-pulse shadow-purple-500/50'
-  if (powerState.value === 'active')
-    return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
-  if (powerState.value === 'connecting')
-    return 'text-sky-400 animate-pulse'
+  if (powerState.value === 'active') return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+  if (powerState.value === 'connecting') return 'text-sky-400 animate-pulse'
   if (powerState.value === 'ambient')
     return 'text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] transition-all duration-1000 animate-pulse'
 
@@ -235,14 +234,15 @@ const geminiColorClasses = computed(() => {
 })
 
 const geminiIconClasses = computed(() => {
-  if (visionStatus.value === 'capturing')
-    return 'text-green-500 scale-110 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]'
+  if (visionStatus.value === 'capturing') return 'text-green-500 scale-110 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]'
   return ''
 })
 
 function handleGeminiToggle() {
   if (!hasGeminiKey.value) {
-    toast.error('Provide your API key in Settings > Providers > Google Gemini to take advantage of these exciting new features')
+    toast.error(
+      'Provide your API key in Settings > Providers > Google Gemini to take advantage of these exciting new features',
+    )
     return
   }
   geminiExpanded.value = !geminiExpanded.value
@@ -269,21 +269,20 @@ async function refreshWindow() {
   // Use store-level applyCardState with force=true to reload model without full page refresh
   if (activeCard.value) {
     await cardStore.activateCard(activeCardId.value, true)
-  }
-  else {
+  } else {
     window.location.reload()
   }
 }
 
 // === Emotions ===
 const ACT_EMOTIONS = [
-  { key: 'happy', emoji: '😊' },
-  { key: 'sad', emoji: '😢' },
-  { key: 'angry', emoji: '😠' },
-  { key: 'surprised', emoji: '😲' },
-  { key: 'neutral', emoji: '😐' },
-  { key: 'think', emoji: '🤔' },
-  { key: 'cool', emoji: '😎' },
+  { emoji: '😊', key: 'happy' },
+  { emoji: '😢', key: 'sad' },
+  { emoji: '😠', key: 'angry' },
+  { emoji: '😲', key: 'surprised' },
+  { emoji: '😐', key: 'neutral' },
+  { emoji: '🤔', key: 'think' },
+  { emoji: '😎', key: 'cool' },
 ] as const
 
 function triggerEmotion(emotion: string) {
@@ -357,12 +356,14 @@ function cycleAnimation() {
       activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
       // No need to set vrmIdleAnimation manually, Stage.vue computed will handle it
     }
-    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+      id: 'animation-cycle',
+    })
     return
   }
 
   // Tier 2: Random cycling or global fallback
-  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
+  const keys = hasCardSubset ? cardIdleAnimations.filter((k) => allKeys.includes(k)) : allKeys
   const finalKeys = keys.length > 0 ? keys : allKeys
 
   const currentKey = vrmIdleAnimation.value
@@ -371,20 +372,21 @@ function cycleAnimation() {
   const nextAnimation = finalKeys[nextIndex]
 
   vrmIdleAnimation.value = nextAnimation
-  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+    id: 'animation-cycle',
+  })
 }
 
 // === Wardrobe ===
 const wardrobeFilter = ref<'all' | 'base' | 'overlay'>('all')
 const wardrobeItems = computed(() => {
   const outfits = activeCard.value?.extensions?.airi?.outfits || []
-  return outfits.filter(item => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
+  return outfits.filter((item) => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
 })
 
 function isOutfitActive(outfitId: string) {
-  const outfit = activeCard.value?.extensions?.airi?.outfits?.find(o => o.id === outfitId)
-  if (!outfit)
-    return false
+  const outfit = activeCard.value?.extensions?.airi?.outfits?.find((o) => o.id === outfitId)
+  if (!outfit) return false
   return Object.entries(outfit.expressions).every(([name, weight]) => {
     return Math.abs((activeExpressions.value[name] || 0) - weight) < 0.05
   })

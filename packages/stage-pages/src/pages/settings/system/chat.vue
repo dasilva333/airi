@@ -15,18 +15,18 @@ const streamIdleTimeoutModel = computed({
 })
 
 const sendModeOptions = computed(() => [
-  { value: 'enter', label: t('settings.chat.send-mode.options.enter') },
-  { value: 'ctrl-enter', label: t('settings.chat.send-mode.options.ctrl-enter') },
-  { value: 'double-enter', label: t('settings.chat.send-mode.options.double-enter') },
+  { label: t('settings.chat.send-mode.options.enter'), value: 'enter' },
+  { label: t('settings.chat.send-mode.options.ctrl-enter'), value: 'ctrl-enter' },
+  { label: t('settings.chat.send-mode.options.double-enter'), value: 'double-enter' },
 ])
 
 const streamIdleTimeoutOptions = computed(() => [
-  { value: '10000', label: t('settings.chat.stream-idle-timeout.options.10s') },
-  { value: '15000', label: t('settings.chat.stream-idle-timeout.options.15s') },
-  { value: '30000', label: t('settings.chat.stream-idle-timeout.options.30s') },
-  { value: '45000', label: t('settings.chat.stream-idle-timeout.options.45s') },
-  { value: '60000', label: t('settings.chat.stream-idle-timeout.options.60s') },
-  { value: '120000', label: t('settings.chat.stream-idle-timeout.options.120s') },
+  { label: t('settings.chat.stream-idle-timeout.options.10s'), value: '10000' },
+  { label: t('settings.chat.stream-idle-timeout.options.15s'), value: '15000' },
+  { label: t('settings.chat.stream-idle-timeout.options.30s'), value: '30000' },
+  { label: t('settings.chat.stream-idle-timeout.options.45s'), value: '45000' },
+  { label: t('settings.chat.stream-idle-timeout.options.60s'), value: '60000' },
+  { label: t('settings.chat.stream-idle-timeout.options.120s'), value: '120000' },
 ])
 </script>
 

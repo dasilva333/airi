@@ -39,10 +39,10 @@ function detectPlatform(updateInfo: UpdateInfo): Platform {
   }
 
   // eslint-disable-next-line regexp/no-unused-capturing-group
-  const hasArm64 = urls.some(url => /(^|[-_/])arm64([-.]|$)/i.test(url))
+  const hasArm64 = urls.some((url) => /(^|[-_/])arm64([-.]|$)/i.test(url))
   // eslint-disable-next-line regexp/no-unused-capturing-group
-  const hasX64FromName = urls.some(url => /(^|[-_/])x64([-.]|$)/i.test(url))
-  const hasMacZip = urls.some(url => /-mac\.zip$/i.test(url) && !/arm64/i.test(url))
+  const hasX64FromName = urls.some((url) => /(^|[-_/])x64([-.]|$)/i.test(url))
+  const hasMacZip = urls.some((url) => /-mac\.zip$/i.test(url) && !/arm64/i.test(url))
   const hasX64 = hasX64FromName || hasMacZip
 
   if (hasX64 && hasArm64) {
@@ -97,12 +97,12 @@ function collectLatestMacFiles(rootDir: string): string[] {
   const entries = readdirSync(rootDir, { withFileTypes: true })
   // eslint-disable-next-line no-console
   console.debug('merge-latest-mac: scan directory entries', {
-    rootDir,
-    entries: entries.map(entry => ({
-      name: entry.name,
+    entries: entries.map((entry) => ({
       isDirectory: entry.isDirectory(),
       isFile: entry.isFile(),
+      name: entry.name,
     })),
+    rootDir,
   })
 
   for (const entry of entries) {
@@ -130,7 +130,7 @@ async function main() {
   const dir = String(args.options.dir || '').trim()
 
   let files: string[] = []
-  const workspaceRoot = await findWorkspaceDir(cwd()) || cwd()
+  const workspaceRoot = (await findWorkspaceDir(cwd())) || cwd()
   if (inputs.length > 0) {
     for (const input of inputs) {
       const resolved = resolve(input)
@@ -141,16 +141,12 @@ async function main() {
       }
       if (statSync(target).isDirectory()) {
         files.push(...collectLatestMacFiles(target))
-      }
-      else {
+      } else {
         files.push(target)
       }
     }
-  }
-  else {
-    const scanDir = dir
-      ? (existsSync(resolve(dir)) ? resolve(dir) : resolve(workspaceRoot, dir))
-      : resolve('bundle')
+  } else {
+    const scanDir = dir ? (existsSync(resolve(dir)) ? resolve(dir) : resolve(workspaceRoot, dir)) : resolve('bundle')
     files = collectLatestMacFiles(scanDir)
   }
 
@@ -159,7 +155,7 @@ async function main() {
     throw new Error('No latest-mac*.yml files found')
   }
 
-  const entries: { filePath: string, updateInfo: UpdateInfo, platform: Platform }[] = []
+  const entries: { filePath: string; updateInfo: UpdateInfo; platform: Platform }[] = []
   for (const filePath of files) {
     if (!existsSync(filePath)) {
       console.warn('merge-latest-mac: missing file', filePath)
@@ -168,25 +164,24 @@ async function main() {
     const updateInfo = await readUpdateInfo(filePath)
     const platform = detectPlatform(updateInfo)
     console.info('merge-latest-mac: detected platform', { filePath, platform })
-    entries.push({ filePath, updateInfo, platform })
+    entries.push({ filePath, platform, updateInfo })
   }
 
   if (entries.length === 0) {
     throw new Error('No readable latest-mac*.yml files found')
   }
 
-  const outputPath = String(args.options.output || '').trim()
-    || resolve(dir || 'bundle', 'latest-mac.yml')
+  const outputPath = String(args.options.output || '').trim() || resolve(dir || 'bundle', 'latest-mac.yml')
   await mkdir(dirname(outputPath), { recursive: true })
 
-  const mergedEntry = entries.find(entry => entry.platform === 'both')
+  const mergedEntry = entries.find((entry) => entry.platform === 'both')
   if (mergedEntry) {
     await writeFile(outputPath, yaml.stringify(mergedEntry.updateInfo), 'utf8')
     return
   }
 
-  const x64Entries = entries.filter(entry => entry.platform === 'x64')
-  const arm64Entries = entries.filter(entry => entry.platform === 'arm64')
+  const x64Entries = entries.filter((entry) => entry.platform === 'x64')
+  const arm64Entries = entries.filter((entry) => entry.platform === 'arm64')
 
   if (x64Entries.length === 0 && arm64Entries.length === 0) {
     throw new Error('No x64 or arm64 update info found')

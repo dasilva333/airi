@@ -17,13 +17,11 @@ Got something you're working on, or are we just making small talk until the heat
 
 async function resolveInput() {
   const source = process.argv[2]
-  if (!source)
-    return DEFAULT_INPUT
+  if (!source) return DEFAULT_INPUT
 
   if (source === '--file') {
     const filePath = process.argv[3]
-    if (!filePath)
-      throw new Error('Expected a file path after --file')
+    if (!filePath) throw new Error('Expected a file path after --file')
     return await readFile(filePath, 'utf8')
   }
 
@@ -37,12 +35,6 @@ async function main() {
 
   const parser = useLlmmarkerParser({
     minLiteralEmitLength: 24,
-    onLiteral: async (literal) => {
-      literals.push(literal)
-    },
-    onSpecial: async (special) => {
-      specials.push(special)
-    },
     onEnd: async (fullText) => {
       console.log('=== Full Text ===')
       console.log(fullText)
@@ -50,6 +42,12 @@ async function main() {
       console.log('=== Categorized Speech ===')
       console.log(categorizeResponse(fullText).speech)
       console.log()
+    },
+    onLiteral: async (literal) => {
+      literals.push(literal)
+    },
+    onSpecial: async (special) => {
+      specials.push(special)
     },
   })
 

@@ -2,7 +2,7 @@
 import { Checkbox } from '@proj-airi/ui'
 import { onMounted, onUnmounted, ref } from 'vue'
 
-import LoadingSciFiCircle from '../../../src/components/LoadingSciFiCircle/index.vue'
+import type LoadingSciFiCircle from '../../../src/components/LoadingSciFiCircle/index.vue'
 
 const loadingSciFiCircle = ref<InstanceType<typeof LoadingSciFiCircle>>()
 

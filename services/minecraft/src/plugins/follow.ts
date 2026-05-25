@@ -1,6 +1,5 @@
-import type { MineflayerPlugin } from '../libs/mineflayer/plugin'
-
 import pathfinderModel from 'mineflayer-pathfinder'
+import type { MineflayerPlugin } from '../libs/mineflayer/plugin'
 
 import { useLogger } from '../utils/logger'
 
@@ -28,8 +27,7 @@ export function FollowCommand(options?: { rangeGoal: number }): MineflayerPlugin
       }
 
       function followPlayer(): void {
-        if (!state.following)
-          return
+        if (!state.following) return
 
         const target = bot.bot.players[state.following]?.entity
         if (!target) {
@@ -57,8 +55,7 @@ export function FollowCommand(options?: { rangeGoal: number }): MineflayerPlugin
       })
 
       bot.onTick('tick', () => {
-        if (state.following)
-          followPlayer()
+        if (state.following) followPlayer()
       })
     },
   }

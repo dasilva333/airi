@@ -12,10 +12,9 @@ export function mockStreamText(): {
 
         const interval = setInterval(() => {
           if (index < text.length) {
-            controller.enqueue({ type: 'text-delta', text: text[index] })
+            controller.enqueue({ text: text[index], type: 'text-delta' })
             index++
-          }
-          else {
+          } else {
             clearInterval(interval)
             controller.close()
           }

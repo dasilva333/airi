@@ -2,21 +2,24 @@
 import { useData } from 'vitepress'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  src?: string
-  light?: string
-  dark?: string
-  poster?: string
-  autoplay?: boolean
-  controls?: boolean
-  muted?: boolean
-  loop?: boolean
-}>(), {
-  autoplay: false,
-  controls: true,
-  muted: true,
-  loop: true,
-})
+const props = withDefaults(
+  defineProps<{
+    src?: string
+    light?: string
+    dark?: string
+    poster?: string
+    autoplay?: boolean
+    controls?: boolean
+    muted?: boolean
+    loop?: boolean
+  }>(),
+  {
+    autoplay: false,
+    controls: true,
+    loop: true,
+    muted: true,
+  },
+)
 
 const { isDark } = useData()
 
@@ -33,8 +36,7 @@ const isVisible = ref(false)
 
 function handleVisibility(entries: IntersectionObserverEntry[]) {
   entries.forEach((entry) => {
-    if (!videoRef.value)
-      return
+    if (!videoRef.value) return
 
     if (entry.isIntersecting) {
       isVisible.value = true
@@ -43,8 +45,7 @@ function handleVisibility(entries: IntersectionObserverEntry[]) {
           // Auto-play was prevented
         })
       }
-    }
-    else {
+    } else {
       isVisible.value = false
       if (props.autoplay) {
         videoRef.value.pause()
@@ -56,8 +57,8 @@ function handleVisibility(entries: IntersectionObserverEntry[]) {
 onMounted(() => {
   if (props.autoplay && videoRef.value) {
     observer = new IntersectionObserver(handleVisibility, {
-      threshold: 0.2, // Lower threshold to start loading earlier
       rootMargin: '100px 0px', // Preload when close to viewport
+      threshold: 0.2, // Lower threshold to start loading earlier
     })
     observer.observe(videoRef.value)
   }

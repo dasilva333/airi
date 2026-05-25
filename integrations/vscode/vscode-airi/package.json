@@ -1,27 +1,9 @@
 {
-  "publisher": "proj-airi",
-  "name": "vscode-airi",
-  "displayName": "AIRI VSCode adapter",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Adapter that connects VSCode into Project AIRI",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "integrations/vscode/vscode-airi"
-  },
-  "categories": [
-    "Other"
-  ],
-  "preview": true,
-  "main": "./dist/extension.cjs",
-  "icon": "res/logo.jpg",
-  "engines": {
-    "vscode": "^1.109.0"
-  },
   "activationEvents": [
     "onStartupFinished"
+  ],
+  "categories": [
+    "Other"
   ],
   "contributes": {
     "commands": [
@@ -39,39 +21,32 @@
       }
     ],
     "configuration": {
-      "title": "AIRI",
       "properties": {
-        "airi-vscode.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable or disable the AIRI extension"
-        },
         "airi-vscode.contextLines": {
-          "type": "number",
           "default": 5,
-          "description": "Number of context lines to send (before and after current line)"
+          "description": "Number of context lines to send (before and after current line)",
+          "type": "number"
         },
-        "airi-vscode.sendInterval": {
-          "type": "number",
-          "default": 3000,
-          "description": "Interval in milliseconds to send updates (0 for real-time)"
+        "airi-vscode.enabled": {
+          "default": true,
+          "description": "Enable or disable the AIRI extension",
+          "type": "boolean"
         },
         "airi-vscode.gatewayToken": {
-          "type": "string",
           "default": "",
-          "description": "AIRI Gateway application key (leave blank to fallback to unauthenticated connections)"
+          "description": "AIRI Gateway application key (leave blank to fallback to unauthenticated connections)",
+          "type": "string"
+        },
+        "airi-vscode.sendInterval": {
+          "default": 3000,
+          "description": "Interval in milliseconds to send updates (0 for real-time)",
+          "type": "number"
         }
-      }
+      },
+      "title": "AIRI"
     }
   },
-  "scripts": {
-    "prepare": "pnpm run update",
-    "update": "tsx ./scripts/vscode-ext-gen.ts",
-    "dev": "tsdown --watch",
-    "build": "tsdown",
-    "publish": "tsx ./scripts/publish.ts",
-    "typecheck": "tsc --noEmit"
-  },
+  "description": "Adapter that connects VSCode into Project AIRI",
   "devDependencies": {
     "@guiiai/logg": "catalog:",
     "@moeru/std": "catalog:",
@@ -82,5 +57,30 @@
     "nanoid": "catalog:",
     "tinyexec": "^1.0.2",
     "vscode-ext-gen": "^1.6.0"
-  }
+  },
+  "displayName": "AIRI VSCode adapter",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "icon": "res/logo.jpg",
+  "main": "./dist/extension.cjs",
+  "name": "vscode-airi",
+  "preview": true,
+  "private": true,
+  "publisher": "proj-airi",
+  "repository": {
+    "directory": "integrations/vscode/vscode-airi",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepare": "pnpm run update",
+    "publish": "tsx ./scripts/publish.ts",
+    "typecheck": "tsc --noEmit",
+    "update": "tsx ./scripts/vscode-ext-gen.ts"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

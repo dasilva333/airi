@@ -1,6 +1,5 @@
-import type { WidgetInvokers } from './widgets'
-
 import { describe, expect, it, vi } from 'vitest'
+import type { WidgetInvokers } from './widgets'
 
 import { executeWidgetAction, normalizeComponentProps } from './widgets'
 
@@ -28,85 +27,101 @@ describe('widgets tool helpers', () => {
   })
   describe('executeWidgetAction with mocked invokers', () => {
     const makeInvokers = (): WidgetInvokers => ({
-      prepareWindow: vi.fn(),
-      openWindow: vi.fn(),
       addWidget: vi.fn(),
-      updateWidget: vi.fn(),
-      removeWidget: vi.fn(),
       clearWidgets: vi.fn(),
+      openWindow: vi.fn(),
+      prepareWindow: vi.fn(),
+      removeWidget: vi.fn(),
+      updateWidget: vi.fn(),
     })
 
     it('spawns with ttl conversion and parsed props', async () => {
       const invokers = makeInvokers()
       vi.mocked(invokers.addWidget).mockResolvedValue('abc123')
 
-      const result = await executeWidgetAction({
-        action: 'spawn',
-        id: ' abc123 ',
-        componentName: 'weather',
-        componentProps: '{"city":"Tokyo"}',
-        size: 'm',
-        ttlSeconds: 2,
-      }, { invokers })
+      const result = await executeWidgetAction(
+        {
+          action: 'spawn',
+          componentName: 'weather',
+          componentProps: '{"city":"Tokyo"}',
+          id: ' abc123 ',
+          size: 'm',
+          ttlSeconds: 2,
+        },
+        { invokers },
+      )
 
       expect(result).toContain('abc123')
       expect(invokers.addWidget).toHaveBeenCalledTimes(1)
-      expect(invokers.addWidget).toHaveBeenCalledWith(expect.objectContaining({
-        id: 'abc123',
-        componentName: 'weather',
-        componentProps: expect.objectContaining({ city: 'Tokyo' }),
-        size: 'm',
-        ttlMs: 2000,
-      }))
+      expect(invokers.addWidget).toHaveBeenCalledWith(
+        expect.objectContaining({
+          componentName: 'weather',
+          componentProps: expect.objectContaining({ city: 'Tokyo' }),
+          id: 'abc123',
+          size: 'm',
+          ttlMs: 2000,
+        }),
+      )
     })
 
     it('updates props and trims id', async () => {
       const invokers = makeInvokers()
-      await executeWidgetAction({
-        action: 'update',
-        id: ' xyz ',
-        componentName: '',
-        componentProps: '{"foo":1}',
-        size: 'm',
-        ttlSeconds: 0,
-      }, { invokers })
+      await executeWidgetAction(
+        {
+          action: 'update',
+          componentName: '',
+          componentProps: '{"foo":1}',
+          id: ' xyz ',
+          size: 'm',
+          ttlSeconds: 0,
+        },
+        { invokers },
+      )
 
-      expect(invokers.updateWidget).toHaveBeenCalledWith(expect.objectContaining({
-        id: 'xyz',
-        componentProps: expect.objectContaining({ foo: 1 }),
-      }))
+      expect(invokers.updateWidget).toHaveBeenCalledWith(
+        expect.objectContaining({
+          componentProps: expect.objectContaining({ foo: 1 }),
+          id: 'xyz',
+        }),
+      )
     })
 
     it('forces artistry updates into generating when prompt changes without explicit status', async () => {
       const invokers = makeInvokers()
-      await executeWidgetAction({
-        action: 'update',
-        id: 'staging-test-001',
-        componentName: 'artistry',
-        componentProps: '{"prompt":"A new generation prompt"}',
-        size: 'm',
-        ttlSeconds: 0,
-      }, { invokers })
+      await executeWidgetAction(
+        {
+          action: 'update',
+          componentName: 'artistry',
+          componentProps: '{"prompt":"A new generation prompt"}',
+          id: 'staging-test-001',
+          size: 'm',
+          ttlSeconds: 0,
+        },
+        { invokers },
+      )
 
       expect(invokers.updateWidget).toHaveBeenCalledWith({
-        id: 'staging-test-001',
         componentProps: expect.objectContaining({
           prompt: 'A new generation prompt',
           status: 'generating',
         }),
+        id: 'staging-test-001',
       })
     })
 
     it('removes when id provided', async () => {
       const invokers = makeInvokers()
-      await executeWidgetAction({
-        action: 'remove',
-        id: 'rem-id',
-        componentName: '',
-        componentProps: '{}',
-        size: 's',
-        ttlSeconds: 0,
-      }, { invokers })
+      await executeWidgetAction(
+        {
+          action: 'remove',
+          componentName: '',
+          componentProps: '{}',
+          id: 'rem-id',
+          size: 's',
+          ttlSeconds: 0,
+        },
+        { invokers },
+      )
 
       expect(invokers.removeWidget).toHaveBeenCalledWith({ id: 'rem-id' })
     })
@@ -114,14 +129,17 @@ describe('widgets tool helpers', () => {
     it('opens window with prepared id', async () => {
       const invokers = makeInvokers()
       vi.mocked(invokers.prepareWindow).mockResolvedValue('prepared-id')
-      await executeWidgetAction({
-        action: 'open',
-        id: '  prepared-id ',
-        componentName: '',
-        componentProps: '{}',
-        size: 'l',
-        ttlSeconds: 0,
-      }, { invokers })
+      await executeWidgetAction(
+        {
+          action: 'open',
+          componentName: '',
+          componentProps: '{}',
+          id: '  prepared-id ',
+          size: 'l',
+          ttlSeconds: 0,
+        },
+        { invokers },
+      )
 
       expect(invokers.prepareWindow).toHaveBeenCalledWith({ id: 'prepared-id' })
       expect(invokers.openWindow).toHaveBeenCalledWith({ id: 'prepared-id' })
@@ -129,14 +147,17 @@ describe('widgets tool helpers', () => {
 
     it('clears widgets', async () => {
       const invokers = makeInvokers()
-      await executeWidgetAction({
-        action: 'clear',
-        id: '',
-        componentName: '',
-        componentProps: '{}',
-        size: 'm',
-        ttlSeconds: 0,
-      }, { invokers })
+      await executeWidgetAction(
+        {
+          action: 'clear',
+          componentName: '',
+          componentProps: '{}',
+          id: '',
+          size: 'm',
+          ttlSeconds: 0,
+        },
+        { invokers },
+      )
 
       expect(invokers.clearWidgets).toHaveBeenCalledTimes(1)
     })

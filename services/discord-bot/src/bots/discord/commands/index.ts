@@ -14,19 +14,11 @@ export async function registerCommands(token: string, clientId: string, guildId?
 
   try {
     if (guildId) {
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, guildId),
-        { body },
-      )
+      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body })
+    } else {
+      await rest.put(Routes.applicationCommands(clientId), { body })
     }
-    else {
-      await rest.put(
-        Routes.applicationCommands(clientId),
-        { body },
-      )
-    }
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Failed to register slash commands:', error)
   }
 }

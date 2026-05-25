@@ -37,8 +37,7 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
   let transitionQueue: Promise<void> = Promise.resolve()
 
   function clearSpawnWatchdog(): void {
-    if (!spawnWatchdogTimer)
-      return
+    if (!spawnWatchdogTimer) return
 
     clearTimeout(spawnWatchdogTimer)
     spawnWatchdogTimer = null
@@ -47,36 +46,33 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
   async function enqueue(task: () => Promise<void>): Promise<void> {
     const nextTask = transitionQueue.then(task)
 
-    transitionQueue = nextTask
-      .then(() => undefined)
-      .catch(() => undefined)
+    transitionQueue = nextTask.then(() => undefined).catch(() => undefined)
 
     return nextTask
   }
 
   function transitionState(nextState: ConnectionState, reason: string): void {
-    if (state === nextState)
-      return
+    if (state === nextState) return
 
     const previousState = state
     state = nextState
 
     if (nextState !== 'awaiting_spawn') {
       clearSpawnWatchdog()
-    }
-    else {
+    } else {
       clearSpawnWatchdog()
 
       const timeoutMs = deps.spawnTimeoutMs ?? DEFAULT_SPAWN_TIMEOUT_MS
       spawnWatchdogTimer = setTimeout(() => {
         void enqueue(async () => {
-          if (stopping || state !== 'awaiting_spawn')
-            return
+          if (stopping || state !== 'awaiting_spawn') return
 
-          deps.logger.withFields({
-            attempt: attempts,
-            timeoutMs,
-          }).error('Reconnect attempt timed out before spawn')
+          deps.logger
+            .withFields({
+              attempt: attempts,
+              timeoutMs,
+            })
+            .error('Reconnect attempt timed out before spawn')
 
           transitionState('idle', 'spawn-timeout')
           await handleDisconnect('spawn-timeout')
@@ -84,19 +80,19 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
       }, timeoutMs)
     }
 
-    deps.logger.withFields({
-      from: previousState,
-      to: nextState,
-      reason,
-    }).log('Reconnect state transition')
+    deps.logger
+      .withFields({
+        from: previousState,
+        reason,
+        to: nextState,
+      })
+      .log('Reconnect state transition')
   }
 
   async function handleDisconnect(reason: string): Promise<void> {
-    if (stopping)
-      return
+    if (stopping) return
 
-    if (!deps.reconnect?.enabled)
-      return
+    if (!deps.reconnect?.enabled) return
 
     if (state === 'awaiting_spawn') {
       deps.logger.withFields({ reason }).error('Reconnect interrupted before spawn; retrying')
@@ -112,22 +108,23 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
     attempts += 1
     transitionState('awaiting_spawn', reason)
 
-    deps.logger.withFields({
-      reason,
-      attempt: attempts,
-      maxRetries,
-    }).log('Reconnecting...')
+    deps.logger
+      .withFields({
+        attempt: attempts,
+        maxRetries,
+        reason,
+      })
+      .log('Reconnecting...')
 
     try {
       await deps.replaceBot({
-        reason,
         attempt: attempts,
         maxRetries,
+        reason,
       })
 
       deps.logger.log('Reconnect initiated, waiting for spawn...')
-    }
-    catch (error) {
+    } catch (error) {
       deps.logger.errorWithError('Reconnect failed', error as Error)
       transitionState('idle', 'reconnect-error')
       throw error
@@ -148,8 +145,7 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
   }
 
   const stop = (): void => {
-    if (stopping)
-      return
+    if (stopping) return
 
     stopping = true
     attempts = 0
@@ -158,11 +154,13 @@ export function createConnectionSupervisor(deps: ConnectionSupervisorDeps): Conn
     if (state !== 'idle') {
       const previousState = state
       state = 'idle'
-      deps.logger.withFields({
-        from: previousState,
-        to: state,
-        reason: 'stop',
-      }).log('Reconnect state transition')
+      deps.logger
+        .withFields({
+          from: previousState,
+          reason: 'stop',
+          to: state,
+        })
+        .log('Reconnect state transition')
     }
   }
 

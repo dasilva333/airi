@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { OnboardingStepNextHandler } from './types'
-
 import { Button } from '@proj-airi/ui'
 import { useI18n } from 'vue-i18n'
-
 import onboardingLogo from '../../../../assets/onboarding.avif'
+import type { OnboardingStepNextHandler } from './types'
 
 interface Props {
   onNext: OnboardingStepNextHandler

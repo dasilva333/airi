@@ -14,14 +14,14 @@ export function buildConsciousContextView(ctx: ReflexContextState): ConsciousCon
   const selfSummary = `Position ${roundedPos} Health ${ctx.self.health}/20 Food ${ctx.self.food}/20 and I'm holding ${ctx.self.holding ?? 'nothing'}.${followState}`
 
   const players = ctx.environment.nearbyPlayers
-    .map(p => (p.holding ? `${p.name} is holding (${p.holding})` : p.name))
+    .map((p) => (p.holding ? `${p.name} is holding (${p.holding})` : p.name))
     .join(',')
-  const entities = ctx.environment.nearbyEntities.map(e => e.name).join(',')
+  const entities = ctx.environment.nearbyEntities.map((e) => e.name).join(',')
 
   const environmentSummary = `${ctx.environment.time} ${ctx.environment.weather} Nearby players [${players}] Nearby entities [${entities}] Light ${ctx.environment.lightLevel}`
 
   return {
-    selfSummary,
     environmentSummary,
+    selfSummary,
   }
 }

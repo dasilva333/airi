@@ -15,8 +15,7 @@ const autonomousStore = useAutonomousArtistryStore()
 const viewMode = ref<'image' | 'prompt' | 'note'>('image')
 
 const directorNote = computed(() => {
-  if (previewModal.value?.type !== 'image')
-    return null
+  if (previewModal.value?.type !== 'image') return null
   return autonomousStore.findNoteForImage(previewModal.value.title, previewModal.value.prompt)
 })
 </script>

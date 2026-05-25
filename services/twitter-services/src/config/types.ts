@@ -1,7 +1,6 @@
+import process from 'node:process'
 import type { BrowserConfig } from '../types/browser'
 import type { SearchOptions, TimelineOptions } from '../types/twitter'
-
-import process from 'node:process'
 
 /**
  * Complete configuration interface
@@ -58,23 +57,41 @@ export function getDefaultConfig(): Config {
   // The auth service will load cookies from session file instead
 
   return {
+    adapters: {
+      airi: {
+        enabled: process.env.ENABLE_AIRI === 'true',
+        token: process.env.AIRI_TOKEN || '',
+        url: process.env.AIRI_URL || 'http://localhost:3000',
+      },
+      mcp: {
+        enabled: process.env.ENABLE_MCP === 'true' || true,
+        port: Number(process.env.MCP_PORT || 8080),
+      },
+    },
     browser: {
       apiKey: process.env.BROWSERBASE_API_KEY || '', // Move apiKey to browser config
       headless: process.env.BROWSER_HEADLESS === 'true',
-      userAgent: process.env.BROWSER_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      viewport: {
-        width: Number.parseInt(process.env.BROWSER_VIEWPORT_WIDTH || '1280'),
-        height: Number.parseInt(process.env.BROWSER_VIEWPORT_HEIGHT || '800'),
-      },
-      timeout: Number.parseInt(process.env.BROWSER_TIMEOUT || '30000'),
-      requestTimeout: Number.parseInt(process.env.BROWSER_REQUEST_TIMEOUT || '20000'),
       requestRetries: Number.parseInt(process.env.BROWSER_REQUEST_RETRIES || '2'),
+      requestTimeout: Number.parseInt(process.env.BROWSER_REQUEST_TIMEOUT || '20000'),
+      timeout: Number.parseInt(process.env.BROWSER_TIMEOUT || '30000'),
+      userAgent:
+        process.env.BROWSER_USER_AGENT ||
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      viewport: {
+        height: Number.parseInt(process.env.BROWSER_VIEWPORT_HEIGHT || '800'),
+        width: Number.parseInt(process.env.BROWSER_VIEWPORT_WIDTH || '1280'),
+      },
     },
     credentials: {
-      apiKey: process.env.TWITTER_API_KEY,
-      apiSecret: process.env.TWITTER_API_SECRET,
       accessToken: process.env.TWITTER_ACCESS_TOKEN,
       accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      apiKey: process.env.TWITTER_API_KEY,
+      apiSecret: process.env.TWITTER_API_SECRET,
+    },
+    system: {
+      concurrency: Number(process.env.CONCURRENCY || 1),
+      logFormat: 'pretty',
+      logLevel: 'debug',
     },
     twitter: {
       defaultOptions: {
@@ -84,22 +101,6 @@ export function getDefaultConfig(): Config {
           includeRetweets: true,
         },
       },
-    },
-    adapters: {
-      airi: {
-        url: process.env.AIRI_URL || 'http://localhost:3000',
-        token: process.env.AIRI_TOKEN || '',
-        enabled: process.env.ENABLE_AIRI === 'true',
-      },
-      mcp: {
-        port: Number(process.env.MCP_PORT || 8080),
-        enabled: process.env.ENABLE_MCP === 'true' || true,
-      },
-    },
-    system: {
-      logLevel: 'debug',
-      logFormat: 'pretty',
-      concurrency: Number(process.env.CONCURRENCY || 1),
     },
   }
 }

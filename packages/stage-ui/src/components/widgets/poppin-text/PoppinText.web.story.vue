@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { FieldRange } from '@proj-airi/ui'
 import { ref } from 'vue'
-
-import PoppinText from './PoppinText.web.vue'
-
 import {
   createCutePopupAnimator,
   createFadeAnimator,
@@ -11,6 +8,7 @@ import {
   createPopupAnimator,
   createStackAnimator,
 } from './animators'
+import PoppinText from './PoppinText.web.vue'
 
 const text = ref('行こう、七色のキラキラドキドキに向かって！')
 const duration = ref(750)
@@ -20,16 +18,18 @@ function createStream(text: string) {
     start(controller) {
       const bytes = new TextEncoder().encode(text)
       let index = 0
-      const interval = setInterval(() => {
-        if (index < bytes.length) {
-          controller.enqueue(bytes.subarray(index, index + 1))
-          index++
-        }
-        else {
-          clearInterval(interval)
-          controller.close()
-        }
-      }, 50 + 100 * Math.random())
+      const interval = setInterval(
+        () => {
+          if (index < bytes.length) {
+            controller.enqueue(bytes.subarray(index, index + 1))
+            index++
+          } else {
+            clearInterval(interval)
+            controller.close()
+          }
+        },
+        50 + 100 * Math.random(),
+      )
     },
   })
 }

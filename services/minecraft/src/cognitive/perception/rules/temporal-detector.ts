@@ -29,20 +29,16 @@ export function createDetectorState(windowSlots: number, nowMs: number = Date.no
   return Object.freeze({
     counts: Object.freeze(Array.from({ length: windowSlots }, () => 0)),
     head: 0,
-    total: 0,
-    lastUpdateMs: nowMs,
     lastFireSlot: null,
+    lastUpdateMs: nowMs,
+    total: 0,
   })
 }
 
 /**
  * Calculate how many slots have passed since last update
  */
-export function calculateSlotDelta(
-  lastUpdateMs: number,
-  nowMs: number,
-  slotMs: number,
-): number {
+export function calculateSlotDelta(lastUpdateMs: number, nowMs: number, slotMs: number): number {
   const lastSlot = Math.floor(lastUpdateMs / slotMs)
   const currentSlot = Math.floor(nowMs / slotMs)
   return currentSlot - lastSlot
@@ -88,46 +84,40 @@ export function advanceSlots(
   return Object.freeze({
     counts: Object.freeze(newCounts),
     head: newHead,
-    total: newTotal,
-    lastUpdateMs: state.lastUpdateMs + slotsToAdvance * slotMs,
     lastFireSlot: state.lastFireSlot,
+    lastUpdateMs: state.lastUpdateMs + slotsToAdvance * slotMs,
+    total: newTotal,
   })
 }
 
 /**
  * Increment the current slot count (pure function)
  */
-export function incrementCount(
-  state: DetectorState,
-  incrementBy: number = 1,
-): DetectorState {
+export function incrementCount(state: DetectorState, incrementBy: number = 1): DetectorState {
   const newCounts = [...state.counts]
   newCounts[state.head] = (newCounts[state.head] ?? 0) + incrementBy
 
   return Object.freeze({
     counts: Object.freeze(newCounts),
     head: state.head,
-    total: state.total + incrementBy,
-    lastUpdateMs: state.lastUpdateMs,
     lastFireSlot: state.lastFireSlot,
+    lastUpdateMs: state.lastUpdateMs,
+    total: state.total + incrementBy,
   })
 }
 
 /**
  * Reset detector after firing (pure function)
  */
-export function resetAfterFire(
-  state: DetectorState,
-  currentSlot: number,
-): DetectorState {
+export function resetAfterFire(state: DetectorState, currentSlot: number): DetectorState {
   const windowSize = state.counts.length
 
   return Object.freeze({
     counts: Object.freeze(Array.from({ length: windowSize }, () => 0)),
     head: state.head,
-    total: 0,
-    lastUpdateMs: state.lastUpdateMs,
     lastFireSlot: currentSlot,
+    lastUpdateMs: state.lastUpdateMs,
+    total: 0,
   })
 }
 
@@ -135,23 +125,17 @@ export function resetAfterFire(
  * Reset detector counts when entering a new tumbling window.
  * Preserves lastFireSlot so once-per-window checks still work.
  */
-function resetForNewWindow(
-  state: DetectorState,
-  nowMs: number,
-): DetectorState {
+function resetForNewWindow(state: DetectorState, nowMs: number): DetectorState {
   return Object.freeze({
     counts: Object.freeze(Array.from({ length: state.counts.length }, () => 0)),
     head: 0,
-    total: 0,
-    lastUpdateMs: nowMs,
     lastFireSlot: state.lastFireSlot,
+    lastUpdateMs: nowMs,
+    total: 0,
   })
 }
 
-function processSlidingEvent(
-  state: DetectorState,
-  input: ProcessDetectorInput,
-): readonly [boolean, DetectorState] {
+function processSlidingEvent(state: DetectorState, input: ProcessDetectorInput): readonly [boolean, DetectorState] {
   const slotMs = input.slotMs ?? DEFAULT_SLOT_MS
 
   // First advance time
@@ -171,18 +155,14 @@ function processSlidingEvent(
   return [newState.total >= input.threshold, newState] as const
 }
 
-function processTumblingEvent(
-  state: DetectorState,
-  input: ProcessDetectorInput,
-): readonly [boolean, DetectorState] {
+function processTumblingEvent(state: DetectorState, input: ProcessDetectorInput): readonly [boolean, DetectorState] {
   const currentWindowSlot = Math.floor(input.nowMs / input.windowMs)
   const previousWindowSlot = Math.floor(state.lastUpdateMs / input.windowMs)
 
   let newState = state
   if (currentWindowSlot !== previousWindowSlot) {
     newState = resetForNewWindow(state, input.nowMs)
-  }
-  else {
+  } else {
     newState = Object.freeze({
       ...newState,
       lastUpdateMs: input.nowMs,
@@ -197,10 +177,13 @@ function processTumblingEvent(
     return [false, newState] as const
   }
 
-  return [true, Object.freeze({
-    ...newState,
-    lastFireSlot: currentWindowSlot,
-  })] as const
+  return [
+    true,
+    Object.freeze({
+      ...newState,
+      lastFireSlot: currentWindowSlot,
+    }),
+  ] as const
 }
 
 /**
@@ -208,10 +191,7 @@ function processTumblingEvent(
  *
  * Returns [shouldFire, newState]
  */
-export function processEvent(
-  state: DetectorState,
-  input: ProcessDetectorInput,
-): readonly [boolean, DetectorState] {
+export function processEvent(state: DetectorState, input: ProcessDetectorInput): readonly [boolean, DetectorState] {
   if (input.mode === 'tumbling') {
     return processTumblingEvent(state, input)
   }
@@ -233,19 +213,20 @@ export function parseWindowDuration(duration: string): number {
   const unit = match[2] || 'ms'
 
   switch (unit) {
-    case 'ms': return value
-    case 's': return value * 1000
-    case 'm': return value * 60 * 1000
-    default: return value
+    case 'ms':
+      return value
+    case 's':
+      return value * 1000
+    case 'm':
+      return value * 60 * 1000
+    default:
+      return value
   }
 }
 
 /**
  * Calculate number of slots for a given window duration
  */
-export function calculateWindowSlots(
-  windowMs: number,
-  slotMs: number = DEFAULT_SLOT_MS,
-): number {
+export function calculateWindowSlots(windowMs: number, slotMs: number = DEFAULT_SLOT_MS): number {
   return Math.max(1, Math.ceil(windowMs / slotMs))
 }

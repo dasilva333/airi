@@ -1,46 +1,30 @@
 <script setup lang="ts">
 type ThemeVariant = 'primary' | 'violet' | 'lime' | 'orange'
 
-const props = withDefaults(defineProps<{
-  theme?: ThemeVariant
-  label?: string
-}>(), {
-  theme: 'primary',
-})
-
-const themeClasses: Record<ThemeVariant, {
-  container: string[]
-  label?: string[]
-}> = {
-  primary: {
-    container: [
-      'text-neutral-900/80 dark:text-neutral-100/80',
-      'bg-primary-50/80 dark:bg-primary-900/50 backdrop-blur-md',
-      `before:bg-primary-500/30 before:content-[''] before:dark:bg-primary-200/20`,
-    ],
-    label: [
-      'text-primary-500 dark:text-primary-200 font-semibold',
-    ],
+const props = withDefaults(
+  defineProps<{
+    theme?: ThemeVariant
+    label?: string
+  }>(),
+  {
+    theme: 'primary',
   },
+)
+
+const themeClasses: Record<
+  ThemeVariant,
+  {
+    container: string[]
+    label?: string[]
+  }
+> = {
   lime: {
     container: [
       'text-neutral-900/80 dark:text-neutral-100/80',
       'bg-lime-50/80 dark:bg-lime-900/50 backdrop-blur-md',
       `before:bg-lime-500/30 before:content-[''] before:dark:bg-lime-200/20`,
     ],
-    label: [
-      'text-lime-500 dark:text-lime-200 font-semibold',
-    ],
-  },
-  violet: {
-    container: [
-      'text-neutral-900/80 dark:text-neutral-100/80',
-      'bg-violet-50/80 dark:bg-violet-900/50 backdrop-blur-md',
-      `before:bg-violet-500/30 before:content-[''] before:dark:bg-violet-200/20`,
-    ],
-    label: [
-      'text-violet-500 dark:text-violet-200 font-semibold',
-    ],
+    label: ['text-lime-500 dark:text-lime-200 font-semibold'],
   },
   orange: {
     container: [
@@ -48,9 +32,23 @@ const themeClasses: Record<ThemeVariant, {
       'bg-orange-100/60 dark:bg-orange-900/50 backdrop-blur-md',
       `before:bg-orange-500/30 before:content-[''] before:dark:bg-orange-200/20`,
     ],
-    label: [
-      'text-orange-500 dark:text-orange-200 font-semibold',
+    label: ['text-orange-500 dark:text-orange-200 font-semibold'],
+  },
+  primary: {
+    container: [
+      'text-neutral-900/80 dark:text-neutral-100/80',
+      'bg-primary-50/80 dark:bg-primary-900/50 backdrop-blur-md',
+      `before:bg-primary-500/30 before:content-[''] before:dark:bg-primary-200/20`,
     ],
+    label: ['text-primary-500 dark:text-primary-200 font-semibold'],
+  },
+  violet: {
+    container: [
+      'text-neutral-900/80 dark:text-neutral-100/80',
+      'bg-violet-50/80 dark:bg-violet-900/50 backdrop-blur-md',
+      `before:bg-violet-500/30 before:content-[''] before:dark:bg-violet-200/20`,
+    ],
+    label: ['text-violet-500 dark:text-violet-200 font-semibold'],
   },
 }
 </script>

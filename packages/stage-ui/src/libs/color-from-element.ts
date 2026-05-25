@@ -1,20 +1,16 @@
 import type { Color } from 'culori'
-
-import html2canvas from 'html2canvas'
-
 import { average } from 'culori'
+import html2canvas from 'html2canvas'
 import { Vibrant } from 'node-vibrant/browser'
 
 export type ColorFromElementMode = 'vibrant' | 'html2canvas' | 'both'
 
 export function patchThemeSamplingHtml2CanvasClone(doc: Document) {
-  if (!('document' in globalThis) || globalThis.document == null)
-    return
-  if (!('getComputedStyle' in globalThis))
-    return
+  if (!('document' in globalThis) || globalThis.document == null) return
+  if (!('getComputedStyle' in globalThis)) return
 
   doc.querySelectorAll('.theme-overlay').forEach((overlay) => {
-    (overlay as HTMLElement).style.display = 'none'
+    ;(overlay as HTMLElement).style.display = 'none'
   })
 
   doc.querySelectorAll('.colored-area').forEach((wave) => {
@@ -88,7 +84,10 @@ export interface ColorFromElementResult {
   }
 }
 
-export async function colorFromElement(element: HTMLElement, options: ColorFromElementOptions = {}): Promise<ColorFromElementResult> {
+export async function colorFromElement(
+  element: HTMLElement,
+  options: ColorFromElementOptions = {},
+): Promise<ColorFromElementResult> {
   const mode = options.mode ?? 'both'
   const result: ColorFromElementResult = {}
 
@@ -108,12 +107,16 @@ export async function colorFromElement(element: HTMLElement, options: ColorFromE
   return result
 }
 
-async function extractWithVibrant(element: HTMLElement, options: ColorFromElementOptions['vibrant']): Promise<ColorFromElementResult['vibrant']> {
+async function extractWithVibrant(
+  element: HTMLElement,
+  options: ColorFromElementOptions['vibrant'],
+): Promise<ColorFromElementResult['vibrant']> {
   const sampleTopRatio = options?.sampleTopRatio ?? 0.2
-  const imageSource = options?.imageSource ?? (element instanceof HTMLImageElement ? (element.currentSrc || element.src) : undefined)
+  const imageSource =
+    options?.imageSource ?? (element instanceof HTMLImageElement ? element.currentSrc || element.src : undefined)
 
   if (!imageSource) {
-    return { palette: [], dominant: undefined }
+    return { dominant: undefined, palette: [] }
   }
 
   const img = new Image()
@@ -139,16 +142,19 @@ async function extractWithVibrant(element: HTMLElement, options: ColorFromElemen
   const palette = await vibrant.getPalette()
 
   const colors = Object.values(palette)
-    .map(color => color?.hex)
+    .map((color) => color?.hex)
     .filter((color): color is string => typeof color === 'string')
 
   return {
-    palette: colors,
     dominant: palette.Vibrant?.hex || palette.DarkVibrant?.hex || colors[0],
+    palette: colors,
   }
 }
 
-async function extractWithHtml2Canvas(element: HTMLElement, options: ColorFromElementOptions['html2canvas']): Promise<ColorFromElementResult['html2canvas']> {
+async function extractWithHtml2Canvas(
+  element: HTMLElement,
+  options: ColorFromElementOptions['html2canvas'],
+): Promise<ColorFromElementResult['html2canvas']> {
   const region = options?.region ?? {}
   // NOTICE: Region defaults to the live element box; override when the rendered size differs (e.g., scaled canvases).
   const captureWidth = region.width ?? element.offsetWidth
@@ -156,20 +162,20 @@ async function extractWithHtml2Canvas(element: HTMLElement, options: ColorFromEl
 
   const canvas = await html2canvas(element, {
     allowTaint: options?.allowTaint ?? true,
-    useCORS: options?.useCORS ?? true,
     backgroundColor: options?.backgroundColor ?? null,
-    scale: options?.scale ?? 0.5,
-    logging: options?.logging ?? false,
-    width: captureWidth,
     height: captureHeight,
+    logging: options?.logging ?? false,
+    onclone: options?.onclone,
+    scale: options?.scale ?? 0.5,
+    useCORS: options?.useCORS ?? true,
+    width: captureWidth,
     x: region.x,
     y: region.y,
-    onclone: options?.onclone,
   })
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    return { canvas, average: undefined }
+    return { average: undefined, canvas }
   }
 
   const sampleHeight = Math.max(1, Math.min(options?.sampleHeight ?? 20, canvas.height))
@@ -184,19 +190,19 @@ async function extractWithHtml2Canvas(element: HTMLElement, options: ColorFromEl
     const a = imageData.data[i + 3]
 
     if (a > 0) {
-      colors.push({ mode: 'rgb', r, g, b })
+      colors.push({ b, g, mode: 'rgb', r })
     }
   }
 
   if (colors.length === 0) {
-    return { canvas, average: undefined }
+    return { average: undefined, canvas }
   }
 
   const averaged = average(colors as [Color, ...Color[]])
   const averageColor = averaged ? `rgb(${averaged.r}, ${averaged.g}, ${averaged.b})` : undefined
 
   return {
-    canvas,
     average: averageColor,
+    canvas,
   }
 }

@@ -1,17 +1,12 @@
 <script setup lang="ts">
-import type { SpeechProvider } from '@xsai-ext/providers/utils'
-
-import {
-  Alert,
-  SpeechPlaygroundOpenAICompatible,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { Alert, SpeechPlaygroundOpenAICompatible, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, Callout, FieldInput, FieldRange } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
 import { useDebounceFn } from '@vueuse/core'
+import type { SpeechProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -75,16 +70,15 @@ const { providers } = storeToRefs(providersStore)
 const { t } = useI18n()
 
 const speed = ref<number>(
-  (providers.value[providerId] as any)?.voiceSettings?.speed
-  || (providers.value[providerId] as any)?.speed
-  || defaultVoiceSettings.speed,
+  (providers.value[providerId] as any)?.voiceSettings?.speed ||
+    (providers.value[providerId] as any)?.speed ||
+    defaultVoiceSettings.speed,
 )
 
 const model = computed({
-  get: () => providers.value[providerId]?.model as string | undefined || defaultModel,
+  get: () => (providers.value[providerId]?.model as string | undefined) || defaultModel,
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].model = value
   },
 })
@@ -92,8 +86,7 @@ const model = computed({
 const voice = computed({
   get: () => providers.value[providerId]?.voice || 'ivy',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].voice = value
   },
 })
@@ -115,23 +108,23 @@ const draft = ref<ChatterboxPreset>(createDraft())
 const profileDraft = ref<ChatterboxProfileDraft>(createProfileDraft())
 
 const voiceOptions = computed(() =>
-  speechStore.getVoicesForProvider(providerId).map(voiceInfo => ({
-    value: voiceInfo.id,
+  speechStore.getVoicesForProvider(providerId).map((voiceInfo) => ({
     label: voiceInfo.name || voiceInfo.id,
+    value: voiceInfo.id,
   })),
 )
 
 const baseVoiceOptions = computed(() =>
-  (capabilities.value?.voices || []).map(item => ({
-    value: item,
+  (capabilities.value?.voices || []).map((item) => ({
     label: item,
+    value: item,
   })),
 )
 
 const modeOptions = computed(() =>
-  (capabilities.value?.modes || ['full', 'turbo']).map(item => ({
-    value: item,
+  (capabilities.value?.modes || ['full', 'turbo']).map((item) => ({
     label: item,
+    value: item,
   })),
 )
 
@@ -153,16 +146,16 @@ const groupedExpressionTags = computed(() => {
 const mannerismCapabilities = computed(() => capabilities.value?.speech?.mannerisms || [])
 
 const profileOptions = computed(() =>
-  (capabilities.value?.profiles || []).map(item => ({
-    value: item,
+  (capabilities.value?.profiles || []).map((item) => ({
     label: item,
+    value: item,
   })),
 )
 
 const profileDraftOptions = computed(() =>
-  profileDrafts.value.map(profile => ({
-    value: profile.id,
+  profileDrafts.value.map((profile) => ({
     label: profile.id,
+    value: profile.id,
   })),
 )
 
@@ -188,11 +181,11 @@ const profileTildeText = computed({
 })
 
 const profileEmoticonRulesText = computed({
-  get: () => profileDraft.value.emoticonRules.map(rule => `${rule.pattern} => ${rule.replacement}`).join('\n'),
+  get: () => profileDraft.value.emoticonRules.map((rule) => `${rule.pattern} => ${rule.replacement}`).join('\n'),
   set: (value: string) => {
     profileDraft.value.emoticonRules = value
       .split('\n')
-      .map(line => line.trim())
+      .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
         const [pattern, ...replacementParts] = line.split('=>')
@@ -201,14 +194,13 @@ const profileEmoticonRulesText = computed({
           replacement: replacementParts.join('=>').trim(),
         }
       })
-      .filter(rule => rule.pattern && rule.replacement)
+      .filter((rule) => rule.pattern && rule.replacement)
   },
 })
 
 function normalizeApiBaseUrl(value: string): string {
   const trimmed = value.trim()
-  if (!trimmed)
-    return ''
+  if (!trimmed) return ''
 
   const normalized = trimmed.endsWith('/') ? trimmed : `${trimmed}/`
   return normalized.endsWith('/v1/') ? normalized : `${normalized}v1/`
@@ -221,19 +213,19 @@ function toStudioRootUrl(apiBaseUrl: string): string {
 function parseList(value: string): string[] {
   return value
     .split(/[\n,]/)
-    .map(item => item.trim())
+    .map((item) => item.trim())
     .filter(Boolean)
 }
 
 function createDraft(seed: Partial<ChatterboxPreset> = {}): ChatterboxPreset {
   return {
-    id: seed.id || '',
-    voice_file: seed.voice_file || capabilities.value?.voices?.[0] || 'ivy',
-    tts_model: seed.tts_model || capabilities.value?.modes?.[0] || 'full',
     exaggeration: seed.exaggeration ?? 0,
+    id: seed.id || '',
     mannerism_profile: seed.mannerism_profile || capabilities.value?.profiles?.[0] || '',
+    tts_model: seed.tts_model || capabilities.value?.modes?.[0] || 'full',
     ui_expressions: [...(seed.ui_expressions || [])],
     ui_mannerisms: [...(seed.ui_mannerisms || [])],
+    voice_file: seed.voice_file || capabilities.value?.voices?.[0] || 'ivy',
   }
 }
 
@@ -243,13 +235,15 @@ function applyDraft(seed?: Partial<ChatterboxPreset>) {
 
 function createProfileDraft(seed: Partial<ChatterboxProfileDraft> = {}): ChatterboxProfileDraft {
   return {
-    id: seed.id || '',
+    emoticonRules: [
+      ...(seed.emoticonRules || [
+        { pattern: '\\b0_0\\b', replacement: '[meow]' },
+        { pattern: '\\b[oO]_[oO]\\b', replacement: '[mew]?' },
+      ]),
+    ],
     hmph: seed.hmph || '[sigh]',
+    id: seed.id || '',
     tilde: [...(seed.tilde || ['nya', 'woof', 'desu'])],
-    emoticonRules: [...(seed.emoticonRules || [
-      { pattern: '\\b0_0\\b', replacement: '[meow]' },
-      { pattern: '\\b[oO]_[oO]\\b', replacement: '[mew]?' },
-    ])],
   }
 }
 
@@ -258,17 +252,16 @@ function applyProfileDraft(seed?: Partial<ChatterboxProfileDraft>) {
 }
 
 function applyAllTags() {
-  draft.value.ui_expressions = expressionTags.value.map(tag => `[${tag.tag}]`)
+  draft.value.ui_expressions = expressionTags.value.map((tag) => `[${tag.tag}]`)
 }
 
 function applyAllMannerisms() {
-  draft.value.ui_mannerisms = mannerismCapabilities.value.map(item => item.id)
+  draft.value.ui_mannerisms = mannerismCapabilities.value.map((item) => item.id)
 }
 
 function buildStudioHeaders(): Record<string, string> {
-  const apiKey = typeof providers.value[providerId]?.apiKey === 'string'
-    ? providers.value[providerId]?.apiKey.trim()
-    : ''
+  const apiKey =
+    typeof providers.value[providerId]?.apiKey === 'string' ? providers.value[providerId]?.apiKey.trim() : ''
 
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
 }
@@ -278,58 +271,54 @@ async function fetchJson<T>(url: string): Promise<T> {
     headers: buildStudioHeaders(),
   })
 
-  if (!response.ok)
-    throw new Error(`${response.status} ${response.statusText}`)
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
 
-  return await response.json() as T
+  return (await response.json()) as T
 }
 
 async function sendJson<T>(url: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Promise<T> {
   const response = await fetch(url, {
-    method,
+    body: body ? JSON.stringify(body) : undefined,
     headers: {
       'Content-Type': 'application/json',
       ...buildStudioHeaders(),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    method,
   })
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`
     try {
-      const errorBody = await response.json() as { detail?: string }
-      if (errorBody?.detail)
-        detail = String(errorBody.detail)
-    }
-    catch {
-    }
+      const errorBody = (await response.json()) as { detail?: string }
+      if (errorBody?.detail) detail = String(errorBody.detail)
+    } catch {}
     throw new Error(detail)
   }
 
-  return await response.json() as T
+  return (await response.json()) as T
 }
 
 function presetPayloadFromDraft() {
   return {
-    id: draft.value.id.trim(),
-    voice_file: draft.value.voice_file.trim(),
-    tts_model: draft.value.tts_model.trim(),
     exaggeration: Number(draft.value.exaggeration ?? 0),
+    id: draft.value.id.trim(),
     mannerism_profile: draft.value.mannerism_profile.trim(),
+    tts_model: draft.value.tts_model.trim(),
     ui_expressions: [...draft.value.ui_expressions],
     ui_mannerisms: [...draft.value.ui_mannerisms],
+    voice_file: draft.value.voice_file.trim(),
   }
 }
 
 function profilePayloadFromDraft() {
   return {
-    id: profileDraft.value.id.trim(),
-    hmph: profileDraft.value.hmph.trim(),
-    tilde: [...profileDraft.value.tilde],
-    emoticons: profileDraft.value.emoticonRules.map(rule => ({
+    emoticons: profileDraft.value.emoticonRules.map((rule) => ({
       pattern: rule.pattern.trim(),
       replacement: rule.replacement.trim(),
     })),
+    hmph: profileDraft.value.hmph.trim(),
+    id: profileDraft.value.id.trim(),
+    tilde: [...profileDraft.value.tilde],
   }
 }
 
@@ -353,48 +342,49 @@ async function refreshStudioData() {
   const [capabilitiesResult, presetsResult, profilesResult] = await Promise.allSettled([
     fetchJson<ChatterboxCapabilities>(`${rootBaseUrl}chatterbox/capabilities`),
     fetchJson<{ presets?: ChatterboxPreset[] }>(`${rootBaseUrl}chatterbox/presets`),
-    fetchJson<{ profiles?: Array<{
-      id: string
-      hmph?: string
-      tilde?: string[]
-      emoticons?: ChatterboxEmoticonRule[]
-    }> }>(`${rootBaseUrl}chatterbox/profiles`),
+    fetchJson<{
+      profiles?: Array<{
+        id: string
+        hmph?: string
+        tilde?: string[]
+        emoticons?: ChatterboxEmoticonRule[]
+      }>
+    }>(`${rootBaseUrl}chatterbox/profiles`),
   ])
 
   if (capabilitiesResult.status === 'fulfilled') {
     capabilities.value = {
-      voices: capabilitiesResult.value.voices || [],
-      profiles: capabilitiesResult.value.profiles || [],
       modes: capabilitiesResult.value.modes || [],
+      profiles: capabilitiesResult.value.profiles || [],
       speech: {
-        supportsPresets: capabilitiesResult.value.speech?.supportsPresets ?? true,
-        supportsExpressionTags: capabilitiesResult.value.speech?.supportsExpressionTags ?? false,
-        supportsMannerisms: capabilitiesResult.value.speech?.supportsMannerisms ?? false,
         expressionTags: capabilitiesResult.value.speech?.expressionTags || [],
         mannerisms: capabilitiesResult.value.speech?.mannerisms || [],
+        supportsExpressionTags: capabilitiesResult.value.speech?.supportsExpressionTags ?? false,
+        supportsMannerisms: capabilitiesResult.value.speech?.supportsMannerisms ?? false,
+        supportsPresets: capabilitiesResult.value.speech?.supportsPresets ?? true,
       },
+      voices: capabilitiesResult.value.voices || [],
     }
-  }
-  else {
+  } else {
     capabilities.value = null
   }
 
   if (presetsResult.status === 'fulfilled') {
-    presets.value = (presetsResult.value.presets || []).map(preset => createDraft(preset))
-  }
-  else {
+    presets.value = (presetsResult.value.presets || []).map((preset) => createDraft(preset))
+  } else {
     presets.value = []
   }
 
   if (profilesResult.status === 'fulfilled') {
-    profileDrafts.value = (profilesResult.value.profiles || []).map(profile => createProfileDraft({
-      id: profile.id,
-      hmph: profile.hmph || '',
-      tilde: profile.tilde || [],
-      emoticonRules: profile.emoticons || [],
-    }))
-  }
-  else {
+    profileDrafts.value = (profilesResult.value.profiles || []).map((profile) =>
+      createProfileDraft({
+        emoticonRules: profile.emoticons || [],
+        hmph: profile.hmph || '',
+        id: profile.id,
+        tilde: profile.tilde || [],
+      }),
+    )
+  } else {
     profileDrafts.value = []
   }
 
@@ -406,26 +396,22 @@ async function refreshStudioData() {
   studioError.value = errors.join(' | ')
 
   if (selectedPresetId.value) {
-    const existing = presets.value.find(preset => preset.id === selectedPresetId.value)
+    const existing = presets.value.find((preset) => preset.id === selectedPresetId.value)
     applyDraft(existing)
-  }
-  else if (presets.value[0]) {
+  } else if (presets.value[0]) {
     selectedPresetId.value = presets.value[0].id
     applyDraft(presets.value[0])
-  }
-  else {
+  } else {
     applyDraft()
   }
 
   if (selectedProfileId.value) {
-    const existingProfile = profileDrafts.value.find(profile => profile.id === selectedProfileId.value)
+    const existingProfile = profileDrafts.value.find((profile) => profile.id === selectedProfileId.value)
     applyProfileDraft(existingProfile)
-  }
-  else if (profileDrafts.value[0]) {
+  } else if (profileDrafts.value[0]) {
     selectedProfileId.value = profileDrafts.value[0].id
     applyProfileDraft(profileDrafts.value[0])
-  }
-  else {
+  } else {
     applyProfileDraft()
   }
 
@@ -445,17 +431,11 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
   const providerConfig = providersStore.getProviderConfig(providerId)
   const modelToUse = modelId || model.value || defaultModel
 
-  return await speechStore.speech(
-    provider,
-    modelToUse,
-    input,
-    voiceId || String(voice.value),
-    {
-      ...providerConfig,
-      ...defaultVoiceSettings,
-      speed: speed.value,
-    },
-  )
+  return await speechStore.speech(provider, modelToUse, input, voiceId || String(voice.value), {
+    ...providerConfig,
+    ...defaultVoiceSettings,
+    speed: speed.value,
+  })
 }
 
 function handleCreateDraft() {
@@ -503,19 +483,16 @@ async function handleSavePreset() {
     const existingId = selectedPresetId.value.trim()
     if (existingId) {
       await sendJson(`${rootBaseUrl}chatterbox/presets/${encodeURIComponent(existingId)}`, 'PUT', payload)
-    }
-    else {
+    } else {
       await sendJson(`${rootBaseUrl}chatterbox/presets`, 'POST', payload)
     }
 
     selectedPresetId.value = payload.id
     studioNotice.value = `Saved preset "${payload.id}".`
     await refreshStudioData()
-  }
-  catch (error) {
+  } catch (error) {
     studioError.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     presetSaving.value = false
   }
 }
@@ -523,8 +500,7 @@ async function handleSavePreset() {
 async function handleDeletePreset() {
   const apiBaseUrl = normalizeApiBaseUrl(baseUrl.value)
   const presetId = selectedPresetId.value.trim() || draft.value.id.trim()
-  if (!apiBaseUrl || !presetId)
-    return
+  if (!apiBaseUrl || !presetId) return
 
   presetSaving.value = true
   studioError.value = ''
@@ -536,11 +512,9 @@ async function handleDeletePreset() {
     selectedPresetId.value = ''
     studioNotice.value = `Deleted preset "${presetId}".`
     await refreshStudioData()
-  }
-  catch (error) {
+  } catch (error) {
     studioError.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     presetSaving.value = false
   }
 }
@@ -567,19 +541,16 @@ async function handleSaveProfile() {
     const existingId = selectedProfileId.value.trim()
     if (existingId) {
       await sendJson(`${rootBaseUrl}chatterbox/profiles/${encodeURIComponent(existingId)}`, 'PUT', payload)
-    }
-    else {
+    } else {
       await sendJson(`${rootBaseUrl}chatterbox/profiles`, 'POST', payload)
     }
 
     selectedProfileId.value = payload.id
     studioNotice.value = `Saved profile "${payload.id}".`
     await refreshStudioData()
-  }
-  catch (error) {
+  } catch (error) {
     studioError.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     profileSaving.value = false
   }
 }
@@ -587,8 +558,7 @@ async function handleSaveProfile() {
 async function handleDeleteProfile() {
   const apiBaseUrl = normalizeApiBaseUrl(baseUrl.value)
   const profileId = selectedProfileId.value.trim() || profileDraft.value.id.trim()
-  if (!apiBaseUrl || !profileId)
-    return
+  if (!apiBaseUrl || !profileId) return
 
   profileSaving.value = true
   studioError.value = ''
@@ -597,16 +567,13 @@ async function handleDeleteProfile() {
   try {
     const rootBaseUrl = toStudioRootUrl(apiBaseUrl)
     await sendJson(`${rootBaseUrl}chatterbox/profiles/${encodeURIComponent(profileId)}`, 'DELETE')
-    if (draft.value.mannerism_profile === profileId)
-      draft.value.mannerism_profile = ''
+    if (draft.value.mannerism_profile === profileId) draft.value.mannerism_profile = ''
     selectedProfileId.value = ''
     studioNotice.value = `Deleted profile "${profileId}".`
     await refreshStudioData()
-  }
-  catch (error) {
+  } catch (error) {
     studioError.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     profileSaving.value = false
   }
 }
@@ -617,16 +584,12 @@ watch(
     if (newConfig) {
       const config = newConfig as any
       const newSpeed = config.voiceSettings?.speed || config.speed || defaultVoiceSettings.speed
-      if (Math.abs(speed.value - newSpeed) > 0.001)
-        speed.value = newSpeed
+      if (Math.abs(speed.value - newSpeed) > 0.001) speed.value = newSpeed
 
-      if (!config.model && model.value !== defaultModel)
-        model.value = defaultModel
+      if (!config.model && model.value !== defaultModel) model.value = defaultModel
 
-      if (!config.voice && voice.value !== 'ivy')
-        voice.value = 'ivy'
-    }
-    else {
+      if (!config.voice && voice.value !== 'ivy') voice.value = 'ivy'
+    } else {
       speed.value = defaultVoiceSettings.speed
       model.value = defaultModel
       voice.value = 'ivy'
@@ -636,20 +599,17 @@ watch(
 )
 
 watch(speed, () => {
-  if (!providers.value[providerId])
-    providers.value[providerId] = {}
+  if (!providers.value[providerId]) providers.value[providerId] = {}
   providers.value[providerId].speed = speed.value
 })
 
 watch(model, () => {
-  if (!providers.value[providerId])
-    providers.value[providerId] = {}
+  if (!providers.value[providerId]) providers.value[providerId] = {}
   providers.value[providerId].model = model.value
 })
 
 watch(voice, () => {
-  if (!providers.value[providerId])
-    providers.value[providerId] = {}
+  if (!providers.value[providerId]) providers.value[providerId] = {}
   providers.value[providerId].voice = voice.value
 })
 
@@ -659,39 +619,28 @@ watch([() => providers.value[providerId]?.baseUrl, () => providers.value[provide
 })
 
 watch(selectedPresetId, (value) => {
-  const selectedPreset = presets.value.find(preset => preset.id === value)
-  if (selectedPreset)
-    applyDraft(selectedPreset)
+  const selectedPreset = presets.value.find((preset) => preset.id === value)
+  if (selectedPreset) applyDraft(selectedPreset)
 })
 
 watch(selectedProfileId, (value) => {
-  const selectedProfile = profileDrafts.value.find(profile => profile.id === value)
-  if (selectedProfile)
-    applyProfileDraft(selectedProfile)
+  const selectedProfile = profileDrafts.value.find((profile) => profile.id === value)
+  if (selectedProfile) applyProfileDraft(selectedProfile)
 })
 
 onMounted(async () => {
-  if (!providers.value[providerId])
-    providers.value[providerId] = {}
+  if (!providers.value[providerId]) providers.value[providerId] = {}
 
-  if (!providers.value[providerId].model)
-    providers.value[providerId].model = defaultModel
-  if (!providers.value[providerId].voice)
-    providers.value[providerId].voice = 'ivy'
-  if (!providers.value[providerId].baseUrl)
-    providers.value[providerId].baseUrl = 'http://127.0.0.1:8090/v1/'
+  if (!providers.value[providerId].model) providers.value[providerId].model = defaultModel
+  if (!providers.value[providerId].voice) providers.value[providerId].voice = 'ivy'
+  if (!providers.value[providerId].baseUrl) providers.value[providerId].baseUrl = 'http://127.0.0.1:8090/v1/'
 
   await providersStore.fetchModelsForProvider(providerId)
   await speechStore.loadVoicesForProvider(providerId)
   await refreshStudioData()
 })
 
-const {
-  isValidating,
-  isValid,
-  validationMessage,
-  forceValid,
-} = useProviderValidation(providerId)
+const { isValidating, isValid, validationMessage, forceValid } = useProviderValidation(providerId)
 </script>
 
 <template>

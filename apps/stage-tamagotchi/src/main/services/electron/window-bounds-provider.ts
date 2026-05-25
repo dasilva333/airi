@@ -1,8 +1,6 @@
 import type { ExecFileException } from 'node:child_process'
-
-import type { TargetWindowBounds } from '@proj-airi/electron-eventa'
-
 import { execFile } from 'node:child_process'
+import type { TargetWindowBounds } from '@proj-airi/electron-eventa'
 
 import { isMacOS, isWindows } from 'std-env'
 
@@ -28,24 +26,22 @@ function createWindowsPoller(nativeId: string, callback: BoundsCallback): { stop
     const user32 = koffi.load('user32.dll')
 
     koffi.struct('RECT', {
-      left: 'int32',
-      top: 'int32',
-      right: 'int32',
       bottom: 'int32',
+      left: 'int32',
+      right: 'int32',
+      top: 'int32',
     })
 
     win32 = {
       GetWindowRect: user32.func('GetWindowRect', 'bool', ['void *', 'RECT *']),
       IsWindow: user32.func('IsWindow', 'bool', ['void *']),
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[WindowBounds] Failed to load Koffi for native bounds:', err)
   }
 
   function poll() {
-    if (stopped)
-      return
+    if (stopped) return
 
     if (!win32) {
       callback(null)
@@ -60,21 +56,18 @@ function createWindowsPoller(nativeId: string, callback: BoundsCallback): { stop
         const rect: any = {}
         if (win32.GetWindowRect(hwnd, rect)) {
           callback({
+            height: rect.bottom - rect.top,
+            width: rect.right - rect.left,
             x: rect.left,
             y: rect.top,
-            width: rect.right - rect.left,
-            height: rect.bottom - rect.top,
           })
-        }
-        else {
+        } else {
           callback(null)
         }
-      }
-      else {
+      } else {
         callback(null)
       }
-    }
-    catch {
+    } catch {
       callback(null)
     }
 
@@ -119,36 +112,38 @@ if (count > 0) {
 `.trim()
 
   function poll() {
-    if (stopped)
-      return
+    if (stopped) return
 
-    execFile('osascript', ['-l', 'JavaScript', '-e', script], { timeout: 3000 }, (err: ExecFileException | null, stdout: string) => {
-      if (stopped)
-        return
+    execFile(
+      'osascript',
+      ['-l', 'JavaScript', '-e', script],
+      { timeout: 3000 },
+      (err: ExecFileException | null, stdout: string) => {
+        if (stopped) return
 
-      if (err) {
-        callback(null)
-        timer = setTimeout(poll, 500)
-        return
-      }
+        if (err) {
+          callback(null)
+          timer = setTimeout(poll, 500)
+          return
+        }
 
-      const line = stdout.trim()
-      if (line === 'GONE') {
-        callback(null)
-        timer = setTimeout(poll, 500)
-        return
-      }
+        const line = stdout.trim()
+        if (line === 'GONE') {
+          callback(null)
+          timer = setTimeout(poll, 500)
+          return
+        }
 
-      const parts = line.split(',').map(Number)
-      if (parts.length === 4 && parts.every((n: number) => Number.isFinite(n))) {
-        callback({ x: parts[0], y: parts[1], width: parts[2], height: parts[3] })
-      }
-      else {
-        callback(null)
-      }
+        const parts = line.split(',').map(Number)
+        if (parts.length === 4 && parts.every((n: number) => Number.isFinite(n))) {
+          callback({ height: parts[3], width: parts[2], x: parts[0], y: parts[1] })
+        } else {
+          callback(null)
+        }
 
-      timer = setTimeout(poll, 200)
-    })
+        timer = setTimeout(poll, 200)
+      },
+    )
   }
 
   poll()
@@ -172,8 +167,7 @@ if (count > 0) {
  */
 export function createWindowBoundsPoller(sourceId: string, callback: BoundsCallback): { stop: () => void } | null {
   const nativeId = extractNativeId(sourceId)
-  if (!nativeId)
-    return null
+  if (!nativeId) return null
 
   if (isWindows) {
     return createWindowsPoller(nativeId, callback)

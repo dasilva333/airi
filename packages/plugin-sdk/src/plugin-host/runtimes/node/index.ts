@@ -1,8 +1,6 @@
 import type { EventContext } from '@moeru/eventa'
-
-import type { PluginTransport } from '../../transports'
-
 import { createContext } from '@moeru/eventa'
+import type { PluginTransport } from '../../transports'
 
 export * from '../../core'
 export * from '../../transports'

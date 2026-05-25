@@ -12,19 +12,17 @@ export interface Events<T> {
   drain: Array<() => void>
 }
 
-export function createQueue<T>(options: {
-  handlers: Array<(ctx: HandlerContext<T>) => Promise<void>>
-}) {
+export function createQueue<T>(options: { handlers: Array<(ctx: HandlerContext<T>) => Promise<void>> }) {
   const queue: T[] = []
   let drainTask: Promise<any> | undefined
 
   const internalEventListeners: Events<T> = {
-    enqueue: [],
     dequeue: [],
-    process: [],
-    error: [],
-    result: [],
     drain: [],
+    enqueue: [],
+    error: [],
+    process: [],
+    result: [],
   }
   const internalHandlerEventListeners: Record<string, Array<(...params: any[]) => void>> = {}
 
@@ -34,7 +32,7 @@ export function createQueue<T>(options: {
 
   function emit<E extends keyof Events<T>>(eventName: E, ...params: Parameters<Events<T>[E][number]>) {
     const listeners = internalEventListeners[eventName] as Events<T>[E]
-    listeners.forEach(listener => (listener as any)(...params))
+    listeners.forEach((listener) => (listener as any)(...params))
   }
 
   function onHandlerEvent(eventName: string, listener: (...params: any[]) => void) {
@@ -44,7 +42,7 @@ export function createQueue<T>(options: {
 
   function emitHandlerEvent(eventName: string, ...params: any[]) {
     const listeners = internalHandlerEventListeners[eventName] || []
-    listeners.forEach(listener => listener(...params))
+    listeners.forEach((listener) => listener(...params))
   }
 
   function enqueue(payload: T) {
@@ -68,10 +66,8 @@ export function createQueue<T>(options: {
         try {
           const result = await handler({ data: payload, emit: emitHandlerEvent })
           emit('result', payload, result, handler)
-        }
-        catch (err) {
+        } catch (err) {
           emit('error', payload, err, handler)
-          continue
         }
       }
     }
@@ -85,8 +81,8 @@ export function createQueue<T>(options: {
   }
 
   return {
-    enqueue,
     clear,
+    enqueue,
     length,
     on,
     onHandlerEvent,

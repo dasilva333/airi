@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { BackgroundItem } from '../../stores/background'
-
 import { BackgroundGradientOverlay } from '@proj-airi/stage-ui/components'
 import { ref } from 'vue'
+import type { BackgroundItem } from '../../stores/background'
 
 import { BackgroundKind } from '../../stores/background'
 import { DefaultBackground } from '../Backgrounds/default'

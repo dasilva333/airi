@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  id?: string
-  status?: 'idle' | 'generating' | 'done' | 'error'
-  imageUrl?: string
-  prompt?: string
-  progress?: number
-  actionLabel?: string
-  remixId?: string | number
-  renderTime?: string
-  engineStats?: string
-}>(), {
-  status: 'idle',
-  progress: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    id?: string
+    status?: 'idle' | 'generating' | 'done' | 'error'
+    imageUrl?: string
+    prompt?: string
+    progress?: number
+    actionLabel?: string
+    remixId?: string | number
+    renderTime?: string
+    engineStats?: string
+  }>(),
+  {
+    progress: 0,
+    status: 'idle',
+  },
+)
 
 interface HistoryFrame {
   frameId: number
@@ -31,41 +34,45 @@ const errorOccurred = ref(false)
 const currentGenerationId = ref(0)
 const nextFrameId = ref(1)
 
-watch(() => props.status, (status, previousStatus) => {
-  if (status === 'generating' && previousStatus !== 'generating')
-    currentGenerationId.value += 1
-}, { immediate: true })
+watch(
+  () => props.status,
+  (status, previousStatus) => {
+    if (status === 'generating' && previousStatus !== 'generating') currentGenerationId.value += 1
+  },
+  { immediate: true },
+)
 
 // Keep one gallery frame per generation cycle, even when the backend reuses the same file URL.
-watch(() => [props.imageUrl, props.prompt, props.remixId] as const, ([newUrl, prompt, remixId]) => {
-  if (!newUrl)
-    return
+watch(
+  () => [props.imageUrl, props.prompt, props.remixId] as const,
+  ([newUrl, prompt, remixId]) => {
+    if (!newUrl) return
 
-  errorOccurred.value = false
-  if (currentGenerationId.value === 0)
-    currentGenerationId.value = 1
+    errorOccurred.value = false
+    if (currentGenerationId.value === 0) currentGenerationId.value = 1
 
-  const existingIndex = history.value.findIndex(img => img.generationId === currentGenerationId.value)
-  if (existingIndex === -1) {
-    history.value.push({
-      frameId: nextFrameId.value++,
-      generationId: currentGenerationId.value,
-      url: newUrl,
-      prompt,
-      remixId,
-    })
-    currentIndex.value = history.value.length - 1
-  }
-  else {
-    history.value[existingIndex] = {
-      ...history.value[existingIndex],
-      url: newUrl,
-      prompt,
-      remixId,
+    const existingIndex = history.value.findIndex((img) => img.generationId === currentGenerationId.value)
+    if (existingIndex === -1) {
+      history.value.push({
+        frameId: nextFrameId.value++,
+        generationId: currentGenerationId.value,
+        prompt,
+        remixId,
+        url: newUrl,
+      })
+      currentIndex.value = history.value.length - 1
+    } else {
+      history.value[existingIndex] = {
+        ...history.value[existingIndex],
+        prompt,
+        remixId,
+        url: newUrl,
+      }
+      currentIndex.value = existingIndex
     }
-    currentIndex.value = existingIndex
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const currentImage = computed(() => history.value[currentIndex.value])
 
@@ -74,15 +81,13 @@ function handleImageError() {
 }
 
 function nextImage() {
-  if (history.value.length === 0)
-    return
+  if (history.value.length === 0) return
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value + 1) % history.value.length
 }
 
 function prevImage() {
-  if (history.value.length === 0)
-    return
+  if (history.value.length === 0) return
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value - 1 + history.value.length) % history.value.length
 }

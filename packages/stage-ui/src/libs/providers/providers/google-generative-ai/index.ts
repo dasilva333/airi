@@ -5,12 +5,8 @@ import { createOpenAICompatibleValidators } from '../../validators/openai-compat
 import { defineProvider } from '../registry'
 
 const googleGenerativeConfigSchema = z.object({
-  apiKey: z
-    .string('API Key'),
-  baseUrl: z
-    .string('Base URL')
-    .optional()
-    .default('https://generativelanguage.googleapis.com/v1beta/openai/'),
+  apiKey: z.string('API Key'),
+  baseUrl: z.string('Base URL').optional().default('https://generativelanguage.googleapis.com/v1beta/openai/'),
 })
 
 type GoogleGenerativeConfig = z.infer<typeof googleGenerativeConfigSchema>
@@ -41,15 +37,12 @@ const googleFetch: typeof fetch = async (input, init) => {
           const toolCalls = data.choices?.[0]?.delta?.tool_calls
           if (toolCalls) {
             for (let i = 0; i < toolCalls.length; i++) {
-              if (toolCalls[i].index === undefined)
-                toolCalls[i].index = i
-              if (toolCalls[i].type === undefined)
-                toolCalls[i].type = 'function'
+              if (toolCalls[i].index === undefined) toolCalls[i].index = i
+              if (toolCalls[i].type === undefined) toolCalls[i].type = 'function'
             }
             return `data: ${JSON.stringify(data)}`
           }
-        }
-        catch {
+        } catch {
           // Ignore invalid JSON
         }
       }
@@ -57,6 +50,9 @@ const googleFetch: typeof fetch = async (input, init) => {
     }
 
     const stream = new ReadableStream({
+      cancel() {
+        reader.cancel()
+      },
       async pull(controller) {
         const { done, value } = await reader.read()
         if (done) {
@@ -75,9 +71,6 @@ const googleFetch: typeof fetch = async (input, init) => {
           controller.enqueue(encoder.encode(`${transformLine(line)}\n`))
         }
       },
-      cancel() {
-        reader.cancel()
-      },
     })
 
     return new Response(stream, response)
@@ -87,32 +80,9 @@ const googleFetch: typeof fetch = async (input, init) => {
 }
 
 export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>({
-  id: 'google-generative-ai',
-  order: 8,
-  name: 'Google Gemini',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.google-generative-ai.title'),
-  description: 'Gemini Integration - Native Google ecosystem intelligence',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.google-generative-ai.description'),
-  tasks: ['chat', 'vision'],
-  icon: 'i-lobe-icons:google',
   business: () => ({
-    pricing: 'paid',
     deployment: 'cloud',
-  }),
-  iconColor: 'i-lobe-icons:gemini-color',
-
-  createProviderConfig: ({ t }) => googleGenerativeConfigSchema.extend({
-    apiKey: googleGenerativeConfigSchema.shape.apiKey.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    baseUrl: googleGenerativeConfigSchema.shape.baseUrl.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder'),
-    }),
+    pricing: 'paid',
   }),
   createProvider(config) {
     const options = {
@@ -121,12 +91,36 @@ export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>
       fetch: googleFetch,
     }
 
-    return merge(
-      createChatProvider(options),
-      createModelProvider(options),
-      createEmbedProvider(options),
-    )
+    return merge(createChatProvider(options), createModelProvider(options), createEmbedProvider(options))
   },
+
+  createProviderConfig: ({ t }) =>
+    googleGenerativeConfigSchema.extend({
+      apiKey: googleGenerativeConfigSchema.shape.apiKey.meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
+        type: 'password',
+      }),
+      baseUrl: googleGenerativeConfigSchema.shape.baseUrl.meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description',
+        ),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder',
+        ),
+      }),
+    }),
+  description: 'Gemini Integration - Native Google ecosystem intelligence',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.google-generative-ai.description'),
+  icon: 'i-lobe-icons:google',
+  iconColor: 'i-lobe-icons:gemini-color',
+  id: 'google-generative-ai',
+  name: 'Google Gemini',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.google-generative-ai.title'),
+  order: 8,
+  tasks: ['chat', 'vision'],
 
   validationRequiredWhen(config) {
     return !!config.apiKey?.trim()

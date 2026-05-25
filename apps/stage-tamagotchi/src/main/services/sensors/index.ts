@@ -1,13 +1,11 @@
-import type { createContext } from '@moeru/eventa/adapters/electron/main'
-import type { ActiveWindowEntry, WindowInfo } from '@proj-airi/stage-shared'
-
 import { Buffer } from 'node:buffer'
 import { createRequire } from 'node:module'
 import { loadavg } from 'node:os'
 import { platform, stdout } from 'node:process'
-
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
+import type { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { ActiveWindowEntry, WindowInfo } from '@proj-airi/stage-shared'
 import {
   sensorsGetActiveWindow,
   sensorsGetActiveWindowHistory,
@@ -29,22 +27,19 @@ try {
   if (activeWindow && typeof activeWindow.activeWindow === 'function') {
     activeWindow = activeWindow.activeWindow
   }
-}
-catch (err) {
+} catch (err) {
   console.warn('[Sensors] Failed to load active-win native module. Will use fallbacks.', err)
 }
 
 try {
   loudness = require('loudness')
-}
-catch (err) {
+} catch (err) {
   console.warn('[Sensors] Failed to load loudness module.', err)
 }
 
 try {
   si = require('systeminformation')
-}
-catch (err) {
+} catch (err) {
   console.warn('[Sensors] Failed to load systeminformation module.', err)
 }
 
@@ -66,33 +61,35 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
       const kernel32 = koffi.load('kernel32.dll')
 
       win32Bridge = {
+        CloseHandle: kernel32.func('CloseHandle', 'bool', ['void *']),
         GetForegroundWindow: user32.func('GetForegroundWindow', 'void *', []),
         GetWindowTextW: user32.func('GetWindowTextW', 'int', ['void *', 'char16_t *', 'int']),
         GetWindowThreadProcessId: user32.func('GetWindowThreadProcessId', 'uint32', ['void *', 'uint32 *']),
         OpenProcess: kernel32.func('OpenProcess', 'void *', ['uint32', 'bool', 'uint32']),
-        QueryFullProcessImageNameW: kernel32.func('QueryFullProcessImageNameW', 'bool', ['void *', 'uint32', 'char16_t *', 'uint32 *']),
-        CloseHandle: kernel32.func('CloseHandle', 'bool', ['void *']),
+        QueryFullProcessImageNameW: kernel32.func('QueryFullProcessImageNameW', 'bool', [
+          'void *',
+          'uint32',
+          'char16_t *',
+          'uint32 *',
+        ]),
       }
       log.debug('Win32 FFI bridge initialized via Koffi.')
-    }
-    catch (err) {
+    } catch (err) {
       log.withError(err).warn('Failed to initialize Koffi Win32 bridge. Native fallbacks will be unavailable.')
     }
   }
 
   async function getActiveWindowInfo(): Promise<WindowInfo | null> {
     try {
-      if (typeof activeWindow !== 'function')
-        throw new Error('active-win is not loaded')
+      if (typeof activeWindow !== 'function') throw new Error('active-win is not loaded')
       const result = await activeWindow()
       if (result) {
         return {
-          title: result.title || 'Unknown',
           processName: result.owner.name || 'Unknown',
+          title: result.title || 'Unknown',
         }
       }
-    }
-    catch {
+    } catch {
       const now = Date.now()
       if (now - lastActiveWinErrorTime > ERROR_LOG_INTERVAL) {
         // eslint-disable-next-line no-console
@@ -103,7 +100,14 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
       // High-performance Koffi fallback for Windows
       if (win32Bridge) {
         try {
-          const { GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, OpenProcess, QueryFullProcessImageNameW, CloseHandle } = win32Bridge
+          const {
+            GetForegroundWindow,
+            GetWindowTextW,
+            GetWindowThreadProcessId,
+            OpenProcess,
+            QueryFullProcessImageNameW,
+            CloseHandle,
+          } = win32Bridge
           const hwnd = GetForegroundWindow()
 
           if (!hwnd) {
@@ -114,7 +118,11 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
           // Get Title
           const titleBuffer = Buffer.alloc(1024)
           const titleLen = GetWindowTextW(hwnd, titleBuffer, 512)
-          const title = titleBuffer.toString('utf16le', 0, titleLen * 2).replace(/\0/g, '').trim() || 'Untitled'
+          const title =
+            titleBuffer
+              .toString('utf16le', 0, titleLen * 2)
+              .replace(/\0/g, '')
+              .trim() || 'Untitled'
           stdout.write(`[getActiveWindowInfo] detected title: ${title}\n`)
 
           // Get Process Name
@@ -137,8 +145,15 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
             const pathBuffer = Buffer.alloc(1024)
             const sizeBuffer = [512]
             if (QueryFullProcessImageNameW(hProcess, 0, pathBuffer, sizeBuffer)) {
-              const fullPath = pathBuffer.toString('utf16le', 0, sizeBuffer[0] * 2).replace(/\0/g, '').trim()
-              processName = fullPath.split(/[\\/]/).pop()?.replace(/\.[^/.]+$/, '') || 'Unknown'
+              const fullPath = pathBuffer
+                .toString('utf16le', 0, sizeBuffer[0] * 2)
+                .replace(/\0/g, '')
+                .trim()
+              processName =
+                fullPath
+                  .split(/[\\/]/)
+                  .pop()
+                  ?.replace(/\.[^/.]+$/, '') || 'Unknown'
             }
             CloseHandle(hProcess)
           }
@@ -148,11 +163,10 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
           }
 
           return {
-            title,
             processName,
+            title,
           }
-        }
-        catch (nativeErr) {
+        } catch (nativeErr) {
           stdout.write(`[getActiveWindowInfo] Koffi fallback execution failed: ${String(nativeErr)}\n`)
         }
       }
@@ -171,24 +185,20 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     let gpuLoad = 0
 
     try {
-      if (!si)
-        throw new Error('systeminformation is not loaded')
+      if (!si) throw new Error('systeminformation is not loaded')
       const load = await si.currentLoad()
       const val = load.currentLoad / 100
       cpuLoads = [val, val, val]
-    }
-    catch (err) {
+    } catch (err) {
       log.withError(err).warn('Failed to get CPU load via systeminformation')
       cpuLoads = loadavg() as [number, number, number]
     }
 
     try {
-      if (!si)
-        throw new Error('systeminformation is not loaded')
+      if (!si) throw new Error('systeminformation is not loaded')
       const graphics = await si.graphics()
       gpuLoad = Math.max(0, ...graphics.controllers.map((c: any) => (c.utilizationGpu || 0) as number))
-    }
-    catch (err) {
+    } catch (err) {
       log.withError(err).warn('Failed to get GPU load via systeminformation')
     }
 
@@ -199,31 +209,31 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
   }
 
   function startTracking() {
-    if (pollInterval)
-      return
+    if (pollInterval) return
 
     log.debug('Starting active window tracking background loop.')
     pollInterval = setInterval(async () => {
       const current = await getActiveWindowInfo()
-      if (!current)
-        return
+      if (!current) return
 
       const now = Date.now()
       const lastEntry = activeWindowHistory.at(-1)
-      if (lastEntry && lastEntry.window.title === current.title && lastEntry.window.processName === current.processName) {
+      if (
+        lastEntry &&
+        lastEntry.window.title === current.title &&
+        lastEntry.window.processName === current.processName
+      ) {
         lastEntry.endTime = now
         lastEntry.durationMs = lastEntry.endTime - lastEntry.startTime
-      }
-      else {
+      } else {
         activeWindowHistory.push({
-          window: current,
-          startTime: now,
-          endTime: now,
           durationMs: 0,
+          endTime: now,
+          startTime: now,
+          window: current,
         })
 
-        if (activeWindowHistory.length > MAX_HISTORY)
-          activeWindowHistory.shift()
+        if (activeWindowHistory.length > MAX_HISTORY) activeWindowHistory.shift()
       }
     }, 10000)
 
@@ -247,92 +257,59 @@ export async function createSensorsService(params: { context: ReturnType<typeof 
     }
   }
 
-  defineInvokeHandler(
-    context,
-    sensorsSetTrackingEnabled,
-    async (payload) => {
-      if (payload.enabled)
-        startTracking()
-      else
-        stopTracking()
-    },
-  )
+  defineInvokeHandler(context, sensorsSetTrackingEnabled, async (payload) => {
+    if (payload.enabled) startTracking()
+    else stopTracking()
+  })
 
-  defineInvokeHandler(
-    context,
-    sensorsGetIdleTime,
-    async () => {
-      return powerMonitor.getSystemIdleTime() * 1000
-    },
-  )
+  defineInvokeHandler(context, sensorsGetIdleTime, async () => {
+    return powerMonitor.getSystemIdleTime() * 1000
+  })
 
-  defineInvokeHandler(
-    context,
-    sensorsGetActiveWindow,
-    async () => {
-      return getActiveWindowInfo()
-    },
-  )
+  defineInvokeHandler(context, sensorsGetActiveWindow, async () => {
+    return getActiveWindowInfo()
+  })
 
-  defineInvokeHandler(
-    context,
-    sensorsGetActiveWindowHistory,
-    async () => {
-      return activeWindowHistory
-    },
-  )
+  defineInvokeHandler(context, sensorsGetActiveWindowHistory, async () => {
+    return activeWindowHistory
+  })
 
   async function getVolumeLevel(): Promise<number> {
     try {
-      if (!loudness)
-        return 0
+      if (!loudness) return 0
       const vol = await loudness.getVolume()
       const muted = await loudness.getMuted()
-      if (muted)
-        return 0
+      if (muted) return 0
       return vol
-    }
-    catch (err) {
+    } catch (err) {
       log.withError(err).warn('Failed to get system volume via loudness')
     }
 
     return 0
   }
 
-  defineInvokeHandler(
-    context,
-    sensorsGetVolumeLevel,
-    async () => {
-      return getVolumeLevel()
-    },
-  )
+  defineInvokeHandler(context, sensorsGetVolumeLevel, async () => {
+    return getVolumeLevel()
+  })
 
-  defineInvokeHandler(
-    context,
-    sensorsGetSystemLoad,
-    async () => {
-      // If we have background tracking active, return the cached value immediately
-      if (systemLoadInterval) {
-        return cachedSystemLoad
-      }
-      // Otherwise, do a quick sync update using native loadavg
-      const cpuLoads = loadavg() as [number, number, number]
-      // Dispatch a background update to refresh the cache without blocking the IPC call
-      void updateSystemLoadCache()
-      return {
-        cpu: cachedSystemLoad.cpu[0] > 0 ? cachedSystemLoad.cpu : cpuLoads,
-        gpuAvg: cachedSystemLoad.gpuAvg,
-      }
-    },
-  )
+  defineInvokeHandler(context, sensorsGetSystemLoad, async () => {
+    // If we have background tracking active, return the cached value immediately
+    if (systemLoadInterval) {
+      return cachedSystemLoad
+    }
+    // Otherwise, do a quick sync update using native loadavg
+    const cpuLoads = loadavg() as [number, number, number]
+    // Dispatch a background update to refresh the cache without blocking the IPC call
+    void updateSystemLoadCache()
+    return {
+      cpu: cachedSystemLoad.cpu[0] > 0 ? cachedSystemLoad.cpu : cpuLoads,
+      gpuAvg: cachedSystemLoad.gpuAvg,
+    }
+  })
 
-  defineInvokeHandler(
-    context,
-    sensorsGetLocalTime,
-    async () => {
-      return new Date().toLocaleString()
-    },
-  )
+  defineInvokeHandler(context, sensorsGetLocalTime, async () => {
+    return new Date().toLocaleString()
+  })
 
   return {
     context,

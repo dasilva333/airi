@@ -1,17 +1,15 @@
-import type { Configuration } from 'electron-builder'
-
-import process from 'node:process'
-
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import process from 'node:process'
+import type { Configuration } from 'electron-builder'
 
 import { x } from 'tinyexec'
 
-import * as yaml from 'yaml'
+import { parse as yamlParse } from 'yaml'
 
-import packageJSON from '../package.json' assert { type: 'json' }
+import packageJSON from '../package.json' with { type: 'json' }
 
-export async function getVersion(options: { release: boolean, autoTag: boolean, tag: string[] }) {
+export async function getVersion(options: { release: boolean; autoTag: boolean; tag: string[] }) {
   if (!options.release || !options.tag) {
     // Otherwise, fetch from the latest git ref
     const res = await x('git', ['log', '-1', '--pretty=format:"%H"'])
@@ -45,8 +43,7 @@ export async function getVersion(options: { release: boolean, autoTag: boolean, 
   try {
     const res = await x('git', ['describe', '--tags', '--abbrev=0'])
     return String(res.stdout).replace(/^v/, '').trim()
-  }
-  catch {
+  } catch {
     // If no tags exist, fall back to package.json version
     console.warn('No git tags found, falling back to package.json version')
     return packageJSON.version
@@ -54,7 +51,7 @@ export async function getVersion(options: { release: boolean, autoTag: boolean, 
 }
 
 export async function getElectronBuilderConfig() {
-  return yaml.parse(await readFile(resolve(import.meta.dirname, '..', 'electron-builder.yml'), 'utf-8')) as Configuration
+  return yamlParse(await readFile(resolve(import.meta.dirname, '..', 'electron-builder.yml'), 'utf-8')) as Configuration
 }
 
 export function applyTemplateOfArtifactName(
@@ -64,15 +61,17 @@ export function applyTemplateOfArtifactName(
   arch: string,
   ext: string,
 ): string {
-  return template
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace('${productName}', productName)
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace('${version}', version)
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace('${arch}', arch)
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace('${ext}', ext)
+  return (
+    template
+      // eslint-disable-next-line no-template-curly-in-string
+      .replace('${productName}', productName)
+      // eslint-disable-next-line no-template-curly-in-string
+      .replace('${version}', version)
+      // eslint-disable-next-line no-template-curly-in-string
+      .replace('${arch}', arch)
+      // eslint-disable-next-line no-template-curly-in-string
+      .replace('${ext}', ext)
+  )
 }
 
 interface FilenameOutputEntry {
@@ -85,10 +84,7 @@ interface FilenameOutputEntry {
   optional?: boolean
 }
 
-export function mapArchFor(
-  target: string,
-  ext: string,
-): string {
+export function mapArchFor(target: string, ext: string): string {
   switch (true) {
     case target === 'aarch64-unknown-linux-gnu':
       if (ext === 'rpm') {
@@ -141,7 +137,10 @@ function getMacZipFilename(productName: string, version: string, target: string)
   return `${productName}-${version}-${archPrefix}mac.zip`
 }
 
-export async function getFilenames(target: string, options: { release: boolean, autoTag: boolean, tag: string[] }): Promise<FilenameOutputEntry[]> {
+export async function getFilenames(
+  target: string,
+  options: { release: boolean; autoTag: boolean; tag: string[] },
+): Promise<FilenameOutputEntry[]> {
   const electronBuilder = await getElectronBuilderConfig()
   const version = await getVersion(options)
 
@@ -154,10 +153,8 @@ export async function getFilenames(target: string, options: { release: boolean, 
 
   switch (target) {
     case 'x86_64-pc-windows-msvc':
-
       return [
         {
-          target: 'x86_64-pc-windows-msvc',
           extension: 'exe',
           outputFilename: applyTemplateOfArtifactName(
             electronBuilder.nsis!.artifactName!,
@@ -166,6 +163,7 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'exe'),
             'exe',
           ),
+          productName,
           releaseArtifactFilename: applyTemplateOfArtifactName(
             electronBuilder.nsis!.artifactName!,
             productName,
@@ -173,224 +171,208 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'exe'),
             'exe',
           ),
-          productName,
+          target: 'x86_64-pc-windows-msvc',
           version,
         },
         {
-          target: 'x86_64-pc-windows-msvc',
           extension: 'latest.yml',
-          outputFilename: 'latest.yml',
-          releaseArtifactFilename: 'latest.yml',
-          productName,
-          version,
           optional: true,
+          outputFilename: 'latest.yml',
+          productName,
+          releaseArtifactFilename: 'latest.yml',
+          target: 'x86_64-pc-windows-msvc',
+          version,
         },
       ]
-    case 'x86_64-unknown-linux-gnu':
-    {
+    case 'x86_64-unknown-linux-gnu': {
       const artifacts: FilenameOutputEntry[] = []
       if (electronBuilder.linux?.artifactName) {
         if (
-          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('deb'))
-          || electronBuilder.linux.target === 'deb'
+          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('deb')) ||
+          electronBuilder.linux.target === 'deb'
         ) {
-          artifacts.push(
-            {
-              target: 'x86_64-unknown-linux-gnu',
-              extension: 'deb',
-              outputFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                beforeVersion,
-                mapArchFor(target, 'deb'),
-                'deb',
-              ),
-              releaseArtifactFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                version,
-                mapArchFor(target, 'deb'),
-                'deb',
-              ),
+          artifacts.push({
+            extension: 'deb',
+            outputFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
+              productName,
+              beforeVersion,
+              mapArchFor(target, 'deb'),
+              'deb',
+            ),
+            productName,
+            releaseArtifactFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
               productName,
               version,
-            },
-          )
-        }
-
-        if (
-          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('rpm'))
-          || electronBuilder.linux.target === 'rpm'
-        ) {
-          artifacts.push(
-            {
-              target: 'x86_64-unknown-linux-gnu',
-              extension: 'rpm',
-              outputFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                beforeVersion,
-                mapArchFor(target, 'rpm'),
-                'rpm',
-              ),
-              releaseArtifactFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                version,
-                mapArchFor(target, 'rpm'),
-                'rpm',
-              ),
-              productName,
-              version,
-            },
-          )
-        }
-
-        // Flatpak artifact (built outside electron-builder, but we follow linux template)
-        artifacts.push(
-          {
+              mapArchFor(target, 'deb'),
+              'deb',
+            ),
             target: 'x86_64-unknown-linux-gnu',
-            extension: 'flatpak',
+            version,
+          })
+        }
+
+        if (
+          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('rpm')) ||
+          electronBuilder.linux.target === 'rpm'
+        ) {
+          artifacts.push({
+            extension: 'rpm',
             outputFilename: applyTemplateOfArtifactName(
               electronBuilder.linux.artifactName!,
               productName,
               beforeVersion,
-              mapArchFor(target, 'flatpak'),
-              'flatpak',
+              mapArchFor(target, 'rpm'),
+              'rpm',
             ),
+            productName,
             releaseArtifactFilename: applyTemplateOfArtifactName(
               electronBuilder.linux.artifactName!,
               productName,
               version,
-              mapArchFor(target, 'flatpak'),
-              'flatpak',
+              mapArchFor(target, 'rpm'),
+              'rpm',
             ),
-            productName,
+            target: 'x86_64-unknown-linux-gnu',
             version,
-          },
-        )
-      }
-
-      const latestUpdateFilename = getLatestUpdateFilename(target)
-      if (latestUpdateFilename) {
-        artifacts.push({
-          target: 'x86_64-unknown-linux-gnu',
-          extension: latestUpdateFilename,
-          outputFilename: latestUpdateFilename,
-          releaseArtifactFilename: latestUpdateFilename,
-          productName,
-          version,
-          optional: true,
-        })
-      }
-
-      return artifacts
-    }
-    case 'aarch64-unknown-linux-gnu':
-    {
-      const artifacts: FilenameOutputEntry[] = []
-      if (electronBuilder.linux?.artifactName) {
-        if (
-          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('deb'))
-          || electronBuilder.linux.target === 'deb'
-        ) {
-          artifacts.push(
-            {
-              target: 'aarch64-unknown-linux-gnu',
-              extension: 'deb',
-              outputFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                beforeVersion,
-                mapArchFor(target, 'deb'),
-                'deb',
-              ),
-              releaseArtifactFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                version,
-                mapArchFor(target, 'deb'),
-                'deb',
-              ),
-              productName,
-              version,
-            },
-          )
-        }
-
-        if (
-          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('rpm'))
-          || electronBuilder.linux.target === 'rpm'
-        ) {
-          artifacts.push(
-            {
-              target: 'aarch64-unknown-linux-gnu',
-              extension: 'rpm',
-              outputFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                beforeVersion,
-                mapArchFor(target, 'rpm'),
-                'rpm',
-              ),
-              releaseArtifactFilename: applyTemplateOfArtifactName(
-                electronBuilder.linux.artifactName!,
-                productName,
-                version,
-                mapArchFor(target, 'rpm'),
-                'rpm',
-              ),
-              productName,
-              version,
-            },
-          )
+          })
         }
 
         // Flatpak artifact (built outside electron-builder, but we follow linux template)
-        artifacts.push(
-          {
-            target: 'aarch64-unknown-linux-gnu',
-            extension: 'flatpak',
-            outputFilename: applyTemplateOfArtifactName(
-              electronBuilder.linux.artifactName!,
-              productName,
-              beforeVersion,
-              mapArchFor(target, 'flatpak'),
-              'flatpak',
-            ),
-            releaseArtifactFilename: applyTemplateOfArtifactName(
-              electronBuilder.linux.artifactName!,
-              productName,
-              version,
-              mapArchFor(target, 'flatpak'),
-              'flatpak',
-            ),
+        artifacts.push({
+          extension: 'flatpak',
+          outputFilename: applyTemplateOfArtifactName(
+            electronBuilder.linux.artifactName!,
+            productName,
+            beforeVersion,
+            mapArchFor(target, 'flatpak'),
+            'flatpak',
+          ),
+          productName,
+          releaseArtifactFilename: applyTemplateOfArtifactName(
+            electronBuilder.linux.artifactName!,
             productName,
             version,
-          },
-        )
+            mapArchFor(target, 'flatpak'),
+            'flatpak',
+          ),
+          target: 'x86_64-unknown-linux-gnu',
+          version,
+        })
       }
 
       const latestUpdateFilename = getLatestUpdateFilename(target)
       if (latestUpdateFilename) {
         artifacts.push({
-          target: 'aarch64-unknown-linux-gnu',
           extension: latestUpdateFilename,
-          outputFilename: latestUpdateFilename,
-          releaseArtifactFilename: latestUpdateFilename,
-          productName,
-          version,
           optional: true,
+          outputFilename: latestUpdateFilename,
+          productName,
+          releaseArtifactFilename: latestUpdateFilename,
+          target: 'x86_64-unknown-linux-gnu',
+          version,
         })
       }
 
       return artifacts
     }
-    case 'aarch64-apple-darwin':
-    {
+    case 'aarch64-unknown-linux-gnu': {
+      const artifacts: FilenameOutputEntry[] = []
+      if (electronBuilder.linux?.artifactName) {
+        if (
+          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('deb')) ||
+          electronBuilder.linux.target === 'deb'
+        ) {
+          artifacts.push({
+            extension: 'deb',
+            outputFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
+              productName,
+              beforeVersion,
+              mapArchFor(target, 'deb'),
+              'deb',
+            ),
+            productName,
+            releaseArtifactFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
+              productName,
+              version,
+              mapArchFor(target, 'deb'),
+              'deb',
+            ),
+            target: 'aarch64-unknown-linux-gnu',
+            version,
+          })
+        }
+
+        if (
+          (Array.isArray(electronBuilder.linux.target) && electronBuilder.linux.target.includes('rpm')) ||
+          electronBuilder.linux.target === 'rpm'
+        ) {
+          artifacts.push({
+            extension: 'rpm',
+            outputFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
+              productName,
+              beforeVersion,
+              mapArchFor(target, 'rpm'),
+              'rpm',
+            ),
+            productName,
+            releaseArtifactFilename: applyTemplateOfArtifactName(
+              electronBuilder.linux.artifactName!,
+              productName,
+              version,
+              mapArchFor(target, 'rpm'),
+              'rpm',
+            ),
+            target: 'aarch64-unknown-linux-gnu',
+            version,
+          })
+        }
+
+        // Flatpak artifact (built outside electron-builder, but we follow linux template)
+        artifacts.push({
+          extension: 'flatpak',
+          outputFilename: applyTemplateOfArtifactName(
+            electronBuilder.linux.artifactName!,
+            productName,
+            beforeVersion,
+            mapArchFor(target, 'flatpak'),
+            'flatpak',
+          ),
+          productName,
+          releaseArtifactFilename: applyTemplateOfArtifactName(
+            electronBuilder.linux.artifactName!,
+            productName,
+            version,
+            mapArchFor(target, 'flatpak'),
+            'flatpak',
+          ),
+          target: 'aarch64-unknown-linux-gnu',
+          version,
+        })
+      }
+
+      const latestUpdateFilename = getLatestUpdateFilename(target)
+      if (latestUpdateFilename) {
+        artifacts.push({
+          extension: latestUpdateFilename,
+          optional: true,
+          outputFilename: latestUpdateFilename,
+          productName,
+          releaseArtifactFilename: latestUpdateFilename,
+          target: 'aarch64-unknown-linux-gnu',
+          version,
+        })
+      }
+
+      return artifacts
+    }
+    case 'aarch64-apple-darwin': {
       const artifacts: FilenameOutputEntry[] = [
         {
-          target: 'aarch64-apple-darwin',
           extension: 'dmg',
           outputFilename: applyTemplateOfArtifactName(
             electronBuilder.dmg!.artifactName!,
@@ -399,6 +381,7 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'dmg'),
             'dmg',
           ),
+          productName,
           releaseArtifactFilename: applyTemplateOfArtifactName(
             electronBuilder.dmg!.artifactName!,
             productName,
@@ -406,38 +389,36 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'dmg'),
             'dmg',
           ),
-          productName,
+          target: 'aarch64-apple-darwin',
           version,
         },
       ]
 
       artifacts.push(
         {
-          target: 'aarch64-apple-darwin',
           extension: 'zip',
           outputFilename: getMacZipFilename(productName, beforeVersion, target),
-          releaseArtifactFilename: getMacZipFilename(productName, version, target),
           productName,
+          releaseArtifactFilename: getMacZipFilename(productName, version, target),
+          target: 'aarch64-apple-darwin',
           version,
         },
         {
-          target: 'aarch64-apple-darwin',
           extension: 'latest-mac.yml',
-          outputFilename: 'latest-mac.yml',
-          releaseArtifactFilename: 'latest-mac.yml',
-          productName,
-          version,
           optional: true,
+          outputFilename: 'latest-mac.yml',
+          productName,
+          releaseArtifactFilename: 'latest-mac.yml',
+          target: 'aarch64-apple-darwin',
+          version,
         },
       )
 
       return artifacts
     }
-    case 'x86_64-apple-darwin':
-    {
+    case 'x86_64-apple-darwin': {
       const artifacts: FilenameOutputEntry[] = [
         {
-          target: 'x86_64-apple-darwin',
           extension: 'dmg',
           outputFilename: applyTemplateOfArtifactName(
             electronBuilder.dmg!.artifactName!,
@@ -446,6 +427,7 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'dmg'),
             'dmg',
           ),
+          productName,
           releaseArtifactFilename: applyTemplateOfArtifactName(
             electronBuilder.dmg!.artifactName!,
             productName,
@@ -453,28 +435,28 @@ export async function getFilenames(target: string, options: { release: boolean, 
             mapArchFor(target, 'dmg'),
             'dmg',
           ),
-          productName,
+          target: 'x86_64-apple-darwin',
           version,
         },
       ]
 
       artifacts.push(
         {
-          target: 'x86_64-apple-darwin',
           extension: 'zip',
           outputFilename: getMacZipFilename(productName, beforeVersion, target),
-          releaseArtifactFilename: getMacZipFilename(productName, version, target),
           productName,
+          releaseArtifactFilename: getMacZipFilename(productName, version, target),
+          target: 'x86_64-apple-darwin',
           version,
         },
         {
-          target: 'x86_64-apple-darwin',
           extension: 'latest-mac.yml',
-          outputFilename: 'latest-mac.yml',
-          releaseArtifactFilename: 'latest-mac.yml',
-          productName,
-          version,
           optional: true,
+          outputFilename: 'latest-mac.yml',
+          productName,
+          releaseArtifactFilename: 'latest-mac.yml',
+          target: 'x86_64-apple-darwin',
+          version,
         },
       )
 

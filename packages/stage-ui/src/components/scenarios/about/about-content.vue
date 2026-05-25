@@ -1,29 +1,34 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AboutBuildInfo, AboutLink } from './types'
 
-import { computed } from 'vue'
-
-const props = withDefaults(defineProps<{
-  title?: string
-  highlight?: string
-  subtitle?: string
-  buildInfo?: AboutBuildInfo
-  links?: AboutLink[]
-}>(), {
-  title: 'Project',
-  highlight: 'AIRI',
-  subtitle: '',
-  links: () => ([
-    { label: 'Home', href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline' },
-    { label: 'Documentations', href: 'https://airi.moeru.ai/docs/en/docs/overview/', icon: 'i-solar:document-add-outline' },
-    { label: 'GitHub', href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github' },
-  ]),
-})
+const props = withDefaults(
+  defineProps<{
+    title?: string
+    highlight?: string
+    subtitle?: string
+    buildInfo?: AboutBuildInfo
+    links?: AboutLink[]
+  }>(),
+  {
+    highlight: 'AIRI',
+    links: () => [
+      { href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline', label: 'Home' },
+      {
+        href: 'https://airi.moeru.ai/docs/en/docs/overview/',
+        icon: 'i-solar:document-add-outline',
+        label: 'Documentations',
+      },
+      { href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github', label: 'GitHub' },
+    ],
+    subtitle: '',
+    title: 'Project',
+  },
+)
 
 const hasBuildInfo = computed(() => {
   const info = props.buildInfo
-  if (!info)
-    return false
+  if (!info) return false
 
   return Boolean(info.branch || info.commit || info.builtOn || info.version)
 })

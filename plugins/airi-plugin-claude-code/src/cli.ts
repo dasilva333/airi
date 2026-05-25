@@ -1,14 +1,10 @@
 import type { Buffer } from 'node:buffer'
-
-import type { HookInput } from '@anthropic-ai/claude-code'
-
 import { argv, exit, stdin } from 'node:process'
-
-import debug from 'debug'
-
+import type { HookInput } from '@anthropic-ai/claude-code'
 import { Format, LogLevel, LogLevelString, useLogg } from '@guiiai/logg'
 import { Client } from '@proj-airi/server-sdk'
 import { cac } from 'cac'
+import debug from 'debug'
 
 import { name, version } from '../package.json'
 import { resolveComma, toArray } from './utils/general'
@@ -30,7 +26,10 @@ const cli = cac('airi-plugin-claude-code-cli')
 cli.help().version(version)
 
 cli
-  .command('send', 'Pass Claude Code hook event to Channel Server', { ignoreOptionDefaultValue: true, allowUnknownOptions: true })
+  .command('send', 'Pass Claude Code hook event to Channel Server', {
+    allowUnknownOptions: true,
+    ignoreOptionDefaultValue: true,
+  })
   .option('-c, --config <filename>', 'Use a custom config file')
   .option('--config-loader <loader>', 'Config loader to use: auto, native, unconfig', { default: 'auto' })
   .option('--no-config', 'Disable config file')
@@ -42,8 +41,7 @@ cli
   .action(async (_, flags: Options) => {
     if (flags?.quiet) {
       logger = logger.withLogLevel(-1 as LogLevel)
-    }
-    else {
+    } else {
       logger = logger.withLogLevelString(flags?.logLevel ?? LogLevelString.Log)
     }
 
@@ -57,21 +55,25 @@ cli
     }
 
     if (stdin.isTTY) {
-      throw new Error('`send` doesn\'t work without stdin input, Claude Code hooks events are expected to be piped to this command.')
+      throw new Error(
+        "`send` doesn't work without stdin input, Claude Code hooks events are expected to be piped to this command.",
+      )
     }
 
     const stdinInput = await readStdin()
     if (!stdinInput.trim()) {
-      throw new Error('`send` received empty stdin input, Claude Code hooks events are expected to be piped to this command.')
+      throw new Error(
+        '`send` received empty stdin input, Claude Code hooks events are expected to be piped to this command.',
+      )
     }
 
     const hookEvent = JSON.parse(stdinInput) as HookInput
 
     if (hookEvent.hook_event_name === 'UserPromptSubmit') {
-      const channelServer = new Client({ name: 'proj-airi:plugin-claude-code', autoConnect: false })
+      const channelServer = new Client({ autoConnect: false, name: 'proj-airi:plugin-claude-code' })
       await channelServer.connect()
 
-      channelServer.send({ type: 'input:text', data: { text: hookEvent.prompt } })
+      channelServer.send({ data: { text: hookEvent.prompt }, type: 'input:text' })
     }
   })
 
@@ -82,17 +84,15 @@ export async function runCLI(): Promise<void> {
     let namespace: string
     if (cli.options.debug === true) {
       namespace = `${name}:*`
-    }
-    else {
+    } else {
       // support debugging multiple flags with comma-separated list
       namespace = resolveComma(toArray(cli.options.debug))
-        .map(v => `${name}:${v}`)
+        .map((v) => `${name}:${v}`)
         .join(',')
     }
 
     const enabled = debug.disable()
-    if (enabled)
-      namespace += `,${enabled}`
+    if (enabled) namespace += `,${enabled}`
 
     debug.enable(namespace)
     debug(`${name}:debug`)('Debugging enabled', namespace)
@@ -100,8 +100,7 @@ export async function runCLI(): Promise<void> {
 
   try {
     await cli.runMatchedCommand()
-  }
-  catch (error) {
+  } catch (error) {
     logger.withError(error).error('running failed')
     exit(1)
   }

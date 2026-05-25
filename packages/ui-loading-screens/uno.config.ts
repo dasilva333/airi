@@ -16,26 +16,23 @@ export default defineConfig({
     presetTypography(),
     presetWebFonts({
       fonts: {
-        'sans': 'DM Sans',
-        'serif': 'DM Serif Display',
-        'mono': 'DM Mono',
+        mono: 'DM Mono',
         'retro-mono': {
           name: 'Departure Mono',
           provider: 'none',
         },
+        sans: 'DM Sans',
+        serif: 'DM Serif Display',
       },
       timeouts: {
-        warning: 5000,
         failure: 10000,
+        warning: 5000,
       },
     }),
     presetIcons({
       scale: 1.2,
     }),
   ],
-  transformers: [
-    transformerDirectives(),
-    transformerVariantGroup(),
-  ],
   safelist: 'prose prose-sm m-auto text-left'.split(' '),
+  transformers: [transformerDirectives(), transformerVariantGroup()],
 })

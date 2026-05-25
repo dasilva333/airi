@@ -1,6 +1,5 @@
-import type { Animator, CreateAnimatorOptions } from '.'
-
 import { createSpring, createTimeline } from 'animejs'
+import type { Animator, CreateAnimatorOptions } from '.'
 
 export function createCutePopupAnimator(options: CreateAnimatorOptions): Animator {
   return (elements: HTMLElement[]) => {
@@ -22,7 +21,7 @@ export function createCutePopupAnimator(options: CreateAnimatorOptions): Animato
         translateY: ['1.1em', 0],
         translateZ: 0,
         ...options,
-        delay: (_, i) => options.duration / elements.length * i,
+        delay: (_, i) => (options.duration / elements.length) * i,
         ease: createSpring(),
       })
 

@@ -1,52 +1,53 @@
-import type { Server } from '@proj-airi/server-runtime/server'
-import type { Lifecycle } from 'injeca'
-
 import { randomUUID, X509Certificate } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { Socket } from 'node:net'
 import { join } from 'node:path'
 import { env, platform } from 'node:process'
-
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { Server } from '@proj-airi/server-runtime/server'
 import { createServer, getLocalIPs } from '@proj-airi/server-runtime/server'
 import { Mutex } from 'async-mutex'
 import { app, ipcMain } from 'electron'
+import type { Lifecycle } from 'injeca'
 import { createCA, createCert } from 'mkcert'
 import { x } from 'tinyexec'
 import { nullable, object, optional, string } from 'valibot'
 import { z } from 'zod'
 
-import {
-  electronApplyServerChannelConfig,
-  electronGetServerChannelConfig,
-} from '../../../../shared/eventa'
+import { electronApplyServerChannelConfig, electronGetServerChannelConfig } from '../../../../shared/eventa'
 import { createConfig } from '../../../libs/electron/persistence'
 
 const channelServerConfigSchema = object({
-  hostname: optional(string()),
   authToken: optional(string()),
-  tlsConfig: optional(nullable(object({
-    cert: optional(string()),
-    key: optional(string()),
-    passphrase: optional(string()),
-  }))),
+  hostname: optional(string()),
+  tlsConfig: optional(
+    nullable(
+      object({
+        cert: optional(string()),
+        key: optional(string()),
+        passphrase: optional(string()),
+      }),
+    ),
+  ),
 })
 
-const channelServerInvokeConfigSchema = z.object({
-  hostname: z.string().optional(),
-  authToken: z.string().optional(),
-  tlsConfig: z.object({ }).nullable().optional(),
-}).strict()
+const channelServerInvokeConfigSchema = z
+  .object({
+    authToken: z.string().optional(),
+    hostname: z.string().optional(),
+    tlsConfig: z.object({}).nullable().optional(),
+  })
+  .strict()
 
 const channelServerConfigStore = createConfig('server-channel', 'config.json', channelServerConfigSchema, {
+  autoHeal: true,
   default: {
-    hostname: '127.0.0.1',
     authToken: '',
+    hostname: '127.0.0.1',
     tlsConfig: null,
   },
-  autoHeal: true,
 })
 
 function getServerChannelPort() {
@@ -54,7 +55,13 @@ function getServerChannelPort() {
 }
 
 async function getChannelServerConfig() {
-  return channelServerConfigStore.get() as { hostname?: string, authToken?: string, tlsConfig?: any } || { hostname: '127.0.0.1', authToken: '', tlsConfig: null }
+  return (
+    (channelServerConfigStore.get() as { hostname?: string; authToken?: string; tlsConfig?: any }) || {
+      authToken: '',
+      hostname: '127.0.0.1',
+      tlsConfig: null,
+    }
+  )
 }
 
 async function normalizeChannelServerOptions(payload: unknown, fallback?: any) {
@@ -68,8 +75,8 @@ async function normalizeChannelServerOptions(payload: unknown, fallback?: any) {
   }
 
   return {
-    hostname: parsed.data.hostname ?? fallback.hostname,
     authToken: parsed.data.authToken ?? fallback.authToken,
+    hostname: parsed.data.hostname ?? fallback.hostname,
     tlsConfig: typeof parsed.data.tlsConfig === 'undefined' ? null : parsed.data.tlsConfig,
   }
 }
@@ -77,34 +84,25 @@ async function normalizeChannelServerOptions(payload: unknown, fallback?: any) {
 function getCertificateDomains(): string[] {
   const localIPs = getLocalIPs()
   const hostname = env.SERVER_RUNTIME_HOSTNAME
-  return Array.from(new Set([
-    'localhost',
-    '127.0.0.1',
-    '::1',
-    ...(hostname ? [hostname] : []),
-    ...localIPs,
-  ]))
+  return Array.from(new Set(['localhost', '127.0.0.1', '::1', ...(hostname ? [hostname] : []), ...localIPs]))
 }
 
 function certHasAllDomains(certPem: string, domains: string[]): boolean {
   try {
     const cert = new X509Certificate(certPem)
     const san = cert.subjectAltName || ''
-    const entries = san.split(',').map(part => part.trim())
+    const entries = san.split(',').map((part) => part.trim())
     const values = entries
       .map((entry) => {
-        if (entry.startsWith('DNS:'))
-          return entry.slice(4).trim()
-        if (entry.startsWith('IP Address:'))
-          return entry.slice(11).trim()
+        if (entry.startsWith('DNS:')) return entry.slice(4).trim()
+        if (entry.startsWith('IP Address:')) return entry.slice(11).trim()
         return ''
       })
       .filter(Boolean)
 
     const sanSet = new Set(values)
-    return domains.every(domain => sanSet.has(domain))
-  }
-  catch {
+    return domains.every((domain) => sanSet.has(domain))
+  } catch {
     return false
   }
 }
@@ -116,33 +114,32 @@ async function installCACertificate(caCert: string) {
 
   try {
     if (platform === 'darwin') {
-      await x(`security`, ['add-trusted-cert', '-d', '-r', 'trustRoot', '-k', '/Library/Keychains/System.keychain', `"${caCertPath}"`], { nodeOptions: { stdio: 'ignore' } })
-    }
-    else if (platform === 'win32') {
+      await x(
+        `security`,
+        ['add-trusted-cert', '-d', '-r', 'trustRoot', '-k', '/Library/Keychains/System.keychain', `"${caCertPath}"`],
+        { nodeOptions: { stdio: 'ignore' } },
+      )
+    } else if (platform === 'win32') {
       await x(`certutil`, ['-addstore', '-f', 'Root', `"${caCertPath}"`], { nodeOptions: { stdio: 'ignore' } })
-    }
-    else if (platform === 'linux') {
+    } else if (platform === 'linux') {
       const caDir = '/usr/local/share/ca-certificates'
       const caFileName = 'airi-websocket-ca.crt'
       try {
         writeFileSync(join(caDir, caFileName), caCert)
         await x('update-ca-certificates', [], { nodeOptions: { stdio: 'ignore' } })
-      }
-      catch {
+      } catch {
         const userCaDir = join(env.HOME || '', '.local/share/ca-certificates')
         try {
           if (!existsSync(userCaDir)) {
             await x(`mkdir`, ['-p', `"${userCaDir}"`], { nodeOptions: { stdio: 'ignore' } })
           }
           writeFileSync(join(userCaDir, caFileName), caCert)
-        }
-        catch {
+        } catch {
           // Ignore errors
         }
       }
     }
-  }
-  catch {
+  } catch {
     // Ignore installation errors
   }
 }
@@ -152,20 +149,19 @@ async function generateCertificate() {
   const caCertPath = join(userDataPath, 'websocket-ca-cert.pem')
   const caKeyPath = join(userDataPath, 'websocket-ca-key.pem')
 
-  let ca: { key: string, cert: string }
+  let ca: { key: string; cert: string }
 
   if (existsSync(caCertPath) && existsSync(caKeyPath)) {
     ca = {
       cert: readFileSync(caCertPath, 'utf-8'),
       key: readFileSync(caKeyPath, 'utf-8'),
     }
-  }
-  else {
+  } else {
     ca = await createCA({
-      organization: 'AIRI',
       countryCode: 'US',
-      state: 'Development',
       locality: 'Local',
+      organization: 'AIRI',
+      state: 'Development',
       validity: 365,
     })
     writeFileSync(caCertPath, ca.cert)
@@ -177,7 +173,7 @@ async function generateCertificate() {
   const domains = getCertificateDomains()
 
   const cert = await createCert({
-    ca: { key: ca.key, cert: ca.cert },
+    ca: { cert: ca.cert, key: ca.key },
     domains,
     validity: 365,
   })
@@ -222,16 +218,15 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
     channelServerConfigStore.update(storedConfig)
     channelServerConfigStore.flush()
     console.log('[Main/ServerChannel] authToken generated and flushed.')
-  }
-  else {
+  } else {
     console.log('[Main/ServerChannel] Using existing authToken:', storedConfig.authToken)
   }
 
   const serverChannel = createServer({
     ...storedConfig,
     auth: { token: storedConfig.authToken },
-    port: getServerChannelPort(),
     hostname: storedConfig.hostname || env.SERVER_RUNTIME_HOSTNAME || '127.0.0.1',
+    port: getServerChannelPort(),
     tlsConfig: storedConfig.tlsConfig ? await getOrCreateCertificate() : null,
   })
 
@@ -249,8 +244,7 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
       let settled = false
 
       const settle = (value: boolean) => {
-        if (settled)
-          return
+        if (settled) return
         settled = true
         socket.destroy()
         resolve(value)
@@ -264,8 +258,7 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
   }
 
   async function ensureServerRunning(reason: string) {
-    if (startLoopTask)
-      return startLoopTask
+    if (startLoopTask) return startLoopTask
 
     const log = useLogg('main/server-runtime').useGlobalConfig()
     startLoopTask = (async () => {
@@ -276,16 +269,18 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
         try {
           await serverChannel.start()
           if (await isPortListening(getRuntimePort())) {
-            log.withFields({ reason, attempt, port: getRuntimePort() }).log('WebSocket server confirmed ready')
+            log.withFields({ attempt, port: getRuntimePort(), reason }).log('WebSocket server confirmed ready')
             return
           }
 
           throw new Error(`WebSocket server was not listening on port ${getRuntimePort()} after start`)
-        }
-        catch (error) {
+        } catch (error) {
           const delayMs = Math.min(1000 * 2 ** (attempt - 1), 10000)
-          log.withFields({ reason, attempt, delayMs, port: getRuntimePort() }).withError(error as Error).error('WebSocket server start failed, retrying')
-          await new Promise(resolve => setTimeout(resolve, delayMs))
+          log
+            .withFields({ attempt, delayMs, port: getRuntimePort(), reason })
+            .withError(error as Error)
+            .error('WebSocket server start failed, retrying')
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
         }
       }
     })().finally(() => {
@@ -309,11 +304,9 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
         }
       }, 5000)
       log.log('WebSocket server started')
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error).error('Error starting WebSocket server')
-    }
-    finally {
+    } finally {
       release()
     }
   })
@@ -332,11 +325,9 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
       }
       await serverChannel.stop()
       log.log('WebSocket server closed')
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error).error('Error closing WebSocket server')
-    }
-    finally {
+    } finally {
       release()
     }
   })
@@ -345,22 +336,20 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
     getConnectionHost() {
       return serverChannel.getConnectionHost()
     },
-    async start() {
-      const release = await mutex.acquire()
-      try {
-        await serverChannel.start()
-      }
-      finally {
-        release()
-      }
-    },
     async restart() {
       const release = await mutex.acquire()
       try {
         await serverChannel.stop()
         await serverChannel.start()
+      } finally {
+        release()
       }
-      finally {
+    },
+    async start() {
+      const release = await mutex.acquire()
+      try {
+        await serverChannel.start()
+      } finally {
         release()
       }
     },
@@ -368,8 +357,7 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
       const release = await mutex.acquire()
       try {
         await serverChannel.stop()
-      }
-      finally {
+      } finally {
         release()
       }
     },
@@ -377,8 +365,7 @@ export async function setupServerChannel(params: { lifecycle: Lifecycle }): Prom
       const release = await mutex.acquire()
       try {
         await serverChannel.updateConfig(config)
-      }
-      finally {
+      } finally {
         release()
       }
     },
@@ -395,20 +382,23 @@ export async function createServerChannelService(params: { serverChannel: Server
     const config = await getChannelServerConfig()
     console.log(`[Main/ServerChannel] getServerChannelConfig resolved in ${Date.now() - startedAt}ms`)
     return {
-      websocketTlsConfig: config.tlsConfig || null,
       authToken: config.authToken,
       hostname: config.hostname,
+      websocketTlsConfig: config.tlsConfig || null,
     }
   })
 
   defineInvokeHandler(context, electronApplyServerChannelConfig, async (req) => {
     try {
       const current = await getChannelServerConfig()
-      const next = await normalizeChannelServerOptions({
-        tlsConfig: req?.websocketTlsConfig,
-        authToken: req?.authToken,
-        hostname: req?.hostname,
-      }, current)
+      const next = await normalizeChannelServerOptions(
+        {
+          authToken: req?.authToken,
+          hostname: req?.hostname,
+          tlsConfig: req?.websocketTlsConfig,
+        },
+        current,
+      )
 
       const tlsChanged = JSON.stringify(next.tlsConfig) !== JSON.stringify(current.tlsConfig)
 
@@ -419,24 +409,22 @@ export async function createServerChannelService(params: { serverChannel: Server
       if (tlsChanged) {
         await params.serverChannel.stop()
         await params.serverChannel.updateConfig({
-          port: getServerChannelPort(),
           hostname: env.SERVER_RUNTIME_HOSTNAME || '0.0.0.0',
+          port: getServerChannelPort(),
           tlsConfig: next.tlsConfig ? await getOrCreateCertificate() : null,
         })
         await params.serverChannel.start()
-      }
-      else {
+      } else {
         // Ensure it's running
         await params.serverChannel.start()
       }
 
       return {
-        websocketTlsConfig: next.tlsConfig || null,
         authToken: next.authToken,
         hostname: next.hostname,
+        websocketTlsConfig: next.tlsConfig || null,
       }
-    }
-    catch (error) {
+    } catch (error) {
       useLogg('main/server-runtime').withError(error).error('Failed to apply server channel configuration')
     }
   })

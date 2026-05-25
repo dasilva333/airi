@@ -1,4 +1,3 @@
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import type { MMD } from '@moeru/three-mmd'
 
 import { ref } from 'vue'
@@ -8,22 +7,22 @@ import { ref } from 'vue'
  * Maps VRM-style expression names to common MMD morph target names (Japanese).
  */
 const EXPRESSION_MORPH_MAP: Record<string, string[]> = {
-  happy: ['笑い', 'にこり', 'にっこり'],
-  sad: ['悲しい', '困る'],
   angry: ['怒り', '怒る'],
-  surprised: ['驚き', 'びっくり'],
+  happy: ['笑い', 'にこり', 'にっこり'],
   neutral: [],
   relaxed: ['にこり'],
+  sad: ['悲しい', '困る'],
+  surprised: ['驚き', 'びっくり'],
 }
 
 // English fallback morph names
 const EXPRESSION_MORPH_MAP_EN: Record<string, string[]> = {
-  happy: ['smile', 'happy'],
-  sad: ['sad', 'sorrow'],
   angry: ['angry'],
-  surprised: ['surprised', 'shock'],
+  happy: ['smile', 'happy'],
   neutral: [],
   relaxed: ['smile'],
+  sad: ['sad', 'sorrow'],
+  surprised: ['surprised', 'shock'],
 }
 
 interface MorphTransition {
@@ -48,8 +47,7 @@ export function useMMDEmote(mmd: MMD) {
 
   function resolveMorphIndices(expressionName: string): Map<number, number> {
     const dict = mmd.mesh.morphTargetDictionary
-    if (!dict)
-      return new Map()
+    if (!dict) return new Map()
 
     const result = new Map<number, number>()
 
@@ -88,8 +86,7 @@ export function useMMDEmote(mmd: MMD) {
 
   function setExpression(expressionName: string, intensity = 1.0, duration = 0.4) {
     console.log('[useMMDEmote] setExpression requested:', expressionName, 'intensity:', intensity)
-    if (currentEmotion.value === expressionName)
-      return
+    if (currentEmotion.value === expressionName) return
 
     currentEmotion.value = expressionName
     const targetMorphs = resolveMorphIndices(expressionName)
@@ -101,30 +98,28 @@ export function useMMDEmote(mmd: MMD) {
         console.log('[useMMDEmote] Applying weight DIRECTLY to mesh:', index, 'weight:', weight)
         mmd.mesh.morphTargetInfluences[index] = weight
       }
-    }
-    else {
+    } else {
       console.warn('[useMMDEmote] mesh.morphTargetInfluences is MISSING!')
     }
 
     transition.value = {
-      targetMorphs,
-      progress: 0,
       duration,
+      progress: 0,
+      targetMorphs,
     }
   }
 
   function resetExpression(duration = 0.6) {
     currentEmotion.value = null
     transition.value = {
-      targetMorphs: new Map(),
-      progress: 0,
       duration,
+      progress: 0,
+      targetMorphs: new Map(),
     }
   }
 
   function update(delta: number) {
-    if (!mmd.mesh.morphTargetInfluences)
-      return
+    if (!mmd.mesh.morphTargetInfluences) return
 
     const t = transition.value
     if (!t) {
@@ -141,10 +136,7 @@ export function useMMDEmote(mmd: MMD) {
     const easedProgress = easeInOutCubic(t.progress)
 
     // Collect all morph indices that need updating: currently active + new targets
-    const allIndices = new Set([
-      ...activeMorphWeights.value.keys(),
-      ...t.targetMorphs.keys(),
-    ])
+    const allIndices = new Set([...activeMorphWeights.value.keys(), ...t.targetMorphs.keys()])
 
     for (const index of allIndices) {
       const currentWeight = activeMorphWeights.value.get(index) ?? 0
@@ -159,8 +151,7 @@ export function useMMDEmote(mmd: MMD) {
         if (targetWeight === 0) {
           // Morph is not in the new expression — remove it from the active set
           activeMorphWeights.value.delete(index)
-        }
-        else {
+        } else {
           activeMorphWeights.value.set(index, targetWeight)
         }
       }
@@ -173,8 +164,8 @@ export function useMMDEmote(mmd: MMD) {
 
   return {
     currentEmotion,
-    setExpression,
     resetExpression,
+    setExpression,
     update,
   }
 }

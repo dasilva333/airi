@@ -1,13 +1,9 @@
 import { defineInvokeHandler } from '@moeru/eventa'
+import * as ScreenCapture from '@proj-airi/electron-screen-capture/main'
 import { visionCaptureScreen, visionCheckPermission, visionRequestPermission } from '@proj-airi/stage-shared'
 import { desktopCapturer } from 'electron'
 
-import * as ScreenCapture from '@proj-airi/electron-screen-capture/main'
-
-const {
-  checkMacOSScreenCapturePermission,
-  requestMacOSScreenCapturePermission,
-} = ScreenCapture as any
+const { checkMacOSScreenCapturePermission, requestMacOSScreenCapturePermission } = ScreenCapture as any
 
 /**
  * Screen capture service that provides high-level screen/window capture
@@ -18,8 +14,7 @@ export function createVisionService(params: { context: any }) {
   defineInvokeHandler(params.context, visionCheckPermission, async () => {
     try {
       return checkMacOSScreenCapturePermission()
-    }
-    catch {
+    } catch {
       return 'granted' // Fallback for non-macOS
     }
   })
@@ -27,8 +22,7 @@ export function createVisionService(params: { context: any }) {
   defineInvokeHandler(params.context, visionRequestPermission, async () => {
     try {
       requestMacOSScreenCapturePermission()
-    }
-    catch {
+    } catch {
       // Ignore on non-macOS
     }
   })
@@ -38,11 +32,11 @@ export function createVisionService(params: { context: any }) {
     try {
       const types: ('screen' | 'window')[] = options?.type === 'window' ? ['window'] : ['screen']
       const sources = await desktopCapturer.getSources({
-        types,
         thumbnailSize: {
-          width: options?.width || 1280,
           height: options?.height || 720,
+          width: options?.width || 1280,
         },
+        types,
       })
 
       if (!sources || sources.length === 0) {
@@ -53,13 +47,12 @@ export function createVisionService(params: { context: any }) {
       console.log(`[Vision Service] desktopCapturer found ${sources.length} sources.`)
 
       // Attempt to find a valid source with a thumbnail
-      let selectedSource = options?.sourceId
-        ? sources.find(s => s.id === options.sourceId)
-        : sources[0]
+      let selectedSource = options?.sourceId ? sources.find((s) => s.id === options.sourceId) : sources[0]
 
       // Fallback: If sources[0] is problematic, find any source that mentions "Screen" or has a valid-looking ID
       if (!selectedSource && sources.length > 0) {
-        selectedSource = sources.find(s => s.name.toLowerCase().includes('screen') || s.id.startsWith('screen:')) || sources[0]
+        selectedSource =
+          sources.find((s) => s.name.toLowerCase().includes('screen') || s.id.startsWith('screen:')) || sources[0]
       }
 
       if (!selectedSource) {
@@ -80,8 +73,7 @@ export function createVisionService(params: { context: any }) {
         dataUrl,
         timestamp: Date.now(),
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[Vision Service] Capture failed in Main process:', err)
       return null
     }

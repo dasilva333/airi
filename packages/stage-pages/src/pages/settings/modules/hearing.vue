@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
-
-import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
-
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import type { MicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
+import { electronGetMicToggleHotkey, electronSetMicToggleHotkey } from '@proj-airi/stage-shared/shortcuts'
 import {
-  electronGetMicToggleHotkey,
-  electronSetMicToggleHotkey,
-
-} from '@proj-airi/stage-shared/shortcuts'
-import { Alert, ErrorContainer, LevelMeter, RadioCardManySelect, RadioCardSimple, TestDummyMarker, ThresholdMeter, TimeSeriesChart } from '@proj-airi/stage-ui/components'
+  Alert,
+  ErrorContainer,
+  LevelMeter,
+  RadioCardManySelect,
+  RadioCardSimple,
+  TestDummyMarker,
+  ThresholdMeter,
+  TimeSeriesChart,
+} from '@proj-airi/stage-ui/components'
 import { useAnalytics, useAudioAnalyzer, useAudioRecorder } from '@proj-airi/stage-ui/composables'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useAudioContext } from '@proj-airi/stage-ui/stores/audio'
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 import { Button, FieldCheckbox, FieldInput, FieldRange, FieldSelect } from '@proj-airi/ui'
 import { until } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -48,15 +51,8 @@ const { startRecord, stopRecord, onStopRecord } = useAudioRecorder(stream)
 const { startAnalyzer, stopAnalyzer, onAnalyzerUpdate, volumeLevel } = useAudioAnalyzer()
 const { audioContext } = storeToRefs(useAudioContext())
 const hearingSpeechInputPipeline = useHearingSpeechInputPipeline()
-const {
-  transcribeForRecording,
-  transcribeForMediaStream,
-  stopStreamingTranscription,
-} = hearingSpeechInputPipeline
-const {
-  supportsStreamInput,
-  error: transcriptionPipelineError,
-} = storeToRefs(hearingSpeechInputPipeline)
+const { transcribeForRecording, transcribeForMediaStream, stopStreamingTranscription } = hearingSpeechInputPipeline
+const { supportsStreamInput, error: transcriptionPipelineError } = storeToRefs(hearingSpeechInputPipeline)
 
 const animationFrame = ref<number>()
 
@@ -104,8 +100,7 @@ onMounted(async () => {
       selectedHotkey.value = hotkey as MicToggleHotkey
     }
     isFetched.value = true
-  }
-  else {
+  } else {
     isFetched.value = true
   }
 })
@@ -116,8 +111,7 @@ watch(selectedHotkey, async (newHotkey, oldHotkey) => {
   if (isElectron && isFetched.value && newHotkey !== oldHotkey) {
     console.log('[Hearing Page] User changed hotkey, saving to main process:', newHotkey)
     await setMicToggleHotkeyInvoke?.(newHotkey)
-  }
-  else {
+  } else {
     console.log('[Hearing Page] Watch skipped save (initialization or no change)')
   }
 })
@@ -160,13 +154,13 @@ const {
   loaded: loadedVAD,
   loading: loadingVAD,
 } = useVAD(workletUrl, {
-  threshold: useVADThreshold,
-  onSpeechStart: () => {
-    void handleSpeechStart()
-  },
   onSpeechEnd: () => {
     void handleSpeechEnd()
   },
+  onSpeechStart: () => {
+    void handleSpeechStart()
+  },
+  threshold: useVADThreshold,
 })
 
 const isSpeechVolume = ref(false) // Volume-based speaking detection
@@ -202,28 +196,28 @@ async function setupAudioMonitoring() {
         isSpeechVolume.value = volumeLevel > useVADThreshold.value
       }
     })
-    if (analyzer)
-      source.connect(analyzer)
+    if (analyzer) source.connect(analyzer)
 
     if (useVADModel.value) {
       await initVAD()
       await startVAD(stream.value)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error setting up audio monitoring:', error)
     vadModelError.value = error instanceof Error ? error.message : String(error)
   }
 }
 
 async function stopAudioMonitoring() {
-  if (animationFrame.value) { // Stop animation frame
+  if (animationFrame.value) {
+    // Stop animation frame
     cancelAnimationFrame(animationFrame.value)
     animationFrame.value = undefined
   }
 
   await stopStreamingTranscription(true, activeTranscriptionProvider.value)
-  if (stream.value) { // Stop media stream
+  if (stream.value) {
+    // Stop media stream
     stopStream()
   }
 
@@ -236,8 +230,7 @@ async function toggleMonitoring() {
   if (!isMonitoring.value) {
     await setupAudioMonitoring()
     isMonitoring.value = true
-  }
-  else {
+  } else {
     await stopAudioMonitoring()
     isMonitoring.value = false
   }
@@ -259,12 +252,10 @@ const speakingIndicatorClass = computed(() => {
   if (prob > threshold) {
     // Speaking: green (could add intensity in future)
     return `bg-green-500 shadow-lg shadow-green-500/50`
-  }
-  else if (prob > threshold * 0.5) {
+  } else if (prob > threshold * 0.5) {
     // Close to threshold: yellow
     return 'bg-yellow-500 shadow-lg shadow-yellow-500/30'
-  }
-  else {
+  } else {
     // Low probability: neutral
     return 'bg-white dark:bg-neutral-900 border-2 border-neutral-300 dark:border-neutral-600'
   }
@@ -278,16 +269,14 @@ function updateCustomModelName(value: string | undefined) {
 
 // Sync OpenAI Compatible model from provider config
 function syncOpenAICompatibleSettings() {
-  if (activeTranscriptionProvider.value !== 'openai-compatible-audio-transcription')
-    return
+  if (activeTranscriptionProvider.value !== 'openai-compatible-audio-transcription') return
 
   const providerConfig = providersStore.getProviderConfig(activeTranscriptionProvider.value)
   // Always sync model from provider config (override any existing value from previous provider)
   if (providerConfig?.model) {
     activeTranscriptionModel.value = providerConfig.model as string
     updateCustomModelName(providerConfig.model as string)
-  }
-  else {
+  } else {
     // If no model in provider config, use default
     const defaultModel = 'whisper-1'
     activeTranscriptionModel.value = defaultModel
@@ -296,11 +285,9 @@ function syncOpenAICompatibleSettings() {
 }
 
 onStopRecord(async (recording) => {
-  if (shouldUseStreamInput.value)
-    return
+  if (shouldUseStreamInput.value) return
 
-  if (!recording || recording.size === 0)
-    return
+  if (!recording || recording.size === 0) return
 
   // Handle STT test transcription directly here
   if (isTestingSTT.value) {
@@ -313,18 +300,16 @@ onStopRecord(async (recording) => {
         testTranscriptionText.value = result
         testStatusMessage.value = 'Transcription complete!'
         console.info('STT test transcription result:', result)
-      }
-      else {
-        testTranscriptionError.value = transcriptionPipelineError.value || 'No transcription result returned from provider'
+      } else {
+        testTranscriptionError.value =
+          transcriptionPipelineError.value || 'No transcription result returned from provider'
         testStatusMessage.value = 'Transcription failed'
       }
-    }
-    catch (err) {
+    } catch (err) {
       testTranscriptionError.value = err instanceof Error ? err.message : String(err)
       testStatusMessage.value = `Error: ${testTranscriptionError.value}`
       console.error('STT test transcription error:', err)
-    }
-    finally {
+    } finally {
       isTranscribing.value = false
       isTestingSTT.value = false
     }
@@ -339,8 +324,7 @@ onStopRecord(async (recording) => {
   if (res) {
     transcriptions.value.push(res)
     error.value = ''
-  }
-  else if (transcriptionPipelineError.value) {
+  } else if (transcriptionPipelineError.value) {
     error.value = transcriptionPipelineError.value
   }
 })
@@ -374,9 +358,8 @@ async function startSTTTest() {
 
       // Wait for the stream to become available with a 3-second timeout.
       try {
-        await until(stream).toBeTruthy({ timeout: 3000, throwOnTimeout: true })
-      }
-      catch {
+        await until(stream).toBeTruthy({ throwOnTimeout: true, timeout: 3000 })
+      } catch {
         handleStreamStartError()
         return
       }
@@ -386,8 +369,7 @@ async function startSTTTest() {
         handleStreamStartError()
         return
       }
-    }
-    else {
+    } else {
       testStreamWasStarted.value = false // Stream was already running
     }
 
@@ -412,8 +394,7 @@ async function startSTTTest() {
             testStatusMessage.value = 'Transcription complete!'
             isTranscribing.value = false
             console.info('STT test completed with text:', text)
-          }
-          else {
+          } else {
             testStatusMessage.value = 'Waiting for speech...'
             isTranscribing.value = false
           }
@@ -422,11 +403,13 @@ async function startSTTTest() {
 
       testStatusMessage.value = 'Listening for speech... (streaming mode active)'
       isTranscribing.value = false // Not actively transcribing yet, just listening
-    }
-    else {
+    } else {
       // Fallback to recording-based transcription
       testStatusMessage.value = 'Recording audio for transcription... (3 seconds)'
-      console.info('Starting STT test with recording-based transcription for provider:', activeTranscriptionProvider.value)
+      console.info(
+        'Starting STT test with recording-based transcription for provider:',
+        activeTranscriptionProvider.value,
+      )
 
       startRecord()
 
@@ -436,8 +419,7 @@ async function startSTTTest() {
         testStatusMessage.value = 'Processing transcription...'
       }, 3000) // Record for 3 seconds
     }
-  }
-  catch (err) {
+  } catch (err) {
     testTranscriptionError.value = err instanceof Error ? err.message : String(err)
     testStatusMessage.value = `Error: ${testTranscriptionError.value}`
     isTranscribing.value = false
@@ -455,12 +437,10 @@ async function stopSTTTest() {
     // Stop streaming transcription if active
     if (shouldUseStreamInput.value) {
       await stopStreamingTranscription(false, activeTranscriptionProvider.value)
-    }
-    else {
+    } else {
       stopRecord()
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Error stopping STT test:', err)
   }
 
@@ -474,8 +454,7 @@ async function stopSTTTest() {
     try {
       stopStream()
       testStreamWasStarted.value = false
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Error stopping test stream:', err)
     }
   }
@@ -484,7 +463,7 @@ async function stopSTTTest() {
 // Note: STT test transcription is now handled directly in onStopRecord handler above
 // This watch is kept for potential future use but is no longer needed for STT tests
 
-watch(selectedAudioInput, async () => isMonitoring.value && await setupAudioMonitoring())
+watch(selectedAudioInput, async () => isMonitoring.value && (await setupAudioMonitoring()))
 
 function handleStreamStartError() {
   testTranscriptionError.value = 'Failed to start audio stream. Please check microphone permissions.'
@@ -494,22 +473,25 @@ function handleStreamStartError() {
   testStreamWasStarted.value = false
 }
 
-watch(activeTranscriptionProvider, async (provider) => {
-  if (!provider)
-    return
+watch(
+  activeTranscriptionProvider,
+  async (provider) => {
+    if (!provider) return
 
-  await hearingStore.loadModelsForProvider(provider)
-  syncOpenAICompatibleSettings()
+    await hearingStore.loadModelsForProvider(provider)
+    syncOpenAICompatibleSettings()
 
-  // Auto-select first model for Web Speech API if no model is selected
-  if (provider === 'browser-web-speech-api' && !activeTranscriptionModel.value) {
-    const models = providerModels.value
-    if (models.length > 0) {
-      activeTranscriptionModel.value = models[0].id
-      console.info('Auto-selected Web Speech API model:', models[0].id)
+    // Auto-select first model for Web Speech API if no model is selected
+    if (provider === 'browser-web-speech-api' && !activeTranscriptionModel.value) {
+      const models = providerModels.value
+      if (models.length > 0) {
+        activeTranscriptionModel.value = models[0].id
+        console.info('Auto-selected Web Speech API model:', models[0].id)
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 onMounted(async () => {
   // Audio devices are loaded on demand when user requests them
@@ -529,7 +511,7 @@ onUnmounted(() => {
     })
   }
 
-  audioCleanups.value.forEach(cleanup => cleanup())
+  audioCleanups.value.forEach((cleanup) => cleanup())
 })
 </script>
 

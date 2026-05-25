@@ -18,9 +18,9 @@ function handleUpdateDone(value: boolean) {
 }
 
 defineExpose({
-  handleUpdateStep,
-  handleUpdateProgress,
   handleUpdateDone,
+  handleUpdateProgress,
+  handleUpdateStep,
 })
 </script>
 

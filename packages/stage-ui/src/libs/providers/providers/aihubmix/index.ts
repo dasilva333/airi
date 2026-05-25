@@ -5,43 +5,16 @@ import { createOpenAICompatibleValidators } from '../../validators/openai-compat
 import { defineProvider } from '../registry'
 
 const aihubmixConfigSchema = z.object({
-  apiKey: z
-    .string('API Key'),
-  baseUrl: z
-    .string('Base URL')
-    .optional()
-    .default('https://aihubmix.com/v1/'),
+  apiKey: z.string('API Key'),
+  baseUrl: z.string('Base URL').optional().default('https://aihubmix.com/v1/'),
 })
 
 type AIHubMixConfig = z.input<typeof aihubmixConfigSchema>
 
 export const providerAIHubMix = defineProvider<AIHubMixConfig>({
-  id: 'aihubmix',
-  order: 1,
-  name: 'AIHubMix',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.aihubmix.title'),
-  description: 'Unified API Bridge - Versatile router aggregating major models into one endpoint',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.aihubmix.description'),
-  tasks: ['chat'],
-  icon: 'i-lobe-icons:aihubmix',
-  iconColor: 'i-lobe-icons:aihubmix-color',
   business: () => ({
-    pricing: 'paid',
     deployment: 'cloud',
-  }),
-
-  createProviderConfig: ({ t }) => aihubmixConfigSchema.extend({
-    apiKey: aihubmixConfigSchema.shape.apiKey.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    baseUrl: aihubmixConfigSchema.shape.baseUrl.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder'),
-    }),
+    pricing: 'paid',
   }),
   createProvider(config) {
     return merge(
@@ -50,6 +23,34 @@ export const providerAIHubMix = defineProvider<AIHubMixConfig>({
       createModelProvider({ apiKey: config.apiKey, baseURL: config.baseUrl! }),
     )
   },
+
+  createProviderConfig: ({ t }) =>
+    aihubmixConfigSchema.extend({
+      apiKey: aihubmixConfigSchema.shape.apiKey.meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
+        type: 'password',
+      }),
+      baseUrl: aihubmixConfigSchema.shape.baseUrl.meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description',
+        ),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder',
+        ),
+      }),
+    }),
+  description: 'Unified API Bridge - Versatile router aggregating major models into one endpoint',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.aihubmix.description'),
+  icon: 'i-lobe-icons:aihubmix',
+  iconColor: 'i-lobe-icons:aihubmix-color',
+  id: 'aihubmix',
+  name: 'AIHubMix',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.aihubmix.title'),
+  order: 1,
+  tasks: ['chat'],
 
   validationRequiredWhen(config) {
     return !!config.apiKey?.trim()

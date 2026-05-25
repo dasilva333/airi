@@ -5,7 +5,17 @@ import type { chatMessagesTable } from '../db/schema'
 import { findPhotoDescription } from './photos'
 import { findStickerDescription } from './stickers'
 
-export function chatMessageToOneLine(botId: string, message: Omit<typeof chatMessagesTable.$inferSelect, 'content_vector_1536' | 'content_vector_768' | 'content_vector_1024'>, repliedToMessage?: Omit<typeof chatMessagesTable.$inferSelect, 'content_vector_1536' | 'content_vector_768' | 'content_vector_1024'>) {
+export function chatMessageToOneLine(
+  botId: string,
+  message: Omit<
+    typeof chatMessagesTable.$inferSelect,
+    'content_vector_1536' | 'content_vector_768' | 'content_vector_1024'
+  >,
+  repliedToMessage?: Omit<
+    typeof chatMessagesTable.$inferSelect,
+    'content_vector_1536' | 'content_vector_768' | 'content_vector_1024'
+  >,
+) {
   let userDisplayName = `User [${message.from_name}]`
 
   if (botId === message.from_id) {
@@ -45,8 +55,7 @@ export async function telegramMessageToOneLine(botId: string, message: Message) 
   if (message.reply_to_message != null) {
     if (botId === message.reply_to_message.from.id.toString()) {
       return `Message ID: ${message.message_id || 'Unknown'} sent on ${sentOn} ${userDisplayName} replied to your previous message ${message.reply_to_message.text || message.reply_to_message.caption} in Group [${message.chat.title}] said: ${message.text}`
-    }
-    else {
+    } else {
       return `Message ID: ${message.message_id || 'Unknown'} sent on ${sentOn} ${userDisplayName} replied to User [${message.reply_to_message.from.first_name} ${message.reply_to_message.from.last_name} (${message.reply_to_message.from.username})] for content ${message.reply_to_message.text || message.reply_to_message.caption} in Group [${message.chat.title}] said: ${message.text}`
     }
   }

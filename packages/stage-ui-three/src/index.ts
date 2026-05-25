@@ -1,3 +1,5 @@
+// Utils
+export { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 export * from './assets/vrm/animations'
 export { default as ThreeScene } from './components/ThreeScene.vue'
 export * from './composables/hit-test'
@@ -6,7 +8,3 @@ export { useCustomVrmAnimationsStore } from './stores/custom-vrm-animations'
 export { useModelStore } from './stores/model-store'
 export * from './trace'
 export * from './utils/vrm-preview'
-
-// Utils
-// @ts-ignore
-export { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'

@@ -4,79 +4,86 @@ import { computed } from 'vue'
 import Skeleton from './Skeleton.vue'
 
 type WeatherEffect = 'rain' | 'snow' | 'thunder' | 'fog' | 'cloudy' | 'none'
-type SizePreset = 's' | 'm' | 'l' | { cols?: number, rows?: number }
+type SizePreset = 's' | 'm' | 'l' | { cols?: number; rows?: number }
 
-const props = withDefaults(defineProps<{
-  propsLoading?: boolean
+const props = withDefaults(
+  defineProps<{
+    propsLoading?: boolean
 
-  city?: string
-  temperature?: string
-  condition?: string
-  icon?: string
-  conditionCode?: string
-  isNight?: boolean
-  effect?: WeatherEffect
-  size?: SizePreset
-  high?: string
-  low?: string
-  feelsLike?: string
-  humidity?: string
-  wind?: string
-  precipitation?: string
-}>(), {
-  propsLoading: false,
-  isNight: false,
-})
+    city?: string
+    temperature?: string
+    condition?: string
+    icon?: string
+    conditionCode?: string
+    isNight?: boolean
+    effect?: WeatherEffect
+    size?: SizePreset
+    high?: string
+    low?: string
+    feelsLike?: string
+    humidity?: string
+    wind?: string
+    precipitation?: string
+  }>(),
+  {
+    isNight: false,
+    propsLoading: false,
+  },
+)
 
 const weatherIconMap = {
-  'clear-day': { icon: 'i-iconify-meteocons:clear-day-fill', effect: 'none', nightKey: 'clear-night' },
-  'clear-night': { icon: 'i-iconify-meteocons:clear-night-fill', effect: 'none' },
-  'partly-cloudy-day': { icon: 'i-iconify-meteocons:partly-cloudy-day-fill', effect: 'cloudy', nightKey: 'partly-cloudy-night' },
-  'partly-cloudy-night': { icon: 'i-iconify-meteocons:partly-cloudy-night-fill', effect: 'cloudy' },
-  'cloudy': { icon: 'i-iconify-meteocons:cloudy-fill', effect: 'cloudy' },
-  'overcast': { icon: 'i-iconify-meteocons:overcast-fill', effect: 'cloudy' },
-  'rain': { icon: 'i-iconify-meteocons:rain-fill', effect: 'rain' },
-  'drizzle': { icon: 'i-iconify-meteocons:drizzle-fill', effect: 'rain' },
-  'extreme-rain': { icon: 'i-iconify-meteocons:extreme-rain-fill', effect: 'rain' },
-  'thunderstorm': { icon: 'i-iconify-meteocons:thunderstorms-fill', effect: 'thunder' },
-  'snow': { icon: 'i-iconify-meteocons:snow-fill', effect: 'snow' },
-  'extreme-snow': { icon: 'i-iconify-meteocons:extreme-snow-fill', effect: 'snow' },
-  'sleet': { icon: 'i-iconify-meteocons:sleet-fill', effect: 'snow' },
-  'hail': { icon: 'i-iconify-meteocons:hail-fill', effect: 'snow' },
-  'fog': { icon: 'i-iconify-meteocons:fog-fill', effect: 'fog' },
-  'mist': { icon: 'i-iconify-meteocons:mist-fill', effect: 'fog' },
-  'haze': { icon: 'i-iconify-meteocons:haze-fill', effect: 'fog' },
-  'dust': { icon: 'i-iconify-meteocons:dust-fill', effect: 'fog' },
-  'smoke': { icon: 'i-iconify-meteocons:smoke-fill', effect: 'fog' },
-  'wind': { icon: 'i-iconify-meteocons:wind-fill', effect: 'cloudy' },
-  'tornado': { icon: 'i-iconify-meteocons:tornado-fill', effect: 'thunder' },
-  'hurricane': { icon: 'i-iconify-meteocons:hurricane-fill', effect: 'thunder' },
-} as Record<string, { icon: string, effect?: WeatherEffect, nightKey?: string }>
+  'clear-day': { effect: 'none', icon: 'i-iconify-meteocons:clear-day-fill', nightKey: 'clear-night' },
+  'clear-night': { effect: 'none', icon: 'i-iconify-meteocons:clear-night-fill' },
+  cloudy: { effect: 'cloudy', icon: 'i-iconify-meteocons:cloudy-fill' },
+  drizzle: { effect: 'rain', icon: 'i-iconify-meteocons:drizzle-fill' },
+  dust: { effect: 'fog', icon: 'i-iconify-meteocons:dust-fill' },
+  'extreme-rain': { effect: 'rain', icon: 'i-iconify-meteocons:extreme-rain-fill' },
+  'extreme-snow': { effect: 'snow', icon: 'i-iconify-meteocons:extreme-snow-fill' },
+  fog: { effect: 'fog', icon: 'i-iconify-meteocons:fog-fill' },
+  hail: { effect: 'snow', icon: 'i-iconify-meteocons:hail-fill' },
+  haze: { effect: 'fog', icon: 'i-iconify-meteocons:haze-fill' },
+  hurricane: { effect: 'thunder', icon: 'i-iconify-meteocons:hurricane-fill' },
+  mist: { effect: 'fog', icon: 'i-iconify-meteocons:mist-fill' },
+  overcast: { effect: 'cloudy', icon: 'i-iconify-meteocons:overcast-fill' },
+  'partly-cloudy-day': {
+    effect: 'cloudy',
+    icon: 'i-iconify-meteocons:partly-cloudy-day-fill',
+    nightKey: 'partly-cloudy-night',
+  },
+  'partly-cloudy-night': { effect: 'cloudy', icon: 'i-iconify-meteocons:partly-cloudy-night-fill' },
+  rain: { effect: 'rain', icon: 'i-iconify-meteocons:rain-fill' },
+  sleet: { effect: 'snow', icon: 'i-iconify-meteocons:sleet-fill' },
+  smoke: { effect: 'fog', icon: 'i-iconify-meteocons:smoke-fill' },
+  snow: { effect: 'snow', icon: 'i-iconify-meteocons:snow-fill' },
+  thunderstorm: { effect: 'thunder', icon: 'i-iconify-meteocons:thunderstorms-fill' },
+  tornado: { effect: 'thunder', icon: 'i-iconify-meteocons:tornado-fill' },
+  wind: { effect: 'cloudy', icon: 'i-iconify-meteocons:wind-fill' },
+} as Record<string, { icon: string; effect?: WeatherEffect; nightKey?: string }>
 
 const normalizedCondition = computed(() => (props.condition ?? '').toLowerCase().trim())
 const normalizedCode = computed(() => (props.conditionCode ?? '').toLowerCase().trim())
 const isLarge = computed(() => props.size === 'l')
 
-const conditionMappings: Array<{ keywords: string[], key: string }> = [
-  { keywords: ['thunder', 'storm', 'lightning'], key: 'thunderstorm' },
-  { keywords: ['hurricane', 'typhoon', 'cyclone'], key: 'hurricane' },
-  { keywords: ['tornado'], key: 'tornado' },
-  { keywords: ['hail'], key: 'hail' },
-  { keywords: ['sleet', 'ice'], key: 'sleet' },
-  { keywords: ['snow', 'blizzard', 'flurries'], key: 'snow' },
-  { keywords: ['extreme rain', 'heavy rain', 'downpour'], key: 'extreme-rain' },
-  { keywords: ['rain', 'shower'], key: 'rain' },
-  { keywords: ['drizzle', 'sprinkle'], key: 'drizzle' },
-  { keywords: ['fog'], key: 'fog' },
-  { keywords: ['mist'], key: 'mist' },
-  { keywords: ['haze'], key: 'haze' },
-  { keywords: ['dust', 'sand'], key: 'dust' },
-  { keywords: ['smoke'], key: 'smoke' },
-  { keywords: ['overcast'], key: 'overcast' },
-  { keywords: ['cloud'], key: 'cloudy' },
-  { keywords: ['partly', 'mostly', 'scattered'], key: 'partly-cloudy-day' },
-  { keywords: ['wind', 'breezy', 'gust'], key: 'wind' },
-  { keywords: ['clear', 'sun', 'fair'], key: 'clear-day' },
+const conditionMappings: Array<{ keywords: string[]; key: string }> = [
+  { key: 'thunderstorm', keywords: ['thunder', 'storm', 'lightning'] },
+  { key: 'hurricane', keywords: ['hurricane', 'typhoon', 'cyclone'] },
+  { key: 'tornado', keywords: ['tornado'] },
+  { key: 'hail', keywords: ['hail'] },
+  { key: 'sleet', keywords: ['sleet', 'ice'] },
+  { key: 'snow', keywords: ['snow', 'blizzard', 'flurries'] },
+  { key: 'extreme-rain', keywords: ['extreme rain', 'heavy rain', 'downpour'] },
+  { key: 'rain', keywords: ['rain', 'shower'] },
+  { key: 'drizzle', keywords: ['drizzle', 'sprinkle'] },
+  { key: 'fog', keywords: ['fog'] },
+  { key: 'mist', keywords: ['mist'] },
+  { key: 'haze', keywords: ['haze'] },
+  { key: 'dust', keywords: ['dust', 'sand'] },
+  { key: 'smoke', keywords: ['smoke'] },
+  { key: 'overcast', keywords: ['overcast'] },
+  { key: 'cloudy', keywords: ['cloud'] },
+  { key: 'partly-cloudy-day', keywords: ['partly', 'mostly', 'scattered'] },
+  { key: 'wind', keywords: ['wind', 'breezy', 'gust'] },
+  { key: 'clear-day', keywords: ['clear', 'sun', 'fair'] },
 ]
 
 function isWeatherIconKey(input: string): input is string {
@@ -84,20 +91,19 @@ function isWeatherIconKey(input: string): input is string {
 }
 
 const resolvedIconKey = computed<string>(() => {
-  if (props.icon)
-    return props.icon
+  if (props.icon) return props.icon
 
   const direct = normalizedCode.value
-  if (direct && isWeatherIconKey(direct))
-    return direct
+  if (direct && isWeatherIconKey(direct)) return direct
 
-  const match = conditionMappings.find(({ keywords }) => keywords.some(keyword => normalizedCondition.value.includes(keyword)))
+  const match = conditionMappings.find(({ keywords }) =>
+    keywords.some((keyword) => normalizedCondition.value.includes(keyword)),
+  )
   const fallback: string = props.isNight ? 'clear-night' : 'clear-day'
   const baseKey = match?.key ?? fallback
   const config = weatherIconMap[baseKey]
 
-  if (props.isNight && config.nightKey)
-    return config.nightKey
+  if (props.isNight && config.nightKey) return config.nightKey
 
   return baseKey
 })

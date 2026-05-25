@@ -6,8 +6,8 @@ import Buttons from '../components/Buttons.vue'
 definePage({
   meta: {
     stageTransition: {
-      name: 'fantasy-fall',
       direction: 'down',
+      name: 'fantasy-fall',
     },
   },
 })

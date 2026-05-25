@@ -11,24 +11,24 @@ interface Props {
   height?: number // Height in pixels
   showHeader?: boolean // Show label and value
   animationSpeed?: number // Animation duration in ms
-  colorThresholds?: { value: number, color: string }[] // Custom color thresholds
+  colorThresholds?: { value: number; color: string }[] // Custom color thresholds
   formatValue?: (value: number) => string // Custom value formatter
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  min: 0,
-  max: 100,
-  numBars: 20,
-  label: 'Level',
-  unit: '%',
-  height: 24,
-  showHeader: true,
   animationSpeed: 75,
   colorThresholds: () => [
-    { value: 60, color: 'bg-green-500' },
-    { value: 80, color: 'bg-yellow-500' },
-    { value: 100, color: 'bg-red-500' },
+    { color: 'bg-green-500', value: 60 },
+    { color: 'bg-yellow-500', value: 80 },
+    { color: 'bg-red-500', value: 100 },
   ],
+  height: 24,
+  label: 'Level',
+  max: 100,
+  min: 0,
+  numBars: 20,
+  showHeader: true,
+  unit: '%',
 })
 
 const levelBars = computed(() => {

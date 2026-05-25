@@ -2,24 +2,26 @@
 import { Callout, FieldSelect } from '@proj-airi/ui'
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  enabled?: boolean
-  granted?: boolean
-  audioInputs?: MediaDeviceInfo[]
-  volumeLevel?: number
-}>(), {
-  enabled: false,
-  granted: false,
-  audioInputs: () => [],
-  volumeLevel: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    enabled?: boolean
+    granted?: boolean
+    audioInputs?: MediaDeviceInfo[]
+    volumeLevel?: number
+  }>(),
+  {
+    audioInputs: () => [],
+    enabled: false,
+    granted: false,
+    volumeLevel: 0,
+  },
+)
 
 const enabled = defineModel<boolean>('enabled')
 const selectedAudioInput = defineModel<string>('selectedAudioInput')
 
-const ringEnabledClass = computed(() => enabled.value
-  ? 'bg-primary-500/15 dark:bg-primary-600/20'
-  : 'bg-neutral-300/20 dark:bg-neutral-700/20',
+const ringEnabledClass = computed(() =>
+  enabled.value ? 'bg-primary-500/15 dark:bg-primary-600/20' : 'bg-neutral-300/20 dark:bg-neutral-700/20',
 )
 </script>
 

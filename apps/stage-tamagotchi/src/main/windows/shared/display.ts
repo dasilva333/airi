@@ -9,8 +9,12 @@ export function currentDisplayBounds(window: BrowserWindow) {
   return nearbyDisplay.bounds
 }
 
-interface SizeActual { actual: number }
-interface SizePercentage { percentage: number }
+interface SizeActual {
+  actual: number
+}
+interface SizePercentage {
+  percentage: number
+}
 type Size = SizeActual | SizePercentage | number
 
 function evaluateSize(basedOn: number, size: Size) {
@@ -43,19 +47,19 @@ function evaluateSize(basedOn: number, size: Size) {
  * 10xl 224rem (3584px) @media (width >= 224rem) { ... }
  */
 export const tailwindBreakpoints = {
-  'sm': { min: 640, max: 767 },
-  'md': { min: 768, max: 1023 },
-  'lg': { min: 1024, max: 1279 },
-  'xl': { min: 1280, max: 1535 },
-  '2xl': { min: 1536, max: 1791 },
-  '3xl': { min: 1792, max: 2047 },
-  '4xl': { min: 2048, max: 2303 },
-  '5xl': { min: 2304, max: 2559 },
-  '6xl': { min: 2560, max: 2815 },
-  '7xl': { min: 2816, max: 3071 },
-  '8xl': { min: 3072, max: 3327 },
-  '9xl': { min: 3328, max: 3583 },
-  '10xl': { min: 3584, max: Infinity },
+  '2xl': { max: 1791, min: 1536 },
+  '3xl': { max: 2047, min: 1792 },
+  '4xl': { max: 2303, min: 2048 },
+  '5xl': { max: 2559, min: 2304 },
+  '6xl': { max: 2815, min: 2560 },
+  '7xl': { max: 3071, min: 2816 },
+  '8xl': { max: 3327, min: 3072 },
+  '9xl': { max: 3583, min: 3328 },
+  '10xl': { max: Infinity, min: 3584 },
+  lg: { max: 1279, min: 1024 },
+  md: { max: 1023, min: 768 },
+  sm: { max: 767, min: 640 },
+  xl: { max: 1535, min: 1280 },
 }
 
 /**
@@ -72,21 +76,19 @@ export const tailwindBreakpoints = {
  * @see {@link https://en.wikipedia.org/wiki/Display_resolution#Common_display_resolutions}
  */
 export const resolutionBreakpoints = {
-  '720p': { min: 0, max: 1280 },
-  '1080p': { min: 1281, max: 1920 },
-  '2k': { min: 1921, max: 2560 },
-  '4k': { min: 2561, max: 3840 },
-  '5k': { min: 3841, max: 7680 },
-  '8k': { min: 7681, max: Infinity },
+  '2k': { max: 2560, min: 1921 },
+  '4k': { max: 3840, min: 2561 },
+  '5k': { max: 7680, min: 3841 },
+  '8k': { max: Infinity, min: 7681 },
+  '720p': { max: 1280, min: 0 },
+  '1080p': { max: 1920, min: 1281 },
 }
 
 /**
  * Achieve responsive sizes based on screen width breakpoints.
  * @see {@link https://tailwindcss.com/docs/responsive-design#overview}
  */
-export function mapForBreakpoints<
-  B extends Record<string, { min: number, max: number }> = typeof tailwindBreakpoints,
->(
+export function mapForBreakpoints<B extends Record<string, { min: number; max: number }> = typeof tailwindBreakpoints>(
   basedOn: number,
   sizes: { [key in keyof B]?: number } | number,
   options?: { breakpoints: B },
@@ -110,10 +112,10 @@ export function mapForBreakpoints<
 
   // Fallback: find nearest-least smallest breakpoint
   const sortedSizes = Object.entries(sizes)
-    .map(([key, value]) => ({ key, value, min: breakpoints[key as keyof typeof breakpoints]?.min ?? 0 }))
+    .map(([key, value]) => ({ key, min: breakpoints[key as keyof typeof breakpoints]?.min ?? 0, value }))
     .sort((a, b) => b.min - a.min) // Sort descending by min width
 
-  const fallback = sortedSizes.find(s => s.min <= basedOn)
+  const fallback = sortedSizes.find((s) => s.min <= basedOn)
 
   return fallback?.value ?? Object.values(sizes)?.[0] ?? 0
 }
@@ -125,7 +127,7 @@ export function mapForBreakpoints<
  * @param sizeOptions
  * @returns width in pixels
  */
-export function widthFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size, max?: Size }) {
+export function widthFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size; max?: Size }) {
   const val = evaluateSize(bounds.width, sizeOptions)
   const min = sizeOptions.min ? evaluateSize(bounds.width, sizeOptions.min) : undefined
   const max = sizeOptions.max ? evaluateSize(bounds.width, sizeOptions.max) : undefined
@@ -148,7 +150,7 @@ export function widthFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size, m
  * @param sizeOptions
  * @returns height in pixels
  */
-export function heightFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size, max?: Size }) {
+export function heightFrom(bounds: Rectangle, sizeOptions: Size & { min?: Size; max?: Size }) {
   const val = evaluateSize(bounds.height, sizeOptions)
   const min = sizeOptions.min ? evaluateSize(bounds.height, sizeOptions.min) : undefined
   const max = sizeOptions.max ? evaluateSize(bounds.height, sizeOptions.max) : undefined
@@ -170,10 +172,10 @@ export function ensureWindowInVisibleBounds(bounds: Rectangle): Rectangle {
   const hasOverlap = displays.some((display) => {
     const db = display.bounds
     return (
-      bounds.x < db.x + db.width
-      && bounds.x + bounds.width > db.x
-      && bounds.y < db.y + db.height
-      && bounds.y + bounds.height > db.y
+      bounds.x < db.x + db.width &&
+      bounds.x + bounds.width > db.x &&
+      bounds.y < db.y + db.height &&
+      bounds.y + bounds.height > db.y
     )
   })
 
@@ -188,9 +190,9 @@ export function ensureWindowInVisibleBounds(bounds: Rectangle): Rectangle {
   const y = Math.round(workArea.y + (workArea.height - bounds.height) / 2)
 
   return {
+    height: bounds.height,
+    width: bounds.width,
     x,
     y,
-    width: bounds.width,
-    height: bounds.height,
   }
 }

@@ -5,12 +5,8 @@ import { storeToRefs } from 'pinia'
 
 const artistryStore = useArtistryStore()
 
-const {
-  replicateApiKey,
-  replicateDefaultModel,
-  replicateAspectRatio,
-  replicateInferenceSteps,
-} = storeToRefs(artistryStore)
+const { replicateApiKey, replicateDefaultModel, replicateAspectRatio, replicateInferenceSteps } =
+  storeToRefs(artistryStore)
 </script>
 
 <template>

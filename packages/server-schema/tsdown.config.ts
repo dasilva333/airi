@@ -3,16 +3,14 @@ import DrizzleORMMigrations from '@proj-airi/unplugin-drizzle-orm-migrations/rol
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: [
-    'src/index.ts',
-  ],
   dts: true,
-  sourcemap: true,
-  unused: true,
+  entry: ['src/index.ts'],
   fixedExtension: true,
   plugins: [
     DrizzleORMMigrations({
       root: '../../apps/server',
     }),
   ],
+  sourcemap: true,
+  unused: true,
 })

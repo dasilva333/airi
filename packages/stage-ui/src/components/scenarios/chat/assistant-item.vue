@@ -1,33 +1,33 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
-
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-
-import JournalMomentModal from './JournalMomentModal.vue'
-import ChatResponsePart from './response-part.vue'
-import ChatToolCallBlock from './tool-call-block.vue'
-
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
+import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
 import { MarkdownRenderer } from '../../markdown'
 import { ChatActionMenu } from './components/action-menu'
+import JournalMomentModal from './JournalMomentModal.vue'
+import ChatResponsePart from './response-part.vue'
+import ChatToolCallBlock from './tool-call-block.vue'
 import { getChatHistoryItemCopyText } from './utils'
 
-const props = withDefaults(defineProps<{
-  message: ChatAssistantMessage & { id?: string, createdAt?: number }
-  label: string
-  showPlaceholder?: boolean
-  variant?: 'desktop' | 'mobile'
-}>(), {
-  showPlaceholder: false,
-  variant: 'desktop',
-})
+const props = withDefaults(
+  defineProps<{
+    message: ChatAssistantMessage & { id?: string; createdAt?: number }
+    label: string
+    showPlaceholder?: boolean
+    variant?: 'desktop' | 'mobile'
+  }>(),
+  {
+    showPlaceholder: false,
+    variant: 'desktop',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'copy'): void
@@ -35,8 +35,7 @@ const emit = defineEmits<{
 }>()
 
 function injectActorColors(content: string): string {
-  if (!content)
-    return ''
+  if (!content) return ''
 
   // Translate actor tags to safe text markers so the markdown parser won't strip them
   return content.replace(/<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi, '[ACTOR:$1]')
@@ -49,9 +48,8 @@ const chatOrchestrator = useChatOrchestratorStore()
 const { t } = useI18n()
 
 const formattedTime = computed(() => {
-  if (!props.message.createdAt)
-    return ''
-  return new Date(props.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+  if (!props.message.createdAt) return ''
+  return new Date(props.message.createdAt).toLocaleTimeString([], { hour: 'numeric', hour12: true, minute: '2-digit' })
 })
 
 interface DisplaySegment {
@@ -68,15 +66,15 @@ function processContent(content: string): DisplaySegment[] {
   while ((match = markerRegex.exec(content)) !== null) {
     if (match.index > lastIndex) {
       segments.push({
-        type: 'text',
         content: content.slice(lastIndex, match.index),
+        type: 'text',
       })
     }
 
     const command = match[1].trim()
     segments.push({
-      type: 'act',
       content: command,
+      type: 'act',
     })
 
     lastIndex = markerRegex.lastIndex
@@ -84,8 +82,8 @@ function processContent(content: string): DisplaySegment[] {
 
   if (lastIndex < content.length) {
     segments.push({
-      type: 'text',
       content: content.slice(lastIndex),
+      type: 'text',
     })
   }
 
@@ -96,10 +94,7 @@ const slices = computed(() => props.message.slices || [])
 const toolResults = computed(() => props.message.tool_results || [])
 
 // The shrink-wrap visual container constraints
-const containerClasses = computed(() => [
-  'flex',
-  props.variant === 'mobile' ? 'mr-0' : 'mr-12',
-])
+const containerClasses = computed(() => ['flex', props.variant === 'mobile' ? 'mr-0' : 'mr-12'])
 
 const copyText = computed(() => getChatHistoryItemCopyText(props.message as ChatHistoryItem))
 
@@ -108,21 +103,18 @@ function handleCopy() {
 }
 
 function handleDelete() {
-  if (props.message.id)
-    chatSession.deleteMessage(props.message.id)
+  if (props.message.id) chatSession.deleteMessage(props.message.id)
   emit('delete')
 }
 
 async function handleRetry() {
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const messages = chatSession.getSessionMessages(activeSessionId)
-  const index = messages.findIndex(msg => msg.id === props.message.id)
+  const index = messages.findIndex((msg) => msg.id === props.message.id)
 
-  if (index === -1)
-    return
+  if (index === -1) return
 
   // Find the user message before this assistant message!
   if (index > 0 && messages[index - 1].role === 'user') {
@@ -137,38 +129,34 @@ async function handleRetry() {
     let textToIngest = ''
     if (typeof content === 'string') {
       textToIngest = content
-    }
-    else if (Array.isArray(content)) {
-      const textPart = content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
+    } else if (Array.isArray(content)) {
+      const textPart = content.find((part) => 'type' in part && part.type === 'text') as { text?: string } | undefined
       textToIngest = textPart?.text || ''
     }
 
     if (textToIngest) {
       await chatOrchestrator.ingest(textToIngest, {})
       toast.success('Retrying message...')
-    }
-    else {
+    } else {
       toast.error('Cannot retry: User message content is empty.')
     }
-  }
-  else {
+  } else {
     toast.error('Cannot retry: No user message found before this response.')
   }
 }
 
 async function handleFork() {
   const messages = chatSession.getSessionMessages(chatSession.activeSessionId)
-  const index = messages.findIndex(m => m.id === props.message.id)
+  const index = messages.findIndex((m) => m.id === props.message.id)
   if (index !== -1) {
     try {
       const newSessionId = await chatSession.forkSession({
-        fromSessionId: chatSession.activeSessionId,
         atIndex: index + 1, // Include this message
+        fromSessionId: chatSession.activeSessionId,
       })
       toast.success('Conversation forked successfully!')
       console.log(`[AssistantItem] Forked session created: ${newSessionId}`)
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to fork session:', error)
       toast.error('Failed to fork conversation.')
     }
@@ -186,21 +174,18 @@ function handleJournal() {
   showJournalModal.value = true
 }
 
-async function handleJournalSubmit(data: { scope: 'all' | 'turns', turns?: number, instructions: string }) {
+async function handleJournalSubmit(data: { scope: 'all' | 'turns'; turns?: number; instructions: string }) {
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const allMessages = chatSession.getSessionMessages(activeSessionId)
-  const clickedIndex = allMessages.findIndex(m => m.id === props.message.id)
-  if (clickedIndex === -1)
-    return
+  const clickedIndex = allMessages.findIndex((m) => m.id === props.message.id)
+  if (clickedIndex === -1) return
 
   let contextMessages: any[] = []
   if (data.scope === 'all') {
     contextMessages = allMessages.slice(0, clickedIndex + 1)
-  }
-  else {
+  } else {
     const turnsCount = data.turns || 15
     contextMessages = allMessages.slice(Math.max(0, clickedIndex - turnsCount + 1), clickedIndex + 1)
   }
@@ -209,39 +194,43 @@ async function handleJournalSubmit(data: { scope: 'all' | 'turns', turns?: numbe
   const consciousnessStore = useConsciousnessStore()
   const { activeCard } = storeToRefs(useAiriCardStore())
 
-  if (!activeCard.value)
-    return
+  if (!activeCard.value) return
 
   // Get model/provider info
   const extension = activeCard.value.extensions.airi
   const modelId = extension.modules?.consciousness?.model || consciousnessStore.activeModel
   const providerId = extension.modules?.consciousness?.provider || consciousnessStore.activeProvider
 
-  toast.promise(textJournalStore.createJournalMoment({
-    messages: contextMessages,
-    instructions: data.instructions,
-    modelId,
-    providerId,
-  }).catch((err) => {
-    console.error('[JournalMoment] Creation failed:', err)
-    throw err
-  }), {
-    loading: 'Generating journal entry...',
-    success: 'Journal entry created!',
-    error: 'Failed to create journal entry.',
-  })
+  toast.promise(
+    textJournalStore
+      .createJournalMoment({
+        instructions: data.instructions,
+        messages: contextMessages,
+        modelId,
+        providerId,
+      })
+      .catch((err) => {
+        console.error('[JournalMoment] Creation failed:', err)
+        throw err
+      }),
+    {
+      error: 'Failed to create journal entry.',
+      loading: 'Generating journal entry...',
+      success: 'Journal entry created!',
+    },
+  )
 
   showJournalModal.value = false
 }
 
 async function handleForkAndSwitch() {
   const messages = chatSession.getSessionMessages(chatSession.activeSessionId)
-  const index = messages.findIndex(m => m.id === props.message.id)
+  const index = messages.findIndex((m) => m.id === props.message.id)
   if (index !== -1) {
     try {
       const newSessionId = await chatSession.forkSession({
-        fromSessionId: chatSession.activeSessionId,
         atIndex: index + 1, // Include this message
+        fromSessionId: chatSession.activeSessionId,
       })
 
       // Switch to the new session!
@@ -249,8 +238,7 @@ async function handleForkAndSwitch() {
 
       toast.success('Conversation forked and switched!')
       console.log(`[AssistantItem] Forked session created: ${newSessionId}`)
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to fork session:', error)
       toast.error('Failed to fork conversation.')
     }
@@ -261,45 +249,35 @@ async function handleForkAndSwitch() {
 const showLoader = computed(() => props.showPlaceholder)
 
 function getMoodArchetype(text: string): string | null {
-  if (!text || typeof text !== 'string')
-    return null
+  if (!text || typeof text !== 'string') return null
 
   // Pattern to find both ACT tags and Bracket tokens [mood]
   const matches = Array.from(text.matchAll(/<\|ACT:([\s\S]*?)\|>|\[([\w-]+)\]/gi))
 
   for (const match of matches) {
     let name = ''
-    if (match[1]) { // ACT tag fallback
+    if (match[1]) {
+      // ACT tag fallback
       const nameMatch = match[1].match(/"name":\s*"([^"]+)"/i)
-      if (nameMatch)
-        name = nameMatch[1].toLowerCase()
-    }
-    else if (match[2]) { // Bracket token [mood] - Priority!
+      if (nameMatch) name = nameMatch[1].toLowerCase()
+    } else if (match[2]) {
+      // Bracket token [mood] - Priority!
       name = match[2].toLowerCase()
     }
 
-    if (!name)
-      continue
+    if (!name) continue
 
     let result = null
     // Map keywords to our core visual archetypes
-    if (/happy|joy|laugh|grin|chuckle|smile|beam|cheer/.test(name))
-      result = 'happy'
-    else if (/sad|cry|sorrow|pout|sniff|sigh|whimper|mourn/.test(name))
-      result = 'sad'
-    else if (/angry|mad|annoy|frustrate|growl|hiss|glare|stomp/.test(name))
-      result = 'angry'
-    else if (/surprise|shock|wonder|gasp|eep|awe|blink/.test(name))
-      result = 'surprised'
-    else if (/think|ponder|curious|hmm|mmm|doubt|question/.test(name))
-      result = 'thinking'
-    else if (/blush|shy|embarrassed|rose|bashful|stutter|awkward/.test(name))
-      result = 'flustered'
-    else if (/relax|whisper|sleepy|soft|calm|peace|yawn|purr/.test(name))
-      result = 'relaxed'
+    if (/happy|joy|laugh|grin|chuckle|smile|beam|cheer/.test(name)) result = 'happy'
+    else if (/sad|cry|sorrow|pout|sniff|sigh|whimper|mourn/.test(name)) result = 'sad'
+    else if (/angry|mad|annoy|frustrate|growl|hiss|glare|stomp/.test(name)) result = 'angry'
+    else if (/surprise|shock|wonder|gasp|eep|awe|blink/.test(name)) result = 'surprised'
+    else if (/think|ponder|curious|hmm|mmm|doubt|question/.test(name)) result = 'thinking'
+    else if (/blush|shy|embarrassed|rose|bashful|stutter|awkward/.test(name)) result = 'flustered'
+    else if (/relax|whisper|sleepy|soft|calm|peace|yawn|purr/.test(name)) result = 'relaxed'
 
-    if (result)
-      return result
+    if (result) return result
   }
 
   return null
@@ -311,65 +289,72 @@ const mood = computed(() => {
     for (const slice of props.message.slices) {
       if (slice.type === 'text') {
         const m = getMoodArchetype(slice.text)
-        if (m)
-          return m
+        if (m) return m
       }
     }
   }
 
   if (typeof props.message.content === 'string') {
     const m = getMoodArchetype(props.message.content)
-    if (m)
-      return m
+    if (m) return m
   }
 
   if (Array.isArray(props.message.content)) {
-    const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
+    const textPart = props.message.content.find((part) => 'type' in part && part.type === 'text') as
+      | { text?: string }
+      | undefined
     if (textPart?.text) {
       const m = getMoodArchetype(textPart.text)
-      if (m)
-        return m
+      if (m) return m
     }
   }
 
   // Fallback: Message categorization
-  if (!(props.message.categorization as any)?.mood)
-    return null
-  const m = String((props.message.categorization as any).mood).toLowerCase().trim()
-  if (m === 'null' || m === '')
-    return null
+  if (!(props.message.categorization as any)?.mood) return null
+  const m = String((props.message.categorization as any).mood)
+    .toLowerCase()
+    .trim()
+  if (m === 'null' || m === '') return null
   return m
 })
 
 const moodBaseColor = computed(() => {
   switch (mood.value) {
     case 'happy':
-    case 'joy': return 'emerald'
+    case 'joy':
+      return 'emerald'
     case 'sad':
-    case 'sorrow': return 'blue'
+    case 'sorrow':
+      return 'blue'
     case 'angry':
-    case 'mad': return 'rose'
+    case 'mad':
+      return 'rose'
     case 'scared':
-    case 'fear': return 'amber'
+    case 'fear':
+      return 'amber'
     case 'surprised':
-    case 'shock': return 'violet'
+    case 'shock':
+      return 'violet'
     case 'disgusted':
-    case 'disgust': return 'lime'
+    case 'disgust':
+      return 'lime'
     case 'relaxed':
-    case 'calm': return 'teal'
-    default: return 'primary'
+    case 'calm':
+      return 'teal'
+    default:
+      return 'primary'
   }
 })
 
 // Original specific hex effects
-const MOOD_ARCHETYPE_COLORS: Record<string, { border: string, bg: string, glow: string }> = {
-  happy: { border: '#10b98180', bg: '#10b98115', glow: '#10b98130' }, // emerald
-  sad: { border: '#3b82f680', bg: '#3b82f615', glow: '#3b82f630' }, // blue
-  angry: { border: '#f43f5e80', bg: '#f43f5e15', glow: '#f43f5e30' }, // rose
-  surprised: { border: '#a855f790', bg: '#a855f720', glow: '#a855f740' }, // vibrant purple
-  thinking: { border: '#f59e0b80', bg: '#f59e0b10', glow: '#f59e0b20' }, // amber
-  flustered: { border: '#f472b680', bg: '#f472b615', glow: '#f472b630' }, // pink
-  relaxed: { border: '#14b8a680', bg: '#14b8a615', glow: '#14b8a630' }, // teal
+const MOOD_ARCHETYPE_COLORS: Record<string, { border: string; bg: string; glow: string }> = {
+  angry: { bg: '#f43f5e15', border: '#f43f5e80', glow: '#f43f5e30' }, // rose
+  flustered: { bg: '#f472b615', border: '#f472b680', glow: '#f472b630' }, // pink
+  happy: { bg: '#10b98115', border: '#10b98180', glow: '#10b98130' }, // emerald
+  relaxed: { bg: '#14b8a615', border: '#14b8a680', glow: '#14b8a630' }, // teal
+  sad: { bg: '#3b82f615', border: '#3b82f680', glow: '#3b82f630' }, // blue
+  surprised: { bg: '#a855f720', border: '#a855f790', glow: '#a855f740' }, // vibrant purple
+  thinking: { bg: '#f59e0b10', border: '#f59e0b80', glow: '#f59e0b20' }, // amber
 }
 
 // Box constraints combining feature layout with main's dynamic border FX
@@ -387,10 +372,7 @@ const boxClasses = computed(() => {
 
   // If we have a specific ported archetype color, just supply the transitions
   if (MOOD_ARCHETYPE_COLORS[mood.value]) {
-    return [
-      baseClasses,
-      'transition-all duration-300 text-neutral-800 dark:text-neutral-200',
-    ]
+    return [baseClasses, 'transition-all duration-300 text-neutral-800 dark:text-neutral-200']
   }
 
   const c = moodBaseColor.value
@@ -403,16 +385,15 @@ const boxClasses = computed(() => {
 })
 
 const boxStyle = computed(() => {
-  if (!mood.value)
-    return {}
+  if (!mood.value) return {}
 
   if (MOOD_ARCHETYPE_COLORS[mood.value]) {
     const colors = MOOD_ARCHETYPE_COLORS[mood.value]
     return {
-      borderColor: colors.border,
-      borderWidth: '2px', // Increase for visibility
-      borderStyle: 'solid',
       backgroundColor: colors.bg, // Tint the background directly!
+      borderColor: colors.border,
+      borderStyle: 'solid',
+      borderWidth: '2px', // Increase for visibility
       boxShadow: `0 0 15px ${colors.glow}`, // Add outer glow
     }
   }
@@ -430,9 +411,9 @@ const resolvedSlices = computed(() => {
   const processBuffer = () => {
     if (textBuffer.trim()) {
       rs.push({
-        type: 'text',
-        text: textBuffer,
         displaySegments: processContent(textBuffer),
+        text: textBuffer,
+        type: 'text',
       })
       textBuffer = ''
     }
@@ -451,18 +432,18 @@ const resolvedSlices = computed(() => {
         const result = toolResults.value.find((tr: any) => tr.toolCallId === toolCallId || tr.id === toolCallId)
         if (result) {
           rs.push({
-            type: 'tool-call',
-            toolCall: slice.toolCall,
-            state: 'done',
             result: typeof result.result === 'string' ? result.result : JSON.stringify(result.result),
+            state: 'done',
+            toolCall: slice.toolCall,
+            type: 'tool-call',
           })
           continue
         }
       }
       rs.push({
-        type: 'tool-call',
-        toolCall: slice.toolCall,
         state: slice.state || 'executing',
+        toolCall: slice.toolCall,
+        type: 'tool-call',
       })
     }
 
@@ -488,13 +469,11 @@ function getSegmentedText(sliceText: string): string {
   }
 
   // Check if we only have one text slice to make it perfectly safe
-  const textSlicesCount = resolvedSlices.value.filter(s => s.type === 'text').length
+  const textSlicesCount = resolvedSlices.value.filter((s) => s.type === 'text').length
   if (textSlicesCount === 1) {
     // Strip other tags (ACT and DELAY) from rawContent, leaving only text and ACTOR tags.
     // Use word boundary (\b) to avoid stripping <|ACTOR:...|> tags because ACTOR starts with ACT!
-    const cleanedRaw = raw
-      .replace(/<\|ACT\b[\s\S]*?(?:\|>|>)/gi, '')
-      .replace(/<\|DELAY\b[\s\S]*?(?:\|>|>)/gi, '')
+    const cleanedRaw = raw.replace(/<\|ACT\b[\s\S]*?(?:\|>|>)/gi, '').replace(/<\|DELAY\b[\s\S]*?(?:\|>|>)/gi, '')
 
     return injectActorColors(cleanedRaw)
   }
@@ -504,8 +483,7 @@ function getSegmentedText(sliceText: string): string {
 
 const dynamicStyles = computed(() => {
   const raw = (props.message as any).rawContent
-  if (!raw || typeof raw !== 'string')
-    return ''
+  if (!raw || typeof raw !== 'string') return ''
 
   const actorRegex = /<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi
   const actorIds = new Set<string>()

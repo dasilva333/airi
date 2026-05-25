@@ -20,8 +20,7 @@ export function importVelin(module: string, base: string): VelinModule {
         ? await renderMarkdownString(content, data)
         : await renderSFCString(content, data)
       // renderMarkdownString returns { rendered, props } instead of a plain string
-      if (result && typeof result === 'object' && 'rendered' in result)
-        return (result as { rendered: string }).rendered
+      if (result && typeof result === 'object' && 'rendered' in result) return (result as { rendered: string }).rendered
       return result
     },
   }

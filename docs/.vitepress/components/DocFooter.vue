@@ -3,11 +3,9 @@ import { Icon } from '@iconify/vue'
 import { useData } from 'vitepress'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import DocFooterLastUpdated from './DocFooterLastUpdated.vue'
-
 import { useEditLink } from '../composables/edit-link'
 import { usePrevNext } from '../composables/prev-next'
+import DocFooterLastUpdated from './DocFooterLastUpdated.vue'
 
 const { theme, page, frontmatter } = useData()
 const { t } = useI18n()
@@ -15,17 +13,9 @@ const { t } = useI18n()
 const editLink = useEditLink()
 const control = usePrevNext()
 
-const hasEditLink = computed(
-  () => theme.value.editLink && frontmatter.value.editLink !== false,
-)
+const hasEditLink = computed(() => theme.value.editLink && frontmatter.value.editLink !== false)
 const hasLastUpdated = computed(() => page.value.lastUpdated)
-const showFooter = computed(
-  () =>
-    hasEditLink.value
-    || hasLastUpdated.value
-    || control.value.prev
-    || control.value.next,
-)
+const showFooter = computed(() => hasEditLink.value || hasLastUpdated.value || control.value.prev || control.value.next)
 
 /**
  * Footer navigation visibility rules (English-only comments as requested):

@@ -43,47 +43,42 @@ export const useDockModeStore = defineStore('tamagotchi-dock-mode', () => {
     isLoadingWindows.value = true
     try {
       const windows = await listWindowsInvoke()
-      if (windows)
-        availableWindows.value = windows
-    }
-    finally {
+      if (windows) availableWindows.value = windows
+    } finally {
       isLoadingWindows.value = false
     }
   }
 
   async function startDock(targetWindowId: string) {
     const config: DockModeConfig = {
-      targetWindowId,
-      position: savedPosition.value,
       offset: { x: savedOffsetX.value, y: savedOffsetY.value },
+      position: savedPosition.value,
+      targetWindowId,
     }
     const result = await startDockInvoke(config)
-    if (result)
-      status.value = result
+    if (result) status.value = result
   }
 
   async function stopDock() {
     const result = await stopDockInvoke()
-    if (result)
-      status.value = result
+    if (result) status.value = result
   }
 
   async function fetchStatus() {
     const result = await getStatusInvoke()
-    if (result)
-      status.value = result
+    if (result) status.value = result
   }
 
   return {
-    status,
     availableWindows,
+    fetchStatus,
     isLoadingWindows,
-    savedPosition,
+    refreshWindows,
     savedOffsetX,
     savedOffsetY,
-    refreshWindows,
+    savedPosition,
     startDock,
+    status,
     stopDock,
-    fetchStatus,
   }
 })

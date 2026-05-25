@@ -16,14 +16,13 @@ let silentAudio: HTMLAudioElement | undefined
 let disposed = false
 
 // Tiny silent WAV (44 bytes header + 1 sample of silence), base64-encoded
-const SILENT_WAV_DATA_URI
-  = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+const SILENT_WAV_DATA_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
 
 function isIOS(): boolean {
-  if (typeof navigator === 'undefined')
-    return false
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
 }
 
 /**
@@ -32,8 +31,7 @@ function isIOS(): boolean {
  * Safe to call on non-iOS platforms — it will no-op.
  */
 export function enableIOSPlayback(): void {
-  if (disposed || silentAudio || !isIOS())
-    return
+  if (disposed || silentAudio || !isIOS()) return
 
   silentAudio = new Audio(SILENT_WAV_DATA_URI)
   silentAudio.loop = true

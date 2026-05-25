@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { Select } from '@proj-airi/ui'
 
-const props = withDefaults(defineProps<{
-  label?: string
-  options: { label: string, value: string | number }[]
-  disabled?: boolean
-}>(), {
-  label: 'Select',
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    label?: string
+    options: { label: string; value: string | number }[]
+    disabled?: boolean
+  }>(),
+  {
+    disabled: false,
+    label: 'Select',
+  },
+)
 
 const modelValue = defineModel<string | number>({ required: true })
 </script>

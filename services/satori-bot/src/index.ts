@@ -20,9 +20,9 @@ async function main() {
 
   // Create Satori client
   const satoriClient = new SatoriClient({
-    url: config.satori.wsUrl,
-    token: config.satori.token,
     apiBaseUrl: config.satori.apiBaseUrl,
+    token: config.satori.token,
+    url: config.satori.wsUrl,
   })
 
   // Create bot context
@@ -45,7 +45,7 @@ async function main() {
 
 process.on('unhandledRejection', (err) => {
   const log = useLogg('UnhandledRejection').useGlobalConfig()
-  const cause = (err instanceof Error && 'cause' in err) ? err.cause : undefined
+  const cause = err instanceof Error && 'cause' in err ? err.cause : undefined
   log
     .withError(err as Error)
     .withField('cause', cause)
@@ -54,9 +54,7 @@ process.on('unhandledRejection', (err) => {
 
 process.on('uncaughtException', (err) => {
   const log = useLogg('UncaughtException').useGlobalConfig()
-  log
-    .withError(err)
-    .error('Uncaught exception occurred')
+  log.withError(err).error('Uncaught exception occurred')
 })
 
 main().catch((err) => {

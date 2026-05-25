@@ -1,21 +1,17 @@
+import { join, resolve } from 'node:path'
+import { initScreenCaptureForWindow } from '@proj-airi/electron-screen-capture/main'
+import { BrowserWindow, shell } from 'electron'
+import icon from '../../../../resources/icon.png?asset'
+import { electronSettingsNavigate } from '../../../shared/eventa'
+import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
+import { createReusableWindow } from '../../libs/electron/window-manager'
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
 import type { McpStdioManager } from '../../services/airi/mcp-servers'
 import type { AutoUpdater } from '../../services/electron/auto-updater'
 import type { DevtoolsWindowManager } from '../devtools'
-import type { WidgetsWindowManager } from '../widgets'
-
-import { join, resolve } from 'node:path'
-
-import { initScreenCaptureForWindow } from '@proj-airi/electron-screen-capture/main'
-import { BrowserWindow, shell } from 'electron'
-
-import icon from '../../../../resources/icon.png?asset'
-
-import { electronSettingsNavigate } from '../../../shared/eventa'
-import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
-import { createReusableWindow } from '../../libs/electron/window-manager'
 import { toggleWindowShow } from '../shared'
+import type { WidgetsWindowManager } from '../widgets'
 import { setupSettingsWindowInvokes } from './rpc/index.electron'
 
 export interface SettingsWindowManager {
@@ -39,15 +35,15 @@ export function setupSettingsWindowReusableFunc(params: {
 
   const reusable = createReusableWindow(async () => {
     const window = new BrowserWindow({
-      title: 'AIRI - Settings',
-      width: 600.0,
       height: 800.0,
-      show: false,
       icon,
+      show: false,
+      title: 'AIRI - Settings',
       webPreferences: {
         preload: join(getElectronMainDirname(), '../preload/index.cjs'),
         sandbox: true,
       },
+      width: 600.0,
     })
 
     if (params.onWindowCreated) {
@@ -62,18 +58,17 @@ export function setupSettingsWindowReusableFunc(params: {
 
     await load(window, withHashRoute(rendererBase, currentRoute))
     settingsContext = await setupSettingsWindowInvokes({
-      settingsWindow: window,
-      widgetsManager: params.widgetsManager,
       autoUpdater: params.autoUpdater,
       devtoolsMarkdownStressWindow: params.devtoolsMarkdownStressWindow,
-      serverChannel: params.serverChannel,
-      mcpStdioManager: params.mcpStdioManager,
       i18n: params.i18n,
+      mcpStdioManager: params.mcpStdioManager,
+      serverChannel: params.serverChannel,
+      settingsWindow: window,
+      widgetsManager: params.widgetsManager,
     })
 
     window.on('closed', () => {
-      if (settingsContext)
-        settingsContext = undefined
+      if (settingsContext) settingsContext = undefined
     })
 
     initScreenCaptureForWindow(window)

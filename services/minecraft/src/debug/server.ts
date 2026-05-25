@@ -1,21 +1,15 @@
-import type { IncomingMessage } from 'node:http'
-
-import type { WebSocket } from 'ws'
-
-import type { ClientCommand, DebugMessage, ServerEvent } from './types'
-
 import fs from 'node:fs'
+import type { IncomingMessage } from 'node:http'
 import http from 'node:http'
 import path from 'node:path'
 import process from 'node:process'
-
 import { fileURLToPath } from 'node:url'
-
 import { clamp } from 'es-toolkit/math'
 import { nanoid } from 'nanoid'
+import type { WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
-
 import { useLogger } from '../utils/logger'
+import type { ClientCommand, DebugMessage, ServerEvent } from './types'
 import { debugClientMessageSchema, formatDebugValidationError } from './types'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -144,7 +138,8 @@ export class DebugServer {
     const data = JSON.stringify(message)
 
     for (const client of this.clients.values()) {
-      if (client.ws.readyState === 1) { // WebSocket.OPEN
+      if (client.ws.readyState === 1) {
+        // WebSocket.OPEN
         client.ws.send(data)
       }
     }
@@ -194,8 +189,8 @@ export class DebugServer {
     if (req.method === 'GET' && (req.url === '/viewer' || req.url?.startsWith('/viewer?'))) {
       const html = createViewerHtml('http://localhost:3007')
       res.writeHead(200, {
-        'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-cache',
+        'Content-Type': 'text/html; charset=utf-8',
       })
       res.end(html)
       return
@@ -211,9 +206,9 @@ export class DebugServer {
     const extname = path.extname(fullPath).toLowerCase()
 
     const mimeTypes: Record<string, string> = {
+      '.css': 'text/css',
       '.html': 'text/html',
       '.js': 'application/javascript',
-      '.css': 'text/css',
       '.json': 'application/json',
       '.png': 'image/png',
       '.svg': 'image/svg+xml',
@@ -226,8 +221,7 @@ export class DebugServer {
         if (err.code === 'ENOENT') {
           res.writeHead(404)
           res.end('Not Found')
-        }
-        else {
+        } else {
           res.writeHead(500)
           res.end('Server Error')
         }
@@ -235,8 +229,8 @@ export class DebugServer {
       }
 
       res.writeHead(200, {
-        'Content-Type': contentType,
         'Cache-Control': 'no-cache',
+        'Content-Type': contentType,
       })
       res.end(content)
     })
@@ -245,10 +239,10 @@ export class DebugServer {
   private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
     const clientId = this.generateClientId()
     const client: ClientInfo = {
-      ws,
-      id: clientId,
       connectedAt: Date.now(),
+      id: clientId,
       lastPing: Date.now(),
+      ws,
     }
 
     this.clients.set(clientId, client)
@@ -275,8 +269,7 @@ export class DebugServer {
 
     try {
       rawMessage = JSON.parse(data)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to parse WebSocket message:', err)
       this.sendClientError(client, 'Invalid debug message JSON')
       return
@@ -295,7 +288,7 @@ export class DebugServer {
     // Handle ping internally
     if (command.type === 'ping') {
       client.lastPing = Date.now()
-      const pong: ServerEvent = { type: 'pong', payload: { timestamp: Date.now() } }
+      const pong: ServerEvent = { payload: { timestamp: Date.now() }, type: 'pong' }
       client.ws.send(JSON.stringify(this.createMessage(pong)))
       return
     }
@@ -312,8 +305,7 @@ export class DebugServer {
       for (const handler of handlers) {
         try {
           handler(command, client)
-        }
-        catch (err) {
+        } catch (err) {
           console.error(`Command handler error for ${command.type}:`, err)
         }
       }
@@ -326,8 +318,8 @@ export class DebugServer {
     }
 
     const historyEvent: ServerEvent = {
-      type: 'history',
       payload: this.history,
+      type: 'history',
     }
 
     client.ws.send(JSON.stringify(this.createMessage(historyEvent)))
@@ -345,7 +337,7 @@ export class DebugServer {
 
       // Send ping request
       if (client.ws.readyState === 1) {
-        const ping: ServerEvent = { type: 'pong', payload: { timestamp: now } }
+        const ping: ServerEvent = { payload: { timestamp: now }, type: 'pong' }
         client.ws.send(JSON.stringify(this.createMessage(ping)))
       }
     }
@@ -359,18 +351,23 @@ export class DebugServer {
   }
 
   private persistEvent(event: ServerEvent): void {
-    const persistableTypes: ServerEvent['type'][] = ['log', 'llm', 'blackboard', 'queue', 'trace', 'trace_batch', 'reflex']
+    const persistableTypes: ServerEvent['type'][] = [
+      'log',
+      'llm',
+      'blackboard',
+      'queue',
+      'trace',
+      'trace_batch',
+      'reflex',
+    ]
 
-    if (!persistableTypes.includes(event.type))
-      return
+    if (!persistableTypes.includes(event.type)) return
 
-    if (!this.logStream)
-      return
+    if (!this.logStream) return
 
     try {
       this.logStream.write(`${JSON.stringify(event)}\n`)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to write to log file', err)
     }
   }
@@ -381,13 +378,13 @@ export class DebugServer {
     }
 
     const event: ServerEvent = {
-      type: 'log',
       payload: {
+        fields,
         level: 'ERROR',
         message,
-        fields,
         timestamp: Date.now(),
       },
+      type: 'log',
     }
 
     client.ws.send(JSON.stringify(this.createMessage(event)))
@@ -395,8 +392,8 @@ export class DebugServer {
 
   private createMessage(event: ServerEvent): DebugMessage<ServerEvent> {
     return {
-      id: `${++this.messageIdCounter}`,
       data: event,
+      id: `${++this.messageIdCounter}`,
       timestamp: Date.now(),
     }
   }
@@ -412,8 +409,9 @@ export class DebugServer {
     // GET /api/logs -> list files
     if (!url.searchParams.has('file')) {
       const files = fs.existsSync(logsDir)
-        ? fs.readdirSync(logsDir)
-            .filter(f => f.endsWith('.jsonl'))
+        ? fs
+            .readdirSync(logsDir)
+            .filter((f) => f.endsWith('.jsonl'))
             .sort((a, b) => b.localeCompare(a))
         : []
 
@@ -436,28 +434,27 @@ export class DebugServer {
     }
 
     try {
-      const lines = fs.readFileSync(targetPath, 'utf-8')
-        .trim()
-        .split('\n')
-        .slice(-lineLimit)
+      const lines = fs.readFileSync(targetPath, 'utf-8').trim().split('\n').slice(-lineLimit)
       const events = lines
         .map((line) => {
           try {
             return JSON.parse(line)
+          } catch {
+            return null
           }
-          catch { return null }
         })
         .filter(Boolean)
 
       res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ file: safeName, events, total: lines.length }))
-    }
-    catch (err) {
+      res.end(JSON.stringify({ events, file: safeName, total: lines.length }))
+    } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({
-        error: 'failed to read log file',
-        message: err instanceof Error ? err.message : String(err),
-      }))
+      res.end(
+        JSON.stringify({
+          error: 'failed to read log file',
+          message: err instanceof Error ? err.message : String(err),
+        }),
+      )
     }
   }
 }

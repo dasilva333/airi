@@ -1,10 +1,7 @@
-import type { Browser, BrowserContext, Page } from 'playwright'
-
-import type { Config } from '../../config/types'
-
 import fs from 'node:fs'
-
+import type { Browser, BrowserContext, Page } from 'playwright'
 import { chromium } from 'playwright'
+import type { Config } from '../../config/types'
 
 import { TWITTER_SESSION_FILE } from '../../constants'
 import { logger } from '../../utils/logger'
@@ -23,10 +20,10 @@ export async function initBrowser(config: Config) {
   })
 
   const context = await browser.newContext({
+    bypassCSP: true,
     storageState: await useSessionFileAsync(),
     userAgent: config.browser.userAgent,
     viewport: config.browser.viewport,
-    bypassCSP: true,
   })
 
   context.setDefaultTimeout(config.browser.timeout || 30000)
@@ -43,17 +40,13 @@ export async function useSessionFileAsync(): Promise<string> {
   }
 
   async function createNewSessionFile(): Promise<void> {
-    await fs.promises.writeFile(
-      TWITTER_SESSION_FILE,
-      JSON.stringify(defaultSession, null, 2),
-    )
+    await fs.promises.writeFile(TWITTER_SESSION_FILE, JSON.stringify(defaultSession, null, 2))
     logger.main.log(`Created new session file at: ${TWITTER_SESSION_FILE}`)
   }
 
   try {
     await fs.promises.access(TWITTER_SESSION_FILE)
-  }
-  catch (error) {
+  } catch (error) {
     logger.main.withError(error).error(`Session file not found at: ${TWITTER_SESSION_FILE}`)
     await createNewSessionFile()
   }

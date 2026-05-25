@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { ComfyUIWorkflowTemplate } from '@proj-airi/stage-ui/stores/modules/artistry'
-
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { artistryComfyHealthCheck } from '@proj-airi/stage-shared'
+import type { ComfyUIWorkflowTemplate } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { FieldInput } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -10,11 +9,7 @@ import { computed, ref } from 'vue'
 
 const artistryStore = useArtistryStore()
 
-const {
-  comfyuiServerUrl,
-  comfyuiSavedWorkflows,
-  comfyuiActiveWorkflow,
-} = storeToRefs(artistryStore)
+const { comfyuiServerUrl, comfyuiSavedWorkflows, comfyuiActiveWorkflow } = storeToRefs(artistryStore)
 
 const expandedWorkflow = ref<string | null>(null)
 
@@ -32,12 +27,11 @@ async function testConnection() {
   try {
     const url = comfyuiServerUrl.value.replace(/\/+$/, '')
 
-    let result: { gpus: string, vramStr: string }
+    let result: { gpus: string; vramStr: string }
 
     if (healthCheck) {
       result = await healthCheck({ url })
-    }
-    else {
+    } else {
       // Browser fallback: direct fetch to /system_stats
       const response = await fetch(`${url}/system_stats`, {
         method: 'GET',
@@ -52,7 +46,7 @@ async function testConnection() {
       const devices = data.devices || []
       const gpuNames = devices.map((d: any) => d.name).join(', ') || 'Unknown GPU'
       const vramTotal = devices.reduce((acc: number, d: any) => acc + (d.vram_total || 0), 0)
-      const vramStr = vramTotal ? `${(vramTotal / (1024 ** 3)).toFixed(1)}GB` : ''
+      const vramStr = vramTotal ? `${(vramTotal / 1024 ** 3).toFixed(1)}GB` : ''
 
       result = { gpus: gpuNames, vramStr }
     }
@@ -60,8 +54,7 @@ async function testConnection() {
     const { gpus, vramStr } = result
     connectionInfo.value = `Connected — ${gpus}${vramStr ? ` (${vramStr} VRAM)` : ''}`
     connectionStatus.value = 'connected'
-  }
-  catch (e: any) {
+  } catch (e: any) {
     if (e.message.toLowerCase().includes('fetch') || e.message.includes('CORS') || e.message.includes('Forbidden')) {
       isCorsError.value = true
     }
@@ -73,7 +66,9 @@ async function testConnection() {
 // --- Workflow Manager ---
 const showUploadSection = ref(false)
 const uploadError = ref('')
-const parsedWorkflow = ref<{ nodes: Array<{ id: string, title: string, type: string, inputs: Record<string, any> }> } | null>(null)
+const parsedWorkflow = ref<{
+  nodes: Array<{ id: string; title: string; type: string; inputs: Record<string, any> }>
+} | null>(null)
 const pendingWorkflowName = ref('')
 const pendingWorkflowRaw = ref<Record<string, any> | null>(null)
 const selectedFields = ref<Record<string, Set<string>>>({})
@@ -86,8 +81,7 @@ function handleFileUpload(event: Event) {
 
   const input = event.target as HTMLInputElement
   const file = input?.files?.[0]
-  if (!file)
-    return
+  if (!file) return
 
   const reader = new FileReader()
   reader.onload = (e) => {
@@ -97,7 +91,7 @@ function handleFileUpload(event: Event) {
       pendingWorkflowName.value = file.name.replace(/\.json$/, '')
 
       // Parse nodes from API format (flat object of nodeId -> node)
-      const nodes: Array<{ id: string, title: string, type: string, inputs: Record<string, any> }> = []
+      const nodes: Array<{ id: string; title: string; type: string; inputs: Record<string, any> }> = []
       for (const [nodeId, node] of Object.entries(json as Record<string, any>)) {
         const title = node._meta?.title || node.class_type || `Node ${nodeId}`
         const type = node.class_type || 'Unknown'
@@ -109,14 +103,13 @@ function handleFileUpload(event: Event) {
           }
         }
         if (Object.keys(inputs).length > 0) {
-          nodes.push({ id: nodeId, title, type, inputs })
+          nodes.push({ id: nodeId, inputs, title, type })
           selectedFields.value[title] = new Set()
         }
       }
 
       parsedWorkflow.value = { nodes }
-    }
-    catch (err: any) {
+    } catch (err: any) {
       uploadError.value = `Invalid JSON: ${err.message}`
     }
   }
@@ -125,12 +118,10 @@ function handleFileUpload(event: Event) {
 
 function toggleField(nodeTitle: string, fieldName: string) {
   const set = selectedFields.value[nodeTitle]
-  if (!set)
-    return
+  if (!set) return
   if (set.has(fieldName)) {
     set.delete(fieldName)
-  }
-  else {
+  } else {
     set.add(fieldName)
   }
 }
@@ -148,8 +139,7 @@ const totalExposed = computed(() => {
 })
 
 function saveWorkflow() {
-  if (!pendingWorkflowRaw.value || !pendingWorkflowName.value.trim())
-    return
+  if (!pendingWorkflowRaw.value || !pendingWorkflowName.value.trim()) return
 
   const exposedFields: Record<string, string[]> = {}
   for (const [title, fields] of Object.entries(selectedFields.value)) {
@@ -161,17 +151,16 @@ function saveWorkflow() {
 
   const id = pendingWorkflowName.value.toLowerCase().replace(/[^a-z0-9]+/g, '-')
   const template: ComfyUIWorkflowTemplate = {
+    exposedFields,
     id,
     name: pendingWorkflowName.value.trim(),
     workflow: pendingWorkflowRaw.value,
-    exposedFields,
   }
 
-  const existing = comfyuiSavedWorkflows.value.findIndex(w => w.id === id)
+  const existing = comfyuiSavedWorkflows.value.findIndex((w) => w.id === id)
   if (existing >= 0) {
     comfyuiSavedWorkflows.value[existing] = template
-  }
-  else {
+  } else {
     comfyuiSavedWorkflows.value = [...comfyuiSavedWorkflows.value, template]
   }
 
@@ -189,19 +178,16 @@ function saveWorkflow() {
 }
 
 function removeWorkflow(id: string) {
-  comfyuiSavedWorkflows.value = comfyuiSavedWorkflows.value.filter(w => w.id !== id)
+  comfyuiSavedWorkflows.value = comfyuiSavedWorkflows.value.filter((w) => w.id !== id)
   if (comfyuiActiveWorkflow.value === id) {
     comfyuiActiveWorkflow.value = comfyuiSavedWorkflows.value[0]?.id || ''
   }
 }
 
 function formatValue(val: any): string {
-  if (typeof val === 'string')
-    return val.length > 40 ? `"${val.slice(0, 37)}..."` : `"${val}"`
-  if (typeof val === 'number')
-    return String(val)
-  if (typeof val === 'boolean')
-    return String(val)
+  if (typeof val === 'string') return val.length > 40 ? `"${val.slice(0, 37)}..."` : `"${val}"`
+  if (typeof val === 'number') return String(val)
+  if (typeof val === 'boolean') return String(val)
   return JSON.stringify(val)
 }
 
@@ -212,7 +198,9 @@ function generateExampleJson(wf: ComfyUIWorkflowTemplate) {
   for (const [nodeTitle, fields] of Object.entries(wf.exposedFields)) {
     example[nodeTitle] = {}
     for (const field of fields) {
-      const nodeId = Object.keys(wf.workflow).find(id => (wf.workflow[id]._meta?.title || wf.workflow[id].class_type) === nodeTitle)
+      const nodeId = Object.keys(wf.workflow).find(
+        (id) => (wf.workflow[id]._meta?.title || wf.workflow[id].class_type) === nodeTitle,
+      )
       const val = nodeId ? wf.workflow[nodeId].inputs[field] : '...'
       example[nodeTitle][field] = val
     }

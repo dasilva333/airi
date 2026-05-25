@@ -62,7 +62,16 @@ export interface EventComplete {
   output: string[]
 }
 
-export type MessageEvents = EventLoading | EventInitiate | EventDownload | EventProgress | EventDone | EventReady | EventStart | EventUpdate | EventComplete
+export type MessageEvents =
+  | EventLoading
+  | EventInitiate
+  | EventDownload
+  | EventProgress
+  | EventDone
+  | EventReady
+  | EventStart
+  | EventUpdate
+  | EventComplete
 export type ProgressMessageEvents = EventInitiate | EventProgress | EventDone
 
 export interface MessageGenerate {

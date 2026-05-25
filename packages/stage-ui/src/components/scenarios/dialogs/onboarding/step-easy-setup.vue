@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { Button, Input } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 const props = defineProps<{
   onNext: OnboardingStepNextHandler
@@ -20,8 +19,8 @@ const senseKey = ref('')
 
 function handleNext() {
   props.onNext({
-    openrouter: openRouterKey.value.trim(),
     deepgram: senseKey.value.trim(),
+    openrouter: openRouterKey.value.trim(),
   })
 }
 

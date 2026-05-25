@@ -1,80 +1,80 @@
 {
   "3": {
-    "inputs": {
-      "seed": 42,
-      "steps": 20,
-      "cfg": 7,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1,
-      "model": ["4", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "latent_image": ["5", 0]
-    },
-    "class_type": "KSampler",
     "_meta": {
       "title": "KSampler"
+    },
+    "class_type": "KSampler",
+    "inputs": {
+      "cfg": 7,
+      "denoise": 1,
+      "latent_image": ["5", 0],
+      "model": ["4", 0],
+      "negative": ["7", 0],
+      "positive": ["6", 0],
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "seed": 42,
+      "steps": 20
     }
   },
   "4": {
-    "inputs": {
-      "ckpt_name": "v1-5-pruned-emaonly.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
     "_meta": {
       "title": "Load Checkpoint"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "v1-5-pruned-emaonly.safetensors"
     }
   },
   "5": {
-    "inputs": {
-      "width": 512,
-      "height": 512,
-      "batch_size": 1
-    },
-    "class_type": "EmptyLatentImage",
     "_meta": {
       "title": "Empty Latent Image"
+    },
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "batch_size": 1,
+      "height": 512,
+      "width": 512
     }
   },
   "6": {
-    "inputs": {
-      "text": "beautiful landscape, masterpiece, high quality",
-      "clip": ["4", 1]
-    },
-    "class_type": "CLIPTextEncode",
     "_meta": {
       "title": "Positive Prompt"
+    },
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["4", 1],
+      "text": "beautiful landscape, masterpiece, high quality"
     }
   },
   "7": {
-    "inputs": {
-      "text": "ugly, blurry, low quality, deformed",
-      "clip": ["4", 1]
-    },
-    "class_type": "CLIPTextEncode",
     "_meta": {
       "title": "Negative Prompt"
+    },
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["4", 1],
+      "text": "ugly, blurry, low quality, deformed"
     }
   },
   "8": {
+    "_meta": {
+      "title": "VAE Decode"
+    },
+    "class_type": "VAEDecode",
     "inputs": {
       "samples": ["3", 0],
       "vae": ["4", 2]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
     }
   },
   "9": {
+    "_meta": {
+      "title": "Save Image"
+    },
+    "class_type": "SaveImage",
     "inputs": {
       "filename_prefix": "AIRI",
       "images": ["8", 0]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
     }
   }
 }

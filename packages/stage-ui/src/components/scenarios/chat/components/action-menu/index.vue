@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import type { MaybeComputedElementRef } from '@vueuse/core'
-import type { ComponentPublicInstance } from 'vue'
-
-import type { ChatActionMenuAction } from '.'
-
 import { isStageCapacitor, isStageWeb } from '@proj-airi/stage-shared'
+import type { MaybeComputedElementRef } from '@vueuse/core'
 import { useElementVisibility, useIntervalFn } from '@vueuse/core'
 import { createTimeline } from 'animejs'
 import {
@@ -21,30 +17,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import type { ComponentPublicInstance } from 'vue'
 import { computed, inject, reactive, ref, shallowRef, toRef, useTemplateRef, watch } from 'vue'
-
-import { createChatActionMenuItems } from '.'
 import { useBreakpoints } from '../../../../../composables/use-breakpoints'
 import { useElementScroll } from '../../composables/use-element-scroll'
 import { chatScrollContainerKey } from '../../constants'
+import type { ChatActionMenuAction } from '.'
+import { createChatActionMenuItems } from '.'
 
-const props = withDefaults(defineProps<{
-  canCopy?: boolean
-  canDelete?: boolean
-  canEdit?: boolean
-  copyText?: string
-  menuLabel?: string
-  placement?: 'left' | 'right'
-  fullWidth?: boolean
-}>(), {
-  canCopy: true,
-  canDelete: true,
-  canEdit: true,
-  copyText: '',
-  menuLabel: 'Message actions',
-  placement: 'right',
-  fullWidth: false,
-})
+const props = withDefaults(
+  defineProps<{
+    canCopy?: boolean
+    canDelete?: boolean
+    canEdit?: boolean
+    copyText?: string
+    menuLabel?: string
+    placement?: 'left' | 'right'
+    fullWidth?: boolean
+  }>(),
+  {
+    canCopy: true,
+    canDelete: true,
+    canEdit: true,
+    copyText: '',
+    fullWidth: false,
+    menuLabel: 'Message actions',
+    placement: 'right',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'copy'): void
@@ -67,10 +67,10 @@ const bottomSentinelRef = useTemplateRef<HTMLDivElement>('bottomSentinel')
 const injectedScrollContainer = inject(chatScrollContainerKey, undefined)
 const scrollTarget = computed(() => injectedScrollContainer?.value ?? null)
 const contextMenuOpen = shallowRef(false)
-const {
-  isVisible: messageIsVisible,
-  scrollTarget: effectiveScrollTarget,
-} = useElementScroll(measuredElementRef, scrollTarget)
+const { isVisible: messageIsVisible, scrollTarget: effectiveScrollTarget } = useElementScroll(
+  measuredElementRef,
+  scrollTarget,
+)
 
 const topSentinelVisible = useElementVisibility(topSentinelRef, {
   initialValue: false,
@@ -85,11 +85,13 @@ const bottomSentinelVisible = useElementVisibility(bottomSentinelRef, {
 const { isMobile } = useBreakpoints()
 const shouldDisableDropdownMenu = computed(() => (isStageWeb() || isStageCapacitor()) && isMobile.value)
 
-const menuItems = computed(() => createChatActionMenuItems({
-  canCopy: props.canCopy && props.copyText.trim().length > 0,
-  canDelete: props.canDelete,
-  canEdit: props.canEdit,
-}))
+const menuItems = computed(() =>
+  createChatActionMenuItems({
+    canCopy: props.canCopy && props.copyText.trim().length > 0,
+    canDelete: props.canDelete,
+    canEdit: props.canEdit,
+  }),
+)
 const hasMenuItems = computed(() => menuItems.value.length > 0)
 const forceVisible = computed(() => contextMenuOpen.value)
 
@@ -115,23 +117,14 @@ const floatingTop = computed(() => {
 })
 
 const showFloatingTrigger = computed(() => {
-  if (!hasMenuItems.value || !messageIsVisible.value)
-    return false
+  if (!hasMenuItems.value || !messageIsVisible.value) return false
 
   return !topIsVisible.value || forceVisible.value
 })
 
-const floatingTriggerStyle = computed(() => (
-  bottomIsVisible.value
-    ? undefined
-    : { top: `${floatingTop.value}px` }
-))
+const floatingTriggerStyle = computed(() => (bottomIsVisible.value ? undefined : { top: `${floatingTop.value}px` }))
 
-const inlineTriggerStyle = computed(() => (
-  bottomIsVisible.value
-    ? undefined
-    : { top: `${floatingTop.value}px` }
-))
+const inlineTriggerStyle = computed(() => (bottomIsVisible.value ? undefined : { top: `${floatingTop.value}px` }))
 
 async function handleAction(action: ChatActionMenuAction) {
   if (action === 'copy') {
@@ -194,16 +187,14 @@ function useTouching(element: MaybeComputedElementRef) {
   const pressStartTime = ref(0)
   const pressNow = ref(0)
 
-  const { resume, pause } = useIntervalFn(() => pressNow.value = Date.now(), 50)
+  const { resume, pause } = useIntervalFn(() => (pressNow.value = Date.now()), 50)
 
   const isTouching = ref(false)
   const pressedFor = computed(() => {
-    if (!isTouching.value || pressStartTime.value === 0)
-      return 0
+    if (!isTouching.value || pressStartTime.value === 0) return 0
 
     const result = pressNow.value - pressStartTime.value
-    if (result < 0)
-      return 0
+    if (result < 0) return 0
 
     return result
   })
@@ -230,24 +221,27 @@ function useTouching(element: MaybeComputedElementRef) {
     pause()
   }
 
-  watch(elementRef, (newElement) => {
-    if (newElement) {
-      const el = newElement as HTMLElement
+  watch(
+    elementRef,
+    (newElement) => {
+      if (newElement) {
+        const el = newElement as HTMLElement
 
-      el.addEventListener('touchstart', handleTouchStart, { passive: true })
-      el.addEventListener('touchmove', handleTouchMove, { passive: true })
-      el.addEventListener('touchend', handleTouchEnd, { passive: true })
-      el.addEventListener('touchcancel', handleTouchCancel, { passive: true })
-    }
-    else if (elementRef.value) {
-      const el = elementRef.value as HTMLElement
+        el.addEventListener('touchstart', handleTouchStart, { passive: true })
+        el.addEventListener('touchmove', handleTouchMove, { passive: true })
+        el.addEventListener('touchend', handleTouchEnd, { passive: true })
+        el.addEventListener('touchcancel', handleTouchCancel, { passive: true })
+      } else if (elementRef.value) {
+        const el = elementRef.value as HTMLElement
 
-      el.removeEventListener('touchstart', handleTouchStart)
-      el.removeEventListener('touchmove', handleTouchMove)
-      el.removeEventListener('touchend', handleTouchEnd)
-      el.removeEventListener('touchcancel', handleTouchCancel)
-    }
-  }, { immediate: true })
+        el.removeEventListener('touchstart', handleTouchStart)
+        el.removeEventListener('touchmove', handleTouchMove)
+        el.removeEventListener('touchend', handleTouchEnd)
+        el.removeEventListener('touchcancel', handleTouchCancel)
+      }
+    },
+    { immediate: true },
+  )
 
   return {
     isTouching,
@@ -255,13 +249,12 @@ function useTouching(element: MaybeComputedElementRef) {
   }
 }
 
-function useSetTimeoutFn(fn: () => void, options?: { delay?: number, onClear?: () => void }) {
+function useSetTimeoutFn(fn: () => void, options?: { delay?: number; onClear?: () => void }) {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   const delay = options?.delay ?? 1000
 
   function trigger(options?: { delay?: number }) {
-    if (timeoutId !== null)
-      return
+    if (timeoutId !== null) return
 
     const effectiveDelay = options?.delay ?? delay
 
@@ -280,34 +273,35 @@ function useSetTimeoutFn(fn: () => void, options?: { delay?: number, onClear?: (
   }
 
   return {
-    trigger,
     clear,
+    trigger,
   }
 }
 
 const { isTouching } = useTouching(contextMenuContainerElementRef)
 
 const pressedAnimatable = reactive({ scale: 100 })
-const tl = createTimeline({ defaults: { duration: 500, autoplay: false } })
-  .add(pressedAnimatable, { scale: 90, ease: 'inOut', autoplay: false })
+const tl = createTimeline({ defaults: { autoplay: false, duration: 500 } })
+  .add(pressedAnimatable, { autoplay: false, ease: 'inOut', scale: 90 })
   .reset()
 
-const { trigger: triggerTimer, clear: clearTimer } = useSetTimeoutFn(() => {
-  tl.reset()
-}, { delay: 700 })
+const { trigger: triggerTimer, clear: clearTimer } = useSetTimeoutFn(
+  () => {
+    tl.reset()
+  },
+  { delay: 700 },
+)
 
 watch(isTouching, (val) => {
   if (val) {
     if (tl.completed || tl.paused) {
       tl.restart()
-    }
-    else {
+    } else {
       tl.play()
     }
 
     triggerTimer()
-  }
-  else {
+  } else {
     tl.reset()
 
     clearTimer()

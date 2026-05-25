@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
-import LoadingLogoWithBar from '../../../src/components/LoadingLogoWithBar.vue'
+import type LoadingLogoWithBar from '../../../src/components/LoadingLogoWithBar.vue'
 
 const loadingLogoWithBar = ref<InstanceType<typeof LoadingLogoWithBar>>()
 

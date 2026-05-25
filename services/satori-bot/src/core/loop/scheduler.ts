@@ -2,9 +2,14 @@ import type { Message as LLMMessage } from '@xsai/shared-chat'
 
 import type { SatoriClient } from '../../adapter/satori/client'
 import type { SatoriEvent } from '../../adapter/satori/types'
-import type { BotContext, ChatContext } from '../types'
-
-import { getRecentMessages, pushToUnreadEvents, recordChannel, recordMessage, removeFromEventQueue, saveEventQueue } from '../../lib/db'
+import {
+  getRecentMessages,
+  pushToUnreadEvents,
+  recordChannel,
+  recordMessage,
+  removeFromEventQueue,
+  saveEventQueue,
+} from '../../lib/db'
 import {
   ACTIONS_KEEP_ON_TRIM,
   LOOP_CONTINUE_DELAY_MS,
@@ -17,6 +22,7 @@ import {
 import { dispatchAction } from '../dispatcher'
 import { imagineAnAction } from '../planner/llm-client'
 import { ensureChatContext } from '../session/context'
+import type { BotContext, ChatContext } from '../types'
 import { trimActions } from '../utils'
 
 /**
@@ -71,20 +77,15 @@ export async function handleLoopStep(
     try {
       // Dynamic history injection: Fetch last 10 messages from DB
       const dbMessages = await getRecentMessages(chatCtx.channelId, 10)
-      const llmMessages: LLMMessage[] = dbMessages.map(m => ({
-        role: m.userId === chatCtx.selfId ? 'assistant' : 'user',
+      const llmMessages: LLMMessage[] = dbMessages.map((m) => ({
         content: m.content,
+        role: m.userId === chatCtx.selfId ? 'assistant' : 'user',
       }))
 
-      const actionPayload = await imagineAnAction(
-        currentController,
-        llmMessages,
-        chatCtx?.actions || [],
-        {
-          unreadEvents: ctx.unreadEvents,
-          incomingEvents: currentIncoming ? [currentIncoming] : [],
-        },
-      )
+      const actionPayload = await imagineAnAction(currentController, llmMessages, chatCtx?.actions || [], {
+        incomingEvents: currentIncoming ? [currentIncoming] : [],
+        unreadEvents: ctx.unreadEvents,
+      })
 
       if (!actionPayload) {
         shouldContinue = false
@@ -95,20 +96,17 @@ export async function handleLoopStep(
       shouldContinue = result.shouldContinue
 
       if (shouldContinue) {
-        await new Promise(r => setTimeout(r, LOOP_CONTINUE_DELAY_MS))
+        await new Promise((r) => setTimeout(r, LOOP_CONTINUE_DELAY_MS))
         currentIncoming = undefined // Only the first step uses the initial incoming event
       }
-    }
-    catch (err) {
+    } catch (err) {
       if ((err as Error).name === 'AbortError') {
         ctx.logger.log('Operation was aborted due to interruption')
-      }
-      else {
+      } else {
         ctx.logger.withError(err as Error).log('Error occurred')
       }
       shouldContinue = false
-    }
-    finally {
+    } finally {
       if (chatCtx && chatCtx.currentAbortController === currentController) {
         chatCtx.currentAbortController = undefined
         ctx.currentProcessingStartTime = undefined
@@ -138,7 +136,7 @@ export async function loopIterationForChannel(
 async function loopIterationPeriodicForExistingChannels(ctx: BotContext, satoriClient: SatoriClient) {
   // Only process channels with unread messages to avoid unnecessary LLM calls
   const channelsWithUnread = Object.keys(ctx.unreadEvents).filter(
-    channelId => ctx.unreadEvents[channelId]?.length > 0,
+    (channelId) => ctx.unreadEvents[channelId]?.length > 0,
   )
 
   if (channelsWithUnread.length === 0) {
@@ -154,7 +152,9 @@ async function loopIterationPeriodicForExistingChannels(ctx: BotContext, satoriC
       const chatCtx = await ensureChatContext(ctx, channelId)
 
       if (chatCtx.isProcessing) {
-        ctx.logger.withField('channelId', channelId).debug('Channel is already processing, skipping periodic loop for this channel')
+        ctx.logger
+          .withField('channelId', channelId)
+          .debug('Channel is already processing, skipping periodic loop for this channel')
         continue
       }
 
@@ -163,18 +163,20 @@ async function loopIterationPeriodicForExistingChannels(ctx: BotContext, satoriC
       ;(async () => {
         try {
           await handleLoopStep(ctx, satoriClient, chatCtx)
-        }
-        catch (err) {
-          ctx.logger.withError(err as Error).withField('channelId', channelId).log('Error processing channel in periodic loop')
-        }
-        finally {
+        } catch (err) {
+          ctx.logger
+            .withError(err as Error)
+            .withField('channelId', channelId)
+            .log('Error processing channel in periodic loop')
+        } finally {
           chatCtx.isProcessing = false
         }
       })()
-    }
-    catch (err) {
-      ctx.logger.withError(err as Error).withField('channelId', channelId).log('Error ensuring chat context in periodic loop')
-      continue
+    } catch (err) {
+      ctx.logger
+        .withError(err as Error)
+        .withField('channelId', channelId)
+        .log('Error ensuring chat context in periodic loop')
     }
   }
 }
@@ -187,16 +189,13 @@ function loopPeriodic(botCtx: BotContext, satoriClient: SatoriClient) {
   setTimeout(async () => {
     try {
       await loopIterationPeriodicForExistingChannels(botCtx, satoriClient)
-    }
-    catch (err) {
+    } catch (err) {
       if ((err as Error).name === 'AbortError') {
         botCtx.logger.log('main loop was aborted - restarting loop')
-      }
-      else {
+      } else {
         botCtx.logger.withError(err as Error).log('error in main loop')
       }
-    }
-    finally {
+    } finally {
       loopPeriodic(botCtx, satoriClient)
     }
   }, PERIODIC_LOOP_INTERVAL_MS)
@@ -217,10 +216,7 @@ let isQueueConsumerRunning = false
  * Processes messages from the queue, records them, and triggers bot responses
  * Each message in the queue is processed with its own correct channelId and chatCtx
  */
-export async function onMessageArrival(
-  botContext: BotContext,
-  satoriClient: SatoriClient,
-) {
+export async function onMessageArrival(botContext: BotContext, satoriClient: SatoriClient) {
   if (isQueueConsumerRunning) {
     return
   }
@@ -229,8 +225,7 @@ export async function onMessageArrival(
   try {
     while (botContext.eventQueue.length > 0) {
       const currMsg = botContext.eventQueue[0]
-      if (currMsg.status !== 'ready')
-        break
+      if (currMsg.status !== 'ready') break
 
       const channelId = currMsg.event.channel?.id || 'unknown'
       const platform = currMsg.event.platform || 'unknown'
@@ -239,20 +234,10 @@ export async function onMessageArrival(
       const sourceUserName = currMsg.event.user?.name || currMsg.event.member?.user?.name || 'unknown'
 
       // Protocol-side persistence: Record channel and message at the very beginning
-      await recordChannel(
-        channelId,
-        currMsg.event.channel?.name || channelId,
-        platform,
-        selfId,
-      )
+      await recordChannel(channelId, currMsg.event.channel?.name || channelId, platform, selfId)
 
       if (currMsg.event.user && currMsg.event.message?.content) {
-        await recordMessage(
-          channelId,
-          sourceUserId,
-          sourceUserName,
-          currMsg.event.message.content,
-        )
+        await recordMessage(channelId, sourceUserId, sourceUserName, currMsg.event.message.content)
       }
 
       const chatCtx = await ensureChatContext(botContext, channelId)
@@ -269,16 +254,15 @@ export async function onMessageArrival(
         botContext.logger
           .withFields({
             channelId: chatCtx.channelId,
-            sourceUserId: currMsg.event.user?.id || currMsg.event.member?.user?.id,
-            selfId: chatCtx.selfId,
             messageId: currMsg.event.id,
+            selfId: chatCtx.selfId,
+            sourceUserId: currMsg.event.user?.id || currMsg.event.member?.user?.id,
           })
-          .debug('[DEBUG] Skipping bot\'s own event in unreadEvents - filtered out')
+          .debug("[DEBUG] Skipping bot's own event in unreadEvents - filtered out")
         botContext.eventQueue.shift()
         if (currMsg.id) {
           await removeFromEventQueue(currMsg.id)
-        }
-        else {
+        } else {
           await saveEventQueue(botContext.eventQueue)
         }
         continue
@@ -287,16 +271,20 @@ export async function onMessageArrival(
       let unreadEventsForThisChannel = botContext.unreadEvents[chatCtx.channelId]
 
       if (unreadEventsForThisChannel == null) {
-        botContext.logger.withField('channelId', chatCtx.channelId).log('unread events for this channel is null - creating empty array')
+        botContext.logger
+          .withField('channelId', chatCtx.channelId)
+          .log('unread events for this channel is null - creating empty array')
         unreadEventsForThisChannel = []
       }
       if (!Array.isArray(unreadEventsForThisChannel)) {
-        botContext.logger.withField('channelId', chatCtx.channelId).log('unread events for this channel is not an array - converting to array')
+        botContext.logger
+          .withField('channelId', chatCtx.channelId)
+          .log('unread events for this channel is not an array - converting to array')
         unreadEventsForThisChannel = []
       }
 
       const unreadEventId = await pushToUnreadEvents(chatCtx.channelId, currMsg.event)
-      unreadEventsForThisChannel.push({ id: unreadEventId, event: currMsg.event })
+      unreadEventsForThisChannel.push({ event: currMsg.event, id: unreadEventId })
 
       if (unreadEventsForThisChannel.length > MAX_UNREAD_EVENTS) {
         unreadEventsForThisChannel = unreadEventsForThisChannel.slice(-MAX_UNREAD_EVENTS)
@@ -308,17 +296,20 @@ export async function onMessageArrival(
       botContext.eventQueue.shift()
       if (currMsg.id) {
         await removeFromEventQueue(currMsg.id)
-      }
-      else {
+      } else {
         await saveEventQueue(botContext.eventQueue)
       }
 
       if (chatCtx.isProcessing) {
-        botContext.logger.withField('channelId', chatCtx.channelId).log('Channel is already processing, added to unreadEvents only')
+        botContext.logger
+          .withField('channelId', chatCtx.channelId)
+          .log('Channel is already processing, added to unreadEvents only')
         continue
       }
 
-      botContext.logger.withField('channelId', chatCtx.channelId).log('event queue processed, triggering immediate reaction')
+      botContext.logger
+        .withField('channelId', chatCtx.channelId)
+        .log('event queue processed, triggering immediate reaction')
 
       // Trigger immediate processing without awaiting to allow other channels to proceed
       chatCtx.isProcessing = true
@@ -326,20 +317,19 @@ export async function onMessageArrival(
       ;(async () => {
         try {
           await loopIterationForChannel(botContext, satoriClient, chatCtx, currMsg.event)
-        }
-        catch (err) {
-          botContext.logger.withError(err as Error).withField('channelId', chatCtx.channelId).log('Error in channel-specific loop')
-        }
-        finally {
+        } catch (err) {
+          botContext.logger
+            .withError(err as Error)
+            .withField('channelId', chatCtx.channelId)
+            .log('Error in channel-specific loop')
+        } finally {
           chatCtx.isProcessing = false
         }
       })()
     }
-  }
-  catch (err) {
+  } catch (err) {
     botContext.logger.withError(err as Error).log('Error occurred in onMessageArrival')
-  }
-  finally {
+  } finally {
     isQueueConsumerRunning = false
   }
 }

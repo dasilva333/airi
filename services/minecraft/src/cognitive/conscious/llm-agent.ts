@@ -1,6 +1,5 @@
-import type { Message } from '@xsai/shared-chat'
-
 import { generateText } from '@xsai/generate-text'
+import type { Message } from '@xsai/shared-chat'
 
 export interface LLMConfig {
   baseURL: string
@@ -27,7 +26,7 @@ export interface LLMResult {
  * Lightweight LLM agent for text generation using xsai
  */
 export class LLMAgent {
-  constructor(private config: LLMConfig) { }
+  constructor(private config: LLMConfig) {}
 
   private isCerebrasBaseURL(baseURL: string): boolean {
     const normalized = baseURL.toLowerCase()
@@ -70,27 +69,27 @@ export class LLMAgent {
   async callLLM(options: LLMCallOptions): Promise<LLMResult> {
     const shouldSendReasoning = !this.isCerebrasBaseURL(this.config.baseURL)
     const { controller, dispose } = this.createLinkedAbortController(options.abortSignal)
-    const timeoutMs = typeof options.timeoutMs === 'number' && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
-      ? Math.floor(options.timeoutMs)
-      : null
+    const timeoutMs =
+      typeof options.timeoutMs === 'number' && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+        ? Math.floor(options.timeoutMs)
+        : null
     const timeoutError = timeoutMs
       ? Object.assign(new Error(`LLM provider call timeout after ${timeoutMs}ms`), { name: 'TimeoutError' })
       : null
     const timeoutHandle = timeoutMs
       ? setTimeout(() => {
-          if (!controller.signal.aborted)
-            controller.abort(timeoutError)
+          if (!controller.signal.aborted) controller.abort(timeoutError)
         }, timeoutMs)
       : undefined
 
     try {
       const response = await generateText({
-        baseURL: this.config.baseURL,
-        apiKey: this.config.apiKey,
-        model: this.config.model,
-        messages: options.messages,
-        headers: { 'Accept-Encoding': 'identity' },
         abortSignal: controller.signal,
+        apiKey: this.config.apiKey,
+        baseURL: this.config.baseURL,
+        headers: { 'Accept-Encoding': 'identity' },
+        messages: options.messages,
+        model: this.config.model,
         ...(options.responseFormat && { responseFormat: options.responseFormat }),
         ...(shouldSendReasoning && {
           // Enable reasoning with configurable effort (default: low)
@@ -99,14 +98,12 @@ export class LLMAgent {
       } as Parameters<typeof generateText>[0])
 
       return {
-        text: response.text ?? '',
         reasoning: (response as any).reasoningText,
+        text: response.text ?? '',
         usage: response.usage,
       }
-    }
-    finally {
-      if (timeoutHandle)
-        clearTimeout(timeoutHandle)
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle)
       dispose()
     }
   }

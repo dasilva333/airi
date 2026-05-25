@@ -6,23 +6,19 @@ import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import Live2DCustomization from './live2d-customization.vue'
-
 import { useLHackStore } from '../../../../stores'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
+import Live2DCustomization from './live2d-customization.vue'
 
 const props = defineProps<{
   palette: string[]
   modelId?: string
 }>()
-defineEmits<{
-  (e: 'extractColorsFromModel'): void
-}>()
+defineEmits<(e: 'extractColorsFromModel') => void>()
 
 const { t } = useI18n()
 
@@ -38,10 +34,7 @@ const {
 } = storeToRefs(settings)
 
 const live2d = useLive2d()
-const {
-  modelParameters,
-  currentMotion,
-} = storeToRefs(live2d)
+const { modelParameters, currentMotion } = storeToRefs(live2d)
 
 const positioningStore = usePositioningStore()
 
@@ -71,7 +64,9 @@ const positionY = computed({
 
 const selectedRuntimeMotion = ref<string>('')
 const selectedRuntimeMotionName = ref<string>('')
-const runtimeMotions = ref<Array<{ name: string, fullPath: string, displayPath: string, group: string, index: number }>>([])
+const runtimeMotions = ref<
+  Array<{ name: string; fullPath: string; displayPath: string; group: string; index: number }>
+>([])
 const showMotionSelector = ref(false)
 
 const airiCardStore = useAiriCardStore()
@@ -85,41 +80,45 @@ const editingMotionKey = ref<string | null>(null)
 const editingMotionValue = ref('')
 
 const saveLive2dState = useDebounceFn(() => {
-  if (!activeCard.value || !activeCardId.value)
-    return
+  if (!activeCard.value || !activeCardId.value) return
 
   // Only auto-save customization state if this model is actually applied to the active character card.
   // This prevents auto-save triggers from corrupting/polluting the active card before "Apply" is clicked,
   // and avoids cross-process local storage sync race conditions that revert the selected preview model.
-  if (settings.stageModelSelected !== airiCardStore.getCardDisplayModelId(activeCardId.value))
-    return
+  if (settings.stageModelSelected !== airiCardStore.getCardDisplayModelId(activeCardId.value)) return
 
   const extensions = JSON.parse(JSON.stringify(activeCard.value.extensions))
-  if (!extensions.airi)
-    extensions.airi = { modules: {} }
-  if (!extensions.airi.modules)
-    extensions.airi.modules = {}
+  if (!extensions.airi) extensions.airi = { modules: {} }
+  if (!extensions.airi.modules) extensions.airi.modules = {}
 
   extensions.airi.modules.live2d = {
     ...extensions.airi.modules.live2d,
-    motionMappings: { ...motionMappings.value },
     hiddenMotions: [...hiddenMotions.value],
+    motionMappings: { ...motionMappings.value },
   }
 
   airiCardStore.updateCard(activeCardId.value, { extensions })
 }, 1000)
 
-watch([motionMappings, hiddenMotions], () => {
-  saveLive2dState()
-}, { deep: true })
+watch(
+  [motionMappings, hiddenMotions],
+  () => {
+    saveLive2dState()
+  },
+  { deep: true },
+)
 
-watch(activeCard, (card) => {
-  if (card?.extensions?.airi?.modules?.live2d) {
-    const live2dData = card.extensions.airi.modules.live2d as any
-    motionMappings.value = live2dData.motionMappings || {}
-    hiddenMotions.value = live2dData.hiddenMotions || []
-  }
-}, { immediate: true })
+watch(
+  activeCard,
+  (card) => {
+    if (card?.extensions?.airi?.modules?.live2d) {
+      const live2dData = card.extensions.airi.modules.live2d as any
+      motionMappings.value = live2dData.motionMappings || {}
+      hiddenMotions.value = live2dData.hiddenMotions || []
+    }
+  },
+  { immediate: true },
+)
 const filteredMotions = computed(() => {
   return runtimeMotions.value.filter((motion) => {
     // Filter hidden
@@ -144,9 +143,8 @@ function isHidden(fullPath: string) {
 
 function toggleVisibility(fullPath: string) {
   if (hiddenMotions.value.includes(fullPath)) {
-    hiddenMotions.value = hiddenMotions.value.filter(p => p !== fullPath)
-  }
-  else {
+    hiddenMotions.value = hiddenMotions.value.filter((p) => p !== fullPath)
+  } else {
     hiddenMotions.value = [...hiddenMotions.value, fullPath]
   }
 }
@@ -161,8 +159,7 @@ function saveMotionName(fullPath: string) {
     const updated = { ...motionMappings.value }
     delete updated[fullPath]
     motionMappings.value = updated
-  }
-  else {
+  } else {
     motionMappings.value = { ...motionMappings.value, [fullPath]: editingMotionValue.value.trim() }
   }
   editingMotionKey.value = null
@@ -175,52 +172,54 @@ function cancelEditing() {
 }
 
 const fpsOptions = computed(() => [
-  { value: 0, label: t('settings.live2d.fps.options.unlimited') },
-  { value: 60, label: '60' },
-  { value: 30, label: '30' },
+  { label: t('settings.live2d.fps.options.unlimited'), value: 0 },
+  { label: '60', value: 60 },
+  { label: '30', value: 30 },
 ])
 
 const customizationTabs = computed(() => [
-  { value: 'expressions', label: 'Expressions', icon: 'i-solar:face-scan-circle-bold-duotone' },
-  { value: 'animations', label: 'Motions', icon: 'i-solar:play-bold-duotone' },
-  { value: 'headFace', label: 'Face', icon: 'i-solar:user-bold-duotone' },
+  { icon: 'i-solar:face-scan-circle-bold-duotone', label: 'Expressions', value: 'expressions' },
+  { icon: 'i-solar:play-bold-duotone', label: 'Motions', value: 'animations' },
+  { icon: 'i-solar:user-bold-duotone', label: 'Face', value: 'headFace' },
 ])
 const activeCustomizationTab = ref('expressions')
 
 const sceneTabs = computed(() => [
-  { value: 'placement', label: 'Placement', icon: 'i-solar:minimalistic-magnifer-zoom-in-bold-duotone' },
+  { icon: 'i-solar:minimalistic-magnifer-zoom-in-bold-duotone', label: 'Placement', value: 'placement' },
 ])
 const activeSceneTab = ref('placement')
 
 // Get available runtime motions from the model
 onMounted(() => {
   // Listen for available motions updates
-  watch(() => live2d.availableMotions, (motions) => {
-    // Show all motions with their full paths
-    runtimeMotions.value = motions.map(m => ({
-      name: m.fileName.split('/').pop() || m.fileName,
-      fullPath: m.fileName, // Full path like "hiyori_free_zh/runtime/motions/idle.motion3.json"
-      displayPath: m.fileName, // Show full path for clarity
-      group: m.motionName,
-      index: m.motionIndex,
-    }))
+  watch(
+    () => live2d.availableMotions,
+    (motions) => {
+      // Show all motions with their full paths
+      runtimeMotions.value = motions.map((m) => ({
+        displayPath: m.fileName, // Show full path for clarity
+        fullPath: m.fileName, // Full path like "hiyori_free_zh/runtime/motions/idle.motion3.json"
+        group: m.motionName,
+        index: m.motionIndex,
+        name: m.fileName.split('/').pop() || m.fileName,
+      }))
 
-    console.info('Available motions:', runtimeMotions.value)
-  }, { immediate: true })
+      console.info('Available motions:', runtimeMotions.value)
+    },
+    { immediate: true },
+  )
 
   function loadSavedMotion(modelId: string) {
     const savedPath = localStorage.getItem(`live2d-${modelId}-selected-motion`)
     const savedName = localStorage.getItem(`live2d-${modelId}-selected-motion-name`)
     if (savedPath) {
       selectedRuntimeMotion.value = savedPath
-    }
-    else {
+    } else {
       selectedRuntimeMotion.value = ''
     }
     if (savedName) {
       selectedRuntimeMotionName.value = savedName
-    }
-    else {
+    } else {
       selectedRuntimeMotionName.value = 'None'
     }
   }
@@ -229,9 +228,12 @@ onMounted(() => {
   loadSavedMotion(props.modelId || 'global')
 
   // Watch for model changes
-  watch(() => props.modelId, (newId) => {
-    loadSavedMotion(newId || 'global')
-  })
+  watch(
+    () => props.modelId,
+    (newId) => {
+      loadSavedMotion(newId || 'global')
+    },
+  )
 
   // Add click outside handler
   document.addEventListener('click', handleClickOutside)
@@ -248,8 +250,7 @@ async function clearModelCache() {
   clearingCache.value = true
   try {
     await OPFSCacheV2.clearAll()
-  }
-  finally {
+  } finally {
     clearingCache.value = false
   }
 }
@@ -262,14 +263,11 @@ function isMotionInCycle(motion: any) {
 }
 
 function toggleMotionInCycle(motion: any) {
-  if (!activeCardId.value || !activeCard.value)
-    return
+  if (!activeCardId.value || !activeCard.value) return
 
   const expectedKey = `live2d:${motion.group}:${motion.index}:${motion.fullPath}`
   const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-  const next = current.includes(expectedKey)
-    ? current.filter(k => k !== expectedKey)
-    : [...current, expectedKey]
+  const next = current.includes(expectedKey) ? current.filter((k) => k !== expectedKey) : [...current, expectedKey]
 
   airiCardStore.updateCard(activeCardId.value, {
     extensions: {

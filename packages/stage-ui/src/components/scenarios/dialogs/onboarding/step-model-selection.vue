@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { Button, FieldInput } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import Alert from '../../../misc/alert.vue'
-
 import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
 import { RadioCardManySelect } from '../../../menu'
+import Alert from '../../../misc/alert.vue'
+import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 const props = defineProps<{
   onNext: OnboardingStepNextHandler
@@ -18,20 +15,13 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const consciousnessStore = useConsciousnessStore()
-const {
-  activeModel,
-  modelSearchQuery,
-  providerModels,
-  isLoadingActiveProviderModels,
-} = storeToRefs(consciousnessStore)
+const { activeModel, modelSearchQuery, providerModels, isLoadingActiveProviderModels } = storeToRefs(consciousnessStore)
 
 const sortedProviderModels = computed(() => {
   return providerModels.value.toSorted((a, b) => {
-    if (a.id === activeModel.value)
-      return -1
+    if (a.id === activeModel.value) return -1
 
-    if (b.id === activeModel.value)
-      return 1
+    if (b.id === activeModel.value) return 1
 
     return a.id.localeCompare(b.id)
   })

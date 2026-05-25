@@ -4,9 +4,7 @@ import { computed, onMounted, ref, watchEffect } from 'vue'
 
 const { theme, page, lang } = useData()
 
-const date = computed(
-  () => new Date(page.value.lastUpdated!),
-)
+const date = computed(() => new Date(page.value.lastUpdated!))
 const isoDatetime = computed(() => date.value.toISOString())
 const datetime = ref('')
 

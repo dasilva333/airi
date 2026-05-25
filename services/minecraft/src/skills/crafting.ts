@@ -1,10 +1,8 @@
+import { sleep } from '@moeru/std'
 import type { Block } from 'prismarine-block'
 import type { Item } from 'prismarine-item'
 import type { Recipe } from 'prismarine-recipe'
-
 import type { Mineflayer } from '../libs/mineflayer'
-
-import { sleep } from '@moeru/std'
 
 import { ActionError } from '../utils/errors'
 import { useLogger } from '../utils/logger'
@@ -19,15 +17,10 @@ import { getInventoryCounts, getNearestBlock, getNearestFreeSpace } from './worl
 
 const logger = useLogger()
 
-export async function craftRecipe(
-  mineflayer: Mineflayer,
-  incomingItemName: string,
-  num = 1,
-): Promise<boolean> {
+export async function craftRecipe(mineflayer: Mineflayer, incomingItemName: string, num = 1): Promise<boolean> {
   let itemName = incomingItemName.replaceAll(' ', '_').toLowerCase()
 
-  if (itemName.endsWith('plank'))
-    itemName += 's' // Correct common mistakes
+  if (itemName.endsWith('plank')) itemName += 's' // Correct common mistakes
 
   const mcData = McData.fromBot(mineflayer.bot)
   const itemId = mcData.getItemId(itemName)
@@ -36,21 +29,14 @@ export async function craftRecipe(
   }
 
   // Helper function to attempt crafting
-  async function attemptCraft(
-    recipes: Recipe[] | null,
-    craftingTable: Block | null = null,
-  ): Promise<boolean> {
+  async function attemptCraft(recipes: Recipe[] | null, craftingTable: Block | null = null): Promise<boolean> {
     if (recipes && recipes.length > 0) {
       const recipe = recipes[0]
       try {
         await mineflayer.bot.craft(recipe, num, craftingTable ?? undefined)
-        logger.log(
-          `Successfully crafted ${num} ${itemName}${craftingTable ? ' using crafting table' : ''
-          }.`,
-        )
+        logger.log(`Successfully crafted ${num} ${itemName}${craftingTable ? ' using crafting table' : ''}.`)
         return true
-      }
-      catch (err) {
+      } catch (err) {
         throw new ActionError('CRAFTING_FAILED', `Failed to craft ${itemName}`, { error: err })
       }
     }
@@ -66,27 +52,16 @@ export async function craftRecipe(
 
     while (attempts < maxRetries && !success) {
       try {
-        await goToPosition(
-          mineflayer,
-          craftingTable.position.x,
-          craftingTable.position.y,
-          craftingTable.position.z,
-          1,
-        )
+        await goToPosition(mineflayer, craftingTable.position.x, craftingTable.position.y, craftingTable.position.z, 1)
         const recipes = mineflayer.bot.recipesFor(itemId, null, 1, craftingTable)
         if (!recipes || recipes.length === 0) {
           // If we have a crafting table but still no recipes, we are missing materials
           return false // Let the caller decide or fall through
         }
         success = await attemptCraft(recipes, craftingTable)
-      }
-      catch (err) {
-        logger.log(
-          `Attempt ${attempts + 1} to move to crafting table failed: ${(err as Error).message
-          }`,
-        )
-        if (err instanceof ActionError)
-          throw err
+      } catch (err) {
+        logger.log(`Attempt ${attempts + 1} to move to crafting table failed: ${(err as Error).message}`)
+        if (err instanceof ActionError) throw err
       }
       attempts++
     }
@@ -99,9 +74,7 @@ export async function craftRecipe(
   }
 
   // Helper function to find and use or place a crafting table
-  async function findAndUseCraftingTable(
-    craftingTableRange: number,
-  ): Promise<boolean> {
+  async function findAndUseCraftingTable(craftingTableRange: number): Promise<boolean> {
     let craftingTable = getNearestBlock(mineflayer, 'crafting_table', craftingTableRange)
     if (craftingTable) {
       return await moveToAndCraft(craftingTable)
@@ -114,16 +87,13 @@ export async function craftRecipe(
     const pos = getNearestFreeSpace(mineflayer, 1, 10)
     if (pos) {
       moveAway(mineflayer, 4)
-      logger.log(
-        `Placing crafting table at position (${pos.x}, ${pos.y}, ${pos.z}).`,
-      )
+      logger.log(`Placing crafting table at position (${pos.x}, ${pos.y}, ${pos.z}).`)
       await placeBlock(mineflayer, 'crafting_table', pos.x, pos.y, pos.z)
       craftingTable = getNearestBlock(mineflayer, 'crafting_table', craftingTableRange)
       if (craftingTable) {
         return await moveToAndCraft(craftingTable)
       }
-    }
-    else {
+    } else {
       throw new ActionError('CRAFTING_FAILED', 'No suitable position found to place the crafting table')
     }
 
@@ -209,29 +179,18 @@ export async function craftRecipe(
 }
 
 export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 1): Promise<boolean> {
-  const foods = [
-    'beef',
-    'chicken',
-    'cod',
-    'mutton',
-    'porkchop',
-    'rabbit',
-    'salmon',
-    'tropical_fish',
-  ]
+  const foods = ['beef', 'chicken', 'cod', 'mutton', 'porkchop', 'rabbit', 'salmon', 'tropical_fish']
   if (!itemName.includes('raw') && !foods.includes(itemName)) {
     throw new ActionError('CRAFTING_FAILED', `Cannot smelt ${itemName}, must be a "raw" item`)
   }
 
   let placedFurnace = false
   async function cleanupPlacedFurnace(): Promise<void> {
-    if (!placedFurnace)
-      return
+    if (!placedFurnace) return
 
     try {
       await collectBlock(mineflayer, 'furnace', 1)
-    }
-    catch (err) {
+    } catch (err) {
       logger.log(`Failed to recollect temporary furnace: ${err}`)
     }
   }
@@ -244,8 +203,7 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
       const pos = getNearestFreeSpace(mineflayer, 1, 32)
       if (pos) {
         await placeBlock(mineflayer, 'furnace', pos.x, pos.y, pos.z)
-      }
-      else {
+      } else {
         throw new ActionError('CRAFTING_FAILED', 'No suitable position found to place the furnace')
       }
       furnaceBlock = getNearestBlock(mineflayer, 'furnace', 32)
@@ -268,7 +226,10 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
       // Check if the furnace is already smelting something different
       const inputItem = furnace.inputItem()
       if (inputItem && inputItem.type !== mcData.getItemId(itemName) && inputItem.count > 0) {
-        throw new ActionError('CRAFTING_FAILED', `The furnace is currently smelting ${mcData.getItemName(inputItem.type)}`)
+        throw new ActionError(
+          'CRAFTING_FAILED',
+          `The furnace is currently smelting ${mcData.getItemName(inputItem.type)}`,
+        )
       }
 
       // Check if the bot has enough items to smelt
@@ -279,12 +240,12 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
 
       // Fuel the furnace
       if (!furnace.fuelItem()) {
-        const fuel = mineflayer.bot.inventory
-          .items()
-          .find(item => item.name === 'coal' || item.name === 'charcoal')
+        const fuel = mineflayer.bot.inventory.items().find((item) => item.name === 'coal' || item.name === 'charcoal')
         const putFuel = Math.ceil(num / 8)
         if (!fuel || fuel.count < putFuel) {
-          throw new ActionError('RESOURCE_MISSING', `I do not have enough coal or charcoal to smelt`, { required: putFuel })
+          throw new ActionError('RESOURCE_MISSING', `I do not have enough coal or charcoal to smelt`, {
+            required: putFuel,
+          })
         }
         await furnace.putFuel(fuel.type, null, putFuel)
       }
@@ -307,8 +268,7 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
       while (total < num) {
         await sleep(5000)
         waited += 5000
-        if (waited > maxWait)
-          break
+        if (waited > maxWait) break
 
         logger.log('checking...')
         let collected = false
@@ -319,8 +279,7 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
             collected = true
           }
         }
-        if (!collected && !collectedLast && !furnace.inputItem() && !furnace.outputItem())
-          break
+        if (!collected && !collectedLast && !furnace.inputItem() && !furnace.outputItem()) break
         collectedLast = collected
       }
 
@@ -331,8 +290,7 @@ export async function smeltItem(mineflayer: Mineflayer, itemName: string, num = 
       logger.log(`Successfully smelted ${itemName}, got ${total} ${mcData.getItemName(smeltedItem?.type || 0)}.`)
       return true
     })
-  }
-  finally {
+  } finally {
     await cleanupPlacedFurnace()
   }
 }
@@ -346,12 +304,9 @@ export async function clearNearestFurnace(mineflayer: Mineflayer): Promise<boole
   logger.log('clearing furnace...')
   return withFurnace(mineflayer, furnaceBlock, async (furnace) => {
     logger.log('opened furnace...')
-    if (furnace.outputItem())
-      await furnace.takeOutput()
-    if (furnace.inputItem())
-      await furnace.takeInput()
-    if (furnace.fuelItem())
-      await furnace.takeFuel()
+    if (furnace.outputItem()) await furnace.takeOutput()
+    if (furnace.inputItem()) await furnace.takeInput()
+    if (furnace.fuelItem()) await furnace.takeFuel()
     return true
   })
 }

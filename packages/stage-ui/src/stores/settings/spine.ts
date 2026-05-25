@@ -17,12 +17,11 @@ export const useSettingsSpine = defineStore('settings-spine', () => {
   }
 
   return {
-    spinePremultipliedAlpha,
+    resetState,
     spineDefaultMixDuration,
     spineIdleAnimationEnabled,
     spineMaxFps,
+    spinePremultipliedAlpha,
     spineRenderScale,
-
-    resetState,
   }
 })

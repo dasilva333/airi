@@ -37,22 +37,24 @@ export interface PoseToVrmOptions {
   }
 }
 
-export type VrmPoseDirections = Partial<Record<
-  | 'hips'
-  | 'spine'
-  | 'chest'
-  | 'leftShoulder'
-  | 'rightShoulder'
-  | 'leftUpperArm'
-  | 'leftLowerArm'
-  | 'rightUpperArm'
-  | 'rightLowerArm'
-  | 'leftUpperLeg'
-  | 'leftLowerLeg'
-  | 'rightUpperLeg'
-  | 'rightLowerLeg',
-  Vector3Like
->>
+export type VrmPoseDirections = Partial<
+  Record<
+    | 'hips'
+    | 'spine'
+    | 'chest'
+    | 'leftShoulder'
+    | 'rightShoulder'
+    | 'leftUpperArm'
+    | 'leftLowerArm'
+    | 'rightUpperArm'
+    | 'rightLowerArm'
+    | 'leftUpperLeg'
+    | 'leftLowerLeg'
+    | 'rightUpperLeg'
+    | 'rightLowerLeg',
+    Vector3Like
+  >
+>
 
 export interface VrmPoseTarget {
   dir: Vector3Like
@@ -84,12 +86,11 @@ function vLen(v: Vector3Like): number {
 
 function vNormalize(v: Vector3Like): Vector3Like | null {
   const len = vLen(v)
-  if (!Number.isFinite(len) || len <= 1e-6)
-    return null
+  if (!Number.isFinite(len) || len <= 1e-6) return null
   return vScale(v, 1 / len)
 }
 
-function vRemapAxis(v: Vector3Like, axis: { x: 1 | -1, y: 1 | -1, z: 1 | -1 }): Vector3Like {
+function vRemapAxis(v: Vector3Like, axis: { x: 1 | -1; y: 1 | -1; z: 1 | -1 }): Vector3Like {
   return { x: v.x * axis.x, y: v.y * axis.y, z: (v.z ?? 0) * axis.z }
 }
 
@@ -113,23 +114,24 @@ function vNeg(v: Vector3Like): Vector3Like {
 
 function safePole(dir: Vector3Like, pole: Vector3Like, threshold = 0.85): Vector3Like | null {
   const d = Math.abs(vDot(dir, pole))
-  if (!Number.isFinite(d))
-    return null
+  if (!Number.isFinite(d)) return null
   return d > threshold ? null : pole
 }
 
 function get(points: Vector3Like[], index: number): Vector3Like | null {
   const p = points[index]
-  if (!p)
-    return null
-  if (!Number.isFinite(p.x) || !Number.isFinite(p.y))
-    return null
+  if (!p) return null
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null
   return { x: p.x, y: p.y, z: p.z ?? 0 }
 }
 
 // NOTICE: mediapipe doesn't provide this type correctly, so we define it here.
-interface LandmarkWithPresence { presence?: number }
-interface LandmarkWithVisibility { visibility?: number }
+interface LandmarkWithPresence {
+  presence?: number
+}
+interface LandmarkWithVisibility {
+  visibility?: number
+}
 
 function getOptionalPresence(landmark: unknown): number | undefined {
   if (landmark && typeof landmark === 'object' && 'presence' in landmark)
@@ -143,25 +145,25 @@ function getOptionalVisibility(landmark: unknown): number | undefined {
   return undefined
 }
 
-function isConfident(pose: PoseState, index: number, thresholds: { minVisibility: number, minPresence: number }): boolean {
+function isConfident(
+  pose: PoseState,
+  index: number,
+  thresholds: { minVisibility: number; minPresence: number },
+): boolean {
   // User requirement: do not output anything when `visibility` is missing.
   // Prefer 2D landmarks for visibility/presence (they are more consistently populated),
   // but still allow fallback to world landmarks when needed.
   const lm2d = pose.landmarks2d?.[index]
   const lm3d = pose.worldLandmarks?.[index]
-  if (!lm2d && !lm3d)
-    return false
+  if (!lm2d && !lm3d) return false
 
   const visibility = getOptionalVisibility(lm2d) ?? getOptionalVisibility(lm3d)
-  if (visibility == null || !Number.isFinite(visibility))
-    return false
-  if (visibility < thresholds.minVisibility)
-    return false
+  if (visibility == null || !Number.isFinite(visibility)) return false
+  if (visibility < thresholds.minVisibility) return false
 
   if (thresholds.minPresence > 0) {
     const presence = getOptionalPresence(lm2d) ?? getOptionalPresence(lm3d)
-    if (presence != null && Number.isFinite(presence) && presence < thresholds.minPresence)
-      return false
+    if (presence != null && Number.isFinite(presence) && presence < thresholds.minPresence) return false
   }
   return true
 }
@@ -173,13 +175,12 @@ function mid(a: Vector3Like, b: Vector3Like): Vector3Like {
 export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): VrmPoseTargets {
   // Prefer world landmarks when available; fallback to normalized landmarks to keep the pipeline usable.
   const points = pose.worldLandmarks
-  if (!points?.length)
-    return {}
+  if (!points?.length) return {}
 
   const axis = options?.axis ?? DEFAULT_AXIS
   const thresholds = {
-    minVisibility: options?.confidence?.minVisibility ?? DEFAULT_MIN_VISIBILITY,
     minPresence: options?.confidence?.minPresence ?? DEFAULT_MIN_PRESENCE,
+    minVisibility: options?.confidence?.minVisibility ?? DEFAULT_MIN_VISIBILITY,
   }
 
   const getC = (index: number) => (isConfident(pose, index, thresholds) ? get(points, index) : null)
@@ -205,8 +206,7 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
   const prevTargets = options?.stabilize?.previousTargets
   const stabilizePole = (key: keyof VrmPoseTargets, pole: Vector3Like): Vector3Like => {
     const prev = prevTargets?.[key]?.pole
-    if (prev && vDot(prev, pole) < 0)
-      return vNeg(pole)
+    if (prev && vDot(prev, pole) < 0) return vNeg(pole)
     return pole
   }
 
@@ -228,10 +228,13 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
       let fw = vNormalize(vCross(right, up))
       if (fw) {
         const rightFromBasis = vNormalize(vCross(fw, up))
-        if (rightFromBasis && vDot(rightFromBasis, right) < 0)
-          fw = vNeg(fw)
+        if (rightFromBasis && vDot(rightFromBasis, right) < 0) fw = vNeg(fw)
 
-        const prevForward = options?.stabilize?.previousForward ?? prevTargets?.hips?.pole ?? prevTargets?.spine?.pole ?? prevTargets?.chest?.pole
+        const prevForward =
+          options?.stabilize?.previousForward ??
+          prevTargets?.hips?.pole ??
+          prevTargets?.spine?.pole ??
+          prevTargets?.chest?.pole
         torsoForward = prevForward && vDot(prevForward, fw) < 0 ? vNeg(fw) : fw
       }
     }
@@ -241,16 +244,13 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
   if (hipCenter && shoulderCenter) {
     const up = vNormalize(vRemapAxis(vSub(shoulderCenter, hipCenter), axis))
     if (up) {
-      if (torsoForward)
-        out.hips = { dir: up, pole: stabilizePole('hips', torsoForward) }
-      else
-        out.hips = { dir: up }
+      if (torsoForward) out.hips = { dir: up, pole: stabilizePole('hips', torsoForward) }
+      else out.hips = { dir: up }
 
       if (torsoForward) {
         out.spine = { dir: up, pole: stabilizePole('spine', torsoForward) }
         out.chest = { dir: up, pole: stabilizePole('chest', torsoForward) }
-      }
-      else {
+      } else {
         out.spine = { dir: up }
         out.chest = { dir: up }
       }
@@ -260,13 +260,11 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
   // Shoulder (clavicle-ish): shoulder center -> shoulder
   if (shoulderCenter && leftShoulder) {
     const d = vNormalize(vRemapAxis(vSub(leftShoulder, shoulderCenter), axis))
-    if (d)
-      out.leftShoulder = { dir: d }
+    if (d) out.leftShoulder = { dir: d }
   }
   if (shoulderCenter && rightShoulder) {
     const d = vNormalize(vRemapAxis(vSub(rightShoulder, shoulderCenter), axis))
-    if (d)
-      out.rightShoulder = { dir: d }
+    if (d) out.rightShoulder = { dir: d }
   }
 
   // Arms (with pole from elbow bend plane)
@@ -280,8 +278,7 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
   }
   if (leftElbow && leftWrist) {
     const lower = vNormalize(vRemapAxis(vSub(leftWrist, leftElbow), axis))
-    if (lower)
-      out.leftLowerArm = { dir: lower }
+    if (lower) out.leftLowerArm = { dir: lower }
   }
   if (rightShoulder && rightElbow) {
     const upper = vNormalize(vRemapAxis(vSub(rightElbow, rightShoulder), axis))
@@ -293,8 +290,7 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
   }
   if (rightElbow && rightWrist) {
     const lower = vNormalize(vRemapAxis(vSub(rightWrist, rightElbow), axis))
-    if (lower)
-      out.rightLowerArm = { dir: lower }
+    if (lower) out.rightLowerArm = { dir: lower }
   }
 
   // Legs: require ankle to reduce hallucinated flips when lower body is off-screen
@@ -303,16 +299,13 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
     if (upper) {
       const poleRaw = vCross(vSub(leftKnee, leftHip), vSub(leftAnkle, leftKnee))
       let pole = vNormalize(vRemapAxis(poleRaw, axis))
-      if (pole)
-        pole = stabilizePole('leftUpperLeg', pole)
-      if (pole)
-        pole = safePole(upper, pole)
+      if (pole) pole = stabilizePole('leftUpperLeg', pole)
+      if (pole) pole = safePole(upper, pole)
       out.leftUpperLeg = pole ? { dir: upper, pole } : { dir: upper }
     }
 
     const lower = vNormalize(vRemapAxis(vSub(leftAnkle, leftKnee), axis))
-    if (lower)
-      out.leftLowerLeg = { dir: lower }
+    if (lower) out.leftLowerLeg = { dir: lower }
   }
 
   if (rightHip && rightKnee && rightAnkle) {
@@ -320,16 +313,13 @@ export function poseToVrmTargets(pose: PoseState, options?: PoseToVrmOptions): V
     if (upper) {
       const poleRaw = vCross(vSub(rightKnee, rightHip), vSub(rightAnkle, rightKnee))
       let pole = vNormalize(vRemapAxis(poleRaw, axis))
-      if (pole)
-        pole = stabilizePole('rightUpperLeg', pole)
-      if (pole)
-        pole = safePole(upper, pole)
+      if (pole) pole = stabilizePole('rightUpperLeg', pole)
+      if (pole) pole = safePole(upper, pole)
       out.rightUpperLeg = pole ? { dir: upper, pole } : { dir: upper }
     }
 
     const lower = vNormalize(vRemapAxis(vSub(rightAnkle, rightKnee), axis))
-    if (lower)
-      out.rightLowerLeg = { dir: lower }
+    if (lower) out.rightLowerLeg = { dir: lower }
   }
 
   return out
@@ -340,8 +330,7 @@ export function poseToVrmDirections(pose: PoseState, options?: PoseToVrmOptions)
   const out: VrmPoseDirections = {}
   ;(Object.keys(targets) as (keyof VrmPoseDirections)[]).forEach((k) => {
     const t = targets[k]
-    if (t)
-      out[k] = t.dir
+    if (t) out[k] = t.dir
   })
   return out
 }

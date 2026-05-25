@@ -1,36 +1,12 @@
 {
-  "name": "@proj-airi/stage-tamagotchi",
-  "type": "module",
-  "version": "0.9.2-stable.20260522",
-  "private": true,
-  "description": "LLM powered virtual character",
   "author": {
-    "name": "Moeru AI",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI",
     "url": "https://github.com/moeru-ai"
   },
-  "homepage": "https://airi.moeru.ai/docs/",
-  "main": "./out/main/index.js",
-  "scripts": {
-    "lint": "eslint --cache .",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
-    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
-    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
-    "app:dev": "pnpm run dev",
-    "app:build": "pnpm run build",
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
-    "build": "pnpm run typecheck && electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "pnpm run build && electron-builder --dir",
-    "build:win": "pnpm run build && electron-builder --win",
-    "build:mac": "pnpm run build && electron-builder --mac",
-    "build:linux": "pnpm run build && electron-builder --linux",
-    "start:linux": "ELECTRON_DISABLE_SANDBOX=1 electron-vite preview",
-    "dev:linux": "ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
-    "rename-artifacts": "mkdir -p bundle && tsx scripts/rename-artifacts.ts",
-    "merge-latest-mac": "tsx scripts/merge-latest-mac.ts",
-    "artifacts-metadata": "tsx scripts/artifacts-metadata.ts"
+  "build": {
+    "appId": "ai.moeru.airi",
+    "extends": "electron-builder.config.ts"
   },
   "dependencies": {
     "@guiiai/logg": "catalog:",
@@ -107,6 +83,7 @@
     "valibot": "catalog:",
     "vue": "catalog:"
   },
+  "description": "LLM powered virtual character",
   "devDependencies": {
     "@date-fns/utc": "^2.1.1",
     "@electron-toolkit/preload": "^3.0.2",
@@ -193,8 +170,31 @@
     "yauzl": "^3.2.0",
     "zod": "catalog:"
   },
-  "build": {
-    "appId": "ai.moeru.airi",
-    "extends": "electron-builder.config.ts"
-  }
+  "homepage": "https://airi.moeru.ai/docs/",
+  "main": "./out/main/index.js",
+  "name": "@proj-airi/stage-tamagotchi",
+  "private": true,
+  "scripts": {
+    "app:build": "pnpm run build",
+    "app:dev": "pnpm run dev",
+    "artifacts-metadata": "tsx scripts/artifacts-metadata.ts",
+    "build": "pnpm run typecheck && electron-vite build",
+    "build:linux": "pnpm run build && electron-builder --linux",
+    "build:mac": "pnpm run build && electron-builder --mac",
+    "build:unpack": "pnpm run build && electron-builder --dir",
+    "build:win": "pnpm run build && electron-builder --win",
+    "dev": "electron-vite dev",
+    "dev:linux": "ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
+    "lint": "biome check .",
+    "merge-latest-mac": "tsx scripts/merge-latest-mac.ts",
+    "postinstall": "electron-builder install-app-deps",
+    "rename-artifacts": "mkdir -p bundle && tsx scripts/rename-artifacts.ts",
+    "start": "electron-vite preview",
+    "start:linux": "ELECTRON_DISABLE_SANDBOX=1 electron-vite preview",
+    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false"
+  },
+  "type": "module",
+  "version": "0.9.2-stable.20260522"
 }

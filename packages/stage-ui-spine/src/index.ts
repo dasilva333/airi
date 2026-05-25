@@ -1,5 +1,5 @@
-export { SpineCanvas, SpineModel } from './components/scenes/spine'
 export { default as SpineScene } from './components/scenes/Spine.vue'
+export { SpineCanvas, SpineModel } from './components/scenes/spine'
 export * from './composables/spine'
 export * from './constants/emotions'
 export * from './stores'

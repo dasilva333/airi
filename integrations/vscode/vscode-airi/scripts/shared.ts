@@ -21,18 +21,18 @@ export async function packageJSONForVSCode(name: string) {
   }
 
   return {
+    isPreview: numericVersion.preview,
     json,
+    name,
     originalName,
     originalVersion,
-    name,
-    version: numericVersion.version,
-    isPreview: numericVersion.preview,
     restore: async () => {
       json.name = originalName
       json.version = originalVersion
 
       await writeFile(new URL('../package.json', import.meta.url), `${JSON.stringify(json, null, 2)}\n`, 'utf-8')
     },
+    version: numericVersion.version,
   }
 }
 
@@ -46,8 +46,7 @@ export async function packageJSONForVSCode(name: string) {
 //   This keeps ordering: alpha < beta < rc < stable. Unknown prerelease tags default to alpha.
 export function encodeNumericVersion(version: string) {
   const match = version.match(/^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(-(?<pre>[0-9A-Z.-]+))?$/i)
-  if (!match || !match.groups)
-    throw new Error(`Invalid semver: ${version}`)
+  if (!match || !match.groups) throw new Error(`Invalid semver: ${version}`)
 
   const major = Number.parseInt(match.groups.major, 10)
   const minor = Number.parseInt(match.groups.minor, 10)
@@ -63,7 +62,7 @@ export function encodeNumericVersion(version: string) {
   } as const
 
   const { stage, sequence } = parsePrerelease(prerelease)
-  const maxSequence = (multiplier - 1) - stageBuckets[stage]
+  const maxSequence = multiplier - 1 - stageBuckets[stage]
   if (sequence > maxSequence) {
     throw new Error(`Prerelease sequence overflow for ${stage}: ${sequence} exceeds limit ${maxSequence}`)
   }
@@ -71,18 +70,18 @@ export function encodeNumericVersion(version: string) {
     throw new Error(`Prerelease sequence must be non-negative: ${sequence}`)
   }
 
-  const encodedPatch = (patch * multiplier) + (stageBuckets[stage] ?? stageBuckets.alpha) + sequence
+  const encodedPatch = patch * multiplier + (stageBuckets[stage] ?? stageBuckets.alpha) + sequence
   const encoded = `${major}.${minor}.${encodedPatch}`
 
   return {
-    version: encoded,
     preview: stage !== 'stable',
+    version: encoded,
   }
 }
 
 function parsePrerelease(prerelease?: string) {
   if (!prerelease) {
-    return { stage: 'stable' as const, sequence: 0 }
+    return { sequence: 0, stage: 'stable' as const }
   }
 
   const [stageRaw, sequenceRaw] = prerelease.split('.')
@@ -90,5 +89,5 @@ function parsePrerelease(prerelease?: string) {
   const sequenceParsed = Number.parseInt(sequenceRaw ?? '', 10)
   const sequence = Number.isFinite(sequenceParsed) ? sequenceParsed : 0
 
-  return { stage, sequence }
+  return { sequence, stage }
 }

@@ -9,7 +9,7 @@ export function useAudioInput() {
   const audioInputs = computed(() => devices.audioInputs.value)
 
   const constraints = ref<MediaStreamConstraints>({ audio: true })
-  const media = useUserMedia({ constraints, autoSwitch: true, enabled: false })
+  const media = useUserMedia({ autoSwitch: true, constraints, enabled: false })
 
   async function request() {
     if (devices.permissionGranted.value) {
@@ -22,32 +22,44 @@ export function useAudioInput() {
     await devices.ensurePermissions()
   }
 
-  watch(selectedAudioInputId, () => {
-    if (selectedAudioInputId.value) {
-      constraints.value = {
-        audio: {
-          deviceId: { exact: selectedAudioInputId.value! },
-        },
+  watch(
+    selectedAudioInputId,
+    () => {
+      if (selectedAudioInputId.value) {
+        constraints.value = {
+          audio: {
+            deviceId: { exact: selectedAudioInputId.value! },
+          },
+        }
       }
-    }
-  }, { immediate: true })
+    },
+    { immediate: true },
+  )
 
-  watch(devices.audioInputs, () => {
-    selectedAudioInput.value = audioInputs.value.find(device => device.deviceId === selectedAudioInputId.value)
-  }, { immediate: true })
+  watch(
+    devices.audioInputs,
+    () => {
+      selectedAudioInput.value = audioInputs.value.find((device) => device.deviceId === selectedAudioInputId.value)
+    },
+    { immediate: true },
+  )
 
-  watch([devices.permissionGranted, audioInputs, selectedAudioInputId], async () => {
-    await request()
-    if (!devices.permissionGranted.value) {
-      return
-    }
-    if (audioInputs.value.length === 0) {
-      return
-    }
-    if (!selectedAudioInput.value) {
-      selectedAudioInput.value = audioInputs.value[0]
-    }
-  }, { immediate: true })
+  watch(
+    [devices.permissionGranted, audioInputs, selectedAudioInputId],
+    async () => {
+      await request()
+      if (!devices.permissionGranted.value) {
+        return
+      }
+      if (audioInputs.value.length === 0) {
+        return
+      }
+      if (!selectedAudioInput.value) {
+        selectedAudioInput.value = audioInputs.value[0]
+      }
+    },
+    { immediate: true },
+  )
 
   async function start() {
     await request()
@@ -71,13 +83,13 @@ export function useAudioInput() {
   }
 
   return {
-    selectedAudioInputId,
-    selectedAudioInput,
     audioInputs,
+    media,
+    request,
+    selectedAudioInput,
+    selectedAudioInputId,
 
     start,
     stop,
-    request,
-    media,
   }
 }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { Character } from '@proj-airi/stage-ui/types/character'
-
 import { useCharacterStore } from '@proj-airi/stage-ui/stores/characters'
+import type { Character } from '@proj-airi/stage-ui/types/character'
 import { Button, FieldInput } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
@@ -22,7 +21,7 @@ const searchQuery = ref('')
 const filteredCharacters = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return Array.from(characters.value.values()).filter((char) => {
-    const i18n = char.i18n?.find(i => i.language === 'en') || char.i18n?.[0]
+    const i18n = char.i18n?.find((i) => i.language === 'en') || char.i18n?.[0]
     return i18n?.name.toLowerCase().includes(query) || i18n?.description.toLowerCase().includes(query)
   })
 })

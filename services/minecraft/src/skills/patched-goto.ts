@@ -25,8 +25,8 @@ export interface PathfindResult {
   ok: boolean
   reason: 'success' | 'timeout' | 'stagnation' | 'noPath' | 'error' | 'interrupted'
   message: string
-  startPos: { x: number, y: number, z: number }
-  endPos: { x: number, y: number, z: number }
+  startPos: { x: number; y: number; z: number }
+  endPos: { x: number; y: number; z: number }
   distanceTraveled: number
   distanceToTarget: number
   elapsedMs: number
@@ -39,7 +39,7 @@ export interface PathfindProgressInfo {
   estimatedTimeMs: number
   distanceTraveled: number
   distanceToTarget: number
-  currentPos: { x: number, y: number, z: number }
+  currentPos: { x: number; y: number; z: number }
   stagnantTicks: number
   pathCost: number
 }
@@ -49,8 +49,8 @@ interface MoveNode {
   y: number
   z: number
   cost: number
-  toBreak: Array<{ x: number, y: number, z: number }>
-  toPlace: Array<{ x: number, y: number, z: number }>
+  toBreak: Array<{ x: number; y: number; z: number }>
+  toPlace: Array<{ x: number; y: number; z: number }>
   parkour?: boolean
 }
 
@@ -71,13 +71,15 @@ export interface PathfindProgressSnapshot {
 export function hasMeaningfulPathfindingProgress(snapshot: PathfindProgressSnapshot): boolean {
   const distanceImprovement = snapshot.previousDistanceToTarget - snapshot.distanceToTarget
 
-  return snapshot.movedSinceLastTick >= STAGNATION_THRESHOLD
-    || distanceImprovement >= DISTANCE_IMPROVEMENT_THRESHOLD
-    || snapshot.isMining
-    || snapshot.isBuilding
+  return (
+    snapshot.movedSinceLastTick >= STAGNATION_THRESHOLD ||
+    distanceImprovement >= DISTANCE_IMPROVEMENT_THRESHOLD ||
+    snapshot.isMining ||
+    snapshot.isBuilding
+  )
 }
 
-function vecToCoord(v: Vec3): { x: number, y: number, z: number } {
+function vecToCoord(v: Vec3): { x: number; y: number; z: number } {
   return { x: Math.round(v.x * 10) / 10, y: Math.round(v.y * 10) / 10, z: Math.round(v.z * 10) / 10 }
 }
 
@@ -95,8 +97,7 @@ function vecToCoord(v: Vec3): { x: number, y: number, z: number } {
  * - Normal moves: distance / walk speed
  */
 export function estimatePathTimeMs(path: MoveNode[]): number {
-  if (path.length === 0)
-    return 0
+  if (path.length === 0) return 0
 
   let totalTimeS = 0
 
@@ -111,12 +112,10 @@ export function estimatePathTimeMs(path: MoveNode[]): number {
 
     if (node.parkour) {
       totalTimeS += PARKOUR_TIME
-    }
-    else if (node.cost >= 2 && node.toBreak.length === 0 && node.toPlace.length === 0) {
+    } else if (node.cost >= 2 && node.toBreak.length === 0 && node.toPlace.length === 0) {
       // Jump move (cost=2 base for jump-up)
       totalTimeS += JUMP_TIME
-    }
-    else {
+    } else {
       // Normal walking move — estimate from node distance
       // Diagonal moves have cost √2, forward moves cost 1
       const walkDistance = node.cost >= 1.4 ? Math.SQRT2 : 1
@@ -171,24 +170,23 @@ export function patchedGoto(
         if (goal && typeof goal.heuristic === 'function') {
           return goal.heuristic(bot.entity.position.floored())
         }
-      }
-      catch {}
+      } catch {}
       return 0
     }
 
     function buildResult(ok: boolean, reason: PathfindResult['reason'], message: string): PathfindResult {
       const endPos = bot.entity.position.clone()
       return {
-        ok,
-        reason,
-        message,
-        startPos: vecToCoord(startPos),
-        endPos: vecToCoord(endPos),
-        distanceTraveled: startPos.distanceTo(endPos),
         distanceToTarget: getDistanceToTarget(),
+        distanceTraveled: startPos.distanceTo(endPos),
         elapsedMs: Date.now() - startTime,
+        endPos: vecToCoord(endPos),
         estimatedTimeMs: currentEstimatedMs,
+        message,
+        ok,
         pathCost: currentPathCost,
+        reason,
+        startPos: vecToCoord(startPos),
       }
     }
 
@@ -208,8 +206,7 @@ export function patchedGoto(
     }
 
     function settle(result: PathfindResult) {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       cleanup()
       // Resolve on next tick to let pathfinder clean up
@@ -221,12 +218,23 @@ export function patchedGoto(
         clearTimeout(timeoutTimer)
       }
       timeoutTimer = setTimeout(() => {
-        logger.withFields({ elapsedMs: Date.now() - startTime, estimatedMs: currentEstimatedMs, timeoutMs: currentTimeoutMs }).log('Pathfinding timeout reached')
+        logger
+          .withFields({
+            elapsedMs: Date.now() - startTime,
+            estimatedMs: currentEstimatedMs,
+            timeoutMs: currentTimeoutMs,
+          })
+          .log('Pathfinding timeout reached')
         try {
           bot.pathfinder.stop()
-        }
-        catch {}
-        settle(buildResult(false, 'timeout', `Navigation timed out after ${Math.round((Date.now() - startTime) / 1000)}s (ETA was ${Math.round(currentEstimatedMs / 1000)}s)`))
+        } catch {}
+        settle(
+          buildResult(
+            false,
+            'timeout',
+            `Navigation timed out after ${Math.round((Date.now() - startTime) / 1000)}s (ETA was ${Math.round(currentEstimatedMs / 1000)}s)`,
+          ),
+        )
       }, currentTimeoutMs)
     }
 
@@ -251,8 +259,7 @@ export function patchedGoto(
       if (results.path.length === 0) {
         if (results.status === 'noPath') {
           settle(buildResult(false, 'noPath', 'No path to the goal'))
-        }
-        else if (results.status === 'timeout') {
+        } else if (results.status === 'timeout') {
           settle(buildResult(false, 'noPath', 'Pathfinding computation timed out (A* could not find a path in time)'))
         }
         // else: empty path but status is 'partial' — still computing, don't fail yet
@@ -271,37 +278,35 @@ export function patchedGoto(
 
     // --- Progress ticker ---
     function checkProgress() {
-      if (settled)
-        return
+      if (settled) return
 
       const currentPos = bot.entity.position.clone()
       const movedSinceLastTick = currentPos.distanceTo(lastProgressPos)
       const distanceToTarget = getDistanceToTarget()
       const madeMeaningfulProgress = hasMeaningfulPathfindingProgress({
+        distanceToTarget,
+        isBuilding: bot.pathfinder.isBuilding(),
+        isMining: bot.pathfinder.isMining() || bot.targetDigBlock != null,
         movedSinceLastTick,
         previousDistanceToTarget: lastDistanceToTarget,
-        distanceToTarget,
-        isMining: bot.pathfinder.isMining() || bot.targetDigBlock != null,
-        isBuilding: bot.pathfinder.isBuilding(),
       })
 
       if (madeMeaningfulProgress) {
         stagnantTicks = 0
-      }
-      else {
+      } else {
         stagnantTicks++
       }
       lastProgressPos = currentPos
       lastDistanceToTarget = distanceToTarget
 
       const progressInfo: PathfindProgressInfo = {
+        currentPos: vecToCoord(currentPos),
+        distanceToTarget,
+        distanceTraveled: startPos.distanceTo(currentPos),
         elapsedMs: Date.now() - startTime,
         estimatedTimeMs: currentEstimatedMs,
-        distanceTraveled: startPos.distanceTo(currentPos),
-        distanceToTarget,
-        currentPos: vecToCoord(currentPos),
-        stagnantTicks,
         pathCost: currentPathCost,
+        stagnantTicks,
       }
 
       // Notify callback
@@ -309,12 +314,17 @@ export function patchedGoto(
 
       // Check stagnation limit
       if (stagnantTicks >= MAX_STAGNANT_TICKS) {
-        logger.withFields({ stagnantTicks, pos: vecToCoord(currentPos) }).log('Pathfinding stagnation detected')
+        logger.withFields({ pos: vecToCoord(currentPos), stagnantTicks }).log('Pathfinding stagnation detected')
         try {
           bot.pathfinder.stop()
-        }
-        catch {}
-        settle(buildResult(false, 'stagnation', `Bot stagnated for ${stagnantTicks * PROGRESS_INTERVAL_MS / 1000}s without meaningful movement`))
+        } catch {}
+        settle(
+          buildResult(
+            false,
+            'stagnation',
+            `Bot stagnated for ${(stagnantTicks * PROGRESS_INTERVAL_MS) / 1000}s without meaningful movement`,
+          ),
+        )
       }
     }
 
@@ -333,8 +343,7 @@ export function patchedGoto(
     // Kick off pathfinding
     try {
       bot.pathfinder.setGoal(goal)
-    }
-    catch (err) {
+    } catch (err) {
       settle(buildResult(false, 'error', `Failed to set pathfinding goal: ${(err as Error).message}`))
     }
   })

@@ -11,8 +11,7 @@ const modelValue = defineModel<number>({ required: true })
 const sliderValue = computed({
   get: () => modelValue.value,
   set: (value: number) => {
-    if (Number.isNaN(value))
-      return
+    if (Number.isNaN(value)) return
 
     modelValue.value = value
   },

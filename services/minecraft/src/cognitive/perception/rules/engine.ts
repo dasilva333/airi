@@ -8,16 +8,6 @@
 import type { Logg } from '@guiiai/logg'
 
 import type { EventBus, TracedEvent } from '../../event-bus'
-import type {
-  DetectorGroupBy,
-  DetectorMode,
-  DetectorsState,
-  DetectorState,
-  ParsedRule,
-  Rule,
-  TypeScriptRule,
-} from './types'
-
 import { loadRulesFromDirectory } from './loader'
 import { matchEventType, matchWhere, renderMetadata, renderTemplate } from './matcher'
 import {
@@ -26,6 +16,15 @@ import {
   DEFAULT_SLOT_MS,
   processEvent as processDetector,
 } from './temporal-detector'
+import type {
+  DetectorGroupBy,
+  DetectorMode,
+  DetectorState,
+  DetectorsState,
+  ParsedRule,
+  Rule,
+  TypeScriptRule,
+} from './types'
 import { isTypeScriptRule } from './types'
 
 const GLOBAL_GROUP_KEY = '__global__'
@@ -59,13 +58,9 @@ function resolveDetectorGroupKey(payload: unknown, groupBy?: DetectorGroupBy): s
   }
 
   if (payload && typeof payload === 'object') {
-    const record = payload as { entityId?: unknown, sourceId?: unknown }
-    const entityId = typeof record.entityId === 'string' && record.entityId.length > 0
-      ? record.entityId
-      : undefined
-    const sourceId = typeof record.sourceId === 'string' && record.sourceId.length > 0
-      ? record.sourceId
-      : undefined
+    const record = payload as { entityId?: unknown; sourceId?: unknown }
+    const entityId = typeof record.entityId === 'string' && record.entityId.length > 0 ? record.entityId : undefined
+    const sourceId = typeof record.sourceId === 'string' && record.sourceId.length > 0 ? record.sourceId : undefined
 
     if (groupBy === 'entityId') {
       return entityId ?? GLOBAL_GROUP_KEY
@@ -122,7 +117,7 @@ export class RuleEngine {
       logger: Logg
       config: RuleEngineConfig
     },
-  ) { }
+  ) {}
 
   /**
    * Initialize the engine: load rules and subscribe to events
@@ -132,11 +127,13 @@ export class RuleEngine {
     const yamlRules = loadRulesFromDirectory(this.deps.config.rulesDir)
     this.rules.push(...yamlRules)
 
-    this.deps.logger.withFields({
-      rulesDir: this.deps.config.rulesDir,
-      ruleCount: yamlRules.length,
-      rules: yamlRules.map(r => r.name),
-    }).log('RuleEngine: loaded rules')
+    this.deps.logger
+      .withFields({
+        ruleCount: yamlRules.length,
+        rules: yamlRules.map((r) => r.name),
+        rulesDir: this.deps.config.rulesDir,
+      })
+      .log('RuleEngine: loaded rules')
 
     // Subscribe to all raw events
     this.unsubscribe = this.deps.eventBus.subscribe('raw:*', (event) => {
@@ -207,12 +204,10 @@ export class RuleEngine {
       try {
         if (isTypeScriptRule(rule)) {
           this.processTypeScriptRule(rule, event, nowMs)
-        }
-        else {
+        } else {
           this.processYamlRule(rule, event, nowMs, slotMs)
         }
-      }
-      catch (err) {
+      } catch (err) {
         this.deps.logger
           .withError(err as Error)
           .withFields({ ruleName: isTypeScriptRule(rule) ? rule.name : rule.name })
@@ -244,12 +239,7 @@ export class RuleEngine {
   /**
    * Process event through a YAML rule
    */
-  private processYamlRule(
-    rule: ParsedRule,
-    event: TracedEvent,
-    nowMs: number,
-    slotMs: number,
-  ): void {
+  private processYamlRule(rule: ParsedRule, event: TracedEvent, nowMs: number, slotMs: number): void {
     // Check event type match
     if (!matchEventType(rule.trigger.eventType, event.type)) {
       return
@@ -271,41 +261,45 @@ export class RuleEngine {
     }
 
     if (nowMs < detectorState.lastUpdateMs) {
-      this.recordDetectorDecision(Object.freeze({
-        ruleName: rule.name,
-        mode: rule.detector.mode,
-        groupKey,
-        count: detectorState.total,
-        threshold: rule.detector.threshold,
-        windowMs: rule.detector.windowMs,
-        eventTs: nowMs,
-        decision: 'ignored_out_of_order',
-      }))
+      this.recordDetectorDecision(
+        Object.freeze({
+          count: detectorState.total,
+          decision: 'ignored_out_of_order',
+          eventTs: nowMs,
+          groupKey,
+          mode: rule.detector.mode,
+          ruleName: rule.name,
+          threshold: rule.detector.threshold,
+          windowMs: rule.detector.windowMs,
+        }),
+      )
       return
     }
 
     // Process through detector
     const [fired, newDetectorState] = processDetector(detectorState, {
-      threshold: rule.detector.threshold,
-      windowMs: rule.detector.windowMs,
       mode: rule.detector.mode,
       nowMs,
       slotMs,
+      threshold: rule.detector.threshold,
+      windowMs: rule.detector.windowMs,
     })
 
     // Update state
     this.detectors.set(stateKey, newDetectorState)
 
-    this.recordDetectorDecision(Object.freeze({
-      ruleName: rule.name,
-      mode: rule.detector.mode,
-      groupKey,
-      count: newDetectorState.total,
-      threshold: rule.detector.threshold,
-      windowMs: rule.detector.windowMs,
-      eventTs: nowMs,
-      decision: fired ? 'fired' : 'matched_not_fired',
-    }))
+    this.recordDetectorDecision(
+      Object.freeze({
+        count: newDetectorState.total,
+        decision: fired ? 'fired' : 'matched_not_fired',
+        eventTs: nowMs,
+        groupKey,
+        mode: rule.detector.mode,
+        ruleName: rule.name,
+        threshold: rule.detector.threshold,
+        windowMs: rule.detector.windowMs,
+      }),
+    )
 
     // If fired, emit signal
     if (fired) {
@@ -316,11 +310,7 @@ export class RuleEngine {
   /**
    * Process event through a TypeScript rule
    */
-  private processTypeScriptRule(
-    rule: TypeScriptRule,
-    event: TracedEvent,
-    _nowMs: number,
-  ): void {
+  private processTypeScriptRule(rule: TypeScriptRule, event: TracedEvent, _nowMs: number): void {
     // Check event pattern match
     if (!matchEventType(rule.eventPattern, event.type)) {
       return
@@ -341,9 +331,9 @@ export class RuleEngine {
     // If fired, emit signal event
     if (result.fired && result.signal) {
       this.deps.eventBus.emitChild(event, {
-        type: `signal:${result.signal.type}`,
         payload: result.signal,
         source: { component: 'perception', id: rule.name },
+        type: `signal:${result.signal.type}`,
       })
     }
   }
@@ -366,23 +356,24 @@ export class RuleEngine {
     const metadata = renderMetadata(rule.signal.metadata, context)
 
     // Get sourceId from payload if available
-    const sourceId = (payload as { entityId?: string, sourceId?: string })?.entityId
-      ?? (payload as { entityId?: string, sourceId?: string })?.sourceId
+    const sourceId =
+      (payload as { entityId?: string; sourceId?: string })?.entityId ??
+      (payload as { entityId?: string; sourceId?: string })?.sourceId
 
     const signal = Object.freeze({
-      type: rule.signal.type,
-      description,
       confidence: rule.signal.confidence ?? 1.0,
+      description,
       metadata,
       sourceId,
       timestamp: Date.now(),
+      type: rule.signal.type,
     })
 
     // Emit as child of source event
     this.deps.eventBus.emitChild(sourceEvent, {
-      type: `signal:${signal.type}`,
       payload: signal,
       source: { component: 'perception', id: rule.name },
+      type: `signal:${signal.type}`,
     })
   }
 }
@@ -390,10 +381,6 @@ export class RuleEngine {
 /**
  * Factory function to create RuleEngine
  */
-export function createRuleEngine(deps: {
-  eventBus: EventBus
-  logger: Logg
-  config: RuleEngineConfig
-}): RuleEngine {
+export function createRuleEngine(deps: { eventBus: EventBus; logger: Logg; config: RuleEngineConfig }): RuleEngine {
   return new RuleEngine(deps)
 }

@@ -8,10 +8,9 @@ import { useI18n } from 'vue-i18n'
 import Home from '../components/Home.vue'
 import Navbar from '../components/Navbar.vue'
 import SearchTrigger from '../components/SearchTrigger.vue'
+import { themeColorFromValue, useThemeColor } from '../composables/theme-color'
 import Docs from './Docs.vue'
 import Showcase from './Showcase.vue'
-
-import { themeColorFromValue, useThemeColor } from '../composables/theme-color'
 
 const { site, theme, frontmatter, lang, isDark } = useData<{ logo: string }>()
 const route = useRoute()
@@ -25,12 +24,12 @@ const title = computed(() => site.value.title)
 const layout = computed(() => frontmatter.value.layout)
 const isHome = computed(() => layout.value === 'home')
 
-const { updateThemeColor } = useThemeColor(themeColorFromValue({ light: 'rgb(255 255 255)', dark: 'rgb(18 18 18)' }))
+const { updateThemeColor } = useThemeColor(themeColorFromValue({ dark: 'rgb(18 18 18)', light: 'rgb(255 255 255)' }))
 watch(isDark, () => updateThemeColor(), { immediate: true })
 watch(route, () => updateThemeColor(), { immediate: true })
 onMounted(() => updateThemeColor())
 
-watch(lang, () => locale.value = lang.value, { immediate: true })
+watch(lang, () => (locale.value = lang.value), { immediate: true })
 </script>
 
 <template>

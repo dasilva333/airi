@@ -5,40 +5,17 @@ import { createOpenAICompatibleValidators } from '../../validators/openai-compat
 import { defineProvider } from '../registry'
 
 const lmStudioConfigSchema = z.object({
-  apiKey: z
-    .string('API Key')
-    .optional(),
-  baseUrl: z
-    .string('Base URL')
-    .optional()
-    .default('http://localhost:1234/v1/'),
+  apiKey: z.string('API Key').optional(),
+  baseUrl: z.string('Base URL').optional().default('http://localhost:1234/v1/'),
 })
 
 type LMStudioConfig = z.input<typeof lmStudioConfigSchema>
 
 export const providerLmStudio = defineProvider<LMStudioConfig>({
-  id: 'lm-studio',
-  order: 3,
-  name: 'LM Studio',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.lm-studio.title'),
-  description: 'Local Desktop GUI - Serve any GGUF model locally',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.lm-studio.description'),
-  tasks: ['chat', 'vision'],
-  icon: 'i-lobe-icons:lmstudio',
-  iconColor: 'i-lobe-icons:lmstudio',
-
-  createProviderConfig: ({ t }) => lmStudioConfigSchema.extend({
-    apiKey: lmStudioConfigSchema.shape.apiKey.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    baseUrl: lmStudioConfigSchema.shape.baseUrl.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder'),
-    }),
+  business: () => ({
+    beginnerRecommended: true,
+    deployment: 'local',
+    pricing: 'free',
   }),
   createProvider(config) {
     return merge(
@@ -48,26 +25,49 @@ export const providerLmStudio = defineProvider<LMStudioConfig>({
     )
   },
 
+  createProviderConfig: ({ t }) =>
+    lmStudioConfigSchema.extend({
+      apiKey: lmStudioConfigSchema.shape.apiKey.meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
+        type: 'password',
+      }),
+      baseUrl: lmStudioConfigSchema.shape.baseUrl.meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description',
+        ),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder',
+        ),
+      }),
+    }),
+  description: 'Local Desktop GUI - Serve any GGUF model locally',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.lm-studio.description'),
+  icon: 'i-lobe-icons:lmstudio',
+  iconColor: 'i-lobe-icons:lmstudio',
+  id: 'lm-studio',
+  name: 'LM Studio',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.lm-studio.title'),
+  order: 3,
+  tasks: ['chat', 'vision'],
+
   validationRequiredWhen(config) {
     return !!config.baseUrl?.trim()
   },
   validators: {
     ...createOpenAICompatibleValidators({
       checks: ['connectivity', 'model_list'],
-      skipApiKeyCheck: true,
-      schedule: {
-        mode: 'interval',
-        intervalMs: 15_000,
-      },
       connectivityFailureReason: ({ errorMessage }) =>
         `Failed to reach LM Studio server, error: ${errorMessage} occurred.\n\nMake sure LM Studio is running and the local server is started. You can start the local server in LM Studio by going to the 'Local Server' tab and clicking 'Start Server'.\n\nIf the LM Studio instance is already running, this is likely a CORS (Cross-Origin Resource Sharing) issue. You need to enable CORS in LM Studio: go to 'Local Server' tab and check 'Enable CORS' option in the Server Settings.`,
       modelListFailureReason: ({ errorMessage }) =>
         `Failed to reach LM Studio server, error: ${errorMessage} occurred.\n\nMake sure LM Studio is running and the local server is started. You can start the local server in LM Studio by going to the 'Local Server' tab and clicking 'Start Server'.`,
+      schedule: {
+        intervalMs: 15_000,
+        mode: 'interval',
+      },
+      skipApiKeyCheck: true,
     }),
   },
-  business: () => ({
-    pricing: 'free',
-    deployment: 'local',
-    beginnerRecommended: true,
-  }),
 })

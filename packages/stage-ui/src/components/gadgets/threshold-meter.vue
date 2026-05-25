@@ -25,23 +25,23 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  min: 0,
-  max: 1,
-  numBars: 20,
-  label: 'Value',
-  unit: '%',
-  precision: 1,
+  aboveLabel: 'Above',
+  aboveThresholdClass: 'bg-green-500',
+  animationSpeed: 100,
+  belowLabel: 'Below',
+  belowThresholdClass: 'bg-primary-300 dark:bg-primary-600',
   height: 24,
+  inactiveBarClass: 'bg-neutral-300 dark:bg-neutral-600',
+  label: 'Value',
+  max: 1,
+  min: 0,
+  numBars: 20,
+  precision: 1,
   showHeader: true,
   showLegend: true,
-  animationSpeed: 100,
-  belowThresholdClass: 'bg-primary-300 dark:bg-primary-600',
-  aboveThresholdClass: 'bg-green-500',
   thresholdBarClass: 'bg-white dark:bg-neutral-800',
-  inactiveBarClass: 'bg-neutral-300 dark:bg-neutral-600',
-  belowLabel: 'Below',
-  aboveLabel: 'Above',
   thresholdLabel: 'Threshold',
+  unit: '%',
 })
 
 const thresholdBars = computed(() => {
@@ -53,9 +53,9 @@ const thresholdBars = computed(() => {
 
   return Array.from({ length: props.numBars }, (_, i) => ({
     active: i < activeBars,
-    isThreshold: i === thresholdBar,
     isAboveThreshold: i < activeBars && i >= thresholdBar,
     isBelowThreshold: i < activeBars && i < thresholdBar,
+    isThreshold: i === thresholdBar,
   }))
 })
 </script>

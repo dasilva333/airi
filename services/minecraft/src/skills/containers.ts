@@ -2,32 +2,25 @@ import type { Block } from 'prismarine-block'
 
 import type { Mineflayer } from '../libs/mineflayer'
 
-async function withCleanup<T>(
-  run: () => Promise<T>,
-  cleanup: () => void | Promise<void>,
-): Promise<T> {
+async function withCleanup<T>(run: () => Promise<T>, cleanup: () => void | Promise<void>): Promise<T> {
   let result!: T
   let runError: unknown
 
   try {
     result = await run()
-  }
-  catch (error) {
+  } catch (error) {
     runError = error
   }
 
   let cleanupError: unknown
   try {
     await cleanup()
-  }
-  catch (error) {
+  } catch (error) {
     cleanupError = error
   }
 
-  if (runError)
-    throw runError
-  if (cleanupError)
-    throw cleanupError
+  if (runError) throw runError
+  if (cleanupError) throw cleanupError
 
   return result
 }
@@ -57,8 +50,7 @@ export async function withFurnace<T>(
     async () => {
       if (typeof mineflayer.bot.closeWindow === 'function') {
         await mineflayer.bot.closeWindow(furnace)
-      }
-      else {
+      } else {
         furnace.close()
       }
     },

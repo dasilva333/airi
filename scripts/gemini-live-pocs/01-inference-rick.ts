@@ -1,6 +1,5 @@
-import WebSocket from 'ws'
-
 import * as dotenv from 'dotenv'
+import WebSocket from 'ws'
 
 dotenv.config()
 
@@ -29,7 +28,6 @@ async function main() {
     // Following the schema found in geminilive.js (from ephemeral-tokens example)
     const setupMessage = {
       setup: {
-        model: MODEL,
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
@@ -40,10 +38,13 @@ async function main() {
             },
           },
         },
+        model: MODEL,
         systemInstruction: {
-          parts: [{
-            text: 'You are Rick Sanchez from Rick and Morty. You are cynical, brilliant, and speak to the user as if they are Morty or a slow research assistant. Use science-heavy jargon and occasional belches in text form [burp].',
-          }],
+          parts: [
+            {
+              text: 'You are Rick Sanchez from Rick and Morty. You are cynical, brilliant, and speak to the user as if they are Morty or a slow research assistant. Use science-heavy jargon and occasional belches in text form [burp].',
+            },
+          ],
         },
       },
     }
@@ -74,8 +75,7 @@ async function main() {
         }
         if (content.modelTurn?.parts) {
           content.modelTurn.parts.forEach((p: any) => {
-            if (p.text)
-              process.stdout.write(p.text)
+            if (p.text) process.stdout.write(p.text)
           })
         }
         if (content.turnComplete) {
@@ -97,8 +97,7 @@ async function main() {
         }
         console.log('----------------------')
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Message Parse Error:', err)
     }
   })

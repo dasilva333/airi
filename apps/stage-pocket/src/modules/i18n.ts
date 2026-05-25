@@ -3,24 +3,24 @@ import messages from '@proj-airi/i18n/locales'
 import { createI18n } from 'vue-i18n'
 
 const languageRemap: Record<string, string> = {
-  'zh-CN': 'zh-Hans',
-  'zh-TW': 'zh-Hant',
-  'zh-HK': 'zh-Hans', // TODO: remove this when zh-Hant is supported
-  'zh-Hant': 'zh-Hans', // TODO: remove this when zh-Hant is supported
-  'en-US': 'en',
-  'en-GB': 'en',
+  en: 'en',
   'en-AU': 'en',
-  'en': 'en',
+  'en-GB': 'en',
+  'en-US': 'en',
+  es: 'es',
+  'es-AR': 'es',
   'es-ES': 'es',
   'es-MX': 'es',
-  'es-AR': 'es',
-  'es': 'es',
-  'vi': 'vi',
-  'vi-VN': 'vi',
-  'ru': 'ru',
-  'ru-RU': 'ru',
-  'fr': 'fr',
+  fr: 'fr',
   'fr-FR': 'fr',
+  ru: 'ru',
+  'ru-RU': 'ru',
+  vi: 'vi',
+  'vi-VN': 'vi',
+  'zh-CN': 'zh-Hans',
+  'zh-Hant': 'zh-Hans', // TODO: remove this when zh-Hant is supported
+  'zh-HK': 'zh-Hans', // TODO: remove this when zh-Hant is supported
+  'zh-TW': 'zh-Hant',
 }
 
 function getLocale() {
@@ -35,15 +35,14 @@ function getLocale() {
   if (languageRemap[language || 'en'] != null) {
     language = languageRemap[language || 'en']
   }
-  if (language && languages.includes(language))
-    return language
+  if (language && languages.includes(language)) return language
 
   return 'en'
 }
 
 export const i18n = createI18n({
+  fallbackLocale: 'en',
   legacy: false,
   locale: getLocale(),
-  fallbackLocale: 'en',
   messages,
 })

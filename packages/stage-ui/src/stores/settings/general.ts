@@ -5,23 +5,23 @@ import { defineStore } from 'pinia'
 import { onMounted } from 'vue'
 
 const languageRemap: Record<string, string> = {
-  'zh-CN': 'zh-Hans',
-  'zh-TW': 'zh-Hant',
-  'zh-HK': 'zh-Hant',
-  'en-US': 'en',
-  'en-GB': 'en',
+  en: 'en',
   'en-AU': 'en',
-  'en': 'en',
+  'en-GB': 'en',
+  'en-US': 'en',
+  es: 'es',
+  'es-AR': 'es',
   'es-ES': 'es',
   'es-MX': 'es',
-  'es-AR': 'es',
-  'es': 'es',
-  'ru': 'ru',
-  'ru-RU': 'ru',
-  'fr': 'fr',
+  fr: 'fr',
   'fr-FR': 'fr',
-  'ja': 'ja',
+  ja: 'ja',
   'ja-JP': 'ja',
+  ru: 'ru',
+  'ru-RU': 'ru',
+  'zh-CN': 'zh-Hans',
+  'zh-HK': 'zh-Hant',
+  'zh-TW': 'zh-Hant',
 }
 
 export const useSettingsGeneral = defineStore('settings-general', () => {
@@ -45,8 +45,7 @@ export const useSettingsGeneral = defineStore('settings-general', () => {
     if (languageRemap[language || 'en'] != null) {
       language = languageRemap[language || 'en']
     }
-    if (language && languages.includes(language))
-      return language
+    if (language && languages.includes(language)) return language
 
     return 'en'
   }
@@ -59,15 +58,15 @@ export const useSettingsGeneral = defineStore('settings-general', () => {
     websocketSecureEnabled.reset()
   }
 
-  onMounted(() => language.value = getLanguage())
+  onMounted(() => (language.value = getLanguage()))
 
   return {
-    language,
     disableTransitions,
-    usePageSpecificTransitions,
-    remoteSyncEnabled,
-    websocketSecureEnabled,
     getLanguage,
+    language,
+    remoteSyncEnabled,
     resetState,
+    usePageSpecificTransitions,
+    websocketSecureEnabled,
   }
 })

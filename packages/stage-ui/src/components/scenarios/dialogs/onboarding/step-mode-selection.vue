@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { Button } from '@proj-airi/ui'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
 import RadioCardDetail from '../../../menu/radio-card-detail.vue'
+import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 interface Props {
   onNext: OnboardingStepNextHandler

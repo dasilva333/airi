@@ -9,9 +9,11 @@ import { useDevtoolsLagStore } from '../../stores/devtools-lag'
 const lagStore = useDevtoolsLagStore()
 const { enabled, lastRecording, recording } = storeToRefs(lagStore)
 
-const recordingLabel = computed(() => recording.value ? 'Stop recording (max 60s)' : 'Start recording')
+const recordingLabel = computed(() => (recording.value ? 'Stop recording (max 60s)' : 'Start recording'))
 const hasRecording = computed(() => !!lastRecording.value)
-const allEnabled = computed(() => enabled.value.fps && enabled.value.frameDuration && enabled.value.longtask && enabled.value.memory)
+const allEnabled = computed(
+  () => enabled.value.fps && enabled.value.frameDuration && enabled.value.longtask && enabled.value.memory,
+)
 
 const magicKeys = useMagicKeys()
 whenever(magicKeys['ctrl+alt+l'], () => toggleAll(true))

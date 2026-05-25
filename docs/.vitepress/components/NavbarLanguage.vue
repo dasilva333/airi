@@ -19,9 +19,9 @@ const languages = computed(() => {
     return route.path.replace(`/${lang.value}/`, `/${targetLang}/`)
   }
 
-  return Object.values(site.value.locales).map(locale => ({
-    text: locale.label,
+  return Object.values(site.value.locales).map((locale) => ({
     link: replacedLink(locale.lang!),
+    text: locale.label,
   }))
 })
 </script>

@@ -1,32 +1,32 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
-import type { DirectorNote } from '../../../types/director'
-
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
+import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
+import { useSettingsChat } from '../../../stores/settings'
+import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
+import type { DirectorNote } from '../../../types/director'
 import ChatAssistantItem from './assistant-item.vue'
+import { chatScrollContainerKey } from './constants'
 import DirectorNoteBubble from './DirectorNoteBubble.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatUserItem from './user-item.vue'
 
-import { useAiriCardStore } from '../../../stores/modules/airi-card'
-import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
-import { useSettingsChat } from '../../../stores/settings'
-import { chatScrollContainerKey } from './constants'
-
-const props = withDefaults(defineProps<{
-  messages: ChatHistoryItem[]
-  streamingMessage?: ChatAssistantMessage & { createdAt?: number }
-  sending?: boolean
-  assistantLabel?: string
-  userLabel?: string
-  errorLabel?: string
-  variant?: 'desktop' | 'mobile'
-}>(), {
-  sending: false,
-  variant: 'desktop',
-})
+const props = withDefaults(
+  defineProps<{
+    messages: ChatHistoryItem[]
+    streamingMessage?: ChatAssistantMessage & { createdAt?: number }
+    sending?: boolean
+    assistantLabel?: string
+    userLabel?: string
+    errorLabel?: string
+    variant?: 'desktop' | 'mobile'
+  }>(),
+  {
+    sending: false,
+    variant: 'desktop',
+  },
+)
 
 const chatHistoryRef = ref<HTMLDivElement>()
 const isAtBottom = ref(true)
@@ -36,20 +36,18 @@ provide(chatScrollContainerKey, chatHistoryRef)
 const { t } = useI18n()
 
 function checkScrollPosition() {
-  if (!chatHistoryRef.value)
-    return
+  if (!chatHistoryRef.value) return
   const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.value
   // Allowing a small threshold (10px) to consider 'at bottom'
   isAtBottom.value = scrollTop + clientHeight >= scrollHeight - 10
 }
 
 function scrollToBottom(force = false) {
-  if (!chatHistoryRef.value)
-    return
+  if (!chatHistoryRef.value) return
   if (force || isAtBottom.value) {
     chatHistoryRef.value.scrollTo({
-      top: chatHistoryRef.value.scrollHeight,
       behavior: force ? 'auto' : 'smooth',
+      top: chatHistoryRef.value.scrollHeight,
     })
   }
 }
@@ -61,8 +59,7 @@ function handleScroll() {
 
 // Use a ResizeObserver to catch changes even during v-auto-animate transitions
 onMounted(() => {
-  if (!chatHistoryRef.value)
-    return
+  if (!chatHistoryRef.value) return
 
   const observer = new ResizeObserver(() => {
     if (isAtBottom.value) {
@@ -82,42 +79,55 @@ onMounted(() => {
 })
 
 watch([() => props.messages, () => props.streamingMessage], () => scrollToBottom(), { deep: true, flush: 'post' })
-watch(() => props.sending, (val) => {
-  if (!val) {
-    // When sending finishes, ensure we are at the bottom
-    scrollToBottom(true)
-  }
-}, { flush: 'post' })
+watch(
+  () => props.sending,
+  (val) => {
+    if (!val) {
+      // When sending finishes, ensure we are at the bottom
+      scrollToBottom(true)
+    }
+  },
+  { flush: 'post' },
+)
 
 const chatSettings = useSettingsChat()
 const artistryStore = useAutonomousArtistryStore()
 const cardStore = useAiriCardStore()
 
 const labels = computed(() => ({
-  assistant: props.assistantLabel ?? cardStore.activeCard?.nickname ?? cardStore.activeCard?.name ?? t('stage.chat.message.character-name.airi'),
-  user: props.userLabel ?? t('stage.chat.message.character-name.you'),
+  assistant:
+    props.assistantLabel ??
+    cardStore.activeCard?.nickname ??
+    cardStore.activeCard?.name ??
+    t('stage.chat.message.character-name.airi'),
   error: props.errorLabel ?? t('stage.chat.message.character-name.core-system'),
+  user: props.userLabel ?? t('stage.chat.message.character-name.you'),
 }))
 
-const streaming = computed<ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number }>(() => props.streamingMessage ?? { role: 'assistant', content: '', slices: [], tool_results: [], createdAt: Date.now() })
+const streaming = computed<ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number }>(
+  () =>
+    props.streamingMessage ?? { content: '', createdAt: Date.now(), role: 'assistant', slices: [], tool_results: [] },
+)
 const showStreamingPlaceholder = computed(() => (streaming.value.slices?.length ?? 0) === 0 && !streaming.value.content)
 const streamingTs = computed(() => streaming.value?.createdAt)
 function shouldShowPlaceholder(message: ChatHistoryItem) {
   const ts = streamingTs.value
-  if (ts == null)
-    return false
+  if (ts == null) return false
 
   return message.context?.createdAt === ts || message.createdAt === ts
 }
 const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
   const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
-  const directorNotes = (monitorEnabled && chatSettings.showDirectorNotes) ? (artistryStore.directorNotes || []).filter(n => !n.isArchived) : []
+  const directorNotes =
+    monitorEnabled && chatSettings.showDirectorNotes
+      ? (artistryStore.directorNotes || []).filter((n) => !n.isArchived)
+      : []
 
   let baseMessages: (ChatHistoryItem | DirectorNote)[] = props.messages
 
   const streamTs = streamingTs.value
   if (props.sending && streamTs) {
-    const hasStreamAlready = props.messages.some(msg => msg?.role === 'assistant' && msg?.createdAt === streamTs)
+    const hasStreamAlready = props.messages.some((msg) => msg?.role === 'assistant' && msg?.createdAt === streamTs)
     if (!hasStreamAlready) {
       baseMessages = [...props.messages, streaming.value]
     }
@@ -128,17 +138,14 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
   return merged.sort((a, b) => {
     const timeA = a.createdAt || 0
     const timeB = b.createdAt || 0
-    if (timeA !== timeB)
-      return timeA - timeB
+    if (timeA !== timeB) return timeA - timeB
 
     // Stability fallback: prioritize user over assistant if timestamps are identical
     const roleA = 'role' in a ? a.role : undefined
     const roleB = 'role' in b ? b.role : undefined
     if (roleA !== roleB) {
-      if (roleA === 'user')
-        return -1
-      if (roleB === 'user')
-        return 1
+      if (roleA === 'user') return -1
+      if (roleB === 'user') return 1
     }
 
     const idA = (a as any).id || ''

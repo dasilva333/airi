@@ -7,13 +7,13 @@ vi.mock('@vueuse/core', async () => {
   const vue = await import('vue')
 
   return {
-    toRef: (value: unknown) => vue.isRef(value) ? value : vue.ref(value),
+    toRef: (value: unknown) => (vue.isRef(value) ? value : vue.ref(value)),
     unrefElement: (value: unknown) => vue.unref(value),
     useElementBounding: () => ({
+      height: vue.ref(100),
       left: vue.ref(10),
       top: vue.ref(20),
       width: vue.ref(100),
-      height: vue.ref(100),
     }),
   }
 })
@@ -24,11 +24,11 @@ describe('useCanvasPixelAtPoint', () => {
       data[3] = 255
     })
     const gl = {
-      drawingBufferWidth: 200,
       drawingBufferHeight: 100,
+      drawingBufferWidth: 200,
       RGBA: 0x1908,
-      UNSIGNED_BYTE: 0x1401,
       readPixels,
+      UNSIGNED_BYTE: 0x1401,
     }
     const canvas = {
       getContext: vi.fn(() => gl),

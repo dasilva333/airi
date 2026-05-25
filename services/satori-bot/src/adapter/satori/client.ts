@@ -1,13 +1,9 @@
-import type { SatoriEvent, SatoriIdentifyBody, SatoriReadyBody, SatoriSignal } from './types'
-
-import WebSocket from 'ws'
-
 import { useLogg } from '@guiiai/logg'
-
 import * as v from 'valibot'
-
+import WebSocket from 'ws'
 import { SatoriAPI } from './api'
 import { SatoriEventSchema, SatoriReadyBodySchema, SatoriSignalSchema } from './schema'
+import type { SatoriEvent, SatoriIdentifyBody, SatoriReadyBody, SatoriSignal } from './types'
 import { SatoriOpcode } from './types'
 
 const log = useLogg('SatoriClient')
@@ -76,8 +72,7 @@ export class SatoriClient {
             reject(error)
           }
         })
-      }
-      catch (error) {
+      } catch (error) {
         log.withError(error as Error).error('Failed to create WebSocket connection')
         reject(error)
       }
@@ -86,13 +81,13 @@ export class SatoriClient {
 
   private sendIdentify(): void {
     const body: SatoriIdentifyBody = {
-      token: this.config.token,
       sn: this.lastSequenceNumber,
+      token: this.config.token,
     }
 
     this.sendSignal({
-      op: SatoriOpcode.IDENTIFY,
       body,
+      op: SatoriOpcode.IDENTIFY,
     })
 
     log.log('Sent IDENTIFY signal')
@@ -153,15 +148,13 @@ export class SatoriClient {
         default:
           log.warn('Unknown opcode received:', signal.op)
       }
-    }
-    catch (error) {
+    } catch (error) {
       if (v.isValiError(error)) {
         log.error('Satori protocol validation failed:')
         for (const issue of error.issues) {
-          log.error(`  - ${issue.path?.map(p => p.key).join('.')}: ${issue.message}`)
+          log.error(`  - ${issue.path?.map((p) => p.key).join('.')}: ${issue.message}`)
         }
-      }
-      else {
+      } else {
         log.withError(error as Error).error('Failed to handle message')
       }
     }
@@ -210,24 +203,28 @@ export class SatoriClient {
   private sendSignal(signal: SatoriSignal): void {
     if (this.ws && this.connected) {
       this.ws.send(JSON.stringify(signal))
-    }
-    else {
+    } else {
       log.warn('Cannot send signal: not connected')
     }
   }
 
   private initializeAPIClients(ready: SatoriReadyBody): void {
-    const apiBaseUrl = this.config.apiBaseUrl || this.config.url.replace('/v1/events', '').replace('ws://', 'http://').replace('wss://', 'https://')
+    const apiBaseUrl =
+      this.config.apiBaseUrl ||
+      this.config.url.replace('/v1/events', '').replace('ws://', 'http://').replace('wss://', 'https://')
 
     for (const login of ready.logins) {
       if (login.platform && login.self_id) {
         const key = `${login.platform}:${login.self_id}`
-        this.apiClients.set(key, new SatoriAPI({
-          baseUrl: apiBaseUrl,
-          token: this.config.token,
-          platform: login.platform,
-          selfId: login.self_id,
-        }))
+        this.apiClients.set(
+          key,
+          new SatoriAPI({
+            baseUrl: apiBaseUrl,
+            platform: login.platform,
+            selfId: login.self_id,
+            token: this.config.token,
+          }),
+        )
         log.log(`Initialized API client for ${key}`)
       }
     }
@@ -248,8 +245,7 @@ export class SatoriClient {
     try {
       await api.sendMessage(channelId, content)
       log.log(`Message sent to channel ${channelId}`)
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error as Error).error('Failed to send message')
     }
   }
@@ -275,8 +271,7 @@ export class SatoriClient {
       if (handlers.size === 0) {
         this.eventHandlers.delete(eventType)
       }
-    }
-    else {
+    } else {
       this.eventHandlers.delete(eventType)
     }
   }

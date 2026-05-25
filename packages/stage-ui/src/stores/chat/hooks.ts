@@ -3,7 +3,9 @@ import type { ToolMessage } from '@xsai/shared-chat'
 import type { ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
 
 export function createChatHooks() {
-  const onBeforeMessageComposedHooks: Array<(message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>> = []
+  const onBeforeMessageComposedHooks: Array<
+    (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>
+  > = []
   const onAfterMessageComposedHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onBeforeSendHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onAfterSendHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
@@ -11,16 +13,24 @@ export function createChatHooks() {
   const onTokenSpecialHooks: Array<(special: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onStreamEndHooks: Array<(context: ChatStreamEventContext) => Promise<void>> = []
   const onAssistantResponseEndHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
-  const onAssistantMessageHooks: Array<(message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>> = []
-  const onChatTurnCompleteHooks: Array<(chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) => Promise<void>> = []
+  const onAssistantMessageHooks: Array<
+    (message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>
+  > = []
+  const onChatTurnCompleteHooks: Array<
+    (
+      chat: { output: StreamingAssistantMessage; outputText: string; toolCalls: ToolMessage[] },
+      context: ChatStreamEventContext,
+    ) => Promise<void>
+  > = []
   const onWidgetHooks: Array<(payload: any, context: ChatStreamEventContext) => Promise<void>> = []
 
-  function onBeforeMessageComposed(cb: (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>) {
+  function onBeforeMessageComposed(
+    cb: (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>,
+  ) {
     onBeforeMessageComposedHooks.push(cb)
     return () => {
       const index = onBeforeMessageComposedHooks.indexOf(cb)
-      if (index >= 0)
-        onBeforeMessageComposedHooks.splice(index, 1)
+      if (index >= 0) onBeforeMessageComposedHooks.splice(index, 1)
     }
   }
 
@@ -28,8 +38,7 @@ export function createChatHooks() {
     onAfterMessageComposedHooks.push(cb)
     return () => {
       const index = onAfterMessageComposedHooks.indexOf(cb)
-      if (index >= 0)
-        onAfterMessageComposedHooks.splice(index, 1)
+      if (index >= 0) onAfterMessageComposedHooks.splice(index, 1)
     }
   }
 
@@ -37,8 +46,7 @@ export function createChatHooks() {
     onBeforeSendHooks.push(cb)
     return () => {
       const index = onBeforeSendHooks.indexOf(cb)
-      if (index >= 0)
-        onBeforeSendHooks.splice(index, 1)
+      if (index >= 0) onBeforeSendHooks.splice(index, 1)
     }
   }
 
@@ -46,8 +54,7 @@ export function createChatHooks() {
     onAfterSendHooks.push(cb)
     return () => {
       const index = onAfterSendHooks.indexOf(cb)
-      if (index >= 0)
-        onAfterSendHooks.splice(index, 1)
+      if (index >= 0) onAfterSendHooks.splice(index, 1)
     }
   }
 
@@ -55,8 +62,7 @@ export function createChatHooks() {
     onTokenLiteralHooks.push(cb)
     return () => {
       const index = onTokenLiteralHooks.indexOf(cb)
-      if (index >= 0)
-        onTokenLiteralHooks.splice(index, 1)
+      if (index >= 0) onTokenLiteralHooks.splice(index, 1)
     }
   }
 
@@ -64,8 +70,7 @@ export function createChatHooks() {
     onTokenSpecialHooks.push(cb)
     return () => {
       const index = onTokenSpecialHooks.indexOf(cb)
-      if (index >= 0)
-        onTokenSpecialHooks.splice(index, 1)
+      if (index >= 0) onTokenSpecialHooks.splice(index, 1)
     }
   }
 
@@ -73,8 +78,7 @@ export function createChatHooks() {
     onStreamEndHooks.push(cb)
     return () => {
       const index = onStreamEndHooks.indexOf(cb)
-      if (index >= 0)
-        onStreamEndHooks.splice(index, 1)
+      if (index >= 0) onStreamEndHooks.splice(index, 1)
     }
   }
 
@@ -82,26 +86,30 @@ export function createChatHooks() {
     onAssistantResponseEndHooks.push(cb)
     return () => {
       const index = onAssistantResponseEndHooks.indexOf(cb)
-      if (index >= 0)
-        onAssistantResponseEndHooks.splice(index, 1)
+      if (index >= 0) onAssistantResponseEndHooks.splice(index, 1)
     }
   }
 
-  function onAssistantMessage(cb: (message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>) {
+  function onAssistantMessage(
+    cb: (message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>,
+  ) {
     onAssistantMessageHooks.push(cb)
     return () => {
       const index = onAssistantMessageHooks.indexOf(cb)
-      if (index >= 0)
-        onAssistantMessageHooks.splice(index, 1)
+      if (index >= 0) onAssistantMessageHooks.splice(index, 1)
     }
   }
 
-  function onChatTurnComplete(cb: (chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) => Promise<void>) {
+  function onChatTurnComplete(
+    cb: (
+      chat: { output: StreamingAssistantMessage; outputText: string; toolCalls: ToolMessage[] },
+      context: ChatStreamEventContext,
+    ) => Promise<void>,
+  ) {
     onChatTurnCompleteHooks.push(cb)
     return () => {
       const index = onChatTurnCompleteHooks.indexOf(cb)
-      if (index >= 0)
-        onChatTurnCompleteHooks.splice(index, 1)
+      if (index >= 0) onChatTurnCompleteHooks.splice(index, 1)
     }
   }
 
@@ -109,8 +117,7 @@ export function createChatHooks() {
     onWidgetHooks.push(cb)
     return () => {
       const index = onWidgetHooks.indexOf(cb)
-      if (index >= 0)
-        onWidgetHooks.splice(index, 1)
+      if (index >= 0) onWidgetHooks.splice(index, 1)
     }
   }
 
@@ -128,35 +135,33 @@ export function createChatHooks() {
     onWidgetHooks.length = 0
   }
 
-  async function emitBeforeMessageComposedHooks(message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) {
-    for (const hook of onBeforeMessageComposedHooks)
-      await hook(message, context)
+  async function emitBeforeMessageComposedHooks(
+    message: string,
+    context: Omit<ChatStreamEventContext, 'composedMessage'>,
+  ) {
+    for (const hook of onBeforeMessageComposedHooks) await hook(message, context)
   }
 
   async function emitAfterMessageComposedHooks(message: string, context: ChatStreamEventContext) {
-    for (const hook of onAfterMessageComposedHooks)
-      await hook(message, context)
+    for (const hook of onAfterMessageComposedHooks) await hook(message, context)
   }
 
   async function emitBeforeSendHooks(message: string, context: ChatStreamEventContext) {
-    for (const hook of onBeforeSendHooks)
-      await hook(message, context)
+    for (const hook of onBeforeSendHooks) await hook(message, context)
   }
 
   async function emitAfterSendHooks(message: string, context: ChatStreamEventContext) {
-    for (const hook of onAfterSendHooks)
-      await hook(message, context)
+    for (const hook of onAfterSendHooks) await hook(message, context)
   }
 
   async function emitTokenLiteralHooks(literal: string, context: ChatStreamEventContext) {
     if (import.meta.env.DEV) {
       console.log(`[PipelineTTS:Hook] Emitting from ${window.location.hash || 'main'}:`, {
-        literal: literal.slice(0, 50),
         listeners: onTokenLiteralHooks.length,
+        literal: literal.slice(0, 50),
       })
     }
-    for (const hook of onTokenLiteralHooks)
-      await hook(literal, context)
+    for (const hook of onTokenLiteralHooks) await hook(literal, context)
 
     if (import.meta.env.DEV) {
       console.log(`[PipelineTTS:Hook] Loop Finished in ${window.location.hash || 'main'}`)
@@ -164,58 +169,59 @@ export function createChatHooks() {
   }
 
   async function emitTokenSpecialHooks(special: string, context: ChatStreamEventContext) {
-    for (const hook of onTokenSpecialHooks)
-      await hook(special, context)
+    for (const hook of onTokenSpecialHooks) await hook(special, context)
   }
 
   async function emitStreamEndHooks(context: ChatStreamEventContext) {
-    for (const hook of onStreamEndHooks)
-      await hook(context)
+    for (const hook of onStreamEndHooks) await hook(context)
   }
 
   async function emitAssistantResponseEndHooks(message: string, context: ChatStreamEventContext) {
-    for (const hook of onAssistantResponseEndHooks)
-      await hook(message, context)
+    for (const hook of onAssistantResponseEndHooks) await hook(message, context)
   }
 
-  async function emitAssistantMessageHooks(message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) {
-    for (const hook of onAssistantMessageHooks)
-      await hook(message, messageText, context)
+  async function emitAssistantMessageHooks(
+    message: StreamingAssistantMessage,
+    messageText: string,
+    context: ChatStreamEventContext,
+  ) {
+    for (const hook of onAssistantMessageHooks) await hook(message, messageText, context)
   }
 
-  async function emitChatTurnCompleteHooks(chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) {
-    for (const hook of onChatTurnCompleteHooks)
-      await hook(chat, context)
+  async function emitChatTurnCompleteHooks(
+    chat: { output: StreamingAssistantMessage; outputText: string; toolCalls: ToolMessage[] },
+    context: ChatStreamEventContext,
+  ) {
+    for (const hook of onChatTurnCompleteHooks) await hook(chat, context)
   }
 
   async function emitWidgetHooks(payload: any, context: ChatStreamEventContext) {
-    for (const hook of onWidgetHooks)
-      await hook(payload, context)
+    for (const hook of onWidgetHooks) await hook(payload, context)
   }
 
   return {
-    onBeforeMessageComposed,
-    onAfterMessageComposed,
-    onBeforeSend,
-    onAfterSend,
-    onTokenLiteral,
-    onTokenSpecial,
-    onStreamEnd,
-    onAssistantResponseEnd,
-    onAssistantMessage,
-    onChatTurnComplete,
-    onWidget,
-    emitBeforeMessageComposedHooks,
+    clearHooks,
     emitAfterMessageComposedHooks,
-    emitBeforeSendHooks,
     emitAfterSendHooks,
+    emitAssistantMessageHooks,
+    emitAssistantResponseEndHooks,
+    emitBeforeMessageComposedHooks,
+    emitBeforeSendHooks,
+    emitChatTurnCompleteHooks,
+    emitStreamEndHooks,
     emitTokenLiteralHooks,
     emitTokenSpecialHooks,
-    emitStreamEndHooks,
-    emitAssistantResponseEndHooks,
-    emitAssistantMessageHooks,
-    emitChatTurnCompleteHooks,
     emitWidgetHooks,
-    clearHooks,
+    onAfterMessageComposed,
+    onAfterSend,
+    onAssistantMessage,
+    onAssistantResponseEnd,
+    onBeforeMessageComposed,
+    onBeforeSend,
+    onChatTurnComplete,
+    onStreamEnd,
+    onTokenLiteral,
+    onTokenSpecial,
+    onWidget,
   }
 }

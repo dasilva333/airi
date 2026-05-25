@@ -10,25 +10,25 @@ const { activeProvider } = storeToRefs(artistryStore)
 
 const availableProviders = [
   {
-    id: 'none',
-    name: 'None',
+    configRoute: '/settings/modules/artistry',
     description: 'Bypass and disable the image generation module globally.',
     icon: 'i-solar:forbidden-circle-bold-duotone',
-    configRoute: '/settings/modules/artistry',
+    id: 'none',
+    name: 'None',
   },
   {
-    id: 'comfyui',
-    name: 'ComfyUI (Local)',
+    configRoute: '/settings/providers/artistry/comfyui',
     description: 'Use a local ComfyUI instance via WSL for image generation.',
     icon: 'i-solar:monitor-camera-bold-duotone',
-    configRoute: '/settings/providers/artistry/comfyui',
+    id: 'comfyui',
+    name: 'ComfyUI (Local)',
   },
   {
-    id: 'replicate',
-    name: 'Replicate.ai (Cloud)',
+    configRoute: '/settings/providers/artistry/replicate',
     description: 'Use cloud-based models via the Replicate API.',
     icon: 'i-solar:cloud-upload-bold-duotone',
-    configRoute: '/settings/providers/artistry/replicate',
+    id: 'replicate',
+    name: 'Replicate.ai (Cloud)',
   },
 ]
 </script>

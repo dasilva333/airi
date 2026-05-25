@@ -11,6 +11,6 @@ export interface MineflayerPlugin {
 
 export function wrapPlugin(plugin: Plugin): MineflayerPlugin {
   return {
-    loadPlugin: () => (plugin),
+    loadPlugin: () => plugin,
   }
 }

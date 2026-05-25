@@ -41,25 +41,25 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  threshold: null,
-  title: 'Time Series',
-  subtitle: 'Recent data',
   activeLabel: 'Active',
   activeLegendLabel: 'Active state',
-  inactiveLegendLabel: 'Inactive state',
-  thresholdLabel: 'Threshold',
   height: 80,
+  inactiveLegendLabel: 'Inactive state',
   lineWidth: 1.5,
   minDataPoints: 5,
   precision: 0,
-  unit: '%',
-  showHeader: true,
-  showThreshold: true,
-  showArea: true,
-  showThresholdAreas: true,
-  showCurrentValue: true,
   showActiveIndicator: true,
+  showArea: true,
+  showCurrentValue: true,
+  showHeader: true,
   showLegend: true,
+  showThreshold: true,
+  showThresholdAreas: true,
+  subtitle: 'Recent data',
+  threshold: null,
+  thresholdLabel: 'Threshold',
+  title: 'Time Series',
+  unit: '%',
 })
 
 // Use the actual display height for all calculations
@@ -74,17 +74,26 @@ const chromaticShades = computed(() => chromaticPaletteFrom(chromaticHueOrDefaul
 const timeSeriesChartContainerBounding = useElementBounding(timeSeriesChartRef, { windowResize: true })
 
 const throttledWidth = ref(0)
-const updateWidth = useThrottleFn(() => {
-  throttledWidth.value = Math.max(0, Math.floor(timeSeriesChartContainerBounding.width.value || 0))
-}, 100, true, true)
+const updateWidth = useThrottleFn(
+  () => {
+    throttledWidth.value = Math.max(0, Math.floor(timeSeriesChartContainerBounding.width.value || 0))
+  },
+  100,
+  true,
+  true,
+)
 
 watch(() => timeSeriesChartContainerBounding.width.value, updateWidth, { immediate: true })
 
-watch([chromaticHueOrDefault, timeSeriesChartRef], () => {
-  if (timeSeriesChartRef.value) {
-    timeSeriesChartRef.value.style.setProperty('--chromatic-hue', chromaticHueOrDefault.value.toString())
-  }
-}, { immediate: true })
+watch(
+  [chromaticHueOrDefault, timeSeriesChartRef],
+  () => {
+    if (timeSeriesChartRef.value) {
+      timeSeriesChartRef.value.style.setProperty('--chromatic-hue', chromaticHueOrDefault.value.toString())
+    }
+  },
+  { immediate: true },
+)
 
 const lineColorProps = toRef(() => props.lineColor)
 const lineColor = computed(() => {
@@ -129,23 +138,19 @@ const gridPatternId = `grid-${componentId}`
 const areaGradientId = `area-gradient-${componentId}`
 const thresholdGradientId = `threshold-gradient-${componentId}`
 
-const normalizedThreshold = computed(() =>
-  props.threshold !== null ? Math.max(0, Math.min(1, props.threshold)) : 0,
-)
+const normalizedThreshold = computed(() => (props.threshold !== null ? Math.max(0, Math.min(1, props.threshold)) : 0))
 
 // Calculate threshold line Y position
 const thresholdLineY = computed(() => {
-  if (props.threshold === null)
-    return 0
-  return chartHeight.value - (normalizedThreshold.value * chartHeight.value)
+  if (props.threshold === null) return 0
+  return chartHeight.value - normalizedThreshold.value * chartHeight.value
 })
 
 const chartWidth = computed(() => throttledWidth.value)
 
 // Keep the number of rendered points close to the available pixels to avoid giant SVG paths
 function downsampleSeries(values: readonly number[], maxPoints: number) {
-  if (values.length <= maxPoints || maxPoints < 2)
-    return values
+  if (values.length <= maxPoints || maxPoints < 2) return values
 
   const result: number[] = []
   const bucketSize = (values.length - 1) / (maxPoints - 1)
@@ -159,8 +164,7 @@ function downsampleSeries(values: readonly number[], maxPoints: number) {
     }
 
     let sum = 0
-    for (let j = start; j < end; j++)
-      sum += values[j]
+    for (let j = start; j < end; j++) sum += values[j]
 
     result.push(sum / (end - start))
   }
@@ -178,25 +182,23 @@ const downsampledHistory = computed(() => {
 // Create smooth curve path
 const smoothPath = computed(() => {
   const history = downsampledHistory.value
-  if (history.length < 2 || chartWidth.value === 0)
-    return ''
+  if (history.length < 2 || chartWidth.value === 0) return ''
 
   const width = chartWidth.value
   const height = chartHeight.value
 
-  let path = `M0,${height - (history[0] * height)}`
+  let path = `M0,${height - history[0] * height}`
 
   for (let i = 1; i < history.length; i++) {
     const x = (i / (history.length - 1)) * width
-    const y = height - (history[i] * height)
+    const y = height - history[i] * height
 
     if (i === 1) {
-      path += ` Q${x / 2},${height - (history[0] * height)} ${x},${y}`
-    }
-    else {
+      path += ` Q${x / 2},${height - history[0] * height} ${x},${y}`
+    } else {
       const prevX = ((i - 1) / (history.length - 1)) * width
       const cpX = (prevX + x) / 2
-      const prevY = height - (history[i - 1] * height)
+      const prevY = height - history[i - 1] * height
       path += ` Q${cpX},${prevY} ${x},${y}`
     }
   }
@@ -207,25 +209,23 @@ const smoothPath = computed(() => {
 // Create filled area path
 const dataAreaPath = computed(() => {
   const history = downsampledHistory.value
-  if (history.length < 2 || chartWidth.value === 0)
-    return ''
+  if (history.length < 2 || chartWidth.value === 0) return ''
 
   const width = chartWidth.value
   const height = chartHeight.value
 
-  let path = `M0,${height} L0,${height - (history[0] * height)}`
+  let path = `M0,${height} L0,${height - history[0] * height}`
 
   for (let i = 1; i < history.length; i++) {
     const x = (i / (history.length - 1)) * width
-    const y = height - (history[i] * height)
+    const y = height - history[i] * height
 
     if (i === 1) {
-      path += ` Q${x / 2},${height - (history[0] * height)} ${x},${y}`
-    }
-    else {
+      path += ` Q${x / 2},${height - history[0] * height} ${x},${y}`
+    } else {
       const prevX = ((i - 1) / (history.length - 1)) * width
       const cpX = (prevX + x) / 2
-      const prevY = height - (history[i - 1] * height)
+      const prevY = height - history[i - 1] * height
       path += ` Q${cpX},${prevY} ${x},${y}`
     }
   }

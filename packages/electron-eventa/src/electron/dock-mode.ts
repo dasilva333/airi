@@ -17,7 +17,7 @@ export interface DockModeConfig {
   /** Which edge of the target window to dock to */
   position: DockPosition
   /** Offset from the docking edge in pixels */
-  offset: { x: number, y: number }
+  offset: { x: number; y: number }
 }
 
 export interface DockModeStatus {
@@ -43,8 +43,8 @@ export const dockModeTargetBounds = defineEventa<TargetWindowBounds>('eventa:eve
 export const dockModeStatusChanged = defineEventa<DockModeStatus>('eventa:event:electron:dock-mode:status-changed')
 
 export const dockMode = {
+  getStatus,
   listWindows,
   start,
   stop,
-  getStatus,
 }

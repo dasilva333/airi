@@ -1,30 +1,17 @@
-import type { Plugin } from 'vite'
-
 import { join, resolve } from 'node:path'
 import { env } from 'node:process'
+import { createS3Provider, WarpDrivePlugin } from '@proj-airi/vite-plugin-warpdrive'
 
 import Vue from '@vitejs/plugin-vue'
 import Unocss from 'unocss/vite'
 import Info from 'unplugin-info/vite'
 import Yaml from 'unplugin-yaml/vite'
-import Inspect from 'vite-plugin-inspect'
-
-import { createS3Provider, WarpDrivePlugin } from '@proj-airi/vite-plugin-warpdrive'
+import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
+import Inspect from 'vite-plugin-inspect'
 
 // For Histoire
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
-      '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
-    },
-  },
-  server: {
-    fs: {
-      allow: [join('..', '..')],
-    },
-  },
   optimizeDeps: {
     include: [
       // <MarkdownRenderer /> will be problematic in Histoire without these
@@ -60,13 +47,10 @@ export default defineConfig({
     //
     // they are too large to be able to put into deployments like Cloudflare Workers or Pages,
     // we need to upload them to external storage and use renderBuiltUrl to rewrite their URLs.
-    ...((!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)
+    ...(!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY
       ? []
       : [
           WarpDrivePlugin({
-            prefix: env.STAGE_UI_WARP_DRIVE_PREFIX || 'proj-airi/stage-ui/main/',
-            include: [/\.wasm$/i, /\.ttf$/i, /\.vrm$/i, /\.zip$/i], // in existing assets, wasm, ttf, vrm files are the largest ones
-            manifest: true,
             contentTypeBy: (filename: string) => {
               if (filename.endsWith('.wasm')) {
                 return 'application/wasm'
@@ -81,14 +65,28 @@ export default defineConfig({
                 return 'application/zip'
               }
             },
+            include: [/\.wasm$/i, /\.ttf$/i, /\.vrm$/i, /\.zip$/i], // in existing assets, wasm, ttf, vrm files are the largest ones
+            manifest: true,
+            prefix: env.STAGE_UI_WARP_DRIVE_PREFIX || 'proj-airi/stage-ui/main/',
             provider: createS3Provider({
-              endpoint: env.S3_ENDPOINT,
               accessKeyId: env.S3_ACCESS_KEY_ID,
-              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-              region: env.S3_REGION,
+              endpoint: env.S3_ENDPOINT,
               publicBaseUrl: env.WARP_DRIVE_PUBLIC_BASE ?? env.S3_ENDPOINT,
+              region: env.S3_REGION,
+              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
             }),
           }),
         ]),
   ],
+  resolve: {
+    alias: {
+      '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
+      '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
+    },
+  },
+  server: {
+    fs: {
+      allow: [join('..', '..')],
+    },
+  },
 })

@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { useContextFlowFormatters } from '../composables/use-context-flow-formatters'
 import type { SparkNotifyEntryState } from '../context-flow-types'
 
-import { useContextFlowFormatters } from '../composables/use-context-flow-formatters'
-
-defineProps<{ entryId: number, state?: SparkNotifyEntryState }>()
+defineProps<{ entryId: number; state?: SparkNotifyEntryState }>()
 
 const { buildSparkCommandPreview } = useContextFlowFormatters()
 </script>

@@ -1,6 +1,5 @@
-import type { Readable } from 'node:stream'
-
 import { Buffer } from 'node:buffer'
+import type { Readable } from 'node:stream'
 
 import { useLogg } from '@guiiai/logg'
 
@@ -14,12 +13,7 @@ export class AudioMonitor {
   private ended: boolean = false
   private logger = useLogg('AudioMonitor').useGlobalConfig()
 
-  constructor(
-    readable: Readable,
-    maxSize: number,
-    onStart: () => void,
-    callback: (buffer: Buffer) => void,
-  ) {
+  constructor(readable: Readable, maxSize: number, onStart: () => void, callback: (buffer: Buffer) => void) {
     this.readable = readable
     this.maxSize = maxSize
     this.readable.on('data', (chunk: Buffer) => {
@@ -28,10 +22,7 @@ export class AudioMonitor {
         this.lastFlagged = this.buffers.length
       }
       this.buffers.push(chunk)
-      const currentSize = this.buffers.reduce(
-        (acc, cur) => acc + cur.length,
-        0,
-      )
+      const currentSize = this.buffers.reduce((acc, cur) => acc + cur.length, 0)
       while (currentSize > this.maxSize) {
         this.buffers.shift()
         this.lastFlagged--
@@ -40,22 +31,18 @@ export class AudioMonitor {
     this.readable.on('end', () => {
       this.logger.log('AudioMonitor ended')
       this.ended = true
-      if (this.lastFlagged < 0)
-        return
+      if (this.lastFlagged < 0) return
       callback(this.getBufferFromStart())
       this.lastFlagged = -1
     })
     this.readable.on('speakingStopped', () => {
-      if (this.ended)
-        return
+      if (this.ended) return
       this.logger.log('Speaking stopped')
-      if (this.lastFlagged < 0)
-        return
+      if (this.lastFlagged < 0) return
       callback(this.getBufferFromStart())
     })
     this.readable.on('speakingStarted', () => {
-      if (this.ended)
-        return
+      if (this.ended) return
       onStart()
       this.logger.log('Speaking started')
       this.reset()

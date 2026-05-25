@@ -1,20 +1,8 @@
 {
-  "name": "@proj-airi/stage-web",
-  "type": "module",
-  "private": true,
-  "description": "LLM powered virtual character",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "scripts": {
-    "build": "vite build",
-    "dev": "vite --host",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@date-fns/utc": "^2.1.1",
@@ -93,6 +81,7 @@
     "yauzl": "^3.2.0",
     "zod": "catalog:"
   },
+  "description": "LLM powered virtual character",
   "devDependencies": {
     "@iconify-json/carbon": "^1.2.18",
     "@iconify-json/eos-icons": "^1.2.4",
@@ -135,5 +124,16 @@
     "vite-plugin-vue-layouts": "^0.11.0",
     "vue-macros": "^3.1.2",
     "vue-tsc": "^3.2.5"
-  }
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-web",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host",
+    "lint": "biome check .",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

@@ -1,16 +1,15 @@
+import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
 import type { UpdateInfo } from 'builder-util-runtime'
 
-import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
-
-export type AutoUpdaterStatus
-  = | 'idle'
-    | 'disabled'
-    | 'checking'
-    | 'available'
-    | 'not-available'
-    | 'downloading'
-    | 'downloaded'
-    | 'error'
+export type AutoUpdaterStatus =
+  | 'idle'
+  | 'disabled'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
 
 export interface AutoUpdaterProgress {
   percent: number
@@ -30,11 +29,13 @@ export interface AutoUpdaterState {
   error?: AutoUpdaterError
 }
 
-export const electronAutoUpdaterStateChanged = defineEventa<AutoUpdaterState>('eventa:event:electron:auto-updater:state-changed')
+export const electronAutoUpdaterStateChanged = defineEventa<AutoUpdaterState>(
+  'eventa:event:electron:auto-updater:state-changed',
+)
 
 export const autoUpdater = {
-  getState: defineInvokeEventa<AutoUpdaterState>('eventa:invoke:electron:auto-updater:get-state'),
   checkForUpdates: defineInvokeEventa<AutoUpdaterState>('eventa:invoke:electron:auto-updater:check-for-updates'),
   downloadUpdate: defineInvokeEventa<AutoUpdaterState>('eventa:invoke:electron:auto-updater:download-update'),
+  getState: defineInvokeEventa<AutoUpdaterState>('eventa:invoke:electron:auto-updater:get-state'),
   quitAndInstall: defineInvokeEventa<void>('eventa:invoke:electron:auto-updater:quit-and-install'),
 }

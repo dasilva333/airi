@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import type { ServerEvent, ServerEvents } from '@proj-airi/stage-ui/stores/providers/aliyun'
-
+import {
+  createAliyunNLSProvider,
+  streamAliyunTranscription,
+} from '@proj-airi/stage-ui/stores/providers/aliyun/stream-transcription'
 import vadWorkletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
-
-import { createAliyunNLSProvider, streamAliyunTranscription } from '@proj-airi/stage-ui/stores/providers/aliyun/stream-transcription'
 import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 
-type AliyunRegion
-  = | 'cn-shanghai'
-    | 'cn-shanghai-internal'
-    | 'cn-beijing'
-    | 'cn-beijing-internal'
-    | 'cn-shenzhen'
-    | 'cn-shenzhen-internal'
+type AliyunRegion =
+  | 'cn-shanghai'
+  | 'cn-shanghai-internal'
+  | 'cn-beijing'
+  | 'cn-beijing-internal'
+  | 'cn-shenzhen'
+  | 'cn-shenzhen-internal'
 
 const SAMPLE_RATE = 16000
 
@@ -27,7 +28,7 @@ const credentials = reactive({
 const isRecording = ref(false)
 const isTranscribing = ref(false)
 const currentPartial = ref<string | undefined>('')
-const transcripts = ref<Array<{ index: number, text: string, final: boolean }>>([])
+const transcripts = ref<Array<{ index: number; text: string; final: boolean }>>([])
 
 const audioContext = shallowRef<AudioContext>()
 const workletNode = shallowRef<AudioWorkletNode>()
@@ -38,10 +39,10 @@ const audioStreamController = shallowRef<ReadableStreamDefaultController<ArrayBu
 const transcriptionAbortController = shallowRef<AbortController>()
 const transcriptionTextPromise = shallowRef<Promise<string> | null>(null)
 
-const logs = ref<Array<{ id: number, level: 'info' | 'error', text: string }>>([])
+const logs = ref<Array<{ id: number; level: 'info' | 'error'; text: string }>>([])
 const logsContainer = ref<HTMLDivElement>()
 
-const regionOptions: { label: string, value: AliyunRegion }[] = [
+const regionOptions: { label: string; value: AliyunRegion }[] = [
   { label: 'cn-shanghai', value: 'cn-shanghai' },
   { label: 'cn-beijing', value: 'cn-beijing' },
   { label: 'cn-shenzhen', value: 'cn-shenzhen' },
@@ -51,11 +52,7 @@ const regionOptions: { label: string, value: AliyunRegion }[] = [
 ]
 
 const credentialsReady = computed(() => {
-  return Boolean(
-    credentials.accessKeyId.trim()
-    && credentials.accessKeySecret.trim()
-    && credentials.appKey.trim(),
-  )
+  return Boolean(credentials.accessKeyId.trim() && credentials.accessKeySecret.trim() && credentials.appKey.trim())
 })
 
 const canStartRecording = computed(() => credentialsReady.value && !isRecording.value && !isTranscribing.value)
@@ -68,8 +65,7 @@ let lastChunkLogAt = 0
 watch(logs, () => {
   nextTick(() => {
     const container = logsContainer.value
-    if (container)
-      container.scrollTop = container.scrollHeight
+    if (container) container.scrollTop = container.scrollHeight
   })
 })
 
@@ -85,7 +81,7 @@ function float32ToInt16(buffer: Float32Array) {
   const output = new Int16Array(buffer.length)
   for (let i = 0; i < buffer.length; i++) {
     const value = Math.max(-1, Math.min(1, buffer[i]))
-    output[i] = value < 0 ? value * 0x8000 : value * 0x7FFF
+    output[i] = value < 0 ? value * 0x8000 : value * 0x7fff
   }
   return output
 }
@@ -102,8 +98,8 @@ function resetTranscriptionOutput() {
 
 async function initializeAudioGraph(stream: MediaStream) {
   const context = new AudioContext({
-    sampleRate: SAMPLE_RATE,
     latencyHint: 'interactive',
+    sampleRate: SAMPLE_RATE,
   })
   await context.audioWorklet.addModule(vadWorkletUrl)
 
@@ -111,8 +107,7 @@ async function initializeAudioGraph(stream: MediaStream) {
   node.port.onmessage = ({ data }: MessageEvent<{ buffer?: Float32Array }>) => {
     const buffer = data.buffer
     const controller = audioStreamController.value
-    if (!buffer || !controller)
-      return
+    if (!buffer || !controller) return
 
     const pcm16 = float32ToInt16(buffer)
     controller.enqueue(pcm16.buffer.slice(0))
@@ -138,8 +133,7 @@ async function initializeAudioGraph(stream: MediaStream) {
 }
 
 async function startRecording() {
-  if (!canStartRecording.value)
-    return
+  if (!canStartRecording.value) return
 
   resetTranscriptionOutput()
   resetRecordingCounters()
@@ -148,11 +142,11 @@ async function startRecording() {
   transcriptionAbortController.value = abortController
 
   const audioStream = new ReadableStream<ArrayBuffer>({
-    start(controller) {
-      audioStreamController.value = controller
-    },
     cancel: () => {
       audioStreamController.value = undefined
+    },
+    start(controller) {
+      audioStreamController.value = controller
     },
   })
 
@@ -166,10 +160,6 @@ async function startRecording() {
       { region: credentials.region },
     ).speech('aliyun-nls-v1', {
       abortSignal: abortController.signal,
-      sessionOptions: {
-        format: 'pcm',
-        sample_rate: SAMPLE_RATE,
-      },
       hooks: {
         onServerEvent: (event) => {
           handleServerEvent(event)
@@ -181,6 +171,10 @@ async function startRecording() {
           isTranscribing.value = false
         }
       },
+      sessionOptions: {
+        format: 'pcm',
+        sample_rate: SAMPLE_RATE,
+      },
     }),
     inputAudioStream: audioStream,
   } as unknown as Parameters<typeof streamAliyunTranscription>[0])
@@ -189,17 +183,13 @@ async function startRecording() {
 
   transcriptionResult.text
     .then((finalText) => {
-      if (finalText.trim())
-        appendLog(`Transcription finished (${finalText.trim().length} characters)`)
-      else
-        appendLog('Transcription finished (no speech detected)')
+      if (finalText.trim()) appendLog(`Transcription finished (${finalText.trim().length} characters)`)
+      else appendLog('Transcription finished (no speech detected)')
     })
     .catch((error) => {
       console.error(error)
-      if (error instanceof DOMException && error.name === 'AbortError')
-        appendLog('Transcription aborted by user')
-      else
-        appendLog(`Transcription failed: ${error instanceof Error ? error.message : String(error)}`, 'error')
+      if (error instanceof DOMException && error.name === 'AbortError') appendLog('Transcription aborted by user')
+      else appendLog(`Transcription failed: ${error instanceof Error ? error.message : String(error)}`, 'error')
     })
     .finally(() => {
       isTranscribing.value = false
@@ -210,24 +200,22 @@ async function startRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        autoGainControl: true,
         channelCount: 1,
-        sampleRate: SAMPLE_RATE,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        sampleRate: SAMPLE_RATE,
       },
     })
 
     mediaStream.value = stream
     await initializeAudioGraph(stream)
 
-    if (audioContext.value?.state === 'suspended')
-      await audioContext.value.resume()
+    if (audioContext.value?.state === 'suspended') await audioContext.value.resume()
 
     isRecording.value = true
     appendLog('Recording started')
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     appendLog(`Failed to start recording: ${error instanceof Error ? error.message : String(error)}`, 'error')
     audioStreamController.value?.error(error instanceof Error ? error : new Error(String(error)))
@@ -238,13 +226,13 @@ async function startRecording() {
 }
 
 async function stopRecording() {
-  if (!isRecording.value && !audioContext.value && !audioStreamController.value)
-    return
+  if (!isRecording.value && !audioContext.value && !audioStreamController.value) return
 
   try {
     workletNode.value?.port.postMessage({ type: 'stop' })
+  } catch {
+    /* noop */
   }
-  catch { /* noop */ }
 
   if (mediaStreamSource.value) {
     mediaStreamSource.value.disconnect()
@@ -258,15 +246,14 @@ async function stopRecording() {
   }
 
   if (mediaStream.value) {
-    mediaStream.value.getTracks().forEach(track => track.stop())
+    mediaStream.value.getTracks().forEach((track) => track.stop())
     mediaStream.value = undefined
   }
 
   if (audioContext.value) {
     try {
       await audioContext.value.close()
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to close audio context', error)
     }
     audioContext.value = undefined
@@ -275,8 +262,7 @@ async function stopRecording() {
   audioStreamController.value?.close()
   audioStreamController.value = undefined
 
-  if (isRecording.value)
-    appendLog('Recording stopped')
+  if (isRecording.value) appendLog('Recording stopped')
 
   isRecording.value = false
   resetRecordingCounters()
@@ -284,14 +270,14 @@ async function stopRecording() {
   if (isTranscribing.value) {
     try {
       await transcriptionTextPromise.value
+    } catch {
+      /* handled elsewhere */
     }
-    catch { /* handled elsewhere */ }
   }
 }
 
 function abortTranscription() {
-  if (!transcriptionAbortController.value)
-    return
+  if (!transcriptionAbortController.value) return
 
   transcriptionAbortController.value.abort(new DOMException('Aborted by user', 'AbortError'))
   audioStreamController.value?.error(new DOMException('Aborted by user', 'AbortError'))
@@ -304,15 +290,13 @@ function handleServerEvent(event: ServerEvent) {
     case 'TranscriptionStarted':
       appendLog(`Transcription started. Session: ${(event.payload as ServerEvents['TranscriptionStarted']).session_id}`)
       break
-    case 'TranscriptionResultChanged':
-    {
+    case 'TranscriptionResultChanged': {
       const payload = event.payload as ServerEvents['TranscriptionResultChanged']
       currentPartial.value = payload.result
       upsertTranscript(payload.index, payload.result, false)
       break
     }
-    case 'SentenceEnd':
-    {
+    case 'SentenceEnd': {
       const payload = event.payload as ServerEvents['SentenceEnd']
       currentPartial.value = ''
       upsertTranscript(payload.index, payload.result, true)
@@ -329,18 +313,17 @@ function handleServerEvent(event: ServerEvent) {
 }
 
 function upsertTranscript(index: number, text: string, final: boolean) {
-  const existingIndex = transcripts.value.findIndex(entry => entry.index === index)
+  const existingIndex = transcripts.value.findIndex((entry) => entry.index === index)
 
   if (existingIndex >= 0) {
     const existing = transcripts.value[existingIndex]
     transcripts.value.splice(existingIndex, 1, {
+      final: existing.final || final,
       index,
       text,
-      final: existing.final || final,
     })
-  }
-  else {
-    transcripts.value.push({ index, text, final })
+  } else {
+    transcripts.value.push({ final, index, text })
   }
 
   transcripts.value.sort((a, b) => a.index - b.index)

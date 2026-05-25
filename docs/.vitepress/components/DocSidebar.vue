@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { DefaultTheme } from 'vitepress/theme'
-
 import { Icon } from '@iconify/vue'
 import { CollapsibleContent, CollapsibleRoot, CollapsibleTrigger } from 'reka-ui'
+import type { DefaultTheme } from 'vitepress/theme'
 
 import DocSidebarItem from './DocSidebarItem.vue'
 

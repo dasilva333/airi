@@ -1,12 +1,10 @@
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { ResizeDirection } from '@proj-airi/electron-eventa'
+import { isRendererUnavailable } from '@proj-airi/electron-vueuse/main'
 import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron'
-
+import { isMacOS } from 'std-env'
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
-
-import { isRendererUnavailable } from '@proj-airi/electron-vueuse/main'
-import { isMacOS } from 'std-env'
 
 import { createI18nService } from '../../services/airi/i18n'
 import { createAppService, createScreenService, createWindowService } from '../../services/electron'
@@ -24,7 +22,9 @@ export function toggleWindowShow(window?: BrowserWindow | null): void {
 
   const isMinimized = window.isMinimized()
   const isVisible = window.isVisible()
-  console.log(`[Main Process] [toggleWindowShow] Current Window States -> isMinimized: ${isMinimized}, isVisible: ${isVisible}`)
+  console.log(
+    `[Main Process] [toggleWindowShow] Current Window States -> isMinimized: ${isMinimized}, isVisible: ${isVisible}`,
+  )
 
   const createdAt = (window as any).__created_at || 0
   const isJustCreated = Date.now() - createdAt < 1000
@@ -45,18 +45,15 @@ export function toggleWindowShow(window?: BrowserWindow | null): void {
     window.restore()
     window.show()
     window.focus()
-  }
-  else if (isVisible) {
+  } else if (isVisible) {
     if (!window.isFocused()) {
       console.log('[Main Process] [toggleWindowShow] Action: Window is visible but not focused. Focusing it.')
       window.focus()
-    }
-    else {
+    } else {
       console.log('[Main Process] [toggleWindowShow] Action: Hiding currently visible window')
       window.hide()
     }
-  }
-  else {
+  } else {
     console.log('[Main Process] [toggleWindowShow] Action: Showing and focusing hidden window')
     window.show()
     window.focus()
@@ -66,16 +63,16 @@ export function toggleWindowShow(window?: BrowserWindow | null): void {
 export function transparentWindowConfig(): BrowserWindowConstructorOptions {
   return {
     frame: false,
+    hasShadow: false,
     titleBarStyle: isMacOS ? 'hidden' : undefined,
     transparent: true,
-    hasShadow: false,
   }
 }
 
 export function blurryWindowConfig(): BrowserWindowConstructorOptions {
   return {
-    vibrancy: 'hud',
     backgroundMaterial: 'acrylic',
+    vibrancy: 'hud',
   }
 }
 
@@ -122,7 +119,7 @@ export function resizeWindowByDelta(params: {
     }
   }
 
-  params.window.setBounds({ x, y, width, height })
+  params.window.setBounds({ height, width, x, y })
 }
 
 export async function setupBaseWindowElectronInvokes(params: {
@@ -134,5 +131,5 @@ export async function setupBaseWindowElectronInvokes(params: {
   createScreenService({ context: params.context, window: params.window })
   createWindowService({ context: params.context, window: params.window })
   createAppService({ context: params.context, window: params.window })
-  await createI18nService({ context: params.context, window: params.window, i18n: params.i18n })
+  await createI18nService({ context: params.context, i18n: params.i18n, window: params.window })
 }

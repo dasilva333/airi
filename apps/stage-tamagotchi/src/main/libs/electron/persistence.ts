@@ -1,12 +1,10 @@
-import type { BaseIssue, BaseSchema, InferIssue, InferOutput } from 'valibot'
-
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { copyFile, mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-
 import { safeDestr } from 'destr'
 import { app } from 'electron'
 import { throttle } from 'es-toolkit'
+import type { BaseIssue, BaseSchema, InferIssue, InferOutput } from 'valibot'
 import { safeParse } from 'valibot'
 
 type ConfigStatus = 'ok' | 'missing' | 'invalid' | 'read-error'
@@ -35,8 +33,7 @@ const configRegistry = new Set<Config<any>>()
 function getUserDataPath() {
   try {
     return app.getPath('userData')
-  }
-  catch (e) {
+  } catch (e) {
     // Fallback or early access might fail on some platforms/versions if called too early
     console.error('[Persistence] Failed to get userData path:', e)
     return ''
@@ -57,7 +54,7 @@ type PersistedSchema = BaseSchema<unknown, unknown, BaseIssue<unknown>>
 function parseWithSchema<TSchema extends PersistedSchema>(
   raw: string,
   schema: TSchema,
-): { value?: InferOutput<TSchema>, issues?: InferIssue<TSchema>[] } {
+): { value?: InferOutput<TSchema>; issues?: InferIssue<TSchema>[] } {
   const parsed = safeDestr<unknown>(raw)
   const result = safeParse(schema, parsed)
   if (result.success) {
@@ -101,16 +98,13 @@ export function createConfig<TSchema extends PersistedSchema>(
       const tmpPath = `${path}.${process.pid}.${sequence}.tmp`
       await writeFile(tmpPath, JSON.stringify(persistenceMap.get(key)))
       await rename(tmpPath, path)
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to save config', error)
     }
   }
 
   const save = throttle(() => {
-    queuedSave = queuedSave
-      .catch(() => {})
-      .then(async () => persistToDisk())
+    queuedSave = queuedSave.catch(() => {}).then(async () => persistToDisk())
   }, 250)
 
   const writeHealingConfig = async (value: InferOutput<TSchema>) => {
@@ -118,12 +112,13 @@ export function createConfig<TSchema extends PersistedSchema>(
       const path = configPath()
       await ensureConfigDirectory(path)
       if (existsSync(path)) {
-        await copyFile(path, `${path}.bak`).catch(err => console.warn('Failed to create backup for config:', path, err))
+        await copyFile(path, `${path}.bak`).catch((err) =>
+          console.warn('Failed to create backup for config:', path, err),
+        )
       }
       await writeFile(path, JSON.stringify(value))
       return true
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to heal config', error)
       return false
     }
@@ -133,8 +128,8 @@ export function createConfig<TSchema extends PersistedSchema>(
     const path = configPath()
     if (!existsSync(path)) {
       const diagnostics = recordDiagnostics({
-        status: 'missing',
         path,
+        status: 'missing',
         value: options?.default,
       })
       persistenceMap.set(key, options?.default)
@@ -147,8 +142,8 @@ export function createConfig<TSchema extends PersistedSchema>(
       if (parsed.value !== undefined) {
         // console.log(`[Persistence] Loaded config from ${path}:`, parsed.value)
         const diagnostics = recordDiagnostics({
-          status: 'ok',
           path,
+          status: 'ok',
           value: parsed.value,
         })
         persistenceMap.set(key, parsed.value)
@@ -158,10 +153,10 @@ export function createConfig<TSchema extends PersistedSchema>(
       console.warn(`[Persistence] Invalid config at ${path}. Issues:`, parsed.issues)
       const fallback = options?.default
       const diagnostics = recordDiagnostics({
-        status: 'invalid',
-        path,
         issues: parsed.issues,
+        path,
         raw,
+        status: 'invalid',
         value: fallback,
       })
       options?.onValidationFailure?.(diagnostics)
@@ -175,13 +170,12 @@ export function createConfig<TSchema extends PersistedSchema>(
         })
       }
       return diagnostics
-    }
-    catch (error) {
+    } catch (error) {
       const fallback = options?.default
       const diagnostics = recordDiagnostics({
-        status: 'read-error',
-        path,
         error,
+        path,
+        status: 'read-error',
         value: fallback,
       })
       options?.onReadError?.(diagnostics)
@@ -204,8 +198,7 @@ export function createConfig<TSchema extends PersistedSchema>(
         // console.log(`[Persistence] Sync flushing config to ${path}`)
         writeFileSync(path, JSON.stringify(data))
       }
-    }
-    catch (error) {
+    } catch (error) {
       console.error(`[Persistence] Failed to flush config to ${path}`, error)
     }
   }
@@ -215,11 +208,11 @@ export function createConfig<TSchema extends PersistedSchema>(
   const getDiagnostics = () => diagnosticsMap.get(key) as ConfigDiagnostics<InferOutput<TSchema>> | undefined
 
   const configInstance: Config<TSchema> = {
-    setup,
-    get,
-    update,
     flush,
+    get,
     getDiagnostics,
+    setup,
+    update,
   }
 
   configRegistry.add(configInstance)

@@ -1,30 +1,42 @@
 {
-  "name": "@proj-airi/font-departure-mono",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "description": "Essential CSS for font, Departure Mono, used by Project AIRI",
   "author": {
-    "name": "Tobias Fried",
     "email": "26732044+rektdeckard@users.noreply.github.com",
+    "name": "Tobias Fried",
     "url": "https://github.com/rektdeckard/departure-mono"
   },
-  "license": "MIT",
-  "homepage": "https://departuremono.com/",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/font-departure-mono"
-  },
+  "description": "Essential CSS for font, Departure Mono, used by Project AIRI",
   "exports": {
-    ".": { "default": "./dist/index.css" },
-    "./index.css": { "default": "./dist/index.css" },
-    "./files/*": { "default": "./dist/files/*" },
-    "./files/*.otf": { "default": "./dist/files/*.otf" },
-    "./files/*.woff": { "default": "./dist/files/*.woff" },
-    "./files/*.woff2": { "default": "./dist/files/*.woff2" }
+    ".": {
+      "default": "./dist/index.css"
+    },
+    "./files/*": {
+      "default": "./dist/files/*"
+    },
+    "./files/*.otf": {
+      "default": "./dist/files/*.otf"
+    },
+    "./files/*.woff": {
+      "default": "./dist/files/*.woff"
+    },
+    "./files/*.woff2": {
+      "default": "./dist/files/*.woff2"
+    },
+    "./index.css": {
+      "default": "./dist/index.css"
+    }
+  },
+  "homepage": "https://departuremono.com/",
+  "license": "MIT",
+  "name": "@proj-airi/font-departure-mono",
+  "repository": {
+    "directory": "packages/font-departure-mono",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
   },
   "scripts": {
-    "dev": "pnpm run build",
-    "build": "tsdown"
-  }
+    "build": "tsdown",
+    "dev": "pnpm run build"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

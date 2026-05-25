@@ -1,25 +1,29 @@
 <script setup lang="ts">
-import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
+import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { Button, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { Section } from '../../../layouts'
 
-const props = withDefaults(defineProps<{
-  palette: string[]
-  allowExtractColors?: boolean
-  modelId?: string
-}>(), {
-  allowExtractColors: true,
-})
+const props = withDefaults(
+  defineProps<{
+    palette: string[]
+    allowExtractColors?: boolean
+    modelId?: string
+  }>(),
+  {
+    allowExtractColors: true,
+  },
+)
 
 const { stageModelSelected } = storeToRefs(useSettings())
 const positioningStore = usePositioningStore()
 const mmdStore = useMmd()
-const { availableMorphs, morphMappings, hiddenMorphs, availableMotions, currentMotion, previewExpression } = storeToRefs(mmdStore)
+const { availableMorphs, morphMappings, hiddenMorphs, availableMotions, currentMotion, previewExpression } =
+  storeToRefs(mmdStore)
 
 const scale = computed({
   get: () => positioningStore.getPosition(props.modelId || stageModelSelected.value).scale,
@@ -50,8 +54,8 @@ const positionY = computed({
 
 // Tabs State
 const customizationTabs = computed(() => [
-  { value: 'expressions', label: 'Expressions', icon: 'i-solar:face-scan-circle-bold-duotone' },
-  { value: 'motions', label: 'Motions', icon: 'i-solar:play-bold-duotone' },
+  { icon: 'i-solar:face-scan-circle-bold-duotone', label: 'Expressions', value: 'expressions' },
+  { icon: 'i-solar:play-bold-duotone', label: 'Motions', value: 'motions' },
 ])
 const activeCustomizationTab = ref('expressions')
 
@@ -85,9 +89,8 @@ function isHidden(morph: string) {
 
 function toggleVisibility(morph: string) {
   if (hiddenMorphs.value.includes(morph)) {
-    hiddenMorphs.value = hiddenMorphs.value.filter(p => p !== morph)
-  }
-  else {
+    hiddenMorphs.value = hiddenMorphs.value.filter((p) => p !== morph)
+  } else {
     hiddenMorphs.value = [...hiddenMorphs.value, morph]
   }
 }
@@ -102,8 +105,7 @@ function saveMorphName(morph: string) {
     const updated = { ...morphMappings.value }
     delete updated[morph]
     morphMappings.value = updated
-  }
-  else {
+  } else {
     morphMappings.value = { ...morphMappings.value, [morph]: editingMorphValue.value.trim() }
   }
   editingMorphKey.value = null

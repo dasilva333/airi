@@ -35,15 +35,11 @@ export interface CreateTokenRequest {
 export function canonicalizeQuery(params: AliyunQueryParams): string {
   return Object.keys(params)
     .sort()
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
     .join('&')
 }
 
-export function createStringToSign(
-  method: string,
-  path: string,
-  canonicalQuery: string,
-): string {
+export function createStringToSign(method: string, path: string, canonicalQuery: string): string {
   const encodedPath = encodeURIComponent(path)
   const encodedQuery = encodeURIComponent(canonicalQuery)
   return `${method}&${encodedPath}&${encodedQuery}`
@@ -53,17 +49,11 @@ export async function signStringToBase64(stringToSign: string, accessKeySecret: 
   const encoder = new TextEncoder()
   const keyData = encoder.encode(`${accessKeySecret}&`)
   const algorithm: HmacImportParams = {
-    name: 'HMAC',
     hash: { name: 'SHA-1' },
+    name: 'HMAC',
   }
 
-  const cryptoKey = await subtle.importKey(
-    'raw',
-    keyData as Uint8Array<ArrayBuffer>,
-    algorithm,
-    false,
-    ['sign'],
-  )
+  const cryptoKey = await subtle.importKey('raw', keyData as Uint8Array<ArrayBuffer>, algorithm, false, ['sign'])
 
   const signDataEncoder = new TextEncoder()
   const data = signDataEncoder.encode(stringToSign)
@@ -71,11 +61,15 @@ export async function signStringToBase64(stringToSign: string, accessKeySecret: 
   return encodeBase64(signatureBuffer)
 }
 
-export async function buildCreateTokenRequest(accessKeyId: string, accessKeySecret: string, options?: CreateTokenOptions): Promise<CreateTokenRequest> {
+export async function buildCreateTokenRequest(
+  accessKeyId: string,
+  accessKeySecret: string,
+  options?: CreateTokenOptions,
+): Promise<CreateTokenRequest> {
   const mergedOptions = merge({ timestamp: new Date() }, options)
 
   // ISO 8601 format: YYYY-MM-DDThh:mm:ssZ
-  const timestamp = format(utc(mergedOptions.timestamp), 'yyyy-MM-dd\'T\'HH:mm:ssXX')
+  const timestamp = format(utc(mergedOptions.timestamp), "yyyy-MM-dd'T'HH:mm:ssXX")
   const signatureNonce = options?.signatureNonce ?? uuidV4()
 
   const params: AliyunQueryParams = {
@@ -96,39 +90,48 @@ export async function buildCreateTokenRequest(accessKeyId: string, accessKeySecr
   const signatureBase64 = await signStringToBase64(stringToSign, accessKeySecret)
   const encodedSignature = encodeURIComponent(signatureBase64)
   const signedQuery = `Signature=${encodedSignature}&${canonicalQuery}`
-  const endpoint = (options?.endpoint ?? nlsMetaEndpointFromRegion(options?.regionId ?? 'cn-shanghai').toString()).replace(/\/$/, '')
+  const endpoint = (
+    options?.endpoint ?? nlsMetaEndpointFromRegion(options?.regionId ?? 'cn-shanghai').toString()
+  ).replace(/\/$/, '')
   const url = `${endpoint}/?${signedQuery}`
 
   return {
-    endpoint,
     canonicalQuery,
-    stringToSign,
-    signature: signatureBase64,
     encodedSignature,
-    signedQuery,
+    endpoint,
     params: {
       Signature: signatureBase64,
       ...params,
     },
+    signature: signatureBase64,
+    signedQuery,
+    stringToSign,
     url,
   }
 }
 
-export async function createToken(accessKeyId: string, accessKeySecret: string, options?: CreateTokenOptions): Promise<{ token: string, expiresAt: number }> {
+export async function createToken(
+  accessKeyId: string,
+  accessKeySecret: string,
+  options?: CreateTokenOptions,
+): Promise<{ token: string; expiresAt: number }> {
   const request = await buildCreateTokenRequest(accessKeyId, accessKeySecret, options)
-  const response = await ofetch<{
-    NlsRequestId: string
-    RequestId: string
-    ErrMsg: string
-    Token: { ExpireTime: number, Id: string, UserId: string }
-  } | {
-    RequestId: string
-    Message: string
-    Code: string
-  }>(request.url, { method: 'POST' })
+  const response = await ofetch<
+    | {
+        NlsRequestId: string
+        RequestId: string
+        ErrMsg: string
+        Token: { ExpireTime: number; Id: string; UserId: string }
+      }
+    | {
+        RequestId: string
+        Message: string
+        Code: string
+      }
+  >(request.url, { method: 'POST' })
 
   if ('Token' in response && typeof response.Token === 'object' && 'Id' in response.Token) {
-    return { token: response.Token.Id, expiresAt: response.Token.ExpireTime * 1000 }
+    return { expiresAt: response.Token.ExpireTime * 1000, token: response.Token.Id }
   }
 
   throw new Error(`Failed to create token: ${JSON.stringify(response) || 'Unknown error'}`)

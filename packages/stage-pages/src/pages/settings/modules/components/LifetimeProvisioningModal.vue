@@ -10,29 +10,26 @@ const props = defineProps<{
   open: boolean
 }>()
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:open', value: boolean) => void>()
 
 const store = useMemoryLifetimeStore()
 const { isProvisioning, progress, error, activeSession } = storeToRefs(store)
 
 const sourceDocs = ref<any[]>([])
-const sourceCounts = ref({ raw: 0, stmm: 0, ltmm: 0 })
+const sourceCounts = ref({ ltmm: 0, raw: 0, stmm: 0 })
 const isLoadingCounts = ref(false)
 const requestInterval = ref(0)
 const contextLimitTokens = ref(64) // Default 64K
 const tokenPreset = ref('1000') // Default 1000 tokens
 
 const presetOptions = [
-  { value: '500', label: 'Compact (500)', description: 'Dense, essential identity only.' },
-  { value: '1000', label: 'Standard (1000)', description: 'Rich relationship highlights and motifs.' },
-  { value: '3000', label: 'Rich (3000)', description: 'Deep narrative artifact with high nuance.' },
+  { description: 'Dense, essential identity only.', label: 'Compact (500)', value: '500' },
+  { description: 'Rich relationship highlights and motifs.', label: 'Standard (1000)', value: '1000' },
+  { description: 'Deep narrative artifact with high nuance.', label: 'Rich (3000)', value: '3000' },
 ]
 
 const estimatedChunks = computed(() => {
-  if (!sourceDocs.value.length)
-    return 0
+  if (!sourceDocs.value.length) return 0
   const contextLimitChars = contextLimitTokens.value * 1024 * 4
   let chunks = 0
   let currentChars = 0
@@ -47,8 +44,7 @@ const estimatedChunks = computed(() => {
     docsInChunk++
     currentChars += docChars
   }
-  if (docsInChunk > 0)
-    chunks++
+  if (docsInChunk > 0) chunks++
   return chunks
 })
 
@@ -60,7 +56,7 @@ const estimatedDuration = computed(() => {
   const totalCalls = estimatedCalls.value
   const totalCooldown = totalCalls * requestInterval.value
   // Assuming 10s per call avg
-  const totalSeconds = totalCooldown + (totalCalls * 10)
+  const totalSeconds = totalCooldown + totalCalls * 10
   const mins = Math.floor(totalSeconds / 60)
   return mins > 0 ? `${mins}m ${totalSeconds % 60}s` : `${totalSeconds}s`
 })
@@ -71,24 +67,35 @@ async function loadCounts() {
     const docs = await store.collectSourceDocs(props.characterId)
     sourceDocs.value = docs
     sourceCounts.value = {
-      raw: docs.filter(d => d.layer === 'raw').length,
-      stmm: docs.filter(d => d.layer === 'stmm').length,
-      ltmm: docs.filter(d => d.layer === 'ltmm').length,
+      ltmm: docs.filter((d) => d.layer === 'ltmm').length,
+      raw: docs.filter((d) => d.layer === 'raw').length,
+      stmm: docs.filter((d) => d.layer === 'stmm').length,
     }
     // Also load session state
     await store.loadForCharacter(props.characterId)
-  }
-  finally {
+  } finally {
     isLoadingCounts.value = false
   }
 }
 
 async function startProvisioning() {
-  await store.provision(props.characterId, false, requestInterval.value, contextLimitTokens.value, Number.parseInt(tokenPreset.value))
+  await store.provision(
+    props.characterId,
+    false,
+    requestInterval.value,
+    contextLimitTokens.value,
+    Number.parseInt(tokenPreset.value),
+  )
 }
 
 async function resumeProvisioning() {
-  await store.provision(props.characterId, true, requestInterval.value, contextLimitTokens.value, Number.parseInt(tokenPreset.value))
+  await store.provision(
+    props.characterId,
+    true,
+    requestInterval.value,
+    contextLimitTokens.value,
+    Number.parseInt(tokenPreset.value),
+  )
 }
 
 async function restartProvisioning() {
@@ -99,10 +106,13 @@ function close() {
   emit('update:open', false)
 }
 
-watch(() => props.open, (isOpen) => {
-  if (isOpen)
-    loadCounts()
-}, { immediate: true })
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) loadCounts()
+  },
+  { immediate: true },
+)
 
 const progressPercent = computed(() => {
   if (progress.value.totalCalls > 0) {
@@ -113,13 +123,20 @@ const progressPercent = computed(() => {
 
 const phaseLabel = computed(() => {
   switch (progress.value.phase) {
-    case 'aggregating': return 'Phase 1/4: Gathering History'
-    case 'chunking': return `Phase 1/4: Analyzing Chunks (${progress.value.currentChunk}/${progress.value.totalChunks})`
-    case 'synthesizing': return 'Phase 2/4: Synthesizing Base Archive'
-    case 'distill_pass_1': return 'Phase 3/4: Dedupe Pass'
-    case 'distill_pass_2': return 'Phase 4/4: Dense Distill Pass'
-    case 'success': return 'Provisioning Complete'
-    default: return 'Preparing'
+    case 'aggregating':
+      return 'Phase 1/4: Gathering History'
+    case 'chunking':
+      return `Phase 1/4: Analyzing Chunks (${progress.value.currentChunk}/${progress.value.totalChunks})`
+    case 'synthesizing':
+      return 'Phase 2/4: Synthesizing Base Archive'
+    case 'distill_pass_1':
+      return 'Phase 3/4: Dedupe Pass'
+    case 'distill_pass_2':
+      return 'Phase 4/4: Dense Distill Pass'
+    case 'success':
+      return 'Provisioning Complete'
+    default:
+      return 'Preparing'
   }
 })
 

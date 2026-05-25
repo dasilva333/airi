@@ -1,35 +1,33 @@
 <script setup lang="ts">
 import type { Card } from '@proj-airi/ccc'
-import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
-
-import kebabcase from '@stdlib/string-base-kebabcase'
-
-import { useLive2d } from '@proj-airi/stage-ui-live2d'
-import { useMmd } from '@proj-airi/stage-ui-mmd'
-import { useSpine } from '@proj-airi/stage-ui-spine'
-import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
-import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/artistry-instruction'
-import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_HEARTBEATS_PROMPT, DEFAULT_POST_HISTORY_INSTRUCTIONS } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
+import {
+  DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT,
+  DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT,
+  DEFAULT_HEARTBEATS_PROMPT,
+  DEFAULT_POST_HISTORY_INSTRUCTIONS,
+} from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
+import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
+import { useLive2d } from '@proj-airi/stage-ui-live2d'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useSpine } from '@proj-airi/stage-ui-spine'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
+import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { Button } from '@proj-airi/ui'
+import kebabcase from '@stdlib/string-base-kebabcase'
 import { storeToRefs } from 'pinia'
-import {
-  DialogContent,
-  DialogOverlay,
-  DialogPortal,
-  DialogRoot,
-  DialogTitle,
-} from 'reka-ui'
+import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, onMounted, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -47,9 +45,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const modelValue = defineModel<boolean>()
 
@@ -70,8 +66,13 @@ const mmdStore = useMmd()
 const spineStore = useSpine()
 
 const { sensorPayload } = storeToRefs(proactivityStore)
-const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } = storeToRefs(consciousnessStore)
-const { activeSpeechProvider: speechProvider, activeSpeechModel: defaultSpeechModel, activeSpeechVoiceId: defaultSpeechVoiceId } = storeToRefs(speechStore)
+const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } =
+  storeToRefs(consciousnessStore)
+const {
+  activeSpeechProvider: speechProvider,
+  activeSpeechModel: defaultSpeechModel,
+  activeSpeechVoiceId: defaultSpeechVoiceId,
+} = storeToRefs(speechStore)
 const { stageModelSelected: defaultDisplayModelId } = storeToRefs(stageModelStore)
 const { activeProvider: defaultArtistryProvider } = storeToRefs(artistryStore)
 const { availableExpressions } = storeToRefs(modelStore)
@@ -85,26 +86,27 @@ const isEditMode = computed(() => !!props.cardId)
 
 const isLive2d = computed(() => {
   const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value
-  const model = displayModelsStore.displayModels.find(m => m.id === modelId)
-  if (!model)
-    return false
+  const model = displayModelsStore.displayModels.find((m) => m.id === modelId)
+  if (!model) return false
   return model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.Live2dDirectory
 })
 
 const isSpine = computed(() => {
   const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value
-  const model = displayModelsStore.displayModels.find(m => m.id === modelId)
-  if (!model)
-    return false
+  const model = displayModelsStore.displayModels.find((m) => m.id === modelId)
+  if (!model) return false
   return model.format === DisplayModelFormat.SpineZip
 })
 
 const isMmd = computed(() => {
   const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value
-  const model = displayModelsStore.displayModels.find(m => m.id === modelId)
-  if (!model)
-    return false
-  return model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMXDirectory || model.format === DisplayModelFormat.PMD
+  const model = displayModelsStore.displayModels.find((m) => m.id === modelId)
+  if (!model) return false
+  return (
+    model.format === DisplayModelFormat.PMXZip ||
+    model.format === DisplayModelFormat.PMXDirectory ||
+    model.format === DisplayModelFormat.PMD
+  )
 })
 
 // Modules configuration
@@ -144,12 +146,6 @@ const actingSpeechCapabilitiesLoading = ref<boolean>(false)
 const DEFAULT_ACTING_MODEL_PROMPT = DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT
 
 const MANNERISM_HELPER_SNIPPETS: Record<string, string> = {
-  tilde: `## Tilde Replacements
-Use occasional \`~\` when sounding playful, sing-song, teasing, or gently affectionate.
-- Keep it light and sparse.
-- Avoid using it on every sentence.
-- Prefer it when the line should feel airy or mischievous.
-`,
   eyes: `## Emoticon Replacements
 Use short emoticon-style reactions when a strong expression would land better as a quick face than as plain words.
 - Keep them readable and emotionally obvious.
@@ -161,6 +157,12 @@ Use brief pouty or dismissive mannerisms when sounding stubborn, embarrassed, br
 - Keep them occasional.
 - Let them color the line instead of replacing the content.
 - Use them when attitude matters more than pure politeness.
+`,
+  tilde: `## Tilde Replacements
+Use occasional \`~\` when sounding playful, sing-song, teasing, or gently affectionate.
+- Keep it light and sparse.
+- Avoid using it on every sentence.
+- Prefer it when the line should feel airy or mischievous.
 `,
 }
 
@@ -198,29 +200,28 @@ Journal Entries (Last Hr): 1
 Turn Count: 498 (Next Target: 500)`
 
 const consciousnessProviderOptions = computed(() => {
-  return providersStore.configuredChatProvidersMetadata.map(provider => ({
-    value: provider.id,
+  return providersStore.configuredChatProvidersMetadata.map((provider) => ({
     label: provider.localizedName || provider.name,
+    value: provider.id,
   }))
 })
 
 const artistryProviderOptions = computed(() => {
   return [
-    { value: 'none', label: 'None (Disabled)' },
-    { value: 'replicate', label: 'Replicate' },
-    { value: 'comfyui', label: 'ComfyUI' },
+    { label: 'None (Disabled)', value: 'none' },
+    { label: 'Replicate', value: 'replicate' },
+    { label: 'ComfyUI', value: 'comfyui' },
   ]
 })
 
 // Computed: available consciousness models options
 const consciousnessModelOptions = computed(() => {
   const provider = selectedConsciousnessProvider.value || consciousnessProvider.value
-  if (!provider)
-    return []
+  if (!provider) return []
   const models = providersStore.getModelsForProvider(provider)
-  return models.map(model => ({
-    value: model.id,
+  return models.map((model) => ({
     label: model.name || model.id,
+    value: model.id,
   }))
 })
 
@@ -228,54 +229,52 @@ const generationProviderOptions = computed(() => consciousnessProviderOptions.va
 
 const generationModelOptions = computed(() => {
   const provider = generationProvider.value || selectedConsciousnessProvider.value || consciousnessProvider.value
-  if (!provider)
-    return []
+  if (!provider) return []
   const models = providersStore.getModelsForProvider(provider)
-  return models.map(model => ({
-    value: model.id,
+  return models.map((model) => ({
     label: model.name || model.id,
+    value: model.id,
   }))
 })
 
 // Computed: available speech provider options
 const speechProviderOptions = computed(() => {
-  return providersStore.configuredSpeechProvidersMetadata.map(provider => ({
-    value: provider.id,
+  return providersStore.configuredSpeechProvidersMetadata.map((provider) => ({
     label: provider.localizedName || provider.name,
+    value: provider.id,
   }))
 })
 
 // Computed: available speech models options
 const speechModelOptions = computed(() => {
   const provider = selectedSpeechProvider.value || speechProvider.value
-  if (!provider)
-    return []
+  if (!provider) return []
   const models = providersStore.getModelsForProvider(provider)
-  return models.map(model => ({
-    value: model.id,
+  return models.map((model) => ({
     label: model.name || model.id,
+    value: model.id,
   }))
 })
 
 // Computed: available speech voices options
 const speechVoiceOptions = computed(() => {
   const provider = selectedSpeechProvider.value || speechProvider.value
-  if (!provider)
-    return []
+  if (!provider) return []
   const voices = speechStore.getVoicesForProvider(provider)
-  return voices.map(voice => ({
-    value: voice.id,
+  return voices.map((voice) => ({
     label: voice.name || voice.id,
+    value: voice.id,
   }))
 })
 
 const displayModelOptions = computed(() => {
   return displayModelsStore.displayModels.map((model) => {
-    const isLive2D = model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.Live2dDirectory
+    const isLive2D =
+      model.format === DisplayModelFormat.Live2dZip || model.format === DisplayModelFormat.Live2dDirectory
     const prefix = isLive2D ? '[Live2D]' : '[VRM]'
     return {
-      value: model.id,
       label: `${prefix} ${model.name}`,
+      value: model.id,
     }
   })
 })
@@ -283,17 +282,17 @@ const displayModelOptions = computed(() => {
 const sceneOptions = computed(() => {
   const backgrounds = backgroundStore.getCharacterBackgrounds(props.cardId)
   return [
-    { value: 'none', label: t('settings.pages.card.creation.none') },
-    ...backgrounds.map(bg => ({
-      value: bg.id,
+    { label: t('settings.pages.card.creation.none'), value: 'none' },
+    ...backgrounds.map((bg) => ({
       label: bg.type === 'journal' ? `Journal: ${bg.title}` : bg.title,
+      value: bg.id,
     })),
   ]
 })
 
 const actingModelExpressionOptions = computed(() => {
   if (isLive2d.value) {
-    const exps = live2dExpressions.value.map(e => e.name)
+    const exps = live2dExpressions.value.map((e) => e.name)
     const motionMappings = cardStore.activeCard?.extensions?.airi?.modules?.live2d?.motionMappings || {}
     const hiddenMotions = cardStore.activeCard?.extensions?.airi?.modules?.live2d?.hiddenMotions || []
 
@@ -301,8 +300,7 @@ const actingModelExpressionOptions = computed(() => {
     const unmappedMotions: string[] = []
 
     live2dStore.availableMotions.forEach((m) => {
-      if (hiddenMotions.includes(m.fileName))
-        return
+      if (hiddenMotions.includes(m.fileName)) return
 
       const name = m.fileName.split('/').pop() || m.fileName
       const cleanName = name.replace('.motion3.json', '').replace('.json', '')
@@ -310,8 +308,7 @@ const actingModelExpressionOptions = computed(() => {
 
       if (mappedName) {
         mappedMotions.push(mappedName)
-      }
-      else {
+      } else {
         unmappedMotions.push(cleanName)
       }
     })
@@ -321,13 +318,12 @@ const actingModelExpressionOptions = computed(() => {
 
     if (mappedMotions.length > 0) {
       return [...new Set([...exps, ...mappedMotions])]
-    }
-    else {
+    } else {
       return [...new Set([...exps, ...unmappedMotions])]
     }
   }
   if (isSpine.value) {
-    return spineAnimations.value.map(a => a.name).sort((a, b) => a.localeCompare(b))
+    return spineAnimations.value.map((a) => a.name).sort((a, b) => a.localeCompare(b))
   }
   if (isMmd.value) {
     const mappings = mmdStore.morphMappings || {}
@@ -337,22 +333,19 @@ const actingModelExpressionOptions = computed(() => {
     const unmapped: string[] = []
 
     mmdMorphs.value.forEach((m) => {
-      if (hidden.includes(m))
-        return
+      if (hidden.includes(m)) return
 
       const mappedName = mappings[m]
       if (mappedName) {
         mapped.push(mappedName)
-      }
-      else {
+      } else {
         unmapped.push(m)
       }
     })
 
     if (mapped.length > 0) {
       return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
-    }
-    else {
+    } else {
       return [...new Set(unmapped)].sort((a, b) => a.localeCompare(b))
     }
   }
@@ -366,12 +359,11 @@ const actingIdleAnimationOptions = computed(() => {
     const motionMappings = cardStore.activeCard?.extensions?.airi?.modules?.live2d?.motionMappings || {}
     const hiddenMotions = cardStore.activeCard?.extensions?.airi?.modules?.live2d?.hiddenMotions || []
 
-    const mappedMotions: { label: string, value: string }[] = []
-    const unmappedMotions: { label: string, value: string }[] = []
+    const mappedMotions: { label: string; value: string }[] = []
+    const unmappedMotions: { label: string; value: string }[] = []
 
     live2dStore.availableMotions.forEach((m) => {
-      if (hiddenMotions.includes(m.fileName))
-        return
+      if (hiddenMotions.includes(m.fileName)) return
 
       const name = m.fileName.split('/').pop() || m.fileName
       const cleanName = name.replace('.motion3.json', '').replace('.json', '')
@@ -379,8 +371,7 @@ const actingIdleAnimationOptions = computed(() => {
 
       if (mappedName) {
         mappedMotions.push({ label: mappedName, value: mappedName })
-      }
-      else {
+      } else {
         unmappedMotions.push({ label: cleanName, value: cleanName })
       }
     })
@@ -390,16 +381,15 @@ const actingIdleAnimationOptions = computed(() => {
 
     if (mappedMotions.length > 0) {
       return mappedMotions
-    }
-    else {
+    } else {
       return unmappedMotions
     }
   }
   if (isSpine.value) {
-    return spineAnimations.value.map(a => ({ label: a.name, value: a.name }))
+    return spineAnimations.value.map((a) => ({ label: a.name, value: a.name }))
   }
   if (isMmd.value) {
-    return mmdMotions.value.map(m => ({ label: m, value: m }))
+    return mmdMotions.value.map((m) => ({ label: m, value: m }))
   }
   return animationOptions.value
 })
@@ -411,12 +401,11 @@ function isVrmaExpression(name: string) {
 const actingExpressionTags = computed(() => actingSpeechCapabilities.value?.expressionTags || [])
 
 const actingGroupedExpressionTags = computed(() => {
-  const groups = new Map<string, { tag: string, description?: string }[]>()
+  const groups = new Map<string, { tag: string; description?: string }[]>()
   for (const tag of actingExpressionTags.value) {
     const key = tag.category || 'other'
-    if (!groups.has(key))
-      groups.set(key, [])
-    groups.get(key)!.push({ tag: tag.tag, description: tag.description })
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push({ description: tag.description, tag: tag.tag })
   }
 
   return [...groups.entries()]
@@ -433,20 +422,19 @@ async function loadActingSpeechCapabilities(providerId: string) {
   actingSpeechCapabilitiesLoading.value = true
   try {
     const metadata = providersStore.getProviderMetadata(providerId)
-    const capabilities = await metadata.capabilities.getSpeechCapabilities?.(providersStore.getProviderConfig(providerId))
+    const capabilities = await metadata.capabilities.getSpeechCapabilities?.(
+      providersStore.getProviderConfig(providerId),
+    )
     actingSpeechCapabilities.value = capabilities ?? null
-  }
-  catch {
+  } catch {
     actingSpeechCapabilities.value = null
-  }
-  finally {
+  } finally {
     actingSpeechCapabilitiesLoading.value = false
   }
 }
 
 function appendUniqueLine(target: typeof selectedActingModelExpressionPrompt, line: string) {
-  if (target.value.includes(line))
-    return
+  if (target.value.includes(line)) return
 
   const suffix = target.value.endsWith('\n') || !target.value ? '' : '\n'
   target.value = `${target.value}${suffix}${line}\n`
@@ -454,7 +442,7 @@ function appendUniqueLine(target: typeof selectedActingModelExpressionPrompt, li
 
 function insertModelExpression(name: string) {
   if (isLive2d.value) {
-    const isExpression = live2dExpressions.value.some(e => e.name === name)
+    const isExpression = live2dExpressions.value.some((e) => e.name === name)
     const motionMappings = cardStore.activeCard?.extensions?.airi?.modules?.live2d?.motionMappings || {}
     const isMotion = live2dStore.availableMotions.some((m) => {
       const displayName = m.fileName.split('/').pop() || m.fileName
@@ -465,32 +453,27 @@ function insertModelExpression(name: string) {
 
     if (isExpression) {
       appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:emotion:"${name}"|>`)
-    }
-    else if (isMotion) {
+    } else if (isMotion) {
       appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion:"${name}"|>`)
-    }
-    else {
+    } else {
       appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
     }
-  }
-  else {
+  } else {
     appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
   }
 }
 
 function insertSpeechTag(tag: string, description?: string) {
-  const line = description
-    ? `- \`[${tag}]\` - ${description}`
-    : `- \`[${tag}]\``
+  const line = description ? `- \`[${tag}]\` - ${description}` : `- \`[${tag}]\``
   appendUniqueLine(selectedActingSpeechExpressionPrompt, line)
 }
 
 function insertSpeechMannerism(id: string) {
   const snippet = MANNERISM_HELPER_SNIPPETS[id]
-  if (!snippet || selectedActingSpeechMannerismPrompt.value.includes(snippet.trim()))
-    return
+  if (!snippet || selectedActingSpeechMannerismPrompt.value.includes(snippet.trim())) return
 
-  const suffix = selectedActingSpeechMannerismPrompt.value.endsWith('\n') || !selectedActingSpeechMannerismPrompt.value ? '' : '\n\n'
+  const suffix =
+    selectedActingSpeechMannerismPrompt.value.endsWith('\n') || !selectedActingSpeechMannerismPrompt.value ? '' : '\n\n'
   selectedActingSpeechMannerismPrompt.value = `${selectedActingSpeechMannerismPrompt.value}${suffix}${snippet}`
 }
 
@@ -499,18 +482,22 @@ onMounted(() => {
 })
 
 // Load models for current providers on init
-watch(() => [consciousnessProvider.value, speechProvider.value], async ([consProvider, spProvider]) => {
-  if (consProvider) {
-    await consciousnessStore.loadModelsForProvider(consProvider)
-  }
-  if (spProvider) {
-    await speechStore.loadVoicesForProvider(spProvider)
-    const metadata = providersStore.getProviderMetadata(spProvider)
-    if (metadata?.capabilities.listModels) {
-      await providersStore.fetchModelsForProvider(spProvider)
+watch(
+  () => [consciousnessProvider.value, speechProvider.value],
+  async ([consProvider, spProvider]) => {
+    if (consProvider) {
+      await consciousnessStore.loadModelsForProvider(consProvider)
     }
-  }
-}, { immediate: true })
+    if (spProvider) {
+      await speechStore.loadVoicesForProvider(spProvider)
+      const metadata = providersStore.getProviderMetadata(spProvider)
+      if (metadata?.capabilities.listModels) {
+        await providersStore.fetchModelsForProvider(spProvider)
+      }
+    }
+  },
+  { immediate: true },
+)
 
 // Watch consciousness provider changes and reload models
 watch(selectedConsciousnessProvider, async (newProvider, oldProvider) => {
@@ -568,21 +555,28 @@ const activeTabId = ref('')
 
 // Tabs for card details
 const tabs: Tab[] = [
-  { id: 'identity', label: t('settings.pages.card.creation.identity'), icon: 'i-solar:emoji-funny-square-bold-duotone' },
-  { id: 'behavior', label: t('settings.pages.card.creation.behavior'), icon: 'i-solar:chat-round-line-bold-duotone' },
-  { id: 'generation', label: 'Generation', icon: 'i-solar:tuning-square-bold-duotone' },
-  { id: 'acting', label: 'Acting', icon: 'i-solar:mask-happly-bold-duotone' },
-  { id: 'modules', label: t('settings.pages.card.modules'), icon: 'i-solar:widget-4-bold-duotone' },
-  { id: 'artistry', label: t('settings.pages.modules.artistry.title'), icon: 'i-solar:gallery-bold-duotone' },
-  { id: 'proactivity', label: t('settings.pages.card.creation.proactivity', 'Proactivity'), icon: 'i-solar:heart-pulse-bold-duotone' },
+  {
+    icon: 'i-solar:emoji-funny-square-bold-duotone',
+    id: 'identity',
+    label: t('settings.pages.card.creation.identity'),
+  },
+  { icon: 'i-solar:chat-round-line-bold-duotone', id: 'behavior', label: t('settings.pages.card.creation.behavior') },
+  { icon: 'i-solar:tuning-square-bold-duotone', id: 'generation', label: 'Generation' },
+  { icon: 'i-solar:mask-happly-bold-duotone', id: 'acting', label: 'Acting' },
+  { icon: 'i-solar:widget-4-bold-duotone', id: 'modules', label: t('settings.pages.card.modules') },
+  { icon: 'i-solar:gallery-bold-duotone', id: 'artistry', label: t('settings.pages.modules.artistry.title') },
+  {
+    icon: 'i-solar:heart-pulse-bold-duotone',
+    id: 'proactivity',
+    label: t('settings.pages.card.creation.proactivity', 'Proactivity'),
+  },
 ]
 
 // Active tab state - set to first available tab by default
 const activeTab = computed({
   get: () => {
     // If current active tab is not in available tabs, reset to first tab
-    if (!tabs.find(tab => tab.id === activeTabId.value))
-      return tabs[0]?.id || ''
+    if (!tabs.find((tab) => tab.id === activeTabId.value)) return tabs[0]?.id || ''
     return activeTabId.value
   },
   set: (value: string) => {
@@ -598,47 +592,42 @@ const errorMessage = ref<string>('')
 async function saveCard(card: Card): Promise<boolean> {
   // Before saving, let's validate what the user entered :
   const rawCard: Card = toRaw(card)
-  const existingAiriExt = (isEditMode.value && props.cardId)
-    ? cardStore.getCard(props.cardId)?.extensions?.airi as AiriExtension | undefined
-    : undefined
+  const existingAiriExt =
+    isEditMode.value && props.cardId
+      ? (cardStore.getCard(props.cardId)?.extensions?.airi as AiriExtension | undefined)
+      : undefined
 
   if (!((rawCard.name?.length ?? 0) > 0)) {
     // No name
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.name')
     return false
-  }
-  else if (!/^(?:\d+\.)+\d+$/.test(rawCard.version)) {
+  } else if (!/^(?:\d+\.)+\d+$/.test(rawCard.version)) {
     // Invalid version
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.version')
     return false
-  }
-  else if (!((rawCard.description?.length ?? 0) > 0)) {
+  } else if (!((rawCard.description?.length ?? 0) > 0)) {
     // No description
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.description')
     return false
-  }
-  else if (!((rawCard.personality?.length ?? 0) > 0)) {
+  } else if (!((rawCard.personality?.length ?? 0) > 0)) {
     // No personality
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.personality')
     return false
-  }
-  else if (!((rawCard.scenario?.length ?? 0) > 0)) {
+  } else if (!((rawCard.scenario?.length ?? 0) > 0)) {
     // No Scenario
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.scenario')
     return false
-  }
-  else if (!((rawCard.systemPrompt?.length ?? 0) > 0)) {
+  } else if (!((rawCard.systemPrompt?.length ?? 0) > 0)) {
     // No sys prompt
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.systemprompt')
     return false
-  }
-  else if (!((rawCard.postHistoryInstructions?.length ?? 0) > 0)) {
+  } else if (!((rawCard.postHistoryInstructions?.length ?? 0) > 0)) {
     // No post history prompt
     showError.value = true
     errorMessage.value = t('settings.pages.card.creation.errors.posthistoryinstructions')
@@ -647,19 +636,16 @@ async function saveCard(card: Card): Promise<boolean> {
   showError.value = false
 
   const generationKnown = {
+    contextWidth: normalizeOptionalNumber(generationContextWidth.value),
     maxTokens: normalizeOptionalNumber(generationMaxTokens.value),
     temperature: normalizeOptionalNumber(generationTemperature.value),
     topP: normalizeOptionalNumber(generationTopP.value),
-    contextWidth: normalizeOptionalNumber(generationContextWidth.value),
   }
   let generationAdvanced: Record<string, any> | undefined
 
   try {
-    generationAdvanced = generationAdvancedJson.value.trim()
-      ? JSON.parse(generationAdvancedJson.value)
-      : undefined
-  }
-  catch {
+    generationAdvanced = generationAdvancedJson.value.trim() ? JSON.parse(generationAdvancedJson.value) : undefined
+  } catch {
     showError.value = true
     errorMessage.value = 'Generation Advanced JSON must be valid JSON before saving.'
     return false
@@ -667,11 +653,8 @@ async function saveCard(card: Card): Promise<boolean> {
 
   let artistryConfig: Record<string, any> | undefined
   try {
-    artistryConfig = selectedArtistryConfigStr.value.trim()
-      ? JSON.parse(selectedArtistryConfigStr.value)
-      : undefined
-  }
-  catch {
+    artistryConfig = selectedArtistryConfigStr.value.trim() ? JSON.parse(selectedArtistryConfigStr.value) : undefined
+  } catch {
     showError.value = true
     errorMessage.value = 'Artistry Config must be valid JSON before saving.'
     return false
@@ -684,100 +667,99 @@ async function saveCard(card: Card): Promise<boolean> {
       ...rawCard.extensions,
       airi: {
         ...existingAiriExt,
-        modules: {
-          ...existingAiriExt?.modules,
-          consciousness: {
-            provider: selectedConsciousnessProvider.value || consciousnessProvider.value,
-            model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
-          },
-          speech: {
-            provider: selectedSpeechProvider.value || speechProvider.value,
-            model: selectedSpeechModel.value || defaultSpeechModel.value,
-            voice_id: selectedSpeechVoiceId.value || defaultSpeechVoiceId.value,
-          },
-          displayModelId: selectedDisplayModelId.value || defaultDisplayModelId.value,
-          activeBackgroundId: selectedActiveBackgroundId.value || 'none',
-        },
-        agents: existingAiriExt?.agents || {},
-        heartbeats: {
-          ...existingAiriExt?.heartbeats,
-          enabled: heartbeatsEnabled.value,
-          intervalMinutes: heartbeatsIntervalMinutes.value,
-          prompt: heartbeatsPrompt.value,
-          injectIntoPrompt: heartbeatsInjectIntoPrompt.value,
-          useAsLocalGate: heartbeatsUseAsLocalGate.value,
-          contextOptions: {
-            ...existingAiriExt?.heartbeats?.contextOptions,
-            windowHistory: heartbeatsContextWindowHistory.value,
-            systemLoad: heartbeatsContextSystemLoad.value,
-            usageMetrics: heartbeatsContextUsageMetrics.value,
-          },
-          schedule: {
-            ...existingAiriExt?.heartbeats?.schedule,
-            start: heartbeatsScheduleStart.value,
-            end: heartbeatsScheduleEnd.value,
-          },
-          respectSchedule: heartbeatsRespectSchedule.value,
-        },
-        dreamState: {
-          ...existingAiriExt?.dreamState,
-          enabled: dreamStateEnabled.value,
-          strictAfkGating: dreamStateStrictAfkGating.value,
-          journalingThreshold: existingAiriExt?.dreamState?.journalingThreshold || 'balanced',
-          maxSessionsPerDay: existingAiriExt?.dreamState?.maxSessionsPerDay || 4,
-          sessionTimeoutMinutes: existingAiriExt?.dreamState?.sessionTimeoutMinutes || 60,
-          afkThresholdMinutes: existingAiriExt?.dreamState?.afkThresholdMinutes || 5,
-          minConversationTurns: existingAiriExt?.dreamState?.minConversationTurns || 4,
-          lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
-          dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
-          dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
-        },
         acting: {
           ...existingAiriExt?.acting,
+          idleAnimations: [...(selectedActingIdleAnimations.value || [])],
           modelExpressionPrompt: selectedActingModelExpressionPrompt.value,
           speechExpressionPrompt: selectedActingSpeechExpressionPrompt.value,
           speechMannerismPrompt: selectedActingSpeechMannerismPrompt.value,
-          idleAnimations: [...(selectedActingIdleAnimations.value || [])],
         },
+        active_concepts: existingAiriExt?.active_concepts || [],
+        agents: existingAiriExt?.agents || {},
+        dreamState: {
+          ...existingAiriExt?.dreamState,
+          afkThresholdMinutes: existingAiriExt?.dreamState?.afkThresholdMinutes || 5,
+          dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
+          dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
+          enabled: dreamStateEnabled.value,
+          journalingThreshold: existingAiriExt?.dreamState?.journalingThreshold || 'balanced',
+          lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
+          maxSessionsPerDay: existingAiriExt?.dreamState?.maxSessionsPerDay || 4,
+          minConversationTurns: existingAiriExt?.dreamState?.minConversationTurns || 4,
+          sessionTimeoutMinutes: existingAiriExt?.dreamState?.sessionTimeoutMinutes || 60,
+          strictAfkGating: dreamStateStrictAfkGating.value,
+        },
+        eternal_record: existingAiriExt?.eternal_record || { lore_bits: [], relational_milestones: [] },
         generation: {
           ...existingAiriExt?.generation,
+          advanced: generationAdvanced,
           enabled: generationEnabled.value,
-          provider: generationProvider.value || selectedConsciousnessProvider.value || consciousnessProvider.value,
-          model: generationModel.value || selectedConsciousnessModel.value || defaultConsciousnessModel.value,
           known: {
             ...existingAiriExt?.generation?.known,
             ...generationKnown,
           },
-          advanced: generationAdvanced,
+          model: generationModel.value || selectedConsciousnessModel.value || defaultConsciousnessModel.value,
+          provider: generationProvider.value || selectedConsciousnessProvider.value || consciousnessProvider.value,
         },
         groundingEnabled: groundingEnabled.value,
+        heartbeats: {
+          ...existingAiriExt?.heartbeats,
+          contextOptions: {
+            ...existingAiriExt?.heartbeats?.contextOptions,
+            systemLoad: heartbeatsContextSystemLoad.value,
+            usageMetrics: heartbeatsContextUsageMetrics.value,
+            windowHistory: heartbeatsContextWindowHistory.value,
+          },
+          enabled: heartbeatsEnabled.value,
+          injectIntoPrompt: heartbeatsInjectIntoPrompt.value,
+          intervalMinutes: heartbeatsIntervalMinutes.value,
+          prompt: heartbeatsPrompt.value,
+          respectSchedule: heartbeatsRespectSchedule.value,
+          schedule: {
+            ...existingAiriExt?.heartbeats?.schedule,
+            end: heartbeatsScheduleEnd.value,
+            start: heartbeatsScheduleStart.value,
+          },
+          useAsLocalGate: heartbeatsUseAsLocalGate.value,
+        },
+        modules: {
+          ...existingAiriExt?.modules,
+          activeBackgroundId: selectedActiveBackgroundId.value || 'none',
+          consciousness: {
+            model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
+            provider: selectedConsciousnessProvider.value || consciousnessProvider.value,
+          },
+          displayModelId: selectedDisplayModelId.value || defaultDisplayModelId.value,
+          speech: {
+            model: selectedSpeechModel.value || defaultSpeechModel.value,
+            provider: selectedSpeechProvider.value || speechProvider.value,
+            voice_id: selectedSpeechVoiceId.value || defaultSpeechVoiceId.value,
+          },
+        },
         visual_assets: existingAiriExt?.visual_assets || {},
-        active_concepts: existingAiriExt?.active_concepts || [],
-        eternal_record: existingAiriExt?.eternal_record || { relational_milestones: [], lore_bits: [] },
       } as AiriExtension,
     },
   }
 
   // Inject artistry manually to avoid TS errors
   cardWithModules.extensions.airi.artistry = {
-    provider: selectedArtistryProvider.value || defaultArtistryProvider.value,
-    model: selectedArtistryModel.value,
-    promptPrefix: selectedArtistryPromptPrefix.value,
-    widgetInstruction: selectedArtistryWidgetInstruction.value,
-    spawnMode: selectedArtistrySpawnMode.value,
     autonomousEnabled: selectedArtistryAutonomousEnabled.value,
-    autonomousThreshold: selectedArtistryAutonomousThreshold.value,
-    autonomousTarget: selectedArtistryAutonomousTarget.value,
-    autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
     autonomousHistoryDepth: selectedArtistryAutonomousHistoryDepth.value,
+    autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
+    autonomousTarget: selectedArtistryAutonomousTarget.value,
+    autonomousThreshold: selectedArtistryAutonomousThreshold.value,
+    model: selectedArtistryModel.value,
     options: artistryConfig,
+    promptPrefix: selectedArtistryPromptPrefix.value,
+    provider: selectedArtistryProvider.value || defaultArtistryProvider.value,
+    spawnMode: selectedArtistrySpawnMode.value,
+    widgetInstruction: selectedArtistryWidgetInstruction.value,
   }
 
   if (isEditMode.value && props.cardId) {
     // Edit mode: update existing card
     cardStore.updateCard(props.cardId, cardWithModules)
-  }
-  else {
+  } else {
     // Create mode: add new card
     await cardStore.addCard(cardWithModules)
   }
@@ -791,7 +773,7 @@ async function saveCard(card: Card): Promise<boolean> {
 // Initialize card data - load from existing card if in edit mode
 function initializeCard(): Card {
   // Extract existing card data if in edit mode
-  const existingCard = (isEditMode.value && props.cardId) ? cardStore.getCard(props.cardId) : undefined
+  const existingCard = isEditMode.value && props.cardId ? cardStore.getCard(props.cardId) : undefined
   const airiExt = existingCard?.extensions?.airi as AiriExtension | undefined
 
   // Initialize module selections with fallback logic (handles all cases: create, edit with/without extension)
@@ -814,21 +796,28 @@ function initializeCard(): Card {
   selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'user'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg_widget'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
-  generationProvider.value = airiExt?.generation?.provider || airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
-  generationModel.value = airiExt?.generation?.model || airiExt?.modules?.consciousness?.model || defaultConsciousnessModel.value
+  generationProvider.value =
+    airiExt?.generation?.provider || airiExt?.modules?.consciousness?.provider || consciousnessProvider.value
+  generationModel.value =
+    airiExt?.generation?.model || airiExt?.modules?.consciousness?.model || defaultConsciousnessModel.value
   generationMaxTokens.value = normalizeOptionalNumber(airiExt?.generation?.known?.maxTokens)
   generationTemperature.value = normalizeOptionalNumber(airiExt?.generation?.known?.temperature)
   generationTopP.value = normalizeOptionalNumber(airiExt?.generation?.known?.topP)
   generationContextWidth.value = normalizeOptionalNumber(airiExt?.generation?.known?.contextWidth)
-  generationAdvancedJson.value = airiExt?.generation?.advanced ? JSON.stringify(airiExt.generation.advanced, null, 2) : '{\n  \n}'
+  generationAdvancedJson.value = airiExt?.generation?.advanced
+    ? JSON.stringify(airiExt.generation.advanced, null, 2)
+    : '{\n  \n}'
   selectedActingModelExpressionPrompt.value = airiExt?.acting?.modelExpressionPrompt || DEFAULT_ACTING_MODEL_PROMPT
-  selectedActingSpeechExpressionPrompt.value = airiExt?.acting?.speechExpressionPrompt || DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT
-  selectedActingSpeechMannerismPrompt.value = airiExt?.acting?.speechMannerismPrompt || DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT
+  selectedActingSpeechExpressionPrompt.value =
+    airiExt?.acting?.speechExpressionPrompt || DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT
+  selectedActingSpeechMannerismPrompt.value =
+    airiExt?.acting?.speechMannerismPrompt || DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT
   selectedActingIdleAnimations.value = [...(airiExt?.acting?.idleAnimations || [])]
   try {
-    selectedArtistryConfigStr.value = airiExt?.artistry?.options ? JSON.stringify(airiExt.artistry.options, null, 2) : '{\n  \n}'
-  }
-  catch {
+    selectedArtistryConfigStr.value = airiExt?.artistry?.options
+      ? JSON.stringify(airiExt.artistry.options, null, 2)
+      : '{\n  \n}'
+  } catch {
     selectedArtistryConfigStr.value = '{\n  \n}'
   }
 
@@ -855,28 +844,35 @@ function initializeCard(): Card {
   }
 
   return {
-    name: t('settings.pages.card.creation.defaults.name'),
-    nickname: undefined,
-    version: '1.0',
     description: '',
-    notes: undefined,
-    personality: t('settings.pages.card.creation.defaults.personality'),
-    scenario: t('settings.pages.card.creation.defaults.scenario'),
-    systemPrompt: t('settings.pages.card.creation.defaults.systemprompt'),
-    postHistoryInstructions: (t('settings.pages.card.creation.defaults.posthistoryinstructions') !== 'settings.pages.card.creation.defaults.posthistoryinstructions' && t('settings.pages.card.creation.defaults.posthistoryinstructions')) || DEFAULT_POST_HISTORY_INSTRUCTIONS,
     greetings: [],
     messageExample: [],
+    name: t('settings.pages.card.creation.defaults.name'),
+    nickname: undefined,
+    notes: undefined,
+    personality: t('settings.pages.card.creation.defaults.personality'),
+    postHistoryInstructions:
+      (t('settings.pages.card.creation.defaults.posthistoryinstructions') !==
+        'settings.pages.card.creation.defaults.posthistoryinstructions' &&
+        t('settings.pages.card.creation.defaults.posthistoryinstructions')) ||
+      DEFAULT_POST_HISTORY_INSTRUCTIONS,
+    scenario: t('settings.pages.card.creation.defaults.scenario'),
+    systemPrompt: t('settings.pages.card.creation.defaults.systemprompt'),
+    version: '1.0',
   }
 }
 
 const card = ref<Card>(initializeCard())
 
 // Reinitialize when cardId changes or dialog opens
-watch(() => [props.modelValue, props.cardId], () => {
-  if (props.modelValue) {
-    card.value = initializeCard()
-  }
-})
+watch(
+  () => [props.modelValue, props.cardId],
+  () => {
+    if (props.modelValue) {
+      card.value = initializeCard()
+    }
+  },
+)
 
 function makeComputed<T extends keyof Card>(
   /*
@@ -889,16 +885,21 @@ function makeComputed<T extends keyof Card>(
     get: () => {
       return card.value[key] ?? ''
     },
-    set: (val: string) => { // Set,
+    set: (val: string) => {
+      // Set,
       const input = val.trim() // We first trim the value
-      card.value[key] = (input.length > 0
-        ? (transform ? transform(input) : input) // then potentially transform it
-        : '') as Card[T]// or default to empty string value if nothing was given
+      card.value[key] = (
+        input.length > 0
+          ? transform
+            ? transform(input)
+            : input // then potentially transform it
+          : ''
+      ) as Card[T] // or default to empty string value if nothing was given
     },
   })
 }
 
-const cardName = makeComputed('name', input => kebabcase(input))
+const cardName = makeComputed('name', (input) => kebabcase(input))
 const cardNickname = makeComputed('nickname')
 const cardDescription = makeComputed('description')
 const cardNotes = makeComputed('notes')
@@ -917,13 +918,11 @@ const cardSystemPrompt = makeComputed('systemPrompt')
 const cardPostHistoryInstructions = makeComputed('postHistoryInstructions')
 
 function normalizeOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'number')
-    return Number.isFinite(value) ? value : undefined
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
 
   if (typeof value === 'string') {
     const trimmed = value.trim()
-    if (!trimmed)
-      return undefined
+    if (!trimmed) return undefined
 
     const parsed = Number(trimmed)
     return Number.isFinite(parsed) ? parsed : undefined

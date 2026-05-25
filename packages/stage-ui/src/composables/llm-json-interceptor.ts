@@ -30,8 +30,7 @@ export function createLlmJsonInterceptor(options: LlmJsonInterceptorOptions) {
             const tail = buffer.slice(lastBacktickIdx)
             if (JSON_BLOCK_START.startsWith(tail) || GENERIC_BLOCK_START.startsWith(tail)) {
               const emitText = buffer.slice(0, lastBacktickIdx)
-              if (emitText)
-                await options.onText(emitText)
+              if (emitText) await options.onText(emitText)
               buffer = tail
               break
             }
@@ -49,8 +48,7 @@ export function createLlmJsonInterceptor(options: LlmJsonInterceptorOptions) {
           if (jsonIdx !== -1 && (genericIdx === -1 || jsonIdx <= genericIdx)) {
             startIdx = jsonIdx
             type = 'json'
-          }
-          else {
+          } else {
             startIdx = genericIdx
             type = 'generic'
           }
@@ -62,13 +60,11 @@ export function createLlmJsonInterceptor(options: LlmJsonInterceptorOptions) {
 
           inBlock = true
           currentBlockType = type
-        }
-        else {
+        } else {
           const startMarker = currentBlockType === 'json' ? JSON_BLOCK_START : GENERIC_BLOCK_START
           const endIdx = buffer.indexOf(BLOCK_END, startMarker.length)
 
-          if (endIdx === -1)
-            break
+          if (endIdx === -1) break
 
           const fullBlock = buffer.slice(0, endIdx + BLOCK_END.length)
           const content = buffer.slice(startMarker.length, endIdx).trim()
@@ -77,18 +73,20 @@ export function createLlmJsonInterceptor(options: LlmJsonInterceptorOptions) {
           if (currentBlockType === 'json' || (content.startsWith('{') && content.endsWith('}'))) {
             try {
               const parsed = JSON.parse(content)
-              if (parsed && typeof parsed === 'object' && ('component' in parsed || 'componentName' in parsed || ('action' in parsed && 'id' in parsed))) {
+              if (
+                parsed &&
+                typeof parsed === 'object' &&
+                ('component' in parsed || 'componentName' in parsed || ('action' in parsed && 'id' in parsed))
+              ) {
                 await options.onJson(parsed, fullBlock)
                 handled = true
               }
-            }
-            catch {
+            } catch {
               // Not valid JSON, fall through to text emission.
             }
           }
 
-          if (!handled)
-            await options.onText(fullBlock)
+          if (!handled) await options.onText(fullBlock)
 
           buffer = buffer.slice(endIdx + BLOCK_END.length)
           inBlock = false

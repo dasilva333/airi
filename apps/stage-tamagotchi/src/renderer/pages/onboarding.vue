@@ -10,7 +10,7 @@ import { electronOnboardingClose } from '../../shared/eventa'
 const onboardingStore = useOnboardingStore()
 const { isDark } = useTheme()
 
-const bgClass = computed(() => isDark.value ? 'bg-[#0f0f0f]' : 'bg-white')
+const bgClass = computed(() => (isDark.value ? 'bg-[#0f0f0f]' : 'bg-white'))
 
 const closeWindow = useElectronEventaInvoke(electronOnboardingClose)
 

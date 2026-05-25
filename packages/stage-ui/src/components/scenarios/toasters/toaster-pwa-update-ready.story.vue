@@ -2,7 +2,7 @@
 import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { h, markRaw } from 'vue'
-import { toast, Toaster } from 'vue-sonner'
+import { Toaster, toast } from 'vue-sonner'
 
 import ToasterPWAUpdateReady from './toaster-pwa-update-ready.vue'
 import ToasterRoot from './toaster-root.vue'
@@ -17,8 +17,8 @@ function handlePopToast() {
 
   // eslint-disable-next-line no-console
   toast(markRaw(h(ToasterPWAUpdateReady, { id, onUpdate: () => console.debug('Update initiated', id) })), {
-    id,
     duration: 30000,
+    id,
     position: isMobile.value ? 'top-center' : 'bottom-right',
   })
 }

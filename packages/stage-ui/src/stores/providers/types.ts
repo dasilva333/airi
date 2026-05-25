@@ -59,15 +59,22 @@ export interface ProviderMetadata {
     listModels?: (config: Record<string, unknown>) => Promise<ModelInfo[]>
     listVoices?: (config: Record<string, unknown>) => Promise<VoiceInfo[]>
     getSpeechCapabilities?: (config: Record<string, unknown>) => Promise<SpeechCapabilitiesInfo | null>
-    loadModel?: (config: Record<string, unknown>, hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => Promise<void>
+    loadModel?: (
+      config: Record<string, unknown>,
+      hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void },
+    ) => Promise<void>
     chatPingCheckAvailable?: boolean
     supportsSSML?: boolean
     supportsPitch?: boolean
   }
   validators: {
     chatPingCheckAvailable?: boolean
-    validateProviderConfig: (config: Record<string, unknown>) => Promise<ProviderValidationResult> | ProviderValidationResult
-    runManualValidation?: (config: Record<string, unknown>) => Promise<ProviderValidationResult> | ProviderValidationResult
+    validateProviderConfig: (
+      config: Record<string, unknown>,
+    ) => Promise<ProviderValidationResult> | ProviderValidationResult
+    runManualValidation?: (
+      config: Record<string, unknown>,
+    ) => Promise<ProviderValidationResult> | ProviderValidationResult
   }
   transcriptionFeatures?: {
     supportsGenerate: boolean

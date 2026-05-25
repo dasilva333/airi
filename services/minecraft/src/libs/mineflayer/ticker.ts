@@ -34,22 +34,18 @@ export class Ticker extends EventEmitter<TickEventHandlers> {
         })
 
         // Run all callbacks without awaiting them
-        const callbackPromises = this.listeners('tick').map(cb => cb({
-          delta: start - last,
-          nextTick: () => nextTickPromise,
-        }))
+        const callbackPromises = this.listeners('tick').map((cb) =>
+          cb({
+            delta: start - last,
+            nextTick: () => nextTickPromise,
+          }),
+        )
 
         // Wait for all callbacks to complete or timeout
-        await Promise.race([
-          Promise.all(callbackPromises),
-          new Promise(resolve =>
-            setTimeout(resolve, interval),
-          ),
-        ])
+        await Promise.race([Promise.all(callbackPromises), new Promise((resolve) => setTimeout(resolve, interval))])
 
         const remaining = interval - (Date.now() - start)
-        if (remaining > 0 && !this.stopping)
-          await new Promise(resolve => setTimeout(resolve, remaining))
+        if (remaining > 0 && !this.stopping) await new Promise((resolve) => setTimeout(resolve, remaining))
 
         last = start
       }

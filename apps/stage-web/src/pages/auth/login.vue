@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { OAuthProvider } from '@proj-airi/stage-ui/libs/auth'
-
 import { LoginDrawer } from '@proj-airi/stage-ui/components/auth'
+import type { OAuthProvider } from '@proj-airi/stage-ui/libs/auth'
 import { fetchSession, signIn } from '@proj-airi/stage-ui/libs/auth'
 import { Button } from '@proj-airi/ui'
 import { useMediaQuery } from '@vueuse/core'
@@ -14,19 +13,17 @@ const router = useRouter()
 const isDesktop = useMediaQuery('(min-width: 768px)')
 
 const loading = ref<Record<OAuthProvider, boolean>>({
-  google: false,
   github: false,
+  google: false,
 })
 
 async function handleSignIn(provider: OAuthProvider) {
   loading.value[provider] = true
   try {
     await signIn(provider)
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : 'An unknown error occurred')
-  }
-  finally {
+  } finally {
     loading.value[provider] = false
   }
 }

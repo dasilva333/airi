@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import type { SpeechProvider } from '@xsai-ext/providers/utils'
-
-import {
-  SpeechPlayground,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { SpeechPlayground, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { getDefaultKokoroModel } from '@proj-airi/stage-ui/workers/kokoro/constants'
 import { Callout, Select } from '@proj-airi/ui'
+import type { SpeechProvider } from '@xsai-ext/providers/utils'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -48,8 +44,7 @@ const modelsLoading = computed(() => {
 const model = computed({
   get(): string {
     const currentValue = providerConfig.value?.model as string
-    if (currentValue)
-      return currentValue
+    if (currentValue) return currentValue
 
     return getDefaultKokoroModel(hasWebGPU.value)
   },
@@ -61,7 +56,7 @@ const model = computed({
 
 // Model options for the dropdown
 const modelOptions = computed(() => {
-  return providerModels.value.map(m => ({
+  return providerModels.value.map((m) => ({
     label: m.name,
     value: m.id,
   }))
@@ -70,28 +65,21 @@ const modelOptions = computed(() => {
 // Generate speech with Kokoro-specific parameters
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
   try {
-    const provider = await providersStore.getProviderInstance(providerId) as SpeechProvider
+    const provider = (await providersStore.getProviderInstance(providerId)) as SpeechProvider
     if (!provider) {
       console.error('[Kokoro Playground] Failed to get provider instance')
       throw new Error('Failed to initialize speech provider')
     }
 
     const config = providersStore.getProviderConfig(providerId)
-    const selectedModel = config.model as string | undefined || defaultModel
+    const selectedModel = (config.model as string | undefined) || defaultModel
 
-    const result = await speechStore.speech(
-      provider,
-      selectedModel,
-      input,
-      voiceId,
-      {
-        ...config,
-      },
-    )
+    const result = await speechStore.speech(provider, selectedModel, input, voiceId, {
+      ...config,
+    })
 
     return result
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[Kokoro Playground] Error generating speech:', error)
     throw error
   }
@@ -119,12 +107,10 @@ onMounted(async () => {
       }
 
       await speechStore.loadVoicesForProvider(providerId)
-    }
-    else {
+    } else {
       console.error('Failed to validate Kokoro provider config', config, validationResult)
     }
-  }
-  finally {
+  } finally {
     voicesLoading.value = false
   }
 })
@@ -148,11 +134,9 @@ watch(model, async (newValue) => {
         // Then reload voices
         await speechStore.loadVoicesForProvider(providerId)
       }
-    }
-    catch (error) {
+    } catch (error) {
       console.error('[Kokoro Settings] Error in model watcher:', error)
-    }
-    finally {
+    } finally {
       voicesLoading.value = false
     }
   }

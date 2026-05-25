@@ -40,30 +40,30 @@ export function createNativeElevenLabsProvider(
         const voiceSettings = options?.voiceSettings ?? baseVoiceSettings ?? { similarityBoost: 0.75, stability: 0.5 }
 
         return globalThis.fetch(`${normalizedBaseUrl}/text-to-speech/${voiceId}`, {
-          method: 'POST',
-          headers: {
-            'xi-api-key': apiKey,
-            'content-type': 'application/json',
-            'accept': 'audio/mpeg',
-          },
           body: JSON.stringify({
-            text,
             model_id: modelId,
+            text,
             voice_settings: {
-              stability: voiceSettings.stability ?? 0.5,
               similarity_boost: voiceSettings.similarityBoost ?? 0.75,
+              stability: voiceSettings.stability ?? 0.5,
               style: voiceSettings.style,
               use_speaker_boost: voiceSettings.useSpeakerBoost,
             },
           }),
+          headers: {
+            accept: 'audio/mpeg',
+            'content-type': 'application/json',
+            'xi-api-key': apiKey,
+          },
+          method: 'POST',
         })
       }
 
       return {
         apiKey,
         baseURL: normalizedBaseUrl,
-        model: `elevenlabs/${model}`,
         fetch: nativeFetch,
+        model: `elevenlabs/${model}`,
       }
     },
   }

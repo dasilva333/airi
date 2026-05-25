@@ -3,7 +3,6 @@ import { z } from 'zod'
 
 const tools = [
   tool({
-    name: 'debug_random_number',
     description: 'Generate a random number between 0 and 1',
     execute: async () => {
       return new Promise((resolve) => {
@@ -12,6 +11,7 @@ const tools = [
         }, 1000)
       })
     },
+    name: 'debug_random_number',
     parameters: z.object({}),
   }),
 ]

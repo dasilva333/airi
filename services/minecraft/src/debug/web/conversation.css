@@ -11,7 +11,9 @@
   text-align: center;
 }
 
-[data-toggle] { cursor: pointer; }
+[data-toggle] {
+  cursor: pointer;
+}
 
 /* All collapsible bodies hidden by default */
 .cv-turn-body,
@@ -57,8 +59,12 @@
   animation: none;
 }
 
-.cv-ctx-status-active { color: var(--accent-success); }
-.cv-ctx-status-idle { color: var(--text-muted); }
+.cv-ctx-status-active {
+  color: var(--accent-success);
+}
+.cv-ctx-status-idle {
+  color: var(--text-muted);
+}
 
 .cv-ctx-arch-btn,
 .cv-ctx-hist-btn {
@@ -96,8 +102,15 @@
   font-family: var(--font-mono);
 }
 
-.cv-arch-idx { color: var(--text-muted); margin-right: 4px; }
-.cv-arch-meta { color: var(--text-muted); margin-left: 6px; font-size: 10px; }
+.cv-arch-idx {
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.cv-arch-meta {
+  color: var(--text-muted);
+  margin-left: 6px;
+  font-size: 10px;
+}
 .cv-arch-summary {
   margin-top: 3px;
   color: var(--text-secondary);
@@ -119,8 +132,13 @@
 }
 
 @keyframes cvPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* --- Turn card --- */
@@ -147,7 +165,9 @@
   text-align: left;
 }
 
-.cv-turn-header:hover { background: var(--border-color); }
+.cv-turn-header:hover {
+  background: var(--border-color);
+}
 
 .cv-turn-num {
   color: var(--accent-info);
@@ -213,16 +233,46 @@
 }
 
 /* Tag colors */
-.cv-tag-event .cv-section-tag { background: rgba(63, 185, 80, 0.15); color: var(--accent-success); }
-.cv-tag-feedback .cv-section-tag { background: rgba(88, 166, 255, 0.15); color: var(--accent-info); }
-.cv-tag-perception .cv-section-tag { background: rgba(210, 153, 34, 0.15); color: var(--accent-warning); }
-.cv-tag-script .cv-section-tag { background: rgba(163, 113, 247, 0.15); color: #a371f7; }
-.cv-tag-queue .cv-section-tag { background: rgba(110, 118, 129, 0.12); color: var(--text-secondary); }
-.cv-tag-budget .cv-section-tag { background: rgba(110, 118, 129, 0.12); color: var(--text-secondary); }
-.cv-tag-context .cv-section-tag { background: rgba(63, 185, 80, 0.12); color: var(--accent-success); }
-.cv-tag-error .cv-section-tag { background: rgba(248, 81, 73, 0.15); color: var(--accent-error); }
-.cv-tag-state .cv-section-tag { background: rgba(210, 153, 34, 0.12); color: var(--accent-warning); }
-.cv-tag-other .cv-section-tag { background: rgba(110, 118, 129, 0.1); color: var(--text-muted); }
+.cv-tag-event .cv-section-tag {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--accent-success);
+}
+.cv-tag-feedback .cv-section-tag {
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-info);
+}
+.cv-tag-perception .cv-section-tag {
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--accent-warning);
+}
+.cv-tag-script .cv-section-tag {
+  background: rgba(163, 113, 247, 0.15);
+  color: #a371f7;
+}
+.cv-tag-queue .cv-section-tag {
+  background: rgba(110, 118, 129, 0.12);
+  color: var(--text-secondary);
+}
+.cv-tag-budget .cv-section-tag {
+  background: rgba(110, 118, 129, 0.12);
+  color: var(--text-secondary);
+}
+.cv-tag-context .cv-section-tag {
+  background: rgba(63, 185, 80, 0.12);
+  color: var(--accent-success);
+}
+.cv-tag-error .cv-section-tag {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--accent-error);
+}
+.cv-tag-state .cv-section-tag {
+  background: rgba(210, 153, 34, 0.12);
+  color: var(--accent-warning);
+}
+.cv-tag-other .cv-section-tag {
+  background: rgba(110, 118, 129, 0.1);
+  color: var(--text-muted);
+}
 
 /* Inline sections (compact one-liners) */
 .cv-section-inline {
@@ -273,7 +323,9 @@
   border-radius: 4px;
 }
 
-.cv-section-toggle:hover { background: var(--bg-tertiary); }
+.cv-section-toggle:hover {
+  background: var(--bg-tertiary);
+}
 
 .cv-section-preview {
   color: var(--text-muted);
@@ -311,7 +363,9 @@
 }
 
 /* Reasoning (collapsible) */
-.cv-reasoning { border-radius: 4px; }
+.cv-reasoning {
+  border-radius: 4px;
+}
 
 .cv-reasoning-toggle {
   display: flex;
@@ -328,7 +382,9 @@
   text-align: left;
 }
 
-.cv-reasoning-toggle:hover { background: rgba(210, 153, 34, 0.12); }
+.cv-reasoning-toggle:hover {
+  background: rgba(210, 153, 34, 0.12);
+}
 
 .cv-reasoning-label {
   font-weight: 600;
@@ -412,7 +468,9 @@
   text-align: left;
 }
 
-.cv-system-toggle:hover { background: rgba(163, 113, 247, 0.1); }
+.cv-system-toggle:hover {
+  background: rgba(163, 113, 247, 0.1);
+}
 
 .cv-system-body {
   border: 1px solid rgba(163, 113, 247, 0.2);

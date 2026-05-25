@@ -31,7 +31,10 @@ export function useElectronEventaContext(ipcRenderer?: IpcRendererLike) {
   return ref(getElectronEventaContext(ipcRenderer))
 }
 
-export function useElectronEventaInvoke<Res, Req = undefined, ResErr = Error, ReqErr = Error>(invoke: InvokeEventa<Res, Req, ResErr, ReqErr>, context?: EventaContext) {
+export function useElectronEventaInvoke<Res, Req = undefined, ResErr = Error, ReqErr = Error>(
+  invoke: InvokeEventa<Res, Req, ResErr, ReqErr>,
+  context?: EventaContext,
+) {
   const ctx = context ?? getElectronEventaContext()
 
   if (!ctx) {

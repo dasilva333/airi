@@ -42,11 +42,11 @@ function animate() {
 
   // Update activity data (sudden spikes)
   let activityBase = 0.1
-  if (frameCount % 30 === 0) { // Spike every 30 frames
+  if (frameCount % 30 === 0) {
+    // Spike every 30 frames
     activityBase = 0.8 + Math.random() * 0.2
   }
-  currentActivity.value = Math.max(0, Math.min(1, currentActivity.value * 0.9 + activityBase * 0.1,
-  ))
+  currentActivity.value = Math.max(0, Math.min(1, currentActivity.value * 0.9 + activityBase * 0.1))
   activityHistory.value.push(currentActivity.value)
   if (activityHistory.value.length > maxHistoryLength) {
     activityHistory.value.shift()
@@ -85,7 +85,9 @@ onUnmounted(() => {
 // Static data for examples
 const staticData1 = [0.2, 0.3, 0.5, 0.7, 0.6, 0.8, 0.9, 0.7, 0.5, 0.4, 0.6, 0.8, 0.9, 0.8, 0.6, 0.4, 0.3, 0.5, 0.7, 0.9]
 const staticData2 = [0.1, 0.2, 0.1, 0.9, 0.8, 0.2, 0.1, 0.3, 0.2, 0.1, 0.8, 0.9, 0.2, 0.1, 0.4, 0.3, 0.2, 0.8, 0.9, 0.3]
-const staticData3 = [0.5, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52]
+const staticData3 = [
+  0.5, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52, 0.48, 0.51, 0.49, 0.53, 0.47, 0.52,
+]
 
 // Custom formatters
 const formatPercentage = (value: number) => `${(value * 100).toFixed(0)}%`

@@ -37,27 +37,34 @@ const filteredModels = computed(() => {
   return models
 })
 
-watch(providerModels, (models) => {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
-    console.log('[Vision UI] providerModels updated:', models)
-  }
-}, { deep: true })
+watch(
+  providerModels,
+  (models) => {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
+      console.log('[Vision UI] providerModels updated:', models)
+    }
+  },
+  { deep: true },
+)
 
 const { t } = useI18n()
 const { trackProviderClick } = useAnalytics()
 const isOpenAICompatibleProvider = computed(() => activeProvider.value === 'openai-compatible')
 
-watch(activeProvider, async (provider, oldProvider) => {
-  if (!provider)
-    return
+watch(
+  activeProvider,
+  async (provider, oldProvider) => {
+    if (!provider) return
 
-  // Reset model when switching providers (but not on initial load)
-  if (oldProvider !== undefined && oldProvider !== provider) {
-    activeModel.value = ''
-  }
+    // Reset model when switching providers (but not on initial load)
+    if (oldProvider !== undefined && oldProvider !== provider) {
+      activeModel.value = ''
+    }
 
-  await visionStore.loadModelsForProvider(provider)
-}, { immediate: true })
+    await visionStore.loadModelsForProvider(provider)
+  },
+  { immediate: true },
+)
 
 // Feedback when model is set
 watch(activeModel, (newModel, oldModel) => {

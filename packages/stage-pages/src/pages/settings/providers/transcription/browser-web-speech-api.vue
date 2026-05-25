@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-
 import {
   Alert,
   ErrorContainer,
@@ -12,6 +10,7 @@ import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { streamWebSpeechAPITranscription } from '@proj-airi/stage-ui/stores/providers/web-speech-api'
 import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { Button, FieldSelect } from '@proj-airi/ui'
+import type { RemovableRef } from '@vueuse/core'
 import { until } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
@@ -40,8 +39,7 @@ const settings = computed({
 const language = computed({
   get: () => settings.value?.language || 'en-US',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].language = value
   },
 })
@@ -49,8 +47,7 @@ const language = computed({
 const continuous = computed({
   get: () => settings.value?.continuous ?? true,
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].continuous = value
   },
 })
@@ -58,8 +55,7 @@ const continuous = computed({
 const interimResults = computed({
   get: () => settings.value?.interimResults ?? true,
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].interimResults = value
   },
 })
@@ -83,25 +79,24 @@ const languageOptions = [
 function ensureProviderSettings() {
   if (!providers.value[providerId]) {
     providers.value[providerId] = {
-      language: 'en-US',
       continuous: true,
       interimResults: true,
+      language: 'en-US',
     }
   }
 }
 
 function handleResetSettings() {
   providers.value[providerId] = {
-    language: 'en-US',
     continuous: true,
     interimResults: true,
+    language: 'en-US',
   }
 }
 
 // Check if Web Speech API is available
 const isWebSpeechAPIAvailable = computed(() => {
-  return typeof window !== 'undefined'
-    && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+  return typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
 })
 
 onMounted(async () => {
@@ -140,7 +135,8 @@ async function startSTTTest() {
   }
 
   if (!isWebSpeechAPIAvailable.value) {
-    testTranscriptionError.value = 'Web Speech API is not available in this browser. Please use Chrome, Edge, or Safari.'
+    testTranscriptionError.value =
+      'Web Speech API is not available in this browser. Please use Chrome, Edge, or Safari.'
     return
   }
 
@@ -160,9 +156,8 @@ async function startSTTTest() {
 
       // Wait for the stream to become available with a 3-second timeout.
       try {
-        await until(stream).toBeTruthy({ timeout: 3000, throwOnTimeout: true })
-      }
-      catch {
+        await until(stream).toBeTruthy({ throwOnTimeout: true, timeout: 3000 })
+      } catch {
         handleStreamStartError()
         return
       }
@@ -172,8 +167,7 @@ async function startSTTTest() {
         handleStreamStartError()
         return
       }
-    }
-    else {
+    } else {
       testStreamWasStarted.value = false
     }
 
@@ -195,10 +189,10 @@ async function startSTTTest() {
     }
 
     const result = streamWebSpeechAPITranscription(stream.value, {
-      language: language.value,
+      abortSignal: abortController.signal,
       continuous: continuous.value,
       interimResults: interimResults.value,
-      abortSignal: abortController.signal,
+      language: language.value,
       onSentenceEnd: (delta) => {
         if (delta && delta.trim()) {
           testStreamingText.value += `${delta} `
@@ -214,8 +208,7 @@ async function startSTTTest() {
           testStatusMessage.value = 'Transcription complete!'
           isTranscribing.value = false
           console.info('Web Speech API test completed with text:', text)
-        }
-        else {
+        } else {
           testStatusMessage.value = 'Waiting for speech...'
           isTranscribing.value = false
         }
@@ -228,8 +221,7 @@ async function startSTTTest() {
 
     testStatusMessage.value = 'Listening for speech... (Web Speech API streaming mode)'
     isTranscribing.value = false // Not actively transcribing yet, just listening
-  }
-  catch (err) {
+  } catch (err) {
     testTranscriptionError.value = err instanceof Error ? err.message : String(err)
     testStatusMessage.value = `Error: ${testTranscriptionError.value}`
     isTranscribing.value = false
@@ -248,8 +240,9 @@ async function stopSTTTest() {
     if (testRecognitionInstance.value) {
       try {
         testRecognitionInstance.value.stop()
+      } catch (err) {
+        console.warn('Error stopping recognition instance:', err)
       }
-      catch (err) { console.warn('Error stopping recognition instance:', err) }
       testRecognitionInstance.value = null
     }
 
@@ -258,8 +251,7 @@ async function stopSTTTest() {
       testAbortController.value.abort()
       testAbortController.value = null
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Error stopping STT test:', err)
   }
 
@@ -273,8 +265,7 @@ async function stopSTTTest() {
     try {
       stopStream()
       testStreamWasStarted.value = false
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Error stopping test stream:', err)
     }
   }

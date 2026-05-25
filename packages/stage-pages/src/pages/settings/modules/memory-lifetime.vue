@@ -22,16 +22,14 @@ const showLifetimeModal = ref(false)
 const autoHandoff = ref(true)
 
 const activeCharacterArtifact = computed(() => {
-  if (!activeCardId.value)
-    return null
+  if (!activeCardId.value) return null
   return artifacts.value.get(activeCardId.value) || null
 })
 
 const isProvisioned = computed(() => !!activeCharacterArtifact.value)
 
 const activeCard = computed(() => {
-  if (!activeCardId.value)
-    return null
+  if (!activeCardId.value) return null
   return cards.value.get(activeCardId.value) || null
 })
 
@@ -46,11 +44,16 @@ const artifactTokens7k = computed(() => {
 })
 
 const threadStatus = computed(() => [
-  { label: 'Soul Active', icon: 'i-solar:dna-bold-duotone' },
-  { label: `Archive: ${activeCharacterArtifact.value?.metadata?.chunkCount || 0} Chunks`, icon: 'i-solar:layers-bold-duotone' },
+  { icon: 'i-solar:dna-bold-duotone', label: 'Soul Active' },
   {
+    icon: 'i-solar:layers-bold-duotone',
+    label: `Archive: ${activeCharacterArtifact.value?.metadata?.chunkCount || 0} Chunks`,
+  },
+  {
+    icon: activeCharacterArtifact.value?.chunkSummaries?.length
+      ? 'i-solar:database-bold-duotone'
+      : 'i-solar:database-minimalistic-bold-duotone',
     label: activeCharacterArtifact.value?.chunkSummaries?.length ? 'Foundation: OK' : 'Foundation: Missing',
-    icon: activeCharacterArtifact.value?.chunkSummaries?.length ? 'i-solar:database-bold-duotone' : 'i-solar:database-minimalistic-bold-duotone',
   },
 ])
 

@@ -5,12 +5,12 @@ import RippleGrid from './index.vue'
 
 const sections = ref([
   {
-    title: 'Section 1',
     items: Array.from({ length: 51 }, (_, i) => ({ id: `s1-${i}`, label: `Item ${i + 1}` })),
+    title: 'Section 1',
   },
   {
-    title: 'Section 2',
     items: Array.from({ length: 11 }, (_, i) => ({ id: `s2-${i}`, label: `Item ${i + 1}` })),
+    title: 'Section 2',
   },
 ])
 

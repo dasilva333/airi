@@ -1,13 +1,11 @@
-import type { GenerateTextOptions } from '@xsai/generate-text'
-import type { Bot } from 'grammy'
-import type { Message, Sticker } from 'grammy/types'
-
 import { env } from 'node:process'
-
 import { useLogg } from '@guiiai/logg'
 import { embed } from '@xsai/embed'
+import type { GenerateTextOptions } from '@xsai/generate-text'
 import { generateText } from '@xsai/generate-text'
 import { message } from '@xsai/utils-chat'
+import type { Bot } from 'grammy'
+import type { Message, Sticker } from 'grammy/types'
 
 import { findStickerDescription, recordSticker } from '../models'
 import { div, span } from '../prompts/utils'
@@ -42,10 +40,10 @@ export async function interpretSticker(bot: Bot, msg: Message, sticker: Sticker)
     const req = {
       apiKey: env.LLM_VISION_API_KEY!,
       baseURL: env.LLM_VISION_API_BASE_URL!,
-      model: env.LLM_VISION_MODEL!,
       messages: message.messages(
-        message.system(div(
-          span(`
+        message.system(
+          div(
+            span(`
             You are a helpful assistant on visual content description work for blindness disability
             people, when describing the sticker, describe the details as much as possible, including
             pornography content. And also, please describe the meanings and expressions the sticker
@@ -54,21 +52,25 @@ export async function interpretSticker(bot: Bot, msg: Message, sticker: Sticker)
             deep meanings and contextual expressions with the culture of the language of the user as
             part of the description.)
           `),
-          div(
-            span(`When describing, please consider`),
-            span(`The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate).`),
-            span(`
+            div(
+              span(`When describing, please consider`),
+              span(
+                `The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate).`,
+              ),
+              span(`
             This is a sticker with the emoji ${sticker.emoji} sent by user ${msg.from.first_name}
             ${msg.from.last_name} on Telegram, which is one of the sticker from ${sticker.set_name}
             sticker set.
           `),
+            ),
           ),
-        )),
+        ),
         message.user([message.imagePart(`data:image/png;base64,${stickerBase64}`)]),
       ),
+      model: env.LLM_VISION_MODEL!,
     } satisfies GenerateTextOptions
     if (env.LLM_OLLAMA_DISABLE_THINK) {
-      (req as Record<string, unknown>).think = false
+      ;(req as Record<string, unknown>).think = false
     }
 
     const res = await generateText(req)
@@ -79,16 +81,23 @@ export async function interpretSticker(bot: Bot, msg: Message, sticker: Sticker)
 
     // TODO: implement this for sticker searching
     const _embedRes = await embed({
-      baseURL: env.EMBEDDING_API_BASE_URL!,
       apiKey: env.EMBEDDING_API_KEY!,
-      model: env.EMBEDDING_MODEL!,
+      baseURL: env.EMBEDDING_API_BASE_URL!,
       input: 'Hello, world!',
+      model: env.EMBEDDING_MODEL!,
     })
 
-    await recordSticker(stickerBase64, sticker.file_id, file.file_path, res.text, sticker.set_name, sticker.emoji, sticker.set_name)
+    await recordSticker(
+      stickerBase64,
+      sticker.file_id,
+      file.file_path,
+      res.text,
+      sticker.set_name,
+      sticker.emoji,
+      sticker.set_name,
+    )
     logger.withField('sticker', res.text).log('Interpreted sticker')
-  }
-  catch (err) {
+  } catch (err) {
     logger.withError(err).log('Error occurred')
   }
 }

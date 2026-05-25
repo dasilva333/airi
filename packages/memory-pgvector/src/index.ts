@@ -12,8 +12,7 @@ async function main() {
     name: 'memory-pgvector',
   })
 
-  client.onEvent('module:configure', (_event) => {
-  })
+  client.onEvent('module:configure', (_event) => {})
 
   runUntilSignal()
 

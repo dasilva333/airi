@@ -18,9 +18,9 @@ export function vChoice(...args: [boolean | (() => boolean), string][]) {
 
 export function span(...args: string[]) {
   return args
-    .map(arg => arg.trim())
-    .map(arg => arg.replaceAll(/\n\s+/g, ''))
-    .map(arg => arg.replaceAll(/\r\s+/g, ' '))
+    .map((arg) => arg.trim())
+    .map((arg) => arg.replaceAll(/\n\s+/g, ''))
+    .map((arg) => arg.replaceAll(/\r\s+/g, ' '))
     .join(' ')
 }
 
@@ -33,11 +33,9 @@ export function div(...args: (string | TextContentPart | TextContentPart[] | nul
     }
     if (typeof arg === 'string') {
       results.push(arg)
-    }
-    else if (Array.isArray(arg)) {
+    } else if (Array.isArray(arg)) {
       results.push(div(...arg))
-    }
-    else {
+    } else {
       results.push(arg.text)
     }
   }
@@ -47,7 +45,9 @@ export function div(...args: (string | TextContentPart | TextContentPart[] | nul
 
 // ul + li
 export function ul(...args: string[]) {
-  return args.map((arg) => {
-    return `- ${arg}`
-  }).join('\n')
+  return args
+    .map((arg) => {
+      return `- ${arg}`
+    })
+    .join('\n')
 }

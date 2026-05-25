@@ -9,33 +9,33 @@ const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 
 const settings = computed(() => [
   {
-    title: t('settings.pages.system.general.title'),
     description: t('settings.pages.system.general.description'),
     icon: 'i-solar:emoji-funny-square-bold-duotone',
+    title: t('settings.pages.system.general.title'),
     to: '/settings/system/general',
   },
   {
-    title: t('settings.pages.system.color-scheme.title'),
     description: t('settings.pages.system.color-scheme.description'),
     icon: 'i-solar:pallete-2-bold-duotone',
+    title: t('settings.pages.system.color-scheme.title'),
     to: '/settings/system/color-scheme',
   },
   {
-    title: t('settings.pages.system.developer.title'),
     description: t('settings.pages.system.developer.description'),
     icon: 'i-solar:code-bold-duotone',
+    title: t('settings.pages.system.developer.title'),
     to: '/settings/system/developer',
   },
   {
-    title: t('settings.pages.chat.title'),
     description: t('settings.pages.chat.description'),
     icon: 'i-solar:chat-round-dots-bold-duotone',
+    title: t('settings.pages.chat.title'),
     to: '/settings/system/chat',
   },
   {
-    title: t('settings.pages.connection.title'),
     description: t('settings.pages.connection.description'),
     icon: 'i-solar:wi-fi-router-bold-duotone',
+    title: t('settings.pages.connection.title'),
     to: '/settings/system/connection',
   },
 ])

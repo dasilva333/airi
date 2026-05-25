@@ -16,11 +16,11 @@ export class ChatMessageHandler {
   // Creates a new chat message context with validation
   createMessageContext(entity: Entity | null, username: string, content: string): ChatMessage {
     return {
-      sender: {
-        username,
-        entity,
-      },
       content,
+      sender: {
+        entity,
+        username,
+      },
     }
   }
 

@@ -1,6 +1,5 @@
-import type { ElectronWindow } from '@proj-airi/stage-shared'
-
 import { electronAPI } from '@electron-toolkit/preload'
+import type { ElectronWindow } from '@proj-airi/stage-shared'
 import { contextBridge, ipcRenderer } from 'electron'
 
 // Bypass strict eslint rules for the process global in sandboxed scripts
@@ -22,12 +21,10 @@ export function expose() {
     try {
       contextBridge.exposeInMainWorld('electron', electronAPI)
       contextBridge.exposeInMainWorld('platform', _process.platform)
-    }
-    catch (error) {
+    } catch (error) {
       console.error(error)
     }
-  }
-  else {
+  } else {
     window.electron = electronAPI
     window.platform = _process.platform
   }
@@ -42,12 +39,10 @@ export function exposeWithCustomAPI<CustomAPI>(customAPI: CustomAPI) {
   if (_process.contextIsolated) {
     try {
       contextBridge.exposeInMainWorld('api', customAPI)
-    }
-    catch (error) {
+    } catch (error) {
       console.error(error)
     }
-  }
-  else {
-    (window as ElectronWindow<CustomAPI>).api = customAPI
+  } else {
+    ;(window as ElectronWindow<CustomAPI>).api = customAPI
   }
 }

@@ -4,11 +4,9 @@ import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/c
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import ControlButtonTooltip from '../controls-island/control-button-tooltip.vue'
-import ControlButton from '../controls-island/control-button.vue'
-
 import { electronOpenSettings } from '../../../../shared/eventa'
+import ControlButton from '../controls-island/control-button.vue'
+import ControlButtonTooltip from '../controls-island/control-button-tooltip.vue'
 
 const { t, te } = useI18n()
 const { connected } = storeToRefs(useModsServerChannelStore())
@@ -38,9 +36,7 @@ const iconClasses = computed(() => {
     connected.value ? 'i-ph:wifi-high' : 'i-ph:wifi-slash status-island-lamp-flicker',
     statusIslandSize.icon,
     'shrink-0 transition-colors duration-300 ease-in-out',
-    connected.value
-      ? 'text-emerald-600 dark:text-emerald-300'
-      : 'text-amber-600 dark:text-amber-300',
+    connected.value ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300',
   ]
 })
 
@@ -92,14 +88,18 @@ function handleFlickerIteration() {
   }
 }
 
-watch(connected, (isConnected) => {
-  if (isConnected) {
-    flickerDelay.value = '0s'
-    return
-  }
+watch(
+  connected,
+  (isConnected) => {
+    if (isConnected) {
+      flickerDelay.value = '0s'
+      return
+    }
 
-  randomizeFlicker(true)
-}, { immediate: true })
+    randomizeFlicker(true)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

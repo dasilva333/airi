@@ -5,10 +5,8 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-
-import GeminiGraphic from '../../assets/onboarding/gemini-graphic.png'
-
 import { noticeWindowEventa } from '../../../shared/eventa'
+import GeminiGraphic from '../../assets/onboarding/gemini-graphic.png'
 import { useControlsIslandStore } from '../../stores/controls-island'
 
 const context = useElectronEventaContext()
@@ -27,18 +25,14 @@ const waitingForRequest = computed(() => !requestId.value)
 
 onMounted(async () => {
   try {
-    const id = typeof route.query.id === 'string'
-      ? route.query.id
-      : Array.isArray(route.query.id)
-        ? route.query.id[0]
-        : null
+    const id =
+      typeof route.query.id === 'string' ? route.query.id : Array.isArray(route.query.id) ? route.query.id[0] : null
 
     const pending = await notifyMounted({ id: id ?? undefined })
     if (pending?.id && pending.type === 'gemini-onboarding') {
       requestId.value = pending.id
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('Failed to notify notice window mounted:', error)
   }
 })
@@ -46,8 +40,7 @@ onMounted(async () => {
 onBeforeUnmount(async () => {
   try {
     await notifyUnmounted({ id: undefined })
-  }
-  catch {
+  } catch {
     /* noop */
   }
 })
@@ -60,15 +53,12 @@ async function handleAction(action: 'confirm' | 'cancel' | 'close') {
   }
 
   try {
-    if (action === 'confirm')
-      dontShowGeminiOnboarding.value = dontShowGeminiOnboardingPending.value
+    if (action === 'confirm') dontShowGeminiOnboarding.value = dontShowGeminiOnboardingPending.value
 
-    await sendAction({ id, action })
-  }
-  catch (error) {
+    await sendAction({ action, id })
+  } catch (error) {
     console.warn('Failed to notify main process of notice action:', error)
-  }
-  finally {
+  } finally {
     window.close()
   }
 }

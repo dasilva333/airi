@@ -7,31 +7,34 @@ interface MapPoint {
   label?: string
 }
 
-const props = withDefaults(defineProps<{
-  propsLoading?: boolean
-  title?: string
-  eta?: string
-  distance?: string
-  mode?: string
-  status?: string
-  originLabel?: string
-  destinationLabel?: string
-  origin?: MapPoint
-  destination?: MapPoint
-  route?: MapPoint[]
-  stops?: MapPoint[]
-  accent?: string
-}>(), {
-  propsLoading: false,
-  title: undefined,
-  eta: '--',
-  distance: '--',
-  mode: 'Transit',
-  status: 'Smooth ride',
-  originLabel: 'You',
-  destinationLabel: 'Airport',
-  accent: '#38bdf8',
-})
+const props = withDefaults(
+  defineProps<{
+    propsLoading?: boolean
+    title?: string
+    eta?: string
+    distance?: string
+    mode?: string
+    status?: string
+    originLabel?: string
+    destinationLabel?: string
+    origin?: MapPoint
+    destination?: MapPoint
+    route?: MapPoint[]
+    stops?: MapPoint[]
+    accent?: string
+  }>(),
+  {
+    accent: '#38bdf8',
+    destinationLabel: 'Airport',
+    distance: '--',
+    eta: '--',
+    mode: 'Transit',
+    originLabel: 'You',
+    propsLoading: false,
+    status: 'Smooth ride',
+    title: undefined,
+  },
+)
 
 const fallbackOrigin: MapPoint = { x: 22, y: 72 }
 const fallbackDestination: MapPoint = { x: 78, y: 26 }
@@ -46,9 +49,9 @@ const fallbackRoute: MapPoint[] = [
 ]
 
 const fallbackStops: MapPoint[] = [
-  { x: 32, y: 64, label: 'Midtown' },
-  { x: 52, y: 50, label: 'Central' },
-  { x: 70, y: 34, label: 'Skyline' },
+  { label: 'Midtown', x: 32, y: 64 },
+  { label: 'Central', x: 52, y: 50 },
+  { label: 'Skyline', x: 70, y: 34 },
 ]
 
 function clamp(value: number) {
@@ -57,9 +60,9 @@ function clamp(value: number) {
 
 function clampPoint(point: MapPoint): MapPoint {
   return {
+    label: point.label,
     x: clamp(point.x),
     y: clamp(point.y),
-    label: point.label,
   }
 }
 
@@ -70,13 +73,11 @@ const resolvedDestination = computed(() => clampPoint(props.destination ?? fallb
 
 const routePoints = computed(() => {
   const points = (props.route?.length ? props.route : fallbackRoute).map(clampPoint)
-  if (!points.length)
-    return [resolvedOrigin.value, resolvedDestination.value]
+  if (!points.length) return [resolvedOrigin.value, resolvedDestination.value]
 
   const first = points[0]
   const last = points[points.length - 1]
-  if (first.x !== resolvedOrigin.value.x || first.y !== resolvedOrigin.value.y)
-    points.unshift(resolvedOrigin.value)
+  if (first.x !== resolvedOrigin.value.x || first.y !== resolvedOrigin.value.y) points.unshift(resolvedOrigin.value)
   if (last.x !== resolvedDestination.value.x || last.y !== resolvedDestination.value.y)
     points.push(resolvedDestination.value)
 
@@ -85,13 +86,16 @@ const routePoints = computed(() => {
 
 const stopPoints = computed(() => (props.stops?.length ? props.stops : fallbackStops).map(clampPoint))
 
-const routePath = computed(() => routePoints.value
-  .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-  .join(' '))
+const routePath = computed(() =>
+  routePoints.value.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' '),
+)
 
-const mapStyle = computed(() => ({
-  '--map-accent': props.accent,
-} as Record<string, string>))
+const mapStyle = computed(
+  () =>
+    ({
+      '--map-accent': props.accent,
+    }) as Record<string, string>,
+)
 
 function pointStyle(point: MapPoint) {
   return {

@@ -1,7 +1,6 @@
-import type { AboutBuildInfo } from '../../components/scenarios/about/types'
-
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { AboutBuildInfo } from '../../components/scenarios/about/types'
 
 import { useBuildInfo } from '../../composables'
 
@@ -13,8 +12,7 @@ export const useSharedAnalyticsStore = defineStore('analytics-shared', () => {
   const firstMessageTracked = ref(false)
 
   function initialize() {
-    if (isInitialized.value)
-      return
+    if (isInitialized.value) return
 
     appStartTime.value = Date.now()
 
@@ -26,8 +24,8 @@ export const useSharedAnalyticsStore = defineStore('analytics-shared', () => {
   }
 
   return {
-    buildInfo,
     appStartTime,
+    buildInfo,
     firstMessageTracked,
     initialize,
     markFirstMessageTracked,

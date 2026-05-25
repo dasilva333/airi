@@ -16,21 +16,24 @@ const { shortcuts } = storeToRefs(useShortcutsStore())
 const usePageSpecificTransitionsSettingChanged = ref(false)
 
 // avoid showing the animation component when the page specific transitions are enabled
-watch(() => [settings.usePageSpecificTransitions, settings.disableTransitions], () => {
-  usePageSpecificTransitionsSettingChanged.value = true
-})
+watch(
+  () => [settings.usePageSpecificTransitions, settings.disableTransitions],
+  () => {
+    usePageSpecificTransitionsSettingChanged.value = true
+  },
+)
 
 const recordingFor = ref<string | null>(null)
 const recordingKeys = ref<{
   modifier: string[]
   key: string
 }>({
-  modifier: [],
   key: '',
+  modifier: [],
 })
 
 // Add function to handle shortcut recording
-function startRecording(shortcut: typeof shortcuts.value[0]) {
+function startRecording(shortcut: (typeof shortcuts.value)[0]) {
   recordingFor.value = shortcut.type
 }
 
@@ -43,33 +46,31 @@ onUnmounted(() => {
 })
 
 // Handle key combinations
-useEventListener('keydown', (e) => {
-  if (!recordingFor.value)
-    return
-  if (!e.code.startsWith('Key')) // ignore non-key events
-    return
-  if (e.metaKey)
-    recordingKeys.value.modifier.push('Meta')
-  if (e.ctrlKey)
-    recordingKeys.value.modifier.push('Control')
-  if (e.altKey)
-    recordingKeys.value.modifier.push('Alt')
-  if (e.shiftKey)
-    recordingKeys.value.modifier.push('Shift')
+useEventListener(
+  'keydown',
+  (e) => {
+    if (!recordingFor.value) return
+    if (!e.code.startsWith('Key'))
+      // ignore non-key events
+      return
+    if (e.metaKey) recordingKeys.value.modifier.push('Meta')
+    if (e.ctrlKey) recordingKeys.value.modifier.push('Control')
+    if (e.altKey) recordingKeys.value.modifier.push('Alt')
+    if (e.shiftKey) recordingKeys.value.modifier.push('Shift')
 
-  if (recordingKeys.value.modifier.length === 0)
-    return
+    if (recordingKeys.value.modifier.length === 0) return
 
-  recordingKeys.value.key = e.code.slice(3)
-  const shortcut = shortcuts.value.find(s => s.type === recordingFor.value)
-  if (shortcut)
-    shortcut.shortcut = `${recordingKeys.value.modifier.join('+')}+${recordingKeys.value.key}`
-  recordingKeys.value = {
-    modifier: [],
-    key: '',
-  }
-  recordingFor.value = null
-}, { passive: false })
+    recordingKeys.value.key = e.code.slice(3)
+    const shortcut = shortcuts.value.find((s) => s.type === recordingFor.value)
+    if (shortcut) shortcut.shortcut = `${recordingKeys.value.modifier.join('+')}+${recordingKeys.value.key}`
+    recordingKeys.value = {
+      key: '',
+      modifier: [],
+    }
+    recordingFor.value = null
+  },
+  { passive: false },
+)
 // Add click outside handler to cancel recording
 useEventListener('click', (e) => {
   if (recordingFor.value) {
@@ -77,8 +78,8 @@ useEventListener('click', (e) => {
     if (!target.closest('.shortcut-item')) {
       recordingFor.value = null
       recordingKeys.value = {
-        modifier: [],
         key: '',
+        modifier: [],
       }
     }
   }
@@ -89,8 +90,8 @@ const pressKeysMessage = computed(() => {
     return t('tamagotchi.settings.pages.themes.window-shortcuts.press-keys')
   return `${t('tamagotchi.settings.pages.themes.window-shortcuts.press-keys')}: ${recordingKeys.value.modifier.join('+')}+${recordingKeys.value.key}`
 })
-function isConflict(shortcut: typeof shortcuts.value[0]) {
-  return shortcuts.value.some(s => s.type !== shortcut.type && s.shortcut === shortcut.shortcut)
+function isConflict(shortcut: (typeof shortcuts.value)[0]) {
+  return shortcuts.value.some((s) => s.type !== shortcut.type && s.shortcut === shortcut.shortcut)
 }
 </script>
 

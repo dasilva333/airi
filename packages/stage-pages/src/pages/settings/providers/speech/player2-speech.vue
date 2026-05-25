@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { UnElevenLabsOptions } from 'unspeech'
-
-import {
-  Alert,
-  SpeechPlayground,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { Alert, SpeechPlayground, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldRange } from '@proj-airi/ui'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
+import type { UnElevenLabsOptions } from 'unspeech'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -25,24 +20,21 @@ const availableVoices = computed(() => {
 })
 // Generate speech with Player2-specific parameters
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
+  const provider = (await providersStore.getProviderInstance(providerId)) as SpeechProviderWithExtraOptions<
+    string,
+    UnElevenLabsOptions
+  >
   if (!provider) {
     throw new Error('Failed to initialize speech provider')
   }
   // Get provider configuration
   const providerConfig = providersStore.getProviderConfig(providerId)
   // Get model from configuration or use default
-  const model = providerConfig.model as string | undefined || defaultModel
+  const model = (providerConfig.model as string | undefined) || defaultModel
   // Player2 doesn't need SSML conversion, but if SSML is provided, use it directly
-  return await speechStore.speech(
-    provider,
-    model,
-    input,
-    voiceId,
-    {
-      ...providerConfig,
-    },
-  )
+  return await speechStore.speech(provider, model, input, voiceId, {
+    ...providerConfig,
+  })
 }
 const hasPlayer2 = ref(true)
 onMounted(async () => {
@@ -50,21 +42,19 @@ onMounted(async () => {
   const providerMetadata = providersStore.getProviderMetadata(providerId)
   if (await providerMetadata.validators.validateProviderConfig(providerConfig)) {
     await speechStore.loadVoicesForProvider(providerId)
-  }
-  else {
+  } else {
     console.error('Failed to validate provider config', providerConfig)
   }
   try {
     const baseUrl = (providerConfig.baseUrl as string | undefined) ?? ''
     const res = await fetch(`${baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl}/health`, {
-      method: 'GET',
       headers: {
         'player2-game-key': 'airi',
       },
+      method: 'GET',
     })
     hasPlayer2.value = res.status === 200
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e)
     hasPlayer2.value = false
   }

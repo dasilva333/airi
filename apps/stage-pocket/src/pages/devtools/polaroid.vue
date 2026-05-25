@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Live2DCanvas, Live2DModel } from '@proj-airi/stage-ui/components/scenes'
+import type { Live2DCanvas, Live2DModel } from '@proj-airi/stage-ui/components/scenes'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { Screen } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -11,11 +11,13 @@ const live2dModelRef = ref<InstanceType<typeof Live2DModel>>()
 const settingsStore = useSettings()
 const { stageModelSelectedUrl } = storeToRefs(settingsStore)
 const motion = ref<string>('idle')
-const motionGroupsList = ref<{
-  motionName: string
-  motionIndex: number
-  fileName: string
-}[]>([])
+const motionGroupsList = ref<
+  {
+    motionName: string
+    motionIndex: number
+    fileName: string
+  }[]
+>([])
 
 function download(href: string, name: string) {
   const link = document.createElement('a')
@@ -30,9 +32,13 @@ function handleSetMotion(motionName: string) {
   live2dModelRef.value?.setMotion(motionName)
 }
 
-watch(live2dModelRef, (model) => {
-  motionGroupsList.value = model?.listMotionGroups() || []
-}, { immediate: true })
+watch(
+  live2dModelRef,
+  (model) => {
+    motionGroupsList.value = model?.listMotionGroups() || []
+  },
+  { immediate: true },
+)
 
 function handleModelLoaded() {
   if (live2dModelRef.value) {
@@ -42,8 +48,7 @@ function handleModelLoaded() {
 }
 
 function handleShot() {
-  if (!live2dCanvasRef.value || !live2dModelRef.value)
-    return
+  if (!live2dCanvasRef.value || !live2dModelRef.value) return
 
   const canvas = live2dCanvasRef.value.canvasElement()
   const dataUrl = canvas!.toDataURL('image/png')

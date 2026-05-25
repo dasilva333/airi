@@ -13,7 +13,11 @@ const route = useRoute()
 const { locale } = useI18n()
 
 // NOTICE: Relative path from this file to project root is 7 segments.
-const modules = import.meta.glob('../../../../../../../docs/content/**/*.md', { query: '?raw', import: 'default', eager: false })
+const modules = import.meta.glob('../../../../../../../docs/content/**/*.md', {
+  eager: false,
+  import: 'default',
+  query: '?raw',
+})
 
 const content = ref('')
 const loading = ref(true)
@@ -68,8 +72,7 @@ async function loadContent() {
           title = titleMatch[1].replace(/['"]/g, '').trim()
         }
         stripped = raw.replace(fmRegex, '').trim()
-      }
-      else {
+      } else {
         // Fallback: If no --- block at start, check for loose "title: " at very start
         const looseTitleMatch = raw.match(/^\s*title:\s*(.*)/)
         if (looseTitleMatch) {
@@ -81,19 +84,16 @@ async function loadContent() {
       // Ensure we don't duplicate a title if the md already starts with #
       if (title && !stripped.startsWith('# ')) {
         content.value = `# ${title}\n\n${stripped}`
-      }
-      else {
+      } else {
         content.value = stripped
       }
 
       diagnostics.value = `Lang: ${lang} | Found: ${finalPath} | Title: ${title || 'NONE'}`
-    }
-    catch (e: any) {
+    } catch (e: any) {
       content.value = `# Error\n${e.message}`
       diagnostics.value = `Load Error: ${e.message}`
     }
-  }
-  else {
+  } else {
     content.value = `# Not Found\nPath: ${pathStr}`
     diagnostics.value = `Not Found in Glob (Size: ${Object.keys(modules).length})`
   }

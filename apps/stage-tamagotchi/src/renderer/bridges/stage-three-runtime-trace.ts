@@ -1,7 +1,4 @@
 import type { Eventa } from '@moeru/eventa'
-
-import type { StageThreeRuntimeTraceEnvelope } from '../../shared/eventa'
-
 import { createContext as createBroadcastChannelContext } from '@moeru/eventa/adapters/broadcast-channel'
 import {
   acquireStageThreeRuntimeTrace,
@@ -15,6 +12,7 @@ import {
   stageThreeTraceVrmLoadStartEvent,
   stageThreeTraceVrmUpdateFrameEvent,
 } from '@proj-airi/stage-ui-three/trace'
+import type { StageThreeRuntimeTraceEnvelope } from '../../shared/eventa'
 
 import {
   stageThreeRuntimeTraceForwardedEvent,
@@ -81,8 +79,7 @@ function replayLatestTraceEnvelopes() {
 
   for (const type of replayOrder) {
     const envelope = latestEnvelopes.get(type)
-    if (!envelope)
-      continue
+    if (!envelope) continue
 
     context.emit(stageThreeRuntimeTraceForwardedEvent, {
       envelope,
@@ -93,8 +90,7 @@ function replayLatestTraceEnvelopes() {
 
 function subscribeTraceEvent<T>(eventa: Eventa<T>, createEnvelope: (payload: T) => StageThreeRuntimeTraceEnvelope) {
   localTraceContext.on(eventa, (event) => {
-    if (!event?.body)
-      return
+    if (!event?.body) return
 
     emitTraceEnvelope(createEnvelope(event.body))
   })
@@ -106,8 +102,7 @@ export async function setStageThreeRuntimeTraceRemoteSubscription(active: boolea
 }
 
 export function initializeStageThreeRuntimeTraceBridge() {
-  if (initialized)
-    return
+  if (initialized) return
 
   initialized = true
 
@@ -115,8 +110,7 @@ export function initializeStageThreeRuntimeTraceBridge() {
 
   context.on(stageThreeRuntimeTraceRemoteEnableEvent, (event) => {
     const origin = event?.body?.origin
-    if (!origin || origin === instanceId)
-      return
+    if (!origin || origin === instanceId) return
 
     remoteSubscribers.add(origin)
     applyCollectionState(remoteSubscribers.size > 0)
@@ -125,19 +119,18 @@ export function initializeStageThreeRuntimeTraceBridge() {
 
   context.on(stageThreeRuntimeTraceRemoteDisableEvent, (event) => {
     const origin = event?.body?.origin
-    if (!origin || origin === instanceId)
-      return
+    if (!origin || origin === instanceId) return
 
     remoteSubscribers.delete(origin)
     applyCollectionState(remoteSubscribers.size > 0)
   })
 
-  subscribeTraceEvent(stageThreeTraceRenderInfoEvent, payload => ({ type: 'three-render-info', payload }))
-  subscribeTraceEvent(stageThreeTraceHitTestReadEvent, payload => ({ type: 'three-hit-test-read', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmUpdateFrameEvent, payload => ({ type: 'vrm-update-frame', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmLoadStartEvent, payload => ({ type: 'vrm-load-start', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmLoadEndEvent, payload => ({ type: 'vrm-load-end', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmLoadErrorEvent, payload => ({ type: 'vrm-load-error', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmDisposeStartEvent, payload => ({ type: 'vrm-dispose-start', payload }))
-  subscribeTraceEvent(stageThreeTraceVrmDisposeEndEvent, payload => ({ type: 'vrm-dispose-end', payload }))
+  subscribeTraceEvent(stageThreeTraceRenderInfoEvent, (payload) => ({ payload, type: 'three-render-info' }))
+  subscribeTraceEvent(stageThreeTraceHitTestReadEvent, (payload) => ({ payload, type: 'three-hit-test-read' }))
+  subscribeTraceEvent(stageThreeTraceVrmUpdateFrameEvent, (payload) => ({ payload, type: 'vrm-update-frame' }))
+  subscribeTraceEvent(stageThreeTraceVrmLoadStartEvent, (payload) => ({ payload, type: 'vrm-load-start' }))
+  subscribeTraceEvent(stageThreeTraceVrmLoadEndEvent, (payload) => ({ payload, type: 'vrm-load-end' }))
+  subscribeTraceEvent(stageThreeTraceVrmLoadErrorEvent, (payload) => ({ payload, type: 'vrm-load-error' }))
+  subscribeTraceEvent(stageThreeTraceVrmDisposeStartEvent, (payload) => ({ payload, type: 'vrm-dispose-start' }))
+  subscribeTraceEvent(stageThreeTraceVrmDisposeEndEvent, (payload) => ({ payload, type: 'vrm-dispose-end' }))
 }
