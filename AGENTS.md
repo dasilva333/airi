@@ -88,7 +88,7 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - **Discord Service**: `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts` (Main) | `packages/stage-ui/src/stores/modules/discord.ts` (Renderer)
     - **Slash Commands**: Definitions & Handler in `packages/stage-ui/src/stores/modules/discord.ts` (COMMANDS_VERSION: 4)
     - **Vision Plumbing**: Intercepts Discord attachments and maps to `chatOrchestrator.ingest` as base64.
-- **Character Artistry DNA**: `packages/stage-ui/src/constants/prompts/character-defaults.ts` (Weighted visual prompt constants for Hyori, Lupin, Aria, etc.)
+- **Character Artistry DNA**: `packages/stage-ui/src/constants/prompts/character-defaults.ts` (Weighted visual prompt constants for ReLU, Lupin, Aria, etc.)
 
 ### Chatbox Elements
 - **Chat History (Host)**: `packages/stage-ui/src/components/scenarios/chat/history.vue`
