@@ -97,7 +97,7 @@ export async function setupActorStageWindow(params: {
         if (!config.windows) {
           config.windows = []
         }
-        const existingConfigIndex = config.windows.findIndex((w: any) => w.tag === 'actor')
+        const existingConfigIndex = config.windows.findIndex((w: { tag?: string, orientation?: string }) => w.tag === 'actor')
         if (existingConfigIndex !== -1) {
           config.windows[existingConfigIndex].orientation = payload.orientation
           params.appConfig.update(config)

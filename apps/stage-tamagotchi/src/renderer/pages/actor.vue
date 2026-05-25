@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ControlStripButton } from '@proj-airi/stage-ui/stores/settings/control-strip'
+
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
@@ -74,7 +76,7 @@ const lastPlacement = ref<'left' | 'right' | 'top' | 'bottom' | null>(null)
 const lastOrientation = ref<'vertical' | 'horizontal'>('vertical')
 
 const activeButtons = computed(() => {
-  return controlStripStore.buttons.filter((btn: any) => btn.enabled)
+  return controlStripStore.buttons.filter((btn: ControlStripButton) => btn.enabled)
 })
 
 const stripLength = computed(() => {
@@ -223,7 +225,7 @@ watch(() => settingsStore.captionFollowStage, (newVal) => {
   }
 })
 
-async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
+function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
   // NOTE: Window resizing is intentionally disabled since the control strip
   // is now an overlay within the stage window. The window should maintain its
   // stage dimensions to avoid clipping the character. Only sync state.
@@ -232,9 +234,9 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
   lastOrientation.value = controlStripStore.orientation
 }
 
-watch([stripLength, () => controlStripStore.orientation], async ([_newLength, newOrientation]) => {
+watch([stripLength, () => controlStripStore.orientation], ([_newLength, newOrientation]) => {
   if (activePopover.value) {
-    await applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
+    applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
   }
   else {
     lastOrientation.value = newOrientation

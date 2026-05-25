@@ -23,6 +23,20 @@ import { onAppBeforeQuit } from '../libs/bootkit/lifecycle'
 import { setupInlayWindow } from '../windows/inlay'
 import { toggleWindowShow } from '../windows/shared/window'
 
+interface WindowConfig {
+  title?: string
+  tag?: string
+  locked?: boolean
+  snapshot?: { x: number, y: number, width: number, height: number }
+  orientation?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  dock?: string
+  enabled?: boolean
+}
+
 function alignWindow(window: BrowserWindow, position: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right', display?: Electron.Display): void {
   const { width: windowWidth, height: windowHeight } = window.getBounds()
   const targetDisplay = display || screen.getDisplayMatching(window.getBounds())
@@ -85,7 +99,7 @@ export function setupTray(params: {
 
       const t = params.i18n.t
       const config = params.getConfig() ?? { windows: [] }
-      const mainWindowConfig = config.windows?.find((w: any) => w.tag === 'actor')
+      const mainWindowConfig = config.windows?.find((w: WindowConfig) => w.tag === 'actor')
 
       const contextMenu = Menu.buildFromTemplate([
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.show'), click: () => toggleWindowShow(params.stageWindow) },
@@ -137,7 +151,7 @@ export function setupTray(params: {
                 const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
-                let index = config.windows.findIndex((w: any) => w.tag === 'actor')
+                let index = config.windows.findIndex((w: WindowConfig) => w.tag === 'actor')
                 if (index === -1) {
                   index = config.windows.push({ title: 'AIRI - Actor Stage', tag: 'actor' }) - 1
                 }
@@ -158,7 +172,7 @@ export function setupTray(params: {
                 const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
-                let index = config.windows.findIndex((w: any) => w.tag === 'actor')
+                let index = config.windows.findIndex((w: WindowConfig) => w.tag === 'actor')
                 if (index === -1) {
                   index = config.windows.push({ title: 'AIRI - Actor Stage', tag: 'actor' }) - 1
                 }
@@ -181,7 +195,7 @@ export function setupTray(params: {
               click: () => {
                 // Return the window to its previously saved "Home" position.
                 const config = params.getConfig() ?? { windows: [] }
-                const mainWindow = config.windows?.find((w: any) => w.tag === 'actor')
+                const mainWindow = config.windows?.find((w: WindowConfig) => w.tag === 'actor')
                 if (mainWindow?.snapshot) {
                   params.stageWindow.setBounds(mainWindow.snapshot)
                 }
