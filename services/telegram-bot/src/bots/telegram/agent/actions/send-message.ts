@@ -1,20 +1,16 @@
-import type { GenerateTextOptions } from '@xsai/generate-text'
-import type { Message } from 'grammy/types'
-
-import type { BotContext, ChatContext } from '../../../../types'
-
 import { env } from 'node:process'
-
 import { useLogg } from '@guiiai/logg'
 import { sleep } from '@moeru/std'
+import type { GenerateTextOptions } from '@xsai/generate-text'
 import { generateText } from '@xsai/generate-text'
 import { message } from '@xsai/utils-chat'
 import { parse } from 'best-effort-json-parser'
 import { randomInt } from 'es-toolkit'
-
+import type { Message } from 'grammy/types'
 import { recordMessage } from '../../../../models'
 import { listJoinedChats } from '../../../../models/chats'
 import { messageSplit } from '../../../../prompts'
+import type { BotContext, ChatContext } from '../../../../types'
 import { cancellable } from '../../../../utils/promise'
 
 export function parseMayStructuredMessage(responseText: string) {
@@ -25,13 +21,14 @@ export function parseMayStructuredMessage(responseText: string) {
   if (result) {
     logger.withField('text', JSON.stringify(responseText)).withField('result', result).log('Multiple messages detected')
 
-    const parsedResponse = parse(result[0]) as ({ messages?: unknown, reply_to_message_id?: unknown } | undefined)
+    const parsedResponse = parse(result[0]) as { messages?: unknown; reply_to_message_id?: unknown } | undefined
     const messages = Array.isArray(parsedResponse?.messages)
-      ? parsedResponse.messages.filter((message): message is string => typeof message === 'string' && message.trim() !== '')
+      ? parsedResponse.messages.filter(
+          (message): message is string => typeof message === 'string' && message.trim() !== '',
+        )
       : []
-    const replyToMessageId = typeof parsedResponse?.reply_to_message_id === 'string'
-      ? parsedResponse.reply_to_message_id
-      : undefined
+    const replyToMessageId =
+      typeof parsedResponse?.reply_to_message_id === 'string' ? parsedResponse.reply_to_message_id : undefined
 
     if (messages.length > 0) {
       return { messages, reply_to_message_id: replyToMessageId }
@@ -74,18 +71,18 @@ export async function sendMessage(
 
   const systemContent = String(await messageSplit())
   const req = {
+    abortSignal: abortController.signal,
     apiKey: env.LLM_API_KEY!,
     baseURL: env.LLM_API_BASE_URL!,
-    model: env.LLM_MODEL!,
     messages: message.messages(
-      { role: 'system' as const, content: systemContent },
-      { role: 'user' as const, content: 'This is the input message:' },
-      { role: 'user' as const, content: String(responseText) },
+      { content: systemContent, role: 'system' as const },
+      { content: 'This is the input message:', role: 'user' as const },
+      { content: String(responseText), role: 'user' as const },
     ),
-    abortSignal: abortController.signal,
+    model: env.LLM_MODEL!,
   } satisfies GenerateTextOptions
   if (env.LLM_OLLAMA_DISABLE_THINK) {
-    (req as Record<string, unknown>).think = false
+    ;(req as Record<string, unknown>).think = false
   }
 
   const res = await generateText(req)
@@ -100,14 +97,16 @@ export async function sendMessage(
     throw new Error('No response text')
   }
 
-  logger.withFields({
-    messages: responseText,
-    response: res.text,
-    now: new Date().toLocaleString(),
-    totalTokens: res.usage.total_tokens,
-    promptTokens: res.usage.prompt_tokens,
-    completion_tokens: res.usage.completion_tokens,
-  }).log('Message split')
+  logger
+    .withFields({
+      completion_tokens: res.usage.completion_tokens,
+      messages: responseText,
+      now: new Date().toLocaleString(),
+      promptTokens: res.usage.prompt_tokens,
+      response: res.text,
+      totalTokens: res.usage.total_tokens,
+    })
+    .log('Message split')
 
   const structuredMessage = parseMayStructuredMessage(res.text)
   if (structuredMessage == null) {
@@ -128,30 +127,31 @@ export async function sendMessage(
     // Create cancellable typing and reply tasks
     try {
       await botContext.bot.api.sendChatAction(chatId, 'typing')
-    }
-    catch {
-
-    }
+    } catch {}
     await sleep(item.length * 50)
 
-    const replyTask = cancellable((async (): Promise<Message.TextMessage> => {
-      try {
-        const validReplyToMessageId = structuredMessage.reply_to_message_id ? Number.parseInt(structuredMessage.reply_to_message_id) : undefined
+    const replyTask = cancellable(
+      (async (): Promise<Message.TextMessage> => {
+        try {
+          const validReplyToMessageId = structuredMessage.reply_to_message_id
+            ? Number.parseInt(structuredMessage.reply_to_message_id)
+            : undefined
 
-        if (i === 0 && validReplyToMessageId && !Number.isNaN(validReplyToMessageId)) {
-          const sentResult = await botContext.bot.api.sendMessage(chatId, item, { reply_parameters: { message_id: validReplyToMessageId } })
-          return sentResult
+          if (i === 0 && validReplyToMessageId && !Number.isNaN(validReplyToMessageId)) {
+            const sentResult = await botContext.bot.api.sendMessage(chatId, item, {
+              reply_parameters: { message_id: validReplyToMessageId },
+            })
+            return sentResult
+          } else {
+            const sentResult = await botContext.bot.api.sendMessage(chatId, item)
+            return sentResult
+          }
+        } catch (err) {
+          botContext.logger.withError(err).log('Failed to send message')
+          throw err
         }
-        else {
-          const sentResult = await botContext.bot.api.sendMessage(chatId, item)
-          return sentResult
-        }
-      }
-      catch (err) {
-        botContext.logger.withError(err).log('Failed to send message')
-        throw err
-      }
-    })())
+      })(),
+    )
 
     chatContext.currentTask = replyTask
     const msg = await replyTask.promise

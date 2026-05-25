@@ -16,21 +16,18 @@ export const useArtistryStore = defineStore('artistry', () => {
 
   // --- Per-character defaults (resolved from card or global fallback) ---
   const defaultPromptPrefix = useLocalStorageManualReset<string>('artistry-prompt-prefix', '')
-  const providerOptions = useLocalStorageManualReset<Record<string, any> | undefined>('artistry-provider-options', undefined)
+  const providerOptions = useLocalStorageManualReset<Record<string, any> | undefined>(
+    'artistry-provider-options',
+    undefined,
+  )
 
   // --- ComfyUI provider settings ---
-  const comfyuiServerUrl = useLocalStorageManualReset<string>(
-    'artistry-comfyui-server-url',
-    'http://localhost:8188',
-  )
+  const comfyuiServerUrl = useLocalStorageManualReset<string>('artistry-comfyui-server-url', 'http://localhost:8188')
   const comfyuiSavedWorkflows = useLocalStorageManualReset<ComfyUIWorkflowTemplate[]>(
     'artistry-comfyui-saved-workflows',
     [],
   )
-  const comfyuiActiveWorkflow = useLocalStorageManualReset<string>(
-    'artistry-comfyui-active-workflow',
-    '',
-  )
+  const comfyuiActiveWorkflow = useLocalStorageManualReset<string>('artistry-comfyui-active-workflow', '')
 
   // --- Replicate provider settings ---
   const replicateApiKey = useLocalStorageManualReset<string>('artistry-replicate-api-key', '')
@@ -38,14 +35,8 @@ export const useArtistryStore = defineStore('artistry', () => {
     'artistry-replicate-default-model',
     'black-forest-labs/flux-schnell',
   )
-  const replicateAspectRatio = useLocalStorageManualReset<string>(
-    'artistry-replicate-aspect-ratio',
-    '16:9',
-  )
-  const replicateInferenceSteps = useLocalStorageManualReset<number>(
-    'artistry-replicate-inference-steps',
-    4,
-  )
+  const replicateAspectRatio = useLocalStorageManualReset<string>('artistry-replicate-aspect-ratio', '16:9')
+  const replicateInferenceSteps = useLocalStorageManualReset<number>('artistry-replicate-inference-steps', 4)
 
   // --- Nano Banana (Google AI Studio) provider settings ---
   const nanobananaApiKey = useLocalStorageManualReset<string>('artistry-nanobanana-api-key', '')
@@ -53,10 +44,7 @@ export const useArtistryStore = defineStore('artistry', () => {
     'artistry-nanobanana-model',
     'gemini-3.1-flash-image-preview',
   )
-  const nanobananaResolution = useLocalStorageManualReset<string>(
-    'artistry-nanobanana-resolution',
-    '1K',
-  )
+  const nanobananaResolution = useLocalStorageManualReset<string>('artistry-nanobanana-resolution', '1K')
 
   function resetState() {
     activeProvider.reset()
@@ -76,8 +64,7 @@ export const useArtistryStore = defineStore('artistry', () => {
   }
 
   const configured = computed(() => {
-    if (!activeProvider.value)
-      return false
+    if (!activeProvider.value) return false
 
     if (activeProvider.value === 'replicate') {
       return !!replicateApiKey.value
@@ -95,42 +82,42 @@ export const useArtistryStore = defineStore('artistry', () => {
   })
 
   const artistryGlobals = computed(() => ({
-    comfyuiServerUrl: comfyuiServerUrl.value,
-    comfyuiSavedWorkflows: comfyuiSavedWorkflows.value,
     comfyuiActiveWorkflow: comfyuiActiveWorkflow.value,
-    replicateApiKey: replicateApiKey.value,
-    replicateDefaultModel: replicateDefaultModel.value,
-    replicateAspectRatio: replicateAspectRatio.value,
-    replicateInferenceSteps: replicateInferenceSteps.value,
+    comfyuiSavedWorkflows: comfyuiSavedWorkflows.value,
+    comfyuiServerUrl: comfyuiServerUrl.value,
     nanobananaApiKey: nanobananaApiKey.value,
     nanobananaModel: nanobananaModel.value,
     nanobananaResolution: nanobananaResolution.value,
+    replicateApiKey: replicateApiKey.value,
+    replicateAspectRatio: replicateAspectRatio.value,
+    replicateDefaultModel: replicateDefaultModel.value,
+    replicateInferenceSteps: replicateInferenceSteps.value,
   }))
 
   return {
-    configured,
-    artistryGlobals,
+    activeModel,
     // Active settings (resolved per card)
     activeProvider,
-    activeModel,
-    defaultPromptPrefix,
-    providerOptions,
+    artistryGlobals,
+    comfyuiActiveWorkflow,
+    comfyuiSavedWorkflows,
 
     // ComfyUI provider config
     comfyuiServerUrl,
-    comfyuiSavedWorkflows,
-    comfyuiActiveWorkflow,
-
-    // Replicate provider config
-    replicateApiKey,
-    replicateDefaultModel,
-    replicateAspectRatio,
-    replicateInferenceSteps,
+    configured,
+    defaultPromptPrefix,
 
     // Nano Banana provider config
     nanobananaApiKey,
     nanobananaModel,
     nanobananaResolution,
+    providerOptions,
+
+    // Replicate provider config
+    replicateApiKey,
+    replicateAspectRatio,
+    replicateDefaultModel,
+    replicateInferenceSteps,
 
     resetState,
   }
@@ -154,10 +141,10 @@ export function resolveArtistryConfigFromStore(store: ArtistryStoreSnapshot): Re
   const unwrap = <T>(val: T | import('vue').Ref<T>): T => (isRef(val) ? val.value : val)
 
   return {
-    provider: unwrap(store.activeProvider),
-    model: unwrap(store.activeModel),
-    promptPrefix: unwrap(store.defaultPromptPrefix),
-    options: unwrap(store.providerOptions),
     Globals: unwrap(store.artistryGlobals),
+    model: unwrap(store.activeModel),
+    options: unwrap(store.providerOptions),
+    promptPrefix: unwrap(store.defaultPromptPrefix),
+    provider: unwrap(store.activeProvider),
   }
 }

@@ -1,13 +1,10 @@
-import type { Plugin, ResolvedConfig } from 'vite'
-import type { SiteConfig } from 'vitepress'
-
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { dirname, join, parse } from 'node:path'
-
 import matter from 'gray-matter'
-
 import { glob } from 'tinyglobby'
+import type { Plugin, ResolvedConfig } from 'vite'
+import type { SiteConfig } from 'vitepress'
 
 function fromAtAssets(url: string): string {
   const reg = /^@assets\(('\S+')|("\S+")|(\S+)\)$/
@@ -81,8 +78,7 @@ function withoutBase(url?: string, base?: string): string | undefined {
   if (url.startsWith(`${base}`) && base) {
     if (url.endsWith('/')) {
       return url.slice(base.length)
-    }
-    else {
+    } else {
       return `/${url.slice(base.length)}`
     }
   }
@@ -92,7 +88,7 @@ function withoutBase(url?: string, base?: string): string | undefined {
 
 export function frontmatterAssets(): Plugin {
   let resolvedConfig: VitePressConfig | undefined
-  const mAssetAbsoluteUrlMetadata = new Map<string, { url: string, builtUrl?: string, hash?: string }>()
+  const mAssetAbsoluteUrlMetadata = new Map<string, { url: string; builtUrl?: string; hash?: string }>()
   const mapAssetBuiltUrlAssetAbsoluteUrl = new Map<string, string>()
 
   async function fileToUrl(file: string) {
@@ -115,14 +111,16 @@ export function frontmatterAssets(): Plugin {
   }
 
   return {
-    name: '@proj-airi/docs:vite-plugin-frontmatter-assets',
-    enforce: 'pre',
     async configResolved(config) {
       resolvedConfig = config as VitePressConfig
 
-      const markdownFiles = await glob('**/*.md', { ignore: ['**/node_modules/**'], cwd: resolvedConfig?.vitepress.srcDir || '', absolute: true })
+      const markdownFiles = await glob('**/*.md', {
+        absolute: true,
+        cwd: resolvedConfig?.vitepress.srcDir || '',
+        ignore: ['**/node_modules/**'],
+      })
       for (const file of markdownFiles) {
-        const res = (await readFile(file))
+        const res = await readFile(file)
         const { data } = matter(res.toString('utf-8'))
         if (Object.keys(data).length === 0) {
           continue
@@ -133,12 +131,11 @@ export function frontmatterAssets(): Plugin {
           let absoluteAssetPath: string
           if (assetPath.startsWith('/')) {
             absoluteAssetPath = join(resolvedConfig?.vitepress.srcDir || '', assetPath)
-          }
-          else {
+          } else {
             absoluteAssetPath = join(dirname(file), assetPath)
           }
 
-          mAssetAbsoluteUrlMetadata.set(absoluteAssetPath, { url: file, builtUrl: file, hash: '' })
+          mAssetAbsoluteUrlMetadata.set(absoluteAssetPath, { builtUrl: file, hash: '', url: file })
           return undefined
         })
       }
@@ -146,7 +143,7 @@ export function frontmatterAssets(): Plugin {
       for (const [key, value] of mAssetAbsoluteUrlMetadata) {
         const { url, hash } = await fileToUrl(key)
         mapAssetBuiltUrlAssetAbsoluteUrl.set(url, key)
-        mAssetAbsoluteUrlMetadata.set(key, { url: value.url, builtUrl: url, hash })
+        mAssetAbsoluteUrlMetadata.set(key, { builtUrl: url, hash, url: value.url })
       }
     },
     configureServer(server) {
@@ -165,14 +162,16 @@ export function frontmatterAssets(): Plugin {
         const fileContent = await readFile(filePath)
 
         res.writeHead(200, {
-          'Content-Type': ext === 'svg' ? 'image/svg+xml' : `image/${ext}`,
-          'Content-Length': fileContent.length,
           'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Length': fileContent.length,
+          'Content-Type': ext === 'svg' ? 'image/svg+xml' : `image/${ext}`,
         })
         res.end(fileContent)
         res.end()
       })
     },
+    enforce: 'pre',
+    name: '@proj-airi/docs:vite-plugin-frontmatter-assets',
     async writeBundle() {
       for (const [builtUrl, absoluteUrl] of mapAssetBuiltUrlAssetAbsoluteUrl.entries()) {
         const content = await this.fs.readFile(absoluteUrl)

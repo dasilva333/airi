@@ -4,9 +4,8 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-
-import ProviderSettingsLayout from './provider-settings-layout.vue'
-
+import { useSpeechStore } from '../../../stores/modules/speech'
+import { useProvidersStore } from '../../../stores/providers'
 import {
   ProviderAdvancedSettings,
   ProviderApiKeyInput,
@@ -14,8 +13,7 @@ import {
   ProviderBasicSettings,
   ProviderSettingsContainer,
 } from '.'
-import { useSpeechStore } from '../../../stores/modules/speech'
-import { useProvidersStore } from '../../../stores/providers'
+import ProviderSettingsLayout from './provider-settings-layout.vue'
 
 const props = defineProps<{
   providerId: string
@@ -31,7 +29,7 @@ defineSlots<{
   'basic-settings': (props: any) => any
   'voice-settings': (props: any) => any
   'advanced-settings': (props: any) => any
-  'playground': (props: any) => any
+  playground: (props: any) => any
 }>()
 const { t } = useI18n()
 const router = useRouter()
@@ -44,20 +42,21 @@ const providerMetadata = computed(() => providersStore.getProviderMetadata(props
 
 // Common provider settings
 const apiKey = computed({
-  get: () => providers.value[props.providerId]?.apiKey as string | undefined || '',
+  get: () => (providers.value[props.providerId]?.apiKey as string | undefined) || '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
+    if (!providers.value[props.providerId]) providers.value[props.providerId] = {}
 
     providers.value[props.providerId].apiKey = value
   },
 })
 
 const baseUrl = computed({
-  get: () => providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || '',
+  get: () =>
+    (providers.value[props.providerId]?.baseUrl as string | undefined) ||
+    (providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined) ||
+    '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
+    if (!providers.value[props.providerId]) providers.value[props.providerId] = {}
 
     providers.value[props.providerId].baseUrl = value
   },
@@ -70,8 +69,7 @@ const voiceSettings = ref<Record<string, any>>({})
 function initializeVoiceSettings() {
   if (providers.value[props.providerId]?.voiceSettings) {
     voiceSettings.value = { ...(providers.value[props.providerId].voiceSettings as Record<string, any> | undefined) }
-  }
-  else {
+  } else {
     // Default values that most providers use
     voiceSettings.value = {
       pitch: 0,
@@ -87,8 +85,11 @@ onMounted(() => {
   providersStore.initializeProvider(props.providerId)
 
   // Initialize refs with current values
-  apiKey.value = providers.value[props.providerId]?.apiKey as string | undefined || ''
-  baseUrl.value = providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
+  apiKey.value = (providers.value[props.providerId]?.apiKey as string | undefined) || ''
+  baseUrl.value =
+    (providers.value[props.providerId]?.baseUrl as string | undefined) ||
+    (providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined) ||
+    ''
 
   // Initialize voice settings
   initializeVoiceSettings()

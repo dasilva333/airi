@@ -1,17 +1,14 @@
-import type { Rectangle } from 'electron'
-
 import { dirname } from 'node:path'
 import { env, platform, stderr, stdout } from 'node:process'
 import { fileURLToPath } from 'node:url'
-
-// @ts-ignore
-import messages from '@proj-airi/i18n-bundle'
-
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { Format, LogLevel, setGlobalFormat, setGlobalLogLevel, useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { initScreenCaptureForMain } from '@proj-airi/electron-screen-capture/main'
+// @ts-expect-error
+import messages from '@proj-airi/i18n-bundle'
+import type { Rectangle } from 'electron'
 import { app, BrowserWindow, ipcMain, screen, session } from 'electron'
 import { createLoggLogger, injeca, lifecycle } from 'injeca'
 import { isLinux } from 'std-env'
@@ -68,12 +65,9 @@ import { setupWidgetsWindowManager } from './windows/widgets'
 // Guard BrowserWindow prototype methods against destroyed window objects to prevent "Object has been destroyed" exceptions
 const dummyWebContents = new Proxy({} as any, {
   get(_target, prop) {
-    if (prop === 'isDestroyed')
-      return () => true
-    if (prop === 'isCrashed')
-      return () => false
-    if (prop === 'getURL')
-      return () => ''
+    if (prop === 'isDestroyed') return () => true
+    if (prop === 'isCrashed') return () => false
+    if (prop === 'getURL') return () => ''
     return () => {}
   },
 })
@@ -89,8 +83,7 @@ if (webContentsDescriptor && webContentsDescriptor.get) {
       }
       try {
         return originalGet.call(this)
-      }
-      catch {
+      } catch {
         return dummyWebContents
       }
     },
@@ -98,7 +91,20 @@ if (webContentsDescriptor && webContentsDescriptor.get) {
 }
 
 const proto = BrowserWindow.prototype as any
-const methodsToGuard = ['show', 'hide', 'close', 'focus', 'restore', 'minimize', 'maximize', 'setBounds', 'setAlwaysOnTop', 'setMovable', 'setResizable', 'getBounds'] as const
+const methodsToGuard = [
+  'show',
+  'hide',
+  'close',
+  'focus',
+  'restore',
+  'minimize',
+  'maximize',
+  'setBounds',
+  'setAlwaysOnTop',
+  'setMovable',
+  'setResizable',
+  'getBounds',
+] as const
 for (const method of methodsToGuard) {
   const original = proto[method]
   if (typeof original === 'function') {
@@ -106,7 +112,7 @@ for (const method of methodsToGuard) {
       if (this.isDestroyed()) {
         console.warn(`[WindowManager] Guarded call to ${method} on a destroyed window.`)
         if (method === 'getBounds') {
-          return { x: 0, y: 0, width: 0, height: 0 }
+          return { height: 0, width: 0, x: 0, y: 0 }
         }
         return
       }
@@ -172,557 +178,593 @@ electronApp.setAppUserModelId('ai.moeru.airi')
 
 initScreenCaptureForMain()
 
-app.whenReady().then(async () => {
-  // NOTICE: Deepgram and Qwen Portal APIs do not send CORS headers for browser-origin requests
-  // authenticated with project API keys or OAuth tokens. Since the renderer is a
-  // Chromium context, we inject permissive CORS response headers at the Electron
-  // session level for these specific domains. This avoids needing a dedicated proxy backend.
-  session.defaultSession.webRequest.onHeadersReceived(
-    {
-      urls: [
-        'https://api.deepgram.com/*',
-        'https://chat.qwen.ai/*',
-        'https://portal.qwen.ai/*',
-      ],
-    },
-    (details, callback) => {
-      const headers = { ...details.responseHeaders }
-      headers['access-control-allow-origin'] = ['*']
-      headers['access-control-allow-headers'] = ['Authorization, Content-Type, x-request-id']
-      headers['access-control-allow-methods'] = ['GET, POST, OPTIONS']
+app
+  .whenReady()
+  .then(async () => {
+    // NOTICE: Deepgram and Qwen Portal APIs do not send CORS headers for browser-origin requests
+    // authenticated with project API keys or OAuth tokens. Since the renderer is a
+    // Chromium context, we inject permissive CORS response headers at the Electron
+    // session level for these specific domains. This avoids needing a dedicated proxy backend.
+    session.defaultSession.webRequest.onHeadersReceived(
+      {
+        urls: ['https://api.deepgram.com/*', 'https://chat.qwen.ai/*', 'https://portal.qwen.ai/*'],
+      },
+      (details, callback) => {
+        const headers = { ...details.responseHeaders }
+        headers['access-control-allow-origin'] = ['*']
+        headers['access-control-allow-headers'] = ['Authorization, Content-Type, x-request-id']
+        headers['access-control-allow-methods'] = ['GET, POST, OPTIONS']
 
-      // NOTICE: Deepgram returns 401/405 for preflight OPTIONS requests.
-      // The browser requires a 2xx status on the preflight response in addition
-      // to the CORS headers, so we force 200 OK for OPTIONS.
-      if (details.method === 'OPTIONS') {
-        callback({ responseHeaders: headers, statusLine: 'HTTP/1.1 200 OK' })
-        return
-      }
-
-      callback({ responseHeaders: headers })
-    },
-  )
-
-  injeca.setLogger(createLoggLogger(useLogg('injeca').useGlobalConfig()))
-
-  const appConfig = injeca.provide('configs:app', () => createGlobalAppConfig())
-  const electronApp = injeca.provide('host:electron:app', () => app)
-  const autoUpdater = injeca.provide('services:auto-updater', () => setupAutoUpdater())
-
-  const i18n = injeca.provide('libs:i18n', {
-    dependsOn: { appConfig },
-    build: ({ dependsOn }) => {
-      const language = dependsOn.appConfig.get()?.language ?? 'en'
-      const i18n = createI18n({ messages, locale: language })
-      return i18n
-    },
-  })
-
-  const serverChannel = injeca.provide('modules:channel-server', {
-    dependsOn: { app: electronApp, lifecycle },
-    build: async ({ dependsOn }) => setupServerChannel(dependsOn),
-  })
-
-  const mcpStdioManager = injeca.provide('modules:mcp-stdio-manager', {
-    build: async () => setupMcpStdioManager(),
-  })
-
-  const pluginHost = injeca.provide('modules:plugin-host', {
-    dependsOn: { serverChannel },
-    build: () => setupPluginHost(),
-  })
-
-  const beatSync = injeca.provide('windows:beat-sync', () => setupBeatSync())
-  const devtoolsMarkdownStressWindow = injeca.provide('windows:devtools:markdown-stress', () => setupDevtoolsWindow())
-
-  const onboardingWindowManager = injeca.provide('windows:onboarding', {
-    dependsOn: { serverChannel, i18n },
-    build: ({ dependsOn }) => setupOnboardingWindowManager(dependsOn),
-  })
-  injeca.provide('windows:notice', {
-    dependsOn: { i18n, serverChannel },
-    build: ({ dependsOn }) => setupNoticeWindowManager(dependsOn),
-  })
-
-  const widgetsManager = injeca.provide('windows:widgets', {
-    dependsOn: { serverChannel, i18n },
-    build: ({ dependsOn }) => setupWidgetsWindowManager(dependsOn),
-  })
-
-  const aboutWindow = injeca.provide('windows:about', {
-    dependsOn: { autoUpdater, i18n, serverChannel },
-    build: ({ dependsOn }) => setupAboutWindowReusable(dependsOn),
-  })
-
-  const chatWindow = injeca.provide('windows:chat', {
-    dependsOn: { widgetsManager, serverChannel, mcpStdioManager, i18n, appConfig },
-    build: ({ dependsOn }) => setupChatWindowReusableFunc(dependsOn),
-  })
-
-  const settingsWindow = injeca.provide('windows:settings', {
-    dependsOn: { widgetsManager, beatSync, autoUpdater, devtoolsMarkdownStressWindow, serverChannel, mcpStdioManager, i18n },
-    build: async ({ dependsOn }) => setupSettingsWindowReusableFunc(dependsOn),
-  })
-
-  const stageWindow = injeca.provide('windows:stage', {
-    dependsOn: { appConfig, serverChannel, i18n },
-    build: async ({ dependsOn }) => setupActorStageWindow(dependsOn),
-  })
-
-  const captionWindow = injeca.provide('windows:caption', {
-    dependsOn: { stageWindow, serverChannel, i18n, appConfig },
-    build: async ({ dependsOn }) => setupCaptionWindowManager(dependsOn),
-  })
-
-  const customizerWindow = injeca.provide('windows:customizer', {
-    dependsOn: { stageWindow, serverChannel, i18n },
-    build: async ({ dependsOn }) => setupCustomizerWindowManager(dependsOn),
-  })
-
-  const tray = injeca.provide('app:tray', {
-    dependsOn: { stageWindow, settingsWindow, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig },
-    build: async ({ dependsOn }) => {
-      const configHelper = dependsOn.appConfig
-      return setupTray({
-        ...dependsOn,
-        getConfig: () => configHelper.get(),
-        updateConfig: config => configHelper.update(config),
-      })
-    },
-  })
-
-  injeca.invoke({
-    dependsOn: { tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, chatWindow, customizerWindow, settingsWindow },
-    callback: (deps) => {
-      const context = createContext(ipcMain).context
-      createServerChannelService({ serverChannel: deps.serverChannel })
-      createMcpServersService({ context, manager: deps.mcpStdioManager })
-      createI18nService({ context, window: deps.stageWindow, i18n: deps.i18n })
-      createMicToggleService({ context, window: deps.stageWindow })
-      createVisionService({ context })
-      const sensorsServicePromise = createSensorsService({ context })
-      setupDiscordService()
-      defineInvokeHandler(context, electronCaptionToggleVisibility, async (enabled?: boolean) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island. enabled:', enabled)
-        await deps.captionWindow.toggleVisibility(enabled)
-      })
-      defineInvokeHandler(context, electronGetChatWindowState, async () => {
-        const win = await deps.chatWindow()
-        const isOpen = Boolean(win && !win.isDestroyed() && win.isVisible())
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Retrieved chat window state:', isOpen)
-        return isOpen
-      })
-      defineInvokeHandler(context, electronGetCaptionWindowState, async () => {
-        const winEnabled = deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled
-        const winVisible = deps.captionWindow.isVisible()
-        const isOpen = Boolean(winEnabled || winVisible)
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Retrieved caption window state:', isOpen, 'enabled:', winEnabled, 'visible:', winVisible)
-        return isOpen
-      })
-      defineInvokeHandler(context, electronCaptionSyncDocking, async (dock) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption docking sync triggered via Control Island:', dock)
-        const appConfig = deps.appConfig.get()
-        if (appConfig) {
-          const windows = appConfig.windows ?? []
-          const index = windows.findIndex((w: any) => w.tag === 'caption')
-          if (index !== -1) {
-            windows[index] = { ...windows[index], dock }
-          }
-          else {
-            windows.push({ tag: 'caption', enabled: deps.captionWindow.isVisible(), dock })
-          }
-          deps.appConfig.update({
-            ...appConfig,
-            windows,
-          })
-        }
-        await deps.captionWindow.triggerMove(dock)
-      })
-      defineInvokeHandler(context, electronCaptionSetFollowWindow, async (shouldFollow) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow window triggered:', shouldFollow)
-        await deps.captionWindow.setFollowWindow(shouldFollow)
-      })
-      defineInvokeHandler(context, electronSetIgnoreMouseEvents, async (ignore) => {
-        // @ts-ignore - window might be undefined if context is global, but here it's window-specific
-        context.window?.setIgnoreMouseEvents(ignore, { forward: true })
-      })
-      defineInvokeHandler(context, electronStageToggleVisibility, async (enabled) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage visibility changed:', enabled)
-        setStageVisibleState(enabled)
-        if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
-          if (enabled) {
-            deps.stageWindow.show()
-          }
-          else {
-            deps.stageWindow.hide()
-          }
-        }
-      })
-      defineInvokeHandler(context, electronStageSetAlwaysOnTop, async (flag) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage always-on-top changed:', flag)
-        if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
-          if (flag) {
-            deps.stageWindow.setAlwaysOnTop(true, 'screen-saver', 1)
-          }
-          else {
-            deps.stageWindow.setAlwaysOnTop(false)
-          }
-        }
-      })
-
-      defineInvokeHandler(context, electronOpenSettings, async (payload) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Open settings triggered:', payload?.route)
-        await deps.settingsWindow.openWindow(payload?.route)
-      })
-      defineInvokeHandler(context, electronOpenChat, async (enabled?: boolean) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Open chat triggered:', enabled)
-        const win = await deps.chatWindow()
-        if (win && !win.isDestroyed()) {
-          if (enabled === undefined) {
-            toggleWindowShow(win)
-          }
-          else if (enabled) {
-            win.show()
-            win.focus()
-          }
-          else {
-            win.hide()
-          }
-        }
-      })
-
-      defineInvokeHandler(context, electronShowToast, async (payload) => {
-        if (!payload)
+        // NOTICE: Deepgram returns 401/405 for preflight OPTIONS requests.
+        // The browser requires a 2xx status on the preflight response in addition
+        // to the CORS headers, so we force 200 OK for OPTIONS.
+        if (details.method === 'OPTIONS') {
+          callback({ responseHeaders: headers, statusLine: 'HTTP/1.1 200 OK' })
           return
-
-        let targetWin = await deps.chatWindow()
-        if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
-          targetWin = deps.stageWindow
-        }
-        if (targetWin && !targetWin.isDestroyed()) {
-          const { context: winContext, dispose } = createContext(ipcMain, targetWin)
-          winContext.emit(electronShowToastEvent, payload)
-          dispose()
-        }
-      })
-
-      defineInvokeHandler(context, electronApplySizePreset, async (payload) => {
-        if (!payload)
-          return
-        const { target, preset } = payload
-        console.log(`[@proj-airi/stage-tamagotchi] [Main] Apply size preset: ${preset} for target: ${target}`)
-
-        let centerX: number | undefined
-        let centerY: number | undefined
-        let targetDisplay: any | undefined
-
-        if (target === 'actor') {
-          const win = deps.stageWindow
-          if (win && !win.isDestroyed()) {
-            const bounds = win.getBounds()
-            centerX = bounds.x + bounds.width / 2
-            centerY = bounds.y + bounds.height / 2
-            targetDisplay = screen.getDisplayMatching(bounds)
-          }
-        }
-        else if (target === 'chat') {
-          const win = await deps.chatWindow()
-          if (win && !win.isDestroyed() && win.isVisible()) {
-            const bounds = win.getBounds()
-            centerX = bounds.x + bounds.width / 2
-            centerY = bounds.y + bounds.height / 2
-            targetDisplay = screen.getDisplayMatching(bounds)
-          }
         }
 
-        const appConfig = deps.appConfig.get()
-        const winConfig = appConfig?.windows?.find((w: any) => w.tag === target)
-        if (centerX === undefined || centerY === undefined || !targetDisplay) {
-          if (winConfig && winConfig.x !== undefined && winConfig.y !== undefined && winConfig.width !== undefined && winConfig.height !== undefined) {
-            centerX = winConfig.x + winConfig.width / 2
-            centerY = winConfig.y + winConfig.height / 2
-            targetDisplay = screen.getDisplayNearestPoint({ x: Math.round(centerX), y: Math.round(centerY) })
-          }
-        }
+        callback({ responseHeaders: headers })
+      },
+    )
 
-        if (centerX === undefined || centerY === undefined || !targetDisplay) {
-          targetDisplay = screen.getPrimaryDisplay()
-          const workArea = targetDisplay.workArea
-          centerX = workArea.x + workArea.width / 2
-          centerY = workArea.y + workArea.height / 2
-        }
+    injeca.setLogger(createLoggLogger(useLogg('injeca').useGlobalConfig()))
 
-        const workArea = targetDisplay.workArea
-        let width = 0
-        let height = 0
+    const appConfig = injeca.provide('configs:app', () => createGlobalAppConfig())
+    const electronApp = injeca.provide('host:electron:app', () => app)
+    const autoUpdater = injeca.provide('services:auto-updater', () => setupAutoUpdater())
 
-        if (target === 'actor') {
-          switch (preset) {
-            case 'mini':
-              width = 220
-              height = 315
-              break
-            case 'medium':
-              width = 450
-              height = 600
-              break
-            case 'large':
-              width = 800
-              height = 1000
-              break
-            case 'full':
-              width = workArea.width
-              height = workArea.height
-              break
-          }
-        }
-        else if (target === 'chat') {
-          switch (preset) {
-            case 'mini':
-              width = 400
-              height = 500
-              break
-            case 'medium':
-              width = 600
-              height = 800
-              break
-            case 'large':
-              width = 900
-              height = 900
-              break
-            case 'full':
-              width = Math.max(400, workArea.width - 80)
-              height = Math.max(500, workArea.height - 80)
-              break
-          }
-        }
+    const i18n = injeca.provide('libs:i18n', {
+      build: ({ dependsOn }) => {
+        const language = dependsOn.appConfig.get()?.language ?? 'en'
+        const i18n = createI18n({ locale: language, messages })
+        return i18n
+      },
+      dependsOn: { appConfig },
+    })
 
-        const newBounds = ensureWindowInVisibleBounds({
-          x: Math.round(centerX! - width / 2),
-          y: Math.round(centerY! - height / 2),
-          width,
-          height,
+    const serverChannel = injeca.provide('modules:channel-server', {
+      build: async ({ dependsOn }) => setupServerChannel(dependsOn),
+      dependsOn: { app: electronApp, lifecycle },
+    })
+
+    const mcpStdioManager = injeca.provide('modules:mcp-stdio-manager', {
+      build: async () => setupMcpStdioManager(),
+    })
+
+    const pluginHost = injeca.provide('modules:plugin-host', {
+      build: () => setupPluginHost(),
+      dependsOn: { serverChannel },
+    })
+
+    const beatSync = injeca.provide('windows:beat-sync', () => setupBeatSync())
+    const devtoolsMarkdownStressWindow = injeca.provide('windows:devtools:markdown-stress', () => setupDevtoolsWindow())
+
+    const onboardingWindowManager = injeca.provide('windows:onboarding', {
+      build: ({ dependsOn }) => setupOnboardingWindowManager(dependsOn),
+      dependsOn: { i18n, serverChannel },
+    })
+    injeca.provide('windows:notice', {
+      build: ({ dependsOn }) => setupNoticeWindowManager(dependsOn),
+      dependsOn: { i18n, serverChannel },
+    })
+
+    const widgetsManager = injeca.provide('windows:widgets', {
+      build: ({ dependsOn }) => setupWidgetsWindowManager(dependsOn),
+      dependsOn: { i18n, serverChannel },
+    })
+
+    const aboutWindow = injeca.provide('windows:about', {
+      build: ({ dependsOn }) => setupAboutWindowReusable(dependsOn),
+      dependsOn: { autoUpdater, i18n, serverChannel },
+    })
+
+    const chatWindow = injeca.provide('windows:chat', {
+      build: ({ dependsOn }) => setupChatWindowReusableFunc(dependsOn),
+      dependsOn: { appConfig, i18n, mcpStdioManager, serverChannel, widgetsManager },
+    })
+
+    const settingsWindow = injeca.provide('windows:settings', {
+      build: async ({ dependsOn }) => setupSettingsWindowReusableFunc(dependsOn),
+      dependsOn: {
+        autoUpdater,
+        beatSync,
+        devtoolsMarkdownStressWindow,
+        i18n,
+        mcpStdioManager,
+        serverChannel,
+        widgetsManager,
+      },
+    })
+
+    const stageWindow = injeca.provide('windows:stage', {
+      build: async ({ dependsOn }) => setupActorStageWindow(dependsOn),
+      dependsOn: { appConfig, i18n, serverChannel },
+    })
+
+    const captionWindow = injeca.provide('windows:caption', {
+      build: async ({ dependsOn }) => setupCaptionWindowManager(dependsOn),
+      dependsOn: { appConfig, i18n, serverChannel, stageWindow },
+    })
+
+    const customizerWindow = injeca.provide('windows:customizer', {
+      build: async ({ dependsOn }) => setupCustomizerWindowManager(dependsOn),
+      dependsOn: { i18n, serverChannel, stageWindow },
+    })
+
+    const tray = injeca.provide('app:tray', {
+      build: async ({ dependsOn }) => {
+        const configHelper = dependsOn.appConfig
+        return setupTray({
+          ...dependsOn,
+          getConfig: () => configHelper.get(),
+          updateConfig: (config) => configHelper.update(config),
         })
+      },
+      dependsOn: {
+        aboutWindow,
+        appConfig,
+        beatSyncBgWindow: beatSync,
+        captionWindow,
+        i18n,
+        serverChannel,
+        settingsWindow,
+        stageWindow,
+        widgetsWindow: widgetsManager,
+      },
+    })
 
-        if (appConfig) {
-          const windows = appConfig.windows || []
-          const idx = windows.findIndex((w: any) => w.tag === target)
-          if (idx !== -1) {
-            windows[idx] = {
-              ...windows[idx],
-              x: newBounds.x,
-              y: newBounds.y,
-              width: newBounds.width,
-              height: newBounds.height,
+    injeca.invoke({
+      callback: (deps) => {
+        const context = createContext(ipcMain).context
+        createServerChannelService({ serverChannel: deps.serverChannel })
+        createMcpServersService({ context, manager: deps.mcpStdioManager })
+        createI18nService({ context, i18n: deps.i18n, window: deps.stageWindow })
+        createMicToggleService({ context, window: deps.stageWindow })
+        createVisionService({ context })
+        const sensorsServicePromise = createSensorsService({ context })
+        setupDiscordService()
+        defineInvokeHandler(context, electronCaptionToggleVisibility, async (enabled?: boolean) => {
+          console.log(
+            '[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island. enabled:',
+            enabled,
+          )
+          await deps.captionWindow.toggleVisibility(enabled)
+        })
+        defineInvokeHandler(context, electronGetChatWindowState, async () => {
+          const win = await deps.chatWindow()
+          const isOpen = Boolean(win && !win.isDestroyed() && win.isVisible())
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Retrieved chat window state:', isOpen)
+          return isOpen
+        })
+        defineInvokeHandler(context, electronGetCaptionWindowState, async () => {
+          const winEnabled = deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled
+          const winVisible = deps.captionWindow.isVisible()
+          const isOpen = Boolean(winEnabled || winVisible)
+          console.log(
+            '[@proj-airi/stage-tamagotchi] [Main] Retrieved caption window state:',
+            isOpen,
+            'enabled:',
+            winEnabled,
+            'visible:',
+            winVisible,
+          )
+          return isOpen
+        })
+        defineInvokeHandler(context, electronCaptionSyncDocking, async (dock) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Caption docking sync triggered via Control Island:', dock)
+          const appConfig = deps.appConfig.get()
+          if (appConfig) {
+            const windows = appConfig.windows ?? []
+            const index = windows.findIndex((w: any) => w.tag === 'caption')
+            if (index !== -1) {
+              windows[index] = { ...windows[index], dock }
+            } else {
+              windows.push({ dock, enabled: deps.captionWindow.isVisible(), tag: 'caption' })
             }
-          }
-          else {
-            windows.push({
-              title: target === 'actor' ? 'AIRI' : 'AIRI',
-              tag: target,
-              x: newBounds.x,
-              y: newBounds.y,
-              width: newBounds.width,
-              height: newBounds.height,
+            deps.appConfig.update({
+              ...appConfig,
+              windows,
             })
           }
-          appConfig.windows = windows
-          deps.appConfig.update(appConfig)
-        }
-
-        if (target === 'actor') {
+          await deps.captionWindow.triggerMove(dock)
+        })
+        defineInvokeHandler(context, electronCaptionSetFollowWindow, async (shouldFollow) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow window triggered:', shouldFollow)
+          await deps.captionWindow.setFollowWindow(shouldFollow)
+        })
+        defineInvokeHandler(context, electronSetIgnoreMouseEvents, async (ignore) => {
+          // @ts-expect-error - window might be undefined if context is global, but here it's window-specific
+          context.window?.setIgnoreMouseEvents(ignore, { forward: true })
+        })
+        defineInvokeHandler(context, electronStageToggleVisibility, async (enabled) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage visibility changed:', enabled)
+          setStageVisibleState(enabled)
           if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
-            deps.stageWindow.setBounds(newBounds)
+            if (enabled) {
+              deps.stageWindow.show()
+            } else {
+              deps.stageWindow.hide()
+            }
           }
-        }
-        else if (target === 'chat') {
+        })
+        defineInvokeHandler(context, electronStageSetAlwaysOnTop, async (flag) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage always-on-top changed:', flag)
+          if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
+            if (flag) {
+              deps.stageWindow.setAlwaysOnTop(true, 'screen-saver', 1)
+            } else {
+              deps.stageWindow.setAlwaysOnTop(false)
+            }
+          }
+        })
+
+        defineInvokeHandler(context, electronOpenSettings, async (payload) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Open settings triggered:', payload?.route)
+          await deps.settingsWindow.openWindow(payload?.route)
+        })
+        defineInvokeHandler(context, electronOpenChat, async (enabled?: boolean) => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Open chat triggered:', enabled)
           const win = await deps.chatWindow()
-          if (win && !win.isDestroyed() && win.isVisible()) {
-            win.setBounds(newBounds)
+          if (win && !win.isDestroyed()) {
+            if (enabled === undefined) {
+              toggleWindowShow(win)
+            } else if (enabled) {
+              win.show()
+              win.focus()
+            } else {
+              win.hide()
+            }
           }
-        }
-      })
-
-      defineInvokeHandler(context, electronResetWindowPositions, async () => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Resetting all window positions...')
-        const primaryDisplay = screen.getPrimaryDisplay()
-        const workArea = primaryDisplay.workArea
-
-        const actorBounds = ensureWindowInVisibleBounds({
-          x: Math.round(workArea.x + (workArea.width - 450) / 2),
-          y: Math.round(workArea.y + (workArea.height - 600) / 2),
-          width: 450,
-          height: 600,
         })
 
-        const chatBounds = ensureWindowInVisibleBounds({
-          x: Math.round(workArea.x + (workArea.width - 600) / 2),
-          y: Math.round(workArea.y + (workArea.height - 800) / 2),
-          width: 600,
-          height: 800,
+        defineInvokeHandler(context, electronShowToast, async (payload) => {
+          if (!payload) return
+
+          let targetWin = await deps.chatWindow()
+          if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
+            targetWin = deps.stageWindow
+          }
+          if (targetWin && !targetWin.isDestroyed()) {
+            const { context: winContext, dispose } = createContext(ipcMain, targetWin)
+            winContext.emit(electronShowToastEvent, payload)
+            dispose()
+          }
         })
 
-        const captionBounds = ensureWindowInVisibleBounds({
-          x: Math.round(workArea.x + (workArea.width - 480) / 2),
-          y: Math.round(workArea.y + (workArea.height - 180) / 2),
-          width: 480,
-          height: 180,
-        })
+        defineInvokeHandler(context, electronApplySizePreset, async (payload) => {
+          if (!payload) return
+          const { target, preset } = payload
+          console.log(`[@proj-airi/stage-tamagotchi] [Main] Apply size preset: ${preset} for target: ${target}`)
 
-        const appConfig = deps.appConfig.get()
-        if (appConfig) {
-          const windows = appConfig.windows || []
-          const updateWin = (tag: string, bounds: Rectangle, extra = {}) => {
-            const idx = windows.findIndex((w: any) => w.tag === tag)
+          let centerX: number | undefined
+          let centerY: number | undefined
+          let targetDisplay: any | undefined
+
+          if (target === 'actor') {
+            const win = deps.stageWindow
+            if (win && !win.isDestroyed()) {
+              const bounds = win.getBounds()
+              centerX = bounds.x + bounds.width / 2
+              centerY = bounds.y + bounds.height / 2
+              targetDisplay = screen.getDisplayMatching(bounds)
+            }
+          } else if (target === 'chat') {
+            const win = await deps.chatWindow()
+            if (win && !win.isDestroyed() && win.isVisible()) {
+              const bounds = win.getBounds()
+              centerX = bounds.x + bounds.width / 2
+              centerY = bounds.y + bounds.height / 2
+              targetDisplay = screen.getDisplayMatching(bounds)
+            }
+          }
+
+          const appConfig = deps.appConfig.get()
+          const winConfig = appConfig?.windows?.find((w: any) => w.tag === target)
+          if (centerX === undefined || centerY === undefined || !targetDisplay) {
+            if (
+              winConfig &&
+              winConfig.x !== undefined &&
+              winConfig.y !== undefined &&
+              winConfig.width !== undefined &&
+              winConfig.height !== undefined
+            ) {
+              centerX = winConfig.x + winConfig.width / 2
+              centerY = winConfig.y + winConfig.height / 2
+              targetDisplay = screen.getDisplayNearestPoint({ x: Math.round(centerX), y: Math.round(centerY) })
+            }
+          }
+
+          if (centerX === undefined || centerY === undefined || !targetDisplay) {
+            targetDisplay = screen.getPrimaryDisplay()
+            const workArea = targetDisplay.workArea
+            centerX = workArea.x + workArea.width / 2
+            centerY = workArea.y + workArea.height / 2
+          }
+
+          const workArea = targetDisplay.workArea
+          let width = 0
+          let height = 0
+
+          if (target === 'actor') {
+            switch (preset) {
+              case 'mini':
+                width = 220
+                height = 315
+                break
+              case 'medium':
+                width = 450
+                height = 600
+                break
+              case 'large':
+                width = 800
+                height = 1000
+                break
+              case 'full':
+                width = workArea.width
+                height = workArea.height
+                break
+            }
+          } else if (target === 'chat') {
+            switch (preset) {
+              case 'mini':
+                width = 400
+                height = 500
+                break
+              case 'medium':
+                width = 600
+                height = 800
+                break
+              case 'large':
+                width = 900
+                height = 900
+                break
+              case 'full':
+                width = Math.max(400, workArea.width - 80)
+                height = Math.max(500, workArea.height - 80)
+                break
+            }
+          }
+
+          const newBounds = ensureWindowInVisibleBounds({
+            height,
+            width,
+            x: Math.round(centerX! - width / 2),
+            y: Math.round(centerY! - height / 2),
+          })
+
+          if (appConfig) {
+            const windows = appConfig.windows || []
+            const idx = windows.findIndex((w: any) => w.tag === target)
             if (idx !== -1) {
               windows[idx] = {
                 ...windows[idx],
-                ...bounds,
-                ...extra,
+                height: newBounds.height,
+                width: newBounds.width,
+                x: newBounds.x,
+                y: newBounds.y,
               }
-            }
-            else {
+            } else {
               windows.push({
-                title: 'AIRI',
-                tag,
-                ...bounds,
-                ...extra,
+                height: newBounds.height,
+                tag: target,
+                title: target === 'actor' ? 'AIRI' : 'AIRI',
+                width: newBounds.width,
+                x: newBounds.x,
+                y: newBounds.y,
               })
             }
+            appConfig.windows = windows
+            deps.appConfig.update(appConfig)
           }
-          updateWin('actor', actorBounds)
-          updateWin('chat', chatBounds)
-          updateWin('caption', captionBounds)
-          appConfig.windows = windows
-          deps.appConfig.update(appConfig)
-        }
+
+          if (target === 'actor') {
+            if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
+              deps.stageWindow.setBounds(newBounds)
+            }
+          } else if (target === 'chat') {
+            const win = await deps.chatWindow()
+            if (win && !win.isDestroyed() && win.isVisible()) {
+              win.setBounds(newBounds)
+            }
+          }
+        })
+
+        defineInvokeHandler(context, electronResetWindowPositions, async () => {
+          console.log('[@proj-airi/stage-tamagotchi] [Main] Resetting all window positions...')
+          const primaryDisplay = screen.getPrimaryDisplay()
+          const workArea = primaryDisplay.workArea
+
+          const actorBounds = ensureWindowInVisibleBounds({
+            height: 600,
+            width: 450,
+            x: Math.round(workArea.x + (workArea.width - 450) / 2),
+            y: Math.round(workArea.y + (workArea.height - 600) / 2),
+          })
+
+          const chatBounds = ensureWindowInVisibleBounds({
+            height: 800,
+            width: 600,
+            x: Math.round(workArea.x + (workArea.width - 600) / 2),
+            y: Math.round(workArea.y + (workArea.height - 800) / 2),
+          })
+
+          const captionBounds = ensureWindowInVisibleBounds({
+            height: 180,
+            width: 480,
+            x: Math.round(workArea.x + (workArea.width - 480) / 2),
+            y: Math.round(workArea.y + (workArea.height - 180) / 2),
+          })
+
+          const appConfig = deps.appConfig.get()
+          if (appConfig) {
+            const windows = appConfig.windows || []
+            const updateWin = (tag: string, bounds: Rectangle, extra = {}) => {
+              const idx = windows.findIndex((w: any) => w.tag === tag)
+              if (idx !== -1) {
+                windows[idx] = {
+                  ...windows[idx],
+                  ...bounds,
+                  ...extra,
+                }
+              } else {
+                windows.push({
+                  tag,
+                  title: 'AIRI',
+                  ...bounds,
+                  ...extra,
+                })
+              }
+            }
+            updateWin('actor', actorBounds)
+            updateWin('chat', chatBounds)
+            updateWin('caption', captionBounds)
+            appConfig.windows = windows
+            deps.appConfig.update(appConfig)
+          }
+
+          if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
+            deps.stageWindow.setBounds(actorBounds)
+          }
+          const chatWin = await deps.chatWindow()
+          if (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) {
+            chatWin.setBounds(chatBounds)
+          }
+          const capWin = await deps.captionWindow.getWindow()
+          if (capWin && !capWin.isDestroyed()) {
+            capWin.setBounds(captionBounds)
+          }
+        })
 
         if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
-          deps.stageWindow.setBounds(actorBounds)
+          deps.stageWindow.on('show', () => {
+            if (deps.captionWindow.getIsFollowingWindow()) {
+              deps.captionWindow.toggleVisibility(true)
+            }
+          })
+          deps.stageWindow.on('hide', () => {
+            if (deps.captionWindow.getIsFollowingWindow()) {
+              deps.captionWindow.toggleVisibility(false)
+            }
+          })
         }
-        const chatWin = await deps.chatWindow()
-        if (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) {
-          chatWin.setBounds(chatBounds)
-        }
-        const capWin = await deps.captionWindow.getWindow()
-        if (capWin && !capWin.isDestroyed()) {
-          capWin.setBounds(captionBounds)
-        }
-      })
 
-      if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
-        deps.stageWindow.on('show', () => {
-          if (deps.captionWindow.getIsFollowingWindow()) {
-            deps.captionWindow.toggleVisibility(true)
+        const restoreCaption = () => {
+          // Auto-restore caption window if enabled in config
+          if (deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled) {
+            deps.captionWindow.toggleVisibility()
           }
+        }
+
+        if (deps.stageWindow.isVisible()) {
+          restoreCaption()
+        } else {
+          deps.stageWindow.once('ready-to-show', restoreCaption)
+        }
+
+        import('./libs/bootkit/lifecycle').then((m) => {
+          m.onAppBeforeQuit(async () => {
+            console.log('[@proj-airi/stage-tamagotchi] App is quitting, flushing all configs...')
+            const sensorsService = await sensorsServicePromise
+            sensorsService.stop()
+            flushAllConfigs()
+          })
         })
-        deps.stageWindow.on('hide', () => {
-          if (deps.captionWindow.getIsFollowingWindow()) {
-            deps.captionWindow.toggleVisibility(false)
-          }
-        })
-      }
 
-      const restoreCaption = () => {
-        // Auto-restore caption window if enabled in config
-        if (deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled) {
-          deps.captionWindow.toggleVisibility()
-        }
-      }
+        ipcMain.handle(
+          'save-backup-bundle',
+          async (_event, data: { timestamp: string; files: Record<string, string>; customPath?: string }) => {
+            console.log('[Backup] Received backup bundle request')
+            const fs = await import('node:fs/promises')
+            const path = await import('node:path')
 
-      if (deps.stageWindow.isVisible()) {
-        restoreCaption()
-      }
-      else {
-        deps.stageWindow.once('ready-to-show', restoreCaption)
-      }
+            const defaultPath = path.join(app.getPath('documents'), 'AIRI-Backups')
+            const savePath = data.customPath || defaultPath
 
-      import('./libs/bootkit/lifecycle').then((m) => {
-        m.onAppBeforeQuit(async () => {
-          console.log('[@proj-airi/stage-tamagotchi] App is quitting, flushing all configs...')
-          const sensorsService = await sensorsServicePromise
-          sensorsService.stop()
-          flushAllConfigs()
-        })
-      })
+            try {
+              await fs.mkdir(savePath, { recursive: true })
 
-      ipcMain.handle('save-backup-bundle', async (_event, data: { timestamp: string, files: Record<string, string>, customPath?: string }) => {
-        console.log('[Backup] Received backup bundle request')
-        const fs = await import('node:fs/promises')
-        const path = await import('node:path')
+              // Save files into a folder named with timestamp
+              const bundleDir = path.join(savePath, `backup-${data.timestamp}`)
+              await fs.mkdir(bundleDir, { recursive: true })
 
-        const defaultPath = path.join(app.getPath('documents'), 'AIRI-Backups')
-        const savePath = data.customPath || defaultPath
+              for (const [filename, content] of Object.entries(data.files)) {
+                await fs.writeFile(path.join(bundleDir, filename), content)
+              }
 
-        try {
-          await fs.mkdir(savePath, { recursive: true })
+              console.log(`[Backup] Backup saved to ${bundleDir}`)
+              return { path: bundleDir, success: true }
+            } catch (error) {
+              console.error('[Backup] Failed to save backup:', error)
+              throw error
+            }
+          },
+        )
 
-          // Save files into a folder named with timestamp
-          const bundleDir = path.join(savePath, `backup-${data.timestamp}`)
-          await fs.mkdir(bundleDir, { recursive: true })
+        ipcMain.on(
+          'provider-validation-result',
+          (_, data: { providerId: string; valid: boolean; reason: string; config: any }) => {
+            if (data.valid) return
 
-          for (const [filename, content] of Object.entries(data.files)) {
-            await fs.writeFile(path.join(bundleDir, filename), content)
-          }
+            const status = 'FAIL'
+            const color = '\x1B[31m'
+            const reset = '\x1B[0m'
+            console.log(`${color}[Provider Validation]${reset} [${data.providerId}] ${status}`)
+            if (!data.valid) {
+              console.log(`  └─ Reason: ${data.reason}`)
+            }
+            if (data.config && (data.valid || !data.reason?.includes('required'))) {
+              console.log(`  └─ Config: ${JSON.stringify(data.config)}`)
+            }
+          },
+        )
 
-          console.log(`[Backup] Backup saved to ${bundleDir}`)
-          return { success: true, path: bundleDir }
-        }
-        catch (error) {
-          console.error('[Backup] Failed to save backup:', error)
-          throw error
-        }
-      })
-
-      ipcMain.on('provider-validation-result', (_, data: { providerId: string, valid: boolean, reason: string, config: any }) => {
-        if (data.valid)
-          return
-
-        const status = 'FAIL'
-        const color = '\x1B[31m'
-        const reset = '\x1B[0m'
-        console.log(`${color}[Provider Validation]${reset} [${data.providerId}] ${status}`)
-        if (!data.valid) {
-          console.log(`  └─ Reason: ${data.reason}`)
-        }
-        if (data.config && (data.valid || !data.reason?.includes('required'))) {
-          console.log(`  └─ Config: ${JSON.stringify(data.config)}`)
-        }
-      })
-
-      ipcMain.on('llm-raw-output', (_, data: { type: 'delta' | 'full', text: string, sessionId: string }) => {
-        const reset = '\x1B[0m'
-        const cyan = '\x1B[36m'
-        // const yellow = '\x1B[33m'
-        if (data.type === 'delta') {
-          /*
+        ipcMain.on('llm-raw-output', (_, data: { type: 'delta' | 'full'; text: string; sessionId: string }) => {
+          const reset = '\x1B[0m'
+          const cyan = '\x1B[36m'
+          // const yellow = '\x1B[33m'
+          if (data.type === 'delta') {
+            /*
           // Log deltas in yellow, but only if they are not just whitespace (too noisy otherwise)
           if (data.text.trim()) {
             console.log(`${yellow}[LLM Delta]${reset} ${data.text}`)
           }
           */
-        }
-        else {
-          console.log(`${cyan}[LLM Final Output]${reset} Session: ${data.sessionId}`)
-          console.log(`----------------------------------------`)
-          console.log(data.text)
-          console.log(`----------------------------------------`)
-        }
-      })
-    },
+          } else {
+            console.log(`${cyan}[LLM Final Output]${reset} Session: ${data.sessionId}`)
+            console.log(`----------------------------------------`)
+            console.log(data.text)
+            console.log(`----------------------------------------`)
+          }
+        })
+      },
+      dependsOn: {
+        appConfig,
+        captionWindow,
+        chatWindow,
+        customizerWindow,
+        i18n,
+        mcpStdioManager,
+        onboardingWindow: onboardingWindowManager,
+        pluginHost,
+        serverChannel,
+        settingsWindow,
+        stageWindow,
+        tray,
+      },
+    })
+
+    injeca.start().catch((err) => console.error(err))
+
+    emitAppReady()
+    openDebugger()
+
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
   })
-
-  injeca.start().catch(err => console.error(err))
-
-  emitAppReady()
-  openDebugger()
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+  .catch((err) => {
+    log.withError(err).error('Error during app initialization')
   })
-}).catch((err) => {
-  log.withError(err).error('Error during app initialization')
-})
 
 app.on('window-all-closed', () => {
   emitAppWindowAllClosed()
@@ -733,8 +775,7 @@ app.on('window-all-closed', () => {
 
 let isQuitting = false
 app.on('before-quit', async (event) => {
-  if (isQuitting)
-    return
+  if (isQuitting) return
 
   event.preventDefault()
   isQuitting = true
@@ -748,11 +789,9 @@ app.on('before-quit', async (event) => {
     await injeca.stop()
     cleanupMicToggleShortcut()
     console.log('[@proj-airi/stage-tamagotchi] Shutdown complete. Quitting...')
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[@proj-airi/stage-tamagotchi] Error during shutdown sequence:', err)
-  }
-  finally {
+  } finally {
     app.quit()
   }
 })

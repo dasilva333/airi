@@ -1,6 +1,5 @@
-import type { Animator, CreateAnimatorOptions } from '.'
-
 import { createTimeline } from 'animejs'
+import type { Animator, CreateAnimatorOptions } from '.'
 
 export function createFadeAnimator(options: CreateAnimatorOptions): Animator {
   return (elements: HTMLElement[]) => {
@@ -16,7 +15,7 @@ export function createFadeAnimator(options: CreateAnimatorOptions): Animator {
       .add(elements, {
         opacity: [0, 1],
         ...options,
-        delay: (_, i) => options.duration / elements.length * (i + 1),
+        delay: (_, i) => (options.duration / elements.length) * (i + 1),
       })
 
     return () => {

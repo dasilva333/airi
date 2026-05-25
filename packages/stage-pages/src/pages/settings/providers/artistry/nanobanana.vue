@@ -5,11 +5,7 @@ import { storeToRefs } from 'pinia'
 
 const artistryStore = useArtistryStore()
 
-const {
-  nanobananaApiKey,
-  nanobananaModel,
-  nanobananaResolution,
-} = storeToRefs(artistryStore)
+const { nanobananaApiKey, nanobananaModel, nanobananaResolution } = storeToRefs(artistryStore)
 
 const modelOptions = [
   { label: 'Nano Banana 2 (Gemini 3.1 Flash Image)', value: 'gemini-3.1-flash-image-preview' },

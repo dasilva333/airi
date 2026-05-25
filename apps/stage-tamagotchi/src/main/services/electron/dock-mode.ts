@@ -1,9 +1,8 @@
+import { defineInvokeHandler } from '@moeru/eventa'
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { DockModeConfig, DockModeStatus, DockPosition, TargetWindowBounds } from '@proj-airi/electron-eventa'
-import type { BrowserWindow, DesktopCapturerSource } from 'electron'
-
-import { defineInvokeHandler } from '@moeru/eventa'
 import { dockModeStatusChanged, dockModeTargetBounds, electron } from '@proj-airi/electron-eventa'
+import type { BrowserWindow, DesktopCapturerSource } from 'electron'
 import { desktopCapturer } from 'electron'
 
 import { onAppBeforeQuit, onAppWindowAllClosed } from '../../libs/bootkit/lifecycle'
@@ -11,10 +10,10 @@ import { createWindowBoundsPoller } from './window-bounds-provider'
 
 function calculateDockedPosition(
   targetBounds: TargetWindowBounds,
-  airiSize: { width: number, height: number },
+  airiSize: { width: number; height: number },
   position: DockPosition,
-  offset: { x: number, y: number },
-): { x: number, y: number } {
+  offset: { x: number; y: number },
+): { x: number; y: number } {
   switch (position) {
     case 'right':
       return {
@@ -58,32 +57,35 @@ export function createDockModeService(params: {
     return currentStatus
   }
 
-  onAppWindowAllClosed(() => { stopDocking() })
-  onAppBeforeQuit(() => { stopDocking() })
+  onAppWindowAllClosed(() => {
+    stopDocking()
+  })
+  onAppBeforeQuit(() => {
+    stopDocking()
+  })
 
   // List desktop windows via desktopCapturer
   defineInvokeHandler(params.context, electron.dockMode.listWindows, async () => {
     const sources = await desktopCapturer.getSources({
+      thumbnailSize: { height: 120, width: 160 },
       types: ['window'],
-      thumbnailSize: { width: 160, height: 120 },
     })
 
-    return sources
-      // exclude our own window
-      .filter((source: DesktopCapturerSource) => !source.id.includes(String(params.window.id)))
-      .map((source: DesktopCapturerSource) => ({
-        id: source.id,
-        name: source.name,
-        thumbnail: source.thumbnail && !source.thumbnail.isEmpty()
-          ? source.thumbnail.toDataURL()
-          : undefined,
-      }))
+    return (
+      sources
+        // exclude our own window
+        .filter((source: DesktopCapturerSource) => !source.id.includes(String(params.window.id)))
+        .map((source: DesktopCapturerSource) => ({
+          id: source.id,
+          name: source.name,
+          thumbnail: source.thumbnail && !source.thumbnail.isEmpty() ? source.thumbnail.toDataURL() : undefined,
+        }))
+    )
   })
 
   // Start dock mode
   defineInvokeHandler(params.context, electron.dockMode.start, (config: DockModeConfig | undefined) => {
-    if (!config)
-      return currentStatus
+    if (!config) return currentStatus
 
     // Stop any existing dock
     if (currentPoller) {
@@ -111,7 +113,7 @@ export function createDockModeService(params: {
       const airiSize = params.window.getBounds()
       const newPos = calculateDockedPosition(
         targetBounds,
-        { width: airiSize.width, height: airiSize.height },
+        { height: airiSize.height, width: airiSize.width },
         currentConfig!.position,
         currentConfig!.offset,
       )
@@ -128,8 +130,8 @@ export function createDockModeService(params: {
     currentPoller = poller
     currentStatus = {
       active: true,
-      targetWindowId: config.targetWindowId,
       position: config.position,
+      targetWindowId: config.targetWindowId,
     }
     params.context.emit(dockModeStatusChanged, currentStatus)
     return currentStatus

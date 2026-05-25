@@ -11,7 +11,13 @@ export interface ProviderCatalogProvider {
 
 export const providersRepo = {
   async getAll() {
-    return await storage.getItemRaw<Record<string, ProviderCatalogProvider>>('local:providers') || {}
+    return (await storage.getItemRaw<Record<string, ProviderCatalogProvider>>('local:providers')) || {}
+  },
+
+  async remove(id: string) {
+    const all = await this.getAll()
+    delete all[id]
+    await this.saveAll(all)
   },
 
   async saveAll(providers: Record<string, ProviderCatalogProvider>) {
@@ -21,12 +27,6 @@ export const providersRepo = {
   async upsert(provider: ProviderCatalogProvider) {
     const all = await this.getAll()
     all[provider.id] = provider
-    await this.saveAll(all)
-  },
-
-  async remove(id: string) {
-    const all = await this.getAll()
-    delete all[id]
     await this.saveAll(all)
   },
 }

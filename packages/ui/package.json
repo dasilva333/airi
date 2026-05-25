@@ -1,28 +1,8 @@
 {
-  "name": "@proj-airi/ui",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "description": "A collection of UI components that used by Project AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/ui"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./components/animations": "./src/components/animations/index.ts",
-    "./components/form": "./src/components/form/index.ts",
-    "./components/layouts": "./src/components/layouts/index.ts",
-    "./*": "./*"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@vueuse/core": "catalog:",
@@ -30,8 +10,28 @@
     "reka-ui": "^2.8.2",
     "vue": "catalog:"
   },
+  "description": "A collection of UI components that used by Project AIRI",
   "devDependencies": {
     "@vue-macros/volar": "3.0.0-beta.8",
     "vue-tsc": "^3.1.8"
-  }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./*",
+    "./components/animations": "./src/components/animations/index.ts",
+    "./components/form": "./src/components/form/index.ts",
+    "./components/layouts": "./src/components/layouts/index.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/ui",
+  "repository": {
+    "directory": "packages/ui",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

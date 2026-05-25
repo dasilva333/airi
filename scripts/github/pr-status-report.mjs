@@ -8,20 +8,19 @@ const AGENT_LOGINS = new Set(['gemini-code-assist', 'gemini-code-assist[bot]', '
 
 function getArg(name, fallback) {
   const prefix = `--${name}=`
-  const match = process.argv.find(arg => arg.startsWith(prefix))
+  const match = process.argv.find((arg) => arg.startsWith(prefix))
   return match ? match.slice(prefix.length) : fallback
 }
 
 async function fetchJson(url) {
   const response = await fetch(url, {
     headers: {
-      'Accept': 'application/vnd.github+json',
+      Accept: 'application/vnd.github+json',
       'User-Agent': 'airi-pr-status-report',
     },
   })
 
-  if (!response.ok)
-    throw new Error(`GitHub API ${response.status} for ${url}`)
+  if (!response.ok) throw new Error(`GitHub API ${response.status} for ${url}`)
 
   return response.json()
 }
@@ -32,8 +31,8 @@ function parseCatalogFeedback(content) {
 
   for (const match of content.matchAll(regex)) {
     baseline.set(Number.parseInt(match[1], 10), {
-      user: match[2],
       date: match[3],
+      user: match[2],
     })
   }
 
@@ -41,18 +40,15 @@ function parseCatalogFeedback(content) {
 }
 
 function summarizeStatus(issue, pull) {
-  if (pull.merged_at)
-    return 'merged'
+  if (pull.merged_at) return 'merged'
   return issue.state === 'open' ? 'open' : 'closed'
 }
 
 function printSection(title, items, formatter) {
-  if (items.length === 0)
-    return
+  if (items.length === 0) return
 
   console.log(`\n${title}`)
-  for (const item of items)
-    console.log(formatter(item))
+  for (const item of items) console.log(formatter(item))
 }
 
 async function run() {
@@ -74,7 +70,7 @@ async function run() {
     ])
 
     const humanComments = comments
-      .filter(comment => !AGENT_LOGINS.has(comment.user.login))
+      .filter((comment) => !AGENT_LOGINS.has(comment.user.login))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
     const latestHuman = humanComments[0] ?? null
@@ -84,23 +80,23 @@ async function run() {
       : false
 
     prs.push({
-      number: issue.number,
-      title: issue.title,
-      url: issue.html_url,
-      status: summarizeStatus(issue, pull),
-      updatedAt: issue.updated_at,
-      latestHuman,
       hasNewHumanComment,
+      latestHuman,
+      number: issue.number,
+      status: summarizeStatus(issue, pull),
+      title: issue.title,
+      updatedAt: issue.updated_at,
+      url: issue.html_url,
     })
   }
 
   prs.sort((a, b) => b.number - a.number)
 
   const totals = {
+    closed: prs.filter((pr) => pr.status === 'closed').length,
+    merged: prs.filter((pr) => pr.status === 'merged').length,
+    open: prs.filter((pr) => pr.status === 'open').length,
     total: prs.length,
-    open: prs.filter(pr => pr.status === 'open').length,
-    closed: prs.filter(pr => pr.status === 'closed').length,
-    merged: prs.filter(pr => pr.status === 'merged').length,
   }
 
   console.log(`PR status report for ${author} in ${repo}`)
@@ -109,11 +105,15 @@ async function run() {
   console.log(`Closed: ${totals.closed}`)
   console.log(`Merged: ${totals.merged}`)
 
-  printSection('Open PRs', prs.filter(pr => pr.status === 'open'), pr => `- #${pr.number} ${pr.title}`)
+  printSection(
+    'Open PRs',
+    prs.filter((pr) => pr.status === 'open'),
+    (pr) => `- #${pr.number} ${pr.title}`,
+  )
 
   printSection(
     'New human comments since catalog baseline',
-    prs.filter(pr => pr.hasNewHumanComment),
+    prs.filter((pr) => pr.hasNewHumanComment),
     (pr) => {
       const comment = pr.latestHuman
       const body = comment.body.replace(/\s+/g, ' ').slice(0, 180)

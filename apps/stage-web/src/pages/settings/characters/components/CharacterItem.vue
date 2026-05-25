@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { Character } from '@proj-airi/stage-ui/types/character'
-
 import { CursorFloating } from '@proj-airi/stage-ui/components'
+import type { Character } from '@proj-airi/stage-ui/types/character'
 import { computed } from 'vue'
 
 interface Props {
@@ -19,25 +18,22 @@ const emit = defineEmits<{
 
 const i18n = computed(() => {
   // TODO: Use current locale
-  if (!props.character.i18n?.length)
-    return undefined
-  return props.character.i18n.find(i => i.language === 'en') || props.character.i18n[0]
+  if (!props.character.i18n?.length) return undefined
+  return props.character.i18n.find((i) => i.language === 'en') || props.character.i18n[0]
 })
 
 const name = computed(() => i18n.value?.name || 'Unknown')
 const description = computed(() => i18n.value?.description || '')
 
 const consciousnessModel = computed(() => {
-  if (!props.character.capabilities)
-    return '-'
-  const cap = props.character.capabilities.find(c => c.type === 'llm')
+  if (!props.character.capabilities) return '-'
+  const cap = props.character.capabilities.find((c) => c.type === 'llm')
   return cap?.config.llm?.model || '-'
 })
 
 const voiceModel = computed(() => {
-  if (!props.character.capabilities)
-    return '-'
-  const cap = props.character.capabilities.find(c => c.type === 'tts')
+  if (!props.character.capabilities) return '-'
+  const cap = props.character.capabilities.find((c) => c.type === 'tts')
   return cap?.config.tts?.voiceId || '-'
 })
 </script>

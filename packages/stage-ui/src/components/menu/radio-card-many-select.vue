@@ -33,19 +33,19 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  columns: 2,
-  searchable: true,
-  searchPlaceholder: 'Search...',
-  searchNoResultsTitle: 'No results found',
-  searchNoResultsDescription: 'Try a different search term',
-  searchResultsText: '{count} of {total} results',
-  customInputPlaceholder: 'Enter custom value',
-  expandButtonText: 'Show more',
-  collapseButtonText: 'Show less',
-  showMore: true,
-  listClass: '',
   allowCustom: false,
+  collapseButtonText: 'Show less',
+  columns: 2,
+  customInputPlaceholder: 'Enter custom value',
   customOptionDescription: 'Custom Value',
+  expandButtonText: 'Show more',
+  listClass: '',
+  searchable: true,
+  searchNoResultsDescription: 'Try a different search term',
+  searchNoResultsTitle: 'No results found',
+  searchPlaceholder: 'Search...',
+  searchResultsText: '{count} of {total} results',
+  showMore: true,
 })
 
 const emit = defineEmits<{
@@ -62,20 +62,20 @@ const filteredItems = computed(() => {
   let result = [...props.items]
 
   // If a custom value is selected (and not present in items), add it to the list temporarily
-  if (modelValue.value && !props.items.some(i => i.id.toLowerCase() === modelValue.value.toLowerCase())) {
+  if (modelValue.value && !props.items.some((i) => i.id.toLowerCase() === modelValue.value.toLowerCase())) {
     result.unshift({
+      customizable: false,
+      description: props.customOptionDescription,
       id: modelValue.value,
       name: modelValue.value,
-      description: props.customOptionDescription,
-      customizable: false,
     })
   }
 
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(item =>
-      item.name.toLowerCase().includes(query)
-      || (item.description && item.description.toLowerCase().includes(query)),
+    result = result.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) || (item.description && item.description.toLowerCase().includes(query)),
     )
   }
 
@@ -83,13 +83,13 @@ const filteredItems = computed(() => {
   if (props.allowCustom && searchQuery.value) {
     const query = searchQuery.value
     // Check against checks if the exact ID exists to avoid duplicates
-    const exactMatch = result.some(i => i.id.toLowerCase() === query.toLowerCase())
+    const exactMatch = result.some((i) => i.id.toLowerCase() === query.toLowerCase())
     if (!exactMatch) {
       result.push({
+        customizable: false,
+        description: props.customOptionDescription,
         id: query,
         name: query,
-        description: props.customOptionDescription,
-        customizable: false,
       })
     }
   }

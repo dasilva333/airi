@@ -1,20 +1,15 @@
+import { inspect } from 'node:util'
 import type { Entity } from 'prismarine-entity'
 import type { Item } from 'prismarine-item'
-
-import type { Mineflayer } from '../../libs/mineflayer'
-
-import { inspect } from 'node:util'
-
 import { Vec3 } from 'vec3'
-
+import type { Mineflayer } from '../../libs/mineflayer'
+import * as world from '../../skills/world'
 import { computeNearbyPlayerGaze } from '../perception/gaze'
 import { renderMap } from './map-renderer'
 
-import * as world from '../../skills/world'
-
 interface BlockRecord {
   name: string
-  pos: { x: number, y: number, z: number }
+  pos: { x: number; y: number; z: number }
   distance: number
   diggable: boolean
   solid: boolean
@@ -25,7 +20,7 @@ interface EntityRecord {
   name: string
   type: string
   username?: string
-  pos: { x: number, y: number, z: number }
+  pos: { x: number; y: number; z: number }
   distance: number
 }
 
@@ -42,7 +37,7 @@ interface InventorySummaryRecord {
 }
 
 interface SelfQueryRecord {
-  pos: { x: number, y: number, z: number }
+  pos: { x: number; y: number; z: number }
   health: number
   food: number
   heldItem: string | null
@@ -64,7 +59,7 @@ class NameQueryChain {
     const needle = fragment.toLowerCase()
     return new NameQueryChain(
       this.values,
-      [...this.predicates, value => value.toLowerCase().includes(needle)],
+      [...this.predicates, (value) => value.toLowerCase().includes(needle)],
       this.dedupe,
     )
   }
@@ -74,9 +69,8 @@ class NameQueryChain {
   }
 
   public list(): string[] {
-    let result = this.values.filter(value => this.predicates.every(predicate => predicate(value)))
-    if (this.dedupe)
-      result = [...new Set(result)]
+    let result = this.values.filter((value) => this.predicates.every((predicate) => predicate(value)))
+    if (this.dedupe) result = [...new Set(result)]
     return result
   }
 }
@@ -90,15 +84,15 @@ interface BlockQueryState {
 class BlockQueryChain {
   constructor(
     private readonly mineflayer: Mineflayer,
-    private readonly state: BlockQueryState = { range: 16, limit: 200, predicates: [] },
+    private readonly state: BlockQueryState = { limit: 200, predicates: [], range: 16 },
   ) {}
 
   private summarize() {
     return {
-      type: 'BlockQueryChain',
-      range: this.state.range,
       limit: this.state.limit,
       predicates: this.state.predicates.length,
+      range: this.state.range,
+      type: 'BlockQueryChain',
     }
   }
 
@@ -120,14 +114,14 @@ class BlockQueryChain {
 
   public isOre(): BlockQueryChain {
     return this.clone({
-      predicates: [...this.state.predicates, block => isOreName(block.name)],
+      predicates: [...this.state.predicates, (block) => isOreName(block.name)],
     })
   }
 
   public whereName(nameOrNames: string | string[]): BlockQueryChain {
-    const names = new Set((Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames]).map(name => name.toLowerCase()))
+    const names = new Set((Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames]).map((name) => name.toLowerCase()))
     return this.clone({
-      predicates: [...this.state.predicates, block => names.has(block.name.toLowerCase())],
+      predicates: [...this.state.predicates, (block) => names.has(block.name.toLowerCase())],
     })
   }
 
@@ -136,7 +130,7 @@ class BlockQueryChain {
   }
 
   public names(): NameQueryChain {
-    return new NameQueryChain(this.list().map(block => block.name))
+    return new NameQueryChain(this.list().map((block) => block.name))
   }
 
   public first(): BlockRecord | null {
@@ -145,7 +139,7 @@ class BlockQueryChain {
 
   public list(): BlockRecord[] {
     const records = collectBlockRecords(this.mineflayer, this.state.range, this.state.limit)
-      .filter(block => this.state.predicates.every(predicate => predicate(block)))
+      .filter((block) => this.state.predicates.every((predicate) => predicate(block)))
       .sort((a, b) => a.distance - b.distance)
     return records.slice(0, this.state.limit)
   }
@@ -167,15 +161,15 @@ interface EntityQueryState {
 class EntityQueryChain {
   constructor(
     private readonly mineflayer: Mineflayer,
-    private readonly state: EntityQueryState = { range: 16, limit: 200, predicates: [] },
+    private readonly state: EntityQueryState = { limit: 200, predicates: [], range: 16 },
   ) {}
 
   private summarize() {
     return {
-      type: 'EntityQueryChain',
-      range: this.state.range,
       limit: this.state.limit,
       predicates: this.state.predicates.length,
+      range: this.state.range,
+      type: 'EntityQueryChain',
     }
   }
 
@@ -196,14 +190,14 @@ class EntityQueryChain {
   }
 
   public whereType(typeOrTypes: string | string[]): EntityQueryChain {
-    const types = new Set((Array.isArray(typeOrTypes) ? typeOrTypes : [typeOrTypes]).map(type => type.toLowerCase()))
+    const types = new Set((Array.isArray(typeOrTypes) ? typeOrTypes : [typeOrTypes]).map((type) => type.toLowerCase()))
     return this.clone({
-      predicates: [...this.state.predicates, entity => types.has((entity.name || entity.type).toLowerCase())],
+      predicates: [...this.state.predicates, (entity) => types.has((entity.name || entity.type).toLowerCase())],
     })
   }
 
   public names(): NameQueryChain {
-    return new NameQueryChain(this.list().map(entity => entity.name))
+    return new NameQueryChain(this.list().map((entity) => entity.name))
   }
 
   public first(): EntityRecord | null {
@@ -212,7 +206,7 @@ class EntityQueryChain {
 
   public list(): EntityRecord[] {
     const records = collectEntityRecords(this.mineflayer, this.state.range)
-      .filter(entity => this.state.predicates.every(predicate => predicate(entity)))
+      .filter((entity) => this.state.predicates.every((predicate) => predicate(entity)))
       .sort((a, b) => a.distance - b.distance)
     return records.slice(0, this.state.limit)
   }
@@ -237,8 +231,8 @@ class InventoryQueryChain {
 
   private summarize() {
     return {
-      type: 'InventoryQueryChain',
       predicates: this.state.predicates.length,
+      type: 'InventoryQueryChain',
     }
   }
 
@@ -251,27 +245,30 @@ class InventoryQueryChain {
   }
 
   public whereName(nameOrNames: string | string[]): InventoryQueryChain {
-    const names = new Set((Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames]).map(name => name.toLowerCase()))
+    const names = new Set((Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames]).map((name) => name.toLowerCase()))
     return this.clone({
-      predicates: [...this.state.predicates, item => names.has(item.name.toLowerCase())],
+      predicates: [...this.state.predicates, (item) => names.has(item.name.toLowerCase())],
     })
   }
 
   public names(): NameQueryChain {
-    return new NameQueryChain(this.list().map(item => item.name))
+    return new NameQueryChain(this.list().map((item) => item.name))
   }
 
   public countByName(): Record<string, number> {
-    return this.list().reduce((counts, item) => {
-      counts[item.name] = (counts[item.name] ?? 0) + item.count
-      return counts
-    }, {} as Record<string, number>)
+    return this.list().reduce(
+      (counts, item) => {
+        counts[item.name] = (counts[item.name] ?? 0) + item.count
+        return counts
+      },
+      {} as Record<string, number>,
+    )
   }
 
   public count(name: string): number {
     const needle = name.toLowerCase()
     return this.list()
-      .filter(item => item.name.toLowerCase() === needle)
+      .filter((item) => item.name.toLowerCase() === needle)
       .reduce((sum, item) => sum + item.count, 0)
   }
 
@@ -282,10 +279,9 @@ class InventoryQueryChain {
   public summary(): InventorySummaryRecord[] {
     const counts = this.countByName()
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ count, name }))
       .sort((a, b) => {
-        if (b.count !== a.count)
-          return b.count - a.count
+        if (b.count !== a.count) return b.count - a.count
         return a.name.localeCompare(b.name)
       })
   }
@@ -293,9 +289,9 @@ class InventoryQueryChain {
   public list(): InventoryRecord[] {
     return this.mineflayer.bot.inventory
       .items()
-      .map((item): InventoryRecord | null => item ? toInventoryRecord(item) : null)
+      .map((item): InventoryRecord | null => (item ? toInventoryRecord(item) : null))
       .filter((item): item is InventoryRecord => item !== null)
-      .filter(item => this.state.predicates.every(predicate => predicate(item)))
+      .filter((item) => this.state.predicates.every((predicate) => predicate(item)))
   }
 
   private clone(patch: Partial<InventoryQueryState>): InventoryQueryChain {
@@ -308,18 +304,18 @@ class InventoryQueryChain {
 
 function toInventoryRecord(item: Item): InventoryRecord {
   return {
-    name: item.name,
     count: item.count,
-    slot: typeof item.slot === 'number' ? item.slot : null,
     displayName: item.displayName,
+    name: item.name,
+    slot: typeof item.slot === 'number' ? item.slot : null,
   }
 }
 
-function toPos(pos: { x: number, y: number, z: number }): { x: number, y: number, z: number } {
+function toPos(pos: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
   return { x: pos.x, y: pos.y, z: pos.z }
 }
 
-function distanceBetween(a: { x: number, y: number, z: number }, b: { x: number, y: number, z: number }): number {
+function distanceBetween(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number {
   const dx = a.x - b.x
   const dy = a.y - b.y
   const dz = a.z - b.z
@@ -328,25 +324,24 @@ function distanceBetween(a: { x: number, y: number, z: number }, b: { x: number,
 
 function collectBlockRecords(mineflayer: Mineflayer, range: number, limit: number): BlockRecord[] {
   const positions = mineflayer.bot.findBlocks({
-    matching: block => block !== null && block.name !== 'air',
-    maxDistance: range,
     count: clamp(limit * 8, limit, 5000),
+    matching: (block) => block !== null && block.name !== 'air',
+    maxDistance: range,
   })
   const selfPos = mineflayer.bot.entity.position
 
   return positions
     .map((pos) => {
       const block = mineflayer.bot.blockAt(pos)
-      if (!block || block.name === 'air')
-        return null
+      if (!block || block.name === 'air') return null
 
       const solid = block.boundingBox === 'block'
       const transparentRaw = (block as any).transparent
       return {
+        diggable: Boolean(block.diggable),
+        distance: distanceBetween(selfPos, block.position),
         name: block.name,
         pos: toPos(block.position),
-        distance: distanceBetween(selfPos, block.position),
-        diggable: Boolean(block.diggable),
         solid,
         transparent: typeof transparentRaw === 'boolean' ? transparentRaw : !solid,
       } satisfies BlockRecord
@@ -361,19 +356,17 @@ function collectEntityRecords(mineflayer: Mineflayer, range: number): EntityReco
 
   return entities
     .map((entity): EntityRecord | null => {
-      if (!entity || !entity.position || entity.id === selfId)
-        return null
+      if (!entity || !entity.position || entity.id === selfId) return null
 
       const distance = distanceBetween(selfPos, entity.position)
-      if (distance > range)
-        return null
+      if (distance > range) return null
 
       return {
+        distance,
         name: entity.name ?? 'unknown',
+        pos: toPos(entity.position),
         type: entity.type,
         username: (entity as Entity).username,
-        pos: toPos(entity.position),
-        distance,
       }
     })
     .filter((entity): entity is EntityRecord => entity !== null)
@@ -389,30 +382,64 @@ function clamp(value: number, min: number, max: number): number {
 
 function toSelfRecord(mineflayer: Mineflayer): SelfQueryRecord {
   return {
-    pos: toPos(mineflayer.bot.entity.position),
-    health: mineflayer.bot.health,
     food: mineflayer.bot.food,
-    heldItem: mineflayer.bot.heldItem?.name ?? null,
     gameMode: mineflayer.bot.game?.gameMode ?? 'unknown',
+    health: mineflayer.bot.health,
+    heldItem: mineflayer.bot.heldItem?.name ?? null,
     isRaining: Boolean(mineflayer.bot.isRaining),
+    pos: toPos(mineflayer.bot.entity.position),
     timeOfDay: typeof mineflayer.bot.time?.timeOfDay === 'number' ? mineflayer.bot.time.timeOfDay : null,
   }
 }
 
 export function createQueryRuntime(mineflayer: Mineflayer) {
   return {
+    blockAt: ({ x, y, z }: { x: number; y: number; z: number }) => {
+      const block = mineflayer.bot.blockAt(new Vec3(Math.floor(x), Math.floor(y), Math.floor(z)))
+      if (!block) return null
+
+      const solid = block.boundingBox === 'block'
+      const transparentRaw = (block as any).transparent
+      return {
+        diggable: Boolean(block.diggable),
+        distance: distanceBetween(mineflayer.bot.entity.position, block.position),
+        name: block.name,
+        pos: toPos(block.position),
+        solid,
+        transparent: typeof transparentRaw === 'boolean' ? transparentRaw : !solid,
+      } satisfies BlockRecord
+    },
+    blocks: () => new BlockQueryChain(mineflayer),
+    craftable: () => new NameQueryChain(world.getCraftableItems(mineflayer)),
+    entities: () => new EntityQueryChain(mineflayer),
+    gaze: (options?: { range?: number }) => {
+      return computeNearbyPlayerGaze(mineflayer.bot, {
+        maxDistance: 32,
+        nearbyDistance: options?.range ?? 16,
+      })
+    },
+    inventory: () => new InventoryQueryChain(mineflayer),
+    map: (options?: {
+      radius?: number
+      view?: 'top-down' | 'cross-section'
+      showEntities?: boolean
+      showElevation?: boolean
+      yLevel?: number
+    }) => {
+      return renderMap(mineflayer.bot, options)
+    },
     self: () => toSelfRecord(mineflayer),
     snapshot: (range = 16) => {
       const normalizedRange = clamp(Math.floor(range), 1, 64)
       const inventory = new InventoryQueryChain(mineflayer)
       return {
-        self: toSelfRecord(mineflayer),
         inventory: {
           counts: inventory.countByName(),
+          emptySlots:
+            typeof mineflayer.bot.inventory.emptySlotCount === 'function'
+              ? mineflayer.bot.inventory.emptySlotCount()
+              : Math.max(0, 36 - mineflayer.bot.inventory.items().length),
           summary: inventory.summary(),
-          emptySlots: typeof mineflayer.bot.inventory.emptySlotCount === 'function'
-            ? mineflayer.bot.inventory.emptySlotCount()
-            : Math.max(0, 36 - mineflayer.bot.inventory.items().length),
           totalStacks: mineflayer.bot.inventory.items().length,
         },
         nearby: {
@@ -420,36 +447,8 @@ export function createQueryRuntime(mineflayer: Mineflayer) {
           entities: new EntityQueryChain(mineflayer).within(normalizedRange).limit(20).list(),
           ores: new BlockQueryChain(mineflayer).within(normalizedRange).isOre().limit(20).list(),
         },
+        self: toSelfRecord(mineflayer),
       }
-    },
-    blocks: () => new BlockQueryChain(mineflayer),
-    blockAt: ({ x, y, z }: { x: number, y: number, z: number }) => {
-      const block = mineflayer.bot.blockAt(new Vec3(Math.floor(x), Math.floor(y), Math.floor(z)))
-      if (!block)
-        return null
-
-      const solid = block.boundingBox === 'block'
-      const transparentRaw = (block as any).transparent
-      return {
-        name: block.name,
-        pos: toPos(block.position),
-        distance: distanceBetween(mineflayer.bot.entity.position, block.position),
-        diggable: Boolean(block.diggable),
-        solid,
-        transparent: typeof transparentRaw === 'boolean' ? transparentRaw : !solid,
-      } satisfies BlockRecord
-    },
-    entities: () => new EntityQueryChain(mineflayer),
-    inventory: () => new InventoryQueryChain(mineflayer),
-    craftable: () => new NameQueryChain(world.getCraftableItems(mineflayer)),
-    gaze: (options?: { range?: number }) => {
-      return computeNearbyPlayerGaze(mineflayer.bot, {
-        maxDistance: 32,
-        nearbyDistance: options?.range ?? 16,
-      })
-    },
-    map: (options?: { radius?: number, view?: 'top-down' | 'cross-section', showEntities?: boolean, showElevation?: boolean, yLevel?: number }) => {
-      return renderMap(mineflayer.bot, options)
     },
   }
 }

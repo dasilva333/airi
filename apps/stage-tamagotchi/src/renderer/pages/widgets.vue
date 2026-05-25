@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import type { WidgetSnapshot } from '../../shared/eventa'
-
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { computed, defineAsyncComponent, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-
+import type { WidgetSnapshot } from '../../shared/eventa'
+import {
+  widgetsClearEvent,
+  widgetsFetch,
+  widgetsRemove,
+  widgetsRemoveEvent,
+  widgetsRenderEvent,
+  widgetsUpdateEvent,
+} from '../../shared/eventa'
 import WeatherSkeleton from '../widgets/weather/components/Skeleton.vue'
 
-import { widgetsClearEvent, widgetsFetch, widgetsRemove, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../shared/eventa'
-
-type SizePreset = 's' | 'm' | 'l' | { cols?: number, rows?: number }
+type SizePreset = 's' | 'm' | 'l' | { cols?: number; rows?: number }
 
 interface WidgetItem {
   id: string
@@ -23,19 +27,12 @@ function isTerminalWidgetStatus(status: unknown) {
   return status === 'done' || status === 'error' || status === 'succeeded'
 }
 
-function shouldIgnoreStaleGeneratingRollback(
-  currentProps: Record<string, any>,
-  nextProps: Record<string, any>,
-) {
-  if (!isTerminalWidgetStatus(currentProps.status))
-    return false
+function shouldIgnoreStaleGeneratingRollback(currentProps: Record<string, any>, nextProps: Record<string, any>) {
+  if (!isTerminalWidgetStatus(currentProps.status)) return false
 
-  if (nextProps.status !== 'generating')
-    return false
+  if (nextProps.status !== 'generating') return false
 
-  const nextProgress = typeof nextProps.progress === 'number'
-    ? nextProps.progress
-    : currentProps.progress
+  const nextProgress = typeof nextProps.progress === 'number' ? nextProps.progress : currentProps.progress
   const sameImage = nextProps.imageUrl != null && nextProps.imageUrl === currentProps.imageUrl
   const samePrompt = nextProps.prompt == null || nextProps.prompt === currentProps.prompt
 
@@ -49,10 +46,8 @@ const route = useRoute()
 
 const widgetId = computed(() => {
   const raw = route.query.id
-  if (typeof raw === 'string')
-    return raw
-  if (Array.isArray(raw))
-    return raw[0]
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) return raw[0]
   return undefined
 })
 
@@ -76,8 +71,7 @@ async function requestRemoval(id: string) {
   clearTtl()
   try {
     await removeWidgetInvoke({ id })
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('Failed to remove widget', error)
   }
 }
@@ -86,9 +80,9 @@ function applySnapshot(snapshot: WidgetSnapshot) {
   console.log('[Widgets] Applying snapshot:', snapshot)
   clearTtl()
   widget.value = {
-    id: snapshot.id,
     componentName: snapshot.componentName,
     componentProps: snapshot.componentProps ?? {},
+    id: snapshot.id,
     size: snapshot.size ?? 'm',
     ttlMs: snapshot.ttlMs ?? 0,
   }
@@ -102,47 +96,41 @@ async function requestSnapshot(id: string) {
   loading.value = true
   try {
     const snapshot = await fetchWidget({ id })
-    if (widgetId.value !== id)
-      return
-    if (snapshot)
-      applySnapshot(snapshot)
-    else
-      widget.value = null
-  }
-  catch (error) {
+    if (widgetId.value !== id) return
+    if (snapshot) applySnapshot(snapshot)
+    else widget.value = null
+  } catch (error) {
     console.warn('Failed to fetch widget snapshot', error)
-  }
-  finally {
-    if (widgetId.value === id)
-      loading.value = false
+  } finally {
+    if (widgetId.value === id) loading.value = false
   }
 }
 
-watch(widgetId, (id) => {
-  clearTtl()
-  widget.value = null
-  loading.value = false
-  if (!id)
-    return
-  requestSnapshot(id)
-}, { immediate: true })
+watch(
+  widgetId,
+  (id) => {
+    clearTtl()
+    widget.value = null
+    loading.value = false
+    if (!id) return
+    requestSnapshot(id)
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   try {
     context.value.on(widgetsRenderEvent, (evt) => {
       const body = evt?.body
-      if (!body || body.id !== widgetId.value)
-        return
+      if (!body || body.id !== widgetId.value) return
       applySnapshot(body)
     })
-  }
-  catch {}
+  } catch {}
 
   try {
     context.value.on(widgetsUpdateEvent, (evt) => {
       const body = evt?.body
-      if (!body || body.id !== widgetId.value)
-        return
+      if (!body || body.id !== widgetId.value) return
 
       console.log(`[Widgets] 📥 Update Received for ${body.id}:`, body.componentProps)
 
@@ -164,20 +152,17 @@ onMounted(() => {
         componentProps: merged,
       }
     })
-  }
-  catch {}
+  } catch {}
 
   try {
     context.value.on(widgetsRemoveEvent, (evt) => {
       const body = evt?.body
-      if (!body || body.id !== widgetId.value)
-        return
+      if (!body || body.id !== widgetId.value) return
       clearTtl()
       widget.value = null
       loading.value = false
     })
-  }
-  catch {}
+  } catch {}
 
   try {
     context.value.on(widgetsClearEvent, () => {
@@ -185,8 +170,7 @@ onMounted(() => {
       widget.value = null
       loading.value = false
     })
-  }
-  catch {}
+  } catch {}
 })
 
 onBeforeUnmount(() => {
@@ -194,42 +178,58 @@ onBeforeUnmount(() => {
 })
 
 const Registry: Record<string, any> = {
+  artistry: defineAsyncComponent(() => import('../widgets/artistry').then((m) => m.Artistry)),
+  comfy: defineAsyncComponent(() => import('../widgets/artistry').then((m) => m.Artistry)),
+  map: defineAsyncComponent(() => import('../widgets/map').then((m) => m.Map)),
+  sticker: defineAsyncComponent(() => import('../widgets/sticker').then((m) => m.Sticker)),
   weather: defineAsyncComponent({
-    loader: () => import('../widgets/weather').then(m => m.Weather),
+    loader: () => import('../widgets/weather').then((m) => m.Weather),
     loadingComponent: WeatherSkeleton,
   }),
-  map: defineAsyncComponent(() => import('../widgets/map').then(m => m.Map)),
-  artistry: defineAsyncComponent(() => import('../widgets/artistry').then(m => m.Artistry)),
-  comfy: defineAsyncComponent(() => import('../widgets/artistry').then(m => m.Artistry)),
-  sticker: defineAsyncComponent(() => import('../widgets/sticker').then(m => m.Sticker)),
 }
 
 const GenericWidget = defineComponent({
   name: 'GenericWidget',
-  props: { title: { type: String, required: true }, modelValue: { type: Object, default: () => ({}) } },
+  props: { modelValue: { default: () => ({}), type: Object }, title: { required: true, type: String } },
   setup(props) {
-    return () => h('div', { class: 'h-full w-full flex flex-col gap-2 rounded-xl border border-neutral-200/30 bg-[rgba(28,28,28,0.72)] p-3 text-neutral-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-neutral-700/30' }, [
-      h('div', { class: 'flex items-center justify-between' }, [
-        h('div', { class: 'text-sm font-medium opacity-90' }, props.title),
-      ]),
-      h('div', { class: 'pointer-events-auto max-h-full min-h-0 flex-1 overflow-auto rounded-md bg-black/10 p-2 text-[11px]' }, [
-        h('pre', { class: 'whitespace-pre-wrap break-words opacity-80' }, JSON.stringify(props.modelValue, null, 2)),
-      ]),
-    ])
+    return () =>
+      h(
+        'div',
+        {
+          class:
+            'h-full w-full flex flex-col gap-2 rounded-xl border border-neutral-200/30 bg-[rgba(28,28,28,0.72)] p-3 text-neutral-100 shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-md dark:border-neutral-700/30',
+        },
+        [
+          h('div', { class: 'flex items-center justify-between' }, [
+            h('div', { class: 'text-sm font-medium opacity-90' }, props.title),
+          ]),
+          h(
+            'div',
+            {
+              class:
+                'pointer-events-auto max-h-full min-h-0 flex-1 overflow-auto rounded-md bg-black/10 p-2 text-[11px]',
+            },
+            [
+              h(
+                'pre',
+                { class: 'whitespace-pre-wrap break-words opacity-80' },
+                JSON.stringify(props.modelValue, null, 2),
+              ),
+            ],
+          ),
+        ],
+      )
   },
 })
 
 function resolveWidgetComponent(name: string) {
   const key = name?.trim()
-  if (!key)
-    return GenericWidget
+  if (!key) return GenericWidget
 
-  if (Registry[key])
-    return Registry[key]
+  if (Registry[key]) return Registry[key]
 
   const normalized = key.toLowerCase()
-  if (Registry[normalized])
-    return Registry[normalized]
+  if (Registry[normalized]) return Registry[normalized]
 
   return GenericWidget
 }

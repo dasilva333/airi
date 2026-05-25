@@ -2,18 +2,17 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
+import { resilient } from '@proj-airi/stage-shared/vite'
+import { Download } from '@proj-airi/unplugin-fetch'
+import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk'
 import Vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'electron-vite'
 import UnoCss from 'unocss/vite'
 import Info from 'unplugin-info/vite'
 import VueRouter from 'unplugin-vue-router/vite'
 import Yaml from 'unplugin-yaml/vite'
 import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
-
-import { resilient } from '@proj-airi/stage-shared/vite'
-import { Download } from '@proj-airi/unplugin-fetch'
-import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk'
-import { defineConfig } from 'electron-vite'
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
@@ -73,24 +72,28 @@ export default defineConfig({
 
     resolve: {
       alias: {
-        '@proj-airi/i18n-bundle': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src', 'dist-lite', 'messages.mjs')),
-        '@proj-airi/server-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src')),
+        '@proj-airi/i18n-bundle': resolve(
+          join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src', 'dist-lite', 'messages.mjs'),
+        ),
+        '@proj-airi/server-runtime': resolve(
+          join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src'),
+        ),
       },
     },
   },
 
   preload: {
     build: {
-      rollupOptions: {
-        output: {
-          format: 'cjs',
-          entryFileNames: '[name].cjs',
-          chunkFileNames: '[name]-[hash].cjs',
-        },
-      },
       lib: {
         entry: {
           index: resolve(join(import.meta.dirname, 'src', 'preload', 'index.ts')),
+        },
+      },
+      rollupOptions: {
+        output: {
+          chunkFileNames: '[name]-[hash].cjs',
+          entryFileNames: '[name].cjs',
+          format: 'cjs',
         },
       },
     },
@@ -104,26 +107,19 @@ export default defineConfig({
     base: './',
 
     build: {
-      target: 'esnext',
       rollupOptions: {
         input: {
-          'main': resolve(join(import.meta.dirname, 'src', 'renderer', 'index.html')),
           'beat-sync': resolve(join(import.meta.dirname, 'src', 'renderer', 'beat-sync.html')),
+          main: resolve(join(import.meta.dirname, 'src', 'renderer', 'index.html')),
         },
       },
+      target: 'esnext',
     },
 
     optimizeDeps: {
       esbuildOptions: {
         target: 'esnext',
       },
-      include: [
-        'tslib',
-        '@vueuse/motion',
-        'popmotion',
-        'uncrypto',
-        'three',
-      ],
       exclude: [
         // Internal Packages
         '@proj-airi/stage-ui',
@@ -153,59 +149,17 @@ export default defineConfig({
         '@framework/utils/cubismdebug',
         '@framework/model/cubismmoc',
       ],
-    },
-
-    resolve: {
-      conditions: ['browser', 'import', 'default'],
-      alias: [
-        { find: '@proj-airi/server-sdk', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')) },
-        { find: '@proj-airi/i18n', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')) },
-        { find: '@proj-airi/stage-ui', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')) },
-        { find: '@proj-airi/stage-ui-three', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui-three', 'src')) },
-        { find: '@proj-airi/stage-pages', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')) },
-        { find: '@proj-airi/stage-shared', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')) },
-        { find: '@proj-airi/electron-vueuse', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')) },
-        { find: '@proj-airi/stage-layouts', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')) },
-        { find: 'node:crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
-        { find: 'crypto', replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')) },
-        { find: 'tslib', replacement: require.resolve('tslib/tslib.es6.js') },
-        { find: 'three/addons', replacement: resolve(join(import.meta.dirname, 'node_modules', 'three', 'examples', 'jsm')) },
-        { find: 'three', replacement: resolve(join(import.meta.dirname, 'node_modules', 'three')) },
-      ],
-    },
-    ssr: {
-      noExternal: ['tslib', 'uncrypto', '@noble/hashes'],
-    },
-
-    server: {
-      fs: {
-        strict: true,
-      },
-      // Prefer a dedicated renderer dev port override so unrelated services
-      // like the AIRI channel server do not accidentally inherit it.
-      port: Number.parseInt(process.env.AIRI_RENDERER_PORT || process.env.PORT || '5173'),
-      strictPort: true,
-      warmup: {
-        clientFiles: [
-          `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src'))}/*.vue`,
-          `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src'))}/*.vue`,
-        ],
-      },
-    },
-
-    worker: {
-      format: 'es',
-      rollupOptions: {
-        output: {
-          inlineDynamicImports: false,
-        },
-      },
+      include: ['tslib', '@vueuse/motion', 'popmotion', 'uncrypto', 'three'],
     },
 
     plugins: [
       {
-        name: 'force-node-crypto-shim',
         enforce: 'pre',
+        load(id) {
+          if (id === '\0virtual:node-shim') return 'export default {};'
+          return null
+        },
+        name: 'force-node-crypto-shim',
         resolveId(id, importer) {
           if (id === 'node:crypto' || id === 'crypto') {
             return resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts'))
@@ -218,29 +172,24 @@ export default defineConfig({
           }
           return null
         },
-        load(id) {
-          if (id === '\0virtual:node-shim')
-            return 'export default {};'
-          return null
-        },
       },
       Info(),
 
       {
-        name: 'proj-airi:defines',
         config(ctx) {
           const define: Record<string, any> = {
-            'import.meta.env.RUNTIME_ENVIRONMENT': '\'electron\'',
+            'import.meta.env.RUNTIME_ENVIRONMENT': "'electron'",
           }
           if (ctx.mode === 'development') {
-            define['import.meta.env.URL_MODE'] = '\'server\''
+            define['import.meta.env.URL_MODE'] = "'server'"
           }
           if (ctx.mode === 'production') {
-            define['import.meta.env.URL_MODE'] = '\'file\''
+            define['import.meta.env.URL_MODE'] = "'file'"
           }
 
           return { define }
         },
+        name: 'proj-airi:defines',
       },
 
       // Inspect(),
@@ -248,30 +197,30 @@ export default defineConfig({
       Yaml(),
 
       VueMacros({
+        betterDefine: false,
         plugins: {
           vue: Vue({
             include: [/\.vue$/, /\.md$/],
           }),
           vueJsx: false,
         },
-        betterDefine: false,
       }),
 
       VueRouter({
         dts: resolve(import.meta.dirname, 'src/renderer/typed-router.d.ts'),
+        exclude: ['**/components/**'],
         routesFolder: [
           {
-            src: resolve(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src', 'pages'),
-            exclude: base => [
+            exclude: (base) => [
               ...base,
               '**/settings/connection/index.vue',
               '**/settings/system/general.vue',
               '**/settings/modules/mcp.vue',
             ],
+            src: resolve(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src', 'pages'),
           },
           resolve(import.meta.dirname, 'src', 'renderer', 'pages'),
         ],
-        exclude: ['**/components/**'],
       }),
 
       // VitePluginVueDevTools(),
@@ -289,20 +238,126 @@ export default defineConfig({
 
       // https://github.com/intlify/bundle-tools/tree/main/packages/unplugin-vue-i18n
       VueI18n({
-        runtimeOnly: true,
         compositionOnly: true,
         fullInstall: true,
+        runtimeOnly: true,
       }),
 
       ...(!process.env.SKIP_DOWNLOADS
         ? [
             resilient(DownloadLive2DSDK()),
-            resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip', 'hiyori_free_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-            resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_pro_zh.zip', 'hiyori_pro_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-            resilient(Download('https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-A/AvatarSample_A.vrm', 'AvatarSample_A.vrm', 'vrm/models/AvatarSample-A', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-            resilient(Download('https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-B/AvatarSample_B.vrm', 'AvatarSample_B.vrm', 'vrm/models/AvatarSample-B', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
+            resilient(
+              Download(
+                'https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip',
+                'hiyori_free_zh.zip',
+                'live2d/models',
+                { cacheDir: sharedCacheDir, parentDir: stageUIAssetsRoot },
+              ),
+            ),
+            resilient(
+              Download('https://dist.ayaka.moe/live2d-models/hiyori_pro_zh.zip', 'hiyori_pro_zh.zip', 'live2d/models', {
+                cacheDir: sharedCacheDir,
+                parentDir: stageUIAssetsRoot,
+              }),
+            ),
+            resilient(
+              Download(
+                'https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-A/AvatarSample_A.vrm',
+                'AvatarSample_A.vrm',
+                'vrm/models/AvatarSample-A',
+                { cacheDir: sharedCacheDir, parentDir: stageUIAssetsRoot },
+              ),
+            ),
+            resilient(
+              Download(
+                'https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-B/AvatarSample_B.vrm',
+                'AvatarSample_B.vrm',
+                'vrm/models/AvatarSample-B',
+                { cacheDir: sharedCacheDir, parentDir: stageUIAssetsRoot },
+              ),
+            ),
           ]
         : []),
     ],
+
+    resolve: {
+      alias: [
+        {
+          find: '@proj-airi/server-sdk',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
+        },
+        {
+          find: '@proj-airi/i18n',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
+        },
+        {
+          find: '@proj-airi/stage-ui',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
+        },
+        {
+          find: '@proj-airi/stage-ui-three',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui-three', 'src')),
+        },
+        {
+          find: '@proj-airi/stage-pages',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
+        },
+        {
+          find: '@proj-airi/stage-shared',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
+        },
+        {
+          find: '@proj-airi/electron-vueuse',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')),
+        },
+        {
+          find: '@proj-airi/stage-layouts',
+          replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
+        },
+        {
+          find: 'node:crypto',
+          replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')),
+        },
+        {
+          find: 'crypto',
+          replacement: resolve(join(import.meta.dirname, 'src', 'renderer', 'shims', 'node-crypto.ts')),
+        },
+        { find: 'tslib', replacement: require.resolve('tslib/tslib.es6.js') },
+        {
+          find: 'three/addons',
+          replacement: resolve(join(import.meta.dirname, 'node_modules', 'three', 'examples', 'jsm')),
+        },
+        { find: 'three', replacement: resolve(join(import.meta.dirname, 'node_modules', 'three')) },
+      ],
+      conditions: ['browser', 'import', 'default'],
+    },
+
+    server: {
+      fs: {
+        strict: true,
+      },
+      // Prefer a dedicated renderer dev port override so unrelated services
+      // like the AIRI channel server do not accidentally inherit it.
+      port: Number.parseInt(process.env.AIRI_RENDERER_PORT || process.env.PORT || '5173'),
+      strictPort: true,
+      warmup: {
+        clientFiles: [
+          `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src'))}/*.vue`,
+          `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src'))}/*.vue`,
+        ],
+      },
+    },
+    ssr: {
+      noExternal: ['tslib', 'uncrypto', '@noble/hashes'],
+    },
+
+    worker: {
+      format: 'es',
+      rollupOptions: {
+        output: {
+          inlineDynamicImports: false,
+        },
+      },
+    },
   },
 })

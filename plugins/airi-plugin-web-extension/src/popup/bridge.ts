@@ -1,9 +1,14 @@
-import type { ExtensionStatus } from '../shared/types'
-
 import { defineInvoke } from '@moeru/eventa'
-
-import { backgroundStatusChanged, popupClearError, popupGetStatus, popupRequestVisionFrame, popupToggleEnabled, popupUpdateSettings } from '../shared/eventa'
+import {
+  backgroundStatusChanged,
+  popupClearError,
+  popupGetStatus,
+  popupRequestVisionFrame,
+  popupToggleEnabled,
+  popupUpdateSettings,
+} from '../shared/eventa'
 import { createRuntimeEventaContext } from '../shared/eventa-runtime'
+import type { ExtensionStatus } from '../shared/types'
 
 const { context } = createRuntimeEventaContext()
 

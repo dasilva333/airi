@@ -1,28 +1,12 @@
 <script setup lang="ts">
-import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
-
-import DOMPurify from 'dompurify'
-
 import { CharacterContextDialog, StageBackgroundPicker } from '@proj-airi/stage-ui/components/scenarios/dialogs'
-import {
-  useArtistryStore,
-  useBackgroundStore,
-  useConsciousnessStore,
-  useSpeechStore,
-} from '@proj-airi/stage-ui/stores'
-import {
-  buildSystemPrompt,
-  useAiriCardStore,
-} from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useArtistryStore, useBackgroundStore, useConsciousnessStore, useSpeechStore } from '@proj-airi/stage-ui/stores'
+import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { buildSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Button } from '@proj-airi/ui'
+import DOMPurify from 'dompurify'
 import { storeToRefs } from 'pinia'
-import {
-  DialogContent,
-  DialogOverlay,
-  DialogPortal,
-  DialogRoot,
-  DialogTitle,
-} from 'reka-ui'
+import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -36,9 +20,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:modelValue', value: boolean) => void>()
 
 const { t } = useI18n()
 const cardStore = useAiriCardStore()
@@ -50,14 +32,18 @@ const isRefreshingGallery = ref(false)
 const { removeCard } = cardStore
 const { activeCardId } = storeToRefs(cardStore)
 const artistryStore = useArtistryStore()
-const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } = storeToRefs(consciousnessStore)
-const { activeSpeechProvider: speechProvider, activeSpeechModel: defaultSpeechModel, activeSpeechVoiceId: defaultVoiceId } = storeToRefs(speechStore)
+const { activeProvider: consciousnessProvider, activeModel: defaultConsciousnessModel } =
+  storeToRefs(consciousnessStore)
+const {
+  activeSpeechProvider: speechProvider,
+  activeSpeechModel: defaultSpeechModel,
+  activeSpeechVoiceId: defaultVoiceId,
+} = storeToRefs(speechStore)
 const { activeProvider: defaultArtistryProvider } = storeToRefs(artistryStore)
 
 // Get selected card data
 const selectedCard = computed<AiriCard | undefined>(() => {
-  if (!props.cardId)
-    return undefined
+  if (!props.cardId) return undefined
   return cardStore.getCard(props.cardId)
 })
 
@@ -67,40 +53,39 @@ const selectedCard = computed<AiriCard | undefined>(() => {
 const moduleSettings = computed(() => {
   if (!selectedCard.value || !selectedCard.value.extensions?.airi?.modules) {
     return {
-      consciousnessProvider: '',
       consciousness: '',
-      speechProvider: '',
+      consciousnessProvider: '',
       speech: '',
+      speechProvider: '',
       voice: '',
     }
   }
 
   const airiExt = selectedCard.value.extensions.airi.modules
   return {
-    consciousnessProvider: airiExt.consciousness?.provider || '',
-    consciousness: airiExt.consciousness?.model || '',
-    speechProvider: airiExt.speech?.provider || '',
-    speech: airiExt.speech?.model || '',
-    voice: airiExt.speech?.voice_id || '',
-    artistryProvider: selectedCard.value.extensions.airi?.artistry?.provider || '',
     artistryModel: selectedCard.value.extensions.airi?.artistry?.model || '',
-    artistryPromptPrefix: selectedCard.value.extensions.airi?.artistry?.promptPrefix || '',
     artistryOptions: selectedCard.value.extensions.airi?.artistry?.options
       ? JSON.stringify(selectedCard.value.extensions.airi.artistry.options)
       : '',
+    artistryPromptPrefix: selectedCard.value.extensions.airi?.artistry?.promptPrefix || '',
+    artistryProvider: selectedCard.value.extensions.airi?.artistry?.provider || '',
+    consciousness: airiExt.consciousness?.model || '',
+    consciousnessProvider: airiExt.consciousness?.provider || '',
+    speech: airiExt.speech?.model || '',
+    speechProvider: airiExt.speech?.provider || '',
+    voice: airiExt.speech?.voice_id || '',
   }
 })
 
 // Get character settings
 const characterSettings = computed(() => {
-  if (!selectedCard.value)
-    return {}
+  if (!selectedCard.value) return {}
 
   return {
     personality: selectedCard.value.personality,
+    postHistoryInstructions: selectedCard.value.postHistoryInstructions,
     scenario: selectedCard.value.scenario,
     systemPrompt: selectedCard.value.systemPrompt,
-    postHistoryInstructions: selectedCard.value.postHistoryInstructions,
   }
 })
 
@@ -119,7 +104,9 @@ function handleActivate() {
 }
 
 function highlightTagToHtml(text: string) {
-  return DOMPurify.sanitize(text?.replace(/\{\{(.*?)\}\}/g, '<span class="bg-primary-500/20 inline-block">{{ $1 }}</span>').trim())
+  return DOMPurify.sanitize(
+    text?.replace(/\{\{(.*?)\}\}/g, '<span class="bg-primary-500/20 inline-block">{{ $1 }}</span>').trim(),
+  )
 }
 
 // Delete confirmation
@@ -145,11 +132,9 @@ interface Tab {
 const activeBackgroundId = computed({
   get: () => selectedCard.value?.extensions?.airi?.modules?.activeBackgroundId || 'none',
   set: async (val: string) => {
-    if (!selectedCard.value)
-      return
+    if (!selectedCard.value) return
     const extension = JSON.parse(JSON.stringify(selectedCard.value.extensions))
-    if (!extension.airi.modules)
-      extension.airi.modules = {}
+    if (!extension.airi.modules) extension.airi.modules = {}
 
     extension.airi.modules.activeBackgroundId = val
 
@@ -164,18 +149,24 @@ const activeBackgroundId = computed({
 const activeTabId = ref(props.initialTab || '')
 
 // Watch for initialTab changes to reset the tab when opening from a deep-link
-watch(() => props.initialTab, (newTab) => {
-  if (newTab) {
-    activeTabId.value = newTab
-  }
-})
+watch(
+  () => props.initialTab,
+  (newTab) => {
+    if (newTab) {
+      activeTabId.value = newTab
+    }
+  },
+)
 
 // Watch for dialog open to apply initialTab
-watch(() => props.modelValue, (isOpen) => {
-  if (isOpen && props.initialTab) {
-    activeTabId.value = props.initialTab
-  }
-})
+watch(
+  () => props.modelValue,
+  (isOpen) => {
+    if (isOpen && props.initialTab) {
+      activeTabId.value = props.initialTab
+    }
+  },
+)
 
 // Tabs for card details
 const tabs = computed<Tab[]>(() => {
@@ -184,49 +175,49 @@ const tabs = computed<Tab[]>(() => {
   // Description tab - always show if there's description
   if (selectedCard.value?.description) {
     availableTabs.push({
+      icon: 'i-solar:document-text-linear',
       id: 'description',
       label: t('settings.pages.card.description_label'),
-      icon: 'i-solar:document-text-linear',
     })
   }
 
   // Notes tab - only show if there are creator notes
   if (selectedCard.value?.notes) {
     availableTabs.push({
+      icon: 'i-solar:notes-linear',
       id: 'notes',
       label: t('settings.pages.card.creator_notes'),
-      icon: 'i-solar:notes-linear',
     })
   }
 
   // Character tab - only show if there are character settings
-  if (Object.values(characterSettings.value).some(value => !!value)) {
+  if (Object.values(characterSettings.value).some((value) => !!value)) {
     availableTabs.push({
+      icon: 'i-solar:user-rounded-linear',
       id: 'character',
       label: t('settings.pages.card.character'),
-      icon: 'i-solar:user-rounded-linear',
     })
   }
 
   // Modules tab - always show
   availableTabs.push({
+    icon: 'i-solar:tuning-square-linear',
     id: 'modules',
     label: t('settings.pages.card.modules'),
-    icon: 'i-solar:tuning-square-linear',
   })
 
   // Gallery tab - always show
   availableTabs.push({
+    icon: 'i-solar:gallery-linear',
     id: 'gallery',
     label: 'Gallery',
-    icon: 'i-solar:gallery-linear',
   })
 
   // Studio tab - always show
   availableTabs.push({
+    icon: 'i-solar:magic-stick-3-linear',
     id: 'studio',
     label: 'Studio',
-    icon: 'i-solar:magic-stick-3-linear',
   })
 
   return availableTabs
@@ -236,8 +227,7 @@ const tabs = computed<Tab[]>(() => {
 const activeTab = computed({
   get: () => {
     // If current active tab is not in available tabs, reset to first tab
-    if (!tabs.value.find(tab => tab.id === activeTabId.value))
-      return tabs.value[0]?.id || ''
+    if (!tabs.value.find((tab) => tab.id === activeTabId.value)) return tabs.value[0]?.id || ''
     return activeTabId.value
   },
   set: (value: string) => {

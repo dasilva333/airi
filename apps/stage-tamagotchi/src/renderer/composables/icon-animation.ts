@@ -7,7 +7,9 @@ export function useIconAnimation(icon: string) {
   const animationIcon = ref(icon)
 
   const settingsStore = useSettings()
-  const showIconAnimation = computed(() => showAnimationComponent.value && !settingsStore.disableTransitions && settingsStore.usePageSpecificTransitions)
+  const showIconAnimation = computed(
+    () => showAnimationComponent.value && !settingsStore.disableTransitions && settingsStore.usePageSpecificTransitions,
+  )
 
   onMounted(() => {
     showAnimationComponent.value = true
@@ -22,8 +24,8 @@ export function useIconAnimation(icon: string) {
   })
 
   return {
+    animationIcon,
     iconAnimationStarted,
     showIconAnimation,
-    animationIcon,
   }
 }

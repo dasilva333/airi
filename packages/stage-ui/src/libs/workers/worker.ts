@@ -27,28 +27,41 @@ class AutomaticSpeechRecognitionPipeline {
   static model: Promise<PreTrainedModel>
 
   static async getInstance(progress_callback?: ProgressCallback) {
-    this.model_id = 'onnx-community/whisper-large-v3-turbo'
+    AutomaticSpeechRecognitionPipeline.model_id = 'onnx-community/whisper-large-v3-turbo'
 
-    this.tokenizer ??= AutoTokenizer.from_pretrained(this.model_id, {
-      progress_callback,
-    })
-
-    this.processor ??= AutoProcessor.from_pretrained(this.model_id, {
-      progress_callback,
-    })
-
-    this.model ??= WhisperForConditionalGeneration.from_pretrained(this.model_id, {
-      dtype: {
-        // [v3.x] Cannot load whisper-v3-large-turbo · Issue #989 · huggingface/transformers.js
-        // https://github.com/huggingface/transformers.js/issues/989
-        encoder_model: 'fp16', // 'fp16' works too
-        decoder_model_merged: 'q4', // or 'fp32' ('fp16' is broken)
+    AutomaticSpeechRecognitionPipeline.tokenizer ??= AutoTokenizer.from_pretrained(
+      AutomaticSpeechRecognitionPipeline.model_id,
+      {
+        progress_callback,
       },
-      device: 'webgpu',
-      progress_callback,
-    })
+    )
 
-    return Promise.all([this.tokenizer, this.processor, this.model])
+    AutomaticSpeechRecognitionPipeline.processor ??= AutoProcessor.from_pretrained(
+      AutomaticSpeechRecognitionPipeline.model_id,
+      {
+        progress_callback,
+      },
+    )
+
+    AutomaticSpeechRecognitionPipeline.model ??= WhisperForConditionalGeneration.from_pretrained(
+      AutomaticSpeechRecognitionPipeline.model_id,
+      {
+        device: 'webgpu',
+        dtype: {
+          decoder_model_merged: 'q4', // or 'fp32' ('fp16' is broken)
+          // [v3.x] Cannot load whisper-v3-large-turbo · Issue #989 · huggingface/transformers.js
+          // https://github.com/huggingface/transformers.js/issues/989
+          encoder_model: 'fp16', // 'fp16' works too
+        },
+        progress_callback,
+      },
+    )
+
+    return Promise.all([
+      AutomaticSpeechRecognitionPipeline.tokenizer,
+      AutomaticSpeechRecognitionPipeline.processor,
+      AutomaticSpeechRecognitionPipeline.model,
+    ])
   }
 }
 
@@ -73,9 +86,8 @@ async function base64ToFeatures(base64Audio: string): Promise<Float32Array> {
 }
 
 let processing = false
-async function generate({ audio, language }: { audio: string, language: string }) {
-  if (processing)
-    return
+async function generate({ audio, language }: { audio: string; language: string }) {
+  if (processing) return
   processing = true
 
   // Tell the main thread we are starting
@@ -93,31 +105,31 @@ async function generate({ audio, language }: { audio: string, language: string }
 
     let tps
     if (numTokens++ > 0) {
-      tps = numTokens / (performance.now() - startTime) * 1000
+      tps = (numTokens / (performance.now() - startTime)) * 1000
     }
 
     globalThis.postMessage({
-      status: 'update',
-      output,
-      tps,
       numTokens,
+      output,
+      status: 'update',
+      tps,
     })
   }
 
   const streamer = new TextStreamer(tokenizer, {
-    skip_prompt: true,
+    callback_function,
     decode_kwargs: {
       skip_special_tokens: true,
     },
-    callback_function,
+    skip_prompt: true,
   })
 
   const inputs = await processor(audioData)
 
   const outputs = await model.generate({
     ...inputs,
-    max_new_tokens: MAX_NEW_TOKENS,
     language,
+    max_new_tokens: MAX_NEW_TOKENS,
     streamer,
   })
 
@@ -125,16 +137,16 @@ async function generate({ audio, language }: { audio: string, language: string }
 
   // Send the output back to the main thread
   globalThis.postMessage({
-    status: 'complete',
     output: outputText,
+    status: 'complete',
   })
   processing = false
 }
 
 async function load() {
   globalThis.postMessage({
-    status: 'loading',
     data: 'Loading model...',
+    status: 'loading',
   })
 
   // Load the pipeline and save it for future use.
@@ -146,8 +158,8 @@ async function load() {
   })
 
   globalThis.postMessage({
-    status: 'loading',
     data: 'Compiling shaders and warming up model...',
+    status: 'loading',
   })
 
   // Run model with dummy input to compile shaders

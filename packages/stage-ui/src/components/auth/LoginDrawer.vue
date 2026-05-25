@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { OAuthProvider } from '../../libs/auth'
-
 import { Button } from '@proj-airi/ui'
 import { useResizeObserver, useScreenSafeArea } from '@vueuse/core'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot } from 'vaul-vue'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
+import type { OAuthProvider } from '../../libs/auth'
 
 import { signIn } from '../../libs/auth'
 
@@ -15,19 +14,17 @@ const screenSafeArea = useScreenSafeArea()
 useResizeObserver(document.documentElement, () => screenSafeArea.update())
 
 const loading = ref<Record<OAuthProvider, boolean>>({
-  google: false,
   github: false,
+  google: false,
 })
 
 async function handleSignIn(provider: OAuthProvider) {
   loading.value[provider] = true
   try {
     await signIn(provider)
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : 'An unknown error occurred')
-  }
-  finally {
+  } finally {
     loading.value[provider] = false
   }
 }

@@ -35,8 +35,7 @@ const {
 const baseUrl = computed({
   get: () => providers.value[providerId]?.baseUrl || 'https://portal.qwen.ai/v1/',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].baseUrl = value
   },
 })
@@ -52,7 +51,7 @@ async function refetch() {
   // Trigger generic validation if needed
 }
 
-watch(baseUrl, refetch, { immediate: true, deep: true })
+watch(baseUrl, refetch, { deep: true, immediate: true })
 </script>
 
 <template>

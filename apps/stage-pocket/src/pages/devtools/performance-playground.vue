@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type { ChatProvider, SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
 import { createPlaybackManager, createSpeechPipeline } from '@proj-airi/pipelines-audio'
-import { ThreeScene } from '@proj-airi/stage-ui-three'
-import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { useAudioContext, useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
@@ -12,7 +8,10 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { ThreeScene } from '@proj-airi/stage-ui-three'
+import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { generateSpeech } from '@xsai/generate-speech'
+import type { ChatProvider, SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
@@ -21,17 +20,16 @@ const currentAudioSource = ref<AudioBufferSourceNode>()
 const { audioContext } = useAudioContext()
 const audioAnalyser = ref<AnalyserNode>()
 function setupAnalyser() {
-  if (!audioAnalyser.value)
-    audioAnalyser.value = audioContext.createAnalyser()
+  if (!audioAnalyser.value) audioAnalyser.value = audioContext.createAnalyser()
 }
 
 const settingsStore = useSettings()
-const { stageModelRenderer, stageModelSelected, stageModelSelectedUrl, stageViewControlsEnabled } = storeToRefs(settingsStore)
+const { stageModelRenderer, stageModelSelected, stageModelSelectedUrl, stageViewControlsEnabled } =
+  storeToRefs(settingsStore)
 
 onMounted(async () => {
   const needsFallback = !stageModelSelectedUrl.value || stageModelRenderer.value !== 'vrm'
-  if (needsFallback)
-    stageModelSelected.value = 'preset-vrm-1'
+  if (needsFallback) stageModelSelected.value = 'preset-vrm-1'
 
   await settingsStore.updateStageModel()
   setupAnalyser()
@@ -52,13 +50,14 @@ const chatSession = useChatSessionStore()
 const chatMaintenance = useChatMaintenanceStore()
 const chatMessages = computed(() => {
   return chatSession.messages
-    .filter(msg => msg.role !== 'system')
+    .filter((msg) => msg.role !== 'system')
     .map((msg) => {
-      const text = typeof msg.content === 'string'
-        ? msg.content
-        : Array.isArray(msg.content)
-          ? msg.content.map((part: any) => typeof part === 'string' ? part : part.text ?? '').join('')
-          : JSON.stringify(msg.content ?? '')
+      const text =
+        typeof msg.content === 'string'
+          ? msg.content
+          : Array.isArray(msg.content)
+            ? msg.content.map((part: any) => (typeof part === 'string' ? part : (part.text ?? ''))).join('')
+            : JSON.stringify(msg.content ?? '')
       return { role: msg.role as 'user' | 'assistant', text }
     })
 })
@@ -68,23 +67,24 @@ function log(line: string) {
 }
 
 const playbackManager = createPlaybackManager<AudioBuffer>({
+  maxVoices: 1,
+  maxVoicesPerOwner: 1,
+  overflowPolicy: 'queue',
+  ownerOverflowPolicy: 'steal-oldest',
   play: (item, signal) => {
     return new Promise((resolve) => {
       const source = audioContext.createBufferSource()
       source.buffer = item.audio
       source.connect(audioContext.destination)
-      if (audioAnalyser.value)
-        source.connect(audioAnalyser.value)
+      if (audioAnalyser.value) source.connect(audioAnalyser.value)
       currentAudioSource.value = source
 
       const stopPlayback = () => {
         try {
           source.stop()
           source.disconnect()
-        }
-        catch {}
-        if (currentAudioSource.value === source)
-          currentAudioSource.value = undefined
+        } catch {}
+        if (currentAudioSource.value === source) currentAudioSource.value = undefined
         resolve()
       }
 
@@ -101,30 +101,27 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
       source.start(0)
     })
   },
-  maxVoices: 1,
-  maxVoicesPerOwner: 1,
-  overflowPolicy: 'queue',
-  ownerOverflowPolicy: 'steal-oldest',
 })
 
 const speechPipeline = createSpeechPipeline<AudioBuffer>({
+  playback: playbackManager,
   tts: async (request, signal) => {
-    if (signal.aborted)
-      return null
+    if (signal.aborted) return null
 
     if (!activeSpeechProvider.value || !activeSpeechVoice.value) {
       console.warn('No active speech provider configured')
       return null
     }
 
-    const provider = await providersStore.getProviderInstance(activeSpeechProvider.value) as SpeechProviderWithExtraOptions<string, any>
+    const provider = (await providersStore.getProviderInstance(
+      activeSpeechProvider.value,
+    )) as SpeechProviderWithExtraOptions<string, any>
     if (!provider) {
       console.error('Failed to initialize speech provider')
       return null
     }
 
-    if (!request.text && !request.special)
-      return null
+    if (!request.text && !request.special) return null
 
     const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
     const input = ssmlEnabled.value
@@ -137,13 +134,11 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       voice: activeSpeechVoice.value.id,
     })
 
-    if (signal.aborted)
-      return null
+    if (signal.aborted) return null
 
     log(`    - 排队：${request.text}${request.special ? ` [special: ${request.special}]` : ''}`)
     return audioContext.decodeAudioData(res)
   },
-  playback: playbackManager,
 })
 
 playbackManager.onStart(({ item }) => {
@@ -155,14 +150,12 @@ playbackManager.onEnd(({ item }) => {
   nowSpeaking.value = false
   mouthOpenSize.value = 0
 
-  if (item.special)
-    log(`播放结束，special: ${item.special}`)
+  if (item.special) log(`播放结束，special: ${item.special}`)
 })
 
 async function sendChat() {
   const content = chatInput.value.trim()
-  if (!content)
-    return
+  if (!content) return
 
   const provider = await providersStore.getProviderInstance(activeChatProvider.value)
   if (!provider || !activeChatModel.value) {
@@ -172,12 +165,11 @@ async function sendChat() {
 
   try {
     await chatOrchestrator.ingest(content, {
-      model: activeChatModel.value,
       chatProvider: provider as ChatProvider,
+      model: activeChatModel.value,
     })
     chatInput.value = ''
-  }
-  catch (err) {
+  } catch (err) {
     console.error(err)
     log('发送到 LLM 失败')
   }
@@ -190,41 +182,54 @@ function resetChat() {
   playbackManager.stopAll('reset')
 }
 
-const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd } = chatOrchestrator
+const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd } =
+  chatOrchestrator
 const chatHookCleanups: Array<() => void> = []
 let currentIntent: ReturnType<typeof speechPipeline.openIntent> | null = null
 
-chatHookCleanups.push(onBeforeMessageComposed(async () => {
-  playbackManager.stopAll('new-message')
-  setupAnalyser()
-  logLines.value = []
-  currentIntent?.cancel('new-message')
-  currentIntent = speechPipeline.openIntent({ priority: 'normal', behavior: 'queue' })
-}))
+chatHookCleanups.push(
+  onBeforeMessageComposed(async () => {
+    playbackManager.stopAll('new-message')
+    setupAnalyser()
+    logLines.value = []
+    currentIntent?.cancel('new-message')
+    currentIntent = speechPipeline.openIntent({ behavior: 'queue', priority: 'normal' })
+  }),
+)
 
-chatHookCleanups.push(onBeforeSend(async () => {
-  // empty
-}))
+chatHookCleanups.push(
+  onBeforeSend(async () => {
+    // empty
+  }),
+)
 
-chatHookCleanups.push(onTokenLiteral(async (literal) => {
-  currentIntent?.writeLiteral(literal)
-}))
+chatHookCleanups.push(
+  onTokenLiteral(async (literal) => {
+    currentIntent?.writeLiteral(literal)
+  }),
+)
 
-chatHookCleanups.push(onTokenSpecial(async (special) => {
-  currentIntent?.writeSpecial(special)
-}))
+chatHookCleanups.push(
+  onTokenSpecial(async (special) => {
+    currentIntent?.writeSpecial(special)
+  }),
+)
 
-chatHookCleanups.push(onStreamEnd(async () => {
-  currentIntent?.writeFlush()
-}))
+chatHookCleanups.push(
+  onStreamEnd(async () => {
+    currentIntent?.writeFlush()
+  }),
+)
 
-chatHookCleanups.push(onAssistantResponseEnd(async () => {
-  currentIntent?.end()
-  currentIntent = null
-}))
+chatHookCleanups.push(
+  onAssistantResponseEnd(async () => {
+    currentIntent?.end()
+    currentIntent = null
+  }),
+)
 
 onUnmounted(() => {
-  chatHookCleanups.forEach(dispose => dispose?.())
+  chatHookCleanups.forEach((dispose) => dispose?.())
   playbackManager.stopAll('unmount')
 })
 </script>

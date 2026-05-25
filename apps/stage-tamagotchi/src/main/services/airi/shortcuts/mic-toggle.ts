@@ -1,19 +1,21 @@
+import { defineInvokeHandler } from '@moeru/eventa'
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { BrowserWindow } from 'electron'
 import type { ProvidedBy } from 'injeca'
-
+import { injeca } from 'injeca'
 import type { MicToggleHotkey } from '../../../../shared/eventa'
+import { electronGetMicToggleHotkey, electronSetMicToggleHotkey } from '../../../../shared/eventa'
 import type { globalAppConfigSchema } from '../../../configs/global'
 import type { Config } from '../../../libs/electron/persistence'
-
-import { defineInvokeHandler } from '@moeru/eventa'
-import { injeca } from 'injeca'
-
-import { electronGetMicToggleHotkey, electronSetMicToggleHotkey } from '../../../../shared/eventa'
 import { setupMicToggleShortcut } from '../../shortcuts/mic-toggle'
 
-export async function createMicToggleService(params: { context: ReturnType<typeof createContext>['context'], window: BrowserWindow }) {
-  const { config } = await injeca.resolve({ config: 'configs:app' } as { config: ProvidedBy<Config<typeof globalAppConfigSchema>> })
+export async function createMicToggleService(params: {
+  context: ReturnType<typeof createContext>['context']
+  window: BrowserWindow
+}) {
+  const { config } = await injeca.resolve({ config: 'configs:app' } as {
+    config: ProvidedBy<Config<typeof globalAppConfigSchema>>
+  })
 
   const initialHotkey = (config.get()?.microphoneToggleHotkey as MicToggleHotkey) || 'Scroll'
   setupMicToggleShortcut(params.window, initialHotkey)
@@ -27,7 +29,7 @@ export async function createMicToggleService(params: { context: ReturnType<typeo
     }
 
     console.log(`[Mic Toggle Service] Setting hotkey ->`, hotkey, `(payload:`, payload, `)`)
-    const currentConfig = config.get() || { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' as const }
+    const currentConfig = config.get() || { language: 'en', microphoneToggleHotkey: 'Scroll' as const, windows: [] }
     config.update({ ...currentConfig, microphoneToggleHotkey: hotkey })
 
     // Immediate log to check what we JUST updated
@@ -37,7 +39,13 @@ export async function createMicToggleService(params: { context: ReturnType<typeo
 
   defineInvokeHandler(params.context, electronGetMicToggleHotkey, () => {
     const hotkey = config.get()?.microphoneToggleHotkey
-    console.log(`[Mic Toggle Service] Getting hotkey ->`, hotkey, `(normalized:`, (Array.isArray(hotkey) ? hotkey[0] : (hotkey as MicToggleHotkey)) || 'Scroll', `)`)
+    console.log(
+      `[Mic Toggle Service] Getting hotkey ->`,
+      hotkey,
+      `(normalized:`,
+      (Array.isArray(hotkey) ? hotkey[0] : (hotkey as MicToggleHotkey)) || 'Scroll',
+      `)`,
+    )
     // Normalizing: ensure we always return a string, even if an array was somehow stored
     return (Array.isArray(hotkey) ? hotkey[0] : (hotkey as MicToggleHotkey)) || 'Scroll'
   })

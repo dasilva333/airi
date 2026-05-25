@@ -1,10 +1,8 @@
 import type { VRM } from '@pixiv/three-vrm'
 import type { Object3D } from 'three'
-
+import * as THREE from 'three'
 import { CanvasTexture, Line, Raycaster, Sprite, SpriteMaterial, Vector2, Vector3 } from 'three'
 import { ref, shallowRef } from 'vue'
-
-import * as THREE from 'three'
 
 import { useModelStore } from '../../stores/model-store'
 
@@ -19,10 +17,10 @@ export function useVRMClothInteraction() {
 
   // Cache for performance-heavy lookups
   const nodes = {
-    jaw: null as Object3D | null,
-    head: null as Object3D | null,
     boundary: new THREE.Box3(), // Persistent hit-aura
     hasBoundary: false,
+    head: null as Object3D | null,
+    jaw: null as Object3D | null,
   }
 
   // Interaction State
@@ -38,7 +36,7 @@ export function useVRMClothInteraction() {
   const lineGeom = new THREE.BufferGeometry()
   const tetherPosBuffer = new Float32Array(6) // Reuse this buffer
   lineGeom.setAttribute('position', new THREE.BufferAttribute(tetherPosBuffer, 3))
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.4 })
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.4, transparent: true })
   const tetherLine = shallowRef<Line>(new Line(lineGeom, lineMat))
   const basePosition = new Vector3()
   const currentTension = ref(0)
@@ -48,8 +46,7 @@ export function useVRMClothInteraction() {
   let puffTexture: THREE.Texture | null = null
 
   function getPuffTexture() {
-    if (puffTexture)
-      return puffTexture
+    if (puffTexture) return puffTexture
 
     const canvas = document.createElement('canvas')
     canvas.width = 64
@@ -72,11 +69,10 @@ export function useVRMClothInteraction() {
 
   // Wardrobe Manifest: TextureIndex -> { expression, sisters[] }
   // This is the precomputed "Rosetta Stone" built at load time.
-  const wardrobeManifest = new Map<number, { active: any, siblings: any[] }>()
+  const wardrobeManifest = new Map<number, { active: any; siblings: any[] }>()
 
   function resolveNodes(vrm: VRM) {
-    if (!vrm)
-      return
+    if (!vrm) return
     if (!nodes.jaw || !nodes.head) {
       nodes.jaw = vrm.humanoid?.getNormalizedBoneNode('jaw') || null
       nodes.head = vrm.humanoid?.getNormalizedBoneNode('head') || null
@@ -114,11 +110,13 @@ export function useVRMClothInteraction() {
         vrm.expressionManager.expressions.forEach((expr: any) => {
           const binds = expr.binds || expr._binds || []
           binds.forEach((b: any) => {
-            if (!b.material)
-              return
+            if (!b.material) return
             const tex = b.material.map || b.material.shadeMultiplyTexture
             const assoc = modelStore.activeVrmParser.associations.get(tex)
-            const hitTexIndex = (assoc && assoc.textures !== undefined) ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source : null
+            const hitTexIndex =
+              assoc && assoc.textures !== undefined
+                ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source
+                : null
 
             if (hitTexIndex !== null) {
               if (!wardrobeManifest.has(hitTexIndex)) {
@@ -129,7 +127,9 @@ export function useVRMClothInteraction() {
             }
           })
         })
-        console.log(`[WIRED] Wardrobe Manifest Precomputed in ${(performance.now() - start).toFixed(2)}ms. Mapped ${wardrobeManifest.size} texture slots.`)
+        console.log(
+          `[WIRED] Wardrobe Manifest Precomputed in ${(performance.now() - start).toFixed(2)}ms. Mapped ${wardrobeManifest.size} texture slots.`,
+        )
       }
     }
   }
@@ -139,10 +139,10 @@ export function useVRMClothInteraction() {
     scene.worldToLocal(localPoint)
 
     const material = new SpriteMaterial({
-      map: getPuffTexture(),
-      transparent: true,
-      opacity: 0.8,
       depthTest: false,
+      map: getPuffTexture(),
+      opacity: 0.8,
+      transparent: true,
     })
 
     material.color.setHSL(Math.random(), 0.8, 0.6)
@@ -158,13 +158,12 @@ export function useVRMClothInteraction() {
    * Attempt to "grab" a piece of cloth
    */
   function startTug(
-    event: { x: number, y: number, isCtrlPressed?: boolean, isDoubleClick?: boolean },
+    event: { x: number; y: number; isCtrlPressed?: boolean; isDoubleClick?: boolean },
     camera: THREE.Camera,
     vrm: VRM,
     vrmEmote?: any, // Accept managed emote service
   ) {
-    if (!vrm || modelStore.interactionMode !== 'tactile')
-      return
+    if (!vrm || modelStore.interactionMode !== 'tactile') return
 
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
@@ -172,43 +171,46 @@ export function useVRMClothInteraction() {
 
     resolveNodes(vrm)
 
-    if (!raycaster.ray.intersectsBox(nodes.boundary))
-      return
+    if (!raycaster.ray.intersectsBox(nodes.boundary)) return
 
-    const visibleMeshes = clothMeshCache.value.filter(m => m.visible)
+    const visibleMeshes = clothMeshCache.value.filter((m) => m.visible)
 
-    const candidates: { mesh: THREE.Mesh, distance: number }[] = []
+    const candidates: { mesh: THREE.Mesh; distance: number }[] = []
     const sphere = new THREE.Sphere()
 
     visibleMeshes.forEach((obj: any) => {
-      if (!obj.geometry.boundingSphere)
-        obj.geometry.computeBoundingSphere()
+      if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere()
       sphere.copy(obj.geometry.boundingSphere).applyMatrix4(obj.matrixWorld)
 
       if (raycaster.ray.intersectsSphere(sphere)) {
         const dist = raycaster.ray.origin.distanceTo(sphere.center)
-        candidates.push({ mesh: obj, distance: dist })
+        candidates.push({ distance: dist, mesh: obj })
       }
     })
 
-    const targetMeshes = candidates.sort((a, b) => a.distance - b.distance).slice(0, 3).map(c => c.mesh)
+    const targetMeshes = candidates
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3)
+      .map((c) => c.mesh)
     let intersects = raycaster.intersectObjects(targetMeshes, false)
 
     // Ghost Picking: If Ctrl is pressed and we missed, fallback to testing hidden meshes
     if (intersects.length === 0 && event.isCtrlPressed) {
-      const hiddenMeshes = clothMeshCache.value.filter(m => !m.visible)
-      const hiddenCandidates: { mesh: THREE.Mesh, distance: number }[] = []
+      const hiddenMeshes = clothMeshCache.value.filter((m) => !m.visible)
+      const hiddenCandidates: { mesh: THREE.Mesh; distance: number }[] = []
       hiddenMeshes.forEach((obj: any) => {
-        if (!obj.geometry.boundingSphere)
-          obj.geometry.computeBoundingSphere()
+        if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere()
         sphere.copy(obj.geometry.boundingSphere).applyMatrix4(obj.matrixWorld)
 
         if (raycaster.ray.intersectsSphere(sphere)) {
           const dist = raycaster.ray.origin.distanceTo(sphere.center)
-          hiddenCandidates.push({ mesh: obj, distance: dist })
+          hiddenCandidates.push({ distance: dist, mesh: obj })
         }
       })
-      const hiddenTargetMeshes = hiddenCandidates.sort((a, b) => a.distance - b.distance).slice(0, 3).map(c => c.mesh)
+      const hiddenTargetMeshes = hiddenCandidates
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3)
+        .map((c) => c.mesh)
       intersects = raycaster.intersectObjects(hiddenTargetMeshes, false)
     }
 
@@ -217,7 +219,9 @@ export function useVRMClothInteraction() {
 
       // MUX: Ctrl+Click (Visibility Toggle)
       if (event.isCtrlPressed) {
-        window.dispatchEvent(new CustomEvent('vrm-node-visibility-toggle', { detail: { uuid: hit.object.uuid, node: hit.object } }))
+        window.dispatchEvent(
+          new CustomEvent('vrm-node-visibility-toggle', { detail: { node: hit.object, uuid: hit.object.uuid } }),
+        )
         return // Abort drag and emotions
       }
 
@@ -256,7 +260,11 @@ export function useVRMClothInteraction() {
         vrm.scene.worldToLocal(grabPoint)
 
         const boneName = bone.name.toLowerCase()
-        if (boneName.includes('bust') || boneName.includes('chest') || (boneName.includes('upper') && boneName.includes('leg'))) {
+        if (
+          boneName.includes('bust') ||
+          boneName.includes('chest') ||
+          (boneName.includes('upper') && boneName.includes('leg'))
+        ) {
           if (vrmEmote?.setEmotionWithResetAfter) {
             vrmEmote.setEmotionWithResetAfter('happy', 2000, 1.0)
           }
@@ -273,11 +281,16 @@ export function useVRMClothInteraction() {
 
     if (vrm.expressionManager && modelStore.activeVrmParser) {
       const normalizeRaw = (name: string) => name.replace(/^VRMExpression_/, '')
-      const formatName = (name: string) => normalizeRaw(name).split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+      const formatName = (name: string) =>
+        normalizeRaw(name)
+          .split('_')
+          .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+          .join(' ')
 
       const tex = mat?.map || mat?.shadeMultiplyTexture
       const assoc = modelStore.activeVrmParser.associations.get(tex)
-      const hitTexIndex = (assoc && assoc.textures !== undefined) ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source : null
+      const hitTexIndex =
+        assoc && assoc.textures !== undefined ? modelStore.activeVrmParser.json.textures[assoc.textures]?.source : null
 
       if (hitTexIndex !== null && wardrobeManifest.has(hitTexIndex)) {
         const entry = wardrobeManifest.get(hitTexIndex)!
@@ -287,8 +300,7 @@ export function useVRMClothInteraction() {
         const seen = new Set<string>()
         const siblingPairs = entry.siblings
           .filter((s: any) => {
-            if (seen.has(s.name))
-              return false
+            if (seen.has(s.name)) return false
             seen.add(s.name)
             return true
           })
@@ -297,9 +309,9 @@ export function useVRMClothInteraction() {
         // Determine the active outfit pair
         const activePair = activeOutfit
           ? { display: formatName(activeOutfit.name), raw: normalizeRaw(activeOutfit.name) }
-          : (siblingPairs[0] || { display: 'Unknown', raw: '' })
+          : siblingPairs[0] || { display: 'Unknown', raw: '' }
 
-        const restSiblings = siblingPairs.filter(p => p.raw !== activePair.raw)
+        const restSiblings = siblingPairs.filter((p) => p.raw !== activePair.raw)
 
         // Update Global State for UI
         modelStore.detectedWardrobe = {
@@ -311,9 +323,8 @@ export function useVRMClothInteraction() {
     }
   }
 
-  function handleTug(event: { x: number, y: number }, camera: THREE.Camera) {
-    if (!isDragging.value || !targetBone.value || modelStore.interactionMode !== 'tactile')
-      return
+  function handleTug(event: { x: number; y: number }, camera: THREE.Camera) {
+    if (!isDragging.value || !targetBone.value || modelStore.interactionMode !== 'tactile') return
 
     mouse.x = (event.x / window.innerWidth) * 2 - 1
     mouse.y = -(event.y / window.innerHeight) * 2 + 1
@@ -333,8 +344,7 @@ export function useVRMClothInteraction() {
       const pullDir = localTarget.sub(basePosition)
       const dist = pullDir.length()
       currentTension.value = Math.min(dist / maxStretch, 1.0)
-      if (dist > maxStretch)
-        pullDir.normalize().multiplyScalar(maxStretch)
+      if (dist > maxStretch) pullDir.normalize().multiplyScalar(maxStretch)
       targetBone.value.position.copy(basePosition.clone().add(pullDir))
     }
   }
@@ -347,12 +357,10 @@ export function useVRMClothInteraction() {
    * Main update loop for physics and emotional sync
    */
   function update(vrm: VRM, delta: number, vrmEmote?: any) {
-    if (!vrm)
-      return
+    if (!vrm) return
 
     // [PRODUCTION-HOT-PATH] Early return STRICTLY if nothing is moving/interacting
-    if (!isDragging.value && activePuffs.length === 0 && currentTension.value === 0 && !targetBone.value)
-      return
+    if (!isDragging.value && activePuffs.length === 0 && currentTension.value === 0 && !targetBone.value) return
 
     resolveNodes(vrm)
 
@@ -395,12 +403,10 @@ export function useVRMClothInteraction() {
       const tension = currentTension.value
       if (vrmEmote.currentEmotion !== 'angry') {
         vrmEmote.setEmotion('angry', tension)
-      }
-      else {
+      } else {
         vrmEmote.updateIntensity(tension)
       }
-    }
-    else if (vrmEmote && currentTension.value === 0 && vrmEmote.currentEmotion === 'angry') {
+    } else if (vrmEmote && currentTension.value === 0 && vrmEmote.currentEmotion === 'angry') {
       // Return to neutral when tension is fully released
       vrmEmote.setEmotion('neutral')
     }
@@ -410,15 +416,13 @@ export function useVRMClothInteraction() {
 
   function updateTether(vrm: VRM) {
     if (!tetherLine.value || !isDragging.value || !targetBone.value) {
-      if (tetherLine.value)
-        tetherLine.value.visible = false
+      if (tetherLine.value) tetherLine.value.visible = false
       return
     }
 
     const mouthPoint = new Vector3()
     const anchor = nodes.jaw || nodes.head
-    if (anchor)
-      anchor.getWorldPosition(mouthPoint)
+    if (anchor) anchor.getWorldPosition(mouthPoint)
     else vrm.scene.getWorldPosition(mouthPoint)
 
     const bonePos = new Vector3()
@@ -431,12 +435,12 @@ export function useVRMClothInteraction() {
   }
 
   return {
-    isDragging,
     currentTension,
-    startTug,
-    handleTug,
     endTug,
-    update,
+    handleTug,
+    isDragging,
+    startTug,
     tetherLine,
+    update,
   }
 }

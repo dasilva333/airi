@@ -1,8 +1,6 @@
 export default [
   {
-    ignores: [
-      'docs/**',
-    ],
+    ignores: ['docs/**'],
     rules: {
       perfectionist: 'off',
     },

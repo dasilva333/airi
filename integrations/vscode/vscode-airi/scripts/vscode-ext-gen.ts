@@ -14,9 +14,7 @@ async function run() {
 
   try {
     await rm(join(dir, 'src', 'generated'), { force: true })
-  }
-  catch {
-  }
+  } catch {}
 
   await mkdir(join(dir, 'src', 'generated'), { recursive: true })
   await writeFile(join(dir, 'src', 'generated', 'meta.ts'), generated.dts, 'utf-8')

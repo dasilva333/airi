@@ -1,26 +1,15 @@
 <script setup lang="ts">
 /*
-  * Core component for loading and displaying MMD (PMX/PMD) models.
-  * Parallel to VRMModel.vue but uses @moeru/three-mmd for loading and rendering.
-  * Handles model loading, animation playback, morph-based expressions, and lip sync.
-*/
+ * Core component for loading and displaying MMD (PMX/PMD) models.
+ * Parallel to VRMModel.vue but uses @moeru/three-mmd for loading and rendering.
+ * Handles model loading, animation playback, morph-based expressions, and lip sync.
+ */
 
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import type { MMD } from '@moeru/three-mmd'
-import type { Group, PerspectiveCamera } from 'three'
-
 import { useLoop, useTresContext } from '@tresjs/core'
-import {
-  AnimationMixer,
-} from 'three'
-import {
-  onMounted,
-  onUnmounted,
-  ref,
-  shallowRef,
-  toRefs,
-  watch,
-} from 'vue'
+import type { Group, PerspectiveCamera } from 'three'
+import { AnimationMixer } from 'three'
+import { onMounted, onUnmounted, ref, shallowRef, toRefs, watch } from 'vue'
 
 import { loadVMDAnimation } from '../../../composables/mmd/animation'
 import { loadMmd } from '../../../composables/mmd/core'
@@ -28,7 +17,11 @@ import { useMMDEmote } from '../../../composables/mmd/expression'
 import { useMMDLipSync } from '../../../composables/mmd/lip-sync'
 import { useMmd } from '../../../stores/mmd'
 
-export interface Vec3 { x: number, y: number, z: number }
+export interface Vec3 {
+  x: number
+  y: number
+  z: number
+}
 export interface SceneBootstrap {
   cacheHit: boolean
   cameraDistance: number
@@ -40,27 +33,30 @@ export interface SceneBootstrap {
   modelSize: Vec3
 }
 
-const props = withDefaults(defineProps<{
-  audioContext?: AudioContext
-  currentAudioSource?: AudioBufferSourceNode
-  lastCommittedModelSrc?: string
-  modelSrc?: string
-  textureMap?: Map<string, string>
-  idleAnimation?: string
-  paused?: boolean
-  modelOffset: Vec3
-  modelRotationY: number
-  lookAtTarget: Vec3
-  trackingMode: string
-  eyeHeight: number
-  cameraPosition: Vec3
-  camera: PerspectiveCamera
-  scale?: number
-  previewExpression?: string
-}>(), {
-  paused: false,
-  scale: 1,
-})
+const props = withDefaults(
+  defineProps<{
+    audioContext?: AudioContext
+    currentAudioSource?: AudioBufferSourceNode
+    lastCommittedModelSrc?: string
+    modelSrc?: string
+    textureMap?: Map<string, string>
+    idleAnimation?: string
+    paused?: boolean
+    modelOffset: Vec3
+    modelRotationY: number
+    lookAtTarget: Vec3
+    trackingMode: string
+    eyeHeight: number
+    cameraPosition: Vec3
+    camera: PerspectiveCamera
+    scale?: number
+    previewExpression?: string
+  }>(),
+  {
+    paused: false,
+    scale: 1,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'loadingProgress', value: number): void
@@ -71,15 +67,8 @@ const emit = defineEmits<{
   (e: 'loaded', value: string): void
 }>()
 
-const {
-  currentAudioSource,
-  lastCommittedModelSrc,
-  modelSrc,
-  idleAnimation,
-  paused,
-  modelOffset,
-  modelRotationY,
-} = toRefs(props)
+const { currentAudioSource, lastCommittedModelSrc, modelSrc, idleAnimation, paused, modelOffset, modelRotationY } =
+  toRefs(props)
 
 const { scene } = useTresContext()
 const mmdInstance = shallowRef<MMD>()
@@ -91,9 +80,7 @@ const mmdAnimationMixer = shallowRef<AnimationMixer>()
 const mmdEmote = shallowRef<ReturnType<typeof useMMDEmote>>()
 // audioContext is passed as a prop so this composable stays within the stage-ui-three
 // package boundary and does not need to import from stage-ui.
-const mmdLipSync = props.audioContext
-  ? useMMDLipSync(props.audioContext, currentAudioSource)
-  : null
+const mmdLipSync = props.audioContext ? useMMDLipSync(props.audioContext, currentAudioSource) : null
 
 const mmdStore = useMmd()
 const { onBeforeRender } = useLoop()
@@ -105,12 +92,10 @@ function bindRenderLoop() {
   disposeRenderLoop?.()
 
   const { off } = onBeforeRender(({ delta }) => {
-    if (paused.value)
-      return
+    if (paused.value) return
 
     const activeMmd = mmdInstance.value
-    if (!activeMmd)
-      return
+    if (!activeMmd) return
 
     // Update animation mixer
     mmdAnimationMixer.value?.update(delta)
@@ -146,9 +131,8 @@ function cleanup() {
     mesh.geometry?.dispose()
     if (Array.isArray(mesh.material)) {
       mesh.material.forEach((m: { dispose: () => void }) => m.dispose())
-    }
-    else if (mesh.material && 'dispose' in mesh.material) {
-      (mesh.material as { dispose: () => void }).dispose()
+    } else if (mesh.material && 'dispose' in mesh.material) {
+      ;(mesh.material as { dispose: () => void }).dispose()
     }
   }
 
@@ -160,10 +144,8 @@ function cleanup() {
 }
 
 function resolveLoadReason(): 'initial-load' | 'model-reload' | 'model-switch' {
-  if (!lastCommittedModelSrc.value)
-    return 'initial-load'
-  if (lastCommittedModelSrc.value === modelSrc.value)
-    return 'model-reload'
+  if (!lastCommittedModelSrc.value) return 'initial-load'
+  if (lastCommittedModelSrc.value === modelSrc.value) return 'model-reload'
   return 'model-switch'
 }
 
@@ -172,10 +154,16 @@ async function loadModel(url: string) {
   const reason = resolveLoadReason()
 
   emit('loadStart', reason)
-  console.log('[MMDModel] loadModel started!', { url, reason, sequence: currentSequence })
+  console.log('[MMDModel] loadModel started!', { reason, sequence: currentSequence, url })
 
   try {
     const result = await loadMmd(url, {
+      onProgress: (progress) => {
+        if (currentSequence !== loadSequence) return
+        if (progress.total > 0) {
+          emit('loadingProgress', progress.loaded / progress.total)
+        }
+      },
       // NOTICE:
       // Do NOT pass scene here. loadMmd would add the new group to the scene immediately
       // upon completion, before cleanup() removes the old model — causing both models to
@@ -183,17 +171,9 @@ async function loadModel(url: string) {
       // the scene manually after cleanup() so the transition is atomic from the scene's
       // perspective. Remove this comment if loadMmd's scene-insertion behavior changes.
       textureMap: props.textureMap,
-      onProgress: (progress) => {
-        if (currentSequence !== loadSequence)
-          return
-        if (progress.total > 0) {
-          emit('loadingProgress', progress.loaded / progress.total)
-        }
-      },
     })
 
-    if (!isComponentMounted.value || currentSequence !== loadSequence)
-      return
+    if (!isComponentMounted.value || currentSequence !== loadSequence) return
 
     if (!result) {
       console.warn('[MMDModel] loadMmd returned undefined!')
@@ -219,11 +199,7 @@ async function loadModel(url: string) {
     mmdGroup.value = result.mmdGroup
 
     // Apply model offset and rotation
-    result.mmdGroup.position.set(
-      modelOffset.value.x,
-      modelOffset.value.y,
-      modelOffset.value.z,
-    )
+    result.mmdGroup.position.set(modelOffset.value.x, modelOffset.value.y, modelOffset.value.z)
     result.mmdGroup.rotation.y = modelRotationY.value
 
     // Set up animation mixer
@@ -242,15 +218,13 @@ async function loadModel(url: string) {
           const action = mixer.clipAction(clip)
           action.play()
         }
-      }
-      catch (error) {
+      } catch (error) {
         console.warn('[MMDModel] Failed to load idle animation:', error)
       }
     }
 
     // Re-check sequence after all async work before committing to the scene
-    if (currentSequence !== loadSequence)
-      return
+    if (currentSequence !== loadSequence) return
 
     // Emit scene bootstrap data
     const eyeHeight = result.modelCenter.y
@@ -285,8 +259,7 @@ async function loadModel(url: string) {
     bindRenderLoop()
     modelLoaded.value = true
     emit('loaded', url)
-  }
-  catch (error) {
+  } catch (error) {
     if (currentSequence !== loadSequence) {
       console.log('[MMDModel] loadModel failed but sequence changed. Ignoring error.')
       return
@@ -297,66 +270,74 @@ async function loadModel(url: string) {
 }
 
 // Watch idle animation changes
-watch(() => props.idleAnimation, async (newAnim) => {
-  console.log('[MMDModel] idleAnimation changed:', newAnim)
-  if (newAnim && newAnim.endsWith('.vmd') && mmdInstance.value && mmdAnimationMixer.value) {
-    try {
-      const clip = await loadVMDAnimation(newAnim, mmdInstance.value)
-      if (clip) {
-        console.log('[MMDModel] Playing new animation:', newAnim)
-        mmdAnimationMixer.value.stopAllAction()
-        const action = mmdAnimationMixer.value.clipAction(clip)
-        action.play()
+watch(
+  () => props.idleAnimation,
+  async (newAnim) => {
+    console.log('[MMDModel] idleAnimation changed:', newAnim)
+    if (newAnim && newAnim.endsWith('.vmd') && mmdInstance.value && mmdAnimationMixer.value) {
+      try {
+        const clip = await loadVMDAnimation(newAnim, mmdInstance.value)
+        if (clip) {
+          console.log('[MMDModel] Playing new animation:', newAnim)
+          mmdAnimationMixer.value.stopAllAction()
+          const action = mmdAnimationMixer.value.clipAction(clip)
+          action.play()
+        }
+      } catch (error) {
+        console.warn('[MMDModel] Failed to load new idle animation:', error)
       }
+    } else if (mmdAnimationMixer.value) {
+      console.log('[MMDModel] Stopping all actions (None or invalid animation)')
+      mmdAnimationMixer.value.stopAllAction()
     }
-    catch (error) {
-      console.warn('[MMDModel] Failed to load new idle animation:', error)
-    }
-  }
-  else if (mmdAnimationMixer.value) {
-    console.log('[MMDModel] Stopping all actions (None or invalid animation)')
-    mmdAnimationMixer.value.stopAllAction()
-  }
-})
+  },
+)
 
 // Watch model source changes
-watch(modelSrc, (newSrc, oldSrc) => {
-  if (!newSrc) {
-    cleanup()
-    return
-  }
-  if (newSrc !== oldSrc) {
-    void loadModel(newSrc)
-  }
-}, { immediate: true })
+watch(
+  modelSrc,
+  (newSrc, oldSrc) => {
+    if (!newSrc) {
+      cleanup()
+      return
+    }
+    if (newSrc !== oldSrc) {
+      void loadModel(newSrc)
+    }
+  },
+  { immediate: true },
+)
 
 // Watch offset/rotation changes
 watch([modelOffset, modelRotationY], ([offset, rotY]) => {
-  if (!mmdGroup.value)
-    return
+  if (!mmdGroup.value) return
   mmdGroup.value.position.set(offset.x, offset.y, offset.z)
   mmdGroup.value.rotation.y = rotY
 })
 
 // Watch scale changes
-watch(() => props.scale, (newScale) => {
-  if (!mmdGroup.value || newScale === undefined)
-    return
-  mmdGroup.value.scale.set(newScale, newScale, newScale)
-})
+watch(
+  () => props.scale,
+  (newScale) => {
+    if (!mmdGroup.value || newScale === undefined) return
+    mmdGroup.value.scale.set(newScale, newScale, newScale)
+  },
+)
 
 // Watch preview expression changes
-watch(() => props.previewExpression, (newExpr) => {
-  console.log('[MMDModel] previewExpression changed:', newExpr)
-  if (newExpr && mmdEmote.value) {
-    console.log('[MMDModel] Setting expression:', newExpr)
-    mmdEmote.value.setExpression(newExpr, 1.0)
-  }
-  else if (mmdEmote.value) {
-    console.log('[MMDModel] Resetting expression')
-    mmdEmote.value.resetExpression()
-  }
-})
+watch(
+  () => props.previewExpression,
+  (newExpr) => {
+    console.log('[MMDModel] previewExpression changed:', newExpr)
+    if (newExpr && mmdEmote.value) {
+      console.log('[MMDModel] Setting expression:', newExpr)
+      mmdEmote.value.setExpression(newExpr, 1.0)
+    } else if (mmdEmote.value) {
+      console.log('[MMDModel] Resetting expression')
+      mmdEmote.value.resetExpression()
+    }
+  },
+)
 
 const isComponentMounted = ref(false)
 
@@ -373,11 +354,11 @@ onUnmounted(() => {
 })
 
 defineExpose({
-  setExpression: (name: string, intensity?: number) => {
-    mmdEmote.value?.setExpression(name, intensity)
-  },
   resetExpression: () => {
     mmdEmote.value?.resetExpression()
+  },
+  setExpression: (name: string, intensity?: number) => {
+    mmdEmote.value?.setExpression(name, intensity)
   },
 })
 </script>

@@ -33,10 +33,10 @@ export const useMmd = defineStore('mmd', () => {
 
   return {
     availableMorphs,
-    morphMappings,
-    hiddenMorphs,
     availableMotions,
     currentMotion,
+    hiddenMorphs,
+    morphMappings,
     previewExpression,
     resetState,
   }

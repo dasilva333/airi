@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import type { ProviderValidationStep } from '../../../../libs/providers/validators/run'
-
 import { Button } from '@proj-airi/ui'
 import { useMediaQuery, useResizeObserver, useScreenSafeArea } from '@vueuse/core'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot } from 'vaul-vue'
 import { computed, onMounted } from 'vue'
+import type { ProviderValidationStep } from '../../../../libs/providers/validators/run'
 
-const props = withDefaults(defineProps<{
-  steps: ProviderValidationStep[]
-  stepId?: string
-  title?: string
-}>(), {
-  title: 'Validation details',
-})
+const props = withDefaults(
+  defineProps<{
+    steps: ProviderValidationStep[]
+    stepId?: string
+    title?: string
+  }>(),
+  {
+    title: 'Validation details',
+  },
+)
 
-const showDialog = defineModel({ type: Boolean, default: false, required: false })
+const showDialog = defineModel({ default: false, required: false, type: Boolean })
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
 const screenSafeArea = useScreenSafeArea()
@@ -23,11 +25,10 @@ const screenSafeArea = useScreenSafeArea()
 useResizeObserver(document.documentElement, () => screenSafeArea.update())
 onMounted(() => screenSafeArea.update())
 
-const failedSteps = computed(() => props.steps.filter(step => step.status === 'invalid'))
+const failedSteps = computed(() => props.steps.filter((step) => step.status === 'invalid'))
 const selectedSteps = computed(() => {
-  if (!props.stepId)
-    return failedSteps.value
-  return failedSteps.value.filter(step => step.id === props.stepId)
+  if (!props.stepId) return failedSteps.value
+  return failedSteps.value.filter((step) => step.id === props.stepId)
 })
 </script>
 

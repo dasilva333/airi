@@ -23,8 +23,7 @@ const isDraggingDebounced = useDebounce(isDragging, 150)
 
 function handleFileChange(e: Event) {
   const input = e.target as HTMLInputElement
-  if (!input.files)
-    return
+  if (!input.files) return
 
   files.value = []
 

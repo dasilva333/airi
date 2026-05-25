@@ -1,15 +1,13 @@
-import type { Plugin } from 'vue'
-import type { Router, RouteRecordRaw } from 'vue-router'
-
-import Tres from '@tresjs/core'
-import NProgress from 'nprogress'
-
+import { setupLayouts } from 'virtual:generated-layouts'
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 import { isEnvTruthy } from '@proj-airi/stage-shared'
+import Tres from '@tresjs/core'
 import { MotionPlugin } from '@vueuse/motion'
+import NProgress from 'nprogress'
 import { createPinia } from 'pinia'
-import { setupLayouts } from 'virtual:generated-layouts'
+import type { Plugin } from 'vue'
 import { createApp } from 'vue'
+import type { RouteRecordRaw, Router } from 'vue-router'
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { routes } from 'vue-router/auto-routes'
 
@@ -33,13 +31,11 @@ const routeRecords = setupLayouts(routes as RouteRecordRaw[])
 
 let router: Router
 if (isEnvTruthy(import.meta.env.VITE_APP_TARGET_HUGGINGFACE_SPACE))
-  router = createRouter({ routes: routeRecords, history: createWebHashHistory() })
-else
-  router = createRouter({ routes: routeRecords, history: createWebHistory() })
+  router = createRouter({ history: createWebHashHistory(), routes: routeRecords })
+else router = createRouter({ history: createWebHistory(), routes: routeRecords })
 
 router.beforeEach((to, from) => {
-  if (to.path !== from.path)
-    NProgress.start()
+  if (to.path !== from.path) NProgress.start()
 })
 
 router.afterEach(() => {
@@ -70,9 +66,9 @@ if (import.meta.env.DEV && !import.meta.env.SSR) {
     // from leaking to other layers (like DismissableLayer in Reka UI).
     //
     // See: https://github.com/unovue/reka-ui/blob/14866201d179b8bae3c8b4346a1ca8eff1c5eaa4/packages/radix-vue/src/DismissableLayer/DismissableLayer.vue#L186-L188
-    el.addEventListener('focus', e => e.stopPropagation(), { capture: true })
-    el.addEventListener('blur', e => e.stopPropagation(), { capture: true })
-    el.addEventListener('pointerdown', e => e.stopPropagation(), { capture: true })
+    el.addEventListener('focus', (e) => e.stopPropagation(), { capture: true })
+    el.addEventListener('blur', (e) => e.stopPropagation(), { capture: true })
+    el.addEventListener('pointerdown', (e) => e.stopPropagation(), { capture: true })
   }
 
   const observer = new MutationObserver((mutationsList, observer) => {

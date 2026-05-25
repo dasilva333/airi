@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { AvatarFallback, AvatarImage, AvatarRoot, TooltipContent, TooltipRoot, TooltipTrigger } from 'reka-ui'
 
-import { } from 'vue'
+import {} from 'vue'
 
 import { contributors } from '../contributors'
 
 function getInitials(name: string) {
-  return name.match(/\b[A-Z]/gi) // Match the first letter of each word, if it’s an alphabet character
-    ?.join('') // Join the matched characters to form initials
-    ?? name[0] // Default to the first character if no match
+  return (
+    name
+      .match(/\b[A-Z]/gi) // Match the first letter of each word, if it’s an alphabet character
+      ?.join('') ?? // Join the matched characters to form initials
+    name[0]
+  ) // Default to the first character if no match
 }
 </script>
 

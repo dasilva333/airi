@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  min?: number
-  max?: number
-  step?: number
-  disabled?: boolean
-}>(), {
-  min: 0,
-  max: 100,
-  step: 1,
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    min?: number
+    max?: number
+    step?: number
+    disabled?: boolean
+  }>(),
+  {
+    disabled: false,
+    max: 100,
+    min: 0,
+    step: 1,
+  },
+)
 
 const modelValue = defineModel<number>({ required: true })
 

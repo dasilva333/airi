@@ -1,3 +1,4 @@
+import { useLogg } from '@guiiai/logg'
 import type {
   CoreOptions,
   IsEmptyObject,
@@ -7,8 +8,6 @@ import type {
   RemovedIndexResources,
   TranslateOptions,
 } from '@intlify/core'
-
-import { useLogg } from '@guiiai/logg'
 import { compile, createCoreContext, translate } from '@intlify/core'
 import { effect, signal } from 'alien-signals'
 import { isString } from 'es-toolkit'
@@ -19,14 +18,12 @@ type ResolveResourceKeys<
   // eslint-disable-next-line ts/no-empty-object-type
   DefineLocaleMessageSchema extends Record<string, any> = {},
   DefinedLocaleMessage extends
-  RemovedIndexResources<DefineLocaleMessageSchema> = RemovedIndexResources<DefineLocaleMessageSchema>,
-  SchemaPaths = IsEmptyObject<Schema> extends false
-    ? PickupPaths<{ [K in keyof Schema]: Schema[K] }>
-    : never,
+    RemovedIndexResources<DefineLocaleMessageSchema> = RemovedIndexResources<DefineLocaleMessageSchema>,
+  SchemaPaths = IsEmptyObject<Schema> extends false ? PickupPaths<{ [K in keyof Schema]: Schema[K] }> : never,
   DefineMessagesPaths = IsEmptyObject<DefinedLocaleMessage> extends false
     ? PickupPaths<{
-      [K in keyof DefinedLocaleMessage]: DefinedLocaleMessage[K]
-    }>
+        [K in keyof DefinedLocaleMessage]: DefinedLocaleMessage[K]
+      }>
     : never,
 > = SchemaPaths | DefineMessagesPaths
 
@@ -67,11 +64,7 @@ interface TranslationFunction<
    * @param {TranslateOptions} options - A translate options, about details see {@link TranslateOptions}
    * @returns {string} A translated message, if the key is not found, return the `defaultMsg` argument
    */
-  <Key extends string>(
-    key: Key | ResourceKeys,
-    defaultMsg: string,
-    options: TranslateOptions
-  ): string
+  <Key extends string>(key: Key | ResourceKeys, defaultMsg: string, options: TranslateOptions): string
   /**
    * @param {Key | ResourceKeys} key - A translation key
    * @param {unknown[]} list - A list for list interpolation
@@ -125,38 +118,34 @@ interface TranslationFunction<
    * @param {TranslateOptions} options - A translate options, about details see {@link TranslateOptions}
    * @returns {string} A translated message, if the key is not found, return the key
    */
-  <Key extends string>(
-    key: Key | ResourceKeys,
-    named: NamedValue,
-    options: TranslateOptions
-  ): string
+  <Key extends string>(key: Key | ResourceKeys, named: NamedValue, options: TranslateOptions): string
 }
 
 export interface I18n<Schema extends Record<string, any> = Record<string, any>> {
   t: TranslationFunction<Schema>
   locale:
-    (() => (string | LocaleDetector<any[]> | undefined)) | ((value: string | LocaleDetector<any[]> | undefined) => void)
+    | (() => string | LocaleDetector<any[]> | undefined)
+    | ((value: string | LocaleDetector<any[]> | undefined) => void)
 }
 
-export function createI18n<Schema extends Record<string, any> = Record<string, any>>(options: CoreOptions): I18n<Schema> {
+export function createI18n<Schema extends Record<string, any> = Record<string, any>>(
+  options: CoreOptions,
+): I18n<Schema> {
   const log = useLogg('i18n').useGlobalConfig()
 
   const locale = signal(options.locale)
 
   const context = createCoreContext({
+    fallbackFormat: true,
     fallbackLocale: options.fallbackLocale,
     fallbackWarn: false,
+    messageCompiler: compile as any,
     missingWarn: false,
     warnHtmlMessage: false,
-    fallbackFormat: true,
-    messageCompiler: compile as any,
     ...options,
   })
 
-  const t: TranslationFunction<Schema> = (
-    key: string,
-    ...args: unknown[]
-  ) => {
+  const t: TranslationFunction<Schema> = (key: string, ...args: unknown[]) => {
     if (context == null) {
       log.error('cannot initialize core context for i18n')
 
@@ -196,7 +185,7 @@ export function createI18n<Schema extends Record<string, any> = Record<string, a
   })
 
   return {
-    t,
     locale,
+    t,
   }
 }

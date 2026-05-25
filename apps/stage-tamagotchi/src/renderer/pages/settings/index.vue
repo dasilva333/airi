@@ -26,12 +26,16 @@ const removeBeforeEach = router.beforeEach(async (_, __, next) => {
 const settings = computed(() => {
   return router
     .getRoutes()
-    .filter(route => route.meta?.settingsEntry)
-    .sort((a, b) => (Number(a.meta?.order ?? 0) - Number(b.meta?.order ?? 0)))
-    .map(route => ({
-      title: route.meta?.titleKey ? t(route.meta.titleKey as string) : (route.meta?.title as string | undefined) ?? '',
-      description: route.meta?.descriptionKey ? t(route.meta.descriptionKey as string) : (route.meta?.description as string | undefined) || '',
+    .filter((route) => route.meta?.settingsEntry)
+    .sort((a, b) => Number(a.meta?.order ?? 0) - Number(b.meta?.order ?? 0))
+    .map((route) => ({
+      description: route.meta?.descriptionKey
+        ? t(route.meta.descriptionKey as string)
+        : (route.meta?.description as string | undefined) || '',
       icon: (route.meta?.icon as string | undefined) ?? '',
+      title: route.meta?.titleKey
+        ? t(route.meta.titleKey as string)
+        : ((route.meta?.title as string | undefined) ?? ''),
       to: route.path,
     }))
 })

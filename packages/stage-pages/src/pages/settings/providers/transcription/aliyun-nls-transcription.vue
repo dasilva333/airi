@@ -1,11 +1,4 @@
 <script setup lang="ts">
-import type { HearingTranscriptionResult } from '@proj-airi/stage-ui/stores/modules/hearing'
-import type { ServerEvent, ServerEvents } from '@proj-airi/stage-ui/stores/providers/aliyun'
-import type { RemovableRef } from '@vueuse/core'
-import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
-import vadWorkletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
-
 import {
   Alert,
   ProviderBasicSettings,
@@ -13,9 +6,14 @@ import {
   ProviderSettingsLayout,
 } from '@proj-airi/stage-ui/components'
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
+import type { HearingTranscriptionResult } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import type { ServerEvent, ServerEvents } from '@proj-airi/stage-ui/stores/providers/aliyun'
+import vadWorkletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 import { Button, FieldInput, FieldSelect } from '@proj-airi/ui'
+import type { RemovableRef } from '@vueuse/core'
+import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef } from 'vue'
 
@@ -81,18 +79,14 @@ function ensureProviderCredentials() {
 }
 
 const credentialsReady = computed(() => {
-  return Boolean(
-    credentials.accessKeyId.trim()
-    && credentials.accessKeySecret.trim()
-    && credentials.appKey.trim(),
-  )
+  return Boolean(credentials.accessKeyId.trim() && credentials.accessKeySecret.trim() && credentials.appKey.trim())
 })
 
 const isRecording = ref(false)
 const isStreaming = ref(false)
 const errorMessage = ref<string | null>(null)
 const currentPartial = ref('')
-const transcripts = ref<Array<{ index: number, text: string, final: boolean }>>([])
+const transcripts = ref<Array<{ index: number; text: string; final: boolean }>>([])
 
 const audioContext = shallowRef<AudioContext>()
 const workletNode = shallowRef<AudioWorkletNode>()
@@ -107,30 +101,22 @@ const canStart = computed(() => credentialsReady.value && !isRecording.value && 
 const canStop = computed(() => isRecording.value || isStreaming.value)
 const canAbort = computed(() => isStreaming.value && Boolean(transcriptionAbortController.value))
 
-const {
-  t,
-  router,
-  providerMetadata,
-  isValidating,
-  isValid,
-  validationMessage,
-  handleResetSettings,
-  forceValid,
-} = useProviderValidation(providerId)
+const { t, router, providerMetadata, isValidating, isValid, validationMessage, handleResetSettings, forceValid } =
+  useProviderValidation(providerId)
 
 function float32ToInt16(buffer: Float32Array) {
   const output = new Int16Array(buffer.length)
   for (let i = 0; i < buffer.length; i++) {
     const value = Math.max(-1, Math.min(1, buffer[i]))
-    output[i] = value < 0 ? value * 0x8000 : value * 0x7FFF
+    output[i] = value < 0 ? value * 0x8000 : value * 0x7fff
   }
   return output
 }
 
 async function initializeAudioGraph(stream: MediaStream) {
   const context = new AudioContext({
-    sampleRate: SAMPLE_RATE,
     latencyHint: 'interactive',
+    sampleRate: SAMPLE_RATE,
   })
   await context.audioWorklet.addModule(vadWorkletUrl)
 
@@ -138,8 +124,7 @@ async function initializeAudioGraph(stream: MediaStream) {
   node.port.onmessage = ({ data }: MessageEvent<{ buffer?: Float32Array }>) => {
     const buffer = data.buffer
     const controller = audioStreamController.value
-    if (!buffer || !controller)
-      return
+    if (!buffer || !controller) return
 
     const pcm16 = float32ToInt16(buffer)
     controller.enqueue(pcm16.buffer.slice(0))
@@ -183,26 +168,24 @@ function handleServerEvent(event: ServerEvent) {
 }
 
 function upsertTranscript(index: number, text: string, final: boolean) {
-  const existingIndex = transcripts.value.findIndex(entry => entry.index === index)
+  const existingIndex = transcripts.value.findIndex((entry) => entry.index === index)
 
   if (existingIndex >= 0) {
     const existing = transcripts.value[existingIndex]
     transcripts.value.splice(existingIndex, 1, {
+      final: existing.final || final,
       index,
       text,
-      final: existing.final || final,
     })
-  }
-  else {
-    transcripts.value.push({ index, text, final })
+  } else {
+    transcripts.value.push({ final, index, text })
   }
 
   transcripts.value.sort((a, b) => a.index - b.index)
 }
 
 async function startStreaming() {
-  if (!canStart.value)
-    return
+  if (!canStart.value) return
 
   errorMessage.value = null
   resetTranscriptionOutput()
@@ -211,18 +194,18 @@ async function startStreaming() {
   transcriptionAbortController.value = abortController
 
   const audioStream = new ReadableStream<ArrayBuffer>({
-    start(controller) {
-      audioStreamController.value = controller
-    },
     cancel: () => {
       audioStreamController.value = undefined
+    },
+    start(controller) {
+      audioStreamController.value = controller
     },
   })
 
   try {
-    const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
-    if (!provider)
-      throw new Error('Failed to initialize Aliyun NLS provider.')
+    const provider =
+      await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
+    if (!provider) throw new Error('Failed to initialize Aliyun NLS provider.')
 
     const result = await hearingStore.transcription(
       providerId,
@@ -239,50 +222,45 @@ async function startStreaming() {
             },
           },
           onSessionTerminated: async (error?: unknown) => {
-            if (error)
-              errorMessage.value = error instanceof Error ? error.message : String(error)
+            if (error) errorMessage.value = error instanceof Error ? error.message : String(error)
             isStreaming.value = false
             transcriptionAbortController.value = undefined
           },
           sessionOptions: {
+            enable_punctuation_prediction: true,
             format: 'pcm',
             sample_rate: SAMPLE_RATE,
-            enable_punctuation_prediction: true,
           },
         },
       },
     )
 
-    if (result.mode !== 'stream')
-      throw new Error('Aliyun NLS returned a non-streaming result unexpectedly.')
+    if (result.mode !== 'stream') throw new Error('Aliyun NLS returned a non-streaming result unexpectedly.')
 
     activeTranscription.value = result
-    transcriptionTextPromise.value = result.text
-      .catch((error) => {
-        errorMessage.value = error instanceof Error ? error.message : String(error)
-        throw error
-      })
+    transcriptionTextPromise.value = result.text.catch((error) => {
+      errorMessage.value = error instanceof Error ? error.message : String(error)
+      throw error
+    })
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        autoGainControl: true,
         channelCount: 1,
-        sampleRate: SAMPLE_RATE,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        sampleRate: SAMPLE_RATE,
       },
     })
 
     mediaStream.value = stream
     await initializeAudioGraph(stream)
 
-    if (audioContext.value?.state === 'suspended')
-      await audioContext.value.resume()
+    if (audioContext.value?.state === 'suspended') await audioContext.value.resume()
 
     isRecording.value = true
     isStreaming.value = true
-  }
-  catch (error) {
+  } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error)
     await stopStreaming()
   }
@@ -291,8 +269,9 @@ async function startStreaming() {
 async function stopStreaming() {
   try {
     workletNode.value?.port.postMessage({ type: 'stop' })
+  } catch {
+    /* noop */
   }
-  catch { /* noop */ }
 
   if (mediaStreamSource.value) {
     mediaStreamSource.value.disconnect()
@@ -306,15 +285,16 @@ async function stopStreaming() {
   }
 
   if (mediaStream.value) {
-    mediaStream.value.getTracks().forEach(track => track.stop())
+    mediaStream.value.getTracks().forEach((track) => track.stop())
     mediaStream.value = undefined
   }
 
   if (audioContext.value) {
     try {
       await audioContext.value.close()
+    } catch {
+      /* noop */
     }
-    catch { /* noop */ }
     audioContext.value = undefined
   }
 
@@ -326,9 +306,9 @@ async function stopStreaming() {
   if (transcriptionTextPromise.value) {
     try {
       await transcriptionTextPromise.value
-    }
-    catch { /* handled in promise */ }
-    finally {
+    } catch {
+      /* handled in promise */
+    } finally {
       transcriptionTextPromise.value = null
     }
   }
@@ -340,8 +320,7 @@ async function stopStreaming() {
 
 function abortStreaming() {
   const controller = transcriptionAbortController.value
-  if (!controller)
-    return
+  if (!controller) return
 
   controller.abort(new DOMException('Aborted by user', 'AbortError'))
   audioStreamController.value?.error(new DOMException('Aborted by user', 'AbortError'))

@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-
+import { useProvidersStore } from '../../../stores/providers'
 import {
   ProviderAdvancedSettings,
   ProviderApiKeyInput,
@@ -12,7 +12,6 @@ import {
   ProviderSettingsContainer,
   ProviderSettingsLayout,
 } from '.'
-import { useProvidersStore } from '../../../stores/providers'
 
 const props = defineProps<{
   providerId: string
@@ -33,20 +32,21 @@ const providerMetadata = computed(() => providersStore.getProviderMetadata(props
 
 // Common provider settings
 const apiKey = computed({
-  get: () => providers.value[props.providerId]?.apiKey as string | undefined || '',
+  get: () => (providers.value[props.providerId]?.apiKey as string | undefined) || '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
+    if (!providers.value[props.providerId]) providers.value[props.providerId] = {}
 
     providers.value[props.providerId].apiKey = value
   },
 })
 
 const baseUrl = computed({
-  get: () => providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || '',
+  get: () =>
+    (providers.value[props.providerId]?.baseUrl as string | undefined) ||
+    (providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined) ||
+    '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
+    if (!providers.value[props.providerId]) providers.value[props.providerId] = {}
 
     providers.value[props.providerId].baseUrl = value
   },
@@ -56,13 +56,16 @@ onMounted(() => {
   providersStore.initializeProvider(props.providerId)
 
   // Initialize refs with current values
-  apiKey.value = providers.value[props.providerId]?.apiKey as string | undefined || ''
-  baseUrl.value = providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
+  apiKey.value = (providers.value[props.providerId]?.apiKey as string | undefined) || ''
+  baseUrl.value =
+    (providers.value[props.providerId]?.baseUrl as string | undefined) ||
+    (providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined) ||
+    ''
 })
 
 function handleResetTranscriptionSettings() {
   apiKey.value = ''
-  baseUrl.value = providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
+  baseUrl.value = (providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined) || ''
 }
 </script>
 

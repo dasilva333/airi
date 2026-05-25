@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { SerializableDesktopCapturerSource } from '@proj-airi/electron-screen-capture'
-import type { SourcesOptions } from 'electron'
-
 import { useElectronScreenCapture } from '@proj-airi/electron-screen-capture/vue'
 import { Button, SelectTab } from '@proj-airi/ui'
+import type { SourcesOptions } from 'electron'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -25,20 +24,17 @@ const sourceCategory = ref<SourceCategory>('applications')
 const hasFetchedOnce = ref(false)
 
 const sourcesOptions = ref<SourcesOptions>({
-  types: ['screen', 'window'],
   fetchWindowIcons: true,
+  types: ['screen', 'window'],
 })
 
 const { t } = useI18n()
-const {
-  getSources,
-  selectWithSource,
-} = useElectronScreenCapture(getIpcRenderer(), sourcesOptions)
+const { getSources, selectWithSource } = useElectronScreenCapture(getIpcRenderer(), sourcesOptions)
 
 const categoryOptions = [
-  { label: 'Applications', value: 'applications', icon: 'i-solar:window-frame-line-duotone' },
-  { label: 'Displays', value: 'displays', icon: 'i-solar:screencast-2-line-duotone' },
-  { label: 'Devices', value: 'devices', icon: 'i-solar:smartphone-2-line-duotone' },
+  { icon: 'i-solar:window-frame-line-duotone', label: 'Applications', value: 'applications' },
+  { icon: 'i-solar:screencast-2-line-duotone', label: 'Displays', value: 'displays' },
+  { icon: 'i-solar:smartphone-2-line-duotone', label: 'Devices', value: 'devices' },
 ]
 
 const isDisplaySource = (source: ScreenCaptureSource) => source.id.startsWith('screen:')
@@ -46,24 +42,21 @@ const isWindowSource = (source: ScreenCaptureSource) => source.id.startsWith('wi
 const isDeviceSource = (source: ScreenCaptureSource) => source.id.startsWith('device:')
 
 const filteredSources = computed(() => {
-  if (sourceCategory.value === 'applications')
-    return sources.value.filter(isWindowSource)
-  if (sourceCategory.value === 'displays')
-    return sources.value.filter(isDisplaySource)
+  if (sourceCategory.value === 'applications') return sources.value.filter(isWindowSource)
+  if (sourceCategory.value === 'displays') return sources.value.filter(isDisplaySource)
   return sources.value.filter(isDeviceSource)
 })
 
 const sourceCounts = computed(() => ({
   applications: sources.value.filter(isWindowSource).length,
-  displays: sources.value.filter(isDisplaySource).length,
   devices: sources.value.filter(isDeviceSource).length,
+  displays: sources.value.filter(isDisplaySource).length,
 }))
 
 const isInitialLoading = computed(() => !hasFetchedOnce.value && isRefetching.value)
 
 const refetchLabel = computed(() => {
-  if (isInitialLoading.value)
-    return 'Loading...'
+  if (isInitialLoading.value) return 'Loading...'
   return isRefetching.value ? 'Refetching...' : 'Refetch'
 })
 
@@ -72,10 +65,8 @@ const refetchIcon = computed(() =>
 )
 
 function getShareLabel(source: ScreenCaptureSource) {
-  if (isDisplaySource(source))
-    return 'Share Screen'
-  if (isDeviceSource(source))
-    return 'Share Device'
+  if (isDisplaySource(source)) return 'Share Screen'
+  if (isDeviceSource(source)) return 'Share Device'
   return 'Share Window'
 }
 
@@ -92,21 +83,23 @@ function toObjectUrl(bytes: Uint8Array, mime: string) {
 
 async function startCapture(source: SerializableDesktopCapturerSource) {
   try {
-    await selectWithSource(() => source.id, async () => {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      })
-      activeStreams.value.push(stream)
-    })
-  }
-  catch (err) {
+    await selectWithSource(
+      () => source.id,
+      async () => {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: true,
+        })
+        activeStreams.value.push(stream)
+      },
+    )
+  } catch (err) {
     console.error('Error selecting source:', err)
   }
 }
 
 function stopStream(stream: MediaStream) {
-  stream.getTracks().forEach(track => track.stop())
+  stream.getTracks().forEach((track) => track.stop())
   const index = activeStreams.value.indexOf(stream)
   if (index !== -1) {
     activeStreams.value.splice(index, 1)
@@ -117,24 +110,20 @@ async function refetchSources() {
   try {
     isRefetching.value = true
 
-    const nextSources = (await getSources())
-      .sort((a, b) => {
-        const aIsScreen = a.id.startsWith('screen:')
-        const bIsScreen = b.id.startsWith('screen:')
-        if (aIsScreen !== bIsScreen)
-          return aIsScreen ? -1 : 1
+    const nextSources = (await getSources()).sort((a, b) => {
+      const aIsScreen = a.id.startsWith('screen:')
+      const bIsScreen = b.id.startsWith('screen:')
+      if (aIsScreen !== bIsScreen) return aIsScreen ? -1 : 1
 
-        return a.name.localeCompare(b.name)
-      })
-
-    sources.value.forEach((oldSource) => {
-      if (oldSource.appIconURL)
-        URL.revokeObjectURL(oldSource.appIconURL)
-      if (oldSource.thumbnailURL)
-        URL.revokeObjectURL(oldSource.thumbnailURL)
+      return a.name.localeCompare(b.name)
     })
 
-    sources.value = nextSources.map(source => ({
+    sources.value.forEach((oldSource) => {
+      if (oldSource.appIconURL) URL.revokeObjectURL(oldSource.appIconURL)
+      if (oldSource.thumbnailURL) URL.revokeObjectURL(oldSource.thumbnailURL)
+    })
+
+    sources.value = nextSources.map((source) => ({
       ...source,
       // NOTICE(@nekomeowww): In probability of 9/10, the window thumbnail is purely empty or black, sources printed and
       // nothing is returned from the desktopCapturer API.
@@ -142,13 +131,12 @@ async function refetchSources() {
       // REVIEW(@sumimakito): This has nothing to do with our side, probably related to a Electron bug, you can
       // read more here https://github.com/electron/electron/issues/44504
       appIconURL: source.appIcon && source.appIcon.length > 0 ? toObjectUrl(source.appIcon, 'image/png') : undefined,
-      thumbnailURL: source.thumbnail && source.thumbnail.length > 0 ? toObjectUrl(source.thumbnail, 'image/jpeg') : undefined,
+      thumbnailURL:
+        source.thumbnail && source.thumbnail.length > 0 ? toObjectUrl(source.thumbnail, 'image/jpeg') : undefined,
     }))
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Error fetching sources:', err)
-  }
-  finally {
+  } finally {
     isRefetching.value = false
     hasFetchedOnce.value = true
   }
@@ -160,10 +148,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   sources.value.forEach((source) => {
-    if (source.appIconURL)
-      URL.revokeObjectURL(source.appIconURL)
-    if (source.thumbnailURL)
-      URL.revokeObjectURL(source.thumbnailURL)
+    if (source.appIconURL) URL.revokeObjectURL(source.appIconURL)
+    if (source.thumbnailURL) URL.revokeObjectURL(source.thumbnailURL)
   })
 })
 </script>

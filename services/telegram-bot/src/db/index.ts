@@ -11,8 +11,7 @@ export function initDb() {
 }
 
 export function useDrizzle() {
-  if (!db)
-    db = initDb()
+  if (!db) db = initDb()
 
   return db
 }

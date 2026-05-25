@@ -1,11 +1,8 @@
-import type { Result } from 'tinyexec'
-import type { Plugin } from 'vite'
-
-import process from 'node:process'
-
 import { resolve } from 'node:path'
-
+import process from 'node:process'
+import type { Result } from 'tinyexec'
 import { x } from 'tinyexec'
+import type { Plugin } from 'vite'
 
 import { parseCapacitorPlatform, pickServerUrl, resolveCapRunArgs, shouldRestartForNativeChange } from './native'
 
@@ -22,8 +19,7 @@ async function stopCapProcess(current: Result | undefined) {
 
   try {
     await current
-  }
-  catch {
+  } catch {
     // tinyexec rejects when a process is stopped during a restart.
   }
 }
@@ -33,7 +29,6 @@ function startCapProcess(cwd: string, capArgs: string[], url: URL) {
   console.info('Running cap run', ...capArgs)
 
   return x('cap', ['run', ...capArgs], {
-    throwOnError: false,
     nodeOptions: {
       cwd,
       env: {
@@ -41,6 +36,7 @@ function startCapProcess(cwd: string, capArgs: string[], url: URL) {
       },
       stdio: 'inherit',
     },
+    throwOnError: false,
   })
 }
 
@@ -53,7 +49,6 @@ export function capVitePlugin(options: CapVitePluginOptions): Plugin {
 
   return {
     apply: 'serve',
-    name: 'cap-vite:run-capacitor',
     configureServer(server) {
       const cwd = resolve(server.config.root)
       const platformRoot = resolve(cwd, platform)
@@ -110,8 +105,7 @@ export function capVitePlugin(options: CapVitePluginOptions): Plugin {
       server.httpServer?.once('listening', () => {
         try {
           start()
-        }
-        catch (error) {
+        } catch (error) {
           logger.error(`[cap-vite] ${error instanceof Error ? error.message : String(error)}`)
           shutdown()
         }
@@ -120,5 +114,6 @@ export function capVitePlugin(options: CapVitePluginOptions): Plugin {
       process.once('SIGINT', shutdown)
       process.once('SIGTERM', shutdown)
     },
+    name: 'cap-vite:run-capacitor',
   }
 }

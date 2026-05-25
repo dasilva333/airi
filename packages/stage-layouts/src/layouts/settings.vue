@@ -14,28 +14,28 @@ const route = useRoute()
 const { isDark: dark } = useTheme()
 const { t } = useI18n()
 const providersStore = useProvidersStore()
-const routeMeta = computed(() => route.meta as {
-  titleKey?: string
-  subtitleKey?: string
-  title?: string
-  subtitle?: string
-})
+const routeMeta = computed(
+  () =>
+    route.meta as {
+      titleKey?: string
+      subtitleKey?: string
+      title?: string
+      subtitle?: string
+    },
+)
 
 const providerTitle = computed(() => {
-  if (!route.path.startsWith('/settings/providers/'))
-    return undefined
+  if (!route.path.startsWith('/settings/providers/')) return undefined
 
   const segments = route.path.split('/').filter(Boolean)
   const providerId = segments[3]
 
-  if (!providerId)
-    return undefined
+  if (!providerId) return undefined
 
   try {
     const metadata = providersStore.getProviderMetadata(providerId)
     return t(metadata.nameKey)
-  }
-  catch {
+  } catch {
     return undefined
   }
 })
@@ -48,22 +48,22 @@ const routeHeaderMetadata = computed(() => {
 
   if (resolvedTitle || resolvedSubtitle) {
     return {
-      title: resolvedTitle,
       subtitle: resolvedSubtitle,
+      title: resolvedTitle,
     }
   }
 
   if (providerTitle.value) {
     return {
-      title: providerTitle.value,
       subtitle: t('settings.title'),
+      title: providerTitle.value,
     }
   }
 
   return undefined
 })
 
-const { updateThemeColor } = useThemeColor(themeColorFromValue({ light: 'rgb(255 255 255)', dark: 'rgb(18 18 18)' }))
+const { updateThemeColor } = useThemeColor(themeColorFromValue({ dark: 'rgb(18 18 18)', light: 'rgb(255 255 255)' }))
 watch(dark, () => updateThemeColor(), { immediate: true })
 watch(route, () => updateThemeColor(), { immediate: true })
 onMounted(() => updateThemeColor())

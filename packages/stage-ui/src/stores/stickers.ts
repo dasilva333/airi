@@ -1,10 +1,8 @@
-import localforage from 'localforage'
-
 import { useLocalStorage } from '@vueuse/core'
+import localforage from 'localforage'
 import { nanoid } from 'nanoid'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-
 import * as Pinia from 'pinia'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { useAiriCardStore } from './modules/airi-card'
 
@@ -37,7 +35,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
    */
   const currentLibrary = computed(() => {
     const airiCardStore = useAiriCardStore()
-    return libraryMetadata.value.filter(s => s.characterId === airiCardStore.activeCardId)
+    return libraryMetadata.value.filter((s) => s.characterId === airiCardStore.activeCardId)
   })
 
   // Reactive state for active instances on screen
@@ -53,7 +51,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
   if (typeof window !== 'undefined') {
     setInterval(() => {
       const now = Date.now()
-      activePlacements.value = activePlacements.value.filter(p => !p.expiresAt || p.expiresAt > now)
+      activePlacements.value = activePlacements.value.filter((p) => !p.expiresAt || p.expiresAt > now)
     }, 1000)
   }
 
@@ -72,8 +70,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
         objectUrlCache.set(id, url)
         return url
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error(`[StickersStore] Failed to fetch sticker ${id}:`, err)
     }
     return undefined
@@ -86,12 +83,12 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
     const airiCardStore = useAiriCardStore()
     const id = nanoid()
     const metadata: StickerMetadata = {
+      addedAt: Date.now(),
+      characterId: characterId || airiCardStore.activeCardId,
       id,
       label: label || file.name.replace(/\.[^/.]+$/, ''), // remove extension
-      addedAt: Date.now(),
-      originalName: file.name,
       mimeType: file.type,
-      characterId: characterId || airiCardStore.activeCardId,
+      originalName: file.name,
     }
 
     try {
@@ -102,8 +99,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
       libraryMetadata.value.push(metadata)
 
       return id
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[StickersStore] Failed to save sticker:', err)
       throw err
     }
@@ -123,12 +119,11 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
       }
 
       // Update metadata
-      libraryMetadata.value = libraryMetadata.value.filter(m => m.id !== id)
+      libraryMetadata.value = libraryMetadata.value.filter((m) => m.id !== id)
 
       // Clean up active placements
-      activePlacements.value = activePlacements.value.filter(p => p.stickerId !== id)
-    }
-    catch (err) {
+      activePlacements.value = activePlacements.value.filter((p) => p.stickerId !== id)
+    } catch (err) {
       console.error(`[StickersStore] Failed to delete sticker ${id}:`, err)
     }
   }
@@ -136,10 +131,10 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
   /**
    * Spawn a sticker instance at coordinates (or center)
    */
-  function spawnSticker(idOrLabel: string, options: { x?: number, y?: number, duration?: number } = {}) {
-    const sticker = currentLibrary.value.find(m => m.id === idOrLabel || m.label === idOrLabel)
+  function spawnSticker(idOrLabel: string, options: { x?: number; y?: number; duration?: number } = {}) {
+    const sticker = currentLibrary.value.find((m) => m.id === idOrLabel || m.label === idOrLabel)
     if (!sticker) {
-      const errorMsg = `Sticker label "${idOrLabel}" not found in your library. Available labels: ${currentLibrary.value.map(s => s.label).join(', ')}`
+      const errorMsg = `Sticker label "${idOrLabel}" not found in your library. Available labels: ${currentLibrary.value.map((s) => s.label).join(', ')}`
       console.warn(`[StickersStore] ${errorMsg}`)
       return errorMsg
     }
@@ -153,19 +148,19 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
     const width = typeof window !== 'undefined' ? window.innerWidth : 1000
     const height = typeof window !== 'undefined' ? window.innerHeight : 1000
 
-    const finalX = options.x !== undefined ? options.x : (width * (0.1 + Math.random() * 0.8))
-    const finalY = options.y !== undefined ? options.y : (height * (0.1 + Math.random() * 0.8))
+    const finalX = options.x !== undefined ? options.x : width * (0.1 + Math.random() * 0.8)
+    const finalY = options.y !== undefined ? options.y : height * (0.1 + Math.random() * 0.8)
 
     const createdAt = Date.now()
     const placement: StickerPlacement = {
+      createdAt,
+      expiresAt: options.duration ? createdAt + options.duration * 1000 : undefined,
       instanceId: nanoid(),
+      rotation,
+      scale: 1,
       stickerId: sticker.id,
       x: finalX,
       y: finalY,
-      rotation,
-      scale: 1,
-      createdAt,
-      expiresAt: options.duration ? createdAt + (options.duration * 1000) : undefined,
     }
 
     activePlacements.value.push(placement)
@@ -176,14 +171,14 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
    * Remove a specific placement instance
    */
   function removePlacement(instanceId: string) {
-    activePlacements.value = activePlacements.value.filter(p => p.instanceId !== instanceId)
+    activePlacements.value = activePlacements.value.filter((p) => p.instanceId !== instanceId)
   }
 
   /**
    * Update placement position
    */
   function updatePlacement(instanceId: string, updates: Partial<StickerPlacement>) {
-    const p = activePlacements.value.find(i => i.instanceId === instanceId)
+    const p = activePlacements.value.find((i) => i.instanceId === instanceId)
     if (p) {
       Object.assign(p, updates)
     }
@@ -200,7 +195,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
    * Delete every sticker in the current character's library
    */
   async function clearLibrary() {
-    const toRemove = [...currentLibrary.value].map(s => s.id)
+    const toRemove = [...currentLibrary.value].map((s) => s.id)
     for (const id of toRemove) {
       await deleteSticker(id)
     }
@@ -215,7 +210,7 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
     cleanupInterval = setInterval(() => {
       const now = Date.now()
       const initialCount = activePlacements.value.length
-      activePlacements.value = activePlacements.value.filter(p => !p.expiresAt || p.expiresAt > now)
+      activePlacements.value = activePlacements.value.filter((p) => !p.expiresAt || p.expiresAt > now)
 
       if (import.meta.env.DEV && activePlacements.value.length !== initialCount) {
         console.log(`[StickersStore] Purged ${initialCount - activePlacements.value.length} expired stickers.`)
@@ -224,22 +219,21 @@ export const useStickersStore = Pinia.defineStore('stickers', () => {
   })
 
   onUnmounted(() => {
-    if (cleanupInterval)
-      clearInterval(cleanupInterval)
+    if (cleanupInterval) clearInterval(cleanupInterval)
   })
 
   return {
-    libraryMetadata,
-    currentLibrary,
-    standaloneMode,
     activePlacements,
-    getStickerUrl,
     addSticker,
-    deleteSticker,
-    spawnSticker,
-    removePlacement,
-    updatePlacement,
-    clearPlacements,
     clearLibrary,
+    clearPlacements,
+    currentLibrary,
+    deleteSticker,
+    getStickerUrl,
+    libraryMetadata,
+    removePlacement,
+    spawnSticker,
+    standaloneMode,
+    updatePlacement,
   }
 })

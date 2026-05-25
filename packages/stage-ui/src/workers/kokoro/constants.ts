@@ -29,53 +29,53 @@ export interface KokoroModel {
  */
 export const KOKORO_MODELS = [
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp32-webgpu.description',
     id: 'fp32-webgpu',
     name: 'FP32 (WebGPU)',
     platform: 'webgpu',
     quantization: 'fp32',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp32-webgpu.description',
   },
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp32.description',
     id: 'fp32',
     name: 'FP32 (WASM)',
     platform: 'wasm',
     quantization: 'fp32',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp32.description',
   },
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp16.description',
     id: 'fp16',
     name: 'FP16 (WASM)',
     platform: 'wasm',
     quantization: 'fp16',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.fp16.description',
   },
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q8.description',
     id: 'q8',
     name: 'Q8 (WASM)',
     platform: 'wasm',
     quantization: 'q8',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q8.description',
   },
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q4.description',
     id: 'q4',
     name: 'Q4 (WASM)',
     platform: 'wasm',
     quantization: 'q4',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q4.description',
   },
   {
+    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q4f16.description',
     id: 'q4f16',
     name: 'Q4F16 (WASM)',
     platform: 'wasm',
     quantization: 'q4f16',
-    descriptionKey: 'settings.pages.providers.provider.kokoro-local.models.q4f16.description',
   },
 ] as const
 
 /**
  * Type for Kokoro quantization options
  */
-export type KokoroQuantization = typeof KOKORO_MODELS[number]['id']
+export type KokoroQuantization = (typeof KOKORO_MODELS)[number]['id']
 
 /**
  * Convert Kokoro models to ModelInfo array
@@ -84,14 +84,12 @@ export type KokoroQuantization = typeof KOKORO_MODELS[number]['id']
  * @returns Array of ModelInfo objects
  */
 export function kokoroModelsToModelInfo(hasWebGPU: boolean, t?: (key: string) => string) {
-  return KOKORO_MODELS
-    .filter(model => hasWebGPU || model.platform !== 'webgpu')
-    .map(model => ({
-      id: model.id,
-      name: model.name,
-      provider: 'kokoro-local',
-      description: t ? t(model.descriptionKey) : model.descriptionKey,
-    }))
+  return KOKORO_MODELS.filter((model) => hasWebGPU || model.platform !== 'webgpu').map((model) => ({
+    description: t ? t(model.descriptionKey) : model.descriptionKey,
+    id: model.id,
+    name: model.name,
+    provider: 'kokoro-local',
+  }))
 }
 
 /**

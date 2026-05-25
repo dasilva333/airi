@@ -10,10 +10,10 @@ const editLink = useEditLink()
 const { t } = useI18n()
 
 const links = computed(() => [
-  { label: editLink.value.text, url: editLink.value.url, icon: 'lucide:pencil-line' },
-  { label: t('docs.theme.doc.community.star-github.title'), url: github, icon: 'lucide:star' },
-  { label: t('docs.theme.doc.community.discord.title'), url: discord, icon: 'lucide:messages-square' },
-  { label: t('docs.theme.doc.community.support.title'), url: sponsor, icon: 'lucide:hand-heart' },
+  { icon: 'lucide:pencil-line', label: editLink.value.text, url: editLink.value.url },
+  { icon: 'lucide:star', label: t('docs.theme.doc.community.star-github.title'), url: github },
+  { icon: 'lucide:messages-square', label: t('docs.theme.doc.community.discord.title'), url: discord },
+  { icon: 'lucide:hand-heart', label: t('docs.theme.doc.community.support.title'), url: sponsor },
 ])
 </script>
 

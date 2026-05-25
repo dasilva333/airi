@@ -21,7 +21,7 @@ export interface VideoContextPayload {
   volume?: number
   playbackRate?: number
   isLive?: boolean
-  playerSize?: { width: number, height: number }
+  playerSize?: { width: number; height: number }
 }
 
 export interface SubtitlePayload {
@@ -47,11 +47,11 @@ export interface VisionFramePayload {
   dataUrl: string
 }
 
-export type ContentToBackgroundMessage
-  = | { type: 'content:page', payload: PageContextPayload }
-    | { type: 'content:video', payload: VideoContextPayload }
-    | { type: 'content:subtitle', payload: SubtitlePayload }
-    | { type: 'content:vision:frame', payload: VisionFramePayload }
+export type ContentToBackgroundMessage =
+  | { type: 'content:page'; payload: PageContextPayload }
+  | { type: 'content:video'; payload: VideoContextPayload }
+  | { type: 'content:subtitle'; payload: SubtitlePayload }
+  | { type: 'content:vision:frame'; payload: VisionFramePayload }
 
 export interface ExtensionSettings {
   wsUrl: string
@@ -74,5 +74,4 @@ export interface ExtensionStatus {
   lastVisionFrameAt?: number
 }
 
-export type BackgroundToContentMessage
-  = | { type: 'background:request-vision-frame' }
+export type BackgroundToContentMessage = { type: 'background:request-vision-frame' }

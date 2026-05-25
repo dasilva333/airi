@@ -6,8 +6,8 @@ export interface Context {
 }
 
 export interface EventHandlers {
-  'interrupt': () => void
-  'command': (ctx: Context) => void | Promise<void>
+  interrupt: () => void
+  command: (ctx: Context) => void | Promise<void>
   'time:sunrise': (ctx: Context) => void
   'time:noon': (ctx: Context) => void
   'time:sunset': (ctx: Context) => void

@@ -1,6 +1,10 @@
 import type { Eventa } from '@moeru/eventa'
-
+import { createContext } from '@moeru/eventa'
 import type { SpeechPipelineEventName } from './eventa'
+import { speechPipelineEventMap } from './eventa'
+import { createPriorityResolver } from './priority'
+import { createTtsSegmentStream } from './processors/tts-chunker'
+import { createPushStream } from './stream'
 import type {
   IntentHandle,
   IntentOptions,
@@ -13,13 +17,6 @@ import type {
   TtsResult,
 } from './types'
 
-import { createContext } from '@moeru/eventa'
-
-import { speechPipelineEventMap } from './eventa'
-import { createPriorityResolver } from './priority'
-import { createTtsSegmentStream } from './processors/tts-chunker'
-import { createPushStream } from './stream'
-
 export interface SpeechPipelineOptions<TAudio> {
   tts: (request: TtsRequest, signal: AbortSignal) => Promise<TAudio | null>
   playback: {
@@ -27,14 +24,19 @@ export interface SpeechPipelineOptions<TAudio> {
     stopAll: (reason: string) => void
     stopByIntent: (intentId: string, reason: string) => void
     stopByOwner: (ownerId: string, reason: string) => void
-    onStart: (listener: (event: { item: PlaybackItem<TAudio>, startedAt: number }) => void) => void
-    onEnd: (listener: (event: { item: PlaybackItem<TAudio>, endedAt: number }) => void) => void
-    onInterrupt: (listener: (event: { item: PlaybackItem<TAudio>, reason: string, interruptedAt: number }) => void) => void
-    onReject: (listener: (event: { item: PlaybackItem<TAudio>, reason: string }) => void) => void
+    onStart: (listener: (event: { item: PlaybackItem<TAudio>; startedAt: number }) => void) => void
+    onEnd: (listener: (event: { item: PlaybackItem<TAudio>; endedAt: number }) => void) => void
+    onInterrupt: (
+      listener: (event: { item: PlaybackItem<TAudio>; reason: string; interruptedAt: number }) => void,
+    ) => void
+    onReject: (listener: (event: { item: PlaybackItem<TAudio>; reason: string }) => void) => void
   }
   logger?: LoggerLike
   priority?: ReturnType<typeof createPriorityResolver>
-  segmenter?: (tokens: ReadableStream<TextToken>, meta: { streamId: string, intentId: string }) => ReadableStream<TextSegment>
+  segmenter?: (
+    tokens: ReadableStream<TextToken>,
+    meta: { streamId: string; intentId: string },
+  ) => ReadableStream<TextSegment>
 }
 
 interface IntentState {
@@ -64,19 +66,18 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
   const pending: IntentState[] = []
   let activeIntent: IntentState | null = null
 
-  options.playback.onStart(event => context.emit(speechPipelineEventMap.onPlaybackStart, event))
-  options.playback.onEnd(event => context.emit(speechPipelineEventMap.onPlaybackEnd, event))
-  options.playback.onInterrupt(event => context.emit(speechPipelineEventMap.onPlaybackInterrupt, event))
-  options.playback.onReject(event => context.emit(speechPipelineEventMap.onPlaybackReject, event))
+  options.playback.onStart((event) => context.emit(speechPipelineEventMap.onPlaybackStart, event))
+  options.playback.onEnd((event) => context.emit(speechPipelineEventMap.onPlaybackEnd, event))
+  options.playback.onInterrupt((event) => context.emit(speechPipelineEventMap.onPlaybackInterrupt, event))
+  options.playback.onReject((event) => context.emit(speechPipelineEventMap.onPlaybackReject, event))
 
   function enqueueIntent(intent: IntentState) {
     pending.push(intent)
   }
 
   function pickNextIntent() {
-    if (pending.length === 0)
-      return null
-    pending.sort((a, b) => (b.priority - a.priority) || (a.createdAt - b.createdAt))
+    if (pending.length === 0) return null
+    pending.sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt)
     return pending.shift() ?? null
   }
 
@@ -85,17 +86,15 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
     context.emit(speechPipelineEventMap.onIntentStart, intent.intentId)
 
     const tokenStream = intent.stream
-    const segmentStream = segmenter(tokenStream, { streamId: intent.streamId, intentId: intent.intentId })
+    const segmentStream = segmenter(tokenStream, { intentId: intent.intentId, streamId: intent.streamId })
 
     try {
       const reader = segmentStream.getReader()
 
       while (true) {
         const { value, done } = await reader.read()
-        if (done)
-          break
-        if (!value)
-          continue
+        if (done) break
+        if (!value) continue
         if (intent.canceled || intent.controller.signal.aborted) {
           await reader.cancel()
           break
@@ -109,37 +108,44 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
           // The tts() function returns null for specials, so no audio is produced.
           try {
             await options.tts(
-              { streamId: value.streamId, intentId: value.intentId, segmentId: value.segmentId, text: '', special: value.special, priority: intent.priority, createdAt: Date.now() },
+              {
+                createdAt: Date.now(),
+                intentId: value.intentId,
+                priority: intent.priority,
+                segmentId: value.segmentId,
+                special: value.special,
+                streamId: value.streamId,
+                text: '',
+              },
               intent.controller.signal,
             )
-          }
-          catch {}
+          } catch {}
 
           // Schedule a no-audio playback item so the special token
           // fires in sequence with audio playback (via the onEnd handler).
           options.playback.schedule({
-            id: createId('playback'),
-            streamId: value.streamId,
-            intentId: value.intentId,
-            segmentId: value.segmentId,
-            ownerId: intent.ownerId,
-            priority: intent.priority,
-            text: '',
-            special: value.special,
             audio: null as unknown as TAudio,
             createdAt: Date.now(),
+            id: createId('playback'),
+            intentId: value.intentId,
+            ownerId: intent.ownerId,
+            priority: intent.priority,
+            segmentId: value.segmentId,
+            special: value.special,
+            streamId: value.streamId,
+            text: '',
           })
           continue
         }
 
         const request: TtsRequest = {
-          streamId: value.streamId,
-          intentId: value.intentId,
-          segmentId: value.segmentId,
-          text: value.text,
-          special: value.special,
-          priority: intent.priority,
           createdAt: Date.now(),
+          intentId: value.intentId,
+          priority: intent.priority,
+          segmentId: value.segmentId,
+          special: value.special,
+          streamId: value.streamId,
+          text: value.text,
         }
 
         context.emit(speechPipelineEventMap.onTtsRequest, request)
@@ -147,56 +153,52 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
         let audio: TAudio | null = null
         try {
           audio = await options.tts(request, intent.controller.signal)
-        }
-        catch (err) {
+        } catch (err) {
           logger.warn('TTS generation failed:', err)
-          if (intent.controller.signal.aborted)
-            break
+          if (intent.controller.signal.aborted) break
           continue
         }
 
-        if (intent.controller.signal.aborted)
-          break
+        if (intent.controller.signal.aborted) break
 
-        if (!audio)
-          continue
+        if (!audio) continue
 
         const ttsResult: TtsResult<TAudio> = {
-          streamId: request.streamId,
-          intentId: request.intentId,
-          segmentId: request.segmentId,
-          text: request.text,
-          special: request.special,
           audio,
           createdAt: Date.now(),
+          intentId: request.intentId,
+          segmentId: request.segmentId,
+          special: request.special,
+          streamId: request.streamId,
+          text: request.text,
         }
 
         context.emit(speechPipelineEventMap.onTtsResult, ttsResult)
 
         options.playback.schedule({
-          id: createId('playback'),
-          streamId: ttsResult.streamId,
-          intentId: ttsResult.intentId,
-          segmentId: ttsResult.segmentId,
-          ownerId: intent.ownerId,
-          priority: intent.priority,
-          text: ttsResult.text,
-          special: ttsResult.special,
           audio: ttsResult.audio,
           createdAt: Date.now(),
+          id: createId('playback'),
+          intentId: ttsResult.intentId,
+          ownerId: intent.ownerId,
+          priority: intent.priority,
+          segmentId: ttsResult.segmentId,
+          special: ttsResult.special,
+          streamId: ttsResult.streamId,
+          text: ttsResult.text,
         })
       }
 
       reader.releaseLock()
-    }
-    catch (err) {
+    } catch (err) {
       logger.warn('Speech pipeline intent failed:', err)
-    }
-    finally {
+    } finally {
       if (intent.canceled) {
-        context.emit(speechPipelineEventMap.onIntentCancel, { intentId: intent.intentId, reason: intent.controller.signal.reason as string | undefined })
-      }
-      else {
+        context.emit(speechPipelineEventMap.onIntentCancel, {
+          intentId: intent.intentId,
+          reason: intent.controller.signal.reason as string | undefined,
+        })
+      } else {
         context.emit(speechPipelineEventMap.onIntentEnd, intent.intentId)
       }
 
@@ -204,8 +206,7 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
       activeIntent = null
 
       const next = pickNextIntent()
-      if (next)
-        void runIntent(next)
+      if (next) void runIntent(next)
     }
   }
 
@@ -221,66 +222,63 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
     let sequence = 0
 
     const intent: IntentState = {
-      intentId,
-      streamId,
-      priority,
-      ownerId,
       behavior,
-      createdAt: Date.now(),
-      controller,
-      stream,
-      closeStream: close,
       canceled: false,
+      closeStream: close,
+      controller,
+      createdAt: Date.now(),
+      intentId,
+      ownerId,
+      priority,
+      stream,
+      streamId,
     }
 
     intents.set(intentId, intent)
 
     const handle: IntentHandle = {
-      intentId,
-      streamId,
-      priority,
-      ownerId,
-      stream,
-      writeLiteral(text: string) {
-        if (intent.canceled)
-          return
-        write({
-          type: 'literal',
-          value: text,
-          streamId,
-          intentId,
-          sequence: sequence++,
-          createdAt: Date.now(),
-        })
-      },
-      writeSpecial(special: string) {
-        if (intent.canceled)
-          return
-        write({
-          type: 'special',
-          value: special,
-          streamId,
-          intentId,
-          sequence: sequence++,
-          createdAt: Date.now(),
-        })
-      },
-      writeFlush() {
-        if (intent.canceled)
-          return
-        write({
-          type: 'flush',
-          streamId,
-          intentId,
-          sequence: sequence++,
-          createdAt: Date.now(),
-        })
+      cancel(reason?: string) {
+        cancelIntent(intentId, reason)
       },
       end() {
         close()
       },
-      cancel(reason?: string) {
-        cancelIntent(intentId, reason)
+      intentId,
+      ownerId,
+      priority,
+      stream,
+      streamId,
+      writeFlush() {
+        if (intent.canceled) return
+        write({
+          createdAt: Date.now(),
+          intentId,
+          sequence: sequence++,
+          streamId,
+          type: 'flush',
+        })
+      },
+      writeLiteral(text: string) {
+        if (intent.canceled) return
+        write({
+          createdAt: Date.now(),
+          intentId,
+          sequence: sequence++,
+          streamId,
+          type: 'literal',
+          value: text,
+        })
+      },
+      writeSpecial(special: string) {
+        if (intent.canceled) return
+        write({
+          createdAt: Date.now(),
+          intentId,
+          sequence: sequence++,
+          streamId,
+          type: 'special',
+          value: special,
+        })
       },
     }
 
@@ -307,8 +305,7 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
 
   function cancelIntent(intentId: string, reason?: string) {
     const intent = intents.get(intentId)
-    if (!intent)
-      return
+    if (!intent) return
     intent.canceled = true
     intent.controller.abort(reason ?? 'canceled')
     intent.closeStream()
@@ -318,14 +315,12 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
       return
     }
 
-    const index = pending.findIndex(item => item.intentId === intentId)
-    if (index >= 0)
-      pending.splice(index, 1)
+    const index = pending.findIndex((item) => item.intentId === intentId)
+    if (index >= 0) pending.splice(index, 1)
   }
 
   function interrupt(reason: string) {
-    if (activeIntent)
-      cancelIntent(activeIntent.intentId, reason)
+    if (activeIntent) cancelIntent(activeIntent.intentId, reason)
   }
 
   function stopAll(reason: string) {
@@ -341,14 +336,14 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
   }
 
   return {
-    openIntent,
     cancelIntent,
     interrupt,
-    stopAll,
     on<K extends SpeechPipelineEventName>(event: K, listener: SpeechPipelineEvents<TAudio>[K]) {
       return context.on(speechPipelineEventMap[event] as Eventa<any>, (payload) => {
         listener(payload?.body ?? payload)
       })
     },
+    openIntent,
+    stopAll,
   }
 }

@@ -6,10 +6,10 @@ import type { Action, BotContext, ChatContext } from './types'
  * the action that triggered it, ensuring the LLM has full context of its sequence.
  */
 export function trimActions(
-  actions: { action: Action, result: unknown }[],
+  actions: { action: Action; result: unknown }[],
   max: number,
   keep: number,
-): { action: Action, result: unknown }[] {
+): { action: Action; result: unknown }[] {
   if (actions.length <= max) {
     return actions
   }
@@ -21,8 +21,7 @@ export function trimActions(
     const currentAction = actions[startIndex].action
     if (currentAction.action === 'continue') {
       startIndex--
-    }
-    else {
+    } else {
       break
     }
   }
@@ -40,7 +39,7 @@ export function getMessageContentString(content: unknown): string {
     return content
   }
   if (Array.isArray(content)) {
-    return content.map(c => typeof c === 'string' ? c : JSON.stringify(c)).join(' ')
+    return content.map((c) => (typeof c === 'string' ? c : JSON.stringify(c))).join(' ')
   }
   return String(content || '')
 }
@@ -49,19 +48,12 @@ export function getMessageContentString(content: unknown): string {
  * Check if a message is from the bot itself
  * Checks multiple possible sources for user ID
  */
-export function isBotOwnMessage(
-  message: SatoriMessage,
-  event: SatoriEvent,
-  selfId?: string,
-): boolean {
+export function isBotOwnMessage(message: SatoriMessage, event: SatoriEvent, selfId?: string): boolean {
   if (!selfId) {
     return false
   }
 
-  const sourceUserId = event.user?.id
-    || event.member?.user?.id
-    || message.user?.id
-    || message.member?.user?.id
+  const sourceUserId = event.user?.id || event.member?.user?.id || message.user?.id || message.member?.user?.id
 
   return sourceUserId === selfId
 }
@@ -70,27 +62,25 @@ export function isBotOwnMessage(
  * Format debug context for logging
  * Creates a summary of bot state for debugging
  */
-export function formatDebugContext(
-  ctx: BotContext,
-  chatCtx?: ChatContext,
-): Record<string, unknown> {
+export function formatDebugContext(ctx: BotContext, chatCtx?: ChatContext): Record<string, unknown> {
   const unreadEventsSummary = Object.fromEntries(
     Object.entries(ctx.unreadEvents).map(([key, value]) => [key, value.length]),
   )
 
   const context: Record<string, unknown> = {
     messageQueueLength: ctx.eventQueue.length,
-    unreadEvents: unreadEventsSummary,
     totalUnreadCount: Object.values(ctx.unreadEvents).reduce((acc, cur) => acc + cur.length, 0),
+    unreadEvents: unreadEventsSummary,
   }
 
   if (chatCtx) {
     context.channelId = chatCtx.channelId
     context.totalActionsInContext = chatCtx.actions.length
 
-    const lastActions = chatCtx.actions.slice(-3).map(action => ({
+    const lastActions = chatCtx.actions.slice(-3).map((action) => ({
       action: action.action.action,
-      result: typeof action.result === 'string' ? action.result.substring(0, 100) : String(action.result).substring(0, 100),
+      result:
+        typeof action.result === 'string' ? action.result.substring(0, 100) : String(action.result).substring(0, 100),
     }))
     context.lastActions = lastActions
   }

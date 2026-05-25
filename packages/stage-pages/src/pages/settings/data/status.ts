@@ -40,8 +40,8 @@ export function createDataSettingsStatusState() {
   }
 
   return {
+    handleStatus,
     statusMessage,
     statusTone,
-    handleStatus,
   }
 }

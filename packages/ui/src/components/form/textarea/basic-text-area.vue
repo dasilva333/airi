@@ -24,8 +24,7 @@ function emitSubmit() {
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.isComposing || e.key !== 'Enter')
-    return
+  if (e.isComposing || e.key !== 'Enter') return
 
   const sendMode = props.sendMode || 'enter'
   const hasPrimaryModifier = e.ctrlKey || e.metaKey
@@ -60,8 +59,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function onPaste(e: ClipboardEvent) {
-  if (!e.clipboardData)
-    return
+  if (!e.clipboardData) return
 
   const { files } = e.clipboardData
   if (files.length > 0) {
@@ -86,8 +84,7 @@ function onDrop(e: DragEvent) {
   e.preventDefault()
   isDragging.value = false
 
-  if (!e.dataTransfer)
-    return
+  if (!e.dataTransfer) return
 
   const { files } = e.dataTransfer
   if (files.length > 0) {
@@ -97,19 +94,22 @@ function onDrop(e: DragEvent) {
 
 // javascript - Creating a textarea with auto-resize - Stack Overflow
 // https://stackoverflow.com/questions/454202/creating-a-textarea-with-auto-resize
-watch(input, () => {
-  textareaHeight.value = 'auto'
-  requestAnimationFrame(() => {
-    if (!textareaRef.value)
-      return
-    if (input.value === '') {
-      textareaHeight.value = props.defaultHeight || 'fit-content'
-      return
-    }
+watch(
+  input,
+  () => {
+    textareaHeight.value = 'auto'
+    requestAnimationFrame(() => {
+      if (!textareaRef.value) return
+      if (input.value === '') {
+        textareaHeight.value = props.defaultHeight || 'fit-content'
+        return
+      }
 
-    textareaHeight.value = `${textareaRef.value.scrollHeight}px`
-  })
-}, { immediate: true })
+      textareaHeight.value = `${textareaRef.value.scrollHeight}px`
+    })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

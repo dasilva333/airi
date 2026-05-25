@@ -14,7 +14,7 @@ export const useLHackStore = defineStore('lhack', () => {
 
   // Surgical persistence state
   const originalZipBuffer = ref<ArrayBuffer | null>(null)
-  const mutatedTextures = ref<Map<number, { data: string, mimeType: string }>>(new Map())
+  const mutatedTextures = ref<Map<number, { data: string; mimeType: string }>>(new Map())
 
   // Unified AI Generation State
   const isGeneratingTexture = ref(false)
@@ -24,9 +24,9 @@ export const useLHackStore = defineStore('lhack', () => {
   const selectedTextureIndex = ref<number | null>(null)
 
   // Persist AI Settings
-  watch(geminiApiKey, v => localStorage.setItem('lhack_gemini_api_key', v))
-  watch(geminiModel, v => localStorage.setItem('lhack_gemini_model', v))
-  watch(geminiResolution, v => localStorage.setItem('lhack_gemini_res', v))
+  watch(geminiApiKey, (v) => localStorage.setItem('lhack_gemini_api_key', v))
+  watch(geminiModel, (v) => localStorage.setItem('lhack_gemini_model', v))
+  watch(geminiResolution, (v) => localStorage.setItem('lhack_gemini_res', v))
 
   function toggleHackerMode() {
     isHackerModeActive.value = !isHackerModeActive.value
@@ -40,8 +40,7 @@ export const useLHackStore = defineStore('lhack', () => {
     if (hiddenDrawableIds.value.has(id)) {
       hiddenDrawableIds.value.delete(id)
       setDrawableOpacity(id, model, 1)
-    }
-    else {
+    } else {
       hiddenDrawableIds.value.add(id)
       setDrawableOpacity(id, model, 0)
     }
@@ -56,8 +55,7 @@ export const useLHackStore = defineStore('lhack', () => {
       // In Cubism, we can set opacity directly or via coreModel
       if (model.internalModel.coreModel.setDrawableOpacity) {
         model.internalModel.coreModel.setDrawableOpacity(drawableIndex, opacity)
-      }
-      else {
+      } else {
         // Fallback for different SDK versions
         drawables[drawableIndex].opacity = opacity
       }
@@ -88,8 +86,7 @@ export const useLHackStore = defineStore('lhack', () => {
     let base64 = ''
     if (url.startsWith('data:')) {
       base64 = url.split(',')[1]
-    }
-    else {
+    } else {
       // Resolve blob URLs or remote URLs to base64
       try {
         console.info(`[LHACK] Resolving texture URL to base64 for Atlas ${index}...`)
@@ -101,8 +98,7 @@ export const useLHackStore = defineStore('lhack', () => {
           reader.onerror = reject
           reader.readAsDataURL(blob)
         })
-      }
-      catch (e) {
+      } catch (e) {
         console.error('[LHACK] Failed to resolve texture URL to base64:', e)
         return
       }
@@ -120,30 +116,30 @@ export const useLHackStore = defineStore('lhack', () => {
   }
 
   return {
-    isHackerModeActive,
-    selectedDrawableId,
+    applyTextureMutation,
+    closeHackerMode,
     geminiApiKey,
     geminiModel,
     geminiResolution,
-    showAiSettings,
-    isGeneratingTexture,
-    generationProgress,
     generationActionLabel,
-    lastGenerationError,
-    selectedTextureIndex,
+    generationProgress,
 
     hiddenDrawableIds,
+    hideAll,
+    isGeneratingTexture,
+    isHackerModeActive,
+    lastGenerationError,
+    mutatedTextures,
 
     originalZipBuffer,
-    mutatedTextures,
     registerMutation,
-    applyTextureMutation,
+    resetState,
+    selectedDrawableId,
+    selectedTextureIndex,
+    showAiSettings,
+    showAll,
+    toggleDrawableVisibility,
 
     toggleHackerMode,
-    closeHackerMode,
-    toggleDrawableVisibility,
-    showAll,
-    hideAll,
-    resetState,
   }
 })

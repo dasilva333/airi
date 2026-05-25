@@ -9,22 +9,25 @@ interface SelectTabOption {
   icon?: string
 }
 
-const props = withDefaults(defineProps<{
-  options: SelectTabOption[]
-  disabled?: boolean
-  readonly?: boolean
-  size?: 'sm' | 'md'
-  compact?: boolean
-}>(), {
-  disabled: false,
-  readonly: false,
-  size: 'md',
-  compact: false,
-})
+const props = withDefaults(
+  defineProps<{
+    options: SelectTabOption[]
+    disabled?: boolean
+    readonly?: boolean
+    size?: 'sm' | 'md'
+    compact?: boolean
+  }>(),
+  {
+    compact: false,
+    disabled: false,
+    readonly: false,
+    size: 'md',
+  },
+)
 
 const modelValue = defineModel<string | number>({ required: true })
 
-const activeIndex = computed(() => props.options.findIndex(option => option.value === modelValue.value))
+const activeIndex = computed(() => props.options.findIndex((option) => option.value === modelValue.value))
 const itemCount = computed(() => props.options.length || 1)
 const isDisabled = computed(() => props.disabled || props.readonly)
 
@@ -35,11 +38,11 @@ const sizeClasses = computed(() =>
 )
 
 const rootStyle = computed(() => ({
-  '--select-tab-count': String(itemCount.value),
   '--select-tab-active-index': String(Math.max(activeIndex.value, 0)),
-  '--select-tab-padding': props.size === 'sm' ? '0px' : '0px',
+  '--select-tab-count': String(itemCount.value),
   '--select-tab-gap': '0.25rem',
   '--select-tab-indicator-opacity': activeIndex.value === -1 ? '0' : '1',
+  '--select-tab-padding': props.size === 'sm' ? '0px' : '0px',
 }))
 </script>
 

@@ -7,7 +7,7 @@ import { goToPlayer, goToPosition } from './movement'
 import { getNearestBlock } from './world'
 
 export async function equip(mineflayer: Mineflayer, itemName: string): Promise<boolean> {
-  const item = mineflayer.bot.inventory.slots.find(slot => slot && slot.name === itemName)
+  const item = mineflayer.bot.inventory.slots.find((slot) => slot && slot.name === itemName)
   if (!item) {
     log(mineflayer, `You do not have any ${itemName} to equip.`)
     return false
@@ -15,20 +15,15 @@ export async function equip(mineflayer: Mineflayer, itemName: string): Promise<b
 
   if (itemName.includes('leggings')) {
     await mineflayer.bot.equip(item, 'legs')
-  }
-  else if (itemName.includes('boots')) {
+  } else if (itemName.includes('boots')) {
     await mineflayer.bot.equip(item, 'feet')
-  }
-  else if (itemName.includes('helmet')) {
+  } else if (itemName.includes('helmet')) {
     await mineflayer.bot.equip(item, 'head')
-  }
-  else if (itemName.includes('chestplate') || itemName.includes('elytra')) {
+  } else if (itemName.includes('chestplate') || itemName.includes('elytra')) {
     await mineflayer.bot.equip(item, 'torso')
-  }
-  else if (itemName.includes('shield')) {
+  } else if (itemName.includes('shield')) {
     await mineflayer.bot.equip(item, 'off-hand')
-  }
-  else {
+  } else {
     await mineflayer.bot.equip(item, 'hand')
   }
 
@@ -40,7 +35,7 @@ export async function discard(mineflayer: Mineflayer, itemName: string, num = -1
   let discarded = 0
 
   while (true) {
-    const item = mineflayer.bot.inventory.items().find(item => item.name === itemName)
+    const item = mineflayer.bot.inventory.items().find((item) => item.name === itemName)
     if (!item) {
       break
     }
@@ -70,7 +65,7 @@ export async function putInChest(mineflayer: Mineflayer, itemName: string, num =
     return false
   }
 
-  const item = mineflayer.bot.inventory.items().find(item => item.name === itemName)
+  const item = mineflayer.bot.inventory.items().find((item) => item.name === itemName)
   if (!item) {
     log(mineflayer, `You do not have any ${itemName} to put in the chest.`)
     return false
@@ -78,7 +73,7 @@ export async function putInChest(mineflayer: Mineflayer, itemName: string, num =
 
   const toPut = num === -1 ? item.count : Math.min(num, item.count)
   await goToPosition(mineflayer, chest.position.x, chest.position.y, chest.position.z, 2)
-  await withContainer(mineflayer, chest, container => container.deposit(item.type, null, toPut))
+  await withContainer(mineflayer, chest, (container) => container.deposit(item.type, null, toPut))
   log(mineflayer, `Successfully put ${toPut} ${itemName} in the chest.`)
   return true
 }
@@ -92,7 +87,7 @@ export async function takeFromChest(mineflayer: Mineflayer, itemName: string, nu
 
   await goToPosition(mineflayer, chest.position.x, chest.position.y, chest.position.z, 2)
   return withContainer(mineflayer, chest, async (container) => {
-    const item = container.containerItems().find(item => item.name === itemName)
+    const item = container.containerItems().find((item) => item.name === itemName)
     if (!item) {
       log(mineflayer, `Could not find any ${itemName} in the chest.`)
       return false
@@ -116,8 +111,7 @@ export async function viewChest(mineflayer: Mineflayer): Promise<boolean> {
     const items = container.containerItems()
     if (items.length === 0) {
       log(mineflayer, 'The chest is empty.')
-    }
-    else {
+    } else {
       log(mineflayer, 'The chest contains:')
       for (const item of items) {
         log(mineflayer, `${item.count} ${item.name}`)
@@ -134,7 +128,9 @@ export async function viewChest(mineflayer: Mineflayer): Promise<boolean> {
  * @throws {ActionError} When the item is not found in inventory.
  */
 export async function consume(mineflayer: Mineflayer, itemName = ''): Promise<void> {
-  const item = mineflayer.bot.inventory.items().find(item => itemName ? item.name === itemName : item.name.includes('food'))
+  const item = mineflayer.bot.inventory
+    .items()
+    .find((item) => (itemName ? item.name === itemName : item.name.includes('food')))
 
   if (!item) {
     const name = itemName || 'food'
@@ -147,12 +143,7 @@ export async function consume(mineflayer: Mineflayer, itemName = ''): Promise<vo
   log(mineflayer, `Consumed ${item.name}.`)
 }
 
-export async function giveToPlayer(
-  mineflayer: Mineflayer,
-  itemType: string,
-  username: string,
-  num = 1,
-): Promise<void> {
+export async function giveToPlayer(mineflayer: Mineflayer, itemType: string, username: string, num = 1): Promise<void> {
   const player = mineflayer.bot.players[username]?.entity
   if (!player) {
     log(mineflayer, `Could not find ${username}.`)
@@ -175,7 +166,7 @@ async function dropItemsAndWaitForCollection(
   username: string,
   num: number,
 ): Promise<void> {
-  if (!await discard(mineflayer, itemType, num)) {
+  if (!(await discard(mineflayer, itemType, num))) {
     throw new ActionError('ITEM_NOT_FOUND', `You do not have any ${itemType} to give`, { item: itemType })
   }
 
@@ -188,16 +179,14 @@ async function dropItemsAndWaitForCollection(
     }
 
     const finishResolve = () => {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       cleanup()
       resolve()
     }
 
     const finishReject = (error: unknown) => {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       cleanup()
       reject(error)
@@ -205,7 +194,11 @@ async function dropItemsAndWaitForCollection(
 
     const timeout = setTimeout(() => {
       clearTimeout(timeout)
-      finishReject(new ActionError('INTERRUPTED', `Failed to give ${itemType} to ${username}, it was never received`, { item: itemType }))
+      finishReject(
+        new ActionError('INTERRUPTED', `Failed to give ${itemType} to ${username}, it was never received`, {
+          item: itemType,
+        }),
+      )
     }, 3000)
 
     const onCollect = (collector: any, _collected: any) => {
@@ -218,7 +211,11 @@ async function dropItemsAndWaitForCollection(
 
     const onInterrupt = () => {
       clearTimeout(timeout)
-      finishReject(new ActionError('INTERRUPTED', `Failed to give ${itemType} to ${username}, action was cancelled`, { item: itemType }))
+      finishReject(
+        new ActionError('INTERRUPTED', `Failed to give ${itemType} to ${username}, action was cancelled`, {
+          item: itemType,
+        }),
+      )
     }
 
     mineflayer.bot.once('playerCollect', onCollect)

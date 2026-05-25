@@ -1,9 +1,8 @@
 import type { SatoriClient } from '../adapter/satori/client'
-import type { ActionHandler } from './definition'
-
 import { readMessagesAction } from './actions/read-messages'
 import { createSendMessageAction } from './actions/send-message'
 import { breakAction, continueAction, listChannelsAction, sleepAction } from './actions/system'
+import type { ActionHandler } from './definition'
 // import { createReadMessagesAction } ...
 
 export class ActionRegistry {

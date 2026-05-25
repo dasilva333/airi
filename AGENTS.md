@@ -4,9 +4,9 @@ Concise but detailed reference for contributors working across the `moeru-ai/air
 
 ## Tech Stack (by surface)
 
-- **Desktop (stage-tamagotchi)**: Electron, Vue, Vite, TypeScript, Pinia, VueUse, Eventa (IPC/RPC), UnoCSS, Vitest, ESLint.
-- **Web (stage-web)**: Vue 3 + Vue Router, Vite, TypeScript, Pinia, VueUse, UnoCSS, Vitest, ESLint. Backend: WIP.
-- **Mobile (stage-pocket)**: Vue 3 + Vue Router, Vite, TypeScript, Pinia, VueUse, UnoCSS, Vitest, ESLint, Kotlin, Swift, Capacitor.
+- **Desktop (stage-tamagotchi)**: Electron, Vue, Vite, TypeScript, Pinia, VueUse, Eventa (IPC/RPC), UnoCSS, Vitest, Biome.
+- **Web (stage-web)**: Vue 3 + Vue Router, Vite, TypeScript, Pinia, VueUse, UnoCSS, Vitest, Biome. Backend: WIP.
+- **Mobile (stage-pocket)**: Vue 3 + Vue Router, Vite, TypeScript, Pinia, VueUse, UnoCSS, Vitest, Biome, Kotlin, Swift, Capacitor.
 - **UI/Shared Packages**:
   - `packages/stage-ui`: Core business components, composables, stores shared by stage-web & stage-tamagotchi (heart of stage work).
   - `packages/stage-ui-three`: Three.js bindings + Vue components.
@@ -33,7 +33,7 @@ Concise but detailed reference for contributors working across the `moeru-ai/air
   - Stories: `packages/stage-ui/stories`, `packages/stage-ui/histoire.config.ts` (e.g. `components/misc/Button.story.vue`).
 - **IPC/Eventa**: Always use `@moeru/eventa` for type-safe, framework/runtime-agnostic IPC/RPC. Define contracts centrally (e.g., `apps/stage-tamagotchi/src/shared`) and follow usage patterns in `apps/stage-tamagotchi/src/main/services/electron` for main/renderer integration.
 - **Dependency Injection**: Use `injeca` for services/electron modules/plugins/frontend; see `apps/stage-tamagotchi/src/main/index.ts` for composition patterns.
-- **Build/CI/Lint**: `.github/workflows` for pipelines; `eslint.config.js` for lint rules.
+- **Build/CI/Lint**: `.github/workflows` for pipelines; `biome.jsonc` for lint rules.
 - **Bundling libs**: Use `tsdown` for new modules (see `packages/vite-plugin-warpdrive`).
 - **Styles**: UnoCSS config at `uno.config.ts`; check `apps/stage-web/src/styles` for existing animations; prefer UnoCSS over Tailwind.
 
@@ -88,7 +88,7 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - **Discord Service**: `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts` (Main) | `packages/stage-ui/src/stores/modules/discord.ts` (Renderer)
     - **Slash Commands**: Definitions & Handler in `packages/stage-ui/src/stores/modules/discord.ts` (COMMANDS_VERSION: 4)
     - **Vision Plumbing**: Intercepts Discord attachments and maps to `chatOrchestrator.ingest` as base64.
-- **Character Artistry DNA**: `packages/stage-ui/src/constants/prompts/character-defaults.ts` (Weighted visual prompt constants for Hyori, Lupin, Aria, etc.)
+- **Character Artistry DNA**: `packages/stage-ui/src/constants/prompts/character-defaults.ts` (Weighted visual prompt constants for ReLU, Lupin, Aria, etc.)
 
 ### Chatbox Elements
 - **Chat History (Host)**: `packages/stage-ui/src/components/scenarios/chat/history.vue`
@@ -130,7 +130,8 @@ Concise mapping of conceptual features to technical file paths for rapid context
   - Root `vitest.config.ts` includes `apps/stage-tamagotchi` and other projects; each app/package can have its own `vitest.config`.
 - **Lint**
   - `pnpm lint` and `pnpm lint:fix`
-  - Formatting is handled via ESLint; `pnpm lint:fix` applies formatting.
+  - Formatting is handled via Biome; `pnpm lint:fix` applies formatting.
+  - `pnpm format` to format code with Biome.
 - **Build**
   - `pnpm -F <package.json name> build`
   - Example: `pnpm -F @proj-airi/stage-tamagotchi build` (typecheck + electron-vite build).
@@ -216,3 +217,14 @@ Concise mapping of conceptual features to technical file paths for rapid context
   - **Never** commit or push untested changes. Verify that your specific changes work as expected in the target environment.
   - Commit messages must signify **what is actually being submitted**, not just the intent or a vague "fix". If you fixed X, say `fix: X`; if you refactored Y, say `refactor: Y`.
 - Use Conventional Commits for commit messages (e.g., `feat: add runner reconnect backoff`).
+
+## GitHub MCP Server Usage
+
+**Always prefer the GitHub MCP server over `gh` CLI or raw API calls.** The MCP server provides structured, tool-based access to GitHub operations. Use these tools:
+
+- **PRs**: `mcp--github--get_pull_request`, `mcp--github--list_pull_requests`, `mcp--github--get_pull_request_comments`, `mcp--github--get_pull_request_reviews`, `mcp--github--create_branch`
+- **Commits**: `mcp--github--list_commits`
+
+When fetching PR review comments, use `mcp--github--get_pull_request_comments` which returns inline review comments with file paths, line numbers, and bodies. For general issue-level comments (like bot summaries), use `gh api repos/{owner}/{repo}/issues/{number}/comments` as a fallback since MCP doesn't have a direct issue comments tool.
+
+**Do NOT use `gh pr view`, `gh api`, or `curl` to GitHub API when MCP tools are available for the same operation.**

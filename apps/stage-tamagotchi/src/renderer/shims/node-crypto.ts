@@ -12,11 +12,13 @@ export function randomBytes(size: number) {
 }
 
 export function createHash() {
-  throw new Error('[AIRI] node:crypto.createHash is not supported in the renderer. Use @noble/hashes or browser-native crypto.subtle instead.')
+  throw new Error(
+    '[AIRI] node:crypto.createHash is not supported in the renderer. Use @noble/hashes or browser-native crypto.subtle instead.',
+  )
 }
 
 export default {
-  webcrypto,
-  randomBytes,
   createHash,
+  randomBytes,
+  webcrypto,
 }

@@ -3,36 +3,48 @@ import { z } from 'zod'
 
 import { defineProvider } from '../registry'
 
-export const providerCloudflareWorkersAI = defineProvider({
-  id: 'cloudflare-workers-ai',
-  name: 'Cloudflare Workers AI',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.cloudflare-workers-ai.title'),
-  description: 'AI on the Edge - 10k free Neurons/day across many models',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.cloudflare-workers-ai.description'),
-  tasks: ['chat'],
-  icon: 'i-simple-icons:cloudflare',
-  iconColor: 'i-lobe-icons:cloudflare-color',
-  business: () => ({
-    pricing: 'free',
-    deployment: 'cloud',
-  }),
+export interface CloudflareWorkersAIConfig {
+  apiKey: string
+  accountId: string
+}
 
-  createProviderConfig: ({ t }) => z.object({
-    apiKey: z.string().meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.provider.cloudflare-workers-ai.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    accountId: z.string().meta({
-      labelLocalized: t('settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.label'),
-      descriptionLocalized: t('settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.description'),
-      placeholderLocalized: t('settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.placeholder'),
-    }),
+export const providerCloudflareWorkersAI = defineProvider<CloudflareWorkersAIConfig>({
+  business: () => ({
+    deployment: 'cloud',
+    pricing: 'free',
   }),
   createProvider(config) {
     return createWorkersAI(config.apiKey, config.accountId)
   },
+
+  createProviderConfig: ({ t }) =>
+    z.object({
+      accountId: z.string().meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.description',
+        ),
+        labelLocalized: t('settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.provider.cloudflare-workers-ai.fields.field.account-id.placeholder',
+        ),
+      }),
+      apiKey: z.string().meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.provider.cloudflare-workers-ai.fields.field.api-key.placeholder',
+        ),
+        type: 'password',
+      }),
+    }),
+  description: 'AI on the Edge - 10k free Neurons/day across many models',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.cloudflare-workers-ai.description'),
+  icon: 'i-simple-icons:cloudflare',
+  iconColor: 'i-lobe-icons:cloudflare-color',
+  id: 'cloudflare-workers-ai',
+  name: 'Cloudflare Workers AI',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.cloudflare-workers-ai.title'),
+  tasks: ['chat'],
   validationRequiredWhen: (config) => {
     return !!config.apiKey && !!config.accountId
   },
@@ -46,14 +58,12 @@ export const providerCloudflareWorkersAI = defineProvider({
           const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
           const accountId = typeof config.accountId === 'string' ? config.accountId.trim() : ''
 
-          if (!apiKey)
-            errors.push({ error: new Error('API token is required.') })
-          if (!accountId)
-            errors.push({ error: new Error('Account ID is required.') })
+          if (!apiKey) errors.push({ error: new Error('API token is required.') })
+          if (!accountId) errors.push({ error: new Error('Account ID is required.') })
 
           return {
             errors,
-            reason: errors.length > 0 ? errors.map(item => (item.error as Error).message).join(', ') : '',
+            reason: errors.length > 0 ? errors.map((item) => (item.error as Error).message).join(', ') : '',
             reasonKey: '',
             valid: errors.length === 0,
           }

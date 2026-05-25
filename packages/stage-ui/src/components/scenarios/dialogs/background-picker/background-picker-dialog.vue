@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import type { BackgroundOption } from './types'
-
 import { useMediaQuery, useResizeObserver, useScreenSafeArea } from '@vueuse/core'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, VisuallyHidden } from 'reka-ui'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot } from 'vaul-vue'
 import { onMounted } from 'vue'
-
 import BackgroundPicker from './background-picker.vue'
+import type { BackgroundOption } from './types'
 
 const props = defineProps<{
   options: BackgroundOption[]
 }>()
 const emit = defineEmits<{
-  (e: 'apply', payload: { option: BackgroundOption, color?: string }): void
+  (e: 'apply', payload: { option: BackgroundOption; color?: string }): void
   (e: 'remove', option: BackgroundOption): void
 }>()
-const showDialog = defineModel({ type: Boolean, default: false, required: false })
+const showDialog = defineModel({ default: false, required: false, type: Boolean })
 const selected = defineModel<BackgroundOption | undefined>('selected', { default: undefined })
 
 const isDesktop = useMediaQuery('(min-width: 768px)')

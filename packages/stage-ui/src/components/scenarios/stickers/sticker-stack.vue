@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-
-import StickerWidget from './sticker-widget.vue'
-
 import { useStickersStore } from '../../../stores/stickers'
+import StickerWidget from './sticker-widget.vue'
 
 const stickersStore = useStickersStore()
 const { activePlacements } = storeToRefs(stickersStore)

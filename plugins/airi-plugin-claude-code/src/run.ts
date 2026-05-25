@@ -5,6 +5,5 @@ import { runCLI } from './cli'
 
 try {
   module.enableCompileCache?.()
-}
-catch {}
+} catch {}
 runCLI()

@@ -17,10 +17,7 @@ export function getWavHeader(
   wavHeader.writeUInt16LE(1, 20) // Type of format (1 is PCM)
   wavHeader.writeUInt16LE(channelCount, 22) // Number of channels
   wavHeader.writeUInt32LE(sampleRate, 24) // Sample rate
-  wavHeader.writeUInt32LE(
-    (sampleRate * bitsPerSample * channelCount) / 8,
-    28,
-  ) // Byte rate
+  wavHeader.writeUInt32LE((sampleRate * bitsPerSample * channelCount) / 8, 28) // Byte rate
   wavHeader.writeUInt16LE((bitsPerSample * channelCount) / 8, 32) // Block align ((BitsPerSample * Channels) / 8)
   wavHeader.writeUInt16LE(bitsPerSample, 34) // Bits per sample
   wavHeader.write('data', 36) // Data chunk header
@@ -31,17 +28,13 @@ export function getWavHeader(
 export function convertOpusToWav(pcmBuffer: Buffer): Buffer {
   try {
     // Generate the WAV header
-    const wavHeader = getWavHeader(
-      pcmBuffer.length,
-      DECODE_SAMPLE_RATE,
-    )
+    const wavHeader = getWavHeader(pcmBuffer.length, DECODE_SAMPLE_RATE)
 
     // Concatenate the WAV header and PCM data
     const wavBuffer = Buffer.concat([wavHeader, pcmBuffer])
 
     return wavBuffer
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error converting PCM to WAV:', error)
     throw error
   }

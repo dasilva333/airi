@@ -28,24 +28,64 @@ interface ButtonProps extends PrimitiveProps {
 
 const props = withDefaults(defineProps<ButtonProps>(), {
   as: 'button',
-  toggled: false,
-  variant: 'primary',
+  block: false,
   disabled: false,
   loading: false,
   size: 'md',
   theme: 'default',
-  block: false,
+  toggled: false,
+  variant: 'primary',
 })
 
 const isDisabled = computed(() => props.disabled || props.loading)
 
 // Extract variant styles for better organization
-const variantClasses: Record<ButtonVariant, Record<ButtonTheme, {
-  default: string[]
-  nonToggled?: string
-  toggled?: string
-}>> = {
-  'primary': {
+const variantClasses: Record<
+  ButtonVariant,
+  Record<
+    ButtonTheme,
+    {
+      default: string[]
+      nonToggled?: string
+      toggled?: string
+    }
+  >
+> = {
+  caution: {
+    default: {
+      default: [
+        'rounded-lg',
+        'backdrop-blur-md',
+        'bg-amber-400/20 hover:bg-amber-400/25 active:bg-amber-400/35 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:active:bg-amber-500/35',
+        'focus:ring-2 focus:ring-amber-300/40 dark:focus:ring-amber-400/40',
+        'border-2 border-solid border-amber-300/40 dark:border-amber-500/40',
+        'text-amber-900 dark:text-amber-50',
+      ],
+    },
+  },
+  danger: {
+    default: {
+      default: [
+        'rounded-lg',
+        'backdrop-blur-md',
+        'bg-red-500/15 hover:bg-red-500/20 active:bg-red-500/30 dark:bg-red-700/30 dark:hover:bg-red-700/40 dark:active:bg-red-700/30',
+        'focus:ring-2 focus:ring-red-300/30 dark:focus:ring-red-600/60 dark:focus:ring-red-600/30',
+        'border-2 border-solid border-red-200/30 dark:border-red-900/30',
+        'text-red-950 dark:text-red-100',
+      ],
+    },
+  },
+  ghost: {
+    default: {
+      default: [
+        'bg-transparent',
+        'hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50',
+        'text-neutral-500 dark:text-neutral-400',
+        'focus:ring-2 focus:ring-neutral-300/30 dark:focus:ring-neutral-600/30',
+      ],
+    },
+  },
+  primary: {
     default: {
       default: [
         'rounded-lg',
@@ -58,7 +98,12 @@ const variantClasses: Record<ButtonVariant, Record<ButtonTheme, {
       ],
     },
   },
-  'secondary': {
+  pure: {
+    default: {
+      default: ['bg-transparent', 'text-neutral-900 dark:text-neutral-50', '!px-0 !py-0'],
+    },
+  },
+  secondary: {
     default: {
       default: [
         'rounded-lg',
@@ -81,59 +126,17 @@ const variantClasses: Record<ButtonVariant, Record<ButtonTheme, {
         'focus:ring-2 focus:ring-neutral-300/30 dark:focus:ring-neutral-600/60 dark:focus:ring-neutral-600/30',
       ],
       nonToggled: 'bg-neutral-50/70 dark:bg-neutral-800/70 text-neutral-500 dark:text-neutral-400',
-      toggled: 'bg-white/90 dark:bg-neutral-500/70 ring-neutral-300/30 dark:ring-neutral-600/60 ring-2 dark:ring-neutral-600/30 text-primary-500 dark:text-primary-100',
-    },
-  },
-  'danger': {
-    default: {
-      default: [
-        'rounded-lg',
-        'backdrop-blur-md',
-        'bg-red-500/15 hover:bg-red-500/20 active:bg-red-500/30 dark:bg-red-700/30 dark:hover:bg-red-700/40 dark:active:bg-red-700/30',
-        'focus:ring-2 focus:ring-red-300/30 dark:focus:ring-red-600/60 dark:focus:ring-red-600/30',
-        'border-2 border-solid border-red-200/30 dark:border-red-900/30',
-        'text-red-950 dark:text-red-100',
-      ],
-    },
-  },
-  'caution': {
-    default: {
-      default: [
-        'rounded-lg',
-        'backdrop-blur-md',
-        'bg-amber-400/20 hover:bg-amber-400/25 active:bg-amber-400/35 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:active:bg-amber-500/35',
-        'focus:ring-2 focus:ring-amber-300/40 dark:focus:ring-amber-400/40',
-        'border-2 border-solid border-amber-300/40 dark:border-amber-500/40',
-        'text-amber-900 dark:text-amber-50',
-      ],
-    },
-  },
-  'pure': {
-    default: {
-      default: [
-        'bg-transparent',
-        'text-neutral-900 dark:text-neutral-50',
-        '!px-0 !py-0',
-      ],
-    },
-  },
-  'ghost': {
-    default: {
-      default: [
-        'bg-transparent',
-        'hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50',
-        'text-neutral-500 dark:text-neutral-400',
-        'focus:ring-2 focus:ring-neutral-300/30 dark:focus:ring-neutral-600/30',
-      ],
+      toggled:
+        'bg-white/90 dark:bg-neutral-500/70 ring-neutral-300/30 dark:ring-neutral-600/60 ring-2 dark:ring-neutral-600/30 text-primary-500 dark:text-primary-100',
     },
   },
 }
 
 // Extract size styles for better organization
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm',
   lg: 'px-6 py-3 text-base',
+  md: 'px-4 py-2 text-sm',
+  sm: 'px-3 py-1.5 text-xs',
 }
 
 // Base classes that are always applied

@@ -30,7 +30,7 @@ export function matchesLabelSelector(selector: string, labels: Record<string, st
 }
 
 export function matchesLabelSelectors(selectors: string[], labels: Record<string, string>) {
-  return selectors.every(selector => matchesLabelSelector(selector, labels))
+  return selectors.every((selector) => matchesLabelSelector(selector, labels))
 }
 
 function getPeerLabels(peer: AuthenticatedPeer) {
@@ -43,14 +43,15 @@ function getPeerLabels(peer: AuthenticatedPeer) {
 export function matchesRouteExpression(expression: RouteTargetExpression, peer: AuthenticatedPeer) {
   switch (expression.type) {
     case 'and':
-      return expression.all.every(expr => matchesRouteExpression(expr, peer))
+      return expression.all.every((expr) => matchesRouteExpression(expr, peer))
     case 'or':
-      return expression.any.some(expr => matchesRouteExpression(expr, peer))
+      return expression.any.some((expr) => matchesRouteExpression(expr, peer))
     case 'glob': {
       const pluginId = peer.identity?.plugin?.id
-      const matched = matchesGlob(expression.glob, peer.name)
-        || matchesGlob(expression.glob, pluginId)
-        || matchesGlob(expression.glob, peer.identity?.id)
+      const matched =
+        matchesGlob(expression.glob, peer.name) ||
+        matchesGlob(expression.glob, pluginId) ||
+        matchesGlob(expression.glob, peer.identity?.id)
 
       return expression.inverted ? !matched : matched
     }
@@ -110,13 +111,15 @@ export function matchesDestination(destination: string | RouteTargetExpression, 
       return peer.name === value
     default: {
       const pluginId = peer.identity?.plugin?.id
-      return matchesGlob(destination, peer.name)
-        || matchesGlob(destination, pluginId)
-        || matchesGlob(destination, peer.identity?.id)
+      return (
+        matchesGlob(destination, peer.name) ||
+        matchesGlob(destination, pluginId) ||
+        matchesGlob(destination, peer.identity?.id)
+      )
     }
   }
 }
 
 export function matchesDestinations(destinations: Array<string | RouteTargetExpression>, peer: AuthenticatedPeer) {
-  return destinations.some(destination => matchesDestination(destination, peer))
+  return destinations.some((destination) => matchesDestination(destination, peer))
 }

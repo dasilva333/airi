@@ -10,7 +10,7 @@ const stream = ref<MediaStream>()
 const { startRecord, stopRecord } = useAudioRecorder(stream)
 
 const recorded = ref<Blob[]>([])
-const recordedUrls = computed(() => recorded.value.map(rec => useObjectUrl(rec).value))
+const recordedUrls = computed(() => recorded.value.map((rec) => useObjectUrl(rec).value))
 
 async function handleStart() {
   stream.value = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: constraintId.value } })
@@ -19,17 +19,16 @@ async function handleStart() {
 
 async function handleStop() {
   const blob = await stopRecord()
-  if (blob)
-    recorded.value.push(blob)
+  if (blob) recorded.value.push(blob)
 
   // Stop the stream tracks manually
-  stream.value?.getTracks().forEach(track => track.stop())
+  stream.value?.getTracks().forEach((track) => track.stop())
   stream.value = undefined
 }
 
 function handleCancel() {
   // Simple cancel: just stop the stream
-  stream.value?.getTracks().forEach(track => track.stop())
+  stream.value?.getTracks().forEach((track) => track.stop())
   stream.value = undefined
 }
 </script>

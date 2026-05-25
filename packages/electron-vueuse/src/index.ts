@@ -14,7 +14,7 @@ export { useElectronMouseInWindow } from './composables/use-electron-mouse-in-wi
 export { useElectronRelativeMouse } from './composables/use-electron-relative-mouse'
 export { useElectronWindowBounds } from './composables/use-electron-window-bounds'
 export { useElectronWindowResize, useElectronWindowResizeStateEvent } from './composables/use-electron-window-resize'
-
+export type { LoopOptions } from './main'
 export {
   createRendererLoop,
   isRendererUnavailable,
@@ -22,4 +22,3 @@ export {
   stopLoopWhenRendererIsGone,
   useLoop,
 } from './main'
-export type { LoopOptions } from './main'

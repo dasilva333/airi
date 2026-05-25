@@ -1,6 +1,5 @@
-import type { Ref } from 'vue'
-
 import { defineStore } from 'pinia'
+import type { Ref } from 'vue'
 import { computed, ref, watch } from 'vue'
 
 export interface ProgressInfoItem {
@@ -16,10 +15,13 @@ export interface Component {
 }
 
 export interface Module {
-  components: Map<string, {
-    files: Map<string, ProgressInfoItem>
-    loading: boolean
-  }>
+  components: Map<
+    string,
+    {
+      files: Map<string, ProgressInfoItem>
+      loading: boolean
+    }
+  >
   loading: boolean
   reason?: string
 }
@@ -51,7 +53,7 @@ export const useResourcesStore = defineStore('resources', () => {
   const pendingResources = computed(() => {
     const pending: Resources = new Map()
     for (const [moduleName, module] of resources.value.entries()) {
-      if (module.value.loading || Array.from(module.value.components.values()).some(component => component.loading)) {
+      if (module.value.loading || Array.from(module.value.components.values()).some((component) => component.loading)) {
         pending.set(moduleName, module)
       }
     }
@@ -65,14 +67,18 @@ export const useResourcesStore = defineStore('resources', () => {
         return true
       }
 
-      return Array.from(moduleInfo.value.components.values()).some(componentInfo => componentInfo.loading)
+      return Array.from(moduleInfo.value.components.values()).some((componentInfo) => componentInfo.loading)
     })
   })
 
   const atLeastOneLoadingDelay5s = refDelayed(atLeastOneLoading, 5000, { immediate: true })
   const atLeastOneLoadingDelay10s = refDelayed(atLeastOneLoading, 10000, { immediate: true })
 
-  function updateResourceProgress(module: string, component: string, progress: { filename: string, progress: number, currentSize?: number, totalSize?: number }) {
+  function updateResourceProgress(
+    module: string,
+    component: string,
+    progress: { filename: string; progress: number; currentSize?: number; totalSize?: number },
+  ) {
     registerModule(module)
     registerComponent(module, component)
 
@@ -80,14 +86,14 @@ export const useResourcesStore = defineStore('resources', () => {
     const componentRef = componentOf(module, component)!
 
     componentRef.files.set(progress.filename, {
+      currentSize: progress.currentSize,
       filename: progress.filename,
       progress: progress.progress,
-      currentSize: progress.currentSize,
       totalSize: progress.totalSize,
     })
 
-    componentRef.loading = Array.from(componentRef.files.values()).some(file => file.progress < 100)
-    moduleRef.loading = Array.from(moduleRef.components.values()).some(c => c.loading)
+    componentRef.loading = Array.from(componentRef.files.values()).some((file) => file.progress < 100)
+    moduleRef.loading = Array.from(moduleRef.components.values()).some((c) => c.loading)
 
     if (progress.progress >= 100) {
       setTimeout(() => {
@@ -95,7 +101,7 @@ export const useResourcesStore = defineStore('resources', () => {
 
         if (componentRef.files.size === 0) {
           componentRef.loading = false
-          moduleRef.loading = Array.from(moduleRef.components.values()).some(c => c.loading)
+          moduleRef.loading = Array.from(moduleRef.components.values()).some((c) => c.loading)
         }
       }, 2000)
     }
@@ -133,7 +139,12 @@ export const useResourcesStore = defineStore('resources', () => {
     }
   }
 
-  function setComponentLoading(module: string, component: string, loading: boolean, options?: { cascadingForModule?: boolean }) {
+  function setComponentLoading(
+    module: string,
+    component: string,
+    loading: boolean,
+    options?: { cascadingForModule?: boolean },
+  ) {
     registerModule(module)
     registerComponent(module, component)
 
@@ -148,19 +159,19 @@ export const useResourcesStore = defineStore('resources', () => {
   }
 
   return {
-    resources,
     atLeastOneLoading,
     atLeastOneLoadingDelay5s,
     atLeastOneLoadingDelay10s,
-    pendingResources,
-
-    updateResourceProgress,
+    componentOf,
 
     moduleOf,
-    registerModule,
-    setModuleLoading,
-    componentOf,
+    pendingResources,
     registerComponent,
+    registerModule,
+    resources,
     setComponentLoading,
+    setModuleLoading,
+
+    updateResourceProgress,
   }
 })

@@ -1,16 +1,13 @@
-import type { Message } from '@xsai/shared-chat'
-
-import type { DirectorNote } from '../../types/director'
-
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
+import type { Message } from '@xsai/shared-chat'
 import { defineStore } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
-
 import { directorNotesRepo } from '../../database/repos/director-notes.repo'
+import type { DirectorNote } from '../../types/director'
 import { useBackgroundStore } from '../background'
 import { useChatSessionStore } from '../chat/session-store'
 import { useLLM } from '../llm'
@@ -35,42 +32,40 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const isProcessing = ref(false)
   const directorNotes = ref<DirectorNote[]>([])
 
-  type DirectorNotesSyncEvent
-    = | { type: 'director-note-added', sessionId: string, note: DirectorNote }
-      | { type: 'director-note-updated', sessionId: string, noteId: string, updates: Partial<DirectorNote> }
-      | { type: 'director-notes-archived', sessionId: string }
-      | { type: 'director-notes-refreshed', sessionId: string }
+  type DirectorNotesSyncEvent =
+    | { type: 'director-note-added'; sessionId: string; note: DirectorNote }
+    | { type: 'director-note-updated'; sessionId: string; noteId: string; updates: Partial<DirectorNote> }
+    | { type: 'director-notes-archived'; sessionId: string }
+    | { type: 'director-notes-refreshed'; sessionId: string }
 
-  const { post: broadcastDirectorEvent, data: incomingDirectorEvent } = useBroadcastChannel<DirectorNotesSyncEvent, DirectorNotesSyncEvent>({ name: 'airi:director-notes-sync' })
+  const { post: broadcastDirectorEvent, data: incomingDirectorEvent } = useBroadcastChannel<
+    DirectorNotesSyncEvent,
+    DirectorNotesSyncEvent
+  >({ name: 'airi:director-notes-sync' })
 
   watch(incomingDirectorEvent, (event) => {
-    if (!event)
-      return
+    if (!event) return
     const { type, sessionId } = event
-    if (sessionId !== chatSessionStore.activeSessionId)
-      return
+    if (sessionId !== chatSessionStore.activeSessionId) return
 
     if (type === 'director-note-added') {
       const { note } = event
-      if (!directorNotes.value.some(n => n.id === note.id)) {
+      if (!directorNotes.value.some((n) => n.id === note.id)) {
         directorNotes.value.push(note)
       }
-    }
-    else if (type === 'director-note-updated') {
+    } else if (type === 'director-note-updated') {
       const { noteId, updates } = event
-      const note = directorNotes.value.find(n => n.id === noteId)
+      const note = directorNotes.value.find((n) => n.id === noteId)
       if (note) {
         Object.assign(note, updates)
       }
-    }
-    else if (type === 'director-notes-archived') {
+    } else if (type === 'director-notes-archived') {
       directorNotes.value.forEach((note) => {
         if (note.sessionId === sessionId) {
           note.isArchived = true
         }
       })
-    }
-    else if (type === 'director-notes-refreshed') {
+    } else if (type === 'director-notes-refreshed') {
       void loadDirectorNotes(sessionId)
     }
   })
@@ -82,15 +77,20 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   async function recordDirectorDecision(note: DirectorNote) {
     directorNotes.value.push(note)
     await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
-    broadcastDirectorEvent({ type: 'director-note-added', sessionId: note.sessionId, note: toRaw(note) })
+    broadcastDirectorEvent({ note: toRaw(note), sessionId: note.sessionId, type: 'director-note-added' })
   }
 
   async function updateDirectorDecision(noteId: string, updates: Partial<DirectorNote>) {
-    const note = directorNotes.value.find(n => n.id === noteId)
+    const note = directorNotes.value.find((n) => n.id === noteId)
     if (note) {
       Object.assign(note, updates)
       await directorNotesRepo.saveNotes(note.sessionId, directorNotes.value)
-      broadcastDirectorEvent({ type: 'director-note-updated', sessionId: note.sessionId, noteId, updates: toRaw(updates) })
+      broadcastDirectorEvent({
+        noteId,
+        sessionId: note.sessionId,
+        type: 'director-note-updated',
+        updates: toRaw(updates),
+      })
     }
   }
 
@@ -101,18 +101,21 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       }
     })
     await directorNotesRepo.saveNotes(sessionId, directorNotes.value)
-    broadcastDirectorEvent({ type: 'director-notes-archived', sessionId })
+    broadcastDirectorEvent({ sessionId, type: 'director-notes-archived' })
   }
 
   // Auto-load notes when session changes
-  watch(() => chatSessionStore.activeSessionId, (newId) => {
-    if (newId) {
-      void loadDirectorNotes(newId)
-    }
-    else {
-      directorNotes.value = []
-    }
-  }, { immediate: true })
+  watch(
+    () => chatSessionStore.activeSessionId,
+    (newId) => {
+      if (newId) {
+        void loadDirectorNotes(newId)
+      } else {
+        directorNotes.value = []
+      }
+    },
+    { immediate: true },
+  )
 
   /**
    * Resolve the next concept stack based on the Director's new selections.
@@ -126,32 +129,40 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     directorPicks: string[],
     visualAssets: Record<string, any>,
   ): string[] {
-    const isVisual = (asset: any) => asset?.prompt?.trim() || (asset?.artistry?.provider && !['none', 'inherit'].includes(asset.artistry.provider))
+    const isVisual = (asset: any) =>
+      asset?.prompt?.trim() || (asset?.artistry?.provider && !['none', 'inherit'].includes(asset.artistry.provider))
 
-    const validPicks = directorPicks.filter(id => !!visualAssets[id])
-    if (validPicks.length === 0)
-      return currentStack
+    const validPicks = directorPicks.filter((id) => !!visualAssets[id])
+    if (validPicks.length === 0) return currentStack
 
     // Identify non-visual concepts that the Director shouldn't be managing (Identity layers, etc)
-    const nonVisualLayers = currentStack.filter(id => !isVisual(visualAssets[id]))
+    const nonVisualLayers = currentStack.filter((id) => !isVisual(visualAssets[id]))
 
     // Separate Director's picks into bases and layers
-    const newBases = validPicks.filter(id => visualAssets[id]?.isBase)
-    const newLayers = validPicks.filter(id => !visualAssets[id]?.isBase)
+    const newBases = validPicks.filter((id) => visualAssets[id]?.isBase)
+    const newLayers = validPicks.filter((id) => !visualAssets[id]?.isBase)
 
     if (newBases.length > 0) {
       // Director picked a new Base: wipe visual stack, preserve non-visual identity layers
       const primaryBase = newBases[newBases.length - 1]
-      artistLog('Stack Resolve: New Base detected, preserving identity layers.', { primaryBase, identity: nonVisualLayers, layers: newLayers })
+      artistLog('Stack Resolve: New Base detected, preserving identity layers.', {
+        identity: nonVisualLayers,
+        layers: newLayers,
+        primaryBase,
+      })
       return [primaryBase, ...nonVisualLayers, ...newLayers]
     }
 
     // Director picked only Layers: preserve existing Base and non-visual identity layers, clear old modifiers
-    const currentBase = currentStack.find(id => visualAssets[id]?.isBase)
+    const currentBase = currentStack.find((id) => visualAssets[id]?.isBase)
     const nextStack = currentBase ? [currentBase] : []
     nextStack.push(...nonVisualLayers)
     nextStack.push(...newLayers)
-    artistLog('Stack Resolve: Refreshing modifiers, keeping base and identity.', { currentBase, identity: nonVisualLayers, layers: newLayers })
+    artistLog('Stack Resolve: Refreshing modifiers, keeping base and identity.', {
+      currentBase,
+      identity: nonVisualLayers,
+      layers: newLayers,
+    })
     return nextStack
   }
 
@@ -187,8 +198,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
 
     for (const conceptId of stack) {
       const asset = visualAssets[conceptId]
-      if (!asset)
-        continue
+      if (!asset) continue
 
       // Prompt: concatenate all snippets
       if (asset.prompt) {
@@ -229,17 +239,17 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     }
 
     return {
-      provider: resolvedProvider,
-      model: resolvedModel,
-      options: resolvedOptions,
-      modelId: resolvedModelId,
-      mood: resolvedMood,
-      speechProvider: resolvedSpeechProvider,
-      speechModel: resolvedSpeechModel,
-      speechVoiceId: resolvedSpeechVoiceId,
       activeExpressions: resolvedExpressions,
       backgroundId: resolvedBackgroundId,
+      model: resolvedModel,
+      modelId: resolvedModelId,
+      mood: resolvedMood,
+      options: resolvedOptions,
       promptSnippets: accumulatedPrompt,
+      provider: resolvedProvider,
+      speechModel: resolvedSpeechModel,
+      speechProvider: resolvedSpeechProvider,
+      speechVoiceId: resolvedSpeechVoiceId,
     }
   }
 
@@ -252,7 +262,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     provider?: string
     options?: Record<string, any>
     globals?: any
-  }): Promise<{ imageUrl?: string, base64?: string, error?: string }> {
+  }): Promise<{ imageUrl?: string; base64?: string; error?: string }> {
     const serverUrl = (params.globals?.comfyuiServerUrl || 'http://localhost:8188').replace(/\/+$/, '')
     const savedWorkflows = params.globals?.comfyuiSavedWorkflows || []
     const activeWorkflowId = params.globals?.comfyuiActiveWorkflow || ''
@@ -296,23 +306,22 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
 
       // 2. Queue Prompt
       const queueResp = await fetch(`${serverUrl}/prompt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       })
 
-      if (!queueResp.ok)
-        throw new Error(`ComfyUI Error: ${await queueResp.text()}`)
+      if (!queueResp.ok) throw new Error(`ComfyUI Error: ${await queueResp.text()}`)
 
       const { prompt_id } = await queueResp.json()
 
       // 3. Poll for result
       const start = Date.now()
-      while (Date.now() - start < 1000 * 60 * 5) { // 5 min timeout
-        await new Promise(r => setTimeout(r, 3000))
+      while (Date.now() - start < 1000 * 60 * 5) {
+        // 5 min timeout
+        await new Promise((r) => setTimeout(r, 3000))
         const histResp = await fetch(`${serverUrl}/history/${prompt_id}`)
-        if (!histResp.ok)
-          continue
+        if (!histResp.ok) continue
 
         const histData = await histResp.json()
         if (histData[prompt_id]) {
@@ -333,15 +342,14 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
               })
               const base64 = await base64Promise
 
-              return { imageUrl, base64 }
+              return { base64, imageUrl }
             }
           }
           break
         }
       }
       throw new Error('Timeout waiting for ComfyUI result.')
-    }
-    catch (err: any) {
+    } catch (err: any) {
       return { error: err.message }
     }
   }
@@ -350,31 +358,35 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
    * Safe IPC Invoker for headless generation
    */
   const widgetsAdd = defineInvokeEventa<string | undefined, any>('eventa:invoke:electron:windows:widgets:add')
-  const electronShowToast = defineInvokeEventa<void, { message: string, description?: string, duration?: number }>('eventa:invoke:electron:show-toast')
+  const electronShowToast = defineInvokeEventa<void, { message: string; description?: string; duration?: number }>(
+    'eventa:invoke:electron:show-toast',
+  )
 
   const getGenerateHeadless = () => {
     const win = window as any
     if (typeof window !== 'undefined' && win.electron?.ipcRenderer) {
       const { context } = createContext(win.electron.ipcRenderer as any)
       return {
-        generate: defineInvoke(context, artistryGenerateHeadless),
         addWidget: defineInvoke(context, widgetsAdd),
+        generate: defineInvoke(context, artistryGenerateHeadless),
         showToast: defineInvoke(context, electronShowToast),
       }
     }
 
     // Web Fallback
     return {
+      addWidget: async (payload: any) => {
+        artistLog('Widget spawning is disabled in Web environment.', payload)
+        toast.info('Scene generated! Check your Gallery.')
+      },
       generate: async (payload: any) => {
         if (payload.provider === 'comfyui') {
           artistLog('Using Web Fallback for ComfyUI generation...')
           return await generateComfyUIWeb(payload)
         }
-        return { error: `Web generation not supported for ${payload.provider}. Please use Electron for Replicate/OpenAI.` }
-      },
-      addWidget: async (payload: any) => {
-        artistLog('Widget spawning is disabled in Web environment.', payload)
-        toast.info('Scene generated! Check your Gallery.')
+        return {
+          error: `Web generation not supported for ${payload.provider}. Please use Electron for Replicate/OpenAI.`,
+        }
       },
       showToast: async (payload: any) => {
         toast(payload.message, {
@@ -395,9 +407,9 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     const target = targetOverride || artistry?.autonomousTarget || 'user'
 
     artistLog('Triggered runArtistTask. State:', {
+      autonomousEnabled,
       cardId: cardStore.activeCardId,
       cardName: activeCard?.name,
-      autonomousEnabled,
       target,
     })
 
@@ -409,7 +421,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     const cardId = cardStore.activeCardId
 
     isProcessing.value = true
-    artistLog('Starting analysis task...', { threshold, cardId, target })
+    artistLog('Starting analysis task...', { cardId, target, threshold })
 
     try {
       // 0. Guard: If the text is empty, skip analysis (Director cannot analyze silence)
@@ -422,7 +434,8 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       const airiExt = activeCard.extensions?.airi as any
       artistLog('DEBUG: Full airi extension:', JSON.stringify(airiExt, null, 2))
       const visualAssets = airiExt?.visual_assets || {}
-      const isVisual = (asset: any) => asset?.prompt?.trim() || (asset?.artistry?.provider && !['none', 'inherit'].includes(asset.artistry.provider))
+      const isVisual = (asset: any) =>
+        asset?.prompt?.trim() || (asset?.artistry?.provider && !['none', 'inherit'].includes(asset.artistry.provider))
 
       // Heuristic: Director only sees/picks from concepts that have a visual prompt or a specific provider
       const filteredVisualAssets = Object.fromEntries(
@@ -437,9 +450,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
             .join('\n')
         : ''
 
-      const conceptsInstruction = hasConcepts
-        ? `\nAVAILABLE CONCEPTS:\n${availableConceptsText}\n`
-        : ''
+      const conceptsInstruction = hasConcepts ? `\nAVAILABLE CONCEPTS:\n${availableConceptsText}\n` : ''
 
       const conceptsSchema = hasConcepts
         ? ',\n  "selected_concepts": ["Array of zero or more concept IDs chosen from the Available Concepts list"]'
@@ -463,12 +474,13 @@ Output EXACTLY this JSON format and nothing else:
   "title": "Short descriptive title for the scene"${conceptsSchema}
 }`
 
-      const systemPrompt = target === 'assistant'
-        ? `You are the Cinematic Director for AIRI. 
+      const systemPrompt =
+        target === 'assistant'
+          ? `You are the Cinematic Director for AIRI. 
 Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
 You should draw inspiration from the entire context history provided. If the latest response is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
 ${commonInstructions}`
-        : `You are the Cinematic Director for AIRI. 
+          : `You are the Cinematic Director for AIRI. 
 Your job is to ALWAYS generate a visual manifestation (a generative image) summarizing the current scene, and then grade how interesting the resulting scene is from 1 to 100.
 You should draw inspiration from the entire context history provided. If the latest input is mundane, use your artistic freedom to craft an image that captures the broader narrative arc or the environment established in the recent turns.
 ${commonInstructions}`
@@ -476,7 +488,9 @@ ${commonInstructions}`
       // 2. Rollup history and text into a single prompt to help the LLM "see" the full context
       const historyDepth = (artistry as any).autonomousHistoryDepth ?? 3
       const recentHistory = history.slice(-historyDepth)
-      const historyText = recentHistory.map(m => `[${m.role === 'assistant' ? 'Companion' : 'User'}]: ${m.content}`).join('\n\n')
+      const historyText = recentHistory
+        .map((m) => `[${m.role === 'assistant' ? 'Companion' : 'User'}]: ${m.content}`)
+        .join('\n\n')
 
       const analysisPrompt = `Consider the recent history between the user and the character for context and inspiration, then analyze the latest ${target === 'assistant' ? 'response from the companion' : 'input from the user'} to decide if a visual manifestation is needed.
 
@@ -504,10 +518,10 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 "${inputText}"`
 
       const messages: Message[] = [
-        { role: 'system', content: systemPrompt },
+        { content: systemPrompt, role: 'system' },
         {
-          role: 'user',
           content: analysisPrompt,
+          role: 'user',
         },
       ]
 
@@ -515,18 +529,18 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       const providerId = consciousnessStore.activeProvider
 
       artistLog('Sending rolled-up prompt to Director LLM...', {
+        historyCount: recentHistory.length,
         model: modelId,
         provider: providerId,
-        historyCount: recentHistory.length,
-        textSubstring: inputText.substring(0, 50),
         target,
+        textSubstring: inputText.substring(0, 50),
       })
 
       if (!modelId || !providerId) {
         throw new Error(`Missing LLM configuration (Model: ${modelId}, Provider: ${providerId})`)
       }
 
-      const chatProvider = await providersStore.getProviderInstance(providerId) as any
+      const chatProvider = (await providersStore.getProviderInstance(providerId)) as any
       if (!chatProvider) {
         throw new Error(`Failed to resolve chat provider instance for: ${providerId}`)
       }
@@ -535,7 +549,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       // Skipped for ASSISTANT target as the main response is already finalized.
       if (target === 'user') {
         artistLog('User target detected. Applying 10s safety delay...')
-        await new Promise(resolve => setTimeout(resolve, 10000))
+        await new Promise((resolve) => setTimeout(resolve, 10000))
       }
 
       // 2. Call LLM (Non-streaming for structured data)
@@ -561,10 +575,10 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       const selectedConcepts: string[] = Array.isArray(analysis.selected_concepts) ? analysis.selected_concepts : []
       artistLog('Parsed Analysis Result:', {
         intensity: analysis.intensity,
-        reasoning: analysis.reasoning,
-        title: analysis.title,
         prompt: analysis.prompt,
+        reasoning: analysis.reasoning,
         selected_concepts: selectedConcepts,
+        title: analysis.title,
       })
 
       // 3.5 Stack Folding: Resolve the next concept stack and fold into final values
@@ -574,27 +588,23 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       artistLog('Stack Folding: Resolved next stack:', nextConceptStack)
 
       // Fold the resolved stack to get final prompt, artistry, and manifestation values
-      const folded = foldConceptStack(
-        nextConceptStack,
-        visualAssets,
-        {
-          provider: artistry.provider || artistryStore.activeProvider,
-          model: artistry.model || artistryStore.activeModel,
-          options: artistry.options || artistryStore.providerOptions,
-          speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
-          speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
-          speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
-        },
-      )
+      const folded = foldConceptStack(nextConceptStack, visualAssets, {
+        model: artistry.model || artistryStore.activeModel,
+        options: artistry.options || artistryStore.providerOptions,
+        provider: artistry.provider || artistryStore.activeProvider,
+        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+      })
 
       // Build the final prompt from the Director's base prompt + folded concept snippets
       const finalPrompt = analysis.prompt + folded.promptSnippets
       artistLog('Stack Folding: Final resolved values:', {
-        provider: folded.provider,
         model: folded.model,
         modelId: folded.modelId,
         mood: folded.mood,
         promptSnippets: folded.promptSnippets,
+        provider: folded.provider,
       })
 
       const thresholdMet = (analysis.intensity ?? 0) >= threshold
@@ -606,9 +616,9 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
       const invoker = getGenerateHeadless()
       invoker.showToast({
-        message: 'Director\'s Decision',
         description: notificationDescription,
         duration: 7000,
+        message: "Director's Decision",
       })
 
       const sessionId = chatSessionStore.activeSessionId
@@ -616,17 +626,17 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       const noteState = thresholdMet ? 'pending' : 'done'
 
       await recordDirectorDecision({
-        id: noteId,
-        sessionId,
-        type: 'director-note',
         content: analysis.reasoning,
-        intensity: analysis.intensity,
-        title: analysis.title,
-        prompt: finalPrompt,
-        target,
-        state: noteState,
-        selected_concepts: selectedConcepts,
         createdAt: Date.now(),
+        id: noteId,
+        intensity: analysis.intensity,
+        prompt: finalPrompt,
+        selected_concepts: selectedConcepts,
+        sessionId,
+        state: noteState,
+        target,
+        title: analysis.title,
+        type: 'director-note',
       })
 
       // 3. Evaluate Threshold
@@ -646,11 +656,11 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
         const artistryGlobals = artistryStore.artistryGlobals
         const generationPayload = {
-          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${finalPrompt}` : finalPrompt,
-          model: resolvedModel,
-          provider: resolvedProvider,
-          options: resolvedOptions,
           globals: artistryGlobals,
+          model: resolvedModel,
+          options: resolvedOptions,
+          prompt: artistry.promptPrefix ? `${artistry.promptPrefix} ${finalPrompt}` : finalPrompt,
+          provider: resolvedProvider,
         }
 
         artistLog('Triggering Headless Generation with payload:', generationPayload)
@@ -668,7 +678,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
           throw new Error(result.error)
         }
 
-        artistLog('Headless Generation Success!', { hasUrl: !!result.imageUrl, hasBase64: !!result.base64 })
+        artistLog('Headless Generation Success!', { hasBase64: !!result.base64, hasUrl: !!result.imageUrl })
 
         // 4. Save to journal
         if (result.base64 || result.imageUrl) {
@@ -682,14 +692,22 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
               data = parts[1]
             }
             const byteCharacters = atob(data)
-            blob = new Blob([new Uint8Array(Array.from({ length: byteCharacters.length }, (_, j) => byteCharacters.charCodeAt(j)))], { type: contentType })
-          }
-          else {
+            blob = new Blob(
+              [new Uint8Array(Array.from({ length: byteCharacters.length }, (_, j) => byteCharacters.charCodeAt(j)))],
+              { type: contentType },
+            )
+          } else {
             const response = await fetch(result.imageUrl!)
             blob = await response.blob()
           }
 
-          const entryId = await backgroundStore.addBackground('journal', blob, analysis.title || 'Autonomous Scene', analysis.prompt, cardId)
+          const entryId = await backgroundStore.addBackground(
+            'journal',
+            blob,
+            analysis.title || 'Autonomous Scene',
+            analysis.prompt,
+            cardId,
+          )
           artistLog('Generation complete and added to journal.', { entryId })
 
           await updateDirectorDecision(noteId, { state: 'done' })
@@ -703,8 +721,8 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
               // Update character's active background + concept stack + manifestation
               const bgModuleUpdates: Record<string, any> = {
                 ...activeCard.extensions.airi.modules,
-                activeBackgroundId: entryId,
                 active_expressions: folded.activeExpressions,
+                activeBackgroundId: entryId,
               }
               if (folded.modelId) {
                 bgModuleUpdates.displayModelId = folded.modelId
@@ -726,11 +744,11 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
               const imageUrl = result.imageUrl || result.base64
               const content = `![${analysis.title || 'Generated Image'}](${imageUrl})`
               chatSessionStore.inscribeTurn({
-                role: 'assistant',
                 content,
-                slices: [{ type: 'text', text: content }],
-                tool_results: [],
                 createdAt: Date.now(),
+                role: 'assistant',
+                slices: [{ text: content, type: 'text' }],
+                tool_results: [],
               })
               break
             }
@@ -740,18 +758,17 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
                 await invokers.addWidget({
                   componentName: 'artistry',
                   componentProps: {
-                    status: 'done',
+                    _skipIngestion: true,
                     entryId,
                     imageUrl: result.imageUrl || result.base64,
                     prompt: analysis.prompt,
+                    status: 'done',
                     title: analysis.title || 'Autonomous Scene',
-                    _skipIngestion: true,
                   },
                   size: 'm',
                   ttlMs: 0,
                 })
-              }
-              catch (widgetErr) {
+              } catch (widgetErr) {
                 console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
               }
               break
@@ -799,32 +816,28 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
                 await invokers.addWidget({
                   componentName: 'artistry',
                   componentProps: {
-                    status: 'done',
+                    _skipIngestion: true,
                     entryId,
                     imageUrl: result.imageUrl || result.base64,
                     prompt: analysis.prompt,
+                    status: 'done',
                     title: analysis.title || 'Autonomous Scene',
-                    _skipIngestion: true,
                   },
                   size: 'm',
                   ttlMs: 0,
                 })
-              }
-              catch (widgetErr) {
+              } catch (widgetErr) {
                 console.warn('[AutonomousArtist] Failed to spawn Result widget', widgetErr)
               }
               break
           }
         }
-      }
-      else {
+      } else {
         artistLog(`Intensity (${analysis.intensity}) below threshold (${threshold}). No action taken.`)
       }
-    }
-    catch (err) {
+    } catch (err) {
       artistLog('Task failed with error:', err)
-    }
-    finally {
+    } finally {
       isProcessing.value = false
     }
   }
@@ -835,8 +848,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
    */
   async function applyCurrentStackManifestations() {
     const { activeCard } = cardStore
-    if (!activeCard || !activeCard.extensions?.airi)
-      return
+    if (!activeCard || !activeCard.extensions?.airi) return
 
     const airiExt = activeCard.extensions.airi as any
     const visualAssets = airiExt.visual_assets || {}
@@ -845,15 +857,11 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
     artistLog('Manual Sync: Folding current stack manifestations...', currentStack)
 
-    const folded = foldConceptStack(
-      currentStack,
-      visualAssets,
-      {
-        provider: artistry.provider || artistryStore.activeProvider,
-        model: artistry.model || artistryStore.activeModel,
-        options: artistry.options || artistryStore.providerOptions,
-      },
-    )
+    const folded = foldConceptStack(currentStack, visualAssets, {
+      model: artistry.model || artistryStore.activeModel,
+      options: artistry.options || artistryStore.providerOptions,
+      provider: artistry.provider || artistryStore.activeProvider,
+    })
 
     const moduleUpdates: Record<string, any> = {
       ...activeCard.extensions.airi.modules,
@@ -893,18 +901,14 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
 
     // 2. Fold the resolved stack to get final manifestation values (modelId, etc.)
-    const folded = foldConceptStack(
-      nextConceptStack,
-      visualAssets,
-      {
-        provider: artistry.provider || artistryStore.activeProvider,
-        model: artistry.model || artistryStore.activeModel,
-        options: artistry.options || artistryStore.providerOptions,
-        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
-        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
-        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
-      },
-    )
+    const folded = foldConceptStack(nextConceptStack, visualAssets, {
+      model: artistry.model || artistryStore.activeModel,
+      options: artistry.options || artistryStore.providerOptions,
+      provider: artistry.provider || artistryStore.activeProvider,
+      speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+      speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+      speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+    })
 
     // 3. Build the surgical update payload for the modules
     const moduleUpdates: Record<string, any> = {
@@ -917,17 +921,18 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     }
 
     if (folded.speechProvider && folded.speechProvider !== 'inherit') {
-      artistLog(`ActivateConcept: Applying speech override to runtime:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      artistLog(`ActivateConcept: Applying speech override to runtime:`, {
+        provider: folded.speechProvider,
+        voice: folded.speechVoiceId,
+      })
       speechStore.activeSpeechProvider = folded.speechProvider
-      if (folded.speechModel)
-        speechStore.activeSpeechModel = folded.speechModel
-      if (folded.speechVoiceId)
-        speechStore.activeSpeechVoiceId = folded.speechVoiceId
+      if (folded.speechModel) speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId) speechStore.activeSpeechVoiceId = folded.speechVoiceId
 
       moduleUpdates.speech = {
         ...moduleUpdates.speech,
-        provider: folded.speechProvider,
         model: folded.speechModel,
+        provider: folded.speechProvider,
         voice_id: folded.speechVoiceId,
       }
     }
@@ -963,8 +968,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
    */
   function preloadConceptVoice(conceptId: string) {
     const { activeCard } = cardStore
-    if (!activeCard || !activeCard.extensions?.airi)
-      return
+    if (!activeCard || !activeCard.extensions?.airi) return
 
     const airiExt = activeCard.extensions.airi as any
     const visualAssets = airiExt.visual_assets || {}
@@ -975,55 +979,51 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     const nextConceptStack = resolveConceptStack(currentStack, [conceptId], visualAssets)
 
     // Fold to get speech values
-    const folded = foldConceptStack(
-      nextConceptStack,
-      visualAssets,
-      {
-        provider: artistry.provider || artistryStore.activeProvider,
-        model: artistry.model || artistryStore.activeModel,
-        options: artistry.options || artistryStore.providerOptions,
-        speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
-        speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
-        speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
-      },
-    )
+    const folded = foldConceptStack(nextConceptStack, visualAssets, {
+      model: artistry.model || artistryStore.activeModel,
+      options: artistry.options || artistryStore.providerOptions,
+      provider: artistry.provider || artistryStore.activeProvider,
+      speechModel: airiExt?.modules?.speech?.model || speechStore.activeSpeechModel,
+      speechProvider: airiExt?.modules?.speech?.provider || speechStore.activeSpeechProvider,
+      speechVoiceId: airiExt?.modules?.speech?.voice_id || speechStore.activeSpeechVoiceId,
+    })
 
     // Only update speech runtime — no model/background/card changes
     if (folded.speechProvider && folded.speechProvider !== 'inherit') {
-      artistLog(`PreloadVoice: Applying speech override for upcoming TTS:`, { provider: folded.speechProvider, voice: folded.speechVoiceId })
+      artistLog(`PreloadVoice: Applying speech override for upcoming TTS:`, {
+        provider: folded.speechProvider,
+        voice: folded.speechVoiceId,
+      })
       speechStore.activeSpeechProvider = folded.speechProvider
-      if (folded.speechModel)
-        speechStore.activeSpeechModel = folded.speechModel
-      if (folded.speechVoiceId)
-        speechStore.activeSpeechVoiceId = folded.speechVoiceId
-    }
-    else {
+      if (folded.speechModel) speechStore.activeSpeechModel = folded.speechModel
+      if (folded.speechVoiceId) speechStore.activeSpeechVoiceId = folded.speechVoiceId
+    } else {
       artistLog(`PreloadVoice: No speech override for concept "${conceptId}", keeping current voice.`)
     }
   }
 
   function findNoteForImage(title?: string, prompt?: string) {
-    if (!title && !prompt)
-      return null
-    return directorNotes.value.slice().reverse().find((n) => {
-      // Direct match on title or prompt
-      if (title && n.title === title)
-        return true
-      if (prompt && n.prompt === prompt)
-        return true
-      return false
-    })
+    if (!title && !prompt) return null
+    return directorNotes.value
+      .slice()
+      .reverse()
+      .find((n) => {
+        // Direct match on title or prompt
+        if (title && n.title === title) return true
+        if (prompt && n.prompt === prompt) return true
+        return false
+      })
   }
 
   return {
-    isProcessing,
-    directorNotes,
-    runArtistTask,
-    loadDirectorNotes,
-    archiveSessionNotes,
     activateConcept,
-    preloadConceptVoice,
     applyCurrentStackManifestations,
+    archiveSessionNotes,
+    directorNotes,
     findNoteForImage,
+    isProcessing,
+    loadDirectorNotes,
+    preloadConceptVoice,
+    runArtistTask,
   }
 })

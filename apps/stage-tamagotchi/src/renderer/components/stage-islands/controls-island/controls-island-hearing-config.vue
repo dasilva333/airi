@@ -8,28 +8,34 @@ import { useAsyncState } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, watch } from 'vue'
 
-const show = defineModel('show', { type: Boolean, default: false })
+const show = defineModel('show', { default: false, type: Boolean })
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { enabled, selectedAudioInput, stream, audioInputs } = storeToRefs(settingsAudioDeviceStore)
 const { startStream, stopStream } = settingsAudioDeviceStore
 
 const getMediaAccessStatus = useElectronEventaInvoke(electron.systemPreferences.getMediaAccessStatus)
-const { state: mediaAccessStatus, execute: refreshMediaAccessStatus } = useAsyncState(() => getMediaAccessStatus(['microphone']), 'not-determined')
+const { state: mediaAccessStatus, execute: refreshMediaAccessStatus } = useAsyncState(
+  () => getMediaAccessStatus(['microphone']),
+  'not-determined',
+)
 
 const { audioContext, initialize, dispose, pause } = useAudioContextFromStream(stream)
 const { volumeLevel, startAnalyzer, stopAnalyzer } = useAudioAnalyzer()
 
-watch(enabled, (val) => {
-  if (val) {
-    startStream()
-    initialize().then(() => startAnalyzer(audioContext.value!))
-  }
-  else {
-    stopStream()
-    pause()
-  }
-}, { immediate: true })
+watch(
+  enabled,
+  (val) => {
+    if (val) {
+      startStream()
+      initialize().then(() => startAnalyzer(audioContext.value!))
+    } else {
+      stopStream()
+      pause()
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(async () => {
   await refreshMediaAccessStatus()

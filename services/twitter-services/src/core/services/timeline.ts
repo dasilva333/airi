@@ -1,12 +1,11 @@
-import type { TwitterService } from '../../types/services'
-import type { Context } from '../browser/context'
-import type { Tweet } from './tweet'
-
 import { TWITTER_HOME_URL } from '../../constants'
 import { SELECTORS } from '../../parsers/selectors'
 import { TweetParser } from '../../parsers/tweet-parser'
+import type { TwitterService } from '../../types/services'
 import { logger } from '../../utils/logger'
+import type { Context } from '../browser/context'
 import { scrollToLoadMoreTweets } from '../utils/scroll-helper'
+import type { Tweet } from './tweet'
 
 /**
  * Timeline Options
@@ -43,11 +42,11 @@ export function useTwitterTimelineServices(ctx: Context): TwitterService {
       let filteredTweets = tweets
 
       if (options.includeReplies === false) {
-        filteredTweets = filteredTweets.filter(tweet => !tweet.text.startsWith('@'))
+        filteredTweets = filteredTweets.filter((tweet) => !tweet.text.startsWith('@'))
       }
 
       if (options.includeRetweets === false) {
-        filteredTweets = filteredTweets.filter(tweet => !tweet.text.startsWith('RT @'))
+        filteredTweets = filteredTweets.filter((tweet) => !tweet.text.startsWith('RT @'))
       }
 
       // Apply count limit if specified
@@ -56,8 +55,7 @@ export function useTwitterTimelineServices(ctx: Context): TwitterService {
       }
 
       return filteredTweets
-    }
-    catch (error) {
+    } catch (error) {
       logger.timeline.error('Failed to get timeline:', (error as Error).message)
       return []
     }

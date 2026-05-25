@@ -1,9 +1,8 @@
-import type { Output } from 'tinyexec'
+import { extname, resolve } from 'node:path'
 
 import process from 'node:process'
-
-import { extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { Output } from 'tinyexec'
 
 import { x } from 'tinyexec'
 
@@ -106,20 +105,19 @@ function parseConfigLoaderArg(viteArgs: string[], index: number): ParsedViteArg 
 }
 
 function parseViteArg(viteArgs: string[], index: number, cwd: string): ParsedViteArg {
-  return parseConfigArg(viteArgs, index, cwd)
-    ?? parseConfigLoaderArg(viteArgs, index)
-    ?? {
+  return (
+    parseConfigArg(viteArgs, index, cwd) ??
+    parseConfigLoaderArg(viteArgs, index) ?? {
       consumedArgs: 1,
       forwardedArgs: [viteArgs[index]],
     }
+  )
 }
 
 function resolveProjectRoot(viteArgs: string[], cwd: string): string {
   const firstArg = viteArgs[0]
 
-  return firstArg && !firstArg.startsWith('-')
-    ? resolve(cwd, firstArg)
-    : cwd
+  return firstArg && !firstArg.startsWith('-') ? resolve(cwd, firstArg) : cwd
 }
 
 export function prepareCapViteLaunch(viteArgs: string[], cwd: string = process.cwd()): PreparedViteLaunch {
@@ -130,7 +128,7 @@ export function prepareCapViteLaunch(viteArgs: string[], cwd: string = process.c
   let configLoader: 'bundle' | 'native' | 'runner' | undefined
   const forwardedViteArgs: string[] = []
 
-  for (let index = 0; index < viteArgs.length;) {
+  for (let index = 0; index < viteArgs.length; ) {
     const parsedArg = parseViteArg(viteArgs, index, resolvedCwd)
 
     baseConfigFile = parsedArg.baseConfigFile ?? baseConfigFile
@@ -161,7 +159,6 @@ export async function runCapVite(
   const prepared = prepareCapViteLaunch(viteArgs, cwd)
 
   return await x('vite', ['--config', prepared.wrapperConfigFile, ...prepared.viteArgs], {
-    throwOnError: false,
     nodeOptions: {
       cwd,
       env: {
@@ -172,5 +169,6 @@ export async function runCapVite(
       },
       stdio: 'inherit',
     },
+    throwOnError: false,
   })
 }

@@ -23,15 +23,14 @@ export class TweetParser {
       const tweets: Tweet[] = []
 
       for (const tweetElement of tweetElements) {
-        const tweet = await this.extractTweetData(page, tweetElement)
+        const tweet = await TweetParser.extractTweetData(page, tweetElement)
         if (tweet) {
           tweets.push(tweet)
         }
       }
 
       return tweets
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error parsing timeline tweets:', (error as Error).message)
       return []
     }
@@ -46,29 +45,29 @@ export class TweetParser {
   static async extractTweetData(page: Page, tweetElement: ElementHandle): Promise<Tweet | null> {
     try {
       // Extract tweet ID
-      const id = await this.extractTweetId(tweetElement)
+      const id = await TweetParser.extractTweetId(tweetElement)
 
       // Extract tweet text
       const textElement = await tweetElement.$(SELECTORS.TIMELINE.TWEET_TEXT)
       const text = textElement ? await textElement.textContent() : ''
 
       // Extract author info
-      const author = await this.extractAuthorInfo(tweetElement)
+      const author = await TweetParser.extractAuthorInfo(tweetElement)
 
       // Extract timestamp
       const timeElement = await tweetElement.$('time')
       const timestamp = timeElement ? await timeElement.getAttribute('datetime') : new Date().toISOString()
 
       // Extract engagement stats
-      const stats = await this.extractTweetStats(tweetElement)
+      const stats = await TweetParser.extractTweetStats(tweetElement)
 
       // Extract media URLs
-      const mediaUrls = await this.extractMediaUrls(tweetElement)
+      const mediaUrls = await TweetParser.extractMediaUrls(tweetElement)
 
       const tweet: Tweet = {
+        author,
         id,
         text: text || '',
-        author,
         timestamp: timestamp || new Date().toISOString(),
         ...stats,
       }
@@ -78,8 +77,7 @@ export class TweetParser {
       }
 
       return tweet
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting tweet data:', (error as Error).message)
       return null
     }
@@ -106,8 +104,7 @@ export class TweetParser {
 
       // Fallback to a random ID
       return `tweet-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting tweet ID:', (error as Error).message)
       return `tweet-${Date.now()}`
     }
@@ -124,14 +121,16 @@ export class TweetParser {
       const authorElement = await tweetElement.$('[data-testid="User-Name"]')
       if (!authorElement) {
         return {
-          username: 'unknown',
           displayName: 'Unknown User',
+          username: 'unknown',
         }
       }
 
       // Get display name
       const displayNameElement = await authorElement.$('span:first-child')
-      const displayName = displayNameElement ? await displayNameElement.textContent() || 'Unknown User' : 'Unknown User'
+      const displayName = displayNameElement
+        ? (await displayNameElement.textContent()) || 'Unknown User'
+        : 'Unknown User'
 
       // Get username
       const usernameElement = await authorElement.$('a[href^="/"]')
@@ -143,16 +142,15 @@ export class TweetParser {
       const avatarUrl = avatarElement ? await avatarElement.getAttribute('src') : undefined
 
       return {
-        username,
         displayName,
+        username,
         ...(avatarUrl && { avatarUrl }),
       }
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting author info:', (error as Error).message)
       return {
-        username: 'unknown',
         displayName: 'Unknown User',
+        username: 'unknown',
       }
     }
   }
@@ -179,7 +177,7 @@ export class TweetParser {
       if (likeElement) {
         const likeCountElement = await likeElement.$('span span')
         const likeCountText = likeCountElement ? await likeCountElement.textContent() : null
-        stats.likeCount = this.parseCount(likeCountText)
+        stats.likeCount = TweetParser.parseCount(likeCountText)
       }
 
       // Extract retweet count
@@ -187,7 +185,7 @@ export class TweetParser {
       if (retweetElement) {
         const retweetCountElement = await retweetElement.$('span span')
         const retweetCountText = retweetCountElement ? await retweetCountElement.textContent() : null
-        stats.retweetCount = this.parseCount(retweetCountText)
+        stats.retweetCount = TweetParser.parseCount(retweetCountText)
       }
 
       // Extract reply count
@@ -195,12 +193,11 @@ export class TweetParser {
       if (replyElement) {
         const replyCountElement = await replyElement.$('span span')
         const replyCountText = replyCountElement ? await replyCountElement.textContent() : null
-        stats.replyCount = this.parseCount(replyCountText)
+        stats.replyCount = TweetParser.parseCount(replyCountText)
       }
 
       return stats
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting tweet stats:', (error as Error).message)
       return stats
     }
@@ -224,8 +221,7 @@ export class TweetParser {
       }
 
       return mediaUrls
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting media URLs:', (error as Error).message)
       return []
     }
@@ -237,24 +233,20 @@ export class TweetParser {
    * @returns Parsed number or undefined
    */
   private static parseCount(countText: string | null): number | undefined {
-    if (!countText)
-      return undefined
+    if (!countText) return undefined
 
     try {
       countText = countText.trim()
-      if (!countText)
-        return undefined
+      if (!countText) return undefined
 
       if (countText.includes('K')) {
         return Math.round(Number.parseFloat(countText.replace('K', '')) * 1000)
-      }
-      else if (countText.includes('M')) {
+      } else if (countText.includes('M')) {
         return Math.round(Number.parseFloat(countText.replace('M', '')) * 1000000)
       }
 
       return Number.parseInt(countText, 10) || undefined
-    }
-    catch {
+    } catch {
       return undefined
     }
   }

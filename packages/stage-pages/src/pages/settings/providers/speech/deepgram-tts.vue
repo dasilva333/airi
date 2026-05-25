@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
-import {
-  SpeechPlayground,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { SpeechPlayground, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 
@@ -26,39 +22,36 @@ const availableVoices = computed(() => {
 })
 
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string>
+  const provider = (await providersStore.getProviderInstance(providerId)) as SpeechProviderWithExtraOptions<string>
   if (!provider) {
     throw new Error('Failed to initialize speech provider')
   }
 
   const providerConfig = providersStore.getProviderConfig(providerId)
 
-  const model = providerConfig.model as string | undefined || defaultModel
+  const model = (providerConfig.model as string | undefined) || defaultModel
 
-  return await speechStore.speech(
-    provider,
-    model,
-    input,
-    voiceId,
-    {
-      ...providerConfig,
-      ...defaultVoiceSettings,
-    },
-  )
+  return await speechStore.speech(provider, model, input, voiceId, {
+    ...providerConfig,
+    ...defaultVoiceSettings,
+  })
 }
 
-watch(providers, async () => {
-  const providerConfig = providersStore.getProviderConfig(providerId)
-  const providerMetadata = providersStore.getProviderMetadata(providerId)
-  if ((await providerMetadata.validators.validateProviderConfig(providerConfig)).valid) {
-    await speechStore.loadVoicesForProvider(providerId)
-  }
-  else {
-    console.error('Failed to validate provider config', providerConfig)
-  }
-}, {
-  immediate: true,
-})
+watch(
+  providers,
+  async () => {
+    const providerConfig = providersStore.getProviderConfig(providerId)
+    const providerMetadata = providersStore.getProviderMetadata(providerId)
+    if ((await providerMetadata.validators.validateProviderConfig(providerConfig)).valid) {
+      await speechStore.loadVoicesForProvider(providerId)
+    } else {
+      console.error('Failed to validate provider config', providerConfig)
+    }
+  },
+  {
+    immediate: true,
+  },
+)
 </script>
 
 <template>

@@ -5,10 +5,10 @@ import { loadEnv } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(({ mode }) => {
-  return ({
+  return {
     test: {
-      include: ['src/**/*.test.ts'],
       env: loadEnv(mode, join(cwd(), 'packages', 'vite-plugin-warpdrive'), ''),
+      include: ['src/**/*.test.ts'],
     },
-  })
+  }
 })

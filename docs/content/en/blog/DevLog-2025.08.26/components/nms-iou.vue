@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { Ref } from 'vue'
-
 import { useDraggable, useElementBounding } from '@vueuse/core'
+import type { Ref } from 'vue'
 import { computed, ref, useTemplateRef } from 'vue'
 
 interface Detection {
@@ -13,17 +12,13 @@ interface Detection {
   className: string
 }
 
-const box1 = ref<Detection>(
-  { x: 100, y: 100, width: 200, height: 200, confidence: 0.9, className: 'box_1' },
-)
+const box1 = ref<Detection>({ className: 'box_1', confidence: 0.9, height: 200, width: 200, x: 100, y: 100 })
 
-const box2 = ref<Detection>(
-  { x: 150, y: 150, width: 200, height: 200, confidence: 0.8, className: 'box_2' },
-)
+const box2 = ref<Detection>({ className: 'box_2', confidence: 0.8, height: 200, width: 200, x: 150, y: 150 })
 
 const colors = ref([
-  { labelBg: 'bg-red', border: 'border-red outline-red', bg: 'bg-red/30' },
-  { labelBg: 'bg-green', border: 'border-green outline-green', bg: 'bg-green/30' },
+  { bg: 'bg-red/30', border: 'border-red outline-red', labelBg: 'bg-red' },
+  { bg: 'bg-green/30', border: 'border-green outline-green', labelBg: 'bg-green' },
 ])
 
 const containerEl = useTemplateRef('containerEl')
@@ -33,11 +28,7 @@ const object1El = useTemplateRef('object1El')
 const object1HandleEl = useTemplateRef('object1HandleEl')
 const object2El = useTemplateRef('object2El')
 const object2HandleEl = useTemplateRef('object2HandleEl')
-function setupDraggableBox(
-  box: Ref<Detection>,
-  el: Ref<HTMLElement | null>,
-  handle: Ref<HTMLElement | null>,
-) {
+function setupDraggableBox(box: Ref<Detection>, el: Ref<HTMLElement | null>, handle: Ref<HTMLElement | null>) {
   useDraggable(el, {
     handle,
     initialValue: { x: box.value.x, y: box.value.y },
@@ -54,25 +45,20 @@ setupDraggableBox(box2, object2El, object2HandleEl)
 const isOverlapping = computed(() => {
   const b1 = box1.value
   const b2 = box2.value
-  return (
-    b1.x < b2.x + b2.width
-    && b1.x + b1.width > b2.x
-    && b1.y < b2.y + b2.height
-    && b1.y + b1.height > b2.y
-  )
+  return b1.x < b2.x + b2.width && b1.x + b1.width > b2.x && b1.y < b2.y + b2.height && b1.y + b1.height > b2.y
 })
 
 const intersect = computed(() => {
   // no overlap
   if (!isOverlapping.value) {
     return {
+      area: 0,
+      height: 0,
+      width: 0,
       xLeft: 0,
-      yTop: 0,
       xRight: 0,
       yBottom: 0,
-      width: 0,
-      height: 0,
-      area: 0,
+      yTop: 0,
     }
   }
 
@@ -85,13 +71,13 @@ const intersect = computed(() => {
   const height = yBottom - yTop
 
   return {
+    area: width * height,
+    height,
+    width,
     xLeft,
-    yTop,
     xRight,
     yBottom,
-    width,
-    height,
-    area: width * height,
+    yTop,
   }
 })
 
@@ -102,8 +88,7 @@ const union = computed(() => {
 })
 
 const iou = computed(() => {
-  if (union.value.area === 0)
-    return 0
+  if (union.value.area === 0) return 0
   return intersect.value.area / union.value.area
 })
 </script>

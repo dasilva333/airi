@@ -1,9 +1,8 @@
-import type { ModelInfo, ProviderMetadata, VoiceInfo } from './types'
-
 import { generateSpeech } from '@xsai/generate-speech'
 import { generateText } from '@xsai/generate-text'
 import { listModels } from '@xsai/model'
 import { message } from '@xsai/utils-chat'
+import type { ModelInfo, ProviderMetadata, VoiceInfo } from './types'
 
 type ProviderCreator = (apiKey: string, baseUrl: string) => any
 
@@ -14,8 +13,7 @@ function normalizeString(value: unknown): string {
 
 function normalizeBaseUrl(value: unknown): string {
   let base = normalizeString(value)
-  if (base && !base.endsWith('/'))
-    base += '/'
+  if (base && !base.endsWith('/')) base += '/'
   return base
 }
 
@@ -23,15 +21,13 @@ function shouldLog(): boolean {
   try {
     // Opt-in via localStorage to minimize I/O in production
     return typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1'
-  }
-  catch {
+  } catch {
     return false
   }
 }
 
 function logWarn(...args: unknown[]) {
-  if (shouldLog())
-    console.warn(...args)
+  if (shouldLog()) console.warn(...args)
 }
 
 export function buildOpenAICompatibleProvider(
@@ -99,12 +95,12 @@ export function buildOpenAICompatibleProvider(
 
       return models.map((model: any) => {
         return {
+          contextLength: model.context_length || 0,
+          deprecated: false,
+          description: model.description || '',
           id: model.id,
           name: model.name || model.display_name || model.id,
           provider: id,
-          description: model.description || '',
-          contextLength: model.context_length || 0,
-          deprecated: false,
         } satisfies ModelInfo
       })
     },
@@ -134,8 +130,7 @@ export function buildOpenAICompatibleProvider(
         if (new URL(baseUrl).host.length === 0) {
           errors.push(new Error('Base URL is not absolute. Check your input.'))
         }
-      }
-      catch {
+      } catch {
         errors.push(new Error('Base URL is invalid. It must be an absolute URL.'))
       }
 
@@ -145,7 +140,10 @@ export function buildOpenAICompatibleProvider(
       if (errors.length > 0) {
         return {
           errors,
-          reason: errors.filter((e): e is Error => e instanceof Error).map(e => e.message).join(', '),
+          reason: errors
+            .filter((e): e is Error => e instanceof Error)
+            .map((e) => e.message)
+            .join(', '),
           valid: false,
         }
       }
@@ -154,34 +152,31 @@ export function buildOpenAICompatibleProvider(
       const hasApiKey = Boolean(apiKey)
       // Prepare model auto-detection function for checks that need it
       const getModel = async () => {
-        let detected = (resolvedCategory === 'speech') ? 'tts-1' : 'test'
-        if (!hasApiKey)
-          return detected
+        let detected = resolvedCategory === 'speech' ? 'tts-1' : 'test'
+        if (!hasApiKey) return detected
         try {
           const models = await listModels({
             apiKey,
             baseURL: baseUrl,
             headers: additionalHeaders,
-          })
-            .then(models => models.filter((model) => {
+          }).then((models) =>
+            models.filter((model) => {
               const modelId = model.id.toLowerCase()
               if (resolvedCategory === 'speech') {
-                return modelId.includes('tts') || modelId.includes('speech') || modelId.includes('audio') || modelId.includes('kokoro')
+                return (
+                  modelId.includes('tts') ||
+                  modelId.includes('speech') ||
+                  modelId.includes('audio') ||
+                  modelId.includes('kokoro')
+                )
               }
-              return [
-                'embed',
-                'tts',
-                'audio',
-                'speech',
-                'whisper',
-                'models/gemini-2.5-pro',
-              ].every(str => !modelId.includes(str))
-            },
-            ))
-          if (models.length > 0)
-            detected = models[0].id
-        }
-        catch (e) {
+              return ['embed', 'tts', 'audio', 'speech', 'whisper', 'models/gemini-2.5-pro'].every(
+                (str) => !modelId.includes(str),
+              )
+            }),
+          )
+          if (models.length > 0) detected = models[0].id
+        } catch (e) {
           logWarn(`Model auto-detection failed: ${(e as Error).message}`)
           logWarn('Falling back to default test model for validation checks.')
           try {
@@ -192,8 +187,7 @@ export function buildOpenAICompatibleProvider(
               }
               return models[0].id
             }
-          }
-          catch (e) {
+          } catch (e) {
             logWarn(`Model auto-detection via capabilities.listModels also failed: ${(e as Error).message}`)
           }
         }
@@ -203,101 +197,100 @@ export function buildOpenAICompatibleProvider(
       // Health check = try generating content based on category
       const asyncChecks: Promise<Error | null>[] = []
       if (validationChecks.includes('health') && hasApiKey) {
-        asyncChecks.push((async () => {
-          try {
-            const model = await getModel()
-            if (resolvedCategory === 'speech') {
-              await generateSpeech({
-                apiKey,
-                baseURL: baseUrl,
-                headers: additionalHeaders,
-                model,
-                input: 'ping',
-                voice: 'alloy',
-              })
+        asyncChecks.push(
+          (async () => {
+            try {
+              const model = await getModel()
+              if (resolvedCategory === 'speech') {
+                await generateSpeech({
+                  apiKey,
+                  baseURL: baseUrl,
+                  headers: additionalHeaders,
+                  input: 'ping',
+                  model,
+                  voice: 'alloy',
+                })
+              } else {
+                await generateText({
+                  apiKey,
+                  baseURL: baseUrl,
+                  headers: additionalHeaders,
+                  max_tokens: 1,
+                  messages: message.messages(message.user('ping')),
+                  model,
+                })
+              }
+              return null
+            } catch (e) {
+              return new Error(`Health check failed: ${(e as Error).message}`)
             }
-            else {
-              await generateText({
-                apiKey,
-                baseURL: baseUrl,
-                headers: additionalHeaders,
-                model,
-                messages: message.messages(message.user('ping')),
-                max_tokens: 1,
-              })
-            }
-            return null
-          }
-          catch (e) {
-            return new Error(`Health check failed: ${(e as Error).message}`)
-          }
-        })())
+          })(),
+        )
       }
 
       // Model list validation (was: fetch(`${baseUrl}models`))
       if (validationChecks.includes('model_list') && hasApiKey) {
-        asyncChecks.push((async () => {
-          try {
-            const models = await listModels({
-              apiKey,
-              baseURL: baseUrl,
-              headers: additionalHeaders,
-            })
-            if (!models || models.length === 0) {
-              return new Error('Model list check failed: no models found')
+        asyncChecks.push(
+          (async () => {
+            try {
+              const models = await listModels({
+                apiKey,
+                baseURL: baseUrl,
+                headers: additionalHeaders,
+              })
+              if (!models || models.length === 0) {
+                return new Error('Model list check failed: no models found')
+              }
+              return null
+            } catch (e) {
+              return new Error(`Model list check failed: ${(e as Error).message}`)
             }
-            return null
-          }
-          catch (e) {
-            return new Error(`Model list check failed: ${(e as Error).message}`)
-          }
-        })())
+          })(),
+        )
       }
 
       if (asyncChecks.length > 0) {
         const results = await Promise.allSettled(asyncChecks)
         for (const r of results) {
-          if (r.status === 'fulfilled' && r.value)
-            errors.push(r.value)
-          else if (r.status === 'rejected')
-            errors.push(new Error(String(r.reason)))
+          if (r.status === 'fulfilled' && r.value) errors.push(r.value)
+          else if (r.status === 'rejected') errors.push(new Error(String(r.reason)))
         }
       }
 
       return {
         errors,
         // Consistent reason string (empty when no errors)
-        reason: errors.length > 0 ? errors.map(e => e.message).join(', ') : '',
+        reason: errors.length > 0 ? errors.map((e) => e.message).join(', ') : '',
         valid: errors.length === 0,
       }
     },
   }
 
   return {
-    id,
+    capabilities: finalCapabilities,
     category: resolvedCategory,
-    tasks: tasks || ['text-generation'],
-    nameKey,
-    name,
-    descriptionKey,
-    description,
-    icon,
-    defaultOptions: () => ({
-      baseUrl: defaultBaseUrl || '',
-    }),
-    createProvider: async (config: { apiKey: string, baseUrl: string }) => {
+    createProvider: async (config: { apiKey: string; baseUrl: string }) => {
       const apiKey = normalizeString(config.apiKey)
       const baseUrl = normalizeBaseUrl(config.baseUrl)
       return creator(apiKey, baseUrl)
     },
-    capabilities: finalCapabilities,
+    defaultOptions: () => ({
+      baseUrl: defaultBaseUrl || '',
+    }),
+    description,
+    descriptionKey,
+    icon,
+    id,
+    name,
+    nameKey,
+    tasks: tasks || ['text-generation'],
     validators: finalValidators,
     ...(resolvedCategory === 'transcription'
       ? {
           transcriptionFeatures: transcriptionFeatures ?? {
             supportsGenerate: true,
-            supportsStreamOutput: false,
             supportsStreamInput: false,
+            supportsStreamOutput: false,
           },
         }
       : {}),

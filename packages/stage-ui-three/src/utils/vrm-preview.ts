@@ -21,9 +21,9 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
   document.body.appendChild(offscreenCanvas)
 
   const renderer = new WebGLRenderer({
-    canvas: offscreenCanvas,
     alpha: true,
     antialias: true,
+    canvas: offscreenCanvas,
     preserveDrawingBuffer: true,
   })
   renderer.setSize(offscreenCanvas.width, offscreenCanvas.height, false)
@@ -31,8 +31,8 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
 
   const scene = new Scene()
   const camera = new PerspectiveCamera(40, offscreenCanvas.width / offscreenCanvas.height, 0.01, 1000)
-  const ambientLight = new AmbientLight(0xFFFFFF, 0.8)
-  const directionalLight = new DirectionalLight(0xFFFFFF, 0.8)
+  const ambientLight = new AmbientLight(0xffffff, 0.8)
+  const directionalLight = new DirectionalLight(0xffffff, 0.8)
   directionalLight.position.set(1, 1, 1)
   scene.add(ambientLight, directionalLight)
 
@@ -40,9 +40,8 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
   let vrmInstance: VRM | undefined
 
   try {
-    const vrmData = await loadVrm(objUrl, { scene, lookAt: true })
-    if (!vrmData)
-      return
+    const vrmData = await loadVrm(objUrl, { lookAt: true, scene })
+    if (!vrmData) return
 
     vrmInstance = vrmData._vrm
     const { modelCenter, initialCameraOffset } = vrmData
@@ -71,29 +70,25 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
     }
 
     // Small delay to let textures/materials settle after updates
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 200))
     renderer.render(scene, camera)
 
     const dataUrl = offscreenCanvas.toDataURL()
 
     return dataUrl
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error during VRM capture:', error)
-  }
-  finally {
+  } finally {
     renderer.dispose()
     if (vrmInstance) {
       vrmInstance.scene.traverse((child) => {
         const node = child as any
-        if (node.geometry?.dispose)
-          node.geometry.dispose()
+        if (node.geometry?.dispose) node.geometry.dispose()
 
         if (node.material) {
           const materials = Array.isArray(node.material) ? node.material : [node.material]
           for (const mat of materials) {
-            if (mat?.map?.dispose)
-              mat.map.dispose()
+            if (mat?.map?.dispose) mat.map.dispose()
             mat?.dispose?.()
           }
         }
@@ -102,7 +97,6 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
     if (typeof input !== 'string') {
       URL.revokeObjectURL(objUrl)
     }
-    if (offscreenCanvas.isConnected)
-      document.body.removeChild(offscreenCanvas)
+    if (offscreenCanvas.isConnected) document.body.removeChild(offscreenCanvas)
   }
 }

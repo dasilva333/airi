@@ -1,10 +1,8 @@
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import type { MMD } from '@moeru/three-mmd'
-import type { Ref } from 'vue'
-import type { Profile } from 'wlipsync'
-
 import { useAsyncState } from '@vueuse/core'
+import type { Ref } from 'vue'
 import { onUnmounted, watch } from 'vue'
+import type { Profile } from 'wlipsync'
 import { createWLipSyncNode } from 'wlipsync'
 
 import profile from '../../assets/lip-sync-profile.json' with { type: 'json' }
@@ -38,13 +36,13 @@ const MMD_LIP_MORPH_MAP_EN: Record<string, string> = {
 type LipKey = 'A' | 'E' | 'I' | 'O' | 'U'
 const LIP_KEYS: LipKey[] = ['A', 'E', 'I', 'O', 'U']
 const RAW_KEYS = ['A', 'E', 'I', 'O', 'U', 'S'] as const
-const RAW_TO_LIP: Record<typeof RAW_KEYS[number], LipKey> = {
+const RAW_TO_LIP: Record<(typeof RAW_KEYS)[number], LipKey> = {
   A: 'A',
   E: 'E',
   I: 'I',
   O: 'O',
-  U: 'U',
   S: 'I',
+  U: 'U',
 }
 
 /**
@@ -69,49 +67,45 @@ export function useMMDLipSync(audioContext: AudioContext, audioNode: Ref<AudioBu
   const IDLE_MS = 160
   let lastActiveAt = 0
 
-  watch([isReady, audioNode], ([ready, newAudioNode], [, oldAudioNode]) => {
-    if (oldAudioNode && oldAudioNode !== newAudioNode) {
-      try {
-        oldAudioNode.disconnect()
+  watch(
+    [isReady, audioNode],
+    ([ready, newAudioNode], [, oldAudioNode]) => {
+      if (oldAudioNode && oldAudioNode !== newAudioNode) {
+        try {
+          oldAudioNode.disconnect()
+        } catch {}
       }
-      catch {}
-    }
-    if (!ready || !newAudioNode || !lipSyncNode.value)
-      return
-    try {
-      newAudioNode.connect(lipSyncNode.value)
-    }
-    catch {}
-  }, { immediate: true })
+      if (!ready || !newAudioNode || !lipSyncNode.value) return
+      try {
+        newAudioNode.connect(lipSyncNode.value)
+      } catch {}
+    },
+    { immediate: true },
+  )
 
   onUnmounted(() => {
     try {
       audioNode.value?.disconnect()
-    }
-    catch {}
+    } catch {}
   })
 
   function resolveMorphIndex(mmd: MMD, lipKey: LipKey): number | undefined {
     const dict = mmd.mesh.morphTargetDictionary
-    if (!dict)
-      return undefined
+    if (!dict) return undefined
 
     // Try Japanese name first, then English fallback
     const jpName = MMD_LIP_MORPH_MAP[lipKey]
-    if (jpName && dict[jpName] != null)
-      return dict[jpName]
+    if (jpName && dict[jpName] != null) return dict[jpName]
 
     const enName = MMD_LIP_MORPH_MAP_EN[lipKey]
-    if (enName && dict[enName] != null)
-      return dict[enName]
+    if (enName && dict[enName] != null) return dict[enName]
 
     return undefined
   }
 
   function update(mmd?: MMD, delta = 0.016) {
     const node = lipSyncNode.value
-    if (!mmd?.mesh.morphTargetInfluences || !node)
-      return
+    if (!mmd?.mesh.morphTargetInfluences || !node) return
 
     const vol = node.volume ?? 0
     const amp = Math.min(vol * 0.9, 1) ** 0.7
@@ -135,8 +129,7 @@ export function useMMDLipSync(audioContext: AudioContext, audioNode: Ref<AudioBu
         runner = winner
         winnerVal = val
         winner = key
-      }
-      else if (val > runnerVal) {
+      } else if (val > runnerVal) {
         runnerVal = val
         runner = key
       }
@@ -144,10 +137,8 @@ export function useMMDLipSync(audioContext: AudioContext, audioNode: Ref<AudioBu
 
     const now = performance.now()
     let silent = amp < SILENCE_VOL || winnerVal < SILENCE_GAIN
-    if (!silent)
-      lastActiveAt = now
-    if (now - lastActiveAt > IDLE_MS)
-      silent = true
+    if (!silent) lastActiveAt = now
+    if (now - lastActiveAt > IDLE_MS) silent = true
 
     const target: Record<LipKey, number> = { A: 0, E: 0, I: 0, O: 0, U: 0 }
     if (!silent) {

@@ -10,8 +10,8 @@ export function isStandalone() {
     return false
   }
 
-  const mediaStandalone = ('matchMedia' in window) && window.matchMedia('(display-mode: standalone)').matches
-  const navigatorStandalone = ('navigator' in window && 'standalone' in window.navigator && window.navigator.standalone)
+  const mediaStandalone = 'matchMedia' in window && window.matchMedia('(display-mode: standalone)').matches
+  const navigatorStandalone = 'navigator' in window && 'standalone' in window.navigator && window.navigator.standalone
   const referrerStandalone = document.referrer.includes('android-app://')
 
   return mediaStandalone || navigatorStandalone || referrerStandalone

@@ -4,8 +4,22 @@ import { computed, ref, watch } from 'vue'
 
 import { useProvidersStore } from './providers'
 
-const essentialProviderIds = ['openai', 'anthropic', 'google-generative-ai', 'openrouter-ai', 'ollama', 'deepseek', 'openai-compatible'] as const
-const credentialBasedEssentialProviderIds = ['openai', 'anthropic', 'google-generative-ai', 'openrouter-ai', 'deepseek'] as const
+const essentialProviderIds = [
+  'openai',
+  'anthropic',
+  'google-generative-ai',
+  'openrouter-ai',
+  'ollama',
+  'deepseek',
+  'openai-compatible',
+] as const
+const credentialBasedEssentialProviderIds = [
+  'openai',
+  'anthropic',
+  'google-generative-ai',
+  'openrouter-ai',
+  'deepseek',
+] as const
 
 function hasNonEmptyText(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0
@@ -23,7 +37,7 @@ export const useOnboardingStore = defineStore('onboarding', () => {
 
   // Check if any essential provider is configured
   const hasEssentialProviderConfigured = computed(() => {
-    return essentialProviderIds.some(providerId => providersStore.configuredProviders[providerId])
+    return essentialProviderIds.some((providerId) => providersStore.configuredProviders[providerId])
   })
 
   // Fallback for app startup timing:
@@ -77,16 +91,16 @@ export const useOnboardingStore = defineStore('onboarding', () => {
   }
 
   return {
+    forceShowSetup,
     hasCompletedSetup,
-    hasSkippedSetup,
-    showingSetup,
     hasEssentialProviderConfigured,
     hasEssentialProviderCredentialConfigured,
-    needsOnboarding,
+    hasSkippedSetup,
 
     markSetupCompleted,
     markSetupSkipped,
+    needsOnboarding,
     resetSetupState,
-    forceShowSetup,
+    showingSetup,
   }
 })

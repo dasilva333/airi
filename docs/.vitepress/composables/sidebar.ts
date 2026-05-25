@@ -1,18 +1,8 @@
-import type { DefaultTheme } from 'vitepress/theme'
-import type { ComputedRef, Ref } from 'vue'
-
 import { useEventListener } from '@vueuse/core'
 import { useData, withBase } from 'vitepress'
-import {
-  computed,
-
-  onMounted,
-
-  ref,
-  watch,
-  watchEffect,
-  watchPostEffect,
-} from 'vue'
+import type { DefaultTheme } from 'vitepress/theme'
+import type { ComputedRef, Ref } from 'vue'
+import { computed, onMounted, ref, watch, watchEffect, watchPostEffect } from 'vue'
 
 export interface SidebarControl {
   collapsed: Ref<boolean>
@@ -30,16 +20,11 @@ export interface SidebarItem extends DefaultTheme.SidebarItem {}
  * a11y: cache the element that opened the Sidebar (the menu button) then
  * focus that button again when Menu is closed with Escape key.
  */
-export function useCloseSidebarOnEscape(
-  isOpen: Ref<boolean>,
-  close: () => void,
-) {
+export function useCloseSidebarOnEscape(isOpen: Ref<boolean>, close: () => void) {
   let triggerElement: HTMLButtonElement | undefined
 
   watchEffect(() => {
-    triggerElement = isOpen.value
-      ? (document.activeElement as HTMLButtonElement)
-      : undefined
+    triggerElement = isOpen.value ? (document.activeElement as HTMLButtonElement) : undefined
   })
 
   useEventListener('keyup', onEscape)
@@ -52,9 +37,7 @@ export function useCloseSidebarOnEscape(
   }
 }
 
-export function useSidebarControl(
-  item: ComputedRef<DefaultTheme.SidebarItem>,
-): SidebarControl {
+export function useSidebarControl(item: ComputedRef<DefaultTheme.SidebarItem>): SidebarControl {
   const { page, hash } = useData()
 
   const collapsed = ref(false)
@@ -76,12 +59,9 @@ export function useSidebarControl(
   onMounted(updateIsActiveLink)
 
   const hasActiveLink = computed(() => {
-    if (isActiveLink.value)
-      return true
+    if (isActiveLink.value) return true
 
-    return item.value.items
-      ? containsActiveLink(withBase(`/${page.value.relativePath}`), item.value.items)
-      : false
+    return item.value.items ? containsActiveLink(withBase(`/${page.value.relativePath}`), item.value.items) : false
   })
 
   const hasChildren = computed(() => {
@@ -93,8 +73,7 @@ export function useSidebarControl(
   })
 
   watchPostEffect(() => {
-    if (isActiveLink.value || hasActiveLink.value)
-      collapsed.value = false
+    if (isActiveLink.value || hasActiveLink.value) collapsed.value = false
   })
 
   function toggle() {
@@ -106,10 +85,10 @@ export function useSidebarControl(
   return {
     collapsed,
     collapsible,
-    isLink,
-    isActiveLink,
     hasActiveLink,
     hasChildren,
+    isActiveLink,
+    isLink,
     toggle,
   }
 }
@@ -121,19 +100,14 @@ const HASH_RE = /#.*$/
 const HASH_OR_QUERY_RE = /[?#].*$/
 const INDEX_OR_EXT_RE = /(?:(^|\/)index)?\.(?:md|html)$/
 
-export function isActive(
-  currentPath: string,
-  matchPath?: string,
-  asRegex: boolean = false,
-): boolean {
+export function isActive(currentPath: string, matchPath?: string, asRegex: boolean = false): boolean {
   if (matchPath === undefined) {
     return false
   }
 
   if (currentPath.startsWith('/')) {
     currentPath = normalize(`${currentPath}`)
-  }
-  else {
+  } else {
     currentPath = normalize(`/${currentPath}`)
   }
 
@@ -155,25 +129,16 @@ export function isActive(
 }
 
 function normalize(path: string): string {
-  return decodeURI(path)
-    .replace(HASH_OR_QUERY_RE, '')
-    .replace(INDEX_OR_EXT_RE, '$1')
+  return decodeURI(path).replace(HASH_OR_QUERY_RE, '').replace(INDEX_OR_EXT_RE, '$1')
 }
 
 // From https://github.com/vuejs/vitepress/blob/97f9469b6d4eb7ba9de9a1111986581d1f704ec3/src/client/theme-default/support/sidebar.ts
-function containsActiveLink(
-  path: string,
-  items: any | any[],
-): boolean {
+function containsActiveLink(path: string, items: any | any[]): boolean {
   if (Array.isArray(items)) {
-    return items.some(item => containsActiveLink(path, item))
+    return items.some((item) => containsActiveLink(path, item))
   }
 
-  return isActive(path, items.link)
-    ? true
-    : items.items
-      ? containsActiveLink(path, items.items)
-      : false
+  return isActive(path, items.link) ? true : items.items ? containsActiveLink(path, items.items) : false
 }
 
 // From https://github.com/vuejs/vitepress/blob/fa81e89643523170047ca2c9a690f4d7adf4ffdc/src/client/theme-default/support/sidebar.ts
@@ -193,14 +158,9 @@ function ensureStartingSlash(path: string): string {
  * as matching `guide/` and `/guide/`. If no matching config was found, it will
  * return empty array.
  */
-export function getSidebar(
-  sidebar: DefaultTheme.Sidebar | undefined,
-  path: string,
-): SidebarItem[] {
-  if (Array.isArray(sidebar))
-    return addBase(sidebar)
-  if (sidebar == null)
-    return []
+export function getSidebar(sidebar: DefaultTheme.Sidebar | undefined, path: string): SidebarItem[] {
+  if (Array.isArray(sidebar)) return addBase(sidebar)
+  if (sidebar == null) return []
 
   path = ensureStartingSlash(path)
 
@@ -214,9 +174,7 @@ export function getSidebar(
     })
 
   const sidebarDir = dir ? sidebar[dir]! : []
-  return Array.isArray(sidebarDir)
-    ? addBase(sidebarDir)
-    : addBase(sidebarDir.items, sidebarDir.base)
+  return Array.isArray(sidebarDir) ? addBase(sidebarDir) : addBase(sidebarDir.items, sidebarDir.base)
 }
 
 /**
@@ -252,9 +210,9 @@ export function getFlatSideBarLinks(sidebar: SidebarItem[]): SidebarLink[] {
     for (const item of items) {
       if (item.text && item.link) {
         links.push({
-          text: item.text,
-          link: item.link,
           docFooterText: item.docFooterText,
+          link: item.link,
+          text: item.text,
         })
       }
 
@@ -272,29 +230,20 @@ export function getFlatSideBarLinks(sidebar: SidebarItem[]): SidebarLink[] {
 /**
  * Check if the given sidebar item contains any active link.
  */
-export function hasActiveLink(
-  path: string,
-  items: SidebarItem | SidebarItem[],
-): boolean {
+export function hasActiveLink(path: string, items: SidebarItem | SidebarItem[]): boolean {
   if (Array.isArray(items)) {
-    return items.some(item => hasActiveLink(path, item))
+    return items.some((item) => hasActiveLink(path, item))
   }
 
-  return isActive(path, items.link)
-    ? true
-    : items.items
-      ? hasActiveLink(path, items.items)
-      : false
+  return isActive(path, items.link) ? true : items.items ? hasActiveLink(path, items.items) : false
 }
 
 function addBase(items: SidebarItem[], _base?: string): SidebarItem[] {
   return [...items].map((_item) => {
     const item = { ..._item }
     const base = item.base || _base
-    if (base && item.link)
-      item.link = base + item.link
-    if (item.items)
-      item.items = addBase(item.items, base)
+    if (base && item.link) item.link = base + item.link
+    if (item.items) item.items = addBase(item.items, base)
     return item
   })
 }

@@ -1,46 +1,46 @@
 {
   "languages": {
-    "TypeScript": {
-      "formatter": [],
-      "format_on_save": "on",
-      "code_actions_on_format": {
-        "source.fixAll.eslint": true
-      }
-    },
     "JavaScript": {
-      "formatter": [],
-      "format_on_save": "on",
       "code_actions_on_format": {
         "source.fixAll.eslint": true
-      }
-    },
-    "Vue.js": {
-      "formatter": [],
+      },
       "format_on_save": "on",
-      "code_actions_on_format": {
-        "source.fixAll.eslint": true
-      }
+      "formatter": []
     },
     "JSON": {
-      "formatter": [],
-      "format_on_save": "on",
       "code_actions_on_format": {
         "source.fixAll.eslint": true
-      }
-    },
-    "YAML": {
-      "formatter": [],
+      },
       "format_on_save": "on",
-      "code_actions_on_format": {
-        "source.fixAll.eslint": true
-      }
+      "formatter": []
     },
     "TOML": {
-      "formatter": [],
-      "format_on_save": "on",
       "code_actions_on_format": {
         "source.fixAll.eslint": true
-      }
+      },
+      "format_on_save": "on",
+      "formatter": []
+    },
+    "TypeScript": {
+      "code_actions_on_format": {
+        "source.fixAll.eslint": true
+      },
+      "format_on_save": "on",
+      "formatter": []
+    },
+    "Vue.js": {
+      "code_actions_on_format": {
+        "source.fixAll.eslint": true
+      },
+      "format_on_save": "on",
+      "formatter": []
+    },
+    "YAML": {
+      "code_actions_on_format": {
+        "source.fixAll.eslint": true
+      },
+      "format_on_save": "on",
+      "formatter": []
     }
   },
   "lsp": {
@@ -48,16 +48,16 @@
       "settings": {
         "rulesCustomizations": [
           // set all eslint errors/warnings to show as warnings
-          { "rule": "style/*", "severity": "off", "fixable": true },
-          { "rule": "format/*", "severity": "off", "fixable": true },
-          { "rule": "*-indent", "severity": "off", "fixable": true },
-          { "rule": "*-spacing", "severity": "off", "fixable": true },
-          { "rule": "*-spaces", "severity": "off", "fixable": true },
-          { "rule": "*-order", "severity": "off", "fixable": true },
-          { "rule": "*-dangle", "severity": "off", "fixable": true },
-          { "rule": "*-newline", "severity": "off", "fixable": true },
-          { "rule": "*quotes", "severity": "off", "fixable": true },
-          { "rule": "*semi", "severity": "off", "fixable": true }
+          { "fixable": true, "rule": "style/*", "severity": "off" },
+          { "fixable": true, "rule": "format/*", "severity": "off" },
+          { "fixable": true, "rule": "*-indent", "severity": "off" },
+          { "fixable": true, "rule": "*-spacing", "severity": "off" },
+          { "fixable": true, "rule": "*-spaces", "severity": "off" },
+          { "fixable": true, "rule": "*-order", "severity": "off" },
+          { "fixable": true, "rule": "*-dangle", "severity": "off" },
+          { "fixable": true, "rule": "*-newline", "severity": "off" },
+          { "fixable": true, "rule": "*quotes", "severity": "off" },
+          { "fixable": true, "rule": "*semi", "severity": "off" }
         ]
       }
     }

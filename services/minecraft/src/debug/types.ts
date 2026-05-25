@@ -4,9 +4,8 @@
 // Server -> Client events
 // ============================================================
 
-import type { ReflexContextState } from '../cognitive/reflex/context'
-
 import { z } from 'zod'
+import type { ReflexContextState } from '../cognitive/reflex/context'
 
 export interface LogEvent {
   level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'
@@ -47,12 +46,12 @@ export interface QueueEvent {
   queue: Array<{
     type: string
     payload: unknown
-    source?: { type: string, id: string }
+    source?: { type: string; id: string }
   }>
   processing?: {
     type: string
     payload: unknown
-    source?: { type: string, id: string }
+    source?: { type: string; id: string }
   }
   timestamp: number
 }
@@ -112,7 +111,7 @@ export interface ContextBoundaryInfo {
  * Live conversation state update from the brain
  */
 export interface ConversationUpdateEvent {
-  messages: Array<{ role: string, content: string, reasoning?: string }>
+  messages: Array<{ role: string; content: string; reasoning?: string }>
   isProcessing: boolean
   sessionBoundary?: boolean
   /** Active context boundary state */
@@ -195,22 +194,22 @@ export interface ReplExecutionResultEvent {
 
 // ... (previous events)
 
-export type ServerEvent
-  = | { type: 'log', payload: LogEvent }
-    | { type: 'llm', payload: LLMTraceEvent }
-    | { type: 'blackboard', payload: BlackboardEvent }
-    | { type: 'queue', payload: QueueEvent }
-    | { type: 'reflex', payload: ReflexStateEvent }
-    | { type: 'trace', payload: TraceEvent }
-    | { type: 'trace_batch', payload: TraceBatchEvent }
-    | { type: 'history', payload: ServerEvent[] }
-    | { type: 'pong', payload: { timestamp: number } }
-    | { type: 'debug:tools_list', payload: { tools: ToolDefinition[] } }
-    | { type: 'debug:tool_result', payload: ToolExecutionResultEvent }
-    | { type: 'debug:repl_state', payload: ReplStateEvent }
-    | { type: 'debug:repl_result', payload: ReplExecutionResultEvent }
-    | { type: 'brain_state', payload: BrainStateEvent }
-    | { type: 'conversation_update', payload: ConversationUpdateEvent }
+export type ServerEvent =
+  | { type: 'log'; payload: LogEvent }
+  | { type: 'llm'; payload: LLMTraceEvent }
+  | { type: 'blackboard'; payload: BlackboardEvent }
+  | { type: 'queue'; payload: QueueEvent }
+  | { type: 'reflex'; payload: ReflexStateEvent }
+  | { type: 'trace'; payload: TraceEvent }
+  | { type: 'trace_batch'; payload: TraceBatchEvent }
+  | { type: 'history'; payload: ServerEvent[] }
+  | { type: 'pong'; payload: { timestamp: number } }
+  | { type: 'debug:tools_list'; payload: { tools: ToolDefinition[] } }
+  | { type: 'debug:tool_result'; payload: ToolExecutionResultEvent }
+  | { type: 'debug:repl_state'; payload: ReplStateEvent }
+  | { type: 'debug:repl_result'; payload: ReplExecutionResultEvent }
+  | { type: 'brain_state'; payload: BrainStateEvent }
+  | { type: 'conversation_update'; payload: ConversationUpdateEvent }
 
 // ============================================================
 // Client -> Server commands
@@ -234,17 +233,14 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 export const jsonObjectSchema = z.record(z.string(), jsonValueSchema)
 
-export const debugEventCategorySchema = z.enum([
-  'perception',
-  'feedback',
-  'system_alert',
-  'world_update',
-])
+export const debugEventCategorySchema = z.enum(['perception', 'feedback', 'system_alert', 'world_update'])
 
-export const debugEventSourceSchema = z.object({
-  type: z.enum(['minecraft', 'airi', 'system']),
-  id: nonEmptyStringSchema,
-}).strict()
+export const debugEventSourceSchema = z
+  .object({
+    id: nonEmptyStringSchema,
+    type: z.enum(['minecraft', 'airi', 'system']),
+  })
+  .strict()
 
 export const perceptionSignalTypeSchema = z.enum([
   'chat_message',
@@ -256,87 +252,123 @@ export const perceptionSignalTypeSchema = z.enum([
   'system_message',
 ])
 
-export const perceptionSignalSchema = z.object({
-  type: perceptionSignalTypeSchema,
-  description: nonEmptyStringSchema,
-  sourceId: nonEmptyStringSchema.optional(),
-  confidence: z.number().min(0).max(1).optional(),
-  timestamp: timestampSchema,
-  metadata: jsonObjectSchema,
-}).strict()
+export const perceptionSignalSchema = z
+  .object({
+    confidence: z.number().min(0).max(1).optional(),
+    description: nonEmptyStringSchema,
+    metadata: jsonObjectSchema,
+    sourceId: nonEmptyStringSchema.optional(),
+    timestamp: timestampSchema,
+    type: perceptionSignalTypeSchema,
+  })
+  .strict()
 
 export const debugInjectEventSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('perception'),
-    payload: perceptionSignalSchema,
-    source: debugEventSourceSchema,
-  }).strict(),
-  z.object({
-    type: z.literal('feedback'),
-    payload: jsonObjectSchema,
-    source: debugEventSourceSchema,
-  }).strict(),
-  z.object({
-    type: z.literal('system_alert'),
-    payload: jsonObjectSchema,
-    source: debugEventSourceSchema,
-  }).strict(),
+  z
+    .object({
+      payload: perceptionSignalSchema,
+      source: debugEventSourceSchema,
+      type: z.literal('perception'),
+    })
+    .strict(),
+  z
+    .object({
+      payload: jsonObjectSchema,
+      source: debugEventSourceSchema,
+      type: z.literal('feedback'),
+    })
+    .strict(),
+  z
+    .object({
+      payload: jsonObjectSchema,
+      source: debugEventSourceSchema,
+      type: z.literal('system_alert'),
+    })
+    .strict(),
 ])
 
-export const clearLogsCommandSchema = z.object({
-  type: z.literal('clear_logs'),
-}).strict()
+export const clearLogsCommandSchema = z
+  .object({
+    type: z.literal('clear_logs'),
+  })
+  .strict()
 
-export const setFilterCommandSchema = z.object({
-  type: z.literal('set_filter'),
-  payload: z.object({
-    panel: nonEmptyStringSchema,
-    filter: z.string(),
-  }).strict(),
-}).strict()
+export const setFilterCommandSchema = z
+  .object({
+    payload: z
+      .object({
+        filter: z.string(),
+        panel: nonEmptyStringSchema,
+      })
+      .strict(),
+    type: z.literal('set_filter'),
+  })
+  .strict()
 
-export const injectEventCommandSchema = z.object({
-  type: z.literal('inject_event'),
-  payload: debugInjectEventSchema,
-}).strict()
+export const injectEventCommandSchema = z
+  .object({
+    payload: debugInjectEventSchema,
+    type: z.literal('inject_event'),
+  })
+  .strict()
 
-export const pingCommandSchema = z.object({
-  type: z.literal('ping'),
-  payload: z.object({
-    timestamp: timestampSchema,
-  }).strict(),
-}).strict()
+export const pingCommandSchema = z
+  .object({
+    payload: z
+      .object({
+        timestamp: timestampSchema,
+      })
+      .strict(),
+    type: z.literal('ping'),
+  })
+  .strict()
 
-export const requestHistoryCommandSchema = z.object({
-  type: z.literal('request_history'),
-}).strict()
+export const requestHistoryCommandSchema = z
+  .object({
+    type: z.literal('request_history'),
+  })
+  .strict()
 
-export const executeToolCommandSchema = z.object({
-  type: z.literal('execute_tool'),
-  payload: z.object({
-    toolName: nonEmptyStringSchema,
-    params: jsonObjectSchema,
-  }).strict(),
-}).strict()
+export const executeToolCommandSchema = z
+  .object({
+    payload: z
+      .object({
+        params: jsonObjectSchema,
+        toolName: nonEmptyStringSchema,
+      })
+      .strict(),
+    type: z.literal('execute_tool'),
+  })
+  .strict()
 
-export const requestToolsCommandSchema = z.object({
-  type: z.literal('request_tools'),
-}).strict()
+export const requestToolsCommandSchema = z
+  .object({
+    type: z.literal('request_tools'),
+  })
+  .strict()
 
-export const requestReplStateCommandSchema = z.object({
-  type: z.literal('request_repl_state'),
-}).strict()
+export const requestReplStateCommandSchema = z
+  .object({
+    type: z.literal('request_repl_state'),
+  })
+  .strict()
 
-export const requestConversationCommandSchema = z.object({
-  type: z.literal('request_conversation'),
-}).strict()
+export const requestConversationCommandSchema = z
+  .object({
+    type: z.literal('request_conversation'),
+  })
+  .strict()
 
-export const executeReplCommandSchema = z.object({
-  type: z.literal('execute_repl'),
-  payload: z.object({
-    code: z.string(),
-  }).strict(),
-}).strict()
+export const executeReplCommandSchema = z
+  .object({
+    payload: z
+      .object({
+        code: z.string(),
+      })
+      .strict(),
+    type: z.literal('execute_repl'),
+  })
+  .strict()
 
 export const clientCommandSchema = z.discriminatedUnion('type', [
   clearLogsCommandSchema,
@@ -374,11 +406,13 @@ export interface DebugMessage<T = ServerEvent | ClientCommand> {
   timestamp: number
 }
 
-export const debugClientMessageSchema = z.object({
-  id: nonEmptyStringSchema,
-  data: clientCommandSchema,
-  timestamp: timestampSchema,
-}).strict()
+export const debugClientMessageSchema = z
+  .object({
+    data: clientCommandSchema,
+    id: nonEmptyStringSchema,
+    timestamp: timestampSchema,
+  })
+  .strict()
 
 export type DebugClientMessage = z.infer<typeof debugClientMessageSchema>
 

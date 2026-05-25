@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
+import { useSpine } from '@proj-airi/stage-ui-spine'
 import { Button, FieldRange, Select, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -11,26 +11,23 @@ import { useSettingsSpine } from '../../../../stores/settings/spine'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
 
-const props = withDefaults(defineProps<{
-  palette: string[]
-  allowExtractColors?: boolean
-  modelId?: string
-}>(), {
-  allowExtractColors: true,
-})
+const props = withDefaults(
+  defineProps<{
+    palette: string[]
+    allowExtractColors?: boolean
+    modelId?: string
+  }>(),
+  {
+    allowExtractColors: true,
+  },
+)
 
-defineEmits<{
-  (e: 'extractColorsFromModel'): void
-}>()
+defineEmits<(e: 'extractColorsFromModel') => void>()
 
 const { t } = useI18n()
 
 const settingsSpine = useSettingsSpine()
-const {
-  spineDefaultMixDuration,
-  spineMaxFps,
-  spineRenderScale,
-} = storeToRefs(settingsSpine)
+const { spineDefaultMixDuration, spineMaxFps, spineRenderScale } = storeToRefs(settingsSpine)
 
 const { stageModelSelected } = storeToRefs(useSettings())
 const positioningStore = usePositioningStore()
@@ -77,11 +74,13 @@ const positionY = computed({
 // canExtractColors removed as it is unused in Phase 1
 const hasMultipleVariants = computed(() => availableVariants.value.length > 1)
 
-const variantOptions = computed(() => availableVariants.value.map(v => ({
-  label: v.name,
-  value: v.name,
-  description: '',
-})))
+const variantOptions = computed(() =>
+  availableVariants.value.map((v) => ({
+    description: '',
+    label: v.name,
+    value: v.name,
+  })),
+)
 
 /* const animationOptions = computed(() => availableAnimations.value.map(animation => ({
   label: animation.name,
@@ -89,27 +88,27 @@ const variantOptions = computed(() => availableVariants.value.map(v => ({
   description: `${animation.duration.toFixed(2)}s`,
 }))) */
 
-const skinOptions = computed(() => availableSkins.value.map(skin => ({
-  label: skin.name,
-  value: skin.name,
-  description: '',
-})))
+const skinOptions = computed(() =>
+  availableSkins.value.map((skin) => ({
+    description: '',
+    label: skin.name,
+    value: skin.name,
+  })),
+)
 
 const fpsOptions = computed(() => [
-  { value: 0, label: t('settings.spine.fps.options.unlimited') },
-  { value: 60, label: '60' },
-  { value: 30, label: '30' },
+  { label: t('settings.spine.fps.options.unlimited'), value: 0 },
+  { label: '60', value: 60 },
+  { label: '30', value: 30 },
 ])
 
 function handleVariantSelect(variantName: string | number | undefined) {
-  if (typeof variantName !== 'string')
-    return
+  if (typeof variantName !== 'string') return
   currentVariant.value = variantName
 }
 
 function handleSkinSelect(skinName: string | number | undefined) {
-  if (typeof skinName !== 'string')
-    return
+  if (typeof skinName !== 'string') return
   currentSkin.value = skinName
 }
 
@@ -132,8 +131,7 @@ function handleAnimationSelect(animationName: string | number | undefined) {
     currentAnimation.value = { ...currentAnimation.value, name: '' }
     return
   }
-  if (typeof animationName !== 'string')
-    return
+  if (typeof animationName !== 'string') return
   currentAnimation.value = { ...currentAnimation.value, name: animationName }
 }
 
@@ -168,9 +166,8 @@ const filteredAnimations = computed(() => {
 
 function toggleVisibility(name: string) {
   if (hiddenAnimations.value.includes(name)) {
-    hiddenAnimations.value = hiddenAnimations.value.filter(p => p !== name)
-  }
-  else {
+    hiddenAnimations.value = hiddenAnimations.value.filter((p) => p !== name)
+  } else {
     hiddenAnimations.value = [...hiddenAnimations.value, name]
   }
 }
@@ -185,8 +182,7 @@ function saveAnimationName(name: string) {
     const updated = { ...animationMappings.value }
     delete updated[name]
     animationMappings.value = updated
-  }
-  else {
+  } else {
     animationMappings.value = { ...animationMappings.value, [name]: editingAnimationValue.value.trim() }
   }
   editingAnimationKey.value = null
@@ -201,15 +197,19 @@ function cancelEditing() {
 const showRenamedOnlyForOverlays = ref(false)
 
 // Watch for changes in animationMappings to set the default
-watch(animationMappings, (mappings) => {
-  if (Object.keys(mappings).length > 0) {
-    showRenamedOnlyForOverlays.value = true
-  }
-}, { immediate: true })
+watch(
+  animationMappings,
+  (mappings) => {
+    if (Object.keys(mappings).length > 0) {
+      showRenamedOnlyForOverlays.value = true
+    }
+  },
+  { immediate: true },
+)
 
 const filteredOverlays = computed(() => {
   if (showRenamedOnlyForOverlays.value) {
-    return availableAnimations.value.filter(anim => animationMappings.value[anim.name])
+    return availableAnimations.value.filter((anim) => animationMappings.value[anim.name])
   }
   return availableAnimations.value
 })

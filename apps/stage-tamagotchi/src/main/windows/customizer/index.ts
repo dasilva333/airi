@@ -1,34 +1,29 @@
-import type { BrowserWindowConstructorOptions } from 'electron'
-
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-
 import { join, resolve } from 'node:path'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { BrowserWindowConstructorOptions } from 'electron'
 import { BrowserWindow as ElectronBrowserWindow, ipcMain, shell } from 'electron'
 import { isMacOS } from 'std-env'
-
 import icon from '../../../../resources/icon.png?asset'
-
 import { electronCustomizerToggleVisibility, electronGetCustomizerWindowState } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createReusableWindow } from '../../libs/electron/window-manager'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
 
 function createCustomizerWindow(options?: BrowserWindowConstructorOptions) {
   const window = new ElectronBrowserWindow({
-    title: 'Customizer',
-    width: 780,
     height: 620,
-    show: false,
     icon,
+    show: false,
+    title: 'Customizer',
+    type: 'panel',
     webPreferences: {
       preload: join(getElectronMainDirname(), '../preload/index.cjs'),
       sandbox: true,
     },
-    type: 'panel',
+    width: 780,
     ...transparentWindowConfig(),
     ...options,
   })
@@ -61,8 +56,7 @@ export function setupCustomizerWindowManager(params: {
     for (const listener of visibilityListeners) {
       try {
         listener()
-      }
-      catch {}
+      } catch {}
     }
   }
 
@@ -72,7 +66,7 @@ export function setupCustomizerWindowManager(params: {
     currentWindow = window
     const { context } = createContext(ipcMain, window)
 
-    await setupBaseWindowElectronInvokes({ context, window, serverChannel: params.serverChannel, i18n: params.i18n })
+    await setupBaseWindowElectronInvokes({ context, i18n: params.i18n, serverChannel: params.serverChannel, window })
 
     window.on('show', () => {
       emitVisibilityChanged()
@@ -109,15 +103,14 @@ export function setupCustomizerWindowManager(params: {
     return Boolean(currentWindow && !currentWindow.isDestroyed() && currentWindow.isVisible())
   }
 
-  async function toggleVisibility(payload?: boolean | { enabled?: boolean, group?: string }) {
+  async function toggleVisibility(payload?: boolean | { enabled?: boolean; group?: string }) {
     const enabled = typeof payload === 'object' ? payload.enabled : payload
     const group = typeof payload === 'object' ? payload.group : undefined
 
     if (enabled === undefined) {
       if (isVisible()) {
         currentWindow?.hide()
-      }
-      else {
+      } else {
         const window = await reusable.getWindow()
         if (window.isMinimized()) {
           window.restore()
@@ -125,16 +118,14 @@ export function setupCustomizerWindowManager(params: {
         window.show()
         window.focus()
       }
-    }
-    else if (enabled) {
+    } else if (enabled) {
       const window = await reusable.getWindow()
       if (window.isMinimized()) {
         window.restore()
       }
       window.show()
       window.focus()
-    }
-    else {
+    } else {
       currentWindow?.hide()
     }
 
@@ -155,13 +146,13 @@ export function setupCustomizerWindowManager(params: {
   return {
     getWindow: reusable.getWindow,
     isVisible,
-    toggleVisibility,
     onVisibilityChanged: (listener: () => void) => {
       visibilityListeners.add(listener)
       return () => {
         visibilityListeners.delete(listener)
       }
     },
+    toggleVisibility,
   }
 }
 

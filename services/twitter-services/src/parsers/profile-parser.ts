@@ -19,17 +19,16 @@ export class ProfileParser {
     try {
       // Extract basic profile info
       const displayNameElement = await page.$(SELECTORS.PROFILE.DISPLAY_NAME)
-      const displayName = await displayNameElement?.textContent() || 'Unknown User'
+      const displayName = (await displayNameElement?.textContent()) || 'Unknown User'
 
       // Get username from URL or profile elements
       let username = ''
       const url = page.url()
-      const urlUsername = this.extractUsernameFromUrl(url)
+      const urlUsername = ProfileParser.extractUsernameFromUrl(url)
 
       if (urlUsername) {
         username = urlUsername
-      }
-      else {
+      } else {
         // Try to find username in the DOM
         const usernameElement = await page.$('[data-testid="UserName"] span:has-text("@")')
         const usernameText = await usernameElement?.textContent()
@@ -41,53 +40,44 @@ export class ProfileParser {
       const bio = await bioElement?.textContent()
 
       // Get profile images
-      const avatarUrl = await this.extractAvatarUrl(page)
-      const bannerUrl = await this.extractBannerUrl(page)
+      const avatarUrl = await ProfileParser.extractAvatarUrl(page)
+      const bannerUrl = await ProfileParser.extractBannerUrl(page)
 
       // Get statistics
-      const stats = await this.extractUserStats(page)
+      const stats = await ProfileParser.extractUserStats(page)
 
       // Get join date
-      const joinDate = await this.extractJoinDate(page)
+      const joinDate = await ProfileParser.extractJoinDate(page)
 
       // Get user links
       // const _links = await this.extractUserLinks(page)
 
       const profile: UserProfile = {
-        username,
         displayName,
+        username,
       }
 
       // Add optional fields if they exist
-      if (bio)
-        profile.bio = bio
-      if (avatarUrl)
-        profile.avatarUrl = avatarUrl
-      if (bannerUrl)
-        profile.bannerUrl = bannerUrl
-      if (stats.followers)
-        profile.followersCount = stats.followers
-      if (stats.following)
-        profile.followingCount = stats.following
-      if (stats.tweets)
-        profile.tweetCount = stats.tweets
-      if (joinDate)
-        profile.joinDate = joinDate
+      if (bio) profile.bio = bio
+      if (avatarUrl) profile.avatarUrl = avatarUrl
+      if (bannerUrl) profile.bannerUrl = bannerUrl
+      if (stats.followers) profile.followersCount = stats.followers
+      if (stats.following) profile.followingCount = stats.following
+      if (stats.tweets) profile.tweetCount = stats.tweets
+      if (joinDate) profile.joinDate = joinDate
 
       // Check for verification badge
-      const isVerified = await page.$('[data-testid="icon-verified"]') !== null
-      if (isVerified)
-        profile.isVerified = true
+      const isVerified = (await page.$('[data-testid="icon-verified"]')) !== null
+      if (isVerified) profile.isVerified = true
 
       return profile
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error parsing user profile:', (error as Error).message)
 
       // Return minimal profile to avoid breaking
       return {
-        username: 'unknown',
         displayName: 'Unknown User',
+        username: 'unknown',
       }
     }
   }
@@ -104,8 +94,7 @@ export class ProfileParser {
         return match[1]
       }
       return null
-    }
-    catch {
+    } catch {
       return null
     }
   }
@@ -125,32 +114,28 @@ export class ProfileParser {
     try {
       // Get stats container
       const statsContainer = await page.$(SELECTORS.PROFILE.STATS)
-      if (!statsContainer)
-        return stats
+      if (!statsContainer) return stats
 
       // Get all stat items
       const statItems = await statsContainer.$$('a')
 
       for (const statItem of statItems) {
-        const text = await statItem.textContent() || ''
+        const text = (await statItem.textContent()) || ''
 
         if (text.includes('Following')) {
           const countText = text.replace(/Following.*/, '').trim()
-          stats.following = this.parseStatNumber(countText)
-        }
-        else if (text.includes('Followers')) {
+          stats.following = ProfileParser.parseStatNumber(countText)
+        } else if (text.includes('Followers')) {
           const countText = text.replace(/Followers.*/, '').trim()
-          stats.followers = this.parseStatNumber(countText)
-        }
-        else if (text.includes('posts') || text.includes('Posts')) {
+          stats.followers = ProfileParser.parseStatNumber(countText)
+        } else if (text.includes('posts') || text.includes('Posts')) {
           const countText = text.replace(/posts|Posts.*/, '').trim()
-          stats.tweets = this.parseStatNumber(countText)
+          stats.tweets = ProfileParser.parseStatNumber(countText)
         }
       }
 
       return stats
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting user stats:', (error as Error).message)
       return stats
     }
@@ -166,8 +151,7 @@ export class ProfileParser {
       const avatarElement = await page.$('img[src*="profile_images"]')
       const src = await avatarElement?.getAttribute('src')
       return src || undefined
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting avatar URL:', (error as Error).message)
       return undefined
     }
@@ -183,8 +167,7 @@ export class ProfileParser {
       const bannerElement = await page.$('img[src*="profile_banners"]')
       const src = await bannerElement?.getAttribute('src')
       return src || undefined
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting banner URL:', (error as Error).message)
       return undefined
     }
@@ -199,8 +182,7 @@ export class ProfileParser {
     try {
       // Try to find join date text that usually appears as "Joined Month Year"
       const joinedText = await page.$('span:has-text("Joined")')
-      if (!joinedText)
-        return undefined
+      if (!joinedText) return undefined
 
       const fullText = await joinedText.textContent()
       if (fullText && fullText.includes('Joined')) {
@@ -210,8 +192,7 @@ export class ProfileParser {
       }
 
       return undefined
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting join date:', (error as Error).message)
       return undefined
     }
@@ -236,9 +217,9 @@ export class ProfileParser {
 
         if (href && title) {
           links.push({
+            title,
             type: 'url',
             url: href,
-            title,
           })
         }
       }
@@ -249,16 +230,15 @@ export class ProfileParser {
         const locationText = await locationElement.textContent()
         if (locationText) {
           links.push({
+            title: locationText.replace('Location', '').trim(),
             type: 'location',
             url: '',
-            title: locationText.replace('Location', '').trim(),
           })
         }
       }
 
       return links
-    }
-    catch (error) {
+    } catch (error) {
       logger.parser.error('Error extracting user links:', (error as Error).message)
       return links
     }
@@ -273,21 +253,18 @@ export class ProfileParser {
     try {
       text = text.trim()
 
-      if (!text)
-        return 0
+      if (!text) return 0
 
       if (text.includes('K')) {
         return Math.round(Number.parseFloat(text.replace('K', '')) * 1000)
-      }
-      else if (text.includes('M')) {
+      } else if (text.includes('M')) {
         return Math.round(Number.parseFloat(text.replace('M', '')) * 1000000)
       }
 
       // Handle other formats like 1,234
       const normalized = text.replace(/,/g, '')
       return Number.parseInt(normalized, 10) || 0
-    }
-    catch {
+    } catch {
       return 0
     }
   }

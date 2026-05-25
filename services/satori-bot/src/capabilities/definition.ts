@@ -9,10 +9,5 @@ export interface ActionResult {
 export interface ActionHandler {
   name: string
   description?: string
-  execute: (
-    ctx: BotContext,
-    chatCtx: ChatContext,
-    args: Action,
-    abortSignal?: AbortSignal,
-  ) => Promise<ActionResult>
+  execute: (ctx: BotContext, chatCtx: ChatContext, args: Action, abortSignal?: AbortSignal) => Promise<ActionResult>
 }

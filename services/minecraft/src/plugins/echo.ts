@@ -1,6 +1,5 @@
-import type { MineflayerPlugin } from '../libs/mineflayer/plugin'
-
 import { ChatMessageHandler } from '../libs/mineflayer/message'
+import type { MineflayerPlugin } from '../libs/mineflayer/plugin'
 import { useLogger } from '../utils/logger'
 
 export function Echo(): MineflayerPlugin {
@@ -9,7 +8,7 @@ export function Echo(): MineflayerPlugin {
   return {
     spawned(mineflayer) {
       const onChatHandler = new ChatMessageHandler(mineflayer.username).handleChat((username, message) => {
-        logger.withFields({ username, message }).log('Chat message received')
+        logger.withFields({ message, username }).log('Chat message received')
         mineflayer.bot.chat(message)
       })
 

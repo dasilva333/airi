@@ -11,7 +11,7 @@ export const usePositioningStore = defineStore('positioning', () => {
   const positions = useLocalStorageManualReset<Record<string, PositionScale>>('settings/positioning/models', {})
 
   function getPosition(key: string): PositionScale {
-    return positions.value[key] || { x: 0, y: 0, scale: 1 }
+    return positions.value[key] || { scale: 1, x: 0, y: 0 }
   }
 
   function setPosition(key: string, data: PositionScale) {
@@ -23,9 +23,9 @@ export const usePositioningStore = defineStore('positioning', () => {
   }
 
   return {
-    positions,
     getPosition,
-    setPosition,
+    positions,
     resetState,
+    setPosition,
   }
 })

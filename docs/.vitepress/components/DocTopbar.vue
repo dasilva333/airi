@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import type { DefaultTheme } from 'vitepress'
-
 import { Icon } from '@iconify/vue'
 import { useScroll } from '@vueuse/core'
-import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger } from 'reka-ui'
+import {
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+} from 'reka-ui'
+import type { DefaultTheme } from 'vitepress'
 import { useData, useRoute, withBase } from 'vitepress'
 import { computed, ref, toRefs, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -17,20 +24,20 @@ const { page, theme } = useData()
 const { t } = useI18n()
 
 const isSidebarOpen = ref(false)
-const sidebar = computed(() => (theme.value.sidebar as (DefaultTheme.SidebarItem & { icon?: string })[]))
+const sidebar = computed(() => theme.value.sidebar as (DefaultTheme.SidebarItem & { icon?: string })[])
 
-const sectionTabs = computed(() => sidebar.value
-  .map(val => ({
-    label: val.text,
-    link: flatten(val.items ?? [], 'items').filter(i => !!i?.link)?.[0]?.link,
-    icon: val.icon,
-  }))
-  .filter(i => !!i?.link),
+const sectionTabs = computed(() =>
+  sidebar.value
+    .map((val) => ({
+      icon: val.icon,
+      label: val.text,
+      link: flatten(val.items ?? [], 'items').filter((i) => !!i?.link)?.[0]?.link,
+    }))
+    .filter((i) => !!i?.link),
 )
 
 function isCharacterPage(link?: string) {
-  if (!link)
-    return false
+  if (!link) return false
   return link.includes('/characters') || link.includes('/characters/')
 }
 

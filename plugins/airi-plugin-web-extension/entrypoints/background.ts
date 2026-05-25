@@ -1,11 +1,4 @@
-import type {
-  BackgroundToContentMessage,
-  ContentToBackgroundMessage,
-  ExtensionSettings,
-} from '../src/shared/types'
-
 import { defineInvokeHandler } from '@moeru/eventa'
-
 import {
   createClientState,
   ensureClient,
@@ -26,6 +19,7 @@ import {
 } from '../src/shared/eventa'
 import { createRuntimeEventaContext } from '../src/shared/eventa-runtime'
 import { detectSiteFromUrl } from '../src/shared/sites'
+import type { BackgroundToContentMessage, ContentToBackgroundMessage, ExtensionSettings } from '../src/shared/types'
 
 const state = createClientState()
 
@@ -39,30 +33,27 @@ async function refreshClient() {
   const nextKey = `${settings.enabled}:${settings.wsUrl}:${settings.token}`
   if (nextKey !== connectionKey) {
     connectionKey = nextKey
-    if (state.client)
-      state.client.close()
+    if (state.client) state.client.close()
     state.client = null
     state.connected = false
   }
   await ensureClient(state, settings)
 }
 
-function buildNotifyKey(payload: { url: string, title?: string, videoId?: string }) {
+function buildNotifyKey(payload: { url: string; title?: string; videoId?: string }) {
   return [payload.videoId, payload.title, payload.url].filter(Boolean).join('|')
 }
 
-function shouldNotifyVideo(payload: { url: string, title?: string, videoId?: string }) {
+function shouldNotifyVideo(payload: { url: string; title?: string; videoId?: string }) {
   const key = buildNotifyKey(payload)
-  if (!key || key === lastVideoNotifyKey)
-    return false
+  if (!key || key === lastVideoNotifyKey) return false
   lastVideoNotifyKey = key
   return true
 }
 
 function emitStatus() {
   const now = Date.now()
-  if (now - lastStatusSentAt < 300)
-    return
+  if (now - lastStatusSentAt < 300) return
 
   lastStatusSentAt = now
   eventaContext?.emit(backgroundStatusChanged, toStatus(state, settings))
@@ -152,10 +143,8 @@ export default defineBackground(() => {
   void init()
 
   browser.runtime.onMessage.addListener((message: unknown) => {
-    if (!message || typeof message !== 'object')
-      return
-    if ('__eventa' in message)
-      return
+    if (!message || typeof message !== 'object') return
+    if ('__eventa' in message) return
     if ('type' in message && typeof message.type === 'string' && message.type.startsWith('content:')) {
       handleContentMessage(message as ContentToBackgroundMessage)
     }

@@ -1,28 +1,16 @@
 {
-  "i18n-ally.keystyle": "nested",
-  "i18n-ally.localesPaths": [
-    "packages/i18n/src/locales"
-  ],
-  "i18n-ally.pathMatcher": "{locale}/{namespaces}.{ext}",
-  "i18n-ally.namespace": true,
-  "i18n-ally.enabledFrameworks": [
-    "vue"
-  ],
-
-  "rust-analyzer.cargo.extraEnv": {
-    "MACOSX_DEPLOYMENT_TARGET": "10.13"
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
   },
-  "rust-analyzer.cargo.targetDir": "target/rust-analyzer",
-
-  // Disable the default formatter
-  "prettier.enable": false,
-  "editor.formatOnSave": false,
+  "cSpell.words": ["appimage", "localforage"],
 
   // Auto fix
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "never"
   },
+  "editor.formatOnSave": false,
 
   // Silent the stylistic rules in you IDE, but still auto fix them
   "eslint.rules.customizations": [
@@ -54,20 +42,25 @@
     "jsonc",
     "yaml"
   ],
+  "i18n-ally.enabledFrameworks": ["vue"],
+  "i18n-ally.keystyle": "nested",
+  "i18n-ally.localesPaths": ["packages/i18n/src/locales"],
+  "i18n-ally.namespace": true,
+  "i18n-ally.pathMatcher": "{locale}/{namespaces}.{ext}",
 
-  "typescript.tsdk": "node_modules/typescript/lib",
+  // Disable the default formatter
+  "prettier.enable": false,
+  "rust-analyzer.cachePriming.enable": false, // Disable cache priming on workspace startup to save some memory while working on non-Rust tasks
+
+  "rust-analyzer.cargo.extraEnv": {
+    "MACOSX_DEPLOYMENT_TARGET": "10.13"
+  },
+  "rust-analyzer.cargo.targetDir": "target/rust-analyzer",
+  "rust-analyzer.checkOnSave": true,
   "typescript.preferences.includePackageJsonAutoImports": "off",
   "typescript.suggest.autoImports": false,
-  "cSpell.words": [
-    "appimage",
-    "localforage"
-  ],
-  "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer",
-    "editor.formatOnSave": true
-  },
-  "rust-analyzer.checkOnSave": true,
-  "rust-analyzer.cachePriming.enable": false, // Disable cache priming on workspace startup to save some memory while working on non-Rust tasks
+
+  "typescript.tsdk": "node_modules/typescript/lib",
 
   "vitest.disableWorkspaceWarning": true,
   "workbench.colorCustomizations": {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { DefaultTheme } from 'vitepress/theme'
-
 import { Content, useData, useRoute } from 'vitepress'
+import type { DefaultTheme } from 'vitepress/theme'
 import { computed, toRefs } from 'vue'
 
 // import DocCarbonAds from '../components/DocCarbonAds.vue'
@@ -18,7 +17,11 @@ const { theme, frontmatter } = useData()
 const { path } = toRefs(useRoute())
 
 const sidebar = computed(() => theme.value.sidebar as DefaultTheme.SidebarItem[])
-const activeSection = computed(() => sidebar.value.find(section => flatten(section.items ?? [], 'items')?.find(item => item.link === path.value.replace('.html', ''))))
+const activeSection = computed(() =>
+  sidebar.value.find((section) =>
+    flatten(section.items ?? [], 'items')?.find((item) => item.link === path.value.replace('.html', '')),
+  ),
+)
 
 const isSidebarEnabled = computed(() => {
   if (frontmatter.value.sidebar === false) {

@@ -6,38 +6,44 @@ import { Button, DoubleCheckButton, Progress } from '@proj-airi/ui'
 import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
-import { DrawerContent, DrawerDescription, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot, DrawerTitle } from 'vaul-vue'
+import {
+  DrawerContent,
+  DrawerDescription,
+  DrawerHandle,
+  DrawerOverlay,
+  DrawerPortal,
+  DrawerRoot,
+  DrawerTitle,
+} from 'vaul-vue'
 import { computed, ref } from 'vue'
 
 const analyticsStore = useSharedAnalyticsStore()
 const { buildInfo } = storeToRefs(analyticsStore)
 
-const {
-  state: updateState,
-  isBusy,
-  checkForUpdates,
-  downloadUpdate,
-  quitAndInstall,
-} = useElectronAutoUpdater()
+const { state: updateState, isBusy, checkForUpdates, downloadUpdate, quitAndInstall } = useElectronAutoUpdater()
 
 const isDisabled = computed(() => updateState.value.status === 'disabled')
-const isLatestVersion = computed(() => updateState.value.status === 'idle' && !updateState.value.info && !isDisabled.value)
+const isLatestVersion = computed(
+  () => updateState.value.status === 'idle' && !updateState.value.info && !isDisabled.value,
+)
 const isError = computed(() => updateState.value.status === 'error')
 
 const links = [
-  { label: 'Home', href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline' },
-  { label: 'Documentations', href: 'https://airi.moeru.ai/docs/en/docs/overview/', icon: 'i-solar:document-add-outline' },
-  { label: 'GitHub', href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github' },
+  { href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline', label: 'Home' },
+  {
+    href: 'https://airi.moeru.ai/docs/en/docs/overview/',
+    icon: 'i-solar:document-add-outline',
+    label: 'Documentations',
+  },
+  { href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github', label: 'GitHub' },
 ]
 
 const showChangelog = ref(false)
 const isDesktop = useMediaQuery('(min-width: 768px)')
 
 function handleDownloadClick() {
-  if (updateState.value.info?.releaseNotes)
-    showChangelog.value = true
-  else
-    downloadUpdate()
+  if (updateState.value.info?.releaseNotes) showChangelog.value = true
+  else downloadUpdate()
 }
 
 function confirmDownload() {
@@ -49,7 +55,7 @@ function confirmDownload() {
 const releaseNotesContent = computed(() => {
   const notes = updateState.value.info?.releaseNotes
   if (Array.isArray(notes)) {
-    return notes.map(n => typeof n === 'string' ? n : n?.note ?? '').join('\n\n')
+    return notes.map((n) => (typeof n === 'string' ? n : (n?.note ?? ''))).join('\n\n')
   }
   return typeof notes === 'string' ? notes : ''
 })

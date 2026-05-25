@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { DirectorNote } from '../../../types/director'
-
 import { ref } from 'vue'
+import type { DirectorNote } from '../../../types/director'
 
 const props = defineProps<{
   note: DirectorNote

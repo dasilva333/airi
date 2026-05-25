@@ -10,7 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'submit', data: { scope: 'all' | 'turns', turns?: number, instructions: string }): void
+  (e: 'submit', data: { scope: 'all' | 'turns'; turns?: number; instructions: string }): void
 }>()
 
 const scope = ref<'all' | 'turns'>('turns')
@@ -18,28 +18,24 @@ const turns = ref(15)
 const instructions = ref('')
 
 const clickedMessageIndex = computed(() => {
-  if (!props.messageId)
-    return -1
-  return props.messages.findIndex(m => m.id === props.messageId)
+  if (!props.messageId) return -1
+  return props.messages.findIndex((m) => m.id === props.messageId)
 })
 
 const nthTurnTime = computed(() => {
-  if (clickedMessageIndex.value === -1)
-    return 'unknown time'
+  if (clickedMessageIndex.value === -1) return 'unknown time'
   const targetIndex = clickedMessageIndex.value - turns.value + 1
-  if (targetIndex < 0)
-    return 'the start of the conversation'
+  if (targetIndex < 0) return 'the start of the conversation'
   const targetMsg = props.messages[targetIndex]
-  if (!targetMsg?.createdAt)
-    return 'unknown time'
+  if (!targetMsg?.createdAt) return 'unknown time'
   return formatDistanceToNow(targetMsg.createdAt, { addSuffix: true })
 })
 
 function handleSubmit() {
   emit('submit', {
+    instructions: instructions.value,
     scope: scope.value,
     turns: scope.value === 'turns' ? turns.value : undefined,
-    instructions: instructions.value,
   })
 }
 </script>

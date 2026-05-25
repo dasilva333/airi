@@ -1,9 +1,6 @@
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import type { MMD } from '@moeru/three-mmd'
-import type { AnimationClip } from 'three'
-
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import { buildAnimation, VMDLoader } from '@moeru/three-mmd'
+import type { AnimationClip } from 'three'
 
 // Reuse a single VMDLoader instance across calls — it is stateless after loading.
 const vmdLoader = new VMDLoader()
@@ -23,13 +20,11 @@ const vmdLoader = new VMDLoader()
 export async function loadVMDAnimation(url: string, mmd: MMD): Promise<AnimationClip | undefined> {
   try {
     const vmdData = await vmdLoader.loadAsync(url)
-    if (!vmdData)
-      return undefined
+    if (!vmdData) return undefined
 
     const clip = buildAnimation(vmdData, mmd.mesh)
     return clip
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('[MMD] Failed to load VMD animation:', error)
     return undefined
   }

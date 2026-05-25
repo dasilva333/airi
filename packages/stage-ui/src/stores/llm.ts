@@ -1,23 +1,22 @@
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { CommonContentPart, CompletionToolCall, Message, Tool } from '@xsai/shared-chat'
-
 import { useLocalStorage } from '@vueuse/core'
 import { generateText } from '@xsai/generate-text'
 import { listModels } from '@xsai/model'
+import type { CommonContentPart, CompletionToolCall, Message, Tool } from '@xsai/shared-chat'
 import { streamText } from '@xsai/stream-text'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
 import { useSettingsChat } from './settings/chat'
 
-export type StreamEvent
-  = | { type: 'text-delta', text: string }
-    | { type: 'reasoning-delta', text: string }
-    | ({ type: 'finish' } & any)
-    | ({ type: 'tool-call' } & CompletionToolCall)
-    | { type: 'tool-result', toolCallId: string, result?: string | CommonContentPart[] }
-    | { type: 'usage', usage: any }
-    | { type: 'error', error: any }
+export type StreamEvent =
+  | { type: 'text-delta'; text: string }
+  | { type: 'reasoning-delta'; text: string }
+  | ({ type: 'finish' } & any)
+  | ({ type: 'tool-call' } & CompletionToolCall)
+  | { type: 'tool-result'; toolCallId: string; result?: string | CommonContentPart[] }
+  | { type: 'usage'; usage: any }
+  | { type: 'error'; error: any }
 
 export interface StreamOptions {
   headers?: Record<string, string>
@@ -36,21 +35,11 @@ export interface StreamOptions {
 }
 
 function sanitizeRequestOverrides(overrides?: Record<string, unknown>) {
-  if (!overrides)
-    return {}
+  if (!overrides) return {}
 
-  const reservedKeys = new Set([
-    'messages',
-    'headers',
-    'tools',
-    'onEvent',
-    'abortSignal',
-    'maxSteps',
-  ])
+  const reservedKeys = new Set(['messages', 'headers', 'tools', 'onEvent', 'abortSignal', 'maxSteps'])
 
-  return Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => !reservedKeys.has(key)),
-  )
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !reservedKeys.has(key)))
 }
 
 // TODO: proper format for other error messages.
@@ -65,16 +54,13 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     // "id", "createdAt", or our custom "_discordSource" metadata can cause
     // 400/502 errors on strict providers like OpenRouter/Phala.
     const sanitized: any = {
-      role: m.role,
       content: m.content ?? '',
+      role: m.role,
     }
 
-    if (m.name)
-      sanitized.name = m.name
-    if (m.tool_calls)
-      (sanitized as any).tool_calls = m.tool_calls
-    if (m.tool_call_id)
-      (sanitized as any).tool_call_id = m.tool_call_id
+    if (m.name) sanitized.name = m.name
+    if (m.tool_calls) (sanitized as any).tool_calls = m.tool_calls
+    if (m.tool_call_id) (sanitized as any).tool_call_id = m.tool_call_id
 
     if ((sanitized as any).role === 'error') {
       sanitized.role = 'user'
@@ -82,18 +68,18 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
     }
 
     if (Array.isArray(sanitized.content)) {
-      const contentParts = sanitized.content as { type?: string, text?: string }[]
+      const contentParts = sanitized.content as { type?: string; text?: string }[]
 
       // If vision is explicitly disabled, strip all image_url parts
-      if (options?.vision === false && contentParts.some(p => p?.type === 'image_url')) {
+      if (options?.vision === false && contentParts.some((p) => p?.type === 'image_url')) {
         sanitized.content = contentParts
-          .map(p => p?.type === 'image_url' ? '[Image]' : (p?.text ?? ''))
+          .map((p) => (p?.type === 'image_url' ? '[Image]' : (p?.text ?? '')))
           .filter(Boolean)
           .join(' ')
       }
       // NOTICE: Flatten array content if no images are present for compatibility
-      else if (!contentParts.some(p => p?.type === 'image_url')) {
-        sanitized.content = contentParts.map(p => p?.text ?? '').join('')
+      else if (!contentParts.some((p) => p?.type === 'image_url')) {
+        sanitized.content = contentParts.map((p) => p?.text ?? '').join('')
       }
     }
 
@@ -108,7 +94,7 @@ function combineSystemMessagesIfNeeded(messages: Message[], chatConfig: any, set
     return messages
   }
 
-  const systemMessages = messages.filter(m => m.role === 'system')
+  const systemMessages = messages.filter((m) => m.role === 'system')
   if (systemMessages.length <= 1) {
     return messages
   }
@@ -118,36 +104,43 @@ function combineSystemMessagesIfNeeded(messages: Message[], chatConfig: any, set
 
   for (const m of systemMessages) {
     const content = typeof m.content === 'string' ? m.content : ''
-    const isContext = content.startsWith('These are the contextual information retrieved')
-      || content.startsWith('[ENVIRONMENTAL AWARENESS]')
-      || content.includes('[CONTEXT_AWARENESS]')
+    const isContext =
+      content.startsWith('These are the contextual information retrieved') ||
+      content.startsWith('[ENVIRONMENTAL AWARENESS]') ||
+      content.includes('[CONTEXT_AWARENESS]')
 
     if (isContext) {
       contextMessages.push(m)
-    }
-    else {
+    } else {
       personaMessages.push(m)
     }
   }
 
-  const uniquePersonaContents = [...new Set(personaMessages.map(m => typeof m.content === 'string' ? m.content : ''))]
+  const uniquePersonaContents = [
+    ...new Set(personaMessages.map((m) => (typeof m.content === 'string' ? m.content : ''))),
+  ]
   const dedupedPersonaContent = uniquePersonaContents.join('\n\n')
 
   const lastContextMessage = contextMessages[contextMessages.length - 1]
-  const lastContextContent = lastContextMessage ? (typeof lastContextMessage.content === 'string' ? lastContextMessage.content : '') : ''
+  const lastContextContent = lastContextMessage
+    ? typeof lastContextMessage.content === 'string'
+      ? lastContextMessage.content
+      : ''
+    : ''
 
   const combinedContent = [dedupedPersonaContent, lastContextContent].filter(Boolean).join('\n\n')
 
-  const nonSystemMessages = messages.filter(m => m.role !== 'system')
-  return [
-    { role: 'system', content: combinedContent } as Message,
-    ...nonSystemMessages,
-  ]
+  const nonSystemMessages = messages.filter((m) => m.role !== 'system')
+  return [{ content: combinedContent, role: 'system' } as Message, ...nonSystemMessages]
 }
 
-function streamOptionsToolsCompatibilityOk(model: string, chatProvider: ChatProvider, _: Message[], options?: StreamOptions): boolean {
-  if (options?.supportsTools)
-    return true
+function streamOptionsToolsCompatibilityOk(
+  model: string,
+  chatProvider: ChatProvider,
+  _: Message[],
+  options?: StreamOptions,
+): boolean {
+  if (options?.supportsTools) return true
   const key = `${chatProvider.chat(model).baseURL}-${model}`
   return options?.toolsCompatibility?.[key] !== false
 }
@@ -168,19 +161,17 @@ const TOOLS_RELATED_ERROR_PATTERNS: RegExp[] = [
 
 export function isToolRelatedError(err: unknown): boolean {
   const msg = String(err)
-  return TOOLS_RELATED_ERROR_PATTERNS.some(p => p.test(msg))
+  return TOOLS_RELATED_ERROR_PATTERNS.some((p) => p.test(msg))
 }
 
 function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
-  if (!tools)
-    return undefined
+  if (!tools) return undefined
 
   // Deep clone to avoid mutating the original tool objects
   const cloned = JSON.parse(JSON.stringify(tools)) as Tool[]
 
   const cleanSchema = (obj: any) => {
-    if (!obj || typeof obj !== 'object')
-      return
+    if (!obj || typeof obj !== 'object') return
 
     delete obj.$schema
     delete obj.additionalProperties
@@ -189,8 +180,7 @@ function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
       const requiredSet = new Set(Array.isArray(obj.required) ? obj.required : [])
 
       for (const [key, prop] of Object.entries(obj.properties)) {
-        if (!prop || typeof prop !== 'object')
-          continue
+        if (!prop || typeof prop !== 'object') continue
 
         const p = prop as any
         let isNullable = false
@@ -204,8 +194,7 @@ function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
           if (nonNullSchemas.length >= 1) {
             const desc = p.description
             Object.assign(p, nonNullSchemas[0])
-            if (desc)
-              p.description = desc
+            if (desc) p.description = desc
             delete p.anyOf
           }
         }
@@ -219,8 +208,7 @@ function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
           if (nonNullSchemas.length >= 1) {
             const desc = p.description
             Object.assign(p, nonNullSchemas[0])
-            if (desc)
-              p.description = desc
+            if (desc) p.description = desc
             delete p.oneOf
           }
         }
@@ -250,8 +238,7 @@ function sanitizeTools(tools?: Tool[]): Tool[] | undefined {
 
       if (requiredSet.size > 0) {
         obj.required = Array.from(requiredSet)
-      }
-      else {
+      } else {
         delete obj.required
       }
     }
@@ -290,9 +277,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const sanitized = sanitizeMessages(processedMessages as unknown[], { vision: options?.vision })
   const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
   const resolveTools = async () => {
-    const tools = typeof options?.tools === 'function'
-      ? await options.tools()
-      : options?.tools
+    const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
     return tools ?? []
   }
 
@@ -301,23 +286,23 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const tools = sanitizeTools(rawResolvedTools)
 
   if (tools && tools.length > 0) {
-    console.log('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
-  }
-  else {
+    console.log(
+      'Calling LLM with tools',
+      tools.map((t: any) => t.function?.name || t.name),
+    )
+  } else {
     console.log('Calling LLM with NO tools available')
   }
 
   return new Promise<void>((resolve, reject) => {
     let settled = false
     const resolveOnce = () => {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       resolve()
     }
     const rejectOnce = (err: unknown) => {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       reject(err)
     }
@@ -330,15 +315,12 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           // Otherwise, we rely on `result.messages.then()` resolving at the very end of all steps,
           // because buggy endpoints (like Gemini's OpenAI proxy) might erroneously return `stop`
           // instead of `tool_calls` during the first step of a multi-turn tool interaction.
-          if (!options?.waitForTools)
-            resolveOnce()
-        }
-        else if (event && (event as StreamEvent).type === 'error') {
+          if (!options?.waitForTools) resolveOnce()
+        } else if (event && (event as StreamEvent).type === 'error') {
           const error = (event as any).error ?? new Error('Stream error')
           rejectOnce(error)
         }
-      }
-      catch (err) {
+      } catch (err) {
         rejectOnce(err)
       }
     }
@@ -347,28 +329,30 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       const result = streamText({
         ...chatConfig,
         ...requestOverrides,
+        headers,
+        max_tokens: options?.max_tokens,
         maxSteps: 10,
         messages: sanitized,
-        headers,
         temperature: options?.temperature,
         top_p: options?.top_p,
-        max_tokens: options?.max_tokens,
         ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
+        abortSignal: options?.abortSignal,
+        model,
+        onEvent,
         // TODO: we need Automatic tools discovery
         tools,
-        onEvent,
-        model,
-        abortSignal: options?.abortSignal,
       })
 
       // We MUST catch all promises returned by streamText to ensure the main promise settles
       // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
       // We prioritize result.messages for primary settlement, but ensure any step error
       // that occurs before the first message also triggers a rejection.
-      void result.messages.then(() => resolveOnce()).catch((err) => {
-        rejectOnce(err)
-        console.error('Stream messages error:', err)
-      })
+      void result.messages
+        .then(() => resolveOnce())
+        .catch((err) => {
+          rejectOnce(err)
+          console.error('Stream messages error:', err)
+        })
 
       void result.steps.catch((err) => {
         // If the stream steps fail before messages settle, propagate it.
@@ -376,15 +360,16 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         console.error('Stream steps error:', err)
       })
 
-      void result.usage.catch(err => console.error('Stream usage error:', err))
+      void result.usage.catch((err) => console.error('Stream usage error:', err))
 
-      void result.totalUsage.then((usage) => {
-        if (usage) {
-          onEvent({ type: 'usage', usage })
-        }
-      }).catch(err => console.error('Stream totalUsage error:', err))
-    }
-    catch (err) {
+      void result.totalUsage
+        .then((usage) => {
+          if (usage) {
+            onEvent({ type: 'usage', usage })
+          }
+        })
+        .catch((err) => console.error('Stream totalUsage error:', err))
+    } catch (err) {
       rejectOnce(err)
     }
   })
@@ -399,9 +384,7 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const requestOverrides = sanitizeRequestOverrides(options?.requestOverrides)
 
   const resolveTools = async () => {
-    const tools = typeof options?.tools === 'function'
-      ? await options.tools()
-      : options?.tools
+    const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
     return tools ?? []
   }
 
@@ -410,56 +393,67 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const tools = sanitizeTools(rawResolvedTools)
 
   if (tools && tools.length > 0) {
-    console.log('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
-  }
-  else {
+    console.log(
+      'Calling LLM with tools',
+      tools.map((t: any) => t.function?.name || t.name),
+    )
+  } else {
     console.log('Calling LLM with NO tools available')
   }
 
   return await generateText({
     ...chatConfig,
     ...requestOverrides,
+    headers,
+    max_tokens: options?.max_tokens,
     maxSteps: 10,
     messages: sanitized,
-    headers,
     temperature: options?.temperature,
     top_p: options?.top_p,
-    max_tokens: options?.max_tokens,
     ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
     model,
     tools,
   })
 }
 
-export async function attemptForToolsCompatibilityDiscovery(model: string, chatProvider: ChatProvider, _: Message[], options?: Omit<StreamOptions, 'supportsTools'>): Promise<boolean> {
+export async function attemptForToolsCompatibilityDiscovery(
+  model: string,
+  chatProvider: ChatProvider,
+  _: Message[],
+  options?: Omit<StreamOptions, 'supportsTools'>,
+): Promise<boolean> {
   async function attempt(enable: boolean) {
     let toolsError = false
     try {
-      await streamFrom(model, chatProvider, [{ role: 'user', content: 'Hello, world!' }], {
+      await streamFrom(model, chatProvider, [{ content: 'Hello, world!', role: 'user' }], {
         ...options,
-        supportsTools: enable,
-        vision: false,
         onStreamEvent: (event) => {
           if (event.type === 'error') {
             const errStr = String(event.error)
-            if (errStr.includes('does not support tools') || errStr.includes('No endpoints found that support tool use.')) {
+            if (
+              errStr.includes('does not support tools') ||
+              errStr.includes('No endpoints found that support tool use.')
+            ) {
               toolsError = true
             }
           }
         },
+        supportsTools: enable,
+        vision: false,
       })
       return !toolsError
-    }
-    catch (err) {
-      if (toolsError)
-        return false
+    } catch (err) {
+      if (toolsError) return false
       throw err
     }
   }
 
-  function promiseAllWithInterval<T>(promises: (() => Promise<T>)[], interval: number): Promise<{ result?: T, error?: any }[]> {
+  function promiseAllWithInterval<T>(
+    promises: (() => Promise<T>)[],
+    interval: number,
+  ): Promise<{ result?: T; error?: any }[]> {
     return new Promise((resolve) => {
-      const results: { result?: T, error?: any }[] = []
+      const results: { result?: T; error?: any }[] = []
       let completed = 0
 
       promises.forEach((promiseFn, index) => {
@@ -482,15 +476,17 @@ export async function attemptForToolsCompatibilityDiscovery(model: string, chatP
     })
   }
 
-  const attempts = [
-    () => attempt(true),
-    () => attempt(false),
-  ]
+  const attempts = [() => attempt(true), () => attempt(false)]
 
   const attemptsResults = await promiseAllWithInterval<boolean | undefined>(attempts, 1000)
-  if (attemptsResults.some(res => res.error)) {
-    const err = new Error(`Error during tools compatibility discovery for model: ${model}. Errors: ${attemptsResults.map(res => res.error).filter(Boolean).join(', ')}`)
-    err.cause = attemptsResults.map(res => res.error).filter(Boolean)
+  if (attemptsResults.some((res) => res.error)) {
+    const err = new Error(
+      `Error during tools compatibility discovery for model: ${model}. Errors: ${attemptsResults
+        .map((res) => res.error)
+        .filter(Boolean)
+        .join(', ')}`,
+    )
+    err.cause = attemptsResults.map((res) => res.error).filter(Boolean)
     throw err
   }
 
@@ -504,8 +500,7 @@ export const useLLM = defineStore('llm', () => {
     const key = `${chatProvider.chat(model).baseURL}-${model}`
     try {
       await streamFrom(model, chatProvider, messages, { ...options, toolsCompatibility: toolsCompatibility.value })
-    }
-    catch (err) {
+    } catch (err) {
       if (isToolRelatedError(err)) {
         console.warn(`[llm] Auto-disabling tools for "${key}" due to tool-related error`)
         toolsCompatibility.value[key] = false
@@ -528,20 +523,28 @@ export const useLLM = defineStore('llm', () => {
 
     return await sharedGenerateObject({
       ...options,
-      model,
       apiKey: chatConfig.apiKey,
       baseURL: String(chatConfig.baseURL),
+      model,
     })
   }
 
-  async function discoverToolsCompatibility(model: string, chatProvider: ChatProvider, _: Message[], options?: Omit<StreamOptions, 'supportsTools'>) {
+  async function discoverToolsCompatibility(
+    model: string,
+    chatProvider: ChatProvider,
+    _: Message[],
+    options?: Omit<StreamOptions, 'supportsTools'>,
+  ) {
     // Cached, no need to discover again
     const key = `${chatProvider.chat(model).baseURL}-${model}`
     if (key in toolsCompatibility.value) {
       return
     }
 
-    const res = await attemptForToolsCompatibilityDiscovery(model, chatProvider, _, { ...options, toolsCompatibility: toolsCompatibility.value })
+    const res = await attemptForToolsCompatibilityDiscovery(model, chatProvider, _, {
+      ...options,
+      toolsCompatibility: toolsCompatibility.value,
+    })
     toolsCompatibility.value[key] = res
   }
 
@@ -552,11 +555,10 @@ export const useLLM = defineStore('llm', () => {
 
     try {
       return await listModels({
-        baseURL: (apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`) as `${string}/`,
         apiKey,
+        baseURL: (apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`) as `${string}/`,
       })
-    }
-    catch (err) {
+    } catch (err) {
       if (String(err).includes(`Failed to construct 'URL': Invalid URL`)) {
         return []
       }
@@ -566,10 +568,10 @@ export const useLLM = defineStore('llm', () => {
   }
 
   return {
-    models,
-    stream,
+    discoverToolsCompatibility,
     generate,
     generateObject,
-    discoverToolsCompatibility,
+    models,
+    stream,
   }
 })

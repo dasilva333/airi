@@ -1,6 +1,5 @@
-import type { MaybeRefOrGetter } from 'vue'
-
 import { until } from '@vueuse/core'
+import type { MaybeRefOrGetter } from 'vue'
 import { ref, toRef } from 'vue'
 
 export function useAudioRecord(

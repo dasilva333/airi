@@ -7,14 +7,12 @@ const zipLoaderIndex = Live2DFactory.live2DModelMiddlewares.indexOf(ZipLoader.fa
 
 if (Live2DFactory.live2DModelMiddlewares.includes(OPFSCacheV2.checkMiddlewareV2)) {
   // Middlewares already registered.
-}
-else if (zipLoaderIndex !== -1) {
+} else if (zipLoaderIndex !== -1) {
   // Insert Check before ZipLoader
   Live2DFactory.live2DModelMiddlewares.splice(zipLoaderIndex, 0, OPFSCacheV2.checkMiddlewareV2)
   // Insert Save after ZipLoader
   Live2DFactory.live2DModelMiddlewares.splice(zipLoaderIndex + 2, 0, OPFSCacheV2.saveMiddlewareV2)
-}
-else {
+} else {
   console.warn('[OPFS] ZipLoader not found in middlewares, caching disabled')
 }
 
@@ -38,8 +36,8 @@ ZipLoader.unzip = function (reader: any, settings: any) {
         if (Array.isArray(motions)) {
           settings.motions[groupName] = motions.filter((motion: any) => {
             return (
-              (typeof motion?.file === 'string' && motion.file.trim() !== '')
-              || (typeof motion?.File === 'string' && motion.File.trim() !== '')
+              (typeof motion?.file === 'string' && motion.file.trim() !== '') ||
+              (typeof motion?.File === 'string' && motion.File.trim() !== '')
             )
           })
         }
@@ -49,8 +47,8 @@ ZipLoader.unzip = function (reader: any, settings: any) {
     if (settings.expressions && Array.isArray(settings.expressions)) {
       settings.expressions = settings.expressions.filter((exp: any) => {
         return (
-          (typeof exp?.file === 'string' && exp.file.trim() !== '')
-          || (typeof exp?.File === 'string' && exp.File.trim() !== '')
+          (typeof exp?.file === 'string' && exp.file.trim() !== '') ||
+          (typeof exp?.File === 'string' && exp.File.trim() !== '')
         )
       })
     }

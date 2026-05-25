@@ -18,7 +18,7 @@ const emit = defineEmits<{
   (e: 'add', key: string, value: string): void
 }>()
 
-const keyValues = defineModel<{ key: string, value: string }[]>({ required: true })
+const keyValues = defineModel<{ key: string; value: string }[]>({ required: true })
 const inputKey = ref('')
 const inputValue = ref('')
 

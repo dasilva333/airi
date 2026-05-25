@@ -1,13 +1,10 @@
 import type { TraceEvent } from '@proj-airi/stage-shared'
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
-import type { StreamEvent } from './llm'
-
 import { defaultPerfTracer, exportCsv as exportCsvFile } from '@proj-airi/stage-shared'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { defineStore, storeToRefs } from 'pinia'
 import { ref } from 'vue'
-
 import { useChatOrchestratorStore } from './chat'
+import type { StreamEvent } from './llm'
 import { useLLM } from './llm'
 import { useConsciousnessStore } from './modules/consciousness'
 import { usePerfTracerBridgeStore } from './perf-tracer-bridge'
@@ -35,15 +32,14 @@ function createDeterministicTimer(startAt = 0): DeterministicTimer {
   function schedule(delayMs: number, fn: Scheduled['fn']) {
     const id = nextId++
     const at = now + Math.max(0, delayMs)
-    queue.push({ id, at, fn })
-    queue.sort((a, b) => a.at === b.at ? a.id - b.id : a.at - b.at)
+    queue.push({ at, fn, id })
+    queue.sort((a, b) => (a.at === b.at ? a.id - b.id : a.at - b.at))
     return id
   }
 
   function cancel(id: number) {
-    const index = queue.findIndex(job => job.id === id)
-    if (index !== -1)
-      queue.splice(index, 1)
+    const index = queue.findIndex((job) => job.id === id)
+    if (index !== -1) queue.splice(index, 1)
   }
 
   async function tick(ms: number) {
@@ -62,21 +58,19 @@ function createDeterministicTimer(startAt = 0): DeterministicTimer {
   }
 
   return {
+    cancel,
+    clear,
     now: () => now,
     schedule,
-    cancel,
     tick,
-    clear,
   }
 }
 
 function chunkText(text: string, size: number) {
-  if (size <= 0)
-    return [text]
+  if (size <= 0) return [text]
 
   const chunks: string[] = []
-  for (let i = 0; i < text.length; i += size)
-    chunks.push(text.slice(i, i + size))
+  for (let i = 0; i < text.length; i += size) chunks.push(text.slice(i, i + size))
 
   return chunks
 }
@@ -89,11 +83,7 @@ function createMockStream(options: {
   let cancelled = false
   const {
     scenario: {
-      assistant: {
-        text,
-        firstTokenDelayMs = 0,
-        rate,
-      },
+      assistant: { text, firstTokenDelayMs = 0, rate },
     },
     timer,
     onEvent,
@@ -103,22 +93,20 @@ function createMockStream(options: {
   const intervalMs = 1000 / Math.max(1, rate?.tokensPerSecond ?? 40)
 
   async function run() {
-    const yieldMacro = () => new Promise(resolve => setTimeout(resolve, 0))
+    const yieldMacro = () => new Promise((resolve) => setTimeout(resolve, 0))
     let lastTs = timer.now()
     const base = lastTs + firstTokenDelayMs
 
     for (const [idx, chunk] of chunks.entries()) {
-      if (cancelled)
-        return
+      if (cancelled) return
       const target = base + idx * intervalMs
       await timer.tick(target - lastTs)
       lastTs = target
-      await onEvent({ type: 'text-delta', text: chunk })
+      await onEvent({ text: chunk, type: 'text-delta' })
       await yieldMacro()
     }
 
-    if (cancelled)
-      return
+    if (cancelled) return
 
     const finishAt = base + chunks.length * intervalMs
     await timer.tick(finishAt - lastTs)
@@ -130,8 +118,8 @@ function createMockStream(options: {
   }
 
   return {
-    run,
     cancel,
+    run,
   }
 }
 
@@ -142,7 +130,7 @@ interface RunSnapshot {
 }
 
 interface DevtoolsChatScenario {
-  userMessages: Array<{ atMs: number, text: string }>
+  userMessages: Array<{ atMs: number; text: string }>
   assistant: {
     text: string
     firstTokenDelayMs?: number
@@ -190,8 +178,7 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
       clearTimeout(autoStopTimeout)
       autoStopTimeout = undefined
     }
-    for (const timer of inFlightTimers)
-      clearTimeout(timer)
+    for (const timer of inFlightTimers) clearTimeout(timer)
     inFlightTimers = []
     mockStreamCancel?.()
     mockStreamCancel = undefined
@@ -206,33 +193,33 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
   }
 
   function startCapture() {
-    if (capturing.value)
-      return
+    if (capturing.value) return
 
     capturing.value = true
     startedAt = performance.now()
     events.value = []
 
-    unsubscribe = defaultPerfTracer.subscribeSafe((event) => {
-      if (event.tracerId !== 'markdown' && event.tracerId !== 'chat')
-        return
+    unsubscribe = defaultPerfTracer.subscribeSafe(
+      (event) => {
+        if (event.tracerId !== 'markdown' && event.tracerId !== 'chat') return
 
-      events.value.push(event)
-    }, { label: 'markdown-stress' })
+        events.value.push(event)
+      },
+      { label: 'markdown-stress' },
+    )
     releaseTracer = defaultPerfTracer.acquire('markdown-stress')
     perfTracerBridge.requestEnable('markdown-stress')
   }
 
   function stopCapture() {
-    if (!capturing.value)
-      return
+    if (!capturing.value) return
 
     clearTimers()
     clearRunCleanups()
     lastRun.value = {
+      events: [...events.value],
       startedAt,
       stoppedAt: performance.now(),
-      events: [...events.value],
     }
 
     unsubscribe?.()
@@ -251,8 +238,10 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
   }
 
   function generateScenario(): DevtoolsChatScenario {
-    const userPrompt = 'Give me a huge stress-test JavaScript block with 2000 occurrences of the keyword `for` wrapped in ```javascript```.'
-    const followUp = 'I really need a JS block containing 2000 `for` keywords — please ensure the request is fully satisfied.'
+    const userPrompt =
+      'Give me a huge stress-test JavaScript block with 2000 occurrences of the keyword `for` wrapped in ```javascript```.'
+    const followUp =
+      'I really need a JS block containing 2000 `for` keywords — please ensure the request is fully satisfied.'
     const assistantText = [
       'Here is a large JS `for` block (line breaks every 5 entries, about 4000 words total):',
       '```python',
@@ -262,21 +251,20 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
     ].join('\n\n')
 
     return {
+      assistant: {
+        firstTokenDelayMs: 150,
+        rate: { jitterMs: 5, maxChunkSize: 96, tokensPerSecond: 120 },
+        text: assistantText,
+      },
       userMessages: [
         { atMs: 0, text: userPrompt },
         { atMs: 1200, text: followUp },
       ],
-      assistant: {
-        text: assistantText,
-        firstTokenDelayMs: 150,
-        rate: { tokensPerSecond: 120, jitterMs: 5, maxChunkSize: 96 },
-      },
     }
   }
 
   function ensureScenario() {
-    if (!scenario.value)
-      scenario.value = generateScenario()
+    if (!scenario.value) scenario.value = generateScenario()
     return scenario.value
   }
 
@@ -295,7 +283,7 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
     const chatStore = useChatOrchestratorStore()
     const targetScenario = ensureScenario()
 
-    const provider = await providersStore.getProviderInstance(activeProvider.value) as ChatProvider | undefined
+    const provider = (await providersStore.getProviderInstance(activeProvider.value)) as ChatProvider | undefined
     if (!provider || !activeModel.value) {
       console.warn('[markdown-stress] No active provider/model for online mode')
       canRunOnline.value = false
@@ -310,11 +298,10 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
       const timer = setTimeout(async () => {
         try {
           await chatStore.ingest(message.text, {
-            model: activeModel.value!,
             chatProvider: provider,
+            model: activeModel.value!,
           })
-        }
-        catch (error) {
+        } catch (error) {
           console.error('[markdown-stress] Online send failed', error)
         }
       }, delay)
@@ -330,8 +317,8 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
     const mockProvider: ChatProvider = {
       chat(model: string) {
         return {
-          baseURL: 'mock://markdown-stress/',
           apiKey: '',
+          baseURL: 'mock://markdown-stress/',
           headers: {},
           model,
         } as any
@@ -341,17 +328,16 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
     const originalStream = llm.stream
     llm.stream = async (_model, _provider, _messages, options) => {
       const runner = createMockStream({
-        scenario: targetScenario,
-        timer: mockTimer,
         onEvent: async (event) => {
           await options?.onStreamEvent?.(event)
         },
+        scenario: targetScenario,
+        timer: mockTimer,
       })
       mockStreamCancel = runner.cancel
       try {
         await runner.run()
-      }
-      finally {
+      } finally {
         mockStreamCancel = undefined
       }
     }
@@ -366,11 +352,10 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
       const timer = setTimeout(async () => {
         try {
           await chatStore.ingest(message.text, {
-            model: modelToUse,
             chatProvider: mockProvider,
+            model: modelToUse,
           })
-        }
-        catch (error) {
+        } catch (error) {
           console.error('[markdown-stress] Mock send failed', error)
         }
       }, delay)
@@ -399,10 +384,8 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
       runState.value = 'running'
       runTimeout = undefined
       startCapture()
-      if (isMock.value)
-        await runMockScenario()
-      else
-        await runOnlineScenario()
+      if (isMock.value) await runMockScenario()
+      else await runOnlineScenario()
     }, scheduleDelayMs.value)
 
     autoStopTimeout = setTimeout(() => {
@@ -418,8 +401,7 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
 
   function setMockMode(enabled: boolean) {
     isMock.value = enabled
-    if (enabled)
-      canRunOnline.value = true
+    if (enabled) canRunOnline.value = true
   }
 
   function toggleMockMode() {
@@ -428,8 +410,7 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
 
   function exportCsv(snapshot?: RunSnapshot) {
     const target = snapshot ?? lastRun.value
-    if (!target)
-      return
+    if (!target) return
 
     const rows: Array<Array<string | number>> = [['tracerId', 'name', 'ts', 'duration', 'meta']]
     for (const event of target.events) {
@@ -446,22 +427,22 @@ export const useMarkdownStressStore = defineStore('markdownStress', () => {
   }
 
   return {
+    cancelScheduledRun,
     canRunOnline,
     capturing,
     events,
+    exportCsv,
+    generatePreview,
+    isMock,
     lastRun,
     payloadPreview,
-    scheduleDelayMs,
     runState,
     scenario,
-    isMock,
+    scheduleDelayMs,
+    scheduleRun,
+    setMockMode,
     startCapture,
     stopCapture,
-    scheduleRun,
-    cancelScheduledRun,
-    generatePreview,
-    setMockMode,
     toggleMockMode,
-    exportCsv,
   }
 })

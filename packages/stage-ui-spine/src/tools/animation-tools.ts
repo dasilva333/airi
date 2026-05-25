@@ -15,8 +15,7 @@ function serialize(result: SpineToolResult): string {
 
 function ensureModelLoaded(): SpineToolResult | null {
   const store = useSpine()
-  if (store.availableAnimations.length === 0)
-    return { success: false, error: 'No Spine model is currently loaded.' }
+  if (store.availableAnimations.length === 0) return { error: 'No Spine model is currently loaded.', success: false }
   return null
 }
 
@@ -32,7 +31,6 @@ function ensureModelLoaded(): SpineToolResult | null {
  */
 export const tools = [
   tool({
-    name: 'spine_play_animation',
     description: [
       'Play a Spine animation on the loaded model.',
       'By default, replaces the looping idle animation; pass `oneShot: true` to layer the animation on top of the idle loop and revert when it finishes.',
@@ -40,8 +38,7 @@ export const tools = [
     ].join(' '),
     execute: async ({ name, oneShot, loop }) => {
       const err = ensureModelLoaded()
-      if (err)
-        return serialize(err)
+      if (err) return serialize(err)
 
       const store = useSpine()
       if (oneShot) {
@@ -51,72 +48,72 @@ export const tools = [
         // the Spine instance ref. The store-level signal here updates
         // the persisted idle when oneShot is false.
         return serialize({
-          success: true,
           data: {
-            queued: name,
             mode: 'one-shot',
             note: 'Forwarded to scene; the scene resolves the closest matching animation name.',
+            queued: name,
           },
+          success: true,
         })
       }
 
-      store.currentAnimation = { name, loop: loop ?? true, nonce: (store.currentAnimation.nonce ?? 0) + 1 }
-      return serialize({ success: true, data: { idle: name, loop: loop ?? true } })
+      store.currentAnimation = { loop: loop ?? true, name, nonce: (store.currentAnimation.nonce ?? 0) + 1 }
+      return serialize({ data: { idle: name, loop: loop ?? true }, success: true })
     },
+    name: 'spine_play_animation',
     parameters: z.object({
-      name: z.string().describe('Spine animation name (e.g. "idle", "walk", "celebrate"). Case-insensitive partial match accepted.'),
       loop: z.boolean().optional().describe('Whether the animation should loop. Defaults to true.'),
+      name: z
+        .string()
+        .describe('Spine animation name (e.g. "idle", "walk", "celebrate"). Case-insensitive partial match accepted.'),
       oneShot: z.boolean().optional().describe('Play once on the emotion track instead of replacing the idle loop.'),
     }),
   }),
 
   tool({
-    name: 'spine_list_animations',
     description: 'List every animation available on the currently loaded Spine skeleton.',
     execute: async () => {
       const err = ensureModelLoaded()
-      if (err)
-        return serialize(err)
+      if (err) return serialize(err)
       const store = useSpine()
-      return serialize({ success: true, data: store.availableAnimations })
+      return serialize({ data: store.availableAnimations, success: true })
     },
+    name: 'spine_list_animations',
     parameters: z.object({}),
   }),
 
   tool({
-    name: 'spine_set_skin',
     description: 'Switch the active skin. Skins are model-defined variants (different costumes/colours).',
     execute: async ({ name }) => {
       const err = ensureModelLoaded()
-      if (err)
-        return serialize(err)
+      if (err) return serialize(err)
 
       const store = useSpine()
-      const exists = store.availableSkins.some(skin => skin.name === name)
+      const exists = store.availableSkins.some((skin) => skin.name === name)
       if (!exists) {
         return serialize({
+          error: `Skin "${name}" not found. Available: ${store.availableSkins.map((skin) => skin.name).join(', ')}`,
           success: false,
-          error: `Skin "${name}" not found. Available: ${store.availableSkins.map(skin => skin.name).join(', ')}`,
         })
       }
       store.currentSkin = name
-      return serialize({ success: true, data: { skin: name } })
+      return serialize({ data: { skin: name }, success: true })
     },
+    name: 'spine_set_skin',
     parameters: z.object({
       name: z.string().describe('Skin name as defined in the skeleton.'),
     }),
   }),
 
   tool({
-    name: 'spine_list_skins',
     description: 'List every skin defined on the currently loaded Spine skeleton.',
     execute: async () => {
       const err = ensureModelLoaded()
-      if (err)
-        return serialize(err)
+      if (err) return serialize(err)
       const store = useSpine()
-      return serialize({ success: true, data: store.availableSkins })
+      return serialize({ data: store.availableSkins, success: true })
     },
+    name: 'spine_list_skins',
     parameters: z.object({}),
   }),
 ]

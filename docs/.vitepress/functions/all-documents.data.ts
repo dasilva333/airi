@@ -16,6 +16,7 @@ interface Document {
 }
 
 declare const data: Document[]
+
 export { data }
 
 export default createContentLoader('**/*.md', {
@@ -32,12 +33,12 @@ export default createContentLoader('**/*.md', {
         })
 
         return {
+          date: formatDate(frontmatter.date),
+          frontmatter,
+          lang: foundLanguage?.lang || 'en',
           title: frontmatter.title,
           url,
           urlWithoutLang: url.replace(`/${foundLanguage?.lang || 'en'}`, ''),
-          date: formatDate(frontmatter.date),
-          lang: foundLanguage?.lang || 'en',
-          frontmatter,
         }
       })
       .sort((a, b) => b.date.time - a.date.time)

@@ -2,13 +2,13 @@
  * Rules module exports
  */
 
-// Engine
-export { createRuleEngine, RuleEngine } from './engine'
 export type {
   DetectorDecision,
   DetectorDecisionSnapshot,
   RuleEngineConfig,
 } from './engine'
+// Engine
+export { createRuleEngine, RuleEngine } from './engine'
 
 // Loader
 export {
@@ -44,8 +44,8 @@ export {
 
 // Types
 export type {
-  DetectorsState,
   DetectorState,
+  DetectorsState,
   ParsedRule,
   Rule,
   RuleMatchResult,

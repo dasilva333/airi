@@ -36,17 +36,17 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  audioStream: null,
   customInputPlaceholder: 'Enter custom voice name',
   showVisualizer: true,
-  audioStream: null,
 })
 
 const emit = defineEmits<{
   togglePlayback: [voice: Voice]
 }>()
 
-const voiceId = defineModel<string>('voice-id', { required: false, default: '' })
-const customVoiceName = defineModel<string>('custom-voice-name', { required: false, default: '' })
+const voiceId = defineModel<string>('voice-id', { default: '', required: false })
+const customVoiceName = defineModel<string>('custom-voice-name', { default: '', required: false })
 
 // Get preview URL from either field
 function getPreviewUrl(voice: Voice): string | undefined {
@@ -74,7 +74,7 @@ function formatVoiceAttributes(voice: Voice): string[] {
 
   // Add languages if available
   if (voice.languages && voice.languages.length > 0) {
-    const languageNames = voice.languages.map(lang => lang.name).join(', ')
+    const languageNames = voice.languages.map((lang) => lang.name).join(', ')
     attributes.push(languageNames)
   }
 

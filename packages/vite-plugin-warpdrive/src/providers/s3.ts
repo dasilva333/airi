@@ -1,11 +1,8 @@
 import type { Buffer } from 'node:buffer'
-
-import type { UploadProvider } from './types'
-
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-
 import { S3mini } from 's3mini'
+import type { UploadProvider } from './types'
 
 export interface S3ProviderOptions {
   endpoint: string
@@ -27,42 +24,39 @@ export interface S3ProviderOptions {
 export function createS3Provider(options: S3ProviderOptions): UploadProvider {
   const client = new S3mini({
     accessKeyId: options.accessKeyId,
-    secretAccessKey: options.secretAccessKey,
     endpoint: options.endpoint,
     region: options.region ?? 'auto',
     requestAbortTimeout: options.requestAbortTimeout,
     requestSizeInBytes: options.requestSizeInBytes,
+    secretAccessKey: options.secretAccessKey,
   })
 
   const publicBaseUrl = options.publicBaseUrl ?? options.endpoint
   const skipNotModified = options.skipNotModified !== false
 
   return {
-    async upload(localPath: string, key: string, contentType?: string) {
-      const data = await readFile(localPath)
-      await client.putObject(normalizeKey(key), data, contentType ?? 'application/octet-stream')
-    },
     async cleanPrefix(prefix: string) {
       const normalizedPrefix = normalizePrefix(prefix)
-      if (!normalizedPrefix)
-        return
+      if (!normalizedPrefix) return
 
       const objects = await client.listObjects('/', `${normalizedPrefix}/`)
-      if (!objects?.length)
-        return
+      if (!objects?.length) return
 
-      const keys = objects.map(obj => obj.Key)
+      const keys = objects.map((obj) => obj.Key)
       await client.deleteObjects(keys)
     },
+    getPublicUrl(key: string) {
+      return joinUrl(publicBaseUrl, key)
+    },
     async shouldSkipUpload(localPath: string, key: string) {
-      if (!skipNotModified)
-        return false
+      if (!skipNotModified) return false
 
       const data = await readFile(localPath)
       return isMd5HashMatched(client, key, data)
     },
-    getPublicUrl(key: string) {
-      return joinUrl(publicBaseUrl, key)
+    async upload(localPath: string, key: string, contentType?: string) {
+      const data = await readFile(localPath)
+      await client.putObject(normalizeKey(key), data, contentType ?? 'application/octet-stream')
     },
   }
 }
@@ -70,17 +64,14 @@ export function createS3Provider(options: S3ProviderOptions): UploadProvider {
 async function isMd5HashMatched(client: S3mini, key: string, data: Buffer) {
   try {
     const etag = await client.getEtag(normalizeKey(key))
-    if (!etag)
-      return false
+    if (!etag) return false
 
     const normalizedEtag = sanitizeEtag(etag)
-    if (!normalizedEtag || normalizedEtag.includes('-'))
-      return false
+    if (!normalizedEtag || normalizedEtag.includes('-')) return false
 
     const localHash = createHash('md5').update(data).digest('hex')
     return normalizedEtag.toLowerCase() === localHash.toLowerCase()
-  }
-  catch {
+  } catch {
     return false
   }
 }

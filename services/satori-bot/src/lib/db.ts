@@ -1,16 +1,13 @@
-import type { SatoriEvent } from '../adapter/satori/types'
-import type { StoredUnreadEvent } from '../core/types'
-
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
 import { PGlite } from '@electric-sql/pglite'
 import { desc, eq, inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { nanoid } from 'nanoid'
-
+import type { SatoriEvent } from '../adapter/satori/types'
 import { config } from '../config'
+import type { StoredUnreadEvent } from '../core/types'
 
 import * as schema from './schema'
 
@@ -30,29 +27,33 @@ export async function initDb() {
 export const { channels, messages, eventQueue, unreadEvents } = schema
 
 export async function recordChannel(id: string, name: string, platform: string, selfId: string) {
-  await db.insert(channels)
-    .values({ id, name, platform, selfId })
-    .onConflictDoUpdate({
-      target: channels.id,
-      set: { name, platform, selfId },
-    })
+  await db.insert(channels).values({ id, name, platform, selfId }).onConflictDoUpdate({
+    set: { name, platform, selfId },
+    target: channels.id,
+  })
 }
 
 export async function listChannels() {
   return await db.select().from(channels)
 }
 
-export async function recordMessage(channelId: string, userId: string, userName: string, content: string, timestamp?: number) {
+export async function recordMessage(
+  channelId: string,
+  userId: string,
+  userName: string,
+  content: string,
+  timestamp?: number,
+) {
   const ts = timestamp || Date.now()
   const id = nanoid()
 
   await db.insert(messages).values({
-    id,
     channelId,
+    content,
+    id,
+    timestamp: ts,
     userId,
     userName,
-    content,
-    timestamp: ts,
   })
 }
 
@@ -60,23 +61,24 @@ export async function recordMessage(channelId: string, userId: string, userName:
  * Retrieves the most recent messages for a specific channel.
  */
 export async function getRecentMessages(channelId: string, limit: number = 10) {
-  return await db.select()
+  return await db
+    .select()
     .from(messages)
     .where(eq(messages.channelId, channelId))
     .orderBy(desc(messages.timestamp))
     .limit(limit)
-    .then(msgs => msgs.reverse())
+    .then((msgs) => msgs.reverse())
 }
 
 // Event Queue Persistence
 
-export async function pushToEventQueue(item: { event: SatoriEvent, status: 'pending' | 'ready' }) {
+export async function pushToEventQueue(item: { event: SatoriEvent; status: 'pending' | 'ready' }) {
   const id = nanoid()
   await db.insert(eventQueue).values({
-    id,
-    event: item.event,
-    status: item.status,
     createdAt: Date.now(),
+    event: item.event,
+    id,
+    status: item.status,
   })
   return id
 }
@@ -89,26 +91,28 @@ export async function clearEventQueue() {
   await db.delete(eventQueue)
 }
 
-export async function saveEventQueue(queue: { id?: string, event: SatoriEvent, status: 'pending' | 'ready' }[]) {
+export async function saveEventQueue(queue: { id?: string; event: SatoriEvent; status: 'pending' | 'ready' }[]) {
   // If we have IDs, we might be able to do something smarter, but for now let's just keep it as is
   // but optimized for the common case where we might want to just replace all.
   // Actually, the best way to handle this is to NOT use saveEventQueue for single items.
   await db.delete(eventQueue)
   if (queue.length > 0) {
-    await db.insert(eventQueue).values(queue.map(item => ({
-      id: item.id || nanoid(),
-      event: item.event,
-      status: item.status,
-      createdAt: Date.now(),
-    })))
+    await db.insert(eventQueue).values(
+      queue.map((item) => ({
+        createdAt: Date.now(),
+        event: item.event,
+        id: item.id || nanoid(),
+        status: item.status,
+      })),
+    )
   }
 }
 
 export async function loadEventQueue() {
   const result = await db.select().from(eventQueue).orderBy(schema.eventQueue.createdAt)
-  return result.map(r => ({
-    id: r.id,
+  return result.map((r) => ({
     event: r.event as SatoriEvent,
+    id: r.id,
     status: r.status as 'pending' | 'ready',
   }))
 }
@@ -118,17 +122,16 @@ export async function loadEventQueue() {
 export async function pushToUnreadEvents(channelId: string, event: SatoriEvent) {
   const id = nanoid()
   await db.insert(unreadEvents).values({
-    id,
     channelId,
-    event,
     createdAt: Date.now(),
+    event,
+    id,
   })
   return id
 }
 
 export async function deleteUnreadEventsByIds(channelId: string, ids: string[]) {
-  if (ids.length === 0)
-    return
+  if (ids.length === 0) return
   await db.delete(unreadEvents).where(inArray(unreadEvents.id, ids))
 }
 
@@ -142,10 +145,10 @@ export async function saveUnreadEvents(allUnread: Record<string, StoredUnreadEve
   for (const [channelId, events] of Object.entries(allUnread)) {
     for (const item of events) {
       values.push({
-        id: item.id || nanoid(),
         channelId,
-        event: item.event,
         createdAt: Date.now(),
+        event: item.event,
+        id: item.id || nanoid(),
       })
     }
   }
@@ -162,8 +165,8 @@ export async function loadUnreadEvents() {
       allUnread[r.channelId] = []
     }
     allUnread[r.channelId].push({
-      id: r.id,
       event: r.event as SatoriEvent,
+      id: r.id,
     })
   }
   return allUnread

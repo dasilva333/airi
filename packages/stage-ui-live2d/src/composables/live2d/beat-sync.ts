@@ -2,7 +2,11 @@ import type { Ref } from 'vue'
 
 import { computed, ref } from 'vue'
 
-export interface BeatBaseAngles { x: number, y: number, z: number }
+export interface BeatBaseAngles {
+  x: number
+  y: number
+  z: number
+}
 
 export interface BeatSyncController {
   targetX: Ref<number>
@@ -61,11 +65,11 @@ interface BeatStyleConfig {
 }
 
 const defaultStyles: Record<BeatSyncStyleName, BeatStyleConfig> = {
-  'punchy-v': { topYaw: 10, topRoll: 8, bottomDip: 4, pattern: 'v' },
-  'balanced-v': { topYaw: 6, topRoll: 0, bottomDip: 6, pattern: 'v' },
-  'swing-lr': { topYaw: 8, topRoll: 0, bottomDip: 6, swingLift: 8, pattern: 'swing' },
+  'balanced-v': { bottomDip: 6, pattern: 'v', topRoll: 0, topYaw: 6 },
+  'punchy-v': { bottomDip: 4, pattern: 'v', topRoll: 8, topYaw: 10 },
   // sway uses a three-point path per beat: side A -> side B -> center (A-shape arcs)
-  'sway-sine': { topYaw: 10, topRoll: 0, bottomDip: 0, swingLift: 10, pattern: 'sway' },
+  'sway-sine': { bottomDip: 0, pattern: 'sway', swingLift: 10, topRoll: 0, topYaw: 10 },
+  'swing-lr': { bottomDip: 6, pattern: 'swing', swingLift: 8, topRoll: 0, topYaw: 8 },
 }
 
 export function createBeatSyncController(options: CreateBeatSyncControllerOptions): BeatSyncController {
@@ -102,7 +106,7 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
   }
 
   function easeOutCubic(t: number) {
-    return 1 - ((1 - t) ** 3)
+    return 1 - (1 - t) ** 3
   }
 
   function getStyleConfig(): BeatStyleConfig {
@@ -112,10 +116,10 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
   function getTopPose(side: 'left' | 'right') {
     const { topYaw, topRoll, swingLift, pattern } = getStyleConfig()
     const direction = side === 'left' ? -1 : 1
-    const zOffset = (pattern === 'swing' || pattern === 'sway') ? (swingLift ?? topRoll) : topRoll
+    const zOffset = pattern === 'swing' || pattern === 'sway' ? (swingLift ?? topRoll) : topRoll
     const z = baseAngles.value.z + (pattern === 'swing' || pattern === 'sway' ? zOffset : direction * zOffset)
     return {
-      y: baseAngles.value.y + (direction * topYaw),
+      y: baseAngles.value.y + direction * topYaw,
       z,
     }
   }
@@ -137,10 +141,8 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       currentZ = baseAngles.value.z
     }
 
-    if (currentY == null)
-      currentY = baseAngles.value.y
-    if (currentZ == null)
-      currentZ = baseAngles.value.z
+    if (currentY == null) currentY = baseAngles.value.y
+    if (currentZ == null) currentZ = baseAngles.value.z
 
     while (segments.value.length) {
       const segment = segments.value[0]
@@ -165,7 +167,7 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
     }
 
     const lastBeat = lastBeatTimestamp.value
-    const timeSinceBeat = primed.value && lastBeat != null ? (now - lastBeat) : Infinity
+    const timeSinceBeat = primed.value && lastBeat != null ? now - lastBeat : Infinity
     const shouldRelease = primed.value && !segments.value.length && timeSinceBeat > releaseDelayMs
 
     if (shouldRelease) {
@@ -185,9 +187,12 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
   }
 
   function scheduleBeat(timestamp?: number | null) {
-    const now = timestamp != null && Number.isFinite(timestamp)
-      ? Number(timestamp)
-      : (typeof performance !== 'undefined' ? performance.now() : Date.now())
+    const now =
+      timestamp != null && Number.isFinite(timestamp)
+        ? Number(timestamp)
+        : typeof performance !== 'undefined'
+          ? performance.now()
+          : Date.now()
     updateTargets(now)
 
     if (!primed.value) {
@@ -196,15 +201,17 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       return
     }
 
-    const interval = Math.min(2000, Math.max(220, lastBeatTimestamp.value != null ? (now - lastBeatTimestamp.value) : defaultIntervalMs))
+    const interval = Math.min(
+      2000,
+      Math.max(220, lastBeatTimestamp.value != null ? now - lastBeatTimestamp.value : defaultIntervalMs),
+    )
     lastBeatTimestamp.value = now
     lastInterval.value = interval
-    avgInterval.value = avgInterval.value == null ? interval : (avgInterval.value * 0.7 + interval * 0.3)
+    avgInterval.value = avgInterval.value == null ? interval : avgInterval.value * 0.7 + interval * 0.3
     if (autoShift.value && avgInterval.value) {
       const bpm = 60000 / avgInterval.value
       const targetStyle: BeatSyncStyleName = bpm < 120 ? 'swing-lr' : bpm < 180 ? 'balanced-v' : 'punchy-v'
-      if (targetStyle !== style.value)
-        style.value = targetStyle
+      if (targetStyle !== style.value) style.value = targetStyle
     }
     const halfDuration = Math.max(80, interval / 2)
     const startPose = { y: targetY.value, z: targetZ.value }
@@ -218,10 +225,10 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       if (!patternStarted.value) {
         const topPose = getTopPose('left')
         segments.value.push({
-          start: now,
           duration: halfDuration,
           fromY: startPose.y,
           fromZ: startPose.z,
+          start: now,
           toY: topPose.y,
           toZ: topPose.z,
         })
@@ -234,26 +241,24 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       const nextTopPose = getTopPose(nextSide)
 
       segments.value.push({
-        start: now,
         duration: halfDuration,
         fromY: startPose.y,
         fromZ: startPose.z,
+        start: now,
         toY: bottomPose.y,
         toZ: bottomPose.z,
       })
       segments.value.push({
-        start: now + halfDuration,
         duration: halfDuration,
         fromY: bottomPose.y,
         fromZ: bottomPose.z,
+        start: now + halfDuration,
         toY: nextTopPose.y,
         toZ: nextTopPose.z,
       })
 
       currentTopSide.value = nextSide
-    }
-
-    else if (styleConfig.pattern === 'swing') {
+    } else if (styleConfig.pattern === 'swing') {
       // swing-lr pattern: beat pulls to current side, then cross to the other side within the interval (A-shape)
       const currentSide = currentTopSide.value
       const sidePose = getTopPose(currentSide)
@@ -263,26 +268,25 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       const crossDuration = Math.max(60, interval - sideDuration)
 
       segments.value.push({
-        start: now,
         duration: sideDuration,
         fromY: startPose.y,
         fromZ: startPose.z,
+        start: now,
         toY: sidePose.y,
         toZ: sidePose.z,
       })
       segments.value.push({
-        start: now + sideDuration,
         duration: crossDuration,
         fromY: sidePose.y,
         fromZ: sidePose.z,
+        start: now + sideDuration,
         toY: oppositePose.y,
         toZ: oppositePose.z,
       })
 
       patternStarted.value = true
       currentTopSide.value = nextSide
-    }
-    else if (styleConfig.pattern === 'sway') {
+    } else if (styleConfig.pattern === 'sway') {
       // sway pattern: side A -> lifted mid-arc -> side B (downward parabola / A-shape)
       const currentSide = currentTopSide.value
       const sidePose = getTopPose(currentSide)
@@ -293,10 +297,10 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       // First beat after prime: move to initial side anchor
       if (!patternStarted.value) {
         segments.value.push({
-          start: now,
           duration: halfDuration,
           fromY: startPose.y,
           fromZ: startPose.z,
+          start: now,
           toY: sidePose.y,
           toZ: sidePose.z,
         })
@@ -314,18 +318,18 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
       const leg2 = Math.max(60, interval - leg1)
 
       segments.value.push({
-        start: now,
         duration: leg1,
         fromY: startPose.y,
         fromZ: startPose.z,
+        start: now,
         toY: apexPose.y,
         toZ: apexPose.z,
       })
       segments.value.push({
-        start: now + leg1,
         duration: leg2,
         fromY: apexPose.y,
         fromZ: apexPose.z,
+        start: now + leg1,
         toY: oppositePose.y,
         toZ: oppositePose.z,
       })
@@ -336,26 +340,30 @@ export function createBeatSyncController(options: CreateBeatSyncControllerOption
   }
 
   return {
+    debugState: () => ({
+      avgInterval: avgInterval.value,
+      bpm: avgInterval.value ? 60000 / avgInterval.value : null,
+      lastBeatTimestamp: lastBeatTimestamp.value,
+      lastInterval: lastInterval.value,
+      patternStarted: patternStarted.value,
+      primed: primed.value,
+      segments: [...segments.value],
+      style: style.value,
+    }),
+    getStyle: () => style.value,
+    scheduleBeat,
+    setAutoStyleShift: (enabled: boolean) => {
+      autoShift.value = enabled
+    },
+    setStyle: (s: BeatSyncStyleName) => {
+      style.value = s
+    },
     targetX,
     targetY,
     targetZ,
+    updateTargets,
     velocityX,
     velocityY,
     velocityZ,
-    updateTargets,
-    scheduleBeat,
-    setStyle: (s: BeatSyncStyleName) => { style.value = s },
-    getStyle: () => style.value,
-    setAutoStyleShift: (enabled: boolean) => { autoShift.value = enabled },
-    debugState: () => ({
-      primed: primed.value,
-      patternStarted: patternStarted.value,
-      lastBeatTimestamp: lastBeatTimestamp.value,
-      lastInterval: lastInterval.value,
-      avgInterval: avgInterval.value,
-      bpm: avgInterval.value ? 60000 / avgInterval.value : null,
-      style: style.value,
-      segments: [...segments.value],
-    }),
   }
 }

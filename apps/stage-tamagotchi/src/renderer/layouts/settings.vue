@@ -16,28 +16,28 @@ const providersStore = useProvidersStore()
 const scrollContainer = ref<HTMLElement>()
 useRestoreScroll(scrollContainer)
 
-const routeMeta = computed(() => route.meta as {
-  titleKey?: string
-  subtitleKey?: string
-  title?: string
-  subtitle?: string
-})
+const routeMeta = computed(
+  () =>
+    route.meta as {
+      titleKey?: string
+      subtitleKey?: string
+      title?: string
+      subtitle?: string
+    },
+)
 
 const providerTitle = computed(() => {
-  if (!route.path.startsWith('/settings/providers/'))
-    return undefined
+  if (!route.path.startsWith('/settings/providers/')) return undefined
 
   const segments = route.path.split('/').filter(Boolean)
   const providerId = segments[3]
 
-  if (!providerId)
-    return undefined
+  if (!providerId) return undefined
 
   try {
     const metadata = providersStore.getProviderMetadata(providerId)
     return t(metadata.nameKey)
-  }
-  catch {
+  } catch {
     return undefined
   }
 })
@@ -50,15 +50,15 @@ const routeHeaderMetadata = computed(() => {
 
   if (resolvedTitle || resolvedSubtitle) {
     return {
-      title: resolvedTitle,
       subtitle: resolvedSubtitle,
+      title: resolvedTitle,
     }
   }
 
   if (providerTitle.value) {
     return {
-      title: providerTitle.value,
       subtitle: t('settings.title'),
+      title: providerTitle.value,
     }
   }
 
@@ -69,17 +69,16 @@ function updateSettingsWindowTitle() {
   const parts = ['AIRI', 'Settings']
   const activeTitle = routeHeaderMetadata.value?.title?.trim()
 
-  if (activeTitle)
-    parts.push(activeTitle)
+  if (activeTitle) parts.push(activeTitle)
 
   const nextTitle = parts.join(' - ')
 
   if (document.title !== nextTitle) {
     console.log('[SettingsTitle] Updating document.title', {
-      from: document.title,
-      to: nextTitle,
-      route: route.path,
       activeTitle,
+      from: document.title,
+      route: route.path,
+      to: nextTitle,
     })
     document.title = nextTitle
   }

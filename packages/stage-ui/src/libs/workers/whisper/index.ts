@@ -16,12 +16,12 @@ export const WHISPER_MODELS = [
 ] as const
 
 export function whisperModelsToModelInfo(models: typeof WHISPER_MODELS) {
-  return models.map(m => ({
+  return models.map((m) => ({
+    contextLength: 0,
+    deprecated: false,
+    description: `Local Whisper model (${m.size})`,
     id: m.id,
     name: m.name,
     provider: 'app-local-audio-transcription',
-    description: `Local Whisper model (${m.size})`,
-    contextLength: 0,
-    deprecated: false,
   }))
 }

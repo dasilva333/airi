@@ -32,32 +32,31 @@ interface ImageJournalArgs {
 const parsedArgs = computed<TextJournalArgs | any | null>(() => {
   try {
     return JSON.parse(props.args)
-  }
-  catch {
+  } catch {
     return null
   }
 })
 
 const isTextJournalCreate = computed(() => {
-  return props.toolName === 'text_journal'
-    && parsedArgs.value?.action === 'create'
-    && !!parsedArgs.value?.content?.trim()
+  return (
+    props.toolName === 'text_journal' && parsedArgs.value?.action === 'create' && !!parsedArgs.value?.content?.trim()
+  )
 })
 
 const isTextJournalSearch = computed(() => {
-  return props.toolName === 'text_journal'
-    && parsedArgs.value?.action === 'search'
+  return props.toolName === 'text_journal' && parsedArgs.value?.action === 'search'
 })
 
 const isImageJournalCreate = computed(() => {
-  return props.toolName === 'image_journal'
-    && parsedArgs.value?.action === 'create'
-    && !!(parsedArgs.value as ImageJournalArgs)?.prompt?.trim()
+  return (
+    props.toolName === 'image_journal' &&
+    parsedArgs.value?.action === 'create' &&
+    !!(parsedArgs.value as ImageJournalArgs)?.prompt?.trim()
+  )
 })
 
 const textJournalMarkdown = computed(() => {
-  if (!isTextJournalCreate.value)
-    return ''
+  if (!isTextJournalCreate.value) return ''
 
   const title = parsedArgs.value?.title?.trim() || 'Journal Entry'
   const content = parsedArgs.value?.content?.trim() || ''
@@ -65,8 +64,7 @@ const textJournalMarkdown = computed(() => {
 })
 
 const imageJournalMarkdown = computed(() => {
-  if (!isImageJournalCreate.value)
-    return ''
+  if (!isImageJournalCreate.value) return ''
 
   const args = parsedArgs.value as ImageJournalArgs
   const title = args?.title?.trim() || 'Untitled Image'
@@ -74,23 +72,18 @@ const imageJournalMarkdown = computed(() => {
   const mode = args?.mode || 'inline'
 
   let footer = ''
-  if (mode === 'bg')
-    footer = '\n\n> **Scene Shift**: Setting this as the active background...'
-  else if (mode === 'widget')
-    footer = '\n\n> **Canvas Created**: Spawning an artistry widget for you...'
-  else
-    footer = '\n\n> **Sharing**: Sending a quick sketch to our chat history...'
+  if (mode === 'bg') footer = '\n\n> **Scene Shift**: Setting this as the active background...'
+  else if (mode === 'widget') footer = '\n\n> **Canvas Created**: Spawning an artistry widget for you...'
+  else footer = '\n\n> **Sharing**: Sending a quick sketch to our chat history...'
 
   return `### ${title}\n\n*${prompt}*${footer}`
 })
 
 const imageJournalResult = computed(() => {
-  if (props.toolName !== 'image_journal' || !props.result)
-    return null
+  if (props.toolName !== 'image_journal' || !props.result) return null
   try {
     return typeof props.result === 'string' ? JSON.parse(props.result) : props.result
-  }
-  catch {
+  } catch {
     return null
   }
 })
@@ -99,8 +92,7 @@ const formattedArgs = computed(() => {
   try {
     const parsed = JSON.parse(props.args)
     return JSON.stringify(parsed, null, 2).trim()
-  }
-  catch {
+  } catch {
     return props.args
   }
 })

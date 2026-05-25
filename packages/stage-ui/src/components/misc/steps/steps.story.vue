@@ -11,17 +11,21 @@ interface Step {
 }
 
 const stepsData: Step[] = [
-  { id: 1, title: 'アカウント作成', description: 'ユーザー情報を入力します。' }, // Account Creation - Enter user information.
-  { id: 2, title: 'プロフィール設定', description: '詳細なプロフィール情報を設定します。これは非常に長い説明文になる可能性があります。' }, // Profile Settings - Set detailed profile information. This could be a very long description.
-  { id: 3, title: '確認', description: '入力内容を確認します。' }, // Confirmation - Confirm your input.
-  { id: 4, title: '完了', description: 'プロセスが完了しました。' }, // Completion - The process is complete.
+  { description: 'ユーザー情報を入力します。', id: 1, title: 'アカウント作成' }, // Account Creation - Enter user information.
+  {
+    description: '詳細なプロフィール情報を設定します。これは非常に長い説明文になる可能性があります。',
+    id: 2,
+    title: 'プロフィール設定',
+  }, // Profile Settings - Set detailed profile information. This could be a very long description.
+  { description: '入力内容を確認します。', id: 3, title: '確認' }, // Confirmation - Confirm your input.
+  { description: 'プロセスが完了しました。', id: 4, title: '完了' }, // Completion - The process is complete.
 ]
 
-function createStepperState(initialStep: number = 1): { currentStep: Ref<number>, totalSteps: number, steps: Step[] } {
+function createStepperState(initialStep: number = 1): { currentStep: Ref<number>; totalSteps: number; steps: Step[] } {
   return {
     currentStep: ref(initialStep),
-    totalSteps: stepsData.length,
     steps: stepsData,
+    totalSteps: stepsData.length,
   }
 }
 
@@ -42,24 +46,64 @@ function isStepCompleted(state: { currentStep: Ref<number> }, stepId: number): b
 }
 
 const setupWorkflowSteps: Step[] = [
-  { id: 1, title: 'Welcome to StageWeb!', description: 'Let\'s get you set up. First, we need to configure at least one AI provider. Click "Next" to go to Provider Settings.' },
-  { id: 2, title: 'Configure Provider', description: 'You are now in Provider Settings. Click on a provider (e.g., OpenAI, Ollama) to add your credentials (like API Key or Base URL).' },
-  { id: 3, title: 'Set Up Consciousness', description: 'Great! Now head over to the "Consciousness" module in the settings.' },
-  { id: 4, title: 'Select Consciousness Provider', description: 'In the Consciousness module, select the provider you just configured from the list.' },
-  { id: 5, title: 'Select Consciousness Model', description: 'Now, choose a specific model from the list that this provider offers.' },
-  { id: 6, title: 'Configure Text-to-Speech (TTS)?', description: 'Do you want to enable speech output? If yes, we need to configure a Speech Provider next. If not, you can skip to the end.' },
-  { id: 7, title: 'Configure Speech Provider', description: '(Optional) Go back to Provider Settings and configure a provider that supports Speech (like ElevenLabs or Microsoft Speech).' },
-  { id: 8, title: 'Set Up Speech Module', description: '(Optional) Navigate to the "Speech" module in settings.' },
-  { id: 9, title: 'Select Speech Provider & Voice', description: '(Optional) Select your configured Speech provider and choose a voice you like.' },
-  { id: 10, title: 'Setup Complete!', description: 'Excellent! Your core setup is complete. You can now return to the main page and start interacting.' },
+  {
+    description:
+      'Let\'s get you set up. First, we need to configure at least one AI provider. Click "Next" to go to Provider Settings.',
+    id: 1,
+    title: 'Welcome to StageWeb!',
+  },
+  {
+    description:
+      'You are now in Provider Settings. Click on a provider (e.g., OpenAI, Ollama) to add your credentials (like API Key or Base URL).',
+    id: 2,
+    title: 'Configure Provider',
+  },
+  {
+    description: 'Great! Now head over to the "Consciousness" module in the settings.',
+    id: 3,
+    title: 'Set Up Consciousness',
+  },
+  {
+    description: 'In the Consciousness module, select the provider you just configured from the list.',
+    id: 4,
+    title: 'Select Consciousness Provider',
+  },
+  {
+    description: 'Now, choose a specific model from the list that this provider offers.',
+    id: 5,
+    title: 'Select Consciousness Model',
+  },
+  {
+    description:
+      'Do you want to enable speech output? If yes, we need to configure a Speech Provider next. If not, you can skip to the end.',
+    id: 6,
+    title: 'Configure Text-to-Speech (TTS)?',
+  },
+  {
+    description:
+      '(Optional) Go back to Provider Settings and configure a provider that supports Speech (like ElevenLabs or Microsoft Speech).',
+    id: 7,
+    title: 'Configure Speech Provider',
+  },
+  { description: '(Optional) Navigate to the "Speech" module in settings.', id: 8, title: 'Set Up Speech Module' },
+  {
+    description: '(Optional) Select your configured Speech provider and choose a voice you like.',
+    id: 9,
+    title: 'Select Speech Provider & Voice',
+  },
+  {
+    description: 'Excellent! Your core setup is complete. You can now return to the main page and start interacting.',
+    id: 10,
+    title: 'Setup Complete!',
+  },
 ]
 
 // Separate state for this specific tutorial variant
 const setupGuide = {
   currentStep: ref(1),
-  totalSteps: setupWorkflowSteps.length,
-  steps: setupWorkflowSteps,
   skippedTTS: ref(false), // Track if TTS setup was skipped
+  steps: setupWorkflowSteps,
+  totalSteps: setupWorkflowSteps.length,
 }
 
 function updateSetupGuideStep(stepId: number) {
@@ -74,8 +118,7 @@ function nextSetupGuideStep() {
   const current = setupGuide.currentStep.value
   if (current === 6 && setupGuide.skippedTTS.value) {
     updateSetupGuideStep(10) // Skip TTS
-  }
-  else if (current < setupGuide.totalSteps) {
+  } else if (current < setupGuide.totalSteps) {
     updateSetupGuideStep(current + 1)
   }
 }
@@ -84,8 +127,7 @@ function prevSetupGuideStep() {
   const current = setupGuide.currentStep.value
   if (current === 10 && setupGuide.skippedTTS.value) {
     updateSetupGuideStep(6) // Go back to the skip question
-  }
-  else if (current > 1) {
+  } else if (current > 1) {
     updateSetupGuideStep(current - 1)
   }
 }

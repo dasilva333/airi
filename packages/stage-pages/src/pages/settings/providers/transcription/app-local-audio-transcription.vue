@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  TranscriptionPlayground,
-  TranscriptionProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { TranscriptionPlayground, TranscriptionProviderSettings } from '@proj-airi/stage-ui/components'
 import { getWhisperWorker, WHISPER_MODELS } from '@proj-airi/stage-ui/libs/workers/whisper'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
@@ -27,10 +24,9 @@ const cachedModels = ref<Set<string>>(new Set())
 
 // Model selection (synced with provider settings)
 const model = computed({
-  get: () => providers.value[providerId]?.model as string | undefined || defaultModel,
+  get: () => (providers.value[providerId]?.model as string | undefined) || defaultModel,
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].model = value
     hearingStore.activeTranscriptionModel = value
   },
@@ -45,8 +41,7 @@ async function checkCache() {
 }
 
 async function downloadModel(modelId: string) {
-  if (isDownloading.value)
-    return
+  if (isDownloading.value) return
 
   isDownloading.value = true
   downloadingModel.value = modelId
@@ -60,15 +55,13 @@ async function downloadModel(modelId: string) {
       if (e.data.id === id) {
         if (e.data.type === 'PROGRESS') {
           loadingProgress.value = e.data.progress
-        }
-        else if (e.data.type === 'LOADED') {
+        } else if (e.data.type === 'LOADED') {
           worker.removeEventListener('message', handleMessage)
           isDownloading.value = false
           cachedModels.value.add(modelId)
           localStorage.setItem('airi/whisper/cached-models', JSON.stringify([...cachedModels.value]))
           toast.success(`Model ${modelId} loaded successfully`)
-        }
-        else if (e.data.type === 'ERROR') {
+        } else if (e.data.type === 'ERROR') {
           worker.removeEventListener('message', handleMessage)
           isDownloading.value = false
           toast.error(`Failed to load model: ${e.data.error}`)
@@ -77,9 +70,8 @@ async function downloadModel(modelId: string) {
     }
 
     worker.addEventListener('message', handleMessage)
-    worker.postMessage({ type: 'LOAD', id, model: modelId })
-  }
-  catch (err) {
+    worker.postMessage({ id, model: modelId, type: 'LOAD' })
+  } catch (err) {
     isDownloading.value = false
     toast.error('Failed to initialize worker')
     console.error(err)
@@ -95,7 +87,7 @@ async function handleGenerateTranscription(file: File) {
     isInstanceOfFile: file instanceof File,
   })
 
-  const provider = await providersStore.getProviderInstance(providerId) as any
+  const provider = (await providersStore.getProviderInstance(providerId)) as any
   console.info('[App Local Transcription Settings] Provider instance:', provider ? 'initialized' : 'missing')
 
   if (!provider) {
@@ -112,8 +104,8 @@ async function handleGenerateTranscription(file: File) {
     const startTime = Date.now()
     const timeout = 120 * 1000
 
-    while (isDownloading.value && (Date.now() - startTime < timeout)) {
-      await new Promise(resolve => setTimeout(resolve, 500))
+    while (isDownloading.value && Date.now() - startTime < timeout) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
     }
 
     if (isDownloading.value) {
@@ -131,13 +123,7 @@ async function handleGenerateTranscription(file: File) {
 
   console.info(`[App Local Transcription Settings] Delegating transcription to hearing store for ${file.name}`)
 
-  return await hearingStore.transcription(
-    providerId,
-    provider,
-    model.value,
-    file,
-    'json',
-  )
+  return await hearingStore.transcription(providerId, provider, model.value, file, 'json')
 }
 
 onMounted(async () => {

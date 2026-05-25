@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import type { ProviderMetadata } from '../../../../stores/providers'
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { Button } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import type { ProviderMetadata } from '../../../../stores/providers'
 import { RadioCardDetail } from '../../../menu'
+import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 interface Props {
   availableProviders: ProviderMetadata[]
@@ -33,9 +31,8 @@ const filteredProviders = computed(() => {
 const selectedProviderIdModel = computed({
   get: () => props.selectedProviderId,
   set: (providerId: string) => {
-    const provider = props.availableProviders.find(item => item.id === providerId)
-    if (provider)
-      props.onSelectProvider(provider)
+    const provider = props.availableProviders.find((item) => item.id === providerId)
+    if (provider) props.onSelectProvider(provider)
   },
 })
 

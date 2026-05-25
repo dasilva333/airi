@@ -15,8 +15,8 @@
   --accent-success: #3fb950;
   --accent-warning: #d29922;
   --accent-error: #f85149;
-  --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: "Consolas", "Monaco", "Courier New", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* Resizable Grid Defaults */
   --col-left: clamp(260px, 24vw, 420px);
@@ -183,8 +183,7 @@ button:hover,
   /* Columns: Left Panel | Splitter | Right Content */
   grid-template-columns: 1fr;
   /* Rows: Logs | Splitter | Timeline | Splitter | Conversation */
-  grid-template-rows:
-    minmax(var(--row-1), 1fr) 8px minmax(var(--row-2), 1fr) 8px minmax(var(--row-3), 1fr);
+  grid-template-rows: minmax(var(--row-1), 1fr) 8px minmax(var(--row-2), 1fr) 8px minmax(var(--row-3), 1fr);
   gap: 0;
   padding: 0;
   height: 100%;
@@ -206,7 +205,7 @@ button:hover,
 }
 
 /* Keep left-column panels visible; let tools consume remaining space */
-#left-column>.panel {
+#left-column > .panel {
   flex: 0 0 auto;
 }
 
@@ -381,7 +380,7 @@ button:hover,
 }
 
 .splitter-v::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
@@ -406,7 +405,7 @@ button:hover,
 }
 
 .splitter-h::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -740,7 +739,7 @@ button:hover,
 
 .chat-bubble-user {
   border-color: rgba(63, 185, 80, 0.45);
-  background: rgba(63, 185, 80, 0.10);
+  background: rgba(63, 185, 80, 0.1);
 }
 
 .chat-message-assistant {
@@ -819,8 +818,16 @@ button:hover,
 }
 
 @keyframes chatTyping {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-  40% { transform: translateY(-3px); opacity: 0.9; }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 0.9;
+  }
 }
 
 /* Utilities */
@@ -905,7 +912,7 @@ button:hover,
 }
 
 .timeline-event.has-parent::before {
-  content: '↳';
+  content: "↳";
   color: var(--text-muted);
   margin-right: -0.25rem;
 }

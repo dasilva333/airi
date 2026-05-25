@@ -16,23 +16,25 @@ describe('processNarrative', () => {
 
   it('should keep narrative text if keepNarrativeText is true', () => {
     const text = 'Hello [laughs] world'
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: true })).toBe('Hello laughs world')
+    expect(processNarrative(text, { keepNarrativeText: true, stripNarrative: true })).toBe('Hello laughs world')
   })
 
   it('should handle multiple brackets and types', () => {
     const text = 'Hi *waves* [smiling] (quietly)'
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: false })).toBe('Hi   ')
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: true })).toBe('Hi waves smiling quietly')
+    expect(processNarrative(text, { keepNarrativeText: false, stripNarrative: true })).toBe('Hi   ')
+    expect(processNarrative(text, { keepNarrativeText: true, stripNarrative: true })).toBe('Hi waves smiling quietly')
   })
 
   it('should handle CJK brackets', () => {
     const text = 'こんにちは（笑）【重要】'
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: false })).toBe('こんにちは')
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: true })).toBe('こんにちは笑重要')
+    expect(processNarrative(text, { keepNarrativeText: false, stripNarrative: true })).toBe('こんにちは')
+    expect(processNarrative(text, { keepNarrativeText: true, stripNarrative: true })).toBe('こんにちは笑重要')
   })
 
   it('should handle mixed bracket types with keepNarrativeText', () => {
     const text = 'Start <hidden> [box] (round) *star* End'
-    expect(processNarrative(text, { stripNarrative: true, keepNarrativeText: true })).toBe('Start hidden box round star End')
+    expect(processNarrative(text, { keepNarrativeText: true, stripNarrative: true })).toBe(
+      'Start hidden box round star End',
+    )
   })
 })

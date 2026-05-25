@@ -1,6 +1,5 @@
-import WebSocket from 'ws'
-
 import * as dotenv from 'dotenv'
+import WebSocket from 'ws'
 
 dotenv.config()
 
@@ -22,16 +21,14 @@ async function main() {
 
     const setupMessage = {
       setup: {
-        model: MODEL,
         generationConfig: {
           responseModalities: ['AUDIO'],
         },
-        tools: [
-          { google_search: {} },
-        ],
+        model: MODEL,
         systemInstruction: {
           parts: [{ text: 'You are a helpful assistant. Use Google Search for current events.' }],
         },
+        tools: [{ google_search: {} }],
       },
     }
 
@@ -87,8 +84,7 @@ async function main() {
         console.error('\n[ERROR]:', response.error)
         ws.close()
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Message Parse Error:', err)
     }
   })

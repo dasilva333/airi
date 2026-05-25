@@ -1,5 +1,5 @@
-export { Live2DCanvas, Live2DModel } from './components/scenes/live2d'
 export { default as Live2DScene } from './components/scenes/Live2D.vue'
+export { Live2DCanvas, Live2DModel } from './components/scenes/live2d'
 export * from './composables/live2d'
 export * from './constants/emotions'
 export * from './stores'

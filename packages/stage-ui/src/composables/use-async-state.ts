@@ -17,11 +17,9 @@ export function useAsyncState<T>(
     error.value = null
     try {
       state.value = await fn()
-    }
-    catch (err) {
+    } catch (err) {
       error.value = err
-    }
-    finally {
+    } finally {
       isLoading.value = false
     }
   }
@@ -31,9 +29,9 @@ export function useAsyncState<T>(
   }
 
   return {
-    state,
-    isLoading,
     error,
     execute,
+    isLoading,
+    state,
   }
 }

@@ -2,7 +2,11 @@ import type { Bot } from 'mineflayer'
 
 import { Vec3 } from 'vec3'
 
-interface Vec3Like { x: number, y: number, z: number }
+interface Vec3Like {
+  x: number
+  y: number
+  z: number
+}
 
 interface PlayerEntityLike {
   type?: string
@@ -62,7 +66,7 @@ export function rayTraceBlockFromEntity(
     step?: number
     eyeHeight?: number
   },
-): { lookPoint: Vec3Like, hitBlock: PlayerGazeResult['hitBlock'] } {
+): { lookPoint: Vec3Like; hitBlock: PlayerGazeResult['hitBlock'] } {
   const maxDistance = options?.maxDistance ?? 32
   const step = options?.step ?? 0.25
   const eyeHeight = options?.eyeHeight ?? 1.62
@@ -81,26 +85,24 @@ export function rayTraceBlockFromEntity(
     const p = add(origin, scale(dir, d))
     const bp = floorVec(p)
     const key = `${bp.x},${bp.y},${bp.z}`
-    if (key === lastBlockPosKey)
-      continue
+    if (key === lastBlockPosKey) continue
     lastBlockPosKey = key
 
     const block = bot.blockAt(new Vec3(bp.x, bp.y, bp.z))
-    if (!block)
-      continue
+    if (!block) continue
 
     if (block.name !== 'air') {
       return {
-        lookPoint,
         hitBlock: {
           name: block.name,
           pos: { x: block.position.x, y: block.position.y, z: block.position.z },
         },
+        lookPoint,
       }
     }
   }
 
-  return { lookPoint, hitBlock: null }
+  return { hitBlock: null, lookPoint }
 }
 
 export function computeNearbyPlayerGaze(
@@ -111,32 +113,31 @@ export function computeNearbyPlayerGaze(
   },
 ): PlayerGazeResult[] {
   const self = bot.entity
-  if (!self)
-    return []
+  if (!self) return []
 
   const nearbyDistance = options?.nearbyDistance ?? 16
 
   const players = Object.values(bot.players ?? {})
-    .map(p => p?.entity as PlayerEntityLike | undefined)
+    .map((p) => p?.entity as PlayerEntityLike | undefined)
     .filter((e): e is PlayerEntityLike => Boolean(e && e.type === 'player' && e.username))
-    .filter(e => e.username !== bot.username)
+    .filter((e) => e.username !== bot.username)
 
   const selfPos = self.position
 
   return players
     .map((p) => {
       const dist = distance(selfPos, p.position)
-      return { p, dist }
+      return { dist, p }
     })
-    .filter(x => x.dist <= nearbyDistance)
+    .filter((x) => x.dist <= nearbyDistance)
     .sort((a, b) => a.dist - b.dist)
     .map(({ p, dist }) => {
       const { lookPoint, hitBlock } = rayTraceBlockFromEntity(bot, p, { maxDistance: options?.maxDistance ?? 32 })
       return {
-        playerName: p.username!,
         distanceToSelf: dist,
-        lookPoint,
         hitBlock,
+        lookPoint,
+        playerName: p.username!,
       }
     })
 }

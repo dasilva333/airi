@@ -1,14 +1,11 @@
-import type { HonoEnv } from '../../types/hono'
-
 import { Hono } from 'hono'
 import { beforeAll, describe, expect, it } from 'vitest'
-
 import { mockDB } from '../../libs/mock-db'
+import * as schema from '../../schemas'
 import { createCharacterService } from '../../services/characters'
+import type { HonoEnv } from '../../types/hono'
 import { ApiError } from '../../utils/error'
 import { createCharacterRoutes } from '../characters'
-
-import * as schema from '../../schemas'
 
 describe('characterRoutes', () => {
   let db: any
@@ -21,11 +18,14 @@ describe('characterRoutes', () => {
     characterService = createCharacterService(db)
 
     // Create a test user
-    const [user] = await db.insert(schema.user).values({
-      id: 'user-1',
-      name: 'Test User',
-      email: 'test@example.com',
-    }).returning()
+    const [user] = await db
+      .insert(schema.user)
+      .values({
+        email: 'test@example.com',
+        id: 'user-1',
+        name: 'Test User',
+      })
+      .returning()
     testUser = user
 
     const routes = createCharacterRoutes(characterService)
@@ -33,11 +33,14 @@ describe('characterRoutes', () => {
 
     app.onError((err, c) => {
       if (err instanceof ApiError) {
-        return c.json({
-          error: err.errorCode,
-          message: err.message,
-          details: err.details,
-        }, err.statusCode)
+        return c.json(
+          {
+            details: err.details,
+            error: err.errorCode,
+            message: err.message,
+          },
+          err.statusCode,
+        )
       }
       return c.json({ error: 'Internal Server Error', message: err.message }, 500)
     })
@@ -66,16 +69,19 @@ describe('characterRoutes', () => {
 
   it('post / should create character with cover', async () => {
     const payload = {
-      character: { version: '1', coverUrl: 'url', characterId: 'cid' },
-      i18n: [{ language: 'en', name: 'Aster', description: 'desc', tags: [] }],
-      cover: { foregroundUrl: 'fg', backgroundUrl: 'bg' },
+      character: { characterId: 'cid', coverUrl: 'url', version: '1' },
+      cover: { backgroundUrl: 'bg', foregroundUrl: 'fg' },
+      i18n: [{ description: 'desc', language: 'en', name: 'Aster', tags: [] }],
     }
 
-    const res = await app.fetch(new Request('http://localhost/', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request('http://localhost/', {
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(201)
     const data = await res.json()
@@ -97,7 +103,9 @@ describe('characterRoutes', () => {
     const characters = await characterService.findAll()
     const charId = characters[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${charId}/like`, { method: 'POST' }), { user: testUser } as any)
+    const res = await app.fetch(new Request(`http://localhost/${charId}/like`, { method: 'POST' }), {
+      user: testUser,
+    } as any)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ liked: true })
 
@@ -115,11 +123,14 @@ describe('characterRoutes', () => {
     const characters = await characterService.findAll()
     const charId = characters[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${charId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ version: '2.0' }),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${charId}`, {
+        body: JSON.stringify({ version: '2.0' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(200)
     const char = await characterService.findById(charId)
@@ -128,20 +139,26 @@ describe('characterRoutes', () => {
 
   it('patch /:id should return 403 if not owner', async () => {
     // Create another user
-    const [otherUser] = await db.insert(schema.user).values({
-      id: 'user-2',
-      name: 'Other User',
-      email: 'other@example.com',
-    }).returning()
+    const [otherUser] = await db
+      .insert(schema.user)
+      .values({
+        email: 'other@example.com',
+        id: 'user-2',
+        name: 'Other User',
+      })
+      .returning()
 
     const characters = await characterService.findAll()
     const charId = characters[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${charId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ version: '3.0' }),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: otherUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${charId}`, {
+        body: JSON.stringify({ version: '3.0' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { user: otherUser } as any,
+    )
 
     expect(res.status).toBe(403)
   })
@@ -150,9 +167,12 @@ describe('characterRoutes', () => {
     const characters = await characterService.findAll()
     const charId = characters[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${charId}`, {
-      method: 'DELETE',
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${charId}`, {
+        method: 'DELETE',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(204)
     const char = await characterService.findById(charId)

@@ -14,7 +14,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
-import { toast, Toaster } from 'vue-sonner'
+import { Toaster, toast } from 'vue-sonner'
 
 import OnboardingPermissionsStep from './components/onboarding/step-permissions.vue'
 
@@ -57,13 +57,21 @@ watch(settings.language, () => {
   i18n.locale.value = settings.language.value
 })
 
-watch(settings.themeColorsHue, () => {
-  document.documentElement.style.setProperty('--chromatic-hue', settings.themeColorsHue.value.toString())
-}, { immediate: true })
+watch(
+  settings.themeColorsHue,
+  () => {
+    document.documentElement.style.setProperty('--chromatic-hue', settings.themeColorsHue.value.toString())
+  },
+  { immediate: true },
+)
 
-watch(settings.themeColorsHueDynamic, () => {
-  document.documentElement.classList.toggle('dynamic-hue', settings.themeColorsHueDynamic.value)
-}, { immediate: true })
+watch(
+  settings.themeColorsHueDynamic,
+  () => {
+    document.documentElement.classList.toggle('dynamic-hue', settings.themeColorsHueDynamic.value)
+  },
+  { immediate: true },
+)
 
 // Initialize first-time setup check when app mounts
 onMounted(async () => {
@@ -74,7 +82,9 @@ onMounted(async () => {
     onboardingStore.showingSetup = true
   }
 
-  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
+  await serverChannelStore
+    .initialize({ possibleEvents: ['ui:configure'] })
+    .catch((err) => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
   await contextBridgeStore.initialize()
   characterOrchestratorStore.initialize()
 
@@ -97,8 +107,8 @@ function handleSetupSkipped() {
 
 const extraSteps = computed(() => [
   {
-    id: 'step-permissions',
     component: OnboardingPermissionsStep,
+    id: 'step-permissions',
   },
 ])
 </script>

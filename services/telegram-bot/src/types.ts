@@ -36,7 +36,7 @@ export interface ChatContext {
   currentAbortController?: AbortController
 
   messages: LLMMessage[]
-  actions: { action: Action, result: unknown }[]
+  actions: { action: Action; result: unknown }[]
 }
 
 export interface ContinueAction {
@@ -88,17 +88,17 @@ export interface ListStickersAction {
   action: 'list_stickers'
 }
 
-export type Action
-  = | ContinueAction
-    | BreakAction
-    | SleepAction
-    | ListChatsAction
-    | SendMessageAction
-    | SendStickerAction
-    | SearchGoogleAction
-    | ReadHistoryMessagesAction
-    | ReadUnreadMessagesAction
-    | ListStickersAction
+export type Action =
+  | ContinueAction
+  | BreakAction
+  | SleepAction
+  | ListChatsAction
+  | SendMessageAction
+  | SendStickerAction
+  | SearchGoogleAction
+  | ReadHistoryMessagesAction
+  | ReadUnreadMessagesAction
+  | ListStickersAction
 
 export interface AttentionConfig {
   initialResponseRate: number

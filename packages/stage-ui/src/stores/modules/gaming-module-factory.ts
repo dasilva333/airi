@@ -34,6 +34,6 @@ export function createGamingModuleStore(moduleName: string, defaultPort: number)
       return !!(serverAddress.value.trim() && username.value.trim() && serverPort.value !== null)
     })
 
-    return { enabled, serverAddress, serverPort, username, configured, saveSettings, resetState }
+    return { configured, enabled, resetState, saveSettings, serverAddress, serverPort, username }
   })
 }

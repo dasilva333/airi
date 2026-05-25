@@ -22,22 +22,18 @@ class RuntimeEventTarget implements EventTarget {
   constructor(private readonly send: (message: EventaRuntimeMessage) => void) {}
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject | null) {
-    if (!listener)
-      return
+    if (!listener) return
 
-    if (!this.listeners.has(type))
-      this.listeners.set(type, new Map())
+    if (!this.listeners.has(type)) this.listeners.set(type, new Map())
 
-    const handler: RuntimeEventListener = typeof listener === 'function'
-      ? listener
-      : event => listener.handleEvent(event)
+    const handler: RuntimeEventListener =
+      typeof listener === 'function' ? listener : (event) => listener.handleEvent(event)
 
     this.listeners.get(type)?.set(listener, handler)
   }
 
   removeEventListener(type: string, listener: EventListenerOrEventListenerObject | null) {
-    if (!listener)
-      return
+    if (!listener) return
 
     this.listeners.get(type)?.delete(listener)
   }
@@ -47,18 +43,17 @@ class RuntimeEventTarget implements EventTarget {
     this.send({
       __eventa: true,
       channel: EVENTA_RUNTIME_CHANNEL,
+      detail,
       sourceId: runtimeInstanceId,
       type: event.type,
-      detail,
     })
 
     return true
   }
 
   emit(type: string, detail?: unknown) {
-    const event = { type, detail } as CustomEvent
-    for (const listener of this.listeners.get(type)?.values() ?? [])
-      listener(event)
+    const event = { detail, type } as CustomEvent
+    for (const listener of this.listeners.get(type)?.values() ?? []) listener(event)
   }
 }
 
@@ -68,24 +63,20 @@ export function createRuntimeEventaContext() {
   })
 
   const { context, dispose } = createContext(eventTarget, {
-    messageEventName: EVENTA_MESSAGE_EVENT,
     errorEventName: false,
+    messageEventName: EVENTA_MESSAGE_EVENT,
   })
 
   const runtimeListener = (message: unknown) => {
-    if (!message || typeof message !== 'object')
-      return
+    if (!message || typeof message !== 'object') return
 
     const runtimeMessage = message as EventaRuntimeMessage
 
-    if (!('__eventa' in runtimeMessage) || !runtimeMessage.__eventa)
-      return
+    if (!('__eventa' in runtimeMessage) || !runtimeMessage.__eventa) return
 
-    if (runtimeMessage.channel !== EVENTA_RUNTIME_CHANNEL)
-      return
+    if (runtimeMessage.channel !== EVENTA_RUNTIME_CHANNEL) return
 
-    if (runtimeMessage.sourceId === runtimeInstanceId)
-      return
+    if (runtimeMessage.sourceId === runtimeInstanceId) return
 
     eventTarget.emit(runtimeMessage.type ?? EVENTA_MESSAGE_EVENT, runtimeMessage.detail)
   }

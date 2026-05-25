@@ -11,12 +11,12 @@ interface ReplayableProps {
 }
 
 const props = withDefaults(defineProps<ReplayableProps>(), {
-  position: 'top-right',
   autoReplay: false,
-  replayInterval: 3000,
-  showLabel: false,
   disabled: false,
   hotkey: 'r',
+  position: 'top-right',
+  replayInterval: 3000,
+  showLabel: false,
 })
 
 const emit = defineEmits<{
@@ -47,14 +47,13 @@ function registerReplayCallback(callback: () => void | Promise<void>) {
 }
 
 provide('replayable', {
-  registerReplayCallback,
   isReplaying: () => isReplaying.value,
+  registerReplayCallback,
 })
 
 // Replay function
 async function replay() {
-  if (isReplaying.value || props.disabled)
-    return
+  if (isReplaying.value || props.disabled) return
 
   isReplaying.value = true
   replayCount.value++
@@ -63,17 +62,15 @@ async function replay() {
 
   try {
     // Execute all registered replay callbacks
-    await Promise.all(replayCallbacks.value.map(callback => callback()))
+    await Promise.all(replayCallbacks.value.map((callback) => callback()))
 
     // Small delay to ensure animations complete
     await nextTick()
 
     emit('replay')
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error during replay:', error)
-  }
-  finally {
+  } finally {
     isReplaying.value = false
     emit('afterReplay')
   }
@@ -81,8 +78,7 @@ async function replay() {
 
 // Auto replay functionality
 function startAutoReplay() {
-  if (!props.autoReplay)
-    return
+  if (!props.autoReplay) return
 
   autoReplayTimer.value = setInterval(() => {
     replay()
@@ -115,29 +111,34 @@ onMounted(() => {
   }
 })
 
-watch(() => props.autoReplay, (newVal) => {
-  if (newVal) {
-    startAutoReplay()
-  }
-  else {
-    stopAutoReplay()
-  }
-})
+watch(
+  () => props.autoReplay,
+  (newVal) => {
+    if (newVal) {
+      startAutoReplay()
+    } else {
+      stopAutoReplay()
+    }
+  },
+)
 
-watch(() => props.replayInterval, () => {
-  if (props.autoReplay) {
-    stopAutoReplay()
-    startAutoReplay()
-  }
-})
+watch(
+  () => props.replayInterval,
+  () => {
+    if (props.autoReplay) {
+      stopAutoReplay()
+      startAutoReplay()
+    }
+  },
+)
 
 // Expose methods for external control
 defineExpose({
+  isReplaying: () => isReplaying.value,
   replay,
+  replayCount: () => replayCount.value,
   startAutoReplay,
   stopAutoReplay,
-  replayCount: () => replayCount.value,
-  isReplaying: () => isReplaying.value,
 })
 </script>
 

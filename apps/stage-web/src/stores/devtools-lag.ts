@@ -36,13 +36,11 @@ function createEmptySamples(): Record<LagMetric, Sample[]> {
 }
 
 function pruneSamples(buffer: Sample[], cutoffTs: number) {
-  while (buffer.length && buffer[0].ts < cutoffTs)
-    buffer.shift()
+  while (buffer.length && buffer[0].ts < cutoffTs) buffer.shift()
 }
 
 function calcStats(values: number[]) {
-  if (!values.length)
-    return { avg: 0, p95: 0, latest: 0 }
+  if (!values.length) return { avg: 0, latest: 0, p95: 0 }
 
   const total = values.reduce((acc, n) => acc + n, 0)
   const avg = total / values.length
@@ -51,34 +49,34 @@ function calcStats(values: number[]) {
   const p95 = sorted[idx]
   const latest = values[values.length - 1]
 
-  return { avg, p95, latest }
+  return { avg, latest, p95 }
 }
 
 function buildHistogram(values: number[], bins = 20): HistogramBin[] {
-  if (!values.length)
-    return []
+  if (!values.length) return []
 
   const min = Math.min(...values)
   const max = Math.max(...values)
   if (min === max) {
-    return [{
-      start: min,
-      end: max || min + 1,
-      count: values.length,
-    }]
+    return [
+      {
+        count: values.length,
+        end: max || min + 1,
+        start: min,
+      },
+    ]
   }
 
   const width = (max - min) / bins
   const buckets = Array.from({ length: bins }, (_, idx) => ({
-    start: min + (idx * width),
-    end: min + ((idx + 1) * width),
     count: 0,
+    end: min + (idx + 1) * width,
+    start: min + idx * width,
   }))
 
   for (const value of values) {
     let binIndex = Math.floor((value - min) / width)
-    if (binIndex >= bins)
-      binIndex = bins - 1
+    if (binIndex >= bins) binIndex = bins - 1
 
     buckets[binIndex].count += 1
   }
@@ -108,8 +106,7 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
   let releaseTracer: (() => void) | undefined
 
   function resetRecordingSamples() {
-    for (const metric of Object.keys(recordingSamples) as LagMetric[])
-      recordingSamples[metric] = []
+    for (const metric of Object.keys(recordingSamples) as LagMetric[]) recordingSamples[metric] = []
   }
 
   function applySample(metric: LagMetric, value: number, meta?: Record<string, any>) {
@@ -117,18 +114,17 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
     const cutoff = ts - windowMs
 
     const buffer = buffers[metric]
-    buffer.push({ ts, value, meta })
+    buffer.push({ meta, ts, value })
     pruneSamples(buffer, cutoff)
 
     if (recording.value) {
       const sampleBuffer = recordingSamples[metric]
-      sampleBuffer.push({ ts, value, meta })
+      sampleBuffer.push({ meta, ts, value })
     }
   }
 
   function startRecording() {
-    if (recording.value)
-      return
+    if (recording.value) return
 
     recording.value = true
     recordingStartedAt.value = performance.now()
@@ -138,8 +134,7 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
   }
 
   function stopRecording(): RecordingSnapshot | undefined {
-    if (!recording.value)
-      return
+    if (!recording.value) return
 
     if (recordingTimeout) {
       clearTimeout(recordingTimeout)
@@ -148,14 +143,14 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
 
     const stoppedAt = performance.now()
     const snapshot: RecordingSnapshot = {
-      startedAt: recordingStartedAt.value || stoppedAt,
-      stoppedAt,
       samples: {
         fps: [...recordingSamples.fps],
         frameDuration: [...recordingSamples.frameDuration],
         longtask: [...recordingSamples.longtask],
         memory: [...recordingSamples.memory],
       },
+      startedAt: recordingStartedAt.value || stoppedAt,
+      stoppedAt,
     }
     lastRecording.value = snapshot
 
@@ -185,26 +180,22 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
     // Start tracer listener if needed
     if (!unsubscribeTracer) {
       unsubscribeTracer = defaultPerfTracer.subscribe((event: TraceEvent) => {
-        if (event.tracerId !== 'lag')
-          return
+        if (event.tracerId !== 'lag') return
 
         const metric = event.name as LagMetric
-        if (!['fps', 'frameDuration', 'longtask', 'memory'].includes(metric))
-          return
+        if (!['fps', 'frameDuration', 'longtask', 'memory'].includes(metric)) return
 
         // Only accept samples for enabled metrics
         const isMetricEnabled = enabled[metric]
 
-        if (!isMetricEnabled)
-          return
+        if (!isMetricEnabled) return
 
         const value = typeof event.duration === 'number' ? event.duration : 0
         applySample(metric, value, event.meta)
       })
     }
 
-    if (!releaseTracer)
-      releaseTracer = defaultPerfTracer.acquire('lag-overlay')
+    if (!releaseTracer) releaseTracer = defaultPerfTracer.acquire('lag-overlay')
     sampler.start({
       fps: enabled.fps,
       frameDuration: enabled.frameDuration,
@@ -223,18 +214,12 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
 
   function exportCsv(snapshot?: RecordingSnapshot) {
     const target = snapshot ?? lastRecording.value
-    if (!target)
-      return
+    if (!target) return
 
     const rows: Array<Array<string | number>> = [['metric', 'ts', 'value', 'meta']]
     for (const metric of Object.keys(target.samples) as LagMetric[]) {
       for (const sample of target.samples[metric]) {
-        rows.push([
-          metric,
-          sample.ts.toFixed(3),
-          sample.value,
-          JSON.stringify(sample.meta ?? {}),
-        ])
+        rows.push([metric, sample.ts.toFixed(3), sample.value, JSON.stringify(sample.meta ?? {})])
       }
     }
 
@@ -259,15 +244,15 @@ export const useDevtoolsLagStore = defineStore('devtoolsLag', () => {
   }
 
   return {
-    enabled,
     buffers,
-    recording,
+    buildHistogram,
+    calcStats,
+    enabled,
+    exportCsv,
     lastRecording,
+    recording,
     startRecording,
     stopRecording,
-    exportCsv,
     toggleAll,
-    calcStats,
-    buildHistogram,
   }
 })

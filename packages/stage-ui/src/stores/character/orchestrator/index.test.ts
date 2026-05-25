@@ -1,26 +1,23 @@
 /* eslint-disable style/indent-binary-ops */
 /* eslint-disable style/operator-linebreak */
 
-import type { WebSocketEventOf } from '@proj-airi/server-sdk'
-import type { Store, StoreDefinition } from 'pinia'
-import type { Mock } from 'vitest'
-import type { UnwrapRef } from 'vue'
-import type z from 'zod'
-
-import type { StreamEvent } from '../../llm'
-import type { AiriCard } from '../../modules'
-
 import { createTestingPinia } from '@pinia/testing'
+import type { WebSocketEventOf } from '@proj-airi/server-sdk'
 import { tool } from '@xsai/tool'
 import { nanoid } from 'nanoid'
+import type { Store, StoreDefinition } from 'pinia'
 import { setActivePinia } from 'pinia'
+import type { Mock } from 'vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { sparkCommandSchema, useCharacterOrchestratorStore } from '.'
-import { useCharacterStore } from '..'
+import type { UnwrapRef } from 'vue'
+import type z from 'zod'
+import type { StreamEvent } from '../../llm'
 import { useLLM } from '../../llm'
+import type { AiriCard } from '../../modules'
 import { useAiriCardStore, useConsciousnessStore } from '../../modules'
 import { useProvidersStore } from '../../providers'
+import { useCharacterStore } from '..'
+import { sparkCommandSchema, useCharacterOrchestratorStore } from '.'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -30,46 +27,37 @@ vi.mock('vue-i18n', () => ({
 
 function mockedStore<TStoreDef extends () => unknown>(
   useStore: TStoreDef,
-): TStoreDef extends StoreDefinition<
-  infer Id,
-  infer State,
-  infer Getters,
-  infer Actions
->
+): TStoreDef extends StoreDefinition<infer Id, infer State, infer Getters, infer Actions>
   ? Store<
-    Id,
-    State,
-    Record<string, never>,
-    {
-      [K in keyof Actions]: Actions[K] extends (...args: any[]) => any
-        ? // 👇 depends on your testing framework
-        Mock<Actions[K]>
-        : Actions[K]
+      Id,
+      State,
+      Record<string, never>,
+      {
+        [K in keyof Actions]: Actions[K] extends (...args: any[]) => any
+          ? // 👇 depends on your testing framework
+            Mock<Actions[K]>
+          : Actions[K]
+      }
+    > & {
+      [K in keyof Getters]: UnwrapRef<Getters[K]>
     }
-  > & {
-    [K in keyof Getters]: UnwrapRef<Getters[K]>
-  }
   : ReturnType<TStoreDef> {
   return useStore() as any
 }
 
 function getObjectSchema(schema?: Record<string, any>) {
-  if (!schema)
-    return undefined
+  if (!schema) return undefined
 
-  if (schema.type === 'object')
-    return schema
+  if (schema.type === 'object') return schema
 
   const candidates = [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]
   return candidates.find((candidate: Record<string, any>) => candidate?.type === 'object')
 }
 
 function getArraySchema(schema?: Record<string, any>) {
-  if (!schema)
-    return undefined
+  if (!schema) return undefined
 
-  if (schema.type === 'array')
-    return schema
+  if (schema.type === 'array') return schema
 
   const candidates = [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]
   return candidates.find((candidate: Record<string, any>) => candidate?.type === 'array')
@@ -78,10 +66,10 @@ function getArraySchema(schema?: Record<string, any>) {
 describe('sparkCommandSchema', () => {
   it('emits strict objects in the json schema', async () => {
     const sparkTool = await tool({
-      name: 'builtIn_sparkCommand',
       description: 'test',
-      parameters: sparkCommandSchema,
       execute: async () => undefined,
+      name: 'builtIn_sparkCommand',
+      parameters: sparkCommandSchema,
     })
 
     const schema = sparkTool.function.parameters as Record<string, any>
@@ -108,7 +96,7 @@ describe('store character-orchestrator', () => {
 
     const mockGetProviderInstance = vi.fn()
     mockedStore(useProvidersStore).getProviderInstance = mockGetProviderInstance
-    mockedStore(useProvidersStore).getProviderInstance.mockResolvedValue({ chat: (_model: string) => ({} as any) })
+    mockedStore(useProvidersStore).getProviderInstance.mockResolvedValue({ chat: (_model: string) => ({}) as any })
 
     const consciousnessStore = useConsciousnessStore(pinia)
     consciousnessStore.activeProvider = 'mock-provider'
@@ -119,45 +107,51 @@ describe('store character-orchestrator', () => {
     airiCardStore.systemPrompt = 'You are a brave adventurer in Minecraft.'
     // @ts-expect-error - testing purpose
     airiCardStore.activeCard = {
-      name: 'Hero',
-      version: '1.0',
       extensions: {
         airi: {
           agents: {},
           modules: {
             consciousness: {
-              provider: 'mock-provider',
               model: 'mock-model',
+              provider: 'mock-provider',
             },
             speech: {
-              provider: 'mock-speech-provider',
               model: 'mock-speech-model',
+              provider: 'mock-speech-provider',
               voice_id: 'alloy',
             },
           },
         },
       },
+      name: 'Hero',
+      version: '1.0',
     } satisfies AiriCard
   })
 
   it('handles immediate spark:notify with reaction and commands', async () => {
     const mockStream = vi.fn()
     mockedStore(useLLM).stream = mockStream
-    mockedStore(useLLM).stream.mockImplementation(async (_model: string, _provider: unknown, _messages: unknown, options: any) => {
-      if (options?.tools?.length) {
-        await options.tools[1].execute({ commands: [{
-          destinations: ['minecraft'],
-          intent: 'action',
-          priority: 'critical',
-          interrupt: 'false',
-          ack: 'ok',
-          guidance: null,
-        }] } satisfies z.infer<typeof sparkCommandSchema>)
-      }
+    mockedStore(useLLM).stream.mockImplementation(
+      async (_model: string, _provider: unknown, _messages: unknown, options: any) => {
+        if (options?.tools?.length) {
+          await options.tools[1].execute({
+            commands: [
+              {
+                ack: 'ok',
+                destinations: ['minecraft'],
+                guidance: null,
+                intent: 'action',
+                interrupt: 'false',
+                priority: 'critical',
+              },
+            ],
+          } satisfies z.infer<typeof sparkCommandSchema>)
+        }
 
-      await options?.onStreamEvent?.({ type: 'text-delta', text: 'Ahhh, got hit by zombie!' } satisfies StreamEvent)
-      await options?.onStreamEvent?.({ type: 'finish' } satisfies StreamEvent)
-    })
+        await options?.onStreamEvent?.({ text: 'Ahhh, got hit by zombie!', type: 'text-delta' } satisfies StreamEvent)
+        await options?.onStreamEvent?.({ type: 'finish' } satisfies StreamEvent)
+      },
+    )
 
     const mockOnSparkNotifyReactionStreamEvent = vi.fn()
     mockedStore(useCharacterStore).onSparkNotifyReactionStreamEvent = mockOnSparkNotifyReactionStreamEvent
@@ -166,16 +160,16 @@ describe('store character-orchestrator', () => {
 
     const store = useCharacterOrchestratorStore()
     const event: WebSocketEventOf<'spark:notify'> = {
-      type: 'spark:notify',
-      source: 'minecraft',
       data: {
-        id: nanoid(),
+        destinations: ['character'],
         eventId: nanoid(),
+        headline: 'Hit by zombie',
+        id: nanoid(),
         kind: 'alarm',
         urgency: 'immediate',
-        headline: 'Hit by zombie',
-        destinations: ['character'],
       },
+      source: 'minecraft',
+      type: 'spark:notify',
     }
 
     const result = await store.handleSparkNotify(event)

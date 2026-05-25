@@ -9,32 +9,30 @@ const searchQuery = ref('')
 // Sample voice data
 const voices = [
   {
-    id: 'lNxY9WuCBCZCISASyJ55',
-    name: 'Myriam',
-    previewURL: 'https://storage.googleapis.com/eleven-public-prod/MCJE2vSmnChGnvdoSpbNO0dcNQw2/voices/MRCOs26Xkzk5vmsL1Q0D/b0a09f0d-6a02-486f-af95-94a0e5306dbd.mp3',
     customizable: true,
+    id: 'lNxY9WuCBCZCISASyJ55',
     labels: {
-      gender: 'Female',
-      age: 'Young',
       accent: 'American',
+      age: 'Young',
+      gender: 'Female',
     },
-    languages: [
-      { name: 'English', code: 'en-US' },
-    ],
+    languages: [{ code: 'en-US', name: 'English' }],
+    name: 'Myriam',
+    previewURL:
+      'https://storage.googleapis.com/eleven-public-prod/MCJE2vSmnChGnvdoSpbNO0dcNQw2/voices/MRCOs26Xkzk5vmsL1Q0D/b0a09f0d-6a02-486f-af95-94a0e5306dbd.mp3',
   },
   {
-    id: 'dLhSyo03JRp5WkGpUlz1',
-    name: 'Camilla_KM',
-    previewURL: 'https://storage.googleapis.com/eleven-public-prod/eOs5vIk28wffcUZAjlcI7i8gBc22/voices/0KK3BzieIeKs5Ripqjpj/2ce47169-01fa-4828-bb61-272f1683b83e.mp3',
     customizable: true,
+    id: 'dLhSyo03JRp5WkGpUlz1',
     labels: {
-      gender: 'Female',
-      age: 'Young',
       accent: 'American',
+      age: 'Young',
+      gender: 'Female',
     },
-    languages: [
-      { name: 'English', code: 'en-US' },
-    ],
+    languages: [{ code: 'en-US', name: 'English' }],
+    name: 'Camilla_KM',
+    previewURL:
+      'https://storage.googleapis.com/eleven-public-prod/eOs5vIk28wffcUZAjlcI7i8gBc22/voices/0KK3BzieIeKs5Ripqjpj/2ce47169-01fa-4828-bb61-272f1683b83e.mp3',
   },
 ]
 

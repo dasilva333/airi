@@ -6,7 +6,10 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-interface CharacterOption { value: string, label: string }
+interface CharacterOption {
+  value: string
+  label: string
+}
 
 const cardStore = useAiriCardStore()
 const shortTermMemory = useShortTermMemoryStore()
@@ -22,35 +25,31 @@ const tokensPerDay = ref(1000)
 
 // --- Helper: Clean Summary Fences ---
 function cleanSummary(text: string) {
-  if (!text)
-    return ''
+  if (!text) return ''
   return text.replace(/^```markdown\n|```$/g, '').trim()
 }
 
 const characterOptions = computed<CharacterOption[]>(() => {
   return Array.from(cards.value.entries()).map(([id, card]) => ({
-    value: id,
     label: card.nickname?.trim() ? `${card.name} (${card.nickname.trim()})` : card.name,
+    value: id,
   }))
 })
 
 const visibleBlocks = computed(() => {
-  return selectedCharacter.value
-    ? shortTermMemory.getCharacterBlocks(selectedCharacter.value)
-    : []
+  return selectedCharacter.value ? shortTermMemory.getCharacterBlocks(selectedCharacter.value) : []
 })
 
 const selectedCharacterLabel = computed(() => {
-  return characterOptions.value.find(option => option.value === selectedCharacter.value)?.label ?? 'Unknown Character'
+  return characterOptions.value.find((option) => option.value === selectedCharacter.value)?.label ?? 'Unknown Character'
 })
 
 function getChipsForDate(date: string) {
-  return allChips.value.filter(c => c.characterId === selectedCharacter.value && c.date === date)
+  return allChips.value.filter((c) => c.characterId === selectedCharacter.value && c.date === date)
 }
 
 async function rebuildFromHistory() {
-  if (!selectedCharacter.value)
-    return
+  if (!selectedCharacter.value) return
 
   const id = toast.loading('Rebuilding short-term memory...')
   try {
@@ -58,19 +57,20 @@ async function rebuildFromHistory() {
       tokenBudgetPerDay: tokensPerDay.value,
     })
 
-    toast.success(`Short-term rebuild complete. Created ${result.created}, updated ${result.updated}, skipped ${result.skipped}.`, { id })
-  }
-  catch (rebuildError) {
+    toast.success(
+      `Short-term rebuild complete. Created ${result.created}, updated ${result.updated}, skipped ${result.skipped}.`,
+      { id },
+    )
+  } catch (rebuildError) {
     const message = rebuildError instanceof Error ? rebuildError.message : String(rebuildError)
     toast.error(`Short-term rebuild failed: ${message}`, { id })
   }
 }
 
 async function rebuildToday() {
-  if (!selectedCharacter.value)
-    return
+  if (!selectedCharacter.value) return
 
-  const id = toast.loading('Rebuilding today\'s summary...')
+  const id = toast.loading("Rebuilding today's summary...")
   try {
     const success = await shortTermMemory.rebuildToday(selectedCharacter.value, {
       tokenBudgetPerDay: tokensPerDay.value,
@@ -79,23 +79,20 @@ async function rebuildToday() {
     if (success) {
       toast.success(`Short-term block for today has been successfully rebuilt.`, { id })
     }
-  }
-  catch (rebuildError) {
+  } catch (rebuildError) {
     const message = rebuildError instanceof Error ? rebuildError.message : String(rebuildError)
     toast.error(`Today's rebuild failed: ${message}`, { id })
   }
 }
 
 async function synthesizeEchoes() {
-  if (!selectedCharacter.value)
-    return
+  if (!selectedCharacter.value) return
 
   const id = toast.loading('Synthesizing echo chips...')
   try {
     const newChips = await echoesStore.synthesizeForCharacter(selectedCharacter.value)
     toast.success(`Generated ${newChips.length} new echo chips.`, { id })
-  }
-  catch (err) {
+  } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     toast.error(`Echo synthesis failed: ${message}`, { id })
   }
@@ -111,25 +108,32 @@ onMounted(async () => {
   }
 })
 
-watch(characterOptions, (options) => {
-  if (!selectedCharacter.value || !options.some(option => option.value === selectedCharacter.value)) {
-    selectedCharacter.value = activeCardId.value || options[0]?.value || ''
-  }
-}, { immediate: true })
-
-watch(selectedCharacter, (newVal) => {
-  if (newVal) {
-    const card = cards.value.get(newVal)
-    if (card) {
-      windowSize.value = card.extensions?.airi?.shortTermMemory?.windowSize ?? 3
-      tokensPerDay.value = card.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000
+watch(
+  characterOptions,
+  (options) => {
+    if (!selectedCharacter.value || !options.some((option) => option.value === selectedCharacter.value)) {
+      selectedCharacter.value = activeCardId.value || options[0]?.value || ''
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
+
+watch(
+  selectedCharacter,
+  (newVal) => {
+    if (newVal) {
+      const card = cards.value.get(newVal)
+      if (card) {
+        windowSize.value = card.extensions?.airi?.shortTermMemory?.windowSize ?? 3
+        tokensPerDay.value = card.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000
+      }
+    }
+  },
+  { immediate: true },
+)
 
 watch([windowSize, tokensPerDay], ([newWindowSize, newTokensPerDay]) => {
-  if (!selectedCharacter.value)
-    return
+  if (!selectedCharacter.value) return
   const card = cards.value.get(selectedCharacter.value)
   if (card) {
     const currentWindowSize = card.extensions?.airi?.shortTermMemory?.windowSize ?? 3
@@ -141,8 +145,8 @@ watch([windowSize, tokensPerDay], ([newWindowSize, newTokensPerDay]) => {
           airi: {
             ...card.extensions?.airi,
             shortTermMemory: {
-              windowSize: Number(newWindowSize),
               tokenBudgetPerDay: Number(newTokensPerDay),
+              windowSize: Number(newWindowSize),
             },
           },
         },

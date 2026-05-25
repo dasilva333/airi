@@ -8,13 +8,11 @@ function tryEncode(obj: any, prop: string | number) {
 
 // A middleware to URI-encode possible filenames in settings to handle filenames with UTF-8 characters.
 export const live2dEncodeFilenamesMiddleware: Middleware<Live2DFactoryContext> = (context, next) => {
-  if (typeof context.source !== 'object' || !context.source)
-    return next()
+  if (typeof context.source !== 'object' || !context.source) return next()
 
   // Be skeptical
   const settings = context.source.settings as any
-  if (!settings)
-    return next()
+  if (!settings) return next()
 
   // In-memory sanitization of motions to prevent WebGL/ZipLoader URL resolution crashes on custom scripting entries
   // Keeps array length identical, but deletes the empty property so the loader skips it without shifting indices

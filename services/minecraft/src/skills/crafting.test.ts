@@ -6,10 +6,10 @@ import { smeltItem } from './crafting'
 const mocks = vi.hoisted(() => ({
   collectBlock: vi.fn(),
   getInventoryCounts: vi.fn(),
-  getNearestBlock: vi.fn(),
-  getNearestFreeSpace: vi.fn(),
   getItemId: vi.fn(),
   getItemName: vi.fn(),
+  getNearestBlock: vi.fn(),
+  getNearestFreeSpace: vi.fn(),
   log: vi.fn(),
   placeBlock: vi.fn(),
 }))
@@ -63,24 +63,20 @@ describe('crafting smeltItem', () => {
     vi.clearAllMocks()
 
     mocks.getNearestFreeSpace.mockReturnValue({ x: 1, y: 64, z: 1 })
-    mocks.getNearestBlock
-      .mockReturnValueOnce(null)
-      .mockReturnValueOnce({
-        position: {
-          x: 1,
-          y: 64,
-          z: 1,
-        },
-      })
+    mocks.getNearestBlock.mockReturnValueOnce(null).mockReturnValueOnce({
+      position: {
+        x: 1,
+        y: 64,
+        z: 1,
+      },
+    })
     mocks.getInventoryCounts.mockReturnValue({ furnace: 1 })
     mocks.getItemId.mockReturnValue(1)
-    mocks.getItemName.mockImplementation((type: number) => type === 1 ? 'raw_beef' : 'unknown')
+    mocks.getItemName.mockImplementation((type: number) => (type === 1 ? 'raw_beef' : 'unknown'))
   })
 
   it('preserves the real smelting error when temporary furnace cleanup fails', async () => {
-    mocks.getInventoryCounts
-      .mockReturnValueOnce({ furnace: 1 })
-      .mockReturnValueOnce({ furnace: 1 })
+    mocks.getInventoryCounts.mockReturnValueOnce({ furnace: 1 }).mockReturnValueOnce({ furnace: 1 })
     mocks.collectBlock.mockRejectedValue(new ActionError('RESOURCE_MISSING', 'cleanup failed'))
 
     const furnace = {

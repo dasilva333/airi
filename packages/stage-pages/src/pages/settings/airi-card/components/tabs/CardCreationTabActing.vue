@@ -5,7 +5,7 @@ import { FieldInput } from '@proj-airi/ui'
 
 defineProps<{
   actingModelExpressionOptions: string[]
-  actingGroupedExpressionTags: { category: string, tags: { tag: string, description?: string }[] }[]
+  actingGroupedExpressionTags: { category: string; tags: { tag: string; description?: string }[] }[]
   actingMannerismOptions: NonNullable<SpeechCapabilitiesInfo['mannerisms']>
   actingSpeechCapabilitiesLoading: boolean
   selectedSpeechProviderLabel: string
@@ -14,18 +14,23 @@ defineProps<{
   insertModelExpression: (name: string) => void
   insertSpeechTag: (tag: string, description?: string) => void
   insertSpeechMannerism: (id: string) => void
-  actingIdleAnimationOptions: { label: string, value: string }[]
+  actingIdleAnimationOptions: { label: string; value: string }[]
 }>()
-const selectedActingModelExpressionPrompt = defineModel<string>('selectedActingModelExpressionPrompt', { required: true })
-const selectedActingSpeechExpressionPrompt = defineModel<string>('selectedActingSpeechExpressionPrompt', { required: true })
-const selectedActingSpeechMannerismPrompt = defineModel<string>('selectedActingSpeechMannerismPrompt', { required: true })
+const selectedActingModelExpressionPrompt = defineModel<string>('selectedActingModelExpressionPrompt', {
+  required: true,
+})
+const selectedActingSpeechExpressionPrompt = defineModel<string>('selectedActingSpeechExpressionPrompt', {
+  required: true,
+})
+const selectedActingSpeechMannerismPrompt = defineModel<string>('selectedActingSpeechMannerismPrompt', {
+  required: true,
+})
 const selectedActingIdleAnimations = defineModel<string[]>('selectedActingIdleAnimations', { required: true })
 
 function toggleIdleAnimation(name: string) {
   if (selectedActingIdleAnimations.value.includes(name)) {
-    selectedActingIdleAnimations.value = selectedActingIdleAnimations.value.filter(n => n !== name)
-  }
-  else {
+    selectedActingIdleAnimations.value = selectedActingIdleAnimations.value.filter((n) => n !== name)
+  } else {
     selectedActingIdleAnimations.value = [...selectedActingIdleAnimations.value, name]
   }
 }

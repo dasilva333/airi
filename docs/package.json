@@ -1,16 +1,4 @@
 {
-  "name": "@proj-airi/docs",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "scripts": {
-    "build": "vitepress build",
-    "build:base": "BASE_URL=/docs/ vitepress build",
-    "dev": "vitepress dev",
-    "preview": "vitepress preview",
-    "typecheck": "vue-tsc --noEmit",
-    "contributors": "tsx scripts/update-contributors.ts"
-  },
   "dependencies": {
     "@fontsource-variable/comfortaa": "^5.2.8",
     "@fontsource-variable/dm-sans": "^5.2.8",
@@ -61,5 +49,17 @@
     "unplugin-yaml": "^4.0.0",
     "vitepress": "^2.0.0-alpha.16",
     "vue-tsc": "^3.2.5"
-  }
+  },
+  "name": "@proj-airi/docs",
+  "private": true,
+  "scripts": {
+    "build": "vitepress build",
+    "build:base": "BASE_URL=/docs/ vitepress build",
+    "contributors": "tsx scripts/update-contributors.ts",
+    "dev": "vitepress dev",
+    "preview": "vitepress preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

@@ -6,11 +6,11 @@ export function formatDate(raw: string): {
   date.setUTCHours(12)
 
   return {
-    time: +date,
     string: date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
       day: 'numeric',
+      month: 'long',
+      year: 'numeric',
     }),
+    time: +date,
   }
 }

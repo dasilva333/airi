@@ -1,10 +1,9 @@
 <script setup lang="ts">
+import { Section } from '@proj-airi/stage-ui/components'
 import type {
   PluginHostSessionSummary,
   PluginManifestSummary,
 } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
-
-import { Section } from '@proj-airi/stage-ui/components'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
 import { Button, Callout, Input } from '@proj-airi/ui'
 import { computed, onMounted, ref } from 'vue'
@@ -17,20 +16,18 @@ const selectedPluginName = ref('')
 const discoveredPlugins = computed(() => {
   const query = filter.value.trim().toLowerCase()
   const plugins = store.discoveredPlugins.slice().sort((left, right) => left.name.localeCompare(right.name))
-  if (!query)
-    return plugins
-  return plugins.filter(plugin =>
-    plugin.name.toLowerCase().includes(query)
-    || plugin.path.toLowerCase().includes(query),
+  if (!query) return plugins
+  return plugins.filter(
+    (plugin) => plugin.name.toLowerCase().includes(query) || plugin.path.toLowerCase().includes(query),
   )
 })
 
 const enabledPlugins = computed(() => {
-  return discoveredPlugins.value.filter(plugin => plugin.enabled)
+  return discoveredPlugins.value.filter((plugin) => plugin.enabled)
 })
 
 const loadedPlugins = computed(() => {
-  return discoveredPlugins.value.filter(plugin => plugin.loaded)
+  return discoveredPlugins.value.filter((plugin) => plugin.loaded)
 })
 
 const sessionByPluginName = computed(() => {
@@ -42,7 +39,7 @@ const sessionByPluginName = computed(() => {
 })
 
 const readyCapabilitiesCount = computed(() => {
-  return store.capabilities.filter(capability => capability.state === 'ready').length
+  return store.capabilities.filter((capability) => capability.state === 'ready').length
 })
 
 function chipClasses(theme: 'neutral' | 'emerald' | 'amber') {
@@ -79,20 +76,16 @@ function chipClasses(theme: 'neutral' | 'emerald' | 'amber') {
 }
 
 function phaseChipTheme(phase: string) {
-  if (phase === 'ready')
-    return 'emerald'
-  if (phase === 'failed')
-    return 'amber'
-  if (phase === 'loading' || phase === 'authenticating' || phase === 'preparing')
-    return 'amber'
+  if (phase === 'ready') return 'emerald'
+  if (phase === 'failed') return 'amber'
+  if (phase === 'loading' || phase === 'authenticating' || phase === 'preparing') return 'amber'
   return 'neutral'
 }
 
 async function refresh() {
   try {
     await store.refreshAll()
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh plugin host debug state.')
   }
 }
@@ -100,8 +93,7 @@ async function refresh() {
 async function loadEnabled() {
   try {
     await store.loadEnabled()
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : 'Failed to load enabled plugins.')
   }
 }
@@ -109,12 +101,11 @@ async function loadEnabled() {
 async function setEnabled(plugin: PluginManifestSummary, enabled: boolean) {
   try {
     await store.setEnabled({
-      name: plugin.name,
       enabled,
+      name: plugin.name,
       path: plugin.path,
     })
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : `Failed to update enabled state for ${plugin.name}.`)
   }
 }
@@ -122,8 +113,7 @@ async function setEnabled(plugin: PluginManifestSummary, enabled: boolean) {
 async function loadPlugin(plugin: PluginManifestSummary) {
   try {
     await store.load({ name: plugin.name })
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : `Failed to load plugin ${plugin.name}.`)
   }
 }
@@ -131,8 +121,7 @@ async function loadPlugin(plugin: PluginManifestSummary) {
 async function unloadPlugin(plugin: PluginManifestSummary) {
   try {
     await store.unload({ name: plugin.name })
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : `Failed to unload plugin ${plugin.name}.`)
   }
 }
@@ -146,8 +135,7 @@ async function loadSelectedPlugin() {
 
   try {
     await store.load({ name })
-  }
-  catch (error) {
+  } catch (error) {
     toast.error(error instanceof Error ? error.message : `Failed to load plugin ${name}.`)
   }
 }

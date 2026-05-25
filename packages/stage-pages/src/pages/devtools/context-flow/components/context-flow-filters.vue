@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { Button, FieldCheckbox, FieldInput, SelectTab } from '@proj-airi/ui'
 import type { FlowDirection } from '../context-flow-types'
 
-import { Button, FieldCheckbox, FieldInput, SelectTab } from '@proj-airi/ui'
-
-const emit = defineEmits<{ (event: 'clear'): void }>()
+const emit = defineEmits<(event: 'clear') => void>()
 const directionFilter = defineModel<'all' | FlowDirection>('directionFilter', { required: true })
 const showIncoming = defineModel<boolean>('showIncoming', { required: true })
 const showOutgoing = defineModel<boolean>('showOutgoing', { required: true })

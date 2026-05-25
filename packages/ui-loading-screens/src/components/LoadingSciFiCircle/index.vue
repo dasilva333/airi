@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import type { Ref } from 'vue'
-
 import { Rive } from '@rive-app/canvas-lite'
 import { breakpointsTailwind, useBreakpoints, useDark } from '@vueuse/core'
+import type { Ref } from 'vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import CircleFadeInAnimation from './assets/circle_blink_in_-_loading_(@proj-airi).riv'
-import CRT from './CRT.vue'
+import type CRT from './CRT.vue'
 import CRTLine from './CRTLine.vue'
 
 interface WriteLineOptions {
@@ -40,14 +39,7 @@ const currentEntryId = ref(0)
 const defaultTypingSpeed = ref<number>(20)
 const timeMultiplier = ref<number>(1.0)
 
-const PENDING_FRAMES = [
-  '[...   ]',
-  '[ ...  ]',
-  '[  ... ]',
-  '[   ...]',
-  '[  ... ]',
-  '[ ...  ]',
-]
+const PENDING_FRAMES = ['[...   ]', '[ ...  ]', '[  ... ]', '[   ...]', '[  ... ]', '[ ...  ]']
 
 interface BootMessage {
   template: string
@@ -66,22 +58,25 @@ const isDeviceSm = computed(() => breakpoints.smaller('sm').value)
  *
  * From @link{https://www.asciiart.eu/text-to-ascii-art}
  */
-const wideAsciiArt = computed(() => (`
+const wideAsciiArt = computed(
+  () => `
  __   __   __    __  ___  __  ___            __
 |__) |__) /  \\    | |__  /  \`  |      /\\  | |__) |
 |    |  \\ \\__/ \\__/ |___ \\__,  |     /~~\\ | |  \\ |
-`))
+`,
+)
 
-const narrowAsciiArt = computed(() => (`
+const narrowAsciiArt = computed(
+  () => `
  __                   __
 |__)_ _ . _ _|_  /\\ ||__)|
 |  | (_)|(-(_|_ /--\\|| \\ |
         /
-`))
+`,
+)
 
 const projectAIRIAsciiArt = computed(() => {
-  if (isDeviceSm.value)
-    return narrowAsciiArt.value
+  if (isDeviceSm.value) return narrowAsciiArt.value
   return wideAsciiArt.value
 })
 
@@ -91,7 +86,7 @@ Open sourced on https://github.com/moeru-ai/airi
 `
 
 const bootMessages = computed<BootMessage[]>(() => [
-  ...projectAIRIAsciiArt.value.split('\n').map(line => ({
+  ...projectAIRIAsciiArt.value.split('\n').map((line) => ({
     template: line,
     typingSpeed: 1,
     withoutTimestamp: true,
@@ -101,11 +96,14 @@ const bootMessages = computed<BootMessage[]>(() => [
     typingSpeed: 5,
     withoutTimestamp: true,
   },
-  ...projectAIRIMetadata.trim().split('\n').map(line => ({
-    template: line,
-    typingSpeed: 1,
-    withoutTimestamp: true,
-  })),
+  ...projectAIRIMetadata
+    .trim()
+    .split('\n')
+    .map((line) => ({
+      template: line,
+      typingSpeed: 1,
+      withoutTimestamp: true,
+    })),
   {
     template: '',
     typingSpeed: 1,
@@ -125,9 +123,18 @@ const bootMessages = computed<BootMessage[]>(() => [
     typingSpeed: 1,
   },
   {
+    onPendingCheck: () => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(true)
+        }, 5000)
+      })
+    },
+    pending: true,
     template: 'Initializing AIRI subsystems...',
     typingSpeed: 1,
-    pending: true,
+  },
+  {
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -135,22 +142,11 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
-  },
-  {
+    pending: true,
     template: 'Loading initial ramdisk...',
     typingSpeed: 1,
-    pending: true,
-    onPendingCheck: () => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(true)
-        }, 5000)
-      })
-    },
   },
   {
-    template: 'Starting system services...',
-    typingSpeed: 1,
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -158,6 +154,8 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
+    template: 'Starting system services...',
+    typingSpeed: 1,
   },
   {
     template: 'AIRI core services initialized',
@@ -172,9 +170,6 @@ const bootMessages = computed<BootMessage[]>(() => [
     typingSpeed: 1,
   },
   {
-    template: 'Consciousness waking up...',
-    typingSpeed: 50,
-    pending: true,
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -182,15 +177,15 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
+    pending: true,
+    template: 'Consciousness waking up...',
+    typingSpeed: 50,
   },
   {
     template: 'Consciousness fully awakened',
     typingSpeed: 1,
   },
   {
-    template: 'Initiating Speech Recognition subsystem...',
-    typingSpeed: 50,
-    pending: true,
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -198,15 +193,15 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
+    pending: true,
+    template: 'Initiating Speech Recognition subsystem...',
+    typingSpeed: 50,
   },
   {
     template: 'Speech recognition online',
     typingSpeed: 1,
   },
   {
-    template: 'Initiating Speaker voice...',
-    typingSpeed: 50,
-    pending: true,
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -214,15 +209,15 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
+    pending: true,
+    template: 'Initiating Speaker voice...',
+    typingSpeed: 50,
   },
   {
     template: 'Speaker voice line tuned',
     typingSpeed: 1,
   },
   {
-    template: 'Initiating Vision downlink...',
-    typingSpeed: 50,
-    pending: true,
     onPendingCheck: () => {
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -230,6 +225,9 @@ const bootMessages = computed<BootMessage[]>(() => [
         }, 5000)
       })
     },
+    pending: true,
+    template: 'Initiating Vision downlink...',
+    typingSpeed: 50,
   },
   {
     template: 'Vision downlink offline',
@@ -248,7 +246,7 @@ const crtRef = ref<InstanceType<typeof CRT>>()
 const isDark = useDark()
 
 function getTimestamp(): number {
-  return performance.now() / 1000 * timeMultiplier.value
+  return (performance.now() / 1000) * timeMultiplier.value
 }
 
 function formatTimestamp(time: number): string {
@@ -293,44 +291,36 @@ async function typeCharacters(entry: Ref<ConsoleEntry>, text: string, speed: num
   entry.value.targetContent = text
 
   for (let i = 0; i <= text.length; i++) {
-    if (!entry.value.isTyping)
-      break // Allow for interruption
+    if (!entry.value.isTyping) break // Allow for interruption
     entry.value.content = text.slice(0, i)
-    await new Promise(resolve => setTimeout(resolve, speed))
+    await new Promise((resolve) => setTimeout(resolve, speed))
   }
 
   entry.value.isTyping = false
   entry.value.content = text // Ensure final state is complete
 }
 
-async function writeLine<T extends any[]>(
-  format: string,
-  ...args: [...T, WriteLineOptions?]
-): Promise<void> {
-  const options = args.length > 0 && typeof args[args.length - 1] === 'object'
-    ? args.pop() as WriteLineOptions
-    : {}
+async function writeLine<T extends any[]>(format: string, ...args: [...T, WriteLineOptions?]): Promise<void> {
+  const options = args.length > 0 && typeof args[args.length - 1] === 'object' ? (args.pop() as WriteLineOptions) : {}
 
   const { renderSpeed = defaultTypingSpeed.value, pending = false, onPendingCheck, withoutTimestamp = false } = options
   const entryId = ++currentEntryId.value
   const timestamp = getTimestamp()
 
   // Format the message with args
-  const formattedArgs = args.map(arg =>
-    typeof arg === 'object' ? JSON.stringify(arg) : String(arg),
-  )
+  const formattedArgs = args.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
   const message = format.replace(/%[sdjo]/g, () => formattedArgs.shift() || '')
   const timestampStr = withoutTimestamp ? '' : `[${formatTimestamp(timestamp)}] `
   const fullLine = timestampStr + message
 
   // Create initial entry
   const entry = ref<ConsoleEntry>({
-    id: entryId,
     content: '',
-    timestamp,
-    status: pending ? 'pending' : undefined,
+    id: entryId,
     isTyping: false,
+    status: pending ? 'pending' : undefined,
     targetContent: fullLine,
+    timestamp,
   })
 
   consoleEntries.value.push(entry.value)
@@ -339,9 +329,8 @@ async function writeLine<T extends any[]>(
   if (pending && onPendingCheck) {
     let frame = 0
     const animateAndCheck = async () => {
-      const currentEntry = consoleEntries.value.find(e => e.id === entryId)
-      if (!currentEntry)
-        return
+      const currentEntry = consoleEntries.value.find((e) => e.id === entryId)
+      if (!currentEntry) return
 
       // Update pending animation frame
       currentEntry.content = `${fullLine} ${PENDING_FRAMES[frame % PENDING_FRAMES.length]}`
@@ -352,13 +341,11 @@ async function writeLine<T extends any[]>(
         if (result) {
           currentEntry.status = 'ok'
           currentEntry.content = `${fullLine} [ OK ]`
-        }
-        else {
+        } else {
           // Continue animation if not ready
           pendingAnimationFrame.value = requestAnimationFrame(() => animateAndCheck())
         }
-      }
-      catch (error) {
+      } catch (error) {
         currentEntry.status = 'error'
         currentEntry.error = error instanceof Error ? error.message : String(error)
         currentEntry.content = `${fullLine} [ ERROR ]`
@@ -366,8 +353,7 @@ async function writeLine<T extends any[]>(
     }
 
     await animateAndCheck()
-  }
-  else {
+  } else {
     // Type out the message character by character
     await typeCharacters(entry, fullLine, renderSpeed)
   }
@@ -378,18 +364,18 @@ onMounted(async () => {
   riveCanvas.value.height = Math.max(window.innerWidth, 500) * 2
 
   rive.value = new Rive({
-    src: CircleFadeInAnimation,
-    canvas: riveCanvas.value,
-    autoplay: true,
     artboard: isDark.value ? 'Bold' : 'Bold (Light)',
+    autoplay: true,
+    canvas: riveCanvas.value,
+    src: CircleFadeInAnimation,
   })
 
   // Boot sequence
   for (const message of bootMessages.value) {
     await writeLine(message.template, {
-      renderSpeed: message.typingSpeed || defaultTypingSpeed.value,
-      pending: message.pending,
       onPendingCheck: message.onPendingCheck,
+      pending: message.pending,
+      renderSpeed: message.typingSpeed || defaultTypingSpeed.value,
       withoutTimestamp: message.withoutTimestamp,
     })
   }
@@ -398,20 +384,20 @@ onMounted(async () => {
 watch(isDark, () => {
   rive.value?.cleanup()
   rive.value = new Rive({
-    src: CircleFadeInAnimation,
-    canvas: riveCanvas.value,
-    autoplay: true,
     artboard: isDark.value ? 'Bold' : 'Bold (Light)',
+    autoplay: true,
+    canvas: riveCanvas.value,
+    src: CircleFadeInAnimation,
   })
 })
 watch(consoleEntries, () => crtRef.value && crtRef.value.handleWriteLine(), { deep: true })
 
 defineExpose({
-  handleUpdateStep,
-  handleUpdateProgress,
   handleUpdateDone,
-  setMessageTypingSpeed,
+  handleUpdateProgress,
+  handleUpdateStep,
   setDefaultTypingSpeed,
+  setMessageTypingSpeed,
   setTimeSpeed,
   writeLine,
 })

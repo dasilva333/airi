@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import type { ChatProvider } from '@xsai-ext/providers/utils'
+import type { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
 
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
-import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
-
-import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
@@ -21,7 +18,9 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
@@ -43,7 +42,7 @@ const backgroundStore = useBackgroundStore()
 const { selectedOption, sampledColor } = storeToRefs(backgroundStore)
 const backgroundSurface = useTemplateRef<InstanceType<typeof BackgroundProvider>>('backgroundSurface')
 
-const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, selectedOption, sampledColor })
+const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, sampledColor, selectedOption })
 onMounted(() => syncBackgroundTheme())
 
 // Audio + transcription pipeline (mirrors stage-tamagotchi)
@@ -59,14 +58,18 @@ const { activeProvider: activeChatProvider, activeModel: activeChatModel } = sto
 const chatStore = useChatOrchestratorStore()
 const llmStore = useLLM()
 
-watch([activeChatProvider, activeChatModel], async () => {
-  if (activeChatProvider.value && activeChatModel.value) {
-    const provider = await providersStore.getProviderInstance<ChatProvider>(activeChatProvider.value)
-    if (provider) {
-      await llmStore.discoverToolsCompatibility(activeChatModel.value, provider, [])
+watch(
+  [activeChatProvider, activeChatModel],
+  async () => {
+    if (activeChatProvider.value && activeChatModel.value) {
+      const provider = await providersStore.getProviderInstance<ChatProvider>(activeChatProvider.value)
+      if (provider) {
+        await llmStore.discoverToolsCompatibility(activeChatModel.value, provider, [])
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const shouldUseStreamInput = computed(() => supportsStreamInput.value && !!stream.value)
 
@@ -76,9 +79,9 @@ const {
   start: startVAD,
   loaded: vadLoaded,
 } = useVAD(workletUrl, {
-  threshold: ref(0.6),
-  onSpeechStart: () => handleSpeechStart(),
   onSpeechEnd: () => handleSpeechEnd(),
+  onSpeechStart: () => handleSpeechStart(),
+  threshold: ref(0.6),
 })
 
 let stopOnStopRecord: (() => void) | undefined
@@ -86,28 +89,23 @@ let stopOnStopRecord: (() => void) | undefined
 async function startAudioInteraction() {
   try {
     await initVAD()
-    if (stream.value)
-      await startVAD(stream.value)
+    if (stream.value) await startVAD(stream.value)
 
     // Hook once
     stopOnStopRecord = onStopRecord(async (recording) => {
       const text = await transcribeForRecording(recording)
-      if (!text || !text.trim())
-        return
+      if (!text || !text.trim()) return
 
       try {
         const provider = await providersStore.getProviderInstance(activeChatProvider.value)
-        if (!provider || !activeChatModel.value)
-          return
+        if (!provider || !activeChatModel.value) return
 
-        await chatStore.ingest(text, { model: activeChatModel.value, chatProvider: provider as ChatProvider })
-      }
-      catch (err) {
+        await chatStore.ingest(text, { chatProvider: provider as ChatProvider, model: activeChatModel.value })
+      } catch (err) {
         console.error('Failed to send chat from voice:', err)
       }
     })
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Audio interaction init failed:', e)
   }
 }
@@ -136,18 +134,20 @@ function stopAudioInteraction() {
     stopOnStopRecord?.()
     stopOnStopRecord = undefined
     disposeVAD()
-  }
-  catch {}
+  } catch {}
 }
 
-watch(enabled, async (val) => {
-  if (val) {
-    await startAudioInteraction()
-  }
-  else {
-    stopAudioInteraction()
-  }
-}, { immediate: true })
+watch(
+  enabled,
+  async (val) => {
+    if (val) {
+      await startAudioInteraction()
+    } else {
+      stopAudioInteraction()
+    }
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   stopAudioInteraction()
@@ -157,8 +157,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
   if (enabled.value && loaded && s) {
     try {
       await startVAD(s)
-    }
-    catch (e) {
+    } catch (e) {
       console.error('Failed to start VAD with stream:', e)
     }
   }

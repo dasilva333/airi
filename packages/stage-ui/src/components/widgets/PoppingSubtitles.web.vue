@@ -10,12 +10,12 @@ onMounted(() => {
 
   // Created a bounce animation loop
   animate('.logo.js', {
-    scale: [
-      { to: 1.25, ease: 'inOut(3)', duration: 200 },
-      { to: 1, ease: createSpring({ stiffness: 300 }) },
-    ],
     loop: true,
     loopDelay: 250,
+    scale: [
+      { duration: 200, ease: 'inOut(3)', to: 1.25 },
+      { ease: createSpring({ stiffness: 300 }), to: 1 },
+    ],
   })
 
   // Make the logo draggable around its center
@@ -31,9 +31,9 @@ onMounted(() => {
     $button.textContent = `rotations: ${rotations}`
 
     animate($logo, {
-      rotate: rotations * 360,
-      ease: 'out(4)',
       duration: 1500,
+      ease: 'out(4)',
+      rotate: rotations * 360,
     })
   }
 

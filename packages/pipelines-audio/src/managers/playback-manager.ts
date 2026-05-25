@@ -23,19 +23,22 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
   const overflowPolicy = options.overflowPolicy ?? 'queue'
   const ownerOverflowPolicy = options.ownerOverflowPolicy ?? 'steal-oldest'
 
-  const active = new Map<string, {
-    item: PlaybackItem<TAudio>
-    controller: AbortController
-    startedAt: number
-  }>()
+  const active = new Map<
+    string,
+    {
+      item: PlaybackItem<TAudio>
+      controller: AbortController
+      startedAt: number
+    }
+  >()
 
-  const waiting: Array<{ item: PlaybackItem<TAudio>, enqueuedAt: number }> = []
+  const waiting: Array<{ item: PlaybackItem<TAudio>; enqueuedAt: number }> = []
 
   const listeners = {
-    start: [] as Array<(event: PlaybackStartEvent<TAudio>) => void>,
     end: [] as Array<(event: PlaybackEndEvent<TAudio>) => void>,
     interrupt: [] as Array<(event: PlaybackInterruptEvent<TAudio>) => void>,
     reject: [] as Array<(event: PlaybackRejectEvent<TAudio>) => void>,
+    start: [] as Array<(event: PlaybackStartEvent<TAudio>) => void>,
   }
 
   function onStart(listener: (event: PlaybackStartEvent<TAudio>) => void) {
@@ -56,69 +59,61 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
 
   function emitStart(item: PlaybackItem<TAudio>) {
     const event = { item, startedAt: Date.now() }
-    listeners.start.forEach(listener => listener(event))
+    listeners.start.forEach((listener) => listener(event))
   }
 
   function emitEnd(item: PlaybackItem<TAudio>) {
-    const event = { item, endedAt: Date.now() }
-    listeners.end.forEach(listener => listener(event))
+    const event = { endedAt: Date.now(), item }
+    listeners.end.forEach((listener) => listener(event))
   }
 
   function emitInterrupt(item: PlaybackItem<TAudio>, reason: string) {
-    const event = { item, reason, interruptedAt: Date.now() }
-    listeners.interrupt.forEach(listener => listener(event))
+    const event = { interruptedAt: Date.now(), item, reason }
+    listeners.interrupt.forEach((listener) => listener(event))
   }
 
   function emitReject(item: PlaybackItem<TAudio>, reason: string) {
     const event = { item, reason }
-    listeners.reject.forEach(listener => listener(event))
+    listeners.reject.forEach((listener) => listener(event))
   }
 
   function countByOwner(ownerId?: string) {
-    if (!ownerId)
-      return 0
+    if (!ownerId) return 0
     let count = 0
     for (const entry of active.values()) {
-      if (entry.item.ownerId === ownerId)
-        count += 1
+      if (entry.item.ownerId === ownerId) count += 1
     }
     return count
   }
 
   function chooseVictimByPriority() {
-    let victim: { item: PlaybackItem<TAudio>, controller: AbortController, startedAt: number } | undefined
+    let victim: { item: PlaybackItem<TAudio>; controller: AbortController; startedAt: number } | undefined
     for (const entry of active.values()) {
-      if (!victim)
-        victim = entry
-      else if (entry.item.priority < victim.item.priority)
-        victim = entry
+      if (!victim) victim = entry
+      else if (entry.item.priority < victim.item.priority) victim = entry
     }
     return victim
   }
 
   function chooseVictimOldest(ownerId?: string) {
-    let victim: { item: PlaybackItem<TAudio>, controller: AbortController, startedAt: number } | undefined
+    let victim: { item: PlaybackItem<TAudio>; controller: AbortController; startedAt: number } | undefined
     for (const entry of active.values()) {
-      if (ownerId && entry.item.ownerId !== ownerId)
-        continue
-      if (!victim || entry.startedAt < victim.startedAt)
-        victim = entry
+      if (ownerId && entry.item.ownerId !== ownerId) continue
+      if (!victim || entry.startedAt < victim.startedAt) victim = entry
     }
     return victim
   }
 
-  function stopActive(entry: { item: PlaybackItem<TAudio>, controller: AbortController }, reason: string) {
+  function stopActive(entry: { item: PlaybackItem<TAudio>; controller: AbortController }, reason: string) {
     entry.controller.abort(reason)
     active.delete(entry.item.id)
     emitInterrupt(entry.item, reason)
   }
 
   function canStart(item: PlaybackItem<TAudio>) {
-    if (active.size >= maxVoices)
-      return { ok: false, reason: 'overflow' as const }
+    if (active.size >= maxVoices) return { ok: false, reason: 'overflow' as const }
     if (maxVoicesPerOwner && item.ownerId) {
-      if (countByOwner(item.ownerId) >= maxVoicesPerOwner)
-        return { ok: false, reason: 'owner-overflow' as const }
+      if (countByOwner(item.ownerId) >= maxVoicesPerOwner) return { ok: false, reason: 'owner-overflow' as const }
     }
     return { ok: true as const }
   }
@@ -126,20 +121,19 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
   function start(item: PlaybackItem<TAudio>) {
     const controller = new AbortController()
     const startedAt = Date.now()
-    active.set(item.id, { item, controller, startedAt })
+    active.set(item.id, { controller, item, startedAt })
     emitStart(item)
 
-    void options.play(item, controller.signal)
+    void options
+      .play(item, controller.signal)
       .then(() => {
-        if (!active.has(item.id))
-          return
+        if (!active.has(item.id)) return
         active.delete(item.id)
         emitEnd(item)
         void tryStartWaiting()
       })
       .catch((err) => {
-        if (!active.has(item.id))
-          return
+        if (!active.has(item.id)) return
         active.delete(item.id)
         emitInterrupt(item, err instanceof Error ? err.message : 'playback-error')
         void tryStartWaiting()
@@ -147,31 +141,25 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
   }
 
   function tryStartWaiting() {
-    if (waiting.length === 0)
-      return
+    if (waiting.length === 0) return
 
-    const candidates = waiting
-      .slice()
-      .sort((a, b) => (b.item.priority - a.item.priority) || (a.enqueuedAt - b.enqueuedAt))
+    const candidates = waiting.slice().sort((a, b) => b.item.priority - a.item.priority || a.enqueuedAt - b.enqueuedAt)
 
     for (const candidate of candidates) {
       const { ok, reason } = canStart(candidate.item)
       if (!ok) {
         if (reason === 'owner-overflow' && ownerOverflowPolicy === 'steal-oldest') {
           const victim = chooseVictimOldest(candidate.item.ownerId)
-          if (victim)
-            stopActive(victim, 'owner-overflow')
+          if (victim) stopActive(victim, 'owner-overflow')
         }
         continue
       }
 
       const index = waiting.indexOf(candidate)
-      if (index >= 0)
-        waiting.splice(index, 1)
+      if (index >= 0) waiting.splice(index, 1)
 
       start(candidate.item)
-      if (active.size >= maxVoices)
-        break
+      if (active.size >= maxVoices) break
     }
   }
 
@@ -185,7 +173,7 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
       const victim = chooseVictimOldest(item.ownerId)
       if (victim) {
         stopActive(victim, 'owner-overflow')
-        waiting.push({ item, enqueuedAt: Date.now() })
+        waiting.push({ enqueuedAt: Date.now(), item })
         void tryStartWaiting()
         return
       }
@@ -196,13 +184,12 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
         emitReject(item, 'overflow')
         break
       case 'queue':
-        waiting.push({ item, enqueuedAt: Date.now() })
+        waiting.push({ enqueuedAt: Date.now(), item })
         break
       case 'steal-oldest': {
         const victim = chooseVictimOldest()
-        if (victim)
-          stopActive(victim, 'steal-oldest')
-        waiting.push({ item, enqueuedAt: Date.now() })
+        if (victim) stopActive(victim, 'steal-oldest')
+        waiting.push({ enqueuedAt: Date.now(), item })
         void tryStartWaiting()
         break
       }
@@ -210,10 +197,9 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
         const victim = chooseVictimByPriority()
         if (victim && victim.item.priority <= item.priority) {
           stopActive(victim, 'steal-lowest-priority')
-          waiting.push({ item, enqueuedAt: Date.now() })
+          waiting.push({ enqueuedAt: Date.now(), item })
           void tryStartWaiting()
-        }
-        else {
+        } else {
           emitReject(item, 'lower-priority')
         }
         break
@@ -240,38 +226,34 @@ export function createPlaybackManager<TAudio>(options: PlaybackManagerOptions<TA
 
   function stopByIntent(intentId: string, reason: string) {
     for (const entry of active.values()) {
-      if (entry.item.intentId !== intentId)
-        continue
+      if (entry.item.intentId !== intentId) continue
       stopActive(entry, reason)
     }
 
     for (let i = waiting.length - 1; i >= 0; i -= 1) {
-      if (waiting[i]?.item.intentId === intentId)
-        waiting.splice(i, 1)
+      if (waiting[i]?.item.intentId === intentId) waiting.splice(i, 1)
     }
   }
 
   function stopByOwner(ownerId: string, reason: string) {
     for (const entry of active.values()) {
-      if (entry.item.ownerId !== ownerId)
-        continue
+      if (entry.item.ownerId !== ownerId) continue
       stopActive(entry, reason)
     }
 
     for (let i = waiting.length - 1; i >= 0; i -= 1) {
-      if (waiting[i]?.item.ownerId === ownerId)
-        waiting.splice(i, 1)
+      if (waiting[i]?.item.ownerId === ownerId) waiting.splice(i, 1)
     }
   }
 
   return {
+    onEnd,
+    onInterrupt,
+    onReject,
+    onStart,
     schedule,
     stopAll,
     stopByIntent,
     stopByOwner,
-    onStart,
-    onEnd,
-    onInterrupt,
-    onReject,
   }
 }

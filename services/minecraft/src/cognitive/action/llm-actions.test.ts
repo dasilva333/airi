@@ -10,9 +10,8 @@ vi.mock('../../skills/actions/world-interactions', () => ({
 }))
 
 function getMineBlockAtAction() {
-  const action = actionsList.find(item => item.name === 'mineBlockAt')
-  if (!action)
-    throw new Error('mineBlockAt action missing')
+  const action = actionsList.find((item) => item.name === 'mineBlockAt')
+  if (!action) throw new Error('mineBlockAt action missing')
   return action
 }
 
@@ -63,7 +62,7 @@ describe('llm-actions mineBlockAt', () => {
   })
 
   it('exposes skip tool with stable return value', async () => {
-    const skipAction = actionsList.find(item => item.name === 'skip')
+    const skipAction = actionsList.find((item) => item.name === 'skip')
     expect(skipAction).toBeDefined()
 
     const perform = skipAction!.perform({} as any)

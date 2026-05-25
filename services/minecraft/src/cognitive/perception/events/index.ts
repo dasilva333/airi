@@ -2,11 +2,7 @@ import type { Logg } from '@guiiai/logg'
 import type { Bot } from 'mineflayer'
 import type { Vec3 } from 'vec3'
 
-import type {
-  PerceptionContext,
-  PerceptionEventDefinition,
-  RawPerceptionEventBase,
-} from './types'
+import type { PerceptionContext, PerceptionEventDefinition, RawPerceptionEventBase } from './types'
 
 export function definePerceptionEvent<TArgs extends any[], TExtract>(
   definition: PerceptionEventDefinition<TArgs, TExtract>,
@@ -30,7 +26,7 @@ export class EventRegistry {
   private context: PerceptionContext | null = null
   private maxDistance = 32
 
-  constructor(private readonly deps: EventRegistryDeps) { }
+  constructor(private readonly deps: EventRegistryDeps) {}
 
   public register(definition: PerceptionEventDefinition): void {
     this.definitions.set(definition.id, definition)
@@ -74,31 +70,28 @@ export class EventRegistry {
   private createContext(bot: Bot): PerceptionContext {
     const distanceToPos = (pos: Vec3): number | null => {
       const selfPos = bot.entity?.position
-      if (!selfPos || !pos)
-        return null
+      if (!selfPos || !pos) return null
       try {
         return selfPos.distanceTo(pos)
-      }
-      catch {
+      } catch {
         return null
       }
     }
 
     const distanceTo = (entity: any): number | null => {
       const pos = entity?.position
-      if (!pos)
-        return null
+      if (!pos) return null
       return distanceToPos(pos)
     }
 
     return {
       bot,
-      selfUsername: bot.username,
-      maxDistance: this.maxDistance,
       distanceTo,
       distanceToPos,
-      isSelf: (entity: any) => entity?.username === bot.username,
       entityId: (entity: any) => String(entity?.id ?? entity?.uuid ?? entity?.username ?? 'unknown'),
+      isSelf: (entity: any) => entity?.username === bot.username,
+      maxDistance: this.maxDistance,
+      selfUsername: bot.username,
     }
   }
 
@@ -107,8 +100,7 @@ export class EventRegistry {
   }
 
   private handleMineflayerEvent(def: PerceptionEventDefinition, args: any[]): void {
-    if (!this.context)
-      return
+    if (!this.context) return
 
     if (def.mineflayer.filter && !def.mineflayer.filter(this.context, ...args)) {
       return
@@ -118,10 +110,10 @@ export class EventRegistry {
     const timestamp = Date.now()
 
     const rawEvent: RawPerceptionEventBase & Record<string, any> = {
-      modality: def.modality,
       kind: def.kind,
-      timestamp,
+      modality: def.modality,
       source: 'minecraft',
+      timestamp,
       ...extracted,
     }
 

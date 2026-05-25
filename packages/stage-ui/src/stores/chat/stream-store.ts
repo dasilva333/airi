@@ -1,22 +1,27 @@
-import type { StreamingAssistantMessage } from '../../types/chat'
-
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { StreamingAssistantMessage } from '../../types/chat'
 
 import { useChatSessionStore } from './session-store'
 
 export const useChatStreamStore = defineStore('chat-stream', () => {
   const chatSession = useChatSessionStore()
-  const streamingMessage = ref<StreamingAssistantMessage>({ role: 'assistant', content: '', slices: [], tool_results: [], createdAt: Date.now() })
+  const streamingMessage = ref<StreamingAssistantMessage>({
+    content: '',
+    createdAt: Date.now(),
+    role: 'assistant',
+    slices: [],
+    tool_results: [],
+  })
 
   function beginStream(messageId?: string, createdAt?: number) {
     streamingMessage.value = {
-      role: 'assistant',
       content: '',
-      slices: [],
-      tool_results: [],
       createdAt: createdAt ?? Date.now(),
       id: messageId,
+      role: 'assistant',
+      slices: [],
+      tool_results: [],
     }
   }
 
@@ -30,44 +35,48 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
     }
 
     streamingMessage.value.slices.push({
-      type: 'text',
       text: literal,
+      type: 'text',
     })
   }
 
   function finalizeStream(sessionId = chatSession.activeSessionId, fullText?: string) {
     const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
     if (streamingMessage.value.slices.length > 0) {
-      const existsById = !!(streamingMessage.value.id && sessionMessagesForSend.some(m => m.id === streamingMessage.value.id))
-      const existsByContent = sessionMessagesForSend.some(m => m.role === 'assistant' && m.content === streamingMessage.value.content)
+      const existsById = !!(
+        streamingMessage.value.id && sessionMessagesForSend.some((m) => m.id === streamingMessage.value.id)
+      )
+      const existsByContent = sessionMessagesForSend.some(
+        (m) => m.role === 'assistant' && m.content === streamingMessage.value.content,
+      )
       const exists = existsById || existsByContent
 
       console.log(`[ChatStreamStore] finalizeStream for session ${sessionId}:`, {
-        messageId: streamingMessage.value.id,
-        existsById,
+        contentPreview:
+          typeof streamingMessage.value.content === 'string' ? streamingMessage.value.content.slice(0, 60) : '',
         existsByContent,
+        existsById,
+        messageId: streamingMessage.value.id,
         willPush: !exists,
-        contentPreview: typeof streamingMessage.value.content === 'string' ? streamingMessage.value.content.slice(0, 60) : '',
       })
 
       if (!exists) {
         sessionMessagesForSend.push(streamingMessage.value)
       }
     }
-    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
-    if (fullText)
-      streamingMessage.value.content = fullText
+    streamingMessage.value = { content: '', role: 'assistant', slices: [], tool_results: [] }
+    if (fullText) streamingMessage.value.content = fullText
   }
 
   function resetStream() {
-    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+    streamingMessage.value = { content: '', role: 'assistant', slices: [], tool_results: [] }
   }
 
   return {
-    streamingMessage,
-    beginStream,
     appendStreamLiteral,
+    beginStream,
     finalizeStream,
     resetStream,
+    streamingMessage,
   }
 })

@@ -1,16 +1,4 @@
 {
-  "name": "@proj-airi/minecraft-bot",
-  "type": "module",
-  "private": true,
-  "description": "An intelligent Minecraft bot powered by LLM. AIRI can understand natural language commands, interact with the world, and assist players in various tasks.",
-  "scripts": {
-    "dev": "tsx --env-file=.env --env-file-if-exists=.env.local src/main.ts",
-    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/main.ts",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest"
-  },
   "dependencies": {
     "@guiiai/logg": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
@@ -46,7 +34,19 @@
     "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.1"
   },
+  "description": "An intelligent Minecraft bot powered by LLM. AIRI can understand natural language commands, interact with the world, and assist players in various tasks.",
   "devDependencies": {
     "@types/ws": "catalog:"
-  }
+  },
+  "name": "@proj-airi/minecraft-bot",
+  "private": true,
+  "scripts": {
+    "dev": "tsx --env-file=.env --env-file-if-exists=.env.local src/main.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/main.ts",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module"
 }

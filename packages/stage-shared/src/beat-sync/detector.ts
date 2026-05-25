@@ -1,14 +1,9 @@
 import type { EventContext } from '@moeru/eventa'
-import type { Analyser, AnalyserBeatEvent, AnalyserWorkletParameters } from '@nekopaw/tempora'
-
-import type { BeatSyncDetectorEventMap, BeatSyncDetectorState } from './types'
-
-import analyserWorklet from '@nekopaw/tempora/worklet?url'
-
 import { defineInvoke, defineInvokeHandler } from '@moeru/eventa'
+import type { Analyser, AnalyserBeatEvent, AnalyserWorkletParameters } from '@nekopaw/tempora'
 import { startAnalyser as startTemporaAnalyser } from '@nekopaw/tempora'
+import analyserWorklet from '@nekopaw/tempora/worklet?url'
 import { setupElectronScreenCapture } from '@proj-airi/electron-screen-capture/renderer'
-
 import { isStageTamagotchi, isStageWeb, StageEnvironment } from '../environment'
 import { isElectronWindow } from '../window'
 import {
@@ -20,6 +15,7 @@ import {
   beatSyncUpdateParametersInvokeEventa,
   createContext,
 } from './eventa'
+import type { BeatSyncDetectorEventMap, BeatSyncDetectorState } from './types'
 
 export const inputAnalyserFFTSize = 1024
 
@@ -37,10 +33,10 @@ export interface BeatSyncDetector {
   readonly source: AudioNode | undefined
 }
 
-export type CreateBeatSyncDetectorOptions
-  = | { env: StageEnvironment.Tamagotchi }
-    | { env: StageEnvironment.Web }
-    | { env: StageEnvironment.Capacitor }
+export type CreateBeatSyncDetectorOptions =
+  | { env: StageEnvironment.Tamagotchi }
+  | { env: StageEnvironment.Web }
+  | { env: StageEnvironment.Capacitor }
 
 export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): BeatSyncDetector {
   let context: AudioContext | undefined
@@ -56,17 +52,19 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
   let inputAnalyserBuffer: Uint8Array<ArrayBuffer> | undefined
 
   const listeners: { [K in keyof BeatSyncDetectorEventMap]: Array<(...args: any) => void> } = {
-    stateChange: [],
     beat: [],
+    stateChange: [],
   }
 
-  const emit = <E extends keyof BeatSyncDetectorEventMap>(event: E, ...args: Parameters<BeatSyncDetectorEventMap[E]>) => {
-    listeners[event].forEach(listener => listener(...args))
+  const emit = <E extends keyof BeatSyncDetectorEventMap>(
+    event: E,
+    ...args: Parameters<BeatSyncDetectorEventMap[E]>
+  ) => {
+    listeners[event].forEach((listener) => listener(...args))
   }
 
   const stop = () => {
-    if (!state.isActive)
-      return
+    if (!state.isActive) return
 
     state.isActive = false
     emit('stateChange', state)
@@ -95,10 +93,10 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
     context = new AudioContext()
     analyser = await startTemporaAnalyser({
       context,
-      worklet: analyserWorklet,
       listeners: {
-        onBeat: e => emit('beat', e),
+        onBeat: (e) => emit('beat', e),
       },
+      worklet: analyserWorklet,
     })
 
     const node = await createSource(context)
@@ -122,79 +120,79 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
     analyser?.updateParameters(params)
   }
 
-  const startScreenCapture = async () => start(async (ctx) => {
-    switch (options.env) {
-      case StageEnvironment.Web: {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-          },
-          video: true,
-        })
-
-        if (stream.getAudioTracks().length === 0) {
-          throw new Error('No audio track available in the stream')
-        }
-
-        stream.getAudioTracks().forEach((track) => {
-          let stopCalled = false
-          track.addEventListener('ended', () => {
-            if (stopCalled)
-              return
-            stopCalled = true
-            stop()
-          })
-        })
-
-        const node = ctx.createMediaStreamSource(stream)
-        stopSource = () => {
-          stream.getTracks().forEach(track => track.stop())
-        }
-
-        return node
-      }
-      case StageEnvironment.Tamagotchi: {
-        if (!isElectronWindow(window)) {
-          throw new Error(`Electron window is required for this environment: ${options.env}`)
-        }
-
-        // FIXME(Makito): Will refactor later
-        const { createContext } = await import('@moeru/eventa/adapters/electron/renderer')
-        const { selectWithSource } = setupElectronScreenCapture(createContext(window.electron.ipcRenderer).context)
-
-        const stream = await selectWithSource(
-          (sources) => {
-            if (sources.length === 0)
-              throw new Error('No screen source available')
-            return sources[0].id
-          },
-          async () => await navigator.mediaDevices.getDisplayMedia({
+  const startScreenCapture = async () =>
+    start(async (ctx) => {
+      switch (options.env) {
+        case StageEnvironment.Web: {
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            audio: {
+              autoGainControl: false,
+              echoCancellation: false,
+              noiseSuppression: false,
+            },
             video: true,
-            audio: true,
-          }),
-          { sourcesOptions: { types: ['screen'] } },
-        )
+          })
 
-        const videoTracks = stream.getVideoTracks()
+          if (stream.getAudioTracks().length === 0) {
+            throw new Error('No audio track available in the stream')
+          }
 
-        videoTracks.forEach((track) => {
-          track.stop()
-          stream.removeTrack(track)
-        })
+          stream.getAudioTracks().forEach((track) => {
+            let stopCalled = false
+            track.addEventListener('ended', () => {
+              if (stopCalled) return
+              stopCalled = true
+              stop()
+            })
+          })
 
-        const node = ctx.createMediaStreamSource(stream)
-        stopSource = () => {
-          stream.getTracks().forEach(track => track.stop())
+          const node = ctx.createMediaStreamSource(stream)
+          stopSource = () => {
+            stream.getTracks().forEach((track) => track.stop())
+          }
+
+          return node
         }
+        case StageEnvironment.Tamagotchi: {
+          if (!isElectronWindow(window)) {
+            throw new Error(`Electron window is required for this environment: ${options.env}`)
+          }
 
-        return node
+          // FIXME(Makito): Will refactor later
+          const { createContext } = await import('@moeru/eventa/adapters/electron/renderer')
+          const { selectWithSource } = setupElectronScreenCapture(createContext(window.electron.ipcRenderer).context)
+
+          const stream = await selectWithSource(
+            (sources) => {
+              if (sources.length === 0) throw new Error('No screen source available')
+              return sources[0].id
+            },
+            async () =>
+              await navigator.mediaDevices.getDisplayMedia({
+                audio: true,
+                video: true,
+              }),
+            { sourcesOptions: { types: ['screen'] } },
+          )
+
+          const videoTracks = stream.getVideoTracks()
+
+          videoTracks.forEach((track) => {
+            track.stop()
+            stream.removeTrack(track)
+          })
+
+          const node = ctx.createMediaStreamSource(stream)
+          stopSource = () => {
+            stream.getTracks().forEach((track) => track.stop())
+          }
+
+          return node
+        }
+        default:
+          throw new Error('Failed to start screen capture: Unsupported environment')
       }
-      default:
-        throw new Error('Failed to start screen capture: Unsupported environment')
-    }
-  })
+    })
 
   const off = <E extends keyof BeatSyncDetectorEventMap>(event: E, listener: BeatSyncDetectorEventMap[E]) => {
     const listenerFns = listeners[event]
@@ -203,8 +201,7 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
     }
 
     const index = listenerFns.indexOf(listener)
-    if (index !== -1)
-      listenerFns.splice(index, 1)
+    if (index !== -1) listenerFns.splice(index, 1)
   }
 
   const on = <E extends keyof BeatSyncDetectorEventMap>(event: E, listener: BeatSyncDetectorEventMap[E]) => {
@@ -222,36 +219,41 @@ export function createBeatSyncDetector(options: CreateBeatSyncDetectorOptions): 
   }
 
   return {
-    start,
-    updateParameters,
-    startScreenCapture,
-    stop,
-    on,
-    off,
+    get analyser() {
+      return analyser
+    },
+    get context() {
+      return context
+    },
     getInputByteFrequencyData,
+    off,
+    on,
+    get source() {
+      return source
+    },
+    start,
+    startScreenCapture,
 
-    get state() { return state },
-    get context() { return context },
-    get analyser() { return analyser },
-    get source() { return source },
+    get state() {
+      return state
+    },
+    stop,
+    updateParameters,
   }
 }
 
 let detector: BeatSyncDetector | undefined
 function getDetector() {
-  if (!isStageWeb())
-    throw new Error('getDetector() is only available in Stage Web environment')
+  if (!isStageWeb()) throw new Error('getDetector() is only available in Stage Web environment')
 
-  if (!detector)
-    detector = createBeatSyncDetector({ env: StageEnvironment.Web })
+  if (!detector) detector = createBeatSyncDetector({ env: StageEnvironment.Web })
 
   return detector
 }
 
 let context: EventContext<any, any> | undefined
 function getContext() {
-  if (!context)
-    context = createContext()
+  if (!context) context = createContext()
 
   return context
 }
@@ -260,8 +262,7 @@ export function toggleBeatSync(enabled: boolean) {
   if (isStageWeb()) {
     if (enabled) {
       return getDetector().startScreenCapture()
-    }
-    else {
+    } else {
       return getDetector().stop()
     }
   }

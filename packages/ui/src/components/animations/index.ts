@@ -1,5 +1,5 @@
-export { default as TransitionBidirectional } from './transition-bidirectional.vue'
 export {
+  default as TransitionBidirectional,
   /**
    * @deprecated Use TransitionBidirectional instead
    */

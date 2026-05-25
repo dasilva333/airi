@@ -6,11 +6,11 @@ describe('sanitizeMessages', () => {
   it('should flatten text-only content arrays for backward compatibility', () => {
     const messages = [
       {
-        role: 'user',
         content: [
-          { type: 'text', text: 'Hello' },
-          { type: 'text', text: ' world' },
+          { text: 'Hello', type: 'text' },
+          { text: ' world', type: 'text' },
         ],
+        role: 'user',
       },
     ]
 
@@ -22,11 +22,11 @@ describe('sanitizeMessages', () => {
   it('should keep content arrays if image_url is present and vision is not explicitly disabled', () => {
     const messages = [
       {
-        role: 'user',
         content: [
-          { type: 'text', text: 'What is this?' },
-          { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } },
+          { text: 'What is this?', type: 'text' },
+          { image_url: { url: 'data:image/png;base64,...' }, type: 'image_url' },
         ],
+        role: 'user',
       },
     ]
 
@@ -38,12 +38,12 @@ describe('sanitizeMessages', () => {
   it('should strip images and replace with placeholder when vision is disabled', () => {
     const messages = [
       {
-        role: 'user',
         content: [
-          { type: 'text', text: 'Look at this:' },
-          { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } },
-          { type: 'text', text: 'Nice, right?' },
+          { text: 'Look at this:', type: 'text' },
+          { image_url: { url: 'data:image/png;base64,...' }, type: 'image_url' },
+          { text: 'Nice, right?', type: 'text' },
         ],
+        role: 'user',
       },
     ]
 
@@ -55,11 +55,11 @@ describe('sanitizeMessages', () => {
   it('should handle assistant messages with images when vision is disabled', () => {
     const messages = [
       {
-        role: 'assistant',
         content: [
-          { type: 'text', text: 'I see an image:' },
-          { type: 'image_url', image_url: { url: '...' } },
+          { text: 'I see an image:', type: 'text' },
+          { image_url: { url: '...' }, type: 'image_url' },
         ],
+        role: 'assistant',
       },
     ]
 
@@ -70,8 +70,8 @@ describe('sanitizeMessages', () => {
   it('should convert error roles to user messages', () => {
     const messages = [
       {
-        role: 'error',
         content: 'Something went wrong',
+        role: 'error',
       },
     ]
 

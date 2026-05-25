@@ -11,8 +11,8 @@ const perceptionModalityValues = ['sighted', 'heard', 'felt', 'system'] as const
 const detectorModeValues = ['sliding', 'tumbling'] as const
 const detectorGroupByValues = ['entityId', 'sourceId', 'global'] as const
 
-export type DetectorMode = typeof detectorModeValues[number]
-export type DetectorGroupBy = typeof detectorGroupByValues[number]
+export type DetectorMode = (typeof detectorModeValues)[number]
+export type DetectorGroupBy = (typeof detectorGroupByValues)[number]
 
 function isValidWindowDuration(value: string): boolean {
   const match = value.match(/^(\d+(?:\.\d+)?)(ms|s|m)?$/)
@@ -32,11 +32,7 @@ export type ComparisonOperator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'in
  * A single condition in a where clause
  * Can be a direct value (equality) or an object with operator
  */
-const whereLiteralSchema = z.union([
-  z.string(),
-  z.number().finite(),
-  z.boolean(),
-])
+const whereLiteralSchema = z.union([z.string(), z.number().finite(), z.boolean()])
 
 export const whereConditionSchema = z.union([
   whereLiteralSchema,
@@ -55,85 +51,88 @@ export type WhereCondition = z.infer<typeof whereConditionSchema>
 /**
  * Where clause - conditions to match against event payload
  */
-export const whereClauseSchema = z.record(
-  z.string().min(1),
-  whereConditionSchema,
-)
+export const whereClauseSchema = z.record(z.string().min(1), whereConditionSchema)
 
 export type WhereClause = z.infer<typeof whereClauseSchema>
 
 /**
  * Trigger definition in YAML
  */
-export const ruleTriggerSchema = z.object({
-  /** Event modality (e.g., 'sighted', 'heard', 'felt') */
-  modality: z.enum(perceptionModalityValues),
-  /** Event kind (e.g., 'arm_swing', 'sound') */
-  kind: z.string().trim().min(1),
-  /** Optional conditions on event payload */
-  where: whereClauseSchema.optional(),
-}).strict()
+export const ruleTriggerSchema = z
+  .object({
+    /** Event kind (e.g., 'arm_swing', 'sound') */
+    kind: z.string().trim().min(1),
+    /** Event modality (e.g., 'sighted', 'heard', 'felt') */
+    modality: z.enum(perceptionModalityValues),
+    /** Optional conditions on event payload */
+    where: whereClauseSchema.optional(),
+  })
+  .strict()
 
 export type RuleTrigger = z.infer<typeof ruleTriggerSchema>
 
 /**
  * Detector configuration
  */
-export const detectorConfigSchema = z.object({
-  /** Number of events needed to trigger */
-  threshold: z.number().int().positive(),
-  /** Time window (e.g., '2s', '500ms') */
-  window: z.string().trim().min(1).refine(
-    isValidWindowDuration,
-    'Window must be a positive duration like 500ms, 2s, or 1m',
-  ),
-  /** Window mode: sliding (default) or tumbling */
-  mode: z.enum(detectorModeValues).optional(),
-  /**
-   * Optional grouping key selector.
-   * If omitted, engine keeps the legacy fallback: entityId -> sourceId -> global.
-   */
-  groupBy: z.enum(detectorGroupByValues).optional(),
-}).strict()
+export const detectorConfigSchema = z
+  .object({
+    /**
+     * Optional grouping key selector.
+     * If omitted, engine keeps the legacy fallback: entityId -> sourceId -> global.
+     */
+    groupBy: z.enum(detectorGroupByValues).optional(),
+    /** Window mode: sliding (default) or tumbling */
+    mode: z.enum(detectorModeValues).optional(),
+    /** Number of events needed to trigger */
+    threshold: z.number().int().positive(),
+    /** Time window (e.g., '2s', '500ms') */
+    window: z
+      .string()
+      .trim()
+      .min(1)
+      .refine(isValidWindowDuration, 'Window must be a positive duration like 500ms, 2s, or 1m'),
+  })
+  .strict()
 
 export type DetectorConfig = z.infer<typeof detectorConfigSchema>
 
 /**
  * Signal output configuration
  */
-export const signalMetadataSchema = z.record(
-  z.string().min(1),
-  z.union([z.string(), z.number().finite(), z.boolean()]),
-)
+export const signalMetadataSchema = z.record(z.string().min(1), z.union([z.string(), z.number().finite(), z.boolean()]))
 
-export const signalConfigSchema = z.object({
-  /** Signal type (e.g., 'entity_attention', 'environmental_anomaly') */
-  type: z.string().trim().min(1),
-  /** Description template with {{ placeholders }} */
-  description: z.string().trim().min(1),
-  /** Confidence score (0-1) */
-  confidence: z.number().min(0).max(1).optional(),
-  /** Additional metadata with templates */
-  metadata: signalMetadataSchema.optional(),
-}).strict()
+export const signalConfigSchema = z
+  .object({
+    /** Confidence score (0-1) */
+    confidence: z.number().min(0).max(1).optional(),
+    /** Description template with {{ placeholders }} */
+    description: z.string().trim().min(1),
+    /** Additional metadata with templates */
+    metadata: signalMetadataSchema.optional(),
+    /** Signal type (e.g., 'entity_attention', 'environmental_anomaly') */
+    type: z.string().trim().min(1),
+  })
+  .strict()
 
 export type SignalConfig = z.infer<typeof signalConfigSchema>
 
 /**
  * Complete YAML rule definition
  */
-export const yamlRuleSchema = z.object({
-  /** Rule name (unique identifier) */
-  name: z.string().trim().min(1),
-  /** Rule version */
-  version: z.number().int().positive().optional(),
-  /** Trigger configuration */
-  trigger: ruleTriggerSchema,
-  /** Detector configuration */
-  detector: detectorConfigSchema,
-  /** Signal to emit when rule fires */
-  signal: signalConfigSchema,
-}).strict()
+export const yamlRuleSchema = z
+  .object({
+    /** Detector configuration */
+    detector: detectorConfigSchema,
+    /** Rule name (unique identifier) */
+    name: z.string().trim().min(1),
+    /** Signal to emit when rule fires */
+    signal: signalConfigSchema,
+    /** Trigger configuration */
+    trigger: ruleTriggerSchema,
+    /** Rule version */
+    version: z.number().int().positive().optional(),
+  })
+  .strict()
 
 export type YamlRule = z.infer<typeof yamlRuleSchema>
 
@@ -207,10 +206,7 @@ export interface TypeScriptRule<T = unknown> {
   readonly name: string
   readonly eventPattern: string
   /** Process function - receives typed payload and detector state */
-  readonly process: (
-    payload: T,
-    detectorState: DetectorState,
-  ) => RuleMatchResult
+  readonly process: (payload: T, detectorState: DetectorState) => RuleMatchResult
 }
 
 /**

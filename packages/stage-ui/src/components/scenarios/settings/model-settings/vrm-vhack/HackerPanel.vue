@@ -4,10 +4,8 @@ import { ARTISTRY_PRESET_GROUPS, artistryGenerateHeadless, REPLICATE_IMAGEEDIT_P
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-
-// @ts-ignore
 import * as THREE from 'three'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import { useArtistryStore } from '../../../../../stores/modules/artistry'
 import { useVHackStore } from '../../../../../stores/vhack'
@@ -56,15 +54,14 @@ const eraserTolerance = ref(15)
 const isEraserPicking = ref(true)
 
 const activePresets = computed(() => {
-  if (!selectedCategory.value)
-    return []
-  return ARTISTRY_PRESET_GROUPS.find(g => g.id === selectedCategory.value)?.presets || []
+  if (!selectedCategory.value) return []
+  return ARTISTRY_PRESET_GROUPS.find((g) => g.id === selectedCategory.value)?.presets || []
 })
 
 const availableProviders = [
-  { id: 'nanobanana', name: 'Nano Banana', icon: 'i-solar:gallery-round-bold-duotone' },
-  { id: 'replicate', name: 'Replicate', icon: 'i-solar:cloud-bold-duotone' },
-  { id: 'comfyui', name: 'ComfyUI', icon: 'i-solar:settings-bold-duotone' },
+  { icon: 'i-solar:gallery-round-bold-duotone', id: 'nanobanana', name: 'Nano Banana' },
+  { icon: 'i-solar:cloud-bold-duotone', id: 'replicate', name: 'Replicate' },
+  { icon: 'i-solar:settings-bold-duotone', id: 'comfyui', name: 'ComfyUI' },
 ]
 
 // Preset Palette moved to shared artistry.ts
@@ -75,8 +72,7 @@ function injectPreset(text: string) {
 }
 
 function getGltfImageIndex(texture: any) {
-  if (!activeVrmParser.value || !texture)
-    return null
+  if (!activeVrmParser.value || !texture) return null
   const assoc = activeVrmParser.value.associations.get(texture)
   if (assoc && assoc.textures !== undefined) {
     const texIndex = assoc.textures
@@ -87,8 +83,7 @@ function getGltfImageIndex(texture: any) {
 }
 
 function getGltfNodeIndex(node: any, gltf?: any) {
-  if (!activeVrmParser.value || !node)
-    return null
+  if (!activeVrmParser.value || !node) return null
   const assoc = activeVrmParser.value.associations.get(node)
   if (assoc && assoc.nodes !== undefined) {
     return assoc.nodes
@@ -104,18 +99,18 @@ function getGltfNodeIndex(node: any, gltf?: any) {
 
     // Stage 1: Match against GLTF Node Names
     const nodeIdx = gltf.nodes.findIndex((n: any) => n.name && normalize(stripSuffix(n.name)) === normSceneName)
-    if (nodeIdx !== -1)
-      return nodeIdx
+    if (nodeIdx !== -1) return nodeIdx
 
     // Stage 2: Match against GLTF Mesh Names (Accounts for Gura-style renaming)
     const meshIdx = gltf.nodes.findIndex((n: any) => {
-      if (n.mesh === undefined)
-        return false
+      if (n.mesh === undefined) return false
       const mesh = gltf.meshes[n.mesh]
       return mesh && mesh.name && normalize(stripSuffix(mesh.name)) === normSceneName
     })
     if (meshIdx !== -1) {
-      console.info(`[VHACK] Mesh-Layer Match: Scene "${node.name}" -> Mesh "${gltf.meshes[gltf.nodes[meshIdx].mesh].name}" (Node ${meshIdx})`)
+      console.info(
+        `[VHACK] Mesh-Layer Match: Scene "${node.name}" -> Mesh "${gltf.meshes[gltf.nodes[meshIdx].mesh].name}" (Node ${meshIdx})`,
+      )
       return meshIdx
     }
   }
@@ -124,13 +119,10 @@ function getGltfNodeIndex(node: any, gltf?: any) {
 }
 
 function getTextureUrl(tex: any) {
-  if (!tex || !tex.image)
-    return null
+  if (!tex || !tex.image) return null
   try {
-    if (tex.image instanceof HTMLCanvasElement)
-      return tex.image.toDataURL()
-    if (tex.image instanceof HTMLImageElement)
-      return tex.image.src
+    if (tex.image instanceof HTMLCanvasElement) return tex.image.toDataURL()
+    if (tex.image instanceof HTMLImageElement) return tex.image.src
     if (tex.image instanceof ImageBitmap) {
       const canvas = document.createElement('canvas')
       canvas.width = tex.image.width
@@ -138,25 +130,23 @@ function getTextureUrl(tex: any) {
       canvas.getContext('2d')?.drawImage(tex.image, 0, 0)
       return canvas.toDataURL()
     }
-  }
-  catch (e) {}
+  } catch (e) {}
   return null
 }
 
 // Global Snapshot Logic
 function takeGlobalSnapshot() {
-  if (!activeVrm.value)
-    return
+  if (!activeVrm.value) return
   activeVrm.value.scene.traverse((node: any) => {
     if (!vhackStore.snapshotMap.has(node.uuid)) {
       const snap: any = { visible: node.visible }
       if (node.material) {
         const mat = Array.isArray(node.material) ? node.material[0] : node.material
         snap.props = {
+          map: mat.map,
           rimWidth: mat.rimWidthFactor ?? mat.rimWidth ?? mat.uniforms?.rimWidth?.value ?? 0,
           shadeShift: mat.shadingShiftFactor ?? mat.shadeShift ?? mat.uniforms?.shadingShift?.value ?? 0,
           shadeToony: mat.shadingToonyFactor ?? mat.shadeToony ?? mat.uniforms?.shadingToony?.value ?? 0,
-          map: mat.map,
         }
       }
       vhackStore.snapshotMap.set(node.uuid, snap)
@@ -165,40 +155,43 @@ function takeGlobalSnapshot() {
 }
 
 // Watchers
-watch(() => artistryStore.comfyuiActiveWorkflow, (newWorkflowId) => {
-  if (artistryStore.activeProvider === 'comfyui' && newWorkflowId) {
-    const workflow = artistryStore.comfyuiSavedWorkflows.find(w => w.id === newWorkflowId)
-    if (workflow) {
-      const example: Record<string, any> = {}
-      for (const [nodeTitle, fields] of Object.entries(workflow.exposedFields)) {
-        example[nodeTitle] = {}
-        for (const field of fields) {
-          const nodeId = Object.keys(workflow.workflow).find(id => (workflow.workflow[id]._meta?.title || workflow.workflow[id].class_type) === nodeTitle)
-          const val = nodeId ? workflow.workflow[nodeId].inputs[field] : '...'
-          example[nodeTitle][field] = val
+watch(
+  () => artistryStore.comfyuiActiveWorkflow,
+  (newWorkflowId) => {
+    if (artistryStore.activeProvider === 'comfyui' && newWorkflowId) {
+      const workflow = artistryStore.comfyuiSavedWorkflows.find((w) => w.id === newWorkflowId)
+      if (workflow) {
+        const example: Record<string, any> = {}
+        for (const [nodeTitle, fields] of Object.entries(workflow.exposedFields)) {
+          example[nodeTitle] = {}
+          for (const field of fields) {
+            const nodeId = Object.keys(workflow.workflow).find(
+              (id) => (workflow.workflow[id]._meta?.title || workflow.workflow[id].class_type) === nodeTitle,
+            )
+            const val = nodeId ? workflow.workflow[nodeId].inputs[field] : '...'
+            example[nodeTitle][field] = val
+          }
         }
+        aiComfyParams.value = JSON.stringify(example, null, 2)
       }
-      aiComfyParams.value = JSON.stringify(example, null, 2)
     }
-  }
-})
+  },
+)
 
 watch(selectedReplicatePreset, (newPresetId) => {
   if (artistryStore.activeProvider === 'replicate' && newPresetId) {
-    const preset = REPLICATE_IMAGEEDIT_PRESETS.find(p => p.id === newPresetId)
+    const preset = REPLICATE_IMAGEEDIT_PRESETS.find((p) => p.id === newPresetId)
     if (preset) {
       aiReplicateModelId.value = preset.id
       aiReplicateParams.value = JSON.stringify(preset.preset, null, 2)
-      if (preset.prompt)
-        aiPrompt.value = preset.prompt
+      if (preset.prompt) aiPrompt.value = preset.prompt
     }
   }
 })
 
 // Tree View Logic
 const nodes = computed(() => {
-  if (!activeVrm.value)
-    return []
+  if (!activeVrm.value) return []
   const result: any[] = []
   activeVrm.value.scene.traverse((node: any) => {
     if (node.type === 'Mesh' || node.type === 'SkinnedMesh') {
@@ -210,12 +203,12 @@ const nodes = computed(() => {
 
       if (isMatch) {
         result.push({
-          name: node.name || 'Unnamed Mesh',
           matName,
-          type: node.type,
-          visible: node.visible,
-          uuid: node.uuid,
+          name: node.name || 'Unnamed Mesh',
           node,
+          type: node.type,
+          uuid: node.uuid,
+          visible: node.visible,
         })
       }
     }
@@ -226,8 +219,7 @@ const nodes = computed(() => {
 function toggleVisibility(item: any, event?: MouseEvent) {
   if (event?.ctrlKey) {
     vhackStore.focusNode(item.uuid, nodes.value)
-  }
-  else {
+  } else {
     vhackStore.toggleNodeVisibility(item.uuid, item.node)
   }
 }
@@ -236,8 +228,7 @@ function selectNode(item: any) {
   vhackStore.selectedNodeName = item.name
   selectedMesh.value = item.node
   let mat: any = null
-  if (Array.isArray(item.node.material))
-    mat = item.node.material[0]
+  if (Array.isArray(item.node.material)) mat = item.node.material[0]
   else mat = item.node.material
   if (mat) {
     selectedMaterial.value = mat
@@ -249,28 +240,19 @@ function selectNode(item: any) {
 
 // Material Lab Logic
 function updateProp(prop: string, value: number) {
-  if (!selectedMaterial.value)
-    return
+  if (!selectedMaterial.value) return
   const mat = selectedMaterial.value as any
   if (prop === 'rimWidth') {
-    if ('rimWidthFactor' in mat)
-      mat.rimWidthFactor = value
-    else if (mat.uniforms?.rimWidth)
-      mat.uniforms.rimWidth.value = value
+    if ('rimWidthFactor' in mat) mat.rimWidthFactor = value
+    else if (mat.uniforms?.rimWidth) mat.uniforms.rimWidth.value = value
     else mat.rimWidth = value
-  }
-  else if (prop === 'shadeShift') {
-    if ('shadingShiftFactor' in mat)
-      mat.shadingShiftFactor = value
-    else if (mat.uniforms?.shadingShift)
-      mat.uniforms.shadingShift.value = value
+  } else if (prop === 'shadeShift') {
+    if ('shadingShiftFactor' in mat) mat.shadingShiftFactor = value
+    else if (mat.uniforms?.shadingShift) mat.uniforms.shadingShift.value = value
     else mat.shadeShift = value
-  }
-  else if (prop === 'shadeToony') {
-    if ('shadingToonyFactor' in mat)
-      mat.shadingToonyFactor = value
-    else if (mat.uniforms?.shadingToony)
-      mat.uniforms.shadingToony.value = value
+  } else if (prop === 'shadeToony') {
+    if ('shadingToonyFactor' in mat) mat.shadingToonyFactor = value
+    else if (mat.uniforms?.shadingToony) mat.uniforms.shadingToony.value = value
     else mat.shadeToony = value
   }
   mat.needsUpdate = true
@@ -279,8 +261,7 @@ function updateProp(prop: string, value: number) {
 // Texture Trace Context (Precomputed State for Global Sync)
 const currentTextureNodes = computed(() => {
   const tex = selectedMaterial.value?.map
-  if (!tex || !activeVrm.value)
-    return []
+  if (!tex || !activeVrm.value) return []
 
   // The ultimate source of truth for GLB/VRM: The GLTF Source Image Index
   const targetIdx = getGltfImageIndex(tex)
@@ -294,12 +275,12 @@ const currentTextureNodes = computed(() => {
         // Check ALL texture slots for a shared GLTF source or image identity
         const slots = [m.map, m.shadeMultiplyTexture, m.rimMultiplyTexture, m.sphereAddTexture]
         const hasMatch = slots.some((s) => {
-          if (!s)
-            return false
+          if (!s) return false
           const sIdx = getGltfImageIndex(s)
-          if (targetIdx !== null && sIdx !== null)
-            return sIdx === targetIdx
-          return s.image?.uuid === targetFingerprint || s.image?.src === targetFingerprint || s.uuid === targetFingerprint
+          if (targetIdx !== null && sIdx !== null) return sIdx === targetIdx
+          return (
+            s.image?.uuid === targetFingerprint || s.image?.src === targetFingerprint || s.uuid === targetFingerprint
+          )
         })
 
         if (hasMatch) {
@@ -312,16 +293,15 @@ const currentTextureNodes = computed(() => {
     }
   })
   // Deduplicate node results by UUID
-  return Array.from(new Map(result.map(r => [r.uuid, r])).values())
+  return Array.from(new Map(result.map((r) => [r.uuid, r])).values())
 })
 
 // Texture Deck Logic
-const textureList = ref<{ id: number, name: string, type: string, url: string, texture: any }[]>([])
+const textureList = ref<{ id: number; name: string; type: string; url: string; texture: any }[]>([])
 
 function extractTextures() {
-  if (!activeVrm.value)
-    return
-  const found = new Map<number | string, { tex: any, type: string, nodeName: string }>()
+  if (!activeVrm.value) return
+  const found = new Map<number | string, { tex: any; type: string; nodeName: string }>()
 
   activeVrm.value.scene.traverse((node: any) => {
     if (node.material) {
@@ -334,12 +314,11 @@ function extractTextures() {
           { tex: m.sphereAddTexture, type: 'MatCap' },
         ]
         slots.forEach((slot) => {
-          if (!slot.tex)
-            return
+          if (!slot.tex) return
           const idx = getGltfImageIndex(slot.tex)
-          const key = idx !== null ? idx : (slot.tex.image?.uuid || slot.tex.image?.src || slot.tex.uuid)
+          const key = idx !== null ? idx : slot.tex.image?.uuid || slot.tex.image?.src || slot.tex.uuid
           if (!found.has(key)) {
-            found.set(key, { tex: slot.tex, type: slot.type, nodeName: node.name })
+            found.set(key, { nodeName: node.name, tex: slot.tex, type: slot.type })
           }
         })
       })
@@ -348,56 +327,58 @@ function extractTextures() {
 
   textureList.value = Array.from(found.values()).map((item, i) => {
     return {
+      hint: item.nodeName,
       id: i,
       name: item.tex.name || `Tex ${i}`,
+      texture: item.tex,
       type: item.type,
       url: getTextureUrl(item.tex) || '',
-      texture: item.tex,
-      hint: item.nodeName,
     }
   })
 }
 
 function findAssociatedNodes(texture: any) {
-  if (!activeVrm.value)
-    return []
+  if (!activeVrm.value) return []
   const result: any[] = []
   activeVrm.value.scene.traverse((node: any) => {
     if (node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material]
-      const usesTexture = mats.some((m: any) => m.map === texture || m.shadeMultiplyTexture === texture || m.rimMultiplyTexture === texture || m.sphereAddTexture === texture)
-      if (usesTexture)
-        result.push({ name: node.name || 'Unnamed Mesh', node, uuid: node.uuid })
+      const usesTexture = mats.some(
+        (m: any) =>
+          m.map === texture ||
+          m.shadeMultiplyTexture === texture ||
+          m.rimMultiplyTexture === texture ||
+          m.sphereAddTexture === texture,
+      )
+      if (usesTexture) result.push({ name: node.name || 'Unnamed Mesh', node, uuid: node.uuid })
     }
   })
   return result
 }
 
 const associatedNodesForTexture = computed(() => {
-  if (!lastSelectedTextureItem.value)
-    return []
+  if (!lastSelectedTextureItem.value) return []
   return findAssociatedNodes(lastSelectedTextureItem.value.texture)
 })
 
 function selectTexture(item: any) {
   lastSelectedTextureItem.value = item
-  if (!aiPrompt.value)
-    aiPrompt.value = `Stylize the ${item.name} texture...`
+  if (!aiPrompt.value) aiPrompt.value = `Stylize the ${item.name} texture...`
   nextTick(() => {
-    if (scrollContainer.value)
-      scrollContainer.value.scrollTo({ top: 0, behavior: 'smooth' })
+    if (scrollContainer.value) scrollContainer.value.scrollTo({ behavior: 'smooth', top: 0 })
   })
   const associated = findAssociatedNodes(item.texture)
-  if (associated.length === 1)
-    jumpToNode(associated[0])
+  if (associated.length === 1) jumpToNode(associated[0])
 }
 
-function jumpToNode(nodeItem: any) { selectNode(nodeItem); activeTab.value = 'material' }
+function jumpToNode(nodeItem: any) {
+  selectNode(nodeItem)
+  activeTab.value = 'material'
+}
 
 // Unified Artistry Generation
 async function generateAndSwap() {
-  if (!selectedMaterial.value || !aiPrompt.value)
-    return
+  if (!selectedMaterial.value || !aiPrompt.value) return
 
   vhackStore.isGeneratingTexture = true
   vhackStore.generationProgress = 10
@@ -408,8 +389,7 @@ async function generateAndSwap() {
 
   try {
     const map = selectedMaterial.value.map
-    if (!map)
-      throw new Error('No texture found on material')
+    if (!map) throw new Error('No texture found on material')
 
     // 1. Prepare base64 from current texture
     const canvas = document.createElement('canvas')
@@ -417,8 +397,7 @@ async function generateAndSwap() {
     canvas.width = img.width
     canvas.height = img.height
     const ctx = canvas.getContext('2d')
-    if (!ctx)
-      throw new Error('Failed to create canvas context')
+    if (!ctx) throw new Error('Failed to create canvas context')
     ctx.drawImage(img, 0, 0)
     const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
 
@@ -432,30 +411,27 @@ async function generateAndSwap() {
 
     if (artistryStore.activeProvider === 'nanobanana') {
       options = {
-        resolution: artistryStore.nanobananaResolution,
         model: artistryStore.nanobananaModel,
+        resolution: artistryStore.nanobananaResolution,
       }
-    }
-    else if (artistryStore.activeProvider === 'replicate') {
+    } else if (artistryStore.activeProvider === 'replicate') {
       options = JSON.parse(aiReplicateParams.value || '{}')
       model = aiReplicateModelId.value
-    }
-    else if (artistryStore.activeProvider === 'comfyui') {
+    } else if (artistryStore.activeProvider === 'comfyui') {
       try {
         options = JSON.parse(aiComfyParams.value || '{}')
-      }
-      catch (e) {
+      } catch (e) {
         options = {}
       }
       model = artistryStore.comfyuiActiveWorkflow
     }
 
     const result = await generateInvoke({
-      prompt: aiPrompt.value,
-      provider: artistryStore.activeProvider,
-      options,
       globals,
       model,
+      options,
+      prompt: aiPrompt.value,
+      provider: artistryStore.activeProvider,
     })
 
     if (result?.error) {
@@ -484,17 +460,14 @@ async function generateAndSwap() {
 
       vhackStore.generationProgress = 100
       vhackStore.generationActionLabel = 'Success'
-    }
-    else {
+    } else {
       aiError.value = 'No image data returned from provider'
       vhackStore.lastGenerationError = aiError.value
     }
-  }
-  catch (e: any) {
+  } catch (e: any) {
     aiError.value = e.message || 'Generation failed'
     vhackStore.lastGenerationError = aiError.value
-  }
-  finally {
+  } finally {
     isGenerating.value = false
     vhackStore.isGeneratingTexture = false
     setTimeout(() => {
@@ -506,8 +479,7 @@ async function generateAndSwap() {
 
 function handleFileUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedMaterial.value)
-    return
+  if (!file || !selectedMaterial.value) return
   const targetTex = selectedMaterial.value?.map
   const reader = new FileReader()
   reader.onload = (e) => {
@@ -524,8 +496,7 @@ function triggerManualUpload() {
 
 async function handleManualUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedMaterial.value)
-    return
+  if (!file || !selectedMaterial.value) return
 
   const targetTex = selectedMaterial.value?.map
   const reader = new FileReader()
@@ -547,10 +518,9 @@ async function handleManualUpload(event: Event) {
 }
 
 function swapTextureByRef(url: string, targetRef?: any) {
-  console.info('>>> [VHACK] Starting swap sequence (NUCLEAR)...', { url: `${url.substring(0, 40)}...`, targetRef })
+  console.info('>>> [VHACK] Starting swap sequence (NUCLEAR)...', { targetRef, url: `${url.substring(0, 40)}...` })
   const target = targetRef || selectedMaterial.value?.map
-  if (!target || !activeVrm.value)
-    return
+  if (!target || !activeVrm.value) return
 
   const targetIdx = getGltfImageIndex(target)
   const targetFingerprint = target.image?.uuid || target.image?.src || target.uuid
@@ -571,7 +541,9 @@ function swapTextureByRef(url: string, targetRef?: any) {
       let blackCount = 0
       const tolerance = 8 // Key out anything darker than 8/255 (approx 3% gray)
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i]; const g = data[i + 1]; const b = data[i + 2]
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
         if (r <= tolerance && g <= tolerance && b <= tolerance) {
           data[i + 3] = 0
           blackCount++
@@ -593,13 +565,15 @@ function swapTextureByRef(url: string, targetRef?: any) {
 
           slots.forEach((slot) => {
             const currentSlotTex = mat[slot]
-            if (!currentSlotTex)
-              return
+            if (!currentSlotTex) return
 
             const sIdx = getGltfImageIndex(currentSlotTex)
-            const matches = (targetIdx !== null && sIdx !== null)
-              ? sIdx === targetIdx
-              : (currentSlotTex.image?.uuid === targetFingerprint || currentSlotTex.image?.src === targetFingerprint || currentSlotTex.uuid === targetFingerprint)
+            const matches =
+              targetIdx !== null && sIdx !== null
+                ? sIdx === targetIdx
+                : currentSlotTex.image?.uuid === targetFingerprint ||
+                  currentSlotTex.image?.src === targetFingerprint ||
+                  currentSlotTex.uuid === targetFingerprint
 
             if (matches) {
               console.log(`[VHACK] Nuclear Match: ${node.name} [${slot}]. Injecting pixels.`)
@@ -614,14 +588,13 @@ function swapTextureByRef(url: string, targetRef?: any) {
                 // Determine mime type from URL or default to png
                 const mimeType = url.startsWith('data:image/webp') ? 'image/webp' : 'image/png'
                 // Convert current canvas/image back to base64 if it was modified by the alpha patch
-                const finalDataUrl = (tex.image instanceof HTMLCanvasElement) ? tex.image.toDataURL(mimeType) : url
+                const finalDataUrl = tex.image instanceof HTMLCanvasElement ? tex.image.toDataURL(mimeType) : url
                 const base64Data = finalDataUrl.split(',')[1]
                 vhackStore.registerMutation(sIdx, base64Data, mimeType)
               }
             }
           })
-          if (updated)
-            mat.needsUpdate = true
+          if (updated) mat.needsUpdate = true
         })
       }
     })
@@ -654,15 +627,13 @@ function openEraser(url: string) {
 }
 
 function handleEraserClick(e: MouseEvent) {
-  if (!eraserCanvas.value || !isEraserPicking.value)
-    return
+  if (!eraserCanvas.value || !isEraserPicking.value) return
   const rect = eraserCanvas.value.getBoundingClientRect()
   const x = Math.floor((e.clientX - rect.left) * (eraserCanvas.value.width / rect.width))
   const y = Math.floor((e.clientY - rect.top) * (eraserCanvas.value.height / rect.height))
 
   const ctx = eraserCanvas.value.getContext('2d')
-  if (!ctx)
-    return
+  if (!ctx) return
 
   const pixel = ctx.getImageData(x, y, 1, 1).data
   eraserPickedColor.value = [pixel[0], pixel[1], pixel[2]]
@@ -673,14 +644,12 @@ function handleEraserClick(e: MouseEvent) {
 }
 
 function applyEraserPurge() {
-  if (!eraserCanvas.value || !eraserPickedColor.value)
-    return
+  if (!eraserCanvas.value || !eraserPickedColor.value) return
   const img = new Image()
   img.onload = () => {
     const canvas = eraserCanvas.value!
     const ctx = canvas.getContext('2d')
-    if (!ctx)
-      return
+    if (!ctx) return
 
     ctx.drawImage(img, 0, 0)
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -690,12 +659,10 @@ function applyEraserPurge() {
 
     let count = 0
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]; const g = data[i + 1]; const b = data[i + 2]
-      const diff = Math.sqrt(
-        (r - tr) ** 2
-        + (g - tg) ** 2
-        + (b - tb) ** 2,
-      )
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const diff = Math.sqrt((r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2)
 
       if (diff <= tol) {
         data[i + 3] = 0
@@ -709,8 +676,7 @@ function applyEraserPurge() {
 }
 
 function finalizeEraserBake() {
-  if (!eraserCanvas.value)
-    return
+  if (!eraserCanvas.value) return
   const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
   // Re-run the swap with the cleaned URL
   // This will also hit the vhackStore.registerMutation we added above
@@ -733,8 +699,7 @@ async function exportVrm() {
 
     // GLB Header
     const magic = dataView.getUint32(0, true)
-    if (magic !== 0x46546C67)
-      throw new Error('Invalid GLB magic')
+    if (magic !== 0x46546c67) throw new Error('Invalid GLB magic')
 
     // JSON Chunk
     const jsonLen = dataView.getUint32(12, true)
@@ -747,17 +712,16 @@ async function exportVrm() {
     let hiddenCandidates = 0
 
     // Create a "Hidden Material" to neuter merged mesh primitives safely
-    if (!gltf.materials)
-      gltf.materials = []
+    if (!gltf.materials) gltf.materials = []
     const hiddenMatIdx = gltf.materials.length
     gltf.materials.push({
+      alphaMode: 'BLEND',
       name: 'VHACK_HIDDEN',
       pbrMetallicRoughness: {
         baseColorFactor: [0, 0, 0, 0], // Fully transparent
         metallicFactor: 0,
         roughnessFactor: 1,
       },
-      alphaMode: 'BLEND',
     })
 
     activeVrm.value.scene.traverse((node: any) => {
@@ -803,7 +767,7 @@ async function exportVrm() {
 
     // Mutation map: offset -> new data
     // We only mutate if the texture exists in both our registry and the original file
-    const mutations: { offset: number, oldLen: number, newData: Uint8Array }[] = []
+    const mutations: { offset: number; oldLen: number; newData: Uint8Array }[] = []
 
     vhackStore.mutatedTextures.forEach((val, imgIndex) => {
       const img = gltf.images[imgIndex]
@@ -812,7 +776,7 @@ async function exportVrm() {
         const binaryString = atob(val.data)
         const bytes = new Uint8Array(binaryString.length)
         for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i)
-        mutations.push({ offset: bv.byteOffset, oldLen: bv.byteLength, newData: bytes })
+        mutations.push({ newData: bytes, offset: bv.byteOffset, oldLen: bv.byteLength })
         // Update JSON with new length
         bv.byteLength = bytes.length
       }
@@ -827,11 +791,13 @@ async function exportVrm() {
     const newBinParts: Uint8Array[] = []
 
     // We need to update ALL bufferViews, not just mutated ones, because their offsets shift
-    const sortedBufferViews = gltf.bufferViews.map((bv: any, idx: number) => ({ ...bv, idx })).sort((a: any, b: any) => a.byteOffset - b.byteOffset)
+    const sortedBufferViews = gltf.bufferViews
+      .map((bv: any, idx: number) => ({ ...bv, idx }))
+      .sort((a: any, b: any) => a.byteOffset - b.byteOffset)
 
     sortedBufferViews.forEach((bvProxy: any) => {
       const originalBv = gltf.bufferViews[bvProxy.idx]
-      const mutation = mutations.find(m => m.offset === originalBv.byteOffset)
+      const mutation = mutations.find((m) => m.offset === originalBv.byteOffset)
 
       // 1. Copy original data from last offset to current offset
       if (originalBv.byteOffset > lastOriginalOffset) {
@@ -844,12 +810,16 @@ async function exportVrm() {
       if (mutation) {
         // 2. Inject mutated data
         newBinParts.push(mutation.newData)
-        currentShift += (mutation.newData.length - mutation.oldLen)
+        currentShift += mutation.newData.length - mutation.oldLen
         lastOriginalOffset = mutation.offset + mutation.oldLen
-      }
-      else {
+      } else {
         // 3. Copy original bufferView data
-        newBinParts.push(originalBin.slice(originalBv.byteOffset - currentShift, originalBv.byteOffset - currentShift + originalBv.byteLength))
+        newBinParts.push(
+          originalBin.slice(
+            originalBv.byteOffset - currentShift,
+            originalBv.byteOffset - currentShift + originalBv.byteLength,
+          ),
+        )
         lastOriginalOffset = originalBv.byteOffset - currentShift + originalBv.byteLength
       }
 
@@ -890,13 +860,13 @@ async function exportVrm() {
     const outBytes = new Uint8Array(outputBuffer)
 
     // Header
-    outView.setUint32(0, 0x46546C67, true)
+    outView.setUint32(0, 0x46546c67, true)
     outView.setUint32(4, 2, true)
     outView.setUint32(8, finalTotalLen, true)
 
     // JSON Chunk Header
     outView.setUint32(12, jsonBytes.length, true)
-    outView.setUint32(16, 0x4E4F534A, true) // "JSON"
+    outView.setUint32(16, 0x4e4f534a, true) // "JSON"
 
     // JSON Content
     outBytes.set(jsonBytes, 20)
@@ -904,7 +874,7 @@ async function exportVrm() {
     // BIN Chunk Header
     const binChunkHeaderOffset = 20 + jsonBytes.length
     outView.setUint32(binChunkHeaderOffset, finalBinLen, true)
-    outView.setUint32(binChunkHeaderOffset + 4, 0x004E4942, true) // "BIN"
+    outView.setUint32(binChunkHeaderOffset + 4, 0x004e4942, true) // "BIN"
 
     // BIN Content
     let currentOutOffset = binChunkHeaderOffset + 8
@@ -921,19 +891,16 @@ async function exportVrm() {
     link.download = `V-HACK_${activeVrm.value?.meta?.name || 'Surgical'}.vrm`
     link.click()
     URL.revokeObjectURL(url)
-  }
-  catch (e: any) {
+  } catch (e: any) {
     console.error('Surgical export failed:', e)
     aiError.value = `Export failed: ${e.message}`
-  }
-  finally {
+  } finally {
     isExporting.value = false
   }
 }
 
 function downloadTexture(url: string | null, name: string) {
-  if (!url)
-    return
+  if (!url) return
   const link = document.createElement('a')
   link.href = url
   link.download = `${name}.png`
@@ -941,29 +908,21 @@ function downloadTexture(url: string | null, name: string) {
 }
 
 function revert() {
-  if (!activeVrm.value)
-    return
+  if (!activeVrm.value) return
   activeVrm.value.scene.traverse((node: any) => {
     const snap = vhackStore.snapshotMap.get(node.uuid)
     if (snap) {
       node.visible = snap.visible
-      if (!snap.visible)
-        vhackStore.hiddenNodeUuids.add(node.uuid)
+      if (!snap.visible) vhackStore.hiddenNodeUuids.add(node.uuid)
       else vhackStore.hiddenNodeUuids.delete(node.uuid)
       if (node.material && snap.props) {
         const mat = Array.isArray(node.material) ? node.material[0] : node.material
-        if ('rimWidthFactor' in mat)
-          mat.rimWidthFactor = snap.props.rimWidth
-        else if (mat.uniforms?.rimWidth)
-          mat.uniforms.rimWidth.value = snap.props.rimWidth
-        if ('shadingShiftFactor' in mat)
-          mat.shadingShiftFactor = snap.props.shadeShift
-        else if (mat.uniforms?.shadingShift)
-          mat.uniforms.shadingShift.value = snap.props.shadeShift
-        if ('shadingToonyFactor' in mat)
-          mat.shadingToonyFactor = snap.props.shadeToony
-        else if (mat.uniforms?.shadingToony)
-          mat.uniforms.shadingToony.value = snap.props.shadeToony
+        if ('rimWidthFactor' in mat) mat.rimWidthFactor = snap.props.rimWidth
+        else if (mat.uniforms?.rimWidth) mat.uniforms.rimWidth.value = snap.props.rimWidth
+        if ('shadingShiftFactor' in mat) mat.shadingShiftFactor = snap.props.shadeShift
+        else if (mat.uniforms?.shadingShift) mat.uniforms.shadingShift.value = snap.props.shadeShift
+        if ('shadingToonyFactor' in mat) mat.shadingToonyFactor = snap.props.shadeToony
+        else if (mat.uniforms?.shadingToony) mat.uniforms.shadingToony.value = snap.props.shadeToony
         mat.map = snap.props.map
         mat.needsUpdate = true
       }
@@ -971,14 +930,21 @@ function revert() {
   })
   extractTextures()
   lastGeneratedUrl.value = null
-  if (selectedMaterial.value)
-    sourceTextureUrl.value = getTextureUrl(selectedMaterial.value.map)
+  if (selectedMaterial.value) sourceTextureUrl.value = getTextureUrl(selectedMaterial.value.map)
 }
 
-watch(activeVrm, () => { if (activeVrm.value) { extractTextures(); takeGlobalSnapshot() } }, { immediate: true })
+watch(
+  activeVrm,
+  () => {
+    if (activeVrm.value) {
+      extractTextures()
+      takeGlobalSnapshot()
+    }
+  },
+  { immediate: true },
+)
 onMounted(() => {
-  if (activeVrm.value)
-    takeGlobalSnapshot()
+  if (activeVrm.value) takeGlobalSnapshot()
 })
 </script>
 

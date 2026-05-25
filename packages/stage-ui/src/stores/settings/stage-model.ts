@@ -1,10 +1,9 @@
-import type { DisplayModel } from '../display-models'
-
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset, useEventListener } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import type { DisplayModel } from '../display-models'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 
@@ -33,29 +32,24 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const mmdTextureMap = ref<Map<string, string>>(new Map())
 
   function isSameFile(f1?: File, f2?: File) {
-    if (f1 === f2)
-      return true
-    if (!f1 || !f2)
-      return false
+    if (f1 === f2) return true
+    if (!f1 || !f2) return false
     return f1.name === f2.name && f1.size === f2.size && f1.lastModified === f2.lastModified
   }
 
   function revokeStageModelUrl(url?: string) {
-    if (url?.startsWith('blob:'))
-      URL.revokeObjectURL(url)
+    if (url?.startsWith('blob:')) URL.revokeObjectURL(url)
   }
 
   function replaceStageModelUrl(nextUrl?: string) {
-    if (stageModelSelectedUrl.value === nextUrl)
-      return
+    if (stageModelSelectedUrl.value === nextUrl) return
 
     revokeStageModelUrl(stageModelSelectedUrl.value)
     stageModelSelectedUrl.value = nextUrl
   }
 
   async function updateStageModel(reason?: string) {
-    if (reason)
-      lastReloadReason.value = reason
+    if (reason) lastReloadReason.value = reason
     const requestId = ++stageModelUpdateSequence
     const selectedModelId = stageModelSelectedState.value
 
@@ -69,8 +63,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
 
     const model = await displayModelsStore.getDisplayModel(selectedModelId)
 
-    if (requestId !== stageModelUpdateSequence)
-      return
+    if (requestId !== stageModelUpdateSequence) return
 
     if (!model) {
       replaceStageModelUrl(undefined)
@@ -88,14 +81,23 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         stageModelSelectedDisplayModel.value = model
         // Update renderer just in case
         switch (model.format) {
-          case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break
-          case DisplayModelFormat.VRM: stageModelRenderer.value = 'vrm'; break
-          case DisplayModelFormat.SpineZip: stageModelRenderer.value = 'spine'; break
+          case DisplayModelFormat.Live2dZip:
+            stageModelRenderer.value = 'live2d'
+            break
+          case DisplayModelFormat.VRM:
+            stageModelRenderer.value = 'vrm'
+            break
+          case DisplayModelFormat.SpineZip:
+            stageModelRenderer.value = 'spine'
+            break
           case DisplayModelFormat.PMXZip:
           case DisplayModelFormat.PMXDirectory:
           case DisplayModelFormat.PMD:
-            stageModelRenderer.value = 'mmd'; break
-          default: stageModelRenderer.value = 'disabled'; break
+            stageModelRenderer.value = 'mmd'
+            break
+          default:
+            stageModelRenderer.value = 'disabled'
+            break
         }
         return
       }
@@ -104,8 +106,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         const toastId = toast.loading('Loading MMD model textures...')
         try {
           const textureFiles = await displayModelsStore.getDisplayModelTextures(model.id)
-          if (requestId !== stageModelUpdateSequence)
-            return
+          if (requestId !== stageModelUpdateSequence) return
 
           const map = new Map<string, string>()
           for (const tex of textureFiles) {
@@ -117,16 +118,14 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
           replaceStageModelUrl(nextUrl)
           stageModelSelectedFile.value = model.file
           toast.success('MMD model ready!', { id: toastId })
-        }
-        catch (e) {
+        } catch (e) {
           console.error('[StageModel] Failed to load MMD textures:', e)
           toast.error('Failed to load MMD model textures!', { id: toastId })
           const nextUrl = URL.createObjectURL(model.file)
           replaceStageModelUrl(nextUrl)
           stageModelSelectedFile.value = model.file
         }
-      }
-      else {
+      } else {
         const nextUrl = URL.createObjectURL(model.file)
         if (requestId !== stageModelUpdateSequence) {
           URL.revokeObjectURL(nextUrl)
@@ -136,8 +135,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         replaceStageModelUrl(nextUrl)
         stageModelSelectedFile.value = model.file
       }
-    }
-    else {
+    } else {
       // For URL types, we only update if it actually changed
       if (stageModelSelectedUrl.value !== model.url) {
         replaceStageModelUrl(model.url)
@@ -196,18 +194,17 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   }
 
   return {
-    stageModelRenderer,
-    stageModelSelected,
-    stageModelSelectedUrl,
-    stageModelSelectedFile,
-    stageModelSelectedDisplayModel,
-    stageViewControlsEnabled,
-    stageViewControlsMode,
+    initializeStageModel,
     lastReloadReason,
     mmdTextureMap,
-
-    initializeStageModel,
-    updateStageModel,
     resetState,
+    stageModelRenderer,
+    stageModelSelected,
+    stageModelSelectedDisplayModel,
+    stageModelSelectedFile,
+    stageModelSelectedUrl,
+    stageViewControlsEnabled,
+    stageViewControlsMode,
+    updateStageModel,
   }
 })

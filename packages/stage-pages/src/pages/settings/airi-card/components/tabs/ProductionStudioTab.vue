@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
-
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
+import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
 import { computed, ref } from 'vue'
@@ -39,7 +38,7 @@ function handleDeleteConcept(id: string) {
   saveAssets(nextAssets)
 }
 
-function handleSaveConcept(payload: { id: string, data: any }) {
+function handleSaveConcept(payload: { id: string; data: any }) {
   const { id, data } = payload
   const assets = { ...visualAssets.value }
   assets[id] = data
@@ -49,8 +48,7 @@ function handleSaveConcept(payload: { id: string, data: any }) {
 
 function saveAssets(assets: any) {
   const extension = JSON.parse(JSON.stringify(props.card.extensions || {}))
-  if (!extension.airi)
-    extension.airi = {}
+  if (!extension.airi) extension.airi = {}
   extension.airi.visual_assets = assets
 
   cardStore.updateCard(props.cardId, {
@@ -70,23 +68,20 @@ function toggleConcept(conceptId: string) {
 
   if (next.includes(conceptId)) {
     // Deactivating: just remove it
-    next = next.filter(id => id !== conceptId)
-  }
-  else {
+    next = next.filter((id) => id !== conceptId)
+  } else {
     // Activating: apply Base vs Layer logic
     if (concept?.isBase) {
       // Base (Exclusionary): Clear the entire stack, add only this concept
       next = [conceptId]
-    }
-    else {
+    } else {
       // Layer (Additive): Push on top of whatever is already there
       next.push(conceptId)
     }
   }
 
   const extension = JSON.parse(JSON.stringify(props.card.extensions || {}))
-  if (!extension.airi)
-    extension.airi = {}
+  if (!extension.airi) extension.airi = {}
   extension.airi.active_concepts = next
 
   cardStore.updateCard(props.cardId, {

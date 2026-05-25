@@ -26,8 +26,8 @@ describe('useOptimistic', () => {
     })
 
     const { state: resultState, isLoading } = useOptimisticMutation({
-      apply,
       action,
+      apply,
       onSuccess,
     })
 
@@ -37,7 +37,7 @@ describe('useOptimistic', () => {
 
     // Wait for action to complete
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(action).toHaveBeenCalled()
     expect(onSuccess).toHaveBeenCalledWith(actionResult)
@@ -64,15 +64,15 @@ describe('useOptimistic', () => {
     })
 
     const { error: errorState, isLoading } = useOptimisticMutation({
-      apply,
       action,
+      apply,
     })
 
     expect(state.value).toBe('optimistic')
 
     // Wait for failure
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(rollback).toHaveBeenCalled()
     expect(state.value).toBe('initial')
@@ -84,10 +84,10 @@ describe('useOptimistic', () => {
     const state = ref('initial')
 
     const apply = async () => {
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
       state.value = 'optimistic'
       return async () => {
-        await new Promise(resolve => setTimeout(resolve, 10))
+        await new Promise((resolve) => setTimeout(resolve, 10))
         state.value = 'initial'
       }
     }
@@ -97,8 +97,8 @@ describe('useOptimistic', () => {
     }
 
     const { execute } = useOptimisticMutation({
-      apply,
       action,
+      apply,
     })
 
     await execute()
@@ -112,9 +112,9 @@ describe('useOptimistic', () => {
     })
 
     const { execute, error } = useOptimisticMutation({
+      action,
       // @ts-expect-error - testing invalid return
       apply: () => null,
-      action,
     })
 
     await execute()
@@ -133,10 +133,10 @@ describe('useOptimistic', () => {
     const skipActionIf = vi.fn(() => true)
 
     const { execute, state: resultState } = useOptimisticMutation({
-      apply,
       action,
-      skipActionIf,
+      apply,
       lazy: true,
+      skipActionIf,
     })
 
     await execute()

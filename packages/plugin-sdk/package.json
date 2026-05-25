@@ -1,43 +1,8 @@
 {
-  "name": "@proj-airi/plugin-sdk",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Plugin SDK for Project AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/plugin-sdk"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
-    },
-    "./plugin-host": {
-      "types": "./dist/plugin-host/index.d.mts",
-      "node": "./dist/plugin-host/runtimes/node/index.mjs",
-      "default": "./dist/plugin-host/runtimes/web/index.mjs"
-    }
-  },
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "files": [
-    "README.md",
-    "dist",
-    "package.json"
-  ],
-  "scripts": {
-    "build": "tsdown",
-    "dev": "pnpm run build",
-    "test": "vitest",
-    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@moeru/eventa": "catalog:",
@@ -45,5 +10,40 @@
     "@proj-airi/server-shared": "workspace:*",
     "valibot": "^1.2.0",
     "xstate": "^5.28.0"
-  }
+  },
+  "description": "Plugin SDK for Project AIRI",
+  "exports": {
+    ".": {
+      "default": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./plugin-host": {
+      "default": "./dist/plugin-host/runtimes/web/index.mjs",
+      "node": "./dist/plugin-host/runtimes/node/index.mjs",
+      "types": "./dist/plugin-host/index.d.mts"
+    }
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "package.json"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.mjs",
+  "name": "@proj-airi/plugin-sdk",
+  "private": true,
+  "repository": {
+    "directory": "packages/plugin-sdk",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "pnpm run build",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "version": "0.9.0-alpha.15"
 }

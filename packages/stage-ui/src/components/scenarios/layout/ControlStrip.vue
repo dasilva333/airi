@@ -17,15 +17,19 @@ import { useSettingsControlsIsland } from '../../../stores/settings/controls-isl
 const settingsStore = useSettings()
 const colorMode = useColorMode()
 const controlStripStore = useSettingsControlStrip()
-const { orientation, buttons, stageEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed } = storeToRefs(controlStripStore)
+const { orientation, buttons, stageEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed } =
+  storeToRefs(controlStripStore)
 
 // Filter for active buttons
 const activeButtons = computed(() => {
-  return buttons.value.filter(btn => btn.enabled)
+  return buttons.value.filter((btn) => btn.enabled)
 })
 
 // Persistent dragging position, defaults to top-right layout bounds
-const position = useLocalStorageManualReset<{ x: number, y: number }>('settings/control-strip/position', { x: 20, y: 150 })
+const position = useLocalStorageManualReset<{ x: number; y: number }>('settings/control-strip/position', {
+  x: 20,
+  y: 150,
+})
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { enabled: micEnabled } = storeToRefs(settingsAudioDeviceStore)
@@ -56,20 +60,18 @@ onClickOutside(popoverRef, () => {
 })
 
 const PRESETS = [
-  { name: 'mini', icon: 'i-solar:minimize-square-3-linear', label: 'Mini' },
-  { name: 'medium', icon: 'i-solar:maximize-square-2-linear', label: 'Medium' },
-  { name: 'large', icon: 'i-solar:maximize-square-3-linear', label: 'Large' },
-  { name: 'full', icon: 'i-solar:screencast-linear', label: 'Full' },
+  { icon: 'i-solar:minimize-square-3-linear', label: 'Mini', name: 'mini' },
+  { icon: 'i-solar:maximize-square-2-linear', label: 'Medium', name: 'medium' },
+  { icon: 'i-solar:maximize-square-3-linear', label: 'Large', name: 'large' },
+  { icon: 'i-solar:screencast-linear', label: 'Full', name: 'full' },
 ] as const
 
 function openPresetPopover(btnId: string) {
   if (btnId === 'stage') {
     activePopover.value = 'stage-preset'
-  }
-  else if (btnId === 'chat') {
+  } else if (btnId === 'chat') {
     activePopover.value = 'chat-preset'
-  }
-  else {
+  } else {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('control-strip:open-customizer'))
     }
@@ -78,9 +80,11 @@ function openPresetPopover(btnId: string) {
 
 function applySizePreset(target: 'actor' | 'chat', preset: 'mini' | 'medium' | 'large' | 'full') {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('control-strip:apply-size-preset', {
-      detail: { target, preset },
-    }))
+    window.dispatchEvent(
+      new CustomEvent('control-strip:apply-size-preset', {
+        detail: { preset, target },
+      }),
+    )
   }
   activePopover.value = null
 }
@@ -88,8 +92,7 @@ function applySizePreset(target: 'actor' | 'chat', preset: 'mini' | 'medium' | '
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
 
 const popoverPlacement = computed(() => {
-  if (typeof window === 'undefined')
-    return 'bottom'
+  if (typeof window === 'undefined') return 'bottom'
 
   const screenX = window.screenX || 0
   const screenY = window.screenY || 0
@@ -98,8 +101,7 @@ const popoverPlacement = computed(() => {
 
   if (orientation.value === 'vertical') {
     return screenX < screenWidth / 2 ? 'right' : 'left'
-  }
-  else {
+  } else {
     return screenY < screenHeight / 2 ? 'bottom' : 'top'
   }
 })
@@ -124,68 +126,64 @@ const containerStyle = computed(() => {
         styles.top = `${(windowHeight - stripLength.value) / 2}px`
         if (popoverPlacement.value === 'right') {
           styles.left = '0px'
-        }
-        else {
+        } else {
           styles.left = '268px'
         }
-      }
-      else {
+      } else {
         const windowWidth = Math.max(336, stripLength.value)
         styles.left = `${(windowWidth - stripLength.value) / 2}px`
         if (popoverPlacement.value === 'bottom') {
           styles.top = '0px'
-        }
-        else {
+        } else {
           styles.top = '280px'
         }
       }
-    }
-    else {
+    } else {
       styles.left = '0px'
       styles.top = '0px'
     }
     return styles
-  }
-  else {
+  } else {
     return {
-      top: `${position.value.y}px`,
-      right: `${position.value.x}px`,
       backgroundColor: backgroundTint.value || '',
       opacity: '0.85',
+      right: `${position.value.x}px`,
+      top: `${position.value.y}px`,
     }
   }
 })
 
 watch(activePopover, (newVal) => {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('control-strip:popover-changed', {
-      detail: {
-        activePopover: newVal,
-        placement: popoverPlacement.value,
-      },
-    }))
+    window.dispatchEvent(
+      new CustomEvent('control-strip:popover-changed', {
+        detail: {
+          activePopover: newVal,
+          placement: popoverPlacement.value,
+        },
+      }),
+    )
   }
 })
 
 const ACT_EMOTIONS = [
-  { key: 'happy', emoji: '😊' },
-  { key: 'sad', emoji: '😢' },
-  { key: 'angry', emoji: '😠' },
-  { key: 'surprised', emoji: '😲' },
-  { key: 'neutral', emoji: '😐' },
-  { key: 'think', emoji: '🤔' },
-  { key: 'cool', emoji: '😎' },
+  { emoji: '😊', key: 'happy' },
+  { emoji: '😢', key: 'sad' },
+  { emoji: '😠', key: 'angry' },
+  { emoji: '😲', key: 'surprised' },
+  { emoji: '😐', key: 'neutral' },
+  { emoji: '🤔', key: 'think' },
+  { emoji: '😎', key: 'cool' },
 ] as const
 
 const wardrobeItems = computed(() => {
   const outfits = activeCard.value?.extensions?.airi?.outfits || []
-  return outfits.filter(item => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
+  return outfits.filter((item) => wardrobeFilter.value === 'all' || item.type === wardrobeFilter.value)
 })
 
 function isOutfitActive(outfitId: string) {
-  const outfit = activeCard.value?.extensions?.airi?.outfits?.find(o => o.id === outfitId)
-  if (!outfit)
-    return false
+  const outfit = activeCard.value?.extensions?.airi?.outfits?.find((o) => o.id === outfitId)
+  if (!outfit) return false
   return Object.entries(outfit.expressions).every(([name, weight]) => {
     return Math.abs((activeExpressions.value[name] || 0) - weight) < 0.05
   })
@@ -193,13 +191,13 @@ function isOutfitActive(outfitId: string) {
 
 const availableMotions = computed(() => {
   if (settingsStore.stageModelRenderer === 'vrm') {
-    return customVrmAnimationsStore.animationKeys.map(key => ({
+    return customVrmAnimationsStore.animationKeys.map((key) => ({
       key,
       label: customVrmAnimationsStore.animationLabelByKey[key] || key,
     }))
   }
   if (settingsStore.stageModelRenderer === 'live2d') {
-    return (live2dStore.availableMotions || []).map(motion => ({
+    return (live2dStore.availableMotions || []).map((motion) => ({
       key: `${motion.motionName}:${motion.motionIndex}`,
       label: `${motion.motionName} (${motion.motionIndex})`,
       raw: motion,
@@ -210,15 +208,15 @@ const availableMotions = computed(() => {
 
 const availableAllExpressions = computed(() => {
   if (settingsStore.stageModelRenderer === 'vrm') {
-    return modelStore.availableExpressions.map(name => ({
-      name,
+    return modelStore.availableExpressions.map((name) => ({
       isActive: (modelStore.activeExpressions[name] || 0) > 0,
+      name,
     }))
   }
   if (settingsStore.stageModelRenderer === 'live2d') {
-    return (live2dStore.availableExpressions || []).map(exp => ({
-      name: exp.name,
+    return (live2dStore.availableExpressions || []).map((exp) => ({
       isActive: (live2dStore.activeExpressions[exp.fileName] || 0) > 0,
+      name: exp.name,
     }))
   }
   return []
@@ -227,8 +225,7 @@ const availableAllExpressions = computed(() => {
 function playMotion(motion: any) {
   if (settingsStore.stageModelRenderer === 'vrm') {
     vrmIdleAnimation.value = motion.key
-  }
-  else if (settingsStore.stageModelRenderer === 'live2d') {
+  } else if (settingsStore.stageModelRenderer === 'live2d') {
     live2dStore.currentMotion = {
       group: motion.raw.motionName,
       index: motion.raw.motionIndex,
@@ -252,8 +249,7 @@ function triggerExpression(name: string) {
     const current = modelStore.activeExpressions[name] || 0
     const next = current > 0 ? 0 : 1
     modelStore.activeExpressions = { ...modelStore.activeExpressions, [name]: next }
-  }
-  else if (settingsStore.stageModelRenderer === 'live2d') {
+  } else if (settingsStore.stageModelRenderer === 'live2d') {
     live2dStore.triggerEmotion(name)
   }
 }
@@ -264,17 +260,21 @@ function triggerWardrobeItem(id: string) {
 
 function handleViewGallery() {
   if (activeCardId.value) {
-    window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
-      detail: { route: `/settings/airi-card?cardId=${activeCardId.value}&tab=gallery` },
-    }))
+    window.dispatchEvent(
+      new CustomEvent('control-strip:open-settings', {
+        detail: { route: `/settings/airi-card?cardId=${activeCardId.value}&tab=gallery` },
+      }),
+    )
     activePopover.value = null
   }
 }
 
 function handleManageProfiles() {
-  window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
-    detail: { route: '/settings/airi-card' },
-  }))
+  window.dispatchEvent(
+    new CustomEvent('control-strip:open-settings', {
+      detail: { route: '/settings/airi-card' },
+    }),
+  )
   activePopover.value = null
 }
 
@@ -304,8 +304,7 @@ let startPosY = 0
 let dragDistance = 0
 
 function onDragStart(e: MouseEvent | TouchEvent) {
-  if ('button' in e && e.button !== 0)
-    return
+  if ('button' in e && e.button !== 0) return
 
   isMouseDown = true
   dragDistance = 0
@@ -327,8 +326,7 @@ function onDragStart(e: MouseEvent | TouchEvent) {
 }
 
 function onDragging(e: MouseEvent | TouchEvent) {
-  if (!isMouseDown)
-    return
+  if (!isMouseDown) return
 
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
@@ -350,8 +348,7 @@ function onDragging(e: MouseEvent | TouchEvent) {
         window.dispatchEvent(new CustomEvent('control-strip:drag-start'))
       }
     }
-  }
-  else {
+  } else {
     if (isDragging.value) {
       const deltaX = startMouseX - clientX
       const deltaY = startMouseY - clientY
@@ -368,8 +365,7 @@ function handlePerpendicularClick() {
     clearTimeout(clickTimer)
     clickTimer = null
     collapsed.value = !collapsed.value
-  }
-  else {
+  } else {
     clickTimer = setTimeout(() => {
       clickTimer = null
       toggleOrientation()
@@ -405,8 +401,7 @@ function handleAction(actionId: string) {
   if (menuButtons.includes(actionId)) {
     if (activePopover.value === actionId) {
       activePopover.value = null
-    }
-    else {
+    } else {
       activePopover.value = actionId
     }
     return
@@ -441,7 +436,9 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
     return colorMode.value === 'light' ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
   }
   if (btnId === 'caption-docking') {
-    return settingsStore.captionDocking === 'top' ? 'i-solar:align-top-line-duotone' : 'i-solar:align-bottom-line-duotone'
+    return settingsStore.captionDocking === 'top'
+      ? 'i-solar:align-top-line-duotone'
+      : 'i-solar:align-bottom-line-duotone'
   }
   if (btnId === 'caption-layout-mode') {
     return settingsStore.captionLayoutMode === 'multi' ? 'i-solar:layers-linear' : 'i-solar:window-frame-linear'
@@ -464,11 +461,11 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
   }
   if (btnId === 'gemini-session') {
     const stateLabels: Record<string, string> = {
-      off: 'Disconnected (Gray)',
-      connecting: 'Connecting (Sky Blue)',
       active: 'Listening / Idle (Red)',
-      busy: 'Transmitting / Speaking (Purple)',
       ambient: 'Witness Mode Active (Amber)',
+      busy: 'Transmitting / Speaking (Purple)',
+      connecting: 'Connecting (Sky Blue)',
+      off: 'Disconnected (Gray)',
     }
     return `Speech Session: ${stateLabels[powerState.value] || 'Disconnected (Gray)'}`
   }
@@ -486,32 +483,32 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
 
 function getShortLabel(btnId: string): string {
   const map: Record<string, string> = {
-    'chat': 'Chat',
-    'mic': 'Mic',
-    'stage': 'Stage',
-    'caption': 'CC',
-    'gemini-session': 'Live',
-    'settings': 'Set',
-    'layout': 'Edit',
-    'viewport-auto-hide': 'Hide',
-    'always-on-top': 'Pin',
-    'viewport-tactile': 'Touch',
-    'viewport-drag': 'Drag',
-    'viewport-positioning': 'Pos',
-    'viewport-orbit': 'Orbit',
-    'viewport-cycle-modes': 'Modes',
-    'viewport-reset-coordinates': 'Reset',
-    'actor-idle-animations': 'Anim',
-    'actor-characters': 'Char',
-    'actor-wardrobe': 'Wear',
-    'actor-expressions': 'Expr',
-    'actor-motions': 'Move',
     'actor-all-emotions': 'Mood',
-    'theme-mode': 'Color',
+    'actor-characters': 'Char',
+    'actor-expressions': 'Expr',
+    'actor-idle-animations': 'Anim',
+    'actor-motions': 'Move',
+    'actor-wardrobe': 'Wear',
+    'always-on-top': 'Pin',
+    caption: 'CC',
     'caption-docking': 'Dock',
-    'caption-layout-mode': 'Rows',
     'caption-follow-stage': 'Sync',
+    'caption-layout-mode': 'Rows',
+    chat: 'Chat',
     'exit-app': 'Quit',
+    'gemini-session': 'Live',
+    layout: 'Edit',
+    mic: 'Mic',
+    settings: 'Set',
+    stage: 'Stage',
+    'theme-mode': 'Color',
+    'viewport-auto-hide': 'Hide',
+    'viewport-cycle-modes': 'Modes',
+    'viewport-drag': 'Drag',
+    'viewport-orbit': 'Orbit',
+    'viewport-positioning': 'Pos',
+    'viewport-reset-coordinates': 'Reset',
+    'viewport-tactile': 'Touch',
   }
   return map[btnId] || btnId.substring(0, 4)
 }

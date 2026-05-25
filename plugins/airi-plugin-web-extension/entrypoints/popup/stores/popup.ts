@@ -1,9 +1,14 @@
-import type { ExtensionSettings, ExtensionStatus } from '../../../src/shared/types'
-
 import { createGlobalState } from '@vueuse/core'
 import { computed, reactive, ref, watch } from 'vue'
-
-import { clearError, onBackgroundStatus, requestStatus, requestVisionFrame, toggleEnabled, updateSettings } from '../../../src/popup/bridge'
+import {
+  clearError,
+  onBackgroundStatus,
+  requestStatus,
+  requestVisionFrame,
+  toggleEnabled,
+  updateSettings,
+} from '../../../src/popup/bridge'
+import type { ExtensionSettings, ExtensionStatus } from '../../../src/shared/types'
 
 const STORAGE_KEY = 'airi-popup-settings'
 
@@ -13,14 +18,14 @@ export const usePopupStore = createGlobalState(() => {
   const initialized = ref(false)
 
   const form = reactive<ExtensionSettings>({
-    wsUrl: '',
-    token: '',
     enabled: true,
-    sendPageContext: true,
-    sendVideoContext: true,
-    sendSubtitles: true,
-    sendSparkNotify: true,
     enableVision: false,
+    sendPageContext: true,
+    sendSparkNotify: true,
+    sendSubtitles: true,
+    sendVideoContext: true,
+    token: '',
+    wsUrl: '',
   })
 
   const connected = computed(() => status.value?.connected ?? false)
@@ -36,12 +41,10 @@ export const usePopupStore = createGlobalState(() => {
   function loadStoredSettings() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw)
-        return
+      if (!raw) return
       const parsed = JSON.parse(raw) as Partial<ExtensionSettings>
       Object.assign(form, parsed)
-    }
-    catch {
+    } catch {
       localStorage.removeItem(STORAGE_KEY)
     }
   }
@@ -56,8 +59,7 @@ export const usePopupStore = createGlobalState(() => {
     try {
       const next = await requestStatus()
       hydrate(next)
-    }
-    finally {
+    } finally {
       syncing.value = false
     }
   }
@@ -67,8 +69,7 @@ export const usePopupStore = createGlobalState(() => {
     try {
       const next = await updateSettings({ ...form })
       hydrate(next)
-    }
-    finally {
+    } finally {
       syncing.value = false
     }
   }
@@ -78,8 +79,7 @@ export const usePopupStore = createGlobalState(() => {
     try {
       const next = await toggleEnabled(!form.enabled)
       hydrate(next)
-    }
-    finally {
+    } finally {
       syncing.value = false
     }
   }
@@ -89,8 +89,7 @@ export const usePopupStore = createGlobalState(() => {
     try {
       const next = await requestVisionFrame()
       hydrate(next)
-    }
-    finally {
+    } finally {
       syncing.value = false
     }
   }
@@ -101,8 +100,7 @@ export const usePopupStore = createGlobalState(() => {
   }
 
   function init() {
-    if (initialized.value)
-      return
+    if (initialized.value) return
     initialized.value = true
     loadStoredSettings()
     watch(form, persistSettings, { deep: true })
@@ -111,18 +109,18 @@ export const usePopupStore = createGlobalState(() => {
   }
 
   return {
-    status,
-    syncing,
-    form,
-    connected,
-    lastVideo,
-    lastSubtitle,
-    lastError,
-    init,
-    refresh,
     applySettings,
-    toggle,
     captureFrame,
     clearLastError,
+    connected,
+    form,
+    init,
+    lastError,
+    lastSubtitle,
+    lastVideo,
+    refresh,
+    status,
+    syncing,
+    toggle,
   }
 })

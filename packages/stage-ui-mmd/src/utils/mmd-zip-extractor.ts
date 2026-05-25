@@ -25,17 +25,7 @@ export interface MmdZipExtractResult {
 }
 
 /** File extensions recognized as MMD texture/resource files */
-const TEXTURE_EXTENSIONS = new Set([
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.bmp',
-  '.tga',
-  '.dds',
-  '.spa',
-  '.sph',
-  '.toon',
-])
+const TEXTURE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.bmp', '.tga', '.dds', '.spa', '.sph', '.toon'])
 
 /** File extensions recognized as MMD model files */
 const MODEL_EXTENSIONS = new Set(['.pmx', '.pmd'])
@@ -57,7 +47,10 @@ const MODEL_EXTENSIONS = new Set(['.pmx', '.pmd'])
  * Returns:
  * - The model File and an array of texture Files with paths relative to the model
  */
-export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (message: string) => void): Promise<MmdZipExtractResult | undefined> {
+export async function extractMmdFromZip(
+  zipFile: File | Blob,
+  onProgress?: (message: string) => void,
+): Promise<MmdZipExtractResult | undefined> {
   const name = zipFile instanceof File ? zipFile.name : 'blob'
   console.log(`[MMD:Extractor] Starting extraction for: ${name}`)
 
@@ -67,14 +60,13 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
       try {
         // Try UTF-8 first
         return new TextDecoder('utf-8', { fatal: true }).decode(bytes as Uint8Array)
-      }
-      catch {
+      } catch {
         // Fallback to Shift-JIS for Japanese MMD models
         return new TextDecoder('shift-jis').decode(bytes as Uint8Array)
       }
     },
   })
-  const allPaths = Object.keys(zip.files).filter(p => !zip.files[p].dir)
+  const allPaths = Object.keys(zip.files).filter((p) => !zip.files[p].dir)
   console.log(`[MMD:Extractor] Found ${allPaths.length} files in zip.`)
 
   // Find the model file (prefer .pmx over .pmd)
@@ -86,9 +78,7 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
   console.log(`[MMD:Extractor] Detected model file: ${modelPath}`)
 
   // Determine the model's directory (for relative texture resolution)
-  const modelDir = modelPath.includes('/')
-    ? modelPath.substring(0, modelPath.lastIndexOf('/') + 1)
-    : ''
+  const modelDir = modelPath.includes('/') ? modelPath.substring(0, modelPath.lastIndexOf('/') + 1) : ''
   console.log(`[MMD:Extractor] Model directory: ${modelDir || '(root)'}`)
 
   // Extract the model file
@@ -103,12 +93,10 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
 
   let count = 0
   for (const filePath of allPaths) {
-    if (filePath === modelPath)
-      continue
+    if (filePath === modelPath) continue
 
     const ext = getExtension(filePath)
-    if (!TEXTURE_EXTENSIONS.has(ext))
-      continue
+    if (!TEXTURE_EXTENSIONS.has(ext)) continue
 
     count++
     const fileData = await zip.files[filePath].async('blob')
@@ -117,8 +105,7 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
     let relativePath: string
     if (normalizedFilePath.startsWith(modelDir)) {
       relativePath = normalizedFilePath.substring(modelDir.length)
-    }
-    else {
+    } else {
       relativePath = normalizedFilePath.split('/').pop() ?? normalizedFilePath
     }
 
@@ -127,8 +114,8 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
     onProgress?.(`Extracting texture ${count}: ${fileName}`)
 
     textureFiles.push({
-      relativePath: relativePath.toLowerCase(),
       file: new File([fileData], fileName, { type: guessMimeType(ext) }),
+      relativePath: relativePath.toLowerCase(),
     })
   }
 
@@ -141,13 +128,12 @@ export async function extractMmdFromZip(zipFile: File | Blob, onProgress?: (mess
  * Prefers .pmx over .pmd. If multiple exist, picks the one at the shallowest depth.
  */
 function findModelFile(paths: string[]): string | undefined {
-  const modelPaths = paths.filter(p => MODEL_EXTENSIONS.has(getExtension(p)))
+  const modelPaths = paths.filter((p) => MODEL_EXTENSIONS.has(getExtension(p)))
 
-  if (modelPaths.length === 0)
-    return undefined
+  if (modelPaths.length === 0) return undefined
 
   // Prefer .pmx over .pmd
-  const pmxPaths = modelPaths.filter(p => getExtension(p) === '.pmx')
+  const pmxPaths = modelPaths.filter((p) => getExtension(p) === '.pmx')
   const candidates = pmxPaths.length > 0 ? pmxPaths : modelPaths
 
   // Pick the shallowest one (fewest path separators)
@@ -160,16 +146,20 @@ function findModelFile(paths: string[]): string | undefined {
 
 function getExtension(path: string): string {
   const lastDot = path.lastIndexOf('.')
-  if (lastDot === -1)
-    return ''
+  if (lastDot === -1) return ''
   return path.substring(lastDot).toLowerCase()
 }
 
 function guessMimeType(ext: string): string {
   switch (ext) {
-    case '.png': return 'image/png'
-    case '.jpg': case '.jpeg': return 'image/jpeg'
-    case '.bmp': return 'image/bmp'
-    default: return 'application/octet-stream'
+    case '.png':
+      return 'image/png'
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.bmp':
+      return 'image/bmp'
+    default:
+      return 'application/octet-stream'
   }
 }

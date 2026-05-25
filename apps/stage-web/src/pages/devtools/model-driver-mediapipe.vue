@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import type { PerceptionState, VrmPoseTargets } from '@proj-airi/model-driver-mediapipe'
-import type { Vector3Like } from 'three'
-
-import { createMediaPipeBackend, createMocapEngine, createVrmPoseApplier, drawOverlay, poseToVrmTargets } from '@proj-airi/model-driver-mediapipe'
-import { ThreeScene } from '@proj-airi/stage-ui-three'
-import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
+import {
+  createMediaPipeBackend,
+  createMocapEngine,
+  createVrmPoseApplier,
+  drawOverlay,
+  poseToVrmTargets,
+} from '@proj-airi/model-driver-mediapipe'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import type { ThreeScene } from '@proj-airi/stage-ui-three'
+import { animations } from '@proj-airi/stage-ui-three/assets/vrm'
 import { Checkbox } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
+import type { Vector3Like } from 'three'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 const status = ref<'idle' | 'starting' | 'running' | 'error'>('idle')
@@ -25,14 +30,14 @@ let engine: ReturnType<typeof createMocapEngine> | undefined
 // config on the page
 const config = ref({
   enabled: {
-    pose: true,
-    hands: true,
     face: true,
+    hands: true,
+    pose: true,
   },
   hz: {
-    pose: 30,
-    hands: 30,
     face: 30,
+    hands: 30,
+    pose: 30,
   },
   maxPeople: 1 as const, // Fixed to 1 for simplicity
 })
@@ -57,21 +62,22 @@ const prevPoseForward = ref<Vector3Like>()
 const vrmPoseApplier = createVrmPoseApplier({ alpha: 1 })
 function onVrmFrame(vrm: Parameters<typeof vrmPoseApplier.applyPoseDirectionsToVrm>[0]) {
   const targets = latestPoseTargets.value
-  if (!targets)
-    return
+  if (!targets) return
   vrmPoseApplier.applyPoseTargetsToVrm(vrm, targets)
 }
 const vrmFrameHook = (vrm: Parameters<typeof vrmPoseApplier.applyPoseDirectionsToVrm>[0]) => onVrmFrame(vrm)
 
 const settingsStore = useSettings()
-const { stageModelRenderer, stageModelSelected, stageModelSelectedUrl, stageViewControlsEnabled } = storeToRefs(settingsStore)
+const { stageModelRenderer, stageModelSelected, stageModelSelectedUrl, stageViewControlsEnabled } =
+  storeToRefs(settingsStore)
 
 // Snapshot summary of the running state
 const summary = computed(() => {
-  const enabled = Object.entries(config.value.enabled)
-    .filter(([, v]) => v)
-    .map(([k]) => k)
-    .join(', ') || 'none'
+  const enabled =
+    Object.entries(config.value.enabled)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .join(', ') || 'none'
 
   const fps = latestState.value?.quality.fps
   const latency = latestState.value?.quality.latencyMs
@@ -83,23 +89,24 @@ const summary = computed(() => {
     fps != null ? `fps ${fps.toFixed(1)}` : null,
     latency != null ? `latency ${latency.toFixed(1)}ms` : null,
     dropped != null ? `dropped ${dropped}` : null,
-  ].filter(Boolean).join(' | ')
+  ]
+    .filter(Boolean)
+    .join(' | ')
 })
 
 const poseVisibilityDebug = computed(() => {
   const pose = latestState.value?.pose
   const lm = pose?.landmarks2d
   const world = pose?.worldLandmarks
-  if (!lm?.length)
-    return 'pose: (no landmarks)'
+  if (!lm?.length) return 'pose: (no landmarks)'
 
   const pick = (i: number) => {
     const v = lm[i]?.visibility
     return v == null || !Number.isFinite(v) ? 'na' : v.toFixed(2)
   }
 
-  const withVis = lm.filter(p => p.visibility != null && Number.isFinite(p.visibility)).length
-  const worldWithVis = world?.filter(p => p.visibility != null && Number.isFinite(p.visibility)).length ?? 0
+  const withVis = lm.filter((p) => p.visibility != null && Number.isFinite(p.visibility)).length
+  const worldWithVis = world?.filter((p) => p.visibility != null && Number.isFinite(p.visibility)).length ?? 0
   return [
     `pose 2d vis ${withVis}/${lm.length}`,
     `pose 3d vis ${worldWithVis}/${world?.length ?? 0}`,
@@ -110,25 +117,22 @@ const poseVisibilityDebug = computed(() => {
 
 // Start camera and pipeline
 async function startCamera() {
-  if (status.value === 'starting' || status.value === 'running')
-    return
+  if (status.value === 'starting' || status.value === 'running') return
 
   status.value = 'starting'
   errorMessage.value = ''
 
   try {
     stop()
-    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-    if (!videoRef.value)
-      throw new Error('video element not mounted')
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+    if (!videoRef.value) throw new Error('video element not mounted')
 
     videoRef.value.srcObject = stream
     await videoRef.value.play()
 
     status.value = 'running'
     await startPipeline()
-  }
-  catch (err) {
+  } catch (err) {
     status.value = 'error'
     errorMessage.value = err instanceof Error ? err.message : String(err)
     console.error('Failed to start camera or pipeline:', err)
@@ -140,10 +144,8 @@ async function startCamera() {
 }
 
 async function startPipeline() {
-  if (!videoRef.value)
-    return
-  if (engine)
-    return
+  if (!videoRef.value) return
+  if (engine) return
 
   const backend = createMediaPipeBackend()
   engine = createMocapEngine(backend, toRaw(config.value))
@@ -159,41 +161,37 @@ async function startPipeline() {
         z: vrmMapping.value.flipZ ? -1 : 1,
       } as const
 
-      const poseTargets = (config.value.enabled.pose && state.pose?.worldLandmarks?.length)
-        ? poseToVrmTargets(state.pose, {
-            axis,
-            confidence: { minVisibility: poseFiltering.value.minVisibility },
-            stabilize: {
-              previousTargets: prevPoseTargets.value,
-              previousForward: prevPoseForward.value,
-            },
-          })
-        : {}
+      const poseTargets =
+        config.value.enabled.pose && state.pose?.worldLandmarks?.length
+          ? poseToVrmTargets(state.pose, {
+              axis,
+              confidence: { minVisibility: poseFiltering.value.minVisibility },
+              stabilize: {
+                previousForward: prevPoseForward.value,
+                previousTargets: prevPoseTargets.value,
+              },
+            })
+          : {}
 
       const hasAny = Object.keys(poseTargets).length > 0
       latestPoseTargets.value = hasAny ? poseTargets : undefined
       if (hasAny) {
         prevPoseTargets.value = poseTargets
         const derivedForward = poseTargets.hips?.pole ?? poseTargets.spine?.pole
-        if (derivedForward)
-          prevPoseForward.value = derivedForward
+        if (derivedForward) prevPoseForward.value = derivedForward
       }
 
       const canvas = canvasRef.value
       const video = videoRef.value
-      if (!canvas || !video)
-        return
+      if (!canvas || !video) return
 
       const w = video.videoWidth || 640
       const h = video.videoHeight || 480
-      if (canvas.width !== w)
-        canvas.width = w
-      if (canvas.height !== h)
-        canvas.height = h
+      if (canvas.width !== w) canvas.width = w
+      if (canvas.height !== h) canvas.height = h
 
       const ctx = canvas.getContext('2d')
-      if (!ctx)
-        return
+      if (!ctx) return
 
       drawOverlay(ctx, state, config.value.enabled)
     },
@@ -230,50 +228,51 @@ function stop() {
   stopPipeline()
 
   try {
-    stream?.getTracks().forEach(t => t.stop())
-  }
-  catch {}
+    stream?.getTracks().forEach((t) => t.stop())
+  } catch {}
 
   stream = undefined
 
-  if (videoRef.value)
-    videoRef.value.srcObject = null
+  if (videoRef.value) videoRef.value.srcObject = null
 
   status.value = 'idle'
 }
 
-watch(config, (val) => {
-  engine?.updateConfig(toRaw(val))
-}, { deep: true })
+watch(
+  config,
+  (val) => {
+    engine?.updateConfig(toRaw(val))
+  },
+  { deep: true },
+)
 
-watch(sceneRef, (scene, prev) => {
-  prev?.setVrmFrameHook(undefined)
-  scene?.setVrmFrameHook(vrmFrameHook)
-}, { immediate: true })
+watch(
+  sceneRef,
+  (scene, prev) => {
+    prev?.setVrmFrameHook(undefined)
+    scene?.setVrmFrameHook(vrmFrameHook)
+  },
+  { immediate: true },
+)
 
 watch(pipelineEnabled, async (enabled) => {
-  if (syncingToggleState.value)
-    return
+  if (syncingToggleState.value) return
 
-  if (enabled)
-    await startCamera()
-  else
-    stop()
+  if (enabled) await startCamera()
+  else stop()
 })
 
 onMounted(() => {
   // Ensure a VRM model is selected for the viewer (preserve existing selection if already VRM).
   const needsFallback = !stageModelSelectedUrl.value || stageModelRenderer.value !== 'vrm'
-  if (needsFallback)
-    stageModelSelected.value = 'preset-vrm-1'
+  if (needsFallback) stageModelSelected.value = 'preset-vrm-1'
 
   settingsStore.updateStageModel().catch((err) => {
     console.error('Failed to init VRM model:', err)
   })
 
   // Autostart for convenience
-  if (pipelineEnabled.value)
-    startCamera()
+  if (pipelineEnabled.value) startCamera()
 })
 
 onUnmounted(() => {

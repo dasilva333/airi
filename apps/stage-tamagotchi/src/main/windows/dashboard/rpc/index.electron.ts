@@ -1,15 +1,17 @@
+import { defineInvokeHandler } from '@moeru/eventa'
+import { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { BrowserWindow } from 'electron'
-
+import { ipcMain } from 'electron'
+import {
+  electronOpenChat,
+  electronOpenMainDevtools,
+  electronOpenSettings,
+  noticeWindowEventa,
+} from '../../../../shared/eventa'
 import type { I18n } from '../../../libs/i18n'
 import type { ServerChannel } from '../../../services/airi/channel-server'
 import type { NoticeWindowManager } from '../../notice'
 import type { SettingsWindowManager } from '../../settings'
-
-import { defineInvokeHandler } from '@moeru/eventa'
-import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { ipcMain } from 'electron'
-
-import { electronOpenChat, electronOpenMainDevtools, electronOpenSettings, noticeWindowEventa } from '../../../../shared/eventa'
 import { toggleWindowShow } from '../../shared'
 import { setupBaseWindowElectronInvokes } from '../../shared/window'
 
@@ -28,10 +30,17 @@ export async function setupDashboardWindowElectronInvokes(params: {
 
   const { context } = createContext(ipcMain, params.window)
 
-  await setupBaseWindowElectronInvokes({ context, window: params.window, serverChannel: params.serverChannel, i18n: params.i18n })
+  await setupBaseWindowElectronInvokes({
+    context,
+    i18n: params.i18n,
+    serverChannel: params.serverChannel,
+    window: params.window,
+  })
 
-  defineInvokeHandler(context, electronOpenMainDevtools, () => params.window.webContents.openDevTools({ mode: 'detach' }))
-  defineInvokeHandler(context, electronOpenSettings, payload => params.settingsWindow.openWindow(payload?.route))
+  defineInvokeHandler(context, electronOpenMainDevtools, () =>
+    params.window.webContents.openDevTools({ mode: 'detach' }),
+  )
+  defineInvokeHandler(context, electronOpenSettings, (payload) => params.settingsWindow.openWindow(payload?.route))
   defineInvokeHandler(context, electronOpenChat, async () => toggleWindowShow(await params.chatWindow()))
-  defineInvokeHandler(context, noticeWindowEventa.openWindow, payload => params.noticeWindow.open(payload))
+  defineInvokeHandler(context, noticeWindowEventa.openWindow, (payload) => params.noticeWindow.open(payload))
 }

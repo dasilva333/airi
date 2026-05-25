@@ -111,7 +111,7 @@ async function getEmbedder() {
 
 async function getVector(text: string) {
   const extractor = await getEmbedder()
-  const output = await extractor(text, { pooling: 'mean', normalize: true })
+  const output = await extractor(text, { normalize: true, pooling: 'mean' })
   return Array.from(output.data as number[])
 }
 
@@ -125,14 +125,11 @@ function tokenize(input: string) {
   const regex = /[\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF66-\uFF9F\uAC00-\uD7AF]|[a-z0-9]+/gi
   const matches = normalized.match(regex) || []
 
-  return matches
-    .map(token => token.trim())
-    .filter(token => token.length > 0 && !STOPWORDS.has(token))
+  return matches.map((token) => token.trim()).filter((token) => token.length > 0 && !STOPWORDS.has(token))
 }
 
 function ensureDocumentCache(document: SearchDocument) {
-  if (document.tokens && document.tokenFreqs)
-    return
+  if (document.tokens && document.tokenFreqs) return
 
   const content = getDocumentContent(document)
   const tokens = tokenize(content)
@@ -154,16 +151,14 @@ function rebuildKeywordStats() {
     totalLength += tokens.length
 
     const uniqueTerms = new Set(tokens)
-    for (const term of uniqueTerms)
-      documentFrequency.set(term, (documentFrequency.get(term) ?? 0) + 1)
+    for (const term of uniqueTerms) documentFrequency.set(term, (documentFrequency.get(term) ?? 0) + 1)
   }
 
   averageDocumentLength = documents.size ? totalLength / documents.size : 0
 }
 
 function cosineSimilarity(a: number[], b: number[]) {
-  if (a.length !== b.length || !a.length)
-    return 0
+  if (a.length !== b.length || !a.length) return 0
 
   let dot = 0
   let magA = 0
@@ -175,8 +170,7 @@ function cosineSimilarity(a: number[], b: number[]) {
     magB += b[i] * b[i]
   }
 
-  if (!magA || !magB)
-    return 0
+  if (!magA || !magB) return 0
 
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
@@ -185,15 +179,14 @@ function getVectorCandidates(queryVector: number[], limit: number) {
   const results = [...documents.values()]
     .map((document) => {
       const embedding = document.embedding
-      if (!embedding?.length)
-        return null
+      if (!embedding?.length) return null
 
       return {
         id: document.id,
         score: cosineSimilarity(queryVector, embedding),
       }
     })
-    .filter((candidate): candidate is { id: string, score: number } => Boolean(candidate))
+    .filter((candidate): candidate is { id: string; score: number } => Boolean(candidate))
     .sort((a, b) => b.score - a.score)
 
   return results.slice(0, limit)
@@ -201,8 +194,7 @@ function getVectorCandidates(queryVector: number[], limit: number) {
 
 function getKeywordCandidates(query: string, limit: number) {
   const queryTerms = tokenize(query)
-  if (!queryTerms.length)
-    return []
+  if (!queryTerms.length) return []
 
   const totalDocuments = documents.size || 1
   const k1 = 1.5
@@ -212,42 +204,37 @@ function getKeywordCandidates(query: string, limit: number) {
     .map((document) => {
       ensureDocumentCache(document)
       const tokens = document.tokens!
-      if (!tokens.length)
-        return null
+      if (!tokens.length) return null
 
       const frequencies = document.tokenFreqs!
 
       let score = 0
       for (const term of queryTerms) {
         const tf = frequencies[term] ?? 0
-        if (!tf)
-          continue
+        if (!tf) continue
 
         const df = documentFrequency.get(term) ?? 0
-        const idf = Math.log(1 + ((totalDocuments - df + 0.5) / (df + 0.5)))
-        const denom = tf + (k1 * (1 - b + (b * (tokens.length / Math.max(1, averageDocumentLength || tokens.length)))))
+        const idf = Math.log(1 + (totalDocuments - df + 0.5) / (df + 0.5))
+        const denom = tf + k1 * (1 - b + b * (tokens.length / Math.max(1, averageDocumentLength || tokens.length)))
         score += idf * ((tf * (k1 + 1)) / denom)
       }
 
-      if (score <= 0)
-        return null
+      if (score <= 0) return null
 
       return {
         id: document.id,
         score,
       }
     })
-    .filter((candidate): candidate is { id: string, score: number } => Boolean(candidate))
+    .filter((candidate): candidate is { id: string; score: number } => Boolean(candidate))
     .sort((a, b) => b.score - a.score)
 
   const maxScore = scored[0]?.score ?? 1
 
-  return scored
-    .slice(0, limit)
-    .map(candidate => ({
-      ...candidate,
-      score: candidate.score / maxScore,
-    }))
+  return scored.slice(0, limit).map((candidate) => ({
+    ...candidate,
+    score: candidate.score / maxScore,
+  }))
 }
 
 function upsertDocument(document: SearchDocument) {
@@ -256,18 +243,15 @@ function upsertDocument(document: SearchDocument) {
 
 function hydrateDocuments(nextDocuments: SearchDocument[] = []) {
   documents = new Map()
-  for (const document of nextDocuments)
-    upsertDocument(document)
+  for (const document of nextDocuments) upsertDocument(document)
 
   rebuildKeywordStats()
 }
 
 function normalizeSnapshot(snapshot: any): SearchSnapshot | null {
-  if (!snapshot)
-    return null
+  if (!snapshot) return null
 
-  if (Array.isArray(snapshot.documents))
-    return snapshot as SearchSnapshot
+  if (Array.isArray(snapshot.documents)) return snapshot as SearchSnapshot
 
   if (Array.isArray(snapshot)) {
     return { documents: snapshot }
@@ -307,7 +291,7 @@ globalThis.addEventListener('message', async (e) => {
         }
 
         rebuildKeywordStats()
-        globalThis.postMessage({ id, type: 'indexed', count: indexedCount })
+        globalThis.postMessage({ count: indexedCount, id, type: 'indexed' })
         break
       }
 
@@ -318,27 +302,24 @@ globalThis.addEventListener('message', async (e) => {
 
         const vectorHits = getVectorCandidates(queryVector, candidateLimit)
         const keywordHits = getKeywordCandidates(query, candidateLimit)
-        const candidateIds = new Set([
-          ...vectorHits.map(h => h.id),
-          ...keywordHits.map(h => h.id),
-        ])
+        const candidateIds = new Set([...vectorHits.map((h) => h.id), ...keywordHits.map((h) => h.id)])
 
         const results = {
-          vectorHits,
-          keywordHits,
           documents: [...documents.values()]
-            .filter(document => candidateIds.has(document.id))
-            .map(document => ({
-              id: document.id,
+            .filter((document) => candidateIds.has(document.id))
+            .map((document) => ({
               content: getDocumentContent(document),
-              kind: document.kind,
-              timestamp: document.timestamp,
-              source: document.source,
               embedding: document.embedding,
+              id: document.id,
+              kind: document.kind,
+              source: document.source,
+              timestamp: document.timestamp,
             })),
+          keywordHits,
+          vectorHits,
         }
 
-        globalThis.postMessage({ id, type: 'results', results })
+        globalThis.postMessage({ id, results, type: 'results' })
         break
       }
 
@@ -350,16 +331,15 @@ globalThis.addEventListener('message', async (e) => {
           }),
         }
 
-        globalThis.postMessage({ id, type: 'snapshot', snapshot })
+        globalThis.postMessage({ id, snapshot, type: 'snapshot' })
         break
       }
     }
-  }
-  catch (err) {
+  } catch (err) {
     globalThis.postMessage({
+      error: err instanceof Error ? err.message : String(err),
       id,
       type: 'error',
-      error: err instanceof Error ? err.message : String(err),
     })
   }
 })

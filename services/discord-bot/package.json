@@ -1,22 +1,8 @@
 {
-  "name": "@proj-airi/discord-bot",
-  "type": "module",
-  "private": true,
-  "description": "Discord bot for AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "services/discord-bot"
-  },
-  "scripts": {
-    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/index.ts",
-    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
@@ -36,5 +22,19 @@
     "opusscript": "^0.1.1",
     "tsx": "^4.21.0",
     "wavefile": "^11.0.0"
-  }
+  },
+  "description": "Discord bot for AIRI",
+  "license": "MIT",
+  "name": "@proj-airi/discord-bot",
+  "private": true,
+  "repository": {
+    "directory": "services/discord-bot",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module"
 }

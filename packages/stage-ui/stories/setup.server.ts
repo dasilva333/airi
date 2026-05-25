@@ -7,9 +7,9 @@ const g = globalThis as any
 // Live2D Cubism Core mock
 g.Live2DCubismCore = {
   CubismFramework: {
-    startUp: () => {},
     cleanUp: () => {},
     option: () => ({}),
+    startUp: () => {},
   },
 }
 

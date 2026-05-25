@@ -1,10 +1,8 @@
-import type { AiriCard } from './modules'
-
 import { createTestingPinia } from '@pinia/testing'
 import { setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
 import { setCharacterLlmMarkerParserFactoryForTest, useCharacterStore } from './character'
+import type { AiriCard } from './modules'
 import { useAiriCardStore } from './modules'
 import { useSpeechRuntimeStore } from './speech-runtime'
 
@@ -22,15 +20,15 @@ const parserConsumeSpy = vi.fn()
 const parserEndSpy = vi.fn()
 
 const openSpeechIntentSpy = vi.fn(() => ({
+  cancel: cancelSpy,
+  end: endSpy,
   intentId: 'intent-test',
-  streamId: 'stream-test',
   priority: 100,
   stream: new ReadableStream(),
+  streamId: 'stream-test',
+  writeFlush: writeFlushSpy,
   writeLiteral: writeLiteralSpy,
   writeSpecial: vi.fn(),
-  writeFlush: writeFlushSpy,
-  end: endSpy,
-  cancel: cancelSpy,
 }))
 
 describe('store character', () => {
@@ -38,11 +36,10 @@ describe('store character', () => {
     const pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false })
     setActivePinia(pinia)
 
-    setCharacterLlmMarkerParserFactoryForTest(options => ({
+    setCharacterLlmMarkerParserFactoryForTest((options) => ({
       async consume(textPart: string) {
         parserConsumeSpy(textPart)
-        if (textPart)
-          await options.onLiteral?.(textPart)
+        if (textPart) await options.onLiteral?.(textPart)
       },
       async end() {
         parserEndSpy()
@@ -65,24 +62,24 @@ describe('store character', () => {
     airiCardStore.systemPrompt = 'You are a brave adventurer in Minecraft.'
     // @ts-expect-error - testing purpose
     airiCardStore.activeCard = {
-      name: 'Hero',
-      version: '1.0',
       extensions: {
         airi: {
           agents: {},
           modules: {
             consciousness: {
-              provider: 'mock-provider',
               model: 'mock-model',
+              provider: 'mock-provider',
             },
             speech: {
-              provider: 'mock-speech-provider',
               model: 'mock-speech-model',
+              provider: 'mock-speech-provider',
               voice_id: 'alloy',
             },
           },
         },
       },
+      name: 'Hero',
+      version: '1.0',
     } satisfies AiriCard
   })
 

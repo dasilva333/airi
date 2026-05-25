@@ -12,8 +12,8 @@ export function useReplayable(replayFn?: () => void | Promise<void>) {
     console.warn('useReplayable must be used within a Replayable component')
 
     return {
-      registerReplay: () => () => {},
       isReplaying: () => false,
+      registerReplay: () => () => {},
     }
   }
 
@@ -32,7 +32,7 @@ export function useReplayable(replayFn?: () => void | Promise<void>) {
   })
 
   return {
-    registerReplay,
     isReplaying: context.isReplaying,
+    registerReplay,
   }
 }

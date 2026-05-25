@@ -7,22 +7,19 @@ export function useAnalytics() {
 
   function trackProviderClick(providerId: string, module: string) {
     posthog.capture('provider_card_clicked', {
-      provider_id: providerId,
       module,
+      provider_id: providerId,
     })
   }
 
   function trackFirstMessage() {
     // Only track the first message once
-    if (analyticsStore.firstMessageTracked)
-      return
+    if (analyticsStore.firstMessageTracked) return
 
     analyticsStore.markFirstMessageTracked()
 
     // Calculate time from app start to message sent
-    const timeToFirstMessageMs = analyticsStore.appStartTime
-      ? Date.now() - analyticsStore.appStartTime
-      : null
+    const timeToFirstMessageMs = analyticsStore.appStartTime ? Date.now() - analyticsStore.appStartTime : null
 
     posthog.capture('first_message_sent', {
       time_to_first_message_ms: timeToFirstMessageMs,
@@ -30,7 +27,7 @@ export function useAnalytics() {
   }
 
   return {
-    trackProviderClick,
     trackFirstMessage,
+    trackProviderClick,
   }
 }

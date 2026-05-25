@@ -1,6 +1,5 @@
-import type { RemovableRef } from '@vueuse/core'
-
 import { errorMessageFrom } from '@moeru/std'
+import type { RemovableRef } from '@vueuse/core'
 import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -22,8 +21,7 @@ export function useProviderValidation(providerId: string) {
   const apiKey = computed({
     get: () => credentials.value.apiKey || '',
     set: (value) => {
-      if (!providers.value[providerId])
-        providers.value[providerId] = {}
+      if (!providers.value[providerId]) providers.value[providerId] = {}
       providers.value[providerId].apiKey = value
     },
   })
@@ -31,8 +29,7 @@ export function useProviderValidation(providerId: string) {
   const baseUrl = computed({
     get: () => credentials.value.baseUrl || '',
     set: (value) => {
-      if (!providers.value[providerId])
-        providers.value[providerId] = {}
+      if (!providers.value[providerId]) providers.value[providerId] = {}
       providers.value[providerId].baseUrl = value
     },
   })
@@ -40,8 +37,7 @@ export function useProviderValidation(providerId: string) {
   const accountId = computed({
     get: () => credentials.value.accountId || '',
     set: (value) => {
-      if (!providers.value[providerId])
-        providers.value[providerId] = {}
+      if (!providers.value[providerId]) providers.value[providerId] = {}
       providers.value[providerId].accountId = value
     },
   })
@@ -56,8 +52,7 @@ export function useProviderValidation(providerId: string) {
   const manualTestMessage = ref('')
 
   async function validateConfiguration() {
-    if (!providerMetadata.value)
-      return
+    if (!providerMetadata.value) return
 
     isValidating.value++
     validationMessage.value = ''
@@ -66,31 +61,28 @@ export function useProviderValidation(providerId: string) {
 
     try {
       const config = { ...credentials.value }
-      if (config.apiKey)
-        config.apiKey = config.apiKey.trim()
-      if (config.baseUrl)
-        config.baseUrl = config.baseUrl.trim()
+      if (config.apiKey) config.apiKey = config.apiKey.trim()
+      if (config.baseUrl) config.baseUrl = config.baseUrl.trim()
 
       const validationResult = await providerMetadata.value.validators.validateProviderConfig(config)
       isValid.value = validationResult.valid
 
-      if (!isValid.value)
-        finalValidationMessage = validationResult.reason
+      if (!isValid.value) finalValidationMessage = validationResult.reason
 
-      if (isValid.value)
-        providersStore.markProviderAdded(providerId)
-    }
-    catch (error) {
+      if (isValid.value) providersStore.markProviderAdded(providerId)
+    } catch (error) {
       isValid.value = false
       finalValidationMessage = t('settings.dialogs.onboarding.validationError', {
         error: errorMessageFrom(error),
       })
-    }
-    finally {
-      setTimeout(() => {
-        isValidating.value--
-        validationMessage.value = finalValidationMessage
-      }, Math.max(0, debounceTime - (performance.now() - startValidationTimestamp)))
+    } finally {
+      setTimeout(
+        () => {
+          isValidating.value--
+          validationMessage.value = finalValidationMessage
+        },
+        Math.max(0, debounceTime - (performance.now() - startValidationTimestamp)),
+      )
     }
   }
 
@@ -112,40 +104,37 @@ export function useProviderValidation(providerId: string) {
 
   onMounted(() => {
     providersStore.initializeProvider(providerId)
-    if (Object.keys(credentials.value).some(key => !!credentials.value[key]))
-      validateConfiguration()
+    if (Object.keys(credentials.value).some((key) => !!credentials.value[key])) validateConfiguration()
   })
 
-  watch(credentials, () => {
-    debouncedValidateConfiguration()
-    manualTestPassed.value = false
-    manualTestMessage.value = ''
-  }, { deep: true })
+  watch(
+    credentials,
+    () => {
+      debouncedValidateConfiguration()
+      manualTestPassed.value = false
+      manualTestMessage.value = ''
+    },
+    { deep: true },
+  )
 
   async function runManualTest() {
-    if (!providerMetadata.value?.validators.runManualValidation)
-      return
+    if (!providerMetadata.value?.validators.runManualValidation) return
 
     isManualTesting.value = true
     manualTestMessage.value = ''
 
     try {
       const config = { ...credentials.value }
-      if (config?.apiKey)
-        config.apiKey = config.apiKey.trim()
-      if (config?.baseUrl)
-        config.baseUrl = config.baseUrl.trim()
+      if (config?.apiKey) config.apiKey = config.apiKey.trim()
+      if (config?.baseUrl) config.baseUrl = config.baseUrl.trim()
 
       const result = await providerMetadata.value.validators.runManualValidation(config)
       manualTestPassed.value = result.valid
-      if (!result.valid)
-        manualTestMessage.value = result.reason
-    }
-    catch (error) {
+      if (!result.valid) manualTestMessage.value = result.reason
+    } catch (error) {
       manualTestPassed.value = false
       manualTestMessage.value = errorMessageFrom(error) ?? 'Unknown error'
-    }
-    finally {
+    } finally {
       isManualTesting.value = false
     }
   }
@@ -169,21 +158,21 @@ export function useProviderValidation(providerId: string) {
   }
 
   return {
-    t,
-    router,
-    providerMetadata,
+    accountId,
     apiKey,
     baseUrl,
-    accountId,
-    isValidating,
-    isValid,
-    validationMessage,
-    handleResetSettings,
     forceValid,
+    handleResetSettings,
     hasManualValidators,
     isManualTesting,
-    manualTestPassed,
+    isValid,
+    isValidating,
     manualTestMessage,
+    manualTestPassed,
+    providerMetadata,
+    router,
     runManualTest,
+    t,
+    validationMessage,
   }
 }

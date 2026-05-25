@@ -1,31 +1,27 @@
-import type { ProviderValidationResult } from './types'
-
 import { isStageTamagotchi, isUrl } from '@proj-airi/stage-shared'
 import { isWebGPUSupported } from 'gpuu/webgpu'
+import type { ProviderValidationResult } from './types'
 
 export function logWarn(...args: unknown[]) {
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
       console.warn(...args)
     }
-  }
-  catch {
+  } catch {
     // Ignore
   }
 }
 
 export function normalizeProviderBaseUrl(value: unknown): string {
   const trimmed = typeof value === 'string' ? value.trim() : ''
-  if (!trimmed)
-    return ''
+  if (!trimmed) return ''
 
   return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
 }
 
 export function toV1SpeechBaseUrl(value: unknown): string {
   const normalized = normalizeProviderBaseUrl(value)
-  if (!normalized)
-    return ''
+  if (!normalized) return ''
 
   return normalized.endsWith('/v1/') ? normalized : `${normalized}v1/`
 }
@@ -38,14 +34,11 @@ export function validateProviderBaseUrl(baseUrl: unknown): ProviderValidationRes
   let msg = ''
   if (!baseUrl) {
     msg = 'Base URL is required.'
-  }
-  else if (typeof baseUrl !== 'string') {
+  } else if (typeof baseUrl !== 'string') {
     msg = 'Base URL must be a string.'
-  }
-  else if (!isUrl(baseUrl) || new URL(baseUrl).host.length === 0) {
+  } else if (!isUrl(baseUrl) || new URL(baseUrl).host.length === 0) {
     msg = 'Base URL is not absolute. Try to include a scheme (http:// or https://).'
-  }
-  else if (!baseUrl.endsWith('/')) {
+  } else if (!baseUrl.endsWith('/')) {
     msg = 'Base URL must end with a trailing slash (/).'
   }
 
@@ -61,15 +54,19 @@ export function validateProviderBaseUrl(baseUrl: unknown): ProviderValidationRes
 }
 
 export async function isBrowserAndMemoryEnough() {
-  if (isStageTamagotchi())
-    return false
+  if (isStageTamagotchi()) return false
 
   const webGPUAvailable = await isWebGPUSupported()
   if (webGPUAvailable) {
     return true
   }
 
-  if ('navigator' in globalThis && globalThis.navigator != null && 'deviceMemory' in globalThis.navigator && typeof globalThis.navigator.deviceMemory === 'number') {
+  if (
+    'navigator' in globalThis &&
+    globalThis.navigator != null &&
+    'deviceMemory' in globalThis.navigator &&
+    typeof globalThis.navigator.deviceMemory === 'number'
+  ) {
     const memory = globalThis.navigator.deviceMemory
     if (memory >= 8) {
       return true

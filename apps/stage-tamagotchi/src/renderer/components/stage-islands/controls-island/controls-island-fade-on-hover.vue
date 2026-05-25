@@ -2,12 +2,10 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import ControlButtonTooltip from './control-button-tooltip.vue'
-import ControlButton from './control-button.vue'
-
 import { noticeWindowEventa } from '../../../../shared/eventa'
 import { useControlsIslandStore } from '../../../stores/controls-island'
+import ControlButton from './control-button.vue'
+import ControlButtonTooltip from './control-button-tooltip.vue'
 
 interface Props {
   iconClass?: string
@@ -18,9 +16,7 @@ const props = withDefaults(defineProps<Props>(), {
   iconClass: 'size-5',
 })
 
-const emit = defineEmits<{
-  (e: 'click'): void
-}>()
+const emit = defineEmits<(e: 'click') => void>()
 
 const uiStore = useControlsIslandStore()
 const enabled = computed(() => uiStore.fadeOnHoverEnabled)
@@ -47,10 +43,8 @@ async function handleToggle() {
       route: '/notice/fade-on-hover',
       type: 'fade-on-hover',
     })
-    if (acknowledged)
-      uiStore.enableFadeOnHover()
-  }
-  catch (error) {
+    if (acknowledged) uiStore.enableFadeOnHover()
+  } catch (error) {
     console.error('Failed to open fade-on-hover notice:', error)
   }
 }

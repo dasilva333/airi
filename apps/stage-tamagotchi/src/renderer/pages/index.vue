@@ -1,17 +1,11 @@
 <script setup lang="ts">
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
-import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
-
 import { electron } from '@proj-airi/electron-eventa'
 import {
   useElectronEventaInvoke,
   useElectronMouseInElement,
   useElectronMouseInWindow,
 } from '@proj-airi/electron-vueuse'
-import { useMmd } from '@proj-airi/stage-ui-mmd'
-import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
-import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
+import type { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
@@ -22,9 +16,18 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
+import {
+  useSettings,
+  useSettingsAudioDevice,
+  useSettingsControlStrip,
+  useSettingsControlsIsland,
+} from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
+import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { useBroadcastChannel, useColorMode } from '@vueuse/core'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -39,8 +42,6 @@ import {
   electronGetMainWindowConfig,
   electronOpenChat,
   electronOpenSettings,
-  //  electronStageSetAlwaysOnTop,
-
   electronStageToggleVisibility,
   electronStartDraggingWindow,
 } from '../../shared/eventa'
@@ -56,7 +57,6 @@ const openChat = useElectronEventaInvoke(electronOpenChat)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
-// const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
 const quitApp = useElectronEventaInvoke(electronAppQuit)
 const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 const startDraggingWindow = useElectronEventaInvoke(electronStartDraggingWindow)
@@ -86,15 +86,19 @@ const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
 const { activeProvider: activeChatProvider, activeModel: activeChatModel } = storeToRefs(consciousnessStore)
 
-watch([activeChatProvider, activeChatModel], async () => {
-  if (activeChatProvider.value && activeChatModel.value) {
-    console.info('[Main Page] Discovering tools compatibility for:', activeChatModel.value)
-    const provider = await providersStore.getProviderInstance<ChatProvider>(activeChatProvider.value)
-    if (provider) {
-      await llmStore.discoverToolsCompatibility(activeChatModel.value, provider, [])
+watch(
+  [activeChatProvider, activeChatModel],
+  async () => {
+    if (activeChatProvider.value && activeChatModel.value) {
+      console.info('[Main Page] Discovering tools compatibility for:', activeChatModel.value)
+      const provider = await providersStore.getProviderInstance<ChatProvider>(activeChatProvider.value)
+      if (provider) {
+        await llmStore.discoverToolsCompatibility(activeChatModel.value, provider, [])
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const { stageViewControlsEnabled, alwaysOnTop } = storeToRefs(useSettings())
 const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
@@ -113,13 +117,21 @@ const { activeCard } = storeToRefs(cardStore)
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 
-watch(stageEnabled, (val) => {
-  toggleStageVisibility(val)
-}, { immediate: true })
+watch(
+  stageEnabled,
+  (val) => {
+    toggleStageVisibility(val)
+  },
+  { immediate: true },
+)
 
-watch(captionOpen, (val) => {
-  toggleCaptionVisibility(val)
-}, { immediate: true })
+watch(
+  captionOpen,
+  (val) => {
+    toggleCaptionVisibility(val)
+  },
+  { immediate: true },
+)
 
 // Treat stage and caption as partners when captionFollowStage is enabled
 watch(stageEnabled, (newVal) => {
@@ -138,14 +150,17 @@ watch(captionOpen, (newVal) => {
   }
 })
 
-watch(() => settingsStore.captionFollowStage, (newVal) => {
-  if (newVal) {
-    // Immediately sync caption state to stage state
-    if (captionOpen.value !== stageEnabled.value) {
-      captionOpen.value = stageEnabled.value
+watch(
+  () => settingsStore.captionFollowStage,
+  (newVal) => {
+    if (newVal) {
+      // Immediately sync caption state to stage state
+      if (captionOpen.value !== stageEnabled.value) {
+        captionOpen.value = stageEnabled.value
+      }
     }
-  }
-})
+  },
+)
 
 const { data: broadcastAction } = useBroadcastChannel<string, string>({ name: 'airi-control-strip-actions' })
 watch(broadcastAction, (action) => {
@@ -178,7 +193,7 @@ function handleScaleChange(newScale: number) {
   positioningStore.setPosition(key, { ...current, scale: newScale })
 }
 
-function handleOffsetChange(offset: { x: number, y: number }) {
+function handleOffsetChange(offset: { x: number; y: number }) {
   const key = stageModelSelected.value
   const current = positioningStore.getPosition(key)
   positioningStore.setPosition(key, {
@@ -188,7 +203,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   })
 }
 
-watch(componentStateStage, () => isLoading.value = componentStateStage.value !== 'mounted', { immediate: true })
+watch(componentStateStage, () => (isLoading.value = componentStateStage.value !== 'mounted'), { immediate: true })
 
 // Main window control strip sizing and smart popovers state
 const activePopover = ref<string | null>(null)
@@ -209,8 +224,7 @@ const stripLength = computed(() => {
 
 async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
   const current = await getBounds()
-  if (!current)
-    return
+  if (!current) return
 
   // 1. Calculate the unexpanded strip bounds from the current window bounds
   let x = current.x
@@ -223,8 +237,7 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
     if (lastOrientation.value === 'vertical') {
       x = current.x + (placement === 'left' ? 268 : 0)
       y = current.y + (current.height - stripLength.value) / 2
-    }
-    else {
+    } else {
       x = current.x + (current.width - stripLength.value) / 2
       y = current.y + (placement === 'top' ? 280 : 0)
     }
@@ -242,8 +255,7 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
       targetH = Math.max(336, h)
       targetX = x - (nextPlacement === 'left' ? 268 : 0)
       targetY = y - (targetH - h) / 2
-    }
-    else {
+    } else {
       targetW = Math.max(336, w)
       targetH = 336
       targetX = x - (targetW - w) / 2
@@ -251,12 +263,14 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
     }
   }
 
-  await setBounds([{
-    x: Math.round(targetX),
-    y: Math.round(targetY),
-    width: Math.round(targetW),
-    height: Math.round(targetH),
-  }])
+  await setBounds([
+    {
+      height: Math.round(targetH),
+      width: Math.round(targetW),
+      x: Math.round(targetX),
+      y: Math.round(targetY),
+    },
+  ])
 
   activePopover.value = nextPopover
   lastPlacement.value = nextPlacement
@@ -266,18 +280,19 @@ async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'lef
 watch([stripLength, () => controlStripStore.orientation], async ([newLength, newOrientation]) => {
   if (activePopover.value) {
     await applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
-  }
-  else {
+  } else {
     const w = newOrientation === 'vertical' ? 56 : newLength
     const h = newOrientation === 'vertical' ? newLength : 56
     const current = await getBounds()
     if (current) {
-      await setBounds([{
-        x: current.x,
-        y: current.y,
-        width: w,
-        height: h,
-      }])
+      await setBounds([
+        {
+          height: h,
+          width: w,
+          x: current.x,
+          y: current.y,
+        },
+      ])
     }
     lastOrientation.value = newOrientation
   }
@@ -298,7 +313,7 @@ watch(
 
 async function handleApplySizePreset(e: Event) {
   const { target, preset } = (e as CustomEvent).detail
-  await applySizePreset({ target, preset })
+  await applySizePreset({ preset, target })
 }
 
 const hearingDialogOpen = ref(false)
@@ -316,8 +331,7 @@ function applyTransparencyState() {
   if (insideControls) {
     isIgnoringMouseEvents.value = false
     setIgnoreMouseEvents([false, { forward: true }])
-  }
-  else {
+  } else {
     const insideWindow = !isOutsideWindow.value
     const ignore = insideWindow
     isIgnoringMouseEvents.value = ignore
@@ -325,18 +339,17 @@ function applyTransparencyState() {
   }
 }
 
-watch([isOutsideForInstant, isOutsideWindow, hearingDialogOpen, whisperDockOpen, stageViewControlsEnabled, activePopover], applyTransparencyState)
+watch(
+  [isOutsideForInstant, isOutsideWindow, hearingDialogOpen, whisperDockOpen, stageViewControlsEnabled, activePopover],
+  applyTransparencyState,
+)
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { stream, enabled } = storeToRefs(settingsAudioDeviceStore)
 const { askPermission, startStream } = settingsAudioDeviceStore
 const { startRecord, stopRecord, onStopRecord, dispose: disposeRecorder } = useAudioRecorder(stream)
 const hearingPipeline = useHearingSpeechInputPipeline()
-const {
-  transcribeForRecording,
-  transcribeForMediaStream,
-  stopStreamingTranscription,
-} = hearingPipeline
+const { transcribeForRecording, transcribeForMediaStream, stopStreamingTranscription } = hearingPipeline
 const { supportsStreamInput } = storeToRefs(hearingPipeline)
 const chatStore = useChatOrchestratorStore()
 const hearingStore = useHearingStore()
@@ -352,24 +365,22 @@ const {
   dispose: disposeVAD,
   loaded: vadLoaded,
 } = useVAD(workletUrl, {
-  threshold: ref(0.6),
-  onSpeechStart: () => {
-    if (hearingDetectionMode.value === 'vad')
-      void handleSpeechStart()
-  },
   onSpeechEnd: () => {
-    if (hearingDetectionMode.value === 'vad')
-      void handleSpeechEnd()
+    if (hearingDetectionMode.value === 'vad') void handleSpeechEnd()
   },
+  onSpeechStart: () => {
+    if (hearingDetectionMode.value === 'vad') void handleSpeechStart()
+  },
+  threshold: ref(0.6),
 })
 
 let stopOnStopRecord: (() => void) | undefined
 
 // Caption overlay broadcast channel
-type CaptionChannelEvent
-  = | { type: 'caption-speaker', text: string }
-    | { type: 'caption-assistant', text: string }
-const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+type CaptionChannelEvent = { type: 'caption-speaker'; text: string } | { type: 'caption-assistant'; text: string }
+const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({
+  name: 'airi-caption-overlay',
+})
 
 async function handleSpeechStart() {
   console.info('[Main Page] Speech Start detected')
@@ -402,11 +413,9 @@ async function startAudioInteraction() {
         console.info('[Main Page] Initializing separate VAD for non-streaming mode')
         await initVAD()
         await startVAD(stream.value)
-      }
-      else if (hearingDetectionMode.value === 'vad') {
+      } else if (hearingDetectionMode.value === 'vad') {
         console.info('[Main Page] Skipping separate VAD in streaming mode (provider handles segmentation)')
-      }
-      else {
+      } else {
         if (!shouldUseStreamInput.value) {
           console.info('[Main Page] Manual mode enabled, starting recording immediately')
           startRecord()
@@ -416,8 +425,8 @@ async function startAudioInteraction() {
 
     if (shouldUseStreamInput.value) {
       console.info('[Main Page] Starting streaming transcription...', {
-        supportsStreamInput: supportsStreamInput.value,
         hasStream: !!stream.value,
+        supportsStreamInput: supportsStreamInput.value,
       })
 
       if (!stream.value) {
@@ -428,18 +437,18 @@ async function startAudioInteraction() {
       await transcribeForMediaStream(stream.value, {
         onSentenceEnd: (delta) => {
           console.info('[Main Page] Received transcription delta:', delta)
-          if (!delta || !delta.trim()) {
+          if (!delta?.trim()) {
             return
           }
-          postCaption({ type: 'caption-speaker', text: delta })
+          postCaption({ text: delta, type: 'caption-speaker' })
         },
         onSpeechEnd: (text) => {
           console.info('[Main Page] Speech ended, final text:', text)
-          if (!text || !text.trim()) {
+          if (!text?.trim()) {
             return
           }
 
-          postCaption({ type: 'caption-speaker', text })
+          postCaption({ text, type: 'caption-speaker' })
 
           void (async () => {
             try {
@@ -454,13 +463,12 @@ async function startAudioInteraction() {
 
               const { autoSendEnabled } = storeToRefs(hearingStore)
               await chatStore.ingest(text, {
-                model: activeChatModel.value,
                 chatProvider: provider as ChatProvider,
-                tools: builtinTools,
+                model: activeChatModel.value,
                 skipAssistant: !autoSendEnabled.value,
+                tools: builtinTools,
               })
-            }
-            catch (err) {
+            } catch (err) {
               console.error('[Main Page] Failed to send chat from voice:', err)
             }
           })()
@@ -468,17 +476,15 @@ async function startAudioInteraction() {
       })
 
       console.info('[Main Page] Streaming transcription started successfully')
-    }
-    else {
+    } else {
       console.warn('[Main Page] Not starting streaming transcription:', {
-        shouldUseStreamInput: shouldUseStreamInput.value,
         hasStream: !!stream.value,
+        shouldUseStreamInput: shouldUseStreamInput.value,
         supportsStreamInput: supportsStreamInput.value,
       })
     }
 
-    if (stopOnStopRecord)
-      stopOnStopRecord()
+    if (stopOnStopRecord) stopOnStopRecord()
 
     stopOnStopRecord = onStopRecord(async (recording) => {
       console.info('[Main Page] Voice recording stopped, size:', recording?.size, 'bytes')
@@ -487,18 +493,17 @@ async function startAudioInteraction() {
         return
       }
 
-      if (shouldUseStreamInput.value)
-        return
+      if (shouldUseStreamInput.value) return
 
       const text = await transcribeForRecording(recording)
-      if (!text || !text.trim()) {
+      if (!text?.trim()) {
         toast.error('STT: No speech detected', { id: 'transcription-feedback' })
         return
       }
 
       toast.info(`🎤 You said: ${text}`, { id: 'transcription-feedback' })
 
-      postCaption({ type: 'caption-speaker', text })
+      postCaption({ text, type: 'caption-speaker' })
 
       if (hearingDialogOpen.value) {
         console.info('[Main Page] (Manual) Hearing dialog is open, skipping duplicate ingestion in favor of ChatArea.')
@@ -507,26 +512,22 @@ async function startAudioInteraction() {
 
       try {
         const provider = await providersStore.getProviderInstance(activeChatProvider.value)
-        if (!provider || !activeChatModel.value)
-          return
+        if (!provider || !activeChatModel.value) return
 
         const { autoSendEnabled } = storeToRefs(hearingStore)
         await chatStore.ingest(text, {
-          model: activeChatModel.value,
           chatProvider: provider as ChatProvider,
-          tools: builtinTools,
+          model: activeChatModel.value,
           skipAssistant: !autoSendEnabled.value,
+          tools: builtinTools,
         })
-      }
-      catch (err) {
+      } catch (err) {
         console.error('Failed to send chat from voice:', err)
       }
     })
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Audio interaction init failed:', e)
-  }
-  finally {
+  } finally {
     isStartingAudio.value = false
   }
 }
@@ -538,23 +539,25 @@ async function stopAudioInteraction() {
     stopOnStopRecord = undefined
     await stopStreamingTranscription(false)
     stopVAD()
-  }
-  catch (e) {
+  } catch (e) {
     console.warn('[Main Page] Error during audio interaction stop:', e)
   }
 }
 
-watch(enabled, async (val) => {
-  console.info('[Main Page] Audio enabled changed:', val, 'stream available:', !!stream.value)
-  if (val) {
-    await askPermission()
-    await startStream()
-    await startAudioInteraction()
-  }
-  else {
-    await stopAudioInteraction()
-  }
-}, { immediate: true })
+watch(
+  enabled,
+  async (val) => {
+    console.info('[Main Page] Audio enabled changed:', val, 'stream available:', !!stream.value)
+    if (val) {
+      await askPermission()
+      await startStream()
+      await startAudioInteraction()
+    } else {
+      await stopAudioInteraction()
+    }
+  },
+  { immediate: true },
+)
 
 watch(stream, async (newStream) => {
   if (enabled.value && newStream) {
@@ -607,11 +610,13 @@ function cycleAnimation() {
     if (activeCard.value?.extensions?.airi?.acting) {
       activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
     }
-    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+      id: 'animation-cycle',
+    })
     return
   }
 
-  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
+  const keys = hasCardSubset ? cardIdleAnimations.filter((k) => allKeys.includes(k)) : allKeys
   const finalKeys = keys.length > 0 ? keys : allKeys
 
   const currentKey = vrmIdleAnimation.value
@@ -620,7 +625,9 @@ function cycleAnimation() {
   const nextAnimation = finalKeys[nextIndex]
 
   vrmIdleAnimation.value = nextAnimation
-  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+    id: 'animation-cycle',
+  })
 }
 
 function handleControlStripAction(e: Event) {
@@ -630,98 +637,75 @@ function handleControlStripAction(e: Event) {
     controlStripStore.chatOpen = !controlStripStore.chatOpen
     console.info(`[Main Page] [Control Strip Action] Invoking openChat(${controlStripStore.chatOpen})...`)
     openChat(controlStripStore.chatOpen)
-  }
-  else if (action === 'settings') {
+  } else if (action === 'settings') {
     openSettings()
-  }
-  else if (action === 'caption') {
+  } else if (action === 'caption') {
     controlStripStore.captionOpen = !controlStripStore.captionOpen
-  }
-  else if (action === 'mic') {
+  } else if (action === 'mic') {
     settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
-  }
-  else if (action === 'stage') {
+  } else if (action === 'stage') {
     controlStripStore.stageEnabled = !controlStripStore.stageEnabled
-  }
-  else if (action === 'gemini-session') {
+  } else if (action === 'gemini-session') {
     liveSessionStore.toggle()
-  }
-  else if (action === 'always-on-top') {
+  } else if (action === 'always-on-top') {
     alwaysOnTop.value = !alwaysOnTop.value
-  }
-  else if (action === 'theme-mode') {
+  } else if (action === 'theme-mode') {
     colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
-  }
-  else if (action === 'caption-follow-stage') {
+  } else if (action === 'caption-follow-stage') {
     settingsStore.captionFollowStage = !settingsStore.captionFollowStage
-  }
-  else if (action === 'caption-docking') {
+  } else if (action === 'caption-docking') {
     const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
     settingsStore.captionDocking = next
     syncCaptionDocking(next)
-  }
-  else if (action === 'caption-layout-mode') {
+  } else if (action === 'caption-layout-mode') {
     settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
-  }
-  else if (action === 'exit-app') {
+  } else if (action === 'exit-app') {
     quitApp()
-  }
-  else if (action === 'viewport-tactile') {
+  } else if (action === 'viewport-tactile') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = false
     controlStripStore.stageMode = 'tactileMode'
-  }
-  else if (action === 'viewport-drag') {
+  } else if (action === 'viewport-drag') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = true
     controlStripStore.stageMode = 'dragMode'
-  }
-  else if (action === 'viewport-positioning') {
+  } else if (action === 'viewport-positioning') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = true
     controlStripStore.stageMode = 'positionMode'
-  }
-  else if (action === 'viewport-orbit') {
+  } else if (action === 'viewport-orbit') {
     modelStore.interactionMode = 'orbit'
     stageViewControlsEnabled.value = false
     controlStripStore.stageMode = 'orbitMode'
-  }
-  else if (action === 'viewport-cycle-modes') {
+  } else if (action === 'viewport-cycle-modes') {
     controlStripStore.cycleStageMode()
     const mode = controlStripStore.stageMode
     if (mode === 'tactileMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = false
-    }
-    else if (mode === 'dragMode') {
+    } else if (mode === 'dragMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'positionMode') {
+    } else if (mode === 'positionMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'orbitMode') {
+    } else if (mode === 'orbitMode') {
       modelStore.interactionMode = 'orbit'
       stageViewControlsEnabled.value = false
     }
-  }
-  else if (action === 'viewport-auto-hide') {
+  } else if (action === 'viewport-auto-hide') {
     fadeOnHoverEnabled.value = !fadeOnHoverEnabled.value
-  }
-  else if (action === 'viewport-reset-coordinates') {
+  } else if (action === 'viewport-reset-coordinates') {
     const key = stageModelSelected.value
-    positioningStore.setPosition(key, { x: 0, y: 0, scale: 1 })
+    positioningStore.setPosition(key, { scale: 1, x: 0, y: 0 })
     if (stageModelRenderer.value === 'live2d') {
       const live2dStore = useLive2d()
       live2dStore.resetState()
-    }
-    else {
+    } else {
       modelStore.modelOffset = { x: 0, y: 0, z: 0 }
       modelStore.cameraDistance = modelStore.modelSize.z * 10
     }
-  }
-  else if (action === 'actor-idle-animations') {
+  } else if (action === 'actor-idle-animations') {
     cycleAnimation()
   }
 }
@@ -745,12 +729,14 @@ onMounted(async () => {
   const h = controlStripStore.orientation === 'vertical' ? stripLength.value : 56
   const current = await getBounds()
   if (current) {
-    await setBounds([{
-      x: current.x,
-      y: current.y,
-      width: w,
-      height: h,
-    }])
+    await setBounds([
+      {
+        height: h,
+        width: w,
+        x: current.x,
+        y: current.y,
+      },
+    ])
   }
 
   if (window.electron?.ipcRenderer) {
@@ -804,8 +790,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
   if (enabled.value && loaded && s) {
     try {
       await startVAD(s)
-    }
-    catch (e) {
+    } catch (e) {
       console.error('Failed to start VAD with stream:', e)
     }
   }
