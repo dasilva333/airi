@@ -338,7 +338,7 @@ Capable of
 
 ## Development
 
-![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
+![Alt](https://repobeats.axiom.co/api/embed/30d3825941402ebcdc6dd5f21a116bb68fb2f4a3.svg "Repobeats analytics image")
 
 > For detailed instructions to develop this project, follow [CONTRIBUTING.md](./.github/CONTRIBUTING.md)
 
