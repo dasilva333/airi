@@ -131,3 +131,9 @@ apps/stage-pocket/ios/buildServer.json
 
 # Playwright browser cache
 .cache/ms-playwright/
+scratch/
+reports/
+recovery_artifacts/
+*.patch
+extract.js
+fixed_data.txt
