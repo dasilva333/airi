@@ -29,8 +29,8 @@ export function cleanupMicToggleShortcut() {
 /**
  * Setup global microphone toggle shortcut using Electron globalShortcut
  */
-export function setupMicToggleShortcut(mainWindow: BrowserWindow, hotkey: MicToggleHotkey = 'Scroll') {
-  currentWindow = mainWindow
+export function setupMicToggleShortcut(stageWindow: BrowserWindow, hotkey: MicToggleHotkey = 'Scroll') {
+  currentWindow = stageWindow
   currentHotkey = hotkey
 
   cleanupMicToggleShortcut()

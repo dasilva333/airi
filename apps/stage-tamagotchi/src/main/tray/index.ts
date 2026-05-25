@@ -54,7 +54,7 @@ function isPositionMatch(window: BrowserWindow, targetX: number, targetY: number
 }
 
 export function setupTray(params: {
-  mainWindow: BrowserWindow
+  stageWindow: BrowserWindow
   settingsWindow: SettingsWindowManager
   captionWindow: ReturnType<typeof setupCaptionWindowManager>
   widgetsWindow: WidgetsWindowManager
@@ -76,19 +76,19 @@ export function setupTray(params: {
     })
 
     const rebuildContextMenu = debounce((): void => {
-      if (!appTray || appTray.isDestroyed() || !params.mainWindow || params.mainWindow.isDestroyed())
+      if (!appTray || appTray.isDestroyed() || !params.stageWindow || params.stageWindow.isDestroyed())
         return
 
-      const { width: windowWidth, height: windowHeight } = params.mainWindow.getBounds()
-      const currentDisplay = screen.getDisplayMatching(params.mainWindow.getBounds())
+      const { width: windowWidth, height: windowHeight } = params.stageWindow.getBounds()
+      const currentDisplay = screen.getDisplayMatching(params.stageWindow.getBounds())
       const { x: curX, y: curY, width: curW, height: curH } = currentDisplay.workArea
 
       const t = params.i18n.t
       const config = params.getConfig() ?? { windows: [] }
-      const mainWindowConfig = config.windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
+      const mainWindowConfig = config.windows?.find((w: any) => w.tag === 'actor')
 
       const contextMenu = Menu.buildFromTemplate([
-        { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.show'), click: () => toggleWindowShow(params.mainWindow) },
+        { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.show'), click: () => toggleWindowShow(params.stageWindow) },
         { type: 'separator' },
         {
           label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.align_to'),
@@ -96,33 +96,33 @@ export function setupTray(params: {
             {
               label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.center'),
               type: 'checkbox',
-              checked: isPositionMatch(params.mainWindow, curX + Math.floor((curW - windowWidth) / 2), curY + Math.floor((curH - windowHeight) / 2)),
-              click: () => alignWindow(params.mainWindow, 'center'),
+              checked: isPositionMatch(params.stageWindow, curX + Math.floor((curW - windowWidth) / 2), curY + Math.floor((curH - windowHeight) / 2)),
+              click: () => alignWindow(params.stageWindow, 'center'),
             },
             { type: 'separator' },
             {
               label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.top_left'),
               type: 'checkbox',
-              checked: isPositionMatch(params.mainWindow, curX, curY),
-              click: () => alignWindow(params.mainWindow, 'top-left'),
+              checked: isPositionMatch(params.stageWindow, curX, curY),
+              click: () => alignWindow(params.stageWindow, 'top-left'),
             },
             {
               label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.top_right'),
               type: 'checkbox',
-              checked: isPositionMatch(params.mainWindow, curX + curW - windowWidth, curY),
-              click: () => alignWindow(params.mainWindow, 'top-right'),
+              checked: isPositionMatch(params.stageWindow, curX + curW - windowWidth, curY),
+              click: () => alignWindow(params.stageWindow, 'top-right'),
             },
             {
               label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.bottom_left'),
               type: 'checkbox',
-              checked: isPositionMatch(params.mainWindow, curX, curY + curH - windowHeight),
-              click: () => alignWindow(params.mainWindow, 'bottom-left'),
+              checked: isPositionMatch(params.stageWindow, curX, curY + curH - windowHeight),
+              click: () => alignWindow(params.stageWindow, 'bottom-left'),
             },
             {
               label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.bottom_right'),
               type: 'checkbox',
-              checked: isPositionMatch(params.mainWindow, curX + curW - windowWidth, curY + curH - windowHeight),
-              click: () => alignWindow(params.mainWindow, 'bottom-right'),
+              checked: isPositionMatch(params.stageWindow, curX + curW - windowWidth, curY + curH - windowHeight),
+              click: () => alignWindow(params.stageWindow, 'bottom-right'),
             },
           ],
         },
@@ -137,15 +137,15 @@ export function setupTray(params: {
                 const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
-                let index = config.windows.findIndex((w: any) => w.title === 'AIRI' && w.tag === 'main')
+                let index = config.windows.findIndex((w: any) => w.tag === 'actor')
                 if (index === -1) {
-                  index = config.windows.push({ title: 'AIRI', tag: 'main' }) - 1
+                  index = config.windows.push({ title: 'AIRI - Actor Stage', tag: 'actor' }) - 1
                 }
                 config.windows[index].locked = item.checked
                 params.updateConfig(config)
-                params.mainWindow.setMovable(!item.checked)
-                params.mainWindow.setResizable(!item.checked)
-                params.mainWindow.webContents.send('eventa:event:electron:windows:main:config-changed', config.windows[index])
+                params.stageWindow.setMovable(!item.checked)
+                params.stageWindow.setResizable(!item.checked)
+                params.stageWindow.webContents.send('eventa:event:electron:windows:actor:config-changed', config.windows[index])
                 rebuildContextMenu()
               },
             },
@@ -158,11 +158,11 @@ export function setupTray(params: {
                 const config = params.getConfig() ?? { windows: [] }
                 if (!config.windows)
                   config.windows = []
-                let index = config.windows.findIndex((w: any) => w.title === 'AIRI' && w.tag === 'main')
+                let index = config.windows.findIndex((w: any) => w.tag === 'actor')
                 if (index === -1) {
-                  index = config.windows.push({ title: 'AIRI', tag: 'main' }) - 1
+                  index = config.windows.push({ title: 'AIRI - Actor Stage', tag: 'actor' }) - 1
                 }
-                const bounds = params.mainWindow.getBounds()
+                const bounds = params.stageWindow.getBounds()
                 config.windows[index].snapshot = {
                   x: bounds.x,
                   y: bounds.y,
@@ -170,7 +170,7 @@ export function setupTray(params: {
                   height: bounds.height,
                 }
                 params.updateConfig(config)
-                params.mainWindow.webContents.send('eventa:event:electron:windows:main:config-changed', config.windows[index])
+                params.stageWindow.webContents.send('eventa:event:electron:windows:actor:config-changed', config.windows[index])
                 rebuildContextMenu()
               },
             },
@@ -181,9 +181,9 @@ export function setupTray(params: {
               click: () => {
                 // Return the window to its previously saved "Home" position.
                 const config = params.getConfig() ?? { windows: [] }
-                const mainWindow = config.windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
+                const mainWindow = config.windows?.find((w: any) => w.tag === 'actor')
                 if (mainWindow?.snapshot) {
-                  params.mainWindow.setBounds(mainWindow.snapshot)
+                  params.stageWindow.setBounds(mainWindow.snapshot)
                 }
               },
             },
@@ -268,8 +268,8 @@ export function setupTray(params: {
       appTray.setContextMenu(contextMenu)
     }, 50)
 
-    params.mainWindow.on('resize', rebuildContextMenu)
-    params.mainWindow.on('move', rebuildContextMenu)
+    params.stageWindow.on('resize', rebuildContextMenu)
+    params.stageWindow.on('move', rebuildContextMenu)
     params.captionWindow.onVisibilityChanged(rebuildContextMenu)
 
     rebuildContextMenu()
@@ -281,11 +281,11 @@ export function setupTray(params: {
     })
 
     appTray.setToolTip('Project AIRI')
-    appTray.addListener('click', () => toggleWindowShow(params.mainWindow))
+    appTray.addListener('click', () => toggleWindowShow(params.stageWindow))
 
     // On macOS, there's a special double-click event
     if (isMacOS) {
-      appTray.addListener('double-click', () => toggleWindowShow(params.mainWindow))
+      appTray.addListener('double-click', () => toggleWindowShow(params.stageWindow))
     }
   })()
 }

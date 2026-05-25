@@ -50,7 +50,7 @@ function createCustomizerWindow(options?: BrowserWindowConstructorOptions) {
 }
 
 export function setupCustomizerWindowManager(params: {
-  mainWindow: ElectronBrowserWindow
+  stageWindow: ElectronBrowserWindow
   serverChannel: ServerChannel
   i18n: I18n
 }) {
@@ -77,15 +77,15 @@ export function setupCustomizerWindowManager(params: {
     window.on('show', () => {
       emitVisibilityChanged()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Customizer window shown, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('customizer-window-state', true)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('customizer-window-state', true)
       }
     })
     window.on('hide', () => {
       emitVisibilityChanged()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Customizer window hidden, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('customizer-window-state', false)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('customizer-window-state', false)
       }
     })
 
@@ -97,8 +97,8 @@ export function setupCustomizerWindowManager(params: {
       }
       emitVisibilityChanged()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Customizer window closed, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('customizer-window-state', false)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('customizer-window-state', false)
       }
     })
 
@@ -144,7 +144,7 @@ export function setupCustomizerWindowManager(params: {
   }
 
   // Bind Eventa Invokes to this manager
-  const { context: mainContext } = createContext(ipcMain, params.mainWindow)
+  const { context: mainContext } = createContext(ipcMain, params.stageWindow)
   defineInvokeHandler(mainContext, electronCustomizerToggleVisibility, async (payload) => {
     await toggleVisibility(payload)
   })

@@ -16,7 +16,7 @@ import { isLinux } from 'std-env'
 
 import icon from '../../../../resources/icon.png?asset'
 
-import { electronStartDraggingWindow } from '../../../shared/eventa'
+import { electronControlStripSyncState, electronStartDraggingWindow } from '../../../shared/eventa'
 import { baseUrl, load, withHashRoute } from '../../libs/electron/location'
 import { ensureWindowInVisibleBounds } from '../shared/display'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
@@ -89,6 +89,30 @@ export async function setupActorStageWindow(params: {
       }
     })
   }
+
+  defineInvokeHandler(context, electronControlStripSyncState, (payload) => {
+    if (payload) {
+      const config = getConfig()
+      if (config) {
+        if (!config.windows) {
+          config.windows = []
+        }
+        const existingConfigIndex = config.windows.findIndex((w: any) => w.tag === 'actor')
+        if (existingConfigIndex !== -1) {
+          config.windows[existingConfigIndex].orientation = payload.orientation
+          params.appConfig.update(config)
+        }
+        else {
+          config.windows.push({
+            title: 'AIRI - Actor Stage',
+            tag: 'actor',
+            orientation: payload.orientation,
+          })
+          params.appConfig.update(config)
+        }
+      }
+    }
+  })
 
   function restoreBounds() {
     const config = getConfig()

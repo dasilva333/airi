@@ -25,6 +25,8 @@ import {
   electronCaptionToggleVisibility,
   electronGetCaptionWindowState,
   electronGetChatWindowState,
+  electronOpenChat,
+  electronOpenSettings,
   electronResetWindowPositions,
   electronSetIgnoreMouseEvents,
   electronShowToast,
@@ -55,11 +57,11 @@ import { setupCaptionWindowManager } from './windows/caption'
 import { setupChatWindowReusableFunc } from './windows/chat'
 import { setupCustomizerWindowManager } from './windows/customizer'
 import { setupDevtoolsWindow } from './windows/devtools'
-import { setupMainWindow } from './windows/main'
 import { setupNoticeWindowManager } from './windows/notice'
 import { setupOnboardingWindowManager } from './windows/onboarding'
 import { setupSettingsWindowReusableFunc } from './windows/settings'
 import { ensureWindowInVisibleBounds } from './windows/shared/display'
+import { toggleWindowShow } from './windows/shared/window'
 import { setStageVisibleState, setupActorStageWindow } from './windows/stage'
 import { setupWidgetsWindowManager } from './windows/widgets'
 
@@ -237,7 +239,7 @@ app.whenReady().then(async () => {
     dependsOn: { serverChannel, i18n },
     build: ({ dependsOn }) => setupOnboardingWindowManager(dependsOn),
   })
-  const noticeWindow = injeca.provide('windows:notice', {
+  injeca.provide('windows:notice', {
     dependsOn: { i18n, serverChannel },
     build: ({ dependsOn }) => setupNoticeWindowManager(dependsOn),
   })
@@ -267,23 +269,18 @@ app.whenReady().then(async () => {
     build: async ({ dependsOn }) => setupActorStageWindow(dependsOn),
   })
 
-  const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { settingsWindow, stageWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, mcpStdioManager, i18n, onboardingWindowManager, appConfig },
-    build: async ({ dependsOn }) => setupMainWindow(dependsOn),
-  })
-
   const captionWindow = injeca.provide('windows:caption', {
-    dependsOn: { mainWindow, stageWindow, serverChannel, i18n, appConfig },
+    dependsOn: { stageWindow, serverChannel, i18n, appConfig },
     build: async ({ dependsOn }) => setupCaptionWindowManager(dependsOn),
   })
 
   const customizerWindow = injeca.provide('windows:customizer', {
-    dependsOn: { mainWindow, serverChannel, i18n },
+    dependsOn: { stageWindow, serverChannel, i18n },
     build: async ({ dependsOn }) => setupCustomizerWindowManager(dependsOn),
   })
 
   const tray = injeca.provide('app:tray', {
-    dependsOn: { mainWindow, settingsWindow, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig },
+    dependsOn: { stageWindow, settingsWindow, captionWindow, widgetsWindow: widgetsManager, serverChannel, beatSyncBgWindow: beatSync, aboutWindow, i18n, appConfig },
     build: async ({ dependsOn }) => {
       const configHelper = dependsOn.appConfig
       return setupTray({
@@ -295,13 +292,13 @@ app.whenReady().then(async () => {
   })
 
   injeca.invoke({
-    dependsOn: { mainWindow, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, chatWindow, customizerWindow },
+    dependsOn: { tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, chatWindow, customizerWindow, settingsWindow },
     callback: (deps) => {
       const context = createContext(ipcMain).context
       createServerChannelService({ serverChannel: deps.serverChannel })
       createMcpServersService({ context, manager: deps.mcpStdioManager })
-      createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
-      createMicToggleService({ context, window: deps.mainWindow })
+      createI18nService({ context, window: deps.stageWindow, i18n: deps.i18n })
+      createMicToggleService({ context, window: deps.stageWindow })
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
@@ -373,6 +370,27 @@ app.whenReady().then(async () => {
         }
       })
 
+      defineInvokeHandler(context, electronOpenSettings, async (payload) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Open settings triggered:', payload?.route)
+        await deps.settingsWindow.openWindow(payload?.route)
+      })
+      defineInvokeHandler(context, electronOpenChat, async (enabled?: boolean) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Open chat triggered:', enabled)
+        const win = await deps.chatWindow()
+        if (win && !win.isDestroyed()) {
+          if (enabled === undefined) {
+            toggleWindowShow(win)
+          }
+          else if (enabled) {
+            win.show()
+            win.focus()
+          }
+          else {
+            win.hide()
+          }
+        }
+      })
+
       defineInvokeHandler(context, electronShowToast, async (payload) => {
         if (!payload)
           return
@@ -381,10 +399,6 @@ app.whenReady().then(async () => {
         if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
           targetWin = deps.stageWindow
         }
-        if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
-          targetWin = deps.mainWindow
-        }
-
         if (targetWin && !targetWin.isDestroyed()) {
           const { context: winContext, dispose } = createContext(ipcMain, targetWin)
           winContext.emit(electronShowToastEvent, payload)
@@ -534,17 +548,6 @@ app.whenReady().then(async () => {
         const primaryDisplay = screen.getPrimaryDisplay()
         const workArea = primaryDisplay.workArea
 
-        const orientation = deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'main')?.orientation || 'vertical'
-        const mainW = orientation === 'vertical' ? 56 : 300
-        const mainH = orientation === 'vertical' ? 300 : 56
-
-        const mainBounds = ensureWindowInVisibleBounds({
-          x: Math.round(workArea.x + (workArea.width - mainW) / 2),
-          y: Math.round(workArea.y + (workArea.height - mainH) / 2),
-          width: mainW,
-          height: mainH,
-        })
-
         const actorBounds = ensureWindowInVisibleBounds({
           x: Math.round(workArea.x + (workArea.width - 450) / 2),
           y: Math.round(workArea.y + (workArea.height - 600) / 2),
@@ -587,7 +590,6 @@ app.whenReady().then(async () => {
               })
             }
           }
-          updateWin('main', mainBounds, { orientation })
           updateWin('actor', actorBounds)
           updateWin('chat', chatBounds)
           updateWin('caption', captionBounds)
@@ -595,9 +597,6 @@ app.whenReady().then(async () => {
           deps.appConfig.update(appConfig)
         }
 
-        if (deps.mainWindow && !deps.mainWindow.isDestroyed()) {
-          deps.mainWindow.setBounds(mainBounds)
-        }
         if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
           deps.stageWindow.setBounds(actorBounds)
         }
@@ -631,11 +630,11 @@ app.whenReady().then(async () => {
         }
       }
 
-      if (deps.mainWindow.isVisible()) {
+      if (deps.stageWindow.isVisible()) {
         restoreCaption()
       }
       else {
-        deps.mainWindow.once('ready-to-show', restoreCaption)
+        deps.stageWindow.once('ready-to-show', restoreCaption)
       }
 
       import('./libs/bootkit/lifecycle').then((m) => {
