@@ -21,12 +21,10 @@
     "@vitest/coverage-v8": "catalog:vitest",
     "bumpp": "^10.4.1",
     "knip": "catalog:",
-    "nano-staged": "catalog:",
     "oxlint": "^1.50.0",
     "posthog-js": "catalog:",
     "publint": "^0.3.17",
     "rollup": "^4.59.0",
-    "simple-git-hooks": "^2.13.1",
     "smol-toml": "^1.6.0",
     "taze": "^19.9.2",
     "tinyexec": "^1.0.2",
@@ -52,9 +50,6 @@
   },
   "license": "MIT",
   "name": "@proj-airi/root",
-  "nano-staged": {
-    "*": "biome check --write --changed"
-  },
   "packageManager": "pnpm@10.32.1",
   "private": true,
   "scripts": {
@@ -82,15 +77,12 @@
     "lint:swift": "pnpm -rF @proj-airi/stage-pocket run lint:swift",
     "nolyfill": "pnpm dlx nolyfill",
     "open:ios": "pnpm -rF @proj-airi/stage-pocket run open:ios",
-    "postinstall": "npx simple-git-hooks && pnpm run build:packages",
+    "postinstall": "pnpm run build:packages",
     "test": "vitest --coverage",
     "test:run": "vitest run",
     "to-avif": "tsx docs/scripts/avif.ts",
     "typecheck": "pnpm -rF=\"./packages/*\" -F=\"./apps/*\" -F=\"./docs\" --parallel typecheck",
     "up": "taze -w -r -I && pnpm prune && pnpm dedupe"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "pnpm nano-staged"
   },
   "type": "module",
   "version": "0.9.1-stable.20260506",
