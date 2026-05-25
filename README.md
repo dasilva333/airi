@@ -14,6 +14,15 @@
 
 <h1 align="center">Project AIRI</h1>
 
+<p align="center">
+  <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=code+coverage&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
+  <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=active+issues&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
+  <a href="https://app.deepsource.com/gh/vi70x3/airi/" target="_blank"><img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/vi70x3/airi.svg/?label=resolved+issues&show_trend=true&token=O2sp1SX3FmVsFAAVoblq8GBt"/></a>
+  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20members&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
+  <a href="https://x.com/proj_airi"><img src="https://img.shields.io/badge/%40proj__airi-black?style=flat&logo=x&labelColor=%23101419&color=%232d2e30"></a>
+  <a href="https://t.me/+7M_ZKO3zUHFlOThh"><img src="https://img.shields.io/badge/Telegram-%235AA9E6?logo=telegram&labelColor=FFFFFF"></a>
+</p>
+
 <p align="center">Re-creating Neuro-sama, a soul container of AI waifu / virtual characters to bring them into our world.</p>
 
 <p align="center">
@@ -124,22 +133,14 @@ Overall, the fork is trying to turn AIRI from an interesting base project into s
 
 If you want the running journal for what is actively being built, refined, and thought through in this fork, start with [`docs/AIRI_PROGRESS.md`](./docs/AIRI_PROGRESS.md). For the selective upstream strategy used here, see [`docs/PR/Selective Upstream Sync.md`](./docs/PR/Selective%20Upstream%20Sync.md).
 
+<!--
 <p align="center">
-  [<a href="https://discord.gg/TgQ3Cu2F7A">Join Discord Server</a>] [<a href="https://airi.moeru.ai">Try it</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
+[<a href="https://airi.moeru.ai">Try it</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.zh-CN.md">ç®€ä½“ä¸­æ–‡</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ja-JP.md">æ—¥æœ¬èªž</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ru-RU.md">Ð ÑƒÑÑÐºÐ¸Ð¹</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.vi.md">Tiáº¿ng Viá»‡t</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.fr.md">FranÃ§ais</a>] [<a href="https://github.com/moeru-ai/airi/blob/main/docs/README.ko-KR.md">í•œêµ­ì–´</a>]
 </p>
+-->
 
-<p align="center">
-  <a href="https://deepwiki.com/moeru-ai/airi"><img src="https://deepwiki.com/badge.svg"></a>
-  <a href="https://github.com/moeru-ai/airi/blob/main/LICENSE"><img src="https://img.shields.io/github/license/moeru-ai/airi.svg?style=flat&colorA=080f12&colorB=1fa669"></a>
-  <a href="https://discord.gg/TgQ3Cu2F7A"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Finvites%2FTgQ3Cu2F7A%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&suffix=%20members&logo=discord&logoColor=white&label=%20&color=7389D8&labelColor=6A7EC2"></a>
-  <a href="https://x.com/proj_airi"><img src="https://img.shields.io/badge/%40proj__airi-black?style=flat&logo=x&labelColor=%23101419&color=%232d2e30"></a>
-  <a href="https://t.me/+7M_ZKO3zUHFlOThh"><img src="https://img.shields.io/badge/Telegram-%235AA9E6?logo=telegram&labelColor=FFFFFF"></a>
-  <a href="./docs/wechat.md"><img src="https://img.shields.io/badge/WeChat-%2307C160?logo=wechat&logoColor=%2307C160&labelColor=FFFFFF"></a>
-  <a href="https://qun.qq.com/universal-share/share?ac=1&authKey=9g00d%2BZS7nORzcJugNNddJ7rCghZTIR7fhXabGwch2S%2BG%2BKGIKwlN1N2nIqkh2jg&busi_data=eyJncm91cENvZGUiOiIxMDU4MTU2Njk3IiwidG9rZW4iOiJmcnkra1hWNFIxNytEcG0zcHRUdVJIaldlRDFxN0dzK080QWtvTEdOQjJkNEY2eUFta1g1clNpbkxSMS9FQWFYIiwidWluIjoiMTI2MDkwNzMzNSJ9&data=b1eJrwn3GVOUh7YIxZ7l9vHQo99HPmRxKPpMKlDCmfzx8Y57IXb2EZCMaOC9rVTd2U558qpNjwUYUWlPHxVHvg&svctype=4&tempid=h5_group_info"><img src="https://img.shields.io/badge/QQ-%2312B7F5?logo=qq&labelColor=FFFFFF"></a>
-</p>
-
+<!--
 <p float="left" align="center">
-  <!-- readme-section:release-binary-windows -->
   <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.2-stable.20260522/AIRI-0.9.2-stable.20260522-windows-x64-setup.exe">
     <picture>
       <source
@@ -155,7 +156,6 @@ If you want the running journal for what is actively being built, refined, and t
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.windows.light.en-US.avif" />
     </picture>
   </a>
-  <!-- readme-section:release-binary-macos -->
   <a href="https://github.com/moeru-ai/airi/releases/download/v0.9.2-stable.20260522/AIRI-0.9.2-stable.20260522-darwin-arm64.dmg">
     <picture>
       <source
@@ -219,26 +219,12 @@ If you want the running journal for what is actively being built, refined, and t
     </picture>
   </a>
 </p>
+-->
 
 <p align="center">
   <a href="https://www.producthunt.com/products/airi?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-airi" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=993524&theme=neutral&t=1752696535380" alt="AIRI - A&#0032;container&#0032;of&#0032;cyber&#0032;living&#0032;souls&#0044;&#0032;re&#0045;creation&#0032;of&#0032;Neuro&#0045;sama | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
   <a href="https://trendshift.io/repositories/14636" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14636" alt="moeru-ai%2Fairi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
-
-> Heavily inspired by [Neuro-sama](https://www.youtube.com/@Neurosama)
-
-> [!WARNING]
-> **Attention:** We **do not** have any officially minted cryptocurrency or token associated with this project. Please check the information and proceed with caution.
-
-> [!NOTE]
->
-> We've got a whole dedicated organization [@proj-airi](https://github.com/proj-airi) for all the sub-projects born from Project AIRI. Check it out!
->
-> RAG, memory system, embedded database, icons, Live2D utilities, and more!
-
-> [!TIP]
-> We have a translation project on [Crowdin](https://crowdin.com/project/proj-airi). If you find any inaccurate translations, feel free to contribute improvements there.
-> <a href="https://crowdin.com/project/proj-airi" target="_blank" rel="nofollow"><img style="width: 140px; height: 40px;" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x, https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" width="140" height="40" /></a>
 
 Have you dreamed about having a cyber living being (cyber waifu, digital pet) or digital companion that could play with and talk to you?
 
