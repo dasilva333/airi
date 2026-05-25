@@ -35,7 +35,7 @@ import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
-import type ControlStrip from '../scenarios/layout/ControlStrip.vue'
+import ControlStrip from '../scenarios/layout/ControlStrip.vue'
 
 withDefaults(
   defineProps<{
@@ -490,7 +490,7 @@ function resolveOpenAIVoice(
   return createDefaultVoice(activeProvider, configVoice || 'alloy')
 }
 
-async function resolveModelAndVoice(providerConfig: Record<string, unknown> | undefined) {
+function resolveModelAndVoice(providerConfig: Record<string, unknown> | undefined) {
   let model = activeSpeechModel.value
   let voice = activeSpeechVoice.value
 
@@ -563,7 +563,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (!request.text && !request.special) return null
 
     const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
-    const { model, voice } = await resolveModelAndVoice(providerConfig)
+    const { model, voice } = resolveModelAndVoice(providerConfig)
 
     if (!model || !voice) return null
 
