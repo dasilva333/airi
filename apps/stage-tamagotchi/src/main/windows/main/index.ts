@@ -102,6 +102,13 @@ export async function setupMainWindow(params: {
     } catch {}
   }
 
+  // Always allow F12 to toggle dev tools, regardless of build mode
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      window.webContents.toggleDevTools()
+    }
+  })
+
   function restoreBounds() {
     const mainWindow = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
     const x = mainWindow?.x ?? mainWindow?.snapshot?.x
