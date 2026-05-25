@@ -1,24 +1,20 @@
-import type { GenerateTextOptions } from '@xsai/generate-text'
-import type { Message as LLMMessage } from '@xsai/shared-chat'
-
-import type { SatoriEvent } from '../../adapter/satori/types'
-import type { Action, StoredUnreadEvent } from '../types'
-
 import { useLogg } from '@guiiai/logg'
+import type { GenerateTextOptions } from '@xsai/generate-text'
 import { generateText } from '@xsai/generate-text'
+import type { Message as LLMMessage } from '@xsai/shared-chat'
 import { message } from '@xsai/utils-chat'
 import { parse } from 'best-effort-json-parser'
-
 import * as v from 'valibot'
-
+import type { SatoriEvent } from '../../adapter/satori/types'
 import { config } from '../../config'
+import type { Action, StoredUnreadEvent } from '../types'
 import { ActionSchema } from '../types'
 import { personality, systemPrompt } from './prompts/index'
 
 export async function imagineAnAction(
   currentAbortController: AbortController | undefined,
   messages: LLMMessage[],
-  actions: { action: Action, result: unknown }[],
+  actions: { action: Action; result: unknown }[],
   globalStates: {
     unreadEvents: Record<string, StoredUnreadEvent[]>
     incomingEvents?: SatoriEvent[]
@@ -29,43 +25,46 @@ export async function imagineAnAction(
   let responseText = ''
 
   const requestMessages = message.messages(
-    message.system(
-      [
-        await systemPrompt(),
-        await personality(),
-      ].join('\n\n'),
-    ),
+    message.system([await systemPrompt(), await personality()].join('\n\n')),
     ...messages,
     message.user(
       [
         globalStates?.incomingEvents?.length > 0
-          ? `Incoming events:\n${globalStates.incomingEvents.filter(Boolean).map(event =>
-            `- [${event.channel?.name || event.channel?.id}] ${event.user?.name || event.user?.id}: ${event.message?.content || '[No content]'}`,
-          ).join('\n')}`
+          ? `Incoming events:\n${globalStates.incomingEvents
+              .filter(Boolean)
+              .map(
+                (event) =>
+                  `- [${event.channel?.name || event.channel?.id}] ${event.user?.name || event.user?.id}: ${event.message?.content || '[No content]'}`,
+              )
+              .join('\n')}`
           : '',
         'History actions:',
-        actions.map(a => `- Action: ${JSON.stringify(a.action)}, Result: ${JSON.stringify(a.result)}`).join('\n'),
+        actions.map((a) => `- Action: ${JSON.stringify(a.action)}, Result: ${JSON.stringify(a.result)}`).join('\n'),
         `Currently, it's ${new Date()} on the server that hosts you.`,
         `You have total ${Object.values(globalStates.unreadEvents).reduce((acc, cur) => acc + cur.length, 0)} unread events.`,
         'Unread events count are:',
-        Object.entries(globalStates.unreadEvents).map(([key, value]) => `Channel ID:${key}, Unread event count:${value.length}`).join('\n'),
+        Object.entries(globalStates.unreadEvents)
+          .map(([key, value]) => `Channel ID:${key}, Unread event count:${value.length}`)
+          .join('\n'),
         'Based on the context, what do you want to do? Choose a right action from the listing of the tools you want to take next.',
         'Respond with the action and parameters you choose in JSON only, without any explanation and markups.',
-      ].filter(Boolean).join('\n\n'),
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
     ),
   )
 
   try {
     const req = {
+      abortSignal: currentAbortController?.signal,
       apiKey: config.llm.apiKey,
       baseURL: config.llm.baseUrl,
-      model: config.llm.model,
       messages: requestMessages,
-      abortSignal: currentAbortController?.signal,
+      model: config.llm.model,
     } satisfies GenerateTextOptions
 
     if (config.llm.ollamaDisableThink) {
-      (req as Record<string, unknown>).think = false
+      ;(req as Record<string, unknown>).think = false
     }
 
     const res = await generateText(req)
@@ -75,14 +74,18 @@ export async function imagineAnAction(
       throw new Error('No response text')
     }
 
-    logger.withFields({
-      response: res.text,
-      unreadEvents: Object.fromEntries(Object.entries(globalStates.unreadEvents).map(([key, value]) => [key, value.length])),
-      now: new Date().toLocaleString(),
-      totalTokens: res.usage.total_tokens,
-      promptTokens: res.usage.prompt_tokens,
-      completion_tokens: res.usage.completion_tokens,
-    }).log('Generated action')
+    logger
+      .withFields({
+        completion_tokens: res.usage.completion_tokens,
+        now: new Date().toLocaleString(),
+        promptTokens: res.usage.prompt_tokens,
+        response: res.text,
+        totalTokens: res.usage.total_tokens,
+        unreadEvents: Object.fromEntries(
+          Object.entries(globalStates.unreadEvents).map(([key, value]) => [key, value.length]),
+        ),
+      })
+      .log('Generated action')
 
     responseText = res.text
       .replace(/^```(?:json)?\s*/m, '')
@@ -106,8 +109,7 @@ export async function imagineAnAction(
 
     const validated = v.parse(ActionSchema, actionToValidate)
     return validated
-  }
-  catch (err) {
+  } catch (err) {
     const error = err as Error
 
     // Check for API key errors
@@ -115,12 +117,10 @@ export async function imagineAnAction(
       logger.error('❌ LLM API Key Error: Please check your .env.local file and ensure LLM_API_KEY is set correctly.')
       logger.error(`   Current LLM_API_BASE_URL: ${config.llm.baseUrl}`)
       logger.error(`   Current LLM_MODEL: ${config.llm.model}`)
-    }
-    else if (error.message?.includes('LLM_')) {
+    } else if (error.message?.includes('LLM_')) {
       // Configuration error
       logger.error(`❌ Configuration Error: ${error.message}`)
-    }
-    else {
+    } else {
       logger.withError(error).log('Failed to generate action')
     }
 

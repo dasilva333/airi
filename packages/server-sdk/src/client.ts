@@ -1,3 +1,4 @@
+import { sleep } from '@moeru/std'
 import type {
   MetadataEventSource,
   ModuleConfigSchema,
@@ -7,15 +8,9 @@ import type {
   WebSocketEventOptionalSource,
   WebSocketEvents,
 } from '@proj-airi/server-shared/types'
-
+import { MessageHeartbeat, MessageHeartbeatKind } from '@proj-airi/server-shared/types'
 import WebSocket from 'crossws/websocket'
 import superjson from 'superjson'
-
-import { sleep } from '@moeru/std'
-import {
-  MessageHeartbeat,
-  MessageHeartbeatKind,
-} from '@proj-airi/server-shared/types'
 
 export interface ClientOptions<C = undefined> {
   url?: string
@@ -66,29 +61,29 @@ export class Client<C = undefined> {
 
   constructor(options: ClientOptions<C>) {
     const identity = options.identity ?? {
+      id: createInstanceId(),
       kind: 'plugin',
       plugin: { id: options.name },
-      id: createInstanceId(),
     }
 
     this.opts = {
-      url: 'ws://localhost:6121/ws',
-      onAnyMessage: () => {},
-      onAnySend: () => {},
-      possibleEvents: [],
-      dependencies: [],
-      configSchema: undefined,
-      onError: () => {},
-      onClose: () => {},
       autoConnect: true,
       autoReconnect: true,
-      maxReconnectAttempts: -1,
-      heartbeat: {
-        readTimeout: 30_000,
-        message: MessageHeartbeat.Ping,
-      },
       caller: undefined,
+      configSchema: undefined,
+      dependencies: [],
+      heartbeat: {
+        message: MessageHeartbeat.Ping,
+        readTimeout: 30_000,
+      },
+      maxReconnectAttempts: -1,
+      onAnyMessage: () => {},
+      onAnySend: () => {},
+      onClose: () => {},
+      onError: () => {},
+      possibleEvents: [],
       purpose: undefined,
+      url: 'ws://localhost:6121/ws',
       ...options,
       identity,
     }
@@ -99,8 +94,7 @@ export class Client<C = undefined> {
     this.onEvent('module:authenticated', async (event) => {
       if (event.data.authenticated) {
         this.tryAnnounce()
-      }
-      else {
+      } else {
         await this.retryWithExponentialBackoff(() => this.tryAuthenticate())
       }
     })
@@ -136,8 +130,7 @@ export class Client<C = undefined> {
       try {
         await fn()
         return
-      }
-      catch (err) {
+      } catch (err) {
         this.opts.onError?.(err)
         const delay = Math.min(2 ** attempts * 1000, 30_000) // capped exponential backoff
         await sleep(delay)
@@ -167,8 +160,7 @@ export class Client<C = undefined> {
       let settled = false
 
       const settle = (fn: () => void) => {
-        if (settled)
-          return
+        if (settled) return
 
         settled = true
         this.connecting = false
@@ -233,10 +225,8 @@ export class Client<C = undefined> {
 
           this.startHeartbeat()
 
-          if (this.opts.token)
-            this.tryAuthenticate()
-          else
-            this.tryAnnounce()
+          if (this.opts.token) this.tryAuthenticate()
+          else this.tryAnnounce()
 
           resolve()
         })
@@ -261,26 +251,26 @@ export class Client<C = undefined> {
 
   private tryAnnounce() {
     this.send({
-      type: 'module:announce',
       data: {
-        name: this.opts.name,
-        identity: this.identity,
-        possibleEvents: this.opts.possibleEvents,
-        dependencies: this.opts.dependencies,
         configSchema: this.opts.configSchema,
+        dependencies: this.opts.dependencies,
+        identity: this.identity,
+        name: this.opts.name,
+        possibleEvents: this.opts.possibleEvents,
       },
+      type: 'module:announce',
     })
   }
 
   private tryAuthenticate() {
     if (this.opts.token) {
       this.send({
-        type: 'module:authenticate',
         data: {
-          token: this.opts.token,
           caller: this.opts.caller,
           purpose: this.opts.purpose,
+          token: this.opts.token,
         },
+        type: 'module:authenticate',
       })
     }
   }
@@ -296,9 +286,8 @@ export class Client<C = undefined> {
       // for external clients that send standard JSON-encoded messages.
       const raw = event.data as string
       const parsed = superjson.parse<WebSocketEvent<C> | undefined>(raw)
-      const data = (parsed && typeof parsed === 'object' && 'type' in parsed)
-        ? parsed
-        : JSON.parse(raw) as WebSocketEvent<C>
+      const data =
+        parsed && typeof parsed === 'object' && 'type' in parsed ? parsed : (JSON.parse(raw) as WebSocketEvent<C>)
       if (!data || typeof data !== 'object' || !('type' in data)) {
         console.warn('Received empty message')
         return
@@ -317,8 +306,7 @@ export class Client<C = undefined> {
       }
 
       await Promise.allSettled(executions)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to parse message:', err)
       this.opts.onError?.(err)
     }
@@ -350,8 +338,7 @@ export class Client<C = undefined> {
       if (!listeners.size) {
         this.eventListeners.delete(event)
       }
-    }
-    else {
+    } else {
       this.eventListeners.delete(event)
     }
   }
@@ -362,11 +349,11 @@ export class Client<C = undefined> {
         ...data,
         metadata: {
           ...data?.metadata,
-          source: data?.metadata?.source ?? this.identity,
           event: {
             id: data?.metadata?.event?.id ?? createEventId(),
             ...data?.metadata?.event,
           },
+          source: data?.metadata?.source ?? this.identity,
         },
       } as WebSocketEvent<C>
 
@@ -421,39 +408,37 @@ export class Client<C = undefined> {
 
     if (kind === 'ping') {
       websocket.ping?.()
-    }
-    else {
+    } else {
       websocket.pong?.()
     }
   }
 
   private sendHeartbeatPing() {
     this.send({
-      type: 'transport:connection:heartbeat',
       data: {
+        at: Date.now(),
         kind: MessageHeartbeatKind.Ping,
         message: this.opts.heartbeat?.message ?? MessageHeartbeat.Ping,
-        at: Date.now(),
       },
+      type: 'transport:connection:heartbeat',
     })
     this.sendNativeHeartbeat('ping')
   }
 
   private sendHeartbeatPong() {
     this.send({
-      type: 'transport:connection:heartbeat',
       data: {
+        at: Date.now(),
         kind: MessageHeartbeatKind.Pong,
         message: MessageHeartbeat.Pong,
-        at: Date.now(),
       },
+      type: 'transport:connection:heartbeat',
     })
     this.sendNativeHeartbeat('pong')
   }
 
   private async _reconnectDueToUnauthorized() {
-    if (this.shouldClose)
-      return
+    if (this.shouldClose) return
 
     const ws = this.websocket
     this.connected = false

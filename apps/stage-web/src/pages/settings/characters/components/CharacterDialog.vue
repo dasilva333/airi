@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import type { Character, CreateCharacterPayload } from '@proj-airi/stage-ui/types/character'
-
 import { useCharacterStore } from '@proj-airi/stage-ui/stores/characters'
+import type { Character, CreateCharacterPayload } from '@proj-airi/stage-ui/types/character'
 import { CreateCharacterSchema } from '@proj-airi/stage-ui/types/character'
 import { Button, FieldInput } from '@proj-airi/ui'
-import {
-  DialogContent,
-  DialogOverlay,
-  DialogPortal,
-  DialogRoot,
-  DialogTitle,
-} from 'reka-ui'
+import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { safeParse } from 'valibot'
 import { computed, reactive, ref, watch } from 'vue'
 
@@ -30,52 +23,55 @@ const characterStore = useCharacterStore()
 // Form State
 const form = reactive({
   characterId: '',
-  version: '1.0.0',
   coverUrl: '',
-  name: '',
   description: '',
 
   // Capability: LLM
   llmModel: '',
   llmTemperature: 0.7,
+  name: '',
+  ttsSpeed: 1.0,
 
   // Capability: TTS
   ttsVoiceId: '',
-  ttsSpeed: 1.0,
+  version: '1.0.0',
 })
 
 // Initialize form when character prop changes or dialog opens
-watch(() => props.character, (char) => {
-  if (char) {
-    const i18n = char.i18n?.find(i => i.language === 'en') || char.i18n?.[0]
-    const llm = char.capabilities?.find(c => c.type === 'llm')
-    const tts = char.capabilities?.find(c => c.type === 'tts')
+watch(
+  () => props.character,
+  (char) => {
+    if (char) {
+      const i18n = char.i18n?.find((i) => i.language === 'en') || char.i18n?.[0]
+      const llm = char.capabilities?.find((c) => c.type === 'llm')
+      const tts = char.capabilities?.find((c) => c.type === 'tts')
 
-    form.characterId = char.characterId
-    form.version = char.version
-    form.coverUrl = char.coverUrl
-    form.name = i18n?.name || ''
-    form.description = i18n?.description || ''
+      form.characterId = char.characterId
+      form.version = char.version
+      form.coverUrl = char.coverUrl
+      form.name = i18n?.name || ''
+      form.description = i18n?.description || ''
 
-    form.llmModel = llm?.config.llm?.model || ''
-    form.llmTemperature = llm?.config.llm?.temperature || 0.7
+      form.llmModel = llm?.config.llm?.model || ''
+      form.llmTemperature = llm?.config.llm?.temperature || 0.7
 
-    form.ttsVoiceId = tts?.config.tts?.voiceId || ''
-    form.ttsSpeed = tts?.config.tts?.speed || 1.0
-  }
-  else {
-    // Reset defaults
-    form.characterId = ''
-    form.version = '1.0.0'
-    form.coverUrl = ''
-    form.name = ''
-    form.description = ''
-    form.llmModel = 'gpt-4o-mini'
-    form.llmTemperature = 0.7
-    form.ttsVoiceId = ''
-    form.ttsSpeed = 1.0
-  }
-}, { immediate: true })
+      form.ttsVoiceId = tts?.config.tts?.voiceId || ''
+      form.ttsSpeed = tts?.config.tts?.speed || 1.0
+    } else {
+      // Reset defaults
+      form.characterId = ''
+      form.version = '1.0.0'
+      form.coverUrl = ''
+      form.name = ''
+      form.description = ''
+      form.llmModel = 'gpt-4o-mini'
+      form.llmTemperature = 0.7
+      form.ttsVoiceId = ''
+      form.ttsSpeed = 1.0
+    }
+  },
+  { immediate: true },
+)
 
 const errors = ref<Record<string, string>>({})
 const isSubmitting = ref(false)
@@ -86,44 +82,46 @@ async function handleSubmit() {
 
   // Construct Payload
   const payload: CreateCharacterPayload = {
-    character: {
-      characterId: form.characterId,
-      version: form.version,
-      coverUrl: form.coverUrl,
-    },
-    i18n: [{
-      language: 'en',
-      name: form.name,
-      description: form.description,
-      tags: [],
-    }],
+    avatarModels: [], // TODO: Add avatar model support
     capabilities: [
       {
-        type: 'llm',
         config: {
-          apiKey: '', // TODO: Handle secrets
           apiBaseUrl: '',
+          apiKey: '', // TODO: Handle secrets
           llm: {
             model: form.llmModel,
             temperature: form.llmTemperature,
           },
         },
+        type: 'llm',
       },
       {
-        type: 'tts',
         config: {
-          apiKey: '',
           apiBaseUrl: '',
+          apiKey: '',
           tts: {
-            voiceId: form.ttsVoiceId,
+            pitch: 1.0,
             speed: form.ttsSpeed,
             ssml: '',
-            pitch: 1.0,
+            voiceId: form.ttsVoiceId,
           },
         },
+        type: 'tts',
       },
     ],
-    avatarModels: [], // TODO: Add avatar model support
+    character: {
+      characterId: form.characterId,
+      coverUrl: form.coverUrl,
+      version: form.version,
+    },
+    i18n: [
+      {
+        description: form.description,
+        language: 'en',
+        name: form.name,
+        tags: [],
+      },
+    ],
     prompts: [], // TODO: Add prompt support
   }
 
@@ -132,7 +130,7 @@ async function handleSubmit() {
   if (!result.success) {
     // Simple error mapping
     result.issues.forEach((issue) => {
-      const path = issue.path?.map(p => p.key).join('.') || 'global'
+      const path = issue.path?.map((p) => p.key).join('.') || 'global'
       errors.value[path] = issue.message
     })
     isSubmitting.value = false
@@ -149,8 +147,8 @@ async function handleSubmit() {
       // Actually, let's just use create for new and warn for edit.
       await characterStore.update(props.character.id, {
         characterId: form.characterId,
-        version: form.version,
         coverUrl: form.coverUrl,
+        version: form.version,
       })
       // Capabilities/I18n update not supported in simple UpdateCharacterSchema yet?
       // Checking types/character.ts: UpdateCharacterSchema only has version, coverUrl, characterId.
@@ -159,18 +157,15 @@ async function handleSubmit() {
       // The backend `update` endpoint only updates the `character` table fields.
       // To update relations, we'd need specific endpoints or a smarter update endpoint.
       // I will only update basic info for now.
-    }
-    else {
+    } else {
       await characterStore.create(payload)
     }
     emit('submit')
     emit('update:modelValue', false)
-  }
-  catch (err) {
+  } catch (err) {
     console.error(err)
     // Handle API errors
-  }
-  finally {
+  } finally {
     isSubmitting.value = false
   }
 }
@@ -178,14 +173,14 @@ async function handleSubmit() {
 // Tab State
 const activeTab = ref('identity')
 const tabs = [
-  { id: 'identity', label: 'Identity', icon: 'i-solar:user-id-bold-duotone' },
-  { id: 'capabilities', label: 'Capabilities', icon: 'i-solar:cpu-bolt-bold-duotone' },
+  { icon: 'i-solar:user-id-bold-duotone', id: 'identity', label: 'Identity' },
+  { icon: 'i-solar:cpu-bolt-bold-duotone', id: 'capabilities', label: 'Capabilities' },
   // { id: 'models', label: 'Models', icon: 'i-solar:box-minimalistic-bold-duotone' },
 ]
 
 const isOpen = computed({
   get: () => props.modelValue,
-  set: val => emit('update:modelValue', val),
+  set: (val) => emit('update:modelValue', val),
 })
 </script>
 

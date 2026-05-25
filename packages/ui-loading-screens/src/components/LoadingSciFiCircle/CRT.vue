@@ -3,20 +3,23 @@ import { nextTick, ref } from 'vue'
 
 import BarrelDistortionMap from './assets/barrel_distortion_map.avif'
 
-const props = withDefaults(defineProps<{
-  blinkSpeed?: string
-  flashFrequency?: string
-  glitchOffset?: string
-  blurAmount?: string
-  glitchAmplitude?: string
-  barrelDistortion?: boolean
-}>(), {
-  blinkSpeed: '2s',
-  flashFrequency: '0.06s',
-  glitchOffset: '1px',
-  blurAmount: '0.8px',
-  glitchAmplitude: '20deg',
-})
+const props = withDefaults(
+  defineProps<{
+    blinkSpeed?: string
+    flashFrequency?: string
+    glitchOffset?: string
+    blurAmount?: string
+    glitchAmplitude?: string
+    barrelDistortion?: boolean
+  }>(),
+  {
+    blinkSpeed: '2s',
+    blurAmount: '0.8px',
+    flashFrequency: '0.06s',
+    glitchAmplitude: '20deg',
+    glitchOffset: '1px',
+  },
+)
 
 const scrollContainerRef = ref<HTMLDivElement>()
 

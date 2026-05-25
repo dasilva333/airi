@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import type { VoiceInfo } from '../../../stores/providers'
-
 import { FieldCheckbox, FieldSelect } from '@proj-airi/ui'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import SpeechStreamingPlayground from './speech-streaming-playground.vue'
-
+import type { VoiceInfo } from '../../../stores/providers'
 import { TestDummyMarker } from '../../gadgets'
+import SpeechStreamingPlayground from './speech-streaming-playground.vue'
 
 const props = defineProps<{
   // Input fields
@@ -46,9 +43,9 @@ watch(
 )
 
 const voiceOptions = computed(() => {
-  return props.availableVoices.map(voice => ({
-    value: voice.id,
+  return props.availableVoices.map((voice) => ({
     label: voice.name,
+    value: voice.id,
   }))
 })
 
@@ -79,12 +76,10 @@ async function handleGenerateTestSpeech() {
         audioPlayer.value.play()
       }
     }, 100)
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error generating speech:', error)
     errorMessage.value = error instanceof Error ? error.message : 'An unknown error occurred'
-  }
-  finally {
+  } finally {
     isGenerating.value = false
   }
 }
@@ -112,16 +107,16 @@ onUnmounted(() => {
 
 // Expose public methods and state
 defineExpose({
-  testText,
-  ssmlText,
-  useSSML,
-  selectedVoice,
-  isGenerating,
+  audioPlayer,
   audioUrl,
   errorMessage,
-  audioPlayer,
   generateTestSpeech: handleGenerateTestSpeech,
+  isGenerating,
+  selectedVoice,
+  ssmlText,
   stopTestAudio,
+  testText,
+  useSSML,
 })
 </script>
 

@@ -8,9 +8,9 @@ import type { CharacterCardV3 } from './types/character_card_v3'
  */
 export function exportToJSON(data: Card): CharacterCardV3 {
   return {
+    data: createCardData(data),
     spec: 'chara_card_v3',
     spec_version: '3.0',
-    data: createCardData(data),
   }
 }
 
@@ -21,23 +21,23 @@ export function exportToJSON(data: Card): CharacterCardV3 {
  */
 function createCardData(data: Card): CharacterCardV3['data'] {
   return {
-    name: data.name,
-    nickname: data.nickname,
-    description: data.description ?? '',
-    personality: data.personality ?? '',
-    scenario: data.scenario ?? '',
-    first_mes: data.greetings?.[0] ?? '',
     alternate_greetings: data.greetings?.slice(1) ?? [],
-    group_only_greetings: data.greetingsGroupOnly ?? [],
     character_version: data.version,
     creator: data.creator ?? '',
     creator_notes: data.notes ?? '',
     creator_notes_multilingual: data.notesMultilingual,
-    system_prompt: data.systemPrompt ?? '',
-    post_history_instructions: data.postHistoryInstructions ?? '',
-    mes_example: formatMessageExample(data.messageExample),
-    tags: data.tags ?? [],
+    description: data.description ?? '',
     extensions: createExtensions(data),
+    first_mes: data.greetings?.[0] ?? '',
+    group_only_greetings: data.greetingsGroupOnly ?? [],
+    mes_example: formatMessageExample(data.messageExample),
+    name: data.name,
+    nickname: data.nickname,
+    personality: data.personality ?? '',
+    post_history_instructions: data.postHistoryInstructions ?? '',
+    scenario: data.scenario ?? '',
+    system_prompt: data.systemPrompt ?? '',
+    tags: data.tags ?? [],
   }
 }
 
@@ -47,12 +47,9 @@ function createCardData(data: Card): CharacterCardV3['data'] {
  * @returns Formatted message example string
  */
 function formatMessageExample(messageExample: string[][] | undefined): string {
-  if (!messageExample)
-    return ''
+  if (!messageExample) return ''
 
-  return messageExample
-    .map(arr => `<START>\n${arr.join('\n')}`)
-    .join('\n')
+  return messageExample.map((arr) => `<START>\n${arr.join('\n')}`).join('\n')
 }
 
 /**

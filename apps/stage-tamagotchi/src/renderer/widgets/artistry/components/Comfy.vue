@@ -2,21 +2,24 @@
 import { useAiriCardStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { computed, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  id?: string
-  status?: 'idle' | 'generating' | 'done' | 'error'
-  entryId?: string // Unified background ID
-  imageUrl?: string // Legacy/Fallback
-  prompt?: string
-  progress?: number
-  actionLabel?: string
-  remixId?: string | number
-  renderTime?: string
-  engineStats?: string
-}>(), {
-  status: 'idle',
-  progress: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    id?: string
+    status?: 'idle' | 'generating' | 'done' | 'error'
+    entryId?: string // Unified background ID
+    imageUrl?: string // Legacy/Fallback
+    prompt?: string
+    progress?: number
+    actionLabel?: string
+    remixId?: string | number
+    renderTime?: string
+    engineStats?: string
+  }>(),
+  {
+    progress: 0,
+    status: 'idle',
+  },
+)
 
 const cardStore = useAiriCardStore()
 const backgroundStore = useBackgroundStore()
@@ -30,25 +33,31 @@ const history = computed(() => backgroundStore.getCharacterJournalEntries(cardSt
 const currentIndex = ref(0)
 
 // Snap to a specific entry if the prop is explicitly changed (e.g. from the tool)
-watch(() => props.entryId, (newId) => {
-  if (newId) {
-    const index = history.value.findIndex(e => e.id === newId)
-    if (index >= 0) {
-      currentIndex.value = index
+watch(
+  () => props.entryId,
+  (newId) => {
+    if (newId) {
+      const index = history.value.findIndex((e) => e.id === newId)
+      if (index >= 0) {
+        currentIndex.value = index
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 // Auto-snap to the newest generation (Index 0) when it finishes,
 // unless the user has manually started browsing away.
-watch(() => props.status, (newStatus) => {
-  if (newStatus === 'generating') {
-    isBrowsingGallery.value = false
-  }
-  else if (newStatus === 'done' && !isBrowsingGallery.value) {
-    currentIndex.value = 0
-  }
-})
+watch(
+  () => props.status,
+  (newStatus) => {
+    if (newStatus === 'generating') {
+      isBrowsingGallery.value = false
+    } else if (newStatus === 'done' && !isBrowsingGallery.value) {
+      currentIndex.value = 0
+    }
+  },
+)
 
 const isFlipped = ref(false)
 const errorOccurred = ref(false)
@@ -65,10 +74,8 @@ const currentImage = computed(() => {
   return history.value[currentIndex.value]
 })
 const resolvedImageUrl = computed(() => {
-  if (currentImage.value)
-    return backgroundStore.getBackgroundUrl(currentImage.value.id)
-  if (props.entryId)
-    return backgroundStore.getBackgroundUrl(props.entryId)
+  if (currentImage.value) return backgroundStore.getBackgroundUrl(currentImage.value.id)
+  if (props.entryId) return backgroundStore.getBackgroundUrl(props.entryId)
   return props.imageUrl
 })
 
@@ -77,16 +84,14 @@ function handleImageError() {
 }
 
 function nextImage() {
-  if (history.value.length === 0)
-    return
+  if (history.value.length === 0) return
   isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value + 1) % history.value.length
 }
 
 function prevImage() {
-  if (history.value.length === 0)
-    return
+  if (history.value.length === 0) return
   isBrowsingGallery.value = true
   errorOccurred.value = false
   currentIndex.value = (currentIndex.value - 1 + history.value.length) % history.value.length
@@ -97,8 +102,7 @@ function toggleFlip() {
 }
 
 async function handleSetAsBackground() {
-  if (!currentImage.value || !cardStore.activeCardId)
-    return
+  if (!currentImage.value || !cardStore.activeCardId) return
   isSettingBackground.value = true
   try {
     const entry = currentImage.value
@@ -107,20 +111,16 @@ async function handleSetAsBackground() {
     const card = cardStore.activeCard
     if (card) {
       const extension = JSON.parse(JSON.stringify(card.extensions || {}))
-      if (!extension.airi)
-        extension.airi = {}
-      if (!extension.airi.modules)
-        extension.airi.modules = {}
+      if (!extension.airi) extension.airi = {}
+      if (!extension.airi.modules) extension.airi.modules = {}
       extension.airi.modules.activeBackgroundId = entry.id
 
       await cardStore.updateCard(cardId, { ...card, extensions: extension })
       console.log(`[ComfyWidget] Set activeBackgroundId to ${entry.id} for ${cardId}`)
     }
-  }
-  catch (e) {
+  } catch (e) {
     console.error('[ComfyWidget] Failed to set background', e)
-  }
-  finally {
+  } finally {
     isSettingBackground.value = false
   }
 }

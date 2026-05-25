@@ -1,16 +1,12 @@
 import type { Buffer } from 'node:buffer'
-
-import type { PipelineType } from '@huggingface/transformers'
-
 import { env } from 'node:process'
-
-import wavefile from 'wavefile'
-
 import { useLogg } from '@guiiai/logg'
+import type { PipelineType } from '@huggingface/transformers'
 import { pipeline } from '@huggingface/transformers'
 import { toWav } from '@proj-airi/audio'
-import { createOpenAI } from '@xsai-ext/providers/create'
 import { generateTranscription } from '@xsai/generate-transcription'
+import { createOpenAI } from '@xsai-ext/providers/create'
+import wavefile from 'wavefile'
 
 export class WhisperLargeV3Pipeline {
   static task: PipelineType = 'automatic-speech-recognition'
@@ -18,11 +14,13 @@ export class WhisperLargeV3Pipeline {
   static instance = null
 
   static async getInstance(progress_callback = null) {
-    if (this.instance === null) {
-      this.instance = await pipeline(this.task, this.model, { progress_callback })
+    if (WhisperLargeV3Pipeline.instance === null) {
+      WhisperLargeV3Pipeline.instance = await pipeline(WhisperLargeV3Pipeline.task, WhisperLargeV3Pipeline.model, {
+        progress_callback,
+      })
     }
 
-    return this.instance
+    return WhisperLargeV3Pipeline.instance
   }
 }
 
@@ -34,12 +32,10 @@ export function textFromResult(result: Array<{ text: string }> | { text: string 
     }
 
     return result[0].text
-  }
-  else {
+  } else {
     if ('text' in result) {
       return result.text
-    }
-    else {
+    } else {
       return ''
     }
   }
@@ -51,7 +47,9 @@ export async function transcribe(pcmBuffer: Buffer) {
   const pcmConvertedWav = toWav(pcmBuffer.buffer, 48000, 2)
   log.withFields({ from: pcmBuffer.byteLength, to: pcmConvertedWav.byteLength }).log('Audio data received')
 
-  const transcriber = await WhisperLargeV3Pipeline.getInstance() as (audio: Float32Array | Float64Array) => Promise<Array<{ text: string }> | { text: string }>
+  const transcriber = (await WhisperLargeV3Pipeline.getInstance()) as (
+    audio: Float32Array | Float64Array,
+  ) => Promise<Array<{ text: string }> | { text: string }>
   log.log('Transcribing audio')
 
   const wav = new wavefile.WaveFile(new Uint8Array(pcmConvertedWav))
@@ -95,8 +93,7 @@ export async function openaiTranscribe(wavBuffer: Buffer) {
 
     log.withField('result', result.text).log('Transcription result')
     return result.text
-  }
-  catch (err) {
+  } catch (err) {
     log.withError(err).error('Failed to transcribe audio')
   }
 

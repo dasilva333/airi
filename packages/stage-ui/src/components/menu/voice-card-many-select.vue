@@ -47,21 +47,22 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  collapseButtonText: 'Show less',
   columns: 2,
-  searchable: true,
-  searchPlaceholder: 'Search voices...',
-  searchNoResultsTitle: 'No voices found',
-  searchNoResultsDescription: 'Try a different search term',
-  searchResultsText: '{count} of {total} voices',
-  unsupportedVoiceWarningTitle: 'No voices',
-  unsupportedVoiceWarningContent: 'Try a different model or provider. We are working on supporting all the voice for this model as quickly as possible. If you need it urgently, please let us know on GitHub.',
   customInputPlaceholder: 'Enter custom voice name',
   expandButtonText: 'Show more',
-  collapseButtonText: 'Show less',
-  playButtonText: 'Play sample',
-  pauseButtonText: 'Pause',
-  showVisualizer: true,
   listClass: '',
+  pauseButtonText: 'Pause',
+  playButtonText: 'Play sample',
+  searchable: true,
+  searchNoResultsDescription: 'Try a different search term',
+  searchNoResultsTitle: 'No voices found',
+  searchPlaceholder: 'Search voices...',
+  searchResultsText: '{count} of {total} voices',
+  showVisualizer: true,
+  unsupportedVoiceWarningContent:
+    'Try a different model or provider. We are working on supporting all the voice for this model as quickly as possible. If you need it urgently, please let us know on GitHub.',
+  unsupportedVoiceWarningTitle: 'No voices',
 })
 
 const isListExpanded = ref(false)
@@ -82,13 +83,12 @@ function initAudioContext() {
   return sharedAudioContext.value
 }
 
-const searchQuery = defineModel<string>('search-query', { required: false, default: '' })
-const voiceId = defineModel<string>('voice-id', { required: false, default: '' })
+const searchQuery = defineModel<string>('search-query', { default: '', required: false })
+const voiceId = defineModel<string>('voice-id', { default: '', required: false })
 
 // Filter voices based on search query
 const filteredVoices = computed(() => {
-  if (!searchQuery.value)
-    return props.voices
+  if (!searchQuery.value) return props.voices
 
   const query = searchQuery.value.toLowerCase()
   return props.voices.filter((voice) => {
@@ -97,17 +97,17 @@ const filteredVoices = computed(() => {
     const descMatch = voice.description && voice.description.toLowerCase().includes(query)
 
     // Search in tags
-    const tagMatch = voice.tags && voice.tags.some(tag => tag.toLowerCase().includes(query))
+    const tagMatch = voice.tags && voice.tags.some((tag) => tag.toLowerCase().includes(query))
 
     // Search in labels
-    const labelMatch = voice.labels && Object.values(voice.labels).some(
-      value => typeof value === 'string' && value.toLowerCase().includes(query),
-    )
+    const labelMatch =
+      voice.labels &&
+      Object.values(voice.labels).some((value) => typeof value === 'string' && value.toLowerCase().includes(query))
 
     // Search in languages
-    const langMatch = voice.languages && voice.languages.some(
-      lang => lang.name.toLowerCase().includes(query) || lang.code.toLowerCase().includes(query),
-    )
+    const langMatch =
+      voice.languages &&
+      voice.languages.some((lang) => lang.name.toLowerCase().includes(query) || lang.code.toLowerCase().includes(query))
 
     return nameMatch || descMatch || tagMatch || labelMatch || langMatch
   })
@@ -125,8 +125,7 @@ function getPreviewUrl(voice: Voice): string | undefined {
 // Create or get audio element for a voice
 function getAudioElement(voice: Voice): HTMLAudioElement | null {
   const previewUrl = getPreviewUrl(voice)
-  if (!previewUrl)
-    return null
+  if (!previewUrl) return null
 
   if (audioElements.value.has(voice.id)) {
     return audioElements.value.get(voice.id) || null
@@ -143,7 +142,7 @@ function getAudioElement(voice: Voice): HTMLAudioElement | null {
       // Clean up the stream when audio ends
       const stream = audioStreams.value.get(voice.id)
       if (stream) {
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
         audioStreams.value.delete(voice.id)
       }
     }
@@ -189,8 +188,7 @@ function createAudioStream(audio: HTMLAudioElement, voiceId: string): MediaStrea
     const stream = destination.stream
     audioStreams.value.set(voiceId, stream)
     return stream
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Failed to create audio stream for visualizer:', error)
     return null
   }
@@ -200,12 +198,10 @@ function createAudioStream(audio: HTMLAudioElement, voiceId: string): MediaStrea
 function togglePlayback(voice: Voice) {
   try {
     const previewUrl = getPreviewUrl(voice)
-    if (!previewUrl)
-      return
+    if (!previewUrl) return
 
     const audio = getAudioElement(voice)
-    if (!audio)
-      return
+    if (!audio) return
 
     // If this voice is currently playing, pause it
     if (currentlyPlayingId.value === voice.id) {
@@ -215,7 +211,7 @@ function togglePlayback(voice: Voice) {
       // Clean up the stream
       const stream = audioStreams.value.get(voice.id)
       if (stream) {
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
         audioStreams.value.delete(voice.id)
       }
       return
@@ -231,7 +227,7 @@ function togglePlayback(voice: Voice) {
       // Clean up the previous stream
       const stream = audioStreams.value.get(currentlyPlayingId.value)
       if (stream) {
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
         audioStreams.value.delete(currentlyPlayingId.value)
       }
     }
@@ -248,8 +244,7 @@ function togglePlayback(voice: Voice) {
     })
 
     currentlyPlayingId.value = voice.id
-  }
-  catch (err) {
+  } catch (err) {
     console.error(err)
     currentlyPlayingId.value = undefined
   }
@@ -265,7 +260,7 @@ function cleanup() {
 
   // Clean up all streams
   audioStreams.value.forEach((stream) => {
-    stream.getTracks().forEach(track => track.stop())
+    stream.getTracks().forEach((track) => track.stop())
   })
   audioStreams.value.clear()
 
@@ -292,7 +287,7 @@ watch(searchQuery, () => {
     // Clean up the stream
     const stream = audioStreams.value.get(currentlyPlayingId.value)
     if (stream) {
-      stream.getTracks().forEach(track => track.stop())
+      stream.getTracks().forEach((track) => track.stop())
       audioStreams.value.delete(currentlyPlayingId.value)
     }
 

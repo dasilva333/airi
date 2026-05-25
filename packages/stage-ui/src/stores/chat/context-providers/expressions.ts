@@ -1,9 +1,8 @@
-import type { ContextMessage } from '../../../types/chat'
-
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { nanoid } from 'nanoid'
+import type { ContextMessage } from '../../../types/chat'
 
 const EXPRESSIONS_CONTEXT_ID = 'system:expressions'
 
@@ -36,15 +35,16 @@ export function createExpressionsContext(): ContextMessage {
   }
 
   const list = Array.from(active)
-  const text = list.length > 0
-    ? `Active Visual Expressions/Props: [${list.join(', ')}]`
-    : 'No special expressions or props currently active.'
+  const text =
+    list.length > 0
+      ? `Active Visual Expressions/Props: [${list.join(', ')}]`
+      : 'No special expressions or props currently active.'
 
   return {
-    id: nanoid(),
     contextId: EXPRESSIONS_CONTEXT_ID,
+    createdAt: Date.now(),
+    id: nanoid(),
     strategy: ContextUpdateStrategy.ReplaceSelf,
     text,
-    createdAt: Date.now(),
   }
 }

@@ -29,25 +29,24 @@ const themePresets = computed(() => {
   return themePresetOrder
     .map((key) => {
       const preset = presets[key]
-      if (!preset)
-        return null
+      if (!preset) return null
 
       const presetColors = (COLOR_PRESETS as Record<string, Record<string, string | null>>)[key] || {}
       const colors = Object.entries(preset.colors ?? {}).map(([colorKey, name]) => {
         const hex = presetColors[colorKey]
 
         return {
+          hex: typeof hex === 'string' && hex.length ? hex : undefined,
           key: colorKey,
           name,
-          hex: typeof hex === 'string' && hex.length ? hex : undefined,
         }
       })
 
       return {
+        colors,
+        description: preset.description,
         key,
         title: preset.title,
-        description: preset.description,
-        colors,
       }
     })
     .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset))

@@ -27,16 +27,14 @@ useResizeObserver(canvasContainerRef, (entries) => {
   const entry = entries[0]
   const { width, height } = entry.contentRect
 
-  if (!canvasRef.value)
-    return
+  if (!canvasRef.value) return
 
   canvasRef.value.width = width
   canvasRef.value.height = height
 })
 
 watch(canvasContainerRef, (el) => {
-  if (!el)
-    return
+  if (!el) return
 
   const canvas = document.createElement('canvas')
   canvas.width = bounding.width.value
@@ -62,8 +60,7 @@ const lastPoints = ref<Point[]>([])
 const isCircle = ref(false)
 
 watch([x, y], () => {
-  if (!canvasContext.value)
-    return
+  if (!canvasContext.value) return
 
   canvasContext.value.beginPath()
   canvasContext.value.fillStyle = 'red'
@@ -88,9 +85,7 @@ watch(pointDebounced, () => {
     const meanY = lastPoints.value.reduce((sum, p) => sum + p.y, 0) / lastPoints.value.length
 
     // Calculate average radius and deviation
-    const radii = lastPoints.value.map(p =>
-      Math.sqrt((p.x - meanX) ** 2 + (p.y - meanY) ** 2),
-    )
+    const radii = lastPoints.value.map((p) => Math.sqrt((p.x - meanX) ** 2 + (p.y - meanY) ** 2))
     const avgRadius = radii.reduce((sum, r) => sum + r, 0) / radii.length
 
     // Calculate standard deviation of radii

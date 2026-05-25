@@ -19,18 +19,20 @@ function init() {
   }
 }
 
-watch(() => page.value.relativePath, () => {
-  if (isInitialized) {
-    ;(window as any)._carbonads?.refresh()
-  }
-})
+watch(
+  () => page.value.relativePath,
+  () => {
+    if (isInitialized) {
+      ;(window as any)._carbonads?.refresh()
+    }
+  },
+)
 
 // no need to account for option changes during dev, we can just
 // refresh the page
 if (carbonOptions) {
   onMounted(() => {
-    if (import.meta.env.DEV)
-      return
+    if (import.meta.env.DEV) return
 
     // if the page is loaded when aside is active, load carbon directly.
     // otherwise, only load it if the page resizes to wide enough. this avoids

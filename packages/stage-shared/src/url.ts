@@ -5,8 +5,7 @@ export function isUrl(url: string) {
     // eslint-disable-next-line no-new
     new URL(url)
     return true
-  }
-  catch {
+  } catch {
     return false
   }
 }
@@ -16,9 +15,5 @@ export function withBase(url: string) {
     return url
   }
 
-  return url.startsWith('/')
-    ? `.${url}`
-    : url.startsWith('./')
-      ? url
-      : `./${url}`
+  return url.startsWith('/') ? `.${url}` : url.startsWith('./') ? url : `./${url}`
 }

@@ -1,11 +1,8 @@
 import type { Logg } from '@guiiai/logg'
-
+import { useLogg } from '@guiiai/logg'
+import EventEmitter3 from 'eventemitter3'
 import type { PlanStep } from '../../cognitive/action/types'
 import type { Action } from './action'
-
-import EventEmitter3 from 'eventemitter3'
-
-import { useLogg } from '@guiiai/logg'
 
 export type AgentType = 'action' | 'memory' | 'planning' | 'chat'
 
@@ -107,8 +104,8 @@ export abstract class AbstractAgent extends EventEmitter3 implements BaseAgent {
   // }
 
   public handleMessage(sender: string, message: string): void {
-    this.logger.withFields({ sender, message }).log('Received message')
-    this.emit('message', { sender, message })
+    this.logger.withFields({ message, sender }).log('Received message')
+    this.emit('message', { message, sender })
   }
 
   public openChat(message: string): void {

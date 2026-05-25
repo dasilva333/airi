@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { defineInvoke } from '@moeru/eventa'
-import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
+import {
+  useElectronEventaContext,
+  useElectronEventaInvoke,
+  useElectronMouseAroundWindowBorder,
+  useElectronMouseInWindow,
+} from '@proj-airi/electron-vueuse'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { refDebounced, useBroadcastChannel } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged, electronCaptionSetFollowWindow, electronSetIgnoreMouseEvents } from '../../shared/eventa'
+import {
+  captionGetIsFollowingWindow,
+  captionIsFollowingWindowChanged,
+  electronCaptionSetFollowWindow,
+  electronSetIgnoreMouseEvents,
+} from '../../shared/eventa'
 
 const setIgnoreMouseEvents = useElectronEventaInvoke(electronSetIgnoreMouseEvents)
 const setFollowWindow = useElectronEventaInvoke(electronCaptionSetFollowWindow)
@@ -14,7 +24,12 @@ const scrollContainer = ref<HTMLElement | null>(null)
 const settingsStore = useSettings()
 const speakerText = ref('') // NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
 
-export interface CaptionSegment { text: string, color: string, actorId: string, isActive?: boolean }
+export interface CaptionSegment {
+  text: string
+  color: string
+  actorId: string
+  isActive?: boolean
+}
 const assistantSegments = ref<CaptionSegment[]>([])
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
 const isOutsideWindowFor250Ms = refDebounced(isOutsideWindow, 250)
@@ -33,9 +48,9 @@ const { isNearAnyBorder: isAroundWindowBorder } = useElectronMouseAroundWindowBo
 const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
 
 // Broadcast channel for captions
-type CaptionChannelEvent
-  = | { type: 'caption-speaker', text: string }
-    | { type: 'caption-assistant', segments: CaptionSegment[] }
+type CaptionChannelEvent =
+  | { type: 'caption-speaker'; text: string }
+  | { type: 'caption-assistant'; segments: CaptionSegment[] }
 const { data } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
 
 // NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
@@ -49,8 +64,7 @@ onMounted(async () => {
   try {
     const isAttached = await getAttached()
     attached.value = Boolean(isAttached)
-  }
-  catch {}
+  } catch {}
 
   try {
     context.value.on(captionIsFollowingWindowChanged, (event) => {
@@ -60,8 +74,7 @@ onMounted(async () => {
         settingsStore.captionFollowStage = val
       }
     })
-  }
-  catch {}
+  } catch {}
 
   try {
     // Hardware-level turn reset: clear everything when a new user message enters the session
@@ -74,63 +87,78 @@ onMounted(async () => {
     })
 
     // Synchronize spatial follow with dashboard toggle
-    watch(() => settingsStore.captionFollowStage, (shouldFollow) => {
-      console.log('[Caption] Follow status changed:', shouldFollow)
-      attached.value = shouldFollow
-      setFollowWindow(shouldFollow)
-    }, { immediate: true })
+    watch(
+      () => settingsStore.captionFollowStage,
+      (shouldFollow) => {
+        console.log('[Caption] Follow status changed:', shouldFollow)
+        attached.value = shouldFollow
+        setFollowWindow(shouldFollow)
+      },
+      { immediate: true },
+    )
 
     // Listen for Layout Mode transitions
-    watch(() => settingsStore.captionLayoutMode, (mode) => {
-      console.log('[Caption] Layout mode changed:', mode)
-      // Future: Implement multi-turn historical view
-    }, { immediate: true })
+    watch(
+      () => settingsStore.captionLayoutMode,
+      (mode) => {
+        console.log('[Caption] Layout mode changed:', mode)
+        // Future: Implement multi-turn historical view
+      },
+      { immediate: true },
+    )
 
     // Listen for Home Snap triggers
-    watch(() => settingsStore.captionResetTrigger, () => {
-      console.log('[Caption] Reset Position triggered.')
-      // Recovery logic: re-attach if it was detached and lost
-      if (!settingsStore.captionFollowStage) {
-        settingsStore.captionFollowStage = true
-      }
-    })
+    watch(
+      () => settingsStore.captionResetTrigger,
+      () => {
+        console.log('[Caption] Reset Position triggered.')
+        // Recovery logic: re-attach if it was detached and lost
+        if (!settingsStore.captionFollowStage) {
+          settingsStore.captionFollowStage = true
+        }
+      },
+    )
 
     // Update texts from broadcast channel
-    watch(data, (event) => {
-      console.log('[Caption] Received event (overlay):', event)
-      if (!event)
-        return
+    watch(
+      data,
+      (event) => {
+        console.log('[Caption] Received event (overlay):', event)
+        if (!event) return
 
-      if (event.type === 'caption-speaker') {
-        speakerText.value = event.text
-      }
-      else if (event.type === 'caption-assistant') {
-        // Fallback reset for when assistant sends a reset signal
-        if (!event.segments || event.segments.length === 0) {
-          speakerText.value = ''
-          assistantSegments.value = []
+        if (event.type === 'caption-speaker') {
+          speakerText.value = event.text
+        } else if (event.type === 'caption-assistant') {
+          // Fallback reset for when assistant sends a reset signal
+          if (!event.segments || event.segments.length === 0) {
+            speakerText.value = ''
+            assistantSegments.value = []
+          } else {
+            assistantSegments.value = event.segments
+          }
         }
-        else {
-          assistantSegments.value = event.segments
-        }
-      }
-    }, { immediate: true })
-  }
-  catch {}
+      },
+      { immediate: true },
+    )
+  } catch {}
 })
 
 // Auto-scroll to bottom when text segments change
-watch(assistantSegments, () => {
-  if (scrollContainer.value) {
-    // Delay slightly to allow DOM to update
-    setTimeout(() => {
-      scrollContainer.value?.scrollTo({
-        top: scrollContainer.value.scrollHeight,
-        behavior: 'smooth',
-      })
-    }, 10)
-  }
-}, { deep: true })
+watch(
+  assistantSegments,
+  () => {
+    if (scrollContainer.value) {
+      // Delay slightly to allow DOM to update
+      setTimeout(() => {
+        scrollContainer.value?.scrollTo({
+          behavior: 'smooth',
+          top: scrollContainer.value.scrollHeight,
+        })
+      }, 10)
+    }
+  },
+  { deep: true },
+)
 
 const containerStyle = computed(() => ({
   backgroundColor: `rgba(0, 0, 0, ${settingsStore.captionOpacity / 100})`,

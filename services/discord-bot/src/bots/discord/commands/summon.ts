@@ -1,21 +1,8 @@
-import type { Readable } from 'node:stream'
-
-import type { AudioPlayer, VoiceConnection, VoiceConnectionState } from '@discordjs/voice'
-import type { Logg } from '@guiiai/logg'
-import type { Client as AiriClient } from '@proj-airi/server-sdk'
-import type { Discord } from '@proj-airi/server-shared/types'
-import type {
-  BaseGuildVoiceChannel,
-  CacheType,
-  ChatInputCommandInteraction,
-  Client as DiscordClient,
-  GuildMember,
-} from 'discord.js'
-
 import { Buffer } from 'node:buffer'
 import { EventEmitter } from 'node:events'
+import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream'
-
+import type { AudioPlayer, VoiceConnection, VoiceConnectionState } from '@discordjs/voice'
 import {
   createAudioPlayer,
   createAudioResource,
@@ -26,7 +13,17 @@ import {
   StreamType,
   VoiceConnectionStatus,
 } from '@discordjs/voice'
+import type { Logg } from '@guiiai/logg'
 import { useLogg } from '@guiiai/logg'
+import type { Client as AiriClient } from '@proj-airi/server-sdk'
+import type { Discord } from '@proj-airi/server-shared/types'
+import type {
+  BaseGuildVoiceChannel,
+  CacheType,
+  ChatInputCommandInteraction,
+  Client as DiscordClient,
+  GuildMember,
+} from 'discord.js'
 
 import { DECODE_SAMPLE_RATE } from '../../../constants/audio'
 import { openaiTranscribe } from '../../../pipelines/tts'
@@ -35,8 +32,7 @@ import { AudioMonitor } from '../../../utils/audio-monitor'
 import { OpusDecoder } from '../../../utils/opus'
 
 function isValidTranscription(text: string): boolean {
-  if (!text || text.includes('[BLANK_AUDIO]'))
-    return false
+  if (!text || text.includes('[BLANK_AUDIO]')) return false
   return true
 }
 
@@ -45,8 +41,7 @@ async function setSelfVoice(logger: Logg, me?: GuildMember | null) {
     try {
       await me.voice.setDeaf(false)
       await me.voice.setMute(false)
-    }
-    catch (error) {
+    } catch (error) {
       logger.withError(error).log('Failed to modify voice state') // Continue anyway
     }
   }
@@ -74,21 +69,21 @@ export class VoiceManager extends EventEmitter {
   private airiClient: AiriClient
   private streams: Map<string, Readable> = new Map()
   private connections: Map<string, VoiceConnection> = new Map()
-  private activeMonitors: Map<
-    string,
-    { channel: BaseGuildVoiceChannel, monitor: AudioMonitor }
-  > = new Map()
+  private activeMonitors: Map<string, { channel: BaseGuildVoiceChannel; monitor: AudioMonitor }> = new Map()
 
   // Track the text channel where the summon command was called, per guild.
   private textChannels: Map<string, string> = new Map()
 
   // Track event listeners for cleanup
-  private connectionListeners: Map<string, {
-    stateChange: (oldState: any, newState: any) => Promise<void>
-    error: (error: Error) => void
-    speakingStart: (userId: string) => void
-    speakingEnd: (userId: string) => void
-  }> = new Map()
+  private connectionListeners: Map<
+    string,
+    {
+      stateChange: (oldState: any, newState: any) => Promise<void>
+      error: (error: Error) => void
+      speakingStart: (userId: string) => void
+      speakingEnd: (userId: string) => void
+    }
+  > = new Map()
 
   constructor(client: DiscordClient, airiClient: AiriClient) {
     super()
@@ -96,32 +91,35 @@ export class VoiceManager extends EventEmitter {
     this.airiClient = airiClient
   }
 
-  handleVoiceConnectionStateChange(channel: BaseGuildVoiceChannel, connection: VoiceConnection): (oldState: VoiceConnectionState, newState: VoiceConnectionState) => Promise<void> {
+  handleVoiceConnectionStateChange(
+    channel: BaseGuildVoiceChannel,
+    connection: VoiceConnection,
+  ): (oldState: VoiceConnectionState, newState: VoiceConnectionState) => Promise<void> {
     return async (oldState, newState) => {
-      this.logger.withFields({ old: oldState.status, new: newState.status }).log(
-        `Voice connection state changed from ${oldState.status} to ${newState.status}`,
-      )
+      this.logger
+        .withFields({ new: newState.status, old: oldState.status })
+        .log(`Voice connection state changed from ${oldState.status} to ${newState.status}`)
 
       if (newState.status === VoiceConnectionStatus.Destroyed) {
         this.connections.delete(channel.id)
-      }
-      else if (!this.connections.has(channel.id) && (newState.status === VoiceConnectionStatus.Ready || newState.status === VoiceConnectionStatus.Signalling)) {
+      } else if (
+        !this.connections.has(channel.id) &&
+        (newState.status === VoiceConnectionStatus.Ready || newState.status === VoiceConnectionStatus.Signalling)
+      ) {
         this.connections.set(channel.id, connection)
-      }
-      else if (newState.status === VoiceConnectionStatus.Disconnected) {
+      } else if (newState.status === VoiceConnectionStatus.Disconnected) {
         this.logger.log('Handling disconnection...')
 
         try {
-        // Try to reconnect if disconnected
+          // Try to reconnect if disconnected
           await Promise.race([
             entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
             entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
           ])
           // Seems to be reconnecting to a new channel
           this.logger.log('Reconnecting to channel...')
-        }
-        catch (e) {
-        // Seems to be a real disconnect, destroy and cleanup
+        } catch (e) {
+          // Seems to be a real disconnect, destroy and cleanup
           this.logger.log(`Disconnection confirmed - cleaning up...${e}`)
           connection.destroy()
           this.connections.delete(channel.id)
@@ -142,8 +140,7 @@ export class VoiceManager extends EventEmitter {
       if (!user) {
         try {
           user = await channel.guild.members.fetch(userId)
-        }
-        catch (error) {
+        } catch (error) {
           this.logger.withError(error).error('Failed to fetch user')
         }
       }
@@ -166,28 +163,25 @@ export class VoiceManager extends EventEmitter {
   }
 
   async joinChannel(interaction: ChatInputCommandInteraction<CacheType>, channel: BaseGuildVoiceChannel) {
-    const oldConnection = this.getVoiceConnection(
-      channel.guildId as string,
-    )
+    const oldConnection = this.getVoiceConnection(channel.guildId as string)
     if (oldConnection) {
       try {
         oldConnection.destroy()
         // Remove all associated streams and monitors
         this.streams.clear()
         this.activeMonitors.clear()
-      }
-      catch (error) {
+      } catch (error) {
         this.logger.withError(error).log('Error leaving voice channel')
       }
     }
 
     const connection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator as any,
+      channelId: channel.id,
+      group: this.client.user.id,
+      guildId: channel.guild.id,
       selfDeaf: false,
       selfMute: false,
-      group: this.client.user.id,
     })
 
     try {
@@ -218,8 +212,7 @@ export class VoiceManager extends EventEmitter {
 
       // Continue with voice state modifications
       await setSelfVoice(this.logger, channel.guild.members.me)
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.log('Failed to establish voice connection:', error)
 
       connection.destroy()
@@ -234,9 +227,7 @@ export class VoiceManager extends EventEmitter {
       this.logger.warn('No voice connections found')
       return
     }
-    const connection = [...connections.values()].find(
-      connection => connection.joinConfig.guildId === guildId,
-    )
+    const connection = [...connections.values()].find((connection) => connection.joinConfig.guildId === guildId)
     if (!connection) {
       this.logger.warn('No voice connection found for guild')
     }
@@ -244,10 +235,7 @@ export class VoiceManager extends EventEmitter {
     return connection
   }
 
-  private async monitorMember(
-    member: GuildMember,
-    channelId: string,
-  ) {
+  private async monitorMember(member: GuildMember, channelId: string) {
     const userId = member?.id
     const connection = this.getVoiceConnection(member?.guild?.id)
     const receiveStream = connection?.receiver.subscribe(userId, {
@@ -278,8 +266,7 @@ export class VoiceManager extends EventEmitter {
           volumeBuffer.shift()
         }
 
-        const avgVolume
-          = volumeBuffer.reduce((sum, v) => sum + v, 0) / VOLUME_WINDOW_SIZE
+        const avgVolume = volumeBuffer.reduce((sum, v) => sum + v, 0) / VOLUME_WINDOW_SIZE
 
         if (avgVolume > SPEAKING_THRESHOLD) {
           volumeBuffer.length = 0
@@ -292,7 +279,7 @@ export class VoiceManager extends EventEmitter {
     this.streams.set(userId, opusDecoder)
     this.connections.set(userId, connection as VoiceConnection)
 
-    const errorHandler = err => this.logger.withError(err).error('Opus decoding error')
+    const errorHandler = (err) => this.logger.withError(err).error('Opus decoding error')
     const streamCloseHandler = () => {
       this.logger.withField('displayName', member?.displayName).log('Voice stream closed')
 
@@ -364,12 +351,7 @@ export class VoiceManager extends EventEmitter {
     this.logger.log(`Stopped monitoring user ${memberId}`)
   }
 
-  async debouncedProcessTranscription(
-    userId: string,
-    member: GuildMember,
-    guildId: string,
-    channelId: string,
-  ) {
+  async debouncedProcessTranscription(userId: string, member: GuildMember, guildId: string, channelId: string) {
     const DEBOUNCE_TRANSCRIPTION_THRESHOLD = 1500 // wait for 1.5 seconds of silence
 
     if (this.activeAudioPlayer?.state?.status === 'idle') {
@@ -397,8 +379,7 @@ export class VoiceManager extends EventEmitter {
           state.buffers.length = 0
           state.totalLength = 0
         })
-      }
-      finally {
+      } finally {
         this.processingVoice = false
       }
     }, DEBOUNCE_TRANSCRIPTION_THRESHOLD)
@@ -416,8 +397,8 @@ export class VoiceManager extends EventEmitter {
     if (!this.userStates.has(userId)) {
       this.userStates.set(userId, {
         buffers: [],
-        totalLength: 0,
         lastActive: Date.now(),
+        totalLength: 0,
         transcriptionText: '',
       })
     }
@@ -431,8 +412,7 @@ export class VoiceManager extends EventEmitter {
         state!.lastActive = Date.now()
 
         this.debouncedProcessTranscription(userId, member, guildId, channelId)
-      }
-      catch (error) {
+      } catch (error) {
         this.logger.withError(error).withField('userId', userId).error('Error processing buffer')
       }
     }
@@ -441,8 +421,7 @@ export class VoiceManager extends EventEmitter {
       audioStream,
       10000000,
       () => {
-        if (this.transcriptionTimeout)
-          clearTimeout(this.transcriptionTimeout)
+        if (this.transcriptionTimeout) clearTimeout(this.transcriptionTimeout)
       },
       async (buffer) => {
         if (!buffer) {
@@ -455,15 +434,9 @@ export class VoiceManager extends EventEmitter {
     )
   }
 
-  private async processTranscription(
-    userId: string,
-    member: GuildMember,
-    guildId: string,
-    channelId: string,
-  ) {
+  private async processTranscription(userId: string, member: GuildMember, guildId: string, channelId: string) {
     const state = this.userStates.get(userId)
-    if (!state || state.buffers.length === 0)
-      return
+    if (!state || state.buffers.length === 0) return
 
     try {
       const inputBuffer = Buffer.concat(state.buffers, state.totalLength)
@@ -480,9 +453,7 @@ export class VoiceManager extends EventEmitter {
         state.transcriptionText += transcriptionText
 
         // Use the text channel where /summon was called, fallback to current channelId (likely voice)
-        const targetChannelId = (guildId && this.textChannels.has(guildId))
-          ? this.textChannels.get(guildId)!
-          : channelId
+        const targetChannelId = guildId && this.textChannels.has(guildId) ? this.textChannels.get(guildId)! : channelId
 
         const discordContext = {
           channelId: targetChannelId,
@@ -493,13 +464,13 @@ export class VoiceManager extends EventEmitter {
         this.logger.log(`Sending transcription to AIRI: "${transcriptionText}" (Target Channel: ${targetChannelId})`)
 
         this.airiClient.send({
+          data: { discord: discordContext, transcription: transcriptionText },
           type: 'input:text:voice',
-          data: { transcription: transcriptionText, discord: discordContext },
         })
 
         this.airiClient.send({
+          data: { discord: discordContext, text: transcriptionText },
           type: 'input:text',
-          data: { text: transcriptionText, discord: discordContext },
         })
       }
       if (state.transcriptionText.length) {
@@ -509,8 +480,7 @@ export class VoiceManager extends EventEmitter {
 
         this.logger.withField('transcription', finalText).log('Transcription complete')
       }
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.withError(error).withField('userId', userId).error('Error processing transcription')
     }
   }
@@ -537,7 +507,7 @@ export class VoiceManager extends EventEmitter {
       inputType: StreamType.Arbitrary,
     })
 
-    audioPlayer.on('error', error => this.logger.withError(error).log('Audio player error'))
+    audioPlayer.on('error', (error) => this.logger.withError(error).log('Audio player error'))
     audioPlayer.on('stateChange', (_oldState: any, newState: { status: string }) => {
       if (newState.status === 'idle') {
         const idleTime = Date.now()
@@ -549,8 +519,7 @@ export class VoiceManager extends EventEmitter {
   }
 
   cleanupAudioPlayer(audioPlayer: AudioPlayer) {
-    if (!audioPlayer)
-      return
+    if (!audioPlayer) return
 
     audioPlayer.stop()
     audioPlayer.removeAllListeners()
@@ -567,8 +536,7 @@ export class VoiceManager extends EventEmitter {
       }
 
       await this.joinChannel(interaction, currVoiceChannel)
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.withError(error).log('Error joining voice channel')
     }
   }
@@ -584,8 +552,7 @@ export class VoiceManager extends EventEmitter {
     try {
       connection.destroy()
       await interaction.reply('Left the voice channel.')
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.withError(error).log('Error leaving voice channel')
 
       await interaction.reply('Failed to leave the voice channel.')

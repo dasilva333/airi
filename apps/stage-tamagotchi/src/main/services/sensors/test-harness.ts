@@ -1,8 +1,7 @@
-import os from 'node:os'
-import path from 'node:path'
-
 import { exec } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
@@ -74,17 +73,17 @@ async function runTest() {
       const { stdout: loadStdout } = await execAsync(`powershell -NoProfile -NonInteractive -Command "${loadScript}"`)
       const loadVal = Number.parseFloat(loadStdout.trim())
       print(`PowerShell Load Percentage: ${isNaN(loadVal) ? 'FAILED' : loadVal.toFixed(2)}%`)
-    }
-    catch (e: any) {
+    } catch (e: any) {
       print(`Load Check Failed: ${e.message}`)
     }
 
     const encodedCommand = Buffer.from(psScript, 'utf16le').toString('base64')
     print('\nExecuting Active Window PowerShell...')
     try {
-      const { stdout, stderr } = await execAsync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`)
-      if (stderr)
-        print(`PowerShell Stderr: ${stderr}`)
+      const { stdout, stderr } = await execAsync(
+        `powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`,
+      )
+      if (stderr) print(`PowerShell Stderr: ${stderr}`)
       const result = stdout.trim()
       print(`Raw output: ${result}`)
 
@@ -93,16 +92,13 @@ async function runTest() {
         print('Success! Parsed metadata:')
         print(`  - Title: ${parts[0] || 'Unknown'}`)
         print(`  - Process: ${parts[1] || 'Unknown'}`)
-      }
-      else {
+      } else {
         print('Sensor returned null or no active window found.')
       }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       print(`Active Window Check Failed: ${e.message}`)
     }
-  }
-  catch (err: any) {
+  } catch (err: any) {
     print(`Global Execution failed: ${err.message}`)
   }
   print('--------------------------------')
@@ -111,8 +107,7 @@ async function runTest() {
     const absolutePath = path.resolve(logFile)
     writeFileSync(absolutePath, logLines.join('\n'))
     console.log(`Results written to ${absolutePath}`)
-  }
-  catch (e: any) {
+  } catch (e: any) {
     console.error('Failed to write log file:', e.message)
   }
 }

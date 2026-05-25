@@ -1,12 +1,10 @@
+import { EventEmitter } from 'node:events'
 import type { Mineflayer } from '../../libs/mineflayer/core'
+import { ActionError } from '../../utils/errors'
 import type { Logger } from '../../utils/logger'
 import type { CancellationToken } from '../conscious/task-state'
-import type { ActionInstruction } from './types'
-
-import { EventEmitter } from 'node:events'
-
-import { ActionError } from '../../utils/errors'
 import { ActionRegistry } from './action-registry'
+import type { ActionInstruction } from './types'
 
 interface TaskExecutorConfig {
   logger: Logger
@@ -24,8 +22,7 @@ export class TaskExecutor extends EventEmitter {
   }
 
   public async initialize(): Promise<void> {
-    if (this.initialized)
-      return
+    if (this.initialized) return
 
     this.logger.log('Initializing Task Executor')
     this.initialized = true
@@ -45,13 +42,15 @@ export class TaskExecutor extends EventEmitter {
   public async executeAction(action: ActionInstruction, cancellationToken?: CancellationToken): Promise<void> {
     try {
       await this.executeActionWithResult(action, cancellationToken)
-    }
-    catch {
+    } catch {
       // Errors handled in runSingleAction event emission
     }
   }
 
-  public async executeActionWithResult(action: ActionInstruction, cancellationToken?: CancellationToken): Promise<unknown> {
+  public async executeActionWithResult(
+    action: ActionInstruction,
+    cancellationToken?: CancellationToken,
+  ): Promise<unknown> {
     if (!this.initialized) {
       throw new Error('TaskExecutor not initialized')
     }
@@ -70,15 +69,14 @@ export class TaskExecutor extends EventEmitter {
     try {
       const step = {
         description: action.tool,
-        tool: action.tool,
         params: action.params,
+        tool: action.tool,
       }
       const result = await this.actionRegistry.performAction(step)
 
       this.emit('action:completed', { action, result })
       return result
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.withError(error).error('Action execution failed')
 
       // Interrupts are special - no feedback needed

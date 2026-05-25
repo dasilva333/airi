@@ -8,12 +8,14 @@ const characterStore = useCharacterStore()
 const authStore = useAuthStore()
 
 const coverImage = new URL('../../../../stage-ui/src/components/menu/relu.avif', import.meta.url).href
-const characterAvatarImage = new URL('../../../../stage-ui/src/assets/live2d/models/hiyori/preview.png', import.meta.url).href
+const characterAvatarImage = new URL(
+  '../../../../stage-ui/src/assets/live2d/models/hiyori/preview.png',
+  import.meta.url,
+).href
 
 function formatCount(value: number | string) {
   const num = typeof value === 'string' ? Number.parseInt(value) : value
-  if (Number.isNaN(num))
-    return '0'
+  if (Number.isNaN(num)) return '0'
 
   const units = [
     { suffix: 'Q', value: 1_000_000_000_000_000 },
@@ -38,27 +40,31 @@ onMounted(() => {
   characterStore.fetchList(true)
 })
 
-const characters = computed(() => Array.from(characterStore.characters.values()).map((char) => {
-  const i18n = char.i18n?.[0] || { name: 'Unknown', tagline: '', description: '' }
+const characters = computed(() =>
+  Array.from(characterStore.characters.values()).map((char) => {
+    const i18n = char.i18n?.[0] || { description: '', name: 'Unknown', tagline: '' }
 
-  return {
-    id: char.id,
-    name: i18n.name,
-    tagline: i18n.tagline || i18n.description,
-    avatarUrl: char.avatarUrl || 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
-    characterAvatarUrl: char.characterAvatarUrl || characterAvatarImage,
-    coverUrl: char.coverUrl || coverImage,
-    coverBackgroundUrl: char.coverBackgroundUrl,
-    usedBy: char.interactionsCount,
-    interactions: char.interactionsCount,
-    likes: char.likesCount,
-    bookmarks: char.bookmarksCount,
-    forks: char.forksCount,
-    liked: char.likes?.some(l => l.userId === authStore.user?.id),
-    bookmarked: char.bookmarks?.some(b => b.userId === authStore.user?.id),
-    priceCredit: char.priceCredit,
-  }
-}))
+    return {
+      avatarUrl:
+        char.avatarUrl ||
+        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
+      bookmarked: char.bookmarks?.some((b) => b.userId === authStore.user?.id),
+      bookmarks: char.bookmarksCount,
+      characterAvatarUrl: char.characterAvatarUrl || characterAvatarImage,
+      coverBackgroundUrl: char.coverBackgroundUrl,
+      coverUrl: char.coverUrl || coverImage,
+      forks: char.forksCount,
+      id: char.id,
+      interactions: char.interactionsCount,
+      liked: char.likes?.some((l) => l.userId === authStore.user?.id),
+      likes: char.likesCount,
+      name: i18n.name,
+      priceCredit: char.priceCredit,
+      tagline: i18n.tagline || i18n.description,
+      usedBy: char.interactionsCount,
+    }
+  }),
+)
 </script>
 
 <template>

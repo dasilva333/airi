@@ -1,8 +1,7 @@
-import type { TwitterService } from '../../types/services'
-import type { Context } from '../browser/context'
-
 import { TWITTER_BASE_URL } from '../../constants'
+import type { TwitterService } from '../../types/services'
 import { logger } from '../../utils/logger'
+import type { Context } from '../browser/context'
 
 /**
  * User Profile
@@ -45,7 +44,7 @@ export function useTwitterUserServices(ctx: Context): TwitterService {
 
   async function getUserProfile(username: string): Promise<UserProfile> {
     try {
-    // Navigate to user profile page
+      // Navigate to user profile page
       await ctx.page.goto(`${TWITTER_BASE_URL}/${username}`)
 
       // Wait for profile elements to load
@@ -53,7 +52,7 @@ export function useTwitterUserServices(ctx: Context): TwitterService {
 
       // Get display name
       const displayNameElement = await ctx.page.$('[data-testid="UserName"] div span')
-      const displayName = displayNameElement ? await displayNameElement.textContent() || username : username
+      const displayName = displayNameElement ? (await displayNameElement.textContent()) || username : username
 
       // Get bio
       const bioElement = await ctx.page.$('[data-testid="UserDescription"]')
@@ -68,23 +67,22 @@ export function useTwitterUserServices(ctx: Context): TwitterService {
       const followingElement = await ctx.page.$('[href$="/following"]')
 
       const followerCount = followElement
-        ? Number.parseInt((await followElement.textContent() || '0').replace(/\D/g, ''))
+        ? Number.parseInt(((await followElement.textContent()) || '0').replace(/\D/g, ''))
         : undefined
 
       const followingCount = followingElement
-        ? Number.parseInt((await followingElement.textContent() || '0').replace(/\D/g, ''))
+        ? Number.parseInt(((await followingElement.textContent()) || '0').replace(/\D/g, ''))
         : undefined
 
       return {
-        username,
-        displayName,
-        bio: bio || undefined,
         avatarUrl: avatarUrl || undefined,
+        bio: bio || undefined,
+        displayName,
         followersCount: followerCount || undefined,
         followingCount: followingCount || undefined,
+        username,
       }
-    }
-    catch (error) {
+    } catch (error) {
       logger.main.error('Error fetching user profile:', (error as Error).message)
       throw new Error(`Failed to fetch profile for @${username}`)
     }

@@ -42,8 +42,7 @@ async function runAction(action: () => Promise<void> | void, successKey: string)
   try {
     await action()
     setStatus(t(successKey), 'success')
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     setStatus(error instanceof Error ? error.message : String(error), 'error')
   }
@@ -79,8 +78,7 @@ async function triggerExport(type: 'chats' | 'characters' | 'memory' | 'backgrou
     anchor.click()
     URL.revokeObjectURL(url)
     setStatus(t('settings.pages.data.status.exported'))
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     setStatus(error instanceof Error ? error.message : String(error), 'error')
   }
@@ -95,8 +93,7 @@ function triggerImportPicker(type: 'chats' | 'characters' | 'memory' | 'backgrou
 async function handleImport(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
-  if (!file)
-    return
+  if (!file) return
 
   try {
     const raw = await file.text()
@@ -118,20 +115,17 @@ async function handleImport(event: Event) {
 
     setStatus(t('settings.pages.data.status.imported'))
     importError.value = ''
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     importError.value = t('settings.pages.data.status.import_error')
     setStatus(error instanceof Error ? error.message : String(error), 'error')
-  }
-  finally {
+  } finally {
     target.value = ''
   }
 }
 
 const formattedLastBackupTime = computed(() => {
-  if (!backupStore.lastBackupTime)
-    return 'Never'
+  if (!backupStore.lastBackupTime) return 'Never'
   return new Date(backupStore.lastBackupTime).toLocaleString()
 })
 
@@ -139,8 +133,7 @@ async function handleTriggerBackup() {
   const backupPathResult = await backupStore.triggerBackup()
   if (backupPathResult) {
     setStatus(`Backup completed successfully at: ${backupPathResult}`)
-  }
-  else {
+  } else {
     setStatus('Backup failed!', 'error')
   }
 }

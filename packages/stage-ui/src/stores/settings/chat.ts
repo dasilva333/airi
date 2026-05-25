@@ -22,10 +22,10 @@ export const useSettingsChat = defineStore('settings-chat', () => {
   }
 
   return {
-    sendMode,
-    streamIdleTimeoutMs,
-    showDirectorNotes,
     combineSystemMessages,
     resetState,
+    sendMode,
+    showDirectorNotes,
+    streamIdleTimeoutMs,
   }
 })

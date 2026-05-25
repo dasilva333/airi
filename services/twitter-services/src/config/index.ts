@@ -1,12 +1,9 @@
-import type { Config } from './types'
-
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-
 import { merge } from '@moeru/std'
-
 import { logger } from '../utils/logger'
+import type { Config } from './types'
 import { getDefaultConfig } from './types'
 
 /**
@@ -43,8 +40,7 @@ export class ConfigManager {
       this.config = merge(this.config, fileConfig)
 
       logger.config.log(`Configuration loaded from ${filePath}`)
-    }
-    catch (error) {
+    } catch (error) {
       logger.config.errorWithError(`Failed to load configuration file: ${(error as Error).message}`, error)
     }
   }

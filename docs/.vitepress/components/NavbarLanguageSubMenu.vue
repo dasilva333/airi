@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from 'reka-ui'
+import {
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from 'reka-ui'
 import { useData, useRoute } from 'vitepress'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -14,9 +20,9 @@ const languages = computed(() => {
     return route.path.replace(`/${lang.value}/`, `/${targetLang}/`)
   }
 
-  return Object.values(site.value.locales).map(locale => ({
-    text: locale.label,
+  return Object.values(site.value.locales).map((locale) => ({
     link: replacedLink(locale.lang!),
+    text: locale.label,
   }))
 })
 </script>

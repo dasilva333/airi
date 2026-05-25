@@ -9,9 +9,7 @@ defineProps<{
   description?: string
 }>()
 
-const emits = defineEmits<{
-  (e: 'click'): void
-}>()
+const emits = defineEmits<(e: 'click') => void>()
 </script>
 
 <template>

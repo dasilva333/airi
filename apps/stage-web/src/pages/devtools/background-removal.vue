@@ -27,18 +27,17 @@ interface ImageItem {
 const imageItems = ref<ImageItem[]>([])
 const imageFiles = ref<File[]>([])
 
-const pendingCount = computed(() => imageItems.value.filter(item => item.status === 'pending').length)
-const doneCount = computed(() => imageItems.value.filter(item => item.status === 'done').length)
+const pendingCount = computed(() => imageItems.value.filter((item) => item.status === 'pending').length)
+const doneCount = computed(() => imageItems.value.filter((item) => item.status === 'done').length)
 
 // Watch for new files and add to imageItems
 watch(imageFiles, (newFiles) => {
-  if (newFiles.length === 0)
-    return
+  if (newFiles.length === 0) return
 
-  const existingNames = new Set(imageItems.value.map(item => item.file.name))
+  const existingNames = new Set(imageItems.value.map((item) => item.file.name))
   const newItems: ImageItem[] = newFiles
-    .filter(file => !existingNames.has(file.name))
-    .map(file => ({
+    .filter((file) => !existingNames.has(file.name))
+    .map((file) => ({
       file,
       originalUrl: URL.createObjectURL(file),
       processedUrl: null,
@@ -62,7 +61,7 @@ watch(autoProcess, (enabled) => {
 
 onMounted(async () => {
   try {
-    if (!((await check()).supported)) {
+    if (!(await check()).supported) {
       throw new Error('WebGPU is not supported in this browser.')
     }
 
@@ -73,8 +72,7 @@ onMounted(async () => {
     })
 
     processor.value ??= await AutoProcessor.from_pretrained(model_id, {})
-  }
-  catch (err) {
+  } catch (err) {
     error.value = err
   }
 
@@ -82,8 +80,7 @@ onMounted(async () => {
 })
 
 async function processImage(item: ImageItem, index: number): Promise<void> {
-  if (!model.value || !processor.value)
-    return
+  if (!model.value || !processor.value) return
 
   try {
     item.status = 'processing'
@@ -105,8 +102,7 @@ async function processImage(item: ImageItem, index: number): Promise<void> {
     canvas.width = img.width
     canvas.height = img.height
     const ctx = canvas.getContext('2d')
-    if (!ctx)
-      return
+    if (!ctx) return
 
     // Draw original image output to canvas
     ctx.drawImage(img.toCanvas(), 0, 0)
@@ -120,20 +116,18 @@ async function processImage(item: ImageItem, index: number): Promise<void> {
     ctx.putImageData(pixelData, 0, 0)
     item.processedUrl = canvas.toDataURL('image/png')
     item.status = 'done'
-  }
-  catch {
+  } catch {
     item.status = 'error'
   }
 }
 
 async function processAllImages() {
-  if (!model.value || !processor.value || processing.value)
-    return
+  if (!model.value || !processor.value || processing.value) return
 
   processing.value = true
   progressPercent.value = 0
 
-  const pendingItems = imageItems.value.filter(item => item.status === 'pending')
+  const pendingItems = imageItems.value.filter((item) => item.status === 'pending')
   const totalImages = pendingItems.length
 
   for (let i = 0; i < totalImages; ++i) {
@@ -147,8 +141,7 @@ async function processAllImages() {
 
 function downloadImage(index: number) {
   const item = imageItems.value[index]
-  if (!item || !item.processedUrl)
-    return
+  if (!item || !item.processedUrl) return
 
   // Get original filename and create new filename with suffix
   const originalFileName = item.file.name
@@ -164,9 +157,8 @@ function downloadImage(index: number) {
 }
 
 function downloadAllImages() {
-  const doneItems = imageItems.value.filter(item => item.status === 'done')
-  if (doneItems.length === 0)
-    return
+  const doneItems = imageItems.value.filter((item) => item.status === 'done')
+  if (doneItems.length === 0) return
 
   doneItems.forEach((_, i) => {
     const index = imageItems.value.indexOf(doneItems[i])
@@ -176,15 +168,13 @@ function downloadAllImages() {
 
 function removeImage(index: number) {
   const item = imageItems.value[index]
-  if (item.originalUrl)
-    URL.revokeObjectURL(item.originalUrl)
+  if (item.originalUrl) URL.revokeObjectURL(item.originalUrl)
   imageItems.value.splice(index, 1)
 }
 
 function clearAllImages() {
   imageItems.value.forEach((item) => {
-    if (item.originalUrl)
-      URL.revokeObjectURL(item.originalUrl)
+    if (item.originalUrl) URL.revokeObjectURL(item.originalUrl)
   })
   imageItems.value = []
 }

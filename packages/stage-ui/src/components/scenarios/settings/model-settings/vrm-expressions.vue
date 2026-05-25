@@ -16,12 +16,8 @@ const { availableExpressions, activeExpressions, emotionMappings, favoriteExpres
 const uniqueExpressions = computed(() => [...new Set(availableExpressions.value)])
 
 // Categorize: Presets have mixed case (e.g., "happy", "MouthLeft"), Custom are all lowercase
-const presets = computed(() =>
-  uniqueExpressions.value.filter(e => e !== e.toLowerCase()),
-)
-const custom = computed(() =>
-  uniqueExpressions.value.filter(e => e === e.toLowerCase()),
-)
+const presets = computed(() => uniqueExpressions.value.filter((e) => e !== e.toLowerCase()))
+const custom = computed(() => uniqueExpressions.value.filter((e) => e === e.toLowerCase()))
 
 const hasExpressions = computed(() => uniqueExpressions.value.length > 0)
 
@@ -79,15 +75,13 @@ function onPointerLeave() {
 }
 
 function assignMapping(actEmotion: string) {
-  if (!mappingTarget.value)
-    return
+  if (!mappingTarget.value) return
   emotionMappings.value = { ...emotionMappings.value, [mappingTarget.value]: actEmotion }
   mappingTarget.value = null
 }
 
 function clearMapping() {
-  if (!mappingTarget.value)
-    return
+  if (!mappingTarget.value) return
   const updated = { ...emotionMappings.value }
   delete updated[mappingTarget.value]
   emotionMappings.value = updated
@@ -95,12 +89,10 @@ function clearMapping() {
 }
 
 function toggleFavorite() {
-  if (!mappingTarget.value)
-    return
+  if (!mappingTarget.value) return
   if (favoriteExpression.value === mappingTarget.value) {
     favoriteExpression.value = ''
-  }
-  else {
+  } else {
     favoriteExpression.value = mappingTarget.value
   }
   mappingTarget.value = null
@@ -114,8 +106,7 @@ const occupiedActiveEmotions = computed(() => {
   const available = new Set(availableExpressions.value)
   const occupied = new Set<string>()
   for (const [vrmName, actSlot] of Object.entries(emotionMappings.value)) {
-    if (available.has(vrmName))
-      occupied.add(actSlot)
+    if (available.has(vrmName)) occupied.add(actSlot)
   }
   return occupied
 })
@@ -125,13 +116,13 @@ function closeModal() {
 }
 
 const ACT_EMOJI: Record<string, string> = {
-  happy: '😊',
-  sad: '😢',
   angry: '😠',
-  surprised: '😲',
-  neutral: '😐',
-  think: '🤔',
   cool: '😎',
+  happy: '😊',
+  neutral: '😐',
+  sad: '😢',
+  surprised: '😲',
+  think: '🤔',
 }
 
 // === Layer 4: Wardrobe Management ===
@@ -140,8 +131,8 @@ const selectedExpressions = ref(new Set<string>())
 const showCreationDialog = ref(false)
 
 const draftOutfit = ref({
-  name: '',
   icon: 'i-solar:t-shirt-bold-duotone',
+  name: '',
   type: 'base' as 'base' | 'overlay',
 })
 
@@ -153,8 +144,7 @@ function toggleSelection(name: string) {
     selectedExpressions.value.delete(name)
     // Real-time preview: Turn off when unselected
     activeExpressions.value = { ...activeExpressions.value, [name]: 0 }
-  }
-  else {
+  } else {
     selectedExpressions.value.add(name)
     // Real-time preview: Turn on (full weight) when selected
     activeExpressions.value = { ...activeExpressions.value, [name]: 1 }
@@ -183,15 +173,13 @@ function cancelBuilding() {
 }
 
 function openCreationDialog() {
-  if (selectedExpressions.value.size === 0)
-    return
+  if (selectedExpressions.value.size === 0) return
   draftOutfit.value.name = ''
   showCreationDialog.value = true
 }
 
 function saveOutfit() {
-  if (!activeCardId.value || !draftOutfit.value.name)
-    return
+  if (!activeCardId.value || !draftOutfit.value.name) return
 
   const expressions: Record<string, number> = {}
   selectedExpressions.value.forEach((name) => {
@@ -220,9 +208,8 @@ function saveOutfit() {
 }
 
 function deleteOutfit(id: string) {
-  if (!activeCardId.value)
-    return
-  const updatedOutfits = outfits.value.filter(o => o.id !== id)
+  if (!activeCardId.value) return
+  const updatedOutfits = outfits.value.filter((o) => o.id !== id)
   airiCardStore.updateCardOutfits(activeCardId.value, updatedOutfits)
 }
 </script>

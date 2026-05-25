@@ -6,15 +6,18 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-interface CharacterOption { value: string, label: string }
+interface CharacterOption {
+  value: string
+  label: string
+}
 
 function formatTimestamp(timestamp: number) {
   return new Date(timestamp).toLocaleString([], {
-    year: 'numeric',
-    month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
 }
 
@@ -31,14 +34,11 @@ const semanticResults = ref<(any & { kind?: string })[]>([])
 
 const characterOptions = computed<CharacterOption[]>(() => {
   const options = Array.from(cards.value.entries()).map(([id, card]) => ({
-    value: id,
     label: card.nickname?.trim() ? `${card.name} (${card.nickname.trim()})` : card.name,
+    value: id,
   }))
 
-  return [
-    { value: 'all', label: 'All Characters' },
-    ...options,
-  ]
+  return [{ label: 'All Characters', value: 'all' }, ...options]
 })
 
 // Legacy keyword filter as a fallback
@@ -47,10 +47,11 @@ const keywordFilteredEntries = computed(() => {
 
   return entries.value.filter((entry) => {
     const matchesCharacter = selectedCharacter.value === 'all' || entry.characterId === selectedCharacter.value
-    const matchesTerm = !term
-      || entry.title.toLowerCase().includes(term)
-      || entry.content.toLowerCase().includes(term)
-      || entry.characterName.toLowerCase().includes(term)
+    const matchesTerm =
+      !term ||
+      entry.title.toLowerCase().includes(term) ||
+      entry.content.toLowerCase().includes(term) ||
+      entry.characterName.toLowerCase().includes(term)
 
     return matchesCharacter && matchesTerm
   })
@@ -58,13 +59,12 @@ const keywordFilteredEntries = computed(() => {
 
 const visibleEntries = computed(() => {
   const term = searchTerm.value.trim()
-  if (!term)
-    return keywordFilteredEntries.value
+  if (!term) return keywordFilteredEntries.value
 
   // If we have semantic results, use them (already character-filtered in the search logic or post-filtered)
   if (semanticResults.value.length > 0) {
-    return semanticResults.value.filter(res =>
-      selectedCharacter.value === 'all' || res.characterId === selectedCharacter.value,
+    return semanticResults.value.filter(
+      (res) => selectedCharacter.value === 'all' || res.characterId === selectedCharacter.value,
     )
   }
 
@@ -74,8 +74,7 @@ const visibleEntries = computed(() => {
 
 let searchTimeout: any = null
 watch(searchTerm, (term) => {
-  if (searchTimeout)
-    clearTimeout(searchTimeout)
+  if (searchTimeout) clearTimeout(searchTimeout)
 
   const trimmed = term.trim()
   if (!trimmed) {
@@ -87,16 +86,14 @@ watch(searchTerm, (term) => {
     isSearching.value = true
     try {
       const results = await textJournalStore.searchEntries({
-        query: trimmed,
         limit: 20,
+        query: trimmed,
       })
       semanticResults.value = results
-    }
-    catch (err) {
+    } catch (err) {
       console.error('LTMM: Semantic search failed, falling back to keywords:', err)
       semanticResults.value = []
-    }
-    finally {
+    } finally {
       isSearching.value = false
     }
   }, 300)
@@ -106,10 +103,8 @@ async function seedEntry() {
   try {
     const entry = await textJournalStore.seedActiveCharacterEntry()
     toast.success(`Seeded journal entry for ${entry.characterName}.`)
-    if (selectedCharacter.value === 'all' && activeCardId.value)
-      selectedCharacter.value = activeCardId.value
-  }
-  catch (error) {
+    if (selectedCharacter.value === 'all' && activeCardId.value) selectedCharacter.value = activeCardId.value
+  } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     toast.error(`Failed to seed journal entry: ${message}`)
   }
@@ -119,14 +114,17 @@ onMounted(async () => {
   cardStore.initialize()
   await textJournalStore.load()
 
-  if (activeCardId.value && selectedCharacter.value === 'all')
-    selectedCharacter.value = activeCardId.value
+  if (activeCardId.value && selectedCharacter.value === 'all') selectedCharacter.value = activeCardId.value
 })
 
-watch(characterOptions, (options) => {
-  if (!options.some(option => option.value === selectedCharacter.value))
-    selectedCharacter.value = activeCardId.value || 'all'
-}, { immediate: true })
+watch(
+  characterOptions,
+  (options) => {
+    if (!options.some((option) => option.value === selectedCharacter.value))
+      selectedCharacter.value = activeCardId.value || 'all'
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

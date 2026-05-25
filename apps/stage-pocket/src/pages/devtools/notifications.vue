@@ -18,12 +18,12 @@ async function sendNotification() {
   await LocalNotifications.schedule({
     notifications: [
       {
-        id: Math.floor(Math.random() * 1000000),
-        title: title.value,
         body: content.value,
+        id: Math.floor(Math.random() * 1000000),
         schedule: {
           at: new Date(Date.now() + 5000),
         },
+        title: title.value,
       },
     ],
   })

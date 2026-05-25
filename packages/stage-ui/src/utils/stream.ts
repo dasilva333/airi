@@ -12,5 +12,5 @@ export function createControllableStream<R = any>(): ControllableStream<R> {
       controller = ctrl
     },
   })
-  return { stream, controller }
+  return { controller, stream }
 }

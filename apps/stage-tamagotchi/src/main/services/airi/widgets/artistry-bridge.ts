@@ -1,10 +1,8 @@
-import type { WidgetsWindowManager } from '../../../windows/widgets'
-import type { ArtistryProvider, ArtistryRequest } from './providers/base'
-
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
-
 import { useLogg } from '@guiiai/logg'
+import type { WidgetsWindowManager } from '../../../windows/widgets'
+import type { ArtistryProvider, ArtistryRequest } from './providers/base'
 
 import { ComfyUIProvider } from './providers/comfyui'
 import { NanoBananaProvider } from './providers/nanobanana'
@@ -13,13 +11,11 @@ import { ReplicateProvider } from './providers/replicate'
 const log = useLogg('artistry-bridge').useGlobalConfig()
 
 function robustParse(input: any): any {
-  if (typeof input === 'object' && input !== null)
-    return input
+  if (typeof input === 'object' && input !== null) return input
   if (typeof input === 'string') {
     try {
       return JSON.parse(input)
-    }
-    catch {
+    } catch {
       return {}
     }
   }
@@ -37,12 +33,10 @@ async function downloadImageAsBase64(url: string): Promise<string> {
   try {
     log.log(`[Artistry Bridge] Downloading image from: ${url}`)
     const response = await fetch(url)
-    if (!response.ok)
-      throw new Error(`Failed to fetch image: ${response.statusText}`)
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`)
     const bufferArray = await response.arrayBuffer()
     return Buffer.from(bufferArray).toString('base64')
-  }
-  catch (error: any) {
+  } catch (error: any) {
     log.error(`[Artistry Bridge] Failed to download image: ${error.message}`)
     throw error
   }
@@ -55,7 +49,7 @@ artistryProviders.set('replicate', new ReplicateProvider())
 artistryProviders.set('nanobanana', new NanoBananaProvider())
 
 // Deduplication map for headless requests
-const pendingHeadlessRequests = new Map<string, Promise<{ imageUrl?: string, base64?: string, error?: string }>>()
+const pendingHeadlessRequests = new Map<string, Promise<{ imageUrl?: string; base64?: string; error?: string }>>()
 
 export async function generateHeadless(params: {
   prompt: string
@@ -63,19 +57,19 @@ export async function generateHeadless(params: {
   provider?: string
   options?: Record<string, any>
   globals?: any
-}): Promise<{ imageUrl?: string, base64?: string, error?: string }> {
+}): Promise<{ imageUrl?: string; base64?: string; error?: string }> {
   // Create a fingerprint for deduplication
   const fingerprint = JSON.stringify({
-    p: params.prompt,
-    m: params.model,
-    pr: params.provider,
-    o: params.options,
     g: {
       ...params.globals,
       image: params.globals?.image
         ? createHash('sha256').update(params.globals.image.slice(0, 1024)).digest('hex')
         : undefined,
     },
+    m: params.model,
+    o: params.options,
+    p: params.prompt,
+    pr: params.provider,
   })
 
   if (pendingHeadlessRequests.has(fingerprint)) {
@@ -98,20 +92,19 @@ export async function generateHeadless(params: {
     }
 
     log.log(`[Headless] Globals keys: ${Object.keys(params.globals || {}).join(', ')}`)
-    if (params.globals?.image)
-      log.log(`[Headless] Source image length: ${params.globals.image.length}`)
+    if (params.globals?.image) log.log(`[Headless] Source image length: ${params.globals.image.length}`)
 
     const request: ArtistryRequest = {
-      prompt: params.prompt,
-      negativePrompt: params.options?.negativePrompt,
-      width: params.options?.width,
-      height: params.options?.height,
-      model: params.model,
       extra: {
         ...params.options,
         image: params.globals?.image,
         internalJobId: createRunId('headless'),
       },
+      height: params.options?.height,
+      model: params.model,
+      negativePrompt: params.options?.negativePrompt,
+      prompt: params.prompt,
+      width: params.options?.width,
     }
 
     log.log(`[Headless] Starting generation with provider: ${requestedProvider}, model: ${params.model || 'default'}`)
@@ -139,7 +132,7 @@ export async function generateHeadless(params: {
           isDone = true
         }
         if (!isDone) {
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          await new Promise((resolve) => setTimeout(resolve, 2000))
         }
       }
 
@@ -150,12 +143,11 @@ export async function generateHeadless(params: {
 
       log.log(`[Headless] Job ${job.jobId} succeeded. Image URL: ${lastStatus.imageUrl}`)
       const base64 = lastStatus.imageUrl ? await downloadImageAsBase64(lastStatus.imageUrl) : undefined
-      return { imageUrl: lastStatus.imageUrl, base64 }
-    }
-    else {
+      return { base64, imageUrl: lastStatus.imageUrl }
+    } else {
       // For providers with callbacks (like ComfyUI), we wait for the result via the callback
       log.log(`[Headless] Using callback-based wait logic for provider: ${requestedProvider}`)
-      return new Promise<{ imageUrl?: string, base64?: string }>((resolve, reject) => {
+      return new Promise<{ imageUrl?: string; base64?: string }>((resolve, reject) => {
         const timeout = 1000 * 60 * 10 // 10 minutes timeout
         const timer = setTimeout(() => {
           reject(new Error('Image generation timed out after 10 minutes.'))
@@ -166,13 +158,11 @@ export async function generateHeadless(params: {
             clearTimeout(timer)
             try {
               const base64 = status.imageUrl ? await downloadImageAsBase64(status.imageUrl) : undefined
-              resolve({ imageUrl: status.imageUrl, base64 })
-            }
-            catch (e) {
+              resolve({ base64, imageUrl: status.imageUrl })
+            } catch (e) {
               reject(e)
             }
-          }
-          else if (status.status === 'failed') {
+          } else if (status.status === 'failed') {
             clearTimeout(timer)
             reject(new Error(status.error || 'Generation failed'))
           }
@@ -185,11 +175,9 @@ export async function generateHeadless(params: {
 
   try {
     return await executionPromise
-  }
-  catch (err) {
+  } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) }
-  }
-  finally {
+  } finally {
     // Remove from map after completion so it can be re-triggered later
     pendingHeadlessRequests.delete(fingerprint)
   }
@@ -203,8 +191,7 @@ async function handleArtistryTrigger(params: {
   componentProps?: any
   widgetsManager: WidgetsWindowManager
 }) {
-  if (params.componentName !== 'comfy' && params.componentName !== 'artistry')
-    return
+  if (params.componentName !== 'comfy' && params.componentName !== 'artistry') return
 
   log.log(`🔍 Intercepted widget update [${params.id}] for component: ${params.componentName}`)
 
@@ -216,16 +203,19 @@ async function handleArtistryTrigger(params: {
   if (Object.keys(config).length > 0) {
     cachedArtistryConfig = config
   }
-  const configToUse = Object.keys(config).length > 0 ? config : (cachedArtistryConfig || {})
+  const configToUse = Object.keys(config).length > 0 ? config : cachedArtistryConfig || {}
 
   const providerId = configToUse.provider || configToUse.Globals?.artistryProvider || 'comfyui'
 
-  if (providerId === 'none')
-    return
+  if (providerId === 'none') return
 
   // Extract options and remix ID fallback
   const options = configToUse.options || {}
-  const remixId = props.payload?.remixId || props.remixId || options.remixId || (props.status === 'generating' && !prompt ? '48250602' : undefined)
+  const remixId =
+    props.payload?.remixId ||
+    props.remixId ||
+    options.remixId ||
+    (props.status === 'generating' && !prompt ? '48250602' : undefined)
 
   const mode = props.mode || (remixId ? 'remix' : 'generate')
   const triggerFingerprint = `${mode}:${remixId || ''}:${prompt || ''}`
@@ -240,8 +230,8 @@ async function handleArtistryTrigger(params: {
     if (!provider) {
       log.error(`🔴 Provider '${providerId}' not found.`)
       params.widgetsManager.updateWidget({
+        componentProps: { actionLabel: `Provider '${providerId}' not available`, status: 'error' },
         id: params.id,
-        componentProps: { status: 'error', actionLabel: `Provider '${providerId}' not available` },
       })
       return
     }
@@ -256,25 +246,24 @@ async function handleArtistryTrigger(params: {
     try {
       // Build the abstract request
       const request: ArtistryRequest = {
-        prompt: configToUse.promptPrefix ? `${configToUse.promptPrefix} ${prompt}` : prompt,
-        model: configToUse.model,
         extra: {
           ...props.payload,
           ...options,
           internalJobId: runId, // Track each generation independently, even on the same widget.
           remixId,
         },
+        model: configToUse.model,
+        prompt: configToUse.promptPrefix ? `${configToUse.promptPrefix} ${prompt}` : prompt,
       }
 
       const updateIfActive = (statusUpdate: Record<string, any>) => {
         // NOTICE: the same widget can kick off another generation before the previous one fully
         // settles. Only the most recent run is allowed to keep updating the widget state.
-        if (activeRunMap.get(params.id) !== runId)
-          return
+        if (activeRunMap.get(params.id) !== runId) return
 
         params.widgetsManager.updateWidget({
-          id: params.id,
           componentProps: statusUpdate,
+          id: params.id,
         })
       }
 
@@ -292,10 +281,11 @@ async function handleArtistryTrigger(params: {
         })
 
         await provider.generate(request)
-        const timeoutPromise = new Promise<void>((_, reject) => setTimeout(() => reject(new Error('Generation timed out')), 1000 * 60 * 10))
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Generation timed out')), 1000 * 60 * 10),
+        )
         await Promise.race([callbackPromise, timeoutPromise])
-      }
-      else {
+      } else {
         const job = await provider.generate(request)
 
         // Polling loop for providers that don't do callbacks (like Replicate)
@@ -303,7 +293,7 @@ async function handleArtistryTrigger(params: {
         const POLL_TIMEOUT = 1000 * 60 * 10 // 10 minutes
         while (!isDone) {
           if (Date.now() - pollStart > POLL_TIMEOUT) {
-            updateIfActive({ status: 'error', actionLabel: 'Generation timed out' })
+            updateIfActive({ actionLabel: 'Generation timed out', status: 'error' })
             break
           }
           const status = await provider.getStatus(job.jobId)
@@ -314,20 +304,19 @@ async function handleArtistryTrigger(params: {
           updateIfActive(status)
 
           if (!isDone) {
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            await new Promise((resolve) => setTimeout(resolve, 2000))
           }
         }
       }
 
       log.log(`🎉 Job complete for ${params.id}. Sending final status: done`)
-      updateIfActive({ status: 'done', progress: 100, actionLabel: undefined })
-    }
-    catch (error: any) {
+      updateIfActive({ actionLabel: undefined, progress: 100, status: 'done' })
+    } catch (error: any) {
       log.error(`🔴 Generation failed: ${error.message}`)
       if (activeRunMap.get(params.id) === runId) {
         params.widgetsManager.updateWidget({
+          componentProps: { actionLabel: error.message, status: 'error' },
           id: params.id,
-          componentProps: { status: 'error', actionLabel: error.message },
         })
       }
     }
@@ -342,9 +331,9 @@ export function setupArtistryBridge(params: { widgetsManager: WidgetsWindowManag
     const snapshot = params.widgetsManager.getWidgetSnapshot(payload.id)
     await originalUpdateWidget.call(params.widgetsManager, payload)
     await handleArtistryTrigger({
-      id: payload.id,
       componentName: snapshot?.componentName,
       componentProps: payload.componentProps,
+      id: payload.id,
       widgetsManager: params.widgetsManager,
     })
   }
@@ -352,16 +341,18 @@ export function setupArtistryBridge(params: { widgetsManager: WidgetsWindowManag
   const originalPushWidget = params.widgetsManager.pushWidget
   params.widgetsManager.pushWidget = async (payload) => {
     if (payload.componentName === 'comfy' || payload.componentName === 'artistry') {
-      log.log(`🖼️  Enabling 'Living Wall' mode for ${payload.id}. Forcing infinite TTL. (Component: ${payload.componentName})`)
+      log.log(
+        `🖼️  Enabling 'Living Wall' mode for ${payload.id}. Forcing infinite TTL. (Component: ${payload.componentName})`,
+      )
       payload.ttlMs = 0
     }
 
     const resultId = await originalPushWidget.call(params.widgetsManager, payload)
 
     await handleArtistryTrigger({
-      id: resultId,
       componentName: payload.componentName,
       componentProps: payload.componentProps,
+      id: resultId,
       widgetsManager: params.widgetsManager,
     })
 

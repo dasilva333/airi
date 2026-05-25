@@ -3,15 +3,9 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 
-const emits = defineEmits<{
-  (e: 'reset'): void
-}>()
+const emits = defineEmits<(e: 'reset') => void>()
 
-const {
-  stageModelRenderer,
-  stageViewControlsEnabled,
-  stageViewControlsMode: mode,
-} = storeToRefs(useSettings())
+const { stageModelRenderer, stageViewControlsEnabled, stageViewControlsMode: mode } = storeToRefs(useSettings())
 
 function handleViewControlsToggle(targetMode: 'x' | 'y' | 'z' | 'scale') {
   if (mode.value === targetMode) {

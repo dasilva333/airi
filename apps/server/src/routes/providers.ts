@@ -1,11 +1,9 @@
-import type { ProviderService } from '../services/providers'
-import type { HonoEnv } from '../types/hono'
-
 import { Hono } from 'hono'
 import { safeParse } from 'valibot'
-
 import { CreateProviderConfigSchema, UpdateProviderConfigSchema } from '../api/providers.schema'
 import { authGuard } from '../middlewares/auth'
+import type { ProviderService } from '../services/providers'
+import type { HonoEnv } from '../types/hono'
 import { createBadRequestError, createForbiddenError, createNotFoundError } from '../utils/error'
 
 export function createProviderRoutes(providerService: ProviderService) {
@@ -22,8 +20,7 @@ export function createProviderRoutes(providerService: ProviderService) {
       const user = c.get('user')!
       const id = c.req.param('id')
       const provider = await providerService.findById(id, user.id)
-      if (!provider)
-        throw createNotFoundError()
+      if (!provider) throw createNotFoundError()
 
       return c.json(provider)
     })
@@ -56,10 +53,8 @@ export function createProviderRoutes(providerService: ProviderService) {
       }
 
       const existing = await providerService.findUserConfigById(id)
-      if (!existing)
-        throw createNotFoundError()
-      if (existing.ownerId !== user.id)
-        throw createForbiddenError()
+      if (!existing) throw createNotFoundError()
+      if (existing.ownerId !== user.id) throw createForbiddenError()
 
       const updated = await providerService.updateUserConfig(id, result.output)
       return c.json(updated)
@@ -70,10 +65,8 @@ export function createProviderRoutes(providerService: ProviderService) {
       const id = c.req.param('id')
 
       const existing = await providerService.findUserConfigById(id)
-      if (!existing)
-        throw createNotFoundError()
-      if (existing.ownerId !== user.id)
-        throw createForbiddenError()
+      if (!existing) throw createNotFoundError()
+      if (existing.ownerId !== user.id) throw createForbiddenError()
 
       await providerService.deleteUserConfig(id)
       return c.body(null, 204)

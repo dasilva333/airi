@@ -1,8 +1,6 @@
 import type { Logg } from '@guiiai/logg'
-
-import type { SatoriEvent } from '../adapter/satori/types'
-
 import * as v from 'valibot'
+import type { SatoriEvent } from '../adapter/satori/types'
 
 // Action schemas
 export const ContinueActionSchema = v.object({
@@ -24,8 +22,8 @@ export const ListChannelsActionSchema = v.object({
 
 export const SendMessageActionSchema = v.object({
   action: v.literal('send_message'),
-  content: v.string(),
   channelId: v.string(),
+  content: v.string(),
 })
 
 export const ReadUnreadMessagesActionSchema = v.object({
@@ -58,8 +56,8 @@ export function cancellable<T>(promise: Promise<T>): CancellablePromise<T> {
   })
 
   return {
-    promise: wrappedPromise,
     cancel: () => cancel?.(),
+    promise: wrappedPromise,
   }
 }
 
@@ -93,5 +91,5 @@ export interface ChatContext {
   currentTask?: CancellablePromise<void>
   currentAbortController?: AbortController
 
-  actions: { action: Action, result: unknown }[]
+  actions: { action: Action; result: unknown }[]
 }

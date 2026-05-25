@@ -1,64 +1,58 @@
 <script setup lang="ts">
 /*
-  * - Root vue component of stage-ui-three package
-  * - This scene component the root for all the sub components in the 3d scene
-  * - This package, stage-ui-three, is a stateful package
-  * - Pinia store is used to store the data/configuration of the model, camera, lighting, etc.
-  * - Src of model is obtained from stage-ui via props, which is NOT a part of stage-ui-three package
-*/
+ * - Root vue component of stage-ui-three package
+ * - This scene component the root for all the sub components in the 3d scene
+ * - This package, stage-ui-three, is a stateful package
+ * - Pinia store is used to store the data/configuration of the model, camera, lighting, etc.
+ * - Src of model is obtained from stage-ui via props, which is NOT a part of stage-ui-three package
+ */
 
 import type { VRM } from '@pixiv/three-vrm'
-import type { TresContext } from '@tresjs/core'
-import type { DirectionalLight, SphericalHarmonics3, Texture, WebGLRenderer, WebGLRenderTarget } from 'three'
-
-import type { Vec3 } from '../stores/model-store'
-
 import { Screen } from '@proj-airi/ui'
+import type { TresContext } from '@tresjs/core'
 import { TresCanvas } from '@tresjs/core'
 import { useElementBounding } from '@vueuse/core'
 import { formatHex } from 'culori'
 import { storeToRefs } from 'pinia'
-import {
-  ACESFilmicToneMapping,
-  Euler,
-  MathUtils,
-  PerspectiveCamera,
-  Vector3,
-} from 'three'
+import type { DirectionalLight, SphericalHarmonics3, Texture, WebGLRenderer, WebGLRenderTarget } from 'three'
+import { ACESFilmicToneMapping, Euler, MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-
 // From stage-ui-three package
 import { useRenderTargetRegionAtClientPoint } from '../composables/render-target'
+import type { Vec3 } from '../stores/model-store'
 import { useModelStore } from '../stores/model-store'
-import { OrbitControls } from './Controls'
-import { SkyBox } from './Environment'
-import { VRMModel } from './Model'
+import type { OrbitControls } from './Controls'
+import type { SkyBox } from './Environment'
+import type { VRMModel } from './Model'
 
-const props = withDefaults(defineProps<{
-  currentAudioSource?: AudioBufferSourceNode
-  modelSrc?: string
-  modelIdentity?: string
-  skyBoxSrc?: string
-  showAxes?: boolean
-  idleAnimation?: string
-  idleCycleEnabled?: boolean
-  paused?: boolean
-  renderScaleOverride?: number
-  xOffset?: number
-  yOffset?: number
-  scale?: number
-}>(), {
-  showAxes: false,
-  idleAnimation: new URL('../assets/vrm/animations/idle_loop.vrma', import.meta.url).href,
-  paused: false,
-})
+const props = withDefaults(
+  defineProps<{
+    currentAudioSource?: AudioBufferSourceNode
+    modelSrc?: string
+    modelIdentity?: string
+    skyBoxSrc?: string
+    showAxes?: boolean
+    idleAnimation?: string
+    idleCycleEnabled?: boolean
+    paused?: boolean
+    renderScaleOverride?: number
+    xOffset?: number
+    yOffset?: number
+    scale?: number
+  }>(),
+  {
+    idleAnimation: new URL('../assets/vrm/animations/idle_loop.vrma', import.meta.url).href,
+    paused: false,
+    showAxes: false,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'loadModelProgress', value: number): void
   (e: 'binaryLoaded', value: ArrayBuffer): void
   (e: 'error', value: unknown): void
   (e: 'finished'): void
-  (e: 'playStatus', value: { duration: number, url: string }): void
+  (e: 'playStatus', value: { duration: number; url: string }): void
 }>()
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -117,32 +111,30 @@ const tresCanvasRef = shallowRef<TresContext>()
 const skyBoxEnvRef = ref<InstanceType<typeof SkyBox>>()
 const dirLightRef = ref<InstanceType<typeof DirectionalLight>>()
 const { readRenderTargetRegionAtClientPoint, disposeRenderTarget } = useRenderTargetRegionAtClientPoint({
-  getRenderer: () => tresCanvasRef.value?.renderer.instance as WebGLRenderer | undefined,
-  getScene: () => tresCanvasRef.value?.scene.value,
   getCamera: () => camera.value,
   getCanvas: () => tresCanvasRef.value?.renderer.instance.domElement,
+  getRenderer: () => tresCanvasRef.value?.renderer.instance as WebGLRenderer | undefined,
+  getScene: () => tresCanvasRef.value?.scene.value,
 })
 
 /*
-  * Pinia store definition
-  * - Lilia: We highly recommend you gather all the store data definition here
-  * - Only this root component (ThreeScene) can directly access pinia store
-*/
+ * Pinia store definition
+ * - Lilia: We highly recommend you gather all the store data definition here
+ * - Only this root component (ThreeScene) can directly access pinia store
+ */
 // TODO: remove the hard-coded pinia store and inject the data from here
 
 /*
-  * Handle upward info flow
-  * - Sub components emit info => update pinia store
-*/
+ * Handle upward info flow
+ * - Sub components emit info => update pinia store
+ */
 // === OrbitControls ===
 // Get camera update => update camera info in pinia
-function onOrbitControlsCameraChanged(value: {
-  newCameraPosition: Vec3
-  newCameraDistance: number
-}) {
-  const posChanged = Math.abs(cameraPosition.value.x - value.newCameraPosition.x) > 1e-6
-    || Math.abs(cameraPosition.value.y - value.newCameraPosition.y) > 1e-6
-    || Math.abs(cameraPosition.value.z - value.newCameraPosition.z) > 1e-6
+function onOrbitControlsCameraChanged(value: { newCameraPosition: Vec3; newCameraDistance: number }) {
+  const posChanged =
+    Math.abs(cameraPosition.value.x - value.newCameraPosition.x) > 1e-6 ||
+    Math.abs(cameraPosition.value.y - value.newCameraPosition.y) > 1e-6 ||
+    Math.abs(cameraPosition.value.z - value.newCameraPosition.z) > 1e-6
   if (posChanged) {
     cameraPosition.value = value.newCameraPosition
   }
@@ -154,9 +146,13 @@ function onOrbitControlsCameraChanged(value: {
 const controlsReady = ref(false)
 const controlEnable = ref<boolean>(false)
 
-watch(() => modelStore.interactionMode, (mode) => {
-  controlEnable.value = mode === 'orbit'
-}, { immediate: true })
+watch(
+  () => modelStore.interactionMode,
+  (mode) => {
+    controlEnable.value = mode === 'orbit'
+  },
+  { immediate: true },
+)
 
 function onOrbitControlsReady() {
   controlsReady.value = true
@@ -194,7 +190,7 @@ function onVRMModelLookAtTarget(value: Vec3) {
   lookAtTarget.value.y = value.y
   lookAtTarget.value.z = value.z
 }
-function onVRMModelLoaded(value: { modelIdentity?: string, modelSrc: string }) {
+function onVRMModelLoaded(value: { modelIdentity?: string; modelSrc: string }) {
   lastModelSrc.value = value.modelSrc
   lastModelIdentity.value = value.modelIdentity ?? value.modelSrc
   modelLoaded.value = true
@@ -238,46 +234,42 @@ watch(modelRef, () => applyVrmFrameHook(), { immediate: true })
 // Directional light setup moved inline, no ready event needed
 const sceneReady = ref(false)
 // Setup directional light when controls are ready and we have the light ref
-watch(
-  [controlsReady, modelLoaded, dirLightRef],
-  ([ctrlOk, loaded, dirLight]) => {
-    if (!ctrlOk || !loaded || !dirLight || !camera.value || !controlsRef.value?.controls)
-      return
+watch([controlsReady, modelLoaded, dirLightRef], ([ctrlOk, loaded, dirLight]) => {
+  if (!ctrlOk || !loaded || !dirLight || !camera.value || !controlsRef.value?.controls) return
 
-    try {
-      // setup initial target of directional light
-      dirLight.parent?.add(dirLight.target)
-      dirLight.target.position.set(
-        directionalLightTarget.value.x,
-        directionalLightTarget.value.y,
-        directionalLightTarget.value.z,
-      )
-      dirLight.target.updateMatrixWorld()
-      sceneReady.value = true
-    }
-    catch (error) {
-      console.error('[ThreeScene] Failed to setup directional light:', error)
-    }
-  },
-)
+  try {
+    // setup initial target of directional light
+    dirLight.parent?.add(dirLight.target)
+    dirLight.target.position.set(
+      directionalLightTarget.value.x,
+      directionalLightTarget.value.y,
+      directionalLightTarget.value.z,
+    )
+    dirLight.target.updateMatrixWorld()
+    sceneReady.value = true
+  } catch (error) {
+    console.error('[ThreeScene] Failed to setup directional light:', error)
+  }
+})
 
 // Update component state based on scene readiness
-watch([sceneReady, modelLoaded], ([ready, loaded]) => {
-  if (ready && loaded) {
-    componentState.value = 'mounted'
-  }
-  else if (loaded) {
-    componentState.value = 'loading'
-  }
-  else {
-    componentState.value = 'pending'
-  }
-}, { immediate: true })
+watch(
+  [sceneReady, modelLoaded],
+  ([ready, loaded]) => {
+    if (ready && loaded) {
+      componentState.value = 'mounted'
+    } else if (loaded) {
+      componentState.value = 'loading'
+    } else {
+      componentState.value = 'pending'
+    }
+  },
+  { immediate: true },
+)
 
-function updateDirLightTarget(newRotation: { x: number, y: number, z: number }) {
+function updateDirLightTarget(newRotation: { x: number; y: number; z: number }) {
   const light = dirLightRef.value
-  if (!light)
-    return
+  if (!light) return
 
   const { x: rx, y: ry, z: rz } = newRotation
   const lightPosition = new Vector3(
@@ -286,12 +278,7 @@ function updateDirLightTarget(newRotation: { x: number, y: number, z: number }) 
     directionalLightPosition.value.z,
   )
   const origin = new Vector3(0, 0, 0)
-  const euler = new Euler(
-    MathUtils.degToRad(rx),
-    MathUtils.degToRad(ry),
-    MathUtils.degToRad(rz),
-    'XYZ',
-  )
+  const euler = new Euler(MathUtils.degToRad(rx), MathUtils.degToRad(ry), MathUtils.degToRad(rz), 'XYZ')
   const initialForward = origin.clone().sub(lightPosition).normalize()
   const newForward = initialForward.applyEuler(euler).normalize()
   const distance = lightPosition.distanceTo(origin)
@@ -305,37 +292,21 @@ function updateDirLightTarget(newRotation: { x: number, y: number, z: number }) 
   // console.debug("directional Light target update!: ", directionalLightTarget.value)
 }
 
-watch(directionalLightRotation, (newRotation) => {
-  updateDirLightTarget(newRotation)
-}, { deep: true })
+watch(
+  directionalLightRotation,
+  (newRotation) => {
+    updateDirLightTarget(newRotation)
+  },
+  { deep: true },
+)
 
 defineExpose({
-  setExpression: (expression: string, intensity = 1, resetMs?: number) => {
-    modelRef.value?.setExpression(expression, intensity, resetMs)
-  },
-  setVrmFrameHook: (hook?: (vrm: VRM, delta: number) => void) => {
-    vrmFrameHook.value = hook
-    applyVrmFrameHook()
-  },
-  listExpressions: () => {
-    return modelRef.value?.listExpressions() || []
-  },
+  camera: () => camera.value,
   canvasElement: () => {
     return tresCanvasRef.value?.renderer.instance.domElement
   },
-  camera: () => camera.value,
-  renderer: () => tresCanvasRef.value?.renderer.instance,
-  scene: () => modelRef.value?.scene,
-  stopAnimations: () => {
-    modelRef.value?.stopAnimations()
-  },
-  restoreDefaultExpressions: () => {
-    modelRef.value?.restoreDefaultExpressions()
-  },
-  readRenderTargetRegionAtClientPoint,
   captureFrame: async () => {
-    if (!tresCanvasRef.value)
-      return null
+    if (!tresCanvasRef.value) return null
 
     const { renderer, scene } = tresCanvasRef.value
     renderer.instance.render(scene.value, camera.value)
@@ -343,6 +314,25 @@ defineExpose({
     return new Promise<Blob | null>((resolve) => {
       renderer.instance.domElement.toBlob(resolve)
     })
+  },
+  listExpressions: () => {
+    return modelRef.value?.listExpressions() || []
+  },
+  readRenderTargetRegionAtClientPoint,
+  renderer: () => tresCanvasRef.value?.renderer.instance,
+  restoreDefaultExpressions: () => {
+    modelRef.value?.restoreDefaultExpressions()
+  },
+  scene: () => modelRef.value?.scene,
+  setExpression: (expression: string, intensity = 1, resetMs?: number) => {
+    modelRef.value?.setExpression(expression, intensity, resetMs)
+  },
+  setVrmFrameHook: (hook?: (vrm: VRM, delta: number) => void) => {
+    vrmFrameHook.value = hook
+    applyVrmFrameHook()
+  },
+  stopAnimations: () => {
+    modelRef.value?.stopAnimations()
   },
 })
 </script>

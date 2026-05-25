@@ -1,18 +1,12 @@
 <script setup lang="ts">
+import { useContextFlowFormatters } from '../composables/use-context-flow-formatters'
 import type { FlowChannel, FlowDirection, FlowEntry, SparkNotifyEntryState } from '../context-flow-types'
-
 import ContextFlowPreview from './context-flow-preview.vue'
 import ContextFlowSparkNotify from './context-flow-spark-notify.vue'
 
-import { useContextFlowFormatters } from '../composables/use-context-flow-formatters'
+defineProps<{ entry: FlowEntry; sparkNotifyState?: SparkNotifyEntryState }>()
 
-defineProps<{ entry: FlowEntry, sparkNotifyState?: SparkNotifyEntryState }>()
-
-const {
-  formatPayload,
-  formatTimestamp,
-  getEventSource,
-} = useContextFlowFormatters()
+const { formatPayload, formatTimestamp, getEventSource } = useContextFlowFormatters()
 
 const directionBadgeClassMap: Record<FlowDirection, string[]> = {
   incoming: [
@@ -21,19 +15,14 @@ const directionBadgeClassMap: Record<FlowDirection, string[]> = {
     'dark:text-complementary-300',
     'border-complementary-500/30',
   ],
-  outgoing: [
-    'bg-primary-500/15',
-    'text-primary-600',
-    'dark:text-primary-300',
-    'border-primary-500/30',
-  ],
+  outgoing: ['bg-primary-500/15', 'text-primary-600', 'dark:text-primary-300', 'border-primary-500/30'],
 }
 
 const channelBadgeClassMap: Record<FlowChannel, string[]> = {
-  server: ['bg-orange-500/15', 'text-orange-600', 'dark:text-orange-300', 'border-orange-500/30'],
   broadcast: ['bg-violet-500/15', 'text-violet-600', 'dark:text-violet-300', 'border-violet-500/30'],
   chat: ['bg-lime-500/15', 'text-lime-600', 'dark:text-lime-300', 'border-lime-500/30'],
   devtools: ['bg-neutral-400/15', 'text-neutral-600', 'dark:text-neutral-300', 'border-neutral-500/30'],
+  server: ['bg-orange-500/15', 'text-orange-600', 'dark:text-orange-300', 'border-orange-500/30'],
 }
 
 const directionIconClassMap: Record<FlowDirection, string> = {

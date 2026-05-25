@@ -44,8 +44,7 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
 
   function revokeObjectUrl(key: string) {
     const existingUrl = objectUrls.get(key)
-    if (!existingUrl)
-      return
+    if (!existingUrl) return
 
     URL.revokeObjectURL(existingUrl)
     objectUrls.delete(key)
@@ -59,20 +58,18 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
     objectUrls.set(key, url)
 
     return {
+      importedAt: stored.importedAt,
       key,
       name: stored.name,
       originalFileName: stored.originalFileName,
-      importedAt: stored.importedAt,
       url,
     }
   }
 
   async function loadCustomAnimations() {
-    if (customAnimationsLoaded.value)
-      return
+    if (customAnimationsLoaded.value) return
 
-    if (loadPromise)
-      return loadPromise
+    if (loadPromise) return loadPromise
 
     loadPromise = (async () => {
       customAnimationsLoading.value = true
@@ -80,8 +77,7 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
 
       try {
         await localforage.iterate<StoredCustomVrmAnimation, void>((stored, storageKey) => {
-          if (!storageKey.startsWith(STORAGE_PREFIX))
-            return
+          if (!storageKey.startsWith(STORAGE_PREFIX)) return
 
           const id = storageKey.slice(STORAGE_PREFIX.length)
           const animation = createAnimationRecord(id, stored)
@@ -90,11 +86,9 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
 
         customAnimations.value = nextAnimations
         customAnimationsLoaded.value = true
-      }
-      catch (error) {
+      } catch (error) {
         console.error('[CustomVRMA] Failed to load custom VRMA animations', error)
-      }
-      finally {
+      } finally {
         customAnimationsLoading.value = false
       }
     })()
@@ -126,40 +120,38 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
   }
 
   function resolveAnimationUrl(key: string | null | undefined) {
-    if (key && key in customAnimations.value)
-      return customAnimations.value[key].url
+    if (key && key in customAnimations.value) return customAnimations.value[key].url
 
-    if (key && key in animations)
-      return animations[key as keyof typeof animations]
+    if (key && key in animations) return animations[key as keyof typeof animations]
 
     return animations.idleLoop
   }
 
   const animationOptions = computed(() => {
-    const builtinOptions = Object.keys(animations).map(key => ({ label: key, value: key }))
+    const builtinOptions = Object.keys(animations).map((key) => ({ label: key, value: key }))
     const customOptions = Object.values(customAnimations.value)
       .sort((a, b) => b.importedAt - a.importedAt)
-      .map(animation => ({ label: animation.name, value: animation.key }))
+      .map((animation) => ({ label: animation.name, value: animation.key }))
 
     return [...builtinOptions, ...customOptions]
   })
 
-  const animationKeys = computed(() => animationOptions.value.map(option => option.value))
+  const animationKeys = computed(() => animationOptions.value.map((option) => option.value))
   const animationLabelByKey = computed<Record<string, string>>(() =>
-    Object.fromEntries(animationOptions.value.map(option => [option.value, option.label])),
+    Object.fromEntries(animationOptions.value.map((option) => [option.value, option.label])),
   )
 
   void loadCustomAnimations()
 
   return {
-    customAnimations,
-    customAnimationsLoading,
-    customAnimationsLoaded,
-    animationOptions,
+    addCustomAnimation,
     animationKeys,
     animationLabelByKey,
+    animationOptions,
+    customAnimations,
+    customAnimationsLoaded,
+    customAnimationsLoading,
     loadCustomAnimations,
-    addCustomAnimation,
     resolveAnimationUrl,
   }
 })

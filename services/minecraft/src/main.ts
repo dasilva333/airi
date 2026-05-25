@@ -1,8 +1,6 @@
 import process, { exit } from 'node:process'
-
-import MineflayerArmorManager from 'mineflayer-armor-manager'
-
 import { Client } from '@proj-airi/server-sdk'
+import MineflayerArmorManager from 'mineflayer-armor-manager'
 import { loader as MineflayerAutoEat } from 'mineflayer-auto-eat'
 import { plugin as MineflayerCollectBlock } from 'mineflayer-collectblock'
 import { pathfinder as MineflayerPathfinder } from 'mineflayer-pathfinder'
@@ -30,7 +28,7 @@ async function main() {
         'SECURITY NOTICE:',
         'The MCP Server, Debug Server, and/or Prismarine Viewer endpoints are currently',
         'enabled. These endpoints are completely unauthenticated. Enabling these exposes',
-        'your bot\'s internal state and capabilities to anyone who can reach the ports.',
+        "your bot's internal state and capabilities to anyone who can reach the ports.",
         'This can lead to Remote Code Execution (RCE) and full compromise of the bot',
         'if exposed to the internet or untrusted local networks. Ensure they are not',
         'externally accessible.',
@@ -61,7 +59,7 @@ async function main() {
   })
 
   if (config.debug.viewer) {
-    setupMineflayerViewer(bot, { port: 3007, firstPerson: true })
+    setupMineflayerViewer(bot, { firstPerson: true, port: 3007 })
   }
 
   // Connect airi server

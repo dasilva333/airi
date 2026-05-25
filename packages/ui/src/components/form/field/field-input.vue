@@ -5,17 +5,20 @@
 >
 import { Input } from '../input'
 
-const props = withDefaults(defineProps<{
-  label?: string
-  description?: string
-  placeholder?: string
-  required?: boolean
-  type?: InputType
-  inputClass?: string
-  singleLine?: boolean
-}>(), {
-  singleLine: true,
-})
+const props = withDefaults(
+  defineProps<{
+    label?: string
+    description?: string
+    placeholder?: string
+    required?: boolean
+    type?: InputType
+    inputClass?: string
+    singleLine?: boolean
+  }>(),
+  {
+    singleLine: true,
+  },
+)
 
 const modelValue = defineModel<T>({ required: false })
 </script>

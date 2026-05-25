@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { Range } from '../range'
 
-const props = withDefaults(defineProps<{
-  min?: number
-  max?: number
-  step?: number
-  label?: string
-  description?: string
-  formatValue?: (value: number) => string
-  as?: 'label' | 'div'
-}>(), {
-  as: 'label',
-})
+const props = withDefaults(
+  defineProps<{
+    min?: number
+    max?: number
+    step?: number
+    label?: string
+    description?: string
+    formatValue?: (value: number) => string
+    as?: 'label' | 'div'
+  }>(),
+  {
+    as: 'label',
+  },
+)
 
 const modelValue = defineModel<number>({ required: true })
 </script>

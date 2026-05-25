@@ -1,3 +1,6 @@
+import { useLogg } from '@guiiai/logg'
+import { defineInvokeHandler } from '@moeru/eventa'
+import { createContext } from '@moeru/eventa/adapters/electron/main'
 import type {
   DiscordEventLogEntry,
   DiscordInboundMessage,
@@ -5,10 +8,6 @@ import type {
   DiscordOutboundImage,
   DiscordServiceStatus,
 } from '@proj-airi/stage-shared'
-
-import { useLogg } from '@guiiai/logg'
-import { defineInvokeHandler } from '@moeru/eventa'
-import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js'
 import { BrowserWindow, ipcMain } from 'electron'
 import { nanoid } from 'nanoid'
@@ -51,8 +50,7 @@ function broadcastToAllWindows(channel: string, payload: unknown) {
         if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
           win.webContents.send(channel, payload)
         }
-      }
-      catch (err: any) {
+      } catch (err: any) {
         // NOTICE: We ignore 'Render frame was disposed' errors as they occur normally
         // when a window is closed or crashes while a broadcast is in flight.
         const msg = err?.message || ''
@@ -67,37 +65,38 @@ function broadcastToAllWindows(channel: string, payload: unknown) {
 function buildStatus(): DiscordServiceStatus {
   if (!discordClient) {
     return {
-      state: 'disconnected',
-      ping: null,
-      guilds: [],
       activeChannelId: null,
       botUser: null,
       error: lastError,
+      guilds: [],
+      ping: null,
+      state: 'disconnected',
     }
   }
 
   const ready = discordClient.isReady()
   const guilds = ready
-    ? discordClient.guilds.cache.map(g => ({
+    ? discordClient.guilds.cache.map((g) => ({
+        icon: g.iconURL({ size: 64 }),
         id: g.id,
         name: g.name,
-        icon: g.iconURL({ size: 64 }),
       }))
     : []
 
   return {
-    state: ready ? 'connected' : 'connecting',
-    ping: ready ? discordClient.ws.ping : null,
-    guilds,
     activeChannelId,
-    botUser: ready && discordClient.user
-      ? {
-          id: discordClient.user.id,
-          tag: discordClient.user.tag,
-          avatarUrl: discordClient.user.displayAvatarURL({ size: 128 }),
-        }
-      : null,
+    botUser:
+      ready && discordClient.user
+        ? {
+            avatarUrl: discordClient.user.displayAvatarURL({ size: 128 }),
+            id: discordClient.user.id,
+            tag: discordClient.user.tag,
+          }
+        : null,
     error: lastError,
+    guilds,
+    ping: ready ? discordClient.ws.ping : null,
+    state: ready ? 'connected' : 'connecting',
   }
 }
 
@@ -107,8 +106,7 @@ function buildStatus(): DiscordServiceStatus {
  */
 function chunkMessage(content: string): string[] {
   const MAX = 2000
-  if (content.length <= MAX)
-    return [content]
+  if (content.length <= MAX) return [content]
 
   const chunks: string[] = []
   let remaining = content
@@ -120,10 +118,8 @@ function chunkMessage(content: string): string[] {
     }
 
     let splitAt = remaining.lastIndexOf('\n', MAX)
-    if (splitAt <= 0)
-      splitAt = remaining.lastIndexOf(' ', MAX)
-    if (splitAt <= 0)
-      splitAt = MAX
+    if (splitAt <= 0) splitAt = remaining.lastIndexOf(' ', MAX)
+    if (splitAt <= 0) splitAt = MAX
 
     chunks.push(remaining.slice(0, splitAt))
     remaining = remaining.slice(splitAt).trim()
@@ -140,8 +136,7 @@ export function setupDiscordService() {
   // ── Interaction Logic ──────────────────────────────────────────────────
 
   const handleInteraction = async (interaction: any) => {
-    if (!interaction.isChatInputCommand())
-      return
+    if (!interaction.isChatInputCommand()) return
 
     try {
       pushLog('INTERACTION', `Received /${interaction.commandName} from ${interaction.user.tag}`)
@@ -160,29 +155,31 @@ export function setupDiscordService() {
 
       // 4. Forward to Renderer
       pushInteraction({
-        interactionId: interaction.id,
-        commandName: interaction.commandName,
-        options,
         channelId: interaction.channelId,
+        commandName: interaction.commandName,
+        interactionId: interaction.id,
+        options,
         userId: interaction.user.id,
         username: interaction.user.username,
       })
 
       // 5. Auto-cleanup interactions after 15 minutes (Discord's token limit)
-      setTimeout(() => {
-        activeInteractions.delete(interaction.id)
-      }, 15 * 60 * 1000)
-    }
-    catch (err: any) {
+      setTimeout(
+        () => {
+          activeInteractions.delete(interaction.id)
+        },
+        15 * 60 * 1000,
+      )
+    } catch (err: any) {
       pushLog('ERROR', `Interaction handling failed: ${err.message}`)
     }
   }
 
   function pushLog(type: string, summary: string) {
     const entry: DiscordEventLogEntry = {
+      summary,
       timestamp: Date.now(),
       type,
-      summary,
     }
     log.log(`[Event] ${type}: ${summary}`)
     broadcastToAllWindows(EVENT_LOG_CHANNEL, entry)
@@ -215,8 +212,9 @@ export function setupDiscordService() {
       try {
         discordClient.removeAllListeners()
         await discordClient.destroy()
+      } catch {
+        /* ignore */
       }
-      catch { /* ignore */ }
       discordClient = null
     }
 
@@ -266,30 +264,31 @@ export function setupDiscordService() {
     // ── Inbound Message Pipe ───────────────────────────────────────────────
 
     discordClient.on(Events.MessageCreate, async (message) => {
-      if (message.author.bot)
-        return
+      if (message.author.bot) return
 
       const content = message.content.trim()
 
       // Allow empty text if there are attachments
-      if (!content && message.attachments.size === 0)
-        return
+      if (!content && message.attachments.size === 0) return
 
       // Track active channel for outbound routing
       activeChannelId = message.channelId
 
-      pushLog('MESSAGE_CREATE', `${message.author.username}: ${content.substring(0, 80)}${content.length > 80 ? '...' : ''} (${message.attachments.size} attachments)`)
+      pushLog(
+        'MESSAGE_CREATE',
+        `${message.author.username}: ${content.substring(0, 80)}${content.length > 80 ? '...' : ''} (${message.attachments.size} attachments)`,
+      )
 
       const inbound: DiscordInboundMessage = {
-        messageId: message.id,
+        attachments: [],
         channelId: message.channelId,
+        content,
+        displayName: message.member?.displayName ?? message.author.username,
         guildId: message.guildId ?? null,
         guildName: message.guild?.name ?? null,
+        messageId: message.id,
         userId: message.author.id,
         username: message.author.username,
-        displayName: message.member?.displayName ?? message.author.username,
-        content,
-        attachments: [],
       }
 
       // Handle image attachments
@@ -302,8 +301,7 @@ export function setupDiscordService() {
               const buffer = await response.arrayBuffer()
               const base64 = Buffer.from(buffer).toString('base64')
               inbound.attachments.push(`data:${attachment.contentType};base64,${base64}`)
-            }
-            catch (err: any) {
+            } catch (err: any) {
               pushLog('ERROR', `Failed to download attachment: ${err.message}`)
             }
           }
@@ -321,8 +319,7 @@ export function setupDiscordService() {
       pushStatus() // connecting state
       await discordClient.login(token)
       return buildStatus()
-    }
-    catch (err: any) {
+    } catch (err: any) {
       lastError = err?.message || 'Login failed'
       pushLog('ERROR', `Login failed: ${lastError}`)
       pushStatus()
@@ -336,8 +333,9 @@ export function setupDiscordService() {
       try {
         discordClient.removeAllListeners()
         await discordClient.destroy()
+      } catch {
+        /* ignore */
       }
-      catch { /* ignore */ }
       discordClient = null
       activeChannelId = null
     }
@@ -352,8 +350,7 @@ export function setupDiscordService() {
   // ── Outbound: Send assistant message to Discord ────────────────────────
 
   defineInvokeHandler(context, discordServiceSendMessage, async (payload) => {
-    if (!discordClient?.isReady() || !payload?.channelId || !payload?.content)
-      return
+    if (!discordClient?.isReady() || !payload?.channelId || !payload?.content) return
 
     try {
       const channel = await discordClient.channels.fetch(payload.channelId)
@@ -364,8 +361,7 @@ export function setupDiscordService() {
         }
         pushLog('MESSAGE_SEND', `Sent ${chunks.length} chunk(s) to ${payload.channelId}`)
       }
-    }
-    catch (err: any) {
+    } catch (err: any) {
       pushLog('ERROR', `Failed to send message: ${err?.message}`)
     }
   })
@@ -373,8 +369,7 @@ export function setupDiscordService() {
   // ── Outbound: Send typing indicator to Discord ────────────────────────
 
   defineInvokeHandler(context, discordServiceSendTyping, async (payload) => {
-    if (!discordClient?.isReady() || !payload?.channelId)
-      return
+    if (!discordClient?.isReady() || !payload?.channelId) return
 
     try {
       const channel = await discordClient.channels.fetch(payload.channelId)
@@ -382,8 +377,7 @@ export function setupDiscordService() {
         await (channel as any).sendTyping()
         // We don't push log for typing to avoid spamming the debug console
       }
-    }
-    catch {
+    } catch {
       // Ignore typing errors silently to avoid spam
     }
   })
@@ -394,14 +388,16 @@ export function setupDiscordService() {
   // Electron's native IPC can handle hundreds of megabytes without breaking.
   ipcMain.handle('eventa:invoke:electron:discord:send-image', async (_event, payload: DiscordOutboundImage) => {
     // 0. Hard Terminal Log (Visible in the shell where AIRI started)
-    console.log(`[DiscordService/Native] IPC Received Image. Size: ${Math.round((payload?.base64?.length || 0) / 1024)}KB, Shape: ${payload?.base64?.substring(0, 30)}...`)
+    console.log(
+      `[DiscordService/Native] IPC Received Image. Size: ${Math.round((payload?.base64?.length || 0) / 1024)}KB, Shape: ${payload?.base64?.substring(0, 30)}...`,
+    )
 
     // 0. UI Receipt Log
     pushLog('IMAGE_PUSH', `IPC Received: Image Payload (${Math.round((payload?.base64?.length || 0) / 1024)}KB)`)
 
     if (!discordClient?.isReady() || !payload?.channelId || !payload?.base64) {
       pushLog('ERROR', `SendImage skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}`)
-      return { success: false, error: 'Client not ready or invalid payload' }
+      return { error: 'Client not ready or invalid payload', success: false }
     }
 
     try {
@@ -421,88 +417,100 @@ export function setupDiscordService() {
         pushLog('IMAGE_PUSH', `Attempting Discord send to ${payload.channelId}...`)
         await (channel as any).send({
           content: payload.content || null,
-          files: [{
-            attachment: buffer,
-            name: payload.filename || 'airi-manifestation.png',
-          }],
+          files: [
+            {
+              attachment: buffer,
+              name: payload.filename || 'airi-manifestation.png',
+            },
+          ],
         })
         pushLog('IMAGE_SEND', `Successfully sent image to ${payload.channelId} (Native Bypass)`)
         return { success: true }
-      }
-      else {
+      } else {
         pushLog('ERROR', `Channel ${payload.channelId} is not text-based or lacks send()`)
-        return { success: false, error: 'Invalid channel type' }
+        return { error: 'Invalid channel type', success: false }
       }
-    }
-    catch (err: any) {
+    } catch (err: any) {
       pushLog('ERROR', `Failed to send image: ${err?.message || 'Unknown Error'}`)
       console.error('[DiscordService/Native] sendImage Error:', err)
-      return { success: false, error: err.message }
+      return { error: err.message, success: false }
     }
   })
 
-  ipcMain.handle('eventa:invoke:electron:discord:send-voice-note', async (_event, payload: { channelId: string, audioBuffers: Uint8Array[], content?: string, filename?: string }) => {
-    // 0. Hard Terminal Log
-    console.log(`[DiscordService/Native] IPC Received Voice Note. Chunks: ${payload?.audioBuffers?.length}, Total Chunks: ${payload?.audioBuffers?.length}`)
+  ipcMain.handle(
+    'eventa:invoke:electron:discord:send-voice-note',
+    async (_event, payload: { channelId: string; audioBuffers: Uint8Array[]; content?: string; filename?: string }) => {
+      // 0. Hard Terminal Log
+      console.log(
+        `[DiscordService/Native] IPC Received Voice Note. Chunks: ${payload?.audioBuffers?.length}, Total Chunks: ${payload?.audioBuffers?.length}`,
+      )
 
-    if (!discordClient?.isReady() || !payload?.channelId || !payload?.audioBuffers || payload.audioBuffers.length === 0) {
-      pushLog('ERROR', `SendVoiceNote skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}, BufferCount=${payload?.audioBuffers?.length}`)
-      return { success: false, error: 'Client not ready or empty buffers' }
-    }
-
-    try {
-      pushLog('VOICE_PUSH', `Fetching channel ${payload.channelId} for voice note...`)
-      const channel = await discordClient.channels.fetch(payload.channelId)
-
-      if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
-        pushLog('VOICE_PUSH', `Merging ${payload.audioBuffers.length} audio chunks...`)
-
-        // In Electron IPC, ArrayBuffers/Uint8Arrays come across as Uint8Arrays.
-        // We can use Buffer.concat directly after wrapping them.
-        const buffer = Buffer.concat(payload.audioBuffers.map(b => Buffer.from(b)))
-
-        pushLog('VOICE_PUSH', `Attempting Discord send to ${payload.channelId} (Size: ${Math.round(buffer.length / 1024)}KB)...`)
-        await (channel as any).send({
-          content: payload.content || null,
-          files: [{
-            attachment: buffer,
-            name: payload.filename || 'voice-note.mp3',
-          }],
-        })
-        pushLog('VOICE_SEND', `Successfully sent voice note to ${payload.channelId} (Native Bypass)`)
-        return { success: true }
+      if (
+        !discordClient?.isReady() ||
+        !payload?.channelId ||
+        !payload?.audioBuffers ||
+        payload.audioBuffers.length === 0
+      ) {
+        pushLog(
+          'ERROR',
+          `SendVoiceNote skipped: ClientReady=${discordClient?.isReady()}, Channel=${payload?.channelId}, BufferCount=${payload?.audioBuffers?.length}`,
+        )
+        return { error: 'Client not ready or empty buffers', success: false }
       }
-      else {
-        pushLog('ERROR', `Channel ${payload.channelId} is not text-based or lacks send()`)
-        return { success: false, error: 'Invalid channel type' }
+
+      try {
+        pushLog('VOICE_PUSH', `Fetching channel ${payload.channelId} for voice note...`)
+        const channel = await discordClient.channels.fetch(payload.channelId)
+
+        if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
+          pushLog('VOICE_PUSH', `Merging ${payload.audioBuffers.length} audio chunks...`)
+
+          // In Electron IPC, ArrayBuffers/Uint8Arrays come across as Uint8Arrays.
+          // We can use Buffer.concat directly after wrapping them.
+          const buffer = Buffer.concat(payload.audioBuffers.map((b) => Buffer.from(b)))
+
+          pushLog(
+            'VOICE_PUSH',
+            `Attempting Discord send to ${payload.channelId} (Size: ${Math.round(buffer.length / 1024)}KB)...`,
+          )
+          await (channel as any).send({
+            content: payload.content || null,
+            files: [
+              {
+                attachment: buffer,
+                name: payload.filename || 'voice-note.mp3',
+              },
+            ],
+          })
+          pushLog('VOICE_SEND', `Successfully sent voice note to ${payload.channelId} (Native Bypass)`)
+          return { success: true }
+        } else {
+          pushLog('ERROR', `Channel ${payload.channelId} is not text-based or lacks send()`)
+          return { error: 'Invalid channel type', success: false }
+        }
+      } catch (err: any) {
+        pushLog('ERROR', `Failed to send voice note: ${err?.message || 'Unknown Error'}`)
+        console.error('[DiscordService/Native] sendVoiceNote Error:', err)
+        return { error: err.message, success: false }
       }
-    }
-    catch (err: any) {
-      pushLog('ERROR', `Failed to send voice note: ${err?.message || 'Unknown Error'}`)
-      console.error('[DiscordService/Native] sendVoiceNote Error:', err)
-      return { success: false, error: err.message }
-    }
-  })
+    },
+  )
 
   // ── Force Sync: Push AIRI Card identity to Discord ─────────────────────
 
   defineInvokeHandler(context, discordServiceForceSync, async (payload) => {
-    if (!discordClient?.isReady() || !discordClient.user)
-      return
+    if (!discordClient?.isReady() || !discordClient.user) return
 
     try {
       const updates: any = {}
-      if (payload?.name)
-        updates.username = payload.name
-      if (payload?.avatarBase64)
-        updates.avatar = payload.avatarBase64
+      if (payload?.name) updates.username = payload.name
+      if (payload?.avatarBase64) updates.avatar = payload.avatarBase64
 
       if (Object.keys(updates).length > 0) {
         await discordClient.user.edit(updates)
         pushLog('FORCE_SYNC', `Updated bot profile: ${JSON.stringify(Object.keys(updates))}`)
       }
-    }
-    catch (err: any) {
+    } catch (err: any) {
       pushLog('ERROR', `Force sync failed: ${err?.message}`)
     }
   })
@@ -511,15 +519,15 @@ export function setupDiscordService() {
 
   defineInvokeHandler(context, discordServiceSimulateEvent, async (payload) => {
     const mock: DiscordInboundMessage = {
-      messageId: `sim-${nanoid()}`,
+      attachments: [],
       channelId: activeChannelId || 'simulated-channel',
+      content: payload?.content || 'Hello from simulated event!',
+      displayName: payload?.username || 'TestUser',
       guildId: null,
       guildName: null,
+      messageId: `sim-${nanoid()}`,
       userId: 'simulated-user-001',
       username: payload?.username || 'TestUser',
-      displayName: payload?.username || 'TestUser',
-      content: payload?.content || 'Hello from simulated event!',
-      attachments: [],
     }
 
     pushLog('SIMULATE', `Injected mock message from ${mock.username}: ${mock.content.substring(0, 60)}`)
@@ -537,8 +545,7 @@ export function setupDiscordService() {
       pushLog('COMMAND_REG', `Registering ${payload.commands.length} global commands...`)
       await discordClient.application.commands.set(payload.commands)
       pushLog('COMMAND_REG', 'Commands registered successfully')
-    }
-    catch (err: any) {
+    } catch (err: any) {
       pushLog('ERROR', `Command registration failed: ${err.message}`)
       throw err
     }
@@ -554,12 +561,10 @@ export function setupDiscordService() {
     try {
       if (payload.followUp) {
         await interaction.followUp({ content: payload.content, ephemeral: payload.ephemeral })
-      }
-      else {
+      } else {
         await interaction.editReply({ content: payload.content })
       }
-    }
-    catch (err: any) {
+    } catch (err: any) {
       pushLog('ERROR', `Failed to reply to interaction: ${err.message}`)
     }
   })

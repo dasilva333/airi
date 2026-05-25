@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { FlowEntry, SparkNotifyEntryState } from '../context-flow-types'
-
 import { Input } from '@proj-airi/ui'
 import { nextTick, ref, watch } from 'vue'
+import type { FlowEntry, SparkNotifyEntryState } from '../context-flow-types'
 
 import ContextFlowEntryCard from './context-flow-entry-card.vue'
 
@@ -17,8 +16,7 @@ const streamContainer = ref<HTMLDivElement>()
 
 async function scrollToTop() {
   await nextTick()
-  if (streamContainer.value)
-    streamContainer.value.scrollTop = 0
+  if (streamContainer.value) streamContainer.value.scrollTop = 0
 }
 
 watch(() => props.entries.length, scrollToTop)

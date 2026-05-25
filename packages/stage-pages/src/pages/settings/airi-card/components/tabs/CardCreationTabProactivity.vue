@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { FieldInput } from '@proj-airi/ui'
-import {
-  TooltipArrow,
-  TooltipContent,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-} from 'reka-ui'
+import { TooltipArrow, TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger } from 'reka-ui'
 
 defineProps<{
   sensorPayload?: string

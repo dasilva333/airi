@@ -1,7 +1,6 @@
+import pathfinderModel from 'mineflayer-pathfinder'
 import type { Context } from '../libs/mineflayer'
 import type { MineflayerPlugin } from '../libs/mineflayer/plugin'
-
-import pathfinderModel from 'mineflayer-pathfinder'
 
 import { useLogger } from '../utils/logger'
 

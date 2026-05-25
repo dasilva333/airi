@@ -1,25 +1,8 @@
 {
-  "name": "@proj-airi/satori-bot",
-  "type": "module",
-  "private": true,
-  "description": "Satori protocol adapter for AIRI - Connect to multiple chat platforms via Satori",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "services/satori-bot"
-  },
-  "scripts": {
-    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/index.ts",
-    "dev": "tsx watch --env-file=.env --env-file-if-exists=.env.local src/index.ts",
-    "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
@@ -36,11 +19,28 @@
     "valibot": "^1.2.0",
     "ws": "^8.19.0"
   },
+  "description": "Satori protocol adapter for AIRI - Connect to multiple chat platforms via Satori",
   "devDependencies": {
     "@types/node": "^22.19.12",
     "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.9",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
-  }
+  },
+  "license": "MIT",
+  "name": "@proj-airi/satori-bot",
+  "private": true,
+  "repository": {
+    "directory": "services/satori-bot",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "dev": "tsx watch --env-file=.env --env-file-if-exists=.env.local src/index.ts",
+    "start": "tsx --env-file=.env --env-file-if-exists=.env.local src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module"
 }

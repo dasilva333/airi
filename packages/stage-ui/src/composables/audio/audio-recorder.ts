@@ -1,6 +1,5 @@
-import type { MaybeRefOrGetter } from 'vue'
-
 import { until } from '@vueuse/core'
+import type { MaybeRefOrGetter } from 'vue'
 import { ref, shallowRef, toRef, watch } from 'vue'
 
 /**
@@ -47,7 +46,7 @@ function encodeWAV(samples: Float32Array, sampleRate: number): Blob {
   let offset = 44
   for (let i = 0; i < samples.length; i++, offset += 2) {
     const s = Math.max(-1, Math.min(1, samples[i]))
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true)
   }
 
   return new Blob([buffer], { type: 'audio/wav' })
@@ -81,7 +80,7 @@ export function useAudioRecorder(
   function onStopRecord(callback: (recording: Blob | undefined) => Promise<void>) {
     onStopRecordHooks.value.push(callback)
     return () => {
-      onStopRecordHooks.value = onStopRecordHooks.value.filter(h => h !== callback)
+      onStopRecordHooks.value = onStopRecordHooks.value.filter((h) => h !== callback)
     }
   }
 
@@ -124,7 +123,9 @@ export function useAudioRecorder(
 
     // Create persistent source node
     source.value = ctx.createMediaStreamSource(stream)
-    console.info(`[Audio Recorder] Created AudioContext. Rate: ${ctx.sampleRate}Hz, Requested: ${requestedSampleRate || 'Native'}, Stream: ${streamId}`)
+    console.info(
+      `[Audio Recorder] Created AudioContext. Rate: ${ctx.sampleRate}Hz, Requested: ${requestedSampleRate || 'Native'}, Stream: ${streamId}`,
+    )
 
     return ctx
   }
@@ -161,8 +162,7 @@ export function useAudioRecorder(
   const finalizing = ref(false)
 
   async function stopRecord() {
-    if (!isRecording.value || finalizing.value)
-      return
+    if (!isRecording.value || finalizing.value) return
 
     finalizing.value = true
     isRecording.value = false
@@ -200,7 +200,9 @@ export function useAudioRecorder(
         offset += chunk.length
       }
 
-      console.info(`[Audio Recorder] Finalizing recording: ${totalLength} samples, ${(totalLength / sampleRate).toFixed(2)}s. Header rate: ${sampleRate}Hz`)
+      console.info(
+        `[Audio Recorder] Finalizing recording: ${totalLength} samples, ${(totalLength / sampleRate).toFixed(2)}s. Header rate: ${sampleRate}Hz`,
+      )
 
       // Encode
       const audioBlob = encodeWAV(result, sampleRate)
@@ -210,8 +212,7 @@ export function useAudioRecorder(
       for (const hook of onStopRecordHooks.value) {
         try {
           await hook(audioBlob)
-        }
-        catch (err) {
+        } catch (err) {
           console.error('onStopRecord hook failed:', err)
         }
       }
@@ -220,8 +221,7 @@ export function useAudioRecorder(
       recordedChunks = []
 
       return audioBlob
-    }
-    finally {
+    } finally {
       finalizing.value = false
     }
   }
@@ -262,12 +262,12 @@ export function useAudioRecorder(
   })
 
   return {
-    startRecord,
-    stopRecord,
-    onStopRecord,
     dispose,
+    isRecording,
+    onStopRecord,
 
     recording,
-    isRecording,
+    startRecord,
+    stopRecord,
   }
 }

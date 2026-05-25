@@ -7,8 +7,7 @@
  * @param now - Optional Date object (defaults to current time).
  */
 export function isWithinSchedule(start: string, end: string, now = new Date()): boolean {
-  if (!start || !end)
-    return true
+  if (!start || !end) return true
 
   const [startH, startM] = start.split(':').map(Number)
   const [endH, endM] = end.split(':').map(Number)

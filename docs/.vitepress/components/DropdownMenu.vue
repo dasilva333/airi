@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { AnimatePresence, Motion } from 'motion-v'
-import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from 'reka-ui'
 
 defineProps<{
   label: string

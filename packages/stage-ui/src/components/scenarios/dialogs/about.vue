@@ -1,24 +1,25 @@
 <script setup lang="ts">
+import { AboutContent } from '../about'
 import type { AboutBuildInfo, AboutLink } from '../about/types'
-
 import AboutDialogBase from './about/about-dialog.vue'
 
-import { AboutContent } from '../about'
+withDefaults(
+  defineProps<{
+    title?: string
+    highlight?: string
+    subtitle?: string
+    buildInfo?: AboutBuildInfo
+    links?: AboutLink[]
+  }>(),
+  {
+    highlight: 'AIRI',
+    links: undefined,
+    subtitle: '',
+    title: 'Project',
+  },
+)
 
-withDefaults(defineProps<{
-  title?: string
-  highlight?: string
-  subtitle?: string
-  buildInfo?: AboutBuildInfo
-  links?: AboutLink[]
-}>(), {
-  title: 'Project',
-  highlight: 'AIRI',
-  subtitle: '',
-  links: undefined,
-})
-
-const showDialog = defineModel({ type: Boolean, default: false, required: false })
+const showDialog = defineModel({ default: false, required: false, type: Boolean })
 </script>
 
 <template>

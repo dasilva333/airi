@@ -7,26 +7,26 @@ import { Brain } from './brain'
 
 function createReflexSnapshot() {
   return {
+    attention: {},
+    autonomy: {
+      followActive: false,
+      followPlayer: null,
+    },
+    environment: {
+      lightLevel: 15,
+      nearbyEntities: [],
+      nearbyPlayers: [],
+      time: 'day',
+      weather: 'clear',
+    },
     self: {
-      health: 20,
       food: 20,
+      health: 20,
       holding: null,
       location: { x: 0, y: 64, z: 0 },
     },
-    environment: {
-      time: 'day',
-      weather: 'clear',
-      nearbyPlayers: [],
-      nearbyEntities: [],
-      lightLevel: 15,
-    },
     social: {},
     threat: {},
-    attention: {},
-    autonomy: {
-      followPlayer: null,
-      followActive: false,
-    },
   }
 }
 
@@ -39,9 +39,9 @@ function createDeps(llmText: string) {
   }
 
   const logger = {
+    error: vi.fn(),
     log: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
     withError: vi.fn(),
   } as any
   logger.withError.mockReturnValue(logger)
@@ -49,99 +49,111 @@ function createDeps(llmText: string) {
   return {
     eventBus: { subscribe: vi.fn() },
     llmAgent: {
-      callLLM: vi.fn(async () => ({ text: llmText, reasoning: '', usage: {} })),
+      callLLM: vi.fn(async () => ({ reasoning: '', text: llmText, usage: {} })),
     },
     logger,
-    taskExecutor: {
-      getAvailableActions: vi.fn(() => []),
-      executeActionWithResult: vi.fn(async () => 'ok'),
-      on: vi.fn(),
-    },
     reflexManager: {
-      getContextSnapshot: vi.fn(() => createReflexSnapshot()),
       clearFollowTarget: vi.fn(),
+      getContextSnapshot: vi.fn(() => createReflexSnapshot()),
+    },
+    taskExecutor: {
+      executeActionWithResult: vi.fn(async () => 'ok'),
+      getAvailableActions: vi.fn(() => []),
+      on: vi.fn(),
     },
   } as any
 }
 
 function createPerceptionEvent() {
   return {
-    type: 'perception',
     payload: {
-      type: 'chat_message',
-      description: 'Chat from Alex: "hi"',
-      sourceId: 'Alex',
       confidence: 1,
+      description: 'Chat from Alex: "hi"',
+      metadata: { message: 'hi', username: 'Alex' },
+      sourceId: 'Alex',
       timestamp: Date.now(),
-      metadata: { username: 'Alex', message: 'hi' },
+      type: 'chat_message',
     },
-    source: { type: 'minecraft', id: 'Alex' },
+    source: { id: 'Alex', type: 'minecraft' },
     timestamp: Date.now(),
+    type: 'perception',
   } as any
 }
 
 function createAsyncControlAction(name: string = 'goToPlayer') {
   return {
-    name,
     description: `${name} action`,
     execution: 'async',
-    schema: z.object({
-      player_name: z.string(),
-      closeness: z.number(),
-    }),
+    name,
     perform: () => async () => 'ok',
+    schema: z.object({
+      closeness: z.number(),
+      player_name: z.string(),
+    }),
   } as any
 }
 
 function createReadonlyAction(name: string = 'querySnapshot') {
   return {
-    name,
     description: `${name} action`,
     execution: 'sync',
+    name,
+    perform: () => () => 'ok',
     readonly: true,
     schema: z.object({}),
-    perform: () => () => 'ok',
   } as any
 }
 
 function createGiveUpAction() {
   return {
-    name: 'giveUp',
     description: 'Give up action',
     execution: 'sync',
+    name: 'giveUp',
+    perform: () => () => 'gave up',
     schema: z.object({
       reason: z.string(),
     }),
-    perform: () => () => 'gave up',
   } as any
 }
 
 function createChatAction() {
   return {
-    name: 'chat',
     description: 'Chat action',
     execution: 'sync',
-    schema: z.object({
-      message: z.string(),
-      feedback: z.boolean().optional(),
-    }),
+    name: 'chat',
     perform: () => () => 'chat sent',
+    schema: z.object({
+      feedback: z.boolean().optional(),
+      message: z.string(),
+    }),
   } as any
 }
 
 describe('brain no-action follow-up', () => {
   it('forgets conversation only', () => {
     const brain: any = new Brain(createDeps('await skip()'))
-    brain.conversationHistory = [{ role: 'user', content: 'old' }]
+    brain.conversationHistory = [{ content: 'old', role: 'user' }]
     brain.lastLlmInputSnapshot = {
-      systemPrompt: 'sys',
-      userMessage: 'msg',
-      messages: [],
-      conversationHistory: [],
-      updatedAt: Date.now(),
       attempt: 1,
+      conversationHistory: [],
+      messages: [],
+      systemPrompt: 'sys',
+      updatedAt: Date.now(),
+      userMessage: 'msg',
     }
-    brain.llmLogEntries = [{ id: 1, turnId: 1, kind: 'turn_input', timestamp: Date.now(), eventType: 'x', sourceType: 'x', sourceId: 'x', tags: [], text: 'x' }]
+    brain.llmLogEntries = [
+      {
+        eventType: 'x',
+        id: 1,
+        kind: 'turn_input',
+        sourceId: 'x',
+        sourceType: 'x',
+        tags: [],
+        text: 'x',
+        timestamp: Date.now(),
+        turnId: 1,
+      },
+    ]
 
     const result = brain.forgetConversation()
 
@@ -183,21 +195,23 @@ inv;
     expect(enqueueSpy).toHaveBeenCalledTimes(1)
     const queuedEvent = (enqueueSpy.mock.calls[0] as any[])?.[1]
     expect(queuedEvent).toMatchObject({
-      type: 'system_alert',
-      source: { type: 'system', id: 'brain:no_action_followup' },
       payload: {
+        noActionBudget: { default: 3, max: 8, remaining: 2 },
         reason: 'no_actions',
         returnValue: '2',
-        noActionBudget: { remaining: 2, default: 3, max: 8 },
       },
+      source: { id: 'brain:no_action_followup', type: 'system' },
+      type: 'system_alert',
     })
   })
 
   it('captures trailing expression return for llm multi-line scripts', async () => {
-    const brain: any = new Brain(createDeps(`
+    const brain: any = new Brain(
+      createDeps(`
 const inv = [{ name: 'oak_sapling', count: 1 }]
 inv;
-`))
+`),
+    )
     const enqueueSpy = vi.fn(async () => undefined)
     brain.enqueueEvent = enqueueSpy
 
@@ -214,10 +228,10 @@ inv;
     brain.enqueueEvent = enqueueSpy
 
     await brain.processEvent({} as any, {
-      type: 'system_alert',
       payload: { reason: 'seed' },
-      source: { type: 'system', id: 'brain:no_action_followup' },
+      source: { id: 'brain:no_action_followup', type: 'system' },
       timestamp: Date.now(),
+      type: 'system_alert',
     })
 
     expect(enqueueSpy).toHaveBeenCalledTimes(1)
@@ -233,18 +247,18 @@ inv;
     const bot = { bot: { chat: vi.fn() } }
 
     await brain.processEvent(bot as any, {
-      type: 'system_alert',
       payload: { source: 'budget-test' },
-      source: { type: 'system', id: 'budget-test' },
+      source: { id: 'budget-test', type: 'system' },
       timestamp: Date.now(),
+      type: 'system_alert',
     })
 
     expect(enqueueSpy).toHaveBeenCalledTimes(1)
     const queuedEvent = (enqueueSpy.mock.calls[0] as any[])?.[1]
     expect(queuedEvent).toMatchObject({
-      type: 'system_alert',
-      source: { type: 'system', id: 'brain:no_action_budget' },
       payload: { reason: 'no_action_budget_exhausted' },
+      source: { id: 'brain:no_action_budget', type: 'system' },
+      type: 'system_alert',
     })
     expect(bot.bot.chat).toHaveBeenCalledTimes(1)
   })
@@ -256,9 +270,9 @@ inv;
     await brain.processEvent({} as any, createPerceptionEvent())
 
     expect(brain.getNoActionBudgetState()).toEqual({
-      remaining: 3,
       default: 3,
       max: 8,
+      remaining: 3,
     })
   })
 
@@ -294,7 +308,7 @@ inv;
 
     const outcome = await Promise.race([
       brain.processEvent({} as any, createPerceptionEvent()).then(() => 'done'),
-      new Promise(resolve => setTimeout(() => resolve('timeout'), 350)),
+      new Promise((resolve) => setTimeout(() => resolve('timeout'), 350)),
     ])
 
     expect(outcome).toBe('done')
@@ -313,9 +327,13 @@ inv;
     deps.llmAgent.callLLM = vi.fn(async (options: any) => {
       resolveStarted()
       return await new Promise((_resolve, reject) => {
-        options.abortSignal?.addEventListener('abort', () => {
-          reject(options.abortSignal.reason ?? Object.assign(new Error('Aborted'), { name: 'AbortError' }))
-        }, { once: true })
+        options.abortSignal?.addEventListener(
+          'abort',
+          () => {
+            reject(options.abortSignal.reason ?? Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+          },
+          { once: true },
+        )
       })
     })
     const brain: any = new Brain(deps)
@@ -328,7 +346,7 @@ inv;
 
     const outcome = await Promise.race([
       processing,
-      new Promise(resolve => setTimeout(() => resolve('timeout'), 500)),
+      new Promise((resolve) => setTimeout(() => resolve('timeout'), 500)),
     ])
 
     expect(outcome).toBe('done')
@@ -365,13 +383,13 @@ inv;
       .find((event: any) => event?.source?.id === 'brain:error_burst_guard')
 
     expect(guardEvent).toMatchObject({
-      type: 'system_alert',
-      source: { type: 'system', id: 'brain:error_burst_guard' },
       payload: {
         reason: 'error_burst_guard',
         threshold: 3,
         windowTurns: 5,
       },
+      source: { id: 'brain:error_burst_guard', type: 'system' },
+      type: 'system_alert',
     })
     expect(brain.errorBurstGuardState?.errorTurnCount).toBeGreaterThanOrEqual(3)
   })
@@ -379,18 +397,15 @@ inv;
   it('includes mandatory give-up and chat instructions when error-burst guard is active', () => {
     const brain: any = new Brain(createDeps('await skip()'))
     brain.errorBurstGuardState = {
-      threshold: 3,
-      windowTurns: 5,
       errorTurnCount: 3,
-      recentTurnIds: [7, 6, 5, 4, 3],
       recentErrorSummary: ['turn=7 repl_error: parse failed'],
+      recentTurnIds: [7, 6, 5, 4, 3],
+      threshold: 3,
       triggeredAtTurnId: 8,
+      windowTurns: 5,
     }
 
-    const message = brain.buildUserMessage(
-      createPerceptionEvent(),
-      '[PERCEPTION] Self: healthy\nEnvironment: clear',
-    )
+    const message = brain.buildUserMessage(createPerceptionEvent(), '[PERCEPTION] Self: healthy\nEnvironment: clear')
 
     expect(message).toContain('[ERROR_BURST_GUARD] active')
     expect(message).toContain('await giveUp({ reason: "..."')
@@ -400,44 +415,45 @@ inv;
   it('clears error-burst guard when giveUp and chat both succeed in one turn', async () => {
     const deps: any = createDeps('await giveUp({ reason: "stuck" }); await chat("I got stuck after repeated errors.")')
     deps.taskExecutor.getAvailableActions = vi.fn(() => [createGiveUpAction(), createChatAction()])
-    deps.taskExecutor.executeActionWithResult = vi.fn(async (action: any) => action.tool === 'giveUp' ? 'gave up' : 'chat sent')
+    deps.taskExecutor.executeActionWithResult = vi.fn(async (action: any) =>
+      action.tool === 'giveUp' ? 'gave up' : 'chat sent',
+    )
 
     const brain: any = new Brain(deps)
     brain.errorBurstGuardState = {
-      threshold: 3,
-      windowTurns: 5,
       errorTurnCount: 3,
-      recentTurnIds: [7, 6, 5, 4, 3],
       recentErrorSummary: ['turn=7 repl_error: parse failed'],
+      recentTurnIds: [7, 6, 5, 4, 3],
+      threshold: 3,
       triggeredAtTurnId: 8,
+      windowTurns: 5,
     }
 
     await brain.processEvent({} as any, createPerceptionEvent())
 
     expect(brain.errorBurstGuardState).toBeNull()
-    const clearedEntry = brain.getLlmLogs().find((entry: any) =>
-      entry.sourceId === 'brain:error_burst_guard'
-      && entry.tags.includes('guard_cleared'),
-    )
+    const clearedEntry = brain
+      .getLlmLogs()
+      .find((entry: any) => entry.sourceId === 'brain:error_burst_guard' && entry.tags.includes('guard_cleared'))
     expect(clearedEntry).toBeTruthy()
   })
 })
 
 function createFeedbackEvent() {
   return {
-    type: 'feedback',
-    payload: { status: 'success', action: { tool: 'goToCoordinate', params: {} }, result: 'ok' },
-    source: { type: 'system', id: 'executor' },
+    payload: { action: { params: {}, tool: 'goToCoordinate' }, result: 'ok', status: 'success' },
+    source: { id: 'executor', type: 'system' },
     timestamp: Date.now(),
+    type: 'feedback',
   } as any
 }
 
 function createNoActionFollowupEvent() {
   return {
-    type: 'system_alert',
-    payload: { reason: 'no_actions', returnValue: '0', logs: [] },
-    source: { type: 'system', id: 'brain:no_action_followup' },
+    payload: { logs: [], reason: 'no_actions', returnValue: '0' },
+    source: { id: 'brain:no_action_followup', type: 'system' },
     timestamp: Date.now(),
+    type: 'system_alert',
   } as any
 }
 
@@ -448,9 +464,9 @@ describe('brain queue coalescing', () => {
     // Simulate a queue with feedback events followed by a player chat
     const resolved: string[] = []
     brain.queue = [
-      { event: createFeedbackEvent(), resolve: () => resolved.push('fb1'), reject: vi.fn() },
-      { event: createFeedbackEvent(), resolve: () => resolved.push('fb2'), reject: vi.fn() },
-      { event: createPerceptionEvent(), resolve: () => resolved.push('chat'), reject: vi.fn() },
+      { event: createFeedbackEvent(), reject: vi.fn(), resolve: () => resolved.push('fb1') },
+      { event: createFeedbackEvent(), reject: vi.fn(), resolve: () => resolved.push('fb2') },
+      { event: createPerceptionEvent(), reject: vi.fn(), resolve: () => resolved.push('chat') },
     ]
 
     brain.coalesceQueue()
@@ -465,10 +481,10 @@ describe('brain queue coalescing', () => {
 
     const resolved: string[] = []
     brain.queue = [
-      { event: createNoActionFollowupEvent(), resolve: () => resolved.push('followup1'), reject: vi.fn() },
-      { event: createNoActionFollowupEvent(), resolve: () => resolved.push('followup2'), reject: vi.fn() },
-      { event: createFeedbackEvent(), resolve: () => resolved.push('fb'), reject: vi.fn() },
-      { event: createPerceptionEvent(), resolve: () => resolved.push('chat'), reject: vi.fn() },
+      { event: createNoActionFollowupEvent(), reject: vi.fn(), resolve: () => resolved.push('followup1') },
+      { event: createNoActionFollowupEvent(), reject: vi.fn(), resolve: () => resolved.push('followup2') },
+      { event: createFeedbackEvent(), reject: vi.fn(), resolve: () => resolved.push('fb') },
+      { event: createPerceptionEvent(), reject: vi.fn(), resolve: () => resolved.push('chat') },
     ]
 
     brain.coalesceQueue()
@@ -484,9 +500,7 @@ describe('brain queue coalescing', () => {
   it('does not coalesce when queue has only one item', () => {
     const brain: any = new Brain(createDeps('await skip()'))
 
-    brain.queue = [
-      { event: createNoActionFollowupEvent(), resolve: vi.fn(), reject: vi.fn() },
-    ]
+    brain.queue = [{ event: createNoActionFollowupEvent(), reject: vi.fn(), resolve: vi.fn() }]
 
     brain.coalesceQueue()
 
@@ -497,8 +511,8 @@ describe('brain queue coalescing', () => {
     const brain: any = new Brain(createDeps('await skip()'))
 
     brain.queue = [
-      { event: createFeedbackEvent(), resolve: vi.fn(), reject: vi.fn() },
-      { event: createNoActionFollowupEvent(), resolve: vi.fn(), reject: vi.fn() },
+      { event: createFeedbackEvent(), reject: vi.fn(), resolve: vi.fn() },
+      { event: createNoActionFollowupEvent(), reject: vi.fn(), resolve: vi.fn() },
     ]
 
     brain.coalesceQueue()
@@ -511,13 +525,19 @@ describe('brain queue coalescing', () => {
   it('preserves relative order among same-priority events', () => {
     const brain: any = new Brain(createDeps('await skip()'))
 
-    const chat1 = { ...createPerceptionEvent(), payload: { ...createPerceptionEvent().payload, description: 'Chat from Alex: "first"' } }
-    const chat2 = { ...createPerceptionEvent(), payload: { ...createPerceptionEvent().payload, description: 'Chat from Alex: "second"' } }
+    const chat1 = {
+      ...createPerceptionEvent(),
+      payload: { ...createPerceptionEvent().payload, description: 'Chat from Alex: "first"' },
+    }
+    const chat2 = {
+      ...createPerceptionEvent(),
+      payload: { ...createPerceptionEvent().payload, description: 'Chat from Alex: "second"' },
+    }
 
     brain.queue = [
-      { event: createFeedbackEvent(), resolve: vi.fn(), reject: vi.fn() },
-      { event: chat1, resolve: vi.fn(), reject: vi.fn() },
-      { event: chat2, resolve: vi.fn(), reject: vi.fn() },
+      { event: createFeedbackEvent(), reject: vi.fn(), resolve: vi.fn() },
+      { event: chat1, reject: vi.fn(), resolve: vi.fn() },
+      { event: chat2, reject: vi.fn(), resolve: vi.fn() },
     ]
 
     brain.coalesceQueue()
@@ -535,13 +555,13 @@ describe('brain queue coalescing', () => {
     brain.queue = [
       ...Array.from({ length: 256 }, () => ({
         event: createPerceptionEvent(),
-        resolve: vi.fn(),
         reject: vi.fn(),
+        resolve: vi.fn(),
       })),
       {
         event: createNoActionFollowupEvent(),
-        resolve: droppedResolver,
         reject: vi.fn(),
+        resolve: droppedResolver,
       },
     ]
 
@@ -559,13 +579,13 @@ describe('brain queue coalescing', () => {
     brain.queue = [
       ...Array.from({ length: 256 }, () => ({
         event: createPerceptionEvent(),
-        resolve: vi.fn(),
         reject: vi.fn(),
+        resolve: vi.fn(),
       })),
       {
         event: createFeedbackEvent(),
-        resolve: feedbackResolver,
         reject: vi.fn(),
+        resolve: feedbackResolver,
       },
     ]
 
@@ -586,8 +606,8 @@ describe('brain queue coalescing', () => {
     }
 
     brain.queue = [
-      { event: createPerceptionEvent(), resolve: vi.fn(), reject: vi.fn() },
-      { event: feedbackEvent, resolve: vi.fn(), reject: vi.fn() },
+      { event: createPerceptionEvent(), reject: vi.fn(), resolve: vi.fn() },
+      { event: feedbackEvent, reject: vi.fn(), resolve: vi.fn() },
     ]
 
     brain.coalesceQueue()
@@ -604,15 +624,14 @@ describe('brain control action queue', () => {
     const deferred = new Promise<unknown>(() => {})
     deps.taskExecutor.getAvailableActions = vi.fn(() => [createAsyncControlAction('goToPlayer')])
     deps.taskExecutor.executeActionWithResult = vi.fn(async (action: any) => {
-      if (action.tool === 'goToPlayer')
-        return deferred
+      if (action.tool === 'goToPlayer') return deferred
       return 'ok'
     })
 
     const brain: any = new Brain(deps)
     const outcome = await Promise.race([
       brain.processEvent({} as any, createPerceptionEvent()).then(() => 'done'),
-      new Promise(resolve => setTimeout(() => resolve('timeout'), 80)),
+      new Promise((resolve) => setTimeout(() => resolve('timeout'), 80)),
     ])
 
     expect(outcome).toBe('done')
@@ -632,8 +651,8 @@ describe('brain control action queue', () => {
     const snapshot = brain.getDebugSnapshot()
     expect(snapshot.actionQueue.counts.total).toBe(0)
     expect(deps.taskExecutor.executeActionWithResult).toHaveBeenCalledWith({
-      tool: 'querySnapshot',
       params: {},
+      tool: 'querySnapshot',
     })
   })
 
@@ -648,8 +667,7 @@ describe('brain control action queue', () => {
           })
         })
       }
-      if (action.tool === 'stop')
-        return Promise.resolve('all actions stopped')
+      if (action.tool === 'stop') return Promise.resolve('all actions stopped')
       return Promise.resolve('ok')
     })
 
@@ -661,15 +679,19 @@ describe('brain control action queue', () => {
       interrupt: vi.fn(),
     }
 
-    await brain.enqueueControlAction(bot, {
-      tool: 'goToPlayer',
-      params: { player_name: 'Alex', closeness: 2 },
-    }, 1)
+    await brain.enqueueControlAction(
+      bot,
+      {
+        params: { closeness: 2, player_name: 'Alex' },
+        tool: 'goToPlayer',
+      },
+      1,
+    )
 
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
     await brain.executeStopAction(bot, 2)
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
     const snapshot = brain.getDebugSnapshot()
     const cancelledEntry = snapshot.actionQueue.recent.find((entry: any) => entry.tool === 'goToPlayer')
@@ -679,9 +701,11 @@ describe('brain control action queue', () => {
 
     const goToPlayerFailure = enqueueSpy.mock.calls.find((call: any[]) => {
       const event = call[1]
-      return event?.type === 'feedback'
-        && event?.payload?.status === 'failure'
-        && event?.payload?.action?.tool === 'goToPlayer'
+      return (
+        event?.type === 'feedback' &&
+        event?.payload?.status === 'failure' &&
+        event?.payload?.action?.tool === 'goToPlayer'
+      )
     })
     expect(goToPlayerFailure).toBeUndefined()
   })

@@ -42,10 +42,10 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
     let state = pluginLifecycleState.get(plugin)
     if (!state) {
       state = {
+        cleanupGeneration: UNINITIALIZED_GENERATION,
         createdGeneration: UNINITIALIZED_GENERATION,
         loadedGeneration: UNINITIALIZED_GENERATION,
         spawnedGeneration: UNINITIALIZED_GENERATION,
-        cleanupGeneration: UNINITIALIZED_GENERATION,
       }
       pluginLifecycleState.set(plugin, state)
     }
@@ -55,11 +55,11 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
 
   const getPluginLabel = (plugin: MineflayerPlugin): string => {
     return (
-      plugin.loadPlugin?.name
-      || plugin.created?.name
-      || plugin.spawned?.name
-      || plugin.beforeCleanup?.name
-      || `plugin@${registeredPlugins.indexOf(plugin)}`
+      plugin.loadPlugin?.name ||
+      plugin.created?.name ||
+      plugin.spawned?.name ||
+      plugin.beforeCleanup?.name ||
+      `plugin@${registeredPlugins.indexOf(plugin)}`
     )
   }
 
@@ -70,18 +70,12 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
   const enqueue = async <T>(task: () => Promise<T>): Promise<T> => {
     const nextTask = lifecycleQueue.then(task)
 
-    lifecycleQueue = nextTask
-      .then(() => undefined)
-      .catch(() => undefined)
+    lifecycleQueue = nextTask.then(() => undefined).catch(() => undefined)
 
     return nextTask
   }
 
-  const runCreatedAndLoadHooks = async (
-    plugin: MineflayerPlugin,
-    generation: number,
-    bot: Bot,
-  ): Promise<void> => {
+  const runCreatedAndLoadHooks = async (plugin: MineflayerPlugin, generation: number, bot: Bot): Promise<void> => {
     const state = getPluginState(plugin)
     const pluginLabel = getPluginLabel(plugin)
 
@@ -89,12 +83,13 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
       try {
         await plugin.created(deps.mineflayer)
         state.createdGeneration = generation
-      }
-      catch (error) {
-        deps.logger.withFields({
-          plugin: pluginLabel,
-          generation,
-        }).errorWithError('Plugin created hook failed', error as Error)
+      } catch (error) {
+        deps.logger
+          .withFields({
+            generation,
+            plugin: pluginLabel,
+          })
+          .errorWithError('Plugin created hook failed', error as Error)
         throw error
       }
     }
@@ -104,39 +99,36 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
         const loadedPlugin = await plugin.loadPlugin(deps.mineflayer, bot, deps.botConfig)
         bot.loadPlugin(loadedPlugin)
         state.loadedGeneration = generation
-      }
-      catch (error) {
-        deps.logger.withFields({
-          plugin: pluginLabel,
-          generation,
-        }).errorWithError('Plugin loadPlugin hook failed', error as Error)
+      } catch (error) {
+        deps.logger
+          .withFields({
+            generation,
+            plugin: pluginLabel,
+          })
+          .errorWithError('Plugin loadPlugin hook failed', error as Error)
         throw error
       }
     }
   }
 
-  const runSpawnedHook = async (
-    plugin: MineflayerPlugin,
-    generation: number,
-  ): Promise<void> => {
-    if (!plugin.spawned)
-      return
+  const runSpawnedHook = async (plugin: MineflayerPlugin, generation: number): Promise<void> => {
+    if (!plugin.spawned) return
 
     const state = getPluginState(plugin)
-    if (state.spawnedGeneration === generation)
-      return
+    if (state.spawnedGeneration === generation) return
 
     const pluginLabel = getPluginLabel(plugin)
 
     try {
       await plugin.spawned(deps.mineflayer)
       state.spawnedGeneration = generation
-    }
-    catch (error) {
-      deps.logger.withFields({
-        plugin: pluginLabel,
-        generation,
-      }).errorWithError('Plugin spawned hook failed', error as Error)
+    } catch (error) {
+      deps.logger
+        .withFields({
+          generation,
+          plugin: pluginLabel,
+        })
+        .errorWithError('Plugin spawned hook failed', error as Error)
       throw error
     }
   }
@@ -144,8 +136,7 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
   const getRegisteredPlugins = (): readonly MineflayerPlugin[] => registeredPlugins
 
   const register = (plugin: MineflayerPlugin): boolean => {
-    if (registeredPlugins.includes(plugin))
-      return false
+    if (registeredPlugins.includes(plugin)) return false
 
     registeredPlugins.push(plugin)
     getPluginState(plugin)
@@ -156,16 +147,14 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
     await enqueue(async () => {
       register(plugin)
 
-      if (!currentBot || currentGeneration === 0)
-        return
+      if (!currentBot || currentGeneration === 0) return
 
       const activeGeneration = currentGeneration
       const activeBot = currentBot
 
       await runCreatedAndLoadHooks(plugin, activeGeneration, activeBot)
 
-      if (spawnedForCurrentGeneration)
-        await runSpawnedHook(plugin, activeGeneration)
+      if (spawnedForCurrentGeneration) await runSpawnedHook(plugin, activeGeneration)
     })
   }
 
@@ -177,36 +166,31 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
       currentBot = bot
       spawnedForCurrentGeneration = false
 
-      for (const plugin of registeredPlugins)
-        await runCreatedAndLoadHooks(plugin, generation, bot)
+      for (const plugin of registeredPlugins) await runCreatedAndLoadHooks(plugin, generation, bot)
     })
   }
 
   const onSpawn = async (): Promise<void> => {
     await enqueue(async () => {
-      if (!currentBot || currentGeneration === 0)
-        return
+      if (!currentBot || currentGeneration === 0) return
 
       const generation = currentGeneration
       spawnedForCurrentGeneration = true
 
-      for (const plugin of registeredPlugins)
-        await runSpawnedHook(plugin, generation)
+      for (const plugin of registeredPlugins) await runSpawnedHook(plugin, generation)
     })
   }
 
   const beforeCleanup = async (): Promise<void> => {
     await enqueue(async () => {
-      if (currentGeneration === 0)
-        return
+      if (currentGeneration === 0) return
 
       const generation = currentGeneration
 
       for (const plugin of registeredPlugins) {
         const state = getPluginState(plugin)
 
-        if (state.cleanupGeneration === generation)
-          continue
+        if (state.cleanupGeneration === generation) continue
 
         if (!plugin.beforeCleanup) {
           state.cleanupGeneration = generation
@@ -217,14 +201,14 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
 
         try {
           await plugin.beforeCleanup(deps.mineflayer)
-        }
-        catch (error) {
-          deps.logger.withFields({
-            plugin: pluginLabel,
-            generation,
-          }).errorWithError('Plugin beforeCleanup failed', error as Error)
-        }
-        finally {
+        } catch (error) {
+          deps.logger
+            .withFields({
+              generation,
+              plugin: pluginLabel,
+            })
+            .errorWithError('Plugin beforeCleanup failed', error as Error)
+        } finally {
           state.cleanupGeneration = generation
         }
       }
@@ -232,11 +216,11 @@ export function createPluginRuntime(deps: PluginRuntimeDeps): PluginRuntime {
   }
 
   return {
-    getRegisteredPlugins,
-    register,
-    loadPlugin,
-    initializeGeneration,
-    onSpawn,
     beforeCleanup,
+    getRegisteredPlugins,
+    initializeGeneration,
+    loadPlugin,
+    onSpawn,
+    register,
   }
 }

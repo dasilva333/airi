@@ -5,6 +5,7 @@ import { BasicInputFile } from '@proj-airi/ui'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
 import defaultBackgroundImage from '../../assets/backgrounds/fairy-forest.e17cbc2774.ko-fi.com.avif'
+
 // Reactive state
 const isCapturing = ref(false)
 const extractedColors = ref<string[]>([])
@@ -14,8 +15,7 @@ const topEdgeColors = ref('')
 const imageCleanups = ref<Array<() => void>>([])
 const imageFiles = ref<File[]>([])
 const images = computed(() => {
-  if (imageFiles.value.length === 0)
-    return [defaultBackgroundImage]
+  if (imageFiles.value.length === 0) return [defaultBackgroundImage]
 
   return imageFiles.value.map((file) => {
     const url = URL.createObjectURL(file)
@@ -35,8 +35,7 @@ const canvasRef = useTemplateRef<HTMLCanvasElement>('canvas')
 const topBar = computed(() => {
   if (mode.value === 'vibrant') {
     return dominantColor.value
-  }
-  else if (mode.value === 'html2canvas') {
+  } else if (mode.value === 'html2canvas') {
     return topEdgeColors.value
   }
 
@@ -62,24 +61,24 @@ async function refreshColors() {
     }
 
     const result = await colorFromElement(imageRef.value, {
-      mode: 'both',
-      vibrant: {
-        imageSource: images.value[0],
-        sampleTopRatio: 0.2,
-      },
       html2canvas: {
+        allowTaint: true,
+        backgroundColor: null,
         region: {
+          height: 100,
+          width: imageRef.value.offsetWidth,
           x: 0,
           y: 0,
-          width: imageRef.value.offsetWidth,
-          height: 100,
         },
         sampleHeight: 20,
         sampleStride: 10,
         scale: 0.5,
-        backgroundColor: null,
-        allowTaint: true,
         useCORS: true,
+      },
+      mode: 'both',
+      vibrant: {
+        imageSource: images.value[0],
+        sampleTopRatio: 0.2,
       },
     })
 
@@ -97,11 +96,9 @@ async function refreshColors() {
     }
 
     await updateThemeColor()
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Color extraction failed:', error)
-  }
-  finally {
+  } finally {
     isCapturing.value = false
   }
 }
@@ -118,7 +115,7 @@ watch(images, async () => {
 })
 
 onUnmounted(() => {
-  imageCleanups.value.forEach(cleanup => cleanup())
+  imageCleanups.value.forEach((cleanup) => cleanup())
 })
 </script>
 

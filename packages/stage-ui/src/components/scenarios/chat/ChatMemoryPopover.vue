@@ -7,18 +7,21 @@ import { useRouter } from 'vue-router'
 import { useShortTermMemoryStore } from '../../../stores/memory-short-term'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 
-const props = withDefaults(defineProps<{
-  /** Whether to show the cache status section (rebuild buttons, etc) */
-  showCacheStatus?: boolean
-  /** Tooltip for the main button */
-  title?: string
-  /** Variant of the trigger button */
-  variant?: 'default' | 'mobile'
-}>(), {
-  showCacheStatus: false,
-  title: 'Memory & Context',
-  variant: 'default',
-})
+const props = withDefaults(
+  defineProps<{
+    /** Whether to show the cache status section (rebuild buttons, etc) */
+    showCacheStatus?: boolean
+    /** Tooltip for the main button */
+    title?: string
+    /** Variant of the trigger button */
+    variant?: 'default' | 'mobile'
+  }>(),
+  {
+    showCacheStatus: false,
+    title: 'Memory & Context',
+    variant: 'default',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'view-context'): void
@@ -40,13 +43,12 @@ const todayDate = computed(() => {
 })
 
 const characterBlocks = computed(() => {
-  if (!activeCardId.value)
-    return []
+  if (!activeCardId.value) return []
   return shortTermMemory.getCharacterBlocks(activeCardId.value)
 })
 
 const isTodayCached = computed(() => {
-  return characterBlocks.value.some(b => b.date === todayDate.value)
+  return characterBlocks.value.some((b) => b.date === todayDate.value)
 })
 
 const last3Dates = computed(() => {
@@ -63,21 +65,19 @@ const last3Dates = computed(() => {
 })
 
 const cachedDayCount = computed(() => {
-  const blockDates = new Set(characterBlocks.value.map(b => b.date))
-  return last3Dates.value.filter(d => blockDates.has(d)).length
+  const blockDates = new Set(characterBlocks.value.map((b) => b.date))
+  return last3Dates.value.filter((d) => blockDates.has(d)).length
 })
 
 const allLast3Cached = computed(() => cachedDayCount.value === 3)
 
 async function handleCacheToday() {
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   await shortTermMemory.rebuildToday(activeCardId.value)
 }
 
 async function handleRebuildFromHistory() {
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   await shortTermMemory.rebuildFromHistory(activeCardId.value)
 }
 

@@ -1,22 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": [
-      "vite/client",
-      "unplugin-vue-router/client"
-    ],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "types": ["vite/client", "unplugin-vue-router/client"],
+    "verbatimModuleSyntax": true
   },
   "include": [
     "src/**/*.ts",

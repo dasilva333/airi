@@ -1,8 +1,6 @@
 import type { PreTrainedModel } from '@huggingface/transformers'
-
-import type { BaseVAD, BaseVADConfig, VADEventCallback, VADEvents } from '../../libs/audio/vad'
-
 import { AutoModel, Tensor } from '@huggingface/transformers'
+import type { BaseVAD, BaseVADConfig, VADEventCallback, VADEvents } from '../../libs/audio/vad'
 
 /**
  * Voice Activity Detection processor
@@ -25,14 +23,14 @@ export class VAD implements BaseVAD {
   constructor(userConfig: Partial<BaseVADConfig> = {}) {
     // Default configuration
     const defaultConfig: BaseVADConfig = {
-      sampleRate: 16000,
-      speechThreshold: 0.3,
       exitThreshold: 0.1,
-      minSilenceDurationMs: 400,
-      speechPadMs: 80,
-      minSpeechDurationMs: 250,
       maxBufferDuration: 30,
+      minSilenceDurationMs: 400,
+      minSpeechDurationMs: 250,
       newBufferSize: 512,
+      sampleRate: 16000,
+      speechPadMs: 80,
+      speechThreshold: 0.3,
     }
 
     this.config = { ...defaultConfig, ...userConfig }
@@ -47,16 +45,18 @@ export class VAD implements BaseVAD {
    */
   public async initialize(): Promise<void> {
     try {
-      this.emit('status', { type: 'info', message: 'Loading VAD model...' })
+      this.emit('status', { message: 'Loading VAD model...', type: 'info' })
 
       // Full-precision
-      this.model = await AutoModel.from_pretrained('onnx-community/silero-vad', { config: { model_type: 'custom' } as any, dtype: 'fp32' })
+      this.model = await AutoModel.from_pretrained('onnx-community/silero-vad', {
+        config: { model_type: 'custom' } as any,
+        dtype: 'fp32',
+      })
       this.isReady = true
 
-      this.emit('status', { type: 'info', message: 'VAD model loaded successfully' })
-    }
-    catch (error) {
-      this.emit('status', { type: 'error', message: `Failed to load VAD model: ${error}` })
+      this.emit('status', { message: 'VAD model loaded successfully', type: 'info' })
+    } catch (error) {
+      this.emit('status', { message: `Failed to load VAD model: ${error}`, type: 'error' })
       throw error
     }
   }
@@ -75,17 +75,15 @@ export class VAD implements BaseVAD {
    * Remove event listener
    */
   public off<K extends keyof VADEvents>(event: K, callback: VADEventCallback<K>): void {
-    if (!this.eventListeners[event])
-      return
-    this.eventListeners[event] = this.eventListeners[event]!.filter(cb => cb !== callback)
+    if (!this.eventListeners[event]) return
+    this.eventListeners[event] = this.eventListeners[event]!.filter((cb) => cb !== callback)
   }
 
   /**
    * Emit event
    */
   private emit<K extends keyof VADEvents>(event: K, data: VADEvents[K]): void {
-    if (!this.eventListeners[event])
-      return
+    if (!this.eventListeners[event]) return
     for (const callback of this.eventListeners[event]!) {
       callback(data)
     }
@@ -142,8 +140,7 @@ export class VAD implements BaseVAD {
       this.processSpeechSegment(overflow)
 
       return
-    }
-    else {
+    } else {
       // Add input to the buffer
       this.buffer.set(inputBuffer, this.bufferPointer)
       this.bufferPointer += inputBuffer.length
@@ -154,7 +151,7 @@ export class VAD implements BaseVAD {
       if (!this.isRecording) {
         // Speech just started
         this.emit('speech-start', undefined)
-        this.emit('status', { type: 'info', message: 'Speech detected' })
+        this.emit('status', { message: 'Speech detected', type: 'info' })
       }
 
       // Update state
@@ -201,13 +198,10 @@ export class VAD implements BaseVAD {
     // Get the speech probability
     const speechProb = output.data[0]
 
-    this.emit('debug', { message: 'VAD score', data: { probability: speechProb } })
+    this.emit('debug', { data: { probability: speechProb }, message: 'VAD score' })
 
     // Apply thresholds
-    return (
-      speechProb > this.config.speechThreshold
-      || (this.isRecording && speechProb >= this.config.exitThreshold)
-    )
+    return speechProb > this.config.speechThreshold || (this.isRecording && speechProb >= this.config.exitThreshold)
   }
 
   /**

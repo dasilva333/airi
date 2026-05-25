@@ -14,13 +14,14 @@ if (!BASE_URL) {
 
 // Ensure base URL ends with /v1 without double slashes
 let normalizedBaseUrl = BASE_URL.replace(/\/+$/, '')
-if (!normalizedBaseUrl.endsWith('/v1'))
-  normalizedBaseUrl += '/v1'
+if (!normalizedBaseUrl.endsWith('/v1')) normalizedBaseUrl += '/v1'
 normalizedBaseUrl += '/'
 
 async function validateProvider() {
   console.log(`\n🚀 Starting validation for: ${normalizedBaseUrl}`)
-  console.log(`🔑 API Key: ${API_KEY ? (`${API_KEY.substring(0, 4)}...${API_KEY.substring(API_KEY.length - 4)}`) : 'NONE'}`)
+  console.log(
+    `🔑 API Key: ${API_KEY ? `${API_KEY.substring(0, 4)}...${API_KEY.substring(API_KEY.length - 4)}` : 'NONE'}`,
+  )
 
   const errors: string[] = []
 
@@ -47,18 +48,14 @@ async function validateProvider() {
         testModel = models[0].id
         console.log(`   First model: ${testModel}`)
       }
-    }
-    else {
+    } else {
       const text = await response.text()
       throw new Error(`HTTP ${response.status}: ${text}`)
     }
-  }
-  catch (e: any) {
+  } catch (e: any) {
     let msg = e.message
-    if (e.name === 'AbortError')
-      msg = 'Timeout (5s)'
-    if (e.cause)
-      msg += ` (Cause: ${e.cause.message || e.cause.code})`
+    if (e.name === 'AbortError') msg = 'Timeout (5s)'
+    if (e.cause) msg += ` (Cause: ${e.cause.message || e.cause.code})`
     console.warn(`⚠️ Model list check failed: ${msg}`)
   }
 
@@ -70,16 +67,16 @@ async function validateProvider() {
   try {
     console.log(`   Trying Chat Completions (/chat/completions) with model: ${testModel}`)
     const response = await fetch(`${normalizedBaseUrl}chat/completions`, {
-      method: 'POST',
+      body: JSON.stringify({
+        max_tokens: 5,
+        messages: [{ content: 'ping', role: 'user' }],
+        model: testModel,
+      }),
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: testModel,
-        messages: [{ role: 'user', content: 'ping' }],
-        max_tokens: 5,
-      }),
+      method: 'POST',
     })
 
     if (response.ok) {
@@ -87,8 +84,7 @@ async function validateProvider() {
       const content = data.choices?.[0]?.message?.content || ''
       console.log(`✅ Success (Chat): Received response "${content.trim()}"`)
       chatPassed = true
-    }
-    else {
+    } else {
       const status = response.status
       const text = await response.text()
       console.warn(`⚠️ Chat failed (HTTP ${status}): ${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`)
@@ -98,13 +94,11 @@ async function validateProvider() {
       if (chatOk) {
         console.log(`   ℹ️ Heuristic: AIRI will treat this HTTP ${status} as "Functional" (reachable/ready).`)
         chatPassed = true // For the sake of the harness summary
-      }
-      else {
+      } else {
         console.log(`   ❌ Heuristic: AIRI will treat this as "Invalid" (connectivity/unsupported).`)
       }
     }
-  }
-  catch (e: any) {
+  } catch (e: any) {
     console.warn(`⚠️ Chat health check failed: ${e.message}`)
   }
 
@@ -115,29 +109,27 @@ async function validateProvider() {
       // Use the model from /models if it looks like tts, else fallback
       const speechModel = testModel.includes('tts') ? testModel : 'tts-1'
       const response = await fetch(`${normalizedBaseUrl}audio/speech`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          model: speechModel,
           input: 'Hello world',
+          model: speechModel,
           voice: 'alloy',
         }),
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
       })
 
       if (response.ok) {
         const buffer = await response.arrayBuffer()
         console.log(`✅ Success (Speech): Received ${buffer.byteLength} bytes of audio.`)
-      }
-      else {
+      } else {
         const text = await response.text()
         console.error(`❌ Failed (Speech) (HTTP ${response.status}): ${text.slice(0, 200)}`)
         errors.push(`TTS failed (HTTP ${response.status})`)
       }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       console.error(`❌ Failed (Speech): ${e.message}`)
       errors.push(`TTS health check failed: ${e.message}`)
     }
@@ -146,10 +138,9 @@ async function validateProvider() {
   console.log('\n--- Result ---')
   if (errors.length === 0) {
     console.log('💚 VALIDATION PASSED')
-  }
-  else {
+  } else {
     console.log('🔴 VALIDATION FAILED')
-    errors.forEach(err => console.log(`   - ${err}`))
+    errors.forEach((err) => console.log(`   - ${err}`))
   }
 }
 

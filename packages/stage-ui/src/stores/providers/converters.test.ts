@@ -4,25 +4,24 @@ import { z } from 'zod'
 import { convertProviderDefinitionToMetadata } from './converters'
 
 vi.mock('@xsai/model', () => ({
-  listModels: vi.fn(async () => [
-    { id: 'test-model', name: 'Test Model', context_length: 8192 },
-  ]),
+  listModels: vi.fn(async () => [{ context_length: 8192, id: 'test-model', name: 'Test Model' }]),
 }))
 
 describe('providers converters', () => {
   it('keeps schema defaults when required fields are missing', () => {
     const definition = {
-      id: 'test-provider',
-      tasks: ['chat'],
-      name: 'Test Provider',
-      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      createProvider: () => ({}) as any,
+      createProviderConfig: () =>
+        z.object({
+          apiKey: z.string(),
+          baseUrl: z.string().optional().default('https://example.com/v1/'),
+        }),
       description: 'test',
       descriptionLocalize: ({ t }: { t: (input: string) => string }) => t('description.key'),
-      createProviderConfig: () => z.object({
-        apiKey: z.string(),
-        baseUrl: z.string().optional().default('https://example.com/v1/'),
-      }),
-      createProvider: () => ({}) as any,
+      id: 'test-provider',
+      name: 'Test Provider',
+      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      tasks: ['chat'],
     } as any
 
     const metadata = convertProviderDefinitionToMetadata(definition, ((key: string) => key) as any)
@@ -34,19 +33,21 @@ describe('providers converters', () => {
 
   it('provides generic model listing fallback for model providers', async () => {
     const definition = {
-      id: 'test-provider',
-      tasks: ['chat'],
-      name: 'Test Provider',
-      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      createProvider: () => ({
+        model: () => ({ apiKey: 'k', baseURL: 'https://example.com/v1/' }),
+      }),
+      createProviderConfig: () =>
+        z.object({
+          apiKey: z.string(),
+          baseUrl: z.string().optional().default('https://example.com/v1/'),
+        }),
       description: 'test',
       descriptionLocalize: ({ t }: { t: (input: string) => string }) => t('description.key'),
-      createProviderConfig: () => z.object({
-        apiKey: z.string(),
-        baseUrl: z.string().optional().default('https://example.com/v1/'),
-      }),
-      createProvider: () => ({
-        model: () => ({ baseURL: 'https://example.com/v1/', apiKey: 'k' }),
-      }),
+      id: 'test-provider',
+      name: 'Test Provider',
+      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      tasks: ['chat'],
+      validationRequiredWhen: () => true,
       validators: {
         validateConfig: [
           () => ({
@@ -56,7 +57,6 @@ describe('providers converters', () => {
           }),
         ],
       },
-      validationRequiredWhen: () => true,
     } as any
 
     const metadata = convertProviderDefinitionToMetadata(definition, ((key: string) => key) as any)
@@ -73,29 +73,35 @@ describe('providers converters', () => {
 
   it('adds default base url hint to validation reason when base url is missing', async () => {
     const definition = {
-      id: 'test-provider',
-      tasks: ['chat'],
-      name: 'Test Provider',
-      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      createProvider: () => ({
+        model: () => ({ apiKey: 'k', baseURL: 'https://example.com/v1/' }),
+      }),
+      createProviderConfig: () =>
+        z.object({
+          apiKey: z.string(),
+          baseUrl: z.string().optional().default('https://example.com/v1/'),
+        }),
       description: 'test',
       descriptionLocalize: ({ t }: { t: (input: string) => string }) => t('description.key'),
-      createProviderConfig: () => z.object({
-        apiKey: z.string(),
-        baseUrl: z.string().optional().default('https://example.com/v1/'),
-      }),
-      createProvider: () => ({
-        model: () => ({ baseURL: 'https://example.com/v1/', apiKey: 'k' }),
-      }),
+      id: 'test-provider',
+      name: 'Test Provider',
+      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      tasks: ['chat'],
+      validationRequiredWhen: () => true,
       validators: {
         validateConfig: [
           () => ({
             id: 'openai-compatible:check-config',
             name: 'config',
-            validator: async () => ({ errors: [{ error: new Error('Base URL is required.') }], reason: 'Base URL is required.', reasonKey: '', valid: false }),
+            validator: async () => ({
+              errors: [{ error: new Error('Base URL is required.') }],
+              reason: 'Base URL is required.',
+              reasonKey: '',
+              valid: false,
+            }),
           }),
         ],
       },
-      validationRequiredWhen: () => true,
     } as any
 
     const metadata = convertProviderDefinitionToMetadata(definition, ((key: string) => key) as any)

@@ -1,16 +1,12 @@
-import type { CodingContext } from './types'
-
 import { useLogger } from '@guiiai/logg'
-
 import * as vscode from 'vscode'
+import type { CodingContext } from './types'
 
 /**
  * Collector for coding context in VSCode
  */
 export class ContextCollector {
-  constructor(
-    private readonly contextLines: number = 5,
-  ) {}
+  constructor(private readonly contextLines: number = 5) {}
 
   /**
    * Collect context from the current active editor
@@ -22,31 +18,31 @@ export class ContextCollector {
 
       // File information
       const file = {
-        path: document.uri.fsPath,
-        languageId: document.languageId,
         fileName: document.fileName,
+        languageId: document.languageId,
+        path: document.uri.fsPath,
         workspaceFolder: this.getWorkspaceFolder(document.uri),
       }
 
       // Cursor position
       const cursor = {
-        line: position.line,
         character: position.character,
+        line: position.line,
       }
 
       // Selected text
       const selection = editor.selection.isEmpty
         ? undefined
         : {
-            text: document.getText(editor.selection),
-            start: {
-              line: editor.selection.start.line,
-              character: editor.selection.start.character,
-            },
             end: {
-              line: editor.selection.end.line,
               character: editor.selection.end.character,
+              line: editor.selection.end.line,
             },
+            start: {
+              character: editor.selection.start.character,
+              line: editor.selection.start.line,
+            },
+            text: document.getText(editor.selection),
           }
 
       // Current line
@@ -62,16 +58,15 @@ export class ContextCollector {
       const git = await this.getGitInfo(document.uri)
 
       return {
-        file,
-        cursor,
-        selection,
-        currentLine,
         context,
+        currentLine,
+        cursor,
+        file,
         git,
+        selection,
         timestamp: Date.now(),
       }
-    }
-    catch (error) {
+    } catch (error) {
       useLogger().errorWithError('Failed to collect context:', error)
       return null
     }
@@ -96,7 +91,7 @@ export class ContextCollector {
       after.push(document.lineAt(i).text)
     }
 
-    return { before, after }
+    return { after, before }
   }
 
   /**
@@ -110,23 +105,20 @@ export class ContextCollector {
   /**
    * Get Git information (simplified)
    */
-  private async getGitInfo(uri: vscode.Uri): Promise<{ branch: string, isDirty: boolean } | undefined> {
+  private async getGitInfo(uri: vscode.Uri): Promise<{ branch: string; isDirty: boolean } | undefined> {
     try {
       const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports
-      if (!gitExtension)
-        return undefined
+      if (!gitExtension) return undefined
 
       const git = gitExtension.getAPI(1)
       const repo = git.getRepository(uri)
-      if (!repo)
-        return undefined
+      if (!repo) return undefined
 
       return {
         branch: repo.state.HEAD?.name ?? 'unknown',
         isDirty: repo.state.workingTreeChanges.length > 0,
       }
-    }
-    catch {
+    } catch {
       return undefined
     }
   }

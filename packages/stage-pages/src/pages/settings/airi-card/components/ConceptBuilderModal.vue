@@ -1,20 +1,14 @@
 <script setup lang="ts">
-import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button, FieldInput, Select } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import {
-  DialogContent,
-  DialogOverlay,
-  DialogPortal,
-  DialogRoot,
-  DialogTitle,
-} from 'reka-ui'
+import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 
 interface ConceptData {
@@ -48,7 +42,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'save', payload: { id: string, data: ConceptData }): void
+  (e: 'save', payload: { id: string; data: ConceptData }): void
 }>()
 
 const artistryStore = useArtistryStore()
@@ -93,86 +87,90 @@ const isDirectorActive = computed(() => {
 })
 
 // Initialize when modal opens or props change
-watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
-  if (props.modelValue) {
-    activeTab.value = 'identity'
-    id.value = props.conceptId || ''
-    description.value = props.initialData?.description || ''
-    prompt.value = props.initialData?.prompt || ''
+watch(
+  () => [props.modelValue, props.conceptId, props.initialData],
+  () => {
+    if (props.modelValue) {
+      activeTab.value = 'identity'
+      id.value = props.conceptId || ''
+      description.value = props.initialData?.description || ''
+      prompt.value = props.initialData?.prompt || ''
 
-    isBase.value = props.initialData?.isBase ?? false
+      isBase.value = props.initialData?.isBase ?? false
 
-    selectedProvider.value = props.initialData?.artistry?.provider || 'inherit'
-    selectedModel.value = props.initialData?.artistry?.model || ''
-    selectedOptionsStr.value = props.initialData?.artistry?.options
-      ? JSON.stringify(props.initialData.artistry.options, null, 2)
-      : '{\n  \n}'
+      selectedProvider.value = props.initialData?.artistry?.provider || 'inherit'
+      selectedModel.value = props.initialData?.artistry?.model || ''
+      selectedOptionsStr.value = props.initialData?.artistry?.options
+        ? JSON.stringify(props.initialData.artistry.options, null, 2)
+        : '{\n  \n}'
 
-    selectedModelId.value = props.initialData?.manifestation?.modelId || 'inherit'
-    selectedMood.value = props.initialData?.manifestation?.mood || ''
-    selectedSpeechProvider.value = props.initialData?.speech?.provider || 'inherit'
-    selectedSpeechModel.value = props.initialData?.speech?.model || ''
-    selectedSpeechVoiceId.value = props.initialData?.speech?.voice_id || ''
+      selectedModelId.value = props.initialData?.manifestation?.modelId || 'inherit'
+      selectedMood.value = props.initialData?.manifestation?.mood || ''
+      selectedSpeechProvider.value = props.initialData?.speech?.provider || 'inherit'
+      selectedSpeechModel.value = props.initialData?.speech?.model || ''
+      selectedSpeechVoiceId.value = props.initialData?.speech?.voice_id || ''
 
-    selectedBackgroundId.value = props.initialData?.manifestation?.backgroundId || 'inherit'
+      selectedBackgroundId.value = props.initialData?.manifestation?.backgroundId || 'inherit'
 
-    selectedExpressions.value = props.initialData?.manifestation?.active_expressions
-      ? { ...props.initialData.manifestation.active_expressions }
-      : {}
-  }
-}, { immediate: true })
+      selectedExpressions.value = props.initialData?.manifestation?.active_expressions
+        ? { ...props.initialData.manifestation.active_expressions }
+        : {}
+    }
+  },
+  { immediate: true },
+)
 
 const providerOptions = [
-  { value: 'inherit', label: 'Inherit Global' },
-  { value: 'replicate', label: 'Replicate' },
-  { value: 'comfyui', label: 'ComfyUI' },
-  { value: 'none', label: 'Disable Artistry' },
+  { label: 'Inherit Global', value: 'inherit' },
+  { label: 'Replicate', value: 'replicate' },
+  { label: 'ComfyUI', value: 'comfyui' },
+  { label: 'Disable Artistry', value: 'none' },
 ]
 
 const displayModelOptions = computed(() => [
-  { value: 'inherit', label: 'Inherit Default' },
-  ...displayModelsStore.displayModels.map(m => ({
-    value: m.id,
+  { label: 'Inherit Default', value: 'inherit' },
+  ...displayModelsStore.displayModels.map((m) => ({
     label: m.name,
+    value: m.id,
   })),
 ])
 
 const speechProviderOptions = computed(() => [
-  { value: 'inherit', label: 'Inherit Global' },
-  { value: 'none', label: 'Disable Speech' },
-  ...providersStore.configuredSpeechProvidersMetadata.map(p => ({
-    value: p.id,
+  { label: 'Inherit Global', value: 'inherit' },
+  { label: 'Disable Speech', value: 'none' },
+  ...providersStore.configuredSpeechProvidersMetadata.map((p) => ({
     label: p.localizedName || p.name,
+    value: p.id,
   })),
 ])
 
 const speechModelOptions = computed(() => {
-  const provider = selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
-  if (!provider || provider === 'none')
-    return []
-  return providersStore.getModelsForProvider(provider).map(m => ({
-    value: m.id,
+  const provider =
+    selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
+  if (!provider || provider === 'none') return []
+  return providersStore.getModelsForProvider(provider).map((m) => ({
     label: m.name || m.id,
+    value: m.id,
   }))
 })
 
 const speechVoiceOptions = computed(() => {
-  const provider = selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
-  if (!provider || provider === 'none')
-    return []
-  return speechStore.getVoicesForProvider(provider).map(v => ({
-    value: v.id,
+  const provider =
+    selectedSpeechProvider.value === 'inherit' ? activeSpeechProvider.value : selectedSpeechProvider.value
+  if (!provider || provider === 'none') return []
+  return speechStore.getVoicesForProvider(provider).map((v) => ({
     label: v.name || v.id,
+    value: v.id,
   }))
 })
 
 const backgroundOptions = computed(() => {
   const bgs = backgroundStore.availableBackgrounds || []
   return [
-    { value: 'inherit', label: 'No Override' },
-    ...bgs.map(bg => ({
-      value: bg.id,
+    { label: 'No Override', value: 'inherit' },
+    ...bgs.map((bg) => ({
       label: bg.title || bg.id,
+      value: bg.id,
     })),
   ]
 })
@@ -192,8 +190,7 @@ watch(selectedSpeechProvider, async (newProvider) => {
 function toggleExpression(name: string) {
   if (selectedExpressions.value[name] === 1) {
     delete selectedExpressions.value[name]
-  }
-  else {
+  } else {
     selectedExpressions.value[name] = 1
   }
 }
@@ -203,46 +200,45 @@ function clearAllExpressions() {
 }
 
 function handleSave() {
-  if (!id.value.trim())
-    return
+  if (!id.value.trim()) return
 
   let options
   try {
     options = selectedOptionsStr.value.trim() ? JSON.parse(selectedOptionsStr.value) : undefined
-  }
-  catch (e) {
+  } catch (e) {
     // Ignore invalid JSON for now
   }
 
   emit('save', {
-    id: id.value.trim(),
     data: {
+      artistry:
+        selectedProvider.value !== 'inherit'
+          ? {
+              model: selectedModel.value.trim(),
+              options,
+              provider: selectedProvider.value,
+            }
+          : undefined,
       description: description.value.trim(),
-      prompt: prompt.value.trim(),
       isBase: isBase.value,
-      artistry: selectedProvider.value !== 'inherit'
-        ? {
-            provider: selectedProvider.value,
-            model: selectedModel.value.trim(),
-            options,
-          }
-        : undefined,
       manifestation: {
+        active_expressions:
+          Object.keys(selectedExpressions.value).length > 0 ? { ...selectedExpressions.value } : undefined,
+        backgroundId: selectedBackgroundId.value !== 'inherit' ? selectedBackgroundId.value : undefined,
         modelId: selectedModelId.value !== 'inherit' ? selectedModelId.value : undefined,
         mood: selectedMood.value.trim() || undefined,
-        backgroundId: selectedBackgroundId.value !== 'inherit' ? selectedBackgroundId.value : undefined,
-        active_expressions: Object.keys(selectedExpressions.value).length > 0
-          ? { ...selectedExpressions.value }
-          : undefined,
       },
-      speech: selectedSpeechProvider.value !== 'inherit'
-        ? {
-            provider: selectedSpeechProvider.value,
-            model: selectedSpeechModel.value.trim(),
-            voice_id: selectedSpeechVoiceId.value.trim(),
-          }
-        : undefined,
+      prompt: prompt.value.trim(),
+      speech:
+        selectedSpeechProvider.value !== 'inherit'
+          ? {
+              model: selectedSpeechModel.value.trim(),
+              provider: selectedSpeechProvider.value,
+              voice_id: selectedSpeechVoiceId.value.trim(),
+            }
+          : undefined,
     },
+    id: id.value.trim(),
   })
   emit('update:modelValue', false)
 }

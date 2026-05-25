@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-
 import {
   ProviderAdvancedSettings,
   ProviderBaseUrlInput,
@@ -12,6 +10,7 @@ import {
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldKeyValues, FieldSelect } from '@proj-airi/ui'
+import type { RemovableRef } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -23,8 +22,7 @@ const { providers } = storeToRefs(providersStore) as { providers: RemovableRef<R
 const baseUrl = computed({
   get: () => providers.value[providerId]?.baseUrl || 'http://localhost:11434/v1/',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].baseUrl = value
   },
 })
@@ -46,60 +44,73 @@ const {
   runManualTest,
 } = useProviderValidation(providerId)
 
-const headers = ref<{ key: string, value: string }[]>(Object.entries(providers.value[providerId]?.headers || {}).map(([key, value]) => ({ key, value } as { key: string, value: string })) || [{ key: '', value: '' }])
+const headers = ref<{ key: string; value: string }[]>(
+  Object.entries(providers.value[providerId]?.headers || {}).map(
+    ([key, value]) => ({ key, value }) as { key: string; value: string },
+  ) || [{ key: '', value: '' }],
+)
 const thinkingMode = computed({
   get: () => providers.value[providerId]?.thinkingMode || 'auto',
   set: (value: string) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].thinkingMode = value
   },
 })
 
-function addKeyValue(headers: { key: string, value: string }[], key: string, value: string) {
-  if (!headers)
-    return
+function addKeyValue(headers: { key: string; value: string }[], key: string, value: string) {
+  if (!headers) return
 
   headers.push({ key, value })
 }
 
-function removeKeyValue(index: number, headers: { key: string, value: string }[]) {
-  if (!headers)
-    return
+function removeKeyValue(index: number, headers: { key: string; value: string }[]) {
+  if (!headers) return
 
   if (headers.length === 1) {
     headers[0].key = ''
     headers[0].value = ''
-  }
-  else {
+  } else {
     headers.splice(index, 1)
   }
 }
 
-watch(headers, (headers) => {
-  if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
-    headers.push({ key: '', value: '' })
-  }
-  if (!providers.value[providerId])
-    return
-  providers.value[providerId].headers = headers.filter(header => header.key !== '').reduce((acc, header) => {
-    acc[header.key] = header.value
-    return acc
-  }, {} as Record<string, string>)
-}, {
-  deep: true,
-  immediate: true,
-})
+watch(
+  headers,
+  (headers) => {
+    if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
+      headers.push({ key: '', value: '' })
+    }
+    if (!providers.value[providerId]) return
+    providers.value[providerId].headers = headers
+      .filter((header) => header.key !== '')
+      .reduce(
+        (acc, header) => {
+          acc[header.key] = header.value
+          return acc
+        },
+        {} as Record<string, string>,
+      )
+  },
+  {
+    deep: true,
+    immediate: true,
+  },
+)
 
 async function refetch() {
   try {
     const validationResult = await providerMetadata.value.validators.validateProviderConfig({
       baseUrl: baseUrl.value,
+      headers: headers.value
+        .filter((header) => header.key !== '')
+        .reduce(
+          (acc, header) => {
+            acc[header.key] = header.value
+            return acc
+          },
+          {} as Record<string, string>,
+        ),
       thinkingMode: thinkingMode.value,
-      headers: headers.value.filter(header => header.key !== '').reduce((acc, header) => {
-        acc[header.key] = header.value
-        return acc
-      }, {} as Record<string, string>),
     })
 
     if (!validationResult.valid) {
@@ -107,15 +118,14 @@ async function refetch() {
         error: validationResult.reason,
       })
     }
-  }
-  catch (error) {
+  } catch (error) {
     validationMessage.value = t('settings.dialogs.onboarding.validationError', {
       error: error instanceof Error ? error.message : String(error),
     })
   }
 }
 
-watch([baseUrl, thinkingMode, headers], refetch, { immediate: true, deep: true })
+watch([baseUrl, thinkingMode, headers], refetch, { deep: true, immediate: true })
 onMounted(() => {
   providersStore.initializeProvider(providerId)
 

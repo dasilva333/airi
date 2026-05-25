@@ -28,14 +28,14 @@ export const useSettingsCaptions = defineStore('settings-captions', () => {
   }
 
   return {
-    showCaptions,
-    fontSize,
-    opacity,
     docking,
     followStage,
+    fontSize,
     layoutMode,
-    resetTrigger,
+    opacity,
     resetState,
+    resetTrigger,
+    showCaptions,
     triggerReset,
   }
 })

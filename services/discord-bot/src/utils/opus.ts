@@ -23,8 +23,7 @@ export class OpusDecoder extends Transform {
         this.push(Buffer.from(pcm))
       }
       callback()
-    }
-    catch (error) {
+    } catch (error) {
       this.emit('error', error)
       callback(error)
     }

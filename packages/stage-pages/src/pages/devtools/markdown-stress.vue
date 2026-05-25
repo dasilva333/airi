@@ -12,12 +12,11 @@ const { capturing, events, isMock, lastRun, payloadPreview, scheduleDelayMs, run
 
 const previewText = computed(() => payloadPreview.value ?? '')
 const lastRunSummary = computed(() => {
-  if (!lastRun.value)
-    return undefined
+  if (!lastRun.value) return undefined
 
   return {
-    events: lastRun.value.events.length,
     durationMs: (lastRun.value.stoppedAt - lastRun.value.startedAt).toFixed(0),
+    events: lastRun.value.events.length,
   }
 })
 const runSummary = computed(() => {
@@ -25,10 +24,8 @@ const runSummary = computed(() => {
 })
 
 function toggleCapture() {
-  if (capturing.value)
-    stressStore.stopCapture()
-  else
-    stressStore.startCapture()
+  if (capturing.value) stressStore.stopCapture()
+  else stressStore.startCapture()
 }
 
 function toggleMode() {

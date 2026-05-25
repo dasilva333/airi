@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { AnalyserWorkletParameters } from '@nekopaw/tempora'
-import type { BeatSyncDetectorState } from '@proj-airi/stage-shared/beat-sync'
-
 import { DEFAULT_ANALYSER_WORKLET_PARAMS } from '@nekopaw/tempora'
+import type { BeatSyncDetectorState } from '@proj-airi/stage-shared/beat-sync'
 import {
   getBeatSyncInputByteFrequencyData,
   getBeatSyncState,
@@ -24,32 +23,38 @@ const totalFreqHistory = ref<number[]>([])
 const isUpdatingFrequencies = ref(false)
 const spectrumScale = ref<'linear' | 'logarithm'>('logarithm')
 const spectrumScaleOptions = [
-  { label: 'Linear', value: 'linear' as const, icon: 'i-solar:chart-2-bold-duotone' },
-  { label: 'Logarithm', value: 'logarithm' as const, icon: 'i-solar:chart-bold-duotone' },
+  { icon: 'i-solar:chart-2-bold-duotone', label: 'Linear', value: 'linear' as const },
+  { icon: 'i-solar:chart-bold-duotone', label: 'Logarithm', value: 'logarithm' as const },
 ]
 
 const { t } = useI18n()
 
-const beatsHistory = ref<Array<{
-  id: string
-  energy: number
-  normalizedEnergy: number
-}>>([])
+const beatsHistory = ref<
+  Array<{
+    id: string
+    energy: number
+    normalizedEnergy: number
+  }>
+>([])
 
 const parameters = ref<AnalyserWorkletParameters>({
   ...DEFAULT_ANALYSER_WORKLET_PARAMS,
+  adaptiveThreshold: false,
+  spectralFlux: false,
   // Loosen the parameters for easier beat detection by default.
   // Also makes life easier :)
   warmup: false,
-  spectralFlux: false,
-  adaptiveThreshold: false,
 })
 
-watch([state, parameters], ([newState, newParameters]) => {
-  if (newState?.isActive) {
-    updateBeatSyncParameters(toRaw(newParameters))
-  }
-}, { deep: true, immediate: true })
+watch(
+  [state, parameters],
+  ([newState, newParameters]) => {
+    if (newState?.isActive) {
+      updateBeatSyncParameters(toRaw(newParameters))
+    }
+  },
+  { deep: true, immediate: true },
+)
 
 function normalizeEnergy(energy: number) {
   const base = 2
@@ -65,21 +70,19 @@ function onRippleEnter(el: Element, done: () => void) {
       scale: 0,
     })
     .add(el, {
-      opacity: 0,
-      scale: 1,
-      duration: 2000,
       delay: 0,
+      duration: 2000,
       ease: 'out(5)',
       onComplete: () => {
-        if (!beatId)
-          return
+        if (!beatId) return
 
-        const idx = beatsHistory.value.findIndex(b => b.id === beatId)
-        if (idx >= 0)
-          beatsHistory.value.splice(idx, 1)
+        const idx = beatsHistory.value.findIndex((b) => b.id === beatId)
+        if (idx >= 0) beatsHistory.value.splice(idx, 1)
 
         done()
       },
+      opacity: 0,
+      scale: 1,
     })
 }
 
@@ -91,42 +94,41 @@ async function updateFrequencies() {
   frequencies.value = Array.from(await getBeatSyncInputByteFrequencyData())
   totalFreqHistory.value.push(frequencies.value.reduce((a, b) => a + b, 0))
 
-  while (totalFreqHistory.value.length > 50)
-    totalFreqHistory.value.shift()
+  while (totalFreqHistory.value.length > 50) totalFreqHistory.value.shift()
 
   if (isUpdatingFrequencies.value) {
     requestAnimationFrame(updateFrequencies)
-  }
-  else {
+  } else {
     frequencies.value = frequencies.value.map(() => 0)
     totalFreqHistory.value = []
   }
 }
 
 const noAudioDetected = computed(() => {
-  if (!isUpdatingFrequencies.value)
-    return false
+  if (!isUpdatingFrequencies.value) return false
 
-  if (totalFreqHistory.value.length < 50)
-    return false
+  if (totalFreqHistory.value.length < 50) return false
 
   return totalFreqHistory.value.reduce((a, b) => a + b, 0) === 0
 })
 
-watch(state, async (newState) => {
-  if (newState?.isActive) {
-    if (!isUpdatingFrequencies.value) {
-      isUpdatingFrequencies.value = true
-      updateFrequencies()
+watch(
+  state,
+  async (newState) => {
+    if (newState?.isActive) {
+      if (!isUpdatingFrequencies.value) {
+        isUpdatingFrequencies.value = true
+        updateFrequencies()
+      }
+    } else {
+      isUpdatingFrequencies.value = false
     }
-  }
-  else {
-    isUpdatingFrequencies.value = false
-  }
-}, { immediate: true, deep: true })
+  },
+  { deep: true, immediate: true },
+)
 
 onMounted(() => {
-  getBeatSyncState().then(initialState => state.value = initialState)
+  getBeatSyncState().then((initialState) => (state.value = initialState))
 
   const removeHandlerFns = [
     listenBeatSyncStateChange((newState) => {
@@ -134,14 +136,14 @@ onMounted(() => {
     }),
     listenBeatSyncBeatSignal(({ energy }) => {
       beatsHistory.value.unshift({
-        id: nanoid(),
         energy,
+        id: nanoid(),
         normalizedEnergy: normalizeEnergy(energy),
       })
     }),
   ]
 
-  const removeHandlers = () => removeHandlerFns.forEach(fn => fn())
+  const removeHandlers = () => removeHandlerFns.forEach((fn) => fn())
   onUnmounted(() => removeHandlers())
 })
 

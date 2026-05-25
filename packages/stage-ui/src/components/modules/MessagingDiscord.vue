@@ -8,14 +8,7 @@ import { useDiscordStore } from '../../stores/modules/discord'
 
 const { t } = useI18n()
 const discordStore = useDiscordStore()
-const {
-  token,
-  serviceStatus,
-  isConnected,
-  isConnecting,
-  eventLog,
-  configured,
-} = storeToRefs(discordStore)
+const { token, serviceStatus, isConnected, isConnecting, eventLog, configured } = storeToRefs(discordStore)
 
 // Dev console collapsed state
 const devConsoleOpen = ref(false)
@@ -28,44 +21,55 @@ const simulateContent = ref('Hello from simulated event!')
 function handleStartStop() {
   if (isConnected.value || isConnecting.value) {
     discordStore.stopService()
-  }
-  else {
+  } else {
     discordStore.startService()
   }
 }
 
 function handleSimulate() {
   discordStore.simulateEvent({
-    username: simulateUsername.value,
     content: simulateContent.value,
+    username: simulateUsername.value,
   })
   simulateOpen.value = false
 }
 
 function handleForceSync() {
-  discordStore.forceCardSync({ name: '', avatarBase64: null })
+  discordStore.forceCardSync({ avatarBase64: null, name: '' })
 }
 
 function getStatusColor(state: string) {
   switch (state) {
-    case 'connected': return '#22c55e'
-    case 'connecting': return '#f59e0b'
-    case 'error': return '#ef4444'
-    default: return '#6b7280'
+    case 'connected':
+      return '#22c55e'
+    case 'connecting':
+      return '#f59e0b'
+    case 'error':
+      return '#ef4444'
+    default:
+      return '#6b7280'
   }
 }
 
 function getEventTypeColor(type: string) {
   switch (type) {
-    case 'MESSAGE_CREATE': return '#22c55e'
-    case 'MESSAGE_SEND': return '#3b82f6'
-    case 'INTERACTION_CREATE': return '#8b5cf6'
+    case 'MESSAGE_CREATE':
+      return '#22c55e'
+    case 'MESSAGE_SEND':
+      return '#3b82f6'
+    case 'INTERACTION_CREATE':
+      return '#8b5cf6'
     case 'READY':
-    case 'SHARD_READY': return '#22c55e'
-    case 'ERROR': return '#ef4444'
-    case 'SIMULATE': return '#f59e0b'
-    case 'FORCE_SYNC': return '#06b6d4'
-    default: return '#9ca3af'
+    case 'SHARD_READY':
+      return '#22c55e'
+    case 'ERROR':
+      return '#ef4444'
+    case 'SIMULATE':
+      return '#f59e0b'
+    case 'FORCE_SYNC':
+      return '#06b6d4'
+    default:
+      return '#9ca3af'
   }
 }
 

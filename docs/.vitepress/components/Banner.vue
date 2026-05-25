@@ -8,10 +8,7 @@ const { height } = useElementSize(el)
 
 watchEffect(() => {
   if (height.value) {
-    document.documentElement.style.setProperty(
-      '--vp-layout-top-height',
-      `${height.value || 40}px`,
-    )
+    document.documentElement.style.setProperty('--vp-layout-top-height', `${height.value || 40}px`)
   }
 })
 </script>

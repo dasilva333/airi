@@ -9,9 +9,7 @@ const shouldReduceMotion = useLocalStorage('docs:settings/reduce-motion', false)
 const switchTitle = ref('')
 
 watchPostEffect(() => {
-  switchTitle.value = shouldReduceMotion.value
-    ? 'Enable motion'
-    : 'Reduce motion'
+  switchTitle.value = shouldReduceMotion.value ? 'Enable motion' : 'Reduce motion'
 })
 </script>
 

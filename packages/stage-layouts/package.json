@@ -1,32 +1,8 @@
 {
-  "name": "@proj-airi/stage-layouts",
-  "type": "module",
-  "private": true,
-  "description": "Shared Layouts",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-layouts"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./layouts/*": "./src/layouts/*.vue",
-    "./components/Layouts/*": "./src/components/Layouts/*.vue",
-    "./components/Layouts/InteractiveArea/Actions/*": "./src/components/Layouts/InteractiveArea/Actions/*.vue",
-    "./components/Layouts/ViewControls/*": "./src/components/Layouts/ViewControls/*",
-    "./components/Widgets/*": "./src/components/Widgets/*.vue",
-    "./components/Backgrounds/*": "./src/components/Backgrounds/*",
-    "./composables/*": "./src/composables/*.ts",
-    "./stores/*": "./src/stores/*.ts"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@moeru/eventa": "catalog:",
@@ -56,6 +32,7 @@
     "vue-router": "catalog:",
     "vue-sonner": "catalog:"
   },
+  "description": "Shared Layouts",
   "devDependencies": {
     "@nekopaw/tempora": "catalog:",
     "@proj-airi/stage-shared": "workspace:^",
@@ -63,5 +40,28 @@
     "@types/three": "^0.183.1",
     "unplugin-info": "catalog:",
     "vue-tsc": "^3.1.8"
-  }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/Backgrounds/*": "./src/components/Backgrounds/*",
+    "./components/Layouts/*": "./src/components/Layouts/*.vue",
+    "./components/Layouts/InteractiveArea/Actions/*": "./src/components/Layouts/InteractiveArea/Actions/*.vue",
+    "./components/Layouts/ViewControls/*": "./src/components/Layouts/ViewControls/*",
+    "./components/Widgets/*": "./src/components/Widgets/*.vue",
+    "./composables/*": "./src/composables/*.ts",
+    "./layouts/*": "./src/layouts/*.vue",
+    "./stores/*": "./src/stores/*.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-layouts",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-layouts",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

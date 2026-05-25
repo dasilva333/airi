@@ -1,9 +1,8 @@
-import type { DefaultTheme } from 'vitepress/theme'
-import type { Ref } from 'vue'
-
 import { useEventListener } from '@vueuse/core'
 // Copied from https://github.com/vuejs/vitepress/blob/97f9469b6d4eb7ba9de9a1111986581d1f704ec3/src/client/theme-default/composables/outline.ts#L4
 import { getScrollOffset } from 'vitepress'
+import type { DefaultTheme } from 'vitepress/theme'
+import type { Ref } from 'vue'
 import { onMounted, onUpdated } from 'vue'
 
 export interface Header {
@@ -36,7 +35,7 @@ export interface Header {
 }
 
 // cached list of anchor elements from resolveHeaders
-const resolvedHeaders: { element: HTMLHeadElement, link: string }[] = []
+const resolvedHeaders: { element: HTMLHeadElement; link: string }[] = []
 
 export type MenuItem = Omit<Header, 'slug' | 'children'> & {
   element: HTMLHeadElement
@@ -45,11 +44,9 @@ export type MenuItem = Omit<Header, 'slug' | 'children'> & {
 
 export function resolveTitle(theme: DefaultTheme.Config) {
   return (
-    (typeof theme.outline === 'object'
-      && !Array.isArray(theme.outline)
-      && theme.outline.label)
-    || theme.outlineTitle
-    || 'On this page'
+    (typeof theme.outline === 'object' && !Array.isArray(theme.outline) && theme.outline.label) ||
+    theme.outlineTitle ||
+    'On this page'
   )
 }
 
@@ -58,14 +55,14 @@ export function getHeaders(range: DefaultTheme.Config['outline']) {
     // @ts-expect-error copied script
     ...document.querySelectorAll('article :where(h1,h2,h3,h4,h5,h6)'),
   ]
-    .filter(el => el.id && el.hasChildNodes())
+    .filter((el) => el.id && el.hasChildNodes())
     .map((el) => {
       const level = Number(el.tagName[1])
       return {
         element: el as HTMLHeadElement,
-        title: serializeHeader(el),
-        link: `#${el.id}`,
         level,
+        link: `#${el.id}`,
+        title: serializeHeader(el),
       }
     })
 
@@ -78,42 +75,31 @@ function serializeHeader(h: Element): string {
   for (const node of h.childNodes) {
     if (node.nodeType === 1) {
       if (
-        (node as Element).classList.contains('VPBadge')
-        || (node as Element).classList.contains('header-anchor')
-        || (node as Element).classList.contains('ignore-header')
+        (node as Element).classList.contains('VPBadge') ||
+        (node as Element).classList.contains('header-anchor') ||
+        (node as Element).classList.contains('ignore-header')
       ) {
         continue
       }
       ret += node.textContent
-    }
-    else if (node.nodeType === 3) {
+    } else if (node.nodeType === 3) {
       ret += node.textContent
     }
   }
   return ret.trim()
 }
 
-export function resolveHeaders(
-  headers: MenuItem[],
-  range?: DefaultTheme.Config['outline'],
-): MenuItem[] {
+export function resolveHeaders(headers: MenuItem[], range?: DefaultTheme.Config['outline']): MenuItem[] {
   if (range === false) {
     return []
   }
 
-  const levelsRange
-    = (typeof range === 'object' && !Array.isArray(range)
-      ? range.level
-      : range) || 2
+  const levelsRange = (typeof range === 'object' && !Array.isArray(range) ? range.level : range) || 2
 
-  const [high, low]: [number, number]
-    = typeof levelsRange === 'number'
-      ? [levelsRange, levelsRange]
-      : levelsRange === 'deep'
-        ? [2, 6]
-        : levelsRange
+  const [high, low]: [number, number] =
+    typeof levelsRange === 'number' ? [levelsRange, levelsRange] : levelsRange === 'deep' ? [2, 6] : levelsRange
 
-  headers = headers.filter(h => h.level >= high && h.level <= low)
+  headers = headers.filter((h) => h.level >= high && h.level <= low)
   // clear previous caches
   resolvedHeaders.length = 0
   // update global header list for active link rendering
@@ -127,8 +113,7 @@ export function resolveHeaders(
     const cur = headers[i]!
     if (i === 0) {
       ret.push(cur)
-    }
-    else {
+    } else {
       for (let j = i - 1; j >= 0; j--) {
         const prev = headers[j]!
         if (prev.level < cur.level) {
@@ -144,10 +129,7 @@ export function resolveHeaders(
   return ret
 }
 
-export function useActiveAnchor(
-  container: Ref<HTMLElement>,
-  marker: Ref<HTMLElement>,
-) {
+export function useActiveAnchor(container: Ref<HTMLElement>, marker: Ref<HTMLElement>) {
   const onScroll = throttleAndDebounce(setActiveLink, 100)
 
   let prevActiveLink: HTMLAnchorElement | null = null
@@ -214,11 +196,8 @@ export function useActiveAnchor(
 
     if (hash == null) {
       prevActiveLink = null
-    }
-    else {
-      prevActiveLink = container.value.querySelector(
-        `a[href="${decodeURIComponent(hash)}"]`,
-      )
+    } else {
+      prevActiveLink = container.value.querySelector(`a[href="${decodeURIComponent(hash)}"]`)
     }
 
     const activeLink = prevActiveLink
@@ -227,8 +206,7 @@ export function useActiveAnchor(
       activeLink.classList.add('active')
       marker.value.style.top = `${activeLink.offsetTop + 39}px`
       marker.value.style.opacity = '1'
-    }
-    else {
+    } else {
       marker.value.style.top = '33px'
       marker.value.style.opacity = '0'
     }
@@ -256,15 +234,13 @@ function throttleAndDebounce(fn: () => void, delay: number): () => void {
   let called = false
 
   return () => {
-    if (timeoutId)
-      clearTimeout(timeoutId)
+    if (timeoutId) clearTimeout(timeoutId)
 
     if (!called) {
       fn()
       called = true
       setTimeout(() => (called = false), delay)
-    }
-    else {
+    } else {
       timeoutId = setTimeout(fn, delay)
     }
   }

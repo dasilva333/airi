@@ -1,11 +1,8 @@
+import { sleep } from '@moeru/std'
+import pathfinderModel from 'mineflayer-pathfinder'
 import type { Entity } from 'prismarine-entity'
 import type { Item } from 'prismarine-item'
-
 import type { Mineflayer } from '../libs/mineflayer'
-
-import pathfinderModel from 'mineflayer-pathfinder'
-
-import { sleep } from '@moeru/std'
 
 import { isHostile } from '../utils/mcdata'
 import { log } from './base'
@@ -19,39 +16,32 @@ interface WeaponItem extends Item {
 }
 
 async function equipHighestAttack(mineflayer: Mineflayer): Promise<void> {
-  const weapons = mineflayer.bot.inventory.items().filter(item =>
-    item.name.includes('sword')
-    || (item.name.includes('axe') && !item.name.includes('pickaxe')),
-  ) as WeaponItem[]
-
-  if (weapons.length === 0) {
-    const tools = mineflayer.bot.inventory.items().filter(item =>
-      item.name.includes('pickaxe')
-      || item.name.includes('shovel'),
+  const weapons = mineflayer.bot.inventory
+    .items()
+    .filter(
+      (item) => item.name.includes('sword') || (item.name.includes('axe') && !item.name.includes('pickaxe')),
     ) as WeaponItem[]
 
-    if (tools.length === 0)
-      return
+  if (weapons.length === 0) {
+    const tools = mineflayer.bot.inventory
+      .items()
+      .filter((item) => item.name.includes('pickaxe') || item.name.includes('shovel')) as WeaponItem[]
+
+    if (tools.length === 0) return
 
     tools.sort((a, b) => b.attackDamage - a.attackDamage)
     const tool = tools[0]
-    if (tool)
-      await mineflayer.bot.equip(tool, 'hand')
+    if (tool) await mineflayer.bot.equip(tool, 'hand')
     return
   }
 
   weapons.sort((a, b) => b.attackDamage - a.attackDamage)
   const weapon = weapons[0]
-  if (weapon)
-    await mineflayer.bot.equip(weapon, 'hand')
+  if (weapon) await mineflayer.bot.equip(weapon, 'hand')
 }
 
-export async function attackNearest(
-  mineflayer: Mineflayer,
-  mobType: string,
-  kill = true,
-): Promise<boolean> {
-  const mob = getNearbyEntities(mineflayer, 24).find(entity => entity.name === mobType)
+export async function attackNearest(mineflayer: Mineflayer, mobType: string, kill = true): Promise<boolean> {
+  const mob = getNearbyEntities(mineflayer, 24).find((entity) => entity.name === mobType)
 
   if (mob) {
     return await attackEntity(mineflayer, mob, kill)
@@ -61,11 +51,7 @@ export async function attackNearest(
   return false
 }
 
-export async function attackEntity(
-  mineflayer: Mineflayer,
-  entity: Entity,
-  kill = true,
-): Promise<boolean> {
+export async function attackEntity(mineflayer: Mineflayer, entity: Entity, kill = true): Promise<boolean> {
   const pos = entity.position
   await equipHighestAttack(mineflayer)
 
@@ -93,18 +79,22 @@ export async function attackEntity(
 
 export async function defendSelf(mineflayer: Mineflayer, range = 9): Promise<boolean> {
   let attacked = false
-  let enemy = getNearestEntityWhere(mineflayer, entity => isHostile(entity), range)
+  let enemy = getNearestEntityWhere(mineflayer, (entity) => isHostile(entity), range)
 
   while (enemy) {
     await equipHighestAttack(mineflayer)
 
-    if (mineflayer.bot.entity.position.distanceTo(enemy.position) >= 4
-      && enemy.name !== 'creeper' && enemy.name !== 'phantom') {
+    if (
+      mineflayer.bot.entity.position.distanceTo(enemy.position) >= 4 &&
+      enemy.name !== 'creeper' &&
+      enemy.name !== 'phantom'
+    ) {
       try {
         const goal = new goals.GoalFollow(enemy, 3.5)
         await patchedGoto(mineflayer.bot, goal)
+      } catch {
+        /* might error if entity dies, ignore */
       }
-      catch { /* might error if entity dies, ignore */ }
     }
 
     if (mineflayer.bot.entity.position.distanceTo(enemy.position) <= 2) {
@@ -112,14 +102,15 @@ export async function defendSelf(mineflayer: Mineflayer, range = 9): Promise<boo
         const followGoal = new goals.GoalFollow(enemy, 2)
         const invertedGoal = new goals.GoalInvert(followGoal)
         await patchedGoto(mineflayer.bot, invertedGoal)
+      } catch {
+        /* might error if entity dies, ignore */
       }
-      catch { /* might error if entity dies, ignore */ }
     }
 
     mineflayer.bot.pvp.attack(enemy)
     attacked = true
     await sleep(500)
-    enemy = getNearestEntityWhere(mineflayer, entity => isHostile(entity), range)
+    enemy = getNearestEntityWhere(mineflayer, (entity) => isHostile(entity), range)
 
     mineflayer.once('interrupt', () => {
       mineflayer.bot.pvp.stop()
@@ -130,8 +121,7 @@ export async function defendSelf(mineflayer: Mineflayer, range = 9): Promise<boo
   mineflayer.bot.pvp.stop()
   if (attacked) {
     log(mineflayer, 'Successfully defended self.')
-  }
-  else {
+  } else {
     log(mineflayer, 'No enemies nearby to defend self from.')
   }
   return attacked

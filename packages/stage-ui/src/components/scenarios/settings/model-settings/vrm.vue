@@ -4,21 +4,17 @@ import { Button, Callout, Checkbox, Select, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import VRMExpressions from './vrm-expressions.vue'
-
 import { useAiriCardStore } from '../../../../stores/modules'
 import { useVHackStore } from '../../../../stores/vhack'
 import { Container, PropertyColor, PropertyNumber } from '../../../data-pane'
 import { ColorPalette } from '../../../widgets'
+import VRMExpressions from './vrm-expressions.vue'
 
 defineProps<{
   palette: string[]
 }>()
 
-defineEmits<{
-  (e: 'extractColorsFromModel'): void
-}>()
+defineEmits<(e: 'extractColorsFromModel') => void>()
 
 const { t } = useI18n()
 
@@ -57,27 +53,29 @@ const { animationOptions } = storeToRefs(customVrmAnimationsStore)
 
 // NOTICE: sceneMutationLocked was removed upstream; hardcoded to false.
 const sceneMutationLocked = computed(() => false)
-const trackingOptions = computed<{
-  value: 'camera' | 'mouse' | 'none'
-  label: string
-  class: string
-}[]>(() => [
-  { value: 'camera', label: t('settings.vrm.scale-and-position.options.option.camera'), class: 'col-start-3' },
-  { value: 'mouse', label: t('settings.vrm.scale-and-position.options.option.mouse'), class: 'col-start-4' },
-  { value: 'none', label: t('settings.vrm.scale-and-position.options.option.disabled'), class: 'col-start-5' },
+const trackingOptions = computed<
+  {
+    value: 'camera' | 'mouse' | 'none'
+    label: string
+    class: string
+  }[]
+>(() => [
+  { class: 'col-start-3', label: t('settings.vrm.scale-and-position.options.option.camera'), value: 'camera' },
+  { class: 'col-start-4', label: t('settings.vrm.scale-and-position.options.option.mouse'), value: 'mouse' },
+  { class: 'col-start-5', label: t('settings.vrm.scale-and-position.options.option.disabled'), value: 'none' },
 ])
 
 const activeTab = ref<'placement' | 'lighting'>('placement')
 
 const vrmTabs = computed(() => [
-  { label: 'Placement', value: 'placement', icon: 'i-solar:square-academic-cap-bold-duotone' },
-  { label: 'Lighting', value: 'lighting', icon: 'i-solar:lightbulb-bold-duotone' },
+  { icon: 'i-solar:square-academic-cap-bold-duotone', label: 'Placement', value: 'placement' },
+  { icon: 'i-solar:lightbulb-bold-duotone', label: 'Lighting', value: 'lighting' },
 ])
 
 const activeCharacterTab = ref<'expressions' | 'animations'>('expressions')
 const characterTabs = computed(() => [
-  { label: 'Expressions', value: 'expressions', icon: 'i-solar:smile-circle-bold-duotone' },
-  { label: 'Animations', value: 'animations', icon: 'i-solar:play-bold-duotone' },
+  { icon: 'i-solar:smile-circle-bold-duotone', label: 'Expressions', value: 'expressions' },
+  { icon: 'i-solar:play-bold-duotone', label: 'Animations', value: 'animations' },
 ])
 
 // switch between hemisphere light and sky box
@@ -87,18 +85,17 @@ const settingsLockClass = computed(() => {
 
 const envOptions = computed(() => [
   {
-    value: 'hemisphere',
+    icon:
+      envSelect.value === 'hemisphere'
+        ? 'i-solar:forbidden-circle-bold rotate-45'
+        : 'i-solar:forbidden-circle-linear rotate-45',
     label: 'Hemisphere',
-    icon: envSelect.value === 'hemisphere'
-      ? 'i-solar:forbidden-circle-bold rotate-45'
-      : 'i-solar:forbidden-circle-linear rotate-45',
+    value: 'hemisphere',
   },
   {
-    value: 'skyBox',
+    icon: envSelect.value === 'skyBox' ? 'i-solar:gallery-circle-bold' : 'i-solar:gallery-circle-linear',
     label: 'SkyBox',
-    icon: envSelect.value === 'skyBox'
-      ? 'i-solar:gallery-circle-bold'
-      : 'i-solar:gallery-circle-linear',
+    value: 'skyBox',
   },
 ])
 
@@ -107,13 +104,10 @@ function isAnimationSelected(key: string) {
 }
 
 function toggleAnimation(key: string) {
-  if (!activeCardId.value || !activeCard.value)
-    return
+  if (!activeCardId.value || !activeCard.value) return
 
   const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
-  const next = current.includes(key)
-    ? current.filter(k => k !== key)
-    : [...current, key]
+  const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key]
 
   updateCard(activeCardId.value, {
     extensions: {

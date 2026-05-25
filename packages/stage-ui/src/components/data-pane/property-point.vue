@@ -18,9 +18,9 @@ const props = defineProps<{
   zConfig?: AxisConfig
 }>()
 
-const x = defineModel('x', { required: false, default: 0 })
-const y = defineModel('y', { required: false, default: 0 })
-const z = defineModel('z', { required: false, default: 0 })
+const x = defineModel('x', { default: 0, required: false })
+const y = defineModel('y', { default: 0, required: false })
+const z = defineModel('z', { default: 0, required: false })
 
 // Dragging state
 const isDragging = ref<'x' | 'y' | 'z' | undefined>()
@@ -43,19 +43,17 @@ const xNormalized = ref(postProcessValue(x.value, props.xConfig))
 const yNormalized = ref(postProcessValue(y.value, props.yConfig))
 const zNormalized = ref(postProcessValue(z.value, props.zConfig))
 
-watch(x, () => xNormalized.value = postProcessValue(x.value, props.xConfig))
-watch(y, () => yNormalized.value = postProcessValue(y.value, props.yConfig))
-watch(z, () => zNormalized.value = postProcessValue(z.value, props.zConfig))
+watch(x, () => (xNormalized.value = postProcessValue(x.value, props.xConfig)))
+watch(y, () => (yNormalized.value = postProcessValue(y.value, props.yConfig)))
+watch(z, () => (zNormalized.value = postProcessValue(z.value, props.zConfig)))
 
 function handleChange(axis: 'x' | 'y' | 'z', event: Event) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   const input = event.target as HTMLInputElement
   const value = Number.parseFloat(input.value)
 
-  if (Number.isNaN(value))
-    return
+  if (Number.isNaN(value)) return
 
   updateValue(axis, value)
 }
@@ -64,10 +62,8 @@ function updateValue(axis: 'x' | 'y' | 'z', value: number) {
   const config = axis === 'x' ? props.xConfig : axis === 'y' ? props.yConfig : props.zConfig
 
   // Apply min/max constraints
-  if (config?.min !== undefined)
-    value = Math.max(config.min, value)
-  if (config?.max !== undefined)
-    value = Math.min(config.max, value)
+  if (config?.min !== undefined) value = Math.max(config.min, value)
+  if (config?.max !== undefined) value = Math.min(config.max, value)
 
   switch (axis) {
     case 'x':
@@ -86,18 +82,13 @@ function updateValue(axis: 'x' | 'y' | 'z', value: number) {
 }
 
 function startDrag(axis: 'x' | 'y' | 'z', event: MouseEvent) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   event.preventDefault()
   isDragging.value = axis
   dragStartX.value = event.clientX
 
-  const currentValue = axis === 'x'
-    ? x.value
-    : axis === 'y'
-      ? y.value
-      : z.value
+  const currentValue = axis === 'x' ? x.value : axis === 'y' ? y.value : z.value
 
   dragStartValue.value = currentValue
 
@@ -106,16 +97,13 @@ function startDrag(axis: 'x' | 'y' | 'z', event: MouseEvent) {
 }
 
 function onDrag(event: MouseEvent) {
-  if (!isDragging.value)
-    return
+  if (!isDragging.value) return
 
   const deltaX = event.clientX - dragStartX.value
-  const config = isDragging.value === 'x'
-    ? props.xConfig
-    : isDragging.value === 'y' ? props.yConfig : props.zConfig
+  const config = isDragging.value === 'x' ? props.xConfig : isDragging.value === 'y' ? props.yConfig : props.zConfig
 
   const sensitivity = config?.step || 0.01
-  const newValue = dragStartValue.value + (deltaX * sensitivity)
+  const newValue = dragStartValue.value + deltaX * sensitivity
 
   updateValue(isDragging.value, newValue)
 }

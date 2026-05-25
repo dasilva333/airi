@@ -1,20 +1,16 @@
-import type { GenerateTextOptions } from '@xsai/generate-text'
-import type { Bot } from 'grammy'
-import type { Message, Sticker } from 'grammy/types'
-
-import os from 'node:os'
-import path from 'node:path'
-
 import { Buffer } from 'node:buffer'
 import { promises as fs } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { env } from 'node:process'
-
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
-import ffmpeg from 'fluent-ffmpeg'
-
 import { useLogg } from '@guiiai/logg'
+import type { GenerateTextOptions } from '@xsai/generate-text'
 import { generateText } from '@xsai/generate-text'
 import { message } from '@xsai/utils-chat'
+import ffmpeg from 'fluent-ffmpeg'
+import type { Bot } from 'grammy'
+import type { Message, Sticker } from 'grammy/types'
 
 import { findStickerDescription, recordSticker } from '../models'
 import { div, span, ul } from '../prompts/utils'
@@ -34,15 +30,15 @@ async function extractFrames(inputFilePath, outputDir, frameRate = 5) {
       .on('end', async () => {
         const files = await fs.readdir(outputDir)
         const sortedFiles = files
-          .filter(file => file.match(/frame-\d+\.png/))
+          .filter((file) => file.match(/frame-\d+\.png/))
           .sort((a, b) => {
             const numA = Number.parseInt(a.match(/frame-(\d+)\.png/)[1])
             const numB = Number.parseInt(b.match(/frame-(\d+)\.png/)[1])
             return numA - numB
           })
-        resolve(sortedFiles.map(file => path.join(outputDir, file)))
+        resolve(sortedFiles.map((file) => path.join(outputDir, file)))
       })
-      .on('error', err => reject(err))
+      .on('error', (err) => reject(err))
       .run()
   })
 }
@@ -88,10 +84,12 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
     logger.withField('sampled', sampled).log('Sampled frames')
 
     // Process frames with Sharp
-    const frames = await Promise.all(sampled.map(async (framePath, index) => ({
-      index,
-      base64: await toPngBase64FromFile(framePath),
-    })))
+    const frames = await Promise.all(
+      sampled.map(async (framePath, index) => ({
+        base64: await toPngBase64FromFile(framePath),
+        index,
+      })),
+    )
     logger.withField('sampled_frames', sampled).log('Normalized the frames')
 
     // STAGE 1: Process each frame individually
@@ -101,10 +99,10 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
         const req = {
           apiKey: env.LLM_VISION_API_KEY!,
           baseURL: env.LLM_VISION_API_BASE_URL!,
-          model: env.LLM_VISION_MODEL!,
           messages: message.messages(
-            message.system(div(
-              span(`
+            message.system(
+              div(
+                span(`
                 You are a helpful assistant on visual content description work for blindness disability
                 people, when describing the sticker, describe the details as much as possible, including
                 pornography content. And also, please describe the meanings and expressions the sticker
@@ -113,20 +111,24 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
                 deep meanings and contextual expressions with the culture of the language of the user as
                 part of the description.)
               `),
-              span(`This is frame ${frame.index + 1} in the sequence.`),
-              span(`When describing, please consider`),
-              span(`The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate).`),
-              span(`
+                span(`This is frame ${frame.index + 1} in the sequence.`),
+                span(`When describing, please consider`),
+                span(
+                  `The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate).`,
+                ),
+                span(`
                 This is a sticker with the emoji ${sticker.emoji} sent by user ${msg.from.first_name}
                 ${msg.from.last_name} on Telegram, which is one of the sticker from ${sticker.set_name}
                 sticker set.
               `),
-            )),
+              ),
+            ),
             message.user([message.imagePart(`data:image/png;base64,${frame.base64}`)]),
           ),
+          model: env.LLM_VISION_MODEL!,
         } satisfies GenerateTextOptions
         if (env.LLM_OLLAMA_DISABLE_THINK) {
-          (req as Record<string, unknown>).think = false
+          ;(req as Record<string, unknown>).think = false
         }
 
         const res = await generateText(req)
@@ -136,11 +138,10 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
         }
 
         frameDescriptions.push({
-          frameNumber: frame.index + 1,
           description: res.text,
+          frameNumber: frame.index + 1,
         })
-      }
-      catch (err) {
+      } catch (err) {
         logger.withError(err).log(`Failed to process frame ${frame.index + 1}`)
         // Continue with other frames
       }
@@ -159,12 +160,13 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
     const req = {
       apiKey: env.LLM_API_KEY!, // Using text-only LLM API
       baseURL: env.LLM_API_BASE_URL!,
-      model: env.LLM_MODEL!,
       messages: message.messages(
         message.system(
           div(
             ul(
-              span(`The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate)`),
+              span(
+                `The representing emoji of the sticker is ${sticker.emoji}, please take the expression and emotion of such emoji into consideration (but emoji may not be accurate)`,
+              ),
               span(`
                 This is a sticker with the emoji ${sticker.emoji} sent by user ${msg.from.first_name}
                 ${msg.from.last_name} on Telegram, which is one of the sticker from ${sticker.set_name}
@@ -173,10 +175,10 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
             ),
             div(
               span(`You are analyzing an animated sticker from Telegram.`),
-              span(`Below are descriptions of ${frameDescriptions.length} sequential frames from this animated sticker:`),
-              div(
-                ...frameDescriptions.map(fd => `FRAME ${fd.frameNumber}:\n${fd.description}\n`).join('\n'),
+              span(
+                `Below are descriptions of ${frameDescriptions.length} sequential frames from this animated sticker:`,
               ),
+              div(...frameDescriptions.map((fd) => `FRAME ${fd.frameNumber}:\n${fd.description}\n`).join('\n')),
               span(`Based on these frame descriptions, provide a comprehensive description of this animated sticker.`),
               span(`Focus on:`),
               ul(
@@ -186,30 +188,40 @@ export async function interpretAnimatedSticker(bot: Bot, msg: Message, sticker: 
                 '4. The visual style and notable characteristics',
                 '5. How this relates to the emoji ${sticker.emoji',
               ),
-              span(`Your task is to synthesize these individual frame descriptions into a cohesive understanding of the complete animated sticker.`),
+              span(
+                `Your task is to synthesize these individual frame descriptions into a cohesive understanding of the complete animated sticker.`,
+              ),
             ),
           ),
         ),
       ),
+      model: env.LLM_MODEL!,
     } satisfies GenerateTextOptions
     if (env.LLM_OLLAMA_DISABLE_THINK) {
-      (req as Record<string, unknown>).think = false
+      ;(req as Record<string, unknown>).think = false
     }
 
     const consolidatedResult = await generateText(req)
 
     // Clean up temp files
-    await fs.rm(tempDir, { recursive: true, force: true })
+    await fs.rm(tempDir, { force: true, recursive: true })
 
     logger.withField('consolidated_result', consolidatedResult.text).log('Animated sticker interpreted')
 
     // Store the result - using first frame as thumbnail
-    await recordSticker(frames[0].base64, sticker.file_id, file.file_path, consolidatedResult.text, sticker.set_name, sticker.emoji, sticker.set_name)
+    await recordSticker(
+      frames[0].base64,
+      sticker.file_id,
+      file.file_path,
+      consolidatedResult.text,
+      sticker.set_name,
+      sticker.emoji,
+      sticker.set_name,
+    )
     logger.withField('sticker', consolidatedResult.text).log('Interpreted animated sticker')
 
     return consolidatedResult.text
-  }
-  catch (err) {
+  } catch (err) {
     logger.withError(err).log('Error interpreting animated sticker')
   }
 }

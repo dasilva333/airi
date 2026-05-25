@@ -1,19 +1,13 @@
+import pf from 'mineflayer-pathfinder'
 import type { Block } from 'prismarine-block'
 import type { Entity } from 'prismarine-entity'
 import type { Item } from 'prismarine-item'
 import type { Vec3 } from 'vec3'
-
 import type { Mineflayer } from '../libs/mineflayer'
-
-import pf from 'mineflayer-pathfinder'
 
 import { McData } from '../utils/mcdata'
 
-export function getNearestFreeSpace(
-  mineflayer: Mineflayer,
-  size: number = 1,
-  distance: number = 8,
-): Vec3 | undefined {
+export function getNearestFreeSpace(mineflayer: Mineflayer, size: number = 1, distance: number = 8): Vec3 | undefined {
   /**
    * Get the nearest empty space with solid blocks beneath it of the given size.
    * @param {number} size - The (size x size) of the space to find, default 1.
@@ -23,11 +17,11 @@ export function getNearestFreeSpace(
    * let position = world.getNearestFreeSpace( 1, 8);
    */
   const empty_pos = mineflayer.bot.findBlocks({
+    count: 1000,
     matching: (block: Block | null) => {
       return block !== null && block.name === 'air'
     },
     maxDistance: distance,
-    count: 1000,
   })
 
   for (let i = 0; i < empty_pos.length; i++) {
@@ -36,19 +30,12 @@ export function getNearestFreeSpace(
       for (let z = 0; z < size; z++) {
         const top = mineflayer.bot.blockAt(empty_pos[i].offset(x, 0, z))
         const bottom = mineflayer.bot.blockAt(empty_pos[i].offset(x, -1, z))
-        if (
-          !top
-          || top.name !== 'air'
-          || !bottom
-          || (bottom.drops?.length ?? 0) === 0
-          || !bottom.diggable
-        ) {
+        if (!top || top.name !== 'air' || !bottom || (bottom.drops?.length ?? 0) === 0 || !bottom.diggable) {
           empty = false
           break
         }
       }
-      if (!empty)
-        break
+      if (!empty) break
     }
     if (empty) {
       return empty_pos[i]
@@ -57,15 +44,19 @@ export function getNearestFreeSpace(
   return undefined
 }
 
-export function getNearestBlocks(mineflayer: Mineflayer, blockTypes: string[] | string | null = null, distance: number = 16, count: number = 10000): Block[] {
+export function getNearestBlocks(
+  mineflayer: Mineflayer,
+  blockTypes: string[] | string | null = null,
+  distance: number = 16,
+  count: number = 10000,
+): Block[] {
   const mcData = McData.fromBot(mineflayer.bot)
-  const blockNames = blockTypes === null
-    ? mcData.getAllBlocks(['air']).map(block => block.name)
-    : (Array.isArray(blockTypes) ? blockTypes : [blockTypes])
-        .map((name) => {
+  const blockNames =
+    blockTypes === null
+      ? mcData.getAllBlocks(['air']).map((block) => block.name)
+      : (Array.isArray(blockTypes) ? blockTypes : [blockTypes]).map((name) => {
           const id = mcData.getBlockId(name)
-          if (id)
-            return name
+          if (id) return name
 
           const closest = mcData.getClosestBlockName(name)
           const suggestion = closest ? `; did you mean ${closest}?` : ''
@@ -74,9 +65,9 @@ export function getNearestBlocks(mineflayer: Mineflayer, blockTypes: string[] | 
 
   const blockNameSet = new Set(blockNames)
   const positions = mineflayer.bot.findBlocks({
-    matching: block => block && blockNameSet.has(block.name),
-    maxDistance: distance,
     count,
+    matching: (block) => block && blockNameSet.has(block.name),
+    maxDistance: distance,
   })
 
   return positions
@@ -85,9 +76,9 @@ export function getNearestBlocks(mineflayer: Mineflayer, blockTypes: string[] | 
       const dist = pos.distanceTo(mineflayer.bot.entity.position)
       return block ? { block, distance: dist } : null
     })
-    .filter((item): item is { block: Block, distance: number } => item !== null)
+    .filter((item): item is { block: Block; distance: number } => item !== null)
     .sort((a, b) => a.distance - b.distance)
-    .map(item => item.block)
+    .map((item) => item.block)
 }
 
 export function getNearestBlock(mineflayer: Mineflayer, blockType: string, distance: number = 16): Block | null {
@@ -97,29 +88,30 @@ export function getNearestBlock(mineflayer: Mineflayer, blockType: string, dista
 
 export function getNearbyEntities(mineflayer: Mineflayer, maxDistance: number = 16): Entity[] {
   return Object.values(mineflayer.bot.entities)
-    .filter((entity): entity is Entity =>
-      entity !== null
-      && entity.position.distanceTo(mineflayer.bot.entity.position) <= maxDistance,
+    .filter(
+      (entity): entity is Entity =>
+        entity !== null && entity.position.distanceTo(mineflayer.bot.entity.position) <= maxDistance,
     )
-    .sort((a, b) =>
-      a.position.distanceTo(mineflayer.bot.entity.position)
-      - b.position.distanceTo(mineflayer.bot.entity.position),
+    .sort(
+      (a, b) =>
+        a.position.distanceTo(mineflayer.bot.entity.position) - b.position.distanceTo(mineflayer.bot.entity.position),
     )
 }
 
-export function getNearestEntityWhere(mineflayer: Mineflayer, predicate: (entity: Entity) => boolean, maxDistance: number = 16): Entity | null {
-  return mineflayer.bot.nearestEntity(entity =>
-    predicate(entity)
-    && mineflayer.bot.entity.position.distanceTo(entity.position) < maxDistance,
+export function getNearestEntityWhere(
+  mineflayer: Mineflayer,
+  predicate: (entity: Entity) => boolean,
+  maxDistance: number = 16,
+): Entity | null {
+  return mineflayer.bot.nearestEntity(
+    (entity) => predicate(entity) && mineflayer.bot.entity.position.distanceTo(entity.position) < maxDistance,
   )
 }
 
 export function getNearbyPlayers(mineflayer: Mineflayer, maxDistance: number = 16): Entity[] {
-  return getNearbyEntities(mineflayer, maxDistance)
-    .filter(entity =>
-      entity.type === 'player'
-      && entity.username !== mineflayer.bot.username,
-    )
+  return getNearbyEntities(mineflayer, maxDistance).filter(
+    (entity) => entity.type === 'player' && entity.username !== mineflayer.bot.username,
+  )
 }
 
 export function getInventoryStacks(mineflayer: Mineflayer): Item[] {
@@ -127,10 +119,13 @@ export function getInventoryStacks(mineflayer: Mineflayer): Item[] {
 }
 
 export function getInventoryCounts(mineflayer: Mineflayer): Record<string, number> {
-  return getInventoryStacks(mineflayer).reduce((counts, item) => {
-    counts[item.name] = (counts[item.name] || 0) + item.count
-    return counts
-  }, {} as Record<string, number>)
+  return getInventoryStacks(mineflayer).reduce(
+    (counts, item) => {
+      counts[item.name] = (counts[item.name] || 0) + item.count
+      return counts
+    },
+    {} as Record<string, number>,
+  )
 }
 
 export function getCraftableItems(mineflayer: Mineflayer): string[] {
@@ -140,8 +135,8 @@ export function getCraftableItems(mineflayer: Mineflayer): string[] {
   // Use bot's registry to get items - this ensures IDs match the server version
   const registry = mineflayer.bot.registry
   return Object.values(registry.items)
-    .filter(item => mineflayer.bot.recipesFor(item.id, null, 1, table).length > 0)
-    .map(item => item.name)
+    .filter((item) => mineflayer.bot.recipesFor(item.id, null, 1, table).length > 0)
+    .map((item) => item.name)
 }
 
 export function getPosition(mineflayer: Mineflayer): Vec3 {
@@ -149,29 +144,27 @@ export function getPosition(mineflayer: Mineflayer): Vec3 {
 }
 
 export function getNearbyEntityTypes(mineflayer: Mineflayer): string[] {
-  return [...new Set(
-    getNearbyEntities(mineflayer, 16)
-      .map(mob => mob.name)
-      .filter((name): name is string => name !== undefined),
-  )]
+  return [
+    ...new Set(
+      getNearbyEntities(mineflayer, 16)
+        .map((mob) => mob.name)
+        .filter((name): name is string => name !== undefined),
+    ),
+  ]
 }
 
 export function getNearbyPlayerNames(mineflayer: Mineflayer): string[] {
-  return [...new Set(
-    getNearbyPlayers(mineflayer, 64)
-      .map(player => player.username)
-      .filter((name): name is string =>
-        name !== undefined
-        && name !== mineflayer.bot.username,
-      ),
-  )]
+  return [
+    ...new Set(
+      getNearbyPlayers(mineflayer, 64)
+        .map((player) => player.username)
+        .filter((name): name is string => name !== undefined && name !== mineflayer.bot.username),
+    ),
+  ]
 }
 
 export function getNearbyBlockTypes(mineflayer: Mineflayer, distance: number = 16): string[] {
-  return [...new Set(
-    getNearestBlocks(mineflayer, null, distance)
-      .map(block => block.name),
-  )]
+  return [...new Set(getNearestBlocks(mineflayer, null, distance).map((block) => block.name))]
 }
 
 export async function isClearPath(mineflayer: Mineflayer, target: Entity): Promise<boolean> {
@@ -179,12 +172,7 @@ export async function isClearPath(mineflayer: Mineflayer, target: Entity): Promi
   movements.canDig = false
   // movements.canPlaceOn = false // TODO: fix this
 
-  const goal = new pf.goals.GoalNear(
-    target.position.x,
-    target.position.y,
-    target.position.z,
-    1,
-  )
+  const goal = new pf.goals.GoalNear(target.position.x, target.position.y, target.position.z, 1)
 
   const path = await mineflayer.bot.pathfinder.getPathTo(movements, goal, 100)
   return path.status === 'success'
@@ -196,15 +184,14 @@ export function shouldPlaceTorch(mineflayer: Mineflayer): boolean {
   // }
 
   const pos = getPosition(mineflayer)
-  const nearestTorch = getNearestBlock(mineflayer, 'torch', 6)
-    || getNearestBlock(mineflayer, 'wall_torch', 6)
+  const nearestTorch = getNearestBlock(mineflayer, 'torch', 6) || getNearestBlock(mineflayer, 'wall_torch', 6)
 
   if (nearestTorch) {
     return false
   }
 
   const block = mineflayer.bot.blockAt(pos)
-  const hasTorch = mineflayer.bot.inventory.items().some(item => item?.name === 'torch')
+  const hasTorch = mineflayer.bot.inventory.items().some((item) => item?.name === 'torch')
 
   return Boolean(hasTorch && block?.name === 'air')
 }

@@ -1,20 +1,25 @@
 <script setup lang="ts">
-import type { DisplayModel } from '../../../../stores/display-models'
-
 import { useMediaQuery, useResizeObserver, useScreenSafeArea } from '@vueuse/core'
-import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, VisuallyHidden } from 'reka-ui'
+import {
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+  VisuallyHidden,
+} from 'reka-ui'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot, DrawerTrigger } from 'vaul-vue'
 import { onMounted } from 'vue'
+import type { DisplayModel } from '../../../../stores/display-models'
 
 import ModelManager from './model-selector.vue'
 
 const props = defineProps<{
   selectedModel?: DisplayModel
 }>()
-const emits = defineEmits<{
-  (e: 'pick', value: DisplayModel | undefined): void
-}>()
-const showDialog = defineModel('show', { type: Boolean, default: false, required: false })
+const emits = defineEmits<(e: 'pick', value: DisplayModel | undefined) => void>()
+const showDialog = defineModel('show', { default: false, required: false, type: Boolean })
 const isDesktop = useMediaQuery('(min-width: 768px)')
 const screenSafeArea = useScreenSafeArea()
 

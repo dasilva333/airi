@@ -2,40 +2,30 @@
 import { useMagicKeys } from '@vueuse/core'
 import { computed, defineComponent, h } from 'vue'
 
-const {
-  shift,
-  control,
-  escape,
-  tab,
-  v,
-  u,
-  e,
-  s,
-  v_u_e,
-  u_s_e,
-  i_Shift_Alt,
-  a_Shift_Alt,
-  n_Shift_Alt,
-  current,
-} = useMagicKeys()
+const { shift, control, escape, tab, v, u, e, s, v_u_e, u_s_e, i_Shift_Alt, a_Shift_Alt, n_Shift_Alt, current } =
+  useMagicKeys()
 const keys = computed(() => Array.from(current))
 
 const Key = defineComponent({
   props: {
     value: {
-      type: Boolean,
       required: true,
+      type: Boolean,
     },
   },
   render() {
-    return h('div', {
-      class: [
-        'font-mono px-4 py-2 rounded',
-        this.value
-          ? 'opacity-100 text-primary bg-primary bg-opacity-15'
-          : 'opacity-50 bg-gray-600 bg-opacity-10 dark:(bg-gray-400 bg-opacity-10)',
-      ],
-    }, this.$slots.default?.())
+    return h(
+      'div',
+      {
+        class: [
+          'font-mono px-4 py-2 rounded',
+          this.value
+            ? 'opacity-100 text-primary bg-primary bg-opacity-15'
+            : 'opacity-50 bg-gray-600 bg-opacity-10 dark:(bg-gray-400 bg-opacity-10)',
+        ],
+      },
+      this.$slots.default?.(),
+    )
   },
 })
 </script>

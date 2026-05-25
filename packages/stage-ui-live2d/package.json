@@ -1,39 +1,8 @@
 {
-  "name": "@proj-airi/stage-ui-live2d",
-  "type": "module",
-  "private": true,
-  "description": "Live2D scene components and stores for Project AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-ui-live2d"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./components": "./src/components/index.ts",
-    "./components/scenes": "./src/components/scenes/index.ts",
-    "./components/scenes/Live2D.vue": "./src/components/scenes/Live2D.vue",
-    "./components/scenes/live2d": "./src/components/scenes/live2d/index.ts",
-    "./composables/live2d": "./src/composables/live2d/index.ts",
-    "./constants/emotions": "./src/constants/emotions.ts",
-    "./stores": "./src/stores/index.ts",
-    "./stores/live2d": "./src/stores/live2d.ts",
-    "./utils/eye-motions": "./src/utils/eye-motions.ts",
-    "./utils/live2d-preview": "./src/utils/live2d-preview.ts",
-    "./utils/live2d-zip-loader": "./src/utils/live2d-zip-loader.ts",
-    "./utils/live2d-validator": "./src/utils/live2d-validator.ts",
-    "./utils/live2d-opfs-registration": "./src/utils/live2d-opfs-registration.ts",
-    "./utils/live2d-uri-encode-filenames": "./src/utils/live2d-uri-encode-filenames.ts",
-    "./utils/opfs-loader": "./src/utils/opfs-loader.ts"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@lemonneko/crop-empty-pixels": "0.1.1",
@@ -62,9 +31,40 @@
     "three": "^0.183.1",
     "vue": "catalog:"
   },
+  "description": "Live2D scene components and stores for Project AIRI",
   "devDependencies": {
     "@types/culori": "^4.0.1",
     "@types/three": "^0.183.1",
     "vue-tsc": "^3.2.5"
-  }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./components/scenes": "./src/components/scenes/index.ts",
+    "./components/scenes/Live2D.vue": "./src/components/scenes/Live2D.vue",
+    "./components/scenes/live2d": "./src/components/scenes/live2d/index.ts",
+    "./composables/live2d": "./src/composables/live2d/index.ts",
+    "./constants/emotions": "./src/constants/emotions.ts",
+    "./stores": "./src/stores/index.ts",
+    "./stores/live2d": "./src/stores/live2d.ts",
+    "./utils/eye-motions": "./src/utils/eye-motions.ts",
+    "./utils/live2d-opfs-registration": "./src/utils/live2d-opfs-registration.ts",
+    "./utils/live2d-preview": "./src/utils/live2d-preview.ts",
+    "./utils/live2d-uri-encode-filenames": "./src/utils/live2d-uri-encode-filenames.ts",
+    "./utils/live2d-validator": "./src/utils/live2d-validator.ts",
+    "./utils/live2d-zip-loader": "./src/utils/live2d-zip-loader.ts",
+    "./utils/opfs-loader": "./src/utils/opfs-loader.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-ui-live2d",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-ui-live2d",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

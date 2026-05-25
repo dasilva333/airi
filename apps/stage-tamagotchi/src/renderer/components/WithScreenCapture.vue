@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { SourcesOptions } from 'electron'
-
 import { useElectronScreenCapture } from '@proj-airi/electron-screen-capture/vue'
 import { Button } from '@proj-airi/ui'
 import { useWindowFocus } from '@vueuse/core'
+import type { SourcesOptions } from 'electron'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { onMounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,21 +19,15 @@ const hasPermissions = ref(false)
 const showDialog = ref(false)
 
 const { t } = useI18n()
-const {
-  getSources,
-  setSource,
-  selectWithSource,
-  checkMacOSPermission,
-  requestMacOSPermission,
-} = useElectronScreenCapture(getIpcRenderer(), sourcesOptions)
+const { getSources, setSource, selectWithSource, checkMacOSPermission, requestMacOSPermission } =
+  useElectronScreenCapture(getIpcRenderer(), sourcesOptions)
 const focused = useWindowFocus()
 
 async function checkPermissions() {
   if (getPlatform() === 'darwin') {
     const status = await checkMacOSPermission()
     hasPermissions.value = status === 'granted'
-  }
-  else {
+  } else {
     hasPermissions.value = true
   }
   if (!hasPermissions.value) {

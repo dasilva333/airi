@@ -1,6 +1,5 @@
-import type { FlowEntry } from '../context-flow-types'
-
 import { describe, expect, it } from 'vitest'
+import type { FlowEntry } from '../context-flow-types'
 
 import { useContextFlowFormatters } from './use-context-flow-formatters'
 
@@ -14,23 +13,23 @@ describe('useContextFlowFormatters', () => {
 
   it('builds preview items for context updates', () => {
     const entry: FlowEntry = {
-      id: 1,
-      timestamp: Date.now(),
-      direction: 'incoming',
       channel: 'server',
-      type: 'context:update',
-      summary: 'test',
+      direction: 'incoming',
+      id: 1,
       payload: {
         data: {
-          text: 'Hello world',
           destinations: ['character'],
+          text: 'Hello world',
         },
       },
       searchText: '',
+      summary: 'test',
+      timestamp: Date.now(),
+      type: 'context:update',
     }
 
     const items = buildPreviewItems(entry)
-    expect(items.map(item => item.label)).toEqual(['Text', 'Destinations'])
+    expect(items.map((item) => item.label)).toEqual(['Text', 'Destinations'])
     expect(items[0]?.value).toContain('Hello world')
     expect(items[1]?.value).toContain('character')
   })

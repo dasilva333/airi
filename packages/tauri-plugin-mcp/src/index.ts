@@ -4,11 +4,14 @@ export interface ToolInputSchema {
   required: string[]
   title: string
   type: 'object'
-  properties: Record<string, {
-    title: string
-    type: string
-    default?: any
-  }>
+  properties: Record<
+    string,
+    {
+      title: string
+      type: string
+      default?: any
+    }
+  >
 }
 
 export interface CallToolResult {
@@ -26,7 +29,7 @@ export interface Tool {
 }
 
 export async function connectServer(command: string, args: string[]) {
-  await invoke('plugin:mcp|connect_server', { command, args })
+  await invoke('plugin:mcp|connect_server', { args, command })
 }
 
 export async function disconnectServer() {
@@ -38,5 +41,5 @@ export async function listTools(): Promise<Tool[]> {
 }
 
 export async function callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
-  return await invoke('plugin:mcp|call_tool', { name, args })
+  return await invoke('plugin:mcp|call_tool', { args, name })
 }

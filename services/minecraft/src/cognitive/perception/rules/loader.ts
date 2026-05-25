@@ -4,17 +4,13 @@
  * Loads and parses YAML rule files from a directory
  */
 
-import type { ZodError } from 'zod'
-
-import type { ParsedRule } from './types'
-
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-
 import { parse as parseYaml } from 'yaml'
-
+import type { ZodError } from 'zod'
 import { buildEventType } from './matcher'
 import { parseWindowDuration } from './temporal-detector'
+import type { ParsedRule } from './types'
 import { yamlRuleSchema } from './types'
 
 function formatValidationError(error: ZodError, sourcePath: string): Error {
@@ -51,25 +47,25 @@ export function parseRule(yaml: unknown, sourcePath: string): ParsedRule {
   const windowMs = parseWindowDuration(validatedRule.detector.window)
 
   return Object.freeze({
+    detector: Object.freeze({
+      groupBy: validatedRule.detector.groupBy,
+      mode: validatedRule.detector.mode ?? 'sliding',
+      threshold: validatedRule.detector.threshold,
+      windowMs,
+    }),
     name: validatedRule.name,
-    version: validatedRule.version ?? 1,
+    signal: Object.freeze({
+      confidence: validatedRule.signal.confidence ?? 1.0,
+      description: validatedRule.signal.description,
+      metadata: validatedRule.signal.metadata ? Object.freeze(validatedRule.signal.metadata) : undefined,
+      type: validatedRule.signal.type,
+    }),
+    sourcePath,
     trigger: Object.freeze({
       eventType: buildEventType(validatedRule.trigger.modality, validatedRule.trigger.kind),
       where: validatedRule.trigger.where ? Object.freeze(validatedRule.trigger.where) : undefined,
     }),
-    detector: Object.freeze({
-      threshold: validatedRule.detector.threshold,
-      windowMs,
-      mode: validatedRule.detector.mode ?? 'sliding',
-      groupBy: validatedRule.detector.groupBy,
-    }),
-    signal: Object.freeze({
-      type: validatedRule.signal.type,
-      description: validatedRule.signal.description,
-      confidence: validatedRule.signal.confidence ?? 1.0,
-      metadata: validatedRule.signal.metadata ? Object.freeze(validatedRule.signal.metadata) : undefined,
-    }),
-    sourcePath,
+    version: validatedRule.version ?? 1,
   })
 }
 
@@ -91,12 +87,10 @@ export function loadRulesFromDirectory(dirPath: string): ParsedRule[] {
     if (entry.isDirectory()) {
       // Recurse into subdirectories
       rules.push(...loadRulesFromDirectory(fullPath))
-    }
-    else if (entry.isFile() && (entry.name.endsWith('.yaml') || entry.name.endsWith('.yml'))) {
+    } else if (entry.isFile() && (entry.name.endsWith('.yaml') || entry.name.endsWith('.yml'))) {
       try {
         rules.push(loadRuleFile(fullPath))
-      }
-      catch (err) {
+      } catch (err) {
         console.error(`Failed to load rule from ${fullPath}:`, err)
       }
     }

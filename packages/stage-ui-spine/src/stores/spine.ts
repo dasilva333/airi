@@ -5,8 +5,7 @@ import { ref, watch } from 'vue'
 
 import { supportedControl, useSpineViewControl } from './view-control'
 
-type BroadcastChannelEvents
-  = | BroadcastChannelEventShouldUpdateView
+type BroadcastChannelEvents = BroadcastChannelEventShouldUpdateView
 
 interface BroadcastChannelEventShouldUpdateView {
   type: 'spine-should-update-view'
@@ -36,8 +35,8 @@ export interface SpineCurrentAnimation {
 }
 
 export const defaultSpineAnimation: SpineCurrentAnimation = {
-  name: 'idle',
   loop: true,
+  name: 'idle',
 }
 
 export const useSpine = defineStore('spine', () => {
@@ -55,12 +54,12 @@ export const useSpine = defineStore('spine', () => {
 
   function shouldUpdateView() {
     post({ type: 'spine-should-update-view' })
-    shouldUpdateViewHooks.value.forEach(hook => hook())
+    shouldUpdateViewHooks.value.forEach((hook) => hook())
   }
 
   watch(data, (event) => {
     if (event?.type === 'spine-should-update-view') {
-      shouldUpdateViewHooks.value.forEach(hook => hook())
+      shouldUpdateViewHooks.value.forEach((hook) => hook())
     }
   })
 
@@ -83,10 +82,7 @@ export const useSpine = defineStore('spine', () => {
   )
 
   /** All skins discovered on the loaded skeleton. */
-  const availableSkins = useLocalStorageManualReset<SpineSkinDescriptor[]>(
-    'settings/spine/available-skins',
-    () => [],
-  )
+  const availableSkins = useLocalStorageManualReset<SpineSkinDescriptor[]>('settings/spine/available-skins', () => [])
 
   /** Active skin name. Empty string means use the model's default skin. */
   const currentSkin = useLocalStorageManualReset<string>('settings/spine/current-skin', '')
@@ -118,7 +114,7 @@ export const useSpine = defineStore('spine', () => {
   const { position, scale, reset: resetViewControl } = useSpineViewControl()
 
   function resetState() {
-    supportedControl.forEach(c => resetViewControl(c))
+    supportedControl.forEach((c) => resetViewControl(c))
     currentAnimation.reset()
     activeAnimations.reset()
     availableAnimations.reset()
@@ -135,24 +131,24 @@ export const useSpine = defineStore('spine', () => {
   }
 
   return {
-    position,
-    scale,
-    currentAnimation,
     activeAnimations,
+    animationSpeed,
     availableAnimations,
     availableSkins,
-    currentSkin,
     availableVariants,
+    currentAnimation,
+    currentSkin,
     currentVariant,
-    premultipliedAlpha,
     defaultMixDuration,
     idleAnimationEnabled,
-    animationSpeed,
     maxFps,
 
     onShouldUpdateView,
-    shouldUpdateView,
+    position,
+    premultipliedAlpha,
     resetState,
+    scale,
+    shouldUpdateView,
   }
 })
 

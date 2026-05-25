@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import type { ProviderMetadata } from '../../../../stores/providers'
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { Button, Callout, FieldInput } from '@proj-airi/ui'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import type { ProviderMetadata } from '../../../../stores/providers'
 import { useProvidersStore } from '../../../../stores/providers'
 import { Alert } from '../../../misc'
 import { ProviderAccountIdInput } from '../../../scenarios/providers'
+import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 interface Props {
   selectedProviderId: string
@@ -38,8 +36,7 @@ const isAmazonBedrock = computed(() => props.selectedProvider?.id === 'amazon-be
 // Initialize form with default values when provider changes
 function initializeForm() {
   const provider = props.selectedProvider
-  if (!provider)
-    return
+  if (!provider) return
 
   const defaultOptions = provider.defaultOptions?.() || {}
   baseUrl.value = (defaultOptions as any)?.baseUrl || ''
@@ -66,32 +63,25 @@ watch([apiKey, baseUrl, accountId, accessKeyId, secretAccessKey, region], () => 
 
 // Computed properties
 const needsApiKey = computed(() => {
-  if (!props.selectedProvider)
-    return false
+  if (!props.selectedProvider) return false
   // Amazon Bedrock uses its own fields (Access Key ID + Secret Access Key)
-  if (isAmazonBedrock.value)
-    return false
+  if (isAmazonBedrock.value) return false
   return props.selectedProvider.id !== 'ollama' && props.selectedProvider.id !== 'player2'
 })
 
 const needsBaseUrl = computed(() => {
-  if (!props.selectedProvider)
-    return false
+  if (!props.selectedProvider) return false
   // Amazon Bedrock doesn't need a base URL (it's derived from region)
-  if (isAmazonBedrock.value)
-    return false
+  if (isAmazonBedrock.value) return false
   return props.selectedProvider.id !== 'cloudflare-workers-ai'
 })
 
 const canProceed = computed(() => {
-  if (!props.selectedProviderId)
-    return false
+  if (!props.selectedProviderId) return false
 
   if (isAmazonBedrock.value) {
-    if (!accessKeyId.value.trim() || !secretAccessKey.value.trim())
-      return false
-  }
-  else if (needsApiKey.value && !apiKey.value.trim()) {
+    if (!accessKeyId.value.trim() || !secretAccessKey.value.trim()) return false
+  } else if (needsApiKey.value && !apiKey.value.trim()) {
     return false
   }
 
@@ -99,14 +89,11 @@ const canProceed = computed(() => {
 })
 
 const primaryActionLabel = computed(() => {
-  return validation.value === 'failed'
-    ? t('settings.dialogs.onboarding.retry')
-    : t('settings.dialogs.onboarding.next')
+  return validation.value === 'failed' ? t('settings.dialogs.onboarding.retry') : t('settings.dialogs.onboarding.next')
 })
 
 async function validateConfiguration() {
-  if (!props.selectedProvider)
-    return
+  if (!props.selectedProvider) return
 
   validation.value = 'pending'
   validationError.value = undefined
@@ -119,14 +106,10 @@ async function validateConfiguration() {
       config.accessKeyId = accessKeyId.value.trim()
       config.secretAccessKey = secretAccessKey.value.trim()
       config.region = region.value.trim() || 'us-east-1'
-    }
-    else {
-      if (needsApiKey.value)
-        config.apiKey = apiKey.value.trim()
-      if (needsBaseUrl.value)
-        config.baseUrl = baseUrl.value.trim()
-      if (props.selectedProvider.id === 'cloudflare-workers-ai')
-        config.accountId = accountId.value.trim()
+    } else {
+      if (needsApiKey.value) config.apiKey = apiKey.value.trim()
+      if (needsBaseUrl.value) config.baseUrl = baseUrl.value.trim()
+      if (props.selectedProvider.id === 'cloudflare-workers-ai') config.accountId = accountId.value.trim()
     }
 
     // Validate using provider's validator
@@ -136,8 +119,7 @@ async function validateConfiguration() {
     if (validation.value === 'failed') {
       validationError.value = validationResult.reason
     }
-  }
-  catch (error) {
+  } catch (error) {
     validation.value = 'failed'
     validationError.value = t('settings.dialogs.onboarding.validationError', {
       error: error instanceof Error ? error.message : String(error),
@@ -149,27 +131,26 @@ async function handleNext() {
   await validateConfiguration()
   if (validation.value === 'succeed') {
     await props.onNext({
+      accessKeyId: accessKeyId.value,
+      accountId: accountId.value,
       apiKey: apiKey.value,
       baseUrl: baseUrl.value,
-      accountId: accountId.value,
-      accessKeyId: accessKeyId.value,
-      secretAccessKey: secretAccessKey.value,
       region: region.value || 'us-east-1',
+      secretAccessKey: secretAccessKey.value,
     })
   }
 }
 
 async function handleContinueAnyway() {
-  if (!props.selectedProvider)
-    return
+  if (!props.selectedProvider) return
 
   await props.onNext({
+    accessKeyId: accessKeyId.value,
+    accountId: accountId.value,
     apiKey: apiKey.value,
     baseUrl: baseUrl.value,
-    accountId: accountId.value,
-    accessKeyId: accessKeyId.value,
-    secretAccessKey: secretAccessKey.value,
     region: region.value || 'us-east-1',
+    secretAccessKey: secretAccessKey.value,
   })
   providersStore.forceProviderConfigured(props.selectedProvider.id)
 }
@@ -177,20 +158,20 @@ async function handleContinueAnyway() {
 // Placeholder helpers
 function getApiKeyPlaceholder(providerId: string): string {
   const placeholders: Record<string, string> = {
-    'openai': 'sk-...',
-    'anthropic': 'sk-ant-...',
-    'google-generative-ai': 'AI...',
-    'openrouter-ai': 'sk-or-...',
-    'deepseek': 'sk-...',
-    'xai': 'xai-...',
-    'together-ai': 'togetherapi-...',
-    'mistral-ai': 'mis-...',
-    'moonshot-ai': 'ms-...',
-    'modelscope': 'ms-...',
-    'fireworks-ai': 'fw-...',
+    anthropic: 'sk-ant-...',
+    deepseek: 'sk-...',
     'featherless-ai': 'fw-...',
-    'nvidia': 'nvapi-...',
+    'fireworks-ai': 'fw-...',
+    'google-generative-ai': 'AI...',
+    'mistral-ai': 'mis-...',
+    modelscope: 'ms-...',
+    'moonshot-ai': 'ms-...',
     'novita-ai': 'nvt-...',
+    nvidia: 'nvapi-...',
+    openai: 'sk-...',
+    'openrouter-ai': 'sk-or-...',
+    'together-ai': 'togetherapi-...',
+    xai: 'xai-...',
   }
 
   return placeholders[providerId] || 'API Key'

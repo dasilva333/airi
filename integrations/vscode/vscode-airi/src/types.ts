@@ -32,8 +32,8 @@ export interface CodingContext {
   /** Selected text */
   selection?: {
     text: string
-    start: { line: number, character: number }
-    end: { line: number, character: number }
+    start: { line: number; character: number }
+    end: { line: number; character: number }
   }
   /** Current line */
   currentLine: {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { FlowEntry } from '../context-flow-types'
-
 import { useContextFlowFormatters } from '../composables/use-context-flow-formatters'
+import type { FlowEntry } from '../context-flow-types'
 
 defineProps<{ entry: FlowEntry }>()
 

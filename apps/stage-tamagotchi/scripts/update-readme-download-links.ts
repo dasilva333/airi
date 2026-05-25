@@ -1,7 +1,6 @@
-import process from 'node:process'
-
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import process from 'node:process'
 
 import { getFilenames } from './utils'
 
@@ -9,12 +8,16 @@ const ROOT_DIR = resolve(import.meta.dirname, '..', '..', '..')
 const DOCS_DIR = resolve(ROOT_DIR, 'docs')
 
 // GitHub releases download URLs
-const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
-const GITHUB_MACOS_RE = /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
+const GITHUB_WINDOWS_RE =
+  /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
+const GITHUB_MACOS_RE =
+  /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
 
 // Aliyun OSS mirror download URLs (used by zh-CN README)
-const OSS_WINDOWS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
-const OSS_MACOS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
+const OSS_WINDOWS_RE =
+  /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
+const OSS_MACOS_RE =
+  /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
 
 async function main() {
   const version = process.argv[2]
@@ -25,13 +28,13 @@ async function main() {
   }
 
   const cleanVersion = version.replace(/^v/, '')
-  const releaseOptions = { release: true, autoTag: false, tag: [cleanVersion] }
+  const releaseOptions = { autoTag: false, release: true, tag: [cleanVersion] }
 
   const windowsFilenames = await getFilenames('x86_64-pc-windows-msvc', releaseOptions)
   const macosFilenames = await getFilenames('aarch64-apple-darwin', releaseOptions)
 
-  const windowsExe = windowsFilenames.find(f => f.extension === 'exe')?.releaseArtifactFilename
-  const macosDmg = macosFilenames.find(f => f.extension === 'dmg')?.releaseArtifactFilename
+  const windowsExe = windowsFilenames.find((f) => f.extension === 'exe')?.releaseArtifactFilename
+  const macosDmg = macosFilenames.find((f) => f.extension === 'dmg')?.releaseArtifactFilename
 
   if (!windowsExe || !macosDmg) {
     console.error('Failed to determine artifact filenames')
@@ -45,13 +48,17 @@ async function main() {
     return content
       .replace(GITHUB_WINDOWS_RE, `https://github.com/moeru-ai/airi/releases/download/v${cleanVersion}/${windowsExe}`)
       .replace(GITHUB_MACOS_RE, `https://github.com/moeru-ai/airi/releases/download/v${cleanVersion}/${macosDmg}`)
-      .replace(OSS_WINDOWS_RE, `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${windowsExe}`)
-      .replace(OSS_MACOS_RE, `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${macosDmg}`)
+      .replace(
+        OSS_WINDOWS_RE,
+        `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${windowsExe}`,
+      )
+      .replace(
+        OSS_MACOS_RE,
+        `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${macosDmg}`,
+      )
   }
 
-  const readmeFiles: string[] = [
-    resolve(ROOT_DIR, 'README.md'),
-  ]
+  const readmeFiles: string[] = [resolve(ROOT_DIR, 'README.md')]
 
   const docsFiles = await readdir(DOCS_DIR)
   for (const file of docsFiles) {
@@ -68,8 +75,7 @@ async function main() {
       await writeFile(filePath, updated, 'utf-8')
       console.info(`Updated: ${filePath}`)
       updatedCount++
-    }
-    else {
+    } else {
       console.info(`No changes: ${filePath}`)
     }
   }

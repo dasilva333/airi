@@ -11,8 +11,7 @@ export function setupMineflayerViewer(mineflayer: { bot: Bot }, options: Minefla
   let isViewerStarted = false
 
   mineflayer.bot.once('spawn', async () => {
-    if (isViewerStarted)
-      return
+    if (isViewerStarted) return
 
     isViewerStarted = true
 
@@ -21,16 +20,15 @@ export function setupMineflayerViewer(mineflayer: { bot: Bot }, options: Minefla
       const { mineflayer: mineflayerViewer } = await import('prismarine-viewer')
 
       mineflayerViewer(mineflayer.bot, {
-        port: options.port,
         firstPerson: options.firstPerson ?? true,
+        port: options.port,
       })
 
       logger.log(`Mineflayer viewer running at http://localhost:${options.port}`)
-    }
-    catch (err) {
+    } catch (err) {
       const e = err as NodeJS.ErrnoException
       const message = typeof e.message === 'string' ? e.message : ''
-      const isCanvasMissing = e?.code === 'MODULE_NOT_FOUND' && message.includes('\'canvas\'')
+      const isCanvasMissing = e?.code === 'MODULE_NOT_FOUND' && message.includes("'canvas'")
       const isCanvasBinaryMissing = e?.code === 'MODULE_NOT_FOUND' && message.includes('canvas.node')
 
       if (isCanvasMissing || isCanvasBinaryMissing) {

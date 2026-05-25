@@ -7,11 +7,13 @@ import { ToasterRootInjectionKey } from './constants'
 
 const props = defineProps<{ id?: string }>()
 
-const emits = defineEmits<{ (e: 'update'): void }>()
+const emits = defineEmits<(e: 'update') => void>()
 
 const { t } = useI18n()
 
-const toastRoot = inject(ToasterRootInjectionKey, { close: (id: string) => console.warn('No toast root provided, cannot close toast', id) })
+const toastRoot = inject(ToasterRootInjectionKey, {
+  close: (id: string) => console.warn('No toast root provided, cannot close toast', id),
+})
 
 function handleUpdate() {
   emits('update')

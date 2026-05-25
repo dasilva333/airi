@@ -8,12 +8,12 @@
 // =============================================================================
 
 const CONFIG = {
-  MAX_LOGS: 500,
   MAX_LLM_TRACES: 50,
+  MAX_LOGS: 500,
   MAX_REPL_RESULTS: 20,
-  RECONNECT_MAX_ATTEMPTS: 10,
-  RECONNECT_DELAY: 1000,
   PING_INTERVAL: 25000,
+  RECONNECT_DELAY: 1000,
+  RECONNECT_MAX_ATTEMPTS: 10,
   UPDATE_THROTTLE: 100, // ms
 }
 
@@ -24,8 +24,7 @@ const SYSTEM_STATE_MARKER = 'The following blackboard provides you with informat
 // =============================================================================
 
 function escapeHtml(text) {
-  if (text == null)
-    return ''
+  if (text == null) return ''
   return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -35,12 +34,10 @@ function escapeHtml(text) {
 }
 
 function formatSystemMessageContent(content) {
-  if (typeof content !== 'string')
-    return content
+  if (typeof content !== 'string') return content
 
   const idx = content.indexOf(SYSTEM_STATE_MARKER)
-  if (idx === -1)
-    return content
+  if (idx === -1) return content
 
   return `===TRUNCATED===\n${content.slice(idx + SYSTEM_STATE_MARKER.length).trimStart()}`
 }
@@ -83,8 +80,7 @@ class DebugClient {
       handlers.forEach((handler) => {
         try {
           handler(data)
-        }
-        catch (err) {
+        } catch (err) {
           console.error(`Error in ${eventType} handler:`, err)
         }
       })
@@ -136,8 +132,8 @@ class DebugClient {
   send(command) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const message = {
-        id: `${++this.messageIdCounter}`,
         data: command,
+        id: `${++this.messageIdCounter}`,
         timestamp: Date.now(),
       }
       this.ws.send(JSON.stringify(message))
@@ -161,8 +157,7 @@ class DebugClient {
       }
 
       this.routeEvent(event)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to parse message:', err)
     }
   }
@@ -178,8 +173,7 @@ class DebugClient {
     if (connected) {
       dot.classList.add('connected')
       text.textContent = 'Connected'
-    }
-    else {
+    } else {
       dot.classList.remove('connected')
       text.textContent = 'Disconnected'
     }
@@ -202,7 +196,7 @@ class DebugClient {
 
   startPing() {
     this.pingInterval = setInterval(() => {
-      this.send({ type: 'ping', payload: { timestamp: Date.now() } })
+      this.send({ payload: { timestamp: Date.now() }, type: 'ping' })
     }, CONFIG.PING_INTERVAL)
   }
 
@@ -221,17 +215,17 @@ class DebugClient {
 class QueuePanel {
   constructor(client) {
     this.client = client
-    this.data = { queue: [], processing: null }
+    this.data = { processing: null, queue: [] }
     this.elements = {
-      queueList: document.getElementById('queue-list'),
-      queueCount: document.getElementById('queue-count'),
       processingContent: document.getElementById('processing-content'),
+      queueCount: document.getElementById('queue-count'),
+      queueList: document.getElementById('queue-list'),
       statQueue: document.getElementById('stat-queue'),
     }
   }
 
   init() {
-    this.client.on('queue', data => this.update(data))
+    this.client.on('queue', (data) => this.update(data))
     this.client.on('connected', () => this.reset())
     this.render()
   }
@@ -242,7 +236,7 @@ class QueuePanel {
   }
 
   reset() {
-    this.data = { queue: [], processing: null }
+    this.data = { processing: null, queue: [] }
     this.render()
   }
 
@@ -256,15 +250,18 @@ class QueuePanel {
 
     // Queue list
     if (queue && queue.length > 0) {
-      this.elements.queueList.innerHTML = queue.map((item, idx) => `
+      this.elements.queueList.innerHTML = queue
+        .map(
+          (item, idx) => `
         <div class="queue-item">
           <span class="queue-index">#${idx + 1}</span>
           <span class="queue-type">${escapeHtml(item.type)}</span>
           <span class="queue-source">${escapeHtml(item.source?.id || 'unknown')}</span>
         </div>
-      `).join('')
-    }
-    else {
+      `,
+        )
+        .join('')
+    } else {
       this.elements.queueList.innerHTML = '<div class="empty-state">Queue empty</div>'
     }
 
@@ -278,8 +275,7 @@ class QueuePanel {
           </div>
         </div>
       `
-    }
-    else {
+    } else {
       this.elements.processingContent.innerHTML = '<span style="color: var(--text-muted);">Idle</span>'
     }
   }
@@ -294,17 +290,17 @@ class ReflexPanel {
     this.client = client
     this.state = null
     this.elements = {
-      mode: document.getElementById('reflex-mode'),
-      statMode: document.getElementById('stat-reflex-mode'),
       activeBehavior: document.getElementById('reflex-active-behavior'),
-      signalType: document.getElementById('reflex-signal-type'),
+      mode: document.getElementById('reflex-mode'),
       signalSource: document.getElementById('reflex-signal-source'),
+      signalType: document.getElementById('reflex-signal-type'),
       socialSpeaker: document.getElementById('reflex-social-speaker'),
+      statMode: document.getElementById('stat-reflex-mode'),
     }
   }
 
   init() {
-    this.client.on('reflex', data => this.update(data))
+    this.client.on('reflex', (data) => this.update(data))
     this.client.on('connected', () => this.reset())
     this.render()
   }
@@ -323,8 +319,7 @@ class ReflexPanel {
     if (!this.state) {
       this.elements.mode.textContent = 'unknown'
       this.elements.mode.className = 'panel-badge'
-      if (this.elements.statMode)
-        this.elements.statMode.textContent = 'unknown'
+      if (this.elements.statMode) this.elements.statMode.textContent = 'unknown'
       this.elements.activeBehavior.textContent = 'None'
       this.elements.signalType.textContent = 'None'
       this.elements.signalSource.textContent = '-'
@@ -336,9 +331,8 @@ class ReflexPanel {
 
     // Mode
     this.elements.mode.textContent = mode
-    this.elements.mode.className = `panel-badge ${mode === 'alert' ? 'badge-error' : (mode === 'social' ? 'badge-success' : '')}`
-    if (this.elements.statMode)
-      this.elements.statMode.textContent = mode
+    this.elements.mode.className = `panel-badge ${mode === 'alert' ? 'badge-error' : mode === 'social' ? 'badge-success' : ''}`
+    if (this.elements.statMode) this.elements.statMode.textContent = mode
 
     // Behavior
     this.elements.activeBehavior.textContent = activeBehaviorId ? escapeHtml(activeBehaviorId) : 'None'
@@ -347,16 +341,14 @@ class ReflexPanel {
     if (context.attention?.lastSignalType) {
       this.elements.signalType.textContent = escapeHtml(context.attention.lastSignalType)
       this.elements.signalSource.textContent = escapeHtml(context.attention.lastSignalSourceId || '-')
-    }
-    else {
+    } else {
       this.elements.signalType.textContent = 'None'
     }
 
     // Social
     if (context.social?.lastSpeaker) {
       this.elements.socialSpeaker.textContent = escapeHtml(context.social.lastSpeaker)
-    }
-    else {
+    } else {
       this.elements.socialSpeaker.textContent = 'None'
     }
   }
@@ -371,14 +363,14 @@ class BrainPanel {
     this.client = client
     this.state = null
     this.elements = {
-      status: document.getElementById('brain-status'),
-      queue: document.getElementById('brain-queue'),
       context: document.getElementById('brain-context'),
+      queue: document.getElementById('brain-queue'),
+      status: document.getElementById('brain-status'),
     }
   }
 
   init() {
-    this.client.on('brain_state', data => this.update(data))
+    this.client.on('brain_state', (data) => this.update(data))
     this.client.on('connected', () => this.reset())
   }
 
@@ -422,18 +414,18 @@ class LogsPanel {
     this.filter = { level: 'all', search: '' }
     this.currentFile = ''
     this.elements = {
-      container: document.getElementById('logs-container'),
-      search: document.getElementById('log-search'),
-      levelFilter: document.getElementById('log-level-filter'),
       autoScroll: document.getElementById('auto-scroll'),
+      container: document.getElementById('logs-container'),
       fileSelect: document.getElementById('log-file-select'),
+      levelFilter: document.getElementById('log-level-filter'),
       loadFile: document.getElementById('load-log-file'),
+      search: document.getElementById('log-search'),
       statEvents: document.getElementById('stat-events'),
     }
   }
 
   init() {
-    this.client.on('log', data => this.addLog(data))
+    this.client.on('log', (data) => this.addLog(data))
     this.client.on('connected', () => this.reset())
 
     this.elements.search.addEventListener('input', (e) => {
@@ -467,8 +459,7 @@ class LogsPanel {
   }
 
   addLog(entry) {
-    if (this.paused)
-      return
+    if (this.paused) return
 
     this.logs.push(entry)
     if (this.logs.length > CONFIG.MAX_LOGS) {
@@ -491,14 +482,11 @@ class LogsPanel {
       const json = await res.json()
       const files = json.files || []
       const select = this.elements.fileSelect
-      if (!select)
-        return
+      if (!select) return
       const current = select.value
-      select.innerHTML = `<option value="">Live (current session)</option>${files.map(f => `<option value="${f}">${f}</option>`).join('')}`
-      if (files.includes(current))
-        select.value = current
-    }
-    catch (err) {
+      select.innerHTML = `<option value="">Live (current session)</option>${files.map((f) => `<option value="${f}">${f}</option>`).join('')}`
+      if (files.includes(current)) select.value = current
+    } catch (err) {
       console.error('Failed to load log files', err)
     }
   }
@@ -513,15 +501,14 @@ class LogsPanel {
       const json = await res.json()
       const events = Array.isArray(json.events) ? json.events : []
       const logEntries = events
-        .filter(e => e.type === 'log')
-        .map(e => e.payload)
+        .filter((e) => e.type === 'log')
+        .map((e) => e.payload)
         .filter(Boolean)
       this.logs = logEntries
       this.currentFile = file
       this.elements.statEvents.textContent = this.logs.length
       this.render()
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to load persisted log', err)
     }
   }
@@ -547,11 +534,12 @@ class LogsPanel {
       return true
     })
 
-    this.elements.container.innerHTML = filtered.map((log) => {
-      const time = new Date(log.timestamp).toLocaleTimeString()
-      const fieldsStr = log.fields ? JSON.stringify(log.fields) : ''
+    this.elements.container.innerHTML = filtered
+      .map((log) => {
+        const time = new Date(log.timestamp).toLocaleTimeString()
+        const fieldsStr = log.fields ? JSON.stringify(log.fields) : ''
 
-      return `
+        return `
         <div class="log-entry">
           <span class="log-time">${time}</span>
           <span class="log-level level-${log.level}">[${log.level}]</span>
@@ -559,7 +547,8 @@ class LogsPanel {
           ${fieldsStr ? `<div class="log-fields">${escapeHtml(fieldsStr)}</div>` : ''}
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     if (this.autoScroll) {
       this.elements.container.scrollTop = this.elements.container.scrollHeight
@@ -573,33 +562,38 @@ class LogsPanel {
 
 // --- User message parser: extracts structured sections from brain's buildUserMessage output ---
 function parseUserMessage(content) {
-  if (typeof content !== 'string')
-    return { sections: [], raw: '' }
+  if (typeof content !== 'string') return { raw: '', sections: [] }
   const sections = []
   // Known section tags in order they may appear
-  const tagPattern = /^\[(EVENT|FEEDBACK|PERCEPTION|STATE|ERROR_BURST_GUARD|ERROR_BURST|MANDATORY|SCRIPT|ACTION_QUEUE|NO_ACTION_BUDGET|CONTEXT)\]\s*/
+  const tagPattern =
+    /^\[(EVENT|FEEDBACK|PERCEPTION|STATE|ERROR_BURST_GUARD|ERROR_BURST|MANDATORY|SCRIPT|ACTION_QUEUE|NO_ACTION_BUDGET|CONTEXT)\]\s*/
   // Split on double-newline (the separator used by buildUserMessage)
   const blocks = content.split(/\n\n/)
   for (const block of blocks) {
     const trimmed = block.trim()
-    if (!trimmed)
-      continue
+    if (!trimmed) continue
     const m = trimmed.match(tagPattern)
     if (m) {
       sections.push({ tag: m[1], text: trimmed.slice(m[0].length) })
-    }
-    else {
+    } else {
       // Could be a continuation of PERCEPTION or unknown block
       sections.push({ tag: 'OTHER', text: trimmed })
     }
   }
-  return { sections, raw: content }
+  return { raw: content, sections }
 }
 
 class ConversationPanel {
   constructor(client) {
     this.client = client
-    this._mkSession = () => ({ messages: [], greyed: false, activeContext: null, archivedContexts: [], activeContextStartIndex: 0, contextHistoryMessage: null })
+    this._mkSession = () => ({
+      activeContext: null,
+      activeContextStartIndex: 0,
+      archivedContexts: [],
+      contextHistoryMessage: null,
+      greyed: false,
+      messages: [],
+    })
     this.sessions = [this._mkSession()]
     this.isProcessing = false
     this.autoScroll = true
@@ -607,14 +601,16 @@ class ConversationPanel {
     this.elements = {
       container: document.getElementById('conversation-container'),
       count: document.getElementById('conversation-count'),
-      statLlm: document.getElementById('stat-llm'),
       processingBadge: document.getElementById('conversation-processing'),
-      scroll: document.getElementById('conversation-container')?.closest('.panel-content') || document.getElementById('conversation-container'),
+      scroll:
+        document.getElementById('conversation-container')?.closest('.panel-content') ||
+        document.getElementById('conversation-container'),
+      statLlm: document.getElementById('stat-llm'),
     }
   }
 
   init() {
-    this.client.on('conversation_update', data => this.handleUpdate(data))
+    this.client.on('conversation_update', (data) => this.handleUpdate(data))
     this.client.on('connected', () => {
       this.reset()
       this.client.send({ type: 'request_conversation' })
@@ -624,16 +620,13 @@ class ConversationPanel {
     if (this.elements.container) {
       this.elements.container.addEventListener('click', (e) => {
         const toggle = e.target.closest('[data-toggle]')
-        if (!toggle)
-          return
+        if (!toggle) return
         const targetId = toggle.getAttribute('data-toggle')
         const body = document.getElementById(targetId)
-        if (!body)
-          return
+        if (!body) return
         const isOpen = body.classList.toggle('cv-open')
         const arrow = toggle.querySelector('.cv-arrow')
-        if (arrow)
-          arrow.textContent = isOpen ? '\u25BC' : '\u25B6'
+        if (arrow) arrow.textContent = isOpen ? '\u25BC' : '\u25B6'
       })
     }
 
@@ -643,11 +636,9 @@ class ConversationPanel {
   handleUpdate(data) {
     if (data.sessionBoundary) {
       const cur = this.sessions[this.sessions.length - 1]
-      if (cur)
-        cur.greyed = true
+      if (cur) cur.greyed = true
       this.sessions.push(this._mkSession())
-    }
-    else {
+    } else {
       const cur = this.sessions[this.sessions.length - 1]
       if (cur) {
         cur.messages = data.messages || []
@@ -672,25 +663,23 @@ class ConversationPanel {
 
   updateStats() {
     const total = this.sessions.reduce((s, sess) => s + sess.messages.length, 0)
-    if (this.elements.count)
-      this.elements.count.textContent = total
-    if (this.elements.statLlm)
-      this.elements.statLlm.textContent = total
-    if (this.elements.processingBadge)
-      this.elements.processingBadge.classList.toggle('hidden', !this.isProcessing)
+    if (this.elements.count) this.elements.count.textContent = total
+    if (this.elements.statLlm) this.elements.statLlm.textContent = total
+    if (this.elements.processingBadge) this.elements.processingBadge.classList.toggle('hidden', !this.isProcessing)
   }
 
   render() {
-    if (!this.elements.container)
-      return
+    if (!this.elements.container) return
     this.turnCounter = 0
 
-    const html = this.sessions.map((session) => {
-      const cls = session.greyed ? 'chat-session chat-session-greyed' : 'chat-session'
-      const body = this.renderSession(session)
-      const divider = session.greyed ? '<div class="chat-session-divider"><span>Session cleared</span></div>' : ''
-      return `<div class="${cls}">${body}</div>${divider}`
-    }).join('')
+    const html = this.sessions
+      .map((session) => {
+        const cls = session.greyed ? 'chat-session chat-session-greyed' : 'chat-session'
+        const body = this.renderSession(session)
+        const divider = session.greyed ? '<div class="chat-session-divider"><span>Session cleared</span></div>' : ''
+        return `<div class="${cls}">${body}</div>${divider}`
+      })
+      .join('')
 
     const typing = this.isProcessing
       ? '<div class="chat-typing-indicator"><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span></div>'
@@ -701,7 +690,9 @@ class ConversationPanel {
     if (this.autoScroll) {
       const el = this.elements.scroll
       if (el)
-        requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+        requestAnimationFrame(() => {
+          el.scrollTop = el.scrollHeight
+        })
     }
   }
 
@@ -709,8 +700,7 @@ class ConversationPanel {
 
   renderSession(session) {
     const { messages, activeContext, archivedContexts, contextHistoryMessage } = session
-    if (!messages || messages.length === 0)
-      return '<div class="empty-state">No messages yet</div>'
+    if (!messages || messages.length === 0) return '<div class="empty-state">No messages yet</div>'
 
     const parts = []
 
@@ -732,18 +722,15 @@ class ConversationPanel {
     let current = null
     for (const msg of messages) {
       if (msg.role === 'system') {
-        turns.push({ type: 'system', system: msg })
-      }
-      else if (msg.role === 'user') {
-        current = { type: 'turn', user: msg, assistant: null }
+        turns.push({ system: msg, type: 'system' })
+      } else if (msg.role === 'user') {
+        current = { assistant: null, type: 'turn', user: msg }
         turns.push(current)
-      }
-      else if (msg.role === 'assistant') {
+      } else if (msg.role === 'assistant') {
         if (current && !current.assistant) {
           current.assistant = msg
-        }
-        else {
-          turns.push({ type: 'turn', user: null, assistant: msg })
+        } else {
+          turns.push({ assistant: msg, type: 'turn', user: null })
         }
       }
     }
@@ -751,14 +738,13 @@ class ConversationPanel {
   }
 
   renderTurn(turn) {
-    if (turn.type === 'system')
-      return this.renderSystemMessage(turn.system)
+    if (turn.type === 'system') return this.renderSystemMessage(turn.system)
 
     this.turnCounter++
     const n = this.turnCounter
     const userParsed = turn.user ? parseUserMessage(turn.user.content || '') : null
-    const eventSection = userParsed?.sections.find(s => s.tag === 'EVENT' || s.tag === 'FEEDBACK')
-    const contextSection = userParsed?.sections.find(s => s.tag === 'CONTEXT')
+    const eventSection = userParsed?.sections.find((s) => s.tag === 'EVENT' || s.tag === 'FEEDBACK')
+    const contextSection = userParsed?.sections.find((s) => s.tag === 'CONTEXT')
 
     // Build a short summary for the turn header
     let summary = `Turn ${n}`
@@ -772,8 +758,7 @@ class ConversationPanel {
       const ctxMatch = contextSection.text.match(/active="([^"]+)"/)
       if (ctxMatch) {
         ctxBadge = `<span class="cv-ctx-badge cv-ctx-active">${escapeHtml(ctxMatch[1])}</span>`
-      }
-      else if (contextSection.text.includes('no active context')) {
+      } else if (contextSection.text.includes('no active context')) {
         ctxBadge = '<span class="cv-ctx-badge cv-ctx-none">no ctx</span>'
       }
     }
@@ -806,8 +791,7 @@ class ConversationPanel {
       return `Chat from ${chatMatch[1]}: "${chatMatch[2].slice(0, 60)}${chatMatch[2].length > 60 ? '...' : ''}"`
 
     // Perception Signal
-    if (text.startsWith('Perception Signal:'))
-      return text.slice(0, 70) + (text.length > 70 ? '...' : '')
+    if (text.startsWith('Perception Signal:')) return text.slice(0, 70) + (text.length > 70 ? '...' : '')
 
     // system_alert with JSON — extract reason + returnValue preview
     if (text.startsWith('system_alert:')) {
@@ -817,8 +801,9 @@ class ConversationPanel {
         const rv = json.returnValue
         const rvPreview = typeof rv === 'string' ? rv.slice(0, 50) : ''
         return `system: ${reason}${rvPreview ? ` → ${rvPreview}${rv.length > 50 ? '...' : ''}` : ''}`
+      } catch {
+        /* fall through */
       }
-      catch { /* fall through */ }
     }
 
     // FEEDBACK: "toolName: Success/Failed. details"
@@ -838,8 +823,7 @@ class ConversationPanel {
   // --- Parsed user message rendering ---
 
   renderParsedUserMessage(parsed, turnNum) {
-    if (!parsed)
-      return ''
+    if (!parsed) return ''
     const cards = []
     for (const section of parsed.sections) {
       cards.push(this.renderUserSection(section, turnNum))
@@ -850,18 +834,18 @@ class ConversationPanel {
   renderUserSection(section, turnNum) {
     const id = `cv-s-${turnNum}-${section.tag}-${Math.random().toString(36).slice(2, 6)}`
     const tagColors = {
-      EVENT: 'cv-tag-event',
-      FEEDBACK: 'cv-tag-feedback',
-      PERCEPTION: 'cv-tag-perception',
-      SCRIPT: 'cv-tag-script',
       ACTION_QUEUE: 'cv-tag-queue',
-      NO_ACTION_BUDGET: 'cv-tag-budget',
       CONTEXT: 'cv-tag-context',
       ERROR_BURST: 'cv-tag-error',
       ERROR_BURST_GUARD: 'cv-tag-error',
+      EVENT: 'cv-tag-event',
+      FEEDBACK: 'cv-tag-feedback',
       MANDATORY: 'cv-tag-error',
-      STATE: 'cv-tag-state',
+      NO_ACTION_BUDGET: 'cv-tag-budget',
       OTHER: 'cv-tag-other',
+      PERCEPTION: 'cv-tag-perception',
+      SCRIPT: 'cv-tag-script',
+      STATE: 'cv-tag-state',
     }
     const colorCls = tagColors[section.tag] || 'cv-tag-other'
 
@@ -933,24 +917,29 @@ class ConversationPanel {
     const parts = []
     // Active context indicator
     if (activeContext?.label) {
-      parts.push(`<span class="cv-ctx-status-active"><span class="cv-ctx-dot"></span> ${escapeHtml(activeContext.label)} (${activeContext.messageCount} msgs)</span>`)
-    }
-    else {
-      parts.push('<span class="cv-ctx-status-idle"><span class="cv-ctx-dot cv-ctx-dot-idle"></span> No active context</span>')
+      parts.push(
+        `<span class="cv-ctx-status-active"><span class="cv-ctx-dot"></span> ${escapeHtml(activeContext.label)} (${activeContext.messageCount} msgs)</span>`,
+      )
+    } else {
+      parts.push(
+        '<span class="cv-ctx-status-idle"><span class="cv-ctx-dot cv-ctx-dot-idle"></span> No active context</span>',
+      )
     }
 
     // Archived count
     if (archivedContexts?.length > 0) {
       const archId = `cv-archived-${Math.random().toString(36).slice(2, 6)}`
-      const items = archivedContexts.map((ctx, i) => {
-        const time = new Date(ctx.archivedAt).toLocaleTimeString()
-        return `<div class="cv-arch-item">
+      const items = archivedContexts
+        .map((ctx, i) => {
+          const time = new Date(ctx.archivedAt).toLocaleTimeString()
+          return `<div class="cv-arch-item">
           <span class="cv-arch-idx">#${i + 1}</span>
           <strong>${escapeHtml(ctx.label || 'unnamed')}</strong>
           <span class="cv-arch-meta">${ctx.turns}t &middot; ${time}</span>
           <div class="cv-arch-summary">${escapeHtml(ctx.summary)}</div>
         </div>`
-      }).join('')
+        })
+        .join('')
       parts.push(`<button class="cv-ctx-arch-btn" data-toggle="${archId}">
         <span class="cv-arrow">\u25B6</span> ${archivedContexts.length} archived
       </button>`)
@@ -964,7 +953,9 @@ class ConversationPanel {
       parts.push(`<button class="cv-ctx-hist-btn" data-toggle="${chId}">
         <span class="cv-arrow">\u25B6</span> prefix
       </button>`)
-      parts.push(`<div class="cv-ctx-hist-body" id="${chId}"><pre class="cv-ctx-hist-content">${escapeHtml(contextHistoryMessage)}</pre></div>`)
+      parts.push(
+        `<div class="cv-ctx-hist-body" id="${chId}"><pre class="cv-ctx-hist-content">${escapeHtml(contextHistoryMessage)}</pre></div>`,
+      )
     }
 
     return `<div class="cv-ctx-bar">${parts.join('')}</div>`
@@ -1003,8 +994,8 @@ class ToolsPanel {
   }
 
   init() {
-    this.client.on('debug:tools_list', data => this.updateTools(data))
-    this.client.on('debug:tool_result', data => this.handleResult(data))
+    this.client.on('debug:tools_list', (data) => this.updateTools(data))
+    this.client.on('debug:tool_result', (data) => this.handleResult(data))
     this.client.on('connected', () => this.requestTools())
 
     this.elements.search?.addEventListener('input', (e) => {
@@ -1034,10 +1025,11 @@ class ToolsPanel {
     }
 
     const filtered = this.tools.filter((tool) => {
-      if (!this.filter)
-        return true
-      return tool.name.toLowerCase().includes(this.filter)
-        || (tool.description && tool.description.toLowerCase().includes(this.filter))
+      if (!this.filter) return true
+      return (
+        tool.name.toLowerCase().includes(this.filter) ||
+        (tool.description && tool.description.toLowerCase().includes(this.filter))
+      )
     })
 
     if (filtered.length === 0) {
@@ -1048,7 +1040,7 @@ class ToolsPanel {
     // Don't nuke usage of existing DOM elements if possible to preserve form state?
     // For simplicity, re-render is fine for this debug tool.
 
-    this.elements.grid.innerHTML = filtered.map(tool => this.renderCard(tool)).join('')
+    this.elements.grid.innerHTML = filtered.map((tool) => this.renderCard(tool)).join('')
 
     // Attach event listeners
     filtered.forEach((tool) => {
@@ -1083,17 +1075,20 @@ class ToolsPanel {
   }
 
   renderParams(tool) {
-    if (tool.params.length === 0)
-      return ''
+    if (tool.params.length === 0) return ''
 
     return `
       <div class="tool-params">
-        ${tool.params.map(param => `
+        ${tool.params
+          .map(
+            (param) => `
           <div class="param-group">
             <label class="param-label">${escapeHtml(param.name)} (${param.type})</label>
             ${this.renderParamInput(param)}
           </div>
-        `).join('')}
+        `,
+          )
+          .join('')}
       </div>
     `
   }
@@ -1128,8 +1123,7 @@ class ToolsPanel {
 
   executeTool(tool) {
     const card = document.getElementById(`tool-card-${tool.name}`)
-    if (!card)
-      return
+    if (!card) return
 
     // Collect parameter values
     const params = {}
@@ -1140,7 +1134,7 @@ class ToolsPanel {
       let value = input.value
 
       // Convert to appropriate type based on definition
-      const paramDef = tool.params.find(p => p.name === paramName)
+      const paramDef = tool.params.find((p) => p.name === paramName)
       if (paramDef) {
         if (paramDef.type === 'number') {
           if (value === '') {
@@ -1152,8 +1146,7 @@ class ToolsPanel {
             this.showResult(tool.name, { error: `Invalid number for ${paramName}` }, true)
             return
           }
-        }
-        else if (paramDef.type === 'boolean') {
+        } else if (paramDef.type === 'boolean') {
           if (value === '') {
             continue
           }
@@ -1161,11 +1154,9 @@ class ToolsPanel {
           const normalized = value.trim().toLowerCase()
           if (normalized === 'true') {
             value = true
-          }
-          else if (normalized === 'false') {
+          } else if (normalized === 'false') {
             value = false
-          }
-          else {
+          } else {
             this.showResult(tool.name, { error: `Invalid boolean for ${paramName}` }, true)
             return
           }
@@ -1182,11 +1173,11 @@ class ToolsPanel {
 
     // Send command to server
     this.client.send({
-      type: 'execute_tool',
       payload: {
-        toolName: tool.name,
         params,
+        toolName: tool.name,
       },
+      type: 'execute_tool',
     })
   }
 
@@ -1212,20 +1203,17 @@ class ToolsPanel {
 
   updateCardState(toolName, state) {
     const card = document.getElementById(`tool-card-${toolName}`)
-    if (!card)
-      return
+    if (!card) return
 
     card.classList.remove('executing', 'success', 'error')
-    if (state)
-      card.classList.add(state)
+    if (state) card.classList.add(state)
 
     const btn = card.querySelector('.btn-execute')
     if (btn) {
       if (state === 'executing') {
         btn.disabled = true
         btn.textContent = 'Executing...'
-      }
-      else {
+      } else {
         btn.disabled = false
         btn.textContent = 'Execute'
       }
@@ -1234,8 +1222,7 @@ class ToolsPanel {
 
   showResult(toolName, data, isError) {
     const resultEl = document.getElementById(`result-${toolName}`)
-    if (!resultEl)
-      return
+    if (!resultEl) return
 
     resultEl.classList.remove('hidden')
 
@@ -1264,18 +1251,18 @@ class ReplPanel {
     this.results = []
     this.isRunning = false
     this.elements = {
+      codeInput: document.getElementById('repl-code-input'),
+      refreshBtn: document.getElementById('repl-refresh-state'),
+      resultList: document.getElementById('repl-result-list'),
+      runBtn: document.getElementById('repl-run-btn'),
       varsList: document.getElementById('repl-vars-list'),
       varsSearch: document.getElementById('repl-vars-search'),
-      refreshBtn: document.getElementById('repl-refresh-state'),
-      runBtn: document.getElementById('repl-run-btn'),
-      codeInput: document.getElementById('repl-code-input'),
-      resultList: document.getElementById('repl-result-list'),
     }
   }
 
   init() {
-    this.client.on('debug:repl_state', data => this.updateState(data))
-    this.client.on('debug:repl_result', data => this.handleResult(data))
+    this.client.on('debug:repl_state', (data) => this.updateState(data))
+    this.client.on('debug:repl_result', (data) => this.handleResult(data))
     this.client.on('connected', () => this.requestState())
 
     this.elements.refreshBtn?.addEventListener('click', () => this.requestState())
@@ -1287,8 +1274,7 @@ class ReplPanel {
     this.elements.codeInput?.addEventListener('keydown', (event) => {
       const isEnter = event.key === 'Enter'
       const hasModifier = event.metaKey || event.ctrlKey
-      if (!isEnter || !hasModifier)
-        return
+      if (!isEnter || !hasModifier) return
 
       event.preventDefault()
       this.execute()
@@ -1306,12 +1292,12 @@ class ReplPanel {
     const code = this.elements.codeInput?.value ?? ''
     if (!code.trim()) {
       this.results.unshift({
-        source: 'manual',
-        code: '',
-        logs: [],
         actions: [],
-        error: 'Code is empty',
+        code: '',
         durationMs: 0,
+        error: 'Code is empty',
+        logs: [],
+        source: 'manual',
         timestamp: Date.now(),
       })
       this.results = this.results.slice(0, CONFIG.MAX_REPL_RESULTS)
@@ -1323,14 +1309,13 @@ class ReplPanel {
     this.renderRunState()
 
     this.client.send({
-      type: 'execute_repl',
       payload: { code },
+      type: 'execute_repl',
     })
   }
 
   updateState(data) {
-    if (!data || !Array.isArray(data.variables))
-      return
+    if (!data || !Array.isArray(data.variables)) return
     this.variables = data.variables
     this.renderVariables()
   }
@@ -1347,16 +1332,14 @@ class ReplPanel {
   }
 
   renderRunState() {
-    if (!this.elements.runBtn)
-      return
+    if (!this.elements.runBtn) return
 
     this.elements.runBtn.disabled = this.isRunning
     this.elements.runBtn.textContent = this.isRunning ? 'Running...' : 'Run (Ctrl/Cmd+Enter)'
   }
 
   renderVariables() {
-    if (!this.elements.varsList)
-      return
+    if (!this.elements.varsList) return
 
     if (this.variables.length === 0) {
       this.elements.varsList.innerHTML = '<div class="empty-state">No variables loaded</div>'
@@ -1364,9 +1347,9 @@ class ReplPanel {
     }
 
     const filtered = this.variables.filter((variable) => {
-      if (!this.variableFilter)
-        return true
-      const searchSpace = `${variable.name} ${variable.kind} ${variable.preview} ${variable.readonly ? 'readonly' : 'writable'}`.toLowerCase()
+      if (!this.variableFilter) return true
+      const searchSpace =
+        `${variable.name} ${variable.kind} ${variable.preview} ${variable.readonly ? 'readonly' : 'writable'}`.toLowerCase()
       return searchSpace.includes(this.variableFilter)
     })
 
@@ -1375,41 +1358,46 @@ class ReplPanel {
       return
     }
 
-    this.elements.varsList.innerHTML = filtered.map(v => `
+    this.elements.varsList.innerHTML = filtered
+      .map(
+        (v) => `
       <div class="repl-var-row">
         <div class="repl-var-name">${escapeHtml(v.name)}</div>
         <div class="repl-var-meta">${escapeHtml(v.kind)} · ${v.readonly ? 'readonly' : 'writable'}</div>
         <div class="repl-var-preview">${escapeHtml(v.preview || '')}</div>
       </div>
-    `).join('')
+    `,
+      )
+      .join('')
   }
 
   renderResults() {
-    if (!this.elements.resultList)
-      return
+    if (!this.elements.resultList) return
 
     if (this.results.length === 0) {
       this.elements.resultList.innerHTML = '<div class="empty-state">No REPL executions yet</div>'
       return
     }
 
-    this.elements.resultList.innerHTML = this.results.map((result) => {
-      const isError = !!result.error
-      const source = result.source === 'llm' ? 'llm' : 'manual'
-      const sourceLabel = source === 'llm' ? 'LLM' : 'MANUAL'
-      const actionSummary = Array.isArray(result.actions) && result.actions.length > 0
-        ? result.actions.map((action) => {
-            const status = action.ok ? 'ok' : 'error'
-            return `${status} ${action.tool}(${JSON.stringify(action.params || {})})${action.error ? ` -> ${action.error}` : ''}${action.result ? ` -> ${action.result}` : ''}`
-          }).join('\n')
-        : '(none)'
-      const logsSummary = Array.isArray(result.logs) && result.logs.length > 0
-        ? result.logs.join('\n')
-        : '(none)'
-      const returnValue = typeof result.returnValue === 'string' ? result.returnValue : '(undefined)'
-      const time = new Date(result.timestamp || Date.now()).toLocaleTimeString()
+    this.elements.resultList.innerHTML = this.results
+      .map((result) => {
+        const isError = !!result.error
+        const source = result.source === 'llm' ? 'llm' : 'manual'
+        const sourceLabel = source === 'llm' ? 'LLM' : 'MANUAL'
+        const actionSummary =
+          Array.isArray(result.actions) && result.actions.length > 0
+            ? result.actions
+                .map((action) => {
+                  const status = action.ok ? 'ok' : 'error'
+                  return `${status} ${action.tool}(${JSON.stringify(action.params || {})})${action.error ? ` -> ${action.error}` : ''}${action.result ? ` -> ${action.result}` : ''}`
+                })
+                .join('\n')
+            : '(none)'
+        const logsSummary = Array.isArray(result.logs) && result.logs.length > 0 ? result.logs.join('\n') : '(none)'
+        const returnValue = typeof result.returnValue === 'string' ? result.returnValue : '(undefined)'
+        const time = new Date(result.timestamp || Date.now()).toLocaleTimeString()
 
-      return `
+        return `
         <div class="repl-result-card source-${source} ${isError ? 'error' : ''}">
           <div class="repl-result-meta">
             <span>${time} · ${sourceLabel}</span>
@@ -1431,17 +1419,20 @@ class ReplPanel {
             <div class="repl-result-label">Logs</div>
             <div class="repl-result-content">${escapeHtml(logsSummary)}</div>
           </div>
-          ${isError
-            ? `
+          ${
+            isError
+              ? `
             <div class="repl-result-section">
               <div class="repl-result-label">Error</div>
               <div class="repl-result-content">${escapeHtml(result.error)}</div>
             </div>
           `
-            : ''}
+              : ''
+          }
         </div>
       `
-    }).join('')
+      })
+      .join('')
   }
 }
 
@@ -1449,26 +1440,26 @@ class TimelinePanel {
   constructor(client) {
     this.client = client
     this.events = []
-    this.filter = { type: 'all', search: '' }
+    this.filter = { search: '', type: 'all' }
     this.selectedTraceId = null
     this.elements = {
-      list: document.getElementById('timeline-list'),
+      clearBtn: document.getElementById('timeline-clear-btn'),
       container: document.getElementById('timeline-container'),
+      detail: document.getElementById('trace-detail'),
+      detailClose: document.getElementById('trace-detail-close'),
+      detailContent: document.getElementById('trace-detail-content'),
+      detailTitle: document.getElementById('trace-detail-title'),
+      list: document.getElementById('timeline-list'),
       search: document.getElementById('timeline-search'),
       typeFilter: document.getElementById('timeline-type-filter'),
-      clearBtn: document.getElementById('timeline-clear-btn'),
-      detail: document.getElementById('trace-detail'),
-      detailTitle: document.getElementById('trace-detail-title'),
-      detailContent: document.getElementById('trace-detail-content'),
-      detailClose: document.getElementById('trace-detail-close'),
     }
   }
 
   init() {
-    this.client.on('trace', data => this.addEvent(data))
+    this.client.on('trace', (data) => this.addEvent(data))
     this.client.on('trace_batch', (data) => {
       if (data.events) {
-        data.events.forEach(e => this.addEvent(e))
+        data.events.forEach((e) => this.addEvent(e))
       }
     })
     this.client.on('connected', () => this.reset())
@@ -1509,7 +1500,7 @@ class TimelinePanel {
   }
 
   render() {
-    const filtered = this.events.filter(e => this.matchesFilter(e))
+    const filtered = this.events.filter((e) => this.matchesFilter(e))
     const recent = filtered.slice(-200) // Show last 200
 
     if (recent.length === 0) {
@@ -1517,7 +1508,7 @@ class TimelinePanel {
       return
     }
 
-    this.elements.list.innerHTML = recent.map(e => this.renderEvent(e)).join('')
+    this.elements.list.innerHTML = recent.map((e) => this.renderEvent(e)).join('')
 
     // Attach click handlers
     this.elements.list.querySelectorAll('.timeline-event').forEach((el) => {
@@ -1546,27 +1537,24 @@ class TimelinePanel {
 
   renderEvent(event) {
     const time = new Date(event.timestamp).toLocaleTimeString('en-US', {
-      hour12: false,
+      fractionalSecondDigits: 3,
       hour: '2-digit',
+      hour12: false,
       minute: '2-digit',
       second: '2-digit',
-      fractionalSecondDigits: 3,
     })
 
     const isSignal = event.type.startsWith('signal:')
     const isRaw = event.type.startsWith('raw:')
-    const typeClass = isSignal ? 'type-signal' : (isRaw ? 'type-raw' : 'type-other')
+    const typeClass = isSignal ? 'type-signal' : isRaw ? 'type-raw' : 'type-other'
 
     // Extract useful info from payload
     let info = ''
     if (event.payload) {
       const p = event.payload
-      if (p.description)
-        info = p.description
-      else if (p.displayName)
-        info = p.displayName
-      else if (p.entityType)
-        info = p.entityType
+      if (p.description) info = p.description
+      else if (p.displayName) info = p.displayName
+      else if (p.entityType) info = p.entityType
     }
 
     const hasParent = event.parentId ? 'has-parent' : ''
@@ -1585,7 +1573,7 @@ class TimelinePanel {
 
   showTraceDetail(traceId) {
     this.selectedTraceId = traceId
-    const traceEvents = this.events.filter(e => e.traceId === traceId)
+    const traceEvents = this.events.filter((e) => e.traceId === traceId)
 
     if (traceEvents.length === 0) {
       return
@@ -1617,15 +1605,14 @@ class TimelinePanel {
     const roots = []
 
     // Index all events
-    events.forEach(e => eventMap.set(e.id, { event: e, children: [] }))
+    events.forEach((e) => eventMap.set(e.id, { children: [], event: e }))
 
     // Build tree
     events.forEach((e) => {
       const node = eventMap.get(e.id)
       if (e.parentId && eventMap.has(e.parentId)) {
         eventMap.get(e.parentId).children.push(node)
-      }
-      else {
+      } else {
         roots.push(node)
       }
     })
@@ -1634,12 +1621,13 @@ class TimelinePanel {
   }
 
   renderEventTree(nodes, depth = 0) {
-    return nodes.map((node) => {
-      const e = node.event
-      const indent = depth * 16
-      const time = new Date(e.timestamp).toLocaleTimeString('en-US', { hour12: false })
+    return nodes
+      .map((node) => {
+        const e = node.event
+        const indent = depth * 16
+        const time = new Date(e.timestamp).toLocaleTimeString('en-US', { hour12: false })
 
-      return `
+        return `
                 <div class="trace-tree-node" style="padding-left: ${indent}px">
                     <div class="trace-node-header">
                         ${depth > 0 ? '<span class="trace-connector">↳</span>' : ''}
@@ -1650,7 +1638,8 @@ class TimelinePanel {
                     ${node.children.length > 0 ? this.renderEventTree(node.children, depth + 1) : ''}
                 </div>
             `
-    }).join('')
+      })
+      .join('')
   }
 }
 
@@ -1677,15 +1666,14 @@ class LayoutManager {
 
   setupSplitters() {
     const splitters = [
-      { id: 'splitter-v1', var: '--col-left', type: 'v' },
-      { id: 'splitter-h1', var: '--row-1', type: 'h' },
-      { id: 'splitter-h2', var: '--row-2', type: 'h' },
+      { id: 'splitter-v1', type: 'v', var: '--col-left' },
+      { id: 'splitter-h1', type: 'h', var: '--row-1' },
+      { id: 'splitter-h2', type: 'h', var: '--row-2' },
     ]
 
     splitters.forEach((config) => {
       const el = document.getElementById(config.id)
-      if (!el)
-        return
+      if (!el) return
 
       el.addEventListener('mousedown', (e) => {
         this.activeSplitter = { el, ...config }
@@ -1696,10 +1684,8 @@ class LayoutManager {
         const parsed = Number.parseFloat(raw)
 
         const fallbackSize = () => {
-          if (config.var === '--col-left')
-            return document.getElementById('left-column')?.getBoundingClientRect().width
-          if (config.var === '--row-1')
-            return document.getElementById('logs-section')?.getBoundingClientRect().height
+          if (config.var === '--col-left') return document.getElementById('left-column')?.getBoundingClientRect().width
+          if (config.var === '--row-1') return document.getElementById('logs-section')?.getBoundingClientRect().height
           if (config.var === '--row-2')
             return document.getElementById('timeline-section')?.getBoundingClientRect().height
           if (config.var === '--row-3')
@@ -1707,7 +1693,7 @@ class LayoutManager {
           return undefined
         }
 
-        this.startSize = Number.isFinite(parsed) ? parsed : (fallbackSize() || 200)
+        this.startSize = Number.isFinite(parsed) ? parsed : fallbackSize() || 200
 
         el.classList.add('dragging')
         document.body.style.cursor = config.type === 'v' ? 'col-resize' : 'row-resize'
@@ -1715,13 +1701,12 @@ class LayoutManager {
       })
     })
 
-    document.addEventListener('mousemove', e => this.handleDrag(e))
+    document.addEventListener('mousemove', (e) => this.handleDrag(e))
     document.addEventListener('mouseup', () => this.handleDragEnd())
   }
 
   handleDrag(e) {
-    if (!this.activeSplitter)
-      return
+    if (!this.activeSplitter) return
 
     const currentPos = this.activeSplitter.type === 'v' ? e.clientX : e.clientY
     const delta = currentPos - this.startPos
@@ -1731,8 +1716,7 @@ class LayoutManager {
   }
 
   handleDragEnd() {
-    if (!this.activeSplitter)
-      return
+    if (!this.activeSplitter) return
 
     this.activeSplitter.el.classList.remove('dragging')
     this.activeSplitter = null
@@ -1745,8 +1729,7 @@ class LayoutManager {
       btn.addEventListener('click', (e) => {
         e.stopPropagation() // Prevent bubbling
         const panel = btn.closest('.panel')
-        if (!panel)
-          return
+        if (!panel) return
 
         panel.classList.toggle('maximized')
         const isMaximized = panel.classList.contains('maximized')
@@ -1771,14 +1754,14 @@ class DebugApp {
     this.replPanel = new ReplPanel(this.client)
 
     this.panels = {
+      brain: this.brainPanel,
+      conversation: this.conversationPanel,
+      logs: this.logsPanel,
       queue: this.queuePanel,
       reflex: this.reflexPanel,
-      brain: this.brainPanel,
-      logs: this.logsPanel,
-      conversation: this.conversationPanel,
+      repl: this.replPanel,
       timeline: this.timelinePanel,
       tools: this.toolsPanel,
-      repl: this.replPanel,
     }
     this.paused = false
   }
@@ -1791,7 +1774,7 @@ class DebugApp {
     this.setupTabs()
 
     // Initialize all panels
-    Object.values(this.panels).forEach(panel => panel.init())
+    Object.values(this.panels).forEach((panel) => panel.init())
 
     // Setup controls
     document.getElementById('clear-logs-btn').addEventListener('click', () => {
@@ -1817,8 +1800,8 @@ class DebugApp {
     const views = Array.from(document.querySelectorAll('.view'))
 
     const activate = (target) => {
-      tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.target === target))
-      views.forEach(view => view.classList.toggle('active', view.id === target))
+      tabs.forEach((btn) => btn.classList.toggle('active', btn.dataset.target === target))
+      views.forEach((view) => view.classList.toggle('active', view.id === target))
     }
 
     tabs.forEach((btn) => {

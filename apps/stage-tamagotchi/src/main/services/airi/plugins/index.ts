@@ -1,20 +1,13 @@
-import type { ManifestV1 } from '@proj-airi/plugin-sdk/plugin-host'
-
-import type {
-  PluginHostDebugSnapshot,
-  PluginManifestSummary,
-  PluginRegistrySnapshot,
-} from '../../../../shared/eventa'
-
 import { mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
-
 import { useLogg } from '@guiiai/logg'
 import { defineInvoke, defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { ManifestV1 } from '@proj-airi/plugin-sdk/plugin-host'
 import { manifestV1Schema, PluginHost } from '@proj-airi/plugin-sdk/plugin-host'
 import { app, ipcMain } from 'electron'
 import { array, object, record, safeParse, string } from 'valibot'
+import type { PluginHostDebugSnapshot, PluginManifestSummary, PluginRegistrySnapshot } from '../../../../shared/eventa'
 
 import {
   electronPluginInspect,
@@ -36,13 +29,19 @@ interface PluginHostService {
 
 interface CapabilityAwarePluginHost extends PluginHost {
   setProvidersListResolver: (resolver: () => Promise<Array<{ name: string }>> | Array<{ name: string }>) => void
-  announceCapability: (key: string, metadata?: Record<string, unknown>) => {
+  announceCapability: (
+    key: string,
+    metadata?: Record<string, unknown>,
+  ) => {
     key: string
     state: 'announced' | 'ready' | 'degraded' | 'withdrawn'
     metadata?: Record<string, unknown>
     updatedAt: number
   }
-  markCapabilityReady: (key: string, metadata?: Record<string, unknown>) => {
+  markCapabilityReady: (
+    key: string,
+    metadata?: Record<string, unknown>,
+  ) => {
     key: string
     state: 'announced' | 'ready' | 'degraded' | 'withdrawn'
     metadata?: Record<string, unknown>
@@ -62,9 +61,12 @@ interface ManifestEntry {
 
 const pluginConfigSchema = object({
   enabled: array(string()),
-  known: record(string(), object({
-    path: string(),
-  })),
+  known: record(
+    string(),
+    object({
+      path: string(),
+    }),
+  ),
 })
 
 function isManifestV1(value: unknown): value is ManifestV1 {
@@ -78,8 +80,7 @@ async function loadManifestsFrom(dir: string, log: ReturnType<typeof useLogg>): 
   const manifestPaths: string[] = []
 
   for (const entry of entries) {
-    if (!entry.isDirectory())
-      continue
+    if (!entry.isDirectory()) continue
 
     const pluginDir = join(dir, entry.name)
     const pluginEntries = await readdir(pluginDir, { withFileTypes: true })
@@ -95,8 +96,7 @@ async function loadManifestsFrom(dir: string, log: ReturnType<typeof useLogg>): 
           if (extname(resolvedPath) !== '.json') {
             continue
           }
-        }
-        catch (error) {
+        } catch (error) {
           log.withError(error).withFields({ name: pluginEntry.name }).warn('failed to resolve symlink, skipping')
 
           continue
@@ -107,8 +107,6 @@ async function loadManifestsFrom(dir: string, log: ReturnType<typeof useLogg>): 
       if (pluginEntry.isFile() && extname(pluginEntry.name) === '.json') {
         manifestPaths.push(join(pluginDir, pluginEntry.name))
       }
-
-      continue
     }
   }
 
@@ -122,8 +120,7 @@ async function loadManifestsFrom(dir: string, log: ReturnType<typeof useLogg>): 
       }
 
       manifests.push({ manifest: parsed, path })
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error).withFields({ path }).error('failed to read plugin manifest')
     }
   }
@@ -134,12 +131,12 @@ async function loadManifestsFrom(dir: string, log: ReturnType<typeof useLogg>): 
 function createPluginSummary(entry: ManifestEntry, config: PluginConfig, loaded: Set<string>): PluginManifestSummary {
   const name = entry.manifest.name
   return {
-    name,
-    entrypoints: entry.manifest.entrypoints,
-    path: entry.path,
     enabled: config.enabled.includes(name),
-    loaded: loaded.has(name),
+    entrypoints: entry.manifest.entrypoints,
     isNew: !config.known[name],
+    loaded: loaded.has(name),
+    name,
+    path: entry.path,
   }
 }
 
@@ -165,11 +162,11 @@ export async function setupPluginHost(): Promise<PluginHostService> {
   const pluginsRoot = join(app.getPath('userData'), 'plugins', 'v1')
 
   const pluginConfig = createConfig('plugins', 'v1.json', pluginConfigSchema, {
+    autoHeal: true,
     default: {
       enabled: [],
       known: {},
     },
-    autoHeal: true,
   })
 
   pluginConfig.setup()
@@ -195,7 +192,7 @@ export async function setupPluginHost(): Promise<PluginHostService> {
 
   const refreshManifests = async () => {
     entries = await loadManifestsFrom(pluginsRoot, log)
-    manifests = entries.map(entry => entry.manifest)
+    manifests = entries.map((entry) => entry.manifest)
   }
 
   const getConfig = (): PluginConfig => {
@@ -205,33 +202,32 @@ export async function setupPluginHost(): Promise<PluginHostService> {
   const toSnapshot = (): PluginRegistrySnapshot => {
     const config = getConfig()
     return {
+      plugins: entries.map((entry) => createPluginSummary(entry, config, loaded)),
       root: pluginsRoot,
-      plugins: entries.map(entry => createPluginSummary(entry, config, loaded)),
     }
   }
 
   const toDebugSnapshot = (): PluginHostDebugSnapshot => {
     return {
-      registry: toSnapshot(),
-      sessions: host.listSessions().map(session => ({
-        id: session.id,
-        manifestName: session.manifest.name,
-        phase: session.phase,
-        runtime: session.runtime,
-        moduleId: session.identity.id,
-      })),
       capabilities: capabilityHost.listCapabilities(),
       refreshedAt: Date.now(),
+      registry: toSnapshot(),
+      sessions: host.listSessions().map((session) => ({
+        id: session.id,
+        manifestName: session.manifest.name,
+        moduleId: session.identity.id,
+        phase: session.phase,
+        runtime: session.runtime,
+      })),
     }
   }
 
   const findManifestEntry = (name: string) => {
-    return entries.find(entry => entry.manifest.name === name)
+    return entries.find((entry) => entry.manifest.name === name)
   }
 
   const loadPluginByName = async (name: string) => {
-    if (loaded.has(name))
-      return
+    if (loaded.has(name)) return
 
     const entry = findManifestEntry(name)
     if (!entry) {
@@ -261,15 +257,12 @@ export async function setupPluginHost(): Promise<PluginHostService> {
     const config = getConfig()
     for (const entry of entries) {
       const name = entry.manifest.name
-      if (!config.enabled.includes(name))
-        continue
-      if (loaded.has(name))
-        continue
+      if (!config.enabled.includes(name)) continue
+      if (loaded.has(name)) continue
 
       try {
         await loadPluginByName(name)
-      }
-      catch (error) {
+      } catch (error) {
         log.withError(error).withFields({ plugin: name }).error('plugin failed to start')
       }
     }
@@ -289,12 +282,10 @@ export async function setupPluginHost(): Promise<PluginHostService> {
     await refreshManifests()
     const config = getConfig()
     const enabled = new Set(config.enabled)
-    if (payload?.enabled)
-      enabled.add(payload.name)
-    else
-      enabled.delete(payload.name)
+    if (payload?.enabled) enabled.add(payload.name)
+    else enabled.delete(payload.name)
 
-    const entry = entries.find(candidate => candidate.manifest.name === payload.name)
+    const entry = entries.find((candidate) => candidate.manifest.name === payload.name)
     const manifestPath = entry?.path ?? payload.path ?? ''
     const nextConfig: PluginConfig = {
       enabled: [...enabled],

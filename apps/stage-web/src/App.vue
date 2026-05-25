@@ -20,7 +20,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
-import { toast, Toaster } from 'vue-sonner'
+import { Toaster, toast } from 'vue-sonner'
 
 import PerformanceOverlay from './components/Devtools/PerformanceOverlay.vue'
 
@@ -73,13 +73,21 @@ watch(settings.language, () => {
   i18n.locale.value = settings.language.value
 })
 
-watch(settings.themeColorsHue, () => {
-  document.documentElement.style.setProperty('--chromatic-hue', settings.themeColorsHue.value.toString())
-}, { immediate: true })
+watch(
+  settings.themeColorsHue,
+  () => {
+    document.documentElement.style.setProperty('--chromatic-hue', settings.themeColorsHue.value.toString())
+  },
+  { immediate: true },
+)
 
-watch(settings.themeColorsHueDynamic, () => {
-  document.documentElement.classList.toggle('dynamic-hue', settings.themeColorsHueDynamic.value)
-}, { immediate: true })
+watch(
+  settings.themeColorsHueDynamic,
+  () => {
+    document.documentElement.classList.toggle('dynamic-hue', settings.themeColorsHueDynamic.value)
+  },
+  { immediate: true },
+)
 
 // Initialize first-time setup check when app mounts
 onMounted(async () => {
@@ -97,7 +105,9 @@ onMounted(async () => {
   console.log('[App] Initializing Chat Session...')
   await chatSessionStore.initialize()
   console.log('[App] Initializing Server Channel...')
-  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
+  await serverChannelStore
+    .initialize({ possibleEvents: ['ui:configure'] })
+    .catch((err) => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
   console.log('[App] Initializing Context Bridge...')
   await contextBridgeStore.initialize()
   console.log('[App] Initializing Character Orchestrator...')
@@ -109,16 +119,16 @@ onMounted(async () => {
 
   // Expose stores for live debugging
   const airi = {
-    providers: providersStore,
-    consciousness: consciousnessStore,
-    speech: speechStore,
     cards: cardStore,
-    models: displayModelsStore,
-    stageModel: stageModelStore,
-    settings: settingsStore,
-    onboarding: onboardingStore,
     chat: chatSessionStore,
+    consciousness: consciousnessStore,
+    models: displayModelsStore,
+    onboarding: onboardingStore,
     orchestrator: characterOrchestratorStore,
+    providers: providersStore,
+    settings: settingsStore,
+    speech: speechStore,
+    stageModel: stageModelStore,
   }
   // @ts-expect-error - exposing to window for debugging
   window.airi = airi

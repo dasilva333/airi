@@ -24,12 +24,12 @@ const { t } = useI18n()
 
 const model = computed({
   get: () => props.modelValue,
-  set: value => emit('update:modelValue', value),
+  set: (value) => emit('update:modelValue', value),
 })
 
 const voice = computed({
   get: () => props.voice,
-  set: value => emit('update:voice', value),
+  set: (value) => emit('update:voice', value),
 })
 
 // Playground state
@@ -43,8 +43,7 @@ const ssmlText = ref('')
 
 // Function to generate speech
 async function handleGenerateTestSpeech() {
-  if ((!testText.value.trim() && !useSSML.value) || (useSSML.value && !ssmlText.value.trim()))
-    return
+  if ((!testText.value.trim() && !useSSML.value) || (useSSML.value && !ssmlText.value.trim())) return
 
   isGenerating.value = true
   errorMessage.value = ''
@@ -68,12 +67,10 @@ async function handleGenerateTestSpeech() {
         audioPlayer.value.play()
       }
     }, 100)
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error generating speech:', error)
     errorMessage.value = error instanceof Error ? error.message : 'An unknown error occurred'
-  }
-  finally {
+  } finally {
     isGenerating.value = false
   }
 }
@@ -101,15 +98,15 @@ onUnmounted(() => {
 
 // Expose public methods and state
 defineExpose({
-  testText,
-  ssmlText,
-  useSSML,
-  isGenerating,
+  audioPlayer,
   audioUrl,
   errorMessage,
-  audioPlayer,
   generateTestSpeech: handleGenerateTestSpeech,
+  isGenerating,
+  ssmlText,
   stopTestAudio,
+  testText,
+  useSSML,
 })
 </script>
 

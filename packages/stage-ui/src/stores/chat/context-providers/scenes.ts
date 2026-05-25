@@ -1,7 +1,6 @@
-import type { ContextMessage } from '../../../types/chat'
-
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { nanoid } from 'nanoid'
+import type { ContextMessage } from '../../../types/chat'
 
 import { useBackgroundStore } from '../../background'
 import { useAiriCardStore } from '../../modules/airi-card'
@@ -33,10 +32,10 @@ export function createScenesContext(): ContextMessage {
   }
 
   return {
-    id: nanoid(),
     contextId: SCENES_CONTEXT_ID,
+    createdAt: Date.now(),
+    id: nanoid(),
     strategy: ContextUpdateStrategy.ReplaceSelf,
     text: `Current Scene: ${sceneInfo}`,
-    createdAt: Date.now(),
   }
 }

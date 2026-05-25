@@ -3,13 +3,13 @@ import { Select } from '@proj-airi/ui/components/form'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
-  consciousnessProviderOptions: { value: string, label: string }[]
-  consciousnessModelOptions: { value: string, label: string }[]
-  speechProviderOptions: { value: string, label: string }[]
-  speechModelOptions: { value: string, label: string }[]
-  speechVoiceOptions: { value: string, label: string }[]
-  displayModelOptions: { value: string, label: string }[]
-  sceneOptions: { value: string, label: string }[]
+  consciousnessProviderOptions: { value: string; label: string }[]
+  consciousnessModelOptions: { value: string; label: string }[]
+  speechProviderOptions: { value: string; label: string }[]
+  speechModelOptions: { value: string; label: string }[]
+  speechVoiceOptions: { value: string; label: string }[]
+  displayModelOptions: { value: string; label: string }[]
+  sceneOptions: { value: string; label: string }[]
   consciousnessProviderPlaceholder: string
   defaultConsciousnessModelPlaceholder: string
   speechProviderPlaceholder: string

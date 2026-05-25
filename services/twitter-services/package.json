@@ -1,16 +1,5 @@
 {
-  "name": "@proj-airi/twitter-services",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Twitter Services for MCP",
   "author": "RainbowBird <rbxin2003@outlook.com>",
-  "license": "MIT",
-  "scripts": {
-    "dev": "playwright install chromium && tsx --env-file=.env.local src/main.ts",
-    "mcp:ui": "pnpx @modelcontextprotocol/inspector",
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@browserbasehq/stagehand": "^3.1.0",
     "@guiiai/logg": "catalog:",
@@ -21,5 +10,16 @@
     "ofetch": "^1.5.1",
     "playwright": "^1.58.2",
     "zod": "^4.3.6"
-  }
+  },
+  "description": "Twitter Services for MCP",
+  "license": "MIT",
+  "name": "@proj-airi/twitter-services",
+  "private": true,
+  "scripts": {
+    "dev": "playwright install chromium && tsx --env-file=.env.local src/main.ts",
+    "mcp:ui": "pnpx @modelcontextprotocol/inspector",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

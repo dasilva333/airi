@@ -34,11 +34,14 @@ const characterName = computed(() => activeCard.value?.name ?? 'AIRI')
 
 defineExpose({ isOpen })
 
-watch(() => props.open, (val) => {
-  if (val !== undefined && val !== isOpen.value) {
-    isOpen.value = val
-  }
-})
+watch(
+  () => props.open,
+  (val) => {
+    if (val !== undefined && val !== isOpen.value) {
+      isOpen.value = val
+    }
+  },
+)
 
 // Auto-focus input when dock opens
 watch(isOpen, async (open) => {
@@ -65,8 +68,7 @@ function dismiss() {
 
 async function send() {
   const text = inputText.value.trim()
-  if (!text || isSending.value)
-    return
+  if (!text || isSending.value) return
 
   console.info('[WhisperDock] Triggered send() with text:', text)
 
@@ -83,15 +85,14 @@ async function send() {
     inputText.value = ''
 
     await chatStore.ingest(text, {
-      model: activeModel.value,
       chatProvider: activeProvider.value,
+      model: activeModel.value,
       tools: props.tools,
     })
 
     // Auto-close after successful send
     dismiss()
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[WhisperDock] Failed to send:', err)
     isSending.value = false
     // Restore text draft so it is not lost
@@ -104,8 +105,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     send()
-  }
-  else if (e.key === 'Escape') {
+  } else if (e.key === 'Escape') {
     e.preventDefault()
     dismiss()
   }

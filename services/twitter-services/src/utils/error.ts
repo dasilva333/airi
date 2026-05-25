@@ -31,8 +31,7 @@ export function errorToMessage(error: unknown, fallbackMessage = 'Unknown error'
     // Try to convert object to string
     try {
       return JSON.stringify(error)
-    }
-    catch {
+    } catch {
       // If serialization fails, return object's string representation
       return String(error)
     }
@@ -50,11 +49,7 @@ export function errorToMessage(error: unknown, fallbackMessage = 'Unknown error'
  * @param context - Additional context information (optional)
  * @returns Enhanced error object
  */
-export function createError(
-  message: string,
-  originalError?: unknown,
-  context?: Record<string, unknown>,
-): Error {
+export function createError(message: string, originalError?: unknown, context?: Record<string, unknown>): Error {
   let errorMessage = message
 
   // Add original error information

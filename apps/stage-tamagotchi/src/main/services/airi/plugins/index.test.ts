@@ -1,8 +1,7 @@
-import type { createContext } from '@moeru/eventa'
-
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
+import type { createContext } from '@moeru/eventa'
 
 import { defineInvoke } from '@moeru/eventa'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -49,14 +48,14 @@ const testDataRoot = resolve(
   'testdata',
 )
 
-async function writeManifest(params: { dir: string, name: string, entrypoint: string }) {
+async function writeManifest(params: { dir: string; name: string; entrypoint: string }) {
   const manifest = {
     apiVersion: 'v1',
-    kind: 'manifest.plugin.airi.moeru.ai',
-    name: params.name,
     entrypoints: {
       electron: params.entrypoint,
     },
+    kind: 'manifest.plugin.airi.moeru.ai',
+    name: params.name,
   }
 
   const path = join(params.dir, `${params.name}.json`)
@@ -64,20 +63,25 @@ async function writeManifest(params: { dir: string, name: string, entrypoint: st
   return path
 }
 
-async function writeManifestInPluginDir(params: { rootDir: string, pluginDirName: string, pluginName: string, entrypointPath: string }) {
+async function writeManifestInPluginDir(params: {
+  rootDir: string
+  pluginDirName: string
+  pluginName: string
+  entrypointPath: string
+}) {
   const pluginDir = join(params.rootDir, params.pluginDirName)
   await mkdir(pluginDir, { recursive: true })
   const entrypointFile = await copyEntrypoint({ dir: pluginDir, path: params.entrypointPath })
   const manifestPath = await writeManifest({
     dir: pluginDir,
-    name: params.pluginName,
     entrypoint: `./${entrypointFile}`,
+    name: params.pluginName,
   })
 
-  return { pluginDir, manifestPath }
+  return { manifestPath, pluginDir }
 }
 
-async function copyEntrypoint(params: { dir: string, path: string }) {
+async function copyEntrypoint(params: { dir: string; path: string }) {
   const file = basename(params.path)
   const destination = join(params.dir, file)
   const contents = await readFile(params.path, 'utf-8')
@@ -97,7 +101,7 @@ describe('setupPluginHost', () => {
   })
 
   afterEach(async () => {
-    await rm(userDataDir, { recursive: true, force: true })
+    await rm(userDataDir, { force: true, recursive: true })
     contextState.lastContext = undefined
     vi.clearAllMocks()
   })
@@ -107,16 +111,16 @@ describe('setupPluginHost', () => {
     const errorEntrypoint = join(testDataRoot, 'test-error-plugin.ts')
 
     const { manifestPath: normalPath } = await writeManifestInPluginDir({
-      rootDir: pluginsDir,
+      entrypointPath: normalEntrypoint,
       pluginDirName: 'test-normal',
       pluginName: 'test-normal',
-      entrypointPath: normalEntrypoint,
+      rootDir: pluginsDir,
     })
     const { manifestPath: errorPath } = await writeManifestInPluginDir({
-      rootDir: pluginsDir,
+      entrypointPath: errorEntrypoint,
       pluginDirName: 'test-error',
       pluginName: 'test-error',
-      entrypointPath: errorEntrypoint,
+      rootDir: pluginsDir,
     })
 
     await setupPluginHost()
@@ -127,26 +131,28 @@ describe('setupPluginHost', () => {
 
     expect(snapshot.root).toBe(pluginsDir)
     expect(snapshot.plugins).toHaveLength(2)
-    expect(snapshot.plugins).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'test-normal', path: normalPath, enabled: false, loaded: false, isNew: true }),
-      expect.objectContaining({ name: 'test-error', path: errorPath, enabled: false, loaded: false, isNew: true }),
-    ]))
+    expect(snapshot.plugins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ enabled: false, isNew: true, loaded: false, name: 'test-normal', path: normalPath }),
+        expect.objectContaining({ enabled: false, isNew: true, loaded: false, name: 'test-error', path: errorPath }),
+      ]),
+    )
   })
 
   it('ignores root-level manifests and only loads manifests from subdirectories', async () => {
     const normalEntrypoint = join(testDataRoot, 'test-normal-plugin.ts')
 
     const { manifestPath } = await writeManifestInPluginDir({
-      rootDir: pluginsDir,
+      entrypointPath: normalEntrypoint,
       pluginDirName: 'devtools-sample-plugin',
       pluginName: 'devtools-sample-plugin',
-      entrypointPath: normalEntrypoint,
+      rootDir: pluginsDir,
     })
     const rootEntrypointFile = await copyEntrypoint({ dir: pluginsDir, path: normalEntrypoint })
     await writeManifest({
       dir: pluginsDir,
-      name: 'root-level-plugin',
       entrypoint: rootEntrypointFile,
+      name: 'root-level-plugin',
     })
 
     await setupPluginHost()
@@ -157,11 +163,11 @@ describe('setupPluginHost', () => {
 
     expect(snapshot.plugins).toEqual([
       expect.objectContaining({
+        enabled: false,
+        isNew: true,
+        loaded: false,
         name: 'devtools-sample-plugin',
         path: manifestPath,
-        enabled: false,
-        loaded: false,
-        isNew: true,
       }),
     ])
   })
@@ -171,16 +177,16 @@ describe('setupPluginHost', () => {
     const errorEntrypoint = join(testDataRoot, 'test-error-plugin.ts')
 
     await writeManifestInPluginDir({
-      rootDir: pluginsDir,
+      entrypointPath: normalEntrypoint,
       pluginDirName: 'test-normal',
       pluginName: 'test-normal',
-      entrypointPath: normalEntrypoint,
+      rootDir: pluginsDir,
     })
     await writeManifestInPluginDir({
-      rootDir: pluginsDir,
+      entrypointPath: errorEntrypoint,
       pluginDirName: 'test-error',
       pluginName: 'test-error',
-      entrypointPath: errorEntrypoint,
+      rootDir: pluginsDir,
     })
 
     await setupPluginHost()
@@ -189,13 +195,13 @@ describe('setupPluginHost', () => {
     const invokeSetEnabled = defineInvoke(contextState.lastContext!, electronPluginSetEnabled)
     const invokeLoadEnabled = defineInvoke(contextState.lastContext!, electronPluginLoadEnabled)
 
-    await invokeSetEnabled({ name: 'test-normal', enabled: true })
-    await invokeSetEnabled({ name: 'test-error', enabled: true })
+    await invokeSetEnabled({ enabled: true, name: 'test-normal' })
+    await invokeSetEnabled({ enabled: true, name: 'test-error' })
 
     const snapshot = await invokeLoadEnabled()
 
-    const normal = snapshot.plugins.find(plugin => plugin.name === 'test-normal')
-    const error = snapshot.plugins.find(plugin => plugin.name === 'test-error')
+    const normal = snapshot.plugins.find((plugin) => plugin.name === 'test-normal')
+    const error = snapshot.plugins.find((plugin) => plugin.name === 'test-error')
 
     expect(normal).toEqual(expect.objectContaining({ enabled: true, loaded: true }))
     expect(error).toEqual(expect.objectContaining({ enabled: true, loaded: false }))

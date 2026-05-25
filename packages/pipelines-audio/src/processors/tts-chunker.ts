@@ -1,10 +1,7 @@
 import type { ReaderLike } from 'clustr'
-
-import type { TextSegment, TextToken } from '../types'
-
 import { readGraphemeClusters } from 'clustr'
-
 import { createPushStream } from '../stream'
+import type { TextSegment, TextToken } from '../types'
 
 export const TTS_FLUSH_INSTRUCTION = '\u200B'
 export const TTS_SPECIAL_TOKEN = '\u2063'
@@ -37,11 +34,7 @@ export async function* chunkTtsInput(
   input: string | ReaderLike,
   options?: TtsInputChunkOptions,
 ): AsyncGenerator<TtsInputChunk, void, unknown> {
-  const {
-    boost = 2,
-    minimumWords = 4,
-    maximumWords = 12,
-  } = options ?? {}
+  const { boost = 2, minimumWords = 4, maximumWords = 12 } = options ?? {}
 
   const iterator = readGraphemeClusters(
     typeof input === 'string'
@@ -93,8 +86,7 @@ export async function* chunkTtsInput(
               next = undefined
               continue
             }
-          }
-          else if (value === '.') {
+          } else if (value === '.') {
             next = await iterator.next()
             if (!next.done && next.value && next.value === '.') {
               afterNext = await iterator.next()
@@ -111,9 +103,9 @@ export async function* chunkTtsInput(
       if (buffer.length === 0) {
         if (special) {
           yield {
+            reason: 'special',
             text: '',
             words: 0,
-            reason: 'special',
           }
           yieldCount++
           chunkWordsCount = 0
@@ -124,14 +116,14 @@ export async function* chunkTtsInput(
         continue
       }
 
-      const words = [...segmenter.segment(buffer)].filter(w => w.isWordLike)
+      const words = [...segmenter.segment(buffer)].filter((w) => w.isWordLike)
 
       if (chunkWordsCount > minimumWords && chunkWordsCount + words.length > maximumWords) {
         const text = kept ? chunk.trim() + value : chunk.trim()
         yield {
+          reason: 'limit',
           text,
           words: chunkWordsCount,
-          reason: 'limit',
         }
         yieldCount++
         chunk = ''
@@ -145,20 +137,19 @@ export async function* chunkTtsInput(
       if (special) {
         const text = chunk.slice(0, -1).trim()
         yield {
+          reason: 'special',
           text,
           words: chunkWordsCount,
-          reason: 'special',
         }
         yieldCount++
         chunk = ''
         chunkWordsCount = 0
-      }
-      else if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
+      } else if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
         const text = chunk.trim()
         yield {
+          reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
           text,
           words: chunkWordsCount,
-          reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
         }
         yieldCount++
         chunk = ''
@@ -171,13 +162,11 @@ export async function* chunkTtsInput(
           current = afterNext
           next = undefined
           afterNext = undefined
-        }
-        else {
+        } else {
           current = next
           next = undefined
         }
-      }
-      else {
+      } else {
         current = await iterator.next()
       }
       continue
@@ -195,9 +184,9 @@ export async function* chunkTtsInput(
   if (chunk.length > 0 || buffer.length > 0) {
     const text = (chunk + buffer).trim()
     yield {
-      text,
-      words: chunkWordsCount + [...segmenter.segment(buffer)].filter(w => w.isWordLike).length,
       reason: 'flush',
+      text,
+      words: chunkWordsCount + [...segmenter.segment(buffer)].filter((w) => w.isWordLike).length,
     }
   }
 }
@@ -209,9 +198,7 @@ export async function chunkEmitter(
   handler: (ttsSegment: TtsChunkItem) => Promise<void> | void,
 ) {
   const sanitizeChunk = (text: string) => {
-    let cleanedText = text
-      .replaceAll(TTS_SPECIAL_TOKEN, '')
-      .replaceAll(TTS_FLUSH_INSTRUCTION, '')
+    let cleanedText = text.replaceAll(TTS_SPECIAL_TOKEN, '').replaceAll(TTS_FLUSH_INSTRUCTION, '')
 
     cleanedText = processNarrative(cleanedText, options)
 
@@ -229,21 +216,18 @@ export async function chunkEmitter(
       if (chunk.reason === 'special') {
         const specialToken = pendingSpecials.shift()
         // console.debug("special yield:", specialToken)
-        await handler({ chunk: cleanedText, special: specialToken ?? null, reason: chunk.reason })
-      }
-      else {
-        await handler({ chunk: cleanedText, special: null, reason: chunk.reason })
+        await handler({ chunk: cleanedText, reason: chunk.reason, special: specialToken ?? null })
+      } else {
+        await handler({ chunk: cleanedText, reason: chunk.reason, special: null })
       }
     }
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Error chunking stream to TTS queue:', e)
   }
 }
 
 export function processNarrative(text: string, options?: TtsInputChunkOptions) {
-  if (!options?.stripNarrative)
-    return text
+  if (!options?.stripNarrative) return text
 
   const regex = /\*(.*?)\*|\[(.*?)\]|\((.*?)\)|（(.*?)）|【(.*?)】|<(.*?)>/g
 
@@ -258,7 +242,7 @@ export function processNarrative(text: string, options?: TtsInputChunkOptions) {
 
 export function createTtsSegmentStream(
   tokens: ReadableStream<TextToken>,
-  meta: { streamId: string, intentId: string },
+  meta: { streamId: string; intentId: string },
   options?: TtsInputChunkOptions,
 ) {
   const { stream, write, close, error } = createPushStream<TextSegment>()
@@ -272,29 +256,22 @@ export function createTtsSegmentStream(
     try {
       while (true) {
         const { value, done } = await reader.read()
-        if (done)
-          break
-        if (!value)
-          continue
+        if (done) break
+        if (!value) continue
 
         if (value.type === 'literal') {
-          if (value.value)
-            writeBytes(encoder.encode(value.value))
-        }
-        else if (value.type === 'special') {
+          if (value.value) writeBytes(encoder.encode(value.value))
+        } else if (value.type === 'special') {
           pendingSpecials.push(value.value ?? '')
           writeBytes(encoder.encode(TTS_SPECIAL_TOKEN))
-        }
-        else if (value.type === 'flush') {
+        } else if (value.type === 'flush') {
           writeBytes(encoder.encode(TTS_FLUSH_INSTRUCTION))
         }
       }
       closeBytes()
-    }
-    catch (err) {
+    } catch (err) {
       errorBytes(err)
-    }
-    finally {
+    } finally {
       reader.releaseLock()
     }
   })()
@@ -304,18 +281,17 @@ export function createTtsSegmentStream(
       const reader = byteStream.getReader()
       await chunkEmitter(reader, pendingSpecials, options, async (chunk) => {
         write({
-          streamId: meta.streamId,
-          intentId: meta.intentId,
-          segmentId: `${meta.streamId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
-          text: chunk.chunk,
-          special: chunk.special,
-          reason: chunk.reason,
           createdAt: Date.now(),
+          intentId: meta.intentId,
+          reason: chunk.reason,
+          segmentId: `${meta.streamId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+          special: chunk.special,
+          streamId: meta.streamId,
+          text: chunk.chunk,
         })
       })
       close()
-    }
-    catch (err) {
+    } catch (err) {
       error(err)
     }
   })()

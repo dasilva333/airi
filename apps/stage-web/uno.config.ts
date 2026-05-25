@@ -11,16 +11,19 @@ export default mergeConfigs([
           ...presetWebFontsFonts('fontsource'),
         },
         timeouts: {
-          warning: 5000,
           failure: 10000,
+          warning: 5000,
         },
       }),
     ],
     rules: [
-      ['transition-colors-none', {
-        'transition-property': 'color, background-color, border-color, text-color',
-        'transition-duration': '0s',
-      }],
+      [
+        'transition-colors-none',
+        {
+          'transition-duration': '0s',
+          'transition-property': 'color, background-color, border-color, text-color',
+        },
+      ],
     ],
   },
 ])

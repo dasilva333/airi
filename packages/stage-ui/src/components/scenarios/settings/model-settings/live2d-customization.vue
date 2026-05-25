@@ -13,66 +13,61 @@ const live2dStore = useLive2d()
 const airiCardStore = useAiriCardStore()
 const settingsStore = useSettings()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const {
-  availableExpressions,
-  parameterMetadata,
-  modelParameters,
-  expressionData,
-  activeExpressions,
-  emotionMappings,
-} = storeToRefs(live2dStore)
+const { availableExpressions, parameterMetadata, modelParameters, expressionData, activeExpressions, emotionMappings } =
+  storeToRefs(live2dStore)
 
 const saveLive2dState = useDebounceFn(() => {
-  if (!activeCard.value)
-    return
+  if (!activeCard.value) return
 
   // Only auto-save customization state if this model is actually applied to the active character card.
   // This prevents auto-save triggers from corrupting/polluting the active card before "Apply" is clicked,
   // and avoids cross-process local storage sync race conditions that revert the selected preview model.
-  if (settingsStore.stageModelSelected !== airiCardStore.getCardDisplayModelId(activeCardId.value))
-    return
+  if (settingsStore.stageModelSelected !== airiCardStore.getCardDisplayModelId(activeCardId.value)) return
 
   const extensions = JSON.parse(JSON.stringify(activeCard.value.extensions))
-  if (!extensions.airi)
-    extensions.airi = { modules: {} }
-  if (!extensions.airi.modules)
-    extensions.airi.modules = {}
+  if (!extensions.airi) extensions.airi = { modules: {} }
+  if (!extensions.airi.modules) extensions.airi.modules = {}
 
   extensions.airi.modules.live2d = {
     ...extensions.airi.modules.live2d,
     activeExpressions: { ...activeExpressions.value },
-    modelParameters: { ...modelParameters.value },
     emotionMappings: { ...emotionMappings.value },
+    modelParameters: { ...modelParameters.value },
   }
 
   airiCardStore.updateCard(activeCardId.value, { extensions })
 }, 1000)
 
-watch([activeExpressions, modelParameters, emotionMappings], () => {
-  saveLive2dState()
-}, { deep: true })
+watch(
+  [activeExpressions, modelParameters, emotionMappings],
+  () => {
+    saveLive2dState()
+  },
+  { deep: true },
+)
 
 // === Categorize parameters ===
 const toggles = computed(() =>
-  parameterMetadata.value.filter(p =>
-    p.groupName?.toLowerCase().includes('toggle')
-    || p.name.toLowerCase().includes('off on')
-    || p.id.toLowerCase().includes('onoff'),
+  parameterMetadata.value.filter(
+    (p) =>
+      p.groupName?.toLowerCase().includes('toggle') ||
+      p.name.toLowerCase().includes('off on') ||
+      p.id.toLowerCase().includes('onoff'),
   ),
 )
 
 const sliders = computed(() =>
-  parameterMetadata.value.filter(p =>
-    p.groupName?.toLowerCase().includes('slider')
-    || (p.groupName && !toggles.value.some(t => t.id === p.id) && !isStandardParam(p.id)),
+  parameterMetadata.value.filter(
+    (p) =>
+      p.groupName?.toLowerCase().includes('slider') ||
+      (p.groupName && !toggles.value.some((t) => t.id === p.id) && !isStandardParam(p.id)),
   ),
 )
 
 const otherParams = computed(() =>
-  parameterMetadata.value.filter(p =>
-    !toggles.value.some(t => t.id === p.id)
-    && !sliders.value.some(s => s.id === p.id)
-    && !isStandardParam(p.id),
+  parameterMetadata.value.filter(
+    (p) =>
+      !toggles.value.some((t) => t.id === p.id) && !sliders.value.some((s) => s.id === p.id) && !isStandardParam(p.id),
   ),
 )
 
@@ -112,8 +107,7 @@ function toggleExpression(fileName: string) {
   if (isActive(fileName)) {
     unapplyExpression(fileName)
     activeExpressions.value = { ...activeExpressions.value, [fileName]: 0 }
-  }
-  else {
+  } else {
     applyExpression(fileName)
     activeExpressions.value = { ...activeExpressions.value, [fileName]: 1 }
   }
@@ -156,13 +150,13 @@ function resetAll() {
 
 const ACT_EMOTIONS = ['happy', 'sad', 'angry', 'surprised', 'neutral', 'think', 'cool'] as const
 const ACT_EMOJI: Record<string, string> = {
-  happy: '😊',
-  sad: '😢',
   angry: '😠',
-  surprised: '😲',
-  neutral: '😐',
-  think: '🤔',
   cool: '😎',
+  happy: '😊',
+  neutral: '😐',
+  sad: '😢',
+  surprised: '😲',
+  think: '🤔',
 }
 
 const mappingTarget = ref<string | null>(null)
@@ -191,15 +185,13 @@ function onPointerLeave() {
 }
 
 function assignMapping(actEmotion: string) {
-  if (!mappingTarget.value)
-    return
+  if (!mappingTarget.value) return
   emotionMappings.value = { ...emotionMappings.value, [mappingTarget.value]: actEmotion }
   mappingTarget.value = null
 }
 
 function clearMapping() {
-  if (!mappingTarget.value)
-    return
+  if (!mappingTarget.value) return
   const updated = { ...emotionMappings.value }
   delete updated[mappingTarget.value]
   emotionMappings.value = updated

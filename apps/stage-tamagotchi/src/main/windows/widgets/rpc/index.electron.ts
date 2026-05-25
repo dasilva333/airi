@@ -1,14 +1,11 @@
+import { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { BrowserWindow } from 'electron'
-
+import { ipcMain } from 'electron'
 import type { I18n } from '../../../libs/i18n'
 import type { ServerChannel } from '../../../services/airi/channel-server'
-import type { WidgetsWindowManager } from '../../widgets'
-
-import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { ipcMain } from 'electron'
-
 import { createWidgetsService } from '../../../services/airi/widgets'
 import { setupBaseWindowElectronInvokes } from '../../shared/window'
+import type { WidgetsWindowManager } from '../../widgets'
 
 export async function setupWidgetsWindowInvokes(params: {
   widgetWindow: BrowserWindow
@@ -23,7 +20,12 @@ export async function setupWidgetsWindowInvokes(params: {
 
   const { context } = createContext(ipcMain, params.widgetWindow)
 
-  setupBaseWindowElectronInvokes({ context, window: params.widgetWindow, i18n: params.i18n, serverChannel: params.serverChannel })
+  setupBaseWindowElectronInvokes({
+    context,
+    i18n: params.i18n,
+    serverChannel: params.serverChannel,
+    window: params.widgetWindow,
+  })
 
   createWidgetsService({ context, widgetsManager: params.widgetsManager, window: params.widgetWindow })
 }

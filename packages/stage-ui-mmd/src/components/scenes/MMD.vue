@@ -8,21 +8,24 @@ import { shallowRef } from 'vue'
 
 import MMDModel from './mmd/Model.vue'
 
-const props = withDefaults(defineProps<{
-  modelSrc?: string
-  paused?: boolean
-  currentAudioSource?: AudioBufferSourceNode
-  textureMap?: Map<string, string>
-  scale?: number
-  positionX?: number
-  positionY?: number
-  previewExpression?: string
-}>(), {
-  paused: false,
-  scale: 1,
-  positionX: 0,
-  positionY: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    modelSrc?: string
+    paused?: boolean
+    currentAudioSource?: AudioBufferSourceNode
+    textureMap?: Map<string, string>
+    scale?: number
+    positionX?: number
+    positionY?: number
+    previewExpression?: string
+  }>(),
+  {
+    paused: false,
+    positionX: 0,
+    positionY: 0,
+    scale: 1,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'error', value: unknown): void

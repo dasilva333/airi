@@ -51,66 +51,65 @@ export const useSettings = defineStore('settings', () => {
   }
 
   return {
+    // UI settings
+    allowVisibleOnAllWorkspaces: toRef(controlsIsland, 'allowVisibleOnAllWorkspaces'),
+    alwaysOnTop: toRef(controlsIsland, 'alwaysOnTop'),
+    applyPrimaryColorFrom: theme.applyPrimaryColorFrom,
+    captionDocking: toRef(captions, 'docking'),
+    captionFollowStage: toRef(captions, 'followStage'),
+    captionFontSize: toRef(captions, 'fontSize'),
+    captionLayoutMode: toRef(captions, 'layoutMode'),
+    captionOpacity: toRef(captions, 'opacity'),
+    captionResetTrigger: toRef(captions, 'resetTrigger'),
+    controlStripButtons: toRef(controlStrip, 'buttons'),
+    controlStripInteractionMode: toRef(controlStrip, 'interactionMode'),
+
+    // Control Strip settings
+    controlStripOrientation: toRef(controlStrip, 'orientation'),
+    controlStripStageEnabled: toRef(controlStrip, 'stageEnabled'),
+    controlStripStageMode: toRef(controlStrip, 'stageMode'),
+    controlsIslandIconSize: toRef(controlsIsland, 'controlsIslandIconSize'),
     // Core settings
     disableTransitions: toRef(general, 'disableTransitions'),
-    usePageSpecificTransitions: toRef(general, 'usePageSpecificTransitions'),
+    initializeStageModel: stageModel.initializeStageModel,
+    isColorSelectedForPrimary: theme.isColorSelectedForPrimary,
     language: toRef(general, 'language'),
+    lastReloadReason: toRef(stageModel, 'lastReloadReason'),
+    live2dAutoBlinkEnabled: toRef(live2d, 'live2dAutoBlinkEnabled'),
+
+    // Live2D settings
+    live2dDisableFocus: toRef(live2d, 'live2dDisableFocus'),
+    live2dForceAutoBlinkEnabled: toRef(live2d, 'live2dForceAutoBlinkEnabled'),
+    live2dIdleAnimationEnabled: toRef(live2d, 'live2dIdleAnimationEnabled'),
+    live2dMaxFps: toRef(live2d, 'live2dMaxFps'),
+    live2dShadowEnabled: toRef(live2d, 'live2dShadowEnabled'),
+    mmdTextureMap: toRef(stageModel, 'mmdTextureMap'),
     remoteSyncEnabled: toRef(general, 'remoteSyncEnabled'),
-    websocketSecureEnabled: toRef(general, 'websocketSecureEnabled'),
+    resetState,
     sendMode: toRef(chat, 'sendMode'),
-    streamIdleTimeoutMs: toRef(chat, 'streamIdleTimeoutMs'),
+
+    // Methods
+    setThemeColorsHue: theme.setThemeColorsHue,
+
+    // Caption settings
+    showCaptions: toRef(captions, 'showCaptions'),
 
     // Stage model settings
     stageModelRenderer: toRef(stageModel, 'stageModelRenderer'),
     stageModelSelected: toRef(stageModel, 'stageModelSelected'),
-    stageModelSelectedUrl: toRef(stageModel, 'stageModelSelectedUrl'),
-    stageModelSelectedFile: toRef(stageModel, 'stageModelSelectedFile'),
     stageModelSelectedDisplayModel: toRef(stageModel, 'stageModelSelectedDisplayModel'),
+    stageModelSelectedFile: toRef(stageModel, 'stageModelSelectedFile'),
+    stageModelSelectedUrl: toRef(stageModel, 'stageModelSelectedUrl'),
     stageViewControlsEnabled: toRef(stageModel, 'stageViewControlsEnabled'),
     stageViewControlsMode: toRef(stageModel, 'stageViewControlsMode'),
-    lastReloadReason: toRef(stageModel, 'lastReloadReason'),
-    mmdTextureMap: toRef(stageModel, 'mmdTextureMap'),
-
-    // Live2D settings
-    live2dDisableFocus: toRef(live2d, 'live2dDisableFocus'),
-    live2dIdleAnimationEnabled: toRef(live2d, 'live2dIdleAnimationEnabled'),
-    live2dAutoBlinkEnabled: toRef(live2d, 'live2dAutoBlinkEnabled'),
-    live2dForceAutoBlinkEnabled: toRef(live2d, 'live2dForceAutoBlinkEnabled'),
-    live2dShadowEnabled: toRef(live2d, 'live2dShadowEnabled'),
-    live2dMaxFps: toRef(live2d, 'live2dMaxFps'),
+    streamIdleTimeoutMs: toRef(chat, 'streamIdleTimeoutMs'),
 
     // Theme settings
     themeColorsHue: toRef(theme, 'themeColorsHue'),
     themeColorsHueDynamic: toRef(theme, 'themeColorsHueDynamic'),
-
-    // UI settings
-    allowVisibleOnAllWorkspaces: toRef(controlsIsland, 'allowVisibleOnAllWorkspaces'),
-    alwaysOnTop: toRef(controlsIsland, 'alwaysOnTop'),
-    controlsIslandIconSize: toRef(controlsIsland, 'controlsIslandIconSize'),
-
-    // Control Strip settings
-    controlStripOrientation: toRef(controlStrip, 'orientation'),
-    controlStripInteractionMode: toRef(controlStrip, 'interactionMode'),
-    controlStripStageMode: toRef(controlStrip, 'stageMode'),
-    controlStripStageEnabled: toRef(controlStrip, 'stageEnabled'),
-    controlStripButtons: toRef(controlStrip, 'buttons'),
-
-    // Caption settings
-    showCaptions: toRef(captions, 'showCaptions'),
-    captionFontSize: toRef(captions, 'fontSize'),
-    captionOpacity: toRef(captions, 'opacity'),
-    captionDocking: toRef(captions, 'docking'),
-    captionFollowStage: toRef(captions, 'followStage'),
-    captionLayoutMode: toRef(captions, 'layoutMode'),
-    captionResetTrigger: toRef(captions, 'resetTrigger'),
     triggerCaptionReset: captions.triggerReset,
-
-    // Methods
-    setThemeColorsHue: theme.setThemeColorsHue,
-    applyPrimaryColorFrom: theme.applyPrimaryColorFrom,
-    isColorSelectedForPrimary: theme.isColorSelectedForPrimary,
-    initializeStageModel: stageModel.initializeStageModel,
     updateStageModel: stageModel.updateStageModel,
-    resetState,
+    usePageSpecificTransitions: toRef(general, 'usePageSpecificTransitions'),
+    websocketSecureEnabled: toRef(general, 'websocketSecureEnabled'),
   }
 })

@@ -1,5 +1,10 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionRequestPermission } from '@proj-airi/stage-shared'
+import {
+  isWithinSchedule,
+  visionCaptureScreen,
+  visionCheckPermission,
+  visionRequestPermission,
+} from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -29,7 +34,7 @@ export const useVisionStore = defineStore('vision', () => {
   const isWitnessEnabled = useLocalStorageManualReset<boolean>('settings/vision/witness-enabled', false)
   const witnessPrompt = useLocalStorageManualReset<string>(
     'settings/vision/witness-prompt',
-    'Carefully observe the user\'s screen and describe any interesting or relevant details you see, focusing on things that might spark a conversation or help you understand the user\'s current context better. Stay in character.',
+    "Carefully observe the user's screen and describe any interesting or relevant details you see, focusing on things that might spark a conversation or help you understand the user's current context better. Stay in character.",
   )
   const respectSchedule = useLocalStorageManualReset<boolean>('settings/vision/respect-schedule', true)
   const status = ref<'idle' | 'capturing'>('idle')
@@ -54,8 +59,7 @@ export const useVisionStore = defineStore('vision', () => {
       const status = await checkPermissionInvoke()
       console.log('[Vision Store] macOS Screen Capture Permission Status:', status)
       return status
-    }
-    catch (err) {
+    } catch (err) {
       console.warn('[Vision Store] Failed to check macOS permissions (likely non-macOS):', err)
       return 'granted' // Fallback for non-macOS
     }
@@ -72,9 +76,9 @@ export const useVisionStore = defineStore('vision', () => {
   const heartbeat = async (options?: { force?: boolean }) => {
     const liveSessionStore = useLiveSessionStore()
     console.log('[Vision Store] Heartbeat checking...', {
+      force: !!options?.force,
       isActive: liveSessionStore.isActive,
       isWitnessEnabled: isWitnessEnabled.value,
-      force: !!options?.force,
     })
 
     // Master Gate Check: if the session is not active, we never capture.
@@ -83,8 +87,7 @@ export const useVisionStore = defineStore('vision', () => {
       return
     }
 
-    if (!isWitnessEnabled.value && !options?.force)
-      return
+    if (!isWitnessEnabled.value && !options?.force) return
 
     // Throttle duplicate executions across multiple independent Electron renderer windows.
     // Each window runs its own `useIntervalFn`, meaning they can easily drift out of sync.
@@ -93,12 +96,13 @@ export const useVisionStore = defineStore('vision', () => {
     if (!options?.force) {
       // Background interval: enforce the full interval duration minus a small 10s drift buffer
       const intervalMs = 2 * 60 * 1000 // Minimum cooldown between captures
-      if (now - lastHeartbeatExec.value < (intervalMs - 10000)) {
-        console.log(`[Vision Store] Background heartbeat skipped. Next allowed in ${intervalMs - (now - lastHeartbeatExec.value)}ms due to cross-window sync.`)
+      if (now - lastHeartbeatExec.value < intervalMs - 10000) {
+        console.log(
+          `[Vision Store] Background heartbeat skipped. Next allowed in ${intervalMs - (now - lastHeartbeatExec.value)}ms due to cross-window sync.`,
+        )
         return
       }
-    }
-    else {
+    } else {
       // Manual trigger: enforce a small 15-second debounce to prevent spam clicks and IPC echo
       if (now - lastHeartbeatExec.value < 15000) {
         console.log(`[Vision Store] Forced heartbeat throttled (15s cooldown).`)
@@ -114,7 +118,9 @@ export const useVisionStore = defineStore('vision', () => {
     if (!options?.force && respectSchedule.value && config?.schedule?.start && config.schedule.end) {
       const inWindow = isWithinSchedule(config.schedule.start, config.schedule.end)
       if (!inWindow) {
-        console.log(`[Vision Store] Heartbeat skipped: Outside schedule window (${config.schedule.start} - ${config.schedule.end})`)
+        console.log(
+          `[Vision Store] Heartbeat skipped: Outside schedule window (${config.schedule.start} - ${config.schedule.end})`,
+        )
         return
       }
       console.log(`[Vision Store] Heartbeat inside schedule window (${config.schedule.start} - ${config.schedule.end})`)
@@ -124,7 +130,7 @@ export const useVisionStore = defineStore('vision', () => {
     status.value = 'capturing'
 
     try {
-      const result = await captureSnapshot({ width: 1280, height: 720 }) as any
+      const result = (await captureSnapshot({ height: 720, width: 1280 })) as any
 
       if (result?.error === 'permission_denied') {
         console.error('[Vision Store] Heartbeat: Screen capture failed due to permissions.')
@@ -145,21 +151,18 @@ export const useVisionStore = defineStore('vision', () => {
         await chatOrchestrator.ingest(witnessPrompt.value, {
           attachments: [
             {
-              type: 'image',
               data: base64,
               mimeType: 'image/png',
+              type: 'image',
             },
           ],
         })
-      }
-      else {
+      } else {
         console.warn('[Vision Store] Heartbeat: Screen capture failed or returned no data.')
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[Vision Store] Heartbeat error:', err)
-    }
-    finally {
+    } finally {
       status.value = 'idle'
       console.log('[Vision Store] Heartbeat pulse complete.')
     }
@@ -169,7 +172,7 @@ export const useVisionStore = defineStore('vision', () => {
    * Captures a single snapshot of the screen via IPC.
    * This is a "clean" capture that doesn't trigger ambient vision processing (ingestion).
    */
-  async function captureSnapshot(options?: { width?: number, height?: number }) {
+  async function captureSnapshot(options?: { width?: number; height?: number }) {
     console.log('[Vision Store] captureSnapshot requested...')
 
     // 1. Permission Check (macOS only)
@@ -182,8 +185,8 @@ export const useVisionStore = defineStore('vision', () => {
     console.log('[Vision Store] Invoking OS screen capture via Eventa...')
     try {
       const result = await captureInvoke({
-        width: options?.width || 1280,
         height: options?.height || 720,
+        width: options?.width || 1280,
       })
 
       if (!result || !result.dataUrl) {
@@ -191,8 +194,7 @@ export const useVisionStore = defineStore('vision', () => {
       }
 
       return result
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[Vision Store] captureSnapshot error:', err)
       return null
     }
@@ -250,45 +252,53 @@ export const useVisionStore = defineStore('vision', () => {
   }
 
   // Self-healing: Reset active provider if it no longer exists
-  watch(activeProvider, () => {
-    if (Object.keys(providersStore.providerMetadata).length > 0 && activeProvider.value && !providersStore.providerMetadata[activeProvider.value]) {
-      console.warn(`[Vision] Provider ${activeProvider.value} no longer exists. Resetting.`)
-      activeProvider.value = ''
-      resetModelSelection()
-    }
-  }, { immediate: true })
+  watch(
+    activeProvider,
+    () => {
+      if (
+        Object.keys(providersStore.providerMetadata).length > 0 &&
+        activeProvider.value &&
+        !providersStore.providerMetadata[activeProvider.value]
+      ) {
+        console.warn(`[Vision] Provider ${activeProvider.value} no longer exists. Resetting.`)
+        activeProvider.value = ''
+        resetModelSelection()
+      }
+    },
+    { immediate: true },
+  )
 
   return {
+    activeModel,
+    activeProvider,
+    activeProviderModelError,
+    captureSnapshot,
+    checkPermissions,
     // State
     configured,
-    activeProvider,
-    activeModel,
     contextWindow,
-    promptShim,
+    getModelsForProvider,
+    heartbeat,
+    isLoadingActiveProviderModels,
 
     // Witness
     isWitnessEnabled,
-    witnessPrompt,
-    respectSchedule,
-    lastWitnessTime,
     lastWitnessAnalysis,
+    lastWitnessTime,
+    loadModelsForProvider,
+    openPermissionSettings,
+    promptShim,
+    providerModels,
+
+    // Actions
+    resetModelSelection,
+    resetState,
+    respectSchedule,
     status,
 
     // Computed
     supportsModelListing,
-    providerModels,
-    isLoadingActiveProviderModels,
-    activeProviderModelError,
-
-    // Actions
-    resetModelSelection,
-    loadModelsForProvider,
-    getModelsForProvider,
     toggleWitness,
-    heartbeat,
-    captureSnapshot,
-    checkPermissions,
-    openPermissionSettings,
-    resetState,
+    witnessPrompt,
   }
 })

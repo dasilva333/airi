@@ -1,10 +1,8 @@
 import type { createSpeechPipeline, IntentHandle, IntentOptions, TextToken } from '@proj-airi/pipelines-audio'
-
-import type { SpeechIntentStartPayload, SpeechIntentTokenPayload } from './bus'
-
 import { createPushStream } from '@proj-airi/pipelines-audio'
 import { Mutex } from 'es-toolkit'
 import { nanoid } from 'nanoid'
+import type { SpeechIntentStartPayload, SpeechIntentTokenPayload } from './bus'
 
 import {
   getSpeechBusContext,
@@ -40,39 +38,33 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
   const context = getSpeechBusContext()
 
   function bindSpeechBusToHost() {
-    if (bound)
-      return
+    if (bound) return
     bound = true
 
     context.on(speechIntentStartEvent, (evt) => {
       const payload = (evt as { body?: SpeechIntentStartPayload })?.body
-      if (!payload || payload.originId === originId)
-        return
+      if (!payload || payload.originId === originId) return
 
-      if (!hostPipeline)
-        return
+      if (!hostPipeline) return
 
-      if (remoteIntentMap.has(payload.intentId))
-        return
+      if (remoteIntentMap.has(payload.intentId)) return
 
       const intent = hostPipeline.openIntent({
+        behavior: payload.behavior,
         intentId: payload.intentId,
-        streamId: payload.streamId,
         ownerId: payload.ownerId,
         priority: payload.priority,
-        behavior: payload.behavior,
+        streamId: payload.streamId,
       })
 
       remoteIntentMap.set(payload.intentId, intent)
     })
 
     const applyToken = (payload: SpeechIntentTokenPayload, writer: (intent: IntentHandle, value?: string) => void) => {
-      if (!payload || payload.originId === originId)
-        return
+      if (!payload || payload.originId === originId) return
       const intent = remoteIntentMap.get(payload.intentId)
       if (!intent) {
-        if (!hostPipeline)
-          return
+        if (!hostPipeline) return
         const fallback = hostPipeline.openIntent({ intentId: payload.intentId, streamId: payload.streamId })
         remoteIntentMap.set(payload.intentId, fallback)
         writer(fallback, payload.value)
@@ -83,30 +75,25 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
 
     context.on(speechIntentLiteralEvent, (evt) => {
       const payload = evt?.body
-      if (!payload)
-        return
+      if (!payload) return
 
       applyToken(payload, (intent, value) => {
-        if (value)
-          intent.writeLiteral(value)
+        if (value) intent.writeLiteral(value)
       })
     })
 
     context.on(speechIntentSpecialEvent, (evt) => {
       const payload = evt?.body
-      if (!payload)
-        return
+      if (!payload) return
 
       applyToken(payload, (intent, value) => {
-        if (value)
-          intent.writeSpecial(value)
+        if (value) intent.writeSpecial(value)
       })
     })
 
     context.on(speechIntentFlushEvent, (evt) => {
       const payload = evt?.body
-      if (!payload)
-        return
+      if (!payload) return
 
       applyToken(payload, (intent) => {
         intent.writeFlush()
@@ -115,22 +102,18 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
 
     context.on(speechIntentEndEvent, (evt) => {
       const payload = evt?.body
-      if (!payload || payload.originId === originId)
-        return
+      if (!payload || payload.originId === originId) return
       const intent = remoteIntentMap.get(payload.intentId)
-      if (!intent)
-        return
+      if (!intent) return
       intent.end()
       remoteIntentMap.delete(payload.intentId)
     })
 
     context.on(speechIntentCancelEvent, (evt) => {
       const payload = evt?.body
-      if (!payload || payload.originId === originId)
-        return
+      if (!payload || payload.originId === originId) return
       const intent = remoteIntentMap.get(payload.intentId)
-      if (!intent)
-        return
+      if (!intent) return
       intent.cancel(payload.reason)
       remoteIntentMap.delete(payload.intentId)
     })
@@ -148,82 +131,77 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
     let closed = false
 
     context.emit(speechIntentStartEvent, {
-      originId,
+      behavior,
       intentId,
-      streamId,
+      originId,
       ownerId,
       priority,
-      behavior,
+      streamId,
     })
 
-    console.log('[Speech Runtime] Creating intent', { intentId, ownerId, behavior, streamId })
+    console.log('[Speech Runtime] Creating intent', { behavior, intentId, ownerId, streamId })
     const handle: IntentHandle = {
-      intentId,
-      streamId,
-      ownerId,
-      priority: priority ?? 0,
-      stream,
-      writeLiteral(value: string) {
-        if (closed)
-          return
-        console.log('[Speech Intent] writeLiteral', { intentId, streamId, value: value.slice(0, 120) })
-        write({ type: 'literal', value, streamId, intentId, sequence, createdAt: Date.now() })
-        context.emit(speechIntentLiteralEvent, {
-          originId,
+      cancel(reason?: string) {
+        if (closed) return
+        closed = true
+        close()
+        console.log('[Speech Intent] cancel', { intentId, reason, streamId })
+        context.emit(speechIntentCancelEvent, {
           intentId,
-          streamId,
-          sequence: sequence++,
-          value,
-        })
-      },
-      writeSpecial(value: string) {
-        if (closed)
-          return
-        console.log('[Speech Intent] writeSpecial', { intentId, streamId, value })
-        write({ type: 'special', value, streamId, intentId, sequence, createdAt: Date.now() })
-        context.emit(speechIntentSpecialEvent, {
           originId,
-          intentId,
+          reason,
           streamId,
-          sequence: sequence++,
-          value,
-        })
-      },
-      writeFlush() {
-        if (closed)
-          return
-        console.log('[Speech Intent] writeFlush', { intentId, streamId })
-        write({ type: 'flush', streamId, intentId, sequence, createdAt: Date.now() })
-        context.emit(speechIntentFlushEvent, {
-          originId,
-          intentId,
-          streamId,
-          sequence: sequence++,
         })
       },
       end() {
-        if (closed)
-          return
+        if (closed) return
         closed = true
         close()
         console.log('[Speech Intent] end', { intentId, streamId })
         context.emit(speechIntentEndEvent, {
-          originId,
           intentId,
+          originId,
           streamId,
         })
       },
-      cancel(reason?: string) {
-        if (closed)
-          return
-        closed = true
-        close()
-        console.log('[Speech Intent] cancel', { intentId, streamId, reason })
-        context.emit(speechIntentCancelEvent, {
-          originId,
+      intentId,
+      ownerId,
+      priority: priority ?? 0,
+      stream,
+      streamId,
+      writeFlush() {
+        if (closed) return
+        console.log('[Speech Intent] writeFlush', { intentId, streamId })
+        write({ createdAt: Date.now(), intentId, sequence, streamId, type: 'flush' })
+        context.emit(speechIntentFlushEvent, {
           intentId,
+          originId,
+          sequence: sequence++,
           streamId,
-          reason,
+        })
+      },
+      writeLiteral(value: string) {
+        if (closed) return
+        console.log('[Speech Intent] writeLiteral', { intentId, streamId, value: value.slice(0, 120) })
+        write({ createdAt: Date.now(), intentId, sequence, streamId, type: 'literal', value })
+        context.emit(speechIntentLiteralEvent, {
+          intentId,
+          originId,
+          sequence: sequence++,
+          streamId,
+          value,
+        })
+      },
+      writeSpecial(value: string) {
+        if (closed) return
+        console.log('[Speech Intent] writeSpecial', { intentId, streamId, value })
+        write({ createdAt: Date.now(), intentId, sequence, streamId, type: 'special', value })
+        context.emit(speechIntentSpecialEvent, {
+          intentId,
+          originId,
+          sequence: sequence++,
+          streamId,
+          value,
         })
       },
     }
@@ -242,8 +220,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       hostPipeline = pipeline
       hostReady = true
       bindSpeechBusToHost()
-    }
-    finally {
+    } finally {
       mutex.release()
     }
   }
@@ -251,26 +228,22 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
   async function unregisterHost(pipeline?: ReturnType<typeof createSpeechPipeline<AudioBuffer>>) {
     await mutex.acquire()
     try {
-      if (!hostPipeline)
-        return
+      if (!hostPipeline) return
 
-      if (pipeline && hostPipeline !== pipeline)
-        return
+      if (pipeline && hostPipeline !== pipeline) return
 
       console.log('[Speech Runtime] Unregistering host pipeline')
       hostPipeline = null
       hostReady = false
       remoteIntentMap.clear()
-    }
-    finally {
+    } finally {
       mutex.release()
     }
   }
 
   function openIntent(options?: IntentOptions) {
     console.log('[Speech Runtime] openIntent called', { options })
-    if (hostPipeline)
-      return hostPipeline.openIntent(options)
+    if (hostPipeline) return hostPipeline.openIntent(options)
 
     return createRemoteIntent(options)
   }
@@ -284,10 +257,10 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
   }
 
   return {
+    dispose,
+    isHost,
     openIntent,
     registerHost,
     unregisterHost,
-    isHost,
-    dispose,
   }
 }

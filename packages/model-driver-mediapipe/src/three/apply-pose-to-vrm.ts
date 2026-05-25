@@ -1,8 +1,6 @@
 import type { VRM } from '@pixiv/three-vrm'
-
-import type { VrmPoseDirections, VrmPoseTarget, VrmPoseTargets } from './pose-to-vrm'
-
 import { Matrix4, Quaternion, Vector3 } from 'three'
+import type { VrmPoseDirections, VrmPoseTarget, VrmPoseTargets } from './pose-to-vrm'
 
 export interface VrmPoseApplyOptions {
   /**
@@ -34,99 +32,87 @@ interface BoneChain {
 const DEFAULT_ALPHA = 0.35
 
 const CHAINS: Readonly<Record<BoneKey, BoneChain>> = {
-  hips: {
-    bone: 'hips',
-    childCandidates: ['spine'],
-  },
-  spine: {
-    bone: 'spine',
-    childCandidates: ['chest', 'upperChest', 'neck'],
-  },
   chest: {
     bone: 'chest',
     childCandidates: ['upperChest', 'neck'],
   },
-  leftShoulder: {
-    bone: 'leftShoulder',
-    childCandidates: ['leftUpperArm'],
-  },
-  rightShoulder: {
-    bone: 'rightShoulder',
-    childCandidates: ['rightUpperArm'],
-  },
-  leftUpperArm: {
-    bone: 'leftUpperArm',
-    childCandidates: ['leftLowerArm'],
+  hips: {
+    bone: 'hips',
+    childCandidates: ['spine'],
   },
   leftLowerArm: {
     bone: 'leftLowerArm',
     childCandidates: ['leftHand'],
   },
-  rightUpperArm: {
-    bone: 'rightUpperArm',
-    childCandidates: ['rightLowerArm'],
+  leftLowerLeg: {
+    bone: 'leftLowerLeg',
+    childCandidates: ['leftFoot'],
   },
-  rightLowerArm: {
-    bone: 'rightLowerArm',
-    childCandidates: ['rightHand'],
+  leftShoulder: {
+    bone: 'leftShoulder',
+    childCandidates: ['leftUpperArm'],
+  },
+  leftUpperArm: {
+    bone: 'leftUpperArm',
+    childCandidates: ['leftLowerArm'],
   },
   leftUpperLeg: {
     bone: 'leftUpperLeg',
     childCandidates: ['leftLowerLeg'],
   },
-  leftLowerLeg: {
-    bone: 'leftLowerLeg',
-    childCandidates: ['leftFoot'],
-  },
-  rightUpperLeg: {
-    bone: 'rightUpperLeg',
-    childCandidates: ['rightLowerLeg'],
+  rightLowerArm: {
+    bone: 'rightLowerArm',
+    childCandidates: ['rightHand'],
   },
   rightLowerLeg: {
     bone: 'rightLowerLeg',
     childCandidates: ['rightFoot'],
   },
+  rightShoulder: {
+    bone: 'rightShoulder',
+    childCandidates: ['rightUpperArm'],
+  },
+  rightUpperArm: {
+    bone: 'rightUpperArm',
+    childCandidates: ['rightLowerArm'],
+  },
+  rightUpperLeg: {
+    bone: 'rightUpperLeg',
+    childCandidates: ['rightLowerLeg'],
+  },
+  spine: {
+    bone: 'spine',
+    childCandidates: ['chest', 'upperChest', 'neck'],
+  },
 } as const
 
 const POLE_KEYS: ReadonlySet<BoneKey> = new Set(Object.keys(CHAINS) as BoneKey[])
-const LIMB_POLE_KEYS: ReadonlySet<BoneKey> = new Set([
-  'leftUpperArm',
-  'rightUpperArm',
-  'leftUpperLeg',
-  'rightUpperLeg',
-])
+const LIMB_POLE_KEYS: ReadonlySet<BoneKey> = new Set(['leftUpperArm', 'rightUpperArm', 'leftUpperLeg', 'rightUpperLeg'])
 
-function isFiniteVec3(v: { x: number, y: number, z?: number } | undefined): v is { x: number, y: number, z?: number } {
-  if (!v)
-    return false
+function isFiniteVec3(v: { x: number; y: number; z?: number } | undefined): v is { x: number; y: number; z?: number } {
+  if (!v) return false
   return Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z ?? 0)
 }
 
 function firstExistingBone(vrm: VRM, candidates: readonly string[]) {
   for (const name of candidates) {
     const node = vrm.humanoid?.getNormalizedBoneNode(name as any)
-    if (node)
-      return node
+    if (node) return node
   }
   return null
 }
 
 function grandchildCandidatesFor(key: BoneKey): readonly string[] {
-  if (key === 'leftUpperArm')
-    return ['leftHand']
-  if (key === 'rightUpperArm')
-    return ['rightHand']
-  if (key === 'leftUpperLeg')
-    return ['leftFoot']
-  if (key === 'rightUpperLeg')
-    return ['rightFoot']
+  if (key === 'leftUpperArm') return ['leftHand']
+  if (key === 'rightUpperArm') return ['rightHand']
+  if (key === 'leftUpperLeg') return ['leftFoot']
+  if (key === 'rightUpperLeg') return ['rightFoot']
   return []
 }
 
 function orthonormalizePole(dir: Vector3, pole: Vector3): Vector3 | null {
   const poleOrtho = pole.clone().addScaledVector(dir, -pole.dot(dir))
-  if (poleOrtho.lengthSq() <= 1e-12)
-    return null
+  if (poleOrtho.lengthSq() <= 1e-12) return null
   return poleOrtho.normalize()
 }
 
@@ -166,17 +152,14 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
 
   function ensureRestDirection(vrm: VRM, key: BoneKey): Vector3 | null {
     const existing = restDirLocal[key]
-    if (existing)
-      return existing
+    if (existing) return existing
 
     const chain = CHAINS[key]
     const bone = vrm.humanoid?.getNormalizedBoneNode(chain.bone as any)
-    if (!bone)
-      return null
+    if (!bone) return null
 
     const child = firstExistingBone(vrm, chain.childCandidates)
-    if (!child)
-      return null
+    if (!child) return null
 
     bone.updateMatrixWorld(true)
     child.updateMatrixWorld(true)
@@ -194,30 +177,25 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
   }
 
   function ensureRestPole(vrm: VRM, key: BoneKey): Vector3 | null {
-    if (!POLE_KEYS.has(key))
-      return null
+    if (!POLE_KEYS.has(key)) return null
 
     const existing = restPoleLocal[key]
-    if (existing)
-      return existing
+    if (existing) return existing
 
     const chain = CHAINS[key]
     const bone = vrm.humanoid?.getNormalizedBoneNode(chain.bone as any)
-    if (!bone)
-      return null
+    if (!bone) return null
 
     bone.updateMatrixWorld(true)
     bone.getWorldQuaternion(tmpBoneWorldQ)
 
     if (LIMB_POLE_KEYS.has(key)) {
       const child = firstExistingBone(vrm, chain.childCandidates)
-      if (!child)
-        return null
+      if (!child) return null
 
       const grandCandidates = grandchildCandidatesFor(key)
       const grand = grandCandidates.length ? firstExistingBone(vrm, grandCandidates) : null
-      if (!grand)
-        return null
+      if (!grand) return null
 
       child.updateMatrixWorld(true)
       grand.updateMatrixWorld(true)
@@ -229,8 +207,7 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
       const dir1 = tmpChildWorldPos.clone().sub(tmpBoneWorldPos)
       const dir2 = tmpGrandWorldPos.clone().sub(tmpChildWorldPos)
       tmpDirWorld.copy(dir1).cross(dir2)
-      if (tmpDirWorld.lengthSq() <= 1e-12)
-        return null
+      if (tmpDirWorld.lengthSq() <= 1e-12) return null
       tmpDirWorld.normalize()
 
       tmpDirLocal.copy(tmpDirWorld).applyQuaternion(tmpBoneWorldQ.clone().invert()).normalize()
@@ -249,24 +226,20 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
   function applyOne(vrm: VRM, key: BoneKey, target: VrmPoseTarget) {
     const chain = CHAINS[key]
     const bone = vrm.humanoid?.getNormalizedBoneNode(chain.bone as any)
-    if (!bone)
-      return
+    if (!bone) return
 
     const rest = ensureRestDirection(vrm, key)
-    if (!rest)
-      return
+    if (!rest) return
 
     tmpTargetDirWorld.set(target.dir.x, target.dir.y, target.dir.z ?? 0)
-    if (tmpTargetDirWorld.lengthSq() <= 1e-12)
-      return
+    if (tmpTargetDirWorld.lengthSq() <= 1e-12) return
     tmpTargetDirWorld.normalize()
 
     // Reject near-180° instant flips based on previous target (not current bone pose).
     // Using the current bone direction is unreliable when tracking reacquires or when
     // the bind pose differs from the mocap space.
     const prevDir = lastTargetDirWorld[key]
-    if (prevDir && prevDir.dot(tmpTargetDirWorld) < minDotBeforeReject)
-      return
+    if (prevDir && prevDir.dot(tmpTargetDirWorld) < minDotBeforeReject) return
 
     bone.updateMatrixWorld(true)
     bone.getWorldQuaternion(tmpBoneWorldQ)
@@ -275,8 +248,7 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
     if (parent) {
       parent.updateMatrixWorld(true)
       parent.getWorldQuaternion(tmpParentWorldQ)
-    }
-    else {
+    } else {
       tmpParentWorldQ.identity()
     }
 
@@ -290,19 +262,16 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
       tmpRestYLocal.copy(tmpRestPoleLocal).cross(tmpRestDirLocal).normalize()
 
       tmpTargetPoleWorld.set(target.pole!.x, target.pole!.y, target.pole!.z ?? 0)
-      if (tmpTargetPoleWorld.lengthSq() <= 1e-12)
-        return
+      if (tmpTargetPoleWorld.lengthSq() <= 1e-12) return
       tmpTargetPoleWorld.normalize()
       const poleOrtho = orthonormalizePole(tmpTargetDirWorld, tmpTargetPoleWorld)
-      if (!poleOrtho)
-        return
+      if (!poleOrtho) return
       tmpTargetPoleWorld.copy(poleOrtho)
       tmpTargetYWorld.copy(tmpTargetPoleWorld).cross(tmpTargetDirWorld).normalize()
 
       // Reject near-180° pole flips based on previous target pole.
       const prevPole = lastTargetPoleWorld[key]
-      if (prevPole && prevPole.dot(tmpTargetPoleWorld) < minPoleDotBeforeReject)
-        return
+      if (prevPole && prevPole.dot(tmpTargetPoleWorld) < minPoleDotBeforeReject) return
 
       tmpRestM.makeBasis(tmpRestDirLocal, tmpRestYLocal, tmpRestPoleLocal)
       tmpTargetM.makeBasis(tmpTargetDirWorld, tmpTargetYWorld, tmpTargetPoleWorld)
@@ -310,49 +279,39 @@ export function createVrmPoseApplier(options?: VrmPoseApplyOptions) {
       tmpRotM.copy(tmpTargetM).multiply(tmpRestM.clone().invert())
       tmpNewWorldQ.setFromRotationMatrix(tmpRotM)
       tmpNewLocalQ.copy(tmpParentWorldQ).invert().multiply(tmpNewWorldQ)
-    }
-    else {
+    } else {
       tmpCurrentDirWorld.copy(rest).applyQuaternion(tmpBoneWorldQ).normalize()
       tmpDeltaQ.setFromUnitVectors(tmpCurrentDirWorld, tmpTargetDirWorld)
       tmpNewWorldQ.copy(tmpDeltaQ).multiply(tmpBoneWorldQ)
       tmpNewLocalQ.copy(tmpParentWorldQ).invert().multiply(tmpNewWorldQ)
     }
 
-    if (alpha >= 1)
-      bone.quaternion.copy(tmpNewLocalQ)
-    else
-      bone.quaternion.slerp(tmpNewLocalQ, alpha)
+    if (alpha >= 1) bone.quaternion.copy(tmpNewLocalQ)
+    else bone.quaternion.slerp(tmpNewLocalQ, alpha)
 
     // Update last targets only after a successful apply.
     lastTargetDirWorld[key] = tmpTargetDirWorld.clone()
-    if (usePole)
-      lastTargetPoleWorld[key] = tmpTargetPoleWorld.clone()
-    else
-      delete lastTargetPoleWorld[key]
+    if (usePole) lastTargetPoleWorld[key] = tmpTargetPoleWorld.clone()
+    else delete lastTargetPoleWorld[key]
   }
 
   function applyPoseDirectionsToVrm(vrm: VRM, directions: VrmPoseDirections) {
-    if (!vrm.humanoid)
-      return
+    if (!vrm.humanoid) return
 
-    (Object.keys(CHAINS) as BoneKey[]).forEach((key) => {
+    ;(Object.keys(CHAINS) as BoneKey[]).forEach((key) => {
       const d = directions[key]
-      if (!isFiniteVec3(d))
-        return
+      if (!isFiniteVec3(d)) return
       applyOne(vrm, key, { dir: d })
     })
   }
 
   function applyPoseTargetsToVrm(vrm: VRM, targets: VrmPoseTargets) {
-    if (!vrm.humanoid)
-      return
+    if (!vrm.humanoid) return
 
-    (Object.keys(CHAINS) as BoneKey[]).forEach((key) => {
+    ;(Object.keys(CHAINS) as BoneKey[]).forEach((key) => {
       const t = targets[key]
-      if (!t || !isFiniteVec3(t.dir))
-        return
-      if (t.pole && !isFiniteVec3(t.pole))
-        return
+      if (!t || !isFiniteVec3(t.dir)) return
+      if (t.pole && !isFiniteVec3(t.pole)) return
       applyOne(vrm, key, t)
     })
   }

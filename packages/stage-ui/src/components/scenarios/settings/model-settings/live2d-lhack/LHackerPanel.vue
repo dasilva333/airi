@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import JSZip from 'jszip'
-
 import { Texture } from '@pixi/core'
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { artistryGenerateHeadless, REPLICATE_IMAGEEDIT_PRESETS } from '@proj-airi/stage-shared'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { Button } from '@proj-airi/ui'
+import JSZip from 'jszip'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
 
@@ -21,20 +20,23 @@ const { model: activeModel } = storeToRefs(live2dStore)
 const { stageModelSelectedUrl } = storeToRefs(settingsStore)
 
 // Universal ZIP buffer synchronization (Supports local files and remote presets)
-watch(stageModelSelectedUrl, async (url) => {
-  if (url && (url.toLowerCase().includes('.zip') || url.startsWith('blob:'))) {
-    try {
-      console.info('[LHACK] Syncing original ZIP buffer from URL...')
-      const response = await fetch(url)
-      const buffer = await response.arrayBuffer()
-      lhackStore.originalZipBuffer = buffer
-      console.info('[LHACK] ZIP buffer synchronized successfully.')
+watch(
+  stageModelSelectedUrl,
+  async (url) => {
+    if (url && (url.toLowerCase().includes('.zip') || url.startsWith('blob:'))) {
+      try {
+        console.info('[LHACK] Syncing original ZIP buffer from URL...')
+        const response = await fetch(url)
+        const buffer = await response.arrayBuffer()
+        lhackStore.originalZipBuffer = buffer
+        console.info('[LHACK] ZIP buffer synchronized successfully.')
+      } catch (err) {
+        console.error('[LHACK] Failed to sync ZIP buffer:', err)
+      }
     }
-    catch (err) {
-      console.error('[LHACK] Failed to sync ZIP buffer:', err)
-    }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const generateInvoke = useElectronEventaInvoke(artistryGenerateHeadless)
 
@@ -70,55 +72,54 @@ const eraserTolerance = ref(15)
 const isEraserPicking = ref(true)
 
 function getTextureUrl(tex: any) {
-  if (!tex)
-    return null
+  if (!tex) return null
 
   // Pixi textures often have the source tucked away in baseTexture.resource or baseTexture.source
   const base = tex.baseTexture || tex
-  if (!base)
-    return null
+  if (!base) return null
 
   const resource = base.resource as any
   if (resource) {
-    if (resource.src)
-      return resource.src
-    if (resource.source && resource.source.src)
-      return resource.source.src
+    if (resource.src) return resource.src
+    if (resource.source && resource.source.src) return resource.source.src
   }
 
-  if (base.source && base.source.src)
-    return base.source.src
+  if (base.source && base.source.src) return base.source.src
 
   return null
 }
 
 // Watchers
-watch(() => artistryStore.comfyuiActiveWorkflow, (newWorkflowId) => {
-  if (artistryStore.activeProvider === 'comfyui' && newWorkflowId) {
-    const workflow = artistryStore.comfyuiSavedWorkflows.find(w => w.id === newWorkflowId)
-    if (workflow) {
-      const example: Record<string, any> = {}
-      for (const [nodeTitle, fields] of Object.entries(workflow.exposedFields)) {
-        example[nodeTitle] = {}
-        for (const field of fields) {
-          const nodeId = Object.keys(workflow.workflow).find(id => (workflow.workflow[id]._meta?.title || workflow.workflow[id].class_type) === nodeTitle)
-          const val = nodeId ? workflow.workflow[nodeId].inputs[field] : '...'
-          example[nodeTitle][field] = val
+watch(
+  () => artistryStore.comfyuiActiveWorkflow,
+  (newWorkflowId) => {
+    if (artistryStore.activeProvider === 'comfyui' && newWorkflowId) {
+      const workflow = artistryStore.comfyuiSavedWorkflows.find((w) => w.id === newWorkflowId)
+      if (workflow) {
+        const example: Record<string, any> = {}
+        for (const [nodeTitle, fields] of Object.entries(workflow.exposedFields)) {
+          example[nodeTitle] = {}
+          for (const field of fields) {
+            const nodeId = Object.keys(workflow.workflow).find(
+              (id) => (workflow.workflow[id]._meta?.title || workflow.workflow[id].class_type) === nodeTitle,
+            )
+            const val = nodeId ? workflow.workflow[nodeId].inputs[field] : '...'
+            example[nodeTitle][field] = val
+          }
         }
+        aiComfyParams.value = JSON.stringify(example, null, 2)
       }
-      aiComfyParams.value = JSON.stringify(example, null, 2)
     }
-  }
-})
+  },
+)
 
 watch(selectedReplicatePreset, (newPresetId) => {
   if (artistryStore.activeProvider === 'replicate' && newPresetId) {
-    const preset = REPLICATE_IMAGEEDIT_PRESETS.find(p => p.id === newPresetId)
+    const preset = REPLICATE_IMAGEEDIT_PRESETS.find((p) => p.id === newPresetId)
     if (preset) {
       aiReplicateModelId.value = preset.id
       aiReplicateParams.value = JSON.stringify(preset.preset, null, 2)
-      if (preset.prompt)
-        aiPrompt.value = preset.prompt
+      if (preset.prompt) aiPrompt.value = preset.prompt
     }
   }
 })
@@ -159,8 +160,7 @@ function toggleVisibility(item: any, event?: MouseEvent) {
     // Focus logic: hide everything except this one
     lhackStore.hideAll(drawables.value, activeModel.value)
     lhackStore.toggleDrawableVisibility(item.id, activeModel.value)
-  }
-  else {
+  } else {
     lhackStore.toggleDrawableVisibility(item.id, activeModel.value)
   }
 }
@@ -175,23 +175,21 @@ function selectNode(item: any) {
 
 // Texture Deck Logic
 const textureList = computed(() => {
-  if (!activeModel.value)
-    return []
+  if (!activeModel.value) return []
 
   return activeModel.value.textures.map((tex, i) => {
     return {
       id: i,
       name: `Atlas ${i}`,
+      texture: tex,
       type: 'Atlas',
       url: getTextureUrl(tex) || '',
-      texture: tex,
     }
   })
 })
 
 function downloadTexture(item: any) {
-  if (!item.url)
-    return
+  if (!item.url) return
   const link = document.createElement('a')
   link.href = item.url
   link.download = `${item.name}.png`
@@ -205,12 +203,10 @@ function selectTexture(item: any) {
   sourceTextureUrl.value = item.url
   lastGeneratedUrl.value = null
 
-  if (!aiPrompt.value)
-    aiPrompt.value = `Stylize the ${item.name} atlas...`
+  if (!aiPrompt.value) aiPrompt.value = `Stylize the ${item.name} atlas...`
 
   nextTick(() => {
-    if (scrollContainer.value)
-      scrollContainer.value.scrollTo({ top: 0, behavior: 'smooth' })
+    if (scrollContainer.value) scrollContainer.value.scrollTo({ behavior: 'smooth', top: 0 })
   })
 
   activeTab.value = 'material' // Move to "Lab" for editing
@@ -218,8 +214,7 @@ function selectTexture(item: any) {
 
 // Unified Artistry Generation
 async function generateAndSwap() {
-  if (!lastSelectedTextureItem.value || !aiPrompt.value)
-    return
+  if (!lastSelectedTextureItem.value || !aiPrompt.value) return
 
   lhackStore.isGeneratingTexture = true
   lhackStore.generationProgress = 10
@@ -230,13 +225,11 @@ async function generateAndSwap() {
 
   try {
     const tex = lastSelectedTextureItem.value.texture
-    if (!tex)
-      throw new Error('No texture found')
+    if (!tex) throw new Error('No texture found')
 
     // 1. Prepare base64 from current texture
     const resource = tex.baseTexture.resource as any
-    if (!resource || !resource.src)
-      throw new Error('Texture source not found')
+    if (!resource || !resource.src) throw new Error('Texture source not found')
 
     const response = await fetch(resource.src)
     const blob = await response.blob()
@@ -257,30 +250,27 @@ async function generateAndSwap() {
 
     if (artistryStore.activeProvider === 'nanobanana') {
       options = {
-        resolution: artistryStore.nanobananaResolution,
         model: artistryStore.nanobananaModel,
+        resolution: artistryStore.nanobananaResolution,
       }
-    }
-    else if (artistryStore.activeProvider === 'replicate') {
+    } else if (artistryStore.activeProvider === 'replicate') {
       options = JSON.parse(aiReplicateParams.value || '{}')
       model = aiReplicateModelId.value
-    }
-    else if (artistryStore.activeProvider === 'comfyui') {
+    } else if (artistryStore.activeProvider === 'comfyui') {
       try {
         options = JSON.parse(aiComfyParams.value || '{}')
-      }
-      catch (e) {
+      } catch (e) {
         options = {}
       }
       model = artistryStore.comfyuiActiveWorkflow
     }
 
     const result = await generateInvoke({
-      prompt: aiPrompt.value,
-      provider: artistryStore.activeProvider,
-      options,
       globals,
       model,
+      options,
+      prompt: aiPrompt.value,
+      provider: artistryStore.activeProvider,
     })
 
     if (result?.error) {
@@ -303,12 +293,10 @@ async function generateAndSwap() {
       lhackStore.generationProgress = 100
       lhackStore.generationActionLabel = 'Success'
     }
-  }
-  catch (e: any) {
+  } catch (e: any) {
     aiError.value = e.message || 'Generation failed'
     lhackStore.lastGenerationError = aiError.value
-  }
-  finally {
+  } finally {
     isGenerating.value = false
     lhackStore.isGeneratingTexture = false
     setTimeout(() => {
@@ -324,8 +312,7 @@ function triggerManualUpload() {
 
 async function handleManualUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !lastSelectedTextureItem.value)
-    return
+  if (!file || !lastSelectedTextureItem.value) return
 
   const targetIdx = lastSelectedTextureItem.value.id
   const reader = new FileReader()
@@ -340,12 +327,10 @@ async function handleManualUpload(event: Event) {
 }
 
 async function swapTextureByRef(url: string, index: number) {
-  if (!activeModel.value)
-    return
+  if (!activeModel.value) return
 
   const targetTex = activeModel.value.textures[index]
-  if (!targetTex)
-    return
+  if (!targetTex) return
 
   console.info(`[LHACK] Swapping Texture Atlas ${index}...`)
   const newTex = Texture.from(url)
@@ -377,8 +362,7 @@ async function swapTextureByRef(url: string, index: number) {
 
   if (newTex.baseTexture.valid) {
     applyNuclearSwap()
-  }
-  else {
+  } else {
     newTex.baseTexture.once('loaded', applyNuclearSwap)
   }
 }
@@ -386,7 +370,10 @@ async function swapTextureByRef(url: string, index: number) {
 async function exportZip() {
   console.info('>>> [LHACK] Starting Export Sequence...')
   if (!activeModel.value || !lhackStore.originalZipBuffer) {
-    console.error('[LHACK] Export Aborted: Missing model or original zip buffer', { model: !!activeModel.value, buffer: !!lhackStore.originalZipBuffer })
+    console.error('[LHACK] Export Aborted: Missing model or original zip buffer', {
+      buffer: !!lhackStore.originalZipBuffer,
+      model: !!activeModel.value,
+    })
     aiError.value = 'No source bundle found (Load via ZIP?)'
     return
   }
@@ -399,9 +386,8 @@ async function exportZip() {
     const zip = await JSZip.loadAsync(lhackStore.originalZipBuffer)
 
     // Find the model3.json to get texture paths
-    const model3Path = Object.keys(zip.files).find(f => f.endsWith('.model3.json'))
-    if (!model3Path)
-      throw new Error('model3.json not found in bundle')
+    const model3Path = Object.keys(zip.files).find((f) => f.endsWith('.model3.json'))
+    if (!model3Path) throw new Error('model3.json not found in bundle')
 
     console.info(`[LHACK] Found model descriptor: ${model3Path}`)
     const model3Json = JSON.parse(await zip.file(model3Path)!.async('string'))
@@ -419,13 +405,12 @@ async function exportZip() {
         const normalizedPath = fullPath.replace(/\\/g, '/').replace(/^\.\//, '')
 
         // Case-insensitive search for the file in the zip
-        const zipKey = zipFiles.find(f => f === normalizedPath || f.toLowerCase() === normalizedPath.toLowerCase())
+        const zipKey = zipFiles.find((f) => f === normalizedPath || f.toLowerCase() === normalizedPath.toLowerCase())
 
         if (zipKey) {
           console.info(`[LHACK] Overwriting: ${zipKey} (Data Length: ${mutation.data.length})`)
           zip.file(zipKey, mutation.data, { base64: true })
-        }
-        else {
+        } else {
           console.warn(`[LHACK] Texture path not found in ZIP: ${normalizedPath}`)
           // Fallback: create the file at the normalized path if it doesn't exist
           zip.file(normalizedPath, mutation.data, { base64: true })
@@ -442,12 +427,10 @@ async function exportZip() {
     a.click()
     URL.revokeObjectURL(url)
     console.info('[LHACK] Export Complete. Download triggered.')
-  }
-  catch (e: any) {
+  } catch (e: any) {
     console.error('[LHACK] Export Failed:', e)
     aiError.value = e.message || 'Export failed'
-  }
-  finally {
+  } finally {
     isExporting.value = false
   }
 }
@@ -482,15 +465,13 @@ function openEraser(url: string) {
 }
 
 function handleEraserClick(e: MouseEvent) {
-  if (!eraserCanvas.value || !isEraserPicking.value)
-    return
+  if (!eraserCanvas.value || !isEraserPicking.value) return
   const rect = eraserCanvas.value.getBoundingClientRect()
   const x = Math.floor((e.clientX - rect.left) * (eraserCanvas.value.width / rect.width))
   const y = Math.floor((e.clientY - rect.top) * (eraserCanvas.value.height / rect.height))
 
   const ctx = eraserCanvas.value.getContext('2d')
-  if (!ctx)
-    return
+  if (!ctx) return
 
   const pixel = ctx.getImageData(x, y, 1, 1).data
   eraserPickedColor.value = [pixel[0], pixel[1], pixel[2]]
@@ -500,14 +481,12 @@ function handleEraserClick(e: MouseEvent) {
 }
 
 function applyEraserPurge() {
-  if (!eraserCanvas.value || !eraserPickedColor.value)
-    return
+  if (!eraserCanvas.value || !eraserPickedColor.value) return
   const img = new Image()
   img.onload = () => {
     const canvas = eraserCanvas.value!
     const ctx = canvas.getContext('2d')
-    if (!ctx)
-      return
+    if (!ctx) return
 
     ctx.drawImage(img, 0, 0)
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -517,12 +496,10 @@ function applyEraserPurge() {
 
     let count = 0
     for (let i = 0; i < data.length; i += 4) {
-      const r = data[i]; const g = data[i + 1]; const b = data[i + 2]
-      const diff = Math.sqrt(
-        (r - tr) ** 2
-        + (g - tg) ** 2
-        + (b - tb) ** 2,
-      )
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const diff = Math.sqrt((r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2)
 
       if (diff <= tol) {
         data[i + 3] = 0
@@ -535,8 +512,7 @@ function applyEraserPurge() {
 }
 
 async function finalizeEraserBake() {
-  if (!eraserCanvas.value || !lastSelectedTextureItem.value)
-    return
+  if (!eraserCanvas.value || !lastSelectedTextureItem.value) return
   const cleanedUrl = eraserCanvas.value.toDataURL('image/png')
   const targetIdx = lastSelectedTextureItem.value.id
 

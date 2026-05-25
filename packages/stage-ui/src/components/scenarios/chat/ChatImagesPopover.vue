@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 
-const props = withDefaults(defineProps<{
-  /** Tooltip for the main button */
-  title?: string
-  imagineMode?: boolean
-  variant?: 'default' | 'mobile'
-  hideToolbarStyle?: boolean
-}>(), {
-  variant: 'default',
-  hideToolbarStyle: false,
-})
+const props = withDefaults(
+  defineProps<{
+    /** Tooltip for the main button */
+    title?: string
+    imagineMode?: boolean
+    variant?: 'default' | 'mobile'
+    hideToolbarStyle?: boolean
+  }>(),
+  {
+    hideToolbarStyle: false,
+    variant: 'default',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'attach'): void

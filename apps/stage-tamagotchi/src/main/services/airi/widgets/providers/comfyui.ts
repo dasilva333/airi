@@ -1,8 +1,6 @@
-import type { ArtistryJob, ArtistryJobStatus, ArtistryProvider, ArtistryRequest } from './base'
-
 import { Buffer } from 'node:buffer'
-
 import { useLogg } from '@guiiai/logg'
+import type { ArtistryJob, ArtistryJobStatus, ArtistryProvider, ArtistryRequest } from './base'
 
 const log = useLogg('providers-comfyui').useGlobalConfig()
 
@@ -24,24 +22,19 @@ export class ComfyUIProvider implements ArtistryProvider {
     this.callbacks.set(jobId, callback)
     // If we already have a result, fire it immediately
     const result = this.jobResults.get(jobId)
-    if (result)
-      callback(result)
+    if (result) callback(result)
   }
 
   private updateStatus(jobId: string, status: ArtistryJobStatus) {
     this.jobResults.set(jobId, status)
     const callback = this.callbacks.get(jobId)
-    if (callback)
-      callback(status)
+    if (callback) callback(status)
   }
 
   async initialize(config: any): Promise<void> {
-    if (config?.comfyuiServerUrl)
-      this.serverUrl = config.comfyuiServerUrl.replace(/\/+$/, '') // strip trailing slashes
-    if (config?.comfyuiSavedWorkflows)
-      this.savedWorkflows = config.comfyuiSavedWorkflows
-    if (config?.comfyuiActiveWorkflow !== undefined)
-      this.activeWorkflowId = config.comfyuiActiveWorkflow
+    if (config?.comfyuiServerUrl) this.serverUrl = config.comfyuiServerUrl.replace(/\/+$/, '') // strip trailing slashes
+    if (config?.comfyuiSavedWorkflows) this.savedWorkflows = config.comfyuiSavedWorkflows
+    if (config?.comfyuiActiveWorkflow !== undefined) this.activeWorkflowId = config.comfyuiActiveWorkflow
   }
 
   async generate(request: ArtistryRequest): Promise<ArtistryJob> {
@@ -49,13 +42,13 @@ export class ComfyUIProvider implements ArtistryProvider {
 
     // Resolve which workflow template to use
     const templateId = request.extra?.template || request.model || this.activeWorkflowId
-    const template = this.savedWorkflows.find(w => w.id === templateId)
+    const template = this.savedWorkflows.find((w) => w.id === templateId)
 
     if (!template) {
       this.updateStatus(jobId, {
-        status: 'failed',
-        error: 'No workflow template configured. Upload a workflow in Settings > Providers > ComfyUI.',
         actionLabel: 'Error: No workflow configured',
+        error: 'No workflow template configured. Upload a workflow in Settings > Providers > ComfyUI.',
+        status: 'failed',
       })
       return { jobId, providerJobId: jobId }
     }
@@ -68,10 +61,10 @@ export class ComfyUIProvider implements ArtistryProvider {
 
   private async pollForResult(
     jobId: string,
-    template: { workflow: Record<string, any>, exposedFields: Record<string, string[]> },
+    template: { workflow: Record<string, any>; exposedFields: Record<string, string[]> },
     request: ArtistryRequest,
   ) {
-    this.updateStatus(jobId, { status: 'running', actionLabel: 'Preparing workflow...' })
+    this.updateStatus(jobId, { actionLabel: 'Preparing workflow...', status: 'running' })
 
     try {
       // 0. Handle potential image and prompt upload bidirectional flow
@@ -83,12 +76,11 @@ export class ComfyUIProvider implements ArtistryProvider {
       let uploadedImageName = ''
       if (hasImagePlaceholder && request.extra?.image) {
         log.log(`[ComfyUI] Bidirectional flow detected. Uploading texture for job ${jobId}...`)
-        this.updateStatus(jobId, { status: 'running', actionLabel: 'Uploading texture to ComfyUI...' })
+        this.updateStatus(jobId, { actionLabel: 'Uploading texture to ComfyUI...', status: 'running' })
         try {
           uploadedImageName = await this.uploadImage(request.extra.image)
           log.log(`[ComfyUI] Texture uploaded as: ${uploadedImageName}`)
-        }
-        catch (e: any) {
+        } catch (e: any) {
           log.error(`[ComfyUI] Texture upload failed: ${e.message}`)
         }
       }
@@ -112,21 +104,20 @@ export class ComfyUIProvider implements ArtistryProvider {
       log.log(`[ComfyUI] Resolved prompt for ${jobId}:`, JSON.stringify(resolvedPrompt, null, 2))
 
       // 2. POST /prompt to queue the workflow
-      this.updateStatus(jobId, { status: 'running', actionLabel: 'Queuing in ComfyUI...' })
+      this.updateStatus(jobId, { actionLabel: 'Queuing in ComfyUI...', status: 'running' })
 
       let queueResp: Response
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000)
         queueResp = await fetch(`${this.serverUrl}/prompt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: resolvedPrompt }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
-      }
-      catch (e: any) {
+      } catch (e: any) {
         throw new Error(`Cannot connect to ComfyUI at ${this.serverUrl}: ${e.message}`)
       }
 
@@ -142,7 +133,7 @@ export class ComfyUIProvider implements ArtistryProvider {
       }
 
       log.log(`[ComfyUI] Queued prompt ${promptId} for job ${jobId}`)
-      this.updateStatus(jobId, { status: 'running', actionLabel: 'Generating...' })
+      this.updateStatus(jobId, { actionLabel: 'Generating...', status: 'running' })
 
       // 3. Poll /history/{prompt_id} until completion
       let historyDone = false
@@ -150,7 +141,7 @@ export class ComfyUIProvider implements ArtistryProvider {
       const startTime = Date.now()
 
       while (!historyDone) {
-        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
         attempt++
 
         if (Date.now() - startTime > POLL_TIMEOUT_MS) {
@@ -167,8 +158,7 @@ export class ComfyUIProvider implements ArtistryProvider {
           const timeoutId = setTimeout(() => controller.abort(), 30000)
           histResp = await fetch(`${this.serverUrl}/history/${promptId}`, { signal: controller.signal })
           clearTimeout(timeoutId)
-        }
-        catch (e: any) {
+        } catch (e: any) {
           throw new Error(`ComfyUI disconnected during polling: ${e.message}`)
         }
 
@@ -181,7 +171,7 @@ export class ComfyUIProvider implements ArtistryProvider {
             // 3.1. Race condition protection: If outputs are missing, wait a beat and retry once
             if ((!outputs || Object.keys(outputs).length === 0) && !historyDone) {
               log.warn(`[ComfyUI] Job ${jobId} finished but outputs are empty. Retrying history in 1s...`)
-              await new Promise(r => setTimeout(r, 1000))
+              await new Promise((r) => setTimeout(r, 1000))
               const controller = new AbortController()
               const timeoutId = setTimeout(() => controller.abort(), 30000)
               const retryResp = await fetch(`${this.serverUrl}/history/${promptId}`, { signal: controller.signal })
@@ -207,7 +197,7 @@ export class ComfyUIProvider implements ArtistryProvider {
                 const img = nodeOutput.images[0]
                 const imageUrl = `${this.serverUrl}/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${encodeURIComponent(img.type || 'output')}`
                 log.log(`[ComfyUI] Generation complete for job ${jobId}. Image: ${imageUrl}`)
-                this.updateStatus(jobId, { status: 'succeeded', progress: 100, imageUrl })
+                this.updateStatus(jobId, { imageUrl, progress: 100, status: 'succeeded' })
                 historyDone = true
                 break
               }
@@ -215,28 +205,29 @@ export class ComfyUIProvider implements ArtistryProvider {
 
             // Job finished but no images
             if (!historyDone) {
-              log.error(`[ComfyUI] Job finished for ${jobId} (Prompt ${promptId}) but no output images found. Raw History:`, JSON.stringify(histData[promptId], null, 2))
+              log.error(
+                `[ComfyUI] Job finished for ${jobId} (Prompt ${promptId}) but no output images found. Raw History:`,
+                JSON.stringify(histData[promptId], null, 2),
+              )
               this.updateStatus(jobId, {
-                status: 'failed',
-                error: 'Job completed but no images were generated',
                 actionLabel: 'Error: No images generated',
+                error: 'Job completed but no images were generated',
+                status: 'failed',
               })
               historyDone = true
             }
           }
         }
       }
-    }
-    catch (error: any) {
+    } catch (error: any) {
       const errorMessage = error.message || String(error)
       log.error(`[ComfyUI] Generation failed for job ${jobId}: ${errorMessage}`)
       this.updateStatus(jobId, {
-        status: 'failed',
-        error: errorMessage,
         actionLabel: `Error: ${errorMessage.slice(0, 50)}${errorMessage.length > 50 ? '...' : ''}`,
+        error: errorMessage,
+        status: 'failed',
       })
-    }
-    finally {
+    } finally {
       // Clean up callback after completion
       setTimeout(() => {
         this.callbacks.delete(jobId)
@@ -251,7 +242,7 @@ export class ComfyUIProvider implements ArtistryProvider {
    * Mirrors the logic from CUIPP's getComfyTemplate.js.
    */
   private applyOverrides(
-    template: { workflow: Record<string, any>, exposedFields: Record<string, string[]> },
+    template: { workflow: Record<string, any>; exposedFields: Record<string, string[]> },
     request: ArtistryRequest,
   ): Record<string, any> {
     // Deep clone the workflow so we don't mutate the stored template
@@ -266,8 +257,7 @@ export class ComfyUIProvider implements ArtistryProvider {
     if (request.prompt && !hasPromptPlaceholder) {
       for (const [nodeTitle, fields] of Object.entries(template.exposedFields)) {
         if (fields.includes('text')) {
-          if (!overrides[nodeTitle])
-            overrides[nodeTitle] = {}
+          if (!overrides[nodeTitle]) overrides[nodeTitle] = {}
           overrides[nodeTitle].text = request.prompt
           break // Only inject into the first text field
         }
@@ -279,13 +269,11 @@ export class ComfyUIProvider implements ArtistryProvider {
     const reservedKeys = ['template', 'internalJobId', 'remixId', 'options']
     if (request.extra) {
       for (const [key, value] of Object.entries(request.extra)) {
-        if (reservedKeys.includes(key))
-          continue
+        if (reservedKeys.includes(key)) continue
 
         // If it's an object, treat it as a potential node override
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          if (!overrides[key])
-            overrides[key] = {}
+          if (!overrides[key]) overrides[key] = {}
           Object.assign(overrides[key], value)
         }
       }
@@ -294,8 +282,7 @@ export class ComfyUIProvider implements ArtistryProvider {
     // Still support legacy .options nesting just in case
     if (request.extra?.options) {
       for (const [nodeTitle, fields] of Object.entries(request.extra.options as Record<string, Record<string, any>>)) {
-        if (!overrides[nodeTitle])
-          overrides[nodeTitle] = {}
+        if (!overrides[nodeTitle]) overrides[nodeTitle] = {}
         Object.assign(overrides[nodeTitle], fields)
       }
     }
@@ -350,8 +337,8 @@ export class ComfyUIProvider implements ArtistryProvider {
     formData.append('overwrite', 'true')
 
     const response = await fetch(`${this.serverUrl}/upload/image`, {
-      method: 'POST',
       body: formData,
+      method: 'POST',
     })
 
     if (!response.ok) {
@@ -372,8 +359,7 @@ export class ComfyUIProvider implements ArtistryProvider {
       return result
     }
 
-    if (Array.isArray(obj))
-      return obj.map(item => this.replacePlaceholders(item, replacements))
+    if (Array.isArray(obj)) return obj.map((item) => this.replacePlaceholders(item, replacements))
 
     if (obj !== null && typeof obj === 'object') {
       const newObj: any = {}

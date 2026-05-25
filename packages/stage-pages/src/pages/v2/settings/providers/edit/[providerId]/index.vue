@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import type { ProviderValidationStep } from '@proj-airi/stage-ui/libs'
-import type { ZodType } from 'zod'
-import type { $ZodType } from 'zod/v4/core'
-
 import { merge } from '@moeru/std'
 import {
   Alert,
@@ -15,14 +11,28 @@ import {
   ProviderSettingsLayout,
   ProviderValidationDetailsDialog,
 } from '@proj-airi/stage-ui/components'
-import { getDefinedProvider, getSchemaDefault, getValidatorsOfProvider, validateProvider } from '@proj-airi/stage-ui/libs'
+import type { ProviderValidationStep } from '@proj-airi/stage-ui/libs'
+import {
+  getDefinedProvider,
+  getSchemaDefault,
+  getValidatorsOfProvider,
+  validateProvider,
+} from '@proj-airi/stage-ui/libs'
 import { useProviderCatalogStore } from '@proj-airi/stage-ui/stores/provider-catalog'
 import { Button, Callout, FieldInput, FieldKeyValues, FieldSelect } from '@proj-airi/ui'
 import { useCloned, useDebounceFn } from '@vueuse/core'
-import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import type { ZodType } from 'zod'
+import type { $ZodType } from 'zod/v4/core'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -40,14 +50,18 @@ const providerSchemaDefault = computed(() => getSchemaDefault(providerSchema.val
 // It provides a 'cloned' ref that we use for editing without affecting the original store state.
 const { cloned: providerConfigEdit, sync: syncProviderConfigEdit } = useCloned(providerConfig, { manual: true })
 
-watch(providerConfig, (newVal, oldVal) => {
-  if (newVal && Object.keys(newVal).length > 0) {
-    // Only sync the draft if the underlying data in the store has actually changed from an external source.
-    if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
-      syncProviderConfigEdit()
+watch(
+  providerConfig,
+  (newVal, oldVal) => {
+    if (newVal && Object.keys(newVal).length > 0) {
+      // Only sync the draft if the underlying data in the store has actually changed from an external source.
+      if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+        syncProviderConfigEdit()
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const isEdited = computed(() => {
   const currentConfig = providerConfigEdit.value?.config || {}
@@ -63,15 +77,23 @@ const isValidating = ref(false)
 const showValidationDetails = ref(false)
 const activeValidationStepId = ref<string | undefined>(undefined)
 const validationSteps = ref<ProviderValidationStep[]>([])
-const hasValidationFailures = computed(() => validationSteps.value.some(step => step.status === 'invalid'))
+const hasValidationFailures = computed(() => validationSteps.value.some((step) => step.status === 'invalid'))
 
 const isOllamaProvider = computed(() => providerDefinition.value?.id === 'ollama')
 const shouldShowTroubleshootingOllamaConnectivity = computed(() => {
-  return isOllamaProvider.value && validationSteps.value.some(step => step.id === 'openai-compatible:check-connectivity' && step.status === 'invalid')
+  return (
+    isOllamaProvider.value &&
+    validationSteps.value.some(
+      (step) => step.id === 'openai-compatible:check-connectivity' && step.status === 'invalid',
+    )
+  )
 })
 
 function getSchemaShape(schema: $ZodType): Record<string, ZodType> {
-  const anySchema = schema as unknown as { shape?: Record<string, ZodType> | (() => Record<string, ZodType>), _def?: { shape?: Record<string, ZodType> | (() => Record<string, ZodType>) } }
+  const anySchema = schema as unknown as {
+    shape?: Record<string, ZodType> | (() => Record<string, ZodType>)
+    _def?: { shape?: Record<string, ZodType> | (() => Record<string, ZodType>) }
+  }
   if (anySchema.shape) {
     return typeof anySchema.shape === 'function' ? anySchema.shape() : anySchema.shape
   }
@@ -93,8 +115,7 @@ function isOptionalSchema(schema: ZodType) {
 const validatorEventStates = ref<Record<string, 'running' | 'success' | 'error'>>({})
 
 const schemaFields = computed(() => {
-  if (!providerSchema.value)
-    return []
+  if (!providerSchema.value) return []
 
   const shape = getSchemaShape(providerSchema.value)
   return Object.entries(shape).map(([key, schema]) => {
@@ -109,88 +130,92 @@ const schemaFields = computed(() => {
     const options = Array.isArray(meta.options)
       ? meta.options
           .map((item) => {
-            if (!item || typeof item !== 'object')
-              return null
+            if (!item || typeof item !== 'object') return null
 
-            const option = item as { label?: unknown, value?: unknown }
-            if (typeof option.label !== 'string')
-              return null
+            const option = item as { label?: unknown; value?: unknown }
+            if (typeof option.label !== 'string') return null
 
-            if (typeof option.value !== 'string' && typeof option.value !== 'number')
-              return null
+            if (typeof option.value !== 'string' && typeof option.value !== 'number') return null
 
             return {
               label: option.label,
               value: option.value,
             }
           })
-          .filter((item): item is { label: string, value: string | number } => item !== null)
+          .filter((item): item is { label: string; value: string | number } => item !== null)
       : undefined
 
     return {
+      description,
       key,
+      label,
+      options,
+      placeholder,
+      required: !isOptionalSchema(schema),
       schema,
       section,
       type,
-      options,
-      label,
-      description,
-      placeholder,
-      required: !isOptionalSchema(schema),
     }
   })
 })
 
-const basicFields = computed(() => schemaFields.value.filter(field => field.section === 'basic'))
-const advancedFields = computed(() => schemaFields.value.filter(field => field.section === 'advanced'))
+const basicFields = computed(() => schemaFields.value.filter((field) => field.section === 'basic'))
+const advancedFields = computed(() => schemaFields.value.filter((field) => field.section === 'advanced'))
 
 function setFieldValue(key: string, value: unknown) {
-  if (!providerConfigEdit.value)
-    return
+  if (!providerConfigEdit.value) return
 
   // NOTICE: Update local draft only. useCloned makes it safe to mutate 'cloned.value'.
   providerConfigEdit.value.config[key] = value
 }
 
-const headerRows = ref<Array<{ key: string, value: string }>>([{ key: '', value: '' }])
+const headerRows = ref<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
 const isSyncingHeaders = ref(false)
 
 function normalizeHeaderRows(headers: Record<string, string>) {
   const rows = Object.entries(headers || {}).map(([key, value]) => ({ key, value }))
   if (rows.length === 0) {
     rows.push({ key: '', value: '' })
-  }
-  else if (rows[rows.length - 1].key !== '' || rows[rows.length - 1].value !== '') {
+  } else if (rows[rows.length - 1].key !== '' || rows[rows.length - 1].value !== '') {
     rows.push({ key: '', value: '' })
   }
   return rows
 }
 
-watch(providerConfigEdit, (config) => {
-  if (!('headers' in config))
-    return
+watch(
+  providerConfigEdit,
+  (config) => {
+    if (!('headers' in config)) return
 
-  isSyncingHeaders.value = true
-  headerRows.value = normalizeHeaderRows((config.headers as Record<string, string>) || {})
-  isSyncingHeaders.value = false
-}, { deep: true, immediate: true })
+    isSyncingHeaders.value = true
+    headerRows.value = normalizeHeaderRows((config.headers as Record<string, string>) || {})
+    isSyncingHeaders.value = false
+  },
+  { deep: true, immediate: true },
+)
 
-watch(headerRows, (rows) => {
-  if (isSyncingHeaders.value)
-    return
-  const lastRow = rows[rows.length - 1]
-  if (!lastRow || lastRow.key.trim().length > 0 || lastRow.value.trim().length > 0) {
-    headerRows.value = [...rows, { key: '', value: '' }]
-    return
-  }
-  const headers = rows
-    .filter(entry => entry.key.trim().length > 0)
-    .reduce((acc, entry) => {
-      acc[entry.key] = entry.value
-      return acc
-    }, {} as Record<string, string>)
-  setFieldValue('headers', headers)
-}, { deep: true })
+watch(
+  headerRows,
+  (rows) => {
+    if (isSyncingHeaders.value) return
+    const lastRow = rows[rows.length - 1]
+    if (!lastRow || lastRow.key.trim().length > 0 || lastRow.value.trim().length > 0) {
+      headerRows.value = [...rows, { key: '', value: '' }]
+      return
+    }
+    const headers = rows
+      .filter((entry) => entry.key.trim().length > 0)
+      .reduce(
+        (acc, entry) => {
+          acc[entry.key] = entry.value
+          return acc
+        },
+        {} as Record<string, string>,
+      )
+    setFieldValue('headers', headers)
+  },
+  { deep: true },
+)
 
 function removeHeaderRow(index: number) {
   const rows = [...headerRows.value]
@@ -203,36 +228,36 @@ function removeHeaderRow(index: number) {
 }
 
 async function runValidation() {
-  if (!providerDefinition.value)
-    return
+  if (!providerDefinition.value) return
 
   const validationPlan = getValidationPlan()
-  if (!validationPlan)
-    return
+  if (!validationPlan) return
 
-  if (canSkipValidation.value)
-    return
+  if (canSkipValidation.value) return
 
-  if (!validationPlan.shouldValidate)
-    return
+  if (!validationPlan.shouldValidate) return
 
   isValidating.value = true
   validatorEventStates.value = {}
-  const results = await validateProvider(validationPlan, { t }, {
-    onValidatorStart: ({ step }) => {
-      validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'running' }
-      syncValidationSteps()
+  const results = await validateProvider(
+    validationPlan,
+    { t },
+    {
+      onValidatorError: ({ step }) => {
+        validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'error' }
+        syncValidationSteps()
+      },
+      onValidatorStart: ({ step }) => {
+        validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'running' }
+        syncValidationSteps()
+      },
+      onValidatorSuccess: ({ step }) => {
+        validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'success' }
+        syncValidationSteps()
+      },
     },
-    onValidatorSuccess: ({ step }) => {
-      validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'success' }
-      syncValidationSteps()
-    },
-    onValidatorError: ({ step }) => {
-      validatorEventStates.value = { ...validatorEventStates.value, [step.id]: 'error' }
-      syncValidationSteps()
-    },
-  })
-  if (isEdited.value && results.every(step => step.status !== 'invalid')) {
+  )
+  if (isEdited.value && results.every((step) => step.status !== 'invalid')) {
     commitEditedConfig({ validated: true, validationBypassed: false })
   }
   isValidating.value = false
@@ -241,22 +266,25 @@ async function runValidation() {
 const debouncedValidation = useDebounceFn(runValidation, 1500)
 let didInitValidation = false
 
-watch([providerConfigEdit, providerDefinition], () => {
-  if (!providerConfig.value || !providerConfigEdit.value) {
-    return
-  }
+watch(
+  [providerConfigEdit, providerDefinition],
+  () => {
+    if (!providerConfig.value || !providerConfigEdit.value) {
+      return
+    }
 
-  getValidationPlan()
+    getValidationPlan()
 
-  if (canSkipValidation.value)
-    return
+    if (canSkipValidation.value) return
 
-  if (!didInitValidation) {
-    didInitValidation = true
-    return
-  }
-  debouncedValidation()
-}, { deep: true, immediate: true })
+    if (!didInitValidation) {
+      didInitValidation = true
+      return
+    }
+    debouncedValidation()
+  },
+  { deep: true, immediate: true },
+)
 
 onMounted(() => {
   if (!providerConfig.value.validated) {
@@ -265,17 +293,15 @@ onMounted(() => {
 })
 
 function getValidationPlan() {
-  if (!providerDefinition.value)
-    return undefined
+  if (!providerDefinition.value) return undefined
 
   const validationPlan = getValidatorsOfProvider({
-    definition: providerDefinition.value,
     config: (providerConfigEdit.value?.config || {}) as Record<string, unknown>,
-    schemaDefaults: providerSchemaDefault.value as Record<string, unknown>,
     contextOptions: { t },
+    definition: providerDefinition.value,
+    schemaDefaults: providerSchemaDefault.value as Record<string, unknown>,
   })
-  if (!validationPlan)
-    return undefined
+  if (!validationPlan) return undefined
 
   validationSteps.value = validationPlan.steps
   return validationPlan
@@ -285,16 +311,14 @@ function syncValidationSteps() {
   validationSteps.value = [...validationSteps.value]
 }
 
-function commitEditedConfig(options: { validated: boolean, validationBypassed: boolean }) {
-  if (!providerConfigEdit.value)
-    return
+function commitEditedConfig(options: { validated: boolean; validationBypassed: boolean }) {
+  if (!providerConfigEdit.value) return
 
   providerCatalogStore.commitProviderConfig(providerId.value, { ...providerConfigEdit.value.config }, options)
 }
 
 function handleSaveAnyway() {
-  if (!isEdited.value)
-    return
+  if (!isEdited.value) return
 
   commitEditedConfig({ validated: false, validationBypassed: true })
 }

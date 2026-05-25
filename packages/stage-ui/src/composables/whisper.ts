@@ -1,8 +1,7 @@
-import type { MessageEvents, MessageGenerate, ProgressMessageEvents } from '../libs/workers/types'
-
 import { merge } from '@moeru/std'
 import { useWebWorker } from '@vueuse/core'
 import { onUnmounted, ref, watch } from 'vue'
+import type { MessageEvents, MessageGenerate, ProgressMessageEvents } from '../libs/workers/types'
 
 export interface UseWhisperOptions {
   onLoading: (message: string) => void
@@ -16,22 +15,21 @@ export interface UseWhisperOptions {
 }
 
 export function useWhisper(url: string, options?: Partial<UseWhisperOptions>) {
-  const opts = merge<UseWhisperOptions>({
-    onLoading: () => {},
-    onInitiate: () => {},
-    onProgress: () => {},
-    onDone: () => {},
-    onReady: () => {},
-    onStart: () => {},
-    onUpdate: () => {},
-    onComplete: () => {},
-  }, options)
+  const opts = merge<UseWhisperOptions>(
+    {
+      onComplete: () => {},
+      onDone: () => {},
+      onInitiate: () => {},
+      onLoading: () => {},
+      onProgress: () => {},
+      onReady: () => {},
+      onStart: () => {},
+      onUpdate: () => {},
+    },
+    options,
+  )
 
-  const {
-    post: whisperPost,
-    data: whisperData,
-    terminate,
-  } = useWebWorker<MessageEvents>(url, { type: 'module' })
+  const { post: whisperPost, data: whisperData, terminate } = useWebWorker<MessageEvents>(url, { type: 'module' })
 
   const status = ref<'loading' | 'ready' | null>(null)
   const loadingMessage = ref('')
@@ -64,7 +62,7 @@ export function useWhisper(url: string, options?: Partial<UseWhisperOptions>) {
         break
 
       case 'done':
-        loadingProgress.value = loadingProgress.value.filter(item => item.file !== e.file)
+        loadingProgress.value = loadingProgress.value.filter((item) => item.file !== e.file)
         opts.onDone?.(e)
         break
 
@@ -98,14 +96,14 @@ export function useWhisper(url: string, options?: Partial<UseWhisperOptions>) {
   })
 
   return {
-    transcribe: (message: MessageGenerate) => whisperPost(message),
-    status,
+    load: () => whisperPost({ type: 'load' }),
     loadingMessage,
     loadingProgress,
-    transcribing,
-    tps,
     result,
-    load: () => whisperPost({ type: 'load' }),
+    status,
     terminate,
+    tps,
+    transcribe: (message: MessageGenerate) => whisperPost(message),
+    transcribing,
   }
 }

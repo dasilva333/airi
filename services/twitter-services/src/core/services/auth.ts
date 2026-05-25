@@ -1,14 +1,12 @@
 import type { Cookie } from 'playwright'
-
-import type { TwitterService } from '../../types/services'
-import type { Context } from '../browser/context'
-
 import { TWITTER_LOGIN_URL, TWITTER_SESSION_FILE } from '../../constants'
+import type { TwitterService } from '../../types/services'
 import { logger } from '../../utils/logger'
+import type { Context } from '../browser/context'
 
 export function useTwitterAuthServices(ctx: Context): TwitterService {
   function hasAuthToken(cookies: Cookie[]) {
-    return cookies.some(cookie => cookie.name === 'auth_token')
+    return cookies.some((cookie) => cookie.name === 'auth_token')
   }
 
   function storeSession() {
@@ -49,8 +47,7 @@ export function useTwitterAuthServices(ctx: Context): TwitterService {
       await ctx.page.waitForSelector('input[autocomplete="username"]')
       logger.auth.log('Login form detected')
       return false
-    }
-    catch (error) {
+    } catch (error) {
       logger.auth.errorWithError('Error during login attempt', error)
       return false
     }

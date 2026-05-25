@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { NightlyBuild } from '../data/releases.data'
-
 import { useData } from 'vitepress'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { NightlyBuild } from '../data/releases.data'
 
 import { data as releases } from '../data/releases.data'
 
@@ -20,26 +19,25 @@ const displayReleases = computed(() => {
   if (props.type === 'releases') {
     const allReleases = [...releases.stable, ...releases.prerelease]
     allReleases.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
-    return (props.limit ? allReleases.slice(0, props.limit) : allReleases).map(release => ({
+    return (props.limit ? allReleases.slice(0, props.limit) : allReleases).map((release) => ({
+      date: release.published_at,
+      dateLabel: 'docs.versions.releases-list.released-on',
       key: release.tag_name,
       title: release.name || release.tag_name,
-      url: release.html_url,
-      date: release.published_at,
       type: (release.prerelease ? 'prerelease' : 'stable') as 'prerelease' | 'stable',
-      dateLabel: 'docs.versions.releases-list.released-on',
+      url: release.html_url,
     }))
-  }
-  else if (props.type === 'nightly-builds') {
+  } else if (props.type === 'nightly-builds') {
     const nightlyBuilds = releases.nightly as NightlyBuild[]
     nightlyBuilds.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    return (props.limit ? nightlyBuilds.slice(0, props.limit) : nightlyBuilds).map(build => ({
-      key: build.id,
-      title: build.name,
-      url: build.html_url,
+    return (props.limit ? nightlyBuilds.slice(0, props.limit) : nightlyBuilds).map((build) => ({
       date: build.created_at,
-      shortHash: build.head_sha,
-      type: 'nightly' as const,
       dateLabel: 'docs.versions.releases-list.built-on',
+      key: build.id,
+      shortHash: build.head_sha,
+      title: build.name,
+      type: 'nightly' as const,
+      url: build.html_url,
     }))
   }
   return []
@@ -49,15 +47,15 @@ function formatDate(dateString: string, locale?: string) {
   const date = new Date(dateString)
   const currentLang = locale || lang.value || 'en'
   const localeMap: Record<string, string> = {
-    'en': 'en-US',
+    en: 'en-US',
     'zh-Hans': 'zh-CN',
     'zh-Hant': 'zh-TW',
   }
 
   return date.toLocaleDateString(localeMap[currentLang] || currentLang, {
-    year: 'numeric',
-    month: 'short',
     day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   })
 }
 
@@ -70,7 +68,7 @@ function getVersionBadgeClass(type: 'stable' | 'prerelease' | 'nightly') {
   return classes[type]
 }
 
-function getVersionLabel(item: { type: 'stable' | 'prerelease' | 'nightly', shortHash?: string }) {
+function getVersionLabel(item: { type: 'stable' | 'prerelease' | 'nightly'; shortHash?: string }) {
   const labels = {
     nightly: `${t('docs.versions.releases-list.nightly')}-${item.shortHash}`,
     prerelease: t('docs.versions.releases-list.prerelease'),
@@ -82,15 +80,15 @@ function getVersionLabel(item: { type: 'stable' | 'prerelease' | 'nightly', shor
 const emptyStateConfig = computed(() => {
   if (props.type === 'nightly-builds') {
     return {
-      messageKey: 'docs.versions.releases-list.no-nightly',
-      linkUrl: 'https://github.com/moeru-ai/airi/releases',
       linkTextKey: 'docs.versions.releases-list.workflow-page',
+      linkUrl: 'https://github.com/moeru-ai/airi/releases',
+      messageKey: 'docs.versions.releases-list.no-nightly',
     }
   }
   return {
-    messageKey: 'docs.versions.releases-list.no-releases',
-    linkUrl: 'https://github.com/moeru-ai/airi/actions/workflows/release-tamagotchi.yml',
     linkTextKey: 'docs.versions.releases-list.releases-page',
+    linkUrl: 'https://github.com/moeru-ai/airi/actions/workflows/release-tamagotchi.yml',
+    messageKey: 'docs.versions.releases-list.no-releases',
   }
 })
 </script>

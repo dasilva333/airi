@@ -38,15 +38,13 @@ export async function scrollToLoadMoreTweets(
       // If no new tweets loaded, we may have reached the end
       if (currentTweetCount === previousTweetCount) {
         scrollAttempts++
-      }
-      else {
+      } else {
         scrollAttempts = 0 // Reset counter if tweets are still loading
       }
 
       logger.main.debug(`Scrolled to load more content: ${currentTweetCount}/${targetCount}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     logger.main.errorWithError('Error while scrolling to load more content:', (error as Error).message)
   }
 }

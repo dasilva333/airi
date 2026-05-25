@@ -1,7 +1,4 @@
-import type { HonoEnv } from './types/hono'
-
 import process from 'node:process'
-
 import { initLogger, LoggerFormat, LoggerLevel, useLogger } from '@guiiai/logg'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
@@ -9,7 +6,6 @@ import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { logger as honoLogger } from 'hono/logger'
 import { createLoggLogger, injeca, lifecycle } from 'injeca'
-
 import { createAuth } from './libs/auth'
 import { createDrizzle, migrateDatabase } from './libs/db'
 import { parsedEnv } from './libs/env'
@@ -22,6 +18,7 @@ import { createProviderRoutes } from './routes/providers'
 import { createCharacterService } from './services/characters'
 import { createChatService } from './services/chats'
 import { createProviderService } from './services/providers'
+import type { HonoEnv } from './types/hono'
 import { ApiError, createInternalError } from './utils/error'
 import { getTrustedOrigin } from './utils/origin'
 
@@ -47,8 +44,8 @@ function buildApp({ auth, characterService, chatService, providerService, otel }
     .use(
       '/api/*',
       cors({
-        origin: origin => getTrustedOrigin(origin),
         credentials: true,
+        origin: (origin) => getTrustedOrigin(origin),
       }),
     )
     .use(honoLogger())
@@ -57,53 +54,61 @@ function buildApp({ auth, characterService, chatService, providerService, otel }
     app.use('*', otelMiddleware(otel))
   }
 
-  return app
-    .use('*', sessionMiddleware(auth))
-    .use('*', bodyLimit({ maxSize: 1024 * 1024 }))
-    .onError((err, c) => {
-      if (err instanceof ApiError) {
-        logger.withError(err).warn('API error occurred')
+  return (
+    app
+      .use('*', sessionMiddleware(auth))
+      .use('*', bodyLimit({ maxSize: 1024 * 1024 }))
+      .onError((err, c) => {
+        if (err instanceof ApiError) {
+          logger.withError(err).warn('API error occurred')
 
-        return c.json({
-          error: err.errorCode,
-          message: err.message,
-          details: err.details,
-        }, err.statusCode)
-      }
+          return c.json(
+            {
+              details: err.details,
+              error: err.errorCode,
+              message: err.message,
+            },
+            err.statusCode,
+          )
+        }
 
-      logger.withError(err).error('Unhandled error')
-      const internalError = createInternalError()
-      return c.json({
-        error: internalError.errorCode,
-        message: internalError.message,
-      }, internalError.statusCode)
-    })
+        logger.withError(err).error('Unhandled error')
+        const internalError = createInternalError()
+        return c.json(
+          {
+            error: internalError.errorCode,
+            message: internalError.message,
+          },
+          internalError.statusCode,
+        )
+      })
 
-    /**
-     * Health check route.
-     */
-    .on('GET', '/health', c => c.json({ status: 'ok' }))
+      /**
+       * Health check route.
+       */
+      .on('GET', '/health', (c) => c.json({ status: 'ok' }))
 
-    /**
-     * Auth routes are handled by the auth instance directly,
-     * Powered by better-auth.
-     */
-    .on(['POST', 'GET'], '/api/auth/*', c => auth.handler(c.req.raw))
+      /**
+       * Auth routes are handled by the auth instance directly,
+       * Powered by better-auth.
+       */
+      .on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
-    /**
-     * Character routes are handled by the character service.
-     */
-    .route('/api/characters', createCharacterRoutes(characterService))
+      /**
+       * Character routes are handled by the character service.
+       */
+      .route('/api/characters', createCharacterRoutes(characterService))
 
-    /**
-     * Provider routes are handled by the provider service.
-     */
-    .route('/api/providers', createProviderRoutes(providerService))
+      /**
+       * Provider routes are handled by the provider service.
+       */
+      .route('/api/providers', createProviderRoutes(providerService))
 
-    /**
-     * Chat routes are handled by the chat service.
-     */
-    .route('/api/chats', createChatRoutes(chatService))
+      /**
+       * Chat routes are handled by the chat service.
+       */
+      .route('/api/chats', createChatRoutes(chatService))
+  )
 }
 
 export type AppType = ReturnType<typeof buildApp>
@@ -114,19 +119,17 @@ async function createApp() {
   const logger = useLogger('app').useGlobalConfig()
 
   const otel = injeca.provide('otel', {
-    dependsOn: { env: parsedEnv, lifecycle },
     build: ({ dependsOn }) => {
       const o = initOtel(dependsOn.env)
-      if (!o)
-        return null
+      if (!o) return null
 
       dependsOn.lifecycle.appHooks.onStop(() => o.shutdown())
       return o
     },
+    dependsOn: { env: parsedEnv, lifecycle },
   })
 
   const db = injeca.provide('services:db', {
-    dependsOn: { env: parsedEnv, lifecycle },
     build: async ({ dependsOn }) => {
       const { db: dbInstance, pool } = createDrizzle(dependsOn.env.DATABASE_URL)
       await dbInstance.execute('SELECT 1')
@@ -137,36 +140,37 @@ async function createApp() {
       dependsOn.lifecycle.appHooks.onStop(() => pool.end())
       return dbInstance
     },
+    dependsOn: { env: parsedEnv, lifecycle },
   })
 
   const auth = injeca.provide('services:auth', {
-    dependsOn: { db, env: parsedEnv },
     build: ({ dependsOn }) => createAuth(dependsOn.db, dependsOn.env),
+    dependsOn: { db, env: parsedEnv },
   })
 
   const characterService = injeca.provide('services:characters', {
-    dependsOn: { db },
     build: ({ dependsOn }) => createCharacterService(dependsOn.db),
+    dependsOn: { db },
   })
 
   const providerService = injeca.provide('services:providers', {
-    dependsOn: { db },
     build: ({ dependsOn }) => createProviderService(dependsOn.db),
+    dependsOn: { db },
   })
 
   const chatService = injeca.provide('services:chats', {
-    dependsOn: { db },
     build: ({ dependsOn }) => createChatService(dependsOn.db),
+    dependsOn: { db },
   })
 
   await injeca.start()
-  const resolved = await injeca.resolve({ auth, characterService, chatService, providerService, otel })
+  const resolved = await injeca.resolve({ auth, characterService, chatService, otel, providerService })
   const app = buildApp({
     auth: resolved.auth,
     characterService: resolved.characterService,
     chatService: resolved.chatService,
-    providerService: resolved.providerService,
     otel: resolved.otel,
+    providerService: resolved.providerService,
   })
 
   logger.withFields({ port: 3000 }).log('Server started')
@@ -181,5 +185,5 @@ function handleError(error: unknown, type: string) {
   useLogger().withError(error).error(type)
 }
 
-process.on('uncaughtException', error => handleError(error, 'Uncaught exception'))
-process.on('unhandledRejection', error => handleError(error, 'Unhandled rejection'))
+process.on('uncaughtException', (error) => handleError(error, 'Uncaught exception'))
+process.on('unhandledRejection', (error) => handleError(error, 'Unhandled rejection'))

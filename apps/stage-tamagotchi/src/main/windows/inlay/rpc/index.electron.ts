@@ -1,10 +1,8 @@
+import { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { BrowserWindow } from 'electron'
-
+import { ipcMain } from 'electron'
 import type { I18n } from '../../../libs/i18n'
 import type { ServerChannel } from '../../../services/airi/channel-server'
-
-import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { ipcMain } from 'electron'
 
 import { setupBaseWindowElectronInvokes } from '../../shared/window'
 
@@ -22,8 +20,8 @@ export async function setupInlayWindowInvokes(params: {
 
   await setupBaseWindowElectronInvokes({
     context,
-    window: params.inlayWindow,
-    serverChannel: params.serverChannel,
     i18n: params.i18n,
+    serverChannel: params.serverChannel,
+    window: params.inlayWindow,
   })
 }

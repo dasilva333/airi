@@ -7,16 +7,16 @@ import { ref } from 'vue'
 import PropertyColor from './property-color.vue'
 import PropertyNumber from './property-number.vue'
 
-type DataPaneSchemaTypes
-  = | DataPaneSchemaNumber
-    | DataPaneSchemaColor
-    | DataPaneSchemaString
-    | DataPaneSchemaBoolean
-    | DataPaneSchemaSelect
-    | DataPaneSchemaJSON
-    | DataPaneSchemaPoint
-    | DataPaneSchemaFile
-    | DataPaneSchemaDate
+type DataPaneSchemaTypes =
+  | DataPaneSchemaNumber
+  | DataPaneSchemaColor
+  | DataPaneSchemaString
+  | DataPaneSchemaBoolean
+  | DataPaneSchemaSelect
+  | DataPaneSchemaJSON
+  | DataPaneSchemaPoint
+  | DataPaneSchemaFile
+  | DataPaneSchemaDate
 
 interface DataPaneSchema {
   [key: string]: DataPaneSchemaTypes
@@ -52,7 +52,7 @@ interface DataPaneSchemaBoolean {
 
 interface DataPaneSchemaSelect {
   type: 'select'
-  options: Array<string> | Array<{ label: string, value: string }>
+  options: Array<string> | Array<{ label: string; value: string }>
   default?: string
   label?: string
 }
@@ -65,7 +65,7 @@ interface DataPaneSchemaJSON {
 
 interface DataPaneSchemaPoint {
   type: 'point'
-  default?: { x: number, y: number }
+  default?: { x: number; y: number }
   label?: string
 }
 
@@ -81,23 +81,33 @@ interface DataPaneSchemaDate {
   label?: string
 }
 
-type SchemaToValueType<T extends DataPaneSchemaTypes>
-  = T extends DataPaneSchemaNumber ? number
-    : T extends DataPaneSchemaColor ? Globals | DataType.Color
-      : T extends DataPaneSchemaString ? string
-        : T extends DataPaneSchemaBoolean ? boolean
-          : T extends DataPaneSchemaSelect ? string
-            : T extends DataPaneSchemaJSON ? string
-              : T extends DataPaneSchemaPoint ? { x: number, y: number }
-                : T extends DataPaneSchemaFile ? File
-                  : T extends DataPaneSchemaDate ? Date
-                    : never
+type SchemaToValueType<T extends DataPaneSchemaTypes> = T extends DataPaneSchemaNumber
+  ? number
+  : T extends DataPaneSchemaColor
+    ? Globals | DataType.Color
+    : T extends DataPaneSchemaString
+      ? string
+      : T extends DataPaneSchemaBoolean
+        ? boolean
+        : T extends DataPaneSchemaSelect
+          ? string
+          : T extends DataPaneSchemaJSON
+            ? string
+            : T extends DataPaneSchemaPoint
+              ? { x: number; y: number }
+              : T extends DataPaneSchemaFile
+                ? File
+                : T extends DataPaneSchemaDate
+                  ? Date
+                  : never
 
 type InferDataPaneType<T extends DataPaneSchema> = {
   [K in keyof T]: SchemaToValueType<T[K]>
 }
 
-function useDataPane<T extends DataPaneSchema>(schema: T): {
+function useDataPane<T extends DataPaneSchema>(
+  schema: T,
+): {
   data: Ref<InferDataPaneType<T>>
   schema: { [K in keyof InferDataPaneType<T>]: T[K] }
   states: Ref<Record<keyof T, unknown>>
@@ -130,14 +140,14 @@ function useDataPane<T extends DataPaneSchema>(schema: T): {
   return {
     data: data as Ref<InferDataPaneType<T>>,
     schema,
-    states: states as Ref<Record<keyof T, unknown>>,
     stateOf,
+    states: states as Ref<Record<keyof T, unknown>>,
   }
 }
 
 const { data, schema } = useDataPane({
-  number: { type: 'number', default: 50, min: 0, max: 100, step: 0.01, label: 'Number' },
-  color: { type: 'color', default: '#ff0000', defaultMode: 'hex', label: 'Color' },
+  color: { default: '#ff0000', defaultMode: 'hex', label: 'Color', type: 'color' },
+  number: { default: 50, label: 'Number', max: 100, min: 0, step: 0.01, type: 'number' },
 })
 </script>
 

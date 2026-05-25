@@ -1,30 +1,8 @@
 {
-  "name": "@proj-airi/stage-shared",
-  "type": "module",
-  "private": true,
-  "description": "Shared",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-shared"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./vite": "./src/vite.ts",
-    "./beat-sync": "./src/beat-sync/index.ts",
-    "./electron-renderer": "./src/electron-renderer.d.ts",
-    "./composables": "./src/composables/index.ts",
-    "./shortcuts": "./src/shortcuts.ts",
-    "./utils/*": "./src/utils/*.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@moeru/eventa": "catalog:",
@@ -38,10 +16,32 @@
     "vue": "catalog:",
     "xsschema": "catalog:"
   },
+  "description": "Shared",
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@nekopaw/tempora": "catalog:",
     "@proj-airi/electron-screen-capture": "workspace:^",
     "@types/audioworklet": "catalog:"
-  }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./beat-sync": "./src/beat-sync/index.ts",
+    "./composables": "./src/composables/index.ts",
+    "./electron-renderer": "./src/electron-renderer.d.ts",
+    "./shortcuts": "./src/shortcuts.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./vite": "./src/vite.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-shared",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-shared",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module"
 }

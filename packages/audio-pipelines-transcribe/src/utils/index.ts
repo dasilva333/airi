@@ -21,16 +21,16 @@ export async function mediaStreamFromAudioFile(file: File): Promise<{
   })
 
   return {
-    stream: destination.stream,
     cleanup: async () => {
       try {
         source.stop()
+      } catch {
+        /* noop */
       }
-
-      catch { /* noop */ }
       source.disconnect()
       destination.disconnect()
       await audioContext.close()
     },
+    stream: destination.stream,
   }
 }

@@ -1,24 +1,8 @@
 {
-  "name": "@proj-airi/stage-pocket",
-  "type": "module",
-  "version": "0.9.1-stable.20260506",
-  "private": true,
-  "description": "LLM powered virtual character",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "scripts": {
-    "build": "vite build",
-    "lint": "eslint .",
-    "lint:swift": "swiftlint ios",
-    "preview": "vite preview",
-    "open:ios": "cap open ios",
-    "typecheck": "vue-tsc --noEmit",
-    "dev:web": "vite",
-    "dev:ios": "cap-vite -- ios"
   },
   "dependencies": {
     "@capacitor/core": "catalog:",
@@ -98,6 +82,7 @@
     "yauzl": "^3.2.0",
     "zod": "catalog:"
   },
+  "description": "LLM powered virtual character",
   "devDependencies": {
     "@capacitor/cli": "catalog:",
     "@iconify-json/carbon": "^1.2.18",
@@ -141,5 +126,20 @@
     "vite-plugin-vue-layouts": "^0.11.0",
     "vue-macros": "^3.1.2",
     "vue-tsc": "^3.1.8"
-  }
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-pocket",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev:ios": "cap-vite -- ios",
+    "dev:web": "vite",
+    "lint": "biome check .",
+    "lint:swift": "swiftlint ios",
+    "open:ios": "cap open ios",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.9.1-stable.20260506"
 }

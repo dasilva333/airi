@@ -8,8 +8,7 @@ export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://airi-api.m
 export const REMOTE_SYNC_STORAGE_KEY = 'settings/privacy/remote-sync-enabled'
 
 export function isRemoteSyncEnabled() {
-  if (typeof localStorage === 'undefined')
-    return false
+  if (typeof localStorage === 'undefined') return false
 
   return localStorage.getItem(REMOTE_SYNC_STORAGE_KEY) === 'true'
 }
@@ -20,8 +19,7 @@ export const authClient = createAuthClient({
 })
 
 export async function fetchSession() {
-  if (!isRemoteSyncEnabled())
-    return false
+  if (!isRemoteSyncEnabled()) return false
 
   const { data } = await authClient.getSession()
   if (data) {
@@ -49,7 +47,7 @@ export async function signOut() {
 
 export async function signIn(provider: OAuthProvider) {
   return await authClient.signIn.social({
-    provider,
     callbackURL: window.location.origin,
+    provider,
   })
 }

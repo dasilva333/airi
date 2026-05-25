@@ -1,10 +1,7 @@
-import type { SatoriMessage, SatoriMessageCreateRequest, SatoriMessageCreateResponse } from './types'
-
 import { useLogg } from '@guiiai/logg'
-
 import * as v from 'valibot'
-
 import { SatoriMessageCreateResponseSchema, SatoriMessageSchema } from './schema'
+import type { SatoriMessage, SatoriMessageCreateRequest, SatoriMessageCreateResponse } from './types'
 
 const log = useLogg('SatoriAPI')
 
@@ -36,17 +33,14 @@ export class SatoriAPI {
     return headers
   }
 
-  private async request<T>(
-    endpoint: string,
-    body?: unknown,
-  ): Promise<T> {
+  private async request<T>(endpoint: string, body?: unknown): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`
 
     try {
       const response = await fetch(url, {
-        method: 'POST',
-        headers: this.getHeaders(),
         body: body ? JSON.stringify(body) : undefined,
+        headers: this.getHeaders(),
+        method: 'POST',
         signal: AbortSignal.timeout(10000),
       })
 
@@ -55,18 +49,14 @@ export class SatoriAPI {
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
-      return await response.json() as T
-    }
-    catch (error) {
+      return (await response.json()) as T
+    } catch (error) {
       log.withError(error as Error).error(`Failed to call ${endpoint}`)
       throw error
     }
   }
 
-  async sendMessage(
-    channelId: string,
-    content: string,
-  ): Promise<SatoriMessageCreateResponse[]> {
+  async sendMessage(channelId: string, content: string): Promise<SatoriMessageCreateResponse[]> {
     const body: SatoriMessageCreateRequest = {
       channel_id: channelId,
       content,
@@ -95,8 +85,8 @@ export class SatoriAPI {
   async updateMessage(channelId: string, messageId: string, content: string): Promise<void> {
     await this.request('/message.update', {
       channel_id: channelId,
-      message_id: messageId,
       content,
+      message_id: messageId,
     })
   }
 }

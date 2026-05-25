@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-const props = withDefaults(defineProps<{
-  values: number[]
-  min?: number
-  max?: number
-  step?: number
-  disabled?: boolean
-}>(), {
-  min: 0,
-  max: 100,
-  step: 1,
-  disabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    values: number[]
+    min?: number
+    max?: number
+    step?: number
+    disabled?: boolean
+  }>(),
+  {
+    disabled: false,
+    max: 100,
+    min: 0,
+    step: 1,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'update:values', value: number[]): void
@@ -31,13 +34,16 @@ const previousIndex = ref<number>(0)
 const asc = (a: number, b: number) => a - b
 
 function findClosest(values: number[], currentValue: number) {
-  const { index: closestIndex } = values.reduce((acc: { distance: number, index: number } | null, value: number, index: number) => {
-    const distance = Math.abs(currentValue - value)
-    if (acc === null || distance < acc.distance || distance === acc.distance) {
-      return { distance, index }
-    }
-    return acc
-  }, null) || { index: 0 }
+  const { index: closestIndex } = values.reduce(
+    (acc: { distance: number; index: number } | null, value: number, index: number) => {
+      const distance = Math.abs(currentValue - value)
+      if (acc === null || distance < acc.distance || distance === acc.distance) {
+        return { distance, index }
+      }
+      return acc
+    },
+    null,
+  ) || { index: 0 }
   return closestIndex
 }
 
@@ -66,25 +72,23 @@ function roundValueToStep(value: number, step: number) {
 
 // Computed values
 const sortedValues = computed(() => {
-  return [...props.values]
-    .sort(asc)
-    .map(value => clamp(value, props.min, props.max))
+  return [...props.values].sort(asc).map((value) => clamp(value, props.min, props.max))
 })
 
 const sliderStyle = computed(() => {
   const sliderOffset = valueToPercent(sortedValues.value[0], props.min, props.max)
-  const sliderLeap = valueToPercent(sortedValues.value[sortedValues.value.length - 1], props.min, props.max) - sliderOffset
+  const sliderLeap =
+    valueToPercent(sortedValues.value[sortedValues.value.length - 1], props.min, props.max) - sliderOffset
   return {
+    backgroundSize: `${sliderLeap}% 100%`,
     left: `${sliderOffset}%`,
     width: `${sliderLeap}%`,
-    backgroundSize: `${sliderLeap}% 100%`,
   }
 })
 
 // Event handlers
 function getNewValue(event: MouseEvent, move = false) {
-  if (!sliderRef.value)
-    return { newValue: sortedValues.value, activeIndex: 0 }
+  if (!sliderRef.value) return { activeIndex: 0, newValue: sortedValues.value }
 
   const { width, left } = sliderRef.value.getBoundingClientRect()
   const percent = (event.clientX - left) / width
@@ -103,14 +107,13 @@ function getNewValue(event: MouseEvent, move = false) {
   previousIndex.value = newActiveIndex
 
   return {
-    newValue: sortedNewValues,
     activeIndex: newActiveIndex,
+    newValue: sortedNewValues,
   }
 }
 
 function handleMouseDown(event: MouseEvent) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   event.preventDefault()
   isDragging.value = true
@@ -121,23 +124,20 @@ function handleMouseDown(event: MouseEvent) {
 }
 
 function handleMouseMove(event: MouseEvent) {
-  if (!isDragging.value || props.disabled)
-    return
+  if (!isDragging.value || props.disabled) return
 
   const { newValue } = getNewValue(event, true)
   emit('update:values', newValue)
 }
 
 function handleMouseUp(_: MouseEvent) {
-  if (!isDragging.value)
-    return
+  if (!isDragging.value) return
 
   isDragging.value = false
 }
 
 function handleMouseLeave(event: MouseEvent) {
-  if (!isDragging.value)
-    return
+  if (!isDragging.value) return
   handleMouseUp(event)
 }
 </script>

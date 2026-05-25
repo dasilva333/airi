@@ -1,0 +1,196 @@
+{
+  "$schema": "https://biome.dev/schemas/2.0.0/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedKeys": "on"
+      }
+    },
+    "enabled": true
+  },
+  "css": {
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!!**/node_modules",
+      "!!**/dist",
+      "!!**/.output",
+      "!!**/.nuxt",
+      "!!**/coverage",
+      "!!**/out",
+      "!!**/bundle",
+      "!!**/.turbo",
+      "!!**/.cache",
+      "!!**/tsconfig.tsbuildinfo",
+      "!!**/drizzle",
+      "!!**/.astro",
+      "!!**/assets/js",
+      "!!**/assets/live2d/models",
+      "!!**/assets/vrm/models",
+      "!!**/public/assets/fonts",
+      "!!**/public/assets/js",
+      "!!**/crates",
+      "!!**/apps/stage-tamagotchi/out",
+      "!!**/apps/stage-tamagotchi/src/bindings",
+      "!!**/apps/stage-tamagotchi/src-tauri",
+      "!!**/apps/stage-tamagotchi-electron/out",
+      "!!**/apps/stage-tamagotchi-electron/src/renderer/bindings",
+      "!!**/apps/stage-pocket/ios",
+      "!!**/apps/stage-pocket/android",
+      "!!**/apps/stage-pocket/capacitor-cordova-ios-plugins",
+      "!!**/apps/stage-pocket/capacitor-cordova-android-plugins",
+      "!!**/vscode-airi/src/generated",
+      "!!**/vscode-airi/LICENSE",
+      "!!**/plugins/local",
+      "!!**/plugins/development",
+      "!!**/plugins-local",
+      "!!**/plugins-development",
+      "!!**/.postgres",
+      "!!**/twitter-session.json",
+      "!!**/target/",
+      "!!**/crates/*/target/",
+      "!!**/.direnv",
+      "!!**/.envrc",
+      "!!**/.devenv*",
+      "!!**/devenv.*",
+      "!!**/result*",
+      "!!**/outputs/",
+      "!!**/.roo/",
+      "!!**/.ghfs/",
+      "!!**/scratch/",
+      "!!**/reports/",
+      "!!**/recovery_artifacts/",
+      "!!**/*.patch",
+      "!!**/extract.js",
+      "!!**/fixed_data.txt",
+      "!!**/packages/model-driver-mediapipe/tasks/assets/*",
+      "!!**/CLAUDE.md"
+    ]
+  },
+
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "arrowParentheses": "always",
+      "bracketSameLine": false,
+      "bracketSpacing": true,
+      "jsxQuoteStyle": "double",
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all"
+    },
+    "globals": []
+  },
+  "json": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "trailingCommas": "none"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "a11y": {
+        "noSvgWithoutTitle": "off",
+        "useButtonType": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "complexity": {
+        "noForEach": "off",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "warn"
+      },
+      "performance": {
+        "noAccumulatingSpread": "warn"
+      },
+      "recommended": true,
+      "style": {
+        "noNegationElse": "off",
+        "useConst": "error",
+        "useExportType": "error",
+        "useImportType": "error"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noExplicitAny": "warn"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx", "**/tests/**", "**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useImportType": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["*.svelte", "*.astro"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useImportType": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["*.ts", "*.tsx", "*.mts", "*.cts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "error",
+            "noUnusedVariables": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["*.vue"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "off"
+          },
+          "style": {
+            "useImportType": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
+  "vcs": {
+    "clientKind": "git",
+    "enabled": true,
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
+  }
+}

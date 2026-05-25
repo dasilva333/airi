@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { TTSInputChunk } from '../../../utils/tts'
-
 import { createQueue } from '@proj-airi/stream-kit'
 import { animate } from 'animejs'
 import { ref } from 'vue'
-
 import { useAudioContext } from '../../../stores/audio'
+import type { TTSInputChunk } from '../../../utils/tts'
 import { chunkTTSInput } from '../../../utils/tts'
 
 const props = defineProps<{
@@ -20,7 +18,7 @@ const nowSpeaking = ref(false)
 const ttsInputChunks = ref<TTSInputChunk[]>([])
 const speechGenerationIndex = ref(-1)
 
-const audioQueue = createQueue<{ audioBuffer: AudioBuffer, text: string }>({
+const audioQueue = createQueue<{ audioBuffer: AudioBuffer; text: string }>({
   handlers: [
     (ctx) => {
       return new Promise((resolve) => {
@@ -49,8 +47,7 @@ async function handleSpeechGeneration(ctx: { data: string }) {
 
     const audioBuffer = await audioContext.decodeAudioData(res)
     audioQueue.enqueue({ audioBuffer, text: ctx.data })
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Speech generation failed:', error)
   }
 }
@@ -59,9 +56,8 @@ const ttsQueue = createQueue<string>({ handlers: [handleSpeechGeneration] })
 
 async function testStreaming() {
   speechGenerationIndex.value = -1
-  for await (const chunk of chunkTTSInput(props.text, { boost: 1, minimumWords: 4, maximumWords: 12 })) {
-    if (!chunk.text)
-      continue
+  for await (const chunk of chunkTTSInput(props.text, { boost: 1, maximumWords: 12, minimumWords: 4 })) {
+    if (!chunk.text) continue
     ttsQueue.enqueue(chunk.text)
   }
 }
@@ -75,7 +71,7 @@ async function testChunking() {
     },
   })
 
-  for await (const chunk of chunkTTSInput(stream.getReader(), { boost: 1, minimumWords: 4, maximumWords: 12 })) {
+  for await (const chunk of chunkTTSInput(stream.getReader(), { boost: 1, maximumWords: 12, minimumWords: 4 })) {
     chunks.push(chunk)
   }
 

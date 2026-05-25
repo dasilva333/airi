@@ -2,64 +2,69 @@
 import { FieldKeyValues } from '@proj-airi/ui'
 import { ref, watch } from 'vue'
 
-const emptyHeaders = ref<{ key: string, value: string }[]>([
-  { key: '', value: '' },
-])
-const singleHeader = ref<{ key: string, value: string }[]>([
-  { key: 'Content-Type', value: 'application/json' },
-])
-const multipleHeaders = ref<{ key: string, value: string }[]>([
+const emptyHeaders = ref<{ key: string; value: string }[]>([{ key: '', value: '' }])
+const singleHeader = ref<{ key: string; value: string }[]>([{ key: 'Content-Type', value: 'application/json' }])
+const multipleHeaders = ref<{ key: string; value: string }[]>([
   { key: 'Authorization', value: 'Bearer token123' },
   { key: 'Accept', value: 'application/json' },
   { key: 'X-API-Key', value: 'abc123xyz456' },
 ])
 
-function addKeyValue(headers: { key: string, value: string }[], key: string, value: string) {
-  if (!headers)
-    return
+function addKeyValue(headers: { key: string; value: string }[], key: string, value: string) {
+  if (!headers) return
 
   headers.push({ key, value })
 }
 
-function removeKeyValue(index: number, headers: { key: string, value: string }[]) {
-  if (!headers)
-    return
+function removeKeyValue(index: number, headers: { key: string; value: string }[]) {
+  if (!headers) return
 
   if (headers.length === 1) {
     headers[0].key = ''
     headers[0].value = ''
-  }
-  else {
+  } else {
     headers.splice(index, 1)
   }
 }
 
-watch(emptyHeaders, (headers) => {
-  if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
-    emptyHeaders.value.push({ key: '', value: '' })
-  }
-}, {
-  deep: true,
-  immediate: true,
-})
+watch(
+  emptyHeaders,
+  (headers) => {
+    if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
+      emptyHeaders.value.push({ key: '', value: '' })
+    }
+  },
+  {
+    deep: true,
+    immediate: true,
+  },
+)
 
-watch(singleHeader, (headers) => {
-  if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
-    singleHeader.value.push({ key: '', value: '' })
-  }
-}, {
-  deep: true,
-  immediate: true,
-})
+watch(
+  singleHeader,
+  (headers) => {
+    if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
+      singleHeader.value.push({ key: '', value: '' })
+    }
+  },
+  {
+    deep: true,
+    immediate: true,
+  },
+)
 
-watch(multipleHeaders, (headers) => {
-  if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
-    multipleHeaders.value.push({ key: '', value: '' })
-  }
-}, {
-  deep: true,
-  immediate: true,
-})
+watch(
+  multipleHeaders,
+  (headers) => {
+    if (headers.length > 0 && (headers[headers.length - 1].key !== '' || headers[headers.length - 1].value !== '')) {
+      multipleHeaders.value.push({ key: '', value: '' })
+    }
+  },
+  {
+    deep: true,
+    immediate: true,
+  },
+)
 </script>
 
 <template>

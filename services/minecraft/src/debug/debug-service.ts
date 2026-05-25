@@ -1,3 +1,4 @@
+import { DebugServer } from './server'
 import type {
   BlackboardEvent,
   BrainStateEvent,
@@ -12,8 +13,6 @@ import type {
   ServerEvent,
   TraceEvent,
 } from './types'
-
-import { DebugServer } from './server'
 
 type CommandHandler = (command: ClientCommand) => void
 
@@ -61,13 +60,13 @@ export class DebugService {
    */
   public log(level: LogEvent['level'], message: string, fields?: Record<string, unknown>): void {
     const event: ServerEvent = {
-      type: 'log',
       payload: {
+        fields,
         level,
         message,
-        fields,
         timestamp: Date.now(),
       },
+      type: 'log',
     }
     this.server.broadcast(event)
   }
@@ -77,11 +76,11 @@ export class DebugService {
    */
   public traceLLM(trace: Omit<LLMTraceEvent, 'timestamp'>): void {
     const event: ServerEvent = {
-      type: 'llm',
       payload: {
         ...trace,
         timestamp: Date.now(),
       },
+      type: 'llm',
     }
     this.server.broadcast(event)
   }
@@ -91,11 +90,11 @@ export class DebugService {
    */
   public emitBrainState(state: Omit<BrainStateEvent, 'timestamp'>): void {
     const event: ServerEvent = {
-      type: 'brain_state',
       payload: {
         ...state,
         timestamp: Date.now(),
       },
+      type: 'brain_state',
     }
     this.server.broadcast(event)
   }
@@ -105,12 +104,12 @@ export class DebugService {
    */
   public updateQueue(queue: QueueEvent['queue'], processing?: QueueEvent['processing']): void {
     const event: ServerEvent = {
-      type: 'queue',
       payload: {
-        queue,
         processing,
+        queue,
         timestamp: Date.now(),
       },
+      type: 'queue',
     }
     this.server.broadcast(event)
   }
@@ -120,8 +119,8 @@ export class DebugService {
    */
   public emitTrace(trace: TraceEvent): void {
     const event: ServerEvent = {
-      type: 'trace',
       payload: trace,
+      type: 'trace',
     }
     this.server.broadcast(event)
   }
@@ -130,15 +129,14 @@ export class DebugService {
    * Emit a batch of trace events (more efficient for high-frequency events)
    */
   public emitTraceBatch(traces: TraceEvent[]): void {
-    if (traces.length === 0)
-      return
+    if (traces.length === 0) return
 
     const event: ServerEvent = {
-      type: 'trace_batch',
       payload: {
         events: traces,
         timestamp: Date.now(),
       },
+      type: 'trace_batch',
     }
     this.server.broadcast(event)
   }
@@ -148,11 +146,11 @@ export class DebugService {
    */
   public emitConversationUpdate(state: Omit<ConversationUpdateEvent, 'timestamp'>): void {
     const event: ServerEvent = {
-      type: 'conversation_update',
       payload: {
         ...state,
         timestamp: Date.now(),
       },
+      type: 'conversation_update',
     }
     this.server.broadcast(event)
   }
@@ -162,11 +160,11 @@ export class DebugService {
    */
   public emitReflexState(state: Omit<ReflexStateEvent, 'timestamp'>): void {
     const event: ServerEvent = {
-      type: 'reflex',
       payload: {
         ...state,
         timestamp: Date.now(),
       },
+      type: 'reflex',
     }
     this.server.broadcast(event)
   }
@@ -182,42 +180,42 @@ export class DebugService {
     // Map to strongly-typed events where possible
     switch (type) {
       case 'log':
-        this.server.broadcast({ type: 'log', payload: payload as LogEvent })
+        this.server.broadcast({ payload: payload as LogEvent, type: 'log' })
         break
       case 'llm':
-        this.server.broadcast({ type: 'llm', payload: payload as LLMTraceEvent })
+        this.server.broadcast({ payload: payload as LLMTraceEvent, type: 'llm' })
         break
       case 'blackboard':
-        this.server.broadcast({ type: 'blackboard', payload: payload as BlackboardEvent })
+        this.server.broadcast({ payload: payload as BlackboardEvent, type: 'blackboard' })
         break
       case 'queue':
-        this.server.broadcast({ type: 'queue', payload: payload as QueueEvent })
+        this.server.broadcast({ payload: payload as QueueEvent, type: 'queue' })
         break
       case 'reflex':
         this.emitReflexState(payload as Omit<ReflexStateEvent, 'timestamp'>)
         break
       case 'debug:tools_list':
         this.server.broadcast({
-          type: 'debug:tools_list',
           payload: payload as { tools: any[] },
+          type: 'debug:tools_list',
         })
         break
       case 'debug:tool_result':
         this.server.broadcast({
-          type: 'debug:tool_result',
           payload: payload as any,
+          type: 'debug:tool_result',
         })
         break
       case 'debug:repl_state':
         this.server.broadcast({
-          type: 'debug:repl_state',
           payload: payload as ReplStateEvent,
+          type: 'debug:repl_state',
         })
         break
       case 'debug:repl_result':
         this.server.broadcast({
-          type: 'debug:repl_result',
           payload: payload as ReplExecutionResultEvent,
+          type: 'debug:repl_result',
         })
         break
       case 'conversation_update':

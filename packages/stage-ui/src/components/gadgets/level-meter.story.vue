@@ -44,17 +44,17 @@ const formatBattery = (value: number) => `${Math.round(value)}%`
 
 // Custom color schemes
 const temperatureThresholds = [
-  { value: 40, color: 'bg-blue-500' },
-  { value: 60, color: 'bg-green-500' },
-  { value: 80, color: 'bg-yellow-500' },
-  { value: 100, color: 'bg-red-500' },
+  { color: 'bg-blue-500', value: 40 },
+  { color: 'bg-green-500', value: 60 },
+  { color: 'bg-yellow-500', value: 80 },
+  { color: 'bg-red-500', value: 100 },
 ]
 
 const performanceThresholds = [
-  { value: 50, color: 'bg-green-500' },
-  { value: 75, color: 'bg-yellow-500' },
-  { value: 90, color: 'bg-orange-500' },
-  { value: 100, color: 'bg-red-500' },
+  { color: 'bg-green-500', value: 50 },
+  { color: 'bg-yellow-500', value: 75 },
+  { color: 'bg-orange-500', value: 90 },
+  { color: 'bg-red-500', value: 100 },
 ]
 </script>
 

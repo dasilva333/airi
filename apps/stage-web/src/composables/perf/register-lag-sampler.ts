@@ -30,17 +30,17 @@ export function createLagSampler(tracer: PerfTracer) {
         const fps = delta > 0 ? 1000 / delta : 0
 
         tracer.emit({
-          tracerId: 'lag',
-          name: 'fps',
-          ts,
           duration: fps,
+          name: 'fps',
+          tracerId: 'lag',
+          ts,
         })
 
         tracer.emit({
-          tracerId: 'lag',
-          name: 'frameDuration',
-          ts,
           duration: delta,
+          name: 'frameDuration',
+          tracerId: 'lag',
+          ts,
         })
       }
 
@@ -58,23 +58,21 @@ export function createLagSampler(tracer: PerfTracer) {
 
   function startLongTaskObserver() {
     stopLongTaskObserver()
-    if (!('PerformanceObserver' in window))
-      return
+    if (!('PerformanceObserver' in window)) return
 
     try {
       longTaskObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           tracer.emit({
-            tracerId: 'lag',
-            name: 'longtask',
-            ts: entry.startTime,
             duration: entry.duration,
+            name: 'longtask',
+            tracerId: 'lag',
+            ts: entry.startTime,
           })
         }
       })
-      longTaskObserver.observe({ type: 'longtask', buffered: true })
-    }
-    catch (error) {
+      longTaskObserver.observe({ buffered: true, type: 'longtask' })
+    } catch (error) {
       console.warn('[LagSampler] Failed to start longtask observer', error)
     }
   }
@@ -89,15 +87,14 @@ export function createLagSampler(tracer: PerfTracer) {
   function startMemoryTimer() {
     stopMemoryTimer()
     const perfWithMemory = performance as Performance & { memory?: { usedJSHeapSize: number } }
-    if (!perfWithMemory.memory)
-      return
+    if (!perfWithMemory.memory) return
 
     memoryTimer = setInterval(() => {
       tracer.emit({
-        tracerId: 'lag',
-        name: 'memory',
-        ts: performance.now(),
         duration: perfWithMemory.memory?.usedJSHeapSize ?? 0,
+        name: 'memory',
+        tracerId: 'lag',
+        ts: performance.now(),
       })
     }, 1000)
   }
@@ -105,14 +102,11 @@ export function createLagSampler(tracer: PerfTracer) {
   function start(enabled: LagEnabled) {
     stop()
 
-    if (enabled.fps || enabled.frameDuration)
-      startRaf()
+    if (enabled.fps || enabled.frameDuration) startRaf()
 
-    if (enabled.longtask)
-      startLongTaskObserver()
+    if (enabled.longtask) startLongTaskObserver()
 
-    if (enabled.memory)
-      startMemoryTimer()
+    if (enabled.memory) startMemoryTimer()
   }
 
   function stop() {

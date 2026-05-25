@@ -26,10 +26,10 @@ const latestPrerelease = computed(() => {
 
 // Card configurations
 const stableConfig: ReleaseCardConfig = {
-  icon: 'i-lucide:package-check',
-  titleKey: 'docs.versions.download-buttons.latest-stable',
-  tagColorClass: 'bg-green-400/10 text-green-900 dark:bg-green-600/10 dark:text-green-400',
   fallbackUrl: 'https://github.com/moeru-ai/airi/releases/latest',
+  icon: 'i-lucide:package-check',
+  tagColorClass: 'bg-green-400/10 text-green-900 dark:bg-green-600/10 dark:text-green-400',
+  titleKey: 'docs.versions.download-buttons.latest-stable',
   useCases: [
     'docs.versions.download-buttons.stable-use-case-1',
     'docs.versions.download-buttons.stable-use-case-2',
@@ -38,10 +38,10 @@ const stableConfig: ReleaseCardConfig = {
 }
 
 const prereleaseConfig: ReleaseCardConfig = {
-  icon: 'i-lucide:package',
-  titleKey: 'docs.versions.download-buttons.latest-prerelease',
-  tagColorClass: 'bg-yellow-400/10 text-yellow-900 dark:bg-yellow-600/10 dark:text-yellow-400',
   fallbackUrl: 'https://github.com/moeru-ai/airi/releases',
+  icon: 'i-lucide:package',
+  tagColorClass: 'bg-yellow-400/10 text-yellow-900 dark:bg-yellow-600/10 dark:text-yellow-400',
+  titleKey: 'docs.versions.download-buttons.latest-prerelease',
   useCases: [
     'docs.versions.download-buttons.prerelease-use-case-1',
     'docs.versions.download-buttons.prerelease-use-case-2',

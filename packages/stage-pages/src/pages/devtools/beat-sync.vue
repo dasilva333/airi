@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import type { BeatSyncStyleName } from '@proj-airi/stage-ui-live2d'
-
-import { createBeatSyncController } from '@proj-airi/stage-ui-live2d'
 import { Section } from '@proj-airi/stage-ui/components'
+import type { BeatSyncStyleName } from '@proj-airi/stage-ui-live2d'
+import { createBeatSyncController } from '@proj-airi/stage-ui-live2d'
 import { Button, Callout, FieldCheckbox, FieldRange, FieldSelect } from '@proj-airi/ui'
 import { useRafFn } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 
-interface TrailPoint { x: number, y: number, t: number }
-interface ScalarSample { t: number, x: number, y: number, z: number }
+interface TrailPoint {
+  x: number
+  y: number
+  t: number
+}
+interface ScalarSample {
+  t: number
+  x: number
+  y: number
+  z: number
+}
 
 const baseAngleX = ref(0)
 const baseAngleY = ref(0)
@@ -20,19 +28,19 @@ const style = ref<BeatSyncStyleName>('punchy-v')
 const autoStyleShift = ref(false)
 
 const controller = createBeatSyncController({
+  autoStyleShift: autoStyleShift.value,
   baseAngles: () => ({ x: baseAngleX.value, y: baseAngleY.value, z: baseAngleZ.value }),
   initialStyle: style.value,
-  autoStyleShift: autoStyleShift.value,
 })
 
 const state = reactive({
   angleX: baseAngleX.value,
   angleY: baseAngleY.value,
   angleZ: baseAngleZ.value,
+  last: performance.now(),
   velX: 0,
   velY: 0,
   velZ: 0,
-  last: performance.now(),
 })
 
 const trail = ref<TrailPoint[]>([])
@@ -40,15 +48,15 @@ const scalars = ref<ScalarSample[]>([])
 const canvasXY = ref<HTMLCanvasElement>()
 const debugState = computed(() => controller.debugState())
 const nowTs = ref(performance.now())
-const styleOptions: Array<{ label: string, value: BeatSyncStyleName }> = [
+const styleOptions: Array<{ label: string; value: BeatSyncStyleName }> = [
   { label: 'Punchy V (10/8/4)', value: 'punchy-v' },
   { label: 'Balanced V (6/0/6)', value: 'balanced-v' },
   { label: 'Swing L/R (A-shape side-to-side)', value: 'swing-lr' },
   { label: 'Sway Sine (lifted arc between sides)', value: 'sway-sine' },
 ]
 
-watch(style, val => controller.setStyle(val))
-watch(autoStyleShift, enabled => controller.setAutoStyleShift(enabled))
+watch(style, (val) => controller.setStyle(val))
+watch(autoStyleShift, (enabled) => controller.setAutoStyleShift(enabled))
 
 const currentPose = computed(() => ({
   x: controller.targetX.value,
@@ -62,8 +70,7 @@ const formatFade = (value: number) => value.toFixed(2)
 
 function springTowardTarget(now: number) {
   const dt = now - state.last
-  if (!Number.isFinite(dt))
-    return
+  if (!Number.isFinite(dt)) return
   state.last = now
 
   controller.updateTargets(now)
@@ -105,22 +112,18 @@ function springTowardTarget(now: number) {
 }
 
 function pushSamples(now: number) {
-  if (!Number.isFinite(state.angleX) || !Number.isFinite(state.angleZ))
-    return
+  if (!Number.isFinite(state.angleX) || !Number.isFinite(state.angleZ)) return
 
-  trail.value.push({ x: state.angleX, y: state.angleZ, t: now })
+  trail.value.push({ t: now, x: state.angleX, y: state.angleZ })
   scalars.value.push({ t: now, x: state.angleX, y: state.angleY, z: state.angleZ })
   const cutoff = now - timeWindowMs
-  while (trail.value.length && trail.value[0].t < cutoff)
-    trail.value.shift()
-  while (scalars.value.length && scalars.value[0].t < cutoff)
-    scalars.value.shift()
+  while (trail.value.length && trail.value[0].t < cutoff) trail.value.shift()
+  while (scalars.value.length && scalars.value[0].t < cutoff) scalars.value.shift()
 }
 
 function drawXY() {
   const canvas = canvasXY.value
-  if (!canvas)
-    return
+  if (!canvas) return
 
   const dpr = window.devicePixelRatio || 1
   const { clientWidth, clientHeight } = canvas
@@ -130,8 +133,7 @@ function drawXY() {
   }
 
   const ctx = canvas.getContext('2d')
-  if (!ctx)
-    return
+  if (!ctx) return
 
   ctx.save()
   ctx.scale(dpr, dpr)
@@ -158,10 +160,8 @@ function drawXY() {
   trail.value.forEach((p, idx) => {
     const x = centerX + p.x * scale.value
     const y = centerY - p.y * scale.value
-    if (idx === 0)
-      ctx.moveTo(x, y)
-    else
-      ctx.lineTo(x, y)
+    if (idx === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
   })
   ctx.stroke()
 
@@ -175,7 +175,13 @@ function drawXY() {
   // Current target marker
   ctx.fillStyle = 'rgba(244,114,182,0.8)'
   ctx.beginPath()
-  ctx.arc(centerX + controller.targetY.value * scale.value, centerY - controller.targetZ.value * scale.value, 4, 0, Math.PI * 2)
+  ctx.arc(
+    centerX + controller.targetY.value * scale.value,
+    centerY - controller.targetZ.value * scale.value,
+    4,
+    0,
+    Math.PI * 2,
+  )
   ctx.fill()
 
   ctx.restore()

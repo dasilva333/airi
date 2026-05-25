@@ -1,13 +1,16 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  id: string
-  name: string
-  value: string
-  title: string
-  deprecated?: boolean
-}>(), {
-  deprecated: false,
-})
+withDefaults(
+  defineProps<{
+    id: string
+    name: string
+    value: string
+    title: string
+    deprecated?: boolean
+  }>(),
+  {
+    deprecated: false,
+  },
+)
 
 const modelValue = defineModel<string>({ required: true })
 </script>

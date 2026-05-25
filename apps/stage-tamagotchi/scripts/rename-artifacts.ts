@@ -1,31 +1,23 @@
-import process from 'node:process'
-
 import { existsSync, mkdirSync, readdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
+import process from 'node:process'
 
 import { cac } from 'cac'
 
-import packageJSON from '../package.json' assert { type: 'json' }
+import packageJSON from '../package.json'
+
+assert
+{
+  type: 'json'
+}
 
 import { getElectronBuilderConfig, getFilenames, getVersion } from './utils'
 
 async function main() {
   const cli = cac('rename-artifact')
-    .option(
-      '--release',
-      'Rename with version from package.json',
-      { default: false },
-    )
-    .option(
-      '--auto-tag',
-      'Automatically tag the release with the latest git ref',
-      { default: false },
-    )
-    .option(
-      '--tag <tag>',
-      'Tag to use for the release',
-      { default: '', type: [String] },
-    )
+    .option('--release', 'Rename with version from package.json', { default: false })
+    .option('--auto-tag', 'Automatically tag the release with the latest git ref', { default: false })
+    .option('--tag <tag>', 'Tag to use for the release', { default: '', type: [String] })
 
   const args = cli.parse()
 

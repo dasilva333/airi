@@ -1,4 +1,12 @@
-export type ChatActionMenuAction = 'copy' | 'delete' | 'delete-following' | 'fork' | 'fork-switch' | 'edit' | 'retry' | 'journal'
+export type ChatActionMenuAction =
+  | 'copy'
+  | 'delete'
+  | 'delete-following'
+  | 'fork'
+  | 'fork-switch'
+  | 'edit'
+  | 'retry'
+  | 'journal'
 
 export interface ChatActionMenuItem {
   action: ChatActionMenuAction
@@ -19,60 +27,60 @@ export function createChatActionMenuItems(options: {
     options.canCopy
       ? {
           action: 'copy',
-          label: 'Copy',
           icon: 'i-solar:copy-bold',
+          label: 'Copy',
         }
       : null,
     options.canEdit !== false
       ? {
           action: 'edit',
-          label: 'Edit',
-          icon: 'i-solar:pen-bold',
           divider: options.canRetry === false, // Group 1 ends if no retry
+          icon: 'i-solar:pen-bold',
+          label: 'Edit',
         }
       : null,
     options.canRetry !== false
       ? {
           action: 'retry',
-          label: 'Retry',
-          icon: 'i-solar:restart-bold',
           divider: true, // Group 1 ends
+          icon: 'i-solar:restart-bold',
+          label: 'Retry',
         }
       : null,
     options.canFork !== false
       ? {
           action: 'fork',
-          label: 'Fork to Background',
           icon: 'i-solar:layers-bold-duotone',
+          label: 'Fork to Background',
         }
       : null,
     options.canFork !== false
       ? {
           action: 'fork-switch',
-          label: 'Fork & Switch',
           icon: 'i-solar:square-forward-bold',
+          label: 'Fork & Switch',
         }
       : null,
     {
       action: 'journal',
-      label: 'Journal Moment',
-      icon: 'i-solar:notebook-bold',
       divider: true, // Group 2 ends
+      icon: 'i-solar:notebook-bold',
+      label: 'Journal Moment',
     },
     options.canDelete
       ? {
           action: 'delete',
-          label: 'Delete Message',
-          icon: 'i-solar:trash-bin-minimalistic-bold',
           danger: true,
+          icon: 'i-solar:trash-bin-minimalistic-bold',
+          label: 'Delete Message',
         }
       : null,
     options.canDelete
       ? {
           action: 'delete-following',
-          label: 'Trim Timeline',
-          icon: 'i-solar:scissors-bold',
           danger: true,
+          icon: 'i-solar:scissors-bold',
+          label: 'Trim Timeline',
         }
       : null,
   ].filter(Boolean) as ChatActionMenuItem[]

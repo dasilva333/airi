@@ -1,16 +1,11 @@
 <script setup lang="ts">
 import type { DuckDBWasmDrizzleDatabase } from '@proj-airi/drizzle-duckdb-wasm'
-import type { Live2DLipSync, Live2DLipSyncOptions } from '@proj-airi/model-driver-lipsync'
-import type { Profile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { UnElevenLabsOptions } from 'unspeech'
-
-import type { EmotionPayload } from '../../constants/emotions'
-
 import { drizzle } from '@proj-airi/drizzle-duckdb-wasm'
 import { getImportUrlBundles } from '@proj-airi/drizzle-duckdb-wasm/bundles/import-url-browser'
 import { useElectronWindowResizeStateEvent } from '@proj-airi/electron-vueuse'
+import type { Live2DLipSync, Live2DLipSyncOptions } from '@proj-airi/model-driver-lipsync'
 import { createLive2DLipSync } from '@proj-airi/model-driver-lipsync'
+import type { Profile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
 import { wlipsyncProfile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
 import { createPlaybackManager, createSpeechPipeline } from '@proj-airi/pipelines-audio'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
@@ -19,14 +14,14 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 import { createQueue } from '@proj-airi/stream-kit'
 import { useBroadcastChannel, useEventListener } from '@vueuse/core'
 import { generateSpeech } from '@xsai/generate-speech'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
+import type { UnElevenLabsOptions } from 'unspeech'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-
-import ControlStrip from '../scenarios/layout/ControlStrip.vue'
-
 import { parseActor, useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
 import { llmInferenceEndToken } from '../../constants'
+import type { EmotionPayload } from '../../constants/emotions'
 import { EMOTION_EmotionMotionName_value, EmotionThinkMotionName } from '../../constants/emotions'
 import { useAudioContext, useSpeakingStore } from '../../stores/audio'
 import { useChatOrchestratorStore } from '../../stores/chat'
@@ -40,19 +35,23 @@ import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
+import ControlStrip from '../scenarios/layout/ControlStrip.vue'
 
-withDefaults(defineProps<{
-  paused?: boolean
-  focusAt: { x: number, y: number }
-  xOffset?: number | string
-  yOffset?: number | string
-  scale?: number
-}>(), { paused: false, scale: 1 })
+withDefaults(
+  defineProps<{
+    paused?: boolean
+    focusAt: { x: number; y: number }
+    xOffset?: number | string
+    yOffset?: number | string
+    scale?: number
+  }>(),
+  { paused: false, scale: 1 },
+)
 
 const emits = defineEmits<{
-  (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
+  (e: 'hitAreaHover', value: { name: string; x: number; y: number; hovered: boolean } | null): void
   (e: 'scaleChange', value: number): void
-  (e: 'offsetChange', value: { x: number, y: number }): void
+  (e: 'offsetChange', value: { x: number; y: number }): void
 }>()
 
 const state = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -62,14 +61,13 @@ const db = ref<DuckDBWasmDrizzleDatabase>()
 
 const settingsStore = useSettings()
 const vhackStore = useVHackStore()
-const {
-  stageModelRenderer,
-} = storeToRefs(settingsStore)
+const { stageModelRenderer } = storeToRefs(settingsStore)
 const { mouthOpenSize } = storeToRefs(useSpeakingStore())
 const { audioContext } = useAudioContext()
 const currentAudioSource = ref<AudioBufferSourceNode>()
 
-const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd } = useChatOrchestratorStore()
+const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd } =
+  useChatOrchestratorStore()
 const chatHookCleanups: Array<() => void> = []
 // WORKAROUND: clear previous handlers on unmount to avoid duplicate calls when this component remounts.
 //             We keep per-hook disposers instead of wiping the global chat hooks to play nicely with
@@ -82,12 +80,19 @@ const vrmStore = useModelStore()
 const viewUpdateCleanups: Array<() => void> = []
 
 // Caption + Presentation broadcast channels
-interface CaptionSegment { text: string, color: string, actorId: string, isActive?: boolean }
-type CaptionChannelEvent
-  = | { type: 'caption-speaker', text: string }
-    | { type: 'caption-assistant', segments: CaptionSegment[] }
+interface CaptionSegment {
+  text: string
+  color: string
+  actorId: string
+  isActive?: boolean
+}
+type CaptionChannelEvent =
+  | { type: 'caption-speaker'; text: string }
+  | { type: 'caption-assistant'; segments: CaptionSegment[] }
 // NOTICE: do NOT add 'caption-speaker' or user speech to captions. This is intentionally AI-only.
-const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+const { post: postCaption } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({
+  name: 'airi-caption-overlay',
+})
 
 // NOTICE: Secondary broadcast channel to listen for turn-resets (user messages)
 // This is a hardware-level fix because the 'airi-caption-overlay' empty string reset was failing.
@@ -98,51 +103,54 @@ const parserActorId = ref<string>('default')
 const playbackActorId = ref<string>('default')
 
 function getActorColor(id: string): string {
-  if (!actorColors.has(id)) {
-    // Generate a stable, vibrant HSL color from the actor ID
-    let hash = 0
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash)
-    }
+  const existing = actorColors.get(id)
+  if (existing)
+    return existing
 
-    const h = Math.abs(hash) % 360
-    // We lock saturation and lightness into high ranges (90-100% sat, 70-80% light)
-    // This ensures the text is always bright, punchy, and readable against dark backgrounds.
-    const s = 90 + (Math.abs(hash >> 8) % 10)
-    const l = 70 + (Math.abs(hash >> 16) % 10)
-
-    const color = `hsl(${h}, ${s}%, ${l}%)`
-    actorColors.set(id, color)
-    console.info(`[CaptionDebug] Assigned vibrant stable color to actor "${id}":`, color)
+  // Generate a stable, vibrant HSL color from the actor ID
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash)
   }
-  return actorColors.get(id)!
+
+  const h = Math.abs(hash) % 360
+  // We lock saturation and lightness into high ranges (90-100% sat, 70-80% light)
+  // This ensures the text is always bright, punchy, and readable against dark backgrounds.
+  const s = 90 + (Math.abs(hash >> 8) % 10)
+  const l = 70 + (Math.abs(hash >> 16) % 10)
+
+  const color = `hsl(${h}, ${s}%, ${l}%)`
+  actorColors.set(id, color)
+  console.info(`[CaptionDebug] Assigned vibrant stable color to actor "${id}":`, color)
+  return color
 }
 
 const assistantCaptionSegments = ref<CaptionSegment[]>([])
 
-type PresentEvent
-  = | { type: 'assistant-reset' }
-    | { type: 'assistant-append', text: string }
+type PresentEvent = { type: 'assistant-reset' } | { type: 'assistant-append'; text: string }
 const { post: postPresent } = useBroadcastChannel<PresentEvent, PresentEvent>({ name: 'airi-chat-present' })
 
-viewUpdateCleanups.push(live2dStore.onShouldUpdateView((reason) => {
-  // Live2D models already handle their own reload path inside the scene package.
-  // We just sync the reason to the stage-model store for UI observability.
-  if (reason)
-    settingsStore.lastReloadReason = reason
-}))
+viewUpdateCleanups.push(
+  live2dStore.onShouldUpdateView((reason) => {
+    // Live2D models already handle their own reload path inside the scene package.
+    // We just sync the reason to the stage-model store for UI observability.
+    if (reason) settingsStore.lastReloadReason = reason
+  }),
+)
 
-viewUpdateCleanups.push(vrmStore.onShouldUpdateView((reason) => {
-  // VRM reloads are driven by modelSrc changes after updateStageModel().
-  void settingsStore.updateStageModel(reason || 'vrm store update')
-}))
+viewUpdateCleanups.push(
+  vrmStore.onShouldUpdateView((reason) => {
+    // VRM reloads are driven by modelSrc changes after updateStageModel().
+    void settingsStore.updateStageModel(reason || 'vrm store update')
+  }),
+)
 
 const audioAnalyser = ref<AnalyserNode>()
 const nowSpeaking = ref(false)
 const lipSyncStarted = ref(false)
 const lipSyncLoopId = ref<number>()
 const live2dLipSync = ref<Live2DLipSync>()
-const live2dLipSyncOptions: Live2DLipSyncOptions = { mouthUpdateIntervalMs: 50, mouthLerpWindowMs: 50 }
+const live2dLipSyncOptions: Live2DLipSyncOptions = { mouthLerpWindowMs: 50, mouthUpdateIntervalMs: 50 }
 
 const { activeCard } = storeToRefs(useAiriCardStore())
 const speechStore = useSpeechStore()
@@ -160,7 +168,7 @@ function handleResizeStateChange(event: Event) {
 }
 
 useEventListener(typeof window !== 'undefined' ? window : null, 'vrm-node-visibility-toggle', (e: Event) => {
-  const customEvent = e as CustomEvent<{ uuid: string, node: any }>
+  const customEvent = e as CustomEvent<{ uuid: string; node: any }>
   vhackStore.toggleNodeVisibility(customEvent.detail.uuid, customEvent.detail.node)
 })
 
@@ -178,12 +186,14 @@ const emotionsQueue = createQueue<EmotionPayload>({
     async (ctx) => {
       if (stageModelRenderer.value === 'vrm') {
         const emotionName = ctx.data.name
-        console.info('[Stage] VRM emotion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
-      }
-      else if (stageModelRenderer.value === 'live2d') {
+        console.info('[Stage] VRM emotion processing (standalone window active):', {
+          intensity: ctx.data.intensity,
+          name: emotionName,
+        })
+      } else if (stageModelRenderer.value === 'live2d') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] Live2D emotion processing:', { name: emotionName, intensity })
+        console.info('[Stage] Live2D emotion processing:', { intensity, name: emotionName })
 
         // Delegate to store (handles mappings, name-matched fallbacks, and robust resets)
         const triggered = live2dStore.triggerEmotion(emotionName, intensity)
@@ -192,35 +202,39 @@ const emotionsQueue = createQueue<EmotionPayload>({
           const motionGroup = (EMOTION_EmotionMotionName_value as any)[emotionName]
           if (motionGroup) {
             currentMotion.value = { group: motionGroup }
-          }
-          else {
+          } else {
             // New fallback: try to find motion by name in availableMotions (Ground Truth)
             const motionMappings = (activeCard.value as any)?.extensions?.airi?.modules?.live2d?.motionMappings || {}
             const matchedMotion = live2dStore.availableMotions.find((m: any) => {
               const name = m.fileName.split('/').pop() || m.fileName
               const cleanName = name.replace('.motion3.json', '').replace('.json', '')
               const mappedName = motionMappings[m.fileName]
-              return name === emotionName || m.fileName === emotionName || cleanName === emotionName || mappedName === emotionName
+              return (
+                name === emotionName ||
+                m.fileName === emotionName ||
+                cleanName === emotionName ||
+                mappedName === emotionName
+              )
             })
             if (matchedMotion) {
               currentMotion.value = { group: matchedMotion.motionName, index: matchedMotion.motionIndex }
               console.info('[Stage] Triggered Live2D motion from dropdown name:', emotionName)
-            }
-            else {
+            } else {
               console.warn('[Stage] No Live2D explicit mapping, name match, or motion found for:', emotionName)
             }
           }
         }
-      }
-      else if (stageModelRenderer.value === 'spine') {
+      } else if (stageModelRenderer.value === 'spine') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] Spine emotion/motion processing (standalone window active):', { name: emotionName, intensity })
-      }
-      else if (stageModelRenderer.value === 'mmd') {
+        console.info('[Stage] Spine emotion/motion processing (standalone window active):', {
+          intensity,
+          name: emotionName,
+        })
+      } else if (stageModelRenderer.value === 'mmd') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] MMD emotion/motion processing:', { name: emotionName, intensity })
+        console.info('[Stage] MMD emotion/motion processing:', { intensity, name: emotionName })
 
         const mmdStore = useMmd()
 
@@ -233,8 +247,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
         if (matchedMotion) {
           mmdStore.currentMotion = matchedMotion
           console.info('[Stage] Triggered MMD motion:', matchedMotion)
-        }
-        else {
+        } else {
           // 2. It's an expression (morph)
           // The LLM might emit the MAPPED name. We need to find the RAW name!
           const mappings = mmdStore.morphMappings || {}
@@ -296,29 +309,33 @@ function processMarkers(content: string) {
 // `stage-tamagotchi` and `stage-web` flags let us identify and skip local messages.
 const modsServerCleanups: Array<() => void> = []
 
-modsServerCleanups.push(modsServer.onEvent('output:gen-ai:chat:message', (event) => {
-  // Skip messages that originated from this app's own chat pipeline
-  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
-    return
-  }
+modsServerCleanups.push(
+  modsServer.onEvent('output:gen-ai:chat:message', (event) => {
+    // Skip messages that originated from this app's own chat pipeline
+    if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+      return
+    }
 
-  console.info('[Stage] Received external message:', event.data)
-  if (typeof event.data?.message?.content === 'string') {
-    processMarkers(event.data.message.content)
-  }
-}))
+    console.info('[Stage] Received external message:', event.data)
+    if (typeof event.data?.message?.content === 'string') {
+      processMarkers(event.data.message.content)
+    }
+  }),
+)
 
-modsServerCleanups.push(modsServer.onEvent('input:text', (event) => {
-  // Skip messages that originated from this app's own input pipeline
-  if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
-    return
-  }
+modsServerCleanups.push(
+  modsServer.onEvent('input:text', (event) => {
+    // Skip messages that originated from this app's own input pipeline
+    if (event.data?.['stage-tamagotchi'] || event.data?.['stage-web']) {
+      return
+    }
 
-  console.info('[Stage] Received external input:', event.data)
-  if (event.data?.text) {
-    processMarkers(event.data.text)
-  }
-}))
+    console.info('[Stage] Received external input:', event.data)
+    if (event.data?.text) {
+      processMarkers(event.data.text)
+    }
+  }),
+)
 
 let currentChatIntent: ReturnType<typeof speechRuntimeStore.openIntent> | null = null
 const currentChatIntentReceivedLiteral = ref(false)
@@ -326,29 +343,29 @@ const currentChatIntentReceivedLiteral = ref(false)
 const lipSyncNode = ref<AudioNode>()
 
 if (typeof window !== 'undefined') {
-  (window as any).testEmotion = (emotion: string) => {
+  ;(window as any).testEmotion = (emotion: string) => {
     console.info('[DEBUG] Manually triggering emotion:', emotion)
     processMarkers(`<|ACT:{"emotion":"${emotion}"}|>`)
   }
 
-  (window as any).listExpressions = () => {
+  ;(window as any).listExpressions = () => {
     console.info('[DEBUG] Available Expressions: []')
     return []
   }
 
-  (window as any).setRawExpression = (name: string, value: number) => {
+  ;(window as any).setRawExpression = (name: string, value: number) => {
     console.info('[DEBUG] Setting raw expression (3s reset):', name, value)
   }
 
-  (window as any).setPersistentExpression = (name: string, value: number) => {
+  ;(window as any).setPersistentExpression = (name: string, value: number) => {
     console.info('[DEBUG] Setting persistent expression (NO reset):', name, value)
   }
 
-  (window as any).stopAnimations = () => {
+  ;(window as any).stopAnimations = () => {
     console.info('[DEBUG] Stopping all animations')
   }
 
-  (window as any).testMarker = (content: string) => {
+  ;(window as any).testMarker = (content: string) => {
     console.info('[DEBUG] Manually testing marker:', content)
     playSpecialToken(content)
   }
@@ -361,12 +378,10 @@ if (typeof window !== 'undefined') {
     // Split content into markers and text segments
     const parts = content.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)
     for (const part of parts) {
-      if (!part)
-        continue
+      if (!part) continue
       if (part.startsWith('<|')) {
         intent.writeSpecial(part)
-      }
-      else {
+      } else {
         intent.writeLiteral(part)
       }
     }
@@ -376,16 +391,17 @@ if (typeof window !== 'undefined') {
   }
 }
 
-async function playFunction(item: Parameters<Parameters<typeof createPlaybackManager<AudioBuffer>>[0]['play']>[0], signal: AbortSignal): Promise<void> {
-  if (!audioContext || !item.audio)
-    return
+async function playFunction(
+  item: Parameters<Parameters<typeof createPlaybackManager<AudioBuffer>>[0]['play']>[0],
+  signal: AbortSignal,
+): Promise<void> {
+  if (!audioContext || !item.audio) return
 
   // Ensure audio context is resumed (browsers suspend it by default until user interaction)
   if (audioContext.state === 'suspended') {
     try {
       await audioContext.resume()
-    }
-    catch {
+    } catch {
       return
     }
   }
@@ -396,22 +412,19 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
   // Ensure connections are robust
   source.connect(audioContext.destination)
-  if (audioAnalyser.value)
-    source.connect(audioAnalyser.value)
+  if (audioAnalyser.value) source.connect(audioAnalyser.value)
 
   // Explicitly ensure lip-sync setup is called if not already started
   if (!lipSyncStarted.value) {
     await setupLipSync()
   }
 
-  if (lipSyncNode.value)
-    source.connect(lipSyncNode.value)
+  if (lipSyncNode.value) source.connect(lipSyncNode.value)
 
   return new Promise<void>((resolve) => {
     let settled = false
     const resolveOnce = () => {
-      if (settled)
-        return
+      if (settled) return
       settled = true
       resolve()
     }
@@ -420,10 +433,8 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
       try {
         source.stop()
         source.disconnect()
-      }
-      catch {}
-      if (currentAudioSource.value === source)
-        currentAudioSource.value = undefined
+      } catch {}
+      if (currentAudioSource.value === source) currentAudioSource.value = undefined
       resolveOnce()
     }
 
@@ -440,25 +451,25 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
     try {
       source.start(0)
-    }
-    catch {
+    } catch {
       stopPlayback()
     }
   })
 }
 
 const playbackManager = createPlaybackManager<AudioBuffer>({
-  play: playFunction,
   maxVoices: 1,
   maxVoicesPerOwner: 1,
   overflowPolicy: 'queue',
   ownerOverflowPolicy: 'steal-oldest',
+  play: playFunction,
 })
 
 const speechPipeline = createSpeechPipeline<AudioBuffer>({
+  playback: playbackManager,
   tts: async (request, signal) => {
     if (import.meta.env.DEV)
-      console.info('[Stage:TTS] Request received:', { text: request.text?.slice(0, 30), special: request.special })
+      console.info('[Stage:TTS] Request received:', { special: request.special, text: request.text?.slice(0, 30) })
 
     if (signal.aborted) {
       console.warn('[Stage:TTS] Request aborted early')
@@ -478,20 +489,19 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       }
     }
 
-    if (activeSpeechProvider.value === 'speech-noop')
-      return null
+    if (activeSpeechProvider.value === 'speech-noop') return null
 
-    if (!activeSpeechProvider.value)
-      return null
+    if (!activeSpeechProvider.value) return null
 
-    const provider = await providersStore.getProviderInstance(activeSpeechProvider.value) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
+    const provider = (await providersStore.getProviderInstance(
+      activeSpeechProvider.value,
+    )) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
     if (!provider) {
       console.error('Failed to initialize speech provider')
       return null
     }
 
-    if (!request.text && !request.special)
-      return null
+    if (!request.text && !request.special) return null
 
     const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
 
@@ -502,29 +512,28 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
 
     if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
       // Prioritize global selections, then provider settings, then defaults
-      model = model || providerConfig?.model as string || 'tts-1'
+      model = model || (providerConfig?.model as string) || 'tts-1'
 
       if (!voice) {
         if (providerConfig?.voice) {
           voice = {
-            id: providerConfig.voice as string,
-            name: providerConfig.voice as string,
             description: providerConfig.voice as string,
-            previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
-            provider: activeSpeechProvider.value,
             gender: 'neutral',
+            id: providerConfig.voice as string,
+            languages: [{ code: 'en', title: 'English' }],
+            name: providerConfig.voice as string,
+            previewURL: '',
+            provider: activeSpeechProvider.value,
           }
-        }
-        else {
+        } else {
           voice = {
-            id: 'alloy',
-            name: 'alloy',
             description: 'alloy',
-            previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
-            provider: activeSpeechProvider.value,
             gender: 'neutral',
+            id: 'alloy',
+            languages: [{ code: 'en', title: 'English' }],
+            name: 'alloy',
+            previewURL: '',
+            provider: activeSpeechProvider.value,
           }
         }
       }
@@ -532,13 +541,11 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       console.info('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
     }
 
-    if (!model || !voice)
-      return null
+    if (!model || !voice) return null
 
     const transformedText = speechStore.transformTextForSpeech(request.text, activeSpeechProvider.value)
 
-    if (!transformedText.trim() && !request.special)
-      return null
+    if (!transformedText.trim() && !request.special) return null
 
     const input = ssmlEnabled.value
       ? speechStore.generateSSML(transformedText, voice, { ...providerConfig, pitch: pitch.value })
@@ -551,8 +558,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
         voice: voice.id,
       })
 
-      if (signal.aborted || !res || res.byteLength === 0)
-        return null
+      if (signal.aborted || !res || res.byteLength === 0) return null
 
       // Tap into the audio stream for Discord Voice Notes
       // We slice() because decodeAudioData(res) will detach the original buffer.
@@ -560,12 +566,10 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
 
       const audioBuffer = await audioContext.decodeAudioData(res)
       return audioBuffer
-    }
-    catch {
+    } catch {
       return null
     }
   },
-  playback: playbackManager,
 })
 
 speechPipeline.on('onIntentEnd', () => {
@@ -582,8 +586,7 @@ speechPipeline.on('onIntentCancel', () => {
 void speechRuntimeStore.registerHost(speechPipeline)
 
 speechPipeline.on('onSpecial', (segment) => {
-  if (segment.special)
-    playSpecialToken(segment.special)
+  if (segment.special) playSpecialToken(segment.special)
 })
 
 playbackManager.onEnd(({ item }) => {
@@ -599,17 +602,16 @@ playbackManager.onEnd(({ item }) => {
 
     // Deactivate segment when playback ends
     if (item.text?.trim()) {
-      const segment = assistantCaptionSegments.value.find(s => s.text === item.text && s.isActive)
+      const segment = assistantCaptionSegments.value.find((s) => s.text === item.text && s.isActive)
       if (segment) {
         segment.isActive = false
         postCaption({
-          type: 'caption-assistant',
           segments: JSON.parse(JSON.stringify(assistantCaptionSegments.value)),
+          type: 'caption-assistant',
         })
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[Stage] Error in playbackManager.onEnd:', error)
   }
 
@@ -627,48 +629,43 @@ playbackManager.onStart(({ item }) => {
       const color = getActorColor(actorId)
 
       // Deactivate any currently active segments
-      assistantCaptionSegments.value.forEach(s => s.isActive = false)
+      assistantCaptionSegments.value.forEach((s) => (s.isActive = false))
 
       assistantCaptionSegments.value.push({
-        text: item.text,
-        color,
         actorId,
+        color,
         isActive: true,
+        text: item.text,
       })
 
       try {
         // Use toRaw to ensure the Proxy doesn't interfere with BroadcastChannel cloning
         postCaption({
-          type: 'caption-assistant',
           segments: JSON.parse(JSON.stringify(assistantCaptionSegments.value)),
+          type: 'caption-assistant',
         })
-      }
-      catch (error) {
+      } catch (error) {
         console.warn('[Stage] Failed to broadcast caption update:', error)
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[Stage] Error in playbackManager.onStart:', error)
   }
 
   try {
-    postPresent({ type: 'assistant-append', text: item.text })
-  }
-  catch {
+    postPresent({ text: item.text, type: 'assistant-append' })
+  } catch {
     // ignore
   }
 })
 
 function startLipSyncLoop() {
-  if (lipSyncLoopId.value)
-    return
+  if (lipSyncLoopId.value) return
 
   const tick = () => {
     if (!nowSpeaking.value || !live2dLipSync.value) {
       mouthOpenSize.value = 0
-    }
-    else {
+    } else {
       mouthOpenSize.value = live2dLipSync.value.getMouthOpen()
     }
     lipSyncLoopId.value = requestAnimationFrame(tick)
@@ -678,11 +675,12 @@ function startLipSyncLoop() {
 }
 
 async function setupLipSync() {
-  if (lipSyncStarted.value)
-    return
+  if (lipSyncStarted.value) return
 
   if (!audioContext || !audioContext.audioWorklet) {
-    console.warn('[Stage] Lip sync skipped: AudioWorklet is not available in this browser context (requires HTTPS or localhost).')
+    console.warn(
+      '[Stage] Lip sync skipped: AudioWorklet is not available in this browser context (requires HTTPS or localhost).',
+    )
     return
   }
 
@@ -693,8 +691,7 @@ async function setupLipSync() {
     await audioContext.resume()
     startLipSyncLoop()
     lipSyncStarted.value = true
-  }
-  catch (error) {
+  } catch (error) {
     lipSyncStarted.value = false
     console.error('Failed to setup Live2D lip sync', error)
   }
@@ -707,153 +704,165 @@ function setupAnalyser() {
 }
 
 function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
-  if (currentChatIntent)
-    return currentChatIntent
+  if (currentChatIntent) return currentChatIntent
 
-  console.info('[Stage] Opening speech intent', { ownerId: activeCardId.value, behavior })
+  console.info('[Stage] Opening speech intent', { behavior, ownerId: activeCardId.value })
   currentChatIntent = speechRuntimeStore.openIntent({
+    behavior,
     ownerId: activeCardId.value,
     priority: 'normal',
-    behavior,
   })
-  console.info('[Stage] Speech intent opened', { intentId: currentChatIntent.intentId, streamId: currentChatIntent.streamId })
+  console.info('[Stage] Speech intent opened', {
+    intentId: currentChatIntent.intentId,
+    streamId: currentChatIntent.streamId,
+  })
 
   return currentChatIntent
 }
 
 // Hardware-level turn reset: clear everything when a new user message enters the session
 // This is the absolute truth for turn boundaries and prevents 'blob' accumulation.
-chatHookCleanups.push(watch(sessionUpdate, (event) => {
-  if (event?.type === 'session-updated' && event.message?.role === 'user') {
-    console.info('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
+chatHookCleanups.push(
+  watch(sessionUpdate, (event) => {
+    if (event?.type === 'session-updated' && event.message?.role === 'user') {
+      console.info('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
+      assistantCaptionSegments.value = []
+      parserActorId.value = activeCardId.value
+      playbackActorId.value = activeCardId.value
+      try {
+        postCaption({ segments: [], type: 'caption-assistant' })
+      } catch {}
+    }
+  }),
+)
+
+chatHookCleanups.push(
+  onBeforeMessageComposed(async () => {
+    // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
+    // enough if a previous turn left an active or queued intent inside the speech pipeline.
+    // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
+    // stale proactivity/chat intent state.
+    speechPipeline.stopAll('new-message')
+    discordStore.clearAudioTurn()
+
+    setupAnalyser()
+    await setupLipSync()
+    // Reset assistant caption and actor tracking for a new message
     assistantCaptionSegments.value = []
     parserActorId.value = activeCardId.value
     playbackActorId.value = activeCardId.value
     try {
-      postCaption({ type: 'caption-assistant', segments: [] })
+      postCaption({ segments: [], type: 'caption-assistant' })
+    } catch (error) {
+      // BroadcastChannel may be closed if user navigated away - don't break flow
+      console.warn('[Stage] Failed to post caption reset (channel may be closed)', { error })
     }
-    catch {}
-  }
-}))
+    try {
+      postPresent({ type: 'assistant-reset' })
+    } catch (error) {
+      // BroadcastChannel may be closed if user navigated away - don't break flow
+      console.warn('[Stage] Failed to post present reset (channel may be closed)', { error })
+    }
 
-chatHookCleanups.push(onBeforeMessageComposed(async () => {
-  // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
-  // enough if a previous turn left an active or queued intent inside the speech pipeline.
-  // Reset the entire host pipeline on each new assistant turn so later chat TTS cannot inherit
-  // stale proactivity/chat intent state.
-  speechPipeline.stopAll('new-message')
-  discordStore.clearAudioTurn()
-
-  setupAnalyser()
-  await setupLipSync()
-  // Reset assistant caption and actor tracking for a new message
-  assistantCaptionSegments.value = []
-  parserActorId.value = activeCardId.value
-  playbackActorId.value = activeCardId.value
-  try {
-    postCaption({ type: 'caption-assistant', segments: [] })
-  }
-  catch (error) {
-    // BroadcastChannel may be closed if user navigated away - don't break flow
-    console.warn('[Stage] Failed to post caption reset (channel may be closed)', { error })
-  }
-  try {
-    postPresent({ type: 'assistant-reset' })
-  }
-  catch (error) {
-    // BroadcastChannel may be closed if user navigated away - don't break flow
-    console.warn('[Stage] Failed to post present reset (channel may be closed)', { error })
-  }
-
-  if (currentChatIntent) {
-    console.info('[Stage] Cancelling existing speech intent for new message', { intentId: currentChatIntent.intentId })
-    currentChatIntent.cancel('new-message')
-    currentChatIntent = null
-  }
-
-  currentChatIntentReceivedLiteral.value = false
-  ensureSpeechIntent()
-}))
-
-chatHookCleanups.push(onBeforeSend(async () => {
-  currentMotion.value = { group: EmotionThinkMotionName }
-}))
-
-chatHookCleanups.push(onTokenLiteral(async (literal) => {
-  // const orchestrator = useChatOrchestratorStore()
-  const intent = ensureSpeechIntent()
-  if (import.meta.env.DEV) {
-    console.info('[PipelineTTS:Stage] onTokenLiteral triggered:', {
-      hash: window.location.hash,
-      hasIntent: !!intent,
-      intentId: intent?.intentId,
-      literalPreview: literal.slice(0, 10),
-    })
-  }
-
-  if (!intent)
-    return
-  currentChatIntentReceivedLiteral.value = true
-  console.info('[PipelineTTS:Stage] onTokenLiteral -> forwarding to speech', {
-    intentId: intent.intentId,
-    length: literal.length,
-    preview: literal.slice(0, 120),
-  })
-  intent.writeLiteral(literal)
-}))
-
-chatHookCleanups.push(onTokenSpecial(async (special) => {
-  const intent = ensureSpeechIntent()
-  if (!intent)
-    return
-  // console.info('Stage received special token:', special)
-  console.info('[Stage] onTokenSpecial -> forwarding', { intentId: intent.intentId, special })
-  intent.writeSpecial(special)
-}))
-
-chatHookCleanups.push(onStreamEnd(async () => {
-  specialTokenQueue.enqueue(llmInferenceEndToken)
-  const intent = ensureSpeechIntent()
-  if (intent)
-    console.info('[Stage] onStreamEnd -> flush intent', { intentId: intent.intentId })
-  intent?.writeFlush()
-}))
-
-chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
-  if (!currentChatIntentReceivedLiteral.value) {
-    const fallbackSpeech = categorizeResponse(message, activeChatProvider.value).speech.trim()
-    if (fallbackSpeech) {
-      const intent = ensureSpeechIntent()
-      console.info('[Stage] onAssistantResponseEnd -> fallback speech literal', {
-        intentId: intent.intentId,
-        length: fallbackSpeech.length,
+    if (currentChatIntent) {
+      console.info('[Stage] Cancelling existing speech intent for new message', {
+        intentId: currentChatIntent.intentId,
       })
-      intent.writeLiteral(fallbackSpeech)
-      intent.writeFlush()
+      currentChatIntent.cancel('new-message')
+      currentChatIntent = null
     }
-  }
 
-  if (currentChatIntent)
-    console.info('[Stage] onAssistantResponseEnd -> ending intent', { intentId: currentChatIntent.intentId })
-  currentChatIntent?.end()
-  currentChatIntent = null
-  currentChatIntentReceivedLiteral.value = false
+    currentChatIntentReceivedLiteral.value = false
+    ensureSpeechIntent()
+  }),
+)
 
-  if (stageModelRenderer.value === 'vrm') {
-    // Reset to idle animation when the entire turn ends
-    if (temporaryVrmaTimeout) {
-      clearTimeout(temporaryVrmaTimeout)
-      temporaryVrmaTimeout = null
+chatHookCleanups.push(
+  onBeforeSend(async () => {
+    currentMotion.value = { group: EmotionThinkMotionName }
+  }),
+)
+
+chatHookCleanups.push(
+  onTokenLiteral(async (literal) => {
+    // const orchestrator = useChatOrchestratorStore()
+    const intent = ensureSpeechIntent()
+    if (import.meta.env.DEV) {
+      console.info('[PipelineTTS:Stage] onTokenLiteral triggered:', {
+        hash: window.location.hash,
+        hasIntent: !!intent,
+        intentId: intent?.intentId,
+        literalPreview: literal.slice(0, 10),
+      })
     }
-    temporaryVrma.value = null
-  }
-  // const res = await embed({
-  //   ...transformersProvider.embed('Xenova/nomic-embed-text-v1'),
-  //   input: message,
-  // })
 
-  // await db.value?.execute(`INSERT INTO memory_test (vec) VALUES (${JSON.stringify(res.embedding)});`)
-}))
+    if (!intent) return
+    currentChatIntentReceivedLiteral.value = true
+    console.info('[PipelineTTS:Stage] onTokenLiteral -> forwarding to speech', {
+      intentId: intent.intentId,
+      length: literal.length,
+      preview: literal.slice(0, 120),
+    })
+    intent.writeLiteral(literal)
+  }),
+)
+
+chatHookCleanups.push(
+  onTokenSpecial(async (special) => {
+    const intent = ensureSpeechIntent()
+    if (!intent) return
+    // console.info('Stage received special token:', special)
+    console.info('[Stage] onTokenSpecial -> forwarding', { intentId: intent.intentId, special })
+    intent.writeSpecial(special)
+  }),
+)
+
+chatHookCleanups.push(
+  onStreamEnd(async () => {
+    specialTokenQueue.enqueue(llmInferenceEndToken)
+    const intent = ensureSpeechIntent()
+    if (intent) console.info('[Stage] onStreamEnd -> flush intent', { intentId: intent.intentId })
+    intent?.writeFlush()
+  }),
+)
+
+chatHookCleanups.push(
+  onAssistantResponseEnd(async (message) => {
+    if (!currentChatIntentReceivedLiteral.value) {
+      const fallbackSpeech = categorizeResponse(message, activeChatProvider.value).speech.trim()
+      if (fallbackSpeech) {
+        const intent = ensureSpeechIntent()
+        console.info('[Stage] onAssistantResponseEnd -> fallback speech literal', {
+          intentId: intent.intentId,
+          length: fallbackSpeech.length,
+        })
+        intent.writeLiteral(fallbackSpeech)
+        intent.writeFlush()
+      }
+    }
+
+    if (currentChatIntent)
+      console.info('[Stage] onAssistantResponseEnd -> ending intent', { intentId: currentChatIntent.intentId })
+    currentChatIntent?.end()
+    currentChatIntent = null
+    currentChatIntentReceivedLiteral.value = false
+
+    if (stageModelRenderer.value === 'vrm') {
+      // Reset to idle animation when the entire turn ends
+      if (temporaryVrmaTimeout) {
+        clearTimeout(temporaryVrmaTimeout)
+        temporaryVrmaTimeout = null
+      }
+      temporaryVrma.value = null
+    }
+    // const res = await embed({
+    //   ...transformersProvider.embed('Xenova/nomic-embed-text-v1'),
+    //   input: message,
+    // })
+
+    // await db.value?.execute(`INSERT INTO memory_test (vec) VALUES (${JSON.stringify(res.embedding)});`)
+  }),
+)
 
 // Animation finishes decoupled
 
@@ -864,8 +873,7 @@ onUnmounted(() => {
 // Resume audio context on first user interaction (browser requirement)
 let audioContextResumed = false
 function resumeAudioContextOnInteraction() {
-  if (audioContextResumed || !audioContext)
-    return
+  if (audioContextResumed || !audioContext) return
   audioContextResumed = true
   audioContext.resume().catch(() => {
     // Ignore errors - audio context will be resumed when needed
@@ -905,9 +913,9 @@ onUnmounted(() => {
     lipSyncLoopId.value = undefined
   }
 
-  chatHookCleanups.forEach(dispose => dispose?.())
-  viewUpdateCleanups.forEach(dispose => dispose?.())
-  modsServerCleanups.forEach(dispose => dispose?.())
+  chatHookCleanups.forEach((dispose) => dispose?.())
+  viewUpdateCleanups.forEach((dispose) => dispose?.())
+  modsServerCleanups.forEach((dispose) => dispose?.())
   void speechRuntimeStore.unregisterHost(speechPipeline)
   if (typeof window !== 'undefined') {
     window.removeEventListener(resizeStateEventName, handleResizeStateChange as EventListener)
@@ -919,8 +927,8 @@ const controlStripRef = ref<any>()
 defineExpose({
   canvasElement,
   captureFrame,
-  readRenderTargetRegionAtClientPoint,
   controlStripElement: computed(() => controlStripRef.value?.$el || null),
+  readRenderTargetRegionAtClientPoint,
 })
 </script>
 

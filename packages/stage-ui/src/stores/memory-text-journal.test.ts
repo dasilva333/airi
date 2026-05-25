@@ -1,11 +1,9 @@
-import type { TextJournalEntry } from '../types/text-journal'
-import type { AiriCard } from './modules/airi-card'
-
 import { createTestingPinia } from '@pinia/testing'
 import { setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+import type { TextJournalEntry } from '../types/text-journal'
 import { useTextJournalStore } from './memory-text-journal'
+import type { AiriCard } from './modules/airi-card'
 
 // Mock the database repo so tests don't touch IndexedDB
 vi.mock('../database/repos/text-journal.repo', () => ({
@@ -27,10 +25,10 @@ vi.mock('../database/repos/text-journal.repo', () => ({
 // Shared mutable state holders — initialised to null, filled by the mock factories.
 // vi.hoisted ensures they exist before vi.mock factories run.
 const h = vi.hoisted(() => ({
-  userId: { r: null as null | { value: string | null } },
   activeCard: { r: null as null | { value: AiriCard | null } },
   activeCardId: { r: null as null | { value: string } },
   cards: { r: null as null | { value: Map<string, AiriCard> } },
+  userId: { r: null as null | { value: string | null } },
 }))
 
 vi.mock('./auth', async () => {
@@ -79,20 +77,20 @@ describe('useTextJournalStore', () => {
     it('fetches entries from the repo and normalizes them', async () => {
       const raw: TextJournalEntry[] = [
         {
-          id: '1',
-          userId: 'local',
           characterId: 'card-1',
           characterName: 'TestChar',
-          title: 'Hello',
           content: 'World',
-          source: 'tool',
-          stability: 0,
+          createdAt: 1000,
           difficulty: 0,
           elapsed_days: 0,
-          scheduled_days: 0,
+          id: '1',
           last_review: 0,
-          createdAt: 1000,
+          scheduled_days: 0,
+          source: 'tool',
+          stability: 0,
+          title: 'Hello',
           updatedAt: 1000,
+          userId: 'local',
         },
       ]
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(raw)
@@ -127,7 +125,7 @@ describe('useTextJournalStore', () => {
   describe('createEntry', () => {
     it('creates an entry scoped to the active character', async () => {
       const store = useTextJournalStore()
-      const entry = await store.createEntry({ title: 'My Day', content: 'Great day!' })
+      const entry = await store.createEntry({ content: 'Great day!', title: 'My Day' })
 
       expect(entry.characterId).toBe('card-1')
       expect(entry.characterName).toBe('TestChar')
@@ -148,7 +146,7 @@ describe('useTextJournalStore', () => {
       h.cards.r!.value.set('card-2', altCard)
 
       const store = useTextJournalStore()
-      const entry = await store.createEntry({ content: 'alt', characterId: 'card-2' })
+      const entry = await store.createEntry({ characterId: 'card-2', content: 'alt' })
       expect(entry.characterId).toBe('card-2')
       expect(entry.characterName).toBe('AltChar')
     })
@@ -176,27 +174,27 @@ describe('useTextJournalStore', () => {
       ;(textJournalRepo.saveAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('disk full'))
 
       const store = useTextJournalStore()
-      await expect(store.createEntry({ title: 'Oops', content: 'fail' })).rejects.toThrow(
+      await expect(store.createEntry({ content: 'fail', title: 'Oops' })).rejects.toThrow(
         'text_journal: failed to persist new entry "Oops": disk full',
       )
     })
 
     it('prepends the new entry so it appears first', async () => {
       const existing: TextJournalEntry = {
-        id: 'old-1',
-        userId: 'local',
         characterId: 'card-1',
         characterName: 'TestChar',
-        title: 'Old',
         content: 'Old content',
-        source: 'tool',
-        stability: 0,
+        createdAt: 1000,
         difficulty: 0,
         elapsed_days: 0,
-        scheduled_days: 0,
+        id: 'old-1',
         last_review: 0,
-        createdAt: 1000,
+        scheduled_days: 0,
+        source: 'tool',
+        stability: 0,
+        title: 'Old',
         updatedAt: 1000,
+        userId: 'local',
       }
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([existing])
 
@@ -213,28 +211,28 @@ describe('useTextJournalStore', () => {
 
   describe('searchEntries', () => {
     const makeEntry = (overrides: Partial<TextJournalEntry>): TextJournalEntry => ({
-      id: overrides.id ?? 'e1',
-      userId: 'local',
       characterId: overrides.characterId ?? 'card-1',
       characterName: 'TestChar',
-      title: overrides.title ?? 'Untitled',
       content: overrides.content ?? '',
-      source: overrides.source ?? 'tool',
-      stability: overrides.stability ?? 0,
+      createdAt: overrides.createdAt ?? 1000,
       difficulty: overrides.difficulty ?? 0,
       elapsed_days: overrides.elapsed_days ?? 0,
-      scheduled_days: overrides.scheduled_days ?? 0,
+      id: overrides.id ?? 'e1',
       last_review: overrides.last_review ?? 0,
-      createdAt: overrides.createdAt ?? 1000,
+      scheduled_days: overrides.scheduled_days ?? 0,
+      source: overrides.source ?? 'tool',
+      stability: overrides.stability ?? 0,
+      title: overrides.title ?? 'Untitled',
       updatedAt: overrides.updatedAt ?? 1000,
+      userId: 'local',
     })
 
     beforeEach(() => {
       const entries = [
-        makeEntry({ id: 'e1', title: 'apple diary', content: 'nothing special', createdAt: 1000 }),
-        makeEntry({ id: 'e2', title: 'random', content: 'apple in content', createdAt: 2000 }),
-        makeEntry({ id: 'e3', title: 'no match', content: 'completely different', createdAt: 3000 }),
-        makeEntry({ id: 'e4', title: 'apple theme', content: 'apple appears here too', createdAt: 4000 }),
+        makeEntry({ content: 'nothing special', createdAt: 1000, id: 'e1', title: 'apple diary' }),
+        makeEntry({ content: 'apple in content', createdAt: 2000, id: 'e2', title: 'random' }),
+        makeEntry({ content: 'completely different', createdAt: 3000, id: 'e3', title: 'no match' }),
+        makeEntry({ content: 'apple appears here too', createdAt: 4000, id: 'e4', title: 'apple theme' }),
       ]
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(entries)
     })
@@ -247,7 +245,7 @@ describe('useTextJournalStore', () => {
 
     it('scores title matches higher than content matches', async () => {
       const store = useTextJournalStore()
-      const result = await store.searchEntries({ query: 'apple', limit: 10 })
+      const result = await store.searchEntries({ limit: 10, query: 'apple' })
 
       // e4 has title+content (4+2=6), e1 has title only (4), e2 has content only (2)
       expect(result[0].id).toBe('e4')
@@ -257,35 +255,36 @@ describe('useTextJournalStore', () => {
 
     it('excludes entries with no match', async () => {
       const store = useTextJournalStore()
-      const result = await store.searchEntries({ query: 'apple', limit: 10 })
-      expect(result.map(e => e.id)).not.toContain('e3')
+      const result = await store.searchEntries({ limit: 10, query: 'apple' })
+      expect(result.map((e) => e.id)).not.toContain('e3')
     })
 
     it('respects the limit (capped at 10)', async () => {
       const manyEntries = Array.from({ length: 15 }, (_, i) =>
-        makeEntry({ id: `e${i}`, title: `apple ${i}`, createdAt: i }))
+        makeEntry({ createdAt: i, id: `e${i}`, title: `apple ${i}` }),
+      )
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(manyEntries)
 
       const store = useTextJournalStore()
-      const result = await store.searchEntries({ query: 'apple', limit: 20 })
+      const result = await store.searchEntries({ limit: 20, query: 'apple' })
       expect(result.length).toBeLessThanOrEqual(10)
     })
 
     it('returns at least 1 result even when limit is 0', async () => {
       const store = useTextJournalStore()
-      const result = await store.searchEntries({ query: 'apple', limit: 0 })
+      const result = await store.searchEntries({ limit: 0, query: 'apple' })
       expect(result.length).toBeGreaterThanOrEqual(1)
     })
 
     it('scopes search to the given characterId', async () => {
       const entries = [
-        makeEntry({ id: 'e1', title: 'apple', characterId: 'card-1' }),
-        makeEntry({ id: 'alt-1', characterId: 'card-2', title: 'apple alt' }),
+        makeEntry({ characterId: 'card-1', id: 'e1', title: 'apple' }),
+        makeEntry({ characterId: 'card-2', id: 'alt-1', title: 'apple alt' }),
       ]
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(entries)
 
       const store = useTextJournalStore()
-      const result = await store.searchEntries({ query: 'apple', characterId: 'card-2' })
+      const result = await store.searchEntries({ characterId: 'card-2', query: 'apple' })
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('alt-1')
     })
@@ -306,36 +305,36 @@ describe('useTextJournalStore', () => {
     it('exposes entries sorted newest-first by createdAt', async () => {
       const entries: TextJournalEntry[] = [
         {
-          id: 'a',
-          userId: 'local',
           characterId: 'card-1',
           characterName: 'TestChar',
-          title: 'Old',
           content: '',
-          source: 'tool',
-          stability: 0,
+          createdAt: 1000,
           difficulty: 0,
           elapsed_days: 0,
-          scheduled_days: 0,
+          id: 'a',
           last_review: 0,
-          createdAt: 1000,
+          scheduled_days: 0,
+          source: 'tool',
+          stability: 0,
+          title: 'Old',
           updatedAt: 1000,
+          userId: 'local',
         },
         {
-          id: 'b',
-          userId: 'local',
           characterId: 'card-1',
           characterName: 'TestChar',
-          title: 'New',
           content: '',
-          source: 'tool',
-          stability: 0,
+          createdAt: 9000,
           difficulty: 0,
           elapsed_days: 0,
-          scheduled_days: 0,
+          id: 'b',
           last_review: 0,
-          createdAt: 9000,
+          scheduled_days: 0,
+          source: 'tool',
+          stability: 0,
+          title: 'New',
           updatedAt: 9000,
+          userId: 'local',
         },
       ]
       ;(textJournalRepo.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(entries)

@@ -2,31 +2,31 @@ import { join, resolve } from 'node:path'
 import { cwd, env } from 'node:process'
 
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
-import Vue from '@vitejs/plugin-vue'
-import Unocss from 'unocss/vite'
-import Info from 'unplugin-info/vite'
-import VueRouter from 'unplugin-vue-router/vite'
-import Yaml from 'unplugin-yaml/vite'
-import Layouts from 'vite-plugin-vue-layouts'
-import VueMacros from 'vue-macros/vite'
-
 import { resilient } from '@proj-airi/stage-shared/vite'
 import { Download } from '@proj-airi/unplugin-fetch/vite'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk/vite'
 import { createS3Provider, WarpDrivePlugin } from '@proj-airi/vite-plugin-warpdrive'
+import Vue from '@vitejs/plugin-vue'
 import { LFS, SpaceCard } from 'hfup/vite'
+import Unocss from 'unocss/vite'
+import Info from 'unplugin-info/vite'
+import VueRouter from 'unplugin-vue-router/vite'
+import Yaml from 'unplugin-yaml/vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import Layouts from 'vite-plugin-vue-layouts'
+import VueMacros from 'vue-macros/vite'
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 
 export default defineConfig({
+  build: {
+    sourcemap: true,
+    target: 'esnext',
+  },
   optimizeDeps: {
     esbuildOptions: { target: 'esnext' },
-    include: [
-      'uncrypto',
-    ],
     exclude: [
       // Internal Packages
       '@proj-airi/stage-ui/*',
@@ -52,40 +52,7 @@ export default defineConfig({
       '@framework/utils/cubismdebug',
       '@framework/model/cubismmoc',
     ],
-  },
-  resolve: {
-    alias: {
-      '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
-      '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
-      '@proj-airi/stage-ui': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
-      '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
-      '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
-      '@proj-airi/stage-layouts': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
-      '@proj-airi/electron-vueuse': resolve(join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src')),
-    },
-  },
-  server: {
-    fs: {
-      strict: false,
-    },
-    warmup: {
-      clientFiles: [
-        `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src'))}/*.vue`,
-        `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src'))}/*.vue`,
-      ],
-    },
-  },
-  build: {
-    target: 'esnext',
-    sourcemap: true,
-  },
-  worker: {
-    format: 'es',
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: false,
-      },
-    },
+    include: ['uncrypto'],
   },
 
   plugins: [
@@ -94,25 +61,25 @@ export default defineConfig({
     Yaml(),
 
     VueMacros({
+      betterDefine: false,
       plugins: {
         vue: Vue({
           include: [/\.vue$/, /\.md$/],
         }),
         vueJsx: false,
       },
-      betterDefine: false,
     }),
 
     // https://github.com/posva/unplugin-vue-router
     VueRouter({
-      extensions: ['.vue', '.md'],
       dts: resolve(import.meta.dirname, 'src/typed-router.d.ts'),
+      exclude: ['**/components/**'],
+      extensions: ['.vue', '.md'],
       importMode: 'async',
       routesFolder: [
         resolve(import.meta.dirname, 'src', 'pages'),
         resolve(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src', 'pages'),
       ],
-      exclude: ['**/components/**'],
     }),
 
     // https://github.com/JohnCampionJr/vite-plugin-vue-layouts
@@ -130,53 +97,50 @@ export default defineConfig({
     // https://github.com/antfu/vite-plugin-pwa
     ...(env.TARGET_HUGGINGFACE_SPACE
       ? []
-      : [VitePWA({
-          registerType: 'autoUpdate',
-          includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-          manifest: {
-            name: 'AIRI',
-            short_name: 'AIRI',
-            icons: [
-              {
-                src: '/web-app-manifest-192x192.png',
-                sizes: '192x192',
-                type: 'image/png',
-              },
-              {
-                src: '/web-app-manifest-512x512.png',
-                sizes: '512x512',
-                type: 'image/png',
-              },
-              {
-                purpose: 'maskable',
-                sizes: '192x192',
-                src: '/maskable_icon_x192.png',
-                type: 'image/png',
-              },
-              {
-                purpose: 'maskable',
-                sizes: '512x512',
-                src: '/maskable_icon_x512.png',
-                type: 'image/png',
-              },
-            ],
-          },
-          workbox: {
-            maximumFileSizeToCacheInBytes: 64 * 1024 * 1024,
-            navigateFallbackDenylist: [
-              /^\/docs\//,
-              /^\/ui\//,
-              /^\/remote-assets\//,
-              /^\/api\//,
-            ],
-          },
-        })]),
+      : [
+          VitePWA({
+            includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+            manifest: {
+              icons: [
+                {
+                  sizes: '192x192',
+                  src: '/web-app-manifest-192x192.png',
+                  type: 'image/png',
+                },
+                {
+                  sizes: '512x512',
+                  src: '/web-app-manifest-512x512.png',
+                  type: 'image/png',
+                },
+                {
+                  purpose: 'maskable',
+                  sizes: '192x192',
+                  src: '/maskable_icon_x192.png',
+                  type: 'image/png',
+                },
+                {
+                  purpose: 'maskable',
+                  sizes: '512x512',
+                  src: '/maskable_icon_x512.png',
+                  type: 'image/png',
+                },
+              ],
+              name: 'AIRI',
+              short_name: 'AIRI',
+            },
+            registerType: 'autoUpdate',
+            workbox: {
+              maximumFileSizeToCacheInBytes: 64 * 1024 * 1024,
+              navigateFallbackDenylist: [/^\/docs\//, /^\/ui\//, /^\/remote-assets\//, /^\/api\//],
+            },
+          }),
+        ]),
 
     // https://github.com/intlify/bundle-tools/tree/main/packages/unplugin-vue-i18n
     VueI18n({
-      runtimeOnly: true,
       compositionOnly: true,
       fullInstall: true,
+      runtimeOnly: true,
     }),
 
     // https://github.com/webfansplz/vite-plugin-vue-devtools
@@ -185,46 +149,70 @@ export default defineConfig({
     ...(!process.env.SKIP_DOWNLOADS
       ? [
           resilient(DownloadLive2DSDK()),
-          resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip', 'hiyori_free_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-          resilient(Download('https://dist.ayaka.moe/live2d-models/hiyori_pro_zh.zip', 'hiyori_pro_zh.zip', 'live2d/models', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-          resilient(Download('https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-A/AvatarSample_A.vrm', 'AvatarSample_A.vrm', 'vrm/models/AvatarSample-A', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
-          resilient(Download('https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-B/AvatarSample_B.vrm', 'AvatarSample_B.vrm', 'vrm/models/AvatarSample-B', { parentDir: stageUIAssetsRoot, cacheDir: sharedCacheDir })),
+          resilient(
+            Download('https://dist.ayaka.moe/live2d-models/hiyori_free_zh.zip', 'hiyori_free_zh.zip', 'live2d/models', {
+              cacheDir: sharedCacheDir,
+              parentDir: stageUIAssetsRoot,
+            }),
+          ),
+          resilient(
+            Download('https://dist.ayaka.moe/live2d-models/hiyori_pro_zh.zip', 'hiyori_pro_zh.zip', 'live2d/models', {
+              cacheDir: sharedCacheDir,
+              parentDir: stageUIAssetsRoot,
+            }),
+          ),
+          resilient(
+            Download(
+              'https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-A/AvatarSample_A.vrm',
+              'AvatarSample_A.vrm',
+              'vrm/models/AvatarSample-A',
+              { cacheDir: sharedCacheDir, parentDir: stageUIAssetsRoot },
+            ),
+          ),
+          resilient(
+            Download(
+              'https://dist.ayaka.moe/vrm-models/VRoid-Hub/AvatarSample-B/AvatarSample_B.vrm',
+              'AvatarSample_B.vrm',
+              'vrm/models/AvatarSample-B',
+              { cacheDir: sharedCacheDir, parentDir: stageUIAssetsRoot },
+            ),
+          ),
         ]
       : []),
 
     // HuggingFace Spaces
-    LFS({ root: cwd(), extraGlobs: [
-      // Scene & Models
-      '*.vrm',
-      '*.vrma',
-      '*.hdr',
-      '*.cmo3',
-      // Images & Fonts
-      '*.png',
-      '*.jpg',
-      '*.jpeg',
-      '*.gif',
-      '*.webp',
-      '*.bmp',
-      '*.ttf',
-      '*.avif',
-      // Tensorflow / MediaPipe task
-      '*.task',
-    ] }),
-    SpaceCard({
+    LFS({
+      extraGlobs: [
+        // Scene & Models
+        '*.vrm',
+        '*.vrma',
+        '*.hdr',
+        '*.cmo3',
+        // Images & Fonts
+        '*.png',
+        '*.jpg',
+        '*.jpeg',
+        '*.gif',
+        '*.webp',
+        '*.bmp',
+        '*.ttf',
+        '*.avif',
+        // Tensorflow / MediaPipe task
+        '*.task',
+      ],
       root: cwd(),
-      title: 'AIRI: Virtual Companion',
-      emoji: '🧸',
+    }),
+    SpaceCard({
       colorFrom: 'pink',
       colorTo: 'pink',
-      sdk: 'static',
-      pinned: false,
+      emoji: '🧸',
       license: 'mit',
-      models: [
-        'onnx-community/whisper-base',
-        'onnx-community/silero-vad',
-      ],
+      models: ['onnx-community/whisper-base', 'onnx-community/silero-vad'],
+      pinned: false,
+      root: cwd(),
+      sdk: 'static',
       short_description: 'AI driven VTuber & Companion, supports Live2D and VRM.',
+      title: 'AIRI: Virtual Companion',
     }),
 
     // For the following example assets:
@@ -238,13 +226,10 @@ export default defineConfig({
     //
     // they are too large to be able to put into deployments like Cloudflare Workers or Pages,
     // we need to upload them to external storage and use renderBuiltUrl to rewrite their URLs.
-    ...((!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)
+    ...(!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY
       ? []
       : [
           WarpDrivePlugin({
-            prefix: env.STAGE_WEB_WARP_DRIVE_PREFIX || 'proj-airi/stage-web/main/',
-            include: [/\.wasm$/i, /\.ttf$/i, /\.vrm$/i, /\.zip$/i], // in existing assets, wasm, ttf, vrm files are the largest ones
-            manifest: true,
             clean: false,
             contentTypeBy: (filename: string) => {
               if (filename.endsWith('.wasm')) {
@@ -260,14 +245,49 @@ export default defineConfig({
                 return 'application/zip'
               }
             },
+            include: [/\.wasm$/i, /\.ttf$/i, /\.vrm$/i, /\.zip$/i], // in existing assets, wasm, ttf, vrm files are the largest ones
+            manifest: true,
+            prefix: env.STAGE_WEB_WARP_DRIVE_PREFIX || 'proj-airi/stage-web/main/',
             provider: createS3Provider({
-              endpoint: env.S3_ENDPOINT,
               accessKeyId: env.S3_ACCESS_KEY_ID,
-              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-              region: env.S3_REGION,
+              endpoint: env.S3_ENDPOINT,
               publicBaseUrl: env.WARP_DRIVE_PUBLIC_BASE ?? env.S3_ENDPOINT,
+              region: env.S3_REGION,
+              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
             }),
           }),
         ]),
   ],
+  resolve: {
+    alias: {
+      '@proj-airi/electron-vueuse': resolve(
+        join(import.meta.dirname, '..', '..', 'packages', 'electron-vueuse', 'src'),
+      ),
+      '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
+      '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
+      '@proj-airi/stage-layouts': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
+      '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
+      '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
+      '@proj-airi/stage-ui': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
+    },
+  },
+  server: {
+    fs: {
+      strict: false,
+    },
+    warmup: {
+      clientFiles: [
+        `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src'))}/*.vue`,
+        `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src'))}/*.vue`,
+      ],
+    },
+  },
+  worker: {
+    format: 'es',
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: false,
+      },
+    },
+  },
 })

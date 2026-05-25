@@ -29,15 +29,15 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
   document.body.appendChild(offscreenCanvas)
 
   const app = new Application({
-    view: offscreenCanvas,
-    width: offscreenCanvas.width,
+    autoDensity: false,
+    autoStart: false,
+    backgroundAlpha: 0,
     height: offscreenCanvas.height,
     // Ensure the drawing buffer persists so toDataURL() can read pixels
     preserveDrawingBuffer: true,
-    backgroundAlpha: 0,
-    autoDensity: false,
     resolution: 1,
-    autoStart: false,
+    view: offscreenCanvas,
+    width: offscreenCanvas.width,
   })
   app.stage.scale.set(previewResolution)
   app.ticker.stop()
@@ -47,8 +47,7 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
 
   const cleanup = () => {
     app.destroy()
-    if (offscreenCanvas.isConnected)
-      document.body.removeChild(offscreenCanvas)
+    if (offscreenCanvas.isConnected) document.body.removeChild(offscreenCanvas)
     if (typeof input !== 'string') {
       URL.revokeObjectURL(objUrl)
     }
@@ -73,29 +72,35 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
     // Apply active parameters if provided
     if (parameters) {
       for (const [name, value] of Object.entries(parameters)) {
-        (modelInstance.internalModel.coreModel as any).setParameterValueById?.(name, value)
+        ;(modelInstance.internalModel.coreModel as any).setParameterValueById?.(name, value)
       }
     }
 
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500))
     app.renderer.render(app.stage)
 
     const croppedCanvas = cropImg(offscreenCanvas)
 
     // padding to 12:16
     const paddingCanvas = document.createElement('canvas')
-    paddingCanvas.width = croppedCanvas.width > croppedCanvas.height / 16 * 12 ? croppedCanvas.width : croppedCanvas.height / 16 * 12
-    paddingCanvas.height = paddingCanvas.width / 12 * 16
+    paddingCanvas.width =
+      croppedCanvas.width > (croppedCanvas.height / 16) * 12 ? croppedCanvas.width : (croppedCanvas.height / 16) * 12
+    paddingCanvas.height = (paddingCanvas.width / 12) * 16
     const paddingCanvasCtx = paddingCanvas.getContext('2d')!
 
-    paddingCanvasCtx.drawImage(croppedCanvas, (paddingCanvas.width - croppedCanvas.width) / 2, (paddingCanvas.height - croppedCanvas.height) / 2, croppedCanvas.width, croppedCanvas.height)
+    paddingCanvasCtx.drawImage(
+      croppedCanvas,
+      (paddingCanvas.width - croppedCanvas.width) / 2,
+      (paddingCanvas.height - croppedCanvas.height) / 2,
+      croppedCanvas.width,
+      croppedCanvas.height,
+    )
     const paddingDataUrl = paddingCanvas.toDataURL()
 
     cleanup()
 
     return paddingDataUrl
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error during Live2D capture:', error)
     cleanup()
   }

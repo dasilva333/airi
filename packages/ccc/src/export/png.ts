@@ -1,6 +1,5 @@
-import type { Card } from '../define'
-
 import { addMetadata, addMetadataFromBase64DataURI } from 'meta-png'
+import type { Card } from '../define'
 
 import { exportToJSON } from './json'
 

@@ -1,39 +1,24 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "jsx": "preserve",
-    "lib": [
-      "DOM",
-      "ESNext",
-      "DOM.AsyncIterable"
-    ],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
-    "types": [
-      "vitest",
-      "vite/client",
-      "unplugin-info/client",
-      "@types/audioworklet"
-    ],
     "allowJs": true,
-    "strict": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noEmit": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "jsx": "preserve",
+    "lib": ["DOM", "ESNext", "DOM.AsyncIterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "target": "ESNext",
+    "types": ["vitest", "vite/client", "unplugin-info/client", "@types/audioworklet"],
+    "verbatimModuleSyntax": true
   },
-  "vueCompilerOptions": {
-    "plugins": [
-      "@vue-macros/volar/define-models",
-      "@vue-macros/volar/define-slots"
-    ],
-    "skipTemplateCodegen": false
-  },
+  "exclude": ["dist", "node_modules"],
   "include": [
     "env.d.ts",
     "src/**/*.ts",
@@ -45,8 +30,8 @@
     "stories/**/*.vue",
     "stories/**/*.story.vue"
   ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "vueCompilerOptions": {
+    "plugins": ["@vue-macros/volar/define-models", "@vue-macros/volar/define-slots"],
+    "skipTemplateCodegen": false
+  }
 }

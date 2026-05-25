@@ -20,19 +20,17 @@ export function usePrevNext() {
     const isBlogPage = page.value.relativePath.includes('/blog/')
 
     // Determine visibility from theme/frontmatter first
-    const hidePrev
-      = (theme.value.docFooter?.prev === false && !frontmatter.value.prev)
-        || frontmatter.value.prev === false
+    const hidePrev =
+      (theme.value.docFooter?.prev === false && !frontmatter.value.prev) || frontmatter.value.prev === false
 
-    const hideNext
-      = (theme.value.docFooter?.next === false && !frontmatter.value.next)
-        || frontmatter.value.next === false
+    const hideNext =
+      (theme.value.docFooter?.next === false && !frontmatter.value.next) || frontmatter.value.next === false
 
     if (isBlogPage) {
       // Filter posts by current language and exclude blog index page
       const sameLangPosts = blogPosts
-        .filter(p => p.lang === (lang.value || 'en'))
-        .filter(p => p.urlWithoutLang !== '/blog/')
+        .filter((p) => p.lang === (lang.value || 'en'))
+        .filter((p) => p.urlWithoutLang !== '/blog/')
 
       // Find current post index by matching normalized URLs
       let currentPath = page.value.relativePath
@@ -41,11 +39,12 @@ export function usePrevNext() {
       }
 
       const currentUrl = withBase(`/${currentPath}`)
-      const currentIndex = sameLangPosts.findIndex(p => isActive(currentUrl, withBase(p.url)))
+      const currentIndex = sameLangPosts.findIndex((p) => isActive(currentUrl, withBase(p.url)))
 
       // Gracefully handle not found index
       const prevPost = currentIndex > 0 ? sameLangPosts[currentIndex - 1] : undefined
-      const nextPost = currentIndex >= 0 && currentIndex < sameLangPosts.length - 1 ? sameLangPosts[currentIndex + 1] : undefined
+      const nextPost =
+        currentIndex >= 0 && currentIndex < sameLangPosts.length - 1 ? sameLangPosts[currentIndex + 1] : undefined
 
       // For blog pages, do NOT render next when it's the last article,
       // even if frontmatter provides a manual next link.
@@ -53,14 +52,13 @@ export function usePrevNext() {
         ? undefined
         : prevPost
           ? {
+              link: withBase(prevPost.url),
               text:
                 (typeof frontmatter.value.prev === 'string'
                   ? frontmatter.value.prev
                   : typeof frontmatter.value.prev === 'object'
                     ? frontmatter.value.prev.text
-                    : undefined)
-                  ?? prevPost.title,
-              link: withBase(prevPost.url),
+                    : undefined) ?? prevPost.title,
             }
           : undefined
 
@@ -68,23 +66,22 @@ export function usePrevNext() {
         ? undefined
         : nextPost
           ? {
+              link: withBase(nextPost.url),
               text:
                 (typeof frontmatter.value.next === 'string'
                   ? frontmatter.value.next
                   : typeof frontmatter.value.next === 'object'
                     ? frontmatter.value.next.text
-                    : undefined)
-                  ?? nextPost.title,
-              link: withBase(nextPost.url),
+                    : undefined) ?? nextPost.title,
             }
           : undefined
 
       return {
-        prev: blogPrev,
         next: blogNext,
+        prev: blogPrev,
       } as {
-        prev?: { text?: string, link?: string }
-        next?: { text?: string, link?: string }
+        prev?: { text?: string; link?: string }
+        next?: { text?: string; link?: string }
       }
     }
 
@@ -93,7 +90,7 @@ export function usePrevNext() {
     const links = getFlatSideBarLinks(sidebar)
 
     // ignore inner-page links with hashes
-    let candidates = uniqBy(links, link => link.link.replace(/[?#].*$/, ''))
+    let candidates = uniqBy(links, (link) => link.link.replace(/[?#].*$/, ''))
 
     // Restrict docs navigation within the same docs section (e.g., overview vs manual)
     // This prevents crossing into unrelated sections like `/zh-Hans/docs/manual/`.
@@ -110,17 +107,17 @@ export function usePrevNext() {
       const isSectionRoot = currentFullUrl.replace(/[?#].*$/, '') === sectionBase
       if (isSectionRoot) {
         return {
-          prev: undefined,
           next: undefined,
-        } as { prev?: { text?: string, link?: string }, next?: { text?: string, link?: string } }
+          prev: undefined,
+        } as { prev?: { text?: string; link?: string }; next?: { text?: string; link?: string } }
       }
       // Keep navigation within the same docs section and exclude the section root itself
       // to avoid showing a "next" link that points back to the section index.
       const filtered = candidates
-        .filter(l => l.link.replace(/[?#].*$/, '').startsWith(sectionBase))
-        .filter(l => l.link.replace(/[?#].*$/, '') !== sectionBase)
+        .filter((l) => l.link.replace(/[?#].*$/, '').startsWith(sectionBase))
+        .filter((l) => l.link.replace(/[?#].*$/, '') !== sectionBase)
       // Fallback to all candidates if filter would drop the current page
-      const wouldDropCurrent = filtered.findIndex(l => isActive(currentFullUrl, l.link)) < 0
+      const wouldDropCurrent = filtered.findIndex((l) => isActive(currentFullUrl, l.link)) < 0
       if (!wouldDropCurrent) {
         candidates = filtered
       }
@@ -136,41 +133,41 @@ export function usePrevNext() {
     })
 
     return {
-      prev: hidePrev || index <= 0
-        ? undefined
-        : {
-            text:
-              (typeof frontmatter.value.prev === 'string'
-                ? frontmatter.value.prev
-                : typeof frontmatter.value.prev === 'object'
-                  ? frontmatter.value.prev.text
-                  : undefined)
-                ?? candidates[index - 1]?.docFooterText
-                ?? candidates[index - 1]?.text,
-            link:
-              (typeof frontmatter.value.prev === 'object'
-                ? frontmatter.value.prev.link
-                : undefined) ?? candidates[index - 1]?.link,
-          },
-      next: hideNext || index < 0 || index >= candidates.length - 1
-        ? undefined
-        : {
-            text:
-              (typeof frontmatter.value.next === 'string'
-                ? frontmatter.value.next
-                : typeof frontmatter.value.next === 'object'
-                  ? frontmatter.value.next.text
-                  : undefined)
-                ?? candidates[index + 1]?.docFooterText
-                ?? candidates[index + 1]?.text,
-            link:
-              (typeof frontmatter.value.next === 'object'
-                ? frontmatter.value.next.link
-                : undefined) ?? candidates[index + 1]?.link,
-          },
+      next:
+        hideNext || index < 0 || index >= candidates.length - 1
+          ? undefined
+          : {
+              link:
+                (typeof frontmatter.value.next === 'object' ? frontmatter.value.next.link : undefined) ??
+                candidates[index + 1]?.link,
+              text:
+                (typeof frontmatter.value.next === 'string'
+                  ? frontmatter.value.next
+                  : typeof frontmatter.value.next === 'object'
+                    ? frontmatter.value.next.text
+                    : undefined) ??
+                candidates[index + 1]?.docFooterText ??
+                candidates[index + 1]?.text,
+            },
+      prev:
+        hidePrev || index <= 0
+          ? undefined
+          : {
+              link:
+                (typeof frontmatter.value.prev === 'object' ? frontmatter.value.prev.link : undefined) ??
+                candidates[index - 1]?.link,
+              text:
+                (typeof frontmatter.value.prev === 'string'
+                  ? frontmatter.value.prev
+                  : typeof frontmatter.value.prev === 'object'
+                    ? frontmatter.value.prev.text
+                    : undefined) ??
+                candidates[index - 1]?.docFooterText ??
+                candidates[index - 1]?.text,
+            },
     } as {
-      prev?: { text?: string, link?: string }
-      next?: { text?: string, link?: string }
+      prev?: { text?: string; link?: string }
+      next?: { text?: string; link?: string }
     }
   })
 }

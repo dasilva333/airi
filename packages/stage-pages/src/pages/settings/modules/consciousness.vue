@@ -26,17 +26,20 @@ const { t } = useI18n()
 const { trackProviderClick } = useAnalytics()
 const isOpenAICompatibleProvider = computed(() => activeProvider.value === 'openai-compatible')
 
-watch(activeProvider, async (provider, oldProvider) => {
-  if (!provider)
-    return
+watch(
+  activeProvider,
+  async (provider, oldProvider) => {
+    if (!provider) return
 
-  // Reset model when switching providers (but not on initial load)
-  if (oldProvider !== undefined && oldProvider !== provider) {
-    activeModel.value = ''
-  }
+    // Reset model when switching providers (but not on initial load)
+    if (oldProvider !== undefined && oldProvider !== provider) {
+      activeModel.value = ''
+    }
 
-  await consciousnessStore.loadModelsForProvider(provider)
-}, { immediate: true })
+    await consciousnessStore.loadModelsForProvider(provider)
+  },
+  { immediate: true },
+)
 
 function updateCustomModelName(value: string) {
   customModelName.value = value

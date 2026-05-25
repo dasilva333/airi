@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
-
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import {
   CharacterContextDialog,
@@ -27,6 +25,7 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
+import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 import { BasicTextarea } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
@@ -37,7 +36,7 @@ import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const messageInput = ref('')
-const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
+const attachments = ref<{ type: 'image'; data: string; mimeType: string; url: string }[]>([])
 
 const chatOrchestrator = useChatOrchestratorStore()
 const chatSession = useChatSessionStore()
@@ -78,93 +77,85 @@ function addImageAttachmentFromBase64(data: string, mimeType: string, _fileName?
     }
     const blob = new Blob([bytes], { type: mimeType })
     url = URL.createObjectURL(blob)
-  }
-  catch {
+  } catch {
     url = `data:${mimeType};base64,${data}`
   }
 
   attachments.value.push({
-    type: 'image' as const,
     data,
     mimeType,
+    type: 'image' as const,
     url,
   })
 }
 
 // --- Journal Preview Data ---
 const latestTextEntries = computed(() => {
-  if (!activeCardId.value)
-    return []
+  if (!activeCardId.value) return []
 
   const manualEntries = textJournalStore.entries
-    .filter(e => e.characterId === activeCardId.value)
-    .map(e => ({
+    .filter((e) => e.characterId === activeCardId.value)
+    .map((e) => ({
+      content: e.content,
       id: e.id,
-      type: 'manual' as const,
       timestamp: e.createdAt,
       title: e.title,
-      content: e.content,
+      type: 'manual' as const,
     }))
 
-  const autoEntries = shortTermMemory.getCharacterBlocks(activeCardId.value)
-    .map((b) => {
-      // Robust stripping of markdown code fences (``` or ~~~) with optional language tag
-      const fenceMatch = b.summary.trim().match(/^(?:`{3,}|~{3,})[\w-]*\n?([\s\S]*?)\n?(?:`{3,}|~{3,})$/)
-      const content = fenceMatch ? fenceMatch[1].trim() : b.summary.trim()
+  const autoEntries = shortTermMemory.getCharacterBlocks(activeCardId.value).map((b) => {
+    // Robust stripping of markdown code fences (``` or ~~~) with optional language tag
+    const fenceMatch = b.summary.trim().match(/^(?:`{3,}|~{3,})[\w-]*\n?([\s\S]*?)\n?(?:`{3,}|~{3,})$/)
+    const content = fenceMatch ? fenceMatch[1].trim() : b.summary.trim()
 
-      return ({
-        id: b.id,
-        type: 'auto' as const,
-        timestamp: b.updatedAt || b.createdAt,
-        messageCount: b.messageCount,
-        title: 'Daily Recap',
-        content,
-      })
-    })
+    return {
+      content,
+      id: b.id,
+      messageCount: b.messageCount,
+      timestamp: b.updatedAt || b.createdAt,
+      title: 'Daily Recap',
+      type: 'auto' as const,
+    }
+  })
 
-  const echoEntries = echoesStore.getCharacterChips(activeCardId.value)
-    .map(c => ({
-      id: c.id,
-      type: 'echo' as const,
-      echoType: c.type,
-      timestamp: c.createdAt,
-      title: c.type.charAt(0).toUpperCase() + c.type.slice(1).replace('_', ' '),
-      content: c.content,
-    }))
+  const echoEntries = echoesStore.getCharacterChips(activeCardId.value).map((c) => ({
+    content: c.content,
+    echoType: c.type,
+    id: c.id,
+    timestamp: c.createdAt,
+    title: c.type.charAt(0).toUpperCase() + c.type.slice(1).replace('_', ' '),
+    type: 'echo' as const,
+  }))
 
-  return [...manualEntries, ...autoEntries, ...echoEntries]
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 15)
+  return [...manualEntries, ...autoEntries, ...echoEntries].sort((a, b) => b.timestamp - a.timestamp).slice(0, 15)
 })
 
 const groupedTextEntries = computed(() => {
   const entries = latestTextEntries.value
-  const groups: { type: 'single' | 'echo-group', entry?: any, items?: any[] }[] = []
+  const groups: { type: 'single' | 'echo-group'; entry?: any; items?: any[] }[] = []
   let tempEchoGroup: any[] = []
 
   entries.forEach((entry) => {
     if (entry.type === 'echo') {
       tempEchoGroup.push(entry)
-    }
-    else {
+    } else {
       if (tempEchoGroup.length > 0) {
-        groups.push({ type: 'echo-group', items: [...tempEchoGroup] })
+        groups.push({ items: [...tempEchoGroup], type: 'echo-group' })
         tempEchoGroup = []
       }
-      groups.push({ type: 'single', entry })
+      groups.push({ entry, type: 'single' })
     }
   })
 
   if (tempEchoGroup.length > 0) {
-    groups.push({ type: 'echo-group', items: tempEchoGroup })
+    groups.push({ items: tempEchoGroup, type: 'echo-group' })
   }
 
   return groups
 })
 
 const latestImageEntries = computed(() => {
-  if (!activeCardId.value)
-    return []
+  if (!activeCardId.value) return []
   return backgroundStore.journalEntries.slice(0, 15)
 })
 
@@ -194,7 +185,8 @@ const effectiveSystemPrompt = computed(() => buildSystemPrompt(activeCard.value)
 
 function handleTrashClick() {
   const today = formatLocalDayKey(new Date())
-  const isTodayCached = activeCardId.value && shortTermMemory.getCharacterBlocks(activeCardId.value).some(b => b.date === today)
+  const isTodayCached =
+    activeCardId.value && shortTermMemory.getCharacterBlocks(activeCardId.value).some((b) => b.date === today)
   if (!isTodayCached && messages.value.length > 0) {
     trashConfirmOpen.value = true
     return
@@ -207,8 +199,7 @@ async function handleSaveAndClear() {
   if (activeCardId.value) {
     try {
       await shortTermMemory.rebuildToday(activeCardId.value)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[InteractiveArea] Failed to cache today before clear:', err)
     }
   }
@@ -225,18 +216,14 @@ const stageBackgroundDialogOpen = ref(false)
 // --- Deep Links ---
 
 function navigateToConceptStudio() {
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   router.push(`/settings/airi-card?cardId=${activeCardId.value}&tab=studio`)
 }
 
 function updateWindowTitle() {
-  const nextTitle = messageInput.value.trim()
-    ? `${CHAT_WINDOW_TITLE} - User Typing...`
-    : CHAT_WINDOW_TITLE
+  const nextTitle = messageInput.value.trim() ? `${CHAT_WINDOW_TITLE} - User Typing...` : CHAT_WINDOW_TITLE
 
-  if (document.title !== nextTitle)
-    document.title = nextTitle
+  if (document.title !== nextTitle) document.title = nextTitle
 }
 
 async function handleSend() {
@@ -250,7 +237,7 @@ async function handleSend() {
 
   const textToSend = messageInput.value
 
-  const attachmentsToSend = attachments.value.map(att => ({ ...att }))
+  const attachmentsToSend = attachments.value.map((att) => ({ ...att }))
 
   // optimistic clear
   messageInput.value = ''
@@ -266,20 +253,21 @@ async function handleSend() {
   try {
     const providerConfig = providersStore.getProviderConfig(activeProvider.value)
     await ingest(textToSend, {
-      model: activeModel.value,
-      chatProvider: activeProvider.value,
-      providerConfig,
       attachments: attachmentsToSend,
+      chatProvider: activeProvider.value,
+      model: activeModel.value,
+      providerConfig,
     })
 
-    attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
-  }
-  catch {
+    attachmentsToSend.forEach((att) => URL.revokeObjectURL(att.url))
+  } catch {
     // restore on failure
     messageInput.value = textToSend
-    attachments.value = attachmentsToSend.map(att => ({
+    attachments.value = attachmentsToSend.map((att) => ({
       ...att,
-      url: URL.createObjectURL(new Blob([Uint8Array.from(atob(att.data), c => c.charCodeAt(0))], { type: att.mimeType })),
+      url: URL.createObjectURL(
+        new Blob([Uint8Array.from(atob(att.data), (c) => c.charCodeAt(0))], { type: att.mimeType }),
+      ),
     }))
     toast.error('Message failed to send. Draft restored.')
   }
@@ -307,7 +295,7 @@ function addScreenshotAttachment(data: string, mimeType: string) {
 async function handleScreenshotClick() {
   console.log('[InteractiveArea] Manual screenshot capture requested via visionStore...')
   try {
-    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    const result = (await visionStore.captureSnapshot({ height: 720, width: 1280 })) as any
     console.log('[InteractiveArea] Capture result:', result ? (result.error ? result.error : 'Success') : 'Null/Empty')
 
     if (result?.error === 'permission_denied') {
@@ -323,18 +311,16 @@ async function handleScreenshotClick() {
         addScreenshotAttachment(base64, 'image/png')
         toast.success('Screenshot attached!')
       }
-    }
-    else {
+    } else {
       console.warn('[InteractiveArea] Capturing screenshot returned no data. Check screen recording permissions.')
       toast.error('Capture failed: No data.')
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[InteractiveArea] Screenshot capture failed:', err)
   }
 }
 
-async function handleInternalImageAttach({ url, title }: { url: string, title: string }) {
+async function handleInternalImageAttach({ url, title }: { url: string; title: string }) {
   try {
     const response = await fetch(url)
     const blob = await response.blob()
@@ -347,8 +333,7 @@ async function handleInternalImageAttach({ url, title }: { url: string, title: s
       }
     }
     reader.readAsDataURL(blob)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[InteractiveArea] Failed to attach internal image:', err)
     toast.error('Failed to attach image.')
   }
@@ -357,7 +342,7 @@ async function handleInternalImageAttach({ url, title }: { url: string, title: s
 async function captureAndSendScreenshot() {
   console.log('[InteractiveArea] Auto-send screenshot requested (shortcut) via visionStore...')
   try {
-    const result = await visionStore.captureSnapshot({ width: 1280, height: 720 }) as any
+    const result = (await visionStore.captureSnapshot({ height: 720, width: 1280 })) as any
     if (result?.error === 'permission_denied') {
       toast.error('Permission denied. Cannot auto-send.', {
         action: { label: 'Settings', onClick: () => visionStore.openPermissionSettings() },
@@ -370,13 +355,11 @@ async function captureAndSendScreenshot() {
         addScreenshotAttachment(base64, 'image/png')
         await handleSend()
       }
-    }
-    else {
+    } else {
       console.warn('[InteractiveArea] Auto-send screenshot failed: No data. Check permissions.')
       toast.error('Auto-send failed: No data.')
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[InteractiveArea] Auto-send screenshot capture failed:', err)
   }
 }
@@ -414,7 +397,7 @@ function removeAttachment(index: number) {
 onAfterMessageComposed(async () => {
   messageInput.value = ''
   localStorage.removeItem('airi-chatbox-draft')
-  attachments.value.forEach(att => URL.revokeObjectURL(att.url))
+  attachments.value.forEach((att) => URL.revokeObjectURL(att.url))
   attachments.value = []
 })
 
@@ -426,12 +409,10 @@ const sessionTokenCount = computed(() => {
   for (const message of historyMessages.value) {
     if (typeof message.content === 'string') {
       total += estimateTokens(message.content)
-    }
-    else if (Array.isArray(message.content)) {
+    } else if (Array.isArray(message.content)) {
       const textOnly = message.content
         .map((part) => {
-          if (typeof part === 'string')
-            return part
+          if (typeof part === 'string') return part
           if (part && typeof part === 'object' && 'text' in part && !('image_url' in part))
             return String(part.text ?? '')
           return ''
@@ -446,30 +427,27 @@ const sessionTokenCount = computed(() => {
 const formattedTokenCount = computed(() => formatTokenCount(sessionTokenCount.value))
 
 const globalContextWidth = computed(() => {
-  if (activeCard.value?.extensions?.airi?.generation?.known?.contextWidth)
-    return undefined
+  if (activeCard.value?.extensions?.airi?.generation?.known?.contextWidth) return undefined
 
-  if (!activeProvider.value || !activeModel.value)
-    return undefined
+  if (!activeProvider.value || !activeModel.value) return undefined
 
   try {
     const rawMap = localStorage.getItem('airi:context-width-map')
-    if (!rawMap)
-      return undefined
+    if (!rawMap) return undefined
 
     const map = JSON.parse(rawMap)
     return map[activeProvider.value]?.[activeModel.value]
-  }
-  catch {
+  } catch {
     return undefined
   }
 })
 
-const effectiveContextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth || globalContextWidth.value)
+const effectiveContextWidth = computed(
+  () => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth || globalContextWidth.value,
+)
 
 const contextPercentage = computed(() => {
-  if (!effectiveContextWidth.value)
-    return 0
+  if (!effectiveContextWidth.value) return 0
   return (sessionTokenCount.value / effectiveContextWidth.value) * 100
 })
 
@@ -507,8 +485,7 @@ watch(messageInput, (newVal) => {
   if (timeSinceLastSave >= 5000) {
     localStorage.setItem('airi-chatbox-draft', newVal)
     lastSaveTime = now
-  }
-  else {
+  } else {
     if (throttleTimeout) {
       clearTimeout(throttleTimeout)
     }

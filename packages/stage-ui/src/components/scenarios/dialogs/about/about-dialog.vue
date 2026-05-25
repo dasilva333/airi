@@ -4,7 +4,7 @@ import { DialogContent, DialogOverlay, DialogPortal, DialogRoot } from 'reka-ui'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot } from 'vaul-vue'
 import { onMounted } from 'vue'
 
-const showDialog = defineModel({ type: Boolean, default: false, required: false })
+const showDialog = defineModel({ default: false, required: false, type: Boolean })
 
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isDesktop = breakpoints.greaterOrEqual('md')

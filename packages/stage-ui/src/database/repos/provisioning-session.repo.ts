@@ -16,6 +16,10 @@ export interface ProvisioningSession {
 }
 
 export const provisioningSessionRepo = {
+  async delete(characterId: string) {
+    const key = `local:memory/provisioning-session/${characterId}`
+    await storage.removeItem(key)
+  },
   async get(characterId: string) {
     const key = `local:memory/provisioning-session/${characterId}`
     return await storage.getItemRaw<ProvisioningSession>(key)
@@ -26,10 +30,5 @@ export const provisioningSessionRepo = {
     // Deep clone to strip any Vue/Pinia proxies that cause DataCloneError in IndexedDB
     const cleanSession = JSON.parse(JSON.stringify(session))
     await storage.setItemRaw(key, cleanSession)
-  },
-
-  async delete(characterId: string) {
-    const key = `local:memory/provisioning-session/${characterId}`
-    await storage.removeItem(key)
   },
 }

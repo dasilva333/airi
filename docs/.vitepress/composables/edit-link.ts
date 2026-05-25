@@ -11,11 +11,10 @@ export function useEditLink() {
     let url: string
     if (typeof pattern === 'function') {
       url = pattern(page.value)
-    }
-    else {
+    } else {
       url = pattern.replace(/:path/g, page.value.filePath)
     }
 
-    return { url, text }
+    return { text, url }
   })
 }

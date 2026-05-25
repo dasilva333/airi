@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { AnimatableObject } from 'animejs'
-
 import { useLocalStorage } from '@vueuse/core'
+import type { AnimatableObject } from 'animejs'
 import { createAnimatable } from 'animejs'
 import { onMounted, shallowRef, useTemplateRef, watchEffect } from 'vue'
 
@@ -48,10 +47,10 @@ function onMouseMove(event: MouseEvent) {
 
 onMounted(() => {
   const animatableConfig = {
+    ease: EASE,
     x: DURATION,
     y: DURATION,
     z: 0,
-    ease: EASE,
   }
 
   surfaceAnimatable.value = createAnimatable(surfaceRef.value!, animatableConfig)
@@ -62,8 +61,7 @@ onMounted(() => {
 watchEffect((onCleanup) => {
   if (shouldReduceMotion.value) {
     animateCover(0, 0)
-  }
-  else {
+  } else {
     if (!import.meta.env.SSR) {
       window.addEventListener('mousemove', onMouseMove)
       onCleanup(() => {

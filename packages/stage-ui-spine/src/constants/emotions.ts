@@ -33,16 +33,16 @@ export const SPINE_EMOTION_TRACK = 1
  * names can override the mapping at runtime through the settings panel.
  */
 export const SpineAnimationName = {
-  Idle: 'idle',
-  Happy: 'celebrate',
-  Sad: 'sad',
   Angry: 'angry',
   Awkward: 'awkward',
-  Think: 'think',
-  Surprise: 'surprise',
-  Question: 'question',
   Curious: 'curious',
+  Happy: 'celebrate',
+  Idle: 'idle',
   Neutral: 'idle',
+  Question: 'question',
+  Sad: 'sad',
+  Surprise: 'surprise',
+  Think: 'think',
 } as const
 
 export type SpineAnimationKey = keyof typeof SpineAnimationName

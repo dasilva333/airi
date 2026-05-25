@@ -3,7 +3,14 @@ import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { Button, FieldInput, FieldSelect, FieldTextArea } from '@proj-airi/ui'
 import { computed, reactive, ref } from 'vue'
 
-import { widgetsAdd, widgetsClear, widgetsOpenWindow, widgetsPrepareWindow, widgetsRemove, widgetsUpdate } from '../../../shared/eventa'
+import {
+  widgetsAdd,
+  widgetsClear,
+  widgetsOpenWindow,
+  widgetsPrepareWindow,
+  widgetsRemove,
+  widgetsUpdate,
+} from '../../../shared/eventa'
 
 type SizePreset = 's' | 'm' | 'l' | 'custom'
 
@@ -26,26 +33,24 @@ const clearWidgets = useElectronEventaInvoke(widgetsClear)
 
 const defaultWeatherProps = {
   city: 'Tokyo',
-  temperature: '15°C',
   condition: 'Light rain',
   high: '18°C',
-  low: '12°C',
   humidity: '72%',
-  wind: '3 m/s',
+  low: '12°C',
   precipitation: '40%',
+  temperature: '15°C',
+  wind: '3 m/s',
 }
 
 const defaultMapProps = {
-  title: 'To Haneda Airport',
-  eta: '38 min',
-  distance: '27 km',
-  mode: 'Transit',
-  status: 'Light traffic',
-  originLabel: 'You',
-  destinationLabel: 'HND',
   accent: '#22c55e',
-  origin: { x: 18, y: 70 },
   destination: { x: 82, y: 26 },
+  destinationLabel: 'HND',
+  distance: '27 km',
+  eta: '38 min',
+  mode: 'Transit',
+  origin: { x: 18, y: 70 },
+  originLabel: 'You',
   route: [
     { x: 18, y: 70 },
     { x: 28, y: 62 },
@@ -55,49 +60,51 @@ const defaultMapProps = {
     { x: 74, y: 34 },
     { x: 82, y: 26 },
   ],
+  status: 'Light traffic',
   stops: [
-    { x: 28, y: 62, label: 'Mita' },
-    { x: 54, y: 50, label: 'Shinagawa' },
-    { x: 74, y: 34, label: 'Tenkubashi' },
+    { label: 'Mita', x: 28, y: 62 },
+    { label: 'Shinagawa', x: 54, y: 50 },
+    { label: 'Tenkubashi', x: 74, y: 34 },
   ],
+  title: 'To Haneda Airport',
 }
 
 const defaultArtistryProps = {
-  status: 'generating',
-  progress: 45,
-  actionLabel: 'Thinking...',
-  prompt: '1girl, looking at viewer',
-  remixId: '48250602',
   _artistryConfig: {
-    // This block normally gets injected dynamically by the stage
-    // For manual testing, we supply it explicitly so the widget bridge routes it properly
-    provider: localStorage.getItem('artistry-provider') || 'comfyui',
+    Globals: {
+      comfyuiServerUrl: localStorage.getItem('artistry-comfyui-server-url') || 'http://localhost:8188',
+      replicateApiKey: localStorage.getItem('artistry-replicate-api-key') || '',
+    },
     options: {
       aspect_ratio: localStorage.getItem('artistry-replicate-aspect-ratio') || '16:9',
       num_inference_steps: Number.parseInt(localStorage.getItem('artistry-replicate-inference-steps') || '4', 10),
     },
-    Globals: {
-      replicateApiKey: localStorage.getItem('artistry-replicate-api-key') || '',
-      comfyuiServerUrl: localStorage.getItem('artistry-comfyui-server-url') || 'http://localhost:8188',
-    },
+    // This block normally gets injected dynamically by the stage
+    // For manual testing, we supply it explicitly so the widget bridge routes it properly
+    provider: localStorage.getItem('artistry-provider') || 'comfyui',
   },
+  actionLabel: 'Thinking...',
+  progress: 45,
+  prompt: '1girl, looking at viewer',
+  remixId: '48250602',
+  status: 'generating',
 }
 
 const form = reactive<FormState>({
-  id: '',
   componentName: 'weather',
-  sizePreset: 'm',
+  componentProps: JSON.stringify(defaultWeatherProps, null, 2),
   customCols: '2',
   customRows: '1',
+  id: '',
+  sizePreset: 'm',
   ttlSeconds: '',
-  componentProps: JSON.stringify(defaultWeatherProps, null, 2),
 })
 
 const busy = ref(false)
 const lastAction = ref('')
 const lastError = ref('')
 
-const sizePresetOptions: Array<{ label: string, value: SizePreset }> = [
+const sizePresetOptions: Array<{ label: string; value: SizePreset }> = [
   { label: 'Small (s)', value: 's' },
   { label: 'Medium (m)', value: 'm' },
   { label: 'Large (l)', value: 'l' },
@@ -105,8 +112,7 @@ const sizePresetOptions: Array<{ label: string, value: SizePreset }> = [
 ]
 
 const resolvedSize = computed(() => {
-  if (form.sizePreset !== 'custom')
-    return form.sizePreset
+  if (form.sizePreset !== 'custom') return form.sizePreset
 
   const parsedCols = Number.parseInt(form.customCols, 10)
   const parsedRows = Number.parseInt(form.customRows, 10)
@@ -124,19 +130,16 @@ function resetFeedback() {
 function parseProps() {
   try {
     return JSON.parse(form.componentProps || '{}')
-  }
-  catch (error) {
+  } catch (error) {
     throw new Error(`Invalid JSON in component props: ${(error as Error).message}`)
   }
 }
 
 function parseTtl() {
-  if (!form.ttlSeconds)
-    return 0
+  if (!form.ttlSeconds) return 0
 
   const ttl = Number(form.ttlSeconds)
-  if (Number.isNaN(ttl) || ttl < 0)
-    throw new Error('TTL must be a positive number of seconds.')
+  if (Number.isNaN(ttl) || ttl < 0) throw new Error('TTL must be a positive number of seconds.')
 
   return Math.floor(ttl * 1000)
 }
@@ -146,8 +149,7 @@ async function prepareAndOpenWindow(targetId?: string) {
     const id = await prepareWindow(targetId ? { id: targetId } : {})
     await openWidgets({ id })
     return id
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('Failed to prepare widget window', error)
     throw error
   }
@@ -167,18 +169,21 @@ async function handleAdd() {
     const ttlMs = parseTtl()
     const desiredId = form.id || undefined
     const preparedId = await prepareAndOpenWindow(desiredId)
-    const createdId = await addWidget({ id: preparedId, componentName: form.componentName.trim(), componentProps, size: resolvedSize.value, ttlMs })
+    const createdId = await addWidget({
+      componentName: form.componentName.trim(),
+      componentProps,
+      id: preparedId,
+      size: resolvedSize.value,
+      ttlMs,
+    })
 
     const resolvedId = createdId || preparedId
-    if (!form.id && resolvedId)
-      form.id = resolvedId
+    if (!form.id && resolvedId) form.id = resolvedId
 
     lastAction.value = `Spawned widget${resolvedId ? ` (${resolvedId})` : ''}.`
-  }
-  catch (error) {
+  } catch (error) {
     lastError.value = (error as Error).message || 'Failed to spawn widget.'
-  }
-  finally {
+  } finally {
     busy.value = false
   }
 }
@@ -195,15 +200,13 @@ async function handleUpdate() {
   try {
     const componentProps = parseProps()
     await updateWidget({
-      id: form.id,
       componentProps,
+      id: form.id,
     })
     lastAction.value = `Updated widget (${form.id}).`
-  }
-  catch (error) {
+  } catch (error) {
     lastError.value = (error as Error).message || 'Failed to update widget.'
-  }
-  finally {
+  } finally {
     busy.value = false
   }
 }
@@ -220,11 +223,9 @@ async function handleRemove() {
   try {
     await removeWidget({ id: form.id })
     lastAction.value = `Removed widget (${form.id}).`
-  }
-  catch (error) {
+  } catch (error) {
     lastError.value = (error as Error).message || 'Failed to remove widget.'
-  }
-  finally {
+  } finally {
     busy.value = false
   }
 }
@@ -236,11 +237,9 @@ async function handleClear() {
   try {
     await clearWidgets()
     lastAction.value = 'Cleared all widgets.'
-  }
-  catch (error) {
+  } catch (error) {
     lastError.value = (error as Error).message || 'Failed to clear widgets.'
-  }
-  finally {
+  } finally {
     busy.value = false
   }
 }

@@ -1,23 +1,8 @@
 {
-  "name": "@proj-airi/memory-pgvector",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/memory-pgvector"
-  },
-  "keywords": [],
-  "scripts": {
-    "dev": "tsx src/index.ts"
   },
   "dependencies": {
     "@guiiai/logg": "catalog:",
@@ -25,7 +10,22 @@
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.8"
   },
+  "description": "",
   "devDependencies": {
     "tsx": "^4.21.0"
-  }
+  },
+  "keywords": [],
+  "license": "MIT",
+  "name": "@proj-airi/memory-pgvector",
+  "private": true,
+  "repository": {
+    "directory": "packages/memory-pgvector",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

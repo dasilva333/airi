@@ -1,11 +1,9 @@
-import type { CharacterService } from '../services/characters'
-import type { HonoEnv } from '../types/hono'
-
 import { Hono } from 'hono'
 import { safeParse } from 'valibot'
-
 import { CreateCharacterSchema, UpdateCharacterSchema } from '../api/characters.schema'
 import { authGuard } from '../middlewares/auth'
+import type { CharacterService } from '../services/characters'
+import type { HonoEnv } from '../types/hono'
 import { createBadRequestError, createForbiddenError, createNotFoundError } from '../utils/error'
 
 export function createCharacterRoutes(characterService: CharacterService) {
@@ -16,17 +14,14 @@ export function createCharacterRoutes(characterService: CharacterService) {
       const user = c.get('user')!
       const all = c.req.query('all') === 'true'
 
-      const characters = all
-        ? await characterService.findAll()
-        : await characterService.findByOwnerId(user.id)
+      const characters = all ? await characterService.findAll() : await characterService.findByOwnerId(user.id)
       return c.json(characters)
     })
 
     .get('/:id', async (c) => {
       const id = c.req.param('id')
       const character = await characterService.findById(id)
-      if (!character)
-        throw createNotFoundError()
+      if (!character) throw createNotFoundError()
 
       return c.json(character)
     })
@@ -46,8 +41,8 @@ export function createCharacterRoutes(characterService: CharacterService) {
         ...result.output,
         character: {
           ...result.output.character,
-          ownerId: user.id,
           creatorId: user.id,
+          ownerId: user.id,
         },
       })
 
@@ -66,10 +61,8 @@ export function createCharacterRoutes(characterService: CharacterService) {
       }
 
       const existing = await characterService.findById(id)
-      if (!existing)
-        throw createNotFoundError()
-      if (existing.ownerId !== user.id)
-        throw createForbiddenError()
+      if (!existing) throw createNotFoundError()
+      if (existing.ownerId !== user.id) throw createForbiddenError()
 
       const updated = await characterService.update(id, result.output)
       return c.json(updated)
@@ -80,10 +73,8 @@ export function createCharacterRoutes(characterService: CharacterService) {
 
       const id = c.req.param('id')
       const existing = await characterService.findById(id)
-      if (!existing)
-        throw createNotFoundError()
-      if (existing.ownerId !== user.id)
-        throw createForbiddenError()
+      if (!existing) throw createNotFoundError()
+      if (existing.ownerId !== user.id) throw createForbiddenError()
 
       await characterService.delete(id)
       return c.body(null, 204)

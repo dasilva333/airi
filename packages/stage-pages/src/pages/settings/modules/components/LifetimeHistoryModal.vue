@@ -9,9 +9,7 @@ const props = defineProps<{
   characterId: string
 }>()
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-}>()
+const emit = defineEmits<(e: 'update:open', value: boolean) => void>()
 
 const lifetimeStore = useMemoryLifetimeStore()
 const { artifacts, isProvisioning, progress } = storeToRefs(lifetimeStore)
@@ -22,19 +20,17 @@ const chunks = computed(() => artifact.value?.chunkSummaries || [])
 const selectedChunkIndex = ref(0)
 
 function getChunkPreview(chunk: any) {
-  if (typeof chunk === 'string')
-    return chunk.slice(0, 50)
+  if (typeof chunk === 'string') return chunk.slice(0, 50)
   if (typeof chunk === 'object' && chunk !== null) {
     // Try standard categories first
     const fact = (chunk.durable_facts || chunk.facts || chunk.relationship_core || [])[0]
-    if (fact)
-      return fact
+    if (fact) return fact
 
     // Fallback to first available property
     const keys = Object.keys(chunk)
     if (keys.length > 0) {
       const firstVal = chunk[keys[0]]
-      return Array.isArray(firstVal) ? (firstVal[0] || 'Empty category') : String(firstVal).slice(0, 50)
+      return Array.isArray(firstVal) ? firstVal[0] || 'Empty category' : String(firstVal).slice(0, 50)
     }
   }
   return 'Relational foundation'
@@ -45,7 +41,11 @@ function close() {
 }
 
 async function handleResynthesize() {
-  if (confirm('This will skip the history collection phase and re-run the synthesis and distillation based on these chunks. Proceed?')) {
+  if (
+    confirm(
+      'This will skip the history collection phase and re-run the synthesis and distillation based on these chunks. Proceed?',
+    )
+  ) {
     await lifetimeStore.reprovisionFromChunks(props.characterId, 2, artifact.value?.metadata?.targetTokens) // Default 2s interval
   }
 }

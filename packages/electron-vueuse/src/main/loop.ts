@@ -20,8 +20,7 @@ export function useLoop(fn: () => Promise<void> | void, options?: LoopOptions) {
     await mutex.acquire()
     try {
       await fn()
-    }
-    finally {
+    } finally {
       mutex.release()
     }
   }
@@ -60,9 +59,9 @@ export function useLoop(fn: () => Promise<void> | void, options?: LoopOptions) {
   }
 
   return {
-    start: () => toggleRunState(true),
-    resume: () => toggleRunState(true),
     pause: () => toggleRunState(false),
+    resume: () => toggleRunState(true),
+    start: () => toggleRunState(true),
     stop: () => toggleRunState(false),
   }
 }

@@ -1,8 +1,8 @@
 const TAG_OPEN = '<|'
 const TAG_CLOSE = '|>'
 const LEGACY_TAG_CLOSE = '>'
-const ESCAPED_TAG_OPEN = '<{\'|\'}'
-const ESCAPED_TAG_CLOSE = '{\'|\'}>'
+const ESCAPED_TAG_OPEN = "<{'|'}"
+const ESCAPED_TAG_CLOSE = "{'|'}>"
 
 interface MarkerToken {
   type: 'literal' | 'special'
@@ -25,32 +25,29 @@ function createPushStream<T>(): StreamController<T> {
   let controller: ReadableStreamDefaultController<T> | null = null
 
   const stream = new ReadableStream<T>({
-    start(ctrl) {
-      controller = ctrl
-    },
     cancel() {
       closed = true
+    },
+    start(ctrl) {
+      controller = ctrl
     },
   })
 
   return {
-    stream,
-    write(value) {
-      if (!controller || closed)
-        return
-      controller.enqueue(value)
-    },
     close() {
-      if (!controller || closed)
-        return
+      if (!controller || closed) return
       closed = true
       controller.close()
     },
     error(err) {
-      if (!controller || closed)
-        return
+      if (!controller || closed) return
       closed = true
       controller.error(err)
+    },
+    stream,
+    write(value) {
+      if (!controller || closed) return
+      controller.enqueue(value)
     },
   }
 }
@@ -60,12 +57,10 @@ async function readStream<T>(stream: ReadableStream<T>, handler: (value: T) => P
   try {
     while (true) {
       const { value, done } = await reader.read()
-      if (done)
-        break
+      if (done) break
       await handler(value as T)
     }
-  }
-  finally {
+  } finally {
     reader.releaseLock()
   }
 }
@@ -77,29 +72,20 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
   let inTag = false
 
   function normalizeSpecialToken(token: string) {
-    if (!token.startsWith(TAG_OPEN))
-      return token
-    if (token.endsWith(TAG_CLOSE))
-      return token
-    if (token.endsWith(LEGACY_TAG_CLOSE))
-      return `${token.slice(0, -1)}${TAG_CLOSE}`
+    if (!token.startsWith(TAG_OPEN)) return token
+    if (token.endsWith(TAG_CLOSE)) return token
+    if (token.endsWith(LEGACY_TAG_CLOSE)) return `${token.slice(0, -1)}${TAG_CLOSE}`
     return token
   }
 
   function findLegacyCloseTagIndex() {
     const legacyCloseTagIndex = buffer.indexOf(LEGACY_TAG_CLOSE)
-    if (legacyCloseTagIndex < 0)
-      return -1
+    if (legacyCloseTagIndex < 0) return -1
 
-    if (legacyCloseTagIndex > 0 && buffer[legacyCloseTagIndex - 1] === '|')
-      return -1
+    if (legacyCloseTagIndex > 0 && buffer[legacyCloseTagIndex - 1] === '|') return -1
 
     const upperPrefix = buffer.slice(0, 16).toUpperCase()
-    if (
-      upperPrefix.startsWith('<|ACT')
-      || upperPrefix.startsWith('<|DELAY')
-      || upperPrefix.startsWith('<|LLM_')
-    ) {
+    if (upperPrefix.startsWith('<|ACT') || upperPrefix.startsWith('<|DELAY') || upperPrefix.startsWith('<|LLM_')) {
       return legacyCloseTagIndex
     }
 
@@ -107,11 +93,13 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
   }
 
   return {
-    async consume(textPart: string, onLiteral: (value: string) => Promise<void> | void, onSpecial: (value: string) => Promise<void> | void) {
+    async consume(
+      textPart: string,
+      onLiteral: (value: string) => Promise<void> | void,
+      onSpecial: (value: string) => Promise<void> | void,
+    ) {
       buffer += textPart
-      buffer = buffer
-        .replaceAll(ESCAPED_TAG_OPEN, TAG_OPEN)
-        .replaceAll(ESCAPED_TAG_CLOSE, TAG_CLOSE)
+      buffer = buffer.replaceAll(ESCAPED_TAG_OPEN, TAG_OPEN).replaceAll(ESCAPED_TAG_CLOSE, TAG_CLOSE)
 
       while (buffer.length > 0) {
         if (!inTag) {
@@ -121,7 +109,7 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
               // Ensure we don't split a surrogate pair
               let emitEnd = buffer.length - tailLength
               const charCodeAtEmitEndMinusOne = buffer.charCodeAt(emitEnd - 1)
-              if (charCodeAtEmitEndMinusOne >= 0xD800 && charCodeAtEmitEndMinusOne <= 0xDBFF) {
+              if (charCodeAtEmitEndMinusOne >= 0xd800 && charCodeAtEmitEndMinusOne <= 0xdbff) {
                 emitEnd--
               }
 
@@ -140,16 +128,13 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
             await onLiteral(emit)
           }
           inTag = true
-        }
-        else {
+        } else {
           const closeTagIndex = buffer.indexOf(TAG_CLOSE)
           const legacyCloseTagIndex = closeTagIndex < 0 ? findLegacyCloseTagIndex() : -1
-          if (closeTagIndex < 0 && legacyCloseTagIndex < 0)
-            break
+          if (closeTagIndex < 0 && legacyCloseTagIndex < 0) break
 
-          const endIndex = closeTagIndex >= 0
-            ? closeTagIndex + TAG_CLOSE.length
-            : legacyCloseTagIndex + LEGACY_TAG_CLOSE.length
+          const endIndex =
+            closeTagIndex >= 0 ? closeTagIndex + TAG_CLOSE.length : legacyCloseTagIndex + LEGACY_TAG_CLOSE.length
 
           const emit = normalizeSpecialToken(buffer.slice(0, endIndex))
           buffer = buffer.slice(endIndex)
@@ -163,8 +148,7 @@ function createLlmMarkerParser(options?: MarkerParserOptions) {
       if (buffer.length > 0) {
         if (inTag) {
           await onSpecial(normalizeSpecialToken(buffer))
-        }
-        else {
+        } else {
           await onLiteral(buffer)
         }
         buffer = ''
@@ -181,8 +165,7 @@ function createLlmMarkerStream(input: ReadableStream<string>, options?: MarkerPa
     await parser.consume(
       chunk,
       async (literal) => {
-        if (!literal)
-          return
+        if (!literal) return
         write({ type: 'literal', value: literal })
       },
       async (special) => {
@@ -193,8 +176,7 @@ function createLlmMarkerStream(input: ReadableStream<string>, options?: MarkerPa
     .then(async () => {
       await parser.end(
         async (literal) => {
-          if (!literal)
-            return
+          if (!literal) return
           write({ type: 'literal', value: literal })
         },
         async (special) => {
@@ -245,10 +227,8 @@ export function useLlmmarkerParser(options: {
   const markerStream = createLlmMarkerStream(stream, { minLiteralEmitLength: options.minLiteralEmitLength })
 
   const processing = readStream(markerStream, async (token) => {
-    if (token.type === 'literal')
-      await options.onLiteral?.(token.value)
-    if (token.type === 'special')
-      await options.onSpecial?.(token.value)
+    if (token.type === 'literal') await options.onLiteral?.(token.value)
+    if (token.type === 'special') await options.onSpecial?.(token.value)
   })
 
   return {
@@ -257,8 +237,7 @@ export function useLlmmarkerParser(options: {
      * @param textPart The chunk of text to consume.
      */
     async consume(textPart: string) {
-      if (ended)
-        return
+      if (ended) return
       fullText += textPart
       write(textPart)
     },
@@ -269,8 +248,7 @@ export function useLlmmarkerParser(options: {
      * This should be called after the stream has ended.
      */
     async end() {
-      if (ended)
-        return
+      if (ended) return
       ended = true
       close()
       await processing

@@ -1,37 +1,37 @@
 {
-  "name": "@proj-airi/server-schema",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Server schema for AIRI",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/server-schema"
+  "description": "Server schema for AIRI",
+  "devDependencies": {
+    "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
+      "default": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
     }
   },
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
   "files": [
     "README.md",
     "dist",
     "package.json"
   ],
+  "license": "MIT",
+  "main": "./dist/index.mjs",
+  "name": "@proj-airi/server-schema",
+  "private": true,
+  "repository": {
+    "directory": "packages/server-schema",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
   "scripts": {
     "build": "tsdown"
   },
-  "devDependencies": {
-    "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4"
-  }
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "version": "0.9.0-alpha.15"
 }

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { HackerPanel, LHackerPanel, ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
+import {
+  HackerPanel,
+  LHackerPanel,
+  type ModelSettings,
+} from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Vibrant } from 'node-vibrant/browser'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
@@ -10,8 +14,7 @@ const modelSettingsRef = ref<InstanceType<typeof ModelSettings>>()
 const palette = ref<string[]>([])
 
 async function extractColorsFromModel() {
-  if (!modelSettingsRef.value)
-    return
+  if (!modelSettingsRef.value) return
 
   const frame = await modelSettingsRef.value.captureFrame()
   if (!frame) {
@@ -24,9 +27,10 @@ async function extractColorsFromModel() {
     const vibrant = new Vibrant(frameUrl)
 
     const paletteFromVibrant = await vibrant.getPalette()
-    palette.value = Object.values(paletteFromVibrant).map(color => color?.hex).filter(it => typeof it === 'string')
-  }
-  finally {
+    palette.value = Object.values(paletteFromVibrant)
+      .map((color) => color?.hex)
+      .filter((it) => typeof it === 'string')
+  } finally {
     URL.revokeObjectURL(frameUrl)
   }
 }

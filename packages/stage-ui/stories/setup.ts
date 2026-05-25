@@ -1,8 +1,7 @@
-import type { Plugin } from 'vue'
-
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 import { defineSetupVue3 } from '@histoire/plugin-vue'
 import { MotionPlugin } from '@vueuse/motion'
+import type { Plugin } from 'vue'
 
 import CharacterCardColorControls from './components/CharacterCardColorControls.vue'
 import ThemeColorsHueControl from './components/ThemeColorsHueControl.vue'

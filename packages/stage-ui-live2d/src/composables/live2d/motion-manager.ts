@@ -1,9 +1,7 @@
 import type { Cubism4InternalModel, InternalModel } from 'pixi-live2d-display/cubism4'
 import type { Ref } from 'vue'
-
-import type { BeatSyncController } from './beat-sync'
-
 import { useLive2DIdleEyeFocus } from './animation'
+import type { BeatSyncController } from './beat-sync'
 
 type CubismModel = Cubism4InternalModel['coreModel']
 type CubismEyeBlink = Cubism4InternalModel['eyeBlink']
@@ -59,16 +57,13 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
   const postPlugins: MotionManagerPlugin[] = []
 
   function register(plugin: MotionManagerPlugin, stage: 'pre' | 'post' = 'pre') {
-    if (stage === 'pre')
-      prePlugins.push(plugin)
-    else
-      postPlugins.push(plugin)
+    if (stage === 'pre') prePlugins.push(plugin)
+    else postPlugins.push(plugin)
   }
 
   function runPlugins(plugins: MotionManagerPlugin[], ctx: MotionManagerPluginContext, breakOnHandled = true) {
     for (const plugin of plugins) {
-      if (breakOnHandled && ctx.handled)
-        break
+      if (breakOnHandled && ctx.handled) break
       plugin(ctx)
     }
   }
@@ -76,34 +71,34 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
   function hookUpdate(model: CubismModel, now: number, hookedUpdate?: (model: CubismModel, now: number) => boolean) {
     const timeDelta = lastUpdateTime.value ? now - lastUpdateTime.value : 0
     const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-    const isIdleMotion = !motionManager.state.currentGroup
-      || motionManager.state.currentGroup === motionManager.groups.idle
-      || (!!selectedMotionGroup && motionManager.state.currentGroup === selectedMotionGroup)
+    const isIdleMotion =
+      !motionManager.state.currentGroup ||
+      motionManager.state.currentGroup === motionManager.groups.idle ||
+      (!!selectedMotionGroup && motionManager.state.currentGroup === selectedMotionGroup)
 
     const ctx: MotionManagerPluginContext = {
-      model,
-      now,
-      timeDelta,
+      handled: false,
       hookedUpdate,
       internalModel,
-      motionManager,
-      modelParameters,
-      live2dIdleAnimationEnabled,
+      isIdleMotion,
       live2dAutoBlinkEnabled,
       live2dForceAutoBlinkEnabled,
-      isIdleMotion,
-      handled: false,
+      live2dIdleAnimationEnabled,
       markHandled: () => {
         ctx.handled = true
       },
+      model,
+      modelParameters,
+      motionManager,
+      now,
+      timeDelta,
     }
 
     runPlugins(prePlugins, ctx)
 
     if (!ctx.handled && ctx.hookedUpdate) {
       const result = ctx.hookedUpdate.call(motionManager, model, now)
-      if (result)
-        ctx.handled = true
+      if (result) ctx.handled = true
     }
 
     runPlugins(postPlugins, ctx, false)
@@ -113,8 +108,8 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
   }
 
   return {
-    register,
     hookUpdate,
+    register,
   }
 }
 
@@ -188,8 +183,7 @@ export function useMotionUpdatePluginBeatSync(beatSync: BeatSyncController): Mot
 
 export function useMotionUpdatePluginIdleDisable(idleEyeFocus = useLive2DIdleEyeFocus()): MotionManagerPlugin {
   return (ctx) => {
-    if (ctx.handled)
-      return
+    if (ctx.handled) return
 
     // Stop idle motions if they're disabled
     if (!ctx.live2dIdleAnimationEnabled.value && ctx.isIdleMotion) {
@@ -212,8 +206,7 @@ export function useMotionUpdatePluginIdleDisable(idleEyeFocus = useLive2DIdleEye
 
 export function useMotionUpdatePluginIdleFocus(idleEyeFocus = useLive2DIdleEyeFocus()): MotionManagerPlugin {
   return (ctx) => {
-    if (!ctx.isIdleMotion || ctx.handled)
-      return
+    if (!ctx.isIdleMotion || ctx.handled) return
 
     idleEyeFocus.update(ctx.internalModel, ctx.now)
   }
@@ -221,11 +214,11 @@ export function useMotionUpdatePluginIdleFocus(idleEyeFocus = useLive2DIdleEyeFo
 
 export function useMotionUpdatePluginAutoEyeBlink(): MotionManagerPlugin {
   const blinkState = {
+    delayMs: 0,
     phase: 'idle' as 'idle' | 'closing' | 'opening',
     progress: 0,
     startLeft: 1,
     startRight: 1,
-    delayMs: 0,
   }
   const blinkCloseDuration = 200 // ms
   const blinkOpenDuration = 200 // ms
@@ -293,8 +286,7 @@ export function useMotionUpdatePluginAutoEyeBlink(): MotionManagerPlugin {
   return (ctx) => {
     // Possibility 1: Only update eye focus when the model is idle
     // Possibility 2: For models having no motion groups, currentGroup will be undefined while groups can be { idle: ... }
-    if (!ctx.isIdleMotion || ctx.handled)
-      return
+    if (!ctx.isIdleMotion || ctx.handled) return
 
     const baseLeft = clamp01(ctx.modelParameters.value.leftEyeOpen)
     const baseRight = clamp01(ctx.modelParameters.value.rightEyeOpen)
@@ -384,28 +376,25 @@ export function applyArtMeshColorsToDrawables(
 ): ArtMeshColorApplyStats {
   const stats: ArtMeshColorApplyStats = { applied: 0, missed: 0, missedIds: [] }
 
-  if (!artMeshColors || Object.keys(artMeshColors).length === 0)
-    return stats
+  if (!artMeshColors || Object.keys(artMeshColors).length === 0) return stats
 
-  if (!internalModel?.coreModel)
-    return stats
+  if (!internalModel?.coreModel) return stats
 
   const coreModel = internalModel.coreModel
   const drawables = (coreModel as any).getModel?.()?.drawables
-  if (!drawables?.multiplyColors || !drawables?.screenColors)
-    return stats
+  if (!drawables?.multiplyColors || !drawables?.screenColors) return stats
 
   for (const [artMeshId, colorValue] of Object.entries(artMeshColors)) {
     try {
       const [multiplyHex, screenHex] = colorValue.split('|')
-      const drawableIndex = typeof internalModel.getDrawableIndex === 'function'
-        ? internalModel.getDrawableIndex(artMeshId)
-        : (coreModel as any).getDrawableIndex?.(artMeshId) ?? -1
+      const drawableIndex =
+        typeof internalModel.getDrawableIndex === 'function'
+          ? internalModel.getDrawableIndex(artMeshId)
+          : ((coreModel as any).getDrawableIndex?.(artMeshId) ?? -1)
 
       if (drawableIndex < 0) {
         stats.missed++
-        if (stats.missedIds.length < 5)
-          stats.missedIds.push(artMeshId)
+        if (stats.missedIds.length < 5) stats.missedIds.push(artMeshId)
         continue
       }
 
@@ -418,8 +407,7 @@ export function applyArtMeshColorsToDrawables(
         drawables.multiplyColors[offset + 3] = a
         // NOTICE: VTube uses multiply alpha (RRGGBBAA last byte) for mesh visibility.
         // pixi-live2d-display shaders tint RGB only; map sub-1 multiply alpha to drawable opacity.
-        if (drawables.opacities && a < 1)
-          drawables.opacities[drawableIndex] = a
+        if (drawables.opacities && a < 1) drawables.opacities[drawableIndex] = a
       }
 
       if (screenHex) {
@@ -432,8 +420,7 @@ export function applyArtMeshColorsToDrawables(
       }
 
       stats.applied++
-    }
-    catch {
+    } catch {
       stats.missed++
     }
   }
@@ -448,7 +435,7 @@ export function hookArtMeshColorsAfterModelUpdate(
   const originalUpdate = internalModel.update.bind(internalModel)
   let diagLogged = false
 
-  internalModel.update = function (dt: number, now: number) {
+  internalModel.update = (dt: number, now: number) => {
     originalUpdate(dt, now)
     const stats = applyArtMeshColorsToDrawables(internalModel, artMeshColors.value)
     if (!diagLogged && Object.keys(artMeshColors.value).length > 0) {

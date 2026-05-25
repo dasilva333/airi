@@ -12,18 +12,15 @@ const cardStore = useAiriCardStore()
 const fileInputRef = ref<HTMLInputElement>()
 
 const sceneEntries = computed(() => {
-  return backgroundStore.availableBackgrounds
-    .filter(e => e.type === 'scene' || e.type === 'builtin')
+  return backgroundStore.availableBackgrounds.filter((e) => e.type === 'scene' || e.type === 'builtin')
 })
 
 const activeBackgroundId = computed({
   get: () => cardStore.activeCard?.extensions?.airi?.modules?.activeBackgroundId || 'none',
   set: (val: string) => {
-    if (!cardStore.activeCard)
-      return
+    if (!cardStore.activeCard) return
     const extension = JSON.parse(JSON.stringify(cardStore.activeCard.extensions))
-    if (!extension.airi.modules)
-      extension.airi.modules = {}
+    if (!extension.airi.modules) extension.airi.modules = {}
 
     extension.airi.modules.activeBackgroundId = val
 
@@ -40,8 +37,7 @@ function triggerUpload() {
 
 async function handleFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file)
-    return
+  if (!file) return
 
   await backgroundStore.addBackground('scene', file, file.name)
 }

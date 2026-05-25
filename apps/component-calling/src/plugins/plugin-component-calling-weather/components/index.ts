@@ -1,8 +1,6 @@
 import { object, string } from 'valibot'
-
-import Weather from './Weather.vue'
-
 import { defineCallingComponent } from '../../plugin-component-calling'
+import Weather from './Weather.vue'
 
 export { default as Weather } from './Weather.vue'
 
@@ -11,12 +9,12 @@ export const weatherComponent = defineCallingComponent(
   Weather,
   object({
     city: string(),
-    temperature: string(),
     condition: string(),
+    temperature: string(),
   }),
   {
     city: 'Tokyo',
-    temperature: '25°',
     condition: 'Sunny',
+    temperature: '25°',
   },
 )

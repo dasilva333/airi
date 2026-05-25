@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { Select } from '../select'
 
-const props = withDefaults(defineProps<{
-  label: string
-  description?: string
-  options?: { label: string, value: string | number }[]
-  placeholder?: string
-  disabled?: boolean
-  layout?: 'horizontal' | 'vertical'
-  selectClass?: string | string[]
-}>(), {
-  layout: 'horizontal',
-})
+const props = withDefaults(
+  defineProps<{
+    label: string
+    description?: string
+    options?: { label: string; value: string | number }[]
+    placeholder?: string
+    disabled?: boolean
+    layout?: 'horizontal' | 'vertical'
+    selectClass?: string | string[]
+  }>(),
+  {
+    layout: 'horizontal',
+  },
+)
 
 const modelValue = defineModel<string>({ required: false })
 </script>

@@ -11,7 +11,7 @@ function parseCapArgs(): string[] {
   }
 
   const parsed = JSON.parse(value)
-  if (!Array.isArray(parsed) || parsed.some(arg => typeof arg !== 'string')) {
+  if (!Array.isArray(parsed) || parsed.some((arg) => typeof arg !== 'string')) {
     throw new Error('CAP_VITE_CAP_ARGS_JSON must be a JSON string array.')
   }
 
@@ -32,14 +32,7 @@ export default defineConfig(async (env) => {
   const baseConfigFile = process.env.CAP_VITE_BASE_CONFIG || undefined
   const configLoader = parseConfigLoader()
 
-  const loaded = await loadConfigFromFile(
-    env,
-    baseConfigFile,
-    root,
-    undefined,
-    undefined,
-    configLoader,
-  )
+  const loaded = await loadConfigFromFile(env, baseConfigFile, root, undefined, undefined, configLoader)
 
   return mergeConfig(loaded?.config ?? {}, {
     plugins: [

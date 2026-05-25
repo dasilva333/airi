@@ -9,7 +9,7 @@ const props = defineProps<{
 
 const stickersStore = useStickersStore()
 const imgUrl = ref<string>('')
-const rotationAngle = ref(props.rotation ?? (Math.random() * 30 - 15)) // Random tilt between -15 and 15 deg
+const rotationAngle = ref(props.rotation ?? Math.random() * 30 - 15) // Random tilt between -15 and 15 deg
 const isFading = ref(false)
 
 let fadeTimer: ReturnType<typeof setTimeout> | undefined
@@ -27,8 +27,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (fadeTimer)
-    clearTimeout(fadeTimer)
+  if (fadeTimer) clearTimeout(fadeTimer)
 })
 
 function handleClose() {

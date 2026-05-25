@@ -27,14 +27,14 @@ async function testZip(zipPath: string) {
   })
 
   console.log(`Found ${files.length} files in ZIP:`)
-  files.forEach(f => console.log(`  - ${f}`))
+  files.forEach((f) => console.log(`  - ${f}`))
 
-  const settingsFile = files.find(f => f.endsWith('model3.json'))
+  const settingsFile = files.find((f) => f.endsWith('model3.json'))
   if (!settingsFile) {
     console.warn('\n[!] WARNING: No .model3.json found at root.')
     console.log('    The app will attempt to generate "fake settings" automatically.')
 
-    const mocFiles = files.filter(f => f.endsWith('.moc3'))
+    const mocFiles = files.filter((f) => f.endsWith('.moc3'))
     if (mocFiles.length !== 1) {
       console.error(`\n[X] FAILED: Expected exactly one .moc3 file for fake settings, found ${mocFiles.length}`)
       process.exit(1)
@@ -59,13 +59,11 @@ async function testZip(zipPath: string) {
       const mocPath = path.posix.join(path.posix.dirname(settingsFile), moc)
       if (files.includes(mocPath)) {
         console.log(`    [V] MOC file exists: ${mocPath}`)
-      }
-      else {
+      } else {
         console.error(`    [X] MISSING MOC file: ${mocPath} (referenced in JSON)`)
         allOk = false
       }
-    }
-    else {
+    } else {
       console.error('    [X] MISSING "Moc" reference in FileReferences')
       allOk = false
     }
@@ -74,8 +72,7 @@ async function testZip(zipPath: string) {
       const texPath = path.posix.join(path.posix.dirname(settingsFile), tex)
       if (files.includes(texPath)) {
         console.log(`    [V] Texture ${i} exists: ${texPath}`)
-      }
-      else {
+      } else {
         console.error(`    [X] MISSING Texture ${i}: ${texPath} (referenced in JSON)`)
         allOk = false
       }
@@ -84,13 +81,11 @@ async function testZip(zipPath: string) {
     if (allOk) {
       console.log('\n--- VERIFICATION RESULT: SUCCESS ---')
       console.log('This ZIP structure is valid and should load correctly in AIRI.')
-    }
-    else {
+    } else {
       console.log('\n--- VERIFICATION RESULT: FAILED ---')
       console.log('Please fix the missing references listed above.')
     }
-  }
-  catch (err: any) {
+  } catch (err: any) {
     console.error(`\n[X] FAILED: Error parsing or reading settings file: ${err.message}`)
   }
 }
@@ -98,7 +93,6 @@ async function testZip(zipPath: string) {
 const target = process.argv[2]
 if (!target) {
   console.log('Usage: pnpm tsx packages/stage-ui-live2d/src/utils/test-zip-harness.ts <zip-path>')
-}
-else {
+} else {
   testZip(target).catch(console.error)
 }

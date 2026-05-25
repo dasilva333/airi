@@ -4,8 +4,8 @@ import { shouldRunLive2dLipSyncLoop } from './runtime'
 
 describe('shouldRunLive2dLipSyncLoop', () => {
   it('runs only for live2d while not paused', () => {
-    expect(shouldRunLive2dLipSyncLoop({ stageModelRenderer: 'live2d', paused: false })).toBe(true)
-    expect(shouldRunLive2dLipSyncLoop({ stageModelRenderer: 'live2d', paused: true })).toBe(false)
-    expect(shouldRunLive2dLipSyncLoop({ stageModelRenderer: 'vrm', paused: false })).toBe(false)
+    expect(shouldRunLive2dLipSyncLoop({ paused: false, stageModelRenderer: 'live2d' })).toBe(true)
+    expect(shouldRunLive2dLipSyncLoop({ paused: true, stageModelRenderer: 'live2d' })).toBe(false)
+    expect(shouldRunLive2dLipSyncLoop({ paused: false, stageModelRenderer: 'vrm' })).toBe(false)
   })
 })

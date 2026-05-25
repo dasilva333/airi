@@ -21,9 +21,9 @@ export class PerceptionPipeline {
       onRawEvent: (event) => {
         const eventType = `raw:${event.modality}:${event.kind}`
         this.deps.eventBus.emit({
-          type: eventType,
           payload: Object.freeze(event),
           source: { component: 'perception', id: event.source },
+          type: eventType,
         })
       },
     })

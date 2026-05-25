@@ -2,47 +2,50 @@
 import { filterBrightness, formatRgb, rgb } from 'culori'
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  title: string
-  subtitle: string
-  backgroundLabel?: string
-  description: string
-  image?: string
-  cardHeight?: number
-  cardWidth?: number
-  primaryColor: string
-  primaryColorDark?: string
-  secondaryColor: string
-  backgroundColor?: string
-  dividerColor?: string
-  dividerOpacity?: number
-  textColor: string
-  textShadowColor?: string
-  textShadowSize?: string
-  descriptionTextColor?: string
-  subtitleTextColor?: string
-  barWidth?: number
-  barcodeCount?: number
-}>(), {
-  backgroundLabel: 'Character',
-  cardHeight: 130,
-  cardWidth: 80,
-  dividerOpacity: 0.3,
-  textShadowColor: '#71717a',
-  textShadowSize: '0px 0px 3px',
-  descriptionTextColor: '#a1a1aa',
-  subtitleTextColor: '#ffffff',
-  barcodeCount: 8,
-  barWidth: 10,
-})
+const props = withDefaults(
+  defineProps<{
+    title: string
+    subtitle: string
+    backgroundLabel?: string
+    description: string
+    image?: string
+    cardHeight?: number
+    cardWidth?: number
+    primaryColor: string
+    primaryColorDark?: string
+    secondaryColor: string
+    backgroundColor?: string
+    dividerColor?: string
+    dividerOpacity?: number
+    textColor: string
+    textShadowColor?: string
+    textShadowSize?: string
+    descriptionTextColor?: string
+    subtitleTextColor?: string
+    barWidth?: number
+    barcodeCount?: number
+  }>(),
+  {
+    backgroundLabel: 'Character',
+    barcodeCount: 8,
+    barWidth: 10,
+    cardHeight: 130,
+    cardWidth: 80,
+    descriptionTextColor: '#a1a1aa',
+    dividerOpacity: 0.3,
+    subtitleTextColor: '#ffffff',
+    textShadowColor: '#71717a',
+    textShadowSize: '0px 0px 3px',
+  },
+)
 
 // Generate random barcode lines
 const barcodeLines = computed(() => {
   const lines = []
   for (let i = 0; i < props.barcodeCount; i++) {
     lines.push({
-      width: Math.random() > 0.7 ? 3 : 1,
       space: Math.ceil(Math.random() * 2),
+      width: Math.random() > 0.7 ? 3 : 1,
     })
   }
   return lines
@@ -68,28 +71,27 @@ const cssVars = computed(() => {
   dividerColor.alpha = props.dividerOpacity
 
   return {
+    // Components
+    '--background-color': `${formatRgb(backgroundColor)}`,
+    '--background-dot-grid-color': `${formatRgb(backgroundDotGridColor)}`,
+    '--background-label-color': `${formatRgb(backgroundLabelColor)}`,
+    '--background-mask-color': `${formatRgb(backgroundMaskBackgroundColor)}`,
+    '--bar-width': `${props.barWidth * 4}px`,
     '--card-height': `${props.cardHeight * 4}px`,
     '--card-width': `${props.cardWidth * 4}px`,
-    '--bar-width': `${props.barWidth * 4}px`,
-
-    // RGB values for colors
-    '--primary-rgb': `${formatRgb(props.primaryColor)}`,
-    '--secondary-rgb': `${formatRgb(props.secondaryColor)}`,
-    '--text-rgb': `${formatRgb(props.textColor)}`,
-    '--text-shadow-color': props.textShadowColor,
-    '--text-shadow-size': props.textShadowSize,
     '--description-text-color': props.descriptionTextColor,
-    '--subtitle-text-color': props.subtitleTextColor,
 
     // Opacity values
     '--divider-color': `${formatRgb(dividerColor)}`,
     '--divider-opacity': `${dividerColor.alpha}`,
 
-    // Components
-    '--background-color': `${formatRgb(backgroundColor)}`,
-    '--background-dot-grid-color': `${formatRgb(backgroundDotGridColor)}`,
-    '--background-mask-color': `${formatRgb(backgroundMaskBackgroundColor)}`,
-    '--background-label-color': `${formatRgb(backgroundLabelColor)}`,
+    // RGB values for colors
+    '--primary-rgb': `${formatRgb(props.primaryColor)}`,
+    '--secondary-rgb': `${formatRgb(props.secondaryColor)}`,
+    '--subtitle-text-color': props.subtitleTextColor,
+    '--text-rgb': `${formatRgb(props.textColor)}`,
+    '--text-shadow-color': props.textShadowColor,
+    '--text-shadow-size': props.textShadowSize,
   }
 })
 </script>

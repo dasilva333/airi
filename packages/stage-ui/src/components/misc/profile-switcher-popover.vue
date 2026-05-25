@@ -30,9 +30,7 @@ onClickOutside(popoverRef, () => {
   open.value = false
 })
 
-const cardsList = computed(() =>
-  Array.from(cards.value.entries()).map(([id, card]) => ({ id, name: card.name })),
-)
+const cardsList = computed(() => Array.from(cards.value.entries()).map(([id, card]) => ({ id, name: card.name })))
 
 async function activateCard(id: string) {
   await cardStore.activateCard(id)

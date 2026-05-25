@@ -1,6 +1,5 @@
-import WebSocket from 'ws'
-
 import * as dotenv from 'dotenv'
+import WebSocket from 'ws'
 
 dotenv.config()
 
@@ -22,27 +21,27 @@ async function main() {
 
     const setupMessage = {
       setup: {
-        model: MODEL,
         generationConfig: {
           responseModalities: ['TEXT', 'AUDIO'],
+        },
+        model: MODEL,
+        systemInstruction: {
+          parts: [{ text: 'You are a helpful assistant. Use the "get_secret_word" tool to uncover the secret word.' }],
         },
         tools: [
           {
             functionDeclarations: [
               {
-                name: 'get_secret_word',
                 description: 'Returns the secret code word.',
+                name: 'get_secret_word',
                 parameters: {
-                  type: 'object',
                   properties: {},
+                  type: 'object',
                 },
               },
             ],
           },
         ],
-        systemInstruction: {
-          parts: [{ text: 'You are a helpful assistant. Use the "get_secret_word" tool to uncover the secret word.' }],
-        },
       },
     }
 
@@ -60,12 +59,12 @@ async function main() {
         // TRY THE OFFICIAL clientContent format for text turns
         const clientMessage = {
           clientContent: {
+            turnComplete: true,
             turns: [
               {
                 parts: [{ text: 'What is the secret word?' }],
               },
             ],
-            turnComplete: true,
           },
         }
         console.log('Sending query via clientContent: "What is the secret word?"')
@@ -78,8 +77,7 @@ async function main() {
         const content = response.serverContent
         if (content.modelTurn?.parts) {
           content.modelTurn.parts.forEach((p: any) => {
-            if (p.text)
-              console.log('\n[ASSISTANT]:', p.text)
+            if (p.text) console.log('\n[ASSISTANT]:', p.text)
 
             const call = p.functionCall || p.function_call
             if (call) {
@@ -87,11 +85,13 @@ async function main() {
 
               const toolResponse = {
                 toolResponse: {
-                  functionResponses: [{
-                    name: 'get_secret_word',
-                    id: call.id,
-                    response: { output: 'blue flamingo' },
-                  }],
+                  functionResponses: [
+                    {
+                      id: call.id,
+                      name: 'get_secret_word',
+                      response: { output: 'blue flamingo' },
+                    },
+                  ],
                 },
               }
               console.log('Sending Tool Response: "blue flamingo"')
@@ -105,8 +105,7 @@ async function main() {
         console.error('\n[ERROR]:', response.error)
         ws.close()
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Message Parse Error:', err)
     }
   })

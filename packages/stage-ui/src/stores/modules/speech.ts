@@ -1,24 +1,19 @@
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
-import type { VoiceInfo } from '../providers'
-
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset } from '@vueuse/core'
 import { generateSpeech } from '@xsai/generate-speech'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onMounted, watch } from 'vue'
 import { toXml } from 'xast-util-to-xml'
 import { x } from 'xastscript'
-
 import { useOnboardingStore } from '../onboarding'
 import { useProactivityStore } from '../proactivity'
+import type { VoiceInfo } from '../providers'
 import { useProvidersStore } from '../providers'
 
 export function toSignedPercent(value: number): string {
-  if (value > 0)
-    return `+${value}%`
-  if (value < 0)
-    return `-${Math.abs(value)}%`
+  if (value > 0) return `+${value}%`
+  if (value < 0) return `-${Math.abs(value)}%`
   return '0%'
 }
 
@@ -75,10 +70,11 @@ export const useSpeechStore = defineStore('speech', () => {
     }
 
     const query = modelSearchQuery.value.toLowerCase().trim()
-    return providerModels.value.filter(model =>
-      model.name.toLowerCase().includes(query)
-      || model.id.toLowerCase().includes(query)
-      || (model.description && model.description.toLowerCase().includes(query)),
+    return providerModels.value.filter(
+      (model) =>
+        model.name.toLowerCase().includes(query) ||
+        model.id.toLowerCase().includes(query) ||
+        (model.description && model.description.toLowerCase().includes(query)),
     )
   })
 
@@ -127,20 +123,18 @@ export const useSpeechStore = defineStore('speech', () => {
         }
       }
 
-      const voices = await metadata.capabilities.listVoices?.(config) || []
+      const voices = (await metadata.capabilities.listVoices?.(config)) || []
       // Reassign to trigger reactivity when adding/updating provider entries
       availableVoices.value = {
         ...availableVoices.value,
         [provider]: voices,
       }
       return voices
-    }
-    catch (error) {
+    } catch (error) {
       console.error(`Error fetching voices for ${provider}:`, error)
       speechProviderError.value = error instanceof Error ? error.message : 'Unknown error'
       return []
-    }
-    finally {
+    } finally {
       isLoadingSpeechProviderVoices.value = false
     }
   }
@@ -151,25 +145,24 @@ export const useSpeechStore = defineStore('speech', () => {
   }
 
   // Watch for provider changes and load voices/models
-  watch(activeSpeechProvider, async (newProvider) => {
-    if (newProvider) {
-      await Promise.all([
-        loadVoicesForProvider(newProvider),
-        providersStore.fetchModelsForProvider(newProvider),
-      ])
-      // Don't reset voice settings when changing providers to allow for persistence
-    }
-  }, { immediate: true })
+  watch(
+    activeSpeechProvider,
+    async (newProvider) => {
+      if (newProvider) {
+        await Promise.all([loadVoicesForProvider(newProvider), providersStore.fetchModelsForProvider(newProvider)])
+        // Don't reset voice settings when changing providers to allow for persistence
+      }
+    },
+    { immediate: true },
+  )
 
   // Self-healing: Reset active provider if it no longer exists
   const selfHealProvider = () => {
     // Bypass self-healing during onboarding
-    if (onboardingStore.needsOnboarding)
-      return
+    if (onboardingStore.needsOnboarding) return
 
     const providerId = activeSpeechProvider.value
-    if (providerId === 'speech-noop')
-      return
+    if (providerId === 'speech-noop') return
 
     const metadataLoaded = Object.keys(providersStore.providerMetadata).length > 0
 
@@ -192,7 +185,9 @@ export const useSpeechStore = defineStore('speech', () => {
   onMounted(() => {
     loadVoicesForProvider(activeSpeechProvider.value).then(() => {
       if (activeSpeechVoiceId.value) {
-        activeSpeechVoice.value = availableVoices.value[activeSpeechProvider.value]?.find(voice => voice.id === activeSpeechVoiceId.value)
+        activeSpeechVoice.value = availableVoices.value[activeSpeechProvider.value]?.find(
+          (voice) => voice.id === activeSpeechVoiceId.value,
+        )
       }
     })
   })
@@ -203,25 +198,23 @@ export const useSpeechStore = defineStore('speech', () => {
     if (voiceId) {
       // For OpenAI Compatible, create a custom voice object if no voices were discovered
       if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
-        const foundVoice = voices[activeSpeechProvider.value]?.find(voice => voice.id === voiceId)
+        const foundVoice = voices[activeSpeechProvider.value]?.find((voice) => voice.id === voiceId)
         if (foundVoice) {
           activeSpeechVoice.value = foundVoice
-        }
-        else {
+        } else {
           activeSpeechVoice.value = {
-            id: voiceId,
-            name: voiceId,
             description: voiceId,
-            previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
-            provider: activeSpeechProvider.value,
             gender: 'neutral',
+            id: voiceId,
+            languages: [{ code: 'en', title: 'English' }],
+            name: voiceId,
+            previewURL: '',
+            provider: activeSpeechProvider.value,
           }
         }
-      }
-      else {
+      } else {
         // For other providers, find voice in available voices
-        const foundVoice = voices[activeSpeechProvider.value]?.find(voice => voice.id === voiceId)
+        const foundVoice = voices[activeSpeechProvider.value]?.find((voice) => voice.id === voiceId)
         // Only update if we found a voice, or if activeSpeechVoice is not set
         if (foundVoice || !activeSpeechVoice.value) {
           activeSpeechVoice.value = foundVoice
@@ -255,7 +248,10 @@ export const useSpeechStore = defineStore('speech', () => {
     // 2. Strip Emojis
     if (stripEmojis.value) {
       // Broad emoji regex covering most of the unicode emoji blocks
-      transformed = transformed.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      transformed = transformed.replace(
+        /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,
+        '',
+      )
       // Also catch any ZWJ sequences or skin tone modifiers if they survived the block regex
       transformed = transformed.replace(/\u200D/g, '')
     }
@@ -274,8 +270,7 @@ export const useSpeechStore = defineStore('speech', () => {
       const replacement = tildeReplacement.value.trim()
       if (replacement) {
         transformed = transformed.replace(/~/g, ` ${replacement} `)
-      }
-      else {
+      } else {
         transformed = transformed.replace(/~/g, '')
       }
     }
@@ -322,54 +317,46 @@ export const useSpeechStore = defineStore('speech', () => {
     return response
   }
 
-  function generateSSML(
-    text: string,
-    voice: VoiceInfo,
-    providerConfig?: Record<string, any>,
-  ): string {
+  function generateSSML(text: string, voice: VoiceInfo, providerConfig?: Record<string, any>): string {
     const pitch = providerConfig?.pitch
     const speed = providerConfig?.speed
     const volume = providerConfig?.volume
 
     const prosody = {
-      pitch: pitch != null
-        ? toSignedPercent(pitch)
-        : undefined,
-      rate: speed != null
-        ? speed !== 1.0
-          ? `${speed}`
-          : '1'
-        : undefined,
-      volume: volume != null
-        ? toSignedPercent(volume)
-        : undefined,
+      pitch: pitch != null ? toSignedPercent(pitch) : undefined,
+      rate: speed != null ? (speed !== 1.0 ? `${speed}` : '1') : undefined,
+      volume: volume != null ? toSignedPercent(volume) : undefined,
     }
 
-    const hasProsody = Object.values(prosody).some(value => value != null)
+    const hasProsody = Object.values(prosody).some((value) => value != null)
 
-    const ssmlXast = x('speak', { 'version': '1.0', 'xmlns': 'http://www.w3.org/2001/10/synthesis', 'xml:lang': voice.languages[0]?.code || 'en-US' }, [
-      x('voice', { name: voice.id, gender: voice.gender || 'neutral' }, [
-        hasProsody
-          ? x('prosody', {
-              pitch: prosody.pitch,
-              rate: prosody.rate,
-              volume: prosody.volume,
-            }, [
-              text,
-            ])
-          : text,
-      ]),
-    ])
+    const ssmlXast = x(
+      'speak',
+      { version: '1.0', 'xml:lang': voice.languages[0]?.code || 'en-US', xmlns: 'http://www.w3.org/2001/10/synthesis' },
+      [
+        x('voice', { gender: voice.gender || 'neutral', name: voice.id }, [
+          hasProsody
+            ? x(
+                'prosody',
+                {
+                  pitch: prosody.pitch,
+                  rate: prosody.rate,
+                  volume: prosody.volume,
+                },
+                [text],
+              )
+            : text,
+        ]),
+      ],
+    )
 
     return toXml(ssmlXast)
   }
 
   const configured = computed(() => {
-    if (activeSpeechProvider.value === 'speech-noop')
-      return false
+    if (activeSpeechProvider.value === 'speech-noop') return false
 
-    if (!activeSpeechProvider.value)
-      return false
+    if (!activeSpeechProvider.value) return false
 
     let hasModel = !!activeSpeechModel.value
     let hasVoice = !!activeSpeechVoiceId.value
@@ -406,44 +393,44 @@ export const useSpeechStore = defineStore('speech', () => {
   }
 
   return {
-    // State
-    configured,
-    activeSpeechProvider,
+    activeProviderModelError,
     activeSpeechModel,
+    activeSpeechProvider,
     activeSpeechVoice,
     activeSpeechVoiceId,
-    pitch,
-    rate,
-    ssmlEnabled,
-    selectedLanguage,
-    isLoadingSpeechProviderVoices,
-    speechProviderError,
-    availableVoices,
-    modelSearchQuery,
-
-    // Transformer state
-    transformerEnabled,
-    stripNarrative,
-    stripEmojis,
-    stripSymbols,
-    tildeReplacement,
 
     // Computed
     availableSpeechProvidersMetadata,
-    supportsSSML,
-    supportsPitch,
-    supportsModelListing,
-    providerModels,
-    isLoadingActiveProviderModels,
-    activeProviderModelError,
+    availableVoices,
+    // State
+    configured,
     filteredModels,
+    generateSSML,
+    getVoicesForProvider,
+    isLoadingActiveProviderModels,
+    isLoadingSpeechProviderVoices,
+    loadVoicesForProvider,
+    modelSearchQuery,
+    pitch,
+    providerModels,
+    rate,
+    resetState,
+    selectedLanguage,
 
     // Actions
     speech,
-    loadVoicesForProvider,
-    getVoicesForProvider,
-    generateSSML,
+    speechProviderError,
+    ssmlEnabled,
+    stripEmojis,
+    stripNarrative,
+    stripSymbols,
+    supportsModelListing,
+    supportsPitch,
+    supportsSSML,
+    tildeReplacement,
+
+    // Transformer state
+    transformerEnabled,
     transformTextForSpeech,
-    resetState,
   }
 })

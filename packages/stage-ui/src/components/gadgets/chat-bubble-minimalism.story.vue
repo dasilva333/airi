@@ -8,13 +8,6 @@ function createStream(text: string) {
   let doneFunc = () => {}
 
   return {
-    untilDone: () => {
-      return new Promise<void>((resolve) => {
-        doneFunc = () => {
-          resolve()
-        }
-      })
-    },
     stream: new ReadableStream<Uint8Array>({
       start(controller) {
         const bytes = new TextEncoder().encode(text)
@@ -23,8 +16,7 @@ function createStream(text: string) {
           if (index < bytes.length) {
             controller.enqueue(bytes.subarray(index, index + 1))
             index++
-          }
-          else {
+          } else {
             clearInterval(interval)
             doneFunc()
             controller.close()
@@ -32,6 +24,13 @@ function createStream(text: string) {
         }, 10 * Math.random())
       },
     }),
+    untilDone: () => {
+      return new Promise<void>((resolve) => {
+        doneFunc = () => {
+          resolve()
+        }
+      })
+    },
   }
 }
 
@@ -52,7 +51,9 @@ onMounted(async () => {
 
   {
     // https://generator.lorem-ipsum.info/_japanese2
-    const textStreamRes = createStream(`もリソソンまら他差根課阿模舳素擢等れるのねはて素擢んり留等はさたによしみろ等離離樹派津夜きたせやれありゃ遊絵めゆたそそ屋御ユユソカフあゅえ樹れろは、こにとしむあまさももけ氏ひれしゅ雲差屋へ。`)
+    const textStreamRes = createStream(
+      `もリソソンまら他差根課阿模舳素擢等れるのねはて素擢んり留等はさたによしみろ等離離樹派津夜きたせやれありゃ遊絵めゆたそそ屋御ユユソカフあゅえ樹れろは、こにとしむあまさももけ氏ひれしゅ雲差屋へ。`,
+    )
 
     senderTextStream.value = textStreamRes.stream
     showSenderTextStream.value = true
@@ -66,7 +67,8 @@ onMounted(async () => {
 
   {
     // https://generator.lorem-ipsum.info/_japanese2
-    const textStreamRes = createStream(`無個阿巣やにせ手派しらいほね以、留絵離列知魔ヤツソセョノおやてすょほ離目津知舳露津んっそくり都阿いョシトヒツヤえょいね瀬保無区ッヤャか保津くるヌッ絵鵜んっらほ。露露、んセトフヘトターろ派津めん区等名ゅな魔絵手名もよろれ鵜以ゃゅ、ヤスカ離手つみ目根雲うちゆらめ区夜日保模舳露ラナョュあせ。
+    const textStreamRes =
+      createStream(`無個阿巣やにせ手派しらいほね以、留絵離列知魔ヤツソセョノおやてすょほ離目津知舳露津んっそくり都阿いョシトヒツヤえょいね瀬保無区ッヤャか保津くるヌッ絵鵜んっらほ。露露、んセトフヘトターろ派津めん区等名ゅな魔絵手名もよろれ鵜以ゃゅ、ヤスカ離手つみ目根雲うちゆらめ区夜日保模舳露ラナョュあせ。
 
 のこふえいれ絵差譜阿擢ゅょろひへちりえ、いろへね個日模手野いん留個夜御リヘヨヤトヘゅちハヤケュニオセ以個野つへぬけけゃとやなゃゆりるか目巣絵。あいっ区以差離きんそぬに絵根ょつみ離離派派津。むゆく。
 

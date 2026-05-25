@@ -1,22 +1,21 @@
 import type { Config } from '../config/types'
 import type { Context } from '../core/browser/context'
+import { logger } from '../utils/logger'
 import type { AiriAdapter } from './airi-adapter'
 import type { MCPAdapter } from './mcp-adapter'
 
-import { logger } from '../utils/logger'
-
 export function useAdapter() {
-  const adapters: { airi?: AiriAdapter, mcp?: MCPAdapter } = {}
+  const adapters: { airi?: AiriAdapter; mcp?: MCPAdapter } = {}
 
-  async function initAdapters(config: Config, ctx: Context): Promise<{ airi?: AiriAdapter, mcp?: MCPAdapter }> {
+  async function initAdapters(config: Config, ctx: Context): Promise<{ airi?: AiriAdapter; mcp?: MCPAdapter }> {
     if (config.adapters.airi?.enabled) {
       logger.main.log('Starting Airi adapter...')
       const { AiriAdapter } = await import('./airi-adapter')
 
       adapters.airi = new AiriAdapter(ctx, {
-        url: config.adapters.airi.url,
-        token: config.adapters.airi.token,
         credentials: config.credentials || {},
+        token: config.adapters.airi.token,
+        url: config.adapters.airi.url,
       })
 
       await adapters.airi.start()

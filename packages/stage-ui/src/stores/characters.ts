@@ -1,13 +1,11 @@
-import type { Character, CreateCharacterPayload, UpdateCharacterPayload } from '../types/character'
-
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { parse } from 'valibot'
 import { ref } from 'vue'
-
 import { client } from '../composables/api'
 import { useLocalFirstRequest } from '../composables/use-local-first'
 import { charactersRepo } from '../database/repos/characters.repo'
+import type { Character, CreateCharacterPayload, UpdateCharacterPayload } from '../types/character'
 import { CharacterWithRelationsSchema } from '../types/character'
 import { useAuthStore } from './auth'
 
@@ -16,59 +14,59 @@ function buildLocalCharacter(userId: string, payload: CreateCharacterPayload) {
   const now = new Date()
 
   return parse(CharacterWithRelationsSchema, {
-    id,
-    version: payload.character.version,
-    coverUrl: payload.character.coverUrl,
-    avatarUrl: undefined,
-    characterAvatarUrl: undefined,
-    coverBackgroundUrl: undefined,
-    creatorRole: undefined,
-    priceCredit: '0',
-    likesCount: 0,
-    bookmarksCount: 0,
-    interactionsCount: 0,
-    forksCount: 0,
-    creatorId: userId,
-    ownerId: userId,
-    characterId: payload.character.characterId,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: undefined,
-    capabilities: payload.capabilities?.map(capability => ({
-      id: nanoid(),
+    avatarModels: payload.avatarModels?.map((model) => ({
       characterId: id,
-      type: capability.type,
-      config: capability.config,
-    })),
-    avatarModels: payload.avatarModels?.map(model => ({
-      id: nanoid(),
-      characterId: id,
-      name: model.name,
-      type: model.type,
-      description: model.description,
       config: model.config,
       createdAt: now,
+      description: model.description,
+      id: nanoid(),
+      name: model.name,
+      type: model.type,
       updatedAt: now,
     })),
-    i18n: payload.i18n?.map(item => ({
-      id: nanoid(),
+    avatarUrl: undefined,
+    bookmarks: [],
+    bookmarksCount: 0,
+    capabilities: payload.capabilities?.map((capability) => ({
       characterId: id,
+      config: capability.config,
+      id: nanoid(),
+      type: capability.type,
+    })),
+    characterAvatarUrl: undefined,
+    characterId: payload.character.characterId,
+    coverBackgroundUrl: undefined,
+    coverUrl: payload.character.coverUrl,
+    createdAt: now,
+    creatorId: userId,
+    creatorRole: undefined,
+    deletedAt: undefined,
+    forksCount: 0,
+    i18n: payload.i18n?.map((item) => ({
+      characterId: id,
+      createdAt: now,
+      description: item.description,
+      id: nanoid(),
       language: item.language,
       name: item.name,
-      description: item.description,
       tags: item.tags,
-      createdAt: now,
       updatedAt: now,
     })),
-    prompts: payload.prompts?.map(prompt => ({
-      id: nanoid(),
+    id,
+    interactionsCount: 0,
+    likes: [],
+    likesCount: 0,
+    ownerId: userId,
+    priceCredit: '0',
+    prompts: payload.prompts?.map((prompt) => ({
       characterId: id,
+      content: prompt.content,
+      id: nanoid(),
       language: prompt.language,
       type: prompt.type,
-      content: prompt.content,
     })),
-    likes: [],
-    bookmarks: [],
+    updatedAt: now,
+    version: payload.character.version,
   })
 }
 
@@ -111,7 +109,7 @@ export const useCharacterStore = defineStore('characters', () => {
   async function fetchById(id: string) {
     return useLocalFirstRequest({
       local: async () => {
-        const cached = characters.value.get(id) ?? (await charactersRepo.getAll()).find(char => char.id === id)
+        const cached = characters.value.get(id) ?? (await charactersRepo.getAll()).find((char) => char.id === id)
         if (cached) {
           characters.value.set(cached.id, cached)
         }
@@ -170,22 +168,19 @@ export const useCharacterStore = defineStore('characters', () => {
         if (!character) {
           return
         }
-        if (payload.version !== undefined)
-          character.version = payload.version
-        if (payload.coverUrl !== undefined)
-          character.coverUrl = payload.coverUrl
-        if (payload.characterId !== undefined)
-          character.characterId = payload.characterId
+        if (payload.version !== undefined) character.version = payload.version
+        if (payload.coverUrl !== undefined) character.coverUrl = payload.coverUrl
+        if (payload.characterId !== undefined) character.characterId = payload.characterId
         character.updatedAt = new Date()
         characters.value.set(character.id, character)
         await charactersRepo.upsert(character)
         return character
       },
       remote: async () => {
-        const res = await (client.api.characters[':id'].$patch)({
-          param: { id },
+        const res = await client.api.characters[':id'].$patch({
           // @ts-expect-error FIXME: hono client typing misses json option for this route
           json: payload,
+          param: { id },
         })
         if (!res.ok) {
           throw new Error('Failed to update character')
@@ -225,8 +220,8 @@ export const useCharacterStore = defineStore('characters', () => {
           return
         }
         const likes = character.likes ?? []
-        if (!likes.some(item => item.userId === auth.userId)) {
-          likes.push({ userId: auth.userId, characterId: id })
+        if (!likes.some((item) => item.userId === auth.userId)) {
+          likes.push({ characterId: id, userId: auth.userId })
           character.likes = likes
           character.likesCount += 1
           character.updatedAt = new Date()
@@ -258,8 +253,8 @@ export const useCharacterStore = defineStore('characters', () => {
           return
         }
         const bookmarks = character.bookmarks ?? []
-        if (!bookmarks.some(item => item.userId === auth.userId)) {
-          bookmarks.push({ userId: auth.userId, characterId: id })
+        if (!bookmarks.some((item) => item.userId === auth.userId)) {
+          bookmarks.push({ characterId: id, userId: auth.userId })
           character.bookmarks = bookmarks
           character.bookmarksCount += 1
           character.updatedAt = new Date()
@@ -288,15 +283,15 @@ export const useCharacterStore = defineStore('characters', () => {
   }
 
   return {
+    bookmark,
     characters,
+    create,
+    fetchById,
 
     fetchList,
-    fetchById,
-    create,
-    update,
-    remove,
-    like,
-    bookmark,
     getCharacter,
+    like,
+    remove,
+    update,
   }
 })

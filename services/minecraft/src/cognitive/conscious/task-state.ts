@@ -23,12 +23,12 @@ export function createCancellationToken(): CancellationToken {
   const callbacks: Array<() => void> = []
 
   return {
-    get isCancelled() {
-      return isCancelled
-    },
     cancel() {
       isCancelled = true
-      callbacks.forEach(cb => cb())
+      callbacks.forEach((cb) => cb())
+    },
+    get isCancelled() {
+      return isCancelled
     },
     onCancelled(callback: () => void) {
       callbacks.push(callback)

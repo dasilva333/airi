@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import type { SpeechProvider } from '@xsai-ext/providers/utils'
-
-import {
-  SpeechPlayground,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { SpeechPlayground, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldRange, FieldSelect } from '@proj-airi/ui'
+import type { SpeechProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -29,10 +25,9 @@ const speed = ref<number>(1.0)
 
 // Model selection
 const model = computed({
-  get: () => providers.value[providerId]?.model as string | undefined || defaultModel,
+  get: () => (providers.value[providerId]?.model as string | undefined) || defaultModel,
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].model = value
   },
 })
@@ -88,16 +83,10 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
   // Use the reactive model computed property (not a local variable)
   const modelToUse = model.value || defaultModel
 
-  return await speechStore.speech(
-    provider,
-    modelToUse,
-    input,
-    voiceId,
-    {
-      ...providerConfig,
-      ...defaultVoiceSettings,
-    },
-  )
+  return await speechStore.speech(provider, modelToUse, input, voiceId, {
+    ...providerConfig,
+    ...defaultVoiceSettings,
+  })
 }
 
 watch(speed, async () => {

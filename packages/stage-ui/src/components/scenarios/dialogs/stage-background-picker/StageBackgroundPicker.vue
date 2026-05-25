@@ -13,8 +13,7 @@ const isRefreshingGallery = ref(false)
 
 // Get selected card data
 const selectedCard = computed(() => {
-  if (!props.cardId)
-    return undefined
+  if (!props.cardId) return undefined
   return cardStore.getCard(props.cardId)
 })
 
@@ -27,11 +26,9 @@ const allBackgrounds = computed(() => {
 const activeBackgroundId = computed({
   get: () => selectedCard.value?.extensions?.airi?.modules?.activeBackgroundId || 'none',
   set: async (val: string) => {
-    if (!selectedCard.value)
-      return
+    if (!selectedCard.value) return
     const extension = JSON.parse(JSON.stringify(selectedCard.value.extensions))
-    if (!extension.airi.modules)
-      extension.airi.modules = {}
+    if (!extension.airi.modules) extension.airi.modules = {}
 
     extension.airi.modules.activeBackgroundId = val
 
@@ -56,16 +53,14 @@ async function handleRefreshGallery() {
   isRefreshingGallery.value = true
   try {
     await backgroundStore.initializeStore()
-  }
-  finally {
+  } finally {
     isRefreshingGallery.value = false
   }
 }
 
 async function handleDownloadEntry(id: string, title: string) {
   const url = backgroundStore.getBackgroundUrl(id)
-  if (!url)
-    return
+  if (!url) return
 
   const link = document.createElement('a')
   link.href = url

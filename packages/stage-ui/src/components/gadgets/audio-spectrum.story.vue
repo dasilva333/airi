@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { FieldRange, Radio } from '@proj-airi/ui'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-
-import AudioSpectrumVisualizer from './audio-spectrum-visualizer.vue'
 import AudioSpectrum from './audio-spectrum.vue'
+import AudioSpectrumVisualizer from './audio-spectrum-visualizer.vue'
 
 // Create a mock oscillator to generate audio for demonstration
 const audioContext = shallowRef<AudioContext>()
@@ -38,8 +37,7 @@ function createMockAudioStream() {
     // Start the oscillator
     oscillator.value.start()
     isPlaying.value = true
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Failed to create mock audio stream:', error)
   }
 }
@@ -63,8 +61,7 @@ function stopMockAudioStream() {
 function toggleAudio() {
   if (isPlaying.value) {
     stopMockAudioStream()
-  }
-  else {
+  } else {
     createMockAudioStream()
   }
 }

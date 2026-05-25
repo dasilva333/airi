@@ -13,21 +13,21 @@ export function useElectronWindowResize() {
   let isResizing = false
 
   const emitResizeState = (active: boolean) => {
-    window.dispatchEvent(new CustomEvent(RESIZE_STATE_EVENT, {
-      detail: { active },
-    }))
+    window.dispatchEvent(
+      new CustomEvent(RESIZE_STATE_EVENT, {
+        detail: { active },
+      }),
+    )
   }
 
   const handleResizeStart = (e: MouseEvent, direction: ResizeDirection) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (isResizing)
-      return
+    if (isResizing) return
 
     void (async () => {
-      if (!await isWindows())
-        return
+      if (!(await isWindows())) return
 
       isResizing = true
       emitResizeState(true)

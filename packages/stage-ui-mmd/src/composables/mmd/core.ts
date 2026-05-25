@@ -1,4 +1,3 @@
-// @ts-expect-error - Missing types for @moeru/three-mmd
 import type { MMD } from '@moeru/three-mmd'
 import type { Mesh, Object3D, Scene } from 'three'
 
@@ -19,24 +18,28 @@ import { createMMDLoader, createTextureRemappingManager } from './loader'
  * Returns:
  * - The MMD instance, a wrapping Group, bounding box metrics, and initial camera offset
  */
-export async function loadMmd(modelUrl: string, options?: {
-  scene?: Scene
-  textureMap?: Map<string, string>
-  onProgress?: (progress: ProgressEvent) => void | Promise<void>
-}): Promise<{
-  mmd: MMD
-  mmdGroup: Group
-  modelCenter: Vector3
-  modelSize: Vector3
-  initialCameraOffset: Vector3
-} | undefined> {
+export async function loadMmd(
+  modelUrl: string,
+  options?: {
+    scene?: Scene
+    textureMap?: Map<string, string>
+    onProgress?: (progress: ProgressEvent) => void | Promise<void>
+  },
+): Promise<
+  | {
+      mmd: MMD
+      mmdGroup: Group
+      modelCenter: Vector3
+      modelSize: Vector3
+      initialCameraOffset: Vector3
+    }
+  | undefined
+> {
   console.log('[MMD:Core] Starting loadMmd for URL:', modelUrl)
   console.log('[MMD:Core] Texture map size:', options?.textureMap?.size ?? 0)
 
   // Create a loader with texture remapping if a texture map is provided
-  const manager = options?.textureMap
-    ? createTextureRemappingManager(options.textureMap)
-    : undefined
+  const manager = options?.textureMap ? createTextureRemappingManager(options.textureMap) : undefined
   const loader = createMMDLoader(manager)
 
   console.log('[MMD:Core] Calling loader.loadAsync...')
@@ -48,8 +51,7 @@ export async function loadMmd(modelUrl: string, options?: {
       }
       options?.onProgress?.(progress)
     })
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[MMD:Core] loader.loadAsync FAILED:', err)
     throw err
   }
@@ -84,19 +86,15 @@ export async function loadMmd(modelUrl: string, options?: {
 
   // Compute initial camera offset
   const fov = 40
-  const radians = (fov / 2 * Math.PI) / 180
-  const initialCameraOffset = new Vector3(
-    0,
-    modelCenter.y,
-    (modelSize.y / 3) / Math.tan(radians),
-  )
+  const radians = ((fov / 2) * Math.PI) / 180
+  const initialCameraOffset = new Vector3(0, modelCenter.y, modelSize.y / 3 / Math.tan(radians))
 
   return {
+    initialCameraOffset,
     mmd,
     mmdGroup,
     modelCenter,
     modelSize,
-    initialCameraOffset,
   }
 }
 
@@ -107,15 +105,12 @@ function computeBoundingBox(object: Object3D): Box3 {
   object.updateMatrixWorld(true)
 
   object.traverse((obj) => {
-    if (!obj.visible)
-      return
+    if (!obj.visible) return
 
     const mesh = obj as Mesh
-    if (!mesh.isMesh || !mesh.geometry)
-      return
+    if (!mesh.isMesh || !mesh.geometry) return
 
-    if (!mesh.geometry.boundingBox)
-      mesh.geometry.computeBoundingBox()
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
 
     childBox.copy(mesh.geometry.boundingBox!)
     childBox.applyMatrix4(mesh.matrixWorld)

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage } from '../../../types/chat'
-
 import { Collapsible } from '@proj-airi/ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { ChatAssistantMessage } from '../../../types/chat'
 
 import { MarkdownRenderer } from '../../markdown'
 
@@ -16,10 +15,7 @@ const { t } = useI18n()
 
 const hasReasoning = computed(() => !!props.message.categorization?.reasoning?.trim())
 
-const containerClasses = computed(() => [
-  'mt-2',
-  props.variant === 'mobile' ? 'text-xs' : 'text-sm',
-])
+const containerClasses = computed(() => ['mt-2', props.variant === 'mobile' ? 'text-xs' : 'text-sm'])
 </script>
 
 <template>

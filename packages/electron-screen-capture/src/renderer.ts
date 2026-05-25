@@ -1,11 +1,15 @@
+import { defineInvoke } from '@moeru/eventa'
 import type { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import type { SourcesOptions } from 'electron'
-
 import type { ScreenCaptureSetSourceRequest, SerializableDesktopCapturerSource } from '.'
 
-import { defineInvoke } from '@moeru/eventa'
-
-import { screenCaptureCheckMacOSPermission, screenCaptureGetSources, screenCaptureRequestMacOSPermission, screenCaptureResetSource, screenCaptureSetSourceEx } from '.'
+import {
+  screenCaptureCheckMacOSPermission,
+  screenCaptureGetSources,
+  screenCaptureRequestMacOSPermission,
+  screenCaptureResetSource,
+  screenCaptureSetSourceEx,
+} from '.'
 
 export interface SourceOptionsWithRequest {
   sourcesOptions?: SourcesOptions
@@ -40,8 +44,7 @@ export function setupElectronScreenCapture(context: ReturnType<typeof createCont
         timeout: options?.request?.timeout,
       })
       return await useFn()
-    }
-    finally {
+    } finally {
       if (handle) {
         await resetSource(handle)
       }
@@ -49,11 +52,11 @@ export function setupElectronScreenCapture(context: ReturnType<typeof createCont
   }
 
   return {
-    getSources,
-    setSource,
-    selectWithSource,
-    resetSource,
     checkMacOSPermission,
+    getSources,
     requestMacOSPermission,
+    resetSource,
+    selectWithSource,
+    setSource,
   }
 }

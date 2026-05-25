@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import type { AssistantMessage, SystemMessage, ToolMessage, Message as UpstreamMessage, UserMessage } from '@xsai/shared-chat'
-import type { Element, Root } from 'xast'
-
 import { Input, Textarea } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
+import type {
+  AssistantMessage,
+  SystemMessage,
+  ToolMessage,
+  Message as UpstreamMessage,
+  UserMessage,
+} from '@xsai/shared-chat'
 import { streamText } from '@xsai/stream-text'
 import { ref, toRaw } from 'vue'
+import type { Element, Root } from 'xast'
 
 import { registerWidgets } from '../plugins/plugin-component-calling-weather'
+
 // import { mockStreamText } from '../utils/xsai-testing'
 
 interface ComponentCall {
@@ -41,37 +47,50 @@ const model = useLocalStorage('settings/llm/model', 'openai/gpt-4o-mini')
 
 const widgets = registerWidgets()
 
-const sendingMessage = ref('Hi, what is the weather today in Shanghai? We are in debug mode, you can use Shanghai for city, 29 for degree, cloudy for condition.')
+const sendingMessage = ref(
+  'Hi, what is the weather today in Shanghai? We are in debug mode, you can use Shanghai for city, 29 for degree, cloudy for condition.',
+)
 
 // https://github.com/vllm-project/vllm/blob/2cc571199b1446f376ee019fcafda19155fc6b71/examples/tool_chat_template_deepseekv3.jinja
-const capabilityComponentCalling = ''
-  + `You are interacting with user from a UI that supports **Component Calling**. You may call one or more functions to assist with the user query.\n`
-  + `Component Calling is similar to what you have learned Function Calling or tool call, tool use. In function calling, <tools> will be supplied.\n`
-  + `In Component Calling, <components>will be supplied</components>, pick the right one to use.\n`
-  + `For each function call, you should return object like:\n`
-  + `<component_call><component_name>$componentName</component_name>
+const capabilityComponentCalling =
+  '' +
+  `You are interacting with user from a UI that supports **Component Calling**. You may call one or more functions to assist with the user query.\n` +
+  `Component Calling is similar to what you have learned Function Calling or tool call, tool use. In function calling, <tools> will be supplied.\n` +
+  `In Component Calling, <components>will be supplied</components>, pick the right one to use.\n` +
+  `For each function call, you should return object like:\n` +
+  `<component_call><component_name>$componentName</component_name>
 \`\`\`json
 <component_props>$componentProps</component_props>
 \`\`\`</component▁call>\n`
 
 const capabilities = [
-  { name: 'Component Calling', description: capabilityComponentCalling, inject: async () => `<components>
-  ${(await Promise.all(widgets.components.map(async c => `<component_name>
+  {
+    description: capabilityComponentCalling,
+    inject: async () => `<components>
+  ${(
+    await Promise.all(
+      widgets.components.map(
+        async (c) => `<component_name>
     ${c.name}
   </component_name>
   <component_props>
     ${JSON.stringify(await c.schema)}
-  </component_props>`))).join('\n')}
-</component>` },
+  </component_props>`,
+      ),
+    )
+  ).join('\n')}
+</component>`,
+    name: 'Component Calling',
+  },
 ]
 
 const messages = ref<Array<Message>>([
   {
+    content: `You are a helpful assistant. You will gain powers from the following capabilities:\n\n## Capabilities\n\n${capabilities.map((cap) => `### ${cap.name}\n\n${cap.description}`).join('\n')}\n\n`,
     role: 'system',
-    content: `You are a helpful assistant. You will gain powers from the following capabilities:\n\n## Capabilities\n\n${capabilities.map(cap => `### ${cap.name}\n\n${cap.description}`).join('\n')}\n\n`,
   },
 ])
-const streamingMessage = ref<AssistantCCMessage>({ role: 'assistant', content: '' })
+const streamingMessage = ref<AssistantCCMessage>({ content: '', role: 'assistant' })
 const waiting = ref(false)
 
 interface ParserEvents {
@@ -94,8 +113,8 @@ function createParser(events?: ParserEvents): XMLParser {
 
   // Result tree
   const parsedNode: Root = {
-    type: 'root',
     children: [] as Element[],
+    type: 'root',
   } as Root
 
   let currentNode: Element | Root = parsedNode
@@ -123,8 +142,7 @@ function createParser(events?: ParserEvents): XMLParser {
       if (sequentialBackticks < 3) {
         return
       }
-    }
-    else {
+    } else {
       // If we had some backticks but not enough for a code block marker,
       // add them to the buffer
       if (sequentialBackticks > 0) {
@@ -139,12 +157,11 @@ function createParser(events?: ParserEvents): XMLParser {
       if (readBuffer.trim()) {
         // Save any accumulated text content
         if (currentNode !== parsedNode) {
-          (currentNode as Element).children = [
-            ...(currentNode as Element).children || [],
+          ;(currentNode as Element).children = [
+            ...((currentNode as Element).children || []),
             { type: 'text', value: readBuffer },
           ]
-        }
-        else {
+        } else {
           currentNode.children.push({
             type: 'text',
             value: readBuffer,
@@ -166,12 +183,10 @@ function createParser(events?: ParserEvents): XMLParser {
                 events.onComponentPropsLoaded(componentCalls[currentComponentIndex], currentComponentIndex)
               }
             }
-          }
-          catch (e) {
+          } catch (e) {
             console.error('Failed to parse component props:', e)
           }
-        }
-        else if (parserSeekTag === 'name') {
+        } else if (parserSeekTag === 'name') {
           const componentName = readBuffer.trim()
 
           // Create a new component with loading state
@@ -215,10 +230,10 @@ function createParser(events?: ParserEvents): XMLParser {
       if (tagOpened) {
         // This was an opening tag
         const newElement: Element = {
-          type: 'element',
-          name: tagName,
           attributes: {},
           children: [],
+          name: tagName,
+          type: 'element',
         }
 
         currentNode.children.push(newElement)
@@ -227,31 +242,28 @@ function createParser(events?: ParserEvents): XMLParser {
 
         if (tagName === 'component_call') {
           parserSeekTag = 'call'
-        }
-        else if (tagName === 'component_name') {
+        } else if (tagName === 'component_name') {
           parserSeekTag = 'name'
-        }
-        else if (tagName === 'component_props') {
+        } else if (tagName === 'component_props') {
           parserSeekTag = 'props'
         }
-      }
-      else {
+      } else {
         // This was a closing tag
         if (tagName === 'component_call') {
           parserSeekTag = undefined
           currentComponentIndex = -1 // Reset current component index
-        }
-        else if (tagName === 'component_name') {
+        } else if (tagName === 'component_name') {
           parserSeekTag = 'call'
-        }
-        else if (tagName === 'component_props') {
+        } else if (tagName === 'component_props') {
           parserSeekTag = 'call'
 
           // If we didn't manage to parse the props (e.g., invalid JSON),
           // mark the component as no longer loading
-          if (currentComponentIndex >= 0
-            && currentComponentIndex < componentCalls.length
-            && componentCalls[currentComponentIndex].component.propsLoading) {
+          if (
+            currentComponentIndex >= 0 &&
+            currentComponentIndex < componentCalls.length &&
+            componentCalls[currentComponentIndex].component.propsLoading
+          ) {
             componentCalls[currentComponentIndex].component.propsLoading = false
 
             // Emit event for props loaded (even though they may be empty/invalid)
@@ -275,8 +287,7 @@ function createParser(events?: ParserEvents): XMLParser {
     if (tagBracketOpened) {
       // Collecting tag name
       readBuffer += char
-    }
-    else {
+    } else {
       // Collecting content
       readBuffer += char
     }
@@ -301,8 +312,7 @@ function createParser(events?: ParserEvents): XMLParser {
           if (events?.onComponentPropsLoaded) {
             events.onComponentPropsLoaded(componentCalls[currentComponentIndex], currentComponentIndex)
           }
-        }
-        catch (e) {
+        } catch (e) {
           console.error('Failed to parse component props:', e)
         }
       }
@@ -322,9 +332,13 @@ async function handleChatSendMessage() {
     return
   }
 
-  streamingMessage.value = { role: 'assistant', content: '' }
-  messages.value.push({ role: 'user', content: `## Context of capabilities\n\n${(await Promise.all(capabilities.map(async cap => `### ${cap.name}\n\n${await cap.inject()}`))).join('\n')}`, hidden: true })
-  messages.value.push({ role: 'user', content: sendingMessage.value })
+  streamingMessage.value = { content: '', role: 'assistant' }
+  messages.value.push({
+    content: `## Context of capabilities\n\n${(await Promise.all(capabilities.map(async (cap) => `### ${cap.name}\n\n${await cap.inject()}`))).join('\n')}`,
+    hidden: true,
+    role: 'user',
+  })
+  messages.value.push({ content: sendingMessage.value, role: 'user' })
   messages.value.push(streamingMessage.value)
   sendingMessage.value = ''
 
@@ -356,10 +370,10 @@ async function handleChatSendMessage() {
     waiting.value = true
 
     const response = await streamText({
-      baseURL: baseUrl.value,
       apiKey: apiKey.value,
+      baseURL: baseUrl.value,
+      messages: messages.value.slice(0, messages.value.length - 1).map((msg) => toRaw(msg)) as UpstreamMessage[],
       model: model.value,
-      messages: messages.value.slice(0, messages.value.length - 1).map(msg => toRaw(msg)) as UpstreamMessage[],
     })
     // const response = mockStreamText()
 
@@ -374,25 +388,20 @@ async function handleChatSendMessage() {
             for (const char of chunk.text) {
               parser.consume(char)
             }
-          }
-          else {
+          } else {
             parser.consume(chunk.text)
           }
-        }
-        catch {
-        }
+        } catch {}
       }
     }
-  }
-  catch (err) {
+  } catch (err) {
     const errorMessage: ErrorMessage = {
-      role: 'error',
       content: err.message,
+      role: 'error',
     }
 
     messages.value.push(errorMessage)
-  }
-  finally {
+  } finally {
     waiting.value = false
   }
 }

@@ -5,11 +5,14 @@ import { FieldCheckbox, FieldSelect, useTheme } from '@proj-airi/ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const props = withDefaults(defineProps<{
-  needsControlsIslandIconSizeSetting?: boolean
-}>(), {
-  needsControlsIslandIconSizeSetting: import.meta.env.RUNTIME_ENVIRONMENT === 'electron',
-})
+const props = withDefaults(
+  defineProps<{
+    needsControlsIslandIconSizeSetting?: boolean
+  }>(),
+  {
+    needsControlsIslandIconSizeSetting: import.meta.env.RUNTIME_ENVIRONMENT === 'electron',
+  },
+)
 
 const showControlsIsland = computed(() => props.needsControlsIslandIconSizeSetting)
 
@@ -19,7 +22,7 @@ const { t } = useI18n()
 const { isDark: dark } = useTheme()
 
 const languages = computed(() => {
-  return Object.entries(all).map(([value, label]) => ({ value, label }))
+  return Object.entries(all).map(([value, label]) => ({ label, value }))
 })
 </script>
 

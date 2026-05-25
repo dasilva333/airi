@@ -11,12 +11,15 @@ interface RangeConfig {
   disabled?: boolean
 }
 
-const props = withDefaults(defineProps<{
-  label?: string
-  config?: RangeConfig
-}>(), {
-  label: 'Range',
-})
+const props = withDefaults(
+  defineProps<{
+    label?: string
+    config?: RangeConfig
+  }>(),
+  {
+    label: 'Range',
+  },
+)
 
 const modelValue = defineModel<number>({ required: true })
 
@@ -41,14 +44,17 @@ function postProcessValue(val: number, config?: RangeConfig): string {
 
 const normalizedValue = ref(postProcessValue(modelValue.value, props.config))
 
-watch(modelValue, () => {
-  normalizedValue.value = postProcessValue(modelValue.value, props.config)
-  updateSliderProgress()
-}, { immediate: true })
+watch(
+  modelValue,
+  () => {
+    normalizedValue.value = postProcessValue(modelValue.value, props.config)
+    updateSliderProgress()
+  },
+  { immediate: true },
+)
 
 function updateSliderProgress() {
-  if (!sliderRef.value)
-    return
+  if (!sliderRef.value) return
 
   const min = props.config?.min ?? 0
   const max = props.config?.max ?? 100
@@ -76,8 +82,7 @@ function handleInputChange(event: Event) {
   const input = event.target as HTMLInputElement
   const value = Number.parseFloat(input.value)
 
-  if (Number.isNaN(value))
-    return
+  if (Number.isNaN(value)) return
 
   updateValue(value)
 }
@@ -95,8 +100,7 @@ function updateValue(value: number) {
 }
 
 function startDrag(event: MouseEvent) {
-  if (props.config?.disabled)
-    return
+  if (props.config?.disabled) return
 
   event.preventDefault()
   isDragging.value = true
@@ -109,13 +113,12 @@ function startDrag(event: MouseEvent) {
 }
 
 function onDrag(event: MouseEvent) {
-  if (!isDragging.value)
-    return
+  if (!isDragging.value) return
 
   const deltaX = event.clientX - dragStartX.value
   const config = props.config
   const sensitivity = config?.step || 0.01
-  const newValue = dragStartValue.value + (deltaX * sensitivity)
+  const newValue = dragStartValue.value + deltaX * sensitivity
 
   updateValue(newValue)
 }

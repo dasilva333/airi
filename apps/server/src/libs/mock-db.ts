@@ -1,10 +1,9 @@
-import type { Database } from './db'
-
 import { PGlite } from '@electric-sql/pglite'
 import { vector } from '@electric-sql/pglite/vector'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/pglite'
 import { vi } from 'vitest'
+import type { Database } from './db'
 
 /**
  * Create a mock database for testing purposes.

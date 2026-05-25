@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-
 import {
   ProviderAccountIdInput,
   ProviderApiKeyInput,
@@ -11,6 +9,7 @@ import {
 } from '@proj-airi/stage-ui/components'
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import type { RemovableRef } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 
@@ -22,8 +21,7 @@ const { providers } = storeToRefs(providersStore) as { providers: RemovableRef<R
 const apiKey = computed({
   get: () => providers.value[providerId]?.apiKey || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].apiKey = value
   },
 })
@@ -31,8 +29,7 @@ const apiKey = computed({
 const accountId = computed({
   get: () => providers.value[providerId]?.accountId || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].accountId = value
   },
 })
