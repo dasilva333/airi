@@ -2,33 +2,98 @@
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WhisperDock } from '@proj-airi/stage-ui/components'
+import { ControlStrip } from '@proj-airi/stage-ui/components/scenarios/layout'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
+import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
+import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
+import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings/audio-device'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { Button } from '@proj-airi/ui'
-import { refDebounced } from '@vueuse/core'
+import { refDebounced, useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
-import { electron, electronStartDraggingWindow } from '../../shared/eventa'
+import {
+  electron,
+  electronApplySizePreset,
+  electronAppQuit,
+  electronCaptionSyncDocking,
+  electronCaptionToggleVisibility,
+  electronControlStripSyncState,
+  electronCustomizerToggleVisibility,
+  electronOpenChat,
+  electronOpenSettings,
+  electronStageToggleVisibility,
+  electronStartDraggingWindow,
+} from '../../shared/eventa'
+import { builtinTools } from '../stores/tools/builtin'
+import { useWindowStore } from '../stores/window'
 
 const backgroundStore = useBackgroundStore()
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
 
 const settingsStore = useSettings()
-const { stageModelSelected, stageModelRenderer, stageViewControlsEnabled, stageViewControlsMode } = storeToRefs(settingsStore)
+const { stageModelSelected, stageModelRenderer, stageViewControlsEnabled, stageViewControlsMode, alwaysOnTop } = storeToRefs(settingsStore)
 
 const controlStripStore = useSettingsControlStrip()
-const { stageEnabled } = storeToRefs(controlStripStore)
+const { stageEnabled, captionOpen, collapsed } = storeToRefs(controlStripStore)
 
 const positioningStore = usePositioningStore()
 
 const controlsIslandStore = useSettingsControlsIsland()
 const { fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
+
+// Control strip invoke handlers
+const colorMode = useColorMode()
+const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
+const quitApp = useElectronEventaInvoke(electronAppQuit)
+const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
+const openChat = useElectronEventaInvoke(electronOpenChat)
+const openSettings = useElectronEventaInvoke(electronOpenSettings)
+const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
+const applySizePresetInvoke = useElectronEventaInvoke(electronApplySizePreset)
+const syncControlStripState = useElectronEventaInvoke(electronControlStripSyncState)
+const getBounds = useElectronEventaInvoke(electron.window.getBounds)
+const setBounds = useElectronEventaInvoke(electron.window.setBounds)
+const setIgnoreMouseEventsInvoke = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
+
+// Control strip state
+const activePopover = ref<string | null>(null)
+const lastPlacement = ref<'left' | 'right' | 'top' | 'bottom' | null>(null)
+const lastOrientation = ref<'vertical' | 'horizontal'>('vertical')
+
+const activeButtons = computed(() => {
+  return controlStripStore.buttons.filter((btn: any) => btn.enabled)
+})
+
+const stripLength = computed(() => {
+  if (collapsed.value) {
+    return 60
+  }
+  const N = activeButtons.value.length
+  return N === 0 ? 60 : 60 + 46 * N
+})
+
+// Chat/LLM stores for control strip actions
+const settingsAudioDeviceStore = useSettingsAudioDevice()
+const liveSessionStore = useLiveSessionStore()
+const cardStore = useAiriCardStore()
+const { activeCard } = storeToRefs(cardStore)
+const customVrmAnimationsStore = useCustomVrmAnimationsStore()
+const modelStore = useModelStore()
+const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
+const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
 
 const scale = computed(() => {
   return positioningStore.getPosition(stageModelSelected.value).scale
@@ -76,9 +141,6 @@ const whisperDockIsOpen = ref(false)
 const showControls = ref(false)
 
 // Auto-hide (fade-on-hover) for the stage window.
-// When enabled, entering the window fades the character to invisible and enables click-through.
-// The ControlStrip window always stays visible — only the actor stage window fades.
-const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
 const stageIsHidden = ref(false)
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
@@ -107,14 +169,14 @@ watch(
   ([inside, fadeEnabled, stageOn, overControls]) => {
     if (!stageOn) {
       stageIsHidden.value = false
-      setIgnoreMouseEvents([false, { forward: true }])
+      setIgnoreMouseEventsInvoke([false, { forward: true }])
       showControls.value = false
       return
     }
 
     const shouldHide = fadeEnabled && inside && !overControls
     stageIsHidden.value = shouldHide
-    setIgnoreMouseEvents([shouldHide, { forward: true }])
+    setIgnoreMouseEventsInvoke([shouldHide, { forward: true }])
     showControls.value = inside && !shouldHide
   },
   { immediate: true },
@@ -122,6 +184,324 @@ watch(
 
 const { isNearAnyBorder: isAroundWindowBorder } = useElectronMouseAroundWindowBorder({ threshold: 30 })
 const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
+
+// ===== Control Strip Logic (moved from index.vue) =====
+
+watch(stageEnabled, (val) => {
+  toggleStageVisibility(val)
+}, { immediate: true })
+
+watch(captionOpen, (val) => {
+  toggleCaptionVisibility(val)
+}, { immediate: true })
+
+// Treat stage and caption as partners when captionFollowStage is enabled
+watch(stageEnabled, (newVal) => {
+  if (settingsStore.captionFollowStage) {
+    if (captionOpen.value !== newVal) {
+      captionOpen.value = newVal
+    }
+  }
+})
+
+watch(captionOpen, (newVal) => {
+  if (settingsStore.captionFollowStage) {
+    if (stageEnabled.value !== newVal) {
+      controlStripStore.stageEnabled = newVal
+    }
+  }
+})
+
+watch(() => settingsStore.captionFollowStage, (newVal) => {
+  if (newVal) {
+    if (captionOpen.value !== stageEnabled.value) {
+      captionOpen.value = stageEnabled.value
+    }
+  }
+})
+
+async function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
+  const current = await getBounds()
+  if (!current)
+    return
+
+  let x = current.x
+  let y = current.y
+  const w = lastOrientation.value === 'vertical' ? 56 : stripLength.value
+  const h = lastOrientation.value === 'vertical' ? stripLength.value : 56
+
+  if (activePopover.value) {
+    const placement = lastPlacement.value || 'bottom'
+    if (lastOrientation.value === 'vertical') {
+      x = current.x + (placement === 'left' ? 268 : 0)
+      y = current.y + (current.height - stripLength.value) / 2
+    }
+    else {
+      x = current.x + (current.width - stripLength.value) / 2
+      y = current.y + (placement === 'top' ? 280 : 0)
+    }
+  }
+
+  let targetX = x
+  let targetY = y
+  let targetW = w
+  let targetH = h
+
+  if (nextPopover) {
+    if (controlStripStore.orientation === 'vertical') {
+      targetW = 324
+      targetH = Math.max(336, h)
+      targetX = x - (nextPlacement === 'left' ? 268 : 0)
+      targetY = y - (targetH - h) / 2
+    }
+    else {
+      targetW = Math.max(336, w)
+      targetH = 336
+      targetX = x - (targetW - w) / 2
+      targetY = y - (nextPlacement === 'top' ? 280 : 0)
+    }
+  }
+
+  await setBounds([{
+    x: Math.round(targetX),
+    y: Math.round(targetY),
+    width: Math.round(targetW),
+    height: Math.round(targetH),
+  }])
+
+  activePopover.value = nextPopover
+  lastPlacement.value = nextPlacement
+  lastOrientation.value = controlStripStore.orientation
+}
+
+watch([stripLength, () => controlStripStore.orientation], async ([newLength, newOrientation]) => {
+  if (activePopover.value) {
+    await applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
+  }
+  else {
+    const w = newOrientation === 'vertical' ? 56 : newLength
+    const h = newOrientation === 'vertical' ? newLength : 56
+    const current = await getBounds()
+    if (current) {
+      await setBounds([{
+        x: current.x,
+        y: current.y,
+        width: w,
+        height: h,
+      }])
+    }
+    lastOrientation.value = newOrientation
+  }
+})
+
+watch(
+  [activePopover, lastPlacement, () => controlStripStore.orientation, stripLength],
+  async ([popover, placement, orient, len]) => {
+    await syncControlStripState({
+      activePopover: popover,
+      lastPlacement: placement || 'bottom',
+      orientation: orient || 'vertical',
+      stripLength: len,
+    })
+  },
+  { immediate: true },
+)
+
+async function handleApplySizePreset(e: Event) {
+  const { target, preset } = (e as CustomEvent).detail
+  await applySizePresetInvoke({ target, preset })
+}
+
+function cycleAnimation() {
+  if (stageModelRenderer.value === 'mmd') {
+    const mmdStore = useMmd()
+    const allKeys = mmdStore.availableMotions
+    if (allKeys.length === 0) {
+      toast.error('No MMD motions available', { id: 'animation-cycle' })
+      return
+    }
+    const currentKey = mmdStore.currentMotion
+    const currentIndex = allKeys.indexOf(currentKey)
+    const nextIndex = (currentIndex + 1) % allKeys.length
+    const nextAnimation = allKeys[nextIndex]
+
+    mmdStore.currentMotion = nextAnimation
+    toast.info(`Cycling MMD: ${nextAnimation}`, { id: 'animation-cycle' })
+    return
+  }
+
+  const cardIdleAnimations = activeCard.value?.extensions?.airi?.acting?.idleAnimations || []
+  const allKeys = customVrmAnimationsStore.animationKeys
+  const hasCardSubset = cardIdleAnimations.length > 0
+
+  if (cardIdleAnimations.length === 1) {
+    const currentKey = cardIdleAnimations[0]
+    const currentIndex = allKeys.indexOf(currentKey)
+    const nextIndex = (currentIndex + 1) % allKeys.length
+    const nextAnimation = allKeys[nextIndex]
+
+    if (activeCard.value?.extensions?.airi?.acting) {
+      activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
+    }
+    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+    return
+  }
+
+  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
+  const finalKeys = keys.length > 0 ? keys : allKeys
+
+  const currentKey = vrmIdleAnimation.value
+  const currentIndex = finalKeys.indexOf(currentKey)
+  const nextIndex = (currentIndex + 1) % finalKeys.length
+  const nextAnimation = finalKeys[nextIndex]
+
+  vrmIdleAnimation.value = nextAnimation
+  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+}
+
+function handleControlStripAction(e: Event) {
+  const action = (e as CustomEvent).detail.action
+  console.info(`[Actor Page] [Control Strip Action] Received action: "${action}"`)
+  if (action === 'chat') {
+    controlStripStore.chatOpen = !controlStripStore.chatOpen
+    openChat(controlStripStore.chatOpen)
+  }
+  else if (action === 'settings') {
+    openSettings()
+  }
+  else if (action === 'caption') {
+    controlStripStore.captionOpen = !controlStripStore.captionOpen
+  }
+  else if (action === 'mic') {
+    settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
+  }
+  else if (action === 'stage') {
+    controlStripStore.stageEnabled = !controlStripStore.stageEnabled
+  }
+  else if (action === 'gemini-session') {
+    liveSessionStore.toggle()
+  }
+  else if (action === 'always-on-top') {
+    alwaysOnTop.value = !alwaysOnTop.value
+  }
+  else if (action === 'theme-mode') {
+    colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
+  }
+  else if (action === 'caption-follow-stage') {
+    settingsStore.captionFollowStage = !settingsStore.captionFollowStage
+  }
+  else if (action === 'caption-docking') {
+    const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
+    settingsStore.captionDocking = next
+    syncCaptionDocking(next)
+  }
+  else if (action === 'caption-layout-mode') {
+    settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
+  }
+  else if (action === 'exit-app') {
+    quitApp()
+  }
+  else if (action === 'viewport-tactile') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = false
+    controlStripStore.stageMode = 'tactileMode'
+  }
+  else if (action === 'viewport-drag') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = true
+    controlStripStore.stageMode = 'dragMode'
+  }
+  else if (action === 'viewport-positioning') {
+    modelStore.interactionMode = 'tactile'
+    stageViewControlsEnabled.value = true
+    controlStripStore.stageMode = 'positionMode'
+  }
+  else if (action === 'viewport-orbit') {
+    modelStore.interactionMode = 'orbit'
+    stageViewControlsEnabled.value = false
+    controlStripStore.stageMode = 'orbitMode'
+  }
+  else if (action === 'viewport-cycle-modes') {
+    controlStripStore.cycleStageMode()
+    const mode = controlStripStore.stageMode
+    if (mode === 'tactileMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = false
+    }
+    else if (mode === 'dragMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = true
+    }
+    else if (mode === 'positionMode') {
+      modelStore.interactionMode = 'tactile'
+      stageViewControlsEnabled.value = true
+    }
+    else if (mode === 'orbitMode') {
+      modelStore.interactionMode = 'orbit'
+      stageViewControlsEnabled.value = false
+    }
+  }
+  else if (action === 'viewport-auto-hide') {
+    fadeOnHoverEnabled.value = !fadeOnHoverEnabled.value
+  }
+  else if (action === 'viewport-reset-coordinates') {
+    const key = stageModelSelected.value
+    positioningStore.setPosition(key, { x: 0, y: 0, scale: 1 })
+    if (stageModelRenderer.value === 'live2d') {
+      const live2dStore = useLive2d()
+      live2dStore.resetState()
+    }
+    else {
+      modelStore.modelOffset = { x: 0, y: 0, z: 0 }
+      modelStore.cameraDistance = modelStore.modelSize.z * 10
+    }
+  }
+  else if (action === 'actor-idle-animations') {
+    cycleAnimation()
+  }
+}
+
+async function handleOpenCustomizer(e?: Event) {
+  const group = (e as CustomEvent)?.detail?.group
+  await toggleCustomizerVisibility({ enabled: true, group })
+}
+
+function handleOpenSettings(e: Event) {
+  const route = (e as CustomEvent).detail?.route
+  openSettings({ route })
+}
+
+onMounted(async () => {
+  const chatStore = useChatOrchestratorStore()
+  chatStore.setToolsResolver(builtinTools)
+  tools.value = await builtinTools()
+
+  // Initialize orientation from main process config
+  lastOrientation.value = controlStripStore.orientation
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('control-strip:action', handleControlStripAction as EventListener)
+    window.addEventListener('control-strip:open-customizer', handleOpenCustomizer as EventListener)
+    window.addEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    window.addEventListener('control-strip:drag-start', () => {
+      startDraggingWindow()
+    })
+    window.addEventListener('control-strip:popover-changed', async (e: Event) => {
+      const { activePopover: nextPopover, placement: nextPlacement } = (e as CustomEvent).detail
+      await applyBoundsUpdate(nextPopover, nextPlacement)
+    })
+    window.addEventListener('control-strip:apply-size-preset', handleApplySizePreset as EventListener)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('control-strip:action', handleControlStripAction as EventListener)
+    window.removeEventListener('control-strip:open-customizer', handleOpenCustomizer as EventListener)
+    window.removeEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    window.removeEventListener('control-strip:apply-size-preset', handleApplySizePreset as EventListener)
+  }
+})
 </script>
 
 <template>
@@ -152,7 +532,7 @@ const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
       <div class="absolute inset-0 z-10">
         <RendererStage
           :paused="!stageEnabled"
-          :focus-at="{ x: 0, y: 0 }"
+          :focus-at="{ x: live2dLookAtX, y: live2dLookAtY }"
           :x-offset="xOffset"
           :y-offset="yOffset"
           :scale="scale"
@@ -242,6 +622,11 @@ const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
           :tools="tools"
           @spawn-standalone="handleSpawnStandalone"
         />
+      </div>
+
+      <!-- Floating Modular Control Strip Overlay -->
+      <div class="pointer-events-none absolute inset-0 z-50 overflow-hidden">
+        <ControlStrip />
       </div>
 
       <!-- Proximity Border Highlight -->

@@ -148,7 +148,6 @@ function createCaptionWindow(options?: BrowserWindowConstructorOptions) {
 }
 
 export function setupCaptionWindowManager(params: {
-  mainWindow: BrowserWindow
   stageWindow: BrowserWindow
   serverChannel: ServerChannel
   i18n: I18n
@@ -405,16 +404,16 @@ export function setupCaptionWindowManager(params: {
       emitVisibilityChanged()
       syncGlobalConfig()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window shown, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', true)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('caption-window-state', true)
       }
     })
     window.on('hide', () => {
       emitVisibilityChanged()
       syncGlobalConfig()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window hidden, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', false)
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('caption-window-state', false)
       }
     })
 
@@ -442,9 +441,9 @@ export function setupCaptionWindowManager(params: {
       }
       eventaContext = undefined
       emitVisibilityChanged()
-      console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window closed, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', false)
+      console.log('[@proj-airi/stage-tamagotchi] [Main] Customizer window closed, broadcasting state')
+      if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+        params.stageWindow.webContents.send('caption-window-state', false)
       }
     })
 
