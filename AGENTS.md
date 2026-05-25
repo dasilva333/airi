@@ -217,3 +217,14 @@ Concise mapping of conceptual features to technical file paths for rapid context
   - **Never** commit or push untested changes. Verify that your specific changes work as expected in the target environment.
   - Commit messages must signify **what is actually being submitted**, not just the intent or a vague "fix". If you fixed X, say `fix: X`; if you refactored Y, say `refactor: Y`.
 - Use Conventional Commits for commit messages (e.g., `feat: add runner reconnect backoff`).
+
+## GitHub MCP Server Usage
+
+**Always prefer the GitHub MCP server over `gh` CLI or raw API calls.** The MCP server provides structured, tool-based access to GitHub operations. Use these tools:
+
+- **PRs**: `mcp--github--get_pull_request`, `mcp--github--list_pull_requests`, `mcp--github--get_pull_request_comments`, `mcp--github--get_pull_request_reviews`, `mcp--github--create_branch`
+- **Commits**: `mcp--github--list_commits`
+
+When fetching PR review comments, use `mcp--github--get_pull_request_comments` which returns inline review comments with file paths, line numbers, and bodies. For general issue-level comments (like bot summaries), use `gh api repos/{owner}/{repo}/issues/{number}/comments` as a fallback since MCP doesn't have a direct issue comments tool.
+
+**Do NOT use `gh pr view`, `gh api`, or `curl` to GitHub API when MCP tools are available for the same operation.**
