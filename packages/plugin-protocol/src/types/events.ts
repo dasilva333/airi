@@ -370,12 +370,11 @@ export enum MessageHeartbeat {
 
 export enum WebSocketEventSource {
   Server = 'proj-airi:server-runtime',
-  StageWeb = 'proj-airi:stage-web',
   StageTamagotchi = 'proj-airi:stage-tamagotchi',
 }
 
 interface InputSource {
-  'stage-web': boolean
+  
   'stage-tamagotchi': boolean
   discord: Discord
 }

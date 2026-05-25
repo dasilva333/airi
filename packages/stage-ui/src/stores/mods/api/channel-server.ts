@@ -7,7 +7,7 @@ import type {
 } from '@proj-airi/server-sdk'
 
 import { Client, WebSocketEventSource } from '@proj-airi/server-sdk'
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -27,7 +27,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
   const authToken = useLocalStorage('settings/connection/auth-token', '')
 
-  const callerId = isStageWeb() ? 'stage-web' : isStageTamagotchi() ? 'stage-tamagotchi' : 'stage-web'
+  const callerId = isStageTamagotchi() ? 'stage-tamagotchi' : 'stage-tamagotchi'
   const purpose = 'Primary application interface for AIRI.'
 
   const basePossibleEvents: Array<keyof WebSocketEvents> = [
