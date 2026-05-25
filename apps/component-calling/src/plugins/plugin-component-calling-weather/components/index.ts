@@ -1,6 +1,6 @@
 import { object, string } from 'valibot'
 import { defineCallingComponent } from '../../plugin-component-calling'
-import Weather from './Weather.vue'
+import { default as Weather } from './Weather.vue'
 
 export { default as Weather } from './Weather.vue'
 

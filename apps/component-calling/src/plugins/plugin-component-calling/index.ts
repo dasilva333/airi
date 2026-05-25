@@ -7,7 +7,7 @@ export function defineCallingComponent<T extends Schema>(
   name: string,
   component: Component,
   schema: T,
-  exampleProps?: Record<string, any>,
+  exampleProps?: Record<string, unknown>,
 ) {
   return {
     component: markRaw(component),
