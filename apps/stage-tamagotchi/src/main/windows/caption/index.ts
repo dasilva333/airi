@@ -441,7 +441,7 @@ export function setupCaptionWindowManager(params: {
       }
       eventaContext = undefined
       emitVisibilityChanged()
-      console.log('[@proj-airi/stage-tamagotchi] [Main] Customizer window closed, broadcasting state')
+      console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window closed, broadcasting state')
       if (params.stageWindow && !params.stageWindow.isDestroyed()) {
         params.stageWindow.webContents.send('caption-window-state', false)
       }
