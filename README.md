@@ -237,6 +237,7 @@ Perhaps you know [Neuro-sama](https://www.youtube.com/@Neurosama) already. She i
 
 Therefore, this project, AIRI, offers another possibility here: **let you own your digital life, cyber living, easily, anywhere, anytime**.
 
+<!--
 ## DevLogs We Posted & Recent Updates
 
 - [DevLog @ 2026.02.16](https://airi.moeru.ai/docs/en/blog/DevLog-2026.02.16/) on February 16, 2026
@@ -246,6 +247,7 @@ Therefore, this project, AIRI, offers another possibility here: **let you own yo
 - [DevLog @ 2025.08.01](https://airi.moeru.ai/docs/en/blog/DevLog-2025.08.01/) on August 1, 2025
 - [DreamLog 0x1](https://airi.moeru.ai/docs/en/blog/dreamlog-0x1/) on June 16, 2025
 - ...more on [documentation site](https://airi.moeru.ai/docs/en/)
+-->
 
 ## What's So Special About This Project?
 
@@ -257,6 +259,8 @@ Unlike the other AI driven VTuber open source projects, ã‚¢ã‚¤ãƒª was
 > Don't worry, while Web browser version is meant to give an insight about how much we can push and do inside browsers, and webviews, we will never fully rely on this, the desktop version of AIRI is capable of using native [NVIDIA CUDA](https://developer.nvidia.com/cuda-toolkit) and [Apple Metal](https://developer.apple.com/metal/) by default (thanks to HuggingFace & beloved [candle](https://github.com/huggingface/candle) project), without any complex dependency managements, considering the tradeoff, it was partially powered by Web technologies for graphics, layouts, animations, and the WIP plugin systems for everyone to integrate things.
 
 This means that **ã‚¢ã‚¤ãƒª is capable of running on modern browsers and devices** and even on mobile devices (already done with PWA support). This brings a lot of possibilities for us (the developers) to build and extend the power of ã‚¢ã‚¤ãƒª VTuber to the next level, while still leaving the flexibilities for users to enable features that requires TCP connections or other non-Web technologies such as connecting to a Discord voice channel or playing Minecraft and Factorio with friends.
+
+<!--
 
 > [!NOTE]
 >
@@ -283,6 +287,8 @@ This means that **ã‚¢ã‚¤ãƒª is capable of running on modern browsers 
 > - WebXR ([checkout the another project](https://github.com/moeru-ai/chat) we have under the @moeru-ai organization)
 >
 > **If you are interested, why not introduce yourself here? [Would like to join part of us to build AIRI?](https://github.com/moeru-ai/airi/discussions/33)**
+
+-->
 
 ## Current Progress
 
@@ -332,6 +338,8 @@ Capable of
 
 ## Development
 
+![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
+
 > For detailed instructions to develop this project, follow [CONTRIBUTING.md](./.github/CONTRIBUTING.md)
 
 > [!NOTE]
@@ -361,6 +369,31 @@ A Nix package for Tamagotchi is included. To run airi with Nix, first make sure 
 ```shell
 nix run github:moeru-ai/airi
 ```
+#### Arch
+##### Error: Electron uninstall (pnpm 10+)
+
+If you see `Error: Electron uninstall` when running `pnpm dev:tamagotchi`, it means the Electron binary wasn't correctly downloaded or extracted into your `node_modules`. This is a common issue with pnpm 10+ security defaults.
+
+**Fix 1: Approve the build (Recommended for pnpm 10+)**
+Pnpm 10+ blocks postinstall scripts by default. You may need to explicitly allow electron to run its installation script:
+```shell
+pnpm approve-builds
+# Select 'electron' and any related packages, then press Enter
+```
+
+**Fix 2: Rebuild the package**
+```shell
+cd apps/stage-tamagotchi
+pnpm rebuild electron
+```
+
+**Fix 3: Manual extraction (fallback)**
+If rebuilding doesn't work, you can manually extract the cached binary:
+1. Locate the electron zip in `~/.cache/electron/`.
+2. Extract it into `node_modules/.pnpm/electron@<version>/node_modules/electron/dist/`.
+3. Create a `path.txt` file in `node_modules/.pnpm/electron@<version>/node_modules/electron/` containing the string `electron` (no trailing newline).
+
+<!--
 
 #### NixOS
 
@@ -391,36 +424,15 @@ sudo pnpm dev:tamagotchi
 
 Then enable secure websocket in tamagotchi `settings/system/general`.
 
-### Troubleshooting
-
-#### Error: Electron uninstall (pnpm 10+)
-
-If you see `Error: Electron uninstall` when running `pnpm dev:tamagotchi`, it means the Electron binary wasn't correctly downloaded or extracted into your `node_modules`. This is a common issue with pnpm 10+ security defaults.
-
-**Fix 1: Approve the build (Recommended for pnpm 10+)**
-Pnpm 10+ blocks postinstall scripts by default. You may need to explicitly allow electron to run its installation script:
-```shell
-pnpm approve-builds
-# Select 'electron' and any related packages, then press Enter
-```
-
-**Fix 2: Rebuild the package**
-```shell
-cd apps/stage-tamagotchi
-pnpm rebuild electron
-```
-
-**Fix 3: Manual extraction (fallback)**
-If rebuilding doesn't work, you can manually extract the cached binary:
-1. Locate the electron zip in `~/.cache/electron/`.
-2. Extract it into `node_modules/.pnpm/electron@<version>/node_modules/electron/dist/`.
-3. Create a `path.txt` file in `node_modules/.pnpm/electron@<version>/node_modules/electron/` containing the string `electron` (no trailing newline).
+-->
 
 ### Documentation Site
 
 ```shell
 pnpm dev:docs
 ```
+
+<!--
 
 ### Publish
 
@@ -429,6 +441,9 @@ Please update the version in `Cargo.toml` after running `bumpp`:
 ```shell
 npx bumpp --no-commit --no-tag
 ```
+-->
+
+<!--
 
 ## Support of LLM API Providers (powered by [xsai](https://github.com/moeru-ai/xsai))
 
@@ -464,6 +479,10 @@ npx bumpp --no-commit --no-tag
 - [ ] [Sparks](https://www.xfyun.cn/doc/spark/Web.html) (PR welcome)
 - [ ] [Volcano Engine](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=2QXCA1VI) (PR welcome)
 
+-->
+
+<!--
+
 ## Sub-projects Born from This Project
 
 - [Awesome AI VTuber](https://github.com/proj-airi/awesome-ai-vtuber): A curated list of AI VTubers and related projects
@@ -484,6 +503,8 @@ npx bumpp --no-commit --no-tag
 - [`inventory`](https://github.com/moeru-ai/inventory): Centralized model catalog and default provider configurations backend service
 - [MCP Launcher](https://github.com/moeru-ai/mcp-launcher): Easy to use MCP builder & launcher for all possible MCP servers, just like Ollama for models!
 - [ðŸ¥º SAD](https://github.com/moeru-ai/sad): Documentation and notes for self-host and browser running LLMs.
+
+-->
 
 ```mermaid
 %%{ init: { 'flowchart': { 'curve': 'catmullRom' } } }%%
@@ -575,6 +596,8 @@ flowchart TD
   style Memory_PGVector fill:#f9f9d4,stroke:#333,stroke-width:1px
 ```
 
+<!--
+
 ## Similar Projects
 
 ### Open sourced ones
@@ -595,9 +618,7 @@ flowchart TD
 - https://clips.twitch.tv/TriangularAthleticBunnySoonerLater-SXpBk1dFso21VcWD
 - https://www.youtube.com/@NOWA_Mirai
 
-## Project Status
-
-![Repobeats analytics image](https://repobeats.axiom.co/api/embed/a1d6fe2c13ea2bb53a5154435a71e2431f70c2ee.svg 'Repobeats analytics image')
+-->
 
 ## Acknowledgements
 
@@ -608,6 +629,8 @@ flowchart TD
 - [mallorbc/whisper_mic](https://github.com/mallorbc/whisper_mic)
 - [`xsai`](https://github.com/moeru-ai/xsai): Implemented a decent amount of packages to interact with LLMs and models, like [Vercel AI SDK](https://sdk.vercel.ai/) but way small.
 
+<!--
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=moeru-ai/airi&type=Date)](https://www.star-history.com/#moeru-ai/airi&Date)
+-->
