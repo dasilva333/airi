@@ -4,12 +4,7 @@ import process from 'node:process'
 
 import { cac } from 'cac'
 
-import packageJSON from '../package.json'
-
-assert
-{
-  type: 'json'
-}
+import packageJSON from '../package.json' with { type: 'json' }
 
 import { getElectronBuilderConfig, getFilenames, getVersion } from './utils'
 

@@ -7,12 +7,7 @@ import { x } from 'tinyexec'
 
 import * as yaml from 'yaml'
 
-import packageJSON from '../package.json'
-
-assert
-{
-  type: 'json'
-}
+import packageJSON from '../package.json' with { type: 'json' }
 
 export async function getVersion(options: { release: boolean; autoTag: boolean; tag: string[] }) {
   if (!options.release || !options.tag) {

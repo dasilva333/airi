@@ -104,8 +104,7 @@ const playbackActorId = ref<string>('default')
 
 function getActorColor(id: string): string {
   const existing = actorColors.get(id)
-  if (existing)
-    return existing
+  if (existing) return existing
 
   // Generate a stable, vibrant HSL color from the actor ID
   let hash = 0

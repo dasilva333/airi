@@ -10,7 +10,7 @@ import type {
 } from '@xsai/shared-chat'
 import { streamText } from '@xsai/stream-text'
 import { ref, toRaw } from 'vue'
-import type { Element, Root } from 'xast'
+import type { Element, Root, RootContent } from 'xast'
 
 import { registerWidgets } from '../plugins/plugin-component-calling-weather'
 
@@ -19,7 +19,7 @@ import { registerWidgets } from '../plugins/plugin-component-calling-weather'
 interface ComponentCall {
   component: {
     name: string
-    props: Record<string, any>
+    props: Record<string, unknown>
     propsLoading: boolean
   }
   index: number
@@ -54,10 +54,10 @@ const sendingMessage = ref(
 // https://github.com/vllm-project/vllm/blob/2cc571199b1446f376ee019fcafda19155fc6b71/examples/tool_chat_template_deepseekv3.jinja
 const capabilityComponentCalling =
   '' +
-  `You are interacting with user from a UI that supports **Component Calling**. You may call one or more functions to assist with the user query.\n` +
-  `Component Calling is similar to what you have learned Function Calling or tool call, tool use. In function calling, <tools> will be supplied.\n` +
-  `In Component Calling, <components>will be supplied</components>, pick the right one to use.\n` +
-  `For each function call, you should return object like:\n` +
+  'You are interacting with user from a UI that supports **Component Calling**. You may call one or more functions to assist with the user query.\n' +
+  'Component Calling is similar to what you have learned Function Calling or tool call, tool use. In function calling, <tools> will be supplied.\n' +
+  'In Component Calling, <components>will be supplied</components>, pick the right one to use.\n' +
+  'For each function call, you should return object like:\n' +
   `<component_call><component_name>$componentName</component_name>
 \`\`\`json
 <component_props>$componentProps</component_props>
@@ -113,7 +113,7 @@ function createParser(events?: ParserEvents): XMLParser {
 
   // Result tree
   const parsedNode: Root = {
-    children: [] as Element[],
+    children: [] as RootContent[],
     type: 'root',
   } as Root
 
@@ -165,7 +165,7 @@ function createParser(events?: ParserEvents): XMLParser {
           currentNode.children.push({
             type: 'text',
             value: readBuffer,
-          } as any)
+          } as RootContent)
         }
 
         // If we're collecting component props, try to parse as JSON
@@ -275,7 +275,7 @@ function createParser(events?: ParserEvents): XMLParser {
 
         // Pop back to parent
         if (parentStack.length > 0) {
-          currentNode = parentStack.pop()!
+          currentNode = parentStack.pop() ?? parsedNode
         }
       }
 
@@ -299,7 +299,7 @@ function createParser(events?: ParserEvents): XMLParser {
       currentNode.children.push({
         type: 'text',
         value: readBuffer,
-      } as any)
+      } as RootContent)
 
       // Try to parse any remaining props
       if (parserSeekTag === 'props' && inCodeBlock && currentComponentIndex >= 0) {
@@ -359,7 +359,7 @@ async function handleChatSendMessage() {
       }
     },
     onComponentPropsLoaded: (component, index) => {
-      if (streamingMessage.value.component_calls && streamingMessage.value.component_calls[index]) {
+      if (streamingMessage.value.component_calls?.[index]) {
         streamingMessage.value.component_calls[index].component.props = component.component.props
         streamingMessage.value.component_calls[index].component.propsLoading = false
       }
@@ -391,12 +391,14 @@ async function handleChatSendMessage() {
           } else {
             parser.consume(chunk.text)
           }
-        } catch {}
+        } catch {
+          // intentionally empty
+        }
       }
     }
   } catch (err) {
     const errorMessage: ErrorMessage = {
-      content: err.message,
+      content: err instanceof Error ? err.message : String(err),
       role: 'error',
     }
 
