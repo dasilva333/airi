@@ -19,7 +19,7 @@
 <p align="center">A container of souls — cyber livings, waifu, digital humans — brought into your Linux machine. The ultimate goal: <strong>AiriOS</strong>, a full desktop OS experience centered around your AI companion.</p>
 
 <blockquote>
-<p><strong>This is a maintained downstream fork</strong> of <a href="https://github.com/moeru-ai/airi">moeru-ai/airi</a>, originally created by <a href="https://github.com/nicepkg">nicepkg</a> and the Moeru AI team. The original project's vision — re-creating Neuro-sama as an open-source soul container — is the foundation everything here is built on. This fork's focus is turning that vision into a <strong>Linux-first desktop OS experience</strong>.</p>
+<p><strong>This is a maintained downstream fork</strong> of <a href="https://github.com/moeru-ai/airi">moeru-ai/airi</a>, originally created by <a href="https://github.com/moeru-ai/">the Moeru AI team</a>. The original project's vision — re-creating Neuro-sama as an open-source soul container — is the foundation everything here is built on. This fork's focus is turning that vision into an <strong>Arch Linux desktop OS experience</strong>.</p>
 </blockquote>
 
 > [!IMPORTANT]
@@ -31,7 +31,7 @@ The original AIRI project is a fascinating base — it has real character cards,
 
 This fork exists to:
 
-- **Make AIRI a Linux desktop-first experience** — not an afterthought, but the primary target
+- **Make AIRI a Linux desktop experience** — not an afterthought, but the primary target
 - **Keep the desktop path stable and testable** — no more "works on my machine"
 - **Preserve upstream intent where genuinely useful** — the original author's work on character cards, memory, and stage presentation is excellent
 - **Selectively forward-port worthwhile upstream work** — not blindly rebasing everything
