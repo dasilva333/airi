@@ -30,7 +30,8 @@
     "./electron-renderer": "./src/electron-renderer.d.ts",
     "./shortcuts": "./src/shortcuts.ts",
     "./utils/*": "./src/utils/*.ts",
-    "./vite": "./src/vite.ts"
+    "./vite": "./src/vite.ts",
+    "./debug": "./src/debug.ts"
   },
   "license": "MIT",
   "name": "@proj-airi/stage-shared",
