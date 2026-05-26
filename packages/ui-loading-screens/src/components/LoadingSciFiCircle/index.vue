@@ -5,7 +5,7 @@ import type { Ref } from 'vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import CircleFadeInAnimation from './assets/circle_blink_in_-_loading_(@proj-airi).riv'
-import type CRT from './CRT.vue'
+import CRT from './CRT.vue'
 import CRTLine from './CRTLine.vue'
 
 interface WriteLineOptions {

@@ -104,7 +104,7 @@ async function send() {
 }
 
 function getErrorMessage(err: unknown): string {
-  if (err instanceof DOMException && err.name === 'AbortError') {
+  if ((err instanceof DOMException || err instanceof Error) && err.name === 'AbortError') {
     return 'Request was cancelled.'
   }
 

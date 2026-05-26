@@ -35,7 +35,7 @@ import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
-import type ControlStrip from '../scenarios/layout/ControlStrip.vue'
+import ControlStrip from '../scenarios/layout/ControlStrip.vue'
 
 withDefaults(
   defineProps<{
