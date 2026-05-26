@@ -61,7 +61,6 @@ dmg:
 linux:
   target:
     - deb
-    - rpm
   category: Utility
   synopsis: 'AI VTuber/Waifu chatbot app inspired by Neuro-sama.'
   description: 'AIRI is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.'
