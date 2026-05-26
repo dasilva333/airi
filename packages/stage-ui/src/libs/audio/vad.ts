@@ -23,11 +23,11 @@ export interface VADEvents {
   // Emitted when speech has ended
   'speech-end': void
   // Emitted when a complete speech segment is ready for transcription
-  'speech-ready': { buffer: Float32Array, duration: number }
+  'speech-ready': { buffer: Float32Array; duration: number }
   // Emitted for status updates and errors
-  'status': { type: string, message: string }
+  status: { type: string; message: string }
   // Debug info
-  'debug': { message: string, data?: any }
+  debug: { message: string; data?: any }
 }
 
 export type VADEventCallback<K extends keyof VADEvents> = (event: VADEvents[K]) => void
@@ -64,8 +64,8 @@ export function createVADStates(vad: BaseVAD, vadAudioWorkletUrl: string, option
 
   const {
     audioContextOptions = {
-      sampleRate: 16000,
       latencyHint: 'interactive',
+      sampleRate: 16000,
     },
   } = options || {}
 
@@ -89,8 +89,7 @@ export function createVADStates(vad: BaseVAD, vadAudioWorkletUrl: string, option
           await vad.processAudio(new Float32Array(buffer))
         }
       }
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to initialize audio worklet:', error)
       throw error
     }
@@ -124,8 +123,7 @@ export function createVADStates(vad: BaseVAD, vadAudioWorkletUrl: string, option
       silentGain.gain.value = 0
       audioWorkletNode.connect(silentGain)
       silentGain.connect(audioContext.destination)
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to start microphone:', error)
       throw error
     }
@@ -147,7 +145,7 @@ export function createVADStates(vad: BaseVAD, vadAudioWorkletUrl: string, option
       audioWorkletNode = null
     }
     if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop())
+      mediaStream.getTracks().forEach((track) => track.stop())
       mediaStream = null
     }
     if (audioContext && audioContext.state !== 'closed') {
@@ -158,9 +156,9 @@ export function createVADStates(vad: BaseVAD, vadAudioWorkletUrl: string, option
   }
 
   return {
+    dispose,
     initialize,
     start,
     stop,
-    dispose,
   }
 }

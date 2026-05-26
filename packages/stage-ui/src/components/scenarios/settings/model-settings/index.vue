@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { DisplayModel } from '../../../../stores/display-models'
-
 import { Live2DScene } from '@proj-airi/stage-ui-live2d'
 import { MMDScene, useMmd } from '@proj-airi/stage-ui-mmd'
 import { SpineScene } from '@proj-airi/stage-ui-spine'
@@ -9,19 +7,18 @@ import { Button, Callout } from '@proj-airi/ui'
 import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
-
-import LHackerPanel from './live2d-lhack/LHackerPanel.vue'
-import Live2D from './live2d.vue'
-import MMD from './mmd.vue'
-import Spine from './spine.vue'
-import HackerPanel from './vrm-vhack/HackerPanel.vue'
-import VRM from './vrm.vue'
-
+import type { DisplayModel } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { useVHackStore } from '../../../../stores/vhack'
 import { ModelSelectorDialog } from '../../dialogs/model-selector'
+import Live2D from './live2d.vue'
+import LHackerPanel from './live2d-lhack/LHackerPanel.vue'
+import MMD from './mmd.vue'
+import Spine from './spine.vue'
+import VRM from './vrm.vue'
+import HackerPanel from './vrm-vhack/HackerPanel.vue'
 
 const props = defineProps<{
   palette: string[]
@@ -31,9 +28,7 @@ const props = defineProps<{
   vrmSceneClass?: string | string[]
 }>()
 
-defineEmits<{
-  (e: 'extractColorsFromModel'): void
-}>()
+defineEmits<(e: 'extractColorsFromModel') => void>()
 
 const modelSelectorOpen = ref(false)
 const positionCursor = useMouse()
@@ -92,8 +87,7 @@ defineExpose({
   captureFrame: async () => {
     if (stageModelRenderer.value === 'live2d') {
       return (live2dRef.value as any)?.captureFrame()
-    }
-    else if (stageModelRenderer.value === 'vrm') {
+    } else if (stageModelRenderer.value === 'vrm') {
       return threeSceneRef.value?.captureFrame()
     }
     return null
@@ -106,8 +100,7 @@ async function handleModelPick(selectedModel: DisplayModel | undefined) {
 }
 
 async function handleApplyToActiveCharacter() {
-  if (!activeCardId.value || !activeCard.value)
-    return
+  if (!activeCardId.value || !activeCard.value) return
 
   const updatedAiriExtension = {
     ...activeCard.value.extensions.airi,
@@ -131,7 +124,7 @@ function handleScaleChange(newScale: number) {
   positioningStore.setPosition(key, { ...current, scale: newScale })
 }
 
-function handleOffsetChange(offset: { x: number, y: number }) {
+function handleOffsetChange(offset: { x: number; y: number }) {
   const key = stageModelSelected.value
   const current = positioningStore.getPosition(key)
   positioningStore.setPosition(key, {

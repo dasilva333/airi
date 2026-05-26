@@ -18,37 +18,41 @@ export interface EventStream<T> {
   close: () => void
 }
 
-export function createEvent<TPayload>(type: string, payload: TPayload, options?: { priority?: EventPriority, source?: string, tags?: string[], id?: string, time?: number }): EventEnvelope<string, TPayload> {
+export function createEvent<TPayload>(
+  type: string,
+  payload: TPayload,
+  options?: { priority?: EventPriority; source?: string; tags?: string[]; id?: string; time?: number },
+): EventEnvelope<string, TPayload> {
   return {
     id: options?.id ?? nanoid(),
-    type,
-    time: options?.time ?? Date.now(),
+    payload,
     priority: options?.priority,
     source: options?.source,
     tags: options?.tags,
-    payload,
+    time: options?.time ?? Date.now(),
+    type,
   }
 }
 
 export function createEventStream<T>(): EventStream<T> {
   let controller: ReadableStreamDefaultController<T> | undefined
   const stream = new ReadableStream<T>({
-    start(ctrl) {
-      controller = ctrl
-    },
     cancel() {
       controller = undefined
+    },
+    start(ctrl) {
+      controller = ctrl
     },
   })
 
   return {
-    stream,
-    emit(event) {
-      controller?.enqueue(event)
-    },
     close() {
       controller?.close()
       controller = undefined
     },
+    emit(event) {
+      controller?.enqueue(event)
+    },
+    stream,
   }
 }

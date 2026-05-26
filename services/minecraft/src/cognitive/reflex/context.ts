@@ -1,6 +1,5 @@
-import type { Vec3 } from 'vec3'
-
 import { signal } from 'alien-signals'
+import type { Vec3 } from 'vec3'
 
 export interface ReflexSelfState {
   location: Vec3
@@ -12,8 +11,8 @@ export interface ReflexSelfState {
 export interface ReflexEnvironmentState {
   time: string
   weather: 'clear' | 'rain' | 'thunder'
-  nearbyPlayers: Array<{ name: string, distance?: number, holding?: string | null }>
-  nearbyEntities: Array<{ name: string, distance?: number, kind?: string }>
+  nearbyPlayers: Array<{ name: string; distance?: number; holding?: string | null }>
+  nearbyEntities: Array<{ name: string; distance?: number; kind?: string }>
   lightLevel: number
 }
 
@@ -57,45 +56,45 @@ export interface ReflexContextState {
 export class ReflexContext {
   private readonly nowState = signal<number>(Date.now())
   private readonly selfState = signal<ReflexSelfState>({
-    location: { x: 0, y: 0, z: 0 } as Vec3,
-    holding: null,
-    health: 20,
     food: 20,
+    health: 20,
+    holding: null,
+    location: { x: 0, y: 0, z: 0 } as Vec3,
   })
 
   private readonly environmentState = signal<ReflexEnvironmentState>({
+    lightLevel: 15,
+    nearbyEntities: [],
+    nearbyPlayers: [],
     time: 'SOMETHING WENT WRONG, YOU SHOULD NOTIFY THE USER OF THIS',
     weather: 'clear',
-    nearbyPlayers: [],
-    nearbyEntities: [],
-    lightLevel: 15,
   })
 
   private readonly socialState = signal<ReflexSocialState>({
-    lastSpeaker: null,
-    lastMessage: null,
-    lastMessageAt: null,
     lastGesture: null,
     lastGestureAt: null,
+    lastMessage: null,
+    lastMessageAt: null,
+    lastSpeaker: null,
   })
 
   private readonly threatState = signal<ReflexThreatState>({
-    threatScore: 0,
     lastThreatAt: null,
     lastThreatSource: null,
+    threatScore: 0,
   })
 
   private readonly attentionState = signal<ReflexAttentionState>({
-    lastSignalType: null,
-    lastSignalSourceId: null,
     lastSignalAt: null,
+    lastSignalSourceId: null,
+    lastSignalType: null,
   })
 
   private readonly autonomyState = signal<ReflexAutonomyState>({
-    followPlayer: null,
-    followDistance: 2,
     followActive: false,
+    followDistance: 2,
     followLastError: null,
+    followPlayer: null,
   })
 
   public getSnapshot(): ReflexContextState {
@@ -107,17 +106,17 @@ export class ReflexContext {
     const autonomy = this.autonomyState()
 
     return {
-      now: this.nowState(),
-      self: { ...self },
-      environment: {
-        ...environment,
-        nearbyPlayers: environment.nearbyPlayers.map(p => ({ ...p })),
-        nearbyEntities: environment.nearbyEntities.map(e => ({ ...e })),
-      },
-      social: { ...social },
-      threat: { ...threat },
       attention: { ...attention },
       autonomy: { ...autonomy },
+      environment: {
+        ...environment,
+        nearbyEntities: environment.nearbyEntities.map((e) => ({ ...e })),
+        nearbyPlayers: environment.nearbyPlayers.map((p) => ({ ...p })),
+      },
+      now: this.nowState(),
+      self: { ...self },
+      social: { ...social },
+      threat: { ...threat },
     }
   }
 

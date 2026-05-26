@@ -4,9 +4,7 @@ defineProps<{
   connected: boolean
 }>()
 
-const emit = defineEmits<{
-  (event: 'refresh'): void
-}>()
+const emit = defineEmits<(event: 'refresh') => void>()
 </script>
 
 <template>

@@ -1,12 +1,9 @@
-import type { BrowserWindow } from 'electron'
-
-import type { MicToggleHotkey } from '../../../shared/eventa'
-
 import { execFile } from 'node:child_process'
 import { chmodSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-
+import type { BrowserWindow } from 'electron'
 import { app, globalShortcut, ipcMain } from 'electron'
+import type { MicToggleHotkey } from '../../../shared/eventa'
 
 let currentHotkey: MicToggleHotkey = 'Scroll'
 let currentWindow: BrowserWindow | null = null
@@ -36,9 +33,9 @@ export function setupMicToggleShortcut(stageWindow: BrowserWindow, hotkey: MicTo
   cleanupMicToggleShortcut()
 
   const keyMap = {
-    Scroll: { electron: 'ScrollLock', send: 'SCROLLLOCK' },
     Caps: { electron: 'CapsLock', send: 'CAPSLOCK' },
     Num: { electron: 'NumLock', send: 'NUMLOCK' },
+    Scroll: { electron: 'ScrollLock', send: 'SCROLLLOCK' },
   }
 
   const { electron: electronKey } = keyMap[currentHotkey]
@@ -59,13 +56,11 @@ export function setupMicToggleShortcut(stageWindow: BrowserWindow, hotkey: MicTo
       // Verify helper existence
       if (!existsSync(helperPath)) {
         console.error(`[Mic Toggle] CRITICAL: Native helper not found at ${helperPath}`)
-      }
-      else {
+      } else {
         try {
           chmodSync(helperPath, '755')
           console.log(`[Mic Toggle] Native helper found and ready.`)
-        }
-        catch (e) {
+        } catch (e) {
           console.error(`[Mic Toggle] Failed to chmod helper: ${e}`)
         }
       }
@@ -86,14 +81,15 @@ export function setupMicToggleShortcut(stageWindow: BrowserWindow, hotkey: MicTo
           const currentState = stdoutTrimmed === '1'
 
           if (lastMacCapsLockState !== null && currentState !== lastMacCapsLockState) {
-            console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Caps Lock state changed: ${lastMacCapsLockState} -> ${currentState}`)
+            console.log(
+              `[@proj-airi/stage-tamagotchi] [MicToggle] Caps Lock state changed: ${lastMacCapsLockState} -> ${currentState}`,
+            )
 
             if (currentWindow) {
               const timestamp = Date.now()
               console.log(`[@proj-airi/stage-tamagotchi] [MicToggle] Emitting toggle-mic-from-shortcut at ${timestamp}`)
               currentWindow.webContents.send('toggle-mic-from-shortcut', { timestamp })
-            }
-            else {
+            } else {
               console.warn(`[Mic Toggle] No active window to send toggle event to.`)
             }
           }
@@ -115,8 +111,7 @@ export function setupMicToggleShortcut(stageWindow: BrowserWindow, hotkey: MicTo
       if (!isRegistered) {
         console.warn(`[Mic Toggle] Failed to register global shortcut for ${electronKey}`)
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error(`[Mic Toggle] Error registering global shortcut: ${err}`)
     }
   }

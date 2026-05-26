@@ -30,75 +30,75 @@ const removeBeforeEach = router.beforeEach(async (_, __, next) => {
 const settingsGroups = computed(() => [
   {
     id: 'character',
-    title: 'CHARACTER & SCENE',
     items: [
       {
-        title: t('settings.pages.card.title'),
         description: t('settings.pages.card.description'),
         icon: 'i-solar:emoji-funny-square-bold-duotone',
+        title: t('settings.pages.card.title'),
         to: '/settings/airi-card',
       },
       {
-        title: t('settings.pages.scene.title'),
         description: t('settings.pages.scene.description'),
         icon: 'i-solar:armchair-2-bold-duotone',
+        title: t('settings.pages.scene.title'),
         to: '/settings/scene',
       },
       {
-        title: t('settings.pages.models.title'),
         description: t('settings.pages.models.description'),
         icon: 'i-solar:people-nearby-bold-duotone',
+        title: t('settings.pages.models.title'),
         to: '/settings/models',
       },
       {
-        title: t('settings.pages.memory.title'),
         description: t('settings.pages.memory.description'),
         icon: 'i-solar:leaf-bold-duotone',
+        title: t('settings.pages.memory.title'),
         to: '/settings/memory',
       },
     ],
+    title: 'CHARACTER & SCENE',
   },
   {
     id: 'intelligence',
-    title: 'INTELLIGENCE',
     items: [
       {
-        title: t('settings.pages.modules.title'),
         description: t('settings.pages.modules.description'),
         icon: 'i-solar:layers-bold-duotone',
+        title: t('settings.pages.modules.title'),
         to: '/settings/modules',
       },
       {
-        title: t('settings.pages.providers.title'),
         description: t('settings.pages.providers.description'),
         icon: 'i-solar:box-minimalistic-bold-duotone',
+        title: t('settings.pages.providers.title'),
         to: '/settings/providers',
       },
     ],
+    title: 'INTELLIGENCE',
   },
   {
     id: 'system',
-    title: 'SYSTEM',
     items: [
       {
-        title: t('settings.pages.system.title'),
         description: t('settings.pages.system.description'),
         icon: 'i-solar:filters-bold-duotone',
+        title: t('settings.pages.system.title'),
         to: '/settings/system',
       },
       {
-        title: t('settings.pages.docs.title'),
         description: t('settings.pages.docs.description'),
         icon: 'i-solar:book-open-bold-duotone',
+        title: t('settings.pages.docs.title'),
         to: '/settings/docs',
       },
       {
-        title: t('settings.pages.data.title'),
         description: t('settings.pages.data.description'),
         icon: 'i-solar:database-bold-duotone',
+        title: t('settings.pages.data.title'),
         to: '/settings/data',
       },
     ],
+    title: 'SYSTEM',
   },
 ])
 

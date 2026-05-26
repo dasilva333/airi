@@ -1,43 +1,41 @@
-import type { Rectangle } from 'electron'
-import type { InferOutput } from 'valibot'
-
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-import type { NoticeWindowManager } from '../notice'
-import type { SettingsWindowManager } from '../settings'
-
 import { dirname, join, resolve } from 'node:path'
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
-
-import clickDragPlugin from 'electron-click-drag-plugin'
-
 import { is } from '@electron-toolkit/utils'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { initScreenCaptureForWindow } from '@proj-airi/electron-screen-capture/main'
 import { defu } from 'defu'
+import type { Rectangle } from 'electron'
 import { BrowserWindow, ipcMain, shell } from 'electron'
+import clickDragPlugin from 'electron-click-drag-plugin'
 import { throttle } from 'es-toolkit'
 import { isLinux } from 'std-env'
+import type { InferOutput } from 'valibot'
 import { array, number, object, optional, string } from 'valibot'
-
 import icon from '../../../../resources/icon.png?asset'
-
 import { electronStartDraggingWindow } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createConfig } from '../../libs/electron/persistence'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
+import type { NoticeWindowManager } from '../notice'
+import type { SettingsWindowManager } from '../settings'
 import { setupDashboardWindowElectronInvokes } from './rpc/index.electron'
 
 const appConfigSchema = object({
-  windows: optional(array(object({
-    title: optional(string()),
-    tag: string(),
-    x: optional(number()),
-    y: optional(number()),
-    width: optional(number()),
-    height: optional(number()),
-  }))),
+  windows: optional(
+    array(
+      object({
+        height: optional(number()),
+        tag: string(),
+        title: optional(string()),
+        width: optional(number()),
+        x: optional(number()),
+        y: optional(number()),
+      }),
+    ),
+  ),
 })
 
 type AppConfig = InferOutput<typeof appConfigSchema>
@@ -55,27 +53,27 @@ export async function setupDashboardWindow(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('app', 'config.json', appConfigSchema, {
-    default: { windows: [] },
     autoHeal: true,
+    default: { windows: [] },
   })
   const getConfig = (): AppConfig => getConfigRaw() ?? { windows: [] }
 
   setupConfig()
 
-  const windowConfig = getConfig().windows?.find(w => w.title === 'AIRI Dashboard' && w.tag === 'dashboard')
+  const windowConfig = getConfig().windows?.find((w) => w.title === 'AIRI Dashboard' && w.tag === 'dashboard')
 
   const window = new BrowserWindow({
-    title: 'AIRI Dashboard',
-    width: windowConfig?.width ?? 1200.0,
     height: windowConfig?.height ?? 600.0,
-    x: windowConfig?.x,
-    y: windowConfig?.y,
-    show: false,
     icon,
+    show: false,
+    title: 'AIRI Dashboard',
     webPreferences: {
       preload: join(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
       sandbox: true,
     },
+    width: windowConfig?.width ?? 1200.0,
+    x: windowConfig?.x,
+    y: windowConfig?.y,
   })
 
   if (params.onWindowCreated) {
@@ -86,35 +84,39 @@ export async function setupDashboardWindow(params: {
   if (is.dev || env.MAIN_APP_DEBUG || env.APP_DEBUG) {
     try {
       window.webContents.openDevTools({ mode: 'detach' })
-    }
-    catch (err) {
+    } catch (err) {
       console.error('failed to open devtools:', err)
     }
   }
 
+  // Always allow F12 to toggle dev tools
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      window.webContents.toggleDevTools()
+    }
+  })
+
   function handleNewBounds(newBounds: Rectangle) {
-    if (window.isDestroyed())
-      return
+    if (window.isDestroyed()) return
 
     const config = getConfig()
     if (!config.windows || !Array.isArray(config.windows)) {
       config.windows = []
     }
 
-    const existingConfigIndex = config.windows.findIndex(w => w.title === 'AIRI Dashboard' && w.tag === 'dashboard')
+    const existingConfigIndex = config.windows.findIndex((w) => w.title === 'AIRI Dashboard' && w.tag === 'dashboard')
 
     if (existingConfigIndex === -1) {
       config.windows.push({
-        title: 'AIRI Dashboard',
+        height: newBounds.height,
         tag: 'dashboard',
+        title: 'AIRI Dashboard',
+        width: newBounds.width,
         x: newBounds.x,
         y: newBounds.y,
-        width: newBounds.width,
-        height: newBounds.height,
       })
-    }
-    else {
-      const windowConfig = defu(config.windows[existingConfigIndex], { title: 'AIRI Dashboard', tag: 'dashboard' })
+    } else {
+      const windowConfig = defu(config.windows[existingConfigIndex], { tag: 'dashboard', title: 'AIRI Dashboard' })
 
       windowConfig.x = newBounds.x
       windowConfig.y = newBounds.y
@@ -152,12 +154,12 @@ export async function setupDashboardWindow(params: {
   await load(window, withHashRoute(baseUrl(resolve(getElectronMainDirname(), '..', 'renderer')), '/dashboard'))
 
   await setupDashboardWindowElectronInvokes({
-    window,
-    settingsWindow: params.settingsWindow,
     chatWindow: params.chatWindow,
-    noticeWindow: params.noticeWindow,
     i18n: params.i18n,
+    noticeWindow: params.noticeWindow,
     serverChannel: params.serverChannel,
+    settingsWindow: params.settingsWindow,
+    window,
   })
 
   /**
@@ -174,8 +176,7 @@ export async function setupDashboardWindow(params: {
         const win = sender ? (BrowserWindow.fromWebContents(sender) ?? window) : window
         const windowId = win.getNativeWindowHandle()
         clickDragPlugin.startDrag(windowId)
-      }
-      catch (error) {
+      } catch (error) {
         console.error(error)
       }
     }
@@ -186,7 +187,11 @@ export async function setupDashboardWindow(params: {
     ipcMain.setMaxListeners(0)
 
     const { context } = createContext(ipcMain, window)
-    const cleanUpWindowDraggingInvokeHandler = defineInvokeHandler(context, electronStartDraggingWindow, handleStartDraggingWindow)
+    const cleanUpWindowDraggingInvokeHandler = defineInvokeHandler(
+      context,
+      electronStartDraggingWindow,
+      handleStartDraggingWindow,
+    )
 
     window.on('closed', () => {
       cleanUpWindowDraggingInvokeHandler()

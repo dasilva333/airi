@@ -1,0 +1,92 @@
+# Maintainer: AIRI Team <airi@moeru.ai>
+# Standalone PKGBUILD — auto-detects the .deb package from ../dist/
+#
+# Usage:
+#   From the stage-tamagotchi app directory:
+#     makepkg -f
+#
+#   Or copy this PKGBUILD and the .deb into an empty dir:
+#     mkdir /tmp/airi-build && cp PKGBUILD /tmp/airi-build/
+#     cp dist/*.deb /tmp/airi-build/ && cd /tmp/airi-build && makepkg -si
+
+pkgname=airi
+pkgrel=1
+pkgdesc="AIRI — Self-hosted AI companion for Linux desktop (AiriOS)"
+url="https://github.com/moeru-ai/airi"
+arch=('x86_64')
+license=('MIT')
+depends=('electron' 'libnotify' 'libxtst' 'nss' 'gtk3' 'alsa-lib')
+optdeps=(
+  'xdg-desktop-portal: screen capture support'
+  'xdg-desktop-portal-wlr: Wayland screen capture'
+  'xdg-desktop-portal-gnome: GNOME screen capture'
+  'xdg-desktop-portal-kde: KDE screen capture'
+)
+conflicts=()
+provides=('airi')
+source=()
+md5sums=()
+noextract=()
+
+# Auto-detect the most recent .deb from ../dist/ relative to this PKGBUILD.
+# makepkg sets $startdir to the directory containing the PKGBUILD.
+_deb_file="$(find "${startdir}/../dist" -maxdepth 1 -name '*.deb' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+
+# Fallback: check the PKGBUILD directory itself
+if [[ -z "${_deb_file}" ]]; then
+  _deb_file="$(find "${startdir}" -maxdepth 1 -name '*.deb' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+fi
+
+if [[ -z "${_deb_file}" ]]; then
+  echo "" >&2
+  echo "ERROR: No .deb package found." >&2
+  echo "Searched: ${startdir}/../dist/ and ${startdir}/" >&2
+  echo "" >&2
+  echo "Fix: either place the .deb alongside this PKGBUILD, or run makepkg" >&2
+  echo "     from the stage-tamagotchi app directory (where dist/ exists)." >&2
+  echo "" >&2
+  exit 1
+fi
+
+_deb_basename="$(basename "${_deb_file}")"
+
+# Extract version from the deb filename (e.g. AIRI-0.9.2-stable.20260522-linux-amd64.deb -> 0.9.2)
+_pkgver="$(echo "${_deb_basename}" | grep -oP '(\d+\.)+\d+' | head -1)"
+
+if [[ -z "${_pkgver}" ]]; then
+  _pkgver="$(date +%Y.%m.%d)"
+fi
+
+pkgver="${_pkgver}"
+
+package() {
+  cd "${startdir}"
+
+  echo "==> Extracting ${_deb_basename}..."
+  ar x "${_deb_basename}"
+  tar xf data.tar.xz
+
+  # Install application files
+  install -d "${pkgdir}/opt"
+  cp -r opt/AIRI/ "${pkgdir}/opt/AIRI/"
+
+  # Install desktop file
+  install -Dm644 usr/share/applications/airi.desktop \
+    "${pkgdir}/usr/share/applications/airi.desktop"
+
+  # Install icons
+  for _size in 16 32 48 64 128 256; do
+    _icon="usr/share/icons/hicolor/${_size}x${_size}/apps/airi.png"
+    if [[ -f "${_icon}" ]]; then
+      install -Dm644 "${_icon}" \
+        "${pkgdir}/usr/share/icons/hicolor/${_size}x${_size}/apps/airi.png"
+    fi
+  done
+
+  # Create symlink in usr/bin
+  install -d "${pkgdir}/usr/bin"
+  ln -sf /opt/AIRI/airi "${pkgdir}/usr/bin/airi"
+
+  # Cleanup
+  rm -f "${startdir}"/control.tar.* "${startdir}"/data.tar.xz "${startdir}"/debian-binary
+}

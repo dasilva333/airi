@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import GamingModuleSettings from './GamingModuleSettings.vue'
-
 import { useFactorioStore } from '../../stores/modules/gaming-factorio'
+import GamingModuleSettings from './GamingModuleSettings.vue'
 
 const factorioStore = useFactorioStore()
 </script>

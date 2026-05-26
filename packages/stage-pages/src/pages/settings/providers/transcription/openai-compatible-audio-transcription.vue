@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
 import {
   Alert,
   ProviderAdvancedSettings,
@@ -16,6 +13,8 @@ import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provi
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldInput, FieldSelect } from '@proj-airi/ui'
+import type { RemovableRef } from '@vueuse/core'
+import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, watch } from 'vue'
 
@@ -28,8 +27,7 @@ const { providers } = storeToRefs(providersStore) as { providers: RemovableRef<R
 const apiKey = computed({
   get: () => providers.value[providerId]?.apiKey || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].apiKey = value
   },
 })
@@ -37,15 +35,13 @@ const apiKey = computed({
 const baseUrl = computed({
   get: () => {
     const stored = providers.value[providerId]?.baseUrl
-    if (stored)
-      return stored
+    if (stored) return stored
     // Use default from provider metadata if available
     const metadata = providersStore.getProviderMetadata(providerId)
-    return metadata?.defaultOptions?.().baseUrl as string | undefined || ''
+    return (metadata?.defaultOptions?.().baseUrl as string | undefined) || ''
   },
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].baseUrl = value
   },
 })
@@ -53,8 +49,7 @@ const baseUrl = computed({
 const model = computed({
   get: () => providers.value[providerId]?.model || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].model = value
   },
 })
@@ -73,46 +68,31 @@ const apiKeyConfigured = computed(() => !!providers.value[providerId]?.apiKey)
 
 // Generate transcription
 async function handleGenerateTranscription(file: File) {
-  const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
-  if (!provider)
-    throw new Error('Failed to initialize transcription provider')
+  const provider =
+    await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
+  if (!provider) throw new Error('Failed to initialize transcription provider')
 
   // Get provider configuration
   const providerConfig = providersStore.getProviderConfig(providerId)
 
   // Get model from configuration or use the reactive model value
-  const modelToUse = providerConfig.model as string | undefined || model.value
+  const modelToUse = (providerConfig.model as string | undefined) || model.value
 
   // Validate model - throw error if no valid model configured
   if (!modelToUse || !isValidTranscriptionModel(modelToUse)) {
     throw new Error(`Invalid or missing transcription model. Please configure a valid model in the provider settings.`)
   }
 
-  return await hearingStore.transcription(
-    providerId,
-    provider,
-    modelToUse,
-    file,
-    'json',
-  )
+  return await hearingStore.transcription(providerId, provider, modelToUse, file, 'json')
 }
 
 // Use the composable to get validation logic and state
-const {
-  t,
-  router,
-  providerMetadata,
-  isValidating,
-  isValid,
-  validationMessage,
-  handleResetSettings,
-  forceValid,
-} = useProviderValidation(providerId)
+const { t, router, providerMetadata, isValidating, isValid, validationMessage, handleResetSettings, forceValid } =
+  useProviderValidation(providerId)
 
 // Expand Advanced section if there's a base URL validation error
 const shouldExpandAdvanced = computed(() => {
-  if (!validationMessage.value)
-    return false
+  if (!validationMessage.value) return false
   // Check if validation message mentions base URL
   const message = validationMessage.value.toLowerCase()
   return message.includes('base url') || message.includes('baseurl')
@@ -129,15 +109,12 @@ const VALID_TRANSCRIPTION_MODELS = [
 
 // Check if a model is a valid transcription model
 function isValidTranscriptionModel(modelName: string | undefined | null): boolean {
-  if (!modelName)
-    return false
+  if (!modelName) return false
   // Check if it's a known transcription model
-  if (VALID_TRANSCRIPTION_MODELS.includes(modelName))
-    return true
+  if (VALID_TRANSCRIPTION_MODELS.includes(modelName)) return true
   // Allow custom models that might be transcription-compatible
   // But reject obvious chat models
-  if (modelName.includes('gpt-4') && !modelName.includes('transcribe') && !modelName.includes('whisper'))
-    return false
+  if (modelName.includes('gpt-4') && !modelName.includes('transcribe') && !modelName.includes('whisper')) return false
   return true
 }
 

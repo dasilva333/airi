@@ -5,46 +5,47 @@ import { createOpenAICompatibleValidators } from '../../validators/openai-compat
 import { defineProvider } from '../registry'
 
 const modelscopeConfigSchema = z.object({
-  apiKey: z
-    .string('API Key'),
-  baseUrl: z
-    .string('Base URL')
-    .optional()
-    .default('https://api-inference.modelscope.cn/v1/'),
+  apiKey: z.string('API Key'),
+  baseUrl: z.string('Base URL').optional().default('https://api-inference.modelscope.cn/v1/'),
 })
 
 type ModelscopeConfig = z.input<typeof modelscopeConfigSchema>
 
 export const providerModelScope = defineProvider<ModelscopeConfig>({
-  id: 'modelscope',
-  name: 'ModelScope',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.modelscope.title'),
-  description: 'Open-Source Hub - 2k free daily API calls for open models',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.modelscope.description'),
-  tasks: ['chat'],
-  icon: 'i-lobe-icons:modelscope',
-  iconColor: 'i-lobe-icons:modelscope-color',
   business: () => ({
-    pricing: 'free',
     deployment: 'cloud',
-  }),
-
-  createProviderConfig: ({ t }) => modelscopeConfigSchema.extend({
-    apiKey: modelscopeConfigSchema.shape.apiKey.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    baseUrl: modelscopeConfigSchema.shape.baseUrl.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder'),
-    }),
+    pricing: 'free',
   }),
   createProvider(config) {
     return createOpenAI(config.apiKey, config.baseUrl)
   },
+
+  createProviderConfig: ({ t }) =>
+    modelscopeConfigSchema.extend({
+      apiKey: modelscopeConfigSchema.shape.apiKey.meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
+        type: 'password',
+      }),
+      baseUrl: modelscopeConfigSchema.shape.baseUrl.meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description',
+        ),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder',
+        ),
+      }),
+    }),
+  description: 'Open-Source Hub - 2k free daily API calls for open models',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.modelscope.description'),
+  icon: 'i-lobe-icons:modelscope',
+  iconColor: 'i-lobe-icons:modelscope-color',
+  id: 'modelscope',
+  name: 'ModelScope',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.modelscope.title'),
+  tasks: ['chat'],
 
   validationRequiredWhen(config) {
     return !!config.apiKey?.trim()

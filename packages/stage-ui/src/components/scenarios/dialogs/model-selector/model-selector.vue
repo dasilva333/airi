@@ -1,28 +1,35 @@
 <script setup lang="ts">
-import type { Live2DValidationReport } from '@proj-airi/stage-ui-live2d'
-
-import type { DisplayModel } from '../../../../stores/display-models'
-
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
+import type { Live2DValidationReport } from '@proj-airi/stage-ui-live2d'
 import { validateLive2DZip } from '@proj-airi/stage-ui-live2d'
 import { extractMmdFromZip } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extractor'
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { useFileDialog } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
+import {
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from 'reka-ui'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
-
-import Live2DReportModal from './Live2DReportModal.vue'
-
+import type { DisplayModel } from '../../../../stores/display-models'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
+import Live2DReportModal from './Live2DReportModal.vue'
 
 const emits = defineEmits<{
   (e: 'close', value: void): void
   (e: 'pick', value: DisplayModel | undefined): void
 }>()
-const selectedModel = defineModel<DisplayModel | undefined>({ type: Object, required: false })
+const selectedModel = defineModel<DisplayModel | undefined>({ required: false, type: Object })
 
 const displayModelStore = useDisplayModelsStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
@@ -46,22 +53,166 @@ const validationReport = ref<Live2DValidationReport | null>(null)
 const currentTab = ref<'library' | 'explore'>('library')
 
 const marketplaces = [
-  { name: 'Steam Workshop', vrm: false, live2d: true, spine: true, mmd: false, languages: ['us'], origin: 'Steam', url: 'https://steamcommunity.com/workshop/browse/?appid=616720' },
-  { name: 'VChaVCha (Hololive MMD)', vrm: false, live2d: false, spine: false, mmd: true, languages: ['us'], origin: 'VChaVCha', url: 'https://vchavcha.com/en/free-resources/hololive-mmd-download/' },
-  { name: 'NicoNico 3D (MMD)', vrm: false, live2d: false, spine: false, mmd: true, languages: ['jp'], origin: 'Japan', url: 'https://3d.nicovideo.jp/search?category=all&download_filter=all&limit=28&max_pages=100&order=1&page=1&perfect_match=1&sort=view&usable_animation=&word=MMD&word_type=tag&work_type=mmd' },
-  { name: 'Reverse: 1999 (v1.7+)', vrm: false, live2d: true, spine: false, mmd: false, languages: ['cn', 'en'], origin: 'Storm Preservation', url: 'https://dasilva333.github.io/r1999-web-gallery/' },
-  { name: 'Booth', vrm: true, live2d: true, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://booth.pm/en/browse/VTuber' },
-  { name: 'Booth VRMA', vrm: true, live2d: false, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://booth.pm/en/browse/3D%20Motion%20&%20Animation?sort=price_asc&tags%5B%5D=VRMA' },
-  { name: 'VGen', vrm: true, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://vgen.co' },
-  { name: 'itch.io', vrm: true, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://itch.io/game-assets' },
-  { name: 'Gumroad', vrm: true, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://gumroad.com' },
-  { name: 'Ko-fi', vrm: true, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://ko-fi.com/shop' },
-  { name: 'VRoid Hub', vrm: true, live2d: false, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://hub.vroid.com' },
-  { name: 'Sketchfab', vrm: true, live2d: false, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://sketchfab.com' },
-  { name: 'CGTrader', vrm: true, live2d: false, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://cgtrader.com' },
-  { name: 'Nizima', vrm: false, live2d: true, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://nizima.com' },
-  { name: 'Avatar Atelier', vrm: false, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://avataratelier.com' },
-  { name: 'VTuberAvatars', vrm: false, live2d: true, spine: false, mmd: false, languages: ['us'], origin: 'USA', url: 'https://vtuberavatars.com' },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'Steam Workshop',
+    origin: 'Steam',
+    spine: true,
+    url: 'https://steamcommunity.com/workshop/browse/?appid=616720',
+    vrm: false,
+  },
+  {
+    languages: ['us'],
+    live2d: false,
+    mmd: true,
+    name: 'VChaVCha (Hololive MMD)',
+    origin: 'VChaVCha',
+    spine: false,
+    url: 'https://vchavcha.com/en/free-resources/hololive-mmd-download/',
+    vrm: false,
+  },
+  {
+    languages: ['jp'],
+    live2d: false,
+    mmd: true,
+    name: 'NicoNico 3D (MMD)',
+    origin: 'Japan',
+    spine: false,
+    url: 'https://3d.nicovideo.jp/search?category=all&download_filter=all&limit=28&max_pages=100&order=1&page=1&perfect_match=1&sort=view&usable_animation=&word=MMD&word_type=tag&work_type=mmd',
+    vrm: false,
+  },
+  {
+    languages: ['cn', 'en'],
+    live2d: true,
+    mmd: false,
+    name: 'Reverse: 1999 (v1.7+)',
+    origin: 'Storm Preservation',
+    spine: false,
+    url: 'https://dasilva333.github.io/r1999-web-gallery/',
+    vrm: false,
+  },
+  {
+    languages: ['jp', 'us'],
+    live2d: true,
+    mmd: false,
+    name: 'Booth',
+    origin: 'Japan',
+    spine: false,
+    url: 'https://booth.pm/en/browse/VTuber',
+    vrm: true,
+  },
+  {
+    languages: ['jp', 'us'],
+    live2d: false,
+    mmd: false,
+    name: 'Booth VRMA',
+    origin: 'Japan',
+    spine: false,
+    url: 'https://booth.pm/en/browse/3D%20Motion%20&%20Animation?sort=price_asc&tags%5B%5D=VRMA',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'VGen',
+    origin: 'USA',
+    spine: false,
+    url: 'https://vgen.co',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'itch.io',
+    origin: 'USA',
+    spine: false,
+    url: 'https://itch.io/game-assets',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'Gumroad',
+    origin: 'USA',
+    spine: false,
+    url: 'https://gumroad.com',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'Ko-fi',
+    origin: 'USA',
+    spine: false,
+    url: 'https://ko-fi.com/shop',
+    vrm: true,
+  },
+  {
+    languages: ['jp', 'us'],
+    live2d: false,
+    mmd: false,
+    name: 'VRoid Hub',
+    origin: 'Japan',
+    spine: false,
+    url: 'https://hub.vroid.com',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: false,
+    mmd: false,
+    name: 'Sketchfab',
+    origin: 'USA',
+    spine: false,
+    url: 'https://sketchfab.com',
+    vrm: true,
+  },
+  {
+    languages: ['us'],
+    live2d: false,
+    mmd: false,
+    name: 'CGTrader',
+    origin: 'USA',
+    spine: false,
+    url: 'https://cgtrader.com',
+    vrm: true,
+  },
+  {
+    languages: ['jp', 'us'],
+    live2d: true,
+    mmd: false,
+    name: 'Nizima',
+    origin: 'Japan',
+    spine: false,
+    url: 'https://nizima.com',
+    vrm: false,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'Avatar Atelier',
+    origin: 'USA',
+    spine: false,
+    url: 'https://avataratelier.com',
+    vrm: false,
+  },
+  {
+    languages: ['us'],
+    live2d: true,
+    mmd: false,
+    name: 'VTuberAvatars',
+    origin: 'USA',
+    spine: false,
+    url: 'https://vtuberavatars.com',
+    vrm: false,
+  },
 ]
 
 // Filtering Logic
@@ -71,7 +222,7 @@ const filteredModels = computed(() => {
   // Search
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
-    result = result.filter(m => m.name.toLowerCase().includes(q))
+    result = result.filter((m) => m.name.toLowerCase().includes(q))
   }
 
   // Format Filter
@@ -79,22 +230,22 @@ const filteredModels = computed(() => {
     result = result.filter((m) => {
       if (formatFilter.value === 'live2d')
         return m.format === DisplayModelFormat.Live2dZip || m.format === DisplayModelFormat.Live2dDirectory
-      if (formatFilter.value === 'vrm')
-        return m.format === DisplayModelFormat.VRM
-      if (formatFilter.value === 'spine')
-        return m.format === DisplayModelFormat.SpineZip
+      if (formatFilter.value === 'vrm') return m.format === DisplayModelFormat.VRM
+      if (formatFilter.value === 'spine') return m.format === DisplayModelFormat.SpineZip
       if (formatFilter.value === 'mmd')
-        return m.format === DisplayModelFormat.PMXZip || m.format === DisplayModelFormat.PMXDirectory || m.format === DisplayModelFormat.PMD
+        return (
+          m.format === DisplayModelFormat.PMXZip ||
+          m.format === DisplayModelFormat.PMXDirectory ||
+          m.format === DisplayModelFormat.PMD
+        )
       return true
     })
   }
 
   // Sort
   result.sort((a, b) => {
-    if (sortBy.value === 'name')
-      return a.name.localeCompare(b.name)
-    if (sortBy.value === 'date')
-      return b.importedAt - a.importedAt
+    if (sortBy.value === 'name') return a.name.localeCompare(b.name)
+    if (sortBy.value === 'date') return b.importedAt - a.importedAt
     return 0
   })
 
@@ -119,10 +270,8 @@ function confirmRename() {
 }
 
 async function handleAddLive2DModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.zip'))
-    return
+  if (file === null || file.length === 0) return
+  if (!file[0].name.endsWith('.zip')) return
 
   const report = await validateLive2DZip(file[0])
   validationReport.value = report
@@ -130,8 +279,7 @@ async function handleAddLive2DModel(file: FileList | null) {
 
   if (report.status === 'VALID' && report.errors.length === 0) {
     confirmImport()
-  }
-  else {
+  } else {
     showReportModal.value = true
   }
 }
@@ -150,7 +298,7 @@ function handlePick(m: DisplayModel) {
 }
 
 function handleMobilePick() {
-  const model = displayModels.value.find(model => model.id === highlightDisplayModelCard.value)
+  const model = displayModels.value.find((model) => model.id === highlightDisplayModelCard.value)
   if (model) {
     selectedModel.value = model
     emits('pick', model)
@@ -159,36 +307,29 @@ function handleMobilePick() {
 }
 
 function handleAddVRMModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.vrm'))
-    return
+  if (file === null || file.length === 0) return
+  if (!file[0].name.endsWith('.vrm')) return
 
   displayModelStore.addDisplayModel(DisplayModelFormat.VRM, file[0])
 }
 
 async function handleAddSpineModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.zip'))
-    return
+  if (file === null || file.length === 0) return
+  if (!file[0].name.endsWith('.zip')) return
 
   try {
     await displayModelStore.addDisplayModel(DisplayModelFormat.SpineZip, file[0])
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[Model Selector] Failed to add Spine model:', error)
     toast.error(error instanceof Error ? error.message : 'Failed to add Spine model.')
   }
 }
 
 async function handleAddMmdModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
+  if (file === null || file.length === 0) return
 
   const zipFile = file[0]
-  if (!zipFile.name.toLowerCase().endsWith('.zip'))
-    return
+  if (!zipFile.name.toLowerCase().endsWith('.zip')) return
 
   try {
     const extracted = await extractMmdFromZip(zipFile)
@@ -203,25 +344,23 @@ async function handleAddMmdModel(file: FileList | null) {
 
     await displayModelStore.addDisplayModelWithTextures(format, extracted.modelFile, extracted.textureFiles)
     toast.success('MMD model added successfully!')
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[Model Selector] Failed to add MMD model:', error)
     toast.error(error instanceof Error ? error.message : 'Failed to add MMD model.')
   }
 }
 
 async function handleAddVrmaAnimation(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.vrma'))
-    return
+  if (file === null || file.length === 0) return
+  if (!file[0].name.endsWith('.vrma')) return
 
   try {
     await customVrmAnimationsStore.addCustomAnimation(file[0])
     emits('close', undefined)
-    toast.success(`${file[0].name} was added. It now appears in the idle loops dropdown. If it does not start immediately, click Refresh on the stage and then select it there.`)
-  }
-  catch (error) {
+    toast.success(
+      `${file[0].name} was added. It now appears in the idle loops dropdown. If it does not start immediately, click Refresh on the stage and then select it there.`,
+    )
+  } catch (error) {
     console.error('[Model Selector] Failed to add VRMA animation', error)
     toast.error('Failed to add custom VRMA animation.')
   }
@@ -254,7 +393,11 @@ function handleFixError(err: string) {
   console.log('[Model Selector] Fixing error:', err)
   // Logic to fix common errors (e.g. missing preview)
   // For now, we provide guidance or mark as ignorable in the future
-  if (err.toLowerCase().includes('preview') || err.toLowerCase().includes('thumbnail') || err.toLowerCase().includes('icon')) {
+  if (
+    err.toLowerCase().includes('preview') ||
+    err.toLowerCase().includes('thumbnail') ||
+    err.toLowerCase().includes('icon')
+  ) {
     // If it's a missing preview, we could generate a placeholder
     // For this PR feedback, we just acknowledged the "Quick Fix" button existence
   }

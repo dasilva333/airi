@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
 import { ChatHistory, ChatImagesPopover, ChatMemoryPopover, HearingConfigDialog } from '@proj-airi/stage-ui/components'
 import { useAudioAnalyzer } from '@proj-airi/stage-ui/composables'
 import { useAudioContext } from '@proj-airi/stage-ui/stores/audio'
@@ -13,19 +10,19 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 import { BasicTextarea, useTheme } from '@proj-airi/ui'
 import { useResizeObserver, useScreenSafeArea } from '@vueuse/core'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-
+import { BackgroundDialogPicker } from '../Backgrounds'
 import IndicatorMicVolume from '../Widgets/IndicatorMicVolume.vue'
 import ActionViewControls from './InteractiveArea/Actions/ViewControls.vue'
 import ViewControlInputs from './ViewControls/Inputs.vue'
-
-import { BackgroundDialogPicker } from '../Backgrounds'
 
 const { isDark, toggleDark } = useTheme()
 const hearingDialogOpen = ref(false)
@@ -39,10 +36,7 @@ const { streamingMessage } = storeToRefs(chatStream)
 const { sending } = storeToRefs(chatOrchestrator)
 const historyMessages = computed(() => messages.value as unknown as ChatHistoryItem[])
 
-const {
-  stageViewControlsEnabled,
-  stageViewControlsMode: viewControlsActiveMode,
-} = storeToRefs(useSettings())
+const { stageViewControlsEnabled, stageViewControlsMode: viewControlsActiveMode } = storeToRefs(useSettings())
 const viewControlsInputsRef = useTemplateRef<InstanceType<typeof ViewControlInputs>>('viewControlsInputs')
 
 const messageInput = ref('')
@@ -58,8 +52,7 @@ const { activeProvider, activeModel } = storeToRefs(useConsciousnessStore())
 
 function navigateToImageJournal() {
   const { activeCardId } = storeToRefs(airiCardStore)
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   router.push(`/settings/airi-card?cardId=${activeCardId.value}&tab=gallery`)
 }
 
@@ -99,17 +92,16 @@ async function handleSend() {
     const providerConfig = providersStore.getProviderConfig(activeProvider.value)
 
     await ingest(textToSend, {
-      chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
+      chatProvider: (await providersStore.getProviderInstance(activeProvider.value)) as ChatProvider,
       model: activeModel.value,
       providerConfig,
     })
-  }
-  catch (error) {
+  } catch (error) {
     messageInput.value = textToSend
     messages.value.pop()
     messages.value.push({
-      role: 'error',
       content: (error as Error).message,
+      role: 'error',
     })
   }
 }
@@ -117,28 +109,28 @@ async function handleSend() {
 function teardownAnalyzer() {
   try {
     analyzerSource?.disconnect()
-  }
-  catch {}
+  } catch {}
   analyzerSource = undefined
   stopAnalyzer()
 }
 
 async function setupAnalyzer() {
   teardownAnalyzer()
-  if (!hearingDialogOpen.value || !enabled.value || !stream.value)
-    return
-  if (audioContext.state === 'suspended')
-    await audioContext.resume()
+  if (!hearingDialogOpen.value || !enabled.value || !stream.value) return
+  if (audioContext.state === 'suspended') await audioContext.resume()
   const analyser = startAnalyzer(audioContext)
-  if (!analyser)
-    return
+  if (!analyser) return
   analyzerSource = audioContext.createMediaStreamSource(stream.value)
   analyzerSource.connect(analyser)
 }
 
-watch([hearingDialogOpen, enabled, stream], () => {
-  setupAnalyzer()
-}, { immediate: true })
+watch(
+  [hearingDialogOpen, enabled, stream],
+  () => {
+    setupAnalyzer()
+  },
+  { immediate: true },
+)
 
 watch(hearingDialogOpen, (value) => {
   if (value) {
@@ -146,8 +138,7 @@ watch(hearingDialogOpen, (value) => {
   }
 })
 
-onAfterMessageComposed(async () => {
-})
+onAfterMessageComposed(async () => {})
 
 onUnmounted(() => {
   teardownAnalyzer()

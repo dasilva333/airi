@@ -1,26 +1,21 @@
 import type { Logg } from '@guiiai/logg'
-
-import type { BotContext, ChatContext } from '../types'
-
 import { listChannels, loadEventQueue, loadUnreadEvents } from '../../lib/db'
+import type { BotContext, ChatContext } from '../types'
 
 /**
  * Create a new bot context
  * Initializes all required data structures for the bot
  */
 export async function createBotContext(logger: Logg): Promise<BotContext> {
-  const [eventQueue, unreadEvents] = await Promise.all([
-    loadEventQueue(),
-    loadUnreadEvents(),
-  ])
+  const [eventQueue, unreadEvents] = await Promise.all([loadEventQueue(), loadUnreadEvents()])
 
   const botSelf: BotContext = {
-    eventQueue,
-    unreadEvents,
-    processedIds: new Set(),
-    logger,
-    lastInteractedChannelIds: [],
     chats: new Map<string, ChatContext>(),
+    eventQueue,
+    lastInteractedChannelIds: [],
+    logger,
+    processedIds: new Set(),
+    unreadEvents,
   }
 
   return botSelf
@@ -45,16 +40,16 @@ export async function ensureChatContext(botCtx: BotContext, channelId: string): 
 
   // Try to get channel info from database
   const channels = await listChannels()
-  const channelInfo = channels.find(c => c.id === channelId)
+  const channelInfo = channels.find((c) => c.id === channelId)
 
   const newChatContext: ChatContext = {
+    actions: [],
     channelId,
+    currentAbortController: undefined,
+    currentTask: undefined,
+    isProcessing: false,
     platform: channelInfo?.platform || '',
     selfId: channelInfo?.selfId || '',
-    isProcessing: false,
-    currentTask: undefined,
-    currentAbortController: undefined,
-    actions: [],
   }
 
   log

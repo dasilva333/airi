@@ -1,9 +1,8 @@
-import type { ElectronWindowLifecycleState } from '../../shared/eventa'
-
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import type { ElectronWindowLifecycleState } from '../../shared/eventa'
 
 import { electronGetWindowLifecycleState, electronWindowLifecycleChanged } from '../../shared/eventa'
 
@@ -32,8 +31,7 @@ export const useStageWindowLifecycleStore = defineStore('stageWindowLifecycle', 
   }
 
   async function initializeWindowLifecycleBridge() {
-    if (initialized)
-      return
+    if (initialized) return
 
     initialized = true
 
@@ -44,16 +42,14 @@ export const useStageWindowLifecycleStore = defineStore('stageWindowLifecycle', 
     }
 
     context.on(electronWindowLifecycleChanged, (event) => {
-      if (!event?.body)
-        return
+      if (!event?.body) return
       updateWindowLifecycle(event.body)
     })
 
     try {
       const getWindowLifecycleState = defineInvoke(context, electronGetWindowLifecycleState)
       updateWindowLifecycle(await getWindowLifecycleState())
-    }
-    catch (error) {
+    } catch (error) {
       console.warn('[StageWindowLifecycle] Failed to fetch initial window lifecycle state.', error)
     }
   }

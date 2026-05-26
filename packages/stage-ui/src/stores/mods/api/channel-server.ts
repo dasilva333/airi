@@ -1,7 +1,13 @@
-import type { ContextUpdate, WebSocketBaseEvent, WebSocketEvent, WebSocketEventOptionalSource, WebSocketEvents } from '@proj-airi/server-sdk'
+import type {
+  ContextUpdate,
+  WebSocketBaseEvent,
+  WebSocketEvent,
+  WebSocketEventOptionalSource,
+  WebSocketEvents,
+} from '@proj-airi/server-sdk'
 
 import { Client, WebSocketEventSource } from '@proj-airi/server-sdk'
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -21,7 +27,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
   const authToken = useLocalStorage('settings/connection/auth-token', '')
 
-  const callerId = isStageWeb() ? 'stage-web' : isStageTamagotchi() ? 'stage-tamagotchi' : 'stage-web'
+  const callerId = isStageTamagotchi() ? 'stage-tamagotchi' : 'stage-tamagotchi'
   const purpose = 'Primary application interface for AIRI.'
 
   const basePossibleEvents: Array<keyof WebSocketEvents> = [
@@ -41,16 +47,13 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     'ui:configure',
   ]
 
-  async function initialize(options?: { token?: string, possibleEvents?: Array<keyof WebSocketEvents> }) {
-    if (connected.value && client.value)
-      return Promise.resolve()
-    if (initializing.value)
-      return initializing.value
+  async function initialize(options?: { token?: string; possibleEvents?: Array<keyof WebSocketEvents> }) {
+    if (connected.value && client.value) return Promise.resolve()
+    if (initializing.value) return initializing.value
 
-    const possibleEvents = Array.from(new Set<keyof WebSocketEvents>([
-      ...basePossibleEvents,
-      ...(options?.possibleEvents ?? []),
-    ]))
+    const possibleEvents = Array.from(
+      new Set<keyof WebSocketEvents>([...basePossibleEvents, ...(options?.possibleEvents ?? [])]),
+    )
 
     initializing.value = new Promise<void>((resolve) => {
       // NOTICE: Safety Timeout (PipelineTTS)
@@ -59,31 +62,20 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
       // This is critical because a hung server connection should not "deafen" the window
       // to cross-process broadcasts (ContextBridge).
       const timeout = setTimeout(() => {
-        console.warn('[PipelineTTS:Server] Initialization timed out after 5000ms. Proceeding without immediate connection.')
+        console.warn(
+          '[PipelineTTS:Server] Initialization timed out after 5000ms. Proceeding without immediate connection.',
+        )
         resolve()
       }, 5000)
 
       client.value = new Client({
-        name: isStageWeb() ? WebSocketEventSource.StageWeb : isStageTamagotchi() ? WebSocketEventSource.StageTamagotchi : WebSocketEventSource.StageWeb,
-        url: websocketUrl.value || defaultWebSocketUrl,
-        token: options?.token ?? authToken.value,
         caller: callerId,
-        purpose,
-        possibleEvents,
+        name: isStageTamagotchi() ? WebSocketEventSource.StageTamagotchi : WebSocketEventSource.StageTamagotchi,
         onAnyMessage: (event) => {
           useWebSocketInspectorStore().add('incoming', event)
         },
         onAnySend: (event) => {
           useWebSocketInspectorStore().add('outgoing', event)
-        },
-        onError: (error) => {
-          connected.value = false
-          initializing.value = null
-          clearListeners()
-
-          console.warn('WebSocket server connection error:', error)
-          clearTimeout(timeout)
-          resolve() // Still resolve to unblock app
         },
         onClose: () => {
           connected.value = false
@@ -94,6 +86,19 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
           clearTimeout(timeout)
           resolve() // Still resolve to unblock app
         },
+        onError: (error) => {
+          connected.value = false
+          initializing.value = null
+          clearListeners()
+
+          console.warn('WebSocket server connection error:', error)
+          clearTimeout(timeout)
+          resolve() // Still resolve to unblock app
+        },
+        possibleEvents,
+        purpose,
+        token: options?.token ?? authToken.value,
+        url: websocketUrl.value || defaultWebSocketUrl,
       })
 
       client.value.onEvent('module:authenticated', (event) => {
@@ -126,8 +131,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     for (const disposer of listenerDisposers.value) {
       try {
         disposer()
-      }
-      catch (error) {
+      } catch (error) {
         console.warn('Failed to dispose channel listener:', error)
       }
     }
@@ -143,13 +147,11 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   }
 
   function send<C = undefined>(data: WebSocketEventOptionalSource<C>) {
-    if (!client.value && !initializing.value)
-      void initialize()
+    if (!client.value && !initializing.value) void initialize()
 
     if (client.value && connected.value) {
       client.value.send(data as WebSocketEvent)
-    }
-    else {
+    } else {
       pendingSend.value.push(data as WebSocketEvent)
     }
   }
@@ -164,9 +166,10 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     }
   }
 
-  function onContextUpdate(callback: (event: WebSocketBaseEvent<'context:update', ContextUpdate>) => void | Promise<void>) {
-    if (!client.value && !initializing.value)
-      void initialize()
+  function onContextUpdate(
+    callback: (event: WebSocketBaseEvent<'context:update', ContextUpdate>) => void | Promise<void>,
+  ) {
+    if (!client.value && !initializing.value) void initialize()
 
     client.value?.onEvent('context:update', callback as any)
 
@@ -179,8 +182,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     type: E,
     callback: (event: WebSocketBaseEvent<E, WebSocketEvents[E]>) => void | Promise<void>,
   ) {
-    if (!client.value && !initializing.value)
-      void initialize()
+    if (!client.value && !initializing.value) void initialize()
 
     client.value?.onEvent(type, callback as any)
 
@@ -189,9 +191,11 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     }
   }
 
-  function sendContextUpdate(message: Omit<ContextUpdate, 'id' | 'contextId'> & Partial<Pick<ContextUpdate, 'id' | 'contextId'>>) {
+  function sendContextUpdate(
+    message: Omit<ContextUpdate, 'id' | 'contextId'> & Partial<Pick<ContextUpdate, 'id' | 'contextId'>>,
+  ) {
     const id = nanoid()
-    send({ type: 'context:update', data: { id, contextId: id, ...message } })
+    send({ data: { contextId: id, id, ...message }, type: 'context:update' })
   }
 
   function dispose() {
@@ -207,8 +211,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   }
 
   watch(websocketUrl, (newUrl, oldUrl) => {
-    if (newUrl === oldUrl)
-      return
+    if (newUrl === oldUrl) return
 
     if (client.value || initializing.value) {
       dispose()
@@ -218,13 +221,13 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
   return {
     connected,
+    dispose,
     ensureConnected,
 
     initialize,
-    send,
-    sendContextUpdate,
     onContextUpdate,
     onEvent,
-    dispose,
+    send,
+    sendContextUpdate,
   }
 })

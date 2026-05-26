@@ -1,18 +1,15 @@
 {
-  "name": "@proj-airi/tauri-plugin-mcp",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "description": "A Tauri plugin for interacting with MCP servers.",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/tauri-plugin-mcp"
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
+  },
+  "description": "A Tauri plugin for interacting with MCP servers.",
+  "devDependencies": {
+    "pkgroll": "^2.26.3"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -22,24 +19,27 @@
     "dist",
     "package.json"
   ],
-  "scripts": {
-    "build": "pkgroll"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.10.1"
-  },
-  "devDependencies": {
-    "pkgroll": "^2.26.3"
-  },
+  "license": "MIT",
+  "name": "@proj-airi/tauri-plugin-mcp",
   "publishConfig": {
     "exports": {
       ".": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
+        "default": "./dist/index.mjs",
+        "types": "./dist/index.d.mts"
       },
       "main": "./dist/index.mjs",
       "module": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     }
-  }
+  },
+  "repository": {
+    "directory": "packages/tauri-plugin-mcp",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "pkgroll"
+  },
+  "type": "module",
+  "version": "0.9.0-alpha.15"
 }

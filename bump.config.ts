@@ -7,11 +7,8 @@ import { parse, stringify } from 'smol-toml'
 import { x } from 'tinyexec'
 
 export default defineConfig({
-  recursive: true,
-  commit: 'release: v%s',
-  sign: false,
-  push: false,
   all: true,
+  commit: 'release: v%s',
   execute: async () => {
     await x('pnpm', ['publish', '-r', '--access', 'public', '--no-git-checks', '--dry-run'])
 
@@ -38,9 +35,14 @@ export default defineConfig({
     }
 
     cargoToml.workspace.package.version = packageJSON.version
-    console.info(`Bumping Cargo.toml version to ${cargoToml.workspace.package.version} (from package.json, ${packageJSON.version})`)
+    console.info(
+      `Bumping Cargo.toml version to ${cargoToml.workspace.package.version} (from package.json, ${packageJSON.version})`,
+    )
 
     await writeFile(join(cwd(), 'Cargo.toml'), stringify(cargoToml))
     await x('cargo', ['generate-lockfile'])
   },
+  push: false,
+  recursive: true,
+  sign: false,
 })

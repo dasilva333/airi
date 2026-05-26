@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { dirname, sep } from 'pathe'
-import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Separator } from 'reka-ui'
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  Separator,
+} from 'reka-ui'
 import { useData, useRoute } from 'vitepress'
 import { ref, toRefs, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -24,7 +34,10 @@ watch(path, () => {
 
 function isNavLinkActive(link: string, path: string) {
   let normalizedLink = link.toLowerCase()
-  normalizedLink = normalizedLink.split(sep).filter(Boolean).length > (site.value.base !== '' ? 3 : 2) ? `${dirname(normalizedLink)}/` : normalizedLink
+  normalizedLink =
+    normalizedLink.split(sep).filter(Boolean).length > (site.value.base !== '' ? 3 : 2)
+      ? `${dirname(normalizedLink)}/`
+      : normalizedLink
 
   const normalizedPath = path.toLowerCase()
   return normalizedPath.includes(normalizedLink)

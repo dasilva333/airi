@@ -13,14 +13,10 @@ const streamContainer = ref<HTMLDivElement>()
 const showingDetails = ref<string>('')
 const filteredHistory = computed(() => {
   return store.history.filter((item) => {
-    if (!showIncoming.value && item.direction === 'incoming')
-      return false
-    if (!showOutgoing.value && item.direction === 'outgoing')
-      return false
-    if (!showHeartbeats.value && item.event.type === 'transport:connection:heartbeat')
-      return false
-    if (filter.value && !JSON.stringify(item.event).toLowerCase().includes(filter.value.toLowerCase()))
-      return false
+    if (!showIncoming.value && item.direction === 'incoming') return false
+    if (!showOutgoing.value && item.direction === 'outgoing') return false
+    if (!showHeartbeats.value && item.event.type === 'transport:connection:heartbeat') return false
+    if (filter.value && !JSON.stringify(item.event).toLowerCase().includes(filter.value.toLowerCase())) return false
     return true
   })
 })
@@ -31,8 +27,7 @@ function formatTime(ts: number) {
 
 async function scrollToTop() {
   await nextTick()
-  if (streamContainer.value)
-    streamContainer.value.scrollTop = 0
+  if (streamContainer.value) streamContainer.value.scrollTop = 0
 }
 
 watch(() => filteredHistory.value.length, scrollToTop)
@@ -89,18 +84,8 @@ function cardClasses(direction: 'incoming' | 'outgoing') {
 }
 
 const payloadClassMap: Record<'incoming' | 'outgoing', string[]> = {
-  incoming: [
-    'bg-pink-100',
-    'border-pink-300 border-1 border-solid',
-    'dark:bg-pink-900',
-    'dark:border-pink-700',
-  ],
-  outgoing: [
-    'bg-blue-100',
-    'border-blue-300 border-1 border-solid',
-    'dark:bg-blue-900',
-    'dark:border-blue-700',
-  ],
+  incoming: ['bg-pink-100', 'border-pink-300 border-1 border-solid', 'dark:bg-pink-900', 'dark:border-pink-700'],
+  outgoing: ['bg-blue-100', 'border-blue-300 border-1 border-solid', 'dark:bg-blue-900', 'dark:border-blue-700'],
 }
 
 function payloadClasses(direction: 'incoming' | 'outgoing') {

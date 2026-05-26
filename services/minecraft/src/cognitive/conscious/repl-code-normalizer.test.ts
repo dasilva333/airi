@@ -17,7 +17,7 @@ const inv = [{ name: 'oak_log' }]
 return inv
 `)
 
-    expect(normalized).toContain('globalThis.inv = [{ name: \'oak_log\' }];')
+    expect(normalized).toContain("globalThis.inv = [{ name: 'oak_log' }];")
     expect(normalized).toContain('return inv')
     expect(normalized).not.toContain('return (inv)')
   })

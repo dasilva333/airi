@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { ControlStripButton } from '@proj-airi/stage-ui/stores/settings/control-strip'
+import {
+  useElectronEventaContext,
+  useElectronEventaInvoke,
+  useElectronMouseAroundWindowBorder,
+  useElectronMouseInElement,
+  useElectronMouseInWindow,
+} from '@proj-airi/electron-vueuse'
 
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
-
-import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
-import { useMmd } from '@proj-airi/stage-ui-mmd'
-import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WhisperDock } from '@proj-airi/stage-ui/components'
 import { ControlStrip } from '@proj-airi/stage-ui/components/scenarios/layout'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
@@ -16,9 +18,12 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings/audio-device'
+import type { ControlStripButton } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
+import { useMmd } from '@proj-airi/stage-ui-mmd'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { refDebounced, useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -46,7 +51,8 @@ const backgroundStore = useBackgroundStore()
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
 
 const settingsStore = useSettings()
-const { stageModelSelected, stageModelRenderer, stageViewControlsEnabled, stageViewControlsMode, alwaysOnTop } = storeToRefs(settingsStore)
+const { stageModelSelected, stageModelRenderer, stageViewControlsEnabled, stageViewControlsMode, alwaysOnTop } =
+  storeToRefs(settingsStore)
 
 const controlStripStore = useSettingsControlStrip()
 const { stageEnabled, captionOpen, collapsed } = storeToRefs(controlStripStore)
@@ -117,7 +123,7 @@ function handleScaleChange(val: number) {
   })
 }
 
-function handleOffsetChange(val: { x: number, y: number }) {
+function handleOffsetChange(val: { x: number; y: number }) {
   const current = positioningStore.getPosition(stageModelSelected.value)
   positioningStore.setPosition(stageModelSelected.value, {
     ...current,
@@ -162,11 +168,15 @@ const { isOutside: isOutsidePositioningSlider } = useElectronMouseInElement(posi
 const { isOutside: isOutsideControlStrip } = useElectronMouseInElement(controlStripWrapperRef)
 
 const isOverControls = computed(() => {
-  return !isOutsideDragHandle.value
-    || !isOutsideWhisperDock.value
-    || whisperDockIsOpen.value
-    || !isOutsideControlStrip.value
-    || (stageViewControlsEnabled.value && controlStripStore.stageMode === 'positionMode' && (!isOutsidePositioningSelectors.value || !isOutsidePositioningSlider.value))
+  return (
+    !isOutsideDragHandle.value ||
+    !isOutsideWhisperDock.value ||
+    whisperDockIsOpen.value ||
+    !isOutsideControlStrip.value ||
+    (stageViewControlsEnabled.value &&
+      controlStripStore.stageMode === 'positionMode' &&
+      (!isOutsidePositioningSelectors.value || !isOutsidePositioningSlider.value))
+  )
 })
 
 watch(
@@ -192,13 +202,21 @@ const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
 
 // ===== Control Strip Logic (moved from index.vue) =====
 
-watch(stageEnabled, (val) => {
-  toggleStageVisibility(val)
-}, { immediate: true })
+watch(
+  stageEnabled,
+  (val) => {
+    toggleStageVisibility(val)
+  },
+  { immediate: true },
+)
 
-watch(captionOpen, (val) => {
-  toggleCaptionVisibility(val)
-}, { immediate: true })
+watch(
+  captionOpen,
+  (val) => {
+    toggleCaptionVisibility(val)
+  },
+  { immediate: true },
+)
 
 // Treat stage and caption as partners when captionFollowStage is enabled
 watch(stageEnabled, (newVal) => {
@@ -217,13 +235,16 @@ watch(captionOpen, (newVal) => {
   }
 })
 
-watch(() => settingsStore.captionFollowStage, (newVal) => {
-  if (newVal) {
-    if (captionOpen.value !== stageEnabled.value) {
-      captionOpen.value = stageEnabled.value
+watch(
+  () => settingsStore.captionFollowStage,
+  (newVal) => {
+    if (newVal) {
+      if (captionOpen.value !== stageEnabled.value) {
+        captionOpen.value = stageEnabled.value
+      }
     }
-  }
-})
+  },
+)
 
 function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | 'right' | 'top' | 'bottom') {
   // NOTE: Window resizing is intentionally disabled since the control strip
@@ -237,8 +258,7 @@ function applyBoundsUpdate(nextPopover: string | null, nextPlacement: 'left' | '
 watch([stripLength, () => controlStripStore.orientation], ([_newLength, newOrientation]) => {
   if (activePopover.value) {
     applyBoundsUpdate(activePopover.value, lastPlacement.value || 'bottom')
-  }
-  else {
+  } else {
     lastOrientation.value = newOrientation
   }
 })
@@ -258,7 +278,7 @@ watch(
 
 async function handleApplySizePreset(e: Event) {
   const { target, preset } = (e as CustomEvent).detail
-  await applySizePresetInvoke({ target, preset })
+  await applySizePresetInvoke({ preset, target })
 }
 
 function cycleAnimation() {
@@ -292,11 +312,13 @@ function cycleAnimation() {
     if (activeCard.value?.extensions?.airi?.acting) {
       activeCard.value.extensions.airi.acting.idleAnimations = [nextAnimation]
     }
-    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+    toast.info(`Character Fixed: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+      id: 'animation-cycle',
+    })
     return
   }
 
-  const keys = hasCardSubset ? cardIdleAnimations.filter(k => allKeys.includes(k)) : allKeys
+  const keys = hasCardSubset ? cardIdleAnimations.filter((k) => allKeys.includes(k)) : allKeys
   const finalKeys = keys.length > 0 ? keys : allKeys
 
   const currentKey = vrmIdleAnimation.value
@@ -305,7 +327,9 @@ function cycleAnimation() {
   const nextAnimation = finalKeys[nextIndex]
 
   vrmIdleAnimation.value = nextAnimation
-  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, { id: 'animation-cycle' })
+  toast.info(`Cycling: ${customVrmAnimationsStore.animationLabelByKey[nextAnimation] || nextAnimation}`, {
+    id: 'animation-cycle',
+  })
 }
 
 function handleControlStripAction(e: Event) {
@@ -314,99 +338,76 @@ function handleControlStripAction(e: Event) {
   if (action === 'chat') {
     controlStripStore.chatOpen = !controlStripStore.chatOpen
     openChat(controlStripStore.chatOpen)
-  }
-  else if (action === 'settings') {
+  } else if (action === 'settings') {
     openSettings()
-  }
-  else if (action === 'caption') {
+  } else if (action === 'caption') {
     controlStripStore.captionOpen = !controlStripStore.captionOpen
-  }
-  else if (action === 'mic') {
+  } else if (action === 'mic') {
     settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
-  }
-  else if (action === 'stage') {
+  } else if (action === 'stage') {
     controlStripStore.stageEnabled = !controlStripStore.stageEnabled
-  }
-  else if (action === 'gemini-session') {
+  } else if (action === 'gemini-session') {
     liveSessionStore.toggle()
-  }
-  else if (action === 'always-on-top') {
+  } else if (action === 'always-on-top') {
     alwaysOnTop.value = !alwaysOnTop.value
     setAlwaysOnTopInvoke(alwaysOnTop.value)
-  }
-  else if (action === 'theme-mode') {
+  } else if (action === 'theme-mode') {
     colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
-  }
-  else if (action === 'caption-follow-stage') {
+  } else if (action === 'caption-follow-stage') {
     settingsStore.captionFollowStage = !settingsStore.captionFollowStage
-  }
-  else if (action === 'caption-docking') {
+  } else if (action === 'caption-docking') {
     const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
     settingsStore.captionDocking = next
     syncCaptionDocking(next)
-  }
-  else if (action === 'caption-layout-mode') {
+  } else if (action === 'caption-layout-mode') {
     settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
-  }
-  else if (action === 'exit-app') {
+  } else if (action === 'exit-app') {
     quitApp()
-  }
-  else if (action === 'viewport-tactile') {
+  } else if (action === 'viewport-tactile') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = false
     controlStripStore.stageMode = 'tactileMode'
-  }
-  else if (action === 'viewport-drag') {
+  } else if (action === 'viewport-drag') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = true
     controlStripStore.stageMode = 'dragMode'
-  }
-  else if (action === 'viewport-positioning') {
+  } else if (action === 'viewport-positioning') {
     modelStore.interactionMode = 'tactile'
     stageViewControlsEnabled.value = true
     controlStripStore.stageMode = 'positionMode'
-  }
-  else if (action === 'viewport-orbit') {
+  } else if (action === 'viewport-orbit') {
     modelStore.interactionMode = 'orbit'
     stageViewControlsEnabled.value = false
     controlStripStore.stageMode = 'orbitMode'
-  }
-  else if (action === 'viewport-cycle-modes') {
+  } else if (action === 'viewport-cycle-modes') {
     controlStripStore.cycleStageMode()
     const mode = controlStripStore.stageMode
     if (mode === 'tactileMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = false
-    }
-    else if (mode === 'dragMode') {
+    } else if (mode === 'dragMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'positionMode') {
+    } else if (mode === 'positionMode') {
       modelStore.interactionMode = 'tactile'
       stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'orbitMode') {
+    } else if (mode === 'orbitMode') {
       modelStore.interactionMode = 'orbit'
       stageViewControlsEnabled.value = false
     }
-  }
-  else if (action === 'viewport-auto-hide') {
+  } else if (action === 'viewport-auto-hide') {
     fadeOnHoverEnabled.value = !fadeOnHoverEnabled.value
-  }
-  else if (action === 'viewport-reset-coordinates') {
+  } else if (action === 'viewport-reset-coordinates') {
     const key = stageModelSelected.value
-    positioningStore.setPosition(key, { x: 0, y: 0, scale: 1 })
+    positioningStore.setPosition(key, { scale: 1, x: 0, y: 0 })
     if (stageModelRenderer.value === 'live2d') {
       const live2dStore = useLive2d()
       live2dStore.resetState()
-    }
-    else {
+    } else {
       modelStore.modelOffset = { x: 0, y: 0, z: 0 }
       modelStore.cameraDistance = modelStore.modelSize.z * 10
     }
-  }
-  else if (action === 'actor-idle-animations') {
+  } else if (action === 'actor-idle-animations') {
     cycleAnimation()
   }
 }

@@ -1,30 +1,28 @@
 <script setup lang="ts">
-import type { ErrorMessage } from '../../../types/chat'
-
 import { computed } from 'vue'
-
 import { useChatSessionStore } from '../../../stores/chat/session-store'
+import type { ErrorMessage } from '../../../types/chat'
 import { MarkdownRenderer } from '../../markdown'
 
-const props = withDefaults(defineProps<{
-  message: ErrorMessage & { id?: string }
-  label: string
-  showPlaceholder?: boolean
-  variant?: 'desktop' | 'mobile'
-}>(), {
-  showPlaceholder: false,
-  variant: 'desktop',
-})
+const props = withDefaults(
+  defineProps<{
+    message: ErrorMessage & { id?: string }
+    label: string
+    showPlaceholder?: boolean
+    variant?: 'desktop' | 'mobile'
+  }>(),
+  {
+    showPlaceholder: false,
+    variant: 'desktop',
+  },
+)
 
 const chatSession = useChatSessionStore()
 
-const boxClasses = computed(() => [
-  props.variant === 'mobile' ? 'px-2 py-2 text-sm' : 'px-3 py-3',
-])
+const boxClasses = computed(() => [props.variant === 'mobile' ? 'px-2 py-2 text-sm' : 'px-3 py-3'])
 
 function deleteSelf() {
-  if (props.message.id)
-    chatSession.deleteMessage(props.message.id)
+  if (props.message.id) chatSession.deleteMessage(props.message.id)
 }
 </script>
 

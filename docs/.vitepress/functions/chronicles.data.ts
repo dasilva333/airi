@@ -17,12 +17,13 @@ interface ChronicleEntry {
 }
 
 declare const data: ChronicleEntry[]
+
 export { data }
 
 export default createContentLoader('**/chronicles/**/*.md', {
+  excerpt: true,
   includeSrc: true,
   render: true,
-  excerpt: true,
   transform(raw): ChronicleEntry[] {
     return raw
       .map(({ url, frontmatter, excerpt }) => {
@@ -36,13 +37,13 @@ export default createContentLoader('**/chronicles/**/*.md', {
         })
 
         return {
+          date: formatDate(frontmatter.date),
+          excerpt,
+          frontmatter,
+          lang: foundLanguage?.lang || 'en',
           title: frontmatter.title,
           url,
           urlWithoutLang: url.replace(`/${foundLanguage?.lang || 'en'}`, ''),
-          excerpt,
-          date: formatDate(frontmatter.date),
-          lang: foundLanguage?.lang || 'en',
-          frontmatter,
         }
       })
       .sort((a, b) => b.date.time - a.date.time)

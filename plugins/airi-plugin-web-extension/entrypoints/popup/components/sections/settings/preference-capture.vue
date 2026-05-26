@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 import { Button, FieldCheckbox } from '@proj-airi/ui'
 
-const emit = defineEmits<{
-  (event: 'capture'): void
-}>()
+const emit = defineEmits<(event: 'capture') => void>()
 const sendPageContextModel = defineModel<boolean>('send-page-context', { required: true })
 const sendVideoContextModel = defineModel<boolean>('send-video-context', { required: true })
 const sendSubtitlesModel = defineModel<boolean>('send-subtitles', { required: true })

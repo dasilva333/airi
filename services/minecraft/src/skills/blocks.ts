@@ -1,12 +1,9 @@
-import type { Mineflayer } from '../libs/mineflayer'
-import type { BlockFace } from './base'
-
-import pathfinderModel from 'mineflayer-pathfinder'
-
 import { sleep } from '@moeru/std'
+import pathfinderModel from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
-
+import type { Mineflayer } from '../libs/mineflayer'
 import { McData } from '../utils/mcdata'
+import type { BlockFace } from './base'
 import { log } from './base'
 import { goToPosition } from './movement'
 import { patchedGoto } from './patched-goto'
@@ -17,17 +14,11 @@ const { goals, Movements } = pathfinderModel
 /**
  * Break a block at the specified position
  */
-export async function breakBlockAt(
-  mineflayer: Mineflayer,
-  x: number,
-  y: number,
-  z: number,
-): Promise<boolean> {
+export async function breakBlockAt(mineflayer: Mineflayer, x: number, y: number, z: number): Promise<boolean> {
   validatePosition(x, y, z)
 
   const block = mineflayer.bot.blockAt(new Vec3(x, y, z))
-  if (isUnbreakableBlock(block))
-    return false
+  if (isUnbreakableBlock(block)) return false
 
   if (mineflayer.allowCheats) {
     return breakWithCheats(mineflayer, x, y, z)
@@ -137,9 +128,9 @@ function getBlockState(blockType: string, placeOn: BlockFace): string {
 
 function getInvertedFace(placeOn: BlockFace): string {
   const faceMap: Record<string, string> = {
+    east: 'west',
     north: 'south',
     south: 'north',
-    east: 'west',
     west: 'east',
   }
 
@@ -165,10 +156,9 @@ function handleButtonLeverState(blockState: string, placeOn: BlockFace, face: st
 }
 
 function needsFacingState(blockType: string): boolean {
-  return blockType === 'ladder'
-    || blockType === 'repeater'
-    || blockType === 'comparator'
-    || blockType.includes('stairs')
+  return (
+    blockType === 'ladder' || blockType === 'repeater' || blockType === 'comparator' || blockType.includes('stairs')
+  )
 }
 
 async function placeWithCheats(
@@ -201,7 +191,7 @@ async function placeWithoutCheats(
 ): Promise<boolean> {
   const itemName = blockType === 'redstone_wire' ? 'redstone' : blockType
 
-  let block = mineflayer.bot.inventory.items().find(item => item.name === itemName)
+  let block = mineflayer.bot.inventory.items().find((item) => item.name === itemName)
   if (!block && mineflayer.isCreative) {
     const mcData = McData.fromBot(mineflayer.bot)
     const itemId = mcData.getItemId(itemName)
@@ -210,7 +200,7 @@ async function placeWithoutCheats(
       const Item = item.default(mineflayer.bot.version)
       await mineflayer.bot.creative.setInventorySlot(36, new Item(itemId, 1))
     }
-    block = mineflayer.bot.inventory.items().find(item => item.name === itemName)
+    block = mineflayer.bot.inventory.items().find((item) => item.name === itemName)
   }
 
   if (!block) {
@@ -226,7 +216,7 @@ async function placeWithoutCheats(
 
   const emptyBlocks = ['air', 'water', 'lava', 'grass', 'short_grass', 'tall_grass', 'snow', 'dead_bush', 'fern']
   if (!emptyBlocks.includes(targetBlock?.name ?? '')) {
-    if (!await clearBlockSpace(mineflayer, targetBlock, blockType)) {
+    if (!(await clearBlockSpace(mineflayer, targetBlock, blockType))) {
       return false
     }
   }
@@ -246,13 +236,8 @@ async function placeWithoutCheats(
   return await tryPlaceBlock(mineflayer, block, buildOffBlock, faceVec, blockType, targetDest)
 }
 
-async function clearBlockSpace(
-  mineflayer: Mineflayer,
-  targetBlock: any,
-  blockType: string,
-): Promise<boolean> {
-  const removed = await breakBlockAt(mineflayer, targetBlock.position.x, targetBlock.position.y, targetBlock.position.z,
-  )
+async function clearBlockSpace(mineflayer: Mineflayer, targetBlock: any, blockType: string): Promise<boolean> {
+  const removed = await breakBlockAt(mineflayer, targetBlock.position.x, targetBlock.position.y, targetBlock.position.z)
   if (!removed) {
     log(mineflayer, `Cannot place ${blockType} at ${targetBlock.position}: block in the way.`)
     return false
@@ -263,11 +248,11 @@ async function clearBlockSpace(
 
 function findPlacementSpot(mineflayer: Mineflayer, targetDest: Vec3, placeOn: BlockFace, emptyBlocks: string[]) {
   const dirMap = {
-    top: new Vec3(0, 1, 0),
     bottom: new Vec3(0, -1, 0),
+    east: new Vec3(1, 0, 0),
     north: new Vec3(0, 0, -1),
     south: new Vec3(0, 0, 1),
-    east: new Vec3(1, 0, 0),
+    top: new Vec3(0, 1, 0),
     west: new Vec3(-1, 0, 0),
   }
 
@@ -290,15 +275,13 @@ function getPlacementDirections(placeOn: BlockFace, dirMap: Record<string, Vec3>
   const directions: Vec3[] = []
   if (placeOn === 'side') {
     directions.push(dirMap.north, dirMap.south, dirMap.east, dirMap.west)
-  }
-  else if (dirMap[placeOn]) {
+  } else if (dirMap[placeOn]) {
     directions.push(dirMap[placeOn])
-  }
-  else {
+  } else {
     directions.push(dirMap.bottom)
   }
 
-  directions.push(...Object.values(dirMap).filter(d => !directions.includes(d)))
+  directions.push(...Object.values(dirMap).filter((d) => !directions.includes(d)))
   return directions
 }
 
@@ -321,9 +304,10 @@ async function moveIntoPosition(mineflayer: Mineflayer, blockType: string, targe
   const pos = mineflayer.bot.entity.position
   const posAbove = pos.plus(new Vec3(0, 1, 0))
 
-  if (!dontMoveFor.includes(blockType)
-    && (pos.distanceTo(targetBlock.position) < 1
-      || posAbove.distanceTo(targetBlock.position) < 1)) {
+  if (
+    !dontMoveFor.includes(blockType) &&
+    (pos.distanceTo(targetBlock.position) < 1 || posAbove.distanceTo(targetBlock.position) < 1)
+  ) {
     await moveAwayFromBlock(mineflayer, targetBlock)
   }
 
@@ -333,12 +317,7 @@ async function moveIntoPosition(mineflayer: Mineflayer, blockType: string, targe
 }
 
 async function moveAwayFromBlock(mineflayer: Mineflayer, targetBlock: any) {
-  const goal = new goals.GoalNear(
-    targetBlock.position.x,
-    targetBlock.position.y,
-    targetBlock.position.z,
-    2,
-  )
+  const goal = new goals.GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 2)
   const invertedGoal = new goals.GoalInvert(goal)
   mineflayer.bot.pathfinder.setMovements(new Movements(mineflayer.bot))
   await patchedGoto(mineflayer.bot, invertedGoal)
@@ -367,8 +346,7 @@ async function tryPlaceBlock(
     log(mineflayer, `Placed ${blockType} at ${targetDest}.`)
     await sleep(200)
     return true
-  }
-  catch {
+  } catch {
     log(mineflayer, `Failed to place ${blockType} at ${targetDest}.`)
     return false
   }
@@ -378,7 +356,7 @@ async function tryPlaceBlock(
  * Use a door at the specified position
  */
 export async function useDoor(mineflayer: Mineflayer, doorPos: Vec3 | null = null): Promise<boolean> {
-  doorPos = doorPos || await findNearestDoor(mineflayer.bot)
+  doorPos = doorPos || (await findNearestDoor(mineflayer.bot))
 
   if (!doorPos) {
     log(mineflayer, 'Could not find a door to use.')
@@ -479,7 +457,7 @@ export async function tillAndSow(
 
   await moveIntoRange(mineflayer, block)
 
-  if (!await tillBlock(mineflayer, block, pos)) {
+  if (!(await tillBlock(mineflayer, block, pos))) {
     return false
   }
 
@@ -503,7 +481,7 @@ async function tillBlock(mineflayer: Mineflayer, block: any, pos: any): Promise<
     return true
   }
 
-  const hoe = mineflayer.bot.inventory.items().find(item => item.name.includes('hoe'))
+  const hoe = mineflayer.bot.inventory.items().find((item) => item.name.includes('hoe'))
   if (!hoe) {
     log(mineflayer, 'Cannot till, no hoes.')
     return false
@@ -518,7 +496,7 @@ async function tillBlock(mineflayer: Mineflayer, block: any, pos: any): Promise<
 async function sowSeeds(mineflayer: Mineflayer, block: any, seedType: string, pos: any): Promise<boolean> {
   seedType = fixSeedName(seedType)
 
-  const seeds = mineflayer.bot.inventory.items().find(item => item.name === seedType)
+  const seeds = mineflayer.bot.inventory.items().find((item) => item.name === seedType)
   if (!seeds) {
     log(mineflayer, `No ${seedType} to plant.`)
     return false
@@ -546,6 +524,9 @@ export async function activateNearestBlock(mineflayer: Mineflayer, type: string)
 
   await moveIntoRange(mineflayer, block)
   await mineflayer.bot.activateBlock(block)
-  log(mineflayer, `Activated ${type} at x:${block.position.x.toFixed(1)}, y:${block.position.y.toFixed(1)}, z:${block.position.z.toFixed(1)}.`)
+  log(
+    mineflayer,
+    `Activated ${type} at x:${block.position.x.toFixed(1)}, y:${block.position.y.toFixed(1)}, z:${block.position.z.toFixed(1)}.`,
+  )
   return true
 }

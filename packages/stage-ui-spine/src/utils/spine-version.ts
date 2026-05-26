@@ -31,8 +31,7 @@ export function detectSpineVersionFromBinary(data: Uint8Array): SpineVersion | u
         }
       }
     }
-  }
-  catch {}
+  } catch {}
 
   // 2. Fallback to Spine 3.8 and below format (varint-prefixed hash string followed by varint-prefixed version string)
   try {
@@ -57,8 +56,7 @@ export function detectSpineVersionFromBinary(data: Uint8Array): SpineVersion | u
         }
       }
     }
-  }
-  catch {}
+  } catch {}
 
   // 3. Robust regex fallback on first 200 bytes (matches python implementation exactly)
   try {
@@ -67,8 +65,7 @@ export function detectSpineVersionFromBinary(data: Uint8Array): SpineVersion | u
     if (match) {
       return parseSpineVersionString(match[1])
     }
-  }
-  catch {}
+  } catch {}
 
   return undefined
 }
@@ -81,11 +78,9 @@ export function detectSpineVersionFromJson(json: string): SpineVersion | undefin
   try {
     const root = JSON.parse(json)
     const versionStr = root?.skeleton?.spine
-    if (typeof versionStr !== 'string')
-      return undefined
+    if (typeof versionStr !== 'string') return undefined
     return parseSpineVersionString(versionStr)
-  }
-  catch {
+  } catch {
     return undefined
   }
 }
@@ -96,8 +91,7 @@ export function detectSpineVersionFromJson(json: string): SpineVersion | undefin
  */
 function parseSpineVersionString(version: string): SpineVersion | undefined {
   const match = version.match(/^(\d+)\.(\d+)/)
-  if (!match)
-    return undefined
+  if (!match) return undefined
   return `${match[1]}.${match[2]}`
 }
 
@@ -105,17 +99,16 @@ function parseSpineVersionString(version: string): SpineVersion | undefined {
  * Reads a Spine-format varint (variable-length int, 7 bits per byte,
  * high bit = continuation).
  */
-function readVarint(data: Uint8Array, offset: number): { value: number, bytesRead: number } {
+function readVarint(data: Uint8Array, offset: number): { value: number; bytesRead: number } {
   let value = 0
   let shift = 0
   let bytesRead = 0
   while (offset < data.byteLength) {
     const b = data[offset++]
     bytesRead++
-    value |= (b & 0x7F) << shift
-    if ((b & 0x80) === 0)
-      break
+    value |= (b & 0x7f) << shift
+    if ((b & 0x80) === 0) break
     shift += 7
   }
-  return { value, bytesRead }
+  return { bytesRead, value }
 }

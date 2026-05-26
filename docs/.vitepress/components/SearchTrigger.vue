@@ -2,7 +2,15 @@
 import { Icon } from '@iconify/vue'
 import { useMagicKeys, whenever } from '@vueuse/core'
 import { AnimatePresence, Motion } from 'motion-v'
-import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger } from 'reka-ui'
+import {
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+} from 'reka-ui'
 import { defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -13,8 +21,7 @@ const { meta_k } = useMagicKeys()
 const { t } = useI18n()
 
 whenever(meta_k!, (n) => {
-  if (n)
-    open.value = true
+  if (n) open.value = true
 })
 
 function handleClose() {

@@ -10,31 +10,34 @@ import { useAiriCardStore } from '../../stores/modules'
 import { useSettings } from '../../stores/settings'
 import { useVHackStore } from '../../stores/vhack'
 
-const props = withDefaults(defineProps<{
-  paused?: boolean
-  focusAt: { x: number, y: number }
-  xOffset?: number | string
-  yOffset?: number | string
-  scale?: number
-  mouthOpenSize?: number
-  currentAudioSource?: AudioBufferSourceNode
-  isWindowResizing?: boolean
-  vrmActiveAnimation?: string
-  vrmEffectiveIdleCycleEnabled?: boolean
-}>(), {
-  paused: false,
-  scale: 1,
-  mouthOpenSize: 0,
-  isWindowResizing: false,
-  vrmEffectiveIdleCycleEnabled: false,
-})
+const props = withDefaults(
+  defineProps<{
+    paused?: boolean
+    focusAt: { x: number; y: number }
+    xOffset?: number | string
+    yOffset?: number | string
+    scale?: number
+    mouthOpenSize?: number
+    currentAudioSource?: AudioBufferSourceNode
+    isWindowResizing?: boolean
+    vrmActiveAnimation?: string
+    vrmEffectiveIdleCycleEnabled?: boolean
+  }>(),
+  {
+    isWindowResizing: false,
+    mouthOpenSize: 0,
+    paused: false,
+    scale: 1,
+    vrmEffectiveIdleCycleEnabled: false,
+  },
+)
 
 const emits = defineEmits<{
-  (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
+  (e: 'hitAreaHover', value: { name: string; x: number; y: number; hovered: boolean } | null): void
   (e: 'scaleChange', value: number): void
-  (e: 'offsetChange', value: { x: number, y: number }): void
+  (e: 'offsetChange', value: { x: number; y: number }): void
   (e: 'animationFinished'): void
-  (e: 'animationPlayStatus', status: { duration: number, url: string }): void
+  (e: 'animationPlayStatus', status: { duration: number; url: string }): void
 }>()
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
@@ -70,32 +73,45 @@ const reducedRenderScale = computed(() => {
   return Math.max(0.5, nextScale)
 })
 
+function handleScaleChange(val: number) {
+  emits('scaleChange', val)
+}
+
+function handleOffsetChange(val: { x: number; y: number }) {
+  emits('offsetChange', val)
+}
+
+function handleHitAreaHover(val: { name: string; x: number; y: number; hovered: boolean } | null) {
+  emits('hitAreaHover', val)
+}
+
+function handleAnimationPlayStatus(status: { duration: number; url: string }) {
+  emits('animationPlayStatus', status)
+}
+
 function canvasElement() {
-  if (stageModelRenderer.value === 'live2d')
-    return live2dSceneRef.value?.canvasElement()
-  else if (stageModelRenderer.value === 'vrm')
-    return vrmViewerRef.value?.canvasElement()
+  if (stageModelRenderer.value === 'live2d') return live2dSceneRef.value?.canvasElement()
+  else if (stageModelRenderer.value === 'vrm') return vrmViewerRef.value?.canvasElement()
 }
 
 function readRenderTargetRegionAtClientPoint(clientX: number, clientY: number, radius: number) {
-  if (stageModelRenderer.value !== 'vrm')
-    return null
+  if (stageModelRenderer.value !== 'vrm') return null
   return vrmViewerRef.value?.readRenderTargetRegionAtClientPoint?.(clientX, clientY, radius) ?? null
 }
 
 async function captureFrame() {
-  return (stageModelRenderer.value === 'live2d'
+  return stageModelRenderer.value === 'live2d'
     ? live2dSceneRef.value?.captureFrame()
-    : vrmViewerRef.value?.captureFrame())
+    : vrmViewerRef.value?.captureFrame()
 }
 
 defineExpose({
   canvasElement,
   captureFrame,
-  readRenderTargetRegionAtClientPoint,
-  vrmViewerRef,
   live2dSceneRef,
+  readRenderTargetRegionAtClientPoint,
   spineViewerRef,
+  vrmViewerRef,
 })
 </script>
 
@@ -125,8 +141,10 @@ defineExpose({
       :live2d-max-fps="live2dMaxFps"
       :idle-animations="activeCard?.extensions?.airi?.acting?.idleAnimations"
       :draggable="stageViewControlsEnabled"
-      @scale-change="(val) => emits('scaleChange', val)"
-      @offset-change="(val) => emits('offsetChange', val)"
+      :interaction-mode="vrmStore.interactionMode"
+      @scale-change="handleScaleChange"
+      @offset-change="handleOffsetChange"
+      @hit-area-hover="handleHitAreaHover"
     />
     <ThreeScene
       v-if="stageModelRenderer === 'vrm'"
@@ -144,7 +162,7 @@ defineExpose({
       @error="console.error"
       @binary-loaded="vhackStore.setSourceArrayBuffer"
       @finished="emits('animationFinished')"
-      @play-status="(status) => emits('animationPlayStatus', status)"
+      @play-status="handleAnimationPlayStatus"
     />
     <SpineScene
       v-if="stageModelRenderer === 'spine'"
@@ -158,7 +176,7 @@ defineExpose({
       :x-offset="xOffset !== undefined ? Number(xOffset) : undefined"
       :y-offset="yOffset !== undefined ? Number(yOffset) : undefined"
       :scale="scale !== undefined ? Number(scale) : undefined"
-      @hit-area-hover="(val) => emits('hitAreaHover', val)"
+      @hit-area-hover="handleHitAreaHover"
     />
     <MMDScene
       v-if="stageModelRenderer === 'mmd' && stageModelSelectedUrl"

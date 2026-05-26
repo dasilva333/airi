@@ -1,16 +1,12 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-
-import type { ChatHistoryItem } from '../types/chat'
-import type { EchoChip, EchoChipType } from '../types/echo-chip'
-
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
-
 import * as v from 'valibot'
-
+import { computed, ref } from 'vue'
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
 import { echoChipsRepo } from '../database/repos/echo-chips.repo'
+import type { ChatHistoryItem } from '../types/chat'
+import type { EchoChip, EchoChipType } from '../types/echo-chip'
 import { useAuthStore } from './auth'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
@@ -19,9 +15,9 @@ import { useProvidersStore } from './providers'
 
 const ChipSchema = v.object({
   content: v.string(),
-  type: v.picklist(['mood', 'flavor', 'journal_candidate']),
-  relevanceScore: v.number(),
   evidence_indices: v.optional(v.array(v.number())),
+  relevanceScore: v.number(),
+  type: v.picklist(['mood', 'flavor', 'journal_candidate']),
 })
 
 const ArtifactsSchema = v.object({
@@ -56,30 +52,26 @@ function sanitizeChatContent(text: string) {
 }
 
 function extractPartText(part: any): string {
-  if (!part)
-    return ''
-  if (typeof part === 'string')
-    return part
-  if (typeof part.text === 'string')
-    return part.text
-  if (typeof part.input === 'string')
-    return part.input
-  if (typeof part.output === 'string')
-    return part.output
+  if (!part) return ''
+  if (typeof part === 'string') return part
+  if (typeof part.text === 'string') return part.text
+  if (typeof part.input === 'string') return part.input
+  if (typeof part.output === 'string') return part.output
   return ''
 }
 
 function extractMessageText(message: ChatHistoryItem): string {
   if (message.role === 'assistant' && Array.isArray((message as any).slices)) {
-    const sliceText = (message as any).slices.filter((slice: any) => slice?.type === 'text' && typeof slice.text === 'string').map((slice: any) => slice.text).join(' ')
+    const sliceText = (message as any).slices
+      .filter((slice: any) => slice?.type === 'text' && typeof slice.text === 'string')
+      .map((slice: any) => slice.text)
+      .join(' ')
 
-    if (sliceText.trim())
-      return sanitizeChatContent(sliceText)
+    if (sliceText.trim()) return sanitizeChatContent(sliceText)
   }
 
   const content = (message as any).content
-  if (typeof content === 'string')
-    return sanitizeChatContent(content)
+  if (typeof content === 'string') return sanitizeChatContent(content)
 
   if (Array.isArray(content)) {
     return sanitizeChatContent(content.map(extractPartText).join(' '))
@@ -89,13 +81,12 @@ function extractMessageText(message: ChatHistoryItem): string {
 }
 
 function normalizeChipType(input: any): EchoChipType {
-  const raw = String(input || '').toLowerCase().trim()
-  if (!raw)
-    return 'flavor'
-  if (raw.includes('mood'))
-    return 'mood'
-  if (raw.includes('journal') || raw.includes('event'))
-    return 'journal_candidate'
+  const raw = String(input || '')
+    .toLowerCase()
+    .trim()
+  if (!raw) return 'flavor'
+  if (raw.includes('mood')) return 'mood'
+  if (raw.includes('journal') || raw.includes('event')) return 'journal_candidate'
   return 'flavor'
 }
 
@@ -120,26 +111,24 @@ export const useEchoesStore = defineStore('echo-chips', () => {
 
   async function load() {
     const currentUserId = getCurrentUserId()
-    if (initializedForUserId.value === currentUserId)
-      return
+    if (initializedForUserId.value === currentUserId) return
 
     loading.value = true
     try {
-      const raw = await echoChipsRepo.getAll(currentUserId) ?? []
-      chips.value = raw.map(c => ({
-        id: c.id,
-        userId: c.userId || currentUserId,
+      const raw = (await echoChipsRepo.getAll(currentUserId)) ?? []
+      chips.value = raw.map((c) => ({
         characterId: c.characterId,
-        date: c.date,
         content: c.content,
-        type: (c.type || 'flavor') as EchoChipType,
-        relevanceScore: typeof c.relevanceScore === 'number' ? c.relevanceScore : 0.8,
-        evidenceIndices: c.evidenceIndices || [],
         createdAt: c.createdAt || Date.now(),
+        date: c.date,
+        evidenceIndices: c.evidenceIndices || [],
+        id: c.id,
+        relevanceScore: typeof c.relevanceScore === 'number' ? c.relevanceScore : 0.8,
+        type: (c.type || 'flavor') as EchoChipType,
+        userId: c.userId || currentUserId,
       }))
       initializedForUserId.value = currentUserId
-    }
-    finally {
+    } finally {
       loading.value = false
     }
   }
@@ -152,67 +141,63 @@ export const useEchoesStore = defineStore('echo-chips', () => {
     initializedForUserId.value = currentUserId
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('echo-chips-updated', {
-        detail: {
-          userId: currentUserId,
-          count: nextChips.length,
-        },
-      }))
+      window.dispatchEvent(
+        new CustomEvent('echo-chips-updated', {
+          detail: {
+            count: nextChips.length,
+            userId: currentUserId,
+          },
+        }),
+      )
     }
   }
 
   function getCharacterChips(characterId: string) {
-    return sortedChips.value.filter(chip => chip.characterId === characterId)
+    return sortedChips.value.filter((chip) => chip.characterId === characterId)
   }
 
   async function collectWindowMessages(characterId: string, options?: SynthesizeEchoOptions) {
     const currentUserId = getCurrentUserId()
     const index = await chatSessionsRepo.getIndex(currentUserId)
     const characterSessions = index?.characters?.[characterId]
-    if (!characterSessions)
-      return [] as WindowMessage[]
+    if (!characterSessions) return [] as WindowMessage[]
 
     const toTimestamp = options?.toTimestamp ?? Date.now()
-    const fromTimestamp = options?.fromTimestamp ?? Math.max(0, toTimestamp - (options?.fallbackLookbackMs ?? DEFAULT_FIRST_DREAM_LOOKBACK_MS))
+    const fromTimestamp =
+      options?.fromTimestamp ??
+      Math.max(0, toTimestamp - (options?.fallbackLookbackMs ?? DEFAULT_FIRST_DREAM_LOOKBACK_MS))
     const maxMessages = options?.maxMessages ?? DEFAULT_MAX_WINDOW_MESSAGES
 
     const sessionMetas = Object.values(characterSessions.sessions || {})
-    const sessionRecords = await Promise.all(sessionMetas.map(meta => chatSessionsRepo.getSession(meta.sessionId)))
+    const sessionRecords = await Promise.all(sessionMetas.map((meta) => chatSessionsRepo.getSession(meta.sessionId)))
 
     const messages: WindowMessage[] = []
     for (const session of sessionRecords) {
-      if (!session?.messages)
-        continue
+      if (!session?.messages) continue
 
       for (const message of session.messages) {
-        if (message.role !== 'user' && message.role !== 'assistant')
-          continue
+        if (message.role !== 'user' && message.role !== 'assistant') continue
 
         const createdAt = typeof message.createdAt === 'number' ? message.createdAt : session.meta.updatedAt
-        if (createdAt <= fromTimestamp || createdAt > toTimestamp)
-          continue
+        if (createdAt <= fromTimestamp || createdAt > toTimestamp) continue
 
         const content = extractMessageText(message)
-        if (!content)
-          continue
+        if (!content) continue
 
         messages.push({
-          role: message.role,
           content,
           createdAt,
+          role: message.role,
         })
       }
     }
 
-    return messages
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .slice(-maxMessages)
+    return messages.sort((a, b) => a.createdAt - b.createdAt).slice(-maxMessages)
   }
 
   async function synthesizeForCharacter(characterId: string, options?: SynthesizeEchoOptions) {
     const card = cards.value.get(characterId)
-    if (!card)
-      throw new Error(`Character ${characterId} not found for echo synthesis.`)
+    if (!card) throw new Error(`Character ${characterId} not found for echo synthesis.`)
 
     const windowMessages = await collectWindowMessages(characterId, options)
     if (windowMessages.length === 0)
@@ -247,8 +232,7 @@ Output a JSON object with a "pills" array.
       const providerId = card.extensions?.airi?.modules?.consciousness?.provider || globalProviderId.value
       const modelId = card.extensions?.airi?.modules?.consciousness?.model || globalModelId.value
 
-      if (!providerId || !modelId)
-        throw new Error('No provider/model configured for echo synthesis.')
+      if (!providerId || !modelId) throw new Error('No provider/model configured for echo synthesis.')
 
       if (!options?.force && !providersStore.configuredProviders[providerId]) {
         // eslint-disable-next-line no-console
@@ -257,26 +241,25 @@ Output a JSON object with a "pills" array.
       }
 
       const provider = await providersStore.getProviderInstance<ChatProvider>(providerId)
-      if (!provider)
-        throw new Error(`Failed to resolve provider instance for "${providerId}".`)
+      if (!provider) throw new Error(`Failed to resolve provider instance for "${providerId}".`)
 
       const res = await llmStore.generateObject(modelId, provider, {
-        messages: [{ role: 'user', content: prompt }],
-        schema: ArtifactsSchema,
+        messages: [{ content: prompt, role: 'user' }],
         normalize: (parsed: any) => {
           if (Array.isArray(parsed.pills)) {
             parsed.pills = parsed.pills.map((p: any) => ({
               ...p,
               content: p.content || p.pill || p.text || 'Untitled',
-              type: normalizeChipType(p.type || p.category || (p.mood ? 'mood' : 'flavor')),
-              relevanceScore: typeof p.relevanceScore === 'number' ? p.relevanceScore : 0.8,
               evidence_indices: Array.isArray(p.evidence_indices)
                 ? p.evidence_indices.filter((value: unknown) => typeof value === 'number')
                 : [],
+              relevanceScore: typeof p.relevanceScore === 'number' ? p.relevanceScore : 0.8,
+              type: normalizeChipType(p.type || p.category || (p.mood ? 'mood' : 'flavor')),
             }))
           }
           return parsed
         },
+        schema: ArtifactsSchema,
       })
 
       await load()
@@ -284,39 +267,36 @@ Output a JSON object with a "pills" array.
       const anchorTimestamp = options?.toTimestamp ?? windowMessages[windowMessages.length - 1]?.createdAt ?? now
       const anchorDate = new Date(anchorTimestamp).toISOString().slice(0, 10)
       const newChips: EchoChip[] = res.pills.map((p: any) => ({
-        id: nanoid(),
-        userId: getCurrentUserId(),
         characterId,
-        date: anchorDate,
         content: p.content,
-        type: normalizeChipType(p.type),
-        relevanceScore: p.relevanceScore,
-        evidenceIndices: p.evidence_indices || [],
         createdAt: now,
+        date: anchorDate,
+        evidenceIndices: p.evidence_indices || [],
+        id: nanoid(),
+        relevanceScore: p.relevanceScore,
+        type: normalizeChipType(p.type),
+        userId: getCurrentUserId(),
       }))
 
       await persist([...newChips, ...chips.value])
 
       return newChips
-    }
-    catch (err) {
+    } catch (err) {
       console.group('Echo Synthesis Critical Failure')
       console.error('Error Object:', err)
-      if (err instanceof Error)
-        console.error('Stack:', err.stack)
+      if (err instanceof Error) console.error('Stack:', err.stack)
       console.groupEnd()
       throw err
-    }
-    finally {
+    } finally {
       loading.value = false
     }
   }
 
   return {
     chips: sortedChips,
-    loading,
-    load,
     getCharacterChips,
+    load,
+    loading,
     synthesizeForCharacter,
   }
 })

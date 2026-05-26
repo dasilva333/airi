@@ -1,5 +1,5 @@
-export { default as AudioSpectrumVisualizer } from './audio-spectrum-visualizer.vue'
 export { default as AudioSpectrum } from './audio-spectrum.vue'
+export { default as AudioSpectrumVisualizer } from './audio-spectrum-visualizer.vue'
 export { default as LevelMeter } from './level-meter.vue'
 export { default as TestDummyMarker } from './test-dummy-marker.vue'
 export { default as ThresholdMeter } from './threshold-meter.vue'

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import type { ElectronMcpStdioConfigFile, ElectronMcpStdioRuntimeStatus, ElectronMcpToolDescriptor } from '../../../../shared/eventa'
-
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { Button } from '@proj-airi/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
+import type {
+  ElectronMcpStdioConfigFile,
+  ElectronMcpStdioRuntimeStatus,
+  ElectronMcpToolDescriptor,
+} from '../../../../shared/eventa'
 
 import {
   electronMcpApplyAndRestart,
@@ -44,7 +47,7 @@ interface RegistryServer {
   url: string
   source_code_url?: string
   package_name?: string
-  remotes?: Array<{ url_direct: string, transport: string }>
+  remotes?: Array<{ url_direct: string; transport: string }>
 }
 
 const searchQuery = ref('')
@@ -55,8 +58,7 @@ const registryError = ref('')
 const toolsByServer = computed(() => {
   const map: Record<string, ElectronMcpToolDescriptor[]> = {}
   for (const tool of tools.value) {
-    if (!map[tool.serverName])
-      map[tool.serverName] = []
+    if (!map[tool.serverName]) map[tool.serverName] = []
     map[tool.serverName].push(tool)
   }
   return map
@@ -64,10 +66,8 @@ const toolsByServer = computed(() => {
 
 function toggleServer(name: string) {
   const next = new Set(expandedServers.value)
-  if (next.has(name))
-    next.delete(name)
-  else
-    next.add(name)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
   expandedServers.value = next
 }
 
@@ -95,8 +95,7 @@ async function refreshStatus() {
     if (resStatus.status === 'fulfilled' && resStatus.value) {
       console.log('[MCP] Bridge Runtime status loaded:', resStatus.value)
       status.value = resStatus.value
-    }
-    else if (resStatus.status === 'rejected') {
+    } else if (resStatus.status === 'rejected') {
       console.error('[MCP] Bridge failed to get runtime status:', resStatus.reason)
       errorMessage.value = `Bridge Error: ${resStatus.reason?.message || resStatus.reason}`
     }
@@ -115,40 +114,36 @@ async function refreshStatus() {
       console.log('[MCP] No servers found from bridge, loading mock data...')
       status.value = {
         path: status.value?.path || 'mcp.json (Fallback)',
-        updatedAt: Date.now(),
         servers: [
           {
-            name: 'Example Filesystem Server (Mock)',
-            state: 'stopped',
-            command: 'npx',
             args: ['-y', '@modelcontextprotocol/server-filesystem', '/path/to/search'],
+            command: 'npx',
+            name: 'Example Filesystem Server (Mock)',
             pid: null,
+            state: 'stopped',
           },
         ],
+        updatedAt: Date.now(),
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('[MCP] Bridge is not yet available, falling back to IPC or mock.')
     // Fallback to direct IPC if bridge is missing
     try {
       const res = await getRuntimeStatus()
-      if (res)
-        status.value = res
-    }
-    catch (ipcErr) {
+      if (res) status.value = res
+    } catch (ipcErr) {
       console.error('[MCP] Direct IPC also failed:', ipcErr)
     }
 
     if (!status.value?.servers?.length) {
       status.value = {
         path: 'mcp.json (Bridge Missing)',
+        servers: [{ args: [], command: '', name: 'Bridge Sync Failure', pid: null, state: 'error' }],
         updatedAt: Date.now(),
-        servers: [{ name: 'Bridge Sync Failure', state: 'error', command: '', args: [], pid: null }],
       }
     }
-  }
-  finally {
+  } finally {
     isBusy.value = false
   }
 }
@@ -159,11 +154,9 @@ async function handleOpenConfigFile() {
   try {
     const result = await openConfigFile()
     lastActionMessage.value = `Configuration file opened at: ${result.path}`
-  }
-  catch (error) {
+  } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     isBusy.value = false
   }
 }
@@ -175,11 +168,9 @@ async function handleApplyAndRestart() {
     const result = await applyAndRestart()
     await refreshStatus()
     lastActionMessage.value = `MCP servers restarted. Started: ${result.started.length}, Failed: ${result.failed.length}, Skipped: ${result.skipped.length}`
-  }
-  catch (error) {
+  } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     isBusy.value = false
   }
 }
@@ -191,18 +182,15 @@ const fetchRegistry = useDebounceFn(async (query: string) => {
   try {
     const url = new URL('https://api.pulsemcp.com/v0beta/servers')
     url.searchParams.set('count_per_page', '30')
-    if (query)
-      url.searchParams.set('query', query)
+    if (query) url.searchParams.set('query', query)
 
     const response = await fetch(url.toString())
     const data = await response.json()
     registryServers.value = data.servers || []
-  }
-  catch (error) {
+  } catch (error) {
     registryError.value = 'Failed to load registry.'
     console.error(error)
-  }
-  finally {
+  } finally {
     isRegistryLoading.value = false
   }
 }, 300)
@@ -222,20 +210,17 @@ async function handleInstall(server: RegistryServer) {
     if (server.source_code_url?.includes('github.com')) {
       const parts = server.source_code_url.split('/')
       const repo = parts[4]?.replace('.git', '')
-      if (repo && repo.startsWith('mcp-server-'))
-        args.push(repo)
-      else
-        args.push(server.package_name || slug)
-    }
-    else {
+      if (repo && repo.startsWith('mcp-server-')) args.push(repo)
+      else args.push(server.package_name || slug)
+    } else {
       args.push(slug)
     }
 
     await updateConfig({
       mcpServers: {
         [slug]: {
-          command,
           args,
+          command,
           enabled: true,
         },
       },
@@ -244,11 +229,9 @@ async function handleInstall(server: RegistryServer) {
     await handleApplyAndRestart()
     currentTab.value = 'manage'
     lastActionMessage.value = `Successfully installed ${server.name}`
-  }
-  catch (error) {
+  } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     isBusy.value = false
   }
 }

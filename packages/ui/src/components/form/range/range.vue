@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 
-const props = withDefaults(defineProps<{
-  min?: number
-  max?: number
-  step?: number
-  disabled?: boolean
-  thumbColor?: string
-  trackColor?: string
-  trackValueColor?: string
-}>(), {
-  min: 0,
-  max: 100,
-  step: 1,
-  disabled: false,
-  thumbColor: '#9090906e',
-  trackColor: 'gray',
-  trackValueColor: 'red',
-})
+const props = withDefaults(
+  defineProps<{
+    min?: number
+    max?: number
+    step?: number
+    disabled?: boolean
+    thumbColor?: string
+    trackColor?: string
+    trackValueColor?: string
+  }>(),
+  {
+    disabled: false,
+    max: 100,
+    min: 0,
+    step: 1,
+    thumbColor: '#9090906e',
+    trackColor: 'gray',
+    trackValueColor: 'red',
+  },
+)
 
 const modelValue = defineModel<number>({ required: true })
 

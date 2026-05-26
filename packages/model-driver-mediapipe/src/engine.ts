@@ -1,4 +1,12 @@
-import type { FrameSource, MocapBackend, MocapConfig, MocapEngine, MocapJob, PerceptionPartial, PerceptionState } from './types'
+import type {
+  FrameSource,
+  MocapBackend,
+  MocapConfig,
+  MocapEngine,
+  MocapJob,
+  PerceptionPartial,
+  PerceptionState,
+} from './types'
 
 export function createStats() {
   let lastTs = 0
@@ -14,11 +22,10 @@ export function createStats() {
     const dt = nowMs - lastTs
     lastTs = nowMs
 
-    if (dt <= 0)
-      return smoothedFps
+    if (dt <= 0) return smoothedFps
 
     const fps = 1000 / dt
-    smoothedFps = smoothedFps ? (smoothedFps * 0.9 + fps * 0.1) : fps
+    smoothedFps = smoothedFps ? smoothedFps * 0.9 + fps * 0.1 : fps
 
     return smoothedFps
   }
@@ -28,7 +35,7 @@ export function createStats() {
 
 export function createScheduler(initialConfig: MocapConfig) {
   let config = initialConfig
-  const lastRun: Record<MocapJob, number> = { pose: 0, hands: 0, face: 0 }
+  const lastRun: Record<MocapJob, number> = { face: 0, hands: 0, pose: 0 }
 
   function updateConfig(next: MocapConfig) {
     config = next
@@ -38,19 +45,15 @@ export function createScheduler(initialConfig: MocapConfig) {
     const jobs: MocapJob[] = []
 
     for (const job of ['pose', 'hands', 'face'] as const) {
-      if (!config.enabled[job])
-        continue
+      if (!config.enabled[job]) continue
 
       const hz = config.hz[job]
-      if (!hz || hz <= 0)
-        continue
+      if (!hz || hz <= 0) continue
 
-      if (nowMs - lastRun[job] >= (1000 / hz))
-        jobs.push(job)
+      if (nowMs - lastRun[job] >= 1000 / hz) jobs.push(job)
     }
 
-    for (const j of jobs)
-      lastRun[j] = nowMs
+    for (const j of jobs) lastRun[j] = nowMs
 
     return jobs
   }
@@ -95,8 +98,7 @@ export function createMocapEngine(backend: MocapBackend, initialConfig: MocapCon
 
     const tick = async () => {
       try {
-        if (!running)
-          return
+        if (!running) return
 
         const frame = source.getFrame()
         const now = performance.now()
@@ -119,17 +121,16 @@ export function createMocapEngine(backend: MocapBackend, initialConfig: MocapCon
           t: now,
           ...lastPartial,
           quality: {
+            backend: 'mediapipe',
+            droppedFrames,
             fps: stats.tick(now),
             latencyMs,
-            droppedFrames,
-            backend: 'mediapipe',
             mode: 'split-tasks',
           },
         })
 
         rafId = requestAnimationFrame(tick)
-      }
-      catch (err) {
+      } catch (err) {
         // Stop the loop to avoid spamming errors; consumers can restart.
         stop()
         options?.onError?.(err)
@@ -141,16 +142,15 @@ export function createMocapEngine(backend: MocapBackend, initialConfig: MocapCon
 
   function stop() {
     running = false
-    if (rafId != null)
-      cancelAnimationFrame(rafId)
+    if (rafId != null) cancelAnimationFrame(rafId)
     rafId = undefined
   }
 
   return {
     init,
+    resetState,
     start,
     stop,
     updateConfig,
-    resetState,
   }
 }

@@ -1,41 +1,42 @@
 <script setup lang="ts">
-import type { Emotion } from '../../constants/emotions'
-
 import { Screen } from '@proj-airi/ui'
 import { ref, watch } from 'vue'
+import type { Emotion } from '../../constants/emotions'
 
 import SpineCanvas from './spine/Canvas.vue'
 import SpineModel from './spine/Model.vue'
 
-withDefaults(defineProps<{
-  modelSrc?: string
-  modelId?: string
-  paused?: boolean
-  premultipliedAlpha?: boolean
-  defaultMixDuration?: number
-  idleAnimationEnabled?: boolean
-  maxFps?: number
-  renderScale?: number
-  interactionMode?: 'orbit' | 'tactile'
-  xOffset?: number
-  yOffset?: number
-  scale?: number
-}>(), {
-  paused: false,
-  premultipliedAlpha: false,
-  defaultMixDuration: 0.2,
-  idleAnimationEnabled: true,
-  maxFps: 0,
-  renderScale: 1,
-  interactionMode: 'orbit',
-  xOffset: 0,
-  yOffset: 0,
-  scale: 1,
-})
+withDefaults(
+  defineProps<{
+    modelSrc?: string
+    modelId?: string
+    paused?: boolean
+    premultipliedAlpha?: boolean
+    defaultMixDuration?: number
+    idleAnimationEnabled?: boolean
+    maxFps?: number
+    renderScale?: number
+    interactionMode?: 'orbit' | 'tactile'
+    xOffset?: number
+    yOffset?: number
+    scale?: number
+  }>(),
+  {
+    defaultMixDuration: 0.2,
+    idleAnimationEnabled: true,
+    interactionMode: 'orbit',
+    maxFps: 0,
+    paused: false,
+    premultipliedAlpha: false,
+    renderScale: 1,
+    scale: 1,
+    xOffset: 0,
+    yOffset: 0,
+  },
+)
 
-const emits = defineEmits<{
-  (e: 'hitAreaHover', value: { name: string, x: number, y: number, hovered: boolean } | null): void
-}>()
+const emits =
+  defineEmits<(e: 'hitAreaHover', value: { name: string; x: number; y: number; hovered: boolean } | null) => void>()
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 const componentStateCanvas = defineModel<'pending' | 'loading' | 'mounted'>('canvasState', { default: 'pending' })
 const componentStateModel = defineModel<'pending' | 'loading' | 'mounted'>('modelState', { default: 'pending' })
@@ -43,30 +44,28 @@ const componentStateModel = defineModel<'pending' | 'loading' | 'mounted'>('mode
 const canvasRef = ref<InstanceType<typeof SpineCanvas>>()
 const modelRef = ref<InstanceType<typeof SpineModel>>()
 
-const hoverState = ref<{ name: string, x: number, y: number } | null>(null)
+const hoverState = ref<{ name: string; x: number; y: number } | null>(null)
 
-function handleHitAreaHover(value: { name: string, x: number, y: number, hovered: boolean } | null) {
+function handleHitAreaHover(value: { name: string; x: number; y: number; hovered: boolean } | null) {
   if (value && value.hovered) {
     hoverState.value = value
-  }
-  else {
+  } else {
     hoverState.value = null
   }
   emits('hitAreaHover', value)
 }
 
 watch([componentStateModel, componentStateCanvas], () => {
-  componentState.value = (componentStateModel.value === 'mounted' && componentStateCanvas.value === 'mounted')
-    ? 'mounted'
-    : 'loading'
+  componentState.value =
+    componentStateModel.value === 'mounted' && componentStateCanvas.value === 'mounted' ? 'mounted' : 'loading'
 })
 
 defineExpose({
   canvasElement: () => canvasRef.value?.canvasElement(),
   captureFrame: () => canvasRef.value?.captureFrame(),
-  setEmotion: (emotion: Emotion, intensity?: number) => modelRef.value?.setEmotion(emotion, intensity),
   listAnimations: () => modelRef.value?.listAnimations() ?? [],
   listSkins: () => modelRef.value?.listSkins() ?? [],
+  setEmotion: (emotion: Emotion, intensity?: number) => modelRef.value?.setEmotion(emotion, intensity),
 })
 </script>
 

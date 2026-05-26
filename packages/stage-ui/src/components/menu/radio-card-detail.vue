@@ -2,29 +2,32 @@
 import { Input, TransitionVertical } from '@proj-airi/ui'
 import { ref } from 'vue'
 
-withDefaults(defineProps<{
-  id: string
-  name: string
-  value: string
-  title: string
-  description?: string
-  deprecated?: boolean
-  showExpandCollapse?: boolean
-  expandCollapseThreshold?: number
-  customInputValue?: string
-  customInputPlaceholder?: string
-  showCustomInput?: boolean
-  pricing?: 'free' | 'paid'
-  deployment?: 'local' | 'cloud'
-  beginnerRecommended?: boolean
-}>(), {
-  deprecated: false,
-  showExpandCollapse: true,
-  expandCollapseThreshold: 100,
-  customInputValue: '',
-  customInputPlaceholder: '',
-  showCustomInput: false,
-})
+withDefaults(
+  defineProps<{
+    id: string
+    name: string
+    value: string
+    title: string
+    description?: string
+    deprecated?: boolean
+    showExpandCollapse?: boolean
+    expandCollapseThreshold?: number
+    customInputValue?: string
+    customInputPlaceholder?: string
+    showCustomInput?: boolean
+    pricing?: 'free' | 'paid'
+    deployment?: 'local' | 'cloud'
+    beginnerRecommended?: boolean
+  }>(),
+  {
+    customInputPlaceholder: '',
+    customInputValue: '',
+    deprecated: false,
+    expandCollapseThreshold: 100,
+    showCustomInput: false,
+    showExpandCollapse: true,
+  },
+)
 
 const modelValue = defineModel<string>({ required: true })
 

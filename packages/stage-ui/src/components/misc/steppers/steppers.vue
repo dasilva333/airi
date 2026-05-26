@@ -1,18 +1,19 @@
 <script setup lang="ts" generic="T extends Record<string, any> | any">
 import { computed, useSlots } from 'vue'
 
-const props = withDefaults(defineProps<{
-  steps: T[]
-  stepKey?: keyof T | string
-}>(), {
-  stepKey: 'id',
-})
+const props = withDefaults(
+  defineProps<{
+    steps: T[]
+    stepKey?: keyof T | string
+  }>(),
+  {
+    stepKey: 'id',
+  },
+)
 
-const emit = defineEmits<{
-  (e: 'finish'): void
-}>()
+const emit = defineEmits<(e: 'finish') => void>()
 
-const value = defineModel<number>({ required: false, default: 0 })
+const value = defineModel<number>({ default: 0, required: false })
 
 const slots = useSlots()
 
@@ -35,8 +36,7 @@ function back() {
 function next() {
   if (isLastStep.value) {
     emit('finish')
-  }
-  else {
+  } else {
     value.value++
   }
 }

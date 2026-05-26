@@ -9,33 +9,36 @@ interface VirtualSection {
   items: TItem[]
 }
 
-const props = withDefaults(defineProps<{
-  items?: TItem[]
-  sections?: TSection[]
+const props = withDefaults(
+  defineProps<{
+    items?: TItem[]
+    sections?: TSection[]
 
-  getItems?: (section: TSection) => TItem[]
-  getKey?: (item: TItem) => string | number
+    getItems?: (section: TSection) => TItem[]
+    getKey?: (item: TItem) => string | number
 
-  columns?: number | Record<string, number>
+    columns?: number | Record<string, number>
 
-  originIndex?: number
-  animationInitial?: Record<string, unknown>
-  animationEnter?: Record<string, unknown>
-  animationDuration?: number
-  delayPerUnit?: number
-}>(), {
-  columns: () => ({ default: 1, sm: 2, xl: 3 }),
-  originIndex: 0,
-  animationInitial: () => ({ opacity: 0, y: 10 }),
-  animationEnter: () => ({ opacity: 1, y: 0 }),
-  animationDuration: 250,
-  delayPerUnit: 80,
-  getItems: (section: any) => section.items || [],
-  getKey: (item: any) => item.id ?? item.key,
-})
+    originIndex?: number
+    animationInitial?: Record<string, unknown>
+    animationEnter?: Record<string, unknown>
+    animationDuration?: number
+    delayPerUnit?: number
+  }>(),
+  {
+    animationDuration: 250,
+    animationEnter: () => ({ opacity: 1, y: 0 }),
+    animationInitial: () => ({ opacity: 0, y: 10 }),
+    columns: () => ({ default: 1, sm: 2, xl: 3 }),
+    delayPerUnit: 80,
+    getItems: (section: any) => section.items || [],
+    getKey: (item: any) => item.id ?? item.key,
+    originIndex: 0,
+  },
+)
 
 const emit = defineEmits<{
-  itemClick: [payload: { item: TItem, globalIndex: number }]
+  itemClick: [payload: { item: TItem; globalIndex: number }]
 }>()
 
 const breakpoints = useBreakpoints(breakpointsTailwind)
@@ -50,8 +53,7 @@ const normalizedSections = computed(() => {
   return props.sections || []
 })
 const currentCols = computed(() => {
-  if (typeof props.columns === 'number')
-    return props.columns
+  if (typeof props.columns === 'number') return props.columns
 
   for (const key of COLUMN_ORDER) {
     if ((props.columns as any)[key] && breakpoints.greaterOrEqual(key).value) {
@@ -67,21 +69,21 @@ const sectionMeta = computed(() => {
     const items = isFlat.value ? (section as unknown as VirtualSection).items : props.getItems(section)
     const startIndex = globalCounter
     globalCounter += items.length
-    return { items, startIndex, count: items.length }
+    return { count: items.length, items, startIndex }
   })
 })
 
-const sectionItemCounts = computed(() => sectionMeta.value.map(m => m.count))
+const sectionItemCounts = computed(() => sectionMeta.value.map((m) => m.count))
 
 const { getDelay } = useGridRipple({
   cols: currentCols,
+  delayPerUnit: props.delayPerUnit,
   originIndex: toRef(props, 'originIndex'),
   sectionItemCounts,
-  delayPerUnit: props.delayPerUnit,
 })
 
 function handleItemClick(item: TItem, globalIndex: number) {
-  emit('itemClick', { item, globalIndex })
+  emit('itemClick', { globalIndex, item })
 }
 </script>
 

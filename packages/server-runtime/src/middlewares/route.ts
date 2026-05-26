@@ -4,10 +4,7 @@ import type { AuthenticatedPeer } from '../types'
 
 import { matchesDestinations, matchesLabelSelectors } from './route/match-expression'
 
-export type RouteDecision
-  = | { type: 'drop' }
-    | { type: 'broadcast' }
-    | { type: 'targets', targetIds: Set<string> }
+export type RouteDecision = { type: 'drop' } | { type: 'broadcast' } | { type: 'targets'; targetIds: Set<string> }
 
 export interface RoutingPolicy {
   allowPlugins?: string[]
@@ -74,11 +71,13 @@ export function createPolicyMiddleware(policy: RoutingPolicy): RouteMiddleware {
       }
     }
 
-    return { type: 'targets', targetIds }
+    return { targetIds, type: 'targets' }
   }
 }
 
-export function collectDestinations(event: WebSocketEvent | (Omit<WebSocketEvent, 'metadata'> & Partial<Pick<WebSocketEvent, 'metadata'>>)) {
+export function collectDestinations(
+  event: WebSocketEvent | (Omit<WebSocketEvent, 'metadata'> & Partial<Pick<WebSocketEvent, 'metadata'>>),
+) {
   if (event.route && 'destinations' in event.route) {
     return event.route.destinations
   }

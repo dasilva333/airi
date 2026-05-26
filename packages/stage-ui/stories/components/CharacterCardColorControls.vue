@@ -2,14 +2,14 @@
 import ColorPickerControl from './ColorPickerControl.vue'
 
 const DEFAULT_COLORS: Record<string, string> = {
+  backgroundColor: '#ffffff',
+  descriptionTextColor: '#474c57',
   primaryColor: '#f0f9fe',
   secondaryColor: '#fef1c9',
-  backgroundColor: '#ffffff',
+  subtitleTextColor: '#6693b6',
   textColor: '#607aa1',
   textShadowColor: '#f9fdff',
   textShadowSize: '0px 0px 1px',
-  descriptionTextColor: '#474c57',
-  subtitleTextColor: '#6693b6',
 }
 
 const DEFAULT_TEXT_SHADOW_SIZE = '0px 0px 3px'
@@ -25,10 +25,10 @@ const subtitleTextColor = defineModel<string>('subtitleTextColor', { required: t
 
 // Text shadow size options
 const textShadowSizeOptions = [
-  { value: '0px 0px 1px', label: 'Small' },
-  { value: '0px 0px 3px', label: 'Medium' },
-  { value: '0px 0px 5px', label: 'Large' },
-  { value: '1px 1px 3px', label: 'Offset' },
+  { label: 'Small', value: '0px 0px 1px' },
+  { label: 'Medium', value: '0px 0px 3px' },
+  { label: 'Large', value: '0px 0px 5px' },
+  { label: 'Offset', value: '1px 1px 3px' },
 ]
 
 function resetToDefault() {

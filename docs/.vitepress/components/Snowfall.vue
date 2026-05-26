@@ -90,16 +90,14 @@ function generateSnowCSS(count: number, pageHeightVh: number) {
 
 function clearSnow() {
   const container = snowContainer.value
-  if (!container)
-    return
+  if (!container) return
 
   container.innerHTML = ''
 }
 
 function generateSnowflakes(count: number) {
   const container = snowContainer.value
-  if (!container)
-    return
+  if (!container) return
 
   container.innerHTML = ''
 
@@ -112,8 +110,7 @@ function generateSnowflakes(count: number) {
 
 function createSnow() {
   const container = snowContainer.value
-  if (!container)
-    return
+  if (!container) return
 
   const count = Number(container.dataset.count || SNOWFLAKE_COUNT)
   const { pageHeightVh } = getHeights()
@@ -123,23 +120,20 @@ function createSnow() {
 }
 
 onMounted(() => {
-  if (import.meta.env.SSR)
-    return
+  if (import.meta.env.SSR) return
 
   createSnow()
 })
 
 watchEffect(() => {
-  if (import.meta.env.SSR)
-    return
+  if (import.meta.env.SSR) return
 
   const handleResize = () => createSnow()
 
   if (shouldReduceMotion.value) {
     clearSnow()
     snowContainer.value?.style.setProperty('display', 'none')
-  }
-  else {
+  } else {
     snowContainer.value?.style.removeProperty('display')
     createSnow()
     useEventListener('resize', handleResize)

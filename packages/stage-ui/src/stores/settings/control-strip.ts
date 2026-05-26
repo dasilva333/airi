@@ -17,47 +17,50 @@ export interface ControlStripButton {
 const BUTTONS_CATALOG_VERSION = 'v4'
 
 const DEFAULT_BUTTONS: ControlStripButton[] = [
-  { id: 'chat', enabled: true, label: 'Chat Toggle', icon: 'i-solar:chat-line-linear' },
-  { id: 'mic', enabled: true, label: 'Microphone Toggle', icon: 'i-solar:muted-linear' },
-  { id: 'stage', enabled: true, label: 'Actor Stage', icon: 'i-solar:clapperboard-play-bold-duotone' },
-  { id: 'caption', enabled: true, label: 'Captions', icon: 'i-ph:closed-captioning-duotone' },
-  { id: 'gemini-session', enabled: true, label: 'Toggle Speech Session', icon: 'i-ph:sparkle' },
-  { id: 'settings', enabled: true, label: 'Settings', icon: 'i-solar:settings-linear' },
-  { id: 'layout', enabled: true, label: 'Customize Control Strip', icon: 'i-solar:widget-linear' },
-  { id: 'viewport-auto-hide', enabled: true, label: 'Auto Hide / Always Show', icon: 'i-ph:eye-slash' },
-  { id: 'gemini-witness', enabled: false, label: 'Witness Vision Mode', icon: 'i-solar:camera-linear' },
-  { id: 'gemini-frequency', enabled: false, label: 'Proactive Interval', icon: 'i-solar:clock-circle-linear' },
-  { id: 'gemini-tts', enabled: false, label: 'TTS Output Toggle', icon: 'i-solar:volume-loud-linear' },
-  { id: 'gemini-voice', enabled: false, label: 'Cycle Speakers', icon: 'i-solar:user-speak-linear' },
-  { id: 'gemini-schedule', enabled: false, label: 'Respect Schedule', icon: 'i-solar:calendar-linear' },
-  { id: 'gemini-grounding', enabled: false, label: 'Google Search Grounding', icon: 'i-solar:global-linear' },
+  { enabled: true, icon: 'i-solar:chat-line-linear', id: 'chat', label: 'Chat Toggle' },
+  { enabled: true, icon: 'i-solar:muted-linear', id: 'mic', label: 'Microphone Toggle' },
+  { enabled: true, icon: 'i-solar:clapperboard-play-bold-duotone', id: 'stage', label: 'Actor Stage' },
+  { enabled: true, icon: 'i-ph:closed-captioning-duotone', id: 'caption', label: 'Captions' },
+  { enabled: true, icon: 'i-ph:sparkle', id: 'gemini-session', label: 'Toggle Speech Session' },
+  { enabled: true, icon: 'i-solar:settings-linear', id: 'settings', label: 'Settings' },
+  { enabled: true, icon: 'i-solar:widget-linear', id: 'layout', label: 'Customize Control Strip' },
+  { enabled: true, icon: 'i-ph:eye-slash', id: 'viewport-auto-hide', label: 'Auto Hide / Always Show' },
+  { enabled: false, icon: 'i-solar:camera-linear', id: 'gemini-witness', label: 'Witness Vision Mode' },
+  { enabled: false, icon: 'i-solar:clock-circle-linear', id: 'gemini-frequency', label: 'Proactive Interval' },
+  { enabled: false, icon: 'i-solar:volume-loud-linear', id: 'gemini-tts', label: 'TTS Output Toggle' },
+  { enabled: false, icon: 'i-solar:user-speak-linear', id: 'gemini-voice', label: 'Cycle Speakers' },
+  { enabled: false, icon: 'i-solar:calendar-linear', id: 'gemini-schedule', label: 'Respect Schedule' },
+  { enabled: false, icon: 'i-solar:global-linear', id: 'gemini-grounding', label: 'Google Search Grounding' },
 ]
 
 export const useSettingsControlStrip = defineStore('settings-control-strip', () => {
-  const orientation = useLocalStorageManualReset<'vertical' | 'horizontal'>('settings/control-strip/orientation', 'vertical')
-  const stageMode = useLocalStorageManualReset<'positionMode' | 'dragMode' | 'tactileMode' | 'orbitMode'>('settings/control-strip/stage-mode', 'orbitMode')
+  const orientation = useLocalStorageManualReset<'vertical' | 'horizontal'>(
+    'settings/control-strip/orientation',
+    'vertical',
+  )
+  const stageMode = useLocalStorageManualReset<'positionMode' | 'dragMode' | 'tactileMode' | 'orbitMode'>(
+    'settings/control-strip/stage-mode',
+    'orbitMode',
+  )
   const interactionMode = computed({
     get: () => {
       const mode = stageMode.value
-      if (mode === 'tactileMode')
-        return 'tactile'
-      if (mode === 'dragMode')
-        return 'drag'
-      if (mode === 'positionMode')
-        return 'positioning'
+      if (mode === 'tactileMode') return 'tactile'
+      if (mode === 'dragMode') return 'drag'
+      if (mode === 'positionMode') return 'positioning'
       return 'orbit'
     },
     set: (val: 'tactile' | 'drag' | 'positioning' | 'orbit') => {
-      if (val === 'tactile')
-        stageMode.value = 'tactileMode'
-      else if (val === 'drag')
-        stageMode.value = 'dragMode'
-      else if (val === 'positioning')
-        stageMode.value = 'positionMode'
+      if (val === 'tactile') stageMode.value = 'tactileMode'
+      else if (val === 'drag') stageMode.value = 'dragMode'
+      else if (val === 'positioning') stageMode.value = 'positionMode'
       else stageMode.value = 'orbitMode'
     },
   })
-  const isAdvancedPositioningOpen = useLocalStorageManualReset<boolean>('settings/control-strip/advanced-positioning-open', false)
+  const isAdvancedPositioningOpen = useLocalStorageManualReset<boolean>(
+    'settings/control-strip/advanced-positioning-open',
+    false,
+  )
   const stageEnabled = useLocalStorageManualReset<boolean>('settings/stage-enabled', true)
   const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', false)
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
@@ -77,30 +80,25 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   if (storedVersion !== BUTTONS_CATALOG_VERSION) {
     buttons.value = [...DEFAULT_BUTTONS]
     localStorage.setItem('settings/control-strip/buttons-version', BUTTONS_CATALOG_VERSION)
-  }
-  else if (Array.isArray(buttons.value)) {
+  } else if (Array.isArray(buttons.value)) {
     // Version matches: merge carefully, preserving user's enabled states and custom order.
     // NOTICE: We validate against ALL_KNOWN_IDS (DEFAULT_BUTTONS + full CUSTOMIZER_CATALOG)
     // because users can enable catalog items (like always-on-top) that aren't in DEFAULT_BUTTONS.
     // Previously this only checked DEFAULT_BUTTONS, which stripped user-added catalog items on reload.
-    const allCatalogItems = CUSTOMIZER_CATALOG.flatMap(g => g.items)
-    const allKnownIds = new Set([
-      ...DEFAULT_BUTTONS.map(b => b.id),
-      ...allCatalogItems.map(i => i.id),
-    ])
+    const allCatalogItems = CUSTOMIZER_CATALOG.flatMap((g) => g.items)
+    const allKnownIds = new Set([...DEFAULT_BUTTONS.map((b) => b.id), ...allCatalogItems.map((i) => i.id)])
 
     let changed = false
     const existing = [...buttons.value]
 
     // 1. Remove buttons whose IDs no longer exist in either DEFAULT_BUTTONS or the catalog
-    const filtered = existing.filter(btn => allKnownIds.has(btn.id))
-    if (filtered.length !== existing.length)
-      changed = true
+    const filtered = existing.filter((btn) => allKnownIds.has(btn.id))
+    if (filtered.length !== existing.length) changed = true
 
     // 2. Sync icons/labels from DEFAULT_BUTTONS or catalog; preserve user's enabled state
     const updated = filtered.map((btn) => {
-      const def = DEFAULT_BUTTONS.find(d => d.id === btn.id)
-      const catalogDef = allCatalogItems.find(c => c.id === btn.id)
+      const def = DEFAULT_BUTTONS.find((d) => d.id === btn.id)
+      const catalogDef = allCatalogItems.find((c) => c.id === btn.id)
       const canonical = def || catalogDef
       if (canonical && (btn.icon !== canonical.icon || btn.label !== canonical.label)) {
         changed = true
@@ -111,14 +109,13 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
 
     // 3. Append any DEFAULT_BUTTONS entries not yet in the user's list
     for (const def of DEFAULT_BUTTONS) {
-      if (!updated.some(btn => btn.id === def.id)) {
+      if (!updated.some((btn) => btn.id === def.id)) {
         updated.push({ ...def })
         changed = true
       }
     }
 
-    if (changed)
-      buttons.value = updated
+    if (changed) buttons.value = updated
   }
 
   function toggleOrientation() {
@@ -128,14 +125,11 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   function cycleStageMode() {
     if (stageMode.value === 'tactileMode') {
       stageMode.value = 'dragMode'
-    }
-    else if (stageMode.value === 'dragMode') {
+    } else if (stageMode.value === 'dragMode') {
       stageMode.value = 'positionMode'
-    }
-    else if (stageMode.value === 'positionMode') {
+    } else if (stageMode.value === 'positionMode') {
       stageMode.value = 'orbitMode'
-    }
-    else {
+    } else {
       stageMode.value = 'tactileMode'
     }
   }
@@ -158,20 +152,20 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   }
 
   return {
-    orientation,
-    stageMode,
+    backgroundTint,
+    buttons,
+    captionOpen,
+    chatOpen,
+    collapsed,
+    cycleInteractionMode: cycleStageMode,
+    cycleStageMode,
     interactionMode,
     isAdvancedPositioningOpen,
-    stageEnabled,
-    chatOpen,
-    captionOpen,
-    buttons,
-    backgroundTint,
-    collapsed,
-    toggleOrientation,
-    cycleStageMode,
-    cycleInteractionMode: cycleStageMode,
+    orientation,
     resetButtons,
     resetState,
+    stageEnabled,
+    stageMode,
+    toggleOrientation,
   }
 })

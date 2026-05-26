@@ -1,37 +1,37 @@
 {
-  "name": "@proj-airi/electron-eventa",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "private": true,
-  "description": "Shared Eventa contracts for Electron IPC",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/electron-eventa"
+  "dependencies": {
+    "@moeru/eventa": "catalog:",
+    "builder-util-runtime": "catalog:"
   },
+  "description": "Shared Eventa contracts for Electron IPC",
   "exports": {
     ".": "./dist/index.mjs",
     "./electron": "./dist/electron/index.mjs",
     "./electron-updater": "./dist/electron-updater/index.mjs",
     "./package.json": "./package.json"
   },
-  "types": "./dist/index.d.mts",
-  "scripts": {
-    "dev": "pnpm run build",
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit"
-  },
+  "license": "MIT",
+  "name": "@proj-airi/electron-eventa",
   "peerDependencies": {
     "electron": ">=39 <41"
   },
-  "dependencies": {
-    "@moeru/eventa": "catalog:",
-    "builder-util-runtime": "catalog:"
-  }
+  "private": true,
+  "repository": {
+    "directory": "packages/electron-eventa",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "pnpm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "version": "0.9.0-alpha.15"
 }

@@ -10,24 +10,20 @@ function isColorPair(value: unknown): value is string {
 function joinMultiplyScreen(multiply: unknown, screen: unknown): string | undefined {
   const m = typeof multiply === 'string' ? multiply.replace('#', '') : ''
   const s = typeof screen === 'string' ? screen.replace('#', '') : ''
-  if (HEX8_RE.test(m) && HEX8_RE.test(s))
-    return `${m}|${s}`
+  if (HEX8_RE.test(m) && HEX8_RE.test(s)) return `${m}|${s}`
   return undefined
 }
 
 function normalizeColorMap(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== 'object')
-    return {}
+  if (!raw || typeof raw !== 'object') return {}
 
   if (Array.isArray(raw)) {
     const result: Record<string, string> = {}
     for (const item of raw) {
-      if (!item || typeof item !== 'object')
-        continue
+      if (!item || typeof item !== 'object') continue
       const entry = item as Record<string, unknown>
       const id = entry.ID ?? entry.Id ?? entry.id ?? entry.Name ?? entry.name
-      if (typeof id !== 'string')
-        continue
+      if (typeof id !== 'string') continue
 
       const direct = entry.Value ?? entry.value
       if (isColorPair(direct)) {
@@ -39,8 +35,7 @@ function normalizeColorMap(raw: unknown): Record<string, string> {
         entry.Multiply ?? entry.multiply ?? entry.MultiplyColor ?? entry.multiplyColor,
         entry.Screen ?? entry.screen ?? entry.ScreenColor ?? entry.screenColor,
       )
-      if (joined)
-        result[id] = joined
+      if (joined) result[id] = joined
     }
     return result
   }
@@ -64,8 +59,7 @@ function normalizeColorMap(raw: unknown): Record<string, string> {
         nested.Multiply ?? nested.multiply ?? nested.MultiplyColor ?? nested.multiplyColor,
         nested.Screen ?? nested.screen ?? nested.ScreenColor ?? nested.screenColor,
       )
-      if (joined)
-        result[key] = joined
+      if (joined) result[key] = joined
     }
   }
 
@@ -74,26 +68,20 @@ function normalizeColorMap(raw: unknown): Record<string, string> {
 
 /** Deep-search .vtube.json for any object that looks like an ArtMesh color table. */
 function findNestedColorMaps(root: unknown, depth = 0): Record<string, string>[] {
-  if (depth > 10 || root == null)
-    return []
+  if (depth > 10 || root == null) return []
 
   const found: Record<string, string>[] = []
 
   if (typeof root === 'object') {
     if (Array.isArray(root)) {
       const fromArray = normalizeColorMap(root)
-      if (Object.keys(fromArray).length > 0)
-        found.push(fromArray)
-      for (const item of root)
-        found.push(...findNestedColorMaps(item, depth + 1))
-    }
-    else {
+      if (Object.keys(fromArray).length > 0) found.push(fromArray)
+      for (const item of root) found.push(...findNestedColorMaps(item, depth + 1))
+    } else {
       const record = root as Record<string, unknown>
       const direct = normalizeColorMap(record)
-      if (Object.keys(direct).length > 0)
-        found.push(direct)
-      for (const value of Object.values(record))
-        found.push(...findNestedColorMaps(value, depth + 1))
+      if (Object.keys(direct).length > 0) found.push(direct)
+      for (const value of Object.values(record)) found.push(...findNestedColorMaps(value, depth + 1))
     }
   }
 
@@ -101,48 +89,40 @@ function findNestedColorMaps(root: unknown, depth = 0): Record<string, string>[]
 }
 
 function pickLargestMap(maps: Record<string, string>[]): Record<string, string> {
-  return maps.reduce((best, current) =>
-    Object.keys(current).length > Object.keys(best).length ? current : best, {})
+  return maps.reduce((best, current) => (Object.keys(current).length > Object.keys(best).length ? current : best), {})
 }
 
 function resolvePresetColors(vtubeData: Record<string, unknown>): Record<string, string> {
   const presetRoot = vtubeData.ColorScreenMultiplyPreset
   const fromRoot = normalizeColorMap(presetRoot)
-  if (Object.keys(fromRoot).length > 0)
-    return fromRoot
+  if (Object.keys(fromRoot).length > 0) return fromRoot
 
   const nested = (presetRoot as { ArtMeshMultiplyAndScreenColors?: unknown } | undefined)
     ?.ArtMeshMultiplyAndScreenColors
   const fromNested = normalizeColorMap(nested)
-  if (Object.keys(fromNested).length > 0)
-    return fromNested
+  if (Object.keys(fromNested).length > 0) return fromNested
 
-  const presetsList = vtubeData.ColorScreenMultiplyPresets
-    ?? vtubeData.ColorScreenMultiplyPresetList
-    ?? (vtubeData.ColorScreenMultiplyPreset as { Presets?: unknown } | undefined)?.Presets
+  const presetsList =
+    vtubeData.ColorScreenMultiplyPresets ??
+    vtubeData.ColorScreenMultiplyPresetList ??
+    (vtubeData.ColorScreenMultiplyPreset as { Presets?: unknown } | undefined)?.Presets
 
-  if (!Array.isArray(presetsList))
-    return {}
+  if (!Array.isArray(presetsList)) return {}
 
-  const activeName = vtubeData.ColorScreenMultiplyPresetName
-    ?? vtubeData.ActiveColorScreenMultiplyPresetName
-    ?? (vtubeData.ColorScreenMultiplyPreset as { Name?: string } | undefined)?.Name
+  const activeName =
+    vtubeData.ColorScreenMultiplyPresetName ??
+    vtubeData.ActiveColorScreenMultiplyPresetName ??
+    (vtubeData.ColorScreenMultiplyPreset as { Name?: string } | undefined)?.Name
 
   const presets = presetsList as Record<string, unknown>[]
-  const active = typeof activeName === 'string'
-    ? presets.find(p => (p.Name ?? p.name) === activeName)
-    : undefined
+  const active = typeof activeName === 'string' ? presets.find((p) => (p.Name ?? p.name) === activeName) : undefined
 
   for (const candidate of [active, ...presets]) {
-    if (!candidate)
-      continue
+    if (!candidate) continue
     const colors = normalizeColorMap(
-      candidate.ArtMeshMultiplyAndScreenColors
-      ?? candidate.artMeshMultiplyAndScreenColors
-      ?? candidate,
+      candidate.ArtMeshMultiplyAndScreenColors ?? candidate.artMeshMultiplyAndScreenColors ?? candidate,
     )
-    if (Object.keys(colors).length > 0)
-      return colors
+    if (Object.keys(colors).length > 0) return colors
   }
 
   return {}
@@ -159,8 +139,7 @@ export function extractArtMeshColorsFromVTube(vtubeData: Record<string, unknown>
 
   for (const candidate of explicitPaths) {
     const map = normalizeColorMap(candidate)
-    if (Object.keys(map).length > 0)
-      return map
+    if (Object.keys(map).length > 0) return map
   }
 
   const nested = pickLargestMap(findNestedColorMaps(vtubeData))
@@ -168,5 +147,5 @@ export function extractArtMeshColorsFromVTube(vtubeData: Record<string, unknown>
 }
 
 export function listVTubeColorRelatedKeys(vtubeData: Record<string, unknown>): string[] {
-  return Object.keys(vtubeData).filter(key => /art|color|mesh|screen|multiply/i.test(key))
+  return Object.keys(vtubeData).filter((key) => /art|color|mesh|screen|multiply/i.test(key))
 }

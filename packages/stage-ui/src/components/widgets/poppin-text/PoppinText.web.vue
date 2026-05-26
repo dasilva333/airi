@@ -1,10 +1,9 @@
 <!-- Poppin'Text - Makes your text "kirakira dokidoki"!! -->
 
 <script setup lang="ts">
-import type { Animator } from './animators'
-
 import { readGraphemeClusters } from 'clustr'
 import { onMounted, ref, shallowRef, watch } from 'vue'
+import type { Animator } from './animators'
 
 const props = defineProps<{
   /**
@@ -16,40 +15,38 @@ const props = defineProps<{
   animator?: Animator
 }>()
 
-const emits = defineEmits<{
-  (e: 'textSplit', grapheme: string): void
-}>()
+const emits = defineEmits<(e: 'textSplit', grapheme: string) => void>()
 
 const targets = ref<string[]>([])
 const abortController = shallowRef<AbortController>()
 const segmenter = new Intl.Segmenter('und', { granularity: 'grapheme' })
 
-watch(() => props.text, async (text) => {
-  if (!text)
-    return
-  if (typeof text === 'string') {
-    targets.value = [...segmenter.segment(text)].map(seg => seg.segment)
-  }
-  else {
-    abortController.value?.abort()
-    abortController.value = new AbortController()
-    try {
-      targets.value = []
-      for await (const cluster of readGraphemeClusters(text.getReader(), { signal: abortController.value.signal })) {
-        targets.value.push(cluster)
-        emits('textSplit', cluster)
+watch(
+  () => props.text,
+  async (text) => {
+    if (!text) return
+    if (typeof text === 'string') {
+      targets.value = [...segmenter.segment(text)].map((seg) => seg.segment)
+    } else {
+      abortController.value?.abort()
+      abortController.value = new AbortController()
+      try {
+        targets.value = []
+        for await (const cluster of readGraphemeClusters(text.getReader(), { signal: abortController.value.signal })) {
+          targets.value.push(cluster)
+          emits('textSplit', cluster)
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Aborted') {
+          console.warn('Text reading aborted')
+        } else {
+          console.error('Error reading text:', error)
+        }
       }
     }
-    catch (error) {
-      if (error instanceof Error && error.message === 'Aborted') {
-        console.warn('Text reading aborted')
-      }
-      else {
-        console.error('Error reading text:', error)
-      }
-    }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 const elements = ref<HTMLElement[]>([])
 const animatorCleanupFn = shallowRef<() => void>()
@@ -60,16 +57,19 @@ onMounted(() => {
 
 const lastAnimatedIndex = ref(-1)
 
-watch([targets, () => props.animator], ([targets, animator]) => {
-  if (typeof props.text === 'string') {
-    animatorCleanupFn.value?.()
-    animatorCleanupFn.value = animator?.(elements.value)
-  }
-  else {
-    animator?.(elements.value.slice(lastAnimatedIndex.value, targets.length))
-    lastAnimatedIndex.value = targets.length
-  }
-}, { deep: true, flush: 'post' }) // <- Ensure post-update refs
+watch(
+  [targets, () => props.animator],
+  ([targets, animator]) => {
+    if (typeof props.text === 'string') {
+      animatorCleanupFn.value?.()
+      animatorCleanupFn.value = animator?.(elements.value)
+    } else {
+      animator?.(elements.value.slice(lastAnimatedIndex.value, targets.length))
+      lastAnimatedIndex.value = targets.length
+    }
+  },
+  { deep: true, flush: 'post' },
+) // <- Ensure post-update refs
 </script>
 
 <template>

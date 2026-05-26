@@ -1,38 +1,51 @@
 import type { VRM, VRMCore } from '@pixiv/three-vrm'
-import type { Mesh, Object3D, Scene } from 'three'
-
 import { VRMExpression, VRMExpressionMorphTargetBind } from '@pixiv/three-vrm'
 import { VRMLookAtQuaternionProxy } from '@pixiv/three-vrm-animation'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
+import type { Mesh, Object3D, Scene } from 'three'
 import { Box3, Group, Quaternion, Vector3 } from 'three'
-
 import { useVRMLoader } from './loader'
 
-interface GLTFUserdata extends Record<string, any> {
+interface GLTFUserdata extends Record<string, unknown> {
+  vrm?: VRM
   vrmCore?: VRMCore
 }
 
-export async function loadVrm(model: string, options?: {
-  scene?: Scene
-  lookAt?: boolean
-  onProgress?: (progress: ProgressEvent<EventTarget>) => void | Promise<void>
-}): Promise<{
-  _vrm: VRM
-  _vrmGroup: Group
-  modelCenter: Vector3
-  modelSize: Vector3
-  initialCameraOffset: Vector3
-  parser: any
-  unmappedExpressions: string[]
-} | undefined> {
+export async function loadVrm(
+  model: string,
+  options?: {
+    scene?: Scene
+    lookAt?: boolean
+    onProgress?: (progress: ProgressEvent<EventTarget>) => void | Promise<void>
+  },
+): Promise<
+  | {
+      _vrm: VRM
+      _vrmGroup: Group
+      modelCenter: Vector3
+      modelSize: Vector3
+      initialCameraOffset: Vector3
+      parser: any
+      unmappedExpressions: string[]
+    }
+  | undefined
+> {
+  vrmLogger.log('loadVrm: starting GLTF load...', { model })
+  vrmLogger.time('vrm:gltfLoad')
   const loader = useVRMLoader()
-  const gltf = await loader.loadAsync(model, progress => options?.onProgress?.(progress))
+  const gltf = await loader.loadAsync(model, (progress) => options?.onProgress?.(progress))
+  vrmLogger.timeEnd('vrm:gltfLoad')
 
   const userData = gltf.userData as GLTFUserdata
   if (!userData.vrm) {
+    vrmLogger.error('loadVrm: GLTF loaded but no VRM data found in userData')
     return
   }
 
   const _vrm = userData.vrm
+  vrmLogger.log('loadVrm: VRM data found ✓', {
+    expressionCount: Object.keys(_vrm.expressionManager?.expressionMap ?? {}).length,
+  })
 
   // calling these functions greatly improves the performance
   // VRMUtils.removeUnnecessaryVertices(_vrm.scene)
@@ -66,11 +79,13 @@ export async function loadVrm(model: string, options?: {
             // This allows it to be controlled via the standard VRM extension API
             // and discovered by AIRI's expression system.
             const newExpression = new VRMExpression(name)
-            newExpression.addBind(new VRMExpressionMorphTargetBind({
-              primitives: [mesh],
-              index: mesh.morphTargetDictionary![name],
-              weight: 1.0,
-            }))
+            newExpression.addBind(
+              new VRMExpressionMorphTargetBind({
+                index: mesh.morphTargetDictionary![name],
+                primitives: [mesh],
+                weight: 1.0,
+              }),
+            )
             _vrm.expressionManager!.registerExpression(newExpression)
           }
         })
@@ -106,11 +121,10 @@ export async function loadVrm(model: string, options?: {
     quaternion.setFromUnitVectors(facingDirection.normalize(), targetDirection.normalize())
     _vrmGroup.quaternion.premultiply(quaternion)
     _vrmGroup.updateMatrixWorld(true)
-  }
-  else {
+  } else {
     console.warn('No look-at target found in VRM model')
   }
-  (_vrm as VRM).springBoneManager?.reset()
+  ;(_vrm as VRM).springBoneManager?.reset()
   _vrmGroup.updateMatrixWorld(true)
 
   function computeBoundingBox(vrm: Object3D) {
@@ -120,19 +134,15 @@ export async function loadVrm(model: string, options?: {
     vrm.updateMatrixWorld(true)
 
     vrm.traverse((obj) => {
-      if (!obj.visible)
-        return
+      if (!obj.visible) return
       const mesh = obj as Mesh
-      if (!mesh.isMesh)
-        return
-      if (!mesh.geometry)
-        return
+      if (!mesh.isMesh) return
+      if (!mesh.geometry) return
       // This traverse mesh console print will be important for future debugging
       // console.debug("mesh node: ", mesh)
 
       // Selectively filter out VRM spring bone colliders
-      if (mesh.name.startsWith('VRMC_springBone_collider'))
-        return
+      if (mesh.name.startsWith('VRMC_springBone_collider')) return
 
       const geometry = mesh.geometry
       if (!geometry.boundingBox) {
@@ -161,8 +171,7 @@ export async function loadVrm(model: string, options?: {
     headBone.getWorldPosition(modelCenter)
     // Adjust focus slightly down to include the upper chest in the "headshot"
     modelCenter.y -= modelSize.y / 20
-  }
-  else {
+  } else {
     // Fallback to bounding box pivot if no humanoid head is found
     modelCenter.y += modelSize.y / 5
   }
@@ -170,7 +179,7 @@ export async function loadVrm(model: string, options?: {
   // Compute the initial camera position (once per loaded model)
   // In order to see the up-2/3 part fo the model, z = (y/3) / tan(fov/2)
   const fov = 40 // default fov = 40 degrees
-  const radians = (fov / 2 * Math.PI) / 180
+  const radians = ((fov / 2) * Math.PI) / 180
   const initialCameraOffset = new Vector3(
     modelSize.x / 16,
     modelSize.y / 8, // default y value
@@ -180,9 +189,9 @@ export async function loadVrm(model: string, options?: {
   return {
     _vrm,
     _vrmGroup,
+    initialCameraOffset,
     modelCenter,
     modelSize,
-    initialCameraOffset,
     parser: gltf.parser,
     unmappedExpressions,
   }

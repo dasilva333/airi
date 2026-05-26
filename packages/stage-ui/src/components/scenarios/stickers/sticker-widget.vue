@@ -29,13 +29,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (interval)
-    clearInterval(interval)
+  if (interval) clearInterval(interval)
 })
 
 const isExpiring = computed(() => {
-  if (!props.expiresAt)
-    return false
+  if (!props.expiresAt) return false
   return props.expiresAt - now.value < 5000
 })
 

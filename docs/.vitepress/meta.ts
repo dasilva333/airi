@@ -3,8 +3,8 @@
 /* Texts */
 export const projectName = 'Project AIRI'
 export const projectShortName = 'AIRI'
-export const projectDescription
-  = 'An open-source attempt to re-create Neuro-sama, the most famous AI VTuber on this earth, but also forming a cyber companion for everyone.'
+export const projectDescription =
+  'An open-source attempt to re-create Neuro-sama, the most famous AI VTuber on this earth, but also forming a cyber companion for everyone.'
 
 /* vitepress head */
 export const ogUrl = 'https://airi.moeru.ai/docs/'

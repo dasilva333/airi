@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import type { Ref, ShallowRef } from 'vue'
-
-import type { BackgroundOption } from './types'
-
 import { BasicInputFile } from '@proj-airi/ui'
 import { useObjectUrl } from '@vueuse/core'
 import { nanoid } from 'nanoid'
+import type { Ref, ShallowRef } from 'vue'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
-
 import { colorFromElement, patchThemeSamplingHtml2CanvasClone } from '../../../../libs'
 import { useSettings } from '../../../../stores/settings'
 import { BackgroundGradientOverlay } from '../../../layouts/backgrounds'
+import type { BackgroundOption } from './types'
 
-const props = withDefaults(defineProps<{
-  options: BackgroundOption[]
-  allowUpload?: boolean
-  idPrefix?: string
-}>(), {
-  allowUpload: false,
-  idPrefix: 'background-',
-})
+const props = withDefaults(
+  defineProps<{
+    options: BackgroundOption[]
+    allowUpload?: boolean
+    idPrefix?: string
+  }>(),
+  {
+    allowUpload: false,
+    idPrefix: 'background-',
+  },
+)
 
 const emit = defineEmits<{
-  (e: 'apply', payload: { option: BackgroundOption, color?: string }): void
-  (e: 'import', payload: { option: BackgroundOption, color?: string }): void
+  (e: 'apply', payload: { option: BackgroundOption; color?: string }): void
+  (e: 'import', payload: { option: BackgroundOption; color?: string }): void
   (e: 'change', payload: { option: BackgroundOption | undefined }): void
   (e: 'remove', option: BackgroundOption): void
 }>()
@@ -41,18 +41,20 @@ const selectedId = ref<string | undefined>(modelValue.value?.id)
 const busy = ref(false)
 
 const mergedOptions = computed(() => {
-  const propIds = new Set(props.options.map(o => o.id))
-  return [...props.options, ...customOptions.value.filter(o => !propIds.has(o.id))]
+  const propIds = new Set(props.options.map((o) => o.id))
+  return [...props.options, ...customOptions.value.filter((o) => !propIds.has(o.id))]
 })
-const selectedOption = computed(() => mergedOptions.value.find(option => option.id === selectedId.value))
+const selectedOption = computed(() => mergedOptions.value.find((option) => option.id === selectedId.value))
 const enableBlur = ref(modelValue.value?.blur ?? false)
 const previewColor = ref<string | undefined>(undefined)
 
-watch(() => modelValue.value?.id, (id) => {
-  if (id === undefined)
-    return
-  enableBlur.value = modelValue.value?.blur ?? false
-})
+watch(
+  () => modelValue.value?.id,
+  (id) => {
+    if (id === undefined) return
+    enableBlur.value = modelValue.value?.blur ?? false
+  },
+)
 
 function ensureObjectUrl(id: string, file: File) {
   let blobRef = blobRefs.get(id)
@@ -65,8 +67,7 @@ function ensureObjectUrl(id: string, file: File) {
     urlRefs.set(id, urlRef)
   }
 
-  if (blobRef.value !== file)
-    blobRef.value = file
+  if (blobRef.value !== file) blobRef.value = file
 
   return urlRef!.value!
 }
@@ -80,7 +81,7 @@ async function waitForPreviewReady() {
         image.addEventListener('load', () => resolve(), { once: true })
         image.addEventListener('error', () => reject(new Error('Preview image failed to load')), { once: true })
       }),
-      new Promise<void>(resolve => setTimeout(resolve, 3000)), // 3s timeout safety
+      new Promise<void>((resolve) => setTimeout(resolve, 3000)), // 3s timeout safety
     ])
   }
 }
@@ -102,36 +103,32 @@ watch(selectedOption, async (option) => {
   emit('change', { option })
   if (option?.kind === 'wave') {
     previewColor.value = themeColorsHue.toString()
-  }
-  else if (option) {
+  } else if (option) {
     await waitForPreviewReady()
     const result = await colorFromElement(previewRef.value!, {
-      mode: 'html2canvas',
       html2canvas: {
+        allowTaint: true,
+        backgroundColor: null,
+        onclone: patchThemeSamplingHtml2CanvasClone,
         region: {
+          height: Math.min(120, previewRef.value!.offsetHeight),
+          width: previewRef.value!.offsetWidth,
           x: 0,
           y: 0,
-          width: previewRef.value!.offsetWidth,
-          height: Math.min(120, previewRef.value!.offsetHeight),
         },
         scale: 0.2, // Use a small scale for faster preview sampling
-        backgroundColor: null,
-        allowTaint: true,
         useCORS: true,
-        onclone: patchThemeSamplingHtml2CanvasClone,
       },
+      mode: 'html2canvas',
     })
-    if (token === previewSamplingToken)
-      previewColor.value = result.html2canvas?.average
-  }
-  else {
+    if (token === previewSamplingToken) previewColor.value = result.html2canvas?.average
+  } else {
     previewColor.value = undefined
   }
 })
 
 function getPreviewSrc(option?: BackgroundOption) {
-  if (!option)
-    return ''
+  if (!option) return ''
 
   if (option.file) {
     return ensureObjectUrl(option.id, option.file)
@@ -143,10 +140,10 @@ function getPreviewSrc(option?: BackgroundOption) {
 async function handleFilesChange(files: File[]) {
   for (const file of files) {
     const option: BackgroundOption = {
-      id: `${props.idPrefix}custom-${nanoid(6)}`,
-      label: file.name || 'Custom Background',
       file,
+      id: `${props.idPrefix}custom-${nanoid(6)}`,
       kind: 'image',
+      label: file.name || 'Custom Background',
     }
     customOptions.value.push(option)
     selectedId.value = option.id
@@ -162,8 +159,7 @@ watch(uploadingFiles, (files) => {
 })
 
 async function applySelection(isImport = false) {
-  if (!selectedOption.value)
-    return
+  if (!selectedOption.value) return
 
   // If we are already sampling (from the watcher), wait for it or use the current previewColor
   // For auto-import, we might want to wait a bit to get a real color, or just use what we have.
@@ -173,11 +169,9 @@ async function applySelection(isImport = false) {
     if (selectedOption.value.kind === 'wave') {
       const color = themeColorsHue.toString()
 
-      const payload = { option: { ...selectedOption.value, blur: enableBlur.value }, color }
-      if (isImport)
-        (emit as any)('import', payload)
-      else
-        (emit as any)('apply', payload)
+      const payload = { color, option: { ...selectedOption.value, blur: enableBlur.value } }
+      if (isImport) (emit as any)('import', payload)
+      else (emit as any)('apply', payload)
       return
     }
 
@@ -186,20 +180,15 @@ async function applySelection(isImport = false) {
     if (!previewColor.value) {
       await waitForPreviewReady()
       // Give it a tiny bit more time for the watcher's sampling to finish
-      if (!previewColor.value)
-        await new Promise(resolve => setTimeout(resolve, 300))
+      if (!previewColor.value) await new Promise((resolve) => setTimeout(resolve, 300))
     }
 
-    const payload = { option: { ...selectedOption.value, blur: enableBlur.value }, color: previewColor.value }
-    if (isImport)
-      (emit as any)('import', payload)
-    else
-      (emit as any)('apply', payload)
-  }
-  catch (error) {
+    const payload = { color: previewColor.value, option: { ...selectedOption.value, blur: enableBlur.value } }
+    if (isImport) (emit as any)('import', payload)
+    else (emit as any)('apply', payload)
+  } catch (error) {
     console.error('Background application failed:', error)
-  }
-  finally {
+  } finally {
     busy.value = false
   }
 }

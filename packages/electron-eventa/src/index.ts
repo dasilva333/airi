@@ -1,13 +1,3 @@
-export {
-  bounds,
-  cursorScreenPoint,
-  startLoopGetBounds,
-  startLoopGetCursorScreenPoint,
-} from './electron/index'
-export {
-  dockModeStatusChanged,
-  dockModeTargetBounds,
-} from './electron/index'
 export type {
   BackgroundMaterialType,
   DesktopWindowInfo,
@@ -18,4 +8,12 @@ export type {
   TargetWindowBounds,
   VibrancyType,
 } from './electron/index'
-export { electron } from './electron/index'
+export {
+  bounds,
+  cursorScreenPoint,
+  dockModeStatusChanged,
+  dockModeTargetBounds,
+  electron,
+  startLoopGetBounds,
+  startLoopGetCursorScreenPoint,
+} from './electron/index'

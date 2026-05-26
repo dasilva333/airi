@@ -1,11 +1,13 @@
-import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { WithUnknown } from '@xsai/shared'
-import type { StreamTranscriptionResult, StreamTranscriptionOptions as XSAIStreamTranscriptionOptions } from '@xsai/stream-transcription'
-
 import { tryCatch } from '@moeru/std'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset } from '@vueuse/core'
 import { generateTranscription } from '@xsai/generate-transcription'
+import type { WithUnknown } from '@xsai/shared'
+import type {
+  StreamTranscriptionResult,
+  StreamTranscriptionOptions as XSAIStreamTranscriptionOptions,
+} from '@xsai/stream-transcription'
+import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -32,21 +34,26 @@ export interface StreamTranscriptionFileInputOptions extends Omit<XSAIStreamTran
   fileName?: string
 }
 
-export interface StreamTranscriptionStreamInputOptions extends Omit<XSAIStreamTranscriptionOptions, 'file' | 'fileName'> {
+export interface StreamTranscriptionStreamInputOptions
+  extends Omit<XSAIStreamTranscriptionOptions, 'file' | 'fileName'> {
   inputAudioStream: ReadableStream<ArrayBuffer>
 }
 
-export type StreamTranscription = (options: WithUnknown<StreamTranscriptionFileInputOptions | StreamTranscriptionStreamInputOptions>) => StreamTranscriptionResult
+export type StreamTranscription = (
+  options: WithUnknown<StreamTranscriptionFileInputOptions | StreamTranscriptionStreamInputOptions>,
+) => StreamTranscriptionResult
 
 type GenerateTranscriptionResponse = Awaited<ReturnType<typeof generateTranscription>>
 type HearingTranscriptionGenerateResult = GenerateTranscriptionResponse & { mode: 'generate' }
 type HearingTranscriptionStreamResult = StreamTranscriptionResult & { mode: 'stream' }
 export type HearingTranscriptionResult = HearingTranscriptionGenerateResult | HearingTranscriptionStreamResult
 
-type HearingTranscriptionInput = File | {
-  file?: File
-  inputAudioStream?: ReadableStream<ArrayBuffer>
-}
+type HearingTranscriptionInput =
+  | File
+  | {
+      file?: File
+      inputAudioStream?: ReadableStream<ArrayBuffer>
+    }
 
 interface HearingTranscriptionInvokeOptions {
   providerOptions?: Record<string, unknown>
@@ -71,11 +78,16 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const autoSendDelay = useLocalStorageManualReset<number>('settings/hearing/auto-send-delay', 2000) // Default 2 seconds
   const hearingDetectionMode = useLocalStorageManualReset<'vad' | 'manual'>('settings/hearing/detection-mode', 'vad')
   const isTranscribing = ref(false)
-  const speechProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/speech-provider-settings', {
-    'app-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
-    'browser-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
-  })
-  const transcriptionProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/transcription-provider-settings', {
+  const speechProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string; sampleRate: number }>>(
+    'settings/hearing/speech-provider-settings',
+    {
+      'app-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
+      'browser-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
+    },
+  )
+  const transcriptionProviderSettings = useLocalStorageManualReset<
+    Record<string, { deviceId: string; sampleRate: number }>
+  >('settings/hearing/transcription-provider-settings', {
     'app-local-audio-transcription': { deviceId: 'default', sampleRate: 16000 },
     'browser-local-audio-transcription': { deviceId: 'default', sampleRate: 16000 },
   })
@@ -115,8 +127,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
   }
 
   const configured = computed(() => {
-    if (!activeTranscriptionProvider.value)
-      return false
+    if (!activeTranscriptionProvider.value) return false
 
     // Web Speech API doesn't strictly need a model selected (it has a default)
     // but we still check to maintain consistency
@@ -152,16 +163,16 @@ export const useHearingStore = defineStore('hearing-store', () => {
     format?: 'json' | 'verbose_json',
     options?: HearingTranscriptionInvokeOptions,
   ): Promise<HearingTranscriptionResult> {
-    const normalizedInput = (input instanceof File ? { file: input } : input ?? {}) as {
+    const normalizedInput = (input instanceof File ? { file: input } : (input ?? {})) as {
       file?: File
       inputAudioStream?: ReadableStream<ArrayBuffer>
     }
     console.info('[Hearing Store] transcription call received', {
-      providerId,
-      model,
-      hasFile: !!normalizedInput.file,
       fileSize: normalizedInput.file?.size,
+      hasFile: !!normalizedInput.file,
       hasStream: !!normalizedInput.inputAudioStream,
+      model,
+      providerId,
     })
     const features = providersStore.getTranscriptionFeatures(providerId)
     const streamExecutor = STREAM_TRANSCRIPTION_EXECUTORS[providerId]
@@ -218,17 +229,16 @@ export const useHearingStore = defineStore('hearing-store', () => {
 
       if (baseUrl.includes('/openai')) {
         baseUrl = baseUrl.replace(/\/openai\/?$/, '')
-        if (!baseUrl.endsWith('/'))
-          baseUrl += '/'
+        if (!baseUrl.endsWith('/')) baseUrl += '/'
       }
 
       const res = await fetch(`${baseUrl}listen?model=${model}&smart_format=true`, {
-        method: 'POST',
+        body: await normalizedInput.file.arrayBuffer(),
         headers: {
-          'Authorization': `Token ${providerConfig.apiKey}`,
+          Authorization: `Token ${providerConfig.apiKey}`,
           'Content-Type': normalizedInput.file.type || 'audio/webm',
         },
-        body: await normalizedInput.file.arrayBuffer(),
+        method: 'POST',
         signal: options?.providerOptions?.abortSignal as AbortSignal | undefined,
       })
 
@@ -245,8 +255,8 @@ export const useHearingStore = defineStore('hearing-store', () => {
 
       return {
         mode: 'generate',
-        text,
         raw: data,
+        text,
       } as any
     }
 
@@ -267,48 +277,59 @@ export const useHearingStore = defineStore('hearing-store', () => {
   }
 
   // Watch for provider changes and load models
-  watch(activeTranscriptionProvider, async (newProvider) => {
-    if (newProvider) {
-      await loadModelsForProvider(newProvider)
-    }
-  }, { immediate: true })
+  watch(
+    activeTranscriptionProvider,
+    async (newProvider) => {
+      if (newProvider) {
+        await loadModelsForProvider(newProvider)
+      }
+    },
+    { immediate: true },
+  )
   // Self-healing: Reset active provider if it no longer exists
-  watch(activeTranscriptionProvider, () => {
-    // Bypass self-healing during onboarding
-    if (onboardingStore.needsOnboarding)
-      return
+  watch(
+    activeTranscriptionProvider,
+    () => {
+      // Bypass self-healing during onboarding
+      if (onboardingStore.needsOnboarding) return
 
-    if (Object.keys(providersStore.providerMetadata).length > 0 && activeTranscriptionProvider.value && !providersStore.providerMetadata[activeTranscriptionProvider.value]) {
-      console.warn(`[Hearing] Provider ${activeTranscriptionProvider.value} no longer exists. Resetting.`)
-      activeTranscriptionProvider.value = ''
-      activeTranscriptionModel.value = ''
-      activeCustomModelName.value = ''
-    }
-  }, { immediate: true })
+      if (
+        Object.keys(providersStore.providerMetadata).length > 0 &&
+        activeTranscriptionProvider.value &&
+        !providersStore.providerMetadata[activeTranscriptionProvider.value]
+      ) {
+        console.warn(`[Hearing] Provider ${activeTranscriptionProvider.value} no longer exists. Resetting.`)
+        activeTranscriptionProvider.value = ''
+        activeTranscriptionModel.value = ''
+        activeCustomModelName.value = ''
+      }
+    },
+    { immediate: true },
+  )
 
   return {
-    activeTranscriptionProvider,
-    activeTranscriptionModel,
-    availableProvidersMetadata,
     activeCustomModelName,
-    transcriptionModelSearchQuery,
-    autoSendEnabled,
-    autoSendDelay,
-    hearingDetectionMode,
-    isTranscribing,
-
-    supportsModelListing,
-    providerModels,
-    isLoadingActiveProviderModels,
     activeProviderModelError,
+    activeTranscriptionModel,
+    activeTranscriptionProvider,
+    autoSendDelay,
+    autoSendEnabled,
+    availableProvidersMetadata,
     configured,
-
-    transcription,
-    loadModelsForProvider,
     getModelsForProvider,
+    hearingDetectionMode,
+    isLoadingActiveProviderModels,
+    isTranscribing,
+    loadModelsForProvider,
+    providerModels,
     resetState,
 
     speechProviderSettings,
+
+    supportsModelListing,
+
+    transcription,
+    transcriptionModelSearchQuery,
     transcriptionProviderSettings,
   }
 })
@@ -341,13 +362,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     }
 
     const providerId = activeTranscriptionProvider.value
-    if (!providerId)
-      return false
+    if (!providerId) return false
 
     // Web Speech API always supports stream input when available
     if (providerId === 'browser-web-speech-api') {
-      return typeof window !== 'undefined'
-        && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+      return typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
     }
 
     return providersStore.getTranscriptionFeatures(providerId).supportsStreamInput
@@ -360,32 +379,37 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     const output = new Int16Array(buffer.length)
     for (let i = 0; i < buffer.length; i++) {
       const s = Math.max(-1, Math.min(1, buffer[i]))
-      output[i] = s < 0 ? Math.round(s * 0x8000) : Math.round(s * 0x7FFF)
+      output[i] = s < 0 ? Math.round(s * 0x8000) : Math.round(s * 0x7fff)
     }
 
     return output
   }
 
-  async function createAudioStreamFromMediaStream(stream: MediaStream, sampleRate = DEFAULT_SAMPLE_RATE, onActivity?: () => void) {
-    const audioContext = new AudioContext({ sampleRate, latencyHint: 'interactive' })
-    console.info(`[Hearing Pipeline] Created AudioContext. SampleRate: ${audioContext.sampleRate}Hz (Requested: ${sampleRate}Hz)`)
+  async function createAudioStreamFromMediaStream(
+    stream: MediaStream,
+    sampleRate = DEFAULT_SAMPLE_RATE,
+    onActivity?: () => void,
+  ) {
+    const audioContext = new AudioContext({ latencyHint: 'interactive', sampleRate })
+    console.info(
+      `[Hearing Pipeline] Created AudioContext. SampleRate: ${audioContext.sampleRate}Hz (Requested: ${sampleRate}Hz)`,
+    )
     await audioContext.audioWorklet.addModule(vadWorkletUrl)
     const workletNode = new AudioWorkletNode(audioContext, 'vad-audio-worklet-processor')
 
     let audioStreamController: ReadableStreamDefaultController<ArrayBuffer> | undefined
     const audioStream = new ReadableStream<ArrayBuffer>({
-      start(controller) {
-        audioStreamController = controller
-      },
       cancel: () => {
         audioStreamController = undefined
+      },
+      start(controller) {
+        audioStreamController = controller
       },
     })
 
     workletNode.port.onmessage = ({ data }: MessageEvent<{ buffer?: Float32Array }>) => {
       const buffer = data?.buffer
-      if (!buffer || !audioStreamController)
-        return
+      if (!buffer || !audioStreamController) return
 
       const pcm16 = float32ToInt16(buffer)
       // Clone buffer to avoid retaining underlying ArrayBuffer references
@@ -403,19 +427,18 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
     return {
       audioContext,
-      workletNode,
-      mediaStreamSource,
       audioStream,
       get controller() {
         return audioStreamController
       },
+      mediaStreamSource,
+      workletNode,
     }
   }
 
   async function stopStreamingTranscription(abort?: boolean, disposeProviderId?: string) {
     const session = streamingSession.value
-    if (!session)
-      return
+    if (!session) return
 
     // Special handling for Web Speech API
     if (session.providerId === 'browser-web-speech-api') {
@@ -430,18 +453,15 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         if (result?.recognition) {
           try {
             result.recognition.stop()
-          }
-          catch (err) {
+          } catch (err) {
             console.warn('Error stopping Web Speech API recognition:', err)
           }
         }
-      }
-      catch (err) {
+      } catch (err) {
         console.error('Error stopping Web Speech API session:', err)
       }
 
-      if (session.idleTimer)
-        clearTimeout(session.idleTimer)
+      if (session.idleTimer) clearTimeout(session.idleTimer)
 
       streamingSession.value = undefined
 
@@ -449,8 +469,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         try {
           const text = await session.result.text
           return text
-        }
-        catch (err) {
+        } catch (err) {
           error.value = errorMessage(err)
           console.error('Error getting transcription result:', error.value)
         }
@@ -466,12 +485,9 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         session.abortController.abort(reason)
       }
 
-      if (abort)
-        session.audioStreamController?.error(reason)
-      else
-        session.audioStreamController?.close()
-    }
-    catch {}
+      if (abort) session.audioStreamController?.error(reason)
+      else session.audioStreamController?.close()
+    } catch {}
 
     await tryCatch(() => {
       session.mediaStreamSource.disconnect()
@@ -480,8 +496,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     })
     await tryCatch(() => session.audioContext.close())
 
-    if (session.idleTimer)
-      clearTimeout(session.idleTimer)
+    if (session.idleTimer) clearTimeout(session.idleTimer)
 
     streamingSession.value = undefined
     // NOTICE: Always reset the transcribing flag here. Previously it was only
@@ -499,32 +514,33 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         }
 
         return text
-      }
-      catch (err) {
+      } catch (err) {
         error.value = errorMessage(err)
         console.error('Error generating transcription:', error.value)
       }
     }
 
     const text = session.result?.text
-    if (disposeProviderId)
-      await providersStore.disposeProviderInstance(disposeProviderId)
+    if (disposeProviderId) await providersStore.disposeProviderInstance(disposeProviderId)
 
     return text
   }
 
-  async function transcribeForMediaStream(stream: MediaStream, options?: {
-    sampleRate?: number
-    providerOptions?: Record<string, unknown>
-    idleTimeoutMs?: number
-    onSentenceEnd?: (delta: string) => void
-    onSpeechEnd?: (text: string) => void
-  }) {
+  async function transcribeForMediaStream(
+    stream: MediaStream,
+    options?: {
+      sampleRate?: number
+      providerOptions?: Record<string, unknown>
+      idleTimeoutMs?: number
+      onSentenceEnd?: (delta: string) => void
+      onSpeechEnd?: (text: string) => void
+    },
+  ) {
     console.info('[Hearing Pipeline] transcribeForMediaStream called', {
-      supportsStreamInput: supportsStreamInput.value,
+      hasCallbacks: !!(options?.onSentenceEnd || options?.onSpeechEnd),
       hasStream: !!stream,
       providerId: activeTranscriptionProvider.value,
-      hasCallbacks: !!(options?.onSentenceEnd || options?.onSpeechEnd),
+      supportsStreamInput: supportsStreamInput.value,
     })
 
     if (!supportsStreamInput.value) {
@@ -554,31 +570,30 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         // Empty bumpIdle because Gemini Bidi is a continuous socket. We do not want idle timeouts to prematurely sever it.
         const bumpIdle = () => {}
 
-        const session = await createAudioStreamFromMediaStream(
-          stream,
-          16000,
-          () => bumpIdle(),
-        )
+        const session = await createAudioStreamFromMediaStream(stream, 16000, () => bumpIdle())
 
         streamingSession.value = {
-          audioContext: session.audioContext,
-          workletNode: session.workletNode,
-          mediaStreamSource: session.mediaStreamSource,
-          audioStreamController: session.controller,
           abortController,
-          result: { mode: 'stream' } as any,
-          idleTimer: undefined,
-          providerId: 'gemini-live',
+          audioContext: session.audioContext,
+          audioStreamController: session.controller,
           callbacks: {
             onSentenceEnd: options?.onSentenceEnd,
             onSpeechEnd: options?.onSpeechEnd,
           },
+          idleTimer: undefined,
+          mediaStreamSource: session.mediaStreamSource,
+          providerId: 'gemini-live',
+          result: { mode: 'stream' } as any,
+          workletNode: session.workletNode,
         } as any
 
         // Connect the Live Session subtitles to the caption overlay
-        const unwatch = watch(() => liveSessionStore.lastTranscript, (val) => {
-          options?.onSentenceEnd?.(val)
-        })
+        const unwatch = watch(
+          () => liveSessionStore.lastTranscript,
+          (val) => {
+            options?.onSentenceEnd?.(val)
+          },
+        )
         abortController.signal.addEventListener('abort', () => {
           unwatch()
           if (liveSessionStore.isActive) {
@@ -591,8 +606,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           try {
             while (true) {
               const { done, value } = await reader.read()
-              if (done)
-                break
+              if (done) break
               if (value) {
                 // Convert PCM Int16 buffer to Base64 (maxes out ~500 bytes per tick, safe for fromCharCode)
                 let binary = ''
@@ -605,11 +619,9 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
                 liveSessionStore.sendRealtimeAudio(base64)
               }
             }
-          }
-          catch (e) {
+          } catch (e) {
             console.error('[Hearing Pipeline] Gemini Audio worklet read error:', e)
-          }
-          finally {
+          } finally {
             hearingStore.isTranscribing = false
           }
         })()
@@ -630,8 +642,8 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       // Special handling for Web Speech API - it works directly with MediaStream
       if (providerId === 'browser-web-speech-api') {
         // Check if Web Speech API is available
-        const isAvailable = typeof window !== 'undefined'
-          && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+        const isAvailable =
+          typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
 
         if (!isAvailable) {
           error.value = 'Web Speech API is not available in this browser'
@@ -656,8 +668,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
             await stopStreamingTranscription(false, existingSession.providerId)
             // Continue to create new session below
             // Note: stopStreamingTranscription already clears streamingSession.value and waits for async cleanup
-          }
-          else {
+          } else {
             // No new callbacks - just bump idle timer and reuse existing session
             const idleTimeout = options?.idleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT
             if (existingSession.idleTimer) {
@@ -679,8 +690,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
           if (models.length > 0) {
             activeTranscriptionModel.value = models[0].id
             console.info('Auto-selected Web Speech API model:', models[0].id)
-          }
-          else {
+          } else {
             // Fallback to default model ID
             activeTranscriptionModel.value = 'web-speech-api'
             console.info('Auto-selected Web Speech API default model')
@@ -691,9 +701,8 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
         // Get provider config for language settings
         const providerConfig = providersStore.getProviderConfig(providerId) || {}
-        const language = (options?.providerOptions?.language as string)
-          || (providerConfig.language as string)
-          || 'en-US'
+        const language =
+          (options?.providerOptions?.language as string) || (providerConfig.language as string) || 'en-US'
 
         // Web Speech API in continuous mode should run indefinitely - no idle timeout
         // Only stop when explicitly requested (e.g., microphone disabled)
@@ -701,8 +710,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         let idleTimer: ReturnType<typeof setTimeout> | undefined
         const bumpIdle = () => {
           if (idleTimeout > 0) {
-            if (idleTimer)
-              clearTimeout(idleTimer)
+            if (idleTimer) clearTimeout(idleTimer)
             idleTimer = setTimeout(async () => {
               await stopStreamingTranscription(false, providerId)
             }, idleTimeout)
@@ -710,11 +718,14 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         }
 
         const result = streamWebSpeechAPITranscription(stream, {
-          language,
-          continuous: (options?.providerOptions?.continuous as boolean) ?? (providerConfig.continuous as boolean) ?? true,
-          interimResults: (options?.providerOptions?.interimResults as boolean) ?? (providerConfig.interimResults as boolean) ?? true,
-          maxAlternatives: (options?.providerOptions?.maxAlternatives as number) ?? (providerConfig.maxAlternatives as number) ?? 1,
           abortSignal: abortController.signal,
+          continuous:
+            (options?.providerOptions?.continuous as boolean) ?? (providerConfig.continuous as boolean) ?? true,
+          interimResults:
+            (options?.providerOptions?.interimResults as boolean) ?? (providerConfig.interimResults as boolean) ?? true,
+          language,
+          maxAlternatives:
+            (options?.providerOptions?.maxAlternatives as number) ?? (providerConfig.maxAlternatives as number) ?? 1,
           onSentenceEnd: (delta) => {
             bumpIdle() // Bump idle timer on activity (only if enabled)
             // Call the options callback
@@ -737,18 +748,18 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         // Store session info for cleanup
         const recognitionInstance = (result as any).recognition
         streamingSession.value = {
-          audioContext: {} as AudioContext, // Not used for Web Speech API
-          workletNode: {} as AudioWorkletNode, // Not used for Web Speech API
-          mediaStreamSource: {} as MediaStreamAudioSourceNode, // Not used for Web Speech API
-          audioStreamController: undefined,
           abortController,
-          result: { ...result, mode: 'stream' as const, recognition: recognitionInstance },
-          idleTimer,
-          providerId,
+          audioContext: {} as AudioContext, // Not used for Web Speech API
+          audioStreamController: undefined,
           callbacks: {
             onSentenceEnd: options?.onSentenceEnd,
             onSpeechEnd: options?.onSpeechEnd,
           },
+          idleTimer,
+          mediaStreamSource: {} as MediaStreamAudioSourceNode, // Not used for Web Speech API
+          providerId,
+          result: { ...result, mode: 'stream' as const, recognition: recognitionInstance },
+          workletNode: {} as AudioWorkletNode, // Not used for Web Speech API
         } as any // Type assertion needed because recognition is extra
 
         // Initial idle timer (only if enabled)
@@ -762,15 +773,13 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
               while (true) {
                 const { done } = await reader.read()
-                if (done)
-                  break
+                if (done) break
                 // onSentenceEnd is already called from the recognition.onresult handler
                 // Note: onSpeechEnd is called from web-speech-api/index.ts recognition.onend handler
                 // (line 332 for non-continuous mode, line 271 for errors)
                 // We don't call it here to avoid duplicate calls
               }
-            }
-            catch (err) {
+            } catch (err) {
               console.error('Error reading text stream:', err)
             }
           })()
@@ -779,7 +788,8 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
         return
       }
 
-      const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
+      const provider =
+        await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
       if (!provider) {
         hearingStore.isTranscribing = false
         throw new Error('Failed to initialize speech provider')
@@ -792,16 +802,13 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       // require restarting the session to create a new reader.
       const existingSession = streamingSession.value
       if (existingSession) {
-        const hasNewCallbacks
-          = options?.onSentenceEnd !== undefined
-            || options?.onSpeechEnd !== undefined
+        const hasNewCallbacks = options?.onSentenceEnd !== undefined || options?.onSpeechEnd !== undefined
 
         if (hasNewCallbacks) {
           console.info('[Hearing Pipeline] New callbacks provided, restarting session')
           await stopStreamingTranscription(false, existingSession.providerId)
           // Fall through to create a new session with updated callbacks
-        }
-        else {
+        } else {
           // No callback changes: refresh idle timer and reuse session
           if (existingSession.idleTimer) {
             clearTimeout(existingSession.idleTimer)
@@ -816,21 +823,17 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       const abortController = new AbortController()
       let idleTimer: ReturnType<typeof setTimeout> | undefined
       const bumpIdle = () => {
-        if (idleTimer)
-          clearTimeout(idleTimer)
+        if (idleTimer) clearTimeout(idleTimer)
         idleTimer = setTimeout(async () => {
           await stopStreamingTranscription(false, providerId)
         }, idleTimeout)
       }
 
-      const session = await createAudioStreamFromMediaStream(
-        stream,
-        options?.sampleRate ?? DEFAULT_SAMPLE_RATE,
-        () => bumpIdle(),
+      const session = await createAudioStreamFromMediaStream(stream, options?.sampleRate ?? DEFAULT_SAMPLE_RATE, () =>
+        bumpIdle(),
       )
 
-      if (session.audioContext.state === 'suspended')
-        await session.audioContext.resume()
+      if (session.audioContext.state === 'suspended') await session.audioContext.resume()
 
       bumpIdle()
 
@@ -850,18 +853,18 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
       )
 
       streamingSession.value = {
-        audioContext: session.audioContext,
-        workletNode: session.workletNode,
-        mediaStreamSource: session.mediaStreamSource,
-        audioStreamController: session.controller,
         abortController,
-        result,
-        idleTimer,
-        providerId,
+        audioContext: session.audioContext,
+        audioStreamController: session.controller,
         callbacks: {
           onSentenceEnd: options?.onSentenceEnd,
           onSpeechEnd: options?.onSpeechEnd,
         },
+        idleTimer,
+        mediaStreamSource: session.mediaStreamSource,
+        providerId,
+        result,
+        workletNode: session.workletNode,
       }
 
       // Stream out text deltas to caller without tearing down the session.
@@ -881,8 +884,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
             while (true) {
               const { done, value } = await reader.read()
-              if (done)
-                break
+              if (done) break
               if (value) {
                 fullText += value
                 // Use captured callbacks to avoid cross-session leakage
@@ -899,19 +901,16 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
                 */
               }
             }
-          }
-          catch (err) {
+          } catch (err) {
             console.error('Error reading text stream:', err)
-          }
-          finally {
+          } finally {
             // Use captured callbacks to avoid cross-session leakage
             sessionCallbacks.onSpeechEnd?.(fullText)
             hearingStore.isTranscribing = false
           }
         })()
       }
-    }
-    catch (err) {
+    } catch (err) {
       error.value = errorMessage(err)
       console.error('Error generating transcription:', error.value)
     }
@@ -925,23 +924,23 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
     error.value = undefined
 
-    if (!recording)
-      return
+    if (!recording) return
 
     try {
       hearingStore.isTranscribing = true
       if (recording && recording.size > 0) {
         const providerId = activeTranscriptionProvider.value
-        const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
+        const provider =
+          await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
         if (!provider) {
           throw new Error('Failed to initialize speech provider')
         }
 
         const model = activeTranscriptionModel.value
         console.info('[Hearing Pipeline] Triggering hearingStore.transcription', {
-          providerId,
-          model,
           fileName: 'recording.wav',
+          model,
+          providerId,
         })
         const result = await hearingStore.transcription(
           providerId,
@@ -957,22 +956,20 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
 
         return text
       }
-    }
-    catch (err) {
+    } catch (err) {
       error.value = errorMessage(err)
       console.error('Error generating transcription:', error.value)
-    }
-    finally {
+    } finally {
       hearingStore.isTranscribing = false
     }
   }
 
   return {
     error,
-
-    transcribeForRecording,
-    transcribeForMediaStream,
     stopStreamingTranscription,
     supportsStreamInput,
+    transcribeForMediaStream,
+
+    transcribeForRecording,
   }
 })

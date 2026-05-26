@@ -10,8 +10,7 @@ const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 function updateDreamState(patch: Record<string, any>) {
   const cardId = activeCardId.value
   const card = activeCard.value
-  if (!cardId || !card)
-    return
+  if (!cardId || !card) return
 
   airiCardStore.updateCard(cardId, {
     extensions: {
@@ -29,40 +28,48 @@ function updateDreamState(patch: Record<string, any>) {
 
 const dreamStateEnabled = computed({
   get: () => activeCard.value?.extensions?.airi?.dreamState?.enabled ?? false,
-  set: value => updateDreamState({ enabled: value }),
+  set: (value) => updateDreamState({ enabled: value }),
 })
 
 const lushness = computed({
   get: () => activeCard.value?.extensions?.airi?.dreamState?.journalingThreshold ?? 'balanced',
-  set: value => updateDreamState({ journalingThreshold: value as 'minimal' | 'balanced' | 'lush' }),
+  set: (value) => updateDreamState({ journalingThreshold: value as 'minimal' | 'balanced' | 'lush' }),
 })
 
 const maxSessions = computed({
   get: () => activeCard.value?.extensions?.airi?.dreamState?.maxSessionsPerDay ?? 4,
-  set: value => updateDreamState({ maxSessionsPerDay: Number(value) || 4 }),
+  set: (value) => updateDreamState({ maxSessionsPerDay: Number(value) || 4 }),
 })
 
 const timeoutThreshold = computed({
   get: () => activeCard.value?.extensions?.airi?.dreamState?.sessionTimeoutMinutes ?? 60,
-  set: value => updateDreamState({ sessionTimeoutMinutes: Number(value) || 60 }),
+  set: (value) => updateDreamState({ sessionTimeoutMinutes: Number(value) || 60 }),
 })
 
 const afkGating = computed({
   get: () => activeCard.value?.extensions?.airi?.dreamState?.strictAfkGating ?? true,
-  set: value => updateDreamState({ strictAfkGating: value }),
+  set: (value) => updateDreamState({ strictAfkGating: value }),
 })
 
-const lushnessOptions: Array<{ value: 'minimal' | 'balanced' | 'lush', label: string, description: string }> = [
-  { value: 'minimal', label: 'Minimal', description: 'Tags only. No journals are recorded.' },
-  { value: 'balanced', label: 'Balanced', description: 'Tags + Journals for highly significant moments.' },
-  { value: 'lush', label: 'Lush', description: 'Tags + Journals for most sessions (Lower Threshold).' },
+const lushnessOptions: Array<{ value: 'minimal' | 'balanced' | 'lush'; label: string; description: string }> = [
+  { description: 'Tags only. No journals are recorded.', label: 'Minimal', value: 'minimal' },
+  { description: 'Tags + Journals for highly significant moments.', label: 'Balanced', value: 'balanced' },
+  { description: 'Tags + Journals for most sessions (Lower Threshold).', label: 'Lush', value: 'lush' },
 ]
 
 const statusChips = computed(() => [
-  { label: afkGating.value ? 'AFK Gated' : 'AFK Optional', icon: 'i-solar:ghost-bold-duotone', active: afkGating.value },
-  { label: `Max ${maxSessions.value} Sessions/Day`, icon: 'i-solar:calendar-limit-bold-duotone', active: true },
-  { label: dreamStateEnabled.value ? 'Idle Consolidation' : 'Dream State Disabled', icon: 'i-solar:moon-stars-bold-duotone', active: dreamStateEnabled.value },
-  { label: 'Flavor Output', icon: 'i-solar:magic-stick-3-bold-duotone', active: true },
+  {
+    active: afkGating.value,
+    icon: 'i-solar:ghost-bold-duotone',
+    label: afkGating.value ? 'AFK Gated' : 'AFK Optional',
+  },
+  { active: true, icon: 'i-solar:calendar-limit-bold-duotone', label: `Max ${maxSessions.value} Sessions/Day` },
+  {
+    active: dreamStateEnabled.value,
+    icon: 'i-solar:moon-stars-bold-duotone',
+    label: dreamStateEnabled.value ? 'Idle Consolidation' : 'Dream State Disabled',
+  },
+  { active: true, icon: 'i-solar:magic-stick-3-bold-duotone', label: 'Flavor Output' },
 ])
 </script>
 

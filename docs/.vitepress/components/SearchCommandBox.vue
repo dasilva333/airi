@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import type { SearchResult } from 'minisearch'
-import type { GenericComponentInstance } from 'reka-ui'
-import type { Ref } from 'vue'
-
-// @ts-expect-error ignoring
-import Mark from 'mark.js/src/vanilla.js'
-import MiniSearch from 'minisearch'
-
 import { Icon } from '@iconify/vue'
 import { computedAsync, debouncedWatch } from '@vueuse/core'
-import { DialogClose, ListboxContent, ListboxFilter, ListboxItem, ListboxRoot } from 'reka-ui'
+// @ts-expect-error ignoring
+import Mark from 'mark.js/src/vanilla.js'
+import type { SearchResult } from 'minisearch'
+import MiniSearch from 'minisearch'
+import type { GenericComponentInstance } from 'reka-ui'
+import { DialogClose, ListboxContent, ListboxFilter, ListboxItem, type ListboxRoot } from 'reka-ui'
 import { useData } from 'vitepress'
+import type { Ref } from 'vue'
 import { markRaw, nextTick, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -44,25 +42,21 @@ onMounted(() => {
 })
 
 const mark = computedAsync(async () => {
-  if (!resultsEl.value)
-    return
+  if (!resultsEl.value) return
   return markRaw(new Mark(resultsEl.value))
 }, null)
 
 const searchIndex = computedAsync(async () =>
   markRaw(
-    MiniSearch.loadJSON<Result>(
-      (await searchIndexData.value[localeIndex.value]?.())?.default,
-      {
-        fields: ['title', 'titles', 'text'],
-        storeFields: ['title', 'titles'],
-        searchOptions: {
-          fuzzy: 0.2,
-          prefix: true,
-          boost: { title: 4, text: 2, titles: 1 },
-        },
+    MiniSearch.loadJSON<Result>((await searchIndexData.value[localeIndex.value]?.())?.default, {
+      fields: ['title', 'titles', 'text'],
+      searchOptions: {
+        boost: { text: 2, title: 4, titles: 1 },
+        fuzzy: 0.2,
+        prefix: true,
       },
-    ),
+      storeFields: ['title', 'titles'],
+    }),
   ),
 )
 
@@ -81,16 +75,12 @@ debouncedWatch(
       canceled = true
     })
 
-    if (!index)
-      return
+    if (!index) return
 
     // Search
-    results.value = index
-      .search(filterTextValue)
-      .slice(0, 16) as (SearchResult & Result)[]
+    results.value = index.search(filterTextValue).slice(0, 16) as (SearchResult & Result)[]
 
-    if (canceled)
-      return
+    if (canceled) return
 
     const terms = new Set<string>()
 
@@ -105,8 +95,7 @@ debouncedWatch(
     })
 
     await nextTick()
-    if (canceled)
-      return
+    if (canceled) return
 
     await new Promise((r) => {
       mark.value?.unmark({
@@ -130,7 +119,7 @@ function formMarkRegex(terms: Set<string>) {
   return new RegExp(
     [...terms]
       .sort((a, b) => b.length - a.length)
-      .map(term => `(${term.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d')})`)
+      .map((term) => `(${term.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d')})`)
       .join('|'),
     'gi',
   )

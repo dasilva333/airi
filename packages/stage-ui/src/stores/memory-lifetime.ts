@@ -1,17 +1,14 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-
-import type { ProvisioningSession } from '../database/repos/provisioning-session.repo'
-import type { LifetimeMemoryArtifact } from '../types/lifetime-memory'
-
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { ref } from 'vue'
-
 import { chatSessionsRepo } from '../database/repos/chat-sessions.repo'
 import { lifetimeMemoryRepo } from '../database/repos/lifetime-memory.repo'
+import type { ProvisioningSession } from '../database/repos/provisioning-session.repo'
 import { provisioningSessionRepo } from '../database/repos/provisioning-session.repo'
 import { shortTermMemoryRepo } from '../database/repos/short-term-memory.repo'
 import { textJournalRepo } from '../database/repos/text-journal.repo'
+import type { LifetimeMemoryArtifact } from '../types/lifetime-memory'
 import { useAuthStore } from './auth'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
@@ -19,7 +16,15 @@ import { useConsciousnessStore } from './modules/consciousness'
 import { useProvidersStore } from './providers'
 
 interface ProvisioningProgress {
-  phase: 'idle' | 'aggregating' | 'chunking' | 'synthesizing' | 'distill_pass_1' | 'distill_pass_2' | 'success' | 'error'
+  phase:
+    | 'idle'
+    | 'aggregating'
+    | 'chunking'
+    | 'synthesizing'
+    | 'distill_pass_1'
+    | 'distill_pass_2'
+    | 'success'
+    | 'error'
   currentChunk: number
   totalChunks: number
   completedCalls: number
@@ -29,15 +34,14 @@ interface ProvisioningProgress {
 
 // Literal JSON Schemas from Bunny Mint lab
 const ChunkArchiveJsonSchema = {
-  type: 'object',
   properties: {
-    durable_facts: { type: 'array', items: { type: 'string' } },
-    recurring_preferences: { type: 'array', items: { type: 'string' } },
-    recurring_topics: { type: 'array', items: { type: 'string' } },
-    relationship_dynamics: { type: 'array', items: { type: 'string' } },
-    user_mannerisms: { type: 'array', items: { type: 'string' } },
-    meaningful_moments: { type: 'array', items: { type: 'string' } },
-    inside_jokes_or_motifs: { type: 'array', items: { type: 'string' } },
+    durable_facts: { items: { type: 'string' }, type: 'array' },
+    inside_jokes_or_motifs: { items: { type: 'string' }, type: 'array' },
+    meaningful_moments: { items: { type: 'string' }, type: 'array' },
+    recurring_preferences: { items: { type: 'string' }, type: 'array' },
+    recurring_topics: { items: { type: 'string' }, type: 'array' },
+    relationship_dynamics: { items: { type: 'string' }, type: 'array' },
+    user_mannerisms: { items: { type: 'string' }, type: 'array' },
   },
   required: [
     'durable_facts',
@@ -48,19 +52,19 @@ const ChunkArchiveJsonSchema = {
     'meaningful_moments',
     'inside_jokes_or_motifs',
   ],
+  type: 'object',
 } as const
 
 const LifetimeArchiveJsonSchema = {
-  type: 'object',
   properties: {
+    archive_notes: { items: { type: 'string' }, type: 'array' },
+    inside_jokes_or_motifs: { items: { type: 'string' }, type: 'array' },
+    meaningful_old_moments: { items: { type: 'string' }, type: 'array' },
+    recurring_preferences: { items: { type: 'string' }, type: 'array' },
+    recurring_topics: { items: { type: 'string' }, type: 'array' },
+    relationship_dynamics: { items: { type: 'string' }, type: 'array' },
     relationship_summary: { type: 'string' },
-    recurring_preferences: { type: 'array', items: { type: 'string' } },
-    recurring_topics: { type: 'array', items: { type: 'string' } },
-    relationship_dynamics: { type: 'array', items: { type: 'string' } },
-    user_mannerisms: { type: 'array', items: { type: 'string' } },
-    meaningful_old_moments: { type: 'array', items: { type: 'string' } },
-    inside_jokes_or_motifs: { type: 'array', items: { type: 'string' } },
-    archive_notes: { type: 'array', items: { type: 'string' } },
+    user_mannerisms: { items: { type: 'string' }, type: 'array' },
   },
   required: [
     'relationship_summary',
@@ -72,18 +76,18 @@ const LifetimeArchiveJsonSchema = {
     'inside_jokes_or_motifs',
     'archive_notes',
   ],
+  type: 'object',
 } as const
 
 const DistillPass1Schema = {
-  type: 'object',
   properties: {
-    relationship_core: { type: 'array', items: { type: 'string' } },
-    user_patterns: { type: 'array', items: { type: 'string' } },
-    shared_rituals: { type: 'array', items: { type: 'string' } },
-    stable_topics: { type: 'array', items: { type: 'string' } },
-    meaningful_old_moments: { type: 'array', items: { type: 'string' } },
-    inside_jokes_or_motifs: { type: 'array', items: { type: 'string' } },
-    compression_notes: { type: 'array', items: { type: 'string' } },
+    compression_notes: { items: { type: 'string' }, type: 'array' },
+    inside_jokes_or_motifs: { items: { type: 'string' }, type: 'array' },
+    meaningful_old_moments: { items: { type: 'string' }, type: 'array' },
+    relationship_core: { items: { type: 'string' }, type: 'array' },
+    shared_rituals: { items: { type: 'string' }, type: 'array' },
+    stable_topics: { items: { type: 'string' }, type: 'array' },
+    user_patterns: { items: { type: 'string' }, type: 'array' },
   },
   required: [
     'relationship_core',
@@ -94,6 +98,7 @@ const DistillPass1Schema = {
     'inside_jokes_or_motifs',
     'compression_notes',
   ],
+  type: 'object',
 } as const
 
 interface SourceDoc {
@@ -125,47 +130,46 @@ interface DistilledPack {
 }
 
 function asStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : []
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
 function normalizeDistilledPack(value: unknown): DistilledPack {
-  const pack = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
+  const pack = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   return {
+    compression_notes: asStringArray(pack.compression_notes),
+    inside_jokes_or_motifs: asStringArray(pack.inside_jokes_or_motifs),
+    meaningful_old_moments: asStringArray(pack.meaningful_old_moments),
     relationship_core: asStringArray(pack.relationship_core),
-    user_patterns: asStringArray(pack.user_patterns),
     shared_rituals: asStringArray(pack.shared_rituals),
     stable_topics: asStringArray(pack.stable_topics),
-    meaningful_old_moments: asStringArray(pack.meaningful_old_moments),
-    inside_jokes_or_motifs: asStringArray(pack.inside_jokes_or_motifs),
-    compression_notes: asStringArray(pack.compression_notes),
+    user_patterns: asStringArray(pack.user_patterns),
   }
 }
 
 function normalizeLifetimeArchive(value: unknown): LifetimeArchive {
-  const archive = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
+  const archive = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   return {
-    relationship_summary: typeof archive.relationship_summary === 'string' ? archive.relationship_summary : 'No summary generated.',
+    archive_notes: asStringArray(archive.archive_notes),
+    inside_jokes_or_motifs: asStringArray(archive.inside_jokes_or_motifs),
+    meaningful_old_moments: asStringArray(archive.meaningful_old_moments),
     recurring_preferences: asStringArray(archive.recurring_preferences),
     recurring_topics: asStringArray(archive.recurring_topics),
     relationship_dynamics: asStringArray(archive.relationship_dynamics),
+    relationship_summary:
+      typeof archive.relationship_summary === 'string' ? archive.relationship_summary : 'No summary generated.',
     user_mannerisms: asStringArray(archive.user_mannerisms),
-    meaningful_old_moments: asStringArray(archive.meaningful_old_moments),
-    inside_jokes_or_motifs: asStringArray(archive.inside_jokes_or_motifs),
-    archive_notes: asStringArray(archive.archive_notes),
   }
 }
 
 function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkSummaries: any[]) {
   const flattened = {
     durableFacts: [...new Set(chunkSummaries.flatMap((c: any) => c.durable_facts || []))],
+    insideJokes: [...new Set(chunkSummaries.flatMap((c: any) => c.inside_jokes_or_motifs || []))],
+    meaningfulMoments: [...new Set(chunkSummaries.flatMap((c: any) => c.meaningful_moments || []))],
     recurringPreferences: [...new Set(chunkSummaries.flatMap((c: any) => c.recurring_preferences || []))],
     recurringTopics: [...new Set(chunkSummaries.flatMap((c: any) => c.recurring_topics || []))],
     relationshipDynamics: [...new Set(chunkSummaries.flatMap((c: any) => c.relationship_dynamics || []))],
     userMannerisms: [...new Set(chunkSummaries.flatMap((c: any) => c.user_mannerisms || []))],
-    meaningfulMoments: [...new Set(chunkSummaries.flatMap((c: any) => c.meaningful_moments || []))],
-    insideJokes: [...new Set(chunkSummaries.flatMap((c: any) => c.inside_jokes_or_motifs || []))],
   }
 
   return [
@@ -182,32 +186,37 @@ function buildBaseArchivePrompt(characterName: string, docs: SourceDoc[], chunkS
     'Do not let one recent day overwrite the whole relationship.',
     'Preserve older meaningful moments if they are durable.',
     '',
-    `Manifest context: ${docs.length} documents (${docs.filter(d => d.layer === 'raw').length} raw / ${docs.filter(d => d.layer === 'stmm').length} stmm / ${docs.filter(d => d.layer === 'ltmm').length} ltmm).`,
+    `Manifest context: ${docs.length} documents (${docs.filter((d) => d.layer === 'raw').length} raw / ${docs.filter((d) => d.layer === 'stmm').length} stmm / ${docs.filter((d) => d.layer === 'ltmm').length} ltmm).`,
     '',
     'Durable facts:',
-    ...flattened.durableFacts.map(line => `- ${line}`),
+    ...flattened.durableFacts.map((line) => `- ${line}`),
     '',
     'Recurring preferences:',
-    ...flattened.recurringPreferences.map(line => `- ${line}`),
+    ...flattened.recurringPreferences.map((line) => `- ${line}`),
     '',
     'Recurring topics:',
-    ...flattened.recurringTopics.map(line => `- ${line}`),
+    ...flattened.recurringTopics.map((line) => `- ${line}`),
     '',
     'Relationship dynamics:',
-    ...flattened.relationshipDynamics.map(line => `- ${line}`),
+    ...flattened.relationshipDynamics.map((line) => `- ${line}`),
     '',
     'User mannerisms:',
-    ...flattened.userMannerisms.map(line => `- ${line}`),
+    ...flattened.userMannerisms.map((line) => `- ${line}`),
     '',
     'Meaningful old moments:',
-    ...flattened.meaningfulMoments.map(line => `- ${line}`),
+    ...flattened.meaningfulMoments.map((line) => `- ${line}`),
     '',
     'Inside jokes or motifs:',
-    ...flattened.insideJokes.map(line => `- ${line}`),
+    ...flattened.insideJokes.map((line) => `- ${line}`),
   ].join('\n')
 }
 
-function renderLifetimeArchiveMd(characterName: string, rawArchive: LifetimeArchive | Record<string, unknown> | undefined, docCount: number, chunkCount: number) {
+function renderLifetimeArchiveMd(
+  characterName: string,
+  rawArchive: LifetimeArchive | Record<string, unknown> | undefined,
+  docCount: number,
+  chunkCount: number,
+) {
   console.log('[memory-lifetime] Rendering Lifetime Archive with raw data:', rawArchive)
   const archive = normalizeLifetimeArchive(rawArchive)
   return [
@@ -221,25 +230,25 @@ function renderLifetimeArchiveMd(characterName: string, rawArchive: LifetimeArch
     archive.relationship_summary,
     '',
     '## Recurring Preferences',
-    ...archive.recurring_preferences.map(line => `- ${line}`),
+    ...archive.recurring_preferences.map((line) => `- ${line}`),
     '',
     '## Recurring Topics',
-    ...archive.recurring_topics.map(line => `- ${line}`),
+    ...archive.recurring_topics.map((line) => `- ${line}`),
     '',
     '## Relationship Dynamics',
-    ...archive.relationship_dynamics.map(line => `- ${line}`),
+    ...archive.relationship_dynamics.map((line) => `- ${line}`),
     '',
     '## User Mannerisms',
-    ...archive.user_mannerisms.map(line => `- ${line}`),
+    ...archive.user_mannerisms.map((line) => `- ${line}`),
     '',
     '## Meaningful Old Moments',
-    ...archive.meaningful_old_moments.map(line => `- ${line}`),
+    ...archive.meaningful_old_moments.map((line) => `- ${line}`),
     '',
     '## Inside Jokes Or Motifs',
-    ...archive.inside_jokes_or_motifs.map(line => `- ${line}`),
+    ...archive.inside_jokes_or_motifs.map((line) => `- ${line}`),
     '',
     '## Archive Notes',
-    ...archive.archive_notes.map(line => `- ${line}`),
+    ...archive.archive_notes.map((line) => `- ${line}`),
     '',
   ].join('\n')
 }
@@ -248,54 +257,57 @@ function renderPackForReview(rawPack: DistilledPack | Record<string, unknown> | 
   const pack = normalizeDistilledPack(rawPack)
   return [
     'relationship_core:',
-    ...pack.relationship_core.map(line => `- ${line}`),
+    ...pack.relationship_core.map((line) => `- ${line}`),
     '',
     'user_patterns:',
-    ...pack.user_patterns.map(line => `- ${line}`),
+    ...pack.user_patterns.map((line) => `- ${line}`),
     '',
     'shared_rituals:',
-    ...pack.shared_rituals.map(line => `- ${line}`),
+    ...pack.shared_rituals.map((line) => `- ${line}`),
     '',
     'stable_topics:',
-    ...pack.stable_topics.map(line => `- ${line}`),
+    ...pack.stable_topics.map((line) => `- ${line}`),
     '',
     'meaningful_old_moments:',
-    ...pack.meaningful_old_moments.map(line => `- ${line}`),
+    ...pack.meaningful_old_moments.map((line) => `- ${line}`),
     '',
     'inside_jokes_or_motifs:',
-    ...pack.inside_jokes_or_motifs.map(line => `- ${line}`),
+    ...pack.inside_jokes_or_motifs.map((line) => `- ${line}`),
     '',
     'compression_notes:',
-    ...pack.compression_notes.map(line => `- ${line}`),
+    ...pack.compression_notes.map((line) => `- ${line}`),
   ].join('\n')
 }
 
-function renderDistilledArtifactMd(characterName: string, rawPack: DistilledPack | Record<string, unknown> | undefined) {
+function renderDistilledArtifactMd(
+  characterName: string,
+  rawPack: DistilledPack | Record<string, unknown> | undefined,
+) {
   const pack = normalizeDistilledPack(rawPack)
   return [
     `# Distilled Lifetime Context Pack: ${characterName}`,
     '',
     '## Relationship Core',
     '',
-    ...pack.relationship_core.map(line => `- ${line}`),
+    ...pack.relationship_core.map((line) => `- ${line}`),
     '',
     '## User Patterns',
-    ...pack.user_patterns.map(line => `- ${line}`),
+    ...pack.user_patterns.map((line) => `- ${line}`),
     '',
     '## Shared Rituals',
-    ...pack.shared_rituals.map(line => `- ${line}`),
+    ...pack.shared_rituals.map((line) => `- ${line}`),
     '',
     '## Stable Topics',
-    ...pack.stable_topics.map(line => `- ${line}`),
+    ...pack.stable_topics.map((line) => `- ${line}`),
     '',
     '## Meaningful Old Moments',
-    ...pack.meaningful_old_moments.map(line => `- ${line}`),
+    ...pack.meaningful_old_moments.map((line) => `- ${line}`),
     '',
     '## Inside Jokes Or Motifs',
-    ...pack.inside_jokes_or_motifs.map(line => `- ${line}`),
+    ...pack.inside_jokes_or_motifs.map((line) => `- ${line}`),
     '',
     '## Compression Notes',
-    ...pack.compression_notes.map(line => `- ${line}`),
+    ...pack.compression_notes.map((line) => `- ${line}`),
     '',
   ].join('\n')
 }
@@ -312,12 +324,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
   const loading = ref(false)
   const isProvisioning = ref(false)
   const progress = ref<ProvisioningProgress>({
-    phase: 'idle',
-    currentChunk: 0,
-    totalChunks: 0,
     completedCalls: 0,
-    totalCalls: 0,
+    currentChunk: 0,
     message: '',
+    phase: 'idle',
+    totalCalls: 0,
+    totalChunks: 0,
   })
   const error = ref<string | null>(null)
 
@@ -336,8 +348,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         artifacts.value.set(characterId, artifact)
       }
       activeSession.value = session || null
-    }
-    finally {
+    } finally {
       loading.value = false
     }
   }
@@ -352,32 +363,30 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     if (characterIndex) {
       for (const sessionId of Object.keys(characterIndex.sessions)) {
         const record = await chatSessionsRepo.getSession(sessionId)
-        if (!record)
-          continue
+        if (!record) continue
         record.messages.forEach((msg, idx) => {
-          if (msg.role === 'system' || !msg.content)
-            return
+          if (msg.role === 'system' || !msg.content) return
 
           let text = ''
           if (typeof msg.content === 'string') {
             text = msg.content
-          }
-          else if (Array.isArray(msg.content)) {
+          } else if (Array.isArray(msg.content)) {
             // Extract ONLY text parts, ignoring images, tool calls, and binary blobs
             text = msg.content
-              .filter(part => part && typeof part === 'object' && 'type' in part && part.type === 'text' && 'text' in part)
-              .map(part => (part as any).text)
+              .filter(
+                (part) => part && typeof part === 'object' && 'type' in part && part.type === 'text' && 'text' in part,
+              )
+              .map((part) => (part as any).text)
               .join('\n')
           }
 
-          if (!text.trim())
-            return
+          if (!text.trim()) return
 
           docs.push({
             id: `raw:${sessionId}:${idx}`,
             layer: 'raw',
-            timestamp: new Date(msg.createdAt || record.meta.createdAt).toISOString(),
             text: `${msg.role}: ${text}`,
+            timestamp: new Date(msg.createdAt || record.meta.createdAt).toISOString(),
           })
         })
       }
@@ -386,37 +395,39 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     // 2. STMM Blocks
     const stmmBlocks = await shortTermMemoryRepo.getAll(currentUserId)
     if (stmmBlocks) {
-      stmmBlocks.filter(b => b.characterId === characterId).forEach((block) => {
-        docs.push({
-          id: `stmm:${block.id}`,
-          layer: 'stmm',
-          timestamp: block.date,
-          text: block.summary,
+      stmmBlocks
+        .filter((b) => b.characterId === characterId)
+        .forEach((block) => {
+          docs.push({
+            id: `stmm:${block.id}`,
+            layer: 'stmm',
+            text: block.summary,
+            timestamp: block.date,
+          })
         })
-      })
     }
 
     // 3. LTMM Entries
     const ltmmEntries = await textJournalRepo.getAll(currentUserId)
     if (ltmmEntries) {
-      ltmmEntries.filter(e => e.characterId === characterId).forEach((entry) => {
-        docs.push({
-          id: `ltmm:${entry.id}`,
-          layer: 'ltmm',
-          timestamp: new Date(entry.createdAt).toISOString(),
-          text: `[Journal: ${entry.title}] ${entry.content}`,
+      ltmmEntries
+        .filter((e) => e.characterId === characterId)
+        .forEach((entry) => {
+          docs.push({
+            id: `ltmm:${entry.id}`,
+            layer: 'ltmm',
+            text: `[Journal: ${entry.title}] ${entry.content}`,
+            timestamp: new Date(entry.createdAt).toISOString(),
+          })
         })
-      })
     }
 
     return docs.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }
 
   function validateJsonSchema(data: any, schema: any) {
-    if (!data || typeof data !== 'object')
-      throw new Error('Parsed data is not a valid JSON object.')
-    if (Object.keys(data).length === 0)
-      throw new Error('Model returned an empty object {}.')
+    if (!data || typeof data !== 'object') throw new Error('Parsed data is not a valid JSON object.')
+    if (Object.keys(data).length === 0) throw new Error('Model returned an empty object {}.')
 
     if (schema.required) {
       for (const key of schema.required) {
@@ -428,7 +439,13 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     return data
   }
 
-  async function callJsonMode<T>(prompt: string, schema: object, provider: ChatProvider, modelId: string, systemExtras: string[] = []): Promise<T> {
+  async function callJsonMode<T>(
+    prompt: string,
+    schema: object,
+    provider: ChatProvider,
+    modelId: string,
+    systemExtras: string[] = [],
+  ): Promise<T> {
     const systemPrompt = [
       'You must return ONLY valid JSON.',
       'Do not return markdown fences.',
@@ -443,8 +460,8 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     ].join('\n')
 
     const messages: any[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt },
+      { content: systemPrompt, role: 'system' },
+      { content: prompt, role: 'user' },
     ]
 
     let lastError: unknown
@@ -458,8 +475,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       console.log(`[memory-lifetime] [json_object] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
       return validateJsonSchema(parsed, schema) as T
-    }
-    catch (err: any) {
+    } catch (err: any) {
       lastError = err
       console.warn('[memory-lifetime] json_object format failed, falling back to json_schema:', err?.message || err)
     }
@@ -469,8 +485,8 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       const response = await llmStore.generate(modelId, provider, messages, {
         requestOverrides: {
           response_format: {
-            type: 'json_schema',
             json_schema: { name: 'memory_artifact', schema },
+            type: 'json_schema',
           },
         },
       })
@@ -478,10 +494,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       console.log(`[memory-lifetime] [json_schema] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
       return validateJsonSchema(parsed, schema) as T
-    }
-    catch (err: any) {
+    } catch (err: any) {
       lastError = err
-      console.warn('[memory-lifetime] json_schema format failed, falling back to system prompt enforcement:', err?.message || err)
+      console.warn(
+        '[memory-lifetime] json_schema format failed, falling back to system prompt enforcement:',
+        err?.message || err,
+      )
     }
 
     // 3. Fallback: No response_format, rely purely on system prompt and try to parse
@@ -491,14 +509,16 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
 
       // Clean potential markdown fences
       if (text.startsWith('```')) {
-        text = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '').trim()
+        text = text
+          .replace(/^```(?:json)?\n?/i, '')
+          .replace(/\n?```$/, '')
+          .trim()
       }
 
       console.log(`[memory-lifetime] [fallback] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
       return validateJsonSchema(parsed, schema) as T
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[memory-lifetime] Final JSON parse fallback failed:', err)
       lastError = err
       throw lastError
@@ -510,25 +530,29 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     for (let i = 0; i <= maxRetries; i++) {
       try {
         return await fn()
-      }
-      catch (err) {
+      } catch (err) {
         lastError = err
         if (i < maxRetries) {
           const delay = backoffBase * 2 ** i
           progress.value.message = `API Error, retrying in ${delay / 1000}s... (Attempt ${i + 1}/${maxRetries})`
-          await new Promise(resolve => setTimeout(resolve, delay))
+          await new Promise((resolve) => setTimeout(resolve, delay))
         }
       }
     }
     throw lastError
   }
 
-  async function provision(characterId: string, resume = false, intervalSeconds = 0, contextLimitTokens = 64, targetTokens = 1000) {
+  async function provision(
+    characterId: string,
+    resume = false,
+    intervalSeconds = 0,
+    contextLimitTokens = 64,
+    targetTokens = 1000,
+  ) {
     const card = cards.value.get(characterId)
-    if (!card)
-      throw new Error('Character not found')
+    if (!card) throw new Error('Character not found')
 
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     const maybeDelay = async () => {
       if (intervalSeconds > 0) {
         progress.value.message = `Cooling down... (${intervalSeconds}s)`
@@ -539,8 +563,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     const providerId = card.extensions?.airi?.modules?.consciousness?.provider || activeProvider.value
     const modelId = card.extensions?.airi?.modules?.consciousness?.model || activeModel.value
     const provider = await providersStore.getProviderInstance<ChatProvider>(providerId!)
-    if (!provider || !modelId)
-      throw new Error('Counsciousness not configured')
+    if (!provider || !modelId) throw new Error('Counsciousness not configured')
 
     isProvisioning.value = true
     error.value = null
@@ -560,15 +583,14 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           contextLimitTokens = session.contextLimitTokens
         }
         docs = await collectSourceDocs(characterId)
-      }
-      else {
+      } else {
         progress.value = {
-          phase: 'aggregating',
-          currentChunk: 0,
-          totalChunks: 0,
           completedCalls: 0,
-          totalCalls: 0,
+          currentChunk: 0,
           message: 'Collecting relationship history...',
+          phase: 'aggregating',
+          totalCalls: 0,
+          totalChunks: 0,
         }
         docs = await collectSourceDocs(characterId)
       }
@@ -588,20 +610,19 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         currentChunk.push(doc)
         currentChars += docChars
       }
-      if (currentChunk.length > 0)
-        chunks.push(currentChunk)
+      if (currentChunk.length > 0) chunks.push(currentChunk)
 
       if (!resume || !activeSession.value) {
         session = {
           characterId,
-          phase: 'chunking',
           chunkSummaries: [],
-          sourceDocCount: docs.length,
-          totalChunks: chunks.length,
           completedChunks: 0,
-          updatedAt: Date.now(),
-          targetTokens,
           contextLimitTokens,
+          phase: 'chunking',
+          sourceDocCount: docs.length,
+          targetTokens,
+          totalChunks: chunks.length,
+          updatedAt: Date.now(),
         }
         await provisioningSessionRepo.save(session)
         activeSession.value = session
@@ -609,7 +630,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
 
       // EXPOSE FOR DEBUGGING
       if (typeof window !== 'undefined') {
-        (window as any).__LIFETIME_DEBUG_CHUNKS = chunks
+        ;(window as any).__LIFETIME_DEBUG_CHUNKS = chunks
         console.log('[memory-lifetime] Chunks prepared for inspection:', chunks)
       }
 
@@ -627,13 +648,17 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           progress.value.message = `Analyzing history in chunks... (${i + 1}/${chunks.length})`
 
           const currentChunkData = chunks[i]
-          const chunkPromptBody = currentChunkData.map((doc, index) => `${index + 1}. [${doc.layer.toUpperCase()}] [${doc.timestamp || 'undated'}] ${doc.text}`).join('\n')
+          const chunkPromptBody = currentChunkData
+            .map(
+              (doc, index) => `${index + 1}. [${doc.layer.toUpperCase()}] [${doc.timestamp || 'undated'}] ${doc.text}`,
+            )
+            .join('\n')
 
           console.log(`[memory-lifetime] Processing Chunk ${i + 1}/${chunks.length}`, {
-            docCount: currentChunkData.length,
             charCount: chunkPromptBody.length,
-            estimatedTokens: Math.round(chunkPromptBody.length / 4),
             data: currentChunkData,
+            docCount: currentChunkData.length,
+            estimatedTokens: Math.round(chunkPromptBody.length / 4),
           })
 
           const chunkPrompt = [
@@ -657,7 +682,9 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
             chunkPromptBody,
           ].join('\n')
 
-          const summary = await withRetry(() => callJsonMode<any>(chunkPrompt, ChunkArchiveJsonSchema, provider, modelId))
+          const summary = await withRetry(() =>
+            callJsonMode<any>(chunkPrompt, ChunkArchiveJsonSchema, provider, modelId),
+          )
           session.chunkSummaries.push(summary)
           session.completedChunks = i + 1
           session.updatedAt = Date.now()
@@ -675,7 +702,9 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         progress.value.message = 'Synthesizing base lifetime archive...'
 
         const synthesisPrompt = buildBaseArchivePrompt(card.name, docs, session.chunkSummaries)
-        const synthesisResult = await withRetry(() => callJsonMode<LifetimeArchive>(synthesisPrompt, LifetimeArchiveJsonSchema, provider, modelId))
+        const synthesisResult = await withRetry(() =>
+          callJsonMode<LifetimeArchive>(synthesisPrompt, LifetimeArchiveJsonSchema, provider, modelId),
+        )
         session.baseArchive = synthesisResult
         session.baseContent = renderLifetimeArchiveMd(card.name, synthesisResult, docs.length, chunks.length)
         session.phase = 'distill_pass_1'
@@ -716,40 +745,38 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           session.baseContent!,
         ].join('\n')
 
-        session.distillPass1Pack = normalizeDistilledPack(await withRetry(() => callJsonMode<DistilledPack>(
-          distillPass1Prompt,
-          DistillPass1Schema,
-          provider,
-          modelId,
-          [
-            'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
-            'Do not use markdown.',
-            'Compression rules inspired by caveman-compress:',
-            '- remove articles when possible: a, an, the',
-            '- remove filler: just, really, basically, actually, simply, essentially, generally',
-            '- remove pleasantries and hedging',
-            '- remove connective fluff: however, furthermore, additionally, in addition',
-            '- remove duplication',
-            '- merge near-identical bullets',
-            '- use short synonyms',
-            '- fragments OK in bullets',
-            '- keep technical truth, drop fluff',
-            '- preserve grounded specifics',
-            '- prefer dense and memorable phrasing',
-            `- target a compressed reload pack around ${targetTokens} tokens or less`,
-            '- do not write an essay paragraph unless absolutely needed',
-            '- prefer dense bullet lists over prose',
-            '- do not rewrite based on system prompt fantasy',
-            '- do not over-index on one recent day',
-            'Section definitions:',
-            '- relationship_core: highest-level bond, power dynamic, role framing, long-horizon connection',
-            '- user_patterns: what the user repeatedly does or how they behave',
-            '- shared_rituals: repeated relational routines or repeated intimacy/domestic acts',
-            '- stable_topics: recurring conversation/project subjects',
-            '- meaningful_old_moments: concrete past events still worth remembering',
-            '- inside_jokes_or_motifs: recurring phrases, symbols, jokes, prompt quirks',
-          ],
-        )))
+        session.distillPass1Pack = normalizeDistilledPack(
+          await withRetry(() =>
+            callJsonMode<DistilledPack>(distillPass1Prompt, DistillPass1Schema, provider, modelId, [
+              'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
+              'Do not use markdown.',
+              'Compression rules inspired by caveman-compress:',
+              '- remove articles when possible: a, an, the',
+              '- remove filler: just, really, basically, actually, simply, essentially, generally',
+              '- remove pleasantries and hedging',
+              '- remove connective fluff: however, furthermore, additionally, in addition',
+              '- remove duplication',
+              '- merge near-identical bullets',
+              '- use short synonyms',
+              '- fragments OK in bullets',
+              '- keep technical truth, drop fluff',
+              '- preserve grounded specifics',
+              '- prefer dense and memorable phrasing',
+              `- target a compressed reload pack around ${targetTokens} tokens or less`,
+              '- do not write an essay paragraph unless absolutely needed',
+              '- prefer dense bullet lists over prose',
+              '- do not rewrite based on system prompt fantasy',
+              '- do not over-index on one recent day',
+              'Section definitions:',
+              '- relationship_core: highest-level bond, power dynamic, role framing, long-horizon connection',
+              '- user_patterns: what the user repeatedly does or how they behave',
+              '- shared_rituals: repeated relational routines or repeated intimacy/domestic acts',
+              '- stable_topics: recurring conversation/project subjects',
+              '- meaningful_old_moments: concrete past events still worth remembering',
+              '- inside_jokes_or_motifs: recurring phrases, symbols, jokes, prompt quirks',
+            ]),
+          ),
+        )
         session.phase = 'distill_pass_2'
         session.updatedAt = Date.now()
         await provisioningSessionRepo.save(session)
@@ -763,9 +790,11 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         progress.value.message = 'Performing Caveman Refinement (Pass 2/2)...'
 
         const pass1Pack = normalizeDistilledPack(session.distillPass1Pack)
-        const hasPass1Content = Object.values(pass1Pack).some(section => section.length > 0)
+        const hasPass1Content = Object.values(pass1Pack).some((section) => section.length > 0)
         if (!hasPass1Content) {
-          throw new Error('Cannot resume distill pass 2 because the cached pass 1 pack is missing or invalid. Re-run provisioning from the beginning.')
+          throw new Error(
+            'Cannot resume distill pass 2 because the cached pass 1 pack is missing or invalid. Re-run provisioning from the beginning.',
+          )
         }
 
         const distillPass2Prompt = [
@@ -789,53 +818,51 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           renderPackForReview(pass1Pack),
         ].join('\n')
 
-        const finalDistilledPack = normalizeDistilledPack(await withRetry(() => callJsonMode<DistilledPack>(
-          distillPass2Prompt,
-          DistillPass1Schema,
-          provider,
-          modelId,
-          [
-            'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
-            'Do not use markdown.',
-            'Compression rules inspired by caveman-compress:',
-            '- remove articles when possible: a, an, the',
-            '- remove filler: just, really, basically, actually, simply, essentially, generally',
-            '- remove pleasantries and hedging',
-            '- remove connective fluff: however, furthermore, additionally, in addition',
-            '- remove duplication',
-            '- merge near-identical bullets',
-            '- use short synonyms',
-            '- fragments OK in bullets',
-            '- keep technical truth, drop fluff',
-            '- preserve grounded specifics',
-            '- prefer dense and memorable phrasing',
-            `- target a compressed reload pack around ${targetTokens} tokens or less`,
-          ],
-        )))
+        const finalDistilledPack = normalizeDistilledPack(
+          await withRetry(() =>
+            callJsonMode<DistilledPack>(distillPass2Prompt, DistillPass1Schema, provider, modelId, [
+              'You are compressing an internal semantic archive into a reload-grade lifetime artifact.',
+              'Do not use markdown.',
+              'Compression rules inspired by caveman-compress:',
+              '- remove articles when possible: a, an, the',
+              '- remove filler: just, really, basically, actually, simply, essentially, generally',
+              '- remove pleasantries and hedging',
+              '- remove connective fluff: however, furthermore, additionally, in addition',
+              '- remove duplication',
+              '- merge near-identical bullets',
+              '- use short synonyms',
+              '- fragments OK in bullets',
+              '- keep technical truth, drop fluff',
+              '- preserve grounded specifics',
+              '- prefer dense and memorable phrasing',
+              `- target a compressed reload pack around ${targetTokens} tokens or less`,
+            ]),
+          ),
+        )
 
         // Final Persistence
         const artifact: LifetimeMemoryArtifact = {
-          id: nanoid(),
-          characterId,
-          version: 1,
-          chunkSummaries: session.chunkSummaries,
           baseArchive: session.baseArchive,
           baseContent: session.baseContent!,
-          distillPass1Pack: pass1Pack,
-          distilledContent: renderDistilledArtifactMd(card.name, finalDistilledPack),
-          sourceManifest: {
-            rawTurnCount: docs.filter(d => d.layer === 'raw').length,
-            stmmBlockCount: docs.filter(d => d.layer === 'stmm').length,
-            ltmmEntryCount: docs.filter(d => d.layer === 'ltmm').length,
-          },
+          characterId,
+          chunkSummaries: session.chunkSummaries,
           createdAt: Date.now(),
-          updatedAt: Date.now(),
+          distilledContent: renderDistilledArtifactMd(card.name, finalDistilledPack),
+          distillPass1Pack: pass1Pack,
+          id: nanoid(),
           metadata: {
-            model: modelId,
-            totalElapsedMs: Date.now() - runStart,
             chunkCount: chunks.length,
+            model: modelId,
             targetTokens,
+            totalElapsedMs: Date.now() - runStart,
           },
+          sourceManifest: {
+            ltmmEntryCount: docs.filter((d) => d.layer === 'ltmm').length,
+            rawTurnCount: docs.filter((d) => d.layer === 'raw').length,
+            stmmBlockCount: docs.filter((d) => d.layer === 'stmm').length,
+          },
+          updatedAt: Date.now(),
+          version: 1,
         }
 
         await lifetimeMemoryRepo.save(characterId, artifact)
@@ -846,14 +873,12 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
         progress.value.completedCalls = totalCalls
         progress.value.message = 'Lifetime history successfully provisioned.'
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[memory-lifetime] Provisioning failed:', err)
       error.value = err instanceof Error ? err.message : String(err)
       progress.value.phase = 'error'
       progress.value.message = 'Failed to provision lifetime history.'
-    }
-    finally {
+    } finally {
       isProvisioning.value = false
     }
   }
@@ -865,49 +890,49 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     }
 
     const card = cards.value.get(characterId)
-    if (!card)
-      throw new Error('Character not found')
+    if (!card) throw new Error('Character not found')
 
     const providerId = card.extensions?.airi?.modules?.consciousness?.provider || activeProvider.value
     const modelId = card.extensions?.airi?.modules?.consciousness?.model || activeModel.value
     const provider = await providersStore.getProviderInstance<ChatProvider>(providerId!)
-    if (!provider || !modelId)
-      throw new Error('Counsciousness not configured')
+    if (!provider || !modelId) throw new Error('Counsciousness not configured')
 
     const resolvedTarget = targetTokens ?? artifact.metadata?.targetTokens ?? 1000
 
     isProvisioning.value = true
     error.value = null
     progress.value = {
-      phase: 'synthesizing',
-      currentChunk: artifact.chunkSummaries.length,
-      totalChunks: artifact.chunkSummaries.length,
       completedCalls: 0,
-      totalCalls: 3, // Synthesis + Distill P1 + Distill P2
+      currentChunk: artifact.chunkSummaries.length,
       message: 'Re-synthesizing from existing chunks...',
+      phase: 'synthesizing',
+      totalCalls: 3, // Synthesis + Distill P1 + Distill P2
+      totalChunks: artifact.chunkSummaries.length,
     }
 
     try {
       // Create a fake session for the internal pipeline
       const session: ProvisioningSession = {
-        characterId,
-        phase: 'synthesizing',
-        chunkSummaries: artifact.chunkSummaries,
         baseArchive: artifact.baseArchive,
-        sourceDocCount: artifact.sourceManifest.rawTurnCount + artifact.sourceManifest.stmmBlockCount + artifact.sourceManifest.ltmmEntryCount,
-        totalChunks: artifact.chunkSummaries.length,
-        completedChunks: artifact.chunkSummaries.length,
         baseContent: artifact.baseContent,
+        characterId,
+        chunkSummaries: artifact.chunkSummaries,
+        completedChunks: artifact.chunkSummaries.length,
         distillPass1Pack: artifact.distillPass1Pack,
-        updatedAt: Date.now(),
+        phase: 'synthesizing',
+        sourceDocCount:
+          artifact.sourceManifest.rawTurnCount +
+          artifact.sourceManifest.stmmBlockCount +
+          artifact.sourceManifest.ltmmEntryCount,
         targetTokens: resolvedTarget,
+        totalChunks: artifact.chunkSummaries.length,
+        updatedAt: Date.now(),
       }
       activeSession.value = session
 
       // Use the existing provision logic but starting from synthesis
       await provision(characterId, true, intervalSeconds, 64, resolvedTarget)
-    }
-    finally {
+    } finally {
       isProvisioning.value = false
     }
   }
@@ -919,16 +944,16 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
   }
 
   return {
-    artifacts,
     activeSession,
-    loading,
-    isProvisioning,
-    progress,
+    artifacts,
+    collectSourceDocs,
     error,
+    isProvisioning,
     loadForCharacter,
+    loading,
+    progress,
     provision,
     reprovisionFromChunks,
     restart,
-    collectSourceDocs,
   }
 })

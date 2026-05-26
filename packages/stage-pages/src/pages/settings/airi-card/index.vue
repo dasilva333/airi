@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import type { Card, ccv3 } from '@proj-airi/ccc'
-import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
-
-import { loadLive2DModelPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
-import { useModelStore } from '@proj-airi/stage-ui-three'
-import { loadVrmModelPreview } from '@proj-airi/stage-ui-three/utils/vrm-preview'
 import { Alert } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { AiriCardSchema } from '@proj-airi/stage-ui/types'
+import { loadLive2DModelPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
+import { useModelStore } from '@proj-airi/stage-ui-three'
+import { loadVrmModelPreview } from '@proj-airi/stage-ui-three/utils/vrm-preview'
 import { InputFile } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
 import { storeToRefs } from 'pinia'
@@ -82,23 +81,24 @@ const inputFiles = ref<File[]>([])
 
 const cardSourceLinks = [
   {
-    name: 'JannyAI',
     description: 'Character discovery and card sharing with SillyTavern-friendly exports in the ecosystem.',
+    name: 'JannyAI',
     url: 'https://jannyai.com',
   },
   {
+    description:
+      'Popular character platform. Look for exports or mirrors that provide SillyTavern / chara_card_v2 PNG or JSON.',
     name: 'JanitorAI',
-    description: 'Popular character platform. Look for exports or mirrors that provide SillyTavern / chara_card_v2 PNG or JSON.',
     url: 'https://janitorai.com',
   },
   {
-    name: 'Chub AI',
     description: 'Large character-sharing ecosystem commonly used with third-party roleplay UIs.',
+    name: 'Chub AI',
     url: 'https://chub.ai',
   },
   {
-    name: 'Risu Realm',
     description: 'Community character hub tied to the Risu ecosystem, useful for portable card-style prompts.',
+    name: 'Risu Realm',
     url: 'https://realm.risuai.net',
   },
 ] as const
@@ -114,12 +114,12 @@ interface CardItem {
 
 type ImportedCardPayload = Card | ccv3.CharacterCardV3
 const CARD_EXPORT_FRAME = {
-  width: 925,
   height: 1436,
+  innerHeight: 1295,
+  innerWidth: 831,
   innerX: 65,
   innerY: 79,
-  innerWidth: 831,
-  innerHeight: 1295,
+  width: 925,
 } as const
 
 function base64ToUtf8(input: string) {
@@ -129,20 +129,11 @@ function base64ToUtf8(input: string) {
 function parsePngCharaPayload(buffer: ArrayBuffer): ImportedCardPayload {
   const bytes = new Uint8Array(buffer)
 
-  for (let offset = 8; offset < bytes.length - 8;) {
-    const length = (
-      (bytes[offset] << 24)
-      | (bytes[offset + 1] << 16)
-      | (bytes[offset + 2] << 8)
-      | bytes[offset + 3]
-    ) >>> 0
+  for (let offset = 8; offset < bytes.length - 8; ) {
+    const length =
+      ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0
 
-    const type = String.fromCharCode(
-      bytes[offset + 4],
-      bytes[offset + 5],
-      bytes[offset + 6],
-      bytes[offset + 7],
-    )
+    const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
 
     if (type === 'tEXt') {
       const dataStart = offset + 8
@@ -167,8 +158,7 @@ function parsePngCharaPayload(buffer: ArrayBuffer): ImportedCardPayload {
 }
 
 function getImportedCardName(card: ImportedCardPayload): string {
-  if ('data' in card)
-    return card.data?.name || 'Imported Card'
+  if ('data' in card) return card.data?.name || 'Imported Card'
 
   return card.name || 'Imported Card'
 }
@@ -192,16 +182,16 @@ function withImportedCardName(card: ImportedCardPayload, name: string): Imported
 
 function getUniqueImportedCardName(baseName: string): string {
   const existingNames = new Set(
-    Array.from(cards.value.values()).map(card => (card.name || '').trim().toLowerCase()).filter(Boolean),
+    Array.from(cards.value.values())
+      .map((card) => (card.name || '').trim().toLowerCase())
+      .filter(Boolean),
   )
 
   const trimmedBase = baseName.trim() || 'Imported Card'
-  if (!existingNames.has(trimmedBase.toLowerCase()))
-    return trimmedBase
+  if (!existingNames.has(trimmedBase.toLowerCase())) return trimmedBase
 
   let counter = 2
-  while (existingNames.has(`${trimmedBase} (${counter})`.toLowerCase()))
-    counter += 1
+  while (existingNames.has(`${trimmedBase} (${counter})`.toLowerCase())) counter += 1
 
   return `${trimmedBase} (${counter})`
 }
@@ -218,21 +208,18 @@ function parseImportedCard(content: string): ImportedCardPayload {
 
 watch(inputFiles, async (newFiles) => {
   const file = newFiles[0]
-  if (!file)
-    return
+  if (!file) return
 
   try {
     let importedCard: ImportedCardPayload
 
     if (file.name.toLowerCase().endsWith('.png')) {
       importedCard = parsePngCharaPayload(await file.arrayBuffer())
-    }
-    else {
+    } else {
       const content = await file.text()
       try {
         importedCard = parseImportedCard(content)
-      }
-      catch (e) {
+      } catch (e) {
         toast.error('Failed to parse card JSON: Malformed file')
         return
       }
@@ -243,7 +230,7 @@ watch(inputFiles, async (newFiles) => {
     // Validate the normalized AIRI card shape
     const validation = safeParse(AiriCardSchema, normalizedForValidation)
     if (!validation.success) {
-      const errorMsg = validation.issues.map(i => `${i.path?.[0]?.key || 'root'}: ${i.message}`).join(', ')
+      const errorMsg = validation.issues.map((i) => `${i.path?.[0]?.key || 'root'}: ${i.message}`).join(', ')
       toast.error('Card validation failed', {
         description: errorMsg,
       })
@@ -258,8 +245,7 @@ watch(inputFiles, async (newFiles) => {
     selectedCardId.value = await addCard(renamedCard)
     isCardDialogOpen.value = true
     toast.success('Card imported successfully')
-  }
-  catch (error) {
+  } catch (error) {
     console.error('[AiriCard] Error processing card file:', error)
     toast.error('Error processing card file', {
       description: error instanceof Error ? error.message : 'Unknown error',
@@ -268,43 +254,45 @@ watch(inputFiles, async (newFiles) => {
 })
 
 function parseStMessageExamples(exampleStr: string): string[][] {
-  if (!exampleStr || typeof exampleStr !== 'string')
-    return []
+  if (!exampleStr || typeof exampleStr !== 'string') return []
 
   // ST standard uses <START> (often case-insensitive) as a separator for example chat logs
   // We split by <START> and filter out empty blocks
   const blocks = exampleStr
     .split(/<START>/i)
-    .map(block => block.trim())
+    .map((block) => block.trim())
     .filter(Boolean)
 
-  return blocks.map((block) => {
-    // Each block is a transcript. We split by lines and filter empty lines.
-    // We also ensure lines start with {{user}}: or {{char}}: as per AIRI requirements
-    return block
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map((line) => {
-        // Basic normalization for common ST variants
-        let normalized = line
-        if (normalized.toLowerCase().startsWith('user:')) {
-          normalized = `{{user}}:${normalized.slice(5)}`
-        }
-        else if (normalized.toLowerCase().startsWith('char:')) {
-          normalized = `{{char}}:${normalized.slice(5)}`
-        }
-        // Ensure space after colon if missing for AIRI schema compliance
-        // Schema regex: /^\{\{(?:user|char)\}\}: /
-        if (/^\{\{(?:user|char)\}\}:\S/.test(normalized)) {
-          normalized = normalized.replace(/^(\{\{(?:user|char)\}\}:)/, '$1 ')
-        }
+  return blocks
+    .map((block) => {
+      // Each block is a transcript. We split by lines and filter empty lines.
+      // We also ensure lines start with {{user}}: or {{char}}: as per AIRI requirements
+      return (
+        block
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .map((line) => {
+            // Basic normalization for common ST variants
+            let normalized = line
+            if (normalized.toLowerCase().startsWith('user:')) {
+              normalized = `{{user}}:${normalized.slice(5)}`
+            } else if (normalized.toLowerCase().startsWith('char:')) {
+              normalized = `{{char}}:${normalized.slice(5)}`
+            }
+            // Ensure space after colon if missing for AIRI schema compliance
+            // Schema regex: /^\{\{(?:user|char)\}\}: /
+            if (/^\{\{(?:user|char)\}\}:\S/.test(normalized)) {
+              normalized = normalized.replace(/^(\{\{(?:user|char)\}\}:)/, '$1 ')
+            }
 
-        return normalized
-      })
-      // Filter to only kept lines that match AIRI's MessageExampleItemSchema
-      .filter(line => /^\{\{(?:user|char)\}\}: /.test(line))
-  }).filter(block => block.length > 0)
+            return normalized
+          })
+          // Filter to only kept lines that match AIRI's MessageExampleItemSchema
+          .filter((line) => /^\{\{(?:user|char)\}\}: /.test(line))
+      )
+    })
+    .filter((block) => block.length > 0)
 }
 
 function addCardPreviewNormalize(card: any) {
@@ -315,53 +303,48 @@ function addCardPreviewNormalize(card: any) {
   if (card.format === 'airi-card' || card.systemPrompt !== undefined) {
     return {
       ...card,
-      version: card.version || '1.0.0',
       // If messageExample is a string (stale AIRI or raw ST), normalize it to AIRI format[][]
-      messageExample: typeof card.messageExample === 'string'
-        ? parseStMessageExamples(card.messageExample)
-        : card.messageExample,
+      messageExample:
+        typeof card.messageExample === 'string' ? parseStMessageExamples(card.messageExample) : card.messageExample,
+      version: card.version || '1.0.0',
     }
   }
 
   return {
-    name: data.name || 'Imported Card',
-    version: data.character_version || '1.0.0',
     description: data.description ?? '',
-    notes: data.creator_notes ?? '',
-    personality: data.personality ?? '',
-    scenario: data.scenario ?? '',
-    systemPrompt: data.system_prompt ?? '',
-    postHistoryInstructions: data.post_history_instructions ?? '',
-    greetings: [
-      data.first_mes,
-      ...(data.alternate_greetings ?? []),
-    ].filter(Boolean),
-    messageExample: parseStMessageExamples(data.mes_example || ''),
     extensions: {
       airi: data.extensions?.airi,
       ...data.extensions,
     },
+    greetings: [data.first_mes, ...(data.alternate_greetings ?? [])].filter(Boolean),
+    messageExample: parseStMessageExamples(data.mes_example || ''),
+    name: data.name || 'Imported Card',
+    notes: data.creator_notes ?? '',
+    personality: data.personality ?? '',
+    postHistoryInstructions: data.post_history_instructions ?? '',
+    scenario: data.scenario ?? '',
+    systemPrompt: data.system_prompt ?? '',
+    version: data.character_version || '1.0.0',
   }
 }
 
 // Transform cards Map to array for display
 const cardsArray = computed<CardItem[]>(() => {
   return Array.from(cards.value.entries()).map(([id, card]) => ({
+    description: card.description || '',
     id,
     name: card.name || '',
-    description: card.description || '',
   }))
 })
 
 // Filtered cards based on search query
 const filteredCards = computed<CardItem[]>(() => {
-  if (!searchQuery.value)
-    return cardsArray.value
+  if (!searchQuery.value) return cardsArray.value
 
   const query = searchQuery.value.toLowerCase()
-  return cardsArray.value.filter(item =>
-    item.name.toLowerCase().includes(query)
-    || (item.description && item.description.toLowerCase().includes(query)),
+  return cardsArray.value.filter(
+    (item) =>
+      item.name.toLowerCase().includes(query) || (item.description && item.description.toLowerCase().includes(query)),
   )
 })
 
@@ -370,14 +353,10 @@ const sortedFilteredCards = computed<CardItem[]>(() => {
   // Create a new array to avoid mutating the source
   const sorted = [...filteredCards.value]
 
-  if (sortOption.value === 'nameAsc')
-    return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-  else if (sortOption.value === 'nameDesc')
-    return sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''))
-  else if (sortOption.value === 'recent')
-    return sorted.sort((a, b) => (b.id || '').localeCompare(a.id || ''))
-  else
-    return sorted
+  if (sortOption.value === 'nameAsc') return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  else if (sortOption.value === 'nameDesc') return sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''))
+  else if (sortOption.value === 'recent') return sorted.sort((a, b) => (b.id || '').localeCompare(a.id || ''))
+  else return sorted
 })
 
 // Delete confirmation
@@ -431,9 +410,9 @@ async function exportCard(cardId: string) {
   }
 
   const payload = {
+    card,
     format: 'airi-card',
     version: 1,
-    card,
   }
 
   const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: 'application/json' })
@@ -466,46 +445,43 @@ function buildCharaCardV2(card: AiriCard) {
   }
 
   return {
-    spec: 'chara_card_v2',
-    spec_version: '2.0',
     data: {
-      name: card.name || '',
+      alternate_greetings: card.greetings?.slice(1) || [],
+      character_version: card.version || '',
+      creator: card.creator || '',
+      creator_notes: card.notes || '',
       description: card.description || '',
-      personality: card.personality || '',
-      scenario: card.scenario || '',
+      extensions: exportedExtensions,
       first_mes: card.greetings?.[0] || '',
       mes_example: Array.isArray(card.messageExample)
         ? card.messageExample
-            .map(example => Array.isArray(example) ? example.join('\n') : String(example))
+            .map((example) => (Array.isArray(example) ? example.join('\n') : String(example)))
             .join('\n<START>\n')
         : '',
-      creator_notes: card.notes || '',
-      system_prompt: card.systemPrompt || '',
+      name: card.name || '',
+      personality: card.personality || '',
       post_history_instructions: card.postHistoryInstructions || '',
-      alternate_greetings: card.greetings?.slice(1) || [],
+      scenario: card.scenario || '',
+      system_prompt: card.systemPrompt || '',
       tags: card.tags || [],
-      creator: card.creator || '',
-      character_version: card.version || '',
-      extensions: exportedExtensions,
       x_airi_probe: 'top-level-data-ok',
     },
+    spec: 'chara_card_v2',
+    spec_version: '2.0',
   }
 }
 
 async function getCardWithExportedBackground(cardId: string): Promise<AiriCard | undefined> {
   const card = cardStore.getCard(cardId)
-  if (!card)
-    return undefined
+  if (!card) return undefined
 
   const activeBackgroundId = card.extensions?.airi?.modules?.activeBackgroundId
 
-  if (!activeBackgroundId || activeBackgroundId === 'none')
-    return card
+  if (!activeBackgroundId || activeBackgroundId === 'none') return card
 
   const exportBackground = backgroundStore.entries.get(activeBackgroundId)
 
-  if (!exportBackground)
-    return card
+  if (!exportBackground) return card
 
   return new Promise((resolve) => {
     const reader = new FileReader()
@@ -519,10 +495,10 @@ async function getCardWithExportedBackground(cardId: string): Promise<AiriCard |
             modules: {
               ...card.extensions?.airi?.modules,
               activeBackgroundId,
+              preferredBackgroundDataUrl: e.target?.result as string,
               // Export these for backwards compatibility with chara_card_v2 format standards
               preferredBackgroundId: activeBackgroundId,
               preferredBackgroundName: exportBackground.title || exportBackground.id,
-              preferredBackgroundDataUrl: e.target?.result as string,
             },
           },
         },
@@ -542,7 +518,7 @@ function createCrc32Table() {
   for (let i = 0; i < 256; i += 1) {
     let c = i
     for (let j = 0; j < 8; j += 1) {
-      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
     }
     table[i] = c >>> 0
   }
@@ -552,11 +528,11 @@ function createCrc32Table() {
 const crc32Table = createCrc32Table()
 
 function crc32(data: Uint8Array) {
-  let crc = 0xFFFFFFFF
+  let crc = 0xffffffff
   for (let i = 0; i < data.length; i += 1) {
-    crc = crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8)
+    crc = crc32Table[(crc ^ data[i]) & 0xff] ^ (crc >>> 8)
   }
-  return (crc ^ 0xFFFFFFFF) >>> 0
+  return (crc ^ 0xffffffff) >>> 0
 }
 
 function concatUint8Arrays(parts: Uint8Array[]) {
@@ -571,12 +547,7 @@ function concatUint8Arrays(parts: Uint8Array[]) {
 }
 
 function uint32ToBytes(value: number) {
-  return new Uint8Array([
-    (value >>> 24) & 0xFF,
-    (value >>> 16) & 0xFF,
-    (value >>> 8) & 0xFF,
-    value & 0xFF,
-  ])
+  return new Uint8Array([(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff])
 }
 
 function createPngTextChunk(keyword: string, text: string) {
@@ -584,27 +555,18 @@ function createPngTextChunk(keyword: string, text: string) {
   const dataBytes = new TextEncoder().encode(`${keyword}\0${text}`)
   const crcBytes = uint32ToBytes(crc32(concatUint8Arrays([typeBytes, dataBytes])))
 
-  return concatUint8Arrays([
-    uint32ToBytes(dataBytes.length),
-    typeBytes,
-    dataBytes,
-    crcBytes,
-  ])
+  return concatUint8Arrays([uint32ToBytes(dataBytes.length), typeBytes, dataBytes, crcBytes])
 }
 
 function injectPngTextChunk(pngBytes: Uint8Array, keyword: string, text: string) {
   const iendOffset = pngBytes.lastIndexOf(73) // 'I'
-  if (iendOffset < 12)
-    throw new Error('Invalid PNG payload')
+  if (iendOffset < 12) throw new Error('Invalid PNG payload')
 
   let insertOffset = -1
-  for (let offset = 8; offset < pngBytes.length - 8;) {
-    const length = (
-      (pngBytes[offset] << 24)
-      | (pngBytes[offset + 1] << 16)
-      | (pngBytes[offset + 2] << 8)
-      | pngBytes[offset + 3]
-    ) >>> 0
+  for (let offset = 8; offset < pngBytes.length - 8; ) {
+    const length =
+      ((pngBytes[offset] << 24) | (pngBytes[offset + 1] << 16) | (pngBytes[offset + 2] << 8) | pngBytes[offset + 3]) >>>
+      0
     const type = String.fromCharCode(
       pngBytes[offset + 4],
       pngBytes[offset + 5],
@@ -618,15 +580,10 @@ function injectPngTextChunk(pngBytes: Uint8Array, keyword: string, text: string)
     offset += 12 + length
   }
 
-  if (insertOffset === -1)
-    throw new Error('PNG is missing IEND chunk')
+  if (insertOffset === -1) throw new Error('PNG is missing IEND chunk')
 
   const chunk = createPngTextChunk(keyword, text)
-  return concatUint8Arrays([
-    pngBytes.slice(0, insertOffset),
-    chunk,
-    pngBytes.slice(insertOffset),
-  ])
+  return concatUint8Arrays([pngBytes.slice(0, insertOffset), chunk, pngBytes.slice(insertOffset)])
 }
 
 function loadImageElement(src: string) {
@@ -639,18 +596,14 @@ function loadImageElement(src: string) {
 }
 
 async function composeCardExportPng(previewImage: string) {
-  const [preview, frame] = await Promise.all([
-    loadImageElement(previewImage),
-    loadImageElement(cardExportFrameUrl),
-  ])
+  const [preview, frame] = await Promise.all([loadImageElement(previewImage), loadImageElement(cardExportFrameUrl)])
 
   const canvas = document.createElement('canvas')
   canvas.width = CARD_EXPORT_FRAME.width
   canvas.height = CARD_EXPORT_FRAME.height
 
   const context = canvas.getContext('2d')
-  if (!context)
-    throw new Error('Failed to create export canvas')
+  if (!context) throw new Error('Failed to create export canvas')
 
   // Fit the preview to the portrait window width, anchor to the top, and crop any bottom overflow.
   const scale = CARD_EXPORT_FRAME.innerWidth / preview.naturalWidth
@@ -666,23 +619,15 @@ async function composeCardExportPng(previewImage: string) {
     CARD_EXPORT_FRAME.innerHeight,
   )
   context.clip()
-  context.drawImage(
-    preview,
-    CARD_EXPORT_FRAME.innerX,
-    CARD_EXPORT_FRAME.innerY,
-    drawWidth,
-    drawHeight,
-  )
+  context.drawImage(preview, CARD_EXPORT_FRAME.innerX, CARD_EXPORT_FRAME.innerY, drawWidth, drawHeight)
   context.restore()
 
   context.drawImage(frame, 0, 0, CARD_EXPORT_FRAME.width, CARD_EXPORT_FRAME.height)
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => {
-      if (value)
-        resolve(value)
-      else
-        reject(new Error('Failed to encode composed PNG'))
+      if (value) resolve(value)
+      else reject(new Error('Failed to encode composed PNG'))
     }, 'image/png')
   })
 
@@ -699,8 +644,7 @@ async function exportCardPng(cardId: string) {
   const displayModelId = cardStore.getCardDisplayModelId(cardId)
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   const previewModel = displayModelId ? await displayModelsStore.getDisplayModel(displayModelId) : null
-  if (!previewModel)
-    return
+  if (!previewModel) return
 
   let previewImage = previewModel.previewImage
 
@@ -712,16 +656,12 @@ async function exportCardPng(cardId: string) {
 
       if (previewModel.format === DisplayModelFormat.VRM) {
         const liveSnapshot = await loadVrmModelPreview(modelInput, activeExpressions.value)
-        if (liveSnapshot)
-          previewImage = liveSnapshot
-      }
-      else if (previewModel.format === DisplayModelFormat.Live2dZip) {
+        if (liveSnapshot) previewImage = liveSnapshot
+      } else if (previewModel.format === DisplayModelFormat.Live2dZip) {
         const liveSnapshot = await loadLive2DModelPreview(modelInput, activeExpressions.value)
-        if (liveSnapshot)
-          previewImage = liveSnapshot
+        if (liveSnapshot) previewImage = liveSnapshot
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.warn('Failed to take live snapshot for card export, falling back to stale preview:', err)
     }
   }
@@ -774,15 +714,13 @@ function getVersionNumber(id: string) {
 // Card module short name
 function getModuleShortName(id: string, module: 'consciousness' | 'voice') {
   const card = cards.value.get(id)
-  if (!card || !card.extensions?.airi?.modules)
-    return 'default'
+  if (!card || !card.extensions?.airi?.modules) return 'default'
 
   const airiExt = card.extensions.airi.modules
 
   if (module === 'consciousness') {
     return airiExt.consciousness?.model ? airiExt.consciousness.model.split('-').pop() || 'default' : 'default'
-  }
-  else if (module === 'voice') {
+  } else if (module === 'voice') {
     return airiExt.speech?.voice_id || 'default'
   }
 

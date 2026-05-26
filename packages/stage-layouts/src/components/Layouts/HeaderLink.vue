@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { useTheme } from '@proj-airi/ui'
 import { RouterLink } from 'vue-router'
-
-import LogoDark from '../../assets/logo-dark.svg'
 import Logo from '../../assets/logo.svg'
+import LogoDark from '../../assets/logo-dark.svg'
 
 const { isDark: dark } = useTheme()
 </script>

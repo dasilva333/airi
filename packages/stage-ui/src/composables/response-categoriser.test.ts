@@ -61,14 +61,7 @@ describe('createStreamingCategorizer', () => {
 
   it('should handle tags split across chunks', () => {
     const categorizer = createStreamingCategorizer()
-    const chunks = [
-      'Hello <',
-      'reasoning',
-      '>thinking',
-      ' about this',
-      '</reasoning',
-      '> world!',
-    ]
+    const chunks = ['Hello <', 'reasoning', '>thinking', ' about this', '</reasoning', '> world!']
 
     for (const chunk of chunks) {
       categorizer.consume(chunk)
@@ -117,7 +110,8 @@ describe('createStreamingCategorizer', () => {
   it('should handle tags with special tokens like emotes inside reasoning', () => {
     const categorizer = createStreamingCategorizer()
     // Special tokens like <|ACT {"emotion":{"name":"happy","intensity":1}}|> and <|DELAY:1|> should be included in reasoning
-    const text = 'Hello <reasoning>thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|></reasoning> world!'
+    const text =
+      'Hello <reasoning>thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|></reasoning> world!'
 
     categorizer.consume(text)
     const result = categorizer.end()
@@ -129,7 +123,8 @@ describe('createStreamingCategorizer', () => {
   it('should handle <think> tag with special tokens in between', () => {
     const categorizer = createStreamingCategorizer()
     // Special tokens like <|ACT {"emotion":{"name":"curious","intensity":1}}|> should be included within reasoning tags
-    const text = 'Hello <think>thinking <|ACT {"emotion":{"name":"curious","intensity":1}}|> about this <|DELAY:2|> and that</think> world!'
+    const text =
+      'Hello <think>thinking <|ACT {"emotion":{"name":"curious","intensity":1}}|> about this <|DELAY:2|> and that</think> world!'
 
     categorizer.consume(text)
     const result = categorizer.end()
@@ -138,11 +133,11 @@ describe('createStreamingCategorizer', () => {
     // eslint-disable-next-line no-console
     console.log({
       input: text,
-      segmentsFound: result.segments.length,
-      tagName: result.segments[0]?.tagName,
-      segmentContent: result.segments[0]?.content,
       reasoning: result.reasoning,
+      segmentContent: result.segments[0]?.content,
+      segmentsFound: result.segments.length,
       speech: result.speech,
+      tagName: result.segments[0]?.tagName,
     })
 
     // Verify tag is recognized
@@ -161,13 +156,16 @@ describe('createStreamingCategorizer', () => {
     expect(result.speech).toBe('Hello world!')
     expect(result.speech).not.toContain('<|ACT {"emotion":{"name":"curious","intensity":1}}|>')
     expect(result.speech).not.toContain('<|DELAY:2|>')
-    expect(result.reasoning).toBe('thinking <|ACT {"emotion":{"name":"curious","intensity":1}}|> about this <|DELAY:2|> and that')
+    expect(result.reasoning).toBe(
+      'thinking <|ACT {"emotion":{"name":"curious","intensity":1}}|> about this <|DELAY:2|> and that',
+    )
   })
 
   it('should handle <think> with special tokens like <|ACT {"emotion":{"name":"happy","intensity":1}}|> in between', () => {
     const categorizer = createStreamingCategorizer()
     // Testing the exact scenario: <think>...<|Special in between|>...</think>
-    const text = 'Hello <think>thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|> and that</think> world!'
+    const text =
+      'Hello <think>thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|> and that</think> world!'
 
     categorizer.consume(text)
     const result = categorizer.end()
@@ -176,11 +174,11 @@ describe('createStreamingCategorizer', () => {
     // eslint-disable-next-line no-console
     console.log({
       input: text,
-      segmentsFound: result.segments.length,
-      tagName: result.segments[0]?.tagName,
-      segmentContent: result.segments[0]?.content,
       reasoning: result.reasoning,
+      segmentContent: result.segments[0]?.content,
+      segmentsFound: result.segments.length,
       speech: result.speech,
+      tagName: result.segments[0]?.tagName,
     })
 
     // Verify tag is recognized
@@ -199,7 +197,9 @@ describe('createStreamingCategorizer', () => {
     expect(result.speech).toBe('Hello world!')
     expect(result.speech).not.toContain('<|ACT {"emotion":{"name":"happy","intensity":1}}|>')
     expect(result.speech).not.toContain('<|DELAY:1|>')
-    expect(result.reasoning).toBe('thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|> and that')
+    expect(result.reasoning).toBe(
+      'thinking <|ACT {"emotion":{"name":"happy","intensity":1}}|> about this <|DELAY:1|> and that',
+    )
   })
 
   it('should handle any tag name as reasoning', () => {
@@ -270,9 +270,9 @@ describe('createStreamingCategorizer', () => {
   })
 
   it('should call onSegment callback when segments are detected', () => {
-    const segments: Array<{ tagName: string, content: string }> = []
+    const segments: Array<{ tagName: string; content: string }> = []
     const categorizer = createStreamingCategorizer(undefined, (segment) => {
-      segments.push({ tagName: segment.tagName, content: segment.content })
+      segments.push({ content: segment.content, tagName: segment.tagName })
     })
 
     const text = 'Hello <reasoning>thought1</reasoning> <think>thought2</think> world!'
@@ -284,8 +284,8 @@ describe('createStreamingCategorizer', () => {
     // Check final result has both segments
     const result = categorizer.end()
     expect(result.segments.length).toBeGreaterThanOrEqual(2)
-    expect(result.segments.some(s => s.tagName === 'reasoning')).toBe(true)
-    expect(result.segments.some(s => s.tagName === 'think')).toBe(true)
+    expect(result.segments.some((s) => s.tagName === 'reasoning')).toBe(true)
+    expect(result.segments.some((s) => s.tagName === 'think')).toBe(true)
 
     // onSegment is called when segments complete during streaming
     // At minimum, we should have segments detected in the final result

@@ -7,7 +7,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
-  artistryProviderOptions: { value: string, label: string }[]
+  artistryProviderOptions: { value: string; label: string }[]
   defaultArtistryProviderPlaceholder: string
 }>()
 const selectedArtistryProvider = defineModel<string>('selectedArtistryProvider', { required: true })
@@ -15,11 +15,23 @@ const selectedArtistryModel = defineModel<string>('selectedArtistryModel', { req
 const selectedArtistryPromptPrefix = defineModel<string>('selectedArtistryPromptPrefix', { required: true })
 const selectedArtistryWidgetInstruction = defineModel<string>('selectedArtistryWidgetInstruction', { required: true })
 const selectedArtistryAutonomousEnabled = defineModel<boolean>('selectedArtistryAutonomousEnabled', { required: true })
-const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', { required: true })
-const selectedArtistryAutonomousMonitorEnabled = defineModel<boolean>('selectedArtistryAutonomousMonitorEnabled', { required: false, default: true })
-const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', { required: true })
-const selectedArtistryAutonomousHistoryDepth = defineModel<number>('selectedArtistryAutonomousHistoryDepth', { required: false, default: 3 })
-const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
+const selectedArtistryAutonomousThreshold = defineModel<number>('selectedArtistryAutonomousThreshold', {
+  required: true,
+})
+const selectedArtistryAutonomousMonitorEnabled = defineModel<boolean>('selectedArtistryAutonomousMonitorEnabled', {
+  default: true,
+  required: false,
+})
+const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', {
+  required: true,
+})
+const selectedArtistryAutonomousHistoryDepth = defineModel<number>('selectedArtistryAutonomousHistoryDepth', {
+  default: 3,
+  required: false,
+})
+const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', {
+  required: true,
+})
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
 const { t } = useI18n()
@@ -27,14 +39,14 @@ const { t } = useI18n()
 const artistryStore = useArtistryStore()
 const comfyuiWorkflows = computed(() => artistryStore.comfyuiSavedWorkflows || [])
 const spawnModeOptions = computed(() => [
-  { value: 'bg', label: t('settings.pages.modules.artistry.spawn_mode.options.bg') },
-  { value: 'inline', label: t('settings.pages.modules.artistry.spawn_mode.options.inline') },
-  { value: 'widget', label: t('settings.pages.modules.artistry.spawn_mode.options.widget') },
-  { value: 'bg_widget', label: t('settings.pages.modules.artistry.spawn_mode.options.bg_widget') },
+  { label: t('settings.pages.modules.artistry.spawn_mode.options.bg'), value: 'bg' },
+  { label: t('settings.pages.modules.artistry.spawn_mode.options.inline'), value: 'inline' },
+  { label: t('settings.pages.modules.artistry.spawn_mode.options.widget'), value: 'widget' },
+  { label: t('settings.pages.modules.artistry.spawn_mode.options.bg_widget'), value: 'bg_widget' },
 ])
 const autonomousTargetOptions = computed(() => [
-  { value: 'user', label: 'User Input (Standard)' },
-  { value: 'assistant', label: 'Companion Reaction (Impact Focus)' },
+  { label: 'User Input (Standard)', value: 'user' },
+  { label: 'Companion Reaction (Impact Focus)', value: 'assistant' },
 ])
 
 function handleModelSelect(model: any) {
@@ -89,21 +101,18 @@ ${fieldsStr}
 }
 
 function applyRecommendedInstructions() {
-  if (!pendingInstructionWf.value)
-    return
+  if (!pendingInstructionWf.value) return
   selectedArtistryWidgetInstruction.value = generateAgentInstructions(pendingInstructionWf.value)
   pendingInstructionWf.value = null
 }
 
 function getExposedFieldsCount(wf: any) {
-  if (!wf.exposedFields)
-    return 0
+  if (!wf.exposedFields) return 0
   return Object.values(wf.exposedFields).reduce((n: number, arr: any) => n + (arr?.length || 0), 0)
 }
 
 function openReplicateModel() {
-  if (!selectedArtistryModel.value)
-    return
+  if (!selectedArtistryModel.value) return
   window.open(`https://replicate.com/${selectedArtistryModel.value}`, '_blank')
 }
 

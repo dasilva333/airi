@@ -12,26 +12,16 @@ const props = defineProps<{
   zIndex?: number
 }>()
 
-const emit = defineEmits<{
-  (e: 'animationEnded'): void
-}>()
+const emit = defineEmits<(e: 'animationEnded') => void>()
 
 const isAnimating = ref(false)
 
 const clsAndProps = computed(() => {
   return {
-    opacity: isAnimating.value !== props.isReverse
-      ? 1
-      : 0, // this equals to opacity: isAnimating.value ? props.isReverse ? 1 : 0 : props.isReverse ? 0 : 1
-    size: isAnimating.value !== props.isReverse
-      ? 25
-      : props.iconSize,
-    position: isAnimating.value !== props.isReverse
-      ? `calc(50dvw - 12.5rem), calc(50dvh - 12.5rem)`
-      : props.position,
-    textColor: isAnimating.value !== props.isReverse
-      ? 'text-white'
-      : props.textColor,
+    opacity: isAnimating.value !== props.isReverse ? 1 : 0, // this equals to opacity: isAnimating.value ? props.isReverse ? 1 : 0 : props.isReverse ? 0 : 1
+    position: isAnimating.value !== props.isReverse ? `calc(50dvw - 12.5rem), calc(50dvh - 12.5rem)` : props.position,
+    size: isAnimating.value !== props.isReverse ? 25 : props.iconSize,
+    textColor: isAnimating.value !== props.isReverse ? 'text-white' : props.textColor,
   }
 })
 
@@ -41,17 +31,21 @@ const animationEnded = ref(false)
 function handleAnimationEnded(e: TransitionEvent) {
   animationEndProps.value.push(e.propertyName)
 
-  if (animationEndProps.value.includes('color')
-    && animationEndProps.value.includes('width')
-    && animationEndProps.value.includes('height')
-    && animationEndProps.value.includes('transform')) {
+  if (
+    animationEndProps.value.includes('color') &&
+    animationEndProps.value.includes('width') &&
+    animationEndProps.value.includes('height') &&
+    animationEndProps.value.includes('transform')
+  ) {
     animationEnded.value = true
     emit('animationEnded')
   }
 }
 
-watch(() => props.started, newVal =>
-  newVal && requestAnimationFrame(() => isAnimating.value = true))
+watch(
+  () => props.started,
+  (newVal) => newVal && requestAnimationFrame(() => (isAnimating.value = true)),
+)
 </script>
 
 <template>

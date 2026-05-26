@@ -3,9 +3,8 @@
  * This file is imported as a Web Worker
  */
 
-import type { ErrorMessage, LoadedMessage, ProgressMessage, SuccessMessage, VoiceKey, WorkerRequest } from './types'
-
 import { KokoroTTS } from 'kokoro-js'
+import type { ErrorMessage, LoadedMessage, ProgressMessage, SuccessMessage, VoiceKey, WorkerRequest } from './types'
 
 let ttsModel: KokoroTTS | null = null
 let currentQuantization: string | null = null
@@ -30,20 +29,17 @@ async function loadModel(quantization: string, device: string) {
   // Map fp32-webgpu to fp32 for the model
   const modelQuantization = quantization === 'fp32-webgpu' ? 'fp32' : quantization
 
-  ttsModel = await KokoroTTS.from_pretrained(
-    'onnx-community/Kokoro-82M-v1.0-ONNX',
-    {
-      dtype: modelQuantization as 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16',
-      device: device as 'wasm' | 'webgpu' | 'cpu',
-      progress_callback: (progress) => {
-        const message: ProgressMessage = {
-          type: 'progress',
-          progress,
-        }
-        globalThis.postMessage(message)
-      },
+  ttsModel = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+    device: device as 'wasm' | 'webgpu' | 'cpu',
+    dtype: modelQuantization as 'fp32' | 'fp16' | 'q8' | 'q4' | 'q4f16',
+    progress_callback: (progress) => {
+      const message: ProgressMessage = {
+        progress,
+        type: 'progress',
+      }
+      globalThis.postMessage(message)
     },
-  )
+  })
 
   // Store the current settings
   currentQuantization = quantization
@@ -61,9 +57,9 @@ async function generate(request: GenerateRequest) {
 
   if (!ttsModel) {
     const errorMessage: ErrorMessage = {
-      type: 'result',
-      status: 'error',
       message: 'Kokoro TTS generation failed: No model loaded.',
+      status: 'error',
+      type: 'result',
     }
     globalThis.postMessage(errorMessage)
     return
@@ -80,9 +76,9 @@ async function generate(request: GenerateRequest) {
   // Send the audio buffer back to the main thread
   // Use transferable to avoid copying the buffer
   const successMessage: SuccessMessage = {
-    type: 'result',
-    status: 'success',
     buffer,
+    status: 'success',
+    type: 'result',
   }
   const transferList: ArrayBuffer[] = [buffer]
   ;(globalThis as any).postMessage(successMessage, transferList)

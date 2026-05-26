@@ -1,24 +1,8 @@
 {
-  "name": "@proj-airi/stage-pages",
-  "type": "module",
-  "private": true,
-  "description": "Shared Pages",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-pages"
-  },
-  "exports": {
-    "./*": "./src/*"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@moeru/eventa": "catalog:",
@@ -58,6 +42,7 @@
     "xsschema": "catalog:",
     "zod": "catalog:"
   },
+  "description": "Shared Pages",
   "devDependencies": {
     "@nekopaw/tempora": "catalog:",
     "@types/audioworklet": "catalog:",
@@ -65,5 +50,20 @@
     "@types/three": "^0.183.1",
     "unplugin-info": "catalog:",
     "vue-tsc": "^3.1.8"
-  }
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-pages",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-pages",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

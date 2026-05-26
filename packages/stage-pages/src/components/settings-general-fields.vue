@@ -11,13 +11,13 @@ const { t } = useI18n()
 const { isDark: dark } = useTheme()
 
 const languages = computed(() => {
-  return Object.entries(all).map(([value, label]) => ({ value, label }))
+  return Object.entries(all).map(([value, label]) => ({ label, value }))
 })
 
 const sendModes = computed(() => [
-  { value: 'enter', label: t('settings.pages.chat.send-mode.options.enter') },
-  { value: 'ctrl-enter', label: t('settings.pages.chat.send-mode.options.ctrl-enter') },
-  { value: 'double-enter', label: t('settings.pages.chat.send-mode.options.double-enter') },
+  { label: t('settings.pages.chat.send-mode.options.enter'), value: 'enter' },
+  { label: t('settings.pages.chat.send-mode.options.ctrl-enter'), value: 'ctrl-enter' },
+  { label: t('settings.pages.chat.send-mode.options.double-enter'), value: 'double-enter' },
 ])
 </script>
 

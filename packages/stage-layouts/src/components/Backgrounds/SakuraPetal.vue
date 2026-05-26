@@ -21,9 +21,9 @@ interface Petal {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  baseColor: '#FFB6C1',
   petalCount: 20,
   refreshInterval: 30000,
-  baseColor: '#FFB6C1',
 })
 
 const petals = ref<Petal[]>([])
@@ -32,13 +32,13 @@ let animationInterval: number | null = null
 function createPetalStyle() {
   const size = 8 + Math.random() * 4
   return {
+    animationDelay: `${Math.random() * 5}s`,
+    animationDuration: `${5 + Math.random() * 5}s`,
+    height: `${size}px`,
     left: `${Math.random() * 100}%`,
     top: `-${size}px`,
-    width: `${size}px`,
-    height: `${size}px`,
-    animationDuration: `${5 + Math.random() * 5}s`,
-    animationDelay: `${Math.random() * 5}s`,
     transform: `rotate(${Math.random() * 360}deg)`,
+    width: `${size}px`,
   }
 }
 

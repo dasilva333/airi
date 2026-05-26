@@ -16,7 +16,10 @@ export const useSettingsAudioDevice = defineStore('settings-audio-devices', () =
     askPermission,
   } = useAudioDevice()
 
-  const selectedAudioInputPersist = useLocalStorageManualReset<string>('settings/audio/input', selectedAudioInputNonPersist.value)
+  const selectedAudioInputPersist = useLocalStorageManualReset<string>(
+    'settings/audio/input',
+    selectedAudioInputNonPersist.value,
+  )
   const selectedAudioInputEnabledPersist = useLocalStorageManualReset<boolean>('settings/audio/input/enabled', false)
 
   watch(selectedAudioInputPersist, (newValue) => {
@@ -26,15 +29,15 @@ export const useSettingsAudioDevice = defineStore('settings-audio-devices', () =
   watch(selectedAudioInputEnabledPersist, (val) => {
     if (val) {
       startStream()
-    }
-    else {
+    } else {
       stopStream()
     }
   })
 
   onMounted(() => {
-    const hasSelectedInput = selectedAudioInputPersist.value
-      && audioInputs.value.some(device => device.deviceId === selectedAudioInputPersist.value)
+    const hasSelectedInput =
+      selectedAudioInputPersist.value &&
+      audioInputs.value.some((device) => device.deviceId === selectedAudioInputPersist.value)
 
     if (selectedAudioInputEnabledPersist.value && hasSelectedInput) {
       startStream()
@@ -52,17 +55,16 @@ export const useSettingsAudioDevice = defineStore('settings-audio-devices', () =
   }
 
   return {
+    askPermission,
     audioInputs,
     deviceConstraints,
+    enabled: selectedAudioInputEnabledPersist,
+    resetState,
     selectedAudioInput: selectedAudioInputPersist,
     selectedAudioInputLabel,
-    enabled: selectedAudioInputEnabledPersist,
-
-    stream,
-
-    askPermission,
     startStream,
     stopStream,
-    resetState,
+
+    stream,
   }
 })

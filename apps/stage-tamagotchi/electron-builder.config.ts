@@ -1,23 +1,19 @@
 /* eslint-disable no-template-curly-in-string */
 
-import type { Configuration } from 'electron-builder'
-
 import { execSync } from 'node:child_process'
+import type { Configuration } from 'electron-builder'
 
 import { isMacOS } from 'std-env'
 
 function hasXcode26OrAbove() {
-  if (!isMacOS)
-    return false
+  if (!isMacOS) return false
   try {
     const output = execSync('xcodebuild -version')
       .toString()
       .match(/Xcode (\d+)/)
-    if (!output)
-      return false
+    if (!output) return false
     return Number.parseInt(output[1], 10) >= 26
-  }
-  catch {
+  } catch {
     return false
   }
 }
@@ -30,18 +26,11 @@ function hasXcode26OrAbove() {
 const useIconFormattedMacAppIcon = hasXcode26OrAbove()
 if (!useIconFormattedMacAppIcon) {
   console.warn('[electron-builder/config] Warning: Xcode version is below 26. Using .icns format for macOS app icon.')
-}
-else {
+} else {
   console.info('[electron-builder/config] Xcode version is 26 or above. Using .icon format for macOS app icon.')
 }
 
 export default {
-  appId: 'ai.moeru.airi',
-  productName: 'AIRI',
-  directories: {
-    output: 'dist',
-    buildResources: 'build',
-  },
   afterPack: async (context) => {
     const { execSync } = require('node:child_process')
     console.log(`  • cleaning detritus for codesign: xattr -cr ${context.appOutDir}`)
@@ -50,10 +39,29 @@ export default {
       execSync(`find "${context.appOutDir}" -name ".DS_Store" -delete`)
       console.log(`  • removing existing signatures to prevent detritus conflicts`)
       execSync(`find "${context.appOutDir}" -type f -exec codesign --remove-signature {} + 2>/dev/null || true`)
-    }
-    catch (e) {
+    } catch (e) {
       console.warn(`  • warning: metadata cleanup failed: ${e.message}`)
     }
+  },
+  appId: 'ai.moeru.airi',
+  appImage: {
+    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+  },
+  asar: true,
+  asarUnpack: ['**/*.node'],
+  directories: {
+    buildResources: 'build',
+    output: 'dist',
+  },
+  dmg: {
+    artifactName: '${productName}-${version}-darwin-${arch}.${ext}',
+  },
+  extraMetadata: {
+    homepage: 'https://airi.moeru.ai/docs/',
+    license: 'MIT',
+    main: 'out/main/index.js',
+    name: 'ai.moeru.airi',
+    repository: 'https://github.com/moeru-ai/airi',
   },
   // // For self-publishing, testing, and distribution after modified the code without access to
   // // an Apple Developer account, comment and uncomment the following lines.
@@ -96,31 +104,19 @@ export default {
     '!{.env,.env.*,.npmrc,pnpm-lock.yaml}',
     '!{tsconfig.json}',
   ],
-  asar: true,
-  asarUnpack: [
-    '**/*.node',
-  ],
-  extraMetadata: {
-    name: 'ai.moeru.airi',
-    main: 'out/main/index.js',
-    homepage: 'https://airi.moeru.ai/docs/',
-    repository: 'https://github.com/moeru-ai/airi',
-    license: 'MIT',
-  },
-  win: {
+  linux: {
+    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+    category: 'Utility',
+    description:
+      'AIRI is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.',
     executableName: 'airi',
-  },
-  nsis: {
-    artifactName: '${productName}-${version}-windows-${arch}-setup.${ext}',
-    shortcutName: '${productName}',
-    uninstallDisplayName: '${productName}',
-    createDesktopShortcut: 'always',
-    deleteAppDataOnUninstall: true,
-    oneClick: false,
-    allowToChangeInstallationDirectory: true,
+    icon: 'build/icons/icon.png',
+    synopsis: 'AI VTuber/Waifu chatbot app inspired by Neuro-sama.',
+    target: 'deb',
   },
   mac: {
     entitlementsInherit: 'build/entitlements.mac.plist',
+    executableName: 'airi',
     extendInfo: [
       {
         NSMicrophoneUsageDescription: 'AIRI requires microphone access for voice interaction',
@@ -135,33 +131,27 @@ export default {
     // profiles to enable these security features.
     // hardenedRuntime: false,
     hardenedRuntime: true,
+    icon: useIconFormattedMacAppIcon ? 'icon.icon' : 'icon.icns',
     // notarize: false,
     notarize: true,
-    executableName: 'airi',
-    icon: useIconFormattedMacAppIcon ? 'icon.icon' : 'icon.icns',
-  },
-  dmg: {
-    artifactName: '${productName}-${version}-darwin-${arch}.${ext}',
-  },
-  linux: {
-    target: [
-      'deb',
-      'rpm',
-    ],
-    category: 'Utility',
-    synopsis: 'AI VTuber/Waifu chatbot app inspired by Neuro-sama.',
-    description: 'AIRI is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.',
-    executableName: 'airi',
-    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
-    icon: 'build/icons/icon.png',
-  },
-  appImage: {
-    artifactName: '${productName}-${version}-linux-${arch}.${ext}',
   },
   npmRebuild: true,
+  nsis: {
+    allowToChangeInstallationDirectory: true,
+    artifactName: '${productName}-${version}-windows-${arch}-setup.${ext}',
+    createDesktopShortcut: 'always',
+    deleteAppDataOnUninstall: true,
+    oneClick: false,
+    shortcutName: '${productName}',
+    uninstallDisplayName: '${productName}',
+  },
+  productName: 'AIRI',
   publish: {
-    provider: 'github',
     owner: 'moeru-ai',
+    provider: 'github',
     repo: 'airi',
+  },
+  win: {
+    executableName: 'airi',
   },
 } satisfies Configuration

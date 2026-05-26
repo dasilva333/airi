@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
 import { estimateTokens, formatTokenCount, isStageTamagotchi } from '@proj-airi/stage-shared'
 import {
   CharacterContextDialog,
@@ -23,18 +20,18 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice, useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
+import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 import { BasicTextarea, FieldSelect } from '@proj-airi/ui'
 import { until } from '@vueuse/core'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-
-import IndicatorMicVolume from './IndicatorMicVolume.vue'
-
 import { BackgroundDialogPicker } from '../Backgrounds'
+import IndicatorMicVolume from './IndicatorMicVolume.vue'
 
 const props = defineProps<{
   tools?: any[]
@@ -42,7 +39,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const messageInput = ref('')
-const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
+const attachments = ref<{ type: 'image'; data: string; mimeType: string; url: string }[]>([])
 const hearingPopoverOpen = ref(false)
 const isComposing = ref(false)
 const isListening = ref(false)
@@ -97,7 +94,8 @@ function formatLocalDayKey(date: Date): string {
 
 function handleTrashClick() {
   const today = formatLocalDayKey(new Date())
-  const isTodayCached = activeCardId.value && shortTermMemory.getCharacterBlocks(activeCardId.value).some(b => b.date === today)
+  const isTodayCached =
+    activeCardId.value && shortTermMemory.getCharacterBlocks(activeCardId.value).some((b) => b.date === today)
   if (!isTodayCached && messages.value.length > 0) {
     trashConfirmOpen.value = true
     return
@@ -110,8 +108,7 @@ async function handleSaveAndClear() {
   if (activeCardId.value) {
     try {
       await shortTermMemory.rebuildToday(activeCardId.value)
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[ChatArea] Failed to cache today before clear:', err)
     }
   }
@@ -133,15 +130,14 @@ function addImageAttachmentFromBase64(data: string, mimeType: string, _fileName?
     }
     const blob = new Blob([bytes], { type: mimeType })
     url = URL.createObjectURL(blob)
-  }
-  catch {
+  } catch {
     url = `data:${mimeType};base64,${data}`
   }
 
   attachments.value.push({
-    type: 'image' as const,
     data,
     mimeType,
+    type: 'image' as const,
     url,
   })
 }
@@ -176,8 +172,7 @@ async function handleScreenshotClick() {
 }
 
 function navigateToImageJournal() {
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   router.push(`/settings/airi-card?cardId=${activeCardId.value}&tab=gallery`)
 }
 
@@ -197,12 +192,10 @@ const sessionTokenCount = computed(() => {
   for (const message of historyMessages.value) {
     if (typeof message.content === 'string') {
       total += estimateTokens(message.content)
-    }
-    else if (Array.isArray(message.content)) {
+    } else if (Array.isArray(message.content)) {
       const textOnly = message.content
         .map((part) => {
-          if (typeof part === 'string')
-            return part
+          if (typeof part === 'string') return part
           if (part && typeof part === 'object' && 'text' in part && !('image_url' in part))
             return String(part.text ?? '')
           return ''
@@ -217,25 +210,23 @@ const sessionTokenCount = computed(() => {
 const formattedTokenCount = computed(() => formatTokenCount(sessionTokenCount.value))
 
 const globalContextWidth = computed(() => {
-  if (!activeProvider.value || !activeModel.value)
-    return undefined
+  if (!activeProvider.value || !activeModel.value) return undefined
   try {
     const rawMap = localStorage.getItem('airi:context-width-map')
-    if (!rawMap)
-      return undefined
+    if (!rawMap) return undefined
     const map = JSON.parse(rawMap)
     return map[activeProvider.value]?.[activeModel.value]
-  }
-  catch {
+  } catch {
     return undefined
   }
 })
 
-const effectiveContextWidth = computed(() => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth || globalContextWidth.value)
+const effectiveContextWidth = computed(
+  () => activeCard.value?.extensions?.airi?.generation?.known?.contextWidth || globalContextWidth.value,
+)
 
 const contextPercentage = computed(() => {
-  if (!effectiveContextWidth.value)
-    return 0
+  if (!effectiveContextWidth.value) return 0
   return (sessionTokenCount.value / effectiveContextWidth.value) * 100
 })
 
@@ -270,15 +261,14 @@ async function debouncedAutoSend(text: string) {
       try {
         const providerConfig = providersStore.getProviderConfig(activeProvider.value)
         await ingest(textToSend, {
-          chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
+          chatProvider: (await providersStore.getProviderInstance(activeProvider.value)) as ChatProvider,
           model: activeModel.value,
           providerConfig,
           tools: props.tools,
         })
         messageInput.value = ''
         pendingAutoSendText.value = ''
-      }
-      catch (err) {
+      } catch (err) {
         console.error('[ChatArea] Auto-send error:', err)
       }
     }
@@ -287,12 +277,12 @@ async function debouncedAutoSend(text: string) {
 }
 
 async function handleSend() {
-  if (!messageInput.value.trim() && !attachments.value.length || isComposing.value) {
+  if ((!messageInput.value.trim() && !attachments.value.length) || isComposing.value) {
     return
   }
 
   const textToSend = messageInput.value
-  const attachmentsToSend = attachments.value.map(att => ({ ...att }))
+  const attachmentsToSend = attachments.value.map((att) => ({ ...att }))
 
   messageInput.value = ''
   attachments.value = []
@@ -306,15 +296,14 @@ async function handleSend() {
   try {
     const providerConfig = providersStore.getProviderConfig(activeProvider.value)
     await ingest(textToSend, {
-      chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
+      attachments: attachmentsToSend,
+      chatProvider: (await providersStore.getProviderInstance(activeProvider.value)) as ChatProvider,
       model: activeModel.value,
       providerConfig,
-      attachments: attachmentsToSend,
       tools: props.tools,
     })
-    attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
-  }
-  catch (error) {
+    attachmentsToSend.forEach((att) => URL.revokeObjectURL(att.url))
+  } catch (error) {
     messageInput.value = textToSend
     attachments.value = attachmentsToSend
   }
@@ -328,28 +317,28 @@ let analyzerSource: MediaStreamAudioSourceNode | undefined
 function teardownAnalyzer() {
   try {
     analyzerSource?.disconnect()
-  }
-  catch {}
+  } catch {}
   analyzerSource = undefined
   stopAnalyzer()
 }
 
 async function setupAnalyzer() {
   teardownAnalyzer()
-  if (!hearingPopoverOpen.value || !enabled.value || !stream.value)
-    return
-  if (audioContext.state === 'suspended')
-    await audioContext.resume()
+  if (!hearingPopoverOpen.value || !enabled.value || !stream.value) return
+  if (audioContext.state === 'suspended') await audioContext.resume()
   const analyser = startAnalyzer(audioContext)
-  if (!analyser)
-    return
+  if (!analyser) return
   analyzerSource = audioContext.createMediaStreamSource(stream.value)
   analyzerSource.connect(analyser)
 }
 
-watch([hearingPopoverOpen, enabled, stream], () => {
-  setupAnalyzer()
-}, { immediate: true })
+watch(
+  [hearingPopoverOpen, enabled, stream],
+  () => {
+    setupAnalyzer()
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   teardownAnalyzer()
@@ -364,15 +353,15 @@ onUnmounted(() => {
 async function startListening() {
   try {
     if (!hearingConfigured.value) {
-      const isWebSpeechAvailable = typeof window !== 'undefined'
-        && !isStageTamagotchi()
-        && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
+      const isWebSpeechAvailable =
+        typeof window !== 'undefined' &&
+        !isStageTamagotchi() &&
+        ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
       if (isWebSpeechAvailable) {
         providersStore.initializeProvider('browser-web-speech-api')
         hearingStore.activeTranscriptionProvider = 'browser-web-speech-api'
         await nextTick()
-      }
-      else {
+      } else {
         isListening.value = false
         return
       }
@@ -382,9 +371,8 @@ async function startListening() {
       if (!stream.value && enabled.value) {
         startStream()
         try {
-          await until(stream).toBeTruthy({ timeout: 3000, throwOnTimeout: true })
-        }
-        catch {
+          await until(stream).toBeTruthy({ throwOnTimeout: true, timeout: 3000 })
+        } catch {
           isListening.value = false
           return
         }
@@ -407,21 +395,18 @@ async function startListening() {
             messageInput.value = currentText ? `${currentText} ${delta}` : delta
             if (autoSendEnabled.value) {
               debouncedAutoSend(delta)
-            }
-            else {
+            } else {
               clearPendingAutoSend()
             }
           }
         },
         onSpeechEnd: (text) => {
-          if (!text || !text.trim())
-            return
+          if (!text || !text.trim()) return
           clearPendingAutoSend()
           void (async () => {
             try {
               const provider = await providersStore.getProviderInstance(activeProvider.value)
-              if (!provider || !activeModel.value)
-                return
+              if (!provider || !activeModel.value) return
               await ingest(text, {
                 chatProvider: provider as ChatProvider,
                 model: activeModel.value,
@@ -431,28 +416,24 @@ async function startListening() {
               if (messageInput.value.trim() === text.trim()) {
                 messageInput.value = ''
               }
-            }
-            catch (err) {
+            } catch (err) {
               console.error('[ChatArea] Inscription error:', err)
             }
           })()
         },
       })
       isListening.value = true
-    }
-    catch (err) {
+    } catch (err) {
       isListening.value = false
       throw err
     }
-  }
-  catch (err) {
+  } catch (err) {
     isListening.value = false
   }
 }
 
 async function stopListening() {
-  if (!isListening.value)
-    return
+  if (!isListening.value) return
   try {
     clearPendingAutoSend()
     if (autoSendEnabled.value && pendingAutoSendText.value.trim()) {
@@ -461,21 +442,19 @@ async function stopListening() {
       try {
         const providerConfig = providersStore.getProviderConfig(activeProvider.value)
         await ingest(textToSend, {
-          chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
+          chatProvider: (await providersStore.getProviderInstance(activeProvider.value)) as ChatProvider,
           model: activeModel.value,
           providerConfig,
           tools: props.tools,
         })
         messageInput.value = ''
-      }
-      catch (err) {
+      } catch (err) {
         console.error('[ChatArea] Auto-send error on stop:', err)
       }
     }
     await stopStreamingTranscription(true)
     isListening.value = false
-  }
-  catch (err) {
+  } catch (err) {
     isListening.value = false
   }
 }
@@ -483,8 +462,7 @@ async function stopListening() {
 watch(enabled, async (val) => {
   if (val && stream.value) {
     await startListening()
-  }
-  else if (!val && isListening.value) {
+  } else if (!val && isListening.value) {
     await stopListening()
   }
 })
@@ -492,8 +470,7 @@ watch(enabled, async (val) => {
 watch(stream, async (val) => {
   if (val && enabled.value && !isListening.value) {
     await startListening()
-  }
-  else if (!val && isListening.value) {
+  } else if (!val && isListening.value) {
     await stopListening()
   }
 })

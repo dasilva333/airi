@@ -7,4 +7,6 @@ Icon=ai.moeru.airi
 StartupWMClass=AIRI
 Comment=AIRI is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.
 Categories=Utility;
-
+# For Wayland sessions, if the app doesn't render correctly, try adding flags:
+# Exec=airi --ozone-platform-hint=wayland --enable-features=UseOzonePlatform,WaylandWindowDecorations,WebRTCPipeWireCapturer %U
+# Or set environment variable before launch: ELECTRON_OZONE_PLATFORM_HINT=wayland

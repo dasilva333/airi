@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import type { ChatHistoryItem, ChatMessage } from '../../../types/chat'
-
 import { storeToRefs } from 'pinia'
 import { computed, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
-
-import JournalMomentModal from './JournalMomentModal.vue'
-
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
+import type { ChatHistoryItem, ChatMessage } from '../../../types/chat'
 import { MarkdownRenderer } from '../../markdown'
 import { ChatActionMenu } from './components/action-menu'
+import JournalMomentModal from './JournalMomentModal.vue'
 import { getChatHistoryItemCopyText } from './utils'
 
-const props = withDefaults(defineProps<{
-  message: Extract<ChatMessage, { role: 'user' }> & { id?: string, createdAt?: number }
-  label: string
-  variant?: 'desktop' | 'mobile'
-}>(), {
-  variant: 'desktop',
-})
+const props = withDefaults(
+  defineProps<{
+    message: Extract<ChatMessage, { role: 'user' }> & { id?: string; createdAt?: number }
+    label: string
+    variant?: 'desktop' | 'mobile'
+  }>(),
+  {
+    variant: 'desktop',
+  },
+)
 
 const emit = defineEmits<{
   (e: 'copy'): void
@@ -39,18 +39,16 @@ const editContent = ref('')
 const editorRef = useTemplateRef<HTMLDivElement>('editorRef')
 
 const formattedTime = computed(() => {
-  if (!props.message.createdAt)
-    return ''
-  return new Date(props.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+  if (!props.message.createdAt) return ''
+  return new Date(props.message.createdAt).toLocaleTimeString([], { hour: 'numeric', hour12: true, minute: '2-digit' })
 })
 
 const content = computed(() => {
   const raw = props.message.content
-  if (typeof raw === 'string')
-    return raw
+  if (typeof raw === 'string') return raw
 
   if (Array.isArray(raw)) {
-    const textPart = raw.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
+    const textPart = raw.find((part) => 'type' in part && part.type === 'text') as { text?: string } | undefined
     return textPart?.text || ''
   }
 
@@ -59,12 +57,11 @@ const content = computed(() => {
 
 const images = computed(() => {
   const raw = props.message.content
-  if (!Array.isArray(raw))
-    return []
+  if (!Array.isArray(raw)) return []
 
   return raw
-    .filter(part => 'type' in part && part.type === 'image_url')
-    .map(part => (part as any).image_url?.url as string)
+    .filter((part) => 'type' in part && part.type === 'image_url')
+    .map((part) => (part as any).image_url?.url as string)
     .filter(Boolean)
 })
 
@@ -74,7 +71,9 @@ const containerClasses = computed(() => [
 ])
 
 const boxClasses = computed(() => [
-  props.variant === 'mobile' ? 'px-2 py-2 text-sm bg-neutral-100/90 dark:bg-neutral-800/90' : 'px-3 py-3 bg-neutral-100/80 dark:bg-neutral-800/80',
+  props.variant === 'mobile'
+    ? 'px-2 py-2 text-sm bg-neutral-100/90 dark:bg-neutral-800/90'
+    : 'px-3 py-3 bg-neutral-100/80 dark:bg-neutral-800/80',
 ])
 
 const copyText = computed(() => getChatHistoryItemCopyText(props.message as ChatHistoryItem))
@@ -84,24 +83,20 @@ function handleCopy() {
 }
 
 function handleDelete() {
-  if (props.message.id)
-    chatSession.deleteMessage(props.message.id)
+  if (props.message.id) chatSession.deleteMessage(props.message.id)
   emit('delete')
 }
 
 async function handleRetry() {
-  if (!props.message.id)
-    return
+  if (!props.message.id) return
 
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const messages = chatSession.getSessionMessages(activeSessionId)
-  const index = messages.findIndex(msg => msg.id === props.message.id)
+  const index = messages.findIndex((msg) => msg.id === props.message.id)
 
-  if (index === -1)
-    return
+  if (index === -1) return
 
   // Truncate messages up to (but not including) this user message!
   const nextMessages = messages.slice(0, index)
@@ -114,23 +109,20 @@ async function handleRetry() {
 }
 
 async function handleFork() {
-  if (!props.message.id)
-    return
+  if (!props.message.id) return
 
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const messages = chatSession.getSessionMessages(activeSessionId)
-  const index = messages.findIndex(msg => msg.id === props.message.id)
+  const index = messages.findIndex((msg) => msg.id === props.message.id)
 
-  if (index === -1)
-    return
+  if (index === -1) return
 
   // Fork at index + 1 to include the user message!
   const newSessionId = await chatSession.forkSession({
-    fromSessionId: activeSessionId,
     atIndex: index + 1,
+    fromSessionId: activeSessionId,
   })
 
   if (newSessionId) {
@@ -154,21 +146,18 @@ function handleJournal() {
   showJournalModal.value = true
 }
 
-async function handleJournalSubmit(data: { scope: 'all' | 'turns', turns?: number, instructions: string }) {
+async function handleJournalSubmit(data: { scope: 'all' | 'turns'; turns?: number; instructions: string }) {
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const allMessages = chatSession.getSessionMessages(activeSessionId)
-  const clickedIndex = allMessages.findIndex(m => m.id === props.message.id)
-  if (clickedIndex === -1)
-    return
+  const clickedIndex = allMessages.findIndex((m) => m.id === props.message.id)
+  if (clickedIndex === -1) return
 
   let contextMessages: any[] = []
   if (data.scope === 'all') {
     contextMessages = allMessages.slice(0, clickedIndex + 1)
-  }
-  else {
+  } else {
     const turnsCount = data.turns || 15
     contextMessages = allMessages.slice(Math.max(0, clickedIndex - turnsCount + 1), clickedIndex + 1)
   }
@@ -177,49 +166,50 @@ async function handleJournalSubmit(data: { scope: 'all' | 'turns', turns?: numbe
   const consciousnessStore = useConsciousnessStore()
   const { activeCard } = storeToRefs(useAiriCardStore())
 
-  if (!activeCard.value)
-    return
+  if (!activeCard.value) return
 
   // Get model/provider info
   const extension = activeCard.value.extensions.airi
   const modelId = extension.modules?.consciousness?.model || consciousnessStore.activeModel
   const providerId = extension.modules?.consciousness?.provider || consciousnessStore.activeProvider
 
-  toast.promise(textJournalStore.createJournalMoment({
-    messages: contextMessages,
-    instructions: data.instructions,
-    modelId,
-    providerId,
-  }).catch((err) => {
-    console.error('[JournalMoment] Creation failed:', err)
-    throw err
-  }), {
-    loading: 'Generating journal entry...',
-    success: 'Journal entry created!',
-    error: 'Failed to create journal entry.',
-  })
+  toast.promise(
+    textJournalStore
+      .createJournalMoment({
+        instructions: data.instructions,
+        messages: contextMessages,
+        modelId,
+        providerId,
+      })
+      .catch((err) => {
+        console.error('[JournalMoment] Creation failed:', err)
+        throw err
+      }),
+    {
+      error: 'Failed to create journal entry.',
+      loading: 'Generating journal entry...',
+      success: 'Journal entry created!',
+    },
+  )
 
   showJournalModal.value = false
 }
 
 async function handleForkAndSwitch() {
-  if (!props.message.id)
-    return
+  if (!props.message.id) return
 
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   const messages = chatSession.getSessionMessages(activeSessionId)
-  const index = messages.findIndex(msg => msg.id === props.message.id)
+  const index = messages.findIndex((msg) => msg.id === props.message.id)
 
-  if (index === -1)
-    return
+  if (index === -1) return
 
   // Fork at index + 1 to include the user message!
   const newSessionId = await chatSession.forkSession({
-    fromSessionId: activeSessionId,
     atIndex: index + 1,
+    fromSessionId: activeSessionId,
   })
 
   if (newSessionId) {
@@ -262,12 +252,10 @@ function handleCancelEdit() {
 }
 
 async function handleCommitEdit() {
-  if (!props.message.id || isSavingEdit.value)
-    return
+  if (!props.message.id || isSavingEdit.value) return
 
   const activeSessionId = chatSession.activeSessionId
-  if (!activeSessionId)
-    return
+  if (!activeSessionId) return
 
   if (editorRef.value) {
     const newText = (editorRef.value.textContent || '').trim()
@@ -279,26 +267,23 @@ async function handleCommitEdit() {
     isSavingEdit.value = true
     try {
       const messages = chatSession.getSessionMessages(activeSessionId)
-      const index = messages.findIndex(msg => msg.id === props.message.id)
+      const index = messages.findIndex((msg) => msg.id === props.message.id)
 
-      if (index === -1)
-        return
+      if (index === -1) return
 
       // Construct updated content while preserving VLM image attachments
       const raw = props.message.content
       let updatedContent: any
       if (typeof raw === 'string') {
         updatedContent = newText
-      }
-      else if (Array.isArray(raw)) {
+      } else if (Array.isArray(raw)) {
         updatedContent = raw.map((part) => {
           if (part && typeof part === 'object' && 'type' in part && part.type === 'text') {
             return { ...part, text: newText }
           }
           return part
         })
-      }
-      else {
+      } else {
         updatedContent = newText
       }
 
@@ -315,12 +300,10 @@ async function handleCommitEdit() {
       await chatOrchestrator.ingest('', { triggerOnly: true }, activeSessionId)
 
       toast.success('Message updated, generating response...')
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[EditCommit] Failed:', err)
       toast.error('Failed to update message.')
-    }
-    finally {
+    } finally {
       isSavingEdit.value = false
     }
   }

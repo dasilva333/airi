@@ -19,7 +19,7 @@ const currentPath = computed(() => {
 
 const activeSectionId = computed(() => {
   const segment = currentPath.value.split('/')[0]
-  return DOCS_SECTIONS.find(s => s.id === segment)?.id ?? 'overview'
+  return DOCS_SECTIONS.find((s) => s.id === segment)?.id ?? 'overview'
 })
 
 const sidebarItems = computed(() => {
@@ -27,11 +27,10 @@ const sidebarItems = computed(() => {
 })
 
 function navigateToSection(id: string) {
-  const section = DOCS_SECTIONS.find(s => s.id === id)
+  const section = DOCS_SECTIONS.find((s) => s.id === id)
   if (section?.defaultPath) {
     router.push(`/settings/docs/${section.defaultPath}`)
-  }
-  else {
+  } else {
     router.push(`/settings/docs/${id}/`)
   }
 }
@@ -46,7 +45,7 @@ function isLinkActive(link: string) {
   return normalizedCurrent === normalizedLink
 }
 
-const activeSection = computed(() => DOCS_SECTIONS.find(s => s.id === activeSectionId.value))
+const activeSection = computed(() => DOCS_SECTIONS.find((s) => s.id === activeSectionId.value))
 </script>
 
 <template>

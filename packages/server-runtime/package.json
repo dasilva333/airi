@@ -1,43 +1,10 @@
 {
-  "name": "@proj-airi/server-runtime",
-  "type": "module",
-  "version": "0.9.0-alpha.15",
-  "description": "Server runtime implementation for AIRI running in different environments",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/server-runtime"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
-    },
-    "./server": {
-      "types": "./dist/server.d.mts",
-      "default": "./dist/server.mjs"
-    }
-  },
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
   "bin": "./dist/bin/run.mjs",
-  "files": [
-    "README.md",
-    "dist",
-    "package.json"
-  ],
-  "scripts": {
-    "dev": "tsx ./src/bin/run.js",
-    "start": "tsx ./src/bin/run.js",
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@guiiai/logg": "catalog:",
     "@moeru/std": "catalog:",
@@ -47,5 +14,38 @@
     "nanoid": "catalog:",
     "srvx": "^0.11.8",
     "superjson": "catalog:"
-  }
+  },
+  "description": "Server runtime implementation for AIRI running in different environments",
+  "exports": {
+    ".": {
+      "default": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./server": {
+      "default": "./dist/server.mjs",
+      "types": "./dist/server.d.mts"
+    }
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "package.json"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.mjs",
+  "name": "@proj-airi/server-runtime",
+  "repository": {
+    "directory": "packages/server-runtime",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsx ./src/bin/run.js",
+    "start": "tsx ./src/bin/run.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.mts",
+  "version": "0.9.0-alpha.15"
 }

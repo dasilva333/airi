@@ -8,14 +8,17 @@ import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
 
-const props = withDefaults(defineProps<{
-  /** Tooltip for the main button */
-  title?: string
-  variant?: 'default' | 'mobile'
-}>(), {
-  title: 'Model & Provider',
-  variant: 'default',
-})
+const props = withDefaults(
+  defineProps<{
+    /** Tooltip for the main button */
+    title?: string
+    variant?: 'default' | 'mobile'
+  }>(),
+  {
+    title: 'Model & Provider',
+    variant: 'default',
+  },
+)
 
 // Store bindings
 const consciousnessStore = useConsciousnessStore()
@@ -47,55 +50,61 @@ const availableModels = ref<any[]>([])
 const isLoadingModels = ref(false)
 
 // Seeding default favorites reactively to perfectly handle asynchronous card store hydration
-watch(cards, (newCards) => {
-  const discovered = new Set<string>()
+watch(
+  cards,
+  (newCards) => {
+    const discovered = new Set<string>()
 
-  // 1. Coalesce the current active model from store first
-  if (activeProvider.value && activeModel.value) {
-    discovered.add(`${activeProvider.value}:${activeModel.value}`)
-  }
-
-  // 2. Coalesce all distinct model configurations from all imported character cards (both consciousness and generation modules)
-  for (const card of newCards.values()) {
-    const provider = card.extensions?.airi?.modules?.consciousness?.provider || card.extensions?.airi?.generation?.provider
-    const model = card.extensions?.airi?.modules?.consciousness?.model || card.extensions?.airi?.generation?.model
-    if (provider && model) {
-      discovered.add(`${provider}:${model}`)
+    // 1. Coalesce the current active model from store first
+    if (activeProvider.value && activeModel.value) {
+      discovered.add(`${activeProvider.value}:${activeModel.value}`)
     }
-  }
 
-  // 3. Dynamically sync discovered models into the favorites list
-  for (const key of discovered) {
-    const [provider, model] = key.split(':')
-
-    // If the user has explicitly deleted this favorite, respect their choice and do not auto-seed it again
-    if (deletedKeys.value.includes(key))
-      continue
-
-    const alreadyInFavorites = favorites.value.some(fav => fav.provider === provider && fav.model === model)
-    if (!alreadyInFavorites) {
-      // Find a friendly display name based on character card name
-      let displayName = `Current (${model.split('/').pop() || model})`
-      for (const card of newCards.values()) {
-        const cardProv = card.extensions?.airi?.modules?.consciousness?.provider || card.extensions?.airi?.generation?.provider
-        const cardModel = card.extensions?.airi?.modules?.consciousness?.model || card.extensions?.airi?.generation?.model
-        if (cardProv === provider && cardModel === model) {
-          displayName = `${card.name} (${model.split('/').pop() || model})`
-          break
-        }
+    // 2. Coalesce all distinct model configurations from all imported character cards (both consciousness and generation modules)
+    for (const card of newCards.values()) {
+      const provider =
+        card.extensions?.airi?.modules?.consciousness?.provider || card.extensions?.airi?.generation?.provider
+      const model = card.extensions?.airi?.modules?.consciousness?.model || card.extensions?.airi?.generation?.model
+      if (provider && model) {
+        discovered.add(`${provider}:${model}`)
       }
-
-      favorites.value.push({
-        id: `seed-${provider}-${model}`,
-        name: displayName,
-        provider,
-        model,
-      })
     }
-  }
 
-  // Seeding Debug Logs deleted
-}, { immediate: true, deep: true })
+    // 3. Dynamically sync discovered models into the favorites list
+    for (const key of discovered) {
+      const [provider, model] = key.split(':')
+
+      // If the user has explicitly deleted this favorite, respect their choice and do not auto-seed it again
+      if (deletedKeys.value.includes(key)) continue
+
+      const alreadyInFavorites = favorites.value.some((fav) => fav.provider === provider && fav.model === model)
+      if (!alreadyInFavorites) {
+        // Find a friendly display name based on character card name
+        let displayName = `Current (${model.split('/').pop() || model})`
+        for (const card of newCards.values()) {
+          const cardProv =
+            card.extensions?.airi?.modules?.consciousness?.provider || card.extensions?.airi?.generation?.provider
+          const cardModel =
+            card.extensions?.airi?.modules?.consciousness?.model || card.extensions?.airi?.generation?.model
+          if (cardProv === provider && cardModel === model) {
+            displayName = `${card.name} (${model.split('/').pop() || model})`
+            break
+          }
+        }
+
+        favorites.value.push({
+          id: `seed-${provider}-${model}`,
+          model,
+          name: displayName,
+          provider,
+        })
+      }
+    }
+
+    // Seeding Debug Logs deleted
+  },
+  { deep: true, immediate: true },
+)
 
 onMounted(() => {
   // Pre-fill the form default provider with first configured provider
@@ -105,35 +114,36 @@ onMounted(() => {
 })
 
 // Dynamically fetch and load models when provider changes in form
-watch(newProvider, async (provider) => {
-  if (!provider) {
-    availableModels.value = []
-    return
-  }
+watch(
+  newProvider,
+  async (provider) => {
+    if (!provider) {
+      availableModels.value = []
+      return
+    }
 
-  isLoadingModels.value = true
-  try {
-    await consciousnessStore.loadModelsForProvider(provider)
-    availableModels.value = providersStore.getModelsForProvider(provider)
-  }
-  catch (err) {
-    console.error('[ChatBrainPopover] Failed to load models for provider:', provider, err)
-    availableModels.value = []
-  }
-  finally {
-    isLoadingModels.value = false
-  }
-}, { immediate: true })
+    isLoadingModels.value = true
+    try {
+      await consciousnessStore.loadModelsForProvider(provider)
+      availableModels.value = providersStore.getModelsForProvider(provider)
+    } catch (err) {
+      console.error('[ChatBrainPopover] Failed to load models for provider:', provider, err)
+      availableModels.value = []
+    } finally {
+      isLoadingModels.value = false
+    }
+  },
+  { immediate: true },
+)
 
 function handleAddFavorite() {
-  if (!newName.value.trim() || !newModel.value)
-    return
+  if (!newName.value.trim() || !newModel.value) return
 
   favorites.value.push({
     id: String(Date.now()),
+    model: newModel.value,
     name: newName.value.trim(),
     provider: newProvider.value,
-    model: newModel.value,
   })
 
   // Reset inputs & hide form
@@ -143,7 +153,7 @@ function handleAddFavorite() {
 }
 
 function handleDeleteFavorite(fav: FavoriteModel) {
-  favorites.value = favorites.value.filter(f => f.id !== fav.id)
+  favorites.value = favorites.value.filter((f) => f.id !== fav.id)
 
   // Track as deleted so it is never auto-seeded on card additions
   const key = `${fav.provider}:${fav.model}`
@@ -166,8 +176,8 @@ function handleSelectFavorite(fav: FavoriteModel) {
           modules: {
             ...activeCard.value.extensions?.airi?.modules,
             consciousness: {
-              provider: fav.provider,
               model: fav.model,
+              provider: fav.provider,
             },
           },
         },

@@ -2,20 +2,18 @@
  * Airi Adapter
  * Adapts the X service as an Airi module
  */
-import type { Context } from '../core/browser/context'
-import type { Tweet } from '../core/services/tweet'
-import type { TwitterServices } from '../types/services'
 
 import * as fs from 'node:fs/promises'
-
 import { Client } from '@proj-airi/server-sdk'
-
 import { getDefaultConfig } from '../config/types'
+import type { Context } from '../core/browser/context'
 import { initBrowser, useContext, useSessionFileAsync } from '../core/browser/context'
 import { useTwitterTimelineServices } from '../core/services/timeline'
+import type { Tweet } from '../core/services/tweet'
 import { useTwitterTweetServices } from '../core/services/tweet'
 import { useTwitterUserServices } from '../core/services/user'
 import { parseTwitterCommand } from '../parsers/command-parser'
+import type { TwitterServices } from '../types/services'
 import { logger } from '../utils/logger'
 
 export interface AiriAdapterConfig {
@@ -47,15 +45,9 @@ export class AiriAdapter {
     this.config = config
     this.client = new Client({
       name: 'x',
-      url: config.url || 'ws://localhost:6121/ws',
+      possibleEvents: ['module:authenticate', 'module:authenticated', 'module:announce', 'ui:configure', 'input:text'],
       token: config.token,
-      possibleEvents: [
-        'module:authenticate',
-        'module:authenticated',
-        'module:announce',
-        'ui:configure',
-        'input:text',
-      ],
+      url: config.url || 'ws://localhost:6121/ws',
     })
 
     this.twitterServices = {
@@ -77,8 +69,13 @@ export class AiriAdapter {
 
         // Check if any credentials have changed
         const newCreds = event.data.config
-        const credKeys: (keyof AiriAdapterConfig['credentials'])[] = ['apiKey', 'apiSecret', 'accessToken', 'accessTokenSecret']
-        const credsChanged = credKeys.some(key => key in newCreds && newCreds[key] !== this.config.credentials[key])
+        const credKeys: (keyof AiriAdapterConfig['credentials'])[] = [
+          'apiKey',
+          'apiSecret',
+          'accessToken',
+          'accessTokenSecret',
+        ]
+        const credsChanged = credKeys.some((key) => key in newCreds && newCreds[key] !== this.config.credentials[key])
 
         if (credsChanged) {
           // Update the configuration with the new credentials
@@ -94,18 +91,15 @@ export class AiriAdapter {
           // since the session might be tied to the previous API credentials
           try {
             // Close existing browser context and create a new one with fresh session
-            if (this.ctx.browser)
-              await this.ctx.browser.close()
+            if (this.ctx.browser) await this.ctx.browser.close()
             await this.reinitializeBrowserContext()
 
             logger.main.log('Browser context reinitialized with new credentials')
-          }
-          catch (error) {
+          } catch (error) {
             logger.main.errorWithError('Failed to reinitialize browser context with new credentials:', error)
           }
         }
-      }
-      else if (event.data && event.data.moduleName === 'x') {
+      } else if (event.data && event.data.moduleName === 'x') {
         // Log error if config is not valid
         logger.main.error('Invalid configuration received for X module')
       }
@@ -122,8 +116,7 @@ export class AiriAdapter {
     this.client.onEvent('module:authenticated', async (event) => {
       if (event.data.authenticated) {
         logger.main.log('X module authenticated with AIRI server')
-      }
-      else {
+      } else {
         logger.main.warn('X module authentication failed')
       }
     })
@@ -133,8 +126,7 @@ export class AiriAdapter {
     if (content) {
       await this.twitterServices.tweet.postTweet(content)
       logger.main.log('Posted tweet:', content)
-    }
-    else {
+    } else {
       throw new Error('Tweet text is empty. Please provide text to post.')
     }
   }
@@ -145,15 +137,17 @@ export class AiriAdapter {
       logger.main.log(`Found ${tweets.length} tweets for query: ${content}`)
       // Return results to the user
       this.client.send({
-        type: 'input:text',
         data: {
           text: `Found ${tweets.length} tweets for '${content}':
-${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join('\n')}`,
+${tweets
+  .slice(0, 5)
+  .map((t: Tweet) => `- ${t.text.substring(0, 100)}...`)
+  .join('\n')}`,
         },
+        type: 'input:text',
       })
       return true
-    }
-    else {
+    } else {
       throw new Error('Search query is empty. Please provide a query to search.')
     }
   }
@@ -162,8 +156,7 @@ ${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join(
     if (content) {
       await this.twitterServices.tweet.likeTweet(content)
       logger.main.log(`Liked tweet: ${content}`)
-    }
-    else {
+    } else {
       throw new Error('Tweet ID is empty. Please provide a tweet ID to like.')
     }
   }
@@ -172,8 +165,7 @@ ${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join(
     if (content) {
       await this.twitterServices.tweet.retweet(content)
       logger.main.log(`Retweeted: ${content}`)
-    }
-    else {
+    } else {
       throw new Error('Tweet ID is empty. Please provide a tweet ID to retweet.')
     }
   }
@@ -184,7 +176,6 @@ ${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join(
       logger.main.log(`Retrieved profile for user: @${content}`)
       // Return user info to the user
       this.client.send({
-        type: 'input:text',
         data: {
           text: `User Profile for @${userProfile.username}:
 Display Name: ${userProfile.displayName}
@@ -192,10 +183,10 @@ Bio: ${userProfile.bio || 'N/A'}
 Followers: ${userProfile.followersCount || 0}
 Following: ${userProfile.followingCount || 0}`,
         },
+        type: 'input:text',
       })
       return true
-    }
-    else {
+    } else {
       throw new Error('Username is empty. Please provide a username to retrieve.')
     }
   }
@@ -206,11 +197,11 @@ Following: ${userProfile.followingCount || 0}`,
     logger.main.log(`Retrieved ${tweets.length} tweets from timeline`)
     // Return timeline to the user
     this.client.send({
-      type: 'input:text',
       data: {
         text: `Latest ${tweets.length} tweets from your timeline:
 ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)}...`).join('\n')}`,
       },
+      type: 'input:text',
     })
     return true
   }
@@ -225,7 +216,9 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
       const parsedCommand = parseTwitterCommand(input)
 
       if (!parsedCommand) {
-        throw new Error(`Unknown X command: ${input}. Supported commands: "post tweet: <text>", "search tweets: <query>", "like tweet: <tweetId>", "retweet: <tweetId>", "get user: <username>", "get timeline [count: N]"`)
+        throw new Error(
+          `Unknown X command: ${input}. Supported commands: "post tweet: <text>", "search tweets: <query>", "like tweet: <tweetId>", "retweet: <tweetId>", "get user: <username>", "get timeline [count: N]"`,
+        )
       }
 
       // Execute the appropriate command handler based on the parsed command
@@ -262,21 +255,20 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
       // Only send the original processing response if we haven't already sent a specific response
       if (!responseSent) {
         this.client.send({
-          type: 'input:text',
           data: {
             text: `Processed X command: ${input}`,
           },
+          type: 'input:text',
         })
       }
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.main.errorWithError('Error handling input:', error)
       this.client.send({
-        type: 'input:text',
         data: {
           text: `Error processing X command: ${errorMessage}`,
         },
+        type: 'input:text',
       })
     }
   }
@@ -289,8 +281,7 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
     try {
       await this.client.connect()
       logger.main.log('Airi adapter for X started successfully')
-    }
-    catch (error) {
+    } catch (error) {
       logger.main.errorWithError('Failed to start Airi adapter for X:', error)
       throw error
     }
@@ -304,8 +295,7 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
     try {
       this.client.close()
       logger.main.log('Airi adapter for X stopped')
-    }
-    catch (error) {
+    } catch (error) {
       logger.main.errorWithError('Error stopping Airi adapter for X:', error)
       throw error
     }
@@ -321,10 +311,7 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
       const sessionFile = await useSessionFileAsync()
 
       // Clear the session file to force re-authentication
-      await fs.writeFile(
-        sessionFile,
-        JSON.stringify({ cookies: [], origins: [] }, null, 2),
-      )
+      await fs.writeFile(sessionFile, JSON.stringify({ cookies: [], origins: [] }, null, 2))
 
       logger.main.log('Session file cleared, re-initializing browser context')
 
@@ -350,8 +337,7 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
       }
 
       logger.main.log('Browser context reinitialized successfully with new credentials')
-    }
-    catch (error) {
+    } catch (error) {
       logger.main.errorWithError('Failed to reinitialize browser context:', error)
       throw error
     }
@@ -359,13 +345,14 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
 }
 
 function isXConfig(config: unknown): config is XConfig {
-  if (typeof config !== 'object' || config === null)
-    return false
+  if (typeof config !== 'object' || config === null) return false
   const c = config as Record<string, unknown>
   const checkStringOrUndefined = (key: string) => typeof c[key] === 'string' || typeof c[key] === 'undefined'
 
-  return checkStringOrUndefined('apiKey')
-    && checkStringOrUndefined('apiSecret')
-    && checkStringOrUndefined('accessToken')
-    && checkStringOrUndefined('accessTokenSecret')
+  return (
+    checkStringOrUndefined('apiKey') &&
+    checkStringOrUndefined('apiSecret') &&
+    checkStringOrUndefined('accessToken') &&
+    checkStringOrUndefined('accessTokenSecret')
+  )
 }

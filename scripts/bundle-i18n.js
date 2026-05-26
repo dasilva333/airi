@@ -10,8 +10,7 @@ const __dirname = path.dirname(__filename)
 
 const localesDir = path.resolve(__dirname, '../packages/i18n/src/locales')
 const outputDir = path.resolve(__dirname, '../packages/i18n/src/dist-lite') // Temporary location
-if (!fs.existsSync(outputDir))
-  fs.mkdirSync(outputDir, { recursive: true })
+if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true })
 
 function loadDir(dir) {
   const result = {}
@@ -20,12 +19,10 @@ function loadDir(dir) {
     const fullPath = path.join(dir, entry.name)
     if (entry.isDirectory()) {
       result[entry.name] = loadDir(fullPath)
-    }
-    else if (entry.name.endsWith('.yaml')) {
+    } else if (entry.name.endsWith('.yaml')) {
       const name = entry.name.replace('.yaml', '')
       result[name] = yaml.parse(fs.readFileSync(fullPath, 'utf8'))
-    }
-    else if (entry.name.endsWith('.ts') && entry.name !== 'index.ts') {
+    } else if (entry.name.endsWith('.ts') && entry.name !== 'index.ts') {
       // Basic support for TS files that export default objects
       // (This is a bit hacky but works for AIRI's structure)
       const content = fs.readFileSync(fullPath, 'utf8')
@@ -38,7 +35,7 @@ function loadDir(dir) {
 }
 
 const allMessages = {}
-const locales = fs.readdirSync(localesDir).filter(f => fs.statSync(path.join(localesDir, f)).isDirectory())
+const locales = fs.readdirSync(localesDir).filter((f) => fs.statSync(path.join(localesDir, f)).isDirectory())
 
 for (const locale of locales) {
   console.log(`Bundling ${locale}...`)
@@ -59,11 +56,11 @@ for (const locale of locales) {
     settings,
     stage,
     tamagotchi: {
-      stage: tamagotchiStage,
-      settings: tamagotchiSettings,
       electron: {
         tray: tamagotchiTray,
       },
+      settings: tamagotchiSettings,
+      stage: tamagotchiStage,
     },
   }
 }

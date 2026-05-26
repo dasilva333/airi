@@ -1,9 +1,8 @@
-import type { TwitterService } from '../../types/services'
-import type { Context } from '../browser/context'
-
 import { TWITTER_BASE_URL, TWITTER_HOME_URL, TWITTER_SEARCH_URL } from '../../constants'
 import { SELECTORS } from '../../parsers/selectors'
 import { TweetParser } from '../../parsers/tweet-parser'
+import type { TwitterService } from '../../types/services'
+import type { Context } from '../browser/context'
 import { scrollToLoadMoreTweets } from '../utils/scroll-helper'
 
 /**
@@ -95,8 +94,7 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
       }
 
       return tweets
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error searching tweets:', error)
       throw new Error(`Failed to search tweets: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -119,7 +117,7 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
       // Check if already liked
       const isAlreadyLiked = await page.$eval(
         SELECTORS.TIMELINE.LIKE_BUTTON,
-        el => el.getAttribute('aria-pressed') === 'true',
+        (el) => el.getAttribute('aria-pressed') === 'true',
       )
 
       if (!isAlreadyLiked) {
@@ -132,8 +130,7 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
       }
 
       return true
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error liking tweet:', error)
       throw new Error(`Failed to like tweet: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -167,8 +164,7 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
       )
 
       return true
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error retweeting:', error)
       throw new Error(`Failed to retweet: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -249,15 +245,13 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
           const match = url.match(/\/status\/(\d+)/)
           tweetId = match?.[1] || ''
         }
-      }
-      catch {
+      } catch {
         // If we fail to get the ID, generate a temporary one
         tweetId = `temp-${Date.now()}`
       }
 
       return tweetId
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error posting tweet:', error)
       throw new Error(`Failed to post tweet: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -314,23 +308,22 @@ export function useTwitterTweetServices(ctx: Context): TwitterService {
       // Construct the detailed tweet
       const tweetDetail: TweetDetail = {
         ...mainTweet,
-        replies: replies.length > 0 ? replies : undefined,
         quotedTweet,
+        replies: replies.length > 0 ? replies : undefined,
       }
 
       return tweetDetail
-    }
-    catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error getting tweet details:', error)
       throw new Error(`Failed to get tweet details: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   return {
-    searchTweets,
-    likeTweet,
-    retweet,
-    postTweet,
     getTweetDetails,
+    likeTweet,
+    postTweet,
+    retweet,
+    searchTweets,
   }
 }

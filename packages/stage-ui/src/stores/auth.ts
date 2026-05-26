@@ -18,32 +18,33 @@ export const useAuthStore = defineStore('auth', () => {
 
   const initialized = ref(false)
   const initialize = () => {
-    if (initialized.value)
-      return
+    if (initialized.value) return
 
-    if (settings.remoteSyncEnabled)
-      fetchSession().catch(() => {})
+    if (settings.remoteSyncEnabled) fetchSession().catch(() => {})
 
     initialized.value = true
   }
 
-  watch(() => settings.remoteSyncEnabled, (enabled) => {
-    if (!enabled) {
-      user.value = undefined
-      session.value = undefined
-      return
-    }
+  watch(
+    () => settings.remoteSyncEnabled,
+    (enabled) => {
+      if (!enabled) {
+        user.value = undefined
+        session.value = undefined
+        return
+      }
 
-    fetchSession().catch(() => {})
-  })
+      fetchSession().catch(() => {})
+    },
+  )
 
   initialize()
 
   return {
-    user,
-    userId,
-    session,
     isAuthenticated,
     isLoginDrawerOpen,
+    session,
+    user,
+    userId,
   }
 })

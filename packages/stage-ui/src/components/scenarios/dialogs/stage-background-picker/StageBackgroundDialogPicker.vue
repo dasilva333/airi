@@ -10,7 +10,7 @@ const props = defineProps<{
   cardId: string
 }>()
 
-const showDialog = defineModel({ type: Boolean, default: false, required: false })
+const showDialog = defineModel({ default: false, required: false, type: Boolean })
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
 const screenSafeArea = useScreenSafeArea()

@@ -18,7 +18,10 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useDiscordStore } from '@proj-airi/stage-ui/stores/modules/discord'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
-import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
+import {
+  listProvidersForPluginHost,
+  shouldPublishPluginHostCapabilities,
+} from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useTheme } from '@proj-airi/ui'
@@ -26,10 +29,7 @@ import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { toast, Toaster } from 'vue-sonner'
-
-import ResizeHandler from './components/ResizeHandler.vue'
-
+import { Toaster, toast } from 'vue-sonner'
 import {
   electronGetServerChannelConfig,
   electronMcpCallTool,
@@ -50,6 +50,7 @@ import {
   pluginProtocolListProviders,
   pluginProtocolListProvidersEventName,
 } from '../shared/eventa'
+import ResizeHandler from './components/ResizeHandler.vue'
 import { useServerChannelSettingsStore } from './stores/settings/server-channel'
 import { builtinTools } from './stores/tools/builtin'
 
@@ -86,13 +87,11 @@ async function seedTextJournalEntryFromWindow() {
 }
 
 async function ensureYesterdayShortTermBlockForActiveCharacter() {
-  if (!cardStore.activeCardId)
-    return
+  if (!cardStore.activeCardId) return
 
   try {
     await shortTermMemoryStore.ensureYesterdayBlock(cardStore.activeCardId)
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('[ShortTermMemory] Failed to auto-generate yesterday block.', error)
   }
 }
@@ -119,20 +118,20 @@ const openOnboarding = useElectronEventaInvoke(electronOpenOnboarding)
 
 // NOTICE: register plugin host bridge during setup to avoid race with pages using it in immediate watchers.
 pluginHostInspectorStore.setBridge({
-  list: () => listPlugins(),
-  setEnabled: payload => setPluginEnabled(payload),
-  loadEnabled: () => loadEnabledPlugins(),
-  load: payload => loadPlugin(payload),
-  unload: payload => unloadPlugin(payload),
   inspect: () => inspectPluginHost(),
+  list: () => listPlugins(),
+  load: (payload) => loadPlugin(payload),
+  loadEnabled: () => loadEnabledPlugins(),
+  setEnabled: (payload) => setPluginEnabled(payload),
+  unload: (payload) => unloadPlugin(payload),
 })
 
 // NOTICE: MCP tools are declared from stage-ui and executed during model streaming.
 // Register runtime bridge during setup to avoid missing bridge in early tool invocations.
 setMcpToolBridge({
-  listTools: () => listMcpTools(),
-  callTool: payload => callMcpTool(payload),
+  callTool: (payload) => callMcpTool(payload),
   getRuntimeStatus: () => getMcpRuntimeStatus(),
+  listTools: () => listMcpTools(),
 })
 
 watch(language, () => {
@@ -140,7 +139,7 @@ watch(language, () => {
   setLocale(language.value)
 })
 
-const { updateThemeColor } = useThemeColor(themeColorFromValue({ light: 'rgb(255 255 255)', dark: 'rgb(18 18 18)' }))
+const { updateThemeColor } = useThemeColor(themeColorFromValue({ dark: 'rgb(18 18 18)', light: 'rgb(255 255 255)' }))
 watch(dark, () => updateThemeColor(), { immediate: true })
 watch(route, () => updateThemeColor(), { immediate: true })
 onMounted(() => updateThemeColor())
@@ -158,7 +157,9 @@ onMounted(async () => {
   // before any potentially blocking or slow subsystems (like models or server channels) are started.
   // This prevents a hang in a high-level service from "deafening" the window to token broadcasts.
   logStep('Initializing context bridge')
-  await contextBridgeStore.initialize().catch((err: any) => console.error('[PipelineTTS:App] FAILED context bridge init:', err))
+  await contextBridgeStore
+    .initialize()
+    .catch((err: any) => console.error('[PipelineTTS:App] FAILED context bridge init:', err))
 
   proactivityStore.registerTools(builtinTools)
   proactivityStore.startHeartbeatLoop()
@@ -177,7 +178,9 @@ onMounted(async () => {
   logStep('Loading display models')
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   logStep('Initializing stage model')
-  await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
+  await settingsStore
+    .initializeStageModel()
+    .catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
   logStep('Stage model initialized')
 
   logStep('Requesting server channel config')
@@ -191,13 +194,17 @@ onMounted(async () => {
   serverChannelSettingsStore.hostname = serverChannelConfig.hostname
 
   logStep('Initializing server channel store')
-  await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch((err: any) => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
+  await serverChannelStore
+    .initialize({ possibleEvents: ['ui:configure'] })
+    .catch((err: any) => console.error('[PipelineTTS:App] FAILED server channel store init:', err))
 
   logStep('Initializing character orchestrator')
   characterOrchestratorStore.initialize()
 
   logStep('Starting cursor tracking')
-  await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
+  await startTrackingCursorPoint().catch((err: any) =>
+    console.error('[PipelineTTS:App] FAILED cursor tracking init:', err),
+  )
   logStep('App Startup Complete')
   // Startup initialization complete
 
@@ -207,10 +214,10 @@ onMounted(async () => {
   if (shouldPublishPluginHostCapabilities()) {
     await reportPluginCapability({
       key: pluginProtocolListProvidersEventName,
-      state: 'ready',
       metadata: {
         source: 'stage-ui',
       },
+      state: 'ready',
     })
   }
 
@@ -226,37 +233,46 @@ onMounted(async () => {
   }
 
   // Listen for open-settings IPC message from main process
-  defineInvokeHandler(context.value, electronOpenSettings, payload => router.push(payload?.route || '/settings'))
+  defineInvokeHandler(context.value, electronOpenSettings, (payload) => router.push(payload?.route || '/settings'))
 
   // Listen for custom toast notifications from main process
-  watch(context, (ctx) => {
-    if (!ctx)
-      return
-    ctx.on(electronShowToastEvent, (event) => {
-      const payload = event?.body
-      if (!payload)
-        return
-      toast(payload.message, {
-        description: payload.description,
-        duration: payload.duration || 4000,
+  watch(
+    context,
+    (ctx) => {
+      if (!ctx) return
+      ctx.on(electronShowToastEvent, (event) => {
+        const payload = event?.body
+        if (!payload) return
+        toast(payload.message, {
+          description: payload.description,
+          duration: payload.duration || 4000,
+        })
       })
-    })
-  }, { immediate: true })
+    },
+    { immediate: true },
+  )
 })
 
-watch(themeColorsHue, () => {
-  document.documentElement.style.setProperty('--chromatic-hue', themeColorsHue.value.toString())
-}, { immediate: true })
+watch(
+  themeColorsHue,
+  () => {
+    document.documentElement.style.setProperty('--chromatic-hue', themeColorsHue.value.toString())
+  },
+  { immediate: true },
+)
 
-watch(themeColorsHueDynamic, () => {
-  document.documentElement.classList.toggle('dynamic-hue', themeColorsHueDynamic.value)
-}, { immediate: true })
+watch(
+  themeColorsHueDynamic,
+  () => {
+    document.documentElement.classList.toggle('dynamic-hue', themeColorsHueDynamic.value)
+  },
+  { immediate: true },
+)
 
 watch(
   () => cardStore.activeCardId,
   async (nextCardId, previousCardId) => {
-    if (!nextCardId || nextCardId === previousCardId)
-      return
+    if (!nextCardId || nextCardId === previousCardId) return
 
     await ensureYesterdayShortTermBlockForActiveCharacter()
   },
@@ -267,24 +283,22 @@ watch(
     return [route.path, route.meta.titleKey, route.meta.title]
   },
   () => {
-    if (!route.path.startsWith('/settings'))
-      return
+    if (!route.path.startsWith('/settings')) return
 
     const titleKey = typeof route.meta.titleKey === 'string' ? route.meta.titleKey : undefined
     const rawTitle = typeof route.meta.title === 'string' ? route.meta.title : undefined
     const resolvedTitle = titleKey ? i18n.t(titleKey) : rawTitle
     const parts = ['AIRI', 'Settings']
 
-    if (resolvedTitle && resolvedTitle !== i18n.t('settings.title'))
-      parts.push(resolvedTitle)
+    if (resolvedTitle && resolvedTitle !== i18n.t('settings.title')) parts.push(resolvedTitle)
 
     const nextTitle = parts.join(' - ')
 
     if (document.title !== nextTitle) {
       console.log('[AppTitle] Updating settings title', {
         from: document.title,
-        to: nextTitle,
         route: route.path,
+        to: nextTitle,
       })
       document.title = nextTitle
     }
@@ -297,18 +311,17 @@ watch(
     return [route.path, activeCard.value?.name]
   },
   () => {
-    if (route.path.startsWith('/settings') || route.path === '/chat')
-      return
+    if (route.path.startsWith('/settings') || route.path === '/chat') return
 
     const activeCharacterLabel = activeCard.value?.name?.trim() || 'AIRI'
     const nextTitle = `AIRI - Looking at ${activeCharacterLabel}`
 
     if (document.title !== nextTitle) {
       console.log('[AppTitle] Updating main title', {
-        from: document.title,
-        to: nextTitle,
-        route: route.path,
         activeCharacterLabel,
+        from: document.title,
+        route: route.path,
+        to: nextTitle,
       })
       document.title = nextTitle
     }
@@ -316,11 +329,15 @@ watch(
   { immediate: true },
 )
 
-watch(() => onboardingStore.needsOnboarding, () => {
-  if (onboardingStore.needsOnboarding) {
-    openOnboarding()
-  }
-}, { immediate: true })
+watch(
+  () => onboardingStore.needsOnboarding,
+  () => {
+    if (onboardingStore.needsOnboarding) {
+      openOnboarding()
+    }
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
   contextBridgeStore.dispose()

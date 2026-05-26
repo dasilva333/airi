@@ -1,7 +1,6 @@
-import type { ContextMessage } from '../../../types/chat'
-
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { nanoid } from 'nanoid'
+import type { ContextMessage } from '../../../types/chat'
 
 const DATETIME_CONTEXT_ID = 'system:datetime'
 
@@ -13,10 +12,10 @@ export function createDatetimeContext(): ContextMessage {
   const now = new Date()
 
   return {
-    id: nanoid(),
     contextId: DATETIME_CONTEXT_ID,
+    createdAt: Date.now(),
+    id: nanoid(),
     strategy: ContextUpdateStrategy.ReplaceSelf,
     text: `Current datetime: ${now.toISOString()} (${now.toLocaleString()})`,
-    createdAt: Date.now(),
   }
 }

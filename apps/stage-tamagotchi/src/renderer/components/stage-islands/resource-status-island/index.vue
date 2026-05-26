@@ -3,22 +3,20 @@ import { TransitionVertical } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger } from 'reka-ui'
 import { ref, watch } from 'vue'
-
+import { useResourcesStore } from '../../../stores/resources'
 import LoadingModules from './loading-modules.vue'
 
-import { useResourcesStore } from '../../../stores/resources'
-
-const {
-  atLeastOneLoading,
-  atLeastOneLoadingDelay5s,
-  atLeastOneLoadingDelay10s,
-} = storeToRefs(useResourcesStore())
+const { atLeastOneLoading, atLeastOneLoadingDelay5s, atLeastOneLoadingDelay10s } = storeToRefs(useResourcesStore())
 
 const loadingProgressOpen = ref(false)
 
-watch(atLeastOneLoading, (newVal) => {
-  loadingProgressOpen.value = newVal
-}, { immediate: true })
+watch(
+  atLeastOneLoading,
+  (newVal) => {
+    loadingProgressOpen.value = newVal
+  },
+  { immediate: true },
+)
 
 function handleClick() {
   loadingProgressOpen.value = !loadingProgressOpen.value

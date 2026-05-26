@@ -1,14 +1,11 @@
-import type { HonoEnv } from '../../types/hono'
-
 import { Hono } from 'hono'
 import { beforeAll, describe, expect, it } from 'vitest'
-
 import { mockDB } from '../../libs/mock-db'
+import * as schema from '../../schemas'
 import { createProviderService } from '../../services/providers'
+import type { HonoEnv } from '../../types/hono'
 import { ApiError } from '../../utils/error'
 import { createProviderRoutes } from '../providers'
-
-import * as schema from '../../schemas'
 
 describe('providerRoutes', () => {
   let db: any
@@ -21,11 +18,14 @@ describe('providerRoutes', () => {
     providerService = createProviderService(db)
 
     // Create a test user
-    const [user] = await db.insert(schema.user).values({
-      id: 'user-1',
-      name: 'Test User',
-      email: 'test@example.com',
-    }).returning()
+    const [user] = await db
+      .insert(schema.user)
+      .values({
+        email: 'test@example.com',
+        id: 'user-1',
+        name: 'Test User',
+      })
+      .returning()
     testUser = user
 
     const routes = createProviderRoutes(providerService)
@@ -33,11 +33,14 @@ describe('providerRoutes', () => {
 
     app.onError((err, c) => {
       if (err instanceof ApiError) {
-        return c.json({
-          error: err.errorCode,
-          message: err.message,
-          details: err.details,
-        }, err.statusCode)
+        return c.json(
+          {
+            details: err.details,
+            error: err.errorCode,
+            message: err.message,
+          },
+          err.statusCode,
+        )
       }
       return c.json({ error: 'Internal Server Error', message: err.message }, 500)
     })
@@ -66,16 +69,19 @@ describe('providerRoutes', () => {
 
   it('post / should create provider config', async () => {
     const payload = {
+      config: { apiKey: 'sk-123' },
       definitionId: 'openai',
       name: 'My OpenAI',
-      config: { apiKey: 'sk-123' },
     }
 
-    const res = await app.fetch(new Request('http://localhost/', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request('http://localhost/', {
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(201)
     const data = await res.json()
@@ -86,10 +92,10 @@ describe('providerRoutes', () => {
   it('get / should return unified list (user + system)', async () => {
     // Create a system config directly in DB
     await db.insert(schema.systemProviderConfigs).values({
-      id: 'sys-1',
-      definitionId: 'anthropic',
-      name: 'System Anthropic',
       config: { apiKey: 'sys-sk' },
+      definitionId: 'anthropic',
+      id: 'sys-1',
+      name: 'System Anthropic',
     })
 
     const res = await app.fetch(new Request('http://localhost/'), { user: testUser } as any)
@@ -122,11 +128,14 @@ describe('providerRoutes', () => {
     const providers = await providerService.findUserConfigsByOwnerId(testUser.id)
     const providerId = providers[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${providerId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'Updated Name' }),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${providerId}`, {
+        body: JSON.stringify({ name: 'Updated Name' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(200)
     const updated = await providerService.findUserConfigById(providerId)
@@ -135,20 +144,26 @@ describe('providerRoutes', () => {
 
   it('patch /:id should return 403 if not owner', async () => {
     // Create another user
-    const [otherUser] = await db.insert(schema.user).values({
-      id: 'user-2',
-      name: 'Other User',
-      email: 'other@example.com',
-    }).returning()
+    const [otherUser] = await db
+      .insert(schema.user)
+      .values({
+        email: 'other@example.com',
+        id: 'user-2',
+        name: 'Other User',
+      })
+      .returning()
 
     const providers = await providerService.findUserConfigsByOwnerId(testUser.id)
     const providerId = providers[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${providerId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name: 'Hacked Name' }),
-      headers: { 'Content-Type': 'application/json' },
-    }), { user: otherUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${providerId}`, {
+        body: JSON.stringify({ name: 'Hacked Name' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { user: otherUser } as any,
+    )
 
     expect(res.status).toBe(403)
   })
@@ -157,9 +172,12 @@ describe('providerRoutes', () => {
     const providers = await providerService.findUserConfigsByOwnerId(testUser.id)
     const providerId = providers[0].id
 
-    const res = await app.fetch(new Request(`http://localhost/${providerId}`, {
-      method: 'DELETE',
-    }), { user: testUser } as any)
+    const res = await app.fetch(
+      new Request(`http://localhost/${providerId}`, {
+        method: 'DELETE',
+      }),
+      { user: testUser } as any,
+    )
 
     expect(res.status).toBe(204)
     const deleted = await providerService.findUserConfigById(providerId)

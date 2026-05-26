@@ -3,8 +3,8 @@ import { FieldCheckbox, FieldInput, FieldTextArea, Select } from '@proj-airi/ui'
 import { watch } from 'vue'
 
 defineProps<{
-  providerOptions: { value: string, label: string }[]
-  modelOptions: { value: string, label: string }[]
+  providerOptions: { value: string; label: string }[]
+  modelOptions: { value: string; label: string }[]
   providerPlaceholder: string
   modelPlaceholder: string
 }>()
@@ -19,8 +19,7 @@ const generationContextWidth = defineModel<number | undefined>('generationContex
 const generationAdvancedJson = defineModel<string>('generationAdvancedJson', { required: true })
 
 function updateGlobalContextMap() {
-  if (!generationContextWidth.value || !generationProvider.value || !generationModel.value)
-    return
+  if (!generationContextWidth.value || !generationProvider.value || !generationModel.value) return
 
   try {
     const rawMap = localStorage.getItem('airi:context-width-map')
@@ -32,8 +31,7 @@ function updateGlobalContextMap() {
 
     map[generationProvider.value][generationModel.value] = generationContextWidth.value
     localStorage.setItem('airi:context-width-map', JSON.stringify(map))
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[CardCreationTabGeneration] Failed to update global context map:', err)
   }
 }

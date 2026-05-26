@@ -1,9 +1,7 @@
-import type { Action } from '../../../libs/mineflayer/action'
-
 import fs, { readFileSync } from 'node:fs'
-
 import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
+import type { Action } from '../../../libs/mineflayer/action'
 
 const templatePath = fileURLToPath(new URL('./brain-prompt.md', import.meta.url))
 
@@ -15,24 +13,20 @@ function loadTemplateFromDisk(): string {
 }
 
 function ensureTemplateLoaded(): string {
-  if (cachedTemplate == null)
-    cachedTemplate = loadTemplateFromDisk()
+  if (cachedTemplate == null) cachedTemplate = loadTemplateFromDisk()
   return cachedTemplate
 }
 
 function ensureWatcher(): void {
-  if (watcherInitialized)
-    return
+  if (watcherInitialized) return
 
   watcherInitialized = true
-  if (env.NODE_ENV === 'production')
-    return
+  if (env.NODE_ENV === 'production') return
 
   fs.watch(templatePath, { persistent: false }, () => {
     try {
       cachedTemplate = loadTemplateFromDisk()
-    }
-    catch {
+    } catch {
       cachedTemplate = null
     }
   })
@@ -44,16 +38,12 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 
 // Helper to extract readable type from Zod schema
 function getZodTypeName(def: any): string {
-  if (!def)
-    return 'any'
+  if (!def) return 'any'
   const type = def.type || def.typeName
 
-  if (type === 'string' || type === 'ZodString')
-    return 'string'
-  if (type === 'number' || type === 'ZodNumber')
-    return 'number'
-  if (type === 'boolean' || type === 'ZodBoolean')
-    return 'boolean'
+  if (type === 'string' || type === 'ZodString') return 'string'
+  if (type === 'number' || type === 'ZodNumber') return 'number'
+  if (type === 'boolean' || type === 'ZodBoolean') return 'boolean'
 
   if (type === 'array' || type === 'ZodArray') {
     const innerDef = def.element?._def || def.type?._def
@@ -81,8 +71,7 @@ function getZodTypeName(def: any): string {
 }
 
 function getZodConstraintHint(def: any): string {
-  if (!def)
-    return ''
+  if (!def) return ''
 
   const checks = Array.isArray(def.checks) ? def.checks : []
   const hints: string[] = []
@@ -126,24 +115,29 @@ function abbreviateToolDescription(input: string): string {
 }
 
 export function generateBrainSystemPrompt(availableActions: Action[]): string {
-  const toolsFormatted = availableActions.map((a) => {
-    const paramKeys = Object.keys(a.schema.shape)
-    const positionalSignature = paramKeys.length > 0 ? `${a.name}(${paramKeys.join(', ')})` : `${a.name}()`
-    const objectSignature = paramKeys.length > 0 ? `${a.name}({ ${paramKeys.join(', ')} })` : `${a.name}()`
+  const toolsFormatted = availableActions
+    .map((a) => {
+      const paramKeys = Object.keys(a.schema.shape)
+      const positionalSignature = paramKeys.length > 0 ? `${a.name}(${paramKeys.join(', ')})` : `${a.name}()`
+      const objectSignature = paramKeys.length > 0 ? `${a.name}({ ${paramKeys.join(', ')} })` : `${a.name}()`
 
-    const params = a.schema && 'shape' in a.schema
-      ? Object.entries(a.schema.shape).map(([key, val]: [string, any]) => {
-          const def = val._def
-          const type = getZodTypeName(def)
-          const constraints = getZodConstraintHint(def).replace(/^\s+/, '')
-          const desc = val.description ? ` ${String(val.description).trim()}` : ''
-          return `${key}:${type}${constraints}${desc}`
-        }).join('; ')
-      : ''
+      const params =
+        a.schema && 'shape' in a.schema
+          ? Object.entries(a.schema.shape)
+              .map(([key, val]: [string, any]) => {
+                const def = val._def
+                const type = getZodTypeName(def)
+                const constraints = getZodConstraintHint(def).replace(/^\s+/, '')
+                const desc = val.description ? ` ${String(val.description).trim()}` : ''
+                return `${key}:${type}${constraints}${desc}`
+              })
+              .join('; ')
+          : ''
 
-    const compactDescription = abbreviateToolDescription(a.description)
-    return `${a.name}|${compactDescription}|sig:${positionalSignature}|obj:${objectSignature}${params ? `|args:${params}` : ''}`
-  }).join('\n')
+      const compactDescription = abbreviateToolDescription(a.description)
+      return `${a.name}|${compactDescription}|sig:${positionalSignature}|obj:${objectSignature}${params ? `|args:${params}` : ''}`
+    })
+    .join('\n')
 
   ensureWatcher()
   const template = ensureTemplateLoaded()

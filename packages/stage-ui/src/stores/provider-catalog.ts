@@ -1,11 +1,9 @@
-import type { ProviderCatalogProvider } from '../database/repos/providers.repo'
-
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-
 import { client } from '../composables/api'
 import { useLocalFirstRequest } from '../composables/use-local-first'
+import type { ProviderCatalogProvider } from '../database/repos/providers.repo'
 import { providersRepo } from '../database/repos/providers.repo'
 import { getDefinedProvider, listProviders } from '../libs/providers/providers'
 
@@ -31,10 +29,10 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
         const newConfigs: Record<string, ProviderCatalogProvider> = {}
         for (const item of data) {
           newConfigs[item.id] = {
-            id: item.id,
-            definitionId: item.definitionId,
-            name: item.name,
             config: item.config as Record<string, any>,
+            definitionId: item.definitionId,
+            id: item.id,
+            name: item.name,
             validated: item.validated,
             validationBypassed: item.validationBypassed,
           }
@@ -53,10 +51,10 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
 
     const id = nanoid()
     const provider: ProviderCatalogProvider = {
-      id,
-      definitionId,
-      name: definition.name,
       config: initialConfig,
+      definitionId,
+      id,
+      name: definition.name,
       validated: false,
       validationBypassed: false,
     }
@@ -70,10 +68,10 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
       remote: async () => {
         const res = await client.api.providers.$post({
           json: {
-            id,
-            definitionId,
-            name: provider.name,
             config: provider.config,
+            definitionId,
+            id,
+            name: provider.name,
             validated: provider.validated,
             validationBypassed: provider.validationBypassed,
           },
@@ -81,12 +79,12 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
         if (!res.ok) {
           throw new Error('Failed to add provider')
         }
-        const item = await res.json() as ProviderCatalogProvider
+        const item = (await res.json()) as ProviderCatalogProvider
         const finalProvider: ProviderCatalogProvider = {
-          id: item.id,
-          definitionId: item.definitionId,
-          name: item.name,
           config: item.config as Record<string, any>,
+          definitionId: item.definitionId,
+          id: item.id,
+          name: item.name,
           validated: item.validated,
           validationBypassed: item.validationBypassed,
         }
@@ -119,7 +117,11 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
     })
   }
 
-  async function commitProviderConfig(providerId: string, newConfig: Record<string, any>, options: { validated: boolean, validationBypassed: boolean }) {
+  async function commitProviderConfig(
+    providerId: string,
+    newConfig: Record<string, any>,
+    options: { validated: boolean; validationBypassed: boolean },
+  ) {
     const provider = configs.value[providerId]
     if (!provider) {
       return
@@ -135,18 +137,18 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
       },
       remote: async () => {
         const res = await client.api.providers[':id'].$patch({
-          param: { id: providerId },
           // @ts-expect-error hono client typing misses json option for this route
           json: {
             config: newConfig,
             validated: options.validated,
             validationBypassed: options.validationBypassed,
           },
+          param: { id: providerId },
         })
         if (!res.ok) {
           throw new Error('Failed to update provider config')
         }
-        const item = await res.json() as ProviderCatalogProvider
+        const item = (await res.json()) as ProviderCatalogProvider
         // Sync with server response just in case
         provider.config = { ...item.config }
         provider.validated = item.validated
@@ -158,13 +160,13 @@ export const useProviderCatalogStore = defineStore('provider-catalog', () => {
   }
 
   return {
+    addProvider,
+    commitProviderConfig,
     configs,
     defs,
-    getDefinedProvider,
 
     fetchList,
-    addProvider,
+    getDefinedProvider,
     removeProvider,
-    commitProviderConfig,
   }
 })

@@ -20,21 +20,21 @@ const segments = computed(() => [...segmenter.segment(text.value)])
 
 function enterAnimator(e: Element, done: () => void) {
   return animate(e, {
+    duration: 200,
+    ease: 'outQuad',
+    onComplete: done,
     opacity: [0, 1],
     scale: [0.5, 1],
-    ease: 'outQuad',
-    duration: 200,
-    onComplete: done,
   })
 }
 
 function leaveAnimator(e: Element, done: () => void) {
   return animate(e, {
+    duration: 200,
+    ease: 'outQuad',
+    onComplete: done,
     opacity: [1, 0],
     scale: [1, 0.5],
-    ease: 'outQuad',
-    duration: 200,
-    onComplete: done,
   })
 }
 </script>

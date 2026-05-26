@@ -1,12 +1,10 @@
 import type { IpcRenderer } from '@electron-toolkit/preload'
-import type { SourcesOptions } from 'electron'
-import type { MaybeRefOrGetter } from 'vue'
-
-import type { ScreenCaptureSetSourceRequest, SerializableDesktopCapturerSource } from '..'
-
 import { defineInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
+import type { SourcesOptions } from 'electron'
+import type { MaybeRefOrGetter } from 'vue'
 import { toRaw, toValue } from 'vue'
+import type { ScreenCaptureSetSourceRequest, SerializableDesktopCapturerSource } from '..'
 
 import { screenCapture } from '..'
 
@@ -40,8 +38,7 @@ export function useElectronScreenCapture(ipcRenderer: IpcRenderer, sourcesOption
         timeout: request?.timeout,
       })
       return await useFn()
-    }
-    finally {
+    } finally {
       if (handle) {
         await resetSource(handle)
       }
@@ -49,11 +46,11 @@ export function useElectronScreenCapture(ipcRenderer: IpcRenderer, sourcesOption
   }
 
   return {
+    checkMacOSPermission,
     getSources,
-    setSource,
+    requestMacOSPermission,
     resetSource,
     selectWithSource,
-    checkMacOSPermission,
-    requestMacOSPermission,
+    setSource,
   }
 }

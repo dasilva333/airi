@@ -1,23 +1,18 @@
-import type { BrowserWindow, Rectangle } from 'electron'
-import type { InferOutput } from 'valibot'
-
-import type { WidgetsAddPayload, WidgetSnapshot } from '../../../shared/eventa'
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-
 import { join, resolve } from 'node:path'
-
 import { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { BrowserWindow, Rectangle } from 'electron'
 import { BrowserWindow as ElectronBrowserWindow, ipcMain, screen, shell } from 'electron'
 import { isMacOS } from 'std-env'
+import type { InferOutput } from 'valibot'
 import { number, object, optional } from 'valibot'
-
 import icon from '../../../../resources/icon.png?asset'
-
+import type { WidgetSnapshot, WidgetsAddPayload } from '../../../shared/eventa'
 import { widgetsClearEvent, widgetsRemoveEvent, widgetsRenderEvent, widgetsUpdateEvent } from '../../../shared/eventa'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createConfig } from '../../libs/electron/persistence'
 import { createReusableWindow } from '../../libs/electron/window-manager'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
 import { setupArtistryBridge } from '../../services/airi/widgets/artistry-bridge'
 import { spotlightLikeWindowConfig, transparentWindowConfig } from '../shared/window'
 import { setupWidgetsWindowInvokes } from './rpc/index.electron'
@@ -26,7 +21,7 @@ export interface WidgetsWindowManager {
   getWindow: () => Promise<BrowserWindow>
   openWindow: (params?: { id?: string }) => Promise<void>
   pushWidget: (payload: WidgetsAddPayload) => Promise<string>
-  updateWidget: (payload: { id: string, componentProps?: Record<string, any> }) => Promise<void>
+  updateWidget: (payload: { id: string; componentProps?: Record<string, any> }) => Promise<void>
   removeWidget: (id: string) => Promise<void>
   clearWidgets: () => Promise<void>
   getWidgetSnapshot: (id: string) => WidgetSnapshot | undefined
@@ -34,12 +29,14 @@ export interface WidgetsWindowManager {
 }
 
 const widgetsWindowConfigSchema = object({
-  bounds: optional(object({
-    x: number(),
-    y: number(),
-    width: number(),
-    height: number(),
-  })),
+  bounds: optional(
+    object({
+      height: number(),
+      width: number(),
+      x: number(),
+      y: number(),
+    }),
+  ),
 })
 
 type WidgetsWindowConfig = InferOutput<typeof widgetsWindowConfigSchema>
@@ -50,23 +47,23 @@ function computeDefaultBounds(): Rectangle {
   const height = Math.min(500, Math.floor(primary.height * 0.6))
   const x = primary.x + primary.width - width - 16
   const y = primary.y + 16
-  return { x, y, width, height }
+  return { height, width, x, y }
 }
 
 function createWidgetsWindow(options?: Electron.BrowserWindowConstructorOptions & { spotlight?: boolean }) {
   const { spotlight = true, ...rest } = options ?? {}
   const window = new ElectronBrowserWindow({
-    title: 'Widgets',
-    width: 620,
     height: 760,
-    show: false,
     icon,
+    show: false,
+    title: 'Widgets',
+    // Top-level overlay style like other overlay windows
+    type: 'panel',
     webPreferences: {
       preload: join(getElectronMainDirname(), '../preload/index.cjs'),
       sandbox: true,
     },
-    // Top-level overlay style like other overlay windows
-    type: 'panel',
+    width: 620,
     ...transparentWindowConfig(),
     ...(spotlight ? spotlightLikeWindowConfig() : {}),
     backgroundColor: '#00000000',
@@ -77,8 +74,7 @@ function createWidgetsWindow(options?: Electron.BrowserWindowConstructorOptions 
   window.setAlwaysOnTop(true, 'screen-saver', 1)
   window.setFullScreenable(false)
   window.setVisibleOnAllWorkspaces(true)
-  if (isMacOS)
-    window.setWindowButtonVisibility(false)
+  if (isMacOS) window.setWindowButtonVisibility(false)
 
   window.on('ready-to-show', () => window.show())
   window.webContents.setWindowOpenHandler((details) => {
@@ -99,13 +95,14 @@ interface WidgetWindowContext {
   window?: BrowserWindow
 }
 
-export function setupWidgetsWindowManager(params: {
-  serverChannel: ServerChannel
-  i18n: I18n
-}): WidgetsWindowManager {
-  const { setup, get: getConfigRaw, update } = createConfig('windows-widgets', 'config.json', widgetsWindowConfigSchema, {
-    default: {},
+export function setupWidgetsWindowManager(params: { serverChannel: ServerChannel; i18n: I18n }): WidgetsWindowManager {
+  const {
+    setup,
+    get: getConfigRaw,
+    update,
+  } = createConfig('windows-widgets', 'config.json', widgetsWindowConfigSchema, {
     autoHeal: true,
+    default: {},
   })
   const getConfig = (): WidgetsWindowConfig => getConfigRaw() ?? {}
   setup()
@@ -137,14 +134,13 @@ export function setupWidgetsWindowManager(params: {
     if (saved) {
       const work = screen.getDisplayMatching(saved).workArea
       const clamped: Rectangle = {
+        height: Math.min(saved.height, work.height),
+        width: Math.min(saved.width, work.width),
         x: Math.min(Math.max(saved.x, work.x), work.x + work.width - saved.width),
         y: Math.min(Math.max(saved.y, work.y), work.y + work.height - saved.height),
-        width: Math.min(saved.width, work.width),
-        height: Math.min(saved.height, work.height),
       }
       window.setBounds(clamped)
-    }
-    else {
+    } else {
       window.setBounds(computeDefaultBounds())
     }
 
@@ -168,10 +164,10 @@ export function setupWidgetsWindowManager(params: {
     await loadWithRoute(window, initialRoute)
 
     await setupWidgetsWindowInvokes({
-      widgetWindow: window,
-      widgetsManager: widgetsManager!,
       i18n: params.i18n,
       serverChannel: params.serverChannel,
+      widgetsManager: widgetsManager!,
+      widgetWindow: window,
     })
 
     pendingRoute = undefined
@@ -180,8 +176,7 @@ export function setupWidgetsWindowManager(params: {
       eventaContext = undefined
       currentRoute = undefined
       windowContexts.forEach((context) => {
-        if (context.window === window)
-          context.window = undefined
+        if (context.window === window) context.window = undefined
       })
     })
     return window
@@ -192,8 +187,8 @@ export function setupWidgetsWindowManager(params: {
     if (!windowContexts.has(id)) {
       windowContexts.set(id, {
         widgetId: id,
-        windowBuilder: () => getWindow(),
         window: undefined,
+        windowBuilder: () => getWindow(),
       })
     }
     return id
@@ -206,8 +201,7 @@ export function setupWidgetsWindowManager(params: {
 
   function upsertRecord(snapshot: WidgetSnapshot) {
     const existing = widgetRecords.get(snapshot.id)
-    if (existing?.timer)
-      clearTimeout(existing.timer)
+    if (existing?.timer) clearTimeout(existing.timer)
 
     const record: WidgetRecord = { ...snapshot }
 
@@ -220,11 +214,9 @@ export function setupWidgetsWindowManager(params: {
 
   function removeWidgetInternal(id: string, emitEvent = true) {
     const existing = widgetRecords.get(id)
-    if (!existing)
-      return
+    if (!existing) return
 
-    if (existing.timer)
-      clearTimeout(existing.timer)
+    if (existing.timer) clearTimeout(existing.timer)
 
     widgetRecords.delete(id)
     windowContexts.delete(id)
@@ -245,10 +237,8 @@ export function setupWidgetsWindowManager(params: {
   }
 
   async function getWindowFromContext(context?: WidgetWindowContext): Promise<BrowserWindow> {
-    if (!context)
-      return getWindow()
-    if (context.window && !context.window.isDestroyed())
-      return context.window
+    if (!context) return getWindow()
+    if (context.window && !context.window.isDestroyed()) return context.window
     const resolved = await context.windowBuilder()
     context.window = resolved
     return resolved
@@ -258,11 +248,9 @@ export function setupWidgetsWindowManager(params: {
     pendingRoute = route
     const window = await getWindowFromContext(context)
     pendingRoute = undefined
-    if (currentRoute !== route)
-      await loadWithRoute(window, route)
+    if (currentRoute !== route) await loadWithRoute(window, route)
     window.showInactive()
-    if (context)
-      context.window = window
+    if (context) context.window = window
     return window
   }
 
@@ -282,8 +270,7 @@ export function setupWidgetsWindowManager(params: {
     const context = id ? windowContexts.get(id) : undefined
     if (context?.window) {
       context.window.close()
-    }
-    else {
+    } else {
       const window = await getWindow()
       window.close()
     }
@@ -292,9 +279,9 @@ export function setupWidgetsWindowManager(params: {
   async function pushWidget(payload: WidgetsAddPayload): Promise<string> {
     const id = prepareWidgetWindow({ id: payload.id })
     const snapshot: WidgetSnapshot = {
-      id,
       componentName: payload.componentName,
       componentProps: payload.componentProps ?? {},
+      id,
       size: payload.size ?? 'm',
       ttlMs: payload.ttlMs ?? 0,
     }
@@ -306,9 +293,9 @@ export function setupWidgetsWindowManager(params: {
     if (isSticker && payload.bounds) {
       window = await createWidgetsWindow({
         ...payload.bounds,
-        spotlight: false,
         alwaysOnTop: true,
         skipTaskbar: true,
+        spotlight: false,
       })
       standaloneWindows.set(id, window)
       const { context: evCtx } = createContext(ipcMain, window)
@@ -320,18 +307,17 @@ export function setupWidgetsWindowManager(params: {
       window.once('ready-to-show', () => {
         evCtx.emit(widgetsRenderEvent, snapshot)
       })
-    }
-    else {
+    } else {
       window = await showWindowWithRoute(`${defaultRoute}?id=${id}`, context)
       eventaContext?.emit(widgetsRenderEvent, snapshot)
     }
 
     if (payload.bounds && !isSticker) {
       window.setBounds({
+        height: payload.bounds.height ?? window.getBounds().height,
+        width: payload.bounds.width ?? window.getBounds().width,
         x: payload.bounds.x ?? window.getBounds().x,
         y: payload.bounds.y ?? window.getBounds().y,
-        width: payload.bounds.width ?? window.getBounds().width,
-        height: payload.bounds.height ?? window.getBounds().height,
       })
     }
 
@@ -340,13 +326,11 @@ export function setupWidgetsWindowManager(params: {
     return id
   }
 
-  async function updateWidget(payload: { id: string, componentProps?: Record<string, any> }) {
-    if (!payload?.id)
-      return
+  async function updateWidget(payload: { id: string; componentProps?: Record<string, any> }) {
+    if (!payload?.id) return
 
     const existing = widgetRecords.get(payload.id)
-    if (!existing)
-      return
+    if (!existing) return
 
     const nextSnapshot: WidgetSnapshot = {
       ...toSnapshot(existing),
@@ -357,20 +341,18 @@ export function setupWidgetsWindowManager(params: {
 
     upsertRecord(nextSnapshot)
 
-    eventaContext?.emit(widgetsUpdateEvent, { id: nextSnapshot.id, componentProps: nextSnapshot.componentProps })
+    eventaContext?.emit(widgetsUpdateEvent, { componentProps: nextSnapshot.componentProps, id: nextSnapshot.id })
   }
 
   async function removeWidget(id: string) {
-    if (!id)
-      return
+    if (!id) return
     removeWidgetInternal(id, false)
     eventaContext?.emit(widgetsRemoveEvent, { id })
   }
 
   async function clearWidgets() {
     const ids = [...widgetRecords.keys()]
-    for (const id of ids)
-      removeWidgetInternal(id, false)
+    for (const id of ids) removeWidgetInternal(id, false)
 
     eventaContext?.emit(widgetsClearEvent, undefined)
     windowContexts.clear()
@@ -378,8 +360,7 @@ export function setupWidgetsWindowManager(params: {
 
   function getWidgetSnapshot(id: string) {
     const record = widgetRecords.get(id)
-    if (!record)
-      return undefined
+    if (!record) return undefined
 
     return toSnapshot(record)
   }
@@ -389,16 +370,16 @@ export function setupWidgetsWindowManager(params: {
   }
 
   widgetsManager = {
-    getWindow,
-    openWindow,
-    pushWidget,
-    updateWidget,
-    removeWidget,
     clearWidgets,
-    getWidgetSnapshot,
-    prepareWidgetWindow,
-    hideWindow,
     emit,
+    getWidgetSnapshot,
+    getWindow,
+    hideWindow,
+    openWindow,
+    prepareWidgetWindow,
+    pushWidget,
+    removeWidget,
+    updateWidget,
   }
 
   // Initialize Artistry Bridge (handles ComfyUI + Replicate image generation)
@@ -412,7 +393,7 @@ export interface WidgetsWindowManager {
   openWindow: (params?: { id?: string }) => Promise<void>
   hideWindow: (params?: { id?: string }) => Promise<void>
   pushWidget: (payload: WidgetsAddPayload) => Promise<string>
-  updateWidget: (payload: { id: string, componentProps?: Record<string, any> }) => Promise<void>
+  updateWidget: (payload: { id: string; componentProps?: Record<string, any> }) => Promise<void>
   removeWidget: (id: string) => Promise<void>
   clearWidgets: () => Promise<void>
   getWidgetSnapshot: (id: string) => WidgetSnapshot | undefined

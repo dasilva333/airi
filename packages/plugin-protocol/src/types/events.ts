@@ -1,6 +1,5 @@
-import type { AssistantMessage, CommonContentPart, Message, ToolMessage, UserMessage } from '@xsai/shared-chat'
-
 import { defineEventa } from '@moeru/eventa'
+import type { AssistantMessage, CommonContentPart, Message, ToolMessage, UserMessage } from '@xsai/shared-chat'
 
 export interface DiscordGuildMember {
   nickname: string
@@ -149,22 +148,22 @@ export interface ModuleContribution {
 /**
  * Lifecycle phases for module orchestration and UX.
  */
-export type ModulePhase
-  = | 'announced'
-    | 'preparing'
-    | 'prepared'
-    | 'configuration-needed'
-    | 'configured'
-    | 'ready'
-    | 'failed'
+export type ModulePhase =
+  | 'announced'
+  | 'preparing'
+  | 'prepared'
+  | 'configuration-needed'
+  | 'configured'
+  | 'ready'
+  | 'failed'
 
-export type Localizable
-  = | string
-    | {
-    /**
-     * Localization key owned by the module.
-     * Example: "config.deprecated.model_driver.legacy"
-     */
+export type Localizable =
+  | string
+  | {
+      /**
+       * Localization key owned by the module.
+       * Example: "config.deprecated.model_driver.legacy"
+       */
       key: string
       /**
        * Fallback display string when translation is unavailable.
@@ -229,7 +228,7 @@ export interface ModuleConfigPlan {
   /**
    * Invalid fields with reasons (runtime validation result).
    */
-  invalid?: Array<{ path: string, reason: string }>
+  invalid?: Array<{ path: string; reason: string }>
   /**
    * Recommended defaults computed at runtime (may be environment-specific).
    */
@@ -273,7 +272,7 @@ export interface ModuleConfigValidation {
   /**
    * Invalid fields with reasons (only for invalid).
    */
-  invalid?: Array<{ path: string, reason: Localizable }>
+  invalid?: Array<{ path: string; reason: Localizable }>
   /**
    * Non-blocking issues (e.g., deprecations, best-practice notices).
    */
@@ -343,16 +342,16 @@ export interface ModuleCapability {
   metadata?: Record<string, unknown>
 }
 
-export type RouteTargetExpression
-  = | { type: 'and', all: RouteTargetExpression[] }
-    | { type: 'or', any: RouteTargetExpression[] }
-    | { type: 'glob', glob: string, inverted?: boolean }
-    | { type: 'ids', ids: string[], inverted?: boolean }
-    | { type: 'plugin', plugins: string[], inverted?: boolean }
-    | { type: 'instance', instances: string[], inverted?: boolean }
-    | { type: 'label', selectors: string[], inverted?: boolean }
-    | { type: 'module', modules: string[], inverted?: boolean }
-    | { type: 'source', sources: string[], inverted?: boolean }
+export type RouteTargetExpression =
+  | { type: 'and'; all: RouteTargetExpression[] }
+  | { type: 'or'; any: RouteTargetExpression[] }
+  | { type: 'glob'; glob: string; inverted?: boolean }
+  | { type: 'ids'; ids: string[]; inverted?: boolean }
+  | { type: 'plugin'; plugins: string[]; inverted?: boolean }
+  | { type: 'instance'; instances: string[]; inverted?: boolean }
+  | { type: 'label'; selectors: string[]; inverted?: boolean }
+  | { type: 'module'; modules: string[]; inverted?: boolean }
+  | { type: 'source'; sources: string[]; inverted?: boolean }
 
 export interface RouteConfig {
   destinations?: Array<string | RouteTargetExpression>
@@ -371,14 +370,12 @@ export enum MessageHeartbeat {
 
 export enum WebSocketEventSource {
   Server = 'proj-airi:server-runtime',
-  StageWeb = 'proj-airi:stage-web',
   StageTamagotchi = 'proj-airi:stage-tamagotchi',
 }
 
 interface InputSource {
-  'stage-web': boolean
   'stage-tamagotchi': boolean
-  'discord': Discord
+  discord: Discord
 }
 
 interface OutputSource {
@@ -404,14 +401,12 @@ export interface ContextUpdateDestinationList {
   exclude?: Array<string>
 }
 
-export type ContextUpdateDestinationFilter
-  = | ContextUpdateDestinationAll
-    | ContextUpdateDestinationList
+export type ContextUpdateDestinationFilter = ContextUpdateDestinationAll | ContextUpdateDestinationList
 
 export interface ContextUpdate<
   Metadata extends Record<string, any> = Record<string, unknown>,
   // eslint-disable-next-line ts/no-unnecessary-type-constraint
-  Content extends any = undefined,
+  Content = undefined,
 > {
   id: string
   /**
@@ -434,9 +429,11 @@ export interface InputMessageOverrides {
   messagePrefix?: string
 }
 
-export type InputContextUpdate
-  = Omit<ContextUpdate<Record<string, unknown>, string | CommonContentPart[]>, 'id' | 'contextId'>
-    & Partial<Pick<ContextUpdate<Record<string, unknown>, string | CommonContentPart[]>, 'id' | 'contextId'>>
+export type InputContextUpdate = Omit<
+  ContextUpdate<Record<string, unknown>, string | CommonContentPart[]>,
+  'id' | 'contextId'
+> &
+  Partial<Pick<ContextUpdate<Record<string, unknown>, string | CommonContentPart[]>, 'id' | 'contextId'>>
 
 export interface WebSocketEventInputTextBase {
   text: string
@@ -445,7 +442,8 @@ export interface WebSocketEventInputTextBase {
   contextUpdates?: InputContextUpdate[]
 }
 
-export type WebSocketEventInputText = WebSocketEventInputTextBase & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
+export type WebSocketEventInputText = WebSocketEventInputTextBase &
+  Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
 
 export interface WebSocketEventInputTextVoiceBase {
   transcription: string
@@ -454,7 +452,8 @@ export interface WebSocketEventInputTextVoiceBase {
   contextUpdates?: InputContextUpdate[]
 }
 
-export type WebSocketEventInputTextVoice = WebSocketEventInputTextVoiceBase & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
+export type WebSocketEventInputTextVoice = WebSocketEventInputTextVoiceBase &
+  Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
 
 export interface WebSocketEventInputVoiceBase {
   audio: ArrayBuffer
@@ -462,14 +461,15 @@ export interface WebSocketEventInputVoiceBase {
   contextUpdates?: InputContextUpdate[]
 }
 
-export type WebSocketEventInputVoice = WebSocketEventInputVoiceBase & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
+export type WebSocketEventInputVoice = WebSocketEventInputVoiceBase &
+  Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>>
 
 export type InputEventData = WebSocketEventInputText | WebSocketEventInputTextVoice | WebSocketEventInputVoice
 
-export type InputEventEnvelope
-  = | { type: 'input:text', data: WebSocketEventInputText }
-    | { type: 'input:text:voice', data: WebSocketEventInputTextVoice }
-    | { type: 'input:voice', data: WebSocketEventInputVoice }
+export type InputEventEnvelope =
+  | { type: 'input:text'; data: WebSocketEventInputText }
+  | { type: 'input:text:voice'; data: WebSocketEventInputTextVoice }
+  | { type: 'input:voice'; data: WebSocketEventInputVoice }
 
 export interface EventBaseMetadata {
   source?: ModuleIdentity
@@ -540,7 +540,7 @@ interface ErrorEvent {
 interface ModuleAnnounceEvent<C = undefined> {
   name: string
   identity: ModuleIdentity
-  possibleEvents: Array<(keyof ProtocolEvents<C>)>
+  possibleEvents: Array<keyof ProtocolEvents<C>>
   configSchema?: ModuleConfigSchema
   dependencies?: ModuleDependency[]
 }
@@ -748,11 +748,13 @@ interface UiConfigureEvent<C = undefined> {
 
 type OutputGenAiChatToolCallEvent = {
   toolCalls: ToolMessage[]
-} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> & Partial<WithOutputSource<'gen-ai:chat'>>
+} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> &
+  Partial<WithOutputSource<'gen-ai:chat'>>
 
 type OutputGenAiChatMessageEvent = {
   message: AssistantMessage
-} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> & Partial<WithOutputSource<'gen-ai:chat'>>
+} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> &
+  Partial<WithOutputSource<'gen-ai:chat'>>
 
 interface OutputGenAiChatUsage {
   promptTokens: number
@@ -765,7 +767,8 @@ type OutputGenAiChatCompleteEvent = {
   message: AssistantMessage
   toolCalls: ToolMessage[]
   usage: OutputGenAiChatUsage
-} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> & Partial<WithOutputSource<'gen-ai:chat'>>
+} & Partial<WithInputSource<'stage-web' | 'stage-tamagotchi' | 'discord'>> &
+  Partial<WithOutputSource<'gen-ai:chat'>>
 
 interface SparkNotifyEvent {
   id: string
@@ -846,8 +849,12 @@ export const moduleAuthenticated = defineEventa<ModuleAuthenticatedEvent>('modul
 export const moduleCompatibilityRequest = defineEventa<ModuleCompatibilityRequestEvent>('module:compatibility:request')
 export const moduleCompatibilityResult = defineEventa<ModuleCompatibilityResultEvent>('module:compatibility:result')
 export const registryModulesSync = defineEventa<RegistryModulesSyncEvent>('registry:modules:sync')
-export const registryModulesHealthUnhealthy = defineEventa<RegistryModulesHealthUnhealthyEvent>('registry:modules:health:unhealthy')
-export const registryModulesHealthHealthy = defineEventa<RegistryModulesHealthHealthyEvent>('registry:modules:health:healthy')
+export const registryModulesHealthUnhealthy = defineEventa<RegistryModulesHealthUnhealthyEvent>(
+  'registry:modules:health:unhealthy',
+)
+export const registryModulesHealthHealthy = defineEventa<RegistryModulesHealthHealthyEvent>(
+  'registry:modules:health:healthy',
+)
 
 export const error = defineEventa<ErrorEvent>('error')
 
@@ -858,28 +865,74 @@ export const modulePrepared = defineEventa<ModulePreparedEvent>('module:prepared
 export const moduleConfigurationNeeded = defineEventa<ModuleConfigurationNeededEvent>('module:configuration:needed')
 export const moduleStatus = defineEventa<ModuleStatusEvent>('module:status')
 
-export const moduleConfigurationValidateRequest = defineEventa<ModuleConfigurationValidateRequestEvent>('module:configuration:validate:request')
-export const moduleConfigurationValidateResponse = defineEventa<ModuleConfigurationValidateResponseEvent>('module:configuration:validate:response')
-export const moduleConfigurationValidateStatus = defineEventa<ModuleConfigurationValidateStatusEvent>('module:configuration:validate:status')
-export const moduleConfigurationPlanRequest = defineEventa<ModuleConfigurationPlanRequestEvent>('module:configuration:plan:request')
-export const moduleConfigurationPlanResponse = defineEventa<ModuleConfigurationPlanResponseEvent>('module:configuration:plan:response')
-export const moduleConfigurationPlanStatus = defineEventa<ModuleConfigurationPlanStatusEvent>('module:configuration:plan:status')
+export const moduleConfigurationValidateRequest = defineEventa<ModuleConfigurationValidateRequestEvent>(
+  'module:configuration:validate:request',
+)
+export const moduleConfigurationValidateResponse = defineEventa<ModuleConfigurationValidateResponseEvent>(
+  'module:configuration:validate:response',
+)
+export const moduleConfigurationValidateStatus = defineEventa<ModuleConfigurationValidateStatusEvent>(
+  'module:configuration:validate:status',
+)
+export const moduleConfigurationPlanRequest = defineEventa<ModuleConfigurationPlanRequestEvent>(
+  'module:configuration:plan:request',
+)
+export const moduleConfigurationPlanResponse = defineEventa<ModuleConfigurationPlanResponseEvent>(
+  'module:configuration:plan:response',
+)
+export const moduleConfigurationPlanStatus = defineEventa<ModuleConfigurationPlanStatusEvent>(
+  'module:configuration:plan:status',
+)
 export const moduleConfigurationCommit = defineEventa<ModuleConfigurationCommitEvent>('module:configuration:commit')
-export const moduleConfigurationCommitStatus = defineEventa<ModuleConfigurationCommitStatusEvent>('module:configuration:commit:status')
-export const moduleConfigurationConfigured = defineEventa<ModuleConfigurationConfiguredEvent>('module:configuration:configured')
+export const moduleConfigurationCommitStatus = defineEventa<ModuleConfigurationCommitStatusEvent>(
+  'module:configuration:commit:status',
+)
+export const moduleConfigurationConfigured = defineEventa<ModuleConfigurationConfiguredEvent>(
+  'module:configuration:configured',
+)
 
-export const moduleContributeCapabilityOffer = defineEventa<ModuleContributeCapabilityOfferEvent>('module:contribute:capability:offer')
-export const moduleContributeCapabilityConfigurationNeeded = defineEventa<ModuleContributeCapabilityConfigurationNeededEvent>('module:contribute:capability:configuration:needed')
-export const moduleContributeCapabilityConfigurationValidateRequest = defineEventa<ModuleContributeCapabilityConfigurationValidateRequestEvent>('module:contribute:capability:configuration:validate:request')
-export const moduleContributeCapabilityConfigurationValidateResponse = defineEventa<ModuleContributeCapabilityConfigurationValidateResponseEvent>('module:contribute:capability:configuration:validate:response')
-export const moduleContributeCapabilityConfigurationValidateStatus = defineEventa<ModuleContributeCapabilityConfigurationValidateStatusEvent>('module:contribute:capability:configuration:validate:status')
-export const moduleContributeCapabilityConfigurationPlanRequest = defineEventa<ModuleContributeCapabilityConfigurationPlanRequestEvent>('module:contribute:capability:configuration:plan:request')
-export const moduleContributeCapabilityConfigurationPlanResponse = defineEventa<ModuleContributeCapabilityConfigurationPlanResponseEvent>('module:contribute:capability:configuration:plan:response')
-export const moduleContributeCapabilityConfigurationPlanStatus = defineEventa<ModuleContributeCapabilityConfigurationPlanStatusEvent>('module:contribute:capability:configuration:plan:status')
-export const moduleContributeCapabilityConfigurationCommit = defineEventa<ModuleContributeCapabilityConfigurationCommitEvent>('module:contribute:capability:configuration:commit')
-export const moduleContributeCapabilityConfigurationCommitStatus = defineEventa<ModuleContributeCapabilityConfigurationCommitStatusEvent>('module:contribute:capability:configuration:commit:status')
-export const moduleContributeCapabilityConfigurationConfigured = defineEventa<ModuleContributeCapabilityConfigurationConfiguredEvent>('module:contribute:capability:configuration:configured')
-export const moduleContributeCapabilityActivated = defineEventa<ModuleContributeCapabilityActivatedEvent>('module:contribute:capability:activated')
+export const moduleContributeCapabilityOffer = defineEventa<ModuleContributeCapabilityOfferEvent>(
+  'module:contribute:capability:offer',
+)
+export const moduleContributeCapabilityConfigurationNeeded =
+  defineEventa<ModuleContributeCapabilityConfigurationNeededEvent>('module:contribute:capability:configuration:needed')
+export const moduleContributeCapabilityConfigurationValidateRequest =
+  defineEventa<ModuleContributeCapabilityConfigurationValidateRequestEvent>(
+    'module:contribute:capability:configuration:validate:request',
+  )
+export const moduleContributeCapabilityConfigurationValidateResponse =
+  defineEventa<ModuleContributeCapabilityConfigurationValidateResponseEvent>(
+    'module:contribute:capability:configuration:validate:response',
+  )
+export const moduleContributeCapabilityConfigurationValidateStatus =
+  defineEventa<ModuleContributeCapabilityConfigurationValidateStatusEvent>(
+    'module:contribute:capability:configuration:validate:status',
+  )
+export const moduleContributeCapabilityConfigurationPlanRequest =
+  defineEventa<ModuleContributeCapabilityConfigurationPlanRequestEvent>(
+    'module:contribute:capability:configuration:plan:request',
+  )
+export const moduleContributeCapabilityConfigurationPlanResponse =
+  defineEventa<ModuleContributeCapabilityConfigurationPlanResponseEvent>(
+    'module:contribute:capability:configuration:plan:response',
+  )
+export const moduleContributeCapabilityConfigurationPlanStatus =
+  defineEventa<ModuleContributeCapabilityConfigurationPlanStatusEvent>(
+    'module:contribute:capability:configuration:plan:status',
+  )
+export const moduleContributeCapabilityConfigurationCommit =
+  defineEventa<ModuleContributeCapabilityConfigurationCommitEvent>('module:contribute:capability:configuration:commit')
+export const moduleContributeCapabilityConfigurationCommitStatus =
+  defineEventa<ModuleContributeCapabilityConfigurationCommitStatusEvent>(
+    'module:contribute:capability:configuration:commit:status',
+  )
+export const moduleContributeCapabilityConfigurationConfigured =
+  defineEventa<ModuleContributeCapabilityConfigurationConfiguredEvent>(
+    'module:contribute:capability:configuration:configured',
+  )
+export const moduleContributeCapabilityActivated = defineEventa<ModuleContributeCapabilityActivatedEvent>(
+  'module:contribute:capability:activated',
+)
 
 export const moduleStatusChange = defineEventa<ModuleStatusChangeEvent>('module:status:change')
 
@@ -899,7 +952,9 @@ export const sparkNotify = defineEventa<SparkNotifyEvent>('spark:notify')
 export const sparkEmit = defineEventa<SparkEmitEvent>('spark:emit')
 export const sparkCommand = defineEventa<SparkCommandEvent>('spark:command')
 
-export const transportConnectionHeartbeat = defineEventa<TransportConnectionHeartbeatEvent>('transport:connection:heartbeat')
+export const transportConnectionHeartbeat = defineEventa<TransportConnectionHeartbeatEvent>(
+  'transport:connection:heartbeat',
+)
 export const contextUpdate = defineEventa<ContextUpdateEvent>('context:update')
 
 // Thanks to:
@@ -907,7 +962,7 @@ export const contextUpdate = defineEventa<ContextUpdateEvent>('context:update')
 // A little hack for creating extensible discriminated unions : r/typescript
 // https://www.reddit.com/r/typescript/comments/1064ibt/a_little_hack_for_creating_extensible/
 export interface ProtocolEvents<C = undefined> {
-  'error': ErrorEvent
+  error: ErrorEvent
 
   'module:authenticate': ModuleAuthenticateEvent
   'module:authenticated': ModuleAuthenticatedEvent

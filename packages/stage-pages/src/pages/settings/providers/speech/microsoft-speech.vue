@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { UnMicrosoftOptions } from 'unspeech'
-
-import {
-  SpeechPlayground,
-  SpeechProviderSettings,
-} from '@proj-airi/stage-ui/components'
+import { SpeechPlayground, SpeechProviderSettings } from '@proj-airi/stage-ui/components'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { FieldInput, FieldRange } from '@proj-airi/ui'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
+import type { UnMicrosoftOptions } from 'unspeech'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -35,10 +31,9 @@ const volume = ref(0)
 
 // Additional settings specific to Microsoft Speech (region)
 const region = computed({
-  get: () => providers.value[providerId]?.region as string | undefined || 'eastasia',
+  get: () => (providers.value[providerId]?.region as string | undefined) || 'eastasia',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = { region: 'eastasia' }
+    if (!providers.value[providerId]) providers.value[providerId] = { region: 'eastasia' }
 
     providers.value[providerId].region = value
   },
@@ -57,10 +52,8 @@ onMounted(async () => {
     region.value = 'eastasia' // Default region
   }
   if (!providers.value[providerId]?.region) {
-    if (!providers.value[providerId])
-      providers.value[providerId] = { region: region.value }
-    else
-      providers.value[providerId].region = region.value
+    if (!providers.value[providerId]) providers.value[providerId] = { region: region.value }
+    else providers.value[providerId].region = region.value
   }
 
   await speechStore.loadVoicesForProvider(providerId)
@@ -72,7 +65,10 @@ watch([apiKeyConfigured, region], async () => {
 
 // Generate speech with Microsoft-specific parameters
 async function handleGenerateSpeech(input: string, voiceId: string, useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string, UnMicrosoftOptions>
+  const provider = (await providersStore.getProviderInstance(providerId)) as SpeechProviderWithExtraOptions<
+    string,
+    UnMicrosoftOptions
+  >
   if (!provider) {
     throw new Error('Failed to initialize speech provider')
   }
@@ -81,42 +77,26 @@ async function handleGenerateSpeech(input: string, voiceId: string, useSSML: boo
   const providerConfig = providersStore.getProviderConfig(providerId)
 
   // Get model from configuration or use default
-  const model = providerConfig.model as string | undefined || defaultModel
+  const model = (providerConfig.model as string | undefined) || defaultModel
 
   // For Microsoft Speech, we need to ensure we're using the right region
   const options = {
     ...providerConfig,
-    region: region.value,
     disableSsml: !useSSML, // If useSSML is true, we don't disable SSML
+    region: region.value,
   }
 
   // If not using SSML and we have a voice, generate SSML
   if (!useSSML && voiceId) {
-    const voice = availableVoices.value.find(v => v.id === voiceId)
+    const voice = availableVoices.value.find((v) => v.id === voiceId)
     if (voice) {
-      const ssml = speechStore.generateSSML(
-        input,
-        voice,
-        { ...providerConfig, pitch: pitch.value },
-      )
-      return await speechStore.speech(
-        provider,
-        model,
-        ssml,
-        voiceId,
-        options,
-      )
+      const ssml = speechStore.generateSSML(input, voice, { ...providerConfig, pitch: pitch.value })
+      return await speechStore.speech(provider, model, ssml, voiceId, options)
     }
   }
 
   // Either using direct SSML or no voice found
-  return await speechStore.speech(
-    provider,
-    model,
-    input,
-    voiceId,
-    options,
-  )
+  return await speechStore.speech(provider, model, input, voiceId, options)
 }
 </script>
 

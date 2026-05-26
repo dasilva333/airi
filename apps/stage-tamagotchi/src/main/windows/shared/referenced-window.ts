@@ -1,13 +1,11 @@
-import type { BrowserWindow } from 'electron'
-
-import type { createRequestWindowEventa, RequestWindowPayload } from '../../../shared/eventa'
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { safeClose } from '@proj-airi/electron-vueuse/main'
+import type { BrowserWindow } from 'electron'
 import { ipcMain } from 'electron'
+import type { createRequestWindowEventa, RequestWindowPayload } from '../../../shared/eventa'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
 
 import { setupBaseWindowElectronInvokes } from './window'
 
@@ -35,7 +33,7 @@ export function createReferencedWindowManager<Payload extends RequestWindowPaylo
   createWindow: (id: string) => BrowserWindow
   loadRoute: (window: BrowserWindow, payload: Payload & { id: string }) => Promise<void>
 }): ReferencedWindowManager<Payload> {
-  const windows = new Map<string, { window: BrowserWindow, context: ReturnType<typeof createContext>['context'] }>()
+  const windows = new Map<string, { window: BrowserWindow; context: ReturnType<typeof createContext>['context'] }>()
 
   async function bindContext(id: string, payload: Payload, win: BrowserWindow) {
     // TODO: once we refactored eventa to support window-namespaced contexts,
@@ -45,22 +43,25 @@ export function createReferencedWindowManager<Payload extends RequestWindowPaylo
     const { context } = createContext(ipcMain, win)
 
     defineInvokeHandler(context, params.eventa.pageMounted, (req) => {
-      if (req?.id && req.id !== id)
-        return undefined
-      return { id, type: payload.type, payload: payload.payload }
+      if (req?.id && req.id !== id) return undefined
+      return { id, payload: payload.payload, type: payload.type }
     })
 
     defineInvokeHandler(context, params.eventa.pageUnmounted, (req) => {
-      if (req?.id && req.id !== id)
-        return
+      if (req?.id && req.id !== id) return
       windows.delete(id)
     })
 
-    await setupBaseWindowElectronInvokes({ context, window: win, i18n: params.i18n, serverChannel: params.serverChannel })
+    await setupBaseWindowElectronInvokes({
+      context,
+      i18n: params.i18n,
+      serverChannel: params.serverChannel,
+      window: win,
+    })
 
     win.on('closed', () => windows.delete(id))
 
-    return { window: win, context }
+    return { context, window: win }
   }
 
   async function open(payload: Payload & { id?: string }): Promise<ReferencedWindowHandle> {
@@ -77,24 +78,22 @@ export function createReferencedWindowManager<Payload extends RequestWindowPaylo
       await params.loadRoute(ctx.window, { ...payload, id })
       ctx.window.show()
       ctx.window.focus()
-    }
-    catch (error) {
+    } catch (error) {
       const wrapped = error ?? new Error('Failed to open referenced window')
       console.error('[referenced-window] open failed', wrapped)
       throw wrapped
     }
 
-    return { id, window: ctx.window, context: ctx.context, eventa: params.eventa }
+    return { context: ctx.context, eventa: params.eventa, id, window: ctx.window }
   }
 
   function close(id: string) {
     const ctx = windows.get(id)
-    if (!ctx)
-      return
+    if (!ctx) return
 
     safeClose(ctx.window)
     windows.delete(id)
   }
 
-  return { open, close }
+  return { close, open }
 }

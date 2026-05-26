@@ -7,9 +7,9 @@ import { useProviderCatalogStore } from './provider-catalog'
 vi.mock('../database/repos/providers.repo', () => ({
   providersRepo: {
     getAll: vi.fn(async () => ({})),
+    remove: vi.fn(async () => {}),
     saveAll: vi.fn(async () => {}),
     upsert: vi.fn(async () => {}),
-    remove: vi.fn(async () => {}),
   },
 }))
 
@@ -17,12 +17,22 @@ vi.mock('../composables/api', () => ({
   client: {
     api: {
       providers: {
-        '$get': vi.fn(async () => ({ ok: true, json: async () => [] })),
-        '$post': vi.fn(async () => ({ ok: true, json: async () => ({ id: 'real-id', definitionId: 'openai-compatible', name: 'OpenAI Compatible', config: {}, validated: false, validationBypassed: false }) })),
         ':id': {
           $delete: vi.fn(async () => ({ ok: true })),
-          $patch: vi.fn(async () => ({ ok: true, json: async () => ({}) })),
+          $patch: vi.fn(async () => ({ json: async () => ({}), ok: true })),
         },
+        $get: vi.fn(async () => ({ json: async () => [], ok: true })),
+        $post: vi.fn(async () => ({
+          json: async () => ({
+            config: {},
+            definitionId: 'openai-compatible',
+            id: 'real-id',
+            name: 'OpenAI Compatible',
+            validated: false,
+            validationBypassed: false,
+          }),
+          ok: true,
+        })),
       },
     },
   },

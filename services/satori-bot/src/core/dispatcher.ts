@@ -1,9 +1,7 @@
-import type { ActionResult } from '../capabilities/definition'
-import type { BotContext, ChatContext } from './types'
-
 import * as v from 'valibot'
-
+import type { ActionResult } from '../capabilities/definition'
 import { globalRegistry } from '../capabilities/registry'
+import type { BotContext, ChatContext } from './types'
 import { ActionSchema } from './types'
 
 export async function dispatchAction(
@@ -18,9 +16,9 @@ export async function dispatchAction(
 
   if (!parseResult.success) {
     return {
-      success: false,
+      result: `System Error: Invalid action payload: ${parseResult.issues.map((i) => i.message).join(', ')}`,
       shouldContinue: true,
-      result: `System Error: Invalid action payload: ${parseResult.issues.map(i => i.message).join(', ')}`,
+      success: false,
     }
   }
 
@@ -29,9 +27,9 @@ export async function dispatchAction(
 
   if (!handler) {
     return {
-      success: false,
-      shouldContinue: true,
       result: `System Error: Action "${validatedAction.action}" is not implemented.`,
+      shouldContinue: true,
+      success: false,
     }
   }
 
@@ -46,13 +44,12 @@ export async function dispatchAction(
     })
 
     return result
-  }
-  catch (error) {
+  } catch (error) {
     log.withError(error as Error).error('Action execution failed')
     return {
-      success: false,
-      shouldContinue: true,
       result: `System Error: Execution failed: ${(error as Error).message}`,
+      shouldContinue: true,
+      success: false,
     }
   }
 }

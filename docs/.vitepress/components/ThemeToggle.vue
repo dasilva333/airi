@@ -9,9 +9,7 @@ const { isDark } = useData()
 const switchTitle = ref('')
 
 watchPostEffect(() => {
-  switchTitle.value = isDark.value
-    ? 'Switch to light theme'
-    : 'Switch to dark theme'
+  switchTitle.value = isDark.value ? 'Switch to light theme' : 'Switch to dark theme'
 })
 </script>
 

@@ -1,11 +1,7 @@
 import type { IncomingMessage } from 'node:http'
-
-import type { Env } from './env'
-
 import { env as processEnv } from 'node:process'
-
 import { useLogger } from '@guiiai/logg'
-import { diag, DiagConsoleLogger, DiagLogLevel, metrics } from '@opentelemetry/api'
+import { DiagConsoleLogger, DiagLogLevel, diag, metrics } from '@opentelemetry/api'
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto'
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-proto'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
@@ -19,6 +15,7 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
 import { NodeSDK } from '@opentelemetry/sdk-node'
 import { BatchSpanProcessor, ParentBasedSampler, TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-node'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
+import type { Env } from './env'
 
 const logger = useLogger('otel')
 
@@ -50,23 +47,23 @@ export function initOtel(env: Env) {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: processEnv.npm_package_version || '0.0.0',
-    'service.namespace': env.OTEL_SERVICE_NAMESPACE,
     'deployment.environment': processEnv.NODE_ENV || 'development',
+    'service.namespace': env.OTEL_SERVICE_NAMESPACE,
   })
 
   const traceExporter = new OTLPTraceExporter({
-    url: `${otlpEndpoint}/v1/traces`,
     headers,
+    url: `${otlpEndpoint}/v1/traces`,
   })
 
   const metricExporter = new OTLPMetricExporter({
-    url: `${otlpEndpoint}/v1/metrics`,
     headers,
+    url: `${otlpEndpoint}/v1/metrics`,
   })
 
   const logExporter = new OTLPLogExporter({
-    url: `${otlpEndpoint}/v1/logs`,
     headers,
+    url: `${otlpEndpoint}/v1/logs`,
   })
 
   // Head-based sampling ratio: 1.0 = 100% (default), 0.1 = 10%, etc.
@@ -77,15 +74,6 @@ export function initOtel(env: Env) {
   })
 
   const sdk = new NodeSDK({
-    resource,
-    sampler,
-    spanProcessors: [new BatchSpanProcessor(traceExporter)],
-    metricReaders: [new PeriodicExportingMetricReader({
-      exporter: metricExporter,
-      exportIntervalMillis: 15_000,
-      exportTimeoutMillis: 10_000,
-    })],
-    logRecordProcessors: [new BatchLogRecordProcessor(logExporter)],
     instrumentations: [
       new HttpInstrumentation({
         ignoreIncomingRequestHook: (req: IncomingMessage) => {
@@ -99,6 +87,17 @@ export function initOtel(env: Env) {
       new IORedisInstrumentation(),
       new RuntimeNodeInstrumentation(),
     ],
+    logRecordProcessors: [new BatchLogRecordProcessor(logExporter)],
+    metricReaders: [
+      new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 15_000,
+        exportTimeoutMillis: 10_000,
+      }),
+    ],
+    resource,
+    sampler,
+    spanProcessors: [new BatchSpanProcessor(traceExporter)],
   })
 
   // SDK must start BEFORE metrics.getMeter() — the metrics API does NOT
@@ -146,23 +145,22 @@ export function initOtel(env: Env) {
     try {
       await sdk.shutdown()
       logger.log('OpenTelemetry shut down successfully')
-    }
-    catch (err) {
+    } catch (err) {
       logger.withError(err).error('Error shutting down OpenTelemetry')
     }
   }
 
   return {
-    sdk,
-    meter,
-    httpRequestDuration,
-    httpActiveRequests,
-    dbQueryDuration,
-    redisCommandDuration,
     authAttempts,
     authFailures,
-    stripeEvents,
+    dbQueryDuration,
+    httpActiveRequests,
+    httpRequestDuration,
+    meter,
+    redisCommandDuration,
+    sdk,
 
     shutdown,
+    stripeEvents,
   }
 }

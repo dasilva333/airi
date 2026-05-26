@@ -15,21 +15,18 @@ export class Status implements OneLinerable {
   }
 
   public update(mineflayer: Mineflayer) {
-    if (!mineflayer.ready)
-      return
+    if (!mineflayer.ready) return
 
     Object.assign(this, Status.from(mineflayer))
   }
 
   static from(mineflayer: Mineflayer): Status {
-    if (!mineflayer.ready)
-      return new Status()
+    if (!mineflayer.ready) return new Status()
 
     const pos = mineflayer.bot.entity.position
     const weather = mineflayer.bot.isRaining ? 'Rain' : mineflayer.bot.thunderState ? 'Thunderstorm' : 'Clear'
-    const timeOfDay = mineflayer.bot.time.timeOfDay < 6000
-      ? 'Morning'
-      : mineflayer.bot.time.timeOfDay < 12000 ? 'Afternoon' : 'Night'
+    const timeOfDay =
+      mineflayer.bot.time.timeOfDay < 6000 ? 'Morning' : mineflayer.bot.time.timeOfDay < 12000 ? 'Afternoon' : 'Night'
 
     const status = new Status()
     status.position = `x: ${pos.x.toFixed(2)}, y: ${pos.y.toFixed(2)}, z: ${pos.z.toFixed(2)}`
@@ -41,6 +38,8 @@ export class Status implements OneLinerable {
   }
 
   public toOneLiner(): string {
-    return Object.entries(this).map(([key, value]) => `${key}: ${value}`).join('\n')
+    return Object.entries(this)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n')
   }
 }

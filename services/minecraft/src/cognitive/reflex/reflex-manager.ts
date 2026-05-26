@@ -1,15 +1,12 @@
 import type { Logg } from '@guiiai/logg'
-
+import { computed, effect, signal } from 'alien-signals'
+import { DebugService } from '../../debug'
 import type { TaskExecutor } from '../action/task-executor'
 import type { EventBus, TracedEvent } from '../event-bus'
 import type { PerceptionSignal } from '../perception/types/signals'
 import type { MineflayerWithAgents } from '../types'
-import type { ReflexContextState } from './context'
-
-import { computed, effect, signal } from 'alien-signals'
-
-import { DebugService } from '../../debug'
 import { idleGazeBehavior } from './behaviors/idle-gaze'
+import type { ReflexContextState } from './context'
 import { ReflexRuntime } from './runtime'
 
 export class ReflexManager {
@@ -36,20 +33,18 @@ export class ReflexManager {
 
     effect(() => {
       const bot = this.botSignal()
-      if (!bot)
-        return
+      if (!bot) return
 
       this.runtime.transitionMode(this.isWorking() ? 'work' : 'idle', bot)
     })
 
     effect(() => {
-      if (!this.botSignal())
-        return
+      if (!this.botSignal()) return
 
       DebugService.getInstance().emitReflexState({
-        mode: this.runtime.getMode(),
         activeBehaviorId: this.runtime.getActiveBehaviorId(),
         context: this.runtime.getContext().getSnapshot(),
+        mode: this.runtime.getMode(),
       })
     })
   }
@@ -77,18 +72,17 @@ export class ReflexManager {
 
     this.unsubscribeTaskExecutor = () => {
       // Node's EventEmitter supports off() but we keep a fallback for compatibility.
-      ; (this.deps.taskExecutor as any).off?.('action:started', onStarted)
-      ; (this.deps.taskExecutor as any).off?.('action:completed', onEnded)
-      ; (this.deps.taskExecutor as any).off?.('action:failed', onEnded)
-      ; (this.deps.taskExecutor as any).removeListener?.('action:started', onStarted)
-      ; (this.deps.taskExecutor as any).removeListener?.('action:completed', onEnded)
-      ; (this.deps.taskExecutor as any).removeListener?.('action:failed', onEnded)
+      ;(this.deps.taskExecutor as any).off?.('action:started', onStarted)
+      ;(this.deps.taskExecutor as any).off?.('action:completed', onEnded)
+      ;(this.deps.taskExecutor as any).off?.('action:failed', onEnded)
+      ;(this.deps.taskExecutor as any).removeListener?.('action:started', onStarted)
+      ;(this.deps.taskExecutor as any).removeListener?.('action:completed', onEnded)
+      ;(this.deps.taskExecutor as any).removeListener?.('action:failed', onEnded)
     }
   }
 
   public destroy(): void {
-    if (this.bot)
-      this.runtime.transitionMode('idle', this.bot)
+    if (this.bot) this.runtime.transitionMode('idle', this.bot)
 
     if (this.unsubscribe) {
       this.unsubscribe()
@@ -125,16 +119,14 @@ export class ReflexManager {
   }
 
   public refreshFromBotState(): void {
-    if (!this.bot)
-      return
+    if (!this.bot) return
 
     this.runtime.tick(this.bot, 0)
   }
 
   private onSignal(event: TracedEvent<PerceptionSignal>): void {
     const bot = this.bot
-    if (!bot)
-      return
+    if (!bot) return
 
     const signal = event.payload
     const now = Date.now()
@@ -142,9 +134,9 @@ export class ReflexManager {
     // Update Context
     this.runtime.getContext().updateNow(now)
     this.runtime.getContext().updateAttention({
-      lastSignalType: signal.type,
-      lastSignalSourceId: signal.sourceId ?? null,
       lastSignalAt: now,
+      lastSignalSourceId: signal.sourceId ?? null,
+      lastSignalType: signal.type,
     })
 
     if (signal.type === 'social_gesture') {
@@ -155,18 +147,18 @@ export class ReflexManager {
     }
 
     if (signal.type === 'chat_message') {
-      const username = typeof (signal.metadata as any)?.username === 'string'
-        ? String((signal.metadata as any).username)
-        : (signal.sourceId ?? null)
+      const username =
+        typeof (signal.metadata as any)?.username === 'string'
+          ? String((signal.metadata as any).username)
+          : (signal.sourceId ?? null)
 
-      const message = typeof (signal.metadata as any)?.message === 'string'
-        ? String((signal.metadata as any).message)
-        : null
+      const message =
+        typeof (signal.metadata as any)?.message === 'string' ? String((signal.metadata as any).message) : null
 
       this.runtime.getContext().updateSocial({
-        lastSpeaker: username,
         lastMessage: message,
         lastMessageAt: now,
+        lastSpeaker: username,
       })
     }
 
@@ -180,9 +172,9 @@ export class ReflexManager {
     // Forward signals to conscious layer (Brain) ONLY when Reflex decides.
     if (this.shouldForwardToConscious(signal)) {
       this.deps.eventBus.emitChild(event, {
-        type: `conscious:signal:${signal.type}`,
         payload: signal,
         source: { component: 'reflex', id: 'reflexManager' },
+        type: `conscious:signal:${signal.type}`,
       })
     }
   }

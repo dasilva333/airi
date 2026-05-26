@@ -1,14 +1,13 @@
-import type { ResolvedArtistryConfig } from '@proj-airi/stage-ui/stores'
-import type { Tool } from '@xsai/shared-chat'
-
 import { defineInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
+import type { ResolvedArtistryConfig } from '@proj-airi/stage-ui/stores'
 import {
   resolveArtistryConfigFromStore,
   useAiriCardStore,
   useArtistryStore,
   useBackgroundStore,
 } from '@proj-airi/stage-ui/stores'
+import type { Tool } from '@xsai/shared-chat'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -18,8 +17,7 @@ import { getIpcRenderer } from '../../../utils/electron'
 export function getArtistryConfig(): ResolvedArtistryConfig {
   try {
     return resolveArtistryConfigFromStore(useArtistryStore())
-  }
-  catch {
+  } catch {
     return {}
   }
 }
@@ -29,16 +27,26 @@ const generateHeadless = defineInvoke(context, artistryGenerateHeadless)
 const addWidget = defineInvoke(context, widgetsAdd)
 
 const imageJournalParams = z.object({
-  action: z.enum(['create', 'apply']).describe('Choose "create" to generate a new image, or "apply" to use an existing one.'),
+  action: z
+    .enum(['create', 'apply'])
+    .describe('Choose "create" to generate a new image, or "apply" to use an existing one.'),
+  mode: z
+    .enum(['inline', 'widget', 'bg', 'bg_widget'])
+    .nullable()
+    .describe(
+      'Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.',
+    ),
   prompt: z.string().nullable().describe('Description for the image (required for "create").'),
-  title: z.string().nullable().describe('Label for the entry (optional).'),
   query: z.string().nullable().describe('Search term for existing images (required for "apply").'),
-  mode: z.enum(['inline', 'widget', 'bg', 'bg_widget']).nullable().describe('Display mode: "inline" (in chat), "widget" (overlay), "bg" (environment), or "bg_widget" (both). Defaults to character preference.'),
+  title: z.string().nullable().describe('Label for the entry (optional).'),
 })
 
-async function executeCreateImageJournalEntry(params: { prompt?: string, title?: string, mode?: 'inline' | 'widget' | 'bg' | 'bg_widget' }) {
-  if (!params.prompt?.trim())
-    throw new Error('prompt is required for image_journal.create')
+async function executeCreateImageJournalEntry(params: {
+  prompt?: string
+  title?: string
+  mode?: 'inline' | 'widget' | 'bg' | 'bg_widget'
+}) {
+  if (!params.prompt?.trim()) throw new Error('prompt is required for image_journal.create')
 
   const backgroundStore = useBackgroundStore()
   const cardStore = useAiriCardStore()
@@ -47,11 +55,11 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
 
   const cardArtistry = activeCard?.extensions?.airi?.artistry
   const artistryConfig = {
-    provider: cardArtistry?.provider || globalArtistryConfig.provider,
-    model: cardArtistry?.model || globalArtistryConfig.model,
-    promptPrefix: cardArtistry?.promptPrefix || globalArtistryConfig.promptPrefix,
-    options: cardArtistry?.options || globalArtistryConfig.options,
     Globals: globalArtistryConfig.Globals,
+    model: cardArtistry?.model || globalArtistryConfig.model,
+    options: cardArtistry?.options || globalArtistryConfig.options,
+    promptPrefix: cardArtistry?.promptPrefix || globalArtistryConfig.promptPrefix,
+    provider: cardArtistry?.provider || globalArtistryConfig.provider,
   }
 
   const title = params.title || `Generation ${new Date().toLocaleString()}`
@@ -62,11 +70,13 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
 
   try {
     const artistryResult = await generateHeadless({
-      prompt: artistryConfig.promptPrefix ? `${artistryConfig.promptPrefix} ${params.prompt}` : params.prompt as string,
-      model: artistryConfig.model as string,
-      provider: artistryConfig.provider as string,
-      options: JSON.parse(JSON.stringify(artistryConfig.options || {})),
       globals: JSON.parse(JSON.stringify(artistryConfig.Globals || {})),
+      model: artistryConfig.model as string,
+      options: JSON.parse(JSON.stringify(artistryConfig.options || {})),
+      prompt: artistryConfig.promptPrefix
+        ? `${artistryConfig.promptPrefix} ${params.prompt}`
+        : (params.prompt as string),
+      provider: artistryConfig.provider as string,
     })
 
     if (artistryResult.error || (!artistryResult.base64 && !artistryResult.imageUrl)) {
@@ -80,8 +90,7 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
         : `data:image/png;base64,${artistryResult.base64}`
       const response = await fetch(dataUrl)
       blob = await response.blob()
-    }
-    else {
+    } else {
       const response = await fetch(artistryResult.imageUrl!)
       blob = await response.blob()
     }
@@ -95,10 +104,8 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
         const card = cardStore.cards.get(cardId)
         if (card) {
           const extension = JSON.parse(JSON.stringify(card.extensions || {}))
-          if (!extension.airi)
-            extension.airi = {}
-          if (!extension.airi.modules)
-            extension.airi.modules = {}
+          if (!extension.airi) extension.airi = {}
+          if (!extension.airi.modules) extension.airi.modules = {}
           extension.airi.modules.activeBackgroundId = entryId
           cardStore.updateCard(cardId, { ...card, extensions: extension })
         }
@@ -110,33 +117,31 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
         await addWidget({
           componentName: 'artistry',
           componentProps: {
-            status: 'done',
+            _skipIngestion: true,
             entryId,
             imageUrl: artistryResult.imageUrl || artistryResult.base64,
             prompt: params.prompt as string,
+            status: 'done',
             title,
-            _skipIngestion: true,
           },
           size: 'm',
           ttlMs: 0,
         })
-      }
-      catch {
+      } catch {
         console.warn('[ImageJournalTool] Failed to spawn Result widget')
       }
     }
 
     // Return structured result for UI rendering
     return JSON.stringify({
-      message: `Image created in ${mode} mode${mode === 'bg' ? ' and set as background' : ''}.`,
       entryId,
       imageUrl: artistryResult.imageUrl || artistryResult.base64,
-      title,
-      prompt: params.prompt,
+      message: `Image created in ${mode} mode${mode === 'bg' ? ' and set as background' : ''}.`,
       mode,
+      prompt: params.prompt,
+      title,
     })
-  }
-  catch (e) {
+  } catch (e) {
     console.error('[ImageJournalTool] Failed to create entry', e)
     return `Error: ${e instanceof Error ? e.message : String(e)}`
   }
@@ -151,14 +156,13 @@ async function executeSetAsBackground(params: { query?: string }) {
   const cardId = cardStore.activeCardId
   const query = params.query.toLowerCase().trim()
 
-  const entries = Array.from(backgroundStore.entries.values())
-    .filter(e => e.characterId === null || e.characterId === cardId)
+  const entries = Array.from(backgroundStore.entries.values()).filter(
+    (e) => e.characterId === null || e.characterId === cardId,
+  )
 
-  let entry = entries.find(e => e.type === 'journal' && (e.id === query || e.id.toLowerCase().includes(query)))
-  if (!entry)
-    entry = entries.find(e => e.type === 'journal' && e.title.toLowerCase().includes(query))
-  if (!entry)
-    entry = entries.find(e => e.type !== 'journal' && e.title.toLowerCase().includes(query))
+  let entry = entries.find((e) => e.type === 'journal' && (e.id === query || e.id.toLowerCase().includes(query)))
+  if (!entry) entry = entries.find((e) => e.type === 'journal' && e.title.toLowerCase().includes(query))
+  if (!entry) entry = entries.find((e) => e.type !== 'journal' && e.title.toLowerCase().includes(query))
 
   if (entry) {
     try {
@@ -166,36 +170,35 @@ async function executeSetAsBackground(params: { query?: string }) {
         const card = cardStore.cards.get(cardId)
         if (card) {
           const extension = JSON.parse(JSON.stringify(card.extensions || {}))
-          if (!extension.airi)
-            extension.airi = {}
-          if (!extension.airi.modules)
-            extension.airi.modules = {}
+          if (!extension.airi) extension.airi = {}
+          if (!extension.airi.modules) extension.airi.modules = {}
           extension.airi.modules.activeBackgroundId = entry.id
           cardStore.updateCard(cardId, { ...card, extensions: extension })
         }
       }
       return `Background set to "${entry.title}".`
-    }
-    catch (e) {
+    } catch (e) {
       return `Error applying "${entry.title}": ${e instanceof Error ? e.message : String(e)}`
     }
   }
 
-  const available = entries.filter(e => e.type === 'journal').map(e => e.title).slice(0, 10)
+  const available = entries
+    .filter((e) => e.type === 'journal')
+    .map((e) => e.title)
+    .slice(0, 10)
   return `No match for "${params.query}".${available.length > 0 ? ` Try: ${available.join(', ')}` : ''}`
 }
 
 async function executeImageJournalAction(params: any) {
   const normalizedParams = {
     ...params,
-    prompt: params.prompt ?? undefined,
-    title: params.title ?? undefined,
-    query: params.query ?? undefined,
     mode: params.mode ?? undefined,
+    prompt: params.prompt ?? undefined,
+    query: params.query ?? undefined,
+    title: params.title ?? undefined,
   }
 
-  if (normalizedParams.action === 'create')
-    return await executeCreateImageJournalEntry(normalizedParams)
+  if (normalizedParams.action === 'create') return await executeCreateImageJournalEntry(normalizedParams)
   if (normalizedParams.action === 'apply' || normalizedParams.action === 'set_as_background')
     return await executeSetAsBackground(normalizedParams)
   return 'No action performed.'
@@ -203,9 +206,10 @@ async function executeImageJournalAction(params: any) {
 
 const tools: Promise<Tool>[] = [
   tool({
+    description:
+      'Manage AI-generated images. Use "create" to generate and display images. An optional "mode" (inline, widget, bg, bg_widget) can override the default character routing preference. Use "apply" to switch to an existing image from the journal.',
+    execute: (params) => executeImageJournalAction(params),
     name: 'image_journal',
-    description: 'Manage AI-generated images. Use "create" to generate and display images. An optional "mode" (inline, widget, bg, bg_widget) can override the default character routing preference. Use "apply" to switch to an existing image from the journal.',
-    execute: params => executeImageJournalAction(params),
     parameters: imageJournalParams,
   }),
 ]

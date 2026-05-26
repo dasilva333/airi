@@ -4,7 +4,12 @@ import { storage } from '../storage'
 
 export const charactersRepo = {
   async getAll() {
-    return await storage.getItemRaw<Character[]>('local:characters') || []
+    return (await storage.getItemRaw<Character[]>('local:characters')) || []
+  },
+
+  async remove(id: string) {
+    const all = await this.getAll()
+    await this.saveAll(all.filter((c) => c.id !== id))
   },
 
   async saveAll(characters: Character[]) {
@@ -13,18 +18,12 @@ export const charactersRepo = {
 
   async upsert(character: Character) {
     const all = await this.getAll()
-    const index = all.findIndex(c => c.id === character.id)
+    const index = all.findIndex((c) => c.id === character.id)
     if (index > -1) {
       all[index] = character
-    }
-    else {
+    } else {
       all.push(character)
     }
     await this.saveAll(all)
-  },
-
-  async remove(id: string) {
-    const all = await this.getAll()
-    await this.saveAll(all.filter(c => c.id !== id))
   },
 }

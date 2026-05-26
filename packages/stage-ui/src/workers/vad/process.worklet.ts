@@ -15,11 +15,9 @@ class VADProcessor extends AudioWorkletProcessor {
 
   process(inputs: Float32Array[][], _outputs: Float32Array[][], _parameters: Record<string, Float32Array>) {
     const buffer = inputs[0][0]
-    if (!buffer)
-      return true // buffer is null when the stream ends
+    if (!buffer) return true // buffer is null when the stream ends
 
-    if (buffer.length === 0)
-      return true
+    if (buffer.length === 0) return true
 
     // If we have a very large buffer, process it in chunks of MIN_CHUNK_SIZE
     let sourceOffset = 0

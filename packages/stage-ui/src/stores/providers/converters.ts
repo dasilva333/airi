@@ -1,25 +1,24 @@
+import { listModels } from '@xsai/model'
 import type { ComposerTranslation } from 'vue-i18n'
-
 import type { ProviderDefinition } from '../../libs/providers/types'
+import { isModelProvider } from '../../libs/providers/types'
 import type { ProviderValidationPlan } from '../../libs/providers/validators/run'
+import { getValidatorsOfProvider, validateProvider, validateProviderManual } from '../../libs/providers/validators/run'
 import type { ProviderMetadata } from './types'
 
-import { listModels } from '@xsai/model'
-
-import { isModelProvider } from '../../libs/providers/types'
-import { getValidatorsOfProvider, validateProvider, validateProviderManual } from '../../libs/providers/validators/run'
-
 function getCategoryFromTasks(tasks: string[]): ProviderMetadata['category'] {
-  if (tasks.some(task => ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'].includes(task.toLowerCase()))) {
+  if (
+    tasks.some((task) => ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'].includes(task.toLowerCase()))
+  ) {
     return 'transcription'
   }
-  if (tasks.some(task => ['text-to-speech', 'speech', 'tts'].includes(task.toLowerCase()))) {
+  if (tasks.some((task) => ['text-to-speech', 'speech', 'tts'].includes(task.toLowerCase()))) {
     return 'speech'
   }
-  if (tasks.some(task => ['embed', 'embedding'].includes(task.toLowerCase()))) {
+  if (tasks.some((task) => ['embed', 'embedding'].includes(task.toLowerCase()))) {
     return 'embed'
   }
-  if (tasks.some(task => ['vision', 'image-to-text'].includes(task.toLowerCase()))) {
+  if (tasks.some((task) => ['vision', 'image-to-text'].includes(task.toLowerCase()))) {
     return 'vision'
   }
 
@@ -48,15 +47,13 @@ function extractSchemaDefaults(definition: ProviderDefinition<any>, t: ComposerT
     if (parsed?.success && typeof parsed.data === 'object' && parsed.data !== null) {
       Object.assign(defaults, parsed.data as Record<string, unknown>)
     }
-  }
-  catch {
-  }
+  } catch {}
 
   return defaults
 }
 
 function buildConfigValidationResult(plan: ProviderValidationPlan) {
-  const invalidSteps = plan.steps.filter(step => step.kind === 'config' && step.status === 'invalid')
+  const invalidSteps = plan.steps.filter((step) => step.kind === 'config' && step.status === 'invalid')
   if (invalidSteps.length === 0) {
     return {
       errors: [],
@@ -65,9 +62,9 @@ function buildConfigValidationResult(plan: ProviderValidationPlan) {
     }
   }
 
-  const reasons = invalidSteps.map(step => step.reason).filter(Boolean)
+  const reasons = invalidSteps.map((step) => step.reason).filter(Boolean)
   return {
-    errors: invalidSteps.map(step => new Error(step.reason || `${step.id} is invalid`)),
+    errors: invalidSteps.map((step) => new Error(step.reason || `${step.id} is invalid`)),
     reason: reasons.join('; '),
     valid: false,
   }
@@ -81,13 +78,16 @@ function mapModelsToMetadataModels(providerId: string, models: any[]) {
     const inputModalities = model.input_modalities || model.architecture?.input_modalities || []
     const outputModalities = model.output_modalities || model.architecture?.output_modalities || []
 
-    const hasVisionModality = model.architecture?.modality?.includes('image')
-      || (inputModalities.includes('image') && outputModalities.includes('text'))
+    const hasVisionModality =
+      model.architecture?.modality?.includes('image') ||
+      (inputModalities.includes('image') && outputModalities.includes('text'))
 
-    const isVision = hasVisionModality || (model.capabilities?.vision === true)
+    const isVision = hasVisionModality || model.capabilities?.vision === true
 
     if (typeof localStorage !== 'undefined' && localStorage.getItem('airi:debug') === '1') {
-      console.log(`[VLM Check] ${model.id}: input=[${inputModalities.join(', ')}] output=[${outputModalities.join(', ')}] modality=${model.architecture?.modality} isVision=${isVision}`)
+      console.log(
+        `[VLM Check] ${model.id}: input=[${inputModalities.join(', ')}] output=[${outputModalities.join(', ')}] modality=${model.architecture?.modality} isVision=${isVision}`,
+      )
     }
 
     if (isVision) {
@@ -95,22 +95,20 @@ function mapModelsToMetadataModels(providerId: string, models: any[]) {
     }
 
     return {
+      capabilities,
+      contextLength: model.context_length || 0,
+      deprecated: false,
+      description: model.description || '',
       id: model.id,
       name: model.name || model.display_name || model.id,
       provider: providerId,
-      description: model.description || '',
-      contextLength: model.context_length || 0,
-      capabilities,
-      deprecated: false,
     }
   })
 }
 
 function appendUniqueReason(reasons: string[], next: string) {
-  if (!next)
-    return
-  if (!reasons.includes(next))
-    reasons.push(next)
+  if (!next) return
+  if (!reasons.includes(next)) reasons.push(next)
 }
 
 export function convertProviderDefinitionToMetadata(
@@ -123,8 +121,8 @@ export function convertProviderDefinitionToMetadata(
   const keyExtractor = (input: string): string => input
   const category = getCategoryFromTasks(definition.tasks)
   const schemaDefaults = extractSchemaDefaults(definition, t)
-  const allValidators = (definition.validators?.validateProvider || []).map(creator => creator({ t }))
-  const hasManualValidators = allValidators.some(v => v.manualOnly)
+  const allValidators = (definition.validators?.validateProvider || []).map((creator) => creator({ t }))
+  const hasManualValidators = allValidators.some((v) => v.manualOnly)
 
   const business = definition.business?.({ t })
   const pricing = business?.pricing
@@ -132,21 +130,64 @@ export function convertProviderDefinitionToMetadata(
   const beginnerRecommended = business?.beginnerRecommended
 
   return {
-    id: definition.id,
-    order: definition.order,
-    category,
-    tasks: definition.tasks,
-    nameKey: definition.nameLocalize({ t: keyExtractor }),
-    name: definition.name,
-    descriptionKey: definition.descriptionLocalize({ t: keyExtractor }),
-    description: definition.description,
-    icon: definition.icon,
-    iconColor: definition.iconColor,
-    iconImage: definition.iconImage,
-    isAvailableBy: definition.isAvailableBy,
-    pricing,
-    deployment,
     beginnerRecommended,
+    capabilities: {
+      listModels: definition.extraMethods?.listModels
+        ? async (config) => {
+            const provider = await definition.createProvider(config as any)
+            try {
+              const models = await definition.extraMethods!.listModels!(config as any, provider)
+              return mapModelsToMetadataModels(definition.id, models as any[])
+            } finally {
+              await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
+            }
+          }
+        : async (config) => {
+            const provider = await definition.createProvider(config as any)
+            try {
+              if (isModelProvider(provider)) {
+                const models = await listModels(provider.model())
+                return mapModelsToMetadataModels(definition.id, models as any[])
+              }
+
+              const baseUrl = typeof (config as any).baseUrl === 'string' ? (config as any).baseUrl.trim() : ''
+              const apiKey = typeof (config as any).apiKey === 'string' ? (config as any).apiKey.trim() : ''
+              if (!baseUrl) return []
+
+              const models = await listModels({
+                baseURL: baseUrl,
+                ...(apiKey ? { apiKey } : {}),
+              })
+              return mapModelsToMetadataModels(definition.id, models as any[])
+            } catch {
+              return []
+            } finally {
+              await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
+            }
+          },
+      listVoices: definition.extraMethods?.listVoices
+        ? async (config) => {
+            const provider = await definition.createProvider(config as any)
+            try {
+              return await definition.extraMethods!.listVoices!(config as any, provider)
+            } finally {
+              await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
+            }
+          }
+        : undefined,
+      loadModel: definition.extraMethods?.loadModel
+        ? async (config, hooks) => {
+            const provider = await definition.createProvider(config as any)
+            try {
+              await definition.extraMethods!.loadModel!(config as any, provider, hooks)
+            } finally {
+              await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
+            }
+          }
+        : undefined,
+    },
+    category,
+    createProvider: async (config) => (await definition.createProvider(config as any)) as any,
     defaultOptions: () => {
       if (Object.keys(schemaDefaults).length > 0) {
         return { ...schemaDefaults }
@@ -154,82 +195,67 @@ export function convertProviderDefinitionToMetadata(
 
       return options.fallbackDefaultOptions?.() || {}
     },
-    createProvider: async config => await definition.createProvider(config as any) as any,
-    capabilities: {
-      listModels: definition.extraMethods?.listModels
-        ? async (config) => {
-          const provider = await definition.createProvider(config as any)
-          try {
-            const models = await definition.extraMethods!.listModels!(config as any, provider)
-            return mapModelsToMetadataModels(definition.id, models as any[])
-          }
-          finally {
-            await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
-          }
+    deployment,
+    description: definition.description,
+    descriptionKey: definition.descriptionLocalize({ t: keyExtractor }),
+    icon: definition.icon,
+    iconColor: definition.iconColor,
+    iconImage: definition.iconImage,
+    id: definition.id,
+    isAvailableBy: definition.isAvailableBy,
+    name: definition.name,
+    nameKey: definition.nameLocalize({ t: keyExtractor }),
+    order: definition.order,
+    pricing,
+    tasks: definition.tasks,
+    transcriptionFeatures: definition.capabilities?.transcription
+      ? {
+          supportsGenerate: definition.capabilities.transcription.generateOutput,
+          supportsStreamInput: definition.capabilities.transcription.streamInput,
+          supportsStreamOutput: definition.capabilities.transcription.streamOutput,
         }
-        : async (config) => {
-          const provider = await definition.createProvider(config as any)
-          try {
-            if (isModelProvider(provider)) {
-              const models = await listModels(provider.model())
-              return mapModelsToMetadataModels(definition.id, models as any[])
+      : undefined,
+    validators: {
+      runManualValidation: hasManualValidators
+        ? async (config) => {
+            const plan = getValidatorsOfProvider({
+              config,
+              contextOptions: { t },
+              definition,
+              schemaDefaults,
+            })
+
+            const steps = await validateProviderManual(plan, { t })
+            const invalidSteps = steps.filter((step) => step.status === 'invalid')
+            if (invalidSteps.length === 0) {
+              return {
+                errors: [],
+                reason: '',
+                valid: true,
+              }
             }
 
-            const baseUrl = typeof (config as any).baseUrl === 'string' ? (config as any).baseUrl.trim() : ''
-            const apiKey = typeof (config as any).apiKey === 'string' ? (config as any).apiKey.trim() : ''
-            if (!baseUrl)
-              return []
-
-            const models = await listModels({
-              baseURL: baseUrl,
-              ...(apiKey ? { apiKey } : {}),
-            })
-            return mapModelsToMetadataModels(definition.id, models as any[])
+            const reasons = invalidSteps.map((step) => step.reason).filter(Boolean)
+            return {
+              errors: invalidSteps.map((step) => new Error(step.reason || `${step.id} is invalid`)),
+              reason: reasons.join('; '),
+              valid: false,
+            }
           }
-          catch {
-            return []
-          }
-          finally {
-            await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
-          }
-        },
-      listVoices: definition.extraMethods?.listVoices
-        ? async (config) => {
-          const provider = await definition.createProvider(config as any)
-          try {
-            return await definition.extraMethods!.listVoices!(config as any, provider)
-          }
-          finally {
-            await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
-          }
-        }
         : undefined,
-      loadModel: definition.extraMethods?.loadModel
-        ? async (config, hooks) => {
-          const provider = await definition.createProvider(config as any)
-          try {
-            await definition.extraMethods!.loadModel!(config as any, provider, hooks)
-          }
-          finally {
-            await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
-          }
-        }
-        : undefined,
-    },
-    validators: {
       validateProviderConfig: async (config) => {
         const plan = getValidatorsOfProvider({
-          definition,
           config,
-          schemaDefaults,
           contextOptions: { t },
+          definition,
+          schemaDefaults,
         })
 
         // Run full validation pipeline (config + provider validators) only when required.
         // This preserves strict config checks while avoiding unnecessary network checks.
         if (plan.shouldValidate) {
           await validateProvider(plan, { t })
-          const invalidSteps = plan.steps.filter(step => step.status === 'invalid')
+          const invalidSteps = plan.steps.filter((step) => step.status === 'invalid')
           if (invalidSteps.length === 0) {
             return {
               errors: [],
@@ -238,23 +264,25 @@ export function convertProviderDefinitionToMetadata(
             }
           }
 
-          const reasons = invalidSteps.map(step => step.reason).filter(Boolean)
-          const hasMissingBaseUrlError = reasons.some(reason => reason.includes('Base URL is required'))
+          const reasons = invalidSteps.map((step) => step.reason).filter(Boolean)
+          const hasMissingBaseUrlError = reasons.some((reason) => reason.includes('Base URL is required'))
           const defaultBaseUrl = typeof schemaDefaults.baseUrl === 'string' ? schemaDefaults.baseUrl.trim() : ''
           if (hasMissingBaseUrlError && defaultBaseUrl) {
             appendUniqueReason(reasons, `Default to ${defaultBaseUrl}.`)
           }
 
-          const connectivityFailed = invalidSteps.some(step => step.id === 'openai-compatible:check-connectivity')
+          const connectivityFailed = invalidSteps.some((step) => step.id === 'openai-compatible:check-connectivity')
           if (connectivityFailed) {
-            const troubleshooting = definition.business?.({ t })?.troubleshooting?.validators?.openaiCompatibleCheckConnectivity?.content || ''
+            const troubleshooting =
+              definition.business?.({ t })?.troubleshooting?.validators?.openaiCompatibleCheckConnectivity?.content ||
+              ''
             if (troubleshooting) {
               appendUniqueReason(reasons, troubleshooting)
             }
           }
 
           return {
-            errors: invalidSteps.map(step => new Error(step.reason || `${step.id} is invalid`)),
+            errors: invalidSteps.map((step) => new Error(step.reason || `${step.id} is invalid`)),
             reason: reasons.join('; '),
             valid: false,
           }
@@ -263,41 +291,7 @@ export function convertProviderDefinitionToMetadata(
         await validateProvider(plan, { t })
         return buildConfigValidationResult(plan)
       },
-      runManualValidation: hasManualValidators
-        ? async (config) => {
-          const plan = getValidatorsOfProvider({
-            definition,
-            config,
-            schemaDefaults,
-            contextOptions: { t },
-          })
-
-          const steps = await validateProviderManual(plan, { t })
-          const invalidSteps = steps.filter(step => step.status === 'invalid')
-          if (invalidSteps.length === 0) {
-            return {
-              errors: [],
-              reason: '',
-              valid: true,
-            }
-          }
-
-          const reasons = invalidSteps.map(step => step.reason).filter(Boolean)
-          return {
-            errors: invalidSteps.map(step => new Error(step.reason || `${step.id} is invalid`)),
-            reason: reasons.join('; '),
-            valid: false,
-          }
-        }
-        : undefined,
     },
-    transcriptionFeatures: definition.capabilities?.transcription
-      ? {
-          supportsGenerate: definition.capabilities.transcription.generateOutput,
-          supportsStreamOutput: definition.capabilities.transcription.streamOutput,
-          supportsStreamInput: definition.capabilities.transcription.streamInput,
-        }
-      : undefined,
   }
 }
 

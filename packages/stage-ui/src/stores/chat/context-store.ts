@@ -1,8 +1,7 @@
-import type { ContextMessage } from '../../types/chat'
-
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { defineStore } from 'pinia'
 import { ref, toRaw } from 'vue'
+import type { ContextMessage } from '../../types/chat'
 
 import { getEventSourceKey } from '../../utils/event-source'
 
@@ -17,8 +16,7 @@ export const useChatContextStore = defineStore('chat-context', () => {
 
     if (envelope.strategy === ContextUpdateStrategy.ReplaceSelf) {
       activeContexts.value[sourceKey] = [envelope]
-    }
-    else if (envelope.strategy === ContextUpdateStrategy.AppendSelf) {
+    } else if (envelope.strategy === ContextUpdateStrategy.AppendSelf) {
       activeContexts.value[sourceKey].push(envelope)
     }
   }
@@ -32,8 +30,8 @@ export const useChatContextStore = defineStore('chat-context', () => {
   }
 
   return {
+    getContextsSnapshot,
     ingestContextMessage,
     resetContexts,
-    getContextsSnapshot,
   }
 })

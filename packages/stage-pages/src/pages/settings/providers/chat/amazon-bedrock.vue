@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-
 import {
   Alert,
   ProviderAccountIdInput,
@@ -13,6 +11,7 @@ import {
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
+import type { RemovableRef } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 
@@ -25,8 +24,7 @@ const { activeProvider } = storeToRefs(consciousnessStore)
 const accessKeyId = computed<string>({
   get: () => providers.value[providerId]?.accessKeyId || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].accessKeyId = value
   },
 })
@@ -34,8 +32,7 @@ const accessKeyId = computed<string>({
 const secretAccessKey = computed<string>({
   get: () => providers.value[providerId]?.secretAccessKey || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].secretAccessKey = value
   },
 })
@@ -43,8 +40,7 @@ const secretAccessKey = computed<string>({
 const sessionToken = computed<string>({
   get: () => providers.value[providerId]?.sessionToken || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].sessionToken = value
   },
 })
@@ -52,22 +48,13 @@ const sessionToken = computed<string>({
 const region = computed<string>({
   get: () => providers.value[providerId]?.region || 'us-east-1',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
+    if (!providers.value[providerId]) providers.value[providerId] = {}
     providers.value[providerId].region = value
   },
 })
 
-const {
-  t,
-  router,
-  providerMetadata,
-  isValidating,
-  isValid,
-  validationMessage,
-  handleResetSettings,
-  forceValid,
-} = useProviderValidation(providerId)
+const { t, router, providerMetadata, isValidating, isValid, validationMessage, handleResetSettings, forceValid } =
+  useProviderValidation(providerId)
 
 function goToModelSelection() {
   activeProvider.value = providerId

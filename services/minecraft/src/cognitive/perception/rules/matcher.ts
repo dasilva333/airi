@@ -9,16 +9,9 @@ import type { WhereClause, WhereCondition } from './types'
 /**
  * Check if a value matches a single condition
  */
-export function matchCondition(
-  condition: WhereCondition,
-  value: unknown,
-): boolean {
+export function matchCondition(condition: WhereCondition, value: unknown): boolean {
   // Direct value comparison (equality)
-  if (
-    typeof condition === 'string'
-    || typeof condition === 'number'
-    || typeof condition === 'boolean'
-  ) {
+  if (typeof condition === 'string' || typeof condition === 'number' || typeof condition === 'boolean') {
     return value === condition
   }
 
@@ -77,10 +70,7 @@ export function getNestedValue(obj: unknown, path: string): unknown {
 /**
  * Check if an event payload matches a where clause
  */
-export function matchWhere(
-  whereClause: WhereClause | undefined,
-  payload: unknown,
-): boolean {
+export function matchWhere(whereClause: WhereClause | undefined, payload: unknown): boolean {
   if (!whereClause) {
     return true
   }
@@ -124,10 +114,7 @@ export function matchEventType(pattern: string, eventType: string): boolean {
  * e.g., 'Player {{ name }} says {{ message }}' + { name: 'Bob', message: 'Hi' }
  *       => 'Player Bob says Hi'
  */
-export function renderTemplate(
-  template: string,
-  context: Readonly<Record<string, unknown>>,
-): string {
+export function renderTemplate(template: string, context: Readonly<Record<string, unknown>>): string {
   return template.replace(/\{\{\s*(\w+(?:\.\w+)*)\s*\}\}/g, (_, path: string) => {
     const value = getNestedValue(context, path)
     return value !== undefined ? String(value) : `{{${path}}}`
@@ -152,14 +139,12 @@ export function renderMetadata(
       // Check if it looks like a template
       if (value.includes('{{')) {
         result[key] = renderTemplate(value, context)
-      }
-      else {
+      } else {
         // Check if the value references a context field directly
         const contextValue = getNestedValue(context, value)
         result[key] = contextValue !== undefined ? contextValue : value
       }
-    }
-    else {
+    } else {
       result[key] = value
     }
   }

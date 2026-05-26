@@ -8,16 +8,12 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-
-import ControlButtonTooltip from './control-button-tooltip.vue'
-import ControlButton from './control-button.vue'
-
 import { noticeWindowEventa } from '../../../../shared/eventa'
 import { useControlsIslandStore } from '../../../stores/controls-island'
+import ControlButton from './control-button.vue'
+import ControlButtonTooltip from './control-button-tooltip.vue'
 
-const emit = defineEmits<{
-  (e: 'close'): void
-}>()
+const emit = defineEmits<(e: 'close') => void>()
 
 const { t } = useI18n()
 const liveSessionStore = useLiveSessionStore()
@@ -58,8 +54,7 @@ onMounted(async () => {
         route: '/notice/gemini',
         type: 'gemini-onboarding',
       })
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to open Gemini onboarding notice:', error)
     }
   }
@@ -85,14 +80,14 @@ const adjustStyleClasses = computed(() => {
   const icon = isLarge ? 'size-5' : 'size-3.5'
   const border = isLarge ? 'border-2' : 'border-0'
   const padding = isLarge ? 'p-2' : 'p-1'
-  return { icon, border, padding, button: `${border} ${padding}` }
+  return { border, button: `${border} ${padding}`, icon, padding }
 })
 
 const formattedCost = computed(() => {
   return new Intl.NumberFormat('en-US', {
-    style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 4,
+    style: 'currency',
   }).format(estimatedCost?.value ?? 0)
 })
 

@@ -1,6 +1,5 @@
-import type { MaybeRefOrGetter } from 'vue'
-
 import { merge } from '@moeru/std'
+import type { MaybeRefOrGetter } from 'vue'
 import { ref, toRef, watch } from 'vue'
 
 import { createVAD, createVADStates } from '../../../workers/vad'
@@ -34,18 +33,17 @@ export function useVAD(workerUrl: string, options?: UseVADOptions) {
   const threshold = toRef(options.threshold)
 
   async function init() {
-    if (loaded.value || loading.value || manager.value)
-      return
+    if (loaded.value || loading.value || manager.value) return
 
     loading.value = true
     inferenceError.value = ''
 
     try {
       vad.value = await createVAD({
-        sampleRate: 16000,
-        speechThreshold: threshold.value,
         exitThreshold: (threshold.value ?? 0.6) * 0.3,
         minSilenceDurationMs: 400,
+        sampleRate: 16000,
+        speechThreshold: threshold.value,
       })
 
       // Set up event handlers
@@ -79,30 +77,27 @@ export function useVAD(workerUrl: string, options?: UseVADOptions) {
 
       // Create and initialize audio manager
       const m = createVADStates(vad.value, workerUrl, {
-        minChunkSize: 512,
         // NOTICE: VAD will have it's own audio context since
         // it needs special sample rate and latency settings
         audioContextOptions: {
-          sampleRate: 16000,
           latencyHint: 'interactive',
+          sampleRate: 16000,
         },
+        minChunkSize: 512,
       })
 
       await m.initialize()
       manager.value = m
       loaded.value = true
-    }
-    catch (error) {
+    } catch (error) {
       inferenceError.value = error instanceof Error ? error.message : String(error)
-    }
-    finally {
+    } finally {
       loading.value = false
     }
   }
 
   async function start(stream: MediaStream) {
-    if (manager.value)
-      await manager.value.start(stream)
+    if (manager.value) await manager.value.start(stream)
   }
 
   function stop() {
@@ -124,22 +119,22 @@ export function useVAD(workerUrl: string, options?: UseVADOptions) {
 
   watch(threshold, (newVal) => {
     if (vad.value && newVal) {
-      vad.value.updateConfig({ speechThreshold: newVal, exitThreshold: newVal * 0.3 })
+      vad.value.updateConfig({ exitThreshold: newVal * 0.3, speechThreshold: newVal })
     }
   })
 
   return {
-    isSpeech,
-    isSpeechProb,
-    isSpeechHistory,
-    loaded,
-    loading,
+    dispose,
     inferenceError,
-    threshold,
 
     init,
+    isSpeech,
+    isSpeechHistory,
+    isSpeechProb,
+    loaded,
+    loading,
     start,
     stop,
-    dispose,
+    threshold,
   }
 }

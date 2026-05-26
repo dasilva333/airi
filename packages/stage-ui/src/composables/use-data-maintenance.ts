@@ -1,8 +1,5 @@
-import type { ChatSessionsExport } from '../types/chat-session'
-
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
-
 import { useBackgroundStore } from '../stores/background'
 import { useChatOrchestratorStore } from '../stores/chat'
 import { useChatSessionStore } from '../stores/chat/session-store'
@@ -21,6 +18,7 @@ import { useTwitterStore } from '../stores/modules/twitter'
 import { useOnboardingStore } from '../stores/onboarding'
 import { useProvidersStore } from '../stores/providers'
 import { useSettings, useSettingsAudioDevice } from '../stores/settings'
+import type { ChatSessionsExport } from '../types/chat-session'
 
 export function useDataMaintenance() {
   const chatStore = useChatSessionStore()
@@ -75,14 +73,12 @@ export function useDataMaintenance() {
   }
 
   function isChatSessionsPayload(payload: unknown): payload is ChatSessionsExport {
-    if (!payload || typeof payload !== 'object')
-      return false
+    if (!payload || typeof payload !== 'object') return false
     return (payload as { format?: string }).format === 'chat-sessions-index:v1'
   }
 
   async function importChatSessions(payload: Record<string, unknown>) {
-    if (!isChatSessionsPayload(payload))
-      throw new Error('Invalid chat session export format')
+    if (!isChatSessionsPayload(payload)) throw new Error('Invalid chat session export format')
     await chatStore.importSessions(payload)
   }
 
@@ -91,9 +87,9 @@ export function useDataMaintenance() {
   async function exportAllCharacters() {
     const cards = Array.from(airiCardStore.cards.entries())
     const data = {
+      cards,
       format: 'airi-characters:v1',
       timestamp: Date.now(),
-      cards,
     }
     return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   }
@@ -119,20 +115,19 @@ export function useDataMaintenance() {
     await Promise.all([shortTermMemoryStore.load(), textJournalStore.load()])
     const data = {
       format: 'airi-memory:v1',
-      timestamp: Date.now(),
-      shortTermBlocks: shortTermMemoryStore.blocks,
       journalEntries: textJournalStore.entries,
+      shortTermBlocks: shortTermMemoryStore.blocks,
+      timestamp: Date.now(),
     }
     return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   }
 
   async function importMemory(payload: any) {
-    if (payload.format !== 'airi-memory:v1')
-      throw new Error('Invalid memory export format')
+    if (payload.format !== 'airi-memory:v1') throw new Error('Invalid memory export format')
 
     if (Array.isArray(payload.shortTermBlocks)) {
       await shortTermMemoryStore.load()
-      const existingIds = new Set(shortTermMemoryStore.blocks.map(b => b.id))
+      const existingIds = new Set(shortTermMemoryStore.blocks.map((b) => b.id))
       const newBlocks = payload.shortTermBlocks.filter((b: any) => !existingIds.has(b.id))
       if (newBlocks.length > 0) {
         const merged = [...shortTermMemoryStore.blocks, ...newBlocks]
@@ -142,7 +137,7 @@ export function useDataMaintenance() {
 
     if (Array.isArray(payload.journalEntries)) {
       await textJournalStore.load()
-      const existingIds = new Set(textJournalStore.entries.map(e => e.id))
+      const existingIds = new Set(textJournalStore.entries.map((e) => e.id))
       const newEntries = payload.journalEntries.filter((e: any) => !existingIds.has(e.id))
       if (newEntries.length > 0) {
         const merged = [...textJournalStore.entries, ...newEntries]
@@ -169,18 +164,20 @@ export function useDataMaintenance() {
 
   async function exportBackgrounds() {
     const entries = Array.from(backgroundStore.entries.entries())
-    const serializedEntries = await Promise.all(entries.map(async ([id, entry]) => {
-      return {
-        id,
-        metadata: { ...entry, blob: undefined },
-        base64: await blobToBase64(entry.blob),
-      }
-    }))
+    const serializedEntries = await Promise.all(
+      entries.map(async ([id, entry]) => {
+        return {
+          base64: await blobToBase64(entry.blob),
+          id,
+          metadata: { ...entry, blob: undefined },
+        }
+      }),
+    )
 
     const data = {
+      entries: serializedEntries,
       format: 'airi-backgrounds:v1',
       timestamp: Date.now(),
-      entries: serializedEntries,
     }
     return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   }
@@ -222,27 +219,26 @@ export function useDataMaintenance() {
   }
 
   async function resetDesktopApplicationState() {
-    if (!isStageTamagotchi())
-      return
+    if (!isStageTamagotchi()) return
 
     await resetSettingsState()
     resetModulesSettings()
   }
 
   return {
-    deleteAllModels,
-    resetProvidersSettings,
-    resetModulesSettings,
     deleteAllChatSessions,
-    exportChatSessions,
-    importChatSessions,
-    exportAllCharacters,
-    importAllCharacters,
-    exportMemory,
-    importMemory,
-    exportBackgrounds,
-    importBackgrounds,
     deleteAllData,
+    deleteAllModels,
+    exportAllCharacters,
+    exportBackgrounds,
+    exportChatSessions,
+    exportMemory,
+    importAllCharacters,
+    importBackgrounds,
+    importChatSessions,
+    importMemory,
     resetDesktopApplicationState,
+    resetModulesSettings,
+    resetProvidersSettings,
   }
 }

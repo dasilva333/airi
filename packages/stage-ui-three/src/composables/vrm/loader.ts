@@ -12,9 +12,9 @@ export function useVRMLoader() {
   loader = new GLTFLoader()
 
   loader.crossOrigin = 'anonymous'
-  loader.register(parser => new VRMLoaderPlugin(parser))
+  loader.register((parser) => new VRMLoaderPlugin(parser))
   // loader.register(parser => new VRMCoreLoaderPlugin(parser))
-  loader.register(parser => new VRMAnimationLoaderPlugin(parser))
+  loader.register((parser) => new VRMAnimationLoaderPlugin(parser))
 
   return loader
 }

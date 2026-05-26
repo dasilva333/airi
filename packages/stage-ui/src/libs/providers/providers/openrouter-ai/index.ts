@@ -5,42 +5,48 @@ import { createOpenAICompatibleValidators } from '../../validators/openai-compat
 import { defineProvider } from '../registry'
 
 const openRouterConfigSchema = z.object({
-  apiKey: z
-    .string('API Key'),
-  baseUrl: z
-    .string('Base URL')
-    .optional()
-    .default('https://openrouter.ai/api/v1/'),
+  apiKey: z.string('API Key'),
+  baseUrl: z.string('Base URL').optional().default('https://openrouter.ai/api/v1/'),
 })
 
 type OpenRouterConfig = z.input<typeof openRouterConfigSchema>
 
 export const providerOpenRouterAI = defineProvider<OpenRouterConfig>({
-  id: 'openrouter-ai',
-  order: 0,
-  name: 'OpenRouter',
-  nameLocalize: ({ t }) => t('settings.pages.providers.provider.openrouter.title'),
-  description: 'The Unified Interface - Access dozens of free & paid models',
-  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.openrouter.description'),
-  tasks: ['chat', 'vision'],
-  icon: 'i-lobe-icons:openrouter',
-
-  createProviderConfig: ({ t }) => openRouterConfigSchema.extend({
-    apiKey: openRouterConfigSchema.shape.apiKey.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
-      type: 'password',
-    }),
-    baseUrl: openRouterConfigSchema.shape.baseUrl.meta({
-      labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
-      descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description'),
-      placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder'),
-    }),
+  business: () => ({
+    beginnerRecommended: true,
+    deployment: 'cloud',
+    pricing: 'paid',
   }),
   createProvider(config) {
     return createOpenRouter(config.apiKey, config.baseUrl)
   },
+
+  createProviderConfig: ({ t }) =>
+    openRouterConfigSchema.extend({
+      apiKey: openRouterConfigSchema.shape.apiKey.meta({
+        descriptionLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.description'),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.label'),
+        placeholderLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.api-key.placeholder'),
+        type: 'password',
+      }),
+      baseUrl: openRouterConfigSchema.shape.baseUrl.meta({
+        descriptionLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.description',
+        ),
+        labelLocalized: t('settings.pages.providers.catalog.edit.config.common.fields.field.base-url.label'),
+        placeholderLocalized: t(
+          'settings.pages.providers.catalog.edit.config.common.fields.field.base-url.placeholder',
+        ),
+      }),
+    }),
+  description: 'The Unified Interface - Access dozens of free & paid models',
+  descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.openrouter.description'),
+  icon: 'i-lobe-icons:openrouter',
+  id: 'openrouter-ai',
+  name: 'OpenRouter',
+  nameLocalize: ({ t }) => t('settings.pages.providers.provider.openrouter.title'),
+  order: 0,
+  tasks: ['chat', 'vision'],
 
   validationRequiredWhen(config) {
     return !!config.apiKey?.trim()
@@ -50,9 +56,4 @@ export const providerOpenRouterAI = defineProvider<OpenRouterConfig>({
       checks: ['connectivity', 'model_list'],
     }),
   },
-  business: () => ({
-    pricing: 'paid',
-    deployment: 'cloud',
-    beginnerRecommended: true,
-  }),
 })

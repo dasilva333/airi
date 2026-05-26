@@ -1,10 +1,8 @@
 import type { ZodObject, ZodType } from 'zod'
-
-import type { Mineflayer } from '../libs/mineflayer'
-import type { ToolDefinition, ToolParameter } from './types'
-
 import { actionsList } from '../cognitive/action/llm-actions'
+import type { Mineflayer } from '../libs/mineflayer'
 import { DebugService } from './debug-service'
+import type { ToolDefinition, ToolParameter } from './types'
 
 export class ToolExecutor {
   private mineflayer: Mineflayer
@@ -40,8 +38,7 @@ export class ToolExecutor {
       const tools = this.extractToolDefinitions()
       console.log(`[ToolExecutor] Sending ${tools.length} tools`)
       this.debugService.emit('debug:tools_list', { tools })
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[ToolExecutor] Error sending tool list:', err)
     }
   }
@@ -51,7 +48,7 @@ export class ToolExecutor {
       // Check if action is blocked
       // TODO: Add check for running agent if needed
 
-      const action = actionsList.find(a => a.name === toolName)
+      const action = actionsList.find((a) => a.name === toolName)
       if (!action) {
         throw new Error(`Tool '${toolName}' not found`)
       }
@@ -67,7 +64,7 @@ export class ToolExecutor {
       const args: any[] = []
       const shape = (action.schema as any).shape
       for (const key in shape) {
-        if (Object.prototype.hasOwnProperty.call(validated, key)) {
+        if (Object.hasOwn(validated, key)) {
           args.push((validated as any)[key])
         }
       }
@@ -75,33 +72,31 @@ export class ToolExecutor {
       const result = await performer(...args)
 
       this.debugService.emit('debug:tool_result', {
-        toolName,
         params,
         result: typeof result === 'string' ? result : JSON.stringify(result),
         timestamp: Date.now(),
-      })
-    }
-    catch (err: unknown) {
-      this.debugService.emit('debug:tool_result', {
         toolName,
-        params,
+      })
+    } catch (err: unknown) {
+      this.debugService.emit('debug:tool_result', {
         error: err instanceof Error ? err.message : String(err),
+        params,
         timestamp: Date.now(),
+        toolName,
       })
     }
   }
 
   private extractToolDefinitions(): ToolDefinition[] {
-    return actionsList.map(action => ({
-      name: action.name,
+    return actionsList.map((action) => ({
       description: action.description,
+      name: action.name,
       params: this.extractParamsFromSchema(action.schema),
     }))
   }
 
   private extractParamsFromSchema(schema: ZodObject<any>): ToolParameter[] {
-    if (!schema || !schema.shape)
-      return []
+    if (!schema || !schema.shape) return []
 
     const shape = schema.shape
     const params: ToolParameter[] = []
@@ -110,12 +105,12 @@ export class ToolExecutor {
       const def = this.getZodDef(zodType as ZodType<any>)
 
       params.push({
+        default: def.defaultValue,
+        description: def.description,
+        max: def.max,
+        min: def.min,
         name,
         type: def.typeName,
-        description: def.description,
-        min: def.min,
-        max: def.max,
-        default: def.defaultValue,
       })
     }
 
@@ -123,7 +118,13 @@ export class ToolExecutor {
   }
 
   // Helper to extract metadata from Zod types
-  private getZodDef(zodType: ZodType<any>): { typeName: 'string' | 'number' | 'boolean', description?: string, min?: number, max?: number, defaultValue?: any } {
+  private getZodDef(zodType: ZodType<any>): {
+    typeName: 'string' | 'number' | 'boolean'
+    description?: string
+    min?: number
+    max?: number
+    defaultValue?: any
+  } {
     let typeName: 'string' | 'number' | 'boolean' = 'string'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let curr: any = zodType
@@ -142,16 +143,13 @@ export class ToolExecutor {
       const typeId = getTypeId(curr)
       if (typeId === 'ZodOptional' || typeId === 'ZodNullable') {
         curr = curr._def.innerType
-      }
-      else if (typeId === 'ZodEffects') {
+      } else if (typeId === 'ZodEffects') {
         curr = curr._def.schema
-      }
-      else if (typeId === 'ZodDefault') {
+      } else if (typeId === 'ZodDefault') {
         // In Zod 4, defaultValue is the value itself, not a function
         defaultValue = curr._def.defaultValue
         curr = curr._def.innerType
-      }
-      else {
+      } else {
         break
       }
     }
@@ -163,25 +161,21 @@ export class ToolExecutor {
 
     if (typeId === 'ZodString') {
       typeName = 'string'
-    }
-    else if (typeId === 'ZodNumber') {
+    } else if (typeId === 'ZodNumber') {
       typeName = 'number'
       // Try to extract min/max from checks
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (curr._def.checks) {
         for (const check of (curr as any)._def.checks) {
-          if (check.kind === 'min')
-            min = check.value
-          if (check.kind === 'max')
-            max = check.value
+          if (check.kind === 'min') min = check.value
+          if (check.kind === 'max') max = check.value
         }
       }
-    }
-    else if (typeId === 'ZodBoolean') {
+    } else if (typeId === 'ZodBoolean') {
       typeName = 'boolean'
     }
 
-    return { typeName, description, min, max, defaultValue }
+    return { defaultValue, description, max, min, typeName }
   }
 }
 

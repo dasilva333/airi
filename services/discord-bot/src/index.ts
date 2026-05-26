@@ -13,8 +13,7 @@ async function main() {
   log.log('Discord Bot starting up...')
   if (env.DISCORD_GUILD_ID) {
     log.log(`Development Guild ID enabled: ${env.DISCORD_GUILD_ID}`)
-  }
-  else {
+  } else {
     log.log('No Guild ID provided. Slash commands will be registered globally.')
   }
 
@@ -24,9 +23,9 @@ async function main() {
 
   // Create Discord adapter with configuration
   const adapter = new DiscordAdapter({
-    discordToken: env.DISCORD_TOKEN || '', // Fallback to env, but will be updated via WebSocket
     airiToken: env.AIRI_TOKEN || 'abcd',
     airiUrl: env.AIRI_URL || 'ws://localhost:6121/ws',
+    discordToken: env.DISCORD_TOKEN || '', // Fallback to env, but will be updated via WebSocket
   })
 
   await adapter.start()
@@ -47,4 +46,4 @@ async function main() {
   })
 }
 
-main().catch(err => log.withError(err).error('An error occurred'))
+main().catch((err) => log.withError(err).error('An error occurred'))

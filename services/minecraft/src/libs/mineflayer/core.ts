@@ -1,26 +1,22 @@
 import type { Logg } from '@guiiai/logg'
-import type { Bot, BotOptions } from 'mineflayer'
-
-import type { ConnectionSupervisor } from './connection-supervisor'
-import type { MineflayerPlugin } from './plugin'
-import type { PluginRuntime } from './plugin-runtime'
-import type { TickEvents, TickEventsHandler } from './ticker'
-import type { EventHandlers, EventsHandler } from './types'
-
-import EventEmitter from 'eventemitter3'
-import mineflayer from 'mineflayer'
-
 import { useLogg } from '@guiiai/logg'
-
+import EventEmitter from 'eventemitter3'
+import type { Bot, BotOptions } from 'mineflayer'
+import mineflayer from 'mineflayer'
 import { parseCommand } from './command'
 import { Components } from './components'
+import type { ConnectionSupervisor } from './connection-supervisor'
 import { createConnectionSupervisor } from './connection-supervisor'
 import { Health } from './health'
 import { Memory } from './memory'
 import { ChatMessageHandler } from './message'
+import type { MineflayerPlugin } from './plugin'
+import type { PluginRuntime } from './plugin-runtime'
 import { createPluginRuntime } from './plugin-runtime'
 import { Status } from './status'
+import type { TickEvents, TickEventsHandler } from './ticker'
 import { Ticker } from './ticker'
+import type { EventHandlers, EventsHandler } from './types'
 
 export interface MineflayerOptions {
   botConfig: BotOptions
@@ -65,10 +61,10 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     this.logger = useLogg(`Bot:${this.username}`).useGlobalConfig()
 
     this.pluginRuntime = createPluginRuntime({
-      logger: this.logger,
-      mineflayer: this,
       botConfig: this.options.botConfig,
       initialPlugins: options.plugins ?? [],
+      logger: this.logger,
+      mineflayer: this,
     })
 
     this.connectionSupervisor = createConnectionSupervisor({
@@ -90,36 +86,30 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     this.logger.withFields({ reason }).log('Interrupt requested')
 
     try {
-      ;(this.bot).pathfinder?.stop?.()
-    }
-    catch { }
+      this.bot.pathfinder?.stop?.()
+    } catch {}
 
     try {
-      ;(this.bot).pvp?.stop?.()
-    }
-    catch { }
+      this.bot.pvp?.stop?.()
+    } catch {}
 
     try {
-      ;(this.bot).stopDigging?.()
-    }
-    catch { }
+      this.bot.stopDigging?.()
+    } catch {}
 
     try {
-      ;(this.bot).deactivateItem?.()
-    }
-    catch { }
+      this.bot.deactivateItem?.()
+    } catch {}
 
     try {
       if (typeof this.bot.clearControlStates === 'function') {
         this.bot.clearControlStates()
-      }
-      else {
+      } else {
         ;(['forward', 'back', 'left', 'right', 'jump', 'sprint', 'sneak'] as const).forEach((control) => {
           this.bot.setControlState(control as any, false)
         })
       }
-    }
-    catch { }
+    } catch {}
 
     this.logger.withFields({ reason }).log('Interrupted')
     this.emit('interrupt')
@@ -157,8 +147,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
   }
 
   public async stop() {
-    if (this.isStopping)
-      return
+    if (this.isStopping) return
 
     this.isStopping = true
     this.connectionSupervisor.stop()
@@ -177,8 +166,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
 
     try {
       this.bot.quit()
-    }
-    catch { }
+    } catch {}
 
     this.removeAllListeners()
   }
@@ -206,8 +194,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
 
     try {
       previousBot.quit()
-    }
-    catch { }
+    } catch {}
 
     const nextBot = mineflayer.createBot(this.options.botConfig)
     this.activateBot(nextBot)
@@ -218,8 +205,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     let hasSpawnedForCurrentBot = false
 
     const forwardDisconnect = (reason: string): void => {
-      if (this.isStopping || bot !== this.bot)
-        return
+      if (this.isStopping || bot !== this.bot) return
 
       if (disconnectForwarded) {
         this.logger.withFields({ reason }).log('Disconnect ignored: already handling current bot disconnect')
@@ -234,36 +220,31 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     }
 
     bot.once('resourcePack', () => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       bot.acceptResourcePack()
     })
 
     bot.on('time', () => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
-      if (bot.time.timeOfDay === 0)
-        this.emit('time:sunrise', { time: bot.time.timeOfDay })
-      else if (bot.time.timeOfDay === 6000)
-        this.emit('time:noon', { time: bot.time.timeOfDay })
-      else if (bot.time.timeOfDay === 12000)
-        this.emit('time:sunset', { time: bot.time.timeOfDay })
-      else if (bot.time.timeOfDay === 18000)
-        this.emit('time:midnight', { time: bot.time.timeOfDay })
+      if (bot.time.timeOfDay === 0) this.emit('time:sunrise', { time: bot.time.timeOfDay })
+      else if (bot.time.timeOfDay === 6000) this.emit('time:noon', { time: bot.time.timeOfDay })
+      else if (bot.time.timeOfDay === 12000) this.emit('time:sunset', { time: bot.time.timeOfDay })
+      else if (bot.time.timeOfDay === 18000) this.emit('time:midnight', { time: bot.time.timeOfDay })
     })
 
     bot.on('health', () => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
-      this.logger.withFields({
-        health: this.health.value,
-        lastDamageTime: this.health.lastDamageTime,
-        lastDamageTaken: this.health.lastDamageTaken,
-        previousHealth: bot.health,
-      }).log('Health updated')
+      this.logger
+        .withFields({
+          health: this.health.value,
+          lastDamageTaken: this.health.lastDamageTaken,
+          lastDamageTime: this.health.lastDamageTime,
+          previousHealth: bot.health,
+        })
+        .log('Health updated')
 
       if (bot.health < this.health.value) {
         this.health.lastDamageTime = Date.now()
@@ -274,8 +255,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     })
 
     bot.on('spawn', () => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       disconnectForwarded = false
       this.ready = true
@@ -298,67 +278,57 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     })
 
     bot.on('death', () => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       this.logger.error('Bot died')
 
       const now = Date.now()
-      if (this.respawnRequestedAt && now - this.respawnRequestedAt < 3000)
-        return
+      if (this.respawnRequestedAt && now - this.respawnRequestedAt < 3000) return
 
       this.respawnRequestedAt = now
-      if (this.respawnTimer)
-        clearTimeout(this.respawnTimer)
+      if (this.respawnTimer) clearTimeout(this.respawnTimer)
 
       this.respawnTimer = setTimeout(() => {
         this.respawnTimer = null
 
-        if (bot !== this.bot || !this.bot._client)
-          return
+        if (bot !== this.bot || !this.bot._client) return
 
         try {
           bot.respawn()
           this.logger.log('Respawn requested')
-        }
-        catch (err) {
+        } catch (err) {
           this.logger.errorWithError('Failed to respawn', err as Error)
         }
       }, 750)
     })
 
     bot.on('kicked', (reason: string) => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       this.logger.withFields({ reason }).error('Bot was kicked')
       forwardDisconnect('kicked')
     })
 
     bot.on('end', (reason) => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       this.logger.withFields({ reason }).log('Bot ended')
       forwardDisconnect(reason ?? 'end')
     })
 
     bot.on('error', (err: Error) => {
-      if (bot !== this.bot)
-        return
+      if (bot !== this.bot) return
 
       this.logger.errorWithError('Bot error:', err)
     })
   }
 
   private async onBotSpawn(bot: Bot): Promise<void> {
-    if (bot !== this.bot || this.isStopping)
-      return
+    if (bot !== this.bot || this.isStopping) return
 
     try {
       await this.pluginSetupPromise
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.errorWithError('Skipping spawned hooks: plugin runtime initialization failed', error as Error)
       await Promise.resolve(this.connectionSupervisor.onDisconnect('plugin-setup-failed')).catch((disconnectError) => {
         this.logger.errorWithError('Reconnect transition failed', disconnectError as Error)
@@ -366,13 +336,11 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
       return
     }
 
-    if (bot !== this.bot || this.isStopping)
-      return
+    if (bot !== this.bot || this.isStopping) return
 
     try {
       await this.pluginRuntime.onSpawn()
-    }
-    catch (error) {
+    } catch (error) {
       this.logger.errorWithError('Plugin spawned hook failed', error as Error)
       await Promise.resolve(this.connectionSupervisor.onDisconnect('spawned-hook-failed')).catch((disconnectError) => {
         this.logger.errorWithError('Reconnect transition failed', disconnectError as Error)
@@ -380,8 +348,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
       return
     }
 
-    if (bot !== this.bot || this.isStopping)
-      return
+    if (bot !== this.bot || this.isStopping) return
 
     this.connectionSupervisor.onSpawn()
   }
@@ -399,16 +366,15 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
     return new ChatMessageHandler(this.username).handleChat((sender, message) => {
       const { isCommand, command, args } = parseCommand(sender, message)
 
-      if (!isCommand)
-        return
+      if (!isCommand) return
 
       // Remove the # prefix from command
       const cleanCommand = command.slice(1)
-      this.logger.withFields({ sender, command: cleanCommand, args }).log('Command received')
+      this.logger.withFields({ args, command: cleanCommand, sender }).log('Command received')
 
       const handler = this.commands.get(cleanCommand)
       if (handler) {
-        handler({ time: this.bot.time.timeOfDay, command: { sender, isCommand, command: cleanCommand, args } })
+        handler({ command: { args, command: cleanCommand, isCommand, sender }, time: this.bot.time.timeOfDay })
         return
       }
 
@@ -416,7 +382,7 @@ export class Mineflayer extends EventEmitter<EventHandlers> {
       switch (cleanCommand) {
         case 'help': {
           const commandList = Array.from(this.commands.keys()).concat(['help'])
-          this.bot.chat(`Available commands: ${commandList.map(cmd => `#${cmd}`).join(', ')}`)
+          this.bot.chat(`Available commands: ${commandList.map((cmd) => `#${cmd}`).join(', ')}`)
           break
         }
         default:

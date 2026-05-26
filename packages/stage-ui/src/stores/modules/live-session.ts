@@ -1,15 +1,12 @@
-import type { Tool } from '@xsai/shared-chat'
-
-import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
-
 import { useLocalStorage } from '@vueuse/core'
+import type { Tool } from '@xsai/shared-chat'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
-
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
 import { createStreamingCategorizer } from '../../composables/response-categoriser'
+import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
 import { useAudioContext } from '../audio'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatContextStore } from '../chat/context-store'
@@ -21,7 +18,8 @@ import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useVisionStore } from './vision'
 
 const MODEL = 'models/gemini-3.1-flash-live-preview'
-const LIVE_WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent'
+const LIVE_WS_BASE =
+  'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent'
 
 // Maximum tool calls allowed per turn chain before aborting to prevent recursive loops
 const MAX_TOOL_CALLS_PER_TURN = 5
@@ -34,12 +32,13 @@ const MAX_TOOL_CALLS_PER_TURN = 5
 export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
   // Purify the JSON Schema for Gemini's strict Bidi API requirements.
   // Standard xsai/zod schemas often include keywords Gemini rejects ($schema, additionalProperties).
-  const params = tool.function.parameters ? JSON.parse(JSON.stringify(tool.function.parameters)) : { type: 'object', properties: {} }
+  const params = tool.function.parameters
+    ? JSON.parse(JSON.stringify(tool.function.parameters))
+    : { properties: {}, type: 'object' }
 
   // Recursively clean and purify the schema for Gemini compatibility
   const cleanSchema = (obj: any) => {
-    if (!obj || typeof obj !== 'object')
-      return
+    if (!obj || typeof obj !== 'object') return
 
     delete obj.$schema
     delete obj.additionalProperties
@@ -48,8 +47,7 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
       const requiredSet = new Set(Array.isArray(obj.required) ? obj.required : [])
 
       for (const [key, prop] of Object.entries(obj.properties)) {
-        if (!prop || typeof prop !== 'object')
-          continue
+        if (!prop || typeof prop !== 'object') continue
 
         const p = prop as any
         let isNullable = false
@@ -63,8 +61,7 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
           if (nonNullSchemas.length >= 1) {
             const desc = p.description
             Object.assign(p, nonNullSchemas[0])
-            if (desc)
-              p.description = desc
+            if (desc) p.description = desc
             delete p.anyOf
           }
         }
@@ -78,8 +75,7 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
           if (nonNullSchemas.length >= 1) {
             const desc = p.description
             Object.assign(p, nonNullSchemas[0])
-            if (desc)
-              p.description = desc
+            if (desc) p.description = desc
             delete p.oneOf
           }
         }
@@ -111,8 +107,7 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
 
       if (requiredSet.size > 0) {
         obj.required = Array.from(requiredSet)
-      }
-      else {
+      } else {
         delete obj.required
       }
     }
@@ -133,8 +128,8 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
   }
 
   return {
-    name: tool.function.name,
     description: tool.function.description || '',
+    name: tool.function.name,
     parameters: params,
   }
 }
@@ -152,7 +147,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
   const isActive = ref(false)
   const isConnecting = ref(false)
-  const messages = ref<Array<{ role: 'user' | 'assistant', text: string }>>([])
+  const messages = ref<Array<{ role: 'user' | 'assistant'; text: string }>>([])
   const lastTranscript = ref('')
   const voiceTokens = useLocalStorage('settings/gemini/voice-tokens', 0)
   const inferenceTokens = useLocalStorage('settings/gemini/inference-tokens', 0)
@@ -194,25 +189,28 @@ export const useLiveSessionStore = defineStore('live-session', () => {
    *   1. Inline functionCall inside serverContent.modelTurn.parts[]
    *   2. Top-level response.toolCall.functionCalls[]
    */
-  async function executeToolCall(
-    ws: WebSocket,
-    call: { name: string, args?: Record<string, unknown>, id?: string },
-  ) {
+  async function executeToolCall(ws: WebSocket, call: { name: string; args?: Record<string, unknown>; id?: string }) {
     const { name, args, id: callId } = call
     console.log(`[LiveSession] 🛠️ Tool call received: ${name}`, args)
 
     if (toolCallCounter >= MAX_TOOL_CALLS_PER_TURN) {
       console.warn(`[LiveSession] ⚠️ Rate limit reached (${MAX_TOOL_CALLS_PER_TURN} calls). Skipping tool: ${name}`)
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          toolResponse: {
-            functionResponses: [{
-              id: callId,
-              name,
-              response: { error: `Tool call limit reached (${MAX_TOOL_CALLS_PER_TURN} per turn). Please respond to the user.` },
-            }],
-          },
-        }))
+        ws.send(
+          JSON.stringify({
+            toolResponse: {
+              functionResponses: [
+                {
+                  id: callId,
+                  name,
+                  response: {
+                    error: `Tool call limit reached (${MAX_TOOL_CALLS_PER_TURN} per turn). Please respond to the user.`,
+                  },
+                },
+              ],
+            },
+          }),
+        )
       }
       return
     }
@@ -224,20 +222,24 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       const allTools = await proactivityStore.resolveRegisteredTools()
       console.log(`[LiveSession] 🔍 Searching registry for "${name}" among ${allTools.length} tools...`)
 
-      const matchedTool = (allTools as Tool[]).find(t => t.function.name === name)
+      const matchedTool = (allTools as Tool[]).find((t) => t.function.name === name)
 
       if (!matchedTool) {
         console.warn(`[LiveSession] ❌ Tool not found in registry: ${name}`)
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            toolResponse: {
-              functionResponses: [{
-                id: callId,
-                name,
-                response: { error: `Tool "${name}" not found in registry.` },
-              }],
-            },
-          }))
+          ws.send(
+            JSON.stringify({
+              toolResponse: {
+                functionResponses: [
+                  {
+                    id: callId,
+                    name,
+                    response: { error: `Tool "${name}" not found in registry.` },
+                  },
+                ],
+              },
+            }),
+          )
         }
         return
       }
@@ -249,73 +251,72 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       if (currentStreamingMessage) {
         if (!currentStreamingMessage.slices)
           currentStreamingMessage.slices = []
-        // TypeScript complains slice needs to be cast as any because types don't exactly align locally,
-        // but ChatSlicesToolCall matches what we need for presentation layer here.
+          // TypeScript complains slice needs to be cast as any because types don't exactly align locally,
+          // but ChatSlicesToolCall matches what we need for presentation layer here.
         ;(currentStreamingMessage.slices as any[]).push({
-          type: 'tool-call',
           state: 'executing',
           toolCall: {
-            toolName: name,
             args: JSON.stringify(args || {}),
             toolCallId: callId,
             toolCallType: 'function',
+            toolName: name,
           },
+          type: 'tool-call',
         })
       }
 
-      const result = await matchedTool.execute(
-        args || {},
-        {
-          toolCallId: callId || nanoid(),
-          messages: chatSession.messages as any,
-          abortSignal: undefined as any,
-        },
-      )
+      const result = await matchedTool.execute(args || {}, {
+        abortSignal: undefined as any,
+        messages: chatSession.messages as any,
+        toolCallId: callId || nanoid(),
+      })
 
       console.log(`[LiveSession] ✅ Tool "${name}" result:`, result)
       toast.success(`Tool ${name} completed.`)
 
       // Send the tool response back through the WebSocket
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          toolResponse: {
-            functionResponses: [{
-              id: callId,
-              name,
-              response: typeof result === 'string' ? { output: result } : result,
-            }],
-          },
-        }))
+        ws.send(
+          JSON.stringify({
+            toolResponse: {
+              functionResponses: [
+                {
+                  id: callId,
+                  name,
+                  response: typeof result === 'string' ? { output: result } : result,
+                },
+              ],
+            },
+          }),
+        )
       }
 
       // Inscribe tool result into the streaming message for history and update the slice state
       if (currentStreamingMessage) {
         const resultString = typeof result === 'string' ? result : JSON.stringify(result)
 
-        if (!currentStreamingMessage.tool_results)
-          currentStreamingMessage.tool_results = []
+        if (!currentStreamingMessage.tool_results) currentStreamingMessage.tool_results = []
         ;(currentStreamingMessage.tool_results as any[]).push({
+          result: resultString,
           toolCallId: callId,
           toolName: name,
-          result: resultString,
         })
 
         // Find the slice we just pushed and mark it 'done'
         const executingSlice = (currentStreamingMessage.slices as any[]).find(
-          s => s.type === 'tool-call' && s.toolCall?.toolCallId === callId,
+          (s) => s.type === 'tool-call' && s.toolCall?.toolCallId === callId,
         )
         if (executingSlice) {
           executingSlice.state = 'done'
           executingSlice.result = resultString
         }
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error(`[LiveSession] ❌ Tool "${name}" execution failed:`, err)
 
       if (currentStreamingMessage) {
         const executingSlice = (currentStreamingMessage.slices as any[]).find(
-          s => s.type === 'tool-call' && s.toolCall?.toolCallId === callId,
+          (s) => s.type === 'tool-call' && s.toolCall?.toolCallId === callId,
         )
         if (executingSlice) {
           executingSlice.state = 'error'
@@ -324,15 +325,19 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       }
 
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          toolResponse: {
-            functionResponses: [{
-              id: callId,
-              name,
-              response: { error: err instanceof Error ? err.message : String(err) },
-            }],
-          },
-        }))
+        ws.send(
+          JSON.stringify({
+            toolResponse: {
+              functionResponses: [
+                {
+                  id: callId,
+                  name,
+                  response: { error: err instanceof Error ? err.message : String(err) },
+                },
+              ],
+            },
+          }),
+        )
       }
     }
   }
@@ -343,13 +348,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
    * to trigger a trajectory adjustment (follow-up response).
    */
   async function tryBridgeMarker(ws: WebSocket, marker: string): Promise<boolean> {
-    const match = marker.match(/^<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/)
-      || marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/)
-      || marker.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s)
-      || marker.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
+    const match =
+      marker.match(/^<\|([\w-]+):([^|]*?)(?:\|>|<\/tool_call>|$)/) ||
+      marker.match(/^\[call_tool:([\w-]+),\s*([^\]]*?)(?:\]|<\/tool_call>|$)/) ||
+      marker.match(/<tool_call>([\w-]+)\((.*?)\)<\/tool_call>/s) ||
+      marker.match(/<tool_call>(\{.*?\})<\/tool_call>/s)
 
-    if (!match)
-      return false
+    if (!match) return false
 
     let toolName: string
     let argsRaw: string
@@ -361,40 +366,34 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         const parsed = JSON.parse(potentialJson)
         toolName = parsed.name
         argsRaw = typeof parsed.arguments === 'string' ? parsed.arguments : JSON.stringify(parsed.arguments)
-      }
-      catch (e) {
+      } catch (e) {
         console.error('[LiveSession] Failed to parse JSON tool call tag:', e)
         return false
       }
-    }
-    else {
+    } else {
       toolName = match[1]
       argsRaw = match[2] || ''
     }
 
     // Attempt to parse pseudo-arguments (KV pairs)
     const args: Record<string, any> = {}
-    const kvRegex = /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
+    const kvRegex =
+      /(?:^|[, \n\t]+)\s*([\w-]+)\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|(\d+(?:\.\d+)?)|(true|false)|(\{.*\}|\[.*\]))/g
     let kvMatch
     while ((kvMatch = kvRegex.exec(argsRaw)) !== null) {
       const [, key, valDouble, valSingle, valNum, valBool, valComplex] = kvMatch
       if (valDouble !== undefined) {
         args[key] = valDouble
-      }
-      else if (valSingle !== undefined) {
+      } else if (valSingle !== undefined) {
         args[key] = valSingle
-      }
-      else if (valNum !== undefined) {
+      } else if (valNum !== undefined) {
         args[key] = Number.parseFloat(valNum)
-      }
-      else if (valBool !== undefined) {
+      } else if (valBool !== undefined) {
         args[key] = valBool === 'true'
-      }
-      else if (valComplex !== undefined) {
+      } else if (valComplex !== undefined) {
         try {
           args[key] = JSON.parse(valComplex.replace(/'/g, '"'))
-        }
-        catch {
+        } catch {
           args[key] = valComplex
         }
       }
@@ -402,10 +401,14 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
     if (Object.keys(args).length === 0) {
       try {
-        const cleaned = argsRaw.trim().replace(/^\{/, '').replace(/\}$/, '').replace(/(\w+):/g, '"$1":').replace(/'/g, '"')
+        const cleaned = argsRaw
+          .trim()
+          .replace(/^\{/, '')
+          .replace(/\}$/, '')
+          .replace(/(\w+):/g, '"$1":')
+          .replace(/'/g, '"')
         Object.assign(args, JSON.parse(`{${cleaned}}`))
-      }
-      catch {}
+      } catch {}
     }
 
     if (Object.keys(args).length === 0 && argsRaw.trim()) {
@@ -418,9 +421,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     // Execute via our standard Bidi-compatible tool runner
     // This handles UI slices, proactivity registry lookup, and result feedback.
     await executeToolCall(ws, {
-      name: toolName,
       args: Object.keys(args).length > 0 ? args : undefined,
       id: `bridge-${nanoid()}`,
+      name: toolName,
     })
 
     return true
@@ -447,8 +450,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function start() {
-    if (socket.value || isConnecting.value)
-      return
+    if (socket.value || isConnecting.value) return
 
     const apiKey = getApiKey()
     if (!apiKey) {
@@ -469,7 +471,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       console.log('[LiveSession] WebSocket connected. Resolving tools and sending setup...')
 
       // Resolve the full AIRI toolchain: proactive tools
-      const proactiveTools = await proactivityStore.resolveRegisteredTools() as Tool[]
+      const proactiveTools = (await proactivityStore.resolveRegisteredTools()) as Tool[]
       resolvedToolRegistry = [...proactiveTools]
 
       // Build the Gemini tools array
@@ -480,7 +482,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         geminiTools.push({
           functionDeclarations: resolvedToolRegistry.map(mapAiriToolToGemini),
         })
-        console.log('[LiveSession] Injecting tools:', resolvedToolRegistry.map(t => t.function.name))
+        console.log(
+          '[LiveSession] Injecting tools:',
+          resolvedToolRegistry.map((t) => t.function.name),
+        )
       }
 
       // Only inject google_search when the grounding toggle is enabled (cost-aware)
@@ -503,21 +508,26 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         },
       }
 
-      console.log('[LiveSession] Sending setup with mandatory AUDIO modality:', JSON.stringify(generationConfig, null, 2))
+      console.log(
+        '[LiveSession] Sending setup with mandatory AUDIO modality:',
+        JSON.stringify(generationConfig, null, 2),
+      )
 
       const setupMessage = {
         setup: {
-          model: MODEL,
           generationConfig,
-          tools: geminiTools.length > 0 ? geminiTools : undefined,
           historyConfig: {
             initialHistoryInClientContent: true,
           },
+          model: MODEL,
           systemInstruction: {
-            parts: [{
-              text: airiCard.systemPrompt || 'You are an AI assistant.',
-            }],
+            parts: [
+              {
+                text: airiCard.systemPrompt || 'You are an AI assistant.',
+              },
+            ],
           },
+          tools: geminiTools.length > 0 ? geminiTools : undefined,
         },
       }
 
@@ -535,19 +545,21 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           isConnecting.value = false
 
           // Inject historical turns if present (Gemini Live context restoration)
-          const history = chatSession.messages.filter(m => m.role === 'user' || m.role === 'assistant')
+          const history = chatSession.messages.filter((m) => m.role === 'user' || m.role === 'assistant')
           if (history.length > 0) {
-            const turns = history.map(m => ({
-              role: m.role === 'assistant' ? 'model' : 'user',
+            const turns = history.map((m) => ({
               parts: [{ text: m.content }],
+              role: m.role === 'assistant' ? 'model' : 'user',
             }))
 
-            ws.send(JSON.stringify({
-              clientContent: {
-                turns,
-                turnComplete: true,
-              },
-            }))
+            ws.send(
+              JSON.stringify({
+                clientContent: {
+                  turnComplete: true,
+                  turns,
+                },
+              }),
+            )
             console.log(`[LiveSession] Injected ${turns.length} historical turns into Bidi session`)
           }
         }
@@ -559,20 +571,20 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           if ((content.modelTurn || content.outputTranscription) && !currentStreamingMessage) {
             const id = nanoid()
             currentStreamingMessage = reactive({
-              role: 'assistant',
               content: '',
-              slices: [],
-              tool_results: [],
               createdAt: Date.now(),
               id,
+              role: 'assistant',
+              slices: [],
+              tool_results: [],
             }) as StreamingAssistantMessage
 
             // Fake a context snapshot so standard chat hooks don't break
             currentStreamContext = {
-              message: currentStreamingMessage,
-              input: { type: 'input:text', data: { text: '' } },
-              contexts: chatContext.getContextsSnapshot(),
               composedMessage: [],
+              contexts: chatContext.getContextsSnapshot(),
+              input: { data: { text: '' }, type: 'input:text' },
+              message: currentStreamingMessage,
             }
 
             currentCategoriser = createStreamingCategorizer('google-generative-ai')
@@ -593,8 +605,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
             // Without this layer, ACT markers bleed directly into speech output.
             currentMarkerParser = useLlmmarkerParser({
               onLiteral: async (literalText) => {
-                if (!currentStreamingMessage || !currentCategoriser || !currentStreamContext)
-                  return
+                if (!currentStreamingMessage || !currentCategoriser || !currentStreamContext) return
 
                 currentCategoriser.consume(literalText)
                 const speechOnly = currentCategoriser.filterToSpeech(literalText, streamPosition)
@@ -606,17 +617,15 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                   const lastSlice = (currentStreamingMessage as any).slices.at(-1)
                   if (lastSlice?.type === 'text') {
                     lastSlice.text += speechOnly
-                  }
-                  else {
-                    ;(currentStreamingMessage as any).slices.push({ type: 'text', text: speechOnly })
+                  } else {
+                    ;(currentStreamingMessage as any).slices.push({ text: speechOnly, type: 'text' })
                   }
                 }
 
                 if (turnOutputMode === 'custom' && (speechOnly.trim() || speechOnly.includes(' '))) {
                   console.log(`[LiveSession] Forwarding literal to Custom TTS: "${speechOnly}"`)
                   await chatOrchestrator.emitTokenLiteralHooks(speechOnly, currentStreamContext!)
-                }
-                else if (turnOutputMode === 'gemini') {
+                } else if (turnOutputMode === 'gemini') {
                   // Mute the Custom TTS, but we MUST emit at least one zero-length literal
                   // to the orchestrator to set `currentChatIntentReceivedLiteral = true` in Stage.vue.
                   // Otherwise, Stage.vue sees the turn end with 0 literals and assumes it was a non-streaming
@@ -628,7 +637,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
                   // Log occasionally to confirm suppression is working without spamming
                   if (speechOnly.trim().length > 0 && Math.random() > 0.8) {
-                    console.log(`[LiveSession] Gemini mode: suppressed Custom TTS for "${speechOnly.substring(0, 20)}..."`)
+                    console.log(
+                      `[LiveSession] Gemini mode: suppressed Custom TTS for "${speechOnly.substring(0, 20)}..."`,
+                    )
                   }
                 }
               },
@@ -688,9 +699,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
               const funcCall = part.functionCall || part.function_call
               if (funcCall && ws) {
                 await executeToolCall(ws, {
-                  name: funcCall.name,
                   args: funcCall.args,
                   id: funcCall.id,
+                  name: funcCall.name,
                 })
               }
             }
@@ -708,12 +719,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
               messages.value.push({ role: 'assistant', text: fullText })
 
               chatSession.inscribeTurn({
+                content: fullText,
+                createdAt: currentStreamingMessage.createdAt,
                 id: currentStreamingMessage.id,
                 role: 'assistant',
-                content: fullText,
                 slices: currentStreamingMessage.slices as any,
                 tool_results: currentStreamingMessage.tool_results as any,
-                createdAt: currentStreamingMessage.createdAt,
               } as ChatAssistantMessage)
 
               await chatOrchestrator.emitStreamEndHooks(currentStreamContext)
@@ -736,17 +747,21 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
           // Capture grounding metadata from google_search for future UI citation rendering
           if (content.groundingMetadata) {
-            console.log('[LiveSession] Grounding metadata received:', JSON.stringify(content.groundingMetadata, null, 2))
+            console.log(
+              '[LiveSession] Grounding metadata received:',
+              JSON.stringify(content.groundingMetadata, null, 2),
+            )
 
             // Extract chunks/sources if available
             const chunks = content.groundingMetadata.groundingChunks || []
-            const searchQueries = content.groundingMetadata.searchEntryPoints?.map((sep: any) => sep.renderedContent).filter(Boolean) || []
+            const searchQueries =
+              content.groundingMetadata.searchEntryPoints?.map((sep: any) => sep.renderedContent).filter(Boolean) || []
 
             if (currentStreamingMessage) {
               if (!currentStreamingMessage.grounding) {
                 currentStreamingMessage.grounding = {
-                  queries: [],
                   chunks: [],
+                  queries: [],
                 }
               }
 
@@ -777,9 +792,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           if (functionCalls && Array.isArray(functionCalls) && ws) {
             for (const call of functionCalls) {
               await executeToolCall(ws, {
-                name: call.name,
                 args: call.args,
                 id: call.id,
+                name: call.name,
               })
             }
           }
@@ -807,8 +822,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           console.error('[LiveSession] Server Error:', response.error)
           error.value = response.error.message ?? JSON.stringify(response.error)
         }
-      }
-      catch (err) {
+      } catch (err) {
         console.error('[LiveSession] Parse Error:', err)
       }
     }
@@ -819,8 +833,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       // Surface 1011 or Internal Error specifically
       if (event.code === 1011 || (event.reason && event.reason.includes('Internal error'))) {
         toast.error(`Gemini Live API Error: Internal error encountered. Check your API key.`)
-      }
-      else if (event.code !== 1000) {
+      } else if (event.code !== 1000) {
         toast.error(`Gemini Live Disconnected (Code ${event.code})`)
       }
 
@@ -855,8 +868,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     try {
       socket.value.send(JSON.stringify(message))
       console.log(`[LiveSession] Payload sent successfully via WebSocket.`)
-    }
-    catch (err) {
+    } catch (err) {
       console.error(`[LiveSession] FAILED to send WebSocket payload!`, err)
     }
 
@@ -868,10 +880,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     // Mirror the user's message into the shared chat session so WhisperDock
     // and the chat UI stay in sync during live mode.
     chatSession.inscribeTurn({
-      id: nanoid(),
-      role: 'user',
       content: text,
       createdAt: Date.now(),
+      id: nanoid(),
+      role: 'user',
       slices: [],
       tool_results: [],
     } as any)
@@ -887,46 +899,48 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function sendRealtimeAudio(base64Pcm: string) {
-    if (!socket.value || socket.value.readyState !== WebSocket.OPEN)
-      return
+    if (!socket.value || socket.value.readyState !== WebSocket.OPEN) return
 
     try {
-      socket.value.send(JSON.stringify({
-        realtimeInput: {
-          audio: {
-            mimeType: 'audio/pcm;rate=16000',
-            data: base64Pcm,
+      socket.value.send(
+        JSON.stringify({
+          realtimeInput: {
+            audio: {
+              data: base64Pcm,
+              mimeType: 'audio/pcm;rate=16000',
+            },
           },
-        },
-      }))
-    }
-    catch (err) {
+        }),
+      )
+    } catch (err) {
       console.error(`[LiveSession] FAILED to send audio PCM chunk via WebSocket!`, err)
     }
   }
 
   function sendAudioStreamEnd() {
-    if (!socket.value || socket.value.readyState !== WebSocket.OPEN)
-      return
+    if (!socket.value || socket.value.readyState !== WebSocket.OPEN) return
     try {
-      socket.value.send(JSON.stringify({
-        realtimeInput: {
-          audioStreamEnd: true,
-        },
-      }))
+      socket.value.send(
+        JSON.stringify({
+          realtimeInput: {
+            audioStreamEnd: true,
+          },
+        }),
+      )
       console.info('[LiveSession] Sent explicit audioStreamEnd signal to server.')
-    }
-    catch (err) {
+    } catch (err) {
       console.error(`[LiveSession] FAILED to send audioStreamEnd via WebSocket!`, err)
     }
   }
 
   function toggle() {
-    console.log('[LiveSession] Toggle requested. Current state:', { isActive: isActive.value, isConnecting: isConnecting.value })
+    console.log('[LiveSession] Toggle requested. Current state:', {
+      isActive: isActive.value,
+      isConnecting: isConnecting.value,
+    })
     if (isActive.value || isConnecting.value) {
       stop()
-    }
-    else {
+    } else {
       start()
     }
   }
@@ -1001,8 +1015,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       activeAudioSources.add(source)
       source.start(startTime)
       audioPlaybackTime = startTime + audioBuffer.duration
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[LiveSession] PCM playback error:', err)
     }
   }
@@ -1042,45 +1055,41 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const visionStore = useVisionStore()
   const powerState = computed(() => {
     // Master off switch: if not active and not connecting, it's OFF.
-    if (!isActive.value && !isConnecting.value)
-      return 'off'
+    if (!isActive.value && !isConnecting.value) return 'off'
 
-    if (chatOrchestrator.sending || visionStore.status === 'capturing')
-      return 'busy'
-    if (isConnecting.value)
-      return 'connecting'
+    if (chatOrchestrator.sending || visionStore.status === 'capturing') return 'busy'
+    if (isConnecting.value) return 'connecting'
 
     // If we're here, we are active.
     // If vision is also enabled, it's 'ambient' (orange).
     // Otherwise, it's 'active' (red).
-    if (visionStore.isWitnessEnabled)
-      return 'ambient'
+    if (visionStore.isWitnessEnabled) return 'ambient'
 
     return 'active'
   })
 
   return {
+    cycleVoice,
+    error,
+    estimatedCost,
     isActive,
     isConnecting,
-    messages,
-    lastTranscript,
-    totalTokens,
-    tokenDetails,
-    voiceName,
     isGroundingEnabled,
+    lastTranscript,
+    messages,
     outputMode,
-    estimatedCost,
-    error,
     powerState,
+    recordInferenceUsage,
+    reset,
+    sendAudioStreamEnd,
+    sendRealtimeAudio,
+    sendText,
     start,
     stop,
     toggle,
-    cycleVoice,
     toggleOutputMode,
-    sendText,
-    sendRealtimeAudio,
-    sendAudioStreamEnd,
-    recordInferenceUsage,
-    reset,
+    tokenDetails,
+    totalTokens,
+    voiceName,
   }
 })

@@ -24,12 +24,12 @@ vi.mock('mineflayer-pathfinder', () => ({
 
 function createLogger() {
   const logger = {
-    withError: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    log: vi.fn(),
-    info: vi.fn(),
     debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    log: vi.fn(),
+    warn: vi.fn(),
+    withError: vi.fn(),
   } as any
   logger.withError.mockReturnValue(logger)
   return logger
@@ -45,19 +45,19 @@ function createMockBot() {
 
   const bot = {
     bot: {
-      username: 'AiriBot',
       entity: { position: selfPosition },
-      health: 20,
       food: 20,
+      health: 20,
       heldItem: null,
-      time: { timeOfDay: 1000 },
       isRaining: false,
-      players: {} as Record<string, { entity?: any }>,
       pathfinder: {
-        setMovements,
         setGoal,
+        setMovements,
         stop,
       },
+      players: {} as Record<string, { entity?: any }>,
+      time: { timeOfDay: 1000 },
+      username: 'AiriBot',
     },
   } as any
 
@@ -90,9 +90,9 @@ describe('reflexRuntime auto-follow visibility reconciliation', () => {
     })
 
     const targetEntity = {
+      heldItem: null,
       id: 42,
       position: { x: 8, y: 64, z: 5 },
-      heldItem: null,
     }
     bot.bot.players.Alex = { entity: targetEntity }
 
@@ -114,9 +114,9 @@ describe('reflexRuntime auto-follow visibility reconciliation', () => {
 
     bot.bot.players.Alex = {
       entity: {
+        heldItem: null,
         id: 99,
         position: { x: 3, y: 64, z: 2 },
-        heldItem: null,
       },
     }
 

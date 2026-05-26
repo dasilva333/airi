@@ -1,52 +1,21 @@
 <script setup lang="ts">
 /*
-  * - Core component for loading and displaying VRM model
-  * - Load model, get some geometry data for initialisation
-  * - Shader injection and rendering setting
-  * - Load & initialise animation
-*/
+ * - Core component for loading and displaying VRM model
+ * - Load model, get some geometry data for initialisation
+ * - Shader injection and rendering setting
+ * - Load & initialise animation
+ */
 
 import type { VRM } from '@pixiv/three-vrm'
-import type {
-  AnimationAction,
-  AnimationClip,
-  Group,
-  Object3D,
-  PerspectiveCamera,
-  SphericalHarmonics3,
-} from 'three'
-import type { Ref, WatchStopHandle } from 'vue'
-
-import type { Vec3 } from '../../stores/model-store'
-
 import { VRMUtils } from '@pixiv/three-vrm'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 import { useLoop, useTresContext } from '@tresjs/core'
 import { until, useEventListener, useMouse } from '@vueuse/core'
-import {
-  AnimationMixer,
-  LoopOnce,
-  LoopRepeat,
-  MathUtils,
-  Plane,
-  Raycaster,
-  Vector2,
-  Vector3,
-} from 'three'
-import {
-  computed,
-  onMounted,
-  onUnmounted,
-  ref,
-  shallowRef,
-  toRefs,
-  watch,
-} from 'vue'
-
-import {
-  createIblProbeController,
-  normalizeEnvMode,
-  updateNprShaderSetting,
-} from '../../composables/shader/ibl'
+import type { AnimationAction, AnimationClip, Group, Object3D, PerspectiveCamera, SphericalHarmonics3 } from 'three'
+import { AnimationMixer, LoopOnce, LoopRepeat, MathUtils, Plane, Raycaster, Vector2, Vector3 } from 'three'
+import type { Ref, WatchStopHandle } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, toRefs, watch } from 'vue'
+import { createIblProbeController, normalizeEnvMode, updateNprShaderSetting } from '../../composables/shader/ibl'
 // From stage-ui-three package
 import {
   clipFromVRMAnimation,
@@ -59,52 +28,56 @@ import { loadVrm } from '../../composables/vrm/core'
 import { useVRMEmote } from '../../composables/vrm/expression'
 import { useVRMLipSync } from '../../composables/vrm/lip-sync'
 import { useVRMClothInteraction } from '../../composables/vrm/use-vrm-cloth-interaction'
+import type { Vec3 } from '../../stores/model-store'
 import { useModelStore } from '../../stores/model-store'
 
 /*
-  * Props:
-  * - modelSrc: model src string to load model asset
-  * - idleAnimation: animation src for model
-  * - loadAnimations: TBC
-  * - paused: if the animation is paused
-  * - nprIrrSH: Spherical Harmonics computed from the sky box, used for IBL
-  *
-  * - modelOffset: The placing offset of model (x, y, z)
-  * - modelRotationY: The rotation of the model (y-axis)
-*/
-const props = withDefaults(defineProps<{
-  currentAudioSource?: AudioBufferSourceNode
-  modelSrc?: string
-  modelIdentity?: string
-  lastModelSrc?: string
-  lastModelIdentity?: string
-  idleAnimation: string
-  idleCycleEnabled?: boolean
-  // loadAnimations?: string[]
-  paused?: boolean
+ * Props:
+ * - modelSrc: model src string to load model asset
+ * - idleAnimation: animation src for model
+ * - loadAnimations: TBC
+ * - paused: if the animation is paused
+ * - nprIrrSH: Spherical Harmonics computed from the sky box, used for IBL
+ *
+ * - modelOffset: The placing offset of model (x, y, z)
+ * - modelRotationY: The rotation of the model (y-axis)
+ */
+const props = withDefaults(
+  defineProps<{
+    currentAudioSource?: AudioBufferSourceNode
+    modelSrc?: string
+    modelIdentity?: string
+    lastModelSrc?: string
+    lastModelIdentity?: string
+    idleAnimation: string
+    idleCycleEnabled?: boolean
+    // loadAnimations?: string[]
+    paused?: boolean
 
-  envSelect: string
-  skyBoxIntensity: number
-  nprIrrSH?: SphericalHarmonics3 | null
+    envSelect: string
+    skyBoxIntensity: number
+    nprIrrSH?: SphericalHarmonics3 | null
 
-  modelOffset: Vec3
-  modelRotationY: number
-  lookAtTarget: Vec3
-  trackingMode: string
-  eyeHeight: number
-  cameraPosition: Vec3
+    modelOffset: Vec3
+    modelRotationY: number
+    lookAtTarget: Vec3
+    trackingMode: string
+    eyeHeight: number
+    cameraPosition: Vec3
 
-  camera: PerspectiveCamera
-}>(), {
-  paused: false,
-})
+    camera: PerspectiveCamera
+  }>(),
+  {
+    paused: false,
+  },
+)
 /*
-  * Emits:
-  * - model-core-loading-progress
-  * - model-core-error
-  * - model-core-ready
-  *
-*/
+ * Emits:
+ * - model-core-loading-progress
+ * - model-core-error
+ * - model-core-ready
+ *
+ */
 const emit = defineEmits<{
   (e: 'loadingProgress', value: number): void
   (e: 'loadStart'): void
@@ -116,10 +89,10 @@ const emit = defineEmits<{
   (e: 'lookAtTarget', value: Vec3): void
 
   (e: 'error', value: unknown): void
-  (e: 'loaded', value: { modelIdentity?: string, modelSrc: string }): void
+  (e: 'loaded', value: { modelIdentity?: string; modelSrc: string }): void
   (e: 'binaryLoaded', value: ArrayBuffer): void
   (e: 'finished'): void
-  (e: 'playStatus', value: { duration: number, url: string }): void
+  (e: 'playStatus', value: { duration: number; url: string }): void
 }>()
 
 const {
@@ -175,13 +148,18 @@ const vrmClothTug = useVRMClothInteraction()
 // Setup Pointer Interaction (Moved below initialization to fix ReferenceError)
 useEventListener('mousedown', (e) => {
   if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
-    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isCtrlPressed: e.ctrlKey }, camera.value, vrm.value, vrmEmote.value)
+    vrmClothTug.startTug(
+      { isCtrlPressed: e.ctrlKey, x: e.clientX, y: e.clientY },
+      camera.value,
+      vrm.value,
+      vrmEmote.value,
+    )
   }
 })
 
 useEventListener('dblclick', (e) => {
   if (modelStore.interactionMode === 'tactile' && vrm.value && camera.value) {
-    vrmClothTug.startTug({ x: e.clientX, y: e.clientY, isDoubleClick: true }, camera.value, vrm.value, vrmEmote.value)
+    vrmClothTug.startTug({ isDoubleClick: true, x: e.clientX, y: e.clientY }, camera.value, vrm.value, vrmEmote.value)
   }
 })
 
@@ -203,7 +181,7 @@ const { onBeforeRender, stop, start } = useLoop()
 
 type VrmFrameHook = (vrm: VRM, delta: number) => void
 const vrmFrameHook = shallowRef<VrmFrameHook>()
-let disposeBeforeRenderLoop: (() => void | undefined)
+let disposeBeforeRenderLoop: () => void | undefined
 
 // For sky box update
 const nprProgramVersion = ref(0)
@@ -273,11 +251,7 @@ function onAnimationFinished(e: any) {
 }
 
 // look at mouse
-function lookAtMouse(
-  mouseX: number,
-  mouseY: number,
-  camera: Ref<PerspectiveCamera>,
-): Vec3 {
+function lookAtMouse(mouseX: number, mouseY: number, camera: Ref<PerspectiveCamera>): Vec3 {
   mouse.x = (mouseX / window.innerWidth) * 2 - 1
   mouse.y = -(mouseY / window.innerHeight) * 2 + 1
 
@@ -308,22 +282,24 @@ function defaultTookAt(eyeHeight: number): Vec3 {
 }
 
 async function loadModel() {
+  vrmLogger.log('loadModel() called', { modelIdentity: modelIdentity.value, modelSrc: modelSrc.value })
+  vrmLogger.time('vrm:loadModel')
   try {
     if (!scene.value) {
-      console.warn('Scene is not ready, cannot load VRM model.')
+      vrmLogger.warn('Scene is not ready, cannot load VRM model.')
       return
     }
 
-    // console.log('[VRMModel] Loading:', modelSrc.value)
-
     const loadId = ++currentLoadId
+    vrmLogger.log(`Starting load #${loadId}`)
 
     if (vrmGroup.value || scene.value) {
+      vrmLogger.log('Cleaning up previous model')
       componentCleanUp()
     }
 
     if (!modelSrc.value) {
-      console.warn('NO model src, cannot load VRM model.')
+      vrmLogger.warn('No model src, cannot load VRM model.')
       return
     }
     // Local file models are loaded through blob URLs, so a stable model identity
@@ -334,31 +310,41 @@ async function loadModel() {
 
     try {
       emit('loadStart')
-      // Load vrm model
       modelLoaded.value = false
+      vrmLogger.log('Calling loadVrm...', { modelSrc: modelSrc.value })
+      vrmLogger.time('vrm:loadVrm')
       const _vrmInfo = await loadVrm(modelSrc.value, {
-        scene: scene.value,
         lookAt: true,
-        onProgress: progress => emit(
-          'loadingProgress',
-          Number((100 * progress.loaded / progress.total).toFixed(2)),
-        ),
+        onProgress: (progress) => {
+          const pct = Number(((100 * progress.loaded) / progress.total).toFixed(2))
+          vrmLogger.log(`Loading progress: ${pct}%`)
+          emit('loadingProgress', pct)
+        },
+        scene: scene.value,
       })
+      vrmLogger.timeEnd('vrm:loadVrm')
 
       // Phase A: Binary Capture for Surgical Persistence
       try {
+        vrmLogger.log('Capturing binary for surgical persistence...')
         const response = await fetch(modelSrc.value)
         const buffer = await response.arrayBuffer()
         emit('binaryLoaded', buffer)
-      }
-      catch (e) {
-        console.warn('[VRMModel] Precise binary capture failed:', e)
+      } catch (e) {
+        vrmLogger.warn('Precise binary capture failed:', e)
       }
 
       if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
-        console.warn('VRM model loading failure!')
+        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', {
+          hasGroup: Boolean(_vrmInfo?._vrmGroup),
+          hasVrm: Boolean(_vrmInfo?._vrm),
+        })
         return
       }
+      vrmLogger.log('VRM model loaded successfully', {
+        modelCenter: _vrmInfo.modelCenter,
+        modelSize: _vrmInfo.modelSize,
+      })
       const {
         _vrm,
         _vrmGroup,
@@ -378,8 +364,8 @@ async function loadModel() {
       }
 
       /*
-        * Model setting
-      */
+       * Model setting
+       */
       vrm.value = _vrm
       vrmGroup.value = _vrmGroup
 
@@ -428,20 +414,23 @@ async function loadModel() {
         const hipWorldPosition = new Vector3()
         hipNode.getWorldPosition(hipWorldPosition)
         initialHipWorldPosition.value = hipWorldPosition
-      }
-      else {
+      } else {
         initialHipWorldPosition.value = null
       }
 
       /*
-        * Animation setting
-      */
+       * Animation setting
+       */
+      vrmLogger.log('Loading VRM animation...', { idleAnimation: idleAnimation.value })
+      vrmLogger.time('vrm:loadAnimation')
       const animation = await loadVRMAnimation(idleAnimation.value)
       const clip = await clipFromVRMAnimation(_vrm, animation)
+      vrmLogger.timeEnd('vrm:loadAnimation')
       if (!clip) {
-        console.warn('No VRM animation loaded')
+        vrmLogger.warn('No VRM animation loaded')
         return
       }
+      vrmLogger.log('VRM animation loaded', { clipName: clip.name, tracks: clip.tracks.length })
       // Re-anchor the root position track to the model origin
       reAnchorRootPositionTrack(clip, _vrm, initialHipWorldPosition.value ?? undefined)
 
@@ -468,8 +457,7 @@ async function loadModel() {
       if (idleCycleEnabled.value) {
         action.setLoop(LoopOnce, 1)
         action.clampWhenFinished = true
-      }
-      else {
+      } else {
         action.setLoop(LoopRepeat, Infinity)
         action.clampWhenFinished = false
       }
@@ -479,21 +467,19 @@ async function loadModel() {
       vrmEmote.value = useVRMEmote(_vrm)
 
       /*
-        * Shader setting
-      */
+       * Shader setting
+       */
       // material selection
       // refactoring
       // MToon material sky box lightProbe setting
-      if (!airiIblProbe && scene.value)
-        airiIblProbe = createIblProbeController(scene.value)
+      if (!airiIblProbe && scene.value) airiIblProbe = createIblProbeController(scene.value)
 
       /*
-        * Eye tracking setting
-      */
+       * Eye tracking setting
+       */
       function getEyePosition(): number | null {
         const eye = vrm.value?.humanoid?.getNormalizedBoneNode('head')
-        if (!eye)
-          return null
+        if (!eye) return null
         const eyePos = new Vector3()
         eye.getWorldPosition(eyePos)
         return eyePos.y
@@ -519,8 +505,7 @@ async function loadModel() {
           vrmAnimationMixer.value?.update(delta)
         }
         const activeVrm = vrm.value
-        if (!activeVrm)
-          return
+        if (!activeVrm) return
 
         // 1. Core update (humanoid, springbone, expressions)
         activeVrm.update(delta)
@@ -534,9 +519,9 @@ async function loadModel() {
 
       // ASYNC GUARD: Check again after animation loading
       if (isUnmounted || loadId !== currentLoadId) {
-        console.warn('[VRMModel] Discarding model after animation load - stale/unmounted:', loadId)
-        componentCleanUp() // This will use the latest vrm.value, but we should be careful
-        // Better: dispose the specific ones we just loaded if they aren't assigned yet
+        vrmLogger.warn('Discarding model after animation load - stale/unmounted:', loadId)
+        // Only dispose the local resources — do NOT call componentCleanUp() as it
+        // would destroy the shared model state which may belong to a newer load.
         VRMUtils.deepDispose(_vrm.scene as unknown as Object3D)
         _vrmGroup.removeFromParent()
         return
@@ -548,27 +533,28 @@ async function loadModel() {
         modelSrc: modelSrc.value,
       })
       modelLoaded.value = true
-    }
-    catch (err) {
-      console.error(err)
+      vrmLogger.log('VRM model fully loaded and mounted ✓')
+      vrmLogger.timeEnd('vrm:loadModel')
+    } catch (err) {
+      vrmLogger.error('VRM model loading error:', err)
       emit('error', err)
     }
-  }
-  catch (err) {
-    console.error(err)
+  } catch (err) {
+    vrmLogger.error('VRM model loading error:', err)
     emit('error', err)
   }
 }
 
 onMounted(async () => {
-  // wait until scene is not undefined
+  vrmLogger.log('onMounted: waiting for scene...')
   await until(() => scene.value).toBeTruthy()
+  vrmLogger.log('onMounted: scene ready, calling loadModel()')
   await loadModel()
 
   /*
-    * Downward info flow
-    * - Pinia store value updated => command take effect
-  */
+   * Downward info flow
+   * - Pinia store value updated => command take effect
+   */
   // watch if the model needs to be reloaded
   watch(modelSrc, (newSrc, oldSrc) => {
     if (newSrc !== oldSrc) {
@@ -576,176 +562,201 @@ onMounted(async () => {
     }
   })
   // watch if the animation should be paused
-  watch(paused, (isPaused) => {
-    if (isPaused) {
-      stop()
-    }
-    else {
-      start()
-    }
-  }, { immediate: true })
+  watch(
+    paused,
+    (isPaused) => {
+      if (isPaused) {
+        stop()
+      } else {
+        start()
+      }
+    },
+    { immediate: true },
+  )
   // update model position
-  watch(modelOffset, () => {
-    if (vrmGroup.value) {
-      vrmGroup.value.position.set(
-        modelOffset.value.x,
-        modelOffset.value.y,
-        modelOffset.value.z,
-      )
-    }
-  }, { immediate: true, deep: true })
+  watch(
+    modelOffset,
+    () => {
+      if (vrmGroup.value) {
+        vrmGroup.value.position.set(modelOffset.value.x, modelOffset.value.y, modelOffset.value.z)
+      }
+    },
+    { deep: true, immediate: true },
+  )
   // update model rotation
-  watch(modelRotationY, (newRotationY) => {
-    if (vrmGroup.value) {
-      vrmGroup.value.rotation.y = MathUtils.degToRad(newRotationY)
-    }
-  }, { immediate: true })
+  watch(
+    modelRotationY,
+    (newRotationY) => {
+      if (vrmGroup.value) {
+        vrmGroup.value.rotation.y = MathUtils.degToRad(newRotationY)
+      }
+    },
+    { immediate: true },
+  )
   // update NPR sky box
-  watch([envSelect, skyBoxIntensity, nprIrrSH], async () => {
-    if (!vrm.value)
-      return
-    // force the program to flush
-    nprProgramVersion.value += 1
-    const mode = normalizeEnvMode(envSelect.value)
+  watch(
+    [envSelect, skyBoxIntensity, nprIrrSH],
+    async () => {
+      if (!vrm.value) return
+      // force the program to flush
+      nprProgramVersion.value += 1
+      const mode = normalizeEnvMode(envSelect.value)
 
-    // TODO: after bumping up to three 0.180.0 with @types/three 0.180.0,
-    //   Argument of type 'Group<Object3DEventMap>' is not assignable to parameter of type 'Object3D<Object3DEventMap>'.
-    //     Type 'Group<Object3DEventMap>' is missing the following properties from type 'Object3D<Object3DEventMap>': setPointerCapture, releasePointerCapture, hasPointerCapture
-    //
-    // Currently, AFAIK, https://github.com/pmndrs/xr/blob/456aa380206e93888cd3a5741a1534e672ae3106/packages/pointer-events/src/pointer.ts#L69-L100 declares
-    // declare module 'three' {
-    //   interface Object3D {
-    //     setPointerCapture(pointerId: number): void
-    //     releasePointerCapture(pointerId: number): void
-    //     hasPointerCapture(pointerId: number): boolean
+      // TODO: after bumping up to three 0.180.0 with @types/three 0.180.0,
+      //   Argument of type 'Group<Object3DEventMap>' is not assignable to parameter of type 'Object3D<Object3DEventMap>'.
+      //     Type 'Group<Object3DEventMap>' is missing the following properties from type 'Object3D<Object3DEventMap>': setPointerCapture, releasePointerCapture, hasPointerCapture
+      //
+      // Currently, AFAIK, https://github.com/pmndrs/xr/blob/456aa380206e93888cd3a5741a1534e672ae3106/packages/pointer-events/src/pointer.ts#L69-L100 declares
+      // declare module 'three' {
+      //   interface Object3D {
+      //     setPointerCapture(pointerId: number): void
+      //     releasePointerCapture(pointerId: number): void
+      //     hasPointerCapture(pointerId: number): boolean
 
-    //     intersectChildren?: boolean
-    //     interactableDescendants?: Array<Object3D>
-    //     /**
-    //      * @deprecated
-    //      */
-    //     ancestorsHaveListeners?: boolean
-    //     ancestorsHavePointerListeners?: boolean
-    //     ancestorsHaveWheelListeners?: boolean
-    //   }
-    // }
-    //
-    // And in @tresjs/core v5, it uses the @pmndrs/pointer-events internally.
-    // Somehow the Object3D from @types/three and the one augmented by @pmndrs/pointer-events are not compatible.
-    // This needs to be fixed later.
-    updateNprShaderSetting(vrm.value?.scene as unknown as Object3D, {
-      mode,
-      intensity: skyBoxIntensity.value,
-      sh: nprIrrSH.value ?? null,
-    })
-    airiIblProbe?.update(mode, skyBoxIntensity.value, nprIrrSH.value ?? null)
-  }, { immediate: true })
+      //     intersectChildren?: boolean
+      //     interactableDescendants?: Array<Object3D>
+      //     /**
+      //      * @deprecated
+      //      */
+      //     ancestorsHaveListeners?: boolean
+      //     ancestorsHavePointerListeners?: boolean
+      //     ancestorsHaveWheelListeners?: boolean
+      //   }
+      // }
+      //
+      // And in @tresjs/core v5, it uses the @pmndrs/pointer-events internally.
+      // Somehow the Object3D from @types/three and the one augmented by @pmndrs/pointer-events are not compatible.
+      // This needs to be fixed later.
+      updateNprShaderSetting(vrm.value?.scene as unknown as Object3D, {
+        intensity: skyBoxIntensity.value,
+        mode,
+        sh: nprIrrSH.value ?? null,
+      })
+      airiIblProbe?.update(mode, skyBoxIntensity.value, nprIrrSH.value ?? null)
+    },
+    { immediate: true },
+  )
   // update eye tracking mode
-  watch(trackingMode, (newMode) => {
-    stopCameraWatch?.()
-    stopCameraWatch = undefined
-    stopMouseWatch?.()
-    stopMouseWatch = undefined
-    if (newMode === 'camera') {
-      stopCameraWatch = watch(cameraPosition, (newPosition) => {
-        // watch to update look at target to camera
-        emit('lookAtTarget', newPosition)
-      }, { immediate: true, deep: true })
-    }
-    else if (newMode === 'mouse') {
-      stopMouseWatch = watch([mouseX, mouseY], ([newX, newY]) => {
-        mouseTarget.value = lookAtMouse(newX, newY, camera)
-        // watch to update look at target to mouse
-        emit('lookAtTarget', mouseTarget.value)
-      }, { immediate: true, deep: true })
-    }
-    else {
-      emit('lookAtTarget', defaultTookAt(eyeHeight.value))
-    }
-  }, { immediate: true })
-  watch(lookAtTarget, (newTarget) => {
-    if (vrm.value) {
-      idleEyeSaccades.instantUpdate(vrm.value, newTarget)
-    }
-  }, { deep: true })
+  watch(
+    trackingMode,
+    (newMode) => {
+      stopCameraWatch?.()
+      stopCameraWatch = undefined
+      stopMouseWatch?.()
+      stopMouseWatch = undefined
+      if (newMode === 'camera') {
+        stopCameraWatch = watch(
+          cameraPosition,
+          (newPosition) => {
+            // watch to update look at target to camera
+            emit('lookAtTarget', newPosition)
+          },
+          { deep: true, immediate: true },
+        )
+      } else if (newMode === 'mouse') {
+        stopMouseWatch = watch(
+          [mouseX, mouseY],
+          ([newX, newY]) => {
+            mouseTarget.value = lookAtMouse(newX, newY, camera)
+            // watch to update look at target to mouse
+            emit('lookAtTarget', mouseTarget.value)
+          },
+          { deep: true, immediate: true },
+        )
+      } else {
+        emit('lookAtTarget', defaultTookAt(eyeHeight.value))
+      }
+    },
+    { immediate: true },
+  )
+  watch(
+    lookAtTarget,
+    (newTarget) => {
+      if (vrm.value) {
+        idleEyeSaccades.instantUpdate(vrm.value, newTarget)
+      }
+    },
+    { deep: true },
+  )
 
   // watch for cycle toggle
-  watch(() => idleCycleEnabled?.value, (enabled) => {
-    if (!vrmAnimationMixer.value)
-      return
+  watch(
+    () => idleCycleEnabled?.value,
+    (enabled) => {
+      if (!vrmAnimationMixer.value) return
 
-    const activeActions = (vrmAnimationMixer.value as any)._actions || []
-    activeActions.forEach((action: any) => {
-      if (action.isRunning()) {
-        if (enabled) {
-          action.setLoop(LoopOnce, 1)
-          action.clampWhenFinished = true
+      const activeActions = (vrmAnimationMixer.value as any)._actions || []
+      activeActions.forEach((action: any) => {
+        if (action.isRunning()) {
+          if (enabled) {
+            action.setLoop(LoopOnce, 1)
+            action.clampWhenFinished = true
+          } else {
+            action.setLoop(LoopRepeat, Infinity)
+            action.clampWhenFinished = false
+          }
         }
-        else {
-          action.setLoop(LoopRepeat, Infinity)
-          action.clampWhenFinished = false
-        }
-      }
-    })
-  })
+      })
+    },
+  )
 
   // watch if the idle animation should be updated
-  watch(() => props.idleAnimation, async (newAnimUrl, oldAnimUrl) => {
-    // Guard: ignore if URL hasn't changed or isn't provided
-    if (!newAnimUrl || newAnimUrl === oldAnimUrl)
-      return
+  watch(
+    () => props.idleAnimation,
+    async (newAnimUrl, oldAnimUrl) => {
+      // Guard: ignore if URL hasn't changed or isn't provided
+      if (!newAnimUrl || newAnimUrl === oldAnimUrl) return
 
-    if (!vrm.value || !vrmAnimationMixer.value)
-      return
+      if (!vrm.value || !vrmAnimationMixer.value) return
 
-    try {
-      let clip = clipCache.get(newAnimUrl)
-      if (!clip) {
-        const animation = await loadVRMAnimation(newAnimUrl)
-        const loadedClip = await clipFromVRMAnimation(vrm.value, animation)
-        if (!loadedClip)
-          return
+      try {
+        let clip = clipCache.get(newAnimUrl)
+        if (!clip) {
+          const animation = await loadVRMAnimation(newAnimUrl)
+          const loadedClip = await clipFromVRMAnimation(vrm.value, animation)
+          if (!loadedClip) return
 
-        reAnchorRootPositionTrack(loadedClip, vrm.value, initialHipWorldPosition.value ?? undefined)
-        loadedClip.tracks = loadedClip.tracks.filter(track => !track.name.includes('blendShapes') && !track.name.includes('expressions'))
-        clipCache.set(newAnimUrl, loadedClip)
-        clip = loadedClip
+          reAnchorRootPositionTrack(loadedClip, vrm.value, initialHipWorldPosition.value ?? undefined)
+          loadedClip.tracks = loadedClip.tracks.filter(
+            (track) => !track.name.includes('blendShapes') && !track.name.includes('expressions'),
+          )
+          clipCache.set(newAnimUrl, loadedClip)
+          clip = loadedClip
+        }
+
+        const newAction = vrmAnimationMixer.value.clipAction(clip)
+        const fadeDuration = 0.8 // Premium cross-fade
+
+        if (idleCycleEnabled.value) {
+          newAction.setLoop(LoopOnce, 1)
+        } else {
+          newAction.setLoop(LoopRepeat, Infinity)
+        }
+
+        newAction.clampWhenFinished = true
+        newAction.reset()
+        newAction.setEffectiveWeight(1)
+        newAction.play()
+
+        // Emit duration for the proactive scheduler in Stage.vue
+        emit('playStatus', {
+          duration: clip.duration,
+          url: newAnimUrl,
+        })
+
+        if (currentAction.value && currentAction.value !== newAction) {
+          newAction.crossFadeFrom(currentAction.value, fadeDuration, true)
+        } else {
+          newAction.fadeIn(fadeDuration)
+        }
+
+        currentAction.value = newAction
+      } catch (err) {
+        console.error('[VRMModel] Failed to switch idle animation:', err)
       }
-
-      const newAction = vrmAnimationMixer.value.clipAction(clip)
-      const fadeDuration = 0.8 // Premium cross-fade
-
-      if (idleCycleEnabled.value) {
-        newAction.setLoop(LoopOnce, 1)
-      }
-      else {
-        newAction.setLoop(LoopRepeat, Infinity)
-      }
-
-      newAction.clampWhenFinished = true
-      newAction.reset()
-      newAction.setEffectiveWeight(1)
-      newAction.play()
-
-      // Emit duration for the proactive scheduler in Stage.vue
-      emit('playStatus', {
-        duration: clip.duration,
-        url: newAnimUrl,
-      })
-
-      if (currentAction.value && currentAction.value !== newAction) {
-        newAction.crossFadeFrom(currentAction.value, fadeDuration, true)
-      }
-      else {
-        newAction.fadeIn(fadeDuration)
-      }
-
-      currentAction.value = newAction
-    }
-    catch (err) {
-      console.error('[VRMModel] Failed to switch idle animation:', err)
-    }
-  }, { immediate: true })
+    },
+    { immediate: true },
+  )
 })
 
 onUnmounted(() => {
@@ -764,34 +775,32 @@ defineExpose({
   listExpressions() {
     return Object.keys(vrm.value?.expressionManager?.expressionMap || {})
   },
+  lookAtUpdate(target: Vec3) {
+    if (vrm.value) {
+      idleEyeSaccades.instantUpdate(vrm.value, target)
+    }
+  },
+  restoreDefaultExpressions() {
+    if (!vrm.value?.expressionManager) return
+    for (const name of modelStore.availableExpressions) {
+      const weight = modelStore.activeExpressions[name] || 0
+      vrm.value.expressionManager.setValue(name, weight)
+    }
+    vrm.value.expressionManager.update()
+  },
+  scene: computed(() => vrm.value?.scene),
   setExpression(expression: string, intensity = 1, resetMs?: number) {
     if (resetMs !== undefined) {
       vrmEmote.value?.setEmotionWithResetAfter(expression, resetMs, intensity)
-    }
-    else {
+    } else {
       vrmEmote.value?.setEmotion(expression, intensity)
     }
   },
   setVrmFrameHook(hook?: VrmFrameHook) {
     vrmFrameHook.value = hook
   },
-  scene: computed(() => vrm.value?.scene),
-  lookAtUpdate(target: Vec3) {
-    if (vrm.value) {
-      idleEyeSaccades.instantUpdate(vrm.value, target)
-    }
-  },
   stopAnimations() {
     vrmAnimationMixer.value?.stopAllAction()
-  },
-  restoreDefaultExpressions() {
-    if (!vrm.value?.expressionManager)
-      return
-    for (const name of modelStore.availableExpressions) {
-      const weight = modelStore.activeExpressions[name] || 0
-      vrm.value.expressionManager.setValue(name, weight)
-    }
-    vrm.value.expressionManager.update()
   },
 })
 
@@ -801,48 +810,52 @@ defineExpose({
 // Watches both activeExpressions AND modelLoaded so it fires:
 //   - When the user toggles an expression (change in activeExpressions)
 //   - When the model finishes loading (modelLoaded becomes true)
-watch([() => modelStore.activeExpressions, modelLoaded], ([active, loaded]) => {
-  if (!loaded || !vrm.value?.expressionManager)
-    return
+watch(
+  [() => modelStore.activeExpressions, modelLoaded],
+  ([active, loaded]) => {
+    if (!loaded || !vrm.value?.expressionManager) return
 
-  for (const name of modelStore.availableExpressions) {
-    const weight = active[name] || 0
-    // Optimization: query current weight to minimize manager updates
-    if (vrm.value.expressionManager.getValue(name) !== weight) {
-      vrm.value.expressionManager.setValue(name, weight)
+    for (const name of modelStore.availableExpressions) {
+      const weight = active[name] || 0
+      // Optimization: query current weight to minimize manager updates
+      if (vrm.value.expressionManager.getValue(name) !== weight) {
+        vrm.value.expressionManager.setValue(name, weight)
+      }
     }
-  }
-  vrm.value.expressionManager.update()
-}, { deep: true })
+    vrm.value.expressionManager.update()
+  },
+  { deep: true },
+)
 
 // === ACT Emotion Mapping Sync ===
 // Injects user-configured VRM expression → ACT emotion mappings
 // into the emote system (Layer 3: ACT Mapping).
 // Also watches modelLoaded so mappings are applied on boot.
-watch([() => modelStore.emotionMappings, modelLoaded], ([mappings, loaded]) => {
-  if (!loaded || !vrmEmote.value || !vrm.value?.expressionManager)
-    return
+watch(
+  [() => modelStore.emotionMappings, modelLoaded],
+  ([mappings, loaded]) => {
+    if (!loaded || !vrmEmote.value || !vrm.value?.expressionManager) return
 
-  // For each mapping: emotionMappings[vrmExpressionName] = actEmotionSlot
-  // e.g., { "anger": "angry" } means the ACT "angry" emotion should fire VRM "anger"
-  // We invert the map: for each ACT slot, collect the VRM expressions mapped to it
-  const actToVrm = new Map<string, { name: string, value: number }[]>()
-  for (const [vrmName, actSlot] of Object.entries(mappings)) {
-    if (!actSlot)
-      continue
-    if (!actToVrm.has(actSlot))
-      actToVrm.set(actSlot, [])
-    actToVrm.get(actSlot)!.push({ name: vrmName, value: 1.0 })
-  }
+    // For each mapping: emotionMappings[vrmExpressionName] = actEmotionSlot
+    // e.g., { "anger": "angry" } means the ACT "angry" emotion should fire VRM "anger"
+    // We invert the map: for each ACT slot, collect the VRM expressions mapped to it
+    const actToVrm = new Map<string, { name: string; value: number }[]>()
+    for (const [vrmName, actSlot] of Object.entries(mappings)) {
+      if (!actSlot) continue
+      if (!actToVrm.has(actSlot)) actToVrm.set(actSlot, [])
+      actToVrm.get(actSlot)!.push({ name: vrmName, value: 1.0 })
+    }
 
-  // Register/update each ACT emotion with the user's mapped expressions
-  for (const [actSlot, expressions] of actToVrm) {
-    vrmEmote.value.addEmotionState(actSlot, {
-      expression: expressions,
-      blendDuration: 0.3,
-    })
-  }
-}, { deep: true })
+    // Register/update each ACT emotion with the user's mapped expressions
+    for (const [actSlot, expressions] of actToVrm) {
+      vrmEmote.value.addEmotionState(actSlot, {
+        blendDuration: 0.3,
+        expression: expressions,
+      })
+    }
+  },
+  { deep: true },
+)
 </script>
 
 <template>

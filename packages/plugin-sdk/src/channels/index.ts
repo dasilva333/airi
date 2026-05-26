@@ -4,14 +4,6 @@ import { createContext } from '@moeru/eventa'
 
 export const channels = {
   /**
-   * Channel for talking to Plugin Host.
-   * Can be seen as Control plane.
-   *
-   * createContext() here is for fallback internal channel preventing undefined access.
-   * In real usage, either local/* or remote/* channel implementation should be set as active channel.
-   */
-  host: createContext(),
-  /**
    * Channel for initialized plugin to transmit events to each other, includes plugins, and stage, configurator, etc.
    * Can be seen as Data plane.
    *
@@ -19,6 +11,14 @@ export const channels = {
    * In real usage, either local/* or remote/* channel implementation should be set as active channel.
    */
   data: createContext(),
+  /**
+   * Channel for talking to Plugin Host.
+   * Can be seen as Control plane.
+   *
+   * createContext() here is for fallback internal channel preventing undefined access.
+   * In real usage, either local/* or remote/* channel implementation should be set as active channel.
+   */
+  host: createContext(),
 }
 
 export function setActiveHostChannel(context: EventContext<any, any>) {

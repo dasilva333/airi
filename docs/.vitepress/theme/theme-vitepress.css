@@ -1,5 +1,3 @@
-
-
 .custom .vp-code {
   @apply border-none rounded-none;
 }
@@ -93,7 +91,7 @@
     @apply text-slate-800 dark:text-slate-300 font-semibold;
   }
 
-  &> p:nth-child(2) {
+  & > p:nth-child(2) {
     @apply dark:text-slate-50;
   }
 }
@@ -125,7 +123,7 @@
     @apply text-yellow-800 dark:text-yellow-300 font-semibold;
   }
 
-  &> p:nth-child(2) {
+  & > p:nth-child(2) {
     @apply dark:text-yellow-50;
   }
 }

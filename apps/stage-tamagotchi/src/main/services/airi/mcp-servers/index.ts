@@ -1,5 +1,12 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { useLogg } from '@guiiai/logg'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { defineInvokeHandler } from '@moeru/eventa'
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
-
+import { app, shell } from 'electron'
+import { z } from 'zod'
 import type {
   ElectronMcpCallToolPayload,
   ElectronMcpCallToolResult,
@@ -10,16 +17,6 @@ import type {
   ElectronMcpStdioServerRuntimeStatus,
   ElectronMcpToolDescriptor,
 } from '../../../../shared/eventa'
-
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-
-import { useLogg } from '@guiiai/logg'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { defineInvokeHandler } from '@moeru/eventa'
-import { app, shell } from 'electron'
-import { z } from 'zod'
 
 import {
   electronMcpApplyAndRestart,
@@ -50,17 +47,21 @@ export interface McpStdioManager {
   updateConfig: (config: Partial<ElectronMcpStdioConfigFile>) => Promise<void>
 }
 
-const mcpServerConfigSchema = z.object({
-  command: z.string().min(1),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  cwd: z.string().optional(),
-  enabled: z.boolean().optional(),
-}).strict()
+const mcpServerConfigSchema = z
+  .object({
+    args: z.array(z.string()).optional(),
+    command: z.string().min(1),
+    cwd: z.string().optional(),
+    enabled: z.boolean().optional(),
+    env: z.record(z.string(), z.string()).optional(),
+  })
+  .strict()
 
-const mcpConfigSchema = z.object({
-  mcpServers: z.record(z.string(), mcpServerConfigSchema),
-}).strict()
+const mcpConfigSchema = z
+  .object({
+    mcpServers: z.record(z.string(), mcpServerConfigSchema),
+  })
+  .strict()
 
 const defaultMcpConfig: ElectronMcpStdioConfigFile = {
   mcpServers: {},
@@ -94,9 +95,7 @@ function parseQualifiedToolName(name: string) {
 }
 
 function resolveFallbackToolName(toolName: string): string | undefined {
-  const normalizedTransportPrefix = toolName
-    .replace(/^\.(?:stdio|stdo)::/, '')
-    .replace(/^(?:stdio|stdo)::/, '')
+  const normalizedTransportPrefix = toolName.replace(/^\.(?:stdio|stdo)::/, '').replace(/^(?:stdio|stdo)::/, '')
   if (normalizedTransportPrefix !== toolName) {
     return normalizedTransportPrefix
   }
@@ -112,8 +111,7 @@ function resolveFallbackToolName(toolName: string): string | undefined {
 async function closeSession(session: McpServerSession) {
   try {
     await session.client.close()
-  }
-  catch {
+  } catch {
     await session.transport.close()
   }
 }
@@ -138,8 +136,7 @@ export function createMcpStdioManager(): McpStdioManager {
 
     try {
       await readFile(path, 'utf-8')
-    }
-    catch {
+    } catch {
       log.withFields({ path }).log('mcp config file not found, creating default')
       await writeFile(path, `${JSON.stringify(defaultMcpConfig, null, 2)}\n`)
     }
@@ -161,7 +158,7 @@ export function createMcpStdioManager(): McpStdioManager {
     const parsed = JSON.parse(raw) as unknown
     const validated = mcpConfigSchema.safeParse(parsed)
     if (!validated.success) {
-      throw new Error(validated.error.issues.map(issue => issue.message).join('; '))
+      throw new Error(validated.error.issues.map((issue) => issue.message).join('; '))
     }
     return validated.data
   }
@@ -171,11 +168,11 @@ export function createMcpStdioManager(): McpStdioManager {
     for (const [name, session] of entries) {
       await closeSession(session)
       setRuntimeStatus({
-        name,
-        state: 'stopped',
-        command: session.config.command,
         args: session.config.args ?? [],
+        command: session.config.command,
+        name,
         pid: null,
+        state: 'stopped',
       })
       sessions.delete(name)
     }
@@ -184,19 +181,22 @@ export function createMcpStdioManager(): McpStdioManager {
   const startServer = async (name: string, config: ElectronMcpStdioServerConfig) => {
     log.withFields({ name }).log('starting mcp stdio server')
     const transport = new StdioClientTransport({
-      command: config.command,
       args: config.args ?? [],
-      env: config.env,
+      command: config.command,
       cwd: config.cwd,
+      env: config.env,
       stderr: 'pipe',
     })
 
-    const client = new Client({
-      name: 'proj-airi',
-      version: app.getVersion(),
-    }, {
-      capabilities: {},
-    })
+    const client = new Client(
+      {
+        name: 'proj-airi',
+        version: app.getVersion(),
+      },
+      {
+        capabilities: {},
+      },
+    )
 
     try {
       await client.connect(transport)
@@ -207,17 +207,16 @@ export function createMcpStdioManager(): McpStdioManager {
         }
       })
 
-      sessions.set(name, { client, transport, config })
+      sessions.set(name, { client, config, transport })
       setRuntimeStatus({
-        name,
-        state: 'running',
-        command: config.command,
         args: config.args ?? [],
+        command: config.command,
+        name,
         pid: transport.pid,
+        state: 'running',
       })
       log.withFields({ name, pid: transport.pid }).log('mcp stdio server started')
-    }
-    catch (error) {
+    } catch (error) {
       log.withFields({ name }).withError(error).error('failed to connect mcp stdio server')
       console.error(`[MCP][${name}] Connection Failed:`, error)
       await transport.close().catch(() => {})
@@ -233,21 +232,21 @@ export function createMcpStdioManager(): McpStdioManager {
     runtimeStatuses.clear()
 
     const result: ElectronMcpStdioApplyResult = {
-      path,
-      started: [],
       failed: [],
+      path,
       skipped: [],
+      started: [],
     }
 
     for (const [name, server] of Object.entries(config.mcpServers)) {
       if (server.enabled === false) {
         result.skipped.push({ name, reason: 'disabled' })
         setRuntimeStatus({
-          name,
-          state: 'stopped',
-          command: server.command,
           args: server.args ?? [],
+          command: server.command,
+          name,
           pid: null,
+          state: 'stopped',
         })
         continue
       }
@@ -255,17 +254,16 @@ export function createMcpStdioManager(): McpStdioManager {
       try {
         await startServer(name, server)
         result.started.push({ name })
-      }
-      catch (error) {
+      } catch (error) {
         const message = stringifyError(error)
-        result.failed.push({ name, error: message })
+        result.failed.push({ error: message, name })
         setRuntimeStatus({
-          name,
-          state: 'error',
-          command: server.command,
           args: server.args ?? [],
-          pid: null,
+          command: server.command,
           lastError: message,
+          name,
+          pid: null,
+          state: 'error',
         })
       }
     }
@@ -283,15 +281,14 @@ export function createMcpStdioManager(): McpStdioManager {
         const result = await session.client.listTools()
         for (const tool of result.tools) {
           allTools.push({
-            serverName,
-            name: `${serverName}${toolNameSeparator}${tool.name}`,
-            toolName: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema as Record<string, unknown>,
+            name: `${serverName}${toolNameSeparator}${tool.name}`,
+            serverName,
+            toolName: tool.name,
           })
         }
-      }
-      catch (error) {
+      } catch (error) {
         log.withFields({ serverName }).withError(error).error('failed to list tools')
         console.error(`[MCP][${serverName}] List Tools Failed:`, error)
       }
@@ -313,40 +310,54 @@ export function createMcpStdioManager(): McpStdioManager {
 
     let result
     try {
-      result = await session.client.callTool({
-        name: toolName,
-        arguments: payload.arguments ?? {},
-      }, undefined, {
-        timeout: mcpRequestTimeoutMsec,
-        maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
-      })
-    }
-    catch (error) {
+      result = await session.client.callTool(
+        {
+          arguments: payload.arguments ?? {},
+          name: toolName,
+        },
+        undefined,
+        {
+          maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
+          timeout: mcpRequestTimeoutMsec,
+        },
+      )
+    } catch (error) {
       const fallbackToolName = resolveFallbackToolName(toolName)
       if (!fallbackToolName || fallbackToolName === toolName) {
         throw error
       }
 
-      log.withFields({
-        serverName,
-        requestedToolName: toolName,
-        fallbackToolName,
-      }).warn('retrying mcp tool call with normalized tool name')
+      log
+        .withFields({
+          fallbackToolName,
+          requestedToolName: toolName,
+          serverName,
+        })
+        .warn('retrying mcp tool call with normalized tool name')
 
-      result = await session.client.callTool({
-        name: fallbackToolName,
-        arguments: payload.arguments ?? {},
-      }, undefined, {
-        timeout: mcpRequestTimeoutMsec,
-        maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
-      })
+      result = await session.client.callTool(
+        {
+          arguments: payload.arguments ?? {},
+          name: fallbackToolName,
+        },
+        undefined,
+        {
+          maxTotalTimeout: mcpRequestMaxTotalTimeoutMsec,
+          timeout: mcpRequestTimeoutMsec,
+        },
+      )
     }
 
     const normalized: ElectronMcpCallToolResult = {}
     if ('content' in result && Array.isArray(result.content)) {
       normalized.content = result.content as Array<Record<string, unknown>>
     }
-    if ('structuredContent' in result && result.structuredContent && typeof result.structuredContent === 'object' && !Array.isArray(result.structuredContent)) {
+    if (
+      'structuredContent' in result &&
+      result.structuredContent &&
+      typeof result.structuredContent === 'object' &&
+      !Array.isArray(result.structuredContent)
+    ) {
       normalized.structuredContent = result.structuredContent as Record<string, unknown>
     }
     if ('isError' in result && typeof result.isError === 'boolean') {
@@ -389,14 +400,14 @@ export function createMcpStdioManager(): McpStdioManager {
   }
 
   return {
-    ensureConfigFile,
-    openConfigFile,
     applyAndRestart,
-    listTools,
     callTool,
-    stopAll,
-    getRuntimeStatus,
+    ensureConfigFile,
     getConfig,
+    getRuntimeStatus,
+    listTools,
+    openConfigFile,
+    stopAll,
     updateConfig,
   }
 }
@@ -413,15 +424,17 @@ export async function setupMcpStdioManager() {
 
   try {
     await manager.applyAndRestart()
-  }
-  catch (error) {
+  } catch (error) {
     log.withError(error).warn('failed to apply mcp stdio config during startup')
   }
 
   return manager
 }
 
-export function createMcpServersService(params: { context: ReturnType<typeof createContext>['context'], manager: McpStdioManager }) {
+export function createMcpServersService(params: {
+  context: ReturnType<typeof createContext>['context']
+  manager: McpStdioManager
+}) {
   defineInvokeHandler(params.context, electronMcpOpenConfigFile, async () => {
     return params.manager.openConfigFile()
   })

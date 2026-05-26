@@ -14,7 +14,7 @@ const GENERATE_TIMEOUT = 120000
  */
 class AsyncMutex {
   private locked = false
-  private waiters: { resolve: () => void, reject: (error: Error) => void }[] = []
+  private waiters: { resolve: () => void; reject: (error: Error) => void }[] = []
 
   // Incremented on reset() to invalidate stale lock holders
   private generation = 0
@@ -28,7 +28,7 @@ class AsyncMutex {
 
     if (this.locked) {
       await new Promise<void>((resolve, reject) => {
-        this.waiters.push({ resolve, reject })
+        this.waiters.push({ reject, resolve })
       })
       if (myGeneration !== this.generation) {
         throw new Error('Mutex was reset')
@@ -38,14 +38,12 @@ class AsyncMutex {
 
     try {
       return await callback()
-    }
-    finally {
+    } finally {
       if (myGeneration === this.generation) {
         const next = this.waiters.shift()
         if (next) {
           next.resolve()
-        }
-        else {
+        } else {
           this.locked = false
         }
       }
@@ -99,8 +97,7 @@ function waitForEvent<T extends Event>(
         }
         element.removeEventListener(eventName, listener)
         resolve(typedEvent)
-      }
-      else {
+      } else {
         callback(typedEvent)
       }
     }
@@ -163,9 +160,7 @@ export class KokoroWorkerManager {
 
   private scheduleRestart(): void {
     if (this.restartAttempts >= this.maxRestartAttempts) {
-      console.error(
-        `[KokoroWorker] Max restart attempts (${this.maxRestartAttempts}) reached. Giving up.`,
-      )
+      console.error(`[KokoroWorker] Max restart attempts (${this.maxRestartAttempts}) reached. Giving up.`)
       return
     }
 
@@ -188,76 +183,76 @@ export class KokoroWorkerManager {
     this.restartAttempts = 0
   }
 
-  async loadModel(quantization: string, device: string, options?: { onProgress?: (progress: any) => void }): Promise<Voices> {
+  async loadModel(
+    quantization: string,
+    device: string,
+    options?: { onProgress?: (progress: any) => void },
+  ): Promise<Voices> {
     // Lazy-start the worker if not already initialized
     await this.start()
-    return await this.asyncMutex.run(async () => {
-      const voicePromise = waitForEvent<MessageEvent<WorkerResponse>>(
-        this.worker!,
-        'message',
-        {
-          predicate: event => event.data.type === 'loaded',
-          timeout: LOAD_MODEL_TIMEOUT,
+    return await this.asyncMutex
+      .run(async () => {
+        const voicePromise = waitForEvent<MessageEvent<WorkerResponse>>(this.worker!, 'message', {
           callback: (event) => {
             if (event.data.type === 'progress' && options?.onProgress) {
               options.onProgress(event.data.progress)
             }
           },
-        },
-      )
-      const message: WorkerRequest = {
-        type: 'load',
-        data: { quantization, device },
-      }
-      this.worker!.postMessage(message)
-      const event = await voicePromise
-      const loadedData = event.data as LoadedMessage
-      this.voices = loadedData.voices
-      this.onSuccessfulOperation()
-      return this.voices
-    }).catch((error) => {
-      this.handleWorkerError(error)
-      return Promise.reject(error)
-    })
+          predicate: (event) => event.data.type === 'loaded',
+          timeout: LOAD_MODEL_TIMEOUT,
+        })
+        const message: WorkerRequest = {
+          data: { device, quantization },
+          type: 'load',
+        }
+        this.worker!.postMessage(message)
+        const event = await voicePromise
+        const loadedData = event.data as LoadedMessage
+        this.voices = loadedData.voices
+        this.onSuccessfulOperation()
+        return this.voices
+      })
+      .catch((error) => {
+        this.handleWorkerError(error)
+        return Promise.reject(error)
+      })
   }
 
   async generate(text: string, voice: VoiceKey): Promise<ArrayBuffer> {
-    return await this.asyncMutex.run(async () => {
-      if (!this.worker) {
-        throw new Error('Worker not initialized. Call start() first.')
-      }
-
-      const resultPromise = waitForEvent<MessageEvent<WorkerResponse>>(
-        this.worker,
-        'message',
-        {
-          predicate: event => event.data.type === 'result',
-          timeout: GENERATE_TIMEOUT,
-        },
-      )
-      const message: WorkerRequest = {
-        type: 'generate',
-        data: { text, voice },
-      }
-      this.worker.postMessage(message)
-      const event = await resultPromise
-      const response = event.data
-
-      if ('status' in response) {
-        switch (response.status) {
-          case 'success':
-            this.onSuccessfulOperation()
-            return response.buffer
-          case 'error':
-            throw new Error(response.message)
+    return await this.asyncMutex
+      .run(async () => {
+        if (!this.worker) {
+          throw new Error('Worker not initialized. Call start() first.')
         }
-      }
 
-      throw new Error('Unexpected response from worker')
-    }).catch((error) => {
-      this.handleWorkerError(error)
-      return Promise.reject(error)
-    })
+        const resultPromise = waitForEvent<MessageEvent<WorkerResponse>>(this.worker, 'message', {
+          predicate: (event) => event.data.type === 'result',
+          timeout: GENERATE_TIMEOUT,
+        })
+        const message: WorkerRequest = {
+          data: { text, voice },
+          type: 'generate',
+        }
+        this.worker.postMessage(message)
+        const event = await resultPromise
+        const response = event.data
+
+        if ('status' in response) {
+          switch (response.status) {
+            case 'success':
+              this.onSuccessfulOperation()
+              return response.buffer
+            case 'error':
+              throw new Error(response.message)
+          }
+        }
+
+        throw new Error('Unexpected response from worker')
+      })
+      .catch((error) => {
+        this.handleWorkerError(error)
+        return Promise.reject(error)
+      })
   }
 
   getVoices(): Voices {

@@ -15,7 +15,7 @@ export const useVHackStore = defineStore('vhack', () => {
 
   // Surgical persistence state
   const sourceArrayBuffer = ref<ArrayBuffer | null>(null)
-  const mutatedTextures = ref<Map<number, { data: string, mimeType: string }>>(new Map())
+  const mutatedTextures = ref<Map<number, { data: string; mimeType: string }>>(new Map())
 
   // Unified AI Generation State
   const isGeneratingTexture = ref(false)
@@ -28,9 +28,9 @@ export const useVHackStore = defineStore('vhack', () => {
   const snapshotMap = ref<Map<string, any>>(new Map())
 
   // Persist AI Settings
-  watch(geminiApiKey, v => localStorage.setItem('vhack_gemini_api_key', v))
-  watch(geminiModel, v => localStorage.setItem('vhack_gemini_model', v))
-  watch(geminiResolution, v => localStorage.setItem('vhack_gemini_res', v))
+  watch(geminiApiKey, (v) => localStorage.setItem('vhack_gemini_api_key', v))
+  watch(geminiModel, (v) => localStorage.setItem('vhack_gemini_model', v))
+  watch(geminiResolution, (v) => localStorage.setItem('vhack_gemini_res', v))
 
   function toggleHackerMode() {
     isHackerModeActive.value = !isHackerModeActive.value
@@ -44,8 +44,7 @@ export const useVHackStore = defineStore('vhack', () => {
     if (hiddenNodeUuids.value.has(uuid)) {
       hiddenNodeUuids.value.delete(uuid)
       node.visible = true
-    }
-    else {
+    } else {
       hiddenNodeUuids.value.add(uuid)
       node.visible = false
     }
@@ -73,8 +72,7 @@ export const useVHackStore = defineStore('vhack', () => {
       if (item.uuid === targetUuid) {
         item.node.visible = true
         hiddenNodeUuids.value.delete(item.uuid)
-      }
-      else {
+      } else {
         item.node.visible = false
         hiddenNodeUuids.value.add(item.uuid)
       }
@@ -100,33 +98,33 @@ export const useVHackStore = defineStore('vhack', () => {
   }
 
   return {
-    isHackerModeActive,
-    selectedNodeName,
-    selectedMaterialName,
+    closeHackerMode,
+    focusNode,
     geminiApiKey,
     geminiModel,
     geminiResolution,
-    showAiSettings,
-    isGeneratingTexture,
-    generationProgress,
     generationActionLabel,
-    lastGenerationError,
-    selectedTextureIndex,
+    generationProgress,
 
     hiddenNodeUuids,
+    hideAll,
+    isGeneratingTexture,
+    isHackerModeActive,
+    lastGenerationError,
+    mutatedTextures,
+    registerMutation,
+    resetState,
+    selectedMaterialName,
+    selectedNodeName,
+    selectedTextureIndex,
+    setSourceArrayBuffer,
+    showAiSettings,
+    showAll,
     snapshotMap,
 
     sourceArrayBuffer,
-    mutatedTextures,
-    setSourceArrayBuffer,
-    registerMutation,
 
     toggleHackerMode,
-    closeHackerMode,
     toggleNodeVisibility,
-    showAll,
-    hideAll,
-    focusNode,
-    resetState,
   }
 })

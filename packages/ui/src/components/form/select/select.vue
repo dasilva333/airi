@@ -4,7 +4,7 @@ import { provide, ref } from 'vue'
 import { Combobox } from '../combobox'
 
 const props = defineProps<{
-  options?: { label: string, value: string | number }[]
+  options?: { label: string; value: string | number }[]
   placeholder?: string
   disabled?: boolean
   title?: string

@@ -1,12 +1,10 @@
+import { inspect } from 'node:util'
+import vm from 'node:vm'
 import type { Action } from '../../libs/mineflayer/action'
 import type { Mineflayer } from '../../libs/mineflayer/core'
 import type { ActionInstruction } from '../action/types'
 import type { BotEvent } from '../types'
 import type { PatternRuntime } from './patterns/types'
-
-import vm from 'node:vm'
-
-import { inspect } from 'node:util'
 
 import { createQueryRuntime } from './query-dsl'
 
@@ -40,16 +38,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function isCoord(value: unknown): value is { x: number, y: number, z: number } {
-  return isRecord(value)
-    && typeof value.x === 'number'
-    && typeof value.y === 'number'
-    && typeof value.z === 'number'
+function isCoord(value: unknown): value is { x: number; y: number; z: number } {
+  return isRecord(value) && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number'
 }
 
 function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== 'object')
-    return value
+  if (!value || typeof value !== 'object') return value
 
   for (const key of Object.keys(value as Record<string, unknown>)) {
     const child = (value as Record<string, unknown>)[key]
@@ -74,11 +68,11 @@ export interface RuntimeGlobals {
   errorBurstGuard?: unknown
   currentInput?: unknown
   llmLog?: unknown
-  setNoActionBudget?: (value: number) => { ok: true, remaining: number, default: number, max: number }
-  getNoActionBudget?: () => { remaining: number, default: number, max: number }
-  forgetConversation?: () => { ok: true, cleared: string[] }
-  enterContext?: (label: string) => { ok: true, label: string, turnId: number }
-  exitContext?: (summary?: string) => { ok: true, summarized: string, messagesArchived: number }
+  setNoActionBudget?: (value: number) => { ok: true; remaining: number; default: number; max: number }
+  getNoActionBudget?: () => { remaining: number; default: number; max: number }
+  forgetConversation?: () => { ok: true; cleared: string[] }
+  enterContext?: (label: string) => { ok: true; label: string; turnId: number }
+  exitContext?: (summary?: string) => { ok: true; summarized: string; messagesArchived: number }
   history?: unknown
   llmInput?: {
     systemPrompt: string
@@ -110,8 +104,7 @@ interface DescribeGlobalsOptions {
 export function extractJavaScriptCandidate(input: string): string {
   const trimmed = input.trim()
   const fenced = trimmed.match(/^```(?:js|javascript|ts|typescript)?[^\S\r\n]*\r?\n?([\s\S]*?)\r?\n?```$/i)
-  if (fenced?.[1])
-    return fenced[1].trim()
+  if (fenced?.[1]) return fenced[1].trim()
 
   return trimmed
 }
@@ -140,7 +133,7 @@ export class JavaScriptPlanner {
     const script = extractJavaScriptCandidate(content)
     const run: ActivePlannerRun = {
       actionCount: 0,
-      actionsByName: new Map(availableActions.map(action => [action.name, action])),
+      actionsByName: new Map(availableActions.map((action) => [action.name, action])),
       executeAction,
       executed: [],
       logs: [],
@@ -155,14 +148,15 @@ export class JavaScriptPlanner {
       const wrapped = `(async () => {\n${script}\n})()`
       const result = await new vm.Script(wrapped).runInContext(this.context, { timeout: this.timeoutMs })
 
-      const returnValue = typeof result === 'undefined'
-        ? undefined
-        : inspect(result, {
-            depth: null,
-            breakLength: 100,
-            maxArrayLength: 100,
-            maxStringLength: 10_000,
-          })
+      const returnValue =
+        typeof result === 'undefined'
+          ? undefined
+          : inspect(result, {
+              breakLength: 100,
+              depth: null,
+              maxArrayLength: 100,
+              maxStringLength: 10_000,
+            })
 
       if (isRecord(this.sandbox.lastRun)) {
         this.sandbox.lastRun.returnRaw = result
@@ -173,22 +167,19 @@ export class JavaScriptPlanner {
         logs: run.logs,
         returnValue,
       }
-    }
-    finally {
+    } finally {
       this.activeRun = null
     }
   }
 
   public canEvaluateAsExpression(content: string): boolean {
     const script = extractJavaScriptCandidate(content)
-    if (!script.trim())
-      return false
+    if (!script.trim()) return false
 
     try {
       void new vm.Script(`(async () => (\n${script}\n))()`)
       return true
-    }
-    catch {
+    } catch {
       return false
     }
   }
@@ -203,98 +194,98 @@ export class JavaScriptPlanner {
     const includeBuiltins = options.includeBuiltins ?? true
 
     const staticGlobals: Array<Omit<PlannerGlobalDescriptor, 'preview'>> = [
-      { name: 'skip', kind: 'tool', readonly: true },
-      { name: 'use', kind: 'function', readonly: true },
-      { name: 'log', kind: 'function', readonly: true },
-      { name: 'expect', kind: 'function', readonly: true },
-      { name: 'expectMoved', kind: 'function', readonly: true },
-      { name: 'expectNear', kind: 'function', readonly: true },
-      { name: 'snapshot', kind: 'object', readonly: true },
-      { name: 'event', kind: 'object', readonly: true },
-      { name: 'now', kind: 'number', readonly: true },
-      { name: 'self', kind: 'object', readonly: true },
-      { name: 'environment', kind: 'object', readonly: true },
-      { name: 'social', kind: 'object', readonly: true },
-      { name: 'threat', kind: 'object', readonly: true },
-      { name: 'attention', kind: 'object', readonly: true },
-      { name: 'autonomy', kind: 'object', readonly: true },
-      { name: 'llmInput', kind: 'object', readonly: true },
-      { name: 'currentInput', kind: 'object', readonly: true },
-      { name: 'llmLog', kind: 'object', readonly: true },
-      { name: 'actionQueue', kind: 'object', readonly: true },
-      { name: 'noActionBudget', kind: 'object', readonly: true },
-      { name: 'errorBurstGuard', kind: 'object', readonly: true },
-      { name: 'setNoActionBudget', kind: 'function', readonly: true },
-      { name: 'getNoActionBudget', kind: 'function', readonly: true },
-      { name: 'forget_conversation', kind: 'function', readonly: true },
-      { name: 'enterContext', kind: 'function', readonly: true },
-      { name: 'exitContext', kind: 'function', readonly: true },
-      { name: 'history', kind: 'object', readonly: true },
-      { name: 'llmMessages', kind: 'object', readonly: true },
-      { name: 'llmSystemPrompt', kind: 'string', readonly: true },
-      { name: 'llmUserMessage', kind: 'string', readonly: true },
-      { name: 'llmConversationHistory', kind: 'object', readonly: true },
-      { name: 'query', kind: 'object', readonly: true },
-      { name: 'query.self', kind: 'function', readonly: true },
-      { name: 'query.snapshot', kind: 'function', readonly: true },
-      { name: 'query.gaze', kind: 'function', readonly: true },
-      { name: 'patterns', kind: 'object', readonly: true },
-      { name: 'patterns.get', kind: 'function', readonly: true },
-      { name: 'patterns.find', kind: 'function', readonly: true },
-      { name: 'patterns.ids', kind: 'function', readonly: true },
-      { name: 'patterns.list', kind: 'function', readonly: true },
-      { name: 'bot', kind: 'object', readonly: true },
-      { name: 'mineflayer', kind: 'object', readonly: true },
-      { name: 'mem', kind: 'object', readonly: false },
-      { name: 'lastRun', kind: 'object', readonly: true },
-      { name: 'prevRun', kind: 'object', readonly: true },
-      { name: 'lastAction', kind: 'object', readonly: true },
+      { kind: 'tool', name: 'skip', readonly: true },
+      { kind: 'function', name: 'use', readonly: true },
+      { kind: 'function', name: 'log', readonly: true },
+      { kind: 'function', name: 'expect', readonly: true },
+      { kind: 'function', name: 'expectMoved', readonly: true },
+      { kind: 'function', name: 'expectNear', readonly: true },
+      { kind: 'object', name: 'snapshot', readonly: true },
+      { kind: 'object', name: 'event', readonly: true },
+      { kind: 'number', name: 'now', readonly: true },
+      { kind: 'object', name: 'self', readonly: true },
+      { kind: 'object', name: 'environment', readonly: true },
+      { kind: 'object', name: 'social', readonly: true },
+      { kind: 'object', name: 'threat', readonly: true },
+      { kind: 'object', name: 'attention', readonly: true },
+      { kind: 'object', name: 'autonomy', readonly: true },
+      { kind: 'object', name: 'llmInput', readonly: true },
+      { kind: 'object', name: 'currentInput', readonly: true },
+      { kind: 'object', name: 'llmLog', readonly: true },
+      { kind: 'object', name: 'actionQueue', readonly: true },
+      { kind: 'object', name: 'noActionBudget', readonly: true },
+      { kind: 'object', name: 'errorBurstGuard', readonly: true },
+      { kind: 'function', name: 'setNoActionBudget', readonly: true },
+      { kind: 'function', name: 'getNoActionBudget', readonly: true },
+      { kind: 'function', name: 'forget_conversation', readonly: true },
+      { kind: 'function', name: 'enterContext', readonly: true },
+      { kind: 'function', name: 'exitContext', readonly: true },
+      { kind: 'object', name: 'history', readonly: true },
+      { kind: 'object', name: 'llmMessages', readonly: true },
+      { kind: 'string', name: 'llmSystemPrompt', readonly: true },
+      { kind: 'string', name: 'llmUserMessage', readonly: true },
+      { kind: 'object', name: 'llmConversationHistory', readonly: true },
+      { kind: 'object', name: 'query', readonly: true },
+      { kind: 'function', name: 'query.self', readonly: true },
+      { kind: 'function', name: 'query.snapshot', readonly: true },
+      { kind: 'function', name: 'query.gaze', readonly: true },
+      { kind: 'object', name: 'patterns', readonly: true },
+      { kind: 'function', name: 'patterns.get', readonly: true },
+      { kind: 'function', name: 'patterns.find', readonly: true },
+      { kind: 'function', name: 'patterns.ids', readonly: true },
+      { kind: 'function', name: 'patterns.list', readonly: true },
+      { kind: 'object', name: 'bot', readonly: true },
+      { kind: 'object', name: 'mineflayer', readonly: true },
+      { kind: 'object', name: 'mem', readonly: false },
+      { kind: 'object', name: 'lastRun', readonly: true },
+      { kind: 'object', name: 'prevRun', readonly: true },
+      { kind: 'object', name: 'lastAction', readonly: true },
     ]
 
     const valueByName: Record<string, unknown> = {
-      'snapshot': globals.snapshot,
-      'event': globals.event,
-      'now': Date.now(),
-      'self': (globals.snapshot as Record<string, unknown>)?.self,
-      'environment': (globals.snapshot as Record<string, unknown>)?.environment,
-      'social': (globals.snapshot as Record<string, unknown>)?.social,
-      'threat': (globals.snapshot as Record<string, unknown>)?.threat,
-      'attention': (globals.snapshot as Record<string, unknown>)?.attention,
-      'autonomy': (globals.snapshot as Record<string, unknown>)?.autonomy,
-      'llmInput': globals.llmInput ?? null,
-      'currentInput': globals.currentInput ?? null,
-      'llmLog': globals.llmLog ?? null,
-      'actionQueue': globals.actionQueue ?? null,
-      'noActionBudget': globals.noActionBudget ?? null,
-      'errorBurstGuard': globals.errorBurstGuard ?? null,
-      'llmMessages': globals.llmInput?.messages ?? [],
-      'llmSystemPrompt': globals.llmInput?.systemPrompt ?? '',
-      'llmUserMessage': globals.llmInput?.userMessage ?? '',
-      'llmConversationHistory': globals.llmInput?.conversationHistory ?? [],
-      'query': globals.mineflayer ? createQueryRuntime(globals.mineflayer) : undefined,
-      'patterns': globals.patterns ?? null,
-      'patterns.get': globals.patterns?.get,
+      actionQueue: globals.actionQueue ?? null,
+      attention: (globals.snapshot as Record<string, unknown>)?.attention,
+      autonomy: (globals.snapshot as Record<string, unknown>)?.autonomy,
+      bot: globals.bot ?? globals.mineflayer?.bot,
+      currentInput: globals.currentInput ?? null,
+      enterContext: this.sandbox.enterContext,
+      environment: (globals.snapshot as Record<string, unknown>)?.environment,
+      errorBurstGuard: globals.errorBurstGuard ?? null,
+      event: globals.event,
+      exitContext: this.sandbox.exitContext,
+      expect: this.sandbox.expect,
+      expectMoved: this.sandbox.expectMoved,
+      expectNear: this.sandbox.expectNear,
+      forget_conversation: this.sandbox.forget_conversation,
+      getNoActionBudget: this.sandbox.getNoActionBudget,
+      history: this.sandbox.history,
+      lastAction: this.sandbox.lastAction,
+      lastRun: this.sandbox.lastRun,
+      llmConversationHistory: globals.llmInput?.conversationHistory ?? [],
+      llmInput: globals.llmInput ?? null,
+      llmLog: globals.llmLog ?? null,
+      llmMessages: globals.llmInput?.messages ?? [],
+      llmSystemPrompt: globals.llmInput?.systemPrompt ?? '',
+      llmUserMessage: globals.llmInput?.userMessage ?? '',
+      log: this.sandbox.log,
+      mem: this.sandbox.mem,
+      mineflayer: globals.mineflayer ?? null,
+      noActionBudget: globals.noActionBudget ?? null,
+      now: Date.now(),
+      patterns: globals.patterns ?? null,
       'patterns.find': globals.patterns?.find,
+      'patterns.get': globals.patterns?.get,
       'patterns.ids': globals.patterns?.ids,
       'patterns.list': globals.patterns?.list,
-      'bot': globals.bot ?? globals.mineflayer?.bot,
-      'mineflayer': globals.mineflayer ?? null,
-      'mem': this.sandbox.mem,
-      'lastRun': this.sandbox.lastRun,
-      'prevRun': this.sandbox.prevRun,
-      'lastAction': this.sandbox.lastAction,
-      'skip': this.sandbox.skip,
-      'use': this.sandbox.use,
-      'log': this.sandbox.log,
-      'expect': this.sandbox.expect,
-      'expectMoved': this.sandbox.expectMoved,
-      'expectNear': this.sandbox.expectNear,
-      'setNoActionBudget': this.sandbox.setNoActionBudget,
-      'getNoActionBudget': this.sandbox.getNoActionBudget,
-      'forget_conversation': this.sandbox.forget_conversation,
-      'enterContext': this.sandbox.enterContext,
-      'exitContext': this.sandbox.exitContext,
-      'history': this.sandbox.history,
+      prevRun: this.sandbox.prevRun,
+      query: globals.mineflayer ? createQueryRuntime(globals.mineflayer) : undefined,
+      self: (globals.snapshot as Record<string, unknown>)?.self,
+      setNoActionBudget: this.sandbox.setNoActionBudget,
+      skip: this.sandbox.skip,
+      snapshot: globals.snapshot,
+      social: (globals.snapshot as Record<string, unknown>)?.social,
+      threat: (globals.snapshot as Record<string, unknown>)?.threat,
+      use: this.sandbox.use,
     }
 
     if (includeBuiltins) {
@@ -308,10 +299,10 @@ export class JavaScriptPlanner {
 
     for (const action of availableActions) {
       descriptors.push({
-        name: action.name,
         kind: 'tool',
-        readonly: true,
+        name: action.name,
         preview: action.description || '(tool)',
+        readonly: true,
       })
     }
 
@@ -330,95 +321,86 @@ export class JavaScriptPlanner {
       return this.runAction(toolName, mappedParams)
     })
     this.defineGlobalTool('log', (...args: unknown[]) => {
-      if (!this.activeRun)
-        throw new Error('log() is only allowed during REPL evaluation')
+      if (!this.activeRun) throw new Error('log() is only allowed during REPL evaluation')
 
-      const rendered = args.map(arg => inspect(arg, { depth: 4, breakLength: 120 })).join(' ')
+      const rendered = args.map((arg) => inspect(arg, { breakLength: 120, depth: 4 })).join(' ')
       this.activeRun.logs.push(rendered)
       return rendered
     })
     this.defineGlobalTool('expect', (condition: unknown, message?: unknown) => {
-      if (condition)
-        return true
+      if (condition) return true
 
-      const detail = typeof message === 'string' && message.trim().length > 0
-        ? message
-        : 'Condition evaluated to false'
+      const detail = typeof message === 'string' && message.trim().length > 0 ? message : 'Condition evaluated to false'
       throw new Error(`Expectation failed: ${detail}`)
     })
     this.defineGlobalTool('expectMoved', (minBlocks?: unknown, message?: unknown) => {
       const threshold = typeof minBlocks === 'number' ? minBlocks : 0.5
       const telemetry = this.getLastActionResultRecord()
-      const movedDistance = typeof telemetry?.movedDistance === 'number'
-        ? telemetry.movedDistance
-        : null
+      const movedDistance = typeof telemetry?.movedDistance === 'number' ? telemetry.movedDistance : null
 
       if (movedDistance === null) {
         throw new Error('Expectation failed: expectMoved() requires last action result with movedDistance telemetry')
       }
 
-      if (movedDistance >= threshold)
-        return true
+      if (movedDistance >= threshold) return true
 
-      const detail = typeof message === 'string' && message.trim().length > 0
-        ? message
-        : `Expected movedDistance >= ${threshold}, got ${movedDistance}`
+      const detail =
+        typeof message === 'string' && message.trim().length > 0
+          ? message
+          : `Expected movedDistance >= ${threshold}, got ${movedDistance}`
       throw new Error(`Expectation failed: ${detail}`)
     })
-    this.defineGlobalTool('expectNear', (targetOrMaxDist?: unknown, maxDistOrMessage?: unknown, maybeMessage?: unknown) => {
-      const telemetry = this.getLastActionResultRecord()
+    this.defineGlobalTool(
+      'expectNear',
+      (targetOrMaxDist?: unknown, maxDistOrMessage?: unknown, maybeMessage?: unknown) => {
+        const telemetry = this.getLastActionResultRecord()
 
-      let target: { x: number, y: number, z: number } | null = null
-      let maxDist = 2
-      let message: string | undefined
+        let target: { x: number; y: number; z: number } | null = null
+        let maxDist = 2
+        let message: string | undefined
 
-      if (isCoord(targetOrMaxDist)) {
-        target = { x: targetOrMaxDist.x, y: targetOrMaxDist.y, z: targetOrMaxDist.z }
-        if (typeof maxDistOrMessage === 'number')
-          maxDist = maxDistOrMessage
-        if (typeof maybeMessage === 'string')
-          message = maybeMessage
-      }
-      else {
-        if (typeof targetOrMaxDist === 'number')
-          maxDist = targetOrMaxDist
-        if (typeof maxDistOrMessage === 'string')
-          message = maxDistOrMessage
-      }
-
-      let distance: number | null = null
-      if (target) {
-        const endPos = isCoord(telemetry?.endPos) ? telemetry.endPos : null
-        if (!endPos) {
-          throw new Error('Expectation failed: expectNear(target) requires last action result with endPos telemetry')
+        if (isCoord(targetOrMaxDist)) {
+          target = { x: targetOrMaxDist.x, y: targetOrMaxDist.y, z: targetOrMaxDist.z }
+          if (typeof maxDistOrMessage === 'number') maxDist = maxDistOrMessage
+          if (typeof maybeMessage === 'string') message = maybeMessage
+        } else {
+          if (typeof targetOrMaxDist === 'number') maxDist = targetOrMaxDist
+          if (typeof maxDistOrMessage === 'string') message = maxDistOrMessage
         }
 
-        const dx = endPos.x - target.x
-        const dy = endPos.y - target.y
-        const dz = endPos.z - target.z
-        distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-      }
-      else if (typeof telemetry?.distanceToTargetAfter === 'number') {
-        distance = telemetry.distanceToTargetAfter
-      }
+        let distance: number | null = null
+        if (target) {
+          const endPos = isCoord(telemetry?.endPos) ? telemetry.endPos : null
+          if (!endPos) {
+            throw new Error('Expectation failed: expectNear(target) requires last action result with endPos telemetry')
+          }
 
-      if (distance === null) {
-        throw new Error('Expectation failed: expectNear() requires target argument or last action distanceToTargetAfter telemetry')
-      }
+          const dx = endPos.x - target.x
+          const dy = endPos.y - target.y
+          const dz = endPos.z - target.z
+          distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        } else if (typeof telemetry?.distanceToTargetAfter === 'number') {
+          distance = telemetry.distanceToTargetAfter
+        }
 
-      if (distance <= maxDist)
-        return true
+        if (distance === null) {
+          throw new Error(
+            'Expectation failed: expectNear() requires target argument or last action distanceToTargetAfter telemetry',
+          )
+        }
 
-      const detail = message ?? `Expected distance <= ${maxDist}, got ${distance}`
-      throw new Error(`Expectation failed: ${detail}`)
-    })
+        if (distance <= maxDist) return true
+
+        const detail = message ?? `Expected distance <= ${maxDist}, got ${distance}`
+        throw new Error(`Expectation failed: ${detail}`)
+      },
+    )
     this.defineGlobalValue('mem', {})
   }
 
   private getLastActionResultRecord(): Record<string, unknown> | null {
     const lastAction = this.sandbox.lastAction
-    if (!isRecord(lastAction))
-      return null
+    if (!isRecord(lastAction)) return null
 
     const result = lastAction.result
     return isRecord(result) ? result : null
@@ -427,8 +409,7 @@ export class JavaScriptPlanner {
   private installActionTools(availableActions: Action[]): void {
     for (const action of availableActions) {
       const existing = Object.getOwnPropertyDescriptor(this.sandbox, action.name)
-      if (existing && existing.configurable === false)
-        continue
+      if (existing && existing.configurable === false) continue
 
       this.defineUpdatableGlobal(action.name, async (...args: unknown[]) => {
         const params = this.mapArgsToParams(action, args)
@@ -488,22 +469,18 @@ export class JavaScriptPlanner {
     const shape = action.schema.shape as Record<string, unknown>
     const keys = Object.keys(shape)
 
-    if (keys.length === 0)
-      return {}
+    if (keys.length === 0) return {}
 
     if (args.length === 1) {
       const [firstArg] = args
-      if (isRecord(firstArg))
-        return firstArg
+      if (isRecord(firstArg)) return firstArg
 
-      if (keys.length === 1)
-        return { [keys[0]]: firstArg }
+      if (keys.length === 1) return { [keys[0]]: firstArg }
     }
 
     const params: Record<string, unknown> = {}
     for (const [index, key] of keys.entries()) {
-      if (index >= args.length)
-        break
+      if (index >= args.length) break
       params[key] = args[index]
     }
 
@@ -530,7 +507,7 @@ export class JavaScriptPlanner {
     this.activeRun.actionCount++
 
     if (tool === 'skip') {
-      const action: ActionInstruction = { tool: 'skip', params: {} }
+      const action: ActionInstruction = { params: {}, tool: 'skip' }
       const runtimeResult: ActionRuntimeResult = {
         action,
         ok: true,
@@ -544,9 +521,9 @@ export class JavaScriptPlanner {
     const validation = this.validateAction(tool, params)
     if (!validation.action) {
       const runtimeResult: ActionRuntimeResult = {
-        action: { tool, params },
-        ok: false,
+        action: { params, tool },
         error: validation.error ?? `Invalid tool parameters for ${tool}`,
+        ok: false,
       }
       this.activeRun.executed.push(runtimeResult)
       this.sandbox.lastAction = runtimeResult
@@ -564,12 +541,11 @@ export class JavaScriptPlanner {
       this.activeRun.executed.push(runtimeResult)
       this.sandbox.lastAction = runtimeResult
       return runtimeResult
-    }
-    catch (error) {
+    } catch (error) {
       const runtimeResult: ActionRuntimeResult = {
         action,
-        ok: false,
         error: error instanceof Error ? error.message : String(error),
+        ok: false,
       }
       this.activeRun.executed.push(runtimeResult)
       this.sandbox.lastAction = runtimeResult
@@ -578,24 +554,22 @@ export class JavaScriptPlanner {
   }
 
   private validateAction(tool: string, params: Record<string, unknown>): ValidationResult {
-    if (!this.activeRun)
-      throw new Error('Tool calls are only allowed during REPL evaluation')
+    if (!this.activeRun) throw new Error('Tool calls are only allowed during REPL evaluation')
 
     const action = this.activeRun.actionsByName.get(tool)
-    if (!action)
-      throw new Error(`Unknown tool: ${tool}`)
+    if (!action) throw new Error(`Unknown tool: ${tool}`)
 
     const parsed = action.schema.safeParse(params)
     if (!parsed.success) {
       const details = parsed.error.issues
-        .map(issue => `${issue.path.map(item => String(item)).join('.') || 'root'}: ${issue.message}`)
+        .map((issue) => `${issue.path.map((item) => String(item)).join('.') || 'root'}: ${issue.message}`)
         .join('; ')
       return {
         error: `Invalid tool parameters for ${tool}: ${details}`,
       }
     }
 
-    return { action: { tool, params: parsed.data } }
+    return { action: { params: parsed.data, tool } }
   }
 
   private defineGlobalTool(name: string, fn: (...args: unknown[]) => unknown): void {
@@ -603,13 +577,12 @@ export class JavaScriptPlanner {
   }
 
   private defineGlobalValue(name: string, value: unknown): void {
-    if (Object.prototype.hasOwnProperty.call(this.sandbox, name))
-      return
+    if (Object.hasOwn(this.sandbox, name)) return
 
     Object.defineProperty(this.sandbox, name, {
-      value,
       configurable: false,
       enumerable: true,
+      value,
       writable: false,
     })
   }
@@ -619,22 +592,19 @@ export class JavaScriptPlanner {
   // globals use configurable: true so they can be redefined on each evaluate().
   private defineUpdatableGlobal(name: string, value: unknown): void {
     Object.defineProperty(this.sandbox, name, {
-      value,
       configurable: true,
       enumerable: true,
+      value,
       writable: false,
     })
   }
 
   private previewValue(value: unknown): string {
-    if (value === null)
-      return 'null'
-    if (typeof value === 'undefined')
-      return 'undefined'
-    if (typeof value === 'string')
-      return value.length > 120 ? `${value.slice(0, 117)}...` : value
+    if (value === null) return 'null'
+    if (typeof value === 'undefined') return 'undefined'
+    if (typeof value === 'string') return value.length > 120 ? `${value.slice(0, 117)}...` : value
 
-    const rendered = inspect(value, { depth: 1, breakLength: 120 })
+    const rendered = inspect(value, { breakLength: 120, depth: 1 })
     return rendered.length > 120 ? `${rendered.slice(0, 117)}...` : rendered
   }
 }

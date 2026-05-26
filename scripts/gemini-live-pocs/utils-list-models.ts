@@ -3,12 +3,12 @@ import https from 'node:https'
 const API_KEY = 'AIzaSyAnNzARUkElomGk02VfWP3L-bPyo9BkQUQ'
 
 const options = {
-  hostname: 'generativelanguage.googleapis.com',
-  path: `/v1beta/models?key=${API_KEY}`,
-  method: 'GET',
   headers: {
     'Content-Type': 'application/json',
   },
+  hostname: 'generativelanguage.googleapis.com',
+  method: 'GET',
+  path: `/v1beta/models?key=${API_KEY}`,
 }
 
 const req = https.request(options, (res) => {
@@ -23,12 +23,10 @@ const req = https.request(options, (res) => {
       if (parsed.models) {
         console.log('Available models:')
         parsed.models.forEach((m: any) => console.log(`- ${m.name}`))
-      }
-      else {
+      } else {
         console.log('No models found or error:', data)
       }
-    }
-    catch {
+    } catch {
       console.log('Raw response:', data)
     }
   })

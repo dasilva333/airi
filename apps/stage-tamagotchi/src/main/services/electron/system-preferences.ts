@@ -1,12 +1,14 @@
+import { defineInvokeHandler } from '@moeru/eventa'
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import type { BrowserWindow } from 'electron'
-
-import { defineInvokeHandler } from '@moeru/eventa'
 import { systemPreferences } from 'electron'
 
 import { electron } from '../../../shared/eventa'
 
-export function createSystemPreferencesService(params: { context: ReturnType<typeof createContext>['context'], window: BrowserWindow }) {
+export function createSystemPreferencesService(params: {
+  context: ReturnType<typeof createContext>['context']
+  window: BrowserWindow
+}) {
   defineInvokeHandler(params.context, electron.systemPreferences.getMediaAccessStatus, (type) => {
     if (!type) {
       return 'not-determined'

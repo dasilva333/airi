@@ -1,13 +1,14 @@
-import type { MmdTextureFile } from './mmd-zip-extractor'
-
 import { AmbientLight, DirectionalLight, PerspectiveCamera, Scene, WebGLRenderer } from 'three'
-
 import { loadMmd } from '../composables/mmd/core'
+import type { MmdTextureFile } from './mmd-zip-extractor'
 
 /**
  * Render an MMD file to an offscreen canvas and return a preview data URL.
  */
-export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdTextureFile[]): Promise<string | undefined> {
+export async function loadMmdModelPreview(
+  modelFile: File,
+  textureFiles: MmdTextureFile[],
+): Promise<string | undefined> {
   console.log('[MMD:Preview] Starting preview generation for:', modelFile.name)
 
   // 2. Create texture map (filename -> blob URL)
@@ -37,9 +38,9 @@ export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdText
   document.body.appendChild(offscreenCanvas)
 
   const renderer = new WebGLRenderer({
-    canvas: offscreenCanvas,
     alpha: true,
     antialias: true,
+    canvas: offscreenCanvas,
     preserveDrawingBuffer: true,
   })
   renderer.setSize(offscreenCanvas.width, offscreenCanvas.height, false)
@@ -47,8 +48,8 @@ export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdText
 
   const scene = new Scene()
   const camera = new PerspectiveCamera(40, offscreenCanvas.width / offscreenCanvas.height, 0.01, 1000)
-  const ambientLight = new AmbientLight(0xFFFFFF, 0.8)
-  const directionalLight = new DirectionalLight(0xFFFFFF, 0.8)
+  const ambientLight = new AmbientLight(0xffffff, 0.8)
+  const directionalLight = new DirectionalLight(0xffffff, 0.8)
   directionalLight.position.set(1, 1, 1)
   scene.add(ambientLight, directionalLight)
 
@@ -57,8 +58,7 @@ export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdText
   try {
     // 4. Load the MMD model with the texture map!
     const result = await loadMmd(modelUrl, { scene, textureMap })
-    if (!result)
-      return undefined
+    if (!result) return undefined
 
     mmdInstance = result.mmd
     const { modelCenter, initialCameraOffset } = result
@@ -75,30 +75,26 @@ export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdText
     }
 
     // Small delay to let textures/materials settle after updates
-    await new Promise(resolve => setTimeout(resolve, 5000))
+    await new Promise((resolve) => setTimeout(resolve, 5000))
     renderer.render(scene, camera)
 
     const dataUrl = offscreenCanvas.toDataURL()
 
     return dataUrl
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error during MMD capture:', error)
     return undefined
-  }
-  finally {
+  } finally {
     renderer.dispose()
     if (mmdInstance) {
       const mesh = mmdInstance.mesh
       mesh.traverse((child: any) => {
-        if (child.geometry?.dispose)
-          child.geometry.dispose()
+        if (child.geometry?.dispose) child.geometry.dispose()
 
         if (child.material) {
           const materials = Array.isArray(child.material) ? child.material : [child.material]
           for (const mat of materials) {
-            if (mat?.map?.dispose)
-              mat.map.dispose()
+            if (mat?.map?.dispose) mat.map.dispose()
             mat?.dispose?.()
           }
         }
@@ -108,7 +104,6 @@ export async function loadMmdModelPreview(modelFile: File, textureFiles: MmdText
     for (const url of revokedUrls) {
       URL.revokeObjectURL(url)
     }
-    if (offscreenCanvas.isConnected)
-      document.body.removeChild(offscreenCanvas)
+    if (offscreenCanvas.isConnected) document.body.removeChild(offscreenCanvas)
   }
 }

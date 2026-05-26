@@ -1,14 +1,21 @@
-import type { WebFontMeta } from '@unocss/preset-web-fonts'
-import type { Preset, PresetOrFactoryAwaitable } from 'unocss'
-
 import { setDefaultAutoSelectFamilyAttemptTimeout } from 'node:net'
-
 import { createExternalPackageIconLoader } from '@iconify/utils/lib/loader/external-pkg'
 import { presetChromatic } from '@proj-airi/unocss-preset-chromatic'
 import { colorToString } from '@unocss/preset-mini/utils'
-import { defineConfig, mergeConfigs, presetAttributify, presetIcons, presetTypography, presetWind3, transformerDirectives, transformerVariantGroup } from 'unocss'
-import { presetScrollbar } from 'unocss-preset-scrollbar'
+import type { WebFontMeta } from '@unocss/preset-web-fonts'
+import type { Preset, PresetOrFactoryAwaitable } from 'unocss'
+import {
+  defineConfig,
+  mergeConfigs,
+  presetAttributify,
+  presetIcons,
+  presetTypography,
+  presetWind3,
+  transformerDirectives,
+  transformerVariantGroup,
+} from 'unocss'
 import { parseColor } from 'unocss/preset-mini'
+import { presetScrollbar } from 'unocss-preset-scrollbar'
 
 // On Netlify, building will result in when fetching metadata and fonts from @unocss/preset-web-fonts plugin:
 //
@@ -57,67 +64,66 @@ export function presetStoryMockHover(): PresetOrFactoryAwaitable {
 }
 
 export function safelistAllPrimaryBackgrounds(): string[] {
-  return [undefined, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((shade) => {
+  return [undefined, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].flatMap((shade) => {
     const prefix = shade ? `bg-primary-${shade}` : `bg-primary`
-    return [
-      prefix,
-      ...[5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(opacity => `${prefix}/${opacity}`),
-    ]
-  }).flat()
+    return [prefix, ...[5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((opacity) => `${prefix}/${opacity}`)]
+  })
 }
 
-export function presetWebFontsFonts(provider: 'fontsource' | 'none'): Record<string, string | WebFontMeta | (string | WebFontMeta)[]> {
+export function presetWebFontsFonts(
+  provider: 'fontsource' | 'none',
+): Record<string, string | WebFontMeta | (string | WebFontMeta)[]> {
   return {
-    'sans': {
-      name: provider === 'fontsource' ? 'DM Sans' : 'DM Sans Variable',
+    comfortaa: {
+      name: provider === 'fontsource' ? 'Comfortaa' : 'Comfortaa Variable',
       provider,
     },
-    'serif': {
-      name: 'DM Serif Display',
+    cuteen: {
+      name: 'Sniglet',
       provider,
     },
-    'mono': {
-      name: 'DM Mono',
-      provider,
-    },
-    'cutejp': {
+    cutejp: {
       name: 'Kiwi Maru',
       provider,
       subsets: ['latin', 'japanese'],
     },
-    'cuteen': {
-      name: 'Sniglet',
-      provider,
-    },
-    'jura': {
-      name: provider === 'fontsource' ? 'Jura' : 'Jura Variable',
-      provider,
-    },
-    'gugi': {
+    gugi: {
       name: 'Gugi',
       provider,
     },
-    'quicksand': {
-      name: provider === 'fontsource' ? 'Quicksand' : 'Quicksand Variable',
-      provider,
-    },
-    'urbanist': {
-      name: provider === 'fontsource' ? 'Urbanist' : 'Urbanist Variable',
-      provider,
-    },
-    'comfortaa': {
-      name: provider === 'fontsource' ? 'Comfortaa' : 'Comfortaa Variable',
+    jura: {
+      name: provider === 'fontsource' ? 'Jura' : 'Jura Variable',
       provider,
     },
     'm-plus-rounded': {
       name: 'M PLUS Rounded 1c',
       provider,
     },
-    'quanlai': {
+    mono: {
+      name: 'DM Mono',
+      provider,
+    },
+    quanlai: {
       name: 'cjkfonts AllSeto',
       provider: 'none',
     },
-    'xiaolai': {
+    quicksand: {
+      name: provider === 'fontsource' ? 'Quicksand' : 'Quicksand Variable',
+      provider,
+    },
+    sans: {
+      name: provider === 'fontsource' ? 'DM Sans' : 'DM Sans Variable',
+      provider,
+    },
+    serif: {
+      name: 'DM Serif Display',
+      provider,
+    },
+    urbanist: {
+      name: provider === 'fontsource' ? 'Urbanist' : 'Urbanist Variable',
+      provider,
+    },
+    xiaolai: {
       name: 'Xiaolai SC',
       provider: 'none',
     },
@@ -126,12 +132,27 @@ export function presetWebFontsFonts(provider: 'fontsource' | 'none'): Record<str
 
 export function sharedUnoConfig() {
   return defineConfig({
+    content: {
+      pipeline: {
+        exclude: [
+          /\/node_modules\//, // DO NOT SCAN THE BLACK HOLE
+        ],
+        include: [
+          // the default
+          /\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|html)($|\?)/,
+          // include js/ts files
+          '(components|src)/**/*.{js,ts,vue}', // THIS CAN INCLUDE node_modules
+          'packages/**/*.{js,ts,vue}', // ADDED: include shared package pages and components
+          '**/stage-ui/**/*.{vue,js,ts}', // THIS TOO
+          '**/ui/**/*.{vue,js,ts}', // THIS TOO
+        ],
+      },
+    },
     presets: [
       presetWind3(),
       presetAttributify(),
       presetTypography(),
       presetIcons({
-        scale: 1.2,
         collections: {
           ...createExternalPackageIconLoader('@proj-airi/lobe-icons'),
           ...createExternalPackageIconLoader('@proj-airi/iconify-meteocons'),
@@ -148,26 +169,33 @@ export function sharedUnoConfig() {
           ...createExternalPackageIconLoader('@iconify-json/mingcute'),
           ...createExternalPackageIconLoader('@iconify-json/twemoji'),
         },
+        scale: 1.2,
       }),
       presetScrollbar(),
       presetChromatic({
         baseHue: 220.44,
         colors: {
-          primary: 0,
           complementary: 180,
+          primary: 0,
         },
       }) as Preset,
     ],
-    transformers: [
-      transformerDirectives({
-        applyVariable: ['--at-apply'],
-      }),
-      transformerVariantGroup(),
+    rules: [
+      [/^mask-\[(.*)\]$/, ([, suffix]) => ({ '-webkit-mask-image': suffix.replace(/_/g, ' ') })],
+      [
+        /^bg-dotted-\[(.*)\]$/,
+        ([, color], { theme }) => {
+          const parsedColor = parseColor(color, theme)
+          // Util usage: https://github.com/unocss/unocss/blob/f57ef6ae50006a92f444738e50f3601c0d1121f2/packages-presets/preset-mini/src/_utils/utilities.ts#L186
+          return {
+            '--un-background-opacity': parsedColor?.cssColor?.alpha ?? parsedColor?.alpha ?? 1,
+            'background-image': `radial-gradient(circle at 1px 1px, ${colorToString(parsedColor?.cssColor ?? parsedColor?.color ?? color, 'var(--un-background-opacity)')} 1px, transparent 0)`,
+          }
+        },
+      ],
+      [/drag-region/, () => ({ 'app-region': 'drag' })],
     ],
-    safelist: [
-      ...'prose prose-sm m-auto text-left'.split(' '),
-      ...safelistAllPrimaryBackgrounds(),
-    ],
+    safelist: [...'prose prose-sm m-auto text-left'.split(' '), ...safelistAllPrimaryBackgrounds()],
     // hyoban/unocss-preset-shadcn: Use shadcn ui with UnoCSS
     // https://github.com/hyoban/unocss-preset-shadcn
     //
@@ -180,106 +208,82 @@ export function sharedUnoConfig() {
     // It's necessary to add the following configuration if you use shadcn-vue or shadcn-svelte.
     shortcuts: [
       {
-        'preserve-3d': '[transform-style:preserve-3d]',
         'backface-hidden': '[backface-visibility:hidden]',
         'perspective-1000': '[perspective:1000px]',
+        'preserve-3d': '[transform-style:preserve-3d]',
         'rotate-y-180': '[transform:rotateY(180deg)]',
       },
     ],
-    content: {
-      pipeline: {
-        include: [
-          // the default
-          /\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|html)($|\?)/,
-          // include js/ts files
-          '(components|src)/**/*.{js,ts,vue}', // THIS CAN INCLUDE node_modules
-          'packages/**/*.{js,ts,vue}', // ADDED: include shared package pages and components
-          '**/stage-ui/**/*.{vue,js,ts}', // THIS TOO
-          '**/ui/**/*.{vue,js,ts}', // THIS TOO
-        ],
-        exclude: [
-          /\/node_modules\//, // DO NOT SCAN THE BLACK HOLE
-        ],
-      },
-    },
-    rules: [
-      [/^mask-\[(.*)\]$/, ([, suffix]) => ({ '-webkit-mask-image': suffix.replace(/_/g, ' ') })],
-      [/^bg-dotted-\[(.*)\]$/, ([, color], { theme }) => {
-        const parsedColor = parseColor(color, theme)
-        // Util usage: https://github.com/unocss/unocss/blob/f57ef6ae50006a92f444738e50f3601c0d1121f2/packages-presets/preset-mini/src/_utils/utilities.ts#L186
-        return {
-          'background-image': `radial-gradient(circle at 1px 1px, ${colorToString(parsedColor?.cssColor ?? parsedColor?.color ?? color, 'var(--un-background-opacity)')} 1px, transparent 0)`,
-          '--un-background-opacity': parsedColor?.cssColor?.alpha ?? parsedColor?.alpha ?? 1,
-        }
-      }],
-      [/drag-region/, () => ({ 'app-region': 'drag' })],
-    ],
     theme: {
-      fontFamily: {
-        'sans': `"DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
-        'sans-rounded': `"Comfortaa Variable", "Comfortaa", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
-        'cute': `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
-        'cuteen': `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
-        'cutejp': `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
-      },
       /**
        * https://github.com/unocss/unocss/blob/1031312057a3bea1082b7d938eb2ad640f57613a/packages-presets/preset-wind4/src/theme/animate.ts
        * https://unocss.dev/presets/wind4#transformdirectives
        */
       animation: {
-        keyframes: {
-          overlayShow: '{from{opacity:0;}to{opacity:1;}}',
-          overlayHide: '{from{opacity:1;}to{opacity:0;}}',
-          contentShow: '{from:{opacity:0;transform:translate(-50%,-48%) scale(0.96);}to:{opacity:1;transform:translate(-50%,-50%) scale(1);}}',
-          contentHide: '{from:{opacity:1;transform:translate(-50%,-50%) scale(1);}to:{opacity:0;transform:translate(-50%,-48%) scale(0.96);}}',
-          slideUpAndFade: '{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}',
-          slideRightAndFade: '{from{opacity:0;transform:translateX(-2px)}to{opacity:1;transform:translateX(0)}}',
-          slideDownAndFade: '{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}',
-          slideLeftAndFade: '{from{opacity:0;transform:translateX(2px)}to{opacity:1;transform:translateX(0)}}',
-          fadeIn: '{from{opacity:0;}to{opacity:1;}}',
-          fadeOut: '{from{opacity:1;}to{opacity:0;}}',
-          cameraFlash: '{0%{opacity:0; background-color:white;}10%{opacity:1; background-color:white;}100%{opacity:0; background-color:white;}}',
-        },
         durations: {
-          overlayShow: '300ms',
-          overlayHide: '300ms',
-          contentShow: '150ms',
+          cameraFlash: '400ms',
           contentHide: '150ms',
-          slideUpAndFade: '400ms',
-          slideRightAndFade: '400ms',
-          slideDownAndFade: '400ms',
-          slideLeftAndFade: '400ms',
+          contentShow: '150ms',
           fadeIn: '200ms',
           fadeOut: '200ms',
-          cameraFlash: '400ms',
+          overlayHide: '300ms',
+          overlayShow: '300ms',
+          slideDownAndFade: '400ms',
+          slideLeftAndFade: '400ms',
+          slideRightAndFade: '400ms',
+          slideUpAndFade: '400ms',
+        },
+        keyframes: {
+          cameraFlash:
+            '{0%{opacity:0; background-color:white;}10%{opacity:1; background-color:white;}100%{opacity:0; background-color:white;}}',
+          contentHide:
+            '{from:{opacity:1;transform:translate(-50%,-50%) scale(1);}to:{opacity:0;transform:translate(-50%,-48%) scale(0.96);}}',
+          contentShow:
+            '{from:{opacity:0;transform:translate(-50%,-48%) scale(0.96);}to:{opacity:1;transform:translate(-50%,-50%) scale(1);}}',
+          fadeIn: '{from{opacity:0;}to{opacity:1;}}',
+          fadeOut: '{from{opacity:1;}to{opacity:0;}}',
+          overlayHide: '{from{opacity:1;}to{opacity:0;}}',
+          overlayShow: '{from{opacity:0;}to{opacity:1;}}',
+          slideDownAndFade: '{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}',
+          slideLeftAndFade: '{from{opacity:0;transform:translateX(2px)}to{opacity:1;transform:translateX(0)}}',
+          slideRightAndFade: '{from{opacity:0;transform:translateX(-2px)}to{opacity:1;transform:translateX(0)}}',
+          slideUpAndFade: '{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}',
         },
         timingFns: {
-          overlayShow: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          overlayHide: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          contentShow: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          cameraFlash: 'ease-out',
           contentHide: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          slideUpAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          slideRightAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          slideDownAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          slideLeftAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          contentShow: 'cubic-bezier(0.16, 1, 0.3, 1)',
           fadeIn: 'ease-in-out',
           fadeOut: 'ease-in-out',
-          cameraFlash: 'ease-out',
+          overlayHide: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          overlayShow: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          slideDownAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          slideLeftAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          slideRightAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          slideUpAndFade: 'cubic-bezier(0.16, 1, 0.3, 1)',
         },
       },
+      fontFamily: {
+        cute: `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
+        cuteen: `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
+        cutejp: `"Sniglet", "Kiwi Maru", "Comfortaa Variable", "Comfortaa", "xiaolai", "DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
+        sans: `"DM Sans Variant", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
+        'sans-rounded': `"Comfortaa Variable", "Comfortaa", "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";`,
+      },
     },
+    transformers: [
+      transformerDirectives({
+        applyVariable: ['--at-apply'],
+      }),
+      transformerVariantGroup(),
+    ],
   })
 }
 
 export function histoireUnoConfig() {
   return defineConfig({
-    presets: [
-      presetStoryMockHover(),
-    ],
+    presets: [presetStoryMockHover()],
   })
 }
 
-export default mergeConfigs([
-  sharedUnoConfig(),
-  histoireUnoConfig(),
-])
+export default mergeConfigs([sharedUnoConfig(), histoireUnoConfig()])

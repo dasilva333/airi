@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { TextSplitter, Timeline } from 'animejs'
-
 import { useLocalStorage } from '@vueuse/core'
+import type { TextSplitter, Timeline } from 'animejs'
 import { onMounted, shallowRef, useTemplateRef, watchEffect } from 'vue'
 
 const animatedText = useTemplateRef('animatedText')
@@ -14,31 +13,34 @@ onMounted(async () => {
   const { createTimeline, stagger, text } = await import('animejs')
 
   const { chars } = text.split(animatedText.value!, {
-    chars: { wrap: 'clip', clone: 'bottom' },
     accessible: true,
+    chars: { clone: 'bottom', wrap: 'clip' },
   })
   animatedChars.value = chars
 
   timeline.value = createTimeline({
+    defaults: { duration: 650, ease: 'inOut(3)' },
     loop: true,
-    defaults: { ease: 'inOut(3)', duration: 650 },
   })
-    .add(chars, {
-      y: '-100%',
-      opacity: [1, 0, 1],
-      loop: true,
-      loopDelay: 350,
-      duration: 1000,
-      ease: 'inOut(2)',
-    }, stagger(150, { from: 'random' }))
+    .add(
+      chars,
+      {
+        duration: 1000,
+        ease: 'inOut(2)',
+        loop: true,
+        loopDelay: 350,
+        opacity: [1, 0, 1],
+        y: '-100%',
+      },
+      stagger(150, { from: 'random' }),
+    )
     .reset()
 })
 
 watchEffect(() => {
   if (shouldReduceMotion.value) {
     timeline.value?.reset()
-  }
-  else {
+  } else {
     timeline.value?.play()
   }
 })

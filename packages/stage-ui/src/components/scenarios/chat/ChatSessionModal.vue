@@ -16,18 +16,15 @@ const { activeCardId } = storeToRefs(airiCardStore)
 const { activeSessionId } = storeToRefs(chatSessionStore)
 
 const characterSessions = computed(() => {
-  if (!activeCardId.value)
-    return []
+  if (!activeCardId.value) return []
   const characterIndex = chatSessionStore.getCharacterIndex(activeCardId.value)
-  if (!characterIndex)
-    return []
+  if (!characterIndex) return []
 
   return Object.values(characterIndex.sessions).sort((a, b) => b.updatedAt - a.updatedAt)
 })
 
 async function handleCreateSession() {
-  if (!activeCardId.value)
-    return
+  if (!activeCardId.value) return
   await chatSessionStore.createSession(activeCardId.value)
   showDialog.value = false
 }
@@ -38,8 +35,7 @@ function handleSelectSession(sessionId: string) {
 }
 
 async function handleDeleteSession(sessionId: string) {
-  if (characterSessions.value.length <= 1)
-    return
+  if (characterSessions.value.length <= 1) return
 
   await chatSessionStore.deleteSession(sessionId)
 }
@@ -56,8 +52,7 @@ function handleStartEdit(sessionId: string, currentTitle?: string) {
 }
 
 function handleSaveTitle(sessionId: string) {
-  if (!editText.value.trim())
-    return
+  if (!editText.value.trim()) return
 
   const meta = chatSessionStore.sessionMetas[sessionId]
   if (meta) {

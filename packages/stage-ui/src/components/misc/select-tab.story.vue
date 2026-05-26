@@ -8,19 +8,19 @@ const locked = ref<'auto' | 'manual'>('auto')
 
 const focusOptions = [
   {
+    icon: 'i-solar:widget-2-line-duotone',
     label: 'Mode 1',
     value: 'mode-1' as const,
-    icon: 'i-solar:widget-2-line-duotone',
   },
   {
+    icon: 'i-solar:menu-dots-line-duotone',
     label: 'Mode 2',
     value: 'mode-2' as const,
-    icon: 'i-solar:menu-dots-line-duotone',
   },
   {
+    icon: 'i-solar:atoms-line-duotone',
     label: 'Mode 3',
     value: 'mode-3' as const,
-    icon: 'i-solar:atoms-line-duotone',
   },
 ]
 

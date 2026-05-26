@@ -1,7 +1,6 @@
+import { generateText } from '@xsai/generate-text'
 import type { CommonRequestOptions } from '@xsai/shared'
 import type { Message } from '@xsai/shared-chat'
-
-import { generateText } from '@xsai/generate-text'
 import { message } from '@xsai/utils-chat'
 
 import * as v from 'valibot'
@@ -31,35 +30,25 @@ export function stripMarkdown(content: string): string {
 /**
  * Generates a structured object from an LLM with automatic repair and normalization.
  */
-export async function generateObject<T>(
-  options: StructuredOutputOptions<T>,
-  attempt = 1,
-): Promise<T> {
-  const {
-    messages,
-    model,
-    apiKey,
-    baseURL,
-    schema,
-    maxAttempts = 3,
-    normalize,
-    ...llmOptions
-  } = options
+export async function generateObject<T>(options: StructuredOutputOptions<T>, attempt = 1): Promise<T> {
+  const { messages, model, apiKey, baseURL, schema, maxAttempts = 3, normalize, ...llmOptions } = options
 
   // Append schema instructions on the first attempt if not present
   if (attempt === 1) {
     const schemaDesc = JSON.stringify(schema, null, 2)
-    messages.push(message.user(`Your response MUST be a valid JSON object matching this schema:
+    messages.push(
+      message.user(`Your response MUST be a valid JSON object matching this schema:
 ${schemaDesc}
 
-Output raw JSON only. Do not include markdown backticks or any preamble/postamble.`))
+Output raw JSON only. Do not include markdown backticks or any preamble/postamble.`),
+    )
   }
 
   const response = await generateText({
-    baseURL: baseURL as `${string}/`,
     apiKey: apiKey || '',
-    model,
+    baseURL: baseURL as `${string}/`,
     messages,
+    model,
     ...llmOptions,
   })
 
@@ -69,8 +58,7 @@ Output raw JSON only. Do not include markdown backticks or any preamble/postambl
   let parsed: any
   try {
     parsed = JSON.parse(cleanText)
-  }
-  catch (parseError) {
+  } catch (parseError) {
     console.error('[StructuredOutput] JSON parse failed. Raw response:', rawText)
     if (attempt >= maxAttempts) {
       console.error(`[StructuredOutput] Failed to parse JSON after ${attempt} attempts.`, { rawText })
@@ -78,10 +66,12 @@ Output raw JSON only. Do not include markdown backticks or any preamble/postambl
     }
 
     console.warn(`[StructuredOutput] JSON parse failed (attempt ${attempt}). Repairing...`, parseError)
-    messages.push(message.user(`Your previous response was not valid JSON. 
+    messages.push(
+      message.user(`Your previous response was not valid JSON. 
 Error: ${String(parseError)}
 
-Please provide the corrected JSON object matching the schema. Output raw JSON only.`))
+Please provide the corrected JSON object matching the schema. Output raw JSON only.`),
+    )
 
     return generateObject(options, attempt + 1)
   }
@@ -95,15 +85,20 @@ Please provide the corrected JSON object matching the schema. Output raw JSON on
   const result = v.safeParse(schema, parsed)
   if (!result.success) {
     if (attempt >= maxAttempts) {
-      console.error(`[StructuredOutput] Schema validation failed after ${attempt} attempts.`, { parsed, errors: result.issues })
-      throw new Error(`Schema validation failed: ${result.issues.map(i => i.message).join(', ')}`)
+      console.error(`[StructuredOutput] Schema validation failed after ${attempt} attempts.`, {
+        errors: result.issues,
+        parsed,
+      })
+      throw new Error(`Schema validation failed: ${result.issues.map((i) => i.message).join(', ')}`)
     }
 
     console.warn(`[StructuredOutput] Schema validation failed (attempt ${attempt}). Repairing...`, result.issues)
-    messages.push(message.user(`Your JSON was valid, but did not match the required schema.
+    messages.push(
+      message.user(`Your JSON was valid, but did not match the required schema.
 Issues: ${JSON.stringify(result.issues, null, 2)}
 
-Please provide the corrected JSON object matching the schema.`))
+Please provide the corrected JSON object matching the schema.`),
+    )
 
     return generateObject(options, attempt + 1)
   }

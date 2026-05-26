@@ -4,7 +4,9 @@ import { parseCapViteCliArgs } from './cli'
 
 describe('parseCapViteCliArgs', () => {
   it('splits vite args from cap run args', () => {
-    expect(parseCapViteCliArgs(['--host', '0.0.0.0', '--port', '5173', '--', 'ios', '--target', 'iPhone 16 Pro'])).toEqual({
+    expect(
+      parseCapViteCliArgs(['--host', '0.0.0.0', '--port', '5173', '--', 'ios', '--target', 'iPhone 16 Pro']),
+    ).toEqual({
       capArgs: ['ios', '--target', 'iPhone 16 Pro'],
       viteArgs: ['--host', '0.0.0.0', '--port', '5173'],
     })
@@ -15,7 +17,9 @@ describe('parseCapViteCliArgs', () => {
   })
 
   it('keeps cap run args untouched after double dashes', () => {
-    expect(parseCapViteCliArgs(['--mode', 'release', '--', 'android', '--target', 'emulator-5554', '--flavor', 'release'])).toEqual({
+    expect(
+      parseCapViteCliArgs(['--mode', 'release', '--', 'android', '--target', 'emulator-5554', '--flavor', 'release']),
+    ).toEqual({
       capArgs: ['android', '--target', 'emulator-5554', '--flavor', 'release'],
       viteArgs: ['--mode', 'release'],
     })

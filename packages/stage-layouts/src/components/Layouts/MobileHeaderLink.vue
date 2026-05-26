@@ -2,9 +2,8 @@
 import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { RouterLink } from 'vue-router'
-
-import LogoDark from '../../assets/logo-dark.svg'
 import Logo from '../../assets/logo.svg'
+import LogoDark from '../../assets/logo-dark.svg'
 
 import { BackgroundKind, useBackgroundStore } from '../../stores/background'
 

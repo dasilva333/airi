@@ -43,11 +43,7 @@ export async function* chunkTTSInput(
   input: string | ReaderLike,
   options?: TTSInputChunkOptions,
 ): AsyncGenerator<TTSInputChunk, void, unknown> {
-  const {
-    boost = 2,
-    minimumWords = 4,
-    maximumWords = 12,
-  } = options ?? {}
+  const { boost = 2, minimumWords = 4, maximumWords = 12 } = options ?? {}
 
   const iterator = readGraphemeClusters(
     typeof input === 'string'
@@ -107,8 +103,7 @@ export async function* chunkTTSInput(
               next = undefined
               continue
             }
-          }
-          else if (value === '.') {
+          } else if (value === '.') {
             // trying catch '...' and turn it into U+2026
             next = await iterator.next()
             if (!next.done && next.value && next.value === '.') {
@@ -129,9 +124,9 @@ export async function* chunkTTSInput(
           // Special token without buffered text still needs to be surfaced so
           // downstream queues can process delay/emotion markers.
           yield {
+            reason: 'special',
             text: '',
             words: 0,
-            reason: 'special',
           }
           yieldCount++
           chunkWordsCount = 0
@@ -142,14 +137,14 @@ export async function* chunkTTSInput(
         continue
       }
 
-      const words = [...segmenter.segment(buffer)].filter(w => w.isWordLike)
+      const words = [...segmenter.segment(buffer)].filter((w) => w.isWordLike)
 
       if (chunkWordsCount > minimumWords && chunkWordsCount + words.length > maximumWords) {
         const text = kept ? chunk.trim() + value : chunk.trim()
         yield {
+          reason: 'limit',
           text,
           words: chunkWordsCount,
-          reason: 'limit',
         }
         yieldCount++
         chunk = ''
@@ -163,20 +158,19 @@ export async function* chunkTTSInput(
       if (special) {
         const text = chunk.slice(0, -1).trim()
         yield {
+          reason: 'special',
           text,
           words: chunkWordsCount,
-          reason: 'special',
         }
         yieldCount++
         chunk = ''
         chunkWordsCount = 0
-      }
-      else if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
+      } else if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
         const text = chunk.trim()
         yield {
+          reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
           text,
           words: chunkWordsCount,
-          reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
         }
         yieldCount++
         chunk = ''
@@ -198,16 +192,14 @@ export async function* chunkTTSInput(
           current = afterNext
           next = undefined
           afterNext = undefined
-        }
-        else {
+        } else {
           // Only next had been read
           // This is the case where "x.y" and x is a number but y is not
           // In case 'y' is not just a useless blank. It's OK if 'y' is blank since we have `text = chunk.trim()`
           current = next
           next = undefined
         }
-      }
-      else {
+      } else {
         // No next nor afterNext, so run `iterator.next()`
         current = await iterator.next()
       }
@@ -227,9 +219,9 @@ export async function* chunkTTSInput(
   if (chunk.length > 0 || buffer.length > 0) {
     const text = (chunk + buffer).trim()
     yield {
-      text,
-      words: chunkWordsCount + [...segmenter.segment(buffer)].filter(w => w.isWordLike).length,
       reason: 'flush',
+      text,
+      words: chunkWordsCount + [...segmenter.segment(buffer)].filter((w) => w.isWordLike).length,
     }
   }
 }
@@ -240,10 +232,7 @@ export async function chunkEmitter(
   handler: (ttsSegment: TTSChunkItem) => Promise<void> | void,
 ) {
   const sanitizeChunk = (text: string) =>
-    text
-      .replaceAll(TTS_SPECIAL_TOKEN, '')
-      .replaceAll(TTS_FLUSH_INSTRUCTION, '')
-      .trim()
+    text.replaceAll(TTS_SPECIAL_TOKEN, '').replaceAll(TTS_FLUSH_INSTRUCTION, '').trim()
 
   try {
     for await (const chunk of chunkTTSInput(reader)) {
@@ -253,13 +242,11 @@ export async function chunkEmitter(
         const specialToken = pendingSpecials.shift()
         // console.debug("special yield:", specialToken)
         await handler({ chunk: sanitizeChunk(chunk.text), special: specialToken ?? null })
-      }
-      else {
+      } else {
         await handler({ chunk: sanitizeChunk(chunk.text), special: null } as TTSChunkItem)
       }
     }
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Error chunking stream to TTS queue:', e)
   }
 }

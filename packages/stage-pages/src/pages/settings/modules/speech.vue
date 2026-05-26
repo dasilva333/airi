@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-
 import {
   Alert,
   ErrorContainer,
@@ -12,14 +10,9 @@ import {
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import {
-  FieldCheckbox,
-  FieldInput,
-  FieldRange,
-  Skeleton,
-  Textarea,
-} from '@proj-airi/ui'
+import { FieldCheckbox, FieldInput, FieldRange, Skeleton, Textarea } from '@proj-airi/ui'
 import { generateSpeech } from '@xsai/generate-speech'
+import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -65,15 +58,13 @@ const errorMessage = ref('')
 
 // Sync OpenAI Compatible model and voice from provider config
 function syncOpenAICompatibleSettings() {
-  if (activeSpeechProvider.value !== 'openai-compatible-audio-speech')
-    return
+  if (activeSpeechProvider.value !== 'openai-compatible-audio-speech') return
 
   const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
   // Sync model from provider config (override any existing value from previous provider)
   if (providerConfig?.model) {
     activeSpeechModel.value = providerConfig.model as string
-  }
-  else {
+  } else {
     // If no model in provider config, use default
     activeSpeechModel.value = 'tts-1'
   }
@@ -82,8 +73,7 @@ function syncOpenAICompatibleSettings() {
   if (providerConfig?.voice) {
     activeSpeechVoiceId.value = providerConfig.voice as string
     updateCustomVoiceName(providerConfig.voice as string)
-  }
-  else {
+  } else {
     // If no voice in provider config, use default
     activeSpeechVoiceId.value = 'alloy'
     updateCustomVoiceName('alloy')
@@ -118,13 +108,13 @@ watch(activeSpeechModel, async () => {
 
 // Function to generate speech
 async function generateTestSpeech() {
-  if (!testText.value.trim() && !useSSML.value)
-    return
+  if (!testText.value.trim() && !useSSML.value) return
 
-  if (useSSML.value && !ssmlText.value.trim())
-    return
+  if (useSSML.value && !ssmlText.value.trim()) return
 
-  const provider = await providersStore.getProviderInstance(activeSpeechProvider.value) as SpeechProviderWithExtraOptions<string, any>
+  const provider = (await providersStore.getProviderInstance(
+    activeSpeechProvider.value,
+  )) as SpeechProviderWithExtraOptions<string, any>
   if (!provider) {
     console.error('Failed to initialize speech provider')
     return
@@ -142,13 +132,13 @@ async function generateTestSpeech() {
     }
     if (!voice && providerConfig?.voice) {
       voice = {
-        id: providerConfig.voice as string,
-        name: providerConfig.voice as string,
         description: providerConfig.voice as string,
-        previewURL: '',
-        languages: [{ code: 'en', title: 'English' }],
-        provider: activeSpeechProvider.value,
         gender: 'neutral',
+        id: providerConfig.voice as string,
+        languages: [{ code: 'en', title: 'English' }],
+        name: providerConfig.voice as string,
+        previewURL: '',
+        provider: activeSpeechProvider.value,
       }
     }
   }
@@ -175,7 +165,11 @@ async function generateTestSpeech() {
     const input = useSSML.value
       ? ssmlText.value
       : ssmlEnabled.value && speechStore.supportsSSML
-        ? speechStore.generateSSML(speechStore.transformTextForSpeech(testText.value, activeSpeechProvider.value), voice, { ...providerConfig, pitch: pitch.value })
+        ? speechStore.generateSSML(
+            speechStore.transformTextForSpeech(testText.value, activeSpeechProvider.value),
+            voice,
+            { ...providerConfig, pitch: pitch.value },
+          )
         : speechStore.transformTextForSpeech(testText.value, activeSpeechProvider.value)
 
     const response = await generateSpeech({
@@ -193,12 +187,10 @@ async function generateTestSpeech() {
         audioPlayer.value.play()
       }
     }, 100)
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error generating speech:', error)
     errorMessage.value = error instanceof Error ? error.message : 'An unknown error occurred'
-  }
-  finally {
+  } finally {
     isGenerating.value = false
   }
 }
@@ -231,13 +223,13 @@ function updateCustomVoiceName(value: string | undefined) {
   }
 
   activeSpeechVoice.value = {
-    id: value,
-    name: value,
     description: value,
-    previewURL: value,
-    languages: [{ code: 'en', title: 'English' }],
-    provider: activeSpeechProvider.value,
     gender: 'male',
+    id: value,
+    languages: [{ code: 'en', title: 'English' }],
+    name: value,
+    previewURL: value,
+    provider: activeSpeechProvider.value,
   }
 }
 

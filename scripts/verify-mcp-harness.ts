@@ -9,10 +9,11 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 // From packages/stage-ui/src/stores/modules/live-session.ts (Hardened Logic)
 function mapAiriToolToGemini(tool: any): Record<string, unknown> {
-  const params = tool.function.parameters ? JSON.parse(JSON.stringify(tool.function.parameters)) : { type: 'object', properties: {} }
+  const params = tool.function.parameters
+    ? JSON.parse(JSON.stringify(tool.function.parameters))
+    : { properties: {}, type: 'object' }
   const cleanSchema = (obj: any) => {
-    if (!obj || typeof obj !== 'object')
-      return
+    if (!obj || typeof obj !== 'object') return
     delete obj.$schema
     delete obj.additionalProperties
     if (obj.properties) {
@@ -23,13 +24,11 @@ function mapAiriToolToGemini(tool: any): Record<string, unknown> {
     }
   }
   cleanSchema(params)
-  if (params.type !== 'object')
-    params.type = 'object'
-  if (!params.properties)
-    params.properties = {}
+  if (params.type !== 'object') params.type = 'object'
+  if (!params.properties) params.properties = {}
   return {
-    name: tool.function.name,
     description: tool.function.description || '',
+    name: tool.function.name,
     parameters: params,
   }
 }
@@ -51,8 +50,8 @@ async function runHarness() {
   console.log(`[Harness] Starting archivist server: ${archivistConfig.command} ${archivistConfig.args.join(' ')}`)
 
   const transport = new StdioClientTransport({
-    command: archivistConfig.command,
     args: archivistConfig.args,
+    command: archivistConfig.command,
     env: archivistConfig.env,
   })
 
@@ -70,12 +69,12 @@ async function runHarness() {
     const response = await client.listTools()
 
     // Convert to project's McpToolDescriptor format
-    const descriptors = response.tools.map(t => ({
-      serverName: 'archivist',
-      name: `archivist::${t.name}`,
-      toolName: t.name,
+    const descriptors = response.tools.map((t) => ({
       description: t.description,
       inputSchema: t.inputSchema,
+      name: `archivist::${t.name}`,
+      serverName: 'archivist',
+      toolName: t.name,
     }))
 
     console.log(`[Harness] Found ${descriptors.length} tools.`)
@@ -84,14 +83,14 @@ async function runHarness() {
     // We'll just create a mock AIRI tool object for mcp_list_tools itself first
     const mcpListToolsAiri = {
       function: {
-        name: 'mcp_list_tools',
         description: 'List all tools available on the connected MCP servers',
+        name: 'mcp_list_tools',
         parameters: {
-          type: 'object',
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          additionalProperties: false,
           properties: {},
           required: [],
-          additionalProperties: false,
-          $schema: 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
         },
       },
     }
@@ -103,31 +102,27 @@ async function runHarness() {
 
     // 4. Test calling an actual tool
     const targetToolName = 'catalog_list' // Raw name as returned by server
-    const hasCatalogList = descriptors.some(t => t.toolName === targetToolName)
+    const hasCatalogList = descriptors.some((t) => t.toolName === targetToolName)
 
     if (hasCatalogList) {
       console.log(`\n[Harness] --- VERIFICATION: Calling ${targetToolName} ---`)
       try {
         const result = await client.callTool({
-          name: targetToolName,
           arguments: {}, // Assuming catalog_list takes no mandatory args or we just test empty
+          name: targetToolName,
         })
         console.log('[Harness] Call Result:', JSON.stringify(result, null, 2))
-      }
-      catch (callErr) {
+      } catch (callErr) {
         console.error(`[Harness] Call Error on ${targetToolName}:`, callErr)
       }
-    }
-    else {
+    } else {
       console.log(`\n[Harness] Tool '${targetToolName}' not found on server. Cannot test execution.`)
     }
 
     console.log('\n[Harness] All verification steps completed successfully!')
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[Harness] Error:', err)
-  }
-  finally {
+  } finally {
     await client.close()
   }
 }

@@ -1,7 +1,15 @@
+import { dirname, resolve } from 'node:path'
+import { env } from 'node:process'
+import { fileURLToPath } from 'node:url'
+import { is } from '@electron-toolkit/utils'
+import { defu } from 'defu'
 import type { Rectangle } from 'electron'
+import { BrowserWindow, ipcMain, screen, shell } from 'electron'
+import { debounce, throttle } from 'es-toolkit'
 import type { InferOutput } from 'valibot'
-
+import icon from '../../../../resources/icon.png?asset'
 import type { globalAppConfigSchema } from '../../configs/global'
+import { baseUrl, load } from '../../libs/electron/location'
 import type { Config } from '../../libs/electron/persistence'
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
@@ -10,22 +18,9 @@ import type { AutoUpdater } from '../../services/electron/auto-updater'
 import type { NoticeWindowManager } from '../notice'
 import type { OnboardingWindowManager } from '../onboarding'
 import type { SettingsWindowManager } from '../settings'
-import type { WidgetsWindowManager } from '../widgets'
-
-import { dirname, resolve } from 'node:path'
-import { env } from 'node:process'
-import { fileURLToPath } from 'node:url'
-
-import { is } from '@electron-toolkit/utils'
-import { defu } from 'defu'
-import { BrowserWindow, ipcMain, screen, shell } from 'electron'
-import { debounce, throttle } from 'es-toolkit'
-
-import icon from '../../../../resources/icon.png?asset'
-
-import { baseUrl, load } from '../../libs/electron/location'
 import { transparentWindowConfig } from '../shared'
 import { ensureWindowInVisibleBounds } from '../shared/display'
+import type { WidgetsWindowManager } from '../widgets'
 import { setupMainWindowElectronInvokes } from './rpc/index.electron'
 
 export async function setupMainWindow(params: {
@@ -41,21 +36,24 @@ export async function setupMainWindow(params: {
   onboardingWindowManager: OnboardingWindowManager
   appConfig: Config<typeof globalAppConfigSchema>
 }) {
-  const getConfig = (): InferOutput<typeof globalAppConfigSchema> => params.appConfig.get() ?? { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' }
+  const getConfig = (): InferOutput<typeof globalAppConfigSchema> =>
+    params.appConfig.get() ?? { language: 'en', microphoneToggleHotkey: 'Scroll', windows: [] }
   const updateConfig = (newData: InferOutput<typeof globalAppConfigSchema>) => params.appConfig.update(newData)
 
   const mainWindowConfig = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
   const orientation = mainWindowConfig?.orientation || 'vertical'
-  let width = mainWindowConfig?.width ?? mainWindowConfig?.snapshot?.width ?? (orientation === 'vertical' ? 56.0 : 300.0)
-  let height = mainWindowConfig?.height ?? mainWindowConfig?.snapshot?.height ?? (orientation === 'vertical' ? 300.0 : 56.0)
+  let width =
+    mainWindowConfig?.width ?? mainWindowConfig?.snapshot?.width ?? (orientation === 'vertical' ? 56.0 : 300.0)
+  let height =
+    mainWindowConfig?.height ?? mainWindowConfig?.snapshot?.height ?? (orientation === 'vertical' ? 300.0 : 56.0)
   let x = mainWindowConfig?.x ?? mainWindowConfig?.snapshot?.x
   let y = mainWindowConfig?.y ?? mainWindowConfig?.snapshot?.y
   if (x !== undefined && y !== undefined) {
     const valid = ensureWindowInVisibleBounds({
+      height: Math.round(height),
+      width: Math.round(width),
       x: Math.round(x),
       y: Math.round(y),
-      width: Math.round(width),
-      height: Math.round(height),
     })
     x = valid.x
     y = valid.y
@@ -64,19 +62,19 @@ export async function setupMainWindow(params: {
   }
 
   const window = new BrowserWindow({
-    title: 'AIRI',
-    width,
+    alwaysOnTop: true,
     height,
-    x,
-    y,
-    show: false,
     icon,
+    show: false,
+    title: 'AIRI',
+    type: 'panel',
     webPreferences: {
       preload: resolve(dirname(fileURLToPath(import.meta.url)), '../preload/index.cjs'),
       sandbox: true,
     },
-    type: 'panel',
-    alwaysOnTop: true,
+    width,
+    x,
+    y,
     ...transparentWindowConfig(),
   })
 
@@ -101,9 +99,15 @@ export async function setupMainWindow(params: {
   if (is.dev || env.MAIN_APP_DEBUG || env.APP_DEBUG) {
     try {
       window.webContents.openDevTools({ mode: 'detach' })
-    }
-    catch {}
+    } catch {}
   }
+
+  // Always allow F12 to toggle dev tools, regardless of build mode
+  window.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      window.webContents.toggleDevTools()
+    }
+  })
 
   function restoreBounds() {
     const mainWindow = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'main')
@@ -114,10 +118,10 @@ export async function setupMainWindow(params: {
     const height = mainWindow?.height ?? (orientation === 'vertical' ? 300.0 : 56.0)
     if (x !== undefined && y !== undefined) {
       const valid = ensureWindowInVisibleBounds({
+        height: Math.round(height),
+        width: Math.round(width),
         x: Math.round(x),
         y: Math.round(y),
-        width: Math.round(width),
-        height: Math.round(height),
       })
       window.setBounds(valid)
     }
@@ -138,22 +142,21 @@ export async function setupMainWindow(params: {
   load(window, baseUrl(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'renderer')))
 
   await setupMainWindowElectronInvokes({
-    window,
-    settingsWindow: params.settingsWindow,
-    chatWindow: params.chatWindow,
-    widgetsManager: params.widgetsManager,
-    noticeWindow: params.noticeWindow,
-    autoUpdater: params.autoUpdater,
-    serverChannel: params.serverChannel,
-    mcpStdioManager: params.mcpStdioManager,
-    i18n: params.i18n,
-    onboardingWindowManager: params.onboardingWindowManager,
     appConfig: params.appConfig,
+    autoUpdater: params.autoUpdater,
+    chatWindow: params.chatWindow,
+    i18n: params.i18n,
+    mcpStdioManager: params.mcpStdioManager,
+    noticeWindow: params.noticeWindow,
+    onboardingWindowManager: params.onboardingWindowManager,
+    serverChannel: params.serverChannel,
+    settingsWindow: params.settingsWindow,
+    widgetsManager: params.widgetsManager,
+    window,
   })
 
   function handleNewBounds(newBounds: Rectangle) {
-    if (window.isDestroyed())
-      return
+    if (window.isDestroyed()) return
 
     const config = getConfig()
     if (!config.windows || !Array.isArray(config.windows)) {
@@ -189,8 +192,7 @@ export async function setupMainWindow(params: {
       if (orientation === 'vertical') {
         savedX = newBounds.x + (placement === 'left' ? 268 : 0)
         savedY = newBounds.y + (newBounds.height - stripLength) / 2
-      }
-      else {
+      } else {
         savedX = newBounds.x + (newBounds.width - stripLength) / 2
         savedY = newBounds.y + (placement === 'top' ? 280 : 0)
       }
@@ -198,26 +200,28 @@ export async function setupMainWindow(params: {
 
     if (existingConfigIndex === -1) {
       const newWin = {
-        title: 'AIRI',
-        tag: 'main',
-        x: Math.round(savedX),
-        y: Math.round(savedY),
-        width: Math.round(savedW),
         height: Math.round(savedH),
         orientation,
+        tag: 'main',
+        title: 'AIRI',
+        width: Math.round(savedW),
+        x: Math.round(savedX),
+        y: Math.round(savedY),
       }
       config.windows.push(newWin)
       ;(window as any).__airi_config = newWin
-    }
-    else {
+    } else {
       const currentConfig = config.windows[existingConfigIndex]
-      const updatedWin = defu({
-        x: Math.round(savedX),
-        y: Math.round(savedY),
-        width: Math.round(savedW),
-        height: Math.round(savedH),
-        orientation,
-      }, currentConfig)
+      const updatedWin = defu(
+        {
+          height: Math.round(savedH),
+          orientation,
+          width: Math.round(savedW),
+          x: Math.round(savedX),
+          y: Math.round(savedY),
+        },
+        currentConfig,
+      )
       config.windows[existingConfigIndex] = updatedWin
       ;(window as any).__airi_config = updatedWin
     }
@@ -229,8 +233,7 @@ export async function setupMainWindow(params: {
   const throttledHandleNewBounds = throttle(handleNewBounds, 200)
 
   const debouncedSnap = debounce(() => {
-    if (window.isDestroyed())
-      return
+    if (window.isDestroyed()) return
 
     const bounds = window.getBounds()
     const display = screen.getDisplayMatching(bounds)
@@ -251,10 +254,7 @@ export async function setupMainWindow(params: {
       displayBounds.x,
       displayBounds.x + displayBounds.width,
     ]
-    const snapTargetsY = [
-      workArea.y,
-      displayBounds.y,
-    ]
+    const snapTargetsY = [workArea.y, displayBounds.y]
 
     if (isVertical) {
       // Check left edge snap
@@ -272,7 +272,7 @@ export async function setupMainWindow(params: {
       let minDiffRight = Infinity
       let targetRight = bounds.x
       for (const tx of snapTargetsX) {
-        const diff = Math.abs((bounds.x + bounds.width) - tx)
+        const diff = Math.abs(bounds.x + bounds.width - tx)
         if (diff < minDiffRight) {
           minDiffRight = diff
           targetRight = tx - bounds.width
@@ -282,13 +282,11 @@ export async function setupMainWindow(params: {
       if (minDiffLeft <= SNAP_THRESHOLD && minDiffLeft <= minDiffRight) {
         newX = targetLeft
         snapped = true
-      }
-      else if (minDiffRight <= SNAP_THRESHOLD) {
+      } else if (minDiffRight <= SNAP_THRESHOLD) {
         newX = targetRight
         snapped = true
       }
-    }
-    else if (isHorizontal) {
+    } else if (isHorizontal) {
       // Check top edge snap only
       let minDiffTop = Infinity
       let targetTop = bounds.y
@@ -308,10 +306,10 @@ export async function setupMainWindow(params: {
 
     if (snapped && (Math.round(newX) !== bounds.x || Math.round(newY) !== bounds.y)) {
       window.setBounds({
+        height: bounds.height,
+        width: bounds.width,
         x: Math.round(newX),
         y: Math.round(newY),
-        width: bounds.width,
-        height: bounds.height,
       })
     }
   }, 150)

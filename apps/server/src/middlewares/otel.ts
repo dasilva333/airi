@@ -1,8 +1,6 @@
-import type { MiddlewareHandler } from 'hono'
-
-import type { HonoEnv } from '../types/hono'
-
 import { context, SpanStatusCode, trace } from '@opentelemetry/api'
+import type { MiddlewareHandler } from 'hono'
+import type { HonoEnv } from '../types/hono'
 
 const tracer = trace.getTracer('airi-server-hono')
 
@@ -41,16 +39,14 @@ export function otelMiddleware(otelMetrics: {
 
       otelMetrics.httpRequestDuration.record(performance.now() - startTime, {
         'http.request.method': method,
-        'http.route': path,
         'http.response.status_code': status,
+        'http.route': path,
       })
-    }
-    catch (err) {
+    } catch (err) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : 'Unknown error' })
       span.recordException(err instanceof Error ? err : new Error(String(err)))
       throw err
-    }
-    finally {
+    } finally {
       otelMetrics.httpActiveRequests.add(-1, { 'http.request.method': method, 'http.route': path })
       span.end()
     }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { AnimatableObject } from 'animejs'
-
 import { useLocalStorage, useWindowSize } from '@vueuse/core'
+import type { AnimatableObject } from 'animejs'
 import { createAnimatable } from 'animejs'
 import { onMounted, shallowRef, useTemplateRef, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -12,15 +11,11 @@ import homeBackgroundChristmas20251224 from '../assets/home-cover-2025-12-24-bg.
 // cached or erased in dev/prod, causing the mask pattern to not show up.
 import homeBackgroundPatternGhost from '../assets/home-patterns-ghost.svg?no-inline'
 import homeBackgroundPatternLollipop from '../assets/home-patterns-lollipop.svg?no-inline'
+import { isBetweenChristmasAndHalfOfJanuary, isBetweenHalloweenAndHalfOfNovember } from '../composables/date'
 import ParallaxCover from './ParallaxCover.vue'
 import ParallaxCoverChristmas20251224 from './ParallaxCoverChristmas20251224.vue'
 import ParallaxCoverHalloween20251029 from './ParallaxCoverHalloween20251029.vue'
 import Snowfall from './Snowfall.vue'
-
-import {
-  isBetweenChristmasAndHalfOfJanuary,
-  isBetweenHalloweenAndHalfOfNovember,
-} from '../composables/date'
 
 const heroRef = useTemplateRef<HTMLDivElement>('hero')
 
@@ -60,8 +55,7 @@ watch(shouldReduceMotion, (shouldReduceMotion) => {
     if (shouldReduceMotion) {
       window.removeEventListener('mousemove', onMouseMove)
       animateHero(0, 0)
-    }
-    else {
+    } else {
       window.addEventListener('mousemove', onMouseMove)
     }
   }
@@ -69,18 +63,17 @@ watch(shouldReduceMotion, (shouldReduceMotion) => {
 
 onMounted(() => {
   heroAnimatable.value = createAnimatable(heroRef.value!, {
+    ease: EASE,
     x: DURATION,
     y: DURATION,
     z: 0,
-    ease: EASE,
   })
 })
 
 watchEffect((onCleanup) => {
   if (shouldReduceMotion.value) {
     animateHero(0, 0)
-  }
-  else {
+  } else {
     if (!import.meta.env.SSR) {
       window.addEventListener('mousemove', onMouseMove)
       onCleanup(() => {

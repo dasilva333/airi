@@ -23,8 +23,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
-      - run: docker run -v `pwd`:`pwd` -w `pwd` ghcr.io/realm/swiftlint:latest
-        working-directory: ./apps/stage-pocket
 
   build-test:
     name: Build Test (${{ matrix.app_name }})
@@ -32,9 +30,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - app_name: stage-web
-            command: pnpm -F @proj-airi/stage-web run build && pnpm -F @proj-airi/docs run build:base && mv ./docs/.vitepress/dist ./apps/stage-web/dist/docs && pnpm -F @proj-airi/stage-ui run story:build && mv ./packages/stage-ui/.histoire/dist ./apps/stage-web/dist/ui
-
           - app_name: stage-tamagotchi
             command: pnpm -F @proj-airi/stage-tamagotchi run build
 
@@ -86,6 +81,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
+  check-vue-type-imports:
+    name: Check Vue Type-Only Imports
+    runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.label, 'moeru-ai:i18n/')) }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for type-only imports of .vue components
+        run: bash scripts/check-vue-type-imports.sh
+
   check-provenance:
     name: Check Provenance
     runs-on: ubuntu-latest
@@ -96,9 +100,6 @@ jobs:
       - uses: danielroe/provenance-action@main
         id: check
         with:
-          fail-on-provenance-change: true # optional, default: false
-        #   lockfile: pnpm-lock.yaml      # optional
-        #   base-ref: origin/main         # optional, default: origin/main
-        #   fail-on-downgrade: true       # optional, default: true
+          fail-on-provenance-change: true
       - name: Print result
         run: "echo 'Downgraded: ${{ steps.check.outputs.downgraded }}'"

@@ -23,8 +23,7 @@ function initializeWindowBoundsTracking() {
   }
 
   context.on(bounds, (event) => {
-    if (!event || !event.body)
-      return
+    if (!event || !event.body) return
 
     windowBoundsX.value = event.body.x
     windowBoundsY.value = event.body.y
@@ -39,9 +38,9 @@ export function useElectronWindowBounds() {
   initializeWindowBoundsTracking()
 
   return {
+    height: windowBoundsHeight,
+    width: windowBoundsWidth,
     x: windowBoundsX,
     y: windowBoundsY,
-    width: windowBoundsWidth,
-    height: windowBoundsHeight,
   }
 }

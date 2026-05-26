@@ -2,12 +2,7 @@
 import { Button, Callout } from '@proj-airi/ui'
 import { onMounted } from 'vue'
 
-import {
-  HeaderPopup,
-  PreferenceCapture,
-  SettingsConnection,
-  VisualizeLiveVision,
-} from './components'
+import { HeaderPopup, PreferenceCapture, SettingsConnection, VisualizeLiveVision } from './components'
 import { usePopupStore } from './stores'
 
 const popup = usePopupStore()

@@ -1,14 +1,17 @@
-import type { Vector3 } from 'three'
-
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
+import type { Vector3 } from 'three'
 import { ref, watch } from 'vue'
 
 import defaultSkyBoxSrc from '../components/Environment/assets/sky_linekotsi_23_HDRI.hdr?url'
 
 // TODO: this is for future type injection features
 // TODO: make a separate type.ts
-export interface Vec3 { x: number, y: number, z: number }
+export interface Vec3 {
+  x: number
+  y: number
+  z: number
+}
 export type TrackingMode = 'camera' | 'mouse' | 'none'
 export type InteractionMode = 'orbit' | 'tactile'
 export type HexColor = string & { __hex?: true }
@@ -36,25 +39,28 @@ export type ColorField = FieldBase<HexColor> & {
 }
 export type SelectField<T extends string = string> = FieldBase<T> & {
   type: 'select'
-  options: readonly { label: string, value: T }[]
+  options: readonly { label: string; value: T }[]
 }
 
 export interface FieldKindMap {
-  number: { def: NumberField, value: number }
-  vec3: { def: Vec3Field, value: Vector3 }
-  color: { def: ColorField, value: HexColor }
-  select: { def: SelectField<any>, value: string }
+  number: { def: NumberField; value: number }
+  vec3: { def: Vec3Field; value: Vector3 }
+  color: { def: ColorField; value: HexColor }
+  select: { def: SelectField<any>; value: string }
 }
 // type of Field
 export type FieldDef = FieldKindMap[keyof FieldKindMap]['def']
 // type of value
-export type FieldValueOf<D> = D extends SelectField<infer T> ? T
-  : D extends { type: infer K }
-    ? K extends keyof FieldKindMap ? FieldKindMap[K]['value'] : never
-    : never
+export type FieldValueOf<D> =
+  D extends SelectField<infer T>
+    ? T
+    : D extends { type: infer K }
+      ? K extends keyof FieldKindMap
+        ? FieldKindMap[K]['value']
+        : never
+      : never
 
-type BroadcastChannelEvents
-  = | BroadcastChannelEventShouldUpdateView
+type BroadcastChannelEvents = BroadcastChannelEventShouldUpdateView
 
 interface BroadcastChannelEventShouldUpdateView {
   type: 'should-update-view'
@@ -65,7 +71,9 @@ export const useModelStore = defineStore('modelStore', () => {
   const activeVrm = ref<any>(null)
   const activeVrmParser = ref<any>(null)
   const activeVrmIdentity = ref<string>('')
-  const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-live2d' })
+  const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({
+    name: 'airi-stores-live2d',
+  })
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
@@ -76,13 +84,13 @@ export const useModelStore = defineStore('modelStore', () => {
   }
 
   function shouldUpdateView(reason?: string) {
-    post({ type: 'should-update-view', reason })
-    shouldUpdateViewHooks.value.forEach(hook => hook(reason))
+    post({ reason, type: 'should-update-view' })
+    shouldUpdateViewHooks.value.forEach((hook) => hook(reason))
   }
 
   watch(data, (event) => {
     if (event.type === 'should-update-view') {
-      shouldUpdateViewHooks.value.forEach(hook => hook(event.reason))
+      shouldUpdateViewHooks.value.forEach((hook) => hook(event.reason))
     }
   })
 
@@ -143,15 +151,27 @@ export const useModelStore = defineStore('modelStore', () => {
 
   // === Tactile Interaction State ===
   const detectedWardrobe = ref<{
-    active: { display: string, raw: string } | null
-    siblings: { display: string, raw: string }[]
+    active: { display: string; raw: string } | null
+    siblings: { display: string; raw: string }[]
     texIndex: number | null
   }>({ active: null, siblings: [], texIndex: null })
 
   // === Lighting ===
-  const directionalLightPosition = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', { x: 0, y: 0, z: -1 })
-  const directionalLightTarget = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/target', { x: 0, y: 0, z: 0 })
-  const directionalLightRotation = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/rotation', { x: 0, y: 0, z: 0 })
+  const directionalLightPosition = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', {
+    x: 0,
+    y: 0,
+    z: -1,
+  })
+  const directionalLightTarget = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/target', {
+    x: 0,
+    y: 0,
+    z: 0,
+  })
+  const directionalLightRotation = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/rotation', {
+    x: 0,
+    y: 0,
+    z: 0,
+  })
   // TODO: Manual directional light intensity will not work for other
   //       scenes with different lighting setups. But since the model
   //       is possible to have MeshToonMaterial, and MeshBasicMaterial
@@ -164,13 +184,28 @@ export const useModelStore = defineStore('modelStore', () => {
   //             harsh shadows and bright highlights.
   // REVIEW: This is a temporary solution, and will be replaced with
   //         a more flexible lighting system in the future.
-  const directionalLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/intensity', 2.02)
+  const directionalLightIntensity = useLocalStorage(
+    'settings/stage-ui-three/scenes/scene/directional-light/intensity',
+    2.02,
+  )
   // TODO: color are the same
-  const directionalLightColor = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/color', '#fffbf5')
+  const directionalLightColor = useLocalStorage(
+    'settings/stage-ui-three/scenes/scene/directional-light/color',
+    '#fffbf5',
+  )
 
-  const hemisphereSkyColor = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/sky-color', '#FFFFFF')
-  const hemisphereGroundColor = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/ground-color', '#222222')
-  const hemisphereLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/intensity', 0.4)
+  const hemisphereSkyColor = useLocalStorage(
+    'settings/stage-ui-three/scenes/scene/hemisphere-light/sky-color',
+    '#FFFFFF',
+  )
+  const hemisphereGroundColor = useLocalStorage(
+    'settings/stage-ui-three/scenes/scene/hemisphere-light/ground-color',
+    '#222222',
+  )
+  const hemisphereLightIntensity = useLocalStorage(
+    'settings/stage-ui-three/scenes/scene/hemisphere-light/intensity',
+    0.4,
+  )
 
   const ambientLightColor = useLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/color', '#FFFFFF')
   const ambientLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/intensity', 0.6)
@@ -185,58 +220,58 @@ export const useModelStore = defineStore('modelStore', () => {
   const skyBoxIntensity = useLocalStorage('settings/stage-ui-three/skyBoxIntensity', 0.1)
 
   return {
-    scale,
-    lastModelSrc,
-    lastModelIdentity,
+    activeExpressions,
 
-    modelSize,
-    modelOrigin,
-    modelOffset,
-    modelRotationY,
+    activeVrm,
+    activeVrmIdentity,
+    activeVrmParser,
+    ambientLightColor,
+
+    ambientLightIntensity,
+
+    availableExpressions,
+    cameraDistance,
 
     cameraFOV,
     cameraPosition,
-    cameraDistance,
-    interactionMode,
+    detectedWardrobe,
+    directionalLightColor,
+    directionalLightIntensity,
 
     directionalLightPosition,
-    directionalLightTarget,
     directionalLightRotation,
-    directionalLightIntensity,
-    directionalLightColor,
+    directionalLightTarget,
+    emotionMappings,
 
-    ambientLightIntensity,
-    ambientLightColor,
-
-    hemisphereSkyColor,
+    envSelect,
+    eyeHeight,
+    favoriteExpression,
     hemisphereGroundColor,
     hemisphereLightIntensity,
 
+    hemisphereSkyColor,
+    interactionMode,
+    lastModelIdentity,
+    lastModelSrc,
+
     lookAtTarget,
-    trackingMode,
-    eyeHeight,
-    renderScale,
+    modelOffset,
+    modelOrigin,
+    modelRotationY,
+
+    modelSize,
     multisampling,
 
-    envSelect,
-    skyBoxSrc,
-    skyBoxIntensity,
-
-    availableExpressions,
-    activeExpressions,
-    emotionMappings,
-    favoriteExpression,
-    vrmIdleAnimation,
-    vrmIdleCycleEnabled,
-
-    activeVrm,
-    activeVrmParser,
-    activeVrmIdentity,
-    detectedWardrobe,
-
     onShouldUpdateView,
-    shouldUpdateView,
+    renderScale,
 
     resetModelStore,
+    scale,
+    shouldUpdateView,
+    skyBoxIntensity,
+    skyBoxSrc,
+    trackingMode,
+    vrmIdleAnimation,
+    vrmIdleCycleEnabled,
   }
 })

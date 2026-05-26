@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
 })
 
-const modelValue = defineModel<string>({ required: false, default: '#000000' })
+const modelValue = defineModel<string>({ default: '#000000', required: false })
 
 // Refs
 const colorMapRef = ref<HTMLDivElement>()
@@ -39,16 +39,15 @@ function hexToRgb(hex: string) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? {
-        r: Number.parseInt(result[1], 16) / 255,
-        g: Number.parseInt(result[2], 16) / 255,
         b: Number.parseInt(result[3], 16) / 255,
+        g: Number.parseInt(result[2], 16) / 255,
+        r: Number.parseInt(result[1], 16) / 255,
       }
     : null
 }
 
 function parseColor(color: string) {
-  if (!color)
-    return { h: 0, s: 0, v: 0, a: 1 }
+  if (!color) return { a: 1, h: 0, s: 0, v: 0 }
 
   // Create a temporary element to parse any CSS color
   const temp = document.createElement('div')
@@ -60,18 +59,18 @@ function parseColor(color: string) {
   // Parse rgb/rgba
   const rgbMatch = computed.match(/rgba?\(([^)]+)\)/)
   if (rgbMatch) {
-    const values = rgbMatch[1].split(',').map(v => Number.parseFloat(v.trim()))
+    const values = rgbMatch[1].split(',').map((v) => Number.parseFloat(v.trim()))
     const rgb = {
-      r: values[0] / 255,
-      g: values[1] / 255,
       b: values[2] / 255,
+      g: values[1] / 255,
+      r: values[0] / 255,
     }
     const hsv = convertRgbToHsv(rgb)
     return {
+      a: values[3] !== undefined ? values[3] : 1,
       h: hsv.h || 0,
       s: (hsv.s || 0) * 100,
       v: (hsv.v || 0) * 100,
-      a: values[3] !== undefined ? values[3] : 1,
     }
   }
 
@@ -80,14 +79,14 @@ function parseColor(color: string) {
   if (rgb) {
     const hsv = convertRgbToHsv(rgb)
     return {
+      a: 1,
       h: hsv.h || 0,
       s: (hsv.s || 0) * 100,
       v: (hsv.v || 0) * 100,
-      a: 1,
     }
   }
 
-  return { h: 0, s: 0, v: 0, a: 1 }
+  return { a: 1, h: 0, s: 0, v: 0 }
 }
 
 // Computed values
@@ -100,9 +99,9 @@ const currentColorHsv = computed(() => ({
 const currentColorRgb = computed(() => {
   const rgb = convertHsvToRgb(currentColorHsv.value)
   return {
-    r: Math.round(rgb.r * 255),
-    g: Math.round(rgb.g * 255),
     b: Math.round(rgb.b * 255),
+    g: Math.round(rgb.g * 255),
+    r: Math.round(rgb.r * 255),
   }
 })
 
@@ -141,8 +140,7 @@ const alphaSliderBackground = computed(() => {
 
 // Interaction handlers
 function updateColorFromMap(x: number, y: number) {
-  if (!colorMapRef.value)
-    return
+  if (!colorMapRef.value) return
 
   const rect = colorMapRef.value.getBoundingClientRect()
   const newSaturation = Math.max(0, Math.min(100, (x / rect.width) * 100))
@@ -153,8 +151,7 @@ function updateColorFromMap(x: number, y: number) {
 }
 
 function updateHue(x: number) {
-  if (!hueSliderRef.value)
-    return
+  if (!hueSliderRef.value) return
 
   const rect = hueSliderRef.value.getBoundingClientRect()
   const newHue = Math.max(0, Math.min(360, (x / rect.width) * 360))
@@ -162,8 +159,7 @@ function updateHue(x: number) {
 }
 
 function updateAlpha(x: number) {
-  if (!alphaSliderRef.value)
-    return
+  if (!alphaSliderRef.value) return
 
   const rect = alphaSliderRef.value.getBoundingClientRect()
   const newAlpha = Math.max(0, Math.min(1, x / rect.width))
@@ -172,8 +168,7 @@ function updateAlpha(x: number) {
 
 // Event handlers
 function handleColorMapStart(event: MouseEvent | TouchEvent) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   isDragging.value = true
   dragType.value = 'map'
@@ -187,8 +182,7 @@ function handleColorMapStart(event: MouseEvent | TouchEvent) {
 }
 
 function handleHueStart(event: MouseEvent | TouchEvent) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   isDragging.value = true
   dragType.value = 'hue'
@@ -201,8 +195,7 @@ function handleHueStart(event: MouseEvent | TouchEvent) {
 }
 
 function handleAlphaStart(event: MouseEvent | TouchEvent) {
-  if (props.disabled)
-    return
+  if (props.disabled) return
 
   isDragging.value = true
   dragType.value = 'alpha'
@@ -216,8 +209,7 @@ function handleAlphaStart(event: MouseEvent | TouchEvent) {
 
 // Global event handlers
 function handleGlobalMove(event: MouseEvent | TouchEvent) {
-  if (!isDragging.value)
-    return
+  if (!isDragging.value) return
 
   event.preventDefault()
 
@@ -252,22 +244,25 @@ function handleGlobalEnd() {
 }
 
 // Watch for external color changes
-watch(modelValue, (newValue) => {
-  if (newValue && !isDragging.value) {
-    const parsed = parseColor(newValue)
-    hue.value = parsed.h
-    saturation.value = parsed.s
-    value.value = parsed.v
-    alphaValue.value = parsed.a
-  }
-}, { immediate: true })
+watch(
+  modelValue,
+  (newValue) => {
+    if (newValue && !isDragging.value) {
+      const parsed = parseColor(newValue)
+      hue.value = parsed.h
+      saturation.value = parsed.s
+      value.value = parsed.v
+      alphaValue.value = parsed.a
+    }
+  },
+  { immediate: true },
+)
 
 // Handle cursor during drag
 watch(isDragging, (dragging) => {
   if (dragging) {
     document.body.style.cursor = 'none'
-  }
-  else {
+  } else {
     document.body.style.cursor = ''
   }
 })
@@ -302,9 +297,9 @@ function handleRgbInput(channel: 'r' | 'g' | 'b', val: number) {
   rgb[channel] = Math.max(0, Math.min(255, val))
 
   const hsv = convertRgbToHsv({
-    r: rgb.r / 255,
-    g: rgb.g / 255,
     b: rgb.b / 255,
+    g: rgb.g / 255,
+    r: rgb.r / 255,
   })
 
   hue.value = hsv.h || 0
@@ -330,16 +325,20 @@ function handleAlphaInput(val: number) {
   alphaValue.value = Math.max(0, Math.min(1, val / 100))
 }
 
-watch([hue, saturation, value, alphaValue], () => {
-  const rgb = convertHsvToRgb({
-    h: hue.value,
-    s: saturation.value / 100,
-    v: value.value / 100,
-    alpha: alphaValue.value,
-  })
+watch(
+  [hue, saturation, value, alphaValue],
+  () => {
+    const rgb = convertHsvToRgb({
+      alpha: alphaValue.value,
+      h: hue.value,
+      s: saturation.value / 100,
+      v: value.value / 100,
+    })
 
-  modelValue.value = formatHex8(rgb)
-}, { immediate: true })
+    modelValue.value = formatHex8(rgb)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

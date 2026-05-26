@@ -1,9 +1,7 @@
 import type { DesktopCapturerSource } from 'electron'
-
-import type { SerializableDesktopCapturerSource } from '..'
-
 import { shell, systemPreferences } from 'electron'
 import { isMacOS } from 'std-env'
+import type { SerializableDesktopCapturerSource } from '..'
 
 /**
  * Serializes a DesktopCapturerSource to a format that can be sent over IPC.
@@ -20,10 +18,11 @@ import { isMacOS } from 'std-env'
  */
 export function toSerializableDesktopCapturerSource(source: DesktopCapturerSource): SerializableDesktopCapturerSource {
   return {
+    appIcon:
+      source.appIcon != null && !source.appIcon.isEmpty() ? new Uint8Array(source.appIcon.toPNG().buffer) : undefined,
+    display_id: source.display_id,
     id: source.id,
     name: source.name,
-    display_id: source.display_id,
-    appIcon: source.appIcon != null && !source.appIcon.isEmpty() ? new Uint8Array(source.appIcon.toPNG().buffer) : undefined,
     thumbnail: source.thumbnail != null ? new Uint8Array(source.thumbnail.toJPEG(90).buffer) : undefined,
   }
 }

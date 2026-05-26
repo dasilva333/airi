@@ -24,22 +24,18 @@ function getAvatarUrl(name: string) {
 
 export const contributors = (contributorNames as string[]).reduce((acc, name) => {
   contributorsAvatars[name] = getAvatarUrl(name)
-  acc.push({ name, avatar: contributorsAvatars[name] })
+  acc.push({ avatar: contributorsAvatars[name], name })
   return acc
 }, [] as Contributor[])
 function createLinks(tm: CoreTeam): CoreTeam {
   tm.links = [{ icon: 'github', link: `https://github.com/${tm.github}` }]
-  if (tm.mastodon)
-    tm.links.push({ icon: 'mastodon', link: tm.mastodon })
+  if (tm.mastodon) tm.links.push({ icon: 'mastodon', link: tm.mastodon })
 
-  if (tm.discord)
-    tm.links.push({ icon: 'discord', link: tm.discord })
+  if (tm.discord) tm.links.push({ icon: 'discord', link: tm.discord })
 
-  if (tm.youtube)
-    tm.links.push({ icon: 'youtube', link: `https://www.youtube.com/@${tm.youtube}` })
+  if (tm.youtube) tm.links.push({ icon: 'youtube', link: `https://www.youtube.com/@${tm.youtube}` })
 
-  if (tm.twitter)
-    tm.links.push({ icon: 'twitter', link: `https://twitter.com/${tm.twitter}` })
+  if (tm.twitter) tm.links.push({ icon: 'twitter', link: `https://twitter.com/${tm.twitter}` })
 
   return tm
 }
@@ -47,6 +43,6 @@ function createLinks(tm: CoreTeam): CoreTeam {
 // TODO
 const plainTeamMembers: CoreTeam[] = []
 
-const teamMembers = plainTeamMembers.map(tm => createLinks(tm))
+const teamMembers = plainTeamMembers.map((tm) => createLinks(tm))
 
 export { teamMembers }

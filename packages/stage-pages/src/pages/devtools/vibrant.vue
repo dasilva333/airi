@@ -16,18 +16,23 @@ function handleFileChange(file: File) {
 }
 
 async function handleImageLoad() {
-  if (!image.value)
-    return
+  if (!image.value) return
 
   const vibrant = new Vibrant(image.value)
   const palette = await vibrant.getPalette()
-  colors.value = Object.values(palette).map(color => color?.hex).filter(it => typeof it === 'string')
-  colorsDebug.value = Object.values(palette).map(color => JSON.stringify(color))
+  colors.value = Object.values(palette)
+    .map((color) => color?.hex)
+    .filter((it) => typeof it === 'string')
+  colorsDebug.value = Object.values(palette).map((color) => JSON.stringify(color))
 }
 
-watch(files, (files) => {
-  handleFileChange(files[0])
-}, { deep: true })
+watch(
+  files,
+  (files) => {
+    handleFileChange(files[0])
+  },
+  { deep: true },
+)
 </script>
 
 <template>

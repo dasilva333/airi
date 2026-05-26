@@ -1,11 +1,9 @@
-import type { SiteConfig } from 'vitepress'
-
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { parse } from 'node:path'
 import { env } from 'node:process'
-
 import { dirname, join } from 'pathe'
+import type { SiteConfig } from 'vitepress'
 import { createContentLoader } from 'vitepress'
 
 import { formatDate } from '../utils/utils'
@@ -24,6 +22,7 @@ interface Post {
 }
 
 declare const data: Post[]
+
 export { data }
 
 function cwdFromUrl(url: string): string {
@@ -77,63 +76,68 @@ function withDirname(url?: string, cwd?: string) {
 }
 
 export default createContentLoader('**/blog/**/*.md', {
+  excerpt: true,
   includeSrc: true,
   render: true,
-  excerpt: true,
   async transform(raw): Promise<Post[]> {
-    return (await Promise.all(raw
-      .map(async ({ url, frontmatter, excerpt }) => {
-        const foundLanguage = Object.values(config.userConfig.locales!).find((locale) => {
-          let normalizedLanguagePrefix = locale.lang || 'en'
-          if (!normalizedLanguagePrefix.startsWith('/')) {
-            normalizedLanguagePrefix = `/${normalizedLanguagePrefix}`
+    return (
+      await Promise.all(
+        raw.map(async ({ url, frontmatter, excerpt }) => {
+          const foundLanguage = Object.values(config.userConfig.locales!).find((locale) => {
+            let normalizedLanguagePrefix = locale.lang || 'en'
+            if (!normalizedLanguagePrefix.startsWith('/')) {
+              normalizedLanguagePrefix = `/${normalizedLanguagePrefix}`
+            }
+
+            return url.startsWith(normalizedLanguagePrefix)
+          })
+
+          async function fileToUrl(file: string | undefined) {
+            if (config.vite?.build) return file
+            if (!file) return file
+
+            const parsed = parse(file)
+            try {
+              const hash = createHash('sha256')
+                .update(await readFile(join(config.srcDir, file)))
+                .digest('hex')
+                .slice(0, 8)
+
+              return `/assets/${parsed.name}.${hash}${parsed.ext}`
+            } catch (e) {
+              console.error(`[blog.data.ts] Failed to read file: ${join(config.srcDir, file)}`, e)
+              return file
+            }
           }
 
-          return url.startsWith(normalizedLanguagePrefix)
-        })
+          const previewCoverLight = withBase(
+            await fileToUrl(withDirname(fromAtAssets(frontmatter['preview-cover']?.light), cwdFromUrl(url))),
+            base,
+          )
+          const previewCoverDark = withBase(
+            await fileToUrl(withDirname(fromAtAssets(frontmatter['preview-cover']?.dark), cwdFromUrl(url))),
+            base,
+          )
 
-        async function fileToUrl(file: string | undefined) {
-          if (config.vite?.build)
-            return file
-          if (!file)
-            return file
-
-          const parsed = parse(file)
-          try {
-            const hash = createHash('sha256')
-              .update(await readFile(join(config.srcDir, file)))
-              .digest('hex')
-              .slice(0, 8)
-
-            return `/assets/${parsed.name}.${hash}${parsed.ext}`
-          }
-          catch (e) {
-            console.error(`[blog.data.ts] Failed to read file: ${join(config.srcDir, file)}`, e)
-            return file
-          }
-        }
-
-        const previewCoverLight = withBase(await fileToUrl(withDirname(fromAtAssets(frontmatter['preview-cover']?.light), cwdFromUrl(url))), base)
-        const previewCoverDark = withBase(await fileToUrl(withDirname(fromAtAssets(frontmatter['preview-cover']?.dark), cwdFromUrl(url))), base)
-
-        const res = {
-          title: frontmatter.title,
-          url,
-          urlWithoutLang: url.replace(`/${foundLanguage?.lang || 'en'}`, ''),
-          excerpt,
-          date: formatDate(frontmatter.date),
-          lang: foundLanguage?.lang || 'en',
-          frontmatter: {
-            ...frontmatter,
-            'preview-cover': {
-              light: previewCoverLight,
-              dark: previewCoverDark,
+          const res = {
+            date: formatDate(frontmatter.date),
+            excerpt,
+            frontmatter: {
+              ...frontmatter,
+              'preview-cover': {
+                dark: previewCoverDark,
+                light: previewCoverLight,
+              },
             },
-          },
-        }
+            lang: foundLanguage?.lang || 'en',
+            title: frontmatter.title,
+            url,
+            urlWithoutLang: url.replace(`/${foundLanguage?.lang || 'en'}`, ''),
+          }
 
-        return res
-      })))
-      .sort((a, b) => b.date.time - a.date.time)
+          return res
+        }),
+      )
+    ).sort((a, b) => b.date.time - a.date.time)
   },
 })

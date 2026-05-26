@@ -5,9 +5,7 @@ import { onMounted, ref } from 'vue'
 
 import { useStickersStore } from '../../../stores/stickers'
 
-const emit = defineEmits<{
-  (e: 'spawn-standalone', id: string): void
-}>()
+const emit = defineEmits<(e: 'spawn-standalone', id: string) => void>()
 const stickersStore = useStickersStore()
 const { currentLibrary, standaloneMode } = storeToRefs(stickersStore)
 const fileInput = ref<HTMLInputElement>()
@@ -32,8 +30,7 @@ onMounted(() => {
 
 async function handleFileUpload(e: Event) {
   const files = (e.target as HTMLInputElement).files
-  if (!files)
-    return
+  if (!files) return
 
   for (const file of Array.from(files)) {
     try {
@@ -42,8 +39,7 @@ async function handleFileUpload(e: Event) {
       if (url) {
         previews.value[id] = url
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error('Failed to upload sticker:', err)
     }
   }
@@ -56,8 +52,7 @@ async function handleFileUpload(e: Event) {
 function spawn(id: string) {
   if (standaloneMode.value) {
     emit('spawn-standalone', id)
-  }
-  else {
+  } else {
     stickersStore.spawnSticker(id, { duration: 60 })
   }
 }

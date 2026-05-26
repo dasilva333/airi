@@ -1,11 +1,9 @@
-import type { Discord } from '@proj-airi/server-shared/types'
-import type { Interaction } from 'discord.js'
-
 import { env } from 'node:process'
-
 import { useLogg } from '@guiiai/logg'
 import { Client as ServerChannel } from '@proj-airi/server-sdk'
+import type { Discord } from '@proj-airi/server-shared/types'
 import { ContextUpdateStrategy } from '@proj-airi/server-shared/types'
+import type { Interaction } from 'discord.js'
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js'
 
 import { handlePing, registerCommands, VoiceManager } from '../bots/discord/commands'
@@ -26,28 +24,27 @@ interface DiscordConfig {
 
 // Type guard to safely validate the configuration object
 function isDiscordConfig(config: unknown): config is DiscordConfig {
-  if (typeof config !== 'object' || config === null)
-    return false
+  if (typeof config !== 'object' || config === null) return false
   const c = config as Record<string, unknown>
-  return (typeof c.token === 'string' || typeof c.token === 'undefined')
-    && (typeof c.enabled === 'boolean' || typeof c.enabled === 'undefined')
+  return (
+    (typeof c.token === 'string' || typeof c.token === 'undefined') &&
+    (typeof c.enabled === 'boolean' || typeof c.enabled === 'undefined')
+  )
 }
 
 function normalizeDiscordMetadata(discord?: Discord): Discord | undefined {
-  if (!discord)
-    return undefined
+  if (!discord) return undefined
 
-  if (!discord.guildMember)
-    return discord
+  if (!discord.guildMember) return discord
 
   const { guildMember } = discord
 
   return {
     ...discord,
     guildMember: {
+      displayName: guildMember.displayName ?? guildMember.nickname ?? '',
       id: guildMember.id ?? guildMember.displayName ?? guildMember.nickname ?? '',
       nickname: guildMember.nickname ?? guildMember.displayName ?? '',
-      displayName: guildMember.displayName ?? guildMember.nickname ?? '',
     },
   }
 }
@@ -77,6 +74,12 @@ export class DiscordAdapter {
     // Initialize AIRI client
     this.airiClient = new ServerChannel({
       name: 'discord',
+      onClose: () => {
+        log.warn('Disconnected from AIRI server')
+      },
+      onError: (err) => {
+        log.withError(err).error('AIRI connection error')
+      },
       possibleEvents: [
         'input:text',
         'input:text:voice',
@@ -86,12 +89,6 @@ export class DiscordAdapter {
       ],
       token: config.airiToken,
       url: config.airiUrl,
-      onError: (err) => {
-        log.withError(err).error('AIRI connection error')
-      },
-      onClose: () => {
-        log.warn('Disconnected from AIRI server')
-      },
     })
 
     this.voiceManager = new VoiceManager(this.discordClient, this.airiClient)
@@ -102,8 +99,7 @@ export class DiscordAdapter {
     this.airiClient.onEvent('module:authenticated', async (event) => {
       if (event.data.authenticated) {
         log.log('Successfully authenticated with AIRI server.')
-      }
-      else {
+      } else {
         log.error('Failed to authenticate with AIRI server.')
       }
     })
@@ -151,21 +147,18 @@ export class DiscordAdapter {
             await this.discordClient.login(this.discordToken)
             log.log('Discord client connected.')
           }
-        }
-        else {
+        } else {
           log.warn('Invalid Discord configuration received, skipping...')
         }
-      }
-      catch (error) {
+      } catch (error) {
         log.withError(error as Error).error('Failed to apply Discord configuration.')
-      }
-      finally {
+      } finally {
         this.isReconnecting = false
       }
     })
 
     this.airiClient.onEvent('registry:modules:sync', (event) => {
-      log.log('Module registry synced. Active modules:', event.data.modules.map(m => m.name).join(', '))
+      log.log('Module registry synced. Active modules:', event.data.modules.map((m) => m.name).join(', '))
     })
 
     // Handle input from AIRI system
@@ -188,14 +181,15 @@ export class DiscordAdapter {
         const discordContext = data['gen-ai:chat']?.input?.data?.discord || data.discord
 
         if (message?.content && discordContext?.channelId) {
-          log.log(`Forwarding response to Discord channel ${discordContext.channelId}: "${message.content.slice(0, 100)}${message.content.length > 100 ? '...' : ''}"`)
+          log.log(
+            `Forwarding response to Discord channel ${discordContext.channelId}: "${message.content.slice(0, 100)}${message.content.length > 100 ? '...' : ''}"`,
+          )
           const channel = await this.discordClient.channels.fetch(discordContext.channelId)
           if (channel?.isTextBased() && 'send' in channel && typeof (channel as any).send === 'function') {
             const content = message.content
             if (content.length <= 2000) {
               await channel.send(content)
-            }
-            else {
+            } else {
               let remaining = content
               while (remaining.length > 0) {
                 let chunkSize = 2000
@@ -204,12 +198,10 @@ export class DiscordAdapter {
                   const lastNewline = remaining.lastIndexOf('\n', 2000)
                   if (lastNewline > -1) {
                     chunkSize = lastNewline
-                  }
-                  else {
+                  } else {
                     // Fallback to last space
                     const lastSpace = remaining.lastIndexOf(' ', 2000)
-                    if (lastSpace > -1)
-                      chunkSize = lastSpace
+                    if (lastSpace > -1) chunkSize = lastSpace
                   }
                 }
 
@@ -220,8 +212,7 @@ export class DiscordAdapter {
             }
           }
         }
-      }
-      catch (error) {
+      } catch (error) {
         log.withError(error as Error).error('Failed to send response to Discord')
       }
     })
@@ -234,8 +225,7 @@ export class DiscordAdapter {
       if (guildId) {
         log.log(`Registering commands for guild: ${guildId}`)
         await registerCommands(this.discordToken, readyClient.user.id, guildId)
-      }
-      else {
+      } else {
         log.log('Registering global commands. Note: This may take up to an hour to propagate.')
         await registerCommands(this.discordToken, readyClient.user.id)
       }
@@ -243,8 +233,7 @@ export class DiscordAdapter {
 
     // Handle text messages from Discord
     this.discordClient.on(Events.MessageCreate, async (message) => {
-      if (message.author.bot)
-        return
+      if (message.author.bot) return
 
       const isDM = !message.guild
       const isMentioned = this.discordClient.user && message.mentions.has(this.discordClient.user)
@@ -252,40 +241,34 @@ export class DiscordAdapter {
       // Respond if the bot is mentioned OR if it's a DM
       if (isMentioned || isDM) {
         const rawContent = message.content
-        const content = isMentioned
-          ? rawContent.replace(/<@!?\d+>/g, '').trim()
-          : rawContent.trim()
+        const content = isMentioned ? rawContent.replace(/<@!?\d+>/g, '').trim() : rawContent.trim()
 
-        if (!content)
-          return
+        if (!content) return
 
         log.log(`Received text message from ${message.author.tag} in ${isDM ? 'DM' : message.channelId}`)
 
         const discordContext: Discord = {
           channelId: message.channelId,
           guildId: message.guildId ?? undefined,
-          guildName: message.guild?.name ?? undefined,
           guildMember: {
-            id: message.author.id,
             displayName: message.member?.displayName ?? message.author.username,
+            id: message.author.id,
             nickname: message.member?.nickname ?? message.author.username,
           },
+          guildName: message.guild?.name ?? undefined,
         }
         const normalizedDiscord = normalizeDiscordMetadata(discordContext)
         const displayName = normalizedDiscord?.guildMember?.displayName
 
         // Enrich context and segment memory (moved from frontend)
         const serverName = normalizedDiscord?.guildName
-        const contextPrefix = serverName
-          ? `on server '${serverName}'`
-          : 'in Direct Message'
+        const contextPrefix = serverName ? `on server '${serverName}'` : 'in Direct Message'
 
         // Calculate sessionId based on guild or DM
         let targetSessionId = 'discord'
         if (normalizedDiscord?.guildId) {
           targetSessionId = `discord-guild-${normalizedDiscord.guildId}`
-        }
-        else {
+        } else {
           targetSessionId = `discord-dm-${normalizedDiscord?.guildMember?.id || 'unknown'}`
         }
 
@@ -296,28 +279,30 @@ export class DiscordAdapter {
         log.log('Sending message to AIRI:', { content, targetSessionId })
 
         this.airiClient.send({
-          type: 'input:text',
           data: {
-            text: content,
-            textRaw: rawContent,
+            contextUpdates: discordNotice
+              ? [
+                  {
+                    content: discordNotice,
+                    metadata: {
+                      discord: normalizedDiscord,
+                    },
+                    strategy: ContextUpdateStrategy.AppendSelf,
+                    text: discordNotice,
+                  },
+                ]
+              : undefined,
+            discord: normalizedDiscord,
             overrides: {
               messagePrefix: displayName
                 ? `(From Discord user ${displayName} ${contextPrefix}): `
                 : `(From Discord user ${contextPrefix}): `,
               sessionId: targetSessionId,
             },
-            contextUpdates: discordNotice
-              ? [{
-                  strategy: ContextUpdateStrategy.AppendSelf,
-                  text: discordNotice,
-                  content: discordNotice,
-                  metadata: {
-                    discord: normalizedDiscord,
-                  },
-                }]
-              : undefined,
-            discord: normalizedDiscord,
+            text: content,
+            textRaw: rawContent,
           },
+          type: 'input:text',
         })
       }
     })
@@ -329,7 +314,9 @@ export class DiscordAdapter {
         return
       }
 
-      log.log(`Interaction received: /${interaction.commandName} from ${interaction.user.tag} in Guild: ${interaction.guildId}, Channel: ${interaction.channelId}`)
+      log.log(
+        `Interaction received: /${interaction.commandName} from ${interaction.user.tag} in Guild: ${interaction.guildId}, Channel: ${interaction.channelId}`,
+      )
 
       switch (interaction.commandName) {
         case 'ping':
@@ -359,12 +346,12 @@ export class DiscordAdapter {
         log.log('Using token from environment variables to login...')
         await this.discordClient.login(this.discordToken)
         log.log('Discord adapter started successfully')
+      } else {
+        log.warn(
+          'Discord token not provided. Waiting for AIRI UI configuration. Open Settings -> Discord in AIRI and click Save to push the token to this bot process.',
+        )
       }
-      else {
-        log.warn('Discord token not provided. Waiting for AIRI UI configuration. Open Settings -> Discord in AIRI and click Save to push the token to this bot process.')
-      }
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error).error('Failed to start Discord adapter')
       throw error
     }
@@ -376,8 +363,7 @@ export class DiscordAdapter {
       await this.discordClient.destroy()
       this.airiClient.close()
       log.log('Discord adapter stopped')
-    }
-    catch (error) {
+    } catch (error) {
       log.withError(error).error('Error stopping Discord adapter')
       throw error
     }

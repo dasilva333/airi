@@ -6,11 +6,9 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-
+import { noticeWindowEventa } from '../../../shared/eventa'
 import VideoTutorialFadeOnHoverDark from '../../assets/videos/tutorial/tutorial-fade-on-hover.dark.mp4'
 import VideoTutorialFadeOnHoverLight from '../../assets/videos/tutorial/tutorial-fade-on-hover.light.mp4'
-
-import { noticeWindowEventa } from '../../../shared/eventa'
 import { useControlsIslandStore } from '../../stores/controls-island'
 
 const context = useElectronEventaContext()
@@ -36,18 +34,14 @@ const waitingForRequest = computed(() => !requestId.value)
 
 onMounted(async () => {
   try {
-    const id = typeof route.query.id === 'string'
-      ? route.query.id
-      : Array.isArray(route.query.id)
-        ? route.query.id[0]
-        : null
+    const id =
+      typeof route.query.id === 'string' ? route.query.id : Array.isArray(route.query.id) ? route.query.id[0] : null
 
     const pending = await notifyMounted({ id: id ?? undefined })
     if (pending?.id && pending.type === 'fade-on-hover') {
       requestId.value = pending.id
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('Failed to notify notice window mounted:', error)
   }
 })
@@ -55,8 +49,7 @@ onMounted(async () => {
 onBeforeUnmount(async () => {
   try {
     await notifyUnmounted({ id: undefined })
-  }
-  catch {
+  } catch {
     /* noop */
   }
 })
@@ -69,15 +62,12 @@ async function handleAction(action: 'confirm' | 'cancel' | 'close') {
   }
 
   try {
-    if (action === 'confirm')
-      dontShowItAgainNoticeFadeOnHover.value = dontShowItAgainNoticeFadeOnHoverPending.value
+    if (action === 'confirm') dontShowItAgainNoticeFadeOnHover.value = dontShowItAgainNoticeFadeOnHoverPending.value
 
-    await sendAction({ id, action })
-  }
-  catch (error) {
+    await sendAction({ action, id })
+  } catch (error) {
     console.warn('Failed to notify main process of notice action:', error)
-  }
-  finally {
+  } finally {
     window.close()
   }
 }

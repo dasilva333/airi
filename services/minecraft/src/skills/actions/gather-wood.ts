@@ -1,6 +1,5 @@
-import type { Mineflayer } from '../../libs/mineflayer'
-
 import { sleep } from '@moeru/std'
+import type { Mineflayer } from '../../libs/mineflayer'
 
 import { useLogger } from '../../utils/logger'
 import { breakBlockAt } from '../blocks'
@@ -18,11 +17,7 @@ const logger = useLogger()
  * @param maxDistance The maximum distance to search for wood blocks.
  * @returns Whether the wood gathering was successful.
  */
-export async function gatherWood(
-  mineflayer: Mineflayer,
-  num: number,
-  maxDistance = 64,
-): Promise<boolean> {
+export async function gatherWood(mineflayer: Mineflayer, num: number, maxDistance = 64): Promise<boolean> {
   logger.log(`Gathering wood... I need to collect ${num} logs.`)
   mineflayer.bot.chat(`Gathering wood... I need to collect ${num} logs.`)
 
@@ -35,7 +30,7 @@ export async function gatherWood(
       logger.log(`Looking for wood blocks nearby...`, logsCount, num)
 
       const woodBlock = mineflayer.bot.findBlock({
-        matching: block => block.name.includes('log'),
+        matching: (block) => block.name.includes('log'),
         maxDistance,
       })
 
@@ -74,17 +69,14 @@ export async function gatherWood(
         await sleep(2500)
         logsCount = getLogsCount(mineflayer)
         logger.log(`Collected logs. Total logs now: ${logsCount}.`)
-      }
-      catch (digError) {
+      } catch (digError) {
         console.error('Failed to break the wood block:', digError)
-        continue // Attempt to find and break another wood block
       }
     }
 
     logger.log(`Wood gathering complete! Total logs collected: ${logsCount}.`)
     return true
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Failed to gather wood:', error)
     return false
   }
@@ -97,6 +89,6 @@ export async function gatherWood(
 export function getLogsCount(mineflayer: Mineflayer): number {
   return mineflayer.bot.inventory
     .items()
-    .filter(item => item.name.includes('log'))
+    .filter((item) => item.name.includes('log'))
     .reduce((acc, item) => acc + item.count, 0)
 }

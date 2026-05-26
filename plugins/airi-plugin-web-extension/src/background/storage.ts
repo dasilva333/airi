@@ -1,6 +1,5 @@
-import type { ExtensionSettings } from '../shared/types'
-
 import { DEFAULT_SETTINGS, STORAGE_KEY } from '../shared/constants'
+import type { ExtensionSettings } from '../shared/types'
 
 export async function loadSettings(): Promise<ExtensionSettings> {
   const stored = await browser.storage.local.get(STORAGE_KEY)

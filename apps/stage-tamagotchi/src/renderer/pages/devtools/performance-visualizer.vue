@@ -10,18 +10,8 @@ import { useStageWindowLifecycleStore } from '../../stores/stage-window-lifecycl
 const { t } = useI18n()
 const diagnostics = useStageThreeRuntimeDiagnosticsStore()
 const windowLifecycleStore = useStageWindowLifecycleStore()
-const {
-  hitTest,
-  resourceSnapshots,
-  threeRender,
-  tracing,
-  vrmLifecycle,
-  vrmUpdate,
-} = storeToRefs(diagnostics)
-const {
-  stagePaused,
-  windowLifecycle,
-} = storeToRefs(windowLifecycleStore)
+const { hitTest, resourceSnapshots, threeRender, tracing, vrmLifecycle, vrmUpdate } = storeToRefs(diagnostics)
+const { stagePaused, windowLifecycle } = storeToRefs(windowLifecycleStore)
 
 onMounted(() => {
   diagnostics.startTracing()
@@ -32,15 +22,11 @@ onUnmounted(() => {
 })
 
 function formatFloat(value?: number, digits = 2) {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value.toFixed(digits)
-    : 'n/a'
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : 'n/a'
 }
 
 function formatCount(value?: number) {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
-    : 'n/a'
+  return typeof value === 'number' && Number.isFinite(value) ? value : 'n/a'
 }
 </script>
 

@@ -1,8 +1,7 @@
-import type { Tool } from '@xsai/shared-chat'
-
 import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
+import type { Tool } from '@xsai/shared-chat'
 
 import { imageJournalTools } from './image-journal'
 import { mcpTools } from './mcp'
@@ -21,12 +20,10 @@ export async function builtinTools(): Promise<Tool[]> {
     try {
       const mcpStatus = await mcpBridge.getRuntimeStatus()
       hasMcpServers = mcpStatus.servers.length > 0
-    }
-    catch (err) {
+    } catch (err) {
       console.warn('[builtinTools] 🔌 Failed to fetch MCP status, skipping MCP tools:', err)
     }
-  }
-  else {
+  } else {
     console.warn('[builtinTools] 🔌 MCP bridge not found, skipping MCP tools.')
   }
 

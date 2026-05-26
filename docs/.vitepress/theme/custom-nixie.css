@@ -1,5 +1,5 @@
 .devlog-steins-gate-divergence-meter-heading {
-  font-family: 'Quicksand Variable', sans-serif;
+  font-family: "Quicksand Variable", sans-serif;
   font-weight: 300;
   font-size: 2.5rem;
   color: rgb(255 159 32) !important;
@@ -30,20 +30,15 @@
 }
 
 .nixie-digit::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background-size: 3px 3px;
-  background-image: repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      #ff9f001a 2px,
-      rgb(221 214 213 / 0%) 3px
-    ),
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, #ff9f001a 2px, rgb(221 214 213 / 0%) 3px),
     repeating-linear-gradient(0deg, transparent, transparent 2px, #ff9f001a 2px, rgb(196 184 182 / 0%) 3px);
   pointer-events: none;
   z-index: 4;
@@ -54,31 +49,22 @@
 }
 
 .dark .nixie-digit::before {
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent,
-    transparent 2px,
-    #0000001a 2px,
-    rgb(0 0 0 / 0%) 3px),
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, #0000001a 2px, rgb(0 0 0 / 0%) 3px),
     repeating-linear-gradient(0deg, transparent, transparent 2px, #0000001a 2px, rgb(0 0 0 / 0%) 3px);
 }
 
 /* Subtle glass reflection effect */
 .nixie-digit::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background-size: 3px 3px;
-  background-image: repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      #ff9f001a 2px,
-      rgb(221 214 213 / 0%) 3px
-    ),
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, #ff9f001a 2px, rgb(221 214 213 / 0%) 3px),
     repeating-linear-gradient(0deg, transparent, transparent 2px, #ff9f001a 2px, rgb(196 184 182 / 0%) 3px);
   pointer-events: none;
   z-index: 2;
@@ -89,39 +75,30 @@
 }
 
 .dark .nixie-digit::after {
-  background-image: repeating-linear-gradient(
-    90deg,
-     transparent,
-     transparent 2px,
-    #8f59001a 2px,
-    rgb(208 197 196 / 0%) 3px),
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, #8f59001a 2px, rgb(208 197 196 / 0%) 3px),
     repeating-linear-gradient(0deg, transparent, transparent 2px, #6740001a 2px, rgb(196 184 182 / 0%) 3px);
 }
 
-[data-theme='dark'] .devlog-steins-gate-divergence-meter-heading {
+[data-theme="dark"] .devlog-steins-gate-divergence-meter-heading {
   color: rgb(255, 157, 77) !important;
   text-shadow:
     0 0 7px #ff6a00,
     0 0 10px #ff6a00;
 }
 
-[data-theme='dark'] .nixie-digit {
+[data-theme="dark"] .nixie-digit {
   background: transparent;
   box-shadow: none;
 }
 
-[data-theme='dark'] .nixie-digit::before {
-  background-image: repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      rgba(30, 30, 30, 0.1) 2px,
-      rgba(30, 30, 30, 0.1) 3px
-    ),
+[data-theme="dark"] .nixie-digit::before {
+  background-image:
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(30, 30, 30, 0.1) 2px, rgba(30, 30, 30, 0.1) 3px),
     repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(30, 30, 30, 0.1) 2px, rgba(30, 30, 30, 0.1) 3px);
 }
 
-[data-theme='dark'] .nixie-digit::after {
+[data-theme="dark"] .nixie-digit::after {
   height: 35%;
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   border: none;

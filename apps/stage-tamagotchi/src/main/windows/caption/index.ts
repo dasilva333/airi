@@ -1,45 +1,45 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, Rectangle } from 'electron'
-import type { InferOutput } from 'valibot'
-
-import type { globalAppConfigSchema } from '../../configs/global'
-import type { Config } from '../../libs/electron/persistence'
-import type { I18n } from '../../libs/i18n'
-import type { ServerChannel } from '../../services/airi/channel-server'
-
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
-
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
+import type { BrowserWindow, BrowserWindowConstructorOptions, Rectangle } from 'electron'
 import { BrowserWindow as ElectronBrowserWindow, ipcMain, screen, shell } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
 import { isMacOS } from 'std-env'
+import type { InferOutput } from 'valibot'
 import { boolean, number, object, optional, record, string } from 'valibot'
-
 import icon from '../../../../resources/icon.png?asset'
-
 import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged } from '../../../shared/eventa'
+import type { globalAppConfigSchema } from '../../configs/global'
 import { onAppBeforeQuit } from '../../libs/bootkit/lifecycle'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
+import type { Config } from '../../libs/electron/persistence'
 import { createConfig } from '../../libs/electron/persistence'
 import { createReusableWindow } from '../../libs/electron/window-manager'
+import type { I18n } from '../../libs/i18n'
+import type { ServerChannel } from '../../services/airi/channel-server'
 import { mapForBreakpoints, resolutionBreakpoints, widthFrom } from '../shared/display'
 import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shared/window'
 
 const captionConfigSchema = object({
   isFollowing: boolean(),
-  matrices: record(string(), object({
-    bounds: object({
-      x: number(),
-      y: number(),
-      width: number(),
-      height: number(),
+  matrices: record(
+    string(),
+    object({
+      bounds: object({
+        height: number(),
+        width: number(),
+        x: number(),
+        y: number(),
+      }),
+      relativeToMain: optional(
+        object({
+          dx: number(),
+          dy: number(),
+        }),
+      ),
     }),
-    relativeToMain: optional(object({
-      dx: number(),
-      dy: number(),
-    })),
-  })),
+  ),
 })
 type CaptionConfig = InferOutput<typeof captionConfigSchema>
 
@@ -47,8 +47,8 @@ function computeDisplayMatrixHash(): string {
   const displays = screen.getAllDisplays()
   const signature = displays
     .slice()
-    .sort((a, b) => (a.bounds.x - b.bounds.x) || (a.bounds.y - b.bounds.y))
-    .map(d => [d.bounds.x, d.bounds.y, d.bounds.width, d.bounds.height, d.scaleFactor ?? 1].join(','))
+    .sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y)
+    .map((d) => [d.bounds.x, d.bounds.y, d.bounds.width, d.bounds.height, d.scaleFactor ?? 1].join(','))
     .join('|')
 
   return createHash('sha256').update(signature).digest('hex').slice(0, 16)
@@ -57,10 +57,13 @@ function computeDisplayMatrixHash(): string {
 function clampBoundsWithinRect(bounds: Rectangle, rect: Rectangle): Rectangle {
   const x = Math.min(Math.max(bounds.x, rect.x), rect.x + rect.width - bounds.width)
   const y = Math.min(Math.max(bounds.y, rect.y), rect.y + rect.height - bounds.height)
-  return { x, y, width: bounds.width, height: bounds.height }
+  return { height: bounds.height, width: bounds.width, x, y }
 }
 
-function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, captionOptions?: Partial<Rectangle> }): Rectangle {
+function computeInitialCaptionBounds(params: {
+  stageWindow: BrowserWindow
+  captionOptions?: Partial<Rectangle>
+}): Rectangle {
   const mainBounds = params.stageWindow.getBounds()
   const displayWorkArea = screen.getDisplayMatching(mainBounds).workArea
 
@@ -68,10 +71,10 @@ function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, capti
   const width = mapForBreakpoints(
     displayWorkArea.width,
     {
-      '720p': widthFrom(displayWorkArea, { percentage: 0.9, max: { actual: 560 }, min: { actual: 280 } }),
-      '1080p': widthFrom(displayWorkArea, { percentage: 0.5, max: { actual: 640 }, min: { actual: 320 } }),
-      '2k': widthFrom(displayWorkArea, { percentage: 0.4, max: { actual: 720 }, min: { actual: 360 } }),
-      '4k': widthFrom(displayWorkArea, { percentage: 0.33, max: { actual: 768 }, min: { actual: 420 } }),
+      '2k': widthFrom(displayWorkArea, { max: { actual: 720 }, min: { actual: 360 }, percentage: 0.4 }),
+      '4k': widthFrom(displayWorkArea, { max: { actual: 768 }, min: { actual: 420 }, percentage: 0.33 }),
+      '720p': widthFrom(displayWorkArea, { max: { actual: 560 }, min: { actual: 280 }, percentage: 0.9 }),
+      '1080p': widthFrom(displayWorkArea, { max: { actual: 640 }, min: { actual: 320 }, percentage: 0.5 }),
     },
     { breakpoints: resolutionBreakpoints },
   )
@@ -91,7 +94,7 @@ function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, capti
   }
 
   // If still out of bounds horizontally, fallback to bottom center
-  if (x < displayWorkArea.x || (x + width) > displayRight) {
+  if (x < displayWorkArea.x || x + width > displayRight) {
     x = displayWorkArea.x + Math.floor((displayWorkArea.width - width) / 2)
   }
 
@@ -100,27 +103,27 @@ function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, capti
     y = displayWorkArea.y + margin
   }
 
-  const initial = clampBoundsWithinRect({ x, y, width, height }, displayWorkArea)
+  const initial = clampBoundsWithinRect({ height, width, x, y }, displayWorkArea)
 
   return { ...initial, ...params.captionOptions }
 }
 
 function createCaptionWindow(options?: BrowserWindowConstructorOptions) {
   const window = new ElectronBrowserWindow({
-    title: 'Caption',
-    width: 480,
     height: 180,
-    show: false,
     icon,
-    webPreferences: {
-      preload: join(getElectronMainDirname(), '../preload/index.cjs'),
-      sandbox: true,
-    },
+    show: false,
+    title: 'Caption',
     // Thanks to [@HeartArmy](https://github.com) for the tip implementation.
     //
     // https://github.com/electron/electron/issues/10078#issuecomment-3410164802
     // https://stackoverflow.com/questions/39835282/set-browserwindow-always-on-top-even-other-app-is-in-fullscreen-electron-mac
     type: 'panel',
+    webPreferences: {
+      preload: join(getElectronMainDirname(), '../preload/index.cjs'),
+      sandbox: true,
+    },
+    width: 480,
     ...transparentWindowConfig(),
     ...options,
   })
@@ -160,8 +163,8 @@ export function setupCaptionWindowManager(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('windows-caption', 'config.json', captionConfigSchema, {
-    default: { isFollowing: true, matrices: {} },
     autoHeal: true,
+    default: { isFollowing: true, matrices: {} },
   })
   const getConfig = (): CaptionConfig => getConfigRaw() ?? { isFollowing: true, matrices: {} }
 
@@ -176,7 +179,7 @@ export function setupCaptionWindowManager(params: {
   // Note: when following window, we compute and persist the current relative offset
   // and start following without docking, so no immediate reposition is needed here.
 
-  function computeRelativeOffset(win: BrowserWindow): { dx: number, dy: number } {
+  function computeRelativeOffset(win: BrowserWindow): { dx: number; dy: number } {
     const caption = win.getBounds()
     const main = params.stageWindow.getBounds()
     return { dx: caption.x - main.x, dy: caption.y - main.y }
@@ -188,20 +191,20 @@ export function setupCaptionWindowManager(params: {
 
     if (dock === 'bottom') {
       return {
+        height: 300,
+        width: main.width,
         x: main.x,
         y: Math.round(main.y + main.height), // Flush with bottom of Stage
-        width: main.width,
-        height: 300,
       }
     }
 
     if (dock === 'top') {
       const topHeight = 240
       return {
+        height: topHeight,
+        width: main.width,
         x: main.x,
         y: Math.round(main.y - topHeight), // Flush with top of Stage
-        width: main.width,
-        height: topHeight,
       }
     }
 
@@ -215,14 +218,13 @@ export function setupCaptionWindowManager(params: {
     const index = windows.findIndex((w: any) => w.tag === 'caption')
 
     const captionEntry = {
-      tag: 'caption',
       enabled: currentEnabled,
+      tag: 'caption',
     }
 
     if (index !== -1) {
       windows[index] = { ...windows[index], ...captionEntry }
-    }
-    else {
+    } else {
       windows.push(captionEntry)
     }
     params.appConfig.update({
@@ -233,12 +235,20 @@ export function setupCaptionWindowManager(params: {
     })
   }
 
-  function applyBounds(win: BrowserWindow, bounds: Rectangle, options: { programmatic?: boolean, resizable?: boolean } = {}) {
-    if (win.isDestroyed())
-      return
+  function applyBounds(
+    win: BrowserWindow,
+    bounds: Rectangle,
+    options: { programmatic?: boolean; resizable?: boolean } = {},
+  ) {
+    if (win.isDestroyed()) return
 
     const current = win.getBounds()
-    if (Math.abs(current.x - bounds.x) < 1 && Math.abs(current.y - bounds.y) < 1 && Math.abs(current.width - bounds.width) < 1 && Math.abs(current.height - bounds.height) < 1)
+    if (
+      Math.abs(current.x - bounds.x) < 1 &&
+      Math.abs(current.y - bounds.y) < 1 &&
+      Math.abs(current.width - bounds.width) < 1 &&
+      Math.abs(current.height - bounds.height) < 1
+    )
       return
 
     if (options.programmatic) {
@@ -250,21 +260,18 @@ export function setupCaptionWindowManager(params: {
 
     try {
       win.setBounds({
+        height: Math.round(bounds.height),
+        width: Math.round(bounds.width),
         x: Math.round(bounds.x),
         y: Math.round(bounds.y),
-        width: Math.round(bounds.width),
-        height: Math.round(bounds.height),
       })
-    }
-    catch (err: any) {
+    } catch (err: any) {
       console.error('[@proj-airi/stage-tamagotchi] [CaptionManager] applyBounds failed:', err.message)
-    }
-    finally {
+    } finally {
       // Lock resizable state for docked windows
       if (options.resizable !== undefined) {
         win.setResizable(options.resizable)
-      }
-      else {
+      } else {
         win.setResizable(false)
       }
     }
@@ -279,8 +286,7 @@ export function setupCaptionWindowManager(params: {
     updateConfig(cfgToSave)
 
     const syncNow = () => {
-      if (win.isDestroyed() || params.stageWindow.isDestroyed())
-        return
+      if (win.isDestroyed() || params.stageWindow.isDestroyed()) return
 
       const config = params.appConfig.get()
       const dock = config?.windows?.find((w: any) => w.tag === 'caption')?.dock as 'top' | 'bottom' | undefined
@@ -288,23 +294,28 @@ export function setupCaptionWindowManager(params: {
       let target: Rectangle
       if (dock) {
         target = calculateDockingBounds(win, dock)
-      }
-      else {
+      } else {
         const stored = getConfig()?.matrices[matrixHash]?.relativeToMain ?? initialOffset
         const main = params.stageWindow.getBounds()
         const b = win.getBounds()
         target = {
+          height: b.height,
+          width: b.width,
           x: main.x + stored.dx,
           y: main.y + stored.dy,
-          width: b.width,
-          height: b.height,
         }
       }
 
       const workArea = screen.getDisplayMatching(target).workArea
       const clamped = clampBoundsWithinRect(target, workArea)
 
-      if (lastTarget && Math.abs(lastTarget.x - clamped.x) < 1 && Math.abs(lastTarget.y - clamped.y) < 1 && Math.abs(lastTarget.width - clamped.width) < 1 && Math.abs(lastTarget.height - clamped.height) < 1)
+      if (
+        lastTarget &&
+        Math.abs(lastTarget.x - clamped.x) < 1 &&
+        Math.abs(lastTarget.y - clamped.y) < 1 &&
+        Math.abs(lastTarget.width - clamped.width) < 1 &&
+        Math.abs(lastTarget.height - clamped.height) < 1
+      )
         return
 
       lastTarget = clamped
@@ -314,8 +325,7 @@ export function setupCaptionWindowManager(params: {
     let lastTarget: Rectangle | undefined
     const moveThrottled = throttle(syncNow, 1000 / 60)
     const settleDebounced = debounce(() => {
-      if (lastTarget)
-        applyBounds(win, lastTarget, { programmatic: true })
+      if (lastTarget) applyBounds(win, lastTarget, { programmatic: true })
     }, 200)
 
     const onMainChange = () => {
@@ -357,8 +367,7 @@ export function setupCaptionWindowManager(params: {
     for (const listener of visibilityListeners) {
       try {
         listener()
-      }
-      catch {}
+      } catch {}
     }
   }
 
@@ -369,7 +378,7 @@ export function setupCaptionWindowManager(params: {
     const { context } = createContext(ipcMain, window)
     eventaContext = context
 
-    await setupBaseWindowElectronInvokes({ context, window, serverChannel: params.serverChannel, i18n: params.i18n })
+    await setupBaseWindowElectronInvokes({ context, i18n: params.i18n, serverChannel: params.serverChannel, window })
 
     const cfg = getConfig()
     const saved = cfg?.matrices?.[matrixHash]?.bounds
@@ -378,15 +387,13 @@ export function setupCaptionWindowManager(params: {
       const workArea = screen.getDisplayMatching(saved).workArea
       const clamped = clampBoundsWithinRect(saved, workArea)
       window.setBounds(clamped)
-    }
-    else {
+    } else {
       const initialBounds = computeInitialCaptionBounds({ stageWindow: params.stageWindow })
       window.setBounds(initialBounds)
     }
 
     const persistBounds = () => {
-      if (window.isDestroyed())
-        return
+      if (window.isDestroyed()) return
       const config = getConfig() ?? { isFollowing, matrices: {} }
       const b = window.getBounds()
       config.matrices[matrixHash] = { ...config.matrices[matrixHash], bounds: b }
@@ -422,8 +429,7 @@ export function setupCaptionWindowManager(params: {
     const cleanupGetAttached = defineInvokeHandler(context, captionGetIsFollowingWindow, async () => isFollowing)
     try {
       context.emit(captionIsFollowingWindowChanged, isFollowing)
-    }
-    catch {}
+    } catch {}
 
     if (isFollowing) {
       followStageWindow(window)
@@ -433,8 +439,7 @@ export function setupCaptionWindowManager(params: {
       detachFromMain()
       try {
         cleanupGetAttached()
-      }
-      catch {}
+      } catch {}
 
       if (currentWindow === window) {
         currentWindow = undefined
@@ -467,8 +472,7 @@ export function setupCaptionWindowManager(params: {
       cfg.matrices[matrixHash] = { ...cfg.matrices[matrixHash], relativeToMain: rel }
       updateConfig(cfg)
       followStageWindow(window)
-    }
-    else {
+    } else {
       detachFromMain()
     }
 
@@ -479,8 +483,7 @@ export function setupCaptionWindowManager(params: {
 
     try {
       eventaContext?.emit(captionIsFollowingWindowChanged, isFollowing)
-    }
-    catch {}
+    } catch {}
 
     syncGlobalConfig()
   }
@@ -515,8 +518,7 @@ export function setupCaptionWindowManager(params: {
     if (enabled === undefined) {
       if (isVisible()) {
         currentWindow?.hide()
-      }
-      else {
+      } else {
         const window = await reusable.getWindow()
         if (window.isMinimized()) {
           window.restore()
@@ -534,8 +536,7 @@ export function setupCaptionWindowManager(params: {
       }
       window.show()
       window.focus()
-    }
-    else {
+    } else {
       currentWindow?.hide()
     }
   }
@@ -549,8 +550,7 @@ export function setupCaptionWindowManager(params: {
 
   async function triggerMove(forcedDock?: 'top' | 'bottom') {
     const window = await reusable.getWindow()
-    if (window.isDestroyed())
-      return
+    if (window.isDestroyed()) return
 
     if (triggerMoveInternal) {
       triggerMoveInternal()
@@ -558,7 +558,8 @@ export function setupCaptionWindowManager(params: {
     }
 
     const config = params.appConfig.get()
-    const dock = forcedDock || (config?.windows?.find((w: any) => w.tag === 'caption')?.dock as 'top' | 'bottom' | undefined)
+    const dock =
+      forcedDock || (config?.windows?.find((w: any) => w.tag === 'caption')?.dock as 'top' | 'bottom' | undefined)
 
     if (dock) {
       const target = calculateDockingBounds(window, dock)
@@ -569,14 +570,14 @@ export function setupCaptionWindowManager(params: {
   }
 
   return {
+    getIsFollowingWindow,
     getWindow,
+    isVisible,
+    onVisibilityChanged,
+    resetToSide,
     setFollowWindow,
     toggleFollowWindow,
-    getIsFollowingWindow,
-    resetToSide,
-    isVisible,
     toggleVisibility,
-    onVisibilityChanged,
     triggerMove,
   }
 }

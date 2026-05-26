@@ -1,10 +1,8 @@
-import type { WebSocketEventOptionalSource } from '@proj-airi/server-sdk'
-
-import type { Events } from './types'
-
 import { useLogger } from '@guiiai/logg'
+import type { WebSocketEventOptionalSource } from '@proj-airi/server-sdk'
 import { ContextUpdateStrategy, Client as ServerClient } from '@proj-airi/server-sdk'
 import { nanoid } from 'nanoid'
+import type { Events } from './types'
 
 export class Client {
   private client: ServerClient<Events> | null = null
@@ -19,14 +17,13 @@ export class Client {
     try {
       this.client = new ServerClient<Events>({
         name: 'proj-airi:plugin-vscode',
-        url: 'ws://127.0.0.1:6121',
         token: this.token,
+        url: 'ws://127.0.0.1:6121',
       })
       await this.client.connect()
       useLogger().log('AIRI connected to Server Channel')
       return true
-    }
-    catch (error) {
+    } catch (error) {
       useLogger().errorWithError('Failed to connect to AIRI Server Channel:', error)
       return false
     }
@@ -49,20 +46,25 @@ export class Client {
     try {
       await this.client.connect()
       this.client.send(event)
-    }
-    catch (error) {
+    } catch (error) {
       useLogger().errorWithError('Failed to send event to AIRI:', error)
     }
   }
 
   async replaceContext(context: string): Promise<void> {
     const id = nanoid()
-    this.send({ type: 'context:update', data: { strategy: ContextUpdateStrategy.ReplaceSelf, text: context, id, contextId: id } })
+    this.send({
+      data: { contextId: id, id, strategy: ContextUpdateStrategy.ReplaceSelf, text: context },
+      type: 'context:update',
+    })
   }
 
   async appendContext(context: string): Promise<void> {
     const id = nanoid()
-    this.send({ type: 'context:update', data: { strategy: ContextUpdateStrategy.AppendSelf, text: context, id, contextId: id } })
+    this.send({
+      data: { contextId: id, id, strategy: ContextUpdateStrategy.AppendSelf, text: context },
+      type: 'context:update',
+    })
   }
 
   isConnected(): boolean {

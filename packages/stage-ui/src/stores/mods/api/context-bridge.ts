@@ -1,16 +1,13 @@
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { UserMessage } from '@xsai/shared-chat'
-
-import type { ChatStreamEvent, ContextMessage } from '../../../types/chat'
-
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
+import type { UserMessage } from '@xsai/shared-chat'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
 import { Mutex } from 'es-toolkit'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
-
 import { categorizeResponse } from '../../../composables/response-categoriser'
+import type { ChatStreamEvent, ContextMessage } from '../../../types/chat'
 import { useChatOrchestratorStore } from '../../chat'
 import { CHAT_STREAM_CHANNEL_NAME, CONTEXT_CHANNEL_NAME } from '../../chat/constants'
 import { useChatContextStore } from '../../chat/context-store'
@@ -32,11 +29,16 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   const providersStore = useProvidersStore()
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
-  const { post: broadcastContext, data: incomingContext } = useBroadcastChannel<ContextMessage, ContextMessage>({ name: CONTEXT_CHANNEL_NAME })
-  const { post: broadcastStreamEvent, data: incomingStreamEvent } = useBroadcastChannel<ChatStreamEvent, ChatStreamEvent>({ name: CHAT_STREAM_CHANNEL_NAME })
+  const { post: broadcastContext, data: incomingContext } = useBroadcastChannel<ContextMessage, ContextMessage>({
+    name: CONTEXT_CHANNEL_NAME,
+  })
+  const { post: broadcastStreamEvent, data: incomingStreamEvent } = useBroadcastChannel<
+    ChatStreamEvent,
+    ChatStreamEvent
+  >({ name: CHAT_STREAM_CHANNEL_NAME })
 
   const disposeHookFns = ref<Array<() => void>>([])
-  let remoteStreamGuard: { sessionId: string, generation: number } | null = null
+  let remoteStreamGuard: { sessionId: string; generation: number } | null = null
   let remoteStreamReceivedLiteral = false
   const isInitialized = ref(false)
 
@@ -44,12 +46,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
     if (remoteStreamGuard) {
       if (remoteStreamGuard.sessionId !== sessionId) {
         console.warn('[Context Bridge] Rebinding remote replay guard to incoming session', {
+          activeSessionId: chatSession.activeSessionId,
           from: remoteStreamGuard.sessionId,
           to: sessionId,
-          activeSessionId: chatSession.activeSessionId,
         })
-      }
-      else {
+      } else {
         if (messageId && !chatStream.streamingMessage.id) {
           chatStream.streamingMessage.id = messageId
         }
@@ -65,8 +66,8 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
     // after turns/forks/proactivity, and using the receiver's `activeSessionId` here causes
     // later token-literal events to be dropped even though the sender broadcast succeeded.
     remoteStreamGuard = {
-      sessionId,
       generation: chatSession.getSessionGenerationValue(sessionId),
+      sessionId,
     }
     remoteStreamReceivedLiteral = false
     chatOrchestrator.sending = true
@@ -88,112 +89,112 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       let isProcessingRemoteStream = false
 
       const { stop } = watch(incomingContext, (event) => {
-        if (event)
-          chatContext.ingestContextMessage(event)
+        if (event) chatContext.ingestContextMessage(event)
       })
       disposeHookFns.value.push(stop)
 
-      disposeHookFns.value.push(serverChannelStore.onContextUpdate((event) => {
-        const contextMessage: ContextMessage = {
-          ...event.data,
-          metadata: event.metadata,
-          createdAt: Date.now(),
-        }
-        chatContext.ingestContextMessage(contextMessage)
-        broadcastContext(toRaw(contextMessage))
-      }))
-
-      disposeHookFns.value.push(serverChannelStore.onEvent('input:text', async (event) => {
-        const {
-          text,
-          textRaw,
-          overrides,
-          contextUpdates,
-        } = event.data
-
-        const normalizedContextUpdates = contextUpdates?.map((update) => {
-          const id = update.id ?? nanoid()
-          const contextId = update.contextId ?? id
-          return {
-            ...update,
-            id,
-            contextId,
+      disposeHookFns.value.push(
+        serverChannelStore.onContextUpdate((event) => {
+          const contextMessage: ContextMessage = {
+            ...event.data,
+            createdAt: Date.now(),
+            metadata: event.metadata,
           }
-        })
+          chatContext.ingestContextMessage(contextMessage)
+          broadcastContext(toRaw(contextMessage))
+        }),
+      )
 
-        if (normalizedContextUpdates?.length) {
-          const createdAt = Date.now()
-          for (const update of normalizedContextUpdates) {
-            chatContext.ingestContextMessage({
+      disposeHookFns.value.push(
+        serverChannelStore.onEvent('input:text', async (event) => {
+          const { text, textRaw, overrides, contextUpdates } = event.data
+
+          const normalizedContextUpdates = contextUpdates?.map((update) => {
+            const id = update.id ?? nanoid()
+            const contextId = update.contextId ?? id
+            return {
               ...update,
-              metadata: event.metadata,
-              createdAt,
-            })
-          }
-        }
-
-        if (activeProvider.value && activeModel.value) {
-          let chatProvider: ChatProvider
-          try {
-            chatProvider = await providersStore.getProviderInstance<ChatProvider>(activeProvider.value)
-          }
-          catch (err) {
-            console.error('[context-bridge] getProviderInstance failed for provider:', activeProvider.value, err)
-            return
-          }
-
-          let messageText = text
-          const targetSessionId = overrides?.sessionId
-
-          if (overrides?.messagePrefix) {
-            messageText = `${overrides.messagePrefix}${text}`
-          }
-
-          // TODO(@nekomeowww): This only guard for input:text events handling and doesn't cover the entire ingestion
-          // process. Another critical path of spark:notify is affected too, I think for better future development
-          // experience, we should discover and find either a leader election or distributed lock solution to
-          // coordinate the modules that handles context bridge ingestion across multiple windows/tabs.
-          //
-          // Background behind this, as server-sdk is in fact integrated in every Stage Web window/tab, each
-          // window/tab has its own connection & chat orchestrator instance, when multiple windows/tabs are open,
-          // each of them will receive the same input:text event and process ingestion independently, causing
-          // duplicated messages handling and output:* events emission.
-          //
-          // We don't have ability to control how many windows/tabs the user will open (sometimes) user will forget
-          // to close the extra windows/tabs, so we need a way to coordinate the ingestion processing to
-          // ensure only one window/tab is handling the ingestion at a time.
-          //
-          // SharedWorker solution was considered but it's completely disabled in Chromium based Android browsers
-          // (which is a big portion of mobile Stage Web users as stage-ui serves as the unified / universal
-          // api wrapper for most of the shared logic across Web, Pocket, and Tamagotchi).
-          //
-          // Read more here:
-          // - https://chromestatus.com/feature/6265472244514816
-          // - https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
-          // - https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
-          navigator.locks.request('context-bridge:event:input:text', async () => {
-            try {
-              await chatOrchestrator.ingest(messageText, {
-                model: activeModel.value,
-                chatProvider,
-                input: {
-                  type: 'input:text',
-                  data: {
-                    ...event.data,
-                    text,
-                    textRaw,
-                    overrides,
-                    contextUpdates: normalizedContextUpdates,
-                  },
-                },
-              }, targetSessionId)
-            }
-            catch (err) {
-              console.error('Error ingesting text input via context bridge:', err)
+              contextId,
+              id,
             }
           })
-        }
-      }))
+
+          if (normalizedContextUpdates?.length) {
+            const createdAt = Date.now()
+            for (const update of normalizedContextUpdates) {
+              chatContext.ingestContextMessage({
+                ...update,
+                createdAt,
+                metadata: event.metadata,
+              })
+            }
+          }
+
+          if (activeProvider.value && activeModel.value) {
+            let chatProvider: ChatProvider
+            try {
+              chatProvider = await providersStore.getProviderInstance<ChatProvider>(activeProvider.value)
+            } catch (err) {
+              console.error('[context-bridge] getProviderInstance failed for provider:', activeProvider.value, err)
+              return
+            }
+
+            let messageText = text
+            const targetSessionId = overrides?.sessionId
+
+            if (overrides?.messagePrefix) {
+              messageText = `${overrides.messagePrefix}${text}`
+            }
+
+            // TODO(@nekomeowww): This only guard for input:text events handling and doesn't cover the entire ingestion
+            // process. Another critical path of spark:notify is affected too, I think for better future development
+            // experience, we should discover and find either a leader election or distributed lock solution to
+            // coordinate the modules that handles context bridge ingestion across multiple windows/tabs.
+            //
+            // Background behind this, as server-sdk is in fact integrated in every Stage Web window/tab, each
+            // window/tab has its own connection & chat orchestrator instance, when multiple windows/tabs are open,
+            // each of them will receive the same input:text event and process ingestion independently, causing
+            // duplicated messages handling and output:* events emission.
+            //
+            // We don't have ability to control how many windows/tabs the user will open (sometimes) user will forget
+            // to close the extra windows/tabs, so we need a way to coordinate the ingestion processing to
+            // ensure only one window/tab is handling the ingestion at a time.
+            //
+            // SharedWorker solution was considered but it's completely disabled in Chromium based Android browsers
+            // (which is a big portion of mobile Stage Web users as stage-ui serves as the unified / universal
+            // api wrapper for most of the shared logic across Web, Pocket, and Tamagotchi).
+            //
+            // Read more here:
+            // - https://chromestatus.com/feature/6265472244514816
+            // - https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
+            // - https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
+            navigator.locks.request('context-bridge:event:input:text', async () => {
+              try {
+                await chatOrchestrator.ingest(
+                  messageText,
+                  {
+                    chatProvider,
+                    input: {
+                      data: {
+                        ...event.data,
+                        contextUpdates: normalizedContextUpdates,
+                        overrides,
+                        text,
+                        textRaw,
+                      },
+                      type: 'input:text',
+                    },
+                    model: activeModel.value,
+                  },
+                  targetSessionId,
+                )
+              } catch (err) {
+                console.error('Error ingesting text input via context bridge:', err)
+              }
+            })
+          }
+        }),
+      )
 
       disposeHookFns.value.push(
         chatOrchestrator.onBeforeMessageComposed(async (message, context) => {
@@ -203,13 +204,22 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           console.log('[Context Bridge] Broadcasting before-compose', { message })
-          broadcastStreamEvent({ type: 'before-compose', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            message,
+            sessionId: chatSession.activeSessionId,
+            type: 'before-compose',
+          })
         }),
         chatOrchestrator.onAfterMessageComposed(async (message, context) => {
-          if (isProcessingRemoteStream)
-            return
+          if (isProcessingRemoteStream) return
 
-          broadcastStreamEvent({ type: 'after-compose', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            message,
+            sessionId: chatSession.activeSessionId,
+            type: 'after-compose',
+          })
         }),
         chatOrchestrator.onBeforeSend(async (message, context) => {
           if (isProcessingRemoteStream) {
@@ -218,13 +228,22 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           console.log('[Context Bridge] Broadcasting before-send', { message })
-          broadcastStreamEvent({ type: 'before-send', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            message,
+            sessionId: chatSession.activeSessionId,
+            type: 'before-send',
+          })
         }),
         chatOrchestrator.onAfterSend(async (message, context) => {
-          if (isProcessingRemoteStream)
-            return
+          if (isProcessingRemoteStream) return
 
-          broadcastStreamEvent({ type: 'after-send', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            message,
+            sessionId: chatSession.activeSessionId,
+            type: 'after-send',
+          })
         }),
         chatOrchestrator.onTokenLiteral(async (literal, context) => {
           if (isProcessingRemoteStream) {
@@ -233,76 +252,90 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           }
 
           // console.log(`[PipelineTTS:Bridge] Broadcasting token-literal in ${window.location.hash || 'main'}`, { literal: literal.slice(0, 50) })
-          broadcastStreamEvent({ type: 'token-literal', literal, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            literal,
+            sessionId: chatSession.activeSessionId,
+            type: 'token-literal',
+          })
         }),
         chatOrchestrator.onTokenSpecial(async (special, context) => {
-          if (isProcessingRemoteStream)
-            return
+          if (isProcessingRemoteStream) return
 
-          broadcastStreamEvent({ type: 'token-special', special, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            sessionId: chatSession.activeSessionId,
+            special,
+            type: 'token-special',
+          })
         }),
         chatOrchestrator.onStreamEnd(async (context) => {
-          if (isProcessingRemoteStream)
-            return
+          if (isProcessingRemoteStream) return
 
-          broadcastStreamEvent({ type: 'stream-end', sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            sessionId: chatSession.activeSessionId,
+            type: 'stream-end',
+          })
         }),
         chatOrchestrator.onAssistantResponseEnd(async (message, context) => {
-          if (isProcessingRemoteStream)
-            return
+          if (isProcessingRemoteStream) return
 
-          broadcastStreamEvent({ type: 'assistant-end', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+          broadcastStreamEvent({
+            context: JSON.parse(JSON.stringify(toRaw(context))),
+            message,
+            sessionId: chatSession.activeSessionId,
+            type: 'assistant-end',
+          })
         }),
 
         chatOrchestrator.onAssistantMessage(async (message, _messageText, context) => {
           serverChannelStore.send({
-            type: 'output:gen-ai:chat:message',
             data: {
               ...context.input?.data,
-              message,
-              'stage-web': isStageWeb(),
-              'stage-tamagotchi': isStageTamagotchi(),
               'gen-ai:chat': {
-                message: context.message as UserMessage,
                 composedMessage: context.composedMessage,
                 contexts: context.contexts,
                 input: context.input,
+                message: context.message as UserMessage,
               },
+              message,
+              'stage-tamagotchi': isStageTamagotchi(),
             },
+            type: 'output:gen-ai:chat:message',
           })
         }),
 
         chatOrchestrator.onChatTurnComplete(async (chat, context) => {
           serverChannelStore.send({
-            type: 'output:gen-ai:chat:complete',
             data: {
               ...context.input?.data,
-              'message': chat.output,
-              // TODO: tool calls should be captured properly
-              'toolCalls': [],
-              'stage-web': isStageWeb(),
-              'stage-tamagotchi': isStageTamagotchi(),
-              // TODO: Properly calculate usage data
-              'usage': {
-                promptTokens: 0,
-                completionTokens: 0,
-                totalTokens: 0,
-                source: 'estimate-based',
-              },
               'gen-ai:chat': {
-                message: context.message as UserMessage,
                 composedMessage: context.composedMessage,
                 contexts: context.contexts,
                 input: context.input,
+                message: context.message as UserMessage,
+              },
+              message: chat.output,
+              'stage-tamagotchi': isStageTamagotchi(),
+
+              // TODO: tool calls should be captured properly
+              toolCalls: [],
+              // TODO: Properly calculate usage data
+              usage: {
+                completionTokens: 0,
+                promptTokens: 0,
+                source: 'estimate-based',
+                totalTokens: 0,
               },
             },
+            type: 'output:gen-ai:chat:complete',
           })
         }),
       )
 
       const { stop: stopIncomingStreamWatch } = watch(incomingStreamEvent, async (event) => {
-        if (!event)
-          return
+        if (!event) return
 
         if (event.type !== 'token-literal' && event.type !== 'token-special') {
           console.log(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
@@ -320,18 +353,24 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               break
             case 'before-send':
               await chatOrchestrator.emitBeforeSendHooks(event.message, event.context)
-              ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
+              ensureRemoteReplayGuard(
+                event.sessionId,
+                event.context?.assistantMessageId,
+                event.context?.assistantMessageCreatedAt,
+              )
               break
             case 'after-send':
               await chatOrchestrator.emitAfterSendHooks(event.message, event.context)
               break
             case 'token-literal':
               {
-                const guard = ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
-                if (guard.sessionId !== event.sessionId)
-                  return
-                if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation)
-                  return
+                const guard = ensureRemoteReplayGuard(
+                  event.sessionId,
+                  event.context?.assistantMessageId,
+                  event.context?.assistantMessageCreatedAt,
+                )
+                if (guard.sessionId !== event.sessionId) return
+                if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation) return
                 remoteStreamReceivedLiteral = true
                 chatStream.appendStreamLiteral(event.literal)
                 await chatOrchestrator.emitTokenLiteralHooks(event.literal, event.context)
@@ -341,14 +380,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               await chatOrchestrator.emitTokenSpecialHooks(event.special, event.context)
               break
             case 'stream-end':
-              if (!remoteStreamGuard)
-                break
-              if (remoteStreamGuard.sessionId !== event.sessionId)
-                break
+              if (!remoteStreamGuard) break
+              if (remoteStreamGuard.sessionId !== event.sessionId) break
               if (chatSession.getSessionGenerationValue(remoteStreamGuard.sessionId) !== remoteStreamGuard.generation)
                 break
-              if (!remoteStreamReceivedLiteral)
-                break
+              if (!remoteStreamReceivedLiteral) break
               await chatOrchestrator.emitStreamEndHooks(event.context)
               // NOTICE: `assistant-end` is the true end-of-turn signal for remote replay.
               // If we tear down the guard here, the later `assistant-end` will reopen replay state,
@@ -357,11 +393,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               break
             case 'assistant-end':
               {
-                const guard = ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
-                if (guard.sessionId !== event.sessionId)
-                  break
-                if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation)
-                  break
+                const guard = ensureRemoteReplayGuard(
+                  event.sessionId,
+                  event.context?.assistantMessageId,
+                  event.context?.assistantMessageCreatedAt,
+                )
+                if (guard.sessionId !== event.sessionId) break
+                if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation) break
                 // NOTICE: some remote producers can arrive here without ever forwarding token-literal events.
                 // Recover the final speech text from the completed message so UI/TTS do not leak raw ACT tokens
                 // or end up with silent turns.
@@ -387,21 +425,20 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               // No action needed here; this case prevents unrecognized-event warnings.
               break
           }
-        }
-        finally {
+        } finally {
           isProcessingRemoteStream = false
         }
       })
       disposeHookFns.value.push(stopIncomingStreamWatch)
 
-      console.log(`[PipelineTTS:Bridge] Initialization complete in ${window.location.hash || 'main'}. Registered hooks: ${disposeHookFns.value.length}`)
+      console.log(
+        `[PipelineTTS:Bridge] Initialization complete in ${window.location.hash || 'main'}. Registered hooks: ${disposeHookFns.value.length}`,
+      )
       isInitialized.value = true
-    }
-    catch (e) {
+    } catch (e) {
       console.error('[PipelineTTS:Bridge] Initialization failed:', e)
       isInitialized.value = false
-    }
-    finally {
+    } finally {
       mutex.release()
     }
   }
@@ -413,8 +450,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       for (const fn of disposeHookFns.value) {
         fn()
       }
-    }
-    finally {
+    } finally {
       mutex.release()
     }
 
@@ -422,7 +458,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   }
 
   return {
-    initialize,
     dispose,
+    initialize,
   }
 })

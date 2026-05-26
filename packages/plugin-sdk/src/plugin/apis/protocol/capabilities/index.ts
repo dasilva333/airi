@@ -7,7 +7,7 @@ export interface CapabilityDescriptor {
   updatedAt: number
 }
 
-export const protocolCapabilityWait = defineInvokeEventa<CapabilityDescriptor, { key: string, timeoutMs?: number }>(
+export const protocolCapabilityWait = defineInvokeEventa<CapabilityDescriptor, { key: string; timeoutMs?: number }>(
   'proj-airi:plugin-sdk:apis:protocol:capabilities:wait',
 )
 

@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { useMediaQuery, useResizeObserver, useScreenSafeArea } from '@vueuse/core'
-import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger, VisuallyHidden } from 'reka-ui'
+import {
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+  VisuallyHidden,
+} from 'reka-ui'
 import { DrawerContent, DrawerHandle, DrawerOverlay, DrawerPortal, DrawerRoot, DrawerTrigger } from 'vaul-vue'
 import { onMounted } from 'vue'
 
@@ -14,7 +22,7 @@ const props = defineProps<{
   volumeLevel?: number
 }>()
 
-const showDialog = defineModel('show', { type: Boolean, default: false, required: false })
+const showDialog = defineModel('show', { default: false, required: false, type: Boolean })
 const selectedAudioInput = defineModel<string>('selectedAudioInput')
 const enabled = defineModel<boolean>('enabled', { default: false })
 

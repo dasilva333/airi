@@ -18,14 +18,14 @@ import {
 } from 'reka-ui'
 
 const props = defineProps<{
-  options: { groupLabel: string, children?: { label: string, value: T }[] }[]
+  options: { groupLabel: string; children?: { label: string; value: T }[] }[]
   placeholder?: string
 }>()
 
 const modelValue = defineModel<T>({ required: false })
 
 function toDisplayValue(value: T): string {
-  const option = props.options.flatMap(group => group.children).find(option => option?.value === value)
+  const option = props.options.flatMap((group) => group.children).find((option) => option?.value === value)
   return option ? option.label : props.placeholder || ''
 }
 </script>

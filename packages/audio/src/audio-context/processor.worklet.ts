@@ -1,8 +1,7 @@
 /// <reference types="@types/audioworklet" />
 
-import type { ConverterTypeValue } from '@alexanderolsen/libsamplerate-js/dist/converter-type'
-
 import { ConverterType, create } from '@alexanderolsen/libsamplerate-js'
+import type { ConverterTypeValue } from '@alexanderolsen/libsamplerate-js/dist/converter-type'
 
 interface ProcessorOptions {
   inputSampleRate: number
@@ -24,11 +23,11 @@ class ResamplingAudioWorkletProcessor extends AudioWorkletProcessor {
     super()
 
     this.options = {
-      inputSampleRate: options.processorOptions?.inputSampleRate || 44100,
-      outputSampleRate: options.processorOptions?.outputSampleRate || 16000,
+      bufferSize: options.processorOptions?.bufferSize || 4096,
       channels: options.processorOptions?.channels || 1,
       converterType: options.processorOptions?.converterType || ConverterType.SRC_SINC_MEDIUM_QUALITY,
-      bufferSize: options.processorOptions?.bufferSize || 4096,
+      inputSampleRate: options.processorOptions?.inputSampleRate || 44100,
+      outputSampleRate: options.processorOptions?.outputSampleRate || 16000,
     }
 
     this.bufferSize = this.options.bufferSize
@@ -60,25 +59,24 @@ class ResamplingAudioWorkletProcessor extends AudioWorkletProcessor {
         },
       )
       this.isInitialized = true
-      this.port.postMessage({ type: 'initialized', success: true })
-    }
-    catch (error) {
+      this.port.postMessage({ success: true, type: 'initialized' })
+    } catch (error) {
       console.error('Failed to initialize sample rate converter:', error)
 
       this.port.postMessage({
-        type: 'initialized',
-        success: false,
         error: error instanceof Error ? error.message : String(error),
+        success: false,
+        type: 'initialized',
       })
     }
   }
 
   private async updateOptions(newOptions: Partial<ProcessorOptions>) {
-    const needsReinitialize
-      = newOptions.inputSampleRate !== this.options.inputSampleRate
-        || newOptions.outputSampleRate !== this.options.outputSampleRate
-        || newOptions.channels !== this.options.channels
-        || newOptions.converterType !== this.options.converterType
+    const needsReinitialize =
+      newOptions.inputSampleRate !== this.options.inputSampleRate ||
+      newOptions.outputSampleRate !== this.options.outputSampleRate ||
+      newOptions.channels !== this.options.channels ||
+      newOptions.converterType !== this.options.converterType
 
     Object.assign(this.options, newOptions)
 
@@ -115,12 +113,12 @@ class ResamplingAudioWorkletProcessor extends AudioWorkletProcessor {
 
           // Send resampled data to main thread
           this.port.postMessage({
-            type: 'audioData',
             channel,
             data: resampledData,
             originalSampleRate: this.options.inputSampleRate,
             outputSampleRate: this.options.outputSampleRate,
             timestamp: currentTime,
+            type: 'audioData',
           })
 
           // Copy to output (you might want to buffer this properly for different sample rates)
@@ -136,13 +134,12 @@ class ResamplingAudioWorkletProcessor extends AudioWorkletProcessor {
           }
         }
       }
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Resampling error in worklet:', error)
 
       this.port.postMessage({
-        type: 'error',
         error: error instanceof Error ? error.message : String(error),
+        type: 'error',
       })
 
       // Pass through original data on error

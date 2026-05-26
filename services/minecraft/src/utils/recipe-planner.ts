@@ -2,12 +2,12 @@ import type { Bot } from 'mineflayer'
 
 import { getItemAnimalSource, getItemSmeltingIngredient, McData } from './mcdata'
 
-export type RecipeStatus
-  = | 'craftable' // Can craft right now with inventory
-    | 'missing_resources' // Craftable but missing some ingredients
-    | 'requires_smelting' // Needs furnace (can't auto-craft)
-    | 'requires_gathering' // Must be mined/gathered (not craftable)
-    | 'unknown_item' // Item doesn't exist
+export type RecipeStatus =
+  | 'craftable' // Can craft right now with inventory
+  | 'missing_resources' // Craftable but missing some ingredients
+  | 'requires_smelting' // Needs furnace (can't auto-craft)
+  | 'requires_gathering' // Must be mined/gathered (not craftable)
+  | 'unknown_item' // Item doesn't exist
 
 export interface RecipeStep {
   action: 'craft' | 'smelt' | 'gather' | 'hunt'
@@ -51,11 +51,9 @@ export class RecipePlanner {
 
   private getRecipeOutput(itemName: string): number {
     const itemId = this.mcData.getItemId(itemName)
-    if (!itemId)
-      return 1
+    if (!itemId) return 1
     const recipes = this.mcData.registry.recipes[itemId]
-    if (!recipes || recipes.length === 0)
-      return 1
+    if (!recipes || recipes.length === 0) return 1
     // Get the result count from the first recipe
     const recipe = recipes[0] as any
     return recipe.result?.count ?? 1
@@ -63,18 +61,15 @@ export class RecipePlanner {
 
   private doesRecipeRequireCraftingTable(itemName: string): boolean {
     const itemId = this.mcData.getItemId(itemName)
-    if (!itemId)
-      return false
+    if (!itemId) return false
     const recipes = this.bot.recipesFor(itemId, null, 1, null)
     // If no recipes without table, it requires a table
     return recipes.length === 0
   }
 
   private selectBestRecipe(recipes: Record<string, number>[]): Record<string, number> | null {
-    if (recipes.length === 0)
-      return null
-    if (recipes.length === 1)
-      return recipes[0]
+    if (recipes.length === 0) return null
+    if (recipes.length === 1) return recipes[0]
 
     // Heuristic: pick the recipe where we have the most ingredients available
     let bestRecipe = recipes[0]
@@ -113,15 +108,15 @@ export class RecipePlanner {
 
   plan(itemName: string, amount: number): RecipePlan {
     const plan: RecipePlan = {
-      targetItem: itemName,
-      targetAmount: amount,
+      available: { ...this.inventory },
+      canCraftNow: false,
+      missing: {},
+      requiresCraftingTable: false,
       status: 'unknown_item',
       steps: [],
+      targetAmount: amount,
+      targetItem: itemName,
       totalRequired: {},
-      available: { ...this.inventory },
-      missing: {},
-      canCraftNow: false,
-      requiresCraftingTable: false,
     }
 
     // Validate item exists
@@ -139,35 +134,27 @@ export class RecipePlanner {
     if (Object.keys(plan.missing).length === 0) {
       plan.status = 'craftable'
       plan.canCraftNow = true
-    }
-    else {
+    } else {
       // Check if any missing items require smelting or gathering
-      const hasSmeltingStep = plan.steps.some(s => s.action === 'smelt')
-      const hasGatherStep = plan.steps.some(s => s.action === 'gather' || s.action === 'hunt')
+      const hasSmeltingStep = plan.steps.some((s) => s.action === 'smelt')
+      const hasGatherStep = plan.steps.some((s) => s.action === 'gather' || s.action === 'hunt')
 
       if (hasSmeltingStep) {
         plan.status = 'requires_smelting'
-      }
-      else if (hasGatherStep) {
+      } else if (hasGatherStep) {
         plan.status = 'requires_gathering'
-      }
-      else {
+      } else {
         plan.status = 'missing_resources'
       }
     }
 
     // Check if crafting table is needed
-    plan.requiresCraftingTable = plan.steps.some(s => s.action === 'craft' && s.requiresCraftingTable)
+    plan.requiresCraftingTable = plan.steps.some((s) => s.action === 'craft' && s.requiresCraftingTable)
 
     return plan
   }
 
-  private buildDependencyTree(
-    itemName: string,
-    amount: number,
-    plan: RecipePlan,
-    visited: Set<string>,
-  ): void {
+  private buildDependencyTree(itemName: string, amount: number, plan: RecipePlan, visited: Set<string>): void {
     // Prevent infinite recursion
     if (visited.has(itemName)) {
       return
@@ -191,9 +178,9 @@ export class RecipePlanner {
     if (smeltIngredient) {
       plan.steps.push({
         action: 'smelt',
-        item: itemName,
         amount: needed,
         ingredients: { [smeltIngredient]: needed },
+        item: itemName,
         source: `smelt ${smeltIngredient} in furnace`,
       })
       plan.totalRequired[smeltIngredient] = (plan.totalRequired[smeltIngredient] || 0) + needed
@@ -220,9 +207,9 @@ export class RecipePlanner {
 
         plan.steps.push({
           action: 'craft',
-          item: itemName,
           amount: needed,
           ingredients: scaledIngredients,
+          item: itemName,
           requiresCraftingTable: requiresTable,
         })
 
@@ -241,8 +228,8 @@ export class RecipePlanner {
 
     plan.steps.push({
       action: animalSource ? 'hunt' : 'gather',
-      item: itemName,
       amount: needed,
+      item: itemName,
       source: gatherSource || 'unknown source',
     })
 
@@ -290,8 +277,7 @@ export class RecipePlanner {
     if (plan.canCraftNow) {
       const tableNote = plan.requiresCraftingTable ? ' (requires crafting table)' : ''
       lines.push(`✓ You can craft this now${tableNote}!`)
-    }
-    else if (Object.keys(plan.missing).length > 0) {
+    } else if (Object.keys(plan.missing).length > 0) {
       lines.push('Missing resources:')
       for (const [item, amount] of Object.entries(plan.missing)) {
         const source = this.getGatherSource(item)
@@ -335,9 +321,9 @@ export class RecipePlanner {
     }
   }
 
-  canCraftImmediately(): { canCraft: boolean, hasCraftingTable: boolean } {
+  canCraftImmediately(): { canCraft: boolean; hasCraftingTable: boolean } {
     const craftingTable = this.bot.findBlock({
-      matching: block => block.name === 'crafting_table',
+      matching: (block) => block.name === 'crafting_table',
       maxDistance: 4,
     })
     return {

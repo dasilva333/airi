@@ -1,56 +1,8 @@
 {
-  "name": "@proj-airi/stage-ui",
-  "type": "module",
-  "private": true,
-  "description": "Shared core for stage",
   "author": {
-    "name": "Moeru AI Project AIRI Team",
     "email": "airi@moeru.ai",
+    "name": "Moeru AI Project AIRI Team",
     "url": "https://github.com/moeru-ai"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/moeru-ai/airi.git",
-    "directory": "packages/stage-ui"
-  },
-  "exports": {
-    ".": "./src/components/index.ts",
-    "./components/scenarios/layout": "./src/components/scenarios/layout/index.ts",
-    "./components/scenarios/settings/model-settings": "./src/components/scenarios/settings/model-settings/index.ts",
-    "./components/scenes": "./src/components/scenes/index.ts",
-    "./components/*": "./src/components/*.ts",
-    "./components": "./src/components/index.ts",
-    "./composables/*": "./src/composables/*.ts",
-    "./composables": "./src/composables/index.ts",
-    "./constants/*": "./src/constants/*.ts",
-    "./constants": "./src/constants/index.ts",
-    "./libs/workers/whisper": "./src/libs/workers/whisper/index.ts",
-    "./libs/*": "./src/libs/*.ts",
-    "./libs": "./src/libs/index.ts",
-    "./stores/providers/aliyun": "./src/stores/providers/aliyun/index.ts",
-    "./stores/analytics": "./src/stores/analytics/index.ts",
-    "./stores/character": "./src/stores/character/index.ts",
-    "./stores/settings": "./src/stores/settings/index.ts",
-    "./stores/*": "./src/stores/*.ts",
-    "./stores": "./src/stores/index.ts",
-    "./workers/vad": "./src/workers/vad/index.ts",
-    "./workers/*": "./src/workers/*.ts",
-    "./workers": "./src/workers/index.ts",
-    "./utils": "./src/utils/index.ts",
-    "./utils/tts": "./src/utils/tts.ts",
-    "./types/*": "./src/types/*.ts",
-    "./types": "./src/types/index.ts"
-  },
-  "scripts": {
-    "typecheck": "vue-tsc --noEmit",
-    "story:dev": "histoire dev",
-    "story:build": "histoire build",
-    "story:build-base": "histoire build --base /ui",
-    "story:preview": "histoire preview",
-    "build": "echo \"No build step required\"",
-    "test": "vitest",
-    "test:run": "vitest run"
   },
   "dependencies": {
     "@date-fns/utc": "^2.1.1",
@@ -141,6 +93,7 @@
     "xsschema": "catalog:",
     "zod": "catalog:"
   },
+  "description": "Shared core for stage",
   "devDependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/jura": "^5.2.7",
@@ -183,5 +136,52 @@
     "vite": "^6.4.1",
     "vue": "catalog:",
     "vue-tsc": "^3.1.8"
-  }
+  },
+  "exports": {
+    ".": "./src/components/index.ts",
+    "./components": "./src/components/index.ts",
+    "./components/*": "./src/components/*.ts",
+    "./components/scenarios/layout": "./src/components/scenarios/layout/index.ts",
+    "./components/scenarios/settings/model-settings": "./src/components/scenarios/settings/model-settings/index.ts",
+    "./components/scenes": "./src/components/scenes/index.ts",
+    "./composables": "./src/composables/index.ts",
+    "./composables/*": "./src/composables/*.ts",
+    "./constants": "./src/constants/index.ts",
+    "./constants/*": "./src/constants/*.ts",
+    "./libs": "./src/libs/index.ts",
+    "./libs/*": "./src/libs/*.ts",
+    "./libs/workers/whisper": "./src/libs/workers/whisper/index.ts",
+    "./stores": "./src/stores/index.ts",
+    "./stores/*": "./src/stores/*.ts",
+    "./stores/analytics": "./src/stores/analytics/index.ts",
+    "./stores/character": "./src/stores/character/index.ts",
+    "./stores/providers/aliyun": "./src/stores/providers/aliyun/index.ts",
+    "./stores/settings": "./src/stores/settings/index.ts",
+    "./types": "./src/types/index.ts",
+    "./types/*": "./src/types/*.ts",
+    "./utils": "./src/utils/index.ts",
+    "./utils/tts": "./src/utils/tts.ts",
+    "./workers": "./src/workers/index.ts",
+    "./workers/*": "./src/workers/*.ts",
+    "./workers/vad": "./src/workers/vad/index.ts"
+  },
+  "license": "MIT",
+  "name": "@proj-airi/stage-ui",
+  "private": true,
+  "repository": {
+    "directory": "packages/stage-ui",
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git"
+  },
+  "scripts": {
+    "build": "echo \"No build step required\"",
+    "story:build": "histoire build",
+    "story:build-base": "histoire build --base /ui",
+    "story:dev": "histoire dev",
+    "story:preview": "histoire preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

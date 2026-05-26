@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import type { ProviderMetadata } from '../../../../stores/providers'
-import type {
-  OnboardingStep,
-  OnboardingStepGuard,
-  OnboardingStepNextHandler,
-  OnboardingStepPrevHandler,
-  ProviderConfigData,
-} from './types'
-
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref } from 'vue'
-
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
+import { useHearingStore } from '../../../../stores/modules/hearing'
+import { useSpeechStore } from '../../../../stores/modules/speech'
+import type { ProviderMetadata } from '../../../../stores/providers'
+import { useProvidersStore } from '../../../../stores/providers'
 import StepCharacterSelection from './step-character-selection.vue'
 import StepEasySetup from './step-easy-setup.vue'
 import StepModeSelection from './step-mode-selection.vue'
@@ -18,12 +14,13 @@ import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 import StepProviderSelection from './step-provider-selection.vue'
 import StepWelcome from './step-welcome.vue'
-
-import { useAiriCardStore } from '../../../../stores/modules/airi-card'
-import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
-import { useHearingStore } from '../../../../stores/modules/hearing'
-import { useSpeechStore } from '../../../../stores/modules/speech'
-import { useProvidersStore } from '../../../../stores/providers'
+import type {
+  OnboardingStep,
+  OnboardingStepGuard,
+  OnboardingStepNextHandler,
+  OnboardingStepPrevHandler,
+  ProviderConfigData,
+} from './types'
 
 interface Emits {
   (e: 'configured'): void
@@ -46,13 +43,10 @@ const speechStore = useSpeechStore()
 const hearingStore = useHearingStore()
 const airiCardStore = useAiriCardStore()
 
-const {
-  activeProvider,
-} = storeToRefs(consciousnessStore)
+const { activeProvider } = storeToRefs(consciousnessStore)
 
 async function configureEasyMode(data: any) {
-  if (!data)
-    return
+  if (!data) return
 
   // 1. Configure OpenRouter (Consciousness)
   if (data.openrouter) {
@@ -106,7 +100,7 @@ async function configureEasyMode(data: any) {
   // before we try to set them as active in the module stores.
   await nextTick()
   // Wait a tiny bit more for cross-window sync if needed (though nextTick + persistent store should be enough)
-  await new Promise(resolve => setTimeout(resolve, 50))
+  await new Promise((resolve) => setTimeout(resolve, 50))
 
   // 3. Assign Modules
   if (data.openrouter) {
@@ -130,12 +124,24 @@ async function configureEasyMode(data: any) {
 }
 
 const availableProviders = computed(() => {
-  const preferredOrder = ['openai', 'anthropic', 'amazon-bedrock', 'google-generative-ai', 'groq', 'nvidia', 'openrouter-ai', 'ollama', 'deepseek', 'player2', 'openai-compatible']
+  const preferredOrder = [
+    'openai',
+    'anthropic',
+    'amazon-bedrock',
+    'google-generative-ai',
+    'groq',
+    'nvidia',
+    'openrouter-ai',
+    'ollama',
+    'deepseek',
+    'player2',
+    'openai-compatible',
+  ]
   const preferredProviders = allChatProvidersMetadata.value
-    .filter(provider => preferredOrder.includes(provider.id))
+    .filter((provider) => preferredOrder.includes(provider.id))
     .sort((a, b) => preferredOrder.indexOf(a.id) - preferredOrder.indexOf(b.id))
   const remainingProviders = allChatProvidersMetadata.value
-    .filter(provider => !preferredOrder.includes(provider.id))
+    .filter((provider) => !preferredOrder.includes(provider.id))
     .sort((a, b) => (a.localizedName || a.name || a.id).localeCompare(b.localizedName || b.name || b.id))
 
   return [...preferredProviders, ...remainingProviders]
@@ -147,7 +153,7 @@ const selectedCharacterId = ref('default')
 
 // Computed selected provider
 const selectedProvider = computed(() => {
-  return allChatProvidersMetadata.value.find(p => p.id === selectedProviderId.value) || null
+  return allChatProvidersMetadata.value.find((p) => p.id === selectedProviderId.value) || null
 })
 
 // Reset validation state when provider changes
@@ -165,23 +171,16 @@ const requestNextStep: OnboardingStepNextHandler = async (configData?: ProviderC
 }
 
 async function saveProviderConfiguration(data: ProviderConfigData) {
-  if (!selectedProvider.value)
-    return
+  if (!selectedProvider.value) return
 
   const config: Record<string, unknown> = {}
 
-  if (data.apiKey)
-    config.apiKey = data.apiKey.trim()
-  if (data.baseUrl)
-    config.baseUrl = data.baseUrl.trim()
-  if (data.accountId)
-    config.accountId = data.accountId.trim()
-  if (data.accessKeyId)
-    config.accessKeyId = data.accessKeyId.trim()
-  if (data.secretAccessKey)
-    config.secretAccessKey = data.secretAccessKey.trim()
-  if (data.region)
-    config.region = data.region.trim()
+  if (data.apiKey) config.apiKey = data.apiKey.trim()
+  if (data.baseUrl) config.baseUrl = data.baseUrl.trim()
+  if (data.accountId) config.accountId = data.accountId.trim()
+  if (data.accessKeyId) config.accessKeyId = data.accessKeyId.trim()
+  if (data.secretAccessKey) config.secretAccessKey = data.secretAccessKey.trim()
+  if (data.region) config.region = data.region.trim()
 
   providers.value[selectedProvider.value.id] = {
     ...providers.value[selectedProvider.value.id],
@@ -193,8 +192,7 @@ async function saveProviderConfiguration(data: ProviderConfigData) {
 
   try {
     await consciousnessStore.loadModelsForProvider(selectedProvider.value.id)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('error', err)
   }
 }
@@ -206,12 +204,12 @@ async function handleSave() {
 const allSteps = computed<OnboardingStep[]>(() => {
   const steps: OnboardingStep[] = [
     {
-      id: 'welcome',
       component: StepWelcome,
+      id: 'welcome',
     },
     {
-      id: 'mode-selection',
       component: StepModeSelection,
+      id: 'mode-selection',
       props: () => ({
         onSelectMode: (mode: 'easy' | 'custom') => {
           onboardingMode.value = mode
@@ -222,68 +220,66 @@ const allSteps = computed<OnboardingStep[]>(() => {
 
   if (onboardingMode.value === 'easy') {
     steps.push({
-      id: 'easy-setup',
-      component: StepEasySetup,
       beforeNext: async (data: any) => {
         await configureEasyMode(data)
         return true
       },
+      component: StepEasySetup,
+      id: 'easy-setup',
     })
-  }
-  else if (onboardingMode.value === 'custom') {
+  } else if (onboardingMode.value === 'custom') {
     steps.push(
       {
-        id: 'provider-selection',
         component: StepProviderSelection,
+        id: 'provider-selection',
         props: () => ({
-          selectedProviderId: selectedProviderId.value,
           availableProviders: availableProviders.value,
           onSelectProvider: selectProvider,
+          selectedProviderId: selectedProviderId.value,
         }),
       },
       {
-        id: 'provider-configuration',
-        component: StepProviderConfiguration,
-        props: () => ({
-          selectedProviderId: selectedProviderId.value,
-          selectedProvider: selectedProvider.value,
-        }),
         beforeNext: async () => {
-          if (!pendingProviderConfig.value)
-            return false
+          if (!pendingProviderConfig.value) return false
 
           await saveProviderConfiguration(pendingProviderConfig.value)
           pendingProviderConfig.value = null
           return true
         },
+        component: StepProviderConfiguration,
+        id: 'provider-configuration',
+        props: () => ({
+          selectedProvider: selectedProvider.value,
+          selectedProviderId: selectedProviderId.value,
+        }),
       },
-      ...extraSteps.map(s => ({
+      ...extraSteps.map((s) => ({
         ...s,
         props: () => ({
           ...s.props?.(),
         }),
       })),
       {
-        id: 'model-selection',
         component: StepModelSelection,
+        id: 'model-selection',
       },
     )
   }
 
   steps.push({
-    id: 'character-selection',
-    component: StepCharacterSelection,
-    props: () => ({
-      selectedCharacterId: selectedCharacterId.value,
-      onSelectCharacter: (id: string) => {
-        selectedCharacterId.value = id
-      },
-    }),
     beforeNext: async () => {
       await airiCardStore.seedDefaults(selectedCharacterId.value)
       await airiCardStore.activateCard(selectedCharacterId.value)
       return true
     },
+    component: StepCharacterSelection,
+    id: 'character-selection',
+    props: () => ({
+      onSelectCharacter: (id: string) => {
+        selectedCharacterId.value = id
+      },
+      selectedCharacterId: selectedCharacterId.value,
+    }),
   })
 
   return steps
@@ -294,18 +290,15 @@ const isLastStep = computed(() => step.value === allSteps.value.length - 1)
 const currentStepProps = computed(() => currentStep.value?.props?.() ?? {})
 
 async function canPassGuard(guard?: OnboardingStepGuard, data?: any) {
-  if (!guard)
-    return true
+  if (!guard) return true
 
   return await guard(data)
 }
 
 async function navigateNext(data?: any) {
-  if (!currentStep.value)
-    return
+  if (!currentStep.value) return
 
-  if (!(await canPassGuard(currentStep.value.beforeNext, data)))
-    return
+  if (!(await canPassGuard(currentStep.value.beforeNext, data))) return
 
   if (isLastStep.value) {
     await handleSave()
@@ -317,11 +310,9 @@ async function navigateNext(data?: any) {
 }
 
 async function navigatePrevious() {
-  if (!currentStep.value || step.value <= 0)
-    return
+  if (!currentStep.value || step.value <= 0) return
 
-  if (!(await canPassGuard(currentStep.value.beforePrev)))
-    return
+  if (!(await canPassGuard(currentStep.value.beforePrev))) return
 
   direction.value = 'previous'
   step.value--

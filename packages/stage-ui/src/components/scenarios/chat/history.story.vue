@@ -1,29 +1,39 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage, ChatHistoryItem } from '../../../types/chat'
-
 import { computed, ref } from 'vue'
+import type { ChatAssistantMessage, ChatHistoryItem } from '../../../types/chat'
 
 import ChatHistory from './history.vue'
 
 const markdownMessages = ref<ChatHistoryItem[]>([
   {
+    content: "Hey AIRI, can you summarize today's tasks?",
     role: 'user',
-    content: 'Hey AIRI, can you summarize today\'s tasks?',
   },
   {
-    role: 'assistant',
     content: '',
+    role: 'assistant',
     slices: [
-      { type: 'text', text: 'Absolutely! Here is a **quick recap** with bullet points:\n\n- Finish UI polish\n- Ship the API client\n- Record the demo' },
+      {
+        text: 'Absolutely! Here is a **quick recap** with bullet points:\n\n- Finish UI polish\n- Ship the API client\n- Record the demo',
+        type: 'text',
+      },
     ],
     tool_results: [],
   },
   {
-    role: 'assistant',
     content: '',
+    role: 'assistant',
     slices: [
-      { type: 'tool-call', toolCall: { toolName: 'fetch_tasks', args: JSON.stringify({ limit: 5 }), toolCallId: '1', toolCallType: 'function' } },
-      { type: 'text', text: 'Let me pull the latest tasks from the tracker.' },
+      {
+        toolCall: {
+          args: JSON.stringify({ limit: 5 }),
+          toolCallId: '1',
+          toolCallType: 'function',
+          toolName: 'fetch_tasks',
+        },
+        type: 'tool-call',
+      },
+      { text: 'Let me pull the latest tasks from the tracker.', type: 'text' },
     ],
     tool_results: [],
   },
@@ -31,16 +41,32 @@ const markdownMessages = ref<ChatHistoryItem[]>([
 
 const toolHeavyMessages = computed<ChatHistoryItem[]>(() => [
   {
-    role: 'user',
     content: 'Grab the weather for Tokyo and Osaka.',
+    role: 'user',
   },
   {
-    role: 'assistant',
     content: '',
+    role: 'assistant',
     slices: [
-      { type: 'tool-call', toolCall: { toolName: 'weather', args: JSON.stringify({ location: 'Tokyo' }), toolCallId: '2', toolCallType: 'function' } },
-      { type: 'tool-call', toolCall: { toolName: 'weather', args: JSON.stringify({ location: 'Osaka' }), toolCallId: '3', toolCallType: 'function' } },
-      { type: 'text', text: 'I will fetch both cities, one sec.' },
+      {
+        toolCall: {
+          args: JSON.stringify({ location: 'Tokyo' }),
+          toolCallId: '2',
+          toolCallType: 'function',
+          toolName: 'weather',
+        },
+        type: 'tool-call',
+      },
+      {
+        toolCall: {
+          args: JSON.stringify({ location: 'Osaka' }),
+          toolCallId: '3',
+          toolCallType: 'function',
+          toolName: 'weather',
+        },
+        type: 'tool-call',
+      },
+      { text: 'I will fetch both cities, one sec.', type: 'text' },
     ],
     tool_results: [],
   },
@@ -48,21 +74,19 @@ const toolHeavyMessages = computed<ChatHistoryItem[]>(() => [
 
 const errorMessages = ref<ChatHistoryItem[]>([
   {
-    role: 'user',
     content: 'Push the deployment now.',
+    role: 'user',
   },
   {
-    role: 'error',
     content: 'Deployment failed: upstream gateway timed out. Please try again in a minute.',
+    role: 'error',
   },
 ])
 
 const streamingMessage = ref<ChatAssistantMessage>({
-  role: 'assistant',
   content: '',
-  slices: [
-    { type: 'text', text: 'Working on it...' },
-  ],
+  role: 'assistant',
+  slices: [{ text: 'Working on it...', type: 'text' }],
   tool_results: [],
 })
 </script>

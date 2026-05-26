@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [
     // https://github.com/posva/unplugin-vue-router
     VueRouter({
-      extensions: ['.vue', '.md'],
       dts: resolve(import.meta.dirname, 'src', 'typed-router.d.ts'),
+      extensions: ['.vue', '.md'],
     }),
     Vue(),
     // https://github.com/antfu/unocss

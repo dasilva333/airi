@@ -64,7 +64,6 @@ components.d.ts
 **/typed-router.d.ts
 
 # Cache
-.eslintcache
 **/.cache/
 **/.vitepress/cache/
 **/tsconfig.tsbuildinfo
@@ -131,3 +130,10 @@ apps/stage-pocket/ios/buildServer.json
 
 # Playwright browser cache
 .cache/ms-playwright/
+scratch/
+reports/
+recovery_artifacts/
+*.patch
+extract.js
+fixed_data.txt
+apps/stage-tamagotchi/pkgbuild

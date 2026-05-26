@@ -40,26 +40,25 @@ export const useBackupStore = defineStore('backup', () => {
       files[`airi-localstorage-${timestamp}.json`] = JSON.stringify(storageData, null, 2)
 
       // Save as bundle (ZIP)
-      const result = await (window as any).electron.ipcRenderer.invoke('save-backup-bundle', {
-        timestamp,
-        files,
+      const result = (await (window as any).electron.ipcRenderer.invoke('save-backup-bundle', {
         customPath: backupPath.value,
-      }) as { success: boolean, path: string }
+        files,
+        timestamp,
+      })) as { success: boolean; path: string }
 
       // Update last backup time
       lastBackupTime.value = Date.now()
       console.log('[Backup] Backup completed successfully!')
       return result.path
-    }
-    catch (error) {
+    } catch (error) {
       console.error('[Backup] Backup failed:', error)
       return null
     }
   }
 
   return {
-    isBackupEnabled,
     backupPath,
+    isBackupEnabled,
     lastBackupTime,
     triggerBackup,
   }

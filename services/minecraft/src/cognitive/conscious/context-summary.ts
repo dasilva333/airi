@@ -65,7 +65,7 @@ export function generateContextSummary(input: ContextSummaryInput): string {
   // Extract action outcomes from llmLog entries within this turn range
   const actions = extractActionSummaries(llmLogEntries, startTurnId, endTurnId)
   if (actions.length > 0) {
-    const actionLines = actions.slice(0, MAX_SUMMARY_ACTIONS).map(a => `  ${a}`)
+    const actionLines = actions.slice(0, MAX_SUMMARY_ACTIONS).map((a) => `  ${a}`)
     parts.push(`Actions:\n${actionLines.join('\n')}`)
   }
 
@@ -82,8 +82,7 @@ export function generateContextSummary(input: ContextSummaryInput): string {
  * Returns null if there are no archived contexts.
  */
 export function buildContextHistoryMessage(archives: readonly ArchivedContext[]): string | null {
-  if (archives.length === 0)
-    return null
+  if (archives.length === 0) return null
 
   const sections = archives.map((ctx, i) => {
     const header = `[${i + 1}] ${ctx.label || 'unnamed'}`
@@ -97,30 +96,24 @@ export function buildContextHistoryMessage(archives: readonly ArchivedContext[])
  * Collapse the oldest N archived contexts into a single meta-summary.
  * Used when the number of archived contexts exceeds the prefix limit.
  */
-export function collapseOldestContexts(
-  archives: ArchivedContext[],
-  collapseCount: number,
-): ArchivedContext[] {
-  if (collapseCount <= 0 || archives.length <= collapseCount)
-    return archives
+export function collapseOldestContexts(archives: ArchivedContext[], collapseCount: number): ArchivedContext[] {
+  if (collapseCount <= 0 || archives.length <= collapseCount) return archives
 
   const toCollapse = archives.slice(0, collapseCount)
   const remaining = archives.slice(collapseCount)
 
-  const labels = toCollapse
-    .map(ctx => ctx.label || 'unnamed')
-    .join(', ')
+  const labels = toCollapse.map((ctx) => ctx.label || 'unnamed').join(', ')
 
   const totalMessages = toCollapse.reduce((sum, ctx) => sum + ctx.messageCount, 0)
   const totalTurns = toCollapse.reduce((sum, ctx) => sum + (ctx.endTurnId - ctx.startTurnId + 1), 0)
 
   const collapsed: ArchivedContext = {
-    label: `(collapsed: ${labels})`,
-    summary: `Collapsed ${toCollapse.length} earlier contexts (${totalTurns} turns, ${totalMessages} messages). Topics: ${labels}.`,
-    startTurnId: toCollapse[0].startTurnId,
-    endTurnId: toCollapse[toCollapse.length - 1].endTurnId,
-    messageCount: totalMessages,
     archivedAt: Date.now(),
+    endTurnId: toCollapse[toCollapse.length - 1].endTurnId,
+    label: `(collapsed: ${labels})`,
+    messageCount: totalMessages,
+    startTurnId: toCollapse[0].startTurnId,
+    summary: `Collapsed ${toCollapse.length} earlier contexts (${totalTurns} turns, ${totalMessages} messages). Topics: ${labels}.`,
   }
 
   return [collapsed, ...remaining]
@@ -130,31 +123,24 @@ export function collapseOldestContexts(
 
 function findPlayerInstruction(messages: Message[]): string | null {
   for (const msg of messages) {
-    if (msg.role !== 'user' || typeof msg.content !== 'string')
-      continue
+    if (msg.role !== 'user' || typeof msg.content !== 'string') continue
     // Player chat events are formatted as "[EVENT] <player> whispered: ..." or "[EVENT] <player>: ..."
     const match = msg.content.match(/\[EVENT\]\s*(?:<\w+>|\w+)\s*(?:whispered:|:)\s*(.+)/i)
-    if (match?.[1])
-      return match[1].trim()
+    if (match?.[1]) return match[1].trim()
   }
   return null
 }
 
-function extractActionSummaries(
-  entries: readonly LlmLogEntry[],
-  startTurnId: number,
-  endTurnId: number,
-): string[] {
+function extractActionSummaries(entries: readonly LlmLogEntry[], startTurnId: number, endTurnId: number): string[] {
   const summaries: string[] = []
 
   for (const entry of entries) {
-    if (entry.turnId < startTurnId || entry.turnId > endTurnId)
-      continue
+    if (entry.turnId < startTurnId || entry.turnId > endTurnId) continue
 
     // Capture action queue results (success/failure)
     if (entry.kind === 'scheduler' && entry.tags.includes('action_queue')) {
       if (entry.tags.includes('success') || entry.tags.includes('failure')) {
-        const tool = entry.tags.find(t => !['scheduler', 'action_queue', 'success', 'failure'].includes(t)) ?? '?'
+        const tool = entry.tags.find((t) => !['scheduler', 'action_queue', 'success', 'failure'].includes(t)) ?? '?'
         const status = entry.tags.includes('success') ? 'ok' : 'fail'
         summaries.push(`${tool}: ${status}`)
       }
@@ -163,11 +149,10 @@ function extractActionSummaries(
     // Capture direct repl_result action summaries
     if (entry.kind === 'repl_result' && entry.metadata) {
       const meta = entry.metadata as Record<string, unknown>
-      const actions = meta.actions as Array<{ tool: string, ok: boolean }> | undefined
+      const actions = meta.actions as Array<{ tool: string; ok: boolean }> | undefined
       if (actions && Array.isArray(actions)) {
         for (const action of actions) {
-          if (action.tool === 'skip')
-            continue
+          if (action.tool === 'skip') continue
           summaries.push(`${action.tool}: ${action.ok ? 'ok' : 'fail'}`)
         }
       }

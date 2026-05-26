@@ -16,13 +16,13 @@ interface WaveProps {
 
 // Use either provided wave props or defaults
 const props = withDefaults(defineProps<WaveProps>(), {
-  height: 40,
   amplitude: 14,
-  waveLength: 250,
-  fillColor: 'oklch(95% 0.10 var(--chromatic-hue))',
-  direction: 'down',
-  movementDirection: 'left',
   animationSpeed: 50,
+  direction: 'down',
+  fillColor: 'oklch(95% 0.10 var(--chromatic-hue))',
+  height: 40,
+  movementDirection: 'left',
+  waveLength: 250,
 })
 
 // Reactive Variables
@@ -59,7 +59,7 @@ function generateSineWavePath(
   points.push(`M 0 ${baseY}`)
 
   // Generate points for the sine wave
-  const factor = Math.PI * 2 / waveLength
+  const factor = (Math.PI * 2) / waveLength
   for (let x = 0; x <= totalWavesWidth; x += step) {
     const deltaY = amplitude * Math.sin(factor * x)
     const y = direction === 'up' ? baseY - deltaY : baseY + deltaY

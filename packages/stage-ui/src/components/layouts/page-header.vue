@@ -3,31 +3,29 @@ import { useMotion } from '@vueuse/motion'
 import { nextTick, onMounted, onUnmounted, ref, useAttrs, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const props = withDefaults(defineProps<{
-  title: string
-  subtitle?: string
-  showBackButton?: boolean
-  disableBackButton?: boolean
-}>(), {
-  showBackButton: true,
-  disableBackButton: false,
-})
+const props = withDefaults(
+  defineProps<{
+    title: string
+    subtitle?: string
+    showBackButton?: boolean
+    disableBackButton?: boolean
+  }>(),
+  {
+    disableBackButton: false,
+    showBackButton: true,
+  },
+)
 
-const emit = defineEmits<{
-  (e: 'back'): void
-}>()
+const emit = defineEmits<(e: 'back') => void>()
 const router = useRouter()
 const route = useRoute()
 const attrs = useAttrs()
 
 function handleBack() {
-  if (finalizedDisableBackButton.value)
-    return
+  if (finalizedDisableBackButton.value) return
 
-  if (attrs.onBack)
-    emit('back')
-  else
-    router.back()
+  if (attrs.onBack) emit('back')
+  else router.back()
 }
 
 const pageHeaderRef = ref<HTMLElement>()
@@ -36,9 +34,9 @@ const subtitle = ref(props.subtitle)
 const finalizedDisableBackButton = ref(props.disableBackButton)
 
 const { apply } = useMotion(pageHeaderRef, {
-  initial: { opacity: 0, x: 10, transition: { duration: 50 } },
-  enter: { opacity: 1, x: 0, transition: { duration: 250 } },
-  leave: { opacity: 0, x: -5, transition: { duration: 25 } },
+  enter: { opacity: 1, transition: { duration: 250 }, x: 0 },
+  initial: { opacity: 0, transition: { duration: 50 }, x: 10 },
+  leave: { opacity: 0, transition: { duration: 25 }, x: -5 },
 })
 
 onMounted(async () => {

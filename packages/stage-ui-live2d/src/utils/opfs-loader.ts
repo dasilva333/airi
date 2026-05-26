@@ -18,8 +18,7 @@ export class OPFSCacheV2 {
       for await (const entry of root.values()) {
         await root.removeEntry(entry.name, { recursive: true })
       }
-    }
-    catch (e) {
+    } catch (e) {
       console.error('[OPFS] Failed to clear cache:', e)
     }
   }
@@ -30,15 +29,13 @@ export class OPFSCacheV2 {
       if (entry.kind === 'file') {
         const fileHandle = entry as FileSystemFileHandle
         const file = await fileHandle.getFile()
-        if (file.name === '__meta.json')
-          continue
+        if (file.name === '__meta.json') continue
         // live2d-display expects this
         Object.defineProperty(file, 'webkitRelativePath', {
           value: pathPrefix + file.name,
         })
         files.push(file)
-      }
-      else if (entry.kind === 'directory') {
+      } else if (entry.kind === 'directory') {
         const newPrefix = `${pathPrefix + entry.name}/`
         const subFiles = await OPFSCacheV2.readDirectoryRecursive(entry as FileSystemDirectoryHandle, newPrefix)
         files.push(...subFiles)
@@ -49,10 +46,9 @@ export class OPFSCacheV2 {
 
   static async resolveDirectory(root: FileSystemDirectoryHandle, path: string): Promise<FileSystemDirectoryHandle> {
     let currentDir = root
-    if (!path || path === '.' || path === './')
-      return currentDir
+    if (!path || path === '.' || path === './') return currentDir
 
-    const parts = path.split('/').filter(p => p && p !== '.')
+    const parts = path.split('/').filter((p) => p && p !== '.')
     for (const part of parts) {
       currentDir = await currentDir.getDirectoryHandle(part, { create: true })
     }
@@ -77,8 +73,7 @@ export class OPFSCacheV2 {
       const metaFile = await metaHandle.getFile()
       const metaText = await metaFile.text()
       return JSON.parse(metaText) as { sourceUrl?: string }
-    }
-    catch {
+    } catch {
       return null
     }
   }
@@ -104,8 +99,7 @@ export class OPFSCacheV2 {
       if (files.length > 0) {
         return files
       }
-    }
-    catch {
+    } catch {
       // Cache Miss
     }
     return null
@@ -126,7 +120,7 @@ export class OPFSCacheV2 {
         writePromises.push(OPFSCacheV2.writeFile(dirHandle, relativePath, file))
       }
 
-      const settingsFile = files.find(f => f.name.endsWith('.model.json') || f.name.endsWith('.model3.json'))
+      const settingsFile = files.find((f) => f.name.endsWith('.model.json') || f.name.endsWith('.model3.json'))
 
       if (!settingsFile) {
         // reconstruct settings files from ModelSettings
@@ -147,8 +141,7 @@ export class OPFSCacheV2 {
       }
       // eslint-disable-next-line no-console
       console.debug(`[OPFS] Saved to cache`)
-    }
-    catch (e) {
+    } catch (e) {
       console.error('[OPFS] Failed to save to cache:', e)
     }
   }
@@ -160,18 +153,14 @@ export class OPFSCacheV2 {
     let blobUrl: string | undefined
 
     // In Model.vue, we pass {id, url, file} to the loader, extract them here
-    if (
-      typeof source === 'object'
-      && source !== null
-      && 'id' in source
-      && 'url' in source
-    ) {
+    if (typeof source === 'object' && source !== null && 'id' in source && 'url' in source) {
       key = source.id
       blobUrl = source.url
 
       // If we have the original file object, use it directly as the source
       // Use a more robust check instead of instanceof File which can fail across contexts
-      const hasFile = 'file' in source && source.file && (typeof source.file === 'object') && ('size' in (source as any).file)
+      const hasFile =
+        'file' in source && source.file && typeof source.file === 'object' && 'size' in (source as any).file
 
       if (hasFile) {
         context.source = [source.file as unknown as File]
@@ -185,8 +174,7 @@ export class OPFSCacheV2 {
     const shouldFetchManually = isBlob || isLocalVite
 
     if (!key || !blobUrl || !shouldFetchManually) {
-      if (typeof blobUrl === 'string')
-        context.source = blobUrl
+      if (typeof blobUrl === 'string') context.source = blobUrl
       return next()
     }
 
@@ -215,8 +203,7 @@ export class OPFSCacheV2 {
       const blob = await res.blob()
       const fileName = `${key}.zip`
       context.source = [new File([blob], fileName)]
-    }
-    catch (e) {
+    } catch (e) {
       console.error(`[OPFS] Failed to fetch source for ${key}`, e)
       throw e
     }

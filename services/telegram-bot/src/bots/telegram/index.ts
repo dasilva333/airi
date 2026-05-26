@@ -1,86 +1,97 @@
-import type { Logg } from '@guiiai/logg'
-import type { Message } from 'grammy/types'
-
-import type { Action, BotContext, ChatContext, ExtendedContext } from '../../types'
-
 import { env } from 'node:process'
-
+import type { Logg } from '@guiiai/logg'
 import { useLogg } from '@guiiai/logg'
 import { sleep } from '@moeru/std'
 import { message } from '@xsai/utils-chat'
 import { Bot } from 'grammy'
-
+import type { Message } from 'grammy/types'
 import { imagineAnAction } from '../../llm/actions'
 import { interpretPhotos } from '../../llm/photo'
 import { interpretSticker } from '../../llm/sticker'
 import { findStickerByFileId, findStickersByFileIds, recordMessage } from '../../models'
 import { listJoinedChats, recordJoinedChat } from '../../models/chats'
 import { listStickerPacks, recordStickerPack } from '../../models/sticker-packs'
+import type { Action, BotContext, ChatContext, ExtendedContext } from '../../types'
 import { readMessage } from './agent/actions/read-message'
 import { sendMessage } from './agent/actions/send-message'
+
 // import { shouldInterruptProcessing } from './agent/interruption'
 
-async function dispatchAction(ctx: BotContext, action: Action, abortController: AbortController, chatCtx?: ChatContext) {
+async function dispatchAction(
+  ctx: BotContext,
+  action: Action,
+  abortController: AbortController,
+  chatCtx?: ChatContext,
+) {
   // If action generation failed, don't proceed with further processing
   if (!action || !action.action) {
     ctx.logger.withField('action', action).log('No valid action returned.')
     if (chatCtx) {
       chatCtx.messages.push(message.user('AIRI System: No valid action returned.'))
       return () => handleLoopStep(ctx, chatCtx)
-    }
-    else {
+    } else {
       return
     }
   }
 
   switch (action.action) {
-    case 'list_stickers':
-    {
+    case 'list_stickers': {
       if (chatCtx) {
         await ctx.bot.api.sendChatAction(chatCtx.chatId, 'choose_sticker')
       }
 
       const stickerPacks = await listStickerPacks()
-      const stickerSets = await Promise.all(stickerPacks.map(s => ctx.bot.api.getStickerSet(s.platform_id)))
-      const stickersIds = stickerSets.flatMap(s => s.stickers.map(sticker => sticker.file_id))
+      const stickerSets = await Promise.all(stickerPacks.map((s) => ctx.bot.api.getStickerSet(s.platform_id)))
+      const stickersIds = stickerSets.flatMap((s) => s.stickers.map((sticker) => sticker.file_id))
       const stickerDescriptions = await findStickersByFileIds(stickersIds)
-      const stickerDescriptionsOneliner = stickerDescriptions.map(d => `Sticker File ID: ${d.file_id}, Description: ${d.description}`)
+      const stickerDescriptionsOneliner = stickerDescriptions.map(
+        (d) => `Sticker File ID: ${d.file_id}, Description: ${d.description}`,
+      )
 
       if (chatCtx) {
         if (stickerDescriptionsOneliner.length === 0) {
-          chatCtx.actions.push({ action, result: 'AIRI System: No stickers found in the current memory partition, preload of stickers is required, please ask for help.' })
-        }
-        else {
+          chatCtx.actions.push({
+            action,
+            result:
+              'AIRI System: No stickers found in the current memory partition, preload of stickers is required, please ask for help.',
+          })
+        } else {
           chatCtx.actions.push({ action, result: `AIRI System: List of stickers:\n${stickerDescriptionsOneliner}` })
         }
       }
 
       return
     }
-    case 'send_sticker':
-    {
+    case 'send_sticker': {
       const chatCtx = ensureChatContext(ctx, action.chatId)
 
       try {
         const file = await ctx.bot.api.getFile(action.fileId)
         if (!file) {
-          chatCtx.actions.push({ action, result: `AIRI System: Error executing 'send_sticker': Sticker file ID ${action.fileId} not found, did you list the needed stickers before sending?` })
+          chatCtx.actions.push({
+            action,
+            result: `AIRI System: Error executing 'send_sticker': Sticker file ID ${action.fileId} not found, did you list the needed stickers before sending?`,
+          })
           return () => handleLoopStep(ctx, chatCtx)
         }
-      }
-      catch (err) {
-        chatCtx.actions.push({ action, result: `AIRI System: Error executing 'send_sticker': Sticker file ID ${action.fileId} not found or failed due to ${String(err)}, did you list the needed stickers before sending?` })
+      } catch (err) {
+        chatCtx.actions.push({
+          action,
+          result: `AIRI System: Error executing 'send_sticker': Sticker file ID ${action.fileId} not found or failed due to ${String(err)}, did you list the needed stickers before sending?`,
+        })
         return () => handleLoopStep(ctx, chatCtx)
       }
 
       const sticker = await findStickerByFileId(action.fileId)
-      chatCtx.actions.push({ action, result: `AIRI System: Sending sticker ${action.fileId} with (${sticker.emoji} in set ${sticker.name}) to ${action.chatId}` })
+      chatCtx.actions.push({
+        action,
+        result: `AIRI System: Sending sticker ${action.fileId} with (${sticker.emoji} in set ${sticker.name}) to ${action.chatId}`,
+      })
       await ctx.bot.api.sendSticker(action.chatId, action.fileId)
 
       return () => handleLoopStep(ctx, chatCtx)
     }
-    case 'read_unread_messages':
-    {
+    case 'read_unread_messages': {
       const chatCtx = ensureChatContext(ctx, action.chatId)
 
       if (Object.keys(ctx.unreadMessages).length === 0) {
@@ -95,9 +106,15 @@ async function dispatchAction(ctx: BotContext, action: Action, abortController: 
 
       let unreadMessagesForThisChat: Message[] | undefined = ctx.unreadMessages[action.chatId]
 
-      const mentionedBy = unreadMessagesForThisChat.find(msg => msg.text?.includes(ctx.bot.botInfo.username) || msg.text?.includes(ctx.bot.botInfo.first_name))
+      const mentionedBy = unreadMessagesForThisChat.find(
+        (msg) => msg.text?.includes(ctx.bot.botInfo.username) || msg.text?.includes(ctx.bot.botInfo.first_name),
+      )
       if (mentionedBy) {
-        chatCtx.messages.push(message.user(`AIRI System: You were mentioned in a message: ${mentionedBy.text} by ${mentionedBy.from?.first_name} (${mentionedBy.from?.username}), please respond as much as possible.`))
+        chatCtx.messages.push(
+          message.user(
+            `AIRI System: You were mentioned in a message: ${mentionedBy.text} by ${mentionedBy.from?.first_name} (${mentionedBy.from?.username}), please respond as much as possible.`,
+          ),
+        )
       }
 
       if (!Array.isArray(unreadMessagesForThisChat)) {
@@ -120,26 +137,37 @@ async function dispatchAction(ctx: BotContext, action: Action, abortController: 
       //   return { break: true }
       // }
 
-      const res = await readMessage(ctx, ctx.bot.botInfo.id.toString(), chatCtx.chatId, action, unreadMessagesForThisChat, abortController)
+      const res = await readMessage(
+        ctx,
+        ctx.bot.botInfo.id.toString(),
+        chatCtx.chatId,
+        action,
+        unreadMessagesForThisChat,
+        abortController,
+      )
       if (res?.result) {
         ctx.logger.log('message, read')
         chatCtx.actions.push({ action, result: res.result })
         return () => handleLoopStep(ctx, chatCtx)
-      }
-      else {
+      } else {
         return
       }
     }
     case 'list_chats':
       if (chatCtx) {
-        chatCtx.actions.push({ action, result: `AIRI System: List of chats:${(await listJoinedChats()).map(chat => `ID:${chat.chat_id}, Name:${chat.chat_name}`).join('\n')}` })
+        chatCtx.actions.push({
+          action,
+          result: `AIRI System: List of chats:${(await listJoinedChats()).map((chat) => `ID:${chat.chat_id}, Name:${chat.chat_name}`).join('\n')}`,
+        })
       }
 
       return
-    case 'send_message':
-    {
+    case 'send_message': {
       const chatCtx = ensureChatContext(ctx, action.chatId)
-      chatCtx.actions.push({ action, result: `AIRI System: Sending message to group ${action.chatId}: ${action.content}` })
+      chatCtx.actions.push({
+        action,
+        result: `AIRI System: Sending message to group ${action.chatId}: ${action.content}`,
+      })
       await sendMessage(ctx, chatCtx, action.content, action.chatId, abortController)
       return () => handleLoopStep(ctx, chatCtx)
     }
@@ -153,7 +181,11 @@ async function dispatchAction(ctx: BotContext, action: Action, abortController: 
       if (chatCtx) {
         chatCtx.messages = []
         chatCtx.actions = []
-        chatCtx.actions.push({ action, result: 'AIRI System: Acknowledged, will now break, and clear out all existing memories, messages, actions. Left only this one.' })
+        chatCtx.actions.push({
+          action,
+          result:
+            'AIRI System: Acknowledged, will now break, and clear out all existing memories, messages, actions. Left only this one.',
+        })
       }
 
       return
@@ -166,12 +198,18 @@ async function dispatchAction(ctx: BotContext, action: Action, abortController: 
       return () => handleLoopStep(ctx, chatCtx)
     default:
       if (chatCtx) {
-        chatCtx.messages.push(message.user(`AIRI System: The action you sent ${action.action} haven't implemented yet by developer.`))
+        chatCtx.messages.push(
+          message.user(`AIRI System: The action you sent ${action.action} haven't implemented yet by developer.`),
+        )
       }
   }
 }
 
-async function handleLoopStep(ctx: BotContext, chatCtx: ChatContext, incomingMessage?: Message): Promise<() => Promise<any> | undefined> {
+async function handleLoopStep(
+  ctx: BotContext,
+  chatCtx: ChatContext,
+  incomingMessage?: Message,
+): Promise<() => Promise<any> | undefined> {
   ctx.currentProcessingStartTime = Date.now()
 
   if (chatCtx?.currentAbortController) {
@@ -228,7 +266,11 @@ async function handleLoopStep(ctx: BotContext, chatCtx: ChatContext, incomingMes
       const length = chatCtx.messages.length
       // pick the latest 5
       chatCtx.messages = chatCtx.messages.slice(-5)
-      chatCtx.messages.push(message.user(`AIRI System: Approaching to system context limit, reducing... memory..., reduced from ${length} to ${chatCtx.messages.length}, history may lost.`))
+      chatCtx.messages.push(
+        message.user(
+          `AIRI System: Approaching to system context limit, reducing... memory..., reduced from ${length} to ${chatCtx.messages.length}, history may lost.`,
+        ),
+      )
     }
 
     if (chatCtx.actions == null) {
@@ -238,17 +280,21 @@ async function handleLoopStep(ctx: BotContext, chatCtx: ChatContext, incomingMes
       const length = chatCtx.actions.length
       // pick the latest 20
       chatCtx.actions = chatCtx.actions.slice(-20)
-      chatCtx.messages.push(message.user(`AIRI System: Approaching to system context limit, reducing... memory..., reduced from ${length} to ${chatCtx.actions.length}, history of actions may lost.`))
+      chatCtx.messages.push(
+        message.user(
+          `AIRI System: Approaching to system context limit, reducing... memory..., reduced from ${length} to ${chatCtx.actions.length}, history of actions may lost.`,
+        ),
+      )
     }
   }
 
   try {
-    const readUnreadMessagesActions: { index: number, actionState: typeof chatCtx.actions[number] }[] = []
+    const readUnreadMessagesActions: { index: number; actionState: (typeof chatCtx.actions)[number] }[] = []
 
     if (chatCtx) {
       for (const actionHistory of chatCtx.actions) {
         if (actionHistory.action.action === 'read_unread_messages') {
-          readUnreadMessagesActions.push({ index: chatCtx.actions.indexOf(actionHistory), actionState: actionHistory })
+          readUnreadMessagesActions.push({ actionState: actionHistory, index: chatCtx.actions.indexOf(actionHistory) })
         }
       }
     }
@@ -268,18 +314,22 @@ async function handleLoopStep(ctx: BotContext, chatCtx: ChatContext, incomingMes
       }
     }
 
-    const action = await imagineAnAction(ctx.bot.botInfo.id.toString(), currentController, chatCtx?.messages || [], chatCtx?.actions || [], { unreadMessages: ctx.unreadMessages, incomingMessages: [incomingMessage] })
+    const action = await imagineAnAction(
+      ctx.bot.botInfo.id.toString(),
+      currentController,
+      chatCtx?.messages || [],
+      chatCtx?.actions || [],
+      { incomingMessages: [incomingMessage], unreadMessages: ctx.unreadMessages },
+    )
     return await dispatchAction(ctx, action, currentController, chatCtx)
-  }
-  catch (err) {
+  } catch (err) {
     if (err.name === 'AbortError') {
       ctx.logger.log('Operation was aborted due to interruption')
       return
     }
 
     ctx.logger.withError(err).log('Error occurred')
-  }
-  finally {
+  } finally {
     // Clean up timing when done
     if (chatCtx && chatCtx.currentAbortController === currentController) {
       chatCtx.currentAbortController = undefined
@@ -315,7 +365,13 @@ async function loopIterationPeriodicForExistingChat(ctx: BotContext) {
   for (const [chatId] of ctx.chats) {
     const chatCtx = ensureChatContext(ctx, chatId)
 
-    const action = await imagineAnAction(ctx.bot.botInfo.id.toString(), chatCtx.currentAbortController, chatCtx.messages, chatCtx.actions, { unreadMessages: ctx.unreadMessages })
+    const action = await imagineAnAction(
+      ctx.bot.botInfo.id.toString(),
+      chatCtx.currentAbortController,
+      chatCtx.messages,
+      chatCtx.actions,
+      { unreadMessages: ctx.unreadMessages },
+    )
     let result = await dispatchAction(ctx, action, chatCtx.currentAbortController, chatCtx)
 
     while (typeof result === 'function') {
@@ -326,7 +382,9 @@ async function loopIterationPeriodicForExistingChat(ctx: BotContext) {
 
 async function loopIterationPeriodicWithNoChats(ctx: BotContext) {
   const abortController = new AbortController()
-  const action = await imagineAnAction(ctx.bot.botInfo.id.toString(), abortController, [], [], { unreadMessages: ctx.unreadMessages })
+  const action = await imagineAnAction(ctx.bot.botInfo.id.toString(), abortController, [], [], {
+    unreadMessages: ctx.unreadMessages,
+  })
   let result = await dispatchAction(ctx, action, abortController)
 
   while (typeof result === 'function') {
@@ -339,14 +397,10 @@ function loopPeriodic(botCtx: BotContext) {
     try {
       loopIterationPeriodicForExistingChat(botCtx)
       loopIterationPeriodicWithNoChats(botCtx)
-    }
-    catch (err) {
-      if (err.name === 'AbortError')
-        botCtx.logger.log('main loop was aborted - restarting loop')
-      else
-        botCtx.logger.withError(err).log('error in main loop')
-    }
-    finally {
+    } catch (err) {
+      if (err.name === 'AbortError') botCtx.logger.log('main loop was aborted - restarting loop')
+      else botCtx.logger.withError(err).log('error in main loop')
+    } finally {
       loopPeriodic(botCtx)
     }
   }, 60 * 1000)
@@ -355,21 +409,20 @@ function loopPeriodic(botCtx: BotContext) {
 function createBotContext(telegramBot: Bot, logger: Logg): BotContext {
   const botSelf: BotContext = {
     bot: telegramBot,
-    messageQueue: [],
-    unreadMessages: {},
-    processedIds: new Set(),
-    logger,
-    processing: false,
-    lastInteractedNChatIds: [],
     chats: new Map<string, ChatContext>(),
+    lastInteractedNChatIds: [],
+    logger,
+    messageQueue: [],
+    processedIds: new Set(),
+    processing: false,
+    unreadMessages: {},
   }
 
   return botSelf
 }
 
 async function onMessageArrival(botContext: BotContext, chatCtx: ChatContext) {
-  if (botContext.processing)
-    return
+  if (botContext.processing) return
   botContext.processing = true
 
   try {
@@ -382,13 +435,11 @@ async function onMessageArrival(botContext: BotContext, chatCtx: ChatContext) {
           nextMsg.status = 'interpreting'
           await interpretSticker(botContext.bot, nextMsg.message, nextMsg.message.sticker)
           nextMsg.status = 'ready'
-        }
-        else if (nextMsg.message.photo) {
+        } else if (nextMsg.message.photo) {
           nextMsg.status = 'interpreting'
           await interpretPhotos(botContext, nextMsg.message, nextMsg.message.photo)
           nextMsg.status = 'ready'
-        }
-        else {
+        } else {
           nextMsg.status = 'ready'
         }
       }
@@ -396,7 +447,10 @@ async function onMessageArrival(botContext: BotContext, chatCtx: ChatContext) {
       if (nextMsg.status === 'ready') {
         switch (nextMsg.message.chat.type) {
           case 'private':
-            await recordJoinedChat(nextMsg.message.chat.id.toString(), `${nextMsg.message.from.first_name} ${nextMsg.message.from.last_name}`)
+            await recordJoinedChat(
+              nextMsg.message.chat.id.toString(),
+              `${nextMsg.message.from.first_name} ${nextMsg.message.from.last_name}`,
+            )
             break
           case 'channel':
           case 'group':
@@ -410,11 +464,15 @@ async function onMessageArrival(botContext: BotContext, chatCtx: ChatContext) {
         let unreadMessagesForThisChat = botContext.unreadMessages[nextMsg.message.chat.id]
 
         if (unreadMessagesForThisChat == null) {
-          botContext.logger.withField('chatId', nextMsg.message.chat.id).log('unread messages for this chat is null - creating empty array')
+          botContext.logger
+            .withField('chatId', nextMsg.message.chat.id)
+            .log('unread messages for this chat is null - creating empty array')
           unreadMessagesForThisChat = []
         }
         if (!Array.isArray(unreadMessagesForThisChat)) {
-          botContext.logger.withField('chatId', nextMsg.message.chat.id).log('unread messages for this chat is not an array - converting to array')
+          botContext.logger
+            .withField('chatId', nextMsg.message.chat.id)
+            .log('unread messages for this chat is not an array - converting to array')
           unreadMessagesForThisChat = []
         }
 
@@ -425,17 +483,17 @@ async function onMessageArrival(botContext: BotContext, chatCtx: ChatContext) {
         }
 
         botContext.unreadMessages[nextMsg.message.chat.id] = unreadMessagesForThisChat
-        botContext.logger.withField('chatId', nextMsg.message.chat.id).log('message queue processed, triggering immediate reaction')
+        botContext.logger
+          .withField('chatId', nextMsg.message.chat.id)
+          .log('message queue processed, triggering immediate reaction')
         // Trigger immediate processing when messages are ready
         loopIterationForChat(botContext, chatCtx, nextMsg.message)
         botContext.messageQueue.shift()
       }
     }
-  }
-  catch (err) {
+  } catch (err) {
     botContext.logger.withError(err).log('Error occurred')
-  }
-  finally {
+  } finally {
     botContext.processing = false
   }
 }
@@ -446,11 +504,11 @@ function ensureChatContext(botCtx: BotContext, chatId: string): ChatContext {
   }
 
   const newChatContext: ChatContext = {
-    chatId,
-    currentTask: undefined,
-    currentAbortController: undefined,
-    messages: [],
     actions: [],
+    chatId,
+    currentAbortController: undefined,
+    currentTask: undefined,
+    messages: [],
   }
 
   botCtx.chats.set(chatId, newChatContext)
@@ -461,7 +519,7 @@ export async function startTelegramBot() {
   const log = useLogg('Bot').useGlobalConfig()
 
   const telegramBot = new Bot<ExtendedContext>(env.TELEGRAM_BOT_TOKEN!)
-  telegramBot.errorHandler = async err => log.withError(err).log('Error occurred')
+  telegramBot.errorHandler = async (err) => log.withError(err).log('Error occurred')
 
   const botCtx = createBotContext(telegramBot, log)
 
@@ -480,7 +538,9 @@ export async function startTelegramBot() {
     const repliedSticker = ctx.message.reply_to_message.sticker
     const stickerSet = await telegramBot.api.getStickerSet(repliedSticker.set_name)
 
-    logger.withField('sticker_set', repliedSticker.set_name).log('now will register the sticker set as known sticker set')
+    logger
+      .withField('sticker_set', repliedSticker.set_name)
+      .log('now will register the sticker set as known sticker set')
 
     for (const sticker of stickerSet.stickers) {
       logger.withField('sticker', sticker).log('interpreting sticker')
@@ -540,8 +600,7 @@ export async function startTelegramBot() {
 
   try {
     loopPeriodic(botCtx)
-  }
-  catch (err) {
+  } catch (err) {
     console.error(err)
   }
 }

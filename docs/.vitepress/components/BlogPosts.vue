@@ -18,9 +18,9 @@ interface Post {
   }
   excerpt: string | undefined
   frontmatter?: {
-    'excerpt'?: string
-    'category'?: string
-    'author'?: string
+    excerpt?: string
+    category?: string
+    author?: string
     'preview-cover'?: {
       light?: string
       dark?: string
@@ -36,7 +36,10 @@ const { t } = useI18n()
 const { isDark, lang } = useData()
 const category = ref('all')
 const categories = computed(() => {
-  const allCategories = props.data.map(post => post.frontmatter?.category).filter(Boolean).map(post => post?.toLowerCase())
+  const allCategories = props.data
+    .map((post) => post.frontmatter?.category)
+    .filter(Boolean)
+    .map((post) => post?.toLowerCase())
   return ['all', ...new Set(allCategories as string[])]
 })
 
@@ -44,7 +47,7 @@ const posts = computed(() => {
   let postsData = props.data as Post[]
 
   if (category.value && category.value !== 'all') {
-    postsData = props.data.filter(post => post.frontmatter?.category?.toLowerCase() === category.value)
+    postsData = props.data.filter((post) => post.frontmatter?.category?.toLowerCase() === category.value)
   }
 
   const transformedPostsData = postsData
@@ -56,9 +59,9 @@ const posts = computed(() => {
 
       return overridePost
     })
-    .filter(post => !!post.title)
+    .filter((post) => !!post.title)
 
-  const currentLanguagePostsData = transformedPostsData.filter(post => post.lang === lang.value)
+  const currentLanguagePostsData = transformedPostsData.filter((post) => post.lang === lang.value)
 
   return currentLanguagePostsData.sort((a, b) => b.date.time - a.date.time)
 })
@@ -95,10 +98,10 @@ function createPRNG(seed: number) {
   }
 
   return {
-    nextInt,
-    nextFloat,
-    next,
     choice,
+    next,
+    nextFloat,
+    nextInt,
   }
 }
 
@@ -118,8 +121,18 @@ async function createTileGenerator(title: string) {
       const strokeWidth = prng.next(4, 10)
 
       const stroke = options?.dark
-        ? prng.choice([palette.shadeBy(700), palette.shadeBy(500), complementary.shadeBy(700), complementary.shadeBy(500)])
-        : prng.choice([palette.shadeBy(200), palette.shadeBy(500), complementary.shadeBy(200), complementary.shadeBy(500)])
+        ? prng.choice([
+            palette.shadeBy(700),
+            palette.shadeBy(500),
+            complementary.shadeBy(700),
+            complementary.shadeBy(500),
+          ])
+        : prng.choice([
+            palette.shadeBy(200),
+            palette.shadeBy(500),
+            complementary.shadeBy(200),
+            complementary.shadeBy(500),
+          ])
 
       let pathData = `M -10 ${yOffset}`
       for (let x = -10; x <= 110; x += 5) {
@@ -132,9 +145,7 @@ async function createTileGenerator(title: string) {
     return paths
   }
 
-  const generators = [
-    generateWaves,
-  ]
+  const generators = [generateWaves]
 
   function generate(options?: { dark?: boolean }) {
     const patternGenerator = prng.choice(generators)
@@ -154,14 +165,16 @@ ${patternElements}
 }
 
 const svgArts = computedAsync(async () => {
-  return Promise.all(posts.value.map(async (post) => {
-    const generator = await createTileGenerator(post.title)
+  return Promise.all(
+    posts.value.map(async (post) => {
+      const generator = await createTileGenerator(post.title)
 
-    return {
-      light: generator.generate({ dark: false }),
-      dark: generator.generate({ dark: true }),
-    }
-  }))
+      return {
+        dark: generator.generate({ dark: true }),
+        light: generator.generate({ dark: false }),
+      }
+    }),
+  )
 })
 </script>
 

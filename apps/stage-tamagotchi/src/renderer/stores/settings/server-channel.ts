@@ -6,7 +6,10 @@ import { watch } from 'vue'
 import { electronApplyServerChannelConfig, electronGetServerChannelConfig } from '../../../shared/eventa'
 
 export const useServerChannelSettingsStore = defineStore('tamagotchi-server-channel-settings', () => {
-  const websocketTlsConfig = useLocalStorage<{ cert?: string, key?: string, passphrase?: string } | null | undefined>('settings/server-channel/websocket-tls-config', null)
+  const websocketTlsConfig = useLocalStorage<{ cert?: string; key?: string; passphrase?: string } | null | undefined>(
+    'settings/server-channel/websocket-tls-config',
+    null,
+  )
   const hostname = useLocalStorage<string>('settings/server-channel/hostname', '127.0.0.1')
   const authToken = useLocalStorage<string>('settings/server-channel/auth-token', '')
 
@@ -17,9 +20,9 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
 
   watch([websocketTlsConfig, hostname, authToken], async ([newTls, newHost, newAuth]) => {
     await applyServerChannelConfig({
-      websocketTlsConfig: newTls ? {} : null,
-      hostname: newHost,
       authToken: newAuth,
+      hostname: newHost,
+      websocketTlsConfig: newTls ? {} : null,
     })
   })
 
@@ -36,8 +39,8 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
   })
 
   return {
-    websocketTlsConfig,
-    hostname,
     authToken,
+    hostname,
+    websocketTlsConfig,
   }
 })

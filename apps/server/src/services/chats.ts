@@ -1,10 +1,7 @@
-import type { Database } from '../libs/db'
-
 import { and, eq, inArray, sql } from 'drizzle-orm'
-
-import { createConflictError, createForbiddenError } from '../utils/error'
-
+import type { Database } from '../libs/db'
 import * as schema from '../schemas/chats'
+import { createConflictError, createForbiddenError } from '../utils/error'
 
 type ChatType = 'private' | 'bot' | 'group' | 'channel'
 type MessageRole = 'system' | 'user' | 'assistant' | 'tool' | 'error'
@@ -36,13 +33,12 @@ interface SyncChatPayload {
 }
 
 function resolveSenderId(role: MessageRole, userId: string, characterId?: string) {
-  if (role === 'user')
-    return userId
+  if (role === 'user') return userId
   return characterId ?? role
 }
 
 function pickCharacterId(members: SyncChatMemberPayload[] | undefined) {
-  return members?.find(member => member.type === 'character' && member.characterId)?.characterId
+  return members?.find((member) => member.type === 'character' && member.characterId)?.characterId
 }
 
 export function createChatService(db: Database) {
@@ -67,44 +63,36 @@ export function createChatService(db: Database) {
             ),
           })
 
-          if (!member)
-            throw createForbiddenError()
+          if (!member) throw createForbiddenError()
         }
 
         if (!existingChat) {
           await tx.insert(schema.chats).values({
-            id: chatId,
-            type: payload.chat.type ?? 'group',
-            title: payload.chat.title,
             createdAt: payload.chat.createdAt ? new Date(payload.chat.createdAt) : now,
+            id: chatId,
+            title: payload.chat.title,
+            type: payload.chat.type ?? 'group',
             updatedAt: payload.chat.updatedAt ? new Date(payload.chat.updatedAt) : now,
           })
-        }
-        else {
+        } else {
           const updates: Partial<schema.NewChat> = {
             updatedAt: payload.chat.updatedAt ? new Date(payload.chat.updatedAt) : now,
           }
 
-          if (payload.chat.type)
-            updates.type = payload.chat.type
-          if (payload.chat.title !== undefined)
-            updates.title = payload.chat.title
+          if (payload.chat.type) updates.type = payload.chat.type
+          if (payload.chat.title !== undefined) updates.title = payload.chat.title
 
-          await tx.update(schema.chats)
-            .set(updates)
-            .where(eq(schema.chats.id, chatId))
+          await tx.update(schema.chats).set(updates).where(eq(schema.chats.id, chatId))
         }
 
         const desiredMembers: SyncChatMemberPayload[] = [
           { type: 'user', userId },
-          ...members.filter(member => member.type !== 'user'),
+          ...members.filter((member) => member.type !== 'user'),
         ]
 
         for (const member of desiredMembers) {
-          if (member.type === 'user' && !member.userId)
-            continue
-          if (member.type === 'character' && !member.characterId)
-            continue
+          if (member.type === 'user' && !member.userId) continue
+          if (member.type === 'character' && !member.characterId) continue
 
           const existingMember = await tx.query.chatMembers.findFirst({
             where: and(
@@ -118,45 +106,47 @@ export function createChatService(db: Database) {
 
           if (!existingMember) {
             await tx.insert(schema.chatMembers).values({
+              characterId: member.type === 'character' ? member.characterId : null,
               chatId,
               memberType: member.type,
               userId: member.type === 'user' ? member.userId : null,
-              characterId: member.type === 'character' ? member.characterId : null,
             })
           }
         }
 
         if (payload.messages.length > 0) {
-          const messageIds = payload.messages.map(m => m.id)
+          const messageIds = payload.messages.map((m) => m.id)
           const existingMessages = await tx
-            .select({ id: schema.messages.id, chatId: schema.messages.chatId })
+            .select({ chatId: schema.messages.chatId, id: schema.messages.id })
             .from(schema.messages)
             .where(inArray(schema.messages.id, messageIds))
 
-          const conflicting = existingMessages.find(m => m.chatId !== chatId)
-          if (conflicting)
-            throw createConflictError('Message already belongs to another chat')
+          const conflicting = existingMessages.find((m) => m.chatId !== chatId)
+          if (conflicting) throw createConflictError('Message already belongs to another chat')
 
-          await tx.insert(schema.messages)
-            .values(payload.messages.map(message => ({
-              id: message.id,
-              chatId,
-              senderId: resolveSenderId(message.role, userId, characterId),
-              role: message.role,
-              content: message.content,
-              mediaIds: [] as string[],
-              stickerIds: [] as string[],
-              createdAt: message.createdAt ? new Date(message.createdAt) : now,
-              updatedAt: now,
-            })))
+          await tx
+            .insert(schema.messages)
+            .values(
+              payload.messages.map((message) => ({
+                chatId,
+                content: message.content,
+                createdAt: message.createdAt ? new Date(message.createdAt) : now,
+                id: message.id,
+                mediaIds: [] as string[],
+                role: message.role,
+                senderId: resolveSenderId(message.role, userId, characterId),
+                stickerIds: [] as string[],
+                updatedAt: now,
+              })),
+            )
             .onConflictDoUpdate({
-              target: schema.messages.id,
               set: {
-                senderId: sql`excluded.sender_id`,
-                role: sql`excluded.role`,
                 content: sql`excluded.content`,
+                role: sql`excluded.role`,
+                senderId: sql`excluded.sender_id`,
                 updatedAt: sql`excluded.updated_at`,
               },
+              target: schema.messages.id,
             })
         }
 

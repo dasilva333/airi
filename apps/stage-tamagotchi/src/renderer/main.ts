@@ -1,13 +1,12 @@
-import type { Plugin } from 'vue'
-import type { RouteRecordRaw } from 'vue-router'
+import { setupLayouts } from 'virtual:generated-layouts'
+import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 
 import Tres from '@tresjs/core'
-
-import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
-import { setupLayouts } from 'virtual:generated-layouts'
+import type { Plugin } from 'vue'
 import { createApp } from 'vue'
+import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { routes } from 'vue-router/auto-routes'
 

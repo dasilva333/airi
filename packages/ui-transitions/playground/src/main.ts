@@ -8,9 +8,6 @@ import App from './App.vue'
 import '@unocss/reset/tailwind.css'
 import 'uno.css'
 
-const router = createRouter({ routes, history: createWebHashHistory() })
+const router = createRouter({ history: createWebHashHistory(), routes })
 
-createApp(App)
-  .use(MotionPlugin)
-  .use(router)
-  .mount('#app')
+createApp(App).use(MotionPlugin).use(router).mount('#app')

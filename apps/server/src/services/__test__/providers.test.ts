@@ -1,9 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { mockDB } from '../../libs/mock-db'
-import { createProviderService } from '../providers'
-
 import * as schema from '../../schemas'
+import { createProviderService } from '../providers'
 
 describe('providerService', () => {
   let db: any
@@ -15,21 +14,24 @@ describe('providerService', () => {
     service = createProviderService(db)
 
     // Create a test user for foreign key constraints
-    const [user] = await db.insert(schema.user).values({
-      id: 'user-1',
-      name: 'Test User',
-      email: 'test@example.com',
-    }).returning()
+    const [user] = await db
+      .insert(schema.user)
+      .values({
+        email: 'test@example.com',
+        id: 'user-1',
+        name: 'Test User',
+      })
+      .returning()
     testUser = user
   })
 
   it('createUserConfig should handle provider config creation', async () => {
     const providerData = {
-      id: 'prov-1',
-      ownerId: testUser.id,
-      definitionId: 'openai',
-      name: 'My OpenAI',
       config: { apiKey: 'sk-123' },
+      definitionId: 'openai',
+      id: 'prov-1',
+      name: 'My OpenAI',
+      ownerId: testUser.id,
       validated: true,
       validationBypassed: false,
     }
@@ -53,17 +55,17 @@ describe('providerService', () => {
   it('findAll should return both user and system configs', async () => {
     // Create a system config
     await db.insert(schema.systemProviderConfigs).values({
-      id: 'sys-1',
-      definitionId: 'anthropic',
-      name: 'System Anthropic',
       config: { apiKey: 'sys-sk' },
+      definitionId: 'anthropic',
+      id: 'sys-1',
+      name: 'System Anthropic',
     })
 
     const result = await service.findAll(testUser.id)
     expect(result.length).toBe(2)
 
-    const userConfig = result.find(r => r.id === 'prov-1')
-    const systemConfig = result.find(r => r.id === 'sys-1')
+    const userConfig = result.find((r) => r.id === 'prov-1')
+    const systemConfig = result.find((r) => r.id === 'sys-1')
 
     expect(userConfig?.isSystem).toBe(false)
     expect(systemConfig?.isSystem).toBe(true)

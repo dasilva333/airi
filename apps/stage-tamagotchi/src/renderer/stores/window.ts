@@ -12,10 +12,10 @@ export const useWindowStore = defineStore('tamagotchi-window', () => {
   const { x: live2dLookAtX, y: live2dLookAtY } = useElectronRelativeMouse({ initialValue: centerPos.value })
 
   return {
-    width,
-    height,
     centerPos,
+    height,
     live2dLookAtX,
     live2dLookAtY,
+    width,
   }
 })

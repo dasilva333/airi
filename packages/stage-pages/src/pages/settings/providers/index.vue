@@ -27,91 +27,91 @@ const {
 const allArtistryProvidersMetadata = computed(() => {
   return [
     {
-      id: 'comfyui',
+      beginnerRecommended: true,
       category: 'artistry',
+      configured: !!artistryStore.comfyuiServerUrl,
+      deployment: 'local',
+      description: 'Local image generation runner.',
       icon: 'i-solar:gallery-bold-duotone',
       iconColor: 'text-indigo-500',
-      name: 'ComfyUI',
-      localizedName: 'ComfyUI',
-      description: 'Local image generation runner.',
-      localizedDescription: 'Local image generation runner.',
-      configured: !!artistryStore.comfyuiServerUrl,
-      to: '/settings/providers/artistry/comfyui',
-      pricing: 'free',
-      deployment: 'local',
-      beginnerRecommended: true,
       iconImage: undefined,
+      id: 'comfyui',
+      localizedDescription: 'Local image generation runner.',
+      localizedName: 'ComfyUI',
+      name: 'ComfyUI',
+      pricing: 'free',
+      to: '/settings/providers/artistry/comfyui',
     },
     {
-      id: 'replicate',
+      beginnerRecommended: false,
       category: 'artistry',
+      configured: !!artistryStore.replicateApiKey,
+      deployment: 'cloud',
+      description: 'Cloud-based model inference service.',
       icon: 'i-lobe-icons:replicate',
       iconColor: 'i-lobe-icons:replicate-color',
-      name: 'Replicate',
-      localizedName: 'Replicate',
-      description: 'Cloud-based model inference service.',
-      localizedDescription: 'Cloud-based model inference service.',
-      configured: !!artistryStore.replicateApiKey,
-      to: '/settings/providers/artistry/replicate',
-      pricing: 'paid',
-      deployment: 'cloud',
-      beginnerRecommended: false,
       iconImage: undefined,
+      id: 'replicate',
+      localizedDescription: 'Cloud-based model inference service.',
+      localizedName: 'Replicate',
+      name: 'Replicate',
+      pricing: 'paid',
+      to: '/settings/providers/artistry/replicate',
     },
     {
-      id: 'nanobanana',
+      beginnerRecommended: false,
       category: 'artistry',
+      configured: !!artistryStore.nanobananaApiKey,
+      deployment: 'cloud',
+      description: 'Google AI Studio Image Preview.',
       icon: 'i-solar:gallery-round-bold-duotone',
       iconColor: 'text-amber-500',
-      name: 'Nano Banana',
-      localizedName: 'Nano Banana',
-      description: 'Google AI Studio Image Preview.',
-      localizedDescription: 'Google AI Studio Image Preview.',
-      configured: !!artistryStore.nanobananaApiKey,
-      to: '/settings/providers/artistry/nanobanana',
-      pricing: 'free',
-      deployment: 'cloud',
-      beginnerRecommended: false,
       iconImage: undefined,
+      id: 'nanobanana',
+      localizedDescription: 'Google AI Studio Image Preview.',
+      localizedName: 'Nano Banana',
+      name: 'Nano Banana',
+      pricing: 'free',
+      to: '/settings/providers/artistry/nanobanana',
     },
   ]
 })
 
 const providerBlocksConfig = [
   {
-    id: 'chat',
-    icon: 'i-solar:chat-square-like-bold-duotone',
-    title: 'Chat',
     description: 'Text generation model providers. e.g. OpenRouter, OpenAI, Ollama.',
+    icon: 'i-solar:chat-square-like-bold-duotone',
+    id: 'chat',
     providersRef: allChatProvidersMetadata,
+    title: 'Chat',
   },
   {
-    id: 'speech',
-    icon: 'i-solar:user-speak-rounded-bold-duotone',
-    title: 'Speech',
     description: 'Speech (text-to-speech) model providers. e.g. ElevenLabs, Azure Speech.',
+    icon: 'i-solar:user-speak-rounded-bold-duotone',
+    id: 'speech',
     providersRef: allAudioSpeechProvidersMetadata,
+    title: 'Speech',
   },
   {
-    id: 'transcription',
-    icon: 'i-solar:microphone-3-bold-duotone',
-    title: 'Transcription',
     description: 'Transcription (speech-to-text) model providers. e.g. Whisper.cpp, OpenAI, Azure Speech.',
+    icon: 'i-solar:microphone-3-bold-duotone',
+    id: 'transcription',
     providersRef: allAudioTranscriptionProvidersMetadata,
+    title: 'Transcription',
   },
   {
-    id: 'artistry',
-    icon: 'i-solar:palette-bold-duotone',
-    title: 'Artistry',
     description: 'Image generation and design model providers. e.g. ComfyUI, Replicate.',
+    icon: 'i-solar:palette-bold-duotone',
+    id: 'artistry',
     providersRef: allArtistryProvidersMetadata,
+    title: 'Artistry',
   },
   {
-    id: 'vision',
-    icon: 'i-solar:eye-scan-bold-duotone',
-    title: 'Vision',
     description: 'Vision-Language model providers. e.g. OpenRouter, OpenAI, Ollama.',
+    icon: 'i-solar:eye-scan-bold-duotone',
+    id: 'vision',
     providersRef: allVisionProvidersMetadata,
+    title: 'Vision',
   },
 ]
 
@@ -124,20 +124,19 @@ const activeTabRecommendations = computed(() => {
   const title = t(`settings.pages.providers.onboarding.${category}.title`)
   const description = t(`settings.pages.providers.onboarding.${category}.description`)
 
-  if (!title || title.includes(category))
-    return null
+  if (!title || title.includes(category)) return null
 
   return {
-    title,
-    description,
     badge: t('settings.pages.providers.onboarding.start_here'),
+    description,
+    title,
   }
 })
 
 onMounted(() => {
   if (route.hash) {
     const hashId = route.hash.replace('#', '')
-    if (providerBlocksConfig.some(b => b.id === hashId)) {
+    if (providerBlocksConfig.some((b) => b.id === hashId)) {
       activeTabId.value = hashId
     }
   }
@@ -153,27 +152,25 @@ function setActiveTab(id: string) {
 const providerBlocks = computed(() => {
   let globalIndex = 0
   return providerBlocksConfig
-    .filter(block => block.id === activeTabId.value)
+    .filter((block) => block.id === activeTabId.value)
     .map((block) => {
       const filteredProviders = block.providersRef.value
         .filter((p) => {
-          if (filterPricing.value !== 'all' && p.pricing !== filterPricing.value)
-            return false
-          if (filterDeployment.value !== 'all' && p.deployment !== filterDeployment.value)
-            return false
+          if (filterPricing.value !== 'all' && p.pricing !== filterPricing.value) return false
+          if (filterDeployment.value !== 'all' && p.deployment !== filterDeployment.value) return false
           return true
         })
-        .map(provider => ({
+        .map((provider) => ({
           ...provider,
           renderIndex: globalIndex++,
         }))
 
       return {
-        id: block.id,
-        icon: block.icon,
-        title: block.title,
         description: block.description,
+        icon: block.icon,
+        id: block.id,
         providers: filteredProviders,
+        title: block.title,
       }
     })
 })

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
-
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import type { AiriCard } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Button } from '@proj-airi/ui'
 import { computed, onMounted, ref } from 'vue'
@@ -29,27 +28,24 @@ interface CharacterMetadata extends Partial<AiriCard> {
 
 // Local helper for PNG Chara Card parsing (SillyTavern/v2 standard)
 function base64ToUtf8(input: string) {
-  return decodeURIComponent(window.atob(input).split('').map((c) => {
-    return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
-  }).join(''))
+  return decodeURIComponent(
+    window
+      .atob(input)
+      .split('')
+      .map((c) => {
+        return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
+      })
+      .join(''),
+  )
 }
 
 function parsePngCharaPayload(buffer: ArrayBuffer): CharacterMetadata | null {
   const bytes = new Uint8Array(buffer)
-  for (let offset = 8; offset < bytes.length - 8;) {
-    const length = (
-      (bytes[offset] << 24)
-      | (bytes[offset + 1] << 16)
-      | (bytes[offset + 2] << 8)
-      | bytes[offset + 3]
-    ) >>> 0
+  for (let offset = 8; offset < bytes.length - 8; ) {
+    const length =
+      ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0
 
-    const type = String.fromCharCode(
-      bytes[offset + 4],
-      bytes[offset + 5],
-      bytes[offset + 6],
-      bytes[offset + 7],
-    )
+    const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
 
     if (type === 'tEXt') {
       const dataStart = offset + 8
@@ -63,8 +59,7 @@ function parsePngCharaPayload(buffer: ArrayBuffer): CharacterMetadata | null {
           const text = new TextDecoder().decode(data.slice(separator + 1))
           try {
             return JSON.parse(base64ToUtf8(text))
-          }
-          catch (e) {
+          } catch (e) {
             console.error('Failed to parse character card JSON:', e)
             return null
           }
@@ -90,16 +85,15 @@ const starterCharacters = computed(() => {
     })
     .map(([id, card]) => {
       const displayModelId = card.extensions?.airi?.modules?.displayModelId
-      const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
+      const model = displayModelsStore.displayModels.find((m) => m.id === displayModelId)
       let preview = model?.previewImage || ''
 
-      if (!preview && (card.name === 'ReLU' || card.name === 'Relu'))
-        preview = reluPreviewAttribute
+      if (!preview && (card.name === 'ReLU' || card.name === 'Relu')) preview = reluPreviewAttribute
 
       return {
+        description: card.description || '',
         id,
         name: card.name,
-        description: card.description || '',
         preview,
       }
     })
@@ -120,8 +114,7 @@ async function handleNext() {
 async function onFileSelected(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
-  if (!file)
-    return
+  if (!file) return
 
   try {
     const buffer = await file.arrayBuffer()
@@ -130,25 +123,24 @@ async function onFileSelected(event: Event) {
     if (metadata) {
       const cardId = await cardStore.addCard({
         ...metadata,
-        name: metadata.name || file.name.replace('.png', ''),
-        version: metadata.version || metadata.character_version || '1.0.0',
         extensions: {
           ...metadata.extensions,
           airi: {
             ...metadata.extensions?.airi,
             modules: {
-              consciousness: { provider: 'openai', model: 'gpt-4o' },
-              speech: { provider: 'elevenlabs', model: 'eleven_multilingual_v2', voice_id: 'alloy' },
+              consciousness: { model: 'gpt-4o', provider: 'openai' },
+              speech: { model: 'eleven_multilingual_v2', provider: 'elevenlabs', voice_id: 'alloy' },
               ...metadata.extensions?.airi?.modules,
             },
           },
         },
+        name: metadata.name || file.name.replace('.png', ''),
+        version: metadata.version || metadata.character_version || '1.0.0',
       } as AiriCard)
 
       selectCharacter(cardId)
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Failed to import character card:', err)
   }
 }

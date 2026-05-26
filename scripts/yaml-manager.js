@@ -27,8 +27,7 @@ if (!command || !filePath) {
 
 function analyze(doc, maxDepth = 5) {
   const contents = doc.contents
-  if (!contents)
-    return
+  if (!contents) return
 
   function printNode(node, path = [], indent = 0) {
     if (isMap(node)) {
@@ -39,8 +38,7 @@ function analyze(doc, maxDepth = 5) {
           if (item.key.range && doc.lineCounter) {
             line = doc.lineCounter.linePos(item.key.range[0]).line
           }
-        }
-        catch {}
+        } catch {}
 
         console.log(`${'  '.repeat(indent)}${[...path, key].join('.')} (line ${line})`)
 
@@ -59,8 +57,7 @@ function audit(doc) {
   const contents = doc.contents
 
   function checkMap(map, path = []) {
-    if (!isMap(map))
-      return
+    if (!isMap(map)) return
 
     const keys = new Set()
     map.items.forEach((item) => {
@@ -82,10 +79,9 @@ function audit(doc) {
 
   if (errors.length === 0) {
     console.log('✅ No duplicate keys found.')
-  }
-  else {
+  } else {
     console.log('❌ Found duplicate keys:')
-    errors.forEach(err => console.log(err))
+    errors.forEach((err) => console.log(err))
     process.exit(1)
   }
 }
@@ -96,8 +92,7 @@ function fixSyntax(node) {
     node.items.forEach((item) => {
       count += fixSyntax(item.value)
     })
-  }
-  else if (isScalar(node)) {
+  } else if (isScalar(node)) {
     if (typeof node.value === 'string' && node.value.includes(':')) {
       // Force quoting by setting type to PLAIN if it wasn't, or just rely on toString()
       // Actually, setting it to a double-quoted scalar if it has a colon
@@ -123,7 +118,15 @@ function getKeys(node, path = [], keys = new Set()) {
 
 try {
   const fileContent = readFileSync(filePath, 'utf8')
-  const RAW_COMMANDS = ['truncate', 'truncate-at-line', 'replace-line', 'insert-line', 'view-lines', 'search', 'find-key']
+  const RAW_COMMANDS = [
+    'truncate',
+    'truncate-at-line',
+    'replace-line',
+    'insert-line',
+    'view-lines',
+    'search',
+    'find-key',
+  ]
   const isRaw = RAW_COMMANDS.includes(command)
 
   if (isRaw) {
@@ -139,7 +142,10 @@ try {
       }
       case 'search': {
         const term = args[2]
-        if (!term) { console.error('Usage: search <file> <string>'); process.exit(1) }
+        if (!term) {
+          console.error('Usage: search <file> <string>')
+          process.exit(1)
+        }
         let found = 0
         rawLines.forEach((line, i) => {
           if (line.includes(term)) {
@@ -147,14 +153,16 @@ try {
             found++
           }
         })
-        if (found === 0)
-          console.log(`❌ Not found: "${term}"`)
+        if (found === 0) console.log(`❌ Not found: "${term}"`)
         else console.log(`\n✅ ${found} match(es)`)
         break
       }
       case 'find-key': {
         const keyName = args[2]
-        if (!keyName) { console.error('Usage: find-key <file> <key>'); process.exit(1) }
+        if (!keyName) {
+          console.error('Usage: find-key <file> <key>')
+          process.exit(1)
+        }
         // Match "  key:" or "- key:" patterns
         const pattern = new RegExp(`(^|\\s|-)${keyName}\\s*:`)
         let found = 0
@@ -164,14 +172,16 @@ try {
             found++
           }
         })
-        if (found === 0)
-          console.log(`❌ Key not found: "${keyName}"`)
+        if (found === 0) console.log(`❌ Key not found: "${keyName}"`)
         else console.log(`\n✅ ${found} match(es)`)
         break
       }
       case 'truncate': {
         const searchStr = args[2]
-        if (!searchStr) { console.error('Usage: truncate <file> <string>'); process.exit(1) }
+        if (!searchStr) {
+          console.error('Usage: truncate <file> <string>')
+          process.exit(1)
+        }
         const findIndex = fileContent.indexOf(searchStr)
         if (findIndex === -1) {
           console.error(`❌ String "${searchStr}" not found in ${filePath}`)
@@ -238,7 +248,7 @@ try {
 
   if (hasErrors && !isFixing) {
     console.error('❌ YAML Parse Errors:')
-    doc.errors.forEach(err => console.error(err))
+    doc.errors.forEach((err) => console.error(err))
     process.exit(1)
   }
 
@@ -253,7 +263,7 @@ try {
     case 'audit':
       audit(doc)
       break
-    case 'sync':
+    case 'sync': {
       const destPath = args[2]
       if (!destPath) {
         console.error('Usage: sync <src> <dest>')
@@ -264,28 +274,27 @@ try {
       const srcKeys = getKeys(doc.contents)
       const destKeys = getKeys(destDoc.contents)
 
-      const missing = [...srcKeys].filter(k => !destKeys.has(k))
+      const missing = [...srcKeys].filter((k) => !destKeys.has(k))
       if (missing.length === 0) {
         console.log(`✅ No missing keys in ${destPath}`)
-      }
-      else {
+      } else {
         console.log(`❌ Missing keys in ${destPath}:`)
-        missing.forEach(k => console.log(`  - ${k}`))
+        missing.forEach((k) => console.log(`  - ${k}`))
       }
       break
+    }
     case 'clean':
       // doc.toString() will only output the first valid document
       try {
         writeFileSync(filePath, `${doc.toString().trim()}\n`)
         console.log(`✅ Cleaned ${filePath} (stripped trailing garbage)`)
-      }
-      catch (e) {
+      } catch (e) {
         console.error(`❌ Error cleaning ${filePath}: ${e.message}`)
         console.log('Retry with a manual operation if the file is too corrupted for the parser.')
         process.exit(1)
       }
       break
-    case 'truncate':
+    case 'truncate': {
       const searchStr = args[2]
       if (!searchStr) {
         console.error('Usage: truncate <file> <string>')
@@ -302,7 +311,8 @@ try {
       writeFileSync(filePath, `${truncated.trim()}\n`)
       console.log(`✅ Truncated ${filePath} after "${searchStr}"`)
       break
-    case 'replace-line':
+    }
+    case 'replace-line': {
       const lineNo = Number.parseInt(args[2], 10)
       const lineVal = args[3]
       if (isNaN(lineNo) || lineVal === undefined) {
@@ -318,7 +328,8 @@ try {
       writeFileSync(filePath, lines.join('\n'))
       console.log(`✅ Replaced line ${lineNo} in ${filePath}`)
       break
-    case 'insert-line':
+    }
+    case 'insert-line': {
       const insLineNo = Number.parseInt(args[2], 10)
       const insLineVal = args[3]
       if (isNaN(insLineNo) || insLineVal === undefined) {
@@ -334,12 +345,14 @@ try {
       writeFileSync(filePath, insLines.join('\n'))
       console.log(`✅ Inserted line at ${insLineNo} in ${filePath}`)
       break
-    case 'fix-syntax':
+    }
+    case 'fix-syntax': {
       const fixedCount = fixSyntax(doc.contents)
       writeFileSync(filePath, doc.toString())
       console.log(`✅ Fixed syntax in ${filePath} (${fixedCount} scalars quoted)`)
       break
-    case 'update':
+    }
+    case 'update': {
       const targetPath = args[2]
       const value = args[3]
       if (!targetPath || value === undefined) {
@@ -350,12 +363,12 @@ try {
       writeFileSync(filePath, doc.toString())
       console.log(`✅ Updated ${targetPath} to "${value}"`)
       break
+    }
     default:
       console.error(`Unknown command: ${command}`)
       process.exit(1)
   }
-}
-catch (err) {
+} catch (err) {
   console.error(`Error: ${err.message}`)
   process.exit(1)
 }

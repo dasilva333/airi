@@ -1,3 +1,6 @@
+import { isAbsolute, join } from 'node:path'
+import { cwd } from 'node:process'
+import { defineInvokeHandler } from '@moeru/eventa'
 import type {
   ProtocolEvents,
   ModuleConfigEnvelope as ProtocolModuleConfigEnvelope,
@@ -5,18 +8,6 @@ import type {
   ModulePhase as ProtocolModulePhase,
   PluginIdentity as ProtocolPluginIdentity,
 } from '@proj-airi/plugin-protocol/types'
-import type { ActorRefFrom } from 'xstate'
-
-import type { definePlugin } from '../plugin'
-import type { createApis } from '../plugin/apis/client'
-import type { CapabilityDescriptor } from '../plugin/apis/protocol'
-import type { Plugin } from '../plugin/shared'
-import type { PluginTransport } from './transports'
-
-import { isAbsolute, join } from 'node:path'
-import { cwd } from 'node:process'
-
-import { defineInvokeHandler } from '@moeru/eventa'
 import {
   moduleAnnounce,
   moduleAuthenticate,
@@ -29,18 +20,18 @@ import {
   moduleStatus,
   registryModulesSync,
 } from '@proj-airi/plugin-protocol/types'
-import {
-  literal,
-  object,
-  optional,
-  string,
-} from 'valibot'
+import { literal, object, optional, string } from 'valibot'
+import type { ActorRefFrom } from 'xstate'
 import { createActor, createMachine } from 'xstate'
-
+import type { definePlugin } from '../plugin'
+import type { createApis } from '../plugin/apis/client'
 import { createApis as createBoundApis } from '../plugin/apis/client'
+import type { CapabilityDescriptor } from '../plugin/apis/protocol'
 import { protocolCapabilitySnapshot, protocolCapabilityWait } from '../plugin/apis/protocol'
 import { protocolListProvidersEventName, protocolProviders } from '../plugin/apis/protocol/resources/providers'
+import type { Plugin } from '../plugin/shared'
 import { createPluginContext } from './runtimes/node'
+import type { PluginTransport } from './transports'
 
 /**
  * Plugin Host lifecycle overview (transport-aware):
@@ -155,75 +146,42 @@ import { createPluginContext } from './runtimes/node'
  *     Plugin Host should treat the Module to be un-prepared status, the needed procedure will be called.
  */
 
-type PluginLifecycleEvent
-  = | { type: 'SESSION_LOADED' }
-    | { type: 'START_AUTHENTICATION' }
-    | { type: 'AUTHENTICATED' }
-    | { type: 'ANNOUNCED' }
-    | { type: 'START_PREPARING' }
-    | { type: 'WAITING_DEPENDENCIES' }
-    | { type: 'PREPARED' }
-    | { type: 'CONFIGURATION_NEEDED' }
-    | { type: 'CONFIGURED' }
-    | { type: 'READY' }
-    | { type: 'SESSION_FAILED' }
-    | { type: 'REANNOUNCE' }
-    | { type: 'STOP' }
+type PluginLifecycleEvent =
+  | { type: 'SESSION_LOADED' }
+  | { type: 'START_AUTHENTICATION' }
+  | { type: 'AUTHENTICATED' }
+  | { type: 'ANNOUNCED' }
+  | { type: 'START_PREPARING' }
+  | { type: 'WAITING_DEPENDENCIES' }
+  | { type: 'PREPARED' }
+  | { type: 'CONFIGURATION_NEEDED' }
+  | { type: 'CONFIGURED' }
+  | { type: 'READY' }
+  | { type: 'SESSION_FAILED' }
+  | { type: 'REANNOUNCE' }
+  | { type: 'STOP' }
 
 const pluginLifecycleMachine = createMachine({
   id: 'plugin-lifecycle',
   initial: 'loading',
   states: {
-    'loading': {
+    announced: {
       on: {
-        SESSION_LOADED: 'loaded',
+        CONFIGURATION_NEEDED: 'configuration-needed',
         SESSION_FAILED: 'failed',
-      },
-    },
-    'loaded': {
-      on: {
-        START_AUTHENTICATION: 'authenticating',
+        START_PREPARING: 'preparing',
         STOP: 'stopped',
-        SESSION_FAILED: 'failed',
       },
     },
-    'authenticating': {
-      on: {
-        AUTHENTICATED: 'authenticated',
-        SESSION_FAILED: 'failed',
-      },
-    },
-    'authenticated': {
+    authenticated: {
       on: {
         ANNOUNCED: 'announced',
         SESSION_FAILED: 'failed',
       },
     },
-    'announced': {
+    authenticating: {
       on: {
-        START_PREPARING: 'preparing',
-        CONFIGURATION_NEEDED: 'configuration-needed',
-        STOP: 'stopped',
-        SESSION_FAILED: 'failed',
-      },
-    },
-    'preparing': {
-      on: {
-        WAITING_DEPENDENCIES: 'waiting-deps',
-        PREPARED: 'prepared',
-        SESSION_FAILED: 'failed',
-      },
-    },
-    'waiting-deps': {
-      on: {
-        PREPARED: 'prepared',
-        SESSION_FAILED: 'failed',
-      },
-    },
-    'prepared': {
-      on: {
-        CONFIGURATION_NEEDED: 'configuration-needed',
-        CONFIGURED: 'configured',
+        AUTHENTICATED: 'authenticated',
         SESSION_FAILED: 'failed',
       },
     },
@@ -233,45 +191,91 @@ const pluginLifecycleMachine = createMachine({
         SESSION_FAILED: 'failed',
       },
     },
-    'configured': {
+    configured: {
       on: {
         READY: 'ready',
         SESSION_FAILED: 'failed',
       },
     },
-    'ready': {
+    failed: {
       on: {
-        REANNOUNCE: 'announced',
-        CONFIGURATION_NEEDED: 'configuration-needed',
         STOP: 'stopped',
+      },
+    },
+    loaded: {
+      on: {
+        SESSION_FAILED: 'failed',
+        START_AUTHENTICATION: 'authenticating',
+        STOP: 'stopped',
+      },
+    },
+    loading: {
+      on: {
+        SESSION_FAILED: 'failed',
+        SESSION_LOADED: 'loaded',
+      },
+    },
+    prepared: {
+      on: {
+        CONFIGURATION_NEEDED: 'configuration-needed',
+        CONFIGURED: 'configured',
         SESSION_FAILED: 'failed',
       },
     },
-    'failed': {
+    preparing: {
       on: {
+        PREPARED: 'prepared',
+        SESSION_FAILED: 'failed',
+        WAITING_DEPENDENCIES: 'waiting-deps',
+      },
+    },
+    ready: {
+      on: {
+        CONFIGURATION_NEEDED: 'configuration-needed',
+        REANNOUNCE: 'announced',
+        SESSION_FAILED: 'failed',
         STOP: 'stopped',
       },
     },
-    'stopped': {
+    stopped: {
       type: 'final',
+    },
+    'waiting-deps': {
+      on: {
+        PREPARED: 'prepared',
+        SESSION_FAILED: 'failed',
+      },
     },
   },
 })
 
-const lifecycleTransitionEvents: Record<PluginSessionPhase, Partial<Record<PluginSessionPhase, PluginLifecycleEvent['type']>>> = {
-  'loading': { loaded: 'SESSION_LOADED', failed: 'SESSION_FAILED' },
-  'loaded': { authenticating: 'START_AUTHENTICATION', stopped: 'STOP', failed: 'SESSION_FAILED' },
-  'authenticating': { authenticated: 'AUTHENTICATED', failed: 'SESSION_FAILED' },
-  'authenticated': { announced: 'ANNOUNCED', failed: 'SESSION_FAILED' },
-  'announced': { 'preparing': 'START_PREPARING', 'configuration-needed': 'CONFIGURATION_NEEDED', 'failed': 'SESSION_FAILED', 'stopped': 'STOP' },
-  'preparing': { 'waiting-deps': 'WAITING_DEPENDENCIES', 'prepared': 'PREPARED', 'failed': 'SESSION_FAILED' },
-  'waiting-deps': { prepared: 'PREPARED', failed: 'SESSION_FAILED' },
-  'prepared': { 'configuration-needed': 'CONFIGURATION_NEEDED', 'configured': 'CONFIGURED', 'failed': 'SESSION_FAILED' },
+const lifecycleTransitionEvents: Record<
+  PluginSessionPhase,
+  Partial<Record<PluginSessionPhase, PluginLifecycleEvent['type']>>
+> = {
+  announced: {
+    'configuration-needed': 'CONFIGURATION_NEEDED',
+    failed: 'SESSION_FAILED',
+    preparing: 'START_PREPARING',
+    stopped: 'STOP',
+  },
+  authenticated: { announced: 'ANNOUNCED', failed: 'SESSION_FAILED' },
+  authenticating: { authenticated: 'AUTHENTICATED', failed: 'SESSION_FAILED' },
   'configuration-needed': { configured: 'CONFIGURED', failed: 'SESSION_FAILED' },
-  'configured': { ready: 'READY', failed: 'SESSION_FAILED' },
-  'ready': { 'announced': 'REANNOUNCE', 'configuration-needed': 'CONFIGURATION_NEEDED', 'failed': 'SESSION_FAILED', 'stopped': 'STOP' },
-  'failed': { stopped: 'STOP' },
-  'stopped': {},
+  configured: { failed: 'SESSION_FAILED', ready: 'READY' },
+  failed: { stopped: 'STOP' },
+  loaded: { authenticating: 'START_AUTHENTICATION', failed: 'SESSION_FAILED', stopped: 'STOP' },
+  loading: { failed: 'SESSION_FAILED', loaded: 'SESSION_LOADED' },
+  prepared: { 'configuration-needed': 'CONFIGURATION_NEEDED', configured: 'CONFIGURED', failed: 'SESSION_FAILED' },
+  preparing: { failed: 'SESSION_FAILED', prepared: 'PREPARED', 'waiting-deps': 'WAITING_DEPENDENCIES' },
+  ready: {
+    announced: 'REANNOUNCE',
+    'configuration-needed': 'CONFIGURATION_NEEDED',
+    failed: 'SESSION_FAILED',
+    stopped: 'STOP',
+  },
+  stopped: {},
+  'waiting-deps': { failed: 'SESSION_FAILED', prepared: 'PREPARED' },
 }
 
 function assertTransition(session: PluginHostSession, to: PluginSessionPhase) {
@@ -305,10 +309,12 @@ function markFailedTransition(session: PluginHostSession) {
 }
 
 function isPluginDefinition(value: unknown): value is ReturnType<typeof definePlugin> {
-  return typeof value === 'object'
-    && value !== null
-    && 'setup' in value
-    && typeof (value as { setup?: unknown }).setup === 'function'
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'setup' in value &&
+    typeof (value as { setup?: unknown }).setup === 'function'
+  )
 }
 
 async function coercePluginFromModule(moduleValue: unknown): Promise<Plugin> {
@@ -334,7 +340,9 @@ async function coercePluginFromModule(moduleValue: unknown): Promise<Plugin> {
     }
   }
 
-  throw new Error('Failed to resolve plugin module. The entrypoint must export either definePlugin(...) or Plugin hooks.')
+  throw new Error(
+    'Failed to resolve plugin module. The entrypoint must export either definePlugin(...) or Plugin hooks.',
+  )
 }
 
 function createModuleIdentity(name: string, index: number): ModuleIdentity {
@@ -351,19 +359,22 @@ function createModuleIdentity(name: string, index: number): ModuleIdentity {
 
 // TODO: Maybe support more complex version formats.
 function normalizeVersionList(versions: string[]) {
-  return [...new Set(versions.map(version => version.trim()).filter(Boolean))]
+  return [...new Set(versions.map((version) => version.trim()).filter(Boolean))]
 }
 
 function resolveSupportedVersions(preferredVersion: string, supportedVersions?: string[]) {
   return normalizeVersionList([preferredVersion, ...(supportedVersions ?? [])])
 }
 
-function resolveNegotiatedVersion(preferredVersion: string, hostSupportedVersions: string[], peerSupportedVersions?: string[]) {
+function resolveNegotiatedVersion(
+  preferredVersion: string,
+  hostSupportedVersions: string[],
+  peerSupportedVersions?: string[],
+) {
   const normalizedPreferredVersion = preferredVersion.trim()
   const normalizedHostSupportedVersions = normalizeVersionList(hostSupportedVersions)
-  const normalizedPeerSupportedVersions = peerSupportedVersions && peerSupportedVersions.length > 0
-    ? normalizeVersionList(peerSupportedVersions)
-    : undefined
+  const normalizedPeerSupportedVersions =
+    peerSupportedVersions && peerSupportedVersions.length > 0 ? normalizeVersionList(peerSupportedVersions) : undefined
 
   if (!normalizedPeerSupportedVersions?.length) {
     if (normalizedHostSupportedVersions.includes(normalizedPreferredVersion)) {
@@ -379,8 +390,10 @@ function resolveNegotiatedVersion(preferredVersion: string, hostSupportedVersion
     }
   }
 
-  if (normalizedPeerSupportedVersions.includes(normalizedPreferredVersion)
-    && normalizedHostSupportedVersions.includes(normalizedPreferredVersion)) {
+  if (
+    normalizedPeerSupportedVersions.includes(normalizedPreferredVersion) &&
+    normalizedHostSupportedVersions.includes(normalizedPreferredVersion)
+  ) {
     return {
       acceptedVersion: normalizedPreferredVersion,
       exact: true,
@@ -406,14 +419,14 @@ export type PluginRuntime = 'electron' | 'node' | 'web'
 
 export type ModulePhase = ProtocolModulePhase
 
-export type PluginSessionPhase
-  = | 'loading'
-    | 'loaded'
-    | 'authenticating'
-    | 'authenticated'
-    | 'waiting-deps'
-    | ModulePhase
-    | 'stopped'
+export type PluginSessionPhase =
+  | 'loading'
+  | 'loaded'
+  | 'authenticating'
+  | 'authenticated'
+  | 'waiting-deps'
+  | ModulePhase
+  | 'stopped'
 
 export type PluginIdentity = ProtocolPluginIdentity
 
@@ -439,14 +452,14 @@ export interface ManifestV1 {
 
 export const manifestV1Schema = object({
   apiVersion: literal('v1'),
-  kind: literal('manifest.plugin.airi.moeru.ai'),
-  name: string(),
   entrypoints: object({
     default: optional(string()),
     electron: optional(string()),
     node: optional(string()),
     web: optional(string()),
   }),
+  kind: literal('manifest.plugin.airi.moeru.ai'),
+  name: string(),
 })
 
 export interface PluginLoadOptions {
@@ -576,20 +589,20 @@ export class PluginHost {
     })
 
     const session: PluginHostSession = {
-      manifest,
-      plugin: {},
-      id,
-      index: sessionIndex,
-      cwd: sessionCwd,
-      identity,
-      phase: lifecycle.getSnapshot().value as PluginSessionPhase,
-      lifecycle,
-      transport,
-      runtime,
+      apis: createBoundApis(hostChannel),
       channels: {
         host: hostChannel,
       },
-      apis: createBoundApis(hostChannel),
+      cwd: sessionCwd,
+      id,
+      identity,
+      index: sessionIndex,
+      lifecycle,
+      manifest,
+      phase: lifecycle.getSnapshot().value as PluginSessionPhase,
+      plugin: {},
+      runtime,
+      transport,
     }
 
     // Register session before loading so failure paths still have observable state.
@@ -607,8 +620,7 @@ export class PluginHost {
       // This prevents accidental phase drift if the method evolves later.
       assertTransition(session, 'loaded')
       return session
-    }
-    catch (error) {
+    } catch (error) {
       // Load failure is terminal for this session (`loading` -> `failed`).
       // Emit status so Configurator/observers can show deterministic diagnostics.
       markFailedTransition(session)
@@ -649,10 +661,10 @@ export class PluginHost {
 
       // Step 3: protocol/api compatibility negotiation.
       const compatibilityRequest: ModuleCompatibilityRequest = {
-        protocolVersion: this.protocolVersion,
         apiVersion: this.apiVersion,
-        supportedProtocolVersions: options.compatibility?.supportedProtocolVersions,
+        protocolVersion: this.protocolVersion,
         supportedApiVersions: options.compatibility?.supportedApiVersions,
+        supportedProtocolVersions: options.compatibility?.supportedProtocolVersions,
       }
 
       session.channels.host.emit(moduleCompatibilityRequest, compatibilityRequest)
@@ -668,43 +680,43 @@ export class PluginHost {
       )
 
       const rejectionReasons = [
-        ...protocolNegotiation.acceptedVersion ? [] : [`protocol: ${protocolNegotiation.reason}`],
-        ...apiNegotiation.acceptedVersion ? [] : [`api: ${apiNegotiation.reason}`],
+        ...(protocolNegotiation.acceptedVersion ? [] : [`protocol: ${protocolNegotiation.reason}`]),
+        ...(apiNegotiation.acceptedVersion ? [] : [`api: ${apiNegotiation.reason}`]),
       ]
 
       if (rejectionReasons.length > 0) {
         const reason = `Negotiation rejected: ${rejectionReasons.join('; ')}`
         session.channels.host.emit(moduleCompatibilityResult, {
-          protocolVersion: compatibilityRequest.protocolVersion,
           apiVersion: compatibilityRequest.apiVersion,
           mode: 'rejected',
+          protocolVersion: compatibilityRequest.protocolVersion,
           reason,
         })
         throw new Error(reason)
       }
 
       session.channels.host.emit(moduleCompatibilityResult, {
-        protocolVersion: protocolNegotiation.acceptedVersion!,
         apiVersion: apiNegotiation.acceptedVersion!,
         mode: protocolNegotiation.exact && apiNegotiation.exact ? 'exact' : 'downgraded',
+        protocolVersion: protocolNegotiation.acceptedVersion!,
       })
 
       // Step 4: broadcast currently known modules for dependency discovery/bootstrap.
       session.channels.host.emit(registryModulesSync, {
         modules: this.listSessions()
-          .filter(item => item.phase !== 'stopped')
-          .map(item => ({
-            name: item.manifest.name,
-            index: item.index,
+          .filter((item) => item.phase !== 'stopped')
+          .map((item) => ({
             identity: item.identity,
+            index: item.index,
+            name: item.manifest.name,
           })),
       })
 
       // Step 5: module announcement to the shared control plane.
       assertTransition(session, 'announced')
       session.channels.host.emit(moduleAnnounce, {
-        name: session.manifest.name,
         identity: session.identity,
+        name: session.manifest.name,
         possibleEvents: [],
       })
       session.channels.host.emit(moduleStatus, {
@@ -722,19 +734,19 @@ export class PluginHost {
       // Optional dependency gate before plugin-owned initialization.
       if (options.requiredCapabilities?.length) {
         const capabilityTimeoutMs = options.capabilityWaitTimeoutMs ?? 15000
-        const unresolvedCapabilities = options.requiredCapabilities.filter(key => !this.isCapabilityReady(key))
+        const unresolvedCapabilities = options.requiredCapabilities.filter((key) => !this.isCapabilityReady(key))
         assertTransition(session, 'waiting-deps')
         session.channels.host.emit(moduleStatus, {
-          identity: session.identity,
-          phase: 'preparing',
-          reason: `Waiting for capabilities: ${options.requiredCapabilities.join(', ')}`,
           details: {
             // For richer observability
             lifecyclePhase: 'waiting-deps',
             requiredCapabilities: options.requiredCapabilities,
-            unresolvedCapabilities,
             timeoutMs: capabilityTimeoutMs,
+            unresolvedCapabilities,
           },
+          identity: session.identity,
+          phase: 'preparing',
+          reason: `Waiting for capabilities: ${options.requiredCapabilities.join(', ')}`,
         })
 
         await this.waitForCapabilities(options.requiredCapabilities, capabilityTimeoutMs)
@@ -751,8 +763,8 @@ export class PluginHost {
 
       // Run plugin-owned init hook. Returning `false` explicitly aborts startup.
       const initResult = await session.plugin.init?.({
-        channels: session.channels,
         apis: session.apis,
+        channels: session.channels,
       })
 
       if (initResult === false) {
@@ -789,15 +801,15 @@ export class PluginHost {
       // Step 12/13: apply default config path for alpha when no manual configuration is required.
       await this.applyConfiguration(session.id, {
         configId: `${session.identity.id}:default`,
+        full: {},
         revision: 1,
         schemaVersion: 1,
-        full: {},
       })
 
       // Step 14/15: plugin contributes modules/capabilities in setup hook.
       await session.plugin.setupModules?.({
-        channels: session.channels,
         apis: session.apis,
+        channels: session.channels,
       })
 
       // Step 16: mark ready after setup/contribution flow completes.
@@ -808,8 +820,7 @@ export class PluginHost {
       })
 
       return session
-    }
-    catch (error) {
+    } catch (error) {
       // Any init failure is normalized into failed phase + status event for observability.
       markFailedTransition(session)
 
@@ -852,8 +863,8 @@ export class PluginHost {
 
     // Emit configured payload + status so Configurator can sync active config state.
     session.channels.host.emit(moduleConfigurationConfigured, {
-      identity: session.identity,
       config,
+      identity: session.identity,
     })
 
     session.channels.host.emit(moduleStatus, {
@@ -873,8 +884,8 @@ export class PluginHost {
     const current = this.capabilities.get(key)
     const descriptor: CapabilityDescriptor = {
       key,
-      state: 'announced',
       metadata: metadata ?? current?.metadata,
+      state: 'announced',
       updatedAt: Date.now(),
     }
 
@@ -886,8 +897,8 @@ export class PluginHost {
     const current = this.capabilities.get(key)
     const descriptor: CapabilityDescriptor = {
       key,
-      state: 'ready',
       metadata: metadata ?? current?.metadata,
+      state: 'ready',
       updatedAt: Date.now(),
     }
 
@@ -907,8 +918,8 @@ export class PluginHost {
     const current = this.capabilities.get(key)
     const descriptor: CapabilityDescriptor = {
       key,
-      state: 'degraded',
       metadata: metadata ?? current?.metadata,
+      state: 'degraded',
       updatedAt: Date.now(),
     }
 
@@ -920,8 +931,8 @@ export class PluginHost {
     const current = this.capabilities.get(key)
     const descriptor: CapabilityDescriptor = {
       key,
-      state: 'withdrawn',
       metadata: metadata ?? current?.metadata,
+      state: 'withdrawn',
       updatedAt: Date.now(),
     }
 
@@ -938,7 +949,7 @@ export class PluginHost {
   }
 
   async waitForCapabilities(keys: string[], timeoutMs: number = 15000) {
-    await Promise.all(keys.map(async key => await this.waitForCapability(key, timeoutMs)))
+    await Promise.all(keys.map(async (key) => await this.waitForCapability(key, timeoutMs)))
   }
 
   async waitForCapability(key: string, timeoutMs: number = 15000) {
@@ -1010,8 +1021,7 @@ export class PluginHost {
       const canStop = session.lifecycle.getSnapshot().can({ type: 'STOP' })
       if (canStop) {
         assertTransition(session, 'stopped')
-      }
-      else {
+      } else {
         session.phase = 'stopped'
       }
     }
@@ -1050,9 +1060,7 @@ export class FileSystemLoader {
    *   - lazy plugin definition (`definePlugin(...)`) via `loadLazyPluginFor`, or
    *   - executable plugin hooks (`Plugin`) via `loadPluginFor`.
    */
-  constructor() {
-
-  }
+  constructor() {}
 
   /**
    * Resolve a manifest entrypoint for the requested runtime.
@@ -1067,16 +1075,14 @@ export class FileSystemLoader {
   resolveEntrypointFor(manifest: ManifestV1, options?: PluginLoadOptions) {
     const runtime = options?.runtime ?? 'electron'
     const root = options?.cwd ?? cwd()
-    const entrypoint
-      = manifest.entrypoints[runtime]
-        ?? manifest.entrypoints.default
-        ?? manifest.entrypoints.electron
+    const entrypoint = manifest.entrypoints[runtime] ?? manifest.entrypoints.default ?? manifest.entrypoints.electron
 
     if (!entrypoint) {
-      throw new Error(''
-        + `Plugin entrypoint is required for runtime \`${runtime}\`. `
-        + 'Define one of `entrypoints.<runtime>`, `entrypoints.default`, '
-        + 'or `entrypoints.electron` in the plugin manifest.',
+      throw new Error(
+        '' +
+          `Plugin entrypoint is required for runtime \`${runtime}\`. ` +
+          'Define one of `entrypoints.<runtime>`, `entrypoints.default`, ' +
+          'or `entrypoints.electron` in the plugin manifest.',
       )
     }
 

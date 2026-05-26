@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 
 export interface BlackboardGazeTarget {
   type: 'screen' | 'world'
-  position?: { x: number, y: number, z?: number }
+  position?: { x: number; y: number; z?: number }
 }
 
 export interface BlackboardSpeechState {
@@ -36,13 +36,13 @@ export interface BlackboardActorState {
 
 function createDefaultActorState(): BlackboardActorState {
   return {
-    emotion: { tag: null, intensity: 0 },
+    emotion: { intensity: 0, tag: null },
     expression: null,
+    flags: {},
     gaze: null,
+    markers: {},
     pose: { current: null, weight: 0 },
     speech: { speaking: false },
-    flags: {},
-    markers: {},
   }
 }
 
@@ -56,8 +56,7 @@ export const useBlackboardStore = defineStore('stage-performance-blackboard', ()
   const activeActor = computed(() => actors.value[activeActorId.value] ?? actors.value.default)
 
   function ensureActor(id: string) {
-    if (!actors.value[id])
-      actors.value[id] = createDefaultActorState()
+    if (!actors.value[id]) actors.value[id] = createDefaultActorState()
   }
 
   function setActiveActor(id: string) {
@@ -96,8 +95,7 @@ export const useBlackboardStore = defineStore('stage-performance-blackboard', ()
   }
 
   function clearFlag(id: string, key: string) {
-    if (!actors.value[id])
-      return
+    if (!actors.value[id]) return
     delete actors.value[id].flags[key]
   }
 
@@ -107,8 +105,7 @@ export const useBlackboardStore = defineStore('stage-performance-blackboard', ()
   }
 
   function clearActor(id: string) {
-    if (!actors.value[id])
-      return
+    if (!actors.value[id]) return
     actors.value[id] = createDefaultActorState()
   }
 
@@ -118,20 +115,20 @@ export const useBlackboardStore = defineStore('stage-performance-blackboard', ()
   }
 
   return {
-    actors,
-    activeActorId,
     activeActor,
+    activeActorId,
+    actors,
+    clearActor,
+    clearFlag,
+    resetAll,
 
     setActiveActor,
+    setFlag,
+    setMarker,
     updateEmotion,
     updateExpression,
     updateGaze,
     updatePose,
     updateSpeech,
-    setFlag,
-    clearFlag,
-    setMarker,
-    clearActor,
-    resetAll,
   }
 })

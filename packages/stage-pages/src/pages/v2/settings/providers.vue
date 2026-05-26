@@ -22,7 +22,7 @@ const availableProviderSearchQuery = ref('')
 const availableProviderSearchQueryDebounced = refDebounced(availableProviderSearchQuery, 250)
 
 const availableProviders = computed(() => {
-  return listProviders().map(provider => ({
+  return listProviders().map((provider) => ({
     ...provider,
     nameLocalized: provider.nameLocalize({ t }),
   }))
@@ -33,7 +33,7 @@ const availableProvidersFiltered = computed(() => {
     return availableProviders.value
   }
 
-  return availableProviders.value.filter(provider =>
+  return availableProviders.value.filter((provider) =>
     provider.name.toLowerCase().includes(availableProviderSearchQueryDebounced.value.toLowerCase()),
   )
 })
@@ -41,8 +41,8 @@ const availableProvidersFiltered = computed(() => {
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isSmallerThan2XL = breakpoints.smaller('2xl')
 
-const paneDatasourceListSize = computed(() => isSmallerThan2XL.value ? 30 : 20)
-const paneDatasourceEditSize = computed(() => isSmallerThan2XL.value ? 80 : 70)
+const paneDatasourceListSize = computed(() => (isSmallerThan2XL.value ? 30 : 20))
+const paneDatasourceEditSize = computed(() => (isSmallerThan2XL.value ? 80 : 70))
 
 function handleAdd(providerId: string) {
   providerCatalogStore.addProvider(providerId)

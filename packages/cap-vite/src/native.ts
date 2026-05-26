@@ -1,12 +1,12 @@
-import type { ViteDevServer } from 'vite'
+import { basename, extname, relative, resolve, sep } from 'node:path'
 
 import process from 'node:process'
-
-import { basename, extname, relative, resolve, sep } from 'node:path'
+import type { ViteDevServer } from 'vite'
 
 export type CapacitorPlatform = 'android' | 'ios'
 
 const nativeExtensionsByPlatform: Record<CapacitorPlatform, Set<string>> = {
+  android: new Set(['.gradle', '.java', '.json', '.kts', '.kt', '.properties', '.xml']),
   ios: new Set([
     '.entitlements',
     '.h',
@@ -23,23 +23,9 @@ const nativeExtensionsByPlatform: Record<CapacitorPlatform, Set<string>> = {
     '.xcscheme',
     '.xib',
   ]),
-  android: new Set([
-    '.gradle',
-    '.java',
-    '.json',
-    '.kts',
-    '.kt',
-    '.properties',
-    '.xml',
-  ]),
 }
 
 const nativeNamesByPlatform: Record<CapacitorPlatform, Set<string>> = {
-  ios: new Set([
-    'Podfile',
-    'Podfile.lock',
-    'project.pbxproj',
-  ]),
   android: new Set([
     'AndroidManifest.xml',
     'build.gradle',
@@ -48,25 +34,16 @@ const nativeNamesByPlatform: Record<CapacitorPlatform, Set<string>> = {
     'settings.gradle',
     'settings.gradle.kts',
   ]),
+  ios: new Set(['Podfile', 'Podfile.lock', 'project.pbxproj']),
 }
 
-const ignoredNames = new Set([
-  'capacitor.config.json',
-])
+const ignoredNames = new Set(['capacitor.config.json'])
 
-const ignoredPathSegments = new Set([
-  '.gradle',
-  'DerivedData',
-  'Pods',
-  'build',
-  'xcuserdata',
-])
+const ignoredPathSegments = new Set(['.gradle', 'DerivedData', 'Pods', 'build', 'xcuserdata'])
 
 const ignoredPathPrefixesByPlatform: Record<CapacitorPlatform, string[][]> = {
-  ios: [
-    ['App', 'CapApp-SPM'],
-  ],
   android: [],
+  ios: [['App', 'CapApp-SPM']],
 }
 
 export function parseCapacitorPlatform(value: string | undefined): CapacitorPlatform | null {
@@ -117,16 +94,18 @@ export function shouldRestartForNativeChange(file: string, platform: CapacitorPl
   }
 
   const segments = absoluteFile.split(sep)
-  if (segments.some(segment => ignoredPathSegments.has(segment))) {
+  if (segments.some((segment) => ignoredPathSegments.has(segment))) {
     return false
   }
 
   const relativeFile = relative(platformRoot, absoluteFile)
   const relativeSegments = relativeFile.split(sep).filter(Boolean)
 
-  if (ignoredPathPrefixesByPlatform[platform].some(prefix =>
-    prefix.every((segment, index) => relativeSegments[index] === segment),
-  )) {
+  if (
+    ignoredPathPrefixesByPlatform[platform].some((prefix) =>
+      prefix.every((segment, index) => relativeSegments[index] === segment),
+    )
+  ) {
     // NOTICE: Capacitor regenerates ios/App/CapApp-SPM/Package.swift during `cap run`.
     // Treating that generated tree as a native source change causes an infinite restart loop.
     return false

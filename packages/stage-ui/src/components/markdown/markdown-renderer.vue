@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import DOMPurify from 'dompurify'
-
 import { healMozibake } from '@proj-airi/stage-shared'
+import DOMPurify from 'dompurify'
 import { onMounted, ref, watch } from 'vue'
 
 import { useMarkdown } from '../../composables/markdown'
@@ -25,18 +24,16 @@ function formatActorName(id: string): string {
     rumi: 'Rumi',
   }
   const lower = name.toLowerCase()
-  if (customNames[lower])
-    return customNames[lower]
+  if (customNames[lower]) return customNames[lower]
 
   return name
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
 }
 
 function postProcessActorColors(html: string): string {
-  if (!html.includes('[ACTOR:'))
-    return html
+  if (!html.includes('[ACTOR:')) return html
 
   // Match standard paragraph <p>...</p> or list item <li>...</li> blocks
   const blockRegex = /(<p>|<li>)([\s\S]*?)(<\/p>|<\/li>)/gi
@@ -85,19 +82,19 @@ async function processContent() {
 
   // FAILSAFE: Level 2 Literal Mappings directly in component to bypass potential shared-package cache stale
   const commonScrambles: Record<string, string> = {
-    'Ê·': 'ʷ',
+    'Â¬': '¬',
+    'Ê"': 'ʔ',
+    Ê·: 'ʷ',
+    'Ê•': 'ʕ',
+    'á´¥': 'ᴥ',
+    'â¬½': '⬽',
+    'â–½': '▽',
     'â—´': '◴',
     'â—•': '•',
-    'á´¥': 'ᴥ',
-    'â‰§': '≧',
-    'ï¿£': '￣',
-    'ãƒ˜': 'ヘ',
-    'â¬½': '⬽',
-    'Â¬': '¬',
-    'â–½': '▽',
-    'Ê•': 'ʕ',
-    'Ê"': 'ʔ',
     'â‰¦': '≦',
+    'â‰§': '≧',
+    'ãƒ˜': 'ヘ',
+    'ï¿£': '￣',
   }
 
   for (const [key, val] of Object.entries(commonScrambles)) {
@@ -106,8 +103,7 @@ async function processContent() {
 
   if (healed !== props.content) {
     // console.debug('[MarkdownRenderer] Scrambled Unicode healed successfully.')
-  }
-  else {
+  } else {
     // If it's still scrambled but healing failed, log the actual codes
     // console.debug('[MarkdownRenderer] No changes made by healer.')
   }
@@ -115,8 +111,7 @@ async function processContent() {
   try {
     const rawCompiled = await process(healed)
     processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled))
-  }
-  catch (error) {
+  } catch (error) {
     console.warn('Failed to process markdown with syntax highlighting, using fallback:', error)
     processedContent.value = postProcessActorColors(DOMPurify.sanitize(processSync(healed)))
   }
@@ -125,8 +120,7 @@ async function processContent() {
 function handleLinkClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   const anchor = target.closest('a')
-  if (!anchor)
-    return
+  if (!anchor) return
 
   const href = anchor.getAttribute('href')
   if (href && (href.startsWith('http') || href.startsWith('mailto:'))) {

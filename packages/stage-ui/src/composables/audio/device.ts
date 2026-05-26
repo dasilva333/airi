@@ -13,7 +13,11 @@ export function useAudioDevice() {
       noiseSuppression: true,
     },
   }))
-  const { stream, stop: stopStream, start: startStream } = useUserMedia({ constraints: deviceConstraints, enabled: false, autoSwitch: true })
+  const {
+    stream,
+    stop: stopStream,
+    start: startStream,
+  } = useUserMedia({ autoSwitch: true, constraints: deviceConstraints, enabled: false })
 
   watch(audioInputs, () => {
     if (!selectedAudioInput.value && audioInputs.value.length > 0) {
@@ -23,11 +27,13 @@ export function useAudioDevice() {
 
   // Lifecycle
   onMounted(() => {
-    devices.ensurePermissions()
+    devices
+      .ensurePermissions()
       .then(() => nextTick())
       .then(() => {
         if (audioInputs.value.length > 0 && !selectedAudioInput.value) {
-          selectedAudioInput.value = audioInputs.value.find(input => input.deviceId === 'default')?.deviceId || audioInputs.value[0].deviceId
+          selectedAudioInput.value =
+            audioInputs.value.find((input) => input.deviceId === 'default')?.deviceId || audioInputs.value[0].deviceId
         }
       })
       .catch((error) => {
@@ -37,10 +43,10 @@ export function useAudioDevice() {
 
   return {
     audioInputs,
-    selectedAudioInput,
-    stream,
-    stopStream,
-    startStream,
     deviceConstraints,
+    selectedAudioInput,
+    startStream,
+    stopStream,
+    stream,
   }
 }

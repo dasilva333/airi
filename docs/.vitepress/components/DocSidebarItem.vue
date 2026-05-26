@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { SidebarItem } from '../composables/sidebar'
-
 import { useCurrentElement } from '@vueuse/core'
 import { computed, watch } from 'vue'
+import type { SidebarItem } from '../composables/sidebar'
 
 import { useSidebarControl } from '../composables/sidebar'
 
@@ -13,13 +12,17 @@ const { isActiveLink } = useSidebarControl(computed(() => props.item))
 
 const elRef = useCurrentElement()
 
-watch(isActiveLink, () => {
-  if (isActiveLink.value && elRef.value instanceof HTMLElement) {
-    elRef.value.scrollIntoView({
-      block: 'center',
-    })
-  }
-}, { immediate: true })
+watch(
+  isActiveLink,
+  () => {
+    if (isActiveLink.value && elRef.value instanceof HTMLElement) {
+      elRef.value.scrollIntoView({
+        block: 'center',
+      })
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

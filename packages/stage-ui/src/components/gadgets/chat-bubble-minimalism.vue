@@ -2,10 +2,8 @@
 import { until } from '@vueuse/core'
 import { createTimeline } from 'animejs'
 import { nextTick, onMounted, ref } from 'vue'
-
-import PoppinText from '../widgets/poppin-text/PoppinText.web.vue'
-
 import { createFadeAnimator } from '../widgets/poppin-text/animators'
+import PoppinText from '../widgets/poppin-text/PoppinText.web.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -31,24 +29,24 @@ onMounted(async () => {
 
   createTimeline({ loop: false })
     .set(chatBubbleRef.value!, {
-      width: 0,
       borderWidth: 0,
+      duration: 500,
+      ease: 'outQuart',
+      paddingBottom: 0,
       paddingLeft: 0,
       paddingRight: 0,
       paddingTop: 0,
-      paddingBottom: 0,
-      ease: 'outQuart',
-      duration: 500,
+      width: 0,
     })
     .add(chatBubbleRef.value!, {
-      width: [0, props.loading ? 'fit-content' : containerWidth],
       borderWidth: [0, 2],
+      duration: 500,
+      ease: 'outQuart',
+      paddingBottom: [0, 12],
       paddingLeft: [0, 12],
       paddingRight: [0, 12],
       paddingTop: [0, 12],
-      paddingBottom: [0, 12],
-      ease: 'outQuart',
-      duration: 500,
+      width: [0, props.loading ? 'fit-content' : containerWidth],
     })
 })
 
