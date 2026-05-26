@@ -112,7 +112,7 @@ export default {
     executableName: 'airi',
     icon: 'build/icons/icon.png',
     synopsis: 'AI VTuber/Waifu chatbot app inspired by Neuro-sama.',
-    target: ['deb', 'rpm'],
+    target: 'deb',
   },
   mac: {
     entitlementsInherit: 'build/entitlements.mac.plist',
