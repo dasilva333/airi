@@ -108,7 +108,11 @@ function getErrorMessage(err: unknown): string {
     return 'Request was cancelled.'
   }
 
-  const raw = err instanceof Error ? err.message : String(err)
+  const raw = err instanceof Error
+    ? err.message
+    : (err && typeof err === 'object' && 'message' in err)
+      ? String((err as any).message)
+      : String(err)
   const lower = raw.toLowerCase()
 
   if (lower.includes('timeout') || lower.includes('timed out')) {

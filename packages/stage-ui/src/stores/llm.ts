@@ -315,7 +315,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
     let currentAttempt = 0
     let connectionTimeoutId: ReturnType<typeof setTimeout> | undefined
-    let cleanupExternalSignal: (() => void) | undefined
     let firstEventReceived = false
 
     const clearConnectionTimeout = (attempt: number) => {
@@ -323,10 +322,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       if (connectionTimeoutId !== undefined) {
         clearTimeout(connectionTimeoutId)
         connectionTimeoutId = undefined
-      }
-      if (cleanupExternalSignal) {
-        cleanupExternalSignal()
-        cleanupExternalSignal = undefined
       }
     }
 
@@ -358,11 +353,6 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         clearTimeout(connectionTimeoutId)
         connectionTimeoutId = undefined
       }
-      if (cleanupExternalSignal) {
-        cleanupExternalSignal()
-        cleanupExternalSignal = undefined
-      }
-
       currentAttempt++
       const attempt = currentAttempt
       firstEventReceived = false
@@ -370,17 +360,9 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
       // Combine external abort signal with our connection timeout
       const abortController = new AbortController()
-
-      const externalSignal = options?.abortSignal
-      if (externalSignal) {
-        const onExternalAbort = () => abortController.abort(externalSignal.reason)
-        if (externalSignal.aborted) {
-          onExternalAbort()
-        } else {
-          externalSignal.addEventListener('abort', onExternalAbort, { once: true })
-          cleanupExternalSignal = () => externalSignal.removeEventListener('abort', onExternalAbort)
-        }
-      }
+      const combinedSignal = options?.abortSignal
+        ? AbortSignal.any([options.abortSignal, abortController.signal])
+        : abortController.signal
 
       // Connection timeout: fires if no event received within the threshold
       const attemptTimeout =
@@ -406,7 +388,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           temperature: options?.temperature,
           top_p: options?.top_p,
           ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
-          abortSignal: abortController.signal,
+          abortSignal: combinedSignal,
           model,
           onEvent,
           // TODO: we need Automatic tools discovery
@@ -427,7 +409,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
             clearConnectionTimeout(attempt)
             if (!attemptActive) return
             attemptActive = false
-            if (!settled && currentAttempt < retryMultipliers.length) {
+            if (!settled && currentAttempt < retryMultipliers.length && !options?.abortSignal?.aborted) {
               console.warn(`[streamFrom] Attempt ${currentAttempt} failed (${err}), retrying with longer timeout...`)
               attemptStream()
             } else {
@@ -441,7 +423,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           if (!attemptActive) return
           attemptActive = false
           // If the stream steps fail before messages settle, propagate it.
-          if (!settled && currentAttempt < retryMultipliers.length) {
+          if (!settled && currentAttempt < retryMultipliers.length && !options?.abortSignal?.aborted) {
             console.warn(`[streamFrom] Steps failed on attempt ${currentAttempt} (${err}), retrying...`)
             attemptStream()
           } else {
@@ -463,7 +445,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         clearConnectionTimeout(attempt)
         if (!attemptActive) return
         attemptActive = false
-        if (!settled && currentAttempt < retryMultipliers.length) {
+        if (!settled && currentAttempt < retryMultipliers.length && !options?.abortSignal?.aborted) {
           console.warn(`[streamFrom] Synchronous error on attempt ${currentAttempt} (${err}), retrying...`)
           attemptStream()
         } else {
