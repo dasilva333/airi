@@ -313,12 +313,28 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       reject(err)
     }
 
+    let currentAttempt = 0
+    let connectionTimeoutId: ReturnType<typeof setTimeout> | undefined
+    let cleanupExternalSignal: (() => void) | undefined
     let firstEventReceived = false
+
+    const clearConnectionTimeout = (attempt: number) => {
+      if (attempt !== currentAttempt) return
+      if (connectionTimeoutId !== undefined) {
+        clearTimeout(connectionTimeoutId)
+        connectionTimeoutId = undefined
+      }
+      if (cleanupExternalSignal) {
+        cleanupExternalSignal()
+        cleanupExternalSignal = undefined
+      }
+    }
+
     const onEvent = async (event: unknown) => {
       try {
         if (!firstEventReceived) {
           firstEventReceived = true
-          clearConnectionTimeout()
+          clearConnectionTimeout(currentAttempt)
         }
         await options?.onStreamEvent?.(event as StreamEvent)
         if (event && (event as StreamEvent).type === 'finish') {
@@ -336,11 +352,8 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       }
     }
 
-    let currentAttempt = 0
-    let connectionTimeoutId: ReturnType<typeof setTimeout> | undefined
-    let cleanupExternalSignal: (() => void) | undefined
-
-    const clearConnectionTimeout = () => {
+    const attemptStream = () => {
+      // Clean up any stale state from a previous attempt before starting a new one
       if (connectionTimeoutId !== undefined) {
         clearTimeout(connectionTimeoutId)
         connectionTimeoutId = undefined
@@ -349,10 +362,9 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         cleanupExternalSignal()
         cleanupExternalSignal = undefined
       }
-    }
 
-    const attemptStream = () => {
       currentAttempt++
+      const attempt = currentAttempt
       firstEventReceived = false
       let attemptActive = true
 
@@ -407,12 +419,12 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         // that occurs before the first message also triggers a rejection.
         result.messages
           .then(() => {
-            clearConnectionTimeout()
+            clearConnectionTimeout(attempt)
             attemptActive = false
             resolveOnce()
           })
           .catch((err) => {
-            clearConnectionTimeout()
+            clearConnectionTimeout(attempt)
             if (!attemptActive) return
             attemptActive = false
             if (!settled && currentAttempt < retryMultipliers.length) {
@@ -425,7 +437,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           })
 
         result.steps.catch((err) => {
-          clearConnectionTimeout()
+          clearConnectionTimeout(attempt)
           if (!attemptActive) return
           attemptActive = false
           // If the stream steps fail before messages settle, propagate it.
@@ -448,7 +460,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           })
           .catch((err) => console.error('Stream totalUsage error:', err))
       } catch (err) {
-        clearConnectionTimeout()
+        clearConnectionTimeout(attempt)
         if (!attemptActive) return
         attemptActive = false
         if (!settled && currentAttempt < retryMultipliers.length) {

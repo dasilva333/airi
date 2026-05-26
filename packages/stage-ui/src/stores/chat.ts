@@ -164,9 +164,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           return
         }
 
+        const queueAbortController = new AbortController()
         let timedOut = false
-        let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           timedOut = true
+          queueAbortController.abort(new Error('Queue send timeout'))
           console.error(`[sendQueue] performSend timed out after ${QUEUE_SEND_TIMEOUT_MS}ms for session ${sessionId}`)
           deferred.reject(
             new Error(`Send timed out after ${QUEUE_SEND_TIMEOUT_MS / 1000}s. The AI server may be unresponsive.`),
@@ -174,7 +176,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         }, QUEUE_SEND_TIMEOUT_MS)
 
         try {
-          await performSend(sendingMessage, options, generation, sessionId)
+          await performSend(sendingMessage, options, generation, sessionId, queueAbortController.signal)
           clearTimeout(timeoutId)
           if (!timedOut) {
             deferred.resolve()
@@ -197,7 +199,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     pendingQueuedSends.value = pendingQueuedSends.value.filter((item) => item !== queuedSend)
   })
 
-  async function performSend(sendingMessage: string, options: SendOptions, generation: number, sessionId: string) {
+  async function performSend(sendingMessage: string, options: SendOptions, generation: number, sessionId: string, externalAbortSignal?: AbortSignal) {
     chatLog('performSend starting with message:', sendingMessage)
 
     let bridgedSteps = 0
@@ -848,6 +850,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         const generationConfig = activeCard.value?.extensions?.airi?.generation
         const generationKnown = generationConfig?.enabled ? generationConfig.known : undefined
         const abortController = new AbortController()
+
+        // Combine queue-level external abort signal with internal stream idle timeout
+        if (externalAbortSignal) {
+          const onExternalAbort = () => abortController.abort(externalAbortSignal.reason)
+          if (externalAbortSignal.aborted) {
+            onExternalAbort()
+          } else {
+            externalAbortSignal.addEventListener('abort', onExternalAbort, { once: true })
+          }
+        }
 
         const clearStreamIdleTimeout = () => {
           if (streamIdleTimeout) clearTimeout(streamIdleTimeout)
