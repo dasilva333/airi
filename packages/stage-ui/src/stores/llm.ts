@@ -318,6 +318,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       try {
         if (!firstEventReceived) {
           firstEventReceived = true
+          clearConnectionTimeout()
         }
         await options?.onStreamEvent?.(event as StreamEvent)
         if (event && (event as StreamEvent).type === 'finish') {
@@ -337,17 +338,23 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
     let currentAttempt = 0
     let connectionTimeoutId: ReturnType<typeof setTimeout> | undefined
+    let cleanupExternalSignal: (() => void) | undefined
 
     const clearConnectionTimeout = () => {
       if (connectionTimeoutId !== undefined) {
         clearTimeout(connectionTimeoutId)
         connectionTimeoutId = undefined
       }
+      if (cleanupExternalSignal) {
+        cleanupExternalSignal()
+        cleanupExternalSignal = undefined
+      }
     }
 
     const attemptStream = () => {
       currentAttempt++
       firstEventReceived = false
+      let attemptActive = true
 
       // Combine external abort signal with our connection timeout
       const abortController = new AbortController()
@@ -359,6 +366,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           onExternalAbort()
         } else {
           externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+          cleanupExternalSignal = () => externalSignal.removeEventListener('abort', onExternalAbort)
         }
       }
 
@@ -397,13 +405,16 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
         // We prioritize result.messages for primary settlement, but ensure any step error
         // that occurs before the first message also triggers a rejection.
-        void result.messages
+        result.messages
           .then(() => {
             clearConnectionTimeout()
+            attemptActive = false
             resolveOnce()
           })
           .catch((err) => {
             clearConnectionTimeout()
+            if (!attemptActive) return
+            attemptActive = false
             if (!settled && currentAttempt < retryMultipliers.length) {
               console.warn(`[streamFrom] Attempt ${currentAttempt} failed (${err}), retrying with longer timeout...`)
               attemptStream()
@@ -413,8 +424,10 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
             }
           })
 
-        void result.steps.catch((err) => {
+        result.steps.catch((err) => {
           clearConnectionTimeout()
+          if (!attemptActive) return
+          attemptActive = false
           // If the stream steps fail before messages settle, propagate it.
           if (!settled && currentAttempt < retryMultipliers.length) {
             console.warn(`[streamFrom] Steps failed on attempt ${currentAttempt} (${err}), retrying...`)
@@ -425,9 +438,9 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           }
         })
 
-        void result.usage.catch((err) => console.error('Stream usage error:', err))
+        result.usage.catch((err) => console.error('Stream usage error:', err))
 
-        void result.totalUsage
+        result.totalUsage
           .then((usage) => {
             if (usage) {
               onEvent({ type: 'usage', usage })
@@ -436,6 +449,8 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
           .catch((err) => console.error('Stream totalUsage error:', err))
       } catch (err) {
         clearConnectionTimeout()
+        if (!attemptActive) return
+        attemptActive = false
         if (!settled && currentAttempt < retryMultipliers.length) {
           console.warn(`[streamFrom] Synchronous error on attempt ${currentAttempt} (${err}), retrying...`)
           attemptStream()

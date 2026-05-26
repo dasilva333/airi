@@ -164,23 +164,26 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           return
         }
 
-        try {
-          let timedOut = false
-          const timeoutId = setTimeout(() => {
-            timedOut = true
-            console.error(`[sendQueue] performSend timed out after ${QUEUE_SEND_TIMEOUT_MS}ms for session ${sessionId}`)
-            deferred.reject(
-              new Error(`Send timed out after ${QUEUE_SEND_TIMEOUT_MS / 1000}s. The AI server may be unresponsive.`),
-            )
-          }, QUEUE_SEND_TIMEOUT_MS)
+        let timedOut = false
+        let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+          timedOut = true
+          console.error(`[sendQueue] performSend timed out after ${QUEUE_SEND_TIMEOUT_MS}ms for session ${sessionId}`)
+          deferred.reject(
+            new Error(`Send timed out after ${QUEUE_SEND_TIMEOUT_MS / 1000}s. The AI server may be unresponsive.`),
+          )
+        }, QUEUE_SEND_TIMEOUT_MS)
 
+        try {
           await performSend(sendingMessage, options, generation, sessionId)
           clearTimeout(timeoutId)
           if (!timedOut) {
             deferred.resolve()
           }
         } catch (error) {
-          deferred.reject(error)
+          clearTimeout(timeoutId)
+          if (!timedOut) {
+            deferred.reject(error)
+          }
         }
       },
     ],
@@ -1216,7 +1219,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         // This covers BroadcastChannel round-trip + queue wait + LLM connection time.
         timeoutId = setTimeout(() => {
           cleanup()
-          console.error(`[ingest] Secondary window ingestion timed out`, {
+          console.error('[ingest] Secondary window ingestion timed out', {
             clientMessageId,
             hint: 'Main window send queue may be blocked by a hung stream. Check the main window for errors.',
             pendingQueue: pendingQueuedSends.value.length,
