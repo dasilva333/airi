@@ -329,6 +329,7 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       try {
         if (!firstEventReceived) {
           firstEventReceived = true
+          console.log(`[streamFrom] First event received on attempt ${currentAttempt}. Clearing connection timeout.`)
           clearConnectionTimeout(currentAttempt)
         }
         await options?.onStreamEvent?.(event as StreamEvent)
@@ -358,6 +359,8 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       firstEventReceived = false
       let attemptActive = true
 
+      console.log(`[streamFrom] Starting attempt ${attempt}/${retryMultipliers.length}. connectionTimeoutMs: ${connectionTimeoutMs * retryMultipliers[Math.min(currentAttempt - 1, retryMultipliers.length - 1)]}`)
+
       // Combine external abort signal with our connection timeout
       const abortController = new AbortController()
       const combinedSignal = options?.abortSignal
@@ -369,15 +372,19 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         connectionTimeoutMs * retryMultipliers[Math.min(currentAttempt - 1, retryMultipliers.length - 1)]
       connectionTimeoutId = setTimeout(() => {
         if (!firstEventReceived) {
+          console.warn(`[streamFrom] Connection timeout fired on attempt ${attempt}. No event received within ${attemptTimeout}ms. Aborting.`)
           abortController.abort(
             new Error(
               `Connection timeout: no response within ${attemptTimeout}ms (attempt ${currentAttempt}/${retryMultipliers.length})`,
             ),
           )
+        } else {
+          console.log(`[streamFrom] Connection timeout fired on attempt ${attempt} but first event already received. Ignoring.`)
         }
       }, attemptTimeout)
 
       try {
+        console.log(`[streamFrom] Calling streamText on attempt ${attempt}. model: ${chatConfig.model || 'unknown'}, baseURL: ${chatConfig.baseURL || 'unknown'}`)
         const result = streamText({
           ...chatConfig,
           ...requestOverrides,
@@ -401,18 +408,23 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
         // that occurs before the first message also triggers a rejection.
         result.messages
           .then(() => {
+            console.log(`[streamFrom] result.messages resolved on attempt ${attempt}.`)
             clearConnectionTimeout(attempt)
             attemptActive = false
             resolveOnce()
           })
           .catch((err) => {
             clearConnectionTimeout(attempt)
-            if (!attemptActive) return
+            if (!attemptActive) {
+              console.log(`[streamFrom] result.messages rejected on attempt ${attempt} but attempt no longer active.`)
+              return
+            }
             attemptActive = false
             if (!settled && currentAttempt < retryMultipliers.length && !options?.abortSignal?.aborted) {
               console.warn(`[streamFrom] Attempt ${currentAttempt} failed (${err}), retrying with longer timeout...`)
               attemptStream()
             } else {
+              console.log(`[streamFrom] result.messages rejected on attempt ${attempt}. settled: ${settled}, willRetry: ${!settled && currentAttempt < retryMultipliers.length && !options?.abortSignal?.aborted}`)
               rejectOnce(err)
               console.error('Stream messages error:', err)
             }

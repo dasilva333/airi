@@ -132,6 +132,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     watch(broadcastedInput, (payload) => {
       if (payload) {
         chatLog('Received broadcasted chat input from secondary window:', payload)
+        console.log(`[IngestDebug] Main window received broadcast. clientMessageId: ${payload.options?.metadata?.clientMessageId || 'NONE'}. Queue length before enqueue: ${sendQueue.length()}`)
         ingest(
           payload.sendingMessage,
           {
@@ -140,6 +141,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           },
           payload.targetSessionId,
         )
+        console.log(`[IngestDebug] Main window enqueued message. Queue length after enqueue: ${sendQueue.length()}`)
       }
     })
   }
@@ -157,12 +159,17 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       async ({ data }) => {
         const { sendingMessage, options, generation, deferred, sessionId, cancelled } = data
 
-        if (cancelled) return
+        if (cancelled) {
+          console.log(`[IngestDebug] Queue item cancelled for session ${sessionId}`)
+          return
+        }
 
         if (chatSession.getSessionGeneration(sessionId) !== generation) {
+          console.log(`[IngestDebug] Session generation mismatch. Expected ${generation}, got ${chatSession.getSessionGeneration(sessionId)}. Rejecting.`)
           deferred.reject(new Error('Chat session was reset before send could start'))
           return
         }
+        console.log(`[IngestDebug] Queue handler starting performSend for session ${sessionId}. sending: ${sending.value}`)
 
         const queueAbortController = new AbortController()
         let timedOut = false
@@ -179,12 +186,18 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           await performSend(sendingMessage, options, generation, sessionId, queueAbortController.signal)
           clearTimeout(timeoutId)
           if (!timedOut) {
+            console.log(`[IngestDebug] performSend completed successfully for session ${sessionId}. Resolving deferred.`)
             deferred.resolve()
+          } else {
+            console.log(`[IngestDebug] performSend completed but already timed out for session ${sessionId}`)
           }
         } catch (error) {
           clearTimeout(timeoutId)
           if (!timedOut) {
+            console.log(`[IngestDebug] performSend failed for session ${sessionId}:`, error)
             deferred.reject(error)
+          } else {
+            console.log(`[IngestDebug] performSend failed but already timed out for session ${sessionId}:`, error)
           }
         }
       },
@@ -1231,14 +1244,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         // This covers BroadcastChannel round-trip + queue wait + LLM connection time.
         timeoutId = setTimeout(() => {
           cleanup()
-          console.error('[ingest] Secondary window ingestion timed out', {
+          const diagnosticInfo = {
             clientMessageId,
-            hint: 'Main window send queue may be blocked by a hung stream. Check the main window for errors.',
-            pendingQueue: pendingQueuedSends.value.length,
-            sending: sending.value,
             sessionId,
-          })
-          reject(new Error('Timed out waiting for AIRI to respond. The AI server may be slow or unresponsive.'))
+            sending: sending.value,
+            pendingQueue: pendingQueuedSends.value.length,
+            isMainWindow,
+            queueLength: sendQueue.length(),
+          }
+          console.error('[ingest] Secondary window ingestion timed out', diagnosticInfo)
+          // Build a user-friendly error message with diagnostic hints
+          let hint = 'Timed out waiting for AIRI to respond.'
+          if (pendingQueuedSends.value.length > 0) {
+            hint += ` There are ${pendingQueuedSends.value.length} message(s) queued. The AI server may be slow or unresponsive.`
+          } else if (sending.value) {
+            hint += ' A message is currently being sent. The AI server may be unresponsive.'
+          } else {
+            hint += ' The message may not have reached the main window. Check DevTools console for [IngestDebug] logs.'
+          }
+          reject(new Error(hint))
         }, 15000)
 
         stopWatch = watch(
@@ -1264,6 +1288,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           { deep: true, immediate: true },
         )
 
+        console.log(`[IngestDebug] Secondary window posting input via BroadcastChannel. clientMessageId: ${clientMessageId}`)
         postInput({
           options: {
             ...options,
@@ -1274,6 +1299,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           sendingMessage,
           targetSessionId: sessionId,
         })
+        console.log(`[IngestDebug] BroadcastChannel postInput sent. Starting watcher for clientMessageId: ${clientMessageId}`)
       })
     }
 
@@ -1286,6 +1312,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     const generation = chatSession.getSessionGeneration(sessionId)
 
+    console.log(`[IngestDebug] Main window ingest enqueue. sessionId: ${sessionId}, queue length: ${sendQueue.length()}, sending: ${sending.value}`)
     return new Promise<void>((resolve, reject) => {
       sendQueue.enqueue({
         deferred: { reject, resolve },
@@ -1294,6 +1321,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         sendingMessage,
         sessionId,
       })
+      console.log(`[IngestDebug] Main window enqueue done. queue length: ${sendQueue.length()}`)
     })
   }
 
