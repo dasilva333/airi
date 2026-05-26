@@ -173,6 +173,27 @@ Concise mapping of conceptual features to technical file paths for rapid context
 - If multiple names are returned from Context7 without a clear distinction, ask the user to choose or confirm the desired one.
 - If docs conflict with typecheck results, inspect the dependency source under `node_modules` to diagnose root cause and fix types/bugs.
 
+### ⚠️ Vue Component Import Rule
+
+**Never use `import type` for `.vue` components that are used in `<template>`.** In Vue SFCs with `<script setup>`, `import type` erases the import at runtime. This causes `Failed to resolve component` errors in production builds (the dev server may still work, masking the bug).
+
+```typescript
+// ❌ WRONG — component erased at runtime, template can't find it
+import type { Live2DScene } from '@proj-airi/stage-ui-live2d'
+import type Live2DCanvas from './live2d/Canvas.vue'
+
+// ✅ CORRECT — value import preserves the component for template usage
+import { Live2DScene } from '@proj-airi/stage-ui-live2d'
+import Live2DCanvas from './live2d/Canvas.vue'
+```
+
+This applies even if the import appears to only be used as a type (e.g., `InstanceType<typeof Live2DScene>`) — if the same component is used as a tag in `<template>`, it **must** be a value import.
+
+A CI job (`check-vue-type-imports`) runs on every PR to catch this. You can also run locally:
+```bash
+bash scripts/check-vue-type-imports.sh
+```
+
 ## i18n
 
 - Add/modify translations in `packages/i18n`; avoid scattering i18n across apps/packages.

@@ -66,6 +66,7 @@
     "dev:ui": "pnpm -rF @proj-airi/stage-ui run story:dev",
     "format": "biome format --write .",
     "knip": "knip",
+    "check:vue-imports": "bash scripts/check-vue-type-imports.sh",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:rust": "cargo fmt --check && cargo clippy --workspace",
