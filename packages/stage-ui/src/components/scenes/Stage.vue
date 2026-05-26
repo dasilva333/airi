@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { rendererLogger } from '@proj-airi/stage-shared/debug'
-import type { Live2DScene } from '@proj-airi/stage-ui-live2d'
+import { Live2DScene } from '@proj-airi/stage-ui-live2d'
 import { MMDScene } from '@proj-airi/stage-ui-mmd'
-import type { SpineScene } from '@proj-airi/stage-ui-spine'
-import { type ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
+import { SpineScene } from '@proj-airi/stage-ui-spine'
+import { ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useAiriCardStore } from '../../stores/modules'

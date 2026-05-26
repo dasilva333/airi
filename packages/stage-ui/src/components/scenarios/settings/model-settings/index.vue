@@ -2,7 +2,7 @@
 import { Live2DScene } from '@proj-airi/stage-ui-live2d'
 import { MMDScene, useMmd } from '@proj-airi/stage-ui-mmd'
 import { SpineScene } from '@proj-airi/stage-ui-spine'
-import type { ThreeScene } from '@proj-airi/stage-ui-three'
+import { ThreeScene } from '@proj-airi/stage-ui-three'
 import { Button, Callout } from '@proj-airi/ui'
 import { useLocalStorage, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
