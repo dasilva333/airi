@@ -1,15 +1,14 @@
 import type { VRMAnimation } from '@pixiv/three-vrm-animation'
 import { createVRMAnimationClip } from '@pixiv/three-vrm-animation'
 import type { VRMCore } from '@pixiv/three-vrm-core'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 import type { AnimationClip } from 'three'
 import { Object3D, Vector3, VectorKeyframeTrack } from 'three'
 import { randFloat } from 'three/src/math/MathUtils.js'
 import type { Ref } from 'vue'
 import { ref } from 'vue'
-
 import { useVRMLoader } from './loader'
 import { randomSaccadeInterval } from './utils/eye-motions'
-import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 export interface GLTFUserdata extends Record<string, unknown> {
   vrmAnimations: VRMAnimation[]

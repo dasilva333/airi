@@ -301,7 +301,6 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               },
               message,
               'stage-tamagotchi': isStageTamagotchi(),
-              
             },
             type: 'output:gen-ai:chat:message',
           })
@@ -319,7 +318,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               },
               message: chat.output,
               'stage-tamagotchi': isStageTamagotchi(),
-              
+
               // TODO: tool calls should be captured properly
               toolCalls: [],
               // TODO: Properly calculate usage data

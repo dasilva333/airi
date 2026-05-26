@@ -10,13 +10,12 @@ const DEBUG_PREFIX = 'airi'
 function isDebugEnabled(namespace: string): boolean {
   try {
     const debugEnv = localStorage.getItem('debug')
-    if (!debugEnv)
-      return false
-    return debugEnv.split(/[\s,]+/).some(pattern =>
-      pattern === '*'
-      || pattern === `${DEBUG_PREFIX}:*`
-      || pattern === `${DEBUG_PREFIX}:${namespace}`,
-    )
+    if (!debugEnv) return false
+    return debugEnv
+      .split(/[\s,]+/)
+      .some(
+        (pattern) => pattern === '*' || pattern === `${DEBUG_PREFIX}:*` || pattern === `${DEBUG_PREFIX}:${namespace}`,
+      )
   } catch {
     return false
   }
@@ -28,20 +27,17 @@ function formatTime(): string {
 
 export function createLogger(namespace: string) {
   return {
-    log: (...args: unknown[]) => {
-      if (isDebugEnabled(namespace)) {
-        console.log(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
-      }
-    },
-    warn: (...args: unknown[]) => {
-      console.warn(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
-    },
     error: (...args: unknown[]) => {
       console.error(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
     },
     info: (...args: unknown[]) => {
       if (isDebugEnabled(namespace)) {
         console.info(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
+      }
+    },
+    log: (...args: unknown[]) => {
+      if (isDebugEnabled(namespace)) {
+        console.log(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
       }
     },
     time: (label: string) => {
@@ -53,6 +49,9 @@ export function createLogger(namespace: string) {
       if (isDebugEnabled(namespace)) {
         console.timeEnd(`[${DEBUG_PREFIX}:${namespace}] ${label}`)
       }
+    },
+    warn: (...args: unknown[]) => {
+      console.warn(`[${formatTime()}] [${DEBUG_PREFIX}:${namespace}]`, ...args)
     },
   }
 }

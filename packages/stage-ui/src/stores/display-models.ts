@@ -754,7 +754,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function addDisplayModel(format: DisplayModelFormat, file: File) {
-    rendererLogger.log('addDisplayModel called', { format, fileName: file.name, fileSize: file.size })
+    rendererLogger.log('addDisplayModel called', { fileName: file.name, fileSize: file.size, format })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (format === DisplayModelFormat.Live2dZip) {
@@ -767,7 +767,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
 
     const newDisplayModel = createDisplayModelEntry(format, file)
-    rendererLogger.log('Created display model entry', { id: newDisplayModel.id, format })
+    rendererLogger.log('Created display model entry', { format, id: newDisplayModel.id })
 
     const previewImage = await generatePreviewForFormat(format, file)
     if (format === DisplayModelFormat.SpineZip && !previewImage) {

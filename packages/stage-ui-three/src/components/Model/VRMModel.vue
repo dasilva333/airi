@@ -8,6 +8,7 @@
 
 import type { VRM } from '@pixiv/three-vrm'
 import { VRMUtils } from '@pixiv/three-vrm'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 import { useLoop, useTresContext } from '@tresjs/core'
 import { until, useEventListener, useMouse } from '@vueuse/core'
 import type { AnimationAction, AnimationClip, Group, Object3D, PerspectiveCamera, SphericalHarmonics3 } from 'three'
@@ -29,7 +30,6 @@ import { useVRMLipSync } from '../../composables/vrm/lip-sync'
 import { useVRMClothInteraction } from '../../composables/vrm/use-vrm-cloth-interaction'
 import type { Vec3 } from '../../stores/model-store'
 import { useModelStore } from '../../stores/model-store'
-import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 /*
  * Props:
@@ -282,7 +282,7 @@ function defaultTookAt(eyeHeight: number): Vec3 {
 }
 
 async function loadModel() {
-  vrmLogger.log('loadModel() called', { modelSrc: modelSrc.value, modelIdentity: modelIdentity.value })
+  vrmLogger.log('loadModel() called', { modelIdentity: modelIdentity.value, modelSrc: modelSrc.value })
   vrmLogger.time('vrm:loadModel')
   try {
     if (!scene.value) {
@@ -334,11 +334,17 @@ async function loadModel() {
         vrmLogger.warn('Precise binary capture failed:', e)
       }
 
-      if (!_vrmInfo || !Boolean(_vrmInfo._vrm) || !Boolean(_vrmInfo?._vrmGroup)) {
-        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', { hasVrm: Boolean(_vrmInfo?._vrm), hasGroup: Boolean(_vrmInfo?._vrmGroup) })
+      if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
+        vrmLogger.error('VRM model loading failure — _vrmInfo is null or incomplete', {
+          hasGroup: Boolean(_vrmInfo?._vrmGroup),
+          hasVrm: Boolean(_vrmInfo?._vrm),
+        })
         return
       }
-      vrmLogger.log('VRM model loaded successfully', { modelCenter: _vrmInfo.modelCenter, modelSize: _vrmInfo.modelSize })
+      vrmLogger.log('VRM model loaded successfully', {
+        modelCenter: _vrmInfo.modelCenter,
+        modelSize: _vrmInfo.modelSize,
+      })
       const {
         _vrm,
         _vrmGroup,

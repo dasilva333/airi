@@ -70,9 +70,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
       client.value = new Client({
         caller: callerId,
-        name: isStageTamagotchi()
-          ? WebSocketEventSource.StageTamagotchi
-          : WebSocketEventSource.StageTamagotchi,
+        name: isStageTamagotchi() ? WebSocketEventSource.StageTamagotchi : WebSocketEventSource.StageTamagotchi,
         onAnyMessage: (event) => {
           useWebSocketInspectorStore().add('incoming', event)
         },

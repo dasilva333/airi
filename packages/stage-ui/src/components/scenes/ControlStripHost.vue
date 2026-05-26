@@ -35,7 +35,7 @@ import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
-import ControlStrip from '../scenarios/layout/ControlStrip.vue'
+import type ControlStrip from '../scenarios/layout/ControlStrip.vue'
 
 withDefaults(
   defineProps<{
@@ -204,8 +204,9 @@ const emotionsQueue = createQueue<EmotionPayload>({
           } else {
             // New fallback: try to find motion by name in availableMotions (Ground Truth)
             const motionMappings =
-              ((activeCard.value as any)?.extensions?.airi?.modules?.live2d
-                ?.motionMappings as Record<string, string> | undefined) || {}
+              ((activeCard.value as any)?.extensions?.airi?.modules?.live2d?.motionMappings as
+                | Record<string, string>
+                | undefined) || {}
             const matchedMotion = live2dStore.availableMotions.find(
               (m: { fileName: string; motionName: string; motionIndex: number }) => {
                 const name = m.fileName.split('/').pop() || m.fileName

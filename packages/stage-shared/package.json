@@ -27,11 +27,11 @@
     ".": "./src/index.ts",
     "./beat-sync": "./src/beat-sync/index.ts",
     "./composables": "./src/composables/index.ts",
+    "./debug": "./src/debug.ts",
     "./electron-renderer": "./src/electron-renderer.d.ts",
     "./shortcuts": "./src/shortcuts.ts",
     "./utils/*": "./src/utils/*.ts",
-    "./vite": "./src/vite.ts",
-    "./debug": "./src/debug.ts"
+    "./vite": "./src/vite.ts"
   },
   "license": "MIT",
   "name": "@proj-airi/stage-shared",

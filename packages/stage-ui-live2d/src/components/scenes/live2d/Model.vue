@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Application } from '@pixi/app'
 import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
+import { live2dLogger } from '@proj-airi/stage-shared/debug'
 import { useTheme } from '@proj-airi/ui'
 import { breakpointsTailwind, until, useBreakpoints, useDebounceFn } from '@vueuse/core'
 import { formatHex } from 'culori'
@@ -11,7 +12,6 @@ import { DropShadowFilter } from 'pixi-filters'
 import { config, Live2DFactory, Live2DModel, MotionPriority } from 'pixi-live2d-display/cubism4'
 import { computed, onMounted, onUnmounted, ref, shallowRef, toRef, watch } from 'vue'
 import type { PixiLive2DInternalModel } from '../../../composables/live2d'
-
 import {
   createBeatSyncController,
   hookArtMeshColorsAfterModelUpdate,
@@ -26,7 +26,6 @@ import { useLive2d } from '../../../stores/live2d'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
-import { live2dLogger } from '@proj-airi/stage-shared/debug'
 
 interface Live2DCdiParameter {
   Id?: string
@@ -1061,7 +1060,11 @@ function finalizeModelLoad(live2DModel: Live2DModel<PixiLive2DInternalModel>): v
 }
 
 async function loadModel() {
-  live2dLogger.log('loadModel() called', { modelSrc: modelSrcRef.value, modelId: props.modelId, modelFile: props.modelFile?.name })
+  live2dLogger.log('loadModel() called', {
+    modelFile: props.modelFile?.name,
+    modelId: props.modelId,
+    modelSrc: modelSrcRef.value,
+  })
   live2dLogger.time('live2d:loadModel')
   config.sound = isStageRoute()
 
@@ -1097,7 +1100,11 @@ async function loadModel() {
   try {
     live2dLogger.log('Creating Live2DModel instance...')
     const live2DModel = new Live2DModel<PixiLive2DInternalModel>()
-    live2dLogger.log('Calling Live2DFactory.setupLive2DModel...', { url: modelSrcRef.value, id: props.modelId, file: props.modelFile?.name })
+    live2dLogger.log('Calling Live2DFactory.setupLive2DModel...', {
+      file: props.modelFile?.name,
+      id: props.modelId,
+      url: modelSrcRef.value,
+    })
     live2dLogger.time('live2d:setupLive2DModel')
     await Live2DFactory.setupLive2DModel(
       live2DModel,

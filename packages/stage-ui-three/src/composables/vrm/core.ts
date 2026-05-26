@@ -1,11 +1,10 @@
 import type { VRM, VRMCore } from '@pixiv/three-vrm'
 import { VRMExpression, VRMExpressionMorphTargetBind } from '@pixiv/three-vrm'
 import { VRMLookAtQuaternionProxy } from '@pixiv/three-vrm-animation'
+import { vrmLogger } from '@proj-airi/stage-shared/debug'
 import type { Mesh, Object3D, Scene } from 'three'
 import { Box3, Group, Quaternion, Vector3 } from 'three'
-
 import { useVRMLoader } from './loader'
-import { vrmLogger } from '@proj-airi/stage-shared/debug'
 
 interface GLTFUserdata extends Record<string, unknown> {
   vrm?: VRM
@@ -44,7 +43,9 @@ export async function loadVrm(
   }
 
   const _vrm = userData.vrm
-  vrmLogger.log('loadVrm: VRM data found ✓', { expressionCount: Object.keys(_vrm.expressionManager?.expressionMap ?? {}).length })
+  vrmLogger.log('loadVrm: VRM data found ✓', {
+    expressionCount: Object.keys(_vrm.expressionManager?.expressionMap ?? {}).length,
+  })
 
   // calling these functions greatly improves the performance
   // VRMUtils.removeUnnecessaryVertices(_vrm.scene)

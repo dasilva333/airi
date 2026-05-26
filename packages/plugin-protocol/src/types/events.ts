@@ -374,7 +374,6 @@ export enum WebSocketEventSource {
 }
 
 interface InputSource {
-  
   'stage-tamagotchi': boolean
   discord: Discord
 }
