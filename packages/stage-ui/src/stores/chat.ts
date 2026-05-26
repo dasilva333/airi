@@ -147,6 +147,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const sending = ref(false)
   const pendingQueuedSends = ref<QueuedSend[]>([])
 
+  // Queue-level timeout: if a single send takes longer than this, reject and move on.
+  // This prevents a hung performSend() (e.g. streamText() never resolving) from blocking
+  // all subsequent messages forever.
+  const QUEUE_SEND_TIMEOUT_MS = 120_000
+
   const sendQueue = createQueue<QueuedSend>({
     handlers: [
       async ({ data }) => {
@@ -160,8 +165,20 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         }
 
         try {
+          let timedOut = false
+          const timeoutId = setTimeout(() => {
+            timedOut = true
+            console.error(`[sendQueue] performSend timed out after ${QUEUE_SEND_TIMEOUT_MS}ms for session ${sessionId}`)
+            deferred.reject(
+              new Error(`Send timed out after ${QUEUE_SEND_TIMEOUT_MS / 1000}s. The AI server may be unresponsive.`),
+            )
+          }, QUEUE_SEND_TIMEOUT_MS)
+
           await performSend(sendingMessage, options, generation, sessionId)
-          deferred.resolve()
+          clearTimeout(timeoutId)
+          if (!timedOut) {
+            deferred.resolve()
+          }
         } catch (error) {
           deferred.reject(error)
         }
@@ -1195,12 +1212,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           }
         }
 
-        // Wait up to 5 seconds for the message to be sync-broadcasted back
+        // Wait up to 15 seconds for the message to be sync-broadcasted back.
+        // This covers BroadcastChannel round-trip + queue wait + LLM connection time.
         timeoutId = setTimeout(() => {
           cleanup()
-          console.error(`[IngestDebug] TIMEOUT waiting for clientMessageId: ${clientMessageId}`)
-          reject(new Error('Ingestion timeout: main process did not acknowledge the message.'))
-        }, 5000)
+          console.error(`[ingest] Secondary window ingestion timed out`, {
+            clientMessageId,
+            hint: 'Main window send queue may be blocked by a hung stream. Check the main window for errors.',
+            pendingQueue: pendingQueuedSends.value.length,
+            sending: sending.value,
+            sessionId,
+          })
+          reject(new Error('Timed out waiting for AIRI to respond. The AI server may be slow or unresponsive.'))
+        }, 15000)
 
         stopWatch = watch(
           () => {

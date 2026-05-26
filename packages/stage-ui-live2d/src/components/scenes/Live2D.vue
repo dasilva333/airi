@@ -3,7 +3,7 @@ import { Screen } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { ref, watch } from 'vue'
 import { useLive2d } from '../../stores/live2d'
-import Live2DCanvas from './live2d/Canvas.vue'
+import type Live2DCanvas from './live2d/Canvas.vue'
 import Live2DModel from './live2d/Model.vue'
 
 import '../../utils/live2d-zip-loader'

@@ -22,7 +22,7 @@ import { toast } from 'vue-sonner'
 import { BackgroundDialogPicker } from '../Backgrounds'
 import IndicatorMicVolume from '../Widgets/IndicatorMicVolume.vue'
 import ActionViewControls from './InteractiveArea/Actions/ViewControls.vue'
-import ViewControlInputs from './ViewControls/Inputs.vue'
+import type ViewControlInputs from './ViewControls/Inputs.vue'
 
 const { isDark, toggleDark } = useTheme()
 const hearingDialogOpen = ref(false)

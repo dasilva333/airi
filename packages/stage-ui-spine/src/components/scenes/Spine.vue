@@ -3,8 +3,8 @@ import { Screen } from '@proj-airi/ui'
 import { ref, watch } from 'vue'
 import type { Emotion } from '../../constants/emotions'
 
-import SpineCanvas from './spine/Canvas.vue'
-import SpineModel from './spine/Model.vue'
+import type SpineCanvas from './spine/Canvas.vue'
+import type SpineModel from './spine/Model.vue'
 
 withDefaults(
   defineProps<{

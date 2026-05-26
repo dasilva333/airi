@@ -97,8 +97,34 @@ async function send() {
     isSending.value = false
     // Restore text draft so it is not lost
     inputText.value = text
-    toast.error('Message failed to send. Draft restored.')
+
+    const message = getErrorMessage(err)
+    toast.error(message)
   }
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return 'Request was cancelled.'
+  }
+
+  const raw = err instanceof Error ? err.message : String(err)
+  const lower = raw.toLowerCase()
+
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'Timed out waiting for AIRI to respond. The AI server may be slow or unresponsive.'
+  }
+
+  if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('fetch')) {
+    return 'Could not reach the AI server. Check your connection and try again.'
+  }
+
+  if (lower.includes('ingestion timeout')) {
+    return 'Timed out sending message. The main window may be busy or unresponsive.'
+  }
+
+  // Include the actual error so the user isn't left guessing
+  return `Failed to send: ${raw}`
 }
 
 function handleKeydown(e: KeyboardEvent) {

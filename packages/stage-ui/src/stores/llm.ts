@@ -32,6 +32,8 @@ export interface StreamOptions {
   contextWidth?: number
   vision?: boolean
   requestOverrides?: Record<string, unknown>
+  /** Timeout in ms for the initial connection (time to first event). Default 30000. */
+  connectionTimeoutMs?: number
 }
 
 function sanitizeRequestOverrides(overrides?: Record<string, unknown>) {
@@ -294,6 +296,10 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
     console.log('Calling LLM with NO tools available')
   }
 
+  // Progressive backoff: 30s → 60s → 120s
+  const connectionTimeoutMs = options?.connectionTimeoutMs ?? 30000
+  const retryMultipliers = [1, 2, 4]
+
   return new Promise<void>((resolve, reject) => {
     let settled = false
     const resolveOnce = () => {
@@ -307,8 +313,12 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       reject(err)
     }
 
+    let firstEventReceived = false
     const onEvent = async (event: unknown) => {
       try {
+        if (!firstEventReceived) {
+          firstEventReceived = true
+        }
         await options?.onStreamEvent?.(event as StreamEvent)
         if (event && (event as StreamEvent).type === 'finish') {
           // If we are not waiting for tools, resolve immediately on the first finish event.
@@ -325,53 +335,117 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       }
     }
 
-    try {
-      const result = streamText({
-        ...chatConfig,
-        ...requestOverrides,
-        headers,
-        max_tokens: options?.max_tokens,
-        maxSteps: 10,
-        messages: sanitized,
-        temperature: options?.temperature,
-        top_p: options?.top_p,
-        ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
-        abortSignal: options?.abortSignal,
-        model,
-        onEvent,
-        // TODO: we need Automatic tools discovery
-        tools,
-      })
+    let currentAttempt = 0
+    let connectionTimeoutId: ReturnType<typeof setTimeout> | undefined
 
-      // We MUST catch all promises returned by streamText to ensure the main promise settles
-      // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
-      // We prioritize result.messages for primary settlement, but ensure any step error
-      // that occurs before the first message also triggers a rejection.
-      void result.messages
-        .then(() => resolveOnce())
-        .catch((err) => {
-          rejectOnce(err)
-          console.error('Stream messages error:', err)
+    const clearConnectionTimeout = () => {
+      if (connectionTimeoutId !== undefined) {
+        clearTimeout(connectionTimeoutId)
+        connectionTimeoutId = undefined
+      }
+    }
+
+    const attemptStream = () => {
+      currentAttempt++
+      firstEventReceived = false
+
+      // Combine external abort signal with our connection timeout
+      const abortController = new AbortController()
+
+      const externalSignal = options?.abortSignal
+      if (externalSignal) {
+        const onExternalAbort = () => abortController.abort(externalSignal.reason)
+        if (externalSignal.aborted) {
+          onExternalAbort()
+        } else {
+          externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+        }
+      }
+
+      // Connection timeout: fires if no event received within the threshold
+      const attemptTimeout =
+        connectionTimeoutMs * retryMultipliers[Math.min(currentAttempt - 1, retryMultipliers.length - 1)]
+      connectionTimeoutId = setTimeout(() => {
+        if (!firstEventReceived) {
+          abortController.abort(
+            new Error(
+              `Connection timeout: no response within ${attemptTimeout}ms (attempt ${currentAttempt}/${retryMultipliers.length})`,
+            ),
+          )
+        }
+      }, attemptTimeout)
+
+      try {
+        const result = streamText({
+          ...chatConfig,
+          ...requestOverrides,
+          headers,
+          max_tokens: options?.max_tokens,
+          maxSteps: 10,
+          messages: sanitized,
+          temperature: options?.temperature,
+          top_p: options?.top_p,
+          ...(options?.contextWidth ? { num_ctx: options.contextWidth } : {}),
+          abortSignal: abortController.signal,
+          model,
+          onEvent,
+          // TODO: we need Automatic tools discovery
+          tools,
         })
 
-      void result.steps.catch((err) => {
-        // If the stream steps fail before messages settle, propagate it.
-        rejectOnce(err)
-        console.error('Stream steps error:', err)
-      })
+        // We MUST catch all promises returned by streamText to ensure the main promise settles
+        // and to prevent "Uncaught (in promise)" errors if the initial handshake fails (e.g. 429).
+        // We prioritize result.messages for primary settlement, but ensure any step error
+        // that occurs before the first message also triggers a rejection.
+        void result.messages
+          .then(() => {
+            clearConnectionTimeout()
+            resolveOnce()
+          })
+          .catch((err) => {
+            clearConnectionTimeout()
+            if (!settled && currentAttempt < retryMultipliers.length) {
+              console.warn(`[streamFrom] Attempt ${currentAttempt} failed (${err}), retrying with longer timeout...`)
+              attemptStream()
+            } else {
+              rejectOnce(err)
+              console.error('Stream messages error:', err)
+            }
+          })
 
-      void result.usage.catch((err) => console.error('Stream usage error:', err))
-
-      void result.totalUsage
-        .then((usage) => {
-          if (usage) {
-            onEvent({ type: 'usage', usage })
+        void result.steps.catch((err) => {
+          clearConnectionTimeout()
+          // If the stream steps fail before messages settle, propagate it.
+          if (!settled && currentAttempt < retryMultipliers.length) {
+            console.warn(`[streamFrom] Steps failed on attempt ${currentAttempt} (${err}), retrying...`)
+            attemptStream()
+          } else {
+            rejectOnce(err)
+            console.error('Stream steps error:', err)
           }
         })
-        .catch((err) => console.error('Stream totalUsage error:', err))
-    } catch (err) {
-      rejectOnce(err)
+
+        void result.usage.catch((err) => console.error('Stream usage error:', err))
+
+        void result.totalUsage
+          .then((usage) => {
+            if (usage) {
+              onEvent({ type: 'usage', usage })
+            }
+          })
+          .catch((err) => console.error('Stream totalUsage error:', err))
+      } catch (err) {
+        clearConnectionTimeout()
+        if (!settled && currentAttempt < retryMultipliers.length) {
+          console.warn(`[streamFrom] Synchronous error on attempt ${currentAttempt} (${err}), retrying...`)
+          attemptStream()
+        } else {
+          rejectOnce(err)
+        }
+      }
     }
+
+    attemptStream()
   })
 }
 
