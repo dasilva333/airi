@@ -136,3 +136,4 @@ recovery_artifacts/
 *.patch
 extract.js
 fixed_data.txt
+apps/stage-tamagotchi/pkgbuild

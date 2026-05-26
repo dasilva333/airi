@@ -1,6 +1,13 @@
 # Maintainer: AIRI Team <airi@moeru.ai>
-# Standalone PKGBUILD — auto-detects the .deb package in the same directory.
-# Usage: place the .deb file alongside this PKGBUILD, then run: makepkg -si
+# Standalone PKGBUILD — auto-detects the .deb package from ../dist/
+#
+# Usage:
+#   From the stage-tamagotchi app directory:
+#     makepkg -f
+#
+#   Or copy this PKGBUILD and the .deb into an empty dir:
+#     mkdir /tmp/airi-build && cp PKGBUILD /tmp/airi-build/
+#     cp dist/*.deb /tmp/airi-build/ && cd /tmp/airi-build && makepkg -si
 
 pkgname=airi
 pkgrel=1
@@ -17,53 +24,69 @@ optdeps=(
 )
 conflicts=()
 provides=('airi')
+source=()
+md5sums=()
+noextract=()
 
-# Auto-detect the .deb file in the same directory as this PKGBUILD.
-# Picks the most recently modified .deb if multiple are present.
-_deb_file="$(find "${startdir}" -maxdepth 1 -name '*.deb' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+# Auto-detect the most recent .deb from ../dist/ relative to this PKGBUILD.
+# makepkg sets $startdir to the directory containing the PKGBUILD.
+_deb_file="$(find "${startdir}/../dist" -maxdepth 1 -name '*.deb' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+
+# Fallback: check the PKGBUILD directory itself
+if [[ -z "${_deb_file}" ]]; then
+  _deb_file="$(find "${startdir}" -maxdepth 1 -name '*.deb' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)"
+fi
 
 if [[ -z "${_deb_file}" ]]; then
-  echo "ERROR: No .deb package found alongside PKGBUILD." >&2
-  echo "Place the AIRI .deb file in the same directory as this PKGBUILD and retry." >&2
+  echo "" >&2
+  echo "ERROR: No .deb package found." >&2
+  echo "Searched: ${startdir}/../dist/ and ${startdir}/" >&2
+  echo "" >&2
+  echo "Fix: either place the .deb alongside this PKGBUILD, or run makepkg" >&2
+  echo "     from the stage-tamagotchi app directory (where dist/ exists)." >&2
+  echo "" >&2
   exit 1
 fi
 
 _deb_basename="$(basename "${_deb_file}")"
 
-# Extract version from the deb filename (e.g. AIRI-0.9.2.linux-amd64.deb -> 0.9.2)
-_pkgver="$(
-  echo "${_deb_basename}" \
-    | grep -oP '(\d+\.)+\d+' \
-    | head -1
-)"
+# Extract version from the deb filename (e.g. AIRI-0.9.2-stable.20260522-linux-amd64.deb -> 0.9.2)
+_pkgver="$(echo "${_deb_basename}" | grep -oP '(\d+\.)+\d+' | head -1)"
 
 if [[ -z "${_pkgver}" ]]; then
-  echo "WARNING: Could not extract version from '${_deb_basename}', falling back to mtime-based version." >&2
   _pkgver="$(date +%Y.%m.%d)"
 fi
 
 pkgver="${_pkgver}"
-source=("file:///${_deb_basename}")
-md5sums=('SKIP')
 
 package() {
-  cd "${srcdir}"
+  cd "${startdir}"
 
   echo "==> Extracting ${_deb_basename}..."
   ar x "${_deb_basename}"
   tar xf data.tar.xz
 
-  cp -r usr/ "${pkgdir}/"
+  # Install application files
+  install -d "${pkgdir}/opt"
+  cp -r opt/AIRI/ "${pkgdir}/opt/AIRI/"
 
-  install -Dm644 "${pkgdir}/usr/share/applications/ai.moeru.airi.desktop" \
-    "${pkgdir}/usr/share/applications/ai.moeru.airi.desktop"
+  # Install desktop file
+  install -Dm644 usr/share/applications/airi.desktop \
+    "${pkgdir}/usr/share/applications/airi.desktop"
 
-  if [[ -f "${pkgdir}/usr/share/icons/hicolor/512x512/apps/ai.moeru.airi.png" ]]; then
-    install -Dm644 "${pkgdir}/usr/share/icons/hicolor/512x512/apps/ai.moeru.airi.png" \
-      "${pkgdir}/usr/share/icons/hicolor/512x512/apps/ai.moeru.airi.png"
-  fi
+  # Install icons
+  for _size in 16 32 48 64 128 256; do
+    _icon="usr/share/icons/hicolor/${_size}x${_size}/apps/airi.png"
+    if [[ -f "${_icon}" ]]; then
+      install -Dm644 "${_icon}" \
+        "${pkgdir}/usr/share/icons/hicolor/${_size}x${_size}/apps/airi.png"
+    fi
+  done
 
-  install -Dm755 "${pkgdir}/usr/bin/airi" "${pkgdir}/usr/bin/airi"
+  # Create symlink in usr/bin
+  install -d "${pkgdir}/usr/bin"
+  ln -sf /opt/AIRI/airi "${pkgdir}/usr/bin/airi"
 
-  rm -f "${srcdir}"/control.tar.* "${srcdir}"/data.tar.xz "${srcdir}"/debian-binary
+  # Cleanup
+  rm -f "${startdir}"/control.tar.* "${startdir}"/data.tar.xz "${startdir}"/debian-binary
 }
