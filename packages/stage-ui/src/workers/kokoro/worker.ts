@@ -26,6 +26,17 @@ import { classifyError, isRecoverable } from '../../libs/inference/protocol'
 env.allowLocalModels = false
 env.useBrowserCache = true
 
+// Suppress noisy ONNX Runtime warnings
+env.backends.onnx.logLevel = 'error'
+
+// Limit thread allocation for WASM execution to leave enough CPU cores for renderer
+if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+  env.backends.onnx.wasm!.numThreads = Math.min(4, Math.max(1, Math.floor(navigator.hardwareConcurrency / 2)))
+}
+else {
+  env.backends.onnx.wasm!.numThreads = 2
+}
+
 // ---------------------------------------------------------------------------
 // Inference-specific input/output types
 // ---------------------------------------------------------------------------

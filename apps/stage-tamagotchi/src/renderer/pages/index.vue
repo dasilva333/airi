@@ -164,11 +164,7 @@ const computedXOffset = computed(() => {
 })
 
 const computedYOffset = computed(() => {
-  const y = positioningStore.getPosition(stageModelSelected.value).y
-  if (stageModelRenderer.value === 'live2d') {
-    return -y
-  }
-  return y
+  return positioningStore.getPosition(stageModelSelected.value).y
 })
 
 function handleScaleChange(newScale: number) {
@@ -183,7 +179,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   positioningStore.setPosition(key, {
     ...current,
     x: offset.x,
-    y: stageModelRenderer.value === 'live2d' ? -offset.y : offset.y,
+    y: offset.y,
   })
 }
 
@@ -751,8 +747,8 @@ onMounted(async () => {
   const h = controlStripStore.orientation === 'vertical' ? stripLength.value : 48
   const current = await getBounds()
   if (current) {
-    const targetX = (mainConfig?.x !== undefined && !isNaN(mainConfig.x)) ? mainConfig.x : current.x
-    const targetY = (mainConfig?.y !== undefined && !isNaN(mainConfig.y)) ? mainConfig.y : current.y
+    const targetX = (mainConfig?.x !== undefined && !Number.isNaN(mainConfig.x)) ? mainConfig.x : current.x
+    const targetY = (mainConfig?.y !== undefined && !Number.isNaN(mainConfig.y)) ? mainConfig.y : current.y
     await setBounds([{
       x: Math.round(targetX),
       y: Math.round(targetY),

@@ -164,6 +164,24 @@ export const useSpeechStore = defineStore('speech', () => {
     }
   }, { immediate: true })
 
+  // Eagerly pre-warm Kokoro TTS model on provider or model change
+  watch([activeSpeechProvider, activeSpeechModel], async ([newProvider, newModel]) => {
+    if (newProvider === 'kokoro-local' && newModel) {
+      try {
+        const config = providersStore.getProviderConfig('kokoro-local')
+        const mergedConfig = { ...config, model: newModel }
+        const metadata = providersStore.providerMetadata['kokoro-local']
+        if (metadata && metadata.capabilities.loadModel) {
+          console.info(`[Speech] Pre-warm Kokoro TTS model (${newModel}) eagerly...`)
+          void metadata.capabilities.loadModel(mergedConfig)
+        }
+      }
+      catch (err) {
+        console.warn('[Speech] Failed to pre-warm Kokoro TTS model:', err)
+      }
+    }
+  }, { immediate: true })
+
   // Self-healing: Reset active provider if it no longer exists
   const selfHealProvider = () => {
     // Bypass self-healing during onboarding
@@ -400,6 +418,13 @@ export const useSpeechStore = defineStore('speech', () => {
       const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
       hasModel ||= !!providerConfig?.model
       hasVoice ||= !!providerConfig?.voice
+    }
+
+    // For App Local Audio Speech provider, it doesn't require a model, only a voice
+    if (activeSpeechProvider.value === 'app-local-audio-speech') {
+      hasModel = true // Native TTS doesn't use models
+      const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value)
+      hasVoice = !!activeSpeechVoiceId.value || !!providerConfig?.deviceId
     }
 
     return hasModel && hasVoice

@@ -1,4 +1,5 @@
 import './openai'
+import './local-llm'
 import './aihubmix'
 import './lm-studio'
 import './azure-openai'

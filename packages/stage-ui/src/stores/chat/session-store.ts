@@ -204,7 +204,16 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       '[Short-Term Memory]',
       'The following daily continuity blocks were distilled from recent chat history for this active character.',
       'Use them as hidden continuity context for the current session.',
-      ...blocks.map(block => `Date: ${block.date}\n${block.summary}`),
+      ...blocks.map((block) => {
+        const cleanSummary = block.summary
+          .replace(/\[(?:END_)?TOOL_REQUEST\]/gi, '')
+          .replace(/\[TOOL_RESPONSE\]/gi, '')
+          .replace(/\[\/?think\]/gi, '')
+          .replace(/<\|[\s\S]*?\|>/g, '')
+          .replace(/<\|(?:ACT|DELAY|llm_[\w:-])[^\r\n>]*>/gi, '')
+          .trim()
+        return `Date: ${block.date}\n${cleanSummary}`
+      }),
     ].join('\n\n')
   }
 

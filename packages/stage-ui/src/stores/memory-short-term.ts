@@ -64,11 +64,12 @@ function formatLocalDayKey(timestamp: number) {
 }
 
 function extractMessageText(message: ChatHistoryItem) {
-  if (typeof message.content === 'string')
-    return message.content.trim()
-
-  if (Array.isArray(message.content)) {
-    return message.content.map((part) => {
+  let text = ''
+  if (typeof message.content === 'string') {
+    text = message.content.trim()
+  }
+  else if (Array.isArray(message.content)) {
+    text = message.content.map((part) => {
       if (typeof part === 'string')
         return part
       if (part && typeof part === 'object' && 'text' in part)
@@ -77,7 +78,16 @@ function extractMessageText(message: ChatHistoryItem) {
     }).join('').trim()
   }
 
-  return ''
+  if (!text)
+    return ''
+
+  return text
+    .replace(/<\|[\s\S]*?\|>/g, '')
+    .replace(/<\|(?:ACT|DELAY|llm_[\w:-])[^\r\n>]*>/gi, '')
+    .replace(/\[(?:END_)?TOOL_REQUEST\]/gi, '')
+    .replace(/\[TOOL_RESPONSE\]/gi, '')
+    .replace(/\[\/?think\]/gi, '')
+    .trim()
 }
 
 function buildCharacterSummaryContext(card: AiriCard) {
@@ -107,6 +117,7 @@ function buildSummarizerMessages(
         'Use the same main language(s) as the chat history for the summary.',
         'Focus on salient events, emotional tone shifts, promises or plans, preferences, facts worth remembering, and unresolved threads.',
         'Do not roleplay. Do not embellish. Do not invent facts. Do not quote large chunks of dialogue.',
+        'CRITICAL: Write the summary entirely in the third person. Do not write in the first person (do not use "I", "me", "my", "we", "us", or character exclamations like "Nya!"). Describe what occurred between the user and the character neutrally.',
         `Aim for roughly ${targetTokensPerDay} tokens or less unless the day is unusually dense.`,
       ].join('\n'),
     },
@@ -298,7 +309,19 @@ export const useShortTermMemoryStore = defineStore('short-term-memory', () => {
       budget,
     ))
 
-    const summary = (response.text || '').trim()
+    let summary = (response.text || '').trim()
+    if (!summary)
+      return null
+
+    // Strip tool and orchestration tags
+    summary = summary
+      .replace(/\[(?:END_)?TOOL_REQUEST\]/gi, '')
+      .replace(/\[TOOL_RESPONSE\]/gi, '')
+      .replace(/\[\/?think\]/gi, '')
+      .replace(/<\|[\s\S]*?\|>/g, '')
+      .replace(/<\|(?:ACT|DELAY|llm_[\w:-])[^\r\n>]*>/gi, '')
+      .trim()
+
     if (!summary)
       return null
 

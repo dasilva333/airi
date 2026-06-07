@@ -71,7 +71,7 @@ const needsApiKey = computed(() => {
   // Amazon Bedrock uses its own fields (Access Key ID + Secret Access Key)
   if (isAmazonBedrock.value)
     return false
-  return props.selectedProvider.id !== 'ollama' && props.selectedProvider.id !== 'player2'
+  return props.selectedProvider.id !== 'ollama' && props.selectedProvider.id !== 'player2' && props.selectedProvider.id !== 'lm-studio'
 })
 
 const needsBaseUrl = computed(() => {

@@ -71,6 +71,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import { getKokoroAdapter } from '../libs/inference/adapters/kokoro'
+import { appLocalAudioSpeech } from '../libs/providers/providers/speech/app-local-audio-speech'
 import { appLocalAudioTranscription } from '../libs/providers/providers/transcription/app-local-audio-transcription'
 import { getDefaultKokoroModel, KOKORO_MODELS, kokoroModelsToModelInfo } from '../workers/kokoro/constants'
 import { createAliyunNLSProvider as createAliyunNlsStreamProvider } from './providers/aliyun/stream-transcription'
@@ -186,39 +187,7 @@ export const useProvidersStore = defineStore('providers', () => {
         }),
       },
     },
-    'app-local-audio-speech': buildOpenAICompatibleProvider({
-      id: 'app-local-audio-speech',
-      name: 'App (Local)',
-      nameKey: 'settings.pages.providers.provider.app-local-audio-speech.title',
-      descriptionKey: 'settings.pages.providers.provider.app-local-audio-speech.description',
-      icon: 'i-lobe-icons:huggingface',
-      description: 'Private Voice Engine - High-performance local speech synthesis (xsai-transformers)',
-      category: 'speech',
-      pricing: 'free',
-      deployment: 'local',
-      beginnerRecommended: true,
-      tasks: ['text-to-speech', 'tts'],
-      isAvailableBy: isStageTamagotchi,
-      creator: createOpenAI,
-      validation: [],
-      validators: {
-        validateProviderConfig: (config) => {
-          if (!config.baseUrl) {
-            return {
-              errors: [new Error('Base URL is required.')],
-              reason: 'Base URL is required. This is likely a bug, report to developers on https://github.com/moeru-ai/airi/issues.',
-              valid: false,
-            }
-          }
-
-          return {
-            errors: [],
-            reason: '',
-            valid: true,
-          }
-        },
-      },
-    }),
+    'app-local-audio-speech': appLocalAudioSpeech as any,
     'app-local-audio-transcription': appLocalAudioTranscription as any,
     'browser-local-audio-speech': buildOpenAICompatibleProvider({
       id: 'browser-local-audio-speech',
@@ -2643,6 +2612,8 @@ export const useProvidersStore = defineStore('providers', () => {
       descriptionKey: 'settings.pages.providers.provider.kokoro-local.description',
       description: 'Native AI - Local text-to-speech using Kokoro-82M',
       icon: 'i-lobe-icons:speaker',
+      pricing: 'free',
+      deployment: 'local',
 
       defaultOptions: () => {
         const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu
@@ -2872,7 +2843,12 @@ export const useProvidersStore = defineStore('providers', () => {
 
   // Configuration validation functions
   async function validateProvider(providerId: string, options: { force?: boolean } = {}): Promise<boolean> {
-    if (providerId === 'virtual-audio-studio' || providerId === 'speech-noop') {
+    if (
+      providerId === 'virtual-audio-studio'
+      || providerId === 'speech-noop'
+      || providerId === 'app-local-audio-speech'
+      || providerId === 'app-local-audio-transcription'
+    ) {
       if (providerRuntimeState.value[providerId]) {
         providerRuntimeState.value[providerId].isConfigured = true
       }
@@ -3346,8 +3322,14 @@ export const useProvidersStore = defineStore('providers', () => {
   }
 
   function isProviderConfigured(providerId: string) {
-    if (providerId === 'virtual-audio-studio' || providerId === 'speech-noop')
+    if (
+      providerId === 'virtual-audio-studio'
+      || providerId === 'speech-noop'
+      || providerId === 'app-local-audio-speech'
+      || providerId === 'app-local-audio-transcription'
+    ) {
       return true
+    }
 
     const config = providerCredentials.value[providerId]
     if (!config)

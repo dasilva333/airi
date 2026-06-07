@@ -69,11 +69,7 @@ const computedXOffset = computed(() => {
 })
 
 const computedYOffset = computed(() => {
-  const y = positioningStore.getPosition(stageModelSelected.value).y
-  if (stageModelRenderer.value === 'live2d') {
-    return -y
-  }
-  return y
+  return positioningStore.getPosition(stageModelSelected.value).y
 })
 
 const airiCardStore = useAiriCardStore()
@@ -138,7 +134,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   positioningStore.setPosition(key, {
     ...current,
     x: offset.x,
-    y: stageModelRenderer.value === 'live2d' ? -offset.y : offset.y,
+    y: offset.y,
   })
 }
 </script>
@@ -194,7 +190,6 @@ function handleOffsetChange(offset: { x: number, y: number }) {
     />
     <VRM
       v-if="stageModelRenderer === 'vrm'"
-      ref="vrmRef"
       :palette="palette"
       :model-id="stageModelSelected"
       @extract-colors-from-model="$emit('extractColorsFromModel')"

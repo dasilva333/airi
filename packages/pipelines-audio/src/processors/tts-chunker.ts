@@ -39,8 +39,8 @@ export async function* chunkTtsInput(
 ): AsyncGenerator<TtsInputChunk, void, unknown> {
   const {
     boost = 2,
-    minimumWords = 4,
-    maximumWords = 12,
+    minimumWords = 3,
+    maximumWords = 10,
   } = options ?? {}
 
   const iterator = readGraphemeClusters(
@@ -153,12 +153,12 @@ export async function* chunkTtsInput(
         chunk = ''
         chunkWordsCount = 0
       }
-      else if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
+      else if (flush || hard || (soft && chunkWordsCount >= minimumWords) || chunkWordsCount > maximumWords || yieldCount < boost) {
         const text = chunk.trim()
         yield {
           text,
           words: chunkWordsCount,
-          reason: flush ? 'flush' : hard ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
+          reason: flush ? 'flush' : hard ? 'hard' : (soft && chunkWordsCount >= minimumWords) ? 'hard' : chunkWordsCount > maximumWords ? 'limit' : 'boost',
         }
         yieldCount++
         chunk = ''

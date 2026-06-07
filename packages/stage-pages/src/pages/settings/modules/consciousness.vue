@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
+import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { Alert, ErrorContainer, RadioCardManySelect, RadioCardSimple } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
-import { computed, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 
@@ -26,6 +29,27 @@ const { t } = useI18n()
 const { trackProviderClick } = useAnalytics()
 const isOpenAICompatibleProvider = computed(() => activeProvider.value === 'openai-compatible')
 
+const electronLocalLlmGetStatus = defineInvokeEventa<any>('eventa:invoke:electron:local-llm:get-status')
+const localLlmStatus = ref<any>(null)
+let localLlmPollInterval: any = null
+
+async function updateLocalLlmStatus() {
+  if (!isStageTamagotchi())
+    return
+  if (typeof window === 'undefined')
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    const getStatus = defineInvoke(context, electronLocalLlmGetStatus)
+    localLlmStatus.value = await getStatus()
+  }
+  catch (err) {
+    console.error('Failed to get local LLM status:', err)
+  }
+}
+
 watch(activeProvider, async (provider, oldProvider) => {
   if (!provider)
     return
@@ -37,6 +61,27 @@ watch(activeProvider, async (provider, oldProvider) => {
 
   await consciousnessStore.loadModelsForProvider(provider)
 }, { immediate: true })
+
+watch(activeProvider, (provider) => {
+  if (provider === 'local-llm') {
+    updateLocalLlmStatus()
+    if (!localLlmPollInterval) {
+      localLlmPollInterval = setInterval(updateLocalLlmStatus, 3000)
+    }
+  }
+  else {
+    if (localLlmPollInterval) {
+      clearInterval(localLlmPollInterval)
+      localLlmPollInterval = null
+    }
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (localLlmPollInterval) {
+    clearInterval(localLlmPollInterval)
+  }
+})
 
 function updateCustomModelName(value: string) {
   customModelName.value = value
@@ -143,7 +188,22 @@ function handleDeleteProvider(providerId: string) {
           </h2>
           <div class="flex flex-col items-start gap-1 text-neutral-400 md:flex-row md:items-center md:justify-between dark:text-neutral-400">
             <span>{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.subtitle') }}</span>
-            <span v-if="activeModel" class="text-sm text-neutral-400 font-medium dark:text-neutral-400">{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.current_model_label') }} {{ activeModel }}</span>
+            <div v-if="activeModel" :class="['flex items-center gap-2 text-sm text-neutral-400 font-medium dark:text-neutral-400']">
+              <span>{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.current_model_label') }} {{ activeModel }}</span>
+              <span
+                v-if="activeProvider === 'local-llm' && localLlmStatus"
+                :class="[
+                  'px-2 py-0.5 rounded text-[10px] font-bold border',
+                  localLlmStatus.state === 'running'
+                    ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                    : localLlmStatus.state === 'starting'
+                      ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20',
+                ]"
+              >
+                {{ localLlmStatus.state === 'running' ? 'Running' : localLlmStatus.state === 'starting' ? 'Starting' : 'Offline' }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -189,7 +249,26 @@ function handleDeleteProvider(providerId: string) {
 
         <!-- No models available -->
         <template v-else-if="providerModels.length === 0 && !isLoadingActiveProviderModels">
-          <Alert type="warning">
+          <div v-if="activeProvider === 'local-llm'" :class="['flex flex-col gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-900/10 text-neutral-900 dark:text-neutral-100']">
+            <div :class="['flex items-start gap-3']">
+              <div :class="['i-solar:warning-circle-bold-duotone text-2xl text-amber-500 shrink-0']" />
+              <div :class="['flex flex-col gap-1']">
+                <span :class="['font-bold text-sm']">Local Server is Offline</span>
+                <span :class="['text-xs text-neutral-500 dark:text-neutral-400']">
+                  The local LLM server needs to be running to select or query models. Please go to the Local LLM settings to start the server with your desired model.
+                </span>
+              </div>
+            </div>
+            <div :class="['flex gap-2 justify-end mt-1']">
+              <RouterLink
+                to="/settings/providers/chat/local-llm"
+                :class="['px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition']"
+              >
+                Go to Local LLM Settings
+              </RouterLink>
+            </div>
+          </div>
+          <Alert v-else type="warning">
             <template #title>
               {{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.no_models') }}
             </template>

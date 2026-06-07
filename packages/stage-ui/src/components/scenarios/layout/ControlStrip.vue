@@ -26,6 +26,11 @@ const controlStripStore = useSettingsControlStrip()
 const { orientation, buttons, stageEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed } = storeToRefs(controlStripStore)
 const displayModelsStore = useDisplayModelsStore()
 
+const cardStore = useAiriCardStore()
+const { cards, activeCard, activeCardId } = storeToRefs(cardStore)
+
+const activePopover = ref<string | null>(null)
+
 const avatarSearch = ref('')
 const avatarTypeFilter = ref('all')
 const currentAvatarPage = ref(1)
@@ -118,9 +123,6 @@ const { powerState } = storeToRefs(liveSessionStore)
 const controlsIslandStore = useSettingsControlsIsland()
 const { fadeOnHoverEnabled, alwaysOnTop } = storeToRefs(controlsIslandStore)
 
-const cardStore = useAiriCardStore()
-const { cards, activeCard, activeCardId } = storeToRefs(cardStore)
-
 const speechStore = useSpeechStore()
 const providersStore = useProvidersStore()
 const { activeSpeechProvider, activeSpeechModel, activeSpeechVoiceId } = storeToRefs(speechStore)
@@ -144,11 +146,25 @@ watch([activeSpeechProvider, activeSpeechModel, activeSpeechVoiceId], () => {
   selectedManualVoiceId.value = activeSpeechVoiceId.value || ''
 }, { immediate: true })
 
-// If provider changes, fetch models & voices
-watch(selectedManualProvider, (newProv) => {
+// If provider changes, fetch models & voices and auto-select first model & voice
+watch(selectedManualProvider, async (newProv) => {
   if (newProv && newProv !== activeSpeechProvider.value) {
-    void speechStore.loadVoicesForProvider(newProv)
-    void providersStore.fetchModelsForProvider(newProv)
+    const [voices, models] = await Promise.all([
+      speechStore.loadVoicesForProvider(newProv),
+      providersStore.fetchModelsForProvider(newProv),
+    ])
+    if (models && models.length > 0) {
+      selectedManualModel.value = models[0].id
+    }
+    else {
+      selectedManualModel.value = ''
+    }
+    if (voices && voices.length > 0) {
+      selectedManualVoiceId.value = voices[0].id
+    }
+    else {
+      selectedManualVoiceId.value = ''
+    }
   }
 })
 
@@ -345,7 +361,6 @@ const vrmIdleAnimation = toRef(modelStore as any, 'vrmIdleAnimation')
 const live2dStore = useLive2d()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
-const activePopover = ref<string | null>(null)
 const hoveredButtonId = ref<string | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
 const wardrobeFilter = ref<'all' | 'base' | 'overlay'>('all')

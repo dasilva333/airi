@@ -59,7 +59,7 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
   // This is necessary because @xsai libraries use structuredClone internally.
   const rawMessages = JSON.parse(JSON.stringify(toRaw(messages))) as any[]
 
-  return rawMessages.map((m: any) => {
+  const processed = rawMessages.map((m: any) => {
     // NOTICE: We must strictly sanitize the message objects to only include fields
     // accepted by common LLM APIs (OpenAI, Anthropic, etc.). Extra fields like
     // "id", "createdAt", or our custom "_discordSource" metadata can cause
@@ -99,6 +99,40 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
 
     return sanitized
   })
+
+  // Group system messages and normal messages
+  const systemMessages = processed.filter(m => m.role === 'system')
+  const nonSystemMessages = processed.filter(m => m.role !== 'system')
+
+  // Combine system messages into a single system prompt if there are multiple
+  const combinedSystemContent = systemMessages
+    .map(m => typeof m.content === 'string' ? m.content : '')
+    .filter(Boolean)
+    .join('\n\n')
+
+  // Merge consecutive messages of the same role to strictly alternate user/assistant
+  const merged: Message[] = []
+  for (const msg of nonSystemMessages) {
+    if (merged.length > 0 && merged[merged.length - 1].role === msg.role) {
+      const lastMsg = merged[merged.length - 1] as any
+      const currentContent = typeof msg.content === 'string' ? msg.content : ''
+      const lastContent = typeof lastMsg.content === 'string' ? lastMsg.content : ''
+      lastMsg.content = [lastContent, currentContent].filter(Boolean).join('\n\n')
+      if (msg.tool_calls) {
+        lastMsg.tool_calls = [...(lastMsg.tool_calls || []), ...msg.tool_calls]
+      }
+    }
+    else {
+      merged.push(msg)
+    }
+  }
+
+  const result: Message[] = []
+  if (combinedSystemContent) {
+    result.push({ role: 'system', content: combinedSystemContent } as Message)
+  }
+  result.push(...merged)
+  return result
 }
 
 function combineSystemMessagesIfNeeded(messages: Message[], chatConfig: any, settingsChat: any): Message[] {

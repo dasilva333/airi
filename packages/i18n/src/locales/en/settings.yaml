@@ -221,7 +221,8 @@ pages:
       fields_info:
         subtitle: You can put here some details about the character you are creating,
           explain his history and context, and how your interactions should be
-          answered, if you need help writing use the ✨ icon to have your AI generate suggestions.
+          answered, if you need help writing use the ✨ icon to have your AI
+          generate suggestions.
         identity_prompting: These fields all help define the character, but they are not
           separate runtime layers today. System Prompt is used in AIRI's active
           prompt assembly. Post-History Instructions is currently kept mainly
@@ -763,6 +764,11 @@ pages:
                     low: Low
                     medium: Medium
                     high: High
+          local-llm:
+            model-id:
+              label: Local Model
+              description: Select the local model GGUF file to run.
+              placeholder: Choose a model...
         validators:
           actions:
             validate: Validate
@@ -1158,8 +1164,11 @@ pages:
           one endpoint
       virtual-audio-studio:
         title: Audio Studio
-        description: Voice Library - Build virtual voice profiles with custom effects and
-          dialog filters
+        description: Voice Library - Build virtual voice profiles with custom effects
+          and dialog filters
+      local-llm:
+        title: App (Local LLM)
+        description: 100% Private & offline local LLM. No external installation required.
     title: Providers
   connection:
     description: Configure WebSocket server connection
