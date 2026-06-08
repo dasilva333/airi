@@ -3422,6 +3422,7 @@ export const useProvidersStore = defineStore('providers', () => {
     disposeProviderInstance,
     resetProviderSettings,
     forceProviderConfigured,
+    isProviderConfigured,
     availableProvidersMetadata,
     allChatProvidersMetadata,
     allAudioSpeechProvidersMetadata,

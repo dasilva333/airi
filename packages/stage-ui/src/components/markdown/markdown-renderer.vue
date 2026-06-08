@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import DOMPurify from 'dompurify'
 
+import { defineInvokeEventa } from '@moeru/eventa'
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { healMozibake } from '@proj-airi/stage-shared'
 import { onMounted, ref, watch } from 'vue'
 
 import { useMarkdown } from '../../composables/markdown'
 
+const props = defineProps<Props>()
+
+const electronOpenSettings = defineInvokeEventa<void, { route?: string }>('eventa:invoke:electron:windows:settings:open')
+
 interface Props {
   content: string
   class?: string
 }
-
-const props = defineProps<Props>()
 
 const processedContent = ref('')
 const { process, processSync } = useMarkdown()
@@ -129,10 +133,29 @@ function handleLinkClick(e: MouseEvent) {
     return
 
   const href = anchor.getAttribute('href')
-  if (href && (href.startsWith('http') || href.startsWith('mailto:'))) {
+  if (!href)
+    return
+
+  if (href.startsWith('http') || href.startsWith('mailto:')) {
     e.preventDefault()
     if (window.confirm(`Open external resource?\n\nThis will take you to:\n${href}`)) {
       window.open(href, '_blank')
+    }
+  }
+  else if (href.startsWith('#/settings') || href.startsWith('/settings') || href.startsWith('#settings')) {
+    e.preventDefault()
+    // Normalize path by stripping hash symbol and ensuring starting slash
+    let route = href.replace(/^#/, '')
+    if (!route.startsWith('/')) {
+      route = `/${route}`
+    }
+
+    if (typeof window !== 'undefined' && (window as any).electron) {
+      const openSettings = useElectronEventaInvoke(electronOpenSettings)
+      void openSettings({ route })
+    }
+    else {
+      window.location.hash = `#${route}`
     }
   }
 }
@@ -261,5 +284,17 @@ onMounted(() => {
   vertical-align: middle;
   line-height: 1;
   user-select: none;
+}
+
+.markdown-content :deep(a) {
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.markdown-content :deep(a:hover) {
+  color: #60a5fa;
+  text-decoration: underline;
 }
 </style>

@@ -4,16 +4,31 @@ import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useTheme } from '@proj-airi/ui'
 import { computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import HeaderLink from '../components/Layouts/HeaderLink.vue'
 
 import { themeColorFromValue, useThemeColor } from '../composables/theme-color'
 
 const route = useRoute()
+const router = useRouter()
 const { isDark: dark } = useTheme()
 const { t } = useI18n()
 const providersStore = useProvidersStore()
+
+function handleBack() {
+  if (route.path === '/settings') {
+    router.push('/')
+  }
+  else {
+    if (window.history.state && window.history.state.back) {
+      router.back()
+    }
+    else {
+      router.push('/settings')
+    }
+  }
+}
 const routeMeta = computed(() => route.meta as {
   titleKey?: string
   subtitleKey?: string
@@ -92,7 +107,7 @@ onMounted(() => updateThemeColor())
       <PageHeader
         :title="routeHeaderMetadata?.title || ''"
         :subtitle="routeHeaderMetadata?.subtitle"
-        @back="route.path === '/settings' ? router.push('/') : router.back()"
+        @back="handleBack()"
       />
       <div id="settings-scroll-container" relative min-h-0 flex-1 overflow-y-auto scrollbar-none>
         <RouterView />

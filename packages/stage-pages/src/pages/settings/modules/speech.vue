@@ -11,7 +11,7 @@ import {
   TestDummyMarker,
   VoiceCardManySelect,
 } from '@proj-airi/stage-ui/components'
-import { useAnalytics } from '@proj-airi/stage-ui/composables'
+import { useAnalytics, useInferenceStatus } from '@proj-airi/stage-ui/composables'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import {
@@ -23,7 +23,7 @@ import {
 } from '@proj-airi/ui'
 import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 
@@ -60,6 +60,56 @@ const audioUrl = ref('')
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 const errorMessage = ref('')
 const activeTab = ref<'global' | 'studio'>('global')
+
+const { models } = useInferenceStatus()
+
+const kokoroLoadingStatus = computed(() => {
+  if (activeSpeechProvider.value !== 'kokoro-local')
+    return null
+  const kokoroId = `kokoro-${activeSpeechModel.value}`
+  return models.value.find(m => m.modelId === kokoroId) || null
+})
+
+const kokoroProgressText = computed(() => {
+  if (activeSpeechProvider.value !== 'kokoro-local')
+    return ''
+
+  const status = kokoroLoadingStatus.value
+  if (!status) {
+    if (isLoadingSpeechProviderVoices.value) {
+      return 'Initializing speech engine...'
+    }
+    return ''
+  }
+
+  if (status.state === 'downloading') {
+    const p = status.progress
+    if (p) {
+      if (p.percent >= 0 && p.percent < 100) {
+        const fileName = p.file ? p.file.split('/').pop() : ''
+        return `Downloading model${fileName ? ` (${fileName})` : ''}: ${Math.round(p.percent)}%`
+      }
+      if (p.message === 'initiate' || p.message === 'downloading') {
+        return 'Preparing download...'
+      }
+      if (p.message === 'done') {
+        return 'Model downloaded, compiling weights...'
+      }
+    }
+    return 'Downloading model...'
+  }
+  else if (status.state === 'compiling') {
+    return 'Compiling shaders...'
+  }
+  else if (status.state === 'warming-up') {
+    return 'Warming up audio engine...'
+  }
+  else if (isLoadingSpeechProviderVoices.value) {
+    return 'Loading voice definitions...'
+  }
+
+  return ''
+})
 
 // Sync OpenAI Compatible model and voice from provider config
 function syncOpenAICompatibleSettings() {
@@ -445,9 +495,16 @@ function handleDeleteProvider(providerId: string) {
         <div v-if="activeSpeechProvider && activeSpeechProvider !== 'speech-noop'">
           <div flex="~ col gap-4">
             <div>
-              <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-400">
-                Voice Configuration
-              </h2>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-400">
+                  Voice Configuration
+                </h2>
+                <!-- Progress status indicator -->
+                <div v-if="kokoroProgressText" class="flex items-center gap-2 border border-primary-500/10 rounded-full bg-primary-500/5 px-2.5 py-1 text-sm text-primary-500 font-medium">
+                  <div class="i-solar:refresh-line-duotone animate-spin text-sm" />
+                  <span>{{ kokoroProgressText }}</span>
+                </div>
+              </div>
               <div text="neutral-400 dark:neutral-500">
                 <span>Customize how your AI assistant speaks</span>
               </div>

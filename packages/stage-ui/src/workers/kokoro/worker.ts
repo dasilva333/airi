@@ -244,6 +244,13 @@ async function loadModel(request: LoadModelRequest): Promise<void> {
           `[Kokoro Worker] Failed with dtype=${attempt.dtype} device=${attempt.device}, trying next fallback...`,
           error instanceof Error ? error.message : error,
         )
+        // If we fail and remote models were disabled (due to detecting cached files that might be corrupted/truncated),
+        // re-enable remote models to allow repairing/redownloading the model files.
+        if (!env.allowRemoteModels) {
+          console.info('[Kokoro Worker] Load failed with remote models disabled. Re-enabling remote models to repair/redownload files.')
+          env.allowRemoteModels = true
+          env.allowLocalModels = false
+        }
       }
     }
 

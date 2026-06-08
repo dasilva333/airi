@@ -3,6 +3,7 @@ import type { Config } from '../../libs/electron/persistence'
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
 import type { McpStdioManager } from '../../services/airi/mcp-servers'
+import type { SettingsWindowManager } from '../settings'
 import type { WidgetsWindowManager } from '../widgets'
 
 import { join, resolve } from 'node:path'
@@ -23,6 +24,7 @@ export function setupChatWindowReusableFunc(params: {
   mcpStdioManager: McpStdioManager
   i18n: I18n
   appConfig: Config<typeof globalAppConfigSchema>
+  settingsWindow: SettingsWindowManager
 }) {
   return createReusableWindow(async () => {
     const getConfig = () => params.appConfig.get() ?? { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' as const }
@@ -176,6 +178,7 @@ export function setupChatWindowReusableFunc(params: {
       serverChannel: params.serverChannel,
       mcpStdioManager: params.mcpStdioManager,
       i18n: params.i18n,
+      settingsWindow: params.settingsWindow,
     })
 
     return window

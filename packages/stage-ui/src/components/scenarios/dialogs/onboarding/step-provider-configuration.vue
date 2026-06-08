@@ -71,7 +71,7 @@ const needsApiKey = computed(() => {
   // Amazon Bedrock uses its own fields (Access Key ID + Secret Access Key)
   if (isAmazonBedrock.value)
     return false
-  return props.selectedProvider.id !== 'ollama' && props.selectedProvider.id !== 'player2' && props.selectedProvider.id !== 'lm-studio'
+  return props.selectedProvider.id !== 'ollama' && props.selectedProvider.id !== 'player2' && props.selectedProvider.id !== 'lm-studio' && props.selectedProvider.id !== 'local-llm'
 })
 
 const needsBaseUrl = computed(() => {
@@ -80,7 +80,7 @@ const needsBaseUrl = computed(() => {
   // Amazon Bedrock doesn't need a base URL (it's derived from region)
   if (isAmazonBedrock.value)
     return false
-  return props.selectedProvider.id !== 'cloudflare-workers-ai'
+  return props.selectedProvider.id !== 'cloudflare-workers-ai' && props.selectedProvider.id !== 'local-llm'
 })
 
 const canProceed = computed(() => {

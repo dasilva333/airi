@@ -289,14 +289,14 @@ app.whenReady().then(async () => {
     build: ({ dependsOn }) => setupAboutWindowReusable(dependsOn),
   })
 
-  const chatWindow = injeca.provide('windows:chat', {
-    dependsOn: { widgetsManager, serverChannel, mcpStdioManager, i18n, appConfig },
-    build: ({ dependsOn }) => setupChatWindowReusableFunc(dependsOn),
-  })
-
   const settingsWindow = injeca.provide('windows:settings', {
     dependsOn: { widgetsManager, beatSync, autoUpdater, devtoolsMarkdownStressWindow, serverChannel, mcpStdioManager, i18n },
     build: async ({ dependsOn }) => setupSettingsWindowReusableFunc(dependsOn),
+  })
+
+  const chatWindow = injeca.provide('windows:chat', {
+    dependsOn: { widgetsManager, serverChannel, mcpStdioManager, i18n, appConfig, settingsWindow },
+    build: ({ dependsOn }) => setupChatWindowReusableFunc(dependsOn),
   })
 
   const stageWindow = injeca.provide('windows:stage', {

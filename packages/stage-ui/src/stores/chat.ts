@@ -252,9 +252,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       let effectiveProviderId = typeof options.chatProvider === 'string'
         ? options.chatProvider
         : activeProvider.value
-      let effectiveProvider: any = typeof options.chatProvider === 'string'
-        ? await providersStore.getProviderInstance(options.chatProvider)
-        : (options.chatProvider || await providersStore.getProviderInstance(activeProvider.value))
+
+      if (!effectiveProviderId || effectiveProviderId === 'chat-noop' || !effectiveModel || !providersStore.isProviderConfigured(effectiveProviderId)) {
+        throw new Error('NO_LLM_PROVIDER_DETECTED')
+      }
+
+      let effectiveProvider: any
+      try {
+        effectiveProvider = typeof options.chatProvider === 'string'
+          ? await providersStore.getProviderInstance(options.chatProvider)
+          : (options.chatProvider || await providersStore.getProviderInstance(activeProvider.value))
+        if (!effectiveProvider) {
+          throw new Error('NO_LLM_PROVIDER_DETECTED')
+        }
+      }
+      catch (err) {
+        console.error('[ChatDebug] Failed to resolve active provider instance:', err)
+        throw new Error('NO_LLM_PROVIDER_DETECTED')
+      }
+
       let effectiveConfig = options.providerConfig
       let effectiveTools = options.tools || toolsResolver.value
 
@@ -267,7 +283,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         })
         effectiveModel = visionStore.activeModel
         effectiveProviderId = visionStore.activeProvider
-        effectiveProvider = await providersStore.getProviderInstance(visionStore.activeProvider)
+        if (!effectiveProviderId || effectiveProviderId === 'chat-noop' || !effectiveModel || !providersStore.isProviderConfigured(effectiveProviderId)) {
+          throw new Error('NO_LLM_PROVIDER_DETECTED')
+        }
+        try {
+          effectiveProvider = await providersStore.getProviderInstance(visionStore.activeProvider)
+          if (!effectiveProvider) {
+            throw new Error('NO_LLM_PROVIDER_DETECTED')
+          }
+        }
+        catch (err) {
+          console.error('[ChatDebug] Failed to resolve vision provider instance:', err)
+          throw new Error('NO_LLM_PROVIDER_DETECTED')
+        }
         effectiveConfig = providersStore.getProviderConfig(visionStore.activeProvider)
         promptShimText = visionStore.promptShim || ''
         effectiveTools = undefined // Vision models often do not support tools, and we only need them for direct reply
@@ -1131,6 +1159,48 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       }
       else {
         errorMessage = String(error)
+      }
+
+      const isNetworkError = errorMessage.toLowerCase().includes('failed to fetch')
+        || errorMessage.toLowerCase().includes('fetch failed')
+        || errorMessage.toLowerCase().includes('connection refused')
+        || errorMessage.toLowerCase().includes('err_connection_refused')
+
+      if (error?.message === 'NO_LLM_PROVIDER_DETECTED' || isNetworkError) {
+        const title = error?.message === 'NO_LLM_PROVIDER_DETECTED'
+          ? 'No LLM provider detected'
+          : 'Failed to reach LLM provider'
+        const description = error?.message === 'NO_LLM_PROVIDER_DETECTED'
+          ? 'Would you like to set one?'
+          : 'No active LLM provider could be reached (Failed to fetch). Please make sure your local LLM server is running or that your provider settings are correct.'
+
+        const fullErrorDisplay = `⚠️ **${title}**\n\n${description}\n\n[Go to Consciousness Settings](#/settings/modules/consciousness)`
+
+        buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}${fullErrorDisplay}`
+        buildingMessage.slices.push({
+          type: 'text',
+          text: fullErrorDisplay,
+        })
+
+        updateUI()
+
+        if (!isStaleGeneration()) {
+          const currentMessages = chatSession.getSessionMessages(sessionId)
+          chatSession.setSessionMessages(sessionId, [...currentMessages, { ...toRaw(buildingMessage) }])
+        }
+
+        try {
+          await hooks.emitChatTurnCompleteHooks({
+            output: { ...buildingMessage, error: { message: error?.message || 'FETCH_ERROR', detail: technicalDetail } } as any,
+            outputText: String(buildingMessage.content || ''),
+            toolCalls: [],
+          } as any, streamingMessageContext)
+        }
+        catch (hookErr) {
+          console.error('Error in turn-complete hooks (error path):', hookErr)
+        }
+
+        throw error
       }
 
       const fullErrorDisplay = `⚠️ **Chat Error**\n\n${errorMessage}${technicalDetail ? `\n\n**Technical Details**:\n\`\`\`json\n${technicalDetail}\n\`\`\`` : ''}`

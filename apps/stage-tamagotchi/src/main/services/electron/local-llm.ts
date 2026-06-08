@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { Buffer } from 'node:buffer'
-import { execFile, spawn } from 'node:child_process'
+import { exec, execFile, spawn } from 'node:child_process'
 import { createWriteStream, existsSync, promises as fs } from 'node:fs'
 import { promisify } from 'node:util'
 
@@ -73,6 +73,15 @@ let lastError: string | undefined
 let currentDownloadProgress: LocalLlmDownloadProgress | null = null
 
 const execFileAsync = promisify(execFile)
+
+function killAllZombies(): Promise<void> {
+  return new Promise((resolve) => {
+    const cmd = isWindows ? 'taskkill /f /im llama-server.exe' : 'killall llama-server'
+    exec(cmd, () => {
+      resolve()
+    })
+  })
+}
 
 async function getBestDeviceIndex(): Promise<string | null> {
   const binaryPath = getBinaryPath()
@@ -446,6 +455,7 @@ export function createLocalLlmService(params: { context: ReturnType<typeof creat
       serverProcess.kill()
       serverProcess = null
     }
+    await killAllZombies()
 
     currentStatusState = 'starting'
     currentActiveModel = payload.modelId
@@ -572,6 +582,7 @@ export function createLocalLlmService(params: { context: ReturnType<typeof creat
       serverProcess.kill()
       serverProcess = null
     }
+    await killAllZombies()
     currentStatusState = 'stopped'
     currentActiveModel = null
   })
@@ -583,5 +594,6 @@ export function createLocalLlmService(params: { context: ReturnType<typeof creat
       serverProcess.kill()
       serverProcess = null
     }
+    await killAllZombies()
   })
 }

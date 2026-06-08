@@ -24,10 +24,17 @@ function handleBack() {
   if (finalizedDisableBackButton.value)
     return
 
-  if (attrs.onBack)
+  if (attrs.onBack) {
     emit('back')
-  else
-    router.back()
+  }
+  else {
+    if (window.history.state && window.history.state.back) {
+      router.back()
+    }
+    else {
+      router.push('/settings')
+    }
+  }
 }
 
 const pageHeaderRef = ref<HTMLElement>()
