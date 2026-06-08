@@ -46,6 +46,7 @@ import { createMcpServersService, setupMcpStdioManager } from './services/airi/m
 import { setupPluginHost } from './services/airi/plugins'
 import { createMicToggleService } from './services/airi/shortcuts/mic-toggle'
 import { setupAutoUpdater } from './services/electron/auto-updater'
+import { createLocalLlmService } from './services/electron/local-llm'
 import { createVisionService } from './services/electron/vision'
 import { createSensorsService } from './services/sensors'
 import { cleanupMicToggleShortcut } from './services/shortcuts/mic-toggle'
@@ -340,6 +341,7 @@ app.whenReady().then(async () => {
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
+      createLocalLlmService({ context, window: deps.mainWindow })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
       defineInvokeHandler(context, electronCaptionToggleVisibility, async (enabled?: boolean) => {

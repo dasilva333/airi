@@ -23,6 +23,7 @@ const {
   providerModels,
   isLoadingActiveProviderModels,
   activeProviderModelError,
+  lastSelectedModelPerProvider,
 } = storeToRefs(consciousnessStore)
 
 const { t } = useI18n()
@@ -30,8 +31,71 @@ const { trackProviderClick } = useAnalytics()
 const isOpenAICompatibleProvider = computed(() => activeProvider.value === 'openai-compatible')
 
 const electronLocalLlmGetStatus = defineInvokeEventa<any>('eventa:invoke:electron:local-llm:get-status')
+const electronLocalLlmStopServer = defineInvokeEventa<void>('eventa:invoke:electron:local-llm:stop-server')
+const electronLocalLlmStartServer = defineInvokeEventa<void, { modelId: string }>('eventa:invoke:electron:local-llm:start-server')
 const localLlmStatus = ref<any>(null)
+const isStartingServer = ref(false)
 let localLlmPollInterval: any = null
+
+async function handleStartServer() {
+  if (typeof window === 'undefined' || isStartingServer.value)
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    isStartingServer.value = true
+
+    // Immediately set local status state to 'starting' so pill updates instantly
+    if (localLlmStatus.value) {
+      localLlmStatus.value.state = 'starting'
+    }
+
+    const startServer = defineInvoke(context, electronLocalLlmStartServer)
+    await startServer({ modelId: activeModel.value })
+    providersStore.forceProviderConfigured('local-llm')
+    await updateLocalLlmStatus()
+    await providersStore.fetchModelsForProvider('local-llm')
+    await providersStore.validateProvider('local-llm', { force: true })
+  }
+  catch (err) {
+    console.error('Failed to start local LLM server:', err)
+  }
+  finally {
+    isStartingServer.value = false
+  }
+}
+
+async function handleStopServer() {
+  if (typeof window === 'undefined')
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    const stopServer = defineInvoke(context, electronLocalLlmStopServer)
+
+    // Immediately clear local models and mark unconfigured in store
+    const runtimeState = providersStore.providerRuntimeState['local-llm']
+    if (runtimeState) {
+      runtimeState.models = []
+      runtimeState.isConfigured = false
+    }
+
+    // Immediately set local status state to 'stopped' so pill updates instantly
+    if (localLlmStatus.value) {
+      localLlmStatus.value.state = 'stopped'
+    }
+
+    await stopServer()
+    await updateLocalLlmStatus()
+    await providersStore.fetchModelsForProvider('local-llm')
+    await providersStore.validateProvider('local-llm', { force: true })
+  }
+  catch (err) {
+    console.error('Failed to stop local LLM server:', err)
+  }
+}
 
 async function updateLocalLlmStatus() {
   if (!isStageTamagotchi())
@@ -54,9 +118,10 @@ watch(activeProvider, async (provider, oldProvider) => {
   if (!provider)
     return
 
-  // Reset model when switching providers (but not on initial load)
+  // Reset or restore model when switching providers (but not on initial load)
   if (oldProvider !== undefined && oldProvider !== provider) {
-    activeModel.value = ''
+    const savedModel = lastSelectedModelPerProvider.value?.[provider]
+    activeModel.value = savedModel || ''
   }
 
   await consciousnessStore.loadModelsForProvider(provider)
@@ -76,6 +141,13 @@ watch(activeProvider, (provider) => {
     }
   }
 }, { immediate: true })
+
+watch(() => localLlmStatus.value?.state, async (newState, oldState) => {
+  if (newState === 'running' && (oldState !== 'running' || providerModels.value.length === 0)) {
+    await providersStore.fetchModelsForProvider('local-llm')
+    await providersStore.validateProvider('local-llm', { force: true })
+  }
+})
 
 onUnmounted(() => {
   if (localLlmPollInterval) {
@@ -203,12 +275,31 @@ function handleDeleteProvider(providerId: string) {
               >
                 {{ localLlmStatus.state === 'running' ? 'Running' : localLlmStatus.state === 'starting' ? 'Starting' : 'Offline' }}
               </span>
+              <button
+                v-if="activeProvider === 'local-llm' && localLlmStatus && (localLlmStatus.state === 'running' || localLlmStatus.state === 'starting')"
+                type="button"
+                :class="['px-2 py-0.5 text-[10px] font-bold rounded border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors cursor-pointer flex items-center gap-1 shrink-0']"
+                @click="handleStopServer"
+              >
+                <div i-solar:stop-circle-line-duotone />
+                <span>Stop Server</span>
+              </button>
+              <button
+                v-if="activeProvider === 'local-llm' && localLlmStatus && localLlmStatus.state !== 'running' && localLlmStatus.state !== 'starting'"
+                type="button"
+                :disabled="isStartingServer"
+                :class="['px-2 py-0.5 text-[10px] font-bold rounded border border-green-500/20 bg-green-500/10 text-green-500 hover:bg-green-500/20 transition-colors cursor-pointer flex items-center gap-1 shrink-0', isStartingServer && 'opacity-50 cursor-not-allowed']"
+                @click="handleStartServer"
+              >
+                <div i-solar:play-circle-line-duotone />
+                <span>Start Server</span>
+              </button>
             </div>
           </div>
         </div>
 
         <!-- Loading state -->
-        <div v-if="isLoadingActiveProviderModels" class="flex items-center justify-center py-4">
+        <div v-if="isLoadingActiveProviderModels || (activeProvider === 'local-llm' && localLlmStatus && localLlmStatus.state === 'starting')" class="flex items-center justify-center py-4">
           <div class="mr-2 animate-spin">
             <div i-solar:spinner-line-duotone text-xl />
           </div>
@@ -248,14 +339,14 @@ function handleDeleteProvider(providerId: string) {
         </div>
 
         <!-- No models available -->
-        <template v-else-if="providerModels.length === 0 && !isLoadingActiveProviderModels">
+        <template v-else-if="providerModels.length === 0 && !isLoadingActiveProviderModels && !(activeProvider === 'local-llm' && localLlmStatus && localLlmStatus.state === 'starting')">
           <div v-if="activeProvider === 'local-llm'" :class="['flex flex-col gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-900/10 text-neutral-900 dark:text-neutral-100']">
             <div :class="['flex items-start gap-3']">
               <div :class="['i-solar:warning-circle-bold-duotone text-2xl text-amber-500 shrink-0']" />
               <div :class="['flex flex-col gap-1']">
                 <span :class="['font-bold text-sm']">Local Server is Offline</span>
                 <span :class="['text-xs text-neutral-500 dark:text-neutral-400']">
-                  The local LLM server needs to be running to select or query models. Please go to the Local LLM settings to start the server with your desired model.
+                  Press "Start Server" to run your latest loaded model, or go to Local LLM settings to select a new one.
                 </span>
               </div>
             </div>

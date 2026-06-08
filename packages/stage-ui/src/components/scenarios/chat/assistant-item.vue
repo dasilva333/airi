@@ -595,7 +595,10 @@ const dynamicStyles = computed(() => {
                 </template>
               </template>
             </div>
-            <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
+            <div v-else-if="showLoader" class="flex items-center gap-2 py-1 text-xs text-neutral-400/80 font-medium italic dark:text-neutral-500/80">
+              <div i-eos-icons:three-dots-loading class="h-4 w-5 shrink-0 text-primary-500" />
+              <span>{{ chatOrchestrator.loadingStatus ? t(chatOrchestrator.loadingStatus) : t('stage.chat.loading_placeholder', 'Thinking...') }}</span>
+            </div>
 
             <div v-if="message.categorization?.reasoning" mt-1 text-xs text-neutral-500 font-normal italic dark:text-neutral-400>
               {{ t('stage.chat.reasoning_only') }}

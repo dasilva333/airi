@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
+import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   /** Tooltip for the main button */
   title?: string
   variant?: 'default' | 'mobile'
@@ -97,6 +100,111 @@ watch(cards, (newCards) => {
   // Seeding Debug Logs deleted
 }, { immediate: true, deep: true })
 
+const electronLocalLlmGetStatus = defineInvokeEventa<any>('eventa:invoke:electron:local-llm:get-status')
+const electronLocalLlmStartServer = defineInvokeEventa<void, { modelId: string }>('eventa:invoke:electron:local-llm:start-server')
+const electronLocalLlmStopServer = defineInvokeEventa<void>('eventa:invoke:electron:local-llm:stop-server')
+
+const localLlmStatus = ref<any>(null)
+const isStartingServer = ref(false)
+let localLlmPollInterval: any = null
+
+const isLlmActive = computed(() => {
+  if (activeProvider.value === 'local-llm') {
+    return localLlmStatus.value?.state === 'running'
+  }
+  return !!activeProvider.value && !!activeModel.value
+})
+
+async function updateLocalLlmStatus() {
+  if (!isStageTamagotchi())
+    return
+  if (typeof window === 'undefined')
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    const getStatus = defineInvoke(context, electronLocalLlmGetStatus)
+    localLlmStatus.value = await getStatus()
+  }
+  catch (err) {
+    console.error('[ChatBrainPopover] Failed to get local LLM status:', err)
+  }
+}
+
+async function handleStartServer() {
+  if (typeof window === 'undefined' || isStartingServer.value || !activeModel.value)
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    isStartingServer.value = true
+    if (localLlmStatus.value) {
+      localLlmStatus.value.state = 'starting'
+    }
+    const startServer = defineInvoke(context, electronLocalLlmStartServer)
+    await startServer({ modelId: activeModel.value })
+    providersStore.forceProviderConfigured('local-llm')
+    await updateLocalLlmStatus()
+    await providersStore.fetchModelsForProvider('local-llm')
+    await providersStore.validateProvider('local-llm', { force: true })
+  }
+  catch (err) {
+    console.error('[ChatBrainPopover] Failed to start local LLM server:', err)
+  }
+  finally {
+    isStartingServer.value = false
+  }
+}
+
+async function handleStopServer() {
+  if (typeof window === 'undefined')
+    return
+  const context = getElectronEventaContext()
+  if (!context)
+    return
+  try {
+    const stopServer = defineInvoke(context, electronLocalLlmStopServer)
+    const runtimeState = providersStore.providerRuntimeState['local-llm']
+    if (runtimeState) {
+      runtimeState.models = []
+      runtimeState.isConfigured = false
+    }
+    if (localLlmStatus.value) {
+      localLlmStatus.value.state = 'stopped'
+    }
+    await stopServer()
+    await updateLocalLlmStatus()
+    await providersStore.fetchModelsForProvider('local-llm')
+    await providersStore.validateProvider('local-llm', { force: true })
+  }
+  catch (err) {
+    console.error('[ChatBrainPopover] Failed to stop local LLM server:', err)
+  }
+}
+
+watch(activeProvider, (provider) => {
+  if (provider === 'local-llm') {
+    updateLocalLlmStatus()
+    if (!localLlmPollInterval) {
+      localLlmPollInterval = setInterval(updateLocalLlmStatus, 3000)
+    }
+  }
+  else {
+    if (localLlmPollInterval) {
+      clearInterval(localLlmPollInterval)
+      localLlmPollInterval = null
+    }
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (localLlmPollInterval) {
+    clearInterval(localLlmPollInterval)
+  }
+})
+
 onMounted(() => {
   // Pre-fill the form default provider with first configured provider
   if (configuredChatProvidersMetadata.value.length > 0) {
@@ -126,12 +234,15 @@ watch(newProvider, async (provider) => {
 }, { immediate: true })
 
 function handleAddFavorite() {
-  if (!newName.value.trim() || !newModel.value)
+  if (!newModel.value)
     return
+
+  const fallbackName = newModel.value.split('/').pop() || newModel.value
+  const displayName = newName.value.trim() || fallbackName
 
   favorites.value.push({
     id: String(Date.now()),
-    name: newName.value.trim(),
+    name: displayName,
     provider: newProvider.value,
     model: newModel.value,
   })
@@ -175,6 +286,21 @@ function handleSelectFavorite(fav: FavoriteModel) {
     } as any)
   }
 }
+
+const electronOpenSettings = defineInvokeEventa<void, { route?: string }>('eventa:invoke:electron:windows:settings:open')
+
+function handleGoToSettings() {
+  const context = getElectronEventaContext()
+  if (context) {
+    try {
+      const openSettings = defineInvoke(context, electronOpenSettings)
+      void openSettings({ route: '/settings/modules/consciousness' })
+    }
+    catch (err) {
+      console.error('[ChatBrainPopover] Failed to open settings window:', err)
+    }
+  }
+}
 </script>
 
 <template>
@@ -212,18 +338,78 @@ function handleSelectFavorite(fav: FavoriteModel) {
             <div class="i-ph:brain-duotone text-base text-primary-500" />
             <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Model & Provider</span>
           </div>
-          <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold font-mono uppercase dark:bg-primary-500/20">Real-Time</span>
+          <div class="flex items-center gap-1.5">
+            <button
+              class="flex items-center justify-center rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              title="Open Consciousness Settings"
+              @click="handleGoToSettings"
+            >
+              <div class="i-solar:settings-bold-duotone text-sm" />
+            </button>
+            <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold font-mono uppercase dark:bg-primary-500/20">Real-Time</span>
+          </div>
         </div>
 
         <!-- Sleek, Compact Active Status Badge -->
         <div class="mb-3.5 flex items-center justify-between gap-2 border border-neutral-200/30 rounded-xl bg-neutral-50/50 px-2.5 py-1.5 text-[10px] dark:border-neutral-800/60 dark:bg-neutral-800/20">
           <div class="flex items-center gap-1.5">
-            <span class="size-1.5 animate-pulse rounded-full bg-emerald-500" />
-            <span class="text-neutral-400 font-bold tracking-tight uppercase">Active</span>
+            <span
+              :class="[
+                'size-1.5 rounded-full',
+                isLlmActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500',
+              ]"
+            />
+            <span class="text-neutral-400 font-bold tracking-tight uppercase">
+              {{ isLlmActive ? 'Active' : 'Inactive' }}
+            </span>
           </div>
           <span class="max-w-48 truncate text-neutral-700 font-semibold font-mono dark:text-neutral-300">
             {{ activeProvider }} / {{ activeModel?.split('/').pop() || activeModel || 'None' }}
           </span>
+        </div>
+
+        <!-- Local LLM Server Controls -->
+        <div
+          v-if="activeProvider === 'local-llm' && localLlmStatus"
+          class="mb-3.5 flex items-center justify-between gap-2 border border-neutral-200/30 rounded-xl bg-neutral-50/50 px-2.5 py-1.5 text-[10px] dark:border-neutral-800/60 dark:bg-neutral-800/20"
+        >
+          <div class="flex items-center gap-1.5">
+            <span
+              :class="[
+                'size-1.5 rounded-full',
+                localLlmStatus.state === 'running'
+                  ? 'bg-emerald-500 animate-pulse'
+                  : localLlmStatus.state === 'starting'
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-red-500',
+              ]"
+            />
+            <span class="text-neutral-400 font-bold uppercase">Local Server</span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <span
+              v-if="localLlmStatus.state === 'starting'"
+              class="animate-pulse text-amber-500 font-semibold"
+            >
+              Starting...
+            </span>
+            <button
+              v-else-if="localLlmStatus.state === 'running'"
+              class="rounded bg-red-500/15 px-2 py-0.5 text-[9px] text-red-500 font-bold transition-all hover:bg-red-500/25"
+              @click="handleStopServer"
+            >
+              Stop Server
+            </button>
+            <button
+              v-else
+              class="rounded bg-emerald-500/15 px-2 py-0.5 text-[9px] text-emerald-500 font-bold transition-all hover:bg-emerald-500/25"
+              :disabled="isStartingServer"
+              @click="handleStartServer"
+            >
+              Start Server
+            </button>
+          </div>
         </div>
 
         <!-- Favorites List -->
@@ -360,7 +546,7 @@ function handleSelectFavorite(fav: FavoriteModel) {
               <!-- Add Button -->
               <button
                 class="w-full flex items-center justify-center gap-1.5 rounded-xl bg-primary-500 px-3 py-2 text-xs text-white font-bold tracking-wider uppercase shadow-md shadow-primary-500/10 transition-all disabled:pointer-events-none active:scale-[0.98] disabled:scale-100 hover:scale-[1.02] hover:bg-primary-600 disabled:opacity-40"
-                :disabled="!newName.trim() || !newModel"
+                :disabled="!newModel"
                 @click="handleAddFavorite"
               >
                 <div class="i-solar:add-circle-bold-duotone text-sm" />

@@ -137,6 +137,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   }
 
   const sending = ref(false)
+  const loadingStatus = ref<string>('')
   const pendingQueuedSends = ref<QueuedSend[]>([])
 
   const sendQueue = createQueue<QueuedSend>({
@@ -185,13 +186,18 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     if (!options.triggerOnly && !sendingMessage && !options.attachments?.length)
       return
 
+    loadingStatus.value = 'stage.chat.loading_states.preparing'
+
     chatSession.ensureSession(sessionId)
 
     // Execute history compaction if limit has been reached
     const compactionStore = useCompactionStore()
     if (compactionStore.shouldCompact(sessionId)) {
+      loadingStatus.value = 'stage.chat.loading_states.compacting'
       await compactionStore.executeCompaction(sessionId)
     }
+
+    loadingStatus.value = 'stage.chat.loading_states.preparing'
 
     // Inject current datetime context before composing the message
     chatContext.ingestContextMessage(createDatetimeContext())
@@ -248,6 +254,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     let rawFullText = ''
     try {
       sending.value = true
+      loadingStatus.value = 'stage.chat.loading_states.connecting'
       let effectiveModel = options.model || activeModel.value
       let effectiveProviderId = typeof options.chatProvider === 'string'
         ? options.chatProvider
@@ -359,6 +366,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // Trigger now only if in user-centric mode. Assistant-centric runs after response is complete.
       const autonomousTarget = activeCard.value?.extensions?.airi?.artistry?.autonomousTarget || 'user'
       if (autonomousTarget === 'user' && !options.triggerOnly) {
+        loadingStatus.value = 'stage.chat.loading_states.artist'
         void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
       }
       // --------------------------------
@@ -374,6 +382,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // as a system message right before the user's latest input.
       if (activeCard.value?.extensions?.airi?.groundingEnabled) {
         chatLog('Grounding active. Syncing sensors...')
+        loadingStatus.value = 'stage.chat.loading_states.syncing'
         await proactivityStore.updateSensors()
 
         const sensorPayload = proactivityStore.sensorPayload
@@ -429,6 +438,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         onText: async (text) => {
           if (shouldAbort())
             return
+
+          loadingStatus.value = ''
 
           categorizer.consume(text)
 
@@ -952,6 +963,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               }
               case 'reasoning-delta': {
                 const healedText = healMozibake(event.text)
+                if (loadingStatus.value !== 'stage.chat.loading_states.thinking') {
+                  loadingStatus.value = 'stage.chat.loading_states.thinking'
+                }
                 if (!(buildingMessage as any).categorization) {
                   ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
                 }
@@ -1239,6 +1253,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       if (streamIdleTimeout)
         clearTimeout(streamIdleTimeout)
       sending.value = false
+      loadingStatus.value = ''
     }
   }
 
@@ -1381,6 +1396,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
   return {
     sending,
+    loadingStatus,
     streamingMessage,
 
     isMainWindow,

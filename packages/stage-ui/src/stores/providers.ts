@@ -3105,6 +3105,7 @@ export const useProvidersStore = defineStore('providers', () => {
       console.error(`Error fetching models for ${providerId}:`, error)
       if (runtimeState) {
         runtimeState.modelLoadError = error instanceof Error ? error.message : 'Unknown error'
+        runtimeState.models = []
       }
       return []
     }
