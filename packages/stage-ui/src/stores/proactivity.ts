@@ -70,6 +70,9 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const isDreamStateEvaluating = ref(false)
   const isUpdatingSensors = ref(false)
   const isHeartbeatEvaluating = ref(false)
+  // Dedupes the local-activity-gated heartbeat to one send per continuous idle stretch.
+  // Cleared as soon as idleTimeSec drops back below the required threshold (user returned).
+  const firedForIdleSession = ref(false)
   let heartbeatInterval: any = null
 
   const isElectron = typeof window !== 'undefined' && !!(window as any).electron
@@ -156,6 +159,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
       // Map settled results back to reactive state
       if (idleMsResult.status === 'fulfilled' && (idleMsResult as any).value !== undefined) {
         idleTimeSec.value = Math.floor((idleMsResult as any).value / 1000)
+        // eslint-disable-next-line no-console
+        console.log(`[Proactivity] Sensor tick -> Idle: ${idleTimeSec.value}s`)
       }
       if (activeWinResult.status === 'fulfilled') {
         activeWinStr.value = (activeWinResult as any).value?.title || ''
@@ -485,39 +490,54 @@ export const useProactivityStore = defineStore('proactivity', () => {
         }
       }
 
-      // Check interval
-      // Check interval
-      const intervalMs = (config?.intervalMinutes || 1) * 60 * 1000
-      const timeSinceLast = now.getTime() - lastHeartbeatTime.value
-      const timeLeftMs = Math.max(0, intervalMs - timeSinceLast)
+      if (config?.useAsLocalGate) {
+        // "Interval" is reinterpreted as "required continuous idle minutes" in this mode: the
+        // heartbeat fires once the user has been away for that long, then waits for them to
+        // return (idleTimeSec drops back down) before the next idle stretch can fire again.
+        // Reuses the idleTimeSec ref kept fresh by the 10s updateSensors() background loop,
+        // rather than issuing a second, redundant sensor query here.
+        if (idleTimeSec.value === undefined)
+          await refreshIdleTimeOnly()
 
-      if (!options?.force && timeLeftMs > 0) {
-        const mins = Math.floor(timeLeftMs / 60000)
-        const secs = Math.floor((timeLeftMs % 60000) / 1000)
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
-        return
+        const requiredIdleSec = (config.intervalMinutes || 1) * 60
+        const currentIdleSec = idleTimeSec.value ?? 0
+
+        if (!options?.force && currentIdleSec < requiredIdleSec) {
+          firedForIdleSession.value = false
+          const remainingSec = requiredIdleSec - currentIdleSec
+          // eslint-disable-next-line no-console
+          console.log(`[Proactivity] Waiting for inactivity: ${Math.floor(remainingSec / 60)}m ${remainingSec % 60}s of continuous idle remaining (currently idle ${currentIdleSec}s, need ${config.intervalMinutes}m).`)
+          return
+        }
+
+        if (!options?.force && firedForIdleSession.value) {
+          // eslint-disable-next-line no-console
+          console.log('[Proactivity] Already sent a heartbeat for this idle session; waiting for the user to return before the next one.')
+          return
+        }
+
+        firedForIdleSession.value = true
+      }
+      else {
+        // Wall-clock cooldown, unrelated to activity: fires every `intervalMinutes` regardless
+        // of whether the user is present.
+        const intervalMs = (config?.intervalMinutes || 1) * 60 * 1000
+        const timeSinceLast = now.getTime() - lastHeartbeatTime.value
+        const timeLeftMs = Math.max(0, intervalMs - timeSinceLast)
+
+        if (!options?.force && timeLeftMs > 0) {
+          const mins = Math.floor(timeLeftMs / 60000)
+          const secs = Math.floor((timeLeftMs % 60000) / 1000)
+          // eslint-disable-next-line no-console
+          console.log(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
+          return
+        }
       }
 
-      if (config?.useAsLocalGate || config?.injectIntoPrompt) {
+      if (config?.injectIntoPrompt) {
         if (isElectron && getIdleTimeInvoke) {
           try {
-            // eslint-disable-next-line no-console
-            console.log('[Proactivity] Querying OS Sensors via Eventa...')
-            const idleTime = await getIdleTimeInvoke()
-            // eslint-disable-next-line no-console
-            console.log(`[Proactivity] OS Sensor -> Idle Time: ${idleTime}ms`)
-
-            // If useAsLocalGate is true, abort if user is idle for more than 60 seconds (likely AFK)
-            if (!options?.force && config!.useAsLocalGate && (idleTime !== undefined && idleTime > 60000)) {
-              // eslint-disable-next-line no-console
-              console.log('[Proactivity] Aborted: Local Gate is active and user is idle (> 60s), likely AFK.', { idleTime })
-              return
-            }
-
-            if (config!.injectIntoPrompt) {
-              await updateSensors()
-            }
+            await updateSensors()
           }
           catch (err) {
             console.warn('[Proactivity] Failed to fetch OS sensors:', err)
