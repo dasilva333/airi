@@ -798,7 +798,7 @@ async function loadModel() {
               parentNode.updateMatrixWorld(true)
               const localDir = dir.clone().applyMatrix4(new Matrix4().copy(parentNode.matrixWorld).invert())
 
-              const yaw = Math.atan2(localDir.x, localDir.z)
+              const yaw = Math.atan2(localDir.x, -localDir.z)
               const pitch = Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z))
 
               const maxYaw = 45 * Math.PI / 180
