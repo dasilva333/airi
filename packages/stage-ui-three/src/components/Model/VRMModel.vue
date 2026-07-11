@@ -813,10 +813,10 @@ async function loadModel() {
               const targetHeadYaw = clampedYaw * 0.6
               const targetHeadPitch = clampedPitch * 0.4
 
-              neckNode.rotation.y = MathUtils.lerp(neckNode.rotation.y, targetNeckYaw, lerpFactor)
+              neckNode.rotation.y = MathUtils.lerp(neckNode.rotation.y, -targetNeckYaw, lerpFactor)
               neckNode.rotation.x = MathUtils.lerp(neckNode.rotation.x, -targetNeckPitch, lerpFactor)
 
-              headNode.rotation.y = MathUtils.lerp(headNode.rotation.y, targetHeadYaw, lerpFactor)
+              headNode.rotation.y = MathUtils.lerp(headNode.rotation.y, -targetHeadYaw, lerpFactor)
               headNode.rotation.x = MathUtils.lerp(headNode.rotation.x, -targetHeadPitch, lerpFactor)
             }
           }
