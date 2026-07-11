@@ -202,16 +202,23 @@ onMounted(async () => {
   logStep('Initializing Analytics & Card stores')
   analyticsStore.initialize()
   cardStore.initialize()
-  await textJournalStore.load()
+  const loadModelsWithTiming = async () => {
+    const start = performance.now()
+    await displayModelsStore.loadDisplayModelsFromIndexedDB()
+    const end = performance.now()
+    console.info(`[PipelineTTS:App] loadDisplayModelsFromIndexedDB took ${Math.round(end - start)}ms`)
+  }
 
-  logStep('Initializing chat session')
-  await chatSessionStore.initialize()
-  logStep('Loading short-term memory')
-  await shortTermMemoryStore.load()
+  logStep('Loading stores concurrently (Journal, Chat, Memory, Models)')
+  await Promise.all([
+    textJournalStore.load(),
+    chatSessionStore.initialize(),
+    shortTermMemoryStore.load(),
+    loadModelsWithTiming(),
+  ])
+
   logStep('Checking yesterday short-term block')
   await ensureYesterdayShortTermBlockForActiveCharacter()
-  logStep('Loading display models')
-  await displayModelsStore.loadDisplayModelsFromIndexedDB()
   logStep('Initializing stage model')
   await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
   logStep('Stage model initialized')

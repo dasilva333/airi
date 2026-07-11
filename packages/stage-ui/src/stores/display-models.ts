@@ -100,8 +100,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
-      for (const key of modelKeys) {
-        const val = await localforage.getItem<{ format: DisplayModelFormat, file: File, importedAt: number, previewImage?: string, nsfw?: boolean, groups?: string[], tags?: string[] }>(key)
+
+      const values = await Promise.all(
+        modelKeys.map(key =>
+          localforage.getItem<{ format: DisplayModelFormat, file: File, importedAt: number, previewImage?: string, nsfw?: boolean, groups?: string[], tags?: string[] }>(key)
+            .then(val => ({ key, val })),
+        ),
+      )
+
+      for (const { key, val } of values) {
         if (val) {
           if (!val.file) {
             console.warn(`[DisplayModels] Model ${key} is missing file property! Skipping.`, val)

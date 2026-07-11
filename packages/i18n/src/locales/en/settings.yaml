@@ -1457,11 +1457,11 @@ vrm:
     follow-speed: Follow Speed
     eye-tracking-mode:
       title: Looking at
-    options:
-      option:
-        camera: Camera
-        mouse: Mouse
-        disabled: Disabled
+      options:
+        option:
+          camera: Camera
+          mouse: Mouse
+          disabled: Disabled
   switch-to-vrm:
     title: Switch to Live2D Avatar?
     change-to-vrm: Click here to switch to the Live2D avatar setting

@@ -2537,28 +2537,41 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     const restored: string[] = []
     try {
       const rawLocalKeys = await storage.getKeys('local')
-      for (const rawKey of rawLocalKeys) {
+      const targetKeys = rawLocalKeys.filter((rawKey) => {
         const fullKey = normalizeStorageKey(rawKey)
         if (fullKey && fullKey.startsWith('local:localstorage/')) {
           const key = fullKey.substring('local:localstorage/'.length)
-          if (shouldExcludeLocalStorageKey(key))
-            continue
+          return !shouldExcludeLocalStorageKey(key)
+        }
+        return false
+      })
+
+      const values = await Promise.all(
+        targetKeys.map(async (rawKey) => {
           const valObj = await storage.getItemRaw<{ value: string, originalKey?: string }>(rawKey)
-          if (valObj && typeof valObj === 'object' && 'value' in valObj) {
-            const val = valObj.value
-            const targetKey = valObj.originalKey || key
-            // Only restore if the key is currently absent from localStorage
-            if (localStorage.getItem(targetKey) !== null)
-              continue
-            if (val !== null && val !== undefined) {
-              try {
-                localStorage.setItem(targetKey, val)
-                restored.push(targetKey)
-                await logDebug(`restoreLocalStorageFromIndexedDbSafe: restored missing key=${targetKey}`)
-              }
-              catch (quotaErr) {
-                console.error(`[SyncEngine] Safe restore: quota exceeded for key ${targetKey}:`, quotaErr)
-              }
+          return { rawKey, valObj }
+        }),
+      )
+
+      for (const { rawKey, valObj } of values) {
+        if (valObj && typeof valObj === 'object' && 'value' in valObj) {
+          const fullKey = normalizeStorageKey(rawKey)
+          if (!fullKey)
+            continue
+          const key = fullKey.substring('local:localstorage/'.length)
+          const val = valObj.value
+          const targetKey = valObj.originalKey || key
+          // Only restore if the key is currently absent from localStorage
+          if (localStorage.getItem(targetKey) !== null)
+            continue
+          if (val !== null && val !== undefined) {
+            try {
+              localStorage.setItem(targetKey, val)
+              restored.push(targetKey)
+              await logDebug(`restoreLocalStorageFromIndexedDbSafe: restored missing key=${targetKey}`)
+            }
+            catch (quotaErr) {
+              console.error(`[SyncEngine] Safe restore: quota exceeded for key ${targetKey}:`, quotaErr)
             }
           }
         }

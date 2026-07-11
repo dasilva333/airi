@@ -27,6 +27,7 @@ import {
   LoopOnce,
   LoopRepeat,
   MathUtils,
+  Matrix4,
   Plane,
   Raycaster,
   Vector2,
@@ -98,6 +99,7 @@ const props = withDefaults(defineProps<{
   cameraPosition: Vec3
 
   camera: PerspectiveCamera
+  focusAt?: { x: number, y: number }
 }>(), {
   paused: false,
 })
@@ -144,6 +146,8 @@ const {
   lookAtTarget,
   trackingMode,
   eyeHeight,
+  cameraPosition,
+  focusAt,
 
   camera,
 } = toRefs(props)
@@ -717,6 +721,24 @@ async function loadModel() {
         }
       }
 
+      let telemetryTimer = 0
+      useEventListener('click', () => {
+        if (vrm.value) {
+          console.log(
+            '[VRMGazeTelemetry ON_CLICK]',
+            `Mode: ${trackingMode.value} |`,
+            `Store LookAtTarget:`,
+            JSON.stringify(lookAtTarget.value),
+            `|`,
+            `VRM LookAtTarget:`,
+            vrm.value.lookAt?.target ? `x: ${vrm.value.lookAt.target.position.x.toFixed(2)}, y: ${vrm.value.lookAt.target.position.y.toFixed(2)}, z: ${vrm.value.lookAt.target.position.z.toFixed(2)}` : 'None',
+            `|`,
+            `FocusAt Prop:`,
+            focusAt?.value ? JSON.stringify(focusAt.value) : 'Undefined',
+          )
+        }
+      })
+
       // Standard VRM Update Loop
       disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
         if (vrm.value) {
@@ -732,6 +754,73 @@ async function loadModel() {
         const activeVrm = vrm.value
         if (!activeVrm)
           return
+
+        telemetryTimer += delta
+        if (telemetryTimer > 2) {
+          telemetryTimer = 0
+          console.log(
+            '[VRMGazeTelemetry]',
+            `Mode: ${trackingMode.value} |`,
+            `Store LookAtTarget:`,
+            JSON.stringify(lookAtTarget.value),
+            `|`,
+            `VRM LookAtTarget:`,
+            activeVrm.lookAt?.target ? `x: ${activeVrm.lookAt.target.position.x.toFixed(2)}, y: ${activeVrm.lookAt.target.position.y.toFixed(2)}, z: ${activeVrm.lookAt.target.position.z.toFixed(2)}` : 'None',
+            `|`,
+            `Camera Pos:`,
+            camera.value ? `x: ${camera.value.position.x.toFixed(2)}, y: ${camera.value.position.y.toFixed(2)}, z: ${camera.value.position.z.toFixed(2)}` : 'None',
+            `|`,
+            `FocusAt Prop:`,
+            focusAt?.value ? JSON.stringify(focusAt.value) : 'Undefined',
+            `|`,
+            `Local Mouse:`,
+            `x: ${mouseX.value}, y: ${mouseY.value}`,
+          )
+        }
+
+        // Apply custom head and neck bone rotations to look at target
+        if (trackingMode.value !== 'none') {
+          const headNode = activeVrm.humanoid?.getNormalizedBoneNode('head')
+          const neckNode = activeVrm.humanoid?.getNormalizedBoneNode('neck')
+          const targetNode = activeVrm.lookAt?.target
+
+          if (headNode && neckNode && targetNode) {
+            const targetPos = new Vector3()
+            targetNode.getWorldPosition(targetPos)
+
+            const headWorldPos = new Vector3()
+            headNode.getWorldPosition(headWorldPos)
+
+            const dir = new Vector3().subVectors(targetPos, headWorldPos).normalize()
+
+            const parentNode = neckNode.parent || headNode.parent
+            if (parentNode) {
+              parentNode.updateMatrixWorld(true)
+              const localDir = dir.clone().applyMatrix4(new Matrix4().copy(parentNode.matrixWorld).invert())
+
+              const yaw = Math.atan2(localDir.x, localDir.z)
+              const pitch = Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z))
+
+              const maxYaw = 45 * Math.PI / 180
+              const maxPitch = 30 * Math.PI / 180
+              const clampedYaw = Math.max(-maxYaw, Math.min(maxYaw, yaw))
+              const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, pitch))
+
+              const lerpFactor = modelStore.followSpeed ?? 0.1
+
+              const targetNeckYaw = clampedYaw * 0.4
+              const targetNeckPitch = clampedPitch * 0.3
+              const targetHeadYaw = clampedYaw * 0.6
+              const targetHeadPitch = clampedPitch * 0.4
+
+              neckNode.rotation.y = MathUtils.lerp(neckNode.rotation.y, targetNeckYaw, lerpFactor)
+              neckNode.rotation.x = MathUtils.lerp(neckNode.rotation.x, -targetNeckPitch, lerpFactor)
+
+              headNode.rotation.y = MathUtils.lerp(headNode.rotation.y, targetHeadYaw, lerpFactor)
+              headNode.rotation.x = MathUtils.lerp(headNode.rotation.x, -targetHeadPitch, lerpFactor)
+            }
+          }
+        }
 
         // 1. Core update (humanoid, springbone, expressions)
         activeVrm.update(delta)
@@ -870,10 +959,24 @@ onMounted(async () => {
     stopMouseWatch?.()
     stopMouseWatch = undefined
     if (newMode === 'mouse') {
-      stopMouseWatch = watch([mouseX, mouseY], ([newX, newY]) => {
-        mouseTarget.value = lookAtMouse(newX, newY, camera)
-        // watch to update look at target to mouse
-        emit('lookAtTarget', mouseTarget.value)
+      stopMouseWatch = watch(
+        [
+          () => focusAt?.value?.x ?? mouseX.value,
+          () => focusAt?.value?.y ?? mouseY.value,
+        ],
+        ([newX, newY]) => {
+          mouseTarget.value = lookAtMouse(newX, newY, camera)
+          // watch to update look at target to mouse
+          emit('lookAtTarget', mouseTarget.value)
+        },
+        { immediate: true, deep: true },
+      )
+    }
+    else if (newMode === 'camera') {
+      stopMouseWatch = watch(cameraPosition, (pos) => {
+        if (pos) {
+          emit('lookAtTarget', { x: pos.x, y: pos.y, z: pos.z })
+        }
       }, { immediate: true, deep: true })
     }
     else {

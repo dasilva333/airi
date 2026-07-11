@@ -253,6 +253,12 @@ function handleOffsetChange(offset: { x: number, y: number }) {
         :model-src="stageModelSelectedUrl"
         :model-identity="stageModelSelected"
         :idle-animations="resolvedIdleAnimations"
+        :scale="computedScale"
+        :x-offset="computedXOffset"
+        :y-offset="computedYOffset"
+        :focus-at="{ x: positionCursor.x.value, y: positionCursor.y.value }"
+        @scale-change="handleScaleChange"
+        @offset-change="handleOffsetChange"
         @binary-loaded="vhackStore.setSourceArrayBuffer"
       />
     </div>

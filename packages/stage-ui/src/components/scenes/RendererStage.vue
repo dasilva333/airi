@@ -437,6 +437,7 @@ defineExpose({
       :x-offset="xOffset !== undefined ? Number(xOffset) : undefined"
       :y-offset="yOffset !== undefined ? Number(yOffset) : undefined"
       :draggable="stageViewControlsEnabled"
+      :focus-at="focusAt"
       @error="console.error"
       @binary-loaded="vhackStore.setSourceArrayBuffer"
       @finished="emits('animationFinished')"

@@ -50,6 +50,7 @@ const props = withDefaults(defineProps<{
   yOffset?: number
   scale?: number
   draggable?: boolean
+  focusAt?: { x: number, y: number }
 }>(), {
   showAxes: false,
   idleAnimation: new URL('../assets/vrm/animations/idle_loop.vrma', import.meta.url).href,
@@ -525,6 +526,7 @@ function handlePointerUp(event: PointerEvent) {
           :eye-height="eyeHeight"
           :camera-position="cameraPosition"
           :camera="camera"
+          :focus-at="props.focusAt"
 
           @loading-progress="(val: number) => emit('loadModelProgress', val)"
           @load-start="onVRMModelLoadStart"
