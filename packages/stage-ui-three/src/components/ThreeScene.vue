@@ -82,6 +82,7 @@ const {
   modelOrigin,
   modelOffset,
   modelRotationY,
+  modelRotationX,
 
   cameraFOV,
   cameraPosition,
@@ -193,6 +194,9 @@ function onVRMModelModelSize(value: Vec3) {
 }
 function onVRMModelRotationY(value: number) {
   modelRotationY.value = value
+}
+function onVRMModelRotationX(value: number) {
+  modelRotationX.value = value
 }
 function onVRMModelEyeHeight(value: number) {
   eyeHeight.value = value
@@ -521,6 +525,7 @@ function handlePointerUp(event: PointerEvent) {
           :npr-irr-s-h="irrSHTex"
           :model-offset="computedModelOffset"
           :model-rotation-y="modelRotationY"
+          :model-rotation-x="modelRotationX"
           :look-at-target="lookAtTarget"
           :tracking-mode="trackingMode"
           :eye-height="eyeHeight"
@@ -534,6 +539,7 @@ function handlePointerUp(event: PointerEvent) {
           @model-origin="onVRMModelModelOrigin"
           @model-size="onVRMModelModelSize"
           @model-rotation-y="onVRMModelRotationY"
+          @model-rotation-x="onVRMModelRotationX"
           @eye-height="onVRMModelEyeHeight"
           @look-at-target="onVRMModelLookAtTarget"
           @error="(err: unknown) => emit('error', err)"

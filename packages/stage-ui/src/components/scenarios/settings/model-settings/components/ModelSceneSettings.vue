@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SelectTab } from '@proj-airi/ui'
+import { Button, SelectTab } from '@proj-airi/ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -90,6 +90,27 @@ const computedScale = computed({
     }
   },
 })
+
+function handleReset() {
+  if (props.positioningStore && props.modelId) {
+    const updated = { ...props.positioningStore.positions.value }
+    delete updated[props.modelId]
+    delete updated[`${props.modelId}:dating-sim`]
+    props.positioningStore.positions.value = updated
+  }
+
+  if (props.store) {
+    props.store.modelRotationY = 0
+    props.store.modelRotationX = 0
+    props.store.cameraFOV = 40
+    props.store.cameraDistance = 0
+    if (props.store.modelOffset) {
+      props.store.modelOffset.x = 0
+      props.store.modelOffset.y = 0
+      props.store.modelOffset.z = 0
+    }
+  }
+}
 </script>
 
 <template>
@@ -137,6 +158,11 @@ const computedScale = computed({
             :label="t('settings.vrm.scale-and-position.rotation-y')"
           />
           <PropertyNumber
+            v-model="props.store.modelRotationX"
+            :config="{ min: -180, max: 180, step: 1, label: 'Rotation (X-axis)', disabled: sceneMutationLocked }"
+            label="Rotation (X-axis)"
+          />
+          <PropertyNumber
             v-model="computedScale"
             :config="{ min: props.positioningStore ? 0.1 : props.modelSize.z || 0.1, max: props.positioningStore ? 5 : (props.modelSize.z || 1) * 20, step: 0.01, label: props.positioningStore ? 'Scale' : t('settings.vrm.scale-and-position.camera-distance'), formatValue: val => val?.toFixed(4), disabled: sceneMutationLocked }"
             :label="props.positioningStore ? 'Scale' : t('settings.vrm.scale-and-position.camera-distance')"
@@ -146,6 +172,14 @@ const computedScale = computed({
             :config="{ min: 1, max: 180, step: 1, label: t('settings.vrm.scale-and-position.fov'), disabled: sceneMutationLocked }"
             :label="t('settings.vrm.scale-and-position.fov')"
           />
+        </div>
+        <div class="mt-4 flex justify-end">
+          <Button size="sm" variant="secondary" @click="handleReset">
+            <template #icon>
+              <div class="i-solar:restart-bold-duotone mr-1" />
+            </template>
+            Reset to Defaults
+          </Button>
         </div>
       </div>
 

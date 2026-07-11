@@ -139,6 +139,7 @@ export const useModelStore = defineStore('modelStore', () => {
   const modelOrigin = useLocalStorage('settings/stage-ui-three/modelOrigin', { x: 0, y: 0, z: 0 })
   const modelOffset = useLocalStorage('settings/stage-ui-three/modelOffset', { x: 0, y: 0, z: 0 })
   const modelRotationY = useLocalStorage('settings/stage-ui-three/modelRotationY', 0)
+  const modelRotationX = useLocalStorage('settings/stage-ui-three/modelRotationX', 0)
 
   const cameraFOV = useLocalStorage('settings/stage-ui-three/cameraFOV', 40)
   const cameraPosition = useLocalStorage('settings/stage-ui-three/camera-position', { x: 0, y: 0, z: -1 })
@@ -166,6 +167,7 @@ export const useModelStore = defineStore('modelStore', () => {
     modelOrigin.value = { x: 0, y: 0, z: 0 }
     modelOffset.value = { x: 0, y: 0, z: 0 }
     modelRotationY.value = 0
+    modelRotationX.value = 0
 
     cameraFOV.value = 40
     cameraPosition.value = { x: 0, y: 0, z: 0 }
@@ -240,6 +242,7 @@ export const useModelStore = defineStore('modelStore', () => {
     modelOrigin,
     modelOffset,
     modelRotationY,
+    modelRotationX,
 
     cameraFOV,
     cameraPosition,

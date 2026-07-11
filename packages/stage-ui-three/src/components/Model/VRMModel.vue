@@ -11,7 +11,6 @@ import type {
   AnimationAction,
   AnimationClip,
   Group,
-  Object3D,
   PerspectiveCamera,
   SphericalHarmonics3,
 } from 'three'
@@ -24,12 +23,19 @@ import { useLoop, useTresContext } from '@tresjs/core'
 import { until, useEventListener, useMouse } from '@vueuse/core'
 import {
   AnimationMixer,
+  BufferGeometry,
+  Line,
+  LineBasicMaterial,
   LoopOnce,
   LoopRepeat,
   MathUtils,
-  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
   Plane,
+  Quaternion,
   Raycaster,
+  SphereGeometry,
   Vector2,
   Vector3,
 } from 'three'
@@ -93,6 +99,7 @@ const props = withDefaults(defineProps<{
 
   modelOffset: Vec3
   modelRotationY: number
+  modelRotationX: number
   lookAtTarget: Vec3
   trackingMode: string
   eyeHeight: number
@@ -117,6 +124,7 @@ const emit = defineEmits<{
   (e: 'modelOrigin', value: Vec3): void
   (e: 'modelSize', value: Vec3): void
   (e: 'modelRotationY', value: number): void
+  (e: 'modelRotationX', value: number): void
   (e: 'eyeHeight', value: number): void
   (e: 'lookAtTarget', value: Vec3): void
 
@@ -143,6 +151,7 @@ const {
 
   modelOffset,
   modelRotationY,
+  modelRotationX,
   lookAtTarget,
   trackingMode,
   eyeHeight,
@@ -211,6 +220,8 @@ const { onBeforeRender, stop, start } = useLoop()
 type VrmFrameHook = (vrm: VRM, delta: number) => void
 const vrmFrameHook = shallowRef<VrmFrameHook>()
 let disposeBeforeRenderLoop: (() => void | undefined)
+let debugSphere: Mesh | null = null
+let debugLine: Line | null = null
 
 // For sky box update
 const nprProgramVersion = ref(0)
@@ -219,6 +230,30 @@ let airiIblProbe: ReturnType<typeof createIblProbeController> | null = null
 
 // clean the previous vrm model loaded
 function componentCleanUp() {
+  // clear debug helpers
+  if (debugSphere) {
+    debugSphere.removeFromParent()
+    debugSphere.geometry.dispose()
+    if (Array.isArray(debugSphere.material)) {
+      debugSphere.material.forEach(m => m.dispose())
+    }
+    else {
+      debugSphere.material.dispose()
+    }
+    debugSphere = null
+  }
+  if (debugLine) {
+    debugLine.removeFromParent()
+    debugLine.geometry.dispose()
+    if (Array.isArray(debugLine.material)) {
+      debugLine.material.forEach(m => m.dispose())
+    }
+    else {
+      debugLine.material.dispose()
+    }
+    debugLine = null
+  }
+
   // clear animation
   disposeBeforeRenderLoop?.()
   // clear vrm group
@@ -527,14 +562,35 @@ function lookAtMouse(
   // Raycast from the mouse position
   raycaster.setFromCamera(mouse, camera.value)
 
-  // Create a plane in front of the camera
   const cameraDirection = new Vector3()
-  camera.value.getWorldDirection(cameraDirection) // Get camera's forward direction
+  camera.value.getWorldDirection(cameraDirection)
+
+  // Use a vertical plane at the model's actual head depth
+  const planeNormal = new Vector3(cameraDirection.x, 0, cameraDirection.z).normalize()
+  if (planeNormal.lengthSq() < 0.001) {
+    planeNormal.set(0, 0, 1) // default forward
+  }
+
+  // Get head node world position from active VRM
+  const activeVrm = vrm.value
+  const headWorldPos = new Vector3()
+  if (activeVrm) {
+    const headNode = activeVrm.humanoid?.getNormalizedBoneNode('head')
+    if (headNode) {
+      headNode.getWorldPosition(headWorldPos)
+    }
+    else {
+      headWorldPos.set(0, eyeHeight.value, 0)
+    }
+  }
+  else {
+    headWorldPos.set(0, eyeHeight.value, 0)
+  }
 
   const plane = new Plane()
   plane.setFromNormalAndCoplanarPoint(
-    cameraDirection,
-    camera.value.position.clone().add(cameraDirection.multiplyScalar(1)), // 1 unit in front of the camera
+    planeNormal,
+    headWorldPos,
   )
 
   const intersection = new Vector3()
@@ -655,8 +711,9 @@ async function loadModel() {
       // Set model facing direction
       // Lilia: I brought forward the rotation to the core.ts, so that any ad-hoc rotation will not impact the model centre position.
       if (isFirstLoad) {
-        // Reset model rotation Y
+        // Reset model rotation Y and X
         emit('modelRotationY', 0)
+        emit('modelRotationX', 0)
       }
 
       // Populate available expressions for the settings UI
@@ -739,21 +796,24 @@ async function loadModel() {
         }
       })
 
+      const DEBUG_ISOLATE_GAZE = true
+
       // Standard VRM Update Loop
       disposeBeforeRenderLoop = onBeforeRender(({ delta }) => {
-        if (vrm.value) {
+        const activeVrm = vrm.value
+        if (!activeVrm)
+          return
+
+        if (!DEBUG_ISOLATE_GAZE) {
           // Loop: Custom frame hook
-          vrmFrameHook.value?.(vrm.value, delta)
+          vrmFrameHook.value?.(activeVrm, delta)
 
           // Loop: Cloth Interaction (Wired R&D)
-          vrmClothTug.update(vrm.value, delta, vrmEmote.value)
+          vrmClothTug.update(activeVrm, delta, vrmEmote.value)
 
           // Update mixer
           vrmAnimationMixer?.update(delta)
         }
-        const activeVrm = vrm.value
-        if (!activeVrm)
-          return
 
         telemetryTimer += delta
         if (telemetryTimer > 2) {
@@ -780,66 +840,116 @@ async function loadModel() {
 
         // 1. Core update (humanoid, springbone, expressions)
         activeVrm.update(delta)
+        activeVrm.scene.updateMatrixWorld(true)
+
+        // Ensure lookAt target is safely initialized (prevents exceptions and broken OrbitControls)
+        if (activeVrm.lookAt && !activeVrm.lookAt.target) {
+          activeVrm.lookAt.target = new Object3D()
+          activeVrm.scene.add(activeVrm.lookAt.target)
+        }
+
+        // Create debug overlays if they don't exist
+        if (!debugSphere) {
+          const sphereGeo = new SphereGeometry(0.04, 16, 16)
+          const sphereMat = new MeshBasicMaterial({ color: 0xFF0000, depthTest: false, transparent: true, opacity: 0.9 })
+          debugSphere = new Mesh(sphereGeo, sphereMat)
+          debugSphere.renderOrder = 999
+          activeVrm.scene.add(debugSphere)
+        }
+        if (!debugLine) {
+          const lineMat = new LineBasicMaterial({ color: 0x00FF00, depthTest: false, transparent: true, opacity: 0.9 })
+          const lineGeo = new BufferGeometry().setFromPoints([new Vector3(), new Vector3()])
+          debugLine = new Line(lineGeo, lineMat)
+          debugLine.renderOrder = 999
+          activeVrm.scene.add(debugLine)
+        }
 
         // Apply custom head and neck bone rotations to look at target AFTER core update
-        // to prevent animators/mixers from overwriting pitch/yaw bone rotations
         if (trackingMode.value !== 'none') {
           const headNode = activeVrm.humanoid?.getNormalizedBoneNode('head')
           const neckNode = activeVrm.humanoid?.getNormalizedBoneNode('neck')
           const targetNode = activeVrm.lookAt?.target
 
           if (headNode && neckNode && targetNode) {
+            // Snaps lookAt target directly to exact coordinate
+            targetNode.position.set(lookAtTarget.value.x, lookAtTarget.value.y, lookAtTarget.value.z)
+            activeVrm.lookAt.update(delta)
+
             const targetPos = new Vector3()
             targetNode.getWorldPosition(targetPos)
 
             const headWorldPos = new Vector3()
             headNode.getWorldPosition(headWorldPos)
 
+            // Update debug overlays positions
+            if (debugSphere) {
+              debugSphere.position.copy(targetPos)
+            }
+            if (debugLine) {
+              debugLine.geometry.setFromPoints([headWorldPos, targetPos])
+            }
+
             const dir = new Vector3().subVectors(targetPos, headWorldPos).normalize()
 
             const parentNode = neckNode.parent || headNode.parent
             if (parentNode) {
               parentNode.updateMatrixWorld(true)
-              const localDir = dir.clone().applyMatrix4(new Matrix4().copy(parentNode.matrixWorld).invert())
+              const parentWorldQuat = new Quaternion()
+              parentNode.getWorldQuaternion(parentWorldQuat)
+              const localDir = dir.clone().applyQuaternion(parentWorldQuat.invert())
 
               const yaw = Math.atan2(localDir.x, -localDir.z)
               const pitch = Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z))
 
-              const maxYaw = 55 * Math.PI / 180
-              const maxPitch = 60 * Math.PI / 180
-              const clampedYaw = Math.max(-maxYaw, Math.min(maxYaw, yaw))
-              const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, pitch))
+              // EXORCIST MODE: Unclamped!
+              const clampedYaw = yaw
+              const clampedPitch = pitch
 
-              const lerpFactor = modelStore.followSpeed ?? 0.1
+              // Snapping: instantly apply 100% of the calculated rotation (no lerp/lag)
+              const lerpFactor = 1.0
 
-              const targetNeckYaw = clampedYaw * 0.45
-              const targetNeckPitch = clampedPitch * 0.4
-              const targetHeadYaw = clampedYaw * 0.55
+              const targetNeckYaw = clampedYaw * 0.5
+              const targetNeckPitch = clampedPitch * 0.5
+              const targetHeadYaw = clampedYaw * 0.5
               const targetHeadPitch = clampedPitch * 0.5
 
               neckNode.rotation.y = MathUtils.lerp(neckNode.rotation.y, -targetNeckYaw, lerpFactor)
-              neckNode.rotation.x = MathUtils.lerp(neckNode.rotation.x, targetNeckPitch, lerpFactor)
+              neckNode.rotation.x = MathUtils.lerp(neckNode.rotation.x, -targetNeckPitch, lerpFactor)
 
               headNode.rotation.y = MathUtils.lerp(headNode.rotation.y, -targetHeadYaw, lerpFactor)
-              headNode.rotation.x = MathUtils.lerp(headNode.rotation.x, targetHeadPitch, lerpFactor)
+              headNode.rotation.x = MathUtils.lerp(headNode.rotation.x, -targetHeadPitch, lerpFactor)
+
+              // Verbose Telemetry logging
+              if (telemetryTimer === 0) {
+                console.log(
+                  '[VRMGazeTelemetry VERBOSE]',
+                  `LocalDir: x=${localDir.x.toFixed(3)}, y=${localDir.y.toFixed(3)}, z=${localDir.z.toFixed(3)} |`,
+                  `Angles: yaw=${(yaw * 180 / Math.PI).toFixed(1)}°, pitch=${(pitch * 180 / Math.PI).toFixed(1)}° |`,
+                  `Neck Rot: y=${(neckNode.rotation.y * 180 / Math.PI).toFixed(1)}°, x=${(neckNode.rotation.x * 180 / Math.PI).toFixed(1)}° |`,
+                  `Head Rot: y=${(headNode.rotation.y * 180 / Math.PI).toFixed(1)}°, x=${(headNode.rotation.x * 180 / Math.PI).toFixed(1)}° |`,
+                  `HeadWorldPos: y=${headWorldPos.y.toFixed(2)}, TargetWorldPos: y=${targetPos.y.toFixed(2)}`,
+                )
+              }
             }
           }
         }
 
-        // 2. Plugin updates
-        blink.update(activeVrm, delta)
-        idleEyeSaccades.update(activeVrm, lookAtTarget, delta)
-        vrmEmote.value?.update(delta)
+        if (!DEBUG_ISOLATE_GAZE) {
+          // 2. Plugin updates
+          blink.update(activeVrm, delta)
+          idleEyeSaccades.update(activeVrm, lookAtTarget, delta)
+          vrmEmote.value?.update(delta)
 
-        if (mouthOpenSize.value !== undefined) {
-          activeVrm.expressionManager?.setValue('aa', mouthOpenSize.value * 0.75)
-        }
-        else {
-          vrmLipSync.update(activeVrm, delta)
-        }
+          if (mouthOpenSize.value !== undefined) {
+            activeVrm.expressionManager?.setValue('aa', mouthOpenSize.value * 0.75)
+          }
+          else {
+            vrmLipSync.update(activeVrm, delta)
+          }
 
-        // 3. Apply expression updates to meshes
-        activeVrm.expressionManager?.update()
+          // 3. Apply expression updates to meshes
+          activeVrm.expressionManager?.update()
+        }
       }).off
 
       // ASYNC GUARD: Check again after animation loading
@@ -910,9 +1020,10 @@ onMounted(async () => {
     }
   }, { immediate: true })
   // update model rotation
-  watch([modelRotationY, vrmGroup], () => {
+  watch([modelRotationY, modelRotationX, vrmGroup], () => {
     if (vrmGroup.value) {
       vrmGroup.value.rotation.y = MathUtils.degToRad(modelRotationY.value)
+      vrmGroup.value.rotation.x = MathUtils.degToRad(modelRotationX.value)
     }
   }, { immediate: true })
   // update NPR sky box
