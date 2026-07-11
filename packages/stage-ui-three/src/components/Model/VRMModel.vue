@@ -805,17 +805,17 @@ async function loadModel() {
               const yaw = Math.atan2(localDir.x, -localDir.z)
               const pitch = Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z))
 
-              const maxYaw = 45 * Math.PI / 180
-              const maxPitch = 30 * Math.PI / 180
+              const maxYaw = 55 * Math.PI / 180
+              const maxPitch = 60 * Math.PI / 180
               const clampedYaw = Math.max(-maxYaw, Math.min(maxYaw, yaw))
               const clampedPitch = Math.max(-maxPitch, Math.min(maxPitch, pitch))
 
               const lerpFactor = modelStore.followSpeed ?? 0.1
 
-              const targetNeckYaw = clampedYaw * 0.4
-              const targetNeckPitch = clampedPitch * 0.3
-              const targetHeadYaw = clampedYaw * 0.6
-              const targetHeadPitch = clampedPitch * 0.4
+              const targetNeckYaw = clampedYaw * 0.45
+              const targetNeckPitch = clampedPitch * 0.4
+              const targetHeadYaw = clampedYaw * 0.55
+              const targetHeadPitch = clampedPitch * 0.5
 
               neckNode.rotation.y = MathUtils.lerp(neckNode.rotation.y, -targetNeckYaw, lerpFactor)
               neckNode.rotation.x = MathUtils.lerp(neckNode.rotation.x, -targetNeckPitch, lerpFactor)
