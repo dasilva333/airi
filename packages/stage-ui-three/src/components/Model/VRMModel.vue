@@ -778,7 +778,11 @@ async function loadModel() {
           )
         }
 
-        // Apply custom head and neck bone rotations to look at target
+        // 1. Core update (humanoid, springbone, expressions)
+        activeVrm.update(delta)
+
+        // Apply custom head and neck bone rotations to look at target AFTER core update
+        // to prevent animators/mixers from overwriting pitch/yaw bone rotations
         if (trackingMode.value !== 'none') {
           const headNode = activeVrm.humanoid?.getNormalizedBoneNode('head')
           const neckNode = activeVrm.humanoid?.getNormalizedBoneNode('neck')
@@ -821,9 +825,6 @@ async function loadModel() {
             }
           }
         }
-
-        // 1. Core update (humanoid, springbone, expressions)
-        activeVrm.update(delta)
 
         // 2. Plugin updates
         blink.update(activeVrm, delta)
