@@ -147,10 +147,22 @@ export function useIdleEyeSaccades(followSpeed?: Ref<number>) {
   let timeSinceLastSaccade = 0
 
   // Just a naive vector generator - Simulating random content on a 27in monitor at 65cm distance
-  function updateFixationTarget(lookAtTarget: Ref<{ x: number, y: number, z: number }>) {
+  // Dynamically scaled relative to model-to-camera distance to keep angular shift stable.
+  function updateFixationTarget(vrm: VRMCore | undefined, lookAtTarget: Ref<{ x: number, y: number, z: number }>) {
+    let distance = 1.0
+    if (vrm) {
+      const headNode = vrm.humanoid?.getNormalizedBoneNode('head')
+      if (headNode) {
+        const headWorldPos = new Vector3()
+        headNode.getWorldPosition(headWorldPos)
+        const targetWorldPos = new Vector3(lookAtTarget.value.x, lookAtTarget.value.y, lookAtTarget.value.z)
+        distance = headWorldPos.distanceTo(targetWorldPos)
+      }
+    }
+    const maxOffset = Math.max(0.005, Math.min(0.05, distance * 0.03))
     fixationTarget.set(
-      lookAtTarget.value.x + randFloat(-0.25, 0.25),
-      lookAtTarget.value.y + randFloat(-0.25, 0.25),
+      lookAtTarget.value.x + randFloat(-maxOffset, maxOffset),
+      lookAtTarget.value.y + randFloat(-maxOffset, maxOffset),
       lookAtTarget.value.z,
     )
   }
@@ -161,12 +173,12 @@ export function useIdleEyeSaccades(followSpeed?: Ref<number>) {
       return
 
     if (timeSinceLastSaccade >= nextSaccadeAfter) {
-      updateFixationTarget(lookAtTarget)
+      updateFixationTarget(vrm, lookAtTarget)
       timeSinceLastSaccade = 0
       nextSaccadeAfter = randomSaccadeInterval() / 1000
     }
     else if (!fixationTarget) {
-      updateFixationTarget(lookAtTarget)
+      updateFixationTarget(vrm, lookAtTarget)
     }
 
     if (!vrm.lookAt.target) {
