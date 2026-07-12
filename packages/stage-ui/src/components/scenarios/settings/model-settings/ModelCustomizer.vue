@@ -586,9 +586,9 @@ async function suggestDialogue() {
       throw new Error('Failed to get active LLM provider instance.')
     }
 
-    // Collect available keys
-    const emotionsList = rawExpressions.value.map(e => e.displayName)
-    const motionsList = rawMotions.value.map(m => m.displayName)
+    // Collect only the currently visible/filtered keys (Option B: What you see is what you get)
+    const emotionsList = expressionsToRender.value.map(e => e.displayName)
+    const motionsList = Object.values(motionsToRender.value).flat().map(m => m.displayName)
 
     const systemPrompt = `You are a creative dialogue script designer for a VTuber/AI agent rehearsal sandbox.
 The user wants to generate 4 dialogue acting presets.
