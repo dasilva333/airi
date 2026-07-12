@@ -295,15 +295,15 @@ const expressionsToRender = computed(() => {
 })
 
 const motionsToRender = computed(() => {
-  const groups = new Map<string, UnifiedMotion[]>()
+  const groups: Record<string, UnifiedMotion[]> = {}
   for (const m of rawMotions.value) {
     if (!showHidden.value && !m.isVisible)
       continue
     if (filterRenamedOnly.value && m.displayName === m.key)
       continue
-    if (!groups.has(m.group))
-      groups.set(m.group, [])
-    groups.get(m.group)!.push(m)
+    if (!groups[m.group])
+      groups[m.group] = []
+    groups[m.group].push(m)
   }
   return groups
 })
@@ -909,12 +909,12 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
 
         <!-- ====== MOTIONS LIST ====== -->
         <template v-else>
-          <div v-if="motionsToRender.size === 0" class="py-8 text-center text-xs text-neutral-400">
+          <div v-if="Object.keys(motionsToRender).length === 0" class="py-8 text-center text-xs text-neutral-400">
             No motions available for this model.
           </div>
 
-          <template v-for="[groupName, groupMotions] in motionsToRender" :key="groupName">
-            <div class="mb-1 px-1">
+          <template v-for="(groupMotions, groupName) in motionsToRender" :key="groupName">
+            <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 px-1">
               <span class="inline-flex items-center rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] text-primary-700 font-semibold ring-1 ring-primary-700/10 ring-inset dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-400/20">
                 {{ groupName }}
               </span>
