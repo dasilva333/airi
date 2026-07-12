@@ -620,7 +620,7 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
 </script>
 
 <template>
-  <div class="h-full w-full flex flex-col overflow-hidden bg-transparent">
+  <div class="h-full min-h-0 w-full flex flex-col overflow-hidden bg-transparent">
     <!-- Sandbox Playground (Optional for Rehearsal Room) -->
     <div v-if="props.showRehearsalSandbox" class="shrink-0 pb-3">
       <div class="border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-950/20">
@@ -763,7 +763,7 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
       </div>
 
       <!-- Scrollable List Area -->
-      <div v-if="!capabilitiesLoading" class="flex-1 overflow-y-auto pb-4">
+      <div v-if="!capabilitiesLoading" class="min-h-0 flex-1 overflow-y-auto pb-4">
         <!-- ====== EXPRESSIONS LIST ====== -->
         <template v-if="activeTab === 'expressions'">
           <div v-if="expressionsToRender.length === 0" class="py-8 text-center text-xs text-neutral-400">
