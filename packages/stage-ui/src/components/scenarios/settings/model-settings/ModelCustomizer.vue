@@ -457,15 +457,58 @@ function toggleMotionCycle(key: string) {
 const playgroundText = ref('<|ACT:emotion="happy"|> Hello world! Welcome to the Stage.')
 const isRehearsing = ref(false)
 
-const REHEARSAL_PRESETS = [
-  { label: 'Basic Joy', text: '<|ACT:emotion="happy"|> Hello there! I am so glad to see you.' },
-  { label: 'Dramatic Shock', text: '<|ACT:emotion="surprised"|> Wait! What do you mean by that?!' },
-  { label: 'Pensive Thoughts', text: '<|ACT:emotion="thinking"|> Let me think... that seems quite interesting.' },
-]
+const dynamicPresets = computed(() => {
+  const exps = rawExpressions.value.map(e => e.displayName)
+  const mots = rawMotions.value.map(m => m.displayName)
 
-function applyPreset(text: string) {
-  playgroundText.value = text
-}
+  const presets = []
+
+  // 1. Single Tag (use emotion if available, fallback to motion)
+  if (exps.length > 0) {
+    presets.push({
+      label: 'Single Emotion',
+      text: `<|ACT:emotion="${exps[0]}"|> Hello world!`,
+    })
+  }
+  else if (mots.length > 0) {
+    presets.push({
+      label: 'Single Motion',
+      text: `<|ACT:motion="${mots[0]}"|> Hello world!`,
+    })
+  }
+
+  // 2. Dual Tags (Leading & Trailing)
+  if (exps.length > 1) {
+    presets.push({
+      label: 'Dual Emotions',
+      text: `<|ACT:emotion="${exps[0]}"|> This is a sandbox test. <|ACT:emotion="${exps[1]}"|>`,
+    })
+  }
+  else if (mots.length > 1) {
+    presets.push({
+      label: 'Dual Motions',
+      text: `<|ACT:motion="${mots[0]}"|> This is a sandbox test. <|ACT:motion="${mots[1]}"|>`,
+    })
+  }
+
+  // 3. Combined Tag (Requires both emotion and motion)
+  if (exps.length > 0 && mots.length > 0) {
+    presets.push({
+      label: 'Combo Tag',
+      text: `<|ACT:emotion="${exps[0]}",motion="${mots[0]}"|> Moving and speaking.`,
+    })
+  }
+
+  // 4. Dual Combos (Requires at least 2 emotions and 2 motions)
+  if (exps.length > 1 && mots.length > 1) {
+    presets.push({
+      label: 'Dual Combos',
+      text: `<|ACT:emotion="${exps[0]}",motion="${mots[0]}"|> Starting off... <|ACT:emotion="${exps[1]}",motion="${mots[1]}"|> and transitioning.`,
+    })
+  }
+
+  return presets
+})
 
 async function playRehearsal() {
   if (!stageEnabled.value) {
@@ -626,16 +669,6 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
       <div class="border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-950/20">
         <div class="mb-2 flex items-center justify-between">
           <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Sandbox Playground</span>
-          <div class="flex gap-1.5">
-            <button
-              v-for="p in REHEARSAL_PRESETS"
-              :key="p.label"
-              class="cursor-pointer rounded bg-neutral-100 px-2 py-0.5 text-[9px] text-neutral-600 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700"
-              @click="applyPreset(p.text)"
-            >
-              {{ p.label }}
-            </button>
-          </div>
         </div>
 
         <div class="relative flex items-center border border-neutral-200 rounded-lg bg-white dark:border-neutral-800 dark:bg-neutral-900">
@@ -667,8 +700,19 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
             </button>
           </div>
 
-          <!-- suggested presets -->
-          <div v-if="aiSuggestions.length > 0" class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+          <!-- presets & suggestions tray -->
+          <div class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+            <!-- Dynamic Templates (Always Available) -->
+            <button
+              v-for="p in dynamicPresets"
+              :key="p.label"
+              class="cursor-pointer border border-primary-200/50 rounded bg-primary-50/20 px-2 py-0.5 text-[9px] text-primary-600 font-bold transition-all dark:border-primary-900/40 dark:bg-primary-950/10 hover:bg-primary-500/10 dark:text-primary-400"
+              @click="playgroundText = p.text"
+            >
+              {{ p.label }}
+            </button>
+
+            <!-- LLM Suggestions -->
             <button
               v-for="s in aiSuggestions"
               :key="s.title"
