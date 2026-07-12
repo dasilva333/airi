@@ -9,9 +9,14 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import * as v from 'valibot'
+
 import { useChatOrchestratorStore } from '../../../../stores/chat'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
+import { useLLM } from '../../../../stores/llm'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
+import { useProvidersStore } from '../../../../stores/providers'
 import { useSettingsControlStrip } from '../../../../stores/settings/control-strip'
 
 interface Props {
@@ -30,6 +35,9 @@ const airiCardStore = useAiriCardStore()
 const controlStripStore = useSettingsControlStrip()
 const displayModelsStore = useDisplayModelsStore()
 const orchestrator = useChatOrchestratorStore()
+const llmStore = useLLM()
+const consciousnessStore = useConsciousnessStore()
+const providersStore = useProvidersStore()
 
 const live2dStore = useLive2d()
 const mmdStore = useMmd()
@@ -38,6 +46,7 @@ const modelStore = useModelStore() // VRM
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { stageEnabled } = storeToRefs(controlStripStore)
+const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
 // Resolve Model Format
 const currentModel = computed(() => {
@@ -514,25 +523,82 @@ async function playRehearsal() {
   }
 }
 
+const aiSuggestions = ref<Array<{ title: string, dialogue: string }>>([])
 const isGeneratingAI = ref(false)
+
 async function suggestDialogue() {
   if (!activeCard.value)
     return
-  isGeneratingAI.value = true
-  try {
-    const available = rawExpressions.value.slice(0, 4).map(e => e.displayName).join(', ')
-    playgroundText.value = `Loading suggestion... using tokens: [${available}]`
+  if (!activeProvider.value || !activeModel.value) {
+    toast.error('No active LLM model or provider is selected. Configure them in settings first.')
+    return
+  }
 
-    setTimeout(() => {
-      const tag = rawExpressions.value[0]?.displayName || 'happy'
-      playgroundText.value = `<|ACT:emotion="${tag}"|> Oh, hello! I was just practicing in the Rehearsal Room.`
-      isGeneratingAI.value = false
-      toast.success('Dialogue script suggested!')
-    }, 1500)
+  isGeneratingAI.value = true
+  aiSuggestions.value = []
+
+  try {
+    const providerInstance = await providersStore.getProviderInstance(activeProvider.value)
+    if (!providerInstance) {
+      throw new Error('Failed to get active LLM provider instance.')
+    }
+
+    // Collect available keys
+    const emotionsList = rawExpressions.value.map(e => e.displayName)
+    const motionsList = rawMotions.value.map(m => m.displayName)
+
+    const systemPrompt = `You are a creative dialogue script designer for a VTuber/AI agent rehearsal sandbox.
+The user wants to generate 4 dialogue acting presets.
+The avatar has the following acting capabilities:
+- Available Emotions: [ ${emotionsList.join(', ') || 'None'} ]
+- Available Motions: [ ${motionsList.join(', ') || 'None'} ]
+
+Requirements for the dialogue presets:
+1. Generate exactly 4 presets.
+2. For each preset, create a short, punchy 1-2 word title (e.g., 'Shy Greeting', 'Surprised Gasps', 'Flustered Anger', 'Deep Thought').
+3. For each preset, write a natural dialogue line and embed <|ACT:emotion="key"|> or <|ACT:motion="key"|> tokens naturally inside the text.
+4. Try to make at least 2 presets use a single emotion/motion token, and 2 presets use a combination of both an emotion and a motion (if both lists have items).
+5. Only use the exact emotion and motion keys listed above. Do not invent new ones.
+
+Example output structure:
+Preset 1: Title: 'Happy Wave', Dialogue: '<|ACT:emotion="happy"|> Hello there! <|ACT:motion="wave"|> I am so glad to see you!'
+Preset 2: Title: 'Flustered Shock', Dialogue: '<|ACT:emotion="surprised"|> Wait! What do you mean by that?!'`
+
+    const schema = v.object({
+      suggestions: v.array(
+        v.object({
+          title: v.string(),
+          dialogue: v.string(),
+        }),
+      ),
+    })
+
+    const result = await llmStore.generateObject<any>(
+      activeModel.value,
+      providerInstance as any,
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Generate 4 creative acting presets.' },
+        ],
+        schema,
+      },
+    )
+
+    if (result && Array.isArray(result.suggestions)) {
+      aiSuggestions.value = result.suggestions
+      toast.success('Generated 4 new acting presets!')
+    }
+    else {
+      throw new Error('Invalid response structure.')
+    }
   }
   catch (err) {
+    console.error('AI suggestion failed:', err)
+    toast.error(`AI Suggestion failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  finally {
     isGeneratingAI.value = false
-    toast.error('AI suggestion failed.')
   }
 }
 
@@ -589,15 +655,29 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
           </button>
         </div>
 
-        <div class="mt-2 flex items-center justify-between">
-          <button
-            class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-medium transition-all hover:bg-primary-500/20 dark:text-primary-400"
-            :disabled="isGeneratingAI"
-            @click="suggestDialogue"
-          >
-            <div class="i-solar:magic-stick-3-bold-duotone" />
-            {{ isGeneratingAI ? 'Generating...' : 'Suggest Dialog' }}
-          </button>
+        <div class="mt-2 flex flex-col gap-2">
+          <div class="flex items-center">
+            <button
+              class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-medium transition-all hover:bg-primary-500/20 dark:text-primary-400"
+              :disabled="isGeneratingAI"
+              @click="suggestDialogue"
+            >
+              <div :class="isGeneratingAI ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:magic-stick-3-bold-duotone'" />
+              {{ isGeneratingAI ? 'Generating...' : 'Suggest Dialog' }}
+            </button>
+          </div>
+
+          <!-- suggested presets -->
+          <div v-if="aiSuggestions.length > 0" class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+            <button
+              v-for="s in aiSuggestions"
+              :key="s.title"
+              class="cursor-pointer border border-neutral-200 rounded bg-white px-2 py-0.5 text-[9px] text-neutral-600 font-medium transition-all dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+              @click="playgroundText = s.dialogue"
+            >
+              {{ s.title }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
