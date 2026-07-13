@@ -129,6 +129,15 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     }
 
     if (model.type === 'file') {
+      if (!model.file || typeof model.file.arrayBuffer !== 'function') {
+        console.warn(`[StageModel] Model file is missing or is not a valid Blob/File instance for model ${model.id}:`, model.file)
+        replaceStageModelUrl(undefined)
+        cleanupMmdTextures()
+        stageModelSelectedDisplayModel.value = undefined
+        stageModelSelectedFile.value = undefined
+        stageModelRenderer.value = 'disabled'
+        return
+      }
       // If we already have a URL for this exact file, don't re-create it.
       // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
       // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
@@ -186,10 +195,6 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         }
       }
       else {
-        if (!model.file) {
-          console.warn(`[StageModel] Model file is missing or undefined for model: ${model.id}`)
-          return
-        }
         const nextUrl = URL.createObjectURL(model.file)
         if (requestId !== stageModelUpdateSequence) {
           URL.revokeObjectURL(nextUrl)

@@ -113,9 +113,43 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
         if (val) {
-          if (!val.file) {
-            console.warn(`[DisplayModels] Model ${key} is missing file property! Skipping.`, val)
-            continue
+          if (!val.file || typeof val.file.arrayBuffer !== 'function') {
+            console.warn(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
+            const electron = (window as any).electron
+            if (electron?.ipcRenderer) {
+              try {
+                const res = await electron.ipcRenderer.invoke('byos-fs:read-file', {
+                  dir: '/Volumes/AIRI-Backup-Share/assets/models',
+                  relPath: `${key}.bin`,
+                  encoding: 'base64',
+                })
+                if (res?.success && res.content) {
+                  const byteCharacters = atob(res.content)
+                  const byteNumbers = new Uint8Array(byteCharacters.length)
+                  for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i)
+                  }
+                  const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
+                  val.file = restoredFile
+
+                  // Update IndexedDB
+                  await localforage.setItem(key, val)
+                  console.log(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
+                }
+                else {
+                  console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable.`, res?.error)
+                  continue
+                }
+              }
+              catch (healErr) {
+                console.error(`[DisplayModels] Self-healing error for ${key}:`, healErr)
+                continue
+              }
+            }
+            else {
+              console.warn(`[DisplayModels] Electron IPC not available. Cannot self-heal ${key}.`)
+              continue
+            }
           }
           models.push({
             id: key,
@@ -844,15 +878,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return { expressions: [], motions: [] }
     }
 
-    if (model.expressions && model.expressions.length > 0 && model.motions && model.motions.length > 0) {
-      return { expressions: model.expressions, motions: model.motions }
+    if ((model as any).capabilitiesLoaded || (model.expressions && model.expressions.length > 0) || (model.motions && model.motions.length > 0)) {
+      return { expressions: model.expressions || [], motions: model.motions || [] }
     }
 
     let file: File | Blob | null = null
     if (model.type === 'file') {
       const modelFromFile = await getDisplayModel(id)
-      if (modelFromFile && 'file' in modelFromFile) {
-        file = modelFromFile.file
+      if (modelFromFile && (modelFromFile as any).file && typeof (modelFromFile as any).file.arrayBuffer === 'function') {
+        file = (modelFromFile as any).file
       }
     }
     else {
@@ -957,12 +991,53 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
               const decoder = new TextDecoder()
               const gltf = JSON.parse(decoder.decode(jsonSlice))
 
-              // Standard VRM blendshape extraction
+              // 1. Standard VRM 0.x blendshapes
               const blendShapes = gltf.extensions?.VRM?.blendShapeMaster?.blendShapeGroups
               if (Array.isArray(blendShapes)) {
                 blendShapes.forEach((group: any) => {
                   if (group.name)
-                    expressions.push(group.name.toLowerCase())
+                    expressions.push(group.name)
+                })
+              }
+
+              // 2. VRM 1.0 (VRMC_vrm) expressions
+              const vrm1Expressions = gltf.extensions?.VRMC_vrm?.expressions
+              if (vrm1Expressions) {
+                if (Array.isArray(vrm1Expressions)) {
+                  vrm1Expressions.forEach((exp: any) => {
+                    if (exp.name)
+                      expressions.push(exp.name)
+                  })
+                }
+                else if (typeof vrm1Expressions === 'object') {
+                  Object.keys(vrm1Expressions).forEach((expKey) => {
+                    expressions.push(expKey)
+                  })
+                }
+              }
+
+              // 3. Raw Morph Target names (including numbered/hidden shape keys)
+              const meshes = gltf.meshes
+              if (Array.isArray(meshes)) {
+                meshes.forEach((mesh: any) => {
+                  if (mesh.primitives) {
+                    mesh.primitives.forEach((primitive: any) => {
+                      const targetNames = primitive.extras?.targetNames
+                      if (Array.isArray(targetNames)) {
+                        targetNames.forEach((tname: string) => {
+                          if (tname)
+                            expressions.push(tname)
+                        })
+                      }
+                    })
+                  }
+                  const meshTargetNames = mesh.extras?.targetNames
+                  if (Array.isArray(meshTargetNames)) {
+                    meshTargetNames.forEach((tname: string) => {
+                      if (tname)
+                        expressions.push(tname)
+                    })
+                  }
                 })
               }
               break
@@ -1014,11 +1089,19 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (model.type === 'file') {
       const fullModel = await localforage.getItem<any>(id)
       if (fullModel) {
-        fullModel.expressions = model.expressions
-        fullModel.motions = model.motions
-        await localforage.setItem(id, fullModel)
+        // Strip any Vue reactivity proxies that might be nested inside the retrieved object
+        const cleanModel = JSON.parse(JSON.stringify(fullModel))
+        cleanModel.expressions = [...model.expressions]
+        cleanModel.motions = [...model.motions]
+
+        // Restore the original Blob file since JSON.stringify converts Blobs to empty objects
+        cleanModel.file = fullModel.file
+
+        await localforage.setItem(id, cleanModel)
       }
     }
+
+    (model as any).capabilitiesLoaded = true
 
     return { expressions: model.expressions, motions: model.motions }
   }

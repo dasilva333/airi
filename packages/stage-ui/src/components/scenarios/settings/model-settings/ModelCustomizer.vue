@@ -175,6 +175,44 @@ async function saveMetadata() {
   }
 }
 
+function normalizeVrmKey(key: string): string {
+  // Strip prefixes
+  const prefixes = [
+    /^Face\.M_F00_000_00_Fcl_ALL_/i,
+    /^Face\.M_F00_000_00_Fcl_/i,
+    /^Face\.M_F00_000_00_/i,
+    /^Fcl_ALL_/i,
+    /^Fcl_BRW_/i,
+    /^Fcl_/i,
+    /^vrc\.v_/i,
+    /^vrc_/i,
+    /^vrc\./i,
+    /^INA-/i,
+    /^ARKit_BS\./i,
+    /^ARKit_/i,
+  ]
+  let clean = key
+  for (const p of prefixes) {
+    clean = clean.replace(p, '')
+  }
+
+  // Split camelCase
+  clean = clean.replace(/(?<=[a-z])(?=[A-Z])/g, ' ')
+  clean = clean.replace(/(?<=[A-Z])(?=[A-Z][a-z])/g, ' ')
+
+  // Replace delimiters with spaces
+  clean = clean.replace(/[_\-.]/g, ' ')
+
+  // Title Case
+  clean = clean.split(/\s+/).map((word) => {
+    if (!word)
+      return ''
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  }).join(' ').trim()
+
+  return clean || key
+}
+
 // Expression/motion lists driven by getOrLoadModelCapabilities (not live renderer stores).
 // isActive still reads from the renderer for on-stage feedback, but the list itself is
 // sourced from the model file — works whether or not the model is currently on stage.
@@ -201,7 +239,7 @@ const rawExpressions = computed<UnifiedExpression[]>(() => {
   if (mType === 'vrm') {
     return keys.map(key => ({
       key,
-      displayName: mappings[key] || key,
+      displayName: mappings[key] || normalizeVrmKey(key),
       isActive: false,
       actMapping: mappings[key],
       isFavorite: favorites.includes(key),
