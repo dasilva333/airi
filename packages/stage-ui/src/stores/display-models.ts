@@ -10,7 +10,7 @@ import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-t
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref, toRaw, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
@@ -1010,9 +1010,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     model.expressions = [...new Set(expressions)].sort((a, b) => a.localeCompare(b))
     model.motions = [...new Set(motions)].sort((a, b) => a.localeCompare(b))
 
-    // Save to IndexedDB
+    // Save to IndexedDB, loading the full DisplayModelFile first to avoid erasing the file property
     if (model.type === 'file') {
-      await localforage.setItem(id, toRaw(model))
+      const fullModel = await localforage.getItem<any>(id)
+      if (fullModel) {
+        fullModel.expressions = model.expressions
+        fullModel.motions = model.motions
+        await localforage.setItem(id, fullModel)
+      }
     }
 
     return { expressions: model.expressions, motions: model.motions }

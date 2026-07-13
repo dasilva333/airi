@@ -336,6 +336,7 @@ watch(
 
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'AIRI - Control Strip',
+  '/chat': 'AIRI - Chat Window',
   '/actor': 'AIRI - Looking at {character}',
   '/caption': 'AIRI - Captions',
   '/customizer': 'AIRI - Customizer',

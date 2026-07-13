@@ -186,6 +186,10 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         }
       }
       else {
+        if (!model.file) {
+          console.warn(`[StageModel] Model file is missing or undefined for model: ${model.id}`)
+          return
+        }
         const nextUrl = URL.createObjectURL(model.file)
         if (requestId !== stageModelUpdateSequence) {
           URL.revokeObjectURL(nextUrl)
