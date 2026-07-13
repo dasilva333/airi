@@ -883,7 +883,7 @@ async function handlePromptSave(newValue: string) {
       </div>
 
       <!-- Segment Toggle: Emotions / Motions -->
-      <div class="shrink-0 pb-1">
+      <div v-if="props.showRehearsalSandbox" class="shrink-0 pb-1">
         <div class="flex rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800">
           <button
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
