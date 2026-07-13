@@ -5,6 +5,7 @@ import type { I18n } from '../libs/i18n'
 import type { ServerChannel } from '../services/airi/channel-server'
 import type { setupBeatSync } from '../windows/beat-sync'
 import type { setupCaptionWindowManager } from '../windows/caption'
+import type { CustomizerWindowManager } from '../windows/customizer'
 import type { SettingsWindowManager } from '../windows/settings'
 import type { WidgetsWindowManager } from '../windows/widgets'
 
@@ -28,6 +29,7 @@ export function setupTray(params: {
   aboutWindow: () => Promise<BrowserWindow>
   chatWindow?: () => Promise<BrowserWindow>
   stageWindow: BrowserWindow
+  customizerWindow: CustomizerWindowManager
   serverChannel: ServerChannel
   i18n: I18n
   getConfig: () => any
@@ -72,6 +74,7 @@ export function setupTray(params: {
           },
         },
         { type: 'separator' },
+        { label: 'Customizer...', click: () => void params.customizerWindow.toggleVisibility() },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.settings'), click: () => void params.settingsWindow.openWindow('/settings') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.about'), click: () => params.aboutWindow().then(window => toggleWindowShow(window)) },
         { type: 'separator' },
