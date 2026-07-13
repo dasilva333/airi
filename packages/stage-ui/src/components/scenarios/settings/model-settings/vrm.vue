@@ -188,7 +188,7 @@ function handleAnimationSelect(animationName: string | number | undefined) {
 
       <div :class="settingsLockClass">
         <!-- === Expressions Tab === -->
-        <div v-if="activeCharacterTab === 'expressions'" flex="~ col gap-4" p-2>
+        <div v-if="activeCharacterTab === 'expressions'" class="min-w-0 w-full flex flex-col gap-4 overflow-hidden p-2">
           <VRMExpressions />
         </div>
 
