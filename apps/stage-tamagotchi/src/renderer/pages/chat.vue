@@ -86,6 +86,7 @@ const { width } = useWindowSize()
 const showRightPanel = computed(() => isRightPanelOpen.value && width.value >= 768 && activeSurface.value === 'messages')
 const mediaDisplayCount = ref(12)
 const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-collapsed', false)
+const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
 const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed', false)
 
 // Left Panel Routing States
@@ -858,6 +859,48 @@ function selectSurface(surface: typeof activeSurface.value) {
                       </p>
                     </div>
                   </template>
+                </div>
+              </div>
+
+              <!-- Current Scene Section -->
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <span
+                    :class="['flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase transition-colors',
+                             rightPanelCurrentSceneCollapsed
+                               ? 'bg-neutral-100/50 text-neutral-400 dark:bg-neutral-800/50'
+                               : 'bg-primary-50/50 text-primary-500 dark:bg-primary-950/30 dark:text-primary-400']"
+                    @click="rightPanelCurrentSceneCollapsed = !rightPanelCurrentSceneCollapsed"
+                  >
+                    Current Scene
+                    <span :class="rightPanelCurrentSceneCollapsed ? 'i-solar:eye-closed-linear' : 'i-solar:eye-linear'" class="text-xs" />
+                  </span>
+                </div>
+                <div v-if="!rightPanelCurrentSceneCollapsed">
+                  <template v-if="(interactiveAreaRef?.allImageEntries ?? []).length > 0">
+                    <div
+                      class="group relative aspect-[3/2] w-full cursor-pointer overflow-hidden border border-neutral-200/60 rounded-xl bg-neutral-200/50 transition-all dark:border-neutral-800/60 hover:border-primary-400 dark:bg-neutral-800/50 dark:hover:border-primary-500"
+                      @click="interactiveAreaRef?.openImagePreview?.((interactiveAreaRef?.allImageEntries ?? [])[0])"
+                    >
+                      <img
+                        v-if="(interactiveAreaRef?.allImageEntries ?? [])[0]?.url"
+                        :src="(interactiveAreaRef?.allImageEntries ?? [])[0]?.url"
+                        class="h-full w-full object-cover"
+                      >
+                      <div v-else class="h-full w-full" />
+                      <div class="absolute inset-0 flex items-end from-black/60 to-transparent bg-gradient-to-t p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <span class="truncate text-[9px] text-white font-medium leading-tight">
+                          {{ (interactiveAreaRef?.allImageEntries ?? [])[0]?.title }}
+                        </span>
+                      </div>
+                    </div>
+                  </template>
+                  <div
+                    v-else
+                    class="h-20 w-full flex items-center justify-center border border-neutral-200/60 rounded-xl border-dashed bg-neutral-100/40 text-[10px] text-neutral-400 dark:border-neutral-800/60 dark:bg-neutral-900/30"
+                  >
+                    No scene yet
+                  </div>
                 </div>
               </div>
 
