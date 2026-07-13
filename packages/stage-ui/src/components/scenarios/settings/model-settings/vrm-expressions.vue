@@ -152,7 +152,7 @@ function deleteOutfit(id: string) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="min-w-0 w-full flex flex-col gap-2 overflow-hidden">
     <div v-if="!hasExpressions" class="p-2 text-xs text-neutral-400">
       No expressions available. Load a VRM model first.
     </div>

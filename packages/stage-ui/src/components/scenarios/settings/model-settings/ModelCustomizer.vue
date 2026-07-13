@@ -946,12 +946,12 @@ async function handlePromptSave(newValue: string) {
           <div v-if="expressionsToRender.length === 0" class="py-8 text-center text-xs text-neutral-400">
             No expressions match filters
           </div>
-          <div v-else class="overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
+          <div v-else class="min-w-0 w-full overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
             <div
               v-for="exp in expressionsToRender"
               :key="exp.key"
               :class="[
-                'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors',
+                'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors min-w-0 w-full overflow-hidden',
                 exp.isActive ? 'bg-primary-50/30 dark:bg-primary-900/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
               ]"
             >
