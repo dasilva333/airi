@@ -11,6 +11,9 @@ import { toast } from 'vue-sonner'
 
 import * as v from 'valibot'
 
+// Prompt Instructions Generator Integration
+import ModelPromptGeneratorModal from './components/ModelPromptGeneratorModal.vue'
+
 import { useChatOrchestratorStore } from '../../../../stores/chat'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useLLM } from '../../../../stores/llm'
@@ -660,6 +663,86 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
   }
   toast.success(`Appended ${type} token to sandbox!`)
 }
+
+const showPromptGenerator = ref(false)
+
+const onSetModels = computed(() => {
+  if (!activeCard.value)
+    return []
+
+  const assets = (activeCard.value.extensions?.airi?.visual_assets || {}) as Record<string, any>
+  const modules = (activeCard.value.extensions?.airi?.modules || {}) as Record<string, any>
+
+  const list: Array<{
+    key: string
+    name: string
+    modelId: string
+    avatarUrl: string
+    isFallback: boolean
+  }> = []
+
+  // Check visual assets for per-actor manifestations
+  for (const key of Object.keys(assets)) {
+    const asset = assets[key] || {}
+    const mod = modules[key] || {}
+
+    const modelId = mod.manifestation?.modelId || asset.manifestation?.modelId
+    if (!modelId)
+      continue
+
+    let displayName = key
+    if (key === 'concept_user')
+      displayName = 'User Entity'
+    else
+      displayName = key.replace(/^(actor_|actress_)/, '').replace(/_/g, ' ')
+
+    list.push({
+      key,
+      name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+      modelId,
+      avatarUrl: '',
+      isFallback: false,
+    })
+  }
+
+  // Fallback Case: Simple/Gen1 card with no per-actor manifestations.
+  if (list.length === 0) {
+    const fallbackId = modules.displayModelId
+    if (fallbackId) {
+      const displayName = (activeCard.value as any).nickname || activeCard.value.name || 'Primary Actor'
+      list.push({
+        key: 'actor_primary',
+        name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+        modelId: fallbackId,
+        avatarUrl: '',
+        isFallback: true,
+      })
+    }
+  }
+
+  return list
+})
+
+async function handlePromptSave(newValue: string) {
+  if (!activeCard.value || !activeCardId.value)
+    return
+
+  const currentActing = activeCard.value.extensions?.airi?.acting || {}
+
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions.airi,
+        acting: {
+          ...currentActing,
+          modelExpressionPrompt: newValue,
+        },
+      },
+    },
+  })
+  toast.success('Acting instructions updated successfully on character card!')
+}
 </script>
 
 <template>
@@ -689,7 +772,7 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
         </div>
 
         <div class="mt-2 flex flex-col gap-2">
-          <div class="flex items-center">
+          <div class="flex flex-wrap items-center gap-2">
             <button
               class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-medium transition-all hover:bg-primary-500/20 dark:text-primary-400"
               :disabled="isGeneratingAI"
@@ -698,30 +781,42 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
               <div :class="isGeneratingAI ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:magic-stick-3-bold-duotone'" />
               {{ isGeneratingAI ? 'Generating...' : 'Suggest Dialog' }}
             </button>
-          </div>
 
-          <!-- presets & suggestions tray -->
-          <div class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
-            <!-- Dynamic Templates (Always Available) -->
             <button
-              v-for="p in dynamicPresets"
-              :key="p.label"
-              class="cursor-pointer border border-primary-200/50 rounded bg-primary-50/20 px-2 py-0.5 text-[9px] text-primary-600 font-bold transition-all dark:border-primary-900/40 dark:bg-primary-950/10 hover:bg-primary-500/10 dark:text-primary-400"
-              @click="playgroundText = p.text"
+              class="flex cursor-pointer items-center gap-1 rounded bg-indigo-500/10 px-2.5 py-1 text-[10px] text-indigo-600 font-medium transition-all hover:bg-indigo-500/20 dark:text-indigo-400"
+              @click="showPromptGenerator = true"
             >
-              {{ p.label }}
-            </button>
-
-            <!-- LLM Suggestions -->
-            <button
-              v-for="s in aiSuggestions"
-              :key="s.title"
-              class="cursor-pointer border border-neutral-200 rounded bg-white px-2 py-0.5 text-[9px] text-neutral-600 font-medium transition-all dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-              @click="playgroundText = s.dialogue"
-            >
-              {{ s.title }}
+              <div class="i-ph:sparkle animate-pulse text-[10px]" />
+              Generate Acting Instructions
             </button>
           </div>
+
+          <p class="text-[9px] text-neutral-400 leading-normal dark:text-neutral-500">
+            Clicking this compiles all visible emotions, motions, and actor profiles into detailed markdown instructions that teach the AI how and when to emote. You can save these instructions directly to your character card's system settings.
+          </p>
+        </div>
+
+        <!-- presets & suggestions tray -->
+        <div class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+          <!-- Dynamic Templates (Always Available) -->
+          <button
+            v-for="p in dynamicPresets"
+            :key="p.label"
+            class="cursor-pointer border border-primary-200/50 rounded bg-primary-50/20 px-2 py-0.5 text-[9px] text-primary-600 font-bold transition-all dark:border-primary-900/40 dark:bg-primary-950/10 hover:bg-primary-500/10 dark:text-primary-400"
+            @click="playgroundText = p.text"
+          >
+            {{ p.label }}
+          </button>
+
+          <!-- LLM Suggestions -->
+          <button
+            v-for="s in aiSuggestions"
+            :key="s.title"
+            class="cursor-pointer border border-neutral-200 rounded bg-white px-2 py-0.5 text-[9px] text-neutral-600 font-medium transition-all dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            @click="playgroundText = s.dialogue"
+          >
+            {{ s.title }}
+          </button>
         </div>
       </div>
     </div>
@@ -1084,5 +1179,14 @@ function appendToPlayground(type: 'emotion' | 'motion', key: string) {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Prompt Instructions Generator Modal -->
+    <ModelPromptGeneratorModal
+      v-model="showPromptGenerator"
+      :active-emotions="rawExpressions.filter(e => e.isVisible).map(e => e.displayName)"
+      :active-motions="Object.values(motionsToRender).flat().map(m => m.displayName)"
+      :on-set-models="onSetModels"
+      @save="handlePromptSave"
+    />
   </div>
 </template>

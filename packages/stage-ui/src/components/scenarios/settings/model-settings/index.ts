@@ -1,3 +1,4 @@
+export { default as ModelPromptGeneratorModal } from './components/ModelPromptGeneratorModal.vue'
 export { default as ModelSettings } from './index.vue'
 export { default as LHackerPanel } from './live2d-lhack/LHackerPanel.vue'
 export { default as ModelCustomizer } from './ModelCustomizer.vue'
