@@ -146,6 +146,7 @@ export async function setupActorStageWindow(params: {
   })
 
   window.on('show', () => {
+    isStageVisible = true
     const mainWin = BrowserWindow.getAllWindows().find(w => (w as any).__is_main_window === true)
     if (mainWin && !mainWin.isDestroyed()) {
       mainWin.webContents.send('stage-window-state', true)
@@ -153,6 +154,7 @@ export async function setupActorStageWindow(params: {
   })
 
   window.on('hide', () => {
+    isStageVisible = false
     const mainWin = BrowserWindow.getAllWindows().find(w => (w as any).__is_main_window === true)
     if (mainWin && !mainWin.isDestroyed()) {
       mainWin.webContents.send('stage-window-state', false)
