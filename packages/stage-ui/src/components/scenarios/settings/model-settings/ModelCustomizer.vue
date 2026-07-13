@@ -972,17 +972,17 @@ async function handlePromptSave(newValue: string) {
                     >
                   </template>
                   <template v-else>
-                    <span class="block truncate text-sm text-neutral-900 font-medium dark:text-neutral-100">
-                      <span v-if="exp.isFavorite" class="mr-0.5" title="Favorite">⭐</span>
-                      {{ exp.displayName }}
+                    <div class="min-w-0 w-44 flex items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                      <span v-if="exp.isFavorite" class="shrink-0" title="Favorite">⭐</span>
+                      <span class="min-w-0 w-44 flex-1 truncate">{{ exp.displayName }}</span>
                       <span
                         v-if="exp.actMapping"
-                        class="ml-1 rounded bg-primary-100 px-1 text-[10px] opacity-60 dark:bg-primary-900"
+                        class="ml-1 shrink-0 rounded bg-primary-100 px-1 text-[10px] opacity-60 dark:bg-primary-900"
                         :title="`ACT: ${exp.actMapping}`"
                       >{{ exp.actMapping }}</span>
-                    </span>
+                    </div>
                   </template>
-                  <span class="block truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
+                  <span class="block w-44 truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
                 </div>
               </div>
 
@@ -999,6 +999,7 @@ async function handlePromptSave(newValue: string) {
                 </button>
                 <!-- ACT Mapping -->
                 <button
+                  v-if="props.showRehearsalSandbox"
                   class="cursor-pointer rounded p-1 transition-colors"
                   :class="exp.actMapping
                     ? 'text-primary-500 hover:text-primary-600 bg-primary-500/10'
