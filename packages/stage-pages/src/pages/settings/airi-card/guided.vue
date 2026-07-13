@@ -65,6 +65,7 @@ interface StoryIdea {
 }
 const storyIdeas = ref<StoryIdea[]>([])
 const activeSuggestionIndex = ref<number | null>(null)
+const copiedIdx = ref<number | null>(null)
 const isSuggestingIdeas = ref(false)
 const suggestionGuidance = ref('')
 const showSuggestions = ref(false)
@@ -405,6 +406,19 @@ function applySuggestion(idx: number) {
   storyPrompt.value.setting = idea.location
   storyPrompt.value.nickname = idea.nickname
   storyPrompt.value.lore = idea.lore
+}
+
+async function copyIdeaToClipboard(idx: number) {
+  const idea = storyIdeas.value[idx]
+  if (!idea)
+    return
+  const text = `Nickname: ${idea.nickname}\nLocation: ${idea.location}\nLore: ${idea.lore}`
+  await navigator.clipboard.writeText(text)
+  copiedIdx.value = idx
+  setTimeout(() => {
+    if (copiedIdx.value === idx)
+      copiedIdx.value = null
+  }, 1500)
 }
 
 // Card Synthesis Pipeline
@@ -1252,12 +1266,35 @@ async function confirmCreateCard() {
                   ]"
                   @click="applySuggestion(idx)"
                 >
-                  <div class="text-xs text-neutral-100 font-bold leading-snug">
-                    {{ idea.title }}
+                  <!-- Title row with clipboard button -->
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="text-xs text-neutral-100 font-bold leading-snug">
+                      {{ idea.title }}
+                    </div>
+                    <button
+                      class="shrink-0 rounded-md p-0.5 text-neutral-600 transition-colors hover:text-neutral-300 focus:outline-none"
+                      :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
+                      @click.stop="copyIdeaToClipboard(idx)"
+                    >
+                      <div
+                        :class="copiedIdx === idx ? 'i-solar:check-circle-bold text-primary-400' : 'i-solar:clipboard-text-bold'"
+                        class="text-[13px]"
+                      />
+                    </button>
                   </div>
-                  <div class="mt-0.5 truncate text-[10px] text-neutral-500">
-                    {{ idea.location }} · <span class="italic">{{ idea.nickname }}</span>
+                  <!-- Inactive: nickname · location, truncated -->
+                  <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500">
+                    <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
                   </div>
+                  <!-- Active: nickname · location (no truncate) + lore below -->
+                  <template v-else>
+                    <div class="mt-0.5 text-[10px] text-neutral-500">
+                      <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
+                    </div>
+                    <div class="mt-1 text-[10px] text-neutral-400 leading-relaxed">
+                      {{ idea.lore }}
+                    </div>
+                  </template>
                 </button>
               </template>
 
