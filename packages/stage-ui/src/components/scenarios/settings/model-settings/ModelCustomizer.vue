@@ -357,7 +357,7 @@ const hasTechnicalKeys = computed(() => {
 
 // Trigger Click-to-Effectuate on Stage
 function triggerExpressionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (props.showRehearsalSandbox && !stageEnabled.value) {
     toast.error('Stage window must be open to preview expressions.')
     return
   }
@@ -381,7 +381,7 @@ function triggerExpressionEffect(key: string) {
 }
 
 function triggerMotionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (props.showRehearsalSandbox && !stageEnabled.value) {
     toast.error('Stage window must be open to preview motions.')
     return
   }
