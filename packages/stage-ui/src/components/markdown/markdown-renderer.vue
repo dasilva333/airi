@@ -5,6 +5,7 @@ import { healMozibake } from '@proj-airi/stage-shared'
 import { onMounted, ref, watch, watchPostEffect } from 'vue'
 
 import { useMarkdown } from '../../composables/markdown'
+import { useBackgroundStore } from '../../stores/background'
 
 interface Props {
   content: string
@@ -81,9 +82,6 @@ async function processContent() {
     return
   }
 
-  // const sample = props.content.slice(0, 10).split('').map(c => `${c} (0x${c.charCodeAt(0).toString(16)})`).join(', ')
-  // console.debug(`[MarkdownRenderer] Healing input (sample: ${sample})...`)
-
   let healed = healMozibake(props.content)
 
   // FAILSAFE: Level 2 Literal Mappings directly in component to bypass potential shared-package cache stale
@@ -115,88 +113,45 @@ async function processContent() {
     // console.debug('[MarkdownRenderer] No changes made by healer.')
   }
 
-  try {
-    let rawCompiled = await process(healed)
+  const backgroundStore = useBackgroundStore()
 
-    // Resolve any image tag sources to their local IndexedDB Object URLs if the title matches a background entry
-    if (rawCompiled.includes('<img')) {
-      const { useBackgroundStore } = await import('../../stores/background')
-      const backgroundStore = useBackgroundStore()
+  // Pre-process: resolve inline image markdown URLs by title from the background store.
+  // This handles spawnMode=inline images whose ComfyUI src is ephemeral but whose
+  // blob is durably stored in IndexedDB under a matching title.
+  // We operate on the raw markdown string here (before compilation) to avoid any DOM parsing.
+  if (healed.includes('![')) {
+    healed = healed.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (_match, alt, src) => {
+      if (!src.startsWith('http://') && !src.startsWith('https://') && !src.includes('ComfyUI'))
+        return _match // leave non-remote/non-ComfyUI URLs untouched
 
-      // Parse compiled HTML to find <img> elements
-      const parser = new DOMParser()
-      const doc = parser.parseFromString(rawCompiled, 'text/html')
-      const imgs = doc.querySelectorAll('img')
-      let modified = false
-
-      for (const img of imgs) {
-        const altText = img.getAttribute('alt') || img.getAttribute('title') || ''
-        const currentSrc = img.getAttribute('src') || ''
-
-        if (altText && (currentSrc.includes('ComfyUI_temp') || currentSrc.startsWith('http://') || currentSrc.startsWith('https://') || currentSrc.startsWith('local:'))) {
-          // Look up in background entries for a matching title
-          const cleanAlt = altText.trim().toLowerCase()
-          const matchedBg = Array.from(backgroundStore.entries.values()).find(
-            bg => bg.title.trim().toLowerCase() === cleanAlt,
-          )
-
-          if (matchedBg) {
-            const objectUrl = backgroundStore.getBackgroundUrl(matchedBg.id)
-            if (objectUrl) {
-              img.setAttribute('src', objectUrl)
-              modified = true
-            }
-          }
+      const cleanAlt = alt.trim().toLowerCase()
+      const matchedBg = Array.from(backgroundStore.entries.values()).find(
+        bg => bg.title.trim().toLowerCase() === cleanAlt,
+      )
+      if (matchedBg) {
+        const objectUrl = backgroundStore.getBackgroundUrl(matchedBg.id)
+        if (objectUrl) {
+          console.log('[MarkdownRenderer] resolved inline image by title:', alt, '->', objectUrl)
+          return `![${alt}](${objectUrl})`
         }
       }
+      return _match
+    })
+  }
 
-      if (modified) {
-        rawCompiled = doc.body.innerHTML
-      }
-    }
+  // Allow blob: URLs so that background store object URLs survive DOMPurify sanitization
+  const sanitizeConfig = {
+    ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  }
 
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled))
+  try {
+    const rawCompiled = await process(healed)
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig))
   }
   catch (error) {
     console.warn('Failed to process markdown with syntax highlighting, using fallback:', error)
-    let rawCompiled = processSync(healed)
-
-    // Fallback logic for basic compiled processing
-    if (rawCompiled.includes('<img')) {
-      try {
-        const { useBackgroundStore } = await import('../../stores/background')
-        const backgroundStore = useBackgroundStore()
-        const parser = new DOMParser()
-        const doc = parser.parseFromString(rawCompiled, 'text/html')
-        const imgs = doc.querySelectorAll('img')
-        let modified = false
-
-        for (const img of imgs) {
-          const altText = img.getAttribute('alt') || img.getAttribute('title') || ''
-          const currentSrc = img.getAttribute('src') || ''
-          if (altText && (currentSrc.includes('ComfyUI_temp') || currentSrc.startsWith('http://') || currentSrc.startsWith('https://') || currentSrc.startsWith('local:'))) {
-            const cleanAlt = altText.trim().toLowerCase()
-            const matchedBg = Array.from(backgroundStore.entries.values()).find(
-              bg => bg.title.trim().toLowerCase() === cleanAlt,
-            )
-
-            if (matchedBg) {
-              const objectUrl = backgroundStore.getBackgroundUrl(matchedBg.id)
-              if (objectUrl) {
-                img.setAttribute('src', objectUrl)
-                modified = true
-              }
-            }
-          }
-        }
-        if (modified) {
-          rawCompiled = doc.body.innerHTML
-        }
-      }
-      catch (err) {}
-    }
-
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled))
+    const rawCompiled = processSync(healed)
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig))
   }
 }
 
@@ -472,6 +427,19 @@ function scheduleHighlight() {
 watch(() => props.content, () => {
   lastMatchIndex = 0
   processContent()
+}, { immediate: true })
+
+// Re-process when the background store finishes loading so that inline images
+// written by title (spawnMode=inline) are resolved even if the store wasn't
+// ready on the first processContent() call (race condition on session restore).
+const backgroundStore = useBackgroundStore()
+watch(() => backgroundStore.loading, (isLoading) => {
+  if (props.content?.startsWith('![')) {
+    console.log('[MarkdownRenderer] background store loading:', isLoading, props.content)
+    if (!isLoading) {
+      processContent()
+    }
+  }
 }, { immediate: true })
 
 // FIX: Only watch activeText/activeColor — NOT processedContent.
