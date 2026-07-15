@@ -4,7 +4,7 @@ import type { ChatHistoryItem } from '../types/chat'
 
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import * as v from 'valibot'
 
@@ -109,7 +109,14 @@ export function useProducer() {
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
   const cacheAligned = useLocalStorage('airi:producer:cache-aligned', false)
-  const customPromptTemplate = useLocalStorage('airi:producer:system-prompt-template', DEFAULT_SYSTEM_PROMPT_TEMPLATE)
+  const airiCardStore = useAiriCardStore()
+  const customPromptTemplate = useLocalStorage(
+    computed(() => `airi:producer:system-prompt-template:${airiCardStore.activeCardId || 'global'}`),
+    () => {
+      const legacy = localStorage.getItem('airi:producer:system-prompt-template')
+      return legacy || DEFAULT_SYSTEM_PROMPT_TEMPLATE
+    },
+  )
 
   const loading = ref(false)
   const error = ref<string | null>(null)

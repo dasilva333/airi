@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 
 import { DEFAULT_SYSTEM_PROMPT_TEMPLATE } from '../../../composables/use-producer'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
 
 const props = defineProps<{
   modelValue: boolean
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const chatSessionStore = useChatSessionStore()
+const airiCardStore = useAiriCardStore()
 
 const guidance = ref('')
 const contextDepth = useLocalStorage('airi:producer:context-depth', 6)
@@ -28,7 +30,13 @@ const shortReplies = useLocalStorage('airi:producer:short-replies', true)
 
 const cacheAligned = useLocalStorage('airi:producer:cache-aligned', false)
 const showPromptEditor = ref(false)
-const customPromptTemplate = useLocalStorage('airi:producer:system-prompt-template', DEFAULT_SYSTEM_PROMPT_TEMPLATE)
+const customPromptTemplate = useLocalStorage(
+  computed(() => `airi:producer:system-prompt-template:${airiCardStore.activeCardId || 'global'}`),
+  () => {
+    const legacy = localStorage.getItem('airi:producer:system-prompt-template')
+    return legacy || DEFAULT_SYSTEM_PROMPT_TEMPLATE
+  },
+)
 
 const boundaryMessage = computed(() => {
   const sessionId = chatSessionStore.activeSessionId
