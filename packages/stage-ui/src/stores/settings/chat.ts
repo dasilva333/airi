@@ -2,9 +2,11 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 
 export type ChatSendMode = 'enter' | 'ctrl-enter' | 'double-enter'
+export type ChatSuggestMode = 'enter' | 'ctrl-enter' | 'double-enter' | 'disabled'
 
 export const useSettingsChat = defineStore('settings-chat', () => {
   const sendMode = useLocalStorageManualReset<ChatSendMode>('settings/chat/send-mode', 'enter')
+  const suggestMode = useLocalStorageManualReset<ChatSuggestMode>('settings/chat/suggest-mode', 'double-enter')
   const streamIdleTimeoutMs = useLocalStorageManualReset<number>('settings/chat/stream-idle-timeout-ms', 600000)
   const showDirectorNotes = useLocalStorageManualReset<boolean>('settings/chat/show-director-notes', true)
   const combineSystemMessages = useLocalStorageManualReset<boolean>('settings/chat/combine-system-messages', false)
@@ -16,6 +18,7 @@ export const useSettingsChat = defineStore('settings-chat', () => {
 
   function resetState() {
     sendMode.reset()
+    suggestMode.reset()
     streamIdleTimeoutMs.reset()
     showDirectorNotes.reset()
     combineSystemMessages.reset()
@@ -23,6 +26,7 @@ export const useSettingsChat = defineStore('settings-chat', () => {
 
   return {
     sendMode,
+    suggestMode,
     streamIdleTimeoutMs,
     showDirectorNotes,
     combineSystemMessages,

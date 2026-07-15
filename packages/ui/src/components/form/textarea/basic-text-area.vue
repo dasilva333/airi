@@ -4,10 +4,12 @@ import { ref, watch } from 'vue'
 const props = defineProps<{
   defaultHeight?: string
   sendMode?: 'enter' | 'ctrl-enter' | 'double-enter'
+  suggestMode?: 'enter' | 'ctrl-enter' | 'double-enter' | 'disabled'
 }>()
 
 const events = defineEmits<{
   (event: 'submit', message: string): void
+  (event: 'suggest'): void
   (event: 'attach', files: File[]): void
 }>()
 
@@ -28,8 +30,39 @@ function onKeyDown(e: KeyboardEvent) {
     return
 
   const sendMode = props.sendMode || 'enter'
+  const suggestMode = props.suggestMode || 'disabled'
   const hasPrimaryModifier = e.ctrlKey || e.metaKey
 
+  // --- Suggest mode handling ---
+  if (suggestMode !== 'disabled' && !e.shiftKey) {
+    const matchesSuggest
+      = (suggestMode === 'enter' && !hasPrimaryModifier)
+        || (suggestMode === 'ctrl-enter' && hasPrimaryModifier)
+        || (suggestMode === 'double-enter' && !hasPrimaryModifier)
+
+    if (matchesSuggest) {
+      if (suggestMode === 'double-enter') {
+        const now = Date.now()
+        if (now - lastEnterAt.value <= 350) {
+          // Second Enter within window → fire suggest
+          e.preventDefault()
+          lastEnterAt.value = 0
+          events('suggest')
+          return
+        }
+        // First Enter → record the timestamp NOW before any send-mode branch can return early
+        lastEnterAt.value = now
+      }
+      else {
+        // Non-double-enter suggest modes fire immediately
+        e.preventDefault()
+        events('suggest')
+        return
+      }
+    }
+  }
+
+  // --- Send mode handling ---
   if (sendMode === 'enter') {
     if (!e.shiftKey && !hasPrimaryModifier) {
       e.preventDefault()

@@ -1181,6 +1181,7 @@ defineExpose({
       <BasicTextarea
         v-model="messageInput"
         :send-mode="settingsChat.sendMode"
+        :suggest-mode="settingsChat.suggestMode"
         :placeholder="t('stage.message')"
         class="ph-no-capture w-full pr-36"
         text="primary-600 dark:primary-100 placeholder:primary-500 dark:placeholder:primary-200"
@@ -1190,6 +1191,7 @@ defineExpose({
         shrink-0 resize-none overflow-y-scroll rounded-xl p-2 font-medium outline-none
         transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
         @submit="handleSend"
+        @suggest="messageInput.trim() && handleQuickSuggest()"
         @compositionstart="isComposing = true"
         @compositionend="isComposing = false"
         @attach="handleFilePaste"

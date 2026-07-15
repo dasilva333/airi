@@ -417,6 +417,26 @@ function selectSurface(surface: typeof activeSurface.value) {
                   </button>
                 </div>
 
+                <!-- Section: Suggest Mode -->
+                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Suggest Mode
+                </div>
+                <div class="mx-2 mb-1.5 flex gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-900">
+                  <button
+                    v-for="mode in (['disabled', 'enter', 'ctrl-enter', 'double-enter'] as const)"
+                    :key="mode"
+                    :class="[
+                      'flex-1 py-1 text-[10px] font-bold rounded-md transition-all text-center whitespace-nowrap',
+                      settingsChat.suggestMode === mode
+                        ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="settingsChat.suggestMode = mode"
+                  >
+                    {{ mode === 'disabled' ? 'Off' : mode === 'enter' ? 'Enter' : mode === 'ctrl-enter' ? 'Ctrl+↵' : 'Double' }}
+                  </button>
+                </div>
+
                 <!-- Section: Chat Layout -->
                 <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
                   Chat Layout
