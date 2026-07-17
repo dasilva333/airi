@@ -18,11 +18,11 @@ graph TD
     A[User Chat Input] -->|Regex/LLM classification| B{Is Motion Request?}
     B -->|No| C[Normal Chat Flow]
     B -->|Yes| D[Motion Spec LLM Pipeline]
-    
+
     D -->|Generate custom JSON| E[Client-Side VRMA Builder]
     E -->|Convert Euler to Quat & build GLB buffer| F[VRMA Retargeter]
     F -->|Load into Pixiv three-vrm-animation| G[Active VRM Character Render Loop]
-    
+
     E -->|Cache compiled buffer| H[Local Motion Cache IndexedDB]
     H -->|Query before calling LLM| B
 ```
@@ -68,13 +68,13 @@ The LLM outputs an intermediate JSON representation of keyframes:
 
 ### A. Generation Latency
 * **Challenge**: LLM response times for generating complex JSON objects can range between 5 and 20 seconds.
-* **Mitigation**: 
+* **Mitigation**:
   1. Maintain a **pre-generated library** of common actions (walk, wave, jump, bow) stored locally for instant retrieval.
   2. Implement an **asynchronous loader/waiting animation** on the character (e.g., looking thoughtful or tapping foot) while the motion is compiling in the background.
 
 ### B. Bone Collision and Deformities
 * **Challenge**: The LLM might output angles that cause hands to clip through the face/torso or limbs to bend in unnatural, "broken" ways.
-* **Mitigation**: 
+* **Mitigation**:
   1. Implement a **client-side safety validator** to clamp maximum bone rotations.
   2. Keep forearms locked to safe rotation ranges (clamping lower arm X/Y/Z) and auto-correct hands to rest positions.
 
@@ -163,7 +163,7 @@ By placing a **Deterministic Motion Generator** directly inside the Rehearsal Ro
 ### The Sandbox Workflow & UI Layout
 
 Instead of hijacking the existing purple **{clapperboard}** button (which parses and plays back act tokens in dialogue), we introduce a secondary action button next to it:
-* **UI Elements**: 
+* **UI Elements**:
   * The primary button is labeled **"Simulate"** (or **"Act"**) with the **{clapperboard}** icon.
   * The secondary button is labeled **"Generate Motion"** with an action icon (e.g. `{iconForMotion}`).
 * **Conditional Rendering**:
@@ -205,17 +205,36 @@ This creates a seamless progression:
 
 ---
 
-## 8. Future-Proofing: Engine-Agnostic Outputs (VMD / MMD Compatibility)
+## 8. Future-Proofing: Engine-Agnostic Outputs (VMD & Live2D Compatibility)
 
-A major benefit of separating the **LLM Motion Specification (JSON)** from the **Binary Compiler** is that the intermediate motion representation is completely engine-agnostic. 
+A major benefit of separating the **LLM Motion Specification (JSON)** from the **Binary Compiler** is that the intermediate motion representation is completely engine-agnostic. The LLM describes motion intent, and the client-side compile layer targets the specific format required by the model type.
 
+---
+
+### A. VMD / MMD Compatibility (3D Alternate)
 In theory, the same LLM prompt mapping and coordinate systems can be adapted to compile **VMD (Vocaloid Motion Data)** binary files to support MikuMikuDance (MMD) style models inside the Stage renderer.
 
-### Adaptability Requirements
+#### Adaptability Requirements
 To adapt the generator pipeline for MMD/VMD outputs, we would only need to swap `vrmaBuilder.js` with a new `vmdBuilder.js` handling:
 1. **Bone Name Translation**: MMD targets legacy Japanese bone identifiers. The translation mapping layer would map English humanoid bones (e.g., `leftUpperArm`) to MMD standard labels (e.g., `"左腕"`).
-2. **Binary Struct Packaging**: Serialize the keyframe tracks directly into the packed binary structs required by the VMD file format specifications (handling header blocks, flat keyframe lists, and 4-byte float/rotation arrays).
+2. **Binary Struct Packaging**: Serialize the keyframe tracks directly into the packed binary structs required by the VMD file format specifications.
 3. **Orientation Adjustments**: Perform coordinate transformation adjustments to align standard VRM T-pose offsets with MMD rest-pose offsets.
+
+---
+
+### B. Live2D `.motion3.json` Compatibility (2D Target)
+Live2D models drive animations through scalar **Parameters** (e.g., head angle yaw, body lean, eye open weight) typically mapped between `-1.0` and `1.0`. Generating these is mathematically simpler for the LLM than 3D bone rotations.
+
+#### Adaptability Requirements
+To compile the intermediate motion intent into a Live2D-compatible motion file:
+1. **Unified Intent Mapping**: Translate skeletal intents (e.g., `look_left: 0.8`) into specific Live2D parameter offsets (`ParamAngleX: 24.0`, `ParamBodyAngleX: 4.0`).
+2. **Parameter Metadata Ingestion**: Read the model's supported parameter keys and limits from the active `.model3.json` file.
+3. **Curve Compilation**: Feed these curves into a `live2dMotionBuilder.js` module that generates standard Cubism-compatible `.motion3.json` keyframes with Bezier/linear segment interpolation.
+4. **Rehearsal Room Conditioning**: Show/hide the respective compiler outputs conditionally based on the active character's model type:
+   ```html
+   <button v-if="activeCharacter.modelType === 'live2d'">Generate Live2D Motion</button>
+   ```
+
 
 
 
