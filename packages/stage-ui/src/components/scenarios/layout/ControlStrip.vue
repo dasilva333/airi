@@ -490,8 +490,11 @@ function triggerSelfie() {
     if (selfieCountdown.value === 0) {
       clearInterval(interval)
       selfieCountdown.value = null
-      console.log('[ControlStrip] Broadcast stage capture request for character:', activeCardId.value, 'includeBg:', selfieIncludeBg.value)
-      postCapture({ characterId: activeCardId.value, includeBg: selfieIncludeBg.value })
+      // Wait for the UI/viewfinder overlay to fully hide before triggering capture
+      setTimeout(() => {
+        console.log('[ControlStrip] Broadcast stage capture request for character:', activeCardId.value, 'includeBg:', selfieIncludeBg.value)
+        postCapture({ characterId: activeCardId.value, includeBg: selfieIncludeBg.value })
+      }, 500)
     }
   }, 1000)
 }

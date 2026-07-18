@@ -54,10 +54,13 @@ function handleSelfieClick() {
     }
     selfieCountdown.value--
     if (selfieCountdown.value === 0) {
+      clearInterval(interval)
       selfieCountdown.value = null
       postViewfinderState({ active: false, countdown: null })
-      postCapture({ characterId: props.id, includeBg: true })
-      clearInterval(interval)
+      // Wait for the UI/viewfinder overlay to fully hide before triggering capture
+      setTimeout(() => {
+        postCapture({ characterId: props.id, includeBg: true })
+      }, 500)
     }
     else {
       postViewfinderState({ active: true, countdown: selfieCountdown.value })

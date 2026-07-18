@@ -34,7 +34,7 @@ import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { BasicTextarea, Button } from '@proj-airi/ui'
 import { useLocalStorage, watchDebounced } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
+import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -67,6 +67,25 @@ const { activeModel, activeProvider } = storeToRefs(useConsciousnessStore())
 const settingsChat = useSettingsChat()
 const isComposing = ref(false)
 const CHAT_WINDOW_TITLE = 'AIRI - Chat Window'
+
+const isWandMenuOpen = ref(false)
+const isSendMenuOpen = ref(false)
+const magicWandSeen = useLocalStorage('airi:onboarding:magic-wand-seen', false)
+const isTooltipOpen = ref(false)
+
+function dismissTooltip() {
+  magicWandSeen.value = true
+  isTooltipOpen.value = false
+}
+
+watch(messageInput, (newVal) => {
+  if (newVal.trim().length > 0 && !magicWandSeen.value) {
+    isTooltipOpen.value = true
+  }
+  else {
+    isTooltipOpen.value = false
+  }
+})
 
 const isMemoriesCollapsed = useLocalStorage('airi:chat:memories-collapsed', false)
 const isMediaCollapsed = useLocalStorage('airi:chat:media-collapsed', false)
@@ -1055,7 +1074,7 @@ defineExpose({
     <!-- Ephemeral Grounding Preview Block -->
     <div
       v-if="activeCard?.extensions?.airi?.groundingEnabled || (activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0) || (activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length) || (activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad)"
-      class="grounding-preview-panel relative mx-2 flex flex-col border border-amber-500/20 rounded-lg bg-black/40 p-2 text-sm text-amber-200 font-mono shadow-[0_0_15px_rgba(245,158,11,0.05)] backdrop-blur-md transition-colors hover:bg-black/60"
+      class="grounding-preview-panel relative mx-2 flex flex-col border border-amber-300 rounded-lg bg-amber-50/70 p-2 text-sm text-amber-900 font-mono shadow-[0_0_15px_rgba(245,158,11,0.05)] backdrop-blur-md transition-colors dark:border-amber-500/20 dark:bg-black/40 hover:bg-amber-100/80 dark:text-amber-200 dark:hover:bg-black/60"
     >
       <div class="pointer-events-none absolute inset-0 bg-[length:100%_4px] bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.1)_50%)] opacity-20" />
 
@@ -1063,46 +1082,46 @@ defineExpose({
       <div class="z-10 flex select-none items-center justify-between">
         <div class="flex flex-wrap items-center gap-2">
           <span class="i-solar:cpu-bolt-bold-duotone animate-pulse text-amber-500" />
-          <span class="text-[10px] text-amber-300 font-bold tracking-widest uppercase">Pre-Flight Grounding Active</span>
+          <span class="text-[10px] text-amber-800 font-bold tracking-widest uppercase dark:text-amber-300">Pre-Flight Grounding Active</span>
 
           <!-- Quick Status Badges -->
-          <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-500/25 rounded bg-black/30 px-1.5 py-0.2 text-[8px] text-amber-400 font-bold font-mono">Sensors Active</span>
-          <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-500/25 rounded bg-black/30 px-1.5 py-0.2 text-[8px] text-amber-400 font-bold font-mono">Grounded Memories ({{ groundedMemories.length }})</span>
-          <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-500/25 rounded bg-black/30 px-1.5 py-0.2 text-[8px] text-amber-400 font-bold font-mono">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
-          <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-500/25 rounded bg-black/30 px-1.5 py-0.2 text-[8px] text-amber-400 font-bold font-mono">Visual Scene Active</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Grounded Memories ({{ groundedMemories.length }})</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
+          <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Visual Scene Active</span>
         </div>
         <div class="flex items-center gap-1.5">
           <button
             v-if="activeCard?.extensions?.airi?.groundingEnabled"
-            class="flex items-center gap-1 border border-amber-500/25 rounded bg-black/50 px-2 py-0.5 text-xs text-amber-400 font-bold font-mono transition-colors hover:bg-black/80"
+            class="flex items-center gap-1 border border-amber-300 rounded bg-amber-100/70 px-2 py-0.5 text-xs text-amber-800 font-bold font-mono transition-colors dark:border-amber-500/25 dark:bg-black/50 hover:bg-amber-200/80 dark:text-amber-400 dark:hover:bg-black/80"
             @click="isGroundingPreviewExpanded = !isGroundingPreviewExpanded"
           >
             <span>Telemetry</span>
-            <span class="text-amber-500 transition-transform" :class="isGroundingPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
+            <span class="text-amber-600 transition-transform dark:text-amber-500" :class="isGroundingPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
           </button>
           <button
             v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0"
-            class="flex items-center gap-1 border border-amber-500/25 rounded bg-black/50 px-2 py-0.5 text-xs text-amber-400 font-bold font-mono transition-colors hover:bg-black/80"
+            class="flex items-center gap-1 border border-amber-300 rounded bg-amber-100/70 px-2 py-0.5 text-xs text-amber-800 font-bold font-mono transition-colors dark:border-amber-500/25 dark:bg-black/50 hover:bg-amber-200/80 dark:text-amber-400 dark:hover:bg-black/80"
             @click="isMemoriesPreviewExpanded = !isMemoriesPreviewExpanded"
           >
             <span>Memories</span>
-            <span class="text-amber-500 transition-transform" :class="isMemoriesPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
+            <span class="text-amber-600 transition-transform dark:text-amber-500" :class="isMemoriesPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
           </button>
           <button
             v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length"
-            class="flex items-center gap-1 border border-amber-500/25 rounded bg-black/50 px-2 py-0.5 text-xs text-amber-400 font-bold font-mono transition-colors hover:bg-black/80"
+            class="flex items-center gap-1 border border-amber-300 rounded bg-amber-100/70 px-2 py-0.5 text-xs text-amber-800 font-bold font-mono transition-colors dark:border-amber-500/25 dark:bg-black/50 hover:bg-amber-200/80 dark:text-amber-400 dark:hover:bg-black/80"
             @click="isTopicsPreviewExpanded = !isTopicsPreviewExpanded"
           >
             <span>Topics</span>
-            <span class="text-amber-500 transition-transform" :class="isTopicsPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
+            <span class="text-amber-600 transition-transform dark:text-amber-500" :class="isTopicsPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
           </button>
           <button
             v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad"
-            class="flex items-center gap-1 border border-amber-500/25 rounded bg-black/50 px-2 py-0.5 text-xs text-amber-400 font-bold font-mono transition-colors hover:bg-black/80"
+            class="flex items-center gap-1 border border-amber-300 rounded bg-amber-100/70 px-2 py-0.5 text-xs text-amber-800 font-bold font-mono transition-colors dark:border-amber-500/25 dark:bg-black/50 hover:bg-amber-200/80 dark:text-amber-400 dark:hover:bg-black/80"
             @click="isScratchpadPreviewExpanded = !isScratchpadPreviewExpanded"
           >
             <span>Visual Scene</span>
-            <span class="text-amber-500 transition-transform" :class="isScratchpadPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
+            <span class="text-amber-600 transition-transform dark:text-amber-500" :class="isScratchpadPreviewExpanded ? 'i-carbon-chevron-up' : 'i-carbon-chevron-down'" />
           </button>
         </div>
       </div>
@@ -1112,10 +1131,10 @@ defineExpose({
         v-if="activeCard?.extensions?.airi?.groundingEnabled"
         :class="[
           'z-10 animate-fade-in animate-duration-200',
-          isGroundingPreviewExpanded ? 'mt-2 border-t border-amber-500/10 pt-2' : '',
+          isGroundingPreviewExpanded ? 'mt-2 border-t border-amber-200 dark:border-amber-500/10 pt-2' : '',
         ]"
       >
-        <pre v-show="isGroundingPreviewExpanded" class="max-h-32 overflow-y-auto whitespace-pre-wrap rounded bg-amber-950/20 p-2 text-[10px] text-amber-300/90 leading-normal font-mono scrollbar-thin">{{ proactivityStore.sensorPayload || 'Polling sensors...' }}</pre>
+        <pre v-show="isGroundingPreviewExpanded" class="max-h-32 overflow-y-auto whitespace-pre-wrap rounded bg-amber-100/30 p-2 text-[10px] text-amber-900 leading-normal font-mono scrollbar-thin dark:bg-amber-950/20 dark:text-amber-300/90">{{ proactivityStore.sensorPayload || 'Polling sensors...' }}</pre>
       </div>
 
       <!-- Grounded Memories Section -->
@@ -1123,21 +1142,21 @@ defineExpose({
         v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0"
         :class="[
           'z-10 animate-fade-in animate-duration-200',
-          isMemoriesPreviewExpanded ? 'mt-2 border-t border-amber-500/10 pt-2' : '',
+          isMemoriesPreviewExpanded ? 'mt-2 border-t border-amber-200 dark:border-amber-500/10 pt-2' : '',
         ]"
       >
         <div v-show="isMemoriesPreviewExpanded" class="max-h-36 overflow-y-auto scrollbar-thin space-y-1.5">
           <div
             v-for="entry in groundedMemories"
             :key="entry.id"
-            class="flex flex-col cursor-pointer border border-amber-500/10 rounded bg-amber-950/10 p-2 text-[10px] leading-normal transition-all hover:border-amber-500/20 hover:bg-amber-950/20"
+            class="flex flex-col cursor-pointer border border-amber-200 rounded bg-amber-50/50 p-2 text-[10px] leading-normal transition-all dark:border-amber-500/10 hover:border-amber-300 dark:bg-amber-950/10 hover:bg-amber-100/80 dark:hover:border-amber-500/20 dark:hover:bg-amber-950/20"
             @click="openTextPreview({ title: entry.title || 'Untitled Memory', content: entry.content })"
           >
-            <div class="mb-0.5 flex items-center justify-between text-amber-300 font-bold">
+            <div class="mb-0.5 flex items-center justify-between text-amber-800 font-bold dark:text-amber-300">
               <span class="truncate pr-2">{{ entry.title || 'Untitled Memory' }}</span>
               <span class="shrink-0 text-[8px] font-normal uppercase opacity-60">{{ entry.kind || 'Journal' }}</span>
             </div>
-            <p class="line-clamp-2 text-amber-200/80">
+            <p class="line-clamp-2 text-amber-900 dark:text-amber-200/80">
               {{ entry.content }}
             </p>
           </div>
@@ -1149,14 +1168,14 @@ defineExpose({
         v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length"
         :class="[
           'z-10 animate-fade-in animate-duration-200',
-          isTopicsPreviewExpanded ? 'mt-2 border-t border-amber-500/10 pt-2' : '',
+          isTopicsPreviewExpanded ? 'mt-2 border-t border-amber-200 dark:border-amber-500/10 pt-2' : '',
         ]"
       >
         <div v-show="isTopicsPreviewExpanded" class="max-h-24 flex flex-wrap gap-1.5 overflow-y-auto p-1 scrollbar-thin">
           <div
             v-for="item in activeCard.extensions.airi.recentTopics"
             :key="item.topic"
-            class="flex items-center gap-1 border border-amber-500/15 rounded bg-amber-950/20 px-2 py-0.5 text-[10px] text-amber-300 font-mono"
+            class="flex items-center gap-1 border border-amber-200 rounded bg-amber-100/70 px-2 py-0.5 text-[10px] text-amber-800 font-mono dark:border-amber-500/15 dark:bg-amber-950/20 dark:text-amber-300"
             :title="`weight: ${item.weight.toFixed(2)}`"
           >
             <span>#{{ item.topic }}</span>
@@ -1170,10 +1189,10 @@ defineExpose({
         v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad"
         :class="[
           'z-10 animate-fade-in animate-duration-200',
-          isScratchpadPreviewExpanded ? 'mt-2 border-t border-amber-500/10 pt-2' : '',
+          isScratchpadPreviewExpanded ? 'mt-2 border-t border-amber-200 dark:border-amber-500/10 pt-2' : '',
         ]"
       >
-        <pre v-show="isScratchpadPreviewExpanded" class="max-h-32 overflow-y-auto whitespace-pre-wrap rounded bg-amber-950/20 p-2 text-[10px] text-amber-300/90 leading-normal font-mono scrollbar-thin">{{ latestDirectorScratchpad }}</pre>
+        <pre v-show="isScratchpadPreviewExpanded" class="max-h-32 overflow-y-auto whitespace-pre-wrap rounded bg-amber-100/30 p-2 text-[10px] text-amber-900 leading-normal font-mono scrollbar-thin dark:bg-amber-950/20 dark:text-amber-300/90">{{ latestDirectorScratchpad }}</pre>
       </div>
     </div>
 
@@ -1204,32 +1223,137 @@ defineExpose({
         />
 
         <!-- Suggest Response (Producer Sparkle) Inline Button -->
-        <button
-          class="ml-1 h-8 w-8 flex items-center justify-center rounded-xl transition-all duration-250 active:scale-95 hover:bg-neutral-200/40 hover:text-neutral-700 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200"
-          :class="[
-            messageInput.trim()
-              ? 'bg-primary-500/15 text-primary-500 shadow-[0_0_12px_rgba(168,85,247,0.2)] dark:bg-primary-500/20 dark:text-primary-400'
-              : 'bg-neutral-200/20 text-neutral-500 dark:bg-neutral-800/20 dark:text-neutral-400',
-          ]"
-          title="Suggest responses"
-          @click="handleQuickSuggest"
-        >
-          <div class="i-solar:magic-stick-3-bold-duotone text-base" />
-        </button>
+        <PopoverRoot v-model:open="isTooltipOpen">
+          <PopoverAnchor as-child>
+            <PopoverRoot v-model:open="isWandMenuOpen">
+              <PopoverAnchor as-child>
+                <button
+                  class="ml-1 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl transition-all duration-250 active:scale-95 hover:bg-neutral-200/40 hover:text-neutral-700 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200"
+                  :class="[
+                    messageInput.trim()
+                      ? 'bg-primary-500/15 text-primary-500 shadow-[0_0_12px_rgba(168,85,247,0.2)] dark:bg-primary-500/20 dark:text-primary-400 border-primary-500/30'
+                      : 'bg-neutral-200/20 text-neutral-500 dark:bg-neutral-800/20 dark:text-neutral-400',
+                  ]"
+                  title="Suggest responses (Right-click to configure)"
+                  @click="handleQuickSuggest"
+                  @contextmenu.prevent="isWandMenuOpen = true"
+                >
+                  <div class="i-solar:magic-stick-3-bold-duotone text-base" />
+                </button>
+              </PopoverAnchor>
+              <PopoverPortal>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  :side-offset="8"
+                  class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                >
+                  <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
+                    Suggest Mode
+                  </div>
+                  <button
+                    v-for="opt in [
+                      { label: 'Off', value: 'disabled' },
+                      { label: 'Enter', value: 'enter' },
+                      { label: 'Ctrl+Enter', value: 'ctrl-enter' },
+                      { label: 'Double', value: 'double-enter' },
+                    ]"
+                    :key="opt.value"
+                    :class="[
+                      'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
+                      settingsChat.suggestMode === opt.value
+                        ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
+                        : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                    ]"
+                    @click="settingsChat.suggestMode = opt.value; isWandMenuOpen = false"
+                  >
+                    <span>{{ opt.label }}</span>
+                    <div v-if="settingsChat.suggestMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+                  </button>
+                </PopoverContent>
+              </PopoverPortal>
+            </PopoverRoot>
+          </PopoverAnchor>
+          <PopoverPortal>
+            <PopoverContent
+              side="top"
+              align="center"
+              :side-offset="12"
+              class="animate-in fade-in slide-in-from-bottom-2 z-[10000] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800 dark:bg-neutral-900/95 dark:text-primary-100"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
+                  <div class="i-solar:magic-stick-3-bold-duotone animate-pulse text-sm" />
+                  <span>Quick Suggestions!</span>
+                </div>
+                <button
+                  class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                  @click="dismissTooltip"
+                >
+                  <div class="i-ph:x-bold text-xs" />
+                </button>
+              </div>
+              <p class="text-[11px] leading-relaxed">
+                Type a draft and click here to generate response suggestions directly. Right-click this button to change settings.
+              </p>
+              <button
+                class="cursor-pointer self-end rounded bg-primary-600 px-2 py-0.5 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
+                @click="dismissTooltip"
+              >
+                Got it!
+              </button>
+            </PopoverContent>
+          </PopoverPortal>
+        </PopoverRoot>
 
         <!-- Send / Greet Inline Button -->
-        <button
-          class="ml-2.5 h-8 w-8 flex items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
-          :class="[
-            messageInput.trim()
-              ? 'shadow-lg shadow-primary-500/35 scale-[1.03]'
-              : 'opacity-90',
-          ]"
-          :title="isGreetMode ? 'Greet' : 'Send Message'"
-          @click="handleSend"
-        >
-          <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
-        </button>
+        <PopoverRoot v-model:open="isSendMenuOpen">
+          <PopoverAnchor as-child>
+            <button
+              class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
+              :class="[
+                messageInput.trim()
+                  ? 'shadow-lg shadow-primary-500/35 scale-[1.03]'
+                  : 'opacity-90',
+              ]"
+              :title="isGreetMode ? 'Greet (Right-click to configure)' : 'Send Message (Right-click to configure)'"
+              @click="handleSend"
+              @contextmenu.prevent="isSendMenuOpen = true"
+            >
+              <div :class="[isGreetMode ? 'i-ph:hand-waving-bold' : 'i-solar:plain-2-bold-duotone', 'text-base']" />
+            </button>
+          </PopoverAnchor>
+          <PopoverPortal>
+            <PopoverContent
+              side="top"
+              align="center"
+              :side-offset="8"
+              class="animate-in fade-in slide-in-from-bottom-1 z-[10000] w-36 flex flex-col border border-neutral-200/60 rounded-xl bg-white/95 p-1.5 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+            >
+              <div class="select-none px-2 py-1 text-[9px] text-neutral-400 font-bold tracking-wider uppercase">
+                Send Key Mode
+              </div>
+              <button
+                v-for="opt in [
+                  { label: 'Enter', value: 'enter' },
+                  { label: 'Ctrl+Enter', value: 'ctrl-enter' },
+                  { label: 'Double', value: 'double-enter' },
+                ]"
+                :key="opt.value"
+                :class="[
+                  'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
+                  settingsChat.sendMode === opt.value
+                    ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
+                    : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                ]"
+                @click="settingsChat.sendMode = opt.value; isSendMenuOpen = false"
+              >
+                <span>{{ opt.label }}</span>
+                <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
+              </button>
+            </PopoverContent>
+          </PopoverPortal>
+        </PopoverRoot>
       </div>
     </div>
 
