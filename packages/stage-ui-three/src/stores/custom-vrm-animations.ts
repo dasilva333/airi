@@ -1,8 +1,9 @@
 import localforage from 'localforage'
 
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
+import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { animations } from '../assets/vrm/animations'
 
@@ -35,6 +36,16 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
   const customAnimationsLoaded = ref(false)
   const objectUrls = new Map<string, string>()
   let loadPromise: Promise<void> | undefined
+
+  const { data: customVrmaSyncSignal, post: broadcastCustomVrmaSync } = useBroadcastChannel({ name: 'airi:custom-vrma-sync' })
+
+  watch(customVrmaSyncSignal, (val) => {
+    if (val) {
+      console.log('[CustomVRMA] Received custom VRMA sync signal, reloading from IndexedDB...')
+      customAnimationsLoaded.value = false
+      void loadCustomAnimations()
+    }
+  })
 
   function getStorageKey(id: string) {
     return `${STORAGE_PREFIX}${id}`
@@ -131,6 +142,8 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
 
     deletedAnimations.value = deletedAnimations.value.filter(d => d !== id)
 
+    broadcastCustomVrmaSync(Date.now())
+
     return animation.key
   }
 
@@ -146,6 +159,8 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
     if (!deletedAnimations.value.includes(id)) {
       deletedAnimations.value = [...deletedAnimations.value, id]
     }
+
+    broadcastCustomVrmaSync(Date.now())
   }
 
   function resolveAnimationUrl(key: string | null | undefined) {
