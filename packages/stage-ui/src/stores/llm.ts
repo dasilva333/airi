@@ -303,7 +303,7 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   if (!allowedTools) {
     return tools.filter((t: any) => {
       const name = t.function?.name || t.name || ''
-      return !name.includes('generate_vrma')
+      return !name.includes('generate_motion')
     })
   }
 
@@ -318,8 +318,8 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     if (name.includes('mcp_') || name.startsWith('mcp')) {
       return allowedTools.includes('mcp')
     }
-    if (name.includes('generate_vrma')) {
-      return allowedTools.includes('generate_vrma')
+    if (name.includes('generate_motion')) {
+      return allowedTools.includes('generate_motion')
     }
     // Allow other custom/unmapped tools by default
     return true

@@ -94,8 +94,8 @@ To integrate this system cleanly into AIRI without disrupting existing chat and 
 #### The Tool Definition
 ```json
 {
-  "name": "generate_vrma",
-  "description": "Generates a custom VRM animation (.vrma) dynamically from a natural language motion description.",
+  "name": "generate_motion",
+  "description": "Generates a custom character animation dynamically from a natural language motion description. Automatically detects the active character's model format (VRM, Live2D, MMD) and routes to the correct builder. Currently supports VRM humanoid models.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -106,6 +106,10 @@ To integrate this system cleanly into AIRI without disrupting existing chat and 
       "prompt": {
         "type": "string",
         "description": "A descriptive prompt detailing the exact motion sequence, bones to move, speed, and emotions (e.g. 'jumping jacks motion with happy expressions')."
+      },
+      "overwrite": {
+        "type": "boolean",
+        "description": "If true, replaces an existing motion with the same id. Defaults to false. If a motion already exists and overwrite is false, pick a different name or call again with overwrite set to true."
       }
     },
     "required": ["id", "prompt"]
@@ -116,12 +120,13 @@ To integrate this system cleanly into AIRI without disrupting existing chat and 
 #### The Execution Flow
 1. **Tool Call**: The user says *"Do jumping jacks for me!"*.
 2. **Tool Execution**: The LLM halts and yields a tool execution request:
-   `generate_vrma({ id: "jumping_jacks", prompt: "jumping jacks motion" })`
+   `generate_motion({ id: "jumping_jacks", prompt: "jumping jacks motion" })`
 3. **Background Build**:
-   * The client captures this request and calls the background Text-to-VRMA spec generator.
-   * The generator compiles the `.vrma` binary buffer on the fly.
-   * The system caches the buffer in IndexedDB/localStorage mapped to the key `"jumping_jacks"`.
-   * The tool returns success back to the model: `{"status": "success", "message": "Motion 'jumping_jacks' compiled and cached successfully."}`
+   * The client resolves the active character's `DisplayModelFormat` via `displayModelId → displayModelsStore`.
+   * For VRM characters: the VRMA spec generator runs, compiles the `.vrma` binary buffer.
+   * The system checks for an existing motion with the same `id`. If found and `overwrite=false`, returns a conflict error. If `overwrite=true`, removes the old entry first.
+   * The compiled buffer is cached in IndexedDB mapped to the key `"jumping_jacks"`.
+   * The tool returns success back to the model: `{"status": "success", "message": "Motion 'jumping_jacks' compiled and cached. Invoke it with <|ACT:motion=\"jumping_jacks\"|>."}`
 4. **Final Response Generation**:
    The model continues generating its chat response, knowing the ID exists and is ready:
    > *"Sure thing! Let me stretch real quick... and go! <|ACT:motion="jumping_jacks"|> Look, did I do good?"*
@@ -207,7 +212,13 @@ This creates a seamless progression:
 
 ## 8. Future-Proofing: Engine-Agnostic Outputs (VMD & Live2D Compatibility)
 
-A major benefit of separating the **LLM Motion Specification (JSON)** from the **Binary Compiler** is that the intermediate motion representation is completely engine-agnostic. The LLM describes motion intent, and the client-side compile layer targets the specific format required by the model type.
+A major benefit of separating the **LLM Motion Specification (JSON)** from the **Binary Compiler** is that the intermediate motion representation is completely engine-agnostic. The LLM describes motion intent via the unified `generate_motion` tool, and the client-side compile layer detects the active character's `DisplayModelFormat` (via `airiCard → displayModelId → displayModelsStore`) and routes to the correct format-specific builder.
+
+**Routing is implemented** via the `DisplayModelFormat` enum:
+- `DisplayModelFormat.VRM` → VRMA builder (active)
+- `DisplayModelFormat.Live2dZip / Live2dDirectory` → Live2D motion builder (stub, in development)
+- `DisplayModelFormat.PMXZip / PMXDirectory / PMD` → VMD builder (stub, in development)
+- `DisplayModelFormat.SpineZip` → Spine builder (stub, in development)
 
 ---
 

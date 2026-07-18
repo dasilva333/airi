@@ -54,18 +54,18 @@ const hasMcp = computed({
   },
 })
 
-const hasVrmaGenerator = computed({
+const hasMotionGenerator = computed({
   get() {
-    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('generate_vrma')
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('generate_motion')
   },
   set(checked) {
     const current = generationAllowedTools.value ?? ['text_journal', 'image_journal', 'mcp']
     if (checked) {
-      if (!current.includes('generate_vrma'))
-        generationAllowedTools.value = [...current, 'generate_vrma']
+      if (!current.includes('generate_motion'))
+        generationAllowedTools.value = [...current, 'generate_motion']
     }
     else {
-      generationAllowedTools.value = current.filter(t => t !== 'generate_vrma')
+      generationAllowedTools.value = current.filter(t => t !== 'generate_motion')
     }
   },
 })
@@ -215,9 +215,9 @@ const textJournalConflictWarning = computed(() => {
           description="Allows the character to call connected Model Context Protocol (MCP) servers/APIs."
         />
         <FieldCheckbox
-          v-model="hasVrmaGenerator"
-          label="Dynamic VRM Motion Generator (generate_vrma)"
-          description="Allows the character to autonomously design and generate new custom physical motions (VRMA) in real time from chat prompts. (Opt-in only)."
+          v-model="hasMotionGenerator"
+          label="Dynamic Motion Generator (generate_motion)"
+          description="Allows the character to autonomously design and generate new custom motions in real time from chat prompts. (Opt-in only). Currently supports VRM humanoid models. Live2D and MMD support is in development."
         />
       </div>
     </section>
