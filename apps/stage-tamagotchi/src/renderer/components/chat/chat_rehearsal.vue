@@ -185,7 +185,7 @@ const modelType = computed<'live2d' | 'vrm' | 'mmd' | 'spine' | 'unknown'>(() =>
 const playgroundText = ref('<|ACT:emotion="happy"|> Hello world! Welcome to the Stage.')
 const isRehearsing = ref(false)
 const isGeneratingMotion = ref(false)
-const shouldDownloadBackup = ref(true)
+const shouldDownloadBackup = ref(false)
 const isGeneratingAI = ref(false)
 const showPromptGenerator = ref(false)
 const aiSuggestions = ref<Array<{ title: string, dialogue: string }>>([])
