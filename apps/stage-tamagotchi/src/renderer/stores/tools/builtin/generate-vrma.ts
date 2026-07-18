@@ -67,13 +67,13 @@ async function executeGenerateVrma(params: { id: string, prompt: string }) {
   }
 }
 
-export function generateVrmaTools(): Tool[] {
-  return [
+export async function generateVrmaTools(): Promise<Tool[]> {
+  return Promise.all([
     tool({
       name: 'generate_vrma',
       description: 'Generates a custom VRM animation (.vrma) dynamically from a natural language motion description.',
       parameters: generateVrmaParams,
       execute: params => executeGenerateVrma(params as { id: string, prompt: string }),
-    }) as any,
-  ]
+    }),
+  ])
 }

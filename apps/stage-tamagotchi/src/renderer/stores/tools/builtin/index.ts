@@ -34,7 +34,7 @@ export async function builtinTools(): Promise<Tool[]> {
 
   // Always register in list (filtered out by llmStore if not allowed)
   toolPromises.push(textJournalTools())
-  toolPromises.push(Promise.resolve(generateVrmaTools()))
+  toolPromises.push(generateVrmaTools())
 
   // Artistry suite
   if (artistry.configured) {
