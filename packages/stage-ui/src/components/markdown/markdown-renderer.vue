@@ -12,6 +12,7 @@ interface Props {
   class?: string
   activeText?: string
   activeColor?: string
+  defaultActorId?: string
 }
 
 const props = defineProps<Props>()
@@ -38,13 +39,13 @@ function formatActorName(id: string): string {
     .join(' ')
 }
 
-function postProcessActorColors(html: string): string {
-  if (!html.includes('[ACTOR:'))
+function postProcessActorColors(html: string, defaultActorId: string | null = null): string {
+  if (!html.includes('[ACTOR:') && !defaultActorId)
     return html
 
   // Match standard paragraph <p>...</p> or list item <li>...</li> blocks
   const blockRegex = /(<p>|<li>)([\s\S]*?)(<\/p>|<\/li>)/gi
-  let activeActorId: string | null = null
+  let activeActorId: string | null = defaultActorId
 
   const result = html.replace(blockRegex, (match, openTag, innerContent, closeTag) => {
     // Check if this block contains an actor marker: [ACTOR:xxx]
@@ -146,12 +147,12 @@ async function processContent() {
 
   try {
     const rawCompiled = await process(healed)
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig))
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props.defaultActorId)
   }
   catch (error) {
     console.warn('Failed to process markdown with syntax highlighting, using fallback:', error)
     const rawCompiled = processSync(healed)
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig))
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props.defaultActorId)
   }
 }
 

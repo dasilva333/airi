@@ -558,17 +558,33 @@ const boxStyle = computed(() => {
 })
 
 const resolvedSlices = computed(() => {
-  const rs: (ChatSlices | (ChatSlicesText & { displaySegments?: DisplaySegment[] }))[] = []
+  const rs: (ChatSlices | (ChatSlicesText & { displaySegments?: DisplaySegment[], defaultActorId?: string }))[] = []
 
   let textBuffer = ''
+  let currentActorId: string | null = null
 
   const processBuffer = () => {
     if (textBuffer.trim()) {
+      const actorRegex = /<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi
+      let match
+      let lastActorInSlice: string | null = null
+
+      actorRegex.lastIndex = 0
+      while ((match = actorRegex.exec(textBuffer)) !== null) {
+        lastActorInSlice = match[1].trim()
+      }
+
       rs.push({
         type: 'text',
         text: textBuffer,
         displaySegments: processContent(textBuffer),
+        defaultActorId: currentActorId || undefined,
       })
+
+      if (lastActorInSlice) {
+        currentActorId = lastActorInSlice
+      }
+
       textBuffer = ''
     }
   }
@@ -769,6 +785,7 @@ const dynamicStyles = computed(() => {
                     :content="getSegmentedText(slice.text)"
                     :active-text="isLatestAssistantMessage ? activeSpokenText : undefined"
                     :active-color="isLatestAssistantMessage ? activeSpokenColor : undefined"
+                    :default-actor-id="(slice as any).defaultActorId"
                   />
                 </template>
               </template>

@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="producer-choice-bubble relative my-2 flex flex-col border border-primary-500/30 rounded-xl bg-black/40 p-3 text-sm shadow-[0_0_15px_rgba(var(--primary-rgb),0.15)] backdrop-blur-md transition-all hover:border-primary-500/40"
+    class="producer-choice-bubble relative my-2 flex flex-col border border-primary-500/30 rounded-xl bg-primary-50/70 p-3 text-sm shadow-[0_0_15px_rgba(var(--primary-rgb),0.15)] backdrop-blur-md transition-all dark:border-primary-500/30 hover:border-primary-500/40 dark:bg-black/40"
   >
     <!-- Subtle scanline effect overlay -->
     <div class="pointer-events-none absolute inset-0 rounded-xl bg-[length:100%_4px] bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.15)_50%)] opacity-10" />
@@ -253,32 +253,32 @@ onBeforeUnmount(() => {
     <!-- Header Actions -->
     <div class="z-10 flex select-none items-center justify-between">
       <div class="flex items-center gap-2">
-        <span class="i-solar:magic-stick-3-bold-duotone animate-pulse text-lg text-primary-400" />
-        <span class="text-xs text-primary-300 font-bold tracking-widest font-mono">PRODUCER DIRECTIVES</span>
+        <span class="i-solar:magic-stick-3-bold-duotone animate-pulse text-lg text-primary-500 dark:text-primary-400" />
+        <span class="text-xs text-primary-700 font-bold tracking-widest font-mono dark:text-primary-300">PRODUCER DIRECTIVES</span>
       </div>
 
-      <div class="flex items-center gap-1.5 border border-primary-500/10 rounded-lg bg-black/40 p-0.5">
+      <div class="flex items-center gap-1.5 border border-primary-500/10 rounded-lg bg-primary-100/40 p-0.5 dark:bg-black/40">
         <button
           v-if="!message.loading && message.choices.length > 0"
-          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-400 font-semibold transition-colors hover:bg-blue-900/20 hover:text-blue-400"
+          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-500 font-semibold transition-colors hover:bg-blue-100/50 dark:text-neutral-400 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
           :title="isPlayingAll ? 'Stop playing all' : 'Play all choices'"
           @click="isPlayingAll ? stopPlayAll() : playAllChoices()"
         >
           <span :class="isPlayingAll ? 'i-solar:pause-circle-bold-duotone' : 'i-solar:play-stream-bold-duotone'" class="text-xs" />
           <span>{{ isPlayingAll ? 'Stop' : 'Play All' }}</span>
         </button>
-        <div v-if="!message.loading && message.choices.length > 0" class="h-2.5 w-[1px] bg-neutral-800" />
+        <div v-if="!message.loading && message.choices.length > 0" class="h-2.5 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
         <button
-          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-400 font-semibold transition-colors hover:bg-neutral-800/50 hover:text-primary-300"
+          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-500 font-semibold transition-colors hover:bg-neutral-100 dark:text-neutral-400 hover:text-primary-600 dark:hover:text-primary-300"
           title="Regenerate choices"
           @click="emit('retry')"
         >
           <span class="i-solar:restart-square-outline text-xs" />
           <span>Retry</span>
         </button>
-        <div class="h-2.5 w-[1px] bg-neutral-800" />
+        <div class="h-2.5 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
         <button
-          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-400 font-semibold transition-colors hover:bg-red-950/20 hover:text-red-400"
+          class="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-neutral-500 font-semibold transition-colors hover:bg-red-100/50 dark:text-neutral-400 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400"
           title="Dismiss suggestions"
           @click="emit('delete')"
         >
@@ -295,10 +295,10 @@ onBeforeUnmount(() => {
         <div
           v-for="i in suggestionCount"
           :key="i"
-          class="h-18 flex flex-col animate-pulse gap-2 border border-neutral-800/50 rounded-xl bg-neutral-900/30 p-3"
+          class="h-18 flex flex-col animate-pulse gap-2 border border-neutral-200 rounded-xl bg-neutral-100/30 p-3 dark:border-neutral-800/50 dark:bg-neutral-900/30"
         >
-          <div class="h-4 w-1/3 rounded bg-neutral-800" />
-          <div class="h-3 w-3/4 rounded bg-neutral-800" />
+          <div class="h-4 w-1/3 rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div class="h-3 w-3/4 rounded bg-neutral-200 dark:bg-neutral-800" />
         </div>
       </div>
 
@@ -308,11 +308,11 @@ onBeforeUnmount(() => {
           v-for="(choice, idx) in message.choices"
           :key="idx"
           :class="[
-            'group relative border rounded-xl bg-neutral-900/20 p-3 text-left transition-all active:scale-[0.98]',
-            'hover:border-primary-500/40 hover:bg-primary-950/10 hover:shadow-[0_2px_10px_rgba(var(--primary-rgb),0.05)]',
+            'group relative border rounded-xl bg-primary-100/10 dark:bg-neutral-900/20 p-3 text-left transition-all active:scale-[0.98]',
+            'hover:border-primary-500/40 hover:bg-primary-50/50 dark:hover:bg-primary-950/10 hover:shadow-[0_2px_10px_rgba(var(--primary-rgb),0.05)]',
             activePlayingIndex === idx
-              ? 'border-primary-500/50 bg-primary-950/10'
-              : 'border-neutral-800',
+              ? 'border-primary-500/50 bg-primary-50/50 dark:bg-primary-950/10'
+              : 'border-neutral-200 dark:border-neutral-800',
           ]"
           @click="emit('choose', choice)"
         >
@@ -321,14 +321,14 @@ onBeforeUnmount(() => {
             <!-- Uses a span (not a button) to avoid nested-button DOM issues inside the card <button> -->
             <span
               v-if="userProfileStore.voiceProfileId"
-              class="mt-0.5 cursor-pointer rounded p-0.5 transition-colors hover:bg-neutral-800/50"
+              class="mt-0.5 cursor-pointer rounded p-0.5 transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800/50"
               :title="activePlayingIndex === idx ? 'Pause' : 'Preview with your voice'"
               @click.stop.prevent="playChoiceSpeech(idx, choice.message)"
             >
               <!-- Loading state -->
               <span
                 v-if="loadingIndex === idx"
-                class="i-solar:restart-square-outline block animate-spin text-sm text-primary-400"
+                class="i-solar:restart-square-outline block animate-spin text-sm text-primary-500 dark:text-primary-400"
               />
               <!-- Playing state -->
               <span
@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
               <!-- Idle state -->
               <span
                 v-else
-                class="i-solar:user-speak-linear block text-sm text-neutral-500 transition-colors group-hover:text-neutral-300"
+                class="i-solar:user-speak-linear block text-sm text-neutral-500 transition-colors group-hover:text-primary-500 dark:group-hover:text-neutral-300"
               />
             </span>
             <!-- No voice profile: spacer to keep layout consistent -->
@@ -347,12 +347,12 @@ onBeforeUnmount(() => {
             <!-- Card content -->
             <div class="min-w-0 flex-1">
               <div class="flex items-start justify-between">
-                <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase transition-colors group-hover:text-primary-300">
+                <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase transition-colors dark:text-neutral-400 group-hover:text-primary-600 dark:group-hover:text-primary-300">
                   {{ choice.title }}
                 </span>
-                <span class="i-solar:arrow-right-up-outline ml-1.5 shrink-0 translate-y-1 transform text-xs text-neutral-600 opacity-0 transition-all group-hover:translate-y-0 group-hover:text-primary-400 group-hover:opacity-100" />
+                <span class="i-solar:arrow-right-up-outline ml-1.5 shrink-0 translate-y-1 transform text-xs text-neutral-600 opacity-0 transition-all group-hover:translate-y-0 group-hover:text-primary-500 group-hover:opacity-100 dark:group-hover:text-primary-400" />
               </div>
-              <p class="line-clamp-2 mt-1 text-xs text-neutral-300 font-medium leading-relaxed">
+              <p class="line-clamp-2 mt-1 text-xs text-neutral-600 font-medium leading-relaxed dark:text-neutral-300">
                 {{ choice.message }}
               </p>
             </div>
