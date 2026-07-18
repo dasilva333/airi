@@ -4,7 +4,7 @@ import localforage from 'localforage'
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
-import { useModelStore } from '@proj-airi/stage-ui-three'
+import { useModelStore, useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -50,6 +50,7 @@ const live2dStore = useLive2d()
 const mmdStore = useMmd()
 const spineStore = useSpine()
 const modelStore = useModelStore() // VRM
+const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { stageEnabled } = storeToRefs(controlStripStore)
@@ -541,6 +542,19 @@ async function createMotion() {
     toast.info('Compiling motion to VRMA...')
     const buffer = buildVRMA(spec)
 
+    // Save to Database (custom-vrm-animations store / localforage)
+    try {
+      const fileName = `${spec.name || 'motion'}.vrma`
+      const file = new File([buffer], fileName, { type: 'model/gltf-binary' })
+      await customVrmAnimationsStore.addCustomAnimation(file)
+      toast.success('Motion saved to library successfully!')
+    }
+    catch (dbErr: any) {
+      console.error('[CreateMotion] Database save failed:', dbErr)
+      toast.error(`Library save failed: ${dbErr.message || String(dbErr)}. Running backup download...`)
+    }
+
+    // Failsafe backup download
     const blob = new Blob([buffer], { type: 'model/gltf-binary' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -549,7 +563,7 @@ async function createMotion() {
     a.click()
     URL.revokeObjectURL(url)
 
-    toast.success('Motion file downloaded successfully!')
+    toast.success('Backup file downloaded successfully!')
   }
   catch (err: any) {
     console.error('[CreateMotion] Failed:', err)
@@ -855,36 +869,36 @@ async function handlePromptSave(newValue: string) {
           <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Sandbox Playground</span>
         </div>
 
-        <div class="relative flex items-center border border-neutral-200 rounded-lg bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div class="border border-neutral-200 rounded-lg bg-white dark:border-neutral-800 dark:bg-neutral-900">
           <textarea
             v-model="playgroundText"
             rows="2"
-            class="w-full border-none bg-transparent p-2 pr-20 text-xs dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-0"
+            class="w-full border-none bg-transparent p-2 text-xs dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-0"
             placeholder="e.g. <|ACT:emotion=&quot;happy&quot;|> Hello world!"
           />
-          <div class="absolute right-2 flex items-center gap-1.5">
-            <button
-              v-if="modelType === 'vrm'"
-              class="cursor-pointer rounded-lg border-none bg-indigo-500 p-2 text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
-              title="Create Motion"
-              :disabled="isGeneratingMotion"
-              @click="createMotion"
-            >
-              <div :class="isGeneratingMotion ? 'i-solar:spinner-bold animate-spin' : 'i-solar:magic-stick-3-bold-duotone'" class="text-base" />
-            </button>
-            <button
-              class="cursor-pointer rounded-lg border-none bg-primary-500 p-2 text-white transition-colors hover:bg-primary-600"
-              title="Play Rehearsal"
-              :disabled="isRehearsing"
-              @click="playRehearsal"
-            >
-              <div :class="isRehearsing ? 'i-solar:spinner-bold animate-spin' : 'i-solar:clapperboard-play-bold-duotone'" class="text-base" />
-            </button>
-          </div>
         </div>
 
         <div class="mt-2 flex flex-col gap-2">
           <div class="flex flex-wrap items-center gap-2">
+            <button
+              class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-bold transition-all hover:bg-primary-500/20 dark:text-primary-400"
+              :disabled="isRehearsing"
+              @click="playRehearsal"
+            >
+              <div :class="isRehearsing ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:clapperboard-play-bold-duotone'" />
+              Act
+            </button>
+
+            <button
+              v-if="modelType === 'vrm'"
+              class="flex cursor-pointer items-center gap-1 rounded bg-indigo-500/10 px-2.5 py-1 text-[10px] text-indigo-600 font-bold transition-all hover:bg-indigo-500/20 dark:text-indigo-400 disabled:opacity-50"
+              :disabled="isGeneratingMotion"
+              @click="createMotion"
+            >
+              <div :class="isGeneratingMotion ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:magic-stick-3-bold-duotone'" />
+              Create Motion
+            </button>
+
             <button
               class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-medium transition-all hover:bg-primary-500/20 dark:text-primary-400"
               :disabled="isGeneratingAI"
