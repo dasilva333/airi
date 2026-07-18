@@ -3,7 +3,7 @@ import { FieldCheckbox, FieldInput } from '@proj-airi/ui'
 import { computed } from 'vue'
 
 // Allowed tools model from parent CardCreationDialog
-const generationAllowedTools = defineModel<string[] | undefined>('generationAllowedTools', { required: true })
+const generationAllowedTools = defineModel<string[] | undefined>('selectedAllowedTools', { required: true })
 
 // Helper computed properties to map allowedTools array to FieldCheckbox boolean values
 const hasTextJournal = computed({
