@@ -8,8 +8,12 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import type { ChatProvider } from '@xsai-ext/providers/utils'
+
 
 import * as v from 'valibot'
+import { buildVRMA, VRMAMotionSpecSchema, VRMA_SYSTEM_PROMPT } from '../../../../utils'
+
 
 // Prompt Instructions Generator Integration
 import ModelPromptGeneratorModal from './components/ModelPromptGeneratorModal.vue'
@@ -497,6 +501,65 @@ function toggleMotionCycle(key: string) {
 // Playground & Rehearsal Sandbox
 const playgroundText = ref('<|ACT:emotion="happy"|> Hello world! Welcome to the Stage.')
 const isRehearsing = ref(false)
+const isGeneratingMotion = ref(false)
+
+async function createMotion() {
+  const prompt = playgroundText.value.trim()
+  if (!prompt) {
+    toast.error('Please enter a motion description in the text box.')
+    return
+  }
+
+  const providerId = activeProvider.value
+  const model = activeModel.value
+  if (!providerId || !model) {
+    toast.error('Please configure an active LLM provider first.')
+    return
+  }
+
+  const provider = await providersStore.getProviderInstance<ChatProvider>(providerId)
+  if (!provider) {
+    toast.error(`Failed to resolve provider instance for "${providerId}".`)
+    return
+  }
+
+  try {
+    isGeneratingMotion.value = true
+    toast.info('Generating motion spec via LLM...')
+
+    const messages = [
+      { role: 'system' as const, content: VRMA_SYSTEM_PROMPT },
+      { role: 'user' as const, content: `Create a motion animation for: ${prompt}` }
+    ]
+
+    const spec = await llmStore.generateObject(model, provider, {
+      messages,
+      schema: VRMAMotionSpecSchema,
+      maxAttempts: 3
+    })
+
+    toast.info('Compiling motion to VRMA...')
+    const buffer = buildVRMA(spec)
+
+    const blob = new Blob([buffer], { type: 'model/gltf-binary' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${spec.name || 'motion'}.vrma`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    toast.success('Motion file downloaded successfully!')
+  }
+  catch (err: any) {
+    console.error('[CreateMotion] Failed:', err)
+    toast.error(`Generation failed: ${err.message || String(err)}`)
+  }
+  finally {
+    isGeneratingMotion.value = false
+  }
+}
+
 
 const dynamicPresets = computed(() => {
   const exps = rawExpressions.value.map(e => e.displayName)
@@ -796,17 +859,28 @@ async function handlePromptSave(newValue: string) {
           <textarea
             v-model="playgroundText"
             rows="2"
-            class="w-full border-none bg-transparent p-2 text-xs dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-0"
+            class="w-full border-none bg-transparent p-2 pr-20 text-xs dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-0"
             placeholder="e.g. <|ACT:emotion=&quot;happy&quot;|> Hello world!"
           />
-          <button
-            class="absolute right-2 cursor-pointer rounded-lg border-none bg-primary-500 p-2 text-white transition-colors hover:bg-primary-600"
-            title="Play Rehearsal"
-            :disabled="isRehearsing"
-            @click="playRehearsal"
-          >
-            <div :class="isRehearsing ? 'i-solar:spinner-bold animate-spin' : 'i-solar:clapperboard-play-bold-duotone'" class="text-base" />
-          </button>
+          <div class="absolute right-2 flex items-center gap-1.5">
+            <button
+              v-if="modelType === 'vrm'"
+              class="cursor-pointer rounded-lg border-none bg-indigo-500 p-2 text-white transition-colors hover:bg-indigo-600 disabled:opacity-50"
+              title="Create Motion"
+              :disabled="isGeneratingMotion"
+              @click="createMotion"
+            >
+              <div :class="isGeneratingMotion ? 'i-solar:spinner-bold animate-spin' : 'i-solar:magic-stick-3-bold-duotone'" class="text-base" />
+            </button>
+            <button
+              class="cursor-pointer rounded-lg border-none bg-primary-500 p-2 text-white transition-colors hover:bg-primary-600"
+              title="Play Rehearsal"
+              :disabled="isRehearsing"
+              @click="playRehearsal"
+            >
+              <div :class="isRehearsing ? 'i-solar:spinner-bold animate-spin' : 'i-solar:clapperboard-play-bold-duotone'" class="text-base" />
+            </button>
+          </div>
         </div>
 
         <div class="mt-2 flex flex-col gap-2">
