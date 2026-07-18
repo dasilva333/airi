@@ -28,9 +28,29 @@ export enum DisplayModelFormat {
   PMD = 'pmd',
 }
 
+export interface DisplayModelCloud {
+  id: string
+  format: DisplayModelFormat
+  type: 'cloud'
+  name: string
+  previewImage?: string
+  importedAt: number
+  nsfw?: boolean
+  groups?: string[]
+  tags?: string[]
+  expressions?: string[]
+  motions?: string[]
+  emotionMappings?: Record<string, string>
+  motionMappings?: Record<string, string>
+  hiddenExpressions?: string[]
+  hiddenMotions?: string[]
+  favoriteExpressions?: string[]
+}
+
 export type DisplayModel
   = | DisplayModelFile
     | DisplayModelURL
+    | DisplayModelCloud
 
 const presetLive2dProUrl = new URL('../assets/live2d/models/hiyori_pro_zh.zip', import.meta.url).href
 const presetLive2dFreeUrl = new URL('../assets/live2d/models/hiyori_free_zh.zip', import.meta.url).href
@@ -90,6 +110,21 @@ const displayModelsPresets: DisplayModel[] = [
 export const useDisplayModelsStore = defineStore('display-models', () => {
   const displayModels = ref<DisplayModel[]>([])
   const displayModelsFromIndexedDBLoading = ref(false)
+  const remoteModelsCatalog = ref<any[]>([])
+  const remoteCatalogLoading = ref(false)
+
+  // Load remote catalog cache eagerly on initialization
+  void (async () => {
+    try {
+      const cached = await storage.getItemRaw<any>('local:sync-metadata/remote-catalog-cache')
+      if (cached) {
+        remoteModelsCatalog.value = cached
+      }
+    }
+    catch (e) {
+      console.error('[DisplayModels] Failed to load remote catalog cache:', e)
+    }
+  })()
 
   const { data: modelsSyncSignal, post: broadcastModelsSync } = useBroadcastChannel({ name: 'airi:display-models-sync' })
 
@@ -861,6 +896,57 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     broadcastModelsSync(Date.now())
   }
 
+  async function fetchRemoteCatalog() {
+    remoteCatalogLoading.value = true
+    try {
+      const { useSyncEngineStore } = await import('./sync-engine')
+      const syncStore = useSyncEngineStore()
+      const res = await syncStore.getRemoteCatalog()
+      if (res && res.success) {
+        remoteModelsCatalog.value = (res.models || []).map((m: any) => ({
+          ...m,
+          type: 'cloud',
+        }))
+        await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', remoteModelsCatalog.value)
+      }
+    }
+    catch (e) {
+      console.error('[DisplayModels] Failed to fetch remote catalog:', e)
+    }
+    finally {
+      remoteCatalogLoading.value = false
+    }
+  }
+
+  async function removeLocalCopy(id: string) {
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+    try {
+      await localforage.removeItem(id)
+      await localforage.removeItem(`${id}-textures`)
+
+      // Clean local timestamps and outbox so they don't sync
+      const keyWithoutPrefix = id.replace('display-model-', '')
+      await storage.removeItem(`local:sync-metadata/timestamps/${keyWithoutPrefix}`)
+      await storage.removeItem(`outbox:queue/${keyWithoutPrefix}`)
+
+      // If selective sync is active, uncheck it so it doesn't auto-download on next sync
+      const { useSyncEngineStore } = await import('./sync-engine')
+      const syncStore = useSyncEngineStore()
+      const modelNodeId = `model-${id}`
+      if (syncStore.selectiveCheckedIds.includes(modelNodeId)) {
+        syncStore.selectiveCheckedIds = syncStore.selectiveCheckedIds.filter(cid => cid !== modelNodeId)
+      }
+
+      displayModels.value = displayModels.value.filter(model => model.id !== id)
+      broadcastModelsSync(Date.now())
+      toast.success('Local copy removed successfully')
+    }
+    catch (e: any) {
+      console.error('[DisplayModels] Failed to remove local copy:', e)
+      toast.error(`Failed to remove local copy: ${e.message}`)
+    }
+  }
+
   async function resetDisplayModels() {
     await loadDisplayModelsFromIndexedDB()
     const userModelIds = displayModels.value.filter(model => model.type === 'file').map(model => model.id)
@@ -889,7 +975,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         file = (modelFromFile as any).file
       }
     }
-    else {
+    else if (model.type === 'url') {
       try {
         const res = await fetch(model.url)
         file = await res.blob()
@@ -1122,5 +1208,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     updateDisplayModelTags,
     removeDisplayModel,
     resetDisplayModels,
+
+    remoteModelsCatalog,
+    remoteCatalogLoading,
+    fetchRemoteCatalog,
+    removeLocalCopy,
   }
 })

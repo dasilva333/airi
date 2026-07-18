@@ -205,7 +205,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         stageModelSelectedFile.value = model.file
       }
     }
-    else {
+    else if (model.type === 'url') {
       // For URL types, we only update if it actually changed
       if (stageModelSelectedUrl.value !== model.url) {
         replaceStageModelUrl(model.url)

@@ -432,6 +432,120 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     }
   }
 
+  async function downloadSpecificModel(id: string) {
+    const client = getActiveClient()
+    // Read remote manifest
+    let remoteModel: any = null
+    try {
+      const modelsRes = await client.readFile('assets/models/manifest.json')
+      if (modelsRes.success && modelsRes.content) {
+        const manifest = JSON.parse(modelsRes.content)
+        remoteModel = manifest.models?.[id]
+      }
+    }
+    catch (e) {
+      console.error('[SyncEngine] Failed to read remote manifest for specific model:', e)
+      return { success: false, error: 'Failed to read remote manifest' }
+    }
+
+    if (!remoteModel) {
+      return { success: false, error: `Model ${id} not found in remote manifest` }
+    }
+
+    try {
+      console.log(`[SyncEngine] Targeted download for model: ${id} (${remoteModel.name})`)
+      const readBinRes = await client.readFile(`assets/models/${id}.bin`, 'base64')
+      if (!readBinRes.success || !readBinRes.content) {
+        return { success: false, error: readBinRes.error || 'Failed to read model binary' }
+      }
+
+      // Reconstruct File object
+      const mimeType = 'application/octet-stream'
+      const binRes = await fetch(`data:${mimeType};base64,${readBinRes.content}`)
+      const blob = await binRes.blob()
+      const fileObj = new File([blob], remoteModel.name, { type: mimeType })
+
+      // Download preview sidecar if present
+      let previewImage: string | undefined
+      if (remoteModel.hasPreview) {
+        console.log(`[SyncEngine] Downloading model preview: ${id}`)
+        const readPreviewRes = await client.readFile(`assets/models/${id}-preview.png`, 'base64')
+        if (readPreviewRes.success && readPreviewRes.content) {
+          previewImage = `data:image/png;base64,${readPreviewRes.content}`
+        }
+      }
+
+      const entry: any = {
+        id,
+        format: remoteModel.format,
+        type: 'file',
+        file: fileObj,
+        name: remoteModel.name,
+        previewImage,
+        importedAt: remoteModel.importedAt,
+        nsfw: remoteModel.nsfw,
+        groups: remoteModel.groups,
+        tags: remoteModel.tags,
+        expressions: remoteModel.expressions,
+        motions: remoteModel.motions,
+        emotionMappings: remoteModel.emotionMappings,
+        motionMappings: remoteModel.motionMappings,
+        hiddenExpressions: remoteModel.hiddenExpressions,
+        hiddenMotions: remoteModel.hiddenMotions,
+        favoriteExpressions: remoteModel.favoriteExpressions,
+      }
+
+      await localforage.setItem(id, entry)
+
+      // Download textures if present
+      if (remoteModel.hasTextures) {
+        const readTexRes = await client.readFile(`assets/models/${id}-textures.json`)
+        if (readTexRes.success && readTexRes.content) {
+          const texturesData = JSON.parse(readTexRes.content)
+          const textures: any[] = []
+          for (const tex of texturesData) {
+            const texMime = tex.type || 'image/png'
+            const texRes = await fetch(`data:${texMime};base64,${tex.base64}`)
+            const texBlob = await texRes.blob()
+            const texFile = new File([texBlob], tex.name, { type: texMime })
+            textures.push({
+              relativePath: tex.relativePath,
+              file: texFile,
+            })
+          }
+          await localforage.setItem(`${id}-textures`, textures)
+        }
+      }
+
+      // If selective sync is active, make sure this model is checked so it doesn't get evicted/skipped in future syncs
+      if (selectiveSyncEnabled.value) {
+        const modelNodeId = `model-${id}`
+        if (!selectiveCheckedIds.value.includes(modelNodeId)) {
+          selectiveCheckedIds.value.push(modelNodeId)
+        }
+      }
+
+      // Reload local display models store
+      const { useDisplayModelsStore } = await import('./display-models')
+      const displayModelStore = useDisplayModelsStore()
+      await displayModelStore.loadDisplayModelsFromIndexedDB(true)
+
+      // Broadcast changes so other windows sync
+      displayModelStore.broadcastModelsSync(Date.now())
+
+      return { success: true }
+    }
+    catch (e: any) {
+      console.error('[SyncEngine] Error during targeted model download:', e)
+      return { success: false, error: e.message || 'Error occurred during download' }
+    }
+  }
+
+  async function readRemoteFile(relPath: string, encoding?: 'utf-8' | 'base64') {
+    const client = getActiveClient()
+    return await client.readFile(relPath, encoding)
+  }
+
   function normalizeStorageKey(fullKey: string): string | null {
     if (fullKey.startsWith('local:airi-sync-queue:') || fullKey.startsWith('local:airi-sync-queue/'))
       return null
@@ -3205,6 +3319,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     validateConnection,
     triggerSync,
     getRemoteCatalog,
+    downloadSpecificModel,
+    readRemoteFile,
     resolveConflict,
     loadConflicts,
     initializeFromLocalBackup,

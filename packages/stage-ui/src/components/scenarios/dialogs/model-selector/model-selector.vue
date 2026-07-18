@@ -20,6 +20,7 @@ import Live2DReportModal from './Live2DReportModal.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useProvidersStore } from '../../../../stores/providers'
+import { useSyncEngineStore } from '../../../../stores/sync-engine'
 
 const emits = defineEmits<{
   (e: 'close', value: void): void
@@ -31,7 +32,8 @@ const displayModelStore = useDisplayModelsStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 const mmdStore = useMmd()
 const providersStore = useProvidersStore()
-const { displayModelsFromIndexedDBLoading, displayModels } = storeToRefs(displayModelStore)
+const syncStore = useSyncEngineStore()
+const { displayModelsFromIndexedDBLoading, displayModels, remoteModelsCatalog, remoteCatalogLoading } = storeToRefs(displayModelStore)
 
 // Redesign State
 const viewMode = ref<'grid' | 'compact'>('compact')
@@ -76,7 +78,13 @@ const showReportModal = ref(false)
 const pendingFile = ref<File | null>(null)
 const validationReport = ref<Live2DValidationReport | null>(null)
 
-const currentTab = ref<'library' | 'explore'>('library')
+const currentTab = ref<'library' | 'explore' | 'cloud'>('library')
+
+watch(currentTab, (newTab) => {
+  if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {
+    void displayModelStore.fetchRemoteCatalog()
+  }
+})
 
 const marketplaces = [
   { name: 'Steam Workshop', vrm: false, live2d: true, spine: true, mmd: false, languages: ['us'], origin: 'Steam', url: 'https://steamcommunity.com/workshop/browse/?appid=616720' },
@@ -100,14 +108,16 @@ const marketplaces = [
 
 // Filtering Logic
 const filteredModels = computed(() => {
-  let result = [...displayModels.value]
+  let result = currentTab.value === 'cloud'
+    ? remoteModelsCatalog.value.filter((rm: any) => !displayModels.value.some(lm => lm.id === rm.id))
+    : [...displayModels.value]
 
   // Search (matches name or tags partially)
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.trim().toLowerCase()
     result = result.filter((m) => {
       const nameMatches = m.name.toLowerCase().includes(q)
-      const tagMatches = m.tags && Array.isArray(m.tags) && m.tags.some(t => t.toLowerCase().includes(q))
+      const tagMatches = m.tags && Array.isArray(m.tags) && m.tags.some((t: string) => t.toLowerCase().includes(q))
       return nameMatches || tagMatches
     })
   }
@@ -143,7 +153,7 @@ const filteredModels = computed(() => {
     result = result.filter((m) => {
       if (!m.groups || !Array.isArray(m.groups))
         return false
-      return m.groups.some(g => selectedGroups.value.includes(g))
+      return m.groups.some((g: string) => selectedGroups.value.includes(g))
     })
   }
 
@@ -163,8 +173,8 @@ const filteredModels = computed(() => {
     if (sortBy.value === 'date')
       return b.importedAt - a.importedAt
     if (sortBy.value === 'type') {
-      const typeA = mapFormatRenderer[a.format] || ''
-      const typeB = mapFormatRenderer[b.format] || ''
+      const typeA = mapFormatRenderer[a.format as DisplayModelFormat] || ''
+      const typeB = mapFormatRenderer[b.format as DisplayModelFormat] || ''
       return typeA.localeCompare(typeB)
     }
     return 0
@@ -173,11 +183,17 @@ const filteredModels = computed(() => {
   return result
 })
 
+const activeModelsForFilters = computed(() => {
+  return currentTab.value === 'cloud'
+    ? remoteModelsCatalog.value.filter((rm: any) => !displayModels.value.some(lm => lm.id === rm.id))
+    : displayModels.value
+})
+
 const allExistingGroups = computed(() => {
   const groups = new Set<string>()
-  displayModels.value.forEach((m) => {
+  activeModelsForFilters.value.forEach((m: any) => {
     if (m.groups && Array.isArray(m.groups)) {
-      m.groups.forEach((g) => {
+      m.groups.forEach((g: string) => {
         if (g && g.trim()) {
           groups.add(g.trim())
         }
@@ -189,9 +205,9 @@ const allExistingGroups = computed(() => {
 
 const groupCounts = computed(() => {
   const counts: Record<string, number> = {}
-  displayModels.value.forEach((m) => {
+  activeModelsForFilters.value.forEach((m: any) => {
     if (m.groups && Array.isArray(m.groups)) {
-      m.groups.forEach((g) => {
+      m.groups.forEach((g: string) => {
         const trimmed = g.trim()
         if (trimmed) {
           counts[trimmed] = (counts[trimmed] || 0) + 1
@@ -203,14 +219,14 @@ const groupCounts = computed(() => {
 })
 
 const ungroupedCount = computed(() => {
-  return displayModels.value.filter(m => !m.groups || !Array.isArray(m.groups) || m.groups.length === 0).length
+  return activeModelsForFilters.value.filter((m: any) => !m.groups || !Array.isArray(m.groups) || m.groups.length === 0).length
 })
 
 const tagCounts = computed(() => {
   const counts: Record<string, number> = {}
-  displayModels.value.forEach((m) => {
+  activeModelsForFilters.value.forEach((m: any) => {
     if (m.tags && Array.isArray(m.tags)) {
-      m.tags.forEach((t) => {
+      m.tags.forEach((t: string) => {
         const trimmed = t.trim().toLowerCase()
         if (trimmed) {
           counts[trimmed] = (counts[trimmed] || 0) + 1
@@ -229,10 +245,10 @@ const top20Tags = computed(() => {
 })
 
 const isTagsInitialized = computed(() => {
-  return displayModels.value.some(m => m.tags && m.tags.length > 0)
+  return activeModelsForFilters.value.some((m: any) => m.tags && m.tags.length > 0)
 })
 
-const formatCounts = computed(() => {
+const localFormatCounts = computed(() => {
   const models = displayModels.value
   return {
     all: models.length,
@@ -241,6 +257,21 @@ const formatCounts = computed(() => {
     spine: models.filter(m => m.format === DisplayModelFormat.SpineZip).length,
     mmd: models.filter(m => m.format === DisplayModelFormat.PMXZip || m.format === DisplayModelFormat.PMXDirectory || m.format === DisplayModelFormat.PMD).length,
   }
+})
+
+const cloudFormatCounts = computed(() => {
+  const models = remoteModelsCatalog.value
+  return {
+    all: models.length,
+    live2d: models.filter(m => m.format === DisplayModelFormat.Live2dZip || m.format === DisplayModelFormat.Live2dDirectory).length,
+    vrm: models.filter(m => m.format === DisplayModelFormat.VRM).length,
+    spine: models.filter(m => m.format === DisplayModelFormat.SpineZip).length,
+    mmd: models.filter(m => m.format === DisplayModelFormat.PMXZip || m.format === DisplayModelFormat.PMXDirectory || m.format === DisplayModelFormat.PMD).length,
+  }
+})
+
+const formatCounts = computed(() => {
+  return currentTab.value === 'cloud' ? cloudFormatCounts.value : localFormatCounts.value
 })
 
 function openGroupsDialog(model: DisplayModel) {
@@ -317,6 +348,81 @@ function handlePick(m: DisplayModel) {
   selectedModel.value = m
   emits('pick', m)
   emits('close', undefined)
+}
+
+const remotePreviews = ref<Record<string, string>>({})
+const loadingPreviews = ref<Record<string, boolean>>({})
+
+async function loadRemotePreview(id: string) {
+  if (remotePreviews.value[id] || loadingPreviews.value[id])
+    return
+  loadingPreviews.value[id] = true
+  try {
+    const readRes = await syncStore.readRemoteFile(`assets/models/${id}-preview.png`, 'base64')
+    if (readRes.success && readRes.content) {
+      remotePreviews.value[id] = `data:image/png;base64,${readRes.content}`
+    }
+  }
+  catch (e) {
+    console.warn('[ModelSelector] Failed to load remote preview:', id, e)
+  }
+  finally {
+    loadingPreviews.value[id] = false
+  }
+}
+
+function getPreviewSrc(model: any) {
+  if (model.previewImage)
+    return model.previewImage
+  if (remotePreviews.value[model.id])
+    return remotePreviews.value[model.id]
+  if (model.type === 'cloud' && model.hasPreview) {
+    void loadRemotePreview(model.id)
+  }
+  return undefined
+}
+
+function isDownloaded(modelId: string) {
+  return displayModels.value.some(m => m.id === modelId)
+}
+
+function isAvailableOnCloud(modelId: string) {
+  return remoteModelsCatalog.value.some(m => m.id === modelId)
+}
+
+const downloadingModelId = ref<string | null>(null)
+
+async function downloadAndPickModel(model: any) {
+  downloadingModelId.value = model.id
+  try {
+    const res = await syncStore.downloadSpecificModel(model.id)
+    if (res.success) {
+      toast.success(`Model ${model.name} downloaded successfully!`)
+      const localModel = displayModelStore.displayModels.find(m => m.id === model.id)
+      if (localModel) {
+        handlePick(localModel)
+      }
+      else {
+        await displayModelStore.loadDisplayModelsFromIndexedDB()
+        const reloadedModel = displayModelStore.displayModels.find(m => m.id === model.id)
+        if (reloadedModel)
+          handlePick(reloadedModel)
+      }
+    }
+    else {
+      toast.error(`Failed to download model: ${res.error}`)
+    }
+  }
+  catch (e: any) {
+    toast.error(`Error during download: ${e.message}`)
+  }
+  finally {
+    downloadingModelId.value = null
+  }
+}
+
+async function handleRemoveLocalCopy(model: DisplayModel) {
+  await displayModelStore.removeLocalCopy(model.id)
 }
 
 function handleMobilePick() {
@@ -766,7 +872,7 @@ async function runAutoLinkCatalog() {
             @click="currentTab = 'library'"
           >
             <div class="i-solar:library-bold-duotone" />
-            Library ({{ formatCounts.all }})
+            Library ({{ localFormatCounts.all }})
           </button>
           <button
             :class="[
@@ -778,12 +884,22 @@ async function runAutoLinkCatalog() {
             <div class="i-solar:compass-bold-duotone" />
             Explore
           </button>
+          <button
+            :class="[
+              currentTab === 'cloud' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'opacity-50 hover:opacity-100',
+              'px-3 py-1 rounded-md transition-all text-sm font-bold flex items-center gap-1',
+            ]"
+            @click="currentTab = 'cloud'"
+          >
+            <div class="i-solar:cloud-bold-duotone" />
+            Cloud ({{ cloudFormatCounts.all }})
+          </button>
         </div>
       </div>
 
       <div class="flex items-center gap-2">
-        <!-- View Mode Toggle (Only for Library) -->
-        <div v-if="currentTab === 'library'" class="mr-2 flex rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+        <!-- View Mode Toggle (Only for Library and Cloud) -->
+        <div v-if="currentTab === 'library' || currentTab === 'cloud'" class="mr-2 flex rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
           <button
             :class="[
               viewMode === 'grid' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
@@ -900,8 +1016,8 @@ async function runAutoLinkCatalog() {
       </div>
     </div>
 
-    <!-- Library Tab Content -->
-    <template v-if="currentTab === 'library'">
+    <!-- Library & Cloud Tab Content -->
+    <template v-if="currentTab === 'library' || currentTab === 'cloud'">
       <!-- Search & Filter Bar -->
       <div class="flex flex-wrap items-center gap-2">
         <!-- Expandable Search Input -->
@@ -1218,9 +1334,21 @@ async function runAutoLinkCatalog() {
           <div class="i-solar:tag-bold-duotone text-xs" />
           <span>Tag</span>
         </button>
+
+        <!-- Manual Refresh Button (Only for Cloud Tab) -->
+        <button
+          v-if="currentTab === 'cloud'"
+          class="h-[32px] flex items-center justify-center gap-1.5 border border-transparent rounded-lg bg-neutral-100 px-3 py-1 text-xs text-neutral-600 font-semibold outline-none transition-all dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          :disabled="remoteCatalogLoading"
+          title="Refresh Cloud Catalog"
+          @click="displayModelStore.fetchRemoteCatalog()"
+        >
+          <div :class="['i-solar:refresh-bold text-xs', remoteCatalogLoading ? 'animate-spin' : '']" />
+          <span>Refresh</span>
+        </button>
       </div>
 
-      <div v-if="displayModelsFromIndexedDBLoading">
+      <div v-if="displayModelsFromIndexedDBLoading || remoteCatalogLoading">
         Loading display models...
       </div>
 
@@ -1243,7 +1371,7 @@ async function runAutoLinkCatalog() {
             @click="() => highlightDisplayModelCard = model.id"
           >
             <!-- Options Menu -->
-            <div class="absolute right-2 top-2 z-10">
+            <div v-if="isDownloaded(model.id)" class="absolute right-2 top-2 z-10">
               <DropdownMenuRoot>
                 <DropdownMenuTrigger
                   :class="[
@@ -1296,12 +1424,22 @@ async function runAutoLinkCatalog() {
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      v-if="isAvailableOnCloud(model.id)"
+                      class="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-base leading-none outline-none data-[highlighted]:bg-white/10 sm:text-sm dark:data-[highlighted]:bg-black/10"
+                      @click="handleRemoveLocalCopy(model)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <div class="i-solar:cloud-download-bold" />
+                        <div>Remove Local Copy</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       class="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-base text-red-400 font-semibold leading-none outline-none data-[highlighted]:bg-red-500/20 sm:text-sm"
                       @click="handleRemoveModel(model)"
                     >
                       <div class="flex items-center gap-2">
                         <div class="i-solar:trash-bin-minimalistic-bold-duotone" />
-                        <div>Remove</div>
+                        <div>{{ isAvailableOnCloud(model.id) ? 'Delete Everywhere' : 'Remove' }}</div>
                       </div>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -1315,11 +1453,11 @@ async function runAutoLinkCatalog() {
               :class="[
                 viewMode === 'grid' ? 'h-50 md:h-60 w-full md:w-45 lg:w-50 shrink-0' : 'aspect-[3/4] w-full',
               ]"
-              @click="handlePick(model)"
+              @click="downloadingModelId === model.id ? null : (isDownloaded(model.id) ? handlePick(model) : downloadAndPickModel(model))"
             >
               <img
-                v-if="model.previewImage"
-                :src="model.previewImage"
+                v-if="getPreviewSrc(model)"
+                :src="getPreviewSrc(model)"
                 h-full w-full rounded-xl object-cover
                 loading="lazy"
                 :class="[
@@ -1331,7 +1469,8 @@ async function runAutoLinkCatalog() {
                 v-else
                 :class="['h-full w-full flex flex-col items-center justify-center gap-2 rounded-xl bg-neutral-200 dark:bg-neutral-800', highlightDisplayModelCard === model.id ? 'ring-3 ring-primary-500 shadow-lg' : 'ring-1 ring-white/10 dark:ring-black/10']"
               >
-                <div class="i-solar:question-square-bold-duotone text-4xl opacity-30" />
+                <div v-if="loadingPreviews[model.id]" class="i-solar:refresh-bold animate-spin text-4xl opacity-50" />
+                <div v-else class="i-solar:question-square-bold-duotone text-4xl opacity-30" />
               </div>
 
               <!-- Hover Effects Overlay -->
@@ -1339,8 +1478,18 @@ async function runAutoLinkCatalog() {
                 class="pointer-events-none absolute inset-0 flex items-end justify-center rounded-xl from-black/60 to-transparent bg-gradient-to-t p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
               >
                 <div :class="['text-white text-xs font-bold flex items-center gap-1', 'translate-y-2 group-hover:translate-y-0 transition-transform duration-300']">
-                  <div class="i-solar:map-arrow-up-bold" />
-                  Pick Model
+                  <template v-if="downloadingModelId === model.id">
+                    <div class="i-solar:refresh-bold animate-spin" />
+                    Downloading...
+                  </template>
+                  <template v-else-if="isDownloaded(model.id)">
+                    <div class="i-solar:map-arrow-up-bold" />
+                    Pick Model
+                  </template>
+                  <template v-else>
+                    <div class="i-solar:cloud-download-bold" />
+                    Download & Pick
+                  </template>
                 </div>
               </div>
             </div>
@@ -1352,6 +1501,9 @@ async function runAutoLinkCatalog() {
             >
               <div class="w-full">
                 <div class="mb-1 flex flex-wrap items-center gap-1">
+                  <!-- Local vs Cloud Badge -->
+                  <span v-if="isDownloaded(model.id)" class="rounded bg-green-500/10 px-1 py-0.2 text-[8px] text-green-500 font-bold tracking-wider uppercase">Local</span>
+                  <span v-else class="rounded bg-sky-500/10 px-1 py-0.2 text-[8px] text-sky-500 font-bold tracking-wider uppercase">Cloud</span>
                   <!-- NSFW Badge -->
                   <span v-if="model.nsfw" class="rounded bg-red-500/10 px-1 py-0.2 text-[8px] text-red-500 font-bold tracking-wider uppercase">NSFW</span>
                   <!-- Group Badges -->
@@ -1381,18 +1533,27 @@ async function runAutoLinkCatalog() {
                 >
                   <div v-if="model.format === DisplayModelFormat.VRM" class="i-solar:box-bold" />
                   <div v-else class="i-solar:mask-hachi-bold" />
-                  <div>{{ mapFormatRenderer[model.format] }}</div>
+                  <div>{{ mapFormatRenderer[model.format as DisplayModelFormat] }}</div>
                 </div>
               </div>
 
-              <!-- Pick toggle button for Standard View only -->
+              <!-- Pick / Download button for Grid View -->
               <Button
                 v-if="viewMode === 'grid'"
                 variant="secondary"
                 class="mt-2 w-full !rounded-lg !py-1.5"
-                @click="handlePick(model)"
+                :disabled="downloadingModelId === model.id"
+                @click="isDownloaded(model.id) ? handlePick(model) : downloadAndPickModel(model)"
               >
-                Pick
+                <span v-if="downloadingModelId === model.id" class="flex items-center justify-center gap-1">
+                  <span class="i-solar:refresh-bold animate-spin" />
+                  Downloading...
+                </span>
+                <span v-else-if="isDownloaded(model.id)">Pick</span>
+                <span v-else class="flex items-center justify-center gap-1">
+                  <span class="i-solar:cloud-download-bold" />
+                  Download & Pick
+                </span>
               </Button>
             </div>
           </div>
