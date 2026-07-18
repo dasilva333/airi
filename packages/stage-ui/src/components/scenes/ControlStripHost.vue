@@ -223,8 +223,14 @@ const emotionsQueue = createQueue<EmotionPayload>({
       if (stageModelRenderer.value === 'vrm') {
         const emotionName = ctx.data.name
         console.info('[Stage] VRM emotion/motion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
-        if (customVrmAnimationsStore.animationKeys.includes(emotionName)) {
-          vrmStore.triggerMotion(emotionName)
+        const matchedOption = customVrmAnimationsStore.animationOptions.find(opt =>
+          opt.value === emotionName
+          || opt.label === emotionName
+          || opt.value === `custom-vrma:${emotionName}`,
+        )
+
+        if (matchedOption) {
+          vrmStore.triggerMotion(matchedOption.value)
         }
         else {
           vrmStore.triggerEmotion(emotionName, ctx.data.intensity)

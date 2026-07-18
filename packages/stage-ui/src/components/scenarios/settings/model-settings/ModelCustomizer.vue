@@ -4,47 +4,35 @@ import localforage from 'localforage'
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
-import { useModelStore, useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
+import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
-import type { ChatProvider } from '@xsai-ext/providers/utils'
 
-
-import * as v from 'valibot'
-import { buildVRMA, VRMAMotionSpecSchema, VRMA_SYSTEM_PROMPT } from '../../../../utils'
-
-
-// Prompt Instructions Generator Integration
-import ModelPromptGeneratorModal from './components/ModelPromptGeneratorModal.vue'
-
-import { useChatOrchestratorStore } from '../../../../stores/chat'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
-import { useLLM } from '../../../../stores/llm'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
-import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
-import { useProvidersStore } from '../../../../stores/providers'
 import { useSettingsControlStrip } from '../../../../stores/settings/control-strip'
 
 interface Props {
   modelId: string
-  showRehearsalSandbox?: boolean
+  showInsertActions?: boolean
   palette?: string[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showRehearsalSandbox: false,
+  showInsertActions: false,
   palette: () => [],
 })
+
+const emit = defineEmits<{
+  (e: 'insert-token', token: string): void
+  (e: 'update:visible-capabilities', payload: { emotions: string[], motions: string[] }): void
+}>()
 
 // Setup Stores
 const airiCardStore = useAiriCardStore()
 const controlStripStore = useSettingsControlStrip()
 const displayModelsStore = useDisplayModelsStore()
-const orchestrator = useChatOrchestratorStore()
-const llmStore = useLLM()
-const consciousnessStore = useConsciousnessStore()
-const providersStore = useProvidersStore()
 
 const live2dStore = useLive2d()
 const mmdStore = useMmd()
@@ -54,7 +42,6 @@ const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { stageEnabled } = storeToRefs(controlStripStore)
-const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
 // Resolve Model Format
 const currentModel = computed(() => {
@@ -322,6 +309,18 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
       isVisible: !hidden.includes(key),
     }))
   }
+  if (mType === 'vrm') {
+    return customVrmAnimationsStore.animationOptions.map(option => ({
+      key: option.value,
+      displayName: option.label,
+      isActive: modelStore.vrmIdleAnimation === option.value,
+      group: option.value.startsWith('custom-vrma:') ? 'Custom Animations' : 'Built-in Animations',
+      duration: 3.0,
+      hasSound: false,
+      isInIdleCycle: idleCycles.includes(option.value),
+      isVisible: !hidden.includes(option.value),
+    }))
+  }
   return []
 })
 
@@ -354,6 +353,13 @@ const motionsToRender = computed(() => {
   return groups
 })
 
+watch([expressionsToRender, motionsToRender], () => {
+  emit('update:visible-capabilities', {
+    emotions: expressionsToRender.value.map(e => e.displayName),
+    motions: Object.values(motionsToRender.value).flat().map(m => m.displayName),
+  })
+}, { deep: true, immediate: true })
+
 // Warnings detection
 const hasTechnicalKeys = computed(() => {
   const technicalRegex = /(\.json|\.vmd|expression_|morph_|\d)/i
@@ -362,7 +368,7 @@ const hasTechnicalKeys = computed(() => {
 
 // Trigger Click-to-Effectuate on Stage
 function triggerExpressionEffect(key: string) {
-  if (props.showRehearsalSandbox && !stageEnabled.value) {
+  if (!stageEnabled.value) {
     toast.error('Stage window must be open to preview expressions.')
     return
   }
@@ -386,12 +392,15 @@ function triggerExpressionEffect(key: string) {
 }
 
 function triggerMotionEffect(key: string) {
-  if (props.showRehearsalSandbox && !stageEnabled.value) {
+  if (!stageEnabled.value) {
     toast.error('Stage window must be open to preview motions.')
     return
   }
   if (modelType.value === 'live2d') {
     live2dStore.triggerMotion(key)
+  }
+  else if (modelType.value === 'vrm') {
+    modelStore.triggerMotion(key)
   }
   else if (modelType.value === 'mmd') {
     mmdStore.playOneShotAction(key)
@@ -471,7 +480,7 @@ async function assignActMapping(emotion: string) {
 
 // Loop / Cycle Toggle for Cards
 function isMotionInCycle(key: string) {
-  const prefix = `${modelType.value}:${key}`
+  const prefix = modelType.value === 'vrm' ? key : `${modelType.value}:${key}`
   return activeCard.value?.extensions?.airi?.acting?.idleAnimations?.includes(prefix) ?? false
 }
 
@@ -479,7 +488,7 @@ function toggleMotionCycle(key: string) {
   if (!activeCardId.value || !activeCard.value)
     return
 
-  const prefix = `${modelType.value}:${key}`
+  const prefix = modelType.value === 'vrm' ? key : `${modelType.value}:${key}`
   const current = activeCard.value.extensions.airi.acting?.idleAnimations || []
   const next = current.includes(prefix)
     ? current.filter(k => k !== prefix)
@@ -498,455 +507,10 @@ function toggleMotionCycle(key: string) {
     },
   })
 }
-
-// Playground & Rehearsal Sandbox
-const playgroundText = ref('<|ACT:emotion="happy"|> Hello world! Welcome to the Stage.')
-const isRehearsing = ref(false)
-const isGeneratingMotion = ref(false)
-
-async function createMotion() {
-  const prompt = playgroundText.value.trim()
-  if (!prompt) {
-    toast.error('Please enter a motion description in the text box.')
-    return
-  }
-
-  const providerId = activeProvider.value
-  const model = activeModel.value
-  if (!providerId || !model) {
-    toast.error('Please configure an active LLM provider first.')
-    return
-  }
-
-  const provider = await providersStore.getProviderInstance<ChatProvider>(providerId)
-  if (!provider) {
-    toast.error(`Failed to resolve provider instance for "${providerId}".`)
-    return
-  }
-
-  try {
-    isGeneratingMotion.value = true
-    toast.info('Generating motion spec via LLM...')
-
-    const messages = [
-      { role: 'system' as const, content: VRMA_SYSTEM_PROMPT },
-      { role: 'user' as const, content: `Create a motion animation for: ${prompt}` }
-    ]
-
-    const spec = await llmStore.generateObject(model, provider, {
-      messages,
-      schema: VRMAMotionSpecSchema,
-      maxAttempts: 3
-    })
-
-    toast.info('Compiling motion to VRMA...')
-    const buffer = buildVRMA(spec)
-
-    // Save to Database (custom-vrm-animations store / localforage)
-    try {
-      const fileName = `${spec.name || 'motion'}.vrma`
-      const file = new File([buffer], fileName, { type: 'model/gltf-binary' })
-      await customVrmAnimationsStore.addCustomAnimation(file)
-      toast.success('Motion saved to library successfully!')
-    }
-    catch (dbErr: any) {
-      console.error('[CreateMotion] Database save failed:', dbErr)
-      toast.error(`Library save failed: ${dbErr.message || String(dbErr)}. Running backup download...`)
-    }
-
-    // Failsafe backup download
-    const blob = new Blob([buffer], { type: 'model/gltf-binary' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${spec.name || 'motion'}.vrma`
-    a.click()
-    URL.revokeObjectURL(url)
-
-    toast.success('Backup file downloaded successfully!')
-  }
-  catch (err: any) {
-    console.error('[CreateMotion] Failed:', err)
-    toast.error(`Generation failed: ${err.message || String(err)}`)
-  }
-  finally {
-    isGeneratingMotion.value = false
-  }
-}
-
-
-const dynamicPresets = computed(() => {
-  const exps = rawExpressions.value.map(e => e.displayName)
-  const mots = rawMotions.value.map(m => m.displayName)
-
-  const presets = []
-
-  // 1. Single Tag (use emotion if available, fallback to motion)
-  if (exps.length > 0) {
-    presets.push({
-      label: 'Single Emotion',
-      text: `<|ACT:emotion="${exps[0]}"|> Hello world!`,
-    })
-  }
-  else if (mots.length > 0) {
-    presets.push({
-      label: 'Single Motion',
-      text: `<|ACT:motion="${mots[0]}"|> Hello world!`,
-    })
-  }
-
-  // 2. Dual Tags (Leading & Trailing)
-  if (exps.length > 1) {
-    presets.push({
-      label: 'Dual Emotions',
-      text: `<|ACT:emotion="${exps[0]}"|> This is a sandbox test. <|ACT:emotion="${exps[1]}"|>`,
-    })
-  }
-  else if (mots.length > 1) {
-    presets.push({
-      label: 'Dual Motions',
-      text: `<|ACT:motion="${mots[0]}"|> This is a sandbox test. <|ACT:motion="${mots[1]}"|>`,
-    })
-  }
-
-  // 3. Combined Tag (Requires both emotion and motion)
-  if (exps.length > 0 && mots.length > 0) {
-    presets.push({
-      label: 'Combo Tag',
-      text: `<|ACT:emotion="${exps[0]}",motion="${mots[0]}"|> Moving and speaking.`,
-    })
-  }
-
-  // 4. Dual Combos (Requires at least 2 emotions and 2 motions)
-  if (exps.length > 1 && mots.length > 1) {
-    presets.push({
-      label: 'Dual Combos',
-      text: `<|ACT:emotion="${exps[0]}",motion="${mots[0]}"|> Starting off... <|ACT:emotion="${exps[1]}",motion="${mots[1]}"|> and transitioning.`,
-    })
-  }
-
-  return presets
-})
-
-async function playRehearsal() {
-  if (!stageEnabled.value) {
-    toast.error('Stage window must be open to orchestrate rehearsals.')
-    return
-  }
-  if (isRehearsing.value)
-    return
-  isRehearsing.value = true
-
-  try {
-    const text = playgroundText.value.trim()
-    console.info('[Rehearsal Playback] Streaming via Chat Orchestrator hooks:', text)
-
-    const dummyContext = {
-      assistantMessageId: `rehearsal-${Date.now()}`,
-      assistantMessageCreatedAt: Date.now(),
-    }
-
-    // Start of response
-    await orchestrator.emitBeforeSendHooks('', dummyContext as any)
-
-    // Split content into markers and text segments
-    const parts = text.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)
-    for (const part of parts) {
-      if (!part)
-        continue
-
-      // Delay slightly between streams to simulate standard streaming token rate
-      await new Promise(resolve => setTimeout(resolve, 80))
-
-      if (part.startsWith('<|')) {
-        console.info('[Rehearsal Playback] Emitting Special Tag:', part)
-        await orchestrator.emitTokenSpecialHooks(part, dummyContext as any)
-      }
-      else {
-        console.info('[Rehearsal Playback] Emitting Literal Text:', part)
-        await orchestrator.emitTokenLiteralHooks(part, dummyContext as any)
-      }
-    }
-
-    // End of stream
-    await orchestrator.emitStreamEndHooks(dummyContext as any)
-
-    const content = text.replace(/<\|ACT:[^|]+\|>/g, '').trim()
-    await orchestrator.emitAssistantResponseEndHooks(content, dummyContext as any)
-
-    setTimeout(() => {
-      isRehearsing.value = false
-    }, 1000)
-  }
-  catch (err) {
-    console.error('Rehearsal playback streaming failed:', err)
-    isRehearsing.value = false
-  }
-}
-
-const aiSuggestions = ref<Array<{ title: string, dialogue: string }>>([])
-const isGeneratingAI = ref(false)
-
-async function suggestDialogue() {
-  if (!activeCard.value)
-    return
-  if (!activeProvider.value || !activeModel.value) {
-    toast.error('No active LLM model or provider is selected. Configure them in settings first.')
-    return
-  }
-
-  isGeneratingAI.value = true
-  aiSuggestions.value = []
-
-  try {
-    const providerInstance = await providersStore.getProviderInstance(activeProvider.value)
-    if (!providerInstance) {
-      throw new Error('Failed to get active LLM provider instance.')
-    }
-
-    // Collect only the currently visible/filtered keys (Option B: What you see is what you get)
-    const emotionsList = expressionsToRender.value.map(e => e.displayName)
-    const motionsList = Object.values(motionsToRender.value).flat().map(m => m.displayName)
-
-    const systemPrompt = `You are a creative dialogue script designer for a VTuber/AI agent rehearsal sandbox.
-The user wants to generate 4 dialogue acting presets.
-The avatar has the following acting capabilities:
-- Available Emotions: [ ${emotionsList.join(', ') || 'None'} ]
-- Available Motions: [ ${motionsList.join(', ') || 'None'} ]
-
-Requirements for the dialogue presets:
-1. Generate exactly 4 presets.
-2. For each preset, create a short, punchy 1-2 word title (e.g., 'Shy Greeting', 'Surprised Gasps', 'Flustered Anger', 'Deep Thought').
-3. For each preset, write a natural dialogue line and embed <|ACT:emotion="key"|> or <|ACT:motion="key"|> tokens naturally inside the text.
-4. Try to make at least 2 presets use a single emotion/motion token, and 2 presets use a combination of both an emotion and a motion (if both lists have items).
-5. Only use the exact emotion and motion keys listed above. Do not invent new ones.
-
-Example output structure:
-Preset 1: Title: 'Happy Wave', Dialogue: '<|ACT:emotion="happy"|> Hello there! <|ACT:motion="wave"|> I am so glad to see you!'
-Preset 2: Title: 'Flustered Shock', Dialogue: '<|ACT:emotion="surprised"|> Wait! What do you mean by that?!'`
-
-    const schema = v.object({
-      suggestions: v.array(
-        v.object({
-          title: v.string(),
-          dialogue: v.string(),
-        }),
-      ),
-    })
-
-    const result = await llmStore.generateObject<any>(
-      activeModel.value,
-      providerInstance as any,
-      {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate 4 creative acting presets.' },
-        ],
-        schema,
-      },
-    )
-
-    if (result && Array.isArray(result.suggestions)) {
-      aiSuggestions.value = result.suggestions
-      toast.success('Generated 4 new acting presets!')
-    }
-    else {
-      throw new Error('Invalid response structure.')
-    }
-  }
-  catch (err) {
-    console.error('AI suggestion failed:', err)
-    toast.error(`AI Suggestion failed: ${err instanceof Error ? err.message : String(err)}`)
-  }
-  finally {
-    isGeneratingAI.value = false
-  }
-}
-
-// Append ACT token to Rehearsal playground
-function appendToPlayground(type: 'emotion' | 'motion', key: string) {
-  const token = type === 'emotion'
-    ? `<|ACT:emotion="${key}"|>`
-    : `<|ACT:motion="${key}"|>`
-
-  // Append with a space prefix if playground is not empty
-  if (playgroundText.value.trim().length > 0) {
-    playgroundText.value = `${playgroundText.value.trim()} ${token}`
-  }
-  else {
-    playgroundText.value = token
-  }
-  toast.success(`Appended ${type} token to sandbox!`)
-}
-
-const showPromptGenerator = ref(false)
-
-const onSetModels = computed(() => {
-  if (!activeCard.value)
-    return []
-
-  const assets = (activeCard.value.extensions?.airi?.visual_assets || {}) as Record<string, any>
-  const modules = (activeCard.value.extensions?.airi?.modules || {}) as Record<string, any>
-
-  const list: Array<{
-    key: string
-    name: string
-    modelId: string
-    avatarUrl: string
-    isFallback: boolean
-  }> = []
-
-  // Check visual assets for per-actor manifestations
-  for (const key of Object.keys(assets)) {
-    const asset = assets[key] || {}
-    const mod = modules[key] || {}
-
-    const modelId = mod.manifestation?.modelId || asset.manifestation?.modelId
-    if (!modelId)
-      continue
-
-    let displayName = key
-    if (key === 'concept_user')
-      displayName = 'User Entity'
-    else
-      displayName = key.replace(/^(actor_|actress_)/, '').replace(/_/g, ' ')
-
-    list.push({
-      key,
-      name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
-      modelId,
-      avatarUrl: '',
-      isFallback: false,
-    })
-  }
-
-  // Fallback Case: Simple/Gen1 card with no per-actor manifestations.
-  if (list.length === 0) {
-    const fallbackId = modules.displayModelId
-    if (fallbackId) {
-      const displayName = (activeCard.value as any).nickname || activeCard.value.name || 'Primary Actor'
-      list.push({
-        key: 'actor_primary',
-        name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
-        modelId: fallbackId,
-        avatarUrl: '',
-        isFallback: true,
-      })
-    }
-  }
-
-  return list
-})
-
-async function handlePromptSave(newValue: string) {
-  if (!activeCard.value || !activeCardId.value)
-    return
-
-  const currentActing = activeCard.value.extensions?.airi?.acting || {}
-
-  airiCardStore.updateCard(activeCardId.value, {
-    extensions: {
-      ...activeCard.value.extensions,
-      airi: {
-        ...activeCard.value.extensions.airi,
-        acting: {
-          ...currentActing,
-          modelExpressionPrompt: newValue,
-        },
-      },
-    },
-  })
-  toast.success('Acting instructions updated successfully on character card!')
-}
 </script>
 
 <template>
   <div class="h-full min-h-0 w-full flex flex-col overflow-hidden bg-transparent">
-    <!-- Sandbox Playground (Optional for Rehearsal Room) -->
-    <div v-if="props.showRehearsalSandbox" class="shrink-0 pb-3">
-      <div class="border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 dark:border-neutral-800 dark:bg-neutral-950/20">
-        <div class="mb-2 flex items-center justify-between">
-          <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Sandbox Playground</span>
-        </div>
-
-        <div class="border border-neutral-200 rounded-lg bg-white dark:border-neutral-800 dark:bg-neutral-900">
-          <textarea
-            v-model="playgroundText"
-            rows="2"
-            class="w-full border-none bg-transparent p-2 text-xs dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-0"
-            placeholder="e.g. <|ACT:emotion=&quot;happy&quot;|> Hello world!"
-          />
-        </div>
-
-        <div class="mt-2 flex flex-col gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-bold transition-all hover:bg-primary-500/20 dark:text-primary-400"
-              :disabled="isRehearsing"
-              @click="playRehearsal"
-            >
-              <div :class="isRehearsing ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:clapperboard-play-bold-duotone'" />
-              Act
-            </button>
-
-            <button
-              v-if="modelType === 'vrm'"
-              class="flex cursor-pointer items-center gap-1 rounded bg-indigo-500/10 px-2.5 py-1 text-[10px] text-indigo-600 font-bold transition-all hover:bg-indigo-500/20 dark:text-indigo-400 disabled:opacity-50"
-              :disabled="isGeneratingMotion"
-              @click="createMotion"
-            >
-              <div :class="isGeneratingMotion ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:magic-stick-3-bold-duotone'" />
-              Create Motion
-            </button>
-
-            <button
-              class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2.5 py-1 text-[10px] text-primary-600 font-medium transition-all hover:bg-primary-500/20 dark:text-primary-400"
-              :disabled="isGeneratingAI"
-              @click="suggestDialogue"
-            >
-              <div :class="isGeneratingAI ? 'i-solar:spinner-bold animate-spin text-[10px]' : 'i-solar:magic-stick-3-bold-duotone'" />
-              {{ isGeneratingAI ? 'Generating...' : 'Suggest Dialog' }}
-            </button>
-
-            <button
-              class="flex cursor-pointer items-center gap-1 rounded bg-indigo-500/10 px-2.5 py-1 text-[10px] text-indigo-600 font-medium transition-all hover:bg-indigo-500/20 dark:text-indigo-400"
-              @click="showPromptGenerator = true"
-            >
-              <div class="i-ph:sparkle animate-pulse text-[10px]" />
-              Generate Acting Instructions
-            </button>
-          </div>
-
-          <p class="text-[9px] text-neutral-400 leading-normal dark:text-neutral-500">
-            Clicking this compiles all visible emotions, motions, and actor profiles into detailed markdown instructions that teach the AI how and when to emote. You can save these instructions directly to your character card's system settings.
-          </p>
-        </div>
-
-        <!-- presets & suggestions tray -->
-        <div class="flex flex-wrap gap-1 border-t border-neutral-100 pt-2 dark:border-neutral-800">
-          <!-- Dynamic Templates (Always Available) -->
-          <button
-            v-for="p in dynamicPresets"
-            :key="p.label"
-            class="cursor-pointer border border-primary-200/50 rounded bg-primary-50/20 px-2 py-0.5 text-[9px] text-primary-600 font-bold transition-all dark:border-primary-900/40 dark:bg-primary-950/10 hover:bg-primary-500/10 dark:text-primary-400"
-            @click="playgroundText = p.text"
-          >
-            {{ p.label }}
-          </button>
-
-          <!-- LLM Suggestions -->
-          <button
-            v-for="s in aiSuggestions"
-            :key="s.title"
-            class="cursor-pointer border border-neutral-200 rounded bg-white px-2 py-0.5 text-[9px] text-neutral-600 font-medium transition-all dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-            @click="playgroundText = s.dialogue"
-          >
-            {{ s.title }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Empty State Fallback -->
     <div v-if="modelType === 'unknown'" class="flex flex-1 flex-col items-center justify-center p-6 text-center">
       <div class="i-solar:box-minimalistic-bold-duotone mb-2 text-4xl text-neutral-300 dark:text-neutral-700" />
@@ -971,7 +535,7 @@ async function handlePromptSave(newValue: string) {
       </div>
 
       <!-- Segment Toggle: Emotions / Motions -->
-      <div v-if="props.showRehearsalSandbox" class="shrink-0 pb-1">
+      <div v-if="rawMotions.length > 0" class="shrink-0 pb-1">
         <div class="flex rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800">
           <button
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -1078,16 +642,16 @@ async function handlePromptSave(newValue: string) {
               <div class="ml-2 flex shrink-0 items-center gap-0.5">
                 <!-- Append to Sandbox -->
                 <button
-                  v-if="props.showRehearsalSandbox"
+                  v-if="props.showInsertActions"
                   class="cursor-pointer rounded p-1 text-neutral-400 hover:bg-primary-500/10 dark:text-neutral-500 hover:text-primary-500"
                   title="Insert into Sandbox"
-                  @click.stop="appendToPlayground('emotion', exp.displayName)"
+                  @click.stop="emit('insert-token', `<|ACT:emotion=\x22${exp.displayName}\x22|>`)"
                 >
                   <div class="i-solar:document-add-bold-duotone text-sm" />
                 </button>
                 <!-- ACT Mapping -->
                 <button
-                  v-if="props.showRehearsalSandbox"
+                  v-if="props.showInsertActions"
                   class="cursor-pointer rounded p-1 transition-colors"
                   :class="exp.actMapping
                     ? 'text-primary-500 hover:text-primary-600 bg-primary-500/10'
@@ -1135,6 +699,29 @@ async function handlePromptSave(newValue: string) {
             No motions available for this model.
           </div>
 
+          <!-- None Option for VRM -->
+          <div
+            v-if="modelType === 'vrm' && Object.keys(motionsToRender).length > 0"
+            class="mb-3 overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <div
+              :class="[
+                'flex items-center justify-between px-3 py-2 transition-colors cursor-pointer',
+                !modelStore.vrmIdleAnimation ? 'bg-primary-50/30 dark:bg-primary-900/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
+              ]"
+              @click="modelStore.vrmIdleAnimation = ''"
+            >
+              <div class="flex items-center gap-2">
+                <div
+                  :class="['h-2 w-2 rounded-full shrink-0 transition-colors', !modelStore.vrmIdleAnimation ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600']"
+                />
+                <div class="text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                  None (Stop Base Idle)
+                </div>
+              </div>
+            </div>
+          </div>
+
           <template v-for="(groupMotions, groupName) in motionsToRender" :key="groupName">
             <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 px-1">
               <span class="inline-flex items-center rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] text-primary-700 font-semibold ring-1 ring-primary-700/10 ring-inset dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-400/20">
@@ -1179,10 +766,10 @@ async function handlePromptSave(newValue: string) {
                 <div class="ml-2 flex shrink-0 items-center gap-0.5">
                   <!-- Append to Sandbox -->
                   <button
-                    v-if="props.showRehearsalSandbox"
+                    v-if="props.showInsertActions"
                     class="cursor-pointer rounded p-1 text-neutral-400 hover:bg-primary-500/10 dark:text-neutral-500 hover:text-primary-500"
                     title="Insert into Sandbox"
-                    @click.stop="appendToPlayground('motion', mot.displayName)"
+                    @click.stop="emit('insert-token', `<|ACT:motion=\x22${mot.displayName}\x22|>`)"
                   >
                     <div class="i-solar:document-add-bold-duotone text-sm" />
                   </button>
@@ -1223,7 +810,7 @@ async function handlePromptSave(newValue: string) {
         </template>
 
         <!-- Rehearsal UI Controls Legend -->
-        <div v-if="props.showRehearsalSandbox" class="mt-4 border border-neutral-100 rounded-xl bg-neutral-50/40 p-3 text-[10px] text-neutral-500 leading-relaxed dark:border-neutral-800/80 dark:bg-neutral-950/10">
+        <div v-if="props.showInsertActions" class="mt-4 border border-neutral-100 rounded-xl bg-neutral-50/40 p-3 text-[10px] text-neutral-500 leading-relaxed dark:border-neutral-800/80 dark:bg-neutral-950/10">
           <div class="mb-1.5 text-[11px] text-neutral-700 font-bold dark:text-neutral-300">
             Rehearsal Controls Legend
           </div>
@@ -1306,14 +893,5 @@ async function handlePromptSave(newValue: string) {
         </div>
       </Transition>
     </Teleport>
-
-    <!-- Prompt Instructions Generator Modal -->
-    <ModelPromptGeneratorModal
-      v-model="showPromptGenerator"
-      :active-emotions="rawExpressions.filter(e => e.isVisible).map(e => e.displayName)"
-      :active-motions="Object.values(motionsToRender).flat().map(m => m.displayName)"
-      :on-set-models="onSetModels"
-      @save="handlePromptSave"
-    />
   </div>
 </template>

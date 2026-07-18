@@ -149,10 +149,17 @@ export const useCustomVrmAnimationsStore = defineStore('custom-vrm-animations', 
   }
 
   function resolveAnimationUrl(key: string | null | undefined) {
-    if (key && key in customAnimations.value)
+    if (!key)
+      return animations.idleLoop
+
+    if (key in customAnimations.value)
       return customAnimations.value[key].url
 
-    if (key && key in animations)
+    const customKey = key.startsWith(CUSTOM_VRMA_KEY_PREFIX) ? key : `${CUSTOM_VRMA_KEY_PREFIX}${key}`
+    if (customKey in customAnimations.value)
+      return customAnimations.value[customKey].url
+
+    if (key in animations)
       return animations[key as keyof typeof animations]
 
     return animations.idleLoop
