@@ -296,9 +296,11 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const activeCard = cardStore.activeCard
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
-  // Default to allowing all tools except generate_vrma if character-specific settings are disabled,
-  // or if allowedTools array is not specifically set (backward compatibility).
-  if (!activeCard?.extensions?.airi?.generation?.enabled || !allowedTools) {
+  console.log(`[llmStore:filterTools] card="${activeCard?.name ?? 'none'}" generation.enabled=${String(activeCard?.extensions?.airi?.generation?.enabled)} allowedTools=${JSON.stringify(allowedTools ?? null)} inTools=[${tools.map((t: any) => t.function?.name || t.name).join(',')}]`)
+
+  // Default to allowing all tools except generate_vrma if allowedTools is not specifically set
+  // (backward compatibility). generation.enabled is a separate flag for model/provider overrides.
+  if (!allowedTools) {
     return tools.filter((t: any) => {
       const name = t.function?.name || t.name || ''
       return !name.includes('generate_vrma')
