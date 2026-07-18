@@ -296,10 +296,13 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const activeCard = cardStore.activeCard
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
-  // Default to allowing all tools if character-specific settings are disabled,
+  // Default to allowing all tools except generate_vrma if character-specific settings are disabled,
   // or if allowedTools array is not specifically set (backward compatibility).
   if (!activeCard?.extensions?.airi?.generation?.enabled || !allowedTools) {
-    return tools
+    return tools.filter((t: any) => {
+      const name = t.function?.name || t.name || ''
+      return !name.includes('generate_vrma')
+    })
   }
 
   return tools.filter((t: any) => {
@@ -312,6 +315,9 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
     }
     if (name.includes('mcp_') || name.startsWith('mcp')) {
       return allowedTools.includes('mcp')
+    }
+    if (name.includes('generate_vrma')) {
+      return allowedTools.includes('generate_vrma')
     }
     // Allow other custom/unmapped tools by default
     return true

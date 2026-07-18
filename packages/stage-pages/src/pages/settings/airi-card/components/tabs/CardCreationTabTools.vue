@@ -54,6 +54,22 @@ const hasMcp = computed({
   },
 })
 
+const hasVrmaGenerator = computed({
+  get() {
+    return generationAllowedTools.value !== undefined && generationAllowedTools.value.includes('generate_vrma')
+  },
+  set(checked) {
+    const current = generationAllowedTools.value ?? ['text_journal', 'image_journal', 'mcp']
+    if (checked) {
+      if (!current.includes('generate_vrma'))
+        generationAllowedTools.value = [...current, 'generate_vrma']
+    }
+    else {
+      generationAllowedTools.value = current.filter(t => t !== 'generate_vrma')
+    }
+  },
+})
+
 // Widget instructions text
 const selectedImageJournalInstruction = defineModel<string>('selectedImageJournalInstruction', { required: false, default: '' })
 const selectedTextJournalInstruction = defineModel<string>('selectedTextJournalInstruction', { required: false, default: '' })
@@ -197,6 +213,11 @@ const textJournalConflictWarning = computed(() => {
           v-model="hasMcp"
           label="External Tools (MCP)"
           description="Allows the character to call connected Model Context Protocol (MCP) servers/APIs."
+        />
+        <FieldCheckbox
+          v-model="hasVrmaGenerator"
+          label="Dynamic VRM Motion Generator (generate_vrma)"
+          description="Allows the character to autonomously design and generate new custom physical motions (VRMA) in real time from chat prompts. (Opt-in only)."
         />
       </div>
     </section>

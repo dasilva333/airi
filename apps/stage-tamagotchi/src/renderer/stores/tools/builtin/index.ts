@@ -4,6 +4,7 @@ import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
 
+import { generateVrmaTools } from './generate-vrma'
 import { imageJournalTools } from './image-journal'
 import { mcpTools } from './mcp'
 import { stickersTools } from './stickers'
@@ -31,8 +32,9 @@ export async function builtinTools(): Promise<Tool[]> {
 
   const toolPromises: Promise<Tool[]>[] = []
 
-  // Always enabled
+  // Always register in list (filtered out by llmStore if not allowed)
   toolPromises.push(textJournalTools())
+  toolPromises.push(Promise.resolve(generateVrmaTools()))
 
   // Artistry suite
   if (artistry.configured) {
