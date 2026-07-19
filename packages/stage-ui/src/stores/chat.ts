@@ -808,6 +808,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               type: 'tool-call',
               toolCall: {
                 id: `bridge-${nanoid()}`,
+                index: 0,
                 type: 'function',
                 function: {
                   name: toolName,
