@@ -8,7 +8,7 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, markRaw, ref } from 'vue'
+import { computed, markRaw, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import chat_director from '../components/chat/chat_director.vue'
@@ -212,6 +212,163 @@ const activeSessionLabel = computed(() => {
   return baseName
 })
 
+// --- Generation Stats Popover & Token Output Limits ---
+const isStatsPopoverOpen = ref(false)
+
+const PROSE_PRESETS: Record<number, string> = {
+  80: 'Respond in extremely short, single-sentence replies. Keep your output direct, concise, and absolute.',
+  120: 'Respond in concise replies, typically one or two sentences. Avoid unnecessary detail.',
+  200: 'Respond in moderate, conversational paragraphs (approx. 2-3 sentences). Keep it natural and punchy.',
+  350: 'Respond in detailed paragraphs (approx. 1-2 short paragraphs). Provide depth but stay focused.',
+  600: 'Respond in descriptive, long-form paragraphs (up to 2 paragraphs of rich context and detail).',
+}
+
+const LIMITS_REGEX = /\[TOKEN_OUTPUT_LIMITS:\s*(\d+)\][\s\S]*?- STYLE INSTRUCTION:\s*([\s\S]*?)\[\/TOKEN_OUTPUT_LIMITS\]\n*/
+
+const popoverOverrideEnabled = ref(false)
+const popoverContextWidth = ref<number | undefined>(undefined)
+const popoverMaxTokens = ref<number>(200)
+const popoverCustomProse = ref('')
+const isProseEditing = ref(false)
+
+function loadPopoverState() {
+  if (!activeCard.value)
+    return
+
+  const airiExt = activeCard.value.extensions?.airi
+  popoverOverrideEnabled.value = airiExt?.generation?.enabled ?? false
+  popoverContextWidth.value = airiExt?.generation?.known?.contextWidth
+  popoverMaxTokens.value = airiExt?.generation?.known?.maxTokens ?? 200
+
+  const parsed = parseTokenLimits(activeCard.value.systemPrompt || '')
+  if (parsed) {
+    popoverMaxTokens.value = parsed.tokens
+    popoverCustomProse.value = parsed.prose
+  }
+  else {
+    popoverCustomProse.value = PROSE_PRESETS[popoverMaxTokens.value] || PROSE_PRESETS[200]
+  }
+}
+
+function parseTokenLimits(prompt: string = '') {
+  const match = prompt.match(LIMITS_REGEX)
+  if (match) {
+    return {
+      tokens: Number.parseInt(match[1], 10),
+      prose: match[2].trim(),
+    }
+  }
+  return null
+}
+
+function saveCardGenerationSettings() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+
+  const airiExt = activeCard.value.extensions?.airi
+  let updatedSystemPrompt = activeCard.value.systemPrompt || ''
+
+  if (popoverOverrideEnabled.value) {
+    updatedSystemPrompt = updateTokenLimitsInPrompt(
+      updatedSystemPrompt,
+      popoverMaxTokens.value,
+      popoverCustomProse.value,
+    )
+  }
+  else {
+    updatedSystemPrompt = stripTokenLimitsFromPrompt(updatedSystemPrompt)
+  }
+
+  airiCardStore.updateCard(activeCardId.value, {
+    ...activeCard.value.extensions,
+    airi: {
+      ...airiExt,
+      generation: {
+        ...airiExt?.generation,
+        enabled: popoverOverrideEnabled.value,
+        known: {
+          ...airiExt?.generation?.known,
+          contextWidth: popoverContextWidth.value,
+          maxTokens: popoverOverrideEnabled.value ? popoverMaxTokens.value : undefined,
+        },
+      },
+    },
+    systemPrompt: updatedSystemPrompt,
+  } as any)
+}
+
+function updateTokenLimitsInPrompt(prompt: string = '', tokens: number, prose: string): string {
+  const newBlock = `[TOKEN_OUTPUT_LIMITS: ${tokens}]
+### SYSTEM DIRECTIVE: STRICT STRUCTURAL COMPLIANCE REQUIRED
+You must format all outward speech to conform to the following token limit constraint:
+- TARGET LIMIT: Max ${tokens} tokens.
+- STYLE INSTRUCTION: ${prose}
+[/TOKEN_OUTPUT_LIMITS]\n\n`
+
+  if (prompt.match(LIMITS_REGEX)) {
+    return prompt.replace(LIMITS_REGEX, newBlock)
+  }
+  return newBlock + prompt
+}
+
+function stripTokenLimitsFromPrompt(prompt: string = ''): string {
+  return prompt.replace(LIMITS_REGEX, '').trim()
+}
+
+function handleContextPresetClick(width: number) {
+  popoverContextWidth.value = width
+  saveCardGenerationSettings()
+}
+
+function handleTokensSliderChange() {
+  const matchingPreset = PROSE_PRESETS[popoverMaxTokens.value]
+  if (matchingPreset) {
+    popoverCustomProse.value = matchingPreset
+  }
+  saveCardGenerationSettings()
+}
+
+function handleResetToDefaults() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+
+  const airiExt = activeCard.value.extensions?.airi
+  const cleanedPrompt = stripTokenLimitsFromPrompt(activeCard.value.systemPrompt || '')
+
+  popoverMaxTokens.value = 200
+  popoverCustomProse.value = PROSE_PRESETS[200]
+  isProseEditing.value = false
+  popoverOverrideEnabled.value = false
+
+  airiCardStore.updateCard(activeCardId.value, {
+    ...activeCard.value.extensions,
+    airi: {
+      ...airiExt,
+      generation: {
+        ...airiExt?.generation,
+        enabled: false,
+        known: {
+          ...airiExt?.generation?.known,
+          maxTokens: undefined,
+        },
+      },
+    },
+    systemPrompt: cleanedPrompt,
+  } as any)
+}
+
+watch(isStatsPopoverOpen, (open: boolean) => {
+  if (open) {
+    loadPopoverState()
+  }
+})
+watch(popoverOverrideEnabled, () => {
+  saveCardGenerationSettings()
+})
+watch(popoverContextWidth, () => {
+  saveCardGenerationSettings()
+})
+
 // List of sessions for dropdown
 const characterSessions = computed(() => {
   if (!activeCardId.value)
@@ -348,21 +505,145 @@ function selectSurface(surface: typeof activeSurface.value) {
 
         <!-- Right: Stacked Metrics, Memory & Context placeholder, Brain LLM Icon -->
         <div class="no-drag flex items-center gap-3">
-          <!-- Stacked Metrics: one icon, two stats vertically -->
-          <div
-            class="flex cursor-help select-none items-center gap-1.5"
-            :title="`Global: ${Number(liveSessionStore.totalTokens || 0).toLocaleString()} · Session: ${formattedSessionTokenCount}`"
-          >
-            <div class="i-solar:chart-linear text-xs text-neutral-400 dark:text-neutral-500" />
-            <div class="flex flex-col gap-[2px] leading-none">
-              <span class="text-[9px] text-neutral-400 font-bold tracking-tight uppercase dark:text-neutral-500">
-                {{ formatAbbreviatedCount(liveSessionStore.totalTokens || 0) }}
-              </span>
-              <span class="text-[9px] text-primary-400 font-bold tracking-tight uppercase dark:text-primary-400">
-                {{ formattedSessionTokenCount }}
-              </span>
-            </div>
-          </div>
+          <!-- Stacked Metrics: one icon, two stats vertically (opens Response Limit Settings) -->
+          <PopoverRoot v-model:open="isStatsPopoverOpen">
+            <PopoverTrigger as-child>
+              <button
+                class="flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1.5 py-1 text-left outline-none transition-all duration-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50"
+                :title="`Global: ${Number(liveSessionStore.totalTokens || 0).toLocaleString()} · Session: ${formattedSessionTokenCount}`"
+              >
+                <div class="i-solar:chart-linear text-xs text-neutral-400 dark:text-neutral-500" />
+                <div class="flex flex-col gap-[2px] leading-none">
+                  <span class="text-[9px] text-neutral-400 font-bold tracking-tight uppercase dark:text-neutral-500">
+                    {{ formatAbbreviatedCount(liveSessionStore.totalTokens || 0) }}
+                  </span>
+                  <span class="text-[9px] text-primary-400 font-bold tracking-tight uppercase dark:text-primary-400">
+                    {{ formattedSessionTokenCount }}
+                  </span>
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverPortal>
+              <PopoverContent
+                class="animate-in fade-in slide-in-from-top-1 z-[10000] w-72 flex flex-col gap-3 border border-neutral-200/60 rounded-2xl bg-white/95 p-3.5 shadow-2xl backdrop-blur-xl duration-150 dark:border-neutral-800 dark:bg-neutral-950/95"
+                side="bottom"
+                align="end"
+                :side-offset="8"
+              >
+                <!-- Section Header -->
+                <div class="flex items-center justify-between border-b border-neutral-200/40 pb-1.5 dark:border-neutral-800/40">
+                  <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Limits & Context</span>
+                  <button
+                    v-if="popoverOverrideEnabled"
+                    class="text-[10px] text-red-500 font-bold tracking-tight transition dark:text-red-400 hover:text-red-600 hover:dark:text-red-300"
+                    @click="handleResetToDefaults"
+                  >
+                    Reset defaults
+                  </button>
+                </div>
+
+                <!-- Overrides Enable Toggle -->
+                <div
+                  class="flex cursor-pointer items-center justify-between rounded-xl px-2 py-1.5 transition-all hover:bg-neutral-100/50 dark:hover:bg-neutral-800/30"
+                  @click="popoverOverrideEnabled = !popoverOverrideEnabled"
+                >
+                  <div class="flex flex-col">
+                    <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Override Limits</span>
+                    <span class="text-[9px] text-neutral-400">Enforce custom token & context rules</span>
+                  </div>
+                  <div
+                    :class="popoverOverrideEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="popoverOverrideEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Interactive Settings (active only if override enabled) -->
+                <div
+                  class="flex flex-col gap-3 transition-opacity duration-200"
+                  :class="[!popoverOverrideEnabled ? 'pointer-events-none opacity-40' : '']"
+                >
+                  <!-- Context Width Limits -->
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] text-neutral-400 font-bold tracking-tight uppercase">Context Width Threshold</label>
+                    <div class="flex items-center gap-2">
+                      <input
+                        v-model.number="popoverContextWidth"
+                        type="number"
+                        placeholder="4096"
+                        class="w-24 border border-neutral-200 rounded-lg bg-neutral-50 px-2 py-1 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200"
+                        @change="saveCardGenerationSettings"
+                      >
+                      <div class="flex gap-1">
+                        <button
+                          v-for="widthPreset in [65536, 204800, 1048576]"
+                          :key="widthPreset"
+                          class="border border-neutral-200/50 rounded-md bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-600 font-bold dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                          @click="handleContextPresetClick(widthPreset)"
+                        >
+                          {{ widthPreset >= 1048576 ? '1M' : widthPreset >= 204800 ? '200K' : '64K' }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Token Limits Slider -->
+                  <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between text-[10px]">
+                      <span class="text-neutral-400 font-bold tracking-tight uppercase">Response Token Limit</span>
+                      <span class="text-primary-500 font-bold dark:text-primary-400">{{ popoverMaxTokens }} tokens</span>
+                    </div>
+                    <input
+                      v-model.number="popoverMaxTokens"
+                      type="range"
+                      min="80"
+                      max="600"
+                      step="1"
+                      class="h-1 w-full cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-500 dark:bg-neutral-800"
+                      @input="handleTokensSliderChange"
+                    >
+                    <div class="flex justify-between px-0.5 text-[8px] text-neutral-400 font-bold">
+                      <span>80t</span>
+                      <span>120t</span>
+                      <span>200t</span>
+                      <span>350t</span>
+                      <span>600t</span>
+                    </div>
+                  </div>
+
+                  <!-- Dynamic Prose Indicator & Inline Editor -->
+                  <div class="flex flex-col gap-1.5 border-t border-neutral-200/40 pt-2 dark:border-neutral-800/40">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[9px] text-neutral-400 font-bold tracking-tight uppercase">Compliance Instruction</span>
+                      <button
+                        class="flex items-center justify-center rounded p-1 text-neutral-500 transition hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                        title="Edit Instruction"
+                        @click="isProseEditing = !isProseEditing"
+                      >
+                        <div :class="isProseEditing ? 'i-solar:check-read-linear text-xs text-green-500' : 'i-solar:pen-linear text-xs'" />
+                      </button>
+                    </div>
+
+                    <!-- Read-Only Prose Preview / Text Area Editor -->
+                    <div v-if="!isProseEditing" class="max-h-16 select-text overflow-y-auto border border-neutral-200/30 rounded-lg bg-neutral-50 p-2 text-[10px] text-neutral-500 leading-relaxed italic dark:border-neutral-800/30 dark:bg-neutral-900/60 dark:text-neutral-400">
+                      "{{ popoverCustomProse }}"
+                    </div>
+                    <textarea
+                      v-else
+                      v-model="popoverCustomProse"
+                      rows="3"
+                      class="w-full border border-neutral-200 rounded-lg bg-neutral-50 p-2 text-[10px] text-neutral-700 dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-none"
+                      @change="saveCardGenerationSettings"
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </PopoverPortal>
+          </PopoverRoot>
 
           <!-- Memory & Context Popover (moved from bottom toolbar) -->
           <ChatMemoryPopover
