@@ -984,7 +984,7 @@ async function confirmCreateCard() {
                     <Button
                       v-if="!selectedCharacters.some(c => c.id === char.id)"
                       variant="primary"
-                      class="h-[32px] w-full flex items-center justify-center gap-1 border border-primary-500/20 rounded-lg text-[10px] font-bold"
+                      class="h-[32px] w-full flex items-center justify-center gap-1 border border-primary-500/20 rounded-lg text-[10px] font-bold !text-neutral-100 active:!text-white hover:!text-white"
                       @click="wizardStore.addCharacterToBasket(char)"
                     >
                       <div i-solar:add-square-line-duotone class="text-sm" />
@@ -993,7 +993,7 @@ async function confirmCreateCard() {
                     <Button
                       v-else
                       variant="danger"
-                      class="h-[32px] w-full flex items-center justify-center gap-1 border border-red-500/20 rounded-lg text-[10px] font-bold"
+                      class="h-[32px] w-full flex items-center justify-center gap-1 border border-red-500/20 rounded-lg text-[10px] font-bold !text-neutral-100 active:!text-white hover:!text-white"
                       @click="wizardStore.removeCharacterFromBasket(char.id)"
                     >
                       <div i-solar:trash-bin-trash-outline class="text-sm" />
@@ -1003,8 +1003,8 @@ async function confirmCreateCard() {
                     <div v-if="hasBoundModel(char.trigger)" class="mt-1 w-full flex flex-col gap-1">
                       <Button
                         variant="secondary"
-                        class="h-[26px] w-full flex items-center justify-center gap-1 border border-neutral-200 rounded-lg text-[9px] font-semibold dark:border-neutral-800"
-                        :class="[showModelPreviews[char.id] ? 'bg-primary-500/20 border-primary-500/40 text-primary-400' : '']"
+                        class="h-[26px] w-full flex items-center justify-center gap-1 border border-neutral-200 rounded-lg text-[9px] font-semibold dark:border-neutral-800 !text-neutral-200 active:!text-white hover:!text-white"
+                        :class="[showModelPreviews[char.id] ? 'bg-primary-500/20 border-primary-500/40 !text-primary-400' : '']"
                         @click="showModelPreviews[char.id] = !showModelPreviews[char.id]"
                       >
                         <div i-solar:eye-bold-duotone class="text-[10px]" />
