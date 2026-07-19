@@ -579,40 +579,40 @@ function handleApply() {
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-120 bg-black/60 backdrop-blur-md" />
       <DialogContent
-        class="fixed left-1/2 top-1/2 z-120 m-0 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-hidden border border-neutral-800 rounded-2xl bg-neutral-900 shadow-2xl -translate-x-1/2 -translate-y-1/2"
+        class="border-neutral-205 fixed left-1/2 top-1/2 z-120 m-0 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-hidden border rounded-2xl bg-white shadow-2xl -translate-x-1/2 -translate-y-1/2 dark:border-neutral-800 dark:bg-neutral-900"
       >
         <!-- Header -->
-        <div class="border-b border-neutral-800 p-6">
+        <div class="border-b border-neutral-200 p-6 dark:border-neutral-800">
           <div class="flex items-center gap-2">
-            <div class="rounded-xl bg-primary-500/10 p-2 text-primary-500 shadow-primary-500/10 shadow-sm">
+            <div class="text-primary-505 shadow-primary-505/10 rounded-xl bg-primary-500/10 p-2 shadow-sm">
               <div class="i-solar:magic-stick-3-bold-duotone animate-pulse text-xl" />
             </div>
-            <DialogTitle class="text-base text-neutral-100 font-bold">
+            <DialogTitle class="text-base text-neutral-800 font-bold dark:text-neutral-100">
               Magic Character Configurator
             </DialogTitle>
           </div>
         </div>
 
         <!-- Body Content -->
-        <div class="min-h-[250px] flex flex-1 flex-col overflow-y-auto p-6">
+        <div class="min-h-[250px] flex flex-1 flex-col overflow-y-auto bg-white p-6 dark:bg-neutral-900">
           <!-- Idle / Countdown State -->
           <div v-if="state === 'idle'" class="flex flex-1 flex-col items-center justify-center gap-6 py-6">
             <div class="text-center space-y-1">
-              <h4 class="text-sm text-neutral-200 font-bold">
+              <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-200">
                 Auto-Matching configuration
               </h4>
-              <p class="max-w-sm text-xs text-neutral-400 leading-normal">
+              <p class="max-w-sm text-xs text-neutral-500 leading-normal dark:text-neutral-400">
                 Matches your cast with the best voices and motions. Adjust provider settings below or begin immediately.
               </p>
             </div>
 
             <!-- Provider Selection & Match actions -->
-            <div class="max-w-sm w-full border border-neutral-800 rounded-xl bg-neutral-950/20 p-4 space-y-4">
+            <div class="max-w-sm w-full border border-neutral-200 rounded-xl bg-neutral-50/50 p-4 space-y-4 dark:border-neutral-800 dark:bg-neutral-950/20">
               <div class="flex flex-col gap-1.5">
-                <label class="text-[10px] text-neutral-500 font-bold tracking-wider uppercase">Voice Provider</label>
+                <label class="dark:text-neutral-450 text-[10px] text-neutral-500 font-bold tracking-wider uppercase">Voice Provider</label>
                 <select
                   v-model="selectedProvider"
-                  class="w-full border border-neutral-800 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-200 outline-none focus:border-primary-500"
+                  class="w-full border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
                 >
                   <option value="kokoro-local">
                     Kokoro (Local Engine)
@@ -633,7 +633,7 @@ function handleApply() {
 
                 <button
                   v-if="!isTimerPaused"
-                  class="hover:bg-neutral-850 h-9 w-9 flex items-center justify-center border border-neutral-800 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white"
+                  class="dark:hover:bg-neutral-850 h-9 w-9 flex items-center justify-center border border-neutral-200 rounded-lg bg-white text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 hover:bg-neutral-50 dark:text-neutral-400"
                   title="Pause countdown"
                   @click="handlePauseTimer"
                 >
@@ -644,11 +644,11 @@ function handleApply() {
 
             <!-- Sleek countdown loading bar -->
             <div class="max-w-sm w-full flex flex-col gap-2">
-              <div class="flex items-center justify-between text-[10px] text-neutral-400">
+              <div class="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
                 <span>{{ isTimerPaused ? 'Timer Paused' : `Auto-matching in ${countdown}s...` }}</span>
                 <span class="font-mono">{{ Math.round((countdown / 15) * 100) }}%</span>
               </div>
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
                 <div
                   class="h-full bg-primary-500 transition-all duration-300 ease-out"
                   :style="{ width: isTimerPaused ? '0%' : `${(countdown / 15) * 100}%` }"
@@ -663,10 +663,10 @@ function handleApply() {
               <span class="i-solar:restart-square-outline animate-spin text-2xl" />
             </div>
             <div class="text-center">
-              <h4 class="text-sm text-neutral-200 font-bold">
+              <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-200">
                 Analyzing Cast Profiles
               </h4>
-              <p class="mt-1 text-xs text-neutral-400">
+              <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                 matching characters with the best voice presets and idle loop animations...
               </p>
             </div>
@@ -678,10 +678,10 @@ function handleApply() {
               <span class="i-solar:shield-warning-bold text-2xl" />
             </div>
             <div class="text-center">
-              <h4 class="text-sm text-neutral-200 font-bold">
+              <h4 class="text-sm text-neutral-800 font-bold dark:text-neutral-200">
                 Configuration Failed
               </h4>
-              <p class="mt-1 text-xs text-red-400">
+              <p class="mt-1 text-xs text-red-500 dark:text-red-400">
                 {{ errorMessage }}
               </p>
             </div>
@@ -692,7 +692,7 @@ function handleApply() {
 
           <!-- Results Review State -->
           <div v-else-if="state === 'results'" class="flex flex-col gap-4">
-            <p class="text-xs text-neutral-400 leading-normal">
+            <p class="text-xs text-neutral-600 leading-normal dark:text-neutral-400">
               Review and adjust the recommended voice presets, speed/pitch modifiers, and idle animation overrides for each character. Click Apply to save assignments for all characters at once.
             </p>
 
@@ -700,14 +700,14 @@ function handleApply() {
               <div
                 v-for="rec in recommendations"
                 :key="rec.characterId"
-                class="flex flex-col border border-neutral-800 rounded-xl bg-neutral-950/20 p-4"
+                class="border-neutral-205 flex flex-col border rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-950/20"
               >
                 <!-- Character & Voice Selector Row -->
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <!-- Character title -->
                   <div class="flex items-center gap-2">
-                    <div class="i-solar:user-circle-bold-duotone shrink-0 text-lg text-primary-400" />
-                    <span class="text-sm text-neutral-100 font-bold">{{ rec.name }}</span>
+                    <div class="text-primary-505 i-solar:user-circle-bold-duotone shrink-0 text-lg dark:text-primary-400" />
+                    <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ rec.name }}</span>
                   </div>
 
                   <!-- Voice settings controls -->
@@ -715,7 +715,7 @@ function handleApply() {
                     <!-- Dropdown preset picker -->
                     <select
                       v-model="rec.voiceId"
-                      class="border border-neutral-800 rounded-lg bg-neutral-900 px-2 py-1 text-xs text-neutral-300 outline-none focus:border-primary-500"
+                      class="border border-neutral-200 rounded-lg bg-white px-2 py-1 text-xs text-neutral-700 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-300"
                     >
                       <option v-for="voice in currentVoicePresets" :key="voice.id" :value="voice.id">
                         {{ voice.name }} ({{ voice.gender }})
@@ -724,11 +724,11 @@ function handleApply() {
 
                     <!-- Preview voice btn -->
                     <button
-                      class="h-7 flex items-center gap-1 rounded bg-neutral-800 px-2.5 text-xs text-neutral-300 transition-colors hover:bg-neutral-700"
+                      class="h-7 flex items-center gap-1 border border-neutral-200 rounded bg-neutral-100 px-2.5 text-xs text-neutral-700 transition-colors dark:border-none dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
                       @click="playPreview(rec)"
                     >
                       <span
-                        :class="activePlayingId === rec.characterId ? 'i-solar:pause-circle-bold-duotone text-primary-400 animate-pulse' : 'i-solar:play-stream-bold-duotone'"
+                        :class="activePlayingId === rec.characterId ? 'i-solar:pause-circle-bold-duotone text-primary-500 dark:text-primary-400 animate-pulse' : 'i-solar:play-stream-bold-duotone'"
                         class="shrink-0 text-sm"
                       />
                       <span>{{ activePlayingId === rec.characterId ? 'Stop' : 'Preview' }}</span>
@@ -737,12 +737,12 @@ function handleApply() {
                 </div>
 
                 <!-- Sliders Row -->
-                <div class="grid grid-cols-1 mt-3.5 gap-4 border-t border-neutral-800/40 pt-3 sm:grid-cols-2">
+                <div class="grid grid-cols-1 mt-3.5 gap-4 border-t border-neutral-200 pt-3 sm:grid-cols-2 dark:border-neutral-800/40">
                   <!-- Pitch slider -->
                   <div class="flex flex-col gap-1">
-                    <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                    <div class="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
                       <span>Pitch Modifier</span>
-                      <span class="text-primary-400 font-mono">{{ rec.pitch.toFixed(2) }}x</span>
+                      <span class="text-primary-600 font-mono dark:text-primary-400">{{ rec.pitch.toFixed(2) }}x</span>
                     </div>
                     <input
                       v-model.number="rec.pitch"
@@ -750,15 +750,15 @@ function handleApply() {
                       min="0.7"
                       max="1.4"
                       step="0.05"
-                      class="h-1 cursor-pointer appearance-none rounded-lg bg-neutral-800 accent-primary-500"
+                      class="h-1 cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-500 dark:bg-neutral-800"
                     >
                   </div>
 
                   <!-- Speed Rate slider -->
                   <div class="flex flex-col gap-1">
-                    <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                    <div class="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
                       <span>Speed Rate</span>
-                      <span class="text-primary-400 font-mono">{{ rec.rate.toFixed(2) }}x</span>
+                      <span class="text-primary-600 font-mono dark:text-primary-400">{{ rec.rate.toFixed(2) }}x</span>
                     </div>
                     <input
                       v-model.number="rec.rate"
@@ -766,14 +766,14 @@ function handleApply() {
                       min="0.7"
                       max="1.4"
                       step="0.05"
-                      class="h-1 cursor-pointer appearance-none rounded-lg bg-neutral-800 accent-primary-500"
+                      class="h-1 cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-primary-500 dark:bg-neutral-800"
                     >
                   </div>
                 </div>
 
                 <!-- Idle Loop / Cycle Animations Override -->
-                <div class="mt-3.5 flex flex-col gap-2 border-t border-neutral-800/40 pt-3">
-                  <label class="text-[10px] text-neutral-400 font-bold">
+                <div class="mt-3.5 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800/40">
+                  <label class="dark:text-neutral-450 text-[10px] text-neutral-500 font-bold">
                     Idle Loop Override
                   </label>
 
@@ -783,7 +783,7 @@ function handleApply() {
                       v-model="searchInputMap[rec.characterId]"
                       type="text"
                       placeholder="Search and add animation name..."
-                      class="w-full border border-neutral-800 rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs text-neutral-300 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
+                      class="w-full border border-neutral-200 rounded-lg bg-white px-2.5 py-1.5 text-xs text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
                       @focus="dropdownOpenMap[rec.characterId] = true"
                       @blur="onAnimInputBlur(rec)"
                       @keydown.enter.prevent="selectHighlightedAnim(rec)"
@@ -794,16 +794,16 @@ function handleApply() {
                     <!-- Dropdown Options -->
                     <div
                       v-if="dropdownOpenMap[rec.characterId] && getFilteredDropdownOptions(rec).length > 0"
-                      class="absolute left-0 right-0 z-50 mt-1 max-h-32 overflow-y-auto border border-neutral-800 rounded-lg bg-neutral-900 shadow-xl"
+                      class="absolute left-0 right-0 z-50 mt-1 max-h-32 overflow-y-auto border border-neutral-200 rounded-lg bg-white shadow-xl dark:border-neutral-800 dark:bg-neutral-900"
                     >
                       <div
                         v-for="(opt, idx) in getFilteredDropdownOptions(rec)"
                         :key="opt"
                         :class="[
-                          'cursor-pointer px-3 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-primary-500/10 hover:text-primary-500',
+                          'cursor-pointer px-3 py-1 text-[11px] text-neutral-750 dark:text-neutral-300 transition-colors hover:bg-primary-500/10 hover:text-primary-500',
                           (dropdownHighlightMap[rec.characterId] || 0) === idx ? 'bg-primary-500/15 text-primary-500' : '',
                         ]"
-                        @mousedown="addSelectedAnim(rec, opt)"
+                        @mousedown="handleAddIdleAnimation(rec, opt)"
                       >
                         {{ opt }}
                       </div>
@@ -815,7 +815,7 @@ function handleApply() {
                     <span
                       v-for="anim in rec.idleAnimations"
                       :key="anim"
-                      class="flex items-center gap-1 rounded bg-primary-500/10 px-2.5 py-0.5 text-[9px] text-primary-400 font-medium"
+                      class="flex items-center gap-1 rounded bg-primary-500/10 px-2.5 py-0.5 text-[9px] text-primary-500 font-medium dark:text-primary-400"
                     >
                       {{ anim }}
                       <button type="button" class="ml-1 text-[10px] text-neutral-400 font-bold hover:text-red-400 focus:outline-none" @click="handleRemoveIdleAnimation(rec, anim)">
@@ -826,12 +826,12 @@ function handleApply() {
 
                   <!-- Dynamic Quick Add Presets -->
                   <div v-if="getAvailableModelMotions(props.boundModels[rec.characterId]).length > 0" class="flex flex-wrap items-center gap-1">
-                    <span class="mr-1 text-[9px] text-neutral-500">Quick Add:</span>
+                    <span class="mr-1 text-[9px] text-neutral-400 dark:text-neutral-500">Quick Add:</span>
                     <button
                       v-for="preset in getAvailableModelMotions(props.boundModels[rec.characterId]).slice(0, 6)"
                       :key="preset"
                       type="button"
-                      class="rounded bg-neutral-800 px-1.5 py-0.5 text-[9px] text-neutral-400 hover:bg-neutral-700 hover:text-white"
+                      class="rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-600 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-400 hover:text-white dark:hover:bg-neutral-700"
                       @click="handleToggleIdleAnimation(rec, preset)"
                     >
                       + {{ preset }}
@@ -840,7 +840,7 @@ function handleApply() {
                 </div>
 
                 <!-- Reasoning text -->
-                <p class="mt-3.5 border-t border-neutral-800/40 pt-2 text-[11px] text-neutral-400 leading-normal italic">
+                <p class="mt-3.5 border-t border-neutral-200 pt-2 text-[11px] text-neutral-600 leading-normal italic dark:border-neutral-800/40 dark:text-neutral-400">
                   💡 {{ rec.reasoning }}
                 </p>
               </div>
@@ -849,7 +849,7 @@ function handleApply() {
         </div>
 
         <!-- Footer -->
-        <div class="flex justify-end gap-2 border-t border-neutral-800 bg-neutral-900/30 px-6 py-4">
+        <div class="flex justify-end gap-2 border-t border-neutral-200 bg-neutral-50/50 px-6 py-4 dark:border-neutral-800 dark:bg-neutral-900/30">
           <Button
             variant="secondary"
             class="h-9 px-4 text-xs font-semibold"
