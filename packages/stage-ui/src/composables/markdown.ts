@@ -5,6 +5,7 @@ import type { Processor } from 'unified'
 import rehypeShiki from '@shikijs/rehype'
 import rehypeKatex from 'rehype-katex'
 import RehypeStringify from 'rehype-stringify'
+import remarkBreaks from 'remark-breaks'
 import remarkMath from 'remark-math'
 import RemarkParse from 'remark-parse'
 import RemarkRehype from 'remark-rehype'
@@ -62,6 +63,7 @@ async function createProcessor(langs: BundledLanguage[]): Promise<MarkdownProces
   return unified()
     .use(RemarkParse)
     .use(remarkMath)
+    .use(remarkBreaks)
     .use(RemarkRehype)
     .use(measuredKatex, { output: 'mathml' })
     .use(rehypeShiki, options)
@@ -84,6 +86,7 @@ export function useMarkdown() {
   const fallbackProcessor = unified()
     .use(RemarkParse)
     .use(remarkMath)
+    .use(remarkBreaks)
     .use(RemarkRehype)
     .use(measuredKatex, { output: 'mathml' })
     .use(RehypeStringify)

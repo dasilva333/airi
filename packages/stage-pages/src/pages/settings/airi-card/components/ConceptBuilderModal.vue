@@ -54,7 +54,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'save', payload: { id: string, data: ConceptData }): void
+  (e: 'save', payload: { id: string, data: ConceptData, clone: boolean }): void
 }>()
 
 const artistryStore = useArtistryStore()
@@ -434,10 +434,7 @@ watch(selectedSpeechProvider, async (newProvider) => {
     }
   }
 })
-function handleSave() {
-  if (!id.value.trim())
-    return
-
+function buildPayload(): { id: string, data: ConceptData } {
   let options
   try {
     options = selectedOptionsStr.value.trim() ? JSON.parse(selectedOptionsStr.value) : undefined
@@ -446,7 +443,7 @@ function handleSave() {
     // Ignore invalid JSON for now
   }
 
-  emit('save', {
+  return {
     id: id.value.trim(),
     data: {
       description: description.value.trim(),
@@ -477,7 +474,20 @@ function handleSave() {
           }
         : undefined,
     },
-  })
+  }
+}
+
+function handleSave() {
+  if (!id.value.trim())
+    return
+  emit('save', { ...buildPayload(), clone: false })
+  emit('update:modelValue', false)
+}
+
+function handleClone() {
+  if (!id.value.trim())
+    return
+  emit('save', { ...buildPayload(), clone: true })
   emit('update:modelValue', false)
 }
 </script>
@@ -994,6 +1004,14 @@ function handleSave() {
             variant="secondary"
             label="Cancel"
             @click="emit('update:modelValue', false)"
+          />
+          <Button
+            v-if="conceptId"
+            variant="secondary"
+            label="Clone"
+            icon="i-solar:copy-linear"
+            :disabled="!id.trim()"
+            @click="handleClone"
           />
           <Button
             variant="primary"

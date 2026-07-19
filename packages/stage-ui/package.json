@@ -122,6 +122,7 @@
     "rehype-parse": "^9.0.1",
     "rehype-stringify": "catalog:",
     "reka-ui": "^2.8.2",
+    "remark-breaks": "catalog:",
     "remark-math": "^6.0.0",
     "remark-parse": "catalog:",
     "remark-rehype": "catalog:",

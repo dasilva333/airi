@@ -138,7 +138,7 @@ onMounted(() => {
           </button>
         </div>
 
-        <div v-if="urls.length > 0" class="max-h-48 flex flex-col gap-2 overflow-y-auto pr-1">
+        <div v-if="urls.length > 0" class="max-h-80 flex flex-col gap-2 overflow-y-auto pr-1 scrollbar-thin">
           <div
             v-for="(url, index) in urls"
             :key="url"
