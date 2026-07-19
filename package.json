@@ -39,6 +39,7 @@
     "lint:fix": "moeru-lint --fix .",
     "lint:rust": "cargo fmt --check && cargo clippy --workspace",
     "lint:swift": "pnpm -rF @proj-airi/stage-pocket run lint:swift",
+    "release:win": "node scripts/release/publish-win.js",
     "to-avif": "tsx docs/scripts/avif.ts",
     "typecheck": "pnpm -rF=\"./packages/*\" -F=\"./apps/*\" -F=\"./docs\" --parallel typecheck",
     "up": "taze -w -r -I && pnpm prune && pnpm dedupe",

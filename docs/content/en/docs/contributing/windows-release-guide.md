@@ -24,36 +24,46 @@ git tag v0.9.1-stable.20260520
 git push origin v0.9.1-stable.20260520
 ```
 
-### Step 4: Build Windows Executable
-Execute the build command from the `stage-tamagotchi` workspace:
+### Step 4: Build & Publish (Automated Utility)
+
+To make the build, lock check, and asset upload process deterministic and safe, a unified release script is provided. It handles pulling upstream, resolving tag references, checking for file locks on `app.asar`, compiling the package, and uploading to the correct GitHub release.
+
+Simply run:
 ```bash
-pnpm -F @proj-airi/stage-tamagotchi run build:win
-```
-This runs `electron-builder --win` after performing necessary typechecks and production builds.
-
-### Step 5: Publish to GitHub Releases
-Use the `gh` CLI to create the release and upload the asset.
-
-
-**Daily / Development Release (Target your fork):**
-```bash
-gh release create v0.9.1-stable.20260408 apps/stage-tamagotchi/dist/AIRI-0.9.1-stable.20260408-windows-x64-setup.exe --repo dasilva333/airi --title "AIRI v0.9.1-stable (April 8, 2026)" --notes-file release-notes.md
+pnpm run release:win
 ```
 
-**Stable Release (Target upstream):**
-Only target the upstream repository if you have write access and are performing an official release.
-```bash
-gh release create [tag] [artifact_path] --repo moeru-ai/airi --title "[Title]" --notes "[Notes]"
-```
+---
+
+### Step 5: Manual Alternative / Verification
+
+If you prefer or need to run individual steps manually:
+
+1. **Build Windows Executable**:
+   Execute the build command from the `stage-tamagotchi` workspace:
+   ```bash
+   pnpm -F @proj-airi/stage-tamagotchi run build:win
+   ```
+   This runs `electron-builder --win` after performing necessary typechecks and production builds.
+
+2. **Publish to GitHub Releases**:
+   Use the `gh` CLI to upload the asset, ensuring local keyring authentication is used:
+
+   * **PowerShell**:
+     ```powershell
+     $env:GITHUB_TOKEN=$null; $env:GH_SSL_NO_VERIFY="true"; gh release upload [tag] [artifact_path] --repo dasilva333/airi --clobber
+     ```
+   * **Bash**:
+     ```bash
+     GITHUB_TOKEN="" GH_SSL_NO_VERIFY="true" gh release upload [tag] [artifact_path] --repo dasilva333/airi --clobber
+     ```
 
 > [!IMPORTANT]
 > **Authentication Scope**: Ensure your `gh` CLI session has the `workflow` scope. This is required for creating releases. If you see a "Failed to create release" error despite having permissions, run:
 > `gh auth refresh -h github.com -s workflow`
 >
 > [!TIP]
-> **Invalid GITHUB_TOKEN Environment Override**: If you encounter an `HTTP 401` error when running `gh release create`, an invalid `GITHUB_TOKEN` environment variable in your session may be overriding your active `gh` CLI keyring credentials. You can temporarily clear it for the command:
-> * **PowerShell**: `$env:GITHUB_TOKEN="" ; gh release create ...`
-> * **Bash / Unix**: `GITHUB_TOKEN="" gh release create ...`
+> **Invalid GITHUB_TOKEN Environment Override**: If you encounter an `HTTP 401` error when running `gh release create`, an invalid `GITHUB_TOKEN` environment variable in your session may be overriding your active `gh` CLI keyring credentials. The automated script and manual commands bypass this by clearing the local process env mapping.
 
 ---
 
