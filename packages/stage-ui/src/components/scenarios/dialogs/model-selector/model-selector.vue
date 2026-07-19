@@ -1348,8 +1348,11 @@ async function runAutoLinkCatalog() {
         </button>
       </div>
 
-      <div v-if="displayModelsFromIndexedDBLoading || remoteCatalogLoading">
-        Loading display models...
+      <div v-if="currentTab === 'library' && displayModelsFromIndexedDBLoading" class="py-6 text-center text-sm text-neutral-400">
+        Loading library models...
+      </div>
+      <div v-else-if="currentTab === 'cloud' && remoteCatalogLoading" class="py-6 text-center text-sm text-neutral-400">
+        Loading cloud catalog...
       </div>
 
       <div class="flex-1 overflow-y-auto pr-1">

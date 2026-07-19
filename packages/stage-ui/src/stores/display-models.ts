@@ -115,10 +115,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   // Load remote catalog cache eagerly on initialization
   void (async () => {
+    console.log('[DisplayModels] Initializing: Loading remote catalog cache from local storage...')
     try {
       const cached = await storage.getItemRaw<any>('local:sync-metadata/remote-catalog-cache')
       if (cached) {
         remoteModelsCatalog.value = cached
+        console.log(`[DisplayModels] Initializing: Cache loaded successfully. Found ${cached.length} remote models.`)
+      }
+      else {
+        console.log('[DisplayModels] Initializing: No cached remote catalog found.')
       }
     }
     catch (e) {
@@ -136,6 +141,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   })
 
   async function loadDisplayModelsFromIndexedDB(silent = false) {
+    const startTime = performance.now()
+    console.log('[DisplayModels] loadDisplayModelsFromIndexedDB starting...', { silent })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (!silent)
@@ -145,6 +152,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
+      console.log(`[DisplayModels] loadDisplayModelsFromIndexedDB: Found ${modelKeys.length} user models in IndexedDB.`)
+
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
         if (val) {
@@ -153,11 +162,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
-                const res = await electron.ipcRenderer.invoke('byos-fs:read-file', {
+                // Set a 3-second timeout for reading from the network backup drive
+                const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+                const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
                   dir: '/Volumes/AIRI-Backup-Share/assets/models',
                   relPath: `${key}.bin`,
                   encoding: 'base64',
                 })
+                const res = await Promise.race([ipcPromise, timeoutPromise])
+
+                if (res === null) {
+                  console.warn(`[DisplayModels] Self-healing for ${key} timed out after 3 seconds. Network share may be offline or sleeping.`)
+                  continue
+                }
+
                 if (res?.success && res.content) {
                   const byteCharacters = atob(res.content)
                   const byteNumbers = new Uint8Array(byteCharacters.length)
@@ -209,12 +227,13 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
     }
     catch (err) {
-      console.error(err)
+      console.error('[DisplayModels] loadDisplayModelsFromIndexedDB encountered an error:', err)
     }
 
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
+    console.log(`[DisplayModels] loadDisplayModelsFromIndexedDB finished successfully in ${(performance.now() - startTime).toFixed(2)} ms. Loaded ${displayModels.value.length} total models.`)
   }
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()
@@ -897,17 +916,23 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function fetchRemoteCatalog() {
+    console.log('[DisplayModels] fetchRemoteCatalog: Starting fetch from remote sync client...')
     remoteCatalogLoading.value = true
     try {
       const { useSyncEngineStore } = await import('./sync-engine')
       const syncStore = useSyncEngineStore()
+      console.log('[DisplayModels] fetchRemoteCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
       const res = await syncStore.getRemoteCatalog()
       if (res && res.success) {
         remoteModelsCatalog.value = (res.models || []).map((m: any) => ({
           ...m,
           type: 'cloud',
         }))
+        console.log(`[DisplayModels] fetchRemoteCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
         await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', remoteModelsCatalog.value)
+      }
+      else {
+        console.warn('[DisplayModels] fetchRemoteCatalog: Sync store returned unsuccessful response:', res)
       }
     }
     catch (e) {
@@ -915,6 +940,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
     finally {
       remoteCatalogLoading.value = false
+      console.log('[DisplayModels] fetchRemoteCatalog: Fetch routine completed.')
     }
   }
 
