@@ -14,10 +14,10 @@
     "baseUrl": "./src/renderer",
     "paths": {
       "@proj-airi/stage-ui/*": [
-        "../../packages/stage-ui/src/*"
+        "../../../../packages/stage-ui/src/*"
       ],
       "@proj-airi/stage-layouts/*": [
-        "../../packages/stage-layouts/src/*"
+        "../../../../packages/stage-layouts/src/*"
       ]
     },
     "resolveJsonModule": true,

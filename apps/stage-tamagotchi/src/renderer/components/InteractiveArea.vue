@@ -1252,12 +1252,12 @@ defineExpose({
                     Suggest Mode
                   </div>
                   <button
-                    v-for="opt in [
+                    v-for="opt in ([
                       { label: 'Off', value: 'disabled' },
                       { label: 'Enter', value: 'enter' },
                       { label: 'Ctrl+Enter', value: 'ctrl-enter' },
                       { label: 'Double', value: 'double-enter' },
-                    ]"
+                    ] as const)"
                     :key="opt.value"
                     :class="[
                       'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
@@ -1334,11 +1334,11 @@ defineExpose({
                 Send Key Mode
               </div>
               <button
-                v-for="opt in [
+                v-for="opt in ([
                   { label: 'Enter', value: 'enter' },
                   { label: 'Ctrl+Enter', value: 'ctrl-enter' },
                   { label: 'Double', value: 'double-enter' },
-                ]"
+                ] as const)"
                 :key="opt.value"
                 :class="[
                   'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
