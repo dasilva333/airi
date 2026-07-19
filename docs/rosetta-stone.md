@@ -282,6 +282,17 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 ### Proactivity / Heartbeats
 - **Store**: `packages/stage-ui/src/stores/proactivity.ts` — idle heartbeat loop, sensor compilation, registered tool resolution
 
+### Nan0 Cognition
+
+- **Cognition runtime**: `packages/nan0-runtime/src/kernel/Nan0Kernel.ts` — canonical interpretation, identity, emotion, thought, decision, continuity, goals, prediction, intention, temporal autonomy, and persisted-state orchestration.
+- **AIRI host boundary**: `packages/stage-ui/src/stores/nan0.ts` — the only AIRI integration owner. It prepares a Nan0 turn before message composition, injects only the outward directive of an allowed thought, gates response/tools, and completes or terminalizes the same turn once.
+- **Renderer ownership**: `packages/stage-ui/src/stores/nan0-renderer.ts` — `#/chat` owns the kernel and persisted state; the root renderer owns host execution and the single heartbeat engine.
+- **Cross-renderer bridge**: `packages/stage-ui/src/stores/nan0-bridge.ts` — bounded, idempotent request/response bridge. It carries prepared decisions and terminal results, not an alternate cognition path.
+- **Card configuration**: `extensions.airi.modules.cognition`, typed and migrated by `packages/stage-ui/src/stores/nan0-config.ts` and `packages/stage-ui/src/stores/modules/airi-card.ts`.
+- **Persistence**: `nan0/kernel-state/v1` through `LocalStorageStateStore`; legacy installs migrate only the active AIRI card and preserve explicit processor choices.
+- **Heartbeat owner**: `Nan0HeartbeatEngine` installed by the root renderer. AIRI's generic proactivity loop remains a separate non-Nan0 feature and must not schedule Nan0 cognition.
+- **Diagnostics**: `Nan0KernelObservatory` -> `packages/stage-shared/src/nan0-diagnostics.ts` -> `apps/stage-tamagotchi/src/main/services/airi/nan0-diagnostics.ts`. Disabled by default and failure-isolated from cognition.
+
 ---
 
 ## 10. Engine & Subsystems
@@ -379,6 +390,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 | Channel Name | Purpose |
 | :--- | :--- |
 | `airi-chat-input-bridge` | Ingestion pipeline — secondary windows post input to main window |
+| `nan0-runtime-owner-v1` | Bounded Nan0 owner/executor requests, idempotent responses, and terminal acknowledgements |
 | `airi-chat-stream` | Streaming LLM text deltas across windows |
 | `airi-caption-overlay` | Caption text relay to the overlay window |
 | `airi:cards-sync` | AIRI card modifications across windows |
@@ -470,6 +482,14 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 - **Verification Loop**: Each `ingest` generates a `clientMessageId`, returns a promise with a 5-second timeout watching for `session-updated` broadcasts. On timeout, the UI restores draft text and shows a toast.
 - **Unicode Healing**: `healMozibake` in `packages/stage-shared/src/text.ts` repairs mis-decoded UTF-8 byte streams. Iterate by code point (`for (const char of text)`) not by index — supplementary plane characters (emojis, ZWJs) split into invalid surrogates under indexed access.
 - **Shared Chat Composer logic**: The input ingestion pipelines for desktop layouts (`ChatArea.vue`) and mobile portrait views (`MobileInteractiveArea.vue`) are unified using the `useChatComposer` composable, ensuring synchronized attachments capabilities and safe chat error handling (preventing incorrect `.pop()` bugs when message ingestion rejections occur).
+
+### Nan0 Cognition Ownership
+
+- **Thought-owned speech**: `local_nan0` must never use the generic first-hop prompt parser. A valid persisted Nan0 thought and decision must exist before AIRI is allowed to generate outward speech.
+- **Terminal completeness**: spoken response, chosen silence, provider silence, and host error are distinct terminal outcomes. Each prepared turn is removed only after its owner acknowledges completion/failure.
+- **Tool provenance**: tool availability alone is not authority. Nan0 tools require matching thought, decision, turn, action-intent, capability, and lifecycle-policy identifiers.
+- **Multi-renderer pitfall**: Pinia stores are renderer-local. Installing the kernel in every renderer produces duplicate state transitions and heartbeat races; use the elected owner/executor roles and the bounded bridge.
+- **Migration pitfall**: the presence of legacy Nan0 state is not permission to convert every AIRI card. Migrate only the active card with no explicit cognition choice, then persist the schema marker atomically with that card.
 
 ### OpenAI-Compatible Tool Calls (Bridging & Gateways)
 
