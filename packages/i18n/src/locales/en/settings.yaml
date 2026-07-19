@@ -1109,6 +1109,12 @@ pages:
       groq:
         description: Fastest on Earth - 400+ t/s via LPU (Free Tier available)
         title: Groq
+      pollinations:
+        description: Zero Friction Free - Open-source, no key required chat completions
+        title: Pollinations AI
+      mimo:
+        description: Xiaomi MiMo Code - Zero-friction free AI coding assistant
+        title: MiMo
       featherless:
         description: Unlimited Tokens - Flat $10/mo fee for 6,700+ models
         title: Featherless AI

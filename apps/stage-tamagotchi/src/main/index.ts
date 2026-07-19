@@ -193,6 +193,7 @@ app.whenReady().then(async () => {
   const registerCorsBypass = (urls: string[]) => {
     if (!urls || urls.length === 0) {
       session.defaultSession.webRequest.onHeadersReceived(null)
+      session.defaultSession.webRequest.onBeforeSendHeaders(null)
       return
     }
 
@@ -203,7 +204,7 @@ app.whenReady().then(async () => {
       (details, callback) => {
         const headers = { ...details.responseHeaders }
         headers['access-control-allow-origin'] = ['*']
-        headers['access-control-allow-headers'] = ['Authorization, Content-Type, x-request-id']
+        headers['access-control-allow-headers'] = ['*']
         headers['access-control-allow-methods'] = ['GET, POST, OPTIONS']
 
         if (details.method === 'OPTIONS') {
@@ -212,6 +213,20 @@ app.whenReady().then(async () => {
         }
 
         callback({ responseHeaders: headers })
+      },
+    )
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      {
+        urls,
+      },
+      (details, callback) => {
+        const requestHeaders = { ...details.requestHeaders }
+        delete requestHeaders.Origin
+        delete requestHeaders.origin
+        delete requestHeaders.Referer
+        delete requestHeaders.referer
+        callback({ requestHeaders })
       },
     )
   }
@@ -365,6 +380,8 @@ app.whenReady().then(async () => {
         'https://api.deepgram.com/*',
         'https://opencode.ai/*',
         'https://pioneer.ai/*',
+        'https://text.pollinations.ai/*',
+        'https://api.xiaomimimo.com/*',
       ]
       const initialUrls = deps.appConfig.get()?.corsBypassUrls ?? defaultBypassUrls
       registerCorsBypass(initialUrls)

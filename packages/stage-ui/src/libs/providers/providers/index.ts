@@ -29,6 +29,8 @@ import './cloudflare-workers-ai'
 import './azure-ai-foundry'
 import './opencode-go'
 import './alibaba-cloud'
+import './pollinations'
+import './mimo'
 
 export {
   getDefinedProvider,

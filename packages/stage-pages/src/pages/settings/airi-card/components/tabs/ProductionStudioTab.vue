@@ -113,11 +113,16 @@ function handleDeleteConcept(id: string) {
   saveAssets(nextAssets)
 }
 
-function handleSaveConcept(payload: { id: string, data: any }) {
-  const { id, data } = payload
+function handleSaveConcept(payload: { id: string, data: any, clone: boolean }) {
+  const { id, data, clone } = payload
   const assets = { ...visualAssets.value }
-  assets[id] = data
 
+  // If the ID changed and this is a save (not a clone), remove the old key — proper rename
+  if (!clone && editingConceptId.value && editingConceptId.value !== id) {
+    delete assets[editingConceptId.value]
+  }
+
+  assets[id] = data
   saveAssets(assets)
 }
 
