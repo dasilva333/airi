@@ -819,20 +819,20 @@ async function confirmCreateCard() {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col select-none bg-neutral-950 text-neutral-200">
+  <div class="h-screen flex flex-col select-none bg-white text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
     <!-- Header -->
-    <header class="flex items-center justify-between border-b border-neutral-800/60 bg-neutral-900/40 px-6 py-4 backdrop-blur-md">
+    <header class="flex items-center justify-between border-b border-neutral-200/80 bg-neutral-50/50 px-6 py-4 backdrop-blur-md dark:border-neutral-800/60 dark:bg-neutral-900/40">
       <div class="flex items-center gap-3">
         <Button
           variant="ghost"
-          class="border border-neutral-800 rounded-xl p-2 hover:bg-neutral-800/50"
+          class="border border-neutral-200 rounded-xl p-2 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
           @click="handleBack"
         >
           <div i-solar:arrow-left-outline class="text-lg" />
         </Button>
         <div class="flex items-center gap-2">
           <div i-solar:magic-stick-3-line-duotone class="text-base text-primary-500" />
-          <h2 class="text-sm text-neutral-100 font-bold leading-none">
+          <h2 class="text-sm text-neutral-800 font-bold leading-none dark:text-neutral-100">
             AnimaDex Wizard
           </h2>
         </div>
@@ -840,13 +840,13 @@ async function confirmCreateCard() {
 
       <!-- Step Indicator -->
       <div class="mr-4 flex items-center gap-2 text-xs font-semibold">
-        <span :class="[currentStep >= 1 ? 'text-primary-500' : 'text-neutral-600']">1. Cast Selection</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-700" />
-        <span :class="[currentStep >= 2 ? 'text-primary-500' : 'text-neutral-600']">2. Roster Settings</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-700" />
-        <span :class="[currentStep >= 3 ? 'text-primary-500' : 'text-neutral-600']">3. Story Prompts</span>
-        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-700" />
-        <span :class="[currentStep >= 4 ? 'text-primary-500' : 'text-neutral-600']">4. LLM Synthesis</span>
+        <span :class="[currentStep >= 1 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">1. Cast Selection</span>
+        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
+        <span :class="[currentStep >= 2 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">2. Roster Settings</span>
+        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
+        <span :class="[currentStep >= 3 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">3. Story Prompts</span>
+        <div i-solar:alt-arrow-right-line-duotone class="text-neutral-300 dark:text-neutral-700" />
+        <span :class="[currentStep >= 4 ? 'text-primary-500' : 'text-neutral-400 dark:text-neutral-600']">4. LLM Synthesis</span>
       </div>
     </header>
 
@@ -861,21 +861,21 @@ async function confirmCreateCard() {
       <!-- STEP 1: CAST SELECTION -->
       <div v-if="currentStep === 1" class="flex flex-1 flex-col overflow-hidden">
         <!-- Search & Filter Bar -->
-        <div class="z-20 flex flex-col gap-4 border-b border-neutral-900/60 bg-neutral-950 p-6">
+        <div class="z-20 flex flex-col gap-4 border-b border-neutral-200/80 bg-white p-6 dark:border-neutral-900/60 dark:bg-neutral-950">
           <div class="relative mx-auto max-w-2xl w-full">
-            <div class="relative flex items-center border border-neutral-800 rounded-xl bg-neutral-900/40 px-4 transition-all duration-300 focus-within:border-primary-500">
-              <div i-solar:magnifer-linear class="mr-3 text-lg text-neutral-500" />
+            <div class="relative flex items-center border border-neutral-200 rounded-xl bg-neutral-50/70 px-4 transition-all duration-300 dark:border-neutral-800 focus-within:border-primary-500 dark:bg-neutral-900/40">
+              <div i-solar:magnifer-linear class="mr-3 text-lg text-neutral-400 dark:text-neutral-500" />
               <input
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search characters by name, series, or tags (e.g. 'blonde hair')..."
-                class="flex-1 border-none bg-transparent py-3 text-sm text-neutral-200 outline-none placeholder-neutral-500"
+                class="flex-1 border-none bg-transparent py-3 text-sm text-neutral-800 outline-none dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500"
                 @focus="isSearchFocused = true"
                 @keydown.enter="handleSearchEnter"
               >
               <button
                 v-if="searchQuery"
-                class="p-1 text-neutral-500 hover:text-neutral-300"
+                class="p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
                 @click="searchQuery = ''"
               >
                 <div i-solar:close-circle-bold class="text-base" />
@@ -886,21 +886,21 @@ async function confirmCreateCard() {
             <transition name="fade">
               <div
                 v-if="isSearchFocused && suggestions.length > 0"
-                class="absolute left-0 right-0 z-30 mt-2 max-h-[300px] overflow-y-auto border border-neutral-800 rounded-xl bg-neutral-900/95 shadow-2xl backdrop-blur-md"
+                class="absolute left-0 right-0 z-30 mt-2 max-h-[300px] overflow-y-auto border border-neutral-200 rounded-xl bg-white/95 shadow-2xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95"
               >
                 <div
                   v-for="(item, idx) in suggestions"
                   :key="idx"
-                  class="flex cursor-pointer items-center justify-between border-b border-neutral-800/30 px-4 py-2.5 transition-colors last:border-none hover:bg-neutral-800/60"
+                  class="flex cursor-pointer items-center justify-between border-b border-neutral-100 px-4 py-2.5 transition-colors dark:border-neutral-800/30 last:border-none hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
                   @mousedown="selectSuggestion(item)"
                 >
                   <div class="flex items-center gap-2">
-                    <span v-if="item.type === 'tag'" class="text-xs text-neutral-500">🏷️ Tag:</span>
-                    <span v-else-if="item.type === 'copyright'" class="text-xs text-neutral-500">🎬 Series:</span>
-                    <span v-else-if="item.type === 'character'" class="text-xs text-neutral-500">👤 Character:</span>
-                    <span class="text-sm text-neutral-200 font-medium">{{ item.label }}</span>
+                    <span v-if="item.type === 'tag'" class="text-xs text-neutral-400 dark:text-neutral-500">🏷️ Tag:</span>
+                    <span v-else-if="item.type === 'copyright'" class="text-xs text-neutral-400 dark:text-neutral-500">🎬 Series:</span>
+                    <span v-else-if="item.type === 'character'" class="text-xs text-neutral-400 dark:text-neutral-500">👤 Character:</span>
+                    <span class="text-sm text-neutral-700 font-medium dark:text-neutral-200">{{ item.label }}</span>
                   </div>
-                  <span v-if="item.extra" class="text-xs text-neutral-500 font-normal italic">
+                  <span v-if="item.extra" class="text-xs text-neutral-400 font-normal italic dark:text-neutral-500">
                     {{ item.extra }}
                   </span>
                 </div>
@@ -910,15 +910,15 @@ async function confirmCreateCard() {
 
           <!-- Active Chip Filters -->
           <div v-if="selectedChips.length > 0" class="mx-auto max-w-2xl w-full flex flex-wrap items-center gap-2">
-            <span class="mr-1 text-xs text-neutral-500 font-bold tracking-wider uppercase">Active filters:</span>
+            <span class="mr-1 text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Active filters:</span>
             <div
               v-for="(chip, index) in selectedChips"
               :key="index"
-              class="flex items-center gap-1 border border-primary-500/30 rounded-lg bg-primary-500/5 px-2.5 py-1 text-xs text-primary-400 font-medium"
+              class="flex items-center gap-1 border border-primary-500/30 rounded-lg bg-primary-500/5 px-2.5 py-1 text-xs text-primary-500 font-medium dark:text-primary-400"
             >
               <span class="text-[10px] capitalize opacity-70">{{ chip.type }}:</span>
               <span>{{ chip.value }}</span>
-              <button class="ml-1 hover:text-white" @click="wizardStore.removeChip(index)">
+              <button class="ml-1 hover:text-primary-700 dark:hover:text-white" @click="wizardStore.removeChip(index)">
                 <div i-solar:close-circle-bold class="text-xs" />
               </button>
             </div>
@@ -926,20 +926,20 @@ async function confirmCreateCard() {
 
           <!-- Root Gender Selector Row -->
           <div class="mt-1 flex items-center justify-center gap-2.5">
-            <span class="mr-2 text-xs text-neutral-500 font-bold tracking-wider uppercase">Gender:</span>
+            <span class="mr-2 text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Gender:</span>
             <Button
               v-for="g in ['All', 'Female', 'Male', 'Ambiguous', 'Non-Human']"
               :key="g"
               :variant="selectedGender === (g === 'All' ? null : g) ? 'primary' : 'secondary'"
-              class="h-[30px] border border-neutral-800 rounded-lg px-3.5 text-xs"
+              class="h-[30px] border border-neutral-200 rounded-lg px-3.5 text-xs dark:border-neutral-800"
               @click="wizardStore.setGender(g === 'All' ? null : g)"
             >
               {{ g }}
             </Button>
-            <span class="mx-2 text-neutral-800">|</span>
+            <span class="mx-2 text-neutral-200 dark:text-neutral-800">|</span>
             <Button
               :variant="showOnlyModels ? 'primary' : 'secondary'"
-              class="h-[30px] flex items-center gap-1 border border-neutral-800 rounded-lg px-3.5 text-xs"
+              class="h-[30px] flex items-center gap-1 border border-neutral-200 rounded-lg px-3.5 text-xs dark:border-neutral-800"
               @click="showOnlyModels = !showOnlyModels"
             >
               <span>🎭 Has Model ({{ boundCharactersCount }})</span>
@@ -949,8 +949,8 @@ async function confirmCreateCard() {
 
         <!-- Scrollable Character Grid -->
         <div class="flex-1 overflow-y-auto p-6" @scroll="handleScroll">
-          <div v-if="filteredCharacters.length === 0" class="h-full flex flex-col items-center justify-center text-neutral-500">
-            <div i-solar:sad-ellipse-line-duotone class="mb-2 text-5xl text-neutral-700" />
+          <div v-if="filteredCharacters.length === 0" class="h-full flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500">
+            <div i-solar:sad-ellipse-line-duotone class="mb-2 text-5xl text-neutral-300 dark:text-neutral-700" />
             <span class="text-sm">No matching characters found in catalog.</span>
           </div>
 
@@ -958,10 +958,10 @@ async function confirmCreateCard() {
             <div
               v-for="char in filteredCharacters.slice(0, displayLimit)"
               :key="char.id"
-              class="group relative flex flex-col overflow-hidden border border-neutral-900 rounded-2xl bg-neutral-900/20 transition-all duration-300 hover:border-neutral-800"
+              class="group relative flex flex-col overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/50 transition-all duration-300 dark:border-neutral-900 hover:border-neutral-300 dark:bg-neutral-900/20 dark:hover:border-neutral-800"
             >
               <!-- Card Portrait Image -->
-              <div class="relative aspect-[3/4] overflow-hidden bg-neutral-900">
+              <div class="relative aspect-[3/4] overflow-hidden bg-neutral-100 dark:bg-neutral-900">
                 <img
                   :src="showModelPreviews[char.id] ? (getModelPreviewUrl(char.trigger) || getThumbUrl(char.trigger)) : getThumbUrl(char.trigger)"
                   alt=""
@@ -1003,7 +1003,7 @@ async function confirmCreateCard() {
                     <div v-if="hasBoundModel(char.trigger)" class="mt-1 w-full flex flex-col gap-1">
                       <Button
                         variant="secondary"
-                        class="h-[26px] w-full flex items-center justify-center gap-1 border border-neutral-800 rounded-lg text-[9px] font-semibold"
+                        class="h-[26px] w-full flex items-center justify-center gap-1 border border-neutral-200 rounded-lg text-[9px] font-semibold dark:border-neutral-800"
                         :class="[showModelPreviews[char.id] ? 'bg-primary-500/20 border-primary-500/40 text-primary-400' : '']"
                         @click="showModelPreviews[char.id] = !showModelPreviews[char.id]"
                       >
@@ -1024,11 +1024,11 @@ async function confirmCreateCard() {
               </div>
 
               <!-- Name Details -->
-              <div class="flex flex-1 flex-col justify-between bg-neutral-950 p-3.5">
-                <h4 class="line-clamp-1 text-xs text-neutral-200 font-bold transition-colors group-hover:text-primary-400">
+              <div class="flex flex-1 flex-col justify-between bg-neutral-50/50 p-3.5 dark:bg-neutral-950">
+                <h4 class="line-clamp-1 text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500 dark:group-hover:text-primary-400">
                   {{ char.name }}
                 </h4>
-                <p class="line-clamp-1 mt-0.5 text-[10px] text-neutral-500 italic">
+                <p class="line-clamp-1 mt-0.5 text-[10px] text-neutral-400 italic dark:text-neutral-500">
                   {{ wizardStore.copyrights[char.copyrightIndex] || 'Original' }}
                 </p>
               </div>
@@ -1116,16 +1116,16 @@ async function confirmCreateCard() {
             <div
               v-for="char in selectedCharacters"
               :key="char.id"
-              class="flex flex-col gap-3 border border-neutral-800 rounded-2xl bg-neutral-900/40 p-4"
+              class="flex flex-col gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/40"
             >
               <!-- Identity Row: Character thumb + name -->
               <div class="flex items-center gap-3">
-                <div class="h-11 w-11 shrink-0 overflow-hidden border border-neutral-800 rounded-full bg-neutral-900">
+                <div class="h-11 w-11 shrink-0 overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900">
                   <img :src="getThumbUrl(char.trigger)" alt="" class="h-full w-full object-cover">
                 </div>
                 <div class="min-w-0 flex flex-col">
-                  <span class="truncate text-sm text-neutral-100 font-bold">{{ char.name }}</span>
-                  <span class="truncate text-xs text-neutral-500 italic">
+                  <span class="truncate text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ char.name }}</span>
+                  <span class="truncate text-xs text-neutral-400 italic dark:text-neutral-500">
                     {{ copyrights[char.copyrightIndex] || 'Original' }}
                   </span>
                 </div>
@@ -1135,10 +1135,10 @@ async function confirmCreateCard() {
               <div class="flex flex-col gap-1">
                 <!-- Micro-labels row -->
                 <div class="flex items-center gap-3">
-                  <div class="w-11 shrink-0 text-center text-[9px] text-primary-400 font-black tracking-wider uppercase">
+                  <div class="w-11 shrink-0 text-center text-[9px] text-primary-600 font-black tracking-wider uppercase dark:text-primary-400">
                     Bind
                   </div>
-                  <div class="flex-1 text-[9px] text-primary-400 font-black tracking-wider uppercase">
+                  <div class="flex-1 text-[9px] text-primary-600 font-black tracking-wider uppercase dark:text-primary-400">
                     Set Voice
                   </div>
                   <div class="w-[38px] shrink-0" />
@@ -1152,13 +1152,13 @@ async function confirmCreateCard() {
                     title="Select Model / Avatar"
                     @click="openModelSelector(char.id)"
                   >
-                    <div class="h-11 w-11 flex items-center justify-center overflow-hidden border border-neutral-800 rounded-full bg-neutral-900">
+                    <div class="h-11 w-11 flex items-center justify-center overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900">
                       <img
                         v-if="getBoundModel(char.id)?.previewImage"
                         :src="getBoundModel(char.id)?.previewImage"
                         class="h-full w-full object-cover"
                       >
-                      <div v-else class="i-solar:gallery-bold text-lg text-neutral-600" />
+                      <div v-else class="i-solar:gallery-bold text-lg text-neutral-400 dark:text-neutral-600" />
                     </div>
                     <span
                       v-if="getBoundModel(char.id)"
@@ -1169,9 +1169,9 @@ async function confirmCreateCard() {
                   </div>
 
                   <!-- Voice display pill -->
-                  <div class="min-w-0 flex flex-1 items-center gap-2 border border-neutral-800 rounded-xl bg-neutral-950/40 px-3 py-2">
-                    <div i-solar:music-bold class="shrink-0 text-sm text-neutral-600" />
-                    <span class="truncate text-xs text-neutral-300">
+                  <div class="min-w-0 flex flex-1 items-center gap-2 border border-neutral-200 rounded-xl bg-neutral-50/70 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-950/40">
+                    <div i-solar:music-bold class="shrink-0 text-sm text-neutral-400 dark:text-neutral-600" />
+                    <span class="truncate text-xs text-neutral-700 dark:text-neutral-300">
                       {{ boundVoices[char.id] ? (boundVoices[char.id].baseProvider === 'virtual-audio-studio' ? (speechStore.savedVoiceProfiles.find(p => p.id === boundVoices[char.id].baseVoice)?.name || 'Default Voice') : boundVoices[char.id].baseVoice) : 'Inherit Default' }}
                     </span>
                   </div>
@@ -1180,7 +1180,7 @@ async function confirmCreateCard() {
                   <Button
                     type="button"
                     variant="ghost"
-                    class="h-[38px] w-[38px] shrink-0 border border-neutral-800 rounded-xl p-0 hover:bg-neutral-800/40"
+                    class="h-[38px] w-[38px] shrink-0 border border-neutral-200 rounded-xl p-0 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/40"
                     title="Configure Voice"
                     @click="voiceCreatorOpen = true; voiceTargetCharacterId = char.id"
                   >
@@ -1192,10 +1192,10 @@ async function confirmCreateCard() {
           </div>
 
           <!-- Bottom Actions -->
-          <div class="mt-8 flex items-center justify-between border-t border-neutral-800/60 pt-6">
+          <div class="mt-8 flex items-center justify-between border-t border-neutral-200 pt-6 dark:border-neutral-800/60">
             <Button
               variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 border border-neutral-800 rounded-xl px-4 text-xs font-bold"
+              class="h-[38px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-4 text-xs font-bold dark:border-neutral-800"
               @click="currentStep = 1"
             >
               <div i-solar:alt-arrow-left-bold class="text-base" />
@@ -1215,22 +1215,22 @@ async function confirmCreateCard() {
       </div>
 
       <!-- STEP 3: CONTEXT & STORY PROMPTS -->
-      <div v-else-if="currentStep === 3" class="flex flex-1 flex-col items-center overflow-y-auto bg-neutral-950 p-6">
-        <div class="max-w-xl w-full border border-neutral-900 rounded-2xl bg-neutral-900/20 p-8 shadow-xl">
-          <h3 class="mb-6 flex items-center gap-2 text-lg text-neutral-200 font-bold">
+      <div v-else-if="currentStep === 3" class="flex flex-1 flex-col items-center overflow-y-auto bg-white p-6 dark:bg-neutral-950">
+        <div class="max-w-xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-8 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
+          <h3 class="mb-6 flex items-center gap-2 text-lg text-neutral-800 font-bold dark:text-neutral-200">
             <div i-solar:clipboard-text-line-duotone class="text-primary-500" />
             Outline Your Story Settings
           </h3>
 
           <div class="flex flex-col gap-5">
             <!-- AI Suggest Strip -->
-            <div class="flex items-center justify-between border border-primary-500/20 rounded-xl bg-primary-500/5 px-4 py-2.5">
+            <div class="flex items-center justify-between border border-primary-200 rounded-xl bg-primary-50/30 px-4 py-2.5 dark:border-primary-500/20 dark:bg-primary-500/5">
               <div class="flex items-center gap-2">
-                <div i-solar:stars-bold-duotone class="shrink-0 text-sm text-primary-400" />
-                <span class="text-xs text-primary-300 font-semibold">Suggest story ideas from your cast</span>
+                <div i-solar:stars-bold-duotone class="shrink-0 text-sm text-primary-500 dark:text-primary-400" />
+                <span class="text-xs text-primary-800 font-semibold dark:text-primary-300">Suggest story ideas from your cast</span>
               </div>
               <button
-                class="h-[28px] flex items-center gap-1.5 border border-primary-500/40 rounded-lg bg-primary-500/10 px-3 text-[10px] text-primary-300 font-bold tracking-wide transition-all hover:bg-primary-500/20 disabled:opacity-50"
+                class="h-[28px] flex items-center gap-1.5 border border-primary-200 rounded-lg bg-primary-500/10 px-3 text-[10px] text-primary-600 font-bold tracking-wide transition-all dark:border-primary-500/40 hover:bg-primary-500/20 dark:text-primary-300 disabled:opacity-50"
                 :disabled="isSuggestingIdeas"
                 @click="fetchStoryIdeas()"
               >
@@ -1249,7 +1249,7 @@ async function confirmCreateCard() {
                 <div
                   v-for="i in 3"
                   :key="i"
-                  class="h-[52px] animate-pulse border border-neutral-800 rounded-xl bg-neutral-800/40"
+                  class="h-[52px] animate-pulse border border-neutral-200 rounded-xl bg-neutral-100/50 dark:border-neutral-800 dark:bg-neutral-800/40"
                 />
               </template>
 
@@ -1261,18 +1261,18 @@ async function confirmCreateCard() {
                   :class="[
                     'w-full text-left border rounded-xl px-4 py-3 transition-all cursor-pointer',
                     activeSuggestionIndex === idx
-                      ? 'border-primary-500 bg-primary-500/8'
-                      : 'border-neutral-800 bg-neutral-900/40 hover:bg-neutral-800/60',
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/8'
+                      : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60',
                   ]"
                   @click="applySuggestion(idx)"
                 >
                   <!-- Title row with clipboard button -->
                   <div class="flex items-start justify-between gap-2">
-                    <div class="text-xs text-neutral-100 font-bold leading-snug">
+                    <div class="text-xs text-neutral-800 font-bold leading-snug dark:text-neutral-100">
                       {{ idea.title }}
                     </div>
                     <button
-                      class="shrink-0 rounded-md p-0.5 text-neutral-600 transition-colors hover:text-neutral-300 focus:outline-none"
+                      class="shrink-0 rounded-md p-0.5 text-neutral-500 transition-colors dark:text-neutral-600 hover:text-neutral-700 focus:outline-none dark:hover:text-neutral-300"
                       :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
                       @click.stop="copyIdeaToClipboard(idx)"
                     >
@@ -1283,15 +1283,15 @@ async function confirmCreateCard() {
                     </button>
                   </div>
                   <!-- Inactive: nickname · location, truncated -->
-                  <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500">
+                  <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400">
                     <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
                   </div>
                   <!-- Active: nickname · location (no truncate) + lore below -->
                   <template v-else>
-                    <div class="mt-0.5 text-[10px] text-neutral-500">
+                    <div class="text-neutral-550 mt-0.5 text-[10px] dark:text-neutral-400">
                       <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
                     </div>
-                    <div class="mt-1 text-[10px] text-neutral-400 leading-relaxed">
+                    <div class="mt-1 text-[10px] text-neutral-600 leading-relaxed dark:text-neutral-400">
                       {{ idea.lore }}
                     </div>
                   </template>
@@ -1304,10 +1304,10 @@ async function confirmCreateCard() {
                   v-model="suggestionGuidance"
                   type="text"
                   placeholder="Add guidance to refine ideas (e.g. I'm a girl, call me Betsie, slice-of-life AU)"
-                  class="flex-1 border border-neutral-800 rounded-xl bg-neutral-900/60 px-3 py-2 text-xs text-neutral-300 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                  class="bg-neutral-55/50 flex-1 border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-300 placeholder-neutral-400 dark:placeholder-neutral-600"
                 >
                 <button
-                  class="h-[34px] flex shrink-0 items-center gap-1 border border-neutral-800 rounded-xl bg-neutral-900/60 px-3 text-[10px] text-neutral-400 font-bold transition-all hover:bg-neutral-800/60 disabled:opacity-50"
+                  class="text-neutral-655 h-[34px] flex shrink-0 items-center gap-1 border border-neutral-200 rounded-xl bg-neutral-50 px-3 text-[10px] font-bold transition-all dark:border-neutral-800 dark:bg-neutral-900/60 hover:bg-neutral-100 dark:text-neutral-400 disabled:opacity-50 dark:hover:bg-neutral-800/60"
                   :disabled="isSuggestingIdeas"
                   @click="fetchStoryIdeas(suggestionGuidance)"
                 >
@@ -1319,37 +1319,37 @@ async function confirmCreateCard() {
 
             <!-- User Nickname -->
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-400 font-bold tracking-wider uppercase">What should the characters call you?</label>
+              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">What should the characters call you?</label>
               <input
                 v-model="storyPrompt.nickname"
                 type="text"
                 placeholder="Leave blank for the AI to choose a name (e.g., 'Master', 'Detective', 'Stranger')."
-                class="w-full border border-neutral-800 rounded-xl bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-200 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                class="w-full border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
               >
             </div>
 
             <!-- Your looks -->
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Your looks</label>
+              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your looks</label>
               <textarea
                 v-model="userDescriptionInput"
                 placeholder="Describe your appearance, attire, or gender representation."
-                class="h-[60px] w-full resize-none border border-neutral-800 rounded-xl bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-200 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
               />
             </div>
 
             <!-- Your image prompt looks -->
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Your Image Prompt Looks</label>
+              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Your Image Prompt Looks</label>
               <textarea
                 v-model="userImagePromptInput"
                 placeholder="Detailed stable diffusion style prompt tags for your appearance (e.g. '1guy, brown hair, henley shirt, suspenders')."
-                class="h-[60px] w-full resize-none border border-neutral-800 rounded-xl bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-200 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
               />
             </div>
 
             <!-- Include self concept checkbox -->
-            <div class="flex items-start gap-2.5 border border-neutral-800/40 rounded-xl bg-neutral-900/40 p-3.5">
+            <div class="flex items-start gap-2.5 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/40">
               <input
                 id="includeSelfConcept"
                 v-model="includeSelfConcept"
@@ -1357,49 +1357,49 @@ async function confirmCreateCard() {
                 class="mt-0.5 h-4 w-4 cursor-pointer accent-primary-500"
               >
               <div class="flex flex-col gap-0.5">
-                <label for="includeSelfConcept" class="cursor-pointer text-xs text-neutral-200 font-bold">
+                <label for="includeSelfConcept" class="cursor-pointer text-xs text-neutral-800 font-bold dark:text-neutral-200">
                   Include Myself As Concept
                 </label>
-                <span class="text-[10px] text-neutral-500 leading-normal">
-                  Enable this if your roleplay includes your own character in scenes. This creates a dedicated background concept for you (<code class="rounded bg-neutral-800 px-1 text-[9px] font-mono">actor_[name]</code>) with your visual description, ensuring the AI Director can render you with a consistent look across generated images.
+                <span class="text-[10px] text-neutral-500 leading-normal dark:text-neutral-400">
+                  Enable this if your roleplay includes your own character in scenes. This creates a dedicated background concept for you (<code class="rounded bg-neutral-200 px-1 text-[9px] font-mono dark:bg-neutral-800">actor_[name]</code>) with your visual description, ensuring the AI Director can render you with a consistent look across generated images.
                 </span>
               </div>
             </div>
 
             <!-- Setting / Location -->
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Where does this take place?</label>
+              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Where does this take place?</label>
               <textarea
                 v-model="storyPrompt.setting"
                 placeholder="Leave blank to let the AI suggest a fitting location (e.g., 'A rainy cafe in Tokyo', 'A fantasy medieval tavern')."
-                class="h-[60px] w-full resize-none border border-neutral-800 rounded-xl bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-200 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                class="h-[60px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
               />
             </div>
 
             <!-- Lore / Rule overrides -->
             <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Lore & Behavior Rules</label>
+              <label class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Lore & Behavior Rules</label>
               <textarea
                 v-model="storyPrompt.lore"
                 placeholder="Describe custom personality overrides or AU rules (e.g., 'Make them tsundere', 'Set in a school AU', 'Characters are rival musicians')."
-                class="h-[80px] w-full resize-none border border-neutral-800 rounded-xl bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-200 outline-none transition-all focus:border-primary-500 placeholder-neutral-600"
+                class="h-[80px] w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
               />
             </div>
           </div>
 
           <!-- Active LLM Warning/Indicator -->
-          <div class="mt-5 flex items-start gap-2 border border-neutral-800/40 rounded-xl bg-neutral-900/30 p-3.5">
-            <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-500" />
-            <p class="text-[10px] text-neutral-400 leading-relaxed">
-              <span class="text-neutral-300 font-bold">Note:</span> This request will be processed by <span class="text-primary-400 font-semibold">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-400 font-semibold">{{ consciousnessStore.activeModel || 'None' }}</span>. Please ensure this is a high-quality model as the next step is somewhat complex and requires high reasoning to generate properly.
+          <div class="mt-5 flex items-start gap-2 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/30">
+            <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-400 dark:text-neutral-500" />
+            <p class="text-[10px] text-neutral-700 leading-relaxed dark:text-neutral-400">
+              <span class="dark:text-neutral-350 text-neutral-800 font-bold">Note:</span> This request will be processed by <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeModel || 'None' }}</span>. Please ensure this is a high-quality model as the next step is somewhat complex and requires high reasoning to generate properly.
             </p>
           </div>
 
           <!-- Bottom Actions -->
-          <div class="mt-8 flex items-center justify-between border-t border-neutral-800/60 pt-6">
+          <div class="mt-8 flex items-center justify-between border-t border-neutral-200 pt-6 dark:border-neutral-800/60">
             <Button
               variant="secondary"
-              class="h-[38px] flex items-center gap-1.5 border border-neutral-800 rounded-xl px-4 text-xs font-bold"
+              class="h-[38px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-4 text-xs font-bold dark:border-neutral-800"
               @click="currentStep = 2"
             >
               <div i-solar:alt-arrow-left-bold class="text-base" />
@@ -1419,22 +1419,22 @@ async function confirmCreateCard() {
       </div>
 
       <!-- STEP 4: LLM INGESTION PAYLOAD PREVIEW & DASHBOARD -->
-      <div v-else-if="currentStep === 4" class="flex flex-1 flex-col overflow-hidden bg-neutral-950 p-6">
-        <div class="mx-auto max-w-4xl w-full flex flex-1 flex-col overflow-hidden border border-neutral-900 rounded-2xl bg-neutral-900/20 p-6 shadow-xl">
-          <div class="mb-4 flex items-center justify-between border-b border-neutral-800/60 pb-4">
+      <div v-else-if="currentStep === 4" class="flex flex-1 flex-col overflow-hidden bg-white p-6 dark:bg-neutral-950">
+        <div class="mx-auto max-w-4xl w-full flex flex-1 flex-col overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/30 p-6 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
+          <div class="mb-4 flex items-center justify-between border-b border-neutral-200 pb-4 dark:border-neutral-800/60">
             <div>
-              <h3 class="text-md flex items-center gap-2 text-neutral-200 font-bold">
+              <h3 class="text-md flex items-center gap-2 text-neutral-800 font-bold dark:text-neutral-200">
                 <div i-solar:magic-stick-3-bold-duotone class="text-primary-500" />
                 Step 4: Roleplay World Proposal
               </h3>
-              <p class="mt-0.5 text-[10px] text-neutral-500">
+              <p class="dark:text-neutral-505 mt-0.5 text-[10px] text-neutral-400">
                 Review the synthesized world details, request refinements, or confirm card generation.
               </p>
             </div>
             <div class="flex items-center gap-2">
               <Button
                 variant="secondary"
-                class="h-[32px] flex items-center gap-1 border border-neutral-800 rounded-lg px-3 text-xs font-bold"
+                class="h-[32px] flex items-center gap-1 border border-neutral-200 rounded-lg px-3 text-xs font-bold dark:border-neutral-800"
                 @click="currentStep = 3"
               >
                 <div i-solar:alt-arrow-left-bold class="text-sm" />
@@ -1442,7 +1442,7 @@ async function confirmCreateCard() {
               </Button>
               <Button
                 variant="secondary"
-                class="h-[32px] flex items-center gap-1 border border-neutral-800 rounded-lg px-3 text-xs font-bold"
+                class="h-[32px] flex items-center gap-1 border border-neutral-200 rounded-lg px-3 text-xs font-bold dark:border-neutral-800"
                 @click="showDeveloperPayload = !showDeveloperPayload"
               >
                 <div i-solar:code-bold class="text-sm" />
@@ -1458,10 +1458,10 @@ async function confirmCreateCard() {
               <div i-solar:magic-stick-3-bold class="absolute animate-pulse text-2xl text-primary-500" />
             </div>
             <div class="text-center">
-              <h4 class="text-sm text-neutral-300 font-bold">
+              <h4 class="text-sm text-neutral-700 font-bold dark:text-neutral-300">
                 Synthesizing Roleplay World...
               </h4>
-              <p class="mt-1 text-xs text-neutral-500">
+              <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
                 Our LLM is orchestrating the prompt mappings, dialog presets, and outfits.
               </p>
             </div>
@@ -1469,10 +1469,10 @@ async function confirmCreateCard() {
 
           <!-- Developer Payload View -->
           <div v-else-if="showDeveloperPayload" class="min-h-0 flex flex-1 flex-col gap-3">
-            <span class="text-xs text-neutral-400 font-bold tracking-wide uppercase">Raw Ingestion Payload (Sent to LLM)</span>
+            <span class="text-neutral-550 text-xs font-bold tracking-wide uppercase dark:text-neutral-400">Raw Ingestion Payload (Sent to LLM)</span>
             <textarea
               readonly
-              class="flex-1 select-text resize-none border border-neutral-800 rounded-xl bg-neutral-900/80 p-4 text-xs text-neutral-300 font-mono outline-none"
+              class="flex-1 select-text resize-none border border-neutral-200 rounded-xl bg-neutral-50 p-4 text-xs text-neutral-800 font-mono outline-none dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-300"
               :value="JSON.stringify(synthesisPayload, null, 2)"
             />
           </div>
@@ -1480,19 +1480,19 @@ async function confirmCreateCard() {
           <!-- Synthesis Proposal Dashboard View -->
           <div v-else-if="synthesisProposal" class="min-h-0 flex flex-1 flex-col gap-6 overflow-y-auto pr-1">
             <!-- World Header -->
-            <div class="flex flex-col gap-3 border border-neutral-800/80 rounded-2xl bg-neutral-900/40 p-5">
+            <div class="flex flex-col gap-3 border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-800/80 dark:bg-neutral-900/40">
               <div class="flex items-center gap-3">
-                <div class="h-12 w-12 flex items-center justify-center overflow-hidden border border-neutral-800 rounded-2xl bg-neutral-950 text-xl text-primary-500 font-bold">
+                <div class="dark:bg-neutral-955 text-primary-505 h-12 w-12 flex items-center justify-center overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-100 text-xl font-bold dark:border-neutral-800">
                   🏰
                 </div>
                 <div class="flex flex-col">
-                  <span class="text-lg text-neutral-100 font-bold">{{ synthesisProposal.name }}</span>
-                  <span class="text-xs text-neutral-500">Synthesized Character Card Spec V3 Draft</span>
+                  <span class="text-lg text-neutral-800 font-bold dark:text-neutral-100">{{ synthesisProposal.name }}</span>
+                  <span class="text-xs text-neutral-400 dark:text-neutral-500">Synthesized Character Card Spec V3 Draft</span>
                 </div>
               </div>
-              <div class="border-t border-neutral-800/60 pt-3">
-                <span class="mb-1 block text-[10px] text-neutral-500 font-black tracking-wider uppercase">Premise & Scenario</span>
-                <p class="border-l-2 border-primary-500 rounded-r bg-neutral-950/40 py-1.5 pl-3 text-xs text-neutral-300 leading-relaxed italic">
+              <div class="border-t border-neutral-200 pt-3 dark:border-neutral-800/60">
+                <span class="dark:text-neutral-550 mb-1 block text-[10px] text-neutral-400 font-black tracking-wider uppercase">Premise & Scenario</span>
+                <p class="bg-neutral-55/50 border-l-2 border-primary-500 rounded-r py-1.5 pl-3 text-xs text-neutral-700 leading-relaxed italic dark:bg-neutral-950/40 dark:text-neutral-300">
                   "{{ synthesisProposal.scenario }}"
                 </p>
               </div>
@@ -1500,28 +1500,28 @@ async function confirmCreateCard() {
 
             <!-- Cast List -->
             <div class="flex flex-col gap-3">
-              <span class="text-xs text-neutral-400 font-bold tracking-wide uppercase">Synthesized Cast & Outfits</span>
+              <span class="text-xs text-neutral-500 font-bold tracking-wide uppercase dark:text-neutral-400">Synthesized Cast & Outfits</span>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div
                   v-for="(actor, key) in synthesisProposal.actors"
                   :key="key"
-                  class="flex flex-col gap-3 border border-neutral-800 rounded-2xl bg-neutral-900/30 p-4"
+                  class="flex flex-col gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30"
                 >
                   <div class="flex items-start justify-between">
                     <div class="flex items-center gap-2.5">
-                      <div class="h-9 w-9 overflow-hidden border border-neutral-800 rounded-full bg-neutral-950">
+                      <div class="h-9 w-9 overflow-hidden border border-neutral-200 rounded-full bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-950">
                         <!-- Match trig to character thumb -->
                         <img :src="getActorThumbUrl(String(key))" alt="" class="h-full w-full object-cover">
                       </div>
                       <div class="flex flex-col">
-                        <span class="text-xs text-neutral-200 font-bold capitalize">{{ String(key).replace('actor_', '').replace(/_/g, ' ') }}</span>
-                        <span class="text-[9px] text-neutral-500">Outfit: {{ actor.short_description }}</span>
+                        <span class="text-xs text-neutral-800 font-bold capitalize dark:text-neutral-200">{{ String(key).replace('actor_', '').replace(/_/g, ' ') }}</span>
+                        <span class="text-[9px] text-neutral-400 dark:text-neutral-500">Outfit: {{ actor.short_description }}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div class="border border-neutral-800/40 rounded-lg bg-neutral-950/30 p-2.5 text-[10px] text-neutral-400">
-                    <span class="mb-1 block text-[8px] text-neutral-500 font-bold uppercase">Default Greeting</span>
+                  <div class="border border-neutral-200 rounded-lg bg-neutral-50 p-2.5 text-[10px] text-neutral-600 dark:border-neutral-800/40 dark:bg-neutral-950/30 dark:text-neutral-400">
+                    <span class="dark:text-neutral-505 mb-1 block text-[8px] text-neutral-400 font-bold uppercase">Default Greeting</span>
                     <p class="leading-normal italic">
                       {{ actor.greeting || synthesisProposal.first_mes }}
                     </p>
@@ -1532,18 +1532,18 @@ async function confirmCreateCard() {
 
             <!-- Locations / Places -->
             <div class="flex flex-col gap-3">
-              <span class="text-xs text-neutral-400 font-bold tracking-wide uppercase">Locations & Backgrounds</span>
+              <span class="text-neutral-550 text-xs font-bold tracking-wide uppercase dark:text-neutral-400">Locations & Backgrounds</span>
               <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div
                   v-for="(place, key) in synthesisProposal.places"
                   :key="key"
-                  class="border-neutral-850 flex flex-col gap-2 border rounded-xl bg-neutral-900/10 p-3.5"
+                  class="dark:border-neutral-850 flex flex-col gap-2 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:bg-neutral-900/10"
                 >
                   <div class="flex items-center gap-2">
                     <div i-solar:map-arrow-up-bold class="text-sm text-primary-500" />
-                    <span class="text-xs text-neutral-300 font-bold">{{ place.name }}</span>
+                    <span class="text-xs text-neutral-800 font-bold dark:text-neutral-300">{{ place.name }}</span>
                   </div>
-                  <p class="text-[10px] text-neutral-500 leading-relaxed">
+                  <p class="text-[10px] text-neutral-500 leading-relaxed dark:text-neutral-500">
                     {{ place.description }}
                   </p>
                 </div>
@@ -1551,18 +1551,18 @@ async function confirmCreateCard() {
             </div>
 
             <!-- Refinement Prompt Loop -->
-            <div class="mt-auto flex flex-col gap-3 border-t border-neutral-800/60 pt-5">
+            <div class="mt-auto flex flex-col gap-3 border-t border-neutral-200 pt-5 dark:border-neutral-800/60">
               <div class="flex flex-col gap-1.5">
-                <label class="text-[10px] text-neutral-400 font-bold tracking-wide uppercase">Request Story Corrections (Optional)</label>
+                <label class="text-[10px] text-neutral-500 font-bold tracking-wide uppercase dark:text-neutral-400">Request Story Corrections (Optional)</label>
                 <div class="flex gap-2">
                   <textarea
                     v-model="refinementGuidance"
                     placeholder="Provide correction feedback (e.g. 'Make Gura more snarky', 'Add a beach place', 'Make Chii quieter')."
-                    class="h-[48px] flex-1 resize-none border border-neutral-800 rounded-xl bg-neutral-950/60 px-3 py-2 text-xs text-neutral-200 outline-none focus:border-primary-500 placeholder-neutral-600"
+                    class="dark:bg-neutral-95/60 text-neutral-850 h-[48px] flex-1 resize-none border border-neutral-200 rounded-xl bg-neutral-50 px-3 py-2 text-xs outline-none dark:border-neutral-800 focus:border-primary-500 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
                   />
                   <Button
                     variant="secondary"
-                    class="border-neutral-850 h-[48px] flex items-center justify-center gap-1 border rounded-xl px-4 text-xs font-bold"
+                    class="dark:border-neutral-855 h-[48px] flex items-center justify-center gap-1 border border-neutral-200 rounded-xl px-4 text-xs font-bold"
                     @click="handleGenerate(refinementGuidance)"
                   >
                     <div i-solar:refresh-bold class="text-sm" />
@@ -1576,7 +1576,7 @@ async function confirmCreateCard() {
                 <!-- Confirm: just close the wizard, no card created -->
                 <Button
                   variant="secondary"
-                  class="h-[38px] flex items-center gap-1.5 border border-neutral-700 rounded-xl px-4 text-xs font-bold"
+                  class="h-[38px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-4 text-xs font-bold dark:border-neutral-700"
                   @click="doConfirm"
                 >
                   <div i-solar:close-circle-outline class="text-base" />
@@ -1587,7 +1587,7 @@ async function confirmCreateCard() {
                   <!-- Create: save card, stay on page to keep iterating -->
                   <Button
                     variant="secondary"
-                    class="h-[38px] flex items-center gap-1.5 border border-neutral-700 rounded-xl px-4 text-xs font-bold hover:border-primary-500/40"
+                    class="h-[38px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-4 text-xs font-bold dark:border-neutral-700 hover:border-primary-500/40"
                     @click="doCreateCard"
                   >
                     <div i-solar:card-send-outline class="text-base" />
