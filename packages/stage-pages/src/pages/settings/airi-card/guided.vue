@@ -1040,12 +1040,12 @@ async function confirmCreateCard() {
         <transition name="slide-up">
           <div
             v-if="selectedCharacters.length > 0"
-            class="sticky bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-neutral-800 bg-neutral-950/90 px-6 py-4 backdrop-blur-lg"
+            class="dark:bg-neutral-955/90 sticky bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-neutral-200 bg-white/90 px-6 py-4 backdrop-blur-lg dark:border-neutral-800"
           >
             <div class="flex items-center gap-4">
               <div class="flex flex-col">
-                <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">World Cast</span>
-                <span class="text-[10px] text-neutral-500">{{ selectedCharacters.length }} characters selected</span>
+                <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">World Cast</span>
+                <span class="text-[10px] text-neutral-400 dark:text-neutral-500">{{ selectedCharacters.length }} characters selected</span>
               </div>
 
               <!-- Cast avatars -->
@@ -1053,7 +1053,7 @@ async function confirmCreateCard() {
                 <div
                   v-for="char in selectedCharacters"
                   :key="char.id"
-                  class="group relative h-10 w-10 flex-shrink-0 cursor-pointer overflow-hidden border border-neutral-800 rounded-full transition-colors hover:border-red-500"
+                  class="group relative h-10 w-10 flex-shrink-0 cursor-pointer overflow-hidden border border-neutral-200 rounded-full transition-colors dark:border-neutral-800 hover:border-red-500"
                   :title="`Remove ${char.name}`"
                   @click="wizardStore.removeCharacterFromBasket(char.id)"
                 >
@@ -1079,10 +1079,10 @@ async function confirmCreateCard() {
       </div>
 
       <!-- STEP 2: ROSTER SETTINGS (MODEL & VOICE BINDING) -->
-      <div v-else-if="currentStep === 2" class="flex flex-1 flex-col items-center overflow-y-auto bg-neutral-950 p-6">
-        <div class="max-w-4xl w-full border border-neutral-900 rounded-2xl bg-neutral-900/20 p-8 shadow-xl">
+      <div v-else-if="currentStep === 2" class="flex flex-1 flex-col items-center overflow-y-auto bg-white p-6 dark:bg-neutral-950">
+        <div class="max-w-4xl w-full border border-neutral-200 rounded-2xl bg-neutral-50/30 p-8 shadow-xl dark:border-neutral-900 dark:bg-neutral-900/20">
           <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <h3 class="flex items-center gap-2 text-lg text-neutral-200 font-bold">
+            <h3 class="flex items-center gap-2 text-lg text-neutral-800 font-bold dark:text-neutral-200">
               <div i-solar:user-circle-bold-duotone class="text-primary-500" />
               Actor Alignment (Visual & Audio Settings)
             </h3>
