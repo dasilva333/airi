@@ -37,7 +37,7 @@ import FieldAiGeneratorModal from './FieldAiGeneratorModal.vue'
 import ImageTagExtractorModal from './ImageTagExtractorModal.vue'
 import CardCreationTabActing from './tabs/CardCreationTabActing.vue'
 import CardCreationTabArtistry from './tabs/CardCreationTabArtistry.vue'
-import CardCreationTabBehavior from './tabs/CardCreationTabBehavior.vue'
+import CardCreationTabCognition from './tabs/CardCreationTabCognition.vue'
 import CardCreationTabGeneration from './tabs/CardCreationTabGeneration.vue'
 import CardCreationTabIdentity from './tabs/CardCreationTabIdentity.vue'
 import CardCreationTabModules from './tabs/CardCreationTabModules.vue'
@@ -119,6 +119,10 @@ const selectedSpeechModel = ref<string>('')
 const selectedSpeechVoiceId = ref<string>('')
 const selectedDisplayModelId = ref<string>('')
 const selectedActiveBackgroundId = ref<string>('none')
+const cognitivePipelineEnabled = ref<boolean>(false)
+const firstHopProcessor = ref<'none' | 'local_nan0'>('none')
+const selectedFirstHopProvider = ref<string>('')
+const selectedFirstHopModel = ref<string>('')
 const selectedArtistryProvider = ref<string>('')
 const selectedArtistryModel = ref<string>('')
 const selectedArtistryPromptPrefix = ref<string>('')
@@ -304,6 +308,17 @@ const generationProviderOptions = computed(() => consciousnessProviderOptions.va
 
 const generationModelOptions = computed(() => {
   const provider = generationProvider.value || selectedConsciousnessProvider.value || consciousnessProvider.value
+  if (!provider)
+    return []
+  const models = providersStore.getModelsForProvider(provider)
+  return models.map(model => ({
+    value: model.id,
+    label: model.name || model.id,
+  }))
+})
+
+const firstHopModelOptions = computed(() => {
+  const provider = selectedFirstHopProvider.value || consciousnessProvider.value
   if (!provider)
     return []
   const models = providersStore.getModelsForProvider(provider)
@@ -659,6 +674,13 @@ watch(generationProvider, async (newProvider, oldProvider) => {
   }
 })
 
+watch(selectedFirstHopProvider, async (newProvider, oldProvider) => {
+  if (oldProvider !== undefined && newProvider !== oldProvider && newProvider) {
+    await consciousnessStore.loadModelsForProvider(newProvider)
+    selectedFirstHopModel.value = ''
+  }
+})
+
 // Watch speech provider changes and reload models/voices
 watch(selectedSpeechProvider, async (newProvider, oldProvider) => {
   if (oldProvider !== undefined && newProvider !== oldProvider && newProvider) {
@@ -699,14 +721,14 @@ const activeTabId = ref('')
 
 // Tabs for card details
 const tabs: Tab[] = [
-  { id: 'identity', label: t('settings.pages.card.creation.identity'), icon: 'i-solar:emoji-funny-square-bold-duotone' },
-  { id: 'behavior', label: t('settings.pages.card.creation.behavior'), icon: 'i-solar:chat-round-line-bold-duotone' },
+  { id: 'identity', label: 'Identity', icon: 'i-solar:user-circle-bold-duotone' },
   { id: 'generation', label: 'Generation', icon: 'i-solar:tuning-square-bold-duotone' },
   { id: 'acting', label: 'Acting', icon: 'i-solar:mask-happly-bold-duotone' },
   { id: 'modules', label: t('settings.pages.card.modules'), icon: 'i-solar:widget-4-bold-duotone' },
   { id: 'artistry', label: t('settings.pages.modules.artistry.title'), icon: 'i-solar:gallery-bold-duotone' },
   { id: 'proactivity', label: t('settings.pages.card.creation.proactivity', 'Proactivity'), icon: 'i-solar:heart-pulse-bold-duotone' },
   { id: 'tools', label: 'Tools', icon: 'i-solar:widget-bold-duotone' },
+  { id: 'cognition', label: 'Cognition', icon: 'i-solar:cpu-bolt-bold-duotone' },
 ]
 
 // Active tab state - set to first available tab by default
@@ -823,6 +845,12 @@ async function saveCard(card: Card): Promise<boolean> {
           consciousness: {
             provider: selectedConsciousnessProvider.value || consciousnessProvider.value,
             model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
+          },
+          cognition: {
+            enabled: cognitivePipelineEnabled.value,
+            processor: firstHopProcessor.value,
+            provider: selectedFirstHopProvider.value || consciousnessProvider.value,
+            model: selectedFirstHopModel.value,
           },
           speech: {
             provider: selectedSpeechProvider.value || speechProvider.value,
@@ -956,6 +984,10 @@ function initializeCard(): Card {
   selectedDisplayModelId.value = airiExt?.modules?.displayModelId || defaultDisplayModelId.value
   const activeBg = airiExt?.modules?.activeBackgroundId || (airiExt?.modules as any)?.preferredBackgroundId
   selectedActiveBackgroundId.value = !activeBg ? 'none' : activeBg
+  cognitivePipelineEnabled.value = (airiExt?.modules as any)?.cognition?.enabled ?? false
+  firstHopProcessor.value = (airiExt?.modules as any)?.cognition?.processor ?? 'none'
+  selectedFirstHopProvider.value = (airiExt?.modules as any)?.cognition?.provider || consciousnessProvider.value
+  selectedFirstHopModel.value = (airiExt?.modules as any)?.cognition?.model || ''
   selectedArtistryProvider.value = airiExt?.artistry?.provider || defaultArtistryProvider.value
   selectedArtistryModel.value = airiExt?.artistry?.model || ''
   selectedArtistryPromptPrefix.value = airiExt?.artistry?.promptPrefix || ''
@@ -1322,10 +1354,6 @@ function handleGeneratorSave(newValue: string) {
             v-model:card-notes="cardNotes"
             v-model:card-system-prompt="cardSystemPrompt"
             v-model:card-version="cardVersion"
-            @sparkle-click="openSparkleGenerator"
-          />
-          <CardCreationTabBehavior
-            v-else-if="activeTab === 'behavior'"
             v-model:card-personality="cardPersonality"
             v-model:card-scenario="cardScenario"
             v-model:card-greetings="cardGreetings"
@@ -1394,6 +1422,22 @@ function handleGeneratorSave(newValue: string) {
             :default-display-model-id-placeholder="getDefaultPlaceholder(defaultDisplayModelId)"
             :consciousness-provider-active="Boolean(consciousnessProvider)"
             :speech-provider-active="Boolean(speechProvider)"
+          />
+          <CardCreationTabCognition
+            v-else-if="activeTab === 'cognition'"
+            v-model:cognitive-pipeline-enabled="cognitivePipelineEnabled"
+            v-model:first-hop-processor="firstHopProcessor"
+            v-model:selected-first-hop-provider="selectedFirstHopProvider"
+            v-model:selected-first-hop-model="selectedFirstHopModel"
+            v-model:selected-consciousness-provider="selectedConsciousnessProvider"
+            v-model:selected-consciousness-model="selectedConsciousnessModel"
+            :consciousness-provider-options="consciousnessProviderOptions"
+            :consciousness-model-options="consciousnessModelOptions"
+            :first-hop-model-options="firstHopModelOptions"
+            :default-consciousness-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
+            :default-first-hop-model-placeholder="getDefaultPlaceholder(defaultConsciousnessModel)"
+            :consciousness-provider-active="Boolean(consciousnessProvider)"
+            :first-hop-provider-active="Boolean(selectedFirstHopProvider || consciousnessProvider)"
           />
           <CardCreationTabArtistry
             v-else-if="activeTab === 'artistry'"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ChatSendMode, ChatSuggestMode } from '@proj-airi/stage-ui/stores/settings'
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 // Watch messageInput and search universe-scoped memory context
@@ -1265,7 +1266,7 @@ defineExpose({
                         ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
                         : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
                     ]"
-                    @click="settingsChat.suggestMode = opt.value; isWandMenuOpen = false"
+                    @click="settingsChat.suggestMode = opt.value as ChatSuggestMode; isWandMenuOpen = false"
                   >
                     <span>{{ opt.label }}</span>
                     <div v-if="settingsChat.suggestMode === opt.value" class="i-solar:check-circle-bold text-xs" />
@@ -1346,7 +1347,7 @@ defineExpose({
                     ? 'bg-primary-50/50 text-primary-600 dark:bg-primary-950/30 dark:text-primary-400 font-bold'
                     : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
                 ]"
-                @click="settingsChat.sendMode = opt.value; isSendMenuOpen = false"
+                @click="settingsChat.sendMode = opt.value as ChatSendMode; isSendMenuOpen = false"
               >
                 <span>{{ opt.label }}</span>
                 <div v-if="settingsChat.sendMode === opt.value" class="i-solar:check-circle-bold text-xs" />
