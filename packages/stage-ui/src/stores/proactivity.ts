@@ -720,6 +720,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const composedMessageSnapshot = toRaw(chatSession.sessionMessages[sessionId] || [])
 
         const rawStreamingContext: ChatStreamEventContext = {
+          sessionId,
           message: { role: 'user', content: '[Heartbeat Check]', createdAt: Date.now(), id: nanoid() },
           contexts: toRaw(chatContext.getContextsSnapshot()),
           composedMessage: composedMessageSnapshot as any,

@@ -11,6 +11,8 @@ export function createChatHooks() {
   const onTokenSpecialHooks: Array<(special: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onStreamEndHooks: Array<(context: ChatStreamEventContext) => Promise<void>> = []
   const onAssistantResponseEndHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
+  const onAssistantSilenceHooks: Array<(reason: string, context: ChatStreamEventContext) => Promise<void>> = []
+  const onChatErrorHooks: Array<(error: { message: string, detail: string }, context: ChatStreamEventContext) => Promise<void>> = []
   const onAssistantMessageHooks: Array<(message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onChatTurnCompleteHooks: Array<(chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) => Promise<void>> = []
   const onWidgetHooks: Array<(payload: any, context: ChatStreamEventContext) => Promise<void>> = []
@@ -87,6 +89,24 @@ export function createChatHooks() {
     }
   }
 
+  function onAssistantSilence(cb: (reason: string, context: ChatStreamEventContext) => Promise<void>) {
+    onAssistantSilenceHooks.push(cb)
+    return () => {
+      const index = onAssistantSilenceHooks.indexOf(cb)
+      if (index >= 0)
+        onAssistantSilenceHooks.splice(index, 1)
+    }
+  }
+
+  function onChatError(cb: (error: { message: string, detail: string }, context: ChatStreamEventContext) => Promise<void>) {
+    onChatErrorHooks.push(cb)
+    return () => {
+      const index = onChatErrorHooks.indexOf(cb)
+      if (index >= 0)
+        onChatErrorHooks.splice(index, 1)
+    }
+  }
+
   function onAssistantMessage(cb: (message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>) {
     onAssistantMessageHooks.push(cb)
     return () => {
@@ -123,6 +143,8 @@ export function createChatHooks() {
     onTokenSpecialHooks.length = 0
     onStreamEndHooks.length = 0
     onAssistantResponseEndHooks.length = 0
+    onAssistantSilenceHooks.length = 0
+    onChatErrorHooks.length = 0
     onAssistantMessageHooks.length = 0
     onChatTurnCompleteHooks.length = 0
     onWidgetHooks.length = 0
@@ -168,6 +190,16 @@ export function createChatHooks() {
       await hook(message, context)
   }
 
+  async function emitAssistantSilenceHooks(reason: string, context: ChatStreamEventContext) {
+    for (const hook of onAssistantSilenceHooks)
+      await hook(reason, context)
+  }
+
+  async function emitChatErrorHooks(error: { message: string, detail: string }, context: ChatStreamEventContext) {
+    for (const hook of onChatErrorHooks)
+      await hook(error, context)
+  }
+
   async function emitAssistantMessageHooks(message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) {
     for (const hook of onAssistantMessageHooks)
       await hook(message, messageText, context)
@@ -192,6 +224,8 @@ export function createChatHooks() {
     onTokenSpecial,
     onStreamEnd,
     onAssistantResponseEnd,
+    onAssistantSilence,
+    onChatError,
     onAssistantMessage,
     onChatTurnComplete,
     onWidget,
@@ -203,6 +237,8 @@ export function createChatHooks() {
     emitTokenSpecialHooks,
     emitStreamEndHooks,
     emitAssistantResponseEndHooks,
+    emitAssistantSilenceHooks,
+    emitChatErrorHooks,
     emitAssistantMessageHooks,
     emitChatTurnCompleteHooks,
     emitWidgetHooks,

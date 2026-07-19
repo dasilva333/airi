@@ -14,6 +14,7 @@ import { useAudioContext } from '../audio'
 import { useChatOrchestratorStore } from '../chat'
 import { useChatContextStore } from '../chat/context-store'
 import { useChatSessionStore } from '../chat/session-store'
+import { isNan0ProcessorEnabled } from '../nan0-config'
 import { useProactivityStore } from '../proactivity'
 import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
@@ -163,6 +164,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const isGroundingEnabled = useLocalStorage('settings/gemini/grounding', false)
   const outputMode = useLocalStorage<'gemini' | 'custom'>('settings/gemini/output-mode', 'gemini')
   const error = ref<string | null>(null)
+  const nan0CognitionEnabled = computed(() => isNan0ProcessorEnabled(
+    airiCard.activeCard?.extensions?.airi?.modules?.cognition,
+  ))
 
   // Tracks whether the current conversation turn was initiated from the local
   // desktop microphone or from a Discord voice channel. This determines where
@@ -179,6 +183,17 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   let audioPlaybackTime = 0
 
   const socket = shallowRef<WebSocket | null>(null)
+
+  // NOTICE: Gemini Live generates audio inside its own bidirectional session,
+  // so it cannot pass through Nan0's thought -> speech-decision -> speech chain.
+  watch(nan0CognitionEnabled, (enabled) => {
+    if (!enabled || (!socket.value && !isConnecting.value))
+      return
+
+    stop()
+    error.value = 'Gemini Live was stopped because its direct audio generation cannot preserve Nan0 thought-owned speech.'
+    toast.error(error.value)
+  })
 
   // Internal tracking for the current live session to calculate deltas
   let sessionTokenHighWaterMark = 0
@@ -459,6 +474,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     if (socket.value || isConnecting.value)
       return
 
+    if (nan0CognitionEnabled.value) {
+      error.value = 'Gemini Live is unavailable while Nan0 cognition is enabled because its direct audio path bypasses Nan0 thought and speech decisions.'
+      toast.error(error.value)
+      return
+    }
+
     const apiKey = getApiKey()
     if (!apiKey) {
       error.value = 'No API key found for "Google Gemini" provider. Please configure it under Settings → Providers.'
@@ -598,12 +619,14 @@ export const useLiveSessionStore = defineStore('live-session', () => {
             }) as StreamingAssistantMessage
 
             // Fake a context snapshot so standard chat hooks don't break
-            currentStreamContext = {
+            const streamContext: ChatStreamEventContext = {
+              sessionId: chatSession.activeSessionId || `live-session:${id}`,
               message: currentStreamingMessage,
               input: { type: 'input:text', data: { text: '' } },
               contexts: chatContext.getContextsSnapshot(),
               composedMessage: [],
             }
+            currentStreamContext = streamContext
 
             currentCategoriser = createStreamingCategorizer('google-generative-ai')
             streamPosition = 0
@@ -681,7 +704,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
             // Only prep the Custom TTS pipeline when in 'custom' mode.
             // In 'gemini' mode, Gemini speaks directly — no need for TTS init.
             if (turnOutputMode === 'custom') {
-              await chatOrchestrator.emitBeforeMessageComposedHooks('', currentStreamContext)
+              await chatOrchestrator.emitBeforeMessageComposedHooks('', streamContext)
             }
           }
 

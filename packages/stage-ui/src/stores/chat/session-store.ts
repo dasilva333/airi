@@ -23,6 +23,7 @@ import { useMemoryLifetimeStore } from '../memory-lifetime'
 import { useShortTermMemoryStore } from '../memory-short-term'
 import { useTextJournalStore } from '../memory-text-journal'
 import { useAiriCardStore } from '../modules/airi-card'
+import { notifyNan0AcceptedInputPresence } from '../nan0-input-presence'
 import { useSettingsGeneral } from '../settings'
 import { CHAT_STREAM_CHANNEL_NAME } from './constants'
 import { updateRecentTopics } from './recent-topics'
@@ -473,8 +474,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!sessionId)
       return
     const current = sessionMessages.value[sessionId] ?? []
+    const duplicateInscription = Boolean(message.id && current.some(existing => existing.id === message.id))
     sessionMessages.value[sessionId] = [...current, message]
     void persistSession(sessionId)
+    notifyNan0AcceptedInputPresence(message, duplicateInscription)
 
     console.log(`[ChatStore] Inscribing turn in session ${sessionId}:`, {
       id: message.id,

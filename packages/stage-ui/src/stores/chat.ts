@@ -27,6 +27,8 @@ import { createDatetimeContext, createEternalRecordContext, createExpressionsCon
 import { useChatContextStore } from './chat/context-store'
 import { createChatHooks } from './chat/hooks'
 import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
+import { gateToolsWithNan0Authority } from './chat/nan0-tool-authority'
+import { responseDispositionFor } from './chat/response-disposition'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useLLM } from './llm'
@@ -351,6 +353,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     const sendingCreatedAt = Date.now()
     const streamingMessageContext: ChatStreamEventContext = {
+      sessionId,
       message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid(), ...options.metadata },
       contexts: chatContext.getContextsSnapshot(),
       composedMessage: [],
@@ -741,8 +744,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           argsRaw = match[2] || ''
         }
 
-        const resolvedTools = typeof options.tools === 'function' ? await options.tools() : options.tools
-        const tool = resolvedTools?.find(t => (t.function?.name || (t as any).name) === toolName)
+        const resolvedTools = typeof effectiveTools === 'function' ? await effectiveTools() : effectiveTools
+        const tool = resolvedTools?.find((t: any) => (t.function?.name || t.name) === toolName)
 
         if (!tool) {
           chatLog(`[ChatDebug] Marker found but tool not executable/found in this context: ${toolName}`)
@@ -1186,99 +1189,56 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
           }
         }
 
-        // Evaluate Decoupled Two-Hop Cognition Pipeline
-        const cognitionConfig = (activeCard.value?.extensions?.airi as any)?.modules?.cognition
-        if (cognitionConfig?.enabled && bridgedSteps === 1) {
+        // The generic host-owned first hop remains available only for cards that
+        // explicitly select it. Nan0 enters through the lifecycle hooks below;
+        // parsing Nan0 thoughts in this host would bypass its persisted contracts.
+        const cognitionConfig = activeCard.value?.extensions?.airi?.modules?.cognition
+        if (cognitionConfig?.enabled && cognitionConfig.processor === 'none' && bridgedSteps === 1) {
           const firstHopProviderId = cognitionConfig.provider
           const firstHopModelId = cognitionConfig.model
-          const processorMode = cognitionConfig.processor || 'none'
 
           if (firstHopProviderId && firstHopModelId) {
-            chatLog('[Cognition] Executing 1st-Hop pre-pass thoughts...', {
+            chatLog('[Cognition] Executing generic 1st-hop pre-pass.', {
               provider: firstHopProviderId,
               model: firstHopModelId,
-              processor: processorMode,
             })
 
             try {
               const firstHopProvider = await providersStore.getProviderInstance(firstHopProviderId)
               const firstHopConfig = providersStore.getProviderConfig(firstHopProviderId)
-              const headers = (firstHopConfig?.headers || {}) as Record<string, string>
-
-              // Build the output guidance instructions for the 1st-Hop LLM
-              let firstHopSystemPrompt = ''
-              if (processorMode === 'local_nan0') {
-                // Kyo's local rules engine instructions (System Prompt for Nan0 private thoughts)
-                firstHopSystemPrompt = `[COGNITIVE PROCESSOR: NAN0 LOCAL]
-You are the inner thoughts, attention processor, and emotional monologue generator for the character.
-Generate a thought log matching the strict Nan0 token-delimited formatting schema:
-[ATTENTION] score
-[EMOTION] state
-[MONOLOGUE]
-Your subconscious monologue.
-[DECISION] SPEAK or SILENCE`
-              }
-              else {
-                // Pass-through proxy/default instructions
-                firstHopSystemPrompt = cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
-You are the inner thoughts, attention processor, and emotional monologue generator for the character.
-Analyze the conversation history and the latest user message. Generate a concise inner monologue detailing your emotional state, attention highlights, memories to fetch, and immediate conversational directives.
-Format your output as a raw thought log.`
-              }
-
-              const firstHopMessages = [
-                { role: 'system', content: firstHopSystemPrompt },
-                ...newMessages.filter(m => m.role !== 'system'),
-              ]
-
               const firstHopResponse = await llmStore.generate(
                 firstHopModelId,
                 firstHopProvider as any,
-                firstHopMessages as Message[],
+                [
+                  {
+                    role: 'system',
+                    content: cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
+Analyze the conversation history and latest user message. Produce a concise private monologue with emotional state, attention highlights, relevant memory cues, and immediate conversational direction. Return only the thought log.`,
+                  },
+                  ...newMessages.filter(message => message.role !== 'system'),
+                ] as Message[],
                 {
-                  headers,
+                  headers: (firstHopConfig?.headers || {}) as Record<string, string>,
                   temperature: 0.7,
                 },
               )
+              const monologue = firstHopResponse.text?.trim()
 
-              const rawOutput = firstHopResponse.text || ''
-              chatLog('[Cognition] Raw 1st-Hop output:', rawOutput)
-
-              let monologueText = ''
-              if (processorMode === 'local_nan0') {
-                // TODO (Kyo Integration):
-                // 1. Run local metabonomics, relationships, and emotional baseline decays first.
-                // 2. Parse rawOutput matching the strict token format ([EMOTION], [ATTENTION], [MONOLOGUE], [DECISION]).
-                // 3. Extract the inner monologue content to assign to monologueText.
-                // 4. Update the character's active emotion and physics levels in the card store.
-                // 5. If [DECISION] is SILENCE, abort/silence the assistant turn here.
-
-                // Placeholder parse:
-                const monologueMatch = rawOutput.match(/\[MONOLOGUE\]\s*([\s\S]*?)(?:\[DECISION\]|$)/i)
-                monologueText = monologueMatch ? monologueMatch[1].trim() : rawOutput
-              }
-              else {
-                // Pass-through: Treat the entire output as the monologue
-                monologueText = rawOutput
-              }
-
-              if (monologueText.trim()) {
-                // Inject the monologue as a system instruction before sending to 2nd LLM
+              if (monologue) {
                 const system = newMessages.slice(0, 1)
                 const afterSystem = newMessages.slice(1)
-
                 newMessages = [
                   ...system,
                   {
                     role: 'system',
-                    content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${monologueText.trim()}`,
+                    content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${monologue}`,
                   },
                   ...afterSystem,
                 ]
               }
             }
-            catch (err) {
-              console.error('[Cognition] 1st-Hop pre-pass failed, continuing to 2nd-Hop:', err)
+            catch (error) {
+              console.error('[Cognition] Generic 1st-hop pre-pass failed; continuing with AIRI output generation:', error)
             }
           }
         }
@@ -1287,6 +1247,24 @@ Format your output as a raw thought log.`
 
         await hooks.emitAfterMessageComposedHooks(sendingMessage, streamingMessageContext)
         await hooks.emitBeforeSendHooks(sendingMessage, streamingMessageContext)
+        effectiveTools = gateToolsWithNan0Authority(effectiveTools, streamingMessageContext)
+
+        const disposition = responseDispositionFor(streamingMessageContext)
+        if (disposition) {
+          chatLog('Assistant inference suppressed by pre-send disposition.', {
+            decision: disposition.decision,
+            thoughtId: disposition.thoughtId,
+          })
+          if (isForegroundSession()) {
+            streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+          }
+          await hooks.emitAssistantSilenceHooks(
+            `NAN0_${disposition.decision}:${disposition.reason}`,
+            streamingMessageContext,
+          )
+          await hooks.emitStreamEndHooks(streamingMessageContext)
+          return
+        }
 
         const headers = (effectiveConfig?.headers || {}) as Record<string, string>
         const generationConfig = activeCard.value?.extensions?.airi?.generation
@@ -1533,6 +1511,7 @@ Format your output as a raw thought log.`
         if (isForegroundSession()) {
           streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
         }
+        await hooks.emitAssistantSilenceHooks('NO_REPLY', streamingMessageContext)
         await hooks.emitStreamEndHooks(streamingMessageContext)
         return
       }
@@ -1629,6 +1608,7 @@ Format your output as a raw thought log.`
       // Emit turn complete with error so downstream consumers (e.g. Discord outbound)
       // can detect and relay failures instead of silently swallowing them.
       try {
+        await hooks.emitChatErrorHooks({ message: errorMessage, detail: technicalDetail }, streamingMessageContext)
         await hooks.emitChatTurnCompleteHooks({
           output: { ...buildingMessage, error: { message: errorMessage, detail: technicalDetail } } as any,
           outputText: String(buildingMessage.content || ''),
@@ -1810,6 +1790,8 @@ Format your output as a raw thought log.`
     emitTokenSpecialHooks: hooks.emitTokenSpecialHooks,
     emitStreamEndHooks: hooks.emitStreamEndHooks,
     emitAssistantResponseEndHooks: hooks.emitAssistantResponseEndHooks,
+    emitAssistantSilenceHooks: hooks.emitAssistantSilenceHooks,
+    emitChatErrorHooks: hooks.emitChatErrorHooks,
     emitAssistantMessageHooks: hooks.emitAssistantMessageHooks,
     emitChatTurnCompleteHooks: hooks.emitChatTurnCompleteHooks,
 
@@ -1821,6 +1803,8 @@ Format your output as a raw thought log.`
     onTokenSpecial: hooks.onTokenSpecial,
     onStreamEnd: hooks.onStreamEnd,
     onAssistantResponseEnd: hooks.onAssistantResponseEnd,
+    onAssistantSilence: hooks.onAssistantSilence,
+    onChatError: hooks.onChatError,
     onAssistantMessage: hooks.onAssistantMessage,
     onChatTurnComplete: hooks.onChatTurnComplete,
     onWidget: hooks.onWidget,

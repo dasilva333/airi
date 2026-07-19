@@ -73,12 +73,30 @@ export interface ContextMessage extends ContextUpdate<Record<string, unknown>, s
 export type ChatHistoryItem = (ChatMessage | ErrorMessage | DirectorMessage) & { context?: ContextMessage } & { createdAt?: number, id?: string }
 
 export interface ChatStreamEventContext {
+  sessionId: string
   message: ChatHistoryItem
   contexts: Record<string, ContextMessage[]>
   composedMessage: Array<Message>
   input?: WebSocketEventInputs
   assistantMessageId?: string
   assistantMessageCreatedAt?: number
+  responseDisposition?: {
+    decision: 'SILENCE' | 'ACT' | 'WAIT'
+    reason: string
+    thoughtId: string
+    decisionId: string
+  }
+  nan0ToolAuthority?: {
+    schemaVersion: 1
+    finalDecision: 'SPEAK' | 'SILENCE' | 'ACT' | 'WAIT' | 'BODY_EXPRESSION'
+    thoughtId: string
+    decisionId: string
+    turnId: string
+    actionIntentId: string | null
+    capabilityId: string | null
+    lifecyclePolicyId: string | null
+    authorizedToolNames: string[]
+  }
 }
 
 export type ChatStreamEvent

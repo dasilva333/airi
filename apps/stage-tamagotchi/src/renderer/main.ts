@@ -1,3 +1,4 @@
+import type { Pinia } from 'pinia'
 import type { Plugin } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 
@@ -43,7 +44,9 @@ const router = createRouter({
   routes: setupLayouts(routes as RouteRecordRaw[]),
 })
 
-createApp(App)
+const app = createApp(App)
+
+app
   .use(MotionPlugin)
   // TODO: Fix autoAnimatePlugin type error
   .use(autoAnimatePlugin as unknown as Plugin)
@@ -51,4 +54,22 @@ createApp(App)
   .use(pinia)
   .use(i18n)
   .use(Tres)
-  .mount('#app')
+
+app.mount('#app')
+
+async function installNan0AfterMount(pinia: Pinia): Promise<void> {
+  const [{ useNan0RuntimeStore }, { createNan0RendererIdentity }] = await Promise.all([
+    import('@proj-airi/stage-ui/stores/nan0'),
+    import('@proj-airi/stage-ui/stores/nan0-renderer'),
+  ])
+  const renderer = createNan0RendererIdentity(window.location.hash || '#/')
+
+  if (!renderer.isOwner && !renderer.isExecutor)
+    return
+
+  await useNan0RuntimeStore(pinia).ensureInstalled(renderer)
+}
+
+void installNan0AfterMount(pinia).catch((error) => {
+  console.error('[Nan0] Installation failed after renderer mount:', error)
+})

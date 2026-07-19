@@ -45,6 +45,7 @@ import { createServerChannelService, setupServerChannel } from './services/airi/
 import { setupDiscordService } from './services/airi/discord'
 import { createI18nService } from './services/airi/i18n'
 import { createMcpServersService, setupMcpStdioManager } from './services/airi/mcp-servers'
+import { createNan0DiagnosticsService } from './services/airi/nan0-diagnostics'
 import { setupPluginHost } from './services/airi/plugins'
 import { createMicToggleService } from './services/airi/shortcuts/mic-toggle'
 import { setupAutoUpdater } from './services/electron/auto-updater'
@@ -370,6 +371,7 @@ app.whenReady().then(async () => {
       const context = createContext(ipcMain).context
       createServerChannelService({ serverChannel: deps.serverChannel })
       createMcpServersService({ context, manager: deps.mcpStdioManager })
+      createNan0DiagnosticsService({ context })
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
