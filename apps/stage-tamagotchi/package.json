@@ -146,6 +146,7 @@
     "@pnpm/find-workspace-dir": "^1000.1.4",
     "@proj-airi/iconify-meteocons": "catalog:",
     "@proj-airi/lobe-icons": "^1.0.18",
+    "@proj-airi/nan0-runtime": "workspace:^",
     "@proj-airi/server-runtime": "workspace:^",
     "@proj-airi/stage-shared": "workspace:^",
     "@proj-airi/ui-transitions": "workspace:^",
