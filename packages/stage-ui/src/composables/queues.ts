@@ -6,6 +6,7 @@ import { sleep } from '@moeru/std'
 import { createQueue } from '@proj-airi/stream-kit'
 
 import { EMOTION_VALUES } from '../constants/emotions'
+import { useAiriCardStore } from '../stores/modules/airi-card'
 
 export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayload>) {
   const normalizeEmotionName = (value: string): Emotion | string => {
@@ -149,6 +150,18 @@ export function parseActor(content: string) {
 const actorColors = new Map<string, string>()
 
 export function getActorColor(id: string): string {
+  try {
+    const cardStore = useAiriCardStore()
+    const activeCard = cardStore.activeCard
+    const assets = activeCard?.extensions?.airi?.visual_assets
+    if (assets && assets[id]?.textColor) {
+      return assets[id].textColor
+    }
+  }
+  catch (e) {
+    // Pinia not initialized
+  }
+
   if (!actorColors.has(id)) {
     // Generate a stable, vibrant HSL color from the actor ID
     let hash = 0

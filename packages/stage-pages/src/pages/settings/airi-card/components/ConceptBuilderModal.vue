@@ -25,6 +25,8 @@ interface ConceptData {
   description: string
   prompt: string
   isBase?: boolean
+  idleAnimations?: string[]
+  textColor?: string
   artistry?: {
     provider?: string
     model?: string
@@ -109,6 +111,7 @@ const activeTab = ref('identity')
 const id = ref('')
 const description = ref('')
 const prompt = ref('')
+const textColor = ref('')
 
 // Image Tag Extractor State
 const showTagExtractorModal = ref(false)
@@ -201,6 +204,7 @@ watch(() => [props.modelValue, props.conceptId, props.initialData], () => {
     id.value = props.conceptId || ''
     description.value = props.initialData?.description || ''
     prompt.value = props.initialData?.prompt || ''
+    textColor.value = props.initialData?.textColor || ''
 
     isBase.value = props.initialData?.isBase ?? false
 
@@ -449,6 +453,7 @@ function handleSave() {
       prompt: prompt.value.trim(),
       isBase: isBase.value,
       idleAnimations: selectedIdleAnimations.value,
+      textColor: textColor.value.trim() || undefined,
       artistry: selectedProvider.value !== 'inherit'
         ? {
             provider: selectedProvider.value,
@@ -582,6 +587,31 @@ function handleSave() {
                   <span class="i-solar:stars-minimalistic-bold" />
                   + {{ cid }}
                 </button>
+              </div>
+            </div>
+
+            <!-- Custom Actor Text Color Picker -->
+            <div class="flex flex-col gap-2">
+              <div>
+                <label class="text-sm text-neutral-800 font-bold dark:text-neutral-200">Custom Actor Highlight Color</label>
+                <p class="dark:text-neutral-450 text-[10px] text-neutral-500 leading-relaxed">
+                  Override the auto-generated HSL color for this actor's speech bubble highlight and name chip tags.
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="textColor"
+                  type="text"
+                  placeholder="e.g. #a855f7"
+                  class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-2 text-sm text-neutral-800 outline-none dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                >
+                <div class="relative h-[38px] w-[38px] overflow-hidden border border-neutral-200 rounded-lg dark:border-neutral-800">
+                  <input
+                    v-model="textColor"
+                    type="color"
+                    class="absolute inset-0 h-full w-full cursor-pointer border-none bg-transparent p-0 opacity-100"
+                  >
+                </div>
               </div>
             </div>
 

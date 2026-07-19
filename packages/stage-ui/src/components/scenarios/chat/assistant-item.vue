@@ -711,6 +711,20 @@ const dynamicStyles = computed(() => {
 
   let css = ''
   for (const actorId of actorIds) {
+    const customColor = visualAssets[actorId]?.textColor
+    if (customColor) {
+      const isHex = customColor.startsWith('#') && customColor.length === 7
+      const bgOpacity = isHex ? `${customColor}14` : customColor
+      const borderOpacity = isHex ? `${customColor}33` : customColor
+
+      css += `.actor-color-${actorId} { color: ${customColor} !important; }\n`
+      css += `.actor-chip-${actorId} { background-color: ${bgOpacity} !important; color: ${customColor} !important; border: 1px solid ${borderOpacity} !important; }\n`
+
+      css += `.dark .actor-color-${actorId} { color: ${customColor} !important; }\n`
+      css += `.dark .actor-chip-${actorId} { background-color: ${bgOpacity} !important; color: ${customColor} !important; border: 1px solid ${borderOpacity} !important; }\n`
+      continue
+    }
+
     const h = hueMap[actorId] ?? 0
 
     // Light Mode colors (Rich, deep, high contrast)

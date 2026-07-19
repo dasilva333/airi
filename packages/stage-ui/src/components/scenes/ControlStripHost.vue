@@ -106,6 +106,18 @@ const parserActorId = ref<string>('default')
 const playbackActorId = ref<string>('default')
 
 function getActorColor(id: string): string {
+  try {
+    const cardStore = useAiriCardStore()
+    const activeCard = cardStore.activeCard
+    const assets = activeCard?.extensions?.airi?.visual_assets
+    if (assets && assets[id]?.textColor) {
+      return assets[id].textColor
+    }
+  }
+  catch (e) {
+    // Pinia not initialized
+  }
+
   if (!actorColors.has(id)) {
     // Generate a stable, vibrant HSL color from the actor ID
     let hash = 0

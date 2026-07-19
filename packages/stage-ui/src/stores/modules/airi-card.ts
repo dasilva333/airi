@@ -224,6 +224,13 @@ export interface AiriExtension {
       backgroundId?: string
       active_expressions?: Record<string, number>
     }
+    idleAnimations?: string[]
+    textColor?: string
+    speech?: {
+      provider?: string
+      model?: string
+      voice_id?: string
+    }
   }>
   eternal_record?: {
     relational_milestones?: string[]
