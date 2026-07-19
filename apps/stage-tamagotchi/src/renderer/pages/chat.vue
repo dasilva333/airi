@@ -5,7 +5,6 @@ import { ChatBrainPopover, ChatMemoryPopover } from '@proj-airi/stage-ui/compone
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
-import { useSettingsChat } from '@proj-airi/stage-ui/stores/settings'
 import { useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
@@ -33,7 +32,6 @@ const interactiveAreaRef = computed(() => activeSurfaceRef.value?.interactiveAre
 const chatSessionStore = useChatSessionStore()
 const airiCardStore = useAiriCardStore()
 const liveSessionStore = useLiveSessionStore()
-const settingsChat = useSettingsChat()
 
 const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)

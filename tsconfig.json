@@ -1,8 +1,14 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "baseUrl": ".",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "paths": {
+      "@proj-airi/server/*": [
+        "./apps/server/*"
+      ]
+    },
     "resolveJsonModule": true,
     "strictNullChecks": true,
     "noFallthroughCasesInSwitch": true,
