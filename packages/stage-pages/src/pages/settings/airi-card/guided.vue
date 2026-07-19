@@ -1099,15 +1099,15 @@ async function confirmCreateCard() {
           </div>
 
           <!-- Contextual hint strip -->
-          <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 border border-neutral-800/50 rounded-xl bg-neutral-900/60 px-4 py-2.5">
+          <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 border border-neutral-200 rounded-xl bg-neutral-50/50 px-4 py-2.5 dark:border-neutral-800/50 dark:bg-neutral-900/60">
             <div class="flex items-center gap-1.5">
-              <div i-solar:gallery-bold class="shrink-0 text-xs text-neutral-500" />
-              <span class="text-xs text-neutral-500">Tap the avatar to bind a 3D model</span>
+              <div i-solar:gallery-bold class="text-neutral-550 shrink-0 text-xs dark:text-neutral-500" />
+              <span class="text-neutral-550 text-xs dark:text-neutral-500">Tap the avatar to bind a 3D model</span>
             </div>
-            <span class="text-xs text-neutral-700">·</span>
+            <span class="text-xs text-neutral-400 dark:text-neutral-700">·</span>
             <div class="flex items-center gap-1.5">
-              <div i-solar:user-speak-linear class="shrink-0 text-xs text-neutral-500" />
-              <span class="text-xs text-neutral-500">Tap the voice button to set a TTS voice</span>
+              <div i-solar:user-speak-linear class="text-neutral-550 shrink-0 text-xs dark:text-neutral-500" />
+              <span class="text-neutral-550 text-xs dark:text-neutral-500">Tap the voice button to set a TTS voice</span>
             </div>
           </div>
 
