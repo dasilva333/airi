@@ -1,22 +1,6 @@
 # AIRI Rosetta Stone
 
-Canonical concept-to-file-path index for rapid context retrieval. Use this to find where anything lives — UI, data, providers, modules, audio, memory, or the integration plumbing between them.
-
-## How to use this document
-
-1. Find the subsystem or surface below, then follow its canonical paths and linked detail document.
-2. Inspect the nearby current source before changing it. Source wins if this index has drifted.
-3. Update this index in the same change when you add, move, or replace a canonical entry point, or when you establish a repeatable failure mode worth preserving.
-
-| If you are changing… | Start here | Then consult |
-| :--- | :--- | :--- |
-| Desktop wiring, Electron IPC, or windows | [Application Entry & Wiring](#1-application-entry--wiring) | [Lessons Learned](#16-lessons-learned) for cross-window pitfalls |
-| A visible UI surface, settings page, or chatbox | [Core UI & Surfaces](#2-core-ui--surfaces), [Settings & Editing](#3-settings--editing), or [Chatbox Elements](#4-chatbox-elements) | The component's nearby implementation |
-| Persistence or sync | [Data Layer & Persistence](#5-data-layer--persistence) | [`docs/data-catalog.md`](./data-catalog.md) |
-| A model/provider, inference, or audio path | [Provider System](#6-provider-system) or [Audio Pipeline](#8-audio-pipeline) | [`docs/provider-catalog.md`](./provider-catalog.md) where applicable |
-| A feature module, memory, or prompt behavior | [Module System](#7-module-system), [Memory Systems](#9-memory-systems), or [Engine & Subsystems](#10-engine--subsystems) | The linked store and settings page |
-| Cross-window state, notifications, or chat ingestion | [BroadcastChannels](#13-broadcastchannels) and [Lessons Learned](#16-lessons-learned) | The named channel/event contract |
-| Localization | [Key Directories](#14-key-directories) | [`docs/settings-yaml.md`](./settings-yaml.md) |
+Concept-to-file-path index for rapid context retrieval. Use this to find where anything lives — UI, data, providers, modules, audio, memory, or the integration plumbing between them.
 
 ---
 
@@ -452,7 +436,6 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 | `docs/` | Proposal docs, reference sheets, how-to guides |
 | `docs/content/en/docs/` | In-app manual content (vitepress) |
 | `docs/design-prospective-rich-journal.md` | Specification for the Cognitive Memory / Dreaming UI ("the rich journal") |
-| `docs/proposal-chatbox-slash-commands.md` | Feature proposal for slash commands (`/imagine`, `/suggest`, `/website`, `/mcp`) |
 
 ---
 
@@ -504,9 +487,3 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 
 - **Flow**: LLM turn triggers `runArtistTask` → Director LLM grades visual interest (1-100) → saves `DirectorNote` via `recordDirectorDecision()` → `history.vue` reactively merges notes with chat messages, sorted by `createdAt`, rendered by `DirectorNoteBubble.vue`.
 - **Cross-Window Sync**: Pinia stores are per-window. Writing to IndexedDB from one window doesn't update in-memory state in others. Fix: broadcast modifications over `BroadcastChannel('airi:director-notes-sync')` — each store instance listens, filters by active `sessionId`, and updates locally.
-
-### IndexedDB & localforage Performance
-
-- **localforage.iterate() Memory Leaks**: Avoid using `localforage.iterate()` to filter keys or check key patterns (e.g. `key.startsWith()`). Under the hood, `localforage.iterate` deserializes the **entire value** of every key into memory before invoking the callback. If the store holds large binary data (like MMD texture blobs, images, or motion files), this causes massive memory usage (often gigabytes of RAM) on startup or sync.
-- **The Correct Pattern**: Query keys first using `localforage.keys()`, filter the key strings, and then call `localforage.getItem(key)` only for the target items that need to be loaded.
-
