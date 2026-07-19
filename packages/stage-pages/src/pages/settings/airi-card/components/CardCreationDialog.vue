@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Card } from '@proj-airi/ccc'
 import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import type { CognitionProcessorId } from '@proj-airi/stage-ui/stores/nan0-config'
 import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
 
 import kebabcase from '@stdlib/string-base-kebabcase'
@@ -18,6 +19,7 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { NAN0_COGNITION_SCHEMA_VERSION } from '@proj-airi/stage-ui/stores/nan0-config'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
@@ -119,8 +121,8 @@ const selectedSpeechModel = ref<string>('')
 const selectedSpeechVoiceId = ref<string>('')
 const selectedDisplayModelId = ref<string>('')
 const selectedActiveBackgroundId = ref<string>('none')
-const cognitivePipelineEnabled = ref<boolean>(false)
-const firstHopProcessor = ref<'none' | 'local_nan0'>('none')
+const cognitivePipelineEnabled = ref(false)
+const firstHopProcessor = ref<CognitionProcessorId>('none')
 const selectedFirstHopProvider = ref<string>('')
 const selectedFirstHopModel = ref<string>('')
 const selectedArtistryProvider = ref<string>('')
@@ -728,7 +730,7 @@ const tabs: Tab[] = [
   { id: 'artistry', label: t('settings.pages.modules.artistry.title'), icon: 'i-solar:gallery-bold-duotone' },
   { id: 'proactivity', label: t('settings.pages.card.creation.proactivity', 'Proactivity'), icon: 'i-solar:heart-pulse-bold-duotone' },
   { id: 'tools', label: 'Tools', icon: 'i-solar:widget-bold-duotone' },
-  { id: 'cognition', label: 'Cognition', icon: 'i-solar:cpu-bolt-bold-duotone' },
+  { id: 'cognition', label: t('settings.pages.card.creation.cognition.title'), icon: 'i-solar:cpu-bolt-bold-duotone' },
 ]
 
 // Active tab state - set to first available tab by default
@@ -847,6 +849,7 @@ async function saveCard(card: Card): Promise<boolean> {
             model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
           },
           cognition: {
+            schemaVersion: NAN0_COGNITION_SCHEMA_VERSION,
             enabled: cognitivePipelineEnabled.value,
             processor: firstHopProcessor.value,
             provider: selectedFirstHopProvider.value || consciousnessProvider.value,
@@ -984,10 +987,10 @@ function initializeCard(): Card {
   selectedDisplayModelId.value = airiExt?.modules?.displayModelId || defaultDisplayModelId.value
   const activeBg = airiExt?.modules?.activeBackgroundId || (airiExt?.modules as any)?.preferredBackgroundId
   selectedActiveBackgroundId.value = !activeBg ? 'none' : activeBg
-  cognitivePipelineEnabled.value = (airiExt?.modules as any)?.cognition?.enabled ?? false
-  firstHopProcessor.value = (airiExt?.modules as any)?.cognition?.processor ?? 'none'
-  selectedFirstHopProvider.value = (airiExt?.modules as any)?.cognition?.provider || consciousnessProvider.value
-  selectedFirstHopModel.value = (airiExt?.modules as any)?.cognition?.model || ''
+  cognitivePipelineEnabled.value = airiExt?.modules?.cognition?.enabled ?? false
+  firstHopProcessor.value = airiExt?.modules?.cognition?.processor ?? 'none'
+  selectedFirstHopProvider.value = airiExt?.modules?.cognition?.provider || consciousnessProvider.value
+  selectedFirstHopModel.value = airiExt?.modules?.cognition?.model || ''
   selectedArtistryProvider.value = airiExt?.artistry?.provider || defaultArtistryProvider.value
   selectedArtistryModel.value = airiExt?.artistry?.model || ''
   selectedArtistryPromptPrefix.value = airiExt?.artistry?.promptPrefix || ''

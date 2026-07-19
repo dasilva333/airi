@@ -1,5 +1,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 
+import type { AiriCognitionConfig } from '../nan0-config'
 import type { VoiceProfile } from '../providers'
 
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
@@ -32,6 +33,7 @@ import { useChatSessionStore } from '../chat/session-store'
 import { useDatingSimStore } from '../dating-sim'
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 import { useShortTermMemoryStore } from '../memory-short-term'
+import { migrateNan0CognitionConfig, NAN0_STATE_STORAGE_KEY } from '../nan0-config'
 import { useSettingsStageModel } from '../settings/stage-model'
 import { useConsciousnessStore } from './consciousness'
 import { useSpeechStore } from './speech'
@@ -118,6 +120,8 @@ export interface CharacterGenerationConfig {
 
 export interface AiriExtension {
   modules: {
+    cognition?: AiriCognitionConfig
+
     consciousness: {
       provider: string // Example: "openai"
       model: string // Example: "gpt-4o"
@@ -295,6 +299,58 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
   }
 
+  async function migrateNan0Cognition() {
+    const legacyStatePresent = localStorage.getItem(NAN0_STATE_STORAGE_KEY) !== null
+    const nextCards = new Map(cards.value)
+    const migratedAt = Date.now()
+    let cardsModified = false
+
+    for (const [cardId, card] of nextCards) {
+      const extension = card.extensions?.airi
+      if (!extension?.modules)
+        continue
+
+      const migration = migrateNan0CognitionConfig({
+        config: extension.modules.cognition,
+        legacyStatePresent,
+        isActiveCard: cardId === activeCardId.value,
+        fallback: {
+          providerId: extension.modules.consciousness?.provider ?? '',
+          model: extension.modules.consciousness?.model ?? '',
+        },
+      })
+      if (!migration.changed)
+        continue
+
+      nextCards.set(cardId, {
+        ...card,
+        extensions: {
+          ...card.extensions,
+          airi: {
+            ...extension,
+            modules: {
+              ...extension.modules,
+              cognition: migration.config,
+            },
+          },
+        },
+        updatedAt: migratedAt,
+      })
+      cardsModified = true
+    }
+
+    if (!cardsModified)
+      return
+
+    // Persist the schema marker with the card itself. In-memory state is updated only
+    // after the write succeeds, so a failed/interrupted write retries on next load.
+    const cleanEntries = JSON.parse(JSON.stringify(Array.from(nextCards.entries())))
+    await storage.setItemRaw('local:airi-cards', cleanEntries)
+    cards.value = nextCards
+    broadcastCardsSync(migratedAt)
+    console.info('[AiriCard] Migrated Nan0 cognition configuration')
+  }
+
   async function migrateCardMappingsToModel() {
     try {
       const displayModelsStore = useDisplayModelsStore()
@@ -401,6 +457,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       if (raw && Array.isArray(raw)) {
         cards.value = new Map(raw)
       }
+      await migrateNan0Cognition()
       await migrateCardMappingsToModel()
     }
     catch (e) {

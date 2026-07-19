@@ -255,6 +255,30 @@ pages:
         scenario: 'Error: A scenario is required.'
         systemprompt: 'Error: Please, provide a system prompt.'
         posthistoryinstructions: 'Error: Post history prompt is required.'
+      cognition:
+        title: Cognition
+        description: Configure the host cognition route that can prepare private thought
+          before AIRI generates outward speech.
+        enabled:
+          label: Cognitive pipeline
+          description: Run the selected first-hop processor before the normal AIRI
+            response pipeline.
+        processor:
+          label: First-hop processor
+          none: None (generic AIRI first hop)
+          nan0: Nan0 local cognition
+          description: The generic processor enriches AIRI context. Nan0 uses its
+            identity-preserving thought, decision, and persistence pipeline.
+        nan0:
+          title: Nan0 host integration
+          description: Nan0 owns private thought and behavioral decisions. AIRI continues
+            to own providers, visible generation, TTS, STT, vision, and
+            rendering.
+        first_provider: First-hop provider (private thought)
+        first_model: First-hop model
+        second_provider: AIRI response provider (speech)
+        second_model: AIRI response model
+        model_placeholder: e.g. llama3
     modules: Modules
     name_asc: Name (A-Z)
     name_desc: Name (Z-A)
