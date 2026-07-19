@@ -69,8 +69,8 @@ interface AiriExtension {
       url?: string
       activeExpressions?: Record<string, number>
       modelParameters?: Record<string, number>
-      motionMappings?: Record<string, string>
-      hiddenMotions?: string[]
+      motionMappings?: Record<string, string> // @deprecated - Moved to DisplayModel
+      hiddenMotions?: string[] // @deprecated - Moved to DisplayModel
     }
     displayModelId?: string
     activeBackgroundId?: string | null
@@ -637,6 +637,11 @@ interface DisplayModelFile {
   tags?: string[]
   expressions?: string[]
   motions?: string[]
+  emotionMappings?: Record<string, string>
+  motionMappings?: Record<string, string>
+  hiddenExpressions?: string[]
+  hiddenMotions?: string[]
+  favoriteExpressions?: string[]
 }
 
 interface DisplayModelURL {
@@ -652,6 +657,11 @@ interface DisplayModelURL {
   tags?: string[]
   expressions?: string[]
   motions?: string[]
+  emotionMappings?: Record<string, string>
+  motionMappings?: Record<string, string>
+  hiddenExpressions?: string[]
+  hiddenMotions?: string[]
+  favoriteExpressions?: string[]
 }
 
 type DisplayModel = DisplayModelFile | DisplayModelURL

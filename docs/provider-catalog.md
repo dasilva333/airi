@@ -85,6 +85,8 @@ These all use `buildOpenAICompatibleProvider()` without overriding the category.
 | `mistral-ai` | `providers.ts` | ~2362 |
 | `moonshot-ai` | `providers.ts` | ~2362 |
 | `modelscope` | `providers.ts` | ~2362 |
+| `opencode-go` | `providers.ts` | ~2875 |
+| `alibaba-cloud` | `providers.ts` | ~2886 |
 
 ---
 
