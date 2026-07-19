@@ -245,7 +245,8 @@ export const useSpeechStore = defineStore('speech', () => {
       return text
     }
 
-    let transformed = text
+    // Strip markdown image embeds (e.g., ![caption](url)) so they are not sent to the TTS
+    let transformed = text.replace(/!\[.*?\]\(.*?\)/g, '')
 
     // 1. Resolve bracket action behaviors (supporting fallback/auto-migration of older profiles)
     let asterisks = profile.ust.asterisks
