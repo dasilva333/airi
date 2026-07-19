@@ -375,19 +375,40 @@ app.whenReady().then(async () => {
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
-
       const defaultBypassUrls = [
         'https://api.deepgram.com/*',
         'https://opencode.ai/*',
         'https://pioneer.ai/*',
+        'https://integrate.api.nvidia.com/*',
         'https://text.pollinations.ai/*',
         'https://api.xiaomimimo.com/*',
       ]
-      const initialUrls = deps.appConfig.get()?.corsBypassUrls ?? defaultBypassUrls
+
+      const coalesceCorsBypassUrls = (userUrls?: string[]): string[] => {
+        const list = [...(userUrls || [])]
+        for (const url of defaultBypassUrls) {
+          if (!list.includes(url)) {
+            list.push(url)
+          }
+        }
+        return list
+      }
+
+      const initialUrls = coalesceCorsBypassUrls(deps.appConfig.get()?.corsBypassUrls)
+
+      // Auto-update config if new defaults were merged in
+      const currentConfig = deps.appConfig.get()
+      if (currentConfig && JSON.stringify(currentConfig.corsBypassUrls) !== JSON.stringify(initialUrls)) {
+        deps.appConfig.update({
+          ...currentConfig,
+          corsBypassUrls: initialUrls,
+        })
+      }
+
       registerCorsBypass(initialUrls)
 
       defineInvokeHandler(context, electronGetCorsBypassUrls, async () => {
-        return deps.appConfig.get()?.corsBypassUrls ?? defaultBypassUrls
+        return coalesceCorsBypassUrls(deps.appConfig.get()?.corsBypassUrls)
       })
 
       defineInvokeHandler(context, electronSetCorsBypassUrls, async (urls) => {
