@@ -192,26 +192,40 @@ export function ensureWindowInVisibleBounds(bounds: Rectangle): Rectangle {
     height: Math.round(height),
   }
 
-  const hasOverlap = displays.some((display) => {
+  // Find the display with the most overlap
+  let bestOverlap = 0
+  let bestDisplay = primaryDisplay
+  for (const display of displays) {
     const db = display.bounds
-    return (
-      sanitized.x < db.x + db.width
-      && sanitized.x + sanitized.width > db.x
-      && sanitized.y < db.y + db.height
-      && sanitized.y + sanitized.height > db.y
-    )
-  })
-
-  if (hasOverlap) {
-    return sanitized
+    const overlapX = Math.max(0, Math.min(sanitized.x + sanitized.width, db.x + db.width) - Math.max(sanitized.x, db.x))
+    const overlapY = Math.max(0, Math.min(sanitized.y + sanitized.height, db.y + db.height) - Math.max(sanitized.y, db.y))
+    const overlapArea = overlapX * overlapY
+    if (overlapArea > bestOverlap) {
+      bestOverlap = overlapArea
+      bestDisplay = display
+    }
   }
 
-  const newX = Math.round(workArea.x + (workArea.width - sanitized.width) / 2)
-  const newY = Math.round(workArea.y + (workArea.height - sanitized.height) / 2)
+  if (bestOverlap === 0) {
+    // No overlap with any display — center on primary
+    const newX = Math.round(workArea.x + (workArea.width - sanitized.width) / 2)
+    const newY = Math.round(workArea.y + (workArea.height - sanitized.height) / 2)
+    return {
+      x: newX,
+      y: newY,
+      width: sanitized.width,
+      height: sanitized.height,
+    }
+  }
+
+  // Clamp to the best-overlapping display's work area
+  const dw = bestDisplay.workArea
+  const clampedX = Math.max(dw.x, Math.min(sanitized.x, dw.x + dw.width - sanitized.width))
+  const clampedY = Math.max(dw.y, Math.min(sanitized.y, dw.y + dw.height - sanitized.height))
 
   return {
-    x: newX,
-    y: newY,
+    x: clampedX,
+    y: clampedY,
     width: sanitized.width,
     height: sanitized.height,
   }
