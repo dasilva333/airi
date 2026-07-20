@@ -164,10 +164,18 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
+                const { useSyncEngineStore } = await import('./sync-engine')
+                const syncStore = useSyncEngineStore()
+                const backupDir = syncStore.fsBackupPath
+                  ? `${syncStore.fsBackupPath.replace(/\\/g, '/')}/assets/models`
+                  : (navigator.userAgent.toLowerCase().includes('win')
+                      ? 'C:/AIRI-Backup-Share/assets/models'
+                      : '/Volumes/AIRI-Backup-Share/assets/models')
+
                 // Set a 3-second timeout for reading from the network backup drive
                 const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
                 const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
-                  dir: '/Volumes/AIRI-Backup-Share/assets/models',
+                  dir: backupDir,
                   relPath: `${key}.bin`,
                   encoding: 'base64',
                 })
