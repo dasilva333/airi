@@ -2,7 +2,7 @@
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
-import { WhisperDock } from '@proj-airi/stage-ui/components'
+import { StageConfigOverlay, WhisperDock } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useProducer } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
@@ -18,12 +18,12 @@ import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/c
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { useSettingsUserProfile } from '@proj-airi/stage-ui/stores/settings/user-profile'
 import { Button } from '@proj-airi/ui'
-import { refDebounced, useBroadcastChannel, useLocalStorage, useWindowSize } from '@vueuse/core'
+import { refDebounced, useBroadcastChannel, useEventListener, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { electron, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
+import { electron, electronApplySizePreset, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
 import { useWindowStore } from '../stores/window'
 
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
@@ -31,6 +31,29 @@ const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibil
 function handleHideStage() {
   toggleStageVisibility(false)
 }
+
+const configOverlayOpen = ref(false)
+
+function handleApplyPreset(preset: string) {
+  const mapped = preset === 'med.' ? 'medium' : preset
+  applySizePreset({ target: 'actor', preset: mapped })
+}
+
+function handleApplyAlignment(alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') {
+  applySizePreset({ target: 'actor', alignment })
+}
+
+function handleOverlayHide() {
+  handleHideStage()
+  configOverlayOpen.value = false
+}
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && configOverlayOpen.value) {
+    e.stopImmediatePropagation()
+    configOverlayOpen.value = false
+  }
+}, { capture: true })
 
 const backgroundStore = useBackgroundStore()
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
@@ -130,6 +153,7 @@ const context = useElectronEventaContext()
 const startDraggingWindowInvoke = useElectronEventaInvoke(electronStartDraggingWindow, context.value)
 const getBounds = useElectronEventaInvoke(electron.window.getBounds, context.value)
 const setBounds = useElectronEventaInvoke(electron.window.setBounds, context.value)
+const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
 
 function startDraggingWindow() {
   startDraggingWindowInvoke()
@@ -696,13 +720,13 @@ onBeforeUnmount(() => {
           >
             <div class="i-ph:arrows-out-cardinal size-3.5" />
           </button>
-          <!-- Quick Hide Button -->
+          <!-- Stage Config Button -->
           <button
             class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
-            title="Hide Stage"
-            @click="handleHideStage"
+            title="Stage Size & Position"
+            @click="configOverlayOpen = true"
           >
-            <div class="i-ph:eye-slash size-3.5" />
+            <div class="i-ph:gear size-3.5" />
           </button>
         </div>
       </div>
@@ -799,6 +823,14 @@ onBeforeUnmount(() => {
           @clear-suggestions="handleClearSuggestions"
         />
       </div>
+
+      <!-- Stage Config Overlay (Size & Position) -->
+      <StageConfigOverlay
+        v-model:open="configOverlayOpen"
+        @apply-preset="handleApplyPreset"
+        @apply-alignment="handleApplyAlignment"
+        @hide-stage="handleOverlayHide"
+      />
 
       <!-- Selfie Viewfinder Overlay -->
       <div v-if="selfieViewfinderActive" class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
