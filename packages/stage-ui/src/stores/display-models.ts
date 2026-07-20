@@ -6,6 +6,7 @@ import localforage from 'localforage'
 import { loadLive2DModelPreview as generateLive2DPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
 import { loadMMDModelPreview as generateMmdPreview } from '@proj-airi/stage-ui-mmd/utils/mmd-preview'
 import { loadSpineModelPreview as generateSpinePreview } from '@proj-airi/stage-ui-spine/utils/spine-preview'
+import { detectSpineVersionFromBinary, detectSpineVersionFromJson } from '@proj-airi/stage-ui-spine/utils/spine-version'
 import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-three/utils/vrm-preview'
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -14,6 +15,7 @@ import { ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
+import { convertSpineSkeleton } from '../utils/spine-converter/converter'
 
 import '@proj-airi/stage-ui-live2d/utils/live2d-zip-loader'
 import '@proj-airi/stage-ui-live2d/utils/live2d-opfs-registration'
@@ -396,6 +398,110 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   async function addDisplayModel(format: DisplayModelFormat, file: File) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
+
+    // Intercept Spine ZIP files to check and upgrade Spine 3.x files on-the-fly
+    if (format === DisplayModelFormat.SpineZip) {
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const zipInstance = await JSZip.loadAsync(arrayBuffer)
+        const allPaths = Object.keys(zipInstance.files)
+
+        // Find skeleton files (.skel or .json)
+        let skeletonPath = ''
+        let skeletonFormat: 'binary' | 'json' = 'binary'
+
+        // Prioritize binary skeleton (.skel) files first
+        for (const pathKey of allPaths) {
+          if (zipInstance.files[pathKey].dir)
+            continue
+          const lower = pathKey.toLowerCase()
+          if (lower.endsWith('.skel')) {
+            skeletonPath = pathKey
+            skeletonFormat = 'binary'
+            break
+          }
+        }
+
+        // If no binary skeleton is found, fall back to JSON skeleton
+        if (!skeletonPath) {
+          for (const pathKey of allPaths) {
+            if (zipInstance.files[pathKey].dir)
+              continue
+            const lower = pathKey.toLowerCase()
+            if (lower.endsWith('.json')) {
+              // Exclude metadata/config files
+              if (lower.endsWith('manifest.json') || lower.endsWith('package.json') || lower.endsWith('model.json') || lower.endsWith('model0.json') || lower.endsWith('model1.json')) {
+                continue
+              }
+              skeletonPath = pathKey
+              skeletonFormat = 'json'
+              break
+            }
+          }
+        }
+
+        if (skeletonPath) {
+          const fileEntry = zipInstance.file(skeletonPath)
+          if (fileEntry) {
+            let is3x = false
+            let detectedVersion = ''
+            if (skeletonFormat === 'binary') {
+              const data = await fileEntry.async('uint8array')
+              const version = detectSpineVersionFromBinary(data)
+              if (version) {
+                detectedVersion = version
+                if (version.startsWith('3.')) {
+                  is3x = true
+                }
+              }
+            }
+            else {
+              const text = await fileEntry.async('text')
+              const version = detectSpineVersionFromJson(text)
+              if (version) {
+                detectedVersion = version
+                if (version.startsWith('3.')) {
+                  is3x = true
+                }
+              }
+            }
+
+            if (is3x) {
+              console.log(`[DisplayModels] Spine 3.x skeleton detected ("${detectedVersion}" at "${skeletonPath}"). Self-healing / Upgrading to 4.1.20 using Wasm...`)
+              toast.info(`Spine 3.x skeleton detected (${detectedVersion}). Upgrading to 4.1.20 in-memory...`)
+
+              // Load input bytes
+              const inputBytes = await fileEntry.async('uint8array')
+              const filename = skeletonPath.split(/[\\/]/).pop()!
+
+              // Run the in-memory conversion
+              const convertedBytes = await convertSpineSkeleton(inputBytes, filename, '4.1.20')
+
+              // Replace the file inside the ZIP!
+              if (skeletonFormat === 'binary') {
+                zipInstance.file(skeletonPath, convertedBytes)
+              }
+              else {
+                // If it was json, remove the .json entry and write a new .skel entry
+                const newSkeletonPath = skeletonPath.replace(/\.json$/i, '.skel')
+                zipInstance.remove(skeletonPath)
+                zipInstance.file(newSkeletonPath, convertedBytes)
+                console.log(`[DisplayModels] Upgraded Spine JSON to binary: renamed "${skeletonPath}" to "${newSkeletonPath}"`)
+              }
+
+              // Rebuild the ZIP Blob and replace the input file parameter!
+              const upgradedZipBlob = await zipInstance.generateAsync({ type: 'blob' })
+              file = new File([upgradedZipBlob], file.name, { type: 'application/zip' })
+              toast.success(`Successfully upgraded and healed Spine skeleton!`)
+            }
+          }
+        }
+      }
+      catch (err) {
+        console.error('[DisplayModels] Spine self-healing compilation failed:', err)
+        toast.error('Spine self-healing compilation failed. Proceeding with original file.')
+      }
+    }
 
     // Intercept Live2D ZIP files to check for multi-model packages
     if (format === DisplayModelFormat.Live2dZip) {
