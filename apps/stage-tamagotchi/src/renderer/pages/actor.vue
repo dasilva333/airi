@@ -231,7 +231,7 @@ const notchProximity = computed(() => {
     return false
   if (isOutsideStage.value)
     return false
-  return stageElementHeight.value - stageElementY.value <= 7
+  return stageElementHeight.value - stageElementY.value <= 10
 })
 
 function handleStageClick(e: MouseEvent) {

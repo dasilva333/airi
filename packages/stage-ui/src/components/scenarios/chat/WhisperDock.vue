@@ -148,16 +148,15 @@ function handleKeydown(e: KeyboardEvent) {
     <button
       v-if="!isOpen"
       :class="[
-        'fixed bottom-0 left-1/2 z-90 -translate-x-1/2',
+        'fixed left-1/2 z-90 -translate-x-1/2',
         'w-12 rounded-t-full',
         'border border-t border-neutral-200/30 dark:border-neutral-800/20',
-        'bg-neutral-50/30 dark:bg-neutral-800/30',
         'backdrop-blur-md',
         'cursor-pointer',
         'transition-all duration-200 ease-out',
         props.proximity
-          ? 'h-5 -translate-y-2.5 bg-neutral-50/80 dark:bg-neutral-800/80 shadow-md shadow-black/10'
-          : 'h-3',
+          ? 'bottom-0 h-5 bg-neutral-50/80 dark:bg-neutral-800/80 shadow-md shadow-black/10'
+          : '-bottom-1.5 h-3 bg-neutral-50/30 dark:bg-neutral-800/30',
       ]"
       @click="toggleDock"
     />
