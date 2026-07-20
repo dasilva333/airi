@@ -1266,14 +1266,47 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
       else if (format.includes('spine')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
+        let skeletonJsonFound = false
         for (const filename of Object.keys(zipInstance.files)) {
-          if (filename.toLowerCase().endsWith('.json')) {
+          if (filename.toLowerCase().endsWith('.json') && !filename.toLowerCase().endsWith('model0.json')) {
             const content = await zipInstance.files[filename].async('text')
             const spineData = JSON.parse(content)
             if (spineData && spineData.animations) {
               Object.keys(spineData.animations).forEach(name => expressions.push(name))
+              skeletonJsonFound = true
             }
             break
+          }
+        }
+
+        // Fallback: If skeleton is binary (.skel), parse animation references from model0.json
+        if (!skeletonJsonFound) {
+          const model0Path = Object.keys(zipInstance.files).find(name => name.endsWith('model0.json'))
+          if (model0Path) {
+            try {
+              const content = await zipInstance.files[model0Path].async('text')
+              const model0Data = JSON.parse(content)
+              if (model0Data) {
+                if (model0Data.motions) {
+                  Object.keys(model0Data.motions).forEach((key) => {
+                    if (!expressions.includes(key)) {
+                      expressions.push(key)
+                    }
+                    const list = model0Data.motions[key]
+                    if (Array.isArray(list)) {
+                      list.forEach((m: any) => {
+                        if (m && m.file && !expressions.includes(m.file)) {
+                          expressions.push(m.file)
+                        }
+                      })
+                    }
+                  })
+                }
+              }
+            }
+            catch (e) {
+              console.error('[DisplayModels] Failed to parse model0.json fallback:', e)
+            }
           }
         }
       }
