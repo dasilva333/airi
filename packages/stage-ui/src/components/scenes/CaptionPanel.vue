@@ -94,11 +94,18 @@ const displaySegments = computed(() => {
   return assistantSegments.value
 })
 
-const containerStyle = computed(() => ({
-  backgroundColor: props.transparentBg ? 'transparent' : `rgba(0, 0, 0, ${settingsStore.captionOpacity / 100})`,
-  transform: `scale(${settingsStore.captionFontSize / 100})`,
-  transformOrigin: settingsStore.captionDocking === 'top' ? 'top center' : 'bottom center',
-}))
+const containerStyle = computed(() => {
+  const alpha = settingsStore.captionOpacity / 100
+  return {
+    background: props.transparentBg
+      ? 'transparent'
+      : `linear-gradient(135deg, rgba(0,0,0,${(alpha * 0.85).toFixed(2)}) 0%, rgba(10,10,20,${(alpha * 0.95).toFixed(2)}) 100%)`,
+    border: props.transparentBg ? 'none' : `1px solid rgba(255,255,255,${(alpha * 0.08).toFixed(2)})`,
+    boxShadow: props.transparentBg ? 'none' : `0 4px 24px rgba(0,0,0,${(alpha * 0.4).toFixed(2)}), inset 0 1px 0 rgba(255,255,255,${(alpha * 0.06).toFixed(2)})`,
+    transform: `scale(${settingsStore.captionFontSize / 100})`,
+    transformOrigin: settingsStore.captionDocking === 'top' ? 'top center' : 'bottom center',
+  }
+})
 </script>
 
 <template>
@@ -110,8 +117,9 @@ const containerStyle = computed(() => ({
     ]"
   >
     <div
+      v-if="speakerText || displaySegments.length > 0 || fallbackText"
       :class="[
-        (!settingsStore.showCaptions || shouldFadeOnCursor) ? 'op-0' : 'op-100',
+        shouldFadeOnCursor ? 'op-0' : 'op-100',
         'relative select-none rounded-xl px-3 py-2',
         'pointer-events-none',
         transparentBg ? '' : 'backdrop-blur-sm',

@@ -35,11 +35,14 @@ export const electronPluginUpdateCapability = defineInvokeEventa<PluginCapabilit
 export const pluginProtocolListProvidersEventName = 'proj-airi:plugin-sdk:apis:protocol:resources:providers:list-providers'
 export const pluginProtocolListProviders = defineInvokeEventa<Array<{ name: string }>>(pluginProtocolListProvidersEventName)
 
-export const captionIsFollowingWindowChanged = defineEventa<boolean>('eventa:event:electron:windows:caption-overlay:is-following-window-changed')
-export const captionGetIsFollowingWindow = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:caption-overlay:get-is-following-window')
+export const captionFollowStagePositionChanged = defineEventa<boolean>('eventa:event:electron:windows:caption-overlay:follow-stage-position-changed')
+export const captionGetFollowStagePosition = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:caption-overlay:get-follow-stage-position')
+export const captionFollowStageVisibilityChanged = defineEventa<boolean>('eventa:event:electron:windows:caption-overlay:follow-stage-visibility-changed')
+export const captionGetFollowStageVisibility = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:caption-overlay:get-follow-stage-visibility')
 export const electronCaptionToggleVisibility = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:caption:toggle-visibility')
 export const electronCaptionSyncDocking = defineInvokeEventa<void, 'top' | 'bottom' | undefined>('eventa:invoke:electron:windows:caption:sync-docking')
-export const electronCaptionSetFollowWindow = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:caption:set-follow-window')
+export const electronCaptionSetFollowStagePosition = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:caption:set-follow-stage-position')
+export const electronCaptionSetFollowStageVisibility = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:caption:set-follow-stage-visibility')
 export const electronSetIgnoreMouseEvents = defineInvokeEventa<void, boolean>('eventa:invoke:electron:window:set-ignore-mouse-events')
 export const electronStageToggleVisibility = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:stage:toggle-visibility')
 export const electronStageSetAlwaysOnTop = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:stage:set-always-on-top')

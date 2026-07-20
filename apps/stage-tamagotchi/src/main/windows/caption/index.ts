@@ -18,7 +18,7 @@ import { boolean, number, object, optional, record, string } from 'valibot'
 
 import icon from '../../../../resources/icon.png?asset'
 
-import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged } from '../../../shared/eventa'
+import { captionFollowStagePositionChanged, captionFollowStageVisibilityChanged, captionGetFollowStagePosition, captionGetFollowStageVisibility } from '../../../shared/eventa'
 import { onAppBeforeQuit } from '../../libs/bootkit/lifecycle'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createConfig } from '../../libs/electron/persistence'
@@ -33,7 +33,8 @@ export function setCaptionVisibleState(visible: boolean) {
 }
 
 const captionConfigSchema = object({
-  isFollowing: boolean(),
+  followStagePosition: boolean(),
+  followStageVisibility: boolean(),
   matrices: record(string(), object({
     bounds: object({
       x: number(),
@@ -197,14 +198,15 @@ export function setupCaptionWindowManager(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('windows-caption', 'config.json', captionConfigSchema, {
-    default: { isFollowing: true, matrices: {} },
+    default: { followStagePosition: true, followStageVisibility: true, matrices: {} },
     autoHeal: true,
   })
-  const getConfig = (): CaptionConfig => getConfigRaw() ?? { isFollowing: true, matrices: {} }
+  const getConfig = (): CaptionConfig => getConfigRaw() ?? { followStagePosition: true, followStageVisibility: true, matrices: {} }
 
   setupConfig()
 
-  let isFollowing = getConfig().isFollowing ?? true
+  let followStagePosition = getConfig().followStagePosition ?? true
+  let followStageVisibility = getConfig().followStageVisibility ?? true
   let lastProgrammaticMoveAt = 0
 
   // Keep references to listeners so we can detach when toggling
@@ -380,12 +382,13 @@ export function setupCaptionWindowManager(params: {
       console.error('[@proj-airi/stage-tamagotchi] [CaptionManager] applyBounds failed:', err.message)
     }
     finally {
-      // Lock resizable state for docked windows
+      // Resize is only locked when explicitly docked (top/bottom).
+      // Default to resizable=true so free-float and position-tracking modes never accidentally lock the window.
       if (options.resizable !== undefined) {
         win.setResizable(options.resizable)
       }
       else {
-        win.setResizable(false)
+        win.setResizable(true)
       }
     }
   }
@@ -393,10 +396,10 @@ export function setupCaptionWindowManager(params: {
   function followStageWindow(win: BrowserWindow) {
     detachFromMain()
 
-    const cfg = getConfig() ?? { isFollowing, matrices: {} }
+    const cfg = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
     const initialOffset = cfg?.matrices?.[matrixHash]?.relativeToMain ?? computeRelativeOffset(win)
 
-    const cfgToSave = getConfig() ?? { isFollowing, matrices: {} }
+    const cfgToSave = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
     cfgToSave.matrices[matrixHash] = { ...cfgToSave.matrices[matrixHash], relativeToMain: initialOffset }
     updateConfig(cfgToSave)
 
@@ -511,6 +514,10 @@ export function setupCaptionWindowManager(params: {
     detachMainMoveListener?.()
     detachMainMoveListener = undefined
     triggerMoveInternal = undefined
+    // Restore resizability when detaching from position follow
+    if (currentWindow && !currentWindow.isDestroyed()) {
+      currentWindow.setResizable(true)
+    }
   }
 
   let triggerMoveInternal: (() => void) | undefined
@@ -549,14 +556,23 @@ export function setupCaptionWindowManager(params: {
       window.setBounds(initialBounds)
     }
 
+    // NOTICE: macOS 'panel' type windows default to non-resizable.
+    // We must explicitly set resizable state after creation.
+    // Rule: locked only when dock=top or dock=bottom; all other modes are freely resizable.
+    const initDock = params.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.dock as 'top' | 'bottom' | undefined
+    window.setResizable(!initDock)
+    console.log(`[@proj-airi/stage-tamagotchi] [Main] Caption window initial resizable=${!initDock} (dock=${initDock ?? 'none'})`)
+
     const persistBounds = () => {
       if (window.isDestroyed())
         return
-      const config = getConfig() ?? { isFollowing, matrices: {} }
+      const config = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
       const b = window.getBounds()
+      // Always immediately save bounds and relative offset on any user resize/move
       config.matrices[matrixHash] = { ...config.matrices[matrixHash], bounds: b }
-      config.isFollowing = isFollowing
-      if (isFollowing && Date.now() - lastProgrammaticMoveAt > 100) {
+      config.followStagePosition = followStagePosition
+      config.followStageVisibility = followStageVisibility
+      if (followStagePosition && Date.now() - lastProgrammaticMoveAt > 100) {
         const rel = computeRelativeOffset(window)
         config.matrices[matrixHash] = { ...config.matrices[matrixHash], bounds: b, relativeToMain: rel }
       }
@@ -586,20 +602,23 @@ export function setupCaptionWindowManager(params: {
 
     await load(window, withHashRoute(baseUrl(resolve(getElectronMainDirname(), '..', 'renderer')), '/caption'))
 
-    const cleanupGetAttached = defineInvokeHandler(context, captionGetIsFollowingWindow, async () => isFollowing)
+    const cleanupGetPosition = defineInvokeHandler(context, captionGetFollowStagePosition, async () => followStagePosition)
+    const cleanupGetVisibility = defineInvokeHandler(context, captionGetFollowStageVisibility, async () => followStageVisibility)
     try {
-      context.emit(captionIsFollowingWindowChanged, isFollowing)
+      context.emit(captionFollowStagePositionChanged, followStagePosition)
+      context.emit(captionFollowStageVisibilityChanged, followStageVisibility)
     }
     catch {}
 
-    if (isFollowing) {
+    if (followStagePosition) {
       followStageWindow(window)
     }
 
     window.on('closed', () => {
       detachFromMain()
       try {
-        cleanupGetAttached()
+        cleanupGetPosition()
+        cleanupGetVisibility()
       }
       catch {}
 
@@ -625,12 +644,12 @@ export function setupCaptionWindowManager(params: {
     return reusable.getWindow()
   }
 
-  async function setFollowWindow(isFollowingWindow: boolean) {
-    isFollowing = isFollowingWindow
+  async function setFollowStagePosition(shouldFollow: boolean) {
+    followStagePosition = shouldFollow
     const window = await reusable.getWindow()
-    if (isFollowing) {
+    if (followStagePosition) {
       const rel = computeRelativeOffset(window)
-      const cfg = getConfig() ?? { isFollowing, matrices: {} }
+      const cfg = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
       cfg.matrices[matrixHash] = { ...cfg.matrices[matrixHash], relativeToMain: rel }
       updateConfig(cfg)
       followStageWindow(window)
@@ -639,25 +658,36 @@ export function setupCaptionWindowManager(params: {
       detachFromMain()
     }
 
-    const config = getConfig() ?? { isFollowing, matrices: {} }
-    config.isFollowing = isFollowing
+    const config = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
+    config.followStagePosition = followStagePosition
     updateConfig(config)
-    window.show()
 
     try {
-      eventaContext?.emit(captionIsFollowingWindowChanged, isFollowing)
+      eventaContext?.emit(captionFollowStagePositionChanged, followStagePosition)
     }
     catch {}
 
     syncGlobalConfig()
   }
 
-  async function toggleFollowWindow() {
-    await setFollowWindow(!isFollowing)
+  async function setFollowStageVisibility(shouldFollow: boolean) {
+    followStageVisibility = shouldFollow
+    const config = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
+    config.followStageVisibility = followStageVisibility
+    updateConfig(config)
+
+    try {
+      eventaContext?.emit(captionFollowStageVisibilityChanged, followStageVisibility)
+    }
+    catch {}
   }
 
-  function getIsFollowingWindow(): boolean {
-    return isFollowing
+  function getIsFollowingStagePosition(): boolean {
+    return followStagePosition
+  }
+
+  function getIsFollowingStageVisibility(): boolean {
+    return followStageVisibility
   }
 
   async function resetToSide() {
@@ -666,11 +696,12 @@ export function setupCaptionWindowManager(params: {
     const initialBounds = computeInitialCaptionBounds({ stageWindow: params.stageWindow })
     window.setBounds(initialBounds)
 
-    const config = getConfig() ?? { isFollowing, matrices: {} }
+    const config = getConfig() ?? { followStagePosition, followStageVisibility, matrices: {} }
     const b = window.getBounds()
     const rel = computeRelativeOffset(window)
     config.matrices[matrixHash] = { ...config.matrices[matrixHash], bounds: b, relativeToMain: rel }
-    config.isFollowing = isFollowing
+    config.followStagePosition = followStagePosition
+    config.followStageVisibility = followStageVisibility
     updateConfig(config)
   }
 
@@ -741,9 +772,10 @@ export function setupCaptionWindowManager(params: {
 
   return {
     getWindow,
-    setFollowWindow,
-    toggleFollowWindow,
-    getIsFollowingWindow,
+    setFollowStagePosition,
+    setFollowStageVisibility,
+    getIsFollowingStagePosition,
+    getIsFollowingStageVisibility,
     resetToSide,
     isVisible,
     toggleVisibility,

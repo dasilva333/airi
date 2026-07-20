@@ -137,16 +137,16 @@ watch(chatOpen, (val) => {
   openChat(val)
 }, { immediate: true })
 
-// Treat stage and caption as partners when captionFollowStage is enabled
+// Treat stage and caption as partners when captionFollowStageVisibility is enabled
 watch(stageEnabled, (newVal) => {
-  if (settingsStore.captionFollowStage) {
+  if (settingsStore.captionFollowStageVisibility) {
     if (captionOpen.value !== newVal) {
       captionOpen.value = newVal
     }
   }
 })
 
-watch(() => settingsStore.captionFollowStage, (newVal) => {
+watch(() => settingsStore.captionFollowStageVisibility, (newVal) => {
   if (newVal) {
     // Immediately sync caption state to stage state
     if (captionOpen.value !== stageEnabled.value) {
@@ -712,13 +712,21 @@ function handleControlStripAction(e: Event) {
   else if (action === 'theme-mode') {
     colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
   }
-  else if (action === 'caption-follow-stage') {
-    settingsStore.captionFollowStage = !settingsStore.captionFollowStage
+  else if (action === 'caption-sync-position') {
+    settingsStore.captionFollowStagePosition = !settingsStore.captionFollowStagePosition
+    console.log('[ControlStrip] caption-sync-position toggled:', settingsStore.captionFollowStagePosition)
+  }
+  else if (action === 'caption-sync-visibility') {
+    settingsStore.captionFollowStageVisibility = !settingsStore.captionFollowStageVisibility
+    console.log('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
   }
   else if (action === 'caption-docking') {
-    const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
+    const DOCK_CYCLE = ['none', 'bottom', 'top', 'head'] as const
+    const current = settingsStore.captionDocking ?? 'none'
+    const next = DOCK_CYCLE[(DOCK_CYCLE.indexOf(current) + 1) % DOCK_CYCLE.length]
     settingsStore.captionDocking = next
     syncCaptionDocking(next)
+    console.log('[ControlStrip] caption-docking cycled to:', next)
   }
   else if (action === 'caption-layout-mode') {
     settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'

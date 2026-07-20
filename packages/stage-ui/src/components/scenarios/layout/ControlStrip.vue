@@ -1165,13 +1165,22 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
     return `Speech Session: ${stateLabels[powerState.value] || 'Disconnected (Gray)'}`
   }
   if (btnId === 'caption-docking') {
-    return `Caption Docking: ${settingsStore.captionDocking === 'bottom' ? 'Bottom (Amber)' : 'Top (Sky Blue)'}`
+    const labels: Record<string, string> = {
+      none: 'Caption Docking: NONE',
+      bottom: 'Caption Docking: BOTTOM',
+      top: 'Caption Docking: TOP',
+      head: 'Caption Docking: HEAD',
+    }
+    return labels[settingsStore.captionDocking ?? 'none'] ?? 'Caption Docking: NONE'
   }
   if (btnId === 'caption-layout-mode') {
     return `Caption Layout: ${settingsStore.captionLayoutMode === 'multi' ? 'Multi-line History (Indigo)' : 'Standard Bubble (Teal)'}`
   }
-  if (btnId === 'caption-follow-stage') {
-    return `Caption Follow Stage: ${settingsStore.captionFollowStage ? 'Active (Green)' : 'Detached (Red)'}`
+  if (btnId === 'caption-sync-position') {
+    return `Caption Sync Position: ${settingsStore.captionFollowStagePosition ? 'ON (Green)' : 'OFF (Red)'}`
+  }
+  if (btnId === 'caption-sync-visibility') {
+    return `Caption Sync Visibility: ${settingsStore.captionFollowStageVisibility ? 'ON (Green)' : 'OFF (Red)'}`
   }
   return defaultLabel
 }
@@ -1191,7 +1200,13 @@ function getShortLabel(btnId: string): string {
     'viewport-drag': 'Drag',
     'viewport-positioning': 'Pos',
     'viewport-orbit': 'Orbit',
-    'viewport-cycle-modes': 'Modes',
+    'viewport-cycle-modes': settingsStore.controlStripInteractionMode === 'tactile'
+      ? 'Tact'
+      : settingsStore.controlStripInteractionMode === 'drag'
+        ? 'Drag'
+        : settingsStore.controlStripInteractionMode === 'positioning'
+          ? 'Pos'
+          : settingsStore.controlStripInteractionMode === 'orbit' ? 'Orbt' : 'Modes',
     'viewport-reset-coordinates': 'Reset',
     'actor-idle-animations': 'Anim',
     'actor-characters': 'Char',
@@ -1202,9 +1217,18 @@ function getShortLabel(btnId: string): string {
     'actor-all-emotions': 'Mood',
     'actor-selfies': 'Self',
     'theme-mode': 'Color',
-    'caption-docking': 'Dock',
+    'caption-docking': settingsStore.captionDocking === 'none'
+      ? 'None'
+      : settingsStore.captionDocking === 'bottom'
+        ? 'Bot'
+        : settingsStore.captionDocking === 'top'
+          ? 'Top'
+          : settingsStore.captionDocking === 'head' ? 'Head' : 'Dock',
     'caption-layout-mode': 'Rows',
-    'caption-follow-stage': 'Sync',
+    'caption-sync-position': 'Pos↔',
+    'caption-sync-visibility': 'Vis↔',
+    'caption-theme-mode': 'Theme',
+    'caption-opacity': 'Opac',
     'exit-app': 'Quit',
   }
   return map[btnId] || btnId.substring(0, 4)
@@ -1267,7 +1291,7 @@ function getShortLabel(btnId: string): string {
       <span
         :class="[
           'text-lg absolute transition-all duration-200 ease-in-out',
-          collapsed ? 'i-solar:widget-linear scale-105' : (orientation === 'vertical' ? 'i-solar:double-alt-arrow-right-linear' : 'i-solar:double-alt-arrow-down-linear'),
+          collapsed ? 'i-ph:dots-six-bold scale-110' : (orientation === 'vertical' ? 'i-solar:double-alt-arrow-right-linear' : 'i-solar:double-alt-arrow-down-linear'),
           isHoveredHandle ? 'opacity-0 scale-75' : 'opacity-100 scale-100',
         ]"
       />
@@ -1423,12 +1447,21 @@ function getShortLabel(btnId: string): string {
           ]"
         />
 
-        <!-- Status dot badge for caption-follow-stage -->
+        <!-- Status dot badge for caption-sync-position -->
         <span
-          v-if="btn.id === 'caption-follow-stage'"
+          v-if="btn.id === 'caption-sync-position'"
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.captionFollowStage ? 'bg-green-500' : 'bg-red-500',
+            settingsStore.captionFollowStagePosition ? 'bg-green-500' : 'bg-red-500',
+          ]"
+        />
+
+        <!-- Status dot badge for caption-sync-visibility -->
+        <span
+          v-if="btn.id === 'caption-sync-visibility'"
+          :class="[
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
+            settingsStore.captionFollowStageVisibility ? 'bg-green-500' : 'bg-red-500',
           ]"
         />
 
@@ -1445,8 +1478,23 @@ function getShortLabel(btnId: string): string {
         <span
           v-if="btn.id === 'caption-docking'"
           :class="[
-            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            settingsStore.captionDocking === 'bottom' ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]' : 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.5)]',
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
+            settingsStore.captionDocking === 'none' ? 'bg-neutral-400 shadow-[0_0_6px_rgba(163,163,163,0.5)]' : '',
+            settingsStore.captionDocking === 'bottom' ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.5)]' : '',
+            settingsStore.captionDocking === 'top' ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.5)]' : '',
+            settingsStore.captionDocking === 'head' ? 'bg-fuchsia-400 shadow-[0_0_6px_rgba(232,121,249,0.5)]' : '',
+          ]"
+        />
+
+        <!-- Status dot badge for viewport-cycle-modes -->
+        <span
+          v-if="btn.id === 'viewport-cycle-modes'"
+          :class="[
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
+            settingsStore.controlStripInteractionMode === 'tactile' ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.5)]' : '',
+            settingsStore.controlStripInteractionMode === 'drag' ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)]' : '',
+            settingsStore.controlStripInteractionMode === 'positioning' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : '',
+            settingsStore.controlStripInteractionMode === 'orbit' ? 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.5)]' : '',
           ]"
         />
 

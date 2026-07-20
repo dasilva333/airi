@@ -20,7 +20,8 @@ import icon from '../../resources/icon.png?asset'
 
 import {
   electronApplySizePreset,
-  electronCaptionSetFollowWindow,
+  electronCaptionSetFollowStagePosition,
+  electronCaptionSetFollowStageVisibility,
   electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
   electronGetCaptionWindowState,
@@ -458,9 +459,13 @@ app.whenReady().then(async () => {
         }
         await deps.captionWindow.triggerMove(dock)
       })
-      defineInvokeHandler(context, electronCaptionSetFollowWindow, async (shouldFollow) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow window triggered:', shouldFollow)
-        await deps.captionWindow.setFollowWindow(shouldFollow)
+      defineInvokeHandler(context, electronCaptionSetFollowStagePosition, async (shouldFollow) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow stage position triggered:', shouldFollow)
+        await deps.captionWindow.setFollowStagePosition(shouldFollow)
+      })
+      defineInvokeHandler(context, electronCaptionSetFollowStageVisibility, async (shouldFollow) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow stage visibility triggered:', shouldFollow)
+        await deps.captionWindow.setFollowStageVisibility(shouldFollow)
       })
       defineInvokeHandler(context, electronSetIgnoreMouseEvents, async (ignore) => {
         // @ts-ignore - window might be undefined if context is global, but here it's window-specific
@@ -936,12 +941,12 @@ app.whenReady().then(async () => {
       if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
         deps.stageWindow.on('show', () => {
           stageInitialized = true
-          if (deps.captionWindow.getIsFollowingWindow()) {
+          if (deps.captionWindow.getIsFollowingStageVisibility()) {
             deps.captionWindow.toggleVisibility(true)
           }
         })
         deps.stageWindow.on('hide', () => {
-          if (deps.captionWindow.getIsFollowingWindow()) {
+          if (deps.captionWindow.getIsFollowingStageVisibility()) {
             deps.captionWindow.toggleVisibility(false)
           }
         })

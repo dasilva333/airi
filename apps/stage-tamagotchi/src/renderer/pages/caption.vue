@@ -7,11 +7,24 @@ import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { refDebounced } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { captionGetIsFollowingWindow, captionIsFollowingWindowChanged, electron, electronCaptionSetFollowWindow } from '../../shared/eventa'
+import {
+  captionFollowStagePositionChanged,
+  captionFollowStageVisibilityChanged,
+  captionGetFollowStagePosition,
+  captionGetFollowStageVisibility,
+  electron,
+  electronCaptionSetFollowStagePosition,
+  electronCaptionSetFollowStageVisibility,
+  electronCaptionToggleVisibility,
+} from '../../shared/eventa'
 
 const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
-const setFollowWindow = useElectronEventaInvoke(electronCaptionSetFollowWindow)
-const attached = ref(true)
+const setFollowStagePosition = useElectronEventaInvoke(electronCaptionSetFollowStagePosition)
+const setFollowStageVisibility = useElectronEventaInvoke(electronCaptionSetFollowStageVisibility)
+const toggleVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+
+const followsStagePosition = ref(true)
+const followsStageVisibility = ref(true)
 const settingsStore = useSettings()
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
@@ -24,40 +37,71 @@ const { isOutside: isOutsideDragHandle } = useElectronMouseInElement(dragHandleR
 const { isNearAnyBorder: isAroundWindowBorder } = useElectronMouseAroundWindowBorder({ threshold: 15 })
 const isAroundWindowBorderFor250Ms = refDebounced(isAroundWindowBorder, 250)
 
-const isInteractiveArea = computed(() => {
-  return !isOutsideDragHandle.value || isAroundWindowBorder.value
-})
+const isInteractiveArea = computed(() => !isOutsideDragHandle.value || isAroundWindowBorder.value)
 
-watch(isInteractiveArea, (interactive) => {
-  const ignore = !interactive
-  console.log('[Caption] setIgnoreMouseEvents:', ignore)
-  setIgnoreMouseEvents([ignore, { forward: true }])
-}, { immediate: true })
+// NOTICE: We intentionally debounce the transition BACK to ignoreMouseEvents=true.
+// If we flip ignore on/off synchronously as the cursor grazes the resize border,
+// the OS window-resize drag handler never gets a clean latch, causing the resize to stutter.
+// Entering interactive (ignore=false) must be immediate; leaving gets a 600ms grace window.
+let reEnableIgnoreTimer: ReturnType<typeof setTimeout> | null = null
+
+function applyIgnore(interactive: boolean) {
+  if (interactive) {
+    // Cursor entered interactive area — immediately enable mouse events
+    if (reEnableIgnoreTimer !== null) {
+      clearTimeout(reEnableIgnoreTimer)
+      reEnableIgnoreTimer = null
+    }
+    setIgnoreMouseEvents([false, { forward: true }])
+  }
+  else {
+    // Cursor left interactive area — wait 600ms before re-enabling click-through
+    // so in-progress resize/drag ops can complete without interruption
+    if (reEnableIgnoreTimer !== null)
+      return
+    reEnableIgnoreTimer = setTimeout(() => {
+      reEnableIgnoreTimer = null
+      setIgnoreMouseEvents([true, { forward: true }])
+    }, 600)
+  }
+}
+
+watch(isInteractiveArea, applyIgnore, { immediate: true })
 
 const context = useElectronEventaContext()
-const getAttached = defineInvoke(context.value, captionGetIsFollowingWindow)
+const getFollowPosition = defineInvoke(context.value, captionGetFollowStagePosition)
+const getFollowVisibility = defineInvoke(context.value, captionGetFollowStageVisibility)
 
 onMounted(async () => {
   try {
-    const isAttached = await getAttached()
-    attached.value = Boolean(isAttached)
+    followsStagePosition.value = Boolean(await getFollowPosition())
+    followsStageVisibility.value = Boolean(await getFollowVisibility())
   }
   catch {}
 
   try {
-    context.value.on(captionIsFollowingWindowChanged, (event) => {
-      const val = Boolean(event?.body)
-      attached.value = val
+    context.value.on(captionFollowStagePositionChanged, (event) => {
+      followsStagePosition.value = Boolean(event?.body)
+    })
+    context.value.on(captionFollowStageVisibilityChanged, (event) => {
+      followsStageVisibility.value = Boolean(event?.body)
     })
   }
   catch {}
 
   try {
-    // Synchronize spatial follow with dashboard toggle
-    watch(() => settingsStore.captionFollowStage, (shouldFollow) => {
-      console.log('[Caption] Follow status changed:', shouldFollow)
-      attached.value = shouldFollow
-      setFollowWindow(shouldFollow)
+    // Synchronize position follow with settings store
+    watch(() => settingsStore.captionFollowStagePosition, (shouldFollow) => {
+      console.log('[Caption] Follow stage position changed:', shouldFollow)
+      followsStagePosition.value = shouldFollow
+      setFollowStagePosition(shouldFollow)
+    }, { immediate: true })
+
+    // Synchronize visibility follow with settings store
+    watch(() => settingsStore.captionFollowStageVisibility, (shouldFollow) => {
+      console.log('[Caption] Follow stage visibility changed:', shouldFollow)
+      followsStageVisibility.value = shouldFollow
+      setFollowStageVisibility(shouldFollow)
     }, { immediate: true })
 
     // Listen for Layout Mode transitions
@@ -68,8 +112,8 @@ onMounted(async () => {
     // Listen for Home Snap triggers
     watch(() => settingsStore.captionResetTrigger, () => {
       console.log('[Caption] Reset Position triggered.')
-      if (!settingsStore.captionFollowStage) {
-        settingsStore.captionFollowStage = true
+      if (!settingsStore.captionFollowStagePosition) {
+        settingsStore.captionFollowStagePosition = true
       }
     })
   }
@@ -90,7 +134,21 @@ onMounted(async () => {
       :fade-on-cursor="shouldFadeOnCursorWithin"
     />
 
-    <!-- Drag Handle: only visible when detached and hovering the window area -->
+    <!-- Always-visible drag handle pill — shown when free-floating (none/head), hidden when edge-docked (top/bottom) -->
+    <div
+      v-if="settingsStore.captionDocking !== 'top' && settingsStore.captionDocking !== 'bottom'"
+      class="pointer-events-auto absolute bottom-1 left-1/2 z-50 -translate-x-1/2"
+    >
+      <!-- NOTICE: [-webkit-app-region:drag] cannot be applied via UnoCSS since it requires
+           Electron to treat this element as a native drag region. Must use inline style. -->
+      <div
+        class="h-[6px] w-9 cursor-grab border border-white/10 rounded-full bg-white/30 shadow-sm backdrop-blur-sm active:cursor-grabbing dark:border-white/10 dark:bg-white/20"
+        style="-webkit-app-region: drag;"
+        title="Drag to Reposition"
+      />
+    </div>
+
+    <!-- Floating Drag & Visibility Controls (fades in on hover) -->
     <Transition
       enter-active-class="transition-opacity duration-250 ease-in-out"
       enter-from-class="opacity-0"
@@ -100,12 +158,35 @@ onMounted(async () => {
       leave-to-class="opacity-0"
     >
       <div
-        v-if="!attached && shouldFadeOnCursorWithin"
+        v-if="shouldFadeOnCursorWithin"
         ref="dragHandleRef"
-        class="[-webkit-app-region:drag] pointer-events-auto absolute left-1/2 top-4 h-[14px] w-[36px] border border-[rgba(125,125,125,0.35)] rounded-[10px] bg-[rgba(125,125,125,0.75)] backdrop-blur-[6px] -translate-x-1/2"
-        title="Drag to move"
+        :class="[
+          'pointer-events-auto absolute right-2.5 top-2.5 z-50',
+        ]"
       >
-        <div class="absolute left-1/2 top-1/2 h-[3px] w-4 rounded-full bg-[rgba(255,255,255,0.85)] -translate-x-1/2 -translate-y-1/2" />
+        <div class="flex items-center gap-0.5 border border-neutral-200/50 rounded-lg bg-white/80 p-0.5 shadow-sm backdrop-blur-md dark:border-neutral-800/40 dark:bg-neutral-900/70">
+          <!-- Drag Handle Button (in corner toolbar) -->
+          <button
+            class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+            title="Drag to Reposition"
+            @mousedown="setIgnoreMouseEvents([false, { forward: true }])"
+          >
+            <!-- NOTICE: [-webkit-app-region:drag] cannot be applied via UnoCSS since it requires
+                 Electron to treat this element as a native drag region. Must use inline style. -->
+            <div
+              class="i-ph:arrows-out-cardinal size-3.5"
+              style="-webkit-app-region: drag;"
+            />
+          </button>
+          <!-- Quick Hide Button -->
+          <button
+            class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+            title="Hide Captions"
+            @click="toggleVisibility(false)"
+          >
+            <div class="i-ph:eye-slash size-3.5" />
+          </button>
+        </div>
       </div>
     </Transition>
 
