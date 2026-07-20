@@ -133,10 +133,10 @@ function handleImagineSubmit() {
 }
 
 const proactivityStore = useProactivityStore()
-const isGroundingPreviewExpanded = ref(false)
-const isMemoriesPreviewExpanded = ref(true)
-const isTopicsPreviewExpanded = ref(true)
-const isScratchpadPreviewExpanded = ref(true)
+const isGroundingPreviewExpanded = useLocalStorage('airi:chat:grounding-preview-expanded', false)
+const isMemoriesPreviewExpanded = useLocalStorage('airi:chat:memories-preview-expanded', true)
+const isTopicsPreviewExpanded = useLocalStorage('airi:chat:topics-preview-expanded', true)
+const isScratchpadPreviewExpanded = useLocalStorage('airi:chat:scratchpad-preview-expanded', true)
 const artistryStore = useAutonomousArtistryStore()
 
 const latestDirectorScratchpad = computed(() => {

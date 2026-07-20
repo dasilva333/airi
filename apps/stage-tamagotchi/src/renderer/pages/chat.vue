@@ -130,6 +130,74 @@ function handleToggleGroundingDirectorScratchpad() {
     airiCardStore.toggleGroundingDirectorScratchpad(activeCardId.value)
 }
 
+const hasTextJournal = computed(() => {
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  return allowed === undefined || allowed.includes('text_journal')
+})
+
+const hasImageJournal = computed(() => {
+  const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
+  return allowed === undefined || allowed.includes('image_journal')
+})
+
+const isDreamStateEnabled = computed(() => {
+  return activeCard.value?.extensions?.airi?.dreamState?.enabled ?? false
+})
+
+function handleToggleDreamIntrusion() {
+  if (!activeCardId.value || !activeCard.value || !isDreamStateEnabled.value)
+    return
+  const current = activeCard.value.extensions?.airi?.dreamState?.injectDreamContext ?? false
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        dreamState: {
+          ...activeCard.value.extensions?.airi?.dreamState,
+          injectDreamContext: !current,
+        },
+      },
+    },
+  } as any)
+}
+
+function handleToggleJournalIntrusion() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const current = activeCard.value.extensions?.airi?.textJournal?.injectJournalContext ?? false
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        textJournal: {
+          ...activeCard.value.extensions?.airi?.textJournal,
+          injectJournalContext: !current,
+        },
+      },
+    },
+  } as any)
+}
+
+function handleToggleArtistryIntrusion() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const current = activeCard.value.extensions?.airi?.artistry?.injectArtistryContext ?? false
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        artistry: {
+          ...activeCard.value.extensions?.airi?.artistry,
+          injectArtistryContext: !current,
+        },
+      },
+    },
+  } as any)
+}
+
 function handleToggleImageDirector() {
   if (!activeCardId.value || !activeCard.value)
     return
@@ -280,16 +348,18 @@ function saveCardGenerationSettings() {
   }
 
   airiCardStore.updateCard(activeCardId.value, {
-    ...activeCard.value.extensions,
-    airi: {
-      ...airiExt,
-      generation: {
-        ...airiExt?.generation,
-        enabled: popoverOverrideEnabled.value,
-        known: {
-          ...airiExt?.generation?.known,
-          contextWidth: popoverContextWidth.value,
-          maxTokens: popoverOverrideEnabled.value ? popoverMaxTokens.value : undefined,
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...airiExt,
+        generation: {
+          ...airiExt?.generation,
+          enabled: popoverOverrideEnabled.value,
+          known: {
+            ...airiExt?.generation?.known,
+            contextWidth: popoverContextWidth.value,
+            maxTokens: popoverOverrideEnabled.value ? popoverMaxTokens.value : undefined,
+          },
         },
       },
     },
@@ -341,15 +411,17 @@ function handleResetToDefaults() {
   popoverOverrideEnabled.value = false
 
   airiCardStore.updateCard(activeCardId.value, {
-    ...activeCard.value.extensions,
-    airi: {
-      ...airiExt,
-      generation: {
-        ...airiExt?.generation,
-        enabled: false,
-        known: {
-          ...airiExt?.generation?.known,
-          maxTokens: undefined,
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...airiExt,
+        generation: {
+          ...airiExt?.generation,
+          enabled: false,
+          known: {
+            ...airiExt?.generation?.known,
+            maxTokens: undefined,
+          },
         },
       },
     },
@@ -367,6 +439,21 @@ watch(popoverOverrideEnabled, () => {
 })
 watch(popoverContextWidth, () => {
   saveCardGenerationSettings()
+})
+
+const saturationPercent = computed(() => {
+  if (!popoverContextWidth.value)
+    return 0
+  return Math.min(100, Math.max(0, (sessionTokenCount.value / popoverContextWidth.value) * 100))
+})
+
+const saturationColorClass = computed(() => {
+  const percent = saturationPercent.value
+  if (percent >= 90)
+    return 'text-red-500 bg-red-500'
+  if (percent >= 75)
+    return 'text-amber-500 bg-amber-500'
+  return 'text-green-500 bg-emerald-500'
 })
 
 // List of sessions for dropdown
@@ -591,6 +678,24 @@ function selectSurface(surface: typeof activeSurface.value) {
                     </div>
                   </div>
 
+                  <!-- Context Saturation Progress Bar (Minimalist) -->
+                  <div
+                    v-if="popoverContextWidth && popoverContextWidth > 0"
+                    class="flex flex-col gap-1.5"
+                  >
+                    <div class="flex items-center justify-between text-[9px] text-neutral-400 font-bold tracking-tight uppercase dark:text-neutral-500">
+                      <span>Context Saturation</span>
+                      <span :class="saturationColorClass.split(' ')[0]">{{ saturationPercent.toFixed(0) }}%</span>
+                    </div>
+                    <div class="h-1 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                      <div
+                        :style="{ width: `${saturationPercent}%` }"
+                        :class="saturationColorClass.split(' ')[1]"
+                        class="h-full rounded-full transition-all duration-300"
+                      />
+                    </div>
+                  </div>
+
                   <!-- Token Limits Slider -->
                   <div class="flex flex-col gap-1.5">
                     <div class="flex items-center justify-between text-[10px]">
@@ -691,12 +796,9 @@ function selectSurface(surface: typeof activeSurface.value) {
                   </button>
                 </div>
 
-                <!-- Section Divider -->
-                <div class="mx-2 my-1 border-t border-neutral-200/60 dark:border-neutral-800" />
-
-                <!-- Section: Grounding Modes -->
+                <!-- Section: Context Injections -->
                 <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Grounding Modes
+                  Context Injections
                 </div>
 
                 <!-- Toggle: System Sensors -->
@@ -811,8 +913,98 @@ function selectSurface(surface: typeof activeSurface.value) {
                   </div>
                 </div>
 
-                <!-- Section Divider -->
-                <div class="mx-2 my-1 border-t border-neutral-200/60 dark:border-neutral-800" />
+                <!-- Section Divider for Intrusions -->
+                <div class="mx-2 my-1 border-t border-neutral-200/20 dark:border-neutral-800/40" />
+
+                <!-- Toggle: Dream Intrusion -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  :class="[!isDreamStateEnabled ? 'opacity-50 pointer-events-none' : '']"
+                  @click="handleToggleDreamIntrusion"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled
+                        ? 'text-indigo-500 i-solar:sleeping-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:sleeping-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dream Intrusion</span>
+                      <span class="text-[9px] text-neutral-400">
+                        Inject offline consolidated dreams
+                        <span v-if="!isDreamStateEnabled" class="text-red-500 font-semibold dark:text-red-400"> (Requires Dream State)</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.dreamState?.injectDreamContext && isDreamStateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Toggle: Journal Intrusion -->
+                <div
+                  v-if="hasTextJournal"
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleJournalIntrusion"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext
+                        ? 'text-cyan-500 i-solar:notebook-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:notebook-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Journal Intrusion</span>
+                      <span class="text-[9px] text-neutral-400">Reference latest journal entry</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.textJournal?.injectJournalContext ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Toggle: Artistry Intrusion -->
+                <div
+                  v-if="hasImageJournal"
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleArtistryIntrusion"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext
+                        ? 'text-pink-500 i-solar:gallery-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Artistry Intrusion</span>
+                      <span class="text-[9px] text-neutral-400">Reference latest image creations</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
 
                 <!-- Section: Modes -->
                 <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">

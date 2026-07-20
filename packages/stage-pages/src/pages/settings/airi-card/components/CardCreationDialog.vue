@@ -1489,6 +1489,7 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-dream-intrusion-prompt="selectedDreamIntrusionPrompt"
             v-model:selected-journal-intrusion-prompt="selectedJournalIntrusionPrompt"
             v-model:selected-artistry-intrusion-prompt="selectedArtistryIntrusionPrompt"
+            :dream-state-enabled="dreamStateEnabled"
           />
           <div class="ml-auto mr-1 flex flex-row gap-2">
             <Button

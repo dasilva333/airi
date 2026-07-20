@@ -2,6 +2,12 @@
 import { FieldCheckbox, FieldInput } from '@proj-airi/ui'
 import { computed } from 'vue'
 
+withDefaults(defineProps<{
+  dreamStateEnabled?: boolean
+}>(), {
+  dreamStateEnabled: false,
+})
+
 // Allowed tools model from parent CardCreationDialog
 const generationAllowedTools = defineModel<string[] | undefined>('selectedAllowedTools', { required: true })
 
@@ -323,17 +329,24 @@ const textJournalConflictWarning = computed(() => {
 
       <div class="space-y-6">
         <!-- Dream Intrusion Toggle & Config -->
-        <div class="border-neutral-150 dark:border-neutral-850 flex flex-col gap-4 border-t pt-4">
+        <div
+          class="border-neutral-150 dark:border-neutral-850 flex flex-col gap-4 border-t pt-4"
+          :class="[!dreamStateEnabled ? 'opacity-50 pointer-events-none' : '']"
+        >
           <div class="flex items-center justify-between">
             <div class="flex flex-col gap-1 pr-4">
               <span class="text-sm text-neutral-800 font-bold dark:text-neutral-200">Enable Dream Intrusion</span>
-              <span class="text-xs text-neutral-400 dark:text-neutral-500">Inject offline consolidated dreams (Echo Chips) into the character's thoughts when resuming the chat.</span>
+              <span class="text-xs text-neutral-400 dark:text-neutral-500">
+                Inject offline consolidated dreams (Echo Chips) into the character's thoughts when resuming the chat.
+                <span v-if="!dreamStateEnabled" class="text-red-500 font-semibold dark:text-red-400"> (Disabled: Requires Dream State to be enabled in Modules)</span>
+              </span>
             </div>
             <button
               type="button"
+              :disabled="!dreamStateEnabled"
               :class="[
                 'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                selectedInjectDreamContext ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
+                selectedInjectDreamContext && dreamStateEnabled ? 'bg-primary-600' : 'bg-neutral-200 dark:bg-neutral-700',
               ]"
               @click="selectedInjectDreamContext = !selectedInjectDreamContext"
             >
@@ -341,12 +354,12 @@ const textJournalConflictWarning = computed(() => {
                 aria-hidden="true"
                 :class="[
                   'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  selectedInjectDreamContext ? 'translate-x-5' : 'translate-x-0',
+                  selectedInjectDreamContext && dreamStateEnabled ? 'translate-x-5' : 'translate-x-0',
                 ]"
               />
             </button>
           </div>
-          <div v-if="selectedInjectDreamContext" class="animate-in fade-in border-l-2 border-primary-500/30 pl-2 duration-200">
+          <div v-if="selectedInjectDreamContext && dreamStateEnabled" class="animate-in fade-in border-l-2 border-primary-500/30 pl-2 duration-200">
             <FieldInput
               v-model="selectedDreamIntrusionPrompt"
               label="Dream Intrusion Prompt Template"
