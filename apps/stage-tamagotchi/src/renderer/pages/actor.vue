@@ -208,6 +208,7 @@ const isInsideWindow = computed(() => !isOutsideWindow.value)
 
 // Proximity/hover detection for control regions
 const dragHandleRef = ref<HTMLDivElement | null>(null)
+const stageContainerRef = ref<HTMLDivElement | null>(null)
 const whisperDockWrapperRef = ref<HTMLDivElement | null>(null)
 const positioningSelectorsRef = ref<HTMLDivElement | null>(null)
 const positioningSliderRef = ref<HTMLDivElement | null>(null)
@@ -216,6 +217,7 @@ const { isOutside: isOutsideDragHandle } = useElectronMouseInElement(dragHandleR
 const { isOutside: isOutsideWhisperDock } = useElectronMouseInElement(whisperDockWrapperRef)
 const { isOutside: isOutsidePositioningSelectors } = useElectronMouseInElement(positioningSelectorsRef)
 const { isOutside: isOutsidePositioningSlider } = useElectronMouseInElement(positioningSliderRef)
+const { elementY: stageElementY, elementHeight: stageElementHeight, isOutside: isOutsideStage } = useElectronMouseInElement(stageContainerRef)
 
 const isOverControls = computed(() => {
   return !isOutsideDragHandle.value
@@ -223,6 +225,23 @@ const isOverControls = computed(() => {
     || whisperDockIsOpen.value
     || (stageViewControlsEnabled.value && controlStripStore.stageMode === 'positionMode' && (!isOutsidePositioningSelectors.value || !isOutsidePositioningSlider.value))
 })
+
+const notchProximity = computed(() => {
+  if (whisperDockIsOpen.value)
+    return false
+  if (isOutsideStage.value)
+    return false
+  return stageElementHeight.value - stageElementY.value <= 7
+})
+
+function handleStageClick(e: MouseEvent) {
+  if (!whisperDockIsOpen.value)
+    return
+  const wrapper = whisperDockWrapperRef.value
+  if (wrapper && !wrapper.contains(e.target as Node)) {
+    whisperDockRef.value?.dismiss()
+  }
+}
 
 watch(
   [isInsideWindow, fadeOnHoverEnabled, stageEnabled, isOverControls],
@@ -548,11 +567,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    ref="stageContainerRef"
     :class="[
       'relative h-full w-full flex flex-col overflow-hidden rounded-xl bg-transparent',
       'transition-opacity duration-300 ease-in-out',
       stageIsHidden ? 'opacity-0' : 'opacity-100',
     ]"
+    @click="handleStageClick"
   >
     <div class="relative h-full w-full overflow-hidden rounded-2xl">
       <!-- Scene Background Layer -->
@@ -772,6 +793,7 @@ onBeforeUnmount(() => {
           ref="whisperDockRef"
           v-model:open="whisperDockIsOpen"
           :tools="tools"
+          :proximity="notchProximity"
           @spawn-standalone="handleSpawnStandalone"
           @get-suggestions="handleGetSuggestions"
           @clear-suggestions="handleClearSuggestions"

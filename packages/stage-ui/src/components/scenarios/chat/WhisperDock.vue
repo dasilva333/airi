@@ -13,6 +13,8 @@ const props = defineProps<{
   /** Tool definitions to pass through to chat.ingest */
   tools?: any[]
   open?: boolean
+  /** Cursor is within 5–7px above the bottom notch (State 3 of the 4-state lifecycle) */
+  proximity?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -52,7 +54,7 @@ const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
 const characterName = computed(() => activeCard.value?.name ?? 'AIRI')
 
-defineExpose({ isOpen, inputText, send })
+defineExpose({ isOpen, inputText, send, dismiss })
 
 watch(() => props.open, (val) => {
   if (val !== undefined && val !== isOpen.value) {
@@ -146,28 +148,19 @@ function handleKeydown(e: KeyboardEvent) {
     <button
       v-if="!isOpen"
       :class="[
-        'fixed bottom-2.5 left-1/2 z-90',
-        '-translate-x-1/2',
-        'border-2 border-solid border-neutral-200/60 dark:border-neutral-800/10',
-        'bg-neutral-50/80 dark:bg-neutral-800/70',
-        'w-fit flex items-center justify-center p-2 rounded-xl backdrop-blur-md',
-        'cursor-pointer shadow-lg shadow-black/5 dark:shadow-black/20',
-        'transition-all hover:transition-none duration-300 ease-out',
-        'active:scale-95',
-        'group',
+        'fixed bottom-0 left-1/2 z-90 -translate-x-1/2',
+        'w-12 rounded-t-full',
+        'border border-t border-neutral-200/30 dark:border-neutral-800/20',
+        'bg-neutral-50/30 dark:bg-neutral-800/30',
+        'backdrop-blur-md',
+        'cursor-pointer',
+        'transition-all duration-200 ease-out',
+        props.proximity
+          ? 'h-5 -translate-y-2.5 bg-neutral-50/80 dark:bg-neutral-800/80 shadow-md shadow-black/10'
+          : 'h-3',
       ]"
       @click="toggleDock"
-    >
-      <div
-        :class="[
-          'i-ph:keyboard-light',
-          'size-5',
-          'text-neutral-800 dark:text-neutral-300',
-          'transition-colors duration-200',
-          'group-hover:text-primary-500 dark:group-hover:text-primary-400',
-        ]"
-      />
-    </button>
+    />
   </Transition>
 
   <!-- Input Dock -->
@@ -184,13 +177,13 @@ function handleKeydown(e: KeyboardEvent) {
       :class="[
         'fixed bottom-0 left-0 z-90',
         'w-full',
-        'flex items-center gap-3',
+        'flex items-center gap-2',
         'rounded-t-2xl',
         'bg-white/70 dark:bg-neutral-900/75',
         'backdrop-blur-2xl',
         'border-t border-neutral-200/30 dark:border-neutral-800/20',
         'shadow-2xl shadow-black/10 dark:shadow-black/30',
-        'px-6 py-4 pb-5',
+        'px-3 py-4 pb-5',
         isSending ? 'whisper-dock-sending' : '',
       ]"
     >
