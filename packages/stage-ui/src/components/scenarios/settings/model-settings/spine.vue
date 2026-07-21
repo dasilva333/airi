@@ -2,9 +2,9 @@
 import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
-import { Button, FieldRange, Select, SelectTab } from '@proj-airi/ui'
+import { FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ModelCustomizer from './ModelCustomizer.vue'
@@ -39,10 +39,6 @@ const positioningStore = usePositioningStore()
 
 const spineStore = useSpine()
 const {
-  currentSkin,
-  availableSkins,
-  availableVariants,
-  currentVariant,
   animationSpeed,
   hitDetectionMode,
   radialHitRadius,
@@ -81,49 +77,12 @@ const positionY = computed({
 })
 
 // canExtractColors removed as it is unused in Phase 1
-const hasMultipleVariants = computed(() => availableVariants.value.length > 1)
-
-const variantOptions = computed(() => availableVariants.value.map(v => ({
-  label: v.name,
-  value: v.name,
-  description: '',
-})))
-
-/* const animationOptions = computed(() => availableAnimations.value.map(animation => ({
-  label: animation.name,
-  value: animation.name,
-  description: `${animation.duration.toFixed(2)}s`,
-}))) */
-
-const skinOptions = computed(() => availableSkins.value.map(skin => ({
-  label: skin.name,
-  value: skin.name,
-  description: '',
-})))
 
 const fpsOptions = computed(() => [
   { value: 0, label: t('settings.spine.fps.options.unlimited') },
   { value: 60, label: '60' },
   { value: 30, label: '30' },
 ])
-
-function handleVariantSelect(variantName: string | number | undefined) {
-  if (typeof variantName !== 'string')
-    return
-  currentVariant.value = variantName
-}
-
-function handleSkinSelect(skinName: string | number | undefined) {
-  if (typeof skinName !== 'string')
-    return
-  currentSkin.value = skinName
-}
-
-const customizationTabs = computed(() => [
-  { value: 'customizer', label: 'Customizer', icon: 'i-solar:settings-bold-duotone' },
-  { value: 'appearance', label: 'Appearance', icon: 'i-solar:magic-stick-3-bold-duotone' },
-])
-const activeCustomizationTab = ref('customizer')
 </script>
 
 <template>
@@ -139,41 +98,7 @@ const activeCustomizationTab = ref('customizer')
     size="sm"
     :expand="true"
   >
-    <SelectTab v-model="activeCustomizationTab" :options="customizationTabs" size="sm" compact class="mb-4" />
-
-    <!-- Customizer Tab (Unified Expressions/Motions) -->
-    <div v-if="activeCustomizationTab === 'customizer'">
-      <ModelCustomizer :model-id="props.modelId || stageModelSelected" />
-    </div>
-
-    <!-- Appearance Tab -->
-    <div v-else-if="activeCustomizationTab === 'appearance'">
-      <!-- Variant -->
-      <div v-if="hasMultipleVariants" class="mt-4">
-        <div class="mb-1 text-xs text-neutral-400 font-bold tracking-wider uppercase">
-          Variant
-        </div>
-        <Select
-          :model-value="currentVariant"
-          :options="variantOptions"
-          class="w-full"
-          @update:model-value="handleVariantSelect"
-        />
-      </div>
-
-      <!-- Skin -->
-      <div class="mt-4">
-        <div class="mb-1 text-xs text-neutral-400 font-bold tracking-wider uppercase">
-          Skin
-        </div>
-        <Select
-          :model-value="currentSkin"
-          :options="skinOptions"
-          class="w-full"
-          @update:model-value="handleSkinSelect"
-        />
-      </div>
-    </div>
+    <ModelCustomizer :model-id="props.modelId || stageModelSelected" :local-stage="true" />
 
     <!-- Global Spine Settings -->
     <div class="mt-4 border-t border-neutral-100 pt-4 space-y-4 dark:border-neutral-800">

@@ -171,6 +171,16 @@ export const useSpine = defineStore('spine', () => {
     shouldUpdateView()
   }
 
+  function selectVariantAndSkin(variantName: string, skinName: string) {
+    if (currentVariant.value !== variantName) {
+      currentVariant.value = variantName
+    }
+    if (currentSkin.value !== skinName) {
+      currentSkin.value = skinName
+    }
+    shouldUpdateView()
+  }
+
   return {
     position,
     scale,
@@ -189,6 +199,7 @@ export const useSpine = defineStore('spine', () => {
     oneShotAnimation,
 
     playOneShotAnimation,
+    selectVariantAndSkin,
     onShouldUpdateView,
     shouldUpdateView,
     resetState,

@@ -141,7 +141,7 @@ watch(activeCard, async (card) => {
     size="sm"
     :expand="true"
   >
-    <ModelCustomizer :model-id="props.modelId || stageModelSelected" />
+    <ModelCustomizer :model-id="props.modelId || stageModelSelected" :local-stage="true" />
   </Section>
 
   <!-- Block 2: Scene -->

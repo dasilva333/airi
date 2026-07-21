@@ -1096,7 +1096,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return { expressions: [], motions: [] }
     }
 
-    if ((model as any).capabilitiesLoaded || (model.expressions && model.expressions.length > 0) || (model.motions && model.motions.length > 0)) {
+    const isSpine = model.format === DisplayModelFormat.SpineZip
+    const hasLegacySpineCache = isSpine && model.expressions && model.expressions.length > 0 && !model.expressions.some(e => e.includes('['))
+
+    if (!hasLegacySpineCache && ((model as any).capabilitiesLoaded || (model.expressions && model.expressions.length > 0) || (model.motions && model.motions.length > 0))) {
       return { expressions: model.expressions || [], motions: model.motions || [] }
     }
 
@@ -1266,37 +1269,154 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
       else if (format.includes('spine')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
-        let skeletonJsonFound = false
-        for (const filename of Object.keys(zipInstance.files)) {
-          if (filename.toLowerCase().endsWith('.json') && !filename.toLowerCase().endsWith('model0.json')) {
-            const content = await zipInstance.files[filename].async('text')
-            const spineData = JSON.parse(content)
-            if (spineData && spineData.animations) {
-              Object.keys(spineData.animations).forEach(name => expressions.push(name))
-              skeletonJsonFound = true
+        const filePaths = Object.keys(zipInstance.files)
+
+        const variantsMap = new Map<string, { skeletonPath?: string, model0Path?: string }>()
+
+        for (const path of filePaths) {
+          if (zipInstance.files[path].dir)
+            continue
+          const lower = path.toLowerCase()
+          if (lower.endsWith('.skel') || (lower.endsWith('.json') && !lower.endsWith('model0.json'))) {
+            const dir = path.substring(0, path.lastIndexOf('/') + 1)
+            const variantName = dir ? dir.replace(/\/$/, '').split('/').pop()! : 'Default'
+            if (!variantsMap.has(variantName)) {
+              variantsMap.set(variantName, {})
             }
-            break
+            variantsMap.get(variantName)!.skeletonPath = path
+          }
+          else if (lower.endsWith('model0.json')) {
+            const dir = path.substring(0, path.lastIndexOf('/') + 1)
+            const variantName = dir ? dir.replace(/\/$/, '').split('/').pop()! : 'Default'
+            if (!variantsMap.has(variantName)) {
+              variantsMap.set(variantName, {})
+            }
+            variantsMap.get(variantName)!.model0Path = path
           }
         }
 
-        // Fallback: If skeleton is binary (.skel), parse animation references from model0.json
-        if (!skeletonJsonFound) {
-          const model0Path = Object.keys(zipInstance.files).find(name => name.endsWith('model0.json'))
-          if (model0Path) {
-            try {
-              const content = await zipInstance.files[model0Path].async('text')
-              const model0Data = JSON.parse(content)
-              if (model0Data) {
-                if (model0Data.motions) {
-                  Object.keys(model0Data.motions).forEach((key) => {
-                    if (!expressions.includes(key)) {
-                      expressions.push(key)
+        for (const [variantName, paths] of variantsMap.entries()) {
+          const variantSkins = new Set<string>(['default'])
+
+          if (paths.skeletonPath) {
+            const isJson = paths.skeletonPath.toLowerCase().endsWith('.json')
+            if (isJson) {
+              try {
+                const text = await zipInstance.file(paths.skeletonPath)!.async('text')
+                const parsed = JSON.parse(text)
+                if (parsed) {
+                  if (parsed.skins) {
+                    if (Array.isArray(parsed.skins)) {
+                      parsed.skins.forEach((s: any) => {
+                        if (s && s.name)
+                          variantSkins.add(s.name)
+                      })
                     }
-                    const list = model0Data.motions[key]
-                    if (Array.isArray(list)) {
-                      list.forEach((m: any) => {
-                        if (m && m.file && !expressions.includes(m.file)) {
-                          expressions.push(m.file)
+                    else {
+                      Object.keys(parsed.skins).forEach(k => variantSkins.add(k))
+                    }
+                  }
+                  if (parsed.animations) {
+                    Object.keys(parsed.animations).forEach(a => motions.push(a))
+                  }
+                }
+              }
+              catch {}
+            }
+            else {
+              try {
+                const uint8 = await zipInstance.file(paths.skeletonPath)!.async('uint8array')
+                const knownSkinCandidates = ['Normal', 'Resistance', 'Gun', 'Thema_MaskOff', 'Weapon_Off']
+                const knownAnimCandidates = [
+                  'Angry_1',
+                  'Angry_2',
+                  'Angry_3',
+                  'Close_1',
+                  'Dizzy_1',
+                  'Dizzy_2',
+                  'Eat_1',
+                  'Eat_2',
+                  'Happy_1',
+                  'Happy_2',
+                  'Happy_3',
+                  'Happy_4',
+                  'Happy_5',
+                  'Idle_1',
+                  'Panic_1',
+                  'Panic_2',
+                  'Panic_3',
+                  'Pat_End',
+                  'Pat_Idle',
+                  'Proud_1',
+                  'Proud_2',
+                  'Sad_1',
+                  'Sad_2',
+                  'Sad_3',
+                  'Sad_4',
+                  'Serious_1',
+                  'Serious_2',
+                  'Smash_End_1',
+                  'Smash_End_2',
+                  'Smell_1',
+                  'Surprise_1',
+                  'Taunt_1',
+                  'Taunt_2',
+                  'Taunt_3',
+                  'Taunt_4',
+                  'Tickle_End',
+                  'Tickle_Idle_1',
+                  'Tickle_Idle_2',
+                  'Touch_End',
+                  'Touch_Idle',
+                ]
+
+                function findLengthPrefixedString(haystack: Uint8Array, needle: string): boolean {
+                  const encoded = new TextEncoder().encode(needle)
+                  const prefix = encoded.length + 1
+                  for (let i = 0; i < haystack.length - encoded.length; i++) {
+                    if (haystack[i] !== prefix)
+                      continue
+                    let match = true
+                    for (let j = 0; j < encoded.length; j++) {
+                      if (haystack[i + 1 + j] !== encoded[j]) {
+                        match = false
+                        break
+                      }
+                    }
+                    if (match)
+                      return true
+                  }
+                  return false
+                }
+
+                for (const skin of knownSkinCandidates) {
+                  if (findLengthPrefixedString(uint8, skin)) {
+                    variantSkins.add(skin)
+                  }
+                }
+                for (const anim of knownAnimCandidates) {
+                  if (findLengthPrefixedString(uint8, anim)) {
+                    motions.push(anim)
+                  }
+                }
+              }
+              catch {}
+            }
+          }
+
+          if (paths.model0Path) {
+            try {
+              const text = await zipInstance.file(paths.model0Path)!.async('text')
+              const parsed = JSON.parse(text)
+              if (parsed) {
+                if (parsed.motions) {
+                  Object.keys(parsed.motions).forEach((k) => {
+                    motions.push(k)
+                    const subList = parsed.motions[k]
+                    if (Array.isArray(subList)) {
+                      subList.forEach((item: any) => {
+                        if (item && item.file) {
+                          motions.push(item.file)
                         }
                       })
                     }
@@ -1304,9 +1424,24 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 }
               }
             }
-            catch (e) {
-              console.error('[DisplayModels] Failed to parse model0.json fallback:', e)
-            }
+            catch {}
+          }
+
+          // Generate composite variant [skin] keys
+          const skinsList = Array.from(variantSkins)
+          const hasCustomSkins = skinsList.some(s => s !== 'default')
+
+          if (hasCustomSkins) {
+            skinsList.forEach((skin) => {
+              if (skin === 'default' && skinsList.includes('Normal')) {
+                // skip default to avoid stub weapon-less doublets
+                return
+              }
+              expressions.push(`${variantName} [${skin}]`)
+            })
+          }
+          else {
+            expressions.push(variantName)
           }
         }
       }

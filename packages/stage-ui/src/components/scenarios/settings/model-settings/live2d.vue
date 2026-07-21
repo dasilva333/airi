@@ -299,7 +299,7 @@ onUnmounted(() => {
 
     <!-- Customizer Tab (Unified Expressions/Motions) -->
     <div v-if="activeCustomizationTab === 'customizer'">
-      <ModelCustomizer :model-id="props.modelId || settings.stageModelSelected" />
+      <ModelCustomizer :model-id="props.modelId || settings.stageModelSelected" :local-stage="true" />
     </div>
 
     <!-- Head & Face Tab -->

@@ -262,7 +262,7 @@ function deleteOutfit(id: string) {
 
       <!-- Standard Customize View (ModelCustomizer) -->
       <template v-else>
-        <ModelCustomizer :model-id="displayModelId || ''" class="mt-2" />
+        <ModelCustomizer :model-id="displayModelId || ''" class="mt-2" :local-stage="true" />
       </template>
     </template>
   </div>

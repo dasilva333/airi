@@ -935,13 +935,29 @@ function applySkin(skinName: string) {
   if (!skeleton)
     return
 
-  if (!skinName) {
-    skeleton.setSkinByName(skeleton.data.defaultSkin?.name ?? skeleton.data.skins[0]?.name ?? 'default')
-    skeleton.setSlotsToSetupPose()
-    return
+  let targetSkinName = skinName
+  let skin = targetSkinName ? skeleton.data.findSkin(targetSkinName) : null
+
+  if (!skin) {
+    // NOTICE: Fallback is visual-only. We do NOT write back to currentSkin here
+    // because the store state is managed exclusively by selectVariantAndSkin.
+    // Writing back would cause the active dot in ModelCustomizer to flicker to the
+    // fallback skin instead of the user's selection.
+    const fallbacks = ['Normal', 'default']
+    for (const f of fallbacks) {
+      const s = skeleton.data.findSkin(f)
+      if (s) {
+        skin = s
+        targetSkinName = f
+        break
+      }
+    }
+    if (!skin && skeleton.data.skins.length > 0) {
+      skin = skeleton.data.skins[0]
+      targetSkinName = skin.name
+    }
   }
 
-  const skin = skeleton.data.findSkin(skinName)
   if (skin) {
     skeleton.setSkin(skin)
     skeleton.setSlotsToSetupPose()

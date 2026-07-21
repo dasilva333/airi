@@ -17,11 +17,18 @@ interface Props {
   modelId: string
   showInsertActions?: boolean
   palette?: string[]
+  /**
+   * When true, the component is embedded inside a self-contained settings page
+   * that already has its own stage preview. Clicks will effectuate that stage
+   * directly without requiring the actor window to be open.
+   */
+  localStage?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showInsertActions: false,
   palette: () => [],
+  localStage: false,
 })
 
 const emit = defineEmits<{
@@ -250,14 +257,29 @@ const rawExpressions = computed<UnifiedExpression[]>(() => {
     }))
   }
   if (mType === 'spine') {
-    return keys.map(key => ({
-      key,
-      displayName: mappings[key] || key,
-      isActive: !!spineStore.activeAnimations[props.modelId]?.[key],
-      actMapping: mappings[key],
-      isFavorite: favorites.includes(key),
-      isVisible: !hidden.includes(key),
-    }))
+    const activeVar = spineStore.currentVariant
+    const activeSkin = spineStore.currentSkin
+
+    return keys.map((key) => {
+      const match = key.match(/^(.+?)\s*\[(.+?)\]$/)
+      let active = false
+      if (match) {
+        const variant = match[1].trim()
+        const skin = match[2].trim()
+        active = activeVar === variant && activeSkin === skin
+      }
+      else {
+        active = activeVar === key
+      }
+      return {
+        key,
+        displayName: mappings[key] || key,
+        isActive: active,
+        actMapping: mappings[key],
+        isFavorite: favorites.includes(key),
+        isVisible: !hidden.includes(key),
+      }
+    })
   }
   return []
 })
@@ -368,7 +390,7 @@ const hasTechnicalKeys = computed(() => {
 
 // Trigger Click-to-Effectuate on Stage
 function triggerExpressionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (!props.localStage && !stageEnabled.value) {
     toast.error('Stage window must be open to preview expressions.')
     return
   }
@@ -386,13 +408,21 @@ function triggerExpressionEffect(key: string) {
     }, 2000)
   }
   else if (modelType.value === 'spine') {
-    spineStore.playOneShotAnimation(key)
+    const match = key.match(/^(.+?)\s*\[(.+?)\]$/)
+    if (match) {
+      const variant = match[1].trim()
+      const skin = match[2].trim()
+      spineStore.selectVariantAndSkin(variant, skin)
+    }
+    else {
+      spineStore.selectVariantAndSkin(key, 'default')
+    }
   }
   toast.info(`Triggered expression: ${key}`)
 }
 
 function triggerMotionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (!props.localStage && !stageEnabled.value) {
     toast.error('Stage window must be open to preview motions.')
     return
   }

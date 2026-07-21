@@ -31,7 +31,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | **Resource Island** | `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/index.vue` |
 | **VRM Character** | `packages/stage-ui-three/src/components/Model/VRMModel.vue` |
 | **Live2D Character** | `packages/stage-ui-live2d/src/components/scenes/live2d/Canvas.vue` |
-| **Spine Character** | `packages/stage-ui-spine/src/components/scenes/Spine.vue` | `packages/stage-ui-spine/src/components/scenes/spine/Model.vue` |
+| **Spine Character** | `packages/stage-ui-spine/src/components/scenes/Spine.vue` | `packages/stage-ui-spine/src/components/scenes/spine/Model.vue` | Spec: [`docs/spine-model-design.md`](./spine-model-design.md) |
 | **MMD Character** | `packages/stage-ui-mmd/src/components/scenes/MMD.vue` | `packages/stage-ui-mmd/src/components/scenes/mmd/Model.vue` |
 | **Gemini Panel** | `apps/stage-tamagotchi/src/renderer/pages/notice/gemini.vue` (UI) | `packages/stage-ui/src/stores/modules/live-session.ts` (Bidi WebSocket) |
 | **System Tray** | `apps/stage-tamagotchi/src/main/tray/index.ts` |
