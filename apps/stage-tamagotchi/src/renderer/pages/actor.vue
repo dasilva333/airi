@@ -4,14 +4,12 @@ import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewC
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
 import { StageConfigOverlay, WhisperDock } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
-import { useProducer } from '@proj-airi/stage-ui/composables'
+import { useProducer, useSpeechCaptionPlayer } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
-import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
@@ -311,8 +309,6 @@ const shortReplies = useLocalStorage('airi:producer:short-replies', true)
 const cardStore = useAiriCardStore()
 const chatSessionStore = useChatSessionStore()
 const userProfileStore = useSettingsUserProfile()
-const speechStore = useSpeechStore()
-const providersStore = useProvidersStore()
 
 const artistryAutonomousStore = useAutonomousArtistryStore()
 const { isProcessing: isArtistryProcessing } = storeToRefs(artistryAutonomousStore)
@@ -345,53 +341,16 @@ watch(isArtistryProcessing, (now, was) => {
 })
 
 const { generateSuggestions } = useProducer()
-const { post: postCaption } = useBroadcastChannel<any, any>({ name: 'airi-caption-overlay' })
+const { play: playSpeech, stop: stopSpeech } = useSpeechCaptionPlayer()
 
-// Speech preview state
 const loadingIndex = ref<number | null>(null)
 const activePlayingIndex = ref<number | null>(null)
-const activeAudio = ref<HTMLAudioElement | null>(null)
 const isPlayingAll = ref(false)
-const currentPlaybackSession = ref<any>(null)
-
-const utteredSegments = ref<{ text: string, color: string, actorId: string, isActive: boolean }[]>([])
-
-function showCaption(text: string) {
-  try {
-    postCaption({ type: 'caption-speaker', text: 'User' })
-    utteredSegments.value.forEach(s => s.isActive = false)
-    utteredSegments.value.push({ text, color: '#818cf8', actorId: 'user', isActive: true })
-    postCaption({
-      type: 'caption-assistant',
-      segments: JSON.parse(JSON.stringify(utteredSegments.value)),
-    })
-  }
-  catch (e) {
-    console.warn('Failed to post caption:', e)
-  }
-}
-
-function clearCaption() {
-  try {
-    utteredSegments.value = []
-    postCaption({ type: 'caption-speaker', text: '' })
-    postCaption({ type: 'caption-assistant', segments: [] })
-  }
-  catch (e) {
-    console.warn('Failed to clear caption:', e)
-  }
-}
 
 function stopActiveAudio() {
-  currentPlaybackSession.value = null
-  if (activeAudio.value) {
-    activeAudio.value.pause()
-    activeAudio.value.currentTime = 0
-    activeAudio.value = null
-  }
+  stopSpeech()
   activePlayingIndex.value = null
   loadingIndex.value = null
-  clearCaption()
 }
 
 async function playChoiceSpeech(idx: number, text: string) {
@@ -407,80 +366,13 @@ async function playChoiceSpeech(idx: number, text: string) {
   }
 
   stopActiveAudio()
-  loadingIndex.value = idx
 
-  try {
-    const provider = await providersStore.getProviderInstance('virtual-audio-studio')
-    if (!provider) {
-      throw new Error('Virtual Audio Studio provider is not active.')
-    }
-
-    const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
-    const audioItems = await Promise.all(
-      sentences.map(async (sentence) => {
-        const audioData = await speechStore.speech(
-          provider as any,
-          'virtual',
-          sentence,
-          voiceId,
-        )
-        const audioUrl = URL.createObjectURL(new Blob([audioData]))
-        return {
-          text: sentence,
-          audio: new Audio(audioUrl),
-        }
-      }),
-    )
-
-    if (loadingIndex.value !== idx)
-      return
-
-    loadingIndex.value = null
-    const sessionToken = Symbol('playback-session')
-    currentPlaybackSession.value = sessionToken
-
-    for (let i = 0; i < audioItems.length; i++) {
-      if (currentPlaybackSession.value !== sessionToken)
-        break
-
-      const item = audioItems[i]
-      activeAudio.value = item.audio
-      activePlayingIndex.value = idx
-
-      showCaption(item.text)
-      item.audio.play()
-
-      await new Promise<void>((resolve) => {
-        const cleanup = () => {
-          item.audio.removeEventListener('ended', onDone)
-          item.audio.removeEventListener('pause', onDone)
-          item.audio.removeEventListener('error', onDone)
-        }
-        const onDone = () => {
-          cleanup()
-          resolve()
-        }
-        item.audio.addEventListener('ended', onDone)
-        item.audio.addEventListener('pause', onDone)
-        item.audio.addEventListener('error', onDone)
-      })
-    }
-
-    if (currentPlaybackSession.value === sessionToken) {
-      activePlayingIndex.value = null
-      activeAudio.value = null
-      currentPlaybackSession.value = null
-      clearCaption()
-    }
-  }
-  catch (error) {
-    console.error('[Actor Suggestions] Speech preview failed:', error)
-    loadingIndex.value = null
-    activePlayingIndex.value = null
-    activeAudio.value = null
-    currentPlaybackSession.value = null
-    clearCaption()
-  }
+  await playSpeech(text, voiceId, {
+    onLoading: () => { loadingIndex.value = idx },
+    onPlaying: () => { loadingIndex.value = null; activePlayingIndex.value = idx },
+    onDone: () => { activePlayingIndex.value = null },
+    onError: () => { loadingIndex.value = null; activePlayingIndex.value = null },
+  })
 }
 
 async function playAllChoices() {
