@@ -85,7 +85,6 @@ let animationManager: SpineAnimationManager | undefined
 let skeleton: Skeleton | undefined
 let animationState: AnimationState | undefined
 let loadedVariants: SpineModelVariant[] = []
-let prevActiveAnimations: Record<string, boolean> = {}
 let model0Motions: Record<string, any> = {}
 let model0HitAreas: any[] = []
 let loadedBlobUrls: Record<string, string> | undefined
@@ -860,8 +859,10 @@ function applyActiveAnimations(activeAnims: Record<string, boolean>) {
     const trackIndex = 10 + index
     const isActive = activeAnims[anim.name] || false
 
-    // Skip the animation that is currently set as the base idle animation
-    if (anim.name === currentAnimation.value?.name) {
+    // Skip the animation that is currently set as the base idle animation (fuzzy resolved)
+    const resolvedCurrentIdle = animationManager?.resolveAnimation(currentAnimation.value?.name ?? 'idle')
+    const resolvedTarget = animationManager?.resolveAnimation(anim.name)
+    if (anim.name === currentAnimation.value?.name || (resolvedCurrentIdle && resolvedTarget && resolvedCurrentIdle === resolvedTarget)) {
       const currentTrack = state.getCurrent(trackIndex)
       if (currentTrack && currentTrack.animation?.name === anim.name) {
         state.setEmptyAnimation(trackIndex, props.defaultMixDuration)
@@ -925,7 +926,6 @@ function applyActiveAnimations(activeAnims: Record<string, boolean>) {
       const isPlaying = currentTrack && currentTrack.animation?.name === expectedName
       if (isPlaying && animationState) {
         animationState.setEmptyAnimation(trackIndex, props.defaultMixDuration)
-        skeleton?.setToSetupPose()
       }
     }
   })
@@ -1023,17 +1023,6 @@ watch(() => props.idleAnimations, (newAnims) => {
 
 watch(activeAnimations, (newVal) => {
   const current = props.modelId ? newVal[props.modelId] || {} : {}
-
-  for (const name in prevActiveAnimations) {
-    if (prevActiveAnimations[name] && !current[name]) {
-      console.log(`[Spine] Animation removed: ${name}`)
-      if (skeleton) {
-        skeleton.setToSetupPose()
-      }
-    }
-  }
-
-  prevActiveAnimations = { ...current }
   applyActiveAnimations(current)
 }, { deep: true })
 
