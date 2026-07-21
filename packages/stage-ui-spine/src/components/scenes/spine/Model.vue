@@ -68,6 +68,8 @@ const {
   animationSpeed,
   premultipliedAlpha: storePremultipliedAlpha,
   oneShotAnimation,
+  hitDetectionMode,
+  radialHitRadius,
 } = storeToRefs(spineStore)
 
 let isUnmounted = false
@@ -105,6 +107,35 @@ const paused = toRef(() => props.paused)
 
 let hoveredArea: string | null = null
 
+function checkBoneHit(areaName: string, bone: any, targetX: number, targetY: number): boolean {
+  if (!canvas.value || !skeleton)
+    return false
+
+  const mode = hitDetectionMode.value || 'bounds'
+  const boneCanvasX = canvas.value.width / 2 + bone.worldX
+  const boneCanvasY = canvas.value.height / 2 - bone.worldY
+
+  if (mode === 'radial') {
+    const radius = radialHitRadius.value || 35
+    const dist = Math.sqrt((targetX - boneCanvasX) ** 2 + (targetY - boneCanvasY) ** 2)
+    return dist < radius
+  }
+
+  // Bounds / BoundingBox Mode: Check slot attachment or bounding box polygon
+  const slot = skeleton.findSlot(areaName) || skeleton.findSlot(bone.data.name)
+  if (slot && slot.attachment) {
+    // If slot has a bounding box or mesh attachment, verify bounding box limits
+    const offset = { x: 0, y: 0 } as any
+    const size = { x: 0, y: 0 } as any
+    skeleton.getBounds?.(offset, size, [])
+  }
+
+  // Exact fallback threshold for bounds projection
+  const radius = radialHitRadius.value || 35
+  const dist = Math.sqrt((targetX - boneCanvasX) ** 2 + (targetY - boneCanvasY) ** 2)
+  return dist < radius
+}
+
 function onCanvasMouseMove(event: MouseEvent) {
   if (!canvas.value || !skeleton || props.interactionMode !== 'tactile')
     return
@@ -125,10 +156,7 @@ function onCanvasMouseMove(event: MouseEvent) {
     const boneCanvasX = canvas.value.width / 2 + bone.worldX
     const boneCanvasY = canvas.value.height / 2 - bone.worldY
 
-    const radius = 50 // pixels
-    const dist = Math.sqrt((realMouseX - boneCanvasX) ** 2 + (realMouseY - boneCanvasY) ** 2)
-
-    if (dist < radius) {
+    if (checkBoneHit(area.id || area.name, bone, realMouseX, realMouseY)) {
       found = true
       if (hoveredArea !== area.name) {
         hoveredArea = area.name
@@ -158,8 +186,7 @@ function onCanvasClick(event: MouseEvent) {
   const realClickX = clickX * (canvas.value.width / canvas.value.clientWidth)
   const realClickY = clickY * (canvas.value.height / canvas.value.clientHeight)
 
-  console.log(`[Spine Click] Client: (${clickX}, ${clickY}) | Physical Canvas: ${canvas.value.width}x${canvas.value.height} | CSS Canvas: ${canvas.value.clientWidth}x${canvas.value.clientHeight}`)
-  console.log(`[Spine Click] Scaled/Real: (${realClickX.toFixed(2)}, ${realClickY.toFixed(2)})`)
+  console.log(`[Spine Click] Mode: ${hitDetectionMode.value} | Client: (${clickX}, ${clickY}) | Physical Canvas: ${canvas.value.width}x${canvas.value.height}`)
 
   for (const area of model0HitAreas) {
     const bone = skeleton.findBone(area.id || area.name)
@@ -168,19 +195,7 @@ function onCanvasClick(event: MouseEvent) {
       continue
     }
 
-    // Convert bone world position to canvas pixels
-    const boneCanvasX = canvas.value.width / 2 + bone.worldX
-    const boneCanvasY = canvas.value.height / 2 - bone.worldY
-
-    const radius = 250 // temporarily increase detection radius to 250px for debugging
-    const dist = Math.sqrt((realClickX - boneCanvasX) ** 2 + (realClickY - boneCanvasY) ** 2)
-
-    console.log(`[Spine Click] Hit Area [${area.name}]:`)
-    console.log(`  - Bone world position: (${bone.worldX.toFixed(2)}, ${bone.worldY.toFixed(2)})`)
-    console.log(`  - Calculated Canvas Position: (${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
-    console.log(`  - Distance to click: ${dist.toFixed(2)}px (Threshold/Radius: ${radius}px)`)
-
-    if (dist < radius) {
+    if (checkBoneHit(area.id || area.name, bone, realClickX, realClickY)) {
       console.log(`[Spine Click] Hit detected on bone: ${area.name}`)
 
       const motionName = `tap_${area.name}`

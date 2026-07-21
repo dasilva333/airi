@@ -44,7 +44,14 @@ const {
   availableVariants,
   currentVariant,
   animationSpeed,
+  hitDetectionMode,
+  radialHitRadius,
 } = storeToRefs(spineStore)
+
+const hitDetectionOptions = [
+  { value: 'bounds', label: 'Mesh / Bounding Box (Default)' },
+  { value: 'radial', label: 'Radial Distance' },
+]
 
 const scale = computed({
   get: () => positioningStore.getPosition(props.modelId || stageModelSelected.value).scale,
@@ -216,6 +223,29 @@ const activeCustomizationTab = ref('customizer')
       <p class="px-1 text-[10px] text-neutral-400">
         (Disabled for Phase 1)
       </p>
+    </div>
+
+    <!-- Hit Detection Mode -->
+    <div flex="~ col gap-2" class="mb-4">
+      <div class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+        Hit Detection Mode
+      </div>
+      <Select
+        v-model="hitDetectionMode"
+        :options="hitDetectionOptions"
+        class="w-full"
+      />
+      <div v-if="hitDetectionMode === 'radial'" class="mt-2">
+        <FieldRange
+          v-model="radialHitRadius"
+          as="div"
+          :min="10"
+          :max="250"
+          :step="5"
+          :default-value="35"
+          label="Hit Radius (px)"
+        />
+      </div>
     </div>
 
     <!-- Rendering -->

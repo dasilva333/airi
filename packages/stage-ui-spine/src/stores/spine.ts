@@ -141,6 +141,18 @@ export const useSpine = defineStore('spine', () => {
     post({ type: 'spine-play-one-shot', name, loop })
   }
 
+  /** Hit detection mode for tactile interactions ('bounds' for mesh/bbox, 'radial' for origin circle). */
+  const hitDetectionMode = useLocalStorageManualReset<'bounds' | 'radial'>(
+    'settings/spine/hit-detection-mode',
+    'bounds',
+  )
+
+  /** Radius threshold in pixels when using radial hit detection. */
+  const radialHitRadius = useLocalStorageManualReset<number>(
+    'settings/spine/radial-hit-radius',
+    35,
+  )
+
   const { position, scale, reset: resetViewControl } = useSpineViewControl()
 
   function resetState() {
@@ -153,6 +165,8 @@ export const useSpine = defineStore('spine', () => {
     availableVariants.reset()
     currentVariant.reset()
     animationSpeed.reset()
+    hitDetectionMode.reset()
+    radialHitRadius.reset()
     premultipliedAlpha.value = true
     shouldUpdateView()
   }
@@ -168,6 +182,8 @@ export const useSpine = defineStore('spine', () => {
     availableVariants,
     currentVariant,
     animationSpeed,
+    hitDetectionMode,
+    radialHitRadius,
     premultipliedAlpha,
     isModelLoaded,
     oneShotAnimation,
