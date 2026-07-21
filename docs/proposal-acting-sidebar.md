@@ -83,6 +83,62 @@ Rehearsal Room (Chatbox Process)                Stage Window Host (Renderer Proc
    - After processing, the player dispatches `intent.writeFlush()` and `intent.end()`.
 5. **Downstream Benefits:** This ensures any fixes applied to the main chat audio slicing, tag synchronization, or caption overlay are instantly shared by the sandbox playground.
 
+### Special Token Execution & Model Dispatch Branching
+
+Once special tokens arrive at the Stage Host (`ControlStripHost.vue`), the pipeline parses the token contents (`<|ACT:emotion="..."|>` or `<|ACT:motion="..."|>`) and dispatches the visual command to the active renderer.
+
+```
+                          <|ACT:emotion="Name"|>
+                                    │
+                     [ControlStripHost.vue:320-370]
+                                    │
+       ┌────────────────────────────┼────────────────────────────┐
+       ▼                            ▼                            ▼
+    Live2D                         VRM                      Spine / MMD
+live2dStore.triggerEmotion   modelStore.triggerEmotion    Composite Key & Motion Match:
+                                                          - Variant [Skin] or Variant
+                                                            ➜ selectVariantAndSkin()
+                                                          - Animation key
+                                                            ➜ playOneShotAnimation()
+```
+
+#### Entry Points & Core Files Index:
+
+| Step | Location / File | Purpose |
+|------|-----------------|---------|
+| **1. UI Trigger** | [`chat_rehearsal.vue:296`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue#L296) | Sandbox text parser; emits tokens via `orchestrator.emitTokenSpecialHooks()`. |
+| **2. Stream Bus** | [`pipeline-runtime.ts:184`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/services/speech/pipeline-runtime.ts#L184) | Slices stream into `speechIntentSpecialEvent` tokens over cross-window Eventa bus. |
+| **3. Stage Host** | [`ControlStripHost.vue:326`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenes/ControlStripHost.vue#L326) | Receives `<|ACT...|>` token and branches execution to the active model renderer store. |
+| **4. Spine Dispatch** | [`ControlStripHost.vue:331`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenes/ControlStripHost.vue#L331) | Parses `Variant [Skin]` keys $\rightarrow$ calls `spineStore.selectVariantAndSkin()`; motion keys $\rightarrow$ calls `spineStore.playOneShotAnimation()`. |
+| **5. Spine Store** | [`spine.ts:174`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-spine/src/stores/spine.ts#L174) | Manages atomic `currentVariant` & `currentSkin` refs; triggers WebGL skeleton switch on stage. |
+
+### Voice Resolution Hierarchy & Sandbox Context Decoration
+
+To ensure TTS speech audio uses the correct voice during rehearsal playback, speech synthesis resolves voice configuration using a strict **3-Tier Fallback Hierarchy**:
+
+```
+                       TTS Voice Resolution
+                                │
+          ┌─────────────────────┴─────────────────────┐
+          ▼                                           ▼
+[Tier 1: Actress Voice]                      [Tier 2: Character Card Voice]
+visual_assets[actorId].speech                card.extensions.airi.modules.speech
+          │                                           │
+          └─────────────────────┬─────────────────────┘
+                                ▼
+                     [Tier 3: Global User Voice]
+                     speechStore.activeSpeechVoiceId
+```
+
+#### Why Rehearsal Room Must Decorate Context:
+During normal chat streaming, the orchestrator attaches `characterId` and `actorId` to message context and emits `<|ACTOR:conceptId|>` tags when switching actresses on multi-character cards.
+
+In `chat_rehearsal.vue` (the sandbox playground):
+1. **Context Decoration**: [`chat_rehearsal.vue:309`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue#L309) decorates `dummyContext` with `characterId: activeCardId.value` and `actorId: selectedModel.value?.key`.
+2. **Actor Tag Prepending**: If a specific actress concept is selected in the carousel (e.g. `actress_yomi`), `playRehearsal()` prepends an `<|ACTOR:actress_yomi|>` token to the stream.
+3. **Execution Result**: When `<|ACTOR:actress_yomi|>` arrives at `ControlStripHost.vue`, `specialTokenQueue` catches it, activates `actress_yomi` in `artistryAutonomousStore`, and sets `playbackActorId = 'actress_yomi'`.
+4. **Resolution Result**: `resolveSpeechConfigForActor('actress_yomi')` successfully resolves **Tier 1 (Actress Voice)** or **Tier 2 (Character Voice)** instead of falling through to Tier 3 (Global User / Narrator Voice).
+
 ---
 
 ## Layout & Elements

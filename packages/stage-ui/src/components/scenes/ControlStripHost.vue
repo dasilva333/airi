@@ -328,7 +328,19 @@ const emotionsQueue = createQueue<EmotionPayload>({
         const intensity = ctx.data.intensity
         console.info('[Stage] Spine emotion/motion processing:', { name: emotionName, intensity })
         const spineStore = useSpine()
-        spineStore.playOneShotAnimation(emotionName, false)
+
+        const match = emotionName.match(/^(.+?)\s*\[(.+?)\]$/)
+        if (match) {
+          const variant = match[1].trim()
+          const skin = match[2].trim()
+          spineStore.selectVariantAndSkin(variant, skin)
+        }
+        else if (spineStore.availableVariants.some(v => v.name === emotionName)) {
+          spineStore.selectVariantAndSkin(emotionName, 'default')
+        }
+        else {
+          spineStore.playOneShotAnimation(emotionName, false)
+        }
       }
       else if (stageModelRenderer.value === 'mmd') {
         const emotionName = ctx.data.name
