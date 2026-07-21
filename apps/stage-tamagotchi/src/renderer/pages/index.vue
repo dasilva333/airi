@@ -77,7 +77,7 @@ const isLoading = ref(true)
 const isIgnoringMouseEvents = ref(false)
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
-const { isOutside: isOutsideControlStrip } = useElectronMouseInElement(controlStripRoot)
+const { isOutside: isOutsideControlStrip, elementX, elementY, elementWidth, elementHeight } = useElectronMouseInElement(controlStripRoot)
 const isOutside = computed(() => isOutsideControlStrip.value)
 const isOutsideForInstant = isOutside
 
@@ -819,7 +819,7 @@ onMounted(async () => {
     const availTop = (window.screen as any)?.availTop ?? 0
     const availWidth = window.screen?.availWidth ?? window.innerWidth
     const availHeight = window.screen?.availHeight ?? window.innerHeight
-    const threshold = 25
+    const threshold = 3
 
     let edge: 'left' | 'right' | 'top' | 'bottom' | null = null
     if (x <= availLeft + threshold)
@@ -892,7 +892,7 @@ onMounted(async () => {
         const availTop = (window.screen as any)?.availTop ?? 0
         const availWidth = window.screen?.availWidth ?? window.innerWidth
         const availHeight = window.screen?.availHeight ?? window.innerHeight
-        const threshold = 25
+        const threshold = 3
 
         let edge: 'left' | 'right' | 'top' | 'bottom' | null = null
         if (x <= availLeft + threshold)

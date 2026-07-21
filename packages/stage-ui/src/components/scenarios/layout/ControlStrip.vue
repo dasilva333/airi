@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
@@ -41,20 +40,6 @@ const activePopover = ref<string | null>(null)
 // Auto-hide Tab hover states
 const hoverExpanded = ref(false)
 const hoverTimer = ref<NodeJS.Timeout | null>(null)
-const mouseApproaching = ref(false)
-
-const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
-
-watch(isOutsideWindow, (isOutside) => {
-  if (!isElectron.value)
-    return
-  if (autoHideMode.value) {
-    mouseApproaching.value = !isOutside
-    if (isOutside) {
-      hoverExpanded.value = false
-    }
-  }
-})
 
 const isFullyExpanded = computed(() => {
   if (autoHideMode.value) {
@@ -88,21 +73,19 @@ const autoHideTabClasses = computed(() => {
     return ''
   }
   const edge = dockedEdge.value
-  const approaching = mouseApproaching.value
-
   const base = 'transition-transform duration-300 ease-out'
 
-  if (edge === 'left') { // Left edge
-    return `${base} rounded-r-full rounded-l-none border-l-0 ${approaching ? '-translate-x-2' : '-translate-x-8'}`
+  if (edge === 'left') {
+    return `${base} rounded-r-full rounded-l-none border-l-0 -translate-x-[calc(100%-14px)]`
   }
-  if (edge === 'right') { // Right edge
-    return `${base} rounded-l-full rounded-r-none border-r-0 ${approaching ? 'translate-x-2' : 'translate-x-8'}`
+  if (edge === 'right') {
+    return `${base} rounded-l-full rounded-r-none border-r-0 translate-x-[calc(100%-14px)]`
   }
-  if (edge === 'top') { // Top edge
-    return `${base} rounded-b-full rounded-t-none border-t-0 ${approaching ? '-translate-y-2' : '-translate-y-8'}`
+  if (edge === 'top') {
+    return `${base} rounded-b-full rounded-t-none border-t-0 -translate-y-[calc(100%-14px)]`
   }
-  if (edge === 'bottom') { // Bottom edge
-    return `${base} rounded-t-full rounded-b-none border-b-0 ${approaching ? 'translate-y-2' : 'translate-y-8'}`
+  if (edge === 'bottom') {
+    return `${base} rounded-t-full rounded-b-none border-b-0 translate-y-[calc(100%-14px)]`
   }
   return ''
 })

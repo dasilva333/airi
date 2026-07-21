@@ -542,6 +542,34 @@ async function loadModel() {
           animationState.update(delta * animationSpeed.value)
           animationState.apply(skeleton)
 
+          // Diagnostic logger exposed to window for console debugging
+          if (typeof window !== 'undefined') {
+            (window as any).logSpineEyes = (reason = 'manual') => {
+              if (!skeleton || !animationState) {
+                console.warn('[Spine Eye Diagnostic] Skeleton or animationState is null')
+                return
+              }
+              const eyeSlots = skeleton.slots.filter(s =>
+                s.data.name.toLowerCase().includes('eye')
+                || s.data.name.toLowerCase().includes('face')
+                || s.data.name.toLowerCase().includes('head'),
+              )
+              const tracks: any[] = []
+              for (let i = 0; i <= 15; i++) {
+                const t = animationState.getCurrent(i)
+                if (t) {
+                  tracks.push({ track: i, anim: t.animation?.name, time: t.trackTime.toFixed(2), loop: t.loop, alpha: t.alpha })
+                }
+              }
+              console.log(`[Spine Eye Diagnostic - ${reason}]`, {
+                skin: skeleton.skin?.name,
+                tracks,
+                eyeSlots: eyeSlots.map(s => ({ slot: s.data.name, attachment: s.attachment?.name })),
+                allSlots: skeleton.slots.map(s => ({ name: s.data.name, attachment: s.attachment?.name })).filter(s => s.attachment),
+              })
+            }
+          }
+
           if (props.mouthOpenSize !== undefined) {
             const mouthOpen = props.mouthOpenSize > 0
             if (mouthOpen !== isTalkActive) {
@@ -852,83 +880,47 @@ function playNextIdleCycleAnimation() {
 
 function applyActiveAnimations(activeAnims: Record<string, boolean>) {
   const state = animationState
-  if (!state || !availableAnimations.value)
+  if (!state || !availableAnimations.value || !animationManager)
     return
 
-  availableAnimations.value.forEach((anim, index) => {
-    const trackIndex = 10 + index
-    const isActive = activeAnims[anim.name] || false
+  // Find the active animation requested by the user
+  const activeEntry = availableAnimations.value.find(anim => activeAnims[anim.name])
 
-    // Skip the animation that is currently set as the base idle animation (fuzzy resolved)
-    const resolvedCurrentIdle = animationManager?.resolveAnimation(currentAnimation.value?.name ?? 'idle')
-    const resolvedTarget = animationManager?.resolveAnimation(anim.name)
-    if (anim.name === currentAnimation.value?.name || (resolvedCurrentIdle && resolvedTarget && resolvedCurrentIdle === resolvedTarget)) {
-      const currentTrack = state.getCurrent(trackIndex)
-      if (currentTrack && currentTrack.animation?.name === anim.name) {
-        state.setEmptyAnimation(trackIndex, props.defaultMixDuration)
-      }
-      return
+  if (activeEntry) {
+    const animName = activeEntry.name
+    const resolved = animationManager.resolveAnimation(animName) ?? animName
+
+    // 1. Play directly on Track 0 (like official Trickcal viewer)
+    const currentTrack = state.getCurrent(SPINE_IDLE_TRACK)
+    if (currentTrack?.animation?.name !== resolved) {
+      state.setAnimation(SPINE_IDLE_TRACK, resolved, true)
     }
 
-    const currentTrack = state.getCurrent(trackIndex)
-    const motionConfig = model0Motions[anim.name]
-
-    if (isActive) {
-      // model0 mapped motion — one-shot with random audio
-      if (motionConfig && motionConfig.length > 0) {
-        // Already fired this activation cycle — do nothing until toggled off and on
-        if (triggeredMotions.has(anim.name))
-          return
-
-        triggeredMotions.add(anim.name)
-
-        const randomIndex = Math.floor(Math.random() * motionConfig.length)
-        const config = motionConfig[randomIndex]
-
-        if (!config || !config.file) {
-          console.warn(`[Spine] Triggered motion "${anim.name}" has no animation file defined. Skipping.`)
-          return
-        }
-
-        state.setAnimation(trackIndex, config.file, false)
-
-        if (config.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
-          // Leadership Election: Only the "Stage" window handles audio playback
-          const hash = window.location.hash || '#/'
-          const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-
-          if (isStage) {
-            // Stop any previously playing audio first
-            if (currentSpineAudio) {
-              currentSpineAudio.pause()
-              currentSpineAudio.currentTime = 0
-            }
-            currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
-            currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
+    // 2. Handle model0 mapped audio/motion sound if present
+    const motionConfig = model0Motions[animName]
+    if (motionConfig && motionConfig.length > 0 && !triggeredMotions.has(animName)) {
+      triggeredMotions.add(animName)
+      const config = motionConfig[0]
+      if (config?.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
+        const hash = window.location.hash || '#/'
+        const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
+        if (isStage) {
+          if (currentSpineAudio) {
+            currentSpineAudio.pause()
+            currentSpineAudio.currentTime = 0
           }
+          currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
+          currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
         }
-        else {
-          console.warn(`[Spine] Audio file not found or blob URL missing for: ${config.sound}`)
-        }
-      }
-      // Regular skeleton animation — loop as usual
-      else {
-        const isPlaying = currentTrack && currentTrack.animation?.name === anim.name
-        if (!isPlaying && animationState)
-          animationState.setAnimation(trackIndex, anim.name, true)
       }
     }
-    else {
-      // Motion was deactivated — clear trigger state so it can fire again next time
-      triggeredMotions.delete(anim.name)
-
-      const expectedName = (motionConfig && motionConfig[0]) ? motionConfig[0].file : anim.name
-      const isPlaying = currentTrack && currentTrack.animation?.name === expectedName
-      if (isPlaying && animationState) {
-        animationState.setEmptyAnimation(trackIndex, props.defaultMixDuration)
-      }
-    }
-  })
+  }
+  else {
+    // Clear motion trigger flags when no active animations are set
+    triggeredMotions.clear()
+    // Revert Track 0 to base idle
+    applyCurrentAnimation()
+  }
 }
 
 function applySkin(skinName: string) {
