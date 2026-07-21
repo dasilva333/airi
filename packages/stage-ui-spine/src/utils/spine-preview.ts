@@ -106,11 +106,15 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
             const skeleton = new spine.Skeleton(skeletonData)
             skeleton.setToSetupPose()
 
-            // Some rigs ship without a default skin; their slot attachments
-            // only resolve once a skin is active, so setup pose renders empty.
-            // Fall back to the first skin so the preview isn't blank.
-            if (!skeletonData.defaultSkin && skeletonData.skins.length > 0) {
-              skeleton.setSkinByName(skeletonData.skins[0].name)
+            // NOTICE: Spine rigs often store body/outfit attachments inside named skins like "Normal".
+            // skeletonData.defaultSkin is an object that always exists in Spine runtime, but may be empty
+            // of body attachments. We explicitly set the skin to "Normal" or the first available skin,
+            // then call setSlotsToSetupPose() so the entire body renders for the preview thumbnail.
+            const targetSkin = skeletonData.findSkin('Normal')
+              ?? (skeletonData.skins.find(s => s.name !== 'default') ?? skeletonData.skins[0])
+
+            if (targetSkin) {
+              skeleton.setSkin(targetSkin)
               skeleton.setSlotsToSetupPose()
             }
 
