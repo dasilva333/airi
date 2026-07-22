@@ -2262,6 +2262,12 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (!localKey)
           return
 
+        if (localKey.startsWith('local:localstorage/')) {
+          const key = localKey.substring('local:localstorage/'.length)
+          if (shouldExcludeLocalStorageKey(key))
+            return
+        }
+
         const loopQuotaCheck = await checkQuotaLimit()
         if (!loopQuotaCheck.safe) {
           console.warn('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
@@ -3129,6 +3135,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
         // A. Clear outbox entry if it exists to prevent safety blocks
         const keyWithoutPrefix = localKey.replace('local:', '')
+        const lsKey = keyWithoutPrefix.substring('localstorage/'.length)
+        if (shouldExcludeLocalStorageKey(lsKey))
+          return
+
         const outboxKey = `outbox:queue/${keyWithoutPrefix}`
         await storage.removeItem(outboxKey)
 

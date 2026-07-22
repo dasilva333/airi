@@ -77,7 +77,7 @@ const isLoading = ref(true)
 const isIgnoringMouseEvents = ref(false)
 
 const { isOutside: isOutsideWindow } = useElectronMouseInWindow()
-const { isOutside: isOutsideControlStrip, elementX, elementY, elementWidth, elementHeight } = useElectronMouseInElement(controlStripRoot)
+const { isOutside: isOutsideControlStrip } = useElectronMouseInElement(controlStripRoot)
 const isOutside = computed(() => isOutsideControlStrip.value)
 const isOutsideForInstant = isOutside
 

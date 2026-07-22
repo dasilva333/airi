@@ -15,6 +15,9 @@ function execute(cmd, options = {}) {
 }
 
 async function main() {
+  const isBuildOnly = process.argv.includes('--build-only')
+  const isUploadOnly = process.argv.includes('--upload-only')
+
   const rootDir = process.cwd()
   const tamagotchiDir = path.join(rootDir, 'apps', 'stage-tamagotchi')
   const packageJsonPath = path.join(tamagotchiDir, 'package.json')
@@ -39,33 +42,35 @@ async function main() {
     console.warn('⚠️ Warning: Git sync failed. Proceeding with local repository state.')
   }
 
-  // Step 2: Check for active file locks on app.asar
-  const asarPath = path.join(tamagotchiDir, 'dist', 'win-unpacked', 'resources', 'app.asar')
-  if (fs.existsSync(asarPath)) {
-    console.log(`🔍 Checking for active file locks on: ${asarPath}`)
-    try {
-      const fd = fs.openSync(asarPath, 'r+')
-      fs.closeSync(fd)
-      console.log('✅ app.asar is not locked. Safe to proceed with build.')
-    }
-    catch (err) {
-      if (['EBUSY', 'EACCES', 'EPERM'].includes(err.code)) {
-        console.error('\n❌ BUILD LOCK DETECTED ❌')
-        console.error('The file "app.asar" is currently locked by another process.')
-        console.error('👉 Please make sure that AIRI is closed and no VS Code process or terminal is locking the output directory.')
-        process.exit(1)
+  if (!isUploadOnly) {
+    // Step 2: Check for active file locks on app.asar
+    const asarPath = path.join(tamagotchiDir, 'dist', 'win-unpacked', 'resources', 'app.asar')
+    if (fs.existsSync(asarPath)) {
+      console.log(`🔍 Checking for active file locks on: ${asarPath}`)
+      try {
+        const fd = fs.openSync(asarPath, 'r+')
+        fs.closeSync(fd)
+        console.log('✅ app.asar is not locked. Safe to proceed with build.')
+      }
+      catch (err) {
+        if (['EBUSY', 'EACCES', 'EPERM'].includes(err.code)) {
+          console.error('\n❌ BUILD LOCK DETECTED ❌')
+          console.error('The file "app.asar" is currently locked by another process.')
+          console.error('👉 Please make sure that AIRI is closed and no VS Code process or terminal is locking the output directory.')
+          process.exit(1)
+        }
       }
     }
-  }
 
-  // Step 3: Run the build:win script
-  console.log(`\n🔨 Compiling Windows Setup executable...`)
-  try {
-    execute('pnpm -F @proj-airi/stage-tamagotchi run build:win')
-  }
-  catch (error) {
-    console.error('❌ Build execution failed.')
-    process.exit(1)
+    // Step 3: Run the build:win script
+    console.log(`\n🔨 Compiling Windows Setup executable...`)
+    try {
+      execute('pnpm -F @proj-airi/stage-tamagotchi run build:win')
+    }
+    catch (error) {
+      console.error('❌ Build execution failed.')
+      process.exit(1)
+    }
   }
 
   // Step 4: Locate the generated exe installer
@@ -86,6 +91,14 @@ async function main() {
 
   const exePath = path.join('apps', 'stage-tamagotchi', 'dist', setupExe)
   console.log(`\n🎉 Found installer asset: ${exePath}`)
+
+  if (isBuildOnly) {
+    console.log(`\n✅ Build complete! Setup binary ready for smoke test at:`)
+    console.log(`👉 ${exePath}`)
+    console.log(`\nWhen smoke testing is complete and approved, run:`)
+    console.log(`👉 pnpm run release:win --upload-only`)
+    return
+  }
 
   // Step 5: Check if GitHub release already exists, if not, create it
   console.log(`\n🌐 Checking if GitHub release ${tag} exists...`)
