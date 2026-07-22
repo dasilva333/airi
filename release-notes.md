@@ -1,6 +1,6 @@
-# 🚀 AIRI v0.9.19 — Early Draft Release Notes
+# 🚀 AIRI v0.9.19-stable.20260721 — Release Notes
 
-This release brings major **Actor Stage & WhisperDock upgrades**, a **Spine Model overhaul**, new **Model Marketplaces**, and a full **Captions Position/Visibility split**.
+This release brings major **Actor Stage & WhisperDock upgrades**, a **Spine Model overhaul**, new **Model Marketplaces**, an **Adhoc Custom Character Creator with local vision auto-tagging**, and a full **Captions Position/Visibility split**.
 
 ---
 
@@ -12,6 +12,12 @@ This release brings major **Actor Stage & WhisperDock upgrades**, a **Spine Mode
 * **Quick Resize**: Added the ability to instantly pick between 4 preset stage sizes directly from the config overlay.
 * **Quick Position**: Added corner-snap controls to quickly reposition the stage to any screen corner with one click.
 * **Window Bounds Clamping**: Fixed an issue where resizing the stage window could push it outside the visible screen area — it will now always stay fully on screen.
+
+### 🃏 AnimaDex & Custom Characters
+* **Adhoc Custom Character Creator**: Added an inline flow for creating, editing, cloning, and deleting custom characters directly within the AnimaDex Wizard (`guided.vue`). Custom characters persist locally (`airi:animadex:custom-characters`) and merge transparently into catalog searches, synthesis steps, and card generation pipelines.
+* **In-Browser Local Vision Auto-Tagging**: Integrated headless `blip-local` vision tag extraction inside the Custom Character dialog. Users can pick a reference artwork to automatically generate comma-separated visual tags into the modifiers field in seconds with zero persistent image overhead.
+* **Two-Row Filter Layout Restructure**: Restructured the AnimaDex character selection header into two distinct, purpose-driven control rows: Row 1 for primary actions (`+ Add Custom Character`) and feature toggles (`Has Bound Model`), and Row 2 for gender trait filters (`All`, `Female`, `Male`, `Ambiguous`, `Non-Human`).
+* **Custom Card Badges & Hover Management**: Overlaid purple `CUSTOM` badges on custom character cards in the wizard grid, along with fallback gradient portraits and inline hover controls for **Edit**, **Clone**, and **Delete**.
 
 ### 🦴 Spine Model Overhaul
 * **Emotions List Normalization**: Revamped the `ModelCustomizer` to normalize all Spine variants and skins into a unified static Emotions list.
@@ -42,3 +48,4 @@ This release brings major **Actor Stage & WhisperDock upgrades**, a **Spine Mode
 * **ModelAssignmentModal**: Added a new model self-healing resolver with a `ModelAssignmentModal` fallback.
 * **Layout Overflow Fix**: Resolved layout overflow in `ModelCustomizer` list items.
 * **Self-Healing Backup Path**: Dynamically resolves the hardcoded self-healing backup path using active sync configurations.
+
