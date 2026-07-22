@@ -1177,8 +1177,13 @@ app.whenReady().then(async () => {
             return { success: true, content: buffer.toString('utf-8') }
           }
         }
-        catch (error) {
-          console.error('[BYOS-FS] Failed to read file:', error)
+        catch (error: any) {
+          if (error?.code === 'ENOENT') {
+            console.error(`[BYOS-FS] Failed to read file: ENOENT: no such file or directory, open '${fullPath}'`)
+          }
+          else {
+            console.error('[BYOS-FS] Failed to read file:', error)
+          }
           return { success: false, error: String(error) }
         }
       })

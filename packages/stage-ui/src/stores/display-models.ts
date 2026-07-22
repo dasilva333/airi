@@ -16,6 +16,7 @@ import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
 import { convertSpineSkeleton } from '../utils/spine-converter/converter'
+import { useSyncEngineStore } from './sync-engine'
 
 import '@proj-airi/stage-ui-live2d/utils/live2d-zip-loader'
 import '@proj-airi/stage-ui-live2d/utils/live2d-opfs-registration'
@@ -160,14 +161,36 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         const val = await localforage.getItem<any>(key)
         if (val) {
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
+            // Attempt defensive Blob/File re-wrapping if val.file is a Blob clone missing prototype methods
+            if (val.file && (val.file instanceof Blob || (typeof val.file === 'object' && val.file.size > 0))) {
+              try {
+                val.file = new File([val.file], val.name || val.file.name || `${key}.bin`, { type: val.file.type || 'application/octet-stream' })
+              }
+              catch (reconstructErr) {
+                console.warn(`[DisplayModels] Could not re-wrap Blob instance for ${key}:`, reconstructErr)
+              }
+            }
+          }
+
+          if (!val.file || typeof val.file.arrayBuffer !== 'function') {
             console.warn(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
+                const syncEngineStore = useSyncEngineStore()
+                const backupDir = syncEngineStore.fsBackupPath
+                  ? `${syncEngineStore.fsBackupPath.replace(/[/\\]+$/, '')}/assets/models`
+                  : ''
+
+                if (!backupDir) {
+                  console.warn(`[DisplayModels] No BYOS backup path configured. Cannot self-heal ${key}.`)
+                  continue
+                }
+
                 // Set a 3-second timeout for reading from the network backup drive
                 const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
                 const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
-                  dir: '/Volumes/AIRI-Backup-Share/assets/models',
+                  dir: backupDir,
                   relPath: `${key}.bin`,
                   encoding: 'base64',
                 })
@@ -193,6 +216,11 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 }
                 else {
                   console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable.`, res?.error)
+                  if (res?.error?.includes('ENOENT') || res?.error?.includes('no such file')) {
+                    console.warn(`[DisplayModels] Removing unrecoverable orphaned model entry from IndexedDB: ${key}`)
+                    await localforage.removeItem(key)
+                    await localforage.removeItem(`${key}-textures`).catch(() => {})
+                  }
                   continue
                 }
               }

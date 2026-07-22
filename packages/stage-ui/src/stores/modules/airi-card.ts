@@ -9,7 +9,7 @@ import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { safeParse } from 'valibot'
-import { computed, ref, toRaw, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import {
@@ -320,21 +320,19 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         const legacyHiddenMotions = live2dExt.hiddenMotions || modulesExt.hiddenMotions
         const legacyFavoriteExpressions = modulesExt.favoriteExpressions || (modulesExt.favoriteExpression ? [modulesExt.favoriteExpression] : undefined)
 
+        const localforageModule = await import('localforage').then(m => m.default || m)
+        const dbModel = await localforageModule.getItem<any>(displayModelId)
+        if (!dbModel)
+          continue
+
         let modelModified = false
-        const rawModel = toRaw(model)
         const updatedModel: any = {
-          ...rawModel,
-          file: 'file' in rawModel ? toRaw((rawModel as any).file) : undefined,
-          previewImage: rawModel.previewImage,
-          emotionMappings: rawModel.emotionMappings ? JSON.parse(JSON.stringify(toRaw(rawModel.emotionMappings))) : {},
-          motionMappings: rawModel.motionMappings ? JSON.parse(JSON.stringify(toRaw(rawModel.motionMappings))) : {},
-          hiddenExpressions: rawModel.hiddenExpressions ? JSON.parse(JSON.stringify(toRaw(rawModel.hiddenExpressions))) : [],
-          hiddenMotions: rawModel.hiddenMotions ? JSON.parse(JSON.stringify(toRaw(rawModel.hiddenMotions))) : [],
-          favoriteExpressions: rawModel.favoriteExpressions ? JSON.parse(JSON.stringify(toRaw(rawModel.favoriteExpressions))) : [],
-          groups: rawModel.groups ? JSON.parse(JSON.stringify(toRaw(rawModel.groups))) : [],
-          tags: rawModel.tags ? JSON.parse(JSON.stringify(toRaw(rawModel.tags))) : [],
-          expressions: rawModel.expressions ? JSON.parse(JSON.stringify(toRaw(rawModel.expressions))) : [],
-          motions: rawModel.motions ? JSON.parse(JSON.stringify(toRaw(rawModel.motions))) : [],
+          ...dbModel,
+          emotionMappings: dbModel.emotionMappings ? JSON.parse(JSON.stringify(dbModel.emotionMappings)) : {},
+          motionMappings: dbModel.motionMappings ? JSON.parse(JSON.stringify(dbModel.motionMappings)) : {},
+          hiddenExpressions: dbModel.hiddenExpressions ? JSON.parse(JSON.stringify(dbModel.hiddenExpressions)) : [],
+          hiddenMotions: dbModel.hiddenMotions ? JSON.parse(JSON.stringify(dbModel.hiddenMotions)) : [],
+          favoriteExpressions: dbModel.favoriteExpressions ? JSON.parse(JSON.stringify(dbModel.favoriteExpressions)) : [],
         }
 
         if (legacyEmotionMappings && Object.keys(legacyEmotionMappings).length > 0) {
@@ -360,7 +358,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
         if (modelModified) {
           console.info(`[AiriCard:Migration] Migrating mappings from card "${cardId}" to model "${displayModelId}"`)
-          const localforageModule = await import('localforage').then(m => m.default || m)
           await localforageModule.setItem(displayModelId, updatedModel)
 
           if (card.extensions?.airi?.modules) {
