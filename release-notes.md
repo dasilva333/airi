@@ -1,40 +1,44 @@
-# 🚀 AIRI v0.9.18-stable.20260719 — Release Notes
+# 🚀 AIRI v0.9.19 — Early Draft Release Notes
 
-This release introduces a major **Light Theme Visual Polish**, launches **Autonomous Motion (VRMA) Generation**, integrates new **Free LLM/TTS Providers**, and implements **Custom Actor Highlight Color Coding** inside the Concept Studio.
+This release brings major **Actor Stage & WhisperDock upgrades**, a **Spine Model overhaul**, new **Model Marketplaces**, and a full **Captions Position/Visibility split**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🎨 Universal Light/Dark Theme Polish
-* **Light Theme Normalization**: Conducted a comprehensive layout and styling pass to fully normalize light theme support. Optimized backgrounds, borders, and text contrasts on key surfaces:
-  * **AnimaDex Card Creator** (`guided.vue` wizard steps).
-  * **AutoVoiceConfigModal** & Contextual hint strips.
-  * **Persistent World Dock (Hotbar)** & Character selection card overlays.
-  * **Producer Suggestion Choice Bubbles**.
-  * **Chatbox** light theme styling.
+### 🎭 Actor Stage & WhisperDock
+* **WhisperDock Notch**: Moved the static keyboard shortcut icon off the stage surface and into a hidden notch — tap the notch to expand it, click anywhere else to dismiss it.
+* **Stage Config Overlay**: Replaced the old hide-stage button with a cog icon that opens a dedicated config overlay for fine-tuned stage control.
+* **Quick Resize**: Added the ability to instantly pick between 4 preset stage sizes directly from the config overlay.
+* **Quick Position**: Added corner-snap controls to quickly reposition the stage to any screen corner with one click.
+* **Window Bounds Clamping**: Fixed an issue where resizing the stage window could push it outside the visible screen area — it will now always stay fully on screen.
 
-### 🕺 Rehearsal Room & Motion (VRMA) Generation
-* **Create Motion Generator**: Added a custom animation generator to the Rehearsal Playground to create, test, and save custom VRMA motions directly to the database.
-* **Autonomous Motion Tool Calling**: Enabled autonomous `generate_motion` tool calling, allowing your companion to generate new custom animations dynamically.
-* **Suggest Mode Keybinding**: Restored the quick-suggest keybinding trigger inside the Rehearsal Playground as a configurable trigger.
+### 🦴 Spine Model Overhaul
+* **Emotions List Normalization**: Revamped the `ModelCustomizer` to normalize all Spine variants and skins into a unified static Emotions list.
+* **Dual Hit-Detection Architecture**: Added a dual hit-detection system with a new settings UI for Spine models.
+* **Track Collision Fixes**: Resolved track collision bugs and removed destructive `setToSetupPose` calls during motion updates.
+* **ACT Token Outfit Trigger Fix**: Resolved ACT token outfit triggers not correctly applying for Spine models during motion updates.
+* **Thumbnail Generator Fix**: Fixed a non-empty skin bug in the preview generator for full-body thumbnail capture.
+* **Spine 3.x → 4.1 Upgrader**: Integrated an in-memory WebAssembly-based Spine skeleton upgrader that automatically converts legacy Spine 3.x archives on import.
 
-### 🌈 Concept Studio & Actor Color Coding
-* **Actor Color Picker**: Added a custom actor highlight color picker inside the Concept Studio with support for runtime overrides.
-* **Streaming Color Propagation**: Automatically propagates custom actor highlight colors to the chatbox headers and speech bubbles in real time.
-* **Concept Cloning**: Added a new **Clone** button directly inside the Concept Studio to quickly duplicate active cards and concept configurations.
+### 🌐 Model Marketplaces & Cloud Browser
+* **Eikanya Archive**: Integrated the Eikanya Archive directly into the model selector — featuring **5,000+ free Live2D models** available to browse and download instantly.
+* **SillyTavern Live2D Portal**: Integrated the SillyTavern Live2D community portal as a second marketplace tab in the model selector.
+* **Cloud Model Browser Improvements**: Enhanced the remote cloud model browser with metadata caching and tab-scoped loading states.
+* **CORS Bypass Auto-Coalesce**: Automatically merges default CORS bypass URLs with user-defined proxy configurations.
 
-### 📇 AIRI Card Creator & Settings
-* **Motion Tool Gating**: Added a new checkbox toggle to the Card Creator Tools tab to selectively enable or disable autonomous motion generation capabilities.
-* **Character-Scoped Prompt Templates**: Made the Producer panel's suggestion prompt templates character-scoped so companions retain unique guidance rules.
-* **Tool Filter Decoupling**: Decoupled the `allowedTools` capability filter from standard card generation toggles.
-* **Composer Button Settings**: Added right-click configuration menus to the Send and Suggest composer buttons to quickly customize their respective keybindings.
-* **Suggestion Settings Popover**: Added a new settings popover directly to the Suggestions button for configuring suggestion behaviors.
-* **Onboarding Info Tooltip**: Added a new information tooltip helper to guide users through the initial onboarding flow.
-* **Camera Selfie Fix**: Fixed the camera selfie countdown overlay behavior.
+### 📝 Captions Overhaul
+* **Split Position & Visibility Settings**: Separated captions position and visibility into independent controls, along with a full overhaul of the customizer and control-strip toggles.
 
-### 🔌 New Free Providers & Remote Catalog Sync
-* **Remote Model Selector**: Integrated remote model browsing inside the model selector dialog, allowing users to view display models stored in the remote cloud sync server.
-* **Pollinations AI & Xiaomi MiMo**: Integrated Pollinations AI (free image/text generation) and Xiaomi MiMo (free speech TTS) as out-of-the-box providers.
-* **CORS Turnstile Fixes**: Resolved Turnstile captcha validation issues affecting settings layouts.
-* **Remote Model Catalog Sync**: Implemented background remote model catalog syncs and selective model asset downloads.
+### 💬 Chatbox Window
+* **Rehearsal Room Voice Inheritance Fix**: Fixed the Rehearsal Room not inheriting the active character's voice — the ACT token was defaulting to the global voice instead of respecting the character-specific voice assignment.
+* **Generation Stats Popover**: Added a new popover that surfaces live token output statistics and exposes token output limit controls.
+* **TTS Markdown Stripping**: Strip markdown image embeds from TTS pre-processing to prevent garbled audio output.
+* **Live2D Caption System**: Documented and improved the Live2D caption system with module config and model selector improvements.
+
+### 🔧 Bug Fixes & Stability
+* **Control Strip Notch Simplification**: Simplified the Control Strip from a 3–4 state proximity peek mechanism to a clean 2-state hover — the notch now only reveals itself when you hover directly over it, reducing accidental triggers.
+* **Live2D Motion Hooks**: Resolved motion group/index resolution before firing local hooks and broadcasting.
+* **ModelAssignmentModal**: Added a new model self-healing resolver with a `ModelAssignmentModal` fallback.
+* **Layout Overflow Fix**: Resolved layout overflow in `ModelCustomizer` list items.
+* **Self-Healing Backup Path**: Dynamically resolves the hardcoded self-healing backup path using active sync configurations.

@@ -106,8 +106,8 @@ const voiceOptions = computed(() => {
     <VoiceCreatorModal
       v-model="showVoiceCreator"
       character-name="User"
-      @save="(voiceId) => {
-        userProfileStore.voiceProfileId = voiceId
+      @save="(payload) => {
+        userProfileStore.voiceProfileId = typeof payload === 'string' ? payload : payload.baseVoice
       }"
     />
   </div>

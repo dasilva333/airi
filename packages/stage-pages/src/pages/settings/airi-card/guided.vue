@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
+import { useCustomCharactersStore } from '@proj-airi/stage-ui/stores/custom-characters'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -15,7 +16,41 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import AutoVoiceConfigModal from './components/AutoVoiceConfigModal.vue'
+import CustomCharacterModal from './components/CustomCharacterModal.vue'
 import VoiceCreatorModal from './components/VoiceCreatorModal.vue'
+
+const customCharactersStore = useCustomCharactersStore()
+
+// Custom Character Modal state
+const customModalOpen = ref(false)
+const editingCustomCharacter = ref<any | null>(null)
+const initialCustomName = ref('')
+
+function openCreateCustomCharacter(initialName = '') {
+  editingCustomCharacter.value = null
+  initialCustomName.value = initialName
+  customModalOpen.value = true
+}
+
+function openEditCustomCharacter(customChar: any) {
+  const existing = customCharactersStore.customEntries.find(c => c.id === customChar.id)
+  editingCustomCharacter.value = existing || null
+  initialCustomName.value = ''
+  customModalOpen.value = true
+}
+
+function handleDeleteCustomCharacter(charId: string) {
+  wizardStore.removeCharacterFromBasket(charId)
+  customCharactersStore.deleteCustomCharacter(charId)
+  toast.success('Custom character deleted')
+}
+
+function handleCloneCustomCharacter(charId: string) {
+  const cloned = customCharactersStore.cloneCustomCharacter(charId)
+  if (cloned) {
+    toast.success(`Cloned as ${cloned.name}`)
+  }
+}
 
 const router = useRouter()
 const wizardStore = useAnimaDexWizardStore()
@@ -924,25 +959,37 @@ async function confirmCreateCard() {
             </div>
           </div>
 
-          <!-- Root Gender Selector Row -->
+          <!-- Row 1: Primary Actions & Model Toggle -->
+          <div class="mx-auto max-w-2xl w-full flex items-center justify-between gap-3">
+            <Button
+              variant="primary"
+              class="h-[32px] flex items-center gap-1.5 border border-primary-500/30 rounded-xl px-4 text-xs font-semibold shadow-sm"
+              @click="openCreateCustomCharacter()"
+            >
+              <div i-solar:user-plus-bold-duotone class="text-sm" />
+              <span>Add Custom Character</span>
+            </Button>
+
+            <Button
+              :variant="showOnlyModels ? 'primary' : 'secondary'"
+              class="h-[32px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-3.5 text-xs font-medium dark:border-neutral-800"
+              @click="showOnlyModels = !showOnlyModels"
+            >
+              <span>🎭 Has Bound Model ({{ boundCharactersCount }})</span>
+            </Button>
+          </div>
+
+          <!-- Row 2: Gender Trait Filters -->
           <div class="mt-1 flex items-center justify-center gap-2.5">
             <span class="mr-2 text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Gender:</span>
             <Button
               v-for="g in ['All', 'Female', 'Male', 'Ambiguous', 'Non-Human']"
               :key="g"
               :variant="selectedGender === (g === 'All' ? null : g) ? 'primary' : 'secondary'"
-              class="h-[30px] border border-neutral-200 rounded-lg px-3.5 text-xs dark:border-neutral-800"
+              class="h-[28px] border border-neutral-200 rounded-lg px-3 text-xs dark:border-neutral-800"
               @click="wizardStore.setGender(g === 'All' ? null : g)"
             >
               {{ g }}
-            </Button>
-            <span class="mx-2 text-neutral-200 dark:text-neutral-800">|</span>
-            <Button
-              :variant="showOnlyModels ? 'primary' : 'secondary'"
-              class="h-[30px] flex items-center gap-1 border border-neutral-200 rounded-lg px-3.5 text-xs dark:border-neutral-800"
-              @click="showOnlyModels = !showOnlyModels"
-            >
-              <span>🎭 Has Model ({{ boundCharactersCount }})</span>
             </Button>
           </div>
         </div>
@@ -952,6 +999,14 @@ async function confirmCreateCard() {
           <div v-if="filteredCharacters.length === 0" class="h-full flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500">
             <div i-solar:sad-ellipse-line-duotone class="mb-2 text-5xl text-neutral-300 dark:text-neutral-700" />
             <span class="text-sm">No matching characters found in catalog.</span>
+            <Button
+              variant="primary"
+              class="mt-4 flex items-center gap-1.5 border border-primary-500/30 rounded-xl px-4 py-2 text-xs"
+              @click="openCreateCustomCharacter(searchQuery)"
+            >
+              <div i-solar:user-plus-bold-duotone class="text-sm" />
+              Add "{{ searchQuery || 'Custom Character' }}" as Custom Character
+            </Button>
           </div>
 
           <div v-else class="grid grid-cols-2 gap-5 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3 xl:grid-cols-6">
@@ -962,12 +1017,25 @@ async function confirmCreateCard() {
             >
               <!-- Card Portrait Image -->
               <div class="relative aspect-[3/4] overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+                <div v-if="char.isCustom && !getThumbUrl(char.trigger) && !showModelPreviews[char.id]" class="h-full w-full flex flex-col items-center justify-center from-purple-900/30 to-indigo-900/30 bg-gradient-to-br p-2 text-center text-purple-400">
+                  <div i-solar:user-bold-duotone class="text-4xl opacity-80" />
+                  <span class="line-clamp-2 mt-1 text-[10px] text-neutral-300 font-semibold leading-tight opacity-80">{{ char.name }}</span>
+                </div>
                 <img
+                  v-else
                   :src="showModelPreviews[char.id] ? (getModelPreviewUrl(char.trigger) || getThumbUrl(char.trigger)) : getThumbUrl(char.trigger)"
                   alt=""
                   loading="lazy"
                   class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 >
+
+                <!-- Custom Character Badge -->
+                <div
+                  v-if="char.isCustom"
+                  class="absolute left-2 top-2 border border-purple-500/30 rounded-md bg-purple-600/90 px-1.5 py-0.5 text-[9px] text-white font-bold tracking-tight uppercase shadow backdrop-blur-sm"
+                >
+                  Custom
+                </div>
 
                 <!-- Selection Status Badge -->
                 <div
@@ -999,7 +1067,35 @@ async function confirmCreateCard() {
                       <div i-solar:trash-bin-trash-outline class="text-sm" />
                       Remove
                     </Button>
-                    <!-- Secondary Model Actions (Visible if a model is bound - stacked vertically to prevent horizontal overflow) -->
+
+                    <!-- Custom Character Management Actions -->
+                    <div v-if="char.isCustom" class="mt-1 w-full flex gap-1">
+                      <Button
+                        variant="secondary"
+                        class="h-[26px] flex flex-1 items-center justify-center gap-1 border border-neutral-200 rounded-lg text-[9px] font-semibold dark:border-neutral-800 !text-neutral-200 active:!text-white hover:!text-white"
+                        @click.stop="openEditCustomCharacter(char)"
+                      >
+                        <div i-solar:pen-bold-duotone class="text-[10px]" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        class="h-[26px] flex flex-1 items-center justify-center gap-1 border border-neutral-200 rounded-lg text-[9px] font-semibold dark:border-neutral-800 !text-neutral-200 active:!text-white hover:!text-white"
+                        @click.stop="handleCloneCustomCharacter(char.id)"
+                      >
+                        <div i-solar:copy-bold-duotone class="text-[10px]" />
+                        Clone
+                      </Button>
+                      <Button
+                        variant="danger"
+                        class="h-[26px] flex items-center justify-center border border-red-900/30 rounded-lg bg-red-950/20 px-2 text-[9px] text-red-400 font-semibold hover:bg-red-900/40"
+                        @click.stop="handleDeleteCustomCharacter(char.id)"
+                      >
+                        <div i-solar:trash-bin-trash-outline class="text-[10px]" />
+                      </Button>
+                    </div>
+
+                    <!-- Secondary Model Actions -->
                     <div v-if="hasBoundModel(char.trigger)" class="mt-1 w-full flex flex-col gap-1">
                       <Button
                         variant="secondary"
@@ -1029,7 +1125,7 @@ async function confirmCreateCard() {
                   {{ char.name }}
                 </h4>
                 <p class="line-clamp-1 mt-0.5 text-[10px] text-neutral-400 italic dark:text-neutral-500">
-                  {{ wizardStore.copyrights[char.copyrightIndex] || 'Original' }}
+                  {{ char.copyrightName || wizardStore.copyrights[char.copyrightIndex] || 'Original' }}
                 </p>
               </div>
             </div>
@@ -1637,6 +1733,13 @@ async function confirmCreateCard() {
         :genders="wizardStore.facets.gender"
         :bound-models="boundModels"
         @apply="handleApplyAutoVoices"
+      />
+
+      <CustomCharacterModal
+        v-model="customModalOpen"
+        :edit-character="editingCustomCharacter"
+        :initial-name="initialCustomName"
+        :copyrights="wizardStore.copyrights"
       />
     </main>
   </div>

@@ -3,6 +3,8 @@ import { computed, reactive, ref } from 'vue'
 
 import catalogUrl from '../assets/animadex-catalog.json?url'
 
+import { useCustomCharactersStore } from './custom-characters'
+
 export interface CharacterItem {
   id: string
   copyrightIndex: number
@@ -10,6 +12,8 @@ export interface CharacterItem {
   trigger: string
   tags: string
   traits: [number, number, number, number] // [genderIdx, hairLengthIdx, eyeColorIdx, hairColorIdx]
+  copyrightName?: string
+  isCustom?: boolean
 }
 
 export interface FilterChip {
@@ -18,6 +22,7 @@ export interface FilterChip {
 }
 
 export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
+  const customCharactersStore = useCustomCharactersStore()
   const catalogLoaded = ref(false)
   const copyrights = ref<string[]>([])
   const facets = ref<Record<string, string[]>>({
@@ -160,7 +165,8 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
     }
 
     // 3. Copyright matches
-    for (const copyright of copyrights.value || []) {
+    const allCps = Array.from(new Set([...(copyrights.value || []), ...customCharactersStore.customEntries.map(c => c.copyright).filter(Boolean)]))
+    for (const copyright of allCps) {
       if (copyright.toLowerCase().includes(query)) {
         list.push({ type: 'copyright', label: copyright })
         if (list.length >= 8)
@@ -170,12 +176,13 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
 
     // 4. Character name matches (up to 5 to avoid overcrowding)
     let charCount = 0
-    for (const char of characters.value) {
+    const allCharsForSuggestions = [...customCharactersStore.asCharacterItems, ...characters.value]
+    for (const char of allCharsForSuggestions) {
       if (char.name.toLowerCase().includes(query)) {
         list.push({
           type: 'character',
           label: char.name,
-          extra: copyrights.value[char.copyrightIndex] || '',
+          extra: char.copyrightName || copyrights.value[char.copyrightIndex] || '',
         })
         charCount++
         if (charCount >= 5)
@@ -188,9 +195,16 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
 
   // Computed matching characters for the grid
   const filteredCharacters = computed(() => {
-    return characters.value.filter((char) => {
+    const allChars = [
+      ...customCharactersStore.asCharacterItems,
+      ...characters.value,
+    ]
+
+    return allChars.filter((char) => {
+      const charCopyright = char.copyrightName || copyrights.value[char.copyrightIndex] || ''
+
       // 1. Gender Filter
-      if (selectedGender.value) {
+      if (selectedGender.value && !char.isCustom) {
         const genderIdx = facets.value.gender.indexOf(selectedGender.value)
         if (genderIdx !== -1 && char.traits[0] !== genderIdx)
           return false
@@ -199,22 +213,21 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
       // 2. Chip / Filter Tag matching
       for (const chip of selectedChips.value) {
         if (chip.type === 'copyright') {
-          const cpIdx = copyrights.value.findIndex(cp => cp.toLowerCase() === chip.value.toLowerCase())
-          if (cpIdx !== -1 && char.copyrightIndex !== cpIdx)
+          if (charCopyright.toLowerCase() !== chip.value.toLowerCase())
             return false
         }
-        else if (chip.type === 'hair_length') {
+        else if (chip.type === 'hair_length' && !char.isCustom) {
           const lengthIdx = facets.value.hair_length.indexOf(chip.value)
           if (lengthIdx !== -1 && char.traits[1] !== lengthIdx)
             return false
         }
-        else if (chip.type === 'eye_color') {
+        else if (chip.type === 'eye_color' && !char.isCustom) {
           const colorName = chip.value.replace(/\s+eyes$/i, '')
           const colorIdx = facets.value.eye_color.indexOf(colorName)
           if (colorIdx !== -1 && char.traits[2] !== colorIdx)
             return false
         }
-        else if (chip.type === 'hair_color') {
+        else if (chip.type === 'hair_color' && !char.isCustom) {
           const colorName = chip.value.replace(/\s+hair$/i, '')
           const colorIdx = facets.value.hair_color.indexOf(colorName)
           if (colorIdx !== -1 && char.traits[3] !== colorIdx)
@@ -225,6 +238,7 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
           const matched = char.name.toLowerCase().includes(query)
             || char.trigger.toLowerCase().includes(query)
             || char.tags.toLowerCase().includes(query)
+            || charCopyright.toLowerCase().includes(query)
           if (!matched)
             return false
         }
@@ -236,7 +250,7 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
         const matched = char.name.toLowerCase().includes(query)
           || char.trigger.toLowerCase().includes(query)
           || char.tags.toLowerCase().includes(query)
-          || (copyrights.value[char.copyrightIndex] || '').toLowerCase().includes(query)
+          || charCopyright.toLowerCase().includes(query)
         if (!matched)
           return false
       }
@@ -268,14 +282,15 @@ export const useAnimaDexWizardStore = defineStore('animadex-wizard', () => {
     if (!promptOrText)
       return undefined
     const textLower = promptOrText.trim().toLowerCase()
-    return characters.value.find((c) => {
+    const allChars = [...customCharactersStore.asCharacterItems, ...characters.value]
+    return allChars.find((c) => {
       const triggerLower = c.trigger.toLowerCase()
       return textLower === triggerLower || textLower.startsWith(`${triggerLower},`) || textLower.startsWith(`${triggerLower} `)
     })
   }
 
   function getCharacterThumbUrl(canonicalTrigger: string | undefined): string | null {
-    if (!canonicalTrigger)
+    if (!canonicalTrigger || canonicalTrigger.startsWith('custom:'))
       return null
 
     // Replace invalid filename characters
