@@ -390,56 +390,14 @@ const sceneOptions = computed(() => {
   ]
 })
 
-const actingModelExpressionOptions = computed(() => {
-  if (isLive2d.value) {
-    const exps = live2dExpressions.value.map(e => e.name)
-    const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    const motionMappings = activeModel?.motionMappings || {}
-    const hiddenMotions = activeModel?.hiddenMotions || []
-
-    const mappedMotions: string[] = []
-    const unmappedMotions: string[] = []
-
-    const normalize = (s: string) =>
-      s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
-
-    live2dStore.availableMotions.forEach((m) => {
-      if (hiddenMotions.includes(m.fileName))
-        return
-
-      const name = m.fileName.split('/').pop() || m.fileName
-      const cleanName = name.replace('.motion3.json', '').replace('.json', '')
-
-      const mNorm = normalize(m.fileName)
-      let mappedName
-      for (const [mapKey, val] of Object.entries(motionMappings)) {
-        if (normalize(mapKey) === mNorm) {
-          mappedName = val as string
-          break
-        }
-      }
-
-      if (mappedName) {
-        mappedMotions.push(mappedName)
-      }
-      else {
-        unmappedMotions.push(cleanName)
-      }
-    })
-
-    mappedMotions.sort((a, b) => a.localeCompare(b))
-    unmappedMotions.sort((a, b) => a.localeCompare(b))
-
-    if (mappedMotions.length > 0) {
-      return [...new Set([...exps, ...mappedMotions])]
-    }
-    else {
-      return [...new Set([...exps, ...unmappedMotions])]
-    }
+const actingModelEmotionOptions = computed(() => {
+  const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
+  const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
+  if (activeModel?.expressions && activeModel.expressions.length > 0) {
+    return activeModel.expressions
   }
-  if (isSpine.value) {
-    return spineAnimations.value.map(a => a.name).sort((a, b) => a.localeCompare(b))
+  if (isLive2d.value) {
+    return live2dExpressions.value.map(e => e.name).sort((a, b) => a.localeCompare(b))
   }
   if (isMmd.value) {
     const mappings = mmdStore.morphMappings || {}
@@ -468,9 +426,7 @@ const actingModelExpressionOptions = computed(() => {
       return [...new Set(unmapped)].sort((a, b) => a.localeCompare(b))
     }
   }
-  const modelExps = [...availableExpressions.value]
-  const vrmaExps = Object.keys(animations)
-  return [...new Set([...modelExps, ...vrmaExps])].sort((a, b) => a.localeCompare(b))
+  return [...availableExpressions.value].sort((a, b) => a.localeCompare(b))
 })
 
 const actingIdleAnimationOptions = computed(() => {
@@ -531,6 +487,10 @@ const actingIdleAnimationOptions = computed(() => {
   return animationOptions.value
 })
 
+const actingModelMotionOptions = computed(() => {
+  return actingIdleAnimationOptions.value.map(opt => opt.value)
+})
+
 function isVrmaExpression(name: string) {
   return name in animations
 }
@@ -579,49 +539,12 @@ function appendUniqueLine(target: typeof selectedActingModelExpressionPrompt, li
   target.value = `${target.value}${suffix}${line}\n`
 }
 
-function insertModelExpression(name: string) {
-  if (isLive2d.value) {
-    const isExpression = live2dExpressions.value.some(e => e.name === name)
-    const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    const motionMappings = activeModel?.motionMappings || {}
-    const normalize = (s: string) =>
-      s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
+function insertModelEmotion(name: string) {
+  appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:emotion="${name}"|>`)
+}
 
-    const normName = normalize(name)
-    const isMotion = live2dStore.availableMotions.some((m) => {
-      const displayName = m.fileName.split('/').pop() || m.fileName
-      const cleanName = displayName.replace('.motion3.json', '').replace('.json', '')
-
-      const mNorm = normalize(m.fileName)
-      let mappedName
-      for (const [mapKey, val] of Object.entries(motionMappings)) {
-        if (normalize(mapKey) === mNorm) {
-          mappedName = val as string
-          break
-        }
-      }
-
-      const normDisplay = normalize(displayName)
-      const normClean = normalize(cleanName)
-      const normMapped = mappedName ? normalize(mappedName) : undefined
-
-      return normDisplay === normName || normClean === normName || normMapped === normName
-    })
-
-    if (isExpression) {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:emotion:"${name}"|>`)
-    }
-    else if (isMotion) {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion:"${name}"|>`)
-    }
-    else {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
-    }
-  }
-  else {
-    appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
-  }
+function insertModelMotion(name: string) {
+  appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion="${name}"|>`)
 }
 
 function insertSpeechTag(tag: string, description?: string) {
@@ -1206,7 +1129,7 @@ const generatorActingContext = computed(() => {
 
   return {
     isLive2d: isLive2d.value,
-    modelExpressions: actingModelExpressionOptions.value || [],
+    modelExpressions: [...(actingModelEmotionOptions.value || []), ...(actingModelMotionOptions.value || [])],
     speechTags: flatSpeechTags,
     speechProvider: selectedSpeechProvider.value || speechProvider.value || 'none',
   }
@@ -1386,14 +1309,16 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-acting-speech-mannerism-prompt="selectedActingSpeechMannerismPrompt"
             v-model:selected-acting-idle-animations="selectedActingIdleAnimations"
             :acting-idle-animation-options="actingIdleAnimationOptions"
-            :acting-model-expression-options="actingModelExpressionOptions"
+            :acting-model-emotion-options="actingModelEmotionOptions"
+            :acting-model-motion-options="actingModelMotionOptions"
             :acting-grouped-expression-tags="actingGroupedExpressionTags"
             :acting-mannerism-options="actingMannerismOptions"
             :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
             :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
             :is-live2d="isLive2d"
             :is-vrma-expression="isVrmaExpression"
-            :insert-model-expression="insertModelExpression"
+            :insert-model-emotion="insertModelEmotion"
+            :insert-model-motion="insertModelMotion"
             :insert-speech-tag="insertSpeechTag"
             :insert-speech-mannerism="insertSpeechMannerism"
             @sparkle-click="openSparkleGenerator"
