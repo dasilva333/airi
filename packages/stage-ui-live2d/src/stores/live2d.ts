@@ -90,10 +90,39 @@ export const useLive2d = defineStore('live2d', () => {
     }
   }
 
+  function resolveMotionGroupAndIndex(group: string, index?: number) {
+    let resolvedGroup = group
+    let resolvedIndex = index
+
+    // 1. Search mappings to see if group is a custom display name
+    let targetFileName = group
+    const mappedEntry = Object.entries(motionMap.value).find(([_, displayName]) => displayName === group)
+    if (mappedEntry) {
+      targetFileName = mappedEntry[0]
+    }
+
+    // 2. Resolve targetFileName to the actual Live2D track group and index from availableMotions
+    const targetBase = targetFileName.split(/[\\/]/).pop()?.toLowerCase()
+    const matched = availableMotions.value.find((m) => {
+      if (m.fileName === targetFileName)
+        return true
+      const mBase = m.fileName.split(/[\\/]/).pop()?.toLowerCase()
+      return !!targetBase && targetBase === mBase
+    })
+
+    if (matched) {
+      resolvedGroup = matched.motionName
+      resolvedIndex = matched.motionIndex
+    }
+
+    return { resolvedGroup, resolvedIndex }
+  }
+
   function triggerMotion(group: string, index?: number) {
-    console.info('[Live2D Store] Posting trigger-motion event via BroadcastChannel:', { group, index })
-    post({ type: 'live2d-trigger-motion', group, index })
-    triggerMotionHooks.value.forEach(hook => hook(group, index))
+    const { resolvedGroup, resolvedIndex } = resolveMotionGroupAndIndex(group, index)
+    console.info('[Live2D Store] Posting trigger-motion event via BroadcastChannel:', { group: resolvedGroup, index: resolvedIndex })
+    post({ type: 'live2d-trigger-motion', group: resolvedGroup, index: resolvedIndex })
+    triggerMotionHooks.value.forEach(hook => hook(resolvedGroup, resolvedIndex))
   }
 
   watch(data, (event) => {
@@ -102,31 +131,7 @@ export const useLive2d = defineStore('live2d', () => {
       shouldUpdateViewHooks.value.forEach(hook => hook(event.reason))
     }
     else if (event?.type === 'live2d-trigger-motion') {
-      let resolvedGroup = event.group
-      let resolvedIndex = event.index
-
-      // 1. Search mappings to see if event.group is a custom display name
-      let targetFileName = event.group
-      const mappedEntry = Object.entries(motionMap.value).find(([_, displayName]) => displayName === event.group)
-      if (mappedEntry) {
-        targetFileName = mappedEntry[0]
-      }
-
-      // 2. Resolve targetFileName to the actual Live2D track group and index from availableMotions
-      const targetBase = targetFileName.split(/[\\/]/).pop()?.toLowerCase()
-      const matched = availableMotions.value.find((m) => {
-        if (m.fileName === targetFileName)
-          return true
-        const mBase = m.fileName.split(/[\\/]/).pop()?.toLowerCase()
-        return !!targetBase && targetBase === mBase
-      })
-
-      if (matched) {
-        resolvedGroup = matched.motionName
-        resolvedIndex = matched.motionIndex
-        console.info('[Live2D Store] Resolved custom/raw motion tag to:', { resolvedGroup, resolvedIndex })
-      }
-
+      const { resolvedGroup, resolvedIndex } = resolveMotionGroupAndIndex(event.group, event.index)
       triggerMotionHooks.value.forEach(hook => hook(resolvedGroup, resolvedIndex))
     }
     else if (event?.type === 'live2d-trigger-emotion') {
