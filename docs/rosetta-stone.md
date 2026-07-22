@@ -238,6 +238,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Whisper adapter** | `packages/stage-ui/src/libs/inference/adapters/whisper.ts` |
 | **Audio Studio UST proposal** | [`proposal-higgs-audio-v3-tts-integration.md`](./proposal-higgs-audio-v3-tts-integration.md) |
 | **MOSS-TTS-Nano proposal** | [`proposal-moss-tts-nano-provider-unified-webgpu.md`](./proposal-moss-tts-nano-provider-unified-webgpu.md) |
+| **Text-to-Motion design** | [`design-text-to-motion.md`](./design-text-to-motion.md) (supercedes `proposal-text-to-vrma-system.md`) |
 | **Audio pipelines (transcribe)** | `packages/audio-pipelines-transcribe/` — audio transcription pipeline implementations |
 | **Audio pipelines (general)** | `packages/pipelines-audio/` — general audio pipeline utilities |
 | **Model drivers** | `packages/model-driver-lipsync/` (lipsync) | `packages/model-driver-mediapipe/` (face/body tracking) |
