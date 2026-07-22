@@ -654,9 +654,9 @@ function toggleMotionCycle(key: string) {
                     >
                   </template>
                   <template v-else>
-                    <div class="min-w-0 w-44 flex items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                    <div class="min-w-0 flex flex-1 items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
                       <span v-if="exp.isFavorite" class="shrink-0" title="Favorite">⭐</span>
-                      <span class="min-w-0 w-44 flex-1 truncate">{{ exp.displayName }}</span>
+                      <span class="min-w-0 flex-1 truncate">{{ exp.displayName }}</span>
                       <span
                         v-if="exp.actMapping"
                         class="ml-1 shrink-0 rounded bg-primary-100 px-1 text-[10px] opacity-60 dark:bg-primary-900"
@@ -664,7 +664,7 @@ function toggleMotionCycle(key: string) {
                       >{{ exp.actMapping }}</span>
                     </div>
                   </template>
-                  <span class="block w-44 truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
+                  <span class="block truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
                 </div>
               </div>
 
@@ -753,26 +753,26 @@ function toggleMotionCycle(key: string) {
           </div>
 
           <template v-for="(groupMotions, groupName) in motionsToRender" :key="groupName">
-            <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 px-1">
+            <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 min-w-0 w-full overflow-hidden px-1">
               <span class="inline-flex items-center rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] text-primary-700 font-semibold ring-1 ring-primary-700/10 ring-inset dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-400/20">
                 {{ groupName }}
               </span>
             </div>
-            <div class="mb-3 overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
+            <div class="mb-3 min-w-0 w-full overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
               <div
                 v-for="mot in groupMotions"
                 :key="mot.key"
                 :class="[
-                  'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors',
+                  'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors min-w-0 w-full overflow-hidden',
                   mot.isActive ? 'bg-primary-50/30 dark:bg-primary-900/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
                 ]"
               >
                 <!-- Left: Active dot + name -->
-                <div class="min-w-0 flex flex-1 cursor-pointer items-center gap-2" @click="triggerMotionEffect(mot.key)">
+                <div class="min-w-0 w-0 flex flex-1 cursor-pointer items-center gap-2 overflow-hidden" @click="triggerMotionEffect(mot.key)">
                   <div
                     :class="['h-2 w-2 rounded-full shrink-0 transition-colors', mot.isActive ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600']"
                   />
-                  <div class="min-w-0 flex-1">
+                  <div class="min-w-0 w-0 flex flex-1 flex-col overflow-hidden">
                     <template v-if="editingKey === mot.key">
                       <input
                         v-model="editingValue"
@@ -784,11 +784,11 @@ function toggleMotionCycle(key: string) {
                       >
                     </template>
                     <template v-else>
-                      <span class="block truncate text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                      <span class="block w-full truncate text-sm text-neutral-900 font-medium dark:text-neutral-100">
                         {{ mot.displayName }}
                       </span>
                     </template>
-                    <span class="block truncate text-[10px] text-neutral-400">{{ mot.key }}</span>
+                    <span class="block w-full truncate text-[10px] text-neutral-400">{{ mot.key }}</span>
                   </div>
                 </div>
 
