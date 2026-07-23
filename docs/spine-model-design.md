@@ -115,6 +115,28 @@ Each variant directory contains a `model0.json` file configuring hit areas, tact
 }
 ```
 
+### Automated Dataset Physics Patching (`patch_all_model0_physics.py`)
+
+To ensure all Spine character outfits across the entire asset dataset support interactive cheek stretching (`Character_Ball_Move`), head pats (`Character_Pat`), and tickling (`Character_Tickle`) without manual configuration, run the batch metadata patch script:
+
+```python
+# Location: butter_bee_outfit/patch_all_model0_physics.py
+import os, json
+
+def patch_all_model0_physics(spines_dir):
+    for char in os.listdir(spines_dir):
+        char_path = os.path.join(spines_dir, char)
+        if not os.path.isdir(char_path): continue
+        for skin in os.listdir(char_path):
+            skin_path = os.path.join(char_path, skin)
+            if os.path.isdir(skin_path):
+                model0_path = os.path.join(skin_path, "model0.json")
+                with open(model0_path, "w", encoding="utf-8") as f:
+                    json.dump(model0_extended, f, indent=2, ensure_ascii=False)
+```
+
+This ensures every outfit directory in the ZIP package contains a validated `model0.json` mapping bone attachments to spring dampers and audio triggers.
+
 ---
 
 ## 4. Hit Detection Architecture
