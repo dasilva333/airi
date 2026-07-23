@@ -52,9 +52,17 @@ Spine characters are packaged as single canonical ZIP archives (e.g. `Butter.zip
 
 ---
 
-## 3. Manifest Schema (`model0.json`)
+## 3. Extended Physics & Interaction Manifest (`model0.json`) — Forward-Planning Specification
 
-Each variant directory contains a `model0.json` file configuring hit areas, tactile physics constants, and sound effect triggers.
+> [!NOTE]
+> **Implementation Status: Planned / Asset Pre-Baked**
+> The `model0.json` manifest schema described below has been pre-baked into Trickcal Spine model packages to preserve tactile interaction metadata. AIRI's runtime loading pipeline (`spine-zip-loader.ts` and `Model.vue`) does not yet parse this manifest; this section serves as the canonical specification for the future physics and gesture integration roadmap.
+
+Each outfit directory in a Spine package contains an extended `model0.json` manifest defining target interaction zones (`hit_areas`), spring-damper physical constants, bone follower relationships, and animation/audio event mappings (`motions`).
+
+---
+
+### 3.1 Schema Specification
 
 ```json
 {
@@ -115,27 +123,56 @@ Each variant directory contains a `model0.json` file configuring hit areas, tact
 }
 ```
 
-### Automated Dataset Physics Patching (`patch_all_model0_physics.py`)
+---
 
-To ensure all Spine character outfits across the entire asset dataset support interactive cheek stretching (`Character_Ball_Move`), head pats (`Character_Pat`), and tickling (`Character_Tickle`) without manual configuration, run the batch metadata patch script:
+### 3.2 Property Specifications
 
-```python
-# Location: butter_bee_outfit/patch_all_model0_physics.py
-import os, json
+#### `hit_areas` Array
+Defines interactive target zones mapped to specific Spine skeleton bones.
 
-def patch_all_model0_physics(spines_dir):
-    for char in os.listdir(spines_dir):
-        char_path = os.path.join(spines_dir, char)
-        if not os.path.isdir(char_path): continue
-        for skin in os.listdir(char_path):
-            skin_path = os.path.join(char_path, skin)
-            if os.path.isdir(skin_path):
-                model0_path = os.path.join(skin_path, "model0.json")
-                with open(model0_path, "w", encoding="utf-8") as f:
-                    json.dump(model0_extended, f, indent=2, ensure_ascii=False)
-```
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `name` / `id` | `string` | The target bone name in the Spine skeleton (e.g., `Character_Ball_Move`, `Character_Pat`). |
+| `type` | `"pull" \| "tap"` | Interaction mode. `"pull"` designates spring-damper physics dragging (cheek stretch); `"tap"` designates touch gesture dispatching (head pat / smash / tickle). |
 
-This ensures every outfit directory in the ZIP package contains a validated `model0.json` mapping bone attachments to spring dampers and audio triggers.
+#### `spring` Object (Applies when `type == "pull"`)
+Parameters for 2D spring physics simulation when pulling or releasing a mesh bone.
+
+| Property | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `stiffness` | `number` | `1680` | Spring constant $k$. Higher values pull the bone back faster upon release. |
+| `damping` | `number` | `20` | Damping coefficient $c$. Prevents infinite oscillation upon release. |
+
+#### `limits` Object
+Restricts maximum displacement to prevent mesh tearing or visual distortion.
+
+| Property | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `maxStretch` | `number` | `60` | Maximum displacement (in WebGL canvas units) allowed outward from setup pose. |
+| `maxBackward` | `number` | `1` | Maximum displacement allowed inward toward skeleton center. |
+| `perpRatio` | `number` | `0.7` | Multiplier capping perpendicular drag displacement. |
+
+#### `follower` Object (Optional)
+Links a secondary bone to move symmetrically with the primary dragged bone.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `bone` | `string` | Name of follower bone (e.g., `Character_Ball_Move_Re` for opposite cheek). |
+| `mode` | `"same" \| "mirror" \| "none"` | `"same"` moves follower in parallel; `"mirror"` mirrors displacement across vertical axis. |
+
+#### `audio` & `motions` Mapping
+* `audio.pull` / `audio.release`: Shared WAV audio files located at package root to trigger during drag and release events.
+* `motions`: Event dictionary mapping interaction triggers (`tap_Character_Pat`, `tap_Character_Tickle`) to Spine animation clip names (`Pat_End`, `Tickle_End`) and SFX audio files.
+
+---
+
+### 3.3 Planned Runtime Implementation Strategy
+
+When AIRI's Spine interaction engine is updated to support this schema:
+
+1. **Loader Parsing:** `spine-zip-loader.ts` will parse `model0.json` during outfit ZIP extraction and expose the manifest on the active model object.
+2. **Dynamic Bone Binding:** AIRI will locate skeleton bones matching `hit_area.name` and attach 2D hitboxes centered on bone world coordinates.
+3. **Physics Simulation Loop:** Dragged displacement will be clamped against `limits.maxStretch`. On pointer release, the animation loop will step Hooke's Law ($\vec{F} = -k \vec{x} - c \vec{v}$) frame-by-frame until the bone returns to its setup pose.
 
 ---
 

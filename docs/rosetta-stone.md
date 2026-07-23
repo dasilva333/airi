@@ -389,6 +389,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 | `airi:short-term-memory-sync` | Short-term memory block updates |
 | `airi:lifetime-memory-sync` | Lifetime memory artifact changes |
 | `airi-stores-live2d` | VRM/Three.js store synchronization — broadcasts view updates, emotion triggers, and transient motion triggers across windows |
+| `airi::beat-sync` | Audio beat detection & lip-sync amplitude relay across processes/windows (see `packages/stage-shared/src/beat-sync/eventa.ts`) |
 | `CHAT_STREAM_CHANNEL_NAME` | Chat stream + journal refresh events (exported constant from session-store) |
 
 ---

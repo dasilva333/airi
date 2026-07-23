@@ -536,6 +536,15 @@ async function handleGenerate(guidance = '') {
       throw new Error('Failed to retrieve provider instance.')
     }
 
+    const actTemplateRules = [
+      '3. ACT TOKEN KEYED TEMPLATES: You MUST format all ACT tags using official keyed syntax:',
+      '   - For facial expressions or outfit variants (from "whitelistedExpressions"): use `<|ACT:emotion="expression_name"|>` (e.g. `<|ACT:emotion="Joy"|>` or `<|ACT:emotion="Basic Civvies [Normal]"|>`).',
+      '   - For body animations (from "whitelistedMotions"): use `<|ACT:motion="action_cue"|>` (e.g. `<|ACT:motion="Happy_1"|>`).',
+      '   - NEVER emit un-keyed tags like `<|ACT:Joy|>`.',
+      '4. ROLEPLAY PERSPECTIVE: The user (named in storySettings.userNickname, e.g. "Yoshi the Sensei") is the player. The LLM acts ONLY as the characters in the "actors" map. Under NO circumstances should the generated "system_prompt" write "You are [UserNickname]". Instead, write: "The user is [UserNickname]. You must act as the characters interacting with them."',
+      '5. NO HALLUCINATED TOKENS: Do NOT generate or instruct the user to use place tokens like "<|PLACE:...|>". The only supported tokens in the system prompt are character actor tokens ("<|ACTOR:...|>") and keyed expression/motion tags (`<|ACT:emotion="..."|>` or `<|ACT:motion="..."|>`). Changing settings or locations must be described naturally through plain dialogue/narration, not through tokens.',
+    ].join('\n')
+
     const systemMsg = `You are a professional character card writer. Based on the cast payload, synthesize a single cohesive roleplay card.
 Generate a structured JSON matching this schema:
 {
@@ -562,9 +571,8 @@ Generate a structured JSON matching this schema:
 
 CRITICAL RULES:
 1. "places": You MUST generate exactly 2 or 3 distinct settings/locations where the roleplay can transition, mapping "place_main" (the starting area) and 1 or 2 alternative settings (e.g. "place_alt_1", "place_alt_2").
-2. "greetings": Each actor's "greeting" MUST be a completely unique, starting message written from only that specific character's perspective. It must start with their ACTOR token (e.g. "<|ACTOR:actor_key|>") and should utilize some of their whitelisted expressions if provided (e.g. "<|ACT:emotion:"happy"|>"). DO NOT copy the same narrative or dialogue block across multiple characters.
-3. ROLEPLAY PERSPECTIVE: The user (named in storySettings.userNickname, e.g. "Yoshi the Sensei") is the player. The LLM acts ONLY as the characters in the "actors" map. Under NO circumstances should the generated "system_prompt" write "You are [UserNickname]". Instead, write: "The user is [UserNickname]. You must act as the characters interacting with them."
-4. NO HALLUCINATED TOKENS: Do NOT generate or instruct the user to use place tokens like "<|PLACE:...|>". The only supported tokens in the system prompt are character actor tokens ("<|ACTOR:...|>") and whitelisted expression tags ("<|ACT:...|>"). Changing settings or locations must be described naturally through plain dialogue/narration, not through tokens.
+2. "greetings": Each actor's "greeting" MUST be a completely unique, starting message written from only that specific character's perspective. It must start with their ACTOR token (e.g. "<|ACTOR:actor_key|>") and should utilize some of their whitelisted expressions or motions if provided. DO NOT copy the same narrative or dialogue block across multiple characters.
+${actTemplateRules}
 
 Return ONLY a raw JSON block.`
 
