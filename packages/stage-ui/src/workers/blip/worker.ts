@@ -273,7 +273,7 @@ defineInvokeHandler(context, blipProcessEvent, async ({ imageUrl, generalThresho
     const probs = Array.from(logits.data) as number[]
 
     // Thresholds
-    const generalThreshold = customGeneralThreshold ?? 0.35
+    const generalThreshold = customGeneralThreshold ?? 0.20
     const characterThreshold = customCharacterThreshold ?? 0.85
 
     const generalTags: { tag: string, prob: number }[] = []
@@ -297,11 +297,13 @@ defineInvokeHandler(context, blipProcessEvent, async ({ imageUrl, generalThresho
     generalTags.sort((a, b) => b.prob - a.prob)
     characterTags.sort((a, b) => b.prob - a.prob)
 
-    const allTags = [...characterTags.map(c => c.tag), ...generalTags.map(g => g.tag)]
+    // Slice general tags to top 25
+    const slicedGeneral = generalTags.slice(0, 25)
 
-    console.log('[Vision Worker] Top 20 Predictions:', [...characterTags, ...generalTags]
+    const allTags = [...characterTags.map(c => c.tag), ...slicedGeneral.map(g => g.tag)]
+
+    console.log('[Vision Worker] Top 25 Predictions:', [...characterTags, ...slicedGeneral]
       .sort((a, b) => b.prob - a.prob)
-      .slice(0, 20)
       .map(t => `${t.tag}: ${(t.prob * 100).toFixed(1)}%`))
 
     const text = allTags.join(', ')
