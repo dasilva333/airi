@@ -129,6 +129,49 @@ The interaction engine in `Model.vue` supports dual hit-detection modes configur
    $$\text{dist} = \sqrt{(\text{targetX} - \text{boneCanvasX})^2 + (\text{targetY} - \text{boneCanvasY})^2}$$
    Distance is evaluated against `radialHitRadius` (configurable from 10px to 250px).
 
+### Gesture & Tactile Interaction Mechanics
+
+The Spine interaction engine processes gestures using dedicated gesture state machines bound to target bones:
+
+```
+                          Pointer Down / Touch
+                                   │
+               ┌───────────────────┴───────────────────┐
+               ▼                                       ▼
+     Bone: Character_Pat                    Bone: Character_Tickle
+               │                                       │
+      ┌────────┴────────┐                     ┌────────┴────────┐
+      ▼                 ▼                     ▼                 ▼
+   Tap (<280ms)    Drag (>6px)          Slow Swipe        Fast Swipe (>10k px/s)
+[Smash / Bonk]     [Head Pat]        [Tickle_Idle_1]     [Tickle_Idle_2 (Furious)]
+ (Smash_End_1/2)   (Pat_Idle)                │                 │
+                                             └────────┬────────┘
+                                                      ▼
+                                                [Tickle_End]
+```
+
+1. **Head Bonk / Smash (`smash`):**
+   - **Target Bone:** `Character_Pat`
+   - **Trigger:** Quick tap on head ($\text{duration} \le 280\text{ms}$, swipe $< 6\text{px}$).
+   - **Animation Pipeline:** Plays two-stage reaction: `Smash_End_1` (impact) transitioning into `Smash_End_2` (stunned/dizzy recovery loop).
+
+2. **Head Pat (`pat`):**
+   - **Target Bone:** `Character_Pat`
+   - **Trigger:** Dragging pointer beyond $6\text{px}$ threshold.
+   - **Animation Pipeline:** Switches to `Pat_Idle` and follows pointer with exponential smoothing (`dragFollow: 8`, `dragRadius: 50`). Plays `Pat_End` on release.
+
+3. **Tickle / Furious Gestures (`tickle`):**
+   - **Target Bone:** `Character_Tickle`
+   - **Velocity Metric:** $\text{speed} = \frac{\sqrt{\Delta x^2 + \Delta y^2}}{\Delta t} \times 1000$ (px/sec).
+   - **Normal Tickle ($\text{speed} < 10,000$ px/s):** Triggers `Tickle_Idle_1`.
+   - **Furious Tickle ($\text{speed} \ge 10,000$ px/s):** Triggers `Tickle_Idle_2` (intense animation loop).
+   - **Release:** Plays `Tickle_End`.
+
+4. **Cheek / Ball Pull (`ballPull`):**
+   - **Target Bones:** `Character_Ball_Move` & follower `Character_Ball_Move_Re`
+   - **Physics:** Hooke's Law spring damper ($\text{stiffness} = 1680$, $\text{damping} = 20$).
+   - **Animation Pipeline:** Triggers `Touch_Idle` while stretched, returning to setup pose with `Touch_End` SFX on release.
+
 ### Settings & Controls
 * `hitDetectionMode`: `'bounds' | 'radial'` (Persisted in `settings/spine/hit-detection-mode`).
 * `radialHitRadius`: `number` (Persisted in `settings/spine/radial-hit-radius`).
