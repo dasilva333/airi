@@ -4,6 +4,7 @@ import type { VoiceProfile } from '../providers'
 
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
+import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -737,13 +738,33 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           return
       }
 
-      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D)
+      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D/Spine)
       const nextExpressions = extension.active_state?.active_expressions || {}
       if (JSON.stringify(live2dStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         live2dStore.activeExpressions = { ...nextExpressions }
       }
       if (JSON.stringify(vrmStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         vrmStore.activeExpressions = { ...nextExpressions }
+      }
+
+      // Sync Spine variant and skin from active expressions
+      try {
+        const spineStore = useSpine()
+        const activeExprNames = Object.keys(nextExpressions).filter(k => nextExpressions[k] > 0)
+        for (const emotionName of activeExprNames) {
+          const match = emotionName.match(/^(.+?)\s*\[(.+?)\]$/)
+          if (match) {
+            const variant = match[1].trim()
+            const skin = match[2].trim()
+            spineStore.selectVariantAndSkin(variant, skin)
+          }
+          else if (spineStore.availableVariants.some(v => v.name === emotionName)) {
+            spineStore.selectVariantAndSkin(emotionName, 'default')
+          }
+        }
+      }
+      catch (e) {
+        // Spine store might not be loaded in non-stage contexts
       }
 
       // Surgical sync of Live2D parameters if they belong to the active model
