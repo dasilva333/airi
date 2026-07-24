@@ -35,6 +35,16 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
 
   const { post: broadcastContext, data: incomingContext } = useBroadcastChannel<ContextMessage, ContextMessage>({ name: CONTEXT_CHANNEL_NAME })
   const { post: broadcastStreamEvent, data: incomingStreamEvent } = useBroadcastChannel<ChatStreamEvent, ChatStreamEvent>({ name: CHAT_STREAM_CHANNEL_NAME })
+  const { post: broadcastDedupeEventId, data: incomingDedupeEventId } = useBroadcastChannel<{ eventId: string }, { eventId: string }>({ name: 'airi:context-bridge-dedupe' })
+
+  const processedEventIds = new Set<string>()
+
+  watch(incomingDedupeEventId, (msg) => {
+    if (msg?.eventId) {
+      processedEventIds.add(msg.eventId)
+      setTimeout(() => processedEventIds.delete(msg.eventId), 10000)
+    }
+  })
 
   const disposeHookFns = ref<Array<() => void>>([])
   let remoteStreamGuard: { sessionId: string, generation: number } | null = null
@@ -116,6 +126,19 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       }))
 
       disposeHookFns.value.push(serverChannelStore.onEvent('input:text', async (event) => {
+        const eventId = (event.metadata as { deliveryId?: string, idempotencyKey?: string } | undefined)?.deliveryId
+          || (event.metadata as { deliveryId?: string, idempotencyKey?: string } | undefined)?.idempotencyKey
+          || event.metadata?.event?.id
+
+        if (eventId) {
+          if (processedEventIds.has(eventId)) {
+            return
+          }
+          processedEventIds.add(eventId)
+          broadcastDedupeEventId({ eventId })
+          setTimeout(() => processedEventIds.delete(eventId), 10000)
+        }
+
         const {
           text,
           textRaw,
@@ -188,7 +211,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           // - https://chromestatus.com/feature/6265472244514816
           // - https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
           // - https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
-          navigator.locks.request('context-bridge:event:input:text', async () => {
+          navigator.locks.request('context-bridge:event:input:text', { ifAvailable: true }, async (lock) => {
+            if (!lock) {
+              return
+            }
+
             try {
               await chatOrchestrator.ingest(messageText, {
                 model: activeModel.value,
