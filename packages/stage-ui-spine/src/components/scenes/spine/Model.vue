@@ -9,7 +9,7 @@ import { Mutex } from 'es-toolkit'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 
-import { useSpineAnimationManager } from '../../../composables/spine'
+import { useSpineAnimationManager, useSpineGestureInteraction } from '../../../composables/spine'
 import { EMOTION_SpineAnimationName_value, SPINE_IDLE_TRACK, SpineAnimationName } from '../../../constants/emotions'
 import { useSpine } from '../../../stores/spine'
 import { loadSpineRuntime } from '../../../utils/spine-runtime'
@@ -106,6 +106,37 @@ const paused = toRef(() => props.paused)
 
 let hoveredArea: string | null = null
 
+const gestureEngine = useSpineGestureInteraction({
+  canvas,
+  skeleton: () => skeleton,
+  animationState: () => animationState,
+  hitDetectionMode,
+  radialHitRadius,
+  model0HitAreas: () => model0HitAreas,
+  model0Motions: () => model0Motions,
+  loadedBlobUrls: () => loadedBlobUrls,
+})
+
+function attachTactileListeners() {
+  if (!canvas.value)
+    return
+  canvas.value.addEventListener('mousemove', onCanvasMouseMove)
+  canvas.value.addEventListener('pointerdown', gestureEngine.onPointerDown)
+  canvas.value.addEventListener('pointermove', gestureEngine.onPointerMove)
+  canvas.value.addEventListener('pointerup', gestureEngine.onPointerUp)
+  canvas.value.addEventListener('pointercancel', gestureEngine.onPointerCancel)
+}
+
+function removeTactileListeners() {
+  if (!canvas.value)
+    return
+  canvas.value.removeEventListener('mousemove', onCanvasMouseMove)
+  canvas.value.removeEventListener('pointerdown', gestureEngine.onPointerDown)
+  canvas.value.removeEventListener('pointermove', gestureEngine.onPointerMove)
+  canvas.value.removeEventListener('pointerup', gestureEngine.onPointerUp)
+  canvas.value.removeEventListener('pointercancel', gestureEngine.onPointerCancel)
+}
+
 function checkBoneHit(areaName: string, bone: any, targetX: number, targetY: number): boolean {
   if (!canvas.value || !skeleton)
     return false
@@ -173,87 +204,9 @@ function onCanvasMouseMove(event: MouseEvent) {
   }
 }
 
-function onCanvasClick(event: MouseEvent) {
-  if (!canvas.value || !skeleton || props.interactionMode !== 'tactile')
-    return
-
-  const rect = canvas.value.getBoundingClientRect()
-  const clickX = event.clientX - rect.left
-  const clickY = event.clientY - rect.top
-
-  // Scale click coordinates to match canvas physical pixels (Retina display handling)
-  const realClickX = clickX * (canvas.value.width / canvas.value.clientWidth)
-  const realClickY = clickY * (canvas.value.height / canvas.value.clientHeight)
-
-  console.log(`[Spine Click] Mode: ${hitDetectionMode.value} | Client: (${clickX}, ${clickY}) | Physical Canvas: ${canvas.value.width}x${canvas.value.height}`)
-
-  for (const area of model0HitAreas) {
-    const bone = skeleton.findBone(area.id || area.name)
-    if (!bone) {
-      console.warn(`[Spine Click] Hit area bone "${area.id || area.name}" not found.`)
-      continue
-    }
-
-    if (checkBoneHit(area.id || area.name, bone, realClickX, realClickY)) {
-      console.log(`[Spine Click] Hit detected on bone: ${area.name}`)
-
-      const motionName = `tap_${area.name}`
-      const motionConfig = model0Motions[motionName]
-
-      console.log(`[Spine Audio] Looking up motionName="${motionName}", found=${!!motionConfig}, length=${motionConfig?.length ?? 0}`)
-      console.log(`[Spine Audio] All known motion keys:`, Object.keys(model0Motions))
-
-      if (motionConfig && motionConfig.length > 0) {
-        const randomIndex = Math.floor(Math.random() * motionConfig.length)
-        const config = motionConfig[randomIndex]
-
-        console.log(`[Spine Audio] Selected config[${randomIndex}]:`, JSON.stringify(config))
-
-        // Use track 5 for hit motions (one-shot)
-        const trackIndex = 5
-        if (animationState) {
-          const entry = animationState.setAnimation(trackIndex, config.file, false)
-          console.log(`[Spine Audio] setAnimation("${config.file}") entry=${!!entry}`)
-          if (entry) {
-            entry.listener = {
-              complete: () => {
-                if (animationState)
-                  animationState.setEmptyAnimation(trackIndex, 0.2)
-              },
-            }
-          }
-        }
-
-        // Play audio (if leader)
-        const hash = window.location.hash || '#/'
-        const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-        console.log(`[Spine Audio] hash="${hash}", isStage=${isStage}, config.sound="${config.sound}"`)
-        console.log(`[Spine Audio] loadedBlobUrls exists=${!!loadedBlobUrls}, hasSoundKey=${!!(loadedBlobUrls && loadedBlobUrls[config.sound])}`)
-        if (loadedBlobUrls) {
-          console.log(`[Spine Audio] Available blob URL keys:`, Object.keys(loadedBlobUrls))
-        }
-
-        if (isStage && config.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
-          if (currentSpineAudio) {
-            currentSpineAudio.pause()
-            currentSpineAudio.currentTime = 0
-          }
-          currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
-          console.log(`[Spine Audio] Playing sound: "${config.sound}" via blob URL`)
-          currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
-        }
-        else {
-          console.warn(`[Spine Audio] Audio skipped. isStage=${isStage}, sound="${config.sound}", blobUrlFound=${!!(loadedBlobUrls && loadedBlobUrls[config.sound])}`)
-        }
-      }
-      break // Only trigger one hit per click
-    }
-  }
-}
-
 function disposeSpine() {
-  canvas.value?.removeEventListener('click', onCanvasClick)
-  canvas.value?.removeEventListener('mousemove', onCanvasMouseMove)
+  removeTactileListeners()
+
   if (spineCanvas) {
     try {
       spineCanvas.dispose()
@@ -470,6 +423,17 @@ async function loadModel() {
             animationState = new spine.AnimationState(stateData)
 
             animationState.addListener({
+              event: (_entry, event) => {
+                const eventName = event.data?.name
+                const stringValue = event.stringValue
+                const audioPath = (event as any).audioPath || stringValue || eventName
+                if (audioPath) {
+                  const resolvedUrl = gestureEngine.resolveAudioUrl(audioPath)
+                  if (resolvedUrl) {
+                    gestureEngine.playSoundUrl(resolvedUrl, false)
+                  }
+                }
+              },
               complete: (entry) => {
                 if (entry.trackIndex === SPINE_IDLE_TRACK && props.idleAnimationEnabled) {
                   playNextIdleCycleAnimation()
@@ -520,9 +484,9 @@ async function loadModel() {
             applyActiveAnimations(props.modelId ? activeAnimations.value[props.modelId] || {} : {})
 
             if (props.interactionMode === 'tactile') {
-              canvas.value?.addEventListener('click', onCanvasClick)
-              canvas.value?.addEventListener('mousemove', onCanvasMouseMove)
+              attachTactileListeners()
             }
+
             spineStore.isModelLoaded = true
             emits('modelLoaded')
             resolve()
@@ -541,6 +505,9 @@ async function loadModel() {
           }
           animationState.update(delta * animationSpeed.value)
           animationState.apply(skeleton)
+
+          // Apply tactile spring physics (e.g. cheek pull bone displacement)
+          gestureEngine.update(delta)
 
           // Diagnostic logger exposed to window for console debugging
           if (typeof window !== 'undefined') {
@@ -1036,13 +1003,10 @@ watch(() => props.interactionMode, (newMode) => {
   if (!canvas.value)
     return
 
-  // Always remove first to avoid duplicates
-  canvas.value.removeEventListener('click', onCanvasClick)
-  canvas.value.removeEventListener('mousemove', onCanvasMouseMove)
+  removeTactileListeners()
 
   if (newMode === 'tactile') {
-    canvas.value.addEventListener('click', onCanvasClick)
-    canvas.value.addEventListener('mousemove', onCanvasMouseMove)
+    attachTactileListeners()
     console.log('[Spine] Tactile mode enabled, added listeners')
   }
   else {
