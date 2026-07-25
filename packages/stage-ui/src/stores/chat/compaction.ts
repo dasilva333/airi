@@ -1,4 +1,4 @@
-import { estimateTokens } from '@proj-airi/stage-shared'
+import { debug, estimateTokens } from '@proj-airi/stage-shared'
 import { defineStore, storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
 
@@ -48,7 +48,7 @@ export const useCompactionStore = defineStore('chat-compaction', () => {
     const strategy = card.extensions?.airi?.generation?.compaction?.strategy || 'none'
     const threshold = card.extensions?.airi?.generation?.known?.contextWidth
 
-    console.log('[Compaction] shouldCompact check:', {
+    debug('[Compaction] shouldCompact check:', {
       sessionId,
       strategy,
       threshold,
@@ -65,7 +65,7 @@ export const useCompactionStore = defineStore('chat-compaction', () => {
     const messages = chatSession.getSessionMessages(sessionId)
     const currentTokens = estimateMessageListTokens(messages)
 
-    console.log('[Compaction] comparing tokens:', {
+    debug('[Compaction] comparing tokens:', {
       currentTokens,
       threshold,
       messageCount: messages.length,

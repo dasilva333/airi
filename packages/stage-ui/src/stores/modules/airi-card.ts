@@ -2,6 +2,7 @@ import type { Card, ccv3 } from '@proj-airi/ccc'
 
 import type { VoiceProfile } from '../providers'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useSpine } from '@proj-airi/stage-ui-spine'
@@ -283,7 +284,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         const existing = await storage.getItemRaw<[string, AiriCard][]>('local:airi-cards')
         if (!existing || !Array.isArray(existing) || existing.length === 0) {
           await storage.setItemRaw('local:airi-cards', entries)
-          console.log(`[AiriCard] Migrated ${entries.length} cards from localStorage → IndexedDB`)
+          debug(`[AiriCard] Migrated ${entries.length} cards from localStorage → IndexedDB`)
         }
       }
     }
@@ -358,7 +359,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         }
 
         if (modelModified) {
-          console.info(`[AiriCard:Migration] Migrating mappings from card "${cardId}" to model "${displayModelId}"`)
+          debug(`[AiriCard:Migration] Migrating mappings from card "${cardId}" to model "${displayModelId}"`)
           await localforageModule.setItem(displayModelId, updatedModel)
 
           if (card.extensions?.airi?.modules) {
@@ -414,7 +415,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   watch(cardsSyncSignal, (val) => {
     if (val) {
-      console.log('[AiriCard] Received cards sync signal, reloading from IndexedDB...')
+      debug('[AiriCard] Received cards sync signal, reloading from IndexedDB...')
       void loadCards(true)
     }
   })
@@ -440,7 +441,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     window.addEventListener('airi:idb-key-updated', (e: Event) => {
       const detail = (e as CustomEvent<{ key: string }>).detail
       if (detail?.key === 'local:airi-cards') {
-        console.log('[AiriCard] Detected sync update for local:airi-cards — reloading from IndexedDB')
+        debug('[AiriCard] Detected sync update for local:airi-cards — reloading from IndexedDB')
         void loadCards(true)
       }
     })
@@ -461,8 +462,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   watch(() => activeCard.value?.extensions?.airi?.active_concepts, (next, prev) => {
     if (JSON.stringify(next) !== JSON.stringify(prev)) {
       const topConceptId = next?.[next.length - 1]
-      console.log(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
-      console.log('[AiriCard Store] Concept Stack Watcher triggering syncCardState')
+      debug(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
+      debug('[AiriCard Store] Concept Stack Watcher triggering syncCardState')
       void syncCardState(activeCard.value, true)
     }
   }, { deep: true })
@@ -569,12 +570,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGrounding: card not found for id', id)
+      debug('[AiriCard] toggleGrounding: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingEnabled ?? false
-    console.log('[AiriCard] toggleGrounding:', { id, current, next: !current })
+    debug('[AiriCard] toggleGrounding:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -592,12 +593,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingMemory: card not found for id', id)
+      debug('[AiriCard] toggleGroundingMemory: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingMemoryEnabled ?? false
-    console.log('[AiriCard] toggleGroundingMemory:', { id, current, next: !current })
+    debug('[AiriCard] toggleGroundingMemory:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -618,13 +619,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingTopics: card not found for id', id)
+      debug('[AiriCard] toggleGroundingTopics: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingTopicsEnabled ?? false
     const next = !current
-    console.log('[AiriCard] toggleGroundingTopics:', { id, current, next })
+    debug('[AiriCard] toggleGroundingTopics:', { id, current, next })
 
     // First update the state so that the engine doesn't return early due to groundingTopicsEnabled being false
     await updateCard(id, {
@@ -656,12 +657,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingDirectorScratchpad: card not found for id', id)
+      debug('[AiriCard] toggleGroundingDirectorScratchpad: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingDirectorScratchpadEnabled ?? false
-    console.log('[AiriCard] toggleGroundingDirectorScratchpad:', { id, current, next: !current })
+    debug('[AiriCard] toggleGroundingDirectorScratchpad:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -714,7 +715,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!extension)
       return
 
-    console.log('[AiriCard Store] syncCardState executed. Force:', force, 'Resolved displayModelId:', extension.active_state?.displayModelId ?? extension.modules?.displayModelId)
+    debug('[AiriCard Store] syncCardState executed. Force:', force, 'Resolved displayModelId:', extension.active_state?.displayModelId ?? extension.modules?.displayModelId)
 
     // 1. Sync Consciousness with stability guards
     const nextConsciousnessProvider = extension.modules?.consciousness?.provider
@@ -1095,7 +1096,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   function newAiriCard(card: Card | ccv3.CharacterCardV3): AiriCard {
     const validation = safeParse(AiriCardSchema, card)
     if (!validation.success) {
-      console.warn('[AiriCard] Validation issues found during normalization:', validation.issues)
+      debug('[AiriCard] Validation issues found during normalization:', validation.issues)
     }
 
     const normalizeVersion = (version?: string | null) => {
@@ -1341,7 +1342,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   watch(activeCard, async (newCard: AiriCard | undefined) => {
-    console.log('[AiriCard Store] activeCard watcher triggered. Card Name:', newCard?.name, 'Active Concepts:', newCard?.extensions?.airi?.active_concepts)
+    debug('[AiriCard Store] activeCard watcher triggered. Card Name:', newCard?.name, 'Active Concepts:', newCard?.extensions?.airi?.active_concepts)
     await syncCardState(newCard)
   })
 

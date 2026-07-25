@@ -13,6 +13,7 @@ import { useElectronWindowResizeStateEvent } from '@proj-airi/electron-vueuse'
 import { createLive2DLipSync } from '@proj-airi/model-driver-lipsync'
 import { wlipsyncProfile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
 import { createPlaybackManager, createSpeechPipeline } from '@proj-airi/pipelines-audio'
+import { debug } from '@proj-airi/stage-shared'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
@@ -133,7 +134,7 @@ function getActorColor(id: string): string {
 
     const color = `hsl(${h}, ${s}%, ${l}%)`
     actorColors.set(id, color)
-    console.info(`[CaptionDebug] Assigned vibrant stable color to actor "${id}":`, color)
+    debug(`[CaptionDebug] Assigned vibrant stable color to actor "${id}":`, color)
   }
   return actorColors.get(id)!
 }
@@ -218,7 +219,7 @@ watch(activeModelMetadata, (model) => {
   if (model) {
     live2dStore.motionMap = { ...model.motionMappings }
     live2dStore.emotionMappings = { ...model.emotionMappings }
-    console.info('[Stage Host] Synced active model mappings to live2dStore:', {
+    debug('[Stage Host] Synced active model mappings to live2dStore:', {
       emotions: Object.keys(model.emotionMappings || {}).length,
       motions: Object.keys(model.motionMappings || {}).length,
     })
@@ -234,7 +235,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
     async (ctx) => {
       if (stageModelRenderer.value === 'vrm') {
         const emotionName = ctx.data.name
-        console.info('[Stage] VRM emotion/motion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
+        debug('[Stage] VRM emotion/motion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
         const matchedOption = customVrmAnimationsStore.animationOptions.find(opt =>
           opt.value === emotionName
           || opt.label === emotionName
@@ -251,7 +252,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
       else if (stageModelRenderer.value === 'live2d') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] Live2D emotion processing:', { name: emotionName, intensity })
+        debug('[Stage] Live2D emotion processing:', { name: emotionName, intensity })
 
         // Delegate to store (handles mappings, name-matched fallbacks, and robust resets)
         const triggered = live2dStore.triggerEmotion(emotionName, intensity)
@@ -273,7 +274,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
               s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
 
             const normEmotion = normalize(emotionName)
-            console.info('[Stage Debug] looking up motion mapping:', {
+            debug('[Stage Debug] looking up motion mapping:', {
               emotionName,
               normEmotion,
               activeCardName: activeCard.value?.name,
@@ -310,10 +311,10 @@ const emotionsQueue = createQueue<EmotionPayload>({
             if (matchedMotion) {
               live2dStore.triggerMotion(matchedMotion.motionName, matchedMotion.motionIndex)
               currentMotion.value = { group: matchedMotion.motionName, index: matchedMotion.motionIndex }
-              console.info('[Stage] Triggered Live2D motion from dropdown name:', emotionName)
+              debug('[Stage] Triggered Live2D motion from dropdown name:', emotionName)
             }
             else {
-              console.warn('[Stage] No Live2D explicit mapping, name match, or motion found for:', emotionName, {
+              debug('[Stage] No Live2D explicit mapping, name match, or motion found for:', emotionName, {
                 availableExpressions: live2dStore.availableExpressions.map(e => ({ name: e.name, fileName: e.fileName })),
                 emotionMappings: live2dStore.emotionMappings,
                 availableMotions: live2dStore.availableMotions.map(m => m.fileName),
@@ -326,7 +327,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
       else if (stageModelRenderer.value === 'spine') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] Spine emotion/motion processing:', { name: emotionName, intensity })
+        debug('[Stage] Spine emotion/motion processing:', { name: emotionName, intensity })
         const spineStore = useSpine()
 
         const match = emotionName.match(/^(.+?)\s*\[(.+?)\]$/)
@@ -345,7 +346,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
       else if (stageModelRenderer.value === 'mmd') {
         const emotionName = ctx.data.name
         const intensity = ctx.data.intensity
-        console.info('[Stage] MMD emotion/motion processing:', { name: emotionName, intensity })
+        debug('[Stage] MMD emotion/motion processing:', { name: emotionName, intensity })
 
         const mmdStore = useMmd()
 
@@ -357,7 +358,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
 
         if (matchedMotion) {
           mmdStore.currentMotion = matchedMotion
-          console.info('[Stage] Triggered MMD motion:', matchedMotion)
+          debug('[Stage] Triggered MMD motion:', matchedMotion)
         }
         else {
           // 2. It's an expression (morph)
@@ -374,7 +375,7 @@ const emotionsQueue = createQueue<EmotionPayload>({
           }
 
           mmdStore.previewExpression = rawMorphName
-          console.info('[Stage] Triggered MMD expression:', rawMorphName)
+          debug('[Stage] Triggered MMD expression:', rawMorphName)
         }
       }
     },
@@ -383,20 +384,20 @@ const emotionsQueue = createQueue<EmotionPayload>({
 
 const specialTokenQueue = useSpecialTokenQueue(emotionsQueue)
 specialTokenQueue.onHandlerEvent('emotion', (emotion) => {
-  console.info('[Stage] Emotion token detected:', emotion)
+  debug('[Stage] Emotion token detected:', emotion)
 })
 specialTokenQueue.onHandlerEvent('delay', (delay) => {
-  console.info('[Stage] Delay token detected:', delay)
+  debug('[Stage] Delay token detected:', delay)
 })
 specialTokenQueue.onHandlerEvent('actor', (actorId) => {
-  console.info('[Stage] Actor swap token detected (parser):', actorId)
+  debug('[Stage] Actor swap token detected (parser):', actorId)
   parserActorId.value = actorId
   void artistryAutonomousStore.activateConcept(actorId)
 })
 
 // Play special token: delay or emotion
 function playSpecialToken(special: string) {
-  console.info('[Stage] Enqueueing special token:', special)
+  debug('[Stage] Enqueueing special token:', special)
   specialTokenQueue.enqueue(special)
 }
 
@@ -405,7 +406,7 @@ const modsServer = useModsServerChannelStore()
 function processMarkers(content: string) {
   const markers = content.match(/<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>)/gi)
   if (markers) {
-    console.info('[Stage] Markers detected:', markers)
+    debug('[Stage] Markers detected:', markers)
     for (const marker of markers) {
       playSpecialToken(marker)
     }
@@ -427,7 +428,7 @@ modsServerCleanups.push(modsServer.onEvent('output:gen-ai:chat:message', (event)
     return
   }
 
-  console.info('[Stage] Received external message:', event.data)
+  debug('[Stage] Received external message:', event.data)
   if (typeof event.data?.message?.content === 'string') {
     processMarkers(event.data.message.content)
   }
@@ -439,7 +440,7 @@ modsServerCleanups.push(modsServer.onEvent('input:text', (event) => {
     return
   }
 
-  console.info('[Stage] Received external input:', event.data)
+  debug('[Stage] Received external input:', event.data)
   if (event.data?.text) {
     processMarkers(event.data.text)
   }
@@ -452,34 +453,34 @@ const lipSyncNode = ref<AudioNode>()
 
 if (typeof window !== 'undefined') {
   (window as any).testEmotion = (emotion: string) => {
-    console.info('[DEBUG] Manually triggering emotion:', emotion)
+    debug('[DEBUG] Manually triggering emotion:', emotion)
     processMarkers(`<|ACT:{"emotion":"${emotion}"}|>`)
   }
 
   (window as any).listExpressions = () => {
-    console.info('[DEBUG] Available Expressions: []')
+    debug('[DEBUG] Available Expressions: []')
     return []
   }
 
   (window as any).setRawExpression = (name: string, value: number) => {
-    console.info('[DEBUG] Setting raw expression (3s reset):', name, value)
+    debug('[DEBUG] Setting raw expression (3s reset):', name, value)
   }
 
   (window as any).setPersistentExpression = (name: string, value: number) => {
-    console.info('[DEBUG] Setting persistent expression (NO reset):', name, value)
+    debug('[DEBUG] Setting persistent expression (NO reset):', name, value)
   }
 
   (window as any).stopAnimations = () => {
-    console.info('[DEBUG] Stopping all animations')
+    debug('[DEBUG] Stopping all animations')
   }
 
   (window as any).testMarker = (content: string) => {
-    console.info('[DEBUG] Manually testing marker:', content)
+    debug('[DEBUG] Manually testing marker:', content)
     playSpecialToken(content)
   }
 
   ;(window as any).simulateAssistant = (content: string) => {
-    console.info('[DEBUG] Simulating assistant response:', content)
+    debug('[DEBUG] Simulating assistant response:', content)
 
     const intent = ensureSpeechIntent()
 
@@ -501,7 +502,7 @@ if (typeof window !== 'undefined') {
   }
 
   ;(window as any).simulateStreamingAssistant = async (content: string, delayMs = 100) => {
-    console.info('[DEBUG] Simulating streaming assistant response:', content, 'with delay:', delayMs)
+    debug('[DEBUG] Simulating streaming assistant response:', content, 'with delay:', delayMs)
 
     const intent = ensureSpeechIntent()
     if (!intent)
@@ -580,7 +581,7 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
   if (item.special) {
     const actorId = parseActor(item.special)
     if (actorId) {
-      console.info('[Stage:Playback] Actor swap token reached playback, activating concept:', actorId)
+      debug('[Stage:Playback] Actor swap token reached playback, activating concept:', actorId)
 
       playbackActorId.value = actorId
 
@@ -608,7 +609,7 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
         setTimeout(() => {
           if (stageModelReadyResolver) {
-            console.warn('[Stage:Playback] Timeout waiting for model ready signal for actor:', actorId)
+            debug('[Stage:Playback] Timeout waiting for model ready signal for actor:', actorId)
             stageModelReadyResolver()
           }
         }, 5000)
@@ -691,7 +692,7 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
   // Ensure final audio is connected to output destination and analyser
   if (isPlaybackSuppressed.value) {
-    console.info('[Stage:Playback] Local speaker playback is suppressed (active Discord voice call).')
+    debug('[Stage:Playback] Local speaker playback is suppressed (active Discord voice call).')
     void streamAudioToDiscordVoice(item.audio)
   }
   else {
@@ -764,20 +765,20 @@ const rawAudioBuffers = new Map<string, ArrayBuffer>()
 const speechPipeline = createSpeechPipeline<AudioBuffer>({
   tts: async (request, signal) => {
     if (import.meta.env.DEV)
-      console.info('[Stage:TTS] Request received:', { text: request.text?.slice(0, 30), special: request.special })
+      debug('[Stage:TTS] Request received:', { text: request.text?.slice(0, 30), special: request.special })
 
     if (signal.aborted) {
-      console.warn('[Stage:TTS] Request aborted early')
+      debug('[Stage:TTS] Request aborted early')
       return null
     }
 
     if (request.special) {
       const actorId = parseActor(request.special)
       if (actorId) {
-        console.info('[Stage:TTS] Actor swap detected — prefetching model/voice in background', actorId)
+        debug('[Stage:TTS] Actor swap detected — prefetching model/voice in background', actorId)
         const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(actorId)
         if (resolved && resolved.modelId) {
-          console.info('[Stage:TTS] Warming model cache for displayModelId:', resolved.modelId)
+          debug('[Stage:TTS] Warming model cache for displayModelId:', resolved.modelId)
           void displayModelsStore.getDisplayModel(resolved.modelId).then(async (model) => {
             if (model && (model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMD)) {
               void displayModelsStore.getDisplayModelTextures(model.id).catch(() => {})
@@ -909,7 +910,7 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
         }
       }
 
-      console.info('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
+      debug('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
     }
 
     if (!model || !voice)
@@ -979,7 +980,7 @@ playbackManager.onEnd(({ item }) => {
     if (item.special) {
       const actorId = parseActor(item.special)
       if (actorId) {
-        console.info('[Stage] Actor swap token reached playback:', actorId)
+        debug('[Stage] Actor swap token reached playback:', actorId)
         playbackActorId.value = actorId
       }
       playSpecialToken(item.special)
@@ -1032,7 +1033,7 @@ playbackManager.onStart(({ item }) => {
         })
       }
       catch (error) {
-        console.warn('[Stage] Failed to broadcast caption update:', error)
+        debug('[Stage] Failed to broadcast caption update:', error)
       }
     }
   }
@@ -1070,7 +1071,7 @@ async function setupLipSync() {
     return
 
   if (!audioContext || !audioContext.audioWorklet) {
-    console.warn('[Stage] Lip sync skipped: AudioWorklet is not available in this browser context (requires HTTPS or localhost).')
+    debug('[Stage] Lip sync skipped: AudioWorklet is not available in this browser context (requires HTTPS or localhost).')
     return
   }
 
@@ -1098,13 +1099,13 @@ function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
   if (currentChatIntent)
     return currentChatIntent
 
-  console.info('[Stage] Opening speech intent', { ownerId: activeCardId.value, behavior })
+  debug('[Stage] Opening speech intent', { ownerId: activeCardId.value, behavior })
   currentChatIntent = speechRuntimeStore.openIntent({
     ownerId: activeCardId.value,
     priority: 'normal',
     behavior,
   })
-  console.info('[Stage] Speech intent opened', { intentId: currentChatIntent.intentId, streamId: currentChatIntent.streamId })
+  debug('[Stage] Speech intent opened', { intentId: currentChatIntent.intentId, streamId: currentChatIntent.streamId })
 
   return currentChatIntent
 }
@@ -1113,7 +1114,7 @@ function ensureSpeechIntent(behavior: 'interrupt' | 'queue' = 'interrupt') {
 // This is the absolute truth for turn boundaries and prevents 'blob' accumulation.
 chatHookCleanups.push(watch(sessionUpdate, (event) => {
   if (event?.type === 'session-updated' && event.message?.role === 'user') {
-    console.info('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
+    debug('[Stage] New user turn detected (via session-updated), resetting caption accumulator.')
     assistantCaptionSegments.value = []
     parserActorId.value = activeCardId.value
     playbackActorId.value = activeCardId.value
@@ -1129,7 +1130,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   const isDiscordVoice = !!(context as any)?.message?._discordVoiceSource
   isPlaybackSuppressed.value = isDiscordVoice
   if (isDiscordVoice) {
-    console.info('[Stage] Ingesting message from Discord voice source, suppressing local speaker playback.')
+    debug('[Stage] Ingesting message from Discord voice source, suppressing local speaker playback.')
   }
   // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
   // enough if a previous turn left an active or queued intent inside the speech pipeline.
@@ -1149,18 +1150,18 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   }
   catch (error) {
     // BroadcastChannel may be closed if user navigated away - don't break flow
-    console.warn('[Stage] Failed to post caption reset (channel may be closed)', { error })
+    debug('[Stage] Failed to post caption reset (channel may be closed)', { error })
   }
   try {
     postPresent({ type: 'assistant-reset' })
   }
   catch (error) {
     // BroadcastChannel may be closed if user navigated away - don't break flow
-    console.warn('[Stage] Failed to post present reset (channel may be closed)', { error })
+    debug('[Stage] Failed to post present reset (channel may be closed)', { error })
   }
 
   if (currentChatIntent) {
-    console.info('[Stage] Cancelling existing speech intent for new message', { intentId: currentChatIntent.intentId })
+    debug('[Stage] Cancelling existing speech intent for new message', { intentId: currentChatIntent.intentId })
     currentChatIntent.cancel('new-message')
     currentChatIntent = null
   }
@@ -1188,8 +1189,8 @@ chatHookCleanups.push(onTokenSpecial(async (special) => {
   const intent = ensureSpeechIntent()
   if (!intent)
     return
-  // console.info('Stage received special token:', special)
-  console.info('[Stage] onTokenSpecial -> forwarding', { intentId: intent.intentId, special })
+  // debug('Stage received special token:', special)
+  debug('[Stage] onTokenSpecial -> forwarding', { intentId: intent.intentId, special })
   intent.writeSpecial(special)
 }))
 
@@ -1197,7 +1198,7 @@ chatHookCleanups.push(onStreamEnd(async () => {
   specialTokenQueue.enqueue(llmInferenceEndToken)
   const intent = ensureSpeechIntent()
   if (intent)
-    console.info('[Stage] onStreamEnd -> flush intent', { intentId: intent.intentId })
+    debug('[Stage] onStreamEnd -> flush intent', { intentId: intent.intentId })
   intent?.writeFlush()
 }))
 
@@ -1207,7 +1208,7 @@ chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
     const fallbackSpeech = categorizeResponse(message, activeChatProvider.value, { reasoningFallback: cardFallback !== false }).speech.trim()
     if (fallbackSpeech) {
       const intent = ensureSpeechIntent()
-      console.info('[Stage] onAssistantResponseEnd -> fallback speech literal', {
+      debug('[Stage] onAssistantResponseEnd -> fallback speech literal', {
         intentId: intent.intentId,
         length: fallbackSpeech.length,
       })
@@ -1217,7 +1218,7 @@ chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
   }
 
   if (currentChatIntent)
-    console.info('[Stage] onAssistantResponseEnd -> ending intent', { intentId: currentChatIntent.intentId })
+    debug('[Stage] onAssistantResponseEnd -> ending intent', { intentId: currentChatIntent.intentId })
   currentChatIntent?.end()
   currentChatIntent = null
   currentChatIntentReceivedLiteral.value = false

@@ -5,7 +5,7 @@ import Tres from '@tresjs/core'
 import NProgress from 'nprogress'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
-import { isEnvTruthy } from '@proj-airi/stage-shared'
+import { debug, isEnvTruthy } from '@proj-airi/stage-shared'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
@@ -106,7 +106,7 @@ try {
   }
   // @ts-expect-error - exposing to window for debugging
   window.airi = airi
-  console.log('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
+  debug('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
 }
 catch (e) {
   console.error('--- [AIRI DEBUG] Failed to initialize store bridge ---', e)

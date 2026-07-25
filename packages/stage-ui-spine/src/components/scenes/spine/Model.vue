@@ -5,6 +5,7 @@ import type { SpineAnimationManager } from '../../../composables/spine'
 import type { Emotion } from '../../../constants/emotions'
 import type { SpineModelVariant } from '../../../utils/spine-zip-loader'
 
+import { debug } from '@proj-airi/stage-shared'
 import { Mutex } from 'es-toolkit'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
@@ -596,23 +597,19 @@ async function loadModel() {
               if (bone) {
                 const boneCanvasX = canvas.value.width / 2 + bone.worldX
                 const boneCanvasY = canvas.value.height / 2 - bone.worldY
-                console.log(`[Spine Debug] Hit Area [${area.name}]: bone.worldX=${bone.worldX.toFixed(2)}, bone.worldY=${bone.worldY.toFixed(2)} | Calculated Center=(${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
+                debug(`[Spine Debug] Hit Area [${area.name}]: bone.worldX=${bone.worldX.toFixed(2)}, bone.worldY=${bone.worldY.toFixed(2)} | Calculated Center=(${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
               }
             }
 
             if (skeleton.bones) {
-              console.group('[Spine Debug] All Bones (Setup/First Frame)')
-              console.log(`Total Bones: ${skeleton.bones.length}`)
-              const boneInfo = skeleton.bones.map(b => ({
+              debug('[Spine Debug] All Bones (Setup/First Frame)', `Total: ${skeleton.bones.length}`, skeleton.bones.map(b => ({
                 name: b.data.name,
                 parent: b.parent ? b.parent.data.name : 'none',
                 x: Number(b.x.toFixed(2)),
                 y: Number(b.y.toFixed(2)),
                 worldX: Number(b.worldX.toFixed(2)),
                 worldY: Number(b.worldY.toFixed(2)),
-              }))
-              console.table(boneInfo)
-              console.groupEnd()
+              })))
             }
           }
 

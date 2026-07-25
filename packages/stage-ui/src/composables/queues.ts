@@ -3,6 +3,7 @@ import type { UseQueueReturn } from '@proj-airi/stream-kit'
 import type { Emotion, EmotionPayload } from '../constants/emotions'
 
 import { sleep } from '@moeru/std'
+import { debug } from '@proj-airi/stage-shared'
 import { createQueue } from '@proj-airi/stream-kit'
 
 import { EMOTION_VALUES } from '../constants/emotions'
@@ -113,8 +114,7 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
         const actParsed = parseActEmotion(ctx.data)
         if (actParsed.ok) {
           for (const emotion of actParsed.emotions) {
-            // eslint-disable-next-line no-console
-            console.log('[Queue] Dispatching ACT payload:', emotion)
+            debug('[Queue] Dispatching ACT payload:', emotion)
             ctx.emit('emotion', emotion)
             emotionsQueue.enqueue(emotion)
           }
@@ -123,8 +123,7 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
         // 3. Check for Actor/Concept swap
         const actorId = parseActor(ctx.data)
         if (actorId) {
-          // eslint-disable-next-line no-console
-          console.log('[Queue] Dispatching ACTOR swap:', actorId)
+          debug('[Queue] Dispatching ACTOR swap:', actorId)
           ctx.emit('actor', actorId)
         }
       },

@@ -1,3 +1,4 @@
+import { debug } from '@proj-airi/stage-shared'
 import { useDevicesList, useUserMedia } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
@@ -144,7 +145,7 @@ export function useAudioDevice(requestPermission: boolean = false) {
     if (needsBest && newInputs.length > 0) {
       const best = findBestDevice(newInputs)
       if (best && best !== selectedAudioInput.value) {
-        console.info('[Audio Store] Switching away from Communications/Default device to:', best)
+        debug('[Audio Store] Switching away from Communications/Default device to:', best)
         selectedAudioInput.value = best
       }
     }

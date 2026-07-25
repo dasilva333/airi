@@ -5,7 +5,7 @@ import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { StreamEvent, StreamOptions } from './llm'
 
-import { healMozibake } from '@proj-airi/stage-shared'
+import { debug, healMozibake } from '@proj-airi/stage-shared'
 import { createQueue } from '@proj-airi/stream-kit'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -83,7 +83,7 @@ interface QueuedSend {
 }
 
 // NOTICE: gated to DEV builds to avoid console spam during streaming in production.
-const chatLog = import.meta.env.DEV ? console.log.bind(console, '[ChatDebug]') : () => {}
+const chatLog = import.meta.env.DEV ? debug.bind(null, '[ChatDebug]') : () => {}
 
 // NOTICE: The hooks event bus is intentionally a module-level singleton, NOT created
 // inside the defineStore setup function. During Vite HMR, Pinia re-runs the store's
@@ -870,7 +870,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                   }
                 }
                 else {
-                  console.warn(`[ChatDebug] Tool not found or not executable: ${toolCall.function.name}`)
+                  debug(`[ChatDebug] Tool not found or not executable: ${toolCall.function.name}`)
                   toolCallQueue.enqueue({
                     type: 'tool-call-result',
                     id: toolCall.id,
@@ -1059,7 +1059,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
           }
         }
         catch (e) {
-          console.warn('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
+          debug('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
         }
 
         // Evaluate Introspective Context Injections
@@ -1071,7 +1071,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
         const pendingJournal = pendingIntrusionStaging.journal ? toRaw(pendingIntrusionStaging.journal) : undefined
         const pendingArtistry = pendingIntrusionStaging.artistry ? toRaw(pendingIntrusionStaging.artistry) : undefined
 
-        console.warn('[Chat Debug] performSend evaluation:', {
+        debug('[Chat Debug] performSend evaluation:', {
           activeCardId: activeCardId.value,
           dreamStateInject: dreamState?.injectDreamContext,
           journalStateInject: textJournal?.injectJournalContext,
@@ -1092,7 +1092,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
 
         let journalPrompt = ''
         if (textJournal?.injectJournalContext && pendingJournal) {
-          console.warn('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
+          debug('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
           const elapsedMinutes = Math.max(1, Math.round((Date.now() - pendingJournal.timestamp) / 60000))
           const template = textJournal.journalIntrusionPrompt || DEFAULT_JOURNAL_INTRUSION_PROMPT
           journalPrompt = template
@@ -1149,7 +1149,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
             contextContent += `${contextContent ? '\n---\n' : ''}[INSPECTIVE ARTWORK AWARENESS]\n${artistryPrompt}\n`
           }
 
-          console.warn('[Chat Debug] Combined contextContent to inject:', contextContent.trim())
+          debug('[Chat Debug] Combined contextContent to inject:', contextContent.trim())
 
           newMessages = [
             ...system,
@@ -1313,7 +1313,7 @@ Format your output as a raw thought log.`
         const currentModel = providerModels.find(m => m.id === effectiveModel)
         const isVisionSupported = isVlmTurn || (currentModel?.capabilities?.includes('vision') || false)
 
-        console.log(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
+        debug(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
 
         await llmStore.stream(effectiveModel, effectiveProvider, newMessages as Message[], {
           headers,
@@ -1658,7 +1658,7 @@ Format your output as a raw thought log.`
 
     if (!isMainWindow) {
       if (options.triggerOnly) {
-        console.log(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
+        debug(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
         postInput({
           sendingMessage,
           options: {
@@ -1672,7 +1672,7 @@ Format your output as a raw thought log.`
       }
 
       const clientMessageId = nanoid()
-      console.log(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
+      debug(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
       const metadata = { ...options.metadata, clientMessageId }
 
       return new Promise<void>((resolve, reject) => {
@@ -1700,19 +1700,19 @@ Format your output as a raw thought log.`
         stopWatch = watch(
           () => {
             const msgs = chatSession.getSessionMessages(sessionId)
-            console.log(`[IngestDebug] Watcher getter ran. Target messages count: ${msgs.length}`)
+            debug(`[IngestDebug] Watcher getter ran. Target messages count: ${msgs.length}`)
             return msgs
           },
           (messages) => {
-            console.log(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
+            debug(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
             const found = messages.some((m) => {
               const clientMsgId = (m as any).clientMessageId || (m as any).metadata?.clientMessageId
               const matched = clientMsgId === clientMessageId
-              console.log(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, clientMsgId, matched })
+              debug(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, clientMsgId, matched })
               return matched
             })
             if (found) {
-              console.log(`[IngestDebug] Found matching clientMessageId: ${clientMessageId}! Resolving promise.`)
+              debug(`[IngestDebug] Found matching clientMessageId: ${clientMessageId}! Resolving promise.`)
               cleanup()
               resolve()
             }

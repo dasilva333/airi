@@ -1,5 +1,6 @@
 import localforage from 'localforage'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -56,7 +57,7 @@ export const useBackgroundStore = defineStore('background', () => {
     try {
       const url = URL.createObjectURL(blob)
       backgroundUrls[id] = url
-      // console.log(`[BackgroundStore] Created ObjectURL for ${id}`)
+      // debug(`[BackgroundStore] Created ObjectURL for ${id}`)
       return url
     }
     catch (e) {
@@ -85,7 +86,7 @@ export const useBackgroundStore = defineStore('background', () => {
     if (loading.value && entries.value.size > 0)
       return // Already initializing
 
-    console.log('[BackgroundStore] Initializing store...')
+    debug('[BackgroundStore] Initializing store...')
     loading.value = true
     try {
       const loadedEntries = new Map<string, BackgroundEntry>()
@@ -182,7 +183,7 @@ export const useBackgroundStore = defineStore('background', () => {
         }
       }
 
-      console.log(`[BackgroundStore] Store initialized with ${loadedEntries.size} entries.`)
+      debug(`[BackgroundStore] Store initialized with ${loadedEntries.size} entries.`)
     }
     catch (error) {
       console.error('[BackgroundStore] Initialization failed:', error)
@@ -196,13 +197,13 @@ export const useBackgroundStore = defineStore('background', () => {
   const { data: syncSignal, post: broadcastSync } = useBroadcastChannel({ name: 'airi:background-sync' })
 
   watch(syncSignal, (val) => {
-    console.log(`[BackgroundStore] Received sync signal (${val}), re-initializing...`)
+    debug(`[BackgroundStore] Received sync signal (${val}), re-initializing...`)
     initializeStore()
   })
 
   async function sync() {
     const timestamp = Date.now()
-    console.log(`[BackgroundStore] Sending sync signal: ${timestamp}`)
+    debug(`[BackgroundStore] Sending sync signal: ${timestamp}`)
     broadcastSync(timestamp)
   }
 
@@ -216,7 +217,7 @@ export const useBackgroundStore = defineStore('background', () => {
       return null
     const bgId = airiCardStore.activeCard.extensions?.airi?.modules?.activeBackgroundId
     if (!bgId || bgId === 'none') {
-      console.log('[BackgroundStore] activeBackgroundUrl: No ID or "none"')
+      debug('[BackgroundStore] activeBackgroundUrl: No ID or "none"')
       return null
     }
 
@@ -232,13 +233,13 @@ export const useBackgroundStore = defineStore('background', () => {
     // If we have the URL but not the entry in the map yet, it's likely still initializing.
     // We return the URL anyway to avoid blank backgrounds during sync.
     if (url) {
-      console.log(`[BackgroundStore] activeBackgroundUrl resolved for "${lookupId}" (from URL map)`)
+      debug(`[BackgroundStore] activeBackgroundUrl resolved for "${lookupId}" (from URL map)`)
       return url
     }
 
     const entry = entries.value.get(lookupId)
     if (!entry) {
-      console.warn(`[BackgroundStore] activeBackgroundUrl: No entry or URL found for ID "${lookupId}"`)
+      debug(`[BackgroundStore] activeBackgroundUrl: No entry or URL found for ID "${lookupId}"`)
       return null
     }
 
@@ -380,7 +381,7 @@ export const useBackgroundStore = defineStore('background', () => {
         void hook(entryWithMetadata)
       }
 
-      console.log(`[BackgroundStore] Successfully added background: ${id} (${type})`)
+      debug(`[BackgroundStore] Successfully added background: ${id} (${type})`)
       return id
     }
     catch (error) {

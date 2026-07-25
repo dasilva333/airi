@@ -3,6 +3,7 @@ import type { createSpeechPipeline, IntentHandle, IntentOptions, TextToken } fro
 import type { SpeechIntentStartPayload, SpeechIntentTokenPayload } from './bus'
 
 import { createPushStream } from '@proj-airi/pipelines-audio'
+import { debug } from '@proj-airi/stage-shared'
 import { Mutex } from 'es-toolkit'
 import { nanoid } from 'nanoid'
 
@@ -156,7 +157,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       behavior,
     })
 
-    console.log('[Speech Runtime] Creating intent', { intentId, ownerId, behavior, streamId })
+    debug('[Speech Runtime] Creating intent', { intentId, ownerId, behavior, streamId })
     const handle: IntentHandle = {
       intentId,
       streamId,
@@ -166,7 +167,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       writeLiteral(value: string) {
         if (closed)
           return
-        console.log('[Speech Intent] writeLiteral', { intentId, streamId, value: value.slice(0, 120) })
+        debug('[Speech Intent] writeLiteral', { intentId, streamId, value: value.slice(0, 120) })
         write({ type: 'literal', value, streamId, intentId, sequence, createdAt: Date.now() })
         context.emit(speechIntentLiteralEvent, {
           originId,
@@ -179,7 +180,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       writeSpecial(value: string) {
         if (closed)
           return
-        console.log('[Speech Intent] writeSpecial', { intentId, streamId, value })
+        debug('[Speech Intent] writeSpecial', { intentId, streamId, value })
         write({ type: 'special', value, streamId, intentId, sequence, createdAt: Date.now() })
         context.emit(speechIntentSpecialEvent, {
           originId,
@@ -192,7 +193,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       writeFlush() {
         if (closed)
           return
-        console.log('[Speech Intent] writeFlush', { intentId, streamId })
+        debug('[Speech Intent] writeFlush', { intentId, streamId })
         write({ type: 'flush', streamId, intentId, sequence, createdAt: Date.now() })
         context.emit(speechIntentFlushEvent, {
           originId,
@@ -206,7 +207,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
           return
         closed = true
         close()
-        console.log('[Speech Intent] end', { intentId, streamId })
+        debug('[Speech Intent] end', { intentId, streamId })
         context.emit(speechIntentEndEvent, {
           originId,
           intentId,
@@ -218,7 +219,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
           return
         closed = true
         close()
-        console.log('[Speech Intent] cancel', { intentId, streamId, reason })
+        debug('[Speech Intent] cancel', { intentId, streamId, reason })
         context.emit(speechIntentCancelEvent, {
           originId,
           intentId,
@@ -235,7 +236,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
     await mutex.acquire()
     try {
       if (hostPipeline && hostPipeline !== pipeline) {
-        console.log('[Speech Runtime] Replacing stale host pipeline')
+        debug('[Speech Runtime] Replacing stale host pipeline')
         remoteIntentMap.clear()
       }
 
@@ -257,7 +258,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
       if (pipeline && hostPipeline !== pipeline)
         return
 
-      console.log('[Speech Runtime] Unregistering host pipeline')
+      debug('[Speech Runtime] Unregistering host pipeline')
       hostPipeline = null
       hostReady = false
       remoteIntentMap.clear()
@@ -268,7 +269,7 @@ export function createSpeechPipelineRuntime(): SpeechPipelineRuntime {
   }
 
   function openIntent(options?: IntentOptions) {
-    console.log('[Speech Runtime] openIntent called', { options })
+    debug('[Speech Runtime] openIntent called', { options })
     if (hostPipeline)
       return hostPipeline.openIntent(options)
 

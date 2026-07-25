@@ -2,6 +2,7 @@ import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
 import type { PixiLive2DInternalModel } from '../composables/live2d'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
@@ -120,13 +121,13 @@ export const useLive2d = defineStore('live2d', () => {
 
   function triggerMotion(group: string, index?: number) {
     const { resolvedGroup, resolvedIndex } = resolveMotionGroupAndIndex(group, index)
-    console.info('[Live2D Store] Posting trigger-motion event via BroadcastChannel:', { group: resolvedGroup, index: resolvedIndex })
+    debug('[Live2D Store] Posting trigger-motion event via BroadcastChannel:', { group: resolvedGroup, index: resolvedIndex })
     post({ type: 'live2d-trigger-motion', group: resolvedGroup, index: resolvedIndex })
     triggerMotionHooks.value.forEach(hook => hook(resolvedGroup, resolvedIndex))
   }
 
   watch(data, (event) => {
-    console.info('[Live2D Store] Received BroadcastChannel event:', event)
+    debug('[Live2D Store] Received BroadcastChannel event:', event)
     if (event?.type === 'live2d-should-update-view') {
       shouldUpdateViewHooks.value.forEach(hook => hook(event.reason))
     }

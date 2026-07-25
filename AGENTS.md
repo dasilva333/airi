@@ -1,3 +1,6 @@
+# CRITICAL REQUIREMENT: Git Status Reporting
+- **Always run `git status` after every single commit or file modification, and report exactly what files are still open, unstaged, or pending.** Never assume the working directory is clean or that unrelated modifications are invisible.
+
 Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) before broad architecture exploration or a cross-cutting change. It is the canonical concept-to-path index and records known failure modes. If it conflicts with current source, source wins; correct the Rosetta Stone when the change moves a canonical entry point or establishes a durable lesson.
 
 ## Pair programming

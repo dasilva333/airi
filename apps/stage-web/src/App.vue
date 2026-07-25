@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { debug } from '@proj-airi/stage-shared'
 import { OnboardingDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
@@ -83,10 +84,10 @@ watch(settings.themeColorsHueDynamic, () => {
 
 // Initialize first-time setup check when app mounts
 onMounted(async () => {
-  console.log('[App] onMounted start')
+  debug('[App] onMounted start')
   proactivityStore.startHeartbeatLoop()
 
-  console.log('[App] Initializing Analytics & Card stores...')
+  debug('[App] Initializing Analytics & Card stores...')
   analyticsStore.initialize()
   cardStore.initialize()
 
@@ -94,16 +95,16 @@ onMounted(async () => {
     onboardingStore.showingSetup = true
   }
 
-  console.log('[App] Initializing Chat Session...')
+  debug('[App] Initializing Chat Session...')
   await chatSessionStore.initialize()
-  console.log('[App] Initializing Server Channel...')
+  debug('[App] Initializing Server Channel...')
   await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
-  console.log('[App] Initializing Context Bridge...')
+  debug('[App] Initializing Context Bridge...')
   await contextBridgeStore.initialize()
-  console.log('[App] Initializing Character Orchestrator...')
+  debug('[App] Initializing Character Orchestrator...')
   characterOrchestratorStore.initialize()
 
-  console.log('[App] Loading models...')
+  debug('[App] Loading models...')
   await displayModelsStore.loadDisplayModelsFromIndexedDB()
   await settingsStore.initializeStageModel()
 
@@ -122,9 +123,9 @@ onMounted(async () => {
   }
   // @ts-expect-error - exposing to window for debugging
   window.airi = airi
-  console.log('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
+  debug('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
 
-  console.log('[App] onMounted complete')
+  debug('[App] onMounted complete')
 })
 
 onUnmounted(() => {

@@ -9,6 +9,7 @@ import {
   useElectronMouseInElement,
   useElectronMouseInWindow,
 } from '@proj-airi/electron-vueuse'
+import { debug } from '@proj-airi/stage-shared'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
@@ -714,11 +715,11 @@ function handleControlStripAction(e: Event) {
   }
   else if (action === 'caption-sync-position') {
     settingsStore.captionFollowStagePosition = !settingsStore.captionFollowStagePosition
-    console.log('[ControlStrip] caption-sync-position toggled:', settingsStore.captionFollowStagePosition)
+    debug('[ControlStrip] caption-sync-position toggled:', settingsStore.captionFollowStagePosition)
   }
   else if (action === 'caption-sync-visibility') {
     settingsStore.captionFollowStageVisibility = !settingsStore.captionFollowStageVisibility
-    console.log('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
+    debug('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
   }
   else if (action === 'caption-docking') {
     const DOCK_CYCLE = ['none', 'bottom', 'top', 'head'] as const
@@ -726,7 +727,7 @@ function handleControlStripAction(e: Event) {
     const next = DOCK_CYCLE[(DOCK_CYCLE.indexOf(current) + 1) % DOCK_CYCLE.length]
     settingsStore.captionDocking = next
     syncCaptionDocking(next)
-    console.log('[ControlStrip] caption-docking cycled to:', next)
+    debug('[ControlStrip] caption-docking cycled to:', next)
   }
   else if (action === 'caption-layout-mode') {
     settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
@@ -863,7 +864,7 @@ onMounted(async () => {
 
       // If we are actively in a Discord Gemini voice call, ignore the local mic toggle hotkey
       if (discordStore.voiceCall === 'gemini' && liveSessionStore.activeInputSource === 'discord' && liveSessionStore.isActive) {
-        console.log('[Shortcut] Ignoring local mic toggle shortcut because Discord Gemini voice call is active.')
+        debug('[Shortcut] Ignoring local mic toggle shortcut because Discord Gemini voice call is active.')
         return
       }
 

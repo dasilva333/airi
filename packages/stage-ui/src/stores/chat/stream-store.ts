@@ -1,5 +1,6 @@
 import type { StreamingAssistantMessage } from '../../types/chat'
 
+import { debug } from '@proj-airi/stage-shared'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
@@ -42,7 +43,7 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
       const existsByContent = sessionMessagesForSend.some(m => m.role === 'assistant' && m.content === streamingMessage.value.content)
       const exists = existsById || existsByContent
 
-      console.log(`[ChatStreamStore] finalizeStream for session ${sessionId}:`, {
+      debug(`[ChatStreamStore] finalizeStream for session ${sessionId}:`, {
         messageId: streamingMessage.value.id,
         existsById,
         existsByContent,

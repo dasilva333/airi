@@ -4,6 +4,7 @@ import type { ChatStreamEventContext, StreamingAssistantMessage } from '../types
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
+  debug,
   isWithinSchedule,
   sensorsGetActiveWindow,
   sensorsGetActiveWindowHistory,
@@ -52,8 +53,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const visionStore = useVisionStore()
   const echoesStore = useEchoesStore()
 
-  // eslint-disable-next-line no-console
-  console.log('[Proactivity] Proactivity Store initialized.')
+  debug('[Proactivity] Proactivity Store initialized.')
 
   const registeredTools = ref<(any | (() => Promise<any[] | undefined>))[]>([])
 
@@ -115,14 +115,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   async function updateSensors() {
     if (isUpdatingSensors.value) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Sensor update already in progress, skipping tick.')
+      debug('[Proactivity] Sensor update already in progress, skipping tick.')
       return
     }
 
     isUpdatingSensors.value = true
-    // eslint-disable-next-line no-console
-    console.log('[Proactivity] Starting updateSensors tick...')
+
+    debug('[Proactivity] Starting updateSensors tick...')
     console.time('[Proactivity] updateSensors')
     // Fallback for non-electron or missing invoker
     const now = new Date()
@@ -140,8 +139,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         return await promise
       }
       finally {
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity:Timer] ${name} took ${Math.round(performance.now() - start)}ms`)
+        debug(`[Proactivity:Timer] ${name} took ${Math.round(performance.now() - start)}ms`)
       }
     }
 
@@ -171,8 +169,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
       // Map settled results back to reactive state
       if (idleMsResult.status === 'fulfilled' && (idleMsResult as any).value !== undefined) {
         idleTimeSec.value = Math.floor((idleMsResult as any).value / 1000)
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] Sensor tick -> Idle: ${idleTimeSec.value}s`)
+
+        debug(`[Proactivity] Sensor tick -> Idle: ${idleTimeSec.value}s`)
       }
       if (activeWinResult.status === 'fulfilled') {
         activeWinStr.value = (activeWinResult as any).value?.title || ''
@@ -218,7 +216,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       recentChatCount.value = total
     }
     catch (err) {
-      console.warn('[Proactivity] Failed to poll sensors for preview:', err)
+      debug('[Proactivity] Failed to poll sensors for preview:', err)
     }
     finally {
       console.timeEnd('[Proactivity] updateSensors')
@@ -236,7 +234,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         idleTimeSec.value = Math.floor(idleMs / 1000)
     }
     catch (err) {
-      console.warn('[Proactivity] Failed to poll idle time:', err)
+      debug('[Proactivity] Failed to poll idle time:', err)
     }
   }
 
@@ -250,14 +248,12 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
   watch(isProactivityLoopNeeded, (needed) => {
     if (needed) {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Resuming sensor polling loop.')
+      debug('[Proactivity] Resuming sensor polling loop.')
       resume()
       setTrackingEnabledInvoke?.({ enabled: true })
     }
     else {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Pausing sensor polling loop (idle).')
+      debug('[Proactivity] Pausing sensor polling loop (idle).')
       pause()
       setTrackingEnabledInvoke?.({ enabled: false })
     }
@@ -480,17 +476,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
     console.time('[Proactivity] evaluateHeartbeat')
     try {
       if (isHeartbeatEvaluating.value && !options?.force) {
-        // eslint-disable-next-line no-console
-        console.log('[Proactivity] Evaluation already in progress, skipping.')
+        debug('[Proactivity] Evaluation already in progress, skipping.')
         return
       }
 
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Ticking evaluation loop...', { force: !!options?.force })
+      debug('[Proactivity] Ticking evaluation loop...', { force: !!options?.force })
 
       if (!activeCard.value) {
-        // eslint-disable-next-line no-console
-        console.log('[Proactivity] Aborted: No active card selected.', { activeCard: activeCard.value })
+        debug('[Proactivity] Aborted: No active card selected.', { activeCard: activeCard.value })
         return
       }
 
@@ -500,8 +493,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       // the *previous* character's conversation, which would be injected as context for the new
       // character — causing completely wrong roleplay history to appear in Nan0's proactive prompt.
       if (!options?.force && chatSession.isEnsuringSession) {
-        // eslint-disable-next-line no-console
-        console.log('[Proactivity] Aborted: Session switch in progress, deferring heartbeat.')
+        debug('[Proactivity] Aborted: Session switch in progress, deferring heartbeat.')
         return
       }
 
@@ -512,8 +504,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const isInWindow = isWithinSchedule(config!.schedule!.start, config!.schedule!.end)
 
         if (!isInWindow) {
-          // eslint-disable-next-line no-console
-          console.log(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
+          debug(`[Proactivity] Aborted: Outside schedule window (${config!.schedule!.start} - ${config!.schedule!.end}).`)
           return
         }
       }
@@ -533,14 +524,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
         if (!options?.force && currentIdleSec < requiredIdleSec) {
           firedForIdleSession.value = false
           const remainingSec = requiredIdleSec - currentIdleSec
-          // eslint-disable-next-line no-console
-          console.log(`[Proactivity] Waiting for inactivity: ${Math.floor(remainingSec / 60)}m ${remainingSec % 60}s of continuous idle remaining (currently idle ${currentIdleSec}s, need ${config.intervalMinutes}m).`)
+
+          debug(`[Proactivity] Waiting for inactivity: ${Math.floor(remainingSec / 60)}m ${remainingSec % 60}s of continuous idle remaining (currently idle ${currentIdleSec}s, need ${config.intervalMinutes}m).`)
           return
         }
 
         if (!options?.force && firedForIdleSession.value) {
-          // eslint-disable-next-line no-console
-          console.log('[Proactivity] Already sent a heartbeat for this idle session; waiting for the user to return before the next one.')
+          debug('[Proactivity] Already sent a heartbeat for this idle session; waiting for the user to return before the next one.')
           return
         }
 
@@ -556,8 +546,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
         if (!options?.force && timeLeftMs > 0) {
           const mins = Math.floor(timeLeftMs / 60000)
           const secs = Math.floor((timeLeftMs % 60000) / 1000)
-          // eslint-disable-next-line no-console
-          console.log(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
+
+          debug(`[Proactivity] Next evaluation due in: ${mins}m ${secs}s (Interval: ${config?.intervalMinutes}m)`)
           return
         }
       }
@@ -568,12 +558,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
             await updateSensors()
           }
           catch (err) {
-            console.warn('[Proactivity] Failed to fetch OS sensors:', err)
+            debug('[Proactivity] Failed to fetch OS sensors:', err)
           }
         }
         else {
-          // eslint-disable-next-line no-console
-          console.log('[Proactivity] Skipping sensors: Browser environment or invokers missing.')
+          debug('[Proactivity] Skipping sensors: Browser environment or invokers missing.')
         }
       }
 
@@ -582,8 +571,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       try {
         const promptText = config?.prompt || 'Evaluate heartbeat and situational context.'
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
+
+        debug(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
 
         const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
 
@@ -635,7 +624,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const sessionOwnerCharacterId = sessionMeta?.characterId
         const currentCharacterId = activeCardId.value
         if (sessionOwnerCharacterId && sessionOwnerCharacterId !== currentCharacterId) {
-          console.warn('[Proactivity] Session characterId mismatch — skipping history injection.', {
+          debug('[Proactivity] Session characterId mismatch — skipping history injection.', {
             sessionId,
             sessionOwnerCharacterId,
             currentCharacterId,
@@ -672,22 +661,20 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const activeModel = consciousnessStore.activeModel
 
         if (!activeProviderId) {
-          console.warn('[Proactivity] Aborted: No active LLM provider found.')
+          debug('[Proactivity] Aborted: No active LLM provider found.')
           return
         }
 
         if (!options?.force && !providersStore.configuredProviders[activeProviderId]) {
-          // eslint-disable-next-line no-console
-          console.log(`[Proactivity] Aborted: Active LLM provider "${activeProviderId}" is not configured or offline.`)
+          debug(`[Proactivity] Aborted: Active LLM provider "${activeProviderId}" is not configured or offline.`)
           return
         }
 
-        // eslint-disable-next-line no-console
-        console.log('[Proactivity] Resolving Provider Instance:', { activeProviderId, activeModel })
+        debug('[Proactivity] Resolving Provider Instance:', { activeProviderId, activeModel })
         const activeProvider = await providersStore.getProviderInstance(activeProviderId) as any
 
         if (!activeProvider) {
-          console.warn('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
+          debug('[Proactivity] Aborted: Failed to instantiate LLM provider.', { activeProviderId })
           return
         }
 
@@ -706,14 +693,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
           liveSessionStore.recordInferenceUsage(totalTokens)
         }
 
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] LLM Raw Response: "${rawReply}"`)
+        debug(`[Proactivity] LLM Raw Response: "${rawReply}"`)
 
         // NOTICE: `NO_REPLY` is a control sentinel for proactive heartbeats, not user-facing content.
         // If the model returns it exactly, we must stop here so it never reaches chat history, stage
         // replay, captions, or TTS.
         if ((rawReply || '').trim() === 'NO_REPLY') {
-          console.log('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
+          debug('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
           return
         }
 
@@ -787,13 +773,11 @@ export const useProactivityStore = defineStore('proactivity', () => {
         const trimmedReply = (buildingMessage.content as string).trim()
 
         if (!trimmedReply) {
-          // eslint-disable-next-line no-console
-          console.log('[Proactivity] AI decided to remain silent.')
+          debug('[Proactivity] AI decided to remain silent.')
           return
         }
 
-        // eslint-disable-next-line no-console
-        console.log(`[Proactivity] Success! Injecting message into UI: ${trimmedReply}`)
+        debug(`[Proactivity] Success! Injecting message into UI: ${trimmedReply}`)
 
         await chatOrchestrator.emitStreamEndHooks(streamingContext)
         await chatOrchestrator.emitAssistantResponseEndHooks(trimmedReply, streamingContext)
@@ -816,7 +800,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         // This eliminates the need for a separate vision polling loop — proactivity's AFK,
         // schedule, and interval gates naturally protect vision from wasted captures.
         if (liveSessionStore.isActive && visionStore.isWitnessEnabled) {
-          console.log('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
+          debug('[Proactivity] Live API active + Witness enabled → piggybacking vision capture.')
           await visionStore.heartbeat({ force: true })
         }
       }
@@ -835,8 +819,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
   // Diagnostic Hook
   if (typeof window !== 'undefined') {
     (window as any).triggerHeartbeat = (force = true) => {
-      // eslint-disable-next-line no-console
-      console.log('[Proactivity] Manual trigger initiated via window.triggerHeartbeat')
+      debug('[Proactivity] Manual trigger initiated via window.triggerHeartbeat')
       return evaluateHeartbeat({ force })
     }
     ;(window as any).triggerDreamState = (force = true) => {
@@ -848,8 +831,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
     if (heartbeatInterval)
       stopHeartbeatLoop()
 
-    // eslint-disable-next-line no-console
-    console.log('[Proactivity] Starting global heartbeat loop (10s tick)...')
+    debug('[Proactivity] Starting global heartbeat loop (10s tick)...')
     heartbeatInterval = setInterval(() => {
       void evaluateHeartbeat()
       void evaluateDreamState()
@@ -917,7 +899,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       },
     } as any)
 
-    console.log(`[Proactivity] Cycled heartbeat interval: ${current}m → ${next}m`)
+    debug(`[Proactivity] Cycled heartbeat interval: ${current}m → ${next}m`)
   }
 
   // Computed read of the active card's respectSchedule setting for UI binding.
@@ -949,7 +931,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       },
     } as any)
 
-    console.log(`[Proactivity] Toggled respectSchedule: ${!next} → ${next}`)
+    debug(`[Proactivity] Toggled respectSchedule: ${!next} → ${next}`)
   }
 
   return {

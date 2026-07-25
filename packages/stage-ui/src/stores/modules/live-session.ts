@@ -2,6 +2,7 @@ import type { Tool } from '@xsai/shared-chat'
 
 import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -186,7 +187,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
   watch(isGroundingEnabled, (enabled) => {
     if (isActive.value && socket.value?.readyState === WebSocket.OPEN) {
-      console.log(`[LiveSession] Grounding toggled to ${enabled}. Restarting connection...`)
+      debug(`[LiveSession] Grounding toggled to ${enabled}. Restarting connection...`)
       toast.info('Reconnecting Gemini Live to apply new Grounding settings...')
 
       // We must close the current socket because tools can only be provided
@@ -208,10 +209,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     call: { name: string, args?: Record<string, unknown>, id?: string },
   ) {
     const { name, args, id: callId } = call
-    console.log(`[LiveSession] 🛠️ Tool call received: ${name}`, args)
+    debug(`[LiveSession] 🛠️ Tool call received: ${name}`, args)
 
     if (toolCallCounter >= MAX_TOOL_CALLS_PER_TURN) {
-      console.warn(`[LiveSession] ⚠️ Rate limit reached (${MAX_TOOL_CALLS_PER_TURN} calls). Skipping tool: ${name}`)
+      debug(`[LiveSession] ⚠️ Rate limit reached (${MAX_TOOL_CALLS_PER_TURN} calls). Skipping tool: ${name}`)
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           toolResponse: {
@@ -231,12 +232,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     try {
       // Resolve tools from the store's registry
       const allTools = await proactivityStore.resolveRegisteredTools()
-      console.log(`[LiveSession] 🔍 Searching registry for "${name}" among ${allTools.length} tools...`)
+      debug(`[LiveSession] 🔍 Searching registry for "${name}" among ${allTools.length} tools...`)
 
       const matchedTool = (allTools as Tool[]).find(t => t.function.name === name)
 
       if (!matchedTool) {
-        console.warn(`[LiveSession] ❌ Tool not found in registry: ${name}`)
+        debug(`[LiveSession] ❌ Tool not found in registry: ${name}`)
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
             toolResponse: {
@@ -252,7 +253,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       }
 
       // Add 'executing' slice to the chat UI and trigger toast
-      console.log(`[LiveSession] 🚀 Executing "${name}"...`)
+      debug(`[LiveSession] 🚀 Executing "${name}"...`)
       toast.info(`Executing tool: ${name}...`)
 
       if (currentStreamingMessage) {
@@ -281,7 +282,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         },
       )
 
-      console.log(`[LiveSession] ✅ Tool "${name}" result:`, result)
+      debug(`[LiveSession] ✅ Tool "${name}" result:`, result)
       toast.success(`Tool ${name} completed.`)
 
       // Send the tool response back through the WebSocket
@@ -422,7 +423,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       args.query = argsRaw.trim()
     }
 
-    console.log(`[LiveSession] 🌉 Bridging marker to tool call: ${toolName}`, args)
+    debug(`[LiveSession] 🌉 Bridging marker to tool call: ${toolName}`, args)
 
     // Execute via our standard Bidi-compatible tool runner
     // This handles UI slices, proactivity registry lookup, and result feedback.
@@ -467,7 +468,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     }
 
     error.value = null
-    console.log('[LiveSession] Starting Gemini Live session...')
+    debug('[LiveSession] Starting Gemini Live session...')
     isConnecting.value = true
 
     const endpoint = `${LIVE_WS_BASE}?key=${apiKey}`
@@ -475,7 +476,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     socket.value = ws
 
     ws.onopen = async () => {
-      console.log('[LiveSession] WebSocket connected. Resolving tools and sending setup...')
+      debug('[LiveSession] WebSocket connected. Resolving tools and sending setup...')
 
       // Resolve the full AIRI toolchain: proactive tools
       const proactiveTools = await proactivityStore.resolveRegisteredTools() as Tool[]
@@ -489,13 +490,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         geminiTools.push({
           functionDeclarations: resolvedToolRegistry.map(mapAiriToolToGemini),
         })
-        console.log('[LiveSession] Injecting tools:', resolvedToolRegistry.map(t => t.function.name))
+        debug('[LiveSession] Injecting tools:', resolvedToolRegistry.map(t => t.function.name))
       }
 
       // Only inject google_search when the grounding toggle is enabled (cost-aware)
       if (isGroundingEnabled.value) {
         geminiTools.push({ google_search: {} })
-        console.log('[LiveSession] Google Search grounding ENABLED')
+        debug('[LiveSession] Google Search grounding ENABLED')
       }
 
       // NOTICE: responseModalities MUST ALWAYS contain 'AUDIO'.
@@ -512,7 +513,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         },
       }
 
-      console.log('[LiveSession] Sending setup with mandatory AUDIO modality:', JSON.stringify(generationConfig, null, 2))
+      debug('[LiveSession] Sending setup with mandatory AUDIO modality:', JSON.stringify(generationConfig, null, 2))
 
       const setupMessage = {
         setup: {
@@ -539,7 +540,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         const response = JSON.parse(data)
 
         if (response.setupComplete) {
-          console.log('[LiveSession] Setup complete!')
+          debug('[LiveSession] Setup complete!')
           isActive.value = true
           isConnecting.value = false
 
@@ -569,12 +570,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                 turnComplete: true,
               },
             }))
-            console.log(`[LiveSession] Injected ${turns.length} historical turns into Bidi session (raw: ${rawTurns.length})`)
+            debug(`[LiveSession] Injected ${turns.length} historical turns into Bidi session (raw: ${rawTurns.length})`)
           }
 
           // 2. Flush any buffered Discord audio chunks AFTER context is restored
           if (connectionQueue.length > 0) {
-            console.log(`[LiveSession] 🚀 Flushing ${connectionQueue.length} buffered Discord chunks to Gemini...`)
+            debug(`[LiveSession] 🚀 Flushing ${connectionQueue.length} buffered Discord chunks to Gemini...`)
             connectionQueue.forEach((chunk) => {
               sendRealtimeAudio(chunk, 'discord')
             })
@@ -613,7 +614,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
             // Capture the output mode at turn start so it's consistent for the whole turn
             const turnOutputMode = outputMode.value
-            console.log(`[LiveSession] New assistant turn started. Output Mode: ${turnOutputMode}`, {
+            debug(`[LiveSession] New assistant turn started. Output Mode: ${turnOutputMode}`, {
               responseModalities: content.modelTurn ? 'AUDIO/TEXT' : 'TRANSCRIPTION_ONLY',
             })
 
@@ -643,7 +644,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                 }
 
                 if (turnOutputMode === 'custom' && (speechOnly.trim() || speechOnly.includes(' '))) {
-                  console.log(`[LiveSession] Forwarding literal to Custom TTS: "${speechOnly}"`)
+                  debug(`[LiveSession] Forwarding literal to Custom TTS: "${speechOnly}"`)
                   await chatOrchestrator.emitTokenLiteralHooks(speechOnly, currentStreamContext!)
                 }
                 else if (turnOutputMode === 'gemini') {
@@ -658,7 +659,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
                   // Log occasionally to confirm suppression is working without spamming
                   if (speechOnly.trim().length > 0 && Math.random() > 0.8) {
-                    console.log(`[LiveSession] Gemini mode: suppressed Custom TTS for "${speechOnly.substring(0, 20)}..."`)
+                    debug(`[LiveSession] Gemini mode: suppressed Custom TTS for "${speechOnly.substring(0, 20)}..."`)
                   }
                 }
               },
@@ -689,7 +690,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           if (outputMode.value === 'gemini' && content.modelTurn?.parts) {
             for (const part of content.modelTurn.parts) {
               if (part.inlineData?.mimeType?.startsWith('audio/pcm') && part.inlineData.data) {
-                console.log(`[LiveSession] Received PCM chunk: ${part.inlineData.data.length} bytes (base64)`)
+                debug(`[LiveSession] Received PCM chunk: ${part.inlineData.data.length} bytes (base64)`)
                 playPcmChunk(part.inlineData.data)
               }
             }
@@ -730,7 +731,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           if (content.inputTranscription?.text) {
             const userText = content.inputTranscription.text
             const logMsg = `[LiveSession] 🎙️ Intercepted User Speech Transcription: "${userText}" - Inscribing into active chat session.`
-            console.log(logMsg)
+            debug(logMsg)
             if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
               (window as any).electron.ipcRenderer.send('logger:write', 'info', logMsg)
             }
@@ -766,7 +767,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
               } as ChatAssistantMessage)
 
               const logMsg = `[LiveSession] 🤖 Intercepted Assistant Response: "${fullText}" - Inscribing into active chat session.`
-              console.log(logMsg)
+              debug(logMsg)
               if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
                 (window as any).electron.ipcRenderer.send('logger:write', 'info', logMsg)
               }
@@ -787,7 +788,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
                 const ipcRenderer = (window as any).electron?.ipcRenderer
                 if (ipcRenderer) {
                   ipcRenderer.send('gemini-audio-end')
-                  console.log('[LiveSession] Sent gemini-audio-end to main process (turn complete).')
+                  debug('[LiveSession] Sent gemini-audio-end to main process (turn complete).')
                 }
                 // Reset source back to local after the Discord turn finishes
                 activeInputSource.value = 'local'
@@ -803,7 +804,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
           // Capture grounding metadata from google_search for future UI citation rendering
           if (content.groundingMetadata) {
-            console.log('[LiveSession] Grounding metadata received:', JSON.stringify(content.groundingMetadata, null, 2))
+            debug('[LiveSession] Grounding metadata received:', JSON.stringify(content.groundingMetadata, null, 2))
 
             // Extract chunks/sources if available
             const chunks = content.groundingMetadata.groundingChunks || []
@@ -881,7 +882,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     }
 
     ws.onclose = (event) => {
-      console.warn(`[LiveSession] WebSocket CLOSED! Code: ${event.code}, Reason: ${event.reason || 'None provided'}`)
+      debug(`[LiveSession] WebSocket CLOSED! Code: ${event.code}, Reason: ${event.reason || 'None provided'}`)
 
       // Surface 1011 or Internal Error specifically
       if (event.code === 1011 || (event.reason && event.reason.includes('Internal error'))) {
@@ -902,13 +903,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function stop() {
-    console.log('[LiveSession] Stopping session...')
+    debug('[LiveSession] Stopping session...')
     socket.value?.close()
     reset()
   }
 
   function sendText(text: string) {
-    console.log(`[LiveSession] sendText() called. socket.readyState:`, socket.value?.readyState)
+    debug(`[LiveSession] sendText() called. socket.readyState:`, socket.value?.readyState)
     if (!socket.value || socket.value.readyState !== WebSocket.OPEN) {
       console.error(`[LiveSession] Cannot sendText. Socket is invalid or not OPEN.`)
       return
@@ -918,10 +919,10 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       realtimeInput: { text },
     }
 
-    console.log(`[LiveSession] Sending payload:`, JSON.stringify(message))
+    debug(`[LiveSession] Sending payload:`, JSON.stringify(message))
     try {
       socket.value.send(JSON.stringify(message))
-      console.log(`[LiveSession] Payload sent successfully via WebSocket.`)
+      debug(`[LiveSession] Payload sent successfully via WebSocket.`)
     }
     catch (err) {
       console.error(`[LiveSession] FAILED to send WebSocket payload!`, err)
@@ -984,7 +985,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           audioStreamEnd: true,
         },
       }))
-      console.info('[LiveSession] Sent explicit audioStreamEnd signal to server.')
+      debug('[LiveSession] Sent explicit audioStreamEnd signal to server.')
     }
     catch (err) {
       console.error(`[LiveSession] FAILED to send audioStreamEnd via WebSocket!`, err)
@@ -992,7 +993,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   }
 
   function toggle() {
-    console.log('[LiveSession] Toggle requested. Current state:', { isActive: isActive.value, isConnecting: isConnecting.value })
+    debug('[LiveSession] Toggle requested. Current state:', { isActive: isActive.value, isConnecting: isConnecting.value })
     if (isActive.value || isConnecting.value) {
       stop()
     }
@@ -1006,12 +1007,12 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     const currentIndex = voices.indexOf(voiceName.value)
     const nextIndex = (currentIndex + 1) % voices.length
     voiceName.value = voices[nextIndex]
-    console.log('[LiveSession] Cycle voice:', voiceName.value)
+    debug('[LiveSession] Cycle voice:', voiceName.value)
     toast.info(`Voice: ${voiceName.value}`)
 
     // If active, we restart to apply the new voice in the setup message
     if (isActive.value) {
-      console.log('[LiveSession] Session active, restarting to apply voice change...')
+      debug('[LiveSession] Session active, restarting to apply voice change...')
       stop()
       setTimeout(start, 500)
     }
@@ -1019,7 +1020,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
   function toggleOutputMode() {
     outputMode.value = outputMode.value === 'gemini' ? 'custom' : 'gemini'
-    console.log('[LiveSession] Output mode toggled to:', outputMode.value)
+    debug('[LiveSession] Output mode toggled to:', outputMode.value)
     toast.info(`Output: ${outputMode.value === 'gemini' ? 'Gemini Native' : 'Custom TTS'}`)
   }
 
@@ -1042,7 +1043,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
           return
         }
         else {
-          console.warn('[LiveSession] activeInputSource is discord but no ipcRenderer available. Falling back to local playback.')
+          debug('[LiveSession] activeInputSource is discord but no ipcRenderer available. Falling back to local playback.')
         }
       }
       catch (err) {
@@ -1058,7 +1059,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
       // Decode base64 → raw bytes → Int16 PCM
       const binaryString = atob(base64Data)
-      console.log(`[LiveSession] Decoding ${binaryString.length} bytes of PCM data`)
+      debug(`[LiveSession] Decoding ${binaryString.length} bytes of PCM data`)
       const bytes = new Uint8Array(binaryString.length)
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i)
@@ -1098,7 +1099,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   function recordInferenceUsage(tokens: number) {
     if (tokens > 0) {
       inferenceTokens.value += tokens
-      console.log(`[LiveSession] Inference usage recorded: +${tokens}. New total inference: ${inferenceTokens.value}`)
+      debug(`[LiveSession] Inference usage recorded: +${tokens}. New total inference: ${inferenceTokens.value}`)
     }
   }
 
@@ -1159,7 +1160,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       const onDiscordAudioChunk = (_event: any, base64Pcm: string) => {
         const discordStore = useDiscordStore()
 
-        console.log(`[LiveSession] 📥 IPC Received discord-audio-chunk (${base64Pcm.length} chars). voiceCall setting: "${discordStore.voiceCall}"`)
+        debug(`[LiveSession] 📥 IPC Received discord-audio-chunk (${base64Pcm.length} chars). voiceCall setting: "${discordStore.voiceCall}"`)
 
         // Only handle if voiceCall is set to 'gemini'
         if (discordStore.voiceCall !== 'gemini') {
@@ -1168,13 +1169,13 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
         // Auto-start: if session is not active and not connecting, spin it up
         if (!isActive.value && !isConnecting.value) {
-          console.log('[LiveSession] 🚀 Auto-starting Gemini Live session from Discord speech...')
+          debug('[LiveSession] 🚀 Auto-starting Gemini Live session from Discord speech...')
           start()
         }
 
         // Buffer chunks while the socket connection is establishing (cold start)
         if (isConnecting.value) {
-          console.log('[LiveSession] 📥 Buffering Discord audio chunk during cold start...')
+          debug('[LiveSession] 📥 Buffering Discord audio chunk during cold start...')
           connectionQueue.push(base64Pcm)
           return
         }
@@ -1186,19 +1187,19 @@ export const useLiveSessionStore = defineStore('live-session', () => {
 
       const onDiscordAudioEnd = (_event: any, _payload: any) => {
         const discordStore = useDiscordStore()
-        console.log(`[LiveSession] 📥 IPC Received discord-audio-end. voiceCall setting: "${discordStore.voiceCall}"`)
+        debug(`[LiveSession] 📥 IPC Received discord-audio-end. voiceCall setting: "${discordStore.voiceCall}"`)
 
         if (discordStore.voiceCall !== 'gemini') {
           return
         }
 
         if (isConnecting.value) {
-          console.log('[LiveSession] Discord speaking ended during cold start. StreamEnd will be inferred on flush.')
+          debug('[LiveSession] Discord speaking ended during cold start. StreamEnd will be inferred on flush.')
           return
         }
 
         if (isActive.value && socket.value && socket.value.readyState === WebSocket.OPEN) {
-          console.log('[LiveSession] 🔚 Discord speaking segment ended. Sending audioStreamEnd to Gemini.')
+          debug('[LiveSession] 🔚 Discord speaking segment ended. Sending audioStreamEnd to Gemini.')
           sendAudioStreamEnd()
         }
       }
@@ -1206,7 +1207,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       const onDiscordVoiceDisconnected = (_event: any, _payload: any) => {
       // Auto-stop: if the voice call is terminated, cleanly close the Gemini Live session
         if (isActive.value || isConnecting.value) {
-          console.log('[LiveSession] 🛑 Discord voice call disconnected. Auto-stopping Gemini session...')
+          debug('[LiveSession] 🛑 Discord voice call disconnected. Auto-stopping Gemini session...')
           stop()
           toast.info('Gemini Live session stopped (Discord disconnected).')
         }
@@ -1216,7 +1217,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       ipcRenderer.on('discord-audio-end', onDiscordAudioEnd)
       ipcRenderer.on('discord-voice-disconnected', onDiscordVoiceDisconnected)
 
-      console.log('[LiveSession] ✅ Discord audio IPC bridge established at store init (Stage Window only).')
+      debug('[LiveSession] ✅ Discord audio IPC bridge established at store init (Stage Window only).')
     }
   }
 

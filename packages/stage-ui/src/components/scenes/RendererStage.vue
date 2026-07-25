@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { debug } from '@proj-airi/stage-shared'
 import { Live2DScene, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { MMDScene, useMmd } from '@proj-airi/stage-ui-mmd'
 import { SpineScene } from '@proj-airi/stage-ui-spine'
@@ -43,7 +44,7 @@ const emits = defineEmits<{
   (e: 'animationPlayStatus', status: { duration: number, url: string }): void
 }>()
 
-console.log('[RendererStage.vue] Setup loaded with stage capture listener')
+debug('[RendererStage.vue] Setup loaded with stage capture listener')
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 
@@ -86,18 +87,18 @@ const { resolveActiveIdleAnimations } = useIdleAnimations()
 
 const { post: postStageModelReady } = useBroadcastChannel<string, string>({ name: 'airi-stage-model-ready' })
 watch(componentState, (state) => {
-  console.info('[RendererStage] componentState changed:', state)
+  debug('[RendererStage] componentState changed:', state)
   if (state === 'mounted') {
-    console.info('[RendererStage] Model is mounted, posting ready signal to airi-stage-model-ready')
+    debug('[RendererStage] Model is mounted, posting ready signal to airi-stage-model-ready')
     postStageModelReady('ready')
   }
 }, { immediate: true })
 
 watch(() => activeCard.value?.extensions?.airi?.active_concepts, async (newConcepts) => {
-  console.info('[RendererStage] Active concepts changed:', newConcepts)
+  debug('[RendererStage] Active concepts changed:', newConcepts)
   await nextTick()
   if (componentState.value === 'mounted') {
-    console.info('[RendererStage] Model is already mounted for concept change, posting ready signal immediately')
+    debug('[RendererStage] Model is already mounted for concept change, posting ready signal immediately')
     postStageModelReady('ready')
   }
 }, { deep: true })
@@ -129,45 +130,45 @@ function readRenderTargetRegionAtClientPoint(clientX: number, clientY: number, r
 }
 
 async function captureFrame() {
-  console.log('[RendererStage] captureFrame() called. stageModelRenderer:', stageModelRenderer.value)
-  console.log('[RendererStage] live2dSceneRef.value:', live2dSceneRef.value)
-  console.log('[RendererStage] vrmViewerRef.value:', vrmViewerRef.value)
-  console.log('[RendererStage] spineViewerRef.value:', spineViewerRef.value)
-  console.log('[RendererStage] mmdViewerRef.value:', mmdViewerRef.value)
+  debug('[RendererStage] captureFrame() called. stageModelRenderer:', stageModelRenderer.value)
+  debug('[RendererStage] live2dSceneRef.value:', live2dSceneRef.value)
+  debug('[RendererStage] vrmViewerRef.value:', vrmViewerRef.value)
+  debug('[RendererStage] spineViewerRef.value:', spineViewerRef.value)
+  debug('[RendererStage] mmdViewerRef.value:', mmdViewerRef.value)
 
   if (stageModelRenderer.value === 'live2d') {
     if (!live2dSceneRef.value) {
-      console.warn('[RendererStage] Cannot capture: live2dSceneRef.value is falsy')
+      debug('[RendererStage] Cannot capture: live2dSceneRef.value is falsy')
       return null
     }
-    console.log('[RendererStage] Invoking captureFrame() on Live2D scene')
+    debug('[RendererStage] Invoking captureFrame() on Live2D scene')
     return live2dSceneRef.value.captureFrame()
   }
   else if (stageModelRenderer.value === 'vrm') {
     if (!vrmViewerRef.value) {
-      console.warn('[RendererStage] Cannot capture: vrmViewerRef.value is falsy')
+      debug('[RendererStage] Cannot capture: vrmViewerRef.value is falsy')
       return null
     }
-    console.log('[RendererStage] Invoking captureFrame() on Three (VRM) scene')
+    debug('[RendererStage] Invoking captureFrame() on Three (VRM) scene')
     return vrmViewerRef.value.captureFrame()
   }
   else if (stageModelRenderer.value === 'spine') {
     if (!spineViewerRef.value) {
-      console.warn('[RendererStage] Cannot capture: spineViewerRef.value is falsy')
+      debug('[RendererStage] Cannot capture: spineViewerRef.value is falsy')
       return null
     }
-    console.log('[RendererStage] Invoking captureFrame() on Spine scene')
+    debug('[RendererStage] Invoking captureFrame() on Spine scene')
     return spineViewerRef.value.captureFrame()
   }
   else if (stageModelRenderer.value === 'mmd') {
     if (!mmdViewerRef.value) {
-      console.warn('[RendererStage] Cannot capture: mmdViewerRef.value is falsy')
+      debug('[RendererStage] Cannot capture: mmdViewerRef.value is falsy')
       return null
     }
-    console.log('[RendererStage] Invoking captureFrame() on MMD scene')
+    debug('[RendererStage] Invoking captureFrame() on MMD scene')
     return mmdViewerRef.value.captureFrame()
   }
-  console.warn('[RendererStage] Cannot capture: unsupported renderer format:', stageModelRenderer.value)
+  debug('[RendererStage] Cannot capture: unsupported renderer format:', stageModelRenderer.value)
   return null
 }
 
@@ -251,7 +252,7 @@ const backgroundStore = useBackgroundStore()
 const { data: stageCaptureSignal } = useBroadcastChannel<{ characterId: string, includeBg: boolean, channelId?: string }, { characterId: string, includeBg: boolean, channelId?: string }>({ name: 'airi:stage-capture' })
 watch(stageCaptureSignal, async (val) => {
   const rawVal = toRaw(val)
-  console.log('[RendererStage] received stage capture broadcast signal (raw):', rawVal)
+  debug('[RendererStage] received stage capture broadcast signal (raw):', rawVal)
   if (rawVal?.characterId) {
     try {
       const includeBg = rawVal.includeBg ?? true
@@ -259,7 +260,7 @@ watch(stageCaptureSignal, async (val) => {
 
       if (includeBg) {
         if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
-          console.log('[RendererStage] Taking stage window screenshot via Electron IPC')
+          debug('[RendererStage] Taking stage window screenshot via Electron IPC')
           try {
             const buffer = await (window as any).electron.ipcRenderer.invoke('stage:capture-window')
             if (buffer) {
@@ -270,7 +271,7 @@ watch(stageCaptureSignal, async (val) => {
               const cropLeftVal = (windowWidth - cropSizeVal) / 2
               const cropTopVal = Math.min(windowHeight * 0.15, windowHeight - cropSizeVal)
 
-              console.log('[RendererStage] Cropping window screenshot to:', { cropLeftVal, cropTopVal, cropSizeVal })
+              debug('[RendererStage] Cropping window screenshot to:', { cropLeftVal, cropTopVal, cropSizeVal })
               blob = await cropScreenshot(rawBlob, cropLeftVal, cropTopVal, cropSizeVal)
             }
           }
@@ -283,26 +284,26 @@ watch(stageCaptureSignal, async (val) => {
         if (!blob && backgroundStore.activeBackgroundUrl) {
           const canvas = canvasElement()
           if (canvas) {
-            console.log('[RendererStage] Fallback: Compositing model canvas with background:', backgroundStore.activeBackgroundUrl)
+            debug('[RendererStage] Fallback: Compositing model canvas with background:', backgroundStore.activeBackgroundUrl)
             blob = await compositeBg(canvas, backgroundStore.activeBackgroundUrl)
           }
         }
       }
 
       if (!blob) {
-        console.log('[RendererStage] Fetching standard model-only frame capture')
+        debug('[RendererStage] Fetching standard model-only frame capture')
         blob = await captureFrame() as Blob | null
       }
 
-      console.log('[RendererStage] captureFrame completed. Returned blob:', blob)
+      debug('[RendererStage] captureFrame completed. Returned blob:', blob)
       if (blob) {
         const title = `Selfie - ${new Date().toLocaleString()}`
         const metadata = rawVal.channelId ? { discordChannelId: rawVal.channelId } : undefined
         await backgroundStore.addBackground('selfie', blob, title, undefined, rawVal.characterId, undefined, undefined, undefined, metadata)
-        console.log('[RendererStage] successfully added selfie background to store.')
+        debug('[RendererStage] successfully added selfie background to store.')
       }
       else {
-        console.warn('[RendererStage] captureFrame returned a falsy or empty blob:', blob)
+        debug('[RendererStage] captureFrame returned a falsy or empty blob:', blob)
       }
     }
     catch (err) {
@@ -310,7 +311,7 @@ watch(stageCaptureSignal, async (val) => {
     }
   }
   else {
-    console.warn('[RendererStage] Broadcast signal missing characterId. val:', rawVal)
+    debug('[RendererStage] Broadcast signal missing characterId. val:', rawVal)
   }
 })
 
@@ -345,7 +346,7 @@ onMounted(() => {
         }
       }
       catch (e) {
-        console.warn('[RendererStage] Failed to remove dating-sim-toggle listeners', e)
+        debug('[RendererStage] Failed to remove dating-sim-toggle listeners', e)
       }
 
       const removeListener = (window as any).electron.ipcRenderer.on('dating-sim-toggle', () => {

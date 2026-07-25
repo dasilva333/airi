@@ -2,6 +2,7 @@ import type { DiscordCommandDefinition, DiscordEventLogEntry, DiscordInboundMess
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
+  debug,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceLeave,
@@ -324,7 +325,7 @@ export const useDiscordStore = defineStore('discord', () => {
 
   async function startService() {
     if (!token.value.trim()) {
-      console.warn('[DiscordStore] Cannot start: no token configured')
+      debug('[DiscordStore] Cannot start: no token configured')
       return
     }
 
@@ -350,12 +351,12 @@ export const useDiscordStore = defineStore('discord', () => {
       return
 
     if (!force && lastRegisteredVersion.value >= COMMANDS_VERSION) {
-      console.log(`[DiscordStore] Slash commands are up to date (v${lastRegisteredVersion.value})`)
+      debug(`[DiscordStore] Slash commands are up to date (v${lastRegisteredVersion.value})`)
       return
     }
 
     try {
-      console.log(`[DiscordStore] Registering slash commands (v${COMMANDS_VERSION})...`)
+      debug(`[DiscordStore] Registering slash commands (v${COMMANDS_VERSION})...`)
       await invokeRegisterCommands({ commands: CORE_COMMANDS })
       lastRegisteredVersion.value = COMMANDS_VERSION
     }
@@ -406,9 +407,9 @@ export const useDiscordStore = defineStore('discord', () => {
   async function sendMessageToDiscord(channelId: string, content: string) {
     try {
       lastChannelId.value = channelId
-      console.log(`[DiscordStore] sendMessageToDiscord called. channelId=${channelId}, content=`, JSON.stringify(content))
+      debug(`[DiscordStore] sendMessageToDiscord called. channelId=${channelId}, content=`, JSON.stringify(content))
       const result = await invokeSendMessage?.({ channelId, content })
-      console.log('[DiscordStore] sendMessageToDiscord IPC result:', result)
+      debug('[DiscordStore] sendMessageToDiscord IPC result:', result)
     }
     catch (err) {
       console.error('[DiscordStore] Send message failed:', err)
@@ -418,18 +419,18 @@ export const useDiscordStore = defineStore('discord', () => {
   function addAudioToTurn(buffer: ArrayBuffer) {
     if (buffer.byteLength === 0)
       return
-    console.log(`[DiscordStore] Aggregating audio chunk: ${Math.round(buffer.byteLength / 1024)}KB`)
+    debug(`[DiscordStore] Aggregating audio chunk: ${Math.round(buffer.byteLength / 1024)}KB`)
     audioTurnBuffer.value.push(buffer)
   }
 
   async function flushAudioTurn(content?: string) {
     if (audioTurnBuffer.value.length === 0 || !lastChannelId.value) {
-      console.log('[DiscordStore] Flush skipped: Bucket empty.')
+      debug('[DiscordStore] Flush skipped: Bucket empty.')
       return
     }
 
     const channelId = lastChannelId.value
-    console.log(`[DiscordStore] FLUSHING Voice Note: ${audioTurnBuffer.value.length} chunks to ${channelId}`)
+    debug(`[DiscordStore] FLUSHING Voice Note: ${audioTurnBuffer.value.length} chunks to ${channelId}`)
 
     try {
       // Signal the end of the voice stream to clear passthrough players
@@ -452,7 +453,7 @@ export const useDiscordStore = defineStore('discord', () => {
         },
       )
 
-      console.log('[DiscordStore] Voice Note IPC successful. Result:', result)
+      debug('[DiscordStore] Voice Note IPC successful. Result:', result)
     }
     catch (err) {
       console.error('[DiscordStore] Voice Note delivery failed:', err)
@@ -463,13 +464,13 @@ export const useDiscordStore = defineStore('discord', () => {
   }
 
   function clearAudioTurn() {
-    console.log('[DiscordStore] Clearing audio turn bucket.')
+    debug('[DiscordStore] Clearing audio turn bucket.')
     audioTurnBuffer.value = []
     ;(window as any).electron?.ipcRenderer?.send('gemini-audio-end')
   }
 
   async function sendImageToDiscord(channelId: string, base64: string, content?: string, filename?: string) {
-    console.log(`[DiscordStore] Preparing to invoke IPC sendImage. Channel: ${channelId}, Payload Size: ${Math.round(base64.length / 1024)}KB, Shape: ${base64.substring(0, 30)}...`)
+    debug(`[DiscordStore] Preparing to invoke IPC sendImage. Channel: ${channelId}, Payload Size: ${Math.round(base64.length / 1024)}KB, Shape: ${base64.substring(0, 30)}...`)
 
     if (!invokeSendImage) {
       console.error('[DiscordStore] IPC Invoker "invokeSendImage" is NULL! Are you in a browser instead of Electron?')
@@ -479,7 +480,7 @@ export const useDiscordStore = defineStore('discord', () => {
     try {
       lastChannelId.value = channelId
       const channelName = 'eventa:invoke:electron:discord:send-image'
-      console.log(`[DiscordStore] NATIVE BYPASS: Invoking ${channelName}. Shape: ${base64.substring(0, 50)}...`)
+      debug(`[DiscordStore] NATIVE BYPASS: Invoking ${channelName}. Shape: ${base64.substring(0, 50)}...`)
 
       // We bypass the wrapper and use the literal channel name to avoid "undefined" contract issues
       const result = await (window as any).electron?.ipcRenderer?.invoke(
@@ -487,7 +488,7 @@ export const useDiscordStore = defineStore('discord', () => {
         toRaw({ channelId, base64, content, filename }),
       )
 
-      console.log('[DiscordStore] Native IPC successful. Result:', result)
+      debug('[DiscordStore] Native IPC successful. Result:', result)
     }
     catch (err) {
       console.error('[DiscordStore] Send image failed during IPC invoke:', err)
@@ -525,7 +526,7 @@ export const useDiscordStore = defineStore('discord', () => {
     if (!ipcRenderer)
       return
 
-    console.log('[DiscordStore] Initializing IPC listeners...')
+    debug('[DiscordStore] Initializing IPC listeners...')
 
     const onStatusChanged = (_event: any, status: DiscordServiceStatus) => {
       serviceStatus.value = status
@@ -537,11 +538,11 @@ export const useDiscordStore = defineStore('discord', () => {
 
     const onInboundMessage = (_event: any, msg: DiscordInboundMessage) => {
       if (!dmsEnabled.value && !msg.guildId) {
-        console.log(`[DiscordStore] Ignoring message ${msg.messageId.slice(-6)}: private DMs are disabled.`)
+        debug(`[DiscordStore] Ignoring message ${msg.messageId.slice(-6)}: private DMs are disabled.`)
         return
       }
 
-      console.log(`[DiscordStore] Inbound message received: ${msg.messageId.slice(-6)} from ${msg.username}`)
+      debug(`[DiscordStore] Inbound message received: ${msg.messageId.slice(-6)} from ${msg.username}`)
 
       // 0. Deduplicate by ID within this window process
       if (processedMessageIds.has(msg.messageId))
@@ -556,11 +557,11 @@ export const useDiscordStore = defineStore('discord', () => {
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 
       if (!isStage) {
-        console.log(`[DiscordStore] Skipping Brain handover: Window (${hash}) is not Stage.`)
+        debug(`[DiscordStore] Skipping Brain handover: Window (${hash}) is not Stage.`)
         return
       }
 
-      console.log(`[DiscordStore] Handing over message ${msg.messageId.slice(-6)} to Brain...`)
+      debug(`[DiscordStore] Handing over message ${msg.messageId.slice(-6)} to Brain...`)
 
       // 3. BRAIN HANDOVER (Stage only)
       const handoverEntry: DiscordEventLogEntry = {
@@ -595,7 +596,7 @@ export const useDiscordStore = defineStore('discord', () => {
       }
 
       if (chatMode.value === 'steer' && chatOrchestrator.sending) {
-        console.log(`[DiscordStore] Steer mode active. Aborting current generation and rolling up context.`)
+        debug(`[DiscordStore] Steer mode active. Aborting current generation and rolling up context.`)
         const partialText = chatOrchestrator.streamingMessage?.content || ''
 
         chatSession.bumpSessionGeneration(chatSession.activeSessionId)
@@ -636,30 +637,30 @@ export const useDiscordStore = defineStore('discord', () => {
     const onChatTurnComplete = async (chat: any, context: any) => {
       const source = (context.message as any)?._discordSource
       if (!source?.channelId) {
-        console.log('[DiscordStore] onChatTurnComplete: No Discord source found in context.')
+        debug('[DiscordStore] onChatTurnComplete: No Discord source found in context.')
         return
       }
 
-      console.log(`[DiscordStore] Outbound response ready for ${source.username} in channel ${source.channelId.slice(-4)}`)
-      console.log('[DiscordStore] onChatTurnComplete - FULL chat object:', chat)
-      console.log('[DiscordStore] onChatTurnComplete - FULL context object:', context)
+      debug(`[DiscordStore] Outbound response ready for ${source.username} in channel ${source.channelId.slice(-4)}`)
+      debug('[DiscordStore] onChatTurnComplete - FULL chat object:', chat)
+      debug('[DiscordStore] onChatTurnComplete - FULL context object:', context)
 
       // Leadership Election: Only the "Stage" window handles the Outbound reply
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
 
       if (!isStage) {
-        console.log(`[DiscordStore] Skipping Outbound: Window (${hash}) is not Stage.`)
+        debug(`[DiscordStore] Skipping Outbound: Window (${hash}) is not Stage.`)
         return
       }
 
       const ttsText = chat.output.rawContent || chat.outputText || chat.output.content
       const error = chat.output.error
 
-      console.log('[DiscordStore] onChatTurnComplete - raw ttsText:', JSON.stringify(ttsText))
+      debug('[DiscordStore] onChatTurnComplete - raw ttsText:', JSON.stringify(ttsText))
 
       if (error) {
-        console.warn('[DiscordStore] Relaying error back to Discord:', error)
+        debug('[DiscordStore] Relaying error back to Discord:', error)
         // Notify Discord about the technical failure so the user isn't left hanging
         const errorMsg = typeof error === 'string' ? error : (error.message || 'Unknown Error')
         const technicalFeedback = `⚠️ **AIRI encountered a technical problem.**\n*(Error: ${errorMsg})*`
@@ -674,7 +675,7 @@ export const useDiscordStore = defineStore('discord', () => {
         await sendMessageToDiscord(source.channelId, technicalFeedback)
 
         if (typingHeartbeat) {
-          console.log('[DiscordStore] Turn complete (ERROR), clearing typing heartbeat.')
+          debug('[DiscordStore] Turn complete (ERROR), clearing typing heartbeat.')
           clearInterval(typingHeartbeat)
           typingHeartbeat = null
         }
@@ -683,7 +684,7 @@ export const useDiscordStore = defineStore('discord', () => {
       }
 
       if (!ttsText) {
-        console.log('[DiscordStore] onChatTurnComplete: ttsText is empty/falsy, skipping.')
+        debug('[DiscordStore] onChatTurnComplete: ttsText is empty/falsy, skipping.')
         return
       }
 
@@ -699,7 +700,7 @@ export const useDiscordStore = defineStore('discord', () => {
       // to Discord. The raw tokens are preserved in the DB for LLM context, but external
       // consumers should never see them.
       let rawText = typeof ttsText === 'string' ? ttsText : String(ttsText)
-      console.log('[DiscordStore] text before ACTOR replacement:', JSON.stringify(rawText))
+      debug('[DiscordStore] text before ACTOR replacement:', JSON.stringify(rawText))
 
       // Convert ACTOR tokens to bold bracketed format (e.g. <|ACTOR:actor_oshino_shinobu|> -> **[oshino_shinobu]**:)
       rawText = rawText.replace(/<\|ACTOR:([^|>]+)(?:\|>|>)/gi, (_, captured) => {
@@ -712,10 +713,10 @@ export const useDiscordStore = defineStore('discord', () => {
         }
         return `**[${cleanName}]**: `
       })
-      console.log('[DiscordStore] text after ACTOR replacement:', JSON.stringify(rawText))
+      debug('[DiscordStore] text after ACTOR replacement:', JSON.stringify(rawText))
 
       let cleanedText = stripMarkers(rawText)
-      console.log('[DiscordStore] text after stripMarkers:', JSON.stringify(cleanedText))
+      debug('[DiscordStore] text after stripMarkers:', JSON.stringify(cleanedText))
 
       const currentToolSlices = chat.output?.slices?.filter((s: any) => s.type === 'tool-call') || []
       if (currentToolSlices.length > 0) {
@@ -773,7 +774,7 @@ export const useDiscordStore = defineStore('discord', () => {
         cleanedText += formattedCalls
       }
 
-      console.log('[DiscordStore] calling sendMessageToDiscord with content:', JSON.stringify(cleanedText))
+      debug('[DiscordStore] calling sendMessageToDiscord with content:', JSON.stringify(cleanedText))
       await sendMessageToDiscord(source.channelId, cleanedText)
     }
 
@@ -785,7 +786,7 @@ export const useDiscordStore = defineStore('discord', () => {
         return
 
       if (typingHeartbeat) {
-        console.log('[DiscordStore] Stream ended, clearing typing heartbeat.')
+        debug('[DiscordStore] Stream ended, clearing typing heartbeat.')
         clearInterval(typingHeartbeat)
         typingHeartbeat = null
       }
@@ -797,12 +798,12 @@ export const useDiscordStore = defineStore('discord', () => {
       const hash = window.location.hash || '#/'
       const isStage = hash === '#/' || hash.startsWith('#/stage')
       if (!isStage) {
-        console.log(`[DiscordStore] Ignoring interaction ${payload.interactionId}: Not the leader window.`)
+        debug(`[DiscordStore] Ignoring interaction ${payload.interactionId}: Not the leader window.`)
         return
       }
 
       if (!dmsEnabled.value && !payload.guildId) {
-        console.log(`[DiscordStore] Rejecting interaction ${payload.interactionId}: private DMs are disabled.`)
+        debug(`[DiscordStore] Rejecting interaction ${payload.interactionId}: private DMs are disabled.`)
         await invokeReplyInteraction?.({
           interactionId: payload.interactionId,
           content: '❌ Private DMs are disabled by the owner.',
@@ -811,7 +812,7 @@ export const useDiscordStore = defineStore('discord', () => {
         return
       }
 
-      console.log(`[DiscordStore] Handling interaction: /${payload.commandName} (${payload.interactionId})`)
+      debug(`[DiscordStore] Handling interaction: /${payload.commandName} (${payload.interactionId})`)
 
       // Keep channel context updated for things like image routing (e.g. /imagine)
       if (payload.channelId) {
@@ -1977,7 +1978,7 @@ export const useDiscordStore = defineStore('discord', () => {
         }
 
         try {
-          console.log('[DiscordStore] Generating background journal moment via /journalmoment...')
+          debug('[DiscordStore] Generating background journal moment via /journalmoment...')
           const textJournalStore = (await import('../memory-text-journal')).useTextJournalStore()
           const entry = await textJournalStore.createJournalMoment({
             messages,
@@ -2024,12 +2025,12 @@ export const useDiscordStore = defineStore('discord', () => {
       const MIN_PCM_BYTES = 9600
       const pcmByteLength = Math.floor(payload.pcmBase64.length * 3 / 4)
       if (pcmByteLength < MIN_PCM_BYTES) {
-        console.log(`[DiscordStore/Classic] ⏭ Skipping micro-clip (${pcmByteLength} bytes < ${MIN_PCM_BYTES} minimum).`)
+        debug(`[DiscordStore/Classic] ⏭ Skipping micro-clip (${pcmByteLength} bytes < ${MIN_PCM_BYTES} minimum).`)
         return
       }
 
       const initLog = `[DiscordStore/Classic] 🎙️ IPC Captured speech from ${payload.username}. Length: ${payload.pcmBase64.length} chars.`
-      console.log(initLog)
+      debug(initLog)
       if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
         (window as any).electron.ipcRenderer.send('logger:write', 'info', initLog)
       }
@@ -2071,7 +2072,7 @@ export const useDiscordStore = defineStore('discord', () => {
         const wavBlob = new Blob([wavHeader, bytes], { type: 'audio/wav' })
 
         const procLog = `[DiscordStore/Classic] 🎙️ Processing transcription for ${payload.username} (${wavBlob.size} bytes)...`
-        console.info(procLog)
+        debug(procLog)
         if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
           (window as any).electron.ipcRenderer.send('logger:write', 'info', procLog)
         }
@@ -2079,7 +2080,7 @@ export const useDiscordStore = defineStore('discord', () => {
         const text = await hearingPipeline.transcribeForRecording(wavBlob)
 
         const resultLog = `[Discord Classic STT Verification] User Said: "${text}"`
-        console.log(resultLog)
+        debug(resultLog)
         if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
           (window as any).electron.ipcRenderer.send('logger:write', 'info', resultLog)
         }
@@ -2116,7 +2117,7 @@ export const useDiscordStore = defineStore('discord', () => {
     const onBeforeSend = async (_message: string, options: any) => {
       // ── VERIFICATION LOGS ──
       // We log the structure to confirm where _discordSource actually lives
-      console.log('[DiscordStore] onBeforeSend triggered. Context Structure:', {
+      debug('[DiscordStore] onBeforeSend triggered. Context Structure:', {
         hasMessage: !!options?.message,
         messageKeys: options?.message ? Object.keys(options.message) : [],
         hasMetadata: !!options?.metadata,
@@ -2125,14 +2126,14 @@ export const useDiscordStore = defineStore('discord', () => {
 
       const source = options?.message?._discordSource
       if (source?.channelId) {
-        console.log(`[DiscordStore] Discord Source Detected: channel=${source.channelId}, user=${source.username}`)
+        debug(`[DiscordStore] Discord Source Detected: channel=${source.channelId}, user=${source.username}`)
 
         // Leadership Election: Only Stage window sends the typing indicator
         const hash = window.location.hash || '#/'
         const isStage = hash === '#/' || hash.startsWith('#/stage')
 
         if (isStage && invokeSendTyping) {
-          console.log(`[DiscordStore] Starting typing heartbeat for channel ${source.channelId.slice(-4)}`)
+          debug(`[DiscordStore] Starting typing heartbeat for channel ${source.channelId.slice(-4)}`)
 
           // Initial trigger
           await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
@@ -2143,17 +2144,17 @@ export const useDiscordStore = defineStore('discord', () => {
 
           typingHeartbeat = setInterval(async () => {
             if (invokeSendTyping && source.channelId) {
-              console.log(`[DiscordStore] Typing heartbeat tick for ${source.channelId.slice(-4)}`)
+              debug(`[DiscordStore] Typing heartbeat tick for ${source.channelId.slice(-4)}`)
               await invokeSendTyping({ channelId: source.channelId }).catch(() => {})
             }
           }, 7000)
         }
         else {
-          console.log(`[DiscordStore] Typing skipped: isStage=${isStage}, hasInvoker=${!!invokeSendTyping}`)
+          debug(`[DiscordStore] Typing skipped: isStage=${isStage}, hasInvoker=${!!invokeSendTyping}`)
         }
       }
       else {
-        console.log('[DiscordStore] No Discord source found in message metadata.')
+        debug('[DiscordStore] No Discord source found in message metadata.')
       }
     }
 
@@ -2165,7 +2166,7 @@ export const useDiscordStore = defineStore('discord', () => {
 
     const backgroundStore = useBackgroundStore()
     const cleanupBackgroundHook = backgroundStore.onBackgroundAdded(async (entry) => {
-      console.log(`[DiscordStore] Background detected: ${entry.id} (${entry.type})`)
+      debug(`[DiscordStore] Background detected: ${entry.id} (${entry.type})`)
 
       // 1. Detection Log
       const detectLog: DiscordEventLogEntry = {
@@ -2179,12 +2180,12 @@ export const useDiscordStore = defineStore('discord', () => {
       if (entry.type !== 'journal' && entry.type !== 'selfie')
         return
 
-      console.log('[DiscordStore] Candidate image for Discord routing found.')
+      debug('[DiscordStore] Candidate image for Discord routing found.')
 
       const targetChannelId = entry.metadata?.discordChannelId || lastChannelId.value
       // 2. Connection/Channel Check
       if (!isConnected.value || !targetChannelId) {
-        console.log(`[DiscordStore] Skipping image routing: isConnected=${isConnected.value}, targetChannelId=${targetChannelId}`)
+        debug(`[DiscordStore] Skipping image routing: isConnected=${isConnected.value}, targetChannelId=${targetChannelId}`)
         const failLog: DiscordEventLogEntry = {
           timestamp: Date.now(),
           type: 'image-debug-log',
@@ -2199,7 +2200,7 @@ export const useDiscordStore = defineStore('discord', () => {
       const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
 
       if (!isStage) {
-        console.log(`[DiscordStore] Skipping image routing: Window (${hash}) is not Stage leader.`)
+        debug(`[DiscordStore] Skipping image routing: Window (${hash}) is not Stage leader.`)
         const leaderLog: DiscordEventLogEntry = {
           timestamp: Date.now(),
           type: 'image-debug-log',
@@ -2210,7 +2211,7 @@ export const useDiscordStore = defineStore('discord', () => {
       }
 
       try {
-        console.log(`[DiscordStore] Routing image to Discord: ${entry.title}`)
+        debug(`[DiscordStore] Routing image to Discord: ${entry.title}`)
         // Convert Blob to Base64 for IPC transfer
         const reader = new FileReader()
         const base64Promise = new Promise<string>((resolve) => {
@@ -2286,7 +2287,7 @@ export const useDiscordStore = defineStore('discord', () => {
   // Automatically sync commands once we actually connect
   watch(isConnected, (connected) => {
     if (connected) {
-      console.log('[DiscordStore] Service connected, triggering command sync...')
+      debug('[DiscordStore] Service connected, triggering command sync...')
       void syncCommands()
     }
   })

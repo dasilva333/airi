@@ -583,7 +583,7 @@ export function useSpineGestureInteraction(options: SpineGestureOptions) {
     }
   }
 
-  function onPointerUp(event: PointerEvent) {
+  function onPointerUp(_event: PointerEvent) {
     detachGlobalReleaseListeners()
 
     if (!isInteracting.value || !activeArea.value)

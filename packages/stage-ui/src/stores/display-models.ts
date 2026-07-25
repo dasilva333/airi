@@ -3,6 +3,7 @@ import type { MmdTextureFile } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extra
 import JSZip from 'jszip'
 import localforage from 'localforage'
 
+import { debug } from '@proj-airi/stage-shared'
 import { loadLive2DModelPreview as generateLive2DPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
 import { loadMMDModelPreview as generateMmdPreview } from '@proj-airi/stage-ui-mmd/utils/mmd-preview'
 import { loadSpineModelPreview as generateSpinePreview } from '@proj-airi/stage-ui-spine/utils/spine-preview'
@@ -118,15 +119,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   // Load remote catalog cache eagerly on initialization
   void (async () => {
-    console.log('[DisplayModels] Initializing: Loading remote catalog cache from local storage...')
+    debug('[DisplayModels] Initializing: Loading remote catalog cache from local storage...')
     try {
       const cached = await storage.getItemRaw<any>('local:sync-metadata/remote-catalog-cache')
       if (cached) {
         remoteModelsCatalog.value = cached
-        console.log(`[DisplayModels] Initializing: Cache loaded successfully. Found ${cached.length} remote models.`)
+        debug(`[DisplayModels] Initializing: Cache loaded successfully. Found ${cached.length} remote models.`)
       }
       else {
-        console.log('[DisplayModels] Initializing: No cached remote catalog found.')
+        debug('[DisplayModels] Initializing: No cached remote catalog found.')
       }
     }
     catch (e) {
@@ -138,14 +139,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   watch(modelsSyncSignal, (val) => {
     if (val) {
-      console.log('[DisplayModels] Received display models sync signal, reloading from IndexedDB...')
+      debug('[DisplayModels] Received display models sync signal, reloading from IndexedDB...')
       void loadDisplayModelsFromIndexedDB(true)
     }
   })
 
   async function loadDisplayModelsFromIndexedDB(silent = false) {
     const startTime = performance.now()
-    console.log('[DisplayModels] loadDisplayModelsFromIndexedDB starting...', { silent })
+    debug('[DisplayModels] loadDisplayModelsFromIndexedDB starting...', { silent })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (!silent)
@@ -155,7 +156,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
-      console.log(`[DisplayModels] loadDisplayModelsFromIndexedDB: Found ${modelKeys.length} user models in IndexedDB.`)
+      debug(`[DisplayModels] loadDisplayModelsFromIndexedDB: Found ${modelKeys.length} user models in IndexedDB.`)
 
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
@@ -167,13 +168,13 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 val.file = new File([val.file], val.name || val.file.name || `${key}.bin`, { type: val.file.type || 'application/octet-stream' })
               }
               catch (reconstructErr) {
-                console.warn(`[DisplayModels] Could not re-wrap Blob instance for ${key}:`, reconstructErr)
+                debug(`[DisplayModels] Could not re-wrap Blob instance for ${key}:`, reconstructErr)
               }
             }
           }
 
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            console.warn(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
+            debug(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
@@ -183,7 +184,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                   : ''
 
                 if (!backupDir) {
-                  console.warn(`[DisplayModels] No BYOS backup path configured. Cannot self-heal ${key}.`)
+                  debug(`[DisplayModels] No BYOS backup path configured. Cannot self-heal ${key}.`)
                   continue
                 }
 
@@ -197,7 +198,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 const res = await Promise.race([ipcPromise, timeoutPromise])
 
                 if (res === null) {
-                  console.warn(`[DisplayModels] Self-healing for ${key} timed out after 3 seconds. Network share may be offline or sleeping.`)
+                  debug(`[DisplayModels] Self-healing for ${key} timed out after 3 seconds. Network share may be offline or sleeping.`)
                   continue
                 }
 
@@ -212,12 +213,12 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
                   // Update IndexedDB
                   await localforage.setItem(key, val)
-                  console.log(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
+                  debug(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
                 }
                 else {
                   console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable.`, res?.error)
                   if (res?.error?.includes('ENOENT') || res?.error?.includes('no such file')) {
-                    console.warn(`[DisplayModels] Removing unrecoverable orphaned model entry from IndexedDB: ${key}`)
+                    debug(`[DisplayModels] Removing unrecoverable orphaned model entry from IndexedDB: ${key}`)
                     await localforage.removeItem(key)
                     await localforage.removeItem(`${key}-textures`).catch(() => {})
                   }
@@ -230,7 +231,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
               }
             }
             else {
-              console.warn(`[DisplayModels] Electron IPC not available. Cannot self-heal ${key}.`)
+              debug(`[DisplayModels] Electron IPC not available. Cannot self-heal ${key}.`)
               continue
             }
           }
@@ -263,25 +264,25 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
-    console.log(`[DisplayModels] loadDisplayModelsFromIndexedDB finished successfully in ${(performance.now() - startTime).toFixed(2)} ms. Loaded ${displayModels.value.length} total models.`)
+    debug(`[DisplayModels] loadDisplayModelsFromIndexedDB finished successfully in ${(performance.now() - startTime).toFixed(2)} ms. Loaded ${displayModels.value.length} total models.`)
   }
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()
 
   async function getDisplayModel(id: string) {
     if (displayModelsFromIndexedDBLoading.value) {
-      console.warn('[PipelineTTS:Models] getDisplayModel called while loading is TRUE, waiting...', { id })
+      debug('[PipelineTTS:Models] getDisplayModel called while loading is TRUE, waiting...', { id })
     }
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     // Check in-memory cache
     if (displayModelCache.has(id)) {
-      console.log('[PipelineTTS:Models] In-memory cache hit for:', id)
+      debug('[PipelineTTS:Models] In-memory cache hit for:', id)
       displayModelCache.get(id)!.addedTime = Date.now() // Update access time
       return displayModelCache.get(id)!.model
     }
 
-    console.log('[PipelineTTS:Models] Accessing localforage for:', id)
+    debug('[PipelineTTS:Models] Accessing localforage for:', id)
     const modelFromFile = await localforage.getItem<DisplayModelFile>(id).catch((err) => {
       console.error('[PipelineTTS:Models] localforage.getItem FAILED:', err)
       return null
@@ -298,7 +299,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
         }
         if (oldestId) {
-          console.log('[PipelineTTS:Models] Evicting oldest display model cache entry:', oldestId)
+          debug('[PipelineTTS:Models] Evicting oldest display model cache entry:', oldestId)
           displayModelCache.delete(oldestId)
         }
       }
@@ -495,7 +496,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             }
 
             if (is3x) {
-              console.log(`[DisplayModels] Spine 3.x skeleton detected ("${detectedVersion}" at "${skeletonPath}"). Self-healing / Upgrading to 4.1.20 using Wasm...`)
+              debug(`[DisplayModels] Spine 3.x skeleton detected ("${detectedVersion}" at "${skeletonPath}"). Self-healing / Upgrading to 4.1.20 using Wasm...`)
               toast.info(`Spine 3.x skeleton detected (${detectedVersion}). Upgrading to 4.1.20 in-memory...`)
 
               // Load input bytes
@@ -514,7 +515,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 const newSkeletonPath = skeletonPath.replace(/\.json$/i, '.skel')
                 zipInstance.remove(skeletonPath)
                 zipInstance.file(newSkeletonPath, convertedBytes)
-                console.log(`[DisplayModels] Upgraded Spine JSON to binary: renamed "${skeletonPath}" to "${newSkeletonPath}"`)
+                debug(`[DisplayModels] Upgraded Spine JSON to binary: renamed "${skeletonPath}" to "${newSkeletonPath}"`)
               }
 
               // Rebuild the ZIP Blob and replace the input file parameter!
@@ -634,14 +635,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           if (needsManifestRename || needsMotionInjection) {
             needsCleansing = true
             modelsToProcess.push(model)
-            console.log(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
+            debug(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
           }
         }
 
         if (needsCleansing && modelsToProcess.length > 0) {
           if (needsSplitting) {
             toast.info(`Multi-model Live2D ZIP detected! Extracting ${modelsToProcess.length} models...`)
-            console.log(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modelsToProcess.length} models:`)
+            debug(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modelsToProcess.length} models:`)
           }
           else {
             toast.info(`Live2D ZIP requires self-healing! Repairing package...`)
@@ -664,7 +665,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
 
           if (masterModel) {
-            console.log(`[DisplayModels] Selected master model for motion dictionary: "${masterModel.manifestPath.split(/[\\/]/).pop()!}" with ${maxMotionsCount} motions.`)
+            debug(`[DisplayModels] Selected master model for motion dictionary: "${masterModel.manifestPath.split(/[\\/]/).pop()!}" with ${maxMotionsCount} motions.`)
           }
 
           let index = 1
@@ -701,7 +702,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
               }
 
               if (masterIndex !== null && modelIndex !== null) {
-                console.log(`[DisplayModels] [Self-Healing] Restoring empty motions dictionary from master model index ${masterIndex} -> ${modelIndex}...`)
+                debug(`[DisplayModels] [Self-Healing] Restoring empty motions dictionary from master model index ${masterIndex} -> ${modelIndex}...`)
                 const copiedMotions = JSON.parse(JSON.stringify(masterModel.data.FileReferences.Motions))
 
                 // Adapt motions: replace file path endings from masterIndex to modelIndex
@@ -727,7 +728,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 }
 
                 model.data.FileReferences.Motions = adaptMotions(copiedMotions)
-                console.log(`[DisplayModels] [Self-Healing] Restored motions successfully: ${Object.keys(model.data.FileReferences.Motions).length} groups.`)
+                debug(`[DisplayModels] [Self-Healing] Restored motions successfully: ${Object.keys(model.data.FileReferences.Motions).length} groups.`)
               }
             }
 
@@ -803,7 +804,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                     FadeIn: 0,
                     FadeOut: 0,
                   })
-                  console.log(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
+                  debug(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
                 }
               }
             }
@@ -852,10 +853,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                   const assetData = await zipInstance.file(subdirKey)!.async('uint8array')
                   const destPath = ref.replace(/\\/g, '/')
                   subZip.file(destPath, assetData)
-                  console.warn(`[DisplayModels] Self-healed asset ref: "${ref}" (found at "${subdirKey}")`)
+                  debug(`[DisplayModels] Self-healed asset ref: "${ref}" (found at "${subdirKey}")`)
                 }
                 else {
-                  console.warn(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
+                  debug(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
                 }
               }
             }
@@ -864,7 +865,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             const subZipBlob = await subZip.generateAsync({ type: 'blob' })
             const subZipFile = new File([subZipBlob], `${modelName}.zip`, { type: 'application/zip' })
 
-            console.log(`[DisplayModels] Sanitized/Splitted model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+            debug(`[DisplayModels] Sanitized/Splitted model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
 
             if (modelsToProcess.length > 1) {
               toast.info(`[${index}/${modelsToProcess.length}] Ingesting "${modelName}" into catalog...`)
@@ -904,7 +905,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     else if (format === DisplayModelFormat.SpineZip) {
       const previewImage = await generateSpinePreview(file)
       if (!previewImage) {
-        console.warn('[DisplayModels] Failed to generate preview or unsupported Spine version. Skipping import.')
+        debug('[DisplayModels] Failed to generate preview or unsupported Spine version. Skipping import.')
         return
       }
       newDisplayModel.previewImage = previewImage
@@ -1050,23 +1051,23 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function fetchRemoteCatalog() {
-    console.log('[DisplayModels] fetchRemoteCatalog: Starting fetch from remote sync client...')
+    debug('[DisplayModels] fetchRemoteCatalog: Starting fetch from remote sync client...')
     remoteCatalogLoading.value = true
     try {
       const { useSyncEngineStore } = await import('./sync-engine')
       const syncStore = useSyncEngineStore()
-      console.log('[DisplayModels] fetchRemoteCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
+      debug('[DisplayModels] fetchRemoteCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
       const res = await syncStore.getRemoteCatalog()
       if (res && res.success) {
         remoteModelsCatalog.value = (res.models || []).map((m: any) => ({
           ...m,
           type: 'cloud',
         }))
-        console.log(`[DisplayModels] fetchRemoteCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
+        debug(`[DisplayModels] fetchRemoteCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
         await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', remoteModelsCatalog.value)
       }
       else {
-        console.warn('[DisplayModels] fetchRemoteCatalog: Sync store returned unsuccessful response:', res)
+        debug('[DisplayModels] fetchRemoteCatalog: Sync store returned unsuccessful response:', res)
       }
     }
     catch (e) {
@@ -1074,7 +1075,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
     finally {
       remoteCatalogLoading.value = false
-      console.log('[DisplayModels] fetchRemoteCatalog: Fetch routine completed.')
+      debug('[DisplayModels] fetchRemoteCatalog: Fetch routine completed.')
     }
   }
 
@@ -1161,7 +1162,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
       if (format.includes('live2d')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
-        console.log('[DisplayModels] getOrLoadModelCapabilities: ZIP loaded. Total files:', Object.keys(zipInstance.files).length)
+        debug('[DisplayModels] getOrLoadModelCapabilities: ZIP loaded. Total files:', Object.keys(zipInstance.files).length)
 
         // Parse expressions directly by scanning zip files (Case 1 in resolveMetadata)
         const filePaths = Object.keys(zipInstance.files)
@@ -1221,7 +1222,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             }
           }
         }
-        console.log('[DisplayModels] getOrLoadModelCapabilities parsed counts:', {
+        debug('[DisplayModels] getOrLoadModelCapabilities parsed counts:', {
           expressions: expressions.length,
           motions: motions.length,
         })
