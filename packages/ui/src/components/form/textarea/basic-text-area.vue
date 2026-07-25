@@ -19,7 +19,8 @@ const input = defineModel<string>({
 
 const textareaRef = ref<HTMLTextAreaElement>()
 const textareaHeight = ref('auto')
-const lastEnterAt = ref(0)
+const lastSendEnterAt = ref(0)
+const lastSuggestEnterAt = ref(0)
 
 function emitSubmit() {
   events('submit', input.value.replace(/[\r\n]+$/, ''))
@@ -32,63 +33,58 @@ function onKeyDown(e: KeyboardEvent) {
   const sendMode = props.sendMode || 'enter'
   const suggestMode = props.suggestMode || 'disabled'
   const hasPrimaryModifier = e.ctrlKey || e.metaKey
+  const isPlainEnter = !e.shiftKey && !hasPrimaryModifier
+  const isCtrlEnter = hasPrimaryModifier && !e.shiftKey
+
+  const now = Date.now()
 
   // --- Suggest mode handling ---
-  if (suggestMode !== 'disabled' && !e.shiftKey) {
-    const matchesSuggest
-      = (suggestMode === 'enter' && !hasPrimaryModifier)
-        || (suggestMode === 'ctrl-enter' && hasPrimaryModifier)
-        || (suggestMode === 'double-enter' && !hasPrimaryModifier)
+  if (suggestMode !== 'disabled') {
+    if (suggestMode === 'enter' && isPlainEnter) {
+      e.preventDefault()
+      events('suggest')
+      return
+    }
 
-    if (matchesSuggest) {
-      if (suggestMode === 'double-enter') {
-        const now = Date.now()
-        if (now - lastEnterAt.value <= 350) {
-          // Second Enter within window → fire suggest
-          e.preventDefault()
-          lastEnterAt.value = 0
-          events('suggest')
-          return
-        }
-        // First Enter → record the timestamp NOW before any send-mode branch can return early
-        lastEnterAt.value = now
-      }
-      else {
-        // Non-double-enter suggest modes fire immediately
+    if (suggestMode === 'ctrl-enter' && isCtrlEnter) {
+      e.preventDefault()
+      events('suggest')
+      return
+    }
+
+    if (suggestMode === 'double-enter' && isPlainEnter) {
+      if (now - lastSuggestEnterAt.value <= 350) {
         e.preventDefault()
+        lastSuggestEnterAt.value = 0
+        input.value = input.value.replace(/[\r\n]+$/, '')
         events('suggest')
         return
       }
+      lastSuggestEnterAt.value = now
     }
   }
 
   // --- Send mode handling ---
-  if (sendMode === 'enter') {
-    if (!e.shiftKey && !hasPrimaryModifier) {
-      e.preventDefault()
-      emitSubmit()
-    }
+  if (sendMode === 'enter' && isPlainEnter) {
+    e.preventDefault()
+    emitSubmit()
     return
   }
 
-  if (sendMode === 'ctrl-enter') {
-    if (hasPrimaryModifier) {
-      e.preventDefault()
-      emitSubmit()
-    }
+  if (sendMode === 'ctrl-enter' && isCtrlEnter) {
+    e.preventDefault()
+    emitSubmit()
     return
   }
 
-  if (!e.shiftKey && !hasPrimaryModifier) {
-    const now = Date.now()
-    if (now - lastEnterAt.value <= 350) {
+  if (sendMode === 'double-enter' && isPlainEnter) {
+    if (now - lastSendEnterAt.value <= 350) {
       e.preventDefault()
-      lastEnterAt.value = 0
+      lastSendEnterAt.value = 0
       emitSubmit()
       return
     }
-
-    lastEnterAt.value = now
+    lastSendEnterAt.value = now
   }
 }
 
