@@ -31,6 +31,8 @@ function handleHideStage() {
 }
 
 const configOverlayOpen = ref(false)
+const showBackgroundLayer = ref(true)
+const showModelLayer = ref(true)
 
 function handleApplyPreset(preset: string) {
   const mapped = preset === 'med.' ? 'medium' : preset
@@ -492,11 +494,11 @@ onBeforeUnmount(() => {
     @click="handleStageClick"
   >
     <div class="relative h-full w-full overflow-hidden rounded-2xl">
-      <!-- Scene Background Layer -->
+      <!-- Custom Background Image -->
       <div
-        v-if="activeBackgroundUrl"
+        v-if="activeBackgroundUrl && showBackgroundLayer"
         :class="[
-          'absolute inset-0 z-0',
+          'pointer-events-none absolute inset-0 z-0 opacity-100',
           'transition-opacity duration-500',
         ]"
         :style="{
@@ -508,10 +510,10 @@ onBeforeUnmount(() => {
       />
 
       <!-- Standalone Graphics Model Scene Renderer -->
-      <div class="absolute inset-0 z-10">
+      <div v-show="showModelLayer" class="absolute inset-0 z-10">
         <RendererStage
           v-model:state="stageState"
-          :paused="!stageEnabled"
+          :paused="!stageEnabled || !showModelLayer"
           :focus-at="{ x: live2dLookAtX, y: live2dLookAtY }"
           :x-offset="xOffset"
           :y-offset="yOffset"
@@ -719,6 +721,8 @@ onBeforeUnmount(() => {
       <!-- Stage Config Overlay (Size & Position) -->
       <StageConfigOverlay
         v-model:open="configOverlayOpen"
+        v-model:show-background="showBackgroundLayer"
+        v-model:show-model="showModelLayer"
         @apply-preset="handleApplyPreset"
         @apply-alignment="handleApplyAlignment"
         @hide-stage="handleOverlayHide"

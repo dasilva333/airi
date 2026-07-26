@@ -815,23 +815,12 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }>
         deleted?: string[]
       } = { models: {}, deleted: [] }
-      let manifestExists = false
-      let remoteManifestMtime = 0
       try {
         const readRes = await client.readFile('assets/models/manifest.json')
         if (readRes.success && readRes.content) {
           manifest = JSON.parse(readRes.content)
           if (!manifest.deleted) {
             manifest.deleted = []
-          }
-          manifestExists = true
-        }
-
-        const listRes = await client.listFiles()
-        if (listRes.success && listRes.files) {
-          const manifestFile = listRes.files.find(f => f.relPath.replace(/\\/g, '/') === 'assets/models/manifest.json')
-          if (manifestFile) {
-            remoteManifestMtime = manifestFile.mtime
           }
         }
       }
@@ -958,18 +947,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
         }
         if (!manifest.models[id]) {
-          // Check if we have sync history for it
-          const hasSyncHistory = await storage.getItemRaw<number>(`local:sync-metadata/timestamps/${id}`)
-          const isStaleManifest = remoteManifestMtime > 0 && hasSyncHistory && hasSyncHistory > remoteManifestMtime
-
-          if (hasSyncHistory && manifestExists && !isStaleManifest) {
-            debug(`[SyncEngine] Model ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
-            await localforage.removeItem(id)
-            await localforage.removeItem(`${id}-textures`)
-            await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
-            continue
-          }
-
           debug(`[SyncEngine] Uploading model to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
             const base64 = await blobToBase64(entry.file)

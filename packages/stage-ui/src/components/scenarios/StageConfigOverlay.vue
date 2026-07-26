@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   open?: boolean
-}>()
+  showBackground?: boolean
+  showModel?: boolean
+}>(), {
+  showBackground: true,
+  showModel: true,
+})
 
 const emit = defineEmits<{
   (e: 'update:open', val: boolean): void
+  (e: 'update:showBackground', val: boolean): void
+  (e: 'update:showModel', val: boolean): void
   (e: 'apply-preset', preset: 'mini' | 'med.' | 'large' | 'full'): void
   (e: 'apply-alignment', alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'): void
   (e: 'hide-stage'): void
@@ -56,6 +63,14 @@ function handleCorner(alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bot
 function handleHide() {
   emit('hide-stage')
   isOpen.value = false
+}
+
+function toggleBackground() {
+  emit('update:showBackground', !props.showBackground)
+}
+
+function toggleModel() {
+  emit('update:showModel', !props.showModel)
 }
 </script>
 
@@ -121,7 +136,7 @@ function handleHide() {
             </button>
           </div>
 
-          <!-- Row 2: Size Presets Grid -->
+          <!-- Rows 2 & 3: Size Presets Grid -->
           <div v-if="mode === 'size'" class="grid grid-cols-2 gap-2">
             <button
               v-for="p in PRESETS"
@@ -142,7 +157,7 @@ function handleHide() {
             </button>
           </div>
 
-          <!-- Row 2: Corner Positions Grid -->
+          <!-- Rows 2 & 3: Corner Positions Grid -->
           <div v-else class="grid grid-cols-2 gap-2">
             <button
               v-for="c in CORNERS"
@@ -160,6 +175,39 @@ function handleHide() {
               @click="handleCorner(c.id)"
             >
               <div :class="[c.icon, 'size-6']" />
+            </button>
+          </div>
+
+          <!-- Row 4: Background Image & Running Model Layer Visibility Toggles -->
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              :class="[
+                'size-9 w-full flex items-center justify-center rounded-xl cursor-pointer',
+                'border border-white/20 dark:border-neutral-500/20',
+                'backdrop-blur-md transition-all duration-150',
+                showBackground
+                  ? 'bg-white/25 dark:bg-neutral-700/40 text-neutral-800 dark:text-neutral-100 hover:bg-white/40 dark:hover:bg-neutral-600/50'
+                  : 'bg-white/5 dark:bg-neutral-900/20 text-neutral-400 dark:text-neutral-500 opacity-60 hover:opacity-100',
+              ]"
+              :title="showBackground ? 'Hide Stage Background Image' : 'Show Stage Background Image'"
+              @click="toggleBackground"
+            >
+              <div :class="[showBackground ? 'i-ph:image' : 'i-ph:image-slash', 'size-5']" />
+            </button>
+
+            <button
+              :class="[
+                'size-9 w-full flex items-center justify-center rounded-xl cursor-pointer',
+                'border border-white/20 dark:border-neutral-500/20',
+                'backdrop-blur-md transition-all duration-150',
+                showModel
+                  ? 'bg-white/25 dark:bg-neutral-700/40 text-neutral-800 dark:text-neutral-100 hover:bg-white/40 dark:hover:bg-neutral-600/50'
+                  : 'bg-white/5 dark:bg-neutral-900/20 text-neutral-400 dark:text-neutral-500 opacity-60 hover:opacity-100',
+              ]"
+              :title="showModel ? 'Hide Running Model Layer' : 'Show Running Model Layer'"
+              @click="toggleModel"
+            >
+              <div :class="[showModel ? 'i-ph:user' : 'i-ph:user-slash', 'size-5']" />
             </button>
           </div>
         </div>

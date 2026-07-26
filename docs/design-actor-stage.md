@@ -63,8 +63,10 @@ The top-right toolbar's eye-slash button is replaced with a **gear icon** (`i-ph
 
 ### 3.1 Layout
 
-- **Row 1:** Mode toggle (left) + Hide eye-slash (right)
-- **Row 2:** 2×2 grid — sizes in Size mode, corner positions in Position mode
+- **Row 1:** Mode toggle (left) + Hide stage eye-slash (right)
+- **Row 2:** Top row of 2×2 grid — sizes in Size mode (`mini` / `med.`), corner positions in Position mode (`top-left` / `top-right`)
+- **Row 3:** Bottom row of 2×2 grid — sizes in Size mode (`large` / `full`), corner positions in Position mode (`bottom-left` / `bottom-right`)
+- **Row 4:** Visibility toggles — Background image toggle (left) + Model layer toggle (right)
 
 ### 3.2 Size Presets
 

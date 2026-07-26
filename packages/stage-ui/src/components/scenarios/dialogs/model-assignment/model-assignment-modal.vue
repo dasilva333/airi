@@ -190,6 +190,24 @@ async function handleConfirmAssignment() {
     toast.success(`Assigned model to concept '${conceptKey}'`)
   }
 
+  // Also sync to character-bindings in localStorage for AnimaDex/Guided wizard
+  try {
+    const raw = localStorage.getItem('settings/airi-card/character-bindings')
+    const map = raw ? JSON.parse(raw) : {}
+    const triggerKey = card.name?.toLowerCase().trim()
+    if (triggerKey) {
+      map[triggerKey] = {
+        ...map[triggerKey],
+        trigger: triggerKey,
+        displayModelId: targetModelId,
+      }
+      localStorage.setItem('settings/airi-card/character-bindings', JSON.stringify(map))
+    }
+  }
+  catch (e) {
+    console.error('Failed to sync character-bindings on model assignment:', e)
+  }
+
   emits('assigned', selectedTargetKey.value)
   showDialog.value = false
 }

@@ -903,102 +903,108 @@ async function confirmCreateCard() {
     <main v-else class="relative flex flex-1 flex-col overflow-hidden">
       <!-- STEP 1: CAST SELECTION -->
       <div v-if="currentStep === 1" class="flex flex-1 flex-col overflow-hidden">
-        <!-- Search & Filter Bar -->
-        <div class="z-20 flex flex-col gap-4 border-b border-neutral-200/80 bg-white p-6 dark:border-neutral-900/60 dark:bg-neutral-950">
-          <div class="relative mx-auto max-w-2xl w-full">
-            <div class="relative flex items-center border border-neutral-200 rounded-xl bg-neutral-50/70 px-4 transition-all duration-300 dark:border-neutral-800 focus-within:border-primary-500 dark:bg-neutral-900/40">
-              <div i-solar:magnifer-linear class="mr-3 text-lg text-neutral-400 dark:text-neutral-500" />
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search characters by name, series, or tags (e.g. 'blonde hair')..."
-                class="flex-1 border-none bg-transparent py-3 text-sm text-neutral-800 outline-none dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500"
-                @focus="isSearchFocused = true"
-                @keydown.enter="handleSearchEnter"
-              >
+        <!-- Responsive Control & Search Bar -->
+        <div class="z-20 border-b border-neutral-200/80 bg-white/80 p-4 backdrop-blur-md dark:border-neutral-900/60 dark:bg-neutral-950/80">
+          <div class="mx-auto max-w-7xl w-full flex flex-wrap items-center justify-between gap-3">
+            <!-- Search Bar + Autocomplete (Flexible Grow) -->
+            <div class="relative min-w-[280px] flex-1">
+              <div class="relative flex items-center border border-neutral-200/80 rounded-xl bg-neutral-50/80 px-3.5 py-1.5 transition-all duration-200 dark:border-neutral-800/80 focus-within:border-primary-500/80 dark:bg-neutral-900/60">
+                <div i-solar:magnifer-linear class="mr-2 text-base text-neutral-400 dark:text-neutral-500" />
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search characters by name, series, or tags (e.g. 'blonde hair')..."
+                  class="flex-1 border-none bg-transparent text-xs text-neutral-800 outline-none dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500"
+                  @focus="isSearchFocused = true"
+                  @keydown.enter="handleSearchEnter"
+                >
+                <button
+                  v-if="searchQuery"
+                  class="p-0.5 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  @click="searchQuery = ''"
+                >
+                  <div i-solar:close-circle-bold class="text-sm" />
+                </button>
+              </div>
+
+              <!-- Autocomplete suggestions dropdown -->
+              <transition name="fade">
+                <div
+                  v-if="isSearchFocused && suggestions.length > 0"
+                  class="absolute left-0 right-0 z-30 mt-1 max-h-[280px] overflow-y-auto border border-neutral-200 rounded-xl bg-white/95 shadow-2xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95"
+                >
+                  <div
+                    v-for="(item, idx) in suggestions"
+                    :key="idx"
+                    class="flex cursor-pointer items-center justify-between border-b border-neutral-100 px-3.5 py-2 transition-colors dark:border-neutral-800/30 last:border-none hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
+                    @mousedown="selectSuggestion(item)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span v-if="item.type === 'tag'" class="text-xs text-neutral-400 dark:text-neutral-500">🏷️ Tag:</span>
+                      <span v-else-if="item.type === 'copyright'" class="text-xs text-neutral-400 dark:text-neutral-500">🎬 Series:</span>
+                      <span v-else-if="item.type === 'character'" class="text-xs text-neutral-400 dark:text-neutral-500">👤 Character:</span>
+                      <span class="text-xs text-neutral-700 font-medium dark:text-neutral-200">{{ item.label }}</span>
+                    </div>
+                    <span v-if="item.extra" class="text-[11px] text-neutral-400 font-normal italic dark:text-neutral-500">
+                      {{ item.extra }}
+                    </span>
+                  </div>
+                </div>
+              </transition>
+            </div>
+
+            <!-- Inline Gender Segmented Control -->
+            <div class="flex shrink-0 items-center gap-1 border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-1 dark:border-neutral-800/80 dark:bg-neutral-900/40">
               <button
-                v-if="searchQuery"
-                class="p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
-                @click="searchQuery = ''"
+                v-for="g in ['All', 'Female', 'Male', 'Ambiguous', 'Non-Human']"
+                :key="g"
+                :class="[
+                  'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all',
+                  selectedGender === (g === 'All' ? null : g)
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200',
+                ]"
+                @click="wizardStore.setGender(g === 'All' ? null : g)"
               >
-                <div i-solar:close-circle-bold class="text-base" />
+                {{ g }}
               </button>
             </div>
 
-            <!-- Autocomplete suggestions dropdown -->
-            <transition name="fade">
-              <div
-                v-if="isSearchFocused && suggestions.length > 0"
-                class="absolute left-0 right-0 z-30 mt-2 max-h-[300px] overflow-y-auto border border-neutral-200 rounded-xl bg-white/95 shadow-2xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95"
+            <!-- Inline Action Buttons -->
+            <div class="flex shrink-0 items-center gap-2">
+              <Button
+                variant="primary"
+                class="h-[30px] flex items-center gap-1.5 border border-primary-500/30 rounded-xl px-3 text-xs font-semibold shadow-sm"
+                @click="openCreateCustomCharacter()"
               >
-                <div
-                  v-for="(item, idx) in suggestions"
-                  :key="idx"
-                  class="flex cursor-pointer items-center justify-between border-b border-neutral-100 px-4 py-2.5 transition-colors dark:border-neutral-800/30 last:border-none hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
-                  @mousedown="selectSuggestion(item)"
-                >
-                  <div class="flex items-center gap-2">
-                    <span v-if="item.type === 'tag'" class="text-xs text-neutral-400 dark:text-neutral-500">🏷️ Tag:</span>
-                    <span v-else-if="item.type === 'copyright'" class="text-xs text-neutral-400 dark:text-neutral-500">🎬 Series:</span>
-                    <span v-else-if="item.type === 'character'" class="text-xs text-neutral-400 dark:text-neutral-500">👤 Character:</span>
-                    <span class="text-sm text-neutral-700 font-medium dark:text-neutral-200">{{ item.label }}</span>
-                  </div>
-                  <span v-if="item.extra" class="text-xs text-neutral-400 font-normal italic dark:text-neutral-500">
-                    {{ item.extra }}
-                  </span>
-                </div>
-              </div>
-            </transition>
+                <div i-solar:user-plus-bold-duotone class="text-xs" />
+                <span>Custom</span>
+              </Button>
+
+              <Button
+                :variant="showOnlyModels ? 'primary' : 'secondary'"
+                class="h-[30px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-3 text-xs font-medium dark:border-neutral-800"
+                @click="showOnlyModels = !showOnlyModels"
+              >
+                <span>🎭 Bound ({{ boundCharactersCount }})</span>
+              </Button>
+            </div>
           </div>
 
-          <!-- Active Chip Filters -->
-          <div v-if="selectedChips.length > 0" class="mx-auto max-w-2xl w-full flex flex-wrap items-center gap-2">
-            <span class="mr-1 text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Active filters:</span>
+          <!-- Active Chip Filters (Appears as a slim 2nd bar only when active) -->
+          <div v-if="selectedChips.length > 0" class="mx-auto mt-2.5 max-w-7xl w-full flex flex-wrap items-center gap-1.5 border-t border-neutral-200/50 pt-2 dark:border-neutral-800/40">
+            <span class="mr-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Active filters:</span>
             <div
               v-for="(chip, index) in selectedChips"
               :key="index"
-              class="flex items-center gap-1 border border-primary-500/30 rounded-lg bg-primary-500/5 px-2.5 py-1 text-xs text-primary-500 font-medium dark:text-primary-400"
+              class="flex items-center gap-1 border border-primary-500/30 rounded-md bg-primary-500/5 px-2 py-0.5 text-[11px] text-primary-500 font-medium dark:text-primary-400"
             >
-              <span class="text-[10px] capitalize opacity-70">{{ chip.type }}:</span>
+              <span class="text-[9px] capitalize opacity-70">{{ chip.type }}:</span>
               <span>{{ chip.value }}</span>
-              <button class="ml-1 hover:text-primary-700 dark:hover:text-white" @click="wizardStore.removeChip(index)">
+              <button class="ml-0.5 hover:text-primary-700 dark:hover:text-white" @click="wizardStore.removeChip(index)">
                 <div i-solar:close-circle-bold class="text-xs" />
               </button>
             </div>
-          </div>
-
-          <!-- Row 1: Primary Actions & Model Toggle -->
-          <div class="mx-auto max-w-2xl w-full flex items-center justify-between gap-3">
-            <Button
-              variant="primary"
-              class="h-[32px] flex items-center gap-1.5 border border-primary-500/30 rounded-xl px-4 text-xs font-semibold shadow-sm"
-              @click="openCreateCustomCharacter()"
-            >
-              <div i-solar:user-plus-bold-duotone class="text-sm" />
-              <span>Add Custom Character</span>
-            </Button>
-
-            <Button
-              :variant="showOnlyModels ? 'primary' : 'secondary'"
-              class="h-[32px] flex items-center gap-1.5 border border-neutral-200 rounded-xl px-3.5 text-xs font-medium dark:border-neutral-800"
-              @click="showOnlyModels = !showOnlyModels"
-            >
-              <span>🎭 Has Bound Model ({{ boundCharactersCount }})</span>
-            </Button>
-          </div>
-
-          <!-- Row 2: Gender Trait Filters -->
-          <div class="mt-1 flex items-center justify-center gap-2.5">
-            <span class="mr-2 text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Gender:</span>
-            <Button
-              v-for="g in ['All', 'Female', 'Male', 'Ambiguous', 'Non-Human']"
-              :key="g"
-              :variant="selectedGender === (g === 'All' ? null : g) ? 'primary' : 'secondary'"
-              class="h-[28px] border border-neutral-200 rounded-lg px-3 text-xs dark:border-neutral-800"
-              @click="wizardStore.setGender(g === 'All' ? null : g)"
-            >
-              {{ g }}
-            </Button>
           </div>
         </div>
 
@@ -1017,11 +1023,11 @@ async function confirmCreateCard() {
             </Button>
           </div>
 
-          <div v-else class="grid grid-cols-2 gap-5 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3 xl:grid-cols-6">
+          <div v-else class="grid grid-cols-2 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3 xl:grid-cols-6">
             <div
               v-for="char in filteredCharacters.slice(0, displayLimit)"
               :key="char.id"
-              class="group relative flex flex-col overflow-hidden border border-neutral-200 rounded-2xl bg-neutral-50/50 transition-all duration-300 dark:border-neutral-900 hover:border-neutral-300 dark:bg-neutral-900/20 dark:hover:border-neutral-800"
+              class="group relative flex flex-col overflow-hidden border border-neutral-200/60 bg-neutral-50/50 transition-all duration-200 hover:z-10 dark:border-neutral-900/60 hover:border-primary-500/50 dark:bg-neutral-900/20 hover:shadow-md"
             >
               <!-- Card Portrait Image -->
               <div class="relative aspect-[3/4] overflow-hidden bg-neutral-100 dark:bg-neutral-900">
@@ -1040,7 +1046,7 @@ async function confirmCreateCard() {
                 <!-- Custom Character Badge -->
                 <div
                   v-if="char.isCustom"
-                  class="absolute left-2 top-2 border border-purple-500/30 rounded-md bg-purple-600/90 px-1.5 py-0.5 text-[9px] text-white font-bold tracking-tight uppercase shadow backdrop-blur-sm"
+                  class="absolute left-1.5 top-1.5 border border-purple-500/30 rounded bg-purple-600/90 px-1 py-0.5 text-[8px] text-white font-bold tracking-tight uppercase shadow backdrop-blur-sm"
                 >
                   Custom
                 </div>
@@ -1048,9 +1054,9 @@ async function confirmCreateCard() {
                 <!-- Selection Status Badge -->
                 <div
                   v-if="selectedCharacters.some(c => c.id === char.id)"
-                  class="absolute right-2 top-2 rounded-full bg-primary-500 p-1 text-white shadow-lg"
+                  class="absolute right-1.5 top-1.5 rounded-full bg-primary-500 p-0.5 text-white shadow-lg"
                 >
-                  <div i-solar:check-circle-bold class="text-sm" />
+                  <div i-solar:check-circle-bold class="text-xs" />
                 </div>
 
                 <!-- Hover action overlay -->
@@ -1127,12 +1133,12 @@ async function confirmCreateCard() {
                 </div>
               </div>
 
-              <!-- Name Details -->
-              <div class="flex flex-1 flex-col justify-between bg-neutral-50/50 p-3.5 dark:bg-neutral-950">
-                <h4 class="line-clamp-1 text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500 dark:group-hover:text-primary-400">
+              <!-- Centered Name & Series Details Bar -->
+              <div class="flex flex-1 flex-col items-center justify-center bg-white/90 px-2 py-1.5 text-center dark:bg-neutral-950/90">
+                <h4 class="w-full truncate text-[11px] text-neutral-800 font-bold leading-tight transition-colors dark:text-neutral-200 group-hover:text-primary-500 dark:group-hover:text-primary-400">
                   {{ char.name }}
                 </h4>
-                <p class="line-clamp-1 mt-0.5 text-[10px] text-neutral-400 italic dark:text-neutral-500">
+                <p class="w-full truncate text-[9px] text-neutral-400 leading-tight italic dark:text-neutral-500">
                   {{ char.copyrightName || wizardStore.copyrights[char.copyrightIndex] || 'Original' }}
                 </p>
               </div>
