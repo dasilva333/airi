@@ -4,10 +4,11 @@ import process from 'node:process'
 
 import { execSync } from 'node:child_process'
 
-// Construct environment with SSL bypass and GITHUB_TOKEN cleared to fall back to keyring
+// Construct environment with SSL bypass, max heap size, and GITHUB_TOKEN cleared to fall back to keyring
 const safeEnv = { ...process.env }
 delete safeEnv.GITHUB_TOKEN
 safeEnv.GH_SSL_NO_VERIFY = 'true'
+safeEnv.NODE_OPTIONS = '--max-old-space-size=12288'
 
 function execute(cmd, options = {}) {
   console.log(`\n🤖 Running: ${cmd}`)
@@ -39,7 +40,65 @@ async function main() {
     console.warn('⚠️ Warning: Git sync failed. Proceeding with local repository state.')
   }
 
-  // Step 2: Run the build:mac script
+  // Re-read package.json after git sync in case remote main was updated
+  const updatedPkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  const currentVersion = updatedPkg.version
+
+  // Check for date stamp mismatch with today's date
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const todayDateStr = `${year}${month}${day}`
+
+  const dateMatch = currentVersion.match(/stable\.(\d{8})$/)
+  if (dateMatch) {
+    const versionDateStr = dateMatch[1]
+    if (versionDateStr !== todayDateStr) {
+      console.warn('\n===============================================================')
+      console.warn('⚠️  WARNING: RELEASE DATE STAMP MISMATCH DETECTED!')
+      console.warn(`👉 Today's date:               ${todayDateStr} (${year}-${month}-${day})`)
+      console.warn(`👉 Package version date stamp: ${versionDateStr} (${currentVersion})`)
+      console.warn('---------------------------------------------------------------')
+      console.warn('Notice: The package version date stamp is from a previous day.')
+      console.warn('Did the other machine/agent forget to push their git commits or tags?')
+      console.warn('===============================================================\n')
+    }
+  }
+
+  // Step 2: Restore clean pnpm symlinks in stage-tamagotchi to prevent Vite V8 memory crashes (3221225477)
+  console.log(`\n🧹 Cleaning physical node_modules overrides and restoring pnpm symlinks...`)
+  const copiedPackages = [
+    '@discordjs/voice',
+    'discord.js',
+    'prism-media',
+    '@snazzah/davey',
+    'opusscript',
+    'libsodium-wrappers',
+    'libsodium',
+    'undici',
+    'magic-bytes.js',
+    'ws',
+  ]
+  for (const pkg of copiedPackages) {
+    const pkgPath = path.join(tamagotchiDir, 'node_modules', pkg)
+    if (fs.existsSync(pkgPath) && !fs.lstatSync(pkgPath).isSymbolicLink()) {
+      try {
+        fs.rmSync(pkgPath, { recursive: true, force: true })
+      }
+      catch (e) {
+        // ignore
+      }
+    }
+  }
+  try {
+    execute('pnpm -F @proj-airi/stage-tamagotchi install')
+  }
+  catch (e) {
+    console.warn('⚠️ Warning: pnpm install pre-step failed, continuing...')
+  }
+
+  // Step 3: Run the build:mac script
   console.log(`\n🔨 Compiling macOS target bundle...`)
   try {
     execute('pnpm -F @proj-airi/stage-tamagotchi run build:mac')
