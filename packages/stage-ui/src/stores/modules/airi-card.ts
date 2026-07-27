@@ -186,6 +186,9 @@ export interface AiriExtension {
     autonomousMonitorEnabled?: boolean
     autonomousMonitorDiscordEnabled?: boolean
     autonomousHistoryDepth?: number
+    autonomousModelMode?: 'inherit' | 'custom'
+    autonomousProvider?: string
+    autonomousModel?: string
     injectArtistryContext?: boolean
     artistryIntrusionPrompt?: string
   }
@@ -965,7 +968,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         const visualAssets = (existingExtension as any)?.visual_assets || {}
         const autonomousEnabled = existingExtension?.artistry?.autonomousEnabled ?? false
 
-        let foldedModelId = resolvedDisplayModelId
         let foldedBackgroundId = resolvedActiveBackgroundId
         const foldedExpressions: Record<string, number> = {}
 
@@ -974,11 +976,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           const concept = visualAssets[conceptId]
           if (!concept)
             continue
-
-          // Model: last defined wins (exclusionary)
-          if (concept.manifestation?.modelId && concept.manifestation.modelId !== 'inherit') {
-            foldedModelId = concept.manifestation.modelId
-          }
 
           // Background: last defined wins, but ONLY when Director is OFF
           if (!autonomousEnabled && concept.manifestation?.backgroundId && concept.manifestation.backgroundId !== 'inherit') {
@@ -993,7 +990,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         }
 
         return {
-          displayModelId: foldedModelId,
+          // NOTICE: The stage model is deliberately NOT folded from the concept stack.
+          // modules.displayModelId is the single source of truth, written explicitly by
+          // the actor pipeline (activateConcept), manual sync, or the Director (Base-
+          // sourced modelIds only). Folding the scene stack here re-derived an arbitrary
+          // actor's model whenever the Director reordered concepts mid-speech.
+          // See docs/fix-actor-stage-desync.md (Rail 2).
+          displayModelId: resolvedDisplayModelId,
           activeBackgroundId: foldedBackgroundId,
           active_expressions: foldedExpressions,
         }

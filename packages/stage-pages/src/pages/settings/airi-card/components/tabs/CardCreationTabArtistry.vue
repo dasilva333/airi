@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { REPLICATE_IMAGEGEN_PRESETS } from '@proj-airi/stage-shared'
+import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { FieldInput } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
 import { computed, ref } from 'vue'
@@ -24,11 +26,15 @@ const selectedArtistryAutonomousMonitorEnabled = defineModel<boolean>('selectedA
 const selectedArtistryAutonomousMonitorDiscordEnabled = defineModel<boolean>('selectedArtistryAutonomousMonitorDiscordEnabled', { required: false, default: false })
 const selectedArtistryAutonomousTarget = defineModel<'user' | 'assistant'>('selectedArtistryAutonomousTarget', { required: true })
 const selectedArtistryAutonomousHistoryDepth = defineModel<number>('selectedArtistryAutonomousHistoryDepth', { required: false, default: 3 })
+const selectedArtistryAutonomousModelMode = defineModel<'inherit' | 'custom'>('selectedArtistryAutonomousModelMode', { required: false, default: 'inherit' })
+const selectedArtistryAutonomousProvider = defineModel<string>('selectedArtistryAutonomousProvider', { required: false, default: '' })
+const selectedArtistryAutonomousModel = defineModel<string>('selectedArtistryAutonomousModel', { required: false, default: '' })
 const selectedArtistrySpawnMode = defineModel<'bg' | 'widget' | 'inline' | 'bg_widget'>('selectedArtistrySpawnMode', { required: true })
 const selectedArtistryConfigStr = defineModel<string>('selectedArtistryConfigStr', { required: true })
 
 const { t } = useI18n()
 
+const consciousnessStore = useConsciousnessStore()
 const artistryStore = useArtistryStore()
 const comfyuiWorkflows = computed(() => artistryStore.comfyuiSavedWorkflows || [])
 const isAnyWorkflowSelected = computed(() => {
@@ -44,6 +50,15 @@ const autonomousTargetOptions = computed(() => [
   { value: 'user', label: 'User Input (Standard)' },
   { value: 'assistant', label: 'Companion Reaction (Impact Focus)' },
 ])
+const autonomousModelModeOptions = computed(() => [
+  { value: 'inherit', label: 'Inherit Active LLM' },
+  { value: 'custom', label: 'Custom LLM Override' },
+])
+const inheritedModelDisplay = computed(() => {
+  const provider = consciousnessStore.activeProvider || 'None'
+  const model = consciousnessStore.activeModel || 'None'
+  return `${provider} / ${model}`
+})
 
 function handleModelSelect(model: any) {
   selectedArtistryModel.value = model.id
@@ -253,6 +268,34 @@ function applyTokenTemplate() {
           />
           <p :class="['text-[10px]', 'text-neutral-400', 'px-1']">
             Decide if the Director should judge your messages or the character's response for visual impact.
+          </p>
+        </div>
+
+        <!-- Director Model Selection (Inherit vs Custom) -->
+        <div :class="['flex', 'flex-col', 'gap-2', 'pt-2']">
+          <label :class="['text-[10px]', 'font-bold', 'text-neutral-500', 'uppercase', 'tracking-wider']">
+            Director LLM Model
+          </label>
+          <div :class="['flex', 'items-center', 'gap-2']">
+            <Select
+              v-model="selectedArtistryAutonomousModelMode"
+              :options="autonomousModelModeOptions"
+              class="flex-1"
+            />
+            <BrainModelPicker
+              v-if="selectedArtistryAutonomousModelMode === 'custom'"
+              v-model:provider="selectedArtistryAutonomousProvider"
+              v-model:model="selectedArtistryAutonomousModel"
+              variant="button"
+              title="Select Director LLM Model"
+              side="bottom"
+            />
+          </div>
+          <p v-if="selectedArtistryAutonomousModelMode === 'inherit'" :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+            Inherits active LLM: <span class="text-neutral-600 font-semibold font-mono dark:text-neutral-300">{{ inheritedModelDisplay }}</span>
+          </p>
+          <p v-else :class="['text-[10px]', 'text-neutral-400', 'px-1']">
+            Custom LLM override assigned exclusively to the Director for visual grading.
           </p>
         </div>
       </div>

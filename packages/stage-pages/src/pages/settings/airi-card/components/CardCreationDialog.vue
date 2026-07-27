@@ -133,6 +133,9 @@ const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('assistant')
 const selectedArtistryAutonomousMonitorEnabled = ref<boolean>(true)
 const selectedArtistryAutonomousMonitorDiscordEnabled = ref<boolean>(false)
 const selectedArtistryAutonomousHistoryDepth = ref<number>(3)
+const selectedArtistryAutonomousModelMode = ref<'inherit' | 'custom'>('inherit')
+const selectedArtistryAutonomousProvider = ref<string>('')
+const selectedArtistryAutonomousModel = ref<string>('')
 const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
@@ -866,6 +869,9 @@ async function saveCard(card: Card): Promise<boolean> {
     autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
     autonomousMonitorDiscordEnabled: selectedArtistryAutonomousMonitorDiscordEnabled.value,
     autonomousHistoryDepth: selectedArtistryAutonomousHistoryDepth.value,
+    autonomousModelMode: selectedArtistryAutonomousModelMode.value,
+    autonomousProvider: selectedArtistryAutonomousProvider.value,
+    autonomousModel: selectedArtistryAutonomousModel.value,
     options: artistryConfig,
     injectArtistryContext: selectedInjectArtistryContext.value,
     artistryIntrusionPrompt: selectedArtistryIntrusionPrompt.value,
@@ -920,6 +926,9 @@ function initializeCard(): Card {
   selectedArtistryAutonomousMonitorEnabled.value = airiExt?.artistry?.autonomousMonitorEnabled ?? true
   selectedArtistryAutonomousMonitorDiscordEnabled.value = airiExt?.artistry?.autonomousMonitorDiscordEnabled ?? false
   selectedArtistryAutonomousHistoryDepth.value = airiExt?.artistry?.autonomousHistoryDepth ?? 3
+  selectedArtistryAutonomousModelMode.value = airiExt?.artistry?.autonomousModelMode ?? 'inherit'
+  selectedArtistryAutonomousProvider.value = airiExt?.artistry?.autonomousProvider || ''
+  selectedArtistryAutonomousModel.value = airiExt?.artistry?.autonomousModel || ''
   selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'assistant'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
@@ -1375,6 +1384,9 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
             v-model:selected-artistry-autonomous-monitor-discord-enabled="selectedArtistryAutonomousMonitorDiscordEnabled"
             v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
+            v-model:selected-artistry-autonomous-model-mode="selectedArtistryAutonomousModelMode"
+            v-model:selected-artistry-autonomous-provider="selectedArtistryAutonomousProvider"
+            v-model:selected-artistry-autonomous-model="selectedArtistryAutonomousModel"
             v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
             v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"

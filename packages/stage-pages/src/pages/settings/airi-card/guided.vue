@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
 import { useCustomCharactersStore } from '@proj-airi/stage-ui/stores/custom-characters'
@@ -1498,11 +1499,14 @@ async function confirmCreateCard() {
           </div>
 
           <!-- Active LLM Warning/Indicator -->
-          <div class="mt-5 flex items-start gap-2 border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/30">
-            <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-400 dark:text-neutral-500" />
-            <p class="text-[10px] text-neutral-700 leading-relaxed dark:text-neutral-400">
-              <span class="dark:text-neutral-350 text-neutral-800 font-bold">Note:</span> This request will be processed by <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeModel || 'None' }}</span>. Please ensure this is a high-quality model as the next step is somewhat complex and requires high reasoning to generate properly.
-            </p>
+          <div class="mt-5 flex items-center justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800/40 dark:bg-neutral-900/30">
+            <div class="flex items-start gap-2 pr-2">
+              <div i-solar:info-circle-bold class="mt-0.5 shrink-0 text-sm text-neutral-400 dark:text-neutral-500" />
+              <p class="text-[10px] text-neutral-700 leading-relaxed dark:text-neutral-400">
+                <span class="dark:text-neutral-350 text-neutral-800 font-bold">Note:</span> This request will be processed by <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeProvider || 'None' }}</span> / <span class="text-primary-600 font-semibold dark:text-primary-400">{{ consciousnessStore.activeModel || 'None' }}</span>. Please ensure this is a high-quality model as the next step is somewhat complex and requires high reasoning to generate properly.
+              </p>
+            </div>
+            <BrainModelPicker variant="default" side="top" title="Switch Active LLM" />
           </div>
 
           <!-- Bottom Actions -->

@@ -1,4 +1,5 @@
 export { default as ChatAssistantItem } from './assistant-item.vue'
+export { default as BrainModelPicker } from './BrainModelPicker.vue'
 export { default as ChatBrainPopover } from './ChatBrainPopover.vue'
 export { default as ChatGroundingPopover } from './ChatGroundingPopover.vue'
 export { default as ChatImagesPopover } from './ChatImagesPopover.vue'
