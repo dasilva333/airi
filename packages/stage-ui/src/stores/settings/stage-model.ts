@@ -4,6 +4,7 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { refManualReset, useEventListener } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 
@@ -11,7 +12,7 @@ export type StageModelRenderer = 'live2d' | 'vrm' | 'spine' | 'mmd' | 'disabled'
 
 export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const displayModelsStore = useDisplayModelsStore()
-  let stageModelUpdateSequence = 0
+  let stageModelUpdateQueue: Promise<void> = Promise.resolve()
   const stageModelStorageKey = 'settings/stage/model'
 
   const stageModelSelectedState = useLocalStorageManualReset<string>(stageModelStorageKey, 'preset-live2d-1')
@@ -64,10 +65,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedUrl.value = nextUrl
   }
 
-  async function updateStageModel(reason?: string) {
-    if (reason)
-      lastReloadReason.value = reason
-    const requestId = ++stageModelUpdateSequence
+  async function performUpdateStageModel() {
     const selectedModelId = stageModelSelectedState.value
 
     if (!selectedModelId) {
@@ -79,161 +77,165 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       return
     }
 
-    const model = await displayModelsStore.getDisplayModel(selectedModelId)
+    try {
+      const model = await displayModelsStore.getDisplayModel(selectedModelId)
 
-    if (requestId !== stageModelUpdateSequence)
-      return
+      const isControlStrip = typeof window !== 'undefined' && (window as any).electron && (
+        window.location.hash === '#/'
+        || window.location.hash === ''
+      )
 
-    const isControlStrip = typeof window !== 'undefined' && (window as any).electron && (
-      window.location.hash === '#/'
-      || window.location.hash === ''
-    )
-
-    if (isControlStrip) {
-      if (model) {
-        switch (model.format) {
-          case DisplayModelFormat.Live2dZip:
-            stageModelRenderer.value = 'live2d'
-            break
-          case DisplayModelFormat.VRM:
-            stageModelRenderer.value = 'vrm'
-            break
-          case DisplayModelFormat.SpineZip:
-            stageModelRenderer.value = 'spine'
-            break
-          case DisplayModelFormat.PMXZip:
-          case DisplayModelFormat.PMXDirectory:
-          case DisplayModelFormat.PMD:
-            stageModelRenderer.value = 'mmd'
-            break
-          default:
-            stageModelRenderer.value = 'disabled'
-            break
+      if (isControlStrip) {
+        if (model) {
+          switch (model.format) {
+            case DisplayModelFormat.Live2dZip:
+              stageModelRenderer.value = 'live2d'
+              break
+            case DisplayModelFormat.VRM:
+              stageModelRenderer.value = 'vrm'
+              break
+            case DisplayModelFormat.SpineZip:
+              stageModelRenderer.value = 'spine'
+              break
+            case DisplayModelFormat.PMXZip:
+            case DisplayModelFormat.PMXDirectory:
+            case DisplayModelFormat.PMD:
+              stageModelRenderer.value = 'mmd'
+              break
+            default:
+              stageModelRenderer.value = 'disabled'
+              break
+          }
+          stageModelSelectedDisplayModel.value = model
         }
-        stageModelSelectedDisplayModel.value = model
-      }
-      else {
-        stageModelSelectedDisplayModel.value = undefined
-        stageModelRenderer.value = 'disabled'
-      }
-      return
-    }
-
-    if (!model) {
-      replaceStageModelUrl(undefined)
-      cleanupMmdTextures()
-      stageModelSelectedDisplayModel.value = undefined
-      stageModelSelectedFile.value = undefined
-      stageModelRenderer.value = 'disabled'
-      return
-    }
-
-    if (model.type === 'file') {
-      if (!model.file || typeof model.file.arrayBuffer !== 'function') {
-        console.warn(`[StageModel] Model file is missing or is not a valid Blob/File instance for model ${model.id}:`, model.file)
-        replaceStageModelUrl(undefined)
-        cleanupMmdTextures()
-        stageModelSelectedDisplayModel.value = undefined
-        stageModelSelectedFile.value = undefined
-        stageModelRenderer.value = 'disabled'
-        return
-      }
-      // If we already have a URL for this exact file, don't re-create it.
-      // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
-      // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
-      if (isSameFile(stageModelSelectedFile.value, model.file) && stageModelSelectedUrl.value?.startsWith('blob:')) {
-        stageModelSelectedDisplayModel.value = model
-        // Update renderer just in case
-        switch (model.format) {
-          case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break
-          case DisplayModelFormat.VRM: stageModelRenderer.value = 'vrm'; break
-          case DisplayModelFormat.SpineZip: stageModelRenderer.value = 'spine'; break
-          case DisplayModelFormat.PMXZip:
-          case DisplayModelFormat.PMXDirectory:
-          case DisplayModelFormat.PMD:
-            stageModelRenderer.value = 'mmd'; break
-          default: stageModelRenderer.value = 'disabled'; break
+        else {
+          stageModelSelectedDisplayModel.value = undefined
+          stageModelRenderer.value = 'disabled'
         }
         return
       }
 
-      if (model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMD) {
-        try {
-          const textureFiles = await displayModelsStore.getDisplayModelTextures(model.id)
-          if (requestId !== stageModelUpdateSequence)
-            return
+      if (!model) {
+        console.warn(`[StageModel] Model with ID "${selectedModelId}" not found.`)
+        toast.error(`Model not found (${selectedModelId}). Preserving current stage model.`)
+        return
+      }
 
-          cleanupMmdTextures()
-
-          const map = new Map<string, string | ImageBitmap>()
-          await Promise.all(textureFiles.map(async (tex) => {
-            const pathKey = tex.relativePath.toLowerCase()
-            if (pathKey.endsWith('.tga')) {
-              map.set(pathKey, URL.createObjectURL(tex.file))
-              return
-            }
-            try {
-              const bitmap = await createImageBitmap(tex.file)
-              map.set(pathKey, bitmap)
-            }
-            catch (e) {
-              console.warn(`[StageModel] Failed to pre-decode ${tex.relativePath}, falling back to Blob URL:`, e)
-              map.set(pathKey, URL.createObjectURL(tex.file))
-            }
-          }))
-          mmdTextureMap.value = map
-
-          const nextUrl = `${URL.createObjectURL(model.file)}#${model.file.name}`
-          replaceStageModelUrl(nextUrl)
-          stageModelSelectedFile.value = model.file
+      if (model.type === 'file') {
+        if (!model.file || typeof model.file.arrayBuffer !== 'function') {
+          console.warn(`[StageModel] Model file is missing or is not a valid Blob/File instance for model ${model.id}:`, model.file)
+          toast.error(`Failed to load model "${model.name || model.id}": file is missing or corrupt.`)
+          return
         }
-        catch (e) {
-          console.error('[StageModel] Failed to load MMD textures:', e)
+
+        // If we already have a URL for this exact file, don't re-create it.
+        // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
+        // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
+        if (isSameFile(stageModelSelectedFile.value, model.file) && stageModelSelectedUrl.value?.startsWith('blob:')) {
+          stageModelSelectedDisplayModel.value = model
+          // Update renderer just in case
+          switch (model.format) {
+            case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break
+            case DisplayModelFormat.VRM: stageModelRenderer.value = 'vrm'; break
+            case DisplayModelFormat.SpineZip: stageModelRenderer.value = 'spine'; break
+            case DisplayModelFormat.PMXZip:
+            case DisplayModelFormat.PMXDirectory:
+            case DisplayModelFormat.PMD:
+              stageModelRenderer.value = 'mmd'; break
+            default: stageModelRenderer.value = 'disabled'; break
+          }
+          return
+        }
+
+        if (model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMD) {
+          try {
+            const textureFiles = await displayModelsStore.getDisplayModelTextures(model.id)
+
+            cleanupMmdTextures()
+
+            const map = new Map<string, string | ImageBitmap>()
+            await Promise.all(textureFiles.map(async (tex) => {
+              const pathKey = tex.relativePath.toLowerCase()
+              if (pathKey.endsWith('.tga')) {
+                map.set(pathKey, URL.createObjectURL(tex.file))
+                return
+              }
+              try {
+                const bitmap = await createImageBitmap(tex.file)
+                map.set(pathKey, bitmap)
+              }
+              catch (e) {
+                console.warn(`[StageModel] Failed to pre-decode ${tex.relativePath}, falling back to Blob URL:`, e)
+                map.set(pathKey, URL.createObjectURL(tex.file))
+              }
+            }))
+            mmdTextureMap.value = map
+
+            const nextUrl = `${URL.createObjectURL(model.file)}#${model.file.name}`
+            replaceStageModelUrl(nextUrl)
+            stageModelSelectedFile.value = model.file
+          }
+          catch (e) {
+            console.error('[StageModel] Failed to load MMD textures:', e)
+            const nextUrl = URL.createObjectURL(model.file)
+            replaceStageModelUrl(nextUrl)
+            stageModelSelectedFile.value = model.file
+          }
+        }
+        else {
           const nextUrl = URL.createObjectURL(model.file)
           replaceStageModelUrl(nextUrl)
           stageModelSelectedFile.value = model.file
         }
       }
-      else {
-        const nextUrl = URL.createObjectURL(model.file)
-        if (requestId !== stageModelUpdateSequence) {
-          URL.revokeObjectURL(nextUrl)
-          return
+      else if (model.type === 'url') {
+        // For URL types, we only update if it actually changed
+        if (stageModelSelectedUrl.value !== model.url) {
+          replaceStageModelUrl(model.url)
         }
-
-        replaceStageModelUrl(nextUrl)
-        stageModelSelectedFile.value = model.file
+        stageModelSelectedFile.value = undefined
       }
-    }
-    else if (model.type === 'url') {
-      // For URL types, we only update if it actually changed
-      if (stageModelSelectedUrl.value !== model.url) {
-        replaceStageModelUrl(model.url)
+
+      switch (model.format) {
+        case DisplayModelFormat.Live2dZip:
+          stageModelRenderer.value = 'live2d'
+          break
+        case DisplayModelFormat.VRM:
+          stageModelRenderer.value = 'vrm'
+          break
+        case DisplayModelFormat.SpineZip:
+          stageModelRenderer.value = 'spine'
+          break
+        case DisplayModelFormat.PMXZip:
+        case DisplayModelFormat.PMXDirectory:
+        case DisplayModelFormat.PMD:
+          stageModelRenderer.value = 'mmd'
+          break
+        default:
+          stageModelRenderer.value = 'disabled'
+          break
       }
-      stageModelSelectedFile.value = undefined
-    }
 
-    switch (model.format) {
-      case DisplayModelFormat.Live2dZip:
-        stageModelRenderer.value = 'live2d'
-        break
-      case DisplayModelFormat.VRM:
-        stageModelRenderer.value = 'vrm'
-        break
-      case DisplayModelFormat.SpineZip:
-        stageModelRenderer.value = 'spine'
-        break
-      case DisplayModelFormat.PMXZip:
-      case DisplayModelFormat.PMXDirectory:
-      case DisplayModelFormat.PMD:
-        stageModelRenderer.value = 'mmd'
-        break
-      default:
-        stageModelRenderer.value = 'disabled'
-        break
+      stageModelSelectedDisplayModel.value = model
     }
+    catch (error) {
+      console.error('[StageModel] Failed to update stage model:', error)
+      toast.error(`Failed to load stage model. Preserving current model.`)
+    }
+  }
 
-    stageModelSelectedDisplayModel.value = model
+  async function updateStageModel(reason?: string): Promise<void> {
+    if (reason)
+      lastReloadReason.value = reason
+
+    const task = stageModelUpdateQueue.then(async () => {
+      await performUpdateStageModel()
+    }).catch((err) => {
+      console.error('[StageModel] Queue error:', err)
+    })
+
+    stageModelUpdateQueue = task
+    return task
   }
 
   async function initializeStageModel(reason?: string) {
