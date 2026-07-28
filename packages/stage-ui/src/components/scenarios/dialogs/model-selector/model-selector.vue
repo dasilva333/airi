@@ -75,8 +75,17 @@ watch(isSearchExpanded, (expanded) => {
 
 const highlightDisplayModelCard = ref<string | undefined>(selectedModel.value?.id)
 const showReportModal = ref(false)
-const pendingFile = ref<File | null>(null)
-const validationReport = ref<Live2DValidationReport | null>(null)
+
+// Live2D multi-file import queue
+interface Live2DQueueItem {
+  file: File
+  report: Live2DValidationReport
+}
+const live2dQueue = ref<Live2DQueueItem[]>([])
+const live2dQueueIndex = ref(0)
+const live2dImportToastId = ref<string | number | null>(null)
+const live2dImportedCount = ref(0)
+const validationReport = computed(() => live2dQueue.value[live2dQueueIndex.value]?.report ?? null)
 
 const currentTab = ref<'library' | 'explore' | 'cloud'>('library')
 
@@ -321,28 +330,101 @@ function confirmRename() {
   }
 }
 
-async function handleAddLive2DModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.zip'))
+async function handleAddLive2DModel(files: FileList | null) {
+  if (!files || files.length === 0)
     return
 
-  const report = await validateLive2DZip(file[0])
-  validationReport.value = report
-  pendingFile.value = file[0]
+  live2dQueue.value = []
+  live2dQueueIndex.value = 0
+  live2dImportedCount.value = 0
 
-  if (report.status === 'VALID' && report.errors.length === 0) {
-    confirmImport()
+  const zipFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.zip'))
+  if (zipFiles.length === 0)
+    return
+
+  const total = zipFiles.length
+  const toastId = toast.loading(`Validating ${total} Live2D file${total > 1 ? 's' : ''}…`)
+  live2dImportToastId.value = toastId
+
+  const reviewQueue: Live2DQueueItem[] = []
+
+  // Validate all files; auto-import clean ones immediately
+  for (let i = 0; i < zipFiles.length; i++) {
+    const file = zipFiles[i]
+    toast(`Validating ${i + 1} / ${total}: ${file.name}`, { id: toastId })
+    const report = await validateLive2DZip(file)
+    if (report.status === 'VALID' && report.errors.length === 0) {
+      await displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, file)
+      live2dImportedCount.value++
+    }
+    else {
+      reviewQueue.push({ file, report })
+    }
   }
-  else {
-    showReportModal.value = true
+
+  if (reviewQueue.length === 0) {
+    const n = live2dImportedCount.value
+    toast.success(`Imported ${n} Live2D model${n > 1 ? 's' : ''}.`, { id: toastId })
+    live2dImportToastId.value = null
+    return
   }
+
+  // Kick off the modal review queue for files that need attention
+  live2dQueue.value = reviewQueue
+  live2dQueueIndex.value = 0
+  const reviewCount = reviewQueue.length
+  toast(
+    `Auto-imported ${live2dImportedCount.value} clean file${live2dImportedCount.value !== 1 ? 's' : ''}. Reviewing ${reviewCount} file${reviewCount > 1 ? 's' : ''} with issues…`,
+    { id: toastId },
+  )
+  showReportModal.value = true
 }
 
-function confirmImport() {
-  if (pendingFile.value) {
-    displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, pendingFile.value)
-    pendingFile.value = null
+async function confirmImport() {
+  const item = live2dQueue.value[live2dQueueIndex.value]
+  if (item) {
+    await displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, item.file)
+    live2dImportedCount.value++
+  }
+  advanceLive2DQueue()
+}
+
+function skipQueueItem() {
+  advanceLive2DQueue()
+}
+
+function advanceLive2DQueue() {
+  showReportModal.value = false
+  const nextIndex = live2dQueueIndex.value + 1
+  const toastId = live2dImportToastId.value
+
+  if (nextIndex < live2dQueue.value.length) {
+    live2dQueueIndex.value = nextIndex
+    const nextFile = live2dQueue.value[nextIndex].file
+    const reviewTotal = live2dQueue.value.length
+    if (toastId !== null) {
+      toast(`Reviewing ${nextIndex + 1} / ${reviewTotal}: ${nextFile.name}`, { id: toastId })
+    }
+    // Small delay so the modal close animation completes before re-opening
+    setTimeout(() => {
+      showReportModal.value = true
+    }, 200)
+  }
+  else {
+    // Queue exhausted — show final summary
+    const imported = live2dImportedCount.value
+    if (toastId !== null) {
+      if (imported > 0) {
+        toast.success(`Import complete — ${imported} model${imported > 1 ? 's' : ''} imported.`, { id: toastId })
+      }
+      else {
+        toast.info('Import complete — all reviewed files were skipped.', { id: toastId })
+      }
+    }
+    live2dQueue.value = []
+    live2dQueueIndex.value = 0
+    live2dImportedCount.value = 0
+    live2dImportToastId.value = null
   }
 }
 
@@ -555,7 +637,7 @@ const mapFormatRenderer: Record<DisplayModelFormat, string> = {
   [DisplayModelFormat.PMD]: 'MMD',
 }
 
-const live2dDialog = useFileDialog({ accept: '.zip', multiple: false, reset: true })
+const live2dDialog = useFileDialog({ accept: '.zip', multiple: true, reset: true })
 const vrmDialog = useFileDialog({ accept: '.vrm', multiple: true, reset: true })
 const vrmaDialog = useFileDialog({ accept: '.vrma', multiple: false, reset: true })
 const spineDialog = useFileDialog({ accept: '.zip', multiple: true, reset: true })
@@ -787,6 +869,7 @@ async function runAutoLinkCatalog() {
         v-model:open="showReportModal"
         :report="validationReport"
         @confirm="confirmImport"
+        @close="skipQueueItem"
         @fix-error="handleFixError"
       />
 

@@ -411,12 +411,13 @@ export async function setupMcpStdioManager() {
 
   await manager.ensureConfigFile()
 
-  try {
-    await manager.applyAndRestart()
-  }
-  catch (error) {
+  // NOTICE: Fire-and-forget — do not await applyAndRestart() here.
+  // MCP stdio servers can be slow to connect (e.g. npx cold-cache downloads),
+  // and awaiting this blocks the entire injeca dependency chain including all
+  // main windows. The manager is returned immediately; servers attach in the background.
+  manager.applyAndRestart().catch((error) => {
     log.withError(error).warn('failed to apply mcp stdio config during startup')
-  }
+  })
 
   return manager
 }
