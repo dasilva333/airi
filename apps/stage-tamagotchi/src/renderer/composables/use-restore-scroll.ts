@@ -28,6 +28,17 @@ export function useRestoreScroll(scrollContainer: MaybeRefOrGetter<HTMLElement |
 
       const savedPosition = scrollPositions.get(newPath) || 0
       scrollContainerRef.value.scrollTop = savedPosition
+
+      // Apply multiple times during page transitions to prevent scroll-clamping and ensure it updates
+      const applyScroll = () => {
+        if (scrollContainerRef.value) {
+          scrollContainerRef.value.scrollTop = savedPosition
+        }
+      }
+
+      setTimeout(applyScroll, 50)
+      setTimeout(applyScroll, 150)
+      setTimeout(applyScroll, 300)
     },
   )
 
