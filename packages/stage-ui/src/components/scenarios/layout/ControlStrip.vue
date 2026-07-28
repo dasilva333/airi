@@ -174,7 +174,10 @@ function selectAvatar(modelId: string) {
         ...card.extensions,
         airi: {
           ...card.extensions?.airi,
-          displayModelId: modelId,
+          modules: {
+            ...card.extensions?.airi?.modules,
+            displayModelId: modelId,
+          },
           active_state: {
             ...card.extensions?.airi?.active_state,
             displayModelId: modelId,
