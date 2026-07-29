@@ -1,33 +1,34 @@
-# 🚀 AIRI v0.9.20-stable.20260725 — Release Notes
+# 🚀 AIRI v0.9.21-stable.20260729 — Release Notes
 
-This release introduces **Scoped Outfit & Weapon State Memory**, **Spine Mesh Deformation (Cheek Stretching!)**, the **AnimaDex Ultra-Dense Grid**, fixes the infamous **Double Enter Bug**, removes the silent **Model Disk Purge Mechanism**, and synchronizes **Model Assignment Bindings**.
+This release introduces the **ComfyUI Workflow Configurator Redesign**, **Live2D Model Loading Race Condition & Mutex Fixes**, **Dedicated Director LLM Overrides**, **Live2D Multi-File Batch Import Queueing**, and **System Settings & Tray Enhancements**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🔄 Scoped Outfit & Weapon State Memory (The "ACT as a Setter" Hook)
-* **Visual State Continuity**: Ever changed into a costume mid-conversation only to have the character "flash" back to their default outfit on the very next turn? We've completely solved this visual reset loop.
-* **Smart Local Memory**: Inline visual commands (like `<|ACT:emotion="French Maid [Gun]"|>`) now act as persistent state setters within the character's active scope. If your companion equips a weapon or changes outfits mid-speech, the stage *remembers* it—ensuring they start their next turn exactly as they left off, maintaining flawless visual immersion throughout your roleplay.
+### 🎨 ComfyUI Workflow Configurator Redesign
+* **Redesigned Configurator UI**: Overhauled the ComfyUI workflow configuration interface with intuitive target selectors for mapping prompts and generated outputs.
+* **Formatted Error Messages**: Improved error message formatting in chat when image generation workflows fail, providing cleaner diagnostic tracebacks.
 
-### 🦴 Spine Mesh Deformation & Tactile Pulling (Cheek Stretching!)
-* **Tactile Mesh Deformation**: Added interactive mesh deformation and stretching to Spine models in tactile mode! For supported models (such as Trickcal models), you can now click and drag directly on specific model meshes to stretch and deform them dynamically with cursor movement (yes, cheek pulling is officially here!).
-* **Dynamic Active Expression Sync**: Integrated automatic syncing for Spine variant and skin parameters directly from the Concept Registry's active expressions list.
-* **Separated Emotions & Motions**: Split emotion tags and motion triggers into distinct, dedicated helper pill sections in the Card Creation Acting tab (`CardCreationTabActing`).
+### 💃 Model Loading Mutex & Concurrency Fixes
+* **Serialized Model Updates**: Serialized the `updateStageModel` execution queue to prevent race conditions when rapidly swapping display models.
+* **Live2D Mutex Leak Fix**: Resolved Live2D model loading mutex leaks that could freeze model rendering during frequent switches.
+* **ControlStrip Persistence Fix**: Corrected the `ControlStrip` `displayModelId` write path so display model switches persist cleanly to the active character card.
 
-### ⚡ Fix: The Infamous "Double Enter" Bug
-* **Double Enter & Event Deduplication**: Fixed the infamous "Double Enter" bug! Resolved an issue where pressing Enter or sending messages with multiple active Electron renderer windows open would fire duplicate `input:text` events, ensuring single-delivery broadcast isolation across all windows.
+### ⚙️ Settings, Tray & System Features
+* **Settings Case-Insensitive Search**: Search bar in settings now performs case-insensitive matching across all setting items and sub-tabs.
+* **Character Model Quick-Switch**: Added a quick-switch model dropdown directly in settings to swap active display models on the fly.
+* **Tray DevTools Toggle**: Added an instant DevTools toggle option directly into the system tray context menu.
+* **MCP Third-Party Notice**: Added a security notice dialog when connecting third-party Model Context Protocol (MCP) servers.
 
-### 🃏 AnimaDex Wizard & Ultra-Dense Character Grid
-* **Compact Single-Row Control Bar**: Redesigned the AnimaDex wizard search and filter bar into a sleek single-row toolbar, cutting header height by ~70% and showing far more character cards above the fold.
-* **Ultra-Dense Edge-to-Edge Grid**: Upgraded the character collection grid to a flush, gapless tile layout with centered typography and subtle hover elevations—perfect for browsing and screenshotting large character rosters.
+### 🎬 Dedicated Director LLM Model Override
+* **Custom Director Model**: You can now specify a separate, custom LLM model override exclusively for the Director (Orchestration & RAG) layer! Run a faster or specialized model for background narration and scene directing while keeping your primary model focused on chat.
+* **BrainModelPicker in Modules Settings**: Integrated `BrainModelPicker` and `VoiceCreatorModal` into the Settings Modules tab for streamlined AI capability configuration.
 
-### 🧹 Sync Engine & Model Assignment Fixes
-* **Silent Model Disk Purge Removed**: Completely removed the unrequested local model deletion block in `sync-engine.ts` that was silently purging local display model files from disk if they were missing from a remote server manifest.
-* **Synchronized Model Assignments**: When assigning a model to a character via `model-assignment-modal.vue`, assignments now cleanly persist across both `local:airi-cards` and `settings/airi-card/character-bindings` simultaneously.
+### 🎭 Live2D Multi-File Batch Import Queue
+* **Batch Model Import Queue**: Drop or select multiple Live2D model files/archives at once with real-time toast progress updates for each item.
+* **macOS Archive Artifact Filtering**: Automatically cleans up hidden `__MACOSX/` directories and `.DS_Store` metadata files during ZIP extraction, preventing corrupted model configurations.
 
-### 👁️ Vision Auto-Tagging Fine-Tuning
-* **Tagger Sensitivity Tuning**: Tuned the in-browser vision tagger threshold to `0.20` and expanded the maximum tag extraction depth to `25` tags, extracting richer visual attributes from reference artwork.
-
-### 🎨 Studio Monitor Layout Consolidation
-* **Clean Two-Row Studio Header**: Restructured the Studio header into a consolidated 2-row layout — placing status indicators cleanly on the top row and the workspace title on the second row for improved vertical spacing.
+### ⚡ Non-Blocking App Startup & Speech Fixes
+* **Instant MCP Initialization**: Shifted Model Context Protocol (MCP) server startup off the critical application launch path, allowing AIRI to boot up instantly without waiting for background tool servers.
+* **Local Whisper STT Fixes**: Resolved an issue where Local Whisper model download progress could get stuck, fixed a double-multiplication percentage display bug, and smoothed out settings scroll layout transitions.
