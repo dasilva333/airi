@@ -391,12 +391,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     let fullText = ''
     let rawFullText = ''
+    let effectiveModel = options.model || activeModel.value
+    let effectiveProviderId = typeof options.chatProvider === 'string'
+      ? options.chatProvider
+      : activeProvider.value
+
     try {
       sending.value = true
-      let effectiveModel = options.model || activeModel.value
-      let effectiveProviderId = typeof options.chatProvider === 'string'
-        ? options.chatProvider
-        : activeProvider.value
       let effectiveProvider: any = typeof options.chatProvider === 'string'
         ? await providersStore.getProviderInstance(options.chatProvider)
         : (options.chatProvider || await providersStore.getProviderInstance(activeProvider.value))
@@ -1609,7 +1610,21 @@ Format your output as a raw thought log.`
         errorMessage = String(error)
       }
 
-      const fullErrorDisplay = `⚠️ **Chat Error**\n\n${errorMessage}${technicalDetail ? `\n\n**Technical Details**:\n\`\`\`json\n${technicalDetail}\n\`\`\`` : ''}`
+      const activeModelName = effectiveModel || 'Default'
+      const activeProviderName = effectiveProviderId || 'Default'
+      const isAuthError = errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('api key')
+
+      let fullErrorDisplay = `⚠️ **Chat Generation Failed**\n\n`
+      fullErrorDisplay += `**Configured Model**: \`${activeModelName}\` *(Provider: \`${activeProviderName}\`)*\n\n`
+      fullErrorDisplay += `**Error**: ${errorMessage}\n\n`
+      fullErrorDisplay += `💡 **Suggested Fix**:\n`
+      fullErrorDisplay += `👉 Click the **Brain Picker** (🧠 icon) in the top-right corner of this window to double-check or switch the model configured for this character.`
+      if (isAuthError) {
+        fullErrorDisplay += `\n*If switching models doesn't help, verify your API key in **Settings > Providers**.*`
+      }
+      if (technicalDetail) {
+        fullErrorDisplay += `\n\n<details>\n<summary>🔍 Technical Details</summary>\n\n\`\`\`json\n${technicalDetail}\n\`\`\`\n</details>`
+      }
 
       // Display in UI: Update content for history AND slices for immediate rendering
       buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}${fullErrorDisplay}`
