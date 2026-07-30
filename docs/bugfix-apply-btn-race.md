@@ -158,3 +158,60 @@ Same goals, different center of gravity — put the correctness **inside the sto
 5. Toast on store-level failure; optionally bridge the renderer `error` emit to a toast in `RendererStage.vue` instead of bare `console.error`.
 
 One incidental finding while tracing call sites, pre-existing and out of scope but worth flagging: `ControlStrip.vue:172-177` (`selectAvatar`) writes `displayModelId` at `extensions.airi.displayModelId` (top level), but `syncCardState` reads `modules.displayModelId` — that write lands nowhere read. Separate issue.
+
+---
+
+## Startup Path & Root Cause Analysis
+
+I've now traced the full startup path. Before giving you the verdict, let me lay out what's *provable* from the code, because the engineer's analysis gets the geography right but the mechanism wrong — and the mechanism determines the fix.
+
+### What the stack trace actually proves
+
+The warn at `stage-model.ts:119` is the **`!model`** branch — `getDisplayModel(id)` returned `undefined`. Looking at `getDisplayModel` (`display-models.ts:272-313`), that happens in exactly two ways:
+
+1. `localforage.getItem(id)` returned **null** → the key is genuinely absent from IndexedDB, or
+2. `localforage.getItem(id)` **threw** → the `.catch` at line 286-289 swallows it to `null` (it logs `'[PipelineTTS:Models] localforage.getItem FAILED:'` first — that line would be in your console immediately before the warn).
+
+Note what the trace does **not** show: the invalid-file branch (`stage-model.ts:125-128`). That matters a lot for vetting the engineer's theory (below).
+
+Also established: the write path is sound. `addDisplayModel` (`display-models.ts:895-918`) uses `id: display-model-${nanoid()}` as *both* the object id and the localforage key, and `await`s `setItem`. And since the model rendered on stage pre-refresh, `getDisplayModel` successfully read it back in that session — so **the key demonstrably existed at upload time and was gone at refresh time**. Something removed it, or the read threw.
+
+### Vetting the engineer's analysis
+
+**Where they're right:**
+- `useDisplayModelsStore` does **not** eagerly load on store creation (`display-models.ts:116` starts `false`; only the remote catalog cache loads eagerly). So the `until(displayModelsFromIndexedDBLoading).toBe(false)` gate in `getDisplayModel` is decorative at startup — it resolves instantly. ✔ Verified.
+- `loadDisplayModelsFromIndexedDB` has defensive Blob/File re-wrapping (`display-models.ts:164-174`) that `getDisplayModel` lacks. ✔ Verified.
+- Their fix *direction* (initialize-before-read + heal parity in `getDisplayModel`) is half of the correct fix.
+
+**Where the mechanism is wrong:**
+- **"localforage.getItem returns null before IndexedDB has warmed up" — not a real behavior.** localforage queues operations until the IDB open completes; a committed key never reads back null due to timing. The instantly-resolving gate is a real observation, but fixing it alone is a *placebo* for this symptom: if the key is absent, awaiting initialization still returns null.
+- **Prototype loss cannot produce the `!model` branch directly.** A structured-clone-degraded `val.file` (Blob without `arrayBuffer`) still *returns* from `getItem` — `getDisplayModel` would hand it back and you'd hit the **invalid-file** toast at `stage-model.ts:127`, not the **not-found** warn at `:119`. Your trace shows `:119`. So the engineer's primary theory does not explain your log.
+
+### The mechanism the engineer missed: what can make the key absent
+
+Only three code paths delete `display-model-*` keys:
+
+1. **Self-heal deletion — `display-models.ts:219-224`** (the prime suspect). On every `loadDisplayModelsFromIndexedDB`, if a model's `val.file` fails the `arrayBuffer` check (this *is* where the engineer's prototype theory can bite), the store tries to restore the file from your BYOS backup drive. If the backup read returns **ENOENT** — e.g., the model was uploaded this session and never backed up, or the network share was asleep — it executes:
+   ```ts
+   debug(`[DisplayModels] Removing unrecoverable orphaned model entry from IndexedDB: ${key}`)
+   await localforage.removeItem(key) // ← deletes the LOCAL original
+   ```
+   That's a repair path performing data loss: "backup unreachable/absent" is treated as "local original is worthless," and your only copy is deleted. This matches your report *literally* — "it deletes the model." Given this fork has self-heal code tuned for sleeping network shares (`:200-202`), you almost certainly have a BYOS path configured, which is the precondition.
+2. **`reconcileModels()` — `sync-engine.ts:872-875, 934-938`**: deletes locally when the id appears in a deleted-models list. Requires remote sync enabled and the id marked deleted — implausible for a brand-new id.
+3. Explicit user deletion — ruled out.
+
+One more chain worth naming: if `getItem` *threw* (deserialization/IDB error), you'd see `'localforage.getItem FAILED'` logged first. Worth checking your console for that line, and for `'Removing unrecoverable orphaned model entry'` / `'Found N user models in IndexedDB'` — that plus "is BYOS/S3 sync configured?" settles which of the two paths fired. But the fix below covers both.
+
+### Also: this is not a regression from the queue/preserve fix
+
+On a miss, the *old* code silently cleared the stage (URL revoked, renderer `'disabled'`) — same data loss, no toast. The new preserve+toast code changed only the *consequence on stage*, not the underlying disappearance. The toast is the messenger that finally surfaced a pre-existing persistence bug; don't shoot it.
+
+### The proper fix (4 items)
+
+1. **Stop the data loss:** remove the `localforage.removeItem` calls in the self-heal ENOENT branch (`display-models.ts:221-224`). An unreachable or not-yet-synced backup must never delete the local original. Skip the model with a warning; leave the entry intact for a later session to heal.
+2. **Make initialization real:** have the display-models store eagerly kick off `void loadDisplayModelsFromIndexedDB()` (**non-silent**) at creation, next to the existing remote-catalog eager load (`display-models.ts:121-136`). Since it's non-silent, `displayModelsFromIndexedDBLoading` actually goes `true` at boot — which turns the *existing* gate in `getDisplayModel` into a real initialization barrier. Stage reads then happen only after the first scan+heal completes. (This is the engineer's one correct proposal, properly wired — no new machinery needed.)
+3. **Heal parity in `getDisplayModel`:** extract the Blob/File re-wrap into a small helper and use it in both `loadDisplayModelsFromIndexedDB` and `getDisplayModel`, so direct reads return valid `File`s even between heal cycles.
+4. **Read-error honesty:** keep the `getItem` catch but make its log explicitly distinguish "read failed" from "key absent" (it already logs the error; I'll make the not-found warn in `stage-model.ts` conditional on a clean null vs. a thrown read so the two failure modes are unambiguous in future reports).
+
+Tradeoff to note: item 2 means a genuinely orphaned entry (backup positively gone) is no longer auto-cleaned — it'll linger in IDB and be skipped with a warning each boot. That's the correct bias for user assets; explicit deletion already exists in the model manager UI.
+

@@ -116,7 +116,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       }
 
       if (!model) {
-        console.warn(`[StageModel] Model with ID "${selectedModelId}" not found.`)
+        console.warn(`[StageModel] Model with ID "${selectedModelId}" not found — absent from IndexedDB or unreadable (the [DisplayModels] log line above says which).`)
         toast.error(`Model not found (${selectedModelId}). Preserving current stage model.`)
         return
       }

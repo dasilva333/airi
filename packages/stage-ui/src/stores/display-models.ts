@@ -12,7 +12,7 @@ import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-t
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
@@ -111,6 +111,22 @@ const displayModelsPresets: DisplayModel[] = [
   { id: 'preset-vrm-2', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarBUrl, name: 'AvatarSample_B', previewImage: presetVrmAvatarBPreview, importedAt: 1733113886840 },
 ]
 
+// NOTICE: IndexedDB structured clones of File/Blob can lose prototype methods in some
+// environments. Re-wrap degraded clones so callers always receive a usable File.
+function tryRewrapModelFile(file: any, preferredName?: string): File | undefined {
+  if (file && typeof file.arrayBuffer === 'function')
+    return file
+  if (file && (file instanceof Blob || (typeof file === 'object' && file.size > 0))) {
+    try {
+      return new File([file], preferredName || file.name || 'model.bin', { type: file.type || 'application/octet-stream' })
+    }
+    catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
 export const useDisplayModelsStore = defineStore('display-models', () => {
   const displayModels = ref<DisplayModel[]>([])
   const displayModelsFromIndexedDBLoading = ref(false)
@@ -134,6 +150,11 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       console.error('[DisplayModels] Failed to load remote catalog cache:', e)
     }
   })()
+
+  // Load user models eagerly (non-silent) on store creation so the loading flag acts as a
+  // real initialization barrier: getDisplayModel() waits for the first scan + self-heal
+  // pass instead of racing direct localforage reads during app startup.
+  void loadDisplayModelsFromIndexedDB()
 
   const { data: modelsSyncSignal, post: broadcastModelsSync } = useBroadcastChannel({ name: 'airi:display-models-sync' })
 
@@ -163,13 +184,12 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         if (val) {
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
             // Attempt defensive Blob/File re-wrapping if val.file is a Blob clone missing prototype methods
-            if (val.file && (val.file instanceof Blob || (typeof val.file === 'object' && val.file.size > 0))) {
-              try {
-                val.file = new File([val.file], val.name || val.file.name || `${key}.bin`, { type: val.file.type || 'application/octet-stream' })
-              }
-              catch (reconstructErr) {
-                debug(`[DisplayModels] Could not re-wrap Blob instance for ${key}:`, reconstructErr)
-              }
+            const rewrapped = tryRewrapModelFile(val.file, val.name || `${key}.bin`)
+            if (rewrapped) {
+              val.file = rewrapped
+            }
+            else if (val.file) {
+              debug(`[DisplayModels] Could not re-wrap Blob instance for ${key}`)
             }
           }
 
@@ -216,12 +236,11 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                   debug(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
                 }
                 else {
-                  console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable.`, res?.error)
-                  if (res?.error?.includes('ENOENT') || res?.error?.includes('no such file')) {
-                    debug(`[DisplayModels] Removing unrecoverable orphaned model entry from IndexedDB: ${key}`)
-                    await localforage.removeItem(key)
-                    await localforage.removeItem(`${key}-textures`).catch(() => {})
-                  }
+                  // NOTICE: Never delete the local entry from a repair path. An unreachable or
+                  // not-yet-synced backup does not prove the local original is worthless — the
+                  // previous auto-removeItem on ENOENT deleted users' only copies on refresh.
+                  // Skip the model; leave the entry intact so a later session can heal it.
+                  console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable. Keeping the local entry.`, res?.error)
                   continue
                 }
               }
@@ -284,10 +303,16 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     debug('[PipelineTTS:Models] Accessing localforage for:', id)
     const modelFromFile = await localforage.getItem<DisplayModelFile>(id).catch((err) => {
-      console.error('[PipelineTTS:Models] localforage.getItem FAILED:', err)
+      console.error(`[DisplayModels] localforage.getItem("${id}") threw — treating the model as unavailable (read error, NOT confirmed absence):`, err)
       return null
     })
     if (modelFromFile) {
+      // Heal degraded structured clones (same as loadDisplayModelsFromIndexedDB) so direct
+      // readers never receive a File missing prototype methods like arrayBuffer.
+      const rewrapped = tryRewrapModelFile(modelFromFile.file, modelFromFile.name || `${id}.bin`)
+      if (rewrapped)
+        modelFromFile.file = rewrapped
+
       // LRU cache eviction if size exceeds 3
       if (displayModelCache.size >= 3) {
         let oldestId: string | null = null
@@ -307,6 +332,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return modelFromFile
     }
 
+    debug(`[DisplayModels] No user model found in IndexedDB for "${id}" (clean null — key is absent). Falling back to presets.`)
     // Fallback to in-memory presets if not found in localforage
     const preset = displayModelsPresets.find(model => model.id === id)
     return preset
@@ -913,7 +939,11 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     displayModels.value.unshift(newDisplayModel)
 
-    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel)
+    const cleanModel = {
+      ...toRaw(newDisplayModel),
+      file: toRaw(file),
+    }
+    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
     broadcastModelsSync(Date.now())
   }
@@ -933,13 +963,21 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     displayModels.value.unshift(newDisplayModel)
 
-    // Persist model file
-    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel)
+    // Persist model file un-proxied so IndexedDB structured clone preserves native File prototype
+    const cleanModel = {
+      ...toRaw(newDisplayModel),
+      file: toRaw(modelFile),
+    }
+    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
 
     // Persist texture files keyed by model ID
     if (textureFiles.length > 0) {
-      await localforage.setItem(`${newDisplayModel.id}-textures`, textureFiles)
+      const cleanTextures = textureFiles.map(t => ({
+        ...toRaw(t),
+        file: toRaw(t.file),
+      }))
+      await localforage.setItem(`${newDisplayModel.id}-textures`, cleanTextures)
         .catch(err => console.error(err))
     }
 
