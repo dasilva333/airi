@@ -92,6 +92,15 @@ export function useModulesList() {
       category: 'essential',
     },
     {
+      id: 'text-to-motion',
+      name: 'Text to Motion',
+      description: 'Configure 3D motion generation provider & procedural acting engine.',
+      icon: 'i-solar:running-round-bold-duotone',
+      to: '/settings/modules/text-to-motion',
+      configured: true,
+      category: 'essential',
+    },
+    {
       id: 'memory-short-term',
       name: t('settings.pages.modules.memory-short-term.title'),
       description: t('settings.pages.modules.memory-short-term.description'),
