@@ -493,3 +493,9 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 
 - **Flow**: LLM turn triggers `runArtistTask` → Director LLM grades visual interest (1-100) → saves `DirectorNote` via `recordDirectorDecision()` → `history.vue` reactively merges notes with chat messages, sorted by `createdAt`, rendered by `DirectorNoteBubble.vue`.
 - **Cross-Window Sync**: Pinia stores are per-window. Writing to IndexedDB from one window doesn't update in-memory state in others. Fix: broadcast modifications over `BroadcastChannel('airi:director-notes-sync')` — each store instance listens, filters by active `sessionId`, and updates locally.
+
+### Model Persistence & IndexedDB Serialization
+
+- **Vue 3 Reactivity vs Native Binary Serialization**: `JSON.stringify()` on native Web API binary objects (`File`, `Blob`, `ArrayBuffer`) strips non-enumerable prototype getters and returns `{}`. Passing objects containing `File` references through `JSON.stringify(model)` destroys binary payloads on disk. Always un-proxy models using `toRaw(model)` and `toRaw(model.file)` before calling `localforage.setItem(id, cleanModel)`.
+- **Eager Component Watchers on Store Data**: Attaching `{ deep: true }` watchers to store data inside UI wrapper components (`mmd.vue`, `live2d.vue`, `vrm-expressions.vue`) causes watchers to fire immediately when the component mounts on model selection or page navigation. Avoid eager persistence watchers in UI components — delegate storage actions to explicit store methods triggered by user events or debounced handlers.
+- **Centralized Model Mapping Persistence**: Store model mappings (`emotionMappings`, `motionMappings`, `hiddenExpressions`, `hiddenMotions`, `favoriteExpressions`) directly on `DisplayModelFile` (1:1 with the model object) using a single store action (`displayModelsStore.updateDisplayModelMappings()`) to prevent scattered duplicate write paths.

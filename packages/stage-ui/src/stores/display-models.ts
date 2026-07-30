@@ -954,20 +954,31 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     const newDisplayModel: DisplayModelFile = { id: `display-model-${nanoid()}`, format, type: 'file', file, name: file.name, importedAt: Date.now() }
 
     if (format === DisplayModelFormat.Live2dZip) {
-      const previewImage = await loadLive2DModelPreview(file)
-      newDisplayModel.previewImage = previewImage
+      try {
+        const previewImage = await loadLive2DModelPreview(file)
+        newDisplayModel.previewImage = previewImage
+      }
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate Live2D preview:', e)
+      }
     }
     else if (format === DisplayModelFormat.VRM) {
-      const previewImage = await loadVrmModelPreview(file)
-      newDisplayModel.previewImage = previewImage
+      try {
+        const previewImage = await loadVrmModelPreview(file)
+        newDisplayModel.previewImage = previewImage
+      }
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate VRM preview:', e)
+      }
     }
     else if (format === DisplayModelFormat.SpineZip) {
-      const previewImage = await generateSpinePreview(file)
-      if (!previewImage) {
-        debug('[DisplayModels] Failed to generate preview or unsupported Spine version. Skipping import.')
-        return
+      try {
+        const previewImage = await generateSpinePreview(file)
+        newDisplayModel.previewImage = previewImage
       }
-      newDisplayModel.previewImage = previewImage
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate Spine preview:', e)
+      }
     }
 
     displayModels.value.unshift(newDisplayModel)
