@@ -300,16 +300,33 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
     }))
   }
   if (mType === 'mmd') {
-    return keys.map(key => ({
+    const builtinItems = (mmdStore.availableMotions || []).map(key => ({
       key,
-      displayName: mappings[key] || key.split(/[\\/]/).pop() || key,
+      displayName: mappings[key] || key.replace(/\.vmd$/i, '').replace(/_/g, ' '),
       isActive: mmdStore.currentMotion === key,
-      group: 'Animations',
+      group: 'Built-in Animations',
       duration: 5.0,
       hasSound: false,
       isInIdleCycle: idleCycles.includes(`mmd:${key}`),
       isVisible: !hidden.includes(key),
     }))
+
+    const customItems = (mmdStore.customMotions || []).map((item) => {
+      const key = item.id || item.name
+      const name = item.name || key
+      return {
+        key,
+        displayName: mappings[key] || name,
+        isActive: mmdStore.currentMotion === key || mmdStore.currentMotion === name,
+        group: 'Custom Animations',
+        duration: 5.0,
+        hasSound: false,
+        isInIdleCycle: idleCycles.includes(`mmd:${key}`) || idleCycles.includes(`mmd:${name}`),
+        isVisible: !hidden.includes(key),
+      }
+    })
+
+    return [...builtinItems, ...customItems]
   }
   if (mType === 'spine') {
     return keys.map(key => ({

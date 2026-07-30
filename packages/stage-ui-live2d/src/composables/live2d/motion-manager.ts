@@ -266,8 +266,37 @@ export function useMotionUpdatePluginMouseFocus(
     currentX = currentX + (targetNormX - currentX) * speed
     currentY = currentY + (targetNormY - currentY) * speed
 
+    // Capture base parameter values set by active motion prior to focus update
+    const baseAngleX = _ctx.model.getParameterValueById('ParamAngleX') || 0
+    const baseAngleY = _ctx.model.getParameterValueById('ParamAngleY') || 0
+    const baseAngleZ = _ctx.model.getParameterValueById('ParamAngleZ') || 0
+    const baseEyeBallX = _ctx.model.getParameterValueById('ParamEyeBallX') || 0
+    const baseEyeBallY = _ctx.model.getParameterValueById('ParamEyeBallY') || 0
+
     // Call focus on the internal focus controller directly with normalized coordinates [-1, 1]
     _ctx.internalModel.focusController.focus(currentX, currentY, true)
+
+    // Additively layer the motion's base offsets back on top of focus targets
+    if (baseAngleX !== 0) {
+      const cur = _ctx.model.getParameterValueById('ParamAngleX')
+      _ctx.model.setParameterValueById('ParamAngleX', Math.max(-30, Math.min(30, cur + baseAngleX)))
+    }
+    if (baseAngleY !== 0) {
+      const cur = _ctx.model.getParameterValueById('ParamAngleY')
+      _ctx.model.setParameterValueById('ParamAngleY', Math.max(-30, Math.min(30, cur + baseAngleY)))
+    }
+    if (baseAngleZ !== 0) {
+      const cur = _ctx.model.getParameterValueById('ParamAngleZ')
+      _ctx.model.setParameterValueById('ParamAngleZ', Math.max(-30, Math.min(30, cur + baseAngleZ)))
+    }
+    if (baseEyeBallX !== 0) {
+      const cur = _ctx.model.getParameterValueById('ParamEyeBallX')
+      _ctx.model.setParameterValueById('ParamEyeBallX', Math.max(-1, Math.min(1, cur + baseEyeBallX)))
+    }
+    if (baseEyeBallY !== 0) {
+      const cur = _ctx.model.getParameterValueById('ParamEyeBallY')
+      _ctx.model.setParameterValueById('ParamEyeBallY', Math.max(-1, Math.min(1, cur + baseEyeBallY)))
+    }
   }
 }
 
