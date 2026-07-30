@@ -987,8 +987,16 @@ watch(currentSkin, (skinName) => {
 })
 
 watch(oneShotAnimation, (req) => {
-  if (req)
+  if (req) {
     animationManager?.playEmotion(req.name, { loop: req.loop })
+
+    // Play mapped audio from model0Motions or matching sound bundle on one-shot preview
+    const motionConfig = model0Motions[req.name] || model0Motions[req.name.toLowerCase()]
+    const soundName = motionConfig?.[0]?.sound
+    if (soundName) {
+      gestureEngine.playSound(soundName, true)
+    }
+  }
 })
 
 watch(currentVariant, async () => {
