@@ -1113,11 +1113,29 @@ app.whenReady().then(async () => {
             ? Buffer.from(data.content, 'base64')
             : data.content
 
+          let targetFullPath = fullPath
+          let finalBuffer: Buffer | string = buffer
+
+          // NOTICE: Option B Archive Compression — If uploading a PNG background, re-encode to AVIF via sharp in main process if sharp is available
+          if (data.relPath.startsWith('assets/backgrounds/') && data.relPath.endsWith('.png') && Buffer.isBuffer(buffer)) {
+            try {
+              const sharp = (await import('sharp')).default
+              const avifBuffer = await sharp(buffer)
+                .avif({ quality: 72, effort: 4, chromaSubsampling: '4:2:0' })
+                .toBuffer()
+              targetFullPath = fullPath.replace(/\.png$/, '.avif')
+              finalBuffer = avifBuffer
+            }
+            catch (e) {
+              // If sharp is unavailable or fails, fall back to writing raw PNG
+            }
+          }
+
           const flags = data.append ? 'a' : 'w'
           let handle
           try {
-            handle = await fs.open(fullPath, flags)
-            await handle.writeFile(buffer)
+            handle = await fs.open(targetFullPath, flags)
+            await handle.writeFile(finalBuffer)
             try {
               await handle.close()
             }
@@ -1134,7 +1152,7 @@ app.whenReady().then(async () => {
             throw writeErr
           }
 
-          const stats = await fs.stat(fullPath)
+          const stats = await fs.stat(targetFullPath)
           return { success: true, mtime: stats.mtimeMs }
         }
         catch (error) {

@@ -193,7 +193,14 @@ export class S3StorageClient implements StorageClient {
       if (encoding === 'base64') {
         const binRes = await fetch(`data:application/octet-stream;base64,${content}`)
         body = await binRes.blob()
-        contentType = relPath.endsWith('.png') ? 'image/png' : 'application/octet-stream'
+        // NOTICE: Map file extension to correct content-type for image assets
+        if (relPath.endsWith('.png'))
+          contentType = 'image/png'
+        else if (relPath.endsWith('.avif'))
+          contentType = 'image/avif'
+        else if (relPath.endsWith('.webp'))
+          contentType = 'image/webp'
+        else contentType = 'application/octet-stream'
       }
 
       if (append) {
@@ -597,11 +604,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
   async function reconcileBackgrounds(): Promise<void> {
     debug('[SyncEngine] Reconciling backgrounds...')
-    const quotaCheck = await checkQuotaLimit()
-    if (!quotaCheck.safe) {
-      debug('[SyncEngine] reconcileBackgrounds aborted:', quotaCheck.reason)
-      return
-    }
+    // NOTICE: No upfront quota block here — the upload half (local→remote) doesn't consume
+    // local quota. The download half checks quota per-item before writing to localforage below.
     await logDebug('Starting reconcileBackgrounds()')
     try {
       const client = getActiveClient()
@@ -625,7 +629,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
 
       const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number }>
-      const remoteBgs = new Map<string, { json?: string, png?: string }>()
+      // NOTICE: image field accepts any image format (PNG, AVIF, WebP) from remote storage.
+      const remoteBgs = new Map<string, { json?: string, image?: string }>()
       for (const file of remoteFiles) {
         const normalizedPath = file.relPath.replace(/\\/g, '/')
         if (normalizedPath.startsWith('assets/backgrounds/')) {
@@ -639,8 +644,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
           if (ext === 'json')
             remoteBgs.get(id)!.json = file.relPath
-          if (ext === 'png')
-            remoteBgs.get(id)!.png = file.relPath
+          if (ext === 'png' || ext === 'avif' || ext === 'webp')
+            remoteBgs.get(id)!.image = file.relPath
         }
       }
       await logDebug(`remoteBgs size: ${remoteBgs.size}`)
@@ -652,8 +657,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (remoteInfo.json) {
             await client.deleteFile(remoteInfo.json)
           }
-          if (remoteInfo.png) {
-            await client.deleteFile(remoteInfo.png)
+          if (remoteInfo.image) {
+            await client.deleteFile(remoteInfo.image)
           }
         }
         await localforage.removeItem(id)
@@ -682,7 +687,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
         }
         const remoteInfo = remoteBgs.get(id)
-        if (!remoteInfo || !remoteInfo.png || !remoteInfo.json) {
+        if (!remoteInfo || !remoteInfo.image || !remoteInfo.json) {
           await logDebug(`Uploading background to remote: ${id} (title: ${entry.title}, characterId: ${entry.characterId})`)
           const { blob, ...metadata } = entry
           const jsonRelPath = `assets/backgrounds/${id}.json`
@@ -690,8 +695,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           if (blob instanceof Blob) {
             const base64 = await blobToBase64(blob)
-            const pngRelPath = `assets/backgrounds/${id}.png`
-            await client.writeFile(pngRelPath, base64, 'base64')
+            // NOTICE: Uploads as PNG (the local blob format). To save space on the remote,
+            // run the rescue_backgrounds.mjs script with --optimize to batch re-encode to AVIF.
+            const imageRelPath = `assets/backgrounds/${id}.png`
+            await client.writeFile(imageRelPath, base64, 'base64')
           }
           else {
             await logDebug(`Warning: background ${id} has no valid Blob object locally.`)
@@ -707,9 +714,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         const localEntry = localBgs.get(id)
         const existsLocally = !!(localEntry && localEntry.blob instanceof Blob)
 
-        await logDebug(`Checking background ${id}: existsLocally=${existsLocally}, hasJson=${!!remoteInfo.json}, hasPng=${!!remoteInfo.png}`)
+        await logDebug(`Checking background ${id}: existsLocally=${existsLocally}, hasJson=${!!remoteInfo.json}, hasImage=${!!remoteInfo.image}`)
 
-        if (!existsLocally && remoteInfo.json && remoteInfo.png) {
+        if (!existsLocally && remoteInfo.json && remoteInfo.image) {
           if (selectiveSyncEnabled.value && remoteInfo.json) {
             const readJson = await client.readFile(remoteInfo.json)
             if (readJson.success && readJson.content) {
@@ -730,14 +737,17 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
           const metadata = JSON.parse(readJson.content)
 
-          const readPng = await client.readFile(remoteInfo.png, 'base64')
-          if (!readPng.success || !readPng.content) {
-            await logDebug(`Failed to read remote PNG for ${id}: ${readPng.error}`)
+          const readImage = await client.readFile(remoteInfo.image, 'base64')
+          if (!readImage.success || !readImage.content) {
+            await logDebug(`Failed to read remote image for ${id}: ${readImage.error}`)
             continue
           }
 
-          const mimeType = 'image/png'
-          const res = await fetch(`data:${mimeType};base64,${readPng.content}`)
+          // NOTICE: Detect MIME type from the remote file extension rather than hardcoding PNG,
+          // so AVIF/WebP files downloaded from remote are reconstructed with the correct type.
+          const remoteExt = remoteInfo.image.split('.').pop()?.toLowerCase()
+          const mimeType = remoteExt === 'avif' ? 'image/avif' : remoteExt === 'webp' ? 'image/webp' : 'image/png'
+          const res = await fetch(`data:${mimeType};base64,${readImage.content}`)
           const blob = await res.blob()
 
           const entry = {
@@ -773,7 +783,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
   async function reconcileModels(): Promise<void> {
     debug('[SyncEngine] Reconciling models...')
-    const quotaCheck = await checkQuotaLimit()
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
       debug('[SyncEngine] reconcileModels aborted:', quotaCheck.reason)
       return
@@ -1298,7 +1309,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
   async function reconcileMmdMotions(): Promise<void> {
     debug('[SyncEngine] Reconciling MMD motions...')
-    const quotaCheck = await checkQuotaLimit()
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
       debug('[SyncEngine] reconcileMmdMotions aborted:', quotaCheck.reason)
       return
@@ -1502,7 +1514,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
   async function reconcileVrmaAnimations(): Promise<void> {
     debug('[SyncEngine] Reconciling VRMA animations...')
-    const quotaCheck = await checkQuotaLimit()
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
       debug('[SyncEngine] reconcileVrmaAnimations aborted:', quotaCheck.reason)
       return
@@ -2173,14 +2186,22 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   // Storage Quota Guard
-  async function checkQuotaLimit(): Promise<{ safe: boolean, reason?: string }> {
+  // Storage Quota Guard
+  // mode='download' — only blocks operations that write data into local storage (downloads from remote).
+  //   Use this when the operation is a local→remote upload; it won't fill local quota.
+  // mode='any' (default) — blocks any sync operation when quota is tight.
+  async function checkQuotaLimit(mode: 'any' | 'download' = 'any'): Promise<{ safe: boolean, reason?: string }> {
     try {
       if (navigator.storage && navigator.storage.estimate) {
         const { quota, usage } = await navigator.storage.estimate()
         if (quota !== undefined && usage !== undefined) {
           const ratio = usage / quota
           const remainingMB = (quota - usage) / (1024 * 1024)
-          if (ratio > 0.90 || remainingMB < 100) {
+          // NOTICE: When mode='download', we only block at a critically high threshold (>97% / <50 MB)
+          // because uploads to remote share do not consume local storage quota at all.
+          const ratioLimit = mode === 'download' ? 0.97 : 0.90
+          const mbLimit = mode === 'download' ? 50 : 100
+          if (ratio > ratioLimit || remainingMB < mbLimit) {
             return {
               safe: false,
               reason: `Storage quota running low (Usage: ${(ratio * 100).toFixed(1)}%, Remaining: ${remainingMB.toFixed(1)} MB)`,
@@ -2204,12 +2225,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       return false
     }
 
-    const quotaCheck = await checkQuotaLimit()
-    if (!quotaCheck.safe) {
-      console.error('[SyncEngine] Sync aborted:', quotaCheck.reason)
-      toast.error(`Sync aborted: ${quotaCheck.reason}`)
-      return false
-    }
+    // NOTICE: We do NOT block the entire reconcile() on quota here.
+    // The upload half (local→remote) does not consume local storage.
+    // The download half is guarded per-key inside the loop below (mode='download').
 
     debug('[SyncEngine] Starting reconciliation...')
     try {
@@ -2248,7 +2266,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             return
         }
 
-        const loopQuotaCheck = await checkQuotaLimit()
+        // Guard downloads-only: writing remote data into local IndexedDB consumes local quota.
+        const loopQuotaCheck = await checkQuotaLimit('download')
         if (!loopQuotaCheck.safe) {
           debug('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
           return

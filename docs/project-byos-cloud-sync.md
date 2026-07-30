@@ -96,6 +96,13 @@ export interface StorageClient {
 
 ### 3. Smart Merges vs Overwrites
 * **Standard Keys:** Use Last-Write-Wins (LWW) comparison between the remote `mtime` and the local timestamp.
+* **Direction-Aware Storage Quota Guarding (`checkQuotaLimit`):**
+  - High local storage usage (>90%) no longer aborts local-to-remote uploads (backgrounds, metadata, outbox) since writing outward to an SMB share or S3 bucket does not consume local disk quota.
+  - Quota checks use `mode: 'download'` for remote-to-local sync, guarding IndexedDB writes only at a critical emergency threshold (>97% / <50 MB free).
+* **Option B Background Image Optimization (AVIF Archive):**
+  - **Local Store:** Backgrounds are stored as raw high-res PNG blobs in `localforage` for instant, full-quality UI rendering (`URL.createObjectURL()`).
+  - **IPC Upload Intercept (`byos-fs:write-file`):** When uploading `assets/backgrounds/*.png`, the Electron main process uses `sharp` (if installed) to re-encode the buffer to `AVIF` (quality 72, effort 4) and writes `.avif` to the remote target, yielding ~93% remote storage savings (~50-100 KB vs ~1.7 MB).
+  - **Multi-Format Reconciliation:** The `SyncEngine` remote asset parser matches `.avif`, `.webp`, and `.png` extensions, reading the remote image extension and setting the proper MIME type (`image/avif`) when downloading back into `localforage`.
 * **Mergeable Keys:** For cumulative tables like `airi-cards`, `short-term-memory`, `text-journal`, `echo-chips`, and `character-bindings` *(planned)*, the sync engine downloads the remote JSON, reads the local state, merges the items by ID (using LWW per item), and writes the merged result back to both remote and local databases.
 * **Display Model Manifest Metadata Fields:** The `assets/models/manifest.json` reconciliation applies field-specific strategies:
   - `groups`, `tags`: **Union merge** — combined set from both local and remote.
