@@ -622,6 +622,10 @@ function selectRelatedAssetsForCard(cardId: string) {
   }
 
   for (const group of syncTree.value) {
+    // If models group is explicitly unchecked, skip auto-checking models
+    if (group.id === 'models' && !group.checked && selectiveSyncEnabled.value)
+      continue
+
     if (group.children) {
       for (const child of group.children) {
         if (child.required)

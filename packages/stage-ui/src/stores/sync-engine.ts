@@ -1199,7 +1199,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (!localModels.has(id)) {
           if (selectiveSyncEnabled.value) {
             const modelNodeId = `model-${id}`
-            if (!selectiveCheckedIds.value.includes(modelNodeId)) {
+            const rawIdNode = `model-${id.replace('display-model-', '')}`
+            const isChecked = selectiveCheckedIds.value.includes(modelNodeId) || selectiveCheckedIds.value.includes(rawIdNode)
+            if (!isChecked) {
               debug(`[SyncEngine] Skipping download of model ${id} because it is not selected in selective sync.`)
               continue
             }
