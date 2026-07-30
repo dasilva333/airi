@@ -177,9 +177,202 @@ export interface StageVrmProxyEvent {
 
 ---
 
+## 🔬 Multi-Format Expansion: Supporting MMD, Spine & Live2D in Unity
+
+While MATE Engine's initial focus is VRM 3D rendering, the Unity engine foundation can theoretically host MMD, Spine, and Live2D model formats. Below is the technical feasibility, integration path, and licensing analysis for expanding sidecar rendering beyond VRM.
+
+---
+
+### 1. Model Format Integration Breakdown
+
+#### A. MMD (`.pmx` Models & `.vmd` Animations)
+* **Technical Readiness**: ⭐️⭐️⭐️⭐️⭐️ (Excellent Fitz, Zero Licensing Barriers)
+* **Unity Integration Path**:
+  * Parsed via C# open-source libraries (`MMD4Unity` / `MMD4Maker` or custom binary PMX readers).
+  * Reads PMX vertex buffers, bone hierarchies, materials, and Japanese Shift-JIS morph target strings (`まばたき`, `にっこり`) directly into standard Unity `SkinnedMeshRenderer` and `Animator` components.
+* **Licensing & Distribution**:
+  * ✅ **Zero License Friction**: MMD is a community-created open standard with no corporate owner or restrictive EULA. Pre-compiled Unity sidecar binaries can freely bundle PMX/VMD C# parsers.
+
+#### B. Spine (`.skel` / `.json` Skeleton Animations)
+* **Technical Readiness**: ⭐️⭐️⭐️⭐️ (High Technical Support)
+* **Unity Integration Path**:
+  * Built using Esoteric Software's official `spine-unity` runtime.
+  * Maps 2D bones, mesh deformations, weighted skins, and animation tracks to Unity `MeshRenderer` and `SkeletonAnimation` objects.
+* **Licensing & Legal Comparison (JS Web SDK vs. Unity SDK)**:
+  * Both `spine-pixi` (WebGL) and `spine-unity` (C#) operate under the **Spine Runtimes License Agreement**.
+  * *Legal Requirement*: Using Spine runtimes in *any* engine (Web or Unity) requires that the avatar assets were created with a valid Spine Editor License.
+  * *Distribution Consideration*: Standalone pre-compiled Unity binaries (`.exe` / `.app`) embedding `spine-unity` C# DLLs follow the same licensing terms as the JS Web SDK — free for open-source/indie projects below Esoteric's revenue threshold, provided asset creators hold valid editor licenses.
+
+#### C. Live2D (`.model3.json` / Cubism SDK)
+* **Technical Readiness**: ⭐️⭐️⭐️ (Official Unity SDK Available, High Dynamic Loading Complexity)
+* **Unity Integration Path**:
+  * Uses the official **Live2D Cubism SDK for Unity** (`CubismFramework`).
+  * Renders 2D mesh deformers and parameters to Unity orthographic/perspective camera targets.
+* **Licensing & Technical Comparison (JS Web SDK vs. Unity SDK)**:
+  * *JS Web SDK (`pixi-live2d-display`)*: Dynamically loads `live2dcubismcore.js` WebAssembly in the browser at runtime under Live2D's Free / Small-Scale License.
+  * *Unity SDK*: Requires compiling proprietary native Cubism core libraries (`Live2DCubismCore.dll` / `.dylib`) into the Unity project build assembly.
+  * *Technical Challenge*: AIRI receives arbitrary user `.zip` archives containing Live2D models. In Unity, MATE Engine would need a custom C# byte-stream memory loader (`CubismModelBuilder.LoadFromMemory()`) to bypass unzipping to disk.
+
+---
+
+### 2. Multi-Format Feasibility Summary Matrix
+
+| Model Format | Primary Unity Engine Driver | Technical Effort | Licensing & Legal Risk |
+|---|---|---|---|
+| **VRM 3D** | `UniVRM` (Native MATE Engine) | Shipped / Mature | ✅ MIT / Fully Open Source |
+| **MMD 3D** | `MMD4Unity` / Native C# PMX Parser | Moderate | ✅ Open Standard / No EULA |
+| **Spine 2D** | `spine-unity` | Moderate | ⚠️ Requires Spine Editor License |
+| **Live2D** | `Live2D Cubism SDK for Unity` | High (Memory Zip Loading) | ⚠️ Proprietary Live2D EULA |
+
+---
+
+### 3. Architectural Recommendation
+
+If MATE Engine expands beyond VRM:
+1. **MMD is the safest first candidate**: MMD has no EULA restrictions, requires no proprietary core binaries, and integrates directly into Unity's standard 3D mesh pipeline.
+2. **WebGL (`actor.vue`) remains the primary fallback for Live2D & Spine**: WebGL (`pixi-live2d-display` and `spine-pixi`) already provides zero-install, dynamic zip loading in Chromium without requiring users to bundle native C# SDK binaries in external sidecars.
+
+---
+
+## 🎯 Tactile Interactivity & Mesh Raycasting in Unity
+
+In AIRI's Chromium/WebGL stage (`actor.vue`), user interactions (dragging the model, clicking hit zones, elastic cheek-pulling) rely on browser DOM events, Three.js raycasters, and PixiJS hit testers.
+
+When offloading rendering to Unity / MATE Engine, **none of the browser's DOM event listeners or JS raycasters carry over.** Interactivity must be explicitly re-implemented inside MATE Engine's C# script pipeline, with touch/click feedback relayed back to AIRI over WebSocket.
+
+---
+
+### 1. Format-by-Format Tactile Breakdown
+
+#### A. VRM Interactivity (3D Raycasting & Mesh Dragging)
+* **AIRI WebGL Today**: Uses Three.js `Raycaster` to detect clicks on VRM sub-meshes (`VRMModel.vue`), supports camera orbit controls (`OrbitControls`), and enables model dragging across the transparent window canvas.
+* **MATE Engine / Unity Implementation**:
+  * **Native Support**: MATE Engine already includes built-in Unity C# `Physics.Raycast`, viewport Orbit controls, and window drag handlers (`NativeWindow.Drag()`).
+  * **Required WebSocket Extension**: When a user clicks a VRM sub-mesh in Unity, MATE Engine emits a `stage:vrm:interact` event over WebSocket to AIRI:
+    ```json
+    {
+      "type": "stage:vrm:interact",
+      "data": {
+        "action": "click",
+        "meshName": "Head_Mesh",
+        "position": { "x": 0.12, "y": 1.45, "z": 0.05 }
+      }
+    }
+    ```
+    This allows AIRI's character LLM / voice runtime to react dynamically to tactile user input.
+
+#### B. Spine Interactivity (Hit Zones & Elastic Bone Dragging)
+* **AIRI WebGL Today** ([`docs/project-spine-interactions.md`](./project-spine-interactions.md)):
+  * *Tap Hit Zones*: Reads `model0.json` for hit areas $\rightarrow$ plays `.wav` SFX and triggers `tap_{bone_name}` animations.
+  * *Elastic Spring Dragging*: Tracks pointer coordinates, calculates local bone displacements, applies boundary limits, and runs a mass-spring-damper physics loop ($\text{force} = -K \cdot \Delta x - D \cdot v$) to snap cheeks/ears/hair back upon pointer release.
+* **MATE Engine / Unity Implementation**:
+  * Must be built using `spine-unity`'s `SkeletonAnimation` and Unity's `IPointerDownHandler` / `IPointerDragHandler`.
+  * The physics spring-damper equations ($K$ stiffness, $D$ damping) are mathematically identical, but displacements mutate `Bone.X` / `Bone.Y` directly in Unity C# before calling `skeleton.UpdateWorldTransform()`.
+
+#### C. Live2D Interactivity (Hit Areas & Parameter Physics)
+* **AIRI WebGL Today**: Uses `pixi-live2d-display` hit tests (`CubismModel.hitTest()`) to match hit areas (`Head`, `Body`, `Special`) and trigger facial expressions or motion clips.
+* **MATE Engine / Unity Implementation**:
+  * Built using `Live2D.Cubism.Framework.Raycasting.CubismRaycaster`.
+  * Raycasts against Cubism mesh renderers to match hit area IDs and drive `CubismParameter` values (e.g., driving `ParamAngleX` / `ParamEyeBallX` to track the mouse cursor in 3D viewport space).
+
+#### D. MMD Interactivity (Passive vs. Interactive)
+* **AIRI WebGL Today**: Zero interactivity. `packages/stage-ui-mmd` renders passive PMX meshes and plays VMD tracks. No mouse picking or bone triggers exist.
+* **MATE Engine / Unity Implementation**:
+  * **Opportunity**: Unity can enhance MMD beyond current WebGL capabilities. Using Unity `SkinnedMeshRenderer` raycasting and rigid-body physics, MATE Engine can easily attach click targets or head-tracking to PMX bone structures.
+
+---
+
+### 2. Tactile Implementation Summary Matrix
+
+| Feature | AIRI WebGL Implementation | Unity / MATE Engine C# Implementation | Status |
+|---|---|---|---|
+| **VRM Canvas Drag & Orbit** | Three.js `OrbitControls` & Raycaster | Native Unity `Physics.Raycast` & Window Panning | ✅ Native in MATE Engine |
+| **VRM Mesh Touch Events** | `VRMModel.vue` pointer events | C# `OnMouseDown` $\rightarrow$ emits `stage:vrm:interact` WS frame | 🛠 WS Bridge Needed |
+| **Spine Hit Zones** | `model0.json` tap reader | `spine-unity` BoundingBox Raycasting | 🛠 Re-implement in C# |
+| **Spine Elastic Drag** | Spring-damper loop in `Model.vue` | Unity `IPointerDragHandler` + C# bone spring solver | 🛠 Re-implement in C# |
+| **Live2D Hit Areas** | `pixi-live2d-display` hitTest | `CubismRaycaster` in Unity C# | 🛠 Re-implement in C# |
+| **MMD Interactions** | None (Passive render) | Unity Raycast on `SkinnedMeshRenderer` | 💡 Enhancement Opportunity |
+
+---
+
+## 👁️ Cursor Tracking, Gaze Aim, Head Follow & Saccades
+
+In character animation, **gaze aim** (eyeball direction), **head follow** (proportional neck/head rotation), and **saccades** (procedural, micro-jitter eye movements during idle focus) are critical for making avatars feel alive.
+
+Below is an audit of how AIRI handles gaze across all 4 avatar formats today, and how that transfers to Unity / MATE Engine.
+
+---
+
+### 1. Audit: Current AIRI WebGL Gaze Systems
+
+#### A. VRM 3D (`packages/stage-ui-three`)
+* **Mechanism**: Native `VRMLookAt` quaternion proxy + procedural saccade solver ([`animation.ts:150`](../packages/stage-ui-three/src/composables/vrm/animation.ts#L150)).
+* **Cursor Follow**: Mouse coordinates map to `lookAtTarget` (3D Vector). Three-VRM automatically computes head bone and eye bone rotations.
+* **Saccade Physics**: When idle, `updateFixationTarget()` injects random micro-jitter offsets (`randFloat(-0.25, 0.25)`) at 400ms–2200ms intervals to simulate natural human eye saccades.
+
+#### B. MMD 3D (`packages/stage-ui-mmd`)
+* **Mechanism**: Custom bone-rotation controller ([`gaze.ts:65`](../packages/stage-ui-mmd/src/composables/mmd/gaze.ts#L65)).
+* **Cursor Follow**: MMD models lack a native `lookAt` API. AIRI locates Japanese Shift-JIS eye bones (`左目`, `右目`, or fallback `両目`) and head bone (`頭`), calculates Euler pitch/yaw limits (`EYE_YAW_LIMIT = 0.35`, `HEAD_YAW_LIMIT = 0.2`), and applies damped quaternions relative to rest poses after `MMDAnimationHelper.update()`.
+* **Saccade Physics**: Includes built-in idle saccade logic (`nextSaccadeIn`, `SACCADE_MIN_MS`, `SACCADE_RANGE = 0.4`), matching VRM's idle gaze behavior.
+
+#### C. Live2D 2D (`packages/stage-ui-live2d`)
+* **Mechanism**: `CubismParameterStore` & Cubism Target Point.
+* **Cursor Follow**: Screen cursor maps to Cubism parameters: `ParamAngleX` / `ParamAngleY` / `ParamAngleZ` (Head rotation) and `ParamEyeBallX` / `ParamEyeBallY` (Eye gaze).
+* **Saccade Physics**: Procedural parameter noise adds subtle eye micro-movements when idle.
+
+#### D. Spine 2D (`packages/stage-ui-spine`)
+* **Mechanism**: Bone constraint targets & `model0.json` pointer tracking.
+* **Cursor Follow**: `Model.vue` translates canvas pointer coordinates into skeleton space, writing rotation and translation offsets to target head/eye bones (`head`, `eye_l`, `eye_r`).
+* **Saccade Physics**: Passive animation track layering (idle tracks simulate subtle eye darts).
+
+---
+
+### 2. Unity / MATE Engine Gaze Architecture
+
+When offloading rendering to Unity, gaze can operate in two distinct modes:
+
+```
+┌─────────────────────────┐                            ┌──────────────────────────────────┐
+│ AIRI Main Process       │                            │ MATE Engine (Unity C#)           │
+│                         │                            │                                  │
+│ Mouse Listener / Vision │ ──▶ WS: stage:vrm:gaze ──▶ │ C# Gaze & Saccade Controller     │
+│ { x: 0.15, y: -0.05 }   │   { x, y, saccade }        │  • VRM: vrm.lookAt.target        │
+└─────────────────────────┘                            │  • MMD: 左目/右目 Bone Yaw/Pitch │
+                                                       │  • Live2D: ParamEyeBallX         │
+                                                       └──────────────────────────────────┘
+```
+
+1. **Native OS System Cursor (Desktop Sidecar Mode)**:
+   - Unity reads system cursor position natively via `Input.mousePosition` without WebSocket network latency.
+2. **Relayed Target / Vision Tracking Mode (`stage:vrm:gaze`)**:
+   - When AIRI operates webcam face tracking (VLM Vision) or when secondary windows drive gaze, AIRI emits a `stage:vrm:gaze` payload over WebSocket:
+     ```json
+     {
+       "type": "stage:vrm:gaze",
+       "data": {
+         "target": { "x": 0.15, "y": -0.05, "z": 1.0 },
+         "enableSaccades": true
+       }
+     }
+     ```
+
+---
+
+### 3. Gaze & Saccade Comparative Matrix
+
+| Avatar Format | AIRI WebGL Implementation | Unity C# Gaze & Head Tracking Target | Saccade Handling |
+|---|---|---|---|
+| **VRM 3D** | `vrm.lookAt.target` (Vector3 lerp) | Native `UniVRM` `VRMLookAt` | Procedural 3D position jitter |
+| **MMD 3D** | `gaze.ts` (Rotates `左目`/`右目`/`頭` bones) | Custom C# quaternion rotation on eye/head bones | C# damped idle saccade timer |
+| **Live2D 2D** | Cubism `ParamAngleX/Y` & `ParamEyeBallX/Y` | `CubismLookAtController` | Parameter noise interpolation |
+| **Spine 2D** | Skeleton bone offset translation | `spine-unity` bone target constraints | Layered animation tracks |
+
+---
+
 ## 📅 Roadmap & Next Steps
 
 1. **Standalone WebSocket Handshake**: Implement `Client` handshake in MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
 2. **Proxy Gateway Relay**: Add the `StageProxyGateway` service in AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
-3. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
+3. **Tactile & Gaze Telemetry**: Implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
+4. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
 
