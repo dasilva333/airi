@@ -72,7 +72,8 @@ app.whenReady().then(async () => {
             localModels: [],
             localBackgrounds: [],
             localAnimations: [],
-            localStickers: []
+            localStickers: [],
+            localVoiceProfiles: []
           };
 
           // 1. Read IndexedDB keyval-store
@@ -219,6 +220,38 @@ app.whenReady().then(async () => {
             logProgress('Exception reading localforage: ' + e.message);
           }
 
+          // 3. Read IndexedDB moss-voice-profiles-metadata
+          logProgress('Opening IndexedDB moss-voice-profiles-metadata store...');
+          try {
+            await new Promise((resolve) => {
+              const req = indexedDB.open('moss-voice-profiles-metadata');
+              req.onsuccess = (e) => {
+                const db = e.target.result;
+                const storeName = db.objectStoreNames[0];
+                if (!storeName) return resolve();
+                const tx = db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                const cursorReq = store.openCursor();
+                cursorReq.onsuccess = (ev) => {
+                  const cursor = ev.target.result;
+                  if (cursor) {
+                    if (cursor.value) {
+                      catalog.localVoiceProfiles.push({ id: String(cursor.key), name: cursor.value.name, sourceFilename: cursor.value.sourceFilename });
+                    }
+                    cursor.continue();
+                  } else {
+                    db.close();
+                    resolve();
+                  }
+                };
+                cursorReq.onerror = () => resolve();
+              };
+              req.onerror = () => resolve();
+            });
+          } catch (e) {
+            logProgress('Exception reading moss-voice-profiles-metadata: ' + e.message);
+          }
+
           logProgress('IndexedDB & localforage extraction complete!');
           return catalog;
         })()
@@ -230,7 +263,7 @@ app.whenReady().then(async () => {
       console.error('Audit failed:', e)
     }
     finally {
-      app.quit()
+      setTimeout(() => app.quit(), 500)
     }
   })
 
@@ -484,6 +517,28 @@ function runComprehensiveAudit(local, backupDir) {
   // 4.3 Custom VRMA Animations & Stickers
   console.log(`\n[Custom VRMA Animations] Local count: ${local.localAnimations.length}`)
   console.log(`[Local Stickers] Local count: ${local.localStickers.length}`)
+
+  // 4.4 Custom Voice Profiles
+  const voiceBackupDir = path.join(backupDir, 'assets', 'voice-profiles')
+  console.log(`\n[Custom Voice Profiles] Local count: ${local.localVoiceProfiles ? local.localVoiceProfiles.length : 0}`)
+  if (fs.existsSync(voiceBackupDir)) {
+    for (const vp of (local.localVoiceProfiles || [])) {
+      const jsonPath = path.join(voiceBackupDir, `${vp.id}.json`)
+      const audioPath = path.join(voiceBackupDir, `${vp.id}.wav`)
+      if (!fs.existsSync(jsonPath) || !fs.existsSync(audioPath)) {
+        console.warn(`  ❌ Voice profile "${vp.name || vp.id}" is MISSING in remote backup!`)
+        issuesCount++
+      }
+      else {
+        console.log(`  ✔ Voice profile "${vp.name || vp.id}" (${vp.sourceFilename || 'WAV'}) exists in remote backup.`)
+        passedCount++
+      }
+    }
+  }
+  else if (local.localVoiceProfiles && local.localVoiceProfiles.length > 0) {
+    console.warn(`  ❌ Remote assets/voice-profiles directory missing — ${local.localVoiceProfiles.length} voice profile(s) unsynced!`)
+    issuesCount += local.localVoiceProfiles.length
+  }
 
   // Final Audit Summary
   logHeader('AUDIT SUMMARY')

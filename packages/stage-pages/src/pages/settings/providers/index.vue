@@ -117,6 +117,27 @@ const allArtistryProvidersMetadata = computed(() => {
   ]
 })
 
+const allMotionProvidersMetadata = computed(() => {
+  return [
+    {
+      id: 'flowmdm',
+      category: 'motion',
+      icon: 'i-solar:running-bold-duotone',
+      iconColor: 'text-purple-500',
+      name: 'FlowMDM',
+      localizedName: 'FlowMDM (Local WebGPU)',
+      description: 'On-device 3D motion diffusion using CLIP text encoding + ONNX WebGPU.',
+      localizedDescription: 'On-device 3D motion diffusion using CLIP text encoding + ONNX WebGPU.',
+      configured: true,
+      to: '/settings/providers/motion/flowmdm',
+      pricing: 'free',
+      deployment: 'local',
+      beginnerRecommended: true,
+      iconImage: undefined,
+    },
+  ]
+})
+
 const providerBlocksConfig = [
   {
     id: 'chat',
@@ -152,6 +173,13 @@ const providerBlocksConfig = [
     title: 'Vision',
     description: 'Vision-Language model providers. e.g. OpenRouter, OpenAI, Ollama.',
     providersRef: allVisionProvidersMetadata,
+  },
+  {
+    id: 'motion',
+    icon: 'i-solar:running-bold-duotone',
+    title: 'Motion',
+    description: 'Motion generation model providers. e.g. FlowMDM (Local WebGPU).',
+    providersRef: allMotionProvidersMetadata,
   },
   {
     id: 'cloud',

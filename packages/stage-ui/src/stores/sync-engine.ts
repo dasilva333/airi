@@ -1713,6 +1713,107 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     }
   }
 
+  async function reconcileVoiceProfiles(): Promise<void> {
+    await logDebug('Starting reconcileVoiceProfiles()')
+    const quotaCheck = await checkQuotaLimit('download')
+    if (!quotaCheck.safe) {
+      await logDebug(`reconcileVoiceProfiles aborted: ${quotaCheck.reason}`)
+      return
+    }
+
+    try {
+      const client = getActiveClient()
+      const listRes = await client.listFiles()
+      if (!listRes.success) {
+        await logDebug(`Failed to list remote files in reconcileVoiceProfiles: ${listRes.error}`)
+        return
+      }
+
+      const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number }>
+      const remoteVoiceProfiles = new Map<string, { json?: string, audio?: string }>()
+      for (const file of remoteFiles) {
+        const normalizedPath = file.relPath.replace(/\\/g, '/')
+        if (normalizedPath.startsWith('assets/voice-profiles/')) {
+          const base = normalizedPath.substring('assets/voice-profiles/'.length)
+          const ext = base.split('.').pop()
+          const id = base.substring(0, base.length - (ext ? ext.length + 1 : 0))
+          if (!id)
+            continue
+          if (!remoteVoiceProfiles.has(id)) {
+            remoteVoiceProfiles.set(id, {})
+          }
+          if (ext === 'json')
+            remoteVoiceProfiles.get(id)!.json = file.relPath
+          if (ext === 'wav' || ext === 'mp3' || ext === 'ogg')
+            remoteVoiceProfiles.get(id)!.audio = file.relPath
+        }
+      }
+
+      const metaStore = localforage.createInstance({ name: 'moss-voice-profiles-metadata' })
+      const blobStore = localforage.createInstance({ name: 'voice-profile-blobs' })
+
+      const localMetaKeys = await metaStore.keys()
+      const localMetaMap = new Map<string, any>()
+      for (const k of localMetaKeys) {
+        const val = await metaStore.getItem(k)
+        if (val)
+          localMetaMap.set(k, val)
+      }
+
+      // 1. Upload local voice profiles missing on remote
+      for (const [id, meta] of localMetaMap.entries()) {
+        const remoteInfo = remoteVoiceProfiles.get(id)
+        if (!remoteInfo || !remoteInfo.json || !remoteInfo.audio) {
+          await logDebug(`Uploading voice profile metadata to remote: ${id}`)
+          const jsonRelPath = `assets/voice-profiles/${id}.json`
+          await client.writeFile(jsonRelPath, JSON.stringify(meta, null, 2))
+
+          const audioBlob = await blobStore.getItem<Blob>(id)
+          if (audioBlob instanceof Blob) {
+            const base64 = await blobToBase64(audioBlob)
+            const ext = audioBlob.type.includes('mp3') ? 'mp3' : audioBlob.type.includes('ogg') ? 'ogg' : 'wav'
+            const audioRelPath = `assets/voice-profiles/${id}.${ext}`
+            await client.writeFile(audioRelPath, base64, 'base64')
+            await logDebug(`Successfully uploaded voice profile audio: ${audioRelPath}`)
+          }
+        }
+      }
+
+      // 2. Download remote voice profiles missing locally
+      let hasDownloads = false
+      for (const [id, remoteInfo] of remoteVoiceProfiles.entries()) {
+        const existsLocally = localMetaMap.has(id)
+        if (!existsLocally && remoteInfo.json && remoteInfo.audio) {
+          await logDebug(`Downloading voice profile from remote: ${id}`)
+          const readJson = await client.readFile(remoteInfo.json)
+          if (!readJson.success || !readJson.content)
+            continue
+          const metadata = JSON.parse(readJson.content)
+
+          const readAudio = await client.readFile(remoteInfo.audio, 'base64')
+          if (!readAudio.success || !readAudio.content)
+            continue
+
+          const mimeType = remoteInfo.audio.endsWith('.mp3') ? 'audio/mp3' : remoteInfo.audio.endsWith('.ogg') ? 'audio/ogg' : 'audio/wav'
+          const res = await fetch(`data:${mimeType};base64,${readAudio.content}`)
+          const blob = await res.blob()
+
+          await metaStore.setItem(id, metadata)
+          await blobStore.setItem(id, blob)
+          await logDebug(`Successfully saved downloaded voice profile ${id} to IndexedDB.`)
+          hasDownloads = true
+        }
+      }
+
+      if (hasDownloads) {
+        await logDebug('Finished reconcileVoiceProfiles() with downloads.')
+      }
+    }
+    catch (err: any) {
+      await logDebug(`Error in reconcileVoiceProfiles(): ${err.message || err}`)
+    }
+  }
+
   function getKeyForRelPath(relPath: string): string {
     const normalized = relPath.replace(/\\/g, '/')
     if (normalized.startsWith('db/') && normalized.endsWith('.json')) {
@@ -2553,6 +2654,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         await reconcileModels()
         await reconcileMmdMotions()
         await reconcileVrmaAnimations()
+        await reconcileVoiceProfiles()
       }
       else {
         debug('[SyncEngine] Skipping binary asset reconciliation (startup mode).')

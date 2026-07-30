@@ -19,6 +19,8 @@ const knownModels = [
   { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT Tagger' },
   { id: 'onnx-community/blip2-opt-2.7b', name: 'BLIP-2 Vision' },
   { id: 'moss-tts-nano', name: 'MOSS TTS (Nano)' },
+  { id: 'Xenova/clip-vit-base-patch32', name: 'CLIP Text Encoder (Motion)' },
+  { id: 'dasilva333/flowmdm-onnx', name: 'FlowMDM Denoiser (WebGPU)' },
 ]
 
 const cachedModels = ref<{ id: string, name: string, cached: boolean }[]>([])
