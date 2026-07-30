@@ -55,29 +55,6 @@ const motionMappings = ref<Record<string, string>>({})
 const hiddenMotions = ref<string[]>([])
 
 // Watch mappings to save to display model metadata
-watch([morphMappings, hiddenMorphs, motionMappings, hiddenMotions], async () => {
-  if (!activeCardId.value)
-    return
-  const displayModelId = airiCardStore.getCardDisplayModelId(activeCardId.value)
-  if (!displayModelId)
-    return
-
-  if (stageModelSelected.value !== displayModelId)
-    return
-
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-  if (model) {
-    model.emotionMappings = { ...morphMappings.value }
-    model.hiddenExpressions = [...hiddenMorphs.value]
-    model.motionMappings = { ...motionMappings.value }
-    model.hiddenMotions = [...hiddenMotions.value]
-    const localforageModule = await import('localforage').then(m => m.default || m)
-    await localforageModule.setItem(displayModelId, JSON.parse(JSON.stringify(model)))
-    displayModelsStore.broadcastModelsSync(Date.now())
-    await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-  }
-}, { deep: true })
-
 // Watch card changes to load mappings & run legacy local storage migration
 watch(activeCard, async (card) => {
   if (!card)
@@ -92,12 +69,14 @@ watch(activeCard, async (card) => {
     const legacyMmdMappingsStr = localStorage.getItem('settings/mmd/morph-mappings')
     const legacyMmdHiddenStr = localStorage.getItem('settings/mmd/hidden-morphs')
     let migrated = false
+    let updatedEmotionMappings = { ...model.emotionMappings }
+    let updatedHiddenExpressions = [...(model.hiddenExpressions || [])]
 
     if (legacyMmdMappingsStr) {
       try {
         const legacyMappings = JSON.parse(legacyMmdMappingsStr)
         if (Object.keys(legacyMappings).length > 0) {
-          model.emotionMappings = { ...model.emotionMappings, ...legacyMappings }
+          updatedEmotionMappings = { ...updatedEmotionMappings, ...legacyMappings }
           migrated = true
         }
         localStorage.removeItem('settings/mmd/morph-mappings')
@@ -109,7 +88,7 @@ watch(activeCard, async (card) => {
       try {
         const legacyHidden = JSON.parse(legacyMmdHiddenStr)
         if (legacyHidden.length > 0) {
-          model.hiddenExpressions = Array.from(new Set([...(model.hiddenExpressions || []), ...legacyHidden]))
+          updatedHiddenExpressions = Array.from(new Set([...updatedHiddenExpressions, ...legacyHidden]))
           migrated = true
         }
         localStorage.removeItem('settings/mmd/hidden-morphs')
@@ -118,10 +97,10 @@ watch(activeCard, async (card) => {
     }
 
     if (migrated) {
-      const localforageModule = await import('localforage').then(m => m.default || m)
-      await localforageModule.setItem(displayModelId, JSON.parse(JSON.stringify(model)))
-      displayModelsStore.broadcastModelsSync(Date.now())
-      await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
+      await displayModelsStore.updateDisplayModelMappings(displayModelId, {
+        emotionMappings: updatedEmotionMappings,
+        hiddenExpressions: updatedHiddenExpressions,
+      })
     }
 
     morphMappings.value = model.emotionMappings || {}

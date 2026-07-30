@@ -300,100 +300,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
   }
 
-  async function migrateCardMappingsToModel() {
-    try {
-      const displayModelsStore = useDisplayModelsStore()
-      await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-
-      let cardsModified = false
-      const nextCards = new Map(cards.value)
-
-      for (const [cardId, card] of nextCards.entries()) {
-        const modulesExt = (card.extensions?.airi?.modules as any) || {}
-        const displayModelId = modulesExt.displayModelId
-        if (!displayModelId)
-          continue
-
-        const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-        if (!model)
-          continue
-
-        const live2dExt = modulesExt.live2d || {}
-        const legacyEmotionMappings = live2dExt.emotionMappings || modulesExt.emotionMappings
-        const legacyMotionMappings = live2dExt.motionMappings || modulesExt.motionMappings
-        const legacyHiddenExpressions = modulesExt.hiddenExpressions
-        const legacyHiddenMotions = live2dExt.hiddenMotions || modulesExt.hiddenMotions
-        const legacyFavoriteExpressions = modulesExt.favoriteExpressions || (modulesExt.favoriteExpression ? [modulesExt.favoriteExpression] : undefined)
-
-        const localforageModule = await import('localforage').then(m => m.default || m)
-        const dbModel = await localforageModule.getItem<any>(displayModelId)
-        if (!dbModel)
-          continue
-
-        let modelModified = false
-        const updatedModel: any = {
-          ...dbModel,
-          emotionMappings: dbModel.emotionMappings ? JSON.parse(JSON.stringify(dbModel.emotionMappings)) : {},
-          motionMappings: dbModel.motionMappings ? JSON.parse(JSON.stringify(dbModel.motionMappings)) : {},
-          hiddenExpressions: dbModel.hiddenExpressions ? JSON.parse(JSON.stringify(dbModel.hiddenExpressions)) : [],
-          hiddenMotions: dbModel.hiddenMotions ? JSON.parse(JSON.stringify(dbModel.hiddenMotions)) : [],
-          favoriteExpressions: dbModel.favoriteExpressions ? JSON.parse(JSON.stringify(dbModel.favoriteExpressions)) : [],
-        }
-
-        if (legacyEmotionMappings && Object.keys(legacyEmotionMappings).length > 0) {
-          updatedModel.emotionMappings = { ...updatedModel.emotionMappings, ...legacyEmotionMappings }
-          modelModified = true
-        }
-        if (legacyMotionMappings && Object.keys(legacyMotionMappings).length > 0) {
-          updatedModel.motionMappings = { ...updatedModel.motionMappings, ...legacyMotionMappings }
-          modelModified = true
-        }
-        if (legacyHiddenExpressions && legacyHiddenExpressions.length > 0) {
-          updatedModel.hiddenExpressions = Array.from(new Set([...(updatedModel.hiddenExpressions || []), ...legacyHiddenExpressions]))
-          modelModified = true
-        }
-        if (legacyHiddenMotions && legacyHiddenMotions.length > 0) {
-          updatedModel.hiddenMotions = Array.from(new Set([...(updatedModel.hiddenMotions || []), ...legacyHiddenMotions]))
-          modelModified = true
-        }
-        if (legacyFavoriteExpressions && legacyFavoriteExpressions.length > 0) {
-          updatedModel.favoriteExpressions = Array.from(new Set([...(updatedModel.favoriteExpressions || []), ...legacyFavoriteExpressions]))
-          modelModified = true
-        }
-
-        if (modelModified) {
-          debug(`[AiriCard:Migration] Migrating mappings from card "${cardId}" to model "${displayModelId}"`)
-          await localforageModule.setItem(displayModelId, updatedModel)
-
-          if (card.extensions?.airi?.modules) {
-            const mods = card.extensions.airi.modules as any
-            if (mods.live2d) {
-              delete mods.live2d.motionMappings
-              delete mods.live2d.hiddenMotions
-              delete mods.live2d.emotionMappings
-            }
-            delete mods.emotionMappings
-            delete mods.motionMappings
-            delete mods.hiddenExpressions
-            delete mods.hiddenMotions
-            delete mods.favoriteExpressions
-            delete mods.favoriteExpression
-          }
-          cardsModified = true
-        }
-      }
-
-      if (cardsModified) {
-        await persistCards(nextCards)
-        displayModelsStore.broadcastModelsSync(Date.now())
-        await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-      }
-    }
-    catch (e) {
-      console.error('[AiriCard] Migration of mappings failed:', e)
-    }
-  }
-
   async function loadCards(silent = false) {
     if (!silent)
       cardsLoading.value = true
@@ -403,7 +309,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       if (raw && Array.isArray(raw)) {
         cards.value = new Map(raw)
       }
-      await migrateCardMappingsToModel()
     }
     catch (e) {
       console.error('[AiriCard] Failed to load cards from IndexedDB:', e)

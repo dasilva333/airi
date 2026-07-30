@@ -12,7 +12,7 @@ import { Button } from '@proj-airi/ui'
 import { useFileDialog } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import catalogUrl from '../../../../../public/assets/animadex-catalog.json?url'
@@ -93,6 +93,10 @@ watch(currentTab, (newTab) => {
   if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {
     void displayModelStore.fetchRemoteCatalog()
   }
+})
+
+onMounted(() => {
+  void displayModelStore.loadDisplayModelsFromIndexedDB()
 })
 
 const marketplaces = [

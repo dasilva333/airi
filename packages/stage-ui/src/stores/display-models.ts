@@ -181,10 +181,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   })()
 
-  // Load user models eagerly (non-silent) on store creation so the loading flag acts as a
-  // real initialization barrier: getDisplayModel() waits for the first scan + self-heal
-  // pass instead of racing direct localforage reads during app startup.
-  void loadDisplayModelsFromIndexedDB()
+  // User models are lazy-loaded when opening ModelSelector or explicit catalog features.
 
   const { data: modelsSyncSignal, post: broadcastModelsSync } = useBroadcastChannel({ name: 'airi:display-models-sync' })
 
@@ -207,21 +204,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
-      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage:`, modelKeys)
+      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage. Loading catalog...`)
 
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
-        console.log(`[DisplayModels:IDBScan] Loaded key "${key}" from localforage:`, {
-          valExists: !!val,
-          format: val?.format,
-          file: val?.file,
-          fileType: typeof val?.file,
-          isFile: val?.file instanceof File,
-          isBlob: val?.file instanceof Blob,
-          isProxy: isProxy(val?.file),
-          hasArrayBuffer: typeof val?.file?.arrayBuffer === 'function',
-          keys: val?.file && typeof val?.file === 'object' ? Object.keys(val?.file) : [],
-        })
 
         if (val) {
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
@@ -1146,6 +1132,70 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   }
 
+  async function updateDisplayModelMappings(
+    id: string,
+    mappings: {
+      emotionMappings?: Record<string, string>
+      motionMappings?: Record<string, string>
+      hiddenExpressions?: string[]
+      hiddenMotions?: string[]
+      favoriteExpressions?: string[]
+    },
+  ) {
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+    const displayModel = id.startsWith('display-model-')
+      ? await localforage.getItem<DisplayModelFile>(id)
+      : displayModels.value.find(m => m.id === id)
+
+    if (!displayModel)
+      return
+
+    if (mappings.emotionMappings)
+      displayModel.emotionMappings = { ...mappings.emotionMappings }
+    if (mappings.motionMappings)
+      displayModel.motionMappings = { ...mappings.motionMappings }
+    if (mappings.hiddenExpressions)
+      displayModel.hiddenExpressions = [...mappings.hiddenExpressions]
+    if (mappings.hiddenMotions)
+      displayModel.hiddenMotions = [...mappings.hiddenMotions]
+    if (mappings.favoriteExpressions)
+      displayModel.favoriteExpressions = [...mappings.favoriteExpressions]
+
+    // Update in-memory reactive store list
+    const index = displayModels.value.findIndex(m => m.id === id)
+    if (index !== -1) {
+      const target = displayModels.value[index]
+      if (mappings.emotionMappings)
+        target.emotionMappings = { ...mappings.emotionMappings }
+      if (mappings.motionMappings)
+        target.motionMappings = { ...mappings.motionMappings }
+      if (mappings.hiddenExpressions)
+        target.hiddenExpressions = [...mappings.hiddenExpressions]
+      if (mappings.hiddenMotions)
+        target.hiddenMotions = [...mappings.hiddenMotions]
+      if (mappings.favoriteExpressions)
+        target.favoriteExpressions = [...mappings.favoriteExpressions]
+    }
+
+    // Persist if file-based model
+    if (id.startsWith('display-model-')) {
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelMappings] Accountable write to IndexedDB:', {
+        id,
+        isFileInstance: targetFile instanceof File || targetFile instanceof Blob,
+        fileType: typeof targetFile,
+        cleanModel,
+      })
+      await localforage.setItem(id, cleanModel)
+      broadcastModelsSync(Date.now())
+    }
+  }
+
   async function removeDisplayModel(id: string) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     await localforage.removeItem(id)
@@ -1641,6 +1691,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     renameDisplayModel,
     updateDisplayModelMeta,
     updateDisplayModelTags,
+    updateDisplayModelMappings,
     removeDisplayModel,
     resetDisplayModels,
 

@@ -49,14 +49,9 @@ const saveLive2dState = useDebounceFn(async () => {
 
   // Save mapping properties to Display Model
   const displayModelsStore = await import('../../../../stores/display-models').then(m => m.useDisplayModelsStore())
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-  if (model) {
-    model.emotionMappings = { ...emotionMappings.value }
-    const localforageModule = await import('localforage').then(m => m.default || m)
-    await localforageModule.setItem(displayModelId, JSON.parse(JSON.stringify(model)))
-    displayModelsStore.broadcastModelsSync(Date.now())
-    await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-  }
+  await displayModelsStore.updateDisplayModelMappings(displayModelId, {
+    emotionMappings: { ...emotionMappings.value },
+  })
 }, 1000)
 
 watch([activeExpressions, modelParameters, emotionMappings], () => {
