@@ -12,7 +12,7 @@ import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-t
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref, toRaw, watch } from 'vue'
+import { isProxy, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
@@ -114,16 +114,46 @@ const displayModelsPresets: DisplayModel[] = [
 // NOTICE: IndexedDB structured clones of File/Blob can lose prototype methods in some
 // environments. Re-wrap degraded clones so callers always receive a usable File.
 function tryRewrapModelFile(file: any, preferredName?: string): File | undefined {
-  if (file && typeof file.arrayBuffer === 'function')
-    return file
-  if (file && (file instanceof Blob || (typeof file === 'object' && file.size > 0))) {
+  const unproxied = toRaw(file)
+  const inputInfo = {
+    preferredName,
+    rawFile: file,
+    unproxied,
+    typeofRaw: typeof file,
+    typeofUnproxied: typeof unproxied,
+    isRawFile: file instanceof File,
+    isUnproxiedFile: unproxied instanceof File,
+    isRawBlob: file instanceof Blob,
+    isUnproxiedBlob: unproxied instanceof Blob,
+    isRawProxy: isProxy(file),
+    isUnproxiedProxy: isProxy(unproxied),
+    rawHasArrayBuffer: typeof file?.arrayBuffer === 'function',
+    unproxiedHasArrayBuffer: typeof unproxied?.arrayBuffer === 'function',
+    rawKeys: file && typeof file === 'object' ? Object.keys(file) : [],
+    unproxiedKeys: unproxied && typeof unproxied === 'object' ? Object.keys(unproxied) : [],
+    rawSize: file?.size,
+    unproxiedSize: unproxied?.size,
+  }
+  console.log('[DisplayModels:tryRewrapModelFile:Inspect]', inputInfo)
+
+  if (unproxied && typeof unproxied.arrayBuffer === 'function') {
+    console.log('[DisplayModels:tryRewrapModelFile:Result] Valid File/Blob with arrayBuffer method present.', preferredName)
+    return unproxied
+  }
+
+  if (unproxied && (unproxied instanceof Blob || (typeof unproxied === 'object' && unproxied.size > 0))) {
     try {
-      return new File([file], preferredName || file.name || 'model.bin', { type: file.type || 'application/octet-stream' })
+      const res = new File([unproxied], preferredName || unproxied.name || 'model.bin', { type: unproxied.type || 'application/octet-stream' })
+      console.log('[DisplayModels:tryRewrapModelFile:Result] Successfully re-wrapped degraded object into File instance:', { preferredName, size: res.size, isFile: res instanceof File })
+      return res
     }
-    catch {
+    catch (err) {
+      console.error('[DisplayModels:tryRewrapModelFile:Error] Failed to construct File from degraded object:', { preferredName, err })
       return undefined
     }
   }
+
+  console.warn('[DisplayModels:tryRewrapModelFile:Result] Cannot re-wrap object — file property is missing, empty, or un-reconstructable:', inputInfo)
   return undefined
 }
 
@@ -167,7 +197,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   async function loadDisplayModelsFromIndexedDB(silent = false) {
     const startTime = performance.now()
-    debug('[DisplayModels] loadDisplayModelsFromIndexedDB starting...', { silent })
+    console.log('[DisplayModels:IDBScan] Starting loadDisplayModelsFromIndexedDB...', { silent })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (!silent)
@@ -177,24 +207,37 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
-      debug(`[DisplayModels] loadDisplayModelsFromIndexedDB: Found ${modelKeys.length} user models in IndexedDB.`)
+      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage:`, modelKeys)
 
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
+        console.log(`[DisplayModels:IDBScan] Loaded key "${key}" from localforage:`, {
+          valExists: !!val,
+          format: val?.format,
+          file: val?.file,
+          fileType: typeof val?.file,
+          isFile: val?.file instanceof File,
+          isBlob: val?.file instanceof Blob,
+          isProxy: isProxy(val?.file),
+          hasArrayBuffer: typeof val?.file?.arrayBuffer === 'function',
+          keys: val?.file && typeof val?.file === 'object' ? Object.keys(val?.file) : [],
+        })
+
         if (val) {
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            // Attempt defensive Blob/File re-wrapping if val.file is a Blob clone missing prototype methods
+            console.log(`[DisplayModels:IDBScan] Attempting re-wrap for degraded file property on key "${key}"...`)
             const rewrapped = tryRewrapModelFile(val.file, val.name || `${key}.bin`)
             if (rewrapped) {
               val.file = rewrapped
+              console.log(`[DisplayModels:IDBScan] Re-wrap successful for key "${key}":`, { file: val.file, isFile: val.file instanceof File })
             }
             else if (val.file) {
-              debug(`[DisplayModels] Could not re-wrap Blob instance for ${key}`)
+              console.warn(`[DisplayModels:IDBScan] Could not re-wrap file property for key "${key}":`, val.file)
             }
           }
 
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            debug(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
+            console.warn(`[DisplayModels:IDBScan] Model "${key}" is still missing valid File instance! Attempting BYOS self-healing...`)
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
@@ -204,63 +247,53 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                   : ''
 
                 if (!backupDir) {
-                  debug(`[DisplayModels] No BYOS backup path configured. Cannot self-heal ${key}.`)
-                  continue
-                }
-
-                // Set a 3-second timeout for reading from the network backup drive
-                const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
-                const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
-                  dir: backupDir,
-                  relPath: `${key}.bin`,
-                  encoding: 'base64',
-                })
-                const res = await Promise.race([ipcPromise, timeoutPromise])
-
-                if (res === null) {
-                  debug(`[DisplayModels] Self-healing for ${key} timed out after 3 seconds. Network share may be offline or sleeping.`)
-                  continue
-                }
-
-                if (res?.success && res.content) {
-                  const byteCharacters = atob(res.content)
-                  const byteNumbers = new Uint8Array(byteCharacters.length)
-                  for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i)
-                  }
-                  const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
-                  val.file = restoredFile
-
-                  // Update IndexedDB
-                  await localforage.setItem(key, val)
-                  debug(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
+                  console.warn(`[DisplayModels:IDBScan] No BYOS backup path configured. Cannot self-heal "${key}".`)
                 }
                 else {
-                  // NOTICE: Never delete the local entry from a repair path. An unreachable or
-                  // not-yet-synced backup does not prove the local original is worthless — the
-                  // previous auto-removeItem on ENOENT deleted users' only copies on refresh.
-                  // Skip the model; leave the entry intact so a later session can heal it.
-                  console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable. Keeping the local entry.`, res?.error)
-                  continue
+                  const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+                  const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
+                    dir: backupDir,
+                    relPath: `${key}.bin`,
+                    encoding: 'base64',
+                  })
+                  const res = await Promise.race([ipcPromise, timeoutPromise])
+
+                  if (res === null) {
+                    console.warn(`[DisplayModels:IDBScan] Self-healing for "${key}" timed out after 3 seconds.`)
+                  }
+                  else if (res?.success && res.content) {
+                    const byteCharacters = atob(res.content)
+                    const byteNumbers = new Uint8Array(byteCharacters.length)
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                      byteNumbers[i] = byteCharacters.charCodeAt(i)
+                    }
+                    const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
+                    val.file = restoredFile
+
+                    await localforage.setItem(key, toRaw(val))
+                    console.log(`[DisplayModels:IDBScan] Successfully self-healed and restored model: ${val.name || key}`)
+                  }
+                  else {
+                    console.error(`[DisplayModels:IDBScan] Self-healing failed for "${key}": backup file not found or unreadable. Keeping local record.`, res?.error)
+                  }
                 }
               }
               catch (healErr) {
-                console.error(`[DisplayModels] Self-healing error for ${key}:`, healErr)
-                continue
+                console.error(`[DisplayModels:IDBScan] Self-healing error for "${key}":`, healErr)
               }
             }
             else {
-              debug(`[DisplayModels] Electron IPC not available. Cannot self-heal ${key}.`)
-              continue
+              console.warn(`[DisplayModels:IDBScan] Electron IPC not available. Cannot self-heal "${key}".`)
             }
           }
+
           models.push({
             id: key,
             format: val.format,
             type: 'file',
             file: val.file,
-            name: val.file.name,
-            importedAt: val.importedAt,
+            name: val.file?.name || val.name || key,
+            importedAt: val.importedAt || Date.now(),
             previewImage: val.previewImage,
             nsfw: val.nsfw,
             groups: val.groups,
@@ -277,43 +310,58 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
     }
     catch (err) {
-      console.error('[DisplayModels] loadDisplayModelsFromIndexedDB encountered an error:', err)
+      console.error('[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB encountered an error:', err)
     }
 
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
-    debug(`[DisplayModels] loadDisplayModelsFromIndexedDB finished successfully in ${(performance.now() - startTime).toFixed(2)} ms. Loaded ${displayModels.value.length} total models.`)
+    console.log(`[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB finished in ${(performance.now() - startTime).toFixed(2)} ms. Total models loaded into store: ${displayModels.value.length}`, displayModels.value)
   }
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()
 
   async function getDisplayModel(id: string) {
-    if (displayModelsFromIndexedDBLoading.value) {
-      debug('[PipelineTTS:Models] getDisplayModel called while loading is TRUE, waiting...', { id })
-    }
+    console.log(`[DisplayModels:getDisplayModel] Called for ID "${id}". Loading flag: ${displayModelsFromIndexedDBLoading.value}`)
     await until(displayModelsFromIndexedDBLoading).toBe(false)
+
+    // Check in-memory catalog first
+    const inMemoryModel = displayModels.value.find(m => m.id === id)
+    if (inMemoryModel && inMemoryModel.type === 'file') {
+      console.log(`[DisplayModels:getDisplayModel] In-memory store hit for "${id}":`, inMemoryModel)
+      return inMemoryModel as DisplayModelFile
+    }
 
     // Check in-memory cache
     if (displayModelCache.has(id)) {
-      debug('[PipelineTTS:Models] In-memory cache hit for:', id)
-      displayModelCache.get(id)!.addedTime = Date.now() // Update access time
+      console.log(`[DisplayModels:getDisplayModel] In-memory cache hit for "${id}"`)
+      displayModelCache.get(id)!.addedTime = Date.now()
       return displayModelCache.get(id)!.model
     }
 
-    debug('[PipelineTTS:Models] Accessing localforage for:', id)
+    console.log(`[DisplayModels:getDisplayModel] Querying localforage.getItem("${id}")...`)
     const modelFromFile = await localforage.getItem<DisplayModelFile>(id).catch((err) => {
-      console.error(`[DisplayModels] localforage.getItem("${id}") threw — treating the model as unavailable (read error, NOT confirmed absence):`, err)
+      console.error(`[DisplayModels:getDisplayModel] localforage.getItem("${id}") threw error:`, err)
       return null
     })
+
+    console.log(`[DisplayModels:getDisplayModel] localforage.getItem("${id}") returned:`, {
+      found: !!modelFromFile,
+      format: modelFromFile?.format,
+      file: modelFromFile?.file,
+      fileType: typeof modelFromFile?.file,
+      isFile: modelFromFile?.file instanceof File,
+      isBlob: modelFromFile?.file instanceof Blob,
+      isProxy: isProxy(modelFromFile?.file),
+      hasArrayBuffer: typeof modelFromFile?.file?.arrayBuffer === 'function',
+      keys: modelFromFile?.file && typeof modelFromFile?.file === 'object' ? Object.keys(modelFromFile?.file) : [],
+    })
+
     if (modelFromFile) {
-      // Heal degraded structured clones (same as loadDisplayModelsFromIndexedDB) so direct
-      // readers never receive a File missing prototype methods like arrayBuffer.
       const rewrapped = tryRewrapModelFile(modelFromFile.file, modelFromFile.name || `${id}.bin`)
       if (rewrapped)
         modelFromFile.file = rewrapped
 
-      // LRU cache eviction if size exceeds 3
       if (displayModelCache.size >= 3) {
         let oldestId: string | null = null
         let oldestTime = Infinity
@@ -324,7 +372,6 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
         }
         if (oldestId) {
-          debug('[PipelineTTS:Models] Evicting oldest display model cache entry:', oldestId)
           displayModelCache.delete(oldestId)
         }
       }
@@ -332,9 +379,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return modelFromFile
     }
 
-    debug(`[DisplayModels] No user model found in IndexedDB for "${id}" (clean null — key is absent). Falling back to presets.`)
-    // Fallback to in-memory presets if not found in localforage
+    console.warn(`[DisplayModels:getDisplayModel] No user model found in IndexedDB for "${id}". Checking presets...`)
     const preset = displayModelsPresets.find(model => model.id === id)
+    console.log(`[DisplayModels:getDisplayModel] Preset lookup result for "${id}":`, preset)
     return preset
   }
 
@@ -1015,7 +1062,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelName] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }
@@ -1049,7 +1103,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelMeta] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }
@@ -1073,7 +1134,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelTags] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }

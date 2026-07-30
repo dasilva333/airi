@@ -115,8 +115,21 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
         return
       }
 
+      console.log('[StageModel:performUpdateStageModel] Fetched model from displayModelsStore:', {
+        selectedModelId,
+        modelFound: !!model,
+        modelType: model?.type,
+        modelFormat: model?.format,
+        file: (model as any)?.file,
+        fileType: typeof (model as any)?.file,
+        fileIsFile: (model as any)?.file instanceof File,
+        fileIsBlob: (model as any)?.file instanceof Blob,
+        fileHasArrayBuffer: typeof (model as any)?.file?.arrayBuffer === 'function',
+        fileKeys: (model as any)?.file && typeof (model as any)?.file === 'object' ? Object.keys((model as any)?.file) : [],
+      })
+
       if (!model) {
-        console.warn(`[StageModel] Model with ID "${selectedModelId}" not found — absent from IndexedDB or unreadable (the [DisplayModels] log line above says which).`)
+        console.warn(`[StageModel] Model with ID "${selectedModelId}" not found — absent from IndexedDB or unreadable.`)
         toast.error(`Model not found (${selectedModelId}). Preserving current stage model.`)
         return
       }

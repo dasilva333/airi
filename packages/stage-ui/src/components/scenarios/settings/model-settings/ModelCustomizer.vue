@@ -6,7 +6,7 @@ import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
@@ -163,7 +163,22 @@ async function saveMetadata() {
     model.hiddenExpressions = [...hiddenExpressions.value]
     model.motionMappings = { ...motionMappings.value }
     model.hiddenMotions = [...hiddenMotions.value]
-    await localforage.setItem(props.modelId, JSON.parse(JSON.stringify(model)))
+
+    const rawModel = toRaw(model)
+    const cleanModel = {
+      ...rawModel,
+      ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+    }
+    const targetFile = (cleanModel as any).file
+
+    console.log('[ModelCustomizer:saveMetadata] Accountable write to IndexedDB:', {
+      id: props.modelId,
+      isFileInstance: targetFile instanceof File || targetFile instanceof Blob,
+      fileType: typeof targetFile,
+      cleanModel,
+    })
+
+    await localforage.setItem(props.modelId, cleanModel)
 
     // Sync to store for stage window cross-process triggers
     live2dStore.motionMap = { ...motionMappings.value }
