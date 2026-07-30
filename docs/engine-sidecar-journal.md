@@ -369,10 +369,75 @@ When offloading rendering to Unity, gaze can operate in two distinct modes:
 
 ---
 
+## 🏁 Minimum Viable Product (MVP) Specification
+
+To provide a clear, achievable target for early development without scope creep, the MVP threshold for MATE Engine integration is defined across 5 core requirements:
+
+---
+
+### 1. Connection & Token Handshake
+- MATE Engine connects over WebSocket to `ws://localhost:6121/ws`.
+- Completes the `module:authenticate` token exchange:
+  `Plugin → server: { type: 'module:authenticate', data: { token: '...' } }`
+- Sends `module:announce` to register as an active stage renderer module (`possibleEvents: ['stage:vrm:*']`).
+
+---
+
+### 2. Local File Path Model Resolution (Zero-Copy)
+- **No re-uploading or binary streaming required**: AIRI and MATE Engine run locally on the user's OS and share the local filesystem.
+- When an avatar is loaded or swapped, AIRI's `displayModelsStore` resolves the absolute local file path of the active VRM model and sends a `stage:vrm:load` WebSocket frame:
+  ```json
+  {
+    "type": "stage:vrm:load",
+    "data": {
+      "modelId": "display-model-0d3mUbNvk0nSPXVwTuS1",
+      "modelPath": "/Users/richy/Library/Application Support/airi/models/avatar.vrm"
+    }
+  }
+  ```
+- MATE Engine's C# `UniVRM` loader reads that local file path directly off the disk. If a model URL is passed instead, `UniVRM` downloads it into memory via `UnityWebRequest`.
+
+---
+
+### 3. Basic Lip-Sync Telemetry Relay
+- Listens to `stage:vrm:lip-sync` WebSocket events emitted by AIRI's Stage Proxy Gateway.
+- Applies RMS amplitude (0.0 to 1.0) to the VRM mouth blendshape (`mouthOpen` / `aa`) during TTS audio playback.
+
+---
+
+### 4. Control Customizer & Stage View Integration
+- **UI Location**: Located inside the **Control Customizer** under the **`Stage View`** section (alongside *Actor Stage*, *Always-on-Top*, and interaction mode toggles).
+- **Independent Stage Toggle**: MATE Engine operates as a dedicated, independent stage provider toggle (`MATE Engine Stage`). Users can run MATE Engine independently or alongside the browser WebGL stage.
+- **Visibility Control**: Toggling the `MATE Engine Stage` switch sends a `{ type: "stage:vrm:visibility", data: { visible: boolean } }` WebSocket frame, causing the Unity window to toggle desktop visibility.
+
+---
+
+### 5. Developer Mock Harness Strategy (Isolated Fast Iteration)
+
+Launching the full AIRI application, LLM pipeline, and Electron runtime on every build iteration is slow and heavy. To accelerate developer velocity during MVP development:
+
+- **Mock AIRI Harness Server (`scripts/mock-airi-stage-server.ts`)**:
+  - A lightweight Node.js/TypeScript script that mocks AIRI's `server-runtime` WebSocket server on `ws://localhost:6121/ws`.
+  - Simulates the `module:authenticate` $\rightarrow$ `module:announced` handshake.
+  - Exposes interactive CLI triggers to fire simulated `stage:vrm:load`, `stage:vrm:lip-sync` RMS sine waves, `stage:vrm:expression`, and `stage:vrm:visibility` frames.
+- **Benefits**: A developer working on MATE Engine in the Unity Editor can run `pnpm mock:stage-server` to test model loading, lip-sync, and visibility in seconds—completely isolated from the main AIRI Electron process.
+
+---
+
+### Out of Scope for MVP (Phase 2+):
+- Tactile spring-damper bone dragging & mesh raycast events (`stage:vrm:interact`).
+- Gaze target relay (`stage:vrm:gaze`).
+- Non-VRM formats (MMD, Spine, Live2D).
+- Automatic sidecar executable spawning (`execProcess`).
+
+---
+
 ## 📅 Roadmap & Next Steps
 
-1. **Standalone WebSocket Handshake**: Implement `Client` handshake in MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
-2. **Proxy Gateway Relay**: Add the `StageProxyGateway` service in AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
-3. **Tactile & Gaze Telemetry**: Implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
-4. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
+1. **Developer Mock Harness**: Ship `scripts/mock-airi-stage-server.ts` to simulate AIRI WebSocket events for Unity sidecar testing.
+2. **Standalone WebSocket Handshake**: Implement `Client` handshake in MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
+3. **Proxy Gateway Relay**: Add the `StageProxyGateway` service in AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
+4. **Control Customizer Toggle**: Add `MATE Engine Stage` switch under the **Stage View** section in the Control Customizer.
+5. **Tactile & Gaze Telemetry**: Implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
+6. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
 
