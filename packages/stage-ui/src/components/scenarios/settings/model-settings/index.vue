@@ -31,6 +31,7 @@ const props = defineProps<{
 
   live2dSceneClass?: string | string[]
   vrmSceneClass?: string | string[]
+  initialTab?: 'library' | 'explore' | 'cloud'
 }>()
 
 defineEmits<{
@@ -38,6 +39,12 @@ defineEmits<{
 }>()
 
 const modelSelectorOpen = ref(false)
+const modelSelectorTab = ref<'library' | 'explore' | 'cloud'>(props.initialTab || 'library')
+
+function openModelSelector(tab: 'library' | 'explore' | 'cloud' = 'library') {
+  modelSelectorTab.value = tab
+  modelSelectorOpen.value = true
+}
 const modelAssignmentOpen = ref(false)
 const positionCursor = useMouse()
 const settingsStore = useSettings()
@@ -97,6 +104,7 @@ const live2dRef = ref<InstanceType<typeof Live2D>>()
 const threeSceneRef = ref<InstanceType<typeof ThreeScene>>()
 
 defineExpose({
+  openModelSelector,
   captureFrame: async () => {
     if (stageModelRenderer.value === 'live2d') {
       return (live2dRef.value as any)?.captureFrame()
@@ -157,7 +165,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
       />
     </div>
     <div :class="['flex w-full gap-2']">
-      <ModelSelectorDialog v-model:show="modelSelectorOpen" :selected-model="currentSelectedDisplayModel" @pick="handleModelPick">
+      <ModelSelectorDialog v-model:show="modelSelectorOpen" :selected-model="currentSelectedDisplayModel" :initial-tab="modelSelectorTab" @pick="handleModelPick">
         <Button variant="secondary" class="flex-1">
           Select Model
         </Button>

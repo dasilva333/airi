@@ -22,6 +22,12 @@ import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/di
 import { useProvidersStore } from '../../../../stores/providers'
 import { useSyncEngineStore } from '../../../../stores/sync-engine'
 
+const props = withDefaults(defineProps<{
+  initialTab?: 'library' | 'explore' | 'cloud'
+}>(), {
+  initialTab: 'library',
+})
+
 const emits = defineEmits<{
   (e: 'close', value: void): void
   (e: 'pick', value: DisplayModel | undefined): void
@@ -87,7 +93,12 @@ const live2dImportToastId = ref<string | number | null>(null)
 const live2dImportedCount = ref(0)
 const validationReport = computed(() => live2dQueue.value[live2dQueueIndex.value]?.report ?? null)
 
-const currentTab = ref<'library' | 'explore' | 'cloud'>('library')
+const currentTab = ref<'library' | 'explore' | 'cloud'>(props.initialTab || 'library')
+
+watch(() => props.initialTab, (newTab) => {
+  if (newTab)
+    currentTab.value = newTab
+}, { immediate: true })
 
 watch(currentTab, (newTab) => {
   if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {

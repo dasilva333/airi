@@ -6,6 +6,9 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
+import SettingsQuickAccess from './components/SettingsQuickAccess.vue'
+import SettingsSearchBar from './components/SettingsSearchBar.vue'
+
 const router = useRouter()
 const route = useRoute()
 const resolveAnimation = ref<() => void>()
@@ -117,6 +120,12 @@ function isActive(to: string) {
 
 <template>
   <div flex="~ col gap-8" pb-12 font-normal>
+    <!-- Search Bar & Quick Access -->
+    <div flex="~ col gap-5">
+      <SettingsSearchBar />
+      <SettingsQuickAccess />
+    </div>
+
     <div v-for="group in settingsGroups" :key="group.id" flex="~ col gap-4">
       <div px-4 text="xs neutral-400 dark:neutral-500" font-bold tracking-wider uppercase>
         {{ group.title }}

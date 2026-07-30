@@ -10,6 +10,7 @@ import ModelManager from './model-selector.vue'
 
 const props = defineProps<{
   selectedModel?: DisplayModel
+  initialTab?: 'library' | 'explore' | 'cloud'
 }>()
 const emits = defineEmits<{
   (e: 'pick', value: DisplayModel | undefined): void
@@ -33,7 +34,7 @@ onMounted(() => screenSafeArea.update())
         <VisuallyHidden>
           <DialogTitle>Models</DialogTitle>
         </VisuallyHidden>
-        <ModelManager :selected-model="props.selectedModel" @close="showDialog = false" @pick="value => emits('pick', value)" />
+        <ModelManager :selected-model="props.selectedModel" :initial-tab="props.initialTab" @close="showDialog = false" @pick="value => emits('pick', value)" />
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
@@ -45,7 +46,7 @@ onMounted(() => screenSafeArea.update())
       <DrawerOverlay class="fixed inset-0" />
       <DrawerContent class="fixed bottom-0 left-0 right-0 z-1000 mt-20 h-full max-h-[80%] flex flex-col rounded-t-2xl bg-neutral-50 px-4 pt-4 outline-none backdrop-blur-md sm:max-h-[75%] dark:bg-neutral-900/95" :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '')), 24)}px` }">
         <DrawerHandle />
-        <ModelManager :selected-model="props.selectedModel" @close="showDialog = false" @pick="value => emits('pick', value)" />
+        <ModelManager :selected-model="props.selectedModel" :initial-tab="props.initialTab" @close="showDialog = false" @pick="value => emits('pick', value)" />
       </DrawerContent>
     </DrawerPortal>
   </DrawerRoot>
