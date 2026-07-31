@@ -108,8 +108,9 @@ const modes = [
 <route lang="yaml">
 meta:
   layout: settings
-  titleKey: settings.pages.modules.text-to-motion.title
-  subtitleKey: settings.title
-  descriptionKey: settings.pages.modules.text-to-motion.description
+  titleKey: Text to Motion Settings
+  subtitleKey: Modules
   icon: i-solar:running-round-bold-duotone
+  stageTransition:
+    name: slide
 </route>

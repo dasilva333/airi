@@ -118,3 +118,20 @@ To avoid build failures due to transient network issues (e.g., downloading VRM m
 > - If a file is locked (e.g., `app.asar`), ask the user to stop the relevant process; they will gladly stop and restart it to facilitate the build.
 > - **"Nuking" all `node.exe` or `electron.exe` processes is never acceptable** for any reason, as it can cause data loss or terminate essential background services.
 
+---
+
+## 6. Windows Application Control & Code Signing Action Items
+
+When users attempt to open Windows setup binaries (`.exe`), they may encounter the following security error:
+> **`An Application Control policy has blocked this file.`**
+
+### Root Cause / Problem
+1. **Unsigned Executables**: Windows Defender Application Control (WDAC), AppLocker, or SmartScreen blocks unsigned or self-signed installer `.exe` files downloaded from the internet.
+2. **Strict User Environment Policies**: Certain Windows installations enforce strict application control policies preventing non-whitelisted installers from running in standard user/download directories.
+
+### Action Items for Release Preparation
+1. **Code Signing**: Ensure Windows setup executables are signed with a valid Code Signing Certificate (or provide clear instructions for trusting the release cert) to prevent Windows Application Control and Defender SmartScreen blocks.
+2. **Release Portable Zip Artifacts**: Always build and attach a portable `.zip` / archive version of the release alongside the `.exe` setup installer on GitHub Releases so users with restricted installer policies can extract and run the application without administrator setup blocks.
+3. **Document User Workaround**: Advise users encountering WDAC/AppLocker blocks to either unblock the file via **Properties -> General -> Unblock** (or PowerShell `Unblock-File`), run as administrator, or use the portable `.zip` release.
+
+

@@ -115,15 +115,15 @@ const staticIndex: SearchItem[] = [
 // ── Dynamic Character Card Index ──
 // Queries cardStore.cards so typing character names navigates directly to their card editor
 const dynamicCharacterIndex = computed<SearchItem[]>(() => {
-  const cardsList = Array.from(cardStore.cards.values())
-  return cardsList.map((card) => {
+  const cardEntries = Array.from(cardStore.cards.entries())
+  return cardEntries.map(([id, card]) => {
     const cardName = card.name || 'Unnamed Character'
     return {
-      id: `card-${card.id}`,
+      id: `card-${id}`,
       title: cardName,
       category: 'Character Card',
       description: `Open ${cardName}'s card editor`,
-      to: `/settings/airi-card?cardId=${card.id}`,
+      to: `/settings/airi-card?cardId=${id}`,
       icon: 'i-solar:user-bold-duotone',
     }
   })

@@ -47,6 +47,7 @@ dialogs:
     testGenerationRunning: Testing...
     testGenerationFailed: Generation test failed
     skipForNow: Skip for now
+    skipPermanently: Skip Permanently
     saveAndContinue: Save and Continue
     next: Next
     retry: Retry

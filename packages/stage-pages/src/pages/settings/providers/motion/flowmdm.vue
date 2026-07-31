@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button, FieldInput } from '@proj-airi/ui'
 import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 // Motion Playground State
 const prompt = ref('a person doing jumping jacks')
@@ -52,7 +53,14 @@ async function handleGenerateMotion() {
 <template>
   <div class="flex flex-col gap-6">
     <!-- Header -->
-    <div>
+    <div class="space-y-1">
+      <RouterLink
+        to="/settings/modules/text-to-motion"
+        class="inline-flex items-center gap-1.5 text-xs text-neutral-400 font-medium transition-colors dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+      >
+        <div class="i-solar:alt-arrow-left-bold text-xs" />
+        <span>Text to Motion Settings</span>
+      </RouterLink>
       <h2 class="text-lg text-neutral-800 font-bold md:text-2xl dark:text-neutral-100">
         FlowMDM (Local WebGPU)
       </h2>

@@ -6,12 +6,19 @@ import { useI18n } from 'vue-i18n'
 
 import onboardingLogo from '../../../../assets/onboarding.avif'
 
+import { useOnboardingStore } from '../../../../stores/onboarding'
+
 interface Props {
   onNext: OnboardingStepNextHandler
 }
 
 const props = defineProps<Props>()
 const { t } = useI18n()
+const onboardingStore = useOnboardingStore()
+
+function handleSkip() {
+  onboardingStore.markSetupSkipped()
+}
 </script>
 
 <template>
@@ -50,15 +57,28 @@ const { t } = useI18n()
       </p>
     </div>
 
-    <Button
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="500"
-      :delay="200"
-      class="border-none from-primary-500 to-indigo-600 bg-gradient-to-r text-white shadow-lg shadow-primary-500/10 hover:from-primary-600 hover:to-indigo-700"
-      :label="t('settings.dialogs.onboarding.start')"
-      @click="props.onNext"
-    />
+    <div class="flex flex-col gap-2">
+      <Button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="500"
+        :delay="200"
+        class="border-none from-primary-500 to-indigo-600 bg-gradient-to-r text-white shadow-lg shadow-primary-500/10 hover:from-primary-600 hover:to-indigo-700"
+        :label="t('settings.dialogs.onboarding.start')"
+        @click="props.onNext"
+      />
+      <Button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="500"
+        :delay="250"
+        variant="ghost"
+        class="text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        :label="t('settings.dialogs.onboarding.skipPermanently')"
+        @click="handleSkip"
+      />
+    </div>
   </div>
 </template>
