@@ -1,6 +1,7 @@
 import type { ChatHistoryItem, ChatStreamEvent } from '../../types/chat'
 import type { ChatSessionMeta, ChatSessionRecord, ChatSessionsExport, ChatSessionsIndex } from '../../types/chat-session'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useBroadcastChannel, watchDebounced } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -202,7 +203,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         await syncSessionToRemote(sessionId)
       }
       catch (error) {
-        console.warn('Failed to sync chat session', error)
+        debug('Failed to sync chat session', error)
       }
     })
   }
@@ -311,7 +312,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
         const charIndex = index.value.characters[charId]
         if (!charIndex.sessions[sessionId]) {
-          console.info(`[ChatSessionStore] Reconstructing index entry for orphaned session: ${sessionId}`)
+          debug(`[ChatSessionStore] Reconstructing index entry for orphaned session: ${sessionId}`)
           charIndex.sessions[sessionId] = {
             sessionId,
             userId: currentUserId,
@@ -326,7 +327,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       }
 
       if (changed) {
-        console.info('[ChatSessionStore] Reconstructed index entries successfully. Saving index...')
+        debug('[ChatSessionStore] Reconstructed index entries successfully. Saving index...')
         await persistIndex()
       }
     }
@@ -449,7 +450,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       )
 
       if (isNew || isUpdated) {
-        console.log(`[ChatStore] Broadcasting message (setSessionMessages):`, {
+        debug(`[ChatStore] Broadcasting message (setSessionMessages):`, {
           id: msg.id,
           role: msg.role,
           isNew,
@@ -479,7 +480,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     void persistSession(sessionId)
     notifyNan0AcceptedInputPresence(message, duplicateInscription)
 
-    console.log(`[ChatStore] Inscribing turn in session ${sessionId}:`, {
+    debug(`[ChatStore] Inscribing turn in session ${sessionId}:`, {
       id: message.id,
       role: message.role,
       createdAt: message.createdAt,
@@ -509,7 +510,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       const characterId = stored?.meta.characterId
       const characterIndex = characterId ? index.value?.characters[characterId] : undefined
       if (!characterIndex || !characterIndex.sessions[sessionId]) {
-        console.info(`[ChatSession] loadSession aborted: session ${sessionId} was deleted mid-flight.`)
+        debug(`[ChatSession] loadSession aborted: session ${sessionId} was deleted mid-flight.`)
         return
       }
 
@@ -598,7 +599,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       const currentUserId = getCurrentUserId()
       const characterId = getCurrentCharacterId()
 
-      console.info('[ChatSession] ensureActiveSessionForCharacter:start', {
+      debug('[ChatSession] ensureActiveSessionForCharacter:start', {
         currentUserId,
         characterId,
         activeSessionId: activeSessionId.value,
@@ -619,13 +620,13 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
       const characterIndex = getCharacterIndex(characterId)
       if (!characterIndex) {
-        console.info('[ChatSession] no character index, creating session', { characterId })
+        debug('[ChatSession] no character index, creating session', { characterId })
         await createSession(characterId)
         return
       }
 
       if (!characterIndex.activeSessionId) {
-        console.info('[ChatSession] character has no active session, creating session', { characterId })
+        debug('[ChatSession] character has no active session, creating session', { characterId })
         await createSession(characterId)
         return
       }
@@ -643,7 +644,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (!isSessionRegistered || currentMessages.length === 0) {
         const otherSessionIds = Object.keys(characterIndex.sessions).filter(id => id !== activeId)
         if (otherSessionIds.length > 0) {
-          console.info('[ChatSession] RECOVERY BRIDGE: Active session is empty/unregistered, checking candidates...', { characterId, count: otherSessionIds.length })
+          debug('[ChatSession] RECOVERY BRIDGE: Active session is empty/unregistered, checking candidates...', { characterId, count: otherSessionIds.length })
           let bestId = activeId
           let maxCount = currentMessages.length
 
@@ -657,7 +658,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
           }
 
           if (bestId !== activeId) {
-            console.info('[ChatSession] RECOVERY BRIDGE: Switching to populated session', { from: activeId, to: bestId, messageCount: maxCount })
+            debug('[ChatSession] RECOVERY BRIDGE: Switching to populated session', { from: activeId, to: bestId, messageCount: maxCount })
             activeId = bestId
             characterIndex.activeSessionId = bestId
             await persistIndex()
@@ -678,7 +679,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         })
       }
 
-      console.info('[ChatSession] ensureActiveSessionForCharacter:resolved', {
+      debug('[ChatSession] ensureActiveSessionForCharacter:resolved', {
         characterId,
         activeSessionId: activeSessionId.value,
         messageCount: sessionMessages.value[activeSessionId.value]?.length ?? 0,
@@ -702,7 +703,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return initializePromise
     initializing.value = true
     initializePromise = (async () => {
-      console.info('[ChatSession] initialize:start')
+      debug('[ChatSession] initialize:start')
       await shortTermMemory.load()
 
       // 1. Resolve the active character session
@@ -716,7 +717,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (phantomMessages.length > 0 && activeId && activeId !== '') {
         const filteredPhantom = phantomMessages.filter(m => m.role !== 'system')
         if (filteredPhantom.length > 0) {
-          console.info('[ChatSession] RECOVERY: Merging orphaned messages into active session', {
+          debug('[ChatSession] RECOVERY: Merging orphaned messages into active session', {
             count: filteredPhantom.length,
             targetSession: activeId,
           })
@@ -727,7 +728,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
         }
       }
 
-      console.info('[ChatSession] initialize:complete', {
+      debug('[ChatSession] initialize:complete', {
         activeSessionId: activeId,
         ready: ready.value,
       })
@@ -745,13 +746,13 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   function ensureSession(sessionId: string) {
     ensureGeneration(sessionId)
     if (loadingSessions.has(sessionId)) {
-      console.info(`[ChatSession] ensureSession skipped for ${sessionId} because it is currently loading`)
+      debug(`[ChatSession] ensureSession skipped for ${sessionId} because it is currently loading`)
       return
     }
     if (!sessionMessages.value[sessionId] || sessionMessages.value[sessionId].length === 0) {
       const meta = sessionMetas.value[sessionId]
       if (meta && (meta.messageCount || 0) > 0) {
-        console.warn(`[ChatSession] ensureSession skipped for ${sessionId}: meta indicates ${meta.messageCount} messages exist but memory is empty.`)
+        debug(`[ChatSession] ensureSession skipped for ${sessionId}: meta indicates ${meta.messageCount} messages exist but memory is empty.`)
         return
       }
       sessionMessages.value[sessionId] = [generateInitialMessage()]
@@ -774,7 +775,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   })
 
   function setActiveSession(sessionId: string) {
-    console.info('[ChatSession] setActiveSession', {
+    debug('[ChatSession] setActiveSession', {
       from: activeSessionId.value,
       to: sessionId,
       characterId: getCurrentCharacterId(),
@@ -816,7 +817,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     // NOTICE: Strict integrity check to prevent cross-session prompt pollution.
     const targetCharacterId = options?.characterId ?? activeCardId.value
     if (meta.characterId !== targetCharacterId) {
-      console.warn('[ChatSession] Skipping prompt refresh: session characterId mismatch', {
+      debug('[ChatSession] Skipping prompt refresh: session characterId mismatch', {
         sessionId,
         sessionCharacterId: meta.characterId,
         targetCharacterId,
@@ -886,7 +887,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     }
 
     if (changed) {
-      console.info('[ChatSession] Successfully refreshed and pruned persona system messages', {
+      debug('[ChatSession] Successfully refreshed and pruned persona system messages', {
         sessionId,
         characterId: targetCharacterId,
         originalCount: currentMessages.length,
@@ -1082,7 +1083,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     const totalSessions = Object.entries(payload.sessions).length
     const toastId = toast.loading(`Importing Chat History (0/${totalSessions})...`)
-    console.info(`[ChatSession] Starting import of ${totalSessions} sessions`)
+    debug(`[ChatSession] Starting import of ${totalSessions} sessions`)
 
     index.value = payload.index
     sessionMessages.value = {}
@@ -1106,12 +1107,12 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       processedCount++
       if (processedCount % 10 === 0 || processedCount === totalSessions) {
         toast.loading(`Importing Chat History (${processedCount}/${totalSessions})...`, { id: toastId })
-        console.info(`[ChatSession] Imported ${processedCount}/${totalSessions} sessions...`)
+        debug(`[ChatSession] Imported ${processedCount}/${totalSessions} sessions...`)
       }
     }
 
     toast.success(`Successfully imported ${totalSessions} sessions!`, { id: toastId })
-    console.info(`[ChatSession] Import complete. Total: ${totalSessions}`)
+    debug(`[ChatSession] Import complete. Total: ${totalSessions}`)
 
     await ensureActiveSessionForCharacter()
   }
@@ -1119,7 +1120,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   watch([userId, activeCardId], ([nextUserId, nextCardId], [prevUserId, prevCardId]) => {
     if (!ready.value)
       return
-    console.info('[ChatSession] watcher:userId+activeCardId', {
+    debug('[ChatSession] watcher:userId+activeCardId', {
       prevUserId,
       nextUserId,
       prevCardId,
@@ -1179,7 +1180,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (!event)
       return
     if (event.type === 'session-refreshed') {
-      console.info('[ChatSession] Cross-window session-refreshed, reloading session', { sessionId: event.sessionId, hasMessages: !!event.messages })
+      debug('[ChatSession] Cross-window session-refreshed, reloading session', { sessionId: event.sessionId, hasMessages: !!event.messages })
       if (event.messages) {
         sessionMessages.value[event.sessionId] = event.messages
         const meta = sessionMetas.value[event.sessionId]
@@ -1194,7 +1195,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     if (event.type === 'index-refreshed') {
       const currentUserId = getCurrentUserId()
       if (event.userId === currentUserId) {
-        console.info('[ChatSession] Cross-window index-refreshed, reloading index')
+        debug('[ChatSession] Cross-window index-refreshed, reloading index')
         // NOTICE: We intentionally do NOT call ensureActiveSessionForCharacter() here.
         // That function calls refreshActiveSystemMessage() which broadcasts session-updated →
         // session-refreshed → index-refreshed, creating an infinite feedback loop on idle.
@@ -1205,7 +1206,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
             const characterId = getCurrentCharacterId()
             const characterIndex = getCharacterIndex(characterId)
             if (characterIndex && characterIndex.activeSessionId && characterIndex.activeSessionId !== activeSessionId.value) {
-              console.info('[ChatSession] Syncing activeSessionId in secondary window to match index', {
+              debug('[ChatSession] Syncing activeSessionId in secondary window to match index', {
                 from: activeSessionId.value,
                 to: characterIndex.activeSessionId,
               })
@@ -1218,7 +1219,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     }
     if (event.type === 'session-deleted') {
       const { sessionId } = event
-      console.info('[ChatSession] Cross-window session-deleted, clearing session from memory', { sessionId })
+      debug('[ChatSession] Cross-window session-deleted, clearing session from memory', { sessionId })
       delete sessionMessages.value[sessionId]
       delete sessionMetas.value[sessionId]
       delete sessionGenerations.value[sessionId]
@@ -1235,7 +1236,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const current = sessionMessages.value[sessionId] ?? []
     const existingIndex = message.id ? current.findIndex(m => m.id === message.id) : -1
     if (existingIndex !== -1) {
-      console.log(`[ChatStore] Cross-window session-updated UPDATING existing message:`, {
+      debug(`[ChatStore] Cross-window session-updated UPDATING existing message:`, {
         id: message.id,
         role: message.role,
         contentPreview: typeof message.content === 'string' ? message.content.slice(0, 60) : '[Complex Content]',
@@ -1245,7 +1246,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     }
 
-    console.log(`[ChatStore] Cross-window session-updated ADDING message:`, {
+    debug(`[ChatStore] Cross-window session-updated ADDING message:`, {
       id: message.id,
       role: message.role,
       createdAt: message.createdAt,
@@ -1253,11 +1254,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       source: (message as any).metadata?.source ?? 'unknown',
       metadata: (message as any).metadata,
     })
-    console.log(`[IngestDebug] Cross-window ADDING message payload stringified:`, JSON.stringify(message))
+    debug(`[IngestDebug] Cross-window ADDING message payload stringified:`, JSON.stringify(message))
 
     const nextMessages = [...current, message]
     sessionMessages.value[sessionId] = nextMessages
-    console.log(`[IngestDebug] Updated sessionMessages in memory. Count is now: ${sessionMessages.value[sessionId].length}`)
+    debug(`[IngestDebug] Updated sessionMessages in memory. Count is now: ${sessionMessages.value[sessionId].length}`)
 
     // Reactively update local metadata count and timestamp in other windows
     const meta = sessionMetas.value[sessionId]
@@ -1274,7 +1275,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   })
   async function smartHealCharacter(characterId: string, sessionId: string) {
     const currentUserId = getCurrentUserId()
-    console.info(`[SmartHeal] Starting heuristic healing for character: ${characterId} with session: ${sessionId}`)
+    debug(`[SmartHeal] Starting heuristic healing for character: ${characterId} with session: ${sessionId}`)
 
     // 1. Text Journal (LTMM)
     try {
@@ -1290,7 +1291,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (ltmmChanged) {
         const textJournalStore = useTextJournalStore()
         await textJournalStore.persist(nextLtmm)
-        console.info(`[SmartHeal] Updated Text Journal entries for ${characterId}`)
+        debug(`[SmartHeal] Updated Text Journal entries for ${characterId}`)
       }
     }
     catch (e) {
@@ -1311,7 +1312,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (stmmChanged) {
         const shortTermMemoryStore = useShortTermMemoryStore()
         await shortTermMemoryStore.persist(nextStmm)
-        console.info(`[SmartHeal] Updated STMM blocks for ${characterId}`)
+        debug(`[SmartHeal] Updated STMM blocks for ${characterId}`)
       }
     }
     catch (e) {
@@ -1332,7 +1333,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       if (echoesChanged) {
         const echoesStore = useEchoesStore()
         await echoesStore.persist(nextEchoes)
-        console.info(`[SmartHeal] Updated Echo Chips for ${characterId}`)
+        debug(`[SmartHeal] Updated Echo Chips for ${characterId}`)
       }
     }
     catch (e) {
@@ -1349,7 +1350,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
           await lf.setItem(key, updated)
         }
       })
-      console.info(`[SmartHeal] Finished background check for ${characterId}`)
+      debug(`[SmartHeal] Finished background check for ${characterId}`)
       const backgroundStore = useBackgroundStore()
       await backgroundStore.initializeStore()
     }
@@ -1360,7 +1361,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
   async function migrateSessionUniverse(sessionId: string, newUniverseId: string) {
     const currentUserId = getCurrentUserId()
-    console.info(`[MigrationResolver] Migrating sessionId ${sessionId} to universe: ${newUniverseId}`)
+    debug(`[MigrationResolver] Migrating sessionId ${sessionId} to universe: ${newUniverseId}`)
 
     // 1. Update Chat Session Meta
     const meta = sessionMetas.value[sessionId]
@@ -1466,7 +1467,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     // Broadcast update so other windows reload
     broadcastStreamEvent({ type: 'session-refreshed', sessionId })
-    console.info(`[MigrationResolver] Completed migration for sessionId ${sessionId} to ${newUniverseId}`)
+    debug(`[MigrationResolver] Completed migration for sessionId ${sessionId} to ${newUniverseId}`)
   }
 
   return {

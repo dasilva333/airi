@@ -306,13 +306,23 @@ async function playRehearsal() {
     const text = playgroundText.value.trim()
     console.info('[Rehearsal Playback] Streaming via Chat Orchestrator hooks:', text)
 
+    const actorId = selectedModel.value?.key
     const dummyContext = {
       assistantMessageId: `rehearsal-${Date.now()}`,
       assistantMessageCreatedAt: Date.now(),
+      characterId: activeCardId.value,
+      actorId,
     }
 
     // Start of response
     await orchestrator.emitBeforeSendHooks('', dummyContext as any)
+
+    // Prepend ACTOR tag if a specific actress/concept is selected on set
+    if (selectedModel.value && !selectedModel.value.isFallback && actorId) {
+      const actorToken = `<|ACTOR:${actorId}|>`
+      console.info('[Rehearsal Playback] Emitting Selected Actor Tag:', actorToken)
+      await orchestrator.emitTokenSpecialHooks(actorToken, dummyContext as any)
+    }
 
     // Split content into markers and text segments
     const parts = text.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)

@@ -20,18 +20,18 @@ export function useIdleAnimations() {
 
     if (format.includes('live2d') || format.includes('spine')) {
       const motions = model.motions || []
-      return motions.map(m => m.split('/').pop() || m).sort((a, b) => a.localeCompare(b))
+      return motions.map(m => m.split('/').pop() || m).sort((a, b) => (a || '').localeCompare(b || ''))
     }
 
     if (format.includes('vrm')) {
       const options = customVrmAnimationsStore.animationOptions || []
-      return options.map(opt => opt.value).sort((a, b) => a.localeCompare(b))
+      return options.map(opt => opt.value).sort((a, b) => (a || '').localeCompare(b || ''))
     }
 
     if (format.includes('pmx') || format.includes('pmd') || format.includes('mmd')) {
       const builtIn = mmdStore.availableMotions || []
-      const custom = (mmdStore.customMotions || []).map((m: any) => m.name)
-      return [...builtIn, ...custom].sort((a, b) => a.label.localeCompare(b.label))
+      const custom = (mmdStore.customMotions || []).map((m: any) => m.name || m.id)
+      return [...builtIn, ...custom].sort((a, b) => (a || '').localeCompare(b || ''))
     }
 
     return model.motions || []

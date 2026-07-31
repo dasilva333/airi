@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type { DisplayModel } from '@proj-airi/stage-ui/stores/display-models'
 
+import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { ModelSelectorDialog } from '@proj-airi/stage-ui/components/scenarios/dialogs/model-selector'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { Select } from '@proj-airi/ui/components/form'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-defineProps<{
+import VoiceCreatorModal from '../VoiceCreatorModal.vue'
+
+const props = defineProps<{
   consciousnessProviderOptions: { value: string, label: string }[]
   consciousnessModelOptions: { value: string, label: string }[]
   speechProviderOptions: { value: string, label: string }[]
@@ -34,7 +38,10 @@ const selectedActiveBackgroundId = defineModel<string>('selectedActiveBackground
 
 const { t } = useI18n()
 const displayModelsStore = useDisplayModelsStore()
+const speechStore = useSpeechStore()
+
 const modelSelectorOpen = ref(false)
+const showVoiceCreator = ref(false)
 
 const selectedModel = computed<DisplayModel | undefined>(() => {
   return displayModelsStore.displayModels.find(m => m.id === selectedDisplayModelId.value)
@@ -54,6 +61,27 @@ const formatLabel = computed(() => {
     return 'MMD'
   return selectedModel.value.format.toUpperCase()
 })
+
+const activeVoiceDisplay = computed(() => {
+  if (!selectedSpeechVoiceId.value)
+    return 'Default Voice'
+
+  const profile = speechStore.savedVoiceProfiles.find(p => p.id === selectedSpeechVoiceId.value)
+  if (profile)
+    return profile.name
+
+  const opt = props.speechVoiceOptions?.find(v => v.value === selectedSpeechVoiceId.value)
+  if (opt)
+    return opt.label
+
+  return selectedSpeechVoiceId.value
+})
+
+function handleSaveVoice(payload: { baseProvider: string, baseModel: string, baseVoice: string }) {
+  selectedSpeechProvider.value = payload.baseProvider
+  selectedSpeechModel.value = payload.baseModel
+  selectedSpeechVoiceId.value = payload.baseVoice
+}
 </script>
 
 <template>
@@ -63,93 +91,45 @@ const formatLabel = computed(() => {
     </p>
 
     <div :class="['grid', 'grid-cols-1', 'sm:grid-cols-2', 'gap-4', 'ml-auto', 'mr-auto', 'w-90%']">
+      <!-- Row 1 Left: Consciousness (LLM) -->
       <div :class="['flex', 'flex-col', 'gap-2']">
         <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
           <div i-lucide:brain />
-          {{ t('settings.pages.card.chat.provider') }}
+          Consciousness (LLM)
         </label>
-        <Select
-          v-model="selectedConsciousnessProvider"
-          :options="consciousnessProviderOptions"
-          :placeholder="consciousnessProviderPlaceholder"
+        <BrainModelPicker
+          v-model:provider="selectedConsciousnessProvider"
+          v-model:model="selectedConsciousnessModel"
+          variant="button"
+          title="Select Consciousness LLM"
+          side="bottom"
           class="w-full"
         />
       </div>
 
-      <div :class="['flex', 'flex-col', 'gap-2']">
-        <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
-          <div i-lucide:ghost />
-          {{ t('settings.pages.card.consciousness.model') }}
-        </label>
-        <Select
-          v-if="consciousnessModelOptions && consciousnessModelOptions.length > 0"
-          v-slot
-          v-model="selectedConsciousnessModel"
-          :options="consciousnessModelOptions"
-          :placeholder="defaultConsciousnessModelPlaceholder"
-          :disabled="!selectedConsciousnessProvider && !consciousnessProviderActive"
-          class="w-full"
-        />
-        <input
-          v-else
-          v-model="selectedConsciousnessModel"
-          type="text"
-          :disabled="!selectedConsciousnessProvider && !consciousnessProviderActive"
-          class="w-full border border-neutral-200 rounded-lg border-solid bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-800 shadow-sm outline-none dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-950 focus:bg-neutral-50 dark:text-neutral-200 dark:focus:border-primary-400/50 dark:focus:bg-neutral-900"
-          :placeholder="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.manual_model_placeholder')"
-        >
-      </div>
-
-      <div :class="['flex', 'flex-col', 'gap-2']">
-        <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
-          <div i-lucide:radio />
-          {{ t('settings.pages.card.speech.provider') }}
-        </label>
-        <Select
-          v-model="selectedSpeechProvider"
-          :options="speechProviderOptions"
-          :placeholder="speechProviderPlaceholder"
-          class="w-full"
-        />
-      </div>
-
-      <div :class="['flex', 'flex-col', 'gap-2']">
-        <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
-          <div i-lucide:mic />
-          {{ t('settings.pages.card.speech.model') }}
-        </label>
-        <Select
-          v-model="selectedSpeechModel"
-          :options="speechModelOptions"
-          :placeholder="defaultSpeechModelPlaceholder"
-          :disabled="!selectedSpeechProvider && !speechProviderActive"
-          class="w-full"
-        />
-      </div>
-
+      <!-- Row 1 Right: Voice / Speech Button -->
       <div :class="['flex', 'flex-col', 'gap-2']">
         <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
           <div i-lucide:music />
-          {{ t('settings.pages.card.speech.voice') }}
+          Voice / Speech
         </label>
-        <Select
-          v-if="speechVoiceOptions && speechVoiceOptions.length > 0"
-          v-model="selectedSpeechVoiceId"
-          :options="speechVoiceOptions"
-          :placeholder="defaultSpeechVoiceIdPlaceholder"
-          :disabled="!selectedSpeechProvider && !speechProviderActive"
-          class="w-full"
-        />
-        <input
-          v-else
-          v-model="selectedSpeechVoiceId"
-          type="text"
-          :disabled="!selectedSpeechProvider && !speechProviderActive"
-          class="w-full border border-neutral-200 rounded-lg border-solid bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-800 shadow-sm outline-none dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-950 focus:bg-neutral-50 dark:text-neutral-200 dark:focus:border-primary-400/50 dark:focus:bg-neutral-900"
-          :placeholder="t('settings.pages.modules.speech.sections.section.provider-voice-selection.custom_voice_placeholder')"
+        <button
+          type="button"
+          class="h-9 w-full flex items-center justify-between border border-neutral-200 rounded-xl bg-white px-3 text-xs text-neutral-700 font-medium shadow-sm transition-all dark:border-neutral-800 hover:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-primary-800"
+          title="Configure Custom Voice"
+          @click="showVoiceCreator = true"
         >
+          <div class="flex items-center gap-2 overflow-hidden pr-2">
+            <div class="i-solar:music-notes-bold-duotone shrink-0 text-sm text-primary-500" />
+            <span class="truncate text-[11px] font-mono">
+              {{ activeVoiceDisplay }}
+            </span>
+          </div>
+          <div class="i-solar:pen-bold-duotone ml-1 shrink-0 text-xs text-neutral-400" />
+        </button>
       </div>
 
+      <!-- Row 2: Models / Avatar (Span 2) -->
       <div :class="['flex', 'flex-col', 'gap-2', 'sm:col-span-2']">
         <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
           <div i-solar:user-circle-bold-duotone />
@@ -209,6 +189,7 @@ const formatLabel = computed(() => {
         />
       </div>
 
+      <!-- Row 3: Preferred Background (Span 2) -->
       <div :class="['flex', 'flex-col', 'gap-2', 'sm:col-span-2']">
         <label :class="['flex', 'flex-row', 'items-center', 'gap-2', 'text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
           <div i-solar:gallery-bold-duotone />
@@ -222,5 +203,11 @@ const formatLabel = computed(() => {
         />
       </div>
     </div>
+
+    <!-- Voice Creator Modal -->
+    <VoiceCreatorModal
+      v-model="showVoiceCreator"
+      @save="handleSaveVoice"
+    />
   </div>
 </template>

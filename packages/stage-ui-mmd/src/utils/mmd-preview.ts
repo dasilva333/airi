@@ -37,7 +37,7 @@ function disposeObject(root: Object3D) {
  * preview generation cheap and avoids loading the WASM physics binary just to
  * import a model.
  */
-export async function loadMMDModelPreview(file: File, _textureFiles?: any): Promise<string | undefined> {
+export async function loadMMDModelPreview(file: File, textureFiles?: { relativePath: string, file: File }[]): Promise<string | undefined> {
   const canvas = document.createElement('canvas')
   canvas.width = 1440
   canvas.height = 2560
@@ -55,11 +55,32 @@ export async function loadMMDModelPreview(file: File, _textureFiles?: any): Prom
   scene.add(directional)
 
   const objectUrl = URL.createObjectURL(file)
+  const textureBlobUrls: string[] = []
+  const textureUrlMap = new Map<string, string>()
+
+  if (textureFiles && Array.isArray(textureFiles)) {
+    for (const tf of textureFiles) {
+      if (tf.relativePath && tf.file) {
+        const blobUrl = URL.createObjectURL(tf.file)
+        textureBlobUrls.push(blobUrl)
+        const baseName = tf.relativePath.split(/[/\\]/).pop() || tf.relativePath
+        textureUrlMap.set(baseName.toLowerCase(), blobUrl)
+        textureUrlMap.set(tf.relativePath.toLowerCase(), blobUrl)
+      }
+    }
+  }
+
   let resolved: Awaited<ReturnType<typeof loadMMDModelFromSource>> | undefined
   let group: Group | undefined
 
   try {
-    resolved = await loadMMDModelFromSource(objectUrl, { waitForTextures: true })
+    resolved = await loadMMDModelFromSource(objectUrl, {
+      waitForTextures: true,
+      urlModifier: (url: string) => {
+        const normalized = url.split(/[/\\]/).pop()?.toLowerCase() || url.toLowerCase()
+        return textureUrlMap.get(normalized) || textureUrlMap.get(url.toLowerCase()) || url
+      },
+    })
     group = new Group()
     group.add(resolved.mesh)
     scene.add(group)
@@ -92,6 +113,9 @@ export async function loadMMDModelPreview(file: File, _textureFiles?: any): Prom
     renderer.dispose()
     renderer.forceContextLoss()
     URL.revokeObjectURL(objectUrl)
+    for (const bUrl of textureBlobUrls) {
+      URL.revokeObjectURL(bUrl)
+    }
     canvas.width = 0
     canvas.height = 0
   }

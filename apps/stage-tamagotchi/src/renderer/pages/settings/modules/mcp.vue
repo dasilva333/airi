@@ -191,12 +191,25 @@ const fetchRegistry = useDebounceFn(async (query: string) => {
   try {
     const url = new URL('https://api.pulsemcp.com/v0beta/servers')
     url.searchParams.set('count_per_page', '30')
-    if (query)
-      url.searchParams.set('query', query)
+    const trimmedQuery = query.trim()
+    if (trimmedQuery)
+      url.searchParams.set('query', trimmedQuery)
 
     const response = await fetch(url.toString())
     const data = await response.json()
-    registryServers.value = data.servers || []
+    let servers: RegistryServer[] = data.servers || []
+    if (trimmedQuery) {
+      const lower = trimmedQuery.toLowerCase()
+      const matches = servers.filter(s =>
+        s.name?.toLowerCase().includes(lower)
+        || s.short_description?.toLowerCase().includes(lower)
+        || s.package_name?.toLowerCase().includes(lower),
+      )
+      if (matches.length > 0) {
+        servers = matches
+      }
+    }
+    registryServers.value = servers
   }
   catch (error) {
     registryError.value = 'Failed to load registry.'
@@ -478,6 +491,10 @@ onMounted(async () => {
 
     <!-- Discover Tab -->
     <div v-else v-motion-fade class="flex flex-col gap-6">
+      <p class="text-xs text-neutral-500">
+        Discover third-party plugins created by the community to expand AIRI's capabilities.
+      </p>
+
       <!-- Search Box -->
       <div class="group relative">
         <div class="absolute left-4 top-1/2 text-neutral-400 transition-colors transition-colors duration-300 -translate-y-1/2 group-focus-within:text-emerald-500">

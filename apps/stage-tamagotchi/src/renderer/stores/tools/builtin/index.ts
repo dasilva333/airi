@@ -1,5 +1,6 @@
 import type { Tool } from '@xsai/shared-chat'
 
+import { debug } from '@proj-airi/stage-shared'
 import { tryGetMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useStickersStore } from '@proj-airi/stage-ui/stores/stickers'
@@ -23,11 +24,11 @@ export async function builtinTools(): Promise<Tool[]> {
       hasMcpServers = mcpStatus.servers.length > 0
     }
     catch (err) {
-      console.warn('[builtinTools] 🔌 Failed to fetch MCP status, skipping MCP tools:', err)
+      debug('[builtinTools] 🔌 Failed to fetch MCP status, skipping MCP tools:', err)
     }
   }
   else {
-    console.warn('[builtinTools] 🔌 MCP bridge not found, skipping MCP tools.')
+    debug('[builtinTools] 🔌 MCP bridge not found, skipping MCP tools.')
   }
 
   const toolPromises: Promise<Tool[]>[] = []
@@ -38,25 +39,25 @@ export async function builtinTools(): Promise<Tool[]> {
 
   // Artistry suite
   if (artistry.configured) {
-    console.log('[builtinTools] 🎨 Artistry configured, keeping image journal (widgets/stage_widgets deprecated).')
+    debug('[builtinTools] 🎨 Artistry configured, keeping image journal (widgets/stage_widgets deprecated).')
     toolPromises.push(imageJournalTools())
   }
 
   // Stickers library
   if (stickers.currentLibrary.length > 0) {
-    console.log(`[builtinTools] ✨ Stickers library found (${stickers.currentLibrary.length}), enabling stickers tool.`)
+    debug(`[builtinTools] ✨ Stickers library found (${stickers.currentLibrary.length}), enabling stickers tool.`)
     toolPromises.push(Promise.resolve(stickersTools()))
   }
 
   // MCP Servers
   if (hasMcpServers) {
-    console.log('[builtinTools] 🔌 MCP Servers found, enabling mcp tools.')
+    debug('[builtinTools] 🔌 MCP Servers found, enabling mcp tools.')
     toolPromises.push(mcpTools())
   }
 
   const groups = await Promise.all(toolPromises)
   const flattened = groups.flat()
 
-  console.log(`[builtinTools] 🛠️ Total tools registered: ${flattened.length}`)
+  debug(`[builtinTools] 🛠️ Total tools registered: ${flattened.length}`)
   return flattened
 }

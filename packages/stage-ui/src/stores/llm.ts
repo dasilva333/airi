@@ -1,6 +1,7 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, CompletionToolCall, Message, Tool } from '@xsai/shared-chat'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { generateText } from '@xsai/generate-text'
 import { listModels } from '@xsai/model'
@@ -296,7 +297,7 @@ function filterToolsByAllowedTools(tools: Tool[] | undefined): Tool[] | undefine
   const activeCard = cardStore.activeCard
   const allowedTools = activeCard?.extensions?.airi?.generation?.known?.allowedTools
 
-  console.log(`llmStore.filterTools | card="${activeCard?.name ?? 'none'}" generation.enabled=${String(activeCard?.extensions?.airi?.generation?.enabled)} allowedTools=${JSON.stringify(allowedTools ?? null)} inTools=[${tools.map((t: any) => t.function?.name || t.name).join(',')}]`)
+  debug(`llmStore.filterTools | card="${activeCard?.name ?? 'none'}" generation.enabled=${String(activeCard?.extensions?.airi?.generation?.enabled)} allowedTools=${JSON.stringify(allowedTools ?? null)} inTools=[${tools.map((t: any) => t.function?.name || t.name).join(',')}]`)
 
   // Default to allowing all tools except generate_vrma if allowedTools is not specifically set
   // (backward compatibility). generation.enabled is a separate flag for model/provider overrides.
@@ -346,15 +347,15 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
   const sanitizedTools = sanitizeTools(rawResolvedTools)
 
   if (sanitizedTools && sanitizedTools.length > 0) {
-    console.log('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
+    debug('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
   }
   const tools = filterToolsByAllowedTools(sanitizedTools)
 
   if (tools && tools.length > 0) {
-    console.log('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
+    debug('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
   }
   else {
-    console.log('Calling LLM with NO tools available')
+    debug('Calling LLM with NO tools available')
   }
 
   return new Promise<void>((resolve, reject) => {
@@ -460,15 +461,15 @@ async function generateFrom(model: string, chatProvider: ChatProvider, messages:
   const sanitizedTools = sanitizeTools(rawResolvedTools)
 
   if (sanitizedTools && sanitizedTools.length > 0) {
-    console.log('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
+    debug('[llmStore] Resolved system tools before filtering:', sanitizedTools.map((t: any) => t.function?.name || t.name))
   }
   const tools = filterToolsByAllowedTools(sanitizedTools)
 
   if (tools && tools.length > 0) {
-    console.log('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
+    debug('Calling LLM with tools', tools.map((t: any) => t.function?.name || t.name))
   }
   else {
-    console.log('Calling LLM with NO tools available')
+    debug('Calling LLM with NO tools available')
   }
 
   return await generateText({
@@ -562,7 +563,7 @@ export const useLLM = defineStore('llm', () => {
     }
     catch (err) {
       if (isToolRelatedError(err)) {
-        console.warn(`[llm] Auto-disabling tools for "${key}" due to tool-related error`)
+        debug(`[llm] Auto-disabling tools for "${key}" due to tool-related error`)
         toolsCompatibility.value[key] = false
       }
       throw err

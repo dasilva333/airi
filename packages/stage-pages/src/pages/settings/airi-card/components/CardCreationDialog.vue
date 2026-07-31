@@ -121,8 +121,8 @@ const selectedSpeechModel = ref<string>('')
 const selectedSpeechVoiceId = ref<string>('')
 const selectedDisplayModelId = ref<string>('')
 const selectedActiveBackgroundId = ref<string>('none')
-const cognitivePipelineEnabled = ref(false)
-const firstHopProcessor = ref<CognitionProcessorId>('none')
+const cognitivePipelineEnabled = ref<boolean>(false)
+const firstHopProcessor = ref<'none' | 'local_nan0'>('none')
 const selectedFirstHopProvider = ref<string>('')
 const selectedFirstHopModel = ref<string>('')
 const selectedArtistryProvider = ref<string>('')
@@ -135,6 +135,9 @@ const selectedArtistryAutonomousTarget = ref<'user' | 'assistant'>('assistant')
 const selectedArtistryAutonomousMonitorEnabled = ref<boolean>(true)
 const selectedArtistryAutonomousMonitorDiscordEnabled = ref<boolean>(false)
 const selectedArtistryAutonomousHistoryDepth = ref<number>(3)
+const selectedArtistryAutonomousModelMode = ref<'inherit' | 'custom'>('inherit')
+const selectedArtistryAutonomousProvider = ref<string>('')
+const selectedArtistryAutonomousModel = ref<string>('')
 const selectedArtistrySpawnMode = ref<'bg' | 'widget' | 'inline' | 'bg_widget'>('bg')
 const selectedArtistryConfigStr = ref<string>('{\n  \n}')
 const generationEnabled = ref<boolean>(false)
@@ -392,56 +395,14 @@ const sceneOptions = computed(() => {
   ]
 })
 
-const actingModelExpressionOptions = computed(() => {
-  if (isLive2d.value) {
-    const exps = live2dExpressions.value.map(e => e.name)
-    const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    const motionMappings = activeModel?.motionMappings || {}
-    const hiddenMotions = activeModel?.hiddenMotions || []
-
-    const mappedMotions: string[] = []
-    const unmappedMotions: string[] = []
-
-    const normalize = (s: string) =>
-      s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
-
-    live2dStore.availableMotions.forEach((m) => {
-      if (hiddenMotions.includes(m.fileName))
-        return
-
-      const name = m.fileName.split('/').pop() || m.fileName
-      const cleanName = name.replace('.motion3.json', '').replace('.json', '')
-
-      const mNorm = normalize(m.fileName)
-      let mappedName
-      for (const [mapKey, val] of Object.entries(motionMappings)) {
-        if (normalize(mapKey) === mNorm) {
-          mappedName = val as string
-          break
-        }
-      }
-
-      if (mappedName) {
-        mappedMotions.push(mappedName)
-      }
-      else {
-        unmappedMotions.push(cleanName)
-      }
-    })
-
-    mappedMotions.sort((a, b) => a.localeCompare(b))
-    unmappedMotions.sort((a, b) => a.localeCompare(b))
-
-    if (mappedMotions.length > 0) {
-      return [...new Set([...exps, ...mappedMotions])]
-    }
-    else {
-      return [...new Set([...exps, ...unmappedMotions])]
-    }
+const actingModelEmotionOptions = computed(() => {
+  const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
+  const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
+  if (activeModel?.expressions && activeModel.expressions.length > 0) {
+    return activeModel.expressions
   }
-  if (isSpine.value) {
-    return spineAnimations.value.map(a => a.name).sort((a, b) => a.localeCompare(b))
+  if (isLive2d.value) {
+    return live2dExpressions.value.map(e => e.name).sort((a, b) => a.localeCompare(b))
   }
   if (isMmd.value) {
     const mappings = mmdStore.morphMappings || {}
@@ -470,9 +431,7 @@ const actingModelExpressionOptions = computed(() => {
       return [...new Set(unmapped)].sort((a, b) => a.localeCompare(b))
     }
   }
-  const modelExps = [...availableExpressions.value]
-  const vrmaExps = Object.keys(animations)
-  return [...new Set([...modelExps, ...vrmaExps])].sort((a, b) => a.localeCompare(b))
+  return [...availableExpressions.value].sort((a, b) => a.localeCompare(b))
 })
 
 const actingIdleAnimationOptions = computed(() => {
@@ -533,6 +492,10 @@ const actingIdleAnimationOptions = computed(() => {
   return animationOptions.value
 })
 
+const actingModelMotionOptions = computed(() => {
+  return actingIdleAnimationOptions.value.map(opt => opt.value)
+})
+
 function isVrmaExpression(name: string) {
   return name in animations
 }
@@ -581,49 +544,12 @@ function appendUniqueLine(target: typeof selectedActingModelExpressionPrompt, li
   target.value = `${target.value}${suffix}${line}\n`
 }
 
-function insertModelExpression(name: string) {
-  if (isLive2d.value) {
-    const isExpression = live2dExpressions.value.some(e => e.name === name)
-    const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    const motionMappings = activeModel?.motionMappings || {}
-    const normalize = (s: string) =>
-      s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
+function insertModelEmotion(name: string) {
+  appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:emotion="${name}"|>`)
+}
 
-    const normName = normalize(name)
-    const isMotion = live2dStore.availableMotions.some((m) => {
-      const displayName = m.fileName.split('/').pop() || m.fileName
-      const cleanName = displayName.replace('.motion3.json', '').replace('.json', '')
-
-      const mNorm = normalize(m.fileName)
-      let mappedName
-      for (const [mapKey, val] of Object.entries(motionMappings)) {
-        if (normalize(mapKey) === mNorm) {
-          mappedName = val as string
-          break
-        }
-      }
-
-      const normDisplay = normalize(displayName)
-      const normClean = normalize(cleanName)
-      const normMapped = mappedName ? normalize(mappedName) : undefined
-
-      return normDisplay === normName || normClean === normName || normMapped === normName
-    })
-
-    if (isExpression) {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:emotion:"${name}"|>`)
-    }
-    else if (isMotion) {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion:"${name}"|>`)
-    }
-    else {
-      appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
-    }
-  }
-  else {
-    appendUniqueLine(selectedActingModelExpressionPrompt, `- \`${name}\``)
-  }
+function insertModelMotion(name: string) {
+  appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion="${name}"|>`)
 }
 
 function insertSpeechTag(tag: string, description?: string) {
@@ -730,7 +656,7 @@ const tabs: Tab[] = [
   { id: 'artistry', label: t('settings.pages.modules.artistry.title'), icon: 'i-solar:gallery-bold-duotone' },
   { id: 'proactivity', label: t('settings.pages.card.creation.proactivity', 'Proactivity'), icon: 'i-solar:heart-pulse-bold-duotone' },
   { id: 'tools', label: 'Tools', icon: 'i-solar:widget-bold-duotone' },
-  { id: 'cognition', label: t('settings.pages.card.creation.cognition.title'), icon: 'i-solar:cpu-bolt-bold-duotone' },
+  { id: 'cognition', label: 'Cognition', icon: 'i-solar:cpu-bolt-bold-duotone' },
 ]
 
 // Active tab state - set to first available tab by default
@@ -849,7 +775,6 @@ async function saveCard(card: Card): Promise<boolean> {
             model: selectedConsciousnessModel.value || defaultConsciousnessModel.value,
           },
           cognition: {
-            schemaVersion: NAN0_COGNITION_SCHEMA_VERSION,
             enabled: cognitivePipelineEnabled.value,
             processor: firstHopProcessor.value,
             provider: selectedFirstHopProvider.value || consciousnessProvider.value,
@@ -946,6 +871,9 @@ async function saveCard(card: Card): Promise<boolean> {
     autonomousMonitorEnabled: selectedArtistryAutonomousMonitorEnabled.value,
     autonomousMonitorDiscordEnabled: selectedArtistryAutonomousMonitorDiscordEnabled.value,
     autonomousHistoryDepth: selectedArtistryAutonomousHistoryDepth.value,
+    autonomousModelMode: selectedArtistryAutonomousModelMode.value,
+    autonomousProvider: selectedArtistryAutonomousProvider.value,
+    autonomousModel: selectedArtistryAutonomousModel.value,
     options: artistryConfig,
     injectArtistryContext: selectedInjectArtistryContext.value,
     artistryIntrusionPrompt: selectedArtistryIntrusionPrompt.value,
@@ -987,10 +915,10 @@ function initializeCard(): Card {
   selectedDisplayModelId.value = airiExt?.modules?.displayModelId || defaultDisplayModelId.value
   const activeBg = airiExt?.modules?.activeBackgroundId || (airiExt?.modules as any)?.preferredBackgroundId
   selectedActiveBackgroundId.value = !activeBg ? 'none' : activeBg
-  cognitivePipelineEnabled.value = airiExt?.modules?.cognition?.enabled ?? false
-  firstHopProcessor.value = airiExt?.modules?.cognition?.processor ?? 'none'
-  selectedFirstHopProvider.value = airiExt?.modules?.cognition?.provider || consciousnessProvider.value
-  selectedFirstHopModel.value = airiExt?.modules?.cognition?.model || ''
+  cognitivePipelineEnabled.value = (airiExt?.modules as any)?.cognition?.enabled ?? false
+  firstHopProcessor.value = (airiExt?.modules as any)?.cognition?.processor ?? 'none'
+  selectedFirstHopProvider.value = (airiExt?.modules as any)?.cognition?.provider || consciousnessProvider.value
+  selectedFirstHopModel.value = (airiExt?.modules as any)?.cognition?.model || ''
   selectedArtistryProvider.value = airiExt?.artistry?.provider || defaultArtistryProvider.value
   selectedArtistryModel.value = airiExt?.artistry?.model || ''
   selectedArtistryPromptPrefix.value = airiExt?.artistry?.promptPrefix || ''
@@ -1000,6 +928,9 @@ function initializeCard(): Card {
   selectedArtistryAutonomousMonitorEnabled.value = airiExt?.artistry?.autonomousMonitorEnabled ?? true
   selectedArtistryAutonomousMonitorDiscordEnabled.value = airiExt?.artistry?.autonomousMonitorDiscordEnabled ?? false
   selectedArtistryAutonomousHistoryDepth.value = airiExt?.artistry?.autonomousHistoryDepth ?? 3
+  selectedArtistryAutonomousModelMode.value = airiExt?.artistry?.autonomousModelMode ?? 'inherit'
+  selectedArtistryAutonomousProvider.value = airiExt?.artistry?.autonomousProvider || ''
+  selectedArtistryAutonomousModel.value = airiExt?.artistry?.autonomousModel || ''
   selectedArtistryAutonomousTarget.value = airiExt?.artistry?.autonomousTarget ?? 'assistant'
   selectedArtistrySpawnMode.value = airiExt?.artistry?.spawnMode ?? 'bg'
   generationEnabled.value = airiExt?.generation?.enabled ?? false
@@ -1209,7 +1140,7 @@ const generatorActingContext = computed(() => {
 
   return {
     isLive2d: isLive2d.value,
-    modelExpressions: actingModelExpressionOptions.value || [],
+    modelExpressions: [...(actingModelEmotionOptions.value || []), ...(actingModelMotionOptions.value || [])],
     speechTags: flatSpeechTags,
     speechProvider: selectedSpeechProvider.value || speechProvider.value || 'none',
   }
@@ -1389,14 +1320,16 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-acting-speech-mannerism-prompt="selectedActingSpeechMannerismPrompt"
             v-model:selected-acting-idle-animations="selectedActingIdleAnimations"
             :acting-idle-animation-options="actingIdleAnimationOptions"
-            :acting-model-expression-options="actingModelExpressionOptions"
+            :acting-model-emotion-options="actingModelEmotionOptions"
+            :acting-model-motion-options="actingModelMotionOptions"
             :acting-grouped-expression-tags="actingGroupedExpressionTags"
             :acting-mannerism-options="actingMannerismOptions"
             :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
             :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
             :is-live2d="isLive2d"
             :is-vrma-expression="isVrmaExpression"
-            :insert-model-expression="insertModelExpression"
+            :insert-model-emotion="insertModelEmotion"
+            :insert-model-motion="insertModelMotion"
             :insert-speech-tag="insertSpeechTag"
             :insert-speech-mannerism="insertSpeechMannerism"
             @sparkle-click="openSparkleGenerator"
@@ -1453,6 +1386,9 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-artistry-autonomous-monitor-enabled="selectedArtistryAutonomousMonitorEnabled"
             v-model:selected-artistry-autonomous-monitor-discord-enabled="selectedArtistryAutonomousMonitorDiscordEnabled"
             v-model:selected-artistry-autonomous-history-depth="selectedArtistryAutonomousHistoryDepth"
+            v-model:selected-artistry-autonomous-model-mode="selectedArtistryAutonomousModelMode"
+            v-model:selected-artistry-autonomous-provider="selectedArtistryAutonomousProvider"
+            v-model:selected-artistry-autonomous-model="selectedArtistryAutonomousModel"
             v-model:selected-artistry-autonomous-target="selectedArtistryAutonomousTarget"
             v-model:selected-artistry-spawn-mode="selectedArtistrySpawnMode"
             v-model:selected-artistry-config-str="selectedArtistryConfigStr"
@@ -1492,6 +1428,7 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-dream-intrusion-prompt="selectedDreamIntrusionPrompt"
             v-model:selected-journal-intrusion-prompt="selectedJournalIntrusionPrompt"
             v-model:selected-artistry-intrusion-prompt="selectedArtistryIntrusionPrompt"
+            :dream-state-enabled="dreamStateEnabled"
           />
           <div class="ml-auto mr-1 flex flex-row gap-2">
             <Button

@@ -212,7 +212,7 @@ defineStreamInvokeHandler(context, whisperLoadEvent, toStreamHandler<LoadModelRe
         kind: 'progress',
         payload: {
           phase: 'download',
-          percent: x.progress != null ? Math.round(x.progress * 100) : -1,
+          percent: x.progress != null ? Math.round(x.progress) : -1,
           file: x.file,
           loaded: x.loaded,
           total: x.total,

@@ -344,11 +344,10 @@ async function toggleConcept(conceptId: string) {
 
             <!-- Right Column: Content Details -->
             <div class="min-w-0 flex flex-1 flex-col justify-between">
-              <div class="mb-1 flex items-center justify-between gap-2">
-                <div class="min-w-0 flex items-center gap-1.5">
-                  <span class="truncate text-xs text-neutral-700 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500" :title="String(id)">
-                    {{ id }}
-                  </span>
+              <!-- Top Row: Consolidated Badges, Icons, and Buttons (Static) -->
+              <div class="mb-1.5 flex items-center justify-between gap-2 border-b border-neutral-100/50 pb-1 dark:border-neutral-700/30">
+                <!-- Badges & Support Icons -->
+                <div class="flex items-center gap-1.5">
                   <span
                     v-if="asset.isBase"
                     :class="[
@@ -372,21 +371,28 @@ async function toggleConcept(conceptId: string) {
                     class="i-solar:volume-loud-outline shrink-0 text-sm text-neutral-300"
                   />
                 </div>
-                <div class="flex shrink-0 items-center gap-1.5">
+
+                <!-- Action Controls & Active Status -->
+                <div class="flex items-center gap-1.5">
                   <div v-if="activeConcepts.includes(id as string)" class="i-solar:check-circle-bold text-xs text-primary-500" />
                   <button
-                    class="rounded bg-neutral-100 p-1 text-neutral-400 opacity-0 transition-all dark:bg-neutral-800 hover:bg-primary-500 hover:text-white group-hover:opacity-100"
+                    class="rounded bg-neutral-100 p-1 text-neutral-400 transition-colors dark:bg-neutral-800 hover:bg-primary-500 hover:text-white"
                     @click.stop="handleEditConcept(id as string, asset)"
                   >
                     <div class="i-solar:pen-new-square-linear text-[10px]" />
                   </button>
                   <button
-                    class="rounded bg-neutral-100 p-1 text-neutral-400 opacity-0 transition-all dark:bg-neutral-800 hover:bg-red-500 hover:text-white group-hover:opacity-100"
+                    class="rounded bg-neutral-100 p-1 text-neutral-400 transition-colors dark:bg-neutral-800 hover:bg-red-500 hover:text-white"
                     @click.stop="handleDeleteConcept(id as string)"
                   >
                     <div class="i-solar:trash-bin-trash-linear text-[10px]" />
                   </button>
                 </div>
+              </div>
+
+              <!-- Second Row: Concept Name (Full Width, non-aggressive ellipsis) -->
+              <div class="line-clamp-1 mb-1 break-all text-xs text-neutral-700 font-bold transition-colors dark:text-neutral-200 group-hover:text-primary-500" :title="String(id)">
+                {{ id }}
               </div>
               <p class="line-clamp-2 text-[10px] text-neutral-500 leading-normal">
                 {{ asset.description }}

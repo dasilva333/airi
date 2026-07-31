@@ -3,14 +3,16 @@ import type { Card, ccv3 } from '@proj-airi/ccc'
 import type { AiriCognitionConfig } from '../nan0-config'
 import type { VoiceProfile } from '../providers'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
+import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { safeParse } from 'valibot'
-import { computed, ref, toRaw, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import {
@@ -188,6 +190,9 @@ export interface AiriExtension {
     autonomousMonitorEnabled?: boolean
     autonomousMonitorDiscordEnabled?: boolean
     autonomousHistoryDepth?: number
+    autonomousModelMode?: 'inherit' | 'custom'
+    autonomousProvider?: string
+    autonomousModel?: string
     injectArtistryContext?: boolean
     artistryIntrusionPrompt?: string
   }
@@ -286,7 +291,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         const existing = await storage.getItemRaw<[string, AiriCard][]>('local:airi-cards')
         if (!existing || !Array.isArray(existing) || existing.length === 0) {
           await storage.setItemRaw('local:airi-cards', entries)
-          console.log(`[AiriCard] Migrated ${entries.length} cards from localStorage → IndexedDB`)
+          debug(`[AiriCard] Migrated ${entries.length} cards from localStorage → IndexedDB`)
         }
       }
     }
@@ -299,155 +304,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
   }
 
-  async function migrateNan0Cognition() {
-    const legacyStatePresent = localStorage.getItem(NAN0_STATE_STORAGE_KEY) !== null
-    const nextCards = new Map(cards.value)
-    const migratedAt = Date.now()
-    let cardsModified = false
-
-    for (const [cardId, card] of nextCards) {
-      const extension = card.extensions?.airi
-      if (!extension?.modules)
-        continue
-
-      const migration = migrateNan0CognitionConfig({
-        config: extension.modules.cognition,
-        legacyStatePresent,
-        isActiveCard: cardId === activeCardId.value,
-        fallback: {
-          providerId: extension.modules.consciousness?.provider ?? '',
-          model: extension.modules.consciousness?.model ?? '',
-        },
-      })
-      if (!migration.changed)
-        continue
-
-      nextCards.set(cardId, {
-        ...card,
-        extensions: {
-          ...card.extensions,
-          airi: {
-            ...extension,
-            modules: {
-              ...extension.modules,
-              cognition: migration.config,
-            },
-          },
-        },
-        updatedAt: migratedAt,
-      })
-      cardsModified = true
-    }
-
-    if (!cardsModified)
-      return
-
-    // Persist the schema marker with the card itself. In-memory state is updated only
-    // after the write succeeds, so a failed/interrupted write retries on next load.
-    const cleanEntries = JSON.parse(JSON.stringify(Array.from(nextCards.entries())))
-    await storage.setItemRaw('local:airi-cards', cleanEntries)
-    cards.value = nextCards
-    broadcastCardsSync(migratedAt)
-    console.info('[AiriCard] Migrated Nan0 cognition configuration')
-  }
-
-  async function migrateCardMappingsToModel() {
-    try {
-      const displayModelsStore = useDisplayModelsStore()
-      await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-
-      let cardsModified = false
-      const nextCards = new Map(cards.value)
-
-      for (const [cardId, card] of nextCards.entries()) {
-        const modulesExt = (card.extensions?.airi?.modules as any) || {}
-        const displayModelId = modulesExt.displayModelId
-        if (!displayModelId)
-          continue
-
-        const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-        if (!model)
-          continue
-
-        const live2dExt = modulesExt.live2d || {}
-        const legacyEmotionMappings = live2dExt.emotionMappings || modulesExt.emotionMappings
-        const legacyMotionMappings = live2dExt.motionMappings || modulesExt.motionMappings
-        const legacyHiddenExpressions = modulesExt.hiddenExpressions
-        const legacyHiddenMotions = live2dExt.hiddenMotions || modulesExt.hiddenMotions
-        const legacyFavoriteExpressions = modulesExt.favoriteExpressions || (modulesExt.favoriteExpression ? [modulesExt.favoriteExpression] : undefined)
-
-        let modelModified = false
-        const rawModel = toRaw(model)
-        const updatedModel: any = {
-          ...rawModel,
-          file: 'file' in rawModel ? toRaw((rawModel as any).file) : undefined,
-          previewImage: rawModel.previewImage,
-          emotionMappings: rawModel.emotionMappings ? JSON.parse(JSON.stringify(toRaw(rawModel.emotionMappings))) : {},
-          motionMappings: rawModel.motionMappings ? JSON.parse(JSON.stringify(toRaw(rawModel.motionMappings))) : {},
-          hiddenExpressions: rawModel.hiddenExpressions ? JSON.parse(JSON.stringify(toRaw(rawModel.hiddenExpressions))) : [],
-          hiddenMotions: rawModel.hiddenMotions ? JSON.parse(JSON.stringify(toRaw(rawModel.hiddenMotions))) : [],
-          favoriteExpressions: rawModel.favoriteExpressions ? JSON.parse(JSON.stringify(toRaw(rawModel.favoriteExpressions))) : [],
-          groups: rawModel.groups ? JSON.parse(JSON.stringify(toRaw(rawModel.groups))) : [],
-          tags: rawModel.tags ? JSON.parse(JSON.stringify(toRaw(rawModel.tags))) : [],
-          expressions: rawModel.expressions ? JSON.parse(JSON.stringify(toRaw(rawModel.expressions))) : [],
-          motions: rawModel.motions ? JSON.parse(JSON.stringify(toRaw(rawModel.motions))) : [],
-        }
-
-        if (legacyEmotionMappings && Object.keys(legacyEmotionMappings).length > 0) {
-          updatedModel.emotionMappings = { ...updatedModel.emotionMappings, ...legacyEmotionMappings }
-          modelModified = true
-        }
-        if (legacyMotionMappings && Object.keys(legacyMotionMappings).length > 0) {
-          updatedModel.motionMappings = { ...updatedModel.motionMappings, ...legacyMotionMappings }
-          modelModified = true
-        }
-        if (legacyHiddenExpressions && legacyHiddenExpressions.length > 0) {
-          updatedModel.hiddenExpressions = Array.from(new Set([...(updatedModel.hiddenExpressions || []), ...legacyHiddenExpressions]))
-          modelModified = true
-        }
-        if (legacyHiddenMotions && legacyHiddenMotions.length > 0) {
-          updatedModel.hiddenMotions = Array.from(new Set([...(updatedModel.hiddenMotions || []), ...legacyHiddenMotions]))
-          modelModified = true
-        }
-        if (legacyFavoriteExpressions && legacyFavoriteExpressions.length > 0) {
-          updatedModel.favoriteExpressions = Array.from(new Set([...(updatedModel.favoriteExpressions || []), ...legacyFavoriteExpressions]))
-          modelModified = true
-        }
-
-        if (modelModified) {
-          console.info(`[AiriCard:Migration] Migrating mappings from card "${cardId}" to model "${displayModelId}"`)
-          const localforageModule = await import('localforage').then(m => m.default || m)
-          await localforageModule.setItem(displayModelId, updatedModel)
-
-          if (card.extensions?.airi?.modules) {
-            const mods = card.extensions.airi.modules as any
-            if (mods.live2d) {
-              delete mods.live2d.motionMappings
-              delete mods.live2d.hiddenMotions
-              delete mods.live2d.emotionMappings
-            }
-            delete mods.emotionMappings
-            delete mods.motionMappings
-            delete mods.hiddenExpressions
-            delete mods.hiddenMotions
-            delete mods.favoriteExpressions
-            delete mods.favoriteExpression
-          }
-          cardsModified = true
-        }
-      }
-
-      if (cardsModified) {
-        await persistCards(nextCards)
-        displayModelsStore.broadcastModelsSync(Date.now())
-        await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-      }
-    }
-    catch (e) {
-      console.error('[AiriCard] Migration of mappings failed:', e)
-    }
-  }
-
   async function loadCards(silent = false) {
     if (!silent)
       cardsLoading.value = true
@@ -457,8 +313,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       if (raw && Array.isArray(raw)) {
         cards.value = new Map(raw)
       }
-      await migrateNan0Cognition()
-      await migrateCardMappingsToModel()
     }
     catch (e) {
       console.error('[AiriCard] Failed to load cards from IndexedDB:', e)
@@ -473,7 +327,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   watch(cardsSyncSignal, (val) => {
     if (val) {
-      console.log('[AiriCard] Received cards sync signal, reloading from IndexedDB...')
+      debug('[AiriCard] Received cards sync signal, reloading from IndexedDB...')
       void loadCards(true)
     }
   })
@@ -499,7 +353,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     window.addEventListener('airi:idb-key-updated', (e: Event) => {
       const detail = (e as CustomEvent<{ key: string }>).detail
       if (detail?.key === 'local:airi-cards') {
-        console.log('[AiriCard] Detected sync update for local:airi-cards — reloading from IndexedDB')
+        debug('[AiriCard] Detected sync update for local:airi-cards — reloading from IndexedDB')
         void loadCards(true)
       }
     })
@@ -520,8 +374,8 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   watch(() => activeCard.value?.extensions?.airi?.active_concepts, (next, prev) => {
     if (JSON.stringify(next) !== JSON.stringify(prev)) {
       const topConceptId = next?.[next.length - 1]
-      console.log(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
-      console.log('[AiriCard Store] Concept Stack Watcher triggering syncCardState')
+      debug(`[AiriCard] Concept Stack changed. Top concept: "${topConceptId}". Syncing manifestation overrides...`, { stack: next })
+      debug('[AiriCard Store] Concept Stack Watcher triggering syncCardState')
       void syncCardState(activeCard.value, true)
     }
   }, { deep: true })
@@ -628,12 +482,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGrounding: card not found for id', id)
+      debug('[AiriCard] toggleGrounding: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingEnabled ?? false
-    console.log('[AiriCard] toggleGrounding:', { id, current, next: !current })
+    debug('[AiriCard] toggleGrounding:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -651,12 +505,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingMemory: card not found for id', id)
+      debug('[AiriCard] toggleGroundingMemory: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingMemoryEnabled ?? false
-    console.log('[AiriCard] toggleGroundingMemory:', { id, current, next: !current })
+    debug('[AiriCard] toggleGroundingMemory:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -677,13 +531,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingTopics: card not found for id', id)
+      debug('[AiriCard] toggleGroundingTopics: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingTopicsEnabled ?? false
     const next = !current
-    console.log('[AiriCard] toggleGroundingTopics:', { id, current, next })
+    debug('[AiriCard] toggleGroundingTopics:', { id, current, next })
 
     // First update the state so that the engine doesn't return early due to groundingTopicsEnabled being false
     await updateCard(id, {
@@ -715,12 +569,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     await until(cardsLoading).toBe(false)
     const card = cards.value.get(id)
     if (!card) {
-      console.warn('[AiriCard] toggleGroundingDirectorScratchpad: card not found for id', id)
+      debug('[AiriCard] toggleGroundingDirectorScratchpad: card not found for id', id)
       return
     }
 
     const current = card.extensions?.airi?.groundingDirectorScratchpadEnabled ?? false
-    console.log('[AiriCard] toggleGroundingDirectorScratchpad:', { id, current, next: !current })
+    debug('[AiriCard] toggleGroundingDirectorScratchpad:', { id, current, next: !current })
     updateCard(id, {
       extensions: {
         ...card.extensions,
@@ -773,7 +627,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!extension)
       return
 
-    console.log('[AiriCard Store] syncCardState executed. Force:', force, 'Resolved displayModelId:', extension.active_state?.displayModelId ?? extension.modules?.displayModelId)
+    debug('[AiriCard Store] syncCardState executed. Force:', force, 'Resolved displayModelId:', extension.active_state?.displayModelId ?? extension.modules?.displayModelId)
 
     // 1. Sync Consciousness with stability guards
     const nextConsciousnessProvider = extension.modules?.consciousness?.provider
@@ -797,13 +651,33 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           return
       }
 
-      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D)
+      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D/Spine)
       const nextExpressions = extension.active_state?.active_expressions || {}
       if (JSON.stringify(live2dStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         live2dStore.activeExpressions = { ...nextExpressions }
       }
       if (JSON.stringify(vrmStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         vrmStore.activeExpressions = { ...nextExpressions }
+      }
+
+      // Sync Spine variant and skin from active expressions
+      try {
+        const spineStore = useSpine()
+        const activeExprNames = Object.keys(nextExpressions).filter(k => nextExpressions[k] > 0)
+        for (const emotionName of activeExprNames) {
+          const match = emotionName.match(/^(.+?)\s*\[(.+?)\]$/)
+          if (match) {
+            const variant = match[1].trim()
+            const skin = match[2].trim()
+            spineStore.selectVariantAndSkin(variant, skin)
+          }
+          else if (spineStore.availableVariants.some(v => v.name === emotionName)) {
+            spineStore.selectVariantAndSkin(emotionName, 'default')
+          }
+        }
+      }
+      catch (e) {
+        // Spine store might not be loaded in non-stage contexts
       }
 
       // Surgical sync of Live2D parameters if they belong to the active model
@@ -1003,7 +877,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         const visualAssets = (existingExtension as any)?.visual_assets || {}
         const autonomousEnabled = existingExtension?.artistry?.autonomousEnabled ?? false
 
-        let foldedModelId = resolvedDisplayModelId
         let foldedBackgroundId = resolvedActiveBackgroundId
         const foldedExpressions: Record<string, number> = {}
 
@@ -1012,11 +885,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           const concept = visualAssets[conceptId]
           if (!concept)
             continue
-
-          // Model: last defined wins (exclusionary)
-          if (concept.manifestation?.modelId && concept.manifestation.modelId !== 'inherit') {
-            foldedModelId = concept.manifestation.modelId
-          }
 
           // Background: last defined wins, but ONLY when Director is OFF
           if (!autonomousEnabled && concept.manifestation?.backgroundId && concept.manifestation.backgroundId !== 'inherit') {
@@ -1031,7 +899,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         }
 
         return {
-          displayModelId: foldedModelId,
+          // NOTICE: The stage model is deliberately NOT folded from the concept stack.
+          // modules.displayModelId is the single source of truth, written explicitly by
+          // the actor pipeline (activateConcept), manual sync, or the Director (Base-
+          // sourced modelIds only). Folding the scene stack here re-derived an arbitrary
+          // actor's model whenever the Director reordered concepts mid-speech.
+          // See docs/fix-actor-stage-desync.md (Rail 2).
+          displayModelId: resolvedDisplayModelId,
           activeBackgroundId: foldedBackgroundId,
           active_expressions: foldedExpressions,
         }
@@ -1134,7 +1008,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   function newAiriCard(card: Card | ccv3.CharacterCardV3): AiriCard {
     const validation = safeParse(AiriCardSchema, card)
     if (!validation.success) {
-      console.warn('[AiriCard] Validation issues found during normalization:', validation.issues)
+      debug('[AiriCard] Validation issues found during normalization:', validation.issues)
     }
 
     const normalizeVersion = (version?: string | null) => {
@@ -1380,7 +1254,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   watch(activeCard, async (newCard: AiriCard | undefined) => {
-    console.log('[AiriCard Store] activeCard watcher triggered. Card Name:', newCard?.name, 'Active Concepts:', newCard?.extensions?.airi?.active_concepts)
+    debug('[AiriCard Store] activeCard watcher triggered. Card Name:', newCard?.name, 'Active Concepts:', newCard?.extensions?.airi?.active_concepts)
     await syncCardState(newCard)
   })
 

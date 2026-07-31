@@ -601,6 +601,17 @@ interface BackgroundEntry {
 
 There is also a second background store in `packages/stage-layouts/src/stores/background.ts` with key pattern `background-{id}` (`STORAGE_PREFIX = 'background-'`) for user-uploaded backgrounds.
 
+### 3.1.2 Custom Voice Profiles (MOSS TTS Nano Local)
+
+| Attribute | Value |
+| :--- | :--- |
+| **Store** | `packages/stage-ui/src/stores/providers.ts` |
+| **Databases** | `localforage.createInstance({ name: 'moss-voice-profiles-metadata' })`, `localforage.createInstance({ name: 'voice-profile-blobs' })` |
+| **Key Pattern** | `voice-profile-{timestamp}-{id}` |
+| **Type** | `{ id: string, name: string, createdAt: number, sourceFilename: string, sha256: string }` + `Blob` (audio/wav reference file) |
+| **Sync** | Via `reconcileVoiceProfiles()` — metadata JSON under `assets/voice-profiles/{id}.json`, raw audio under `assets/voice-profiles/{id}.wav` |
+| **Size** | Medium (reference audio blobs, ~800 KB each) |
+
 ### 3.2 Display Models (VRM / Live2D / Spine / MMD)
 
 | Attribute | Value |

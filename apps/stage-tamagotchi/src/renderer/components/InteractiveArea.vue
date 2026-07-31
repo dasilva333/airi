@@ -133,10 +133,10 @@ function handleImagineSubmit() {
 }
 
 const proactivityStore = useProactivityStore()
-const isGroundingPreviewExpanded = ref(false)
-const isMemoriesPreviewExpanded = ref(true)
-const isTopicsPreviewExpanded = ref(true)
-const isScratchpadPreviewExpanded = ref(true)
+const isGroundingPreviewExpanded = useLocalStorage('airi:chat:grounding-preview-expanded', false)
+const isMemoriesPreviewExpanded = useLocalStorage('airi:chat:memories-preview-expanded', true)
+const isTopicsPreviewExpanded = useLocalStorage('airi:chat:topics-preview-expanded', true)
+const isScratchpadPreviewExpanded = useLocalStorage('airi:chat:scratchpad-preview-expanded', true)
 const artistryStore = useAutonomousArtistryStore()
 
 const latestDirectorScratchpad = computed(() => {
@@ -1253,12 +1253,12 @@ defineExpose({
                     Suggest Mode
                   </div>
                   <button
-                    v-for="opt in [
+                    v-for="opt in ([
                       { label: 'Off', value: 'disabled' },
                       { label: 'Enter', value: 'enter' },
                       { label: 'Ctrl+Enter', value: 'ctrl-enter' },
                       { label: 'Double', value: 'double-enter' },
-                    ]"
+                    ] as const)"
                     :key="opt.value"
                     :class="[
                       'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',
@@ -1335,11 +1335,11 @@ defineExpose({
                 Send Key Mode
               </div>
               <button
-                v-for="opt in [
+                v-for="opt in ([
                   { label: 'Enter', value: 'enter' },
                   { label: 'Ctrl+Enter', value: 'ctrl-enter' },
                   { label: 'Double', value: 'double-enter' },
-                ]"
+                ] as const)"
                 :key="opt.value"
                 :class="[
                   'px-2 py-1 text-[10px] font-semibold rounded-lg transition-all text-left flex items-center justify-between w-full cursor-pointer',

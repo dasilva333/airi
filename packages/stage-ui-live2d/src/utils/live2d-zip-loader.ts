@@ -4,6 +4,16 @@ import JSZip from 'jszip'
 
 import { Cubism4ModelSettings, ZipLoader } from 'pixi-live2d-display/cubism4'
 
+/**
+ * Returns true for macOS AppleDouble resource-fork artifacts that appear in
+ *  ZIPs created on macOS (e.g. __MACOSX/ subtree, ._-prefixed sidecars).
+ *  These are binary files in AppleDouble format — not real Live2D assets.
+ */
+export function isMacOSJunk(path: string): boolean {
+  const parts = path.split('/')
+  return parts[0] === '__MACOSX' || parts.some(p => p.startsWith('._'))
+}
+
 let onZipLoaded: ((data: ArrayBuffer) => void) | null = null
 export function setOnZipLoaded(callback: (data: ArrayBuffer) => void) {
   onZipLoaded = callback
@@ -18,7 +28,7 @@ ZipLoader.zipReader = async (data: Blob, _url: string) => {
 const defaultCreateSettings = ZipLoader.createSettings
 ZipLoader.createSettings = async (reader: JSZip) => {
   const settings = await (async () => {
-    const filePaths = Object.keys(reader.files)
+    const filePaths = Object.keys(reader.files).filter(p => !isMacOSJunk(p))
     if (!filePaths.find(file => isSettingsFile(file))) {
       return createFakeSettings(filePaths)
     }
@@ -47,7 +57,7 @@ ZipLoader.createSettings = async (reader: JSZip) => {
 
   // Extract CDI data from the zip if available
   try {
-    const filePaths = Object.keys(reader.files)
+    const filePaths = Object.keys(reader.files).filter(p => !isMacOSJunk(p))
 
     // Find and parse CDI file
     const cdiPath = filePaths.find(f => f.toLowerCase().endsWith('.cdi3.json'))
@@ -161,7 +171,7 @@ ZipLoader.getFilePaths = (jsZip: JSZip) => {
   const paths: string[] = []
 
   jsZip.forEach((relativePath, file) => {
-    if (!file.dir) {
+    if (!file.dir && !isMacOSJunk(relativePath)) {
       paths.push(relativePath)
     }
   })

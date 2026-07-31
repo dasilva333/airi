@@ -27,6 +27,7 @@
     "./tools/animation-tools": "./src/tools/animation-tools.ts",
     "./utils/spine-preview": "./src/utils/spine-preview.ts",
     "./utils/spine-validator": "./src/utils/spine-validator.ts",
+    "./utils/spine-version": "./src/utils/spine-version.ts",
     "./utils/spine-zip-loader": "./src/utils/spine-zip-loader.ts"
   },
   "scripts": {

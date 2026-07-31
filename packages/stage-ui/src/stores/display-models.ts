@@ -3,17 +3,21 @@ import type { MmdTextureFile } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extra
 import JSZip from 'jszip'
 import localforage from 'localforage'
 
+import { debug } from '@proj-airi/stage-shared'
 import { loadLive2DModelPreview as generateLive2DPreview } from '@proj-airi/stage-ui-live2d/utils/live2d-preview'
 import { loadMMDModelPreview as generateMmdPreview } from '@proj-airi/stage-ui-mmd/utils/mmd-preview'
 import { loadSpineModelPreview as generateSpinePreview } from '@proj-airi/stage-ui-spine/utils/spine-preview'
+import { detectSpineVersionFromBinary, detectSpineVersionFromJson } from '@proj-airi/stage-ui-spine/utils/spine-version'
 import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-three/utils/vrm-preview'
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { isProxy, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
+import { convertSpineSkeleton } from '../utils/spine-converter/converter'
+import { useSyncEngineStore } from './sync-engine'
 
 import '@proj-airi/stage-ui-live2d/utils/live2d-zip-loader'
 import '@proj-airi/stage-ui-live2d/utils/live2d-opfs-registration'
@@ -107,6 +111,52 @@ const displayModelsPresets: DisplayModel[] = [
   { id: 'preset-vrm-2', format: DisplayModelFormat.VRM, type: 'url', url: presetVrmAvatarBUrl, name: 'AvatarSample_B', previewImage: presetVrmAvatarBPreview, importedAt: 1733113886840 },
 ]
 
+// NOTICE: IndexedDB structured clones of File/Blob can lose prototype methods in some
+// environments. Re-wrap degraded clones so callers always receive a usable File.
+function tryRewrapModelFile(file: any, preferredName?: string): File | undefined {
+  const unproxied = toRaw(file)
+  const inputInfo = {
+    preferredName,
+    rawFile: file,
+    unproxied,
+    typeofRaw: typeof file,
+    typeofUnproxied: typeof unproxied,
+    isRawFile: file instanceof File,
+    isUnproxiedFile: unproxied instanceof File,
+    isRawBlob: file instanceof Blob,
+    isUnproxiedBlob: unproxied instanceof Blob,
+    isRawProxy: isProxy(file),
+    isUnproxiedProxy: isProxy(unproxied),
+    rawHasArrayBuffer: typeof file?.arrayBuffer === 'function',
+    unproxiedHasArrayBuffer: typeof unproxied?.arrayBuffer === 'function',
+    rawKeys: file && typeof file === 'object' ? Object.keys(file) : [],
+    unproxiedKeys: unproxied && typeof unproxied === 'object' ? Object.keys(unproxied) : [],
+    rawSize: file?.size,
+    unproxiedSize: unproxied?.size,
+  }
+  console.log('[DisplayModels:tryRewrapModelFile:Inspect]', inputInfo)
+
+  if (unproxied && typeof unproxied.arrayBuffer === 'function') {
+    console.log('[DisplayModels:tryRewrapModelFile:Result] Valid File/Blob with arrayBuffer method present.', preferredName)
+    return unproxied
+  }
+
+  if (unproxied && (unproxied instanceof Blob || (typeof unproxied === 'object' && unproxied.size > 0))) {
+    try {
+      const res = new File([unproxied], preferredName || unproxied.name || 'model.bin', { type: unproxied.type || 'application/octet-stream' })
+      console.log('[DisplayModels:tryRewrapModelFile:Result] Successfully re-wrapped degraded object into File instance:', { preferredName, size: res.size, isFile: res instanceof File })
+      return res
+    }
+    catch (err) {
+      console.error('[DisplayModels:tryRewrapModelFile:Error] Failed to construct File from degraded object:', { preferredName, err })
+      return undefined
+    }
+  }
+
+  console.warn('[DisplayModels:tryRewrapModelFile:Result] Cannot re-wrap object — file property is missing, empty, or un-reconstructable:', inputInfo)
+  return undefined
+}
+
 export const useDisplayModelsStore = defineStore('display-models', () => {
   const displayModels = ref<DisplayModel[]>([])
   const displayModelsFromIndexedDBLoading = ref(false)
@@ -115,10 +165,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   // Load remote catalog cache eagerly on initialization
   void (async () => {
+    debug('[DisplayModels] Initializing: Loading remote catalog cache from local storage...')
     try {
       const cached = await storage.getItemRaw<any>('local:sync-metadata/remote-catalog-cache')
       if (cached) {
         remoteModelsCatalog.value = cached
+        debug(`[DisplayModels] Initializing: Cache loaded successfully. Found ${cached.length} remote models.`)
+      }
+      else {
+        debug('[DisplayModels] Initializing: No cached remote catalog found.')
       }
     }
     catch (e) {
@@ -126,16 +181,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   })()
 
+  // User models are lazy-loaded when opening ModelSelector or explicit catalog features.
+
   const { data: modelsSyncSignal, post: broadcastModelsSync } = useBroadcastChannel({ name: 'airi:display-models-sync' })
 
   watch(modelsSyncSignal, (val) => {
     if (val) {
-      console.log('[DisplayModels] Received display models sync signal, reloading from IndexedDB...')
+      debug('[DisplayModels] Received display models sync signal, reloading from IndexedDB...')
       void loadDisplayModelsFromIndexedDB(true)
     }
   })
 
   async function loadDisplayModelsFromIndexedDB(silent = false) {
+    const startTime = performance.now()
+    console.log('[DisplayModels:IDBScan] Starting loadDisplayModelsFromIndexedDB...', { silent })
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     if (!silent)
@@ -145,54 +204,82 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
+      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage. Loading catalog...`)
+
       for (const key of modelKeys) {
         const val = await localforage.getItem<any>(key)
+
         if (val) {
           if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            console.warn(`[DisplayModels] Model ${key} is missing file property! Attempting self-healing...`)
+            console.log(`[DisplayModels:IDBScan] Attempting re-wrap for degraded file property on key "${key}"...`)
+            const rewrapped = tryRewrapModelFile(val.file, val.name || `${key}.bin`)
+            if (rewrapped) {
+              val.file = rewrapped
+              console.log(`[DisplayModels:IDBScan] Re-wrap successful for key "${key}":`, { file: val.file, isFile: val.file instanceof File })
+            }
+            else if (val.file) {
+              console.warn(`[DisplayModels:IDBScan] Could not re-wrap file property for key "${key}":`, val.file)
+            }
+          }
+
+          if (!val.file || typeof val.file.arrayBuffer !== 'function') {
+            console.warn(`[DisplayModels:IDBScan] Model "${key}" is still missing valid File instance! Attempting BYOS self-healing...`)
             const electron = (window as any).electron
             if (electron?.ipcRenderer) {
               try {
-                const res = await electron.ipcRenderer.invoke('byos-fs:read-file', {
-                  dir: '/Volumes/AIRI-Backup-Share/assets/models',
-                  relPath: `${key}.bin`,
-                  encoding: 'base64',
-                })
-                if (res?.success && res.content) {
-                  const byteCharacters = atob(res.content)
-                  const byteNumbers = new Uint8Array(byteCharacters.length)
-                  for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i)
-                  }
-                  const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
-                  val.file = restoredFile
+                const syncEngineStore = useSyncEngineStore()
+                const backupDir = syncEngineStore.fsBackupPath
+                  ? `${syncEngineStore.fsBackupPath.replace(/[/\\]+$/, '')}/assets/models`
+                  : ''
 
-                  // Update IndexedDB
-                  await localforage.setItem(key, val)
-                  console.log(`[DisplayModels] Successfully self-healed and restored model: ${val.name || key}`)
+                if (!backupDir) {
+                  console.warn(`[DisplayModels:IDBScan] No BYOS backup path configured. Cannot self-heal "${key}".`)
                 }
                 else {
-                  console.error(`[DisplayModels] Self-healing failed for ${key}: backup file not found or unreadable.`, res?.error)
-                  continue
+                  const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
+                  const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
+                    dir: backupDir,
+                    relPath: `${key}.bin`,
+                    encoding: 'base64',
+                  })
+                  const res = await Promise.race([ipcPromise, timeoutPromise])
+
+                  if (res === null) {
+                    console.warn(`[DisplayModels:IDBScan] Self-healing for "${key}" timed out after 3 seconds.`)
+                  }
+                  else if (res?.success && res.content) {
+                    const byteCharacters = atob(res.content)
+                    const byteNumbers = new Uint8Array(byteCharacters.length)
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                      byteNumbers[i] = byteCharacters.charCodeAt(i)
+                    }
+                    const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
+                    val.file = restoredFile
+
+                    await localforage.setItem(key, toRaw(val))
+                    console.log(`[DisplayModels:IDBScan] Successfully self-healed and restored model: ${val.name || key}`)
+                  }
+                  else {
+                    console.error(`[DisplayModels:IDBScan] Self-healing failed for "${key}": backup file not found or unreadable. Keeping local record.`, res?.error)
+                  }
                 }
               }
               catch (healErr) {
-                console.error(`[DisplayModels] Self-healing error for ${key}:`, healErr)
-                continue
+                console.error(`[DisplayModels:IDBScan] Self-healing error for "${key}":`, healErr)
               }
             }
             else {
-              console.warn(`[DisplayModels] Electron IPC not available. Cannot self-heal ${key}.`)
-              continue
+              console.warn(`[DisplayModels:IDBScan] Electron IPC not available. Cannot self-heal "${key}".`)
             }
           }
+
           models.push({
             id: key,
             format: val.format,
             type: 'file',
             file: val.file,
-            name: val.file.name,
-            importedAt: val.importedAt,
+            name: val.file?.name || val.name || key,
+            importedAt: val.importedAt || Date.now(),
             previewImage: val.previewImage,
             nsfw: val.nsfw,
             groups: val.groups,
@@ -209,36 +296,58 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
     }
     catch (err) {
-      console.error(err)
+      console.error('[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB encountered an error:', err)
     }
 
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
+    console.log(`[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB finished in ${(performance.now() - startTime).toFixed(2)} ms. Total models loaded into store: ${displayModels.value.length}`, displayModels.value)
   }
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()
 
   async function getDisplayModel(id: string) {
-    if (displayModelsFromIndexedDBLoading.value) {
-      console.warn('[PipelineTTS:Models] getDisplayModel called while loading is TRUE, waiting...', { id })
-    }
+    console.log(`[DisplayModels:getDisplayModel] Called for ID "${id}". Loading flag: ${displayModelsFromIndexedDBLoading.value}`)
     await until(displayModelsFromIndexedDBLoading).toBe(false)
+
+    // Check in-memory catalog first
+    const inMemoryModel = displayModels.value.find(m => m.id === id)
+    if (inMemoryModel && inMemoryModel.type === 'file') {
+      console.log(`[DisplayModels:getDisplayModel] In-memory store hit for "${id}":`, inMemoryModel)
+      return inMemoryModel as DisplayModelFile
+    }
 
     // Check in-memory cache
     if (displayModelCache.has(id)) {
-      console.log('[PipelineTTS:Models] In-memory cache hit for:', id)
-      displayModelCache.get(id)!.addedTime = Date.now() // Update access time
+      console.log(`[DisplayModels:getDisplayModel] In-memory cache hit for "${id}"`)
+      displayModelCache.get(id)!.addedTime = Date.now()
       return displayModelCache.get(id)!.model
     }
 
-    console.log('[PipelineTTS:Models] Accessing localforage for:', id)
+    console.log(`[DisplayModels:getDisplayModel] Querying localforage.getItem("${id}")...`)
     const modelFromFile = await localforage.getItem<DisplayModelFile>(id).catch((err) => {
-      console.error('[PipelineTTS:Models] localforage.getItem FAILED:', err)
+      console.error(`[DisplayModels:getDisplayModel] localforage.getItem("${id}") threw error:`, err)
       return null
     })
+
+    console.log(`[DisplayModels:getDisplayModel] localforage.getItem("${id}") returned:`, {
+      found: !!modelFromFile,
+      format: modelFromFile?.format,
+      file: modelFromFile?.file,
+      fileType: typeof modelFromFile?.file,
+      isFile: modelFromFile?.file instanceof File,
+      isBlob: modelFromFile?.file instanceof Blob,
+      isProxy: isProxy(modelFromFile?.file),
+      hasArrayBuffer: typeof modelFromFile?.file?.arrayBuffer === 'function',
+      keys: modelFromFile?.file && typeof modelFromFile?.file === 'object' ? Object.keys(modelFromFile?.file) : [],
+    })
+
     if (modelFromFile) {
-      // LRU cache eviction if size exceeds 3
+      const rewrapped = tryRewrapModelFile(modelFromFile.file, modelFromFile.name || `${id}.bin`)
+      if (rewrapped)
+        modelFromFile.file = rewrapped
+
       if (displayModelCache.size >= 3) {
         let oldestId: string | null = null
         let oldestTime = Infinity
@@ -249,7 +358,6 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
         }
         if (oldestId) {
-          console.log('[PipelineTTS:Models] Evicting oldest display model cache entry:', oldestId)
           displayModelCache.delete(oldestId)
         }
       }
@@ -257,8 +365,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return modelFromFile
     }
 
-    // Fallback to in-memory presets if not found in localforage
+    console.warn(`[DisplayModels:getDisplayModel] No user model found in IndexedDB for "${id}". Checking presets...`)
     const preset = displayModelsPresets.find(model => model.id === id)
+    console.log(`[DisplayModels:getDisplayModel] Preset lookup result for "${id}":`, preset)
     return preset
   }
 
@@ -378,6 +487,110 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   async function addDisplayModel(format: DisplayModelFormat, file: File) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
+    // Intercept Spine ZIP files to check and upgrade Spine 3.x files on-the-fly
+    if (format === DisplayModelFormat.SpineZip) {
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const zipInstance = await JSZip.loadAsync(arrayBuffer)
+        const allPaths = Object.keys(zipInstance.files)
+
+        // Find skeleton files (.skel or .json)
+        let skeletonPath = ''
+        let skeletonFormat: 'binary' | 'json' = 'binary'
+
+        // Prioritize binary skeleton (.skel) files first
+        for (const pathKey of allPaths) {
+          if (zipInstance.files[pathKey].dir)
+            continue
+          const lower = pathKey.toLowerCase()
+          if (lower.endsWith('.skel')) {
+            skeletonPath = pathKey
+            skeletonFormat = 'binary'
+            break
+          }
+        }
+
+        // If no binary skeleton is found, fall back to JSON skeleton
+        if (!skeletonPath) {
+          for (const pathKey of allPaths) {
+            if (zipInstance.files[pathKey].dir)
+              continue
+            const lower = pathKey.toLowerCase()
+            if (lower.endsWith('.json')) {
+              // Exclude metadata/config files
+              if (lower.endsWith('manifest.json') || lower.endsWith('package.json') || lower.endsWith('model.json') || lower.endsWith('model0.json') || lower.endsWith('model1.json')) {
+                continue
+              }
+              skeletonPath = pathKey
+              skeletonFormat = 'json'
+              break
+            }
+          }
+        }
+
+        if (skeletonPath) {
+          const fileEntry = zipInstance.file(skeletonPath)
+          if (fileEntry) {
+            let is3x = false
+            let detectedVersion = ''
+            if (skeletonFormat === 'binary') {
+              const data = await fileEntry.async('uint8array')
+              const version = detectSpineVersionFromBinary(data)
+              if (version) {
+                detectedVersion = version
+                if (version.startsWith('3.')) {
+                  is3x = true
+                }
+              }
+            }
+            else {
+              const text = await fileEntry.async('text')
+              const version = detectSpineVersionFromJson(text)
+              if (version) {
+                detectedVersion = version
+                if (version.startsWith('3.')) {
+                  is3x = true
+                }
+              }
+            }
+
+            if (is3x) {
+              debug(`[DisplayModels] Spine 3.x skeleton detected ("${detectedVersion}" at "${skeletonPath}"). Self-healing / Upgrading to 4.1.20 using Wasm...`)
+              toast.info(`Spine 3.x skeleton detected (${detectedVersion}). Upgrading to 4.1.20 in-memory...`)
+
+              // Load input bytes
+              const inputBytes = await fileEntry.async('uint8array')
+              const filename = skeletonPath.split(/[\\/]/).pop()!
+
+              // Run the in-memory conversion
+              const convertedBytes = await convertSpineSkeleton(inputBytes, filename, '4.1.20')
+
+              // Replace the file inside the ZIP!
+              if (skeletonFormat === 'binary') {
+                zipInstance.file(skeletonPath, convertedBytes)
+              }
+              else {
+                // If it was json, remove the .json entry and write a new .skel entry
+                const newSkeletonPath = skeletonPath.replace(/\.json$/i, '.skel')
+                zipInstance.remove(skeletonPath)
+                zipInstance.file(newSkeletonPath, convertedBytes)
+                debug(`[DisplayModels] Upgraded Spine JSON to binary: renamed "${skeletonPath}" to "${newSkeletonPath}"`)
+              }
+
+              // Rebuild the ZIP Blob and replace the input file parameter!
+              const upgradedZipBlob = await zipInstance.generateAsync({ type: 'blob' })
+              file = new File([upgradedZipBlob], file.name, { type: 'application/zip' })
+              toast.success(`Successfully upgraded and healed Spine skeleton!`)
+            }
+          }
+        }
+      }
+      catch (err) {
+        console.error('[DisplayModels] Spine self-healing compilation failed:', err)
+        toast.error('Spine self-healing compilation failed. Proceeding with original file.')
+      }
+    }
+
     // Intercept Live2D ZIP files to check for multi-model packages
     if (format === DisplayModelFormat.Live2dZip) {
       try {
@@ -481,14 +694,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           if (needsManifestRename || needsMotionInjection) {
             needsCleansing = true
             modelsToProcess.push(model)
-            console.log(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
+            debug(`[DisplayModels] Single-model Live2D ZIP needs self-healing: needsManifestRename=${needsManifestRename}, needsMotionInjection=${needsMotionInjection}. Compiler running...`)
           }
         }
 
         if (needsCleansing && modelsToProcess.length > 0) {
           if (needsSplitting) {
             toast.info(`Multi-model Live2D ZIP detected! Extracting ${modelsToProcess.length} models...`)
-            console.log(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modelsToProcess.length} models:`)
+            debug(`[DisplayModels] Multi-model ZIP detected! Splitting into ${modelsToProcess.length} models:`)
           }
           else {
             toast.info(`Live2D ZIP requires self-healing! Repairing package...`)
@@ -511,7 +724,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
           }
 
           if (masterModel) {
-            console.log(`[DisplayModels] Selected master model for motion dictionary: "${masterModel.manifestPath.split(/[\\/]/).pop()!}" with ${maxMotionsCount} motions.`)
+            debug(`[DisplayModels] Selected master model for motion dictionary: "${masterModel.manifestPath.split(/[\\/]/).pop()!}" with ${maxMotionsCount} motions.`)
           }
 
           let index = 1
@@ -548,7 +761,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
               }
 
               if (masterIndex !== null && modelIndex !== null) {
-                console.log(`[DisplayModels] [Self-Healing] Restoring empty motions dictionary from master model index ${masterIndex} -> ${modelIndex}...`)
+                debug(`[DisplayModels] [Self-Healing] Restoring empty motions dictionary from master model index ${masterIndex} -> ${modelIndex}...`)
                 const copiedMotions = JSON.parse(JSON.stringify(masterModel.data.FileReferences.Motions))
 
                 // Adapt motions: replace file path endings from masterIndex to modelIndex
@@ -574,7 +787,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 }
 
                 model.data.FileReferences.Motions = adaptMotions(copiedMotions)
-                console.log(`[DisplayModels] [Self-Healing] Restored motions successfully: ${Object.keys(model.data.FileReferences.Motions).length} groups.`)
+                debug(`[DisplayModels] [Self-Healing] Restored motions successfully: ${Object.keys(model.data.FileReferences.Motions).length} groups.`)
               }
             }
 
@@ -650,7 +863,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                     FadeIn: 0,
                     FadeOut: 0,
                   })
-                  console.log(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
+                  debug(`[DisplayModels] Auto-discovered and injected motion: ${filename} into group: ${groupName}`)
                 }
               }
             }
@@ -699,10 +912,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                   const assetData = await zipInstance.file(subdirKey)!.async('uint8array')
                   const destPath = ref.replace(/\\/g, '/')
                   subZip.file(destPath, assetData)
-                  console.warn(`[DisplayModels] Self-healed asset ref: "${ref}" (found at "${subdirKey}")`)
+                  debug(`[DisplayModels] Self-healed asset ref: "${ref}" (found at "${subdirKey}")`)
                 }
                 else {
-                  console.warn(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
+                  debug(`[DisplayModels] Referenced asset not found in source zip: ${ref} (resolved: ${originalZipPath})`)
                 }
               }
             }
@@ -711,7 +924,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             const subZipBlob = await subZip.generateAsync({ type: 'blob' })
             const subZipFile = new File([subZipBlob], `${modelName}.zip`, { type: 'application/zip' })
 
-            console.log(`[DisplayModels] Sanitized/Splitted model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+            debug(`[DisplayModels] Sanitized/Splitted model created: ${subZipFile.name} (${(subZipBlob.size / 1024 / 1024).toFixed(2)} MB)`)
 
             if (modelsToProcess.length > 1) {
               toast.info(`[${index}/${modelsToProcess.length}] Ingesting "${modelName}" into catalog...`)
@@ -741,25 +954,40 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     const newDisplayModel: DisplayModelFile = { id: `display-model-${nanoid()}`, format, type: 'file', file, name: file.name, importedAt: Date.now() }
 
     if (format === DisplayModelFormat.Live2dZip) {
-      const previewImage = await loadLive2DModelPreview(file)
-      newDisplayModel.previewImage = previewImage
+      try {
+        const previewImage = await loadLive2DModelPreview(file)
+        newDisplayModel.previewImage = previewImage
+      }
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate Live2D preview:', e)
+      }
     }
     else if (format === DisplayModelFormat.VRM) {
-      const previewImage = await loadVrmModelPreview(file)
-      newDisplayModel.previewImage = previewImage
+      try {
+        const previewImage = await loadVrmModelPreview(file)
+        newDisplayModel.previewImage = previewImage
+      }
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate VRM preview:', e)
+      }
     }
     else if (format === DisplayModelFormat.SpineZip) {
-      const previewImage = await generateSpinePreview(file)
-      if (!previewImage) {
-        console.warn('[DisplayModels] Failed to generate preview or unsupported Spine version. Skipping import.')
-        return
+      try {
+        const previewImage = await generateSpinePreview(file)
+        newDisplayModel.previewImage = previewImage
       }
-      newDisplayModel.previewImage = previewImage
+      catch (e) {
+        console.error('[DisplayModels] Failed to generate Spine preview:', e)
+      }
     }
 
     displayModels.value.unshift(newDisplayModel)
 
-    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel)
+    const cleanModel = {
+      ...toRaw(newDisplayModel),
+      file: toRaw(file),
+    }
+    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
     broadcastModelsSync(Date.now())
   }
@@ -779,13 +1007,21 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     displayModels.value.unshift(newDisplayModel)
 
-    // Persist model file
-    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel)
+    // Persist model file un-proxied so IndexedDB structured clone preserves native File prototype
+    const cleanModel = {
+      ...toRaw(newDisplayModel),
+      file: toRaw(modelFile),
+    }
+    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, cleanModel)
       .catch(err => console.error(err))
 
     // Persist texture files keyed by model ID
     if (textureFiles.length > 0) {
-      await localforage.setItem(`${newDisplayModel.id}-textures`, textureFiles)
+      const cleanTextures = textureFiles.map(t => ({
+        ...toRaw(t),
+        file: toRaw(t.file),
+      }))
+      await localforage.setItem(`${newDisplayModel.id}-textures`, cleanTextures)
         .catch(err => console.error(err))
     }
 
@@ -823,7 +1059,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelName] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }
@@ -857,7 +1100,14 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelMeta] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }
@@ -881,7 +1131,78 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelTags] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
+      await localforage.setItem(id, cleanModel)
+      broadcastModelsSync(Date.now())
+    }
+  }
+
+  async function updateDisplayModelMappings(
+    id: string,
+    mappings: {
+      emotionMappings?: Record<string, string>
+      motionMappings?: Record<string, string>
+      hiddenExpressions?: string[]
+      hiddenMotions?: string[]
+      favoriteExpressions?: string[]
+    },
+  ) {
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+    const displayModel = id.startsWith('display-model-')
+      ? await localforage.getItem<DisplayModelFile>(id)
+      : displayModels.value.find(m => m.id === id)
+
+    if (!displayModel)
+      return
+
+    if (mappings.emotionMappings)
+      displayModel.emotionMappings = { ...mappings.emotionMappings }
+    if (mappings.motionMappings)
+      displayModel.motionMappings = { ...mappings.motionMappings }
+    if (mappings.hiddenExpressions)
+      displayModel.hiddenExpressions = [...mappings.hiddenExpressions]
+    if (mappings.hiddenMotions)
+      displayModel.hiddenMotions = [...mappings.hiddenMotions]
+    if (mappings.favoriteExpressions)
+      displayModel.favoriteExpressions = [...mappings.favoriteExpressions]
+
+    // Update in-memory reactive store list
+    const index = displayModels.value.findIndex(m => m.id === id)
+    if (index !== -1) {
+      const target = displayModels.value[index]
+      if (mappings.emotionMappings)
+        target.emotionMappings = { ...mappings.emotionMappings }
+      if (mappings.motionMappings)
+        target.motionMappings = { ...mappings.motionMappings }
+      if (mappings.hiddenExpressions)
+        target.hiddenExpressions = [...mappings.hiddenExpressions]
+      if (mappings.hiddenMotions)
+        target.hiddenMotions = [...mappings.hiddenMotions]
+      if (mappings.favoriteExpressions)
+        target.favoriteExpressions = [...mappings.favoriteExpressions]
+    }
+
+    // Persist if file-based model
+    if (id.startsWith('display-model-')) {
+      const rawModel = toRaw(displayModel)
+      const cleanModel = {
+        ...rawModel,
+        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      }
+      const targetFile = (cleanModel as any).file
+      console.log('[DisplayModels:updateDisplayModelMappings] Accountable write to IndexedDB:', {
+        id,
+        isFileInstance: targetFile instanceof File || targetFile instanceof Blob,
+        fileType: typeof targetFile,
+        cleanModel,
+      })
+      await localforage.setItem(id, cleanModel)
       broadcastModelsSync(Date.now())
     }
   }
@@ -897,17 +1218,23 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function fetchRemoteCatalog() {
+    debug('[DisplayModels] fetchRemoteCatalog: Starting fetch from remote sync client...')
     remoteCatalogLoading.value = true
     try {
       const { useSyncEngineStore } = await import('./sync-engine')
       const syncStore = useSyncEngineStore()
+      debug('[DisplayModels] fetchRemoteCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
       const res = await syncStore.getRemoteCatalog()
       if (res && res.success) {
         remoteModelsCatalog.value = (res.models || []).map((m: any) => ({
           ...m,
           type: 'cloud',
         }))
+        debug(`[DisplayModels] fetchRemoteCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
         await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', remoteModelsCatalog.value)
+      }
+      else {
+        debug('[DisplayModels] fetchRemoteCatalog: Sync store returned unsuccessful response:', res)
       }
     }
     catch (e) {
@@ -915,6 +1242,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
     finally {
       remoteCatalogLoading.value = false
+      debug('[DisplayModels] fetchRemoteCatalog: Fetch routine completed.')
     }
   }
 
@@ -964,7 +1292,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return { expressions: [], motions: [] }
     }
 
-    if ((model as any).capabilitiesLoaded || (model.expressions && model.expressions.length > 0) || (model.motions && model.motions.length > 0)) {
+    const isSpine = model.format === DisplayModelFormat.SpineZip
+    const hasLegacySpineCache = isSpine && model.expressions && model.expressions.length > 0 && !model.expressions.some(e => e.includes('['))
+
+    if (!hasLegacySpineCache && ((model as any).capabilitiesLoaded || (model.expressions && model.expressions.length > 0) || (model.motions && model.motions.length > 0))) {
       return { expressions: model.expressions || [], motions: model.motions || [] }
     }
 
@@ -998,7 +1329,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
       if (format.includes('live2d')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
-        console.log('[DisplayModels] getOrLoadModelCapabilities: ZIP loaded. Total files:', Object.keys(zipInstance.files).length)
+        debug('[DisplayModels] getOrLoadModelCapabilities: ZIP loaded. Total files:', Object.keys(zipInstance.files).length)
 
         // Parse expressions directly by scanning zip files (Case 1 in resolveMetadata)
         const filePaths = Object.keys(zipInstance.files)
@@ -1058,7 +1389,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             }
           }
         }
-        console.log('[DisplayModels] getOrLoadModelCapabilities parsed counts:', {
+        debug('[DisplayModels] getOrLoadModelCapabilities parsed counts:', {
           expressions: expressions.length,
           motions: motions.length,
         })
@@ -1134,14 +1465,179 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
       else if (format.includes('spine')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
-        for (const filename of Object.keys(zipInstance.files)) {
-          if (filename.toLowerCase().endsWith('.json')) {
-            const content = await zipInstance.files[filename].async('text')
-            const spineData = JSON.parse(content)
-            if (spineData && spineData.animations) {
-              Object.keys(spineData.animations).forEach(name => expressions.push(name))
+        const filePaths = Object.keys(zipInstance.files)
+
+        const variantsMap = new Map<string, { skeletonPath?: string, model0Path?: string }>()
+
+        for (const path of filePaths) {
+          if (zipInstance.files[path].dir)
+            continue
+          const lower = path.toLowerCase()
+          if (lower.endsWith('.skel') || (lower.endsWith('.json') && !lower.endsWith('model0.json'))) {
+            const dir = path.substring(0, path.lastIndexOf('/') + 1)
+            const variantName = dir ? dir.replace(/\/$/, '').split('/').pop()! : 'Default'
+            if (!variantsMap.has(variantName)) {
+              variantsMap.set(variantName, {})
             }
-            break
+            variantsMap.get(variantName)!.skeletonPath = path
+          }
+          else if (lower.endsWith('model0.json')) {
+            const dir = path.substring(0, path.lastIndexOf('/') + 1)
+            const variantName = dir ? dir.replace(/\/$/, '').split('/').pop()! : 'Default'
+            if (!variantsMap.has(variantName)) {
+              variantsMap.set(variantName, {})
+            }
+            variantsMap.get(variantName)!.model0Path = path
+          }
+        }
+
+        for (const [variantName, paths] of variantsMap.entries()) {
+          const variantSkins = new Set<string>(['default'])
+
+          if (paths.skeletonPath) {
+            const isJson = paths.skeletonPath.toLowerCase().endsWith('.json')
+            if (isJson) {
+              try {
+                const text = await zipInstance.file(paths.skeletonPath)!.async('text')
+                const parsed = JSON.parse(text)
+                if (parsed) {
+                  if (parsed.skins) {
+                    if (Array.isArray(parsed.skins)) {
+                      parsed.skins.forEach((s: any) => {
+                        if (s && s.name)
+                          variantSkins.add(s.name)
+                      })
+                    }
+                    else {
+                      Object.keys(parsed.skins).forEach(k => variantSkins.add(k))
+                    }
+                  }
+                  if (parsed.animations) {
+                    Object.keys(parsed.animations).forEach(a => motions.push(a))
+                  }
+                }
+              }
+              catch {}
+            }
+            else {
+              try {
+                const uint8 = await zipInstance.file(paths.skeletonPath)!.async('uint8array')
+                const knownSkinCandidates = ['Normal', 'Resistance', 'Gun', 'Thema_MaskOff', 'Weapon_Off']
+                const knownAnimCandidates = [
+                  'Angry_1',
+                  'Angry_2',
+                  'Angry_3',
+                  'Close_1',
+                  'Dizzy_1',
+                  'Dizzy_2',
+                  'Eat_1',
+                  'Eat_2',
+                  'Happy_1',
+                  'Happy_2',
+                  'Happy_3',
+                  'Happy_4',
+                  'Happy_5',
+                  'Idle_1',
+                  'Panic_1',
+                  'Panic_2',
+                  'Panic_3',
+                  'Pat_End',
+                  'Pat_Idle',
+                  'Proud_1',
+                  'Proud_2',
+                  'Sad_1',
+                  'Sad_2',
+                  'Sad_3',
+                  'Sad_4',
+                  'Serious_1',
+                  'Serious_2',
+                  'Smash_End_1',
+                  'Smash_End_2',
+                  'Smell_1',
+                  'Surprise_1',
+                  'Taunt_1',
+                  'Taunt_2',
+                  'Taunt_3',
+                  'Taunt_4',
+                  'Tickle_End',
+                  'Tickle_Idle_1',
+                  'Tickle_Idle_2',
+                  'Touch_End',
+                  'Touch_Idle',
+                ]
+
+                function findLengthPrefixedString(haystack: Uint8Array, needle: string): boolean {
+                  const encoded = new TextEncoder().encode(needle)
+                  const prefix = encoded.length + 1
+                  for (let i = 0; i < haystack.length - encoded.length; i++) {
+                    if (haystack[i] !== prefix)
+                      continue
+                    let match = true
+                    for (let j = 0; j < encoded.length; j++) {
+                      if (haystack[i + 1 + j] !== encoded[j]) {
+                        match = false
+                        break
+                      }
+                    }
+                    if (match)
+                      return true
+                  }
+                  return false
+                }
+
+                for (const skin of knownSkinCandidates) {
+                  if (findLengthPrefixedString(uint8, skin)) {
+                    variantSkins.add(skin)
+                  }
+                }
+                for (const anim of knownAnimCandidates) {
+                  if (findLengthPrefixedString(uint8, anim)) {
+                    motions.push(anim)
+                  }
+                }
+              }
+              catch {}
+            }
+          }
+
+          if (paths.model0Path) {
+            try {
+              const text = await zipInstance.file(paths.model0Path)!.async('text')
+              const parsed = JSON.parse(text)
+              if (parsed) {
+                if (parsed.motions) {
+                  Object.keys(parsed.motions).forEach((k) => {
+                    motions.push(k)
+                    const subList = parsed.motions[k]
+                    if (Array.isArray(subList)) {
+                      subList.forEach((item: any) => {
+                        if (item && item.file) {
+                          motions.push(item.file)
+                        }
+                      })
+                    }
+                  })
+                }
+              }
+            }
+            catch {}
+          }
+
+          // Generate composite variant [skin] keys
+          const skinsList = Array.from(variantSkins)
+          const hasCustomSkins = skinsList.some(s => s !== 'default')
+
+          if (hasCustomSkins) {
+            skinsList.forEach((skin) => {
+              if (skin === 'default' && skinsList.includes('Normal')) {
+                // skip default to avoid stub weapon-less doublets
+                return
+              }
+              expressions.push(`${variantName} [${skin}]`)
+            })
+          }
+          else {
+            expressions.push(variantName)
           }
         }
       }
@@ -1206,6 +1702,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     renameDisplayModel,
     updateDisplayModelMeta,
     updateDisplayModelTags,
+    updateDisplayModelMappings,
     removeDisplayModel,
     resetDisplayModels,
 

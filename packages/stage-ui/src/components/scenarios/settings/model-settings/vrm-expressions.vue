@@ -27,15 +27,10 @@ watch([emotionMappings, favoriteExpression], async () => {
   if (!displayModelId)
     return
 
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-  if (model) {
-    model.emotionMappings = { ...emotionMappings.value }
-    model.favoriteExpressions = favoriteExpression.value ? [favoriteExpression.value] : []
-    const localforageModule = await import('localforage').then(m => m.default || m)
-    await localforageModule.setItem(displayModelId, JSON.parse(JSON.stringify(model)))
-    displayModelsStore.broadcastModelsSync(Date.now())
-    await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-  }
+  await displayModelsStore.updateDisplayModelMappings(displayModelId, {
+    emotionMappings: { ...emotionMappings.value },
+    favoriteExpressions: favoriteExpression.value ? [favoriteExpression.value] : [],
+  })
 }, { deep: true })
 
 const uniqueExpressions = computed(() => [...new Set(availableExpressions.value)])
@@ -262,7 +257,7 @@ function deleteOutfit(id: string) {
 
       <!-- Standard Customize View (ModelCustomizer) -->
       <template v-else>
-        <ModelCustomizer :model-id="displayModelId || ''" class="mt-2" />
+        <ModelCustomizer :model-id="displayModelId || ''" class="mt-2" :local-stage="true" />
       </template>
     </template>
   </div>

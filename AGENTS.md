@@ -1,3 +1,6 @@
+# CRITICAL REQUIREMENT: Git Status Reporting
+- **Always run `git status` after every single commit or file modification, and report exactly what files are still open, unstaged, or pending.** Never assume the working directory is clean or that unrelated modifications are invisible.
+
 Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) before broad architecture exploration or a cross-cutting change. It is the canonical concept-to-path index and records known failure modes. If it conflicts with current source, source wins; correct the Rosetta Stone when the change moves a canonical entry point or establishes a durable lesson.
 
 ## Pair programming
@@ -15,7 +18,7 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 ## Commit and release safety
 
 - This fork is developed directly on `main`, and community users may pull every published commit. Treat the remote as a release surface, never as agent-owned scratch space.
-- Never proactively commit or push. The user decides when a tested checkpoint becomes a local commit and when a local commit is published.
+- Never proactively commit or push. The user decides when a tested checkpoint becomes a local commit and when a local commit is published. A greenlight or approval to commit/push is strictly a ONE-TIME permission for that specific checkpoint only; subsequent commits or pushes must be explicitly requested and approved again by the user.
 - Never push untested changes. A requested push still requires appropriate successful validation for the complete commit being pushed; do not push around a failure or an unrun required check.
 - If a meaningful `.ts`, `.tsx`, `.vue`, or build/automation `.js` change is part of a requested commit or push, run the affected workspace's typecheck or build as appropriate first. Successful verification is required before any push; a compile/typecheck failure is a hard stop for publishing. A local WIP snapshot after a failure requires the user's explicit instruction.
 - Before a requested commit or push, inspect the full `git status` and review the complete intended diff. Pre-existing changes are not invisible: preserve them, report them separately, and do not include or discard them without authorization.

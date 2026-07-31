@@ -2,10 +2,13 @@
 import { HackerPanel, LHackerPanel, ModelSettings } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Vibrant } from 'node-vibrant/browser'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const cardStore = useAiriCardStore()
 const modelSettingsRef = ref<InstanceType<typeof ModelSettings>>()
+const route = useRoute()
+const router = useRouter()
 
 const palette = ref<string[]>([])
 
@@ -30,6 +33,23 @@ async function extractColorsFromModel() {
     URL.revokeObjectURL(frameUrl)
   }
 }
+
+watch(
+  [() => route.query.action, modelSettingsRef],
+  ([action, refVal]) => {
+    if (action && refVal) {
+      const tabMap: Record<string, 'library' | 'explore' | 'cloud'> = {
+        explore: 'explore',
+        cloud: 'cloud',
+        browse: 'library',
+      }
+      const targetTab = tabMap[action as string] || 'explore'
+      refVal.openModelSelector(targetTab)
+      router.replace({ query: {} })
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   cardStore.isModelSyncPrevented = true

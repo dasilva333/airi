@@ -205,6 +205,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
     let resolvedModel = defaults.model
     let resolvedOptions = defaults.options
     let resolvedModelId: string | undefined
+    let resolvedModelIdFromBase = false
     let resolvedMood: string | undefined
     let resolvedSpeechProvider = defaults.speechProvider
     let resolvedSpeechModel = defaults.speechModel
@@ -243,6 +244,11 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       // Manifestation: last override wins
       if (asset.manifestation?.modelId && asset.manifestation.modelId !== 'inherit') {
         resolvedModelId = asset.manifestation.modelId
+        // Track whether the winning modelId came from a Base concept (exclusionary
+        // state change) or a Layer (additive scene member). Callers that apply the
+        // model to the physical stage gate on this — see runArtistTask and
+        // docs/fix-actor-stage-desync.md (Rail 1 gate).
+        resolvedModelIdFromBase = asset.isBase === true
       }
       if (asset.manifestation?.mood) {
         resolvedMood = asset.manifestation.mood
@@ -271,6 +277,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
       model: resolvedModel,
       options: resolvedOptions,
       modelId: resolvedModelId,
+      modelIdFromBase: resolvedModelIdFromBase,
       mood: resolvedMood,
       speechProvider: resolvedSpeechProvider,
       speechModel: resolvedSpeechModel,
@@ -606,8 +613,14 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         },
       ]
 
-      const modelId = consciousnessStore.activeModel
-      const providerId = consciousnessStore.activeProvider
+      let modelId = consciousnessStore.activeModel
+      let providerId = consciousnessStore.activeProvider
+
+      const autonomousModelMode = (artistry as any).autonomousModelMode || 'inherit'
+      if (autonomousModelMode === 'custom' && (artistry as any).autonomousProvider && (artistry as any).autonomousModel) {
+        providerId = (artistry as any).autonomousProvider
+        modelId = (artistry as any).autonomousModel
+      }
 
       artistLog('Sending rolled-up prompt to Director LLM...', {
         model: modelId,
@@ -615,6 +628,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         historyCount: recentHistory.length,
         textSubstring: inputText.substring(0, 50),
         target,
+        autonomousModelMode,
       })
 
       if (!modelId || !providerId) {
@@ -731,7 +745,12 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
         ...activeCard.extensions.airi.modules,
         active_expressions: folded.activeExpressions,
       }
-      if (folded.modelId) {
+      // NOTICE: Only apply the Director's resolved model when it came from a Base
+      // concept (exclusionary state change, e.g. outfit swap — Setup B). Layer-sourced
+      // modelIds (actor concepts coexisting in a multi-character scene) belong to the
+      // ACTOR-token pipeline; applying them here clobbers the currently-speaking
+      // actor's stage model. See docs/fix-actor-stage-desync.md (Rail 1 gate).
+      if (folded.modelId && folded.modelIdFromBase) {
         immediateModuleUpdates.displayModelId = folded.modelId
       }
       cardStore.updateCard(cardId, {

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import localforage from 'localforage'
-
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
@@ -17,11 +15,18 @@ interface Props {
   modelId: string
   showInsertActions?: boolean
   palette?: string[]
+  /**
+   * When true, the component is embedded inside a self-contained settings page
+   * that already has its own stage preview. Clicks will effectuate that stage
+   * directly without requiring the actor window to be open.
+   */
+  localStage?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showInsertActions: false,
   palette: () => [],
+  localStage: false,
 })
 
 const emit = defineEmits<{
@@ -147,24 +152,18 @@ watch(() => props.modelId, async (newId) => {
   }
 }, { immediate: true })
 
-// Persist metadata updates back to IndexedDB
 async function saveMetadata() {
-  const model = displayModelsStore.displayModels.find(m => m.id === props.modelId)
-  if (model) {
-    model.emotionMappings = { ...emotionMappings.value }
-    model.favoriteExpressions = [...favoriteExpressions.value]
-    model.hiddenExpressions = [...hiddenExpressions.value]
-    model.motionMappings = { ...motionMappings.value }
-    model.hiddenMotions = [...hiddenMotions.value]
-    await localforage.setItem(props.modelId, JSON.parse(JSON.stringify(model)))
+  await displayModelsStore.updateDisplayModelMappings(props.modelId, {
+    emotionMappings: { ...emotionMappings.value },
+    favoriteExpressions: [...favoriteExpressions.value],
+    hiddenExpressions: [...hiddenExpressions.value],
+    motionMappings: { ...motionMappings.value },
+    hiddenMotions: [...hiddenMotions.value],
+  })
 
-    // Sync to store for stage window cross-process triggers
-    live2dStore.motionMap = { ...motionMappings.value }
-    live2dStore.emotionMappings = { ...emotionMappings.value }
-
-    displayModelsStore.broadcastModelsSync(Date.now())
-    await displayModelsStore.loadDisplayModelsFromIndexedDB(true)
-  }
+  // Sync to store for stage window cross-process triggers
+  live2dStore.motionMap = { ...motionMappings.value }
+  live2dStore.emotionMappings = { ...emotionMappings.value }
 }
 
 function normalizeVrmKey(key: string): string {
@@ -250,14 +249,29 @@ const rawExpressions = computed<UnifiedExpression[]>(() => {
     }))
   }
   if (mType === 'spine') {
-    return keys.map(key => ({
-      key,
-      displayName: mappings[key] || key,
-      isActive: !!spineStore.activeAnimations[props.modelId]?.[key],
-      actMapping: mappings[key],
-      isFavorite: favorites.includes(key),
-      isVisible: !hidden.includes(key),
-    }))
+    const activeVar = spineStore.currentVariant
+    const activeSkin = spineStore.currentSkin
+
+    return keys.map((key) => {
+      const match = key.match(/^(.+?)\s*\[(.+?)\]$/)
+      let active = false
+      if (match) {
+        const variant = match[1].trim()
+        const skin = match[2].trim()
+        active = activeVar === variant && activeSkin === skin
+      }
+      else {
+        active = activeVar === key
+      }
+      return {
+        key,
+        displayName: mappings[key] || key,
+        isActive: active,
+        actMapping: mappings[key],
+        isFavorite: favorites.includes(key),
+        isVisible: !hidden.includes(key),
+      }
+    })
   }
   return []
 })
@@ -286,16 +300,33 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
     }))
   }
   if (mType === 'mmd') {
-    return keys.map(key => ({
+    const builtinItems = (mmdStore.availableMotions || []).map(key => ({
       key,
-      displayName: mappings[key] || key.split(/[\\/]/).pop() || key,
+      displayName: mappings[key] || key.replace(/\.vmd$/i, '').replace(/_/g, ' '),
       isActive: mmdStore.currentMotion === key,
-      group: 'Animations',
+      group: 'Built-in Animations',
       duration: 5.0,
       hasSound: false,
       isInIdleCycle: idleCycles.includes(`mmd:${key}`),
       isVisible: !hidden.includes(key),
     }))
+
+    const customItems = (mmdStore.customMotions || []).map((item) => {
+      const key = item.id || item.name
+      const name = item.name || key
+      return {
+        key,
+        displayName: mappings[key] || name,
+        isActive: mmdStore.currentMotion === key || mmdStore.currentMotion === name,
+        group: 'Custom Animations',
+        duration: 5.0,
+        hasSound: false,
+        isInIdleCycle: idleCycles.includes(`mmd:${key}`) || idleCycles.includes(`mmd:${name}`),
+        isVisible: !hidden.includes(key),
+      }
+    })
+
+    return [...builtinItems, ...customItems]
   }
   if (mType === 'spine') {
     return keys.map(key => ({
@@ -368,7 +399,7 @@ const hasTechnicalKeys = computed(() => {
 
 // Trigger Click-to-Effectuate on Stage
 function triggerExpressionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (!props.localStage && !stageEnabled.value) {
     toast.error('Stage window must be open to preview expressions.')
     return
   }
@@ -386,13 +417,21 @@ function triggerExpressionEffect(key: string) {
     }, 2000)
   }
   else if (modelType.value === 'spine') {
-    spineStore.playOneShotAnimation(key)
+    const match = key.match(/^(.+?)\s*\[(.+?)\]$/)
+    if (match) {
+      const variant = match[1].trim()
+      const skin = match[2].trim()
+      spineStore.selectVariantAndSkin(variant, skin)
+    }
+    else {
+      spineStore.selectVariantAndSkin(key, 'default')
+    }
   }
   toast.info(`Triggered expression: ${key}`)
 }
 
 function triggerMotionEffect(key: string) {
-  if (!stageEnabled.value) {
+  if (!props.localStage && !stageEnabled.value) {
     toast.error('Stage window must be open to preview motions.')
     return
   }
@@ -624,9 +663,9 @@ function toggleMotionCycle(key: string) {
                     >
                   </template>
                   <template v-else>
-                    <div class="min-w-0 w-44 flex items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                    <div class="min-w-0 flex flex-1 items-center gap-1 text-sm text-neutral-900 font-medium dark:text-neutral-100">
                       <span v-if="exp.isFavorite" class="shrink-0" title="Favorite">⭐</span>
-                      <span class="min-w-0 w-44 flex-1 truncate">{{ exp.displayName }}</span>
+                      <span class="min-w-0 flex-1 truncate">{{ exp.displayName }}</span>
                       <span
                         v-if="exp.actMapping"
                         class="ml-1 shrink-0 rounded bg-primary-100 px-1 text-[10px] opacity-60 dark:bg-primary-900"
@@ -634,7 +673,7 @@ function toggleMotionCycle(key: string) {
                       >{{ exp.actMapping }}</span>
                     </div>
                   </template>
-                  <span class="block w-44 truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
+                  <span class="block truncate text-[10px] text-neutral-400">{{ exp.key }}</span>
                 </div>
               </div>
 
@@ -723,26 +762,26 @@ function toggleMotionCycle(key: string) {
           </div>
 
           <template v-for="(groupMotions, groupName) in motionsToRender" :key="groupName">
-            <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 px-1">
+            <div v-if="groupName !== 'Motions' && groupName !== 'Animations'" class="mb-1 min-w-0 w-full overflow-hidden px-1">
               <span class="inline-flex items-center rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] text-primary-700 font-semibold ring-1 ring-primary-700/10 ring-inset dark:bg-primary-900/30 dark:text-primary-400 dark:ring-primary-400/20">
                 {{ groupName }}
               </span>
             </div>
-            <div class="mb-3 overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
+            <div class="mb-3 min-w-0 w-full overflow-hidden border border-neutral-200 rounded-lg bg-white dark:border-neutral-700 dark:bg-neutral-900">
               <div
                 v-for="mot in groupMotions"
                 :key="mot.key"
                 :class="[
-                  'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors',
+                  'flex items-center justify-between px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-b-0 transition-colors min-w-0 w-full overflow-hidden',
                   mot.isActive ? 'bg-primary-50/30 dark:bg-primary-900/15' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
                 ]"
               >
                 <!-- Left: Active dot + name -->
-                <div class="min-w-0 flex flex-1 cursor-pointer items-center gap-2" @click="triggerMotionEffect(mot.key)">
+                <div class="min-w-0 w-0 flex flex-1 cursor-pointer items-center gap-2 overflow-hidden" @click="triggerMotionEffect(mot.key)">
                   <div
                     :class="['h-2 w-2 rounded-full shrink-0 transition-colors', mot.isActive ? 'bg-primary-500' : 'bg-neutral-300 dark:bg-neutral-600']"
                   />
-                  <div class="min-w-0 flex-1">
+                  <div class="min-w-0 w-0 flex flex-1 flex-col overflow-hidden">
                     <template v-if="editingKey === mot.key">
                       <input
                         v-model="editingValue"
@@ -754,11 +793,11 @@ function toggleMotionCycle(key: string) {
                       >
                     </template>
                     <template v-else>
-                      <span class="block truncate text-sm text-neutral-900 font-medium dark:text-neutral-100">
+                      <span class="block w-full truncate text-sm text-neutral-900 font-medium dark:text-neutral-100">
                         {{ mot.displayName }}
                       </span>
                     </template>
-                    <span class="block truncate text-[10px] text-neutral-400">{{ mot.key }}</span>
+                    <span class="block w-full truncate text-[10px] text-neutral-400">{{ mot.key }}</span>
                   </div>
                 </div>
 

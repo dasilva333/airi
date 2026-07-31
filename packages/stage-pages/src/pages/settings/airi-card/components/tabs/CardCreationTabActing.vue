@@ -4,14 +4,16 @@ import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/provider
 import { FieldInput } from '@proj-airi/ui'
 
 defineProps<{
-  actingModelExpressionOptions: string[]
+  actingModelEmotionOptions: string[]
+  actingModelMotionOptions: string[]
   actingGroupedExpressionTags: { category: string, tags: { tag: string, description?: string }[] }[]
   actingMannerismOptions: NonNullable<SpeechCapabilitiesInfo['mannerisms']>
   actingSpeechCapabilitiesLoading: boolean
   selectedSpeechProviderLabel: string
   isVrmaExpression: (name: string) => boolean
   isLive2d: boolean
-  insertModelExpression: (name: string) => void
+  insertModelEmotion: (name: string) => void
+  insertModelMotion: (name: string) => void
   insertSpeechTag: (tag: string, description?: string) => void
   insertSpeechMannerism: (id: string) => void
   actingIdleAnimationOptions: { label: string, value: string }[]
@@ -85,10 +87,10 @@ const FALLBACK_MOOD_TAGS = [
           <label class="flex flex-col gap-4">
             <div>
               <div class="flex items-center gap-1 text-sm font-medium">
-                ACT / Model Expressions
+                ACT / Model Expressions & Capabilities
               </div>
               <div class="text-xs text-neutral-500 dark:text-neutral-400">
-                Teach AIRI how to emit ACT tokens for avatar expressions and motion cues.
+                Teach AIRI how to emit ACT tokens for avatar emotions/outfits and motion cues.
               </div>
             </div>
             <div class="relative w-full">
@@ -110,29 +112,47 @@ const FALLBACK_MOOD_TAGS = [
             </div>
           </label>
         </div>
-        <div class="mt-3 flex flex-col gap-2">
-          <div class="text-xs text-neutral-500">
-            Available model expressions
-            <span v-if="actingModelExpressionOptions.length">({{ actingModelExpressionOptions.length }})</span>
+        <div class="mt-4 flex flex-col gap-4">
+          <!-- Emotions & Outfits Section -->
+          <div class="flex flex-col gap-2">
+            <div class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+              🎨 Emotions & Outfits <span v-if="actingModelEmotionOptions.length">({{ actingModelEmotionOptions.length }})</span>
+            </div>
+            <div v-if="actingModelEmotionOptions.length" class="flex flex-wrap gap-2">
+              <button
+                v-for="name in actingModelEmotionOptions"
+                :key="name"
+                class="flex items-center gap-1 border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
+                @click="insertModelEmotion(name)"
+              >
+                <div class="i-solar:palette-bold-duotone text-[10px]" />
+                {{ name }}
+              </button>
+            </div>
+            <div v-else class="text-xs text-neutral-400 italic">
+              No emotion/outfit variants surfaced for this model.
+            </div>
           </div>
-          <div v-if="actingModelExpressionOptions.length" class="flex flex-wrap gap-2">
-            <button
-              v-for="name in actingModelExpressionOptions"
-              :key="name"
-              class="flex items-center gap-1 border border-neutral-200 rounded-full px-3 py-1 text-xs transition-colors dark:border-neutral-700 hover:border-primary-400 hover:text-primary-500"
-              :class="[
-                (!isLive2d && isVrmaExpression(name))
-                  ? 'bg-primary-50/50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300 border-primary-200/50'
-                  : 'text-neutral-600 dark:text-neutral-300',
-              ]"
-              @click="insertModelExpression(name)"
-            >
-              <div v-if="!isLive2d && isVrmaExpression(name)" class="i-solar:running-bold-duotone text-[10px]" />
-              {{ name }}
-            </button>
-          </div>
-          <div v-else class="text-xs text-neutral-400">
-            No model expression list is currently available. Load a model on stage to surface expression helpers here.
+
+          <!-- Motions & Animations Section -->
+          <div class="flex flex-col gap-2">
+            <div class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+              🏃 Motions & Animations <span v-if="actingModelMotionOptions.length">({{ actingModelMotionOptions.length }})</span>
+            </div>
+            <div v-if="actingModelMotionOptions.length" class="flex flex-wrap gap-2">
+              <button
+                v-for="name in actingModelMotionOptions"
+                :key="name"
+                class="flex items-center gap-1 border border-primary-200/50 rounded-full bg-primary-50/50 px-3 py-1 text-xs text-primary-700 transition-colors dark:border-primary-900/40 hover:border-primary-400 dark:bg-primary-900/20 dark:text-primary-300 hover:text-primary-500"
+                @click="insertModelMotion(name)"
+              >
+                <div class="i-solar:running-bold-duotone text-[10px]" />
+                {{ name }}
+              </button>
+            </div>
+            <div v-else class="text-xs text-neutral-400 italic">
+              No motion cues surfaced for this model.
+            </div>
           </div>
         </div>
       </div>

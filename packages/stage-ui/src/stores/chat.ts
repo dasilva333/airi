@@ -5,7 +5,7 @@ import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { StreamEvent, StreamOptions } from './llm'
 
-import { healMozibake } from '@proj-airi/stage-shared'
+import { debug, healMozibake } from '@proj-airi/stage-shared'
 import { createQueue } from '@proj-airi/stream-kit'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -85,7 +85,7 @@ interface QueuedSend {
 }
 
 // NOTICE: gated to DEV builds to avoid console spam during streaming in production.
-const chatLog = import.meta.env.DEV ? console.log.bind(console, '[ChatDebug]') : () => {}
+const chatLog = import.meta.env.DEV ? debug.bind(null, '[ChatDebug]') : () => {}
 
 // NOTICE: The hooks event bus is intentionally a module-level singleton, NOT created
 // inside the defineStore setup function. During Vite HMR, Pinia re-runs the store's
@@ -394,12 +394,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
     let fullText = ''
     let rawFullText = ''
+    let effectiveModel = options.model || activeModel.value
+    let effectiveProviderId = typeof options.chatProvider === 'string'
+      ? options.chatProvider
+      : activeProvider.value
+
     try {
       sending.value = true
-      let effectiveModel = options.model || activeModel.value
-      let effectiveProviderId = typeof options.chatProvider === 'string'
-        ? options.chatProvider
-        : activeProvider.value
       let effectiveProvider: any = typeof options.chatProvider === 'string'
         ? await providersStore.getProviderInstance(options.chatProvider)
         : (options.chatProvider || await providersStore.getProviderInstance(activeProvider.value))
@@ -873,7 +874,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                   }
                 }
                 else {
-                  console.warn(`[ChatDebug] Tool not found or not executable: ${toolCall.function.name}`)
+                  debug(`[ChatDebug] Tool not found or not executable: ${toolCall.function.name}`)
                   toolCallQueue.enqueue({
                     type: 'tool-call-result',
                     id: toolCall.id,
@@ -1062,7 +1063,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
           }
         }
         catch (e) {
-          console.warn('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
+          debug('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
         }
 
         // Evaluate Introspective Context Injections
@@ -1074,7 +1075,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
         const pendingJournal = pendingIntrusionStaging.journal ? toRaw(pendingIntrusionStaging.journal) : undefined
         const pendingArtistry = pendingIntrusionStaging.artistry ? toRaw(pendingIntrusionStaging.artistry) : undefined
 
-        console.warn('[Chat Debug] performSend evaluation:', {
+        debug('[Chat Debug] performSend evaluation:', {
           activeCardId: activeCardId.value,
           dreamStateInject: dreamState?.injectDreamContext,
           journalStateInject: textJournal?.injectJournalContext,
@@ -1095,7 +1096,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
 
         let journalPrompt = ''
         if (textJournal?.injectJournalContext && pendingJournal) {
-          console.warn('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
+          debug('[Journal Debug] Evaluating journal injection from staging:', pendingJournal)
           const elapsedMinutes = Math.max(1, Math.round((Date.now() - pendingJournal.timestamp) / 60000))
           const template = textJournal.journalIntrusionPrompt || DEFAULT_JOURNAL_INTRUSION_PROMPT
           journalPrompt = template
@@ -1152,7 +1153,7 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
             contextContent += `${contextContent ? '\n---\n' : ''}[INSPECTIVE ARTWORK AWARENESS]\n${artistryPrompt}\n`
           }
 
-          console.warn('[Chat Debug] Combined contextContent to inject:', contextContent.trim())
+          debug('[Chat Debug] Combined contextContent to inject:', contextContent.trim())
 
           newMessages = [
             ...system,
@@ -1189,56 +1190,99 @@ You must now react to this outcome and provide a rich, narrative-driven climax r
           }
         }
 
-        // The generic host-owned first hop remains available only for cards that
-        // explicitly select it. Nan0 enters through the lifecycle hooks below;
-        // parsing Nan0 thoughts in this host would bypass its persisted contracts.
-        const cognitionConfig = activeCard.value?.extensions?.airi?.modules?.cognition
-        if (cognitionConfig?.enabled && cognitionConfig.processor === 'none' && bridgedSteps === 1) {
+        // Evaluate Decoupled Two-Hop Cognition Pipeline
+        const cognitionConfig = (activeCard.value?.extensions?.airi as any)?.modules?.cognition
+        if (cognitionConfig?.enabled && bridgedSteps === 1) {
           const firstHopProviderId = cognitionConfig.provider
           const firstHopModelId = cognitionConfig.model
+          const processorMode = cognitionConfig.processor || 'none'
 
           if (firstHopProviderId && firstHopModelId) {
-            chatLog('[Cognition] Executing generic 1st-hop pre-pass.', {
+            chatLog('[Cognition] Executing 1st-Hop pre-pass thoughts...', {
               provider: firstHopProviderId,
               model: firstHopModelId,
+              processor: processorMode,
             })
 
             try {
               const firstHopProvider = await providersStore.getProviderInstance(firstHopProviderId)
               const firstHopConfig = providersStore.getProviderConfig(firstHopProviderId)
+              const headers = (firstHopConfig?.headers || {}) as Record<string, string>
+
+              // Build the output guidance instructions for the 1st-Hop LLM
+              let firstHopSystemPrompt = ''
+              if (processorMode === 'local_nan0') {
+                // Kyo's local rules engine instructions (System Prompt for Nan0 private thoughts)
+                firstHopSystemPrompt = `[COGNITIVE PROCESSOR: NAN0 LOCAL]
+You are the inner thoughts, attention processor, and emotional monologue generator for the character.
+Generate a thought log matching the strict Nan0 token-delimited formatting schema:
+[ATTENTION] score
+[EMOTION] state
+[MONOLOGUE]
+Your subconscious monologue.
+[DECISION] SPEAK or SILENCE`
+              }
+              else {
+                // Pass-through proxy/default instructions
+                firstHopSystemPrompt = cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
+You are the inner thoughts, attention processor, and emotional monologue generator for the character.
+Analyze the conversation history and the latest user message. Generate a concise inner monologue detailing your emotional state, attention highlights, memories to fetch, and immediate conversational directives.
+Format your output as a raw thought log.`
+              }
+
+              const firstHopMessages = [
+                { role: 'system', content: firstHopSystemPrompt },
+                ...newMessages.filter(m => m.role !== 'system'),
+              ]
+
               const firstHopResponse = await llmStore.generate(
                 firstHopModelId,
                 firstHopProvider as any,
-                [
-                  {
-                    role: 'system',
-                    content: cognitionConfig.outputGuidance || `[COGNITIVE PROCESSOR]
-Analyze the conversation history and latest user message. Produce a concise private monologue with emotional state, attention highlights, relevant memory cues, and immediate conversational direction. Return only the thought log.`,
-                  },
-                  ...newMessages.filter(message => message.role !== 'system'),
-                ] as Message[],
+                firstHopMessages as Message[],
                 {
-                  headers: (firstHopConfig?.headers || {}) as Record<string, string>,
+                  headers,
                   temperature: 0.7,
                 },
               )
-              const monologue = firstHopResponse.text?.trim()
 
-              if (monologue) {
+              const rawOutput = firstHopResponse.text || ''
+              chatLog('[Cognition] Raw 1st-Hop output:', rawOutput)
+
+              let monologueText = ''
+              if (processorMode === 'local_nan0') {
+                // TODO (Kyo Integration):
+                // 1. Run local metabonomics, relationships, and emotional baseline decays first.
+                // 2. Parse rawOutput matching the strict token format ([EMOTION], [ATTENTION], [MONOLOGUE], [DECISION]).
+                // 3. Extract the inner monologue content to assign to monologueText.
+                // 4. Update the character's active emotion and physics levels in the card store.
+                // 5. If [DECISION] is SILENCE, abort/silence the assistant turn here.
+
+                // Placeholder parse:
+                const monologueMatch = rawOutput.match(/\[MONOLOGUE\]\s*([\s\S]*?)(?:\[DECISION\]|$)/i)
+                monologueText = monologueMatch ? monologueMatch[1].trim() : rawOutput
+              }
+              else {
+                // Pass-through: Treat the entire output as the monologue
+                monologueText = rawOutput
+              }
+
+              if (monologueText.trim()) {
+                // Inject the monologue as a system instruction before sending to 2nd LLM
                 const system = newMessages.slice(0, 1)
                 const afterSystem = newMessages.slice(1)
+
                 newMessages = [
                   ...system,
                   {
                     role: 'system',
-                    content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${monologue}`,
+                    content: `[INTERNAL MONOLOGUE & ATTENTION DIRECTIVE]\n${monologueText.trim()}`,
                   },
                   ...afterSystem,
                 ]
               }
             }
-            catch (error) {
-              console.error('[Cognition] Generic 1st-hop pre-pass failed; continuing with AIRI output generation:', error)
+            catch (err) {
+              console.error('[Cognition] 1st-Hop pre-pass failed, continuing to 2nd-Hop:', err)
             }
           }
         }
@@ -1291,7 +1335,7 @@ Analyze the conversation history and latest user message. Produce a concise priv
         const currentModel = providerModels.find(m => m.id === effectiveModel)
         const isVisionSupported = isVlmTurn || (currentModel?.capabilities?.includes('vision') || false)
 
-        console.log(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
+        debug(`[ChatDebug] Model: ${effectiveModel}, Provider: ${effectiveProviderId}, Vision Supported: ${isVisionSupported}`)
 
         await llmStore.stream(effectiveModel, effectiveProvider, newMessages as Message[], {
           headers,
@@ -1588,7 +1632,21 @@ Analyze the conversation history and latest user message. Produce a concise priv
         errorMessage = String(error)
       }
 
-      const fullErrorDisplay = `⚠️ **Chat Error**\n\n${errorMessage}${technicalDetail ? `\n\n**Technical Details**:\n\`\`\`json\n${technicalDetail}\n\`\`\`` : ''}`
+      const activeModelName = effectiveModel || 'Default'
+      const activeProviderName = effectiveProviderId || 'Default'
+      const isAuthError = errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('api key')
+
+      let fullErrorDisplay = `⚠️ **Chat Generation Failed**\n\n`
+      fullErrorDisplay += `**Configured Model**: \`${activeModelName}\` *(Provider: \`${activeProviderName}\`)*\n\n`
+      fullErrorDisplay += `**Error**: ${errorMessage}\n\n`
+      fullErrorDisplay += `💡 **Suggested Fix**:\n`
+      fullErrorDisplay += `👉 Click the **Brain Picker** (🧠 icon) in the top-right corner of this window to double-check or switch the model configured for this character.`
+      if (isAuthError) {
+        fullErrorDisplay += `\n*If switching models doesn't help, verify your API key in **Settings > Providers**.*`
+      }
+      if (technicalDetail) {
+        fullErrorDisplay += `\n\n<details>\n<summary>🔍 Technical Details</summary>\n\n\`\`\`json\n${technicalDetail}\n\`\`\`\n</details>`
+      }
 
       // Display in UI: Update content for history AND slices for immediate rendering
       buildingMessage.content += `${buildingMessage.content ? '\n\n' : ''}${fullErrorDisplay}`
@@ -1638,7 +1696,7 @@ Analyze the conversation history and latest user message. Produce a concise priv
 
     if (!isMainWindow) {
       if (options.triggerOnly) {
-        console.log(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
+        debug(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
         postInput({
           sendingMessage,
           options: {
@@ -1652,7 +1710,7 @@ Analyze the conversation history and latest user message. Produce a concise priv
       }
 
       const clientMessageId = nanoid()
-      console.log(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
+      debug(`[IngestDebug] Secondary window ingesting. clientMessageId: ${clientMessageId}. Target session: ${sessionId}`)
       const metadata = { ...options.metadata, clientMessageId }
 
       return new Promise<void>((resolve, reject) => {
@@ -1680,19 +1738,19 @@ Analyze the conversation history and latest user message. Produce a concise priv
         stopWatch = watch(
           () => {
             const msgs = chatSession.getSessionMessages(sessionId)
-            console.log(`[IngestDebug] Watcher getter ran. Target messages count: ${msgs.length}`)
+            debug(`[IngestDebug] Watcher getter ran. Target messages count: ${msgs.length}`)
             return msgs
           },
           (messages) => {
-            console.log(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
+            debug(`[IngestDebug] Watcher callback triggered. Messages length: ${messages.length}`)
             const found = messages.some((m) => {
               const clientMsgId = (m as any).clientMessageId || (m as any).metadata?.clientMessageId
               const matched = clientMsgId === clientMessageId
-              console.log(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, clientMsgId, matched })
+              debug(`[IngestDebug] Checking msg in history:`, { id: m.id, role: m.role, clientMsgId, matched })
               return matched
             })
             if (found) {
-              console.log(`[IngestDebug] Found matching clientMessageId: ${clientMessageId}! Resolving promise.`)
+              debug(`[IngestDebug] Found matching clientMessageId: ${clientMessageId}! Resolving promise.`)
               cleanup()
               resolve()
             }

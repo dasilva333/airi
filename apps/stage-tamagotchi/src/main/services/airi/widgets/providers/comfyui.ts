@@ -260,16 +260,20 @@ export class ComfyUIProvider implements ArtistryProvider {
     // Build overrides from the request
     const overrides: Record<string, Record<string, any>> = {}
 
-    // The main prompt text goes into the first exposed "text" field we find
+    // The main prompt text goes into the first exposed field of the selected target node
     // COMPAT: If the user ALREADY used a {{PROMPT}} placeholder in the extra params, we skip this auto-injection
     const hasPromptPlaceholder = JSON.stringify(request.extra).includes('{{PROMPT}}')
     if (request.prompt && !hasPromptPlaceholder) {
       for (const [nodeTitle, fields] of Object.entries(template.exposedFields)) {
-        if (fields.includes('text')) {
-          if (!overrides[nodeTitle])
-            overrides[nodeTitle] = {}
-          overrides[nodeTitle].text = request.prompt
-          break // Only inject into the first text field
+        if (fields.length > 0) {
+          // Prefer common prompt property names, or fall back to the first exposed field
+          const targetField = fields.find(f => ['text', 'value', 'prompt', 'string', 'positive'].includes(f.toLowerCase())) || fields[0]
+          if (targetField) {
+            if (!overrides[nodeTitle])
+              overrides[nodeTitle] = {}
+            overrides[nodeTitle][targetField] = request.prompt
+            break // Only inject into the primary prompt target field
+          }
         }
       }
     }

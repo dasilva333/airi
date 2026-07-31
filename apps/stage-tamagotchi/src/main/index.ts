@@ -20,7 +20,8 @@ import icon from '../../resources/icon.png?asset'
 
 import {
   electronApplySizePreset,
-  electronCaptionSetFollowWindow,
+  electronCaptionSetFollowStagePosition,
+  electronCaptionSetFollowStageVisibility,
   electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
   electronGetCaptionWindowState,
@@ -377,19 +378,40 @@ app.whenReady().then(async () => {
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
-
       const defaultBypassUrls = [
         'https://api.deepgram.com/*',
         'https://opencode.ai/*',
         'https://pioneer.ai/*',
+        'https://integrate.api.nvidia.com/*',
         'https://text.pollinations.ai/*',
         'https://api.xiaomimimo.com/*',
       ]
-      const initialUrls = deps.appConfig.get()?.corsBypassUrls ?? defaultBypassUrls
+
+      const coalesceCorsBypassUrls = (userUrls?: string[]): string[] => {
+        const list = [...(userUrls || [])]
+        for (const url of defaultBypassUrls) {
+          if (!list.includes(url)) {
+            list.push(url)
+          }
+        }
+        return list
+      }
+
+      const initialUrls = coalesceCorsBypassUrls(deps.appConfig.get()?.corsBypassUrls)
+
+      // Auto-update config if new defaults were merged in
+      const currentConfig = deps.appConfig.get()
+      if (currentConfig && JSON.stringify(currentConfig.corsBypassUrls) !== JSON.stringify(initialUrls)) {
+        deps.appConfig.update({
+          ...currentConfig,
+          corsBypassUrls: initialUrls,
+        })
+      }
+
       registerCorsBypass(initialUrls)
 
       defineInvokeHandler(context, electronGetCorsBypassUrls, async () => {
-        return deps.appConfig.get()?.corsBypassUrls ?? defaultBypassUrls
+        return coalesceCorsBypassUrls(deps.appConfig.get()?.corsBypassUrls)
       })
 
       defineInvokeHandler(context, electronSetCorsBypassUrls, async (urls) => {
@@ -439,9 +461,13 @@ app.whenReady().then(async () => {
         }
         await deps.captionWindow.triggerMove(dock)
       })
-      defineInvokeHandler(context, electronCaptionSetFollowWindow, async (shouldFollow) => {
-        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow window triggered:', shouldFollow)
-        await deps.captionWindow.setFollowWindow(shouldFollow)
+      defineInvokeHandler(context, electronCaptionSetFollowStagePosition, async (shouldFollow) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow stage position triggered:', shouldFollow)
+        await deps.captionWindow.setFollowStagePosition(shouldFollow)
+      })
+      defineInvokeHandler(context, electronCaptionSetFollowStageVisibility, async (shouldFollow) => {
+        console.log('[@proj-airi/stage-tamagotchi] [Main] Caption set follow stage visibility triggered:', shouldFollow)
+        await deps.captionWindow.setFollowStageVisibility(shouldFollow)
       })
       defineInvokeHandler(context, electronSetIgnoreMouseEvents, async (ignore) => {
         // @ts-ignore - window might be undefined if context is global, but here it's window-specific
@@ -917,12 +943,12 @@ app.whenReady().then(async () => {
       if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
         deps.stageWindow.on('show', () => {
           stageInitialized = true
-          if (deps.captionWindow.getIsFollowingWindow()) {
+          if (deps.captionWindow.getIsFollowingStageVisibility()) {
             deps.captionWindow.toggleVisibility(true)
           }
         })
         deps.stageWindow.on('hide', () => {
-          if (deps.captionWindow.getIsFollowingWindow()) {
+          if (deps.captionWindow.getIsFollowingStageVisibility()) {
             deps.captionWindow.toggleVisibility(false)
           }
         })
@@ -1089,11 +1115,29 @@ app.whenReady().then(async () => {
             ? Buffer.from(data.content, 'base64')
             : data.content
 
+          let targetFullPath = fullPath
+          let finalBuffer: Buffer | string = buffer
+
+          // NOTICE: Option B Archive Compression — If uploading a PNG background, re-encode to AVIF via sharp in main process if sharp is available
+          if (data.relPath.startsWith('assets/backgrounds/') && data.relPath.endsWith('.png') && Buffer.isBuffer(buffer)) {
+            try {
+              const sharp = (await import('sharp')).default
+              const avifBuffer = await sharp(buffer)
+                .avif({ quality: 72, effort: 4, chromaSubsampling: '4:2:0' })
+                .toBuffer()
+              targetFullPath = fullPath.replace(/\.png$/, '.avif')
+              finalBuffer = avifBuffer
+            }
+            catch (e) {
+              // If sharp is unavailable or fails, fall back to writing raw PNG
+            }
+          }
+
           const flags = data.append ? 'a' : 'w'
           let handle
           try {
-            handle = await fs.open(fullPath, flags)
-            await handle.writeFile(buffer)
+            handle = await fs.open(targetFullPath, flags)
+            await handle.writeFile(finalBuffer)
             try {
               await handle.close()
             }
@@ -1110,7 +1154,7 @@ app.whenReady().then(async () => {
             throw writeErr
           }
 
-          const stats = await fs.stat(fullPath)
+          const stats = await fs.stat(targetFullPath)
           return { success: true, mtime: stats.mtimeMs }
         }
         catch (error) {
@@ -1153,8 +1197,13 @@ app.whenReady().then(async () => {
             return { success: true, content: buffer.toString('utf-8') }
           }
         }
-        catch (error) {
-          console.error('[BYOS-FS] Failed to read file:', error)
+        catch (error: any) {
+          if (error?.code === 'ENOENT') {
+            console.error(`[BYOS-FS] Failed to read file: ENOENT: no such file or directory, open '${fullPath}'`)
+          }
+          else {
+            console.error('[BYOS-FS] Failed to read file:', error)
+          }
           return { success: false, error: String(error) }
         }
       })

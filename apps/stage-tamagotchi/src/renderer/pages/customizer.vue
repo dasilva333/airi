@@ -64,7 +64,10 @@ const DEFAULT_ORDER = [
   'exit-app',
 
   'caption-docking',
-  'caption-follow-stage',
+  'caption-sync-position',
+  'caption-sync-visibility',
+  'caption-theme-mode',
+  'caption-opacity',
   'caption-layout-mode',
 
   'actor-characters',
@@ -231,8 +234,10 @@ function isUnboundToggleActive(itemId: string): boolean {
     return fadeOnHoverEnabled.value
   if (itemId === 'theme-mode')
     return colorMode.value === 'dark'
-  if (itemId === 'caption-follow-stage')
-    return settingsStore.captionFollowStage
+  if (itemId === 'caption-sync-position')
+    return settingsStore.captionFollowStagePosition
+  if (itemId === 'caption-sync-visibility')
+    return settingsStore.captionFollowStageVisibility
   if (itemId === 'caption-docking')
     return settingsStore.captionDocking === 'bottom'
   if (itemId === 'caption-layout-mode')
@@ -254,7 +259,7 @@ function hasToggleButton(item: (typeof CUSTOMIZER_CATALOG)[0]['items'][0]): bool
   // Show toggle button for bound items and for known unbound toggles
   if (item.binding)
     return true
-  return ['always-on-top', 'viewport-auto-hide', 'theme-mode', 'caption-follow-stage', 'caption-docking', 'caption-layout-mode'].includes(item.id)
+  return ['always-on-top', 'viewport-auto-hide', 'theme-mode', 'caption-sync-position', 'caption-sync-visibility', 'caption-docking', 'caption-layout-mode'].includes(item.id)
 }
 
 const geminiDotClasses = computed(() => {

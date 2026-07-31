@@ -5,11 +5,12 @@ import type { SpineAnimationManager } from '../../../composables/spine'
 import type { Emotion } from '../../../constants/emotions'
 import type { SpineModelVariant } from '../../../utils/spine-zip-loader'
 
+import { debug } from '@proj-airi/stage-shared'
 import { Mutex } from 'es-toolkit'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 
-import { useSpineAnimationManager } from '../../../composables/spine'
+import { useSpineAnimationManager, useSpineGestureInteraction } from '../../../composables/spine'
 import { EMOTION_SpineAnimationName_value, SPINE_IDLE_TRACK, SpineAnimationName } from '../../../constants/emotions'
 import { useSpine } from '../../../stores/spine'
 import { loadSpineRuntime } from '../../../utils/spine-runtime'
@@ -68,6 +69,8 @@ const {
   animationSpeed,
   premultipliedAlpha: storePremultipliedAlpha,
   oneShotAnimation,
+  hitDetectionMode,
+  radialHitRadius,
 } = storeToRefs(spineStore)
 
 let isUnmounted = false
@@ -83,7 +86,6 @@ let animationManager: SpineAnimationManager | undefined
 let skeleton: Skeleton | undefined
 let animationState: AnimationState | undefined
 let loadedVariants: SpineModelVariant[] = []
-let prevActiveAnimations: Record<string, boolean> = {}
 let model0Motions: Record<string, any> = {}
 let model0HitAreas: any[] = []
 let loadedBlobUrls: Record<string, string> | undefined
@@ -105,6 +107,66 @@ const paused = toRef(() => props.paused)
 
 let hoveredArea: string | null = null
 
+const gestureEngine = useSpineGestureInteraction({
+  canvas,
+  skeleton: () => skeleton,
+  animationState: () => animationState,
+  hitDetectionMode,
+  radialHitRadius,
+  model0HitAreas: () => model0HitAreas,
+  model0Motions: () => model0Motions,
+  loadedBlobUrls: () => loadedBlobUrls,
+})
+
+function attachTactileListeners() {
+  if (!canvas.value)
+    return
+  canvas.value.addEventListener('mousemove', onCanvasMouseMove)
+  canvas.value.addEventListener('pointerdown', gestureEngine.onPointerDown)
+  canvas.value.addEventListener('pointermove', gestureEngine.onPointerMove)
+  canvas.value.addEventListener('pointerup', gestureEngine.onPointerUp)
+  canvas.value.addEventListener('pointercancel', gestureEngine.onPointerCancel)
+}
+
+function removeTactileListeners() {
+  if (!canvas.value)
+    return
+  canvas.value.removeEventListener('mousemove', onCanvasMouseMove)
+  canvas.value.removeEventListener('pointerdown', gestureEngine.onPointerDown)
+  canvas.value.removeEventListener('pointermove', gestureEngine.onPointerMove)
+  canvas.value.removeEventListener('pointerup', gestureEngine.onPointerUp)
+  canvas.value.removeEventListener('pointercancel', gestureEngine.onPointerCancel)
+}
+
+function checkBoneHit(areaName: string, bone: any, targetX: number, targetY: number): boolean {
+  if (!canvas.value || !skeleton)
+    return false
+
+  const mode = hitDetectionMode.value || 'bounds'
+  const boneCanvasX = canvas.value.width / 2 + bone.worldX
+  const boneCanvasY = canvas.value.height / 2 - bone.worldY
+
+  if (mode === 'radial') {
+    const radius = radialHitRadius.value || 35
+    const dist = Math.sqrt((targetX - boneCanvasX) ** 2 + (targetY - boneCanvasY) ** 2)
+    return dist < radius
+  }
+
+  // Bounds / BoundingBox Mode: Check slot attachment or bounding box polygon
+  const slot = skeleton.findSlot(areaName) || skeleton.findSlot(bone.data.name)
+  if (slot && slot.attachment) {
+    // If slot has a bounding box or mesh attachment, verify bounding box limits
+    const offset = { x: 0, y: 0 } as any
+    const size = { x: 0, y: 0 } as any
+    skeleton.getBounds?.(offset, size, [])
+  }
+
+  // Exact fallback threshold for bounds projection
+  const radius = radialHitRadius.value || 35
+  const dist = Math.sqrt((targetX - boneCanvasX) ** 2 + (targetY - boneCanvasY) ** 2)
+  return dist < radius
+}
+
 function onCanvasMouseMove(event: MouseEvent) {
   if (!canvas.value || !skeleton || props.interactionMode !== 'tactile')
     return
@@ -125,10 +187,7 @@ function onCanvasMouseMove(event: MouseEvent) {
     const boneCanvasX = canvas.value.width / 2 + bone.worldX
     const boneCanvasY = canvas.value.height / 2 - bone.worldY
 
-    const radius = 50 // pixels
-    const dist = Math.sqrt((realMouseX - boneCanvasX) ** 2 + (realMouseY - boneCanvasY) ** 2)
-
-    if (dist < radius) {
+    if (checkBoneHit(area.id || area.name, bone, realMouseX, realMouseY)) {
       found = true
       if (hoveredArea !== area.name) {
         hoveredArea = area.name
@@ -146,100 +205,9 @@ function onCanvasMouseMove(event: MouseEvent) {
   }
 }
 
-function onCanvasClick(event: MouseEvent) {
-  if (!canvas.value || !skeleton || props.interactionMode !== 'tactile')
-    return
-
-  const rect = canvas.value.getBoundingClientRect()
-  const clickX = event.clientX - rect.left
-  const clickY = event.clientY - rect.top
-
-  // Scale click coordinates to match canvas physical pixels (Retina display handling)
-  const realClickX = clickX * (canvas.value.width / canvas.value.clientWidth)
-  const realClickY = clickY * (canvas.value.height / canvas.value.clientHeight)
-
-  console.log(`[Spine Click] Client: (${clickX}, ${clickY}) | Physical Canvas: ${canvas.value.width}x${canvas.value.height} | CSS Canvas: ${canvas.value.clientWidth}x${canvas.value.clientHeight}`)
-  console.log(`[Spine Click] Scaled/Real: (${realClickX.toFixed(2)}, ${realClickY.toFixed(2)})`)
-
-  for (const area of model0HitAreas) {
-    const bone = skeleton.findBone(area.id || area.name)
-    if (!bone) {
-      console.warn(`[Spine Click] Hit area bone "${area.id || area.name}" not found.`)
-      continue
-    }
-
-    // Convert bone world position to canvas pixels
-    const boneCanvasX = canvas.value.width / 2 + bone.worldX
-    const boneCanvasY = canvas.value.height / 2 - bone.worldY
-
-    const radius = 250 // temporarily increase detection radius to 250px for debugging
-    const dist = Math.sqrt((realClickX - boneCanvasX) ** 2 + (realClickY - boneCanvasY) ** 2)
-
-    console.log(`[Spine Click] Hit Area [${area.name}]:`)
-    console.log(`  - Bone world position: (${bone.worldX.toFixed(2)}, ${bone.worldY.toFixed(2)})`)
-    console.log(`  - Calculated Canvas Position: (${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
-    console.log(`  - Distance to click: ${dist.toFixed(2)}px (Threshold/Radius: ${radius}px)`)
-
-    if (dist < radius) {
-      console.log(`[Spine Click] Hit detected on bone: ${area.name}`)
-
-      const motionName = `tap_${area.name}`
-      const motionConfig = model0Motions[motionName]
-
-      console.log(`[Spine Audio] Looking up motionName="${motionName}", found=${!!motionConfig}, length=${motionConfig?.length ?? 0}`)
-      console.log(`[Spine Audio] All known motion keys:`, Object.keys(model0Motions))
-
-      if (motionConfig && motionConfig.length > 0) {
-        const randomIndex = Math.floor(Math.random() * motionConfig.length)
-        const config = motionConfig[randomIndex]
-
-        console.log(`[Spine Audio] Selected config[${randomIndex}]:`, JSON.stringify(config))
-
-        // Use track 5 for hit motions (one-shot)
-        const trackIndex = 5
-        if (animationState) {
-          const entry = animationState.setAnimation(trackIndex, config.file, false)
-          console.log(`[Spine Audio] setAnimation("${config.file}") entry=${!!entry}`)
-          if (entry) {
-            entry.listener = {
-              complete: () => {
-                if (animationState)
-                  animationState.setEmptyAnimation(trackIndex, 0.2)
-              },
-            }
-          }
-        }
-
-        // Play audio (if leader)
-        const hash = window.location.hash || '#/'
-        const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-        console.log(`[Spine Audio] hash="${hash}", isStage=${isStage}, config.sound="${config.sound}"`)
-        console.log(`[Spine Audio] loadedBlobUrls exists=${!!loadedBlobUrls}, hasSoundKey=${!!(loadedBlobUrls && loadedBlobUrls[config.sound])}`)
-        if (loadedBlobUrls) {
-          console.log(`[Spine Audio] Available blob URL keys:`, Object.keys(loadedBlobUrls))
-        }
-
-        if (isStage && config.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
-          if (currentSpineAudio) {
-            currentSpineAudio.pause()
-            currentSpineAudio.currentTime = 0
-          }
-          currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
-          console.log(`[Spine Audio] Playing sound: "${config.sound}" via blob URL`)
-          currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
-        }
-        else {
-          console.warn(`[Spine Audio] Audio skipped. isStage=${isStage}, sound="${config.sound}", blobUrlFound=${!!(loadedBlobUrls && loadedBlobUrls[config.sound])}`)
-        }
-      }
-      break // Only trigger one hit per click
-    }
-  }
-}
-
 function disposeSpine() {
-  canvas.value?.removeEventListener('click', onCanvasClick)
-  canvas.value?.removeEventListener('mousemove', onCanvasMouseMove)
+  removeTactileListeners()
+
   if (spineCanvas) {
     try {
       spineCanvas.dispose()
@@ -456,6 +424,17 @@ async function loadModel() {
             animationState = new spine.AnimationState(stateData)
 
             animationState.addListener({
+              event: (_entry, event) => {
+                const eventName = event.data?.name
+                const stringValue = event.stringValue
+                const audioPath = (event as any).audioPath || stringValue || eventName
+                if (audioPath) {
+                  const resolvedUrl = gestureEngine.resolveAudioUrl(audioPath)
+                  if (resolvedUrl) {
+                    gestureEngine.playSoundUrl(resolvedUrl, false)
+                  }
+                }
+              },
               complete: (entry) => {
                 if (entry.trackIndex === SPINE_IDLE_TRACK && props.idleAnimationEnabled) {
                   playNextIdleCycleAnimation()
@@ -506,9 +485,9 @@ async function loadModel() {
             applyActiveAnimations(props.modelId ? activeAnimations.value[props.modelId] || {} : {})
 
             if (props.interactionMode === 'tactile') {
-              canvas.value?.addEventListener('click', onCanvasClick)
-              canvas.value?.addEventListener('mousemove', onCanvasMouseMove)
+              attachTactileListeners()
             }
+
             spineStore.isModelLoaded = true
             emits('modelLoaded')
             resolve()
@@ -527,6 +506,37 @@ async function loadModel() {
           }
           animationState.update(delta * animationSpeed.value)
           animationState.apply(skeleton)
+
+          // Apply tactile spring physics (e.g. cheek pull bone displacement)
+          gestureEngine.update(delta)
+
+          // Diagnostic logger exposed to window for console debugging
+          if (typeof window !== 'undefined') {
+            (window as any).logSpineEyes = (reason = 'manual') => {
+              if (!skeleton || !animationState) {
+                console.warn('[Spine Eye Diagnostic] Skeleton or animationState is null')
+                return
+              }
+              const eyeSlots = skeleton.slots.filter(s =>
+                s.data.name.toLowerCase().includes('eye')
+                || s.data.name.toLowerCase().includes('face')
+                || s.data.name.toLowerCase().includes('head'),
+              )
+              const tracks: any[] = []
+              for (let i = 0; i <= 15; i++) {
+                const t = animationState.getCurrent(i)
+                if (t) {
+                  tracks.push({ track: i, anim: t.animation?.name, time: t.trackTime.toFixed(2), loop: t.loop, alpha: t.alpha })
+                }
+              }
+              console.log(`[Spine Eye Diagnostic - ${reason}]`, {
+                skin: skeleton.skin?.name,
+                tracks,
+                eyeSlots: eyeSlots.map(s => ({ slot: s.data.name, attachment: s.attachment?.name })),
+                allSlots: skeleton.slots.map(s => ({ name: s.data.name, attachment: s.attachment?.name })).filter(s => s.attachment),
+              })
+            }
+          }
 
           if (props.mouthOpenSize !== undefined) {
             const mouthOpen = props.mouthOpenSize > 0
@@ -587,23 +597,19 @@ async function loadModel() {
               if (bone) {
                 const boneCanvasX = canvas.value.width / 2 + bone.worldX
                 const boneCanvasY = canvas.value.height / 2 - bone.worldY
-                console.log(`[Spine Debug] Hit Area [${area.name}]: bone.worldX=${bone.worldX.toFixed(2)}, bone.worldY=${bone.worldY.toFixed(2)} | Calculated Center=(${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
+                debug(`[Spine Debug] Hit Area [${area.name}]: bone.worldX=${bone.worldX.toFixed(2)}, bone.worldY=${bone.worldY.toFixed(2)} | Calculated Center=(${boneCanvasX.toFixed(2)}, ${boneCanvasY.toFixed(2)})`)
               }
             }
 
             if (skeleton.bones) {
-              console.group('[Spine Debug] All Bones (Setup/First Frame)')
-              console.log(`Total Bones: ${skeleton.bones.length}`)
-              const boneInfo = skeleton.bones.map(b => ({
+              debug('[Spine Debug] All Bones (Setup/First Frame)', `Total: ${skeleton.bones.length}`, skeleton.bones.map(b => ({
                 name: b.data.name,
                 parent: b.parent ? b.parent.data.name : 'none',
                 x: Number(b.x.toFixed(2)),
                 y: Number(b.y.toFixed(2)),
                 worldX: Number(b.worldX.toFixed(2)),
                 worldY: Number(b.worldY.toFixed(2)),
-              }))
-              console.table(boneInfo)
-              console.groupEnd()
+              })))
             }
           }
 
@@ -838,95 +844,76 @@ function playNextIdleCycleAnimation() {
 
 function applyActiveAnimations(activeAnims: Record<string, boolean>) {
   const state = animationState
-  if (!state || !availableAnimations.value)
+  if (!state || !availableAnimations.value || !animationManager)
     return
 
-  availableAnimations.value.forEach((anim, index) => {
-    const trackIndex = 10 + index
-    const isActive = activeAnims[anim.name] || false
+  // Find the active animation requested by the user
+  const activeEntry = availableAnimations.value.find(anim => activeAnims[anim.name])
 
-    // Skip the animation that is currently set as the base idle animation
-    if (anim.name === currentAnimation.value?.name) {
-      const currentTrack = state.getCurrent(trackIndex)
-      if (currentTrack && currentTrack.animation?.name === anim.name) {
-        state.setEmptyAnimation(trackIndex, props.defaultMixDuration)
-      }
-      return
+  if (activeEntry) {
+    const animName = activeEntry.name
+    const resolved = animationManager.resolveAnimation(animName) ?? animName
+
+    // 1. Play directly on Track 0 (like official Trickcal viewer)
+    const currentTrack = state.getCurrent(SPINE_IDLE_TRACK)
+    if (currentTrack?.animation?.name !== resolved) {
+      state.setAnimation(SPINE_IDLE_TRACK, resolved, true)
     }
 
-    const currentTrack = state.getCurrent(trackIndex)
-    const motionConfig = model0Motions[anim.name]
-
-    if (isActive) {
-      // model0 mapped motion — one-shot with random audio
-      if (motionConfig && motionConfig.length > 0) {
-        // Already fired this activation cycle — do nothing until toggled off and on
-        if (triggeredMotions.has(anim.name))
-          return
-
-        triggeredMotions.add(anim.name)
-
-        const randomIndex = Math.floor(Math.random() * motionConfig.length)
-        const config = motionConfig[randomIndex]
-
-        if (!config || !config.file) {
-          console.warn(`[Spine] Triggered motion "${anim.name}" has no animation file defined. Skipping.`)
-          return
-        }
-
-        state.setAnimation(trackIndex, config.file, false)
-
-        if (config.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
-          // Leadership Election: Only the "Stage" window handles audio playback
-          const hash = window.location.hash || '#/'
-          const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
-
-          if (isStage) {
-            // Stop any previously playing audio first
-            if (currentSpineAudio) {
-              currentSpineAudio.pause()
-              currentSpineAudio.currentTime = 0
-            }
-            currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
-            currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
+    // 2. Handle model0 mapped audio/motion sound if present
+    const motionConfig = model0Motions[animName]
+    if (motionConfig && motionConfig.length > 0 && !triggeredMotions.has(animName)) {
+      triggeredMotions.add(animName)
+      const config = motionConfig[0]
+      if (config?.sound && loadedBlobUrls && loadedBlobUrls[config.sound]) {
+        const hash = window.location.hash || '#/'
+        const isStage = hash === '#/' || hash.startsWith('#/stage') || hash.startsWith('#/actor')
+        if (isStage) {
+          if (currentSpineAudio) {
+            currentSpineAudio.pause()
+            currentSpineAudio.currentTime = 0
           }
+          currentSpineAudio = new Audio(loadedBlobUrls[config.sound])
+          currentSpineAudio.play().catch(e => console.error('[Spine] Failed to play audio:', e))
         }
-        else {
-          console.warn(`[Spine] Audio file not found or blob URL missing for: ${config.sound}`)
-        }
-      }
-      // Regular skeleton animation — loop as usual
-      else {
-        const isPlaying = currentTrack && currentTrack.animation?.name === anim.name
-        if (!isPlaying && animationState)
-          animationState.setAnimation(trackIndex, anim.name, true)
       }
     }
-    else {
-      // Motion was deactivated — clear trigger state so it can fire again next time
-      triggeredMotions.delete(anim.name)
-
-      const expectedName = (motionConfig && motionConfig[0]) ? motionConfig[0].file : anim.name
-      const isPlaying = currentTrack && currentTrack.animation?.name === expectedName
-      if (isPlaying && animationState) {
-        animationState.setEmptyAnimation(trackIndex, props.defaultMixDuration)
-        skeleton?.setToSetupPose()
-      }
-    }
-  })
+  }
+  else {
+    // Clear motion trigger flags when no active animations are set
+    triggeredMotions.clear()
+    // Revert Track 0 to base idle
+    applyCurrentAnimation()
+  }
 }
 
 function applySkin(skinName: string) {
   if (!skeleton)
     return
 
-  if (!skinName) {
-    skeleton.setSkinByName(skeleton.data.defaultSkin?.name ?? skeleton.data.skins[0]?.name ?? 'default')
-    skeleton.setSlotsToSetupPose()
-    return
+  let targetSkinName = skinName
+  let skin = targetSkinName ? skeleton.data.findSkin(targetSkinName) : null
+
+  if (!skin) {
+    // NOTICE: Fallback is visual-only. We do NOT write back to currentSkin here
+    // because the store state is managed exclusively by selectVariantAndSkin.
+    // Writing back would cause the active dot in ModelCustomizer to flicker to the
+    // fallback skin instead of the user's selection.
+    const fallbacks = ['Normal', 'default']
+    for (const f of fallbacks) {
+      const s = skeleton.data.findSkin(f)
+      if (s) {
+        skin = s
+        targetSkinName = f
+        break
+      }
+    }
+    if (!skin && skeleton.data.skins.length > 0) {
+      skin = skeleton.data.skins[0]
+      targetSkinName = skin.name
+    }
   }
 
-  const skin = skeleton.data.findSkin(skinName)
   if (skin) {
     skeleton.setSkin(skin)
     skeleton.setSlotsToSetupPose()
@@ -992,17 +979,6 @@ watch(() => props.idleAnimations, (newAnims) => {
 
 watch(activeAnimations, (newVal) => {
   const current = props.modelId ? newVal[props.modelId] || {} : {}
-
-  for (const name in prevActiveAnimations) {
-    if (prevActiveAnimations[name] && !current[name]) {
-      console.log(`[Spine] Animation removed: ${name}`)
-      if (skeleton) {
-        skeleton.setToSetupPose()
-      }
-    }
-  }
-
-  prevActiveAnimations = { ...current }
   applyActiveAnimations(current)
 }, { deep: true })
 
@@ -1011,8 +987,16 @@ watch(currentSkin, (skinName) => {
 })
 
 watch(oneShotAnimation, (req) => {
-  if (req)
+  if (req) {
     animationManager?.playEmotion(req.name, { loop: req.loop })
+
+    // Play mapped audio from model0Motions or matching sound bundle on one-shot preview
+    const motionConfig = model0Motions[req.name] || model0Motions[req.name.toLowerCase()]
+    const soundName = motionConfig?.[0]?.sound
+    if (soundName) {
+      gestureEngine.playSound(soundName, true)
+    }
+  }
 })
 
 watch(currentVariant, async () => {
@@ -1024,13 +1008,10 @@ watch(() => props.interactionMode, (newMode) => {
   if (!canvas.value)
     return
 
-  // Always remove first to avoid duplicates
-  canvas.value.removeEventListener('click', onCanvasClick)
-  canvas.value.removeEventListener('mousemove', onCanvasMouseMove)
+  removeTactileListeners()
 
   if (newMode === 'tactile') {
-    canvas.value.addEventListener('click', onCanvasClick)
-    canvas.value.addEventListener('mousemove', onCanvasMouseMove)
+    attachTactileListeners()
     console.log('[Spine] Tactile mode enabled, added listeners')
   }
   else {

@@ -1,5 +1,6 @@
 import localforage from 'localforage'
 
+import { debug } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useBroadcastChannel } from '@vueuse/core'
 import { AwsClient } from 'aws4fetch'
@@ -192,7 +193,14 @@ export class S3StorageClient implements StorageClient {
       if (encoding === 'base64') {
         const binRes = await fetch(`data:application/octet-stream;base64,${content}`)
         body = await binRes.blob()
-        contentType = relPath.endsWith('.png') ? 'image/png' : 'application/octet-stream'
+        // NOTICE: Map file extension to correct content-type for image assets
+        if (relPath.endsWith('.png'))
+          contentType = 'image/png'
+        else if (relPath.endsWith('.avif'))
+          contentType = 'image/avif'
+        else if (relPath.endsWith('.webp'))
+          contentType = 'image/webp'
+        else contentType = 'application/octet-stream'
       }
 
       if (append) {
@@ -352,7 +360,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
     }
     catch (e) {
-      console.warn('[SyncEngine] Failed to read remote airi-cards:', e)
+      debug('[SyncEngine] Failed to read remote airi-cards:', e)
     }
 
     // Read remote display models manifest
@@ -365,7 +373,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
     }
     catch (e) {
-      console.warn('[SyncEngine] Failed to read remote display models manifest:', e)
+      debug('[SyncEngine] Failed to read remote display models manifest:', e)
     }
 
     // Read remote backgrounds metadata
@@ -390,7 +398,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
         }
         catch (e) {
-          console.warn('[SyncEngine] Failed to read remote background json:', file.relPath, e)
+          debug('[SyncEngine] Failed to read remote background json:', file.relPath, e)
         }
       }))
     }
@@ -405,7 +413,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
     }
     catch (e) {
-      console.warn('[SyncEngine] Failed to read remote MMD motions manifest:', e)
+      debug('[SyncEngine] Failed to read remote MMD motions manifest:', e)
     }
 
     // Read remote custom VRMA animations manifest
@@ -418,7 +426,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
     }
     catch (e) {
-      console.warn('[SyncEngine] Failed to read remote VRMA animations manifest:', e)
+      debug('[SyncEngine] Failed to read remote VRMA animations manifest:', e)
     }
 
     return {
@@ -453,7 +461,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     }
 
     try {
-      console.log(`[SyncEngine] Targeted download for model: ${id} (${remoteModel.name})`)
+      debug(`[SyncEngine] Targeted download for model: ${id} (${remoteModel.name})`)
       const readBinRes = await client.readFile(`assets/models/${id}.bin`, 'base64')
       if (!readBinRes.success || !readBinRes.content) {
         return { success: false, error: readBinRes.error || 'Failed to read model binary' }
@@ -468,7 +476,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       // Download preview sidecar if present
       let previewImage: string | undefined
       if (remoteModel.hasPreview) {
-        console.log(`[SyncEngine] Downloading model preview: ${id}`)
+        debug(`[SyncEngine] Downloading model preview: ${id}`)
         const readPreviewRes = await client.readFile(`assets/models/${id}-preview.png`, 'base64')
         if (readPreviewRes.success && readPreviewRes.content) {
           previewImage = `data:image/png;base64,${readPreviewRes.content}`
@@ -595,12 +603,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   async function reconcileBackgrounds(): Promise<void> {
-    console.log('[SyncEngine] Reconciling backgrounds...')
-    const quotaCheck = await checkQuotaLimit()
-    if (!quotaCheck.safe) {
-      console.warn('[SyncEngine] reconcileBackgrounds aborted:', quotaCheck.reason)
-      return
-    }
+    debug('[SyncEngine] Reconciling backgrounds...')
+    // NOTICE: No upfront quota block here — the upload half (local→remote) doesn't consume
+    // local quota. The download half checks quota per-item before writing to localforage below.
     await logDebug('Starting reconcileBackgrounds()')
     try {
       const client = getActiveClient()
@@ -624,7 +629,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
 
       const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number }>
-      const remoteBgs = new Map<string, { json?: string, png?: string }>()
+      // NOTICE: image field accepts any image format (PNG, AVIF, WebP) from remote storage.
+      const remoteBgs = new Map<string, { json?: string, image?: string }>()
       for (const file of remoteFiles) {
         const normalizedPath = file.relPath.replace(/\\/g, '/')
         if (normalizedPath.startsWith('assets/backgrounds/')) {
@@ -638,8 +644,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
           if (ext === 'json')
             remoteBgs.get(id)!.json = file.relPath
-          if (ext === 'png')
-            remoteBgs.get(id)!.png = file.relPath
+          if (ext === 'png' || ext === 'avif' || ext === 'webp')
+            remoteBgs.get(id)!.image = file.relPath
         }
       }
       await logDebug(`remoteBgs size: ${remoteBgs.size}`)
@@ -651,8 +657,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (remoteInfo.json) {
             await client.deleteFile(remoteInfo.json)
           }
-          if (remoteInfo.png) {
-            await client.deleteFile(remoteInfo.png)
+          if (remoteInfo.image) {
+            await client.deleteFile(remoteInfo.image)
           }
         }
         await localforage.removeItem(id)
@@ -681,7 +687,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
         }
         const remoteInfo = remoteBgs.get(id)
-        if (!remoteInfo || !remoteInfo.png || !remoteInfo.json) {
+        if (!remoteInfo || !remoteInfo.image || !remoteInfo.json) {
           await logDebug(`Uploading background to remote: ${id} (title: ${entry.title}, characterId: ${entry.characterId})`)
           const { blob, ...metadata } = entry
           const jsonRelPath = `assets/backgrounds/${id}.json`
@@ -689,8 +695,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           if (blob instanceof Blob) {
             const base64 = await blobToBase64(blob)
-            const pngRelPath = `assets/backgrounds/${id}.png`
-            await client.writeFile(pngRelPath, base64, 'base64')
+            // NOTICE: Uploads as PNG (the local blob format). To save space on the remote,
+            // run the rescue_backgrounds.mjs script with --optimize to batch re-encode to AVIF.
+            const imageRelPath = `assets/backgrounds/${id}.png`
+            await client.writeFile(imageRelPath, base64, 'base64')
           }
           else {
             await logDebug(`Warning: background ${id} has no valid Blob object locally.`)
@@ -706,9 +714,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         const localEntry = localBgs.get(id)
         const existsLocally = !!(localEntry && localEntry.blob instanceof Blob)
 
-        await logDebug(`Checking background ${id}: existsLocally=${existsLocally}, hasJson=${!!remoteInfo.json}, hasPng=${!!remoteInfo.png}`)
+        await logDebug(`Checking background ${id}: existsLocally=${existsLocally}, hasJson=${!!remoteInfo.json}, hasImage=${!!remoteInfo.image}`)
 
-        if (!existsLocally && remoteInfo.json && remoteInfo.png) {
+        if (!existsLocally && remoteInfo.json && remoteInfo.image) {
           if (selectiveSyncEnabled.value && remoteInfo.json) {
             const readJson = await client.readFile(remoteInfo.json)
             if (readJson.success && readJson.content) {
@@ -729,14 +737,17 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
           const metadata = JSON.parse(readJson.content)
 
-          const readPng = await client.readFile(remoteInfo.png, 'base64')
-          if (!readPng.success || !readPng.content) {
-            await logDebug(`Failed to read remote PNG for ${id}: ${readPng.error}`)
+          const readImage = await client.readFile(remoteInfo.image, 'base64')
+          if (!readImage.success || !readImage.content) {
+            await logDebug(`Failed to read remote image for ${id}: ${readImage.error}`)
             continue
           }
 
-          const mimeType = 'image/png'
-          const res = await fetch(`data:${mimeType};base64,${readPng.content}`)
+          // NOTICE: Detect MIME type from the remote file extension rather than hardcoding PNG,
+          // so AVIF/WebP files downloaded from remote are reconstructed with the correct type.
+          const remoteExt = remoteInfo.image.split('.').pop()?.toLowerCase()
+          const mimeType = remoteExt === 'avif' ? 'image/avif' : remoteExt === 'webp' ? 'image/webp' : 'image/png'
+          const res = await fetch(`data:${mimeType};base64,${readImage.content}`)
           const blob = await res.blob()
 
           const entry = {
@@ -771,10 +782,11 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   async function reconcileModels(): Promise<void> {
-    console.log('[SyncEngine] Reconciling models...')
-    const quotaCheck = await checkQuotaLimit()
+    debug('[SyncEngine] Reconciling models...')
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
-      console.warn('[SyncEngine] reconcileModels aborted:', quotaCheck.reason)
+      debug('[SyncEngine] reconcileModels aborted:', quotaCheck.reason)
       return
     }
     let hasLocalMetadataChanges = false
@@ -814,8 +826,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }>
         deleted?: string[]
       } = { models: {}, deleted: [] }
-      let manifestExists = false
-      let remoteManifestMtime = 0
       try {
         const readRes = await client.readFile('assets/models/manifest.json')
         if (readRes.success && readRes.content) {
@@ -823,19 +833,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (!manifest.deleted) {
             manifest.deleted = []
           }
-          manifestExists = true
-        }
-
-        const listRes = await client.listFiles()
-        if (listRes.success && listRes.files) {
-          const manifestFile = listRes.files.find(f => f.relPath.replace(/\\/g, '/') === 'assets/models/manifest.json')
-          if (manifestFile) {
-            remoteManifestMtime = manifestFile.mtime
-          }
         }
       }
       catch (e) {
-        console.warn('[SyncEngine] Failed to read remote model manifest or it does not exist, initializing new manifest.', e)
+        debug('[SyncEngine] Failed to read remote model manifest or it does not exist, initializing new manifest.', e)
       }
 
       let manifestModified = false
@@ -843,7 +844,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       // Migration: convert inline previewImage strings to sidecar files to shrink bloated manifest.json
       for (const [id, remoteModel] of Object.entries(manifest.models)) {
         if (remoteModel.previewImage && typeof remoteModel.previewImage === 'string' && remoteModel.previewImage.startsWith('data:')) {
-          console.log(`[SyncEngine] Migrating bloated previewImage in manifest to sidecar for: ${id}`)
+          debug(`[SyncEngine] Migrating bloated previewImage in manifest to sidecar for: ${id}`)
           const parts = remoteModel.previewImage.split(',')
           const base64 = parts[1]
           if (base64) {
@@ -868,7 +869,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           manifestModified = true
         }
         if (manifest.models[id]) {
-          console.log(`[SyncEngine] Deleting remote model assets for: ${id}`)
+          debug(`[SyncEngine] Deleting remote model assets for: ${id}`)
           await client.deleteFile(`assets/models/${id}.bin`)
           if (manifest.models[id].hasTextures) {
             await client.deleteFile(`assets/models/${id}-textures.json`)
@@ -924,7 +925,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           const hasExpressions = val.expressions && val.expressions.length > 0
           const hasMotions = val.motions && val.motions.length > 0
           if (!hasExpressions || !hasMotions) {
-            console.log(`[SyncEngine] Extracting missing capabilities for active model: ${id} (${val.name})`)
+            debug(`[SyncEngine] Extracting missing capabilities for active model: ${id} (${val.name})`)
             const caps = await displayModelsStore.getOrLoadModelCapabilities(id)
             if (caps) {
               const updatedVal = await localforage.getItem<any>(id)
@@ -942,7 +943,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       // 5. Upload local-only models (not in remote manifest and not in local deleted list)
       for (const [id, entry] of localModels.entries()) {
         if (manifest.deleted && manifest.deleted.includes(id)) {
-          console.log(`[SyncEngine] Model ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
+          debug(`[SyncEngine] Model ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
           await localforage.removeItem(id)
           await localforage.removeItem(`${id}-textures`)
           await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
@@ -952,24 +953,12 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (selectiveSyncEnabled.value) {
           const modelNodeId = `model-${id}`
           if (!selectiveCheckedIds.value.includes(modelNodeId)) {
-            console.log(`[SyncEngine] Skipping upload of model ${id} because it is not selected in selective sync.`)
+            debug(`[SyncEngine] Skipping upload of model ${id} because it is not selected in selective sync.`)
             continue
           }
         }
         if (!manifest.models[id]) {
-          // Check if we have sync history for it
-          const hasSyncHistory = await storage.getItemRaw<number>(`local:sync-metadata/timestamps/${id}`)
-          const isStaleManifest = remoteManifestMtime > 0 && hasSyncHistory && hasSyncHistory > remoteManifestMtime
-
-          if (hasSyncHistory && manifestExists && !isStaleManifest) {
-            console.log(`[SyncEngine] Model ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
-            await localforage.removeItem(id)
-            await localforage.removeItem(`${id}-textures`)
-            await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
-            continue
-          }
-
-          console.log(`[SyncEngine] Uploading model to remote: ${id} (${entry.name})`)
+          debug(`[SyncEngine] Uploading model to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
             const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/models/${id}.bin`
@@ -980,7 +969,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
           else {
-            console.warn(`[SyncEngine] Local model ${id} does not contain a valid File/Blob.`, entry)
+            debug(`[SyncEngine] Local model ${id} does not contain a valid File/Blob.`, entry)
             continue
           }
 
@@ -988,7 +977,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           let hasTextures = false
           const textures = await localforage.getItem<any[]>(`${id}-textures`).catch(() => null)
           if (textures && Array.isArray(textures) && textures.length > 0) {
-            console.log(`[SyncEngine] Uploading textures for model: ${id}`)
+            debug(`[SyncEngine] Uploading textures for model: ${id}`)
             const texturesData = []
             for (const tex of textures) {
               if (tex.file instanceof Blob || tex.file instanceof File) {
@@ -1016,7 +1005,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           // Check and upload preview image if present
           let hasPreview = false
           if (entry.previewImage && typeof entry.previewImage === 'string' && entry.previewImage.startsWith('data:')) {
-            console.log(`[SyncEngine] Uploading preview image sidecar for: ${id}`)
+            debug(`[SyncEngine] Uploading preview image sidecar for: ${id}`)
             const parts = entry.previewImage.split(',')
             const base64 = parts[1]
             if (base64) {
@@ -1206,7 +1195,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
 
           if (localModified) {
-            console.log(`[SyncEngine] Updating local display model metadata for: ${id}`)
+            debug(`[SyncEngine] Updating local display model metadata for: ${id}`)
             await localforage.setItem(id, localEntry)
             hasLocalMetadataChanges = true
           }
@@ -1221,17 +1210,19 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (!localModels.has(id)) {
           if (selectiveSyncEnabled.value) {
             const modelNodeId = `model-${id}`
-            if (!selectiveCheckedIds.value.includes(modelNodeId)) {
-              console.log(`[SyncEngine] Skipping download of model ${id} because it is not selected in selective sync.`)
+            const rawIdNode = `model-${id.replace('display-model-', '')}`
+            const isChecked = selectiveCheckedIds.value.includes(modelNodeId) || selectiveCheckedIds.value.includes(rawIdNode)
+            if (!isChecked) {
+              debug(`[SyncEngine] Skipping download of model ${id} because it is not selected in selective sync.`)
               continue
             }
           }
-          console.log(`[SyncEngine] Downloading model from remote: ${id} (${remoteModel.name})`)
+          debug(`[SyncEngine] Downloading model from remote: ${id} (${remoteModel.name})`)
           const readBinRes = await client.readFile(`assets/models/${id}.bin`, 'base64')
           if (!readBinRes.success || !readBinRes.content) {
             console.error(`[SyncEngine] Failed to read remote model binary for ${id}:`, readBinRes.error)
             if (readBinRes.error?.includes('ENOENT')) {
-              console.warn(`[SyncEngine] Remote model binary for ${id} is missing on storage. Removing from manifest.`)
+              debug(`[SyncEngine] Remote model binary for ${id} is missing on storage. Removing from manifest.`)
               delete manifest.models[id]
               manifestModified = true
             }
@@ -1247,7 +1238,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           // Download preview sidecar if present
           let previewImage: string | undefined
           if (remoteModel.hasPreview) {
-            console.log(`[SyncEngine] Downloading model preview: ${id}`)
+            debug(`[SyncEngine] Downloading model preview: ${id}`)
             const readPreviewRes = await client.readFile(`assets/models/${id}-preview.png`, 'base64')
             if (readPreviewRes.success && readPreviewRes.content) {
               previewImage = `data:image/png;base64,${readPreviewRes.content}`
@@ -1296,7 +1287,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
       // Write updated manifest to remote
       if (manifestModified) {
-        console.log('[SyncEngine] Writing updated model manifest to remote.')
+        debug('[SyncEngine] Writing updated model manifest to remote.')
         await client.writeFile('assets/models/manifest.json', JSON.stringify(manifest, null, 2))
       }
 
@@ -1317,10 +1308,11 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   async function reconcileMmdMotions(): Promise<void> {
-    console.log('[SyncEngine] Reconciling MMD motions...')
-    const quotaCheck = await checkQuotaLimit()
+    debug('[SyncEngine] Reconciling MMD motions...')
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
-      console.warn('[SyncEngine] reconcileMmdMotions aborted:', quotaCheck.reason)
+      debug('[SyncEngine] reconcileMmdMotions aborted:', quotaCheck.reason)
       return
     }
     try {
@@ -1356,7 +1348,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
       catch (e) {
-        console.warn('[SyncEngine] Failed to read remote MMD manifest, initializing new manifest.', e)
+        debug('[SyncEngine] Failed to read remote MMD manifest, initializing new manifest.', e)
       }
 
       let manifestModified = false
@@ -1371,7 +1363,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           manifestModified = true
         }
         if (manifest.motions[id]) {
-          console.log(`[SyncEngine] Deleting remote custom VMD motion: ${id}`)
+          debug(`[SyncEngine] Deleting remote custom VMD motion: ${id}`)
           await client.deleteFile(`assets/mmd/animations/${id}.bin`)
           delete manifest.motions[id]
           manifestModified = true
@@ -1394,7 +1386,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       // 5. Upload local-only motions to remote
       for (const [id, entry] of localMotions.entries()) {
         if (manifest.deleted && manifest.deleted.includes(id)) {
-          console.log(`[SyncEngine] VMD motion ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
+          debug(`[SyncEngine] VMD motion ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
           await localforage.removeItem(id)
           await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
           continue
@@ -1403,7 +1395,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (selectiveSyncEnabled.value) {
           const nodeId = `vmd-${id}`
           if (!selectiveCheckedIds.value.includes(nodeId)) {
-            console.log(`[SyncEngine] Skipping upload of VMD motion ${id} because it is not selected in selective sync.`)
+            debug(`[SyncEngine] Skipping upload of VMD motion ${id} because it is not selected in selective sync.`)
             continue
           }
         }
@@ -1413,13 +1405,13 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           const isStaleManifest = remoteManifestMtime > 0 && hasSyncHistory && hasSyncHistory > remoteManifestMtime
 
           if (hasSyncHistory && manifestExists && !isStaleManifest) {
-            console.log(`[SyncEngine] VMD motion ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
+            debug(`[SyncEngine] VMD motion ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
             await localforage.removeItem(id)
             await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
             continue
           }
 
-          console.log(`[SyncEngine] Uploading VMD motion to remote: ${id} (${entry.name})`)
+          debug(`[SyncEngine] Uploading VMD motion to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
             const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/mmd/animations/${id}.bin`
@@ -1430,7 +1422,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
           else {
-            console.warn(`[SyncEngine] Local VMD motion ${id} does not contain a valid File/Blob.`, entry)
+            debug(`[SyncEngine] Local VMD motion ${id} does not contain a valid File/Blob.`, entry)
             continue
           }
 
@@ -1454,17 +1446,17 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (selectiveSyncEnabled.value) {
             const nodeId = `vmd-${id}`
             if (!selectiveCheckedIds.value.includes(nodeId)) {
-              console.log(`[SyncEngine] Skipping download of VMD motion ${id} because it is not selected in selective sync.`)
+              debug(`[SyncEngine] Skipping download of VMD motion ${id} because it is not selected in selective sync.`)
               continue
             }
           }
 
-          console.log(`[SyncEngine] Downloading VMD motion from remote: ${id} (${remoteMotion.name})`)
+          debug(`[SyncEngine] Downloading VMD motion from remote: ${id} (${remoteMotion.name})`)
           const readBinRes = await client.readFile(`assets/mmd/animations/${id}.bin`, 'base64')
           if (!readBinRes.success || !readBinRes.content) {
             console.error(`[SyncEngine] Failed to read remote VMD binary for ${id}:`, readBinRes.error)
             if (readBinRes.error?.includes('ENOENT')) {
-              console.warn(`[SyncEngine] Remote VMD binary for ${id} is missing on storage. Removing from manifest.`)
+              debug(`[SyncEngine] Remote VMD binary for ${id} is missing on storage. Removing from manifest.`)
               delete manifest.motions[id]
               manifestModified = true
             }
@@ -1489,7 +1481,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
 
       if (manifestModified) {
-        console.log('[SyncEngine] Writing updated MMD manifest to remote.')
+        debug('[SyncEngine] Writing updated MMD manifest to remote.')
         await client.writeFile('assets/mmd/manifest.json', JSON.stringify(manifest, null, 2))
       }
 
@@ -1521,10 +1513,11 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   async function reconcileVrmaAnimations(): Promise<void> {
-    console.log('[SyncEngine] Reconciling VRMA animations...')
-    const quotaCheck = await checkQuotaLimit()
+    debug('[SyncEngine] Reconciling VRMA animations...')
+    // NOTICE: Upload half doesn't fill local quota. Only guard downloads at the critical threshold.
+    const quotaCheck = await checkQuotaLimit('download')
     if (!quotaCheck.safe) {
-      console.warn('[SyncEngine] reconcileVrmaAnimations aborted:', quotaCheck.reason)
+      debug('[SyncEngine] reconcileVrmaAnimations aborted:', quotaCheck.reason)
       return
     }
     try {
@@ -1560,7 +1553,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
       catch (e) {
-        console.warn('[SyncEngine] Failed to read remote VRMA manifest, initializing new manifest.', e)
+        debug('[SyncEngine] Failed to read remote VRMA manifest, initializing new manifest.', e)
       }
 
       let manifestModified = false
@@ -1575,7 +1568,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           manifestModified = true
         }
         if (manifest.animations[id]) {
-          console.log(`[SyncEngine] Deleting remote custom VRMA animation: ${id}`)
+          debug(`[SyncEngine] Deleting remote custom VRMA animation: ${id}`)
           await client.deleteFile(`assets/vrma/animations/${id}.bin`)
           delete manifest.animations[id]
           manifestModified = true
@@ -1601,7 +1594,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       // 5. Upload local-only animations to remote
       for (const [id, entry] of localAnims.entries()) {
         if (manifest.deleted && manifest.deleted.includes(id)) {
-          console.log(`[SyncEngine] VRMA animation ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
+          debug(`[SyncEngine] VRMA animation ${id} (${entry.name}) is marked as deleted remotely. Deleting locally.`)
           await localforage.removeItem(`custom-vrma-animation-${id}`)
           await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
           continue
@@ -1610,7 +1603,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (selectiveSyncEnabled.value) {
           const nodeId = `vrma-${id}`
           if (!selectiveCheckedIds.value.includes(nodeId)) {
-            console.log(`[SyncEngine] Skipping upload of VRMA animation ${id} because it is not selected in selective sync.`)
+            debug(`[SyncEngine] Skipping upload of VRMA animation ${id} because it is not selected in selective sync.`)
             continue
           }
         }
@@ -1620,13 +1613,13 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           const isStaleManifest = remoteManifestMtime > 0 && hasSyncHistory && hasSyncHistory > remoteManifestMtime
 
           if (hasSyncHistory && manifestExists && !isStaleManifest) {
-            console.log(`[SyncEngine] VRMA animation ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
+            debug(`[SyncEngine] VRMA animation ${id} (${entry.name}) has sync history but is missing from remote manifest. Deleting locally.`)
             await localforage.removeItem(`custom-vrma-animation-${id}`)
             await storage.removeItem(`local:sync-metadata/timestamps/${id}`)
             continue
           }
 
-          console.log(`[SyncEngine] Uploading VRMA animation to remote: ${id} (${entry.name})`)
+          debug(`[SyncEngine] Uploading VRMA animation to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
             const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/vrma/animations/${id}.bin`
@@ -1637,7 +1630,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
           else {
-            console.warn(`[SyncEngine] Local VRMA animation ${id} does not contain a valid File/Blob.`, entry)
+            debug(`[SyncEngine] Local VRMA animation ${id} does not contain a valid File/Blob.`, entry)
             continue
           }
 
@@ -1662,17 +1655,17 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (selectiveSyncEnabled.value) {
             const nodeId = `vrma-${id}`
             if (!selectiveCheckedIds.value.includes(nodeId)) {
-              console.log(`[SyncEngine] Skipping download of VRMA animation ${id} because it is not selected in selective sync.`)
+              debug(`[SyncEngine] Skipping download of VRMA animation ${id} because it is not selected in selective sync.`)
               continue
             }
           }
 
-          console.log(`[SyncEngine] Downloading VRMA animation from remote: ${id} (${remoteAnim.name})`)
+          debug(`[SyncEngine] Downloading VRMA animation from remote: ${id} (${remoteAnim.name})`)
           const readBinRes = await client.readFile(`assets/vrma/animations/${id}.bin`, 'base64')
           if (!readBinRes.success || !readBinRes.content) {
             console.error(`[SyncEngine] Failed to read remote VRMA binary for ${id}:`, readBinRes.error)
             if (readBinRes.error?.includes('ENOENT')) {
-              console.warn(`[SyncEngine] Remote VRMA binary for ${id} is missing on storage. Removing from manifest.`)
+              debug(`[SyncEngine] Remote VRMA binary for ${id} is missing on storage. Removing from manifest.`)
               delete manifest.animations[id]
               manifestModified = true
             }
@@ -1698,7 +1691,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
 
       if (manifestModified) {
-        console.log('[SyncEngine] Writing updated VRMA manifest to remote.')
+        debug('[SyncEngine] Writing updated VRMA manifest to remote.')
         await client.writeFile('assets/vrma/manifest.json', JSON.stringify(manifest, null, 2))
       }
 
@@ -1717,6 +1710,107 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     }
     catch (err) {
       console.error('[SyncEngine] VRMA animation reconciliation error:', err)
+    }
+  }
+
+  async function reconcileVoiceProfiles(): Promise<void> {
+    await logDebug('Starting reconcileVoiceProfiles()')
+    const quotaCheck = await checkQuotaLimit('download')
+    if (!quotaCheck.safe) {
+      await logDebug(`reconcileVoiceProfiles aborted: ${quotaCheck.reason}`)
+      return
+    }
+
+    try {
+      const client = getActiveClient()
+      const listRes = await client.listFiles()
+      if (!listRes.success) {
+        await logDebug(`Failed to list remote files in reconcileVoiceProfiles: ${listRes.error}`)
+        return
+      }
+
+      const remoteFiles = (listRes.files || []) as Array<{ relPath: string, mtime: number, size: number }>
+      const remoteVoiceProfiles = new Map<string, { json?: string, audio?: string }>()
+      for (const file of remoteFiles) {
+        const normalizedPath = file.relPath.replace(/\\/g, '/')
+        if (normalizedPath.startsWith('assets/voice-profiles/')) {
+          const base = normalizedPath.substring('assets/voice-profiles/'.length)
+          const ext = base.split('.').pop()
+          const id = base.substring(0, base.length - (ext ? ext.length + 1 : 0))
+          if (!id)
+            continue
+          if (!remoteVoiceProfiles.has(id)) {
+            remoteVoiceProfiles.set(id, {})
+          }
+          if (ext === 'json')
+            remoteVoiceProfiles.get(id)!.json = file.relPath
+          if (ext === 'wav' || ext === 'mp3' || ext === 'ogg')
+            remoteVoiceProfiles.get(id)!.audio = file.relPath
+        }
+      }
+
+      const metaStore = localforage.createInstance({ name: 'moss-voice-profiles-metadata' })
+      const blobStore = localforage.createInstance({ name: 'voice-profile-blobs' })
+
+      const localMetaKeys = await metaStore.keys()
+      const localMetaMap = new Map<string, any>()
+      for (const k of localMetaKeys) {
+        const val = await metaStore.getItem(k)
+        if (val)
+          localMetaMap.set(k, val)
+      }
+
+      // 1. Upload local voice profiles missing on remote
+      for (const [id, meta] of localMetaMap.entries()) {
+        const remoteInfo = remoteVoiceProfiles.get(id)
+        if (!remoteInfo || !remoteInfo.json || !remoteInfo.audio) {
+          await logDebug(`Uploading voice profile metadata to remote: ${id}`)
+          const jsonRelPath = `assets/voice-profiles/${id}.json`
+          await client.writeFile(jsonRelPath, JSON.stringify(meta, null, 2))
+
+          const audioBlob = await blobStore.getItem<Blob>(id)
+          if (audioBlob instanceof Blob) {
+            const base64 = await blobToBase64(audioBlob)
+            const ext = audioBlob.type.includes('mp3') ? 'mp3' : audioBlob.type.includes('ogg') ? 'ogg' : 'wav'
+            const audioRelPath = `assets/voice-profiles/${id}.${ext}`
+            await client.writeFile(audioRelPath, base64, 'base64')
+            await logDebug(`Successfully uploaded voice profile audio: ${audioRelPath}`)
+          }
+        }
+      }
+
+      // 2. Download remote voice profiles missing locally
+      let hasDownloads = false
+      for (const [id, remoteInfo] of remoteVoiceProfiles.entries()) {
+        const existsLocally = localMetaMap.has(id)
+        if (!existsLocally && remoteInfo.json && remoteInfo.audio) {
+          await logDebug(`Downloading voice profile from remote: ${id}`)
+          const readJson = await client.readFile(remoteInfo.json)
+          if (!readJson.success || !readJson.content)
+            continue
+          const metadata = JSON.parse(readJson.content)
+
+          const readAudio = await client.readFile(remoteInfo.audio, 'base64')
+          if (!readAudio.success || !readAudio.content)
+            continue
+
+          const mimeType = remoteInfo.audio.endsWith('.mp3') ? 'audio/mp3' : remoteInfo.audio.endsWith('.ogg') ? 'audio/ogg' : 'audio/wav'
+          const res = await fetch(`data:${mimeType};base64,${readAudio.content}`)
+          const blob = await res.blob()
+
+          await metaStore.setItem(id, metadata)
+          await blobStore.setItem(id, blob)
+          await logDebug(`Successfully saved downloaded voice profile ${id} to IndexedDB.`)
+          hasDownloads = true
+        }
+      }
+
+      if (hasDownloads) {
+        await logDebug('Finished reconcileVoiceProfiles() with downloads.')
+      }
+    }
+    catch (err: any) {
+      await logDebug(`Error in reconcileVoiceProfiles(): ${err.message || err}`)
     }
   }
 
@@ -1946,7 +2040,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   const debugLogBuffer: string[] = []
 
   async function logDebug(msg: string) {
-    console.log(`[SyncEngine] ${msg}`)
+    debug(`[SyncEngine] ${msg}`)
     const logLine = `[${new Date().toISOString()}] ${msg}\n`
     debugLogBuffer.push(logLine)
   }
@@ -2085,7 +2179,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       storageState.isImportingRemoteData = true
 
       if (choice === 'local') {
-        console.log(`[SyncEngine] Resolving conflict for ${localKey} keeping LOCAL.`)
+        debug(`[SyncEngine] Resolving conflict for ${localKey} keeping LOCAL.`)
         const localVal = await storage.getItemRaw(localKey)
         if (localVal !== undefined && localVal !== null) {
           const writeRes = await client.writeFile(relPath, JSON.stringify(localVal, null, 2))
@@ -2102,7 +2196,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
       else if (choice === 'remote') {
-        console.log(`[SyncEngine] Resolving conflict for ${localKey} keeping REMOTE.`)
+        debug(`[SyncEngine] Resolving conflict for ${localKey} keeping REMOTE.`)
         const readRes = await client.readFile(relPath)
         if (readRes.success && readRes.content) {
           const remoteVal = JSON.parse(readRes.content)
@@ -2119,7 +2213,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
       else if (choice === 'merge') {
-        console.log(`[SyncEngine] Resolving conflict for ${localKey} by MERGING arrays.`)
+        debug(`[SyncEngine] Resolving conflict for ${localKey} by MERGING arrays.`)
         const readRes = await client.readFile(relPath)
         if (readRes.success && readRes.content) {
           const remoteData = JSON.parse(readRes.content)
@@ -2193,14 +2287,22 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   }
 
   // Storage Quota Guard
-  async function checkQuotaLimit(): Promise<{ safe: boolean, reason?: string }> {
+  // Storage Quota Guard
+  // mode='download' — only blocks operations that write data into local storage (downloads from remote).
+  //   Use this when the operation is a local→remote upload; it won't fill local quota.
+  // mode='any' (default) — blocks any sync operation when quota is tight.
+  async function checkQuotaLimit(mode: 'any' | 'download' = 'any'): Promise<{ safe: boolean, reason?: string }> {
     try {
       if (navigator.storage && navigator.storage.estimate) {
         const { quota, usage } = await navigator.storage.estimate()
         if (quota !== undefined && usage !== undefined) {
           const ratio = usage / quota
           const remainingMB = (quota - usage) / (1024 * 1024)
-          if (ratio > 0.90 || remainingMB < 100) {
+          // NOTICE: When mode='download', we only block at a critically high threshold (>97% / <50 MB)
+          // because uploads to remote share do not consume local storage quota at all.
+          const ratioLimit = mode === 'download' ? 0.97 : 0.90
+          const mbLimit = mode === 'download' ? 50 : 100
+          if (ratio > ratioLimit || remainingMB < mbLimit) {
             return {
               safe: false,
               reason: `Storage quota running low (Usage: ${(ratio * 100).toFixed(1)}%, Remaining: ${remainingMB.toFixed(1)} MB)`,
@@ -2210,7 +2312,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
     }
     catch (e) {
-      console.warn('[SyncEngine] Failed to estimate storage quota:', e)
+      debug('[SyncEngine] Failed to estimate storage quota:', e)
     }
     return { safe: true }
   }
@@ -2220,18 +2322,15 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     const client = getActiveClient()
     const pathValidation = await client.validate()
     if (!pathValidation.success) {
-      console.warn('[SyncEngine] Sync storage target is invalid or inaccessible, skipping reconciliation:', pathValidation.error)
+      debug('[SyncEngine] Sync storage target is invalid or inaccessible, skipping reconciliation:', pathValidation.error)
       return false
     }
 
-    const quotaCheck = await checkQuotaLimit()
-    if (!quotaCheck.safe) {
-      console.error('[SyncEngine] Sync aborted:', quotaCheck.reason)
-      toast.error(`Sync aborted: ${quotaCheck.reason}`)
-      return false
-    }
+    // NOTICE: We do NOT block the entire reconcile() on quota here.
+    // The upload half (local→remote) does not consume local storage.
+    // The download half is guarded per-key inside the loop below (mode='download').
 
-    console.log('[SyncEngine] Starting reconciliation...')
+    debug('[SyncEngine] Starting reconciliation...')
     try {
       const listRes = await client.listFiles()
       if (!listRes.success) {
@@ -2262,9 +2361,16 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (!localKey)
           return
 
-        const loopQuotaCheck = await checkQuotaLimit()
+        if (localKey.startsWith('local:localstorage/')) {
+          const key = localKey.substring('local:localstorage/'.length)
+          if (shouldExcludeLocalStorageKey(key))
+            return
+        }
+
+        // Guard downloads-only: writing remote data into local IndexedDB consumes local quota.
+        const loopQuotaCheck = await checkQuotaLimit('download')
         if (!loopQuotaCheck.safe) {
-          console.warn('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
+          debug('[SyncEngine] Quota limit hit mid-sync. Aborting download of key:', localKey)
           return
         }
 
@@ -2305,7 +2411,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         ].includes(localKey) || localKey.startsWith('local:chat/index/')
 
         if (isMergeableKey) {
-          console.log(`[SyncEngine] Key ${localKey} is mergeable. Executing merge...`)
+          debug(`[SyncEngine] Key ${localKey} is mergeable. Executing merge...`)
           let remoteVal: any = null
           const readRes = await client.readFile(remoteFile.relPath)
           if (readRes.success && readRes.content) {
@@ -2382,7 +2488,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
 
             if (conflictStrategy.value === 'local-wins') {
-              console.log(`[SyncEngine] Uploading (local-wins/Case A): ${localKey} -> remote (${remoteFile.relPath})`)
+              debug(`[SyncEngine] Uploading (local-wins/Case A): ${localKey} -> remote (${remoteFile.relPath})`)
               const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
               if (writeRes.success && writeRes.mtime) {
                 await storage.setItemRaw(`local:sync-metadata/timestamps/${localKey.replace('local:', '')}`, writeRes.mtime)
@@ -2398,7 +2504,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
 
-          console.log(`[SyncEngine] Downloading (missing local): remote (${remoteFile.relPath}) -> ${localKey}`)
+          debug(`[SyncEngine] Downloading (missing local): remote (${remoteFile.relPath}) -> ${localKey}`)
           const readRes = await client.readFile(remoteFile.relPath)
           if (readRes.success && readRes.content) {
             const data = JSON.parse(readRes.content)
@@ -2440,7 +2546,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
 
           if (conflictStrategy.value === 'local-wins') {
-            console.log(`[SyncEngine] Uploading (local-wins/Case B): ${localKey} -> remote (${remoteFile.relPath})`)
+            debug(`[SyncEngine] Uploading (local-wins/Case B): ${localKey} -> remote (${remoteFile.relPath})`)
             if (localVal) {
               const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
               if (writeRes.success && writeRes.mtime) {
@@ -2453,11 +2559,11 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           // Case B: Remote file is newer OR strategy is remote-wins -> Download and overwrite local
           const isConflict = conflictStrategy.value === 'remote-wins' ? false : await checkSyncConflict(localKey, localTime, remoteFile, 'remote-newer')
           if (isConflict) {
-            console.log(`[SyncEngine] Conflict safety guard blocked auto-overwrite of local key ${localKey}`)
+            debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of local key ${localKey}`)
             return
           }
 
-          console.log(`[SyncEngine] Downloading (remote newer/Case B): remote (${remoteFile.relPath}) -> ${localKey}`)
+          debug(`[SyncEngine] Downloading (remote newer/Case B): remote (${remoteFile.relPath}) -> ${localKey}`)
           const readRes = await client.readFile(remoteFile.relPath)
           if (readRes.success && readRes.content) {
             const data = JSON.parse(readRes.content)
@@ -2493,11 +2599,11 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           const isConflict = await checkSyncConflict(localKey, localTime, remoteFile, 'local-newer')
           if (isConflict) {
-            console.log(`[SyncEngine] Conflict safety guard blocked auto-overwrite of remote file for key ${localKey}`)
+            debug(`[SyncEngine] Conflict safety guard blocked auto-overwrite of remote file for key ${localKey}`)
             return
           }
 
-          console.log(`[SyncEngine] Uploading (local newer/Case C): ${localKey} -> remote (${remoteFile.relPath})`)
+          debug(`[SyncEngine] Uploading (local newer/Case C): ${localKey} -> remote (${remoteFile.relPath})`)
           if (localVal) {
             const writeRes = await client.writeFile(remoteFile.relPath, JSON.stringify(localVal, null, 2))
             if (!writeRes.success) {
@@ -2526,7 +2632,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
         }
         const relPath = getRelPathForKey(fullKey)
-        console.log(`[SyncEngine] Uploading (local only): ${fullKey} -> remote (${relPath})`)
+        debug(`[SyncEngine] Uploading (local only): ${fullKey} -> remote (${relPath})`)
 
         const localValRaw = await storage.getItemRaw(fullKey)
         const localVal = await storage.getItem(fullKey)
@@ -2548,9 +2654,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         await reconcileModels()
         await reconcileMmdMotions()
         await reconcileVrmaAnimations()
+        await reconcileVoiceProfiles()
       }
       else {
-        console.log('[SyncEngine] Skipping binary asset reconciliation (startup mode).')
+        debug('[SyncEngine] Skipping binary asset reconciliation (startup mode).')
       }
 
       storageState.isImportingRemoteData = false
@@ -2576,7 +2683,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     if (outboxKeys.length === 0)
       return true
 
-    console.log(`[SyncEngine] Processing ${outboxKeys.length} outbox queue items...`)
+    debug(`[SyncEngine] Processing ${outboxKeys.length} outbox queue items...`)
 
     storageState.isImportingRemoteData = true
     try {
@@ -2603,7 +2710,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         const conflictKey = `local:sync-metadata/conflicts/${item.key.replace('local:', '')}`
         const hasActiveConflict = await storage.getItemRaw(conflictKey)
         if (hasActiveConflict) {
-          console.log(`[SyncEngine] Outbox processing skipped for ${item.key} due to active conflict.`)
+          debug(`[SyncEngine] Outbox processing skipped for ${item.key} due to active conflict.`)
           return
         }
 
@@ -2619,7 +2726,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           ].includes(item.key) || item.key.startsWith('local:chat/index/')
 
           if (isMergeableKey) {
-            console.log(`[SyncEngine] Outbox key ${item.key} is mergeable. Merging with remote...`)
+            debug(`[SyncEngine] Outbox key ${item.key} is mergeable. Merging with remote...`)
             let remoteVal: any = null
             const readRes = await client.readFile(relPath)
             if (readRes.success && readRes.content) {
@@ -2834,7 +2941,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     try {
       const restored = await restoreLocalStorageFromIndexedDbSafe()
       if (restored.length > 0) {
-        console.log(`[SyncEngine] Boot restore: recovered ${restored.length} localStorage keys from IndexedDB:`, restored)
+        debug(`[SyncEngine] Boot restore: recovered ${restored.length} localStorage keys from IndexedDB:`, restored)
         for (const k of restored) {
           window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k), storageArea: localStorage }))
         }
@@ -3129,6 +3236,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
         // A. Clear outbox entry if it exists to prevent safety blocks
         const keyWithoutPrefix = localKey.replace('local:', '')
+        const lsKey = keyWithoutPrefix.substring('localstorage/'.length)
+        if (shouldExcludeLocalStorageKey(lsKey))
+          return
+
         const outboxKey = `outbox:queue/${keyWithoutPrefix}`
         await storage.removeItem(outboxKey)
 
@@ -3251,7 +3362,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         for (const k of rawOutboxKeys) {
           await storage.removeItem(k)
         }
-        console.log('[SyncEngine] Cleared sync outbox because Cloud Sync is disabled.')
+        debug('[SyncEngine] Cleared sync outbox because Cloud Sync is disabled.')
       }
       catch (e) {
         console.error('[SyncEngine] Failed to clear sync outbox:', e)

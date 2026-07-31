@@ -9,6 +9,7 @@ import {
   useElectronMouseInElement,
   useElectronMouseInWindow,
 } from '@proj-airi/electron-vueuse'
+import { debug } from '@proj-airi/stage-shared'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
@@ -137,16 +138,16 @@ watch(chatOpen, (val) => {
   openChat(val)
 }, { immediate: true })
 
-// Treat stage and caption as partners when captionFollowStage is enabled
+// Treat stage and caption as partners when captionFollowStageVisibility is enabled
 watch(stageEnabled, (newVal) => {
-  if (settingsStore.captionFollowStage) {
+  if (settingsStore.captionFollowStageVisibility) {
     if (captionOpen.value !== newVal) {
       captionOpen.value = newVal
     }
   }
 })
 
-watch(() => settingsStore.captionFollowStage, (newVal) => {
+watch(() => settingsStore.captionFollowStageVisibility, (newVal) => {
   if (newVal) {
     // Immediately sync caption state to stage state
     if (captionOpen.value !== stageEnabled.value) {
@@ -712,13 +713,21 @@ function handleControlStripAction(e: Event) {
   else if (action === 'theme-mode') {
     colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
   }
-  else if (action === 'caption-follow-stage') {
-    settingsStore.captionFollowStage = !settingsStore.captionFollowStage
+  else if (action === 'caption-sync-position') {
+    settingsStore.captionFollowStagePosition = !settingsStore.captionFollowStagePosition
+    debug('[ControlStrip] caption-sync-position toggled:', settingsStore.captionFollowStagePosition)
+  }
+  else if (action === 'caption-sync-visibility') {
+    settingsStore.captionFollowStageVisibility = !settingsStore.captionFollowStageVisibility
+    debug('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
   }
   else if (action === 'caption-docking') {
-    const next = settingsStore.captionDocking === 'top' ? 'bottom' : 'top'
+    const DOCK_CYCLE = ['none', 'bottom', 'top', 'head'] as const
+    const current = settingsStore.captionDocking ?? 'none'
+    const next = DOCK_CYCLE[(DOCK_CYCLE.indexOf(current) + 1) % DOCK_CYCLE.length]
     settingsStore.captionDocking = next
     syncCaptionDocking(next)
+    debug('[ControlStrip] caption-docking cycled to:', next)
   }
   else if (action === 'caption-layout-mode') {
     settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
@@ -811,7 +820,7 @@ onMounted(async () => {
     const availTop = (window.screen as any)?.availTop ?? 0
     const availWidth = window.screen?.availWidth ?? window.innerWidth
     const availHeight = window.screen?.availHeight ?? window.innerHeight
-    const threshold = 25
+    const threshold = 3
 
     let edge: 'left' | 'right' | 'top' | 'bottom' | null = null
     if (x <= availLeft + threshold)
@@ -855,7 +864,7 @@ onMounted(async () => {
 
       // If we are actively in a Discord Gemini voice call, ignore the local mic toggle hotkey
       if (discordStore.voiceCall === 'gemini' && liveSessionStore.activeInputSource === 'discord' && liveSessionStore.isActive) {
-        console.log('[Shortcut] Ignoring local mic toggle shortcut because Discord Gemini voice call is active.')
+        debug('[Shortcut] Ignoring local mic toggle shortcut because Discord Gemini voice call is active.')
         return
       }
 
@@ -884,7 +893,7 @@ onMounted(async () => {
         const availTop = (window.screen as any)?.availTop ?? 0
         const availWidth = window.screen?.availWidth ?? window.innerWidth
         const availHeight = window.screen?.availHeight ?? window.innerHeight
-        const threshold = 25
+        const threshold = 3
 
         let edge: 'left' | 'right' | 'top' | 'bottom' | null = null
         if (x <= availLeft + threshold)

@@ -3,7 +3,7 @@ import {
   TranscriptionPlayground,
   TranscriptionProviderSettings,
 } from '@proj-airi/stage-ui/components'
-import { getWhisperWorker, WHISPER_MODELS } from '@proj-airi/stage-ui/libs/workers/whisper'
+import { WHISPER_MODELS } from '@proj-airi/stage-ui/libs/workers/whisper'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { Button, FieldSelect, Progress } from '@proj-airi/ui'
@@ -52,36 +52,45 @@ async function downloadModel(modelId: string) {
   downloadingModel.value = modelId
   loadingProgress.value = 0
 
-  try {
-    const worker = await getWhisperWorker()
-    const id = Math.random().toString(36).substring(7)
+  const fileProgresses = new Map<string, { loaded: number, total: number }>()
 
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data.id === id) {
-        if (e.data.type === 'PROGRESS') {
-          loadingProgress.value = e.data.progress
-        }
-        else if (e.data.type === 'LOADED') {
-          worker.removeEventListener('message', handleMessage)
-          isDownloading.value = false
-          cachedModels.value.add(modelId)
-          localStorage.setItem('airi/whisper/cached-models', JSON.stringify([...cachedModels.value]))
-          toast.success(`Model ${modelId} loaded successfully`)
-        }
-        else if (e.data.type === 'ERROR') {
-          worker.removeEventListener('message', handleMessage)
-          isDownloading.value = false
-          toast.error(`Failed to load model: ${e.data.error}`)
-        }
-      }
+  try {
+    const metadata = providersStore.getProviderMetadata(providerId)
+    if (!metadata?.capabilities?.loadModel) {
+      throw new Error('loadModel capability is missing')
     }
 
-    worker.addEventListener('message', handleMessage)
-    worker.postMessage({ type: 'LOAD', id, model: modelId })
+    await metadata.capabilities.loadModel(modelId, null, {
+      onProgress: (progress: any) => {
+        if (progress.file && progress.loaded !== undefined && progress.total !== undefined) {
+          fileProgresses.set(progress.file, { loaded: progress.loaded, total: progress.total })
+
+          let totalBytes = 0
+          let loadedBytes = 0
+          for (const file of fileProgresses.values()) {
+            totalBytes += file.total
+            loadedBytes += file.loaded
+          }
+
+          if (totalBytes > 0) {
+            loadingProgress.value = (loadedBytes / totalBytes) * 100
+          }
+        }
+        else {
+          const percent = (progress?.progress ?? 0) * 100
+          loadingProgress.value = percent < 0 ? 0 : percent
+        }
+      },
+    })
+
+    isDownloading.value = false
+    cachedModels.value.add(modelId)
+    localStorage.setItem('airi/whisper/cached-models', JSON.stringify([...cachedModels.value]))
+    toast.success(`Model ${modelId} loaded successfully`)
   }
   catch (err) {
     isDownloading.value = false
-    toast.error('Failed to initialize worker')
+    toast.error(`Failed to load model: ${err instanceof Error ? err.message : String(err)}`)
     console.error(err)
   }
 }

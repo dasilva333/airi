@@ -12,7 +12,7 @@ import { Button } from '@proj-airi/ui'
 import { useFileDialog } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import catalogUrl from '../../../../../public/assets/animadex-catalog.json?url'
@@ -21,6 +21,12 @@ import Live2DReportModal from './Live2DReportModal.vue'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useProvidersStore } from '../../../../stores/providers'
 import { useSyncEngineStore } from '../../../../stores/sync-engine'
+
+const props = withDefaults(defineProps<{
+  initialTab?: 'library' | 'explore' | 'cloud'
+}>(), {
+  initialTab: 'library',
+})
 
 const emits = defineEmits<{
   (e: 'close', value: void): void
@@ -75,10 +81,24 @@ watch(isSearchExpanded, (expanded) => {
 
 const highlightDisplayModelCard = ref<string | undefined>(selectedModel.value?.id)
 const showReportModal = ref(false)
-const pendingFile = ref<File | null>(null)
-const validationReport = ref<Live2DValidationReport | null>(null)
 
-const currentTab = ref<'library' | 'explore' | 'cloud'>('library')
+// Live2D multi-file import queue
+interface Live2DQueueItem {
+  file: File
+  report: Live2DValidationReport
+}
+const live2dQueue = ref<Live2DQueueItem[]>([])
+const live2dQueueIndex = ref(0)
+const live2dImportToastId = ref<string | number | null>(null)
+const live2dImportedCount = ref(0)
+const validationReport = computed(() => live2dQueue.value[live2dQueueIndex.value]?.report ?? null)
+
+const currentTab = ref<'library' | 'explore' | 'cloud'>(props.initialTab || 'library')
+
+watch(() => props.initialTab, (newTab) => {
+  if (newTab)
+    currentTab.value = newTab
+}, { immediate: true })
 
 watch(currentTab, (newTab) => {
   if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {
@@ -86,11 +106,17 @@ watch(currentTab, (newTab) => {
   }
 })
 
+onMounted(() => {
+  void displayModelStore.loadDisplayModelsFromIndexedDB()
+})
+
 const marketplaces = [
   { name: 'Steam Workshop', vrm: false, live2d: true, spine: true, mmd: false, languages: ['us'], origin: 'Steam', url: 'https://steamcommunity.com/workshop/browse/?appid=616720' },
   { name: 'VChaVCha (Hololive MMD)', vrm: false, live2d: false, spine: false, mmd: true, languages: ['us'], origin: 'VChaVCha', url: 'https://vchavcha.com/en/free-resources/hololive-mmd-download/' },
   { name: 'NicoNico 3D (MMD)', vrm: false, live2d: false, spine: false, mmd: true, languages: ['jp'], origin: 'Japan', url: 'https://3d.nicovideo.jp/search?category=all&download_filter=all&limit=28&max_pages=100&order=1&page=1&perfect_match=1&sort=view&usable_animation=&word=MMD&word_type=tag&work_type=mmd' },
   { name: 'Reverse: 1999 (v1.7+)', vrm: false, live2d: true, spine: false, mmd: false, languages: ['cn', 'en'], origin: 'Storm Preservation', url: 'https://dasilva333.github.io/r1999-web-gallery/' },
+  { name: 'Eikanya Live2D Archive (4.9k+)', vrm: false, live2d: true, spine: false, mmd: false, languages: ['cn', 'en'], origin: 'Eikanya', url: 'https://dasilva333.github.io/live2d-eikanya-index/' },
+  { name: 'SillyTavern Live2D Portal (270)', vrm: false, live2d: true, spine: false, mmd: false, languages: ['cn', 'en'], origin: 'test157t', url: 'https://dasilva333.github.io/live2d-test157t-index/' },
   { name: 'bear0830 (MMD Animations)', vrm: false, live2d: false, spine: false, mmd: true, languages: ['us'], origin: 'GitHub', url: 'https://github.com/bear0830/mmd' },
   { name: 'Booth', vrm: true, live2d: true, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://booth.pm/en/browse/VTuber' },
   { name: 'Booth VRMA', vrm: true, live2d: false, spine: false, mmd: false, languages: ['jp', 'us'], origin: 'Japan', url: 'https://booth.pm/en/browse/3D%20Motion%20&%20Animation?sort=price_asc&tags%5B%5D=VRMA' },
@@ -319,28 +345,101 @@ function confirmRename() {
   }
 }
 
-async function handleAddLive2DModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.zip'))
+async function handleAddLive2DModel(files: FileList | null) {
+  if (!files || files.length === 0)
     return
 
-  const report = await validateLive2DZip(file[0])
-  validationReport.value = report
-  pendingFile.value = file[0]
+  live2dQueue.value = []
+  live2dQueueIndex.value = 0
+  live2dImportedCount.value = 0
 
-  if (report.status === 'VALID' && report.errors.length === 0) {
-    confirmImport()
+  const zipFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.zip'))
+  if (zipFiles.length === 0)
+    return
+
+  const total = zipFiles.length
+  const toastId = toast.loading(`Validating ${total} Live2D file${total > 1 ? 's' : ''}…`)
+  live2dImportToastId.value = toastId
+
+  const reviewQueue: Live2DQueueItem[] = []
+
+  // Validate all files; auto-import clean ones immediately
+  for (let i = 0; i < zipFiles.length; i++) {
+    const file = zipFiles[i]
+    toast(`Validating ${i + 1} / ${total}: ${file.name}`, { id: toastId })
+    const report = await validateLive2DZip(file)
+    if (report.status === 'VALID' && report.errors.length === 0) {
+      await displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, file)
+      live2dImportedCount.value++
+    }
+    else {
+      reviewQueue.push({ file, report })
+    }
   }
-  else {
-    showReportModal.value = true
+
+  if (reviewQueue.length === 0) {
+    const n = live2dImportedCount.value
+    toast.success(`Imported ${n} Live2D model${n > 1 ? 's' : ''}.`, { id: toastId })
+    live2dImportToastId.value = null
+    return
   }
+
+  // Kick off the modal review queue for files that need attention
+  live2dQueue.value = reviewQueue
+  live2dQueueIndex.value = 0
+  const reviewCount = reviewQueue.length
+  toast(
+    `Auto-imported ${live2dImportedCount.value} clean file${live2dImportedCount.value !== 1 ? 's' : ''}. Reviewing ${reviewCount} file${reviewCount > 1 ? 's' : ''} with issues…`,
+    { id: toastId },
+  )
+  showReportModal.value = true
 }
 
-function confirmImport() {
-  if (pendingFile.value) {
-    displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, pendingFile.value)
-    pendingFile.value = null
+async function confirmImport() {
+  const item = live2dQueue.value[live2dQueueIndex.value]
+  if (item) {
+    await displayModelStore.addDisplayModel(DisplayModelFormat.Live2dZip, item.file)
+    live2dImportedCount.value++
+  }
+  advanceLive2DQueue()
+}
+
+function skipQueueItem() {
+  advanceLive2DQueue()
+}
+
+function advanceLive2DQueue() {
+  showReportModal.value = false
+  const nextIndex = live2dQueueIndex.value + 1
+  const toastId = live2dImportToastId.value
+
+  if (nextIndex < live2dQueue.value.length) {
+    live2dQueueIndex.value = nextIndex
+    const nextFile = live2dQueue.value[nextIndex].file
+    const reviewTotal = live2dQueue.value.length
+    if (toastId !== null) {
+      toast(`Reviewing ${nextIndex + 1} / ${reviewTotal}: ${nextFile.name}`, { id: toastId })
+    }
+    // Small delay so the modal close animation completes before re-opening
+    setTimeout(() => {
+      showReportModal.value = true
+    }, 200)
+  }
+  else {
+    // Queue exhausted — show final summary
+    const imported = live2dImportedCount.value
+    if (toastId !== null) {
+      if (imported > 0) {
+        toast.success(`Import complete — ${imported} model${imported > 1 ? 's' : ''} imported.`, { id: toastId })
+      }
+      else {
+        toast.info('Import complete — all reviewed files were skipped.', { id: toastId })
+      }
+    }
+    live2dQueue.value = []
+    live2dQueueIndex.value = 0
+    live2dImportedCount.value = 0
+    live2dImportToastId.value = null
   }
 }
 
@@ -457,18 +556,26 @@ async function handleAddVRMModel(files: FileList | null) {
   }
 }
 
-async function handleAddSpineModel(file: FileList | null) {
-  if (file === null || file.length === 0)
-    return
-  if (!file[0].name.endsWith('.zip'))
+async function handleAddSpineModel(files: FileList | null) {
+  if (files === null || files.length === 0)
     return
 
-  try {
-    await displayModelStore.addDisplayModel(DisplayModelFormat.SpineZip, file[0])
+  let importedCount = 0
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    if (file.name.endsWith('.zip')) {
+      try {
+        await displayModelStore.addDisplayModel(DisplayModelFormat.SpineZip, file)
+        importedCount++
+      }
+      catch (error) {
+        console.error('[Model Selector] Failed to add Spine model:', file.name, error)
+        toast.error(`Failed to add Spine model: ${file.name}. ${error instanceof Error ? error.message : ''}`)
+      }
+    }
   }
-  catch (error) {
-    console.error('[Model Selector] Failed to add Spine model:', error)
-    toast.error(error instanceof Error ? error.message : 'Failed to add Spine model.')
+  if (importedCount > 0) {
+    toast.success(`Successfully imported ${importedCount} Spine model(s).`)
   }
 }
 
@@ -545,10 +652,10 @@ const mapFormatRenderer: Record<DisplayModelFormat, string> = {
   [DisplayModelFormat.PMD]: 'MMD',
 }
 
-const live2dDialog = useFileDialog({ accept: '.zip', multiple: false, reset: true })
+const live2dDialog = useFileDialog({ accept: '.zip', multiple: true, reset: true })
 const vrmDialog = useFileDialog({ accept: '.vrm', multiple: true, reset: true })
 const vrmaDialog = useFileDialog({ accept: '.vrma', multiple: false, reset: true })
-const spineDialog = useFileDialog({ accept: '.zip', multiple: false, reset: true })
+const spineDialog = useFileDialog({ accept: '.zip', multiple: true, reset: true })
 const mmdDialog = useFileDialog({ accept: '.zip', multiple: false, reset: true })
 const vmdDialog = useFileDialog({ accept: '.vmd', multiple: false, reset: true })
 
@@ -777,6 +884,7 @@ async function runAutoLinkCatalog() {
         v-model:open="showReportModal"
         :report="validationReport"
         @confirm="confirmImport"
+        @close="skipQueueItem"
         @fix-error="handleFixError"
       />
 
@@ -1348,8 +1456,11 @@ async function runAutoLinkCatalog() {
         </button>
       </div>
 
-      <div v-if="displayModelsFromIndexedDBLoading || remoteCatalogLoading">
-        Loading display models...
+      <div v-if="currentTab === 'library' && displayModelsFromIndexedDBLoading" class="py-6 text-center text-sm text-neutral-400">
+        Loading library models...
+      </div>
+      <div v-else-if="currentTab === 'cloud' && remoteCatalogLoading" class="py-6 text-center text-sm text-neutral-400">
+        Loading cloud catalog...
       </div>
 
       <div class="flex-1 overflow-y-auto pr-1">

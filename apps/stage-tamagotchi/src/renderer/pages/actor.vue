@@ -2,28 +2,26 @@
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
-import { WhisperDock } from '@proj-airi/stage-ui/components'
+import { StageConfigOverlay, WhisperDock } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
-import { useProducer } from '@proj-airi/stage-ui/composables'
+import { useProducer, useSpeechCaptionPlayer } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { useSpeakingStore } from '@proj-airi/stage-ui/stores/audio'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
-import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { useSettingsUserProfile } from '@proj-airi/stage-ui/stores/settings/user-profile'
 import { Button } from '@proj-airi/ui'
-import { refDebounced, useBroadcastChannel, useLocalStorage, useWindowSize } from '@vueuse/core'
+import { refDebounced, useBroadcastChannel, useEventListener, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { electron, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
+import { electron, electronApplySizePreset, electronStageToggleVisibility, electronStartDraggingWindow } from '../../shared/eventa'
 import { useWindowStore } from '../stores/window'
 
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
@@ -31,6 +29,31 @@ const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibil
 function handleHideStage() {
   toggleStageVisibility(false)
 }
+
+const configOverlayOpen = ref(false)
+const showBackgroundLayer = ref(true)
+const showModelLayer = ref(true)
+
+function handleApplyPreset(preset: string) {
+  const mapped = preset === 'med.' ? 'medium' : preset
+  applySizePreset({ target: 'actor', preset: mapped })
+}
+
+function handleApplyAlignment(alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') {
+  applySizePreset({ target: 'actor', alignment })
+}
+
+function handleOverlayHide() {
+  handleHideStage()
+  configOverlayOpen.value = false
+}
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && configOverlayOpen.value) {
+    e.stopImmediatePropagation()
+    configOverlayOpen.value = false
+  }
+}, { capture: true })
 
 const backgroundStore = useBackgroundStore()
 const { activeBackgroundUrl } = storeToRefs(backgroundStore)
@@ -130,6 +153,7 @@ const context = useElectronEventaContext()
 const startDraggingWindowInvoke = useElectronEventaInvoke(electronStartDraggingWindow, context.value)
 const getBounds = useElectronEventaInvoke(electron.window.getBounds, context.value)
 const setBounds = useElectronEventaInvoke(electron.window.setBounds, context.value)
+const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
 
 function startDraggingWindow() {
   startDraggingWindowInvoke()
@@ -208,6 +232,7 @@ const isInsideWindow = computed(() => !isOutsideWindow.value)
 
 // Proximity/hover detection for control regions
 const dragHandleRef = ref<HTMLDivElement | null>(null)
+const stageContainerRef = ref<HTMLDivElement | null>(null)
 const whisperDockWrapperRef = ref<HTMLDivElement | null>(null)
 const positioningSelectorsRef = ref<HTMLDivElement | null>(null)
 const positioningSliderRef = ref<HTMLDivElement | null>(null)
@@ -216,6 +241,7 @@ const { isOutside: isOutsideDragHandle } = useElectronMouseInElement(dragHandleR
 const { isOutside: isOutsideWhisperDock } = useElectronMouseInElement(whisperDockWrapperRef)
 const { isOutside: isOutsidePositioningSelectors } = useElectronMouseInElement(positioningSelectorsRef)
 const { isOutside: isOutsidePositioningSlider } = useElectronMouseInElement(positioningSliderRef)
+const { elementY: stageElementY, elementHeight: stageElementHeight, isOutside: isOutsideStage } = useElectronMouseInElement(stageContainerRef)
 
 const isOverControls = computed(() => {
   return !isOutsideDragHandle.value
@@ -223,6 +249,23 @@ const isOverControls = computed(() => {
     || whisperDockIsOpen.value
     || (stageViewControlsEnabled.value && controlStripStore.stageMode === 'positionMode' && (!isOutsidePositioningSelectors.value || !isOutsidePositioningSlider.value))
 })
+
+const notchProximity = computed(() => {
+  if (whisperDockIsOpen.value)
+    return false
+  if (isOutsideStage.value)
+    return false
+  return stageElementHeight.value - stageElementY.value <= 10
+})
+
+function handleStageClick(e: MouseEvent) {
+  if (!whisperDockIsOpen.value)
+    return
+  const wrapper = whisperDockWrapperRef.value
+  if (wrapper && !wrapper.contains(e.target as Node)) {
+    whisperDockRef.value?.dismiss()
+  }
+}
 
 watch(
   [isInsideWindow, fadeOnHoverEnabled, stageEnabled, isOverControls],
@@ -268,8 +311,6 @@ const shortReplies = useLocalStorage('airi:producer:short-replies', true)
 const cardStore = useAiriCardStore()
 const chatSessionStore = useChatSessionStore()
 const userProfileStore = useSettingsUserProfile()
-const speechStore = useSpeechStore()
-const providersStore = useProvidersStore()
 
 const artistryAutonomousStore = useAutonomousArtistryStore()
 const { isProcessing: isArtistryProcessing } = storeToRefs(artistryAutonomousStore)
@@ -302,53 +343,16 @@ watch(isArtistryProcessing, (now, was) => {
 })
 
 const { generateSuggestions } = useProducer()
-const { post: postCaption } = useBroadcastChannel<any, any>({ name: 'airi-caption-overlay' })
+const { play: playSpeech, stop: stopSpeech } = useSpeechCaptionPlayer()
 
-// Speech preview state
 const loadingIndex = ref<number | null>(null)
 const activePlayingIndex = ref<number | null>(null)
-const activeAudio = ref<HTMLAudioElement | null>(null)
 const isPlayingAll = ref(false)
-const currentPlaybackSession = ref<any>(null)
-
-const utteredSegments = ref<{ text: string, color: string, actorId: string, isActive: boolean }[]>([])
-
-function showCaption(text: string) {
-  try {
-    postCaption({ type: 'caption-speaker', text: 'User' })
-    utteredSegments.value.forEach(s => s.isActive = false)
-    utteredSegments.value.push({ text, color: '#818cf8', actorId: 'user', isActive: true })
-    postCaption({
-      type: 'caption-assistant',
-      segments: JSON.parse(JSON.stringify(utteredSegments.value)),
-    })
-  }
-  catch (e) {
-    console.warn('Failed to post caption:', e)
-  }
-}
-
-function clearCaption() {
-  try {
-    utteredSegments.value = []
-    postCaption({ type: 'caption-speaker', text: '' })
-    postCaption({ type: 'caption-assistant', segments: [] })
-  }
-  catch (e) {
-    console.warn('Failed to clear caption:', e)
-  }
-}
 
 function stopActiveAudio() {
-  currentPlaybackSession.value = null
-  if (activeAudio.value) {
-    activeAudio.value.pause()
-    activeAudio.value.currentTime = 0
-    activeAudio.value = null
-  }
+  stopSpeech()
   activePlayingIndex.value = null
   loadingIndex.value = null
-  clearCaption()
 }
 
 async function playChoiceSpeech(idx: number, text: string) {
@@ -364,80 +368,13 @@ async function playChoiceSpeech(idx: number, text: string) {
   }
 
   stopActiveAudio()
-  loadingIndex.value = idx
 
-  try {
-    const provider = await providersStore.getProviderInstance('virtual-audio-studio')
-    if (!provider) {
-      throw new Error('Virtual Audio Studio provider is not active.')
-    }
-
-    const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
-    const audioItems = await Promise.all(
-      sentences.map(async (sentence) => {
-        const audioData = await speechStore.speech(
-          provider as any,
-          'virtual',
-          sentence,
-          voiceId,
-        )
-        const audioUrl = URL.createObjectURL(new Blob([audioData]))
-        return {
-          text: sentence,
-          audio: new Audio(audioUrl),
-        }
-      }),
-    )
-
-    if (loadingIndex.value !== idx)
-      return
-
-    loadingIndex.value = null
-    const sessionToken = Symbol('playback-session')
-    currentPlaybackSession.value = sessionToken
-
-    for (let i = 0; i < audioItems.length; i++) {
-      if (currentPlaybackSession.value !== sessionToken)
-        break
-
-      const item = audioItems[i]
-      activeAudio.value = item.audio
-      activePlayingIndex.value = idx
-
-      showCaption(item.text)
-      item.audio.play()
-
-      await new Promise<void>((resolve) => {
-        const cleanup = () => {
-          item.audio.removeEventListener('ended', onDone)
-          item.audio.removeEventListener('pause', onDone)
-          item.audio.removeEventListener('error', onDone)
-        }
-        const onDone = () => {
-          cleanup()
-          resolve()
-        }
-        item.audio.addEventListener('ended', onDone)
-        item.audio.addEventListener('pause', onDone)
-        item.audio.addEventListener('error', onDone)
-      })
-    }
-
-    if (currentPlaybackSession.value === sessionToken) {
-      activePlayingIndex.value = null
-      activeAudio.value = null
-      currentPlaybackSession.value = null
-      clearCaption()
-    }
-  }
-  catch (error) {
-    console.error('[Actor Suggestions] Speech preview failed:', error)
-    loadingIndex.value = null
-    activePlayingIndex.value = null
-    activeAudio.value = null
-    currentPlaybackSession.value = null
-    clearCaption()
-  }
+  await playSpeech(text, voiceId, {
+    onLoading: () => { loadingIndex.value = idx },
+    onPlaying: () => { loadingIndex.value = null; activePlayingIndex.value = idx },
+    onDone: () => { activePlayingIndex.value = null },
+    onError: () => { loadingIndex.value = null; activePlayingIndex.value = null },
+  })
 }
 
 async function playAllChoices() {
@@ -548,18 +485,20 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    ref="stageContainerRef"
     :class="[
       'relative h-full w-full flex flex-col overflow-hidden rounded-xl bg-transparent',
       'transition-opacity duration-300 ease-in-out',
       stageIsHidden ? 'opacity-0' : 'opacity-100',
     ]"
+    @click="handleStageClick"
   >
     <div class="relative h-full w-full overflow-hidden rounded-2xl">
-      <!-- Scene Background Layer -->
+      <!-- Custom Background Image -->
       <div
-        v-if="activeBackgroundUrl"
+        v-if="activeBackgroundUrl && showBackgroundLayer"
         :class="[
-          'absolute inset-0 z-0',
+          'pointer-events-none absolute inset-0 z-0 opacity-100',
           'transition-opacity duration-500',
         ]"
         :style="{
@@ -571,10 +510,10 @@ onBeforeUnmount(() => {
       />
 
       <!-- Standalone Graphics Model Scene Renderer -->
-      <div class="absolute inset-0 z-10">
+      <div v-show="showModelLayer" class="absolute inset-0 z-10">
         <RendererStage
           v-model:state="stageState"
-          :paused="!stageEnabled"
+          :paused="!stageEnabled || !showModelLayer"
           :focus-at="{ x: live2dLookAtX, y: live2dLookAtY }"
           :x-offset="xOffset"
           :y-offset="yOffset"
@@ -675,13 +614,13 @@ onBeforeUnmount(() => {
           >
             <div class="i-ph:arrows-out-cardinal size-3.5" />
           </button>
-          <!-- Quick Hide Button -->
+          <!-- Stage Config Button -->
           <button
             class="text-neutral-850 size-6 flex cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-95 hover:bg-neutral-200/60 dark:text-neutral-200 dark:hover:bg-neutral-700/60"
-            title="Hide Stage"
-            @click="handleHideStage"
+            title="Stage Size & Position"
+            @click="configOverlayOpen = true"
           >
-            <div class="i-ph:eye-slash size-3.5" />
+            <div class="i-ph:gear size-3.5" />
           </button>
         </div>
       </div>
@@ -772,11 +711,22 @@ onBeforeUnmount(() => {
           ref="whisperDockRef"
           v-model:open="whisperDockIsOpen"
           :tools="tools"
+          :proximity="notchProximity"
           @spawn-standalone="handleSpawnStandalone"
           @get-suggestions="handleGetSuggestions"
           @clear-suggestions="handleClearSuggestions"
         />
       </div>
+
+      <!-- Stage Config Overlay (Size & Position) -->
+      <StageConfigOverlay
+        v-model:open="configOverlayOpen"
+        v-model:show-background="showBackgroundLayer"
+        v-model:show-model="showModelLayer"
+        @apply-preset="handleApplyPreset"
+        @apply-alignment="handleApplyAlignment"
+        @hide-stage="handleOverlayHide"
+      />
 
       <!-- Selfie Viewfinder Overlay -->
       <div v-if="selfieViewfinderActive" class="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">

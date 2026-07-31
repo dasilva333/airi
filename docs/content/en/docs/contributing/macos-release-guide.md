@@ -22,25 +22,33 @@ git push origin v[version]
 2. **Draft Summary**: Focus on outward-facing user features (e.g., new buttons, UI improvements, stability wins).
 3. **Save to File**: Save to `release-notes.md`.
 
-### Step 4: Build macOS Executable
-Execute the build command from the `stage-tamagotchi` workspace:
-```bash
-pnpm -F @proj-airi/stage-tamagotchi run build:mac
-```
-This runs `electron-builder --mac` and generates a `.dmg` and a `.app` in `dist`.
+### Step 4: Build & Publish (Automated Utility)
 
-### Step 5: Publish to GitHub Releases
-Use the `gh` CLI to create the release and upload the asset.
+Since macOS packages do not require interactive smoke tests before uploading, the compilation and release upload steps are unified into a single command. It handles pulling latest tags, building the app, detecting the compiled `.dmg`, verifying the GitHub release, and uploading the asset.
 
-**Daily / Development Release (Target your fork):**
+Simply run:
 ```bash
-gh release create [tag] apps/stage-tamagotchi/dist/AIRI-[version]-darwin-arm64.dmg --repo [your-fork] --title "AIRI [version]" --notes-file release-notes.md
+pnpm run release:mac
 ```
 
-**Stable Release (Target upstream):**
-```bash
-gh release create [tag] apps/stage-tamagotchi/dist/AIRI-[version]-darwin-arm64.dmg --repo moeru-ai/airi --title "AIRI [version]" --notes-file release-notes.md
-```
+---
+
+### Step 5: Manual Alternative / Verification
+
+If you prefer or need to run individual steps manually:
+
+1. **Build macOS Executable**:
+   Execute the build command from the `stage-tamagotchi` workspace:
+   ```bash
+   pnpm -F @proj-airi/stage-tamagotchi run build:mac
+   ```
+   This runs `electron-builder --mac` and generates a `.dmg` and a `.app` in `dist`.
+
+2. **Publish to GitHub Releases**:
+   Use the `gh` CLI to create the release and upload the asset, using the local authentication keyring:
+   ```bash
+   GITHUB_TOKEN="" GH_SSL_NO_VERIFY="true" gh release upload [tag] apps/stage-tamagotchi/dist/AIRI-[version]-darwin-arm64.dmg --repo dasilva333/airi --clobber
+   ```
 
 ---
 

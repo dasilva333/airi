@@ -1,5 +1,7 @@
 import JSZip from 'jszip'
 
+import { isMacOSJunk } from './live2d-zip-loader'
+
 export interface Live2DValidationReport {
   fileName: string
   totalFiles: number
@@ -18,7 +20,10 @@ export interface Live2DValidationReport {
 
 export async function validateLive2DZip(file: File | Blob): Promise<Live2DValidationReport> {
   const zip = await JSZip.loadAsync(file)
-  const allPaths = Object.keys(zip.files)
+  // Strip macOS AppleDouble resource-fork artifacts (__MACOSX/ subtree, ._-prefixed
+  // sidecars) before any path inspection. These are binary files that are not Live2D
+  // assets and cause false-positive INVALID reports on otherwise valid macOS-created ZIPs.
+  const allPaths = Object.keys(zip.files).filter(p => !isMacOSJunk(p))
 
   const report: Live2DValidationReport = {
     fileName: (file as File).name || 'live2d-model.zip',

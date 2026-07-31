@@ -2,6 +2,7 @@
 import { defineInvokeHandler } from '@moeru/eventa'
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { themeColorFromValue, useThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
+import { debug } from '@proj-airi/stage-shared'
 import { ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useBackupStore } from '@proj-airi/stage-ui/stores/backup'
@@ -250,7 +251,7 @@ onMounted(async () => {
 
   // Auto-backup check (every 24 hours)
   if (backupStore.isBackupEnabled && Date.now() - backupStore.lastBackupTime > 24 * 60 * 60 * 1000) {
-    console.log('[App] Auto-backup condition met. Triggering backup...')
+    debug('[App] Auto-backup condition met. Triggering backup...')
     void backupStore.triggerBackup()
   }
 
@@ -279,7 +280,7 @@ onMounted(async () => {
     ctx.on(electronSettingsNavigate, (event) => {
       const payload = event?.body
       if (payload?.route) {
-        console.log('[Settings] Navigating to:', payload.route)
+        debug('[Settings] Navigating to:', payload.route)
         router.push(payload.route)
       }
     })
@@ -323,7 +324,7 @@ watch(
     const nextTitle = parts.join(' - ')
 
     if (document.title !== nextTitle) {
-      console.log('[AppTitle] Updating settings title', {
+      debug('[AppTitle] Updating settings title', {
         from: document.title,
         to: nextTitle,
         route: route.path,
@@ -358,7 +359,7 @@ watch(
     const nextTitle = titleTemplate.replace('{character}', activeCharacterLabel)
 
     if (document.title !== nextTitle) {
-      console.log('[AppTitle] Updating main title', {
+      debug('[AppTitle] Updating main title', {
         from: document.title,
         to: nextTitle,
         route: route.path,

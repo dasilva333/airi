@@ -69,17 +69,25 @@ export function useSpineAnimationManager(
   }
 
   function setIdle(name: string): TrackEntry | null {
-    if (!defaults.idleAnimationEnabled) {
+    if (!defaults.idleAnimationEnabled || name === '') {
       animationState.setEmptyAnimation(SPINE_IDLE_TRACK, defaults.mixDuration)
       return null
     }
 
-    if (name === '') {
-      animationState.setEmptyAnimation(SPINE_IDLE_TRACK, defaults.mixDuration)
-      return null
+    let resolved = resolveAnimation(name)
+    const isGenericIdleRequest = name.toLowerCase() === 'idle'
+    const isResolvedNonIdle = resolved && !resolved.toLowerCase().includes('idle') && !resolved.toLowerCase().includes('stand')
+
+    if (!resolved || isGenericIdleRequest || isResolvedNonIdle) {
+      const animations = listAnimations()
+      const bestIdle = animations.find(a => a.toLowerCase().includes('idle'))
+        ?? animations.find(a => a.toLowerCase().includes('stand'))
+        ?? animations[0]
+      if (bestIdle) {
+        resolved = bestIdle
+      }
     }
 
-    const resolved = resolveAnimation(name) ?? listAnimations()[0]
     if (!resolved)
       return null
 

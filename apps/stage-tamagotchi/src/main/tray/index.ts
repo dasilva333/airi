@@ -78,6 +78,20 @@ export function setupTray(params: {
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.settings'), click: () => void params.settingsWindow.openWindow('/settings') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.about'), click: () => params.aboutWindow().then(window => toggleWindowShow(window)) },
         { type: 'separator' },
+        {
+          label: 'Toggle Developer Tools',
+          click: () => {
+            if (params.mainWindow && !params.mainWindow.isDestroyed()) {
+              if (params.mainWindow.webContents.isDevToolsOpened()) {
+                params.mainWindow.webContents.closeDevTools()
+              }
+              else {
+                params.mainWindow.webContents.openDevTools({ mode: 'detach' })
+              }
+            }
+          },
+        },
+        { type: 'separator' },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.quit'), click: () => app.quit() },
       ])
 

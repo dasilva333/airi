@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Alert, ErrorContainer, RadioCardManySelect, RadioCardSimple } from '@proj-airi/stage-ui/components'
+import { BrainModelPicker } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
@@ -10,6 +12,9 @@ import { RouterLink } from 'vue-router'
 
 const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
+const airiCardStore = useAiriCardStore()
+const { activeCard } = storeToRefs(airiCardStore)
+const activeCharacterName = computed(() => activeCard.value?.name || 'Active Character')
 const { persistedChatProvidersMetadata, configuredProviders } = storeToRefs(providersStore)
 const {
   activeProvider,
@@ -53,6 +58,24 @@ function handleDeleteProvider(providerId: string) {
 
 <template>
   <div bg="neutral-50 dark:[rgba(0,0,0,0.3)]" rounded-xl p-4 flex="~ col gap-4">
+    <!-- Active Character Model Quick-Switch Banner -->
+    <div class="flex flex-col gap-3 border border-primary-500/30 rounded-xl bg-primary-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="i-solar:user-bold-duotone shrink-0 text-2xl text-primary-500" />
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">Active Character: {{ activeCharacterName }}</span>
+          </div>
+          <span class="text-xs text-neutral-500 dark:text-neutral-400">
+            Use the model picker on the right to set or switch the model directly for {{ activeCharacterName }}.
+          </span>
+        </div>
+      </div>
+
+      <BrainModelPicker variant="button" side="bottom" :button-label="`Switch Model for ${activeCharacterName}`" />
+    </div>
+
+    <!-- Global Default Consciousness Controls -->
     <div>
       <div flex="~ col gap-4">
         <div>
@@ -60,7 +83,7 @@ function handleDeleteProvider(providerId: string) {
             {{ t('settings.pages.providers.title') }}
           </h2>
           <div text="neutral-400 dark:neutral-400">
-            <span>{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.description') }}</span>
+            <span>Configure AIRI's global default provider & model below. This serves as the system-wide default whenever a character card does not override its own model.</span>
           </div>
         </div>
         <div max-w-full>

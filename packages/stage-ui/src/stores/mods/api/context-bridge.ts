@@ -4,7 +4,7 @@ import type { UserMessage } from '@xsai/shared-chat'
 import type { ChatStreamEvent, ContextMessage } from '../../../types/chat'
 
 import { errorMessageFrom } from '@moeru/std'
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { debug, isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import { Mutex } from 'es-toolkit'
 import { nanoid } from 'nanoid'
@@ -35,6 +35,16 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
 
   const { post: broadcastContext, data: incomingContext } = useBroadcastChannel<ContextMessage, ContextMessage>({ name: CONTEXT_CHANNEL_NAME })
   const { post: broadcastStreamEvent, data: incomingStreamEvent } = useBroadcastChannel<ChatStreamEvent, ChatStreamEvent>({ name: CHAT_STREAM_CHANNEL_NAME })
+  const { post: broadcastDedupeEventId, data: incomingDedupeEventId } = useBroadcastChannel<{ eventId: string }, { eventId: string }>({ name: 'airi:context-bridge-dedupe' })
+
+  const processedEventIds = new Set<string>()
+
+  watch(incomingDedupeEventId, (msg) => {
+    if (msg?.eventId) {
+      processedEventIds.add(msg.eventId)
+      setTimeout(() => processedEventIds.delete(msg.eventId), 10000)
+    }
+  })
 
   const disposeHookFns = ref<Array<() => void>>([])
   let remoteStreamGuard: { sessionId: string, generation: number } | null = null
@@ -76,14 +86,14 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   }
 
   async function initialize() {
-    console.log('[PipelineTTS:Bridge] Initializing...')
+    debug('[PipelineTTS:Bridge] Initializing...')
     if (isInitialized.value) {
-      console.log('[Context Bridge] Already initialized, skipping.')
+      debug('[Context Bridge] Already initialized, skipping.')
       return
     }
-    console.log('[PipelineTTS:Bridge] Acquiring mutex...')
+    debug('[PipelineTTS:Bridge] Acquiring mutex...')
     await mutex.acquire()
-    console.log('[PipelineTTS:Bridge] Mutex acquired.')
+    debug('[PipelineTTS:Bridge] Mutex acquired.')
 
     try {
       let isProcessingRemoteStream = false
@@ -116,6 +126,19 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       }))
 
       disposeHookFns.value.push(serverChannelStore.onEvent('input:text', async (event) => {
+        const eventId = (event.metadata as { deliveryId?: string, idempotencyKey?: string } | undefined)?.deliveryId
+          || (event.metadata as { deliveryId?: string, idempotencyKey?: string } | undefined)?.idempotencyKey
+          || event.metadata?.event?.id
+
+        if (eventId) {
+          if (processedEventIds.has(eventId)) {
+            return
+          }
+          processedEventIds.add(eventId)
+          broadcastDedupeEventId({ eventId })
+          setTimeout(() => processedEventIds.delete(eventId), 10000)
+        }
+
         const {
           text,
           textRaw,
@@ -188,7 +211,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           // - https://chromestatus.com/feature/6265472244514816
           // - https://developer.mozilla.org/en-US/docs/Web/API/SharedWorker
           // - https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
-          navigator.locks.request('context-bridge:event:input:text', async () => {
+          navigator.locks.request('context-bridge:event:input:text', { ifAvailable: true }, async (lock) => {
+            if (!lock) {
+              return
+            }
+
             try {
               await chatOrchestrator.ingest(messageText, {
                 model: activeModel.value,
@@ -215,11 +242,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       disposeHookFns.value.push(
         chatOrchestrator.onBeforeMessageComposed(async (message, context) => {
           if (isProcessingRemoteStream) {
-            console.debug('[Context Bridge] Skipping broadcast of before-compose (remote stream in progress)')
+            debug('[Context Bridge] Skipping broadcast of before-compose (remote stream in progress)')
             return
           }
 
-          console.log('[Context Bridge] Broadcasting before-compose', { message })
+          debug('[Context Bridge] Broadcasting before-compose', { message })
           broadcastStreamEvent({ type: 'before-compose', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onAfterMessageComposed(async (message, context) => {
@@ -230,11 +257,11 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         }),
         chatOrchestrator.onBeforeSend(async (message, context) => {
           if (isProcessingRemoteStream) {
-            console.warn('[Context Bridge] Blocked broadcast of before-send! (remote stream in progress)')
+            debug('[Context Bridge] Blocked broadcast of before-send! (remote stream in progress)')
             return
           }
 
-          console.log('[Context Bridge] Broadcasting before-send', { message })
+          debug('[Context Bridge] Broadcasting before-send', { message })
           broadcastStreamEvent({ type: 'before-send', message, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
         chatOrchestrator.onAfterSend(async (message, context) => {
@@ -322,7 +349,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           return
 
         if (event.type !== 'token-literal' && event.type !== 'token-special') {
-          console.log(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
+          debug(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
         }
         isProcessingRemoteStream = true
 
@@ -411,7 +438,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       })
       disposeHookFns.value.push(stopIncomingStreamWatch)
 
-      console.log(`[PipelineTTS:Bridge] Initialization complete in ${window.location.hash || 'main'}. Registered hooks: ${disposeHookFns.value.length}`)
+      debug(`[PipelineTTS:Bridge] Initialization complete in ${window.location.hash || 'main'}. Registered hooks: ${disposeHookFns.value.length}`)
       isInitialized.value = true
     }
     catch (e) {

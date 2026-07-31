@@ -22,6 +22,7 @@ import { useAiriCardStore } from '../../../../stores/modules'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { useVHackStore } from '../../../../stores/vhack'
+import { ModelAssignmentModal } from '../../dialogs/model-assignment'
 import { ModelSelectorDialog } from '../../dialogs/model-selector'
 
 const props = defineProps<{
@@ -30,6 +31,7 @@ const props = defineProps<{
 
   live2dSceneClass?: string | string[]
   vrmSceneClass?: string | string[]
+  initialTab?: 'library' | 'explore' | 'cloud'
 }>()
 
 defineEmits<{
@@ -37,6 +39,13 @@ defineEmits<{
 }>()
 
 const modelSelectorOpen = ref(false)
+const modelSelectorTab = ref<'library' | 'explore' | 'cloud'>(props.initialTab || 'library')
+
+function openModelSelector(tab: 'library' | 'explore' | 'cloud' = 'library') {
+  modelSelectorTab.value = tab
+  modelSelectorOpen.value = true
+}
+const modelAssignmentOpen = ref(false)
 const positionCursor = useMouse()
 const settingsStore = useSettings()
 const vhackStore = useVHackStore()
@@ -80,15 +89,12 @@ const computedYOffset = computed(() => {
 
 const airiCardStore = useAiriCardStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const { updateCard } = airiCardStore
 
 const { resolveActiveIdleAnimations } = useIdleAnimations()
 
 const resolvedIdleAnimations = computed(() => {
   return resolveActiveIdleAnimations(activeCard.value, stageModelSelected.value)
 })
-
-const activeCardName = computed(() => activeCard.value?.name || 'Active Character')
 
 const currentSelectedDisplayModel = computed<DisplayModel | undefined>(() => stageModelSelectedDisplayModel.value)
 
@@ -98,6 +104,7 @@ const live2dRef = ref<InstanceType<typeof Live2D>>()
 const threeSceneRef = ref<InstanceType<typeof ThreeScene>>()
 
 defineExpose({
+  openModelSelector,
   captureFrame: async () => {
     if (stageModelRenderer.value === 'live2d') {
       return (live2dRef.value as any)?.captureFrame()
@@ -112,26 +119,6 @@ defineExpose({
 async function handleModelPick(selectedModel: DisplayModel | undefined) {
   stageModelSelected.value = selectedModel?.id ?? ''
   await settingsStore.updateStageModel()
-}
-
-async function handleApplyToActiveCharacter() {
-  if (!activeCardId.value || !activeCard.value)
-    return
-
-  const updatedAiriExtension = {
-    ...activeCard.value.extensions.airi,
-    modules: {
-      ...activeCard.value.extensions.airi.modules,
-      displayModelId: stageModelSelected.value,
-    },
-  }
-
-  updateCard(activeCardId.value, {
-    extensions: {
-      ...activeCard.value.extensions,
-      airi: updatedAiriExtension,
-    },
-  })
 }
 
 function handleScaleChange(newScale: number) {
@@ -178,19 +165,24 @@ function handleOffsetChange(offset: { x: number, y: number }) {
       />
     </div>
     <div :class="['flex w-full gap-2']">
-      <ModelSelectorDialog v-model:show="modelSelectorOpen" :selected-model="currentSelectedDisplayModel" @pick="handleModelPick">
+      <ModelSelectorDialog v-model:show="modelSelectorOpen" :selected-model="currentSelectedDisplayModel" :initial-tab="modelSelectorTab" @pick="handleModelPick">
         <Button variant="secondary" class="flex-1">
           Select Model
         </Button>
       </ModelSelectorDialog>
-      <Button
-        variant="secondary"
-        class="flex-1"
-        :disabled="!activeCardId"
-        @click="handleApplyToActiveCharacter"
+      <ModelAssignmentModal
+        v-model:show="modelAssignmentOpen"
+        :selected-model="currentSelectedDisplayModel"
+        :model-id="stageModelSelected"
       >
-        Apply to: {{ activeCardName }}
-      </Button>
+        <Button
+          variant="secondary"
+          class="flex-1"
+          :disabled="!activeCardId"
+        >
+          Apply to Character...
+        </Button>
+      </ModelAssignmentModal>
     </div>
 
     <Live2D

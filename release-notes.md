@@ -1,40 +1,34 @@
-# 🚀 AIRI v0.9.18-stable.20260719 — Release Notes
+# 🚀 AIRI v0.9.21-stable.20260729 — Release Notes
 
-This release introduces a major **Light Theme Visual Polish**, launches **Autonomous Motion (VRMA) Generation**, integrates new **Free LLM/TTS Providers**, and implements **Custom Actor Highlight Color Coding** inside the Concept Studio.
+This release introduces the **ComfyUI Workflow Configurator Redesign**, **Live2D Model Loading Race Condition & Mutex Fixes**, **Dedicated Director LLM Overrides**, **Live2D Multi-File Batch Import Queueing**, and **System Settings & Tray Enhancements**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🎨 Universal Light/Dark Theme Polish
-* **Light Theme Normalization**: Conducted a comprehensive layout and styling pass to fully normalize light theme support. Optimized backgrounds, borders, and text contrasts on key surfaces:
-  * **AnimaDex Card Creator** (`guided.vue` wizard steps).
-  * **AutoVoiceConfigModal** & Contextual hint strips.
-  * **Persistent World Dock (Hotbar)** & Character selection card overlays.
-  * **Producer Suggestion Choice Bubbles**.
-  * **Chatbox** light theme styling.
+### 🎨 ComfyUI Workflow Configurator Redesign
+* **Redesigned Configurator UI**: Overhauled the ComfyUI workflow configuration interface with intuitive target selectors for mapping prompts and generated outputs.
+* **Formatted Error Messages**: Improved error message formatting in chat when image generation workflows fail, providing cleaner diagnostic tracebacks.
 
-### 🕺 Rehearsal Room & Motion (VRMA) Generation
-* **Create Motion Generator**: Added a custom animation generator to the Rehearsal Playground to create, test, and save custom VRMA motions directly to the database.
-* **Autonomous Motion Tool Calling**: Enabled autonomous `generate_motion` tool calling, allowing your companion to generate new custom animations dynamically.
-* **Suggest Mode Keybinding**: Restored the quick-suggest keybinding trigger inside the Rehearsal Playground as a configurable trigger.
+### 💃 Model Loading Mutex & Concurrency Fixes
+* **Serialized Model Updates**: Serialized the `updateStageModel` execution queue to prevent race conditions when rapidly swapping display models.
+* **Live2D Mutex Leak Fix**: Resolved Live2D model loading mutex leaks that could freeze model rendering during frequent switches.
+* **ControlStrip Persistence Fix**: Corrected the `ControlStrip` `displayModelId` write path so display model switches persist cleanly to the active character card.
 
-### 🌈 Concept Studio & Actor Color Coding
-* **Actor Color Picker**: Added a custom actor highlight color picker inside the Concept Studio with support for runtime overrides.
-* **Streaming Color Propagation**: Automatically propagates custom actor highlight colors to the chatbox headers and speech bubbles in real time.
-* **Concept Cloning**: Added a new **Clone** button directly inside the Concept Studio to quickly duplicate active cards and concept configurations.
+### ⚙️ Settings, Tray & System Features
+* **Settings Case-Insensitive Search**: Search bar in settings now performs case-insensitive matching across all setting items and sub-tabs.
+* **Character Model Quick-Switch**: Added a quick-switch model dropdown directly in settings to swap active display models on the fly.
+* **Tray DevTools Toggle**: Added an instant DevTools toggle option directly into the system tray context menu.
+* **MCP Third-Party Notice**: Added a security notice dialog when connecting third-party Model Context Protocol (MCP) servers.
 
-### 📇 AIRI Card Creator & Settings
-* **Motion Tool Gating**: Added a new checkbox toggle to the Card Creator Tools tab to selectively enable or disable autonomous motion generation capabilities.
-* **Character-Scoped Prompt Templates**: Made the Producer panel's suggestion prompt templates character-scoped so companions retain unique guidance rules.
-* **Tool Filter Decoupling**: Decoupled the `allowedTools` capability filter from standard card generation toggles.
-* **Composer Button Settings**: Added right-click configuration menus to the Send and Suggest composer buttons to quickly customize their respective keybindings.
-* **Suggestion Settings Popover**: Added a new settings popover directly to the Suggestions button for configuring suggestion behaviors.
-* **Onboarding Info Tooltip**: Added a new information tooltip helper to guide users through the initial onboarding flow.
-* **Camera Selfie Fix**: Fixed the camera selfie countdown overlay behavior.
+### 🎬 Dedicated Director LLM Model Override
+* **Custom Director Model**: You can now specify a separate, custom LLM model override exclusively for the Director (Orchestration & RAG) layer! Run a faster or specialized model for background narration and scene directing while keeping your primary model focused on chat.
+* **BrainModelPicker in Modules Settings**: Integrated `BrainModelPicker` and `VoiceCreatorModal` into the Settings Modules tab for streamlined AI capability configuration.
 
-### 🔌 New Free Providers & Remote Catalog Sync
-* **Remote Model Selector**: Integrated remote model browsing inside the model selector dialog, allowing users to view display models stored in the remote cloud sync server.
-* **Pollinations AI & Xiaomi MiMo**: Integrated Pollinations AI (free image/text generation) and Xiaomi MiMo (free speech TTS) as out-of-the-box providers.
-* **CORS Turnstile Fixes**: Resolved Turnstile captcha validation issues affecting settings layouts.
-* **Remote Model Catalog Sync**: Implemented background remote model catalog syncs and selective model asset downloads.
+### 🎭 Live2D Multi-File Batch Import Queue
+* **Batch Model Import Queue**: Drop or select multiple Live2D model files/archives at once with real-time toast progress updates for each item.
+* **macOS Archive Artifact Filtering**: Automatically cleans up hidden `__MACOSX/` directories and `.DS_Store` metadata files during ZIP extraction, preventing corrupted model configurations.
+
+### ⚡ Non-Blocking App Startup & Speech Fixes
+* **Instant MCP Initialization**: Shifted Model Context Protocol (MCP) server startup off the critical application launch path, allowing AIRI to boot up instantly without waiting for background tool servers.
+* **Local Whisper STT Fixes**: Resolved an issue where Local Whisper model download progress could get stuck, fixed a double-multiplication percentage display bug, and smoothed out settings scroll layout transitions.

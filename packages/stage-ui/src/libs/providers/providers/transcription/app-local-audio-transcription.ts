@@ -199,7 +199,12 @@ const definition: ProviderDefinition<LocalTranscriptionConfig> = {
           await whisperAdapter.load(
             (progress) => {
               if (hooks?.onProgress) {
-                hooks.onProgress({ progress: progress.percent / 100 })
+                hooks.onProgress({
+                  progress: progress.percent / 100,
+                  file: progress.file,
+                  loaded: progress.loaded,
+                  total: progress.total,
+                })
               }
             },
             { model: effectiveModelId },

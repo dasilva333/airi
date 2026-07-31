@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import type { CognitionProcessorId } from '@proj-airi/stage-ui/stores/nan0-config'
-
-import { NAN0_PROCESSOR_ID } from '@proj-airi/stage-ui/stores/nan0-config'
 import { Select } from '@proj-airi/ui/components/form'
-import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 
-defineProps<{
+const props = defineProps<{
   consciousnessProviderOptions: { value: string, label: string }[]
   consciousnessModelOptions: { value: string, label: string }[]
   firstHopModelOptions: { value: string, label: string }[]
@@ -17,33 +12,33 @@ defineProps<{
 }>()
 
 const cognitivePipelineEnabled = defineModel<boolean>('cognitivePipelineEnabled', { required: true })
-const firstHopProcessor = defineModel<CognitionProcessorId>('firstHopProcessor', { required: true })
+const firstHopProcessor = defineModel<'none' | 'local_nan0'>('firstHopProcessor', { required: true })
 const selectedFirstHopProvider = defineModel<string>('selectedFirstHopProvider', { required: true })
 const selectedFirstHopModel = defineModel<string>('selectedFirstHopModel', { required: true })
 const selectedConsciousnessProvider = defineModel<string>('selectedConsciousnessProvider', { required: true })
 const selectedConsciousnessModel = defineModel<string>('selectedConsciousnessModel', { required: true })
 
-const { t } = useI18n()
-const processorOptions = computed(() => [
-  { value: 'none', label: t('settings.pages.card.creation.cognition.processor.none') },
-  { value: NAN0_PROCESSOR_ID, label: t('settings.pages.card.creation.cognition.processor.nan0') },
-])
+const processorOptions = [
+  { value: 'none', label: 'None (Direct Proxy / Raw Prompt)' },
+  { value: 'local_nan0', label: 'Nan0 Local Engine (Emotional & Attention Rules)' },
+]
 </script>
 
 <template>
   <div class="tab-content ml-auto mr-auto w-95%">
     <p class="mb-5 text-sm text-neutral-500 dark:text-neutral-400">
-      {{ t('settings.pages.card.creation.cognition.description') }}
+      Configure the cognitive routing pipeline. This allows user queries to be processed by a first-stage LLM (monologue/thought generation) before feeding the result into the active voice model.
     </p>
 
     <div class="ml-auto mr-auto w-90% flex flex-col gap-6">
+      <!-- Field 1: Master Pipeline Toggle -->
       <div class="flex items-center justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
         <div class="flex flex-col select-none gap-1">
           <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">
-            {{ t('settings.pages.card.creation.cognition.enabled.label') }}
+            Cognitive Pipeline (Two-Hop Routing)
           </span>
           <span class="text-[10px] text-neutral-500 leading-normal dark:text-neutral-400">
-            {{ t('settings.pages.card.creation.cognition.enabled.description') }}
+            Intercept and enrich user messages with a dedicated monologue stage before generating outward speech.
           </span>
         </div>
         <label class="relative inline-flex cursor-pointer items-center">
@@ -56,16 +51,16 @@ const processorOptions = computed(() => [
         </label>
       </div>
 
+      <!-- Settings Block (greyed out when cognitive pipeline is disabled) -->
       <div
-        :class="[
-          'flex flex-col gap-5 transition-opacity duration-200',
-          !cognitivePipelineEnabled && 'pointer-events-none opacity-40',
-        ]"
+        class="flex flex-col gap-5 transition-opacity duration-200"
+        :class="{ 'opacity-40 pointer-events-none': !cognitivePipelineEnabled }"
       >
+        <!-- Field 2: First-Hop Processor -->
         <div class="flex flex-col gap-2">
           <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-            <div class="i-lucide:cpu" />
-            {{ t('settings.pages.card.creation.cognition.processor.label') }}
+            <div i-lucide:cpu />
+            1st-Hop Processor
           </label>
           <Select
             v-model="firstHopProcessor"
@@ -73,28 +68,16 @@ const processorOptions = computed(() => [
             class="w-full"
           />
           <p class="text-[10px] text-neutral-500 italic dark:text-neutral-400">
-            {{ t('settings.pages.card.creation.cognition.processor.description') }}
-          </p>
-        </div>
-
-        <div
-          v-if="firstHopProcessor === NAN0_PROCESSOR_ID"
-          class="border border-primary-200 rounded-xl bg-primary-50/60 p-4 text-xs text-primary-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-100"
-        >
-          <div class="mb-1 flex items-center gap-2 font-semibold">
-            <div class="i-lucide:brain-circuit" />
-            {{ t('settings.pages.card.creation.cognition.nan0.title') }}
-          </div>
-          <p class="leading-relaxed">
-            {{ t('settings.pages.card.creation.cognition.nan0.description') }}
+            None passes raw text directly to the 1st LLM (ideal for external proxies like Hermes). Nan0 Local executes emotional and attention logic.
           </p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <!-- Field 3: 1st LLM (Thoughts) -->
           <div class="flex flex-col gap-2">
             <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-              <div class="i-lucide:brain" />
-              {{ t('settings.pages.card.creation.cognition.first_provider') }}
+              <div i-lucide:brain />
+              1st LLM Provider (Thoughts)
             </label>
             <Select
               v-model="selectedFirstHopProvider"
@@ -105,11 +88,11 @@ const processorOptions = computed(() => [
 
           <div class="flex flex-col gap-2">
             <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-              <div class="i-lucide:ghost" />
-              {{ t('settings.pages.card.creation.cognition.first_model') }}
+              <div i-lucide:ghost />
+              1st LLM Model
             </label>
             <Select
-              v-if="firstHopModelOptions.length > 0"
+              v-if="firstHopModelOptions && firstHopModelOptions.length > 0"
               v-model="selectedFirstHopModel"
               :options="firstHopModelOptions"
               :placeholder="defaultFirstHopModelPlaceholder"
@@ -122,14 +105,15 @@ const processorOptions = computed(() => [
               type="text"
               :disabled="!selectedFirstHopProvider && !firstHopProviderActive"
               class="w-full border border-neutral-200 rounded-lg border-solid bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-800 shadow-sm outline-none dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-950 focus:bg-neutral-50 dark:text-neutral-200 dark:focus:border-primary-400/50 dark:focus:bg-neutral-900"
-              :placeholder="t('settings.pages.card.creation.cognition.model_placeholder')"
+              placeholder="e.g. llama3"
             >
           </div>
 
+          <!-- Field 4: 2nd LLM (Active Speech) -->
           <div class="flex flex-col gap-2">
             <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-              <div class="i-lucide:messages-square" />
-              {{ t('settings.pages.card.creation.cognition.second_provider') }}
+              <div i-lucide:brain-circuit />
+              2nd LLM Provider (Speech)
             </label>
             <Select
               v-model="selectedConsciousnessProvider"
@@ -140,10 +124,11 @@ const processorOptions = computed(() => [
 
           <div class="flex flex-col gap-2">
             <label class="flex flex-row items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-              <div class="i-lucide:message-square" />
-              {{ t('settings.pages.card.creation.cognition.second_model') }}
+              <div i-lucide:message-square />
+              2nd LLM Model
             </label>
             <Select
+              v-slot
               v-model="selectedConsciousnessModel"
               :options="consciousnessModelOptions"
               :placeholder="defaultConsciousnessModelPlaceholder"
