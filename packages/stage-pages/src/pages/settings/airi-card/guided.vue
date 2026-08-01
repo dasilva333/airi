@@ -11,6 +11,7 @@ import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsUserProfile } from '@proj-airi/stage-ui/stores/settings/user-profile'
 import { Button } from '@proj-airi/ui'
+import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -19,6 +20,13 @@ import { toast } from 'vue-sonner'
 import AutoVoiceConfigModal from './components/AutoVoiceConfigModal.vue'
 import CustomCharacterModal from './components/CustomCharacterModal.vue'
 import VoiceCreatorModal from './components/VoiceCreatorModal.vue'
+
+// LocalStorage persistent state for hiding the wizard welcome banner
+const showWelcomeBanner = useLocalStorage('airi:animadex-wizard:welcome-banner-visible', true)
+
+function dismissWelcomeBanner() {
+  showWelcomeBanner.value = false
+}
 
 const customCharactersStore = useCustomCharactersStore()
 
@@ -906,6 +914,80 @@ async function confirmCreateCard() {
       <div v-if="currentStep === 1" class="flex flex-1 flex-col overflow-hidden">
         <!-- Responsive Control & Search Bar -->
         <div class="z-20 border-b border-neutral-200/80 bg-white/80 p-4 backdrop-blur-md dark:border-neutral-900/60 dark:bg-neutral-950/80">
+          <!-- Onboarding Welcome Banner (Dismissible via top-right eye icon) -->
+          <div
+            v-if="showWelcomeBanner"
+            :class="[
+              'relative mx-auto mb-4 max-w-7xl overflow-hidden rounded-2xl p-5 transition-all duration-300',
+              'border border-primary-500/20 bg-primary-500/5 backdrop-blur-md',
+              'dark:border-primary-400/20 dark:bg-primary-500/10',
+              'shadow-xs',
+            ]"
+          >
+            <!-- Accent left-border indicator (standard > quote style bar) -->
+            <div class="absolute inset-y-0 left-0 w-1.5 rounded-l-2xl bg-primary-500" />
+
+            <!-- Dismiss Button (Eye Icon) -->
+            <button
+              type="button"
+              title="Hide intro banner permanently"
+              :class="[
+                'absolute top-3.5 right-3.5 p-2 rounded-xl transition-all duration-200',
+                'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/50',
+                'dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800/60',
+              ]"
+              @click="dismissWelcomeBanner"
+            >
+              <div i-solar:eye-closed-bold-duotone class="text-lg" />
+            </button>
+
+            <!-- Banner Body -->
+            <div class="pl-2 pr-10">
+              <div class="flex items-center gap-2 text-sm text-primary-600 font-bold dark:text-primary-400">
+                <div i-solar:magic-stick-3-bold-duotone class="text-base" />
+                <span>Welcome to the AnimaDex Multi-Character World Wizard!</span>
+              </div>
+
+              <div class="mt-2 text-xs text-neutral-600 leading-relaxed space-y-2.5 dark:text-neutral-300">
+                <!-- Point 1: Cast Selection -->
+                <div class="flex items-start gap-2">
+                  <span class="mt-0.5 text-primary-500 font-bold opacity-80">&gt;</span>
+                  <p>
+                    <strong class="text-neutral-800 dark:text-neutral-100">1. Pick your Cast:</strong>
+                    Browse over 36,000 anime and game characters (or create your own custom OCs). Tap <strong class="text-primary-600 dark:text-primary-400">+ Add to World</strong> to assemble a cast of characters you want to hang out, roleplay, or chat with in the same interactive room.
+                  </p>
+                </div>
+
+                <!-- Point 2: Models & Voice -->
+                <div class="flex items-start gap-2">
+                  <span class="mt-0.5 text-primary-500 font-bold opacity-80">&gt;</span>
+                  <p>
+                    <strong class="text-neutral-800 dark:text-neutral-100">2. Give them Voice &amp; Avatars:</strong>
+                    Link 3D/Live2D models so they appear on screen, and assign custom speech voices so you can hear each character speak in their own distinct voice.
+                  </p>
+                </div>
+
+                <!-- Point 3: Story & Location Context -->
+                <div class="flex items-start gap-2">
+                  <span class="mt-0.5 text-primary-500 font-bold opacity-80">&gt;</span>
+                  <p>
+                    <strong class="text-neutral-800 dark:text-neutral-100">3. Set the Scene:</strong>
+                    Decide where your conversation takes place (like a cozy cafe, a space station, or a quiet beach), what they should call you, and any fun backstory rules you want everyone to follow.
+                  </p>
+                </div>
+
+                <!-- Point 4: What actually happens when you click Generate -->
+                <div class="flex items-start gap-2">
+                  <span class="mt-0.5 text-primary-500 font-bold opacity-80">&gt;</span>
+                  <p>
+                    <strong class="text-neutral-800 dark:text-neutral-100">4. Magic AI World Creation:</strong>
+                    AIRI compiles all your choices into a single card. When you start chatting, the AI will naturally play every character in your room—each taking turns speaking, reacting, and expressing themselves based on your message!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="mx-auto max-w-7xl w-full flex flex-wrap items-center justify-between gap-3">
             <!-- Search Bar + Autocomplete (Flexible Grow) -->
             <div class="relative min-w-[280px] flex-1">

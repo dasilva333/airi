@@ -15,8 +15,8 @@ const router = useRouter()
 const cardStore = useAiriCardStore()
 const { activeCardId } = storeToRefs(cardStore)
 
-// Row 1: Core Character & Local Audio
-const coreItems = computed<QuickAccessItem[]>(() => [
+// Row 1: Core Character & Services
+const row1Items = computed<QuickAccessItem[]>(() => [
   {
     id: 'user-profile',
     title: 'User Profile',
@@ -29,6 +29,28 @@ const coreItems = computed<QuickAccessItem[]>(() => [
     icon: 'i-solar:pen-bold-duotone',
     to: activeCardId.value ? `/settings/airi-card?cardId=${activeCardId.value}&edit=true` : '/settings/airi-card',
   },
+  {
+    id: 'character-wizard',
+    title: 'Character Wizard',
+    icon: 'i-solar:magic-stick-3-bold-duotone',
+    to: '/settings/airi-card/guided',
+  },
+  {
+    id: 'discord-bot',
+    title: 'Discord Bot',
+    icon: 'i-simple-icons:discord',
+    to: '/settings/modules/messaging-discord',
+  },
+  {
+    id: 'cloud-sync',
+    title: 'Cloud Sync',
+    icon: 'i-solar:cloud-bold-duotone',
+    to: '/settings/modules/cloud-sync',
+  },
+])
+
+// Row 2: Audio & Discovery
+const row2Items: QuickAccessItem[] = [
   {
     id: 'local-voice',
     title: 'Local Voice',
@@ -47,10 +69,6 @@ const coreItems = computed<QuickAccessItem[]>(() => [
     icon: 'i-solar:soundwave-bold-duotone',
     to: '/settings/providers/speech/virtual-audio-studio',
   },
-])
-
-// Row 2: External Services & Integrations
-const externalItems: QuickAccessItem[] = [
   {
     id: 'get-free-ai',
     title: 'Get Free AI',
@@ -62,18 +80,6 @@ const externalItems: QuickAccessItem[] = [
     title: 'Discover Models',
     icon: 'i-solar:planet-3-bold-duotone',
     to: '/settings/models?action=explore',
-  },
-  {
-    id: 'discord-bot',
-    title: 'Discord Bot',
-    icon: 'i-simple-icons:discord',
-    to: '/settings/modules/messaging-discord',
-  },
-  {
-    id: 'cloud-sync',
-    title: 'Cloud Sync',
-    icon: 'i-solar:cloud-bold-duotone',
-    to: '/settings/modules/cloud-sync',
   },
 ]
 
@@ -98,10 +104,10 @@ function navigate(to: string) {
 
     <!-- 2-Row Grid (Square Cards: Icon top, Title bottom) -->
     <div class="flex flex-col gap-1.5">
-      <!-- Row 1: Core & Local -->
+      <!-- Row 1: Core & Services -->
       <div class="grid grid-cols-5 gap-1.5">
         <button
-          v-for="item in coreItems"
+          v-for="item in row1Items"
           :key="item.id"
           :class="[
             'group flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all duration-200',
@@ -128,10 +134,10 @@ function navigate(to: string) {
         </button>
       </div>
 
-      <!-- Row 2: External & Integrations -->
+      <!-- Row 2: Audio & Discovery -->
       <div class="grid grid-cols-5 gap-1.5">
         <button
-          v-for="item in externalItems"
+          v-for="item in row2Items"
           :key="item.id"
           :class="[
             'group flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all duration-200',

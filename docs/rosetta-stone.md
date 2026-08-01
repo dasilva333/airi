@@ -45,6 +45,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | Concept | Path |
 | :--- | :--- |
 | **AIRI Card Editor** | `packages/stage-pages/src/pages/settings/airi-card/index.vue` |
+| **Character Wizard (Guided)** | `packages/stage-pages/src/pages/settings/airi-card/guided.vue` |
 | — Identity Tab | `.../tabs/CardCreationTabIdentity.vue` |
 | — Behavior Tab | `.../tabs/CardCreationTabBehavior.vue` |
 | — Generation Tab | `.../tabs/CardCreationTabGeneration.vue` |
