@@ -100,20 +100,6 @@ const voiceTargetCharacterId = ref<string | null>(null)
 const characterIdleAnimations = ref<Record<string, string[]>>({})
 const autoVoiceModalOpen = ref(false)
 
-// AI Story Idea Suggester state
-interface StoryIdea {
-  title: string
-  location: string
-  nickname: string
-  lore: string
-}
-const storyIdeas = ref<StoryIdea[]>([])
-const activeSuggestionIndex = ref<number | null>(null)
-const copiedIdx = ref<number | null>(null)
-const isSuggestingIdeas = ref(false)
-const suggestionGuidance = ref('')
-const showSuggestions = ref(false)
-
 // Step 4 Preview State
 const synthesisPayload = ref<any>(null)
 const showDeveloperPayload = ref(false)
@@ -387,11 +373,50 @@ function getBoundModel(characterId: string) {
   return displayModelsStore.displayModels.find(m => m.id === modelId)
 }
 
-// AI Story Idea Suggester
+// AI Story Idea Suggester state & Trope Templates
+interface StoryIdea {
+  title: string
+  location: string
+  nickname: string
+  lore: string
+}
+
+interface TropeTemplate {
+  id: string
+  label: string
+  icon: string
+  guidance: string
+}
+
+const tropeTemplates: TropeTemplate[] = [
+  { id: 'open-ended', label: 'Open-Ended', icon: '🎲', guidance: '' },
+  { id: 'fan-service', label: 'Fan Servicey', icon: '💖', guidance: 'Flirtatious, high tension, romantic comedy, playful banter, intimate setting' },
+  { id: 'slice-of-life', label: 'Slice of Life', icon: '☕', guidance: 'Cozy everyday domestic life, low stakes, relaxed hangout, cafe or home setting' },
+  { id: 'isekai', label: 'Isekai Fantasy', icon: '⚔️', guidance: 'High fantasy adventurer guild, magic academy, epic quest, medieval AU' },
+  { id: 'split-persona', label: 'Split Persona', icon: '🎭', guidance: 'DUPLICATE/OUTFIT VARIATIONS: If the cast contains different versions, forms, or outfits of the same base character (e.g. different ages, dresses, or persona forms), mix up the approach across options: treat them as alternate persona forms, dual-form variants, or a single character who contextually switches outfits and personas in the story.' },
+  { id: 'high-school', label: 'High School', icon: '🏫', guidance: 'High school anime, student council, campus festival, after-school club room, youth drama' },
+  { id: 'game-show', label: 'Game Show', icon: '🎮', guidance: 'Fun chaotic TV game show or competition, where the user is either the host or a contestant playing alongside the characters' },
+  { id: 'royal', label: 'Royal / Noble', icon: '🏰', guidance: 'Kingdom court, royal ball, noble palace dynamics, prince/princess or knight roleplay' },
+  { id: 'apocalypse', label: 'Apocalypse', icon: '🧟', guidance: 'Post-apocalyptic wasteland, safehouse defense, scavenging together, atmospheric survival tension' },
+  { id: 'summer-beach', label: 'Summer Beach', icon: '🏖️', guidance: 'Fun themed event, maid/butler cafe shift, resort vacation, comical customer service chaos' },
+]
+
+const selectedTropeId = ref<string>('open-ended')
+const storyIdeas = ref<StoryIdea[]>([])
+const activeSuggestionIndex = ref<number | null>(null)
+const copiedIdx = ref<number | null>(null)
+const isSuggestingIdeas = ref(false)
+const suggestionGuidance = ref('')
+const showSuggestions = ref(false)
+
+function selectTropeTemplate(trope: TropeTemplate) {
+  selectedTropeId.value = trope.id
+  suggestionGuidance.value = trope.guidance
+}
+
 async function fetchStoryIdeas(guidance = '') {
   isSuggestingIdeas.value = true
   showSuggestions.value = true
-  storyIdeas.value = []
   activeSuggestionIndex.value = null
   try {
     const activeModel = consciousnessStore.activeModel
@@ -407,16 +432,13 @@ async function fetchStoryIdeas(guidance = '') {
       const series = wizardStore.copyrights[c.copyrightIndex] || 'Unknown'
       return `- ${c.name} (${series})`
     }).join('\n')
+
     const systemMsg = `You are a creative roleplay scenario designer for an anime companion platform.
 Based on the provided character cast, generate exactly 3 distinct and creative story scenario ideas.
 
 Follow these rules for generating the scenarios:
 1. UNIFIED WORLD: All selected characters must live in the same unified world, location, or timeline together. Do not split them into separate settings per character.
-2. DUPLICATE/OUTFIT VARIATIONS: If the cast contains different versions or outfits of the same base character:
-   - Mix up the approach across the 3 options.
-   - For one option, treat them as a clone paradox, parallel-timeline variants, or twins who can talk to each other.
-   - For another option, treat them as a single character who changes their outfits, roles, or personas contextually in the story.
-3. STORY ROLEPLAY STRUCTURE: Make the lore rules describe a fun dynamic based on the characters' archetypes, series canon, or contrasting personalities, and explain the user's role (nickname) in relation to them.
+2. STORY ROLEPLAY STRUCTURE: Make the lore rules describe a fun dynamic based on the characters' archetypes, series canon, or contrasting personalities, and explain the user's role (nickname) in relation to them.
 
 Return ONLY a raw JSON array (no markdown, no wrapping text). Each element must match:
 { 
@@ -425,17 +447,33 @@ Return ONLY a raw JSON array (no markdown, no wrapping text). Each element must 
   "nickname": "what the characters call the user in '{Name} the {Role|Profession|Title}' format (e.g. 'Yoshi the Sensei', 'Tommy the Conductor', 'Rick the Engineer')", 
   "lore": "rich 2-3 sentence behavioral or world rules" 
 }`
+
     const userMsg = `Cast:\n${castInfo}${guidance ? `\n\nUser guidance: ${guidance}` : ''}`
     const response = await llmStore.generate(activeModel, providerInstance as any, [
       { role: 'system', content: systemMsg },
       { role: 'user', content: userMsg },
     ] as any)
     const cleaned = response.text?.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim()
-    storyIdeas.value = JSON.parse(cleaned || '[]')
+    const parsed = JSON.parse(cleaned || '[]')
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const userName = userProfileStore.name?.trim() || 'Companion'
+      storyIdeas.value = parsed.map((idea: StoryIdea) => {
+        let nickname = idea.nickname || ''
+        // Replace literal placeholders like {Name}, [Name], <Name>, {name}, [name], <name>, {User}, etc.
+        nickname = nickname.replace(/[{[<](?:name|user|username)[}\]>]/gi, userName)
+        return {
+          ...idea,
+          nickname,
+        }
+      })
+    }
+    else {
+      throw new Error('LLM returned invalid or empty scenario array')
+    }
   }
   catch (e) {
     console.error('[Story Suggester] Error:', e)
-    toast.error('Could not generate story ideas. Check your LLM provider.')
+    toast.error('Could not generate story ideas. Keeping previous suggestions.')
   }
   finally {
     isSuggestingIdeas.value = false
@@ -1416,97 +1454,121 @@ async function confirmCreateCard() {
           </h3>
 
           <div class="flex flex-col gap-5">
-            <!-- AI Suggest Strip -->
-            <div class="flex items-center justify-between border border-primary-200 rounded-xl bg-primary-50/30 px-4 py-2.5 dark:border-primary-500/20 dark:bg-primary-500/5">
-              <div class="flex items-center gap-2">
-                <div i-solar:stars-bold-duotone class="shrink-0 text-sm text-primary-500 dark:text-primary-400" />
-                <span class="text-xs text-primary-800 font-semibold dark:text-primary-300">Suggest story ideas from your cast</span>
+            <!-- AI Story Idea Generator Deck -->
+            <div class="shadow-xs flex flex-col gap-3.5 border border-primary-500/20 rounded-2xl bg-primary-500/5 p-4.5 backdrop-blur-md dark:border-primary-400/20 dark:bg-primary-500/10">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div i-solar:stars-bold-duotone class="text-base text-primary-500" />
+                  <span class="text-xs text-primary-900 font-bold dark:text-primary-200">AI Story Idea Generator</span>
+                </div>
+                <span class="text-[10px] text-neutral-400 font-medium dark:text-neutral-500">Pick a trope preset or type custom instructions</span>
               </div>
-              <button
-                class="h-[28px] flex items-center gap-1.5 border border-primary-200 rounded-lg bg-primary-500/10 px-3 text-[10px] text-primary-600 font-bold tracking-wide transition-all dark:border-primary-500/40 hover:bg-primary-500/20 dark:text-primary-300 disabled:opacity-50"
-                :disabled="isSuggestingIdeas"
-                @click="fetchStoryIdeas()"
-              >
-                <div
-                  :class="isSuggestingIdeas ? 'i-solar:refresh-bold animate-spin' : 'i-solar:magic-stick-3-bold'"
-                  class="text-xs"
-                />
-                {{ isSuggestingIdeas ? 'Thinking...' : 'Suggest' }}
-              </button>
-            </div>
 
-            <!-- Suggestion Panel -->
-            <div v-if="showSuggestions" class="flex flex-col gap-2">
-              <!-- Skeleton loading -->
-              <template v-if="isSuggestingIdeas">
-                <div
-                  v-for="i in 3"
-                  :key="i"
-                  class="h-[52px] animate-pulse border border-neutral-200 rounded-xl bg-neutral-100/50 dark:border-neutral-800 dark:bg-neutral-800/40"
-                />
-              </template>
-
-              <!-- Loaded suggestions -->
-              <template v-else-if="storyIdeas.length > 0">
+              <!-- Trope Templates Chips (2-Row Deck) -->
+              <div class="flex flex-wrap items-center gap-1.5">
                 <button
-                  v-for="(idea, idx) in storyIdeas"
-                  :key="idx"
+                  v-for="trope in tropeTemplates"
+                  :key="trope.id"
+                  type="button"
                   :class="[
-                    'w-full text-left border rounded-xl px-4 py-3 transition-all cursor-pointer',
-                    activeSuggestionIndex === idx
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/8'
-                      : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60',
+                    'flex items-center gap-1.2 rounded-xl px-2.8 py-1.2 text-[11px] font-semibold transition-all duration-200 border cursor-pointer',
+                    selectedTropeId === trope.id
+                      ? 'border-primary-500/80 bg-primary-500 text-neutral-950 font-bold shadow-md shadow-primary-500/20 scale-[1.02]'
+                      : 'border-neutral-200/80 dark:border-neutral-800/80 bg-white/70 dark:bg-neutral-900/60 text-neutral-700 dark:text-neutral-300 hover:border-primary-500/50 hover:bg-white dark:hover:bg-neutral-850',
                   ]"
-                  @click="applySuggestion(idx)"
+                  @click="selectTropeTemplate(trope)"
                 >
-                  <!-- Title row with clipboard button -->
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="text-xs text-neutral-800 font-bold leading-snug dark:text-neutral-100">
-                      {{ idea.title }}
+                  <span class="text-xs">{{ trope.icon }}</span>
+                  <span>{{ trope.label }}</span>
+                </button>
+              </div>
+
+              <!-- Steering Guidance Textarea + Glowing Generate Button -->
+              <div class="flex flex-col gap-2 pt-1">
+                <textarea
+                  v-model="suggestionGuidance"
+                  rows="2"
+                  placeholder="Type custom scenario guidance or tweak the selected trope prompt..."
+                  class="w-full resize-y border border-neutral-200/80 rounded-xl bg-white/80 p-3 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800/80 focus:border-primary-500/80 dark:bg-neutral-900/70 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-600"
+                />
+                <div class="flex justify-end">
+                  <button
+                    type="button"
+                    :disabled="isSuggestingIdeas"
+                    :class="[
+                      'h-[34px] flex items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-all duration-300 border cursor-pointer disabled:opacity-50',
+                      isSuggestingIdeas
+                        ? 'border-primary-500/30 bg-primary-500/20 text-primary-400'
+                        : 'border-primary-500/40 bg-primary-500 text-neutral-950 shadow-md shadow-primary-500/25 hover:bg-primary-400 hover:shadow-primary-500/40 animate-pulse',
+                    ]"
+                    @click="fetchStoryIdeas(suggestionGuidance)"
+                  >
+                    <div
+                      :class="isSuggestingIdeas ? 'i-solar:refresh-bold animate-spin' : 'i-solar:magic-stick-3-bold'"
+                      class="text-sm"
+                    />
+                    <span>{{ isSuggestingIdeas ? 'Generating Ideas...' : '🪄 Generate Story Ideas' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Generated Suggestion Cards list -->
+              <div v-if="showSuggestions" class="flex flex-col gap-2 pt-2">
+                <!-- Skeleton loading -->
+                <template v-if="isSuggestingIdeas && storyIdeas.length === 0">
+                  <div
+                    v-for="i in 3"
+                    :key="i"
+                    class="h-[52px] animate-pulse border border-neutral-200 rounded-xl bg-neutral-100/50 dark:border-neutral-800 dark:bg-neutral-800/40"
+                  />
+                </template>
+
+                <!-- Loaded suggestions -->
+                <template v-else-if="storyIdeas.length > 0">
+                  <button
+                    v-for="(idea, idx) in storyIdeas"
+                    :key="idx"
+                    type="button"
+                    :class="[
+                      'w-full text-left border rounded-xl px-4 py-3 transition-all cursor-pointer',
+                      activeSuggestionIndex === idx
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/8'
+                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60',
+                    ]"
+                    @click="applySuggestion(idx)"
+                  >
+                    <!-- Title row with clipboard button -->
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="text-xs text-neutral-800 font-bold leading-snug dark:text-neutral-100">
+                        {{ idea.title }}
+                      </div>
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-md p-0.5 text-neutral-500 transition-colors dark:text-neutral-600 hover:text-neutral-700 focus:outline-none dark:hover:text-neutral-300"
+                        :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
+                        @click.stop="copyIdeaToClipboard(idx)"
+                      >
+                        <div
+                          :class="copiedIdx === idx ? 'i-solar:check-circle-bold text-primary-400' : 'i-solar:clipboard-text-bold'"
+                          class="text-[13px]"
+                        />
+                      </button>
                     </div>
-                    <button
-                      class="shrink-0 rounded-md p-0.5 text-neutral-500 transition-colors dark:text-neutral-600 hover:text-neutral-700 focus:outline-none dark:hover:text-neutral-300"
-                      :title="copiedIdx === idx ? 'Copied!' : 'Copy to clipboard'"
-                      @click.stop="copyIdeaToClipboard(idx)"
-                    >
-                      <div
-                        :class="copiedIdx === idx ? 'i-solar:check-circle-bold text-primary-400' : 'i-solar:clipboard-text-bold'"
-                        class="text-[13px]"
-                      />
-                    </button>
-                  </div>
-                  <!-- Inactive: nickname · location, truncated -->
-                  <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400">
-                    <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
-                  </div>
-                  <!-- Active: nickname · location (no truncate) + lore below -->
-                  <template v-else>
-                    <div class="text-neutral-550 mt-0.5 text-[10px] dark:text-neutral-400">
+                    <!-- Inactive: nickname · location, truncated -->
+                    <div v-if="activeSuggestionIndex !== idx" class="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400">
                       <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
                     </div>
-                    <div class="mt-1 text-[10px] text-neutral-600 leading-relaxed dark:text-neutral-400">
-                      {{ idea.lore }}
-                    </div>
-                  </template>
-                </button>
-              </template>
-
-              <!-- Guidance + Refine row -->
-              <div v-if="!isSuggestingIdeas && storyIdeas.length > 0" class="flex items-center gap-2 pt-1">
-                <input
-                  v-model="suggestionGuidance"
-                  type="text"
-                  placeholder="Add guidance to refine ideas (e.g. I'm a girl, call me Betsie, slice-of-life AU)"
-                  class="bg-neutral-55/50 flex-1 border border-neutral-200 rounded-xl px-3 py-2 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900/60 dark:text-neutral-300 placeholder-neutral-400 dark:placeholder-neutral-600"
-                >
-                <button
-                  class="text-neutral-655 h-[34px] flex shrink-0 items-center gap-1 border border-neutral-200 rounded-xl bg-neutral-50 px-3 text-[10px] font-bold transition-all dark:border-neutral-800 dark:bg-neutral-900/60 hover:bg-neutral-100 dark:text-neutral-400 disabled:opacity-50 dark:hover:bg-neutral-800/60"
-                  :disabled="isSuggestingIdeas"
-                  @click="fetchStoryIdeas(suggestionGuidance)"
-                >
-                  <div i-solar:refresh-bold class="text-xs" />
-                  Refine
-                </button>
+                    <!-- Active: nickname · location (no truncate) + lore below -->
+                    <template v-else>
+                      <div class="text-neutral-550 mt-0.5 text-[10px] dark:text-neutral-400">
+                        <span class="italic">{{ idea.nickname }}</span> · {{ idea.location }}
+                      </div>
+                      <div class="mt-1 text-[10px] text-neutral-600 leading-relaxed dark:text-neutral-400">
+                        {{ idea.lore }}
+                      </div>
+                    </template>
+                  </button>
+                </template>
               </div>
             </div>
 
