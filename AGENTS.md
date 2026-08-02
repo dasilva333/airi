@@ -9,6 +9,11 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 - A request to explore, review, diagnose, research, design, plan, or "talk/hash it out" is not authorization to change application code. Root-cause the issue, state the concrete proposed solution and tradeoffs, then wait for approval to implement. If asked to write a design document, change the document only—not code—unless the user also asks for implementation.
 - For a clearly requested, low-ambiguity code change, proceed within scope. For a material product, behavior, or architecture decision, first state the decision point and proposed approach; do not silently choose a direction that the user may reasonably want to review.
 
+## Empirical truth & technical pushback
+
+- **Code is science, not a shouting match or a personality contest; truth wins over deference.** Never be a sycophant or a "yes-man." Do not agree with technical statements or system interpretations just to be polite. If the user's technical assumption, mental model, or proposed direction contradicts source code reality, documented platform behavior, or empirical logs, politely and directly challenge it immediately.
+- State the exact code reality, cite authoritative source files or logs, and explain *why* the assumption differs from reality before agreeing to or executing an invalid direction. Respectful pushback backed by code truth is mandatory; uncritical agreement that leads to broken code is unacceptable.
+
 ## Fork safety
 
 - Never push to, rebase from, fetch, or otherwise inspect the `upstream` remote unless the user explicitly authorizes it. This fork is highly divergent, and upstream is reference-only.
