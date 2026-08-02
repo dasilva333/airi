@@ -2,13 +2,9 @@ import type { Tool } from '@xsai/shared-chat'
 
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
-import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { buildVRMA, VRMA_SYSTEM_PROMPT, VRMAMotionSpecSchema } from '@proj-airi/stage-ui/utils'
+import { useTextToMotionStore } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
 import { tool } from '@xsai/tool'
-import { storeToRefs } from 'pinia'
 import { z } from 'zod'
 
 const generateMotionParams = z.object({
@@ -94,40 +90,20 @@ async function executeGenerateMotion(params: { id: string, prompt: string, overw
     await customVrmAnimationsStore.removeCustomAnimation(cleanId)
   }
 
-  // --- Resolve LLM provider ---
-  const consciousnessStore = useConsciousnessStore()
-  const providersStore = useProvidersStore()
-  const llmStore = useLLM()
-
-  const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
-  const providerId = activeProvider.value
-  const model = activeModel.value
-
-  if (!providerId || !model)
-    return 'Error: No active LLM provider or model is configured. Please select one in settings.'
-
-  const provider = await providersStore.getProviderInstance(providerId)
-  if (!provider)
-    return `Error: Failed to resolve provider instance for "${providerId}".`
-
-  // --- Generate VRMA spec and compile ---
+  // --- Delegate to central TextToMotionStore (FlowMDM or Procedural based on user settings) ---
   try {
-    const messages = [
-      { role: 'system' as const, content: VRMA_SYSTEM_PROMPT },
-      { role: 'user' as const, content: `Create a motion animation for: ${cleanPrompt}` },
-    ]
-
-    const spec = await llmStore.generateObject(model, provider as any, {
-      messages,
-      schema: VRMAMotionSpecSchema,
-      maxAttempts: 3,
+    const textToMotionStore = useTextToMotionStore()
+    const result = await textToMotionStore.generateMotion(cleanPrompt, {
+      format: 'vrma',
     })
 
-    const buffer = buildVRMA(spec)
+    // Override filename to match requested tool ID
+    result.fileName = `${cleanId}.vrma`
 
-    const fileName = `${cleanId}.vrma`
-    const file = new File([buffer], fileName, { type: 'model/gltf-binary' })
-    await customVrmAnimationsStore.addCustomAnimation(file)
+    await textToMotionStore.saveResultToLibrary(
+      result,
+      file => customVrmAnimationsStore.addCustomAnimation(file),
+    )
 
     return `Success: You have successfully learned the new motion '${cleanId}'. You can now perform it by placing '<|ACT:motion="${cleanId}"|>' in your response. For example: '<|ACT:motion="${cleanId}"|> Look! I am doing the ${cleanId.replace(/_/g, ' ')}!'`
   }
