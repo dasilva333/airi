@@ -1,4 +1,5 @@
 import * as v from 'valibot'
+
 import { BONE_NAMES } from './vrmaBuilder'
 
 export const VRMAMotionSpecSchema = v.object({
@@ -7,17 +8,19 @@ export const VRMAMotionSpecSchema = v.object({
   loop: v.boolean(),
   tracks: v.record(v.string(), v.array(v.object({
     t: v.number(),
-    r: v.array(v.number()) // [X, Y, Z] Euler degrees
+    r: v.array(v.number()), // [X, Y, Z] Euler degrees
   }))),
   hips: v.optional(v.array(v.object({
     t: v.number(),
-    p: v.array(v.number()) // [X, Y, Z] offsets
+    p: v.array(v.number()), // [X, Y, Z] offsets
   }))),
   expressions: v.optional(v.record(v.string(), v.array(v.object({
     t: v.number(),
-    w: v.number() // weight 0-1
-  }))))
+    w: v.number(), // weight 0-1
+  })))),
 })
+
+export type VRMAMotionSpec = v.InferOutput<typeof VRMAMotionSpecSchema>
 
 export const VRMA_SYSTEM_PROMPT = `あなたはVRMヒューマノイドキャラクターのモーションデザイナーです。
 ユーザーのテキストから、キーフレームアニメーションのJSONを生成してください。

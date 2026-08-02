@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { ChatProvider } from '@xsai-ext/providers/utils'
-
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { ModelCustomizer, ModelPromptGeneratorModal } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
@@ -10,9 +8,9 @@ import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry-autonomous'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { useTextToMotionStore } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
-import { buildVRMA, VRMA_SYSTEM_PROMPT, VRMAMotionSpecSchema } from '@proj-airi/stage-ui/utils'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -208,6 +206,8 @@ function handleInsertToken(token: string) {
   toast.success('Appended token to sandbox!')
 }
 
+const textToMotionStore = useTextToMotionStore()
+
 async function createMotion() {
   const prompt = playgroundText.value.trim()
   if (!prompt) {
@@ -215,44 +215,19 @@ async function createMotion() {
     return
   }
 
-  const providerId = activeProvider.value
-  const model = activeModel.value
-  if (!providerId || !model) {
-    toast.error('Please configure an active LLM provider first.')
-    return
-  }
-
-  const provider = await providersStore.getProviderInstance<ChatProvider>(providerId)
-  if (!provider) {
-    toast.error(`Failed to resolve provider instance for "${providerId}".`)
-    return
-  }
-
   try {
     isGeneratingMotion.value = true
-    toast.info('Generating motion spec via LLM...')
+    toast.info('Generating motion animation...')
 
-    const messages = [
-      { role: 'system' as const, content: VRMA_SYSTEM_PROMPT },
-      { role: 'user' as const, content: `Create a motion animation for: ${prompt}` },
-    ]
-
-    const spec = await llmStore.generateObject(model, provider, {
-      messages,
-      schema: VRMAMotionSpecSchema,
-      maxAttempts: 3,
+    const result = await textToMotionStore.generateMotion(prompt, {
+      format: 'vrma',
     })
-
-    toast.info('Compiling motion to VRMA...')
-    const buffer = buildVRMA(spec)
 
     // Save to Database (custom-vrm-animations store / localforage)
     let dbSaveSuccess = false
     let animationKey = ''
     try {
-      const fileName = `${spec.name || 'motion'}.vrma`
-      const file = new File([buffer], fileName, { type: 'model/gltf-binary' })
-      animationKey = await customVrmAnimationsStore.addCustomAnimation(file)
+      animationKey = await textToMotionStore.saveResultToLibrary(result, customVrmAnimationsStore.addCustomAnimation)
       toast.success('Motion saved to library successfully!')
       dbSaveSuccess = true
     }
@@ -263,13 +238,7 @@ async function createMotion() {
 
     // Failsafe backup download if requested or if DB save failed
     if (shouldDownloadBackup.value || !dbSaveSuccess) {
-      const blob = new Blob([buffer], { type: 'model/gltf-binary' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${spec.name || 'motion'}.vrma`
-      a.click()
-      URL.revokeObjectURL(url)
+      textToMotionStore.downloadResultToDisk(result)
 
       if (dbSaveSuccess) {
         toast.success('Backup file downloaded successfully!')
@@ -278,7 +247,8 @@ async function createMotion() {
 
     // Automatically stage the ACT token and play the rehearsal
     if (dbSaveSuccess && animationKey) {
-      playgroundText.value = `<|ACT:motion="${spec.name || 'motion'}"|>`
+      const motionName = result.fileName.replace(/_\d+\.vrma$/, '')
+      playgroundText.value = `<|ACT:motion="${motionName}"|>`
       setTimeout(() => {
         void playRehearsal()
       }, 500)

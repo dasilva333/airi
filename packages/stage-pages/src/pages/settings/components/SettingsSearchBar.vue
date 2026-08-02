@@ -64,6 +64,10 @@ const staticIndex: SearchItem[] = [
   { id: 'mod-twitter', title: 'X (Twitter) Integration', category: 'Modules', description: 'X / Twitter social integration', to: '/settings/modules/x', icon: 'i-simple-icons:x' },
   { id: 'mod-minecraft', title: 'Minecraft Gaming', category: 'Modules', description: 'Minecraft game bridge', to: '/settings/modules/gaming-minecraft', icon: 'i-vscode-icons:file-type-minecraft' },
   { id: 'mod-factorio', title: 'Factorio Gaming', category: 'Modules', description: 'Factorio game bridge', to: '/settings/modules/gaming-factorio' },
+  { id: 'mod-text-to-motion', title: 'Text to Motion', category: 'Modules', description: 'Procedural & neural motion generation for 3D characters', to: '/settings/modules/text-to-motion', icon: 'i-solar:running-2-bold-duotone' },
+
+  // ── Providers: Motion ──
+  { id: 'prov-flowmdm', title: 'FlowMDM (Local WebGPU)', category: 'Providers (Motion)', description: 'On-device 3D motion diffusion via ONNX WebGPU', to: '/settings/providers/motion/flowmdm', icon: 'i-solar:cpu-bolt-bold-duotone' },
 
   // ── Providers: Speech (TTS) ──
   // Routes verified from providers/speech/*.vue filenames → /settings/providers/speech/{filename}
