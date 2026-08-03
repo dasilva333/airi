@@ -136,7 +136,7 @@ async function main() {
     }
   }
 
-  // Step 4: Locate the generated exe installer
+  // Step 4: Locate generated release artifacts (.exe installer & .zip archive)
   const distDir = path.join(tamagotchiDir, 'dist')
   if (!fs.existsSync(distDir)) {
     console.error(`❌ Error: dist folder does not exist at ${distDir}`)
@@ -144,20 +144,21 @@ async function main() {
   }
 
   const files = fs.readdirSync(distDir)
-  const setupExe = files.find(f => f.startsWith(`AIRI-${version}`) && f.endsWith('.exe'))
+  const releaseArtifacts = files.filter(f => f.startsWith(`AIRI-${version}`) && (f.endsWith('.exe') || f.endsWith('.zip')))
 
-  if (!setupExe) {
-    console.error(`\n❌ Error: Could not find generated setup executable matching "AIRI-${version}*.exe" in ${distDir}`)
+  if (releaseArtifacts.length === 0) {
+    console.error(`\n❌ Error: Could not find generated release artifacts matching "AIRI-${version}*.(exe|zip)" in ${distDir}`)
     console.log('Available files in dist:', files)
     process.exit(1)
   }
 
-  const exePath = path.join('apps', 'stage-tamagotchi', 'dist', setupExe)
-  console.log(`\n🎉 Found installer asset: ${exePath}`)
+  const artifactPaths = releaseArtifacts.map(f => path.join('apps', 'stage-tamagotchi', 'dist', f))
+  console.log(`\n🎉 Found ${artifactPaths.length} release artifact(s):`)
+  artifactPaths.forEach(p => console.log(`  - ${p}`))
 
   if (isBuildOnly) {
-    console.log(`\n✅ Build complete! Setup binary ready for smoke test at:`)
-    console.log(`👉 ${exePath}`)
+    console.log(`\n✅ Build complete! Release binaries ready for smoke test:`)
+    artifactPaths.forEach(p => console.log(`👉 ${p}`))
     console.log(`\nWhen smoke testing is complete and approved, run:`)
     console.log(`👉 pnpm run release:win --upload-only`)
     return
@@ -189,17 +190,21 @@ async function main() {
     }
   }
 
-  // Step 6: Upload the binary
-  console.log(`\n🚀 Uploading ${setupExe} to release ${tag}...`)
-  try {
-    execute(`gh release upload ${tag} "${exePath}" --repo dasilva333/airi --clobber`)
-    console.log(`\n🏆 Success! Windows setup installer uploaded to GitHub release:`)
-    console.log(`👉 https://github.com/dasilva333/airi/releases/tag/${tag}`)
+  // Step 6: Upload the binaries (.exe & .zip)
+  for (const artifactPath of artifactPaths) {
+    console.log(`\n🚀 Uploading ${path.basename(artifactPath)} to release ${tag}...`)
+    try {
+      execute(`gh release upload ${tag} "${artifactPath}" --repo dasilva333/airi --clobber`)
+      console.log(`✅ Uploaded ${path.basename(artifactPath)}`)
+    }
+    catch (err) {
+      console.error(`❌ Failed to upload ${path.basename(artifactPath)}. Error:`, err.message)
+      process.exit(1)
+    }
   }
-  catch (err) {
-    console.error(`❌ Failed to upload installer asset. Error:`, err.message)
-    process.exit(1)
-  }
+
+  console.log(`\n🏆 Success! Windows release artifacts uploaded to GitHub release:`)
+  console.log(`👉 https://github.com/dasilva333/airi/releases/tag/${tag}`)
 }
 
 main().catch((err) => {

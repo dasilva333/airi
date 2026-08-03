@@ -108,6 +108,10 @@ export default {
   },
   win: {
     executableName: 'airi',
+    target: [
+      'nsis',
+      'zip',
+    ],
   },
   nsis: {
     artifactName: '${productName}-${version}-windows-${arch}-setup.${ext}',
