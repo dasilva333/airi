@@ -1,34 +1,33 @@
-# 🚀 AIRI v0.9.21-stable.20260729 — Release Notes
+# 🚀 AIRI v0.9.22-stable.20260803 — Release Notes
 
-This release introduces the **ComfyUI Workflow Configurator Redesign**, **Live2D Model Loading Race Condition & Mutex Fixes**, **Dedicated Director LLM Overrides**, **Live2D Multi-File Batch Import Queueing**, and **System Settings & Tray Enhancements**.
+This release introduces **Real-Time In-Browser FlowMDM ONNX Motion Diffusion (WebGPU)**, **AnimaDex Story Generator Trope Decks**, **High-Performance Model Selector Pagination**, **Additive Live2D Motion Blending**, **Settings Spotlight Search**, and **Selective Cloud Sync Safeguards**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🎨 ComfyUI Workflow Configurator Redesign
-* **Redesigned Configurator UI**: Overhauled the ComfyUI workflow configuration interface with intuitive target selectors for mapping prompts and generated outputs.
-* **Formatted Error Messages**: Improved error message formatting in chat when image generation workflows fail, providing cleaner diagnostic tracebacks.
+### ⚡ Real-Time FlowMDM Motion Diffusion (WebGPU)
+* **In-Browser FlowMDM Diffusion**: Integrated a client-side ONNX WebGPU motion diffusion pipeline that generates 3D character motions in real time directly inside your browser using local GPU acceleration!
+* **Text-to-Motion Module Page**: Added a dedicated **Text to Motion** settings surface with a provider toggle between Procedural Acting and FlowMDM Motion Diffusion.
+* **Motion Diffusion Playground**: Includes an interactive FlowMDM settings playground to tweak sampling steps, guidance scales, and model downloads.
 
-### 💃 Model Loading Mutex & Concurrency Fixes
-* **Serialized Model Updates**: Serialized the `updateStageModel` execution queue to prevent race conditions when rapidly swapping display models.
-* **Live2D Mutex Leak Fix**: Resolved Live2D model loading mutex leaks that could freeze model rendering during frequent switches.
-* **ControlStrip Persistence Fix**: Corrected the `ControlStrip` `displayModelId` write path so display model switches persist cleanly to the active character card.
+### 🃏 AnimaDex Story Generator & Model Selector Performance
+* **Story Generator Trope Deck**: Added an interactive trope deck selector to the AnimaDex Wizard (`guided.vue`) for picking narrative archetypes during card creation, and sanitized nickname placeholders.
+* **Ultra-Fast Model Selector**: Overhauled the Model Selector dialog with Set lookups, debounced search, and 100-item batch pagination — rendering massive 5,000+ model catalogs smoothly without UI lag.
 
-### ⚙️ Settings, Tray & System Features
-* **Settings Case-Insensitive Search**: Search bar in settings now performs case-insensitive matching across all setting items and sub-tabs.
-* **Character Model Quick-Switch**: Added a quick-switch model dropdown directly in settings to swap active display models on the fly.
-* **Tray DevTools Toggle**: Added an instant DevTools toggle option directly into the system tray context menu.
-* **MCP Third-Party Notice**: Added a security notice dialog when connecting third-party Model Context Protocol (MCP) servers.
+### 💃 Additive Motion Blending & Stage Polish
+* **Additive Live2D Motion Blending**: Enabled additive motion blending for Live2D models, allowing layered animation transitions (e.g. idle breathing + gesture overlays) without harsh cuts.
+* **Spine One-Shot Audio Preview**: Motion previews in the customizer now automatically play their mapped audio clips alongside one-shot Spine animations.
+* **MMD Sidecar Texture Support**: Properly maps sidecar textures during MMD model preview rendering and made Spine model archive imports non-blocking.
+* **LocalForage Proxy Corruption Fix**: Fixed a subtle bug where Vue reactive Proxy objects caused file corruption during `localforage` metadata persistence by un-proxying model objects prior to saving.
 
-### 🎬 Dedicated Director LLM Model Override
-* **Custom Director Model**: You can now specify a separate, custom LLM model override exclusively for the Director (Orchestration & RAG) layer! Run a faster or specialized model for background narration and scene directing while keeping your primary model focused on chat.
-* **BrainModelPicker in Modules Settings**: Integrated `BrainModelPicker` and `VoiceCreatorModal` into the Settings Modules tab for streamlined AI capability configuration.
+### 🔍 Settings Spotlight Search & AnimaDex Hero Guidance
+* **Spotlight Search Bar**: Added a global Spotlight-style search bar inside Settings to instantly locate deep settings, toggles, and feature modules.
+* **Thematic 2-Row Quick Access Grid**: Re-architected the settings overview into two clean thematic rows featuring square shortcut cards.
+* **AnimaDex Hero Guidance Banner**: Added a dismissible, persistent welcome hero banner to Step 1 of the AnimaDex Wizard with contextual tips for choosing templates or creating custom characters.
 
-### 🎭 Live2D Multi-File Batch Import Queue
-* **Batch Model Import Queue**: Drop or select multiple Live2D model files/archives at once with real-time toast progress updates for each item.
-* **macOS Archive Artifact Filtering**: Automatically cleans up hidden `__MACOSX/` directories and `.DS_Store` metadata files during ZIP extraction, preventing corrupted model configurations.
-
-### ⚡ Non-Blocking App Startup & Speech Fixes
-* **Instant MCP Initialization**: Shifted Model Context Protocol (MCP) server startup off the critical application launch path, allowing AIRI to boot up instantly without waiting for background tool servers.
-* **Local Whisper STT Fixes**: Resolved an issue where Local Whisper model download progress could get stuck, fixed a double-multiplication percentage display bug, and smoothed out settings scroll layout transitions.
+### ☁️ Cloud Sync Safeguards & AVIF Optimization
+* **AVIF Background Optimization**: Optimized default wallpaper images to AVIF format, reducing asset sizes by up to 65% while maintaining image quality.
+* **Selective Sync Download Guard**: Enforced strict download guards in `sync-engine.ts` so remote model downloads only pull user-authorized assets.
+* **Direction-Aware Quota Guard**: Prevents cloud sync bandwidth and storage quota overruns during heavy sync operations.
+* **Voice Profile Catalog Sync**: Added background sync reconciliation for voice profile catalogs.
