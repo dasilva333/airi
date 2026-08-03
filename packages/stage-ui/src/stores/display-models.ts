@@ -134,17 +134,17 @@ function tryRewrapModelFile(file: any, preferredName?: string): File | undefined
     rawSize: file?.size,
     unproxiedSize: unproxied?.size,
   }
-  console.log('[DisplayModels:tryRewrapModelFile:Inspect]', inputInfo)
+  debug('[DisplayModels:tryRewrapModelFile:Inspect]', inputInfo)
 
   if (unproxied && typeof unproxied.arrayBuffer === 'function') {
-    console.log('[DisplayModels:tryRewrapModelFile:Result] Valid File/Blob with arrayBuffer method present.', preferredName)
+    debug('[DisplayModels:tryRewrapModelFile:Result] Valid File/Blob with arrayBuffer method present.', preferredName)
     return unproxied
   }
 
   if (unproxied && (unproxied instanceof Blob || (typeof unproxied === 'object' && unproxied.size > 0))) {
     try {
       const res = new File([unproxied], preferredName || unproxied.name || 'model.bin', { type: unproxied.type || 'application/octet-stream' })
-      console.log('[DisplayModels:tryRewrapModelFile:Result] Successfully re-wrapped degraded object into File instance:', { preferredName, size: res.size, isFile: res instanceof File })
+      debug('[DisplayModels:tryRewrapModelFile:Result] Successfully re-wrapped degraded object into File instance:', { preferredName, size: res.size, isFile: res instanceof File })
       return res
     }
     catch (err) {
@@ -302,7 +302,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
-    console.log(`[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB finished in ${(performance.now() - startTime).toFixed(2)} ms. Total models loaded into store: ${displayModels.value.length}`, displayModels.value)
+    debug(`[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB finished in ${(performance.now() - startTime).toFixed(2)} ms. Total models loaded into store: ${displayModels.value.length}`)
   }
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()

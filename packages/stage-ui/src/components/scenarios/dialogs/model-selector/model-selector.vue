@@ -107,7 +107,8 @@ watch(currentTab, (newTab) => {
 })
 
 onMounted(() => {
-  void displayModelStore.loadDisplayModelsFromIndexedDB()
+  const hasLoadedModels = displayModelStore.displayModels.length > 0
+  void displayModelStore.loadDisplayModelsFromIndexedDB(hasLoadedModels)
 })
 
 const marketplaces = [
