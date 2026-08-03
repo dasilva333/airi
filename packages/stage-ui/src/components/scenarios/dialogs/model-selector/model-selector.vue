@@ -9,7 +9,7 @@ import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { extractMmdFromZip } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extractor'
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
-import { useFileDialog } from '@vueuse/core'
+import { refDebounced, useFileDialog, useIntersectionObserver } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -44,8 +44,18 @@ const { displayModelsFromIndexedDBLoading, displayModels, remoteModelsCatalog, r
 // Redesign State
 const viewMode = ref<'grid' | 'compact'>('compact')
 const searchQuery = ref('')
+const debouncedSearchQuery = refDebounced(searchQuery, 150)
 const formatFilter = ref<'all' | 'live2d' | 'vrm' | 'spine' | 'mmd'>('all')
 const sortBy = ref<'name' | 'date' | 'type'>('date')
+
+// Fast Set lookups for model availability
+const downloadedModelIdsSet = computed(() => new Set(displayModels.value.map(m => m.id)))
+const cloudModelIdsSet = computed(() => new Set(remoteModelsCatalog.value.map(m => m.id)))
+
+// 100-Item Incremental Loading / Pagination State
+const PAGE_SIZE = 100
+const visibleCount = ref(PAGE_SIZE)
+const loadMoreSentinelRef = ref<HTMLElement | null>(null)
 
 // Expandable search state
 const isSearchExpanded = ref(false)
@@ -136,14 +146,17 @@ const marketplaces = [
 // Filtering Logic
 const filteredModels = computed(() => {
   let result = currentTab.value === 'cloud'
-    ? remoteModelsCatalog.value.filter((rm: any) => !displayModels.value.some(lm => lm.id === rm.id))
+    ? remoteModelsCatalog.value.filter((rm: any) => !downloadedModelIdsSet.value.has(rm.id))
     : [...displayModels.value]
 
-  // Search (matches name or tags partially)
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.trim().toLowerCase()
-    result = result.filter((m) => {
-      const nameMatches = m.name.toLowerCase().includes(q)
+  // Search (matches pre-indexed search key or fallback name/tags)
+  if (debouncedSearchQuery.value.trim()) {
+    const q = debouncedSearchQuery.value.trim().toLowerCase()
+    result = result.filter((m: any) => {
+      if (m._searchKey) {
+        return m._searchKey.includes(q)
+      }
+      const nameMatches = m.name?.toLowerCase().includes(q)
       const tagMatches = m.tags && Array.isArray(m.tags) && m.tags.some((t: string) => t.toLowerCase().includes(q))
       return nameMatches || tagMatches
     })
@@ -208,6 +221,26 @@ const filteredModels = computed(() => {
   })
 
   return result
+})
+
+watch([searchQuery, formatFilter, nsfwFilter, selectedGroups, selectedTags, sortBy, currentTab], () => {
+  visibleCount.value = PAGE_SIZE
+})
+
+const paginatedModels = computed(() => {
+  return filteredModels.value.slice(0, visibleCount.value)
+})
+
+function loadMore() {
+  if (visibleCount.value < filteredModels.value.length) {
+    visibleCount.value += PAGE_SIZE
+  }
+}
+
+useIntersectionObserver(loadMoreSentinelRef, ([entry]) => {
+  if (entry?.isIntersecting) {
+    loadMore()
+  }
 })
 
 const activeModelsForFilters = computed(() => {
@@ -483,11 +516,11 @@ function getPreviewSrc(model: any) {
 }
 
 function isDownloaded(modelId: string) {
-  return displayModels.value.some(m => m.id === modelId)
+  return downloadedModelIdsSet.value.has(modelId)
 }
 
 function isAvailableOnCloud(modelId: string) {
-  return remoteModelsCatalog.value.some(m => m.id === modelId)
+  return cloudModelIdsSet.value.has(modelId)
 }
 
 const downloadingModelId = ref<string | null>(null)
@@ -1473,7 +1506,7 @@ async function runAutoLinkCatalog() {
         >
           <!-- (Rest of Library Model Grid) -->
           <div
-            v-for="(model) of filteredModels"
+            v-for="(model) of paginatedModels"
             :key="model.id"
             class="group relative transition-all duration-200"
             :class="[
@@ -1668,6 +1701,20 @@ async function runAutoLinkCatalog() {
                 </span>
               </Button>
             </div>
+          </div>
+
+          <!-- Infinite Scroll Sentinel & Load More Trigger -->
+          <div
+            v-if="visibleCount < filteredModels.length"
+            ref="loadMoreSentinelRef"
+            class="col-span-full my-4 text-center"
+          >
+            <button
+              class="border border-neutral-300 rounded-lg bg-neutral-100 px-4 py-2 text-xs text-neutral-700 font-semibold transition-all dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              @click="loadMore"
+            >
+              Load More ({{ paginatedModels.length }} of {{ filteredModels.length }})
+            </button>
           </div>
         </div>
       </div>

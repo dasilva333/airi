@@ -12,7 +12,7 @@ import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-t
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { isProxy, ref, toRaw, watch } from 'vue'
+import { isProxy, ref, shallowRef, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
@@ -49,6 +49,7 @@ export interface DisplayModelCloud {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  _searchKey?: string
 }
 
 export type DisplayModel
@@ -82,6 +83,7 @@ export interface DisplayModelFile {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  _searchKey?: string
 }
 
 export interface DisplayModelURL {
@@ -102,6 +104,7 @@ export interface DisplayModelURL {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  _searchKey?: string
 }
 
 const displayModelsPresets: DisplayModel[] = [
@@ -158,7 +161,7 @@ function tryRewrapModelFile(file: any, preferredName?: string): File | undefined
 }
 
 export const useDisplayModelsStore = defineStore('display-models', () => {
-  const displayModels = ref<DisplayModel[]>([])
+  const displayModels = shallowRef<DisplayModel[]>([])
   const displayModelsFromIndexedDBLoading = ref(false)
   const remoteModelsCatalog = ref<any[]>([])
   const remoteCatalogLoading = ref(false)
@@ -273,12 +276,16 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             }
           }
 
+          const modelName = val.file?.name || val.name || key
+          const modelTags = Array.isArray(val.tags) ? val.tags.join(' ') : ''
+          const modelGroups = Array.isArray(val.groups) ? val.groups.join(' ') : ''
+
           models.push({
             id: key,
             format: val.format,
             type: 'file',
             file: val.file,
-            name: val.file?.name || val.name || key,
+            name: modelName,
             importedAt: val.importedAt || Date.now(),
             previewImage: val.previewImage,
             nsfw: val.nsfw,
@@ -291,6 +298,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             hiddenExpressions: val.hiddenExpressions,
             hiddenMotions: val.hiddenMotions,
             favoriteExpressions: val.favoriteExpressions,
+            _searchKey: `${modelName} ${modelTags} ${modelGroups}`.toLowerCase(),
           })
         }
       }
