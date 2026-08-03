@@ -343,7 +343,24 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     return await client.validate()
   }
 
-  async function getRemoteCatalog() {
+  async function fetchRemoteDisplayModelsManifest(): Promise<{ success: boolean, models?: any[], error?: string }> {
+    const client = getActiveClient()
+    try {
+      const modelsRes = await client.readFile('assets/models/manifest.json')
+      if (modelsRes.success && modelsRes.content) {
+        const manifest = JSON.parse(modelsRes.content)
+        const models = Object.values(manifest.models || {})
+        return { success: true, models }
+      }
+      return { success: false, error: modelsRes.error || 'Failed to read remote display models manifest' }
+    }
+    catch (e: any) {
+      debug('[SyncEngine] Failed to read remote display models manifest:', e)
+      return { success: false, error: e?.message || 'Error reading remote display models manifest' }
+    }
+  }
+
+  async function fetchRemoteSyncManifestCatalog() {
     const client = getActiveClient()
     const listRes = await client.listFiles()
     if (!listRes.success) {
@@ -439,6 +456,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       vrmas,
     }
   }
+
+  // Alias for backward compatibility
+  const getRemoteCatalog = fetchRemoteSyncManifestCatalog
 
   async function downloadSpecificModel(id: string) {
     const client = getActiveClient()
@@ -3430,6 +3450,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     validateConnection,
     triggerSync,
     getRemoteCatalog,
+    fetchRemoteSyncManifestCatalog,
+    fetchRemoteDisplayModelsManifest,
     downloadSpecificModel,
     readRemoteFile,
     resolveConflict,

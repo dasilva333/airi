@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMotion } from '@vueuse/motion'
 import { nextTick, onMounted, onUnmounted, ref, useAttrs, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 const props = withDefaults(defineProps<{
   title: string
@@ -16,18 +16,15 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'back'): void
 }>()
-const router = useRouter()
 const route = useRoute()
 const attrs = useAttrs()
 
 function handleBack() {
+  console.log('[PageHeader] handleBack clicked. attrs.onBack:', Boolean(attrs.onBack), 'history.state:', window.history.state)
   if (finalizedDisableBackButton.value)
     return
 
-  if (attrs.onBack)
-    emit('back')
-  else
-    router.back()
+  emit('back')
 }
 
 const pageHeaderRef = ref<HTMLElement>()

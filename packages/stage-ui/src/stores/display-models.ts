@@ -1225,34 +1225,37 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     broadcastModelsSync(Date.now())
   }
 
-  async function fetchRemoteCatalog() {
-    debug('[DisplayModels] fetchRemoteCatalog: Starting fetch from remote sync client...')
+  async function fetchRemoteDisplayModelsCatalog() {
+    debug('[DisplayModels] fetchRemoteDisplayModelsCatalog: Starting fetch from remote sync client...')
     remoteCatalogLoading.value = true
     try {
       const { useSyncEngineStore } = await import('./sync-engine')
       const syncStore = useSyncEngineStore()
-      debug('[DisplayModels] fetchRemoteCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
-      const res = await syncStore.getRemoteCatalog()
+      debug('[DisplayModels] fetchRemoteDisplayModelsCatalog: Sync engine store loaded. Active provider:', syncStore.activeProvider)
+      const res = await syncStore.fetchRemoteDisplayModelsManifest()
       if (res && res.success) {
         remoteModelsCatalog.value = (res.models || []).map((m: any) => ({
           ...m,
           type: 'cloud',
         }))
-        debug(`[DisplayModels] fetchRemoteCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
-        await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', remoteModelsCatalog.value)
+        debug(`[DisplayModels] fetchRemoteDisplayModelsCatalog: Successfully fetched ${remoteModelsCatalog.value.length} remote models. Saving to local storage cache...`)
+        await storage.setItemRaw('local:sync-metadata/remote-catalog-cache', JSON.parse(JSON.stringify(remoteModelsCatalog.value)))
       }
       else {
-        debug('[DisplayModels] fetchRemoteCatalog: Sync store returned unsuccessful response:', res)
+        debug('[DisplayModels] fetchRemoteDisplayModelsCatalog: Sync store returned unsuccessful response:', res)
       }
     }
     catch (e) {
-      console.error('[DisplayModels] Failed to fetch remote catalog:', e)
+      console.error('[DisplayModels] Failed to fetch remote models catalog:', e)
     }
     finally {
       remoteCatalogLoading.value = false
-      debug('[DisplayModels] fetchRemoteCatalog: Fetch routine completed.')
+      debug('[DisplayModels] fetchRemoteDisplayModelsCatalog: Fetch routine completed.')
     }
   }
+
+  // Alias for backward compatibility
+  const fetchRemoteCatalog = fetchRemoteDisplayModelsCatalog
 
   async function removeLocalCopy(id: string) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
@@ -1717,6 +1720,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     remoteModelsCatalog,
     remoteCatalogLoading,
     fetchRemoteCatalog,
+    fetchRemoteDisplayModelsCatalog,
     removeLocalCopy,
   }
 })

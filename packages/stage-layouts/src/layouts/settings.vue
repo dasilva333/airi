@@ -2,7 +2,7 @@
 import { PageHeader } from '@proj-airi/stage-ui/components'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useTheme } from '@proj-airi/ui'
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
@@ -68,6 +68,24 @@ const { updateThemeColor } = useThemeColor(themeColorFromValue({ light: 'rgb(255
 watch(dark, () => updateThemeColor(), { immediate: true })
 watch(route, () => updateThemeColor(), { immediate: true })
 onMounted(() => updateThemeColor())
+
+// The window doesn't scroll here; this layout-owned container does, so the
+// router has no chance to reset it (no scrollBehavior is defined anywhere).
+const scrollContainerRef = ref<HTMLElement>()
+watch(() => route.path, () => {
+  if (scrollContainerRef.value)
+    scrollContainerRef.value.scrollTop = 0
+})
+
+function handleBack() {
+  console.log('[SettingsLayout] handleBack called. Current route:', route.path)
+  if (route.path === '/settings') {
+    router.push('/')
+  }
+  else {
+    router.push('/settings')
+  }
+}
 </script>
 
 <template>
@@ -93,9 +111,9 @@ onMounted(() => updateThemeColor())
       <PageHeader
         :title="routeHeaderMetadata?.title || ''"
         :subtitle="routeHeaderMetadata?.subtitle"
-        @back="route.path === '/settings' ? router.push('/') : router.back()"
+        @back="handleBack"
       />
-      <div id="settings-scroll-container" relative min-h-0 flex-1 overflow-y-auto scrollbar-none>
+      <div id="settings-scroll-container" ref="scrollContainerRef" relative min-h-0 flex-1 overflow-y-auto scrollbar-none>
         <RouterView />
       </div>
     </div>

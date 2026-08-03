@@ -112,7 +112,7 @@ watch(() => props.initialTab, (newTab) => {
 
 watch(currentTab, (newTab) => {
   if (newTab === 'cloud' && remoteModelsCatalog.value.length === 0) {
-    void displayModelStore.fetchRemoteCatalog()
+    void displayModelStore.fetchRemoteDisplayModelsCatalog()
   }
 })
 

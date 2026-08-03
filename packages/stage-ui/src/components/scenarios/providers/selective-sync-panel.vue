@@ -99,7 +99,7 @@ async function fetchRemoteCatalogData() {
   isLoadingRemote.value = true
   remoteLoadError.value = ''
   try {
-    const res = await syncStore.getRemoteCatalog()
+    const res = await syncStore.fetchRemoteSyncManifestCatalog()
     if (res && res.success) {
       const cardsMap = new Map()
       if (Array.isArray(res.cards)) {
