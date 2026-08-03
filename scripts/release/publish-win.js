@@ -98,8 +98,8 @@ async function main() {
       }
     }
 
-    // Step 3: Restore clean pnpm symlinks in stage-tamagotchi to prevent Vite V8 memory crashes (3221225477)
-    console.log(`\n🧹 Cleaning physical node_modules overrides and restoring pnpm symlinks...`)
+    // Step 3: Remove leftover physical copy-deps folders in stage-tamagotchi to prevent Vite V8 memory crashes (3221225477)
+    console.log(`\n🧹 Cleaning physical node_modules overrides before Vite bundling...`)
     const copiedPackages = [
       '@discordjs/voice',
       'discord.js',
@@ -117,17 +117,12 @@ async function main() {
       if (fs.existsSync(pkgPath) && !fs.lstatSync(pkgPath).isSymbolicLink()) {
         try {
           fs.rmSync(pkgPath, { recursive: true, force: true })
+          console.log(`  - Cleaned physical override: ${pkg}`)
         }
         catch (e) {
           // ignore
         }
       }
-    }
-    try {
-      execute('pnpm -F @proj-airi/stage-tamagotchi install')
-    }
-    catch (e) {
-      console.warn('⚠️ Warning: pnpm install pre-step failed, continuing...')
     }
 
     // Step 4: Run the build:win script
