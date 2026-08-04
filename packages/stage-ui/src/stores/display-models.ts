@@ -12,7 +12,7 @@ import { loadVrmModelPreview as generateVrmPreview } from '@proj-airi/stage-ui-t
 import { until, useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { isProxy, ref, shallowRef, toRaw, watch } from 'vue'
+import { isProxy, ref, shallowRef, toRaw, triggerRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
@@ -1051,7 +1051,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
     }
 
-    displayModels.value.unshift(newDisplayModel)
+    displayModels.value = [newDisplayModel, ...displayModels.value]
 
     const cleanModel = {
       ...toRaw(newDisplayModel),
@@ -1075,7 +1075,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       console.error('[DisplayModels] Failed to generate MMD preview:', e)
     }
 
-    displayModels.value.unshift(newDisplayModel)
+    displayModels.value = [newDisplayModel, ...displayModels.value]
 
     // Persist model file un-proxied so IndexedDB structured clone preserves native File prototype
     const cleanModel = {
@@ -1124,7 +1124,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
     if (index !== -1) {
-      displayModels.value[index].name = name
+      const target = displayModels.value[index]
+      target.name = name
+      target._searchKey = `${name} ${Array.isArray(target.tags) ? target.tags.join(' ') : ''} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
+      triggerRef(displayModels)
     }
 
     // Persist if it's a file-based model
@@ -1161,12 +1164,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
     if (index !== -1) {
+      const target = displayModels.value[index]
       if ('nsfw' in updates) {
-        displayModels.value[index].nsfw = updates.nsfw
+        target.nsfw = updates.nsfw
       }
       if ('groups' in updates) {
-        displayModels.value[index].groups = updates.groups
+        target.groups = updates.groups
       }
+      target._searchKey = `${target.name || ''} ${Array.isArray(target.tags) ? target.tags.join(' ') : ''} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
+      triggerRef(displayModels)
     }
 
     // Persist if it's a file-based model
@@ -1198,7 +1204,10 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
     if (index !== -1) {
-      displayModels.value[index].tags = tags
+      const target = displayModels.value[index]
+      target.tags = tags
+      target._searchKey = `${target.name || ''} ${Array.isArray(tags) ? tags.join(' ') : ''} ${Array.isArray(target.groups) ? target.groups.join(' ') : ''}`.toLowerCase()
+      triggerRef(displayModels)
     }
 
     // Persist if it's a file-based model
@@ -1259,6 +1268,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         target.hiddenMotions = [...mappings.hiddenMotions]
       if (mappings.favoriteExpressions)
         target.favoriteExpressions = [...mappings.favoriteExpressions]
+      triggerRef(displayModels)
     }
 
     // Persist if file-based model
