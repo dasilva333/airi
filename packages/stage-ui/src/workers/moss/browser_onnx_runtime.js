@@ -1866,6 +1866,9 @@ const BrowserOnnxTtsRuntime = class {
     try {
       const fileBuffer = file instanceof ArrayBuffer ? file : await file.arrayBuffer()
       const { waveform, waveformLength } = await this.decodeAudioToWaveform(fileBuffer)
+      // NOTICE: use the runtime's own OfflineAudioContext-resampled, codec-config-
+      // packed waveform directly. This bypasses the fragile interleave heuristic in
+      // encodeReferenceAudioFromWaveform that corrupted user uploads on even buffers.
       const codecEncodeStartedAt = this.profileState?.enabled ? nowMs() : 0
       const outputs = await this.sessions.codecEncode.run(this.buildCodecEncodeFeeds(waveform, waveformLength))
       finishProfileTiming(this.profileState, 'audio_encode.codec_encode_session', codecEncodeStartedAt)
@@ -1887,29 +1890,18 @@ const BrowserOnnxTtsRuntime = class {
     }
   }
 
-  async encodeReferenceAudioFromWaveform(waveform) {
+  async encodeReferenceAudioFromWaveform(planarWaveform, waveformLength, channels) {
     const totalStartedAt = this.profileState?.enabled ? nowMs() : 0
     await this.ensureManifestLoaded()
     await this.ensureCodecEncodeLoaded()
     try {
-      const targetChannels = this.codecMeta.codec_config.channels || 2
-      let finalWaveform = waveform
-      let waveformLength = waveform.length
-
-      if (waveform.length % targetChannels === 0) {
-        waveformLength = waveform.length / targetChannels
-      }
-      else {
-        waveformLength = waveform.length
-        const packed = new Float32Array(targetChannels * waveformLength)
-        for (let c = 0; c < targetChannels; c++) {
-          packed.set(waveform, c * waveformLength)
-        }
-        finalWaveform = packed
-      }
-
+      // NOTICE: callers must supply a channel-planar waveform together with its
+      // per-channel frame count (waveformLength) and channel count. The previous
+      // version inferred layout via `waveform.length % targetChannels === 0`,
+      // which misfired on any even-length buffer and silently corrupted user
+      // reference clones. Layout is now explicit so this cannot happen.
       const codecEncodeStartedAt = this.profileState?.enabled ? nowMs() : 0
-      const outputs = await this.sessions.codecEncode.run(this.buildCodecEncodeFeeds(finalWaveform, waveformLength))
+      const outputs = await this.sessions.codecEncode.run(this.buildCodecEncodeFeeds(planarWaveform, waveformLength))
       finishProfileTiming(this.profileState, 'audio_encode.codec_encode_session', codecEncodeStartedAt)
       const codeLength = outputs.audio_code_lengths.data[0]
       const numQuantizers = this.codecMeta.codec_config.num_quantizers

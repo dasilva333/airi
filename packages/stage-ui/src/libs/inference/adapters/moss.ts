@@ -33,6 +33,8 @@ export interface MossAdapter {
       samplingMode: string
       voiceCloneMaxTokens: number
       promptAudioWaveform?: Float32Array
+      promptAudioChannels?: number
+      promptAudioCodes?: number[][]
       signal?: AbortSignal
     },
   ) => Promise<ArrayBuffer>
@@ -42,6 +44,9 @@ export interface MossAdapter {
 
   /** Current state */
   readonly state: 'idle' | 'loading' | 'ready' | 'running' | 'error' | 'terminated'
+
+  /** Codec packing info reported by the worker after load. */
+  readonly codecConfig: { sample_rate: number, channels: number } | null
 }
 
 function encodeWav(samples: Float32Array, sampleRate: number, numChannels = 1): ArrayBuffer {
@@ -101,6 +106,7 @@ function concatFloat32(parts: Float32Array[]): Float32Array {
 export function createMossAdapter(): MossAdapter {
   let worker: Worker | null = null
   let state: MossAdapter['state'] = 'idle'
+  let codecConfig: { sample_rate: number, channels: number } | null = null
   const mutex = new Mutex()
 
   function ensureWorker(): Worker {
@@ -143,10 +149,15 @@ export function createMossAdapter(): MossAdapter {
           { signal: options?.signal },
         )
 
-        await consumeLoadStream(stream, (progress) => {
+        const readyInfo = await consumeLoadStream(stream, (progress) => {
           updateInferenceStatus(modelStatusId, { progress })
           options?.onProgress?.(progress)
         })
+
+        const codec = (readyInfo?.metadata as any)?.codecConfig
+        if (codec && typeof codec.sample_rate === 'number' && typeof codec.channels === 'number') {
+          codecConfig = { sample_rate: codec.sample_rate, channels: codec.channels }
+        }
 
         state = 'ready'
         updateInferenceStatus(modelStatusId, { state: 'ready' })
@@ -168,6 +179,8 @@ export function createMossAdapter(): MossAdapter {
       samplingMode: string
       voiceCloneMaxTokens: number
       promptAudioWaveform?: Float32Array
+      promptAudioChannels?: number
+      promptAudioCodes?: number[][]
       signal?: AbortSignal
     },
   ): Promise<ArrayBuffer> {
@@ -189,17 +202,41 @@ export function createMossAdapter(): MossAdapter {
             samplingMode: options.samplingMode,
             voiceCloneMaxTokens: options.voiceCloneMaxTokens,
             promptAudioWaveform: options.promptAudioWaveform,
+            promptAudioChannels: options.promptAudioChannels,
+            promptAudioCodes: options.promptAudioCodes,
           },
           { signal: options.signal },
         )
 
         const chunks: Float32Array[] = []
         let samplingRate = 16000
+        let freshlyEncodedCodes: number[][] | undefined
 
         for await (const chunk of stream) {
-          chunks.push(chunk.samples)
-          if (chunk.samplingRate) {
-            samplingRate = chunk.samplingRate
+          if (chunk.kind === 'prompt-audio-codes' && chunk.promptAudioCodes) {
+            freshlyEncodedCodes = chunk.promptAudioCodes
+            continue
+          }
+          if (chunk.samples) {
+            chunks.push(chunk.samples)
+            if (chunk.samplingRate)
+              samplingRate = chunk.samplingRate
+          }
+        }
+
+        // Persist freshly-encoded reference codes for subsequent cache hits (Phase B).
+        if (freshlyEncodedCodes && freshlyEncodedCodes.length > 0) {
+          try {
+            const { default: localforage } = await import('localforage')
+            const metaStore = localforage.createInstance({ name: 'moss-voice-profiles-metadata' })
+            const existing = await metaStore.getItem<any>(voiceId)
+            if (existing) {
+              await metaStore.setItem(voiceId, { ...existing, promptAudioCodes: freshlyEncodedCodes })
+            }
+          }
+          catch (err) {
+            // Non-fatal: caching is an optimization only
+            console.warn('[MossAdapter] Failed to cache prompt_audio_codes:', err)
           }
         }
 
@@ -231,6 +268,7 @@ export function createMossAdapter(): MossAdapter {
 
   return {
     get state() { return state },
+    get codecConfig() { return codecConfig },
     loadModel,
     generate,
     terminate,

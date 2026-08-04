@@ -322,12 +322,24 @@ export interface MossGenerateRequest {
   attentionBackend: string
   samplingMode: string
   voiceCloneMaxTokens: number
+  /** channel-planar conditioned reference waveform (decoded/resampled/trimmed on the main thread) */
   promptAudioWaveform?: Float32Array
+  /** channel count used to unpack promptAudioWaveform (must match codec_config.channels) */
+  promptAudioChannels?: number
+  /** pre-encoded reference codes (cache hit) — skips codec encode entirely */
+  promptAudioCodes?: number[][]
 }
 
 export interface MossGenerateChunk {
-  samples: Float32Array
-  samplingRate: number
+  /** audio chunk payload — present on audio frames */
+  samples?: Float32Array
+  samplingRate?: number
+  /**
+   * metadata marker emitted once when this request freshly encoded a new reference
+   * voice — the adapter harvests these codes for IndexedDB caching (Phase B).
+   */
+  kind?: 'prompt-audio-codes'
+  promptAudioCodes?: number[][]
 }
 
 export const mossLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:moss:load')

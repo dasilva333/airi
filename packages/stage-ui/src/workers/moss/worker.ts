@@ -68,12 +68,21 @@ defineStreamInvokeHandler(context, mossLoadEvent, toStreamHandler<LoadModelReque
 
   await runtime.ensureManifestLoaded()
   await runtime.ensureSynthesisLoaded()
+  await runtime.ensureCodecEncodeLoaded()
 
   emit({
     kind: 'ready',
     info: {
       device: 'wasm',
-      metadata: {},
+      metadata: {
+        // Codec packing/detargeting is main-thread driven (AudioContext is not
+        // available in a worker scope). The main thread needs the real codec
+        // sample rate/channels to condition reference audio correctly.
+        codecConfig: {
+          sample_rate: runtime.codecMeta?.codec_config?.sample_rate ?? 16000,
+          channels: runtime.codecMeta?.codec_config?.channels ?? 1,
+        },
+      },
     },
   })
 }))
@@ -84,8 +93,8 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
   }
 
   const signal = options?.abortController?.signal
-  const { text, voiceId, cpuThreads, attentionBackend: _attentionBackend, samplingMode, voiceCloneMaxTokens, promptAudioWaveform } = payload
-  console.log('[MOSS Worker] generate request:', { voiceId, hasWaveform: !!promptAudioWaveform, waveformLen: promptAudioWaveform?.length })
+  const { text, voiceId, cpuThreads, attentionBackend: _attentionBackend, samplingMode, voiceCloneMaxTokens, promptAudioWaveform, promptAudioChannels, promptAudioCodes: cachedPromptAudioCodes } = payload
+  console.log('[MOSS Worker] generate request:', { voiceId, hasWaveform: !!promptAudioWaveform, channels: promptAudioChannels, hasCachedCodes: !!cachedPromptAudioCodes })
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
@@ -99,19 +108,42 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
     })
   }
 
-  // Prepare extraVoices if we have a promptAudioWaveform (custom voice clone)
+  // Prepare extraVoices for custom voice clone
   const extraVoices: any[] = []
-  if (promptAudioWaveform && voiceId) {
-    // We need to encode the promptAudioWaveform
-    await runtime.ensureCodecEncodeLoaded()
-    const promptAudioCodes = await runtime.encodeReferenceAudioFromWaveform(promptAudioWaveform)
-    extraVoices.push({
-      voice: voiceId,
-      display_name: voiceId,
-      group: 'custom',
-      audio_file: `${voiceId}.bin`,
-      prompt_audio_codes: promptAudioCodes,
-    })
+  let freshlyEncodedCodes: number[][] | undefined
+  if (voiceId) {
+    // NOTICE: Option 1 — raw reference bytes are decoded inside the runtime so the
+    // OfflineAudioContext resampling + codec-config channel packing is the single
+    // source of truth. Phase A preconditioning was applied in providers.ts before
+    // these bytes were buffered. Phase B cache hits skip the codec encode entirely.
+    if (cachedPromptAudioCodes && cachedPromptAudioCodes.length > 0) {
+      console.log('[MOSS Worker] cache hit: using stored prompt_audio_codes, frames:', cachedPromptAudioCodes.length)
+      extraVoices.push({
+        voice: voiceId,
+        display_name: voiceId,
+        group: 'custom',
+        audio_file: `${voiceId}.bin`,
+        prompt_audio_codes: cachedPromptAudioCodes,
+      })
+    }
+    else if (promptAudioWaveform && promptAudioWaveform.length > 0) {
+      const waveformLength = Math.floor(promptAudioWaveform.length / (promptAudioChannels || 1))
+      console.log('[MOSS Worker] cache miss: encoding planar waveform, frames:', waveformLength)
+      await runtime.ensureCodecEncodeLoaded()
+      const codes = await runtime.encodeReferenceAudioFromWaveform(
+        promptAudioWaveform,
+        waveformLength,
+        promptAudioChannels || 1,
+      )
+      freshlyEncodedCodes = codes
+      extraVoices.push({
+        voice: voiceId,
+        display_name: voiceId,
+        group: 'custom',
+        audio_file: `${voiceId}.bin`,
+        prompt_audio_codes: codes,
+      })
+    }
   }
 
   await runtime.synthesizeVoiceClone({
@@ -137,6 +169,14 @@ defineStreamInvokeHandler(context, mossGenerateEvent, toStreamHandler<MossGenera
       }
     },
   })
+
+  if (freshlyEncodedCodes && freshlyEncodedCodes.length > 0) {
+    emit({
+      samplingRate: 0,
+      kind: 'prompt-audio-codes',
+      promptAudioCodes: freshlyEncodedCodes,
+    })
+  }
 }))
 
 defineInvokeHandler(context, mossUnloadEvent, async () => {

@@ -117,31 +117,6 @@ async function getMossAdapterInstance() {
   return mossAdapter
 }
 
-async function decodeAudioToWaveform(arrayBuffer: ArrayBuffer, targetSampleRate = 16000, targetChannels = 2): Promise<Float32Array> {
-  const AudioContextClass = typeof window !== 'undefined'
-    ? (window.AudioContext || (window as any).webkitAudioContext)
-    : null
-  if (!AudioContextClass) {
-    throw new Error('AudioContext is not supported in this environment.')
-  }
-  const ctx = new AudioContextClass({ sampleRate: targetSampleRate })
-  try {
-    const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
-    const waveformLength = decoded.length
-    const waveform = new Float32Array(targetChannels * waveformLength)
-    for (let channelIndex = 0; channelIndex < targetChannels; channelIndex += 1) {
-      const sourceChannel = decoded.getChannelData(
-        Math.min(channelIndex, decoded.numberOfChannels - 1),
-      )
-      waveform.set(sourceChannel, channelIndex * waveformLength)
-    }
-    return waveform
-  }
-  finally {
-    await ctx.close().catch(() => {})
-  }
-}
-
 interface MossReferencePreprocessOptions {
   silenceThresholdDb: number
   paddingMs: number
@@ -160,43 +135,106 @@ const MOSS_REFERENCE_PREPROCESS_DEFAULTS: MossReferencePreprocessOptions = {
   maxDurationMs: 15000,
 }
 
-// NOTICE: preconditioned reference audio is the single biggest quality lever for
-// user voice cloning — raw uploads (silence padding, low/varying gain, long
-// duration) corrupt prompt embeddings. Built-in preset voices bypass this path
-// entirely (they ship pre-computed prompt_audio_codes), which is why only user
-// uploads benefit here.
-function preprocessMossReferenceWaveform(
-  waveform: Float32Array,
+/**
+ * Decode raw audio bytes, resample to the codec target via a real
+ * OfflineAudioContext render (Web Audio is main-thread only), then condition the
+ * signal (silence trim / duration clamp / peak normalize) and return a
+ * channel-planar Float32Array suitable for the codec encoder.
+ *
+ * NOTICE: this consolidates the divergent decode path — see browser_onnx_runtime.js
+ * `decodeAudioToWaveform` for the parallel in-runtime implementation. The two must
+ * stay in lockstep on sample-rate, channel packing, and frame sizing. Any change
+ * here must be mirrored there (or vice versa) until both paths converge on one.
+ */
+async function preprocessMossReferenceAudio(
+  arrayBuffer: ArrayBuffer,
+  targetSampleRate: number,
+  targetChannels: number,
   options?: Partial<MossReferencePreprocessOptions>,
-): Float32Array {
+): Promise<Float32Array> {
   const opts = { ...MOSS_REFERENCE_PREPROCESS_DEFAULTS, ...options }
-  if (waveform.length === 0)
-    return waveform
+  const AudioContextClass = typeof window !== 'undefined'
+    ? (window.AudioContext || (window as any).webkitAudioContext)
+    : null
+  if (!AudioContextClass) {
+    throw new Error('AudioContext is not supported in this environment.')
+  }
 
-  const channels = 2
-  const frameCount = Math.floor(waveform.length / channels)
-  if (frameCount === 0)
-    return waveform
+  // 1. Decode + resample using a real OfflineAudioContext render (browsers do NOT
+  //    reliably honor the {sampleRate} constructor hint on AudioContext).
+  const decodeCtx = new AudioContextClass()
+  let renderedAudio: AudioBuffer
+  try {
+    const decodedAudio = await decodeCtx.decodeAudioData(arrayBuffer.slice(0))
+    if (decodedAudio.sampleRate === targetSampleRate && decodedAudio.numberOfChannels === targetChannels) {
+      renderedAudio = decodedAudio
+    }
+    else {
+      const frameCount = Math.max(1, Math.ceil(decodedAudio.duration * targetSampleRate))
+      const OfflineContextClass = (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext
+      if (!OfflineContextClass) {
+        throw new Error('OfflineAudioContext is not supported in this environment.')
+      }
+      const offlineCtx = new OfflineContextClass(targetChannels, frameCount, targetSampleRate)
+      const source = offlineCtx.createBufferSource()
+      source.buffer = decodedAudio
+      source.connect(offlineCtx.destination)
+      source.start(0)
+      renderedAudio = await offlineCtx.startRendering()
+    }
+  }
+  finally {
+    await decodeCtx.close().catch(() => {})
+  }
 
-  const assumedSampleRate = 16000 // MOSS reference path target
+  // 2. Pack channels into channel-planar layout expected by the codec encoder.
+  const waveformLength = renderedAudio.length
+  const planarWaveform = new Float32Array(targetChannels * waveformLength)
+  for (let c = 0; c < targetChannels; c++) {
+    const src = renderedAudio.getChannelData(Math.min(c, renderedAudio.numberOfChannels - 1))
+    planarWaveform.set(src, c * waveformLength)
+  }
+
+  // 3. Signal conditioning (frame-domain, sample-rate & channel aware).
+  return conditionMossPlanarWaveform(planarWaveform, waveformLength, targetChannels, targetSampleRate, opts)
+}
+
+/**
+ * Trim silence, clamp duration, apply edge fades, and peak-normalize a
+ * channel-planar reference waveform. All frame logic is computed on real samples
+ * so the conditioning is correct regardless of target sample-rate.
+ */
+function conditionMossPlanarWaveform(
+  planar: Float32Array,
+  waveformLength: number,
+  channels: number,
+  sampleRate: number,
+  opts: MossReferencePreprocessOptions,
+): Float32Array {
+  if (waveformLength === 0)
+    return planar
+
   const frameMs = 25
-  const frameSize = Math.max(1, Math.round(assumedSampleRate * frameMs / 1000))
-  const fadeSamples = Math.max(1, Math.round(assumedSampleRate * opts.fadeMs / 1000))
+  const frameSize = Math.max(1, Math.round(sampleRate * frameMs / 1000))
+  const fadeSamples = Math.max(1, Math.round(sampleRate * opts.fadeMs / 1000))
   const paddingFrames = Math.max(0, Math.round(opts.paddingMs / frameMs))
-  const minFrames = Math.max(1, Math.round(assumedSampleRate * opts.minDurationMs / 1000))
-  const maxFrames = Math.max(minFrames, Math.round(assumedSampleRate * opts.maxDurationMs / 1000))
+  const minFrames = Math.max(1, Math.round(sampleRate * opts.minDurationMs / 1000 / frameSize))
+  const maxFrames = Math.max(minFrames, Math.round(sampleRate * opts.maxDurationMs / 1000 / frameSize))
 
-  const numFrames = Math.max(1, Math.floor(frameCount / frameSize))
+  const numFrames = Math.max(1, Math.floor(waveformLength / frameSize))
   const frameRmsDb = new Float32Array(numFrames)
   for (let f = 0; f < numFrames; f++) {
-    const start = f * frameSize * channels
-    const end = Math.min(start + frameSize * channels, waveform.length)
+    const frameStart = f * frameSize
+    const frameEnd = Math.min(frameStart + frameSize, waveformLength)
     let sumSquares = 0
     let count = 0
-    for (let i = start; i < end; i++) {
-      const s = waveform[i]
-      sumSquares += s * s
-      count++
+    for (let c = 0; c < channels; c++) {
+      const chBase = c * waveformLength
+      for (let i = frameStart; i < frameEnd; i++) {
+        const s = planar[chBase + i]
+        sumSquares += s * s
+        count++
+      }
     }
     const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0
     frameRmsDb[f] = rms > 0 ? 20 * Math.log10(rms) : -Infinity
@@ -210,9 +248,7 @@ function preprocessMossReferenceWaveform(
     lastActive--
 
   if (firstActive >= numFrames || lastActive < firstActive) {
-    // Entire clip below threshold: keep as-is but peak-normalize so a very
-    // quiet reference still conditions the encoder.
-    return peakNormalizeMossWaveform(waveform, opts.targetPeakDb)
+    return peakNormalizeMossPlanar(planar, channels, opts.targetPeakDb)
   }
 
   let startFrame = Math.max(0, firstActive - paddingFrames)
@@ -228,42 +264,50 @@ function preprocessMossReferenceWaveform(
     endFrame = Math.min(numFrames - 1, startFrame + minFrames - 1)
   }
 
-  const startSample = startFrame * frameSize * channels
-  const endSample = Math.min(waveform.length, (endFrame + 1) * frameSize * channels)
-  const out = waveform.slice(startSample, endSample)
+  const startSample = startFrame * frameSize
+  const endSample = Math.min(waveformLength, (endFrame + 1) * frameSize)
+  const trimmedLength = endSample - startSample
 
-  applyMossEdgeFade(out, fadeSamples * channels)
-  return peakNormalizeMossWaveform(out, opts.targetPeakDb)
+  const out = new Float32Array(channels * trimmedLength)
+  for (let c = 0; c < channels; c++) {
+    const srcBase = c * waveformLength
+    out.set(planar.subarray(srcBase + startSample, srcBase + endSample), c * trimmedLength)
+  }
+
+  applyMossEdgeFadePlanar(out, trimmedLength, channels, fadeSamples)
+  return peakNormalizeMossPlanar(out, channels, opts.targetPeakDb)
 }
 
-function peakNormalizeMossWaveform(waveform: Float32Array, targetPeakDb: number): Float32Array {
+function peakNormalizeMossPlanar(planar: Float32Array, channels: number, targetPeakDb: number): Float32Array {
   let peak = 0
-  for (let i = 0; i < waveform.length; i++) {
-    const a = Math.abs(waveform[i])
+  for (let i = 0; i < planar.length; i++) {
+    const a = Math.abs(planar[i])
     if (a > peak)
       peak = a
   }
   if (peak <= 0)
-    return waveform
+    return planar
 
   const targetPeak = 10 ** (targetPeakDb / 20)
   const gain = targetPeak / peak
   if (gain >= 0.98 && gain <= 1.02)
-    return waveform
+    return planar
 
-  const out = new Float32Array(waveform.length)
-  for (let i = 0; i < waveform.length; i++)
-    out[i] = Math.max(-1, Math.min(1, waveform[i] * gain))
+  const out = new Float32Array(planar.length)
+  for (let i = 0; i < planar.length; i++)
+    out[i] = Math.max(-1, Math.min(1, planar[i] * gain))
   return out
 }
 
-function applyMossEdgeFade(waveform: Float32Array, fadeSamples: number): void {
-  const fadeCount = Math.min(fadeSamples, Math.floor(waveform.length / 2))
-  for (let i = 0; i < fadeCount; i++) {
-    const gainIn = i / fadeCount
-    const gainOut = 1 - gainIn
-    waveform[i] *= gainIn
-    waveform[waveform.length - 1 - i] *= gainOut
+function applyMossEdgeFadePlanar(planar: Float32Array, waveformLength: number, channels: number, fadeSamples: number): void {
+  const fadeCount = Math.min(fadeSamples, Math.floor(waveformLength / 2))
+  for (let c = 0; c < channels; c++) {
+    const base = c * waveformLength
+    for (let i = 0; i < fadeCount; i++) {
+      const t = i / fadeCount
+      planar[base + i] *= t
+      planar[base + (waveformLength - 1 - i)] *= (1 - t)
+    }
   }
 }
 
@@ -607,20 +651,38 @@ export const useProvidersStore = defineStore('providers', () => {
                   }
 
                   // Fetch custom voice from IndexedDB if needed
+                  // Phase B: prefer cached prompt_audio_codes; else decode/condition
+                  // on the main thread (AudioContext is main-thread only) then send a
+                  // channel-planar waveform the worker feeds directly to the codec.
                   let promptAudioWaveform: Float32Array | undefined
+                  let promptAudioChannels: number | undefined
+                  let promptAudioCodes: number[][] | undefined
                   const builtinIds = ['Trump', 'LJS']
                   if (!builtinIds.includes(voiceId)) {
                     const localforage = (await import('localforage')).default
                     const mossVoiceProfileBlobsStore = localforage.createInstance({
                       name: 'voice-profile-blobs',
                     })
-                    const audioBlob = await mossVoiceProfileBlobsStore.getItem<Blob>(voiceId)
-                    console.log('[MOSS Provider] voiceId:', voiceId, 'Found Blob:', !!audioBlob)
-                    if (audioBlob) {
-                      const buffer = await audioBlob.arrayBuffer()
-                      const rawWaveform = await decodeAudioToWaveform(buffer)
-                      promptAudioWaveform = preprocessMossReferenceWaveform(rawWaveform)
-                      console.log('[MOSS Provider] Decoded waveform length:', rawWaveform?.length, 'preprocessed:', promptAudioWaveform?.length)
+                    const mossVoiceProfilesStore = localforage.createInstance({
+                      name: 'moss-voice-profiles-metadata',
+                    })
+                    const metadata = await mossVoiceProfilesStore.getItem<any>(voiceId)
+                    promptAudioCodes = metadata?.promptAudioCodes
+                    console.log('[MOSS Provider] voiceId:', voiceId, 'cached codes:', !!promptAudioCodes)
+                    if (!promptAudioCodes) {
+                      const audioBlob = await mossVoiceProfileBlobsStore.getItem<Blob>(voiceId)
+                      console.log('[MOSS Provider] voiceId:', voiceId, 'found blob:', !!audioBlob)
+                      if (audioBlob) {
+                        const buffer = await audioBlob.arrayBuffer()
+                        const codec = adapter.codecConfig ?? { sample_rate: 16000, channels: 1 }
+                        promptAudioChannels = codec.channels
+                        promptAudioWaveform = await preprocessMossReferenceAudio(
+                          buffer,
+                          codec.sample_rate,
+                          codec.channels,
+                        )
+                        console.log('[MOSS Provider] conditioned planar length:', promptAudioWaveform.length, 'channels:', promptAudioChannels)
+                      }
                     }
                   }
 
@@ -630,6 +692,8 @@ export const useProvidersStore = defineStore('providers', () => {
                     samplingMode: String(_config.samplingMode ?? 'fixed'),
                     voiceCloneMaxTokens: Number(_config.voiceCloneMaxTokens ?? 75),
                     promptAudioWaveform,
+                    promptAudioChannels,
+                    promptAudioCodes,
                   }
 
                   const wavBuffer = await adapter.generate(text, voiceId, options)

@@ -78,4 +78,7 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   // Local vision models
   [MODEL_NAMES.BLIP]: 400 * 1024 * 1024, // ~400 MB
   [MODEL_NAMES.WD14]: 300 * 1024 * 1024, // ~300 MB
+
+  // MOSS TTS Nano (fp32 weights + split ONNX graphs + OPFS blobs)
+  'moss-tts-nano': 400 * 1024 * 1024, // ~400 MB
 }
