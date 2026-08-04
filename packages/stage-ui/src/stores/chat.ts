@@ -256,6 +256,43 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       await compactionStore.executeCompaction(sessionId)
     }
 
+    const userMessageId = nanoid()
+    const sendingCreatedAt = Date.now()
+
+    // Task 1: Ingest user message into session history IMMEDIATELY before any VLM inference.
+    // This ensures the user's chat bubble appears instantly in the UI without a 3-8s stall during VLM processing.
+    if (!options.triggerOnly) {
+      const initialHistoricalParts: CommonContentPart[] = [{ type: 'text', text: sendingMessage }]
+      if (finalAttachments) {
+        for (const attachment of finalAttachments) {
+          if (attachment.type === 'image') {
+            initialHistoricalParts.push({
+              type: 'image_url' as const,
+              image_url: {
+                url: `data:${attachment.mimeType};base64,${attachment.data}`,
+              },
+            })
+          }
+        }
+      }
+      const initialHistoricalContent = initialHistoricalParts.length > 1 ? initialHistoricalParts : sendingMessage
+      const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
+      const historicalUserMessage = { role: 'user' as const, content: initialHistoricalContent, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata }
+      chatSession.setSessionMessages(sessionId, [...sessionMessagesForSend, historicalUserMessage])
+    }
+
+    // Initialize streaming message context early so hooks can fire immediately
+    const streamingMessageContext: ChatStreamEventContext = {
+      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata },
+      contexts: chatContext.getContextsSnapshot(),
+      composedMessage: [],
+      input: options.input,
+    }
+
+    // Task 2: Emit before-message-composed hook IMMEDIATELY so Stage.vue can flush the speech pipeline,
+    // cancel stale audio intents, reset lip sync, and clear captions before VLM inference begins.
+    await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
+
     // Check if it's a VLM turn and Forward mode is enabled
     const hasImageAttachment = finalAttachments.some(a => a.type === 'image')
     const isVlmForwardTurn = !!(hasImageAttachment && visionStore.activeProvider && visionStore.activeModel && visionStore.strategy === 'forward')
@@ -324,10 +361,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         finalAttachments = finalAttachments.filter(a => a.type !== 'image')
       }
       catch (err) {
-        // Contained failure: log and continue. Do NOT mutate sendingMessage or rethrow.
-        // The outer ingest() must not reject from a VLM hop failure — that would
-        // incorrectly trigger the "Draft Restored" toast in the UI.
         console.error('[Vision] VLM analysis failed during forward hop, continuing without image context:', err)
+        // Task 3: Provide explicit error traceability context
+        vlmImageAnalysis = '[Visual analysis unavailable due to provider error]'
+
+        // NOTICE (KNOWLEDGE GUARD - BY DESIGN):
+        // We MUST strip image attachments here even when VLM analysis fails.
+        // Omitting images on failure is intentional: if finalAttachments retained image types,
+        // downstream logic (isVlmTurn) would observe the attachments and trigger a second,
+        // duplicate Direct VLM inference turn, causing rate-limit loops and desynchronization.
+        // Do NOT "fix" this by keeping images in finalAttachments.
         finalAttachments = finalAttachments.filter(a => a.type !== 'image')
       }
     }
@@ -347,14 +390,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     const eternalRecordContext = createEternalRecordContext(activeCard.value?.extensions?.airi?.eternal_record)
     if (eternalRecordContext) {
       chatContext.ingestContextMessage(eternalRecordContext)
-    }
-
-    const sendingCreatedAt = Date.now()
-    const streamingMessageContext: ChatStreamEventContext = {
-      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: nanoid(), ...options.metadata },
-      contexts: chatContext.getContextsSnapshot(),
-      composedMessage: [],
-      input: options.input,
     }
 
     const isStaleGeneration = () => chatSession.getSessionGeneration(sessionId) !== generation
@@ -419,6 +454,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         effectiveTools = undefined // Vision models often do not support tools, and we only need them for direct reply
       }
 
+      const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
+
       const userText = promptShimText
         ? `${promptShimText}\n\n${sendingMessage}`
         : sendingMessage
@@ -442,7 +479,6 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       }
 
       const inferenceContent = inferenceContentParts.length > 1 ? inferenceContentParts : userText
-      const historicalContent = historicalContentParts.length > 1 ? historicalContentParts : sendingMessage
       if (!streamingMessageContext.input) {
         streamingMessageContext.input = {
           type: 'input:text',
@@ -455,28 +491,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       if (shouldAbort())
         return
 
-      const userMessageId = nanoid()
-      const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
-
-      if (!options.triggerOnly) {
-        const historicalUserMessage = { role: 'user' as const, content: historicalContent, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata }
-        const nextMessages = [...sessionMessagesForSend, historicalUserMessage]
-        chatSession.setSessionMessages(sessionId, nextMessages)
-      }
-
       if (options.skipAssistant) {
         chatLog('skipAssistant is true, ending ingest.')
         return
       }
 
-      // NOTICE: Emit before-message-composed so Stage.vue can flush the speech pipeline,
-      // cancel stale intents, reset lip sync, and clear captions before the new turn starts.
-      await hooks.emitBeforeMessageComposedHooks(sendingMessage, streamingMessageContext)
-
       // --- AUTONOMOUS ARTISTRY HOOK ---
       // Trigger now only if in user-centric mode. Assistant-centric runs after response is complete.
       const autonomousTarget = activeCard.value?.extensions?.airi?.artistry?.autonomousTarget || 'user'
       if (autonomousTarget === 'user' && !options.triggerOnly) {
+        const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
         void artistryAutonomousStore.runArtistTask(sendingMessage, sessionMessagesForSend as any)
       }
       // --------------------------------

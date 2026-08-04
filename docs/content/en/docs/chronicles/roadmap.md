@@ -11,40 +11,24 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *   **Dropbox & Google Drive Storage Engines**: Extend database/asset storage options to natively support Dropbox and Google Drive as storage providers (in addition to existing S3/R2 and Local FS).
 *   **Modular Token Lifecycle Management**: Implement automatic refresh handshakes for Dropbox/Google Drive integrations.
 
-### Web CORS Proxy Bypass (User-Hosted Cloudflare Workers)
-*Reference: [proposal-web-cors-proxy-bypass.md](../../../../../proposal-web-cors-proxy-bypass.md)*
-*   **Cloudflare Workers Deployer**: Add a "Deploy to Cloudflare Workers" button in Settings to automatically bootstrap a private CORS reverse-proxy worker template.
-*   **System Connection Settings**: Introduce Worker URL inputs and Web CORS bypass toggles.
+### Web CORS Proxy Bypass & Cloudflare Workers Bundle
+*References: [proposal-web-cors-proxy-bypass.md](../../../../../proposal-web-cors-proxy-bypass.md) | [cloud-relay-design.md](../../../../../cloud-relay-design.md)*
+*   **Cloudflare Workers Deployer & Ecosystem Cross-Reference**: Bundle the "Deploy to Cloudflare Workers" private CORS reverse-proxy worker template together with the Cloud Relay user deployment flow.
+*   **System Connection Settings**: Introduce Worker URL inputs and Web CORS bypass toggles in Settings > System > Connection.
 *   **Dynamic XHR/Fetch Routing**: Redirect requests to CORS-restricted endpoints (Deepgram, Pioneer, Opencode) through the user's private worker when matching the bypass list.
 
 ### Provider Store Restructuring (`providers.ts`)
 *Reference: [project-provider-store-restructuring-plan.md](../../../../../project-provider-store-restructuring-plan.md)*
-*   **Monolithic Store safe Phase 1 Decomposition**: Extract shared types, helper functions, and the large legacy hand-written provider metadata declarations out of the monolithic `packages/stage-ui/src/stores/providers.ts` (currently ~3k lines) into dedicated registry-family files (`types.ts`, `helpers.ts`, and `registry/*`).
-*   **Preserve Store Interface**: Maintain the public API, selectors, and validation behavior of `useProvidersStore` unchanged for consumers while simplifying the core file.
+*   **Monolithic Store Phase 1 Decomposition (Review & Handoff Candidate)**: Extract shared types, helper functions, and legacy metadata declarations out of monolithic `packages/stage-ui/src/stores/providers.ts` (~3k lines) into dedicated registry-family files (`types.ts`, `helpers.ts`, `registry/*`). Maintain public API interface compatibility while creating an agent handoff spec.
 
 ### Core-Agent Revamp (Apeira Runtime Integration)
 *Reference: [proposal-core-agent-revamp.md](../../../../../proposal-core-agent-revamp.md)*
-*   **Apeira Evaluation**: Monitor and evaluate Apeira (v0.0.5+) as a potential lightweight replacement for `@proj-airi/core-agent` once the codebase and persistence interfaces stabilize.
-*   **Plugin Hooks Mapping**: Map our fork-specific orchestration behaviors (e.g. autonomous artistry triggers, live session bidirectional audio) to Apeira's Plugin API.
+*   **Apeira Evaluation (Deferred / Not Doing Yet)**: Monitor and evaluate Apeira (v0.0.5+) as a potential lightweight replacement for `@proj-airi/core-agent` once codebase and persistence interfaces stabilize.
+*   **Plugin Hooks Mapping**: Map fork-specific orchestration behaviors (e.g. autonomous artistry triggers, live session bidirectional audio) to Apeira's Plugin API.
 
-### Infrastructure & UI Health
-*   **Model Selector Stability (Research & Design - Needs Retesting)**: Investigate and resolve the "reactive reset" bug where selecting a temporary preview model in the Model Selector is overridden by the active character's stored model configuration.
 ### AnimaDex Character Creator Wizard
-*Reference: [proposal-animadex-wizard.md](../../../../proposal-animadex-wizard.md)*
-*   **AnimaDex Dataset Integration**: Evaluate Route A (offline bundling of the 46MB database) vs Route B (CDN web-hosted directory).
-*   **Metadata Parser Mapping**: Map tags and triggers into card properties.
-*   **Speech & UST Integration Pipeline**:
-    *   Include `voiceConfig.ust` in the LLM synthesis payload (`handleGenerate()` cast builder).
-    *   Add `modelPromptSpeech` to the LLM output schema definition (`systemMsg`).
-    *   Write the parsed `speechExpressionPrompt` dynamically on card assembly (`confirmCreateCard()`).
-*   **Per-Character Idle Animations**:
-    *   Add `idleAnimations?: string[]` to the `visual_assets.[actor_key]` schema.
-    *   Update runtime model selector to read per-actor `idleAnimations` on actor switch.
-    *   Instruct synthesis LLM to populate `idleAnimations[]` from available motions.
-    *   Add per-actor idle selector in Wizard Step 2.
-    *   Expose per-actor idle selectors in the Card Edit UI's Acting tab.
+*References: [proposal-animadex-wizard.md](../../../../proposal-animadex-wizard.md) | [proposal-animadex-new-characters.md](../../../../proposal-animadex-new-characters.md)*
 *   **AnimaDex Ad-hoc Cast Expansion (Dynamic Character Injection)**:
-    *   *Reference: [proposal-animadex-new-characters.md](../../../../proposal-animadex-new-characters.md)*
     *   Implement "Add Character" gallery selection and voice/model binding modal context.
     *   Build injection engine parsing and generation rules for Mode A (markers), Mode B (multi-actor tags), and Mode C (single-to-multi conversion).
     *   Support Step 4 review interface with choices for "Apply to Current Card (with Backup)" and "Create as New Card".
@@ -60,15 +44,12 @@ This document tracks all active pending items, architectural roadmaps, and featu
 
 ### Engine Sidecar (Godot vs. Mate-Engine)
 *Reference: [engine-sidecar-journal.md](../../../../../engine-sidecar-journal.md)*
-*   **Render Offloading Spike**: Evaluate offloading VRM rendering from the main Electron/WebGL thread into a compiled, native sidecar window.
-*   **Godot 4 Sidecar**: Investigate the upstream implementation (PRs #1697, #1724, #1830) using a C# websocket handshake to determine if packaging overhead is justified.
-*   **Mate-Engine Alternative**: Prototype packaging a compiled release of Mate-Engine (Unity C# ShaderLab runtime) linking via WebSocket/IPC to support real-time ComfyUI asset spawning and interactive physical collisions.
+*   **Render Offloading Spike (Design Revamped)**: Architecture heavily revamped recently; core design updated, implementation open. Evaluate offloading VRM rendering into native sidecar window (Godot 4 vs Mate-Engine Unity runtime).
 
 ### Computer Use & Desktop Agent Subsystem
 *Reference: [project-selective-upstream-sync-shortlist.md](../../../../../project-selective-upstream-sync-shortlist.md)*
-*   **Desktop Observation & Overlay Baseline**: Port and test macOS Chrome-first trajectory for capturing and rendering overlays on the user's screen.
-*   **Browser-Native DOM Action Routing**: Enable native communication protocols between the Tamagotchi stage and the `computer-use-mcp` service.
-*   **Ghost Pointer & Scheduler**: Implement the ghost pointer UX for desktop control overlays, transcript truth sources (safety projections), and the background desktop scheduler.
+*   **Desktop Observation & Upstream Cherry-Pick Candidate**: Upstream Moeru implementation is maturing; marked for potential cherry-pick review (Aug 3).
+*   **Browser-Native DOM Action Routing & Ghost Pointer**: Enable native communication protocols between Tamagotchi stage and `computer-use-mcp` service + ghost pointer UX overlays.
 
 ---
 
@@ -81,21 +62,20 @@ This document tracks all active pending items, architectural roadmaps, and featu
 
 ### Prefix Cache Alignment & Prompt Compilation Controls
 *Reference: [proposal-prefix-cache-alignment.md](../../../../../proposal-prefix-cache-alignment.md)*
-*   **Prefix Alignment Logic**: Re-order prompt assembly arrays (System Prompt -> Chat History -> Suffix Telemetry/Deltas) to optimize caching mechanics and maximize prefix hit rates for DeepSeek, Gemini, and OpenRouter. (Analyze and visit 2-3 specific implementation areas).
-*   **Unified Context Builder**: Implement `useContextBuilder` to unify and dry up prompt construction across Proactivity, Destiny 2, and Producer suggestions.
-*   **LLM Performance Settings Store**: Implement a new global settings store (`useSettingsLlmPerformance`) for prefix caching toggle, global history slice modes, and counts.
+*   **Prefix Alignment Logic**: Re-order prompt assembly arrays (System Prompt -> Chat History -> Suffix Telemetry/Deltas) to optimize caching mechanics and maximize prefix hit rates for DeepSeek, Gemini, and OpenRouter.
+*   **Unified Context Builder & Settings Store**: Implement `useContextBuilder` to dry up prompt construction across Proactivity/Destiny 2/Producer and create `useSettingsLlmPerformance`.
 
-### "Forward to LLM" VLM Captioning & Tagging Pipeline [Work In Progress]
+### "Forward to LLM" VLM Captioning & Tagging Pipeline [Candidate for Quick Task]
 *Reference: [proposal-vlm-forward-to-llm.md](../../../../../proposal-vlm-forward-to-llm.md)*
-*   **Decoupled Sight Pipeline**: Implement a "Forward to LLM" strategy in Settings > Modules > Vision to separate VLM image analysis from character voice. VLM generates descriptions/tags (e.g. WD14 tagger, Kimi 2.5), which are injected into the text stream so the primary LLM can respond in its authentic character voice. (Mostly implemented/working; needs debugging and tuning for timing issues).
+*   **Decoupled Sight Pipeline (Low-Hanging Fruit / Research Agent Target)**: VLM image analysis / WD14 tagger injected into text stream for primary LLM response. Mostly implemented; candidate to delegate to research subagent to debug timing issues.
 
 ### Proactivity System Enrichments
 *Reference: [project-proactivity-enrichment-roadmap.md](../../../../../project-proactivity-enrichment-roadmap.md)*
-*   **Clipboard Metadata Buffer**: Optional rolling buffer of last 5 clipboard events (mime-type, size, source app) for non-identifying user intent tracking.
-*   **Invisible Emotion Meters**: Track cumulative sentiments (Trust, Patience, Playfulness) across multiple sessions.
-*   **Physical Model Tracking**: Log click/mouse coordinates mapped directly to VRM bones or Live2D hit areas.
-*   **Media Now Playing**: Speech module hooks to verbally comment on currently playing media tracks.
-*   **Temporal & Day Tropes**: Character comments contextually matching days of the week ("Taco Tuesday").
+*   **Cognition Tab Synergy & Behavioral Enrichments**: Cross-reference with the new Cognition Tab system.
+    *   Clipboard Metadata Buffer (rolling buffer of last 5 clipboard events).
+    *   Invisible Emotion Meters (Trust, Patience, Playfulness).
+    *   Physical Model Tracking (click/mouse coordinates to VRM bones / Live2D hit areas).
+    *   Media Now Playing comments & Temporal/Day Tropes.
 
 ---
 
@@ -103,14 +83,14 @@ This document tracks all active pending items, architectural roadmaps, and featu
 
 ### Memory & Grounding RAG
 *References: [proposal-dynamic-memory-rag-injection.md](../../../../../proposal-dynamic-memory-rag-injection.md) | [nan0-integration-feedback.md](../../../../../nan0-integration-feedback.md) | [proposal-introspective-context-injection.md](../../../../../proposal-introspective-context-injection.md) | [proposal-tools-tab.md](../../../../../proposal-tools-tab.md)*
-*   **Toggle 2 — Timeline Memory (RAG)**: Implement semantic search limited strictly to the current active session ID.
-*   **Toggle 4 — Recent Topics Revisit**: Finish the decaying topic frequency map (Turn-Based, Segment-Based, and Wall-Clock decay strategies) utilizing Echo Chips, raw turns, and STMM blocks.
-*   **Actor & Relationship Schema Integration**: Enhance `layered-memory.ts` and memory repositories with native TypeScript actor properties (`actorId`, `targetActorId`, and `relationship`) for episodic vector indexing, bypassing the need for a Python/Chroma sidecar.
+*   **Toggle 2 — Session-Scoped Timeline Memory (RAG)**: Enforce semantic search limited strictly to the current active session ID (cross-session / cross-universe searching removed by design).
+*   **Toggle 4 — Recent Topics Revisit (Researcher Agent Candidate)**: Review/re-architect decaying topic frequency map (Turn-Based/Segment-Based/Wall-Clock decay strategies). Failed/suboptimal implementation flagged for researcher agent rework.
+*   **Actor & Relationship Schema Integration**: Enhance `layered-memory.ts` and memory repositories with native TypeScript actor properties (`actorId`, `targetActorId`, and `relationship`) for episodic vector indexing.
 
 
-### Live2D DSL Manifest Scripting Interpreter
+### Live2D DSL Manifest Scripting Interpreter [HIGH PRIORITY / High Reasoning Target]
 *Reference: [live2d-dsl-interpreter-spec.md](../../../../../live2d-dsl-interpreter-spec.md)*
-*   **DSL Virtual Machine**: Event-driven VM parsing custom metadata manifests (logic parameters, assignment codes, intimacy multipliers) for advanced third-party Live2D models.
+*   **DSL Virtual Machine**: Event-driven VM parsing custom metadata manifests (logic parameters, assignment codes, intimacy multipliers) for advanced third-party Live2D models. Marked as **HIGH PRIORITY** for high-reasoning agent implementation.
 *   **Active Staging & Dating Sim Development Branches**:
     *   `feature/dating-sim-demo`
     *   `feature/dating-sim-gen3`
@@ -124,58 +104,41 @@ This document tracks all active pending items, architectural roadmaps, and featu
 ### Audio Studio & Virtual Voice Bundling
 *Reference: [feat-audio-studio.md](../../../../../feat-audio-studio.md)*
 *   **Virtual Provider Abstraction**: Establish `virtual-audio-studio` to bundle base speech engines (Kokoro, Azure, OpenAI) with custom audio effects and UST settings into named, globally-referenceable voice profiles.
-*   **Xvan's Audio Effects**: Build modular high-fidelity post-processing transformations (Pitch Shifting, Rate/Speed adjustments, and Voice Equalizers) directly into the voice bundle engine (currently working perfectly).
-*   **[x] Advanced UST Rules Expansion**: Expand the per-profile Universal Speech Transformer (UST) settings to support advanced, non-regex rules (Option A Bracket Action Mapper) and custom character substitutions (Custom Replacement Rules) to prevent spelling-out glitches. (Completed)
-*   **Immersive User Profile Playback Routing**:
-    *   Support setting a 3D/2D display model representation in the Global User Profile.
-    *   Route user speech previews through `speechRuntimeStore.openIntent` (Option B) when a user model is active to trigger LipSync, animations, and stage captions, falling back to isolated audio playback (Option A) when no model is set.
+*   **Xvan's Audio Effects**: Build modular high-fidelity post-processing transformations (Pitch Shifting, Rate/Speed adjustments, and Voice Equalizers) directly into the voice bundle engine (working).
+*   **[x] Advanced UST Rules Expansion**: Expand per-profile UST settings to support advanced non-regex rules and custom character substitutions. (Completed)
+*   **Immersive User Profile Playback Routing**: Support setting 3D/2D display model representation in Global User Profile and route user speech previews through `speechRuntimeStore.openIntent`.
 
-### Higgs Audio v3 TTS Integration
+### Higgs Audio v3 TTS Integration [COMPLETED]
 *Reference: [proposal-higgs-audio-v3-tts-integration.md](../../../../../proposal-higgs-audio-v3-tts-integration.md)*
-*   **[x] Universal Speech Transformer (UST) bracket-to-token converter**: Add a toggle in Audio Studio profiles to convert square bracket directions (`[emotion:sadness]`) into Higgs-compatible XML/token format (`<|emotion:sadness|>`) before sending the text to the TTS engine. (Completed)
-*   **Expression Tag Buttons**: Populate emotions, styles, and sound effects as clickable speech tags in the Character Card Edit Modal using the chatterbox capabilities endpoint.
+*   **[x] UST Bracket-to-Token Converter**: Convert square bracket directions into Higgs XML/token format. (Completed)
+*   **[x] Expression Tag Buttons**: Populate emotions, styles, and sound effects as clickable speech tags in Character Card Edit Modal. (Completed)
 
 ### Future Modalities (Audio & Video)
 *Reference: [project-future-modalities-support.md](../../../../../project-future-modalities-support.md)*
-*   **Raw Audio Input**: Support native audio ingestion for LLMs that support raw audio modality (e.g. to capture melodies/tones via OpenRouter or Google Gemini).
-*   **STT Pre-Transcription Chooser**: Implement a choice dialog upon attaching audio to run local Whisper pre-transcription (STT Scribe) before sending.
-*   **Smart Video Frame Sampling**: Frontend Canvas/WebCodecs frame extraction allowing users to select sampling rates (e.g. 1 frame per X seconds).
-*   **Tiled Contact Sheets**: Combine extracted video frames into a single image to send visual context to standard vision models.
+*   **Raw Audio Input**: Support native audio ingestion for LLMs supporting raw audio modality (e.g. OpenRouter, Gemini).
+*   **STT Pre-Transcription Chooser**: Choice dialog upon attaching audio to run local Whisper pre-transcription before sending.
+*   **Smart Video Frame Sampling & Tiled Contact Sheets**: Frontend Canvas/WebCodecs frame extraction and contact sheet tile generation.
 
 ---
 
 ## Visual Manifestation & Stage Presentation
 
-### Director-Led Modular Visual Assets ("Production Studio")
+### Director-Led Modular Visual Assets ("Production Studio") [COMPLETED]
 *Reference: [proposal-visual-state-outfit-hook.md](../../../../../proposal-visual-state-outfit-hook.md)*
-*   **Manifestation Tab Expression Triggers**: Rescope visual state concept manifestation to support activating expressions mapped to emotions or motions via the ACT system.
-*   **ACTOR Token Model Spawning**: Ensure the ACTOR token spawns a new model defined by the `display-model-id`.
-*   **Preset Expression Configuration**: Map active manifestations to VRM blendshapes or Live2D parameters, binding the outfit to the visual state setting.
-*   **"Bases for Places" Concept Packs**: Preload location sets (bedroom, kitchen, etc.) as Base concepts to cleanly reset/wipe the active modifier stack on room changes, with actors and moods layered as Additive layers.
-*   **"Add Character as Concept" Creator**: Implement a QoL button to query active model, voice, and artistry parameters to dynamically output a decoupled `actor_{name}` concept.
-*   **Director Dynamic Mood/Expression Pipeline**: Introduce an emotional output field to the Director to emit 1 of 6 possible core emotions, dynamically mapping it to VRM blendshapes or Live2D parameters in a zero-awareness actor environment.
+*   **[x] Complete Production Studio Pipeline**: Manifestation expression triggers, ACTOR token model spawning, preset expression mapping, "Bases for Places" concept packs, "Add Character as Concept" creator, and Director 6-core emotion output pipeline. (Completed)
 
-### Dynamic Item Manifestation (TRELLIS)
+### Dynamic Item Manifestation & Prompt-to-Character (TRELLIS)
 *Reference: [proposal-trellis-dynamic-item-manifestation.md](../../../../../proposal-trellis-dynamic-item-manifestation.md)*
-*   **Actor Item Tool Calling**: Implement LLM tool calls for `create_stage_item`, `list_stage_items`, and `equip_stage_item` to allow characters to dynamically generate, catalog, and wear items.
-*   **ComfyUI TRELLIS 3D Pipeline**: Establish a ComfyUI websocket pipeline that processes natural language prompts via TRELLIS 3D generators, compiling the output as a `.glb` mesh stored in IndexedDB.
-*   **Skeletal Bone Socket Mounting**: Build a dynamic mesh injector that Normalizes and attaches the GLB mesh to humanoid skeletal bones (head, wrists, waist, ankles) across VRM, MMD, and Spine runtimes.
-
-
+*   **Actor Item Tool Calling & Prompt-to-Character Pipeline**: Implement LLM tool calls (`create_stage_item`, `list_stage_items`, `equip_stage_item`), ComfyUI TRELLIS 3D websocket pipeline (.glb mesh output), and skeletal bone socket mounting.
+*   **Prompt-to-Character Expansion Note**: Use TRELLIS/3D pipeline as the foundational base for generating fully rigged, auto-injected 3D characters directly from natural language prompts.
 
 ### Director-Led Regional Orchestration (Spatial Vision)
 *Reference: [proposal-director-led-regional-orchestration.md](../../../../../proposal-director-led-regional-orchestration.md)*
-*   **Director Spatial Upgrade**: Evolve the Director LLM from generating flat text prompts to functioning as a **Spatial Scene Architect** that layouts multi-panel/regional visual compositions.
-*   **AIRIRegionalResolver Node**: Build a custom ComfyUI node that parses layout JSON from the Director and executes CLIPTextEncode + ConditioningSetArea conditioning combining natively.
-*   **Ideogram 4 Spatial Integration**: Deeply integrate the Ideogram 4 JSON caption schema (spatial text rendering, bounding boxes, object vs text areas) as a native regional vision routing backend utilizing a normalized 0-1000 grid.
+*   **Director Spatial Upgrade**: Evolve Director LLM into Spatial Scene Architect, AIRIRegionalResolver custom ComfyUI node, Ideogram 4 spatial integration (0-1000 grid).
 
-### Unified Texture Editor (V-HACK / L-HACK)
-*Reference: [vhack-design-doc.md](../../../../../vhack-design-doc.md)*
-*   **Multi-Model Reskin Editor**: Build a unified texture editor in the Settings page allowing users to dynamically reskin their model and save the file back out. Supports:
-    *   VRM (3D)
-    *   Live2D (2D)
-    *   MMD / PMX
-    *   Spine
+### Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)
+*References: [vhack-design-doc.md](../../../../../vhack-design-doc.md) | [modelcustomizer-design.md](../../../../../modelcustomizer-design.md)*
+*   **Multi-Model Reskin & ModelCustomizer Extension**: ModelCustomizer unified model handling across VRM (3D), Live2D (2D), MMD/PMX, and Spine. The dynamic reskinning editor is the direct feature extension building on this unified model foundation.
 
 ### Sticker System Specification (Anchored Pseudo-Stickers)
 *Reference: [project-stickers-system-spec.md](../../../../../project-stickers-system-spec.md)*

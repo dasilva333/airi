@@ -142,6 +142,131 @@ async function decodeAudioToWaveform(arrayBuffer: ArrayBuffer, targetSampleRate 
   }
 }
 
+interface MossReferencePreprocessOptions {
+  silenceThresholdDb: number
+  paddingMs: number
+  fadeMs: number
+  targetPeakDb: number
+  minDurationMs: number
+  maxDurationMs: number
+}
+
+const MOSS_REFERENCE_PREPROCESS_DEFAULTS: MossReferencePreprocessOptions = {
+  silenceThresholdDb: -45,
+  paddingMs: 150,
+  fadeMs: 50,
+  targetPeakDb: -3,
+  minDurationMs: 1000,
+  maxDurationMs: 15000,
+}
+
+// NOTICE: preconditioned reference audio is the single biggest quality lever for
+// user voice cloning — raw uploads (silence padding, low/varying gain, long
+// duration) corrupt prompt embeddings. Built-in preset voices bypass this path
+// entirely (they ship pre-computed prompt_audio_codes), which is why only user
+// uploads benefit here.
+function preprocessMossReferenceWaveform(
+  waveform: Float32Array,
+  options?: Partial<MossReferencePreprocessOptions>,
+): Float32Array {
+  const opts = { ...MOSS_REFERENCE_PREPROCESS_DEFAULTS, ...options }
+  if (waveform.length === 0)
+    return waveform
+
+  const channels = 2
+  const frameCount = Math.floor(waveform.length / channels)
+  if (frameCount === 0)
+    return waveform
+
+  const assumedSampleRate = 16000 // MOSS reference path target
+  const frameMs = 25
+  const frameSize = Math.max(1, Math.round(assumedSampleRate * frameMs / 1000))
+  const fadeSamples = Math.max(1, Math.round(assumedSampleRate * opts.fadeMs / 1000))
+  const paddingFrames = Math.max(0, Math.round(opts.paddingMs / frameMs))
+  const minFrames = Math.max(1, Math.round(assumedSampleRate * opts.minDurationMs / 1000))
+  const maxFrames = Math.max(minFrames, Math.round(assumedSampleRate * opts.maxDurationMs / 1000))
+
+  const numFrames = Math.max(1, Math.floor(frameCount / frameSize))
+  const frameRmsDb = new Float32Array(numFrames)
+  for (let f = 0; f < numFrames; f++) {
+    const start = f * frameSize * channels
+    const end = Math.min(start + frameSize * channels, waveform.length)
+    let sumSquares = 0
+    let count = 0
+    for (let i = start; i < end; i++) {
+      const s = waveform[i]
+      sumSquares += s * s
+      count++
+    }
+    const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0
+    frameRmsDb[f] = rms > 0 ? 20 * Math.log10(rms) : -Infinity
+  }
+
+  let firstActive = 0
+  while (firstActive < numFrames && frameRmsDb[firstActive] < opts.silenceThresholdDb)
+    firstActive++
+  let lastActive = numFrames - 1
+  while (lastActive >= 0 && frameRmsDb[lastActive] < opts.silenceThresholdDb)
+    lastActive--
+
+  if (firstActive >= numFrames || lastActive < firstActive) {
+    // Entire clip below threshold: keep as-is but peak-normalize so a very
+    // quiet reference still conditions the encoder.
+    return peakNormalizeMossWaveform(waveform, opts.targetPeakDb)
+  }
+
+  let startFrame = Math.max(0, firstActive - paddingFrames)
+  let endFrame = Math.min(numFrames - 1, lastActive + paddingFrames)
+
+  const activeFrames = endFrame - startFrame + 1
+  if (activeFrames > maxFrames) {
+    endFrame = Math.min(numFrames - 1, startFrame + maxFrames - 1)
+  }
+  else if (activeFrames < minFrames) {
+    const deficit = minFrames - activeFrames
+    startFrame = Math.max(0, startFrame - Math.floor(deficit / 2))
+    endFrame = Math.min(numFrames - 1, startFrame + minFrames - 1)
+  }
+
+  const startSample = startFrame * frameSize * channels
+  const endSample = Math.min(waveform.length, (endFrame + 1) * frameSize * channels)
+  const out = waveform.slice(startSample, endSample)
+
+  applyMossEdgeFade(out, fadeSamples * channels)
+  return peakNormalizeMossWaveform(out, opts.targetPeakDb)
+}
+
+function peakNormalizeMossWaveform(waveform: Float32Array, targetPeakDb: number): Float32Array {
+  let peak = 0
+  for (let i = 0; i < waveform.length; i++) {
+    const a = Math.abs(waveform[i])
+    if (a > peak)
+      peak = a
+  }
+  if (peak <= 0)
+    return waveform
+
+  const targetPeak = 10 ** (targetPeakDb / 20)
+  const gain = targetPeak / peak
+  if (gain >= 0.98 && gain <= 1.02)
+    return waveform
+
+  const out = new Float32Array(waveform.length)
+  for (let i = 0; i < waveform.length; i++)
+    out[i] = Math.max(-1, Math.min(1, waveform[i] * gain))
+  return out
+}
+
+function applyMossEdgeFade(waveform: Float32Array, fadeSamples: number): void {
+  const fadeCount = Math.min(fadeSamples, Math.floor(waveform.length / 2))
+  for (let i = 0; i < fadeCount; i++) {
+    const gainIn = i / fadeCount
+    const gainOut = 1 - gainIn
+    waveform[i] *= gainIn
+    waveform[waveform.length - 1 - i] *= gainOut
+  }
+}
+
 export const useProvidersStore = defineStore('providers', () => {
   const providerCredentials = useLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {})
   const addedProviders = useLocalStorage<Record<string, boolean>>('settings/providers/added', {})
@@ -493,8 +618,9 @@ export const useProvidersStore = defineStore('providers', () => {
                     console.log('[MOSS Provider] voiceId:', voiceId, 'Found Blob:', !!audioBlob)
                     if (audioBlob) {
                       const buffer = await audioBlob.arrayBuffer()
-                      promptAudioWaveform = await decodeAudioToWaveform(buffer)
-                      console.log('[MOSS Provider] Decoded waveform length:', promptAudioWaveform?.length)
+                      const rawWaveform = await decodeAudioToWaveform(buffer)
+                      promptAudioWaveform = preprocessMossReferenceWaveform(rawWaveform)
+                      console.log('[MOSS Provider] Decoded waveform length:', rawWaveform?.length, 'preprocessed:', promptAudioWaveform?.length)
                     }
                   }
 
