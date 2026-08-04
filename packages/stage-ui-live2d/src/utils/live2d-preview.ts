@@ -12,9 +12,9 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
   Live2DModel.registerTicker(Ticker)
   extensions.add(TickerPlugin)
 
-  const previewWidth = 1440
-  const previewHeight = 2560
-  const previewResolution = 2
+  const previewWidth = 512
+  const previewHeight = 768
+  const previewResolution = 1
 
   const offscreenCanvas = document.createElement('canvas')
   offscreenCanvas.width = previewWidth * previewResolution
@@ -89,7 +89,7 @@ export async function loadLive2DModelPreview(input: File | string, parameters?: 
     const paddingCanvasCtx = paddingCanvas.getContext('2d')!
 
     paddingCanvasCtx.drawImage(croppedCanvas, (paddingCanvas.width - croppedCanvas.width) / 2, (paddingCanvas.height - croppedCanvas.height) / 2, croppedCanvas.width, croppedCanvas.height)
-    const paddingDataUrl = paddingCanvas.toDataURL()
+    const paddingDataUrl = paddingCanvas.toDataURL('image/webp', 0.85)
 
     cleanup()
 

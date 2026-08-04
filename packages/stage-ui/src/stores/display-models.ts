@@ -194,6 +194,88 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   })
 
+  async function compressPreviewDataUrl(dataUrl?: string, maxDim = 768, quality = 0.85): Promise<string | undefined> {
+    if (!dataUrl || !dataUrl.startsWith('data:image/') || dataUrl.length < 50000) {
+      return dataUrl
+    }
+
+    if (typeof window === 'undefined' || typeof Image === 'undefined') {
+      return dataUrl
+    }
+
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.src = dataUrl
+      img.onload = () => {
+        try {
+          let width = img.naturalWidth || img.width
+          let height = img.naturalHeight || img.height
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width)
+              width = maxDim
+            }
+            else {
+              width = Math.round((width * maxDim) / height)
+              height = maxDim
+            }
+          }
+
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            resolve(dataUrl)
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/webp', quality))
+        }
+        catch {
+          resolve(dataUrl)
+        }
+      }
+      img.onerror = () => resolve(dataUrl)
+    })
+  }
+
+  async function syncMetadataCacheFromMemory() {
+    try {
+      const rawModels = toRaw(displayModels.value)
+      const metaList = await Promise.all(rawModels
+        .filter(m => m.id.startsWith('display-model-'))
+        .map(async (m) => {
+          const rawM = toRaw(m)
+          const compressedPreview = await compressPreviewDataUrl(rawM.previewImage)
+          return {
+            id: rawM.id,
+            format: rawM.format,
+            type: 'file' as const,
+            file: undefined,
+            name: rawM.name,
+            importedAt: rawM.importedAt || Date.now(),
+            previewImage: compressedPreview,
+            nsfw: rawM.nsfw,
+            groups: rawM.groups,
+            tags: rawM.tags,
+            expressions: rawM.expressions,
+            motions: rawM.motions,
+            emotionMappings: rawM.emotionMappings,
+            motionMappings: rawM.motionMappings,
+            hiddenExpressions: rawM.hiddenExpressions,
+            hiddenMotions: rawM.hiddenMotions,
+            favoriteExpressions: rawM.favoriteExpressions,
+          }
+        }))
+      await storage.setItemRaw('local:display-models/metadata-cache', toRaw(metaList))
+    }
+    catch (e) {
+      console.error('[DisplayModels] Failed to sync metadata cache:', e)
+    }
+  }
+
   async function loadDisplayModelsFromIndexedDB(silent = false) {
     const startTime = performance.now()
     console.log('[DisplayModels:IDBScan] Starting loadDisplayModelsFromIndexedDB...', { silent })
@@ -206,37 +288,80 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     try {
       const keys = await localforage.keys()
       const modelKeys = keys.filter(key => key.startsWith('display-model-') && !key.endsWith('-textures'))
-      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage. Loading catalog...`)
+      console.log(`[DisplayModels:IDBScan] Found ${modelKeys.length} user model keys in localforage. Checking metadata cache...`)
 
-      for (const key of modelKeys) {
-        const val = await localforage.getItem<any>(key)
-
-        if (val) {
-          const modelName = val.name || val.file?.name || key
-          const modelTags = Array.isArray(val.tags) ? val.tags.join(' ') : ''
-          const modelGroups = Array.isArray(val.groups) ? val.groups.join(' ') : ''
-
-          models.push({
-            id: key,
-            format: val.format,
-            type: 'file',
-            file: undefined,
-            name: modelName,
-            importedAt: val.importedAt || Date.now(),
-            previewImage: val.previewImage,
-            nsfw: val.nsfw,
-            groups: val.groups,
-            tags: val.tags,
-            expressions: val.expressions,
-            motions: val.motions,
-            emotionMappings: val.emotionMappings,
-            motionMappings: val.motionMappings,
-            hiddenExpressions: val.hiddenExpressions,
-            hiddenMotions: val.hiddenMotions,
-            favoriteExpressions: val.favoriteExpressions,
-            _searchKey: `${modelName} ${modelTags} ${modelGroups}`.toLowerCase(),
-          })
+      let cachedMetadata: any[] = []
+      try {
+        const rawCache = await storage.getItemRaw<any[]>('local:display-models/metadata-cache')
+        if (Array.isArray(rawCache)) {
+          cachedMetadata = rawCache
         }
+      }
+      catch (e) {
+        console.warn('[DisplayModels:IDBScan] Could not read metadata cache from storage:', e)
+      }
+
+      const cachedKeySet = new Set(cachedMetadata.map((m: any) => m.id))
+      const isCacheValid = modelKeys.length === cachedMetadata.length && modelKeys.every(k => cachedKeySet.has(k))
+
+      if (isCacheValid && cachedMetadata.length > 0) {
+        console.log(`[DisplayModels:IDBScan] Metadata cache HIT! Serving ${cachedMetadata.length} user models in < 1ms.`)
+        cachedMetadata.forEach((m: any) => {
+          models.push({
+            ...m,
+            _searchKey: `${m.name || ''} ${Array.isArray(m.tags) ? m.tags.join(' ') : ''} ${Array.isArray(m.groups) ? m.groups.join(' ') : ''}`.toLowerCase(),
+          })
+        })
+      }
+      else {
+        console.log(`[DisplayModels:IDBScan] Metadata cache MISS/Diff detected. Syncing catalog items...`)
+        const updatedCache: any[] = []
+        for (const key of modelKeys) {
+          const existing = cachedMetadata.find((m: any) => m.id === key)
+          if (existing) {
+            updatedCache.push(existing)
+            models.push({
+              ...existing,
+              _searchKey: `${existing.name || ''} ${Array.isArray(existing.tags) ? existing.tags.join(' ') : ''} ${Array.isArray(existing.groups) ? existing.groups.join(' ') : ''}`.toLowerCase(),
+            })
+          }
+          else {
+            console.log(`[DisplayModels:IDBScan] Fetching new model key "${key}" from IDB...`)
+            const val = await localforage.getItem<any>(key)
+            if (val) {
+              const modelName = val.name || val.file?.name || key
+              const compressedPreview = await compressPreviewDataUrl(val.previewImage)
+              const itemMeta: DisplayModelFile = {
+                id: key,
+                format: val.format,
+                type: 'file',
+                file: undefined,
+                name: modelName,
+                importedAt: val.importedAt || Date.now(),
+                previewImage: compressedPreview,
+                nsfw: val.nsfw,
+                groups: val.groups,
+                tags: val.tags,
+                expressions: val.expressions,
+                motions: val.motions,
+                emotionMappings: val.emotionMappings,
+                motionMappings: val.motionMappings,
+                hiddenExpressions: val.hiddenExpressions,
+                hiddenMotions: val.hiddenMotions,
+                favoriteExpressions: val.favoriteExpressions,
+              }
+              updatedCache.push(itemMeta)
+              models.push({
+                ...itemMeta,
+                _searchKey: `${modelName} ${Array.isArray(val.tags) ? val.tags.join(' ') : ''} ${Array.isArray(val.groups) ? val.groups.join(' ') : ''}`.toLowerCase(),
+              })
+            }
+          }
+        }
+
+        void storage.setItemRaw('local:display-models/metadata-cache', toRaw(updatedCache)).catch((err) => {
+          console.error('[DisplayModels:IDBScan] Failed to update metadata cache in storage:', err)
+        })
       }
     }
     catch (err) {
@@ -244,6 +369,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
 
     displayModels.value = models.sort((a, b) => b.importedAt - a.importedAt)
+    void syncMetadataCacheFromMemory()
     if (!silent)
       displayModelsFromIndexedDBLoading.value = false
     debug(`[DisplayModels:IDBScan] loadDisplayModelsFromIndexedDB finished in ${(performance.now() - startTime).toFixed(2)} ms. Total models loaded into store: ${displayModels.value.length}`)
@@ -1011,6 +1137,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelName] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
+      void syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1052,6 +1179,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelMeta] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
+      void syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1083,6 +1211,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelTags] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
+      void syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1147,6 +1276,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         cleanModel,
       })
       await localforage.setItem(id, cleanModel)
+      void syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1158,6 +1288,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Track deletion for sync propagation
     await storage.setItemRaw(`local:sync-metadata/deleted-models/${id}`, true)
     displayModels.value = displayModels.value.filter(model => model.id !== id)
+    void syncMetadataCacheFromMemory()
     broadcastModelsSync(Date.now())
   }
 

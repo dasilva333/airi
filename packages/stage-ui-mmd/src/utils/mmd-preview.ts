@@ -39,8 +39,8 @@ function disposeObject(root: Object3D) {
  */
 export async function loadMMDModelPreview(file: File, textureFiles?: { relativePath: string, file: File }[]): Promise<string | undefined> {
   const canvas = document.createElement('canvas')
-  canvas.width = 1440
-  canvas.height = 2560
+  canvas.width = 512
+  canvas.height = 768
 
   const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
   renderer.outputColorSpace = SRGBColorSpace
@@ -102,7 +102,7 @@ export async function loadMMDModelPreview(file: File, textureFiles?: { relativeP
     camera.updateProjectionMatrix()
 
     renderer.render(scene, camera)
-    return canvas.toDataURL()
+    return canvas.toDataURL('image/webp', 0.85)
   }
   finally {
     if (group)
