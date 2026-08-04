@@ -216,6 +216,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   <template v-if="stageModelRenderer === 'live2d'">
     <div :class="[...(props.live2dSceneClass ? (typeof props.live2dSceneClass === 'string' ? [props.live2dSceneClass] : props.live2dSceneClass) : [])]">
       <Live2DScene
+        :paused="modelSelectorOpen"
         :focus-at="{ x: positionCursor.x.value, y: positionCursor.y.value }"
         :model-src="stageModelSelectedUrl"
         :model-id="stageModelSelected"
@@ -242,6 +243,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
     <div :class="[...(props.vrmSceneClass ? (typeof props.vrmSceneClass === 'string' ? [props.vrmSceneClass] : props.vrmSceneClass) : [])]">
       <ThreeScene
         ref="threeSceneRef"
+        :paused="modelSelectorOpen"
         :model-src="stageModelSelectedUrl"
         :model-identity="stageModelSelected"
         :idle-animations="resolvedIdleAnimations"
@@ -253,6 +255,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   <template v-if="stageModelRenderer === 'spine'">
     <div :class="[...(props.live2dSceneClass ? (typeof props.live2dSceneClass === 'string' ? [props.live2dSceneClass] : props.live2dSceneClass) : [])]">
       <SpineScene
+        :paused="modelSelectorOpen"
         :model-src="stageModelSelectedUrl"
         :model-id="stageModelSelected"
         :x-offset="computedXOffset"
@@ -267,6 +270,7 @@ function handleOffsetChange(offset: { x: number, y: number }) {
   <template v-if="stageModelRenderer === 'mmd'">
     <div :class="[...(props.vrmSceneClass ? (typeof props.vrmSceneClass === 'string' ? [props.vrmSceneClass] : props.vrmSceneClass) : [])]">
       <MMDScene
+        :paused="modelSelectorOpen"
         :model-src="stageModelSelectedUrl"
         :texture-map="settingsStore.mmdTextureMap"
         :scale="computedScale"

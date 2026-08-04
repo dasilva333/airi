@@ -17,7 +17,6 @@ import { toast } from 'vue-sonner'
 
 import { storage } from '../database/storage'
 import { convertSpineSkeleton } from '../utils/spine-converter/converter'
-import { useSyncEngineStore } from './sync-engine'
 
 import '@proj-airi/stage-ui-live2d/utils/live2d-zip-loader'
 import '@proj-airi/stage-ui-live2d/utils/live2d-opfs-registration'
@@ -69,7 +68,7 @@ export interface DisplayModelFile {
   id: string
   format: DisplayModelFormat
   type: 'file'
-  file: File
+  file?: File
   name: string
   previewImage?: string
   importedAt: number
@@ -213,70 +212,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         const val = await localforage.getItem<any>(key)
 
         if (val) {
-          if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            console.log(`[DisplayModels:IDBScan] Attempting re-wrap for degraded file property on key "${key}"...`)
-            const rewrapped = tryRewrapModelFile(val.file, val.name || `${key}.bin`)
-            if (rewrapped) {
-              val.file = rewrapped
-              console.log(`[DisplayModels:IDBScan] Re-wrap successful for key "${key}":`, { file: val.file, isFile: val.file instanceof File })
-            }
-            else if (val.file) {
-              console.warn(`[DisplayModels:IDBScan] Could not re-wrap file property for key "${key}":`, val.file)
-            }
-          }
-
-          if (!val.file || typeof val.file.arrayBuffer !== 'function') {
-            console.warn(`[DisplayModels:IDBScan] Model "${key}" is still missing valid File instance! Attempting BYOS self-healing...`)
-            const electron = (window as any).electron
-            if (electron?.ipcRenderer) {
-              try {
-                const syncEngineStore = useSyncEngineStore()
-                const backupDir = syncEngineStore.fsBackupPath
-                  ? `${syncEngineStore.fsBackupPath.replace(/[/\\]+$/, '')}/assets/models`
-                  : ''
-
-                if (!backupDir) {
-                  console.warn(`[DisplayModels:IDBScan] No BYOS backup path configured. Cannot self-heal "${key}".`)
-                }
-                else {
-                  const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 3000))
-                  const ipcPromise = electron.ipcRenderer.invoke('byos-fs:read-file', {
-                    dir: backupDir,
-                    relPath: `${key}.bin`,
-                    encoding: 'base64',
-                  })
-                  const res = await Promise.race([ipcPromise, timeoutPromise])
-
-                  if (res === null) {
-                    console.warn(`[DisplayModels:IDBScan] Self-healing for "${key}" timed out after 3 seconds.`)
-                  }
-                  else if (res?.success && res.content) {
-                    const byteCharacters = atob(res.content)
-                    const byteNumbers = new Uint8Array(byteCharacters.length)
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                      byteNumbers[i] = byteCharacters.charCodeAt(i)
-                    }
-                    const restoredFile = new File([byteNumbers], val.name || `${key}.bin`, { type: 'application/octet-stream' })
-                    val.file = restoredFile
-
-                    await localforage.setItem(key, toRaw(val))
-                    console.log(`[DisplayModels:IDBScan] Successfully self-healed and restored model: ${val.name || key}`)
-                  }
-                  else {
-                    console.error(`[DisplayModels:IDBScan] Self-healing failed for "${key}": backup file not found or unreadable. Keeping local record.`, res?.error)
-                  }
-                }
-              }
-              catch (healErr) {
-                console.error(`[DisplayModels:IDBScan] Self-healing error for "${key}":`, healErr)
-              }
-            }
-            else {
-              console.warn(`[DisplayModels:IDBScan] Electron IPC not available. Cannot self-heal "${key}".`)
-            }
-          }
-
-          const modelName = val.file?.name || val.name || key
+          const modelName = val.name || val.file?.name || key
           const modelTags = Array.isArray(val.tags) ? val.tags.join(' ') : ''
           const modelGroups = Array.isArray(val.groups) ? val.groups.join(' ') : ''
 
@@ -284,7 +220,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             id: key,
             format: val.format,
             type: 'file',
-            file: val.file,
+            file: undefined,
             name: modelName,
             importedAt: val.importedAt || Date.now(),
             previewImage: val.previewImage,
@@ -319,9 +255,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     console.log(`[DisplayModels:getDisplayModel] Called for ID "${id}". Loading flag: ${displayModelsFromIndexedDBLoading.value}`)
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
-    // Check in-memory catalog first
+    // Check in-memory catalog first (only if the full File object is already attached)
     const inMemoryModel = displayModels.value.find(m => m.id === id)
-    if (inMemoryModel && inMemoryModel.type === 'file') {
+    if (inMemoryModel && inMemoryModel.type === 'file' && (inMemoryModel as DisplayModelFile).file) {
       console.log(`[DisplayModels:getDisplayModel] In-memory store hit for "${id}":`, inMemoryModel)
       return inMemoryModel as DisplayModelFile
     }

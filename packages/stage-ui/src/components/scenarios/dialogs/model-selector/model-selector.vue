@@ -485,9 +485,10 @@ function handlePick(m: DisplayModel) {
 
 const remotePreviews = ref<Record<string, string>>({})
 const loadingPreviews = ref<Record<string, boolean>>({})
+const failedPreviews = ref<Record<string, boolean>>({})
 
 async function loadRemotePreview(id: string) {
-  if (remotePreviews.value[id] || loadingPreviews.value[id])
+  if (remotePreviews.value[id] || loadingPreviews.value[id] || failedPreviews.value[id])
     return
   loadingPreviews.value[id] = true
   try {
@@ -495,9 +496,13 @@ async function loadRemotePreview(id: string) {
     if (readRes.success && readRes.content) {
       remotePreviews.value[id] = `data:image/png;base64,${readRes.content}`
     }
+    else {
+      failedPreviews.value[id] = true
+    }
   }
   catch (e) {
     console.warn('[ModelSelector] Failed to load remote preview:', id, e)
+    failedPreviews.value[id] = true
   }
   finally {
     loadingPreviews.value[id] = false
@@ -509,6 +514,8 @@ function getPreviewSrc(model: any) {
     return model.previewImage
   if (remotePreviews.value[model.id])
     return remotePreviews.value[model.id]
+  if (failedPreviews.value[model.id])
+    return undefined
   if (model.type === 'cloud' && model.hasPreview) {
     void loadRemotePreview(model.id)
   }
