@@ -1,0 +1,22 @@
+{
+  "name": "@proj-airi/stage-edge",
+  "type": "module",
+  "version": "0.9.0-alpha.15",
+  "private": true,
+  "description": "Standalone Edge Relay & Cloudflare Worker for AIRI 24/7 Discord & BYOS Sync",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "wrangler dev",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@proj-airi/i18n": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250204.0",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.7.3",
+    "vue-tsc": "^2.2.8",
+    "wrangler": "^3.107.2"
+  }
+}

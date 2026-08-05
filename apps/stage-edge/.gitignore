@@ -1,0 +1,5 @@
+wrangler.json
+wrangler.toml
+dist/
+.cache/
+node_modules/
