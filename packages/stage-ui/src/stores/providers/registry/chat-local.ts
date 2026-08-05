@@ -126,6 +126,7 @@ export const chatLocalMetadata: Record<string, ProviderMetadata> = {
     descriptionKey: 'settings.pages.providers.provider.player2.description',
     description: 'player2.game',
     icon: 'i-lobe-icons:player2',
+    requiresCredentials: false,
     defaultOptions: () => ({
       baseUrl: 'http://localhost:4315/v1/',
     }),

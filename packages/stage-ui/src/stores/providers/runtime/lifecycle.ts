@@ -1,9 +1,7 @@
 import type { Ref } from 'vue'
-import type { ComposerTranslation } from 'vue-i18n'
 
-import type { ModelInfo, ProviderMetadata, ProviderRuntimeState } from '../types'
+import type { ProviderMetadata, ProviderRuntimeState } from '../types'
 
-import { debounce } from 'es-toolkit'
 import { ref, watch } from 'vue'
 
 export interface ProviderLifecycleDeps {
@@ -11,57 +9,41 @@ export interface ProviderLifecycleDeps {
   addedProviders: Ref<Record<string, boolean>>
   providerRuntimeState: Ref<Record<string, ProviderRuntimeState>>
   providerMetadata: Record<string, ProviderMetadata>
-  t: ComposerTranslation
-  getDefaultProviderConfig: (providerId: string) => Record<string, unknown>
-  isProviderConfigured: (providerId: string) => boolean
-  validateProvider: (providerId: string, options?: { force?: boolean }) => Promise<boolean>
-  fetchModelsForProvider: (providerId: string) => Promise<ModelInfo[]>
   disposeProviderInstance: (providerId: string) => Promise<void>
 }
 
 /**
  * Provider lifecycle runtime.
  *
- * Owns the two Pinia `watch()` side-effects (which must be created inside
- * the store's setup scope) plus the bootstrap kick-offs (`initializeProvider`
- * loop + initial `updateConfigurationStatus()`), the debounced bulk
- * revalidation, and the credential-hash cache that powers the
- * dispose+refetch watcher. All state refs are injected singletons owned by
- * `providers.ts` — nothing here creates new reactive state.
+ * Phase 3 removes the background polling loop (`updateConfigurationStatus`)
+ * and the silent startup network validation it drove. Provider availability
+ * is now **static and catalog-driven** (see `registry/` and
+ * `selectors/config.ts#isProviderConfigured`) and runtime validation only
+ * runs from explicit user actions (`validateProvider(..., { force: true })`).
+ *
+ * This module retains only:
+ * - the reactive seed-row initializer (`initializeProvider`)
+ * - explicit reset / delete / force-configured helpers
+ * - the credential-change watcher that disposes cached provider instances so
+ *   stale instances never pick up the wrong API key
+ *
+ * All state refs are injected singletons owned by `providers.ts`.
  */
 export function createProviderLifecycle(deps: ProviderLifecycleDeps) {
   const {
     providerCredentials,
     addedProviders,
     providerRuntimeState,
-    providerMetadata,
-    isProviderConfigured,
-    validateProvider,
   } = deps
 
-  // Update configuration status for all configured providers
-  const updateConfigurationStatus = debounce(async () => {
-    await Promise.all(Object.entries(providerMetadata)
-      .filter(([providerId]) => isProviderConfigured(providerId))
-      .map(async ([providerId]) => {
-        try {
-          if (providerRuntimeState.value[providerId]) {
-            const isValid = await validateProvider(providerId)
-            providerRuntimeState.value[providerId].isConfigured = isValid
-          }
-        }
-        catch {
-          if (providerRuntimeState.value[providerId]) {
-            providerRuntimeState.value[providerId].isConfigured = false
-          }
-        }
-      }))
-  }, 250)
+  // ----------------------------------------------------------------------------------
+  // Public state management
+  // ----------------------------------------------------------------------------------
 
-  // Initialize provider configurations
+  // Initialize provider configurations (only used for bookkeeping)
   function initializeProvider(providerId: string) {
     if (!providerCredentials.value[providerId]) {
-      providerCredentials.value[providerId] = deps.getDefaultProviderConfig(providerId)
+      providerCredentials.value[providerId] = {}
     }
     if (!providerRuntimeState.value[providerId]) {
       providerRuntimeState.value[providerId] = {
@@ -98,16 +80,22 @@ export function createProviderLifecycle(deps: ProviderLifecycleDeps) {
     providerCredentials.value = {}
     addedProviders.value = {}
     providerRuntimeState.value = {}
-
-    Object.keys(providerMetadata).forEach(initializeProvider)
-    await updateConfigurationStatus()
   }
+
+  // ----------------------------------------------------------------------------------
+  // Credential cache → instance disposal watcher
+  // ----------------------------------------------------------------------------------
 
   const previousCredentialHashes = ref<Record<string, string>>({})
 
   /**
    * Watch for credential changes and dispose the affected provider instance
-   * so the new credentials take effect, then refetch models.
+   * so the new credentials take effect on the next `getProviderInstance()`.
+   *
+   * NOTICE: this watcher deliberately does **not** auto-refetch models. Model
+   * listing is lazy — `fetchModelsForProvider` runs only when a settings page
+   * or inference call explicitly requests it (see
+   * `runtime/models.ts#fetchModelsForProvider`).
    */
   function registerCredentialWatch() {
     return watch(providerCredentials, (newCreds) => {
@@ -127,17 +115,11 @@ export function createProviderLifecycle(deps: ProviderLifecycleDeps) {
       for (const providerId of changedProviders) {
         // Since credentials changed, dispose the cached instance so new creds take effect.
         void deps.disposeProviderInstance(providerId)
-
-        // If the provider is configured and has the capability, refetch its models
-        if (providerRuntimeState.value[providerId]?.isConfigured && providerMetadata[providerId]?.capabilities.listModels) {
-          deps.fetchModelsForProvider(providerId)
-        }
       }
     }, { deep: true, immediate: true })
   }
 
   return {
-    updateConfigurationStatus,
     initializeProvider,
     deleteProvider,
     forceProviderConfigured,

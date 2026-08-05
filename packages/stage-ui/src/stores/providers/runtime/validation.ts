@@ -34,7 +34,6 @@ export function createProviderValidation(deps: ProviderValidationDeps) {
     t,
     getDefaultProviderConfig,
     isProviderConfigured,
-    markProviderAdded,
   } = deps
 
   // Configuration validation functions
@@ -123,13 +122,6 @@ export function createProviderValidation(deps: ProviderValidationDeps) {
       if (providerRuntimeState.value[providerId]) {
         providerRuntimeState.value[providerId].isConfigured = validationResult.valid
         providerRuntimeState.value[providerId].validatedCredentialHash = configString
-        // Auto-mark credential-free local providers as added once valid, so they
-        // surface in the "persisted" provider lists (e.g. the consciousness page,
-        // which only lists added chat providers) without a manual add step. These
-        // have no API key to enter, so there is nothing for the user to configure.
-        if (validationResult.valid && ['browser-web-speech-api', 'player2', 'web-rwkv', 'blip-local', 'app-local-audio-transcription'].includes(providerId)) {
-          markProviderAdded(providerId)
-        }
       }
 
       return validationResult.valid

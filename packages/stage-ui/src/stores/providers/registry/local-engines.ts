@@ -25,6 +25,9 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
     descriptionKey: 'settings.pages.providers.provider.web-rwkv.description',
     description: 'Local RWKV-7 language model running in your browser via WebGPU.',
     icon: 'i-solar:cpu-bolt-bold-duotone',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
     // Local in-browser model — no API key.
     requiresCredentials: false,
     // WebGPU-only: web-rwkv has no WASM/CPU backend, so hide it where WebGPU
@@ -77,6 +80,9 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
     descriptionKey: 'settings.pages.providers.provider.blip-local.description',
     description: 'On-device vision tagging (WD14 Tagger / BLIP) running in browser via WebGPU.',
     icon: 'i-solar:eye-scan-bold-duotone',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
     requiresCredentials: false,
     isAvailableBy: () => isWebGPUSupported(),
     defaultOptions: () => ({

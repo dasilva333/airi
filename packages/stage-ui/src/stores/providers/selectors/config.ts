@@ -50,24 +50,29 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
   }
 
   function isProviderConfigured(providerId: string) {
-    if (providerId === 'virtual-audio-studio' || providerId === 'speech-noop' || providerId === 'kokoro-local' || providerId === 'moss-nano-local')
+    // Category visibility is catalog-driven (registry) — never gated by
+    // background validation. The remaining question here is whether a given
+    // provider has sufficient persisted configuration to be considered
+    // "configured" for runtime purposes.
+    const metadata = state.providerMetadata[providerId]
+    if (!metadata)
+      return false
+
+    // Providers that require no credentials are always configured.
+    if (metadata.requiresCredentials === false)
       return true
 
     const config = state.providerCredentials.value[providerId]
     if (!config)
       return false
 
-    const metadata = state.providerMetadata[providerId]
-    if (!metadata)
-      return false
-
-    const configObj = config as Record<string, any>
-    const hasKey = !!configObj.apiKey?.trim()
-    const hasAwsKey = !!configObj.accessKeyId?.trim() && !!configObj.secretAccessKey?.trim()
-    const defaultUrl = (metadata.defaultOptions?.() as any)?.baseUrl || ''
-    const hasCustomUrl = !!configObj.baseUrl?.trim() && configObj.baseUrl !== defaultUrl
-
-    return hasKey || hasAwsKey || hasCustomUrl || !!state.addedProviders.value[providerId]
+    // Generic structured check: at least one persisted option differs from
+    // the provider's defaults. This replaces the legacy hard-coded
+    // apiKey/accessKeyId/baseUrl string matching with a uniform predicate —
+    // provider metadata may override this in a later phase with a custom
+    // `isConfigured(options)` hook.
+    const defaultOptions = metadata.defaultOptions?.() || {}
+    return JSON.stringify(config) !== JSON.stringify(defaultOptions)
   }
 
   function shouldListProvider(providerId: string) {

@@ -11,7 +11,7 @@ import type {
 
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { createProviderRegistry } from './providers/registry'
@@ -109,7 +109,6 @@ export const useProvidersStore = defineStore('providers', () => {
   })
 
   const {
-    updateConfigurationStatus,
     initializeProvider,
     deleteProvider,
     forceProviderConfigured,
@@ -120,25 +119,11 @@ export const useProvidersStore = defineStore('providers', () => {
     addedProviders,
     providerRuntimeState,
     providerMetadata,
-    t,
-    getDefaultProviderConfig,
-    isProviderConfigured,
-    validateProvider,
-    fetchModelsForProvider,
     disposeProviderInstance,
   })
 
-  // Call initially and watch for changes
-  watch(providerCredentials, updateConfigurationStatus, { deep: true, immediate: false })
-
   // Watch for credential changes and refetch models accordingly
   registerCredentialWatch()
-
-  // Initialize all providers
-  Object.keys(providerMetadata).forEach(initializeProvider)
-
-  // Initial validation run
-  void updateConfigurationStatus()
 
   const isLoadingModels = computed(() => {
     const result: Record<string, boolean> = {}

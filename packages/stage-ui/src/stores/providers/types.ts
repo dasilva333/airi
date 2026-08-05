@@ -139,6 +139,24 @@ export interface ProviderRuntimeState {
 
 export type BracketAction = 'mute' | 'flatten' | 'ignore' | 'token'
 
+export interface ProviderInstanceConfig {
+  /** Globally unique storage key: `${providerId}:${id}`. */
+  instanceId: string
+  /**
+   * Per-provider suffix (the part after `${providerId}:`). '*' denotes the
+   *  implicit primary instance for backward compatibility.
+   */
+  id: string
+  /** Parent provider template id (e.g. "ollama", "openai"). */
+  providerId: string
+  /** Display label for this instance. */
+  label: string
+  /** Persisted per-instance options (apiKey, baseUrl, etc.). */
+  options: Record<string, unknown>
+  /** Whether this instance is the primary active instance for its provider. */
+  isPrimary?: boolean
+}
+
 export interface CustomReplacementRule {
   id: string
   type: 'text' | 'regex'

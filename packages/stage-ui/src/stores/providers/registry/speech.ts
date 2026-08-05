@@ -54,6 +54,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       descriptionKey: 'settings.pages.providers.provider.speech-noop.description',
       description: 'No speech output.',
       icon: 'i-solar:volume-cross-bold-duotone',
+      requiresCredentials: false,
       defaultOptions: () => ({}),
       createProvider: async () => ({
         speech: () => ({
@@ -82,6 +83,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       descriptionKey: 'settings.pages.providers.provider.virtual-audio-studio.description',
       description: 'Custom Virtual Voice Provider wrapping real Speech Engines with premium audio effects.',
       icon: 'i-solar:music-library-bold-duotone',
+      requiresCredentials: false,
       defaultOptions: () => ({}),
       createProvider: async () => ({
         speech: () => ({
@@ -131,6 +133,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       descriptionKey: 'settings.pages.providers.provider.kokoro-local.description',
       description: 'Native AI - Local text-to-speech using Kokoro-82M',
       icon: 'i-lobe-icons:speaker',
+      requiresCredentials: false,
 
       defaultOptions: () => {
         const model = getDefaultKokoroModel(getCachedWebGPUCapabilities())

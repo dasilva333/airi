@@ -67,6 +67,7 @@ export const transcriptionMetadata = {
     description: 'Private & Secure - In-browser transcription via WebGPU',
     category: 'transcription',
     tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
+    requiresCredentials: false,
     isAvailableBy: isBrowserAndMemoryEnough,
     defaultOptions: () => ({}),
     createProvider: async () => ({
@@ -321,6 +322,7 @@ export const transcriptionMetadata = {
     descriptionKey: 'settings.pages.providers.provider.browser-web-speech-api.description',
     description: 'Browser-native dictation (OS-dependent)',
     icon: 'i-solar:microphone-bold-duotone',
+    requiresCredentials: false,
     defaultOptions: () => ({
       language: 'en-US',
       continuous: true,
