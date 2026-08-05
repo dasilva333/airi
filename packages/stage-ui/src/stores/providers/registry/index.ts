@@ -4,18 +4,28 @@ import type { ProviderMetadata } from '../types'
 
 import { listProviders as listDefinedProviders } from '../../../libs/providers'
 import { convertProviderDefinitionsToMetadata } from '../converters'
+import { localEngineMetadata } from './local-engines'
+import { createSpeechMetadata } from './speech'
+import { transcriptionMetadata } from './transcription'
 
 export function createProviderRegistry(
   t: ComposerTranslation,
   currentMetadata: Record<string, ProviderMetadata>,
 ): Record<string, ProviderMetadata> {
+  const mergedMetadata: Record<string, ProviderMetadata> = {
+    ...transcriptionMetadata,
+    ...createSpeechMetadata(t),
+    ...localEngineMetadata,
+    ...currentMetadata,
+  }
+
   const translatedProviderMetadata = convertProviderDefinitionsToMetadata(
     listDefinedProviders(),
     t,
-    currentMetadata,
+    mergedMetadata,
   )
 
-  const resolvedMetadata = { ...currentMetadata }
+  const resolvedMetadata = { ...mergedMetadata }
 
   for (const [providerId, existing] of Object.entries(resolvedMetadata)) {
     if (existing.category !== 'speech' && existing.category !== 'transcription' && providerId !== 'web-rwkv' && providerId !== 'blip-local') {
