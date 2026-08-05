@@ -4,17 +4,27 @@
   "version": "0.9.0-alpha.15",
   "private": true,
   "description": "Standalone Edge Relay & Cloudflare Worker for AIRI 24/7 Discord & BYOS Sync",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./deployer": "./dist/deployer/index.mjs"
+  },
+  "bin": {
+    "airi-edge": "./bin/airi-edge.js"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "wrangler dev",
+    "deploy": "tsx src/cli.ts deploy",
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@proj-airi/i18n": "workspace:*"
+    "@proj-airi/i18n": "workspace:*",
+    "cloudflare": "^4.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",
     "tsdown": "^0.20.3",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vue-tsc": "^2.2.8",
     "wrangler": "^3.107.2"
