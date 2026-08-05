@@ -4,6 +4,7 @@ import type { ProviderMetadata } from '../types'
 
 import { listProviders as listDefinedProviders } from '../../../libs/providers'
 import { convertProviderDefinitionsToMetadata } from '../converters'
+import { chatLocalMetadata } from './chat-local'
 import { localEngineMetadata } from './local-engines'
 import { createSpeechMetadata } from './speech'
 import { transcriptionMetadata } from './transcription'
@@ -16,6 +17,7 @@ export function createProviderRegistry(
     ...transcriptionMetadata,
     ...createSpeechMetadata(t),
     ...localEngineMetadata,
+    ...chatLocalMetadata,
     ...currentMetadata,
   }
 
