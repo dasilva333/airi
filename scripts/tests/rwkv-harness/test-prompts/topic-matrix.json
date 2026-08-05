@@ -1,0 +1,20 @@
+{
+  "testA_cooking_only": [
+    "User: Today I want to learn how to bake traditional Italian amaretto cookies.",
+    "Assistant: Amaretto cookies are wonderful! You will need almond flour, sugar, egg whites, and amaretto liqueur.",
+    "User: Should I beat the egg whites until stiff peaks form before folding in the almond flour?",
+    "Assistant: Yes, exactly! Whips the egg whites to stiff peaks so the cookies stay light and airy."
+  ],
+  "testB_rust_only": [
+    "User: I am getting a borrow checker error in Rust when trying to mutate a struct inside a closure.",
+    "Assistant: In Rust, closures capture variables by reference by default. You may need to use the `move` keyword or refactor to interior mutability.",
+    "User: Would wrapping the shared state in `Arc<Mutex<T>>` fix the lifetime issue across threads?",
+    "Assistant: Yes! `Arc<Mutex<T>>` provides thread-safe reference counting and interior mutability across async tasks."
+  ],
+  "testC_topic_shift": [
+    "User: What is the secret to making soft Italian biscotti cookies?",
+    "Assistant: The secret is double-baking them at 350°F and letting them cool slightly before slicing.",
+    "User: Okay cool. Now let's switch gears and fix this compiler error in my Rust async web framework.",
+    "Assistant: Sure! What error message is rustc outputting for your web handler?"
+  ]
+}
