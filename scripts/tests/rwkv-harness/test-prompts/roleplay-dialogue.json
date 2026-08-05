@@ -1,0 +1,18 @@
+[
+  {
+    "role": "user",
+    "content": "Hi there! I am working on a new Rust backend service today for AIRI."
+  },
+  {
+    "role": "assistant",
+    "content": "Hello! That sounds exciting. What features are you building into the Rust service?"
+  },
+  {
+    "role": "user",
+    "content": "We are setting up a fast IPC bridge and memory vector search."
+  },
+  {
+    "role": "user",
+    "content": "By the way, after work I am planning to cook some homemade Italian pasta."
+  }
+]
