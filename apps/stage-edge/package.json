@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@proj-airi/i18n": "workspace:*",
-    "cloudflare": "^4.1.0"
+    "cloudflare": "^4.1.0",
+    "open": "^10.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",

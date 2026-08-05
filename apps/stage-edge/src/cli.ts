@@ -10,12 +10,18 @@ async function runCli() {
   const command = args[0] || 'help'
 
   if (command === 'oauth' || command === 'auth') {
-    console.log('\n=== AIRI Stage Edge: Cloudflare OAuth Authorization ===\n')
-    console.log('Open the following URL in your browser to generate your Cloudflare API Token:')
-    console.log(`\n  👉 ${CloudflareStageDeployer.getOAuthUrl()}\n`)
-    console.log('Once authorized, set your environment variables:')
-    console.log('  export CLOUDFLARE_API_TOKEN="your_token_here"')
-    console.log('  export CLOUDFLARE_ACCOUNT_ID="your_account_id_here"\n')
+    const { loginWithCloudflareOAuth } = await import('./deployer/oauth')
+    try {
+      const tokens = await loginWithCloudflareOAuth()
+      console.log('\n=== OAuth Tokens Successfully Captured! ===\n')
+      console.log(`Access Token:  ${tokens.accessToken.slice(0, 15)}...`)
+      console.log(`Refresh Token: ${tokens.refreshToken.slice(0, 15)}...`)
+      console.log(`Expires In:    ${tokens.expiresIn} seconds\n`)
+    }
+    catch (err: any) {
+      console.error('❌ OAuth Login Failed:', err.message)
+      process.exit(1)
+    }
     return
   }
 
