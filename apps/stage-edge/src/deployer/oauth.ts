@@ -16,10 +16,20 @@ export interface OAuthTokens {
   accountId?: string
 }
 
-const CLOUDFLARE_OAUTH_CLIENT_ID = '54d1154d-7082-4cbe-aea5-78e2b5d30d2f' // Wrangler public client ID
+const CLOUDFLARE_OAUTH_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7' // Official Wrangler Public Client ID
 const REDIRECT_URI = 'http://localhost:8976/oauth/callback'
 const AUTH_ENDPOINT = 'https://dash.cloudflare.com/oauth2/auth'
 const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token'
+
+const DEFAULT_SCOPES = [
+  'account:read',
+  'user:read',
+  'workers:write',
+  'workers_kv:write',
+  'workers_routes:write',
+  'workers_scripts:write',
+  'offline_access',
+]
 
 function base64UrlEncode(buffer: Buffer): string {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
@@ -41,7 +51,7 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
   authUrl.searchParams.append('response_type', 'code')
   authUrl.searchParams.append('client_id', CLOUDFLARE_OAUTH_CLIENT_ID)
   authUrl.searchParams.append('redirect_uri', REDIRECT_URI)
-  authUrl.searchParams.append('scope', 'workers:write workers_kv:write user:read offline_access')
+  authUrl.searchParams.append('scope', DEFAULT_SCOPES.join(' '))
   authUrl.searchParams.append('state', state)
   authUrl.searchParams.append('code_challenge', codeChallenge)
   authUrl.searchParams.append('code_challenge_method', 'S256')
@@ -99,12 +109,19 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
 
         const tokenData: any = await tokenRes.json()
 
-        res.writeHead(200, { 'Content-Type': 'text/html' })
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(`
-          <div style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #f8fafc; height: 100vh;">
-            <h1 style="color: #38bdf8;">🎉 AIRI Cloudflare Authorization Successful!</h1>
-            <p style="font-size: 1.2rem;">You may now close this browser tab and return to AIRI.</p>
-          </div>
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8">
+              <title>AIRI Cloudflare Authorization</title>
+            </head>
+            <body style="font-family: system-ui, sans-serif; text-align: center; padding: 60px 20px; background: #0f172a; color: #f8fafc; margin: 0;">
+              <h1 style="color: #38bdf8; font-size: 2rem;">🎉 AIRI Cloudflare Authorization Successful!</h1>
+              <p style="font-size: 1.2rem; color: #94a3b8;">You may now close this browser tab and return to AIRI.</p>
+            </body>
+          </html>
         `)
 
         server.close()
