@@ -36,8 +36,8 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
     }
     const spine = await loadSpineRuntime(detectedVersion)
 
-    const previewWidth = 720
-    const previewHeight = 960
+    const previewWidth = 512
+    const previewHeight = 768
 
     canvas = document.createElement('canvas')
     canvas.width = previewWidth
@@ -297,7 +297,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
               // Production mode: Capture frame 1 and exit immediately
               if (frameCount === 1) {
                 try {
-                  const dataUrl = canvas!.toDataURL('image/png')
+                  const dataUrl = canvas!.toDataURL('image/webp', 0.85)
                   finish(dataUrl)
                 }
                 catch (err) {

@@ -9,8 +9,8 @@ import { loadVrm } from '../composables/vrm'
  */
 export async function loadVrmModelPreview(input: File | string, expressions?: Record<string, number>) {
   const offscreenCanvas = document.createElement('canvas')
-  offscreenCanvas.width = 1440
-  offscreenCanvas.height = 2560
+  offscreenCanvas.width = 512
+  offscreenCanvas.height = 768
   offscreenCanvas.style.position = 'absolute'
   offscreenCanvas.style.top = '0'
   offscreenCanvas.style.left = '0'
@@ -74,7 +74,7 @@ export async function loadVrmModelPreview(input: File | string, expressions?: Re
     await new Promise(resolve => setTimeout(resolve, 200))
     renderer.render(scene, camera)
 
-    const dataUrl = offscreenCanvas.toDataURL()
+    const dataUrl = offscreenCanvas.toDataURL('image/webp', 0.85)
 
     return dataUrl
   }

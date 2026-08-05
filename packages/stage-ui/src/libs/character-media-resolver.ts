@@ -26,14 +26,14 @@ export async function extractModelIcon(displayModelId: string): Promise<string |
   }
 
   const displayModelsStore = useDisplayModelsStore()
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
+  const model = await displayModelsStore.getDisplayModel(displayModelId)
   if (!model)
     return null
 
   try {
     let zipData: Blob | File | null = null
     if (model.type === 'file') {
-      zipData = model.file
+      zipData = model.file || null
     }
     else if (model.type === 'url') {
       const res = await fetch(model.url)

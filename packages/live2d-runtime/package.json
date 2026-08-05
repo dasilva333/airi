@@ -1,0 +1,29 @@
+{
+  "name": "@proj-airi/live2d-runtime",
+  "type": "module",
+  "private": true,
+  "description": "Headless Live2D DSL runtime & VarFloats state engine for Project AIRI (render-agnostic; no PIXI/Vue/DOM)",
+  "author": {
+    "name": "Moeru AI Project AIRI Team",
+    "email": "airi@moeru.ai",
+    "url": "https://github.com/moeru-ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git",
+    "directory": "packages/live2d-runtime"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./ports": "./src/ports.ts",
+    "./dsl/*": "./src/dsl/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "catalog:vitest"
+  }
+}
