@@ -38,16 +38,13 @@ export async function verifyDiscordSignature(
     const key = await crypto.subtle.importKey(
       'raw',
       keyData,
-      {
-        name: 'NODE-ED25519',
-        namedCurve: 'NODE-ED25519',
-      },
+      'Ed25519',
       false,
       ['verify'],
     )
 
     return await crypto.subtle.verify(
-      'NODE-ED25519',
+      'Ed25519',
       key,
       signatureData,
       data,

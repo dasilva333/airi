@@ -9,6 +9,7 @@ import { buildSystemInstruction } from './templates/character'
 
 export interface Env {
   GEMINI_API_KEY: string
+  GEMINI_MODEL?: string
   DISCORD_PUBLIC_KEY: string
   SYSTEM_PROMPT?: string
   MEMORY?: KVNamespace
@@ -41,7 +42,9 @@ export default {
 
       // Application command interaction (Type 2)
       if (interaction.type === 2) {
-        const userPrompt = interaction.data?.options?.[0]?.value || 'Hello!'
+        const options = interaction.data?.options || []
+        const messageOpt = options.find((o: any) => o.name === 'message')
+        const userPrompt = messageOpt?.value || options[0]?.value || 'Hello!'
         const systemInstruction = buildSystemInstruction({
           name: 'AIRI',
           personality: 'Kind, supportive, witty AI companion.',
@@ -52,22 +55,19 @@ export default {
           const reply = await generateGeminiReply({
             prompt: userPrompt,
             systemInstruction,
+            model: env.GEMINI_MODEL,
             apiKey: env.GEMINI_API_KEY,
           })
 
           return jsonResponse({
             type: 4,
-            data: {
-              content: reply,
-            },
+            data: { content: reply },
           })
         }
         catch (err: any) {
           return jsonResponse({
             type: 4,
-            data: {
-              content: `⚠️ Edge Inference Error: ${err.message}`,
-            },
+            data: { content: `⚠️ Edge Inference Error: ${err.message}` },
           })
         }
       }

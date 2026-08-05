@@ -1,5 +1,7 @@
 /**
- * Gemini 2.0 Flash Edge Adapter for multimodal inference and memory summarization.
+ * Gemini 2.0 Flash Edge Adapter using OpenAI-compatible endpoint.
+ * Uses the same base URL as AIRI's internal provider system:
+ * https://generativelanguage.googleapis.com/v1beta/openai/
  */
 
 export interface GeminiGenerateOptions {
@@ -10,31 +12,36 @@ export interface GeminiGenerateOptions {
 }
 
 export async function generateGeminiReply(options: GeminiGenerateOptions): Promise<string> {
-  const model = options.model || 'gemini-2.0-flash'
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${options.apiKey}`
+  const model = options.model || 'models/gemini-3.5-flash-lite'
+  const url = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+
+  const messages: { role: string, content: string }[] = []
+
+  if (options.systemInstruction) {
+    messages.push({ role: 'system', content: options.systemInstruction })
+  }
+
+  messages.push({ role: 'user', content: options.prompt })
 
   const payload = {
-    contents: [
-      {
-        parts: [{ text: options.prompt }],
-      },
-    ],
-    systemInstruction: options.systemInstruction
-      ? { parts: [{ text: options.systemInstruction }] }
-      : undefined,
+    model,
+    messages,
   }
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${options.apiKey}`,
+    },
     body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
-    throw new Error(`Gemini API call failed -> HTTP ${response.status}`)
+    const errText = await response.text()
+    throw new Error(`Gemini API call failed -> HTTP ${response.status} | URL: ${url} | model: ${model} | ${errText}`)
   }
 
   const json: any = await response.json()
-  const candidate = json.candidates?.[0]
-  return candidate?.content?.parts?.[0]?.text || '(No response generated)'
+  return json.choices?.[0]?.message?.content || '(No response generated)'
 }
