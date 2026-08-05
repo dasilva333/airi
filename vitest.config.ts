@@ -12,6 +12,7 @@ export default defineConfig({
       'packages/audio-pipelines-transcribe',
       'packages/pipelines-audio',
       'packages/server-runtime',
+      'packages/live2d-runtime',
     ],
   },
 })
