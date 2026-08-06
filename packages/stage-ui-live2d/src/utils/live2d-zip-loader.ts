@@ -4,6 +4,8 @@ import JSZip from 'jszip'
 
 import { Cubism4ModelSettings, ZipLoader } from 'pixi-live2d-display/cubism4'
 
+import { registerDslGroupsFromManifest } from '../runtime/dsl-capture'
+
 /**
  * Returns true for macOS AppleDouble resource-fork artifacts that appear in
  *  ZIPs created on macOS (e.g. __MACOSX/ subtree, ._-prefixed sidecars).
@@ -40,6 +42,11 @@ ZipLoader.createSettings = async (reader: JSZip) => {
   const rawJson = (settings as any).json
   const fileRefs = rawJson?.FileReferences || rawJson?.fileReferences
   const motions = fileRefs?.Motions || (settings as any).motions
+
+  // Capture the *raw* motion groups (incl. DSL "special sauce": VarFloats, Choices,
+  // change_cos, Command chains, Intimacy) BEFORE ZipLoader.unzip sanitizes away any
+  // entry without a File/file. Consumed by Model.vue after load to feed the DSL VM.
+  registerDslGroupsFromManifest(motions)
 
   if (motions && motions[''] && !motions.Idle) {
     motions.Idle = motions['']

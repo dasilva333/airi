@@ -50,6 +50,7 @@
     "@pixi/sprite": "^6.5.10",
     "@pixi/ticker": "^6.5.10",
     "@pixi/utils": "^6.5.10",
+    "@proj-airi/live2d-runtime": "workspace:^",
     "@proj-airi/stage-shared": "workspace:^",
     "@proj-airi/ui": "workspace:^",
     "@vueuse/core": "^14.2.1",

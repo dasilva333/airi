@@ -3059,6 +3059,9 @@ importers:
       '@pixi/utils':
         specifier: ^6.5.10
         version: 6.5.10(@pixi/constants@6.5.10)(@pixi/settings@6.5.10(@pixi/constants@6.5.10))
+      '@proj-airi/live2d-runtime':
+        specifier: workspace:^
+        version: link:../live2d-runtime
       '@proj-airi/stage-shared':
         specifier: workspace:^
         version: link:../stage-shared

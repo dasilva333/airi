@@ -5,6 +5,7 @@ import type { PixiLive2DInternalModel } from '../../../composables/live2d'
 
 import JSZip from 'jszip'
 
+import { DSLVirtualMachine } from '@proj-airi/live2d-runtime'
 import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
 import { useTheme } from '@proj-airi/ui'
 import { breakpointsTailwind, until, useBreakpoints, useBroadcastChannel, useDebounceFn } from '@vueuse/core'
@@ -28,6 +29,8 @@ import {
   useMotionUpdatePluginMouseFocus,
 } from '../../../composables/live2d'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
+import { consumePendingDslGroups } from '../../../runtime/dsl-capture'
+import { buildAdapterPorts, Live2DRuntimeAdapter } from '../../../runtime/live2d-runtime-adapter'
 import { useLive2d } from '../../../stores/live2d'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
@@ -131,6 +134,16 @@ const modelLoading = ref(false)
 let isUnmounted = false
 
 const modelLoadMutex = new Mutex()
+
+// --- Live2D DSL runtime (additive; never alters existing Cubism behavior) ---
+let dslVM: DSLVirtualMachine | null = null
+let dslAdapter: Live2DRuntimeAdapter | null = null
+
+function disposeDslRuntime() {
+  dslAdapter?.dispose()
+  dslAdapter = null
+  dslVM = null
+}
 
 const offset = computed(() => parsePropsOffset())
 
@@ -1256,6 +1269,53 @@ async function loadModel() {
     }
 
     emits('modelLoaded')
+
+    // --- Live2D DSL runtime bootstrap (additive; failures never break the render) ---
+    try {
+      disposeDslRuntime()
+
+      const rawGroups = consumePendingDslGroups()
+      const hasDsl = rawGroups.length > 0
+      if (!hasDsl)
+        return
+
+      // Intimacy lives on the renderer-side store for now; wiring to the dating-sim
+      // store happens in Phase 3 (see plan §4).
+      dslAdapter = new Live2DRuntimeAdapter({
+        model: model.value!,
+        getIntimacy: () => 0,
+        addIntimacy: () => {},
+        host: {
+          // Phase 3 placeholder: costume swap renders as a no-op until the render host
+          // performs the actual model hot-swap. State (heap) is preserved regardless.
+          changeCostume: () => {},
+          showSpeechText: (text) => {
+            live2dStore.activeMotionText = { text }
+          },
+          showChoices: () => {},
+        },
+        resolveAssetUrl: file => file,
+      })
+
+      dslVM = new DSLVirtualMachine({
+        host: {
+          ...buildAdapterPorts(dslAdapter),
+          // Intimacy write-back goes through the adapter's injected accessors (stubbed
+          // until Phase 3 wiring to the dating-sim store).
+          intimacy: {
+            getIntimacy: () => dslAdapter!.getIntimacy(),
+            addIntimacy: (delta: number) => dslAdapter!.addIntimacy(delta),
+          },
+          // DSL change_cos must also notify the adapter so its dispose can clean up.
+          costume: { changeCostume: (file: string) => dslAdapter!.changeCostume(file) },
+        },
+      })
+      dslVM.loadGroups(rawGroups)
+    }
+    catch (dslError) {
+      console.warn('[Live2D DSL] Failed to bootstrap runtime (non-fatal):', dslError)
+      disposeDslRuntime()
+    }
   }
   catch (error) {
     console.error('[Live2D] Failed to load model:', error)
@@ -1613,6 +1673,7 @@ onMounted(async () => {
 onUnmounted(() => {
   isUnmounted = true
   disposeShouldUpdateView?.()
+  disposeDslRuntime()
   cleanupCanvasListeners()
 
   // NOTICE: Explicitly cancel the drop shadow RAF loop on unmount. The isUnmounted
