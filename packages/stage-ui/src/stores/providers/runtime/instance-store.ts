@@ -221,9 +221,14 @@ export function createProviderInstanceStore() {
       for (const [key, row] of Object.entries(snap.instancesByInstanceKey)) {
         const providerId = key.split(':', 1)[0]
         const primaryKey = `${providerId}:${PRIMARY_INSTANCE_INFIX}`
-        out[providerId] = snap.instancesByInstanceKey[primaryKey]?.options
-          ?? (row.isPrimary ? row.options : undefined)
-          ?? {}
+        const primaryOptions = snap.instancesByInstanceKey[primaryKey]?.options
+        // NOTICE: Never synthesize `{}` for a provider with no primary row.
+        // Upstream semantics treat *missing* credentials as `undefined` so
+        // callers can distinguish "unconfigured" from "empty object"; an
+        // empty-but-truthy `{}` was the Phase-3 regression root cause.
+        const resolved = primaryOptions ?? (row.isPrimary ? row.options : undefined)
+        if (resolved !== undefined)
+          out[providerId] = resolved
       }
       return out
     },
@@ -231,7 +236,7 @@ export function createProviderInstanceStore() {
       const snap = snapshot()
       for (const [providerId, options] of Object.entries(next)) {
         snap.instancesByInstanceKey[`${providerId}:${PRIMARY_INSTANCE_INFIX}`] = normalizeInstance({
-          instanceId: PRIMARY_INSTANCE_INFIX,
+          id: PRIMARY_INSTANCE_INFIX,
           providerId,
           label: 'Default',
           options: options ?? {},

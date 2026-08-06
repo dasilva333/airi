@@ -1,6 +1,6 @@
 # Handoff Specification: Phase 4 Provider Studio UI Overhaul & Multi-Instance UI Activation
 
-**Status:** Active Execution Handoff Spec (Phase 4 Steps 1 & 2 Complete, Step 3 Ready)
+**Status:** Active Execution Handoff Spec (Steps 1, 2, & 3 Complete — Step 4 Final UI Polish Ready)
 **Target Directories:**
 - `packages/stage-ui/src/stores/providers/`
 - `packages/stage-ui/src/components/scenarios/providers/`
@@ -19,7 +19,7 @@
 
 Phase 4 focuses on activating the multi-instance engine at runtime (`createProviderInstanceStore`) and delivering the **Provider Studio UI Overhaul**.
 
-### **Completed & Verified (Steps 1 & 2)**:
+### **Completed & Verified (Steps 1, 2, & 3)**:
 1. **Engine Switch Activated ("Flipped the Switch")**:
    - `packages/stage-ui/src/stores/providers.ts:38` replaced `useLocalStorage()` with `createProviderInstanceStore()`.
    - Exposed all instance APIs (`listInstances`, `setPrimaryInstance`, `addInstance`, `removeInstance`, `setInstanceLabel`) as top-level store members.
@@ -28,45 +28,41 @@ Phase 4 focuses on activating the multi-instance engine at runtime (`createProvi
    - Created `provider-danger-zone.vue`: bottom-anchored `[Delete Credentials]` double-click confirmation dialog.
    - Added **SSML Warning Banner**: amber alert banner injected in `speech-playground.vue`.
    - Mounted instance controls and danger zone into `speech-provider-settings.vue` and `transcription-provider-settings.vue`.
-3. **i18n Keys Added**:
-   - Updated `packages/i18n/src/locales/en/settings.yaml` via `scripts/yaml-manager.js` for `pages.providers.common.section.dangerZone` keys.
+3. **Instance-Aware Model Fetching & Selector Refinements (Step 3)**:
+   - Updated `fetchModelsForProvider(providerId, instanceId?)` in `runtime/models.ts` to support per-instance model targeting.
+   - Restored robust credential gating in `selectors/config.ts` (`apiKey?.trim()`, AWS key pairs, custom `baseUrl`).
+   - Added `isLegacy` migration guards to `instance-store.ts` to prevent empty state clobbering during Vue rehydration.
+   - Tied instance deletion directly to per-instance dirty cache tracking (`${providerId}:${instanceId ?? '*'}`).
 
 ---
 
-## 2. Technical Decisions & Recon Alignment
+## 2. Verification Status (Step 3)
 
-1. **Step 1 ("Flip the Switch")**:
-   - **Implemented**. Line 38 in `providers.ts` is now live on `createProviderInstanceStore()`.
-2. **Storage Shape**:
-   - **Implemented**. Internal state is maintained as a Keyed Map (`Record<providerId, Record<instanceId, Row>>`), exposing array helpers like `listInstances(providerId)`.
-3. **Delete Credentials / Reset Scope**:
-   - **Implemented**. `removeInstance` deletes **only the target `instanceId`**, while `deleteProvider` performs complete family teardown via `removeAllInstances`.
-4. **Model Browser Placement**:
-   - **Step 3 Target**. Place the searchable model browser inside the left-side configuration panel as a dedicated section **below Advanced Settings**.
+- `pnpm -F @proj-airi/stage-ui typecheck` $\rightarrow$ **PASS (0 errors)**
+- `pnpm -F @proj-airi/stage-ui test src/stores/providers/ --run` $\rightarrow$ **PASS (26/26 tests green)**
+- `pnpm -F @proj-airi/stage-pages typecheck` $\rightarrow$ **PASS (0 errors)**
 
 ---
 
-## 3. Step 3 Execution Objectives (Remaining Phase 4 Tasks)
+## 3. Final Polish Tasks (Step 4 UI Polish)
 
-1. **Smart Field Prioritization**:
-   - Render `Base URL` input top for local providers (Ollama, LM Studio, ComfyUI, etc.).
-   - Render `API Key` input top for cloud providers (OpenAI, Deepgram, ElevenLabs, etc.) with a `[Get API Key ↗]` console header link derived from `metadata.consoleUrl`.
-2. **In-Page Model Browser**:
-   - Build a searchable model selection component inserted inside the left-side configuration panel **below Advanced Settings**.
-3. **Instance-Aware Model Fetching**:
-   - Update `fetchModelsForProvider(providerId, { instanceId })` so model fetching targets the selected instance rather than falling back only to primary.
-4. **Cache Invalidation Hygienics**:
-   - Cascade-clear `providerInstanceCache` when `removeInstance` is called.
+1. **External Console Links**:
+   - Render `[Get API Key ↗]` console header links derived from `metadata.consoleUrl`.
+2. **In-Page Model Search Combobox**:
+   - Build a searchable model selection combobox component inserted inside the left-side configuration panel **below Advanced Settings**.
+3. **i18n Key Management**:
+   - Use `scripts/yaml-manager.js` for any new translation strings per `docs/settings-yaml.md`.
 
 ---
 
 ## 4. Comprehensive Codebase File & Path Index
 
 - [`packages/stage-ui/src/stores/providers.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers.ts) — Main store entry point (`createProviderInstanceStore` live).
-- [`packages/stage-ui/src/stores/providers/runtime/instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts) — Multi-instance engine implementation.
+- [`packages/stage-ui/src/stores/providers/runtime/instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts) — Multi-instance engine implementation (`instanceId` keying + facade).
+- [`packages/stage-ui/src/stores/providers/runtime/models.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/models.ts) — Instance-aware model fetching (`instanceId` optional parameter).
+- [`packages/stage-ui/src/stores/providers/selectors/config.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/selectors/config.ts) — Config gating & credential presence checks.
 - [`packages/stage-ui/src/components/scenarios/providers/provider-instances-section.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/providers/provider-instances-section.vue) — Multi-instance controls component.
 - [`packages/stage-ui/src/components/scenarios/providers/provider-danger-zone.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/providers/provider-danger-zone.vue) — Danger zone confirmation dialog component.
-- [`packages/stage-ui/src/components/scenarios/providers/provider-basic-settings.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/providers/provider-basic-settings.vue) — Basic settings component for Smart Field Prioritization.
 - [`packages/stage-ui/src/components/scenarios/providers/speech-playground.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/providers/speech-playground.vue) — Speech playground with SSML warning banner.
 - [`packages/i18n/src/locales/en/settings.yaml`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/i18n/src/locales/en/settings.yaml) — Translation keys managed via `scripts/yaml-manager.js`.
 

@@ -270,6 +270,23 @@ export const useProvidersStore = defineStore('providers', () => {
     )
   })
 
+  function removeInstance(providerId: string, instanceId?: string) {
+    const prefix = `${providerId}:${(instanceId ?? '*')}:`
+    const keys = Object.keys(providerInstanceCache.value).filter(k => k.startsWith(prefix))
+    for (const key of keys) {
+      delete providerInstanceCache.value[key]
+    }
+    instanceStore.removeInstance(providerId, instanceId)
+  }
+
+  function removeAllInstances(providerId: string) {
+    const primaryKey = `${providerId}:*`
+    if (providerInstanceCache.value[primaryKey] !== undefined) {
+      delete providerInstanceCache.value[primaryKey]
+    }
+    instanceStore.removeAllInstances(providerId)
+  }
+
   const providerInstanceStoreApi = {
     listInstances: instanceStore.listInstances,
     getProviderInstanceConfig: instanceStore.getProviderInstanceConfig,
@@ -277,8 +294,8 @@ export const useProvidersStore = defineStore('providers', () => {
     addInstance: instanceStore.addInstance,
     setPrimaryInstance: instanceStore.setPrimaryInstance,
     setInstanceLabel: instanceStore.setInstanceLabel,
-    removeInstance: instanceStore.removeInstance,
-    removeAllInstances: instanceStore.removeAllInstances,
+    removeInstance,
+    removeAllInstances,
     ensurePrimaryInstance: instanceStore.ensurePrimaryInstance,
   }
 

@@ -66,13 +66,28 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     if (!config)
       return false
 
-    // Generic structured check: at least one persisted option differs from
-    // the provider's defaults. This replaces the legacy hard-coded
-    // apiKey/accessKeyId/baseUrl string matching with a uniform predicate —
-    // provider metadata may override this in a later phase with a custom
-    // `isConfigured(options)` hook.
-    const defaultOptions = metadata.defaultOptions?.() || {}
-    return JSON.stringify(config) !== JSON.stringify(defaultOptions)
+    // Credential-shape gauntlet (upstream parity): providers that require
+    // credentials must have a non-empty `apiKey` (or AWS keypair / explicit
+    // endpoint credentials) persisted, OR be explicitly marked added (managed
+    // by `markProviderAdded` via user action). We do NOT count a mere custom
+    // `baseUrl` as sufficient for credentialed providers — that was the
+    // Phase-3 regression that let unauthenticated requests fire.
+    const configObj = config as Record<string, any>
+    const hasKey = typeof configObj.apiKey === 'string' && configObj.apiKey.trim().length > 0
+    const hasAwsKey = typeof configObj.accessKeyId === 'string' && configObj.accessKeyId.trim().length > 0
+      && typeof configObj.secretAccessKey === 'string' && configObj.secretAccessKey.trim().length > 0
+    if (hasKey || hasAwsKey)
+      return true
+
+    if (state.addedProviders.value[providerId])
+      return true
+
+    // Explicit user-added provider is the final way to be marked configured.
+    // The legacy JSON-vs-defaults heuristic (`isProviderConfigDirty`) is no
+    // longer consulted for `configured` state — it stays as a listing hint
+    // (`shouldListProvider`) for the settings UI, but never qualifies a
+    // credentialed provider as configured on its own.
+    return false
   }
 
   function shouldListProvider(providerId: string) {

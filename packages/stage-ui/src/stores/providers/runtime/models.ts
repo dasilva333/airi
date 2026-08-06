@@ -9,6 +9,11 @@ export interface ProviderModelsDeps {
   providerRuntimeState: Ref<Record<string, ProviderRuntimeState>>
   providerMetadata: Record<string, ProviderMetadata>
   availableProviders: Ref<string[]>
+  /**
+   * Optionally override the options source to use a per-instance row rather
+   * than the primary facade (spotlight fetched items for other endpoints).
+   */
+  providerInstanceOptions?: (providerId: string, instanceId?: string) => Record<string, unknown> | undefined
 }
 
 /**
@@ -22,9 +27,18 @@ export interface ProviderModelsDeps {
 export function createProviderModels(deps: ProviderModelsDeps) {
   const { providerCredentials, providerRuntimeState, providerMetadata } = deps
 
-  // Function to fetch models for a specific provider
-  async function fetchModelsForProvider(providerId: string) {
-    const config = providerCredentials.value[providerId]
+  /**
+   * Fetch the model catalog for a provider instance.
+   *
+   * Instance-aware: if `options.instanceId` is supplied and the store exposes a
+   * per-instance options getter, the model fetch targets that explicit instance
+   * instead of the primary-backed canonical facade. This avoids writes to the
+   * primary facade when a settings page is browsing other endpoints.
+   */
+  async function fetchModelsForProvider(providerId: string, options: { instanceId?: string } = {}) {
+    const config = deps.providerInstanceOptions?.(providerId, options.instanceId)
+      ?? providerCredentials.value[providerId]
+
     if (!config)
       return []
 
