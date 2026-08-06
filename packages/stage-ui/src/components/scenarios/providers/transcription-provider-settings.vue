@@ -62,6 +62,8 @@ onMounted(() => {
   baseUrl.value = providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
 })
 
+const isLocalProvider = computed(() => providerMetadata.value?.deployment === 'local')
+
 function handleResetTranscriptionSettings() {
   apiKey.value = ''
   baseUrl.value = providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
@@ -83,7 +85,18 @@ function handleResetTranscriptionSettings() {
           :description="t('settings.pages.providers.common.section.basic.description')"
           :on-reset="handleResetTranscriptionSettings"
         >
-          <ProviderApiKeyInput v-model="apiKey" :provider-name="providerMetadata?.localizedName" :placeholder="props.placeholder || 'API Key'" />
+          <!-- Smart field prioritization: Base URL first for local engines -->
+          <ProviderBaseUrlInput
+            v-if="isLocalProvider"
+            v-model="baseUrl"
+            :placeholder="providerMetadata?.defaultOptions?.().baseUrl as string || ''" required
+          />
+          <ProviderApiKeyInput
+            v-model="apiKey"
+            :provider-name="providerMetadata?.localizedName"
+            :placeholder="props.placeholder || 'API Key'"
+            :required="!isLocalProvider"
+          />
           <!-- Slot for provider-specific basic settings -->
           <slot name="basic-settings" />
         </ProviderBasicSettings>

@@ -116,6 +116,8 @@ watch([apiKey, baseUrl], debouncedUpdate)
 // Watch voice settings for changes
 watch(voiceSettings, debouncedUpdate, { deep: true })
 
+const isLocalProvider = computed(() => providerMetadata.value?.deployment === 'local')
+
 function handleResetVoiceSettings() {
   voiceSettings.value = { ...(providerMetadata.value?.defaultOptions?.().voiceSettings as Record<string, unknown>) }
   debouncedUpdate()
@@ -137,7 +139,18 @@ function handleResetVoiceSettings() {
           :description="t('settings.pages.providers.common.section.basic.description')"
           :on-reset="handleResetVoiceSettings"
         >
-          <ProviderApiKeyInput v-model="apiKey" :provider-name="providerMetadata?.localizedName" :placeholder="props.placeholder || 'API Key'" />
+          <!-- Smart field prioritization: Base URL first for local engines -->
+          <ProviderBaseUrlInput
+            v-if="isLocalProvider"
+            v-model="baseUrl"
+            :placeholder="providerMetadata?.defaultOptions?.().base_url as string || ''" required
+          />
+          <ProviderApiKeyInput
+            v-model="apiKey"
+            :provider-name="providerMetadata?.localizedName"
+            :placeholder="props.placeholder || 'API Key'"
+            :required="!isLocalProvider"
+          />
           <!-- Slot for provider-specific basic settings -->
           <slot name="basic-settings" />
         </ProviderBasicSettings>
