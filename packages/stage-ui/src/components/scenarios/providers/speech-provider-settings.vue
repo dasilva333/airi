@@ -12,6 +12,8 @@ import {
   ProviderApiKeyInput,
   ProviderBaseUrlInput,
   ProviderBasicSettings,
+  ProviderDangerZone,
+  ProviderInstancesSection,
   ProviderSettingsContainer,
 } from '.'
 import { useSpeechStore } from '../../../stores/modules/speech'
@@ -151,6 +153,12 @@ function handleResetVoiceSettings() {
           </div>
         </div>
 
+        <!-- Multi-instance management section (Phase 4) -->
+        <ProviderInstancesSection
+          :provider-id="props.providerId"
+          @add="providersStore.getProviderInstanceConfig(props.providerId)"
+        />
+
         <!-- Advanced settings section -->
         <ProviderAdvancedSettings :title="t('settings.pages.providers.common.section.advanced.title')">
           <ProviderBaseUrlInput
@@ -160,6 +168,12 @@ function handleResetVoiceSettings() {
           <!-- Slot for provider-specific advanced settings -->
           <slot name="advanced-settings" />
         </ProviderAdvancedSettings>
+
+        <!-- Danger Zone (Phase 4) -->
+        <ProviderDangerZone
+          :disabled="!providersStore.addedProviders[props.providerId]"
+          @delete="providersStore.removeAllInstances(props.providerId)"
+        />
       </ProviderSettingsContainer>
 
       <!-- Playground section -->

@@ -15,6 +15,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { createProviderRegistry } from './providers/registry'
+import { createProviderInstanceStore } from './providers/runtime/instance-store'
 import { createProviderInstances } from './providers/runtime/instances'
 import { createProviderLifecycle } from './providers/runtime/lifecycle'
 import { createProviderModels } from './providers/runtime/models'
@@ -34,7 +35,8 @@ export type {
 }
 
 export const useProvidersStore = defineStore('providers', () => {
-  const providerCredentials = useLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {})
+  const instanceStore = createProviderInstanceStore()
+  const providerCredentials = instanceStore.providerCredentials
   const addedProviders = useLocalStorage<Record<string, boolean>>('settings/providers/added', {})
   const providerInstanceCache = ref<Record<string, unknown>>({})
   const { t } = useI18n()
@@ -268,11 +270,24 @@ export const useProvidersStore = defineStore('providers', () => {
     )
   })
 
+  const providerInstanceStoreApi = {
+    listInstances: instanceStore.listInstances,
+    getProviderInstanceConfig: instanceStore.getProviderInstanceConfig,
+    providerInstanceOptions: instanceStore.providerInstanceOptions,
+    addInstance: instanceStore.addInstance,
+    setPrimaryInstance: instanceStore.setPrimaryInstance,
+    setInstanceLabel: instanceStore.setInstanceLabel,
+    removeInstance: instanceStore.removeInstance,
+    removeAllInstances: instanceStore.removeAllInstances,
+    ensurePrimaryInstance: instanceStore.ensurePrimaryInstance,
+  }
+
   return {
     providers: providerCredentials,
     getProviderConfig,
     getDefaultProviderConfig,
     addedProviders,
+    ...providerInstanceStoreApi,
     markProviderAdded,
     unmarkProviderAdded,
     deleteProvider,

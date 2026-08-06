@@ -169,7 +169,16 @@ defineExpose({
         :description="t('settings.pages.modules.speech.sections.section.voice-settings.use-ssml.description')"
       />
 
-      <template v-if="!useSSML">
+      <div
+        v-if="useSSML"
+
+        dark:bg-amber-900-20 dark:border-amber-800-40 border border-l-2 border-amber-200 rounded-r-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed lg:text-sm dark:text-amber-300
+      >
+        <div i-solar:warning-bold-duotone mr-1.5 inline-block h-4 w-4 align-middle />
+        {{ t('settings.pages.modules.speech.sections.section.voice-settings.use-ssml.warning') }}
+      </div>
+
+      <template v-else>
         <textarea
           v-model="testText"
           :placeholder="t('settings.pages.providers.provider.elevenlabs.playground.fields.field.input.placeholder')"

@@ -182,6 +182,30 @@ export function createProviderInstanceStore() {
   }
 
   /**
+   * Create a new named instance of a provider family.
+   *
+   * If no instances exist yet, materializes the implicit primary (`*`) from the
+   * given template and returns it. Otherwise creates a second-record instance
+   * keyed by the provided label.
+   */
+  function addInstance(providerId: string, label: string, template: Record<string, unknown> = {}) {
+    const normalizedLabel = label.trim() || `Instance ${listInstances(providerId).length + 1}`
+    const newId = `${providerId}:${normalizedLabel.toLowerCase().replace(/\W+/g, '-')}`
+
+    const existing = snapshot().instancesByInstanceKey[newId]
+    if (existing)
+      return existing
+
+    return writeRow({
+      id: newId,
+      providerId,
+      label: normalizedLabel,
+      options: { ...template },
+      isPrimary: false,
+    })
+  }
+
+  /**
    * Backward-compatible writable projection of the primary instance's options.
    *
    * Phase 1 shape: `providerCredentials.value[providerId] = { ... }`. External
@@ -223,6 +247,7 @@ export function createProviderInstanceStore() {
     listInstances,
     getProviderInstanceConfig,
     providerInstanceOptions,
+    addInstance,
     setPrimaryInstance,
     setInstanceLabel,
     removeInstance,

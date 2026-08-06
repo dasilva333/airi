@@ -833,6 +833,18 @@ pages:
           title: Basic
         voice:
           title: Voice Settings
+        instances:
+          title: Instances
+          addInstance: Add Instance
+          makePrimary: Set as Primary
+          defaultHint: Default
+          remove: Remove
+        dangerZone:
+          title: Danger Zone
+          description: Delete the credentials for this provider instance. Clears API key
+            and endpoint settings.
+          deleteCredentials: Delete Credentials
+          confirmDelete: Confirm Deletion
     description: LLMs, speech providers, etc.
     provider:
       app-local-audio-transcription:
