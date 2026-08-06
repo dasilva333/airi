@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "airi-stage-edge",
+  "main": "dist/index.mjs",
+  "compatibility_date": "2025-02-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "SYSTEM_PROMPT": "You are AIRI, a supportive and intelligent companion.",
+    "GEMINI_MODEL": "gemini-2.0-flash"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "MEMORY",
+      "id": "YOUR_KV_NAMESPACE_ID"
+    }
+  ]
+}
