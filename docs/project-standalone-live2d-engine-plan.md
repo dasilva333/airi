@@ -1,23 +1,23 @@
 # Project Plan: Standalone Live2D Engine & DSL Runtime
 
-**Status:** Approved — Phase 1 In Progress
-**Authors:** AIRI Team & AI Assistant
-**Target Package:** `@proj-airi/live2d-runtime` (Standalone Cleanroom Module — **headless, framework-agnostic**)
+**Status:** Phases 1–3 substantially landed; Phase 2 multi-gen `.moc` routing deferred. See §4.2 Progress Log.
+**Target Package:** `@proj-airi/live2d-runtime` (headless, framework-agnostic) + `packages/stage-ui-live2d/src/runtime/` host adapter
 **References:**
-- Upstream PR: [#2197 (Cubism 2.0 Support & Motion Refactor)](https://github.com/moeru-ai/airi/pull/2197)
 - DSL Interpreter Spec: [live2d-dsl-interpreter-spec.md](./live2d-dsl-interpreter-spec.md)
 - Special Sauce Manifests: [live2d-special-sauce-insights.md](./live2d-special-sauce-insights.md)
 - DSL Test Cases / Handoff: [live2d-dsl-test-cases-handoff.md](./live2d-dsl-test-cases-handoff.md)
+- change_cos dependency challenge: [live2d-change-cos-dependency-challenge.md](./live2d-change-cos-dependency-challenge.md)
 - Upstream Rosetta Stone: [rosetta-stone.md](./rosetta-stone.md)
+- ~~Upstream PR #2197~~ — superseded; we build on our own vendored `pixi-live2d-display` cubism2 build, not that PR.
 
 ---
 
-## 0. Reconciled Architecture (Recon & Design Review — APPROVED)
+## 0. Reconciled Architecture (Recon & Design Review — APPROVED & LANDED)
 
 A recon pass against the current codebase produced three binding decisions. These **supersede** the literal "extract render core into the new package" wording this plan originally carried.
 
 1. **Headless runtime.** `@proj-airi/live2d-runtime` is a **pure, framework-agnostic, headless TypeScript package**: **no PIXI, no Vue, no DOM, no WebGL imports**. It implements the Live2D DSL Virtual Machine, the `VarFloats` reactive state heap, and the command/macro parser, and it drives the outside world exclusively through **output ports** (`ports.ts`). This lets the entire DSL + state engine run offline under Vitest with zero browser/canvas. *APPROVED.*
-2. **Vendored Cubism 2.0.** The repository's patched `pixi-live2d-display@0.4.0` **already ships a Cubism 2 build** (`dist/cubism2.es.js` / `cubism2.js`); the fork's patch only adjusts its `createSettings`/`_ZipLoader` settings-file detection. So Cubism 2.0 support is **not** a from-scratch render port — it is a *routing/branch to the vendored `cubism2` entry* plus ms↔s timing normalization, done inside `stage-ui-live2d` (the existing render host), not inside the new runtime package. *APPROVED.* Open risk: parity of the cubism2 `Live2DModel` surface with the cubism4 abstraction is unverified (needs a spike in Phase 2).
+2. **Vendored Cubism 2.0.** The repository's patched `pixi-live2d-display@0.4.0` **already ships a Cubism 2 build** (`dist/cubism2.es.js` / `cubism2.js`); the fork's patch only adjusts its `createSettings`/`_ZipLoader` settings-file detection. So Cubism 2.0 support is **not** a from-scratch render port — it is a *routing/branch to the vendored `cubism2` entry* plus ms↔s timing normalization, done inside `stage-ui-live2d` (the existing render host), not inside the new runtime package. *APPROVED & VERIFIED* — cubism2/cubism4 share the same `InternalModel`/`MotionManager` base (`Cubism2MotionManager extends MotionManager<Live2DMotion, Cubism2Spec.Motion>`), and `pixi-live2d-display/cubism2` is a first-class typed export, so one adapter serves both generations; no bespoke loader needed.
 3. **Environment note.** The paths printed in the handoff documents (`/Users/richardpinedo/...`) are from the authoring machine; the local equivalents resolve under `docs/` in this repository (`docs/live2d-*.md`).
 
 ### Revised Component Diagram
@@ -138,19 +138,28 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 
 ## 4. Phase-by-Phase Implementation Plan
 
-### Phase 1: Headless DSL VM + Vitest Suite (CURRENT)
+### Phase 1: Headless DSL VM + Vitest Suite (DONE — see §4.2)
 1. Scaffold `packages/live2d-runtime` (`@proj-airi/live2d-runtime`) as pure TS; add to `pnpm-workspace`/Vitest `projects`. Wire `typecheck`.
 2. Implement `dsl/` (types, var-store, command-parser, selector, template, interpreter) and `ports.ts` interfaces.
 3. Isolated Vitest suite built directly from [`live2d-dsl-test-cases-handoff.md`](./live2d-dsl-test-cases-handoff.md) and `live2d-special-sauce-insights.md` fixtures: operator superset, atomic guard→mutate toggles, `assign rand(20,25)`, OpenChat toggle, Flandre `Tapbody` intimacy ladder, weighted `Update7#98` Intimacy→IntimacyVI mapping, `change_cos` heap-preservation.
 
-### Phase 2: Multi-Gen Cubism Adapter (render host)
-1. Route Cubism 2 `.moc` manifests to the vendored `cubism2` entry; union-type `Cubism2InternalModel | Cubism4InternalModel`.
-2. Normalize timing to ms at the motion-manager hook; port §2.2–§2.4.
-3. Implement `Live2DRuntimeAdapter` (ports.ts over `motionManager` + `useLive2d`).
+### Phase 2: Multi-Gen Cubism Adapter (render host) — PARTIAL
+1. ⏳ Route Cubism 2 `.moc` manifests to the vendored `cubism2` entry; union-type `Cubism2InternalModel | Cubism4InternalModel`. **DEFERRED** — not yet wired into `Model.vue`'s loader; `change_cos` is upstream-blocked (ingestion split), so `.moc` routing is a follow-up.
+2. ⏳ Normalize timing to ms at the motion-manager hook; port §2.2–§2.4 (focus ownership / expression rest values / eye-smile split). **NOT STARTED** — present behavior inherits the host's existing cubism4 paths.
+3. ✅ Implement `Live2DRuntimeAdapter` (ports over `motionManager` + `useLive2d` store) + `dsl-capture` (raw `FileReferences.Motions` → `DslMotionGroup[]` pre-sanitize, hooked into `ZipLoader.createSettings`). **DONE.**
 
-### Phase 3: AIRI Application Integration
-1. Subscribe `RendererStage` / dating-sim to Choices, Text, and intimacy-change events; render choices in the existing stage overlay.
-2. Verify backward compatibility with existing character cards and Cubism 4 models.
+---
+
+## 4.2 Progress Log
+
+| Phase | Status | Key artifacts |
+| :--- | :--- | :--- |
+| **1** Headless DSL VM + Vitest | ✅ Landed (`cec8a0f71`) | `packages/live2d-runtime/` — `ReactiveVarStore`, `command-parser`, `selector`, `template`, `DSLVirtualMachine`; 78/78 tests; typecheck clean |
+| **2** Multi-gen adapter | 🟡 Partial (`7e3d790b0`) | `Live2DRuntimeAdapter` + `dsl-capture` + VM wiring in `Model.vue`. `.moc` routing + timing normalization deferred |
+| **3** App integration (choices+intimacy) | ✅ Landed (`7727a13a6`, `c11bb292d`) | `live2d-dsl-bridge` choice round-trip + `dsl-intimacy` raw store (0–100k→0–100 display projection) |
+| **3.x** change_cos hot-swap | ⏸️ Deferred | Awaits unified multi-`.moc3` ingestion (see challenge doc) |
+
+_Notable implementation fixes during build: lane-hint dispatch shadowing (caught by test); useBroadcastChannel has no `onMessage` (use `watch` on `data`); `resolveMotionGroupAndIndex` isn't exported on `useLive2d` — adapter resolves on `motionManager` directly to avoid double-broadcast._
 
 ---
 
