@@ -36,6 +36,8 @@ export interface ProviderMetadata {
   pricing?: 'free' | 'paid'
   deployment?: 'local' | 'cloud'
   beginnerRecommended?: boolean
+  /** Direct URL to provider's API key console/dashboard page for the user to obtain credentials. */
+  consoleUrl?: string
   defaultOptions?: () => Record<string, unknown>
   createProvider: (
     config: Record<string, unknown>,

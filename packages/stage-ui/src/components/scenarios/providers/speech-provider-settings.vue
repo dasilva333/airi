@@ -182,6 +182,9 @@ function handleResetVoiceSettings() {
           <slot name="advanced-settings" />
         </ProviderAdvancedSettings>
 
+        <!-- Model Browser (Phase 4) -->
+        <ProviderModelBrowser :provider-id="props.providerId" />
+
         <!-- Danger Zone (Phase 4) -->
         <ProviderDangerZone
           :disabled="!providersStore.addedProviders[props.providerId]"

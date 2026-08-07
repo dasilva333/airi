@@ -7,10 +7,9 @@ import { useRouter } from 'vue-router'
 import {
   ProviderAdvancedSettings,
   ProviderApiKeyInput,
-  ProviderBaseUrlInput,
-  ProviderBasicSettings,
   ProviderDangerZone,
   ProviderInstancesSection,
+  ProviderModelBrowser,
   ProviderSettingsContainer,
   ProviderSettingsLayout,
 } from '.'
@@ -116,6 +115,9 @@ function handleResetTranscriptionSettings() {
           <!-- Slot for provider-specific advanced settings -->
           <slot name="advanced-settings" />
         </ProviderAdvancedSettings>
+
+        <!-- Model Browser (Phase 4) -->
+        <ProviderModelBrowser :provider-id="props.providerId" />
 
         <!-- Danger Zone (Phase 4) -->
         <ProviderDangerZone
