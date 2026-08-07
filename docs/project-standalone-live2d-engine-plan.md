@@ -155,7 +155,7 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 ### Phase 4: Standalone Web Playground Page & Monorepo Alias Resolution
 1. **Integration Preservation Note**: The full AIRI stage integration work (wired in commits [`7727a13a6`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue) and [`c11bb292d`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/stores/dsl-intimacy.ts)) remains safely recorded in Git history.
 2. **Standalone Web Playground App**: Create an isolated web preview page (`apps/stage-live2d-playground` or `/playground/live2d` route) dedicated exclusively to:
-   - Drag-and-dropping Live2D `.zip` / `.lpk` packages into a clean, lightweight WebGL canvas runner.
+   - Drag-and-dropping Live2D `.zip` packages into a clean, lightweight WebGL canvas runner.
    - Inspecting the `VarFloats` state heap in real-time.
    - Exercising interactive choice menus and intimacy triggers in isolation without loading full AIRI app overhead or clobbering live user settings.
 3. **Vite Monorepo Import Resolution**: Add `@proj-airi/live2d-runtime` workspace path aliases to Vite configuration files (`apps/stage-tamagotchi/electron.vite.config.ts`, `apps/stage-web/vite.config.ts`) so Vite resolves `@proj-airi/live2d-runtime` directly to TypeScript source (`packages/live2d-runtime/src/index.ts`) in dev mode.
