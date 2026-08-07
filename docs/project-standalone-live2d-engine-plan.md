@@ -148,6 +148,18 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 2. ⏳ Normalize timing to ms at the motion-manager hook; port §2.2–§2.4 (focus ownership / expression rest values / eye-smile split). **NOT STARTED** — present behavior inherits the host's existing cubism4 paths.
 3. ✅ Implement `Live2DRuntimeAdapter` (ports over `motionManager` + `useLive2d` store) + `dsl-capture` (raw `FileReferences.Motions` → `DslMotionGroup[]` pre-sanitize, hooked into `ZipLoader.createSettings`). **DONE.**
 
+### Phase 3: AIRI Application Integration (DONE — see §4.2)
+1. Subscribe `RendererStage` / dating-sim to Choices, Text, and intimacy-change events; render choices in the existing stage overlay.
+2. Verify backward compatibility with existing character cards and Cubism 4 models.
+
+### Phase 4: Standalone Web Playground Page & Monorepo Alias Resolution
+1. **Integration Preservation Note**: The full AIRI stage integration work (wired in commits [`7727a13a6`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue) and [`c11bb292d`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/stores/dsl-intimacy.ts)) remains safely recorded in Git history.
+2. **Standalone Web Playground App**: Create an isolated web preview page (`apps/stage-live2d-playground` or `/playground/live2d` route) dedicated exclusively to:
+   - Drag-and-dropping Live2D `.zip` / `.lpk` packages into a clean, lightweight WebGL canvas runner.
+   - Inspecting the `VarFloats` state heap in real-time.
+   - Exercising interactive choice menus and intimacy triggers in isolation without loading full AIRI app overhead or clobbering live user settings.
+3. **Vite Monorepo Import Resolution**: Add `@proj-airi/live2d-runtime` workspace path aliases to Vite configuration files (`apps/stage-tamagotchi/electron.vite.config.ts`, `apps/stage-web/vite.config.ts`) so Vite resolves `@proj-airi/live2d-runtime` directly to TypeScript source (`packages/live2d-runtime/src/index.ts`) in dev mode.
+
 ---
 
 ## 4.2 Progress Log
@@ -156,8 +168,9 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 | :--- | :--- | :--- |
 | **1** Headless DSL VM + Vitest | ✅ Landed (`cec8a0f71`) | `packages/live2d-runtime/` — `ReactiveVarStore`, `command-parser`, `selector`, `template`, `DSLVirtualMachine`; 78/78 tests; typecheck clean |
 | **2** Multi-gen adapter | 🟡 Partial (`7e3d790b0`) | `Live2DRuntimeAdapter` + `dsl-capture` + VM wiring in `Model.vue`. `.moc` routing + timing normalization deferred |
-| **3** App integration (choices+intimacy) | ✅ Landed (`7727a13a6`, `c11bb292d`) | `live2d-dsl-bridge` choice round-trip + `dsl-intimacy` raw store (0–100k→0–100 display projection) |
+| **3** App integration (choices+intimacy) | ✅ Landed (`7727a13a6`, `c11bb292d`) | `live2d-dsl-bridge` choice round-trip + `dsl-intimacy` raw store (0–100k→0–100 display projection). Integration preserved via git commits |
 | **3.x** change_cos hot-swap | ⏸️ Deferred | Awaits unified multi-`.moc3` ingestion (see challenge doc) |
+| **4** Standalone Web Playground | 📋 Planned | Dedicated WebGL playground runner for Live2D zips + `VarFloats` inspector + Vite workspace alias configuration |
 
 _Notable implementation fixes during build: lane-hint dispatch shadowing (caught by test); useBroadcastChannel has no `onMessage` (use `watch` on `data`); `resolveMotionGroupAndIndex` isn't exported on `useLive2d` — adapter resolves on `motionManager` directly to avoid double-broadcast._
 
