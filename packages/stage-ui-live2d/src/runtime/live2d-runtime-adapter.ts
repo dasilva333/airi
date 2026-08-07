@@ -20,7 +20,33 @@ import type {
 } from '@proj-airi/live2d-runtime'
 import type { Live2DModel } from 'pixi-live2d-display/cubism4'
 
+import { useBroadcastChannel } from '@vueuse/core'
 import { MotionPriority } from 'pixi-live2d-display/cubism4'
+import { watch } from 'vue'
+
+/** Cross-window bridge channel to the app-shell dating-sim store (no cross-package import). */
+const DSL_BRIDGE_CHANNEL = 'live2d-dsl-bridge'
+
+type DslBridgeEvent
+  = | {
+    type: 'dsl-choices'
+    requestId: string
+    sourceModelId?: string
+    text?: string
+    textDuration?: number
+    choices: { index: number, text: string }[]
+    language?: string
+  }
+  | {
+    type: 'dsl-choice-selected'
+    requestId: string
+    choiceIndex: number
+  }
+  | {
+    type: 'dsl-intimacy-changed'
+    next: number
+    delta: number
+  }
 
 /**
  * Rendering-host effects that depend on the Vue shell, not on the PIXI model. The VM never
@@ -70,9 +96,30 @@ export class Live2DRuntimeAdapter {
   private readonly model: Live2DModel<any>
   private readonly cfg: Live2DRuntimeAdapterConfig
 
+  /** Set after VM construction so a bridged choice selection can resume the VM. */
+  private selectChoiceHandler: ((choiceIndex: number) => void) | null = null
+  private currentChoiceRequestId: string | null = null
+
+  private readonly bridge = useBroadcastChannel<DslBridgeEvent, DslBridgeEvent>({ name: DSL_BRIDGE_CHANNEL })
+  private readonly stopBridgeWatch: () => void
+
   constructor(config: Live2DRuntimeAdapterConfig) {
     this.cfg = config
     this.model = config.model
+    // Listen for the app-shell dating-sim store answering a choice menu. Incoming
+    // BroadcastChannel events arrive via the reactive `data` ref (useBroadcastChannel has
+    // no onMessage); watch it and ignore stale/non-matching request ids.
+    this.stopBridgeWatch = watch(this.bridge.data, (event) => {
+      if (event?.type === 'dsl-choice-selected' && event.requestId === this.currentChoiceRequestId) {
+        this.currentChoiceRequestId = null
+        this.selectChoiceHandler?.(event.choiceIndex)
+      }
+    })
+  }
+
+  /** Called by Model.vue after constructing the VM so a bridged selection resumes it. */
+  setSelectChoiceHandler(handler: (choiceIndex: number) => void): void {
+    this.selectChoiceHandler = handler
   }
 
   private get internalModel() {
@@ -179,19 +226,30 @@ export class Live2DRuntimeAdapter {
 
   readonly events: IEventEmitter = {
     showChoices: (payload: { text?: string, textDuration?: number, choices: ResolvedChoice[], rawEntry: DslEntry }) => {
+      // Broadcast the menu to the dating-sim overlay store; Model.vue responds with
+      // `dsl-choice-selected`. The host callback is kept as a fallback for non-window hosts.
+      const requestId = `dsl-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+      this.currentChoiceRequestId = requestId
+      this.bridge.post({
+        type: 'dsl-choices',
+        requestId,
+        text: payload.text,
+        textDuration: payload.textDuration,
+        choices: payload.choices.map((c, index) => ({ index, text: c.text })),
+        language: (payload.rawEntry as DslEntry).Language,
+      })
       this.cfg.host.showChoices(payload)
     },
     showText: (payload: { text: string, duration?: number, rawEntry: DslEntry }) => {
       this.cfg.host.showSpeechText(payload.text, { duration: payload.duration, language: (payload.rawEntry as DslEntry).Language })
     },
     onCostumeWillSwap: (modelFile: string) => {
-      // The swap itself is triggered by the costume port; this event is a render-side hint
-      // (used for crossfade prep). Model.vue performs the actual motionManager swap when it
-      // receives the matching changeCostume action, so nothing extra happens here yet.
+      // change_cos is DEFERRED (see docs/live2d-change-cos-dependency-challenge.md). Keeping this
+      // as a render-side hint no-op preserves surface compatibility until the ingestion fix lands.
       void modelFile
     },
-    onIntimacyChanged: () => {
-      // Intimacy is persisted via addIntimacy below; overlay styling can subscribe later.
+    onIntimacyChanged: (next: number, delta: number) => {
+      this.bridge.post({ type: 'dsl-intimacy-changed', next, delta })
     },
   }
 
@@ -207,16 +265,22 @@ export class Live2DRuntimeAdapter {
       clamp(this.cfg.getIntimacy() + delta) // normalize; the host clamps on write
     }
     this.cfg.addIntimacy(delta)
+    // Reflect the change to the dating-sim overlay so it can react (score HUD, mood gate, etc.).
+    this.bridge.post({ type: 'dsl-intimacy-changed', next: this.getIntimacy(), delta })
   }
 
   changeCostume(modelFile: string): void {
     void this.cfg.host.changeCostume(modelFile)
   }
 
-  /** Stop every live sound channel; call on unmount / model unload. */
+  /** Stop every live sound channel and close the bridge; call on unmount / model unload. */
   dispose(): void {
     for (const channel of [...this.channelAudios.keys()])
       this.stopSound(channel)
+    this.stopBridgeWatch()
+    this.bridge.close()
+    this.selectChoiceHandler = null
+    this.currentChoiceRequestId = null
   }
 }
 

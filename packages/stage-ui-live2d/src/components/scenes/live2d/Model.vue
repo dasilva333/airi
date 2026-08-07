@@ -1311,6 +1311,9 @@ async function loadModel() {
         },
       })
       dslVM.loadGroups(rawGroups)
+      // Bridge resolution: when the dating-sim overlay replies with a chosen option,
+      // resume the VM. Registered here so the adapter never needs a VM reference.
+      dslAdapter.setSelectChoiceHandler(idx => dslVM?.selectChoice(idx))
     }
     catch (dslError) {
       console.warn('[Live2D DSL] Failed to bootstrap runtime (non-fatal):', dslError)

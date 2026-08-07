@@ -119,6 +119,16 @@ watch(() => subtitleText.value, () => {
 })
 
 function handleChoiceClick(choice: any) {
+  // Live2D DSL menus are rendered here but resolved by the VM. Route the click back via
+  // the store bridge and skip all dating-sim scoring/LLM side-effects for these choices.
+  if (typeof choice.id === 'string' && choice.id.startsWith('dsl:')) {
+    const choiceIndex = Number(choice.id.split(':').pop())
+    datingSimStore.postDslChoiceSelected(choiceIndex)
+    datingSimStore.choices = []
+    datingSimStore.currentSubtitle = ''
+    return
+  }
+
   if (typeof choice.positiveScoreChange === 'number') {
     datingSimStore.setVariable('positiveScore', datingSimStore.getVariable('positiveScore') + choice.positiveScoreChange)
   }

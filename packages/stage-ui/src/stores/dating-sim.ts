@@ -67,6 +67,47 @@ export const useDatingSimStore = defineStore('dating-sim', () => {
   const activeStoryline = ref<any | null>(null)
   const customPremise = ref<string>('')
 
+  // --- Live2D DSL bridge (Phase 3) ---------------------------------------------
+  // The Live2D model layer (`stage-ui-live2d`) runs the headless DSL VM and publishes
+  // choice menus + intimacy deltas on `live2d-dsl-bridge`. This store subscribes, projects
+  // them into the same `Choice[]` shape DatingSimOverlay already renders, and posts the
+  // user's selection back so the VM can resume. DSL-driven choices carry a `dsl:`-prefixed
+  // id so the overlay can distinguish them from LLM-generated ones without schema changes.
+  const DSL_BRIDGE_CHANNEL = 'live2d-dsl-bridge'
+  const dslBridge = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(DSL_BRIDGE_CHANNEL) : null
+  const dslRequestId = ref<string | null>(null)
+
+  function postDslChoiceSelected(choiceIndex: number) {
+    if (!dslBridge || !dslRequestId.value)
+      return
+    dslBridge.postMessage({ type: 'dsl-choice-selected', requestId: dslRequestId.value, choiceIndex })
+    dslRequestId.value = null
+  }
+
+  if (dslBridge) {
+    dslBridge.onmessage = (event: MessageEvent) => {
+      const data = event.data
+      if (data?.type === 'dsl-choices') {
+        // Mirror the VM's menu into the overlay. DSL menu text is pre-interpolated.
+        dslRequestId.value = data.requestId
+        choices.value = (data.choices || []).map((c: { index: number, text: string }) => ({
+          id: `dsl:${data.requestId}:${c.index}`,
+          text: c.text,
+          icon: 'i-solar:chat-round-dots-bold-duotone',
+          action: 'dsl_choice',
+        }))
+        currentSubtitle.value = data.text || ''
+      }
+      else if (data?.type === 'dsl-intimacy-changed') {
+        // DSL `Bonus` rewards flow into the persistent intimacy the overlay/dating sim reads.
+        // Apply delta against current to respect the dating-sim's clamping contract.
+        if (typeof data.delta === 'number') {
+          setVariable('Intimacy', Math.max(0, Math.min(100, getVariable('Intimacy') + data.delta)))
+        }
+      }
+    }
+  }
+
   const resolvedSceneryRoute = computed(() => {
     const route = settings.value.sceneryRoute
     if (route === 'inherit') {
@@ -625,6 +666,11 @@ Generate 4 options for what the User could say next and the subtitle.`
         customPremise.value = payload.customPremise
         choices.value = payload.choices
         currentSubtitle.value = payload.currentSubtitle
+        // If the coordinator overrode the visible menu (e.g. re-rendered with new choices
+        // or cleared), the outstanding DSL selection context no longer maps to what's on
+        // screen — drop the pending reply id to avoid resuming the VM against stale state.
+        if (!((payload.choices || []).some((c: any) => typeof c?.id === 'string' && c.id.startsWith('dsl:'))))
+          dslRequestId.value = null
         // Re-enable broadcasting after DOM tick
         setTimeout(() => {
           isBroadcasting.value = true
@@ -799,5 +845,7 @@ Generate 4 options for what the User could say next and the subtitle.`
     evaluateParameters,
     broadcastMood,
     isGenerating,
+    postDslChoiceSelected,
+    dslRequestId,
   }
 })
