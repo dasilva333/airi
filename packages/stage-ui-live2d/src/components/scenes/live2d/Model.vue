@@ -31,6 +31,7 @@ import {
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
 import { consumePendingDslGroups } from '../../../runtime/dsl-capture'
 import { buildAdapterPorts, Live2DRuntimeAdapter } from '../../../runtime/live2d-runtime-adapter'
+import { useDslIntimacyStore } from '../../../stores/dsl-intimacy'
 import { useLive2d } from '../../../stores/live2d'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
@@ -1279,12 +1280,15 @@ async function loadModel() {
       if (!hasDsl)
         return
 
-      // Intimacy lives on the renderer-side store for now; wiring to the dating-sim
-      // store happens in Phase 3 (see plan §4).
+      // Intimacy lives in the dedicated model-scoped DSL intimacy store (Option 1). It is
+      // intentionally separate from the dating-sim 0-100 score so DSL manifests can use
+      // raw 0-100k+ thresholds and bonuses. project to display only at the UI boundary.
+      const dslIntimacy = useDslIntimacyStore()
       dslAdapter = new Live2DRuntimeAdapter({
         model: model.value!,
-        getIntimacy: () => 0,
-        addIntimacy: () => {},
+        modelId: props.modelId,
+        getIntimacy: () => dslIntimacy.getRaw(props.modelId),
+        addIntimacy: delta => dslIntimacy.add(props.modelId, delta),
         host: {
           // Phase 3 placeholder: costume swap renders as a no-op until the render host
           // performs the actual model hot-swap. State (heap) is preserved regardless.

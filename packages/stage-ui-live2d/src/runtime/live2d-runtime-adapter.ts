@@ -24,6 +24,8 @@ import { useBroadcastChannel } from '@vueuse/core'
 import { MotionPriority } from 'pixi-live2d-display/cubism4'
 import { watch } from 'vue'
 
+import { DSL_INTIMACY_MAX } from '../stores/dsl-intimacy'
+
 /** Cross-window bridge channel to the app-shell dating-sim store (no cross-package import). */
 const DSL_BRIDGE_CHANNEL = 'live2d-dsl-bridge'
 
@@ -44,8 +46,12 @@ type DslBridgeEvent
   }
   | {
     type: 'dsl-intimacy-changed'
+    modelId?: string
+    /** Raw native score (0..DSL_INTIMACY_MAX). */
     next: number
     delta: number
+    /** Normalized 0–100 projection for HUD display. */
+    display: number
   }
 
 /**
@@ -72,9 +78,14 @@ export interface RenderHostActions {
 export interface Live2DRuntimeAdapterConfig {
   /** The loaded model (works for both cubism4 and cubism2 internal models). */
   model: Live2DModel<any>
-  /** Persistence-intimacy read from the host's store. */
+  /**
+   * The persistence key for this costume/model. Raw DSL intimacy is stored under this id
+   * by the dedicated stage-ui-live2d dsl-intimacy store (Phase 3 Option 1).
+   */
+  modelId?: string
+  /** Raw native DSL intimacy read (0..DSL_INTIMACY_MAX). */
   getIntimacy: () => number
-  /** Persistence-intimacy write-back (will be wired to the dating-sim store). */
+  /** Raw native DSL intimacy write-back. */
   addIntimacy: (delta: number) => void
   /** View-level effects implemented by Model.vue. */
   host: RenderHostActions
@@ -83,8 +94,6 @@ export interface Live2DRuntimeAdapterConfig {
    * or a replacement texture. Required for sound + texture playback.
    */
   resolveAssetUrl?: (file: string) => string
-  /** Optional intimacy hard ceiling clamp (defaults to none). */
-  clampIntimacy?: (v: number) => number
 }
 
 /**
@@ -249,7 +258,13 @@ export class Live2DRuntimeAdapter {
       void modelFile
     },
     onIntimacyChanged: (next: number, delta: number) => {
-      this.bridge.post({ type: 'dsl-intimacy-changed', next, delta })
+      this.bridge.post({
+        type: 'dsl-intimacy-changed',
+        modelId: this.cfg.modelId,
+        next,
+        delta,
+        display: Math.round((next / DSL_INTIMACY_MAX) * 100),
+      })
     },
   }
 
@@ -260,13 +275,17 @@ export class Live2DRuntimeAdapter {
   }
 
   addIntimacy(delta: number): void {
-    const clamp = this.cfg.clampIntimacy
-    if (clamp) {
-      clamp(this.cfg.getIntimacy() + delta) // normalize; the host clamps on write
-    }
+    // Persistence + clamping are owned by the dedicated dsl-intimacy store via cfg.addIntimacy.
     this.cfg.addIntimacy(delta)
-    // Reflect the change to the dating-sim overlay so it can react (score HUD, mood gate, etc.).
-    this.bridge.post({ type: 'dsl-intimacy-changed', next: this.getIntimacy(), delta })
+    // Reflect to the HUD bridge: raw (for persistence/gates) + normalized display (0-100).
+    const next = this.getIntimacy()
+    this.bridge.post({
+      type: 'dsl-intimacy-changed',
+      modelId: this.cfg.modelId,
+      next,
+      delta,
+      display: Math.round((next / DSL_INTIMACY_MAX) * 100),
+    })
   }
 
   changeCostume(modelFile: string): void {
