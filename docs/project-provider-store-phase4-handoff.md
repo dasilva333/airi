@@ -22,10 +22,11 @@ Phase 4 focuses on activating the multi-instance engine at runtime (`createProvi
 ### **Completed & Verified (Steps 1, 2, & 3)**:
 1. **Engine Switch Activated ("Flipped the Switch")**:
    - `packages/stage-ui/src/stores/providers.ts:38` replaced `useLocalStorage()` with `createProviderInstanceStore()`.
+   - Keyed Map internal structure (`Record<providerId, Record<instanceId, Row>>`) running behind backwards-compatible facade.
    - Exposed all instance APIs (`listInstances`, `setPrimaryInstance`, `addInstance`, `removeInstance`, `setInstanceLabel`) as top-level store members.
 2. **Multi-Instance UI Components**:
    - Created `provider-instances-section.vue`: renders multi-instance controls (`[+ Add Instance]`, label editing, primary selector, and deletion).
-   - Created `provider-danger-zone.vue`: bottom-anchored `[Delete Credentials]` double-click confirmation dialog.
+   - Created `provider-danger-zone.vue`: bottom-anchored `[Delete Credentials]` double-click confirmation dialog using `DoubleCheckButton` component.
    - Added **SSML Warning Banner**: amber alert banner injected in `speech-playground.vue`.
    - Mounted instance controls and danger zone into `speech-provider-settings.vue` and `transcription-provider-settings.vue`.
 3. **Instance-Aware Model Fetching & Selector Refinements (Step 3)**:
@@ -33,6 +34,8 @@ Phase 4 focuses on activating the multi-instance engine at runtime (`createProvi
    - Restored robust credential gating in `selectors/config.ts` (`apiKey?.trim()`, AWS key pairs, custom `baseUrl`).
    - Added `isLegacy` migration guards to `instance-store.ts` to prevent empty state clobbering during Vue rehydration.
    - Tied instance deletion directly to per-instance dirty cache tracking (`${providerId}:${instanceId ?? '*'}`).
+4. **Localization & i18n Protocol**:
+   - All newly added translation keys (e.g. Danger Zone title, description, and button labels) are added directly via `scripts/yaml-manager.js` per `docs/settings-yaml.md` and project rules.
 
 ---
 
@@ -72,3 +75,4 @@ Phase 4 focuses on activating the multi-instance engine at runtime (`createProvi
 - `pnpm -F @proj-airi/stage-ui typecheck` -> **PASS**
 - `pnpm -F @proj-airi/stage-ui test src/stores/providers/ --run` -> **PASS**
 - `pnpm -F @proj-airi/stage-pages typecheck` -> **PASS**
+

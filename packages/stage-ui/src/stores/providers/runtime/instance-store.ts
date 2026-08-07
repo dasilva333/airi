@@ -38,7 +38,53 @@ export function createProviderInstanceStore() {
   }) as Ref<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>
 
   function isLegacy(raw: any): raw is LegacyProviderCredentials {
-    return !!raw && (raw.version !== 2 || typeof raw.instancesByInstanceKey !== 'object' || raw.instancesByInstanceKey === null)
+    return !!raw
+      && (typeof raw !== 'object' || raw.version !== 2 || typeof raw.instancesByInstanceKey !== 'object' || raw.instancesByInstanceKey === null)
+  }
+
+  // NOTICE: upstream/main persists credentials with snake_case aliases
+  // (`api_key` → `apiKey`, `base_url` → `baseUrl`) that this fork's runtime and
+  // Zod schemas read as camelCase. Migration normalizes aliases into the
+  // camelCase key only when that key is absent, leaving any unknown host-specific
+  // keys untouched.
+  function normalizeLegacyCredentialKeyAliases(options: Record<string, unknown>): Record<string, unknown> {
+    const normalized: Record<string, unknown> = { ...options }
+
+    const aliasPairs: Array<[alias: string, canonical: string]> = [
+      ['api_key', 'apiKey'],
+      ['base_url', 'baseUrl'],
+      ['aws_access_key_id', 'awsAccessKeyId'],
+      ['aws_secret_access_key', 'awsSecretAccessKey'],
+    ]
+
+    for (const [alias, canonical] of aliasPairs) {
+      if (normalized[canonical] === undefined && typeof options[alias] === 'string')
+        normalized[canonical] = options[alias]
+    }
+
+    return normalized
+  }
+
+  function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+  }
+
+  // A migrated record is an "empty stub" when it carries no usable credential
+  // material. Whitespace-only values count as empty so users can't be stuck
+  // with a blank-but-truthy shell that polls correctly but never authenticates.
+  function isEmptyCredentialStub(options: Record<string, unknown>): boolean {
+    if (Object.keys(options).length === 0)
+      return true
+
+    return Object.values(options).every((value) => {
+      if (typeof value === 'string')
+        return value.trim().length === 0
+      if (Array.isArray(value))
+        return value.length === 0
+      if (isPlainRecord(value))
+        return Object.values(value as Record<string, unknown>).every(v => typeof v === 'string' ? v.trim().length === 0 : v == null || v === false)
+      return value === undefined || value === null || value === false
+    })
   }
 
   function migrate() {
@@ -48,12 +94,19 @@ export function createProviderInstanceStore() {
     const legacy = state.value as LegacyProviderCredentials
     const instancesByInstanceKey: ProviderInstanceStoreSnapshot['instancesByInstanceKey'] = {}
 
-    for (const [providerId, options] of Object.entries(legacy)) {
+    for (const [providerId, rawRecord] of Object.entries(legacy)) {
+      if (!isPlainRecord(rawRecord))
+        continue
+
+      const normalizedOptions = normalizeLegacyCredentialKeyAliases(rawRecord)
+      if (isEmptyCredentialStub(normalizedOptions))
+        continue
+
       instancesByInstanceKey[`${providerId}:${PRIMARY_INSTANCE_INFIX}`] = normalizeInstance({
         id: PRIMARY_INSTANCE_INFIX,
         providerId,
         label: 'Default',
-        options: options ?? {},
+        options: normalizedOptions,
         isPrimary: true,
       }, providerId, PRIMARY_INSTANCE_INFIX)
     }
