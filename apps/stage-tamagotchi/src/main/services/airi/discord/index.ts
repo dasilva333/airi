@@ -406,9 +406,27 @@ export function setupDiscordService() {
     pushLog('DEPLOY', `Initiating Cloudflare Edge deployment for script "${payload.scriptName}"...`)
     try {
       const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+
+      let targetAccountId = payload.accountId
+      if (!targetAccountId) {
+        pushLog('DEPLOY', 'Account ID missing from payload, resolving account memberships via Cloudflare API...')
+        const tempDeployer = new CloudflareStageDeployer({
+          apiToken: payload.apiToken,
+          accountId: '',
+        })
+        const accounts = await tempDeployer.getAccounts()
+        if (accounts.length > 0) {
+          targetAccountId = accounts[0].id
+          pushLog('DEPLOY', `Resolved Cloudflare Account: "${accounts[0].name}" (${targetAccountId})`)
+        }
+        else {
+          throw new Error('No Cloudflare accounts found for this token.')
+        }
+      }
+
       const deployer = new CloudflareStageDeployer({
         apiToken: payload.apiToken,
-        accountId: payload.accountId,
+        accountId: targetAccountId,
       })
 
       const res = await deployer.deployWorker({

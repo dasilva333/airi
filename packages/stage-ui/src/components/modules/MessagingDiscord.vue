@@ -120,6 +120,12 @@ async function handleLaunchDeployment() {
     const creds = (providersStore.providers as Record<string, any>)[selectedConsciousnessProvider.value] || {}
     const apiKey: string = typeof creds === 'string' ? creds : (creds.apiKey || creds.token || '')
 
+    // Auto-prompt PKCE login if tokens are missing
+    if (!cfApiToken.value && !cfOAuthTokens.value?.accessToken) {
+      toast.loading('Authenticating with Cloudflare via OAuth...', { id: toastId })
+      await discordStore.authenticateWithCloudflare()
+    }
+
     toast.loading('2/3: Provisioning Cloudflare KV Namespace & Worker deployment...', { id: toastId })
 
     const res = await discordStore.deployCloudRelay({

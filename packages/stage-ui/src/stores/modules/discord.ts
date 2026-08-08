@@ -370,8 +370,8 @@ export const useDiscordStore = defineStore('discord', () => {
     const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
     const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
 
-    if (!apiToken || !accountId) {
-      throw new Error('Cloudflare API Token or Account ID missing. Please authenticate first.')
+    if (!apiToken) {
+      throw new Error('Cloudflare API Token missing. Please authenticate first.')
     }
 
     if (!invokeDeployCloudRelay) {

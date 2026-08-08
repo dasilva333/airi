@@ -129,18 +129,24 @@ The Discord module UI (`packages/stage-pages/src/pages/settings/modules/messagin
    - **Channel Context Routing**: Maps Discord channels (`channel-{id}`), threads (`thread-{id}`), and DMs (`dm-{userId}`) to specific character cards and chat sessions (`design-discord-context-routing.md`).
    - **ACL Permission Matrix**: Defines command access levels (`Owner Only`, `Whitelisted Roles/Users`, `Everyone`, `Disabled`) with strict deny-first precedence rules.
 
-### 4.2 Automated Client-Side Deployment Sequence
+### 4.2 Automated Client-Side 2-Step Deployment Sequence
 
-Deployment sequence (triggered by **[Deploy Relay]** button in Tab 2):
+Deployment sequence (triggered by **[🚀 Deploy Character to Cloudflare Edge]** button in Tab 2):
 
 ```
-1. OAuth PKCE exchange / token entry → authenticates with Cloudflare REST API
-2. AIRI calls Cloudflare API → creates KV namespace `airi-kv-<scriptName>`
-3. AIRI packages Worker bundle (`packager.ts`) with character prompt & secrets
-4. AIRI uploads ES module payload via PUT `https://api.cloudflare.com/client/v4/accounts/{accountId}/workers/scripts/{scriptName}`
-5. AIRI binds KV namespace `MEMORY` and secrets (`GEMINI_API_KEY`, `DISCORD_PUBLIC_KEY`)
-6. AIRI enables `workers.dev` subdomain & fetches live endpoint URL
-7. AIRI registers Discord Interactions Endpoint URL (`{workerUrl}/discord`) & global slash commands via Discord REST API
+1. Step 1: Session Selector Modal → User selects target timeline session (Active GUI, existing timeline, or dedicated new relay session).
+2. Step 2: "Review & Inspect Details" Modal:
+   - Summary Banner: Displays character name, target session name, memory mode, and target Discord servers list.
+   - Consciousness (LLM Provider & Model Picker): User selects edge inference engine via `BrainModelPicker` (OpenAI-compatible, OpenRouter, Gemini, Groq, DeepSeek). Credentials are auto-sourced from AIRI Provider settings (`useProviderStore`).
+   - Assembled System Prompt Inspector: Collapsible live inspector rendering `buildSystemPrompt()` character persona + memory context.
+3. User clicks [🚀 Launch Deployment to Cloudflare]:
+   - OAuth PKCE exchange / token check → authenticates zero-custody with Cloudflare REST API.
+   - AIRI creates KV namespace `airi-kv-<scriptName>` and seeds initial memory context.
+   - AIRI packages ES module Worker bundle (`packager.ts`) with assembled system prompt & API secrets.
+   - AIRI uploads ES module payload via PUT `https://api.cloudflare.com/client/v4/accounts/{accountId}/workers/scripts/{scriptName}`.
+   - AIRI enables `workers.dev` subdomain & fetches live endpoint URL.
+   - AIRI registers Discord Interactions Endpoint URL (`{workerUrl}/discord`) & global slash commands via Discord REST API.
+   - Execution Switch: `executionMode` switches to `'remote'` and local gateway pauses (`stopService()`) so Cloudflare Edge takes over live interactions cleanly.
 ```
 
 All operations run client-side in a zero-custody architecture — no intermediary AIRI server touched.
