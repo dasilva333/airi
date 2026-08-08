@@ -112,10 +112,11 @@ export class CloudflareStageDeployer {
     }
     catch (err: any) {
       console.warn(`[Stage-Deployer] Packager fallback: ${err.message}`)
+      const safePrompt = (options.characterPrompt || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
       workerScriptCode = `
 export default {
   async fetch(request, env) {
-    return new Response(JSON.stringify({ status: 'ok', script: '${options.scriptName}', prompt: '${options.characterPrompt}' }), {
+    return new Response(JSON.stringify({ status: 'ok', script: "${options.scriptName}" }), {
       headers: { 'Content-Type': 'application/json' }
     });
   }
