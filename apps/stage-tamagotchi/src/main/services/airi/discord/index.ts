@@ -438,6 +438,7 @@ export function setupDiscordService() {
         llmModel: payload.llmModel,
         discordBotToken: payload.discordBotToken,
         memoryMode: payload.memoryMode,
+        initialHistory: payload.initialHistory,
       })
 
       pushLog('DEPLOY', `Deployment successful! Worker URL: ${res.workerUrl}`)

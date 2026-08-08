@@ -138,10 +138,12 @@ Deployment sequence (triggered by **[🚀 Deploy Character to Cloudflare Edge]**
 2. Step 2: "Review & Inspect Details" Modal:
    - Summary Banner: Displays character name, target session name, memory mode, and target Discord servers list.
    - Consciousness (LLM Provider & Model Picker): User selects edge inference engine via `BrainModelPicker` (OpenAI-compatible, OpenRouter, Gemini, Groq, DeepSeek). Credentials are auto-sourced from AIRI Provider settings (`useProviderStore`).
+   - History Depth / Context Continuity Selector: User selects history seeding level (`System Prompt Only`, `Last 10 Messages`, `Last 50 Messages`, or `Full Session History`).
    - Assembled System Prompt Inspector: Collapsible live inspector rendering `buildSystemPrompt()` character persona + memory context.
 3. User clicks [🚀 Launch Deployment to Cloudflare]:
    - OAuth PKCE exchange / token check → authenticates zero-custody with Cloudflare REST API.
-   - AIRI creates KV namespace `airi-kv-<scriptName>` and seeds initial memory context.
+   - AIRI creates KV namespace `airi-kv-<scriptName>`.
+   - AIRI packages selected session message history (according to chosen History Depth) and writes it into KV key `context/rolling`.
    - AIRI packages ES module Worker bundle (`packager.ts`) with assembled system prompt & API secrets.
    - AIRI uploads ES module payload via PUT `https://api.cloudflare.com/client/v4/accounts/{accountId}/workers/scripts/{scriptName}`.
    - AIRI enables `workers.dev` subdomain & fetches live endpoint URL.

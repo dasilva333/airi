@@ -22,6 +22,7 @@ export interface WorkerDeployOptions {
   discordPublicKey?: string
   discordBotToken?: string
   memoryMode?: 'fixed' | 'unlimited'
+  initialHistory?: Array<{ role: string, content: string }>
 }
 
 export class CloudflareStageDeployer {
@@ -103,8 +104,11 @@ export class CloudflareStageDeployer {
     // 1. Ensure KV namespace exists
     const namespaceId = await this.ensureKvNamespace(`airi-kv-${options.scriptName}`)
 
-    // 2. Seed baseline KV test value ("ping" -> "pong")
+    // 2. Seed baseline KV test value ("ping" -> "pong") & initial history context if provided
     await this.setKvValue(namespaceId, 'ping', 'pong')
+    if (options.initialHistory && options.initialHistory.length > 0) {
+      await this.setKvValue(namespaceId, 'context/rolling', JSON.stringify(options.initialHistory))
+    }
 
     // 3. Construct bundled ES module Worker script payload
     let workerScriptCode = ''

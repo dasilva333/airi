@@ -2,7 +2,7 @@
 import { Button, FieldCheckbox, FieldInput } from '@proj-airi/ui'
 import { format } from 'date-fns'
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -67,6 +67,7 @@ const deployNewSessionName = ref('Cloud Relay Session')
 const inspectModalOpen = ref(false)
 const selectedConsciousnessProvider = ref(consciousnessStore.activeProvider || 'openai')
 const selectedConsciousnessModel = ref(consciousnessStore.activeModel || 'gpt-4o-mini')
+const selectedHistoryDepth = ref<'prompt' | '10' | '50' | 'all'>('prompt')
 const showSystemPromptPreview = ref(false)
 
 const characterSessions = computed(() => {
@@ -93,6 +94,58 @@ const selectedSessionMeta = computed(() => {
     universeId: 'global',
   }
 })
+
+const targetSessionMessageCount = computed(() => {
+  if (!deployTargetSessionId.value || deployTargetSessionId.value === 'new')
+    return 0
+  const msgs = chatSessionStore.getSessionMessages(deployTargetSessionId.value)
+  if (msgs && msgs.length > 0)
+    return msgs.length
+  return selectedSessionMeta.value?.messageCount || 0
+})
+
+const availableHistoryDepths = computed(() => {
+  const count = targetSessionMessageCount.value
+  const options: Array<{ value: 'prompt' | '10' | '50' | 'all', label: string, desc: string }> = [
+    {
+      value: 'prompt',
+      label: 'System Prompt Only',
+      desc: 'Clean Slate — deploy persona without uploading past dialogue history',
+    },
+  ]
+
+  if (count > 10) {
+    options.push({
+      value: '10',
+      label: 'Last 10 Messages',
+      desc: 'Include recent conversation context for quick continuity',
+    })
+  }
+
+  if (count > 50) {
+    options.push({
+      value: '50',
+      label: 'Last 50 Messages',
+      desc: 'Include extended conversation context for deep coherence',
+    })
+  }
+
+  if (count > 0) {
+    options.push({
+      value: 'all',
+      label: `All Session History (${count} message${count > 1 ? 's' : ''})`,
+      desc: 'Transfer complete timeline dialogue history to Cloudflare KV',
+    })
+  }
+
+  return options
+})
+
+watch(availableHistoryDepths, (opts: Array<{ value: 'prompt' | '10' | '50' | 'all' }>) => {
+  if (!opts.some((o: { value: string }) => o.value === selectedHistoryDepth.value)) {
+    selectedHistoryDepth.value = 'prompt'
+  }
+}, { immediate: true })
 
 const assembledSystemPrompt = computed(() => {
   return buildSystemPrompt(activeCard.value)
@@ -128,6 +181,26 @@ async function handleLaunchDeployment() {
       await discordStore.authenticateWithCloudflare()
     }
 
+    // Extract initial conversation history based on selectedHistoryDepth
+    let initialHistory: Array<{ role: string, content: string }> | undefined
+    if (selectedHistoryDepth.value !== 'prompt' && deployTargetSessionId.value && deployTargetSessionId.value !== 'new') {
+      const rawMessages = chatSessionStore.getSessionMessages(deployTargetSessionId.value) || []
+      let sliced = rawMessages
+      if (selectedHistoryDepth.value === '10') {
+        sliced = rawMessages.slice(-10)
+      }
+      else if (selectedHistoryDepth.value === '50') {
+        sliced = rawMessages.slice(-50)
+      }
+
+      initialHistory = sliced
+        .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
+        .map((m: any) => ({
+          role: m.role as string,
+          content: typeof m.content === 'string' ? m.content : (m.rawContent || String(m.content)),
+        }))
+    }
+
     toast.loading('2/3: Provisioning Cloudflare KV Namespace & Worker deployment...', { id: toastId })
 
     const res = await discordStore.deployCloudRelay({
@@ -140,6 +213,7 @@ async function handleLaunchDeployment() {
       memoryMode: selectedMemoryMode.value,
       cardId: activeCardId.value || 'default',
       sessionId: deployTargetSessionId.value,
+      initialHistory,
     })
 
     toast.success(`🎉 ${cardName} is now LIVE 24/7 on Cloudflare Edge! (${res.workerUrl})`, { id: toastId })
@@ -1000,6 +1074,52 @@ function formatTimestamp(ts: number) {
                 side="bottom"
                 class="w-full"
               />
+            </div>
+          </div>
+
+          <!-- Section 3: History Seeding & Context Depth -->
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 text-xs text-neutral-700 font-bold dark:text-neutral-200">
+              <div class="i-solar:history-bold-duotone text-base text-primary-500" />
+              <span>Conversation History Seeding</span>
+            </label>
+            <p class="text-[11px] text-neutral-400">
+              Choose how much dialogue history to seed into Cloudflare KV for context continuity.
+            </p>
+
+            <div class="grid grid-cols-1 gap-2 pt-1">
+              <div
+                v-for="option in availableHistoryDepths"
+                :key="option.value"
+                :class="[
+                  'flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all',
+                  selectedHistoryDepth === option.value
+                    ? 'bg-primary-50/30 border-primary-500 dark:bg-primary-900/10 dark:border-primary-400'
+                    : 'bg-neutral-50/50 border-neutral-200/80 dark:bg-neutral-900/40 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700',
+                ]"
+                @click="selectedHistoryDepth = option.value"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div
+                    :class="[
+                      'w-4 h-4 rounded-full border flex items-center justify-center transition-all',
+                      selectedHistoryDepth === option.value
+                        ? 'border-primary-500 bg-primary-500 text-white'
+                        : 'border-neutral-300 dark:border-neutral-700',
+                    ]"
+                  >
+                    <div v-if="selectedHistoryDepth === option.value" class="h-1.5 w-1.5 rounded-full bg-white" />
+                  </div>
+                  <div>
+                    <div class="text-xs text-neutral-800 font-bold dark:text-neutral-200">
+                      {{ option.label }}
+                    </div>
+                    <div class="text-[10px] text-neutral-400">
+                      {{ option.desc }}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

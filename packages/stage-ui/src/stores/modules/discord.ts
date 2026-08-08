@@ -368,6 +368,7 @@ export const useDiscordStore = defineStore('discord', () => {
     memoryMode?: 'fixed' | 'unlimited'
     cardId: string
     sessionId: string
+    initialHistory?: Array<{ role: string, content: string }>
   }) {
     const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
     const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
@@ -391,6 +392,7 @@ export const useDiscordStore = defineStore('discord', () => {
       llmModel: payload.llmModel,
       discordBotToken: token.value,
       memoryMode: payload.memoryMode,
+      initialHistory: payload.initialHistory,
     })
 
     if (!res?.success || !res.workerUrl) {

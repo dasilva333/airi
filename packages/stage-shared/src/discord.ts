@@ -162,6 +162,7 @@ export interface CloudRelayDeployPayload {
   llmModel?: string
   discordBotToken?: string
   memoryMode?: 'fixed' | 'unlimited'
+  initialHistory?: Array<{ role: string, content: string }>
 }
 
 export interface CloudRelayDeployResult {

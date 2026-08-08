@@ -6,6 +6,7 @@
 export interface LlmGenerateOptions {
   prompt: string
   systemInstruction?: string
+  history?: Array<{ role: string, content: string }>
   model?: string
   apiKey: string
   baseUrl?: string
@@ -33,6 +34,14 @@ export async function generateLlmReply(options: LlmGenerateOptions): Promise<str
 
   if (options.systemInstruction) {
     messages.push({ role: 'system', content: options.systemInstruction })
+  }
+
+  if (options.history && Array.isArray(options.history)) {
+    for (const item of options.history) {
+      if (item.role && item.content) {
+        messages.push({ role: item.role, content: item.content })
+      }
+    }
   }
 
   messages.push({ role: 'user', content: options.prompt })
