@@ -131,6 +131,7 @@ async function handleLaunchDeployment() {
     const res = await discordStore.deployCloudRelay({
       scriptName,
       characterPrompt: assembledSystemPrompt.value,
+      characterName: cardName,
       geminiApiKey: apiKey,
       geminiModel: selectedConsciousnessModel.value,
       memoryMode: selectedMemoryMode.value,

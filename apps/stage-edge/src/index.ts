@@ -12,6 +12,7 @@ export interface Env {
   GEMINI_MODEL?: string
   DISCORD_PUBLIC_KEY: string
   SYSTEM_PROMPT?: string
+  CHARACTER_NAME?: string
   MEMORY?: KVNamespace
 }
 
@@ -27,16 +28,21 @@ export default {
     // Handle Discord interaction webhooks
     if (request.method === 'POST' && url.pathname === '/discord') {
       const bodyText = await request.text()
-      const isValid = await verifyDiscordSignature(request, bodyText, env.DISCORD_PUBLIC_KEY)
 
+      // Discord requires ALL incoming webhook requests (including Type 1 PING) to pass Ed25519 signature verification
+      const isValid = await verifyDiscordSignature(request, bodyText, env.DISCORD_PUBLIC_KEY)
       if (!isValid) {
         return new Response('Invalid signature', { status: 401 })
       }
 
-      const interaction = JSON.parse(bodyText)
+      let interaction: any = null
+      try {
+        interaction = JSON.parse(bodyText)
+      }
+      catch {}
 
       // Discord PING verification (Type 1)
-      if (interaction.type === 1) {
+      if (interaction?.type === 1) {
         return jsonResponse({ type: 1 })
       }
 
@@ -46,7 +52,7 @@ export default {
         const messageOpt = options.find((o: any) => o.name === 'message')
         const userPrompt = messageOpt?.value || options[0]?.value || 'Hello!'
         const systemInstruction = buildSystemInstruction({
-          name: 'AIRI',
+          name: env.CHARACTER_NAME || 'AIRI',
           personality: 'Kind, supportive, witty AI companion.',
           systemPrompt: env.SYSTEM_PROMPT,
         })

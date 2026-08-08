@@ -182,7 +182,7 @@ function conditionMossPlanarWaveform(
   return peakNormalizeMossPlanar(out, channels, opts.targetPeakDb)
 }
 
-function peakNormalizeMossPlanar(planar: Float32Array, channels: number, targetPeakDb: number): Float32Array {
+function peakNormalizeMossPlanar(planar: Float32Array, _channels: number, targetPeakDb: number): Float32Array {
   let peak = 0
   for (let i = 0; i < planar.length; i++) {
     const a = Math.abs(planar[i])

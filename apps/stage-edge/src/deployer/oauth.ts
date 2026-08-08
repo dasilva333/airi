@@ -57,7 +57,7 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
   authUrl.searchParams.append('code_challenge_method', 'S256')
 
   return new Promise((resolve, reject) => {
-    const server = http.createServer(async (req, res) => {
+    const server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
       try {
         const reqUrl = new URL(req.url || '/', `http://${req.headers.host}`)
         if (reqUrl.pathname !== '/oauth/callback') {

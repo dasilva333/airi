@@ -361,6 +361,7 @@ export const useDiscordStore = defineStore('discord', () => {
   async function deployCloudRelay(payload: {
     scriptName: string
     characterPrompt: string
+    characterName?: string
     geminiApiKey: string
     geminiModel?: string
     memoryMode?: 'fixed' | 'unlimited'
@@ -383,6 +384,7 @@ export const useDiscordStore = defineStore('discord', () => {
       accountId,
       scriptName: payload.scriptName,
       characterPrompt: payload.characterPrompt,
+      characterName: payload.characterName,
       geminiApiKey: payload.geminiApiKey,
       geminiModel: payload.geminiModel,
       discordBotToken: token.value,

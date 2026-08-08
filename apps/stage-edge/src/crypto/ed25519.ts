@@ -37,7 +37,7 @@ export async function verifyDiscordSignature(
 
     const key = await crypto.subtle.importKey(
       'raw',
-      keyData,
+      keyData.buffer as BufferSource,
       'Ed25519',
       false,
       ['verify'],
@@ -46,8 +46,8 @@ export async function verifyDiscordSignature(
     return await crypto.subtle.verify(
       'Ed25519',
       key,
-      signatureData,
-      data,
+      signatureData.buffer as BufferSource,
+      data.buffer as BufferSource,
     )
   }
   catch (error) {

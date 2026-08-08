@@ -9,7 +9,6 @@ import { useBackupStore } from '@proj-airi/stage-ui/stores/backup'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
-import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { clearMcpToolBridge, setMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
@@ -59,7 +58,6 @@ import { builtinTools } from './stores/tools/builtin'
 const { isDark: dark } = useTheme()
 const i18n = useI18n()
 const contextBridgeStore = useContextBridgeStore()
-const displayModelsStore = useDisplayModelsStore()
 const settingsStore = useSettings()
 const { language, themeColorsHue, themeColorsHueDynamic } = storeToRefs(settingsStore)
 const serverChannelSettingsStore = useServerChannelSettingsStore()

@@ -156,6 +156,7 @@ export interface CloudRelayDeployPayload {
   accountId: string
   scriptName: string
   characterPrompt: string
+  characterName?: string
   geminiApiKey: string
   geminiModel?: string
   discordBotToken?: string

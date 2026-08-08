@@ -12,7 +12,10 @@ export interface GeminiGenerateOptions {
 }
 
 export async function generateGeminiReply(options: GeminiGenerateOptions): Promise<string> {
-  const model = options.model || 'models/gemini-3.5-flash-lite'
+  let model = options.model || 'gemini-3.5-flash-lite'
+  if (model.startsWith('models/')) {
+    model = model.replace(/^models\//, '')
+  }
   const url = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
 
   const messages: { role: string, content: string }[] = []

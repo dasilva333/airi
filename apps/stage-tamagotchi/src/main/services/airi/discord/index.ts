@@ -432,6 +432,7 @@ export function setupDiscordService() {
       const res = await deployer.deployWorker({
         scriptName: payload.scriptName,
         characterPrompt: payload.characterPrompt,
+        characterName: payload.characterName,
         geminiApiKey: payload.geminiApiKey,
         geminiModel: payload.geminiModel,
         discordBotToken: payload.discordBotToken,

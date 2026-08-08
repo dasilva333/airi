@@ -13,7 +13,7 @@
     "airi-edge": "./bin/airi-edge.js"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown --entry src/index.ts && node -e \"const fs=require('fs'); const code=fs.readFileSync('dist/index.mjs','utf8'); fs.writeFileSync('src/bundle-code.ts', 'export const BUNDLED_WORKER_SCRIPT = ' + JSON.stringify(code) + ';\\n');\" && tsdown",
     "dev": "wrangler dev",
     "deploy": "tsx src/cli.ts deploy",
     "typecheck": "vue-tsc --noEmit"

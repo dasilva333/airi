@@ -15,6 +15,7 @@ export interface CloudflareDeployerConfig {
 export interface WorkerDeployOptions {
   scriptName: string
   characterPrompt: string
+  characterName?: string
   geminiApiKey: string
   geminiModel?: string
   discordPublicKey?: string
@@ -112,7 +113,6 @@ export class CloudflareStageDeployer {
     }
     catch (err: any) {
       console.warn(`[Stage-Deployer] Packager fallback: ${err.message}`)
-      const safePrompt = (options.characterPrompt || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${')
       workerScriptCode = `
 export default {
   async fetch(request, env) {
@@ -132,7 +132,8 @@ export default {
       bindings: [
         { type: 'kv_namespace', name: 'MEMORY', namespace_id: namespaceId },
         { type: 'plain_text', name: 'SYSTEM_PROMPT', text: options.characterPrompt },
-        { type: 'plain_text', name: 'GEMINI_MODEL', text: options.geminiModel || 'models/gemini-3.5-flash-lite' },
+        { type: 'plain_text', name: 'CHARACTER_NAME', text: options.characterName || 'AIRI' },
+        { type: 'plain_text', name: 'GEMINI_MODEL', text: options.geminiModel || 'gemini-2.5-flash' },
         { type: 'secret_text', name: 'GEMINI_API_KEY', text: options.geminiApiKey },
         { type: 'secret_text', name: 'DISCORD_PUBLIC_KEY', text: resolvedPublicKey },
       ],

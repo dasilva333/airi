@@ -6,4 +6,5 @@ export default defineConfig({
   clean: true,
   dts: false,
   inlineOnly: false,
+  external: ['esbuild'],
 })
