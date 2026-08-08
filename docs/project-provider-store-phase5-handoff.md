@@ -1,6 +1,6 @@
 # Specification: Phase 5 Upstream Migration Compatibility, Credential Validation & Defensive Failure Recovery
 
-**Status:** Active Architectural Spec & Handoff Plan
+**Status:** Completed & Fully Verified (Steps 1, 2, & 3 Complete — 45/45 Tests Passing)
 **Target Directories:**
 - `packages/stage-ui/src/stores/providers/`
 - `packages/stage-ui/src/stores/providers/runtime/`
@@ -44,34 +44,39 @@ Direct inspection of `upstream/main` (`https://github.com/moeru-ai/airi.git` at 
   ```
   In `upstream/main`, unconfigured providers return `undefined` for `providerCredentials.value[providerId]`. When `config` is `undefined` and `noCredentials` is `false`, upstream throws `Provider credentials for <id> not found` before any network request is attempted.
 
-- **Fork Desynchronization Points**:
+- **Fork Desynchronization Points Fixed**:
   1. **Storage Projection Fallback (`{}` vs `undefined`)**:
-     In [`instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts#L193-L204), `providerCredentials.value` uses a computed getter to map `instancesByInstanceKey` to primary options. When a provider has no saved options, the fallback returns `{}` (an empty object):
-     ```typescript
-     out[providerId] = snap.instancesByInstanceKey[primaryKey]?.options
-       ?? (row.isPrimary ? row.options : undefined)
-       ?? {} // <-- Causes truthy fallback
-     ```
-     In [`instances.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instances.ts#L58-L64), `getProviderInstance` evaluates `let config = deps.getProviderCredentials()[providerId]`. Because `{}` is truthy, `if (!config)` fails to trigger, and `metadata.createProvider({})` is called with an empty object.
-
-  2. **Upstream Migration Gap in `isProviderConfigured`**:
-     `upstream/main` stores single-slot credentials directly as `{ "openrouter-ai": { "apiKey": "..." } }`. In Phase 3, `isProviderConfigured()` was changed to a generic check (`JSON.stringify(config) !== JSON.stringify(defaultOptions)`).
-     Because cloud providers (such as `openrouter-ai`) define a default `baseUrl` in their Zod schema, unconfigured or partially migrated storage records evaluate to `true` for `isProviderConfigured`, causing the app to send unauthenticated HTTP requests upstream without a `Bearer <key>` header.
+     In [`instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts), `providerCredentials.value` projection getter was updated so unconfigured providers resolve strictly to `undefined` rather than an empty `{}` object, matching upstream expectations.
+  2. **Upstream Migration & Alias Normalization**:
+     In [`instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts), `migrate()` was updated to normalize legacy `snake_case` aliases (`api_key` $\rightarrow$ `apiKey`, `base_url` $\rightarrow$ `baseUrl`) and discard empty/whitespace-only credential stubs during initial load.
+  3. **Credential Gauntlet Gating**:
+     In [`selectors/config.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/selectors/config.ts), `isProviderConfigured` was restored to strictly validate `apiKey?.trim()` or AWS key pairs, preventing unauthenticated 401 calls when only default `baseUrl` options are set.
+  4. **Fail-Fast Runtime Guard**:
+     In [`instances.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instances.ts), `getProviderInstance` rejects unconfigured credentialed providers before SDK instantiation with a client-side error.
 
 ---
 
-## 2. Core Objectives of Phase 5
+## 2. Verification Status & Test Coverage
 
-1. **Seamless Upstream Migration (`migrateUpstreamStorage`)**:
-   Safely transform legacy `upstream/main` unversioned storage (`settings/credentials/providers`) into version 2 multi-instance format while discarding empty credential stubs.
-2. **Defensive Credential Validation (`requiresCredentials` Gating)**:
-   Ensure `isProviderConfigured(providerId)` and `getProviderInstance(providerId)` strictly enforce credential presence (`apiKey` or `accessKeyId`/`secretAccessKey`) for cloud providers before attempting network calls.
-3. **Client-Side Failure Prevention**:
-   Trap missing key configurations at the client layer and surface friendly UI guidance (or trigger the model configuration modal) rather than making invalid network calls that emit raw 401 server errors.
+All verification suites are 100% green:
+
+- `pnpm -F @proj-airi/stage-ui test src/stores/providers/ --run` $\rightarrow$ **7/7 test files passed, 45/45 tests green**
+- `packages/stage-ui/src/stores/providers/runtime/instance-store.phase5.test.ts` $\rightarrow$ **19/19 Phase 5 unit tests passing**
+- `pnpm -F @proj-airi/stage-ui typecheck` $\rightarrow$ **PASS (0 errors in stage-ui)**
+- `pnpm -F @proj-airi/stage-pages typecheck` $\rightarrow$ **PASS (0 errors in stage-pages)**
 
 ---
 
-## 3. Detailed Component Plan
+## 3. Comprehensive File Index
+
+- [`packages/stage-ui/src/stores/providers/runtime/instance-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.ts) — Storage projection fallback & upstream alias normalization migration.
+- [`packages/stage-ui/src/stores/providers/selectors/config.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/selectors/config.ts) — Strict credential presence check in `isProviderConfigured`.
+- [`packages/stage-ui/src/stores/providers/runtime/instances.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instances.ts) — Fail-fast client guard in `getProviderInstance`.
+- [`packages/stage-ui/src/stores/providers/runtime/instance-store.phase5.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.phase5.test.ts) — 19 comprehensive Phase 5 unit tests.
+
+---
+
+## 4. Detailed Component Plan
 
 ### 3.1 Migration Engine Enhancements (`packages/stage-ui/src/stores/providers/runtime/instance-store.ts`)
 

@@ -54,15 +54,33 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
       return null as any
     }
 
-    // Web Speech API doesn't require credentials - use empty config
+    // Providers that explicitly require no credentials (local engines,
+    // browser-native APIs) may safely construct with an empty config.
+    // Everything else must present a non-empty credential BEFORE the SDK is
+    // instantiated so client code receives an immediate, localized error
+    // instead of a network round-trip that ends in a 401.
+    const noCredentials = metadata.requiresCredentials === false || providerId === 'browser-web-speech-api'
+
     let config = deps.getProviderCredentials()[providerId]
-    if (!config && providerId === 'browser-web-speech-api') {
+    if (!config && noCredentials) {
       config = deps.getDefaultProviderConfig(providerId)
       deps.setProviderCredentials(providerId, config)
     }
 
-    if (!config && providerId !== 'browser-web-speech-api')
-      throw new Error(`Provider credentials for ${providerId} not found`)
+    if (!config && !noCredentials)
+      throw new Error(`Provider credentials for ${providerId} are missing or incomplete.`)
+
+    if (config && !noCredentials) {
+      // Defensive check: an empty-but-truthy `{}` (or whitespace-only
+      // apiKey) would pass `!config` but produces an unauthenticated
+      // SDK that fails with a raw 401 at network time. Trap it here.
+      const anyCfg = config as Record<string, any>
+      const hasKey = typeof anyCfg.apiKey === 'string' && anyCfg.apiKey.trim().length > 0
+      const hasAwsKey = typeof anyCfg.accessKeyId === 'string' && anyCfg.accessKeyId.trim().length > 0
+        && typeof anyCfg.secretAccessKey === 'string' && anyCfg.secretAccessKey.trim().length > 0
+      if (!hasKey && !hasAwsKey)
+        throw new Error(`Provider credentials for ${providerId} are missing or incomplete.`)
+    }
 
     try {
       const instance = await metadata.createProvider(config || {}) as R

@@ -31,11 +31,21 @@ type LegacyProviderCredentials = Record<string, Record<string, unknown>>
  * A single primary instance per provider (`providerId:*`) holds the options
  * that the entire legacy public surface reads and writes.
  */
-export function createProviderInstanceStore() {
-  const state = useLocalStorage<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>(STORAGE_KEY, {
+/**
+ * Multi-instance persisted store adapter.
+ *
+ * @param initialState Test-only override for the persisted ref. When
+ *   supplied, the store drives this ref directly instead of `useLocalStorage`
+ *   so deterministic unit tests can seed legacy fixture payloads without a
+ *   browser storage host.
+ */
+export function createProviderInstanceStore(
+  initialState?: Ref<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>,
+) {
+  const state = (initialState ?? useLocalStorage<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>(STORAGE_KEY, {
     version: 2,
     instancesByInstanceKey: {},
-  }) as Ref<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>
+  })) as Ref<ProviderInstanceStoreSnapshot | LegacyProviderCredentials>
 
   function isLegacy(raw: any): raw is LegacyProviderCredentials {
     return !!raw

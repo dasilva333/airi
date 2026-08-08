@@ -59,7 +59,12 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
       return false
 
     // Providers that require no credentials are always configured.
-    if (metadata.requiresCredentials === false)
+    // `browser-web-speech-api` is special-cased for upstream parity (its
+    // metadata already flags `requiresCredentials: false`, so this branch is
+    // intentionally redundant — kept for backward compatibility with the
+    // legacy single-slot store call sites that inject `isProviderConfigured`
+    // into raw credential checks elsewhere).
+    if (metadata.requiresCredentials === false || providerId === 'browser-web-speech-api')
       return true
 
     const config = state.providerCredentials.value[providerId]
@@ -68,10 +73,10 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
 
     // Credential-shape gauntlet (upstream parity): providers that require
     // credentials must have a non-empty `apiKey` (or AWS keypair / explicit
-    // endpoint credentials) persisted, OR be explicitly marked added (managed
-    // by `markProviderAdded` via user action). We do NOT count a mere custom
-    // `baseUrl` as sufficient for credentialed providers — that was the
-    // Phase-3 regression that let unauthenticated requests fire.
+    // endpoint credentials) persisted. We do NOT count a mere custom
+    // `baseUrl` nor `addedProviders` as sufficient for credentialed
+    // providers — those were the two regression paths that let
+    // unauthenticated HTTP requests fire upstream (401).
     const configObj = config as Record<string, any>
     const hasKey = typeof configObj.apiKey === 'string' && configObj.apiKey.trim().length > 0
     const hasAwsKey = typeof configObj.accessKeyId === 'string' && configObj.accessKeyId.trim().length > 0
@@ -79,12 +84,8 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     if (hasKey || hasAwsKey)
       return true
 
-    if (state.addedProviders.value[providerId])
-      return true
-
-    // Explicit user-added provider is the final way to be marked configured.
-    // The legacy JSON-vs-defaults heuristic (`isProviderConfigDirty`) is no
-    // longer consulted for `configured` state — it stays as a listing hint
+    // The legacy JSON-vs-defaults heuristic (`isProviderConfigDirty`) is NOT
+    // consulted for `configured` state — it stays as a listing hint
     // (`shouldListProvider`) for the settings UI, but never qualifies a
     // credentialed provider as configured on its own.
     return false
