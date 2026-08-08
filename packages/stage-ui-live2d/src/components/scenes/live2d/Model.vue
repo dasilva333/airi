@@ -1360,6 +1360,13 @@ async function setMotion(motionName: string, index?: number) {
       console.warn('[Model.vue] Aborting motion playback: motion is undefined or could not be loaded:', motionName, index)
       return
     }
+    try {
+      dslVM?.dispatch(motionName)
+    }
+    catch (e) {
+      console.warn('[Live2D DSL] setMotion dispatch failed (non-fatal):', e)
+    }
+
     await model.value.motion(motionName, index, MotionPriority.FORCE)
     console.info('Motion started successfully:', motionName)
   }
