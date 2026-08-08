@@ -22,6 +22,8 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { nanoid } from 'nanoid'
 
 import {
+  discordServiceCloudflareOAuth,
+  discordServiceDeployCloudRelay,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceLeave,
@@ -384,6 +386,54 @@ export function setupDiscordService() {
     }
     pushStatus()
     return buildStatus()
+  })
+
+  defineInvokeHandler(context, discordServiceCloudflareOAuth, async () => {
+    pushLog('OAUTH', 'Initiating Cloudflare OAuth 2.0 PKCE authentication server...')
+    const { loginWithCloudflareOAuth } = await import('@proj-airi/stage-edge/deployer/oauth')
+    try {
+      const tokens = await loginWithCloudflareOAuth()
+      pushLog('OAUTH', 'Cloudflare OAuth authentication succeeded!')
+      return tokens
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Cloudflare OAuth authentication failed: ${err?.message || err}`)
+      throw err
+    }
+  })
+
+  defineInvokeHandler(context, discordServiceDeployCloudRelay, async (payload) => {
+    pushLog('DEPLOY', `Initiating Cloudflare Edge deployment for script "${payload.scriptName}"...`)
+    try {
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const deployer = new CloudflareStageDeployer({
+        apiToken: payload.apiToken,
+        accountId: payload.accountId,
+      })
+
+      const res = await deployer.deployWorker({
+        scriptName: payload.scriptName,
+        characterPrompt: payload.characterPrompt,
+        geminiApiKey: payload.geminiApiKey,
+        geminiModel: payload.geminiModel,
+        discordBotToken: payload.discordBotToken,
+        memoryMode: payload.memoryMode,
+      })
+
+      pushLog('DEPLOY', `Deployment successful! Worker URL: ${res.workerUrl}`)
+      return {
+        success: true,
+        workerUrl: res.workerUrl,
+        namespaceId: res.namespaceId,
+      }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Cloudflare Edge deployment failed: ${err?.message || err}`)
+      return {
+        success: false,
+        error: err?.message || String(err),
+      }
+    }
   })
 
   defineInvokeHandler(context, discordServiceGetStatus, async () => {

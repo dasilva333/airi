@@ -101,6 +101,11 @@ export const discordServiceStop = defineInvokeEventa<DiscordServiceStatus>(
   'eventa:invoke:electron:discord:stop',
 )
 
+/** Trigger native Cloudflare OAuth PKCE login flow. */
+export const discordServiceCloudflareOAuth = defineInvokeEventa<{ accessToken: string, refreshToken: string, expiresIn: number, accountId?: string }>(
+  'eventa:invoke:electron:discord:cf-oauth',
+)
+
 /** Poll the current service status (connection, ping, guilds). */
 export const discordServiceGetStatus = defineInvokeEventa<DiscordServiceStatus>(
   'eventa:invoke:electron:discord:get-status',
@@ -144,6 +149,28 @@ export const discordServiceSummon = defineInvokeEventa<{ success: boolean, chann
 /** Disconnect the bot from the current voice channel. */
 export const discordServiceLeave = defineInvokeEventa<{ success: boolean, error?: string }, { guildId?: string } | void>(
   'eventa:invoke:electron:discord:leave',
+)
+
+export interface CloudRelayDeployPayload {
+  apiToken: string
+  accountId: string
+  scriptName: string
+  characterPrompt: string
+  geminiApiKey: string
+  geminiModel?: string
+  discordBotToken?: string
+  memoryMode?: 'fixed' | 'unlimited'
+}
+
+export interface CloudRelayDeployResult {
+  success: boolean
+  workerUrl?: string
+  namespaceId?: string
+  error?: string
+}
+
+export const discordServiceDeployCloudRelay = defineInvokeEventa<CloudRelayDeployResult, CloudRelayDeployPayload>(
+  'eventa:invoke:electron:discord:deploy-cloud-relay',
 )
 
 export interface DiscordOutboundImage {

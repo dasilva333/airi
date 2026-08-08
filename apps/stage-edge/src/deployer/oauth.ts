@@ -5,9 +5,7 @@
  */
 
 import crypto from 'node:crypto'
-import fs from 'node:fs'
 import http from 'node:http'
-import path from 'node:path'
 
 import open from 'open'
 
@@ -111,34 +109,6 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
 
         const tokenData: any = await tokenRes.json()
 
-        // 1. Automatically write gitignored .env for local script CLI access
-        const envPath = path.resolve(process.cwd(), 'apps/stage-edge/.env')
-        const envContent = `CLOUDFLARE_API_TOKEN="${tokenData.access_token}"\nCLOUDFLARE_REFRESH_TOKEN="${tokenData.refresh_token}"\n`
-        fs.writeFileSync(envPath, envContent, 'utf-8')
-
-        // 2. Automatically populate gitignored wrangler.json
-        const wranglerPath = path.resolve(process.cwd(), 'apps/stage-edge/wrangler.json')
-        const wranglerConfig = {
-          $schema: 'node_modules/wrangler/config-schema.json',
-          name: 'airi-stage-edge',
-          main: 'dist/index.mjs',
-          compatibility_date: '2025-02-04',
-          compatibility_flags: ['nodejs_compat'],
-          vars: {
-            SYSTEM_PROMPT: 'You are AIRI, a supportive and intelligent companion.',
-            GEMINI_MODEL: 'gemini-2.0-flash',
-          },
-          kv_namespaces: [
-            {
-              binding: 'MEMORY',
-              id: 'AUTO_GENERATED_KV_ID',
-            },
-          ],
-        }
-        fs.writeFileSync(wranglerPath, JSON.stringify(wranglerConfig, null, 2), 'utf-8')
-
-        console.log(`\n✓ Automatically saved access tokens to gitignored apps/stage-edge/.env & wrangler.json!`)
-
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(`
           <!DOCTYPE html>
@@ -147,10 +117,17 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
               <meta charset="UTF-8">
               <title>AIRI Cloudflare Authorization</title>
             </head>
-            <body style="font-family: system-ui, sans-serif; text-align: center; padding: 60px 20px; background: #0f172a; color: #f8fafc; margin: 0;">
-              <h1 style="color: #38bdf8; font-size: 2rem;">🎉 AIRI Cloudflare Authorization Successful!</h1>
-              <p style="font-size: 1.2rem; color: #94a3b8;">Tokens persisted to gitignored <code>apps/stage-edge/wrangler.json</code> & <code>.env</code>.</p>
-              <p style="font-size: 1.1rem; color: #38bdf8;">You may now close this browser tab.</p>
+            <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 60px 20px; background: #0f172a; color: #f8fafc; margin: 0;">
+              <div style="max-width: 500px; margin: 0 auto; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 40px 30px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+                <h1 style="color: #38bdf8; font-size: 1.75rem; font-weight: 700; margin: 0 0 12px 0;">Authorization Successful!</h1>
+                <p style="font-size: 1rem; color: #94a3b8; line-height: 1.5; margin: 0 0 24px 0;">
+                  Return to AIRI and click <strong style="color: #f8fafc;">Deploy Character to Cloudflare Edge</strong> to continue with the next step.
+                </p>
+                <div style="display: inline-block; padding: 8px 16px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; font-size: 0.875rem; color: #38bdf8; font-weight: 600;">
+                  You may now close this browser tab
+                </div>
+              </div>
             </body>
           </html>
         `)

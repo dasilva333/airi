@@ -3,6 +3,8 @@ import type { DiscordCommandDefinition, DiscordEventLogEntry, DiscordInboundMess
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   debug,
+  discordServiceCloudflareOAuth,
+  discordServiceDeployCloudRelay,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceLeave,
@@ -252,6 +254,16 @@ export const useDiscordStore = defineStore('discord', () => {
   // ── Persisted Config ───────────────────────────────────────────────────────
   const enabled = useLocalStorageManualReset<boolean>('settings/discord/enabled', false)
   const token = useLocalStorageManualReset<string>('settings/discord/token', '')
+  const executionMode = useLocalStorageManualReset<'local' | 'remote'>('settings/discord/executionMode', 'local')
+  const ownerUsername = useLocalStorageManualReset<string>('settings/discord/ownerUsername', '')
+  const ownerUserId = useLocalStorageManualReset<string>('settings/discord/ownerUserId', '')
+
+  // Cloud Relay persisted state
+  const cfAccountId = useLocalStorageManualReset<string>('settings/discord/cfAccountId', '')
+  const cfApiToken = useLocalStorageManualReset<string>('settings/discord/cfApiToken', '')
+  const cfOAuthTokens = useLocalStorageManualReset<{ accessToken: string, refreshToken: string, accountId?: string } | null>('settings/discord/cfOAuthTokens', null)
+  const cloudRelayInstances = useLocalStorageManualReset<Record<string, { scriptName: string, workerUrl: string, namespaceId: string, memoryMode: 'fixed' | 'unlimited', deployedAt: number, cardId: string, sessionId: string }>>('settings/discord/cloudRelayInstances', {})
+
   const lastRegisteredVersion = useLocalStorageManualReset<number>('settings/discord/lastRegisteredVersion', 0)
   const chatMode = useLocalStorageManualReset<'followup' | 'steer' | 'collect'>('settings/discord/chatMode', 'followup')
   const voiceMode = useLocalStorageManualReset<'puppet' | 'voicenote' | 'none'>('settings/discord/voiceMode', 'puppet')
@@ -307,6 +319,34 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeStart = isElectron ? useElectronEventaInvoke(discordServiceStart) : null
   const invokeStop = isElectron ? useElectronEventaInvoke(discordServiceStop) : null
   const invokeGetStatus = isElectron ? useElectronEventaInvoke(discordServiceGetStatus) : null
+  const invokeCloudflareOAuth = isElectron ? useElectronEventaInvoke(discordServiceCloudflareOAuth) : null
+
+  async function authenticateWithCloudflare() {
+    if (!invokeCloudflareOAuth) {
+      debug('[DiscordStore] Cloudflare OAuth unavailable in non-Electron environment')
+      return
+    }
+    try {
+      debug('[DiscordStore] Invoking Cloudflare OAuth PKCE login flow...')
+      const res = await invokeCloudflareOAuth()
+      if (res) {
+        cfOAuthTokens.value = {
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+          accountId: res.accountId,
+        }
+        if (res.accountId) {
+          cfAccountId.value = res.accountId
+        }
+        debug('[DiscordStore] Cloudflare OAuth tokens successfully captured!')
+      }
+      return res
+    }
+    catch (err: any) {
+      debug('[DiscordStore] Cloudflare OAuth login error:', err)
+      throw err
+    }
+  }
   const invokeForceSync = isElectron ? useElectronEventaInvoke(discordServiceForceSync) : null
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
   const invokeSendMessage = isElectron ? useElectronEventaInvoke(discordServiceSendMessage) : null
@@ -316,6 +356,58 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeSendImage = isElectron ? useElectronEventaInvoke(discordServiceSendImage) : null
   const invokeSummon = isElectron ? useElectronEventaInvoke(discordServiceSummon) : null
   const invokeLeave = isElectron ? useElectronEventaInvoke(discordServiceLeave) : null
+  const invokeDeployCloudRelay = isElectron ? useElectronEventaInvoke(discordServiceDeployCloudRelay) : null
+
+  async function deployCloudRelay(payload: {
+    scriptName: string
+    characterPrompt: string
+    geminiApiKey: string
+    geminiModel?: string
+    memoryMode?: 'fixed' | 'unlimited'
+    cardId: string
+    sessionId: string
+  }) {
+    const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
+    const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
+
+    if (!apiToken || !accountId) {
+      throw new Error('Cloudflare API Token or Account ID missing. Please authenticate first.')
+    }
+
+    if (!invokeDeployCloudRelay) {
+      throw new Error('Cloud Relay deployment unavailable in non-Electron environment')
+    }
+
+    const res = await invokeDeployCloudRelay({
+      apiToken,
+      accountId,
+      scriptName: payload.scriptName,
+      characterPrompt: payload.characterPrompt,
+      geminiApiKey: payload.geminiApiKey,
+      geminiModel: payload.geminiModel,
+      discordBotToken: token.value,
+      memoryMode: payload.memoryMode,
+    })
+
+    if (!res?.success || !res.workerUrl) {
+      throw new Error(res?.error || 'Worker deployment failed on Cloudflare Edge')
+    }
+
+    cloudRelayInstances.value = {
+      ...cloudRelayInstances.value,
+      [payload.scriptName]: {
+        scriptName: payload.scriptName,
+        workerUrl: res.workerUrl,
+        namespaceId: res.namespaceId || '',
+        memoryMode: payload.memoryMode || 'unlimited',
+        deployedAt: Date.now(),
+        cardId: payload.cardId,
+        sessionId: payload.sessionId,
+      },
+    }
+
+    return res
+  }
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
   const lastChannelId = ref<string | null>(null)
@@ -2301,6 +2393,13 @@ export const useDiscordStore = defineStore('discord', () => {
     enabled,
     token,
     configured,
+    executionMode,
+    ownerUsername,
+    ownerUserId,
+    cfAccountId,
+    cfApiToken,
+    cfOAuthTokens,
+    cloudRelayInstances,
     chatMode,
     voiceMode,
     voiceCall,
@@ -2316,6 +2415,8 @@ export const useDiscordStore = defineStore('discord', () => {
     // Actions
     startService,
     stopService,
+    authenticateWithCloudflare,
+    deployCloudRelay,
     refreshStatus,
     forceCardSync,
     simulateEvent,

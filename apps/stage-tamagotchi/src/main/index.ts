@@ -390,7 +390,7 @@ app.whenReady().then(async () => {
       ]
 
       const coalesceCorsBypassUrls = (userUrls?: string[]): string[] => {
-        const list = [...(userUrls || [])]
+        const list = Array.isArray(userUrls) ? [...userUrls] : []
         for (const url of defaultBypassUrls) {
           if (!list.includes(url)) {
             list.push(url)
@@ -403,7 +403,7 @@ app.whenReady().then(async () => {
 
       // Auto-update config if new defaults were merged in
       const currentConfig = deps.appConfig.get()
-      if (currentConfig && JSON.stringify(currentConfig.corsBypassUrls) !== JSON.stringify(initialUrls)) {
+      if (currentConfig) {
         deps.appConfig.update({
           ...currentConfig,
           corsBypassUrls: initialUrls,
@@ -417,14 +417,15 @@ app.whenReady().then(async () => {
       })
 
       defineInvokeHandler(context, electronSetCorsBypassUrls, async (urls) => {
-        const currentConfig = deps.appConfig.get()
-        if (currentConfig) {
+        const coalesced = coalesceCorsBypassUrls(urls)
+        const cfg = deps.appConfig.get()
+        if (cfg) {
           deps.appConfig.update({
-            ...currentConfig,
-            corsBypassUrls: urls,
+            ...cfg,
+            corsBypassUrls: coalesced,
           })
         }
-        registerCorsBypass(urls)
+        registerCorsBypass(coalesced)
       })
 
       defineInvokeHandler(context, electronCaptionToggleVisibility, async (enabled?: boolean) => {
