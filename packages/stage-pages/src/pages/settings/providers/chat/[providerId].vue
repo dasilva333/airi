@@ -6,6 +6,8 @@ import {
   ProviderApiKeyInput,
   ProviderBaseUrlInput,
   ProviderBasicSettings,
+  ProviderDangerZone,
+  ProviderInstancesSection,
   ProviderSettingsContainer,
   ProviderSettingsLayout,
   ProviderValidationAlerts,
@@ -83,6 +85,12 @@ function goToModelSelection() {
         />
       </ProviderBasicSettings>
 
+      <!-- Multi-instance management section -->
+      <ProviderInstancesSection
+        :provider-id="providerId"
+        @add="providersStore.getProviderInstanceConfig(providerId)"
+      />
+
       <ProviderAdvancedSettings :title="t('settings.pages.providers.common.section.advanced.title')">
         <ProviderBaseUrlInput
           v-model="baseUrl"
@@ -101,6 +109,12 @@ function goToModelSelection() {
         :on-run-test="runManualTest"
         :on-force-valid="forceValid"
         :on-go-to-model-selection="goToModelSelection"
+      />
+
+      <!-- Danger Zone section -->
+      <ProviderDangerZone
+        :disabled="!providersStore.addedProviders[providerId]"
+        @delete="providersStore.removeAllInstances(providerId)"
       />
     </ProviderSettingsContainer>
   </ProviderSettingsLayout>
