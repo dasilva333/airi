@@ -63,7 +63,6 @@ function handleSaveAndActivate() {
   consciousnessStore.activeModel = model.value
 
   // 2. Save into Favorites list if not present
-  const favKey = `${providerKey}:${model.value}`
   const existingIndex = favorites.value.findIndex(f => f.provider === providerKey && f.model === model.value)
   const favoriteName = `${baseName} (${modelShortName})`
 

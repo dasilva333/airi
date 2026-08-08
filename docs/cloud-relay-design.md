@@ -1,11 +1,12 @@
 # Design Document: Cloud Relay — Always-On Character Presence
 
-**Status:** Proposal / Pre-Implementation
+**Status:** Active Implementation Phase (`apps/stage-edge` & Unified Discord Control Plane)
 
 **Related Docs:**
-- [project-byos-cloud-sync.md](./project-byos-cloud-sync.md) — the existing BYOS sync engine whose Cloudflare R2 credential integration and `StorageClient` interface this feature builds on
-- [design-discord-context-routing.md](./design-discord-context-routing.md) — Discord connector architecture that Cloud Relay instances can optionally attach
-- [proposal-proactivity-vision.md](./proposal-proactivity-vision.md) — the broader proactivity roadmap; Cloud Relay is a natural deployment target for proactive behaviors
+- [`design-discord-control-plane.md`](./design-discord-control-plane.md) — Unified 3-tab Discord Control Plane & `@proj-airi/stage-edge` package architecture.
+- [`design-discord-context-routing.md`](./design-discord-context-routing.md) — Discord channel context routing (`channel-{id}`, `dm-{userId}`), DM privacy isolation, and Access Control List (ACL) permission matrix.
+- [`project-byos-cloud-sync.md`](./project-byos-cloud-sync.md) — The existing BYOS sync engine whose Cloudflare R2 credential integration and `StorageClient` interface this feature builds on.
+- [`proposal-proactivity-vision.md`](./proposal-proactivity-vision.md) — The broader proactivity roadmap; Cloud Relay is a natural deployment target for proactive behaviors.
 
 ---
 
@@ -17,21 +18,21 @@ AIRI is a local-first desktop application. Its richest experience — Live2D/VRM
 - **Always-on presence:** Characters cannot initiate contact, send check-ins, or accumulate context while the user is away.
 - **Hardware constraints:** Some users (documented in community feedback) cannot run local 3GB+ model files or have machine policies that mandate the PC be powered off when unattended.
 
-The insight from community users (Göndul/格恩達爾, Ansem) is that a **lightweight cloud deployment** — a Cloudflare Worker backed by a cloud LLM API — already solves the access problem today. AIRI can own that deployment experience end-to-end instead of leaving users to vibe-code it themselves.
+The insight from community users (Göndul/格恩達爾, Ansem) is that a **lightweight cloud deployment** — a Cloudflare Worker backed by a cloud LLM API — already solves the access problem today. AIRI owns that deployment experience end-to-end through `apps/stage-edge` instead of leaving users to vibe-code it themselves.
 
 ---
 
 ## 2. Proposed Solution: Cloud Relay
 
-**Cloud Relay** is a new AIRI subsystem that lets users design a character in AIRI and deploy a persistent, cloud-hosted instance of that character — reachable 24/7 from any device, even when the local machine is powered off.
+**Cloud Relay** is a core AIRI subsystem that lets users design a character in AIRI and deploy a persistent, cloud-hosted instance of that character — reachable 24/7 from any device, even when the local machine is powered off.
 
 AIRI's role shifts from **local runtime only** to **control plane + authoring studio**:
 
-| Layer | What it does | Runs where |
+| Layer | What it does | Implementation |
 |---|---|---|
-| **AIRI (local)** | Author cards, configure relay, manage sync, review memories | User's machine |
-| **Cloud Relay Worker** | Serves the character: handles interactions, calls LLM, reads/writes KV memory | Cloudflare Edge |
-| **Discord / other frontends** | User-facing chat surface; hits the Worker's callback URL | Discord infra / browser |
+| **AIRI (local)** | Author cards, configure relay, manage sync, review memories | User's machine (`stage-tamagotchi` / `stage-ui`) |
+| **Cloud Relay Worker** | Serves the character: handles interactions, calls LLM, reads/writes KV memory | Cloudflare Edge (`@proj-airi/stage-edge`) |
+| **Discord / Frontends** | User-facing chat surface; hits the Worker's callback URL | Discord infra / Webhooks |
 
 The model is analogous to **Vercel for character instances**: author locally, deploy to the edge, manage from the dashboard, the cloud runs independently.
 
@@ -39,19 +40,20 @@ The model is analogous to **Vercel for character instances**: author locally, de
 
 ## 3. Architecture
 
-### 3.1 The Cloudflare Worker as a Character Instance
+### 3.1 The Cloudflare Worker as a Character Instance (`apps/stage-edge`)
 
 Cloudflare Workers use the **HTTP Interactions model** rather than a long-running WebSocket. The flow is:
 
 ```
 User sends message (Discord slash command, future web chat, etc.)
         ↓
-Discord / frontend POSTs to the Worker's registered callback URL
+Discord / frontend POSTs to the Worker's registered callback URL (/discord)
         ↓
 Cloudflare Worker wakes (cold start < 5ms at edge)
         ↓
-Worker reads conversation context from KV store
-Worker calls cloud LLM API (Gemini, OpenAI, OpenRouter, etc.)
+Worker verifies ed25519 signature (crypto/ed25519.ts)
+Worker reads conversation context from KV store (memory/kv.ts)
+Worker calls cloud LLM API (inference/gemini.ts or inference/openai.ts)
 Worker writes updated context back to KV
         ↓
 Worker returns structured response to Discord / caller
@@ -59,105 +61,89 @@ Worker returns structured response to Discord / caller
 User sees reply — Worker goes idle
 ```
 
-This is entirely **serverless and stateless per-invocation**. The Worker holds no persistent process; the KV store is the persistent layer.
+This is entirely **serverless and stateless per-invocation**. The Worker holds no persistent process; the Cloudflare KV store is the persistent layer.
 
-### 3.2 Memory Architecture
+### 3.2 Memory Architecture: Configurable Window Modes
 
-Since Workers are stateless, all character memory is externalized to **Cloudflare KV**:
+Since Workers are stateless, all character memory is externalized to **Cloudflare KV** (`memory/kv.ts`):
 
 ```
-KV namespace: airi-relay-<characterId>
-  ├── context/rolling        → Recent N messages (sliding window for LLM context)
-  ├── context/summary        → Auto-summarized long-term context blob
+KV namespace: airi-kv-<characterName>
+  ├── ping                   → Baseline diagnostic key ("pong")
+  ├── context/rolling        → Recent N messages (sliding window or unlimited history)
+  ├── context/summary        → Auto-summarized long-term context blob (compaction.ts)
   ├── memory/facts           → Persistent facts about user (name, preferences, etc.)
-  ├── memory/events          → Named significant events with timestamps
   └── meta/config            → Character config snapshot (persona, system prompt, tone)
 ```
 
-The `context/rolling` window mirrors the concept of AIRI's local `short-term-memory`. The `context/summary` mirrors `text-journal`. This deliberate structural alignment enables **bidirectional sync** with AIRI's existing BYOS sync engine (see §5).
+**Memory Window Modes**:
+1. **Fixed Mode (`fixed`)**: Retains a rolling window of recent turns (e.g. 10–20 turns) for concise, cost-effective assistant behavior.
+2. **Unlimited / Deep Coherence Mode (`unlimited`)**: Retains full, un-truncated conversation history with automatic background compaction (`compaction.ts`).
 
 ### 3.3 Proactive Messaging via Cron Triggers
 
 The Worker's default behavior is **reactive** (only responds when triggered). To give the character a heartbeat:
 
 - A **Cloudflare Cron Trigger** wakes the Worker on a schedule (e.g. hourly, or at a configurable interval).
-- The Worker evaluates a proactivity condition (e.g. "has the user not initiated in > N hours?", "is there a queued nudge?").
+- The Worker evaluates a proactivity condition (e.g. "has the user not initiated in > N hours?").
 - If true, the Worker uses Discord's REST API to `POST /channels/{channelId}/messages` directly — no interaction required.
-
-This is not genuine autonomy, but it gives the character the ability to reach out, which closes the gap for the "I just want my character to check on me" use case Ansem described.
 
 ### 3.4 Connector Architecture
 
-The Worker is designed to be **connector-agnostic**. The initial connector is Discord (highest community demand, well-documented Interactions API), but the Worker template is structured so that additional frontends can be layered on:
+The Worker is designed to be **connector-agnostic**:
 
 | Connector | Mechanism | Status |
 |---|---|---|
-| Discord | Slash commands + Interactions webhook | v1 target |
+| Discord | Slash commands + Interactions webhook | Live in `apps/stage-edge` |
 | Web chat widget | Simple HTTP POST endpoint on the Worker | Near-term |
 | Telegram | Bot webhook to Worker URL | Roadmap |
 | SMS / WhatsApp | Twilio webhook forwarded to Worker | Roadmap |
 
 ---
 
-## 4. AIRI as Control Plane: The Cloud Relay Dashboard
+## 4. AIRI as Control Plane: Unified 3-Tab Discord Control Plane UI
 
-A new **Cloud Relay** page is added to AIRI's settings/management surface. This is the single place where users deploy, configure, and manage their cloud character instances.
-
-### 4.1 Deployment Flow
-
-The deployment flow reuses the **existing Cloudflare R2 credentials** that users already configured through the BYOS Cloud Sync feature ([project-byos-cloud-sync.md §Settings > Providers](./project-byos-cloud-sync.md)). No second credential entry is required if the user already has R2 set up.
-
-Additional inputs needed for first-time relay deployment:
-
-- **Cloudflare Account ID** (already present in R2 config)
-- **Cloudflare API Token** with `Workers Scripts:Edit` + `Workers KV Storage:Edit` permissions
-- **LLM API Key** for the cloud provider the Worker will call (Gemini, OpenAI, etc.)
-- **Character selector** — which card to deploy
-
-Deployment sequence (triggered by **[Deploy Relay]** button):
+The Discord module UI (`packages/stage-pages/src/pages/settings/modules/messaging-discord.vue` and `packages/stage-ui/src/components/modules/MessagingDiscord.vue`) is structured into a unified **3-Tab Navigation Bar**:
 
 ```
-1. AIRI calls Cloudflare REST API → creates KV namespace `airi-relay-<characterId>`
-2. AIRI bundles Worker script template with character config injected as env vars
-3. AIRI uploads Worker script via Cloudflare API → Workers Scripts endpoint
-4. AIRI binds KV namespace to Worker
-5. (Optional) AIRI registers Discord slash command with provided Bot Token
-6. AIRI stores relay metadata locally: Worker URL, KV namespace ID, deployment timestamp
-7. Dashboard shows ✅ Live with the public Worker URL
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 💬 Discord Integration & Cloud Control Plane                                    │
+├───────────────────────────┬───────────────────────────┬─────────────────────────┤
+│ 🔌 Bot Connection         │ 🌐 Cloud Relay Studio     │ 🔐 Access & Routing     │
+│   (Local Runtime & Tokens)│   (Vercel for Characters) │   (Channel ACL Matrix)  │
+└───────────────────────────┴───────────────────────────┴─────────────────────────┘
 ```
 
-All of this is done against Cloudflare's public REST API (`api.cloudflare.com/client/v4/...`) — entirely client-side, no AIRI server involved, consistent with the zero-custody philosophy established in BYOS.
+### 4.1 Tab Breakdown
 
-### 4.2 Dashboard UI
+1. **Tab 1: 🔌 Bot Connection (Local Desktop Service)**:
+   - Manages the local Gateway WebSocket connection (`useDiscordStore`).
+   - Token configuration, start/stop toggle, connectivity meters (ping, guilds list), vision/DM toggles, and expandable live developer log console.
 
-The Cloud Relay page shows a card per deployed instance:
+2. **Tab 2: 🌐 Cloud Relay Studio (24/7 Edge Deployment)**:
+   - **Authentication**: Supports 1-click **Cloudflare OAuth 2.0 PKCE Login** (`loginWithCloudflareOAuth` via local callback `http://localhost:8976/oauth/callback`) or manual Cloudflare API Token entry.
+   - **Deployment Engine (`CloudflareStageDeployer`)**: Programmatically provisions KV namespaces, builds Worker script payloads, uploads ES modules, binds secrets (`GEMINI_API_KEY`, `SYSTEM_PROMPT`), enables `workers.dev` subdomains, and registers Discord Interactions URLs automatically.
+   - **Instance Cards**: Displays active Cloud Relay status, public Worker URL, model binding, memory mode (`fixed` vs `unlimited`), and 1-click **[Sync Memories ↓]** and **[Teardown]** actions.
+
+3. **Tab 3: 🔐 Access & Routing (Context & Permission Matrix)**:
+   - **Channel Context Routing**: Maps Discord channels (`channel-{id}`), threads (`thread-{id}`), and DMs (`dm-{userId}`) to specific character cards and chat sessions (`design-discord-context-routing.md`).
+   - **ACL Permission Matrix**: Defines command access levels (`Owner Only`, `Whitelisted Roles/Users`, `Everyone`, `Disabled`) with strict deny-first precedence rules.
+
+### 4.2 Automated Client-Side Deployment Sequence
+
+Deployment sequence (triggered by **[Deploy Relay]** button in Tab 2):
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  🌐 Loona — Cloud Relay                      [Live ✅]  │
-│  Worker URL: https://loona-relay.username.workers.dev    │
-│  Connector:  Discord (@LoonaBot)                        │
-│  LLM:        gemini-2.0-flash                           │
-│  Last active: 2 hours ago                               │
-│                                                         │
-│  [Sync Memories ↓]  [Configure]  [View Logs]  [Teardown]│
-└─────────────────────────────────────────────────────────┘
+1. OAuth PKCE exchange / token entry → authenticates with Cloudflare REST API
+2. AIRI calls Cloudflare API → creates KV namespace `airi-kv-<scriptName>`
+3. AIRI packages Worker bundle (`packager.ts`) with character prompt & secrets
+4. AIRI uploads ES module payload via PUT `https://api.cloudflare.com/client/v4/accounts/{accountId}/workers/scripts/{scriptName}`
+5. AIRI binds KV namespace `MEMORY` and secrets (`GEMINI_API_KEY`, `DISCORD_PUBLIC_KEY`)
+6. AIRI enables `workers.dev` subdomain & fetches live endpoint URL
+7. AIRI registers Discord Interactions Endpoint URL (`{workerUrl}/discord`) & global slash commands via Discord REST API
 ```
 
-**Actions:**
-- **Sync Memories ↓** — Pull relay KV memories into local AIRI memory (see §5)
-- **Configure** — Update system prompt, LLM model, cron schedule, connector settings
-- **View Logs** — Tail Cloudflare Workers logs for the instance
-- **Teardown** — Delete the Worker + KV namespace, with a confirmation step
-
-### 4.3 Character Configuration Pushed to Relay
-
-When a character card is deployed or reconfigured, AIRI serializes the relevant character fields and writes them to the Worker's KV `meta/config` key and/or as encrypted Worker secrets:
-
-- System prompt / persona text
-- Tone and behavior flags
-- Allowed topics / guardrails
-- User identity map (Discord User ID → display name, known facts)
+All operations run client-side in a zero-custody architecture — no intermediary AIRI server touched.
 
 This means AIRI remains the **source of truth for character configuration** — the cloud instance is always a projection of what AIRI holds locally.
 

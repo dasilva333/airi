@@ -19,6 +19,9 @@ const {
   dmsEnabled,
 } = storeToRefs(discordStore)
 
+// Active Tab state: 'bot' | 'relay' | 'acl'
+const activeTab = ref<'bot' | 'relay' | 'acl'>('bot')
+
 // Dev console collapsed state
 const devConsoleOpen = ref(false)
 
@@ -26,6 +29,16 @@ const devConsoleOpen = ref(false)
 const simulateOpen = ref(false)
 const simulateUsername = ref('TestUser')
 const simulateContent = ref('Hello from simulated event!')
+
+// Cloud Relay Form State
+const cfAccountId = ref('')
+const cfApiToken = ref('')
+const selectedMemoryMode = ref<'fixed' | 'unlimited'>('unlimited')
+const isDeployingRelay = ref(false)
+const isOAuthAuthenticating = ref(false)
+
+// ACL / Routing Form State
+const globalFallbackMode = ref('ignore')
 
 function handleStartStop() {
   if (isConnected.value || isConnecting.value) {
@@ -80,196 +93,486 @@ function formatTimestamp(ts: number) {
 <template>
   <div class="discord-mission-control">
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- Section 1: Connectivity & Authentication -->
+    <!-- Navigation Tabs: Bot Connection | Cloud Relay | Access & Routing    -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="mc-section">
-      <div class="mc-section-header">
-        <h3>{{ t('settings.pages.modules.messaging-discord.connectivity.title') }}</h3>
-      </div>
+    <div class="mb-6 flex border-b border-neutral-200/80 dark:border-neutral-800">
+      <button
+        type="button"
+        class="flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all"
+        :class="activeTab === 'bot' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200'"
+        @click="activeTab = 'bot'"
+      >
+        <div class="i-solar:plug-circle-bold-duotone text-base" />
+        <span>🔌 Bot Connection</span>
+      </button>
 
-      <!-- Status Banner -->
-      <div class="mc-status-banner" :class="`mc-status--${serviceStatus.state}`">
-        <div class="mc-status-dot" :style="{ backgroundColor: getStatusColor(serviceStatus.state) }" />
-        <div class="mc-status-info">
-          <span class="mc-status-label">
-            {{ t(`settings.pages.modules.messaging-discord.connectivity.${serviceStatus.state}`) }}
-          </span>
-          <span v-if="serviceStatus.ping !== null" class="mc-status-ping">
-            {{ serviceStatus.ping }}ms
-          </span>
+      <button
+        type="button"
+        class="flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all"
+        :class="activeTab === 'relay' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200'"
+        @click="activeTab = 'relay'"
+      >
+        <div class="i-solar:cloud-bold-duotone text-base" />
+        <span>🌐 Cloud Relay Studio</span>
+        <span class="rounded bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-500 font-bold uppercase">24/7 Edge</span>
+      </button>
+
+      <button
+        type="button"
+        class="flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all"
+        :class="activeTab === 'acl' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200'"
+        @click="activeTab = 'acl'"
+      >
+        <div class="i-solar:shield-keyhole-bold-duotone text-base" />
+        <span>🔐 Access & Routing</span>
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: BOT CONNECTION (Desktop Gateway Service)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div v-if="activeTab === 'bot'" class="space-y-6">
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <h3>{{ t('settings.pages.modules.messaging-discord.connectivity.title') }}</h3>
         </div>
-        <div v-if="serviceStatus.botUser" class="mc-bot-tag">
-          {{ serviceStatus.botUser.tag }}
-        </div>
-      </div>
 
-      <!-- Error Banner -->
-      <div v-if="serviceStatus.error" class="mc-error-banner">
-        <span class="mc-error-icon">⚠</span>
-        <span>{{ serviceStatus.error }}</span>
-      </div>
-
-      <!-- Token Input -->
-      <FieldInput
-        v-model="token"
-        type="password"
-        :label="t('settings.pages.modules.messaging-discord.token')"
-        :description="t('settings.pages.modules.messaging-discord.token-description')"
-        :placeholder="t('settings.pages.modules.messaging-discord.token-placeholder')"
-      />
-
-      <!-- Start / Stop Button -->
-      <div class="mc-action-row">
-        <Button
-          :label="isConnected || isConnecting
-            ? t('settings.pages.modules.messaging-discord.actions.stop')
-            : t('settings.pages.modules.messaging-discord.actions.start')"
-          :variant="isConnected ? 'danger' : 'primary'"
-          :disabled="!configured"
-          @click="handleStartStop"
-        />
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- Section: Controls & Modalities -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="mc-section">
-      <div class="mc-section-header">
-        <h3>{{ t('settings.pages.modules.messaging-discord.controls.title') }}</h3>
-      </div>
-      <div class="mc-controls-grid">
-        <FieldCheckbox
-          v-model="visionEnabled"
-          :label="t('settings.pages.modules.messaging-discord.controls.vision')"
-          :description="t('settings.pages.modules.messaging-discord.controls.vision-description')"
-        />
-        <FieldCheckbox
-          v-model="dmsEnabled"
-          label="Allow Direct Messages (DMs)"
-          description="Enable or disable bot interactions (commands and chat) in private direct messages."
-        />
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- Section 2: Active Presence -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section v-if="isConnected && serviceStatus.guilds.length > 0" class="mc-section">
-      <div class="mc-section-header">
-        <h3>{{ t('settings.pages.modules.messaging-discord.presence.title') }}</h3>
-      </div>
-
-      <div class="mc-guilds-list">
-        <div
-          v-for="guild in serviceStatus.guilds"
-          :key="guild.id"
-          class="mc-guild-item"
-        >
-          <img
-            v-if="guild.icon"
-            :src="guild.icon"
-            :alt="guild.name"
-            class="mc-guild-icon"
-          >
-          <div v-else class="mc-guild-icon mc-guild-icon--placeholder">
-            {{ guild.name.charAt(0) }}
+        <!-- Status Banner -->
+        <div class="mc-status-banner" :class="`mc-status--${serviceStatus.state}`">
+          <div class="mc-status-dot" :style="{ backgroundColor: getStatusColor(serviceStatus.state) }" />
+          <div class="mc-status-info">
+            <span class="mc-status-label">
+              {{ t(`settings.pages.modules.messaging-discord.connectivity.${serviceStatus.state}`) }}
+            </span>
+            <span v-if="serviceStatus.ping !== null" class="mc-status-ping">
+              {{ serviceStatus.ping }}ms
+            </span>
           </div>
-          <span class="mc-guild-name">{{ guild.name }}</span>
-          <span
-            v-if="serviceStatus.activeChannelId"
-            class="mc-active-badge"
-          >
-            Active
-          </span>
+          <div v-if="serviceStatus.botUser" class="mc-bot-tag">
+            {{ serviceStatus.botUser.tag }}
+          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- Section 3: Debug Actions -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="mc-section">
-      <div class="mc-action-buttons">
-        <Button
-          :label="t('settings.pages.modules.messaging-discord.actions.force-sync')"
-          variant="secondary"
-          :disabled="!isConnected"
-          @click="handleForceSync"
-        />
-        <Button
-          :label="t('settings.pages.modules.messaging-discord.actions.simulate')"
-          variant="secondary"
-          @click="simulateOpen = !simulateOpen"
-        />
-        <Button
-          :label="t('settings.pages.modules.messaging-discord.actions.restart')"
-          variant="secondary"
-          :disabled="!isConnected"
-          @click="discordStore.stopService().then(() => discordStore.startService())"
-        />
-      </div>
+        <!-- Error Banner -->
+        <div v-if="serviceStatus.error" class="mc-error-banner">
+          <span class="mc-error-icon">⚠</span>
+          <span>{{ serviceStatus.error }}</span>
+        </div>
 
-      <!-- Simulate Dialog -->
-      <div v-if="simulateOpen" class="mc-simulate-dialog">
+        <!-- Token Input -->
         <FieldInput
-          v-model="simulateUsername"
-          :label="t('settings.pages.modules.messaging-discord.simulate-dialog.username')"
-          :placeholder="t('settings.pages.modules.messaging-discord.simulate-dialog.username-placeholder')"
+          v-model="token"
+          type="password"
+          :label="t('settings.pages.modules.messaging-discord.token')"
+          :description="t('settings.pages.modules.messaging-discord.token-description')"
+          :placeholder="t('settings.pages.modules.messaging-discord.token-placeholder')"
         />
-        <FieldInput
-          v-model="simulateContent"
-          :label="t('settings.pages.modules.messaging-discord.simulate-dialog.content')"
-          :placeholder="t('settings.pages.modules.messaging-discord.simulate-dialog.content-placeholder')"
-        />
-        <Button
-          :label="t('settings.pages.modules.messaging-discord.simulate-dialog.send')"
-          variant="primary"
-          @click="handleSimulate"
-        />
-      </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- Section 4: Developer Console -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <section class="mc-section">
-      <div class="mc-section-header mc-section-header--clickable" @click="devConsoleOpen = !devConsoleOpen">
-        <h3>{{ t('settings.pages.modules.messaging-discord.dev-console.title') }}</h3>
-        <span class="mc-chevron" :class="{ 'mc-chevron--open': devConsoleOpen }">▶</span>
-      </div>
-
-      <div v-if="devConsoleOpen" class="mc-dev-console">
-        <div v-if="eventLog.length > 0" class="mc-console-toolbar">
+        <!-- Start / Stop Button -->
+        <div class="mc-action-row">
           <Button
-            :label="t('settings.pages.modules.messaging-discord.actions.clear-log')"
+            :label="isConnected || isConnecting
+              ? t('settings.pages.modules.messaging-discord.actions.stop')
+              : t('settings.pages.modules.messaging-discord.actions.start')"
+            :variant="isConnected ? 'danger' : 'primary'"
+            :disabled="!configured"
+            @click="handleStartStop"
+          />
+        </div>
+      </section>
+
+      <!-- Section: Controls & Modalities -->
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <h3>{{ t('settings.pages.modules.messaging-discord.controls.title') }}</h3>
+        </div>
+        <div class="mc-controls-grid">
+          <FieldCheckbox
+            v-model="visionEnabled"
+            :label="t('settings.pages.modules.messaging-discord.controls.vision')"
+            :description="t('settings.pages.modules.messaging-discord.controls.vision-description')"
+          />
+          <FieldCheckbox
+            v-model="dmsEnabled"
+            label="Allow Direct Messages (DMs)"
+            description="Enable or disable bot interactions (commands and chat) in private direct messages."
+          />
+        </div>
+      </section>
+
+      <!-- Section: Active Presence -->
+      <section v-if="isConnected && serviceStatus.guilds.length > 0" class="mc-section">
+        <div class="mc-section-header">
+          <h3>{{ t('settings.pages.modules.messaging-discord.presence.title') }}</h3>
+        </div>
+
+        <div class="mc-guilds-list">
+          <div
+            v-for="guild in serviceStatus.guilds"
+            :key="guild.id"
+            class="mc-guild-item"
+          >
+            <img
+              v-if="guild.icon"
+              :src="guild.icon"
+              :alt="guild.name"
+              class="mc-guild-icon"
+            >
+            <div v-else class="mc-guild-icon mc-guild-icon--placeholder">
+              {{ guild.name.charAt(0) }}
+            </div>
+            <span class="mc-guild-name">{{ guild.name }}</span>
+            <span
+              v-if="serviceStatus.activeChannelId"
+              class="mc-active-badge"
+            >
+              Active
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Debug Actions -->
+      <section class="mc-section">
+        <div class="mc-action-buttons">
+          <Button
+            :label="t('settings.pages.modules.messaging-discord.actions.force-sync')"
             variant="secondary"
-            @click="discordStore.clearEventLog()"
+            :disabled="!isConnected"
+            @click="handleForceSync"
+          />
+          <Button
+            :label="t('settings.pages.modules.messaging-discord.actions.simulate')"
+            variant="secondary"
+            @click="simulateOpen = !simulateOpen"
+          />
+          <Button
+            :label="t('settings.pages.modules.messaging-discord.actions.restart')"
+            variant="secondary"
+            :disabled="!isConnected"
+            @click="discordStore.stopService().then(() => discordStore.startService())"
           />
         </div>
 
-        <div v-if="eventLog.length === 0" class="mc-console-empty">
-          {{ t('settings.pages.modules.messaging-discord.dev-console.empty') }}
+        <!-- Simulate Dialog -->
+        <div v-if="simulateOpen" class="mc-simulate-dialog">
+          <FieldInput
+            v-model="simulateUsername"
+            :label="t('settings.pages.modules.messaging-discord.simulate-dialog.username')"
+            :placeholder="t('settings.pages.modules.messaging-discord.simulate-dialog.username-placeholder')"
+          />
+          <FieldInput
+            v-model="simulateContent"
+            :label="t('settings.pages.modules.messaging-discord.simulate-dialog.content')"
+            :placeholder="t('settings.pages.modules.messaging-discord.simulate-dialog.content-placeholder')"
+          />
+          <Button
+            :label="t('settings.pages.modules.messaging-discord.simulate-dialog.send')"
+            variant="primary"
+            @click="handleSimulate"
+          />
+        </div>
+      </section>
+
+      <!-- Section: Developer Console -->
+      <section class="mc-section">
+        <div class="mc-section-header mc-section-header--clickable" @click="devConsoleOpen = !devConsoleOpen">
+          <h3>{{ t('settings.pages.modules.messaging-discord.dev-console.title') }}</h3>
+          <span class="mc-chevron" :class="{ 'mc-chevron--open': devConsoleOpen }">▶</span>
         </div>
 
-        <div v-else class="mc-console-log">
-          <div
-            v-for="(entry, idx) in [...eventLog].reverse()"
-            :key="idx"
-            class="mc-log-entry"
-          >
-            <span class="mc-log-time">{{ formatTimestamp(entry.timestamp) }}</span>
-            <span
-              class="mc-log-type"
-              :style="{ color: getEventTypeColor(entry.type) }"
+        <div v-if="devConsoleOpen" class="mc-dev-console">
+          <div v-if="eventLog.length > 0" class="mc-console-toolbar">
+            <Button
+              :label="t('settings.pages.modules.messaging-discord.actions.clear-log')"
+              variant="secondary"
+              @click="discordStore.clearEventLog()"
+            />
+          </div>
+          <div v-if="eventLog.length === 0" class="mc-console-empty">
+            {{ t('settings.pages.modules.messaging-discord.dev-console.empty') }}
+          </div>
+          <div v-else class="mc-console-log">
+            <div
+              v-for="(entry, idx) in [...eventLog].reverse()"
+              :key="idx"
+              class="mc-log-entry"
             >
-              {{ entry.type }}
-            </span>
-            <span class="mc-log-summary">{{ entry.summary }}</span>
+              <span class="mc-log-time">{{ formatTimestamp(entry.timestamp) }}</span>
+              <span
+                class="mc-log-type"
+                :style="{ color: getEventTypeColor(entry.type) }"
+              >
+                {{ entry.type }}
+              </span>
+              <span class="mc-log-summary">{{ entry.summary }}</span>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: CLOUD RELAY STUDIO (24/7 Edge Deployment)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div v-else-if="activeTab === 'relay'" class="space-y-6">
+      <!-- Section 1: Cloudflare Edge Provisioning -->
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <div>
+            <h3 class="text-sm font-bold">
+              Cloudflare Edge Deployment Engine
+            </h3>
+            <p class="text-xs text-neutral-400">
+              Deploy your active character to Cloudflare Workers for 24/7 response presence even when PC is powered off.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <!-- Option A: 1-Click OAuth Login -->
+          <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+            <div class="mb-2 flex items-center gap-2">
+              <div class="i-solar:key-minimalistic-bold-duotone text-lg text-primary-500" />
+              <h4 class="text-xs font-bold">
+                1-Click Cloudflare OAuth PKCE
+              </h4>
+            </div>
+            <p class="mb-3 text-[11px] text-neutral-400">
+              Authenticate securely via browser without manually creating API tokens.
+            </p>
+            <Button
+              label="Authenticate with Cloudflare"
+              variant="primary"
+              :disabled="isOAuthAuthenticating"
+            />
+          </div>
+
+          <!-- Option B: Manual Account ID & Token -->
+          <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+            <div class="flex items-center gap-2">
+              <div class="i-solar:code-bold-duotone text-lg text-amber-500" />
+              <h4 class="text-xs font-bold">
+                Manual Cloudflare API Token
+              </h4>
+            </div>
+            <FieldInput v-model="cfAccountId" label="Account ID" placeholder="32-char Cloudflare Account ID" />
+            <FieldInput v-model="cfApiToken" type="password" label="API Token" placeholder="Workers & KV write token" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Memory Mode & Deployment Target -->
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <h3 class="text-sm font-bold">
+            Edge Character Configuration
+          </h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Memory Mode Selector -->
+          <div>
+            <label class="mb-1 block text-xs text-neutral-400 font-medium">Memory Window Mode</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                class="border rounded-xl p-3 text-left transition-all"
+                :class="selectedMemoryMode === 'fixed' ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+                @click="selectedMemoryMode = 'fixed'"
+              >
+                <div class="text-xs font-bold">
+                  Fixed Mode (Assistant)
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  Rolling 10-turn window. Fast & low cost.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                class="border rounded-xl p-3 text-left transition-all"
+                :class="selectedMemoryMode === 'unlimited' ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+                @click="selectedMemoryMode = 'unlimited'"
+              >
+                <div class="text-xs font-bold">
+                  Unlimited Mode (Deep Coherence)
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  Full conversation history with auto-compaction.
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <Button
+            label="🚀 Deploy Character to Cloudflare Edge"
+            variant="primary"
+            :disabled="isDeployingRelay"
+          />
+        </div>
+      </section>
+
+      <!-- Section 3: Active Deployed Relay Instances -->
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <h3 class="text-sm font-bold">
+            Active Cloud Relay Instances
+          </h3>
+        </div>
+
+        <!-- Mock Deployed Instance Card -->
+        <div class="border border-neutral-200/80 rounded-xl bg-white/70 p-4 dark:border-neutral-800/80 dark:bg-neutral-900/60">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 font-bold">
+                AIRI
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold">
+                    AIRI — Cloud Relay
+                  </h4>
+                  <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] text-emerald-600 font-bold uppercase dark:text-emerald-400">Live ✅</span>
+                </div>
+                <div class="text-[11px] text-neutral-400 font-mono">
+                  https://airi-stage-edge.workers.dev
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <Button label="Sync Memories ↓" variant="secondary" />
+              <Button label="Teardown" variant="danger" />
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: ACCESS & ROUTING (Channel ACL & Context Routing)            -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div v-else-if="activeTab === 'acl'" class="space-y-6">
+      <!-- Section 1: Global Routing Mode -->
+      <section class="mc-section">
+        <div class="mc-section-header">
+          <h3 class="text-sm font-bold">
+            Global Fallback Mode
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <button
+            type="button"
+            class="border rounded-xl p-3 text-left transition-all"
+            :class="globalFallbackMode === 'ignore' ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+            @click="globalFallbackMode = 'ignore'"
+          >
+            <div class="text-xs font-bold">
+              Strict Fallback (Ignore)
+            </div>
+            <div class="text-[10px] text-neutral-400">
+              Unmapped channels are dropped. (Default / Safest)
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="border rounded-xl p-3 text-left transition-all"
+            :class="globalFallbackMode === 'shared' ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+            @click="globalFallbackMode = 'shared'"
+          >
+            <div class="text-xs font-bold">
+              Shared / Legacy
+            </div>
+            <div class="text-[10px] text-neutral-400">
+              All channels share active desktop character & session.
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="border rounded-xl p-3 text-left transition-all"
+            :class="globalFallbackMode === 'auto-create' ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10' : 'border-neutral-200 dark:border-neutral-800'"
+            @click="globalFallbackMode = 'auto-create'"
+          >
+            <div class="text-xs font-bold">
+              Isolated Auto-Create
+            </div>
+            <div class="text-[10px] text-neutral-400">
+              Auto-instantiate isolated sessions per channel/DM.
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 2: Channel Routing Matrix -->
+      <section class="mc-section">
+        <div class="mc-section-header flex items-center justify-between">
+          <h3 class="text-sm font-bold">
+            Channel & DM Context Routing Table
+          </h3>
+          <Button label="+ Add Channel Mapping" variant="secondary" />
+        </div>
+
+        <!-- Mock Routing Table -->
+        <div class="overflow-hidden border border-neutral-200/80 rounded-xl bg-white/70 dark:border-neutral-800/80 dark:bg-neutral-900/60">
+          <table class="w-full text-left text-xs">
+            <thead class="border-b border-neutral-200/60 bg-neutral-50/50 text-[10px] text-neutral-400 font-bold uppercase dark:border-neutral-800 dark:bg-neutral-800/40">
+              <tr>
+                <th class="p-3">
+                  Context Key / Channel
+                </th>
+                <th class="p-3">
+                  Target Character
+                </th>
+                <th class="p-3">
+                  Trigger Mode
+                </th>
+                <th class="p-3 text-right">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
+              <tr>
+                <td class="p-3 font-mono">
+                  channel-123456789 ( #lounge )
+                </td>
+                <td class="p-3 font-semibold">
+                  AIRI
+                </td>
+                <td class="p-3">
+                  <span class="rounded bg-blue-500/15 px-2 py-0.5 text-[10px] text-blue-500 font-bold">Mentions</span>
+                </td>
+                <td class="p-3 text-right">
+                  <button type="button" class="text-xs text-neutral-400 hover:text-red-500">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td class="p-3 font-mono">
+                  dm-987654321 ( Direct Message )
+                </td>
+                <td class="p-3 font-semibold">
+                  AIRI
+                </td>
+                <td class="p-3">
+                  <span class="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-500 font-bold">All Messages</span>
+                </td>
+                <td class="p-3 text-right">
+                  <button type="button" class="text-xs text-neutral-400 hover:text-red-500">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
