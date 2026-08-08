@@ -839,12 +839,18 @@ pages:
           makePrimary: Set as Primary
           defaultHint: Default
           remove: Remove
+          primary: Primary
         dangerZone:
           title: Danger Zone
           description: Delete the credentials for this provider instance. Clears API key
             and endpoint settings.
           deleteCredentials: Delete Credentials
           confirmDelete: Confirm Deletion
+        modelBrowser:
+          title: Model Selection
+          label: Model
+          description: Select the model to use for this provider instance.
+          placeholder: Select a model...
     description: LLMs, speech providers, etc.
     provider:
       app-local-audio-transcription:

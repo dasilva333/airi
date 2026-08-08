@@ -4,17 +4,29 @@ import { PageHeader } from '@proj-airi/stage-ui/components'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { computed, ref, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import WindowTitleBar from '../components/Window/TitleBar.vue'
 
 import { useRestoreScroll } from '../composables/use-restore-scroll'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const providersStore = useProvidersStore()
 const scrollContainer = ref<HTMLElement>()
 useRestoreScroll(scrollContainer)
+
+function handleBack() {
+  if (route.path.startsWith('/settings/providers/')) {
+    const segments = route.path.split('/').filter(Boolean)
+    const category = segments[2]
+    const hash = category && category !== 'chat' ? `#${category}` : '#chat'
+    router.push(`/settings/providers${hash}`)
+    return
+  }
+  router.back()
+}
 
 const routeMeta = computed(() => route.meta as {
   titleKey?: string
@@ -110,6 +122,7 @@ watchEffect(() => {
             :subtitle="routeHeaderMetadata?.subtitle ?? ''"
             :disable-back-button="isStageTamagotchi() && route.path === '/settings'"
             px-4
+            @back="handleBack"
           />
           <div min-h-0 flex-1 px-4>
             <RouterView />

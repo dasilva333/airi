@@ -58,6 +58,7 @@ const {
   manualTestPassed,
   manualTestMessage,
   runManualTest,
+  navigateBackToProviders,
 } = useProviderValidation(providerId)
 
 function goToModelSelection() {
@@ -70,7 +71,7 @@ function goToModelSelection() {
   <ProviderSettingsLayout
     :provider-name="providerMetadata?.localizedName"
     :provider-icon-color="providerMetadata?.iconColor"
-    :on-back="() => router.back()"
+    :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer>
       <ProviderBasicSettings
@@ -123,6 +124,7 @@ function goToModelSelection() {
 <route lang="yaml">
 meta:
   layout: settings
+  subtitleKey: settings.pages.providers.title
   stageTransition:
     name: slide
 </route>

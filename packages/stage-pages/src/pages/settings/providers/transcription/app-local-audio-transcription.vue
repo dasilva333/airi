@@ -295,6 +295,7 @@ async function toggleProvider() {
 <route lang="yaml">
 meta:
   layout: settings
+  subtitleKey: settings.pages.providers.title
   stageTransition:
     name: slide
 </route>

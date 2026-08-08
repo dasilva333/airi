@@ -168,6 +168,12 @@ export function useProviderValidation(providerId: string) {
     providersStore.forceProviderConfigured(providerId)
   }
 
+  function navigateBackToProviders() {
+    const category = providerMetadata.value?.category
+    const hash = category ? `#${category}` : ''
+    router.push(`/settings/providers${hash}`)
+  }
+
   return {
     t,
     router,
@@ -185,5 +191,6 @@ export function useProviderValidation(providerId: string) {
     manualTestPassed,
     manualTestMessage,
     runManualTest,
+    navigateBackToProviders,
   }
 }

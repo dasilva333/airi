@@ -79,11 +79,19 @@ watch(() => route.path, () => {
 
 function handleBack() {
   console.log('[SettingsLayout] handleBack called. Current route:', route.path)
+  if (route.path.startsWith('/settings/providers/')) {
+    const segments = route.path.split('/').filter(Boolean)
+    const category = segments[2]
+    const hash = category && category !== 'chat' ? `#${category}` : '#chat'
+    router.push(`/settings/providers${hash}`)
+    return
+  }
+
   if (route.path === '/settings') {
     router.push('/')
   }
   else {
-    router.push('/settings')
+    router.back()
   }
 }
 </script>

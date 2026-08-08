@@ -7,6 +7,8 @@ import { useRouter } from 'vue-router'
 import {
   ProviderAdvancedSettings,
   ProviderApiKeyInput,
+  ProviderBaseUrlInput,
+  ProviderBasicSettings,
   ProviderDangerZone,
   ProviderInstancesSection,
   ProviderModelBrowser,
@@ -67,6 +69,11 @@ function handleResetTranscriptionSettings() {
   apiKey.value = ''
   baseUrl.value = providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
 }
+
+function navigateBackToProviders() {
+  const category = providerMetadata.value?.category || 'transcription'
+  router.push(`/settings/providers#${category}`)
+}
 </script>
 
 <template>
@@ -74,7 +81,7 @@ function handleResetTranscriptionSettings() {
     :provider-name="providerMetadata?.localizedName"
     :provider-icon="providerMetadata?.icon"
     :provider-icon-color="providerMetadata?.iconColor"
-    :on-back="() => router.back()"
+    :on-back="navigateBackToProviders"
   >
     <div flex="~ col md:row gap-6">
       <ProviderSettingsContainer class="w-full md:w-[40%]">
