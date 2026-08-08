@@ -38,6 +38,13 @@ export class ReactiveVarStore {
     this.variables.set(name, value)
   }
 
+  /** Ensure a variable exists in the heap map at default 0 if untracked. */
+  touch(name: string): void {
+    if (!this.variables.has(name)) {
+      this.variables.set(name, 0)
+    }
+  }
+
   /** Snapshot of the whole heap (for `{$vf_*}` interpolation / debugging). */
   snapshot(): Record<string, number> {
     return Object.fromEntries(this.variables)
@@ -57,6 +64,9 @@ export class ReactiveVarStore {
 
   /** True if a single Type 1 guard passes. */
   evaluateCondition(condition: VarFloatCondition): boolean {
+    if (condition?.Name) {
+      this.touch(condition.Name)
+    }
     const current = this.get(condition.Name)
     const parsed = parseOpAndValue(condition.Code)
     if (!parsed)

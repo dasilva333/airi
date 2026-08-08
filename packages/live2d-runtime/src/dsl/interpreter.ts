@@ -60,14 +60,23 @@ export class DSLVirtualMachine {
   /** Register/replace the manifest's motion groups. Existing heap state is preserved. */
   loadGroups(groups: readonly DslMotionGroup[]): void {
     this.groups.clear()
-    for (const g of groups)
-      this.groups.set(g.name, g)
+    this.addGroups(groups)
   }
 
   /** Merge more groups in (e.g. loaded incrementally) without clearing. */
   addGroups(groups: readonly DslMotionGroup[]): void {
-    for (const g of groups)
+    for (const g of groups) {
       this.groups.set(g.name, g)
+      for (const entry of g.entries) {
+        if (Array.isArray(entry.VarFloats)) {
+          for (const vf of entry.VarFloats) {
+            if (vf && typeof vf.Name === 'string' && vf.Name.trim()) {
+              this.vars.touch(vf.Name.trim())
+            }
+          }
+        }
+      }
+    }
   }
 
   /** Current intimacy (0 when the host doesn't provide a store). */

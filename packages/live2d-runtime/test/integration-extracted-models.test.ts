@@ -41,8 +41,7 @@ describe('extracted Live2D DSL Real-World Model Integration Tests', () => {
     })
     vm.loadGroups(groups)
 
-    // Initial state: VarFloats heap default ('var3' defaults to 0)
-    // Dispatching Tick3 evaluates the equal 0 guard on var3
+    // 3. Test Tick3 dispatch: evaluates equal 0 guard on var3
     const result = vm.dispatch('Tick3')
     expect(result).toBeDefined()
     expect(playedSound).toBeDefined()
@@ -62,10 +61,12 @@ describe('extracted Live2D DSL Real-World Model Integration Tests', () => {
     const vm = new DSLVirtualMachine()
     vm.loadGroups(groups)
 
-    // Initial state: VarFloats heap empty
-    expect(vm.vars.snapshot()).toEqual({})
+    // 1. Dispatch Idle group -> VarFloats executes Type: 2 (assign 1) on 'act'
+    const idleEntry = vm.dispatch('Idle')
+    expect(idleEntry).toBeDefined()
+    expect(vm.vars.snapshot().act).toBe(1)
 
-    // Dispatch A10 group -> VarFloats assigns act = 2 (from weighted entry pick)
+    // 2. Dispatch A10 group -> VarFloats executes Type: 2 (assign 5) on 'act'
     const a10Entry = vm.dispatch('A10')
     expect(a10Entry).toBeDefined()
     expect(vm.vars.snapshot().act).toBeGreaterThanOrEqual(1)
