@@ -276,4 +276,31 @@ describe('dSLVirtualMachine — features + NextMtn chain', () => {
     const r = vm.dispatch('Open')
     expect(r?.Command).toContain('item2')
   })
+
+  it('performs singular/plural and case-insensitive fallback group matching', () => {
+    const { host } = makeHost()
+    const vm = new DSLVirtualMachine({ host })
+    vm.loadGroups([
+      {
+        name: 'choice',
+        entries: [
+          { Choices: [{ Text: 'Option A', NextMtn: 'A' }] },
+        ],
+      },
+    ])
+
+    // Dispatching 'choices' (plural) should resolve fallback to 'choice' (singular)
+    const resultPlural = vm.dispatch('choices')
+    expect(resultPlural).toBeDefined()
+    expect(vm.hasPendingChoices()).toBe(true)
+    expect(vm.getPendingChoices()?.choices[0].text).toBe('Option A')
+
+    // Reset pending choices
+    vm.selectChoice(0)
+
+    // Dispatching 'CHOICE' (uppercase) should also resolve
+    const resultCaps = vm.dispatch('CHOICE')
+    expect(resultCaps).toBeDefined()
+    expect(vm.hasPendingChoices()).toBe(true)
+  })
 })
