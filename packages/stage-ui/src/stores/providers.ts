@@ -143,9 +143,10 @@ export const useProvidersStore = defineStore('providers', () => {
     return result
   })
 
-  // Get models for a specific provider
-  function getModelsForProvider(providerId: string) {
-    return providerRuntimeState.value[providerId]?.models || []
+  // Get models for a specific provider (supports composite instance keys like providerId:instanceId)
+  function getModelsForProvider(providerKey: string) {
+    const baseId = providerKey.includes(':') ? providerKey.split(':')[0] : providerKey
+    return providerRuntimeState.value[baseId]?.models || []
   }
 
   // Get all available models across all configured providers
@@ -157,12 +158,13 @@ export const useProvidersStore = defineStore('providers', () => {
     return models
   })
 
-  // Function to get localized provider metadata
-  function getProviderMetadata(providerId: string) {
-    const metadata = providerMetadata[providerId]
+  // Function to get localized provider metadata (supports composite instance keys like providerId:instanceId)
+  function getProviderMetadata(providerKey: string) {
+    const baseId = providerKey.includes(':') ? providerKey.split(':')[0] : providerKey
+    const metadata = providerMetadata[baseId]
 
     if (!metadata) {
-      console.warn(`Provider metadata for ${providerId} not found`)
+      console.warn(`Provider metadata for ${providerKey} not found`)
       return null as any
     }
 
@@ -224,6 +226,46 @@ export const useProvidersStore = defineStore('providers', () => {
 
   const configuredChatProvidersMetadata = computed(() => {
     return allChatProvidersMetadata.value.filter(metadata => configuredProviders.value[metadata.id] || shouldListProvider(metadata.id))
+  })
+
+  const configuredChatProviderOptions = computed(() => {
+    const list: Array<{
+      value: string
+      providerId: string
+      instanceId: string
+      label: string
+    }> = []
+
+    for (const metadata of configuredChatProvidersMetadata.value) {
+      const instances = instanceStore.listInstances(metadata.id)
+      const isMulti = instances.length > 1
+
+      if (instances.length === 0) {
+        const baseName = metadata.name || metadata.localizedName || metadata.id
+        list.push({
+          value: metadata.id,
+          providerId: metadata.id,
+          instanceId: '*',
+          label: baseName,
+        })
+      }
+      else {
+        for (const inst of instances) {
+          const baseName = metadata.name || metadata.localizedName || metadata.id
+          const displayName = isMulti
+            ? `${baseName} (${inst.label || inst.id})`
+            : baseName
+          const valKey = isMulti ? `${metadata.id}:${inst.id}` : metadata.id
+          list.push({
+            value: valKey,
+            providerId: metadata.id,
+            instanceId: inst.id,
+            label: displayName,
+          })
+        }
+      }
+    }
+    return list
   })
 
   const configuredSpeechProvidersMetadata = computed(() => {
@@ -334,6 +376,7 @@ export const useProvidersStore = defineStore('providers', () => {
     allAudioTranscriptionProvidersMetadata,
     allVisionProvidersMetadata,
     configuredChatProvidersMetadata,
+    configuredChatProviderOptions,
     configuredSpeechProvidersMetadata,
     configuredTranscriptionProvidersMetadata,
     configuredVisionProvidersMetadata,

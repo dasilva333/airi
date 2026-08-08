@@ -35,8 +35,18 @@ export function createProviderModels(deps: ProviderModelsDeps) {
    * instead of the primary-backed canonical facade. This avoids writes to the
    * primary facade when a settings page is browsing other endpoints.
    */
-  async function fetchModelsForProvider(providerId: string, options: { instanceId?: string } = {}) {
-    const config = deps.providerInstanceOptions?.(providerId, options.instanceId)
+  async function fetchModelsForProvider(providerKey: string, options: { instanceId?: string } = {}) {
+    let providerId = providerKey
+    let targetInstanceId = options.instanceId
+
+    if (providerKey.includes(':')) {
+      const parts = providerKey.split(':')
+      providerId = parts[0]
+      if (!targetInstanceId)
+        targetInstanceId = parts[1]
+    }
+
+    const config = deps.providerInstanceOptions?.(providerId, targetInstanceId)
       ?? providerCredentials.value[providerId]
 
     if (!config)

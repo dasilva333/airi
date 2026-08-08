@@ -40,7 +40,7 @@ const airiCardStore = useAiriCardStore()
 
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 const { activeCard, activeCardId, cards } = storeToRefs(airiCardStore)
-const { configuredChatProvidersMetadata } = storeToRefs(providersStore)
+const { configuredChatProviderOptions } = storeToRefs(providersStore)
 
 // Resolve effective selected provider and model
 const currentProvider = computed({
@@ -138,8 +138,8 @@ watch(cards, (newCards) => {
 
 onMounted(() => {
   // Pre-fill the form default provider with first configured provider
-  if (configuredChatProvidersMetadata.value.length > 0) {
-    newProvider.value = configuredChatProvidersMetadata.value[0].id
+  if (configuredChatProviderOptions.value.length > 0) {
+    newProvider.value = configuredChatProviderOptions.value[0].value
   }
 })
 
@@ -153,7 +153,12 @@ watch(newProvider, async (provider) => {
   isLoadingModels.value = true
   try {
     await consciousnessStore.loadModelsForProvider(provider)
-    availableModels.value = providersStore.getModelsForProvider(provider)
+    const rawModels = providersStore.getModelsForProvider(provider)
+    availableModels.value = [...rawModels].sort((a, b) => {
+      const nameA = (a.name || a.id.split('/').pop() || a.id).toLowerCase()
+      const nameB = (b.name || b.id.split('/').pop() || b.id).toLowerCase()
+      return nameA.localeCompare(nameB)
+    })
   }
   catch (err) {
     console.error('[BrainModelPicker] Failed to load models for provider:', provider, err)
@@ -406,8 +411,8 @@ const activeModelDisplay = computed(() => {
                     v-model="newProvider"
                     class="w-full border border-neutral-200/60 rounded-lg bg-white px-2 py-1.5 text-xs text-neutral-800 outline-none transition-all dark:border-neutral-800 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200 focus:ring-1 focus:ring-primary-500/20"
                   >
-                    <option v-for="prov in configuredChatProvidersMetadata" :key="prov.id" :value="prov.id">
-                      {{ prov.name || prov.localizedName || prov.id }}
+                    <option v-for="prov in configuredChatProviderOptions" :key="prov.value" :value="prov.value">
+                      {{ prov.label }}
                     </option>
                   </select>
                 </div>
