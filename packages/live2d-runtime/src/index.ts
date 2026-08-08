@@ -51,3 +51,7 @@ export type {
   Live2DRuntimePorts,
 } from './ports'
 export { systemClock } from './ports'
+
+// Headless test harness for automated model scenario testing & state verification
+export { HeadlessDslTestHarness } from './testing/harness'
+export type { ScenarioReport, StepReport, TestStep } from './testing/harness'

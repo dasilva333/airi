@@ -36,6 +36,7 @@ describe('extracted Live2D DSL Real-World Model Integration Tests', () => {
           playSound: (src) => {
             playedSound = src
           },
+          stopSound: () => {},
         },
       },
     })

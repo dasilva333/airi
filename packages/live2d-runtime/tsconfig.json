@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "types": ["vitest"],
+    "types": ["vitest", "node"],
     "allowJs": false,
     "strict": true,
     "strictNullChecks": true,
