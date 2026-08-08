@@ -124,10 +124,24 @@ watch(stageEnabled, (val) => {
   if (val === lastIpcStageEnabled)
     return
   toggleStageVisibility(val)
+  // NOTICE: The main process (`main/index.ts`) is the single owner of the stage→caption follow.
+  // It hides/shows the caption alongside the stage when `captionFollowStageVisibility` is on, so we
+  // only mirror the strip toggle state here — we do NOT separately toggle the caption window.
+  if (settingsStore.captionFollowStageVisibility) {
+    lastIpcCaptionOpen = val
+    captionOpen.value = val
+  }
 }, { immediate: true })
 
+// NOTICE: the caption is *not* secretly owned by this watcher alone. When "follow stage visibility" is
+// on, main/index.ts already hides/shows the caption in lockstep with the stage and echoes the result
+// back via `caption-window-state` (which pre-seeds `lastIpcCaptionOpen`), so this becomes a cheap no-op
+// instead of a duplicate toggle. It only drives the caption when follow is off (independent mode), or to
+// push the renderer's persisted `caption-open` state once on boot via the immediate fire.
 watch(captionOpen, (val) => {
   if (val === lastIpcCaptionOpen)
+    return
+  if (settingsStore.captionFollowStageVisibility && val !== stageEnabled.value)
     return
   toggleCaptionVisibility(val)
 }, { immediate: true })
@@ -138,21 +152,13 @@ watch(chatOpen, (val) => {
   openChat(val)
 }, { immediate: true })
 
-// Treat stage and caption as partners when captionFollowStageVisibility is enabled
-watch(stageEnabled, (newVal) => {
-  if (settingsStore.captionFollowStageVisibility) {
-    if (captionOpen.value !== newVal) {
-      captionOpen.value = newVal
-    }
-  }
-})
-
+// When the user turns follow back ON, realign caption with the current stage state. The actual
+// show/hide is applied by main/index.ts; this only retracts a desynced `captionOpen` so the
+// captionOpen watcher above doesn't fight the owner.
 watch(() => settingsStore.captionFollowStageVisibility, (newVal) => {
-  if (newVal) {
-    // Immediately sync caption state to stage state
-    if (captionOpen.value !== stageEnabled.value) {
-      captionOpen.value = stageEnabled.value
-    }
+  if (newVal && captionOpen.value !== stageEnabled.value) {
+    lastIpcCaptionOpen = stageEnabled.value
+    captionOpen.value = stageEnabled.value
   }
 })
 
@@ -881,6 +887,14 @@ onMounted(async () => {
     window.electron.ipcRenderer.on('stage-window-state', (_, isOpen: boolean) => {
       lastIpcStageEnabled = isOpen
       controlStripStore.stageEnabled = isOpen
+      // The main process owns caption follow: when the stage changes, it syncs the caption and
+      // echoes the result back via `caption-window-state`. Mirror the strip toggle without firing.
+      if (!settingsStore.captionFollowStageVisibility)
+        return
+      if (controlStripStore.captionOpen !== isOpen) {
+        lastIpcCaptionOpen = isOpen
+        controlStripStore.captionOpen = isOpen
+      }
     })
     window.electron.ipcRenderer.on('eventa:event:electron:windows:main:config-changed', (_, config) => {
       if (config) {

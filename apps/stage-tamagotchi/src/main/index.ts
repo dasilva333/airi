@@ -429,6 +429,10 @@ app.whenReady().then(async () => {
 
       defineInvokeHandler(context, electronCaptionToggleVisibility, async (enabled?: boolean) => {
         console.log('[@proj-airi/stage-tamagotchi] [Main] Caption visibility toggle triggered via Control Island. enabled:', enabled)
+        // Record the renderer-authoritative open state first so the boot restore and the
+        // stage→caption follow only apply once the renderer's persisted preference is known.
+        if (enabled !== undefined)
+          captionOpenFromRenderer = enabled
         await deps.captionWindow.toggleVisibility(enabled)
       })
       defineInvokeHandler(context, electronGetChatWindowState, async () => {
@@ -475,7 +479,7 @@ app.whenReady().then(async () => {
         // @ts-ignore - window might be undefined if context is global, but here it's window-specific
         context.window?.setIgnoreMouseEvents(ignore, { forward: true })
       })
-      defineInvokeHandler(context, electronStageToggleVisibility, async (enabled) => {
+      defineInvokeHandler(context, electronStageToggleVisibility, async (enabled: boolean) => {
         console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage visibility changed:', enabled)
         setStageVisibleState(enabled)
         if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
@@ -486,6 +490,9 @@ app.whenReady().then(async () => {
             deps.stageWindow.hide()
           }
         }
+        // NOTICE: Main process is the single owner of the stage→caption follow. The renderer
+        // only sets `captionOpen` for bookkeeping; it does not separately toggle the caption.
+        syncCaptionToStage(enabled, { captureInFlight: isCapturingStage })
       })
       defineInvokeHandler(context, electronStageSetAlwaysOnTop, async (flag) => {
         console.log('[@proj-airi/stage-tamagotchi] [Main] Actor Stage always-on-top changed:', flag)
@@ -925,13 +932,43 @@ app.whenReady().then(async () => {
       })
 
       let stageInitialized = false
+      // NOTICE: `stage:capture-window` ghosts the stage window (show inactive → hide) purely to
+      // produce a screenshot. Those synthetic show/hide events must not be treated as user-driven
+      // visibility changes, so listeners check this flag and skip caption-follow handling during capture.
+      let isCapturingStage = false
+      // NOTICE: The renderer always pushes its persisted `settings/caption-open` state once on boot
+      // (immediate watcher in `pages/index.vue`). We gate caption auto-restores/follows on this so a
+      // transient stage show or main-window restore can't flash the caption before the renderer's
+      // authoritative state has arrived (mirrors the stage default-visible boot pattern).
+      let captionOpenFromRenderer: boolean | undefined
+
+      // Single owner of the stage→caption follow rule (the renderer no longer mirrors these).
+      // captureInFlight suppresses the synthetic stage events emitted by `stage:capture-window`.
+      const syncCaptionToStage = (stageVisible: boolean, opts?: { captureInFlight?: boolean }) => {
+        if (!deps.captionWindow.getIsFollowingStageVisibility() || opts?.captureInFlight)
+          return
+        // Hide always applies. Show is deferred until the renderer pushes `caption-open`
+        // so a boot-time transient can't flash the caption against the persisted preference.
+        if (!stageVisible) {
+          void deps.captionWindow.toggleVisibility(false)
+        }
+        else if (captionOpenFromRenderer !== undefined) {
+          void deps.captionWindow.toggleVisibility(captionOpenFromRenderer)
+        }
+      }
 
       ipcMain.handle('stage:capture-window', async () => {
         if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
           if (!stageInitialized && !deps.stageWindow.isVisible()) {
-            deps.stageWindow.showInactive()
-            await new Promise(resolve => setTimeout(resolve, 5000))
-            deps.stageWindow.hide()
+            isCapturingStage = true
+            try {
+              deps.stageWindow.showInactive()
+              await new Promise(resolve => setTimeout(resolve, 5000))
+              deps.stageWindow.hide()
+            }
+            finally {
+              isCapturingStage = false
+            }
             stageInitialized = true
           }
           const image = await deps.stageWindow.webContents.capturePage()
@@ -945,22 +982,23 @@ app.whenReady().then(async () => {
       if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
         deps.stageWindow.on('show', () => {
           stageInitialized = true
-          if (deps.captionWindow.getIsFollowingStageVisibility()) {
-            deps.captionWindow.toggleVisibility(true)
-          }
+          syncCaptionToStage(true, { captureInFlight: isCapturingStage })
         })
-        deps.stageWindow.on('hide', () => {
-          if (deps.captionWindow.getIsFollowingStageVisibility()) {
-            deps.captionWindow.toggleVisibility(false)
-          }
-        })
+        deps.stageWindow.on('hide', () => syncCaptionToStage(false, { captureInFlight: isCapturingStage }))
+        deps.stageWindow.on('minimize', () => syncCaptionToStage(false, { captureInFlight: isCapturingStage }))
+        deps.stageWindow.on('restore', () => syncCaptionToStage(true, { captureInFlight: isCapturingStage }))
       }
 
       const restoreCaption = () => {
-        // Auto-restore caption window if enabled in config
-        if (deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled) {
-          deps.captionWindow.toggleVisibility()
-        }
+        // Restore to the renderer-authoritative state (exactly one push arrives at boot), else the
+        // persisted `windows[].enabled` entry. Explicit true/false only — never blind-toggle.
+        const wasEnabled = captionOpenFromRenderer
+          ?? deps.appConfig.get()?.windows?.find((w: any) => w.tag === 'caption')?.enabled
+        const isNowVisible = deps.captionWindow.isVisible()
+        if (wasEnabled && !isNowVisible)
+          void deps.captionWindow.toggleVisibility(true)
+        else if (!wasEnabled && isNowVisible)
+          void deps.captionWindow.toggleVisibility(false)
       }
 
       if (deps.mainWindow.isVisible()) {
