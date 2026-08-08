@@ -1,13 +1,47 @@
 # Fix: Actor Stage Desync During Autonomous Artistry (Director) Background Updates
 
-> **Status:** IMPLEMENTED (v3 recommendation applied). Changes:
-> - **Rail 2 fix:** `packages/stage-ui/src/stores/modules/airi-card.ts` — `resolveAiriExtension`'s `active_state.displayModelId` is now a passthrough of `modules.displayModelId`; the `manifestation.modelId` concept fold was removed (background fold and additive expression merge retained).
-> - **Rail 1 gate:** `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` — `foldConceptStack` now tracks and returns `modelIdFromBase` (whether the winning `modelId` came from an `isBase` concept); `runArtistTask` writes `modules.displayModelId` only when Base-sourced. `activateConcept` (ACTOR pipeline) and `applyCurrentStackManifestations` (manual sync) intentionally remain ungated.
-> - **Validation:** `pnpm -F @proj-airi/stage-ui typecheck` — clean.
->
-> **One-paragraph summary:** The stage model was being re-derived from the Director's *scene* concept stack, whose ordering is arbitrary with respect to who is currently speaking. Concepts legitimately bundle three pillars (prompt, artistry, `manifestation.modelId`), and the Director must keep managing the stack for scene/prompt continuity — but the `manifestation.modelId` pillar reached the physical stage from the Director's stack ordering via two rails (§4), over the top of the actor pipeline that actually knows who is speaking. The fix is **not** "stop the Director from managing concepts" and **not** "remove the Director's model write entirely" (that would kill Director-driven outfit swaps — Setup B, §1.1). The fix: make `modules.displayModelId` the single source of truth (Rail 2 passthrough) and **gate** the Director's model write to Base-sourced modelIds only (Rail 1 gate), preserving both supported setups.
+> **Status:** v4 APPLIED. History:
+> - **v3 (superseded — wrong-writer fixes, necessary but insufficient):**
+>   - **Rail 2 fix:** `packages/stage-ui/src/stores/modules/airi-card.ts` — `resolveAiriExtension`'s `active_state.displayModelId` is now a passthrough of `modules.displayModelId`; the `manifestation.modelId` concept fold was removed (background fold and additive expression merge retained).
+>   - **Rail 1 gate:** `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` — `foldConceptStack` tracks/returns `modelIdFromBase`; `runArtistTask` writes `modules.displayModelId` only when Base-sourced. `activateConcept` and `applyCurrentStackManifestations` remain ungated.
+>   - **Outcome:** removed the Director as a *wrong-value source*, but left the propagation/guard machinery intact — the model still swapped mid-speech. See §v4 below.
+> - **v4 (current):** speaker-ownership fix targeting the guard/propagation legs. See §v4 below.
+
+## v4. Why v3 Wasn't Enough — the Guard/Propagation Legs
+
+v3 (above) made `modules.displayModelId` the single source of truth and gated the Director's write to Base-sourced only. That stopped the Director from *originating* a wrong model. It did **not** stop the model from moving, because four other paths could still write or apply the model with wrong timing. With the card verified correctly shaped (Setup A: only places are `isBase: true`; all actors are Layers with models), the residual instability came from these four legs:
+
+- **Leg 1 — Parser-level pre-speech write (the primary wrong-value writer).** `ControlStripHost.vue` `specialTokenQueue.onHandlerEvent('actor', …)` fired `activateConcept` for **every** `<|ACTOR:x|>` token the streaming parser saw. For `<|ACTOR:first|>…<|ACTOR:second|>…` it ran first then second **within the same second, seconds before any audio** — so `modules.displayModelId` and `active_concepts` settled on the *last-listed* actor pre-speech, regardless of who was about to speak. The remaining "sometimes the wrong girl" non-determinism was token order, not speaker order.
+- **Leg 2a — Force-flag bypass by the concept-stack watcher.** `airi-card.ts` `watch(active_concepts)` called `syncCardState(card, force=true)`, and `force=true` bypassed the `isModelSyncPrevented` speech gate (`if (!prevented || force)`). Every `active_concepts` change — Director's decision write, parser writes, playback writes — force-swapped the model even mid-speech.
+- **Leg 2b — `activateConcept`'s gate clobber.** It wrapped its `updateCard` in a synchronous `isModelSyncPrevented: false → (update) → true` pulse. During that pulse the card's `activeCard` watcher (`watch(activeCard)`) fired `syncCardState` *ungated*, mid-speech; restoring the flag after then closed the gate on any legitimate pending sync.
+- **Leg 3 — `watch(activeCard)` re-sync on every update.** `updateCard` always writes a new `updatedAt`, so the image-arrival background-only `updateCard` (`artistry-autonomous.ts` `'bg'` branch) recomputed `activeCard` and re-ran `syncCardState`. With no wrong value baked in this is harmless — but it **is** what made the swap *look* like the image caused it: it applied the poison value Legs 1/2 had already written.
+- **Leg 4 — Cross-window amplifier.** `stageModelSelected` and `airi-cards` are shared across windows via `useLocalStorage` storage events + the `airi:cards-sync` BroadcastChannel; the stage window's own `watch(stageModelSelectedState)` then re-fires `updateStageModel('manual selection')`. Amplifier, not a root cause — deferred.
+
+### v4 changes
+
+1. **Leg 1:** removed the model write from the parser-level `actor` handler in `ControlStripHost.vue` (~line 392). The parser event now only tracks `parserActorId` for caption-color hints. The **playback-level** handler (`playFunction`, ~line 590) remains the single authoritative speaker moment, firing `activateConcept` sequenced with audio and awaiting `airi-stage-model-ready`.
+2. **Leg 2a:** in `syncCardState` (`airi-card.ts`), `force` no longer bypasses the speech gate or forces a re-apply of the same model id. The model block runs only `if (!isModelSyncPrevented.value)` and applies only on a genuine `modelChanged`. Expressions/motion stay on the `|| force` path (ACT-setter pattern must still refresh mid-turn). Card activation (`activateCard`) clears `isModelSyncPrevented` first, so a genuinely different card model still applies via `modelChanged`.
+3. **Leg 2b:** in `activateConcept` (`artistry-autonomous.ts`), removed the synchronous flag pulse. It now keeps the gate's value, `await`s the `updateCard`, `await nextTick()` (letting Vue batch/flush all watchers from that update), then — if the gate is still set — runs one explicit `syncCardState(activeCard, true)`. With change 2 that call skips the speech gate but only applies a real model change, so the actor's model still lands at playback without reopening the gate to unrelated watchers.
+
+### v4 invariants
+
+- The **physical stage model is speaker-owned**: it changes only via `activateConcept` at playback (per `<|ACTOR:x|>` audio segment) or the Director for Base-sourced outfit swaps (Setup B). Nothing else writes it.
+- `isModelSyncPrevented` regains meaning: no internal path force-bypasses it to move the model; the only mid-speech model change is the intentional, sequenced actor handoff.
+- The concept-stack watcher and `activeCard` watcher can no longer move the model on their own — they only refresh expressions/parameters.
+
+### Deferred (not in v4)
+
+- **Leg 3 hardening** (gating the `activeCard` watcher): left in place deliberately. With 1–3 removing all wrong-value writers, this watcher re-syncing the *correct* value is benign. Revisit only if a residual swap is still observed.
+- **Leg 4** (per-window / per-intent `isModelSyncPrevented`, or source-tagged allow-actor/defer-until-drain writes): larger redesign, separate change.
+
+### v4 verification
+
+- `pnpm -F @proj-airi/stage-ui typecheck` — no new errors in the three changed files (the only failures are pre-existing `@proj-airi/live2d-runtime` module-resolution errors in `stage-ui-live2d`, unrelated and present on the clean tree).
+- Manual (Setup A, autonomous artistry ON, Background Scene spawn mode): send a message producing a two-actor script; while the first actor's audio plays, wait for the Director image. Expected: background changes, **model does not move**; the model swaps only at each actor's audio start.
 
 ---
+
+## v3 One-paragraph summary (original, for reference)
 
 ## 1. The Concept Bundle: Three Pillars, Two Owners
 

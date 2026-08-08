@@ -7,7 +7,7 @@ import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { ref, toRaw, watch } from 'vue'
+import { nextTick, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { directorNotesRepo } from '../../database/repos/director-notes.repo'
@@ -1064,23 +1064,31 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       moduleUpdates.activeBackgroundId = folded.backgroundId
     }
 
-    // 4. Perform the update
-    const prevPrevented = cardStore.isModelSyncPrevented
-    cardStore.isModelSyncPrevented = false
-    try {
-      cardStore.updateCard(activeCardId, {
-        extensions: {
-          ...activeCard.extensions,
-          airi: {
-            ...activeCard.extensions.airi,
-            active_concepts: nextConceptStack,
-            modules: moduleUpdates,
-          },
+    // 4. Perform the update.
+    // NOTICE: activateConcept must apply the actor's model even when isModelSyncPrevented
+    // is true (it is, for the whole speech turn — set at compose, cleared at intentEnd).
+    // But it must NOT clobber the gate with a synchronous false→true pulse: with the old
+    // code the updateCard triggered airi-carts' activeCard watcher while the flag was
+    // momentarily false, letting un-gated syncCardState re-fire mid-speech, and restoring
+    // the flag afterwards closed the gate on any legitimate pending sync. Instead we
+    // keep the gate true, do the update, then run one explicit un-gated syncCardState on
+    // the next microtask — after Vue's flush has batched all watchers from updateCard —
+    // which applies the model via its (now change-only) path. See
+    // docs/fix-actor-stage-desync.md (v4, Leg 2b).
+    await cardStore.updateCard(activeCardId, {
+      extensions: {
+        ...activeCard.extensions,
+        airi: {
+          ...activeCard.extensions.airi,
+          active_concepts: nextConceptStack,
+          modules: moduleUpdates,
         },
-      } as any)
-    }
-    finally {
-      cardStore.isModelSyncPrevented = prevPrevented
+      },
+    } as any)
+
+    await nextTick()
+    if (cardStore.isModelSyncPrevented) {
+      await cardStore.syncCardState(cardStore.activeCard, true)
     }
 
     artistLog('ActivateConcept: Success.', { conceptId, nextConceptStack })

@@ -634,20 +634,34 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (nextConsciousnessModel && activeConsciousnessModel.value !== nextConsciousnessModel)
       activeConsciousnessModel.value = nextConsciousnessModel
 
-    // 3. Sync Models & Parameters (ONLY if not prevented)
-    if (!isModelSyncPrevented.value || force) {
+    // 3. Sync Models & Parameters.
+    // NOTICE: `force` no longer bypasses the speech gate or forces a re-apply of the
+    // same model id. Previously the concept-stack watcher called this with force=true,
+    // so ANY active_concepts change (Director:runArtistTask, parser-level actor tokens)
+    // force-swapped the physical model even mid-speech, bypassing isModelSyncPrevented.
+    // The physical stage model is speaker-owned: it changes only when the resolved
+    // displayModelId actually differs (written explicitly by activateConcept at playback,
+    // or by the Director for Base-sourced outfit swaps). Card activation never needs
+    // force here because it clears isModelSyncPrevented first, so a genuinely different
+    // model applies via `modelChanged`. See docs/fix-actor-stage-desync.md (v4, Leg 2a).
+    if (!isModelSyncPrevented.value) {
       const newModelId = extension.active_state?.displayModelId ?? extension.modules?.displayModelId
       const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
 
-      if (newModelId && (force || modelChanged)) {
+      if (newModelId && modelChanged) {
         stageModelStore.stageModelSelected = newModelId
         // updateStageModel has internal stability guards for blob URL creation
         await stageModelStore.updateStageModel()
         if (seq !== syncCardStateSequence)
           return
       }
+    }
 
-      // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D/Spine)
+    // 3.5 Sync Manifestation Expressions (Unified for VRM/Live2D/Spine). Expressions are
+    // per-model variant state (ACT-setter pattern), not the physical model swap, so they
+    // stay on the force path: the concept watcher may refresh them even while the model
+    // itself is speech-gated.
+    if (!isModelSyncPrevented.value || force) {
       const nextExpressions = extension.active_state?.active_expressions || {}
       if (JSON.stringify(live2dStore.activeExpressions) !== JSON.stringify(nextExpressions)) {
         live2dStore.activeExpressions = { ...nextExpressions }
@@ -676,11 +690,15 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         // Spine store might not be loaded in non-stage contexts
       }
 
-      // Surgical sync of Live2D parameters if they belong to the active model
+      // Surgical sync of model-local parameters if they belong to the active model.
+      // Gated on the (now change-only) model block having run: when the model is
+      // speech-gated we still refresh these only if they belong to the current model.
       const selectedModel = await displayModelsStore.getDisplayModel(stageModelStore.stageModelSelected)
       if (seq !== syncCardStateSequence)
         return
 
+      const newModelId = extension.active_state?.displayModelId ?? extension.modules?.displayModelId
+      const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
       if (selectedModel) {
         if (selectedModel.format === DisplayModelFormat.Live2dZip) {
           live2dStore.emotionMappings = selectedModel.emotionMappings || {}

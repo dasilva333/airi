@@ -390,9 +390,15 @@ specialTokenQueue.onHandlerEvent('delay', (delay) => {
   debug('[Stage] Delay token detected:', delay)
 })
 specialTokenQueue.onHandlerEvent('actor', (actorId) => {
+  // NOTICE: Parser-level actor events fire for EVERY ACTOR token during streaming —
+  // both the ones about to speak and the ones still queued. Writing the model here
+  // pre-speech settles the stage on the LAST-token actor seconds before their audio
+  // starts, which clobbers whoever is currently speaking. The playback-level handler
+  // (playFunction, ~line 590) is the authoritative speaker moment and fires
+  // activateConcept sequenced with audio; this handler only tracks the parsed actor
+  // for caption-color hints. See docs/fix-actor-stage-desync.md (v4, Leg 1).
   debug('[Stage] Actor swap token detected (parser):', actorId)
   parserActorId.value = actorId
-  void artistryAutonomousStore.activateConcept(actorId)
 })
 
 // Play special token: delay or emotion
