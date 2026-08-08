@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { RemovableRef } from '@vueuse/core'
-
 import {
   ProviderAdvancedSettings,
   ProviderApiKeyInput,
@@ -16,32 +14,41 @@ import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provi
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const providerId = route.params.providerId as string
 const providersStore = useProvidersStore()
 const consciousnessStore = useConsciousnessStore()
-const { providers } = storeToRefs(providersStore) as { providers: RemovableRef<Record<string, any>> }
 const { activeProvider } = storeToRefs(consciousnessStore)
 
+const activeInstanceId = ref('*')
+
+// Get target options dictionary for current active instance
+function getActiveInstanceConfig() {
+  return providersStore.getProviderInstanceConfig(providerId, activeInstanceId.value)
+}
+
 const apiKey = computed({
-  get: () => providers.value[providerId]?.apiKey || '',
+  get: () => (getActiveInstanceConfig().options.apiKey as string) || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
-    providers.value[providerId].apiKey = value
+    const config = getActiveInstanceConfig()
+    config.options.apiKey = value
   },
 })
 
 const baseUrl = computed({
-  get: () => providers.value[providerId]?.baseUrl || '',
+  get: () => (getActiveInstanceConfig().options.baseUrl as string) || '',
   set: (value) => {
-    if (!providers.value[providerId])
-      providers.value[providerId] = {}
-    providers.value[providerId].baseUrl = value
+    const config = getActiveInstanceConfig()
+    config.options.baseUrl = value
   },
+})
+
+const activeInstanceLabel = computed(() => {
+  const cfg = getActiveInstanceConfig()
+  return cfg.label || cfg.id
 })
 
 const {
@@ -81,33 +88,37 @@ function goToModelSelection() {
     :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer>
+      <!-- Multi-instance management section (Select active instance to edit) -->
+      <ProviderInstancesSection
+        v-model:active-instance-id="activeInstanceId"
+        :provider-id="providerId"
+      />
+
+      <!-- Configuration form bound to active instance -->
       <ProviderBasicSettings
-        :title="t('settings.pages.providers.common.section.basic.title')"
-        :description="t('settings.pages.providers.common.section.basic.description')"
-        :on-reset="handleResetSettings"
+        :title="`Configuration (${activeInstanceLabel})`"
+        :description="`Configure credentials and endpoints for ${activeInstanceLabel}`"
       >
         <ProviderApiKeyInput
           v-model="apiKey"
           :provider-name="providerMetadata?.localizedName"
+          :console-url="providerMetadata?.consoleUrl"
           placeholder="sk-..."
         />
       </ProviderBasicSettings>
 
-      <!-- Multi-instance management section -->
-      <ProviderInstancesSection
-        :provider-id="providerId"
-        @add="providersStore.getProviderInstanceConfig(providerId)"
-      />
-
-      <ProviderAdvancedSettings :title="t('settings.pages.providers.common.section.advanced.title')">
+      <ProviderAdvancedSettings>
         <ProviderBaseUrlInput
           v-model="baseUrl"
           :placeholder="providerMetadata?.defaultOptions?.().baseUrl as string || 'Base URL of your provider'"
         />
       </ProviderAdvancedSettings>
 
-      <!-- In-Page Model Combobox -->
-      <ProviderModelBrowser :provider-id="providerId" />
+      <!-- In-Page Model Combobox for active instance -->
+      <ProviderModelBrowser
+        :provider-id="providerId"
+        :instance-id="activeInstanceId"
+      />
 
       <ProviderValidationAlerts
         :is-valid="isValid"

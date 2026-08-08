@@ -9,6 +9,8 @@ const props = defineProps<{
   providerId: string
 }>()
 
+const activeInstanceId = defineModel<string>('activeInstanceId', { default: '*' })
+
 const { t } = useI18n()
 const providersStore = useProvidersStore()
 
@@ -20,6 +22,10 @@ const instanceToDelete = ref<{ id: string, label: string } | null>(null)
 const instanceList = computed(() => {
   return providersStore.listInstances(props.providerId)
 })
+
+function selectInstance(id: string) {
+  activeInstanceId.value = id
+}
 
 function handleOpenAddModal() {
   newInstanceLabel.value = ''
@@ -76,7 +82,13 @@ function setPrimary(instanceId: string) {
         v-for="inst in instanceList"
         :key="inst.id"
         flex="~ row" items-center justify-between rounded-xl px-3 py-2.5
-        class="border border-neutral-200/80 bg-white/70 transition-colors dark:border-neutral-800/80 dark:bg-neutral-900/60"
+        class="cursor-pointer border transition-all"
+        :class="[
+          inst.id === activeInstanceId
+            ? 'border-primary-500/80 bg-primary-500/10 dark:border-primary-500/70 dark:bg-primary-500/15 shadow-xs'
+            : 'border-neutral-200/80 bg-white/70 hover:border-neutral-300 dark:border-neutral-800/80 dark:bg-neutral-900/60 dark:hover:border-neutral-700',
+        ]"
+        @click="selectInstance(inst.id)"
       >
         <div flex="~ row items-center gap-2.5" min-w-0 flex-1>
           <div

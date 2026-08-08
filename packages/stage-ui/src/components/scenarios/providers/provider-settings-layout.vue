@@ -81,17 +81,6 @@ const { t } = useI18n()
             </p>
           </div>
         </div>
-
-        <!-- Get API Key Console Action -->
-        <a
-          v-if="consoleUrl"
-          :href="consoleUrl"
-          target="_blank" rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-primary-500/10 px-3.5 py-2 text-xs text-primary-600 font-semibold transition-colors dark:bg-primary-500/20 hover:bg-primary-500/20 dark:text-primary-300 dark:hover:bg-primary-500/30"
-        >
-          <span>{{ t('settings.pages.providers.common.getApiKey') || 'Get API Key' }}</span>
-          <div class="i-solar:arrow-right-up-bold-duotone shrink-0 text-sm" />
-        </a>
       </div>
     </div>
 

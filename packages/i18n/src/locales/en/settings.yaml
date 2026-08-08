@@ -851,6 +851,7 @@ pages:
           label: Model
           description: Select the model to use for this provider instance.
           placeholder: Select a model...
+      getApiKey: Get API Key
     description: LLMs, speech providers, etc.
     provider:
       app-local-audio-transcription:

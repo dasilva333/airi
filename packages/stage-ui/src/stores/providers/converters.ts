@@ -130,6 +130,7 @@ export function convertProviderDefinitionToMetadata(
   const pricing = business?.pricing
   const deployment = business?.deployment
   const beginnerRecommended = business?.beginnerRecommended
+  const consoleUrl = business?.consoleUrl
 
   return {
     id: definition.id,
@@ -147,6 +148,7 @@ export function convertProviderDefinitionToMetadata(
     pricing,
     deployment,
     beginnerRecommended,
+    consoleUrl,
     defaultOptions: () => {
       if (Object.keys(schemaDefaults).length > 0) {
         return { ...schemaDefaults }

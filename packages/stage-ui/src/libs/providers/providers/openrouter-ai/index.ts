@@ -54,5 +54,6 @@ export const providerOpenRouterAI = defineProvider<OpenRouterConfig>({
     pricing: 'paid',
     deployment: 'cloud',
     beginnerRecommended: true,
+    consoleUrl: 'https://openrouter.ai/keys',
   }),
 })
