@@ -25,6 +25,7 @@ export const providerOpenCodeGo = defineProvider<OpenCodeGoConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://opencode.ai/go',
   }),
 
   createProviderConfig: ({ t }) => openCodeGoConfigSchema.extend({

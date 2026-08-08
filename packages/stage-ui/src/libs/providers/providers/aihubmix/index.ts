@@ -28,6 +28,7 @@ export const providerAIHubMix = defineProvider<AIHubMixConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://aihubmix.com',
   }),
 
   createProviderConfig: ({ t }) => aihubmixConfigSchema.extend({

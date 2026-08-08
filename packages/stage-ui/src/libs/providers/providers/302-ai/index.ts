@@ -28,6 +28,7 @@ export const provider302AI = defineProvider<AI302Config>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://302.ai',
   }),
 
   createProviderConfig: ({ t }) => ai302ConfigSchema.extend({

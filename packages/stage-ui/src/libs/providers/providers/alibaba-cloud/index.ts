@@ -25,6 +25,7 @@ export const providerAlibabaCloud = defineProvider<AlibabaCloudConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://bailian.console.aliyun.com/',
   }),
 
   createProviderConfig: ({ t }) => alibabaCloudConfigSchema.extend({

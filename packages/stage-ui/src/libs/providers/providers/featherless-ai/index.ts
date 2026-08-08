@@ -26,6 +26,7 @@ export const providerFeatherlessAI = defineProvider<FeatherlessConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://featherless.ai',
   }),
 
   createProviderConfig: ({ t }) => featherlessConfigSchema.extend({

@@ -561,6 +561,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       category: 'speech',
       pricing: 'paid',
       deployment: 'cloud',
+      consoleUrl: 'https://platform.openai.com/api-keys',
       tasks: ['text-to-speech'],
       defaultBaseUrl: 'https://api.openai.com/v1/',
       creator: createOpenAI,

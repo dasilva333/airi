@@ -27,6 +27,7 @@ export const providerDeepSeek = defineProvider<DeepSeekConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://platform.deepseek.com/api_keys',
   }),
   iconColor: 'i-lobe-icons:deepseek-color',
 

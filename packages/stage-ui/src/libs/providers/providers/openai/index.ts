@@ -27,6 +27,7 @@ export const providerOpenAI = defineProvider<OpenAICompatibleConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://platform.openai.com/api-keys',
   }),
 
   createProviderConfig: ({ t }) => openAICompatibleConfigSchema.extend({

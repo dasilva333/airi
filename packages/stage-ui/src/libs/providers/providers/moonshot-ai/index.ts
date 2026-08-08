@@ -26,6 +26,7 @@ export const providerMoonshotAI = defineProvider<MoonshotConfig>({
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',
+    consoleUrl: 'https://platform.moonshot.cn/console/api-keys',
   }),
 
   createProviderConfig: ({ t }) => moonshotConfigSchema.extend({

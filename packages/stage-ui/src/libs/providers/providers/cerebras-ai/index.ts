@@ -26,6 +26,7 @@ export const providerCerebrasAI = defineProvider<CerebrasConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://inference.cerebras.ai/',
   }),
   iconColor: 'i-lobe-icons:cerebras-color',
 

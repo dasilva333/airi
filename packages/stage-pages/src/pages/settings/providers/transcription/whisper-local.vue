@@ -81,9 +81,14 @@ async function toggleProvider() {
 <template>
   <ProviderSettingsLayout
     :provider-name="providerMetadata?.localizedName || 'Whisper (Local)'"
+    :provider-description="providerMetadata?.localizedDescription"
     :provider-icon="providerMetadata?.icon"
     :provider-icon-color="providerMetadata?.iconColor"
-    :on-back="() => router.back()"
+    :provider-icon-image="providerMetadata?.iconImage"
+    :deployment="providerMetadata?.deployment"
+    :pricing="providerMetadata?.pricing"
+    :beginner-recommended="providerMetadata?.beginnerRecommended"
+    :on-back="() => router.push('/settings/providers#transcription')"
   >
     <ProviderSettingsContainer class="w-full md:w-[60%] space-y-6">
       <Alert type="info">

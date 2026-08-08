@@ -111,6 +111,7 @@ export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://aistudio.google.com/app/apikey',
   }),
   iconColor: 'i-lobe-icons:gemini-color',
 

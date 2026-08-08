@@ -25,8 +25,9 @@ export const providerCometAPI = defineProvider<CometApiConfig>({
   icon: 'i-lobe-icons:cometapi',
   iconColor: 'i-lobe-icons:cometapi-color',
   business: () => ({
-    pricing: 'free',
+    pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://cometapi.com',
   }),
 
   createProviderConfig: ({ t }) => cometApiConfigSchema.extend({

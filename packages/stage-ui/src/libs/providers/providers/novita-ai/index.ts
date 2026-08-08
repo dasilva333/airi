@@ -27,6 +27,7 @@ export const providerNovitaAI = defineProvider<NovitaConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://novita.ai/dashboard/key-management',
   }),
 
   createProviderConfig: ({ t }) => novitaConfigSchema.extend({

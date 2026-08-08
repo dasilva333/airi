@@ -48,6 +48,7 @@ export const providerAnthropic = defineProvider<AnthropicConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://console.anthropic.com/settings/keys',
   }),
   iconColor: 'i-lobe-icons:claude-color',
 

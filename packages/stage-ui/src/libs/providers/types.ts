@@ -160,6 +160,7 @@ export interface ProviderDefinition<TConfig extends any = any> {
     pricing?: 'free' | 'paid'
     deployment?: 'local' | 'cloud'
     beginnerRecommended?: boolean
+    consoleUrl?: string
     troubleshooting?: {
       validators?: {
         openaiCompatibleCheckConnectivity?: {

@@ -26,6 +26,7 @@ export const providerFireworksAI = defineProvider<FireworksConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://fireworks.ai/account/api-keys',
   }),
   iconColor: 'i-lobe-icons:fireworks-color',
 

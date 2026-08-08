@@ -26,6 +26,7 @@ export const providerTogetherAI = defineProvider<TogetherConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://api.together.ai/settings/api-keys',
   }),
   iconColor: 'i-lobe-icons:together-color',
 

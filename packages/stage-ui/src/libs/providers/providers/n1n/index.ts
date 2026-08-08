@@ -28,6 +28,7 @@ export const providerN1N = defineProvider<N1NConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://n1n.ai',
   }),
 
   createProviderConfig: ({ t }) => n1nConfigSchema.extend({

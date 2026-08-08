@@ -12,8 +12,8 @@ import {
   ProviderApiKeyInput,
   ProviderBaseUrlInput,
   ProviderBasicSettings,
-  ProviderDangerZone,
   ProviderInstancesSection,
+  ProviderModelBrowser,
   ProviderSettingsContainer,
 } from '.'
 import { useSpeechStore } from '../../../stores/modules/speech'
@@ -41,28 +41,34 @@ const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const { providers } = storeToRefs(providersStore)
 
+const activeInstanceId = ref('*')
+
+// Get target options dictionary for current active instance
+function getActiveInstanceConfig() {
+  return providersStore.getProviderInstanceConfig(props.providerId, activeInstanceId.value)
+}
+
 // Get provider metadata
 const providerMetadata = computed(() => providersStore.getProviderMetadata(props.providerId))
 
 // Common provider settings
 const apiKey = computed({
-  get: () => providers.value[props.providerId]?.apiKey as string | undefined || '',
+  get: () => (getActiveInstanceConfig().options.apiKey as string) || '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
-
-    providers.value[props.providerId].apiKey = value
+    getActiveInstanceConfig().options.apiKey = value
   },
 })
 
 const baseUrl = computed({
-  get: () => providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || '',
+  get: () => (getActiveInstanceConfig().options.baseUrl as string) || (providerMetadata.value?.defaultOptions?.().baseUrl as string) || '',
   set: (value) => {
-    if (!providers.value[props.providerId])
-      providers.value[props.providerId] = {}
-
-    providers.value[props.providerId].baseUrl = value
+    getActiveInstanceConfig().options.baseUrl = value
   },
+})
+
+const activeInstanceLabel = computed(() => {
+  const cfg = getActiveInstanceConfig()
+  return cfg.label || cfg.id
 })
 
 // Voice settings as reactive objects to allow for different provider settings
@@ -87,10 +93,6 @@ function initializeVoiceSettings() {
 
 onMounted(() => {
   providersStore.initializeProvider(props.providerId)
-
-  // Initialize refs with current values
-  apiKey.value = providers.value[props.providerId]?.apiKey as string | undefined || ''
-  baseUrl.value = providers.value[props.providerId]?.baseUrl as string | undefined || providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
 
   // Initialize voice settings
   initializeVoiceSettings()
@@ -131,16 +133,29 @@ function navigateBackToProviders() {
 <template>
   <ProviderSettingsLayout
     :provider-name="providerMetadata?.localizedName"
+    :provider-description="providerMetadata?.localizedDescription"
     :provider-icon="providerMetadata?.icon"
     :provider-icon-color="providerMetadata?.iconColor"
+    :provider-icon-image="providerMetadata?.iconImage"
+    :deployment="providerMetadata?.deployment"
+    :pricing="providerMetadata?.pricing"
+    :beginner-recommended="providerMetadata?.beginnerRecommended"
+    :console-url="providerMetadata?.consoleUrl"
     :on-back="navigateBackToProviders"
   >
     <div flex="~ col md:row gap-6">
       <ProviderSettingsContainer class="w-full md:w-[40%]">
+        <!-- Multi-instance management section (only for cloud or remote providers requiring credentials) -->
+        <ProviderInstancesSection
+          v-if="providerMetadata?.requiresCredentials !== false && !isLocalProvider"
+          v-model:active-instance-id="activeInstanceId"
+          :provider-id="props.providerId"
+        />
+
         <!-- Basic settings section -->
         <ProviderBasicSettings
-          :title="t('settings.pages.providers.common.section.basic.title')"
-          :description="t('settings.pages.providers.common.section.basic.description')"
+          :title="isLocalProvider ? t('settings.pages.providers.common.section.basic.title') : `Configuration (${activeInstanceLabel})`"
+          :description="isLocalProvider ? t('settings.pages.providers.common.section.basic.description') : `Configure credentials and options for ${activeInstanceLabel}`"
           :on-reset="handleResetVoiceSettings"
         >
           <!-- Smart field prioritization: Base URL first for local engines -->
@@ -150,8 +165,10 @@ function navigateBackToProviders() {
             :placeholder="providerMetadata?.defaultOptions?.().base_url as string || ''" required
           />
           <ProviderApiKeyInput
+            v-if="providerMetadata?.requiresCredentials !== false"
             v-model="apiKey"
             :provider-name="providerMetadata?.localizedName"
+            :console-url="providerMetadata?.consoleUrl"
             :placeholder="props.placeholder || 'API Key'"
             :required="!isLocalProvider"
           />
@@ -170,12 +187,6 @@ function navigateBackToProviders() {
           </div>
         </div>
 
-        <!-- Multi-instance management section (Phase 4) -->
-        <ProviderInstancesSection
-          :provider-id="props.providerId"
-          @add="providersStore.getProviderInstanceConfig(props.providerId)"
-        />
-
         <!-- Advanced settings section -->
         <ProviderAdvancedSettings :title="t('settings.pages.providers.common.section.advanced.title')">
           <ProviderBaseUrlInput
@@ -186,13 +197,10 @@ function navigateBackToProviders() {
           <slot name="advanced-settings" />
         </ProviderAdvancedSettings>
 
-        <!-- Model Browser (Phase 4) -->
-        <ProviderModelBrowser :provider-id="props.providerId" />
-
-        <!-- Danger Zone (Phase 4) -->
-        <ProviderDangerZone
-          :disabled="!providersStore.addedProviders[props.providerId]"
-          @delete="providersStore.removeAllInstances(props.providerId)"
+        <!-- Model Browser -->
+        <ProviderModelBrowser
+          :provider-id="props.providerId"
+          :instance-id="activeInstanceId"
         />
       </ProviderSettingsContainer>
 

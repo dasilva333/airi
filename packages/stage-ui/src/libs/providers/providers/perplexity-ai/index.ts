@@ -28,6 +28,7 @@ export const providerPerplexityAI = defineProvider<PerplexityConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://www.perplexity.ai/settings/api',
   }),
   iconColor: 'i-lobe-icons:perplexity-color',
 

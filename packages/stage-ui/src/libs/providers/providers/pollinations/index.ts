@@ -28,6 +28,7 @@ export const providerPollinations = defineProvider<PollinationsConfig>({
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',
+    consoleUrl: 'https://pollinations.ai',
   }),
 
   createProviderConfig: ({ t }) => pollinationsConfigSchema.extend({

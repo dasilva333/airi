@@ -15,6 +15,7 @@ export const providerCloudflareWorkersAI = defineProvider({
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',
+    consoleUrl: 'https://dash.cloudflare.com/',
   }),
 
   createProviderConfig: ({ t }) => z.object({

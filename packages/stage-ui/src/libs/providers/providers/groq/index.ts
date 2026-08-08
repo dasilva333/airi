@@ -26,6 +26,7 @@ export const providerGroq = defineProvider<GroqConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://console.groq.com/keys',
   }),
 
   createProviderConfig: ({ t }) => groqConfigSchema.extend({

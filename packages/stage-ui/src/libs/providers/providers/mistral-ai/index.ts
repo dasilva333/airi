@@ -26,6 +26,7 @@ export const providerMistralAI = defineProvider<MistralConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://console.mistral.ai/api-keys/',
   }),
   iconColor: 'i-lobe-icons:mistral-color',
 

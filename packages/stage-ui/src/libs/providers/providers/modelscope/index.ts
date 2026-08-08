@@ -27,6 +27,7 @@ export const providerModelScope = defineProvider<ModelscopeConfig>({
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',
+    consoleUrl: 'https://modelscope.cn/my/mytoken',
   }),
 
   createProviderConfig: ({ t }) => modelscopeConfigSchema.extend({

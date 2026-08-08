@@ -26,6 +26,7 @@ export const providerNvidia = defineProvider<NvidiaConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://build.nvidia.com/',
   }),
   icon: 'i-simple-icons:nvidia',
   isAvailableBy: isStageTamagotchi,

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-
 defineProps<{
   providerName?: string
   providerDescription?: string
@@ -13,8 +11,6 @@ defineProps<{
   consoleUrl?: string
   onBack?: () => void
 }>()
-
-const { t } = useI18n()
 </script>
 
 <template>
@@ -28,7 +24,7 @@ const { t } = useI18n()
         <div flex="~ row items-center gap-3.5" min-w-0 flex-1>
           <!-- Provider Icon -->
           <div
-            flex items-center justify-center shrink-0 rounded-xl p-2.5
+            flex shrink-0 items-center justify-center rounded-xl p-2.5
             class="bg-neutral-100 dark:bg-neutral-800/80"
           >
             <img

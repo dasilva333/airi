@@ -26,6 +26,7 @@ export const providerXAI = defineProvider<XAIConfig>({
   business: () => ({
     pricing: 'paid',
     deployment: 'cloud',
+    consoleUrl: 'https://console.x.ai/',
   }),
 
   createProviderConfig: ({ t }) => xaiConfigSchema.extend({

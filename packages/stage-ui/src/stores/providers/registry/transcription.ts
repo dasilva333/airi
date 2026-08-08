@@ -96,6 +96,7 @@ export const transcriptionMetadata = {
     icon: 'i-lobe-icons:openai',
     description: 'Industry Standard - Reliable and widely compatible Whisper API',
     category: 'transcription',
+    consoleUrl: 'https://platform.openai.com/api-keys',
     tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
     defaultBaseUrl: 'https://api.openai.com/v1/',
     creator: createOpenAI,
@@ -396,6 +397,7 @@ export const transcriptionMetadata = {
     pricing: 'free',
     deployment: 'cloud',
     beginnerRecommended: true,
+    consoleUrl: 'https://console.deepgram.com/',
     nameKey: 'settings.pages.providers.provider.deepgram-transcription.title',
     descriptionKey: 'settings.pages.providers.provider.deepgram-transcription.description',
     icon: 'i-simple-icons:deepgram',
@@ -444,6 +446,7 @@ export const transcriptionMetadata = {
     icon: 'i-lobe-icons:xai',
     description: 'Grok Native - Real-time access to X/Twitter data',
     category: 'transcription',
+    consoleUrl: 'https://console.x.ai/',
     tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
     defaultBaseUrl: 'https://api.x.ai/v1/',
     creator: (apiKey, baseURL = 'https://api.x.ai/v1/') => merge(
@@ -494,6 +497,7 @@ export const transcriptionMetadata = {
     icon: 'i-lobe-icons:cometapi',
     description: 'Enterprise-grade cloud transcription',
     category: 'transcription',
+    consoleUrl: 'https://cometapi.com',
     tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
     defaultBaseUrl: 'https://api.cometapi.com/v1/',
     creator: (apiKey, baseURL = 'https://api.cometapi.com/v1/') => merge(

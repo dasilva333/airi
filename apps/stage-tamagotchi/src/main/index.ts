@@ -383,6 +383,10 @@ app.whenReady().then(async () => {
         'https://integrate.api.nvidia.com/*',
         'https://text.pollinations.ai/*',
         'https://api.xiaomimimo.com/*',
+        'http://localhost:11434/*',
+        'http://127.0.0.1:11434/*',
+        'http://localhost:1234/*',
+        'http://127.0.0.1:1234/*',
       ]
 
       const coalesceCorsBypassUrls = (userUrls?: string[]): string[] => {

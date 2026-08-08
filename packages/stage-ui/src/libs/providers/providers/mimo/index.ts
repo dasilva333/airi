@@ -70,6 +70,7 @@ export const providerMimo = defineProvider<MimoConfig>({
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',
+    consoleUrl: 'https://open.xiaomimimo.com/',
   }),
 
   createProviderConfig: ({ t }) => mimoConfigSchema.extend({
