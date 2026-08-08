@@ -169,9 +169,8 @@ export function useProviderValidation(providerId: string) {
   }
 
   function navigateBackToProviders() {
-    const category = providerMetadata.value?.category
-    const hash = category ? `#${category}` : ''
-    router.push(`/settings/providers${hash}`)
+    const category = providerMetadata.value?.category || 'chat'
+    router.push(`/settings/providers#${category}`)
   }
 
   return {

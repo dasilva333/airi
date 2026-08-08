@@ -83,7 +83,12 @@ function handleBack() {
     const segments = route.path.split('/').filter(Boolean)
     const category = segments[2]
     const hash = category && category !== 'chat' ? `#${category}` : '#chat'
-    router.push(`/settings/providers${hash}`)
+    router.replace(`/settings/providers${hash}`)
+    return
+  }
+
+  if (route.path === '/settings/providers' || route.path === '/settings/providers/') {
+    router.push('/settings')
     return
   }
 
@@ -91,7 +96,7 @@ function handleBack() {
     router.push('/')
   }
   else {
-    router.back()
+    router.push('/settings')
   }
 }
 </script>
