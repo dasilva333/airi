@@ -69,13 +69,6 @@ const { t } = useI18n()
     <template #title>
       <div class="w-full flex items-center justify-between">
         <span>{{ t('settings.dialogs.onboarding.validationSuccess') }}</span>
-        <button
-          type="button"
-          class="ml-2 rounded bg-green-100 px-2 py-0.5 text-xs text-green-600 font-medium transition-colors dark:bg-green-800/30 hover:bg-green-200 dark:text-green-300 dark:hover:bg-green-700/40"
-          @click="props.onGoToModelSelection"
-        >
-          {{ t('settings.pages.providers.common.goToModelSelection') }}
-        </button>
       </div>
     </template>
   </Alert>

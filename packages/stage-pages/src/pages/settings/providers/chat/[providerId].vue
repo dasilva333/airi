@@ -6,8 +6,8 @@ import {
   ProviderApiKeyInput,
   ProviderBaseUrlInput,
   ProviderBasicSettings,
-  ProviderDangerZone,
   ProviderInstancesSection,
+  ProviderModelBrowser,
   ProviderSettingsContainer,
   ProviderSettingsLayout,
   ProviderValidationAlerts,
@@ -70,7 +70,14 @@ function goToModelSelection() {
 <template>
   <ProviderSettingsLayout
     :provider-name="providerMetadata?.localizedName"
+    :provider-description="providerMetadata?.localizedDescription"
+    :provider-icon="providerMetadata?.icon"
     :provider-icon-color="providerMetadata?.iconColor"
+    :provider-icon-image="providerMetadata?.iconImage"
+    :deployment="providerMetadata?.deployment"
+    :pricing="providerMetadata?.pricing"
+    :beginner-recommended="providerMetadata?.beginnerRecommended"
+    :console-url="providerMetadata?.consoleUrl"
     :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer>
@@ -99,6 +106,9 @@ function goToModelSelection() {
         />
       </ProviderAdvancedSettings>
 
+      <!-- In-Page Model Combobox -->
+      <ProviderModelBrowser :provider-id="providerId" />
+
       <ProviderValidationAlerts
         :is-valid="isValid"
         :is-validating="isValidating"
@@ -110,12 +120,6 @@ function goToModelSelection() {
         :on-run-test="runManualTest"
         :on-force-valid="forceValid"
         :on-go-to-model-selection="goToModelSelection"
-      />
-
-      <!-- Danger Zone section -->
-      <ProviderDangerZone
-        :disabled="!providersStore.addedProviders[providerId]"
-        @delete="providersStore.removeAllInstances(providerId)"
       />
     </ProviderSettingsContainer>
   </ProviderSettingsLayout>
