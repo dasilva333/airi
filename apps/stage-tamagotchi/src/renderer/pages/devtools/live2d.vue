@@ -86,7 +86,7 @@ async function handleModelPick(model: DisplayModel | undefined) {
     }
     else {
       selectedModelFile.value = undefined
-      selectedModelSrc.value = model.url
+      selectedModelSrc.value = (model as any).url || model.name
     }
   }
   catch (err: any) {
