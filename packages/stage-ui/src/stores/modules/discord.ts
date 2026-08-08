@@ -5,6 +5,7 @@ import {
   debug,
   discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
+  discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceLeave,
@@ -357,6 +358,7 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeSummon = isElectron ? useElectronEventaInvoke(discordServiceSummon) : null
   const invokeLeave = isElectron ? useElectronEventaInvoke(discordServiceLeave) : null
   const invokeDeployCloudRelay = isElectron ? useElectronEventaInvoke(discordServiceDeployCloudRelay) : null
+  const invokeFetchCloudRelayMemories = isElectron ? useElectronEventaInvoke(discordServiceFetchCloudRelayMemories) : null
 
   async function deployCloudRelay(payload: {
     scriptName: string
@@ -412,7 +414,39 @@ export const useDiscordStore = defineStore('discord', () => {
       },
     }
 
+    // Switch execution mode to Cloud Relay & pause local Gateway to prevent bot token contention
+    executionMode.value = 'remote'
+    if (isConnected.value || isConnecting.value) {
+      stopService()
+    }
+
     return res
+  }
+
+  async function fetchCloudRelayMemories(namespaceId: string, key = 'context/rolling') {
+    const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
+    const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
+
+    if (!apiToken) {
+      throw new Error('Cloudflare API Token missing. Please authenticate first.')
+    }
+
+    if (!invokeFetchCloudRelayMemories) {
+      throw new Error('Cloud Relay memory fetch unavailable in non-Electron environment')
+    }
+
+    const res = await invokeFetchCloudRelayMemories({
+      apiToken,
+      accountId,
+      namespaceId,
+      key,
+    })
+
+    if (!res?.success) {
+      throw new Error(res?.error || `Failed to fetch KV key "${key}" from Cloudflare Edge`)
+    }
+
+    return res.value
   }
 
   // ── Routing Cache ──────────────────────────────────────────────────────────
@@ -2423,6 +2457,7 @@ export const useDiscordStore = defineStore('discord', () => {
     stopService,
     authenticateWithCloudflare,
     deployCloudRelay,
+    fetchCloudRelayMemories,
     refreshStatus,
     forceCardSync,
     simulateEvent,

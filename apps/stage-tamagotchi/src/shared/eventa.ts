@@ -314,6 +314,7 @@ export {
   discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
   discordServiceEventLog,
+  discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceInboundMessage,

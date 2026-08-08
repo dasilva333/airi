@@ -176,6 +176,24 @@ export const discordServiceDeployCloudRelay = defineInvokeEventa<CloudRelayDeplo
   'eventa:invoke:electron:discord:deploy-cloud-relay',
 )
 
+export interface CloudRelayFetchMemoriesPayload {
+  apiToken: string
+  accountId: string
+  namespaceId: string
+  key?: string
+}
+
+export interface CloudRelayFetchMemoriesResult {
+  success: boolean
+  key: string
+  value?: any
+  error?: string
+}
+
+export const discordServiceFetchCloudRelayMemories = defineInvokeEventa<CloudRelayFetchMemoriesResult, CloudRelayFetchMemoriesPayload>(
+  'eventa:invoke:electron:discord:fetch-cloud-relay-memories',
+)
+
 export interface DiscordOutboundImage {
   channelId: string
   content?: string

@@ -47,13 +47,29 @@ export class CloudflareStageDeployer {
   }
 
   /**
+   * Helper to ensure accountId is resolved from token if not explicitly provided.
+   */
+  private async ensureAccountId(): Promise<string> {
+    if (this.accountId)
+      return this.accountId
+    console.info('[Stage-Deployer] Account ID missing, auto-resolving from Cloudflare Token...')
+    const accounts = await this.getAccounts()
+    if (accounts.length > 0) {
+      this.accountId = accounts[0].id
+      return this.accountId
+    }
+    throw new Error('Unable to resolve Cloudflare Account ID from API token.')
+  }
+
+  /**
    * Programmatically creates or resolves a KV namespace for character memory.
    */
   public async ensureKvNamespace(title: string): Promise<string> {
+    const accountId = await this.ensureAccountId()
     console.info(`[Stage-Deployer] Resolving Cloudflare KV Namespace: "${title}"...`)
 
     // 1. Check existing KV namespaces to prevent duplicates
-    for await (const ns of this.client.kv.namespaces.list({ account_id: this.accountId })) {
+    for await (const ns of this.client.kv.namespaces.list({ account_id: accountId })) {
       if (ns.title === title) {
         console.info(`✓ Found pre-existing KV namespace -> ID: ${ns.id}`)
         return ns.id
@@ -62,7 +78,7 @@ export class CloudflareStageDeployer {
 
     // 2. Create new KV namespace if miss
     const response = await this.client.kv.namespaces.create({
-      account_id: this.accountId,
+      account_id: accountId,
       title,
     })
     console.info(`✓ Created new KV namespace -> ID: ${response.id}`)
@@ -73,12 +89,31 @@ export class CloudflareStageDeployer {
    * Writes a key-value pair directly into the Cloudflare KV storage via REST API.
    */
   public async setKvValue(namespaceId: string, key: string, value: string): Promise<void> {
+    const accountId = await this.ensureAccountId()
     console.info(`[Stage-Deployer] Writing KV key "${key}" into namespace ${namespaceId}...`)
     await this.client.kv.namespaces.values.update(namespaceId, key, {
-      account_id: this.accountId,
+      account_id: accountId,
       value,
     })
     console.info(`✓ KV key "${key}" updated successfully.`)
+  }
+
+  /**
+   * Reads a key-value pair directly from Cloudflare KV storage via REST API.
+   */
+  public async getKvValue(namespaceId: string, key: string): Promise<any> {
+    const accountId = await this.ensureAccountId()
+    console.info(`[Stage-Deployer] Reading KV key "${key}" from namespace ${namespaceId}...`)
+    const rawValue = await this.client.kv.namespaces.values.get(namespaceId, key, {
+      account_id: accountId,
+    })
+    const text = await rawValue.text()
+    try {
+      return JSON.parse(text)
+    }
+    catch {
+      return text
+    }
   }
 
   /**

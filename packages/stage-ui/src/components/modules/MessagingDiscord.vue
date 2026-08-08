@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ChatHistoryItem } from '../../types/chat'
+
 import { Button, FieldCheckbox, FieldInput } from '@proj-airi/ui'
 import { format } from 'date-fns'
 import { storeToRefs } from 'pinia'
@@ -150,6 +152,155 @@ watch(availableHistoryDepths, (opts: Array<{ value: 'prompt' | '10' | '50' | 'al
 const assembledSystemPrompt = computed(() => {
   return buildSystemPrompt(activeCard.value)
 })
+
+// ── Sync Memories Modal & Reconciliation State ──────────────────────────────
+interface ReconciliationCandidate {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  selected: boolean
+  isOwnerMessage: boolean
+}
+
+const syncModalOpen = ref(false)
+const syncTargetInstance = ref<any>(null)
+const isFetchingMemories = ref(false)
+const reconciliationCandidates = ref<ReconciliationCandidate[]>([])
+
+function reconcileMemories(
+  localMessages: ChatHistoryItem[],
+  remoteKvItems: Array<{ role: string, content: string }>,
+): ReconciliationCandidate[] {
+  if (!Array.isArray(remoteKvItems) || remoteKvItems.length === 0)
+    return []
+
+  // 1. Convert local items to normalized display fingerprints
+  const localFingerprints = localMessages
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
+    .map((m) => {
+      const cleanText = typeof m.content === 'string' ? m.content : String(m.content || '')
+      return `${m.role}:${cleanText.trim()}`
+    })
+
+  // 2. Convert remote KV items to normalized fingerprints
+  const remoteFingerprints = remoteKvItems.map(r => `${r.role}:${(r.content || '').trim()}`)
+
+  // 3. Find the right-to-left anchor overlap index
+  let lastMatchRemoteIndex = -1
+
+  for (let i = localFingerprints.length - 1; i >= 0; i--) {
+    const localFp = localFingerprints[i]
+    for (let j = remoteFingerprints.length - 1; j >= 0; j--) {
+      if (remoteFingerprints[j] === localFp) {
+        if (i === 0 || j === 0 || localFingerprints[i - 1] === remoteFingerprints[j - 1]) {
+          lastMatchRemoteIndex = j
+          break
+        }
+      }
+    }
+    if (lastMatchRemoteIndex !== -1)
+      break
+  }
+
+  // 4. Extract new candidates after anchor
+  const newItems = lastMatchRemoteIndex !== -1
+    ? remoteKvItems.slice(lastMatchRemoteIndex + 1)
+    : remoteKvItems
+
+  return newItems
+    .filter(item => item && (item.role === 'user' || item.role === 'assistant') && item.content)
+    .map((item, idx) => ({
+      id: `candidate-${idx}-${Date.now()}`,
+      role: item.role as 'user' | 'assistant',
+      content: item.content,
+      selected: true,
+      isOwnerMessage: true,
+    }))
+}
+
+async function handleSyncMemories(instance: any) {
+  if (!instance?.namespaceId) {
+    toast.error('Instance KV namespace ID missing. Cannot sync memories.')
+    return
+  }
+
+  syncTargetInstance.value = instance
+  isFetchingMemories.value = true
+  const toastId = toast.loading(`Fetching Cloud Relay memories for "${instance.scriptName}"...`)
+
+  try {
+    const rawKvData = await discordStore.fetchCloudRelayMemories(instance.namespaceId, 'context/rolling')
+
+    if (!Array.isArray(rawKvData) || rawKvData.length === 0) {
+      toast.info('Cloud Relay KV memory is empty — no dialogue turns to sync.', { id: toastId })
+      return
+    }
+
+    const targetSessionId = instance.sessionId || activeSessionId.value
+    const localMessages = chatSessionStore.getSessionMessages(targetSessionId) || []
+
+    const candidates = reconcileMemories(localMessages, rawKvData)
+
+    if (candidates.length === 0) {
+      toast.success('Local session is already 100% up to date with Cloud Relay!', { id: toastId })
+      return
+    }
+
+    reconciliationCandidates.value = candidates
+    toast.dismiss(toastId)
+    syncModalOpen.value = true
+  }
+  catch (err: any) {
+    console.error('[DiscordControlPlane] Fetch memories failed:', err)
+    toast.error(`Failed to fetch memories: ${err?.message || err}`, { id: toastId })
+  }
+  finally {
+    isFetchingMemories.value = false
+  }
+}
+
+function handleSelectAllCandidates(selected: boolean) {
+  reconciliationCandidates.value.forEach(c => (c.selected = selected))
+}
+
+async function handleCommitSync() {
+  const selected = reconciliationCandidates.value.filter(c => c.selected)
+  if (selected.length === 0) {
+    toast.info('No entries selected for merge.')
+    return
+  }
+
+  const targetSessionId = syncTargetInstance.value?.sessionId || activeSessionId.value
+  if (!targetSessionId) {
+    toast.error('No target local session identified for merge.')
+    return
+  }
+
+  const newHistoryItems: ChatHistoryItem[] = selected.map((item) => {
+    if (item.role === 'user') {
+      return {
+        role: 'user' as const,
+        content: item.content,
+        createdAt: Date.now(),
+      }
+    }
+    else {
+      return {
+        role: 'assistant' as const,
+        content: item.content,
+        slices: [{ type: 'text' as const, text: item.content }],
+        tool_results: [],
+        createdAt: Date.now(),
+      }
+    }
+  })
+
+  const currentMsgs = chatSessionStore.getSessionMessages(targetSessionId) || []
+  await chatSessionStore.setSessionMessages(targetSessionId, [...currentMsgs, ...newHistoryItems])
+
+  toast.success(`🎉 Merged ${selected.length} Cloud Relay turn${selected.length > 1 ? 's' : ''} into local session!`)
+  syncModalOpen.value = false
+}
 
 function handleProceedToInspection() {
   if (!deployTargetSessionId.value)
@@ -727,7 +878,12 @@ function formatTimestamp(ts: number) {
               </div>
 
               <div class="flex items-center gap-2">
-                <Button label="Sync Memories ↓" variant="secondary" />
+                <Button
+                  label="Sync Memories ↓"
+                  variant="secondary"
+                  :disabled="isFetchingMemories"
+                  @click="handleSyncMemories(inst)"
+                />
                 <Button label="Teardown" variant="danger" />
               </div>
             </div>
@@ -1164,6 +1320,110 @@ function formatTimestamp(ts: number) {
                 @click="handleLaunchDeployment"
               />
             </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- VISUAL MEMORY RECONCILIATION & MERGE MODAL                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <Teleport to="body">
+      <div
+        v-if="syncModalOpen"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+        <div class="max-w-xl w-full border border-neutral-200/80 rounded-2xl bg-white p-6 shadow-2xl space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="h-9 w-9 flex items-center justify-center rounded-xl bg-emerald-500/10 text-lg text-emerald-500 font-bold">
+                📥
+              </div>
+              <div>
+                <h3 class="text-sm font-bold">
+                  Review & Reconcile Cloud Relay Memories
+                </h3>
+                <p class="text-[11px] text-neutral-400">
+                  Target Instance: <strong class="text-neutral-200">{{ syncTargetInstance?.scriptName }}</strong>
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              @click="syncModalOpen = false"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- Quick Filters Bar -->
+          <div class="flex items-center justify-between border-b border-neutral-200/60 pb-3 dark:border-neutral-800/60">
+            <span class="text-xs text-neutral-400 font-medium">
+              Found {{ reconciliationCandidates.length }} new remote turn{{ reconciliationCandidates.length > 1 ? 's' : '' }}
+            </span>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-bold dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                @click="handleSelectAllCandidates(true)"
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-bold dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                @click="handleSelectAllCandidates(false)"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+
+          <!-- Scrollable Candidate List -->
+          <div class="max-h-64 overflow-y-auto pr-1 space-y-2">
+            <div
+              v-for="candidate in reconciliationCandidates"
+              :key="candidate.id"
+              :class="[
+                'flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer',
+                candidate.selected
+                  ? 'bg-primary-50/30 border-primary-500/80 dark:bg-primary-900/10 dark:border-primary-400/80'
+                  : 'bg-neutral-50/40 border-neutral-200/60 dark:bg-neutral-900/30 dark:border-neutral-800/60 opacity-60',
+              ]"
+              @click="candidate.selected = !candidate.selected"
+            >
+              <FieldCheckbox v-model="candidate.selected" class="mt-0.5" />
+
+              <div class="flex-1 space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span
+                    :class="[
+                      'font-bold uppercase tracking-wider',
+                      candidate.role === 'user' ? 'text-blue-500' : 'text-emerald-500',
+                    ]"
+                  >
+                    {{ candidate.role === 'user' ? '💬 User' : '🤖 Assistant' }}
+                  </span>
+                </div>
+                <p class="whitespace-pre-wrap break-words text-xs text-neutral-700 font-normal leading-relaxed dark:text-neutral-300">
+                  {{ candidate.content }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Action Buttons -->
+          <div class="flex items-center justify-between border-t border-neutral-200/60 pt-4 dark:border-neutral-800/60">
+            <Button label="Cancel" variant="secondary" @click="syncModalOpen = false" />
+            <Button
+              :label="`📥 Merge ${reconciliationCandidates.filter(c => c.selected).length} Selected`"
+              variant="primary"
+              :disabled="reconciliationCandidates.filter(c => c.selected).length === 0"
+              @click="handleCommitSync"
+            />
           </div>
         </div>
       </div>

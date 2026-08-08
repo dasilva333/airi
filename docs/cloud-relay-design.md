@@ -169,22 +169,36 @@ The simplest and safest model. The user hits **[Sync Memories ↓]** in the dash
 **v2 — Bidirectional:**
 The local memory system can push updates back up to the relay KV, so that conversations had locally in AIRI are also visible to the cloud character. This requires the conflict resolution logic already designed in BYOS (LWW per-item merges on `short-term-memory`, `text-journal`, etc.).
 
-### 5.2 Key Mapping: Relay KV → AIRI Local Memory
+### 5.2 Key Mapping & Deterministic Namespace ID Resolution
 
 | Relay KV Key | AIRI Local Storage Key | Merge Strategy |
 |---|---|---|
-| `context/rolling` | `local:memory/short-term/local` | Append-merge by message ID, LWW |
+| `context/rolling` | `local:memory/short-term/local` | Right-to-Left Sequence Alignment & Deduplication |
 | `context/summary` | `local:memory/text-journal/local` | Append-merge by entry ID |
 | `memory/facts` | `local:memory/echo-chips/local` | Merge by fact key, LWW |
 | `memory/events` | `local:memory/echo-chips/local` (event type) | Merge by event ID |
 
-The merge keys and strategies are consistent with the BYOS engine's existing mergeable-key handling, which means the sync import path can reuse the same `StorageClient` reconciliation logic with a new KV adapter rather than an S3 adapter.
+**Deterministic Namespace ID Matching**:
+Each deployed character card tracks its bound `namespaceId` (e.g. `1320f74b4b75494587099717b4c37071`) and `scriptName` (e.g. `airi-moriv`) explicitly in `cloudRelayInstances` store state. When clicking **[Sync Memories ↓]**, AIRI queries the exact `namespaceId` bound to that character card, preventing cross-talk or accidental synchronization with other deployed instances (e.g., `airi-baseline-test`).
 
-### 5.3 Automatic Sync Option
+### 5.3 Sequence Alignment & Deduplication Algorithm
+
+When merging remote KV dialogue history (`context/rolling`) into a local session:
+
+1. **Display Content Normalization**:
+   - Compares normalized `content` (clean display text), ignoring `rawContent` / internal `<|ACT:...|>` orchestration tokens.
+2. **Right-to-Left Sequence Alignment**:
+   - Walks local history backwards from newest to oldest to locate the anchor overlap point.
+   - Verifies a multi-turn fingerprint sequence (e.g., 2–3 consecutive turns) rather than a single short string like `"hi"` or `"okay"`, eliminating false-positive matches on common phrases.
+3. **Safe Slice & User Review**:
+   - Extracts new remote items starting immediately after the matched anchor turn (`remoteItems.slice(anchorIndex + 1)`).
+   - Presents candidate items in the **Visual Review & Reconciliation Modal** before mutating local session state.
+
+### 5.4 Automatic Sync Option
 
 An optional **background auto-sync** mode polls the relay KV on a configurable interval (e.g. every 15 minutes when AIRI is open) and quietly imports new relay memories. A notification badge on the character card in AIRI signals new relay memories available.
 
-### 5.4 The Safety Heuristic
+### 5.5 The Safety Heuristic
 
 The BYOS contraction-check heuristic (blocking sync if a large dataset would be replaced by a much smaller one) applies equally to relay imports. A relay memory wipe (e.g. from a Worker redeploy) should never silently overwrite a healthy local memory store.
 

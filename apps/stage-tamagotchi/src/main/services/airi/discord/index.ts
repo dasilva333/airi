@@ -24,6 +24,7 @@ import { nanoid } from 'nanoid'
 import {
   discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
+  discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
   discordServiceGetStatus,
   discordServiceLeave,
@@ -452,6 +453,35 @@ export function setupDiscordService() {
       pushLog('ERROR', `Cloudflare Edge deployment failed: ${err?.message || err}`)
       return {
         success: false,
+        error: err?.message || String(err),
+      }
+    }
+  })
+
+  defineInvokeHandler(context, discordServiceFetchCloudRelayMemories, async (payload) => {
+    try {
+      const keyName = payload.key || 'context/rolling'
+      pushLog('EVENT', `Fetching KV memory key "${keyName}" from namespace ${payload.namespaceId}...`)
+
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const deployer = new CloudflareStageDeployer({
+        apiToken: payload.apiToken,
+        accountId: payload.accountId,
+      })
+
+      const value = await deployer.getKvValue(payload.namespaceId, keyName)
+      pushLog('EVENT', `Successfully fetched KV memory key "${keyName}".`)
+      return {
+        success: true,
+        key: keyName,
+        value,
+      }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Failed to fetch KV memory key: ${err?.message || err}`)
+      return {
+        success: false,
+        key: payload.key || 'context/rolling',
         error: err?.message || String(err),
       }
     }
