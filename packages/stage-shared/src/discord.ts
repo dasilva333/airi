@@ -157,8 +157,9 @@ export interface CloudRelayDeployPayload {
   scriptName: string
   characterPrompt: string
   characterName?: string
-  geminiApiKey: string
-  geminiModel?: string
+  llmBaseUrl?: string
+  llmApiKey: string
+  llmModel?: string
   discordBotToken?: string
   memoryMode?: 'fixed' | 'unlimited'
 }

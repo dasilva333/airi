@@ -362,8 +362,9 @@ export const useDiscordStore = defineStore('discord', () => {
     scriptName: string
     characterPrompt: string
     characterName?: string
-    geminiApiKey: string
-    geminiModel?: string
+    llmBaseUrl?: string
+    llmApiKey: string
+    llmModel?: string
     memoryMode?: 'fixed' | 'unlimited'
     cardId: string
     sessionId: string
@@ -385,8 +386,9 @@ export const useDiscordStore = defineStore('discord', () => {
       scriptName: payload.scriptName,
       characterPrompt: payload.characterPrompt,
       characterName: payload.characterName,
-      geminiApiKey: payload.geminiApiKey,
-      geminiModel: payload.geminiModel,
+      llmBaseUrl: payload.llmBaseUrl,
+      llmApiKey: payload.llmApiKey,
+      llmModel: payload.llmModel,
       discordBotToken: token.value,
       memoryMode: payload.memoryMode,
     })

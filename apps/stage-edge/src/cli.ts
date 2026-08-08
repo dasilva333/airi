@@ -87,7 +87,9 @@ async function runCli() {
       const result = await deployerWithAcc.deployWorker({
         scriptName: 'airi-baseline-test',
         characterPrompt: 'You are AIRI Stage Edge Baseline Test.',
-        geminiApiKey: process.env.GEMINI_API_KEY || 'demo_gemini_key',
+        llmApiKey: process.env.LLM_API_KEY || 'demo_llm_key',
+        llmBaseUrl: process.env.LLM_BASE_URL || '',
+        llmModel: process.env.LLM_MODEL || '',
         discordBotToken: process.env.DISCORD_BOT_TOKEN,
         memoryMode: 'unlimited',
       })
@@ -98,7 +100,9 @@ async function runCli() {
     const result = await deployer.deployWorker({
       scriptName: 'airi-baseline-test',
       characterPrompt: 'You are AIRI Stage Edge Baseline Test.',
-      geminiApiKey: process.env.GEMINI_API_KEY || 'demo_gemini_key',
+      llmApiKey: process.env.LLM_API_KEY || 'demo_llm_key',
+      llmBaseUrl: process.env.LLM_BASE_URL || '',
+      llmModel: process.env.LLM_MODEL || '',
       discordBotToken: process.env.DISCORD_BOT_TOKEN,
       memoryMode: 'unlimited',
     })

@@ -16,8 +16,9 @@ export interface WorkerDeployOptions {
   scriptName: string
   characterPrompt: string
   characterName?: string
-  geminiApiKey: string
-  geminiModel?: string
+  llmBaseUrl?: string
+  llmApiKey: string
+  llmModel?: string
   discordPublicKey?: string
   discordBotToken?: string
   memoryMode?: 'fixed' | 'unlimited'
@@ -133,8 +134,9 @@ export default {
         { type: 'kv_namespace', name: 'MEMORY', namespace_id: namespaceId },
         { type: 'plain_text', name: 'SYSTEM_PROMPT', text: options.characterPrompt },
         { type: 'plain_text', name: 'CHARACTER_NAME', text: options.characterName || 'AIRI' },
-        { type: 'plain_text', name: 'GEMINI_MODEL', text: options.geminiModel || 'gemini-2.5-flash' },
-        { type: 'secret_text', name: 'GEMINI_API_KEY', text: options.geminiApiKey },
+        { type: 'plain_text', name: 'LLM_BASE_URL', text: options.llmBaseUrl || '' },
+        { type: 'plain_text', name: 'LLM_MODEL', text: options.llmModel || 'gemini-3.5-flash-lite' },
+        { type: 'secret_text', name: 'LLM_API_KEY', text: options.llmApiKey },
         { type: 'secret_text', name: 'DISCORD_PUBLIC_KEY', text: resolvedPublicKey },
       ],
     }

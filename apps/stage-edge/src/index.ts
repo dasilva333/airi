@@ -4,12 +4,13 @@
 
 import { verifyDiscordSignature } from './crypto/ed25519'
 import { jsonResponse } from './discord/client'
-import { generateGeminiReply } from './inference/gemini'
+import { generateLlmReply } from './inference/llm'
 import { buildSystemInstruction } from './templates/character'
 
 export interface Env {
-  GEMINI_API_KEY: string
-  GEMINI_MODEL?: string
+  LLM_API_KEY: string
+  LLM_MODEL?: string
+  LLM_BASE_URL?: string
   DISCORD_PUBLIC_KEY: string
   SYSTEM_PROMPT?: string
   CHARACTER_NAME?: string
@@ -58,11 +59,12 @@ export default {
         })
 
         try {
-          const reply = await generateGeminiReply({
+          const reply = await generateLlmReply({
             prompt: userPrompt,
             systemInstruction,
-            model: env.GEMINI_MODEL,
-            apiKey: env.GEMINI_API_KEY,
+            model: env.LLM_MODEL,
+            apiKey: env.LLM_API_KEY,
+            baseUrl: env.LLM_BASE_URL,
           })
 
           return jsonResponse({
@@ -73,7 +75,7 @@ export default {
         catch (err: any) {
           return jsonResponse({
             type: 4,
-            data: { content: `⚠️ Edge Inference Error: ${err.message}` },
+            data: { content: `⚠️ Edge Inference Error: ${err.message} | baseUrl=${env.LLM_BASE_URL} | model=${env.LLM_MODEL}` },
           })
         }
       }

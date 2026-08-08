@@ -433,8 +433,9 @@ export function setupDiscordService() {
         scriptName: payload.scriptName,
         characterPrompt: payload.characterPrompt,
         characterName: payload.characterName,
-        geminiApiKey: payload.geminiApiKey,
-        geminiModel: payload.geminiModel,
+        llmBaseUrl: payload.llmBaseUrl,
+        llmApiKey: payload.llmApiKey,
+        llmModel: payload.llmModel,
         discordBotToken: payload.discordBotToken,
         memoryMode: payload.memoryMode,
       })

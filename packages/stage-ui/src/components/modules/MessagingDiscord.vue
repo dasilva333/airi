@@ -116,9 +116,11 @@ async function handleLaunchDeployment() {
     const cardName = activeCard.value?.name || 'AIRI'
     const scriptName = `airi-${cardName.toLowerCase().replace(/[^a-z0]/g, '')}` || 'airi-cloud-relay'
 
-    // Get API key for selected consciousness provider
-    const creds = (providersStore.providers as Record<string, any>)[selectedConsciousnessProvider.value] || {}
-    const apiKey: string = typeof creds === 'string' ? creds : (creds.apiKey || creds.token || '')
+    // Get configuration for selected consciousness provider via providersStore
+    const providerId = selectedConsciousnessProvider.value || consciousnessStore.activeProvider || 'google'
+    const providerConfig = providersStore.getProviderConfig(providerId) || {}
+    const apiKey: string = (providerConfig.apiKey || providerConfig.token || providerConfig.secretKey || '') as string
+    const baseUrl: string = (providerConfig.baseUrl || providerConfig.url || providerConfig.endpoint || '') as string
 
     // Auto-prompt PKCE login if tokens are missing
     if (!cfApiToken.value && !cfOAuthTokens.value?.accessToken) {
@@ -132,8 +134,9 @@ async function handleLaunchDeployment() {
       scriptName,
       characterPrompt: assembledSystemPrompt.value,
       characterName: cardName,
-      geminiApiKey: apiKey,
-      geminiModel: selectedConsciousnessModel.value,
+      llmBaseUrl: baseUrl,
+      llmApiKey: apiKey,
+      llmModel: selectedConsciousnessModel.value,
       memoryMode: selectedMemoryMode.value,
       cardId: activeCardId.value || 'default',
       sessionId: deployTargetSessionId.value,
