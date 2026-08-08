@@ -59,5 +59,7 @@ export async function generateLlmReply(options: LlmGenerateOptions): Promise<str
   }
 
   const json: any = await response.json()
-  return json.choices?.[0]?.message?.content || '(No response generated)'
+  const rawContent: string = json.choices?.[0]?.message?.content || ''
+  const cleanedContent = rawContent.replace(/<\|ACT:.*?\|>/g, '').trim()
+  return cleanedContent || '(No response generated)'
 }
