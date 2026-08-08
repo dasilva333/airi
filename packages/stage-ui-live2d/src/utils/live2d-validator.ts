@@ -152,7 +152,10 @@ export async function validateLive2DZip(file: File | Blob): Promise<Live2DValida
       if (refs.Moc)
         checkRef(refs.Moc, 'MOC')
       if (Array.isArray(refs.Textures)) {
-        refs.Textures.forEach((t: string) => checkRef(t, 'Texture'))
+        refs.Textures.forEach((t: string) => {
+          if (t && typeof t === 'string' && t.trim().length > 0)
+            checkRef(t, 'Texture')
+        })
       }
       if (refs.Physics)
         checkRef(refs.Physics, 'Physics')

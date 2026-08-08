@@ -134,7 +134,20 @@ export class DSLVirtualMachine {
       return undefined
     }
 
-    const group = this.groups.get(groupName)
+    let group = this.groups.get(groupName)
+    if (!group) {
+      // Case-insensitive / singular-plural fallback matching (e.g. 'choices' -> 'choice')
+      const targetLower = groupName.toLowerCase()
+      const foundKey = Array.from(this.groups.keys()).find((k) => {
+        const kLower = k.toLowerCase()
+        return kLower === targetLower
+          || (targetLower.endsWith('s') && kLower === targetLower.slice(0, -1))
+          || (kLower.endsWith('s') && targetLower === kLower.slice(0, -1))
+      })
+      if (foundKey) {
+        group = this.groups.get(foundKey)
+      }
+    }
     if (!group)
       return undefined
 

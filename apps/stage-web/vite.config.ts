@@ -98,6 +98,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@proj-airi/server-sdk': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')),
+      // Headless DSL runtime ships TS source only (no build step); alias to source for dev HMR.
+      '@proj-airi/live2d-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'live2d-runtime', 'src')),
       '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
       '@proj-airi/stage-ui': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')),
       '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),

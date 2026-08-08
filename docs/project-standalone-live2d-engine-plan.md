@@ -154,8 +154,8 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 
 ### Phase 4: Standalone Web Playground Page & Monorepo Alias Resolution
 1. **Integration Preservation Note**: The full AIRI stage integration work (wired in commits [`7727a13a6`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue) and [`c11bb292d`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui-live2d/src/stores/dsl-intimacy.ts)) remains safely recorded in Git history.
-2. **Standalone Web Playground App**: Create an isolated web preview page (`apps/stage-live2d-playground` or `/playground/live2d` route) dedicated exclusively to:
-   - Drag-and-dropping Live2D `.zip` packages into a clean, lightweight WebGL canvas runner.
+2. **Standalone Web Playground App**: Create an isolated web preview page (`apps/stage-live2d-playground` or `/devtools/live2d` route) dedicated exclusively to:
+   - Picking or importing Live2D models via `ModelSelectorDialog` into a clean WebGL canvas runner.
    - Inspecting the `VarFloats` state heap in real-time.
    - Exercising interactive choice menus and intimacy triggers in isolation without loading full AIRI app overhead or clobbering live user settings.
 3. **Vite Monorepo Import Resolution**: Add `@proj-airi/live2d-runtime` workspace path aliases to Vite configuration files (`apps/stage-tamagotchi/electron.vite.config.ts`, `apps/stage-web/vite.config.ts`) so Vite resolves `@proj-airi/live2d-runtime` directly to TypeScript source (`packages/live2d-runtime/src/index.ts`) in dev mode.
@@ -170,7 +170,7 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 | **2** Multi-gen adapter | 🟡 Partial (`7e3d790b0`) | `Live2DRuntimeAdapter` + `dsl-capture` + VM wiring in `Model.vue`. `.moc` routing + timing normalization deferred |
 | **3** App integration (choices+intimacy) | ✅ Landed (`7727a13a6`, `c11bb292d`) | `live2d-dsl-bridge` choice round-trip + `dsl-intimacy` raw store (0–100k→0–100 display projection). Integration preserved via git commits |
 | **3.x** change_cos hot-swap | ⏸️ Deferred | Awaits unified multi-`.moc3` ingestion (see challenge doc) |
-| **4** Standalone Web Playground | 📋 Planned | Dedicated WebGL playground runner for Live2D zips + `VarFloats` inspector + Vite workspace alias configuration |
+| **4** Standalone Web Playground | ✅ Landed | `/devtools/live2d` route in `stage-web` and `stage-tamagotchi`. Integrates `ModelSelectorDialog` to select or import Live2D models from user collection; `Model.vue` exposes `getDslState`/`dispatchDsl`/`selectDslChoice`; DSL intimacy sandboxed under `__playground__/<id>` so live settings are untouched. `@proj-airi/live2d-runtime` source aliases added to `stage-web` + `stage-tamagotchi` (renderer) Vite configs.
 
 _Notable implementation fixes during build: lane-hint dispatch shadowing (caught by test); useBroadcastChannel has no `onMessage` (use `watch` on `data`); `resolveMotionGroupAndIndex` isn't exported on `useLive2d` — adapter resolves on `motionManager` directly to avoid double-broadcast._
 

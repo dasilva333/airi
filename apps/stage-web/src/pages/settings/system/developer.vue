@@ -110,6 +110,12 @@ const menu = computed(() => [
     icon: 'i-solar:sledgehammer-bold-duotone',
     to: '/devtools/model-driver-mediapipe',
   },
+  {
+    title: 'Live2D DSL Playground',
+    description: 'Isolated Live2D .zip runner with real-time VarFloats inspector & intimacy sandbox',
+    icon: 'i-solar:sledgehammer-bold-duotone',
+    to: '/devtools/live2d',
+  },
 ])
 </script>
 

@@ -201,6 +201,8 @@ export default defineConfig({
       conditions: ['browser', 'import', 'default'],
       alias: [
         { find: '@proj-airi/server-sdk', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-sdk', 'src')) },
+        // Headless DSL runtime ships TS source only (no build step); alias to source for dev HMR.
+        { find: '@proj-airi/live2d-runtime', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'live2d-runtime', 'src')) },
         { find: '@proj-airi/i18n', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')) },
         { find: '@proj-airi/stage-ui', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src')) },
         { find: '@proj-airi/stage-ui-three', replacement: resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui-three', 'src')) },

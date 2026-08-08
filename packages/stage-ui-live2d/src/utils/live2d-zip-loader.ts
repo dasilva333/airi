@@ -27,6 +27,22 @@ ZipLoader.zipReader = async (data: Blob, _url: string) => {
   return JSZip.loadAsync(buffer)
 }
 
+ZipLoader.getFilePaths = async (reader: JSZip) => {
+  return Object.keys(reader.files).filter(p => !isMacOSJunk(p))
+}
+
+ZipLoader.getFiles = (async (reader: JSZip, paths: string[], type?: any) => {
+  const targetType = type || 'blob'
+  return Promise.all(paths.map(async (path) => {
+    const blob = await reader.file(path)!.async(targetType as any)
+    return new File([blob], basename(path))
+  }))
+}) as any
+
+ZipLoader.readText = async (reader: JSZip, path: string) => {
+  return reader.file(path)!.async('text')
+}
+
 const defaultCreateSettings = ZipLoader.createSettings
 ZipLoader.createSettings = async (reader: JSZip) => {
   const settings = await (async () => {
@@ -37,20 +53,40 @@ ZipLoader.createSettings = async (reader: JSZip) => {
     return defaultCreateSettings(reader)
   })()
 
-  // Handle models with anonymous motion groups (empty string)
-  // We remap them to 'Idle' to ensure AIRI can start initial animations
-  const rawJson = (settings as any).json
-  const fileRefs = rawJson?.FileReferences || rawJson?.fileReferences
-  const motions = fileRefs?.Motions || (settings as any).motions
+  // Parse the raw manifest JSON file directly from the zip to extract *raw* motion groups
+  // (incl. DSL "special sauce": VarFloats, Choices, change_cos, Command chains, Intimacy)
+  // BEFORE ZipLoader.unzip sanitizes away any entry without a File/file.
+  let motions: any = (settings as any).motions
+  try {
+    const filePaths = Object.keys(reader.files).filter(p => !isMacOSJunk(p))
+    const settingsFile = filePaths.find(file => isSettingsFile(file))
+    if (settingsFile) {
+      const text = await reader.file(settingsFile)!.async('text')
+      const parsedJson = JSON.parse(text)
+      const fileRefs = parsedJson?.FileReferences || parsedJson?.fileReferences
+      if (fileRefs?.Motions) {
+        motions = fileRefs.Motions
+      }
+    }
+  }
+  catch (e) {
+    console.warn('[ZipLoader] Failed to parse raw manifest JSON for DSL groups:', e)
+  }
 
-  // Capture the *raw* motion groups (incl. DSL "special sauce": VarFloats, Choices,
-  // change_cos, Command chains, Intimacy) BEFORE ZipLoader.unzip sanitizes away any
-  // entry without a File/file. Consumed by Model.vue after load to feed the DSL VM.
   registerDslGroupsFromManifest(motions)
 
   if (motions && motions[''] && !motions.Idle) {
     motions.Idle = motions['']
     delete motions['']
+  }
+
+  // Filter out empty/blank texture strings (e.g. "") in FileReferences.Textures
+  // which are used by authoring tools as costume-swap slots. PIXI's TextureLoader
+  // tries to fetch empty string URLs and crashes with "Texture loading error".
+  if (Array.isArray((settings as any).textures)) {
+    (settings as any).textures = (settings as any).textures.filter(
+      (t: unknown) => typeof t === 'string' && t.trim().length > 0,
+    )
   }
 
   // Sanitize null FileReferences to undefined.
@@ -138,68 +174,21 @@ function createFakeSettings(files: string[]): ModelSettings {
 
   const motions = files.filter(f => f.endsWith('.mtn') || f.endsWith('.motion3.json'))
   const physics = files.find(f => f.includes('physics'))
-  const pose = files.find(f => f.includes('pose'))
 
-  const settings = new Cubism4ModelSettings({
+  return new Cubism4ModelSettings({
     url: `${modelName}.model3.json`,
     Version: 3,
     FileReferences: {
       Moc: mocFile,
       Textures: textures,
-      Physics: physics,
-      Pose: pose,
       Motions: motions.length
         ? {
-            Idle: motions.map(motion => ({ File: motion })),
+            '': motions.map(motion => ({
+              File: motion,
+            })),
           }
         : undefined,
+      Physics: physics,
     },
   })
-
-  settings.name = modelName;
-
-  // provide this property for FileLoader
-  (settings as any)._objectURL = `example://${settings.url}`
-
-  return settings
 }
-
-ZipLoader.readText = (jsZip: JSZip, path: string) => {
-  const file = jsZip.file(path)
-
-  if (!file) {
-    throw new Error(`Cannot find file: ${path}`)
-  }
-
-  return file.async('text')
-}
-
-ZipLoader.getFilePaths = (jsZip: JSZip) => {
-  const paths: string[] = []
-
-  jsZip.forEach((relativePath, file) => {
-    if (!file.dir && !isMacOSJunk(relativePath)) {
-      paths.push(relativePath)
-    }
-  })
-
-  return Promise.resolve(paths)
-}
-
-ZipLoader.getFiles = (jsZip: JSZip, paths: string[]) =>
-  Promise.all(paths.map(
-    async (path) => {
-      const fileName = path.slice(path.lastIndexOf('/') + 1)
-
-      const blob = await jsZip.file(path)!.async('blob')
-
-      const file = new File([blob], fileName)
-      Object.defineProperty(file, 'webkitRelativePath', {
-        value: path,
-        writable: false,
-        configurable: true,
-      })
-
-      return file
-    },
-  ))

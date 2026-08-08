@@ -178,7 +178,7 @@ defineExpose({
         {{ t('settings.pages.modules.speech.sections.section.voice-settings.use-ssml.warning') }}
       </div>
 
-      <template v-else>
+      <template v-if="!useSSML">
         <textarea
           v-model="testText"
           :placeholder="t('settings.pages.providers.provider.elevenlabs.playground.fields.field.input.placeholder')"

@@ -31,7 +31,7 @@ import {
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
 import { consumePendingDslGroups } from '../../../runtime/dsl-capture'
 import { buildAdapterPorts, Live2DRuntimeAdapter } from '../../../runtime/live2d-runtime-adapter'
-import { useDslIntimacyStore } from '../../../stores/dsl-intimacy'
+import { DSL_INTIMACY_MAX, useDslIntimacyStore } from '../../../stores/dsl-intimacy'
 import { useLive2d } from '../../../stores/live2d'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
@@ -1751,6 +1751,16 @@ function onCanvasClick(event: MouseEvent) {
     const hitArea = hitAreas[0]
     console.info(`[Live2D Tactile] Clicked hit area: ${hitArea} at global(${globalX.toFixed(1)}, ${globalY.toFixed(1)})`)
 
+    // DSL runtime: dispatch the hit area's interaction group (e.g. Tapbody). The VM
+    // guards/selects by group-name similarity, so unknown areas harmlessly return
+    // undefined. Physical motion/expression fallthrough below is untouched.
+    try {
+      dslVM?.dispatch(hitArea)
+    }
+    catch (e) {
+      console.warn('[Live2D DSL] dispatch failed (non-fatal):', e)
+    }
+
     const internalModel = model.value.internalModel
     const motionManager = internalModel?.motionManager
     if (!motionManager)
@@ -1865,9 +1875,38 @@ function listMotionGroups() {
   return availableMotions.value
 }
 
+// --- Standalone playground introspection (Phase 4) -------------------------
+// The VM is created internally on model load and is not reactive, so the
+// playground polls `getDslState()` on a timer (or after each interaction).
+const dslIntimacyStore = useDslIntimacyStore()
+
+/** Dispatch a DSL interaction group (e.g. Tapbody / a Choices NextMtn) into the VM. */
+function dispatchDsl(group: string) {
+  return dslVM?.dispatch(group)
+}
+
+/** Resolve the currently pending Choices menu by index (resumes the VM chain). */
+function selectDslChoice(index: number) {
+  return dslVM?.selectChoice(index)
+}
+
+/** Read-only snapshot of the live DSL runtime for the VarFloats inspector UI. */
+function getDslState() {
+  return {
+    active: dslVM !== null,
+    varFloats: dslVM?.vars.snapshot() ?? {},
+    pendingChoices: dslVM?.getPendingChoices() ?? null,
+    intimacyRaw: dslIntimacyStore.getRaw(props.modelId),
+    intimacyDisplay: Math.round((dslIntimacyStore.getRaw(props.modelId) / DSL_INTIMACY_MAX) * 100),
+  }
+}
+
 defineExpose({
   setMotion,
   listMotionGroups,
+  dispatchDsl,
+  selectDslChoice,
+  getDslState,
 })
 
 import.meta.hot?.dispose(() => {

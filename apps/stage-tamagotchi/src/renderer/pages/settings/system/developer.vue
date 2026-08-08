@@ -79,6 +79,12 @@ const menu = computed(() => [
     icon: 'i-solar:screen-share-bold-duotone',
     to: '/devtools/screen-capture',
   },
+  {
+    title: 'Live2D DSL Playground',
+    description: 'Isolated Live2D .zip runner with real-time VarFloats inspector & intimacy sandbox',
+    icon: 'i-solar:sledgehammer-bold-duotone',
+    to: '/devtools/live2d',
+  },
 ])
 
 const openDevTools = useElectronEventaInvoke(electronOpenMainDevtools)
