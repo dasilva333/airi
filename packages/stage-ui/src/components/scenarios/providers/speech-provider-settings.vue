@@ -66,6 +66,16 @@ const baseUrl = computed({
   },
 })
 
+const model = computed({
+  get: () => (getActiveInstanceConfig().options.model as string) || props.defaultModel || '',
+  set: (value) => {
+    getActiveInstanceConfig().options.model = value
+    if (speechStore.activeSpeechProvider === props.providerId) {
+      speechStore.activeSpeechModel = value
+    }
+  },
+})
+
 const activeInstanceLabel = computed(() => {
   const cfg = getActiveInstanceConfig()
   return cfg.label || cfg.id
@@ -199,6 +209,7 @@ function navigateBackToProviders() {
 
         <!-- Model Browser -->
         <ProviderModelBrowser
+          v-model="model"
           :provider-id="props.providerId"
           :instance-id="activeInstanceId"
         />

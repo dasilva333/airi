@@ -16,6 +16,7 @@ import {
   ComboboxTrigger,
   ComboboxViewport,
 } from 'reka-ui'
+import { watch } from 'vue'
 
 const props = withDefaults(defineProps<{
   options: { groupLabel: string, children?: { label: string, value: T }[] }[]
@@ -27,9 +28,15 @@ const props = withDefaults(defineProps<{
 
 const modelValue = defineModel<T>({ required: false })
 
+watch(modelValue, (newVal) => {
+  console.debug('[Combobox Debug] modelValue changed ->', newVal)
+})
+
 function toDisplayValue(value: T): string {
   const option = props.options.flatMap(group => group.children).find(option => option?.value === value)
-  return option ? option.label : props.placeholder || ''
+  const display = option ? option.label : props.placeholder || ''
+  console.debug('[Combobox Debug] toDisplayValue(', value, ') ->', display, { options: props.options })
+  return display
 }
 </script>
 

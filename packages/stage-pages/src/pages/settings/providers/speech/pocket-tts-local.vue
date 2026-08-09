@@ -66,16 +66,21 @@ const isActiveProvider = computed(() => speechStore.activeSpeechProvider === pro
 
 const model = computed({
   get(): string {
-    return (providerConfig.value?.model as string) || defaultModel
+    const val = (providerConfig.value?.model as string) || defaultModel
+    console.debug('[PocketSettings Debug] model.get() ->', val, { providerConfig: providerConfig.value })
+    return val
   },
   set(val: string) {
+    console.debug('[PocketSettings Debug] model.set() called with ->', val)
     const config = providersStore.getProviderConfig(providerId)
     if (config) {
       config.model = val
       config.language = val
+      console.debug('[PocketSettings Debug] Updated providerConfig options:', config)
     }
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
+      console.debug('[PocketSettings Debug] Updated activeSpeechModel in speechStore:', val)
     }
   },
 })
@@ -275,6 +280,7 @@ onMounted(async () => {
 })
 
 watch(model, async (newModel) => {
+  console.debug('[PocketSettings Debug] watch(model) triggered with newModel:', newModel)
   if (newModel) {
     try {
       voicesLoading.value = true
@@ -283,7 +289,9 @@ watch(model, async (newModel) => {
         config.model = newModel
         config.language = newModel
       }
+      console.debug('[PocketSettings Debug] Reloading voices for provider with config:', config)
       await speechStore.loadVoicesForProvider(providerId)
+      console.debug('[PocketSettings Debug] Voice reload complete. Available voices:', speechStore.availableVoices[providerId])
     }
     catch (error) {
       console.error('[Pocket Settings] Error reloading voices:', error)
