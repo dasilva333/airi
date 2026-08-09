@@ -90,7 +90,7 @@ async function runLiveTick() {
       ocrEvidence,
       { scores: { terminal_error: 0, terminal_normal: 0, code_editor: 0, video_player: 0 }, topLabel: 'code_editor', errorMargin: 0 },
       0.0,
-      { clipNovelty: 0.02, ocrHits: 2, redAlertRatio: 0.05 },
+      { clipNovelty: 0.02, ocrErrorPatternsMin: 2, redAlertRatio: 0.05 },
     )
 
     const totalMs = Date.now() - startMs

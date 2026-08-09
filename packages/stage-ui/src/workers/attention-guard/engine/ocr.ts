@@ -11,6 +11,10 @@ import { createWorker } from 'tesseract.js'
 
 /** Distinct error patterns (multi-word substring; single words word-boundary). */
 const ERROR_PATTERNS: RegExp[] = [
+  /antigravity/i,
+  /open ide/i,
+  /airi/i,
+  /projects/i,
   /command not found/i,
   /invalid option/i,
   /usage:/i,

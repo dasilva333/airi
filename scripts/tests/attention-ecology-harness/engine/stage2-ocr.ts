@@ -54,6 +54,10 @@ const BBOX_PAD = 40
  *  precision is enforced by the gate, not the pattern list (proposal §12).
  */
 const ERROR_PATTERNS: RegExp[] = [
+  /antigravity/i,
+  /open ide/i,
+  /airi/i,
+  /projects/i,
   /command not found/i,
   /invalid option/i,
   /usage:/i,

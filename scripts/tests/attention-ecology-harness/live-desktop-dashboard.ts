@@ -21,7 +21,7 @@ let stage1Status = '💤 INITIALIZING'
 let stage2Status = '🟢 0/2 QUIET'
 let stage3Status = '💤 IDLE'
 let currentSummary = 'IDLE / NO PROMOTION EVENT YET'
-let currentReaction = 'Waiting for high-salience screen events...'
+const currentReaction = 'Waiting for high-salience screen events...'
 let overallStatus = '💤 MONITORING SCREEN (0-COST IDLE)'
 let lastLatencyMs = 0
 
@@ -70,8 +70,6 @@ function renderDashboard() {
     + `│ 🧠 AIRI CHARACTER BRAIN :: ACTIVE INGESTION PAYLOAD   [${timestamp}]         │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `${currentSummary.split('\n').map(l => `│  ${l.padEnd(73, ' ')}  │`).join('\n')}\n`
-    + `│                                                                             │\n`
-    + `│ 💬 REACTION: ${currentReaction.padEnd(61, ' ')}  │\n`
     + `└─────────────────────────────────────────────────────────────────────────────┘\n`
 
   process.stdout.write(ui)
@@ -155,8 +153,26 @@ async function runLiveTick() {
         ocrEvidence,
       )
       currentSummary = summaryResult.summary
-      stage3Status = `📷 [VLM OK] Summary Synthesized (${summaryResult.vlmMs}ms)`
-      currentReaction = `AIRI: "I noticed a visual error event on your screen! Handling..."`
+      const roundedVlmMs = Math.round(summaryResult.vlmMs)
+      stage3Status = `📷 [VLM OK] Summary Synthesized (${roundedVlmMs}ms)`
+
+      // Persist payload to JSONL file
+      try {
+        const logPath = path.resolve(import.meta.dirname, 'promoted-events.jsonl')
+        const entry = JSON.stringify({
+          tick: tickCount,
+          timestamp: new Date().toISOString(),
+          novelty,
+          ocrHits: ocrEvidence.errorPatternHits,
+          ocrPatterns: ocrEvidence.errorPatterns,
+          vlmMs: roundedVlmMs,
+          summary: summaryResult.summary,
+        })
+        fs.appendFileSync(logPath, `${entry}\n`, 'utf-8')
+      }
+      catch (e) {
+        console.error('Failed to append JSONL log:', e)
+      }
     }
     else {
       overallStatus = novelty > 0.02 ? '📝 CONTEXT SHIFT RECORDED IN DIARY' : '💤 NO PROMOTION EVENT'
