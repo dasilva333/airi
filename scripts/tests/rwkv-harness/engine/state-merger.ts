@@ -189,3 +189,31 @@ ${evidenceWindow}
 Output a JSON object with a "pills" array.
 `
 }
+
+/**
+ * Lever B relaxed scaffold. `promptFrame: 'ADB'` — drops the evidence_indices
+ * requirement (so the model only emits {content, type, relevanceScore}).
+ * Ends with a bare `Output:` line; the caller appends the exact scaffold
+ * `{"pills":[{"content":"` (Lever A) before completion-mode generation.
+ * NOT the production prompt — a deliberate, labeled relaxation for the 0.1B.
+ */
+export function buildEchoChipsPromptADB(evidenceWindow: string, charName: string): string {
+  return `
+Extract 3-5 semantic Echo Chips from the following raw conversation evidence window.
+These are for a character memory-stream; avoid clinical labels and generic chatter.
+
+Requirements:
+1. CONTENT: Use 2-5 word evocative bursts (e.g. "Dogs know tricks", "Gaming as stress relief").
+2. TYPE: Identify whether each chip is a "mood", "flavor" (trait/fact), or "journal_candidate" (noteworthy moment worth preserving).
+3. RELEVANCE: Provide a relevanceScore from 0.0 to 1.0.
+4. FOCUS: Prefer durable motifs, emotional shifts, distinctive rituals, or memorable turns. Ignore pure greetings, microphone tests, or generic filler.
+
+Respond ONLY with JSON of this exact shape (one object per chip, keys in this order):
+{"pills":[{"content":"<2-5 word burst>","type":"mood|flavor|journal_candidate","relevanceScore":<0.0-1.0>}]}
+
+Evidence Window:
+${evidenceWindow}
+
+Output:
+`
+}

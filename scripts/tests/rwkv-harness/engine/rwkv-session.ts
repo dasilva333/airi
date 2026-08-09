@@ -36,6 +36,17 @@ export interface RwkvGenerationOptions {
   penaltyDecay?: number
   /** Default true: RWKV-7 G1 `Assistant: <think></think` prefill. */
   g1Prefill?: boolean
+  /**
+   * Phase 4 grammar constraint: mask the value emitted after `"<key>": "` to one of
+   * `values` (each may tokenize to multiple token ids — handled via a string-prefix DFA).
+   * Passed through to the browser runner; sampling is still free elsewhere.
+   */
+  constrainEnum?: { key: string, values: string[] }
+}
+
+export interface ConstrainEnumSpec {
+  key: string
+  values: string[]
 }
 
 export interface RwkvGenerationResult {
@@ -118,18 +129,27 @@ export class RwkvWebGpuBridge {
     }
   }
 
-  async generate(opts: RwkvGenerationOptions): Promise<RwkvGenerationResult> {
+  private async callRunner(fn: '__rwkvGenerate' | '__rwkvGenerateRaw', opts: object): Promise<RwkvGenerationResult> {
     if (!this.page || !this.bootInfo)
       throw new Error('call boot() before generate()')
     // Pass small args via a global to avoid a giant CDP-serialized arg list.
     await this.page.evaluate((o) => { (window as any).__RWkvNextGen = o }, opts)
-    const result = await this.page.evaluate(async () => {
-      const g = (window as any).__rwkvGenerate
+    const result = await this.page.evaluate(async (fnName) => {
+      const g = (window as any)[fnName]
       if (!g)
-        throw new Error('runner not ready: __rwkvGenerate missing')
+        throw new Error(`runner not ready: ${fnName} missing`)
       return await g((window as any).__RWkvNextGen)
-    })
+    }, fn)
     return result as RwkvGenerationResult
+  }
+
+  async generate(opts: RwkvGenerationOptions): Promise<RwkvGenerationResult> {
+    return this.callRunner('__rwkvGenerate', opts)
+  }
+
+  /** Lever A: completion-mode continuation (prompt already ends with the scaffold). */
+  async generateRaw(opts: RwkvGenerationOptions): Promise<RwkvGenerationResult> {
+    return this.callRunner('__rwkvGenerateRaw', opts)
   }
 
   async dispose(): Promise<void> {

@@ -23,6 +23,7 @@ import { parseEchoChips, REPAIR_STAGES } from '../engine/parse.js'
 import { RwkvWebGpuBridge } from '../engine/rwkv-session.js'
 import {
   buildEchoChipsPrompt,
+  buildEchoChipsPromptADB,
   buildEvidenceWindow,
   buildWindowMessages,
   cachedModelPath,
@@ -44,16 +45,30 @@ interface DecodingConfig {
   temperature: number
   topP: number
   presencePenalty: number
+  /** Lever D: G1 `<think></think` prefill. Disabled for scaffolded frames. */
   g1Prefill: boolean
   maxTokens: number
+  /** Prompt frame: 'baseline' (production chat prompt) or 'ADB' (Lever A/B/D scaffold). */
+  promptFrame: 'baseline' | 'ADB'
+  /** Phase 4: grammar-constrain the `type` value to the enum via logit mask. */
+  constrainTypeEnum?: boolean
 }
+
+/** Lever A completion-prefix scaffold — the model begins mid-string. */
+const ADB_SCAFFOLD = '{"pills":[{"content":"'
+/** Phase 4: the enum mapping production's ChipSchema picklist. */
+const ENUM_TYPE_VALUES = ['mood', 'flavor', 'journal_candidate']
 
 // Decoding configs to sweep. Structured extraction != roleplay decoding; the
 // roleplay preset uses presence_pen 1.5 which will actively suppress the JSON
-// schema tokens, so the extraction configs use presence_pen 0.0.
+// schema tokens, so all extraction configs use presence_pen 0.0.
 const CONFIGS: DecodingConfig[] = [
-  { name: 'extraction-mid', temperature: 0.7, topP: 0.9, presencePenalty: 0.0, g1Prefill: true, maxTokens: 512 },
-  { name: 'extraction-low', temperature: 0.3, topP: 0.9, presencePenalty: 0.0, g1Prefill: true, maxTokens: 512 },
+  // Phase-3 controls (committed reference runs).
+  { name: 'baseline-mid', promptFrame: 'baseline', g1Prefill: true, temperature: 0.7, topP: 0.9, presencePenalty: 0.0, maxTokens: 512 },
+  { name: 'adb-mid', promptFrame: 'ADB', g1Prefill: false, temperature: 0.7, topP: 0.9, presencePenalty: 0.0, maxTokens: 512 },
+  // Phase 4: A+D+B + grammar constraint on the `type` enum (temp 0.7 — the only frame that parsed).
+  { name: 'adbc-mid', promptFrame: 'ADB', g1Prefill: false, temperature: 0.7, topP: 0.9, presencePenalty: 0.0, maxTokens: 512, constrainTypeEnum: true },
+  { name: 'adbc-low', promptFrame: 'ADB', g1Prefill: false, temperature: 0.3, topP: 0.9, presencePenalty: 0.0, maxTokens: 512, constrainTypeEnum: true },
 ]
 
 // CLI flags:
@@ -119,23 +134,48 @@ async function main() {
         // truncated oldest-first to fit the 8192-token ctx (~24k char budget).
         const windowMessages = buildWindowMessages(corpus.chatTranscript, 80)
         const evidenceWindow = buildEvidenceWindow(windowMessages, charName)
-        const prompt = buildEchoChipsPrompt(evidenceWindow, charName)
         const linesUsed = evidenceWindow ? evidenceWindow.split('\n').length : 0
         const truncatedFrom = windowMessages.length
 
-        console.log(`\n--- ${title} (windowed ${truncatedFrom} msgs -> ${linesUsed} evidence lines fit; evidenceChars=${evidenceWindow.length}) ---`)
+        console.log(`\n--- ${title} [${cfg.promptFrame}${cfg.constrainTypeEnum ? '+constrain' : ''}] (windowed ${truncatedFrom} msgs -> ${linesUsed} evidence lines; evidenceChars=${evidenceWindow.length}) ---`)
         const t = Date.now()
-        let out
+        let rawText = ''
+        let promptTokens = 0
+        let completionTokens = 0
         try {
-          out = await bridge.generate({
-            prompt,
-            system: FLAG_SYSTEM ? systemText : undefined,
-            maxTokens: cfg.maxTokens,
-            temperature: cfg.temperature,
-            topP: cfg.topP,
-            presencePenalty: cfg.presencePenalty,
-            g1Prefill: cfg.g1Prefill,
-          })
+          if (cfg.promptFrame === 'ADB') {
+            // Lever A completion-mode: body ends at `Output:`; append the scaffold so
+            // the model continues mid-string; reassemble scaffold+continuation.
+            const body = buildEchoChipsPromptADB(evidenceWindow, charName)
+            const out = await bridge.generateRaw({
+              prompt: body + ADB_SCAFFOLD,
+              maxTokens: cfg.maxTokens,
+              temperature: cfg.temperature,
+              topP: cfg.topP,
+              presencePenalty: cfg.presencePenalty,
+              g1Prefill: false,
+              ...(cfg.constrainTypeEnum ? { constrainEnum: { key: '"type"', values: ENUM_TYPE_VALUES } } : {}),
+            })
+            rawText = ADB_SCAFFOLD + out.text
+            promptTokens = out.promptTokens
+            completionTokens = out.completionTokens
+          }
+          else {
+            // baseline: production chat-shaped prompt.
+            const prompt = buildEchoChipsPrompt(evidenceWindow, charName)
+            const out = await bridge.generate({
+              prompt,
+              system: FLAG_SYSTEM ? systemText : undefined,
+              maxTokens: cfg.maxTokens,
+              temperature: cfg.temperature,
+              topP: cfg.topP,
+              presencePenalty: cfg.presencePenalty,
+              g1Prefill: cfg.g1Prefill,
+            })
+            rawText = out.text
+            promptTokens = out.promptTokens
+            completionTokens = out.completionTokens
+          }
         }
         catch (err) {
           console.error('  [generate error]', String(err).slice(0, 200))
@@ -143,10 +183,10 @@ async function main() {
           continue
         }
         const elapsedMs = Date.now() - t
-        console.log(`  raw (${out.completionTokens} tok, ${elapsedMs} ms): ${out.text.slice(0, 220).replace(/\n/g, ' ')}${out.text.length > 220 ? '…' : ''}`)
+        console.log(`  raw (${completionTokens} tok, ${elapsedMs} ms): ${rawText.slice(0, 220).replace(/\n/g, ' ')}${rawText.length > 220 ? '…' : ''}`)
 
-        // 4. Parse + repair ladder.
-        const parsed = parseEchoChips(out.text)
+        // 4. Parse + repair ladder (reassembled scaffold+continuation for ADB).
+        const parsed = parseEchoChips(rawText)
         repairHist[parsed.stage]++
         console.log(`  parse stage: ${parsed.stage}  ->  ${parsed.pills.length} pill(s)`)
         for (const p of parsed.pills)
@@ -159,8 +199,10 @@ async function main() {
           corpus.groundTruthChips.pills,
         )
         ;(score as any).elapsedMs = elapsedMs
-        ;(score as any).promptTokens = out.promptTokens
-        ;(score as any).completionTokens = out.completionTokens
+        ;(score as any).promptTokens = promptTokens
+        ;(score as any).completionTokens = completionTokens
+        ;(score as any).promptFrame = cfg.promptFrame
+        ;(score as any).constrainTypeEnum = !!cfg.constrainTypeEnum
         console.log(
           `  sim=${score.evidenceSpannedSimilarity.toFixed(3)} prec=${score.precision.toFixed(3)} `
           + `f1=${score.meanTokenF1.toFixed(3)} type=${score.typeAgreement.toFixed(2)} `
