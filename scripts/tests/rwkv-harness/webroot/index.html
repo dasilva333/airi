@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>rwkv-harness webgpu bridge</title></head>
+<body>
+<script type="module">
+  // Signal to the Node bridge that the module runtime is alive.
+  window.__RWkvBridgeReady = true
+  if (new URLSearchParams(location.search).get('spike') === '1')
+    import('/spike.js')
+  if (new URLSearchParams(location.search).get('engine') === '1')
+    import('/runner.js')
+</script>
+</body>
+</html>

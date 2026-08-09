@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><link rel="icon" href="data:,"><title>tokprobe</title></head>
+<body>
+<script type="module">
+  // tokenize-only probe: no GPU required (Tokenizer is pure WASM, no WebGPU).
+  import('/tokprobe.js')
+    .then(m => m.probe())
+    .then((r) => { window.__TOK_RESULT = r })
+    .catch((e) => { window.__TOK_RESULT = { error: String((e && e.stack) || e).slice(0, 800) } })
+</script>
+</body>
+</html>

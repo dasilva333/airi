@@ -4,9 +4,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "test:epilogue": "tsx experiments/00-epilogue-validation.ts",
     "test:topics": "tsx experiments/01-toggle4-topics.ts",
     "test:echo-chips": "tsx experiments/03-echo-chip-eval.ts",
+    "test:topics-realtime": "tsx experiments/04-toggle4-realtime.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

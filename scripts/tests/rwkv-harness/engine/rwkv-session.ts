@@ -152,6 +152,31 @@ export class RwkvWebGpuBridge {
     return this.callRunner('__rwkvGenerateRaw', opts)
   }
 
+  /** Phase 4b: reset the persistent Δh chain (start a fresh conversation timeline). */
+  async resetStateChain(): Promise<void> {
+    if (!this.page || !this.bootInfo)
+      throw new Error('call boot() before resetStateChain()')
+    await this.page.evaluate(() => { (window as any).__rwkvResetState?.() })
+  }
+
+  /**
+   * Phase 4b: ingest an array of turns without sampling, snapshot the recurrent
+   * state after each, and return per-turn deltas { turn, deltaCosine, deltaL2 }.
+   * Only scalars cross the bridge (state is ~608k floats/turn — too big for CDP).
+   */
+  async measureStateDelta(turns: string[]): Promise<Array<{ turn: number, deltaCosine: number, deltaL2: number }>> {
+    if (!this.page || !this.bootInfo)
+      throw new Error('call boot() before measureStateDelta()')
+    await this.page.evaluate((t) => { (window as any).__RWkvNextTurns = t }, turns)
+    const result = await this.page.evaluate(async () => {
+      const g = (window as any).__rwkvStateDelta
+      if (!g)
+        throw new Error('runner not ready: __rwkvStateDelta missing')
+      return await g((window as any).__RWkvNextTurns)
+    })
+    return result as Array<{ turn: number, deltaCosine: number, deltaL2: number }>
+  }
+
   async dispose(): Promise<void> {
     try {
       await this.browser?.close()
