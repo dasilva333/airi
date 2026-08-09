@@ -144,12 +144,13 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
     })
 
     console.info(`[PocketTTS Adapter] Invoking worker stream for language/model: "${options?.language || 'english_2026-04'}"...`)
+    const hfToken = typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || undefined : undefined
     const w = ensureWorker()
     const { context } = createContext(w)
     const invokeLoad = defineStreamInvoke(context, pocketTtsLoadEvent)
 
     const stream = invokeLoad(
-      { device: 'wasm', language: options?.language || 'english_2026-04' },
+      { device: 'wasm', language: options?.language || 'english_2026-04', hfToken },
       { signal: options?.signal },
     )
 
@@ -218,6 +219,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
       state = 'running'
       updateInferenceStatus(modelStatusId, { state: 'running' })
 
+      const hfToken = typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || undefined : undefined
       const w = ensureWorker()
       const { context } = createContext(w)
       const invokeGenerate = defineStreamInvoke(context, pocketTtsGenerateEvent)
@@ -233,6 +235,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
           promptAudioChannels: options.promptAudioChannels,
           promptVoiceEmbedding: options.promptVoiceEmbedding,
           predefinedVoiceName: options.predefinedVoiceName,
+          hfToken,
         },
         { signal: options.signal },
       )

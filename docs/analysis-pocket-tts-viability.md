@@ -94,3 +94,23 @@ To guarantee sub-second latency across all voice clone generations:
 
 * **CPU Core Allocation**: Pocket TTS requires only 2 CPU cores running multithreaded WASM SIMD, preventing VRAM evictions alongside AIRI's Live2D/3D canvases.
 * **Audio Context Scope**: Audio decoding & peak normalization are performed on the main thread via Web Audio (`OfflineAudioContext`) because `AudioContext` is not available in Web Worker scopes.
+
+---
+
+## 5. Phase 6 & Phase 7: Predefined Voice Presets & Multi-Language Catalog Gating
+
+### Phase 6: Predefined Built-In Presets (Gated `kyutai/pocket-tts`)
+- **State Dict Priming**: Predefined voices (`alba`, `cosette`, `eponine`, `fantine`, `javert`, `jean`, `marius`) are serialized Flow-LM KV state dicts (`.safetensors`), downloaded from the gated `kyutai/pocket-tts` repository on Hugging Face at `languages/{langFolder}/embeddings/{voice}.safetensors`.
+- **Flow-LM Direct KV Initialization**: Predefined voices bypass `mimi_encoder` and custom audio prefill entirely, feeding parsed `.safetensors` KV state directly into `synthesizePocketSpeech()`.
+- **HuggingFace Access Token Forwarding**: The worker receives `hfToken` from `localStorage.getItem('settings/connection/hf-token')` and sends `Authorization: Bearer <hfToken>` to HuggingFace. UI features a guidance card linking to **Connection Settings** (`/settings/system/connection`).
+
+### Phase 7: Multi-Language Voice Preset Catalog & Dynamic UI Filtering
+- **Per-Language Voice Dictionaries**: `registry/speech.ts` organizes built-in voice presets by language model variant:
+  - **English (`english_2026-04`)**: `alba`, `azelma`, `bill_boerst`, `caro_davy`, `peter_yearsley`, `stuart_bell`, `anna`, `charles`, `eponine`, `eve`, `fantine`, `george`, `mary`, `michael`, `paul`, `vera`, `jean`
+  - **French (`french_24l`)**: `estelle`, `cosette`, `fantine`, `marius`, `jean`, `javert`
+  - **Spanish (`spanish_24l`)**: `lola`
+  - **German (`german_24l`)**: `juergen`
+  - **Italian (`italian_24l`)**: `giovanni`
+  - **Portuguese (`portuguese_24l`)**: `rafael`
+- **Dynamic Voice List Filtering**: `listVoices({ language })` returns `[...languagePredefinedVoices, ...customUploadedProfiles]`, ensuring that selecting a language model in `pocket-tts-local.vue` immediately updates the available voice options while keeping user-cloned voice profiles available across all languages.
+

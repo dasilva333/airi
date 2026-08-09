@@ -371,6 +371,7 @@ export interface PocketTtsGenerateRequest {
   promptVoiceEmbedding?: PocketTtsVoiceEmbedding
   /** Predefined built-in preset name (from bundle.json `predefined_voices`). When set, wins over any cached/uploaded custom voice. */
   predefinedVoiceName?: string
+  hfToken?: string
 }
 
 export interface PocketTtsGenerateChunk {

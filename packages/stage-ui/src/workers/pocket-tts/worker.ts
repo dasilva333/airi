@@ -17,7 +17,7 @@ const { context } = createContext()
 let isLoaded = false
 let activeLanguage = 'english_2026-04'
 // Cached HF token from the load handler; reused by generate for gated preset fetches
-const activeHfToken = ''
+let activeHfToken = ''
 
 // NOTICE: normalize the language identifier once here — the provider config surfaces
 // both bare codes ('english') and model ids ('english_2026-04'), and everything
@@ -43,6 +43,9 @@ let cachedVoice: { key: string, embedding: PocketTtsVoiceEmbedding } | null = nu
 defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
   const signal = options?.abortController?.signal
   const { hfToken } = payload
+  if (hfToken) {
+    activeHfToken = hfToken
+  }
   activeLanguage = normalizePocketLanguage(payload.language || payload.model || 'english_2026-04')
 
   console.info(`[Pocket Worker] Load model request received for language/model: "${activeLanguage}"`)
@@ -105,9 +108,10 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
   }
 
   const signal = options?.abortController?.signal
-  const { text, voiceId, promptAudioWaveform, predefinedVoiceName } = payload
+  const { text, voiceId, promptAudioWaveform, predefinedVoiceName, hfToken } = payload
+  const effectiveHfToken = hfToken || activeHfToken
   const voiceCacheKey = `${activeLanguage}:${voiceId}`
-  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding, predefinedVoiceName })
+  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding, predefinedVoiceName, hasHfToken: !!effectiveHfToken })
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
@@ -119,7 +123,7 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
   if (predefinedVoiceName) {
     // Predefined preset: prime Flow-LM state directly from the gated kyutai
     // safetensors — no mimi_encoder / custom embedding involved.
-    console.info(`[Pocket Worker] Using predefined voice preset "${predefinedVoiceName}"`)
+    console.info(`[Pocket Worker] Using predefined voice preset "${predefinedVoiceName}" (auth=${!!effectiveHfToken})`)
     await synthesizePocketSpeech(
       sessions,
       text,
@@ -128,7 +132,7 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
         emit({ samples, samplingRate })
       },
       signal,
-      activeHfToken,
+      effectiveHfToken,
     )
     return
   }

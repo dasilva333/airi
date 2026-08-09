@@ -38,7 +38,6 @@ const activeInstanceLabel = computed(() => {
 })
 
 const {
-  t,
   router,
   providerMetadata,
   isValidating,

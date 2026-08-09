@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import localforage from 'localforage'
 
+import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import {
   SpeechPlayground,
   SpeechProviderSettings,
@@ -15,6 +16,9 @@ const providerId = 'pocket-tts-local'
 const defaultModel = 'english_2026-04'
 const speechStore = useSpeechStore()
 const providersStore = useProvidersStore()
+
+const hfToken = useLocalStorageManualReset('settings/connection/hf-token', '')
+const hasHfToken = computed(() => !!hfToken.value?.trim())
 
 // State
 const voicesLoading = ref(false)
@@ -65,10 +69,10 @@ const model = computed({
     return (providerConfig.value?.model as string) || defaultModel
   },
   set(val: string) {
-    providersStore.updateProviderConfig(providerId, {
-      ...providerConfig.value,
-      model: val,
-    })
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.model = val
+    }
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
     }
@@ -95,20 +99,20 @@ const cpuThreads = computed({
     return (providerConfig.value?.cpuThreads as number) ?? 4
   },
   set(val: number) {
-    providersStore.updateProviderConfig(providerId, {
-      ...providerConfig.value,
-      cpuThreads: Number(val),
-    })
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.cpuThreads = Number(val)
+    }
   },
 })
 
 const currentLanguage = computed({
   get: () => (providerConfig.value?.language as string) || 'english',
   set: (val: string) => {
-    providersStore.updateProviderConfig(providerId, {
-      ...providerConfig.value,
-      language: val,
-    })
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.language = val
+    }
   },
 })
 
@@ -124,11 +128,11 @@ const languageOptions = [
 function setActiveSpeechProvider() {
   speechStore.activeSpeechProvider = providerId
   speechStore.activeSpeechModel = model.value
-  providersStore.updateProviderConfig(providerId, {
-    ...providerConfig.value,
-    model: model.value,
-    language: currentLanguage.value,
-  })
+  const config = providersStore.getProviderConfig(providerId)
+  if (config) {
+    config.model = model.value
+    config.language = currentLanguage.value
+  }
   toast.success('Pocket TTS set as AIRI\'s active speech engine!')
 }
 
@@ -274,7 +278,7 @@ onMounted(async () => {
     await providersStore.fetchModelsForProvider(providerId)
     const config = providersStore.getProviderConfig(providerId)
     if (config && !config.model) {
-      providersStore.updateProviderConfig(providerId, { ...config, model: defaultModel })
+      config.model = defaultModel
     }
     await loadCustomVoiceProfiles()
     await speechStore.loadVoicesForProvider(providerId)
@@ -343,6 +347,31 @@ watch(model, async (newValue) => {
             >
               {{ isActiveProvider ? 'Active' : 'Save & Set Active' }}
             </Button>
+          </div>
+        </div>
+
+        <!-- HuggingFace Gated Presets Guidance Card -->
+        <div :class="['border rounded-xl p-4 space-y-2', hasHfToken ? 'border-amber-500/30 bg-amber-500/5 dark:border-amber-500/20' : 'border-rose-500/30 bg-rose-500/5 dark:border-rose-500/20']">
+          <div class="flex items-center gap-2">
+            <div :class="['i-solar:shield-warning-bold-duotone text-lg', hasHfToken ? 'text-amber-500' : 'text-rose-500']" />
+            <h4 class="text-xs font-bold tracking-wider uppercase" :class="hasHfToken ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'">
+              Predefined Voice Presets & HuggingFace Access Token
+            </h4>
+          </div>
+          <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+            Built-in voice presets (<code>alba</code>, <code>cosette</code>, <code>eponine</code>, <code>fantine</code>, <code>javert</code>, <code>jean</code>, <code>marius</code>) require accepting the gated repository model agreement on
+            <a href="https://huggingface.co/kyutai/pocket-tts" target="_blank" rel="noopener noreferrer" class="text-amber-500 font-medium underline hover:text-amber-600">
+              kyutai/pocket-tts
+            </a>.
+          </p>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px]" :class="hasHfToken ? 'text-emerald-500 font-semibold' : 'text-rose-500 font-semibold'">
+              {{ hasHfToken ? '✓ HF Access Token configured in Connection Settings' : '⚠️ HF Access Token is missing' }}
+            </span>
+            <RouterLink to="/settings/system/connection" class="flex items-center gap-1 text-xs text-amber-500 font-medium hover:underline">
+              <span>Connection Settings</span>
+              <div class="i-solar:alt-arrow-right-bold" />
+            </RouterLink>
           </div>
         </div>
 
