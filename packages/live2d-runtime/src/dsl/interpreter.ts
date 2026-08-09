@@ -160,14 +160,26 @@ export class DSLVirtualMachine {
     if (!group)
       return undefined
 
-    // If a specific item was requested (e.g. `送礼#99:香水`), prefer the entry whose
-    // identity matches; group entries are positional, so we index by the requested name
-    // when we can find it, else fall through to weighted selection.
+    // If a specific item was requested (e.g. `送礼#99:2`, `Next:Leaveon`,
+    // `Sound#1:011501_002_05_02`), prefer the entry whose identity matches; else fall
+    // through to weighted selection. Manifest references mix *named* entries
+    // (`Leaveon`, `cos`, the Sound#1 voice ids) with *positional* indexes.
     let candidates: readonly DslEntry[] = group.entries
     if (item !== undefined) {
-      const idx = Number.parseInt(item, 10)
-      if (!Number.isNaN(idx) && group.entries[idx])
-        candidates = [group.entries[idx]]
+      // 1. Exact Name match (covers named entries). `Name` rides the DslEntry index
+      //    signature, so narrow to string before comparing.
+      const named = group.entries.find(e => typeof e.Name === 'string' && e.Name === item)
+      if (named) {
+        candidates = [named]
+      }
+      else {
+        // 2. Positional index (group entries are positional for `Next:idx`). Only treat
+        //    a fully-numeric item as an index — `parseInt` would otherwise coerce a
+        //    voice id like `011501_002_05_02` into the bogus index 11501.
+        const idx = /^\d+$/.test(item) ? Number.parseInt(item, 10) : Number.NaN
+        if (!Number.isNaN(idx) && group.entries[idx])
+          candidates = [group.entries[idx]]
+      }
     }
 
     candidates = this.preferLanguage(candidates)

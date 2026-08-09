@@ -34,6 +34,7 @@
     "build:packages": "node scripts/prune-turbo-cache.js && turbo run build -F=\"./packages/*\"",
     "build:crates": "cargo build --workspace",
     "test": "vitest --coverage",
+    "test:dsl": "tsx scripts/tests/live2d-dsl-harness/test-dsl-interpreter.ts",
     "test:run": "vitest run",
     "lint": "moeru-lint .",
     "lint:fix": "moeru-lint --fix .",
