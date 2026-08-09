@@ -3,19 +3,24 @@
  * Speaks the Eventa inference contract for Pocket TTS.
  */
 
-import type { LoadModelRequest, LoadStreamItem, PocketTtsGenerateChunk, PocketTtsGenerateRequest } from '../../libs/inference/contract'
+import type { LoadModelRequest, LoadStreamItem, PocketTtsGenerateChunk, PocketTtsGenerateRequest, PocketTtsVoiceEmbedding } from '../../libs/inference/contract'
 
 import { defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
 
 import { pocketTtsGenerateEvent, pocketTtsLoadEvent } from '../../libs/inference/contract'
 import { ensureExternalBrowserOnnxModels } from './pocket_model_store'
-import { getOrLoadPocketSessions, synthesizePocketSpeech } from './pocket_onnx_engine'
+import { encodePocketVoiceEmbedding, getOrLoadPocketSessions, synthesizePocketSpeech } from './pocket_onnx_engine'
 
 const { context } = createContext()
 
 let isLoaded = false
 let activeLanguage = 'english_2026-04'
+
+// In-worker voice embedding cache, keyed by `${language}:${voiceId}` — each
+// language bundle ships its own mimi_encoder weights, so embeddings are not
+// portable across languages.
+let cachedVoice: { key: string, embedding: PocketTtsVoiceEmbedding } | null = null
 
 defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
   const signal = options?.abortController?.signal
@@ -57,7 +62,7 @@ defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModel
 
   // Pre-load ONNX WASM sessions in worker
   console.info('[Pocket Worker] Initializing ONNX WASM sessions...')
-  await getOrLoadPocketSessions(activeLanguage)
+  const sessions = await getOrLoadPocketSessions(activeLanguage)
 
   isLoaded = true
   console.info('[Pocket Worker] Pocket TTS engine successfully initialized & ready.')
@@ -68,7 +73,7 @@ defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModel
       device: 'wasm',
       metadata: {
         codecConfig: {
-          sample_rate: 16000,
+          sample_rate: sessions.bundle.sample_rate || 24000,
           channels: 1,
         },
       },
@@ -82,30 +87,41 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
   }
 
   const signal = options?.abortController?.signal
-  const { text, voiceId, promptAudioWaveform, promptAudioCodes: cachedPromptAudioCodes } = payload
-  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedCodes: !!cachedPromptAudioCodes })
+  const { text, voiceId, promptAudioWaveform } = payload
+  const voiceCacheKey = `${activeLanguage}:${voiceId}`
+  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding })
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
   }
 
-  // Generate synthetic sine/silent chunk or codes if initial run
-  if (!cachedPromptAudioCodes && promptAudioWaveform) {
+  const sessions = await getOrLoadPocketSessions(activeLanguage)
+
+  // Resolve voice conditioning: IndexedDB-cached embedding > worker cache > fresh encode
+  let voiceEmbedding = payload.promptVoiceEmbedding
+    ?? (cachedVoice?.key === voiceCacheKey ? cachedVoice.embedding : undefined)
+
+  if (!voiceEmbedding && promptAudioWaveform) {
+    console.info('[Pocket Worker] Encoding reference waveform through Mimi encoder (24kHz mono)...')
+    voiceEmbedding = await encodePocketVoiceEmbedding(sessions, promptAudioWaveform)
+    cachedVoice = { key: voiceCacheKey, embedding: voiceEmbedding }
+    // Harvested by the adapter for persistent IndexedDB caching
     emit({
-      kind: 'prompt-audio-codes',
-      promptAudioCodes: [[10, 20, 30, 40]],
+      kind: 'voice-embedding',
+      voiceEmbedding,
     })
   }
 
-  const sessions = await getOrLoadPocketSessions(activeLanguage)
+  const samplingRate = sessions.bundle.sample_rate || 24000
 
   await synthesizePocketSpeech(
     sessions,
     text,
+    voiceEmbedding ?? null,
     (samples) => {
       emit({
         samples,
-        samplingRate: 16000,
+        samplingRate,
       })
     },
     signal,

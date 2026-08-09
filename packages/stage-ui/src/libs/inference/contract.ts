@@ -348,21 +348,38 @@ export const mossLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest
 export const mossGenerateEvent = defineInvokeEventa<MossGenerateChunk, MossGenerateRequest>('inference:moss:generate')
 export const mossUnloadEvent = defineInvokeEventa<void, undefined>('inference:moss:unload')
 
+/**
+ * Cached Pocket TTS voice conditioning: flattened speaker-projected Mimi encoder
+ * latents (row-major `dims` layout, `[1, frames, 1024]`). This is the artifact
+ * `flow_lm_main` consumes as a voice prefill — Pocket TTS has no discrete
+ * "prompt audio codes" like MOSS.
+ */
+export interface PocketTtsVoiceEmbedding {
+  data: Float32Array
+  dims: number[]
+}
+
 export interface PocketTtsGenerateRequest {
   text: string
   voiceId: string
   language?: string
   cpuThreads?: number
+  /** mono reference waveform, decoded/resampled to 24kHz on the main thread */
   promptAudioWaveform?: Float32Array
   promptAudioChannels?: number
-  promptAudioCodes?: number[][]
+  /** cached voice embedding (cache hit) — skips mimi_encoder entirely */
+  promptVoiceEmbedding?: PocketTtsVoiceEmbedding
 }
 
 export interface PocketTtsGenerateChunk {
   samples?: Float32Array
   samplingRate?: number
-  kind?: 'prompt-audio-codes'
-  promptAudioCodes?: number[][]
+  /**
+   * metadata marker emitted once when this request freshly encoded a new
+   * reference voice — the adapter harvests the embedding for IndexedDB caching.
+   */
+  kind?: 'voice-embedding'
+  voiceEmbedding?: PocketTtsVoiceEmbedding
 }
 
 export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:pocket-tts:load')

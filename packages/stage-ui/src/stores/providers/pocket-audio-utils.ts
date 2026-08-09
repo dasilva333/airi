@@ -2,7 +2,8 @@
  * Pocket TTS reference-audio conditioning utilities.
  *
  * Provides a singleton accessor for the Pocket TTS adapter and reference audio
- * preprocessing helpers (decoding, resample to 16kHz, silence trimming, peak normalization).
+ * preprocessing helpers (decoding, resample to 24kHz — the mimi_encoder input
+ * rate — silence trimming, peak normalization).
  */
 
 let pocketTtsAdapter: any = null
@@ -42,7 +43,7 @@ const POCKET_REFERENCE_PREPROCESS_DEFAULTS: PocketReferencePreprocessOptions = {
  */
 export async function preprocessPocketReferenceAudio(
   arrayBuffer: ArrayBuffer,
-  targetSampleRate = 16000,
+  targetSampleRate = 24000,
   targetChannels = 1,
   options?: Partial<PocketReferencePreprocessOptions>,
 ): Promise<Float32Array> {

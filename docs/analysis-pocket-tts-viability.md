@@ -48,17 +48,19 @@ Every file involved in the Pocket TTS integration is mapped below with its speci
 ### B. Audio Conditioning & Adapter Layer
 - [`packages/stage-ui/src/stores/providers/pocket-audio-utils.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/pocket-audio-utils.ts)
   - Exposes `getPocketTtsAdapterInstance()` singleton accessor.
-  - Implements `preprocessPocketReferenceAudio()` Web Audio pipeline for 16kHz resampling, silence threshold trimming, and peak normalization.
+  - Implements `preprocessPocketReferenceAudio()` Web Audio pipeline for 24kHz resampling (the `mimi_encoder` input rate), silence threshold trimming, and peak normalization.
 - [`packages/stage-ui/src/libs/inference/adapters/pocket-tts.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/pocket-tts.ts)
   - Implements `createPocketTtsAdapter()` mutex-protected interface.
-  - Controls Web Worker initialization, status updates (`downloading`, `ready`, `running`), WAV binary encoding, and `localforage` caching of `promptAudioCodes` (`pocket-voice-profiles-metadata`).
+  - Controls Web Worker initialization, status updates (`downloading`, `ready`, `running`), WAV binary encoding, and `localforage` caching of `promptVoiceEmbedding` (`pocket-voice-profiles-metadata`).
 
 ### C. Web Worker & OPFS Engine Layer
-- [`packages/stage-ui/src/workers/pocket-tts/pocket_model_store.js`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/pocket-tts/pocket_model_store.js)
-  - OPFS model downloader targeting `KevinAHM/pocket-tts-onnx` Int8 quantized weights (`flow_lm_main_int8.onnx`, `mimi_decoder_int8.onnx`, `mimi_encoder_int8.onnx`, `text_conditioner_int8.onnx`, `tokenizer.model`, `bundle.json`).
+- [`packages/stage-ui/src/workers/pocket-tts/pocket_model_store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/pocket-tts/pocket_model_store.ts)
+  - OPFS model downloader targeting `KevinAHM/pocket-tts-onnx` Int8 quantized weights (`flow_lm_main_int8.onnx`, `flow_lm_flow_int8.onnx`, `mimi_decoder_int8.onnx`, `mimi_encoder_int8.onnx`, `text_conditioner_int8.onnx`, `tokenizer.model`, `bos_before_voice.npy`, `bundle.json`).
 - [`packages/stage-ui/src/workers/pocket-tts/worker.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/pocket-tts/worker.ts)
   - Web Worker entrypoint speaking the Eventa stream contract.
-  - Orchestrates ONNX sessions, streams PCM audio chunks, and emits `prompt-audio-codes` on initial voice clone runs.
+  - Orchestrates ONNX sessions, streams PCM audio chunks, and emits `voice-embedding` on initial voice clone runs.
+- [`packages/stage-ui/src/workers/pocket-tts/pocket_onnx_engine.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/pocket-tts/pocket_onnx_engine.ts)
+  - Faithful port of KevinAHM's reference runtime: SentencePiece text conditioning (WASM module loaded cross-origin from the HF demo space at runtime) → `flow_lm_main` voice/text prefill (empty `sequence`) → autoregressive frame loop (`sequence` = previous latent, NaN = BOS) → `flow_lm_flow` LSD flow-matching step (conditioning `[1,1024]` → 32-dim latent) → chunked `mimi_decoder` (`latent [1, F, 32]` time-major) at 24kHz.
 
 ### D. Provider Registry & Factory Layer
 - [`packages/stage-ui/src/stores/providers/registry/speech.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/speech.ts)
@@ -76,13 +78,15 @@ Every file involved in the Pocket TTS integration is mapped below with its speci
 
 ---
 
-## 3. Fast-Path Optimization: Pre-Computed Feature Caching
+## 3. Fast-Path Optimization: Pre-Computed Voice Embedding Caching
 
 To guarantee sub-second latency across all voice clone generations:
 
-1. **First Run**: When a new custom `.wav` voice profile is imported, `mimi_encoder_int8` runs **once**.
-2. **IndexedDB Persist**: The extracted `promptAudioCodes` matrix is cached permanently in `localforage` (`pocket-voice-profiles-metadata`).
-3. **Subsequent Turns**: All future speech generations for that voice profile bypass `mimi_encoder` entirely, passing the pre-computed `promptAudioCodes` directly to `flow_lm` and `mimi_decoder`.
+1. **First Run**: When a new custom `.wav` voice profile is imported, `mimi_encoder_int8` runs **once**, producing a speaker-projected voice embedding `[1, V, 1024]`.
+2. **IndexedDB Persist**: The extracted `promptVoiceEmbedding` (Float32Array + dims) is cached permanently in `localforage` (`pocket-voice-profiles-metadata`).
+3. **Subsequent Turns**: All future speech generations for that voice profile bypass `mimi_encoder` entirely, passing the pre-computed `promptVoiceEmbedding` straight into the `flow_lm_main` voice prefill (with `bos_before_voice` prepended when the bundle requires it).
+
+*Note: Pocket TTS has no discrete "prompt audio codes" (that is MOSS-TTS-Nano's codec artifact) — the cacheable conditioning artifact here is the continuous voice embedding.*
 
 ---
 

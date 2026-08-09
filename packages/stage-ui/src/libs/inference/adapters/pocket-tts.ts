@@ -3,6 +3,7 @@
  * Handles the Web Worker lifecycle and Eventa stream/unary RPC invoke routing.
  */
 
+import type { PocketTtsVoiceEmbedding } from '../contract'
 import type { ProgressPayload } from '../protocol'
 
 import { defineStreamInvoke } from '@moeru/eventa'
@@ -33,7 +34,7 @@ export interface PocketTtsAdapter {
       cpuThreads?: number
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
-      promptAudioCodes?: number[][]
+      promptVoiceEmbedding?: PocketTtsVoiceEmbedding
       signal?: AbortSignal
     },
   ) => Promise<ArrayBuffer>
@@ -198,7 +199,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
       cpuThreads?: number
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
-      promptAudioCodes?: number[][]
+      promptVoiceEmbedding?: PocketTtsVoiceEmbedding
       signal?: AbortSignal
     },
   ): Promise<ArrayBuffer> {
@@ -228,19 +229,19 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
           cpuThreads: options.cpuThreads,
           promptAudioWaveform: options.promptAudioWaveform,
           promptAudioChannels: options.promptAudioChannels,
-          promptAudioCodes: options.promptAudioCodes,
+          promptVoiceEmbedding: options.promptVoiceEmbedding,
         },
         { signal: options.signal },
       )
 
       const chunks: Float32Array[] = []
-      let samplingRate = 16000
-      let freshlyEncodedCodes: number[][] | undefined
+      let samplingRate = 24000
+      let freshlyEncodedEmbedding: PocketTtsVoiceEmbedding | undefined
 
       for await (const chunk of stream) {
-        if (chunk.kind === 'prompt-audio-codes' && chunk.promptAudioCodes) {
-          console.info('[PocketTTS Adapter] Received freshly-encoded prompt audio codes from worker.')
-          freshlyEncodedCodes = chunk.promptAudioCodes
+        if (chunk.kind === 'voice-embedding' && chunk.voiceEmbedding) {
+          console.info('[PocketTTS Adapter] Received freshly-encoded voice embedding from worker.')
+          freshlyEncodedEmbedding = chunk.voiceEmbedding
           continue
         }
         if (chunk.samples) {
@@ -252,19 +253,19 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
 
       console.info(`[PocketTTS Adapter] Stream complete. Total chunks received: ${chunks.length}`)
 
-      // Persist freshly-encoded reference codes for subsequent cache hits
-      if (freshlyEncodedCodes && freshlyEncodedCodes.length > 0) {
+      // Persist freshly-encoded voice embedding for subsequent cache hits
+      if (freshlyEncodedEmbedding) {
         try {
           const { default: localforage } = await import('localforage')
           const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
           const existing = await metaStore.getItem<any>(voiceId)
           if (existing) {
-            await metaStore.setItem(voiceId, { ...existing, promptAudioCodes: freshlyEncodedCodes })
-            console.info('[PocketTTS Adapter] Persisted promptAudioCodes to localforage for voiceId:', voiceId)
+            await metaStore.setItem(voiceId, { ...existing, promptVoiceEmbedding: freshlyEncodedEmbedding })
+            console.info('[PocketTTS Adapter] Persisted promptVoiceEmbedding to localforage for voiceId:', voiceId)
           }
         }
         catch (err) {
-          console.warn('[PocketTTS Adapter] Failed to persist promptAudioCodes to localforage:', err)
+          console.warn('[PocketTTS Adapter] Failed to persist promptVoiceEmbedding to localforage:', err)
         }
       }
 

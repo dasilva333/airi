@@ -7,11 +7,21 @@ const MANAGED_SCHEME = 'managed://'
 const DEFAULT_EXTERNAL_MODEL_KEY = 'pocket-tts-onnx-external'
 const INTERNAL_ROOT_DIR_NAME = 'pocket-tts-browser-model-store'
 const HF_RESOLVE_BASE = 'https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/main/onnx/'
+/**
+ * Self-contained emscripten SentencePiece ESM (fs/Buffer shims inlined). Hosted in
+ * KevinAHM's demo Space because HF's model repo doesn't ship it. Prefetched into
+ * OPFS at load time (served as `text/plain`, which only `fetch` tolerates) and
+ * later imported via a `blob:` URL with a JS MIME type.
+ */
+const SENTENCEPIECE_JS_URL = 'https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/main/sentencepiece.js'
+const SENTENCEPIECE_JS_FILE_NAME = 'sentencepiece.js'
 
 const REQUIRED_FILES = [
   'bundle.json',
   'tokenizer.model',
+  'bos_before_voice.npy',
   'flow_lm_main_int8.onnx',
+  'flow_lm_flow_int8.onnx',
   'mimi_decoder_int8.onnx',
   'mimi_encoder_int8.onnx',
   'text_conditioner_int8.onnx',
@@ -104,6 +114,31 @@ async function downloadAndWriteFile(
   }
 
   await writable.close()
+}
+
+/**
+ * Ensure the SentencePiece WASM module (`sentencepiece.js`) is cached in OPFS at
+ * the store root. It is cross-origin and served as `text/plain`, so we fetch it
+ * once into OPFS rather than importing it by URL.
+ */
+export async function ensureSentencePieceModule(accessToken = ''): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory) {
+    throw new Error('OPFS storage (navigator.storage.getDirectory) is not supported in this browser environment.')
+  }
+  const opfsRoot = await navigator.storage.getDirectory()
+  const appDir = await opfsRoot.getDirectoryHandle(INTERNAL_ROOT_DIR_NAME, { create: true })
+  if (await hasFile(appDir, SENTENCEPIECE_JS_FILE_NAME))
+    return
+  await downloadAndWriteFile(appDir, SENTENCEPIECE_JS_FILE_NAME, SENTENCEPIECE_JS_URL, { accessToken })
+}
+
+/** Read an OPFS-cached file as a same-origin Blob (for `blob:` module import). */
+export async function readOpfsFileBlob(fileName: string, mimeType: string): Promise<Blob> {
+  const opfsRoot = await navigator.storage.getDirectory()
+  const appDir = await opfsRoot.getDirectoryHandle(INTERNAL_ROOT_DIR_NAME)
+  const fileHandle = await appDir.getFileHandle(fileName)
+  const file = await fileHandle.getFile()
+  return new Blob([await file.arrayBuffer()], { type: mimeType })
 }
 
 export async function ensureExternalBrowserOnnxModels(options: {

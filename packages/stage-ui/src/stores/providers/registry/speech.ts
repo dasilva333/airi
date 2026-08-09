@@ -11,6 +11,7 @@ import type {
 } from 'unspeech'
 import type { ComposerTranslation } from 'vue-i18n'
 
+import type { PocketTtsVoiceEmbedding } from '../../../libs/inference/contract'
 import type { ModelInfo, ProviderMetadata, SpeechCapabilitiesInfo, VoiceInfo } from '../types'
 
 import { isUrl } from '@proj-airi/stage-shared'
@@ -557,7 +558,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   console.info('[PocketTTS Provider] Received HTTP speech request:', { textLength: text.length, voiceId, bodyLanguage: body.language })
                   let promptAudioWaveform: Float32Array | undefined
                   const promptAudioChannels = 1
-                  let promptAudioCodes: number[][] | undefined
+                  let promptVoiceEmbedding: PocketTtsVoiceEmbedding | undefined
 
                   if (voiceId) {
                     try {
@@ -566,16 +567,16 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                       const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
 
                       const profileMeta = await metaStore.getItem<any>(voiceId)
-                      if (profileMeta?.promptAudioCodes) {
-                        console.info('[PocketTTS Provider] Found cached promptAudioCodes for voiceId:', voiceId)
-                        promptAudioCodes = profileMeta.promptAudioCodes
+                      if (profileMeta?.promptVoiceEmbedding) {
+                        console.info('[PocketTTS Provider] Found cached promptVoiceEmbedding for voiceId:', voiceId)
+                        promptVoiceEmbedding = profileMeta.promptVoiceEmbedding
                       }
                       else {
                         const blob = await blobStore.getItem<Blob>(voiceId)
                         if (blob) {
                           console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
                           const arrayBuf = await blob.arrayBuffer()
-                          promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 16000, 1)
+                          promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 24000, 1)
                         }
                       }
                     }
@@ -593,7 +594,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                       cpuThreads: 4,
                       promptAudioWaveform,
                       promptAudioChannels,
-                      promptAudioCodes,
+                      promptVoiceEmbedding,
                     },
                   )
 
