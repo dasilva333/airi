@@ -291,10 +291,19 @@ onMounted(async () => {
   }
 })
 
-watch(model, async (newValue) => {
-  if (newValue) {
+watch([model, currentLanguage], async ([newModel, newLang]) => {
+  // Refresh the voice list whenever the bundle (model) or target language changes
+  // so built-in predefined presets filter to the active language.
+  if (newModel || newLang) {
     try {
       voicesLoading.value = true
+      const config = providersStore.getProviderConfig(providerId)
+      if (config) {
+        if (newModel)
+          config.model = newModel
+        if (newLang)
+          config.language = newLang
+      }
       await speechStore.loadVoicesForProvider(providerId)
     }
     catch (error) {

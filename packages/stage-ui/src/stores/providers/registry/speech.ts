@@ -45,18 +45,127 @@ const baseUrlValidator = { value: validateProviderBaseUrl }
 // (where useI18n() is available), `t` is bound once at store-setup time rather than
 // per-call. A later phase may need to revisit this if locale switching must
 // re-translate kokoro model names.
-// Canonical English-bundle preset names for Pocket TTS predefined voices (translated bundles
-// carry translated names — the UI surfaces those via `predefinedVoiceName` pass-through).
-export const POCKET_TTS_BUILTIN_PRESET_IDS = [
-  'alba',
-  'azelma',
-  'cosette',
-  'eponine',
-  'fantine',
-  'javert',
-  'jean',
-  'marius',
-] as const
+/**
+ * Canonical flat catalog of all 26 Kyutai Pocket TTS predefined voices,
+ * verified 2026-08-09 against the gated `kyutai/pocket-tts` repo tree API
+ * (`/api/models/kyutai/pocket-tts/tree/main/languages/{lang}/embeddings`).
+ * Full spec table: docs/analysis-pocket-tts-viability.md §5.1.
+ *
+ * NOTICE: kyutai ships all 26 .safetensors under EVERY language folder — healthy
+ * per-language UX subsets are layered on top via `POCKET_PREDEFINED_VOICES_BY_LANG`.
+ */
+export interface PocketPredefinedVoiceSpec {
+  id: string
+  name: string
+  style: 'reading' | 'conversation'
+  /** MB, from the gated repo tree metadata */
+  sizeMB: number
+}
+
+export const POCKET_PREDEFINED_VOICE_CATALOG: PocketPredefinedVoiceSpec[] = [
+  { id: 'alba', name: 'Alba', style: 'reading', sizeMB: 5.91 },
+  { id: 'anna', name: 'Anna', style: 'conversation', sizeMB: 7.45 },
+  { id: 'azelma', name: 'Azelma', style: 'reading', sizeMB: 7.59 },
+  { id: 'bill_boerst', name: 'Bill Boerst', style: 'reading', sizeMB: 6.42 },
+  { id: 'caro_davy', name: 'Caro Davy', style: 'reading', sizeMB: 5.02 },
+  { id: 'charles', name: 'Charles', style: 'conversation', sizeMB: 5.91 },
+  { id: 'cosette', name: 'Cosette', style: 'reading', sizeMB: 5.91 },
+  { id: 'eponine', name: 'Eponine', style: 'reading', sizeMB: 6.61 },
+  { id: 'estelle', name: 'Estelle', style: 'reading', sizeMB: 7.88 },
+  { id: 'eve', name: 'Eve', style: 'conversation', sizeMB: 6.24 },
+  { id: 'fantine', name: 'Fantine', style: 'reading', sizeMB: 6.24 },
+  { id: 'george', name: 'George', style: 'conversation', sizeMB: 5.95 },
+  { id: 'giovanni', name: 'Giovanni', style: 'reading', sizeMB: 4.41 },
+  { id: 'jane', name: 'Jane', style: 'conversation', sizeMB: 7.03 },
+  { id: 'javert', name: 'Javert', style: 'reading', sizeMB: 5.91 },
+  { id: 'jean', name: 'Jean', style: 'conversation', sizeMB: 5.91 },
+  { id: 'juergen', name: 'Juergen', style: 'reading', sizeMB: 5.95 },
+  { id: 'lola', name: 'Lola', style: 'reading', sizeMB: 5.67 },
+  { id: 'marius', name: 'Marius', style: 'reading', sizeMB: 5.91 },
+  { id: 'mary', name: 'Mary', style: 'conversation', sizeMB: 5.91 },
+  { id: 'michael', name: 'Michael', style: 'conversation', sizeMB: 6.94 },
+  { id: 'paul', name: 'Paul', style: 'conversation', sizeMB: 6.66 },
+  { id: 'peter_yearsley', name: 'Peter Yearsley', style: 'reading', sizeMB: 3.56 },
+  { id: 'rafael', name: 'Rafael', style: 'reading', sizeMB: 5.91 },
+  { id: 'stuart_bell', name: 'Stuart Bell', style: 'reading', sizeMB: 5.02 },
+  { id: 'vera', name: 'Vera', style: 'conversation', sizeMB: 6.42 },
+]
+
+const POCKET_VOICE_BY_ID = new Map(POCKET_PREDEFINED_VOICE_CATALOG.map(v => [v.id, v]))
+
+/**
+ * Per-language UI subsets. Every id is guaranteed to exist on the gated repo for
+ * the given language folder (verified). English surfaces the full reading-centric
+ * catalog; the other languages feature their signature voice(es) first, followed
+ * by the Les Misérables core set shared with the English bundle.
+ */
+export const POCKET_PREDEFINED_VOICES_BY_LANG: Record<string, string[]> = {
+  'english_2026-04': [
+    'alba',
+    'anna',
+    'azelma',
+    'bill_boerst',
+    'caro_davy',
+    'charles',
+    'cosette',
+    'eponine',
+    'estelle',
+    'eve',
+    'fantine',
+    'george',
+    'jane',
+    'javert',
+    'jean',
+    'marius',
+    'mary',
+    'michael',
+    'paul',
+    'peter_yearsley',
+    'stuart_bell',
+    'vera',
+  ],
+  'french_24l': ['estelle', 'cosette', 'eponine', 'fantine', 'javert', 'jean', 'marius'],
+  'spanish_24l': ['lola', 'cosette', 'eponine', 'fantine', 'javert', 'jean', 'marius'],
+  'german_24l': ['juergen', 'cosette', 'eponine', 'fantine', 'javert', 'jean', 'marius'],
+  'italian_24l': ['giovanni', 'cosette', 'eponine', 'fantine', 'javert', 'jean', 'marius'],
+  'portuguese_24l': ['rafael', 'cosette', 'eponine', 'fantine', 'javert', 'jean', 'marius'],
+}
+
+/** All Pocket predefined voice ids, regardless of language (fast membership test). */
+export const POCKET_TTS_BUILTIN_PRESET_IDS: readonly string[] = POCKET_PREDEFINED_VOICE_CATALOG.map(v => v.id)
+
+/** Bare code / bundle id / legacy id → canonical bundle folder name. */
+const POCKET_LANG_FOLDER_ALIASES: Record<string, string> = {
+  english: 'english_2026-04',
+  english_2026_04: 'english_2026-04',
+  french: 'french_24l',
+  spanish: 'spanish_24l',
+  german: 'german_24l',
+  portuguese: 'portuguese_24l',
+  italian: 'italian_24l',
+}
+
+function normalizePocketLangFolder(languageOrModel: string): string {
+  return POCKET_LANG_FOLDER_ALIASES[languageOrModel] || languageOrModel.replace(/_2026_/, '_2026-')
+}
+
+/** VoiceInfo entries for the predefined voices of one language bundle. */
+function pocketPredefinedVoicesForLanguage(langFolder: string): VoiceInfo[] {
+  const ids = POCKET_PREDEFINED_VOICES_BY_LANG[langFolder] ?? POCKET_PREDEFINED_VOICES_BY_LANG['english_2026-04']
+  return ids
+    .map((id) => {
+      const spec = POCKET_VOICE_BY_ID.get(id)
+      if (!spec)
+        return null
+      return {
+        id: spec.id,
+        name: `${spec.name} (${spec.style === 'reading' ? 'Reading' : 'Conversation'})`,
+        provider: 'pocket-tts-local',
+        languages: [{ code: 'en-US', title: 'English' }],
+      } satisfies VoiceInfo
+    })
+    .filter((v): v is VoiceInfo => v !== null)
+}
 
 export function createSpeechMetadata(t: ComposerTranslation): Record<string, ProviderMetadata> {
   return {
@@ -696,23 +805,21 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             },
           })
         },
-        listVoices: async (_config: Record<string, unknown>) => {
-          const builtin = [
-            { id: 'alba', name: 'Alba (EN Casual)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'azelma', name: 'Azelma (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'cosette', name: 'Cosette (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'eponine', name: 'Eponine (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'fantine', name: 'Fantine (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'javert', name: 'Javert (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'jean', name: 'Jean (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'marius', name: 'Marius (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-          ]
+        listVoices: async (config: Record<string, unknown>) => {
+          // Resolve the language bundle folder from the provider config (bare code
+          // or bundle id) so built-in presets filter to the active language.
+          const langFolder = normalizePocketLangFolder(
+            (config?.language as string) || (config?.model as string) || 'english_2026-04',
+          )
+          const builtin = pocketPredefinedVoicesForLanguage(langFolder)
           try {
             const { default: localforage } = await import('localforage')
             const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
             const customVoices: VoiceInfo[] = []
             await metaStore.iterate((val: any) => {
               if (val && val.id && val.name) {
+                // Custom cloned profiles stay visible for every language — users
+                // recondition them per language at generation time.
                 customVoices.push({
                   id: val.id,
                   name: val.name,
