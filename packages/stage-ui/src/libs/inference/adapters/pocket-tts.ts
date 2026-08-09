@@ -35,6 +35,7 @@ export interface PocketTtsAdapter {
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptVoiceEmbedding?: PocketTtsVoiceEmbedding
+      predefinedVoiceName?: string
       signal?: AbortSignal
     },
   ) => Promise<ArrayBuffer>
@@ -200,6 +201,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
       promptAudioWaveform?: Float32Array
       promptAudioChannels?: number
       promptVoiceEmbedding?: PocketTtsVoiceEmbedding
+      predefinedVoiceName?: string
       signal?: AbortSignal
     },
   ): Promise<ArrayBuffer> {
@@ -230,6 +232,7 @@ export function createPocketTtsAdapter(): PocketTtsAdapter {
           promptAudioWaveform: options.promptAudioWaveform,
           promptAudioChannels: options.promptAudioChannels,
           promptVoiceEmbedding: options.promptVoiceEmbedding,
+          predefinedVoiceName: options.predefinedVoiceName,
         },
         { signal: options.signal },
       )

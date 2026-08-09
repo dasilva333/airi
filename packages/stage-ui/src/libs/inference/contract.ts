@@ -369,6 +369,8 @@ export interface PocketTtsGenerateRequest {
   promptAudioChannels?: number
   /** cached voice embedding (cache hit) — skips mimi_encoder entirely */
   promptVoiceEmbedding?: PocketTtsVoiceEmbedding
+  /** Predefined built-in preset name (from bundle.json `predefined_voices`). When set, wins over any cached/uploaded custom voice. */
+  predefinedVoiceName?: string
 }
 
 export interface PocketTtsGenerateChunk {

@@ -45,6 +45,19 @@ const baseUrlValidator = { value: validateProviderBaseUrl }
 // (where useI18n() is available), `t` is bound once at store-setup time rather than
 // per-call. A later phase may need to revisit this if locale switching must
 // re-translate kokoro model names.
+// Canonical English-bundle preset names for Pocket TTS predefined voices (translated bundles
+// carry translated names — the UI surfaces those via `predefinedVoiceName` pass-through).
+export const POCKET_TTS_BUILTIN_PRESET_IDS = [
+  'alba',
+  'azelma',
+  'cosette',
+  'eponine',
+  'fantine',
+  'javert',
+  'jean',
+  'marius',
+] as const
+
 export function createSpeechMetadata(t: ComposerTranslation): Record<string, ProviderMetadata> {
   return {
     'speech-noop': {
@@ -559,29 +572,36 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                   let promptAudioWaveform: Float32Array | undefined
                   const promptAudioChannels = 1
                   let promptVoiceEmbedding: PocketTtsVoiceEmbedding | undefined
+                  let predefinedVoiceName: string | undefined
 
                   if (voiceId) {
-                    try {
-                      const { default: localforage } = await import('localforage')
-                      const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
-                      const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
+                    // Built-in preset → predefined safetensors path (no localforage lookup)
+                    if ((POCKET_TTS_BUILTIN_PRESET_IDS as readonly string[]).includes(voiceId)) {
+                      predefinedVoiceName = voiceId
+                    }
+                    else {
+                      try {
+                        const { default: localforage } = await import('localforage')
+                        const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
+                        const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
 
-                      const profileMeta = await metaStore.getItem<any>(voiceId)
-                      if (profileMeta?.promptVoiceEmbedding) {
-                        console.info('[PocketTTS Provider] Found cached promptVoiceEmbedding for voiceId:', voiceId)
-                        promptVoiceEmbedding = profileMeta.promptVoiceEmbedding
-                      }
-                      else {
-                        const blob = await blobStore.getItem<Blob>(voiceId)
-                        if (blob) {
-                          console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
-                          const arrayBuf = await blob.arrayBuffer()
-                          promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 24000, 1)
+                        const profileMeta = await metaStore.getItem<any>(voiceId)
+                        if (profileMeta?.promptVoiceEmbedding) {
+                          console.info('[PocketTTS Provider] Found cached promptVoiceEmbedding for voiceId:', voiceId)
+                          promptVoiceEmbedding = profileMeta.promptVoiceEmbedding
+                        }
+                        else {
+                          const blob = await blobStore.getItem<Blob>(voiceId)
+                          if (blob) {
+                            console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
+                            const arrayBuf = await blob.arrayBuffer()
+                            promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 24000, 1)
+                          }
                         }
                       }
-                    }
-                    catch (err) {
-                      console.warn('[PocketTTS Provider] Error retrieving voice profile:', err)
+                      catch (err) {
+                        console.warn('[PocketTTS Provider] Error retrieving voice profile:', err)
+                      }
                     }
                   }
 
@@ -595,6 +615,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
                       promptAudioWaveform,
                       promptAudioChannels,
                       promptVoiceEmbedding,
+                      predefinedVoiceName,
                     },
                   )
 
@@ -678,11 +699,13 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         listVoices: async (_config: Record<string, unknown>) => {
           const builtin = [
             { id: 'alba', name: 'Alba (EN Casual)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
-            { id: 'estelle', name: 'Estelle (FR Female)', provider: 'pocket-tts-local', languages: [{ code: 'fr-FR', title: 'French' }] },
-            { id: 'lola', name: 'Lola (ES Female)', provider: 'pocket-tts-local', languages: [{ code: 'es-ES', title: 'Spanish' }] },
-            { id: 'juergen', name: 'Juergen (DE Male)', provider: 'pocket-tts-local', languages: [{ code: 'de-DE', title: 'German' }] },
-            { id: 'rafael', name: 'Rafael (PT Male)', provider: 'pocket-tts-local', languages: [{ code: 'pt-BR', title: 'Portuguese' }] },
-            { id: 'giovanni', name: 'Giovanni (IT Male)', provider: 'pocket-tts-local', languages: [{ code: 'it-IT', title: 'Italian' }] },
+            { id: 'azelma', name: 'Azelma (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'cosette', name: 'Cosette (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'eponine', name: 'Eponine (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'fantine', name: 'Fantine (EN Female)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'javert', name: 'Javert (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'jean', name: 'Jean (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'marius', name: 'Marius (EN Male)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
           ]
           try {
             const { default: localforage } = await import('localforage')

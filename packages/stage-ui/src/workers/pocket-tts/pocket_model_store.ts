@@ -16,6 +16,15 @@ const HF_RESOLVE_BASE = 'https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve
 const SENTENCEPIECE_JS_URL = 'https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/main/sentencepiece.js'
 const SENTENCEPIECE_JS_FILE_NAME = 'sentencepiece.js'
 
+/**
+ * Gated upstream checkpoint repo hosting per-language predefined-voice flow-state
+ * safetensors at `languages/{lang}/embeddings/{voice}.safetensors`.
+ * NOTICE: `kyutai/pocket-tts` is gated "auto" — the request needs the user's HF
+ * token with the gate accepted, else the fetch returns 401/403 and the preset
+ * falls back to voiceless generation.
+ */
+const KYUTAI_HF_RESOLVE_BASE = 'https://huggingface.co/kyutai/pocket-tts/resolve/main/'
+
 const REQUIRED_FILES = [
   'bundle.json',
   'tokenizer.model',
@@ -139,6 +148,41 @@ export async function readOpfsFileBlob(fileName: string, mimeType: string): Prom
   const fileHandle = await appDir.getFileHandle(fileName)
   const file = await fileHandle.getFile()
   return new Blob([await file.arrayBuffer()], { type: mimeType })
+}
+
+/** Read an OPFS-cached file as bytes. `relativePath` may include `/langFolder/` prefixes. */
+export async function readOpfsFileBytes(relativePath: string): Promise<Uint8Array> {
+  const opfsRoot = await navigator.storage.getDirectory()
+  const appDir = await opfsRoot.getDirectoryHandle(INTERNAL_ROOT_DIR_NAME)
+  const normalized = normalizeRelativePath(relativePath)
+  const segments = normalized.split('/')
+  const fileName = segments.pop()!
+  const dirHandle = await ensureDirectoryPath(appDir, segments.join('/'))
+  const fileHandle = await dirHandle.getFileHandle(fileName)
+  const file = await fileHandle.getFile()
+  return new Uint8Array(await file.arrayBuffer())
+}
+
+/**
+ * Ensure a predefined voice embedding safetensors file for `voice` under
+ * `langFolder` is cached in OPFS (`{langFolder}/voices/{voice}.safetensors`,
+ * downloaded from gated `kyutai/pocket-tts` with the user's HF token).
+ */
+export async function ensurePredefinedVoiceEmbedding(
+  langFolder: string,
+  voice: string,
+  accessToken = '',
+): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory) {
+    throw new Error('OPFS storage (navigator.storage.getDirectory) is not supported in this browser environment.')
+  }
+  const opfsRoot = await navigator.storage.getDirectory()
+  const appDir = await opfsRoot.getDirectoryHandle(INTERNAL_ROOT_DIR_NAME, { create: true })
+  const targetRel = `${langFolder}/voices/${voice}.safetensors`
+  if (await hasFile(appDir, targetRel))
+    return
+  const url = `${KYUTAI_HF_RESOLVE_BASE}languages/${langFolder}/embeddings/${voice}.safetensors`
+  await downloadAndWriteFile(appDir, targetRel, url, { accessToken })
 }
 
 export async function ensureExternalBrowserOnnxModels(options: {

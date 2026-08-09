@@ -20,7 +20,7 @@ import type { PocketTtsVoiceEmbedding } from '../../libs/inference/contract'
 
 import * as ort from 'onnxruntime-web'
 
-import { ensureSentencePieceModule, readOpfsFileBlob } from './pocket_model_store'
+import { ensurePredefinedVoiceEmbedding, ensureSentencePieceModule, readOpfsFileBlob, readOpfsFileBytes } from './pocket_model_store'
 
 // Set ONNX WASM SIMD CDN assets & thread count
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.2/dist/'
@@ -51,6 +51,11 @@ export interface StateManifestItem {
   dtype: 'bool' | 'float32' | 'int64'
   fill: 'ones' | 'zeros' | 'empty' | 'nan'
   shape: number[]
+  /** Owning module + tensor key within the upstream kyutai safetensors voice state */
+  module?: string
+  key?: string
+  /** State ordering within the ONNX graph's output list */
+  index?: number
 }
 
 export interface PocketBundleManifest {
@@ -419,6 +424,211 @@ async function buildVoiceConditionedFlowState(
 }
 
 // ---------------------------------------------------------------------------
+// Predefined built-in voice presets (gated kyutai safetensors → Flow-LM KV state)
+// ---------------------------------------------------------------------------
+
+type SafetensorDtype = 'float32' | 'int64' | 'bool'
+
+interface SafetensorRecord {
+  dtype: SafetensorDtype
+  data: Float32Array | BigInt64Array | Uint8Array
+  shape: number[]
+}
+
+/** Parse a `.safetensors` file into `module/key -> tensor` records (no compression). */
+function parseSafetensors(buffer: ArrayBuffer): Record<string, Record<string, SafetensorRecord>> {
+  const view = new DataView(buffer)
+  if (buffer.byteLength < 8)
+    throw new Error('Safetensors file too small')
+  const headerLen = Number(view.getBigUint64(0, true))
+  const headerEnd = 8 + headerLen
+  const headerText = new TextDecoder().decode(new Uint8Array(buffer, 8, headerLen))
+  const header = JSON.parse(headerText) as Record<string, { dtype: string, shape: number[], data_offsets: [number, number] }>
+
+  const out: Record<string, Record<string, SafetensorRecord>> = {}
+  for (const [fullKey, meta] of Object.entries(header)) {
+    if (fullKey === '__metadata__')
+      continue
+    const slash = fullKey.indexOf('/')
+    if (slash === -1)
+      continue
+    const moduleName = fullKey.slice(0, slash)
+    const tensorKey = fullKey.slice(slash + 1)
+
+    const [start, end] = meta.data_offsets
+    const absoluteStart = headerEnd + start
+    let data: SafetensorRecord['data']
+    if (meta.dtype === 'F32' || meta.dtype === 'float32') {
+      data = new Float32Array(buffer.slice(absoluteStart, headerEnd + end))
+    }
+    else if (meta.dtype === 'I64' || meta.dtype === 'int64') {
+      data = new BigInt64Array(buffer.slice(absoluteStart, headerEnd + end))
+    }
+    else if (meta.dtype === 'BOOL' || meta.dtype === 'bool') {
+      data = new Uint8Array(buffer.slice(absoluteStart, headerEnd + end))
+    }
+    else {
+      continue
+    }
+
+    out[moduleName] ??= {}
+    out[moduleName][tensorKey] = { dtype: meta.dtype.toLowerCase() as SafetensorDtype, data, shape: meta.shape }
+  }
+  return out
+}
+
+/**
+ * Fold a safetensors record into a manifest-shaped state tensor, adapting shape
+ * mismatches by truncation/padding with the manifest fill (mirrors
+ * `_adapt_state_tensor` in KevinAHM's Python runtime).
+ */
+function adaptSafetensorToStateEntry(record: SafetensorRecord, entry: StateManifestItem): ort.Tensor {
+  const targetShape = entry.shape || [1]
+  const targetSize = targetShape.reduce((a, b) => a * b, 1)
+
+  // Coerce the record's data to the manifest dtype *before* any shape handling —
+  // a dtype mismatch otherwise produces an ORT tensor whose payload type lies.
+  const coerce = (src: SafetensorRecord['data']): SafetensorRecord['data'] => {
+    if (entry.dtype === 'float32')
+      return src instanceof Float32Array ? src : Float32Array.from(src as ArrayLike<number>, Number)
+    if (entry.dtype === 'int64')
+      return src instanceof BigInt64Array ? src : BigInt64Array.from(src as ArrayLike<number>, v => BigInt(Math.trunc(Number(v))))
+    // bool
+    return src instanceof Uint8Array ? src : Uint8Array.from(src as ArrayLike<number>, v => (Number(v) ? 1 : 0))
+  }
+
+  const data = coerce(record.data)
+
+  const makeFilled = () => {
+    const filled
+      = entry.dtype === 'int64'
+        ? new BigInt64Array(targetSize)
+        : entry.dtype === 'bool' ? new Uint8Array(targetSize) : new Float32Array(targetSize)
+    if (entry.fill === 'ones')
+      (filled as any).fill(entry.dtype === 'int64' ? 1n : 1)
+    else if (entry.fill === 'nan' && entry.dtype !== 'int64' && entry.dtype !== 'bool')
+      (filled as Float32Array).fill(Number.NaN)
+    return filled
+  }
+
+  // Exact shape match (fast path)
+  const exactShape = record.shape.length === targetShape.length && record.shape.every((d, i) => d === targetShape[i])
+  if (exactShape && data.length === targetSize)
+    return new ort.Tensor(entry.dtype, data.slice() as any, targetShape)
+
+  // Same element count, different arrangement
+  if (data.length === targetSize)
+    return new ort.Tensor(entry.dtype, data.slice() as any, targetShape)
+
+  // Partial overlap: copy what fits, pad the rest with the manifest fill
+  const target = makeFilled()
+  const minRank = Math.min(record.shape.length, targetShape.length)
+  if (minRank === 0) {
+    // Scalar-ish record: if the target is a single element, honor it directly
+    if (targetSize === 1 && data.length >= 1)
+      (target as any)[0] = data[0] as never
+    return new ort.Tensor(entry.dtype, target as any, targetShape)
+  }
+
+  // Row-major flat copy bounded by overlapping extents per dimension
+  // NOTICE: extents uses the *coerced* record view; both are same length.
+  const extents = new Array(minRank).fill(0).map((_, i) => Math.min(record.shape[i], targetShape[i]))
+  const srcStrides = new Array(record.shape.length).fill(1)
+  for (let i = record.shape.length - 2; i >= 0; i--) srcStrides[i] = srcStrides[i + 1] * record.shape[i + 1]
+  const dstStrides = new Array(targetShape.length).fill(1)
+  for (let i = targetShape.length - 2; i >= 0; i--) dstStrides[i] = dstStrides[i + 1] * targetShape[i + 1]
+
+  const indices = new Array(minRank).fill(0)
+  const totalCopied = extents.reduce((a, b) => a * b, 1)
+  for (let n = 0; n < totalCopied; n++) {
+    let srcOffset = 0
+    let dstOffset = 0
+    for (let i = 0; i < minRank; i++) {
+      srcOffset += indices[i] * srcStrides[i]
+      dstOffset += indices[i] * dstStrides[i]
+    }
+    ;(target as any)[dstOffset] = (data as any)[srcOffset]
+
+    for (let d = minRank - 1; d >= 0; d--) {
+      indices[d]++
+      if (indices[d] < extents[d])
+        break
+      indices[d] = 0
+    }
+  }
+
+  return new ort.Tensor(entry.dtype, target as any, targetShape)
+}
+
+/** Reconstruct Flow-LM `step` counters when a record omits them. */
+function deriveStepFromModuleState(moduleState: Record<string, SafetensorRecord>): SafetensorRecord | null {
+  if (moduleState.step)
+    return moduleState.step
+  if (moduleState.offset && !moduleState.end_offset)
+    return moduleState.offset
+  if (moduleState.current_end)
+    return { dtype: 'int64', data: BigInt64Array.from([BigInt(moduleState.current_end.shape[0])]), shape: [1] }
+  return null
+}
+
+/**
+ * Build a Flow-LM state dict directly from a predefined voice's safetensors file
+ * (`{langFolder}/voices/{voice}.safetensors`). This is the *preset* path — no
+ * `mimi_encoder`/`bos_before_voice` involved (that belongs to custom embeddings).
+ */
+async function buildPredefinedVoiceFlowState(
+  sessions: PocketEngineSessions,
+  voice: string,
+): Promise<Record<string, ort.Tensor>> {
+  const manifest = sessions.bundle.flow_lm_state_manifest || []
+  const state = initStateFromManifest(manifest)
+  const rel = `${sessions.langFolder}/voices/${voice}.safetensors`
+  const bytes = await readOpfsFileBytes(rel)
+  const byModule = parseSafetensors(bytes.buffer as ArrayBuffer)
+
+  for (const entry of manifest) {
+    if (!entry.module || !entry.key) {
+      console.warn(`[Pocket ONNX Engine] Predefined voice '${voice}' state entry ${entry.input_name} lacks module/key; using manifest default.`)
+      continue
+    }
+    const moduleState = byModule[entry.module] || {}
+    let record: SafetensorRecord | undefined = moduleState[entry.key]
+    if (!record && entry.key === 'step') {
+      const derived = deriveStepFromModuleState(moduleState)
+      if (derived)
+        record = derived
+    }
+    if (!record) {
+      console.warn(`[Pocket ONNX Engine] Predefined voice '${voice}' missing state tensor for ${entry.module}/${entry.key}; using manifest default.`)
+      continue
+    }
+    state[entry.input_name] = adaptSafetensorToStateEntry(record, entry)
+  }
+
+  console.info(`[Pocket ONNX Engine] Predefined voice '${voice}' primed Flow-LM state from ${rel}.`)
+  return state
+}
+
+/**
+ * Resolve a predefined voice's primed Flow-LM state (fetches + caches the voice
+ * safetensors on first use via the gated kyutai repo; requires an accepted gate +
+ * HF token already passed to the load step).
+ */
+export async function getPocketPredefinedVoiceState(
+  sessions: PocketEngineSessions,
+  voice: string,
+  accessToken = '',
+): Promise<Record<string, ort.Tensor>> {
+  try {
+    await ensurePredefinedVoiceEmbedding(sessions.langFolder, voice, accessToken)
+  }
+  catch (err) {
+    throw new Error(`[Pocket ONNX Engine] Failed to fetch predefined voice '${voice}' from the gated kyutai/pocket-tts repo. Configure an HF token with the kyutai/pocket-tts gate accepted in the provider settings. Cause: ${err}`)
+  }
+  return buildPredefinedVoiceFlowState(sessions, voice)
+}
+
+// ---------------------------------------------------------------------------
 // Autoregressive synthesis
 // ---------------------------------------------------------------------------
 
@@ -442,9 +652,10 @@ function fillGaussianNoise(data: Float32Array, std: number): void {
 export async function synthesizePocketSpeech(
   sessions: PocketEngineSessions,
   text: string,
-  voiceEmbedding: PocketTtsVoiceEmbedding | null,
+  voice: PocketTtsVoiceEmbedding | string | null,
   onChunk: (samples: Float32Array) => void,
   signal?: AbortSignal,
+  accessToken = '',
 ): Promise<Float32Array> {
   const { bundle } = sessions
   const sampleRate = bundle.sample_rate || 24000
@@ -460,13 +671,17 @@ export async function synthesizePocketSpeech(
   const { text: preparedText, framesAfterEos } = prepareTextPrompt(text, bundle)
   const textChunks = splitTextIntoChunks(preparedText, tokenizer, maxTokensPerChunk)
 
-  // Voice-conditioned base state, primed once and reused (read-only) per chunk
+  // Voice-conditioned base state: custom embedding prefill, predefined preset KV
+  // state, or (last resort) no conditioning. Primed once and reused read-only per chunk.
   let baseFlowState: Record<string, ort.Tensor>
-  if (voiceEmbedding) {
-    baseFlowState = await buildVoiceConditionedFlowState(sessions, voiceEmbedding)
+  if (typeof voice === 'string') {
+    baseFlowState = await getPocketPredefinedVoiceState(sessions, voice, accessToken)
+  }
+  else if (voice) {
+    baseFlowState = await buildVoiceConditionedFlowState(sessions, voice)
   }
   else {
-    console.warn('[Pocket ONNX Engine] No voice embedding supplied — running WITHOUT voice conditioning. Upload a reference voice for intelligible output.')
+    console.warn('[Pocket ONNX Engine] No voice conditioning supplied — running WITHOUT voice conditioning. Upload a reference voice or pick a predefined preset for intelligible output.')
     baseFlowState = initStateFromManifest(flowManifest)
   }
 

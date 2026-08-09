@@ -16,6 +16,24 @@ const { context } = createContext()
 
 let isLoaded = false
 let activeLanguage = 'english_2026-04'
+// Cached HF token from the load handler; reused by generate for gated preset fetches
+const activeHfToken = ''
+
+// NOTICE: normalize the language identifier once here — the provider config surfaces
+// both bare codes ('english') and model ids ('english_2026-04'), and everything
+// downstream (OPFS reads, gated voice fetch) needs the canonical bundle folder name.
+// Mirrors `pocket_model_store.ts`'s langMap + upstream `_normalize_language`.
+const POCKET_LANG_ALIASES: Record<string, string> = {
+  english: 'english_2026-04',
+  french: 'french_24l',
+  spanish: 'spanish_24l',
+  german: 'german_24l',
+  portuguese: 'portuguese_24l',
+  italian: 'italian_24l',
+}
+function normalizePocketLanguage(language: string): string {
+  return POCKET_LANG_ALIASES[language] || language.replace(/_2026_/, '_2026-')
+}
 
 // In-worker voice embedding cache, keyed by `${language}:${voiceId}` — each
 // language bundle ships its own mimi_encoder weights, so embeddings are not
@@ -25,7 +43,7 @@ let cachedVoice: { key: string, embedding: PocketTtsVoiceEmbedding } | null = nu
 defineStreamInvokeHandler(context, pocketTtsLoadEvent, toStreamHandler<LoadModelRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
   const signal = options?.abortController?.signal
   const { hfToken } = payload
-  activeLanguage = payload.language || payload.model || 'english_2026-04'
+  activeLanguage = normalizePocketLanguage(payload.language || payload.model || 'english_2026-04')
 
   console.info(`[Pocket Worker] Load model request received for language/model: "${activeLanguage}"`)
 
@@ -87,17 +105,35 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
   }
 
   const signal = options?.abortController?.signal
-  const { text, voiceId, promptAudioWaveform } = payload
+  const { text, voiceId, promptAudioWaveform, predefinedVoiceName } = payload
   const voiceCacheKey = `${activeLanguage}:${voiceId}`
-  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding })
+  console.info('[Pocket Worker] Generate request:', { voiceId, textLength: text.length, hasWaveform: !!promptAudioWaveform, hasCachedEmbedding: !!payload.promptVoiceEmbedding, predefinedVoiceName })
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError')
   }
 
   const sessions = await getOrLoadPocketSessions(activeLanguage)
+  const samplingRate = sessions.bundle.sample_rate || 24000
 
-  // Resolve voice conditioning: IndexedDB-cached embedding > worker cache > fresh encode
+  if (predefinedVoiceName) {
+    // Predefined preset: prime Flow-LM state directly from the gated kyutai
+    // safetensors — no mimi_encoder / custom embedding involved.
+    console.info(`[Pocket Worker] Using predefined voice preset "${predefinedVoiceName}"`)
+    await synthesizePocketSpeech(
+      sessions,
+      text,
+      predefinedVoiceName,
+      (samples) => {
+        emit({ samples, samplingRate })
+      },
+      signal,
+      activeHfToken,
+    )
+    return
+  }
+
+  // Custom voice path: IndexedDB-cached embedding > worker cache > fresh encode
   let voiceEmbedding = payload.promptVoiceEmbedding
     ?? (cachedVoice?.key === voiceCacheKey ? cachedVoice.embedding : undefined)
 
@@ -111,8 +147,6 @@ defineStreamInvokeHandler(context, pocketTtsGenerateEvent, toStreamHandler<Pocke
       voiceEmbedding,
     })
   }
-
-  const samplingRate = sessions.bundle.sample_rate || 24000
 
   await synthesizePocketSpeech(
     sessions,
