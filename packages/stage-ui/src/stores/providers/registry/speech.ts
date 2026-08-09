@@ -810,7 +810,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           // Resolve the language bundle folder from the provider config (bare code
           // or bundle id) so built-in presets filter to the active language.
           const langFolder = normalizePocketLangFolder(
-            (config?.language as string) || (config?.model as string) || 'english_2026-04',
+            (config?.model as string) || (config?.language as string) || 'english_2026-04',
           )
           const builtin = pocketPredefinedVoicesForLanguage(langFolder)
           try {

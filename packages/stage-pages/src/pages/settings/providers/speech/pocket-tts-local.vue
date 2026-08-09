@@ -64,24 +64,6 @@ const providerModels = computed(() => {
 
 const isActiveProvider = computed(() => speechStore.activeSpeechProvider === providerId)
 
-const MODEL_TO_LANG: Record<string, string> = {
-  'english_2026-04': 'english',
-  'french_24l': 'french',
-  'spanish_24l': 'spanish',
-  'german_24l': 'german',
-  'portuguese_24l': 'portuguese',
-  'italian_24l': 'italian',
-}
-
-const LANG_TO_MODEL: Record<string, string> = {
-  english: 'english_2026-04',
-  french: 'french_24l',
-  spanish: 'spanish_24l',
-  german: 'german_24l',
-  portuguese: 'portuguese_24l',
-  italian: 'italian_24l',
-}
-
 const model = computed({
   get(): string {
     return (providerConfig.value?.model as string) || defaultModel
@@ -90,9 +72,7 @@ const model = computed({
     const config = providersStore.getProviderConfig(providerId)
     if (config) {
       config.model = val
-      if (MODEL_TO_LANG[val]) {
-        config.language = MODEL_TO_LANG[val]
-      }
+      config.language = val
     }
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
@@ -127,35 +107,13 @@ const cpuThreads = computed({
   },
 })
 
-const currentLanguage = computed({
-  get: () => (providerConfig.value?.language as string) || 'english',
-  set: (val: string) => {
-    const config = providersStore.getProviderConfig(providerId)
-    if (config) {
-      config.language = val
-      if (LANG_TO_MODEL[val]) {
-        config.model = LANG_TO_MODEL[val]
-      }
-    }
-  },
-})
-
-const languageOptions = [
-  { label: 'English', value: 'english' },
-  { label: 'French', value: 'french' },
-  { label: 'Spanish', value: 'spanish' },
-  { label: 'German', value: 'german' },
-  { label: 'Portuguese', value: 'portuguese' },
-  { label: 'Italian', value: 'italian' },
-]
-
 function setActiveSpeechProvider() {
   speechStore.activeSpeechProvider = providerId
   speechStore.activeSpeechModel = model.value
   const config = providersStore.getProviderConfig(providerId)
   if (config) {
     config.model = model.value
-    config.language = currentLanguage.value
+    config.language = model.value
   }
   toast.success('Pocket TTS set as AIRI\'s active speech engine!')
 }
@@ -282,7 +240,7 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       {
         ...config,
         model: selectedModel,
-        language: currentLanguage.value,
+        language: selectedModel,
       },
     )
 
@@ -303,6 +261,7 @@ onMounted(async () => {
     const config = providersStore.getProviderConfig(providerId)
     if (config && !config.model) {
       config.model = defaultModel
+      config.language = defaultModel
     }
     await loadCustomVoiceProfiles()
     await speechStore.loadVoicesForProvider(providerId)
@@ -315,18 +274,14 @@ onMounted(async () => {
   }
 })
 
-watch([model, currentLanguage], async ([newModel, newLang]) => {
-  // Refresh the voice list whenever the bundle (model) or target language changes
-  // so built-in predefined presets filter to the active language.
-  if (newModel || newLang) {
+watch(model, async (newModel) => {
+  if (newModel) {
     try {
       voicesLoading.value = true
       const config = providersStore.getProviderConfig(providerId)
       if (config) {
-        if (newModel)
-          config.model = newModel
-        if (newLang)
-          config.language = newLang
+        config.model = newModel
+        config.language = newModel
       }
       await speechStore.loadVoicesForProvider(providerId)
     }
@@ -426,15 +381,6 @@ watch([model, currentLanguage], async ([newModel, newLang]) => {
                 placeholder="4"
               />
               <span class="text-[10px] text-neutral-400">Thread count for WASM execution</span>
-            </div>
-
-            <!-- Target Language -->
-            <div class="space-y-1">
-              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Language Model Variant</label>
-              <Select
-                v-model="currentLanguage"
-                :options="languageOptions"
-              />
             </div>
           </div>
         </div>
