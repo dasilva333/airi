@@ -288,16 +288,54 @@ Instead of generating generic mood categories, the 60s polling classifier runs a
 
 ---
 
-## 13. UI Settings: Proactivity Tab
+## 14. Real-Time Terminal ASCII Observer Dashboard (`pnpm test:attention:dashboard`)
 
-`CardCreationTabProactivity.vue` gains:
-*   **[Toggle] Local Attention Guard**: Enables WebGPU RWKV-7 salience check.
-*   **[Slider] Sensitivity**: Maps to the trained Stage-1 classifier threshold.
-*   **[Number] Attention Budget**: Maximum unsolicited reactions per hour.
-*   **[Select] Promotion Privacy**: Options: captions-only / ask-before-sending-frames / automatic.
-*   **[List] Private Apps & Sites**: Stage-0 exclusion list.
-*   **[Toggle] Raise-Hand Mode**: Signal instead of speak.
-*   **[Toggle] Soul-Controlled Mode**: Mappings for the logit-biased animation enums.
+For developer inspection and real-time monitoring outside the Electron app, AIRI includes a standalone terminal dashboard script: `scripts/tests/attention-ecology-harness/live-desktop-dashboard.ts`.
+
+It captures live desktop frames via macOS native `screencapture -x`, runs the 4-stage cascading engine, and updates an in-place ASCII UI via `process.stdout.write` without scrolling text spam:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME DESKTOP MONITOR       [TICK #042]   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ STATUS: 🚨 HIGH SALIENCE ERROR PROMOTED          LATENCY: 1420ms | 0.42Hz   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ ─── STAGE 0: Perceptual Hash (aHash \mu s) ──────────────────────────────── │
+│    [⚡ CHANGED]  norm = 0.6289  │ Hash: a7f8c9b2e1d04561                     │
+│    State: ⚡ Active screen shift detected (proceeding to Stage 1)           │
+│                                                                             │
+│ ─── STAGE 1: Fast CLIP Vision Embed (WebGPU / WASM) ─────────────────────── │
+│    [🎯 NOVELTY SPIKE]  novelty = 0.3472 (threshold: 0.0200)                   │
+│    State: 🎯 Significant visual trajectory shift from baseline              │
+│                                                                             │
+│ ─── STAGE 2: Localized WASM OCR Error Gate ──────────────────────────────── │
+│    [🚨 PROMOTED]  errorHits = 3/2  │ Patterns: [command not found, usage:]  │
+│    State: 🚨 Error cascade pattern matched (triggering VLM summary)         │
+│                                                                             │
+│ ─── STAGE 3: WebGPU VLM Semantic Forwarder (Moondream2) ─────────────────── │
+│    [📷 VLM ACTIVE]  Window: Terminal (light mode)                           │
+│    Caption: "A code editor and terminal window displaying a build failure..."   │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🧠 AIRI CHARACTER BRAIN :: ACTIVE INGESTION PAYLOAD                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  [Visual Event]                                                             │
+│  Active Window: Terminal (light mode)                                       │
+│  Screen Content Tags: A computer screen displaying code and a build error   │
+│  OCR Text Snippet: "df: invalid option -- y"                                │
+│                                                                             │
+│  💬 AIRI REACTION: "I notice you hit a build error on line 42..."           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Indicators & In-Place Terminal Rendering:
+1. **Header Bar**: Real-time ticker counter, tick latency (ms), and pipeline throughput (Hz).
+2. **Stage 0 Indicator**: Toggles between 💤 `[STATIC]` and ⚡ `[CHANGED]`.
+3. **Stage 1 Indicator**: Toggles between 💤 `[STABLE]`, 📝 `[DIARY NOTE]`, and 🎯 `[NOVELTY SPIKE]`.
+4. **Stage 2 Indicator**: Toggles between 🟢 `[0/2 QUIET]` and 🚨 `[3/2 PROMOTED]`.
+5. **Stage 3 & Brain Ingestion**: Renders the exact `[Visual Event]` context block dispatched to AIRI's prompt builder in real-time.
+
 *   **[Regex Table] Category Regex Router**: Connect process/title patterns to `CODE`/`CHAT`/`PLAY`/`BROWSE`/`IDLE` tokens.
 
 ---
