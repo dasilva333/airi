@@ -1311,7 +1311,9 @@ async function loadModel() {
         host: {
           // Phase 3 placeholder: costume swap renders as a no-op until the render host
           // performs the actual model hot-swap. State (heap) is preserved regardless.
-          changeCostume: () => {},
+          // The optional `index` (numeric costume slot / multi-.moc3 chains) is plumbed
+          // through for future consumption; the swap itself stays host-side.
+          changeCostume: (_modelFile: string, _index?: number) => {},
           showSpeechText: (text) => {
             live2dStore.activeMotionText = { text }
           },
@@ -1330,7 +1332,7 @@ async function loadModel() {
             addIntimacy: (delta: number) => dslAdapter!.addIntimacy(delta),
           },
           // DSL change_cos must also notify the adapter so its dispose can clean up.
-          costume: { changeCostume: (file: string) => dslAdapter!.changeCostume(file) },
+          costume: { changeCostume: (file: string, index?: number) => dslAdapter!.changeCostume(file, index) },
         },
       })
       dslVM.loadGroups(rawGroups)

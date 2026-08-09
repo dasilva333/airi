@@ -84,6 +84,7 @@ interface HostRecorder {
   clearedExpressions: number
   appliedExpressions: string[]
   costumeSwaps: string[]
+  costumeSwapTargets: Array<{ modelFile: string, index?: number }>
   intimacyChanges: Array<{ next: number, delta: number }>
   texts: string[]
 }
@@ -97,6 +98,7 @@ function makeHost(initialIntimacy = 0): HostRecorder {
     clearedExpressions: 0,
     appliedExpressions: [],
     costumeSwaps: [],
+    costumeSwapTargets: [],
     intimacyChanges: [],
     texts: [],
   }
@@ -116,7 +118,10 @@ function makeHost(initialIntimacy = 0): HostRecorder {
       clearExpressions: () => { r.clearedExpressions += 1 },
     },
     costume: {
-      changeCostume: (modelFile) => { r.costumeSwaps.push(modelFile) },
+      changeCostume: (modelFile, index) => {
+        r.costumeSwaps.push(modelFile)
+        r.costumeSwapTargets.push({ modelFile, index })
+      },
     },
     intimacy: {
       getIntimacy: () => r.intimacy,
@@ -272,6 +277,69 @@ section('Scenario 3: fixture 3626567931 (Kasane) — VarFloats heap (ChatTimer r
   const onEntry = vm.dispatch('DREFTouchBoxHead-互动-抚摸-节日')
   assert(onEntry !== undefined, 'festival head group unlocked once InValentine=1 guard passes')
   assertEqual(vm.vars.get('ChatTimer'), 20, 'ChatTimer re-rolled to 20 by the festival entry mutator')
+}
+
+// ===========================================================================
+// Scenario 7 — Phase A: change_cos mechanical support (structured target + heap/intimacy
+// preserved). Drives path (`change_cos model1.json`), numeric (`change_cos 2`), lane-index
+// (`change_cos #3`), and case-insensitive alias (`ChangeCos 1`) forms through the VM and
+// asserts the host receives the structured target (path + optional index) AND that the
+// VarFloats heap + intimacy + applied expressions survive every swap untouched.
+// ===========================================================================
+
+section('Scenario 7: Phase A — change_cos structured target (path/index/ChangeCos alias) with heap+intimacy preservation')
+{
+  const host = makeHost(0)
+  host.intimacy = 5000
+  const vm = new DSLVirtualMachine({ host: host.ports, random: () => 0 })
+  vm.loadGroups([
+    { name: 'SwapPath', entries: [{ Command: 'change_cos model1.json' }] },
+    { name: 'SwapIndex', entries: [{ Command: 'change_cos 2' }] },
+    { name: 'SwapIndexLane', entries: [{ Command: 'change_cos #3' }] },
+    { name: 'SwapAlias', entries: [{ Command: 'ChangeCos 1' }] },
+    { name: 'BumpIntimacy', entries: [{ Intimacy: { Bonus: 50 } }] },
+  ])
+
+  // Establish a known engine state that must survive the swap:
+  //   - heap entries written by Type 2 mutators
+  //   - a persistent intimacy score
+  //   - a physical expression applied to the stage
+  vm.vars.set('Mood', 7)
+  vm.vars.set('ChatTimer', 20)
+  vm.dispatch('BumpIntimacy') // +50 -> intimacy 5050
+  host.ports.expression!.applyExpression('exp12.exp3')
+  assertEqual(host.intimacy, 5050, 'baseline: intimacy store seeded at 5050')
+  assertEqual(vm.vars.get('Mood'), 7, 'baseline: VarFloats heap seeded (Mood=7)')
+  const appliedBefore = host.appliedExpressions.length
+
+  // 1) Path form -> modelFile, no index.
+  vm.dispatch('SwapPath')
+  assertEqual(host.costumeSwapTargets.at(-1)?.modelFile, 'model1.json', 'change_cos model1.json -> path target')
+  assertEqual(host.costumeSwapTargets.at(-1)?.index, undefined, 'path form carries no index')
+
+  // State must be 100% intact across the swap.
+  assertEqual(vm.vars.get('Mood'), 7, 'VarFloats heap preserved across change_cos (path)')
+  assertEqual(vm.vars.get('ChatTimer'), 20, 'VarFloats ChatTimer preserved across change_cos (path)')
+  assertEqual(host.intimacy, 5050, 'intimacy score preserved across change_cos (path)')
+  assertEqual(host.appliedExpressions.length, appliedBefore, 'applied expressions not cleared by change_cos')
+
+  // 2) Numeric form -> index only, empty modelFile.
+  vm.vars.set('Mood', 9)
+  host.intimacy = 6000
+  vm.dispatch('SwapIndex')
+  assertEqual(host.costumeSwapTargets.at(-1)?.modelFile, '', 'change_cos 2 -> no modelFile path')
+  assertEqual(host.costumeSwapTargets.at(-1)?.index, 2, 'change_cos 2 -> index 2')
+  assertEqual(vm.vars.get('Mood'), 9, 'VarFloats heap preserved across change_cos (index)')
+  assertEqual(host.intimacy, 6000, 'intimacy preserved across change_cos (index)')
+
+  // 3) Leading-# lane form `change_cos #3` -> index 3 (strip the lane prefix).
+  vm.dispatch('SwapIndexLane')
+  assertEqual(host.costumeSwapTargets.at(-1)?.index, 3, 'change_cos #3 -> index 3 (lane # stripped)')
+
+  // 4) Case-insensitive alias `ChangeCos 1` (no underscore) -> index 1.
+  vm.dispatch('SwapAlias')
+  assertEqual(host.costumeSwapTargets.at(-1)?.index, 1, 'ChangeCos 1 (no underscore) -> index 1')
+  assertEqual(vm.vars.get('Mood'), 9, 'VarFloats heap still intact after consecutive swaps')
 }
 
 // ===========================================================================

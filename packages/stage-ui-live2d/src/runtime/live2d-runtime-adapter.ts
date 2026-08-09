@@ -63,7 +63,7 @@ export interface RenderHostActions {
    * Hot-swap the rendered costume/model while keeping DSL heap + intimacy intact.
    * The runtime owns state; the host swaps the renderable (see plan §3.2 change_cos).
    */
-  changeCostume: (modelFile: string) => void | Promise<void>
+  changeCostume: (modelFile: string, index?: number) => void | Promise<void>
   /** Present a speech line (toast on non-stage routes, caption channel on stage). */
   showSpeechText: (text: string, options: { duration?: number, language?: string }) => void
   /** Render the interactive choice overlay. Selection resolves via VM.selectChoice. */
@@ -291,7 +291,8 @@ export class Live2DRuntimeAdapter {
     showText: (payload: { text: string, duration?: number, rawEntry: DslEntry }) => {
       this.cfg.host.showSpeechText(payload.text, { duration: payload.duration, language: (payload.rawEntry as DslEntry).Language })
     },
-    onCostumeWillSwap: (modelFile: string) => {
+    onCostumeWillSwap: (modelFile: string, index?: number) => {
+      void index
       // change_cos is DEFERRED (see docs/live2d-change-cos-dependency-challenge.md). Keeping this
       // as a render-side hint no-op preserves surface compatibility until the ingestion fix lands.
       void modelFile
@@ -327,8 +328,8 @@ export class Live2DRuntimeAdapter {
     })
   }
 
-  changeCostume(modelFile: string): void {
-    void this.cfg.host.changeCostume(modelFile)
+  changeCostume(modelFile: string, index?: number): void {
+    void this.cfg.host.changeCostume(modelFile, index)
   }
 
   /** Stop every live sound channel and close the bridge; call on unmount / model unload. */

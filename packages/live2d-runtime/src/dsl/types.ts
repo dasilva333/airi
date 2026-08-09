@@ -117,7 +117,7 @@ export interface MotionRef {
 export type DslCommand
   = | { kind: 'start_mtn', target: MotionRef, raw: string }
     | { kind: 'clear_exp', raw: string }
-    | { kind: 'change_cos', modelFile: string, raw: string }
+    | { kind: 'change_cos', modelFile: string, index?: number, raw: string }
     | { kind: 'motions', enabled: boolean, target: MotionRef, raw: string }
     | { kind: 'mouse_tracking', enabled: boolean, raw: string }
     | { kind: 'eye_blink', enabled: boolean, raw: string }

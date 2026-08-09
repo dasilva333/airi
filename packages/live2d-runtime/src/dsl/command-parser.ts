@@ -4,7 +4,10 @@
  * Target grammar (lane-aware):  `Group[#lane][:item]`
  *   start_mtn B40                          -> { group: 'B40' }
  *   start_mtn Sound#1:011501_051_01_01     -> { group: 'Sound', lane: 1, item: '011501_051_01_01' }
- *   change_cos model1.json                 -> costume swap
+ *   change_cos model1.json                 -> costume swap (path; index undefined)
+ *   change_cos 2                           -> costume swap by index (modelFile '')
+ *   change_cos #2                          -> costume swap by index (strip the '#')
+ *   ChangeCos 1                            -> verbs are case-insensitive
  *   motions disable Leave60_70_80          -> motion-pool gate
  *   stop_sound 2                           -> channel stop
  *   replace_tex 0 Motions_x.png            -> texture swap
@@ -57,7 +60,20 @@ function parseOne(statement: string): DslCommand {
     case 'clear_exp':
       return { kind: 'clear_exp', raw }
     case 'change_cos':
-      return { kind: 'change_cos', modelFile: rest.join(' '), raw }
+    case 'changecos': {
+      // Surface a structured target: a sibling manifest path (`model1.json`) AND a numeric
+      // costume slot (`1`, `#2`). Hosts resolve whichever is present; the index is a logical
+      // selector (multi-.moc3 costume chains), never parsed from inside a real path.
+      const target = rest.join(' ')
+      let modelFile = target
+      let index: number | undefined
+      const bare = target.startsWith('#') ? target.slice(1) : target // strip a leading lane '#'
+      if (/^\d+$/.test(bare)) {
+        index = Number.parseInt(bare, 10)
+        modelFile = ''
+      }
+      return { kind: 'change_cos', modelFile, index, raw }
+    }
     case 'motions': {
       const enabled = onOff(rest[0])
       const target = parseMotionRef(rest.slice(1).join(' '))

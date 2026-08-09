@@ -273,8 +273,10 @@ export class DSLVirtualMachine {
           this.host.expression?.clearExpressions()
           break
         case 'change_cos':
-          this.host.events?.onCostumeWillSwap(cmd.modelFile)
-          this.host.costume?.changeCostume(cmd.modelFile)
+          // Heap + intimacy are deliberately NOT touched here — a costume swap only swaps
+          // the renderable; the VarFloats heap / intimacy persist across change_cos.
+          this.host.events?.onCostumeWillSwap(cmd.modelFile, cmd.index)
+          this.host.costume?.changeCostume(cmd.modelFile, cmd.index)
           break
         case 'motions':
           this.motionGroupEnabled.set(cmd.target.group, cmd.enabled)

@@ -40,8 +40,12 @@ export interface ICostumeSwapper {
   /**
    * Swap to another model manifest. The VarFloats heap and intimacy are preserved
    * by the runtime; the host only swaps the renderable.
+   *
+   * `modelFile` is a sibling manifest path (e.g. `model1.json`). `index` is an optional
+   * numeric costume slot for `change_cos 1` / `ChangeCos #2` multi-.moc3 chains; the host
+   * resolves whichever is present.
    */
-  changeCostume: (modelFile: string) => void
+  changeCostume: (modelFile: string, index?: number) => void
 }
 
 /** Persistent affinity store (e.g. backed by the dating-sim variables). */
@@ -70,7 +74,7 @@ export interface IEventEmitter {
   /** Show / relay a text line (subtitle / toast / caption). */
   showText: (payload: { text: string, duration?: number, rawEntry: DslEntry }) => void
   /** The active costume is about to change; render a crossfade if desired. */
-  onCostumeWillSwap: (modelFile: string) => void
+  onCostumeWillSwap: (modelFile: string, index?: number) => void
   /** Intimacy changed via a DSL `Bonus`. */
   onIntimacyChanged: (next: number, delta: number) => void
 }
