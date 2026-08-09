@@ -279,15 +279,19 @@ Rather than forcing users to micromanage manual `/togglebot` commands, the syste
 │    • User chats freely without typing /slash commands on every turn.        │
 │    • AIRI responds directly as a normal active channel participant.         │
 │                                                                             │
-│ 4. Automatic 15-Minute Inactivity Timeout:                                  │
+│ 4. Automatic 15-Minute Inactivity Timeout & Sleep Notification:             │
 │    • If no new messages are received in the channel for 15 minutes, the      │
-│      daemon drops the `wss://` Gateway connection and returns to DORMANT.  │
+│      daemon posts a friendly channel farewell message:                      │
+│      "🌛 Going to sleep now zzz... wake me up when anyone needs me!          │
+│       Just use /chat <message> to get me going again."                      │
+│    • Daemon drops the `wss://` Gateway connection and returns to DORMANT.  │
 │    • Zero compute quotas wasted during idle hours!                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 #### Protocol Details:
 - **Zero Micromanagement**: The user never needs to toggle or manage bot state. Typing `/chat` automatically initiates active listening.
+- **Sleep Channel Notification**: Posts a clear, friendly status update before disconnecting so channel members know why the bot went idle and how to re-wake it.
 - **Quota Efficiency**: Compute hours are consumed strictly while active dialogue is taking place, automatically sleeping after 15 minutes of inactivity to keep usage well within free/hobby tier limits.
 
 ---
