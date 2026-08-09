@@ -35,6 +35,7 @@ import { createNativeElevenLabsProvider } from '../elevenlabs/native'
 import { isBrowserAndMemoryEnough, logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from '../helpers'
 import { getMossAdapterInstance, preprocessMossReferenceAudio } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
+import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
 
 const baseUrlValidator = { value: validateProviderBaseUrl }
 
@@ -507,6 +508,198 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           }
           catch (e) {
             console.error('Failed to load custom voice profiles from IndexedDB:', e)
+            return builtin
+          }
+        },
+      },
+      validators: {
+        validateProviderConfig: async (_config: any) => {
+          return {
+            errors: [],
+            reason: '',
+            valid: true,
+          }
+        },
+      },
+    },
+    'pocket-tts-local': {
+      id: 'pocket-tts-local',
+      category: 'speech',
+      tasks: ['text-to-speech'],
+      nameKey: 'settings.pages.providers.provider.pocket-tts-local.title',
+      name: 'Pocket TTS (Kyutai Local)',
+      descriptionKey: 'settings.pages.providers.provider.pocket-tts-local.description',
+      description: 'Native AI - Low-latency CPU text-to-speech & voice cloning (0.1B Multilingual)',
+      icon: 'i-solar:speaker-minimalistic-bold-duotone',
+      requiresCredentials: false,
+      defaultOptions: () => ({
+        model: 'english_2026-04',
+        language: 'english',
+        voiceId: '',
+        cpuThreads: 4,
+      }),
+      createProvider: async (_config) => {
+        const adapter = await getPocketTtsAdapterInstance()
+
+        const provider: SpeechProvider = {
+          speech: () => {
+            return {
+              baseURL: 'http://pocket-tts-local/v1/',
+              model: 'english_2026-04',
+              fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+                try {
+                  if (!init?.body || typeof init.body !== 'string') {
+                    throw new Error('Invalid request body')
+                  }
+                  const body = JSON.parse(init.body)
+                  const text = body.input || ''
+                  const voiceId = body.voice || ''
+                  console.info('[PocketTTS Provider] Received HTTP speech request:', { textLength: text.length, voiceId, bodyLanguage: body.language })
+                  let promptAudioWaveform: Float32Array | undefined
+                  const promptAudioChannels = 1
+                  let promptAudioCodes: number[][] | undefined
+
+                  if (voiceId) {
+                    try {
+                      const { default: localforage } = await import('localforage')
+                      const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
+                      const blobStore = localforage.createInstance({ name: 'pocket-voice-profiles-blobs' })
+
+                      const profileMeta = await metaStore.getItem<any>(voiceId)
+                      if (profileMeta?.promptAudioCodes) {
+                        console.info('[PocketTTS Provider] Found cached promptAudioCodes for voiceId:', voiceId)
+                        promptAudioCodes = profileMeta.promptAudioCodes
+                      }
+                      else {
+                        const blob = await blobStore.getItem<Blob>(voiceId)
+                        if (blob) {
+                          console.info('[PocketTTS Provider] Preprocessing reference audio WAV blob for voiceId:', voiceId)
+                          const arrayBuf = await blob.arrayBuffer()
+                          promptAudioWaveform = await preprocessPocketReferenceAudio(arrayBuf, 16000, 1)
+                        }
+                      }
+                    }
+                    catch (err) {
+                      console.warn('[PocketTTS Provider] Error retrieving voice profile:', err)
+                    }
+                  }
+
+                  console.info('[PocketTTS Provider] Calling adapter.generate()...')
+                  const wavBuffer = await adapter.generate(
+                    text,
+                    voiceId || 'default',
+                    {
+                      language: body.language || 'english_2026-04',
+                      cpuThreads: 4,
+                      promptAudioWaveform,
+                      promptAudioChannels,
+                      promptAudioCodes,
+                    },
+                  )
+
+                  console.info('[PocketTTS Provider] Returning HTTP 200 Response with WAV buffer size:', wavBuffer.byteLength)
+                  return new Response(wavBuffer, {
+                    status: 200,
+                    headers: {
+                      'Content-Type': 'audio/wav',
+                    },
+                  })
+                }
+                catch (error) {
+                  console.error('[PocketTTS Provider] Pocket TTS generation failed:', error)
+                  throw error
+                }
+              },
+            }
+          },
+        }
+        return provider
+      },
+      capabilities: {
+        listModels: async (_config: Record<string, unknown>) => {
+          return [
+            {
+              id: 'english_2026-04',
+              name: 'Pocket TTS English (100M)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+            {
+              id: 'french_24l',
+              name: 'Pocket TTS French (24L)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+            {
+              id: 'spanish_24l',
+              name: 'Pocket TTS Spanish (24L)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+            {
+              id: 'german_24l',
+              name: 'Pocket TTS German (24L)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+            {
+              id: 'portuguese_24l',
+              name: 'Pocket TTS Portuguese (24L)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+            {
+              id: 'italian_24l',
+              name: 'Pocket TTS Italian (24L)',
+              provider: 'pocket-tts-local',
+              contextLength: 4096,
+            },
+          ]
+        },
+        loadModel: async (_config: Record<string, unknown>, hooks?: { onProgress?: (progress: ProgressInfo) => Promise<void> | void }) => {
+          const adapter = await getPocketTtsAdapterInstance()
+          await adapter.loadModel({
+            language: (_config.language as string) || 'english',
+            onProgress: (p: any) => {
+              if (hooks?.onProgress) {
+                hooks.onProgress({
+                  status: 'progress',
+                  file: p.file || 'pocket_tts.onnx',
+                  name: p.file || 'pocket_tts.onnx',
+                  progress: p.percent ?? 0,
+                  loaded: p.loaded ?? 0,
+                  total: p.total ?? 0,
+                })
+              }
+            },
+          })
+        },
+        listVoices: async (_config: Record<string, unknown>) => {
+          const builtin = [
+            { id: 'alba', name: 'Alba (EN Casual)', provider: 'pocket-tts-local', languages: [{ code: 'en-US', title: 'English' }] },
+            { id: 'estelle', name: 'Estelle (FR Female)', provider: 'pocket-tts-local', languages: [{ code: 'fr-FR', title: 'French' }] },
+            { id: 'lola', name: 'Lola (ES Female)', provider: 'pocket-tts-local', languages: [{ code: 'es-ES', title: 'Spanish' }] },
+            { id: 'juergen', name: 'Juergen (DE Male)', provider: 'pocket-tts-local', languages: [{ code: 'de-DE', title: 'German' }] },
+            { id: 'rafael', name: 'Rafael (PT Male)', provider: 'pocket-tts-local', languages: [{ code: 'pt-BR', title: 'Portuguese' }] },
+            { id: 'giovanni', name: 'Giovanni (IT Male)', provider: 'pocket-tts-local', languages: [{ code: 'it-IT', title: 'Italian' }] },
+          ]
+          try {
+            const { default: localforage } = await import('localforage')
+            const metaStore = localforage.createInstance({ name: 'pocket-voice-profiles-metadata' })
+            const customVoices: VoiceInfo[] = []
+            await metaStore.iterate((val: any) => {
+              if (val && val.id && val.name) {
+                customVoices.push({
+                  id: val.id,
+                  name: val.name,
+                  provider: 'pocket-tts-local',
+                  languages: [{ code: 'en-US', title: 'English' }],
+                })
+              }
+            })
+            return [...builtin, ...customVoices]
+          }
+          catch {
             return builtin
           }
         },

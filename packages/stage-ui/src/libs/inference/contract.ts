@@ -49,6 +49,8 @@ export interface LoadModelRequest {
   model?: string
   /** Optional Hugging Face Token for authenticating downloads. */
   hfToken?: string
+  /** Optional target language variant (e.g. 'english', 'french'). */
+  language?: string
 }
 
 /** Terminal payload of a successful load stream. */
@@ -345,3 +347,24 @@ export interface MossGenerateChunk {
 export const mossLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:moss:load')
 export const mossGenerateEvent = defineInvokeEventa<MossGenerateChunk, MossGenerateRequest>('inference:moss:generate')
 export const mossUnloadEvent = defineInvokeEventa<void, undefined>('inference:moss:unload')
+
+export interface PocketTtsGenerateRequest {
+  text: string
+  voiceId: string
+  language?: string
+  cpuThreads?: number
+  promptAudioWaveform?: Float32Array
+  promptAudioChannels?: number
+  promptAudioCodes?: number[][]
+}
+
+export interface PocketTtsGenerateChunk {
+  samples?: Float32Array
+  samplingRate?: number
+  kind?: 'prompt-audio-codes'
+  promptAudioCodes?: number[][]
+}
+
+export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:pocket-tts:load')
+export const pocketTtsGenerateEvent = defineInvokeEventa<PocketTtsGenerateChunk, PocketTtsGenerateRequest>('inference:pocket-tts:generate')
+export const pocketTtsUnloadEvent = defineInvokeEventa<void, undefined>('inference:pocket-tts:unload')

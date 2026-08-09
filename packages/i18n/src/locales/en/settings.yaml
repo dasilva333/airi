@@ -1272,6 +1272,9 @@ pages:
       moss-nano-local:
         title: Moss TTS (Nano)
         description: Local on-device text-to-speech engine using Moss TTS.
+      pocket-tts-local:
+        title: Pocket TTS (Kyutai Local)
+        description: Local low-latency multilingual CPU text-to-speech engine using Kyutai Pocket TTS.
     title: Providers
   connection:
     description: Configure server connection and external download tokens (e.g.

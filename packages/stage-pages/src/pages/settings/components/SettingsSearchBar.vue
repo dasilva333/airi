@@ -79,6 +79,7 @@ const staticIndex: SearchItem[] = [
   { id: 'prov-openai-speech', title: 'OpenAI Audio Speech', category: 'Providers (Speech)', description: 'OpenAI TTS API', to: '/settings/providers/speech/openai-audio-speech', icon: 'i-solar:key-minimalistic-bold-duotone' },
   { id: 'prov-chatterbox', title: 'Chatterbox TTS', category: 'Providers (Speech)', description: 'Chatterbox voice cloning TTS', to: '/settings/providers/speech/chatterbox', icon: 'i-solar:chat-square-bold-duotone' },
   { id: 'prov-moss-nano', title: 'MOSS-TTS-Nano Local', category: 'Providers (Speech)', description: 'Local MOSS nano TTS engine', to: '/settings/providers/speech/moss-nano-local', icon: 'i-solar:cpu-bold-duotone' },
+  { id: 'prov-pocket-tts', title: 'Pocket TTS Local', category: 'Providers (Speech)', description: 'Local Kyutai 0.1B multilingual CPU TTS engine', to: '/settings/providers/speech/pocket-tts-local', icon: 'i-solar:speaker-minimalistic-bold-duotone' },
   { id: 'prov-app-local-speech', title: 'App Local Audio Speech', category: 'Providers (Speech)', description: 'Built-in local audio speech', to: '/settings/providers/speech/app-local-audio-speech', icon: 'i-solar:speaker-minimalistic-bold-duotone' },
 
   // ── Providers: Transcription (STT) ──

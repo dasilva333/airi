@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@google/genai": "catalog:",
+    "puppeteer-core": "catalog:",
     "ws": "catalog:"
   },
   "devDependencies": {

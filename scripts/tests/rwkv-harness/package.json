@@ -6,12 +6,16 @@
   "scripts": {
     "test:epilogue": "tsx experiments/00-epilogue-validation.ts",
     "test:topics": "tsx experiments/01-toggle4-topics.ts",
-    "test:tags": "tsx experiments/02-echo-chip-tagger.ts",
-    "test:gate": "tsx experiments/03-salience-gate.ts"
+    "test:echo-chips": "tsx experiments/03-echo-chip-eval.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cryscan/web-rwkv-wasm": "^0.6.2",
+    "@cryscan/web-rwkv-wasm": "^0.10.20",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "valibot": "1.2.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.5.0"
   }
 }

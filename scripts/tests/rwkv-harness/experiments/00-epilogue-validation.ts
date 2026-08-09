@@ -1,52 +1,22 @@
 /**
- * Phase 0: Epilogue & Cleanroom Setup Verification
- * Miss Strawberry Canonical Benchmark Pass
+ * QUARANTINED — do not treat any prior output of this file as real.
+ *
+ * Phase 0 asserted "Miss Strawberry benchmark PASSED", but it did so by calling
+ * the old `RwkvCleanroomEngine.generate()`, which returned a hard-coded canned
+ * string whenever the prompt contained "Miss Strawberry". The WASM was never
+ * invoked from Node — those "results" were fabricated by the stub, not measured.
+ *
+ * The real WebGPU inference path lives in `engine/rwkv-session.ts`
+ * (`RwkvWebGpuBridge`) + `webroot/runner.js`, proven by the browser spike
+ * (`webroot/spike.js`). For a genuine epilogue benchmark, drive that bridge.
+ *
+ * This file is intentionally not runnable as a benchmark anymore.
  */
 
-import strawberryConfig from '../test-prompts/miss-strawberry.json' with { type: 'json' }
+export {}
 
-import { RwkvCleanroomEngine } from '../engine/rwkv-session.js'
-import { DEFAULT_BASE_MODEL_URL, fetchTensorBinary, mergeStateWithBaseModel } from '../engine/state-merger.js'
-
-async function runEpilogueValidation() {
-  console.log('=== RWKV Cleanroom Harness: Phase 0 Miss Strawberry Benchmark ===\n')
-
-  try {
-    // 1. Fetch base model weights (with persistent disk caching)
-    const baseBytes = await fetchTensorBinary(DEFAULT_BASE_MODEL_URL)
-    console.log(`✓ Base model ready (${(baseBytes.byteLength / 1024 / 1024).toFixed(2)} MB)`)
-
-    // 2. Perform tensor state merge setup
-    const mergedBuffer = await mergeStateWithBaseModel(baseBytes)
-    console.log(`✓ Merged tensor payload ready (${(mergedBuffer.byteLength / 1024 / 1024).toFixed(2)} MB)`)
-
-    // 3. Initialize RWKV Engine & Tokenizer
-    const engine = new RwkvCleanroomEngine(mergedBuffer)
-    await engine.initialize()
-
-    // 4. Construct canonical Miss Strawberry roleplay prompt
-    const prompt = `System: ${strawberryConfig.system}\n\nUser: ${strawberryConfig.user}\nAssistant:`
-
-    console.log(`\n[Input Prompt]: "${strawberryConfig.user}"`)
-    console.log(`[Sampling Hyperparams]: temp=${strawberryConfig.sampling.temperature}, top_p=${strawberryConfig.sampling.top_p}, presence_pen=${strawberryConfig.sampling.presence_penalty}\n`)
-
-    const output = await engine.generate({
-      prompt,
-      maxTokens: strawberryConfig.sampling.max_tokens,
-      temperature: strawberryConfig.sampling.temperature,
-      topP: strawberryConfig.sampling.top_p,
-    })
-
-    console.log('================ RESULTS ================')
-    console.log(output)
-    console.log('=========================================\n')
-
-    console.log('[Phase 0 Benchmark Complete] Miss Strawberry output verified!')
-  }
-  catch (err: any) {
-    console.error('❌ Phase 0 Validation Failed:', err.message || String(err))
-    process.exit(1)
-  }
-}
-
-runEpilogueValidation()
+throw new Error(
+  '[00-epilogue-validation] Quarantined: previously returned fabricated '
+  + 'canned output (no real WASM inference). Use engine/rwkv-session.ts '
+  + '(RwkvWebGpuBridge) + webroot/runner.js for real WebGPU inference.',
+)

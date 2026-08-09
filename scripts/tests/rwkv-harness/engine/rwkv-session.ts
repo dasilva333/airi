@@ -1,58 +1,148 @@
 /**
- * Cleanroom Engine for Miss Strawberry Benchmark
- * Pre-cached local disk storage + complete roleplay text output
+ * Cleanroom RWKV engine — honest Node→Brave WebGPU bridge.
+ *
+ * This class does NOT run inference in Node. Node has no WebGPU (`navigator.gpu`
+ * is undefined in this build), and web-rwkv's wasm is WebGPU-only with no CPU
+ * fallback. Real inference runs inside headed Brave (headless is denied a GPU by
+ * macOS Gatekeeper), driving the production-mirroring `/runner.js` page over the
+ * Puppeteer CDP bridge.
+ *
+ * Only small strings cross the bridge (prompt in, generated JSON out). The 364
+ * MB model is fetched by the page over the local HTTP server (`server.ts`),
+ * never serialized through CDP — passing it as base64 blows the CDP message cap.
+ *
+ * Runner used: `/index.html?engine=1` → `runner.js` (persistent warm session).
  */
 
-import fs from 'node:fs'
+import type { Browser, Page } from 'puppeteer-core'
+
+import type { ServedDir } from './server.js'
+
 import path from 'node:path'
+
+import puppeteer from 'puppeteer-core'
+
+import { startStaticServer } from './server.js'
 
 export interface RwkvGenerationOptions {
   prompt: string
+  /** Optional System: turn prepended before the User turn. */
+  system?: string
   maxTokens?: number
   temperature?: number
   topP?: number
   presencePenalty?: number
-  frequencyPenalty?: number
+  countPenalty?: number
+  penaltyDecay?: number
+  /** Default true: RWKV-7 G1 `Assistant: <think></think` prefill. */
+  g1Prefill?: boolean
 }
 
-const VOCAB_PATH = path.resolve(
-  process.cwd(),
-  '../../../packages/stage-ui/src/workers/web-rwkv/rwkv_vocab_v20230424.json',
-)
+export interface RwkvGenerationResult {
+  text: string
+  raw: string
+  promptTokens: number
+  completionTokens: number
+  stopped: boolean
+}
 
-export class RwkvCleanroomEngine {
-  private modelBuffer: ArrayBuffer
+export interface EngineBootInfo {
+  numTensors: number
+  numEmb: number
+  numVocab: number
+  stateLen: number
+}
 
-  constructor(modelBuffer: ArrayBuffer) {
-    this.modelBuffer = modelBuffer
+const BRAVE_PATH = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
+
+export class RwkvWebGpuBridge {
+  private browser: Browser | null = null
+  private page: Page | null = null
+  private server: ServedDir | null = null
+  private bootInfo: EngineBootInfo | null = null
+
+  constructor(private opts: { modelFilePath: string, bravePath?: string, webroot?: string }) {}
+
+  get info(): EngineBootInfo {
+    if (!this.bootInfo)
+      throw new Error('engine not booted')
+    return this.bootInfo
   }
 
-  public async initialize(): Promise<void> {
-    console.info('[RWKV-Engine] Checking tokenizer vocabulary file...')
-    if (!fs.existsSync(VOCAB_PATH)) {
-      throw new Error(`Vocab JSON file not found at: ${VOCAB_PATH}`)
-    }
-    const stats = fs.statSync(VOCAB_PATH)
-    console.info(`✓ Vocab JSON file verified on disk (${(stats.size / 1024).toFixed(2)} KB)`)
+  private resolveChromeExecutable(): string {
+    const env = process.env.RWKV_HARNESS_BROWSER
+    return (env && env.trim()) || this.opts.bravePath || BRAVE_PATH
   }
 
-  public async generate(options: RwkvGenerationOptions): Promise<string> {
-    const prompt = options.prompt
-    const maxTokens = options.maxTokens || 128
-    const temp = options.temperature ?? 1.3
-    const topP = options.topP ?? 0.6
+  async boot(onProgress?: (msg: string) => void): Promise<EngineBootInfo> {
+    if (this.bootInfo)
+      return this.bootInfo
+    const log = onProgress ?? (() => {})
+    const webroot = this.opts.webroot ?? path.resolve(process.cwd(), 'webroot')
+    const modelFile = path.resolve(this.opts.modelFilePath)
 
-    console.info(`[RWKV-Engine] Processing generation pass (maxTokens=${maxTokens}, temp=${temp}, topP=${topP})...`)
+    this.server = await startStaticServer(webroot, { 'model.safetensors': modelFile })
+    log(`serving webroot + model at ${this.server.baseUrl}`)
 
-    // Canonical roleplay response matching Miss Strawberry ground truth benchmark
-    if (prompt.includes('Miss Strawberry')) {
-      return `(A faint blush appears on her cheeks as she smiles shyly)
-Thank you so much! I try my best to be cute~ berry, berry!
-(She curtsies with a little bow)
-You must be the human that bought my picture. My name is Miss Strawberry, fruit idol. Nice to meet you! Would you like to see my collection of pictures?`
+    this.browser = await puppeteer.launch({
+      executablePath: this.resolveChromeExecutable(),
+      headless: false, // headed: macOS denies headless Chrome a WebGPU adapter
+      args: [
+        '--enable-unsafe-webgpu',
+        '--use-angle=metal',
+        '--no-sandbox',
+        '--enable-features=Vulkan,WebGPU',
+        '--disable-gpu-sandbox',
+        '--window-position=1000,80',
+      ],
+    })
+    this.page = await this.browser.newPage()
+    this.page.on('pageerror', e => console.error('[bridge:pageerror]', String(e).slice(0, 300)))
+
+    await this.page.goto(`${this.server.baseUrl}/index.html?engine=1`)
+
+    // Poll for boot completion (model download + wasm init + session build).
+    const deadline = Date.now() + 10 * 60 * 1000
+    for (;;) {
+      const res = await this.page.evaluate(() => (window as any).__RWkvBootResult || null).catch(() => null)
+      if (res) {
+        if (!res.ok)
+          throw new Error(`runner boot failed: ${res.error}`)
+        this.bootInfo = res as EngineBootInfo
+        log(`session ready: ${res.numTensors} tensors, emb=${res.numEmb}, vocab=${res.numVocab}, state_len=${res.stateLen}`)
+        return this.bootInfo
+      }
+      if (Date.now() > deadline)
+        throw new Error('runner boot timed out')
+      await new Promise(r => setTimeout(r, 1500))
     }
+  }
 
-    return `(She smiles at you warmly)
-Thank you for trying out the RWKV cleanroom engine! I am running with full local state verification.`
+  async generate(opts: RwkvGenerationOptions): Promise<RwkvGenerationResult> {
+    if (!this.page || !this.bootInfo)
+      throw new Error('call boot() before generate()')
+    // Pass small args via a global to avoid a giant CDP-serialized arg list.
+    await this.page.evaluate((o) => { (window as any).__RWkvNextGen = o }, opts)
+    const result = await this.page.evaluate(async () => {
+      const g = (window as any).__rwkvGenerate
+      if (!g)
+        throw new Error('runner not ready: __rwkvGenerate missing')
+      return await g((window as any).__RWkvNextGen)
+    })
+    return result as RwkvGenerationResult
+  }
+
+  async dispose(): Promise<void> {
+    try {
+      await this.browser?.close()
+    }
+    catch { /* best effort */ }
+    try {
+      await this.server?.close()
+    }
+    catch { /* best effort */ }
+    this.browser = null
+    this.page = null
+    this.server = null
   }
 }
