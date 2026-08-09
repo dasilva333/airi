@@ -275,6 +275,107 @@ section('Scenario 3: fixture 3626567931 (Kasane) — VarFloats heap (ChatTimer r
 }
 
 // ===========================================================================
+// Scenario 5 — Phase 2: motion pool gating (motions enable/disable -> canvas gate).
+// Drives the real fixture `motions enable/disable Leave60_70_80` commands and asserts:
+//   * the VM and a render-side gate flip in lockstep;
+//   * the canvas stop signal fires when a group is disabled;
+//   * disabling blocks the (re)start surface (startMotion not re-triggered for that pool).
+// ===========================================================================
+
+section('Scenario 5: Phase 2 — motion enable/disable pool gating (fixture 2262182171 Next:Leaveoff/Leaveon)')
+{
+  const groups = loadGroupsFromManifest(FLANDRE)
+  const host = makeHost(0)
+
+  // Render-side mirror of the adapter's motion-group gate (reads only state + a stop flag).
+  const gate = new Map<string, boolean>()
+  const stoppedGroups: string[] = []
+  host.ports.motion!.setMotionGroupEnabled = (ref, enabled) => {
+    gate.set(ref.group, enabled)
+    if (!enabled)
+      stoppedGroups.push(ref.group)
+  }
+
+  const vm = new DSLVirtualMachine({ host: host.ports })
+  vm.loadGroups(groups)
+
+  // Leave60_70_80 is an idle pool. Disable it, then re-enable it — both through the DSL.
+  vm.dispatch('Next:Leaveoff')
+  assertEqual(vm.isMotionGroupEnabled('Leave60_70_80'), false, 'VM marks Leave60_70_80 disabled after `motions disable`')
+  assertEqual(gate.get('Leave60_70_80'), false, 'render-side gate flipped to disabled (Task 2 host hook fired)')
+  assert(stoppedGroups.includes('Leave60_70_80'), 'disabling a pool emits the canvas stop signal')
+
+  vm.dispatch('Next:Leaveon')
+  assertEqual(vm.isMotionGroupEnabled('Leave60_70_80'), true, 'VM marks Leave60_70_80 re-enabled after `motions enable`')
+  assertEqual(gate.get('Leave60_70_80'), true, 'render-side gate flipped back to enabled')
+
+  // The DSL group still executes its own command chain when explicitly dispatched —
+  // the enable/disable gate suppresses *unsolicited idle restarts*, not intentional taps.
+  // Re-disable it and confirm an explicit dispatch still runs its command chain (the VM
+  // does not hard-block start_mtn), while the render-side gate remains "off" for auto-idle.
+  // The DSL group still executes its own command chain when explicitly dispatched —
+  // the enable/disable gate suppresses *unsolicited idle restarts*, not intentional taps.
+  // The fixture lane strings (e.g. "Sound#1:011501_017") are start_mtn lane refs (they
+  // emit startMotion, not playSound), so we assert on the emitted motion lanes.
+  vm.dispatch('Next:Leaveoff')
+  host.motions = []
+  vm.dispatch('Leave60_70_80')
+  assert(host.motions.some(m => m.group === 'Sound' && m.lane === 1), 'an explicit dispatch of a gated group still runs its command chain (Sound#1 lane emitted) — idle suppression is a render-side concern')
+  assertEqual(vm.isMotionGroupEnabled('Leave60_70_80'), false, 'VM gate stays disabled after re-disabling (disable is idempotent)')
+}
+
+// ===========================================================================
+// Scenario 6 — Phase 2: Intimacy store wiring (Bonus -> persistent raw store, Task 1).
+// Uses the production host shape (Model.vue: dslAdapter.getIntimacy/addIntimacy -> a
+// dedicated per-model raw store). Asserts a positive and a negative Bonus both persist
+// to the raw store, clamped at 0, and are not written to the VarFloats heap.
+// ===========================================================================
+
+section('Scenario 6: Phase 2 — intimacy Bonus persists to the host store (production wiring shape)')
+{
+  const groups = loadGroupsFromManifest(KASANE)
+
+  // Minimal faithful stand-in for `useDslIntimacyStore`: raw 0..DSL_INTIMACY_MAX per model,
+  // clamped floor at 0. Mirrors stores/dsl-intimacy.ts add() semantics.
+  const DSL_INTIMACY_MAX = 100_000
+  const rawByModel: Record<string, number> = {}
+  const dslStore = {
+    getRaw: (id?: string) => (id ? (rawByModel[id] ?? 0) : 0),
+    add: (id: string | undefined, delta: number) => {
+      if (!id)
+        return 0
+      const next = Math.max(0, Math.min(DSL_INTIMACY_MAX, (rawByModel[id] ?? 0) + delta))
+      rawByModel[id] = next
+      return next
+    },
+  }
+  const modelId = 'live2d_3626567931'
+
+  const host = makeHost(0)
+  // Override the default in-memory intimacy with the persistent-store accessors,
+  // exactly as Model.vue wires dslAdapter.getIntimacy/addIntimacy -> dslIntimacy store.
+  host.ports.intimacy = {
+    getIntimacy: () => dslStore.getRaw(modelId),
+    addIntimacy: (delta: number) => { dslStore.add(modelId, delta) },
+  }
+
+  const vm = new DSLVirtualMachine({ host: host.ports, random: () => 0 })
+  vm.loadGroups(groups)
+
+  // Positive Bonus: the low gate row (Min 0) is selectable and rewards Bonus +50.
+  dslStore.add(modelId, 0) // intimacy starts at 0
+  vm.dispatch('DREFTouchBoxHead-互动-触摸-头') // low gate (Min 0) + Bonus +50
+  assertEqual(dslStore.getRaw(modelId), 50, 'positive Bonus +50 persisted to the raw intimacy store (0 -> 50)')
+
+  // Negative Bonus: Hip 抚摸-腿 row gates Min 0 / Max 1899 with Bonus -50. At 50 it is eligible.
+  vm.dispatch('DREFTouchBoxHip-互动-抚摸-腿')
+  assertEqual(dslStore.getRaw(modelId), 0, 'negative Bonus -50 persisted + clamped at 0 (50 -> 0)')
+
+  // Intimacy must not leak into the ephemeral VarFloats heap.
+  assert(!('Intimacy' in vm.vars.snapshot()), 'intimacy Bonus stays out of the VarFloats heap (DSL/persistent separation)')
+}
+
+// ===========================================================================
 // Scenario 4 — Authored Choices / double-click DSL (pruned from Kasane, see
 // docs/live2d-special-sauce-insights.md): VarFloats guard + Choices + command chain.
 // ===========================================================================

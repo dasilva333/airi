@@ -141,9 +141,26 @@ let dslVM: DSLVirtualMachine | null = null
 let dslAdapter: Live2DRuntimeAdapter | null = null
 
 function disposeDslRuntime() {
+  dslAdapter?.setOnMotionGroupEnabledChange(null)
   dslAdapter?.dispose()
   dslAdapter = null
   dslVM = null
+}
+
+/**
+ * Whether a DSL `motions disable <group>` gate currently blocks this motion. DSL pool names
+ * don't always equal the physical motion group (e.g. `Leave60_70_80` drives the `Idle` pool),
+ * so we honor both the exact group and the model's idle-group alias.
+ */
+function dslMotionGroupBlocked(group: string, index: number): boolean {
+  if (!dslAdapter)
+    return false
+  if (dslAdapter.isMotionGroupEnabled(group) === false)
+    return true
+  const internalModel = model.value?.internalModel as any
+  const idlePhysical = internalModel?.motionManager?.groups?.idle as string | undefined
+  const isIdleLike = (!!idlePhysical && group === idlePhysical) || isConfiguredIdleMotion(group, index)
+  return !!idlePhysical && isIdleLike && dslAdapter.isMotionGroupEnabled(idlePhysical) === false
 }
 
 const offset = computed(() => parsePropsOffset())
@@ -780,17 +797,17 @@ async function loadModel() {
 
     if (live2dIdleAnimationEnabled.value) {
       if (cycleMotions.length > 0) {
-        setTimeout(() => {
-          console.info('[Live2D Cycle] Playing initial motion from card cycle subset:', cycleMotions[0].group, cycleMotions[0].index)
-          currentMotion.value = {
-            group: cycleMotions[0].group,
-            index: cycleMotions[0].index,
-          }
-        }, 300)
+        const first = cycleMotions[0]
+        if (!dslMotionGroupBlocked(first.group, first.index)) {
+          setTimeout(() => {
+            console.info('[Live2D Cycle] Playing initial motion from card cycle subset:', first.group, first.index)
+            currentMotion.value = { group: first.group, index: first.index }
+          }, 300)
+        }
       }
       else {
         const selectedMotion = getSelectedRuntimeMotion()
-        if (selectedMotion) {
+        if (selectedMotion && !dslMotionGroupBlocked(selectedMotion.group, selectedMotion.index)) {
           setTimeout(() => {
             console.info('Playing selected runtime motion:', selectedMotion.group, selectedMotion.index)
             currentMotion.value = {
@@ -1006,8 +1023,10 @@ async function loadModel() {
         }
       }
 
-      // Parse current card cycle subset
+      // Parse current card cycle subset, excluding any pool the DSL has disabled
+      // (`motions disable <group>`) so a gated idle motion is never auto-restarted.
       const cycleMotions = parseCycleMotions(props.idleAnimations)
+        .filter(m => !dslMotionGroupBlocked(m.group, m.index))
 
       if (cycleMotions.length > 0) {
         let nextMotion = cycleMotions[0]
@@ -1034,7 +1053,7 @@ async function loadModel() {
 
       const selectedMotion = getSelectedRuntimeMotion()
 
-      if (selectedMotion) {
+      if (selectedMotion && !dslMotionGroupBlocked(selectedMotion.group, selectedMotion.index)) {
         // Restart the selected runtime motion immediately for seamless looping
         console.info('Motion finished, restarting runtime motion:', selectedMotion.group, selectedMotion.index)
         // Use requestAnimationFrame to restart on the next frame for smooth transition
@@ -1318,6 +1337,21 @@ async function loadModel() {
       // Bridge resolution: when the dating-sim overlay replies with a chosen option,
       // resume the VM. Registered here so the adapter never needs a VM reference.
       dslAdapter.setSelectChoiceHandler(idx => dslVM?.selectChoice(idx))
+      // When a DSL `motions disable <group>` fires, ensure a currently-looping motion in
+      // that group stops even if the pool was mid-idle. The adapter already stops the exact
+      // active group; this guard clears a lingering currentMotion so the restart path below
+      // won't immediately resurrect a disabled idle motion.
+      dslAdapter.setOnMotionGroupEnabledChange((ref, enabled) => {
+        if (enabled)
+          return
+        const cur = currentMotion.value
+        if (cur && !dslAdapter!.isMotionGroupEnabled(cur.group) && cur.group === ref.group) {
+          try {
+            model.value?.internalModel?.motionManager?.stopAllMotions()
+          }
+          catch { /* renderer torn down — nothing to stop */ }
+        }
+      })
     }
     catch (dslError) {
       console.warn('[Live2D DSL] Failed to bootstrap runtime (non-fatal):', dslError)

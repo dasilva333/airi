@@ -112,6 +112,14 @@ export class Live2DRuntimeAdapter {
   private readonly bridge = useBroadcastChannel<DslBridgeEvent, DslBridgeEvent>({ name: DSL_BRIDGE_CHANNEL })
   private readonly stopBridgeWatch: () => void
 
+  /**
+   * DSL `motions enable/disable <group>` gate. Pools are enabled unless explicitly disabled;
+   * the canvas consults this before auto-(re)starting an idle motion in that group. The VM
+   * mirrors this state too (it never blocks start itself); this map is the render-side truth.
+   */
+  private readonly motionGroupEnabled = new Map<string, boolean>()
+  private onMotionGroupEnabledChange: ((ref: MotionRef, enabled: boolean) => void) | null = null
+
   constructor(config: Live2DRuntimeAdapterConfig) {
     this.cfg = config
     this.model = config.model
@@ -141,11 +149,42 @@ export class Live2DRuntimeAdapter {
     startMotion: (ref: MotionRef) => this.startMotion(ref),
     stopAllMotions: () => this.stopAllMotions(),
     setMotionGroupEnabled: (ref: MotionRef, enabled: boolean) => {
-      void ref
-      void enabled
-      // Motion-pool gating is applied by the VM; the render host's `live2dIdleAnimationEnabled`
-      // prop already gates idle playback. No IT motion-manager switch exists to toggle here.
+      this.setMotionGroupEnabled(ref, enabled)
     },
+  }
+
+  /**
+   * Apply a DSL `motions enable/disable <group>` signal. Marks the pool gate and, when
+   * disabling, immediately stops that group's currently-playing motion so the canvas
+   * reflects the toggle (a disabled idle pool must not keep animating).
+   */
+  private setMotionGroupEnabled(ref: MotionRef, enabled: boolean): void {
+    this.motionGroupEnabled.set(ref.group, enabled)
+
+    if (!enabled) {
+      const motionManager = this.internalModel?.motionManager
+      const currentGroup = (motionManager as any)?.state?.currentGroup as string | undefined
+      // Stop only when the *active* motion belongs to the group being disabled — we must not
+      // clobber an in-flight reaction just because an idle pool next to it was turned off.
+      if (motionManager && currentGroup === ref.group) {
+        try {
+          motionManager.stopAllMotions()
+        }
+        catch { /* renderer not ready yet — gate flag is still recorded */ }
+      }
+    }
+
+    this.onMotionGroupEnabledChange?.(ref, enabled)
+  }
+
+  /** Whether the named motion pool is enabled (default true until a DSL disable). */
+  isMotionGroupEnabled(group: string): boolean {
+    return this.motionGroupEnabled.get(group) ?? true
+  }
+
+  /** Model.vue registers to react to pool toggles (e.g. to skip a disabled idle on restart). */
+  setOnMotionGroupEnabledChange(handler: ((ref: MotionRef, enabled: boolean) => void) | null): void {
+    this.onMotionGroupEnabledChange = handler
   }
 
   private startMotion(ref: MotionRef): void {

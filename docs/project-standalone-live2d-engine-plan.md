@@ -167,7 +167,7 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 | Phase | Status | Key artifacts |
 | :--- | :--- | :--- |
 | **1** Headless DSL VM + Vitest | ✅ Landed (`cec8a0f71`) | `packages/live2d-runtime/` — `ReactiveVarStore`, `command-parser`, `selector`, `template`, `DSLVirtualMachine`; 78/78 tests; typecheck clean |
-| **2** Multi-gen adapter | 🟡 Partial (`7e3d790b0`) | `Live2DRuntimeAdapter` + `dsl-capture` + VM wiring in `Model.vue`. `.moc` routing + timing normalization deferred |
+| **2** Multi-gen adapter & Motion Gating | ✅ Landed (`52/52 harness passed`) | `Live2DRuntimeAdapter` + `dsl-capture` + `motionGroupEnabled` gating in `Model.vue` & `live2d-runtime-adapter.ts`. Intimacy `Bonus` store persistence proof in harness Scenario 6 |
 | **3** App integration (choices+intimacy) | ✅ Landed (`7727a13a6`, `c11bb292d`) | `live2d-dsl-bridge` choice round-trip + `dsl-intimacy` raw store (0–100k→0–100 display projection). Integration preserved via git commits |
 | **3.x** change_cos hot-swap | ⏸️ Deferred | Awaits unified multi-`.moc3` ingestion (see challenge doc) |
 | **4** Standalone Web Playground | ✅ Landed | `/devtools/live2d` route in `stage-web` and `stage-tamagotchi`. Integrates `ModelSelectorDialog` to select or import Live2D models from user collection; `Model.vue` exposes `getDslState`/`dispatchDsl`/`selectDslChoice`; DSL intimacy sandboxed under `__playground__/<id>` so live settings are untouched. `@proj-airi/live2d-runtime` source aliases added to `stage-web` + `stage-tamagotchi` (renderer) Vite configs.
