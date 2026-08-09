@@ -116,6 +116,7 @@ export const POCKET_PREDEFINED_VOICES_BY_LANG: Record<string, string[]> = {
     'jane',
     'javert',
     'jean',
+    'lola',
     'marius',
     'mary',
     'michael',

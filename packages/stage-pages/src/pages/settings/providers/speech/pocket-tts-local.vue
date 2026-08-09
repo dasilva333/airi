@@ -64,6 +64,24 @@ const providerModels = computed(() => {
 
 const isActiveProvider = computed(() => speechStore.activeSpeechProvider === providerId)
 
+const MODEL_TO_LANG: Record<string, string> = {
+  'english_2026-04': 'english',
+  'french_24l': 'french',
+  'spanish_24l': 'spanish',
+  'german_24l': 'german',
+  'portuguese_24l': 'portuguese',
+  'italian_24l': 'italian',
+}
+
+const LANG_TO_MODEL: Record<string, string> = {
+  english: 'english_2026-04',
+  french: 'french_24l',
+  spanish: 'spanish_24l',
+  german: 'german_24l',
+  portuguese: 'portuguese_24l',
+  italian: 'italian_24l',
+}
+
 const model = computed({
   get(): string {
     return (providerConfig.value?.model as string) || defaultModel
@@ -72,6 +90,9 @@ const model = computed({
     const config = providersStore.getProviderConfig(providerId)
     if (config) {
       config.model = val
+      if (MODEL_TO_LANG[val]) {
+        config.language = MODEL_TO_LANG[val]
+      }
     }
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
@@ -112,6 +133,9 @@ const currentLanguage = computed({
     const config = providersStore.getProviderConfig(providerId)
     if (config) {
       config.language = val
+      if (LANG_TO_MODEL[val]) {
+        config.model = LANG_TO_MODEL[val]
+      }
     }
   },
 })
