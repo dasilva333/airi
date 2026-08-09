@@ -198,6 +198,61 @@ To validate the cascaded RNN state-accumulation logic before deploying the full 
 
 ---
 
+## 10. Vision Settings, Ticker Controls & Upstream Orchestrator Alignment
+
+AIRI aligns its background vision pipeline directly with upstream's `use-vision-workloads.ts`, `vision/orchestrator.ts`, and `devtools/vision.vue` contracts while introducing our **0-Cost Local Cascading Guard**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            VISION & TICKER DASHBOARD                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ VISION MODEL: google/gemma-4-e2b (Local WebGPU / Cloud Vision)               │
+├──────────────────────────────────────────────────────┬──────────────────────┤
+│ 🖥️ Displays (2)  │  📱 Applications (6)  │ [Refetch]  │ VISION TELEMETRY     │
+├──────────────────┴──────────────────────────────────┤ Inference Latency:0ms│
+│ [Thumbnail: Screen 1]    [Thumbnail: Screen 2]      │ Context Updates:0/m  │
+│  (Primary Display)        (Secondary Monitor)       │ Capture Rate: 0/min  │
+├──────────────────────────────────────────────────────┼──────────────────────┤
+│ TICKER CONTROLS                                      │ SNAPSHOT & PREVIEW   │
+│ Capture Interval: [─────■──────────────] 2.00s       │ 0 CAPTURES, 0 UPDATES│
+│ Input Downscale:  [───────────────■────] 100% (720p) │ [Last Frame Preview] │
+│ Vision Workload:  [ Attention Ecology Guard (0-Cost) ▾]                      │
+│ [ ▶ Start Ticker (Source: Screen 1) ]                 │ LAST INTERPRETATION  │
+│ Publish to character context: (ON / OFF)             │ "IDLE / NO OUTPUT"   │
+└──────────────────────────────────────────────────────┴──────────────────────┘
+```
+
+### Upstream Code Contract Mapping & Cherry-Pick Strategy:
+
+1. **Workload Extension (`use-vision-workloads.ts`)**:
+   - Upstream defines 4 continuous VLM workloads:
+     - `screen:interpret`: Summarize what is on screen and relevant UI state.
+     - `screen:understand`: Explain screen intent and key tasks.
+     - `screen:ocr`: Extract readable text from the screen.
+     - `screen:ui-automation`: Identify actionable UI buttons/inputs.
+   - **AIRI Extension**: We register `screen:attention-ecology-guard` as a 5th option. Instead of blindly sending every frame to a cloud/WebGPU VLM every 2 seconds, it executes Stage 0 (aHash) $\rightarrow$ Stage 1 (CLIP cosine novelty) $\rightarrow$ Stage 2 (tesseract.js WASM OCR error gate) to filter 95%+ of static/idle frames at **$0\text{-cost}$**.
+
+2. **Orchestrator Store (`packages/stage-ui/src/stores/modules/vision/orchestrator.ts`)**:
+   - Manages `useVisionOrchestratorStore()`:
+     - `processCapture(payload: VisionCapturePayload)`: Routes captured frame base64 buffer.
+     - `publishContext`: When enabled, issues `modsServerChannelStore.sendContextUpdate()` with `ContextUpdateStrategy.ReplaceSelf` and `contextId = vision:${workloadId}:${sourceId}`.
+     - Tracks telemetry state: `lastResultText`, `lastResultAt`, `lastError`, and `lastWorkloadId`.
+
+3. **Source Selection & Display Grid (`apps/stage-tamagotchi/src/renderer/pages/devtools/vision.vue`)**:
+   - **Source Picker**: Tabs between `Displays` (full monitor captures via Electron `desktopCapturer`) and `Applications` (individual open window handles). Includes a `Refetch` button.
+   - **Ticker Controls**:
+     - `FieldRange`: `captureIntervalMs` (500ms to 15,000ms, default 2,000ms).
+     - `FieldRange`: `captureDownscalePercent` (25% to 100%, 1280×720 max input bounds).
+     - `FieldCombobox`: `selectedWorkload` (`screen:attention-ecology-guard`).
+     - `FieldCheckbox`: `sendContextUpdates` ("Publish to character context updates").
+   - **Processing Meter & Live Inspection**:
+     - `ProcessingMeter`: Displays `Inference latency` (ms), `Context updates` (/min), and `Capture rate` (/min).
+     - `Snapshot`: Live data URL image preview + frame counter.
+     - `Last Interpretation`: Real-time text output / promoted OCR error payload.
+
+
+---
+
 ## 10. Soul-Controlled Animations & Interaction Feedback
 
 To make the character's physical presence on screen reflect their inner state, we link the subconscious outputs directly to the 3D model's idle animation cycle.

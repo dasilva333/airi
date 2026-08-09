@@ -24,6 +24,7 @@ import { computeImageDelta } from './engine/stage0-phash.js'
 import { calculateCosineDistance, centroidOf, disposeVisionEncoder, getVisionEmbedding } from './engine/stage1-vision-embed.js'
 import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
 import { classifyZeroShot, computeRedAlertRatio, disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
+import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), 'test-screenshots')
 
@@ -172,8 +173,16 @@ async function runAttentionEcologyEval() {
     const evaluation = evaluateSalience(entry.file, novelty, ocr, zeroShot, redAlertRatio, GATE_THRESHOLDS)
 
     if (evaluation.decision === 'PROMOTE' && evaluation.packet) {
+      // Stage 3: WebGPU vision semantic forwarder synthesizes the [Visual
+      // Event] summary block attached to the promotion packet (VLM caption is
+      // best-effort; deterministic fields always present).
+      const forwarder = await runForwarder(framePath, zeroShot, ocr, msg => console.log(`  Stage3 ${msg}`))
+      evaluation.packet.summary = forwarder.summary
       packets.push(evaluation.packet)
       diary.push(`[${entry.file}] PROMOTED (ocrHits=${ocr.errorPatternHits}, novelty=${novelty.toFixed(4)}) -> cloud LLM reaction requested`)
+      console.log('  Stage3 [Visual Event] summary:')
+      forwarder.summary.split('\n').forEach(line => console.log(`    ${line}`))
+      console.log(`  Stage3 VLM status: ${forwarder.vlmStatus}${forwarder.note ? ` (${forwarder.note})` : ''}`)
     }
     else {
       acceptedEmbeddings.push(embedding)
@@ -252,6 +261,13 @@ async function runAttentionEcologyEval() {
     rec['02-static-editor-cursor.png']?.embedded === false && embeddedFrameCount === MANIFEST.length - 1,
     `embedded ${embeddedFrameCount}/${MANIFEST.length} frames`,
   )
+  const packet0 = packets[0] as { summary?: string } | undefined
+  const summary = packet0?.summary ?? ''
+  assert(
+    'A8: promoted frame synthesizes structured [Visual Event] summary',
+    summary.includes('[Visual Event]') && summary.includes('Active Window:') && summary.includes('OCR Text Snippet:'),
+    summary.split('\n').map(l => `summary: ${l}`).join(' | '),
+  )
 
   for (const a of assertions) {
     const verdict = a.severity === 'limitation' ? 'KNOWN-LIMIT' : a.pass ? 'PASS' : 'FAIL'
@@ -309,6 +325,7 @@ async function runAttentionEcologyEval() {
   await disposeVisionEncoder()
   await disposeTextEncoder()
   await disposeOcrEngine()
+  await disposeVlmForwarder()
   process.exitCode = failed.length === 0 ? 0 : 1
 }
 

@@ -190,6 +190,33 @@ export function countErrorPatterns(text: string): string[] {
   return matched
 }
 
+/**
+ * Extracts a compact, presentation-clean error snippet for the [Visual Event]
+ * summary block (proposal §3 "OCR Text Snippet"). Returns the first matched
+ * line that is NOT the generic "command not found" case when richer evidence
+ * exists (e.g. 04's `df: invalid option -- y` rather than an earlier typo
+ * line), collapsing whitespace and normalizing unicode dashes to `--`.
+ */
+export function extractErrorSnippet(text: string, matchedPatterns: string[]): string {
+  if (matchedPatterns.length === 0)
+    return ''
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const patterns = matchedPatterns.map(src => new RegExp(src, 'i'))
+  const matchedLines = lines.filter(line => patterns.some(p => p.test(line)))
+
+  if (matchedLines.length === 0)
+    return ''
+
+  const preferred = matchedLines.filter(l => !/command not found/i.test(l))
+  const chosen = preferred.length > 0 ? preferred[0] : matchedLines[0]
+
+  return chosen
+    .replace(/\s+/g, ' ')
+    .replace(/[—–−]/g, '--')
+    .trim()
+}
+
 /** Composed pipeline: changed-region bbox -> OCR -> error-pattern count. */
 export async function analyzeDeltaRegion(prevPath: string, currPath: string): Promise<OcrEvidence> {
   const bbox = await computeDeltaBBox(prevPath, currPath)

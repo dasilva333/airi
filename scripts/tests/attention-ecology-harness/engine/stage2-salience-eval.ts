@@ -69,6 +69,8 @@ export interface PromotionPacket {
     redAlertRatio: number
     zeroShotScores: Record<SalienceLabel, number>
   }
+  /** Stage-3 [Visual Event] summary block (attached by the forwarder). */
+  summary?: string
   reason: string
 }
 
