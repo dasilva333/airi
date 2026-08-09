@@ -242,10 +242,59 @@ The `/manage` dashboard. The message body itself is the existing `/status` text 
     *   `Button` (Style: Success/Green if active, else Grey): **🎯 Steer**
     *   `Button` (Style: Success/Green if active, else Grey): **🔋 Collect**
 *   **Row 4: Modules (Toggles)**
-    *   `Button` (Style: Success/Green if active, else Grey): **🎬 Director** (Toggles `/director mode:on|off`)
-    *   `Button` (Style: Success/Green if active, else Grey): **👁️ Vision** (Toggles `/vision mode:on|off`)
-*   **Row 5: Utilities & Refresh**
-    *   `Button` (Style: Primary/Blurple): **📸 Selfie** (Triggers `/selfie`)
-    *   `Button` (Style: Primary/Blurple): **✍️ Journal Moment** (Triggers `/journalmoment`)
-    *   `Button` (Style: Secondary/Grey): **🔄 Refresh Status** (Manually updates the `/status` text body)
+
+
+---
+
+## 7. Future Exploration: Cloud Edge & Micro-VM Relay Architecture (`/togglebot` On-Demand Gateway Gating)
+
+### A. The Protocol Challenge: Serverless vs. Persistent Gateway
+Cloudflare Workers provide zero-cost, instant global execution for HTTP Interaction Webhooks (`/slash` commands, buttons), but **cannot maintain persistent WebSocket connections (`wss://gateway.discord.gg`) for raw chat message events (`MESSAGE_CREATE`)** due to serverless execution lifetimes.
+
+To enable raw chat channel listening (`MESSAGE_CREATE`) without sacrificing zero-cost edge hosting or burning compute limits, we specify a **Hybrid Cloud Relay Architecture**.
+
+---
+
+### B. Multi-Hosting Viability Assessment: Fly.io vs. Render vs. Railway
+
+| Platform | Runtime Architecture | `MESSAGE_CREATE` Persistent WebSocket Support | Free Allowance / Plan Structure | Viability Verdict |
+| :--- | :--- | :---: | :--- | :--- |
+| **Fly.io** | Firecracker Micro-VMs (Docker) | ✅ **Native (24/7 background VM)** | $5 monthly credit / trial allowance (~$2/mo for 256MB micro-VM) | 🌟 **Top Recommendation** (Fast, global edge micro-VMs) |
+| **Railway.app** | Container Micro-VMs | ✅ **Native** | $5 monthly credit / usage-based | 🌟 **Strong Alternative** (Zero-config Docker deployment) |
+| **Render.com** | Container Web Services | ⚠️ **Limited** (Free tier sleeps after 15m idle) | 750 free hours/mo (Sleeps on idle) | ⚠️ **Requires wake ping** |
+
+---
+
+### C. Zero-Sacrifice `/togglebot` On-Demand Gateway Gating
+
+To maximize compute efficiency and ensure zero wasted usage limits across hosting providers:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   /togglebot On-Demand Gateway Gating Flow                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. Default State (100% Free Cloudflare Edge):                                │
+│    • Bot handles all /slash commands (/status, /imagine, /character) via    │
+│      Cloudflare Workers HTTP Interaction Webhooks.                          │
+│    • Gateway daemon on Fly.io / Railway is in STANDBY / DORMANT state.      │
+│                                                                             │
+│ 2. Upgraded State (/togglebot on):                                          │
+│    • User types `/togglebot mode:on` in a Discord text channel.             │
+│    • Cloudflare Worker signals the Fly.io / Railway micro-VM daemon.        │
+│    • Daemon activates the `MESSAGE_CREATE` Gateway socket bridge for that    │
+│      channel, turning AIRI into a full active channel participant.          │
+│                                                                             │
+│ 3. Standby Reset (/togglebot off):                                          │
+│    • User types `/togglebot mode:off` or inactivity timer expires.          │
+│    • Daemon disconnects the `MESSAGE_CREATE` listener, dropping back to     │
+│      dormant standby state to conserve monthly compute limits.             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### New Command Specification:
+| Command | Arguments | Description |
+| :--- | :--- | :--- |
+| `/togglebot` | `mode: on \| off` | Toggles the persistent `MESSAGE_CREATE` Gateway listener daemon on Fly.io / Railway, enabling full chat channel participation on-demand. |
+
+---
 

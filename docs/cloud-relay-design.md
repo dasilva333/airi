@@ -239,6 +239,59 @@ Recommendation: surface as **"Always-On Presence"** in UI copy, use **"Cloud Rel
 
 ---
 
+## 7.5 Future Exploration: Multi-Host Deployment Viability & `/togglebot` On-Demand Gateway Gating
+
+While Cloudflare Workers provide an ideal 100% free edge layer for HTTP `/slash` commands and webhook interactions, they cannot maintain long-lived WebSocket connections (`wss://gateway.discord.gg`) for raw chat message listening (`MESSAGE_CREATE`) due to serverless execution limits.
+
+To assess multi-hosting options for users who want continuous channel listening without sacrificing zero-cost edge defaults or exhausting monthly usage limits, we evaluate three persistent container platforms:
+
+### A. Multi-Host Platform Viability Matrix
+
+| Platform | Architecture Type | 24/7 `MESSAGE_CREATE` WebSocket Support | Monthly Free Allowance / Cost | Integration Assessment |
+| :--- | :--- | :---: | :--- | :--- |
+| **Fly.io** | Firecracker Micro-VMs (Docker) | ✅ **Native (24/7 background VM)** | $5 monthly credit / trial (~$1.94–$3.19/mo for 256MB micro-VM) | 🌟 **Top Candidate** (Instant edge micro-VM start) |
+| **Railway.app** | Container Micro-VMs | ✅ **Native** | $5 monthly credit / usage-based | 🌟 **Strong Alternative** (Zero-config Docker deployment) |
+| **Render.com** | Container Web Services | ⚠️ **Limited** (Free tier sleeps after 15m idle) | 750 free hours/mo (Sleeps on idle) | ⚠️ **Requires wake ping** |
+
+---
+
+### B. Organic `/chat` Wake-on-First-Turn & 15-Minute Idle Sleep Architecture
+
+Rather than forcing users to micromanage manual `/togglebot` commands, the system uses **Organic Wake-on-First-Turn**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│             Organic /chat Wake-on-First-Turn & 15m Idle Timeout             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. Free Edge Baseline (Cloudflare Workers):                                 │
+│    • Bot handles all /slash commands (/status, /imagine, /character) via   │
+│      zero-cost HTTP Interaction Webhooks.                                   │
+│    • Gateway daemon on Fly.io / Railway / Render remains DORMANT / STANDBY. │
+│                                                                             │
+│ 2. Organic Wake-on-First-Turn (/chat):                                      │
+│    • User sends `/chat <message>` in a Discord text channel.                │
+│    • Cloudflare Worker processes the first turn reply AND signals the       │
+│      container daemon (Fly.io / Railway).                                   │
+│    • Container daemon wakes up, connects `wss://gateway.discord.gg`, and    │
+│      begins listening to `MESSAGE_CREATE` events in that channel.           │
+│                                                                             │
+│ 3. Seamless Natural Dialogue:                                               │
+│    • User chats freely without typing /slash commands on every turn.        │
+│    • AIRI responds directly as a normal active channel participant.         │
+│                                                                             │
+│ 4. Automatic 15-Minute Inactivity Timeout:                                  │
+│    • If no new messages are received in the channel for 15 minutes, the      │
+│      daemon drops the `wss://` Gateway connection and returns to DORMANT.  │
+│    • Zero compute quotas wasted during idle hours!                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Protocol Details:
+- **Zero Micromanagement**: The user never needs to toggle or manage bot state. Typing `/chat` automatically initiates active listening.
+- **Quota Efficiency**: Compute hours are consumed strictly while active dialogue is taking place, automatically sleeping after 15 minutes of inactivity to keep usage well within free/hobby tier limits.
+
+---
+
 ## 8. Open Questions
 
 1. **Worker template ownership:** The Cloudflare Worker script template needs to be maintained in the AIRI repository. Where does it live — `integrations/cloud-relay/`? What is the release/update strategy when the template changes?
