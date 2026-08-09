@@ -6,7 +6,7 @@
  *
  *   Stage 0  perceptual hash delta      -> rejects static ticks at ~0 cost
  *   Stage 1  CLIP vision embedding      -> cosine novelty vs rolling centroid
- *   Stage 2  zero-shot + red-alert gate -> PROMOTE (packet) / NOTE (diary)
+ *   Stage 2  localized OCR text gate    -> PROMOTE (packet) / NOTE (diary)
  *
  * Centroid update policy: the rolling context centroid is seeded by the
  * baseline frame and updated only by NOTE-level frames (routine drift becomes
@@ -15,12 +15,14 @@
  * Usage: pnpm test:attention
  */
 
+import type { OcrEvidence } from './engine/stage2-ocr.js'
 import type { SalienceDecision, ZeroShotResult } from './engine/stage2-salience-eval.js'
 
 import path from 'node:path'
 
 import { computeImageDelta } from './engine/stage0-phash.js'
 import { calculateCosineDistance, centroidOf, disposeVisionEncoder, getVisionEmbedding } from './engine/stage1-vision-embed.js'
+import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
 import { classifyZeroShot, computeRedAlertRatio, disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), 'test-screenshots')
@@ -45,8 +47,10 @@ const STAGE0_HAMMING_MIN = 0.0015
 const NOVELTY_SPIKE_MIN = 0.005
 const PROPOSAL_NOVELTY_TARGET = 0.45
 const GATE_THRESHOLDS = {
-  errorMarginMin: 0.01,
-  redAlertRatioMin: 0.0002,
+  // Precision-first promotion floor (proposal §12): a single error line is a
+  // routine typo (03 = 1 pattern); >= 2 distinct patterns = error cascade
+  // "caught in the act" (04 = 3 patterns), measured via tesseract.js OCR.
+  ocrErrorPatternsMin: 2,
 }
 
 interface ManifestEntry {
@@ -75,6 +79,7 @@ interface TickRecord {
   novelty?: number
   zeroShot?: ZeroShotResult
   redAlertRatio?: number
+  ocr?: OcrEvidence
   decision: 'BASELINE' | SalienceDecision
   reason: string
 }
@@ -133,7 +138,8 @@ async function runAttentionEcologyEval() {
       continue
     }
 
-    const delta = await computeImageDelta(prevFramePath, framePath, STAGE0_HAMMING_MIN)
+    const prevPath = prevFramePath
+    const delta = await computeImageDelta(prevPath, framePath, STAGE0_HAMMING_MIN)
     const stage0Ms = performance.now() - t0
     // Stage 0 always compares consecutive captures, so the previous-frame
     // pointer advances on every tick — even for dropped frames.
@@ -159,14 +165,15 @@ async function runAttentionEcologyEval() {
     embeddedFrameCount++
     const novelty = calculateCosineDistance(embedding, centroid!)
 
-    // -- Stage 2: salience gate ---------------------------------------------
+    // -- Stage 2: localized OCR evidence + salience gate ---------------------
     const zeroShot = await classifyZeroShot(embedding)
     const { ratio: redAlertRatio } = await computeRedAlertRatio(framePath)
-    const evaluation = evaluateSalience(entry.file, novelty, zeroShot, redAlertRatio, GATE_THRESHOLDS)
+    const ocr = await analyzeDeltaRegion(prevPath, framePath)
+    const evaluation = evaluateSalience(entry.file, novelty, ocr, zeroShot, redAlertRatio, GATE_THRESHOLDS)
 
     if (evaluation.decision === 'PROMOTE' && evaluation.packet) {
       packets.push(evaluation.packet)
-      diary.push(`[${entry.file}] PROMOTED (novelty=${novelty.toFixed(4)}) -> cloud LLM reaction requested`)
+      diary.push(`[${entry.file}] PROMOTED (ocrHits=${ocr.errorPatternHits}, novelty=${novelty.toFixed(4)}) -> cloud LLM reaction requested`)
     }
     else {
       acceptedEmbeddings.push(embedding)
@@ -184,12 +191,14 @@ async function runAttentionEcologyEval() {
       novelty,
       zeroShot,
       redAlertRatio,
+      ocr,
       decision: evaluation.decision,
       reason: evaluation.reason,
     })
 
     console.log(`[tick ${entry.file}] Stage0 hamming=${delta.hammingDistance} (norm ${delta.normalizedDistance.toFixed(4)}) -> CHANGED (${stage0Ms.toFixed(1)}ms)`)
     console.log(`  Stage1 novelty vs centroid = ${novelty.toFixed(4)} (embed ${encodeMs.toFixed(0)}ms, gate total ${(performance.now() - t1).toFixed(0)}ms)`)
+    console.log(`  Stage2 OCR region=${ocr.bbox ? `${ocr.bbox.width}x${ocr.bbox.height}@(${ocr.bbox.left},${ocr.bbox.top})` : 'none'} hits=${ocr.errorPatternHits} [${ocr.errorPatterns.join(', ') || '-'}] (${ocr.ocrMs.toFixed(0)}ms)`)
     console.log(`  Stage2 zero-shot: ${fmtSimMap(zeroShot)} | errorMargin=${zeroShot.errorMargin.toFixed(4)} redAlert=${(redAlertRatio * 100).toFixed(3)}%`)
     console.log(`  -> ${evaluation.decision}: ${evaluation.reason}\n`)
   }
@@ -218,30 +227,24 @@ async function runAttentionEcologyEval() {
     `measured novelty=${novelty03.toFixed(4)} >= calibrated ${NOVELTY_SPIKE_MIN} (proposal target ${PROPOSAL_NOVELTY_TARGET} is unattainable: full app switch measured only ${rec['05a-browser-video-frame1.png']?.novelty?.toFixed(4) ?? 'n/a'})`,
   )
   const rec04 = rec['04-term-error-stack.png']
-  // A4 documents a MEASURED LIMITATION, not a pass: CLIP-only salience signals
-  // cannot detect the terminal error event. Measured evidence (this run):
-  //   - zero-shot error margin for 04 is negative (terminal_error never wins),
-  //     because a few lines of red text drown in the global 512-dim embedding.
-  //   - red-alert ratio does not separate 04 from 03, because frame 03 ALREADY
-  //     contains a red "command not found" marker (dataset quirk).
-  // Decision (user-approved): keep the gate CLIP-only in Phase 1; the gap is
-  // documented here. The production fix is proposal §3's OCR/VLM textual
-  // feature mapping feeding the Stage-2 judge — not more CLIP thresholds.
-  const errorMargin04 = rec04?.zeroShot?.errorMargin ?? 0
-  const redAlert04 = rec04?.redAlertRatio ?? 0
-  knownLimitation(
-    'L1: 04 terminal error does NOT promote under CLIP-only gate (documented gap)',
-    `measured: errorMargin=${errorMargin04.toFixed(4)} < ${GATE_THRESHOLDS.errorMarginMin}, redAlert=${(redAlert04 * 100).toFixed(3)}% vs 03's ${((rec['03-window-switch-term.png']?.redAlertRatio ?? 0) * 100).toFixed(3)}% (insufficient separation). Needs OCR/VLM text evidence (proposal §3) — deferred past Phase 1.`,
-  )
+  // A4: KNOWN-LIMIT L1 (Phase 1) RESOLVED — localized OCR text evidence now
+  // detects the terminal error cascade (04 shows 3 distinct error patterns vs
+  // 03's 1), so the frame emits a PROMOTION_PACKET for the cloud LLM.
   assert(
-    'A4: 04 error frame is at least recorded to the diary (degraded-mode guarantee)',
-    rec04?.decision === 'NOTE' || rec04?.decision === 'PROMOTE',
-    `decision=${rec04?.decision} (event is not silently lost)`,
+    'A4: 04 terminal error generates PROMOTION_PACKET',
+    rec04?.decision === 'PROMOTE' && packets.length === 1,
+    `decision=${rec04?.decision}, ocrHits=${rec04?.ocr?.errorPatternHits ?? 'n/a'} [${rec04?.ocr?.errorPatterns.join(', ') || '-'}], packets=${packets.length}`,
+  )
+  const rec03 = rec['03-window-switch-term.png']
+  assert(
+    'A7: OCR evidence discriminates routine terminal use vs error cascade',
+    (rec03?.ocr?.errorPatternHits ?? 0) < GATE_THRESHOLDS.ocrErrorPatternsMin && (rec04?.ocr?.errorPatternHits ?? 0) >= GATE_THRESHOLDS.ocrErrorPatternsMin,
+    `03: ${rec03?.ocr?.errorPatternHits ?? 'n/a'} pattern(s) [${rec03?.ocr?.errorPatterns.join(', ') || '-'}], 04: ${rec04?.ocr?.errorPatternHits ?? 'n/a'} pattern(s) [${rec04?.ocr?.errorPatterns.join(', ') || '-'}]`,
   )
   const rec05b = rec['05b-browser-video-frame2.png']
   assert(
     'A5: 05a->05b video drift writes quietly to diary (no promotion)',
-    rec05b?.decision === 'NOTE' && packets.length === 0,
+    rec05b?.decision === 'NOTE' && packets.length === 1,
     `decision=${rec05b?.decision}, novelty=${rec05b?.novelty?.toFixed(4)}, packets=${packets.length}`,
   )
   assert(
@@ -260,10 +263,10 @@ async function runAttentionEcologyEval() {
   // Benchmark report
   // -------------------------------------------------------------------------
   console.log('\n--- Benchmark Report ---\n')
-  console.log('frame                          stage0norm  novelty   errorMargin  redAlert%  decision')
+  console.log('frame                          stage0norm  novelty   errorMargin  redAlert%  ocrHits  decision')
   for (const r of records) {
     console.log(
-      `  ${r.frame.padEnd(30)} ${(r.normalizedDistance !== undefined ? r.normalizedDistance.toFixed(4) : '-').padStart(9)}  ${(r.novelty !== undefined ? r.novelty.toFixed(4) : '-').padStart(7)}  ${(r.zeroShot ? r.zeroShot.errorMargin.toFixed(4) : '-').padStart(10)}  ${(r.redAlertRatio !== undefined ? (r.redAlertRatio * 100).toFixed(3) : '-').padStart(8)}  ${r.decision}`,
+      `  ${r.frame.padEnd(30)} ${(r.normalizedDistance !== undefined ? r.normalizedDistance.toFixed(4) : '-').padStart(9)}  ${(r.novelty !== undefined ? r.novelty.toFixed(4) : '-').padStart(7)}  ${(r.zeroShot ? r.zeroShot.errorMargin.toFixed(4) : '-').padStart(10)}  ${(r.redAlertRatio !== undefined ? (r.redAlertRatio * 100).toFixed(3) : '-').padStart(8)}  ${(r.ocr?.errorPatternHits ?? '-').toString().padStart(7)}  ${r.decision}`,
     )
   }
 
@@ -275,21 +278,22 @@ async function runAttentionEcologyEval() {
     packets.forEach(p => console.log(`  ${JSON.stringify(p, null, 2)}`))
   }
   else {
-    console.log('\nPromotion packets: none emitted (see KNOWN-LIMIT L1)')
+    console.log('\nPromotion packets: none emitted')
   }
 
   // -------------------------------------------------------------------------
-  // Phase-1 measured findings (calibration evidence for the proposal)
+  // Measured findings (calibration evidence for the proposal)
   // -------------------------------------------------------------------------
-  console.log('\n--- Phase-1 Measured Findings ---\n')
+  console.log('\n--- Measured Findings ---\n')
   const noveltyApp = rec['05a-browser-video-frame1.png']?.novelty ?? 0
   console.log(`  F1: Novelty geometry. Same-app context switch (02->03) = ${novelty03.toFixed(4)};`)
   console.log(`      full app switch (04->05a) = ${noveltyApp.toFixed(4)}. Proposal §5's > ${PROPOSAL_NOVELTY_TARGET}`)
   console.log('      target is unattainable in global CLIP space and should be recalibrated.')
   console.log(`  F2: Error-frame novelty (03->04) = ${(rec04?.novelty ?? 0).toFixed(4)} — a pure novelty gate`)
   console.log('      can never catch small-region error events; content salience is mandatory.')
-  console.log('  F3: CLIP-only content salience is ALSO blind to this event class (see L1).')
-  console.log('      Stage 2 needs OCR/VLM text evidence (proposal §3) or the M3 RWKV judge.')
+  console.log('  F3: CLIP-only salience is blind to small-region errors (zero-shot margins ~-0.04) —')
+  console.log('      RESOLVED in Phase 2 via localized OCR text evidence (03: 1 pattern, 04: 3 patterns).')
+  console.log('      OCR text also produces the §3 "OCR Text Snippet" field for the RWKV forwarder.')
   console.log(`  F4: Stage-0 separating band is narrow: 01->02 = ${(rec['02-static-editor-cursor.png']?.normalizedDistance ?? 0).toFixed(4)}`)
   console.log(`      vs 03->04 = ${(rec04?.normalizedDistance ?? 0).toFixed(4)}. Pristine synthetic data; real capture noise`)
   console.log('      will need a finer secondary signal for small-region changes.')
@@ -304,6 +308,7 @@ async function runAttentionEcologyEval() {
   // process exit naturally with the right code.
   await disposeVisionEncoder()
   await disposeTextEncoder()
+  await disposeOcrEngine()
   process.exitCode = failed.length === 0 ? 0 : 1
 }
 

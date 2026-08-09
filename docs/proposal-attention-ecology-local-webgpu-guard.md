@@ -53,6 +53,15 @@ Because RWKV-7 is a text-only recurrent architecture, it cannot natively process
         OCR Text Snippet: "error[E0308]: mismatched types"
         ```
 
+### 3.1 Canonical Codebase Primitive Index: FlowMDM CLIP Integration
+
+AIRI already includes a production-tested CLIP text encoder primitive in the codebase:
+* **Canonical CLIP Encoder Source**: [`packages/stage-ui/src/utils/flowmdm/clipEncoder.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/utils/flowmdm/clipEncoder.ts)
+* **Model & Tokenizer**: Loads `Xenova/clip-vit-base-patch32` via `@huggingface/transformers` (`AutoTokenizer` + `CLIPTextModelWithProjection`).
+* **Shared Embedding Vector Space**: Generates 512-dimensional CLIP embeddings (`Float32Array`).
+
+When pairing Stage 1 visual frame embeddings with textual context prompts, the Attention Ecology pipeline should reuse `clipEncoder.ts` or its `@huggingface/transformers` model caching primitives to avoid duplicating tokenizer weights or model loading code.
+
 ---
 
 ## 4. Proposed Solution: The Cascaded Salience Gate
@@ -100,7 +109,41 @@ flowchart TD
 
 ---
 
-## 5. Promotion Discipline: Cooldowns & Interruption Etiquette
+## 5. Cleanroom Test Harness Architecture & Test Vector Seeding (`scripts/tests/attention-ecology-harness/`)
+
+To develop and benchmark the Attention Ecology pipeline without UI overhead or agent context saturation, we establish a **Standalone Cleanroom CLI Harness** in `scripts/tests/attention-ecology-harness/`.
+
+### Directory Layout
+```
+scripts/tests/attention-ecology-harness/
+├── package.json                   ← Standalone dependencies (@huggingface/transformers, onnxruntime-node)
+├── engine/
+│   ├── stage0-phash.ts            ← Stage 0: Perceptual hash & pixel delta calculator (µs)
+│   ├── stage1-vision-embed.ts     ← Stage 1: Local CLIP/MobileCLIP vision encoder (ms)
+│   └── stage2-salience-eval.ts    ← Stage 2: Cosine novelty & salience threshold evaluator
+### Ground-Truth Screenshot Vector Dataset (`scripts/tests/attention-ecology-harness/test-screenshots/`)
+
+| File Name | Visual Content | Pipeline Purpose & Target Behavior |
+| :--- | :--- | :--- |
+| `01-static-editor.png` | VS Code `assistant-item.vue` (`getMoodArchetype`). | **Stage 0 Baseline Work Centroid ($v_0$)**. Establishes the initial work vector. |
+| `02-static-editor-cursor.png` | VS Code with `Chat ⌘L ...` popover opened on line 421. | **Stage 0 Micro-Change Filter**. Asserts static micro-changes filter out at $0\text{-cost}$ before running vision models. |
+| `03-window-switch-term.png` | Terminal panel opened at bottom with custom command. | **Stage 1 Context Switch**. Asserts major visual transitions trigger a vector novelty spike ($\Delta \text{sim} > 0.45$). |
+| `04-term-error-stack.png` | Terminal displaying red error mark `df -y: invalid option`. | **Stage 2 Salience Event ("Caught in the Act")**. Asserts critical errors generate a `PROMOTION_PACKET` for cloud LLM reaction. |
+| `05a-browser-video-frame1.png` | YouTube player (*Smoke Mood - Chill Deep House Mix*). | **Stage 1 Video Stream Baseline Frame**. |
+| `05b-browser-video-frame2.png` | YouTube player with live subtitle: `"I know that you see it."` | **Stage 1 Dynamic Video Noise Rejection**. Asserts frame-over-frame video drift writes quietly to background diary without cloud LLM spam. |
+
+### Empirical Benchmark Protocol & Measured Geometry (Phase 1 Baseline)
+1. **Stage 0 Perceptual Hash Pass**: Assert `01` $\rightarrow$ `02` returns `NO_CHANGE` ($\Delta \text{hash} \approx 0$). Drops static micro-cursor movements at $0\text{-cost}$ before executing neural models.
+2. **Stage 1 Vector Novelty Calibration**:
+   - **Same-App Transition (`02` $\rightarrow$ `03`)**: Measured CLIP novelty delta $\approx 0.0086$ (floor threshold calibrated to $> 0.005$).
+   - **Cross-App Transition (`03` $\rightarrow$ `05a`)**: Measured CLIP novelty delta $\approx 0.3942$ (cross-app visual shift).
+3. **Salience Gating & Known Limitations (`KNOWN-LIMIT L1`)**:
+   - **Dynamic Media Noise (`05a` $\rightarrow$ `05b`)**: Frame-over-frame video drift writes quietly to background diary without cloud LLM spam.
+   - **Small-Region Error Catching (`04-term-error-stack.png`)**: `KNOWN-LIMIT L1`. Raw global CLIP vision embeddings are blind to localized terminal error stack traces ($\Delta \text{sim} \approx 0.0036$). Resolving small-region error events requires Stage 3's in-browser OCR / VLM text evidence extraction.
+
+---
+
+## 6. Promotion Discipline: Cooldowns & Interruption Etiquette
 
 A correct detector can still produce an annoying, spammy character. Promotion is governed by strict rate-limiting:
 *   **Attention Budget**: Maximum $N$ unsolicited promotions per hour (user-configurable).

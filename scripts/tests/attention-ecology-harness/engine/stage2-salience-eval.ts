@@ -6,27 +6,25 @@
  * M3) is out of scope for this harness; this module stands in with an
  * explainable, deterministic gate so thresholds can be benchmarked now.
  *
- * Two independent evidence signals are combined (AND-gated, because proposal
- * §12 states false interruptions are worse than misses):
+ * Promotion is gated by LOCALIZED OCR TEXT EVIDENCE (see stage2-ocr.ts):
+ * a frame promotes iff its changed region shows >= 2 distinct error
+ * patterns. Rationale (measured in Phase 1, resolved in Phase 2):
  *
- *   1. Zero-shot CLIP classification: the frame embedding is compared against
- *      text-prompt embeddings in the SAME shared 512-dim CLIP space (text
- *      tower pattern reused from flowmdm/clipEncoder.ts). The salience signal
- *      is the *margin* of the error label over the best routine label —
- *      absolute image-text cosine sims are poorly calibrated across domains.
- *   2. Red-alert pixel ratio: fraction of saturated-red pixels. Terminal
- *      error output ("caught in the act") is rendered in red on a dark
- *      background; this is a cheap, deterministic corroborating signal.
- *
- * NOTICE (Phase-1 measured finding): On the seeded dataset, NEITHER signal
- * detects the terminal error event (04): zero-shot error margin stays
- * negative (~-0.04, a few red text lines drown in the global embedding), and
- * the red-alert ratio cannot separate 04 from 03 because frame 03 already
- * contains a red error marker. CLIP-only salience is therefore documented as
- * INSUFFICIENT for small-region error events (KNOWN-LIMIT L1 in the eval
- * runner); the production fix is proposal §3's OCR/VLM textual feature
- * mapping, deliberately deferred past Phase 1 (user decision 2026-08-09).
+ *   - Zero-shot CLIP classification (text tower in the same 512-dim space as
+ *     the frame embedding) could NOT detect the terminal error: the error
+ *     margin stayed negative (~-0.04) because a few text lines drown in the
+ *     global embedding. Retained here as a REPORTED diagnostic only.
+ *   - Red-alert pixel ratio could NOT separate frame 04 from frame 03 (03
+ *     already contains a red error marker). Retained as a reported diagnostic.
+ *   - tesseract.js WASM OCR of the delta region reads the error text
+ *     verbatim: frame 03 has 1 pattern ("command not found" — a lone typo,
+ *     routine), frame 04 has 3 ("command not found", "invalid option",
+ *     "usage:") — an error cascade, "caught in the act". The >=2 floor is
+ *     deliberately conservative (proposal §12: false interruptions are worse
+ *     than misses): a single error line never promotes.
  */
+
+import type { OcrEvidence } from './stage2-ocr.js'
 
 import sharp from 'sharp'
 
@@ -52,10 +50,8 @@ export interface ZeroShotResult {
 }
 
 export interface SalienceThresholds {
-  /** Minimum zero-shot error margin required to consider an error event. */
-  errorMarginMin: number
-  /** Minimum saturated-red pixel ratio required to corroborate. */
-  redAlertRatioMin: number
+  /** Minimum distinct OCR error patterns in the changed region to promote. */
+  ocrErrorPatternsMin: number
 }
 
 export interface PromotionPacket {
@@ -65,6 +61,10 @@ export interface PromotionPacket {
   caption: SalienceLabel
   novelty: number
   signals: {
+    ocrErrorPatternHits: number
+    ocrErrorPatterns: string[]
+    /** Untrusted screen text, truncated — see proposal §6 sanitization. */
+    ocrSnippet: string
     errorMargin: number
     redAlertRatio: number
     zeroShotScores: Record<SalienceLabel, number>
@@ -162,23 +162,26 @@ export async function computeRedAlertRatio(imagePath: string): Promise<{ ratio: 
 }
 
 /**
- * Deterministic promotion gate. Both evidence signals must clear their
- * floors (AND) for a PROMOTE; anything else is a quiet diary NOTE.
+ * Deterministic promotion gate, precision-first (proposal §12). A frame
+ * promotes iff OCR error evidence in its changed region clears the floor
+ * (>= 2 distinct patterns); the first pattern alone is treated as a routine
+ * typo and only bumped to the diary as monitoring evidence.
  */
 export function evaluateSalience(
   frameId: string,
   novelty: number,
+  ocr: OcrEvidence,
   zeroShot: ZeroShotResult,
   redAlertRatio: number,
   thresholds: SalienceThresholds,
 ): SalienceEvaluation {
-  const errorEvidence = zeroShot.errorMargin >= thresholds.errorMarginMin
-  const redEvidence = redAlertRatio >= thresholds.redAlertRatioMin
+  const hits = ocr.errorPatternHits
+  const promote = hits >= thresholds.ocrErrorPatternsMin
 
-  if (errorEvidence && redEvidence) {
+  if (promote) {
     return {
       decision: 'PROMOTE',
-      reason: `error margin ${zeroShot.errorMargin.toFixed(4)} >= ${thresholds.errorMarginMin} AND red-alert ${(redAlertRatio * 100).toFixed(3)}% >= ${(thresholds.redAlertRatioMin * 100).toFixed(3)}%`,
+      reason: `OCR error evidence: ${hits} distinct pattern(s) [${ocr.errorPatterns.join(', ')}] >= ${thresholds.ocrErrorPatternsMin}`,
       packet: {
         type: 'PROMOTION_PACKET',
         frameId,
@@ -186,17 +189,27 @@ export function evaluateSalience(
         caption: 'terminal_error',
         novelty,
         signals: {
+          ocrErrorPatternHits: hits,
+          ocrErrorPatterns: ocr.errorPatterns,
+          ocrSnippet: ocr.text.replace(/\s+/g, ' ').trim().slice(0, 200),
           errorMargin: zeroShot.errorMargin,
           redAlertRatio,
           zeroShotScores: zeroShot.scores,
         },
-        reason: 'terminal error salience corroborated by zero-shot margin and red-alert pixels',
+        reason: 'terminal error cascade confirmed by localized OCR text evidence',
       },
+    }
+  }
+
+  if (hits === 1) {
+    return {
+      decision: 'NOTE',
+      reason: `minor error evidence (1 pattern: ${ocr.errorPatterns[0]}) below promotion floor ${thresholds.ocrErrorPatternsMin}; monitoring in diary`,
     }
   }
 
   return {
     decision: 'NOTE',
-    reason: `routine event (error evidence: margin=${errorEvidence}, red=${redEvidence}); writing to diary buffer only`,
+    reason: 'routine event (no OCR error evidence in changed region); writing to diary buffer only',
   }
 }
