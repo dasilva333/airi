@@ -130,6 +130,7 @@
     "remark-rehype": "catalog:",
     "shiki": "^3.23.0",
     "splitpanes": "catalog:",
+    "tesseract.js": "^7.0.0",
     "three": "^0.174.0",
     "unified": "catalog:",
     "unist-builder": "^4.0.0",

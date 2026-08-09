@@ -26,6 +26,7 @@ export const MODEL_NAMES = {
   WEB_RWKV: 'web-rwkv',
   BLIP: 'blip',
   WD14: 'wd14',
+  ATTENTION_GUARD: 'attention-guard',
 } as const
 
 /**
@@ -137,6 +138,11 @@ export const TIMEOUTS = {
   LOCAL_VISION_LOAD: 300_000,
   /** Local vision model process timeout (absolute) */
   LOCAL_VISION_PROCESS: 90_000,
+
+  /** Attention Ecology Guard model load timeout (CLIP + optional Moondream2) */
+  ATTENTION_GUARD_LOAD: 300_000,
+  /** Attention Ecology Guard per-tick process timeout (unary cascade) */
+  ATTENTION_GUARD_PROCESS: 120_000,
 } as const
 
 // ---------------------------------------------------------------------------

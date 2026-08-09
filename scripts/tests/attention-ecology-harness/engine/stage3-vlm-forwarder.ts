@@ -25,12 +25,17 @@
  * build's vision2seq auto-map omits this model_type. We bypass the auto-map
  * by instantiating the class directly.
  *
- * NOTICE B (environment, 2026-08-09): the machine disk was 100% full (306MiB
- * free) when Phase 3 shipped, so the ~1.5GiB int8 download could not complete
- * (ENOSPC) and the VLM branch is UNVALIDATED. The forwarder degrades to the
- * deterministic fields above (proposal §11: "Model download declined ->
- * heuristics-only mode"), so the benchmark stays green. Free disk space to
- * activate and validate the VLM caption path.
+ * NOTICE B (validation, 2026-08-09): caption path is now END-TO-END
+ * VALIDATED on CPU (6s, `Xenova/moondream2` int8). Two transformers.js
+ * v3.8.1 quirks had to be worked around:
+ *   1. AutoModelForVision2Seq rejects moondream2 -> direct class load.
+ *   2. AutoProcessor is image-only AND the merge machinery demands the
+ *      `<image>` placeholder appear exactly once per vision patch (729 for a
+ *      378x378 SigLIP input). The patch count is probed at runtime via the
+ *      vision-encoder session (`model.sessions.vision_encoder.run`), and the
+ *      prompt repeats `<image>` that many times.
+ * The Moondream2 branch still degrades to deterministic fields on any
+ * failure (proposal §11 heuristics fallback), keeping the benchmark green.
  */
 
 import type { OcrEvidence } from './stage2-ocr.js'
@@ -43,7 +48,7 @@ import { fileURLToPath } from 'node:url'
 
 import sharp from 'sharp'
 
-import { AutoProcessor, env, Moondream1ForConditionalGeneration, RawImage } from '@huggingface/transformers'
+import { AutoProcessor, AutoTokenizer, env, Moondream1ForConditionalGeneration, RawImage } from '@huggingface/transformers'
 
 import { extractErrorSnippet } from './stage2-ocr.js'
 
@@ -54,13 +59,29 @@ export const VLM_MODEL_ID = 'Xenova/moondream2'
 
 // q8/int8 weight files required before load is safe. NOTICE: from_pretrained
 // fails as an UNHANDLED stream 'error' event (not a promise rejection) when a
-// download hits ENOSPC, so we never start a download whose weights are not
-// already cached — proposal §11 "Model download declined -> heuristics-only".
+// download hits ENOSPC, so we never start a download when the disk lacks
+// headroom — proposal §11 "Model download declined -> heuristics-only".
+// Partial caches are fine: transformers.js downloads only missing files, so a
+// cache-resume (e.g. missing vision_encoder after a prior disk-full) works as
+// long as free space clears the headroom floor.
 const VLM_ONNX_REQUIRED = ['decoder_model_merged_quantized.onnx', 'vision_encoder_quantized.onnx']
+const VLM_DOWNLOAD_HEADROOM = 1536 * 1024 * 1024 // 1.5GiB free space needed to attempt a download
 
 function vlmWeightsCached(): boolean {
   const onnxDir = path.join(HARNESS_ROOT, '.cache', 'Xenova', 'moondream2', 'onnx')
   return VLM_ONNX_REQUIRED.every(f => fs.existsSync(path.join(onnxDir, f)))
+}
+
+function vlmLoadSafe(): boolean {
+  if (vlmWeightsCached())
+    return true
+  try {
+    const stat = fs.statfsSync(HARNESS_ROOT)
+    return stat.bavail * stat.bsize >= VLM_DOWNLOAD_HEADROOM
+  }
+  catch {
+    return false
+  }
 }
 
 const WINDOW_LABELS: Record<SalienceLabel, string> = {
@@ -79,45 +100,70 @@ export interface VlmForwarderResult {
   note?: string
 }
 
-let captionModelPromise: Promise<{ model: any, processor: any }> | null = null
+let captionModelPromise: Promise<{ model: any, processor: any, tokenizer: any }> | null = null
 let vlmAttempted = false
+let numImageTokens: number | null = null
 
-async function loadCaptioner(): Promise<{ model: any, processor: any }> {
+async function loadCaptioner(): Promise<{ model: any, processor: any, tokenizer: any }> {
   // NOTICE: direct class load bypasses the AutoModelForVision2Seq auto-map
   // bug (see header NOTICE A).
   const model = await Moondream1ForConditionalGeneration.from_pretrained(VLM_MODEL_ID, { device: 'cpu', dtype: 'q8' })
   const processor = await AutoProcessor.from_pretrained(VLM_MODEL_ID)
-  return { model, processor }
+  const tokenizer = await AutoTokenizer.from_pretrained(VLM_MODEL_ID)
+  return { model, processor, tokenizer }
 }
 
-/** Best-effort VLM caption. Returns null on any failure (disk, download, runtime). */
+/**
+ * Best-effort VLM caption. Returns null on any failure (disk, download,
+ * runtime). Validated recipe (see header NOTICE B): probe the vision encoder
+ * session for the patch count, repeat the `<image>` placeholder that many
+ * times, wrap in moondream's Question/Answer prompt, then generate + decode.
+ */
 async function generateCaption(imagePath: string): Promise<{ caption: string, ms: number } | null> {
   try {
-    if (!vlmWeightsCached()) {
+    if (!vlmLoadSafe()) {
       vlmAttempted = true
-      console.error('  [stage3] VLM weights not cached locally — skipping download (guards against ENOSPC crash); using deterministic summary')
+      console.error('  [stage3] VLM load skipped: weights not cached AND free disk < 1.5GiB (guards against ENOSPC crash); using deterministic summary')
       return null
     }
     if (!captionModelPromise) {
       captionModelPromise = loadCaptioner()
     }
-    const { model, processor } = await captionModelPromise
+    const { model, processor, tokenizer } = await captionModelPromise
 
     const { data, info } = await sharp(imagePath).removeAlpha().raw().toBuffer({ resolveWithObject: true })
     const image = new RawImage(new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength), info.width, info.height, info.channels)
 
+    const visionInputs = await processor(image)
+
+    const imageTokens: number = numImageTokens ?? await (async () => {
+      const feat = await model.sessions.vision_encoder.run({ pixel_values: visionInputs.pixel_values })
+      const count = feat.image_features.dims[1] as number
+      numImageTokens = count
+      return count
+    })()
+
+    const imageTokenId = Number(model.config.image_token_index)
+    const prompt = `${'<image>'.repeat(imageTokens)}\n\nQuestion: Describe what is happening in this screenshot in one short sentence.\n\nAnswer:`
+    const textInputs = await tokenizer(prompt)
+    const imageTokenCount = Array.from(textInputs.input_ids.data as any).filter((x: any) => Number(x) === imageTokenId).length
+    if (imageTokenCount !== imageTokens) {
+      throw new Error(`image token expansion mismatch: prompt has ${imageTokenCount}, vision produced ${imageTokens}`)
+    }
+
     const started = performance.now()
-    // NOTICE: generate() signature is written from the transformers.js v3
-    // VLM convention and is UNVALIDATED (see header NOTICE B).
     const output = await model.generate(
-      { text: 'Describe what is happening in this screenshot in one short sentence.', image },
-      { max_new_tokens: 40, do_sample: false },
+      { ...visionInputs, ...textInputs, max_new_tokens: 48, do_sample: false },
     )
-    void processor
-    const caption = (Array.isArray(output) ? output[0]?.generated_text : output?.generated_text) as string | undefined
+    const decoded = tokenizer.batch_decode(output, { skip_special_tokens: false }) as string[]
+    const raw = decoded[0] ?? ''
+    const answerIdx = raw.lastIndexOf('Answer:')
+    const caption = (answerIdx >= 0 ? raw.slice(answerIdx + 'Answer:'.length) : raw)
+      .replace(/<\|endoftext\|>/g, '')
+      .trim()
     if (!caption)
       return null
-    return { caption: caption.trim(), ms: performance.now() - started }
+    return { caption, ms: performance.now() - started }
   }
   catch (err: any) {
     vlmAttempted = true

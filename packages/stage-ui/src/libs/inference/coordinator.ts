@@ -79,6 +79,13 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   [MODEL_NAMES.BLIP]: 400 * 1024 * 1024, // ~400 MB
   [MODEL_NAMES.WD14]: 300 * 1024 * 1024, // ~300 MB
 
+  // Attention Ecology Guard — CLIP vision + text towers (q8) are always
+  // resident; Moondream2 (q4, opt-in Stage-3 captioner) is the heavy partner.
+  // Under the proposal §7 1.2GB VRAM cap, the VLM is only loaded when enabled
+  // and is released under memory pressure (falling back to OCR summary).
+  'attention-guard-clip': 250 * 1024 * 1024, // ~250 MB (vision+text q8)
+  'attention-guard-vlm': 700 * 1024 * 1024, // ~700 MB (Moondream2 q4, opt-in)
+
   // MOSS TTS Nano (fp32 weights + split ONNX graphs + OPFS blobs)
   'moss-tts-nano': 400 * 1024 * 1024, // ~400 MB
 }

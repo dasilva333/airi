@@ -388,3 +388,54 @@ export interface PocketTtsGenerateChunk {
 export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:pocket-tts:load')
 export const pocketTtsGenerateEvent = defineInvokeEventa<PocketTtsGenerateChunk, PocketTtsGenerateRequest>('inference:pocket-tts:generate')
 export const pocketTtsUnloadEvent = defineInvokeEventa<void, undefined>('inference:pocket-tts:unload')
+
+// ---------------------------------------------------------------------------
+// Attention Ecology Guard (0-cost local cascading salience gate)
+// ---------------------------------------------------------------------------
+
+export interface AttentionGuardLoadRequest extends LoadModelRequest {
+  /**
+   * Opt-in Moondream2 semantic captioning (Stage 3). Heavy download (~1.8GB
+   * int8 / ~700MB q4) and VRAM, so it is OFF by default; the forwarder falls
+   * back to the deterministic [Visual Event] summary (proposal §11).
+   */
+  enableVlm?: boolean
+}
+
+/** Per-tick wall-clock telemetry for the cascaded gate. */
+export interface AttentionGuardStageMs {
+  stage0Ms: number
+  stage1Ms: number
+  stage2Ms: number
+  stage3Ms: number
+}
+
+export interface AttentionGuardProcessRequest {
+  /** Base64/URL-encoded screen capture frame (PNG/JPEG). */
+  dataUrl: string
+  /** Capture width after the orchestrator's downscale (stable across ticks). */
+  width: number
+  height: number
+}
+
+export type AttentionGuardDecision = 'BASELINE' | 'IGNORE' | 'NOTE' | 'PROMOTE'
+
+export interface AttentionGuardProcessResult {
+  decision: AttentionGuardDecision
+  /** Stage-0 normalized Hamming distance vs the previous tick's hash. */
+  stage0Delta: number
+  /** Stage-1 cosine novelty vs the rolling context centroid. */
+  novelty: number
+  /** Stage-2 distinct OCR error patterns in the changed region. */
+  ocrErrorPatternHits: number
+  ocrErrorPatterns: string[]
+  /** Stage-3 [Visual Event] summary block (attached on PROMOTE). */
+  summary?: string
+  caption?: string | null
+  vlmStatus?: 'ok' | 'degraded' | 'error'
+  stageMs: AttentionGuardStageMs
+}
+
+export const attentionGuardLoadEvent = defineInvokeEventa<LoadStreamItem, AttentionGuardLoadRequest>('inference:attention-guard:load')
+export const attentionGuardProcessEvent = defineInvokeEventa<AttentionGuardProcessResult, AttentionGuardProcessRequest>('inference:attention-guard:process')
+export const attentionGuardUnloadEvent = defineInvokeEventa<void, undefined>('inference:attention-guard:unload')
