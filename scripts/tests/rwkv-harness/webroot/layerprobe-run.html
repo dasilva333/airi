@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"></head><body>
+<script type="module">
+  import('/layerprobe.js').then(m => m.probe())
+    .then(r => { window.__LAYER_RESULT = r })
+    .catch(e => { window.__LAYER_RESULT = { error: String((e&&e.stack)||e).slice(0,800) } })
+</script></body></html>

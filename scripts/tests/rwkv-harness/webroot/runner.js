@@ -241,37 +241,72 @@ async function boot() {
   let __prevRwkvState = null
   window.__rwkvResetState = () => { __prevRwkvState = null }
   window.__rwkvStateDelta = async (turns) => {
-    const { session, tokenizer } = __engine
+    const { session, tokenizer, info } = __engine
     const enc = new TextEncoder()
     // Start each experiment run from a clean slate unless caller says continue.
     if (!__prevRwkvState)
       session.load(new Float32Array(session.state_len()))
-    const cur = new Float32Array(session.state_len())
+    const SL = session.state_len()
+
+    // Per-layer decomposition. The raw state packs layers contiguously; the split is
+    // even whenever (state_len % num_layer === 0). For this g1d-0.1b checkpoint:
+    // state_len=608256, num_layer=12, per-layer block = 50688 floats (= 768 * 66).
+    // We compute deltas per layer slice to find which layers carry topic-shift signal.
+    const numLayer = info.num_layer
+    const perLayer = SL / numLayer
+    const canLayer = Number.isInteger(perLayer) && perLayer > 0
+
+    const cur = new Float32Array(SL)
     const out = []
-    const scratch = new Float32Array(__engine.info.num_vocab)
+    const scratch = new Float32Array(info.num_vocab)
+
+    // Cosine + L2 over a half-open subslice [a,b) of two equal-length states.
+    function sliceDeltas(a0, b0, prev, curVec) {
+      let dot = 0; let na = 0; let nb = 0; let l2 = 0
+      for (let i = a0; i < b0; i++) {
+        const d = curVec[i] - prev[i]
+        l2 += d * d
+        dot += curVec[i] * prev[i]
+        na += curVec[i] * curVec[i]
+        nb += prev[i] * prev[i]
+      }
+      return { cos: 1 - (dot / ((Math.sqrt(na) * Math.sqrt(nb)) + 1e-9)), l2: Math.sqrt(l2) }
+    }
+
     for (let idx = 0; idx < turns.length; idx++) {
       const tokens = tokenizer.encode(enc.encode(turns[idx]))
       if (tokens.length > 0)
         await session.run(tokens, scratch)
       await session.back(cur) // h_t for this turn
-      let cos = 0
-      let l2 = 0
-      let dot = 0
-      let na = 0
-      let nb = 0
+
+      let aggCos = 0
+      let aggL2 = 0
+      const perLayerCos = []
+      const perLayerL2 = []
       if (__prevRwkvState) {
-        for (let i = 0; i < cur.length; i++) {
-          const d = cur[i] - __prevRwkvState[i]
-          l2 += d * d
-          dot += cur[i] * __prevRwkvState[i]
-          na += cur[i] * cur[i]
-          nb += __prevRwkvState[i] * __prevRwkvState[i]
+        const agg = sliceDeltas(0, SL, __prevRwkvState, cur)
+        aggCos = agg.cos
+        aggL2 = agg.l2
+        if (canLayer) {
+          for (let L = 0; L < numLayer; L++) {
+            const r = sliceDeltas(L * perLayer, (L + 1) * perLayer, __prevRwkvState, cur)
+            perLayerCos.push(r.cos)
+            perLayerL2.push(r.l2)
+          }
         }
-        l2 = Math.sqrt(l2)
-        cos = 1 - (dot / ((Math.sqrt(na) * Math.sqrt(nb)) + 1e-9))
       }
-      out.push({ turn: idx, deltaCosine: cos, deltaL2: l2 })
-      __prevRwkvState = cur.slice() // snapshot for next turn's delta
+      else {
+        for (let L = 0; L < numLayer; L++) { perLayerCos.push(0); perLayerL2.push(0) }
+      }
+      out.push({
+        turn: idx,
+        deltaCosine: aggCos,
+        deltaL2: aggL2,
+        perLayerCosine: perLayerCos, // index 0..numLayer-1
+        perLayerL2,
+        perLayerFloats: perLayer,
+      })
+      __prevRwkvState = cur.slice()
     }
     return out
   }
