@@ -278,6 +278,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 ### Echo Chips
 - **Store**: `packages/stage-ui/src/stores/echo-chips.ts`
 - **Repo**: `packages/stage-ui/src/database/repos/echo-chips.repo.ts` — `local:memory/echo-chips/{userId}`
+- **Salience Gate (provenance)**: Echo-Chips now rides on a 0.1B RWKV-7 WebGPU state-vector salience sensor (Phase 4b provenance: L9–L11 Δh vote-2of3 @ 1.5× gave Recall 0.818 / Precision 0.90 / F1 0.857 / FPR 0.125). It marks high-intensity turns before the Echo-Chips batch is considered; the 0.1B model itself does **not** generate the tags (Phase 3 showed 0/14 structured output — capability ceiling on raw prompt completion).
 
 ### Director Notes
 - **Repo**: `packages/stage-ui/src/database/repos/director-notes.repo.ts` — `local:director/sessions/{sessionId}`

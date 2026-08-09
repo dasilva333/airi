@@ -9,7 +9,7 @@
 - [`proposal-introspective-context-injection.md`](./proposal-introspective-context-injection.md) — Dream/Journal intrusion channels
 - [`project-rwkv-kimi.md`](./project-rwkv-kimi.md) — measured Phase 3/4/4b results
 
-(Sections appended incrementally — see git history.)
+(Sections complete; this is the final draft.)
 
 ---
 
@@ -19,7 +19,7 @@ Phase 4b showed a **recurrent-state salience signal** inside the 0.1B RWKV model
 
 Two key findings from the measured sweep (report `04-toggle4-vote-sweep-…`):
 
-1. **It is a salience sensor, not a topic sensor.** In "topic-shift" mode (4 boundaries) we achieved Recall 1.00 but only Precision 0.40 (FPR 0.40): the state also spikes on emotionally charged in-topic turns (affection, awe, physical beats). When we re-annotated those as *salience* positives, `vote-2of3 @ 1.5×` reached **Recall 0.818, Precision 0.90, F1 0.857, FPR 0.125**.
+1. **It is a salience sensor, not a topic sensor.** In "topic-shift" mode (4 boundaries) we achieved Recall 1.00 but only Precision 0.40 (FPR 0.40): the state also spikes on emotionally charged in-topic turns (affection, awe, physical beats). When we re-annotated those as *salience* positives, `vote-2of3 @ 1.5×` reached **Recall 0.818, Precision 0.90, F1 0.857, FPR 0.125** (i.e. 1-of-8 in-topic noisy flag rate).
 2. **The gate is cheap and already computable in-page.** The production WebGPU worker already exposes `session.back(state)` to read the full recurrent vector — no new inference pass is needed, just a per-turn diff against the previous snapshot.
 
 Implication for UI: surface it as **`SALIENCE`**, an *intensity/vibe* indicator — not a "topic changed" badge (geometry doesn't support that claim on 0.1B) and not a threat tag. This pairs with the roadmap decision that Echo Chips offline synthesis is gated by salience windows rather than the tiny model writing tags itself (Phase 3 showed 0/14 GT structured-tag match with generation off).
