@@ -2,6 +2,7 @@
 .trash/
 .DS_Store
 .env
+.fork-explorer-cache.json
 
 # Node.js
 node_modules
