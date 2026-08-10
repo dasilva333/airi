@@ -49,9 +49,9 @@ const availableVoices = computed(() => {
   return speechStore.availableVoices[providerId] || []
 })
 
-// Get provider config options (real reactive instance object)
-const instanceConfig = computed(() => {
-  return providersStore.getProviderInstanceConfig(providerId)
+// Get provider config
+const providerConfig = computed(() => {
+  return providersStore.getProviderConfig(providerId)
 })
 
 const modelsLoading = computed(() => {
@@ -66,15 +66,19 @@ const isActiveProvider = computed(() => speechStore.activeSpeechProvider === pro
 
 const model = computed({
   get(): string {
-    const val = (instanceConfig.value.options?.model as string) || defaultModel
-    console.debug('[PocketSettings Debug] model.get() ->', val, { options: instanceConfig.value.options })
+    const val = (providerConfig.value?.model as string) || defaultModel
+    console.debug('[PocketSettings Debug] model.get() ->', val, { providerConfig: providerConfig.value })
     return val
   },
   set(val: string) {
     console.debug('[PocketSettings Debug] model.set() called with ->', val)
-    instanceConfig.value.options.model = val
-    instanceConfig.value.options.language = val
-    console.debug('[PocketSettings Debug] Updated instanceConfig options:', instanceConfig.value.options)
+    const current = providersStore.getProviderConfig(providerId)
+    providersStore.providers[providerId] = {
+      ...current,
+      model: val,
+      language: val,
+    }
+    console.debug('[PocketSettings Debug] Updated providers config:', providersStore.getProviderConfig(providerId))
 
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
@@ -100,18 +104,26 @@ const modelOptions = computed(() => {
 
 const cpuThreads = computed({
   get(): number {
-    return (instanceConfig.value.options?.cpuThreads as number) ?? 4
+    return (providerConfig.value?.cpuThreads as number) ?? 4
   },
   set(val: number) {
-    instanceConfig.value.options.cpuThreads = Number(val)
+    const current = providersStore.getProviderConfig(providerId)
+    providersStore.providers[providerId] = {
+      ...current,
+      cpuThreads: Number(val),
+    }
   },
 })
 
 function setActiveSpeechProvider() {
   speechStore.activeSpeechProvider = providerId
   speechStore.activeSpeechModel = model.value
-  instanceConfig.value.options.model = model.value
-  instanceConfig.value.options.language = model.value
+  const current = providersStore.getProviderConfig(providerId)
+  providersStore.providers[providerId] = {
+    ...current,
+    model: model.value,
+    language: model.value,
+  }
   toast.success('Pocket TTS set as AIRI\'s active speech engine!')
 }
 
@@ -224,7 +236,8 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       throw new Error('Failed to initialize Pocket TTS speech provider instance')
     }
 
-    const selectedModel = model.value || (instanceConfig.value.options?.model as string) || defaultModel
+    const currentConfig = providersStore.getProviderConfig(providerId)
+    const selectedModel = model.value || (currentConfig?.model as string) || defaultModel
 
     toast.loading(`Synthesizing audio with Pocket model "${selectedModel}"...`, { id: toastId })
 
@@ -234,7 +247,7 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       input,
       voiceId,
       {
-        ...instanceConfig.value.options,
+        ...currentConfig,
         model: selectedModel,
         language: selectedModel,
       },
@@ -254,9 +267,13 @@ onMounted(async () => {
   try {
     voicesLoading.value = true
     await providersStore.fetchModelsForProvider(providerId)
-    if (!instanceConfig.value.options?.model) {
-      instanceConfig.value.options.model = defaultModel
-      instanceConfig.value.options.language = defaultModel
+    const config = providersStore.getProviderConfig(providerId)
+    if (!config?.model) {
+      providersStore.providers[providerId] = {
+        ...config,
+        model: defaultModel,
+        language: defaultModel,
+      }
     }
     await loadCustomVoiceProfiles()
     await speechStore.loadVoicesForProvider(providerId)
@@ -274,10 +291,14 @@ watch(model, async (newModel) => {
   if (newModel) {
     try {
       voicesLoading.value = true
-      instanceConfig.value.options.model = newModel
-      instanceConfig.value.options.language = newModel
+      const current = providersStore.getProviderConfig(providerId)
+      providersStore.providers[providerId] = {
+        ...current,
+        model: newModel,
+        language: newModel,
+      }
 
-      console.debug('[PocketSettings Debug] Reloading voices for provider with options:', instanceConfig.value.options)
+      console.debug('[PocketSettings Debug] Reloading voices for provider with config:', providersStore.getProviderConfig(providerId))
       await speechStore.loadVoicesForProvider(providerId)
       console.debug('[PocketSettings Debug] Voice reload complete. Available voices:', speechStore.availableVoices[providerId])
     }
