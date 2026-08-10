@@ -15,7 +15,7 @@
  * renderer's `process()` is stateless.
  */
 
-import type { AttentionGuardProcessResult, InferenceDevice } from '../../../libs/inference/contract'
+import type { AttentionGuardProcessResult, InferenceDevice } from '../../libs/inference/contract'
 import type { DeltaBBox, GrayBuffer } from './engine/pixels'
 
 import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, env, RawImage } from '@huggingface/transformers'
@@ -28,7 +28,7 @@ import {
 
   attentionGuardUnloadEvent,
 
-} from '../../../libs/inference/contract'
+} from '../../libs/inference/contract'
 import { countErrorPatterns, disposeOcrEngine, extractErrorSnippet, OCR_ERROR_PATTERN_MIN, ocrImageData } from './engine/ocr'
 import { boxResizeGray, computeAHash, computeDeltaBBox, hammingDistance, STAGE0_HAMMING_MIN, toGray } from './engine/pixels'
 import { activeWindowLabel, buildSummary, disposeVlmForwarder, generateCaption, primeCaptioner, themeFromGray } from './engine/summarizer'

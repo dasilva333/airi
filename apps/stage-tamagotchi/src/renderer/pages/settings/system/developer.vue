@@ -80,6 +80,12 @@ const menu = computed(() => [
     to: '/devtools/screen-capture',
   },
   {
+    title: 'Vision & Attention Ecology Inspector',
+    description: 'Real-time 5-workload VLM ticker, 0-cost salience gate, and context publisher',
+    icon: 'i-solar:eye-bold-duotone',
+    to: '/devtools/vision',
+  },
+  {
     title: 'Live2D DSL Playground',
     description: 'Isolated Live2D .zip runner with real-time VarFloats inspector & intimacy sandbox',
     icon: 'i-solar:sledgehammer-bold-duotone',

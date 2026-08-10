@@ -12,19 +12,19 @@
  * promotion discipline (attention budget + hysteresis cooldown).
  */
 
-import type { AttentionGuardAdapter } from '../../libs/inference/adapters/attention-guard'
-import type { AttentionGuardProcessResult } from '../../libs/inference/contract'
+import type { AttentionGuardAdapter } from '../../../libs/inference/adapters/attention-guard'
+import type { AttentionGuardProcessResult } from '../../../libs/inference/contract'
 
 import { ContextUpdateStrategy } from '@proj-airi/server-sdk'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-import { ATTENTION_GUARD_WORKLOAD_ID } from '../../composables/vision/use-vision-workloads'
-import { createAttentionGuardAdapter } from '../../libs/inference/adapters/attention-guard'
-import { useChatOrchestratorStore } from '../chat'
-import { useModsServerChannelStore } from '../mods/api/channel-server'
+import { ATTENTION_GUARD_WORKLOAD_ID } from '../../../composables/vision/use-vision-workloads'
+import { createAttentionGuardAdapter } from '../../../libs/inference/adapters/attention-guard'
+import { useChatOrchestratorStore } from '../../chat'
+import { useModsServerChannelStore } from '../../mods/api/channel-server'
 
-export { ATTENTION_GUARD_WORKLOAD_ID, useVisionWorkloads, VISION_WORKLOADS } from '../../composables/vision/use-vision-workloads'
+export { ATTENTION_GUARD_WORKLOAD_ID, useVisionWorkloads, VISION_WORKLOADS } from '../../../composables/vision/use-vision-workloads'
 
 /** §6: maximum unsolicited promotions per rolling hour. */
 const ATTENTION_BUDGET_PER_HOUR = 3
@@ -107,7 +107,6 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
       strategy: ContextUpdateStrategy.ReplaceSelf,
       contextId: `vision:${workloadId}:${sourceId}`,
       text: summary,
-      content: summary,
       metadata: { kind: 'vision', workload: workloadId },
     })
   }

@@ -297,7 +297,108 @@ It captures live desktop frames via macOS native `screencapture -x`, runs the 4-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME DESKTOP MONITOR       [TICK #042]   │
+---
+
+## 11. Cognitive Propagation: Dual Push & Pull Execution Mechanics
+
+A naive stream of `context:update` events creates two failure modes:
+1. **Event Collision / Spam**: Switching tabs 5 times in 20 seconds sends 5 rapid context updates while AIRI is mid-speech or mid-generation, causing race conditions and audio overlap.
+2. **Context Pollution**: Chronologically dumping raw visual frames without semantic filtering exhausts token windows and forces unnecessary LLM invocations.
+
+To solve this, Attention Ecology establishes a **Dual Push/Pull Architecture** fed by a single source of truth: the **Rolling Visual Log Store** (`visualLogStore` / `eventStream`).
+
+```
+[Screen Frame] ──► 4-Stage Attention Ecology Gate (aHash -> CLIP -> OCR -> VLM)
+                                  │
+                                  ▼
+                   [ Rolling Visual Log Store ] (Last 5-10 events)
+                                  │
+                 ┌────────────────┴────────────────┐
+                 │                                 │
+                 ▼                                 ▼
+      [ PUSH ROUTE (Event-Driven) ]     [ PULL ROUTE (Heartbeat / Poll) ]
+      • Gated by Custom Interest Tags   • Periodic Heartbeat (e.g. 2-5m)
+        (e.g. "terminal_error",         • Injects [Visual Stream] into
+         "antigravity", "youtube")        the standard [Sensor Data] block
+      • Busy Pipe Deferral & Batching   • Gated by LLM `NO_REPLY` prompt
+      • Immediately interrupts pipe       crafting (silence if uninteresting)
+```
+
+### 11.1 The PUSH Model: Keyword-Driven Triggers & Busy Pipe Deferral
+Promoted visual novelties alone do not immediately trigger a cloud LLM call. Instead, Push events are evaluated against **Semantic Interest Tags**:
+
+* **System High-Priority Tags**: `terminal_error`, `code_exception`, `red_alert_ratio > 0.05`.
+* **User/Character Interest Keywords**: `antigravity`, `youtube`, `discord`, `blender`, `unity`.
+
+#### The Busy Pipe Safeguard (Deferral & Batching)
+When a Push Candidate matches an interest keyword while AIRI is currently generating LLM text or speaking via TTS (`isBusy = true`):
+1. The candidate is **NOT** spammed and does **NOT** interrupt active speech.
+2. It accumulates in a **Pending Push Batch**.
+3. When the pipeline clears (`isBusy = false`), the batch is consolidated into a single clean summary:
+   > *"User was working in Antigravity, encountered a compiler error in `contract.ts`, and checked Discord for references."*
+
+### 11.2 The PULL Model: Ambient Heartbeats & `NO_REPLY` Prompt Gating
+The Pull route operates as an ambient companion model without event noise:
+
+1. **Interval Schedule**: The character's Proactive Heartbeat ticks periodically (e.g. every 2 to 5 minutes).
+2. **Visual Stream Sensor Payload**: The **Rolling Visual Log Store** injects recent entries directly into the character's `[Sensor Data]` payload:
+   ```text
+   [Sensor Data]
+   User Idle: 45s
+   Active Program: Antigravity
+
+   [ Visual Stream (Last 3 Events) ]
+   • [10:48 PM] Antigravity: User opened implementation_plan.md
+   • [10:49 PM] Brave Browser: User searched "reka-ui combobox props"
+   • [10:50 PM] VSCode: Fixed TypeScript export error in contract.ts
+   ```
+3. **`NO_REPLY` Prompt Crafting**: The stealth heartbeat instruction directs the LLM to output `NO_REPLY` if nothing noteworthy occurred, allowing AIRI to remain naturally silent during focused work sessions.
+
+---
+
+## 12. Character Card UI & Proactivity Tab Revamp
+
+To prevent fragmentation across DevTools and global system settings, all Push and Pull configuration parameters are integrated directly into the **Character Card Editor** (`packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabProactivity.vue`).
+
+### 12.1 Proposed UI Structure for `CardCreationTabProactivity.vue`
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🧠 Cognition & Proactivity                                                  │
+│ Configure how this character observes your screen, logs activity, and       │
+│ proactively initiates dialogue.                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│ 📥 PUSH MECHANICS (Event-Driven Interventions)                              │
+│ [x] Enable Keyword-Driven Instant Push                                      │
+│                                                                             │
+│ Custom Interest Keywords / Tags:                                            │
+│ [ antigravity ✖ ] [ terminal_error ✖ ] [ youtube ✖ ] [ + Add Tag ]          │
+│                                                                             │
+│ [x] Defer & Batch Push Candidates While Speaking (Busy Pipe Safeguard)      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 📤 PULL MECHANICS (Ambient Heartbeats & Log Sampling)                       │
+│ [x] Enable Proactive Heartbeats                                             │
+│ Interval (Minutes): [ 5 ]    Schedule: [ 09:00 AM ] to [ 10:00 PM ]        │
+│                                                                             │
+│ [x] Attach Visual Stream Sensor Data to Heartbeat Payload                   │
+│ Rolling Window Capacity: [ 5 Events ]                                       │
+│                                                                             │
+│ Stealth Heartbeat Prompt (with NO_REPLY gating):                            │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ Review [Visual Stream] and [Sensor Data]. Comment on recent progress if │ │
+│ │ natural, or output NO_REPLY to stay silent.                             │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 13. System Metrics & Diagnostic Log Display
+
+*(Formerly Section 11)*
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
 │ STATUS: 🚨 HIGH SALIENCE ERROR PROMOTED          LATENCY: 1420ms | 0.42Hz   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
@@ -345,7 +446,8 @@ It captures live desktop frames via macOS native `screencapture -x`, runs the 4-
 1.  **M1 — Cheap Wins**: Stage 0 (perceptual hash + OS events), diary buffer, exclusion lists, heuristic promotion rules, Category Regex Router.
 2.  **M2 — Embedding Tier**: Local vision encoder, vector store with dedup/decay, novelty gate, OCR captioning, captions-only promotion.
 3.  **M3 — Subconscious & Vibe Island**: RWKV-7 streaming state, constrained-decoding judgments, logit-biased animation enums, reward token injection, Control Island indicators.
-4.  **M4 — Learning & Sleep**: Feedback-trained salience classifier, sleep-cycle consolidation, sensitivity preview.
+4.  **M4 — Dual Push/Pull & Character Card Revamp**: Custom interest keywords, busy pipe deferral & batching, rolling log store sensor payload injection, and `CardCreationTabProactivity.vue` UI overhaul.
+5.  **M5 — Learning & Sleep**: Feedback-trained salience classifier, sleep-cycle consolidation, sensitivity preview.
 
 ---
 

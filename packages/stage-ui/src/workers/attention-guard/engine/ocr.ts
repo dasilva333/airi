@@ -47,7 +47,7 @@ export async function disposeOcrEngine(): Promise<void> {
 export async function ocrImageData(imageData: ImageData): Promise<{ text: string, ocrMs: number }> {
   const started = performance.now()
   const worker = await getWorker()
-  const { data: { text } } = await worker.recognize(imageData)
+  const { data: { text } } = await worker.recognize(imageData as any)
   return { text, ocrMs: performance.now() - started }
 }
 
