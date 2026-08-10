@@ -47,6 +47,12 @@ const row1Items = computed<QuickAccessItem[]>(() => [
     icon: 'i-solar:cloud-bold-duotone',
     to: '/settings/modules/cloud-sync',
   },
+  {
+    id: 'developer-settings',
+    title: 'Developer',
+    icon: 'i-solar:code-bold-duotone',
+    to: '/settings/system/developer',
+  },
 ])
 
 // Row 2: Audio & Discovery

@@ -115,6 +115,7 @@ const staticIndex: SearchItem[] = [
   { id: 'sys-color-scheme', title: 'Color Scheme & Themes', category: 'System', description: 'Color palette presets & customization', to: '/settings/system/color-scheme', icon: 'i-solar:pallete-2-bold-duotone' },
   { id: 'sys-chat', title: 'Chat Settings', category: 'System', description: 'Send mode, stream timeout & bubble display', to: '/settings/system/chat', icon: 'i-solar:chat-round-dots-bold-duotone' },
   { id: 'sys-connection', title: 'Connection Settings', category: 'System', description: 'WebSocket URL, auth token & HF token', to: '/settings/system/connection', icon: 'i-solar:wi-fi-router-bold-duotone' },
+  { id: 'sys-developer', title: 'Developer Settings', category: 'System', description: 'DevTools, magic keys & mouse debug options', to: '/settings/system/developer', icon: 'i-solar:code-bold-duotone' },
 ]
 
 // ── Dynamic Character Card Index ──
