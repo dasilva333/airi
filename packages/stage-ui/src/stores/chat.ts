@@ -27,6 +27,7 @@ import { createDatetimeContext, createEternalRecordContext, createExpressionsCon
 import { useChatContextStore } from './chat/context-store'
 import { createChatHooks } from './chat/hooks'
 import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, stageArtistryIntrusion, stageJournalIntrusion } from './chat/intrusion-staging'
+import { useChatSalienceStore } from './chat/salience'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useLLM } from './llm'
@@ -593,6 +594,33 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         }
         catch (err) {
           console.error('[ChatStore] Failed to query director notes during scratchpad grounding:', err)
+        }
+      }
+
+      // 5. Salience Gate injection (Phase 6): probe the L9–L11 Δh of the turn's text and inject
+      //    a [Saliency Telemetry] system block whenever the gate is enabled and the turn wasn't
+      //    produced by trigger-only flow (voice notes/images count; empty trigger runs skip).
+      const salienceText = options.triggerOnly
+        ? null
+        : (typeof sendingMessage === 'string' && sendingMessage.trim().length > 0
+            ? sendingMessage
+            : null)
+      if (activeCard.value?.extensions?.airi?.salienceGateEnabled && salienceText) {
+        try {
+          const salienceStore = useChatSalienceStore()
+          const metrics = await salienceStore.probeTurn(salienceText)
+          if (metrics && (metrics.hot || metrics.lateLayerMean > metrics.controlMean * 1.1)) {
+            const layerReport = metrics.lateLayerDeltas.map((d, i) => `L${9 + i}=${d.toFixed(3)}`).join(' ')
+            groundingMessages.push({
+              role: 'system',
+              content: `[SALIENCE TELEMETRY]\nThis turn marks an emotional/physical beat. Recent-turn state deltas (late layers L9–L11 cosine Δh) = ${layerReport}; mean Δcos = ${metrics.lateLayerMean.toFixed(3)}; verdict=${metrics.hot ? 'hot' : 'elevated'}. Keep a natural, in-character tone; do NOT narrate the numbers to the user.`,
+            })
+            chatLog(`[salience] injected turn metrics: ${layerReport} hot=${metrics.hot}`)
+          }
+        }
+        catch (err) {
+          // Never block sending on a gate failure.
+          console.error('[ChatStore] Salience gate probe failed:', err)
         }
       }
 

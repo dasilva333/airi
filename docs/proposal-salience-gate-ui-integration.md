@@ -9,8 +9,6 @@
 - [`proposal-introspective-context-injection.md`](./proposal-introspective-context-injection.md) — Dream/Journal intrusion channels
 - [`project-rwkv-kimi.md`](./project-rwkv-kimi.md) — measured Phase 3/4/4b results
 
-(Sections complete; this is the final draft.)
-
 ---
 
 ## 1. What the Experiment Proved (and Why the UI Should Reflect It)

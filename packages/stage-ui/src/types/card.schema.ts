@@ -120,6 +120,7 @@ const AiriExtensionSchema = looseObject({
   groundingMemoryEnabled: optional(boolean()),
   groundingTopicsEnabled: optional(boolean()),
   groundingDirectorScratchpadEnabled: optional(boolean()),
+  salienceGateEnabled: optional(boolean()),
   recentTopics: optional(array(looseObject({
     topic: string(),
     weight: number(),

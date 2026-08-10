@@ -45,6 +45,7 @@ import bundledVocabUrl from './rwkv_vocab_v20230424.json?url'
 import {
   webRwkvGenerateEvent,
   webRwkvLoadEvent,
+  webRwkvStateDeltaEvent,
   webRwkvUnloadEvent,
 } from '../../libs/inference/contract'
 import { cacheKeyForModel, createCacheWriter, readCachedModel } from './cache'
@@ -526,6 +527,79 @@ defineStreamInvokeHandler(context, webRwkvGenerateEvent, toStreamHandler<WebRwkv
     }
   }
 }))
+
+/**
+ * Salience-gate probe handler (Phase 6).
+ *
+ * The chat session is contractually stateless: every generate resets the recurrent
+ * state to zeros before streaming (`session.load(zeros)`), so any in-flight probe
+ * residue is wiped by the next generation anyway. The probe therefore runs on the
+ * SAME session: `.run(turn)` mutates state → `.back(cur)` snaps Δh → we keep the
+ * resulting state as the probe baseline until the next probe, and the next
+ * `generate` resets it to zeros before any token runs. No separate session clone
+ * (there is no ReusableTensorReader to re-derive one from).
+ *
+ * `prevState` persists in `probePrev` across turns; `reset` (first conversation turn)
+ * drops it so the outgoing delta reads 0 by convention.
+ *
+ * Optional post-probe state restore: currently disabled by omission and unnecessary —
+ * the sampling state chain lives in the caller (browser) side via tokens, not in this
+ * recurrent state.
+ */
+let probePrev: Float32Array | null = null
+
+defineInvokeHandler(context, webRwkvStateDeltaEvent, async ({ turnText, reset }) => {
+  if (!loaded?.session || !loaded.tokenizer)
+    throw new Error('web-rwkv: model not loaded')
+
+  const { session, tokenizer, info } = loaded
+  const SL = session.state_len()
+  const cur = new Float32Array(SL)
+
+  if (reset)
+    probePrev = null
+
+  if (turnText && turnText.trim()) {
+    const tokens = tokenizer.encode(new TextEncoder().encode(turnText))
+    if (tokens.length > 0)
+      await session.run(tokens, new Float32Array(info.num_vocab))
+  }
+  await session.back(cur)
+
+  const numLayer = (info as any).num_layer ?? 0 // some wasm versions expose num_layer; fallback below
+  const okPartition = numLayer > 1 && SL % numLayer === 0
+  const layers = okPartition ? numLayer : 1
+  const slice = SL / layers
+
+  let l2 = 0
+  if (probePrev) {
+    for (let i = 0; i < SL; i++) {
+      const d = cur[i] - probePrev[i]
+      l2 += d * d
+    }
+    l2 = Math.sqrt(l2)
+  }
+
+  const perLayerCosine: number[] = new Array<number>(layers).fill(0)
+  if (probePrev) {
+    for (let li = 0; li < layers; li++) {
+      const liStart = li * slice
+      const liEnd = liStart + slice
+      let dot = 0
+      let na = 0
+      let nb = 0
+      for (let i = liStart; i < liEnd; i++) {
+        dot += cur[i] * probePrev[i]
+        na += cur[i] * cur[i]
+        nb += probePrev[i] * probePrev[i]
+      }
+      perLayerCosine[li] = 1 - (dot / ((Math.sqrt(na) * Math.sqrt(nb)) + 1e-9))
+    }
+  }
+
+  probePrev = cur.slice()
+  return { perLayerCosine, deltaL2: l2, numLayer: okPartition ? layers : 0 }
+})
 
 defineInvokeHandler(context, webRwkvUnloadEvent, () => {
   loaded?.session.free()

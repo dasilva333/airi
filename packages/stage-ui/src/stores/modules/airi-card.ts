@@ -213,6 +213,7 @@ export interface AiriExtension {
   groundingMemoryEnabled?: boolean
   groundingTopicsEnabled?: boolean
   groundingDirectorScratchpadEnabled?: boolean
+  salienceGateEnabled?: boolean
   recentTopics?: Array<{ topic: string, weight: number }>
   visual_assets?: Record<string, {
     description: string
@@ -577,6 +578,27 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         airi: {
           ...card.extensions?.airi,
           groundingDirectorScratchpadEnabled: !current,
+        },
+      },
+    } as any)
+  }
+
+  const toggleSalienceGate = async (id: string) => {
+    await until(cardsLoading).toBe(false)
+    const card = cards.value.get(id)
+    if (!card) {
+      debug('[AiriCard] toggleSalienceGate: card not found for id', id)
+      return
+    }
+
+    const current = card.extensions?.airi?.salienceGateEnabled ?? false
+    debug('[AiriCard] toggleSalienceGate:', { id, current, next: !current })
+    updateCard(id, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          salienceGateEnabled: !current,
         },
       },
     } as any)
@@ -1292,6 +1314,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     toggleGroundingMemory,
     toggleGroundingTopics,
     toggleGroundingDirectorScratchpad,
+    toggleSalienceGate,
     setAutonomousArtistry,
     getCardDisplayModelId,
     resetState,

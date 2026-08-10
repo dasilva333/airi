@@ -130,6 +130,11 @@ function handleToggleGroundingDirectorScratchpad() {
     airiCardStore.toggleGroundingDirectorScratchpad(activeCardId.value)
 }
 
+function handleToggleSalienceGate() {
+  if (activeCardId.value)
+    airiCardStore.toggleSalienceGate(activeCardId.value)
+}
+
 const hasTextJournal = computed(() => {
   const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
   return allowed === undefined || allowed.includes('text_journal')

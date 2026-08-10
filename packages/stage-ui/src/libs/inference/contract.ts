@@ -297,6 +297,35 @@ export const webRwkvLoadEvent = defineInvokeEventa<LoadStreamItem, WebRwkvLoadRe
 export const webRwkvGenerateEvent = defineInvokeEventa<WebRwkvGenerateChunk, WebRwkvGenerateRequest>('inference:web-rwkv:generate')
 export const webRwkvUnloadEvent = defineInvokeEventa<void, undefined>('inference:web-rwkv:unload')
 
+/**
+ * Salience-gate probe (Phase 6). The worker ingests a completed turn into a
+ * DEDICATED side session (never the chat session — that one is reset per request
+ * at `session.load(0)`), snapshots its recurrent state, computes per-layer cosine
+ * deltas against the prior turn, and returns only the small per-layer vector.
+ *
+ * Note: NOT state floats across the bridge — the full state is ~608,256 floats
+ * (2.4 MB); shipping it per turn just to diff in the UI would dominate. The
+ * runner computes per-layer cosines in-worker (validated by the Phase-4b harness
+ * at scripts/tests/rwkv-harness) and returns perLayerCosine[12].
+ */
+export interface WebRwkvStateDeltaRequest {
+  /** Sanitized turn text (`"User: …"` / `"Char: …"`) to ingest into the probe session. */
+  turnText: string
+  /** True to reset the probe session (first turn of a conversation), so turn 0's delta vs. zeros reads 0-by-convention. */
+  reset?: boolean
+}
+
+export interface WebRwkvStateDeltaResult {
+  /** Cosine delta per RWKV layer (index 0..numLayer-1; 12 on the g1d-0.1b). First turn after a reset is all zeros. */
+  perLayerCosine: number[]
+  /** Aggregate L2 norm of the state delta (diagnostic). */
+  deltaL2: number
+  /** Layer count the state decomposed into (state_len / per-layer slice). */
+  numLayer: number
+}
+
+export const webRwkvStateDeltaEvent = defineInvokeEventa<WebRwkvStateDeltaResult, WebRwkvStateDeltaRequest>('inference:web-rwkv:state-delta')
+
 export interface BlipLoadRequest {
   device: InferenceDevice
   model?: string

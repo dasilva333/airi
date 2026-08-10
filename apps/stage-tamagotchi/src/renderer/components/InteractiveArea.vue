@@ -19,6 +19,7 @@ import { useProducer } from '@proj-airi/stage-ui/composables'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
+import { useChatSalienceStore } from '@proj-airi/stage-ui/stores/chat/salience'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
 import { useEchoesStore } from '@proj-airi/stage-ui/stores/echo-chips'
@@ -52,6 +53,8 @@ const textJournalStore = useTextJournalStore()
 const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
 const echoesStore = useEchoesStore()
+const salienceStore = useChatSalienceStore()
+const { hot: salienceHot, history: salienceHistory } = storeToRefs(salienceStore)
 
 const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
@@ -1089,6 +1092,8 @@ defineExpose({
           <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>
           <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Grounded Memories ({{ groundedMemories.length }})</span>
           <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
+          <!-- Phase 6: L9–L11 Δh salience spike indicator; only lights on a vote-2of3 hot verdict. -->
+          <span v-if="salienceHot && salienceHistory.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400" :title="`Salience hit: late-layer Δcos ≥ ${(salienceHistory[salienceHistory.length - 1].threshold).toFixed(3)} (turn on the latest message)`">Salience Vibe Active</span>
           <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Visual Scene Active</span>
         </div>
         <div class="flex items-center gap-1.5">

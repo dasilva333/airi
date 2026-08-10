@@ -14,17 +14,17 @@
  * the worker and retries on WebGPU.
  */
 
-import type { WebRwkvGenerateRequest } from '../contract'
+import type { WebRwkvGenerateRequest, WebRwkvStateDeltaRequest, WebRwkvStateDeltaResult } from '../contract'
 import type { ProgressPayload } from '../protocol'
 
-import { defineStreamInvoke } from '@moeru/eventa'
+import { defineInvoke, defineStreamInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers'
 import { defaultPerfTracer } from '@proj-airi/stage-shared'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
 import { MODEL_NAMES, TIMEOUTS } from '../constants'
-import { consumeLoadStream, createIdleTimeout, signalWithTimeout, webRwkvGenerateEvent, webRwkvLoadEvent } from '../contract'
+import { consumeLoadStream, createIdleTimeout, signalWithTimeout, webRwkvGenerateEvent, webRwkvLoadEvent, webRwkvStateDeltaEvent } from '../contract'
 import { MODEL_VRAM_ESTIMATES } from '../coordinator'
 import { GPU_PRIORITY } from '../gpu-executor'
 import { createGpuWorkerHost } from '../gpu-worker-host'
@@ -55,6 +55,13 @@ export interface WebRwkvAdapter {
    */
   generate: (request: WebRwkvGenerateRequest, options?: WebRwkvGenerateOptions) => Promise<string>
 
+  /**
+   * Phase 6 salience probe: ingest a turn's display text into the worker-side probe
+   * chain and return per-layer cosine deltas. Runs after chat generation completes
+   * (GPU free); unary invoke, small result payload only.
+   */
+  stateDelta: (request: WebRwkvStateDeltaRequest, options?: { signal?: AbortSignal }) => Promise<WebRwkvStateDeltaResult>
+
   /** Terminate the worker. */
   terminate: () => void
 
@@ -81,6 +88,8 @@ function createWebRwkvRpc(worker: Worker) {
   return {
     load: defineStreamInvoke(context, webRwkvLoadEvent),
     generate: defineStreamInvoke(context, webRwkvGenerateEvent),
+    // Phase 6 salience probe: unary invoke (small per-layer result, no stream).
+    stateDelta: defineInvoke(context, webRwkvStateDeltaEvent),
   }
 }
 
@@ -236,7 +245,13 @@ export function createWebRwkvAdapter(): WebRwkvAdapter {
   return {
     loadModel,
     generate,
-    terminate: host.terminate,
+    stateDelta: (request, options) =>
+      host.runExclusive(async () => {
+        if (!host.rpc || host.phase !== 'ready')
+          throw new Error('web-rwkv: model not loaded')
+        return host.rpc!.stateDelta(request, options)
+      }),
+    terminate: () => host.terminate(),
     get state() { return host.phase === 'busy' ? 'running' : host.phase },
     get manifest() { return lastManifest },
     get deviceLossCount() { return host.deviceLossCount },
