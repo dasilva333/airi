@@ -304,11 +304,13 @@ To avoid "coding into a single-slot hole", WebLLM is fully compatible with AIRI'
   - **Heavyweight Instance (3B / 7B)**: Configured for rich character roleplay, reasoning, and main chat.
 - **Queue Synchronization**: Multiple WebLLM instances share the central Web Worker and `coordinator.ts` load queue, ensuring VRAM allocations swap cleanly without VRAM leaks or WebGPU device loss.
 
-### Provider Registration Architecture (`defineProvider`)
-WebLLM registers cleanly into AIRI's modular provider registry system:
-- **Definition Path**: `packages/stage-ui/src/libs/providers/providers/web-llm/index.ts`
-- **Registry Entry**: Registered via `defineProvider()` in `registry.ts`.
+### Provider Registration Architecture (`localEngineMetadata`)
+Following the empirical findings of Kimi K3's provider audit, local in-browser WebGPU engines (`web-rwkv`, `blip-local`) do not use `defineProvider()`. Instead, they are registered as hand-written `ProviderMetadata` entries in **`localEngineMetadata`**:
+- **Registry File**: `packages/stage-ui/src/stores/providers/registry/local-engines.ts`
+- **Keep-List Gate**: Preserved in `packages/stage-ui/src/stores/providers/registry/index.ts` (`providerId !== 'web-rwkv' && providerId !== 'blip-local' && providerId !== 'web-llm'`).
+- **WebGPU Availability Gate**: Protected via `isAvailableBy: () => isWebGPUSupported()`.
 - **Worker & Eventa Contract**: `packages/stage-ui/src/workers/web-llm/worker.ts` communicates over Eventa RPC (`webLlmLoadEvent`, `webLlmGenerateEvent`, `webLlmUnloadEvent`).
+- **Bespoke Settings Page**: `packages/stage-pages/src/pages/settings/providers/chat/web-llm.vue` (providing model combobox, custom HF repo input, download progress bar, and OPFS/IndexedDB storage controls).
 
 ### The Dual WebGPU Engine Synergy in AIRI
 
@@ -447,16 +449,13 @@ The app has a deliberate philosophy: **generation parameters belong to the chara
 
 - Different characters warrant different generation styles. A terse, dry-humored character needs lower temperature and higher penalties. A dramatic, verbose character needs higher temperature and softer penalties. Enforcing global settings defeats this.
 - The provider is an infrastructure concern (which LLM backend to hit). The character is the experience concern (how that LLM should behave for this persona). These are orthogonal axes and are intentionally separated.
-- The `known` fields on the character card are the correct knobs for `temperature` and `top_p`. `countPenalty` / `penaltyDecay` are not in `known` today — if RWKV becomes the primary/only provider for a significant subset of users, those fields should be added to `known` (gated by an `if (provider === 'web-rwkv')` display condition in the UI), not exposed globally.
+- The `known` fields on the character card are the correct knobs for `temperature` and `top_p`.
 
-Any future agent adding RWKV-specific generation controls should:
-1. Add the fields to `CharacterGenerationConfig.known` (not a new global store)
-2. Render them in the Generation tab only when the character's configured provider is `web-rwkv`
-3. Thread them through the provider shim via a new non-standard field name (e.g., `x_rwkv_count_penalty`) to keep the OpenAI-compatible path clean
+---
 
 # Implementation Plan: WebLLM (`@mlc-ai/web-llm`) Built-in WebGPU Provider
 
-Add **WebLLM** (`@mlc-ai/web-llm`) as a built-in, 100% offline local WebGPU Transformer LLM provider under **Settings → Providers → Consciousness** using AIRI's revamped `defineProvider()` registry system and **Multi-Instance Provider Architecture**.
+Add **WebLLM** (`@mlc-ai/web-llm`) as a built-in, 100% offline local WebGPU Transformer LLM provider under **Settings → Providers → Chat** using AIRI's `localEngineMetadata` registry system (`local-engines.ts`) and **Multi-Instance Provider Architecture**.
 
 This complements **Web-RWKV 0.1B** (the background attention guard) by providing a **high-throughput main & distill conversation engine** running Llama 3.2 3B Instruct, Qwen 2.5, SmolLM2, and Phi 3.5 at **39+ tok/s decoding** and **190+ tok/s prefill** directly inside the browser / Electron app with zero API costs.
 
@@ -465,15 +464,17 @@ This complements **Web-RWKV 0.1B** (the background attention guard) by providing
 ## User Review Required
 
 > [!IMPORTANT]
+> **Local WebGPU Engine Registration (`localEngineMetadata`)**:
+> Per Kimi K3's empirical codebase audit, local in-browser WebGPU models (`web-rwkv`, `blip-local`) bypass `defineProvider()` and are registered directly as `ProviderMetadata` literals in `packages/stage-ui/src/stores/providers/registry/local-engines.ts`.
+>
+> `web-llm` will follow this exact pattern:
+> 1. Registered in `localEngineMetadata` in `local-engines.ts`.
+> 2. Added to the `createProviderRegistry` keep-list in `packages/stage-ui/src/stores/providers/registry/index.ts`.
+> 3. Gate checked via `isAvailableBy: () => isWebGPUSupported()`.
+> 4. Driven by bespoke settings page: `packages/stage-pages/src/pages/settings/providers/chat/web-llm.vue`.
+>
 > **Multi-Instance Provider Architecture Alignment (`design-multi-instance-provider-studio.md`)**:
 > Users can instantiate **multiple WebLLM provider instances** (e.g. `web-llm:fast-distill` configured with `Qwen2.5-0.5B` alongside `web-llm:main-chat` configured with `Llama-3.2-3B-Instruct`).
->
-> Downstream modules can target specific instances:
-> - **Attention Ecology & Event Log Distill**: Uses `web-llm:fast-distill` (200+ tok/s ultra-fast summaries).
-> - **Main Character Chat**: Uses `web-llm:main-chat` (Llama 3.2 3B Instruct for deep roleplay).
->
-> **Standard Provider & Models API Alignment**:
-> Downstream chat consumers treat `web-llm` like any other standard LLM provider. Its `listModels()` method exposes enabled/downloaded models, yielding standard OpenAI-compatible completions via `@xsai`.
 >
 > **Unified Model Cache Manager Integration (`ModelCacheManager.vue`)**:
 > WebLLM model weights downloaded to IndexedDB / OPFS will register in `packages/stage-ui/src/libs/inference/cache-utils.ts` (`getWebLlmCacheSize()`, `clearWebLlmCache()`, `isWebLlmModelCached()`). It will appear in the **Model Cache** widget under **Settings → Providers** alongside Kokoro, Whisper, and RWKV for 1-click storage inspection and clearing.
@@ -504,12 +505,11 @@ This complements **Web-RWKV 0.1B** (the background attention guard) by providing
 #### [MODIFY] [`cache-utils.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/cache-utils.ts)
 - Add `getWebLlmCacheSize()`, `clearWebLlmCache()`, and `isWebLlmModelCached()` for IndexedDB/OPFS WebLLM storage tracking.
 
-#### [NEW] [`index.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/web-llm/index.ts)
-- Register provider definition using AIRI's revamped `defineProvider()` registry system (`defineProvider({ id: 'web-llm', order: 3, name: 'WebLLM (WebGPU)', ... })`).
-- Define Zod schema (`webLlmConfigSchema`) supporting `instanceId`, `selectedModel`, `customHfRepo`, `customWasmBase`, `temperature`, and `topP`.
+#### [MODIFY] [`local-engines.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/local-engines.ts)
+- Add `'web-llm'` entry to `localEngineMetadata` with `category: 'chat'`, `requiresCredentials: false`, `isAvailableBy: () => isWebGPUSupported()`.
 
-#### [MODIFY] [`index.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/index.ts)
-- Export `providerWebLLM` from `./web-llm` to include it in AIRI's provider catalog.
+#### [MODIFY] [`index.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/index.ts)
+- Add `'web-llm'` to `createProviderRegistry` keep-list (`providerId !== 'web-rwkv' && providerId !== 'blip-local' && providerId !== 'web-llm'`).
 
 #### [MODIFY] [`ModelCacheManager.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue)
 - Add `WebLLM (Llama 3.2 / Qwen 2.5)` entry to `knownModels` array for 1-click cache visibility.
@@ -520,11 +520,8 @@ This complements **Web-RWKV 0.1B** (the background attention guard) by providing
 
 ---
 
-#### [NEW] [`CardConsciousnessWebLLM.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/providers/consciousness/components/CardConsciousnessWebLLM.vue)
-- Provider settings card with Multi-Instance add/edit controls, model selector combobox, custom HuggingFace model repo input field, download progress bar, temperature/top-p sliders, and weight clear/OPFS management buttons.
-
-#### [MODIFY] [`index.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/providers/index.vue)
-- Include `CardConsciousnessWebLLM` card in the Consciousness provider settings page supporting multi-instance duplication.
+#### [NEW] [`web-llm.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/providers/chat/web-llm.vue)
+- Bespoke provider settings page with Multi-Instance controls, model selector combobox, custom HuggingFace model repo input field, download progress bar, temperature/top-p sliders, and weight clear/OPFS management buttons.
 
 ---
 
@@ -544,7 +541,7 @@ This complements **Web-RWKV 0.1B** (the background attention guard) by providing
 - Typecheck `stage-pages` workspace: `pnpm -F @proj-airi/stage-pages typecheck`
 
 ### Manual Verification
-1. Open **Settings → Providers → Consciousness → WebLLM**.
+1. Open **Settings → Providers → Chat → WebLLM**.
 2. Create Instance 1 (`WebLLM Fast Distill` with `Qwen2.5-0.5B`).
 3. Create Instance 2 (`WebLLM Main Chat` with `Llama-3.2-3B`).
 4. Verify both instances register in model selectors.
