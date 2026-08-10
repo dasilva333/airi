@@ -3,3 +3,5 @@ wrangler.toml
 dist/
 .cache/
 node_modules/
+.models/
+

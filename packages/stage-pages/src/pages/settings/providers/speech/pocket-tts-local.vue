@@ -66,23 +66,15 @@ const isActiveProvider = computed(() => speechStore.activeSpeechProvider === pro
 
 const model = computed({
   get(): string {
-    const val = (providerConfig.value?.model as string) || defaultModel
-    console.debug('[PocketSettings Debug] model.get() ->', val, { providerConfig: providerConfig.value })
-    return val
+    return (providerConfig.value?.model as string) || defaultModel
   },
   set(val: string) {
-    console.debug('[PocketSettings Debug] model.set() called with ->', val)
-    const current = providersStore.getProviderConfig(providerId)
-    providersStore.providers[providerId] = {
-      ...current,
-      model: val,
-      language: val,
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.model = val
     }
-    console.debug('[PocketSettings Debug] Updated providers config:', providersStore.getProviderConfig(providerId))
-
     if (isActiveProvider.value) {
       speechStore.activeSpeechModel = val
-      console.debug('[PocketSettings Debug] Updated activeSpeechModel in speechStore:', val)
     }
   },
 })
@@ -107,22 +99,39 @@ const cpuThreads = computed({
     return (providerConfig.value?.cpuThreads as number) ?? 4
   },
   set(val: number) {
-    const current = providersStore.getProviderConfig(providerId)
-    providersStore.providers[providerId] = {
-      ...current,
-      cpuThreads: Number(val),
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.cpuThreads = Number(val)
     }
   },
 })
 
+const currentLanguage = computed({
+  get: () => (providerConfig.value?.language as string) || 'english',
+  set: (val: string) => {
+    const config = providersStore.getProviderConfig(providerId)
+    if (config) {
+      config.language = val
+    }
+  },
+})
+
+const languageOptions = [
+  { label: 'English', value: 'english' },
+  { label: 'French', value: 'french' },
+  { label: 'Spanish', value: 'spanish' },
+  { label: 'German', value: 'german' },
+  { label: 'Portuguese', value: 'portuguese' },
+  { label: 'Italian', value: 'italian' },
+]
+
 function setActiveSpeechProvider() {
   speechStore.activeSpeechProvider = providerId
   speechStore.activeSpeechModel = model.value
-  const current = providersStore.getProviderConfig(providerId)
-  providersStore.providers[providerId] = {
-    ...current,
-    model: model.value,
-    language: model.value,
+  const config = providersStore.getProviderConfig(providerId)
+  if (config) {
+    config.model = model.value
+    config.language = currentLanguage.value
   }
   toast.success('Pocket TTS set as AIRI\'s active speech engine!')
 }
@@ -236,8 +245,8 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       throw new Error('Failed to initialize Pocket TTS speech provider instance')
     }
 
-    const currentConfig = providersStore.getProviderConfig(providerId)
-    const selectedModel = model.value || (currentConfig?.model as string) || defaultModel
+    const config = providersStore.getProviderConfig(providerId)
+    const selectedModel = model.value || (config?.model as string) || defaultModel
 
     toast.loading(`Synthesizing audio with Pocket model "${selectedModel}"...`, { id: toastId })
 
@@ -247,9 +256,9 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
       input,
       voiceId,
       {
-        ...currentConfig,
+        ...config,
         model: selectedModel,
-        language: selectedModel,
+        language: currentLanguage.value,
       },
     )
 
@@ -268,12 +277,8 @@ onMounted(async () => {
     voicesLoading.value = true
     await providersStore.fetchModelsForProvider(providerId)
     const config = providersStore.getProviderConfig(providerId)
-    if (!config?.model) {
-      providersStore.providers[providerId] = {
-        ...config,
-        model: defaultModel,
-        language: defaultModel,
-      }
+    if (config && !config.model) {
+      config.model = defaultModel
     }
     await loadCustomVoiceProfiles()
     await speechStore.loadVoicesForProvider(providerId)
@@ -286,21 +291,20 @@ onMounted(async () => {
   }
 })
 
-watch(model, async (newModel) => {
-  console.debug('[PocketSettings Debug] watch(model) triggered with newModel:', newModel)
-  if (newModel) {
+watch([model, currentLanguage], async ([newModel, newLang]) => {
+  // Refresh the voice list whenever the bundle (model) or target language changes
+  // so built-in predefined presets filter to the active language.
+  if (newModel || newLang) {
     try {
       voicesLoading.value = true
-      const current = providersStore.getProviderConfig(providerId)
-      providersStore.providers[providerId] = {
-        ...current,
-        model: newModel,
-        language: newModel,
+      const config = providersStore.getProviderConfig(providerId)
+      if (config) {
+        if (newModel)
+          config.model = newModel
+        if (newLang)
+          config.language = newLang
       }
-
-      console.debug('[PocketSettings Debug] Reloading voices for provider with config:', providersStore.getProviderConfig(providerId))
       await speechStore.loadVoicesForProvider(providerId)
-      console.debug('[PocketSettings Debug] Voice reload complete. Available voices:', speechStore.availableVoices[providerId])
     }
     catch (error) {
       console.error('[Pocket Settings] Error reloading voices:', error)
@@ -398,6 +402,15 @@ watch(model, async (newModel) => {
                 placeholder="4"
               />
               <span class="text-[10px] text-neutral-400">Thread count for WASM execution</span>
+            </div>
+
+            <!-- Target Language -->
+            <div class="space-y-1">
+              <label class="text-xs text-neutral-600 font-medium dark:text-neutral-300">Language Model Variant</label>
+              <Select
+                v-model="currentLanguage"
+                :options="languageOptions"
+              />
             </div>
           </div>
         </div>
