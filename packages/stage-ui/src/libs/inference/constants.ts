@@ -24,6 +24,7 @@ export const MODEL_NAMES = {
   WHISPER: 'whisper-large-v3-turbo',
   BG_REMOVAL: 'modnet',
   WEB_RWKV: 'web-rwkv',
+  WEB_LLM: 'web-llm',
   BLIP: 'blip',
   WD14: 'wd14',
   ATTENTION_GUARD: 'attention-guard',
@@ -71,6 +72,59 @@ export const WEB_RWKV_MODELS = [
 
 /** Default web-rwkv model URL. */
 export const DEFAULT_WEB_RWKV_MODEL: string = WEB_RWKV_MODELS[0].id
+
+/**
+ * Curated WebLLM (`@mlc-ai/web-llm` ^0.2.84) WebGPU transformer chat models.
+ * `id` is the MLC `model_id` resolved against `prebuiltAppConfig.model_list`
+ * (the npm-pinned source of truth for compatible `model_lib` WASM binaries);
+ * `vramMB` is the catalog's `vram_required_MB` used for the pre-allocation
+ * bookkeeping check. Each ships a verified `*_cs1k-webgpu.wasm` on MLC's CDN.
+ *
+ * Tier order matches the proposal's top-5 curation (reasoning → main chat →
+ * distill → modern generalist → ultra-low fallback).
+ */
+export interface WebLlmModelInfo {
+  id: string
+  name: string
+  description: string
+  vramMB: number
+}
+
+export const WEB_LLM_MODELS: readonly WebLlmModelInfo[] = [
+  {
+    id: 'Qwen3.5-0.8B-q4f16_1-MLC',
+    name: 'Qwen 3.5 0.8B (Fast Distill)',
+    description: 'Ultra-fast pre-filtering and event-log distillation; complements the web-rwkv salience gate.',
+    vramMB: 1629,
+  },
+  {
+    id: 'gemma3-1b-it-q4f16_1-MLC',
+    name: 'Gemma 3 1B (Ultra-Low Fallback)',
+    description: 'Lightweight runner for integrated GPUs, mobile devices, and VRAM-constrained setups.',
+    vramMB: 711,
+  },
+  {
+    id: 'Ministral-3-3B-Reasoning-2512-q4f16_1-MLC',
+    name: 'Ministral 3 3B Reasoning',
+    description: 'First native small chain-of-thought model. Ideal for complex multi-step reasoning.',
+    vramMB: 2864,
+  },
+  {
+    id: 'Phi-4-mini-instruct-q4f16_1-MLC',
+    name: 'Phi 4 Mini Instruct',
+    description: 'Top-tier 3.8B instruction model; modern generalist outperforming Phi-3.5-mini.',
+    vramMB: 3438,
+  },
+  {
+    id: 'Qwen3.5-4B-q4f16_1-MLC',
+    name: 'Qwen 3.5 4B (Main Chat)',
+    description: 'Next-gen Qwen architecture; sweet-spot balance for rich character roleplay.',
+    vramMB: 3868,
+  },
+]
+
+/** Default WebLLM model id — the fast-distill tier, light enough to coexist with the salience gate. */
+export const DEFAULT_WEB_LLM_MODEL: string = WEB_LLM_MODELS[0].id
 
 // ---------------------------------------------------------------------------
 // Timeouts (ms)
@@ -133,6 +187,20 @@ export const TIMEOUTS = {
    * wedge is caught within this gap.
    */
   WEB_RWKV_GENERATE_IDLE: 15_000,
+
+  /** WebLLM model load timeout (absolute; multi-GB weight download + shader compile) */
+  WEB_LLM_LOAD: 600_000,
+  /**
+   * Time-to-first-token budget for WebLLM generation, armed at stream start.
+   * Covers prefill of the full chat history before the first decoded token.
+   */
+  WEB_LLM_GENERATE_FIRST_CHUNK: 60_000,
+  /**
+   * Inter-token inactivity budget for WebLLM generation, used after the first
+   * token proves the worker alive. Decoding streams steadily (~39 tok/s), so a
+   * mid-stream wedge is caught within this gap.
+   */
+  WEB_LLM_GENERATE_IDLE: 15_000,
 
   /** Local vision model load timeout (absolute) */
   LOCAL_VISION_LOAD: 300_000,

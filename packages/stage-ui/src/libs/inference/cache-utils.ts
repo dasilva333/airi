@@ -4,6 +4,10 @@ import { cacheKeyForModel } from '../../workers/web-rwkv/cache'
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache'
 const OPFS_DIR_NAME = 'web-rwkv'
 const MOSS_OPFS_DIR_NAME = 'nano-reader-browser-model-store'
+// WebLLM (`@mlc-ai/web-llm`) stores weights / WASM libs / model config in the
+// browser Cache Storage API under these scoped cache names (its default
+// `cacheBackend` is `"cache"`; see `createScopedArtifactCache` in the library).
+const WEBLLM_CACHE_NAMES = ['webllm/model', 'webllm/wasm', 'webllm/config'] as const
 
 async function getDirectorySizeRecursive(dirHandle: FileSystemDirectoryHandle): Promise<number> {
   let size = 0
@@ -151,7 +155,8 @@ export async function getModelCacheSize(): Promise<number> {
   const transformersSize = await getTransformersCacheSize()
   const opfsSize = await getOpfsCacheSize()
   const mossSize = await getMossOpfsCacheSize()
-  return transformersSize + opfsSize + mossSize
+  const webLlmSize = await getWebLlmCacheSize()
+  return transformersSize + opfsSize + mossSize + webLlmSize
 }
 
 async function getTransformersCacheSize(): Promise<number> {
@@ -193,6 +198,7 @@ export async function clearModelCache(): Promise<void> {
   await clearTransformersCache()
   await clearOpfsCache()
   await clearMossOpfsCache()
+  await clearWebLlmCache()
 }
 
 async function clearTransformersCache(): Promise<void> {
@@ -207,6 +213,91 @@ async function clearTransformersCache(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// WebLLM (Cache Storage API, `webllm/*` scopes)
+// ---------------------------------------------------------------------------
+
+/** Sum the byte size of every response across all `webllm/*` cache scopes. */
+export async function getWebLlmCacheSize(): Promise<number> {
+  if (typeof caches === 'undefined')
+    return 0
+
+  let totalSize = 0
+  for (const name of WEBLLM_CACHE_NAMES) {
+    try {
+      const has = await caches.has(name)
+      if (!has)
+        continue
+      const cache = await caches.open(name)
+      const keys = await cache.keys()
+      for (const request of keys) {
+        const response = await cache.match(request)
+        if (!response)
+          continue
+        // Content-Length header if available, else read the body to measure.
+        const cl = response.headers.get('content-length')
+        if (cl) {
+          totalSize += Number.parseInt(cl, 10)
+        }
+        else {
+          const blob = await response.blob()
+          totalSize += blob.size
+        }
+      }
+    }
+    catch (error) {
+      console.warn('[cache-utils] failed to measure WebLLM cache scope', name, error)
+    }
+  }
+  return totalSize
+}
+
+/** Delete all `webllm/*` cache scopes (weights, WASM libs, and model config). */
+export async function clearWebLlmCache(): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+
+  for (const name of WEBLLM_CACHE_NAMES) {
+    try {
+      await caches.delete(name)
+    }
+    catch (error) {
+      console.warn('[cache-utils] failed to clear WebLLM cache scope', name, error)
+    }
+  }
+}
+
+/**
+ * Check whether any WebLLM model is cached (any entry in any `webllm/*` scope).
+ * When `modelId` is provided, matches entries whose request URL contains it;
+ * otherwise returns true if any scope holds anything at all.
+ */
+export async function isWebLlmModelCached(modelId?: string): Promise<boolean> {
+  if (typeof caches === 'undefined')
+    return false
+
+  for (const name of WEBLLM_CACHE_NAMES) {
+    try {
+      const has = await caches.has(name)
+      if (!has)
+        continue
+      const cache = await caches.open(name)
+      const keys = await cache.keys()
+      if (!modelId) {
+        if (keys.length > 0)
+          return true
+        continue
+      }
+      if (keys.some(request => request.url.includes(modelId)))
+        return true
+    }
+    catch {
+      // Ignore a single scope failure and keep checking the rest
+    }
+  }
+  return false
+}
+
 /**
  * Check whether a specific model has cached files.
  * Matches by looking for cache entries whose URL contains the model ID.
@@ -214,6 +305,9 @@ async function clearTransformersCache(): Promise<void> {
 export async function isModelCached(modelId: string): Promise<boolean> {
   if (modelId === 'moss-tts-nano') {
     return isMossModelCached()
+  }
+  if (modelId === 'web-llm') {
+    return isWebLlmModelCached()
   }
   if (modelId.startsWith('http')) {
     return isOpfsModelCached(modelId)

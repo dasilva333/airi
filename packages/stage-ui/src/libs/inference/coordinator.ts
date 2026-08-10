@@ -75,6 +75,12 @@ export const MODEL_VRAM_ESTIMATES: Record<string, number> = {
   // covering small chat models (0.1B–0.4B). Larger models under-estimate.
   [MODEL_NAMES.WEB_RWKV]: 512 * 1024 * 1024, // ~512 MB
 
+  // WebLLM (WebGPU transformer) — placeholder only. The adapter passes the
+  // model's real `vram_required_MB` from the MLC prebuilt catalog at load time
+  // (0.7 GB for gemma3-1b up to ~3.9 GB for Qwen3.5-4B); this is the floor for
+  // the smallest tier when no estimate is supplied.
+  [MODEL_NAMES.WEB_LLM]: 768 * 1024 * 1024, // ~768 MB
+
   // Local vision models
   [MODEL_NAMES.BLIP]: 400 * 1024 * 1024, // ~400 MB
   [MODEL_NAMES.WD14]: 300 * 1024 * 1024, // ~300 MB

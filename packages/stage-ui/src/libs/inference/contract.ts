@@ -24,6 +24,11 @@
  */
 
 import type { VoiceKey } from '../../workers/kokoro/types'
+import type {
+  WebLlmGenerateChunk,
+  WebLlmGenerateRequest,
+  WebLlmLoadRequest,
+} from '../../workers/web-llm/contract'
 import type { ProgressPayload } from './protocol'
 
 import { defineInvokeEventa } from '@moeru/eventa'
@@ -417,6 +422,14 @@ export interface PocketTtsGenerateChunk {
 export const pocketTtsLoadEvent = defineInvokeEventa<LoadStreamItem, LoadModelRequest>('inference:pocket-tts:load')
 export const pocketTtsGenerateEvent = defineInvokeEventa<PocketTtsGenerateChunk, PocketTtsGenerateRequest>('inference:pocket-tts:generate')
 export const pocketTtsUnloadEvent = defineInvokeEventa<void, undefined>('inference:pocket-tts:unload')
+
+// ---------------------------------------------------------------------------
+// WebLLM (`@mlc-ai/web-llm`) WebGPU transformer
+// ---------------------------------------------------------------------------
+
+export const webLlmLoadEvent = defineInvokeEventa<LoadStreamItem, WebLlmLoadRequest>('inference:web-llm:load')
+export const webLlmGenerateEvent = defineInvokeEventa<WebLlmGenerateChunk, WebLlmGenerateRequest>('inference:web-llm:generate')
+export const webLlmUnloadEvent = defineInvokeEventa<void, undefined>('inference:web-llm:unload')
 
 // ---------------------------------------------------------------------------
 // Attention Ecology Guard (0-cost local cascading salience gate)

@@ -70,10 +70,10 @@ const row2Items: QuickAccessItem[] = [
     to: '/settings/providers/speech/virtual-audio-studio',
   },
   {
-    id: 'get-free-ai',
-    title: 'Get Free AI',
-    icon: 'i-solar:rocket-bold-duotone',
-    to: '/settings/providers/chat/openrouter',
+    id: 'local-free-ai',
+    title: 'Local Free AI',
+    icon: 'i-solar:cpu-bolt-bold-duotone',
+    to: '/settings/providers/chat/web-llm',
   },
   {
     id: 'discover-models',

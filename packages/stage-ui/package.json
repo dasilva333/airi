@@ -59,6 +59,7 @@
     "@date-fns/utc": "^2.1.1",
     "@formkit/auto-animate": "^0.9.0",
     "@huggingface/transformers": "^3.8.1",
+    "@mlc-ai/web-llm": "^0.2.84",
     "@moeru/eventa": "catalog:",
     "@orama/orama": "catalog:",
     "@pixi/core": "^6.5.10",

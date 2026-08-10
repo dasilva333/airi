@@ -96,6 +96,7 @@ const staticIndex: SearchItem[] = [
   { id: 'prov-amazon-bedrock', title: 'Amazon Bedrock', category: 'Providers (Chat)', description: 'AWS Bedrock LLM gateway', to: '/settings/providers/chat/amazon-bedrock', icon: 'i-solar:server-square-bold-duotone' },
   { id: 'prov-azure-foundry', title: 'Azure AI Foundry', category: 'Providers (Chat)', description: 'Azure AI cloud inference', to: '/settings/providers/chat/azure-ai-foundry', icon: 'i-solar:cloud-bold-duotone' },
   { id: 'prov-web-rwkv', title: 'Web RWKV', category: 'Providers (Chat)', description: 'In-browser RWKV model', to: '/settings/providers/chat/web-rwkv', icon: 'i-solar:cpu-bold-duotone' },
+  { id: 'prov-web-llm', title: 'WebLLM (Local, WebGPU)', category: 'Providers (Chat)', description: 'Built-in offline WebGPU transformer LLM in your browser (no API key)', to: '/settings/providers/chat/web-llm', icon: 'i-solar:cpu-bolt-bold-duotone' },
 
   // ── Providers: Artistry (Image Gen) ──
   // Routes verified from providers/artistry/*.vue filenames

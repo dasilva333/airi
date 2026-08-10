@@ -11,6 +11,7 @@ const clearing = ref(false)
 // Known model IDs to check cache status
 const knownModels = [
   { id: DEFAULT_WEB_RWKV_MODEL, name: 'RWKV LLM' },
+  { id: 'web-llm', name: 'WebLLM (Ministral 3 / Qwen 3.5 / Llama 3.2)' },
   { id: 'onnx-community/Kokoro-82M-v1.0-ONNX', name: 'Kokoro TTS' },
   { id: 'onnx-community/whisper-large-v3-turbo', name: 'Whisper ASR' },
   { id: 'Xenova/modnet', name: 'Background Removal' },

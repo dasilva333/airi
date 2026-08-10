@@ -1274,7 +1274,66 @@ pages:
         description: Local on-device text-to-speech engine using Moss TTS.
       pocket-tts-local:
         title: Pocket TTS (Kyutai Local)
-        description: Local low-latency multilingual CPU text-to-speech engine using Kyutai Pocket TTS.
+        description: Local low-latency multilingual CPU text-to-speech engine using
+          Kyutai Pocket TTS.
+      web-llm:
+        title: WebLLM (Local, WebGPU)
+        description: Built-in offline WebGPU transformer LLM in your browser (no API key)
+        alert:
+          title: WebGPU-only, in-browser LLM
+          content: WebLLM runs state-of-the-art transformer models entirely in your
+            browser via WebGPU — no API key, no server. Weights download on
+            first use and are cached in the browser Cache Storage (webllm/*).
+            Requires a WebGPU-capable browser or Electron (there is no CPU/WASM
+            fallback).
+        sections:
+          model:
+            title: Model
+            description: Pick a curated model, or add a custom Hugging Face MLC repo below.
+          cache:
+            title: Weight Cache
+            description: Downloaded weights and WASM libraries stored in the browser Cache
+              Storage (webllm/*).
+            clear: Clear WebLLM Cache
+            clearing: Clearing...
+            refresh: Refresh
+            notCached: No WebLLM weights cached
+        fields:
+          model:
+            label: Curated Model
+            description: A verified WebLLM model from the prebuilt catalog (matching WASM
+              library included).
+          customRepo:
+            label: Custom HF Model Repository (optional)
+            description: A Hugging Face repo with MLC-quantized weights (e.g.
+              my-org/custom-llama3-MLC). Overrides the curated selection.
+            placeholder: https://huggingface.co/my-org/custom-model-MLC
+          customWasm:
+            label: Custom model_lib WASM URL (required for custom repo)
+            description: The matching WASM execution library for the model's architecture
+              family. A custom repo without a published WASM binary returns 404
+              at runtime.
+            placeholder: https://.../custom-model_q4f16_1_cs1k-webgpu.wasm
+          temperature:
+            label: Temperature
+            description: Sampling temperature (higher = more creative).
+          topP:
+            label: Top P
+            description: Nucleus sampling cutoff (probability mass).
+        cache:
+          title: Weight Cache
+          description: Downloaded weights and WASM libraries stored in the browser Cache
+            Storage (webllm/*).
+          clear: Clear WebLLM Cache
+        activation:
+          active:
+            title: Provider Active
+            description: This provider is active and available in Modules.
+          inactive:
+            title: Activate Provider
+            description: Enable this provider to select it for character cards.
+          activate: Activate
+          deactivate: Deactivate
     title: Providers
   connection:
     description: Configure server connection and external download tokens (e.g.
