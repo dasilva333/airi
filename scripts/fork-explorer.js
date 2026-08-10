@@ -267,14 +267,14 @@ async function main() {
   }
 
   // ── Global Signature Code Search ──
-  console.log('\n🔎 Executing Global Signature Code Search across AIRI network...')
+  console.log('\n🔎 Executing Global Signature Code Search across AIRI forks...')
   for (const [pKey, profile] of Object.entries(selectedProfiles)) {
     const activeSigs = profile.activeSignatures || profile.signatures
     for (const sig of activeSigs) {
-      console.log(`  └─ Querying GitHub Code Search for signature "${sig}"...`)
-      const searchRes = ghApi(`search/code?q=${encodeURIComponent(sig)}+in:file`)
+      console.log(`  └─ Querying GitHub Code Search for signature "${sig}" in AIRI forks...`)
+      const searchRes = ghApi(`search/code?q=${encodeURIComponent(sig)}+fork:only+airi`)
       if (searchRes && searchRes.items && searchRes.items.length > 0) {
-        for (const item of searchRes.items.slice(0, 5)) {
+        for (const item of searchRes.items.slice(0, 10)) {
           const repoName = item.repository?.full_name
           if (!repoName || repoName === 'moeru-ai/airi' || repoName === 'dasilva333/airi')
             continue
@@ -294,7 +294,7 @@ async function main() {
           const existing = matchesByProfile[pKey].find(m => m.repo === repoName)
           if (!existing) {
             matchesByProfile[pKey].push(resultItem)
-            console.log(`    🎯 FOUND IN NETWORK REPO [${repoName}] -> ${item.path}`)
+            console.log(`    🎯 FOUND IN AIRI FORK [${repoName}] -> ${item.path}`)
           }
         }
       }
