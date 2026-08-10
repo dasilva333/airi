@@ -262,26 +262,26 @@ By integrating **WebLLM** (`@mlc-ai/web-llm`), AIRI introduces a **built-in, 100
 * **Measured Performance (Llama 3.2 3B Instruct q4f16_1)**:
   - **Prefill Speed**: **193 tok/s** 🚀
   - **Decoding Speed**: **39 tok/s** ⚡
-### Empirical Audit: 165 Prebuilt WebGPU Models Across 21 Architecture Families
-An empirical audit of `@mlc-ai/web-llm`'s catalog (`src/config.ts`) confirms **165 prebuilt models** across **21 distinct architecture families** supported out of the box:
+* **Supported Local Models**:
+  - `Llama-3.2-1B-Instruct-q4f16_1-MLC` & `Llama-3.2-3B-Instruct-q4f16_1-MLC`
+  - `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` & `Qwen2.5-3B-Instruct-q4f16_1-MLC`
+  - `SmolLM2-360M-Instruct-q4f16_1-MLC` & `SmolLM2-1.7B-Instruct-q4f16_1-MLC`
+  - `gemma-2-2b-it-q4f16_1-MLC`
+  - `Phi-3.5-mini-instruct-q4f16_1-MLC`
 
-| Architecture Family | Variants | Representative Models |
-|---|:---:|---|
-| **DeepSeek R1 Distill** | 6 | `DeepSeek-R1-Distill-Qwen-1.5B`, `7B`, `DeepSeek-R1-Distill-Llama-8B` |
-| **Qwen 2.5 (Chat/Coder/Math)** | 22 | `Qwen2.5-0.5B/1.5B/3B/7B`, `Qwen2.5-Coder-0.5B/1.5B/3B/7B`, `Qwen2.5-Math-1.5B` |
-| **Qwen 3 & Qwen 3.5** | 19 | `Qwen3-0.6B/1.7B/4B/8B`, `Qwen3.5-0.8B/2B/4B/9B` |
-| **Qwen 2** | 11 | `Qwen2-0.5B/1.5B/7B`, `Qwen2-Math-1.5B/7B` |
-| **SmolLM2 (Ultra-Light)** | 8 | `SmolLM2-135M` (135M!), `SmolLM2-360M`, `SmolLM2-1.7B` |
-| **Llama (3.2 / 3.1 / 3 / 2)** | 21 | `Llama-3.2-1B/3B`, `Llama-3.1-8B/70B`, `Llama-3-8B/70B`, `Llama-2-7b/13b` |
-| **Phi (4 / 3.5 / 3 / 2 / 1.5)** | 20 | `Phi-4-mini-instruct`, `Phi-3.5-mini/vision-instruct`, `Phi-3-mini-4k`, `phi-2`, `phi-1_5` |
-| **Hermes & OpenHermes** | 11 | `Hermes-3-Llama-3.2-3B/3.1-8B`, `Hermes-2-Pro-Llama-3-8B`, `OpenHermes-2.5-Mistral-7B` |
-| **Gemma 2 & Gemma 3** | 13 | `gemma-2-2b-it/9b-it/jpn`, `gemma3-1b-it` |
-| **Ministral & Mistral** | 9 | `Ministral-3-3B-Base/Reasoning/Instruct`, `Mistral-7B-Instruct-v0.2/v0.3` |
-| **OLMo 2** | 4 | `OLMo-2-1124-7B-Instruct`, `OLMo-2-0425-1B-Instruct` |
-| **TinyLlama** | 8 | `TinyLlama-1.1B-Chat-v1.0` & `v0.4` |
-| **StableLM & RedPajama** | 8 | `stablelm-2-zephyr-1_6b`, `RedPajama-INCITE-Chat-3B-v1` |
-| **Snowflake Arctic Embed** | 4 | `snowflake-arctic-embed-m` & `snowflake-arctic-embed-s` (Embeddings) |
-| **WizardMath & NeuralHermes** | 2 | `WizardMath-7B-V1.1`, `NeuralHermes-2.5-Mistral-7B` |
+### Ecosystem Upgrade & Curated Top-5 Model Tiering (`@mlc-ai/web-llm@^0.2.84`)
+Upgrading AIRI's dependency to `@mlc-ai/web-llm@^0.2.84` unlocks verified native WASM binaries for latest-generation model architectures. The following 5 models are recommended for AIRI's curated WebLLM catalog:
+
+| Tier / Role | Model ID | VRAM Footprint | Description / Strategic Fit |
+|---|---|:---:|---|
+| **Reasoning Specialist** | `Ministral-3-3B-Reasoning-2512-q4f16_1-MLC` | 2,864 MB | First native small chain-of-thought model. Ideal for complex multi-step reasoning. |
+| **Main Chat (High-Quality)** | `Qwen3.5-4B-q4f16_1-MLC` | 3,868 MB | Next-gen Qwen architecture. Sweet-spot balance for rich character roleplay. |
+| **Fast Distill / Salience** | `Qwen3.5-0.8B-q4f16_1-MLC` | 1,629 MB | Ultra-fast pre-filtering and event log distillation (complements `web-rwkv` gate). |
+| **Modern Generalist** | `Phi-4-mini-instruct-q4f16_1-MLC` | 3,438 MB | Top-tier 3.8B instruction model outperforming Phi-3.5-mini. |
+| **Ultra-Low Fallback** | `gemma3-1b-it-q4f16_1-MLC` | 711 MB | Lightweight runner for integrated GPUs, mobile devices, and VRAM-constrained setups. |
+
+> [!NOTE]
+> **Two-Asset WebGPU Requirement Guard**: Unverified third-party HF repos without published WASM binaries (`model_lib`) return 404 at runtime. AIRI's curated catalog strictly lists models with verified, pre-hosted WASM shader libraries on MLC's CDN.
 
 ### Model Sourcing & Standard Provider Models API Alignment
 Downstream consumers (character cards, chat orchestrator, consciousness module, prompt enrichment) treat WebLLM **identically to any other chat provider** (OpenAI, Ollama, DeepSeek).
