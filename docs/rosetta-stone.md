@@ -123,14 +123,16 @@ The provider architecture lets TTS, LLM, STT, vision, and image generation backe
 
 For a complete, categorized index of every registered provider, see **[`docs/provider-catalog.md`](./provider-catalog.md)**.
 
-> **Restructuring status:** Provider metadata is still mostly inline in `providers.ts`. Phase 1 extraction is documented in [`docs/project-provider-store-restructuring-plan.md`](./project-provider-store-restructuring-plan.md) — the plan for splitting metadata into dedicated files by provider family. See also [`docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md`](./content/en/docs/advanced/architecture/arch-provider-store-current-structure.md) for the current architecture.
+> **Modular Provider Registry:** Providers are defined modularly under `packages/stage-ui/src/libs/providers/providers/<provider-id>/index.ts` using `defineProvider()`, and registered centrally in `registry.ts`. Configurations and user catalog instances are persisted in IndexedDB via `providersRepo`.
 
 ### Core Files
 | Concept | Path |
 | :--- | :--- |
-| **Provider registry** | `packages/stage-ui/src/stores/providers.ts` — central catalog where every provider is registered via `defineProvider()`. |
-| **Provider type definitions** | `packages/stage-ui/src/stores/providers/types.ts` — `ProviderMetadata`, `ModelInfo`, `VoiceInfo`, `VoiceProfile`, `SpeechCapabilitiesInfo`, `ProviderRuntimeState`. |
-| **Provider store** | `packages/stage-ui/src/database/repos/providers.repo.ts` — persists provider configs as `local:providers`. |
+| **Provider Registry & API** | `packages/stage-ui/src/libs/providers/providers/registry.ts` — central registry (`defineProvider()`, `listProviders()`, `getDefinedProvider()`). |
+| **Provider Definitions** | `packages/stage-ui/src/libs/providers/providers/<provider-id>/index.ts` — individual provider schemas, UI metadata, and Zod validators (e.g. `ollama/`, `openai/`, `lm-studio/`, `web-rwkv/`, `web-llm/`). |
+| **Provider Store & Catalog** | `packages/stage-ui/src/stores/provider-catalog.ts` — Pinia store for configured catalog instances. |
+| **Provider Type Definitions** | `packages/stage-ui/src/libs/providers/types.ts` — `ProviderDefinition`, `ModelInfo`, `VoiceInfo`, `SpeechCapabilitiesInfo`. |
+| **Database Persistence Repo** | `packages/stage-ui/src/database/repos/providers.repo.ts` — persists configured provider instances in `local:providers`. |
 
 ### Provider Contract
 Every provider implements this shape (defined in `providers.ts`):
