@@ -110,7 +110,10 @@ export function sanitizeMessages(messages: unknown[], options?: { vision?: boole
 }
 
 function combineSystemMessagesIfNeeded(messages: Message[], chatConfig: any, settingsChat: any): Message[] {
-  const shouldCombine = settingsChat.combineSystemMessages || chatConfig.baseURL?.includes('googleapis.com')
+  const shouldCombine = settingsChat.combineSystemMessages
+    || chatConfig.baseURL?.includes('googleapis.com')
+    || chatConfig.baseURL?.includes('web-llm')
+    || chatConfig.providerId === 'web-llm'
 
   if (!shouldCombine) {
     return messages

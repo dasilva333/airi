@@ -197,7 +197,7 @@ export function createWebLlmAdapter(): WebLlmAdapter {
 
       host.touch()
       host.setPhase('busy')
-      console.info('[web-llm] inference starting', { modelId: request.modelId })
+      console.info('[web-llm] inference starting', { modelId: request.modelId, messages: request.messages })
 
       let text = ''
       // Two-tier inactivity timeout: a generous first-token budget (prefill of the

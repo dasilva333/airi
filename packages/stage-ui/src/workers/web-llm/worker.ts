@@ -69,7 +69,20 @@ function toProgress(report: { progress: number, text: string }): LoadStreamItem 
  * custom record when the request carries a weights URL.
  */
 function buildAppConfig(request: WebLlmLoadRequest) {
-  const modelList: ModelRecord[] = [...prebuiltAppConfig.model_list]
+  const modelList: ModelRecord[] = prebuiltAppConfig.model_list.map((record) => {
+    // Ensure sliding_window_size is set to -1 when context_window_size is positive,
+    // preventing MLC runtime assertion errors (e.g. gemma3-1b-it where both are positive by default).
+    if (record.overrides || record.model_id.includes('gemma3') || record.model_id.includes('gemma')) {
+      return {
+        ...record,
+        overrides: {
+          sliding_window_size: -1,
+          ...record.overrides,
+        },
+      }
+    }
+    return record
+  })
 
   if (request.modelUrl) {
     if (!request.modelLib) {
@@ -82,11 +95,12 @@ function buildAppConfig(request: WebLlmLoadRequest) {
       model: request.modelUrl,
       model_id: request.modelId,
       model_lib: request.modelLib,
+      overrides: { sliding_window_size: -1 },
       ...(request.vramMB != null ? { vram_required_MB: request.vramMB } : {}),
     })
   }
 
-  return { model_list: modelList, cacheBackend: prebuiltAppConfig.cacheBackend }
+  return { model_list: modelList, cacheBackend: 'indexeddb' as const }
 }
 
 defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRequest, LoadStreamItem>(async ({ payload, emit, options }) => {
@@ -151,6 +165,9 @@ defineStreamInvokeHandler(context, webLlmGenerateEvent, toStreamHandler<WebLlmGe
     throw new Error(`web-llm: model not loaded (loaded=${loadedModelId ?? 'none'}, requested=${payload.modelId}). Call load first.`)
 
   const signal = options?.abortController?.signal
+
+  const mappedMessages = payload.messages.map(m => ({ role: m.role as never, content: m.content }))
+  console.info('[web-llm:worker] stream generate starting', { modelId: payload.modelId, messagesCount: payload.messages.length, messages: mappedMessages })
 
   const stream = await engine.chat.completions.create({
     model: payload.modelId,

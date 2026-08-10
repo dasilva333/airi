@@ -254,15 +254,22 @@ export async function getWebLlmCacheSize(): Promise<number> {
 
 /** Delete all `webllm/*` cache scopes (weights, WASM libs, and model config). */
 export async function clearWebLlmCache(): Promise<void> {
-  if (typeof caches === 'undefined')
-    return
-
   for (const name of WEBLLM_CACHE_NAMES) {
-    try {
-      await caches.delete(name)
+    if (typeof caches !== 'undefined') {
+      try {
+        await caches.delete(name)
+      }
+      catch (error) {
+        console.warn('[cache-utils] failed to clear WebLLM Cache scope', name, error)
+      }
     }
-    catch (error) {
-      console.warn('[cache-utils] failed to clear WebLLM cache scope', name, error)
+    if (typeof indexedDB !== 'undefined') {
+      try {
+        indexedDB.deleteDatabase(name)
+      }
+      catch (error) {
+        console.warn('[cache-utils] failed to delete WebLLM IndexedDB database', name, error)
+      }
     }
   }
 }
@@ -273,26 +280,47 @@ export async function clearWebLlmCache(): Promise<void> {
  * otherwise returns true if any scope holds anything at all.
  */
 export async function isWebLlmModelCached(modelId?: string): Promise<boolean> {
-  if (typeof caches === 'undefined')
-    return false
-
   for (const name of WEBLLM_CACHE_NAMES) {
-    try {
-      const has = await caches.has(name)
-      if (!has)
-        continue
-      const cache = await caches.open(name)
-      const keys = await cache.keys()
-      if (!modelId) {
-        if (keys.length > 0)
-          return true
-        continue
+    if (typeof caches !== 'undefined') {
+      try {
+        const has = await caches.has(name)
+        if (has) {
+          const cache = await caches.open(name)
+          const keys = await cache.keys()
+          if (!modelId && keys.length > 0)
+            return true
+          if (modelId && keys.some(request => request.url.includes(modelId)))
+            return true
+        }
       }
-      if (keys.some(request => request.url.includes(modelId)))
-        return true
+      catch {
+        // Ignore Cache API failure
+      }
     }
-    catch {
-      // Ignore a single scope failure and keep checking the rest
+
+    if (typeof indexedDB !== 'undefined') {
+      try {
+        const req = indexedDB.open(name)
+        const db = await new Promise<IDBDatabase | null>((resolve) => {
+          req.onsuccess = () => resolve(req.result)
+          req.onerror = () => resolve(null)
+        })
+        if (db && db.objectStoreNames.contains('urls')) {
+          const count = await new Promise<number>((resolve) => {
+            const tx = db.transaction('urls', 'readonly')
+            const store = tx.objectStore('urls')
+            const cntReq = store.count()
+            cntReq.onsuccess = () => resolve(cntReq.result)
+            cntReq.onerror = () => resolve(0)
+          })
+          db.close()
+          if (count > 0)
+            return true
+        }
+      }
+      catch {
+        // Ignore IndexedDB failure
+      }
     }
   }
   return false
