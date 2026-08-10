@@ -31,7 +31,7 @@
     "build:web": "node scripts/prune-turbo-cache.js && turbo run build -F @proj-airi/stage-web",
     "build:tamagotchi": "node scripts/prune-turbo-cache.js && pnpm -rF @proj-airi/stage-tamagotchi run app:build",
     "build:apps": "node scripts/prune-turbo-cache.js && turbo run build -F=\"./apps/*\"",
-    "build:packages": "node scripts/prune-turbo-cache.js && turbo run build -F=\"./packages/*\"",
+    "build:packages": "node scripts/prune-turbo-cache.js && turbo run build -F=\"./packages/*\" -F @proj-airi/stage-edge",
     "build:crates": "cargo build --workspace",
     "test": "vitest --coverage",
     "test:dsl": "tsx scripts/tests/live2d-dsl-harness/test-dsl-interpreter.ts",

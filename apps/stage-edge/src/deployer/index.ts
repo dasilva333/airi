@@ -139,8 +139,11 @@ export class CloudflareStageDeployer {
     // 1. Ensure KV namespace exists
     const namespaceId = await this.ensureKvNamespace(`airi-kv-${options.scriptName}`)
 
-    // 2. Seed baseline KV test value ("ping" -> "pong") & initial history context if provided
+    // 2. Seed baseline KV test value ("ping" -> "pong"), character system prompt & initial history context if provided
     await this.setKvValue(namespaceId, 'ping', 'pong')
+    if (options.characterPrompt) {
+      await this.setKvValue(namespaceId, 'system/prompt', options.characterPrompt)
+    }
     if (options.initialHistory && options.initialHistory.length > 0) {
       await this.setKvValue(namespaceId, 'context/rolling', JSON.stringify(options.initialHistory))
     }
@@ -171,7 +174,6 @@ export default {
       compatibility_flags: ['nodejs_compat'],
       bindings: [
         { type: 'kv_namespace', name: 'MEMORY', namespace_id: namespaceId },
-        { type: 'plain_text', name: 'SYSTEM_PROMPT', text: options.characterPrompt },
         { type: 'plain_text', name: 'CHARACTER_NAME', text: options.characterName || 'AIRI' },
         { type: 'plain_text', name: 'LLM_BASE_URL', text: options.llmBaseUrl || '' },
         { type: 'plain_text', name: 'LLM_MODEL', text: options.llmModel || 'gemini-3.5-flash-lite' },

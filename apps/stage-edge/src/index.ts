@@ -56,10 +56,22 @@ export default {
         const options = interaction.data?.options || []
         const messageOpt = options.find((o: any) => o.name === 'message')
         const userPrompt = messageOpt?.value || options[0]?.value || 'Hello!'
+
+        let systemPrompt = env.SYSTEM_PROMPT
+        if (env.MEMORY) {
+          try {
+            const kvPrompt = await env.MEMORY.get('system/prompt')
+            if (kvPrompt) {
+              systemPrompt = kvPrompt
+            }
+          }
+          catch {}
+        }
+
         const systemInstruction = buildSystemInstruction({
           name: env.CHARACTER_NAME || 'AIRI',
           personality: 'Kind, supportive, witty AI companion.',
-          systemPrompt: env.SYSTEM_PROMPT,
+          systemPrompt,
         })
 
         // Fetch rolling memory history from Cloudflare KV if available

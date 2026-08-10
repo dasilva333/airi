@@ -277,7 +277,7 @@ const activeModelDisplay = computed(() => {
         :side="side"
         :side-offset="8"
         align="end"
-        class="animate-in fade-in zoom-in z-100 w-80 border border-neutral-200/50 rounded-2xl bg-white/90 p-4 shadow-2xl backdrop-blur-xl duration-200 dark:border-neutral-700/50 dark:bg-neutral-900/90"
+        class="animate-in fade-in zoom-in z-[9999] w-80 border border-neutral-200/50 rounded-2xl bg-white/90 p-4 shadow-2xl backdrop-blur-xl duration-200 dark:border-neutral-700/50 dark:bg-neutral-900/90"
       >
         <!-- Header -->
         <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">

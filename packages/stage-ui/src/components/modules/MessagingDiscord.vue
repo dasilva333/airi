@@ -906,6 +906,37 @@ function formatTimestamp(ts: number) {
     <!-- TAB 3: ACCESS & ROUTING (Channel ACL & Context Routing)            -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeTab === 'acl'" class="space-y-6">
+      <!-- Feature Preview & Feedback Banner -->
+      <div class="relative overflow-hidden border border-amber-500/30 rounded-2xl bg-amber-500/10 p-4 transition-all dark:border-amber-500/25 dark:bg-amber-500/5">
+        <div class="flex items-start gap-3.5">
+          <div class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <div class="i-solar:stars-line-duotone text-xl" />
+          </div>
+          <div class="flex-1 space-y-1">
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs text-neutral-900 font-bold dark:text-neutral-100">
+                Interface Preview — Early Feedback Requested
+              </h4>
+              <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] text-amber-700 font-extrabold uppercase dark:text-amber-300">
+                In Development
+              </span>
+            </div>
+            <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+              Access & Context Routing is currently under active design. We'd love your thoughts! Please join our Discord server to let us know if this interface fits your workflow.
+            </p>
+          </div>
+          <a
+            href="https://discord.gg"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="items-center gap-1.5 rounded-xl bg-amber-500/15 px-3.5 py-2 text-xs text-amber-700 font-bold transition-all hidden sm:flex hover:bg-amber-500/25 dark:text-amber-300"
+          >
+            <span>Discord</span>
+            <div class="i-solar:alt-arrow-right-line-duotone text-xs" />
+          </a>
+        </div>
+      </div>
+
       <!-- Section 1: Global Routing Mode -->
       <section class="mc-section">
         <div class="mc-section-header">
