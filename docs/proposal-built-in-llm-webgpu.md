@@ -248,6 +248,44 @@ During research into adding a curated model list to the provider UI, the followi
 
 #### Short-term
 - [ ] **Watch [Seikaijyu's instruct preview](https://huggingface.co/Seikaijyu/rwkv7-g1-1.5b-instruct-preview)** (dropped July 2026) — if it includes English instruction following, it could be a meaningful upgrade from the 0.1B base.
+
+---
+
+## 13. WebLLM (`@mlc-ai/web-llm`) Main Conversation Engine
+
+While **Web-RWKV 0.1B** serves as the zero-cost background attention ecology & salience gate (owing to its $O(1)$ state memory), standard chat reasoning requires a **high-throughput, full-capability local Transformer LLM provider**.
+
+By integrating **WebLLM** (`@mlc-ai/web-llm`), AIRI introduces a **built-in, 100% offline WebGPU Transformer LLM provider** capable of running state-of-the-art models directly in the browser / Electron renderer with zero cloud API costs.
+
+### Key Benchmark & Feasibility Proof
+* **Reference Implementation**: [`cfahlgren1/webllm-playground`](https://github.com/cfahlgren1/webllm-playground)
+* **Measured Performance (Llama 3.2 3B Instruct q4f16_1)**:
+  - **Prefill Speed**: **193 tok/s** 🚀
+  - **Decoding Speed**: **39 tok/s** ⚡
+* **Supported Local Models**:
+  - `Llama-3.2-1B-Instruct-q4f16_1-MLC` & `Llama-3.2-3B-Instruct-q4f16_1-MLC`
+  - `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` & `Qwen2.5-3B-Instruct-q4f16_1-MLC`
+  - `SmolLM2-360M-Instruct-q4f16_1-MLC` & `SmolLM2-1.7B-Instruct-q4f16_1-MLC`
+  - `gemma-2-2b-it-q4f16_1-MLC`
+  - `Phi-3.5-mini-instruct-q4f16_1-MLC`
+
+### The Dual WebGPU Engine Synergy in AIRI
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🧠 DUAL WEBGPU ENGINE ARCHITECTURE                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. BACKGROUND SALIENCE & CONTEXT GUARD (`web-rwkv` 0.1B)                    │
+│    • RNN Architecture: O(1) state memory                                    │
+│    • 0-Cost continuous vision, screen OCR, and proactivity scanning          │
+│                                                                             │
+│ 2. MAIN CONVERSATION PROVIDER (`web-llm` / `@mlc-ai/web-llm`)              │
+│    • TVM WebGPU Execution: Llama 3.2, Qwen 2.5, Phi 3.5                      │
+│    • IndexedDB / OPFS Weight Caching                                        │
+│    • High-speed streaming (39+ tok/s decoding, 190+ tok/s prefill)          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 - [ ] **Add a curated model dropdown** in the web-rwkv provider settings. Even with only the base 0.1B and 1.5B (once a `.safetensors` mirror exists), giving users a size choice is valuable.
 - [ ] **Support for larger base models** (1.5B, 3B) — the architecture handles them fine; the bottleneck is user VRAM and finding a `.safetensors`-format mirror of the official `.pth` weights.
 
