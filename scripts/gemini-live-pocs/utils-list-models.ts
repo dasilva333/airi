@@ -1,6 +1,6 @@
 import https from 'node:https'
 
-const API_KEY = 'AIzaSyAnNzARUkElomGk02VfWP3L-bPyo9BkQUQ'
+const API_KEY = process.env.GEMINI_API_KEY || ''
 
 const options = {
   hostname: 'generativelanguage.googleapis.com',
