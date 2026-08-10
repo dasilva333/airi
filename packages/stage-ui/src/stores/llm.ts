@@ -584,12 +584,16 @@ export const useLLM = defineStore('llm', () => {
   ) {
     const { generateObject: sharedGenerateObject } = await import('@proj-airi/stage-shared')
     const chatConfig = getChatConfig(model, chatProvider)
+    const settingsChat = useSettingsChat()
+    const processedMessages = combineSystemMessagesIfNeeded(options.messages, chatConfig, settingsChat)
 
     return await sharedGenerateObject({
       ...options,
+      messages: processedMessages,
       model,
       apiKey: chatConfig.apiKey,
       baseURL: String(chatConfig.baseURL),
+      ...(chatConfig.fetch ? { fetch: chatConfig.fetch } : {}),
     })
   }
 

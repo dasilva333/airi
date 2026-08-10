@@ -75,6 +75,7 @@ export function setupTray(params: {
         },
         { type: 'separator' },
         { label: 'Customizer...', click: () => void params.customizerWindow.toggleVisibility() },
+        { label: 'Show Setup Wizard', click: () => void params.settingsWindow.openWindow('/settings?action=onboarding') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.settings'), click: () => void params.settingsWindow.openWindow('/settings') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.about'), click: () => params.aboutWindow().then(window => toggleWindowShow(window)) },
         { type: 'separator' },

@@ -52,6 +52,12 @@ const row1Items = computed<QuickAccessItem[]>(() => [
 // Row 2: Audio & Discovery
 const row2Items: QuickAccessItem[] = [
   {
+    id: 'audio-studio',
+    title: 'Audio Studio',
+    icon: 'i-solar:soundwave-bold-duotone',
+    to: '/settings/providers/speech/virtual-audio-studio',
+  },
+  {
     id: 'local-voice',
     title: 'Local Voice',
     icon: 'i-solar:volume-loud-bold-duotone',
@@ -64,12 +70,6 @@ const row2Items: QuickAccessItem[] = [
     to: '/settings/providers/transcription/whisper-local',
   },
   {
-    id: 'audio-studio',
-    title: 'Audio Studio',
-    icon: 'i-solar:soundwave-bold-duotone',
-    to: '/settings/providers/speech/virtual-audio-studio',
-  },
-  {
     id: 'local-free-ai',
     title: 'Local Free AI',
     icon: 'i-solar:cpu-bolt-bold-duotone',
@@ -77,7 +77,7 @@ const row2Items: QuickAccessItem[] = [
   },
   {
     id: 'discover-models',
-    title: 'Discover Models',
+    title: 'Find Free Bodies',
     icon: 'i-solar:planet-3-bold-duotone',
     to: '/settings/models?action=explore',
   },

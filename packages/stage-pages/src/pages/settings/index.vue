@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { IconItem, RippleGrid } from '@proj-airi/stage-ui/components'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
+import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -16,6 +17,19 @@ const { t } = useI18n()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 
 const settingsStore = useSettings()
+const onboardingStore = useOnboardingStore()
+
+watch(
+  () => route.query.action,
+  (action) => {
+    if (action === 'onboarding') {
+      onboardingStore.resetSetupState()
+      onboardingStore.forceShowSetup()
+      router.replace({ query: {} })
+    }
+  },
+  { immediate: true },
+)
 
 const removeBeforeEach = router.beforeEach(async (_, __, next) => {
   if (!settingsStore.usePageSpecificTransitions || settingsStore.disableTransitions) {
