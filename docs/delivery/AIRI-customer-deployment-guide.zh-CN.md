@@ -80,7 +80,9 @@ Internet
 sudo apt update
 sudo apt install -y ca-certificates curl git nginx certbot python3-certbot-nginx rsync
 
-curl -fsSL https://get.docker.com | sudo sh
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+rm -f get-docker.sh
 sudo usermod -aG docker "$USER"
 newgrp docker
 
@@ -92,7 +94,9 @@ nginx -v
 安装 Node.js 24 和项目指定的 pnpm 10.32.1，仅用于构建 Web 静态文件：
 
 ```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o install-nvm.sh
+bash install-nvm.sh
+rm -f install-nvm.sh
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm install 24
