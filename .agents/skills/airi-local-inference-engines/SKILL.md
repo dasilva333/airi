@@ -1,0 +1,55 @@
+---
+name: airi-local-inference-engines
+description: >-
+  Use when managing local WebGPU & WASM inference engines in AIRI (Kokoro TTS worker, Whisper STT worker, WebLLM worker, Web-RWKV worker), worker message protocols, load queues, or GpuResourceCoordinator VRAM pressure telemetry.
+---
+
+# AIRI Local Inference Engines (WebGPU & WASM)
+
+This skill provides comprehensive guidelines and exact code paths for local browser-side inference workers using WebGPU, WASM, ONNX Runtime Web, and WebLLM.
+
+## 1. Overview & Surface Map
+
+AIRI executes local neural models directly in the browser via dedicated Web Worker threads:
+- **Kokoro TTS Worker**: Local neural speech synthesis (`packages/stage-ui/src/workers/kokoro/`).
+- **Whisper STT Worker**: Local speech-to-text inference (`packages/stage-ui/src/libs/workers/whisper/`).
+- **WebLLM Worker**: Local LLM text generation (`packages/stage-ui/src/workers/web-llm/`).
+- **Web-RWKV Worker**: Local RWKV-7 RNN model execution (`packages/stage-ui/src/workers/web-rwkv/`).
+
+VRAM allocation, hardware feature detection, and worker load queues are coordinated by `GpuResourceCoordinator`.
+
+## 2. Key Code Paths
+
+### Protocol & Coordinator
+- `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — `GpuResourceCoordinator`. Manages VRAM allocation telemetry, WebGPU device locks, and worker eviction under VRAM pressure.
+- `packages/stage-ui/src/libs/inference/protocol.ts` — Message protocol schemas (`load-model`, `run-inference`, `progress`, `unload`).
+- `packages/stage-ui/src/libs/inference/adapters/` — Thin UI adapters bridging Pinia stores to underlying Web Workers.
+
+### Local Worker Locations
+- `packages/stage-ui/src/workers/kokoro/` — Kokoro WASM/WebGPU TTS worker implementation.
+- `packages/stage-ui/src/libs/workers/whisper/` — Whisper WASM STT worker implementation.
+- `packages/stage-ui/src/workers/web-llm/` — WebLLM (TVM WebGPU) worker implementation.
+- `packages/stage-ui/src/workers/web-rwkv/` — Web-RWKV WebGPU worker implementation.
+
+### Related Specs
+- `docs/proposal-built-in-llm-webgpu.md` — Technical proposal and harness specification for WebGPU local inference.
+
+## 3. Core SOPs & Guidelines
+
+### 1. Registering a New Local Inference Worker
+1. Place the worker entry script under `packages/stage-ui/src/workers/<name>/`.
+2. Implement standard worker protocol handling (`load-model`, `run-inference`, `progress`, `error`).
+3. Add a thin adapter in `packages/stage-ui/src/libs/inference/adapters/` and register with `GpuResourceCoordinator`.
+
+### 2. Handling Model Shard Downloads
+- Report download progress events via `progress` messages containing `loadedBytes` and `totalBytes` so UI progress bars update smoothly (e.g. in Onboarding V2 Step 2).
+
+## 4. Known Pitfalls & Failure Modes
+
+- **WebGPU Memory Leaks**: Failing to call `.destroy()` on `GPUBuffer` or ONNX `InferenceSession` objects during worker reload causes VRAM exhaustion and browser tab crashes.
+- **Worker Script Bundling**: Worker scripts must be bundled with Vite using `new Worker(new URL('...', import.meta.url), { type: 'module' })` to support cross-origin worker loading.
+
+## 5. Verification Workflows
+
+- **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
+- **Hardware Check**: Test WebGPU availability in DevTools console via `navigator.gpu.requestAdapter()`.

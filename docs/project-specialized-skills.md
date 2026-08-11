@@ -223,9 +223,9 @@ Below is the complete, categorized sitemap of all 38 specialized skills mapped a
 - **Content**: Maintaining the Chatbox surface — text-vs-edit bubble rendering, Reka action-menu (copy/delete/edit/retry/fork/journal moment), image drag-and-drop, journal preview vs. moment modal, mood strip, and Act token rendering. Pitfalls: per-window broadcast sync, `healMozibake` Unicode repair, eager `{ deep: true }` watchers on store data (Rosetta §16), `index: 0` tool-call field for bridged gateways.
 
 #### 5.2 `airi-card-editor-wizard`
-- **Target Domain**: AIRI Card Editor, Character Creation Wizard (7-tab guided flow), Card Import modal.
-- **Key Paths**: `packages/stage-pages/src/pages/settings/airi-card/index.vue`, `guided.vue`, `components/CardImportWizard.vue`; card data layer: `packages/stage-ui/src/stores/modules/airi-card.ts`.
-- **Content**: Schema-driven tab navigation, Identity/Behavior/Generation/Acting/Artistry/Modules/Proactivity tab responsibilities, SillyTavern metadata mapping in the import wizard, and edit-vs-preview flows. Avoids re-saving the whole card during wizard edits (write only mutated `extensions.airi` slice).
+- **Target Domain**: AIRI Card Editor, Character Creation Wizard (9-tab guided flow suite: Identity, Cognition, Generation, Acting, Artistry, Modules, Proactivity, Tools, ProductionStudio), Card Import modal.
+- **Key Paths**: `packages/stage-pages/src/pages/settings/airi-card/index.vue`, `guided.vue`, `tabs/`, `components/CardImportWizard.vue`; card data layer: `packages/stage-ui/src/stores/modules/airi-card.ts`.
+- **Content**: Schema-driven tab navigation, Identity/Cognition/Generation/Acting/Artistry/Modules/Proactivity/Tools/ProductionStudio tab responsibilities, SillyTavern metadata mapping in the import wizard, and edit-vs-preview flows. Avoids re-saving the whole card during wizard edits (write only mutated `extensions.airi` slice).
 
 #### 5.3 `airi-scenes-backgrounds`
 - **Target Domain**: Stage background layers, scene style galleries, background picker dialogs, background store.

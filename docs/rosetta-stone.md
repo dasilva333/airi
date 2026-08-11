@@ -332,7 +332,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | Concept | Path |
 | :--- | :--- |
 | **ACT Pipeline (Parser)** | `packages/stage-ui/src/composables/use-llm-marker-parser.ts` |
-| **ACT Pipeline (Execution)** | `packages/stage-ui-three/src/services/expression.ts` |
+| **ACT Pipeline (Execution)** | `packages/stage-ui-three/src/composables/vrm/expression.ts` |
 | **Artistry / ComfyUI** | `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` |
 | **Artistry Bridge** | `apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts` |
 | **Scene / Background Layer** | `packages/stage-ui/src/components/scenes/RendererStage.vue` (Layer) | `packages/stage-pages/src/pages/settings/scene/index.vue` (UI) |
@@ -391,7 +391,7 @@ A game layer on top of the Actor Stage with deep Live2D integration. Implements 
 | Concept | Path |
 | :--- | :--- |
 | **Service (main process)** | `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts` |
-| **Slash command definitions** | `packages/stage-ui/src/stores/modules/discord.ts` (`COMMANDS_VERSION: 4`) |
+| **Slash command definitions** | `packages/stage-ui/src/stores/modules/discord.ts` (`COMMANDS_VERSION` — currently `11`; bump on command-shape change to force re-registration) |
 | **Settings store** | `packages/stage-ui/src/stores/modules/discord.ts` |
 | **Settings page** | `packages/stage-pages/src/pages/settings/modules/messaging-discord.vue` |
 | **Vision plumbing** | Intercepts Discord attachments → `chatOrchestrator.ingest` as base64 |
