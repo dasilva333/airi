@@ -92,7 +92,7 @@ async function captureAndProcess() {
 
     const result = await visionStore.captureSnapshot({ width, height })
     if (!result?.dataUrl) {
-      orchestrator.lastError.value = result?.error === 'permission_denied' ? 'Screen capture permission denied.' : 'Capture returned no frame.'
+      orchestrator.lastError = result?.error === 'permission_denied' ? 'Screen capture permission denied.' : 'Capture returned no frame.'
       return
     }
 
@@ -114,7 +114,7 @@ async function captureAndProcess() {
       promotions.value++
   }
   catch (err) {
-    orchestrator.lastError.value = (err as Error).message || String(err)
+    orchestrator.lastError = (err as Error).message || String(err)
   }
 }
 
