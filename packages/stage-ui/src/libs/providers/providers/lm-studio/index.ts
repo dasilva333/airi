@@ -19,6 +19,7 @@ type LMStudioConfig = z.input<typeof lmStudioConfigSchema>
 export const providerLmStudio = defineProvider<LMStudioConfig>({
   id: 'lm-studio',
   order: 3,
+  requiresCredentials: false,
   name: 'LM Studio',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.lm-studio.title'),
   description: 'Local Desktop GUI - Serve any GGUF model locally',

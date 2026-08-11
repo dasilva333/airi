@@ -61,6 +61,7 @@ export function resolveOllamaThink(model: string, modeRaw: unknown): OllamaThink
 export const providerOllama = defineProvider<OllamaConfig>({
   id: 'ollama',
   order: 2,
+  requiresCredentials: false,
   name: 'Ollama',
   nameLocalize: ({ t }) => t('settings.pages.providers.provider.ollama.title'),
   description: 'Private & Local - Run Llama, Mistral, and more on your machine',

@@ -59,7 +59,7 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
     // Everything else must present a non-empty credential BEFORE the SDK is
     // instantiated so client code receives an immediate, localized error
     // instead of a network round-trip that ends in a 401.
-    const noCredentials = metadata.requiresCredentials === false || providerId === 'browser-web-speech-api'
+    const noCredentials = metadata.requiresCredentials === false || metadata.deployment === 'local' || providerId === 'browser-web-speech-api'
 
     let config = deps.getProviderCredentials()[providerId]
     if (!config && noCredentials) {

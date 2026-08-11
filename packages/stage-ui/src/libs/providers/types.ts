@@ -101,6 +101,7 @@ export interface VoiceInfo {
 export interface ProviderDefinition<TConfig extends any = any> {
   id: string
   order?: number
+  requiresCredentials?: boolean
   tasks: string[]
   nameLocalize: (ctx: { t: (input: string) => string }) => string // i18n key for provider name
   name: string // Default name (fallback)

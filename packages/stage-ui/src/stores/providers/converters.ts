@@ -147,6 +147,7 @@ export function convertProviderDefinitionToMetadata(
     isAvailableBy: definition.isAvailableBy,
     pricing,
     deployment,
+    requiresCredentials: definition.requiresCredentials ?? (deployment === 'local' ? false : undefined),
     beginnerRecommended,
     consoleUrl,
     defaultOptions: () => {
