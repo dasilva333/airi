@@ -287,6 +287,10 @@ export interface ElectronShowToastPayload {
 export const electronShowToast = defineInvokeEventa<void, ElectronShowToastPayload>('eventa:invoke:electron:show-toast')
 export const electronShowToastEvent = defineEventa<ElectronShowToastPayload>('eventa:event:electron:show-toast')
 
+// Report the renderer's canonical `document.title` (single source of truth) up to
+// the main process so the native window chrome stays in sync as routes change.
+export const electronWindowSetTitle = defineInvokeEventa<void, { title: string }>('eventa:invoke:electron:window:set-title')
+
 // Internal event from main -> widgets renderer when a widget should render
 export const widgetsRenderEvent = defineEventa<WidgetSnapshot>('eventa:event:electron:windows:widgets:render')
 export const widgetsRemoveEvent = defineEventa<{ id: string }>('eventa:event:electron:windows:widgets:remove')

@@ -26,7 +26,6 @@ const {
   t,
   providerMetadata,
   handleResetSettings,
-  navigateBackToProviders,
 } = useProviderValidation(providerId)
 
 // --- Model selection (curated id or custom repo) ---
@@ -142,7 +141,6 @@ onMounted(refreshCache)
     :deployment="providerMetadata?.deployment"
     :pricing="providerMetadata?.pricing"
     :beginner-recommended="providerMetadata?.beginnerRecommended"
-    :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer class="w-full space-y-6">
       <Alert type="info">

@@ -18,12 +18,15 @@ import { setupBaseWindowElectronInvokes } from '../shared/window'
 export interface OnboardingWindowManager {
   getWindow: () => Promise<BrowserWindow>
   getAndToggleWindow: () => Promise<BrowserWindow>
+  openWindow: (route?: string) => Promise<void>
 }
 
 export function setupOnboardingWindowManager(params: {
   serverChannel: ServerChannel
   i18n: I18n
 }): OnboardingWindowManager {
+  const rendererBase = baseUrl(resolve(getElectronMainDirname(), '..', 'renderer'))
+
   async function getOnboardingWindow(getWindow: () => Promise<BrowserWindow>) {
     const window = await getWindow()
     await toggleWindowShow(window)
@@ -33,7 +36,7 @@ export function setupOnboardingWindowManager(params: {
 
   const reusableWindow = createReusableWindow(async () => {
     const newWindow = new BrowserWindow({
-      title: 'Welcome to AIRI',
+      title: 'AIRI — Onboarding',
       width: 1200,
       height: 600,
       minWidth: 400,
@@ -70,13 +73,30 @@ export function setupOnboardingWindowManager(params: {
 
     await setupBaseWindowElectronInvokes({ context, window: newWindow, i18n: params.i18n, serverChannel: params.serverChannel })
 
-    await load(newWindow, withHashRoute(baseUrl(resolve(getElectronMainDirname(), '..', 'renderer')), '/onboarding'))
+    await load(newWindow, withHashRoute(rendererBase, '/onboarding'))
 
     return newWindow
   })
 
+  async function openWindow(route: string = '/onboarding') {
+    const window = await reusableWindow.getWindow()
+
+    if (window.webContents) {
+      await load(window, withHashRoute(rendererBase, route))
+    }
+
+    if (window.isVisible()) {
+      window.show()
+      window.focus()
+    }
+    else {
+      toggleWindowShow(window)
+    }
+  }
+
   return {
     getWindow: async () => reusableWindow.getWindow(),
     getAndToggleWindow: async () => await getOnboardingWindow(reusableWindow.getWindow),
+    openWindow,
   }
 }

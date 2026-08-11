@@ -53,7 +53,7 @@ export function setupChatWindowReusableFunc(params: {
     }
 
     const window = new BrowserWindow({
-      title: 'AIRI - Chat Window',
+      title: 'AIRI — Chat',
       width: initialWidth,
       height: initialHeight,
       x: initialX,

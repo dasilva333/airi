@@ -28,7 +28,7 @@ export function setupNoticeWindowManager(params: {
 
   function createWindow(_id: string): BrowserWindow {
     const window = new ElectronBrowserWindow({
-      title: 'Notice',
+      title: 'AIRI — Notice',
       width: 1020,
       height: 600,
       show: false,

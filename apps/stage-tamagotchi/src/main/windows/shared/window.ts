@@ -5,9 +5,11 @@ import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron'
 import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
 
+import { defineInvokeHandler } from '@moeru/eventa'
 import { isRendererUnavailable } from '@proj-airi/electron-vueuse/main'
 import { isMacOS } from 'std-env'
 
+import { electronWindowSetTitle } from '../../../shared/eventa'
 import { createI18nService } from '../../services/airi/i18n'
 import { createAppService, createScreenService, createWindowService } from '../../services/electron'
 
@@ -136,4 +138,15 @@ export async function setupBaseWindowElectronInvokes(params: {
   createWindowService({ context: params.context, window: params.window })
   createAppService({ context: params.context, window: params.window })
   await createI18nService({ context: params.context, window: params.window, i18n: params.i18n })
+
+  // Renderer reports its canonical document.title; keep the native window chrome
+  // in sync as in-page routes change. The initial BrowserWindow `title` option is
+  // just a fallback for the very first paint / hard-crashed renderers.
+  defineInvokeHandler(params.context, electronWindowSetTitle, (payload) => {
+    if (params.window.isDestroyed())
+      return
+    const title = payload?.title
+    if (typeof title === 'string' && title.length > 0)
+      params.window.setTitle(title)
+  })
 }

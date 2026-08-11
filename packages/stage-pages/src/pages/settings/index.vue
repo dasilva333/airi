@@ -189,7 +189,7 @@ function isActive(to: string) {
         class="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
         @click.self="showOnboardingV2 = false"
       >
-        <div class="absolute left-1/2 top-1/2 max-h-[92dvh] max-w-3xl w-[94dvw] flex flex-col -translate-x-1/2 -translate-y-1/2">
+        <div class="absolute left-1/2 top-1/2 h-[600px] max-h-[85dvh] max-w-5xl w-[92dvw] flex flex-col -translate-x-1/2 -translate-y-1/2">
           <div :class="['h-full max-h-[92dvh]', 'flex flex-col', 'rounded-2xl border border-neutral-200/60', 'bg-white/95 dark:bg-neutral-900/95', 'shadow-2xl backdrop-blur-xl', 'overflow-hidden']">
             <div class="flex flex-shrink-0 items-center justify-between border-b border-neutral-200/60 px-5 py-3 dark:border-neutral-800/80">
               <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">AIRI Setup · V2 Preview</span>

@@ -21,6 +21,7 @@ export interface OnboardingStep {
     configData?: ProviderConfigData
     onNext: OnboardingStepNextHandler
     onPrevious?: OnboardingStepPrevHandler
+    onSkip?: () => void
   }>
   props?: () => Record<string, unknown>
   beforeNext?: OnboardingStepGuard

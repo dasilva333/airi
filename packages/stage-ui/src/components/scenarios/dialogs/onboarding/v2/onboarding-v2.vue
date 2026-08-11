@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from '../types'
+import type { OnboardingV2GateState } from './gate'
 
 import { useLocalStorage } from '@vueuse/core'
-import { computed, ref, watch } from 'vue'
+import { computed, provide, reactive, ref, watch } from 'vue'
 
 import StepStartChoice from '../step-start-choice.vue'
 import Step0Welcome from './steps/step-0-welcome.vue'
@@ -13,6 +14,9 @@ import Step4Persona from './steps/step-4-persona.vue'
 import Step5Vessel from './steps/step-5-vessel.vue'
 import Step6Speech from './steps/step-6-speech.vue'
 import Step7Calibration from './steps/step-7-calibration.vue'
+
+import { useOnboardingStore } from '../../../../../stores/onboarding'
+import { onboardingV2GateKey } from './gate'
 
 /**
  * V2 onboarding orchestrator — UI mockup scaffold.
@@ -46,11 +50,15 @@ const STEPS: V2StepDef[] = [
   { id: 'calibration', label: 'Launch', ownNav: true },
 ]
 
+const onboardingStore = useOnboardingStore()
+
 // Mock step/path state, persisted separately from the live V1 flags.
 const v2State = useLocalStorage<{ stepId: string, path: 'new' | 'returning' }>(
   'onboarding/v2-state',
   { stepId: 'welcome', path: 'new' },
 )
+const v2Skipped = useLocalStorage('onboarding/v2-skipped', false)
+const v2Completed = useLocalStorage('onboarding/v2-completed', false)
 
 const direction = ref<'next' | 'previous'>('next')
 
@@ -97,8 +105,34 @@ function handleSelectPath(path: 'new' | 'returning') {
   v2State.value.path = path
 }
 
+// --- Per-step verification gate contract (provided to v2 steps) ---
+const gates = reactive<Record<string, OnboardingV2GateState>>({})
+
+function setGate(id: string, gate: OnboardingV2GateState) {
+  gates[id] = gate
+}
+
+function clearGate(id: string) {
+  delete gates[id]
+}
+
+provide(onboardingV2GateKey, { setGate, clearGate })
+
+const activeGate = computed(() => gates[currentId.value])
+const canProceed = computed(() => (activeGate.value ? activeGate.value.canProceed.value : true))
+
+function handleStepSkip() {
+  requestNextStep()
+}
+
+function handleSkip() {
+  v2Skipped.value = true
+  onboardingStore.markSetupSkipped()
+  emit('close')
+}
+
 function handleFinish() {
-  // Mockup: do NOT call markSetupCompleted — that would mutate live flags.
+  v2Completed.value = true
   emit('close')
 }
 </script>
@@ -155,7 +189,7 @@ function handleFinish() {
             ← Back to Path Triage
           </button>
         </div>
-        <Step0Welcome v-else-if="currentId === 'welcome'" key="welcome" :on-next="requestNextStep" />
+        <Step0Welcome v-else-if="currentId === 'welcome'" key="welcome" :on-next="requestNextStep" :on-skip="handleSkip" />
         <Step1Hearing v-else-if="currentId === 'hearing'" key="hearing" />
         <Step2Consciousness v-else-if="currentId === 'consciousness'" key="consciousness" />
         <Step3UserProfile v-else-if="currentId === 'profile'" key="profile" />
@@ -167,7 +201,7 @@ function handleFinish() {
     </div>
 
     <!-- Global nav footer (hidden for steps with their own navigation) -->
-    <div v-if="!currentStep.ownNav" class="flex flex-shrink-0 items-center justify-between pt-1">
+    <div v-if="!currentStep.ownNav" class="flex flex-shrink-0 items-center justify-between gap-3 pt-1">
       <button
         class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-neutral-500 font-medium outline-none transition-colors disabled:cursor-default hover:bg-neutral-100 dark:text-neutral-400 hover:text-neutral-800 disabled:opacity-40 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         :disabled="stepIndex <= 0"
@@ -176,13 +210,29 @@ function handleFinish() {
         <div class="i-solar:alt-arrow-left-line-duotone h-4 w-4" />
         Back
       </button>
-      <button
-        class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-5 py-2 text-sm text-white font-semibold shadow-lg shadow-primary-500/25 outline-none transition-all active:scale-95 hover:bg-primary-600"
-        @click="requestNextStep"
-      >
-        Next
-        <div class="i-solar:alt-arrow-right-line-duotone h-4 w-4" />
-      </button>
+      <div class="min-w-0 flex flex-1 items-center justify-end gap-3">
+        <span
+          v-if="activeGate && !canProceed"
+          class="truncate text-xs text-neutral-400 italic dark:text-neutral-500"
+        >
+          Speak into your microphone — Next unlocks once we hear you.
+        </span>
+        <button
+          v-if="activeGate?.skipLabel"
+          class="rounded-lg px-3 py-2 text-sm text-neutral-500 font-medium outline-none transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          @click="handleStepSkip"
+        >
+          {{ activeGate.skipLabel }}
+        </button>
+        <button
+          class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-5 py-2 text-sm text-white font-semibold shadow-lg shadow-primary-500/25 outline-none transition-all active:scale-95 disabled:cursor-not-allowed hover:bg-primary-600 disabled:opacity-50"
+          :disabled="!canProceed"
+          @click="requestNextStep"
+        >
+          Next
+          <div class="i-solar:alt-arrow-right-line-duotone h-4 w-4" />
+        </button>
+      </div>
     </div>
   </div>
 </template>

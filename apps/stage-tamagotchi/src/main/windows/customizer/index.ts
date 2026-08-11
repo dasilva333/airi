@@ -19,7 +19,7 @@ import { setupBaseWindowElectronInvokes, transparentWindowConfig } from '../shar
 
 function createCustomizerWindow(options?: BrowserWindowConstructorOptions) {
   const window = new ElectronBrowserWindow({
-    title: 'Customizer',
+    title: 'AIRI — Customizer',
     width: 780,
     height: 620,
     show: false,

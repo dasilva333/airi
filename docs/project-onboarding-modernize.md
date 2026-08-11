@@ -104,12 +104,28 @@ Step 7: Stage Calibration & Victory Launch
 
 ### Step 1: Hearing & Mic Playground (STT / Ear Setup)
 - **Why Right After Welcome?**: Speech recognition has zero dependencies on character language or persona! Combining the microphone hardware test with the STT provider picker creates an immediate, interactive playground right after the welcome page.
-- **Controls**: Microphone device dropdown selector + live audio volume wave meter.
-- **Local Engine Hero Cards**:
-  - **Whisper WebGPU**: Options for `whisper-large-v3-turbo` (~800 MB) or `whisper-small` (~480 MB). Selecting triggers real-time weight shard download with a progress bar.
-  - **Browser Web Speech API**: Zero-download native browser STT fallback.
-- **Live Test Box**: Real-time transcription box (*"Say something! I hear: Testing 1 2 3"*).
-- **Browser Web Speech API note**: zero-download and no model weights, but it is *not* a WASM engine — Chrome may route audio through server-side recognition, so it must not be marketed as "offline/private" like Whisper.
+- **Architectural Principle**: **Reuse & Extract, Don't Reinvent**. Lifts existing verified STT machinery directly from `packages/stage-pages/src/pages/settings/modules/hearing.vue`:
+  - `useSettingsAudioDevice` (mic enumeration & device switching)
+  - `useAudioAnalyzer` → `LevelMeter` component (live volume level wave animation)
+  - `transcribeForMediaStream` & `transcribeForRecording` (`stores/modules/hearing.ts`)
+  - `electronGet/SetMicToggleHotkey` (hardware lock key shortcuts for CapsLock, NumLock, ScrollLock)
+- **Provider Selection Matrix (Reused Step 2 Grid Primitive)**:
+  - Reuses the exact category-agnostic provider grid & filter template from Step 2 (Consciousness), pointed at all audio transcription providers (`allAudioTranscriptionProvidersMetadata`):
+    - Filter controls for **DEPLOYMENT** (`All`, `Cloud`, `Local`) and **PRICING** (`All`, `Free`, `Paid`).
+    - Full grid of transcription provider cards: **Whisper WebGPU** (`whisper-local`), **Browser Web Speech API**, **Groq Whisper**, **OpenAI Whisper**, **Deepgram**, **ElevenLabs**, etc.
+  - **Provider Seam Truth**: Registers `whisper-local` in the provider registry with `listModels` returning `WHISPER_MODELS` (`whisper-large-v3-turbo` ~800MB and `whisper-small` ~480MB), replacing the no-op placeholder.
+  - **No Deep Links / Escapes**: Selecting cloud cards expands `step-provider-configuration` inline — users enter API keys directly within the step without navigating to `/settings/providers`.
+- **In-Context Model Weight Download**:
+  - Selecting **Whisper WebGPU** immediately calls `ensureWhisperLoaded(modelId)` to trigger real-time weight shard downloading & WASM compilation via `onProgress(ProgressPayload)` right inside Step 1 before moving forward (enforces Core Principle 1: In-Context Component Preparation).
+- **Lock-Key Hardware Shortcut Widget (`MicToggleHotkey`)**:
+  - Electron-only hotkey selector allowing users to set **Caps Lock**, **Num Lock**, or **Scroll Lock** as their PTT / mic toggle key (hidden on Web).
+  - Listens for `toggle-mic-from-shortcut` IPC to flash a live "Key detected ✓" indicator when pressed.
+- **Empirical Live Verification & Gated Navigation**:
+  - **Verification Rule**: Selecting a provider does **NOT** mark it as verified. Verification occurs **ONLY** when the live transcript display label receives actual output text from the active provider (`transcribedText !== ""`).
+  - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
+    - `[ Skip Step ]`: Always enabled. Allows users without a mic or interest in voice STT to bypass setup.
+    - `[ Next > ]`: **Disabled by default**. Automatically lights up & unlocks ONLY after live spoken text is successfully transcribed and displayed in the transcript label.
+- **Cleanup**: Stopping monitoring, VAD, and streaming sessions on step unmount to avoid mic stream leaks into Step 2.
 
 ---
 

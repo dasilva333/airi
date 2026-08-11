@@ -48,6 +48,7 @@ import {
   electronSettingsNavigate,
   electronShowToastEvent,
   electronStartTrackMousePosition,
+  electronWindowSetTitle,
   i18nSetLocale,
   pluginProtocolListProviders,
   pluginProtocolListProvidersEventName,
@@ -374,6 +375,23 @@ watch(() => onboardingStore.needsOnboarding, () => {
     openOnboarding()
   }
 }, { immediate: true })
+
+// Renderer is the single source of truth for the visible title (the route watchers
+// above mutate `document.title`); report it to the main process so the native OS
+// chrome stays in sync instead of relying on the static BrowserWindow constructor
+// `title`, which desyncs as soon as a route changes.
+const reportWindowTitle = useElectronEventaInvoke(electronWindowSetTitle)
+let lastReportedTitle: string | undefined
+watch(
+  () => document.title,
+  (title) => {
+    if (title === lastReportedTitle)
+      return
+    lastReportedTitle = title
+    void reportWindowTitle({ title })
+  },
+  { immediate: true, flush: 'post' },
+)
 
 onUnmounted(() => {
   contextBridgeStore.dispose()

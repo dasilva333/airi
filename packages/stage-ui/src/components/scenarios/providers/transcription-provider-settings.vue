@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 
 import {
   ProviderAdvancedSettings,
@@ -25,7 +24,6 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const router = useRouter()
 const providersStore = useProvidersStore()
 
 const activeInstanceId = ref('*')
@@ -68,11 +66,6 @@ function handleResetTranscriptionSettings() {
   apiKey.value = ''
   baseUrl.value = providerMetadata.value?.defaultOptions?.().baseUrl as string | undefined || ''
 }
-
-function navigateBackToProviders() {
-  const category = providerMetadata.value?.category || 'transcription'
-  router.push(`/settings/providers#${category}`)
-}
 </script>
 
 <template>
@@ -86,7 +79,6 @@ function navigateBackToProviders() {
     :pricing="providerMetadata?.pricing"
     :beginner-recommended="providerMetadata?.beginnerRecommended"
     :console-url="providerMetadata?.consoleUrl"
-    :on-back="navigateBackToProviders"
   >
     <div flex="~ col md:row gap-6">
       <ProviderSettingsContainer class="w-full md:w-[40%]">

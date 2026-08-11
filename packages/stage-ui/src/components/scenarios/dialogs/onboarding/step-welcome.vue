@@ -10,6 +10,7 @@ import { useOnboardingStore } from '../../../../stores/onboarding'
 
 interface Props {
   onNext: OnboardingStepNextHandler
+  onSkip?: () => void
 }
 
 const props = defineProps<Props>()
@@ -18,6 +19,7 @@ const onboardingStore = useOnboardingStore()
 
 function handleSkip() {
   onboardingStore.markSetupSkipped()
+  props.onSkip?.()
 }
 </script>
 
@@ -57,7 +59,7 @@ function handleSkip() {
       </p>
     </div>
 
-    <div class="flex flex-col gap-2">
+    <div class="flex flex-row items-center justify-center gap-3">
       <Button
         v-motion
         :initial="{ opacity: 0, y: 10 }"

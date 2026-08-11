@@ -2,13 +2,21 @@
 import type { OnboardingStepNextHandler } from '../../types'
 
 import { Button } from '@proj-airi/ui'
+import { useI18n } from 'vue-i18n'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
 // V2 onboarding scaffold — Step 0: Welcome Landing. Visual mockup only.
-defineProps<{
+const props = defineProps<{
   onNext: OnboardingStepNextHandler
+  onSkip?: () => void
 }>()
+
+const { t } = useI18n()
+
+function handleSkip() {
+  props.onSkip?.()
+}
 
 const featureChips = [
   { icon: 'i-solar:cpu-bolt-bold-duotone', label: 'Local WebGPU Models', color: 'text-primary-500' },
@@ -69,15 +77,27 @@ const featureChips = [
       </div>
     </div>
 
-    <Button
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="400"
-      :delay="400"
-      label="Let's Get Started →"
-      class="mt-2"
-      @click="onNext"
-    />
+    <div class="mt-2 flex flex-row items-center justify-center gap-3">
+      <Button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="400"
+        :delay="400"
+        label="Let's Get Started →"
+        @click="onNext"
+      />
+      <Button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0 }"
+        :duration="400"
+        :delay="450"
+        variant="ghost"
+        class="text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        :label="t('settings.dialogs.onboarding.skipPermanently')"
+        @click="handleSkip"
+      />
+    </div>
   </div>
 </template>

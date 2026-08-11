@@ -9,7 +9,6 @@ defineProps<{
   pricing?: 'free' | 'paid'
   beginnerRecommended?: boolean
   consoleUrl?: string
-  onBack?: () => void
 }>()
 </script>
 

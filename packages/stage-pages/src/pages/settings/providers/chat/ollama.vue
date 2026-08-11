@@ -60,7 +60,6 @@ const {
   manualTestPassed,
   manualTestMessage,
   runManualTest,
-  navigateBackToProviders,
 } = useProviderValidation(providerId)
 
 const headers = ref<{ key: string, value: string }[]>(
@@ -123,7 +122,6 @@ function goToModelSelection() {
     :pricing="providerMetadata?.pricing"
     :beginner-recommended="providerMetadata?.beginnerRecommended"
     :console-url="providerMetadata?.consoleUrl"
-    :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer>
       <!-- Multi-instance management section -->

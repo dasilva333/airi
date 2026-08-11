@@ -3,7 +3,6 @@ import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 
 import ProviderSettingsLayout from './provider-settings-layout.vue'
 
@@ -36,7 +35,6 @@ defineSlots<{
   'playground': (props: any) => any
 }>()
 const { t } = useI18n()
-const router = useRouter()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const { providers } = storeToRefs(providersStore)
@@ -124,10 +122,6 @@ function handleResetVoiceSettings() {
   voiceSettings.value = { ...(providerMetadata.value?.defaultOptions?.().voiceSettings as Record<string, unknown>) }
   debouncedUpdate()
 }
-function navigateBackToProviders() {
-  const category = providerMetadata.value?.category || 'speech'
-  router.push(`/settings/providers#${category}`)
-}
 </script>
 
 <template>
@@ -141,7 +135,6 @@ function navigateBackToProviders() {
     :pricing="providerMetadata?.pricing"
     :beginner-recommended="providerMetadata?.beginnerRecommended"
     :console-url="providerMetadata?.consoleUrl"
-    :on-back="navigateBackToProviders"
   >
     <div flex="~ col md:row gap-6">
       <ProviderSettingsContainer class="w-full md:w-[40%]">

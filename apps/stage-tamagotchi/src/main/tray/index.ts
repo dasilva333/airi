@@ -6,6 +6,7 @@ import type { ServerChannel } from '../services/airi/channel-server'
 import type { setupBeatSync } from '../windows/beat-sync'
 import type { setupCaptionWindowManager } from '../windows/caption'
 import type { CustomizerWindowManager } from '../windows/customizer'
+import type { OnboardingWindowManager } from '../windows/onboarding'
 import type { SettingsWindowManager } from '../windows/settings'
 import type { WidgetsWindowManager } from '../windows/widgets'
 
@@ -23,6 +24,7 @@ import { toggleWindowShow } from '../windows/shared/window'
 export function setupTray(params: {
   mainWindow: BrowserWindow
   settingsWindow: SettingsWindowManager
+  onboardingWindow: OnboardingWindowManager
   captionWindow: ReturnType<typeof setupCaptionWindowManager>
   widgetsWindow: WidgetsWindowManager
   beatSyncBgWindow: Awaited<ReturnType<typeof setupBeatSync>>
@@ -75,8 +77,8 @@ export function setupTray(params: {
         },
         { type: 'separator' },
         { label: 'Customizer...', click: () => void params.customizerWindow.toggleVisibility() },
-        { label: 'Show Setup Wizard', click: () => void params.settingsWindow.openWindow('/settings?action=onboarding') },
-        { label: 'Show Setup Wizard (V2 Preview)', click: () => void params.settingsWindow.openWindow('/settings?action=onboarding-v2') },
+        { label: 'Show Setup Wizard', click: () => void params.onboardingWindow.openWindow('/onboarding') },
+        { label: 'Show Setup Wizard (V2 Preview)', click: () => void params.onboardingWindow.openWindow('/onboarding?v=2') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.settings'), click: () => void params.settingsWindow.openWindow('/settings') },
         { label: params.i18n.t('tamagotchi.electron.tray.menu.labels.label.about'), click: () => params.aboutWindow().then(window => toggleWindowShow(window)) },
         { type: 'separator' },

@@ -76,6 +76,7 @@ const settings = computed(() => {
 meta:
   layout: settings
   titleKey: settings.title
+  rootOfSettings: true
   stageTransition:
     name: slide
 </route>

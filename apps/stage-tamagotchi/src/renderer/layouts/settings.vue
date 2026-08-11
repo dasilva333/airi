@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { PageHeader } from '@proj-airi/stage-ui/components'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { computed, ref, watchEffect } from 'vue'
@@ -18,6 +17,12 @@ const scrollContainer = ref<HTMLElement>()
 useRestoreScroll(scrollContainer)
 
 function handleBack() {
+  // Declarative back: never navigate 'up' out of the settings surface. The router
+  // guard and `disableBackButton` already gate this, but early-return so that a
+  // direct call can't fall through to the Control Strip.
+  if (route.meta?.rootOfSettings)
+    return
+
   if (route.path.startsWith('/settings/providers/')) {
     const segments = route.path.split('/').filter(Boolean)
     const category = segments[2]
@@ -25,7 +30,8 @@ function handleBack() {
     router.push(`/settings/providers${hash}`)
     return
   }
-  router.back()
+
+  router.push('/settings')
 }
 
 const routeMeta = computed(() => route.meta as {
@@ -33,6 +39,7 @@ const routeMeta = computed(() => route.meta as {
   subtitleKey?: string
   title?: string
   subtitle?: string
+  rootOfSettings?: boolean
 })
 
 const providerTitle = computed(() => {
@@ -120,7 +127,7 @@ watchEffect(() => {
           <PageHeader
             :title="routeHeaderMetadata?.title ?? ''"
             :subtitle="routeHeaderMetadata?.subtitle ?? ''"
-            :disable-back-button="isStageTamagotchi() && route.path === '/settings'"
+            :disable-back-button="routeMeta.rootOfSettings"
             px-4
             @back="handleBack"
           />

@@ -19,7 +19,7 @@ export function setupDevtoolsWindow(): DevtoolsWindowManager {
 
   const reusable = createReusableWindow(async () => {
     const window = new BrowserWindow({
-      title: 'Devtools',
+      title: 'AIRI — Devtools',
       width: 1020,
       height: 720,
       minWidth: 640,

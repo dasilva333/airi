@@ -178,6 +178,10 @@ const requestNextStep: OnboardingStepNextHandler = async (configData?: ProviderC
   await navigateNext(configData)
 }
 
+function requestSkipStep() {
+  emit('skipped')
+}
+
 async function saveProviderConfiguration(data: ProviderConfigData) {
   if (!selectedProvider.value)
     return
@@ -594,6 +598,7 @@ async function navigatePrevious() {
         v-bind="currentStepProps"
         :on-next="requestNextStep"
         :on-previous="requestPreviousStep"
+        :on-skip="requestSkipStep"
       />
     </Transition>
   </div>

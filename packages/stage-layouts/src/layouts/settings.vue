@@ -20,6 +20,7 @@ const routeMeta = computed(() => route.meta as {
   subtitleKey?: string
   title?: string
   subtitle?: string
+  rootOfSettings?: boolean
 })
 
 const providerTitle = computed(() => {
@@ -78,7 +79,12 @@ watch(() => route.path, () => {
 })
 
 function handleBack() {
-  console.log('[SettingsLayout] handleBack called. Current route:', route.path)
+  // Declarative back: never navigate 'up' out of the settings surface. The router
+  // guard already blocks `/settings` -> `/`, and `disableBackButton` hides the
+  // control here, but early-return as a belt-and-suspenders against direct calls.
+  if (route.meta?.rootOfSettings)
+    return
+
   if (route.path.startsWith('/settings/providers/')) {
     const segments = route.path.split('/').filter(Boolean)
     const category = segments[2]
@@ -87,17 +93,8 @@ function handleBack() {
     return
   }
 
-  if (route.path === '/settings/providers' || route.path === '/settings/providers/') {
-    router.push('/settings')
-    return
-  }
-
-  if (route.path === '/settings') {
-    router.push('/')
-  }
-  else {
-    router.push('/settings')
-  }
+  // Every other settings sub-route backs up to the settings root.
+  router.push('/settings')
 }
 </script>
 
@@ -124,6 +121,7 @@ function handleBack() {
       <PageHeader
         :title="routeHeaderMetadata?.title || ''"
         :subtitle="routeHeaderMetadata?.subtitle"
+        :disable-back-button="routeMeta.rootOfSettings"
         @back="handleBack"
       />
       <div id="settings-scroll-container" ref="scrollContainerRef" relative min-h-0 flex-1 overflow-y-auto scrollbar-none>

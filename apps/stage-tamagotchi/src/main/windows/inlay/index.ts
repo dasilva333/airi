@@ -18,7 +18,7 @@ export async function setupInlayWindow(params: {
   i18n: I18n
 }) {
   const window = new BrowserWindow({
-    title: 'Inlay',
+    title: 'AIRI — Inlay',
     width: 450,
     height: 150,
     show: false,

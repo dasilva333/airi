@@ -50,7 +50,6 @@ const {
   manualTestPassed,
   manualTestMessage,
   runManualTest,
-  navigateBackToProviders,
 } = useProviderValidation(providerId)
 
 function goToModelSelection() {
@@ -70,7 +69,6 @@ function goToModelSelection() {
     :pricing="providerMetadata?.pricing"
     :beginner-recommended="providerMetadata?.beginnerRecommended"
     :console-url="providerMetadata?.consoleUrl"
-    :on-back="navigateBackToProviders"
   >
     <ProviderSettingsContainer>
       <!-- Multi-instance management section -->

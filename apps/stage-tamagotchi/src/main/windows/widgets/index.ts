@@ -56,7 +56,7 @@ function computeDefaultBounds(): Rectangle {
 function createWidgetsWindow(options?: Electron.BrowserWindowConstructorOptions & { spotlight?: boolean }) {
   const { spotlight = true, ...rest } = options ?? {}
   const window = new ElectronBrowserWindow({
-    title: 'Widgets',
+    title: 'AIRI — Widgets',
     width: 620,
     height: 760,
     show: false,

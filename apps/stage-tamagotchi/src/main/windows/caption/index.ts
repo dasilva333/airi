@@ -140,7 +140,7 @@ function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, capti
 
 function createCaptionWindow(options?: BrowserWindowConstructorOptions) {
   const window = new ElectronBrowserWindow({
-    title: 'Caption',
+    title: 'AIRI — Caption',
     width: 480,
     height: 180,
     show: false,

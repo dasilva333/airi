@@ -43,6 +43,14 @@ const router = createRouter({
   routes: setupLayouts(routes as RouteRecordRaw[]),
 })
 
+// Ground rule: a settings window must never fall through to the Control Strip
+// ('/') when backing out of its root. Declared via route meta so individual
+// layouts don't string-match `route.path === '/settings'`.
+router.beforeEach((to, from) => {
+  if (from.meta?.rootOfSettings && to.path === '/')
+    return false
+})
+
 createApp(App)
   .use(MotionPlugin)
   // TODO: Fix autoAnimatePlugin type error

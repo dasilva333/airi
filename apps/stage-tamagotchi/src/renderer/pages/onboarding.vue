@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { OnboardingScreen } from '@proj-airi/stage-ui/components'
+import { OnboardingScreen, OnboardingV2 } from '@proj-airi/stage-ui/components'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useTheme } from '@proj-airi/ui'
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { electronOnboardingClose } from '../../shared/eventa'
 
+const route = useRoute()
 const onboardingStore = useOnboardingStore()
 const { isDark } = useTheme()
 
 const bgClass = computed(() => isDark.value ? 'bg-[#0f0f0f]' : 'bg-white')
+const isV2 = computed(() => route.query.v === '2')
 
 const closeWindow = useElectronEventaInvoke(electronOnboardingClose)
 
@@ -23,6 +26,10 @@ async function handleConfigured() {
   onboardingStore.markSetupCompleted()
   await closeWindow()
 }
+
+async function handleCloseV2() {
+  await closeWindow()
+}
 </script>
 
 <template>
@@ -30,7 +37,8 @@ async function handleConfigured() {
     <div :class="bgClass" w="100dvw" min-h="12" w-full flex-shrink-0 select-none data-tauri-drag-region />
     <div class="onboarding-scroll" w-full flex-1 px-3>
       <div class="onboarding-content" h-full>
-        <OnboardingScreen @skipped="handleSkipped" @configured="handleConfigured" />
+        <OnboardingV2 v-if="isV2" @close="handleCloseV2" />
+        <OnboardingScreen v-else @skipped="handleSkipped" @configured="handleConfigured" />
       </div>
     </div>
   </div>
