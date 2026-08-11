@@ -6,6 +6,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useChatOrchestratorStore } from '../../../stores/chat'
+import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 
@@ -48,9 +49,11 @@ function setSuggestionCount(count: number) {
 const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const chatStore = useChatOrchestratorStore()
+const chatSessionStore = useChatSessionStore()
 
 const { activeCard } = storeToRefs(cardStore)
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
+const { activeSessionId } = storeToRefs(chatSessionStore)
 
 const characterName = computed(() => activeCard.value?.name ?? 'AIRI')
 
@@ -109,7 +112,7 @@ async function send() {
       model: activeModel.value,
       chatProvider: activeProvider.value,
       tools: props.tools,
-    })
+    }, activeSessionId.value)
 
     // Auto-close after successful send
     dismiss()

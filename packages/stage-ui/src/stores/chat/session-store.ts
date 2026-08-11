@@ -578,8 +578,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     await persistIndex()
     scheduleSync(sessionId)
 
-    if (options?.setActive !== false)
+    if (options?.setActive !== false) {
       activeSessionId.value = sessionId
+      broadcastStreamEvent({ type: 'session-activated', sessionId, characterId })
+    }
 
     return sessionId
   }
@@ -777,10 +779,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       to: sessionId,
       characterId: getCurrentCharacterId(),
     })
+    const characterId = getCurrentCharacterId()
+    const changed = activeSessionId.value !== sessionId
     activeSessionId.value = sessionId
     ensureSession(sessionId)
 
-    const characterId = getCurrentCharacterId()
     const characterIndex = index.value?.characters[characterId]
     if (characterIndex) {
       characterIndex.activeSessionId = sessionId
@@ -789,6 +792,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     if (ready.value)
       void loadSession(sessionId)
+
+    if (changed)
+      broadcastStreamEvent({ type: 'session-activated', sessionId, characterId })
   }
 
   function cleanupMessages(sessionId = activeSessionId.value) {
@@ -1193,25 +1199,36 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       const currentUserId = getCurrentUserId()
       if (event.userId === currentUserId) {
         debug('[ChatSession] Cross-window index-refreshed, reloading index')
-        // NOTICE: We intentionally do NOT call ensureActiveSessionForCharacter() here.
-        // That function calls refreshActiveSystemMessage() which broadcasts session-updated →
-        // session-refreshed → index-refreshed, creating an infinite feedback loop on idle.
-        // Index reloads from cross-window broadcasts are purely for data sync — the session
-        // setup lifecycle is only triggered at initialization and explicit card-switches.
-        void loadIndexForUser(currentUserId).then(() => {
-          if (!isMainWindow) {
-            const characterId = getCurrentCharacterId()
-            const characterIndex = getCharacterIndex(characterId)
-            if (characterIndex && characterIndex.activeSessionId && characterIndex.activeSessionId !== activeSessionId.value) {
-              debug('[ChatSession] Syncing activeSessionId in secondary window to match index', {
-                from: activeSessionId.value,
-                to: characterIndex.activeSessionId,
-              })
-              activeSessionId.value = characterIndex.activeSessionId
-            }
-          }
-        })
+        // NOTICE: Index reloads from cross-window broadcasts are purely for data sync (message
+        // counts, titles, universe metadata). They must NEVER change which timeline a window
+        // currently views — doing so caused the cross-window "message leaks into another
+        // timeline" bug whenever this window reloaded a stale snapshot.
+        // Timeline switching is driven exclusively by explicit user actions and by the
+        // dedicated 'session-activated' broadcast, not by background index persistence.
+        void loadIndexForUser(currentUserId)
       }
+      return
+    }
+    if (event.type === 'session-activated') {
+      const currentCharacterId = getCurrentCharacterId()
+      if (event.characterId !== currentCharacterId)
+        return
+      if (!event.sessionId || activeSessionId.value === event.sessionId)
+        return
+
+      debug('[ChatSession] Cross-window session-activated, synchronizing active session', {
+        from: activeSessionId.value,
+        to: event.sessionId,
+      })
+      activeSessionId.value = event.sessionId
+      const characterIndex = getCharacterIndex(currentCharacterId)
+      if (characterIndex && characterIndex.activeSessionId !== event.sessionId) {
+        characterIndex.activeSessionId = event.sessionId
+        void persistIndex()
+      }
+      ensureSession(event.sessionId)
+      if (ready.value)
+        void loadSession(event.sessionId)
       return
     }
     if (event.type === 'session-deleted') {

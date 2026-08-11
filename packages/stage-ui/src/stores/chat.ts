@@ -152,6 +152,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     watch(broadcastedInput, (payload) => {
       if (payload) {
         chatLog('Received broadcasted chat input from secondary window:', payload)
+        // NOTICE: Align the main window's active session to the sender's target so that in-band
+        // tool executions and memory/context resolution resolve against the user's intended
+        // timeline, not whichever snapshot this process last cached. setActiveSession short-
+        // circuits when the session is already active, preventing broadcast loops.
+        if (payload.targetSessionId && payload.targetSessionId !== chatSession.activeSessionId)
+          chatSession.setActiveSession(payload.targetSessionId)
         ingest(payload.sendingMessage, {
           ...payload.options,
           tools: toolsResolver.value,

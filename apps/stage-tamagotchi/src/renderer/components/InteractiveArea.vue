@@ -562,7 +562,7 @@ async function handleSend() {
         chatProvider: activeProvider.value,
         providerConfig,
         triggerOnly: true,
-      })
+      }, activeSessionId.value)
     }
     else {
       await ingest(textToSend, {
@@ -570,7 +570,7 @@ async function handleSend() {
         chatProvider: activeProvider.value,
         providerConfig,
         attachments: attachmentsToSend,
-      })
+      }, activeSessionId.value)
     }
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))

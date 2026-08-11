@@ -37,7 +37,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
 
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCardId } = storeToRefs(airiCardStore)
-  const { messages } = storeToRefs(chatSession)
+  const { messages, activeSessionId } = storeToRefs(chatSession)
   const { ingest } = chatOrchestrator
   const { stream, enabled } = storeToRefs(settingsAudioDevice)
 
@@ -218,7 +218,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
         providerConfig,
         attachments: attachmentsToSend,
         tools: options.tools,
-      })
+      }, activeSessionId.value)
       attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
       options.onSendSuccess?.()
     }

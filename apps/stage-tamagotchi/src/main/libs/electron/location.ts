@@ -54,7 +54,7 @@ export async function load(window: BrowserWindow, url: string | { url: string, o
     if (!('code' in error) || !('errno' in error)) {
       throw error
     }
-    if (error.code === 'ERR_ABORTED' && error.errno === -3) {
+    if ((error.code === 'ERR_ABORTED' && error.errno === -3) || (error.code === 'ERR_FAILED' && error.errno === -2)) {
       if (typeof url === 'object' && 'url' in url) {
         const parsedURL = new URL(url.url)
         if (parsedURL.hash) {
