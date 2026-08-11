@@ -22,6 +22,7 @@ This modernized onboarding architecture shifts AIRI to a **Zero-Friction, Local-
 3. **Hardware Capability Transparency**: Every local model card clearly displays VRAM requirements, model size, and supported languages so users make informed choices based on their hardware.
 4. **Early Hardware & WebGPU Detection**: Detects `isWebGPUSupported()` globally on startup to guide the user toward WebGPU vs. WASM/Browser-native options.
 5. **No Forced Fallbacks**: If a local model fails or isn't supported, users can easily pick another provider or skip — no silent redirects.
+6. **Transient Composition State & Deferred Card Assembly**: Onboarding V2 collects choices (STT, LLM, User Profile, Persona, Vessel, TTS) in a clean, transient onboarding composition draft store. It does **NOT** dirty-mutate existing IndexedDB character cards as a step-by-step scratchpad. On Step 7 (Calibration / Finale), the assembled choices are cleanly compiled into the target `AiriCard` and `AiriExtension` payload.
 
 ---
 
@@ -153,22 +154,29 @@ Step 7: Stage Calibration & Victory Launch
   - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
     - `[ Skip Step ]`: Always enabled.
     - `[ Next > ]`: **Disabled by default** until the selected LLM engine is verified ready.
+- **Future Polish Pass Note**: We will revisit Step 2 in a dedicated follow-up pass to build a lightweight ad-hoc inference validation widget so users can test live LLM output for remote cloud providers before moving on.
 
 ---
 
 ### Step 3: User Profile & Identity Setup
 - **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/system/user-profile.vue)
 - **Store**: `useSettingsUserProfile` (`name`, `description`, `prompt`, `voiceProfileId`).
-- **Purpose**: Captures User Display Name, Narrative Description, and Visual Prompt Tags **before** Persona Selection so Tier 3 AI Card Creators know who the user is.
+- **Purpose**: Captures User Display Name, Narrative Description, and Visual Prompt Tags **before** Persona Selection so Tier 3 AI Card Creators and SillyTavern template engines know who the user is.
 
 ---
 
 ### Step 4: Soul & Persona Selection (Pure Personality)
 - **Total Decoupling**: Purely handles personality cards and system prompts. Visual avatar bodies are chosen on Step 5.
-- **3 Tiers**:
-  - **Tier 1 (Starter Cards & Archetypes)**: ReLU (Companion), Dr. Aria (Scientist), Lupin (Guardian) — the three existing seeded defaults (`airi-card.ts`). Anime archetype cards (Tsundere, Kuudere, Yandere, etc.) are **net-new seed cards to be authored**, sourced from `assets/animadex-catalog.json` — they do not exist as cards today.
-  - **Tier 2 (Community Card Interceptor Hub)**: Browse & auto-download cards from JannyAI, Chub AI, JanitorAI, Risu Realm, DataCat.
-  - **Tier 3 (AI Guided Creator Wizard)**: AnimaDex builder (`guided.vue`) using Step 2 LLM + Step 3 User Profile to generate custom character lore.
+- **3-Tier Structure**:
+  - **Tier 1 (1-Click Starter Cards & Archetypes)**:
+    - ReLU (Companion), Dr. Aria (Scientist), Lupin (Guardian) — the three existing seeded defaults (`airi-card.ts`).
+    - Anime archetype cards (Tsundere, Kuudere, Yandere, etc.) sourced from `assets/animadex-catalog.json`.
+  - **Tier 2 (Community Card Interceptor Hub & SillyTavern Interceptor Wizard)**:
+    - Opens a webview side-sheet for community providers (JannyAI, Chub AI, JanitorAI, Risu Realm, DataCat).
+    - Intercepts Chromium `onDidDownload` image download events when users click to download a SillyTavern PNG/JSON card.
+    - Reads PNG tEXt / JSON metadata, extracts character fields, and runs a templating wizard replacing `{{user}}` placeholders with Step 3's User Profile!
+  - **Tier 3 (AI Guided Creator Wizard)**:
+    - Displayed as a **Feature Preview / "Coming Soon" placeholder card** for now so it remains visible without getting bogged down in its complex 4-step synthesis gauntlet (`guided.vue`).
 
 ---
 

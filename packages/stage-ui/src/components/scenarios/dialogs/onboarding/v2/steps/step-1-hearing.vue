@@ -18,6 +18,7 @@ import { useAudioContext } from '../../../../../../stores/audio'
 import { useHearingSpeechInputPipeline, useHearingStore } from '../../../../../../stores/modules/hearing'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettingsAudioDevice } from '../../../../../../stores/settings'
+import { useOnboardingV2Draft } from '../draft-store'
 import { onboardingV2GateKey } from '../gate'
 import { ensureWhisperLoaded } from '../whisper-loader'
 
@@ -33,6 +34,14 @@ const hearingStore = useHearingStore()
 const providersStore = useProvidersStore()
 const audioDevice = useSettingsAudioDevice()
 const hearingPipeline = useHearingSpeechInputPipeline()
+const draft = useOnboardingV2Draft()
+
+// Principle 6 (Option A): snapshot the persisted STT selection on mount so the
+// live test can temporarily drive the pipeline, then restore on unmount. The
+// authoritative choice lands in `draft.hearing`; the global store is committed
+// only at Step 7.
+const snapshotProvider = hearingStore.activeTranscriptionProvider
+const snapshotModel = hearingStore.activeTranscriptionModel
 
 const { activeTranscriptionProvider, activeTranscriptionModel } = storeToRefs(hearingStore)
 const { allAudioTranscriptionProvidersMetadata, configuredTranscriptionProvidersMetadata } = storeToRefs(providersStore)
@@ -109,6 +118,7 @@ async function startWhisperDownload() {
 
 function onSelectProvider(provider: ProviderMetadata) {
   activeTranscriptionProvider.value = provider.id
+  draft.setHearing({ provider: provider.id, model: draft.state.hearing.model })
   verification.value = 'idle'
   // Cloud providers surface their credential form; local ones skip straight to testing.
   if (provider.id === 'browser-local-audio-transcription' && whisperDownloadState.value === 'idle')
@@ -135,6 +145,16 @@ function handleConfigured() {
 
 // --- Model sub-picker for cloud STT ---
 const providerModels = computed(() => providersStore.getModelsForProvider(activeTranscriptionProvider.value))
+
+// Keep the authoritative STT selection in the transient draft.
+watch([activeTranscriptionProvider, activeTranscriptionModel], ([p, m]) => {
+  if (p)
+    draft.setHearing({ provider: p, model: m || selectedWhisperModel.value })
+})
+watch(selectedWhisperModel, (m) => {
+  if (isWhisperSelected.value)
+    draft.setHearing({ provider: activeTranscriptionProvider.value, model: m })
+})
 
 // --- Live test ---
 const isTesting = ref(false)
@@ -269,6 +289,10 @@ onBeforeUnmount(async () => {
   if (isTesting.value)
     await stopTest()
   await stopMonitoring()
+  // Principle 6 (Option A): restore the pre-onboarding persisted STT selection.
+  // The user's chosen STT engine lives in draft.hearing and is committed at Step 7.
+  hearingStore.activeTranscriptionProvider = snapshotProvider
+  hearingStore.activeTranscriptionModel = snapshotModel
 })
 
 onMounted(() => {

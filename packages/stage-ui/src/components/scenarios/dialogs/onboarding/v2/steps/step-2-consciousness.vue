@@ -13,9 +13,8 @@ import CompanionBubble from '../components/companion-bubble.vue'
 import ProviderPickerGrid from '../components/provider-picker-grid.vue'
 
 import { WEB_LLM_MODELS } from '../../../../../../libs/inference/constants'
-import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
-import { useConsciousnessStore } from '../../../../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../../../../stores/providers'
+import { useOnboardingV2Draft } from '../draft-store'
 import { onboardingV2GateKey } from '../gate'
 
 const emit = defineEmits<{
@@ -28,12 +27,19 @@ const emit = defineEmits<{
 // after the selected brain is actually verified.
 
 // --- Stores ---
-const consciousnessStore = useConsciousnessStore()
 const providersStore = useProvidersStore()
-const airiCardStore = useAiriCardStore()
+const draft = useOnboardingV2Draft()
 
-const { activeProvider, activeModel, providerModels, isLoadingActiveProviderModels } = storeToRefs(consciousnessStore)
+// Principle 6: selection is local + transient draft only. The persisted
+// consciousnessStore.activeProvider/activeModel are NOT committed until Step 7.
+const selectedProviderId = ref(draft.state.consciousness.provider ?? '')
+const selectedModelId = ref(draft.state.consciousness.model ?? '')
+
 const { allChatProvidersMetadata, configuredChatProvidersMetadata } = storeToRefs(providersStore)
+
+// Cloud model list is id-keyed (does not touch consciousnessStore.activeProvider).
+const providerModels = computed(() => providersStore.getModelsForProvider(selectedProviderId.value))
+const isLoadingActiveProviderModels = computed(() => providersStore.isLoadingModels[selectedProviderId.value] || false)
 
 // --- Hardware detection (webllm needs WebGPU) ---
 const webgpuSupported = ref(isWebGPUSupported())
@@ -46,7 +52,7 @@ const downloadStatusText = ref('')
 const downloadAbort = ref<AbortController>()
 const selectedLlmModel = ref<string>(WEB_LLM_MODELS[0].id)
 
-const isWebLlmSelected = computed(() => activeProvider.value === 'web-llm')
+const isWebLlmSelected = computed(() => selectedProviderId.value === 'web-llm')
 
 // Start download as soon as WebLLM is picked (with the curated default), or when
 // the user switches WebLLM model while it's the active provider.
@@ -91,12 +97,10 @@ async function startWebLlmDownload() {
 }
 
 // --- Provider selection ---
-const selectedCloudProviderId = ref('')
-
 const selectedChatProvider = computed<ProviderMetadata | null>(() => {
   if (isWebLlmSelected.value)
     return null
-  return allChatProvidersMetadata.value.find(p => p.id === activeProvider.value) || null
+  return allChatProvidersMetadata.value.find(p => p.id === selectedProviderId.value) || null
 })
 
 const inlineConfigProvider = computed(() => {
@@ -109,59 +113,42 @@ const inlineConfigProvider = computed(() => {
 })
 
 function onSelectProvider(provider: ProviderMetadata) {
-  activeProvider.value = provider.id
-  selectedCloudProviderId.value = provider.id
-  // Selecting a new brain invalidates prior verification until re-verified.
-  consciousnessStore.resetModelSelection()
+  selectedProviderId.value = provider.id
+  selectedModelId.value = ''
+  recordDraft()
   if (provider.id === 'web-llm') {
     // Kick off download immediately only if not already running/ready.
     if (downloadState.value === 'idle')
       void startWebLlmDownload()
     return
   }
-  // For cloud or local non-webllm, fetch models to populate the picker.
-  void consciousnessStore.loadModelsForProvider(provider.id)
+  // For cloud or local non-webllm, fetch models to populate the picker (id-keyed).
+  void providersStore.fetchModelsForProvider(provider.id)
 }
 
 function handleConfigured() {
-  void consciousnessStore.loadModelsForProvider(activeProvider.value)
+  void providersStore.fetchModelsForProvider(selectedProviderId.value)
 }
 
-// --- Card ↔ store sync (Step 4/5 borrow this brain) ---
-const { activeCard, activeCardId } = storeToRefs(airiCardStore)
+// --- Principle 6: record the chosen brain into the transient draft only ---
+function recordDraft() {
+  draft.setConsciousness({
+    provider: selectedProviderId.value || undefined,
+    model: selectedModelId.value || undefined,
+    engine: selectedProviderId.value === 'web-llm' ? 'web-llm' : 'cloud',
+  })
+}
 
-watch([activeProvider, activeModel], ([provider, model]) => {
-  if (!activeCardId.value || !provider || !model)
-    return
-  const card = activeCard.value
-  if (!card)
-    return
-  const existing = (card as any).extensions?.airi?.modules?.consciousness
-  if (existing?.provider === provider && existing?.model === model)
-    return
-  void airiCardStore.updateCard(activeCardId.value, {
-    extensions: {
-      ...(card as any).extensions,
-      airi: {
-        ...(card as any).extensions?.airi,
-        modules: {
-          ...(card as any).extensions?.airi?.modules,
-          consciousness: {
-            ...existing,
-            provider,
-            model,
-          },
-        },
-      },
-    },
-  } as any)
-})
+watch(selectedModelId, recordDraft)
 
-// --- Verification gate ---
+// --- Verification gate (draft source of truth) ---
 const verified = computed(() => {
-  if (isWebLlmSelected.value)
-    return downloadState.value === 'ready' && !!activeModel.value
-  return !!activeProvider.value && !!activeModel.value
+  if (isWebLlmSelected.value) {
+    // For the local WebGPU brain the curated model id *is* the model — no
+    // separate model-list row; verification is the completed in-context load.
+    return downloadState.value === 'ready'
+  }
+  return !!selectedProviderId.value && !!selectedModelId.value
 })
 
 const gate = inject(onboardingV2GateKey, null)
@@ -232,7 +219,7 @@ const modelPlaceholder = computed(() => (isLoadingActiveProviderModels.value ? '
               : 'border-neutral-200/60 bg-white/40 dark:border-neutral-800/80 dark:bg-neutral-900/40 hover:border-primary-500/50',
             !webgpuSupported ? 'cursor-not-allowed' : '',
           ]"
-          @click="() => { activeProvider = 'web-llm'; selectedLlmModel = model.id }"
+          @click="() => { selectedProviderId = 'web-llm'; selectedLlmModel = model.id; selectedModelId = model.id; recordDraft() }"
         >
           <div
             class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl"
@@ -289,10 +276,10 @@ const modelPlaceholder = computed(() => (isLoadingActiveProviderModels.value ? '
     <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']">
       <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Choose a Brain Provider</span>
       <ProviderPickerGrid
-        :model-value="isWebLlmSelected ? 'web-llm' : selectedCloudProviderId"
+        :model-value="selectedProviderId"
         :providers="allChatProvidersMetadata"
         @select="onSelectProvider"
-        @update:model-value="(id: string) => { selectedCloudProviderId = id }"
+        @update:model-value="(id: string) => { selectedProviderId = id }"
       />
     </div>
 
@@ -307,9 +294,9 @@ const modelPlaceholder = computed(() => (isLoadingActiveProviderModels.value ? '
     </div>
 
     <!-- Cloud model picker -->
-    <div v-if="!isWebLlmSelected && activeProvider && providerModels.length > 0" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']">
+    <div v-if="!isWebLlmSelected && selectedProviderId && providerModels.length > 0" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']">
       <FieldSelect
-        v-model="activeModel"
+        v-model="selectedModelId"
         label="Model"
         :options="cloudModelOptions"
         :placeholder="modelPlaceholder"
