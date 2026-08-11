@@ -10,7 +10,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import StepProviderConfiguration from '../../step-provider-configuration.vue'
 import CompanionBubble from '../components/companion-bubble.vue'
 import LockKeyPicker from '../components/lock-key-picker.vue'
-import SttProviderPicker from '../components/stt-provider-picker.vue'
+import SttProviderPicker from '../components/provider-picker-grid.vue'
 import SttTestBox from '../components/stt-test-box.vue'
 
 import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'

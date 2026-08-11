@@ -130,16 +130,29 @@ Step 7: Stage Calibration & Victory Launch
 ---
 
 ### Step 2: Consciousness (Mind / LLM Setup)
-- **Retirement of Easy vs Advanced Fork**: Replaced by unified top-local/bottom-cloud composition.
-- **Top Section - WebLLM Hero Cards (with VRAM & Size Transparency)** — VRAM figures are the `vramMB` pre-allocation values from [`libs/inference/constants.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/constants.ts) (`WEB_LLM_MODELS`); render them directly from the constant, never hardcode:
-  - `Qwen 3.5 4B` — `[⭐ RECOMMENDED]` — VRAM: ~3.9 GB (3868 MB) — Outstanding chat, instruction, & roleplay.
-  - `Qwen 3.5 0.8B` — VRAM: ~1.6 GB (1629 MB) — Fast distill for lightweight systems.
-  - `Gemma 3 1B` — VRAM: ~0.7 GB (711 MB) — Lowest VRAM; integrated GPUs & mobile.
-  - `Ministral 3B` — VRAM: ~2.9 GB (2864 MB) — High reasoning capability.
-  - `Phi-4 Mini` — VRAM: ~3.4 GB (3438 MB) — Compact Microsoft 3.8B model.
-- **Bottom Section - Preserved AIRI Provider Grid (`step-provider-selection.vue`)**:
-  - Filter bar: Deployment (`All`/`Cloud`/`Local`) & Pricing (`All`/`Free`/`Paid`).
-  - Provider cards for OpenAI, Anthropic Claude, Google Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama, LM Studio, Custom OpenAI-Compatible.
+- **Unified Composition**: Top section displays WebLLM hero cards; bottom section reuses the category-agnostic Provider Grid primitive for cloud & local providers.
+- **Top Section - WebLLM Hero Cards (with VRAM Transparency)**:
+  - Sourced directly from `WEB_LLM_MODELS` in [`libs/inference/constants.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/constants.ts):
+    - `Qwen 3.5 4B` — `[⭐ RECOMMENDED]` — VRAM: ~3.9 GB (3868 MB) — Outstanding chat, instruction, & roleplay.
+    - `Qwen 3.5 0.8B` — VRAM: ~1.6 GB (1629 MB) — Fast distill for lightweight systems.
+    - `Gemma 3 1B` — VRAM: ~0.7 GB (711 MB) — Lowest VRAM; integrated GPUs & mobile.
+    - `Ministral 3B` — VRAM: ~2.9 GB (2864 MB) — High reasoning capability.
+    - `Phi-4 Mini` — VRAM: ~3.4 GB (3438 MB) — Compact Microsoft 3.8B model.
+- **In-Context WebLLM Weight Download**:
+  - Bridge helper `ensureWebLlmLoaded(modelId, onProgress, signal)` in `v2/webllm-loader.ts` delegates to `getWebLlmAdapter().loadModel()`, streaming real `ProgressPayload` percent/bytes to drive the progress bar on Step 2.
+- **Hardware & WebGPU Gating**:
+  - If `isWebGPUSupported()` is `false`, displays an amber callout ("Local AI brain needs WebGPU") and steers users to the cloud provider grid.
+- **Bottom Section - Reused Provider Grid Primitive**:
+  - Reuses the shared provider grid primitive (`stt-provider-picker.vue` / `ProviderPickerGrid`) pointed at `allChatProvidersMetadata`.
+  - Selecting cloud cards (OpenAI, Anthropic, Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama, LM Studio) expands `step-provider-configuration` inline for API key entry.
+- **Bidirectional Store & Character-Card Sync**:
+  - Selecting a provider/model updates `consciousnessStore.activeProvider` & `consciousnessStore.activeModel` **AND** patches `activeCard.extensions.airi.modules.consciousness = { provider, model }`. This ensures Step 4 Persona & Tier 3 AnimaDex Wizard borrow the configured brain.
+- **Verification Gate & Navigation**:
+  - WebLLM: Verified when `loadModel()` resolves and inference status flips to `ready`.
+  - Cloud LLMs: Verified when provider is configured and a model is selected.
+  - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
+    - `[ Skip Step ]`: Always enabled.
+    - `[ Next > ]`: **Disabled by default** until the selected LLM engine is verified ready.
 
 ---
 

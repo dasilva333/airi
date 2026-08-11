@@ -9,7 +9,7 @@ import type { ComputedRef, InjectionKey } from 'vue'
  */
 export interface OnboardingV2GateState {
   /** Reactive predicate — Next is enabled only when this is true. */
-  canProceed: ComputedRef<boolean>
+  canProceed: ComputedRef<boolean> | boolean | (() => boolean)
   /** When present, renders an always-enabled Skip button with this label. */
   skipLabel?: string
 }

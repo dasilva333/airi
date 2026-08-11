@@ -5,9 +5,9 @@ import { computed, ref } from 'vue'
 
 import { RadioCardDetail } from '../../../../../menu'
 
-// V2 onboarding — reusable provider grid + filter primitive, lifted from
-// step-provider-selection.vue but driven by an injected provider list so it can
-// be pointed at the transcription catalog instead of chat providers.
+// V2 onboarding — reusable, category-agnostic provider grid + filter primitive,
+// lifted from step-provider-selection.vue but driven by an injected provider
+// list. Point it at any catalog (transcription, chat, speech) via `providers`.
 const props = defineProps<{
   providers: ProviderMetadata[]
   modelValue: string
@@ -101,7 +101,7 @@ const pricingOptions = [
         :id="provider.id"
         :key="provider.id"
         v-model="selectedIdModel"
-        name="onboarding-v2-stt-provider"
+        name="onboarding-v2-provider"
         :value="provider.id"
         :title="provider.localizedName || provider.name || provider.id"
         :description="provider.localizedDescription || provider.description || ''"

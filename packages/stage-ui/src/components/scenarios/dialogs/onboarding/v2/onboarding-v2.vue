@@ -3,7 +3,7 @@ import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from '../ty
 import type { OnboardingV2GateState } from './gate'
 
 import { useLocalStorage } from '@vueuse/core'
-import { computed, provide, reactive, ref, watch } from 'vue'
+import { computed, provide, reactive, ref, unref, watch } from 'vue'
 
 import StepStartChoice from '../step-start-choice.vue'
 import Step0Welcome from './steps/step-0-welcome.vue'
@@ -119,7 +119,14 @@ function clearGate(id: string) {
 provide(onboardingV2GateKey, { setGate, clearGate })
 
 const activeGate = computed(() => gates[currentId.value])
-const canProceed = computed(() => (activeGate.value ? activeGate.value.canProceed.value : true))
+const canProceed = computed(() => {
+  if (!activeGate.value)
+    return true
+  const val = activeGate.value.canProceed
+  if (typeof val === 'function')
+    return (val as () => boolean)()
+  return Boolean(unref(val))
+})
 
 function handleStepSkip() {
   requestNextStep()
