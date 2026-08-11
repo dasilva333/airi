@@ -4,13 +4,48 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 
 ---
 
+## 0. Reading Order & Index (Read This First)
+
+> **Stop head-sampling.** This document is long by design. Do **not** read only the first ~200 lines. Find the § you need below, jump straight to it, and read that section in full. Each section is self-contained.
+>
+> | If you are working on… | Go to § |
+> | :--- | :--- |
+> | App startup, window managers, DI wiring, the `eventa` contract | **1, 6 (providers)** |
+> | Any visible window/island/chat surface (Control Strip, Stage, Chatbox, islands) | **2, 3, 4** |
+> | Anything persisted — cards, chat logs, memory, sync, IndexedDB/localStorage keys | **5** (+ catalog) |
+> | Swapping LLM/TTS/STT/vision/image backends, `defineProvider`, local model inference | **6** |
+> | Feature modules (card-embedded vs standalone) — consciousness, speech, hearing, vision, discord, etc. | **7** |
+> | TTS output, STT input, voice profiles, UST, audio capture | **8** |
+> | Long/short-term memory, lifetime synthesis, echo chips, salience/dreaming | **9** |
+> | LLM orchestration, ACT pipeline, tool calls, system-prompt composition, dating sim | **10** |
+> | Discord bot, slash commands, vision routing | **11** |
+> | MCP servers, tool bridges, stdio services | **12** |
+> | Cross-window state sync — the **canonical 28-channel BroadcastChannel registry** | **13** |
+> | Repo layout — "which package/app owns X" | **14** |
+> | Decoding slang a user/agent used ("the tamagotchi", "the brain", "the strip") | **15** |
+> | Hard-won pitfalls & failure modes (binary proxies, eventa serializer, eager watchers) | **16** |
+> | Removed/legacy surfaces & why they no longer exist (**controls-island, scenes/Stage.vue**) | **17** |
+>
+> **Glossary of load-bearing terms** (search these exact strings):
+> - **`eventa` / `defineInvokeEventa`** — typed IPC/RPC between main & renderer. §6 contract, §16 pitfalls.
+> - **`unstorage` + `localforage`** — two IndexedDB layers: structured (`local:`) vs binary blobs. §5.
+> - **`BroadcastChannel`** — cross-window sync. Two API styles: `useBroadcastChannel` (VueUse) and `new BroadcastChannel`. Naming is inconsistent (`airi-*` vs `airi:*` vs `airi::*`). §13.
+> - **`defineProvider()`** — modular backend registry. §6.
+> - **`AiriCard` / `AiriExtension`** — character card schema (CCv2/CCv3 + `extensions.airi`). §3, §7.
+> - **`stage-tamagotchi`** — the Electron desktop app (NOT the legacy Tauri `crates/`). §14.
+> - **Window managers vs UI** — every window has a main-process *manager* (`main/windows/<name>/`) and a renderer *page/component*. §2 pairs them.
+
+---
+
+
+
 ## 1. Application Entry & Wiring
 
 | Concept | Path | Notes |
 | :--- | :--- | :--- |
 | **DI composition root** | `apps/stage-tamagotchi/src/main/index.ts` | Where services are injected via `injeca`. Start here to trace how a service gets wired. |
 | **Eventa IPC contract** | `apps/stage-tamagotchi/src/shared/eventa.ts` | All typed IPC/RPC event definitions between main and renderer. |
-| **Window managers** | `apps/stage-tamagotchi/src/main/windows/` | One dir per window: `main/`, `stage/`, `chat/`, `caption/`, `widgets/`, `settings/` |
+| **Window managers** | `apps/stage-tamagotchi/src/main/windows/` | One dir per window. Primary: `main/` (control strip), `stage/`, `chat/`, `caption/`, `widgets/`, `settings/`. Auxiliary: `about/`, `beat-sync/`, `customizer/`, `dashboard/`, `devtools/`, `inlay/`, `notice/`, `onboarding/`, plus `shared/` helpers. |
 | **Renderer bootstrap** | `apps/stage-tamagotchi/src/renderer/` | `App.vue`, `router.ts`, layouts at `layouts/settings.vue` |
 | **Renderer build config** | `apps/stage-tamagotchi/electron.vite.config.ts` | Vite config + route definitions for the Electron renderer |
 | **Web app entry** | `apps/stage-web/src/App.vue` | `pages/`, `layouts/`; router config via `vite.config.ts` |
@@ -23,10 +58,10 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | Concept | Path |
 | :--- | :--- |
 | **Control Strip (Main Window)** | `apps/stage-tamagotchi/src/main/windows/main/index.ts` (Electron) | `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` (UI) |
-| **Actor Stage (Floating Island)** | `apps/stage-tamagotchi/src/main/windows/stage/index.ts` (Electron) | `packages/stage-ui/src/components/scenes/Stage.vue` (UI) |
-| **Chatbox Window** | `apps/stage-tamagotchi/src/main/windows/chat/index.ts` (Electron) | `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (UI) | `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Host) |
-| **Control Island (Original)** | `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` |
-| **Gemini Control Island** | `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/gemini-controls.vue` |
+| **Actor Stage (Floating Island)** | `apps/stage-tamagotchi/src/main/windows/stage/index.ts` (Electron) | `packages/stage-ui/src/components/scenes/RendererStage.vue` (UI) |
+| **Chatbox Window** | `apps/stage-tamagotchi/src/main/windows/chat/index.ts` (Electron) | `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (UI) \| `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (Host) |
+| **Control Island (Original)** | ❌ **DEPRECATED / REMOVED** — `stage-islands/controls-island/` removed in `e10223f2e`. Replaced by `ControlStripHost.vue` (scenes) + `controls-island` settings store. |
+| **Gemini Control Island** | ❌ **DEPRECATED / REMOVED** — `gemini-controls.vue` removed in `e10223f2e`. Gemini Bidi session moved to `packages/stage-ui/src/stores/modules/live-session.ts` + `pages/notice/gemini.vue` panel. |
 | **Whisperbox (Input)** | `packages/stage-ui/src/components/scenarios/chat/WhisperDock.vue` |
 | **Resource Island** | `apps/stage-tamagotchi/src/renderer/components/stage-islands/resource-status-island/index.vue` |
 | **VRM Character** | `packages/stage-ui-three/src/components/Model/VRMModel.vue` |
@@ -163,6 +198,7 @@ interface ProviderMetadata {
 - **Coordinator**: `packages/stage-ui/src/libs/inference/coordinator.ts` — serialized model loads via `getLoadQueue()`.
 - **GPU Resource Coordinator**: `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — VRAM bookkeeping, pressure telemetry, device-loss fallback.
 - **WebGPU detection**: `packages/stage-shared/src/webgpu/detect.ts`.
+- **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/whisper/`, not under `workers/`.
 
 ### Local TTS Reference (Kokoro)
 - **Worker**: `packages/stage-ui/src/workers/kokoro/worker.ts`
@@ -238,7 +274,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Audio Studio** | [`feat-audio-studio.md`](./feat-audio-studio.md) — full spec for the voice profile management UI |
 | **Kokoro worker** | `packages/stage-ui/src/workers/kokoro/worker.ts` — reference local TTS implementation |
 | **Kokoro adapter** | `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — load queue, GPU coordinator, device-loss promotion, WAV encoding |
-| **Whisper worker** | `packages/stage-ui/src/workers/whisper/` — reference local STT implementation |
+| **Whisper worker** | `packages/stage-ui/src/libs/workers/whisper/` — reference local STT implementation (note: lives under `libs/workers/`, NOT `workers/`) |
 | **Whisper adapter** | `packages/stage-ui/src/libs/inference/adapters/whisper.ts` |
 | **Audio Studio UST proposal** | [`proposal-higgs-audio-v3-tts-integration.md`](./proposal-higgs-audio-v3-tts-integration.md) |
 | **MOSS-TTS-Nano proposal** | [`proposal-moss-tts-nano-provider-unified-webgpu.md`](./proposal-moss-tts-nano-provider-unified-webgpu.md) |
@@ -299,7 +335,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **ACT Pipeline (Execution)** | `packages/stage-ui-three/src/services/expression.ts` |
 | **Artistry / ComfyUI** | `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` |
 | **Artistry Bridge** | `apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts` |
-| **Scene / Background Layer** | `packages/stage-ui/src/components/scenes/Stage.vue` (Layer) | `packages/stage-pages/src/pages/settings/scene/index.vue` (UI) |
+| **Scene / Background Layer** | `packages/stage-ui/src/components/scenes/RendererStage.vue` (Layer) | `packages/stage-pages/src/pages/settings/scene/index.vue` (UI) |
 | **Background Picker Dialog** | `packages/stage-ui/src/components/scenarios/dialogs/stage-background-picker/StageBackgroundPicker.vue` |
 | **Image Journal Store** | `packages/stage-ui/src/stores/background.ts` |
 | **Stage Style / Gallery** | `packages/stage-pages/src/pages/settings/scene/index.vue` |
@@ -381,24 +417,42 @@ A game layer on top of the Actor Stage with deep Live2D integration. Implements 
 
 ## 13. BroadcastChannels
 
-Cross-window communication relies on named `BroadcastChannel` instances. These are the channel names used across the app:
+Cross-window communication relies on named `BroadcastChannel` instances. This is the **canonical registry** — the source of truth is the code (`grep -r "BroadcastChannel" packages apps`), not this table; keep both in sync when adding a channel.
 
-| Channel Name | Purpose |
-| :--- | :--- |
-| `airi-chat-input-bridge` | Ingestion pipeline — secondary windows post input to main window |
-| `airi-chat-stream` | Streaming LLM text deltas across windows |
-| `airi-caption-overlay` | Caption text relay to the overlay window |
-| `airi:cards-sync` | AIRI card modifications across windows |
-| `airi:background-sync` | Background image changes |
-| `airi:display-models-sync` | Display model import/deletion |
-| `airi:director-notes-sync` | Director note creation/archival (see §16) |
-| `airi:short-term-memory-sync` | Short-term memory block updates |
-| `airi:lifetime-memory-sync` | Lifetime memory artifact changes |
-| `airi-stores-live2d` | VRM/Three.js store synchronization — broadcasts view updates, emotion triggers, and transient motion triggers across windows |
-| `airi::beat-sync` | Audio beat detection & lip-sync amplitude relay across processes/windows (see `packages/stage-shared/src/beat-sync/eventa.ts`) |
-| `CHAT_STREAM_CHANNEL_NAME` | Chat stream + journal refresh events (exported constant from session-store) |
+> ⚠️ **Two API styles coexist.** Most channels use VueUse `useBroadcastChannel({ name })`; two use the raw `new BroadcastChannel(...)` constructor (`airi::beat-sync`, `dating-sim-sync`). **Naming is inconsistent** — three conventions are in use: `airi-kebab`, `airi:snake`, and the odd `airi::beat-sync` (double colon). Match the exact existing string when adding a sender or receiver; do not "normalize."
+
+| Channel Name | Publisher / Domain | Purpose |
+| :--- | :--- | :--- |
+| `airi-chat-input-bridge` | chat orchestrator | Ingestion pipeline — secondary windows post input to main window |
+| `airi-chat-stream` (`CHAT_STREAM_CHANNEL_NAME`) | `stores/chat/session-store.ts` (constant) | Streaming LLM deltas + journal refresh events across windows |
+| `airi-chat-present` | `scenes/ControlStripHost.vue` | Chat presence/active-state relay |
+| `airi-caption-overlay` | caption window | Caption text relay to the overlay window |
+| `airi:cards-sync` | `modules/airi-card.ts` | AIRI card modifications across windows |
+| `airi:background-sync` | `stores/background.ts` | Background image changes |
+| `airi:display-models-sync` | `stores/display-models.ts` | Display model import/deletion |
+| `airi:director-notes-sync` | director-notes system | Director note creation/archival (see §16) |
+| `airi:short-term-memory-sync` | `stores/memory-short-term.ts` | Short-term memory block updates |
+| `airi:lifetime-memory-sync` | `stores/memory-lifetime.ts` | Lifetime memory artifact changes |
+| `airi-stores-live2d` | `stage-ui-three/src/stores/model-store.ts` | **Three.js / VRM** model-store sync (misleading name — it is VRM, not Live2D) |
+| `airi-stores-stage-ui-live2d` | `stage-ui-live2d/src/stores/live2d.ts` | **Live2D** model-store sync (view updates, emotion/motion triggers) |
+| `airi-stores-stage-ui-spine` | `stage-ui-spine/src/stores/spine.ts` | **Spine** model animation-state sync |
+| `airi-stores-stage-ui-mmd` | `stage-ui-mmd/src/stores/mmd.ts` | **MMD/PMX** model animation-state sync |
+| `airi-stage-model-ready` | `renderer/pages/actor.vue` | Model-loaded handshake so secondary windows know the stage model is ready |
+| `airi-speaking-state` | `scenes/ControlStripHost.vue` | Character-speaking on/off relay for view sync |
+| `airi:stage-capture` | `settings/airi-card/CardListItem.vue` | Stage screenshot / capture request (avatar preview snapshots) |
+| `airi:stage-selfie-viewfinder` | `renderer/pages/actor.vue` | Selfie camera viewfinder overlay toggle (WYSIWYG selfie feature) |
+| `airi-intrusion-staging` | `stores/chat/intrusion-staging.ts` | Staged chat "intrusion"/proactive-message relay across windows |
+| `airi:context-bridge-dedupe` | `stores/mods/api/context-bridge.ts` | Dedupes context-bridge messages across windows |
+| `airi:store-reload` | `stores/sync-engine.ts` | Signals windows to reload in-memory store state after a sync/import |
+| `airi:artistry-processing-state` | `modules/artistry-autonomous.ts` | Artistry generation in-progress state relay |
+| `airi-theme-sync` | `packages/ui/src/composables/use-theme.ts` | Theme/hue changes across windows |
+| `airi-control-strip-actions` | `renderer/pages/customizer.vue` | Control-strip customizer action bus |
+| `airi:custom-vrma-sync` | `stage-ui-three/src/stores/custom-vrm-animations.ts` | Custom VRMA animation import/deletion sync |
+| `airi::beat-sync` | `stage-shared/src/beat-sync/eventa.ts` | **(raw `new BroadcastChannel`, note `::`)** Audio beat detection & lip-sync amplitude relay across processes/windows |
+| `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows |
 
 ---
+
 
 ## 14. Key Directories
 
@@ -453,8 +507,8 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 | :--- | :--- |
 | **"chatbox"** | `ChatArea.vue` / `InteractiveArea.vue` / `renderer/pages/chat.vue` |
 | **"control strip" / "the strip"** | `ControlStrip.vue` / `ControlStripHost.vue` (always-on-top status bar / mini-control tray) |
-| **"the island" / "original island" / "og island"** | `controls-island/index.vue` |
-| **"the floating widget" / "the standalone window" / "the tamagotchi"** | `Stage.vue` (Actor Stage Window) |
+| **"the island" / "original island" / "og island"** | ❌ Deprecated — was `controls-island/index.vue` (removed `e10223f2e`). Now resolves to the Control Strip (`ControlStripHost.vue`) — see §17. |
+| **"the floating widget" / "the standalone window" / "the tamagotchi"** | Actor Stage Window — window manager `apps/stage-tamagotchi/src/main/windows/stage/`, UI `packages/stage-ui/src/components/scenes/RendererStage.vue` (formerly `scenes/Stage.vue`, §17). |
 | **"the rich journal"** | `design-prospective-rich-journal.md` |
 | **"dreaming"** | Memory consolidation via proactive idle tasks |
 | **"vibe indicator"** | Emotional dashboard in the chatbox |
@@ -506,4 +560,24 @@ Cross-window communication relies on named `BroadcastChannel` instances. These a
 - **Eager Component Watchers on Store Data**: Attaching `{ deep: true }` watchers to store data inside UI wrapper components (`mmd.vue`, `live2d.vue`, `vrm-expressions.vue`) causes watchers to fire immediately when the component mounts on model selection or page navigation. Avoid eager persistence watchers in UI components — delegate storage actions to explicit store methods triggered by user events or debounced handlers.
 - **Centralized Model Mapping Persistence**: Store model mappings (`emotionMappings`, `motionMappings`, `hiddenExpressions`, `hiddenMotions`, `favoriteExpressions`) directly on `DisplayModelFile` (1:1 with the model object) using a single store action (`displayModelsStore.updateDisplayModelMappings()`) to prevent scattered duplicate write paths.
 - **Lightweight Model Catalog vs On-Demand Binary Loading**: Catalog items in `displayModels.value` carry lightweight metadata (name, format, tags, groups, previewImage) with `file: undefined` to prevent multi-megabyte `File`/`Blob` memory bloat across local models. Full model binary payloads must be loaded on-demand via `displayModelsStore.getDisplayModel(id)`.
+
+---
+
+## 17. Deprecated & Removed Surfaces
+
+> **Do not resurrect these paths.** They were removed deliberately. Cite them as deprecated; if you find a reference, retarget it to the current replacement.
+
+| Removed path | Removed in | Replaced by | Why removed |
+| :--- | :--- | :--- | :--- |
+| `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/index.vue` | `e10223f2e` | `packages/stage-ui/src/components/scenes/ControlStripHost.vue` + settings stores `packages/stage-ui/src/stores/settings/controls-island.ts` (shared) & `apps/stage-tamagotchi/src/renderer/stores/controls-island.ts` (renderer) | Control UI consolidated into the Control Strip + settings stores; stray "island" assets removed in the captions overhaul |
+| `apps/stage-tamagotchi/src/renderer/components/stage-islands/controls-island/gemini-controls.vue` | `e10223f2e` | `apps/stage-tamagotchi/src/renderer/pages/notice/gemini.vue` + `stores/modules/live-session.ts` | Gemini Bidi session UI moved to a dedicated `notice` panel, out of the island overlay |
+| `packages/stage-ui/src/components/scenes/Stage.vue` | `0cd85fb09` | `packages/stage-ui/src/components/scenes/RendererStage.vue` | Stage/background layer rewritten; the WYSIWYG selfie/camera capture feature landed on `RendererStage.vue` |
+
+### Partially alive (name kept, surface changed)
+
+| Surface | Status | Current home |
+| :--- | :--- | :--- |
+| Control Strip / "the strip" / `controls-island` **store** | ✅ **Active** | `packages/stage-ui/src/stores/settings/controls-island.ts` (shared) + `apps/stage-tamagotchi/src/renderer/stores/controls-island.ts` (renderer) + `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (UI shell). The *settings stores* still exist under the old `controls-island` name; the old *component directory* is gone. |
+| `customizer` window / `pages/customizer.vue` | ✅ **Active** | Unchanged — Control Strip customizer action bus uses `airi-control-strip-actions` channel (§13) |
+| `widgets` window / `artistry-bridge.ts` | ✅ **Active** | `main/services/airi/widgets/` + `renderer/stores/tools/builtin/widgets.ts` |
 
