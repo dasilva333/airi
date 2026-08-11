@@ -6,26 +6,70 @@ import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
 
+function getPlatformPath() {
+  switch (process.platform) {
+    case 'mas':
+    case 'darwin':
+      return 'Electron.app/Contents/MacOS/Electron'
+    case 'freebsd':
+    case 'openbsd':
+    case 'linux':
+      return 'electron'
+    case 'win32':
+      return 'electron.exe'
+    default:
+      return 'electron'
+  }
+}
+
+function sanitizePathTxt(electronDir) {
+  const pathFile = path.join(electronDir, 'path.txt')
+  const platformPath = getPlatformPath()
+  const expectedBinaryPath = path.join(electronDir, 'dist', platformPath)
+
+  if (fs.existsSync(pathFile)) {
+    try {
+      const rawContent = fs.readFileSync(pathFile, 'utf-8')
+      const trimmed = rawContent.trim()
+
+      if (rawContent !== trimmed || trimmed === 'Electron uninstall' || trimmed !== platformPath) {
+        if (fs.existsSync(expectedBinaryPath)) {
+          fs.writeFileSync(pathFile, platformPath)
+          console.log(`[AIRI] Auto-repaired path.txt to point to valid binary (${platformPath}).`)
+          return true
+        }
+      }
+    }
+    catch {
+      // Ignore read errors
+    }
+  }
+  else if (fs.existsSync(expectedBinaryPath)) {
+    try {
+      fs.writeFileSync(pathFile, platformPath)
+      console.log(`[AIRI] Created missing path.txt pointing to (${platformPath}).`)
+      return true
+    }
+    catch {
+      // Ignore write errors
+    }
+  }
+
+  return false
+}
+
 function isElectronBroken(electronDir, distDir) {
+  sanitizePathTxt(electronDir)
+
   if (!fs.existsSync(distDir)) {
     return true
   }
 
-  const pathFile = path.join(electronDir, 'path.txt')
-  if (fs.existsSync(pathFile)) {
-    try {
-      const content = fs.readFileSync(pathFile, 'utf-8').trim()
-      if (content === 'Electron uninstall' || !content) {
-        return true
-      }
-    }
-    catch {
-      return true
-    }
-  }
-
   try {
-    require('electron')
+    const electronResolved = require('electron')
+    if (typeof electronResolved === 'string' && fs.existsSync(electronResolved)) {
+      return false
+    }
   }
   catch (err) {
     if (err.message && (err.message.includes('Electron uninstall') || err.message.includes('failed to install'))) {
@@ -33,7 +77,9 @@ function isElectronBroken(electronDir, distDir) {
     }
   }
 
-  return false
+  const platformPath = getPlatformPath()
+  const expectedBinaryPath = path.join(distDir, platformPath)
+  return !fs.existsSync(expectedBinaryPath)
 }
 
 function ensureElectron() {
@@ -54,24 +100,22 @@ function ensureElectron() {
     console.warn('[AIRI] Triggering automatic repair via electron/install.js...')
 
     const installScript = path.join(electronDir, 'install.js')
-    if (!fs.existsSync(installScript)) {
-      console.error(`[AIRI] Electron installer script not found at ${installScript}`)
-      process.exit(1)
+    if (fs.existsSync(installScript)) {
+      try {
+        execSync(`node "${installScript}"`, { stdio: 'inherit' })
+      }
+      catch (err) {
+        console.warn('[AIRI] Electron install.js execution warning:', err.message)
+      }
     }
 
-    try {
-      execSync(`node "${installScript}"`, { stdio: 'inherit' })
-      if (!isElectronBroken(electronDir, distDir)) {
-        console.log('[AIRI] Electron binary runtime repaired successfully.')
-      }
-      else {
-        console.error('[AIRI] Electron install script ran but Electron is still uninstalled.')
-        process.exit(1)
-      }
-    }
-    catch (err) {
-      console.error('[AIRI] Failed to execute Electron install script:', err.message)
+    if (isElectronBroken(electronDir, distDir)) {
+      console.error('[AIRI] Automatic repair via install.js did not populate Electron runtime.')
+      console.error('[AIRI] Please run: pnpm rebuild electron')
       process.exit(1)
+    }
+    else {
+      console.log('[AIRI] Electron binary runtime repaired successfully.')
     }
   }
 }
