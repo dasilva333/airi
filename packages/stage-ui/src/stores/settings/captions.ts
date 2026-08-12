@@ -14,6 +14,12 @@ export const useSettingsCaptions = defineStore('settings-captions', () => {
   const layoutMode = useLocalStorageManualReset<CaptionLayoutMode>('settings/captions/layout-mode', 'single')
   const resetTrigger = useLocalStorageManualReset<number>('settings/captions/reset-trigger', 0)
 
+  // Head-tethered caption plank (in-scene PIXI renderer). Independent of the
+  // windowed caption above; both may run simultaneously. Live2D-only in MVP.
+  const headTetheredCaptionEnabled = useLocalStorageManualReset<boolean>('settings/captions/head-tethered/enabled', false)
+  const headTetheredCaptionOffset = useLocalStorageManualReset<{ x: number, y: number }>('settings/captions/head-tethered/offset', { x: 0, y: -40 })
+  const headTetheredCaptionFollowStrength = useLocalStorageManualReset<number>('settings/captions/head-tethered/follow-strength', 100)
+
   function resetState() {
     showCaptions.reset()
     fontSize.reset()
@@ -23,6 +29,9 @@ export const useSettingsCaptions = defineStore('settings-captions', () => {
     followStagePosition.reset()
     layoutMode.reset()
     resetTrigger.reset()
+    headTetheredCaptionEnabled.reset()
+    headTetheredCaptionOffset.reset()
+    headTetheredCaptionFollowStrength.reset()
   }
 
   function triggerReset() {
@@ -38,6 +47,9 @@ export const useSettingsCaptions = defineStore('settings-captions', () => {
     followStagePosition,
     layoutMode,
     resetTrigger,
+    headTetheredCaptionEnabled,
+    headTetheredCaptionOffset,
+    headTetheredCaptionFollowStrength,
     resetState,
     triggerReset,
   }

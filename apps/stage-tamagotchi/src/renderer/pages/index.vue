@@ -727,6 +727,10 @@ function handleControlStripAction(e: Event) {
     settingsStore.captionFollowStageVisibility = !settingsStore.captionFollowStageVisibility
     debug('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
   }
+  else if (action === 'head-tethered-caption') {
+    settingsStore.headTetheredCaptionEnabled = !settingsStore.headTetheredCaptionEnabled
+    debug('[ControlStrip] head-tethered-caption toggled:', settingsStore.headTetheredCaptionEnabled)
+  }
   else if (action === 'caption-docking') {
     const DOCK_CYCLE = ['none', 'bottom', 'top', 'head'] as const
     const current = settingsStore.captionDocking ?? 'none'

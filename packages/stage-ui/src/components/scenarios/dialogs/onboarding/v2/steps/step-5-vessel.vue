@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
-// V2 onboarding scaffold — Step 5: Physical Vessel. Visual mockup only.
+import { useOnboardingV2Draft } from '../draft-store'
+
+// V2 onboarding — Step 5: Physical Vessel.
 // Starter body previews reuse the real preset preview assets from
-// stores/display-models.ts; no model files are loaded.
+// stores/display-models.ts.
+
+const draftStore = useOnboardingV2Draft()
 
 const presetLive2dPreview = new URL('../../../../../../assets/live2d/models/hiyori/preview.png', import.meta.url).href
 const presetVrmAvatarAPreview = new URL('../../../../../../assets/vrm/models/AvatarSample-A/preview.png', import.meta.url).href
@@ -13,7 +17,15 @@ const presetVrmAvatarBPreview = new URL('../../../../../../assets/vrm/models/Ava
 
 type ViewMode = 'starters' | 'explore'
 const viewMode = ref<ViewMode>('starters')
-const selectedBody = ref('hiyori-free')
+const selectedBody = ref(draftStore.state.vessel.displayModelId || 'hiyori-free')
+
+if (!draftStore.state.vessel.displayModelId) {
+  draftStore.setVessel({ displayModelId: selectedBody.value })
+}
+
+watch(selectedBody, (val) => {
+  draftStore.setVessel({ displayModelId: val })
+})
 
 const starterBodies = [
   { id: 'hiyori-free', name: 'Hiyori (Free)', format: 'Live2D', preview: presetLive2dPreview },
@@ -22,16 +34,27 @@ const starterBodies = [
   { id: 'avatar-b', name: 'AvatarSample_B', format: '3D VRM', preview: presetVrmAvatarBPreview },
 ]
 
-// Subset mirrors the Explore wall in model-selector.vue (mockup copy).
+// Mirrors the full marketplaces catalog from model-selector.vue.
 const exploreLinks = [
-  { name: 'Steam Workshop', url: 'https://steamcommunity.com/workshop/browse/?appid=616720', note: 'Live2D / Spine' },
-  { name: 'Booth', url: 'https://booth.pm/en/browse/VTuber', note: 'VRM / Live2D' },
-  { name: 'VRoid Hub', url: 'https://hub.vroid.com', note: 'VRM' },
-  { name: 'Eikanya Archive', url: 'https://dasilva333.github.io/live2d-eikanya-index/', note: '4.9k+ Live2D' },
-  { name: 'SillyTavern Portal', url: 'https://dasilva333.github.io/live2d-test157t-index/', note: '270+ Live2D' },
-  { name: 'itch.io', url: 'https://itch.io/game-assets', note: 'Assorted' },
-  { name: 'Sketchfab', url: 'https://sketchfab.com', note: '3D' },
-  { name: 'VGen', url: 'https://vgen.co', note: 'Commissions' },
+  { name: 'Steam Workshop', vrm: false, live2d: true, spine: true, mmd: false, origin: 'Steam', url: 'https://steamcommunity.com/workshop/browse/?appid=616720' },
+  { name: 'VChaVCha (Hololive MMD)', vrm: false, live2d: false, spine: false, mmd: true, origin: 'VChaVCha', url: 'https://vchavcha.com/en/free-resources/hololive-mmd-download/' },
+  { name: 'NicoNico 3D (MMD)', vrm: false, live2d: false, spine: false, mmd: true, origin: 'Japan', url: 'https://3d.nicovideo.jp/search?category=all&download_filter=all&limit=28&max_pages=100&order=1&page=1&perfect_match=1&sort=view&usable_animation=&word=MMD&word_type=tag&work_type=mmd' },
+  { name: 'Reverse: 1999 (v1.7+)', vrm: false, live2d: true, spine: false, mmd: false, origin: 'Storm Preservation', url: 'https://dasilva333.github.io/r1999-web-gallery/' },
+  { name: 'Eikanya Live2D Archive (4.9k+)', vrm: false, live2d: true, spine: false, mmd: false, origin: 'Eikanya', url: 'https://dasilva333.github.io/live2d-eikanya-index/' },
+  { name: 'SillyTavern Live2D Portal (270)', vrm: false, live2d: true, spine: false, mmd: false, origin: 'test157t', url: 'https://dasilva333.github.io/live2d-test157t-index/' },
+  { name: 'bear0830 (MMD Animations)', vrm: false, live2d: false, spine: false, mmd: true, origin: 'GitHub', url: 'https://github.com/bear0830/mmd' },
+  { name: 'Booth', vrm: true, live2d: true, spine: false, mmd: false, origin: 'Japan', url: 'https://booth.pm/en/browse/VTuber' },
+  { name: 'Booth VRMA', vrm: true, live2d: false, spine: false, mmd: false, origin: 'Japan', url: 'https://booth.pm/en/browse/3D%20Motion%20&%20Animation?sort=price_asc&tags%5B%5D=VRMA' },
+  { name: 'VGen', vrm: true, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://vgen.co' },
+  { name: 'itch.io', vrm: true, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://itch.io/game-assets' },
+  { name: 'Gumroad', vrm: true, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://gumroad.com' },
+  { name: 'Ko-fi', vrm: true, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://ko-fi.com/shop' },
+  { name: 'VRoid Hub', vrm: true, live2d: false, spine: false, mmd: false, origin: 'Japan', url: 'https://hub.vroid.com' },
+  { name: 'Sketchfab', vrm: true, live2d: false, spine: false, mmd: false, origin: 'USA', url: 'https://sketchfab.com' },
+  { name: 'CGTrader', vrm: true, live2d: false, spine: false, mmd: false, origin: 'USA', url: 'https://cgtrader.com' },
+  { name: 'Nizima', vrm: false, live2d: true, spine: false, mmd: false, origin: 'Japan', url: 'https://nizima.com' },
+  { name: 'Avatar Atelier', vrm: false, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://avataratelier.com' },
+  { name: 'VTuberAvatars', vrm: false, live2d: true, spine: false, mmd: false, origin: 'USA', url: 'https://vtuberavatars.com' },
 ]
 </script>
 
@@ -62,17 +85,27 @@ const exploreLinks = [
     />
 
     <!-- Ever-present custom dropzone -->
-    <div
+    <label
       :class="[
-        'flex flex-shrink-0 items-center justify-center gap-3 border-2 border-dashed rounded-xl px-4 py-4 text-center transition-colors',
+        'flex flex-shrink-0 items-center justify-center gap-3 border-2 border-dashed rounded-xl px-4 py-3 text-center cursor-pointer transition-colors',
         'border-neutral-300/80 bg-white/30 dark:border-neutral-700/80 dark:bg-neutral-900/30 hover:border-primary-500/60',
       ]"
     >
-      <div class="i-solar:cloud-upload-bold-duotone h-6 w-6 text-neutral-400" />
-      <span class="text-xs text-neutral-500 dark:text-neutral-400">
-        Drag & drop <span class="font-bold font-mono">.vrm</span>, <span class="font-bold font-mono">.model3.json</span>, or <span class="font-bold font-mono">.zip</span> any time
-      </span>
-    </div>
+      <div class="i-solar:cloud-upload-bold-duotone h-6 w-6 flex-shrink-0 text-neutral-400" />
+      <div class="flex flex-col text-left">
+        <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">
+          Drop or browse a model file (<span class="text-primary-500 font-bold font-mono">.vrm</span> or <span class="text-primary-500 font-bold font-mono">.zip</span> archive)
+        </span>
+        <span class="text-[11px] text-neutral-400 dark:text-neutral-500">
+          Supports <span class="font-mono">.vrm</span> 3D avatars, or <span class="font-mono">.zip</span> archives with Live2D (<span class="font-mono">.moc3</span> Cubism 3–5), Spine (<span class="font-mono">.skel</span> 3.8–4.2), &amp; MMD (<span class="font-mono">.pmx</span>)
+        </span>
+      </div>
+      <input
+        type="file"
+        accept=".vrm,.zip,.moc3,.skel,.pmx"
+        class="hidden"
+      >
+    </label>
 
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
       <!-- View A: starter bodies -->
@@ -104,22 +137,61 @@ const exploreLinks = [
         </button>
       </div>
 
-      <!-- View B: explore link wall -->
-      <div v-else class="grid grid-cols-1 gap-2 pb-2 sm:grid-cols-2">
+      <!-- View B: explore link wall (4-column grid with color-coded format badges) -->
+      <div v-else class="grid grid-cols-1 gap-3 pb-2 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2">
         <a
           v-for="link in exploreLinks"
           :key="link.name"
           :href="link.url"
           target="_blank"
           rel="noopener noreferrer"
-          :class="['flex items-center gap-3', 'border border-neutral-200/60 rounded-xl px-4 py-3', 'bg-white/40 dark:bg-neutral-900/40', 'backdrop-blur-md', 'transition-colors hover:border-indigo-500/50']"
+          :class="[
+            'group flex flex-col justify-between gap-3 border border-neutral-200/60 rounded-xl p-3.5',
+            'bg-white/40 dark:bg-neutral-900/40 dark:border-neutral-800/80',
+            'backdrop-blur-md transition-all duration-200 hover:border-primary-500/60 hover:bg-white/60 dark:hover:bg-neutral-900/60 active:scale-[0.99]',
+          ]"
         >
-          <div class="i-solar:link-round-bold-duotone h-5 w-5 flex-shrink-0 text-indigo-500" />
-          <div class="min-w-0 flex-1">
-            <div class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">{{ link.name }}</div>
-            <div class="text-[10px] text-neutral-400">{{ link.note }}</div>
+          <div class="flex flex-col gap-2">
+            <div class="flex items-start justify-between gap-2">
+              <span class="line-clamp-1 text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-100 group-hover:text-primary-500">
+                {{ link.name }}
+              </span>
+              <div class="i-solar:export-bold-duotone h-3.5 w-3.5 flex-shrink-0 text-neutral-400 transition-colors group-hover:text-primary-500" />
+            </div>
+
+            <!-- Color-coded format badges -->
+            <div class="flex flex-wrap items-center gap-1">
+              <span
+                v-if="link.live2d"
+                class="border border-emerald-500/25 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] text-emerald-600 font-bold dark:text-emerald-400"
+              >
+                LIVE2D
+              </span>
+              <span
+                v-if="link.vrm"
+                class="border border-blue-500/25 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] text-blue-600 font-bold dark:text-blue-400"
+              >
+                VRM
+              </span>
+              <span
+                v-if="link.mmd"
+                class="border border-fuchsia-500/25 rounded-full bg-fuchsia-500/15 px-1.5 py-0.5 text-[9px] text-fuchsia-600 font-bold dark:text-fuchsia-400"
+              >
+                MMD
+              </span>
+              <span
+                v-if="link.spine"
+                class="border border-purple-500/25 rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[9px] text-purple-600 font-bold dark:text-purple-400"
+              >
+                SPINE
+              </span>
+            </div>
           </div>
-          <div class="i-solar:square-top-down-linear h-4 w-4 flex-shrink-0 text-neutral-400" />
+
+          <div class="flex items-center justify-between border-t border-neutral-200/50 pt-2 text-[10px] text-neutral-400 dark:border-neutral-800/50 dark:text-neutral-500">
+            <span class="truncate">⚙ {{ link.origin }}</span>
+            <span class="font-medium">External ↗</span>
+          </div>
         </a>
       </div>
     </div>

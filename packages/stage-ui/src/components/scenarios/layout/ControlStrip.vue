@@ -1168,6 +1168,9 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
   if (btnId === 'caption-sync-visibility') {
     return `Caption Sync Visibility: ${settingsStore.captionFollowStageVisibility ? 'ON (Green)' : 'OFF (Red)'}`
   }
+  if (btnId === 'head-tethered-caption') {
+    return `Head-Tethered Caption: ${settingsStore.headTetheredCaptionEnabled ? 'ON (Green)' : 'OFF (Red)'}`
+  }
   return defaultLabel
 }
 
@@ -1213,6 +1216,7 @@ function getShortLabel(btnId: string): string {
     'caption-layout-mode': 'Rows',
     'caption-sync-position': 'Pos↔',
     'caption-sync-visibility': 'Vis↔',
+    'head-tethered-caption': 'HeadCC',
     'caption-theme-mode': 'Theme',
     'caption-opacity': 'Opac',
     'exit-app': 'Quit',
@@ -1448,6 +1452,15 @@ function getShortLabel(btnId: string): string {
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
             settingsStore.captionFollowStageVisibility ? 'bg-green-500' : 'bg-red-500',
+          ]"
+        />
+
+        <!-- Status dot badge for head-tethered-caption -->
+        <span
+          v-if="btn.id === 'head-tethered-caption'"
+          :class="[
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
+            settingsStore.headTetheredCaptionEnabled ? 'bg-green-500' : 'bg-red-500',
           ]"
         />
 

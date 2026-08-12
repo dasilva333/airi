@@ -38,9 +38,9 @@ export function setupOnboardingWindowManager(params: {
     const newWindow = new BrowserWindow({
       title: 'AIRI — Onboarding',
       width: 1200,
-      height: 600,
+      height: 760,
       minWidth: 400,
-      minHeight: 500,
+      minHeight: 600,
       show: false,
       icon,
       resizable: true,
@@ -51,6 +51,7 @@ export function setupOnboardingWindowManager(params: {
       webPreferences: {
         preload: join(getElectronMainDirname(), '../preload/index.cjs'),
         sandbox: true,
+        webviewTag: true,
       },
     })
 

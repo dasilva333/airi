@@ -131,6 +131,9 @@ function canvasElement() {
 defineExpose({
   captureFrame,
   canvasElement,
+  // Exposed so in-scene overlays (e.g. HeadTetheredCaption) can attach PIXI
+  // children to the same stage. Readonly access.
+  pixiApp,
 })
 
 import.meta.hot?.dispose(() => {

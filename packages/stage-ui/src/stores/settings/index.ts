@@ -122,6 +122,11 @@ export const useSettings = defineStore('settings', () => {
     captionResetTrigger: toRef(captions, 'resetTrigger'),
     triggerCaptionReset: captions.triggerReset,
 
+    // Head-tethered caption (in-scene plank). Independent of the windowed caption.
+    headTetheredCaptionEnabled: toRef(captions, 'headTetheredCaptionEnabled'),
+    headTetheredCaptionOffset: toRef(captions, 'headTetheredCaptionOffset'),
+    headTetheredCaptionFollowStrength: toRef(captions, 'headTetheredCaptionFollowStrength'),
+
     // Methods
     setThemeColorsHue: theme.setThemeColorsHue,
     applyPrimaryColorFrom: theme.applyPrimaryColorFrom,

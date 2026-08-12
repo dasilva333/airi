@@ -3,10 +3,13 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
+import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
+import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
+import { useOnboardingV2Draft } from '../draft-store'
 
-// V2 onboarding scaffold — Step 7: Stage Calibration & Victory Launch.
-// All status badges and the greeting preview are SIMULATED.
+// V2 onboarding — Step 7: Stage Calibration & Victory Launch.
+// Performs atomic synthesis of transient draft choices into production stores.
 
 const props = defineProps<{
   onFinish?: () => void
@@ -17,6 +20,9 @@ const emit = defineEmits<{
 }>()
 
 const userProfileStore = useSettingsUserProfile()
+const cardStore = useAiriCardStore()
+const onboardingStore = useOnboardingStore()
+const draftStore = useOnboardingV2Draft()
 
 const badges = [
   { label: 'Consciousness', icon: 'i-solar:cpu-bolt-bold-duotone' },
@@ -46,7 +52,51 @@ onMounted(() => {
 
 onBeforeUnmount(() => clearInterval(typeTimer))
 
-function handleFinish() {
+async function handleFinish() {
+  const draft = draftStore.state
+
+  if (draft.userProfile.name) {
+    userProfileStore.name = draft.userProfile.name
+  }
+
+  if (draft.persona.importedCardDraft) {
+    const cardId = await cardStore.addCard(draft.persona.importedCardDraft)
+    cardStore.activeCardId = cardId
+  }
+  else if (draft.persona.cardId) {
+    cardStore.activeCardId = draft.persona.cardId
+  }
+  else {
+    const cardId = await cardStore.addCard({
+      name: companionName,
+      description: 'Your default AI companion on stage.',
+      personality: 'Friendly, caring, and bright assistant.',
+      greetings: [fullGreeting.value],
+      version: '1.0.0',
+      extensions: {
+        airi: {
+          agents: {},
+          modules: {
+            displayModelId: draft.vessel.displayModelId || 'hiyori-free',
+            consciousness: {
+              provider: draft.consciousness.provider || 'openai',
+              model: draft.consciousness.model || 'gpt-4o',
+            },
+            speech: {
+              provider: draft.speech.provider || 'kokoro',
+              model: draft.speech.model || 'kokoro-v1',
+              voice_id: draft.speech.voiceId || 'af_heart',
+            },
+          },
+        },
+      },
+    })
+    cardStore.activeCardId = cardId
+  }
+
+  onboardingStore.markSetupCompleted()
+  draftStore.reset()
+
   emit('finish')
   props.onFinish?.()
 }
@@ -117,7 +167,7 @@ function handleFinish() {
       Enter AIRI Stage
     </button>
     <p class="pb-1 text-center text-[10px] text-neutral-400 italic">
-      Mockup: closes the wizard without touching your saved setup state.
+      Launches AIRI Stage and commits your custom setup.
     </p>
   </div>
 </template>

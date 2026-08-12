@@ -23,14 +23,18 @@ import {
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: boolean
   cardData: any // Raw normalized imported card
-}>()
+  draftOnly?: boolean
+}>(), {
+  draftOnly: false,
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'imported', cardId: string): void
+  (e: 'submitDraft', cardData: any): void
 }>()
 
 const cardStore = useAiriCardStore()
@@ -478,6 +482,13 @@ async function finalizeImport() {
           }
         }
       }
+    }
+
+    if (props.draftOnly) {
+      emit('submitDraft', finalCard)
+      emit('update:modelValue', false)
+      toast.success('Companion draft successfully configured!')
+      return
     }
 
     const newId = await cardStore.addCard(finalCard)

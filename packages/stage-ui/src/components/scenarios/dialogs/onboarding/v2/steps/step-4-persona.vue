@@ -2,6 +2,7 @@
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 
+import CardImportWizard from '../../../../../../../../stage-pages/src/pages/settings/airi-card/components/CardImportWizard.vue'
 import CompanionBubble from '../components/companion-bubble.vue'
 
 import { useOnboardingV2Draft } from '../draft-store'
@@ -131,12 +132,53 @@ function selectPreset(id: string) {
 
 // --- Tier 2: community import → in-memory draft (no card-library write) ---
 const hubSources = [
-  { name: 'JannyAI', note: 'Cleanest SillyTavern exports' },
-  { name: 'Chub AI', note: 'Large character ecosystem' },
-  { name: 'JanitorAI', note: 'Look for ST card mirrors' },
-  { name: 'Risu Realm', note: 'Risu-ecosystem cards' },
-  { name: 'DataCat', note: 'Search & export as JSON' },
+  { name: 'JannyAI', note: 'Character discovery and card sharing with SillyTavern-friendly exports in the ecosystem.', url: 'https://jannyai.com' },
+  { name: 'JanitorAI', note: 'Popular character platform. Look for exports or mirrors that provide SillyTavern / chara_card_v2 PNG or JSON.', url: 'https://janitorai.com' },
+  { name: 'Chub AI', note: 'Large character-sharing ecosystem commonly used with third-party roleplay UIs.', url: 'https://chub.ai' },
+  { name: 'Risu Realm', note: 'Community character hub tied to the Risu ecosystem, useful for portable card-style prompts.', url: 'https://realm.risuai.net' },
+  { name: 'DataCat', note: 'A popular database and scraping tool used to search, browse, and export character definitions as SillyTavern JSON.', url: 'https://datacat.run/fresh' },
 ]
+
+// Check if running in Electron
+const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
+const activeBrowserSource = ref<{ name: string, url: string } | null>(null)
+
+function openHubSource(source: { name: string, url: string }) {
+  if (isElectron.value) {
+    activeBrowserSource.value = source
+  }
+  else if (typeof window !== 'undefined') {
+    window.open(source.url, '_blank', 'noopener,noreferrer')
+  }
+}
+
+let removeIpcListener = () => {}
+
+async function handleCharaCardDownloaded(payload: { base64Data: string, filename: string, ext: string }) {
+  try {
+    const rawData = atob(payload.base64Data)
+    const arrayBuffer = new ArrayBuffer(rawData.length)
+    const view = new Uint8Array(arrayBuffer)
+    for (let i = 0; i < rawData.length; i++) {
+      view[i] = rawData.charCodeAt(i)
+    }
+
+    const importedCard = payload.ext === 'png'
+      ? parsePngCharaPayload(arrayBuffer)
+      : parseImportedCard(new TextDecoder('utf-8').decode(arrayBuffer))
+
+    // Close webview drawer
+    activeBrowserSource.value = null
+
+    // Open import wizard modal in draft-only mode
+    wizardCardData.value = importedCard
+    isWizardOpen.value = true
+  }
+  catch (err) {
+    console.error('[Onboarding:Step4] Failed to process intercepted card:', err)
+    importError.value = 'Failed to parse intercepted card file'
+  }
+}
 
 const importedName = computed(() => {
   const draftCard = draft.state.persona.importedCardDraft as any
@@ -181,6 +223,8 @@ function parseImportedCard(content: string) {
 }
 
 const importError = ref('')
+const isWizardOpen = ref(false)
+const wizardCardData = ref<any>(null)
 
 async function handleImportFiles(files: FileList | null) {
   importError.value = ''
@@ -192,12 +236,17 @@ async function handleImportFiles(files: FileList | null) {
     const card = isPng
       ? parsePngCharaPayload(await file.arrayBuffer())
       : parseImportedCard(await file.text())
-    // In-memory draft only — committed to the library at Step 7 synthesis.
-    draft.setPersona({ source: 'import', importedCardDraft: card })
+
+    wizardCardData.value = card
+    isWizardOpen.value = true
   }
   catch (err) {
     importError.value = err instanceof Error ? err.message : String(err)
   }
+}
+
+function handleWizardSubmitDraft(finalCard: any) {
+  draft.setPersona({ source: 'import', importedCardDraft: finalCard })
 }
 
 // --- Gate: a persona is chosen when a preset id or import draft exists ---
@@ -209,8 +258,24 @@ onMounted(() => {
     canProceed: computed(() => verified.value),
     skipLabel: 'Skip Step',
   })
+
+  if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
+    const handler = (_event: any, payload: { base64Data: string, filename: string, ext: string }) => {
+      handleCharaCardDownloaded(payload)
+    }
+    const ipcRenderer = (window as any).electron.ipcRenderer
+    ipcRenderer.on('chara-card-downloaded', handler)
+    removeIpcListener = () => {
+      if (ipcRenderer.removeListener) {
+        ipcRenderer.removeListener('chara-card-downloaded', handler)
+      }
+    }
+  }
 })
-onBeforeUnmount(() => gate?.clearGate('persona'))
+onBeforeUnmount(() => {
+  gate?.clearGate('persona')
+  removeIpcListener()
+})
 </script>
 
 <template>
@@ -334,12 +399,34 @@ onBeforeUnmount(() => gate?.clearGate('persona'))
           Import a SillyTavern-compatible <span class="font-bold font-mono">.png</span> or <span class="font-bold font-mono">.json</span> card, or an enhanced <span class="font-bold font-mono">dasilva333/AIRI</span> card export. It's stored in your onboarding draft and assembled on the final step.
         </p>
 
-        <!-- Manual file import (web-safe; works in Electron too) -->
+        <!-- Ecosystem community website tiles (Top) -->
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <button
+            v-for="source in hubSources"
+            :key="source.name"
+            type="button"
+            :class="[
+              'group flex flex-col gap-0.5 text-left cursor-pointer transition-all duration-200',
+              'border border-neutral-200/60 rounded-xl px-3.5 py-2.5',
+              'bg-white/40 dark:bg-neutral-900/40 dark:border-neutral-800/80',
+              'backdrop-blur-md hover:border-primary-500/60 hover:bg-white/60 dark:hover:bg-neutral-900/60 active:scale-[0.99]',
+            ]"
+            @click="openHubSource(source)"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-100 group-hover:text-primary-500">{{ source.name }}</span>
+              <div class="i-solar:export-bold-duotone h-3.5 w-3.5 text-neutral-400 transition-colors group-hover:text-primary-500" />
+            </div>
+            <span class="text-[10px] text-neutral-500 leading-tight dark:text-neutral-400">{{ source.note }}</span>
+          </button>
+        </div>
+
+        <!-- Manual file import drop zone (Bottom) -->
         <label
-          :class="['flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-4 py-6 text-center cursor-pointer transition-colors', 'border-neutral-300/80 bg-white/30 dark:border-neutral-700/80 dark:bg-neutral-900/30 hover:border-indigo-500/60']"
+          :class="['flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl px-4 py-3.5 text-center cursor-pointer transition-colors', 'border-neutral-300/80 bg-white/30 dark:border-neutral-700/80 dark:bg-neutral-900/30 hover:border-primary-500/60']"
         >
-          <div class="i-solar:cloud-upload-bold-duotone h-7 w-7 text-neutral-400" />
-          <span class="text-xs text-neutral-500 dark:text-neutral-400">Drop a card or click to browse</span>
+          <div class="i-solar:cloud-upload-bold-duotone h-5 w-5 text-neutral-400" />
+          <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">Drop a card or click to browse (.png / .json)</span>
           <input type="file" accept=".png,.json" class="hidden" @change="(e: Event) => handleImportFiles((e.target as HTMLInputElement).files)">
         </label>
 
@@ -365,18 +452,6 @@ onBeforeUnmount(() => gate?.clearGate('persona'))
             Clear
           </button>
         </div>
-
-        <!-- Source directory (informational; Electron side-sheet interceptor is the live path) -->
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <div
-            v-for="source in hubSources"
-            :key="source.name"
-            :class="['flex flex-col gap-0.5', 'border border-neutral-200/60 rounded-xl px-3 py-3', 'bg-white/40 dark:bg-neutral-900/40', 'backdrop-blur-md']"
-          >
-            <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-300">{{ source.name }}</span>
-            <span class="text-[9px] text-neutral-400">{{ source.note }}</span>
-          </div>
-        </div>
       </div>
 
       <!-- Tier 3: AI guided wizard → Feature Preview (no live wiring) -->
@@ -390,6 +465,53 @@ onBeforeUnmount(() => gate?.clearGate('persona'))
           <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-400">
             A 4-step guided wizard will use your Step 2 brain and Step 3 profile to synthesize a fully custom companion — lore, greeting, and portrait prompts — straight into your draft.
           </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import Wizard Modal for draft-only persona synthesis -->
+    <CardImportWizard
+      v-if="wizardCardData"
+      v-model="isWizardOpen"
+      :card-data="wizardCardData"
+      :draft-only="true"
+      @submit-draft="handleWizardSubmitDraft"
+    />
+
+    <!-- Electron In-App Webview Side Drawer with automatic card download interceptor -->
+    <div
+      v-if="isElectron"
+      :class="[
+        'fixed inset-y-0 right-0 z-50 w-[70vw] border-l border-neutral-200 bg-white/95 shadow-2xl transition-transform duration-500 ease-in-out backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95',
+        activeBrowserSource ? 'translate-x-0' : 'translate-x-full',
+      ]"
+    >
+      <div class="h-full flex flex-col">
+        <div class="flex items-center justify-between border-b border-neutral-200 p-4 dark:border-neutral-800">
+          <div class="flex items-center gap-3">
+            <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-200">
+              Browse {{ activeBrowserSource?.name }}
+            </h3>
+            <span class="rounded bg-primary-500/10 px-2 py-0.5 text-xs text-primary-500 font-medium">
+              Card Interceptor Active
+            </span>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="activeBrowserSource = null"
+          >
+            <div class="i-solar:close-square-bold-duotone h-5 w-5" />
+          </button>
+        </div>
+        <div class="flex-1 bg-white dark:bg-neutral-950">
+          <component
+            is="webview"
+            v-if="activeBrowserSource"
+            :src="activeBrowserSource.url"
+            class="h-full w-full"
+            allowpopups
+          />
         </div>
       </div>
     </div>

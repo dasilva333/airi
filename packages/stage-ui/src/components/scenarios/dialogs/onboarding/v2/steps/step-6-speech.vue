@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
-// V2 onboarding scaffold — Step 6: Contextual Speech (TTS). Visual mockup only.
-// Language badges mirror the real provider registry (`kokoro-local`,
-// `pocket-tts-local`, `moss-nano-local`); no audio is synthesized.
+import { useOnboardingV2Draft } from '../draft-store'
 
+// V2 onboarding — Step 6: Contextual Speech (TTS).
+
+const draftStore = useOnboardingV2Draft()
 type EngineId = 'kokoro' | 'pocket' | 'moss'
 
-const selectedEngine = ref<EngineId>('kokoro')
+const selectedEngine = ref<EngineId>((draftStore.state.speech.provider as EngineId) || 'kokoro')
 const expandedCloud = ref('')
+
+if (!draftStore.state.speech.provider) {
+  draftStore.setSpeech({ provider: selectedEngine.value })
+}
+
+watch(selectedEngine, (val) => {
+  draftStore.setSpeech({ provider: val })
+})
 
 const engines = [
   {

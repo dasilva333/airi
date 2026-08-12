@@ -5,7 +5,7 @@ export interface CustomizerItem {
   icon: string
   type: 'toggle' | 'cycler' | 'action' | 'menu'
   defaultOnStrip: boolean
-  binding?: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession'
+  binding?: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled'
 }
 
 export interface CustomizerGroup {
@@ -171,6 +171,15 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'captionOpen',
+      },
+      {
+        id: 'head-tethered-caption',
+        label: 'Head-Tethered Caption',
+        description: 'In-scene comic speech bubble over the model head, distorts as the head moves. Live2D only · more formats soon.',
+        icon: 'i-solar:chat-round-call-bold-duotone',
+        type: 'toggle',
+        defaultOnStrip: false,
+        binding: 'headTetheredCaptionEnabled',
       },
       {
         id: 'caption-docking',
