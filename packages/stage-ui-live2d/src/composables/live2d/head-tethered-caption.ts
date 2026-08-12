@@ -262,17 +262,50 @@ function parseHexColor(colorStr?: string): number {
   return 0x0F172A
 }
 
+function hslToHex(h: number, s: number, l: number): number {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h >= 0 && h < 60) { r = c; g = x; b = 0 }
+  else if (h >= 60 && h < 120) { r = x; g = c; b = 0 }
+  else if (h >= 120 && h < 180) { r = 0; g = c; b = x }
+  else if (h >= 180 && h < 240) { r = 0; g = x; b = c }
+  else if (h >= 240 && h < 300) { r = x; g = 0; b = c }
+  else if (h >= 300 && h < 360) { r = c; g = 0; b = x }
+
+  const rInt = Math.round((r + m) * 255)
+  const gInt = Math.round((g + m) * 255)
+  const bInt = Math.round((b + m) * 255)
+
+  return (rInt << 16) | (gInt << 8) | bInt
+}
+
+/**
+ * Style 1: Breathing Palette Cycle.
+ * Smoothly cycles through pink, magenta, soft violet, and lavender (hue range 240° to 340°).
+ */
+function getBreathingPinkPurpleColorHex(timeMs: number): number {
+  const cycle = Math.sin(timeMs / 1400) // smooth sine cycle (~2.8s loop)
+  const hue = 290 + 50 * cycle // Hue range: 240° (indigo/lavender) to 340° (hot pink)
+  return hslToHex(hue, 0.85, 0.68)
+}
+
 export function buildCaptionBubblePlank(opts: {
   text: string
   widthPx: number
   color?: string
-}): Container & { updateText: (newText: string, colorStr?: string) => void } {
+}): Container & { updateText: (newText: string, colorStr?: string) => void, updateTick: (timeMs: number) => void } {
   const widthPx = Math.max(120, Math.round(opts.widthPx))
   const padX = Math.max(10, Math.round(widthPx * 0.06))
   const padY = Math.max(8, Math.round(widthPx * 0.04))
   const fontSize = Math.max(12, Math.round(widthPx * 0.07))
 
-  let currentOutlineColor = parseHexColor(opts.color)
+  let hasExplicitColor = Boolean(opts.color)
+  let currentOutlineColor = opts.color ? parseHexColor(opts.color) : getBreathingPinkPurpleColorHex(Date.now())
 
   const textNode = new Text(opts.text, {
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
@@ -327,17 +360,36 @@ export function buildCaptionBubblePlank(opts: {
 
   drawBubble(currentOutlineColor)
 
-  const container = new PixiContainer() as Container & { updateText: (newText: string, colorStr?: string) => void }
+  const container = new PixiContainer() as Container & {
+    updateText: (newText: string, colorStr?: string) => void
+    updateTick: (timeMs: number) => void
+  }
   container.addChild(bubble)
   container.addChild(textNode)
   container.pivot.set(0, tailHeight)
 
   container.updateText = (newText: string, colorStr?: string) => {
     textNode.text = newText
-    if (colorStr)
+    if (colorStr) {
+      hasExplicitColor = true
       currentOutlineColor = parseHexColor(colorStr)
+    }
+    else {
+      hasExplicitColor = false
+      currentOutlineColor = getBreathingPinkPurpleColorHex(Date.now())
+    }
     drawBubble(currentOutlineColor)
     container.pivot.set(0, tailHeight)
+  }
+
+  container.updateTick = (timeMs: number) => {
+    if (hasExplicitColor)
+      return
+    const newColor = getBreathingPinkPurpleColorHex(timeMs)
+    if (newColor !== currentOutlineColor) {
+      currentOutlineColor = newColor
+      drawBubble(currentOutlineColor)
+    }
   }
 
   return container
@@ -494,6 +546,7 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
     plank.skew?.set?.(transform.skewX, transform.skewY)
     plank.rotation = transform.rotation
     plank.alpha = transform.opacity
+    plank.updateTick(Date.now())
   }
 
   // UPDATE_PRIORITY.LOW runs after NORMAL (model update) and before render.

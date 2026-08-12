@@ -169,11 +169,63 @@ const speechVoiceOptions = computed(() => {
   }))
 })
 
+// Computed normalized card metadata for CCv2 / CCv3 / SillyTavern payloads
+const extractedCardMeta = computed(() => {
+  const card = props.cardData
+  if (!card) {
+    console.info('[CardImport:Stage4:ExtractedMeta] cardData is null/undefined')
+    return { name: '', greetings: [] as string[], personality: '' }
+  }
+
+  const d = card.data || card
+
+  const cardName = d.name || card.name || 'Imported Card'
+
+  let greetings: string[] = []
+  if (Array.isArray(d.greetings) && d.greetings.length > 0) {
+    greetings = [...d.greetings]
+  }
+  else if (Array.isArray(card.greetings) && card.greetings.length > 0) {
+    greetings = [...card.greetings]
+  }
+  else {
+    if (d.first_mes)
+      greetings.push(d.first_mes)
+    if (Array.isArray(d.alternate_greetings))
+      greetings.push(...d.alternate_greetings)
+    if (greetings.length === 0 && card.first_mes)
+      greetings.push(card.first_mes)
+  }
+
+  const personality = d.personality || d.description || d.system_prompt || card.personality || card.description || ''
+
+  console.info('[CardImport:Stage4:ExtractedMeta]', {
+    hasDataObj: Boolean(card.data),
+    resolvedName: cardName,
+    greetingsCount: greetings.length,
+    greetingsSample: greetings.slice(0, 2),
+    personalityLength: personality.length,
+    personalitySnippet: personality.slice(0, 120),
+    dataKeys: card.data ? Object.keys(card.data) : null,
+    topLevelKeys: Object.keys(card),
+  })
+
+  return { name: cardName, greetings, personality }
+})
+
 // Initialize state
 watch(() => [props.modelValue, props.cardData], () => {
   if (props.modelValue && props.cardData) {
+    console.info('[CardImport:Stage3:WizardInput]', {
+      modelValue: props.modelValue,
+      draftOnly: props.draftOnly,
+      rawCardData: props.cardData,
+      topLevelKeys: Object.keys(props.cardData),
+      dataKeys: props.cardData?.data ? Object.keys(props.cardData.data) : null,
+    })
+
     currentStep.value = 1
-    name.value = props.cardData.name || 'Imported Card'
+    name.value = extractedCardMeta.value.name
     userName.value = userProfileStore.name || ''
     selectedDisplayModelId.value = defaultDisplayModelId.value || ''
     selectedConsciousnessProvider.value = consciousnessProvider.value || ''
@@ -181,7 +233,7 @@ watch(() => [props.modelValue, props.cardData], () => {
     selectedSpeechProvider.value = speechProvider.value || ''
     selectedSpeechModel.value = defaultSpeechModel.value || ''
     selectedSpeechVoiceId.value = defaultSpeechVoiceId.value || ''
-    description.value = props.cardData.description || ''
+    description.value = props.cardData.description || props.cardData.data?.description || ''
     artistryPromptPrefix.value = props.cardData.extensions?.airi?.artistry?.prompt || ''
 
     // Toggles defaults
@@ -521,7 +573,7 @@ async function finalizeImport() {
             </div>
             <div class="flex gap-1">
               <span
-                v-for="s in 5"
+                v-for="s in (props.draftOnly ? 1 : 5)"
                 :key="s"
                 :class="[
                   'h-2 w-8 rounded-full transition-all duration-300',
@@ -558,10 +610,10 @@ async function finalizeImport() {
               <div class="flex flex-col gap-2">
                 <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Greetings</label>
                 <div class="max-h-[100px] overflow-y-auto border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-950/40">
-                  <div v-for="(greet, i) in props.cardData?.greetings" :key="i" class="mb-2 last:mb-0">
+                  <div v-for="(greet, i) in (extractedCardMeta.greetings.length ? extractedCardMeta.greetings : props.cardData?.greetings)" :key="i" class="mb-2 last:mb-0">
                     <strong>Greeting {{ Number(i) + 1 }}:</strong> {{ greet }}
                   </div>
-                  <div v-if="!props.cardData?.greetings?.length" class="italic">
+                  <div v-if="!extractedCardMeta.greetings.length && !props.cardData?.greetings?.length" class="italic">
                     No greetings imported.
                   </div>
                 </div>
@@ -571,7 +623,7 @@ async function finalizeImport() {
                 <label class="text-sm text-neutral-600 font-semibold dark:text-neutral-300">Personality & Context (Read-Only)</label>
                 <textarea
                   readonly
-                  :value="props.cardData?.personality || props.cardData?.description || 'No personality prompt found.'"
+                  :value="extractedCardMeta.personality || 'No personality prompt found.'"
                   rows="4"
                   class="w-full resize-none border border-neutral-200 rounded-xl bg-neutral-50/40 p-3 text-xs text-neutral-500 outline-none dark:border-neutral-700 dark:bg-neutral-950/40"
                 />
@@ -779,27 +831,43 @@ async function finalizeImport() {
 
           <!-- Wizard Footer Controls -->
           <div class="flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-700">
-            <Button
-              variant="secondary"
-              icon="i-solar:arrow-left-bold-duotone"
-              label="Back"
-              :disabled="currentStep === 1"
-              @click="prevStep"
-            />
-            <Button
-              v-if="currentStep < 5"
-              variant="primary"
-              icon="i-solar:arrow-right-bold-duotone"
-              label="Next"
-              @click="nextStep"
-            />
-            <Button
-              v-else
-              variant="primary"
-              icon="i-solar:check-circle-bold-duotone"
-              label="Complete Setup"
-              @click="finalizeImport"
-            />
+            <template v-if="props.draftOnly">
+              <Button
+                variant="secondary"
+                icon="i-solar:close-circle-bold-duotone"
+                label="Cancel"
+                @click="emit('update:modelValue', false)"
+              />
+              <Button
+                variant="primary"
+                icon="i-solar:check-circle-bold-duotone"
+                label="Stage Companion"
+                @click="finalizeImport"
+              />
+            </template>
+            <template v-else>
+              <Button
+                variant="secondary"
+                icon="i-solar:arrow-left-bold-duotone"
+                label="Back"
+                :disabled="currentStep === 1"
+                @click="prevStep"
+              />
+              <Button
+                v-if="currentStep < 5"
+                variant="primary"
+                icon="i-solar:arrow-right-bold-duotone"
+                label="Next"
+                @click="nextStep"
+              />
+              <Button
+                v-else
+                variant="primary"
+                icon="i-solar:check-circle-bold-duotone"
+                label="Complete Setup"
+                @click="finalizeImport"
+              />
+            </template>
           </div>
         </div>
       </DialogContent>

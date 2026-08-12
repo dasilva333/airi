@@ -132,11 +132,31 @@ function selectPreset(id: string) {
 
 // --- Tier 2: community import → in-memory draft (no card-library write) ---
 const hubSources = [
-  { name: 'JannyAI', note: 'Character discovery and card sharing with SillyTavern-friendly exports in the ecosystem.', url: 'https://jannyai.com' },
-  { name: 'JanitorAI', note: 'Popular character platform. Look for exports or mirrors that provide SillyTavern / chara_card_v2 PNG or JSON.', url: 'https://janitorai.com' },
-  { name: 'Chub AI', note: 'Large character-sharing ecosystem commonly used with third-party roleplay UIs.', url: 'https://chub.ai' },
-  { name: 'Risu Realm', note: 'Community character hub tied to the Risu ecosystem, useful for portable card-style prompts.', url: 'https://realm.risuai.net' },
-  { name: 'DataCat', note: 'A popular database and scraping tool used to search, browse, and export character definitions as SillyTavern JSON.', url: 'https://datacat.run/fresh' },
+  {
+    name: 'DataCat',
+    rating: '5 / 5 ⭐',
+    badge: 'Recommended',
+    note: 'Best-in-class AIRI integration, ultra-clean UI, no ads or redirects. Direct SillyTavern JSON & PNG exports.',
+    url: 'https://datacat.run/fresh',
+  },
+  {
+    name: 'Chub AI',
+    rating: '4 / 5 ⭐',
+    note: 'Massive character library. Tip: click "Search without login" if prompted to browse freely and download V2 PNG cards.',
+    url: 'https://chub.ai',
+  },
+  {
+    name: 'Risu Realm',
+    rating: '4 / 5 ⭐',
+    note: 'Great community character hub. Look for cards supporting standard PNG (V2) card format.',
+    url: 'https://realm.risuai.net',
+  },
+  {
+    name: 'JannyAI',
+    rating: '1 / 5 ⭐',
+    note: 'Legacy provider. May experience redirect popups or multi-click navigation.',
+    url: 'https://jannyai.com',
+  },
 ]
 
 // Check if running in Electron
@@ -152,10 +172,21 @@ function openHubSource(source: { name: string, url: string }) {
   }
 }
 
+function closeWebview() {
+  console.info('[Onboarding:Step4] Closing webview drawer')
+  activeBrowserSource.value = null
+}
+
 let removeIpcListener = () => {}
 
 async function handleCharaCardDownloaded(payload: { base64Data: string, filename: string, ext: string }) {
   try {
+    console.info('[CardImport:Stage1:ElectronDownload]', {
+      filename: payload.filename,
+      ext: payload.ext,
+      base64Length: payload.base64Data ? payload.base64Data.length : 0,
+    })
+
     const rawData = atob(payload.base64Data)
     const arrayBuffer = new ArrayBuffer(rawData.length)
     const view = new Uint8Array(arrayBuffer)
@@ -166,6 +197,12 @@ async function handleCharaCardDownloaded(payload: { base64Data: string, filename
     const importedCard = payload.ext === 'png'
       ? parsePngCharaPayload(arrayBuffer)
       : parseImportedCard(new TextDecoder('utf-8').decode(arrayBuffer))
+
+    console.info('[CardImport:Stage2:ParsedResult]', {
+      importedCard,
+      topLevelKeys: Object.keys(importedCard),
+      dataKeys: importedCard?.data ? Object.keys(importedCard.data) : null,
+    })
 
     // Close webview drawer
     activeBrowserSource.value = null
@@ -184,7 +221,7 @@ const importedName = computed(() => {
   const draftCard = draft.state.persona.importedCardDraft as any
   if (!draftCard)
     return ''
-  return ('data' in draftCard ? draftCard.data?.name : draftCard?.name) || 'Imported Card'
+  return ('data' in draftCard ? draftCard.data?.name : draftCard?.name) || draftCard?.name || 'Imported Card'
 })
 
 function clearImported() {
@@ -201,14 +238,23 @@ function base64ToUtf8(b64: string): string {
 
 function parsePngCharaPayload(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer)
+  console.info('[CardImport:Stage2:PNGParseStart]', { totalBytes: bytes.length })
   for (let offset = 8; offset < bytes.length - 8;) {
     const length = ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0
     const type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
     if (type === 'tEXt') {
       const data = bytes.slice(offset + 8, offset + 8 + length)
       const sep = data.indexOf(0)
-      if (sep > 0 && new TextDecoder().decode(data.slice(0, sep)) === 'chara')
-        return JSON.parse(base64ToUtf8(new TextDecoder().decode(data.slice(sep + 1))))
+      const keyword = new TextDecoder().decode(data.slice(0, sep))
+      console.info('[CardImport:Stage2:tEXtChunkFound]', { keyword, chunkLength: length })
+      if (sep > 0 && keyword === 'chara') {
+        const decodedB64 = new TextDecoder().decode(data.slice(sep + 1))
+        const jsonStr = base64ToUtf8(decodedB64)
+        console.info('[CardImport:Stage2:CharaPayloadDecoded]', { jsonStrLength: jsonStr.length, jsonStrSnippet: jsonStr.slice(0, 150) })
+        const parsed = JSON.parse(jsonStr)
+        console.info('[CardImport:Stage2:CharaPayloadParsed]', { parsedKeys: Object.keys(parsed), dataKeys: parsed.data ? Object.keys(parsed.data) : null })
+        return parsed
+      }
     }
     offset += 12 + length
   }
@@ -217,6 +263,7 @@ function parsePngCharaPayload(buffer: ArrayBuffer) {
 
 function parseImportedCard(content: string) {
   const parsed = JSON.parse(content)
+  console.info('[CardImport:Stage2:JSONParseStart]', { parsedKeys: Object.keys(parsed) })
   if (parsed?.format === 'airi-card' && parsed?.version === 1 && parsed?.card)
     return parsed.card
   return parsed
@@ -232,10 +279,17 @@ async function handleImportFiles(files: FileList | null) {
   if (!file)
     return
   try {
+    console.info('[CardImport:Stage1:FileSelected]', { filename: file.name, size: file.size })
     const isPng = file.name.toLowerCase().endsWith('.png')
     const card = isPng
       ? parsePngCharaPayload(await file.arrayBuffer())
       : parseImportedCard(await file.text())
+
+    console.info('[CardImport:Stage2:FileParsedResult]', {
+      card,
+      topLevelKeys: Object.keys(card),
+      dataKeys: card?.data ? Object.keys(card.data) : null,
+    })
 
     wizardCardData.value = card
     isWizardOpen.value = true
@@ -246,6 +300,7 @@ async function handleImportFiles(files: FileList | null) {
 }
 
 function handleWizardSubmitDraft(finalCard: any) {
+  console.info('[CardImport:Stage5:DraftCommitted]', { finalCard })
   draft.setPersona({ source: 'import', importedCardDraft: finalCard })
 }
 
@@ -395,9 +450,16 @@ onBeforeUnmount(() => {
 
       <!-- Tier 2: community hub → draft.persona.importedCardDraft -->
       <div v-else-if="activeTier === 'hub'" class="flex flex-col gap-3 pb-2">
-        <p class="text-xs text-neutral-500 dark:text-neutral-400">
-          Import a SillyTavern-compatible <span class="font-bold font-mono">.png</span> or <span class="font-bold font-mono">.json</span> card, or an enhanced <span class="font-bold font-mono">dasilva333/AIRI</span> card export. It's stored in your onboarding draft and assembled on the final step.
-        </p>
+        <!-- Prominent Import Guidance Banner -->
+        <div class="flex items-start gap-3 border border-purple-500/30 rounded-xl bg-purple-500/10 p-3.5 backdrop-blur-md">
+          <div class="i-solar:info-circle-bold-duotone mt-0.5 h-5 w-5 shrink-0 text-purple-500" />
+          <div class="flex flex-col gap-0.5 text-xs">
+            <span class="text-neutral-800 font-bold dark:text-neutral-100">How Community Card Import Works</span>
+            <span class="text-neutral-600 leading-relaxed dark:text-neutral-300">
+              Browse any community hub below and click the button to download a character PNG card file. AIRI's automatic download interceptor will instantly capture the card and open the companion staging preview for you.
+            </span>
+          </div>
+        </div>
 
         <!-- Ecosystem community website tiles (Top) -->
         <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -406,7 +468,7 @@ onBeforeUnmount(() => {
             :key="source.name"
             type="button"
             :class="[
-              'group flex flex-col gap-0.5 text-left cursor-pointer transition-all duration-200',
+              'group flex flex-col gap-1 text-left cursor-pointer transition-all duration-200',
               'border border-neutral-200/60 rounded-xl px-3.5 py-2.5',
               'bg-white/40 dark:bg-neutral-900/40 dark:border-neutral-800/80',
               'backdrop-blur-md hover:border-primary-500/60 hover:bg-white/60 dark:hover:bg-neutral-900/60 active:scale-[0.99]',
@@ -414,8 +476,14 @@ onBeforeUnmount(() => {
             @click="openHubSource(source)"
           >
             <div class="flex items-center justify-between">
-              <span class="text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-100 group-hover:text-primary-500">{{ source.name }}</span>
-              <div class="i-solar:export-bold-duotone h-3.5 w-3.5 text-neutral-400 transition-colors group-hover:text-primary-500" />
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-neutral-800 font-bold transition-colors dark:text-neutral-100 group-hover:text-primary-500">{{ source.name }}</span>
+                <span v-if="source.badge" class="rounded bg-purple-500/15 px-1.5 py-0.2 text-[9px] text-purple-600 font-bold dark:text-purple-400">{{ source.badge }}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-amber-500 font-bold dark:text-amber-400">{{ source.rating }}</span>
+                <div class="i-solar:export-bold-duotone h-3.5 w-3.5 text-neutral-400 transition-colors group-hover:text-primary-500" />
+              </div>
             </div>
             <span class="text-[10px] text-neutral-500 leading-tight dark:text-neutral-400">{{ source.note }}</span>
           </button>
@@ -478,33 +546,41 @@ onBeforeUnmount(() => {
       @submit-draft="handleWizardSubmitDraft"
     />
 
+    <!-- Backdrop Overlay for Webview Drawer -->
+    <div
+      v-if="isElectron && activeBrowserSource"
+      class="backdrop-blur-xs fixed inset-0 z-40 bg-black/50 transition-opacity duration-300"
+      @click="closeWebview"
+    />
+
     <!-- Electron In-App Webview Side Drawer with automatic card download interceptor -->
     <div
       v-if="isElectron"
       :class="[
-        'fixed inset-y-0 right-0 z-50 w-[70vw] border-l border-neutral-200 bg-white/95 shadow-2xl transition-transform duration-500 ease-in-out backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95',
-        activeBrowserSource ? 'translate-x-0' : 'translate-x-full',
+        'fixed inset-y-0 right-0 z-50 w-[70vw] border-l border-neutral-200 bg-white shadow-2xl transition-transform duration-500 ease-in-out dark:border-neutral-800 dark:bg-neutral-900',
+        activeBrowserSource ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none',
       ]"
     >
-      <div class="h-full flex flex-col">
-        <div class="flex items-center justify-between border-b border-neutral-200 p-4 dark:border-neutral-800">
+      <div class="relative z-10 h-full flex flex-col">
+        <div class="relative z-20 flex items-center justify-between border-b border-neutral-200 bg-white/95 p-4 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95">
           <div class="flex items-center gap-3">
             <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-200">
               Browse {{ activeBrowserSource?.name }}
             </h3>
-            <span class="rounded bg-primary-500/10 px-2 py-0.5 text-xs text-primary-500 font-medium">
+            <span class="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs text-purple-600 font-semibold dark:text-purple-400">
               Card Interceptor Active
             </span>
           </div>
           <button
             type="button"
-            class="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            @click="activeBrowserSource = null"
+            class="relative z-30 flex cursor-pointer items-center justify-center rounded-xl p-2 text-neutral-400 transition-colors active:scale-95 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+            title="Close Browser"
+            @click.stop="closeWebview"
           >
-            <div class="i-solar:close-square-bold-duotone h-5 w-5" />
+            <div class="i-solar:close-square-bold-duotone h-6 w-6" />
           </button>
         </div>
-        <div class="flex-1 bg-white dark:bg-neutral-950">
+        <div class="relative z-10 flex-1 bg-white dark:bg-neutral-950">
           <component
             is="webview"
             v-if="activeBrowserSource"
