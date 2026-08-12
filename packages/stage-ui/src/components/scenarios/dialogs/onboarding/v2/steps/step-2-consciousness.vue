@@ -131,6 +131,10 @@ function handleConfigured() {
   void providersStore.fetchModelsForProvider(selectedProviderId.value)
 }
 
+function handleCancelConfig() {
+  selectedProviderId.value = ''
+}
+
 // --- Principle 6: record the chosen brain into the transient draft only ---
 function recordDraft() {
   draft.setConsciousness({
@@ -315,7 +319,7 @@ const modelPlaceholder = computed(() => (isLoadingActiveProviderModels.value ? '
         :selected-provider-id="inlineConfigProvider.id"
         :selected-provider="inlineConfigProvider"
         :on-next="handleConfigured"
-        :on-previous="() => {}"
+        :on-previous="handleCancelConfig"
       />
     </div>
 

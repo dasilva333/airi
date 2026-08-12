@@ -626,6 +626,10 @@ function handleCardCreationDialog() {
   isCreateModePromptOpen.value = true
 }
 
+function handleWizardMode() {
+  router.push('/onboarding')
+}
+
 function handleGuidedMode() {
   router.push('/settings/airi-card/guided')
 }
@@ -1226,6 +1230,7 @@ function getDisplayModelId(id: string) {
   <!-- Mode Selector Dialog -->
   <CreateModeSelectorDialog
     v-model="isCreateModePromptOpen"
+    @wizard="handleWizardMode"
     @guided="handleGuidedMode"
     @advanced="handleAdvancedMode"
   />

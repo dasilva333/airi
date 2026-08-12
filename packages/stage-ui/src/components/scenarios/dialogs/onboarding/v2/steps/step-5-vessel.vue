@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
+import { useDisplayModelsStore } from '../../../../../../stores/display-models'
+import { ModelSelectorDialog } from '../../../model-selector'
 import { useOnboardingV2Draft } from '../draft-store'
 
 // V2 onboarding — Step 5: Physical Vessel.
@@ -10,6 +12,16 @@ import { useOnboardingV2Draft } from '../draft-store'
 // stores/display-models.ts.
 
 const draftStore = useOnboardingV2Draft()
+const displayModelsStore = useDisplayModelsStore()
+const isModelSelectorOpen = ref(false)
+
+const customModelsCount = computed(() => displayModelsStore.displayModels.length)
+
+function handleModelPick(model: any) {
+  if (model?.id) {
+    selectedBody.value = model.id
+  }
+}
 
 const presetLive2dPreview = new URL('../../../../../../assets/live2d/models/hiyori/preview.png', import.meta.url).href
 const presetVrmAvatarAPreview = new URL('../../../../../../assets/vrm/models/AvatarSample-A/preview.png', import.meta.url).href
@@ -69,13 +81,24 @@ const exploreLinks = [
           Mount your Step 4 soul onto a body — or drop your own.
         </p>
       </div>
-      <button
-        class="flex flex-shrink-0 items-center gap-1.5 border border-indigo-500/30 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-600 font-semibold transition-colors hover:bg-indigo-500/20 dark:text-indigo-400"
-        @click="viewMode = viewMode === 'starters' ? 'explore' : 'starters'"
-      >
-        <div :class="viewMode === 'starters' ? 'i-solar:global-bold-duotone' : 'i-solar:alt-arrow-left-line-duotone'" class="h-4 w-4" />
-        {{ viewMode === 'starters' ? '🌐 Find Free Bodies' : 'Back to Starter Bodies' }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="flex flex-shrink-0 cursor-pointer items-center gap-1.5 border border-purple-500/30 rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-600 font-semibold transition-colors hover:bg-purple-500/20 dark:text-purple-400"
+          @click="isModelSelectorOpen = true"
+        >
+          <div class="i-solar:user-bold-duotone h-4 w-4 text-purple-500" />
+          Choose Installed Avatar{{ customModelsCount ? ` (${customModelsCount})` : '' }}
+        </button>
+        <button
+          type="button"
+          class="flex flex-shrink-0 items-center gap-1.5 border border-indigo-500/30 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-600 font-semibold transition-colors hover:bg-indigo-500/20 dark:text-indigo-400"
+          @click="viewMode = viewMode === 'starters' ? 'explore' : 'starters'"
+        >
+          <div :class="viewMode === 'starters' ? 'i-solar:global-bold-duotone' : 'i-solar:alt-arrow-left-line-duotone'" class="h-4 w-4" />
+          {{ viewMode === 'starters' ? '🌐 Find Free Bodies' : 'Back to Starter Bodies' }}
+        </button>
+      </div>
     </div>
 
     <CompanionBubble
@@ -195,5 +218,10 @@ const exploreLinks = [
         </a>
       </div>
     </div>
+
+    <ModelSelectorDialog
+      v-model:show="isModelSelectorOpen"
+      @pick="handleModelPick"
+    />
   </div>
 </template>

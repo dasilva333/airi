@@ -143,6 +143,10 @@ function handleConfigured() {
   void hearingStore.loadModelsForProvider(activeTranscriptionProvider.value)
 }
 
+function handleCancelConfig() {
+  activeTranscriptionProvider.value = ''
+}
+
 // --- Model sub-picker for cloud STT ---
 const providerModels = computed(() => providersStore.getModelsForProvider(activeTranscriptionProvider.value))
 
@@ -296,10 +300,25 @@ onBeforeUnmount(async () => {
 })
 
 onMounted(() => {
-  if (audioInputs.value.length === 0)
-    void startStream().then(() => stopStream())
+  if (audioInputs.value.length === 0) {
+    void startStream().then(() => {
+      stopStream()
+      if (!selectedAudioInput.value && audioInputs.value.length > 0) {
+        selectedAudioInput.value = audioInputs.value[0].deviceId
+      }
+    })
+  }
+  else if (!selectedAudioInput.value && audioInputs.value.length > 0) {
+    selectedAudioInput.value = audioInputs.value[0].deviceId
+  }
   void setupMonitoring()
 })
+
+watch(audioInputs, (inputs) => {
+  if (!selectedAudioInput.value && inputs.length > 0) {
+    selectedAudioInput.value = inputs[0].deviceId
+  }
+}, { immediate: true })
 
 watch(selectedAudioInput, async () => {
   if (isTesting.value)
@@ -384,7 +403,7 @@ watch(selectedAudioInput, async () => {
         :selected-provider-id="inlineConfigProvider.id"
         :selected-provider="inlineConfigProvider"
         :on-next="handleConfigured"
-        :on-previous="() => {}"
+        :on-previous="handleCancelConfig"
       />
     </div>
 

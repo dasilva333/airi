@@ -76,6 +76,7 @@ async function decodeToWhisperAudio(audio: Blob | ArrayBuffer | string): Promise
 const definition: ProviderDefinition<LocalTranscriptionConfig> = {
   id: 'app-local-audio-transcription',
   name: 'App (Local)',
+  requiresCredentials: false,
   nameKey: 'settings.pages.providers.provider.app-local-audio-transcription.title',
   descriptionKey: 'settings.pages.providers.provider.app-local-audio-transcription.description',
   category: 'transcription',

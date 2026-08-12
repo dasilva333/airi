@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
-import { Button } from '@proj-airi/ui'
-import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { ref, watch } from 'vue'
 
 interface Props {
   onNext: OnboardingStepNextHandler
@@ -12,15 +10,11 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const { t } = useI18n()
 const selectedPath = ref<'new' | 'returning'>('new')
 
-function handleNext() {
-  if (props.onSelectPath) {
-    props.onSelectPath(selectedPath.value)
-  }
-  props.onNext()
-}
+watch(selectedPath, (path) => {
+  props.onSelectPath?.(path)
+}, { immediate: true })
 </script>
 
 <template>
@@ -31,15 +25,13 @@ function handleNext() {
       :initial="{ opacity: 0, y: -10 }"
       :enter="{ opacity: 1, y: 0 }"
       :duration="400"
-      class="flex items-center gap-2"
     >
-      <button class="outline-none" @click="props.onPrevious">
-        <div class="i-solar:alt-arrow-left-line-duotone h-5 w-5 transition-colors hover:text-primary-500" />
-      </button>
-      <h2 class="flex-1 text-center text-xl text-neutral-800 font-semibold md:text-left md:text-2xl dark:text-neutral-100">
+      <h2 class="text-xl text-neutral-800 font-semibold md:text-2xl dark:text-neutral-100">
         Get Started
       </h2>
-      <div class="h-5 w-5" />
+      <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+        Choose how you want to configure your companion.
+      </p>
     </div>
 
     <!-- Choice Selection Cards -->
@@ -115,16 +107,5 @@ function handleNext() {
         </div>
       </div>
     </div>
-
-    <!-- Footer Action -->
-    <Button
-      v-motion
-      :initial="{ opacity: 0, y: 10 }"
-      :enter="{ opacity: 1, y: 0 }"
-      :duration="400"
-      :delay="300"
-      :label="t('settings.dialogs.onboarding.next')"
-      @click="handleNext"
-    />
   </div>
 </template>

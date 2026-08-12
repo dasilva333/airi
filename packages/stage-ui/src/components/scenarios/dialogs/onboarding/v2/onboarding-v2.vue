@@ -40,7 +40,7 @@ const emit = defineEmits<{
 
 const STEPS: V2StepDef[] = [
   { id: 'welcome', label: 'Welcome', ownNav: true },
-  { id: 'triage', label: 'Your Path', ownNav: true },
+  { id: 'triage', label: 'Your Path' },
   { id: 'hearing', label: 'Hearing' },
   { id: 'consciousness', label: 'Consciousness' },
   { id: 'profile', label: 'You' },
@@ -163,7 +163,7 @@ function handleFinish() {
     </div>
     <div class="flex items-center justify-between px-1 text-xs text-neutral-400 dark:text-neutral-500">
       <span>{{ currentStep.label }}</span>
-      <span>Step {{ stepIndex + 1 }} of {{ STEPS.length }} · V2 Preview</span>
+      <span>Step {{ stepIndex + 1 }} of {{ STEPS.length }} · {{ currentStep.label }}</span>
     </div>
 
     <!-- Step content -->
