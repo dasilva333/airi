@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Screen } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 import Live2DCanvas from './live2d/Canvas.vue'
 import Live2DModel from './live2d/Model.vue'
@@ -163,8 +163,10 @@ defineExpose({
     return live2dCanvasRef.value?.captureFrame()
   },
   // Exposed so in-scene overlays (e.g. HeadTetheredCaption) can attach PIXI
-  // children to the same stage. Readonly access.
-  live2dApp: computed(() => live2dCanvasRef.value?.pixiApp),
+  // children to the same stage. Function (not a ref) so callers always read
+  // the current Application instance. The canvas's defineExpose unwraps the
+  // inner `pixiApp` ref at access time.
+  live2dApp: () => live2dCanvasRef.value?.pixiApp,
 })
 </script>
 

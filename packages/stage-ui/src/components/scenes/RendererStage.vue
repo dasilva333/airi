@@ -9,6 +9,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import DatingSimOverlay from './DatingSimOverlay.vue'
+import HeadTetheredCaption from './HeadTetheredCaption.vue'
 
 import { useIdleAnimations } from '../../composables'
 import { useBackgroundStore } from '../../stores/background'
@@ -489,6 +490,20 @@ defineExpose({
       @error="console.error"
       @scale-change="(val) => emits('scaleChange', val)"
       @offset-change="(val) => emits('offsetChange', val)"
+    />
+    <!--
+      Head-tethered caption plank — in-scene comic speech bubble that follows
+      the model's head pose. Live2D-only in MVP. Lives outside the model
+      components so it stays alive across their remounts; the adapter hooks
+      the Live2D store's active model.
+
+      NOTICE: `:live2d-scene-ref` passes the *component instance*, not the
+      resolved PIXI app. HeadTetheredCaption polls `live2dApp()` lazily to
+      cope with the canvas booting after the model.
+    -->
+    <HeadTetheredCaption
+      v-if="stageModelRenderer === 'live2d'"
+      :live2d-scene-ref="live2dSceneRef"
     />
     <DatingSimOverlay />
   </div>
