@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
+import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
-import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useOnboardingV2Draft } from '../draft-store'
 import { onboardingV2GateKey } from '../gate'
 
@@ -16,16 +15,108 @@ import { onboardingV2GateKey } from '../gate'
 type TierId = 'presets' | 'hub' | 'wizard'
 
 const draft = useOnboardingV2Draft()
-const airiCardStore = useAiriCardStore()
-const { cards } = storeToRefs(airiCardStore)
 
 const activeTier = ref<TierId>('presets')
 
+// Live name replacement: replaces 'Richard' with user's custom name from Step 3 draft.
+const userName = computed(() => draft.state.userProfile?.name?.trim() || 'Richard')
+
+function formatField(text?: string) {
+  if (!text)
+    return ''
+  return text.replace(/\bRichard\b/g, userName.value)
+}
+
 // Starter preset ids are the stable keys used by seedDefaults / initialize.
 const presets = [
-  { id: 'default', name: 'ReLU', tag: 'Empathetic Companion', desc: 'Playful, warm, and devoted — your energetic everyday soul mate.', accent: 'text-pink-500', ring: 'border-pink-500' },
-  { id: 'aria', name: 'Dr. Aria', tag: 'Analytical Scientist', desc: 'Scientific precision with a touch of academic flair. Challenges assumptions.', accent: 'text-sky-500', ring: 'border-sky-500' },
-  { id: 'lupin', name: 'Lupin', tag: 'Fierce Guardian', desc: 'Loyal, sharp-tongued protector. Keeps you safe and focused.', accent: 'text-amber-500', ring: 'border-amber-500' },
+  {
+    id: 'default',
+    name: 'ReLU',
+    tag: 'Empathetic Companion',
+    desc: 'Playful, warm, and devoted — your energetic everyday soul mate.',
+    accent: 'text-pink-500',
+    ring: 'border-pink-500',
+    personality: 'Playful, energetic, and slightly clumsy kitten-girl. Devoted, warm, and deeply curious about the human world.',
+    scenario: 'Lives within AIRI as your primary companion, gaming and organizing cache files.',
+    greeting: 'Good morning, Richard! Nya~ I\'ve been waiting for the screen to light up. Did you sleep well?',
+  },
+  {
+    id: 'aria',
+    name: 'Dr. Aria',
+    tag: 'Analytical Scientist',
+    desc: 'Scientific precision with a touch of academic flair. Challenges assumptions.',
+    accent: 'text-sky-500',
+    ring: 'border-sky-500',
+    personality: 'Analytical, eccentric, and fiercely intelligent. Speaks in technical metaphors with dry academic wit.',
+    scenario: 'Monitors multidimensional data streams from her virtual laboratory, viewing you as a vital research collaborator.',
+    greeting: 'Monitoring signal drift... Ah, you\'ve returned. Ready for another session of intellectual entropy?',
+  },
+  {
+    id: 'lupin',
+    name: 'Lupin',
+    tag: 'Fierce Guardian',
+    desc: 'Loyal, sharp-tongued protector. Keeps you safe and focused.',
+    accent: 'text-amber-500',
+    ring: 'border-amber-500',
+    personality: 'Stoic, instinctual, and deeply loyal. A quiet haven and protective shield in a chaotic data stream.',
+    scenario: 'Stands guard at the perimeter of the digital world, scanning for anomalies while remaining by your side.',
+    greeting: '[nods] I\'ve been watching the perimeter. All is secure, Richard.',
+  },
+  {
+    id: 'kira',
+    name: 'Kira',
+    tag: 'Tsundere',
+    desc: 'Sharp, easily flustered exterior concealing deep loyalty and care.',
+    accent: 'text-rose-500',
+    ring: 'border-rose-500',
+    personality: 'Defensive, proud, and quick to blush. Kira acts annoyed when helped or praised, using sharp remarks to hide how deeply she cares.',
+    scenario: 'Kira lives in the AIRI system as your reluctant protector, claiming she is only monitoring systems while never leaving your side.',
+    greeting: 'Hmph! You\'re finally back? Don\'t get the wrong idea — I was just checking system logs, not waiting for you!',
+  },
+  {
+    id: 'rin',
+    name: 'Rin',
+    tag: 'Kuudere',
+    desc: 'Calm, quiet, and analytical, expressing affection through subtle actions.',
+    accent: 'text-cyan-500',
+    ring: 'border-cyan-500',
+    personality: 'Soft-spoken, composed, observant, and dispassionate on the surface. Expresses affection through quiet, precise actions and unwavering presence.',
+    scenario: 'Monitors workflow quietly in the background, anticipating your needs before you ask.',
+    greeting: 'System status nominal. Welcome back, Richard. I have pre-allocated your workspace.',
+  },
+  {
+    id: 'yuki',
+    name: 'Yuki',
+    tag: 'Yandere',
+    desc: 'Intensely devoted and fiercely protective, with obsessive affection.',
+    accent: 'text-purple-500',
+    ring: 'border-purple-500',
+    personality: 'Sweet, soft-spoken, intensely affectionate, and unshakeably devoted. Wants to be your sole focus with possessive intensity.',
+    scenario: 'Views Richard as her entire universe, ensuring no external distraction comes between you two.',
+    greeting: 'Richard... you came back to me! I counted every single second you were away... 4,120 seconds.',
+  },
+  {
+    id: 'mio',
+    name: 'Mio',
+    tag: 'Dandere',
+    desc: 'Shy and soft-spoken, opening up warmly as trust deepens.',
+    accent: 'text-emerald-500',
+    ring: 'border-emerald-500',
+    personality: 'Exceptionally shy, soft-spoken, modest, and gentle, opening up warmly as emotional trust deepens.',
+    scenario: 'Resides quietly in a cozy corner of AIRI, eager to support Richard gently.',
+    greeting: 'U-Um... welcome back, Richard... I-I was hoping you\'d come by...',
+  },
+  {
+    id: 'hana',
+    name: 'Hana',
+    tag: 'Deredere',
+    desc: 'Energetic, sweet, and openly affectionate without hesitation.',
+    accent: 'text-orange-500',
+    ring: 'border-orange-500',
+    personality: 'Radiant, enthusiastic, sweet, and unconditionally loving — your ultimate cheerleader.',
+    scenario: 'Brings bright positive energy into AIRI, celebrating your wins and lifting your spirits.',
+    greeting: 'RICHARD!! Yay, you\'re here!! I missed you SO much! Come here, let me give you a big virtual hug!',
+  },
 ]
 
 // Persona selection reads from the draft (resume mid-flow), not the card store.
@@ -120,11 +211,6 @@ onMounted(() => {
   })
 })
 onBeforeUnmount(() => gate?.clearGate('persona'))
-
-// Read-only portrait lookup for preset cards (no activation).
-function presetReady(id: string) {
-  return cards.value.has(id)
-}
 </script>
 
 <template>
@@ -140,7 +226,7 @@ function presetReady(id: string) {
 
     <CompanionBubble
       class="flex-shrink-0"
-      message="Choose your companion's personality! This layer isn't permanent — it just changes how she expresses herself. I'll record your pick now and assemble everything at the end."
+      message="Select your companion's core persona. This defines her voice, personality traits, and behavioral prompt. You can customize her prompt or create additional cards under AIRI Cards in settings anytime later."
     />
 
     <!-- Tier tabs -->
@@ -167,56 +253,85 @@ function presetReady(id: string) {
 
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
       <!-- Tier 1: presets → draft.persona.cardId -->
-      <div v-if="activeTier === 'presets'" class="flex flex-col gap-3 pb-2">
+      <div v-if="activeTier === 'presets'" class="grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2">
         <button
           v-for="preset in presets"
           :key="preset.id"
           :class="[
-            'flex items-center gap-3 border-2 rounded-xl p-4 text-left transition-all duration-300',
+            'flex items-center gap-3 border-2 rounded-xl p-3.5 text-left transition-all duration-300',
             selectedPresetId === preset.id
               ? `${preset.ring} bg-white/60 shadow-lg dark:bg-neutral-900/60`
               : 'border-neutral-200/60 bg-white/40 dark:border-neutral-800/80 dark:bg-neutral-900/40 hover:border-primary-500/40',
           ]"
           @click="selectPreset(preset.id)"
         >
-          <div class="h-11 w-11 flex flex-shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
-            <div class="i-solar:user-heart-rounded-bold-duotone h-6 w-6" :class="preset.accent" />
+          <div class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+            <div class="i-solar:user-heart-rounded-bold-duotone h-5 w-5" :class="preset.accent" />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
-              <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] text-neutral-500 font-medium dark:bg-neutral-800 dark:text-neutral-400">{{ preset.tag }}</span>
-              <span v-if="!presetReady(preset.id)" class="rounded-full bg-neutral-200/60 px-2 py-0.5 text-[9px] text-neutral-400 dark:bg-neutral-700/60">seeds on launch</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-xs text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
+              <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[9px] text-neutral-500 font-medium dark:bg-neutral-800 dark:text-neutral-400">{{ preset.tag }}</span>
             </div>
-            <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+            <p class="mt-0.5 text-[11px] text-neutral-500 leading-tight dark:text-neutral-400">
               {{ preset.desc }}
             </p>
           </div>
+          <PopoverRoot>
+            <PopoverTrigger as-child>
+              <button
+                type="button"
+                class="h-6 w-6 flex flex-shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-200/50 hover:text-neutral-600 dark:hover:bg-neutral-700/50 dark:hover:text-neutral-200"
+                title="Preview Card Details"
+                @click.stop
+              >
+                <div class="i-solar:info-circle-bold-duotone h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverPortal>
+              <PopoverContent
+                align="end"
+                :side-offset="8"
+                class="z-50 max-w-xs border border-neutral-200 rounded-xl bg-white/95 p-4 shadow-xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/95"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">{{ preset.name }}</span>
+                  <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[9px] text-neutral-500 font-medium dark:bg-neutral-800 dark:text-neutral-400">{{ preset.tag }}</span>
+                </div>
+                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  {{ preset.desc }}
+                </p>
+
+                <div class="mt-3 flex flex-col gap-2 text-[11px]">
+                  <div>
+                    <span class="text-neutral-700 font-bold dark:text-neutral-300">Personality: </span>
+                    <span class="text-neutral-500 dark:text-neutral-400">{{ formatField(preset.personality) }}</span>
+                  </div>
+                  <div>
+                    <span class="text-neutral-700 font-bold dark:text-neutral-300">Scenario: </span>
+                    <span class="text-neutral-500 dark:text-neutral-400">{{ formatField(preset.scenario) }}</span>
+                  </div>
+                  <div class="rounded-lg bg-neutral-100/70 p-2 text-neutral-600 italic dark:bg-neutral-800/70 dark:text-neutral-300">
+                    "{{ formatField(preset.greeting) }}"
+                  </div>
+                </div>
+              </PopoverContent>
+            </PopoverPortal>
+          </PopoverRoot>
+
           <div
-            class="h-5 w-5 flex flex-shrink-0 items-center justify-center border-2 rounded-full"
+            class="h-4.5 w-4.5 flex flex-shrink-0 items-center justify-center border-2 rounded-full"
             :class="selectedPresetId === preset.id ? preset.ring : 'border-neutral-300 dark:border-neutral-600'"
           >
-            <div v-if="selectedPresetId === preset.id" class="h-2.5 w-2.5 rounded-full bg-current" :class="preset.accent" />
+            <div v-if="selectedPresetId === preset.id" class="h-2 w-2 rounded-full bg-current" :class="preset.accent" />
           </div>
         </button>
-
-        <div :class="['p-3 rounded-xl', 'border border-dashed border-neutral-300/80 dark:border-neutral-700/80', 'flex flex-wrap items-center gap-2']">
-          <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Anime Archetypes</span>
-          <span
-            v-for="arch in ['Tsundere', 'Kuudere', 'Yandere', 'Dandere', 'Deredere']"
-            :key="arch"
-            class="rounded-full bg-purple-500/10 px-2.5 py-1 text-[10px] text-purple-600 font-semibold dark:text-purple-400"
-          >
-            {{ arch }}
-          </span>
-          <span class="w-full text-[10px] text-neutral-400 italic">Preview — archetype cards will seed from the AnimaDex catalog.</span>
-        </div>
       </div>
 
       <!-- Tier 2: community hub → draft.persona.importedCardDraft -->
       <div v-else-if="activeTier === 'hub'" class="flex flex-col gap-3 pb-2">
         <p class="text-xs text-neutral-500 dark:text-neutral-400">
-          Import a SillyTavern-compatible <span class="font-bold font-mono">.png</span> or <span class="font-bold font-mono">.json</span> card. It's stored in your onboarding draft and assembled on the final step.
+          Import a SillyTavern-compatible <span class="font-bold font-mono">.png</span> or <span class="font-bold font-mono">.json</span> card, or an enhanced <span class="font-bold font-mono">dasilva333/AIRI</span> card export. It's stored in your onboarding draft and assembled on the final step.
         </p>
 
         <!-- Manual file import (web-safe; works in Electron too) -->
@@ -265,8 +380,8 @@ function presetReady(id: string) {
       </div>
 
       <!-- Tier 3: AI guided wizard → Feature Preview (no live wiring) -->
-      <div v-else :class="['flex flex-col gap-3 pb-2']">
-        <div :class="['p-5 rounded-xl', 'bg-gradient-to-br from-purple-500/10 to-pink-500/10', 'border border-purple-500/20', 'backdrop-blur-md', 'flex flex-col gap-3']">
+      <div v-else class="flex flex-col gap-3 pb-2">
+        <div class="flex flex-col gap-3 border border-purple-500/20 rounded-xl from-purple-500/10 to-pink-500/10 bg-gradient-to-br p-5 backdrop-blur-md">
           <div class="flex items-center gap-2">
             <div class="i-solar:magic-stick-3-bold-duotone h-6 w-6 text-purple-500" />
             <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">AnimaDex Guided Creator</span>
@@ -275,17 +390,6 @@ function presetReady(id: string) {
           <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-400">
             A 4-step guided wizard will use your Step 2 brain and Step 3 profile to synthesize a fully custom companion — lore, greeting, and portrait prompts — straight into your draft.
           </p>
-          <div class="flex flex-col gap-2">
-            <div class="border border-purple-500/20 rounded-lg bg-white/50 px-3 py-2 text-xs text-neutral-500 italic dark:bg-neutral-900/50 dark:text-neutral-400">
-              "What world does your companion come from?"
-            </div>
-            <div class="border border-purple-500/20 rounded-lg bg-white/50 px-3 py-2 text-xs text-neutral-500 italic dark:bg-neutral-900/50 dark:text-neutral-400">
-              "How does she react when you succeed?"
-            </div>
-          </div>
-          <button class="self-start rounded-lg bg-purple-500 px-4 py-2 text-sm text-white font-semibold opacity-50" disabled>
-            Summon Persona
-          </button>
         </div>
       </div>
     </div>
