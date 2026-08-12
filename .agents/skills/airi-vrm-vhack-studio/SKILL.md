@@ -33,3 +33,9 @@ description: "Use when working with working on V-HACK DevTools, Live VRM Binary 
 ## 5. Verification Workflows
 
 - `pnpm -F <workspace> typecheck` to ensure valid Three.js and VRM typings.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/vhack-design-doc.md](docs/vhack-design-doc.md) — V-HACK DevTools design document.
+- [docs/vrm-cloth-interaction-deepdive.md](docs/vrm-cloth-interaction-deepdive.md) — VRM cloth interaction deep dive.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary-proxy lesson.

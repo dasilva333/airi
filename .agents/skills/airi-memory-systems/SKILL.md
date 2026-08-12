@@ -43,6 +43,20 @@ Use this skill whenever you add, debug, or refactor anything that:
 - **Echo-Chips salience over-promise** — Echo-Chips are *gated* by a 0.1B RWKV-7 Δh state-vector vote (Phase 4b provenance: L9–L11 Δh vote-2of3 @ 1.5×, Recall 0.818 / Precision 0.90 / F1 0.857 / FPR 0.125). The 0.1B model itself does **not** generate tags (Phase 3 showed 0/14 structured output) — tag generation is delegated to the LLM in `synthesizeForCharacter()`. Don't assume the tiny model emits final chips.
 - **Token budget mishandling** — `rebuildFromHistory()` and `rebuildToday()` in `memory-short-term.ts` source `tokenBudgetPerDay` from `card.extensions.airi.shortTermMemory` with a fallback of 1000. Hard-coding a different default will desync character-specific configs.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §9 memory-systems canonical path index.
+- [docs/content/en/docs/advanced/architecture/arch-memory-system-overview.md](docs/content/en/docs/advanced/architecture/arch-memory-system-overview.md) — Memory system architecture overview.
+- [docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md](docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
+- [docs/content/en/docs/advanced/architecture/arch-short-term-memory-summaries.md](docs/content/en/docs/advanced/architecture/arch-short-term-memory-summaries.md) — Short-term memory summaries architecture.
+- [docs/content/en/docs/advanced/architecture/design-text-journal-storage.md](docs/content/en/docs/advanced/architecture/design-text-journal-storage.md) — Text journal storage design.
+- [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
+- [docs/memory_lab/state-of-system.md](docs/memory_lab/state-of-system.md) — Memory lab state-of-system document.
+- [docs/memory_lab/memory-engine-integration-plan.md](docs/memory_lab/memory-engine-integration-plan.md) — Memory engine integration plan.
+- [docs/memory_lab/production-transition-spec.md](docs/memory_lab/production-transition-spec.md) — Memory production transition spec.
+- [docs/proposal-echo-chips-rwkv-synthesis.md](docs/proposal-echo-chips-rwkv-synthesis.md) — Echo chips RWKV synthesis proposal.
+
 ## Verification
 
 1. `pnpm -F stage-ui typecheck` (or the workspace-specific typecheck) to ensure the stores and repos compile.

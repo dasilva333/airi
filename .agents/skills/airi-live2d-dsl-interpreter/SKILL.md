@@ -46,3 +46,13 @@ The DSL VM executes scripting instructions attached to Live2D character models:
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui-live2d typecheck`
 - **Specification Check**: Verify instruction opcodes match `docs/live2d-dsl-interpreter-spec.md`.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/live2d-dsl-interpreter-spec.md](docs/live2d-dsl-interpreter-spec.md) — Formal specification for the Live2D Scripting DSL instruction set.
+- [docs/handoff-live2d-dsl-phase2.md](docs/handoff-live2d-dsl-phase2.md) — Phase 2 implementation handoff (instruction dispatch, test cases).
+- [docs/project-live2d-multimoc-changecos-design.md](docs/project-live2d-multimoc-changecos-design.md) — Multi-moc3 costume switching (change_cos) design.
+- [docs/live2d-dsl-test-cases-handoff.md](docs/live2d-dsl-test-cases-handoff.md) — DSL test cases handoff.
+- [docs/live2d-change-cos-dependency-challenge.md](docs/live2d-change-cos-dependency-challenge.md) — change_cos dependency challenge.
+- [docs/live2d-special-sauce-insights.md](docs/live2d-special-sauce-insights.md) — Live2D special sauce insights.
+- [docs/project-standalone-live2d-engine-plan.md](docs/project-standalone-live2d-engine-plan.md) — Standalone Live2D engine plan.

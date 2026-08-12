@@ -81,6 +81,17 @@ Both files must stay in lock-step — the menu is driven by a **builder function
 - **`useChatComposer` unifies desktop/mobile ingestion — but not every surface uses it.** `ChatArea.vue` (stage-layout/mobile) uses it; `InteractiveArea.vue` (desktop host) and `WhisperDock.vue` manage composer state manually and only call `ingest(...)`. Before changing ingestion behavior, decide which surface(s) you actually mean; a change to the composable will not ripple into `InteractiveArea.vue`.
 - **Action menu items must be added through `createChatActionMenuItems(...)` in `index.ts`.** The `.vue` template iterates that array for both the inline/hover dropdown AND the floating-trigger dropdown AND the context menu (lines 398, 455, 482). Appending a one-off `<DropdownMenuItem>` in the template will only patch one of three render sites.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-tamagotchi-chatbox-ux-improvements.md](docs/content/en/docs/advanced/architecture/design-tamagotchi-chatbox-ux-improvements.md) — Tamagotchi chatbox UX improvements design.
+- [docs/design-chatbox-magic-wand-flow.md](docs/design-chatbox-magic-wand-flow.md) — Chatbox magic wand flow design.
+- [docs/proposal-chatbox-revamp.md](docs/proposal-chatbox-revamp.md) — Chatbox revamp proposal.
+- [docs/proposal-chatbox-slash-commands.md](docs/proposal-chatbox-slash-commands.md) — Chatbox slash commands proposal.
+- [docs/content/en/docs/showcase/05-chatbox-redesign.md](docs/content/en/docs/showcase/05-chatbox-redesign.md) — Chatbox redesign showcase.
+- [docs/linux-wayland-chat-cpu-spikes.md](docs/linux-wayland-chat-cpu-spikes.md) — Linux Wayland chat CPU spikes (performance failure mode).
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §13 BroadcastChannel registry.
+
 ## Verification
 
 - Stage-UI-only changes (chat components, composer, markdown renderer): `pnpm -F @proj-airi/stage-ui typecheck`

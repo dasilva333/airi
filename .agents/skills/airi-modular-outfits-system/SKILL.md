@@ -42,3 +42,11 @@ Character outfits represent distinct visual costume variants (e.g. casual wear, 
 ## 5. Verification Workflows
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
+
+### Authoritative Design & Architecture Documents
+
+- [docs/proposal-visual-state-outfit-hook.md](docs/proposal-visual-state-outfit-hook.md) — Visual state outfit hook proposal.
+- [docs/proposal-visual-state-outfit-hook-evolution.md](docs/proposal-visual-state-outfit-hook-evolution.md) — Visual state outfit hook evolution design.
+- [docs/project-live2d-multimoc-changecos-design.md](docs/project-live2d-multimoc-changecos-design.md) — Live2D multi-moc3 change_cos design.
+- [docs/content/en/docs/advanced/architecture/design-modular-outfits-system.md](docs/content/en/docs/advanced/architecture/design-modular-outfits-system.md) — Modular outfits system design.
+- [docs/airi-card-design.md](docs/airi-card-design.md) — AIRI card design (packages, manifestations, visual assets).

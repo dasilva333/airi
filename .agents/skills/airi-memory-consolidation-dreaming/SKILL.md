@@ -31,6 +31,17 @@ Use this skill when:
 - **Ignoring authority tiers** — The spec defines an authority ordering: user-authored/manual journal records rank highest, followed by observed/repeated facts, well-provenanced events, session summaries, profile summaries, and derived/speculative abstractions. Do not treat all records equally.
 - **Backward-compat shims for preserved chat logs** — Raw chat logs are operational input, not sacred memory; users may delete them. Don't build features that require raw chat logs to persist forever for correctness (they should be safe to lose once indexed).
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/memory_lab/design-prospective-rich-journal.md](docs/memory_lab/design-prospective-rich-journal.md) — Triple-Store model, Sacred Journal Rule, Dream Worker, Emotional Exhaust/MoodState.
+- [docs/memory_lab/memory-schema-and-lifecycle-spec.md](docs/memory_lab/memory-schema-and-lifecycle-spec.md) — Canonical schema & lifecycle spec.
+- [docs/memory_lab/memory-lifecycle-and-features.md](docs/memory_lab/memory-lifecycle-and-features.md) — Lifecycle & features spec (Adaptive Indexing Model).
+- [docs/memory_lab/great_merger_cheat_sheet.md](docs/memory_lab/great_merger_cheat_sheet.md) — Great merger cheat sheet.
+- [docs/memory_lab/ultimate_hybrid_design_doc_detailed.md](docs/memory_lab/ultimate_hybrid_design_doc_detailed.md) — Ultimate hybrid design doc (detailed).
+- [docs/memory_lab/lifetime-artifact-generation-plan.md](docs/memory_lab/lifetime-artifact-generation-plan.md) — Lifetime artifact generation plan.
+- [docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md](docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
+
 ## Verification
 
 1. `pnpm -F stage-ui typecheck` (or the relevant workspace typecheck) after editing stores, types, or docs consumers.

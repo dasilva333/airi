@@ -52,3 +52,12 @@ AIRI Desktop features multiple floating overlay windows backed by Main Process W
 
 - **Typecheck**: `pnpm -F stage-tamagotchi typecheck`
 - **Manual Verification**: Run `pnpm run dev`, open the floating stage, drag the window, and verify click-through and always-on-top behavior.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Stage UI context bridge / control island architecture.
+- [docs/catalog-control-strip.md](docs/catalog-control-strip.md) — Master catalog of control strip items.
+- [docs/project-control-strip-rfc.md](docs/project-control-strip-rfc.md) — Control strip RFC.
+- [docs/project-navigation-routing-overhaul.md](docs/project-navigation-routing-overhaul.md) — Navigation & routing overhaul project plan.
+- [docs/proposal-studio-sidetab.md](docs/proposal-studio-sidetab.md) — Studio sidetab proposal.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa, §13 BroadcastChannel registry.

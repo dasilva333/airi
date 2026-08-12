@@ -33,6 +33,14 @@ description: >-
 - **In-context downloads (Core Principle 1).** Selecting Whisper WebGPU in Step 1 calls `ensureWhisperLoaded(modelId)` which streams shard-download/WASM-compile progress via `onProgress(ProgressPayload)` and gates Next until ready. Do not let the user advance with a half-loaded model.
 - **Refresh resume.** The draft is localStorage-persisted under `onboarding/v2-draft`; a mid-flow refresh should resume cleanly. Don't add unrelated state into this key, and use `reset()` on completion/abandon.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/project-onboarding-modernize.md](docs/project-onboarding-modernize.md) — Onboarding modernization design doc (Core Principles, per-step behavior, Step 7 assembly).
+- [docs/onboarding-overhaul-plan.md](docs/onboarding-overhaul-plan.md) — Onboarding overhaul plan.
+- [docs/content/en/docs/advanced/architecture/design-onboarding-character-selection.md](docs/content/en/docs/advanced/architecture/design-onboarding-character-selection.md) — Onboarding character selection design.
+- [docs/proposal-global-user-profile.md](docs/proposal-global-user-profile.md) — Global user profile proposal.
+
 ## Verification
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` (covers `gate.ts`, `draft-store.ts`, step components).

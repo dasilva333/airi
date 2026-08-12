@@ -118,6 +118,15 @@ Dating-sim state lives in `localStorage` (`useLocalStorage`). The BYOS "Backgrou
 
 Two styles coexist in AIRI. Dating-sim uses the raw `new BroadcastChannel('dating-sim-sync')`. Do not "upgrade" it to VueUse `useBroadcastChannel` to match other stores — name normalization breaks cross-window contract.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/dating-sim-gamestate-mechanics.md](docs/dating-sim-gamestate-mechanics.md) — Dating sim gamestate mechanics.
+- [docs/dating-sim-intimacy-spec.md](docs/dating-sim-intimacy-spec.md) — Dating sim intimacy spec.
+- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/content/en/docs/showcase/07-producer-subsystem.md](docs/content/en/docs/showcase/07-producer-subsystem.md) — Producer subsystem showcase.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §13 BroadcastChannel registry.
+
 ## Verification
 
 ```bash

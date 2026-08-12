@@ -65,6 +65,18 @@ description: >-
 - **The same widget can be re-triggered before the previous run settles.** `handleArtistryTrigger` guards with `activeRunMap` (`artistry-bridge.ts:29-34,280-290`) so only the newest run updates the widget. Long-running callbacks must check `activeRunMap.get(id) === runId` before writing state.
 - **Artistry config resolution order differs per entry point:** `image_journal` prefers card-over-store (`builtin/image-journal.ts:49-56`), `stage_widgets` reads the store global (`builtin/widgets.ts:113-136`), and the autonomous loop folds card/module overrides via `foldConceptStack` (`artistry-autonomous.ts:192-289`). If you change a default, check all three paths.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-comfyui-image-generation-widget.md](docs/content/en/docs/advanced/architecture/design-comfyui-image-generation-widget.md) — ComfyUI image generation widget design.
+- [docs/content/en/docs/advanced/architecture/arch-comfyui-native-api-engine.md](docs/content/en/docs/advanced/architecture/arch-comfyui-native-api-engine.md) — ComfyUI native API engine architecture.
+- [docs/content/en/docs/advanced/architecture/design-flux-grid-slice-image-generation.md](docs/content/en/docs/advanced/architecture/design-flux-grid-slice-image-generation.md) — Flux grid slice image generation design.
+- [docs/artistry-porting-report.md](docs/artistry-porting-report.md) — Artistry porting report.
+- [docs/ideogram-4-schema.md](docs/ideogram-4-schema.md) — Ideogram 4 schema.
+- [docs/project-widget-system-status-report.md](docs/project-widget-system-status-report.md) — Widget system status report.
+- [docs/content/en/docs/showcase/09-artistry.md](docs/content/en/docs/showcase/09-artistry.md) — Artistry showcase.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa/IPC wiring, §13 BroadcastChannel registry.
+
 ## Verification
 
 - Renderer tool / built-in store changes (`builtin/widgets.ts`, `builtin/image-journal.ts`, renderer composables): `pnpm -F @proj-airi/stage-tamagotchi typecheck` (runs `tsc --noEmit -p tsconfig.node.json` then `vue-tsc --noEmit -p tsconfig.web.json`).

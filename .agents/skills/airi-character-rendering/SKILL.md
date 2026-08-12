@@ -56,3 +56,13 @@ Model binary assets (GLB/VRM, moc3 ZIP, Spine json/atlas, MMD pmx) are fetched, 
 - **Package Builds**:
   - `pnpm -F @proj-airi/stage-ui-three typecheck`
   - `pnpm -F @proj-airi/stage-ui-live2d typecheck`
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-vrm-animation-ecosystem.md](docs/content/en/docs/advanced/architecture/design-vrm-animation-ecosystem.md) — VRM animation ecosystem design.
+- [docs/content/en/docs/advanced/architecture/arch-live2d-wasm-optimization.md](docs/content/en/docs/advanced/architecture/arch-live2d-wasm-optimization.md) — Live2D WASM optimization architecture.
+- [docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md](docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md) — ACT token expression system design.
+- [docs/vrm-cloth-interaction-deepdive.md](docs/vrm-cloth-interaction-deepdive.md) — VRM cloth interaction deep dive.
+- [docs/mmd-issues-and-regressions.md](docs/mmd-issues-and-regressions.md) — MMD issues and regressions.
+- [docs/spine-model-design.md](docs/spine-model-design.md) — Spine model design.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary-proxy lesson.

@@ -75,6 +75,18 @@ enriches it per-session with memory and environmental context, and parses specia
 - **`buildSystemPrompt` swallows Pinia errors** (try/catch lines 1415-1425) so it can run
   outside an active Pinia; dating-sim overlay silently drops in that case.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/prompt-crafting-catalog.md](docs/prompt-crafting-catalog.md) — Prompt crafting catalog.
+- [docs/proposal-introspective-context-injection.md](docs/proposal-introspective-context-injection.md) — Introspective context injection proposal.
+- [docs/proposal-dynamic-memory-rag-injection.md](docs/proposal-dynamic-memory-rag-injection.md) — Dynamic memory RAG injection proposal.
+- [docs/content/en/docs/advanced/architecture/design-character-configurable-llm.md](docs/content/en/docs/advanced/architecture/design-character-configurable-llm.md) — Character-configurable LLM design.
+- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/proposal-core-agent-revamp.md](docs/proposal-core-agent-revamp.md) — Core agent revamp proposal.
+- [docs/journal-the-reasoning-content-bug.md](docs/journal-the-reasoning-content-bug.md) — Reasoning-content bug journal.
+- [docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md](docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md) — ACT token expression system design.
+
 ## Verification
 
 - `pnpm -F @proj-airi/stage-ui typecheck` for any store/composable change.

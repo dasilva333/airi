@@ -93,3 +93,9 @@ When touching bootstrap, DI, or IPC logic, you must ensure you haven't broken th
 
 - **Validation Command:** Run `pnpm -F stage-tamagotchi typecheck` (or `build`) to verify `injeca` and `eventa` types align.
 - **Local Dev:** Always start the local dev server (`pnpm run dev`) and manually verify the affected window opens correctly without throwing `Object has been destroyed` or IPC timeout errors.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa/DI composition, §13 BroadcastChannel registry.
+- [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Control Island / Stage UI context bridge architecture.
+- [docs/project-navigation-routing-overhaul.md](docs/project-navigation-routing-overhaul.md) — Navigation & routing overhaul project plan.

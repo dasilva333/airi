@@ -72,6 +72,16 @@ the user is appropriate before any TTS/LLM output is produced.
 - **`resolveRegisteredTools` is shared** with `LiveSessionStore` (uses the top-level
   function, NOTICE line 681) — changing its contract affects both proactivity and Gemini Live.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md](docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md) — Proactivity heartbeats engine design (5-phase pipeline).
+- [docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md](docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
+- [docs/project-proactivity-enrichment-roadmap.md](docs/project-proactivity-enrichment-roadmap.md) — Proactivity enrichment roadmap.
+- [docs/proposal-proactivity-vision.md](docs/proposal-proactivity-vision.md) — Proactivity vision proposal.
+- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/content/en/docs/showcase/07-producer-subsystem.md](docs/content/en/docs/showcase/07-producer-subsystem.md) — Producer subsystem showcase.
+
 ## Verification
 
 - `pnpm -F @proj-airi/stage-ui typecheck` for any store change.

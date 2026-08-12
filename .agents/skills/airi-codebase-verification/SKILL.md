@@ -27,6 +27,13 @@ Choose the smallest validation that gives useful confidence; validation is not a
 - **Skipping `git status`.** Always run `git status` after every commit or file modification and report exactly what remains open/unstaged/pending. Do not claim the tree is clean while unrelated changes remain.
 - **Push/commit without a green run.** Never push untested changes; a requested push still requires successful validation of the full commit. Pre-existing changes in the tree are not invisible — preserve and report them separately; do not silently include or discard them.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Known-failure-mode index.
+- [docs/project-specialized-skills.md](docs/project-specialized-skills.md) — Specialized skills project plan.
+- [docs/project-how-to-maintain-manual.md](docs/project-how-to-maintain-manual.md) — How-to-maintain manual.
+
 ## Verification
 
 - Match the check to the change surface (none / inspect / `pnpm -F <workspace> typecheck` / affected-workspace build).

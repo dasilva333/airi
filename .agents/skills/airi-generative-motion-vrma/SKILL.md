@@ -46,3 +46,12 @@ The Generative Motion engine enables AI characters to generate and perform dynam
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui-three typecheck`
 - **Sandbox Test**: Test VRMA animation loading in devtools Rehearsal Room sandbox (`apps/stage-tamagotchi/src/renderer/pages/devtools/`).
+
+### Authoritative Design & Architecture Documents
+
+- [docs/proposal-text-to-vrma-system.md](docs/proposal-text-to-vrma-system.md) — Text-to-VRMA system proposal.
+- [docs/design-text-to-motion.md](docs/design-text-to-motion.md) — Text-to-motion architecture design.
+- [docs/content/en/references/research/text-to-motion.md](docs/content/en/references/research/text-to-motion.md) — Text-to-motion research reference.
+- [docs/content/en/references/research/mocap.md](docs/content/en/references/research/mocap.md) — Mocap research reference.
+- [docs/content/en/docs/advanced/architecture/design-vrm-animation-ecosystem.md](docs/content/en/docs/advanced/architecture/design-vrm-animation-ecosystem.md) — VRM animation ecosystem design.
+- [docs/proposal-emotion-motion-library.md](docs/proposal-emotion-motion-library.md) — Emotion motion library proposal.

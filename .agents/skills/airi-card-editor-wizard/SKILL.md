@@ -92,6 +92,18 @@ If you skip this, concurrent edits (e.g., another tab writing a separate `airi` 
 - **Preview/model reload**: Switching between `index.vue` (editor) and `guided.vue` (wizard) requires model re-activation. `index.vue` queries `?tab=` via route; `guided.vue` restores `currentStep` from Pinia.
 - **Import overwrite**: `CardImportWizard.vue` performs a wholesale card replacement when importing SillyTavern cards. This wipes `extensions.airi.*` on import unless the import-to-AIRI merge logic explicitly preserves it. Read the import mapping before assuming preserved settings.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-character-card-import-export.md](docs/content/en/docs/advanced/architecture/design-character-card-import-export.md) — Character card import/export design.
+- [docs/content/en/docs/showcase/02-animadex-wizard.md](docs/content/en/docs/showcase/02-animadex-wizard.md) — AnimaDex wizard showcase.
+- [docs/proposal-animadex-wizard.md](docs/proposal-animadex-wizard.md) — AnimaDex wizard proposal.
+- [docs/proposal-animadex-new-characters.md](docs/proposal-animadex-new-characters.md) — AnimaDex new characters proposal.
+- [docs/animadex-wizard-pending-items.md](docs/animadex-wizard-pending-items.md) — AnimaDex wizard pending items.
+- [docs/proposal-default-cards-revamp.md](docs/proposal-default-cards-revamp.md) — Default cards revamp proposal.
+- [docs/airi-card-design.md](docs/airi-card-design.md) — AIRI card design spec.
+- [docs/nan0-integration-feedback.md](docs/nan0-integration-feedback.md) — NAN0 integration feedback.
+
 ## Verification
 
 run after any change in this skill:

@@ -28,6 +28,14 @@ Stable prefix first, volatile tail last. The whole point is layout geometry: kee
 - **Re-sending full history by default in automated loops.** The design offers `historyMode: 'full' | 'slice'` + `sliceCount` so automated sub-loops can send a sliced history (e.g. last N turns) to save output tokens — but this trades off character context memory.
 - **Director role is special.** `proposal-director-cache-alignment-analysis.md` flags character-mode leakage and a visual-scratchpad invalidation loop; do not blindly apply prefix caching there — review its proposed system-prompt prefix-caching alternative instead.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/proposal-prefix-cache-alignment.md](docs/proposal-prefix-cache-alignment.md) — Prefix-cache alignment architectural spec.
+- [docs/proposal-director-cache-alignment-analysis.md](docs/proposal-director-cache-alignment-analysis.md) — Director cache alignment risk analysis (do not force-fit).
+- [docs/token-usage-metrics.md](docs/token-usage-metrics.md) — Token usage metrics.
+- [docs/journal-the-reasoning-content-bug.md](docs/journal-the-reasoning-content-bug.md) — Reasoning-content bug journal (related prompt pipeline issue).
+
 ## Verification
 
 - Confirm the static/system prefix occupies the head of the composed message list and every volatile segment is appended at the tail.

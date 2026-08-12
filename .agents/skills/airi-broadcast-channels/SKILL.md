@@ -34,3 +34,7 @@ description: "Use when working with Cross-window BroadcastChannel relay registry
 
 - Validate typing with `pnpm -F <workspace> typecheck`
 - Ensure tests verify channel message schemas where possible.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical BroadcastChannel registry (§13).

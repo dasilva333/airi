@@ -26,6 +26,12 @@ Binary payloads die silently. Vue 3 reactive proxies plus `JSON.stringify()` wil
 - **Heavy catalogs hold live binaries.** Catalog items in `displayModels.value` must carry lightweight metadata only (name, format, tags, groups, previewImage) with `file: undefined` to avoid multi-megabyte memory bloat. Load full binary payloads on demand via `displayModelsStore.getDisplayModel(id)`.
 - **Scattered mapping write paths.** Persist model mappings (`emotionMappings`, `motionMappings`, `hiddenExpressions`, `hiddenMotions`, `favoriteExpressions`) directly on `DisplayModelFile` (1:1 with the model object) through a single store action (`displayModelsStore.updateDisplayModelMappings()`), not duplicate write paths.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical failure-mode index; §16 Model Persistence & IndexedDB Serialization (binary-proxy lesson).
+- [docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md](docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md) — IndexedDB storage architecture.
+
 ## Verification
 
 - Confirm no `JSON.stringify()` runs on objects containing binary references before persistence.

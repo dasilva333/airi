@@ -69,3 +69,11 @@ AIRI maintains an advanced fork of the upstream (`moeru-ai/airi:main`).
 ## 4. Known Pitfalls & Failure Modes
 
 ## 5. Verification Workflows
+
+### Authoritative Design & Architecture Documents
+
+- [docs/airi-card-design.md](docs/airi-card-design.md) — AIRI Package Spec v2, upstream ZIP packaging, ecosystem interoperability.
+- [docs/content/en/docs/advanced/architecture/design-character-card-import-export.md](docs/content/en/docs/advanced/architecture/design-character-card-import-export.md) — Character card import/export design.
+- [docs/content/en/docs/manual/config/character-card.md](docs/content/en/docs/manual/config/character-card.md) — Character card manual/config.
+- [docs/content/en/docs/showcase/01-card-system.md](docs/content/en/docs/showcase/01-card-system.md) — Card system showcase.
+- [docs/starter-character-gold-standard.md](docs/starter-character-gold-standard.md) — Starter character gold standard.

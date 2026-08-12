@@ -33,6 +33,12 @@ Key→file map (from `docs/settings-yaml.md`):
 - **Assuming a fixed locale list for cross-locale work.** After adding a source key, run `sync` against each locale actually in scope for the task — inspect `packages/i18n/src/locales/`, don't guess.
 - **Reaching for recovery-only commands during normal work.** `clean`, `fix-syntax`, `truncate`, `truncate-at-line`, `replace-line`, and `insert-line` rewrite or discard raw YAML. Use them only when the task is explicitly repairing corrupted YAML, then review the complete diff immediately afterward.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager command interface guide.
+- [docs/proposal-broader-unicode-support.md](docs/proposal-broader-unicode-support.md) — Broader Unicode support proposal.
+
 ## Verification
 
 - After a structural edit, run `audit` on the edited file.

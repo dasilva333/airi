@@ -62,6 +62,13 @@ Real-time, sub-second bidirectional multimodal streaming over a Bidi WebSocket u
 - **Auth:** the OpenAI-compatible HTTP endpoint needs an OAuth2 token (`AQ...`), but the Bidi
   WebSocket endpoint accepts a standard `AIza...` API key (design doc Phase 2 §4).
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md](docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md) — Canonical Gemini Live API integration design.
+- [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
+- [docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md](docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
+
 ## Verification
 
 - `pnpm -F @proj-airi/stage-ui typecheck` for any live-session change.

@@ -53,3 +53,13 @@ VRAM allocation, hardware feature detection, and worker load queues are coordina
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
 - **Hardware Check**: Test WebGPU availability in DevTools console via `navigator.gpu.requestAdapter()`.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/proposal-built-in-llm-webgpu.md](docs/proposal-built-in-llm-webgpu.md) — WebGPU local inference harness specification.
+- [docs/proposal-attention-ecology-local-webgpu-guard.md](docs/proposal-attention-ecology-local-webgpu-guard.md) — Attention ecology local WebGPU salience guard.
+- [docs/proposal-toggle4-rework-and-rwkv-harness.md](docs/proposal-toggle4-rework-and-rwkv-harness.md) — Toggle4 rework and RWKV harness proposal.
+- [docs/project-rwkv-kimi.md](docs/project-rwkv-kimi.md) — RWKV Kimi project.
+- [docs/project-rwkv-cleanroom-harness-plan.md](docs/project-rwkv-cleanroom-harness-plan.md) — RWKV cleanroom harness plan.
+- [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
+- [docs/moss-tts-nano-research-report.md](docs/moss-tts-nano-research-report.md) — MOSS TTS nano research report.

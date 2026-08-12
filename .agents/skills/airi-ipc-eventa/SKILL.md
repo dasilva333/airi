@@ -80,3 +80,8 @@ For high-frequency or renderer-to-renderer communication where routing through t
 ## 4. Known Pitfalls & Failure Modes
 
 ## 5. Verification Workflows
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa IPC contracts, §13 BroadcastChannel registry.
+- [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Control Island / Stage UI context bridge architecture.

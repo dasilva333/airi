@@ -29,6 +29,13 @@ description: >-
 - **Config is dual-sourced.** Runtime servers come from `mcp.json` in `userData`/appData (`mcpServers` record), edited via `electronMcpGetConfig`/`electronMcpUpdateConfig`/`electronMcpApplyAndRestart`. The `stores/mcp.ts` `serverCmd`/`serverArgs` is the older single-server settings path — don't conflate them.
 - **Timeouts/errors.** Calls are capped at 15 s total; surface `lastError` from `ElectronMcpStdioServerRuntimeStatus` rather than swallowing.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/arch-mcp-integration.md](docs/content/en/docs/advanced/architecture/arch-mcp-integration.md) — MCP integration architecture.
+- [docs/finding-open-apis-mcp-servers-plugins.md](docs/finding-open-apis-mcp-servers-plugins.md) — Finding open APIs, MCP servers, and plugins.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa contract registry.
+
 ## Verification
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` and build `pnpm -F stage-tamagotchi build` (its build includes typechecking) after touching `shared/eventa.ts` or the service manager.

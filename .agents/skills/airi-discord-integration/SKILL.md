@@ -29,6 +29,23 @@ description: >-
 - **Command registration caching.** Slash commands re-register only when `COMMANDS_VERSION` is bumped above `lastRegisteredVersion`; global commands can take up to an hour to propagate — register per-guild during development.
 - **Large payloads.** `sendImageToDiscord` bypasses generic IPC serialization with a native channel and `toRaw`; keep payload shape `{ channelId, base64, content?, filename? }` and log size in KB, not raw base64.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/feat-discord-revamp.md](docs/feat-discord-revamp.md) — Current Discord revamp spec.
+- [docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md](docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md) — Original Discord bot integration design.
+- [docs/design-discord-context-routing.md](docs/design-discord-context-routing.md) — Discord context routing design.
+- [docs/design-discord-control-plane.md](docs/design-discord-control-plane.md) — Discord control plane design.
+- [docs/content/en/docs/manual/config/discord-commands.md](docs/content/en/docs/manual/config/discord-commands.md) — Discord commands manual.
+- [docs/content/en/docs/contributing/services/discord.md](docs/content/en/docs/contributing/services/discord.md) — Contributing guide for Discord service.
+- [docs/content/en/docs/showcase/10-discord-integration.md](docs/content/en/docs/showcase/10-discord-integration.md) — Discord integration showcase.
+- [docs/cloud-relay-design.md](docs/cloud-relay-design.md) — Cloud relay architecture (Discord Edge deployment).
+- [docs/project-telegram-design.md](docs/project-telegram-design.md) — Telegram project design.
+- [docs/content/en/docs/contributing/services/telegram.md](docs/content/en/docs/contributing/services/telegram.md) — Contributing guide for Telegram service.
+- [docs/content/en/docs/contributing/services/satori.md](docs/content/en/docs/contributing/services/satori.md) — Contributing guide for Satori protocol.
+- [docs/proposal-twitch-plugin.md](docs/proposal-twitch-plugin.md) — Twitch plugin proposal.
+- [docs/proposal-destiny2-plugin.md](docs/proposal-destiny2-plugin.md) — Destiny 2 plugin proposal.
+
 ## Verification
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` for the store; `pnpm -F stage-tamagotchi build` (includes typecheck) when touching the main-process service.

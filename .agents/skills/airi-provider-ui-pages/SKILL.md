@@ -43,3 +43,11 @@ Live API connection testing is powered by `useProviderValidation`.
 
 - **Typecheck**: `pnpm -F stage-pages typecheck`
 - **Component Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-multi-instance-provider-studio.md](docs/design-multi-instance-provider-studio.md) — Multi-instance provider studio design (UI implications).
+- [docs/provider-catalog.md](docs/provider-catalog.md) — Provider catalog reference.
+- [docs/project-cloud-model-browsing.md](docs/project-cloud-model-browsing.md) — Cloud model browsing project.
+- [docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md](docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md) — Provider store current structure architecture.
+- [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager guide (provider settings i18n).

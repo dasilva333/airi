@@ -111,3 +111,10 @@ Ensure all translation keys referenced in `nameLocalize`, `descriptionLocalize`,
 2. **Schema Verification:** Ensure the Zod validation correctly captures empty API keys and required configuration states.
 3. **UI Preview:** If instructed by the user to test visually, spin up the web application (e.g., `pnpm dev`) and navigate to the providers settings page to confirm the provider shows up with the correct icon and form fields.
 
+### Authoritative Design & Architecture Documents
+
+- [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager guide (provider i18n keys).
+- [docs/provider-catalog.md](docs/provider-catalog.md) — Provider catalog reference.
+- [docs/project-provider-metadata-catalog.md](docs/project-provider-metadata-catalog.md) — Provider metadata catalog project.
+- [docs/design-multi-instance-provider-studio.md](docs/design-multi-instance-provider-studio.md) — Multi-instance provider studio design.
+- [docs/proposal-web-cors-proxy-bypass.md](docs/proposal-web-cors-proxy-bypass.md) — Web CORS proxy bypass proposal.

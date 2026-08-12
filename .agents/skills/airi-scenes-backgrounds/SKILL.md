@@ -88,6 +88,14 @@ Without `toRaw`, `JSON.stringify` strips non-enumerable prototype getters on `Bl
 
 Both exist. Choose the correct import path for the surface you are editing; do not assume one is a rename of the other.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/content/en/docs/advanced/architecture/design-scenes-and-backgrounds-system.md](docs/content/en/docs/advanced/architecture/design-scenes-and-backgrounds-system.md) — Scenes and backgrounds system design.
+- [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
+- [docs/artistry-porting-report.md](docs/artistry-porting-report.md) — Artistry porting report.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 toRaw/binary lesson.
+
 ## Verification
 
 ```bash

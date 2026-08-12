@@ -51,3 +51,17 @@ The Attention Ecology Vision engine provides non-intrusive 24/7 visual awareness
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck`
 - **DevTools Inspection**: Open `/devtools/vision` in app settings to inspect live screen capture frames and salience scores.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/proposal-attention-ecology-local-webgpu-guard.md](docs/proposal-attention-ecology-local-webgpu-guard.md) — Attention ecology local WebGPU salience guard spec.
+- [docs/implementation-plan-vision-witness.md](docs/implementation-plan-vision-witness.md) — Vision witness implementation plan and salience scoring harness.
+- [docs/proposal-poc-attention-ecology-vibe-island.md](docs/proposal-poc-attention-ecology-vibe-island.md) — Vibe Island proof-of-concept design.
+- [docs/design-vision-system-support.md](docs/design-vision-system-support.md) — Vision system support design.
+- [docs/content/en/docs/advanced/architecture/design-vision-system-support.md](docs/content/en/docs/advanced/architecture/design-vision-system-support.md) — Vision system support (localized architecture copy).
+- [docs/content/en/docs/advanced/architecture/design-vision-api-cost-analysis.md](docs/content/en/docs/advanced/architecture/design-vision-api-cost-analysis.md) — Vision API cost analysis.
+- [docs/research-vision-witness-report.md](docs/research-vision-witness-report.md) — Vision witness research report.
+- [docs/project-vision-architecture-review-alpha22.md](docs/project-vision-architecture-review-alpha22.md) — Vision architecture review alpha22.
+- [docs/proposal-salience-gate-ui-integration.md](docs/proposal-salience-gate-ui-integration.md) — Salience gate UI integration proposal.
+- [docs/proposal-vlm-forward-to-llm.md](docs/proposal-vlm-forward-to-llm.md) — VLM forward-to-LLM proposal.
+- [docs/content/en/docs/showcase/08-situational-awareness.md](docs/content/en/docs/showcase/08-situational-awareness.md) — Situational awareness showcase.

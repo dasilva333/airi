@@ -32,3 +32,10 @@ description: "Use when working with working on Memory Settings Control Hub UI Su
 ## 5. Verification Workflows
 
 - Verify types and component bindings with `pnpm -F <workspace> typecheck`.
+
+### Authoritative Design & Architecture Documents
+
+- [docs/memory_lab/memory-settings-home-page-plan.md](docs/memory_lab/memory-settings-home-page-plan.md) — Memory settings home page plan.
+- [docs/memory_lab/rich-journal-mockups.md](docs/memory_lab/rich-journal-mockups.md) — Rich journal mockups.
+- [docs/memory_lab/archive-index.md](docs/memory_lab/archive-index.md) — Archive index.
+- [docs/memory_lab/in_progress.md](docs/memory_lab/in_progress.md) — In-progress items.

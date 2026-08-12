@@ -71,3 +71,12 @@ AIRI's data persistence architecture is designed for local-first operations, uti
 ## 4. Known Pitfalls & Failure Modes
 
 ## 5. Verification Workflows
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary/serialization lesson.
+- [docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md](docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md) — IndexedDB storage architecture.
+- [docs/content/en/docs/advanced/architecture/design-text-journal-storage.md](docs/content/en/docs/advanced/architecture/design-text-journal-storage.md) — Text journal storage design.
+- [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
+- [docs/project-byos-cloud-sync.md](docs/project-byos-cloud-sync.md) — BYOS cloud sync outbox/reconciliation design.
+- [docs/data-catalog.md](docs/data-catalog.md) — Data catalog reference.
