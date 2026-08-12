@@ -194,7 +194,8 @@ const activeGroup = computed(() => {
 })
 
 // Bound state resolvers (for items with a catalog binding field)
-function isBoundActive(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined): boolean {
+// NOTICE: this union must mirror the `binding` union in `control-customizer.ts`.
+function isBoundActive(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled' | undefined): boolean {
   if (!binding)
     return false
   if (binding === 'chatOpen')
@@ -207,10 +208,12 @@ function isBoundActive(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'ca
     return settingsAudioDeviceStore.enabled
   if (binding === 'geminiSession')
     return powerState.value !== 'off'
+  if (binding === 'headTetheredCaptionEnabled')
+    return settingsStore.headTetheredCaptionEnabled
   return false
 }
 
-function toggleBoundState(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | undefined) {
+function toggleBoundState(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled' | undefined) {
   if (!binding)
     return
   if (binding === 'chatOpen')
@@ -223,6 +226,8 @@ function toggleBoundState(binding: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 
     postControlStripAction('mic')
   else if (binding === 'geminiSession')
     postControlStripAction('gemini-session')
+  else if (binding === 'headTetheredCaptionEnabled')
+    postControlStripAction('head-tethered-caption')
 }
 
 // Un-bound toggle state resolvers (always-on-top, viewport-auto-hide, etc.)
