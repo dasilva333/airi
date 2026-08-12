@@ -12,6 +12,7 @@ import { computed, markRaw, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import chat_director from '../components/chat/chat_director.vue'
+import chat_event_log from '../components/chat/chat_event_log.vue'
 import chat_lifetime from '../components/chat/chat_lifetime.vue'
 import chat_media from '../components/chat/chat_media.vue'
 // Import Sub-Surfaces
@@ -89,18 +90,19 @@ const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed',
 
 // Left Panel Routing States
 const isLeftPanelOpen = useLocalStorage('airi:chat:left-panel-open', true)
-const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'notes' | 'rehearsal'>('airi:chat:left-panel-active', 'messages')
+const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'notes' | 'rehearsal' | 'event-log'>('airi:chat:left-panel-active', 'messages')
 
 const activeSurfaceComponent = computed(() => {
   const map = {
-    messages: chat_messages,
-    director: chat_director,
-    world: chat_world,
-    characters: chat_studio,
-    media: chat_media,
-    archives: chat_lifetime,
-    notes: chat_notes,
-    rehearsal: chat_rehearsal,
+    'messages': chat_messages,
+    'director': chat_director,
+    'world': chat_world,
+    'characters': chat_studio,
+    'media': chat_media,
+    'archives': chat_lifetime,
+    'notes': chat_notes,
+    'rehearsal': chat_rehearsal,
+    'event-log': chat_event_log,
   }
   return markRaw(map[activeSurface.value] || chat_messages)
 })
@@ -1131,6 +1133,7 @@ function selectSurface(surface: typeof activeSurface.value) {
                 { id: 'characters', label: 'Studio', icon: 'i-solar:layers-minimalistic-bold-duotone' },
                 { id: 'media', label: 'Media Library', icon: 'i-solar:gallery-bold-duotone' },
                 { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
+                { id: 'event-log', label: 'Event Ledger', icon: 'i-solar:document-text-bold-duotone' },
                 { id: 'notes', label: 'Notes', icon: 'i-solar:document-text-bold-duotone' },
                 { id: 'rehearsal', label: 'Rehearsal', icon: 'i-solar:clapperboard-text-bold-duotone' },
               ] as const)"
@@ -1181,6 +1184,7 @@ function selectSurface(surface: typeof activeSurface.value) {
               { id: 'characters', label: 'Studio', icon: 'i-solar:layers-minimalistic-bold-duotone' },
               { id: 'media', label: 'Media Library', icon: 'i-solar:gallery-bold-duotone' },
               { id: 'archives', label: 'Eternal Thread', icon: 'i-solar:dna-bold-duotone' },
+              { id: 'event-log', label: 'Event Ledger', icon: 'i-solar:document-text-bold-duotone' },
               { id: 'notes', label: 'Notes', icon: 'i-solar:document-text-bold-duotone' },
               { id: 'rehearsal', label: 'Rehearsal', icon: 'i-solar:clapperboard-text-bold-duotone' },
             ] as const)"

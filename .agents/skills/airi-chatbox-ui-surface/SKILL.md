@@ -19,6 +19,13 @@ description: >-
   - Export: `packages/stage-ui/src/components/scenarios/chat/index.ts`. Rendered by `apps/stage-tamagotchi/src/renderer/pages/actor.vue`.
   - 4-state open/close lifecycle; calls `chatStore.ingest(...)` directly at line 108 (does NOT use `useChatComposer`).
 
+## Navigation Hierarchy & Window Boundaries
+
+- **Control Strip Window (`apps/stage-tamagotchi/src/renderer/pages/chat.vue`)**:
+  - The persistent hub header window. Contains the top-left purple hamburger menu (`☰`) which opens the **Workspace Routes Drawer** (`Chat View`, `Director's Monitor`, `World Bible`, `Studio`, `Media Library`, `Eternal Thread`, `Event Ledger`, `Notes`, `Rehearsal`, `Settings`).
+- **Shared Composer Widget (`packages/stage-layouts/src/components/Widgets/ChatArea.vue`)**:
+  - The inner textarea / message composition container. It is a sub-component used inside chat views. **Do NOT add top-level window navigation drawers or window header hamburger buttons inside `ChatArea.vue`. Workspace Route entries belong inside `chat.vue`'s Workspace Routes array.**
+
 ## Store Map (Pinia)
 
 - `useChatOrchestratorStore` (`packages/stage-ui/src/stores/chat.ts:97`) — central pipeline: `ingest(...)`, `onAfterMessageComposed(...)`, streaming, tool-call bridging.
