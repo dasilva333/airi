@@ -27,7 +27,7 @@ const draftStore = useOnboardingV2Draft()
 const badges = [
   { label: 'Consciousness', icon: 'i-solar:cpu-bolt-bold-duotone' },
   { label: 'Hearing', icon: 'i-solar:microphone-3-bold-duotone' },
-  { label: 'Speech', icon: 'i-solar:speaker-loud-bold-duotone' },
+  { label: 'Speech', icon: 'i-solar:soundwave-bold-duotone' },
   { label: 'Avatar Model', icon: 'i-solar:people-nearby-bold-duotone' },
   { label: 'Personality Soul', icon: 'i-solar:heart-bold-duotone' },
 ]
