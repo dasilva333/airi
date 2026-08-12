@@ -30,6 +30,7 @@ import { clearArtistryStaging, clearJournalStaging, pendingIntrusionStaging, sta
 import { useChatSalienceStore } from './chat/salience'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
+import { useEventLogStore } from './event-log'
 import { useLLM } from './llm'
 import { useTextJournalStore } from './memory-text-journal'
 import { useAiriCardStore } from './modules/airi-card'
@@ -101,6 +102,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const visionStore = useVisionStore()
   const airiCardStore = useAiriCardStore()
   const artistryAutonomousStore = useAutonomousArtistryStore()
+  const eventLogStore = useEventLogStore()
   const settingsChat = useSettingsChat()
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCard, activeCardId } = storeToRefs(airiCardStore)
@@ -286,6 +288,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
       const historicalUserMessage = { role: 'user' as const, content: initialHistoricalContent, createdAt: sendingCreatedAt, id: userMessageId, ...options.metadata }
       chatSession.setSessionMessages(sessionId, [...sessionMessagesForSend, historicalUserMessage])
+
+      // Record live system event in Event Ledger
+      if (typeof sendingMessage === 'string' && sendingMessage.trim()) {
+        const previewText = sendingMessage.trim().slice(0, 45)
+        const textSummary = `User sent: "${previewText}${sendingMessage.length > 45 ? '...' : ''}"`
+        void eventLogStore.appendEvent({
+          category: 'chat',
+          type: 'user-message-ingested',
+          source: 'chat-orchestrator',
+          textSummary,
+          payload: {
+            role: 'user',
+            messageId: userMessageId,
+            preview: sendingMessage.slice(0, 50),
+            timestamp: sendingCreatedAt,
+          },
+          inspectable: true,
+        })
+      }
     }
 
     // Initialize streaming message context early so hooks can fire immediately
@@ -1610,6 +1631,27 @@ Format your output as a raw thought log.`
         ;(buildingMessage as any).rawContent = rawFullText
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])
+
+        // Record live system event in Event Ledger
+        const responseText = typeof buildingMessage.content === 'string' ? buildingMessage.content.trim() : ''
+        if (responseText) {
+          const previewText = responseText.slice(0, 45)
+          const charName = activeCard.value?.name || 'AIRI'
+          const textSummary = `${charName} replied: "${previewText}${responseText.length > 45 ? '...' : ''}"`
+          void eventLogStore.appendEvent({
+            category: 'chat',
+            type: 'assistant-reply-completed',
+            source: 'chat-orchestrator',
+            textSummary,
+            payload: {
+              role: 'assistant',
+              messageId: buildingMessage.id,
+              preview: responseText.slice(0, 50),
+              timestamp: Date.now(),
+            },
+            inspectable: true,
+          })
+        }
       }
 
       // Finalize hooks and analytics
