@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import type { AttachLive2DHeadTetheredCaptionResult } from '@proj-airi/stage-ui-live2d/composables/live2d'
+
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { attachLive2DHeadTetheredCaption } from '@proj-airi/stage-ui-live2d/composables/live2d'
+import { useBroadcastChannel } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { onBeforeUnmount, ref, watch } from 'vue'
 
 import { useSettings } from '../../stores/settings'
+
+interface CaptionSegment {
+  text: string
+  color?: string
+  actorId?: string
+  isActive?: boolean
+}
 
 const props = defineProps<{
   /**
@@ -15,20 +25,9 @@ const props = defineProps<{
   live2dSceneRef?: {
     live2dApp?: () => unknown
   } | null
-  /** Bubble text. Fixed placeholder for MVP — Sentence Sync replaces it later. */
+  /** Bubble text. Default state: Hello there! ✨ Floating with AIRI! 💖🌸 */
   text?: string
 }>()
-
-/**
- * Head-tethered caption plank (in-scene speech bubble).
- *
- * Renders a comic-style bubble inside the active model's renderer stage and
- * lets a per-renderer adapter drive its position/skew based on the model's
- * pose each frame. Independent of the existing windowed caption system.
- *
- * MVP scope: Live2D only, fixed placeholder text, no in-scene drag-to-offset.
- * VRM/Spine/MMD branches intentionally no-op when the toggle is on.
- */
 
 const TAG = '[HeadTetheredCaption]'
 
@@ -36,9 +35,32 @@ const settingsStore = useSettings()
 const live2dStore = useLive2d()
 const { model } = storeToRefs(live2dStore)
 
-const detachAdapter = ref<(() => void) | null>(null)
+const attachedInstance = ref<AttachLive2DHeadTetheredCaptionResult | null>(null)
 // Polls `live2dApp()` until the PIXI canvas is available; cleared on detach.
 const appPollTimer = ref<ReturnType<typeof setInterval> | null>(null)
+
+// Sentence Sync state: default to initial text, persist last active state once updated
+const defaultText = props.text ?? 'Hello there! ✨ Floating with AIRI! 💖🌸'
+const currentCaptionText = ref(defaultText)
+const currentCaptionColor = ref<string | undefined>(undefined)
+
+// Sentence Sync BroadcastChannel listener
+const { data: captionChannelData } = useBroadcastChannel<any, any>({ name: 'airi-caption-overlay' })
+
+watch(captionChannelData, (evt) => {
+  if (!evt || typeof evt !== 'object')
+    return
+
+  if (evt.type === 'caption-assistant' && Array.isArray(evt.segments)) {
+    const activeSegment = (evt.segments as CaptionSegment[]).find(s => s?.isActive)
+    if (activeSegment?.text) {
+      currentCaptionText.value = activeSegment.text
+      currentCaptionColor.value = activeSegment.color
+      attachedInstance.value?.updateText(currentCaptionText.value, currentCaptionColor.value)
+    }
+    // Falsy / inactive payloads are ignored to persist the last spoken state
+  }
+})
 
 function clearAppPoll() {
   if (appPollTimer.value !== null) {
@@ -50,8 +72,8 @@ function clearAppPoll() {
 function detach(reason: string) {
   console.info(TAG, 'detach', { reason })
   clearAppPoll()
-  detachAdapter.value?.()
-  detachAdapter.value = null
+  attachedInstance.value?.detach()
+  attachedInstance.value = null
 }
 
 function tryAttach(): boolean {
@@ -71,16 +93,21 @@ function tryAttach(): boolean {
   }
 
   try {
-    detachAdapter.value = attachLive2DHeadTetheredCaption({
+    attachedInstance.value = attachLive2DHeadTetheredCaption({
       app: app as any,
       model: currentModel,
-      text: props.text ?? 'Hello there! ✨ Floating with AIRI! 💖🌸',
+      text: currentCaptionText.value,
       followStrength: settingsStore.headTetheredCaptionFollowStrength,
       offset: settingsStore.headTetheredCaptionOffset,
     })
+    // Apply initial accent color if available
+    if (currentCaptionColor.value)
+      attachedInstance.value.updateText(currentCaptionText.value, currentCaptionColor.value)
+
     console.info(TAG, 'attached', {
       followStrength: settingsStore.headTetheredCaptionFollowStrength,
       offset: settingsStore.headTetheredCaptionOffset,
+      text: currentCaptionText.value,
     })
     return true
   }
@@ -92,7 +119,7 @@ function tryAttach(): boolean {
 
 function scheduleAttach() {
   // Already attached — do nothing.
-  if (detachAdapter.value)
+  if (attachedInstance.value)
     return
 
   // Try immediately in case the model + canvas are already hot.

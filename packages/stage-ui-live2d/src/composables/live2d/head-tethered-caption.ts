@@ -56,6 +56,19 @@ function ensureBatchRendererOnLiveRenderer(app: Application) {
   }
 }
 
+export interface AttachLive2DHeadTetheredCaptionResult {
+  detach: () => void
+  updateText: (newText: string, color?: string) => void
+}
+
+export interface Live2DHeadTetheredCaptionAttachOptions {
+  app: Application
+  model: any
+  text: string
+  followStrength: number
+  offset: { x: number, y: number }
+}
+
 // NOTICE: Live2D runtime parameter IDs differ across model authors and
 // Cubism versions. List most-common aliases in priority order; first match
 // wins at resolution time.
@@ -235,14 +248,31 @@ export interface Live2DHeadTetheredCaptionAttachOptions {
  * `(0, 0)` is the tail tip — i.e. `plank.position.set(ax, ay)` puts the
  * tail exactly at the anchor point.
  */
+function parseHexColor(colorStr?: string): number {
+  if (!colorStr)
+    return 0x0F172A
+  if (colorStr.startsWith('#')) {
+    const hex = colorStr.slice(1)
+    if (hex.length === 3) {
+      const expanded = hex.split('').map(c => c + c).join('')
+      return Number.parseInt(expanded, 16) || 0x0F172A
+    }
+    return Number.parseInt(hex, 16) || 0x0F172A
+  }
+  return 0x0F172A
+}
+
 export function buildCaptionBubblePlank(opts: {
   text: string
   widthPx: number
-}): Container {
+  color?: string
+}): Container & { updateText: (newText: string, colorStr?: string) => void } {
   const widthPx = Math.max(120, Math.round(opts.widthPx))
   const padX = Math.max(10, Math.round(widthPx * 0.06))
   const padY = Math.max(8, Math.round(widthPx * 0.04))
   const fontSize = Math.max(12, Math.round(widthPx * 0.07))
+
+  let currentOutlineColor = parseHexColor(opts.color)
 
   const textNode = new Text(opts.text, {
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
@@ -258,50 +288,57 @@ export function buildCaptionBubblePlank(opts: {
   textNode.anchor.set(0.5, 0.5)
 
   const bubbleWidth = widthPx
-  const bubbleHeight = textNode.height + padY * 2
   const tailBaseHalf = Math.max(8, Math.round(widthPx * 0.05))
   const tailHeight = Math.max(10, Math.round(widthPx * 0.05))
-
   const bubble = new Graphics()
-  // PIXI v6 positional signature: lineStyle(width, color, alpha, alignment, native).
-  // Do not switch to v7 object form — this stage still runs on v6.
-  const outlineColor = 0x0F172A
-  const outlineAlpha = 0.92
-  const outlineWidth = 2.5
-  const fillColor = 0xFFFFFF
-  const fillAlpha = 0.92
 
-  // Body.
-  bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
-  bubble.beginFill(fillColor, fillAlpha)
-  bubble.drawRoundedRect(-bubbleWidth / 2, -bubbleHeight, bubbleWidth, bubbleHeight, Math.min(14, padY + 3))
-  bubble.endFill()
+  function drawBubble(outlineColor: number) {
+    bubble.clear()
+    const bubbleHeight = textNode.height + padY * 2
+    const outlineAlpha = 0.92
+    const outlineWidth = 2.5
+    const fillColor = 0xFFFFFF
+    const fillAlpha = 0.92
 
-  // Tail triangle pointing down.
-  bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
-  bubble.beginFill(fillColor, fillAlpha)
-  bubble.moveTo(-tailBaseHalf, -2)
-  bubble.lineTo(0, tailHeight)
-  bubble.lineTo(tailBaseHalf, -2)
-  bubble.closePath()
-  bubble.endFill()
+    // Body
+    bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
+    bubble.beginFill(fillColor, fillAlpha)
+    bubble.drawRoundedRect(-bubbleWidth / 2, -bubbleHeight, bubbleWidth, bubbleHeight, Math.min(14, padY + 3))
+    bubble.endFill()
 
-  // Cover the seam where tail meets bubble (so the outline stays clean).
-  bubble.lineStyle(0)
-  bubble.beginFill(fillColor, fillAlpha)
-  bubble.drawRect(-tailBaseHalf - 1, -3, tailBaseHalf * 2 + 2, 3)
-  bubble.endFill()
+    // Tail triangle pointing down
+    bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
+    bubble.beginFill(fillColor, fillAlpha)
+    bubble.moveTo(-tailBaseHalf, -2)
+    bubble.lineTo(0, tailHeight)
+    bubble.lineTo(tailBaseHalf, -2)
+    bubble.closePath()
+    bubble.endFill()
 
-  // Centre text in the bubble body.
-  textNode.position.set(0, -bubbleHeight / 2)
+    // Seam cover
+    bubble.lineStyle(0)
+    bubble.beginFill(fillColor, fillAlpha)
+    bubble.drawRect(-tailBaseHalf - 1, -3, tailBaseHalf * 2 + 2, 3)
+    bubble.endFill()
 
-  const container = new PixiContainer()
+    // Centre text in the bubble body
+    textNode.position.set(0, -bubbleHeight / 2)
+  }
+
+  drawBubble(currentOutlineColor)
+
+  const container = new PixiContainer() as Container & { updateText: (newText: string, colorStr?: string) => void }
   container.addChild(bubble)
   container.addChild(textNode)
-
-  // Pivot: (0, 0) == tip of the tail. Setting `plank.position.set(anchor.x, anchor.y)`
-  // puts the tail exactly on the anchor.
   container.pivot.set(0, tailHeight)
+
+  container.updateText = (newText: string, colorStr?: string) => {
+    textNode.text = newText
+    if (colorStr)
+      currentOutlineColor = parseHexColor(colorStr)
+    drawBubble(currentOutlineColor)
+    container.pivot.set(0, tailHeight)
+  }
 
   return container
 }
@@ -314,7 +351,7 @@ export function buildCaptionBubblePlank(opts: {
  * happen after the model's own update pass but before the next render. That
  * keeps the plank in visual sync with the head without hooking `motionManager.update`.
  */
-export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionAttachOptions): () => void {
+export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionAttachOptions): AttachLive2DHeadTetheredCaptionResult {
   const { app, model, text, followStrength, offset } = opts
 
   if (!app?.stage || !model) {
@@ -323,7 +360,10 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
       hasStage: Boolean(app?.stage),
       hasModel: Boolean(model),
     })
-    return () => { /* no-op */ }
+    return {
+      detach: () => { /* no-op */ },
+      updateText: () => { /* no-op */ },
+    }
   }
 
   ensureBatchRendererOnLiveRenderer(app)
@@ -367,13 +407,12 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
     const pitchParam = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.pitch)
     const rollParam = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.roll)
 
-    // Fall back to Live2D focusController if angle parameters are 0 in neutral pose
     const focusX = Number(model?.internalModel?.focusController?.x) || 0
     const focusY = Number(model?.internalModel?.focusController?.y) || 0
 
-    const yawRaw = yawParam !== 0 ? yawParam : (focusX * 30)
-    const pitchRaw = pitchParam !== 0 ? pitchParam : (-focusY * 30)
-    const rollRaw = rollParam
+    const yawRaw = yawParam !== null && yawParam !== 0 ? yawParam : (focusX * 30)
+    const pitchRaw = pitchParam !== null && pitchParam !== 0 ? pitchParam : (-focusY * 30)
+    const rollRaw = rollParam || 0
 
     const anchor = findHeadAnchorPoint(model, frameCount)
     if (!anchor) {
@@ -465,18 +504,23 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
   // Kick one immediate frame so the plank does not flash at origin on attach.
   tick()
 
-  return () => {
-    try {
-      app.ticker?.remove(tick)
-    }
-    catch { /* ticker may already be torn down */ }
-    try {
-      // PIXI v6 Container exposes `parent`/`removeChild`; `removeFromParent` is
-      // a v7+ alias. Use the structural `parent` API for the broadest runtime
-      // compatibility.
-      plank.parent?.removeChild?.(plank)
-      plank.destroy?.({ children: true })
-    }
-    catch { /* plank may already be gone */ }
+  return {
+    detach: () => {
+      try {
+        app.ticker?.remove(tick)
+      }
+      catch { /* ticker may already be torn down */ }
+      try {
+        // PIXI v6 Container exposes `parent`/`removeChild`; `removeFromParent` is
+        // a v7+ alias. Use the structural `parent` API for the broadest runtime
+        // compatibility.
+        plank.parent?.removeChild?.(plank)
+        plank.destroy?.({ children: true })
+      }
+      catch { /* plank may already be gone */ }
+    },
+    updateText: (newText: string, color?: string) => {
+      plank.updateText(newText, color)
+    },
   }
 }

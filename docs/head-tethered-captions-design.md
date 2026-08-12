@@ -306,3 +306,16 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 - **Resolution**:
   1. Updated array guard to `typeof directValues.length === 'number'` to seamlessly read `Float32Array` values from WASM memory.
   2. Added fallback to `internalModel.focusController.x / y` (Live2D's internal cursor look-at target) when angle parameters are neutral, ensuring real-time 3D squash (`scaleX`), shear (`skewX`/`skewY`), and rotation (`rotation`) whenever the user moves their cursor across the stage.
+
+### 8.10 Sentence Sync Protocol Integration, Actor Outline Accent & State Persistence
+- **Sentence Sync Integration**: `HeadTetheredCaption.vue` subscribes to the `airi-caption-overlay` BroadcastChannel (`{ type: 'caption-assistant', segments }`).
+- **`isActive: true` Target**: Filters `const activeSegment = segments?.find(s => s.isActive)`. Updates displayed text dynamically via `updateText(activeSegment.text)`.
+- **Actor Identity Accent via Border Outline**:
+  - The actor's color (`activeSegment.color` or default slate `0x0F172A`) is applied to the **bubble border outline** (`bubble.lineStyle(outlineWidth, actorOutlineColor, outlineAlpha, 0.5)`).
+  - The inner font fill color remains consistent dark slate (`0x0F172A`) for maximum contrast and legibility.
+- **Actor ID Omission**: `actorId` is omitted from visual display on the bubble plank.
+- **Default State & Persistence**:
+  - Initial default text: `"Hello there! ✨ Floating with AIRI! 💖🌸"`.
+  - The bubble is always visible when enabled.
+  - When speech turns finish or reset payloads arrive (`segments: []`), the plank **persists the last active sentence state** (omits fade-out or dismissal) to enable continuous visual inspection and debugging.
+
