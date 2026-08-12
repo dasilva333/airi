@@ -333,25 +333,38 @@ export function buildCaptionBubblePlank(opts: {
     const fillColor = 0xFFFFFF
     const fillAlpha = 0.92
 
-    // Body
-    bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
-    bubble.beginFill(fillColor, fillAlpha)
-    bubble.drawRoundedRect(-bubbleWidth / 2, -bubbleHeight, bubbleWidth, bubbleHeight, Math.min(14, padY + 3))
-    bubble.endFill()
+    const radius = Math.min(14, padY + 3)
+    const halfW = bubbleWidth / 2
 
-    // Tail triangle pointing down
+    // Single continuous vector path: seamless body + tail with zero internal seams
     bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
     bubble.beginFill(fillColor, fillAlpha)
-    bubble.moveTo(-tailBaseHalf, -2)
+
+    // Start at top edge (after top-left corner radius)
+    bubble.moveTo(-halfW + radius, -bubbleHeight)
+
+    // Top edge ➔ top-right corner
+    bubble.lineTo(halfW - radius, -bubbleHeight)
+    bubble.arcTo(halfW, -bubbleHeight, halfW, -bubbleHeight + radius, radius)
+
+    // Right edge ➔ bottom-right corner
+    bubble.lineTo(halfW, -radius)
+    bubble.arcTo(halfW, 0, halfW - radius, 0, radius)
+
+    // Bottom edge right of tail ➔ tail tip ➔ tail left
+    bubble.lineTo(tailBaseHalf, 0)
     bubble.lineTo(0, tailHeight)
-    bubble.lineTo(tailBaseHalf, -2)
-    bubble.closePath()
-    bubble.endFill()
+    bubble.lineTo(-tailBaseHalf, 0)
 
-    // Seam cover
-    bubble.lineStyle(0)
-    bubble.beginFill(fillColor, fillAlpha)
-    bubble.drawRect(-tailBaseHalf - 1, -3, tailBaseHalf * 2 + 2, 3)
+    // Bottom edge left of tail ➔ bottom-left corner
+    bubble.lineTo(-halfW + radius, 0)
+    bubble.arcTo(-halfW, 0, -halfW, -radius, radius)
+
+    // Left edge ➔ top-left corner
+    bubble.lineTo(-halfW, -bubbleHeight + radius)
+    bubble.arcTo(-halfW, -bubbleHeight, -halfW + radius, -bubbleHeight, radius)
+
+    bubble.closePath()
     bubble.endFill()
 
     // Centre text in the bubble body
