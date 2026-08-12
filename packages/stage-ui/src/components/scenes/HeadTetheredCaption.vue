@@ -74,7 +74,7 @@ function tryAttach(): boolean {
     detachAdapter.value = attachLive2DHeadTetheredCaption({
       app: app as any,
       model: currentModel,
-      text: props.text ?? 'The quick brown fox jumps over the lazy dog. 一二三四五六七八九十。',
+      text: props.text ?? 'Hello there! ✨ Floating with AIRI! 💖🌸',
       followStrength: settingsStore.headTetheredCaptionFollowStrength,
       offset: settingsStore.headTetheredCaptionOffset,
     })

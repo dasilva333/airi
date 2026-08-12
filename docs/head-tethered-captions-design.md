@@ -297,3 +297,12 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
   1. Inspects `app.renderer.plugins.batch`.
   2. If missing, constructs `new BatchRenderer(app.renderer)` directly and assigns it to `renderer.plugins.batch`.
   3. Manually invokes `instance.contextChange()` once so `MAX_TEXTURES` is computed from the live WebGL context instead of defaulting to 1.
+
+### 8.9 Real-Time 3D Skew, TypedArray Memory Resolution & Focus Target Fallback
+- **Symptom**: The caption plank remained static and did not twist/skew when the character turned her head or looked around.
+- **Root Cause**: Two factors combined:
+  1. `_parameterValues` in the Cubism 4 SDK is a WebGL `Float32Array` (TypedArray). The previous guard `Array.isArray(_parameterValues)` evaluated to `false`, silently skipping parameter reads from WASM memory.
+  2. When a model is in a neutral idle pose, `ParamAngleX/Y/Z` can sit at `0`.
+- **Resolution**:
+  1. Updated array guard to `typeof directValues.length === 'number'` to seamlessly read `Float32Array` values from WASM memory.
+  2. Added fallback to `internalModel.focusController.x / y` (Live2D's internal cursor look-at target) when angle parameters are neutral, ensuring real-time 3D squash (`scaleX`), shear (`skewX`/`skewY`), and rotation (`rotation`) whenever the user moves their cursor across the stage.

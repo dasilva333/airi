@@ -82,9 +82,11 @@ function readCoreModelParamValue(coreModel: any, aliases: readonly string[]): nu
   // `_model` reference is wired lazily. The wrapper's own `_parameterIds` /
   // `_parameterValues` parallel arrays are reliable and updated every frame by
   // the runtime, so we read those first.
-  const directIds = coreModel._parameterIds as unknown
-  const directValues = coreModel._parameterValues as unknown
-  if (Array.isArray(directIds) && Array.isArray(directValues) && directIds.length > 0) {
+  const directIds = coreModel._parameterIds as any
+  const directValues = coreModel._parameterValues as any
+  const hasDirectIds = Array.isArray(directIds) && directIds.length > 0
+  const hasDirectValues = directValues && typeof directValues.length === 'number'
+  if (hasDirectIds && hasDirectValues) {
     for (const alias of aliases) {
       const aliasNorm = normalizeParamId(alias)
       for (let i = 0; i < directIds.length; i += 1) {
@@ -135,24 +137,18 @@ function readCoreModelParamValue(coreModel: any, aliases: readonly string[]): nu
 // Helps when a model uses non-standard IDs and the alias list needs to grow.
 function dumpModelParameterIds(coreModel: any, model: any): void {
   try {
-    const ids: string[] = []
-    const count = Number(coreModel?.getParameterCount?.())
-    if (Number.isInteger(count) && count > 0) {
-      for (let i = 0; i < count; i += 1) {
-        const id = coreModel.getParameterId?.(i)
-        if (typeof id === 'string' && id)
-          ids.push(id)
-      }
-    }
+    const directIds = (Array.isArray(coreModel?._parameterIds) ? coreModel._parameterIds : []) as string[]
+
+    const yawVal = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.yaw)
+    const pitchVal = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.pitch)
+    const rollVal = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.roll)
+
     console.info('[live2d-head-tethered-caption] parameter census', {
-      count: ids.length,
-      ids,
-      internalModelKeys: model?.internalModel ? Object.keys(model.internalModel).slice(0, 12) : [],
+      count: directIds.length,
+      sampleIds: directIds.slice(0, 40),
+      resolvedPoseSample: { yawVal, pitchVal, rollVal },
       internalModelProto: model?.internalModel ? Object.getPrototypeOf(model.internalModel)?.constructor?.name : null,
       coreModelProto: coreModel ? Object.getPrototypeOf(coreModel)?.constructor?.name : null,
-      hasGetParameterCount: typeof coreModel?.getParameterCount === 'function',
-      hasGetParameterValueById: typeof coreModel?.getParameterValueById === 'function',
-      coreModelDirectKeys: coreModel ? Object.keys(coreModel).slice(0, 12) : [],
     })
   }
   catch (err) {
@@ -367,9 +363,17 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
       return
     }
 
-    const yawRaw = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.yaw)
-    const pitchRaw = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.pitch)
-    const rollRaw = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.roll)
+    const yawParam = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.yaw)
+    const pitchParam = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.pitch)
+    const rollParam = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.roll)
+
+    // Fall back to Live2D focusController if angle parameters are 0 in neutral pose
+    const focusX = Number(model?.internalModel?.focusController?.x) || 0
+    const focusY = Number(model?.internalModel?.focusController?.y) || 0
+
+    const yawRaw = yawParam !== 0 ? yawParam : (focusX * 30)
+    const pitchRaw = pitchParam !== 0 ? pitchParam : (-focusY * 30)
+    const rollRaw = rollParam
 
     const anchor = findHeadAnchorPoint(model, frameCount)
     if (!anchor) {
@@ -401,9 +405,34 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
     const clampedX = Math.max(minX, Math.min(transform.x, maxX))
     const clampedY = Math.max(12, transform.y)
 
-    if (frameCount === 1 || frameCount % 180 === 0) {
+    const isDebug = typeof window !== 'undefined' && Boolean((window as any).__AIRI_DEBUG_CAPTIONS__)
+    if (isDebug && (frameCount === 1 || frameCount % 180 === 0)) {
+      const idxX = coreModel._parameterIds?.indexOf?.('ParamAngleX') ?? -1
+      const idxY = coreModel._parameterIds?.indexOf?.('ParamAngleY') ?? -1
+      const idxZ = coreModel._parameterIds?.indexOf?.('ParamAngleZ') ?? -1
+
       console.info('[live2d-head-tethered-caption] stage telemetry sample', {
         frameCount,
+        poseRaw: { yawRaw, pitchRaw, rollRaw },
+        poseDiagnostics: {
+          focusController: { x: focusX, y: focusY },
+          modelGetParam: {
+            angleX: model?.getParameterValueById?.('ParamAngleX'),
+            angleY: model?.getParameterValueById?.('ParamAngleY'),
+            angleZ: model?.getParameterValueById?.('ParamAngleZ'),
+          },
+          coreGetParam: {
+            angleX: coreModel?.getParameterValueById?.('ParamAngleX'),
+            angleY: coreModel?.getParameterValueById?.('ParamAngleY'),
+            angleZ: coreModel?.getParameterValueById?.('ParamAngleZ'),
+          },
+          directArrayParam: {
+            idxX,
+            valX: idxX >= 0 ? coreModel._parameterValues?.[idxX] : null,
+            valY: idxY >= 0 ? coreModel._parameterValues?.[idxY] : null,
+            valZ: idxZ >= 0 ? coreModel._parameterValues?.[idxZ] : null,
+          },
+        },
         windowSize: typeof window !== 'undefined' ? { width: window.innerWidth, height: window.innerHeight } : null,
         stageScreen: { width: app.screen?.width, height: app.screen?.height },
         stageScale: { x: app.stage?.scale?.x, y: app.stage?.scale?.y },
@@ -414,7 +443,7 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
           bounds: model?.getBounds?.(),
         },
         anchor,
-        transformRaw: { x: transform.x, y: transform.y },
+        transformRaw: { x: transform.x, y: transform.y, skewX: transform.skewX, scaleX: transform.scaleX, rotation: transform.rotation },
         transformClamped: { x: clampedX, y: clampedY },
         plankBBox: plank.getBounds?.(),
       })
