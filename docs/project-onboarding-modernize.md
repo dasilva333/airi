@@ -77,13 +77,22 @@ Step 5: Physical Vessel (3D VRM & 2D Live2D Avatar Selection)
   ├── Custom Model Dropzone: Drag-and-drop `.vrm`, `.model3.json`, or `.zip` assets
   └── Viewport Swap: Tapping `[ 🌐 Find Free Bodies ]` swaps starter cards for external Explore Link Wall
         │
-Step 6: Contextual Speech (Voice / TTS Setup)
-  ├── Ref: `v2/step-speech.vue` & `useSpeechStore`
-  ├── Local Hero Cards (with Language Badges):
-  │    ├── 🔊 Kokoro Local WebGPU (🇺🇸 English, 🇯🇵 Japanese, 🇨🇳 Chinese, 🇪🇸 Spanish, 🇫🇷 French)
-  │    ├── 🎙️ Pocket-TTS Local (CPU-based, voice cloning — 🇺🇸 EN, 🇫🇷 FR, 🇪🇸 ES, 🇩🇪 DE, 🇵🇹 PT, 🇮🇹 IT)
-  │    └── ⚡ Moss-Nano Local (Fast Low-Resource Voice)
-  └── Inline Cloud Directory: ElevenLabs, OpenAI Audio, Deepgram, Azure, Fish Speech
+Step 6: Contextual Speech (Her Voice Studio Setup)
+  ├── Ref: `v2/step-speech.vue`, `useSpeechStore` & `AutoVoiceConfigModal.vue`
+  ├── Section A (Provider Hierarchy):
+  │    ├── 3x Prominent Local Hero Cards: Kokoro WebGPU, Pocket-TTS (CPU voice cloning), Moss-Nano (Ultra-Fast EN/ZH)
+  │    └── Remote Cloud Mini-Card Grid: ElevenLabs, OpenAI Audio, Deepgram Aura, Azure Speech, Fish Speech
+  ├── Section B (Model Selection & Provisioning):
+  │    ├── Model Dropdown (populated per active provider)
+  │    ├── Local: [ Activate & Download ] button + real-time WASM/worker progress bar
+  │    └── Remote: API Key password input + inline 👁️ eye icon show/hide toggle + ↗ quick console URL link
+  ├── Section C (Voice Studio & Tone Tuning Controls):
+  │    ├── Voice Selector Dropdown + [ 🔄 Load Voices ] button (invokes provider.getVoices())
+  │    └── Speed & Pitch Sliders: Constrained range 0.75x to 1.5x (step 0.05) to prevent distortion
+  ├── Section D (Live Audio Preview Playground):
+  │    ├── Dynamic sample text prompt: "Hello {userName}! I'm {personaName}. Everything is ready — how do I sound?"
+  │    └── [ ▶ Play Preview ] button: Synthesizes live audio via Audio Studio proxy & plays in browser
+  └── Internal Tuple & Audio Studio Proxy: `draft.speech` represented as 3-part tuple (`providerId`, `modelId`, `voiceId`) mapping to `virtual-audio-studio` proxy provider & generated `VoiceProfile`
         │
 Step 7: Stage Calibration & Victory Launch
   ├── Ref: `v2/step-calibration.vue` & `useOnboardingStore`
@@ -187,12 +196,28 @@ Step 7: Stage Calibration & Victory Launch
 
 ---
 
-### Step 6: Contextual Speech (Voice / TTS Setup)
-- **Front & Center Local Hero Cards (with Language Badges)**:
-  - **Kokoro Local WebGPU**: Badges `[🇺🇸 EN]` `[🇯🇵 JP]` `[🇨🇳 ZH]` `[🇪🇸 ES]` `[🇫🇷 FR]`
-  - **Pocket-TTS Local**: Badges `[🇺🇸 EN]` `[🇫🇷 FR]` `[🇪🇸 ES]` `[🇩🇪 DE]` `[🇵🇹 PT]` `[🇮🇹 IT]` (CPU-based, 0.1B multilingual + voice cloning — the natural local TTS pick when WebGPU is unavailable)
-  - **Moss-Nano Local**: Badge `[⚡ Ultra-Fast Local]`
-- **Inline Cloud Directory**: ElevenLabs, OpenAI Audio, Deepgram, Azure, Fish Speech.
+### Step 6: Contextual Speech (Her Voice Studio Setup)
+- **Section A — Visual Provider Hierarchy (Local Hero Cards vs Remote Cloud Grid)**:
+  - **3x Prominent Local Hero Cards (Top Row)**:
+    - **Kokoro Local WebGPU**: Badges `[🇺🇸 EN]` `[🇯🇵 JP]` `[🇨🇳 ZH]` `[🇪🇸 ES]` `[🇫🇷 FR]` — High-performance local neural TTS.
+    - **Pocket-TTS Local**: Badges `[🇺🇸 EN]` `[🇫🇷 FR]` `[🇪🇸 ES]` `[🇩🇪 DE]` `[🇵🇹 PT]` `[🇮🇹 IT]` — Low-latency 0.1B CPU engine with voice cloning.
+    - **Moss-Nano Local**: Badges `[🇺🇸 EN]` `[🇨🇳 ZH]` — Fast low-resource local voice.
+  - **Remote Cloud Provider Mini-Card Grid (Second Row)**:
+    - Compact mini cards for ElevenLabs, OpenAI Audio, Deepgram Aura, Azure Speech, Fish Speech.
+- **Section B — Model Selection & Provisioning Panel**:
+  - **Model Dropdown**: Dynamically populated based on active provider (e.g. Kokoro `v0.19`/`v1.0`; ElevenLabs `eleven_multilingual_v2`; OpenAI `tts-1`).
+  - **Local Provisioning Branch**: Displays **`[ Activate & Download Weights ]`** action button with a real-time weight loading progress bar.
+  - **Remote Provisioning Branch**: Displays **API Key password input** with inline 👁️ eye icon show/hide toggle + ↗ quick console button leveraging `consoleUrl` (opens key settings page directly in a new browser window).
+- **Section C — Unified Voice Selector & Audio Tuning Controls**:
+  - **Voice Selector Dropdown + `[ 🔄 Load Voices ]`**: Calls `getVoices()` for the active provider to fetch or refresh live voice presets.
+  - **Speed & Pitch Sliders**: Constrained to a tight, high-quality tuning range of **`0.75x` to `1.5x`** (step `0.05`, default `1.0x`) to prevent severe audio distortion.
+- **Section D — Live Audio Preview Playground**:
+  - **Dynamic Sample Text Input**: Pre-filled with Step 3 User Name and Step 4 Persona Name: *"Hello {userName}! I'm {personaName}. Everything is ready — how do I sound?"*
+  - **`[ ▶ Play Preview ]` Button**: Synthesizes speech live using the active engine, model, voice, pitch, and speed, playing the audio back live.
+- **Internal Architecture & Audio Studio Proxy Mapping**:
+  - Leverages AIRI's internal Audio Studio proxy framework (`AutoVoiceConfigModal.vue` / `speechStore`).
+  - `draftStore.state.speech` stores a **3-part tuple**: `providerId: 'virtual-audio-studio'`, `modelId: 'virtual'`, `voiceId: voice_profile_{personaName}_onboarding`.
+  - Under the hood, this compiles into a temporary/final `VoiceProfile` containing the real `baseProvider`, `baseModel`, `baseVoice`, and `effects: { pitch, rate, volume }`.
 
 ---
 
