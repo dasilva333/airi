@@ -95,12 +95,12 @@ export function poseToCaptionTransform(
     }
   }
 
-  const flatten = Math.abs(x) * 0.18 * perspective
+  const flatten = Math.abs(x) * 0.12 * perspective
   const scaleX = 1 - flatten
-  const scaleY = 1 + Math.abs(y) * 0.035 * perspective
-  const skewX = x * 0.12 * perspective
-  const skewY = -y * 0.045 * perspective
-  const rotation = roll * 0.5 * perspective
+  const scaleY = 1 + Math.abs(y) * 0.025 * perspective
+  const skewX = x * 0.06 * perspective
+  const skewY = -y * 0.025 * perspective
+  const rotation = roll * 0.25 * perspective
 
   return {
     x: anchor.x + opts.offsetX,

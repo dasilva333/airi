@@ -65,11 +65,6 @@ const PARAM_ID_ALIASES = {
   roll: ['ParamAngleZ', 'PARAM_ANGLE_Z', 'ParamHeadAngleZ', 'HeadAngleZ', 'FaceAngleZ', 'AngleZ'],
 } as const
 
-// Fallback fraction of the model's bounding box where the head's centre is
-// expected when no tagged head drawable can be located. Same convention as
-// the Live2D accessory ecosystem.
-const FALLBACK_HEAD_ANCHOR = { x: 0.5, y: 0.18 } as const
-
 // The natural range of Live2D angle parameters is roughly ±30. We clamp the
 // normalised yaw/pitch/roll into [-1, 1] downstream.
 const PARAM_RANGE = 30
@@ -165,7 +160,7 @@ function dumpModelParameterIds(coreModel: any, model: any): void {
   }
 }
 
-function findHeadAnchorPoint(model: any): { x: number, y: number } | null {
+function findHeadAnchorPoint(model: any, frameCount = 0): { x: number, y: number } | null {
   if (!model)
     return null
 
@@ -179,10 +174,35 @@ function findHeadAnchorPoint(model: any): { x: number, y: number } | null {
   if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height) || bounds.width <= 0 || bounds.height <= 0)
     return null
 
-  return {
-    x: bounds.x + bounds.width * FALLBACK_HEAD_ANCHOR.x,
-    y: bounds.y + bounds.height * FALLBACK_HEAD_ANCHOR.y,
+  let globalHeadOrigin: { x: number, y: number } | null = null
+  try {
+    if (typeof model.toGlobal === 'function') {
+      const g = model.toGlobal({ x: 0, y: 0 })
+      if (g && Number.isFinite(g.x) && Number.isFinite(g.y)) {
+        globalHeadOrigin = { x: g.x, y: g.y }
+      }
+    }
   }
+  catch { /* best-effort */ }
+
+  const headCenterX = globalHeadOrigin ? globalHeadOrigin.x : (bounds.x + bounds.width * 0.5)
+
+  const anchor = {
+    x: headCenterX,
+    y: bounds.y + Math.min(bounds.height * 0.02, 15),
+  }
+
+  const shouldLog = frameCount === 1 || (frameCount > 0 && frameCount % 300 === 0)
+  if (shouldLog) {
+    console.info('[live2d-head-tethered-caption] head anchor resolved', {
+      frameCount,
+      modelBounds: bounds,
+      globalHeadOrigin,
+      resolvedAnchor: anchor,
+    })
+  }
+
+  return anchor
 }
 
 function measureModelHeightPx(model: any): number {
@@ -320,15 +340,18 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
   }
 
   const modelHeightPx = measureModelHeightPx(model)
-  const plankWidth = modelHeightPx * (opts.widthToModelHeightRatio ?? 0.45)
+  const stageWidthPx = app.screen?.width || app.renderer?.width || (typeof window !== 'undefined' ? window.innerWidth : 400)
+  const maxViewportWidth = Math.min(stageWidthPx * 0.65, 300)
+  const plankWidth = Math.max(140, Math.min(modelHeightPx * 0.35, maxViewportWidth))
   const plank = buildCaptionBubblePlank({ text, widthPx: plankWidth })
 
   app.stage.addChild(plank)
   console.info('[live2d-head-tethered-caption] attached', {
     plankWidth,
     modelHeightPx,
+    stageWidthPx,
     followStrength,
-    offset,
+    offsetPlain,
     text,
   })
   dumpModelParameterIds(model?.internalModel?.coreModel, model)
@@ -348,22 +371,12 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
     const pitchRaw = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.pitch)
     const rollRaw = readCoreModelParamValue(coreModel, PARAM_ID_ALIASES.roll)
 
-    const anchor = findHeadAnchorPoint(model)
+    const anchor = findHeadAnchorPoint(model, frameCount)
     if (!anchor) {
       if (frameCount < 5 || frameCount % 240 === 0) {
         console.warn('[live2d-head-tethered-caption] no anchor resolved on tick', { frameCount })
       }
       return
-    }
-
-    if (frameCount === 1 || frameCount % 240 === 0) {
-      console.info('[live2d-head-tethered-caption] tick sample', {
-        frameCount,
-        yawRaw,
-        pitchRaw,
-        rollRaw,
-        anchor,
-      })
     }
 
     const transform = poseToCaptionTransform(
@@ -375,12 +388,39 @@ export function attachLive2DHeadTetheredCaption(opts: Live2DHeadTetheredCaptionA
       anchor,
       {
         strength: followStrength,
-        offsetX: offset.x,
-        offsetY: offset.y,
+        offsetX: offsetPlain.x,
+        offsetY: offsetPlain.y,
       },
     )
 
-    plank.position.set(transform.x, transform.y)
+    // Viewport Boundary Clamping: prevent bubble body from clipping off-screen.
+    const stageWidth = app.screen?.width || app.renderer?.width || (typeof window !== 'undefined' ? window.innerWidth : 400)
+    const bubbleHalfWidth = plankWidth / 2
+    const minX = bubbleHalfWidth + 12
+    const maxX = Math.max(minX, stageWidth - bubbleHalfWidth - 12)
+    const clampedX = Math.max(minX, Math.min(transform.x, maxX))
+    const clampedY = Math.max(12, transform.y)
+
+    if (frameCount === 1 || frameCount % 180 === 0) {
+      console.info('[live2d-head-tethered-caption] stage telemetry sample', {
+        frameCount,
+        windowSize: typeof window !== 'undefined' ? { width: window.innerWidth, height: window.innerHeight } : null,
+        stageScreen: { width: app.screen?.width, height: app.screen?.height },
+        stageScale: { x: app.stage?.scale?.x, y: app.stage?.scale?.y },
+        modelMetrics: {
+          position: { x: model?.x, y: model?.y },
+          scale: { x: model?.scale?.x, y: model?.scale?.y },
+          pivot: { x: model?.pivot?.x, y: model?.pivot?.y },
+          bounds: model?.getBounds?.(),
+        },
+        anchor,
+        transformRaw: { x: transform.x, y: transform.y },
+        transformClamped: { x: clampedX, y: clampedY },
+        plankBBox: plank.getBounds?.(),
+      })
+    }
+
+    plank.position.set(clampedX, clampedY)
     plank.scale.set(transform.scaleX, transform.scaleY)
     // `skew` exists on PIXI v6+ Container; guard for runtime variance.
     plank.skew?.set?.(transform.skewX, transform.skewY)

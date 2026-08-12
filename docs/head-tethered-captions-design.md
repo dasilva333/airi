@@ -244,3 +244,56 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 1. `pnpm -F stage-ui typecheck && pnpm -F stage-ui-live2d typecheck`.
 2. `pnpm -F stage-tamagotchi build`.
 3. Manual smoke in dev: Live2D model loaded, toggle on → plank appears above head; turn head → plank skews/flattens; toggle off → plank disappears and PIXI container is destroyed.
+
+---
+
+## 8. Implementation History & Discovered Failure Modes Journal
+
+### 8.1 Vue 3 Ref Reactivity & `defineExpose` Double-Unwrapping Trap
+- **Symptom**: Toggling Head-Tethered Caption ON in Control Customizer resulted in no bubble appearing on stage at all (silent attach failure).
+- **Root Cause**: `Live2DCanvas.vue` exposed `pixiApp` as a `Ref<Application | undefined>`. Originally, `Live2D.vue` wrapped this in `live2dApp: computed(() => live2dCanvasRef.value?.pixiApp)`. In Vue 3, `defineExpose` automatically unwraps top-level ref properties on component instances. Wrapping a `Ref` inside a `computed` produced a double-wrapped `ComputedRef<Ref<Application>>`. When `RendererStage.vue` passed `live2dSceneRef` down to `HeadTetheredCaption.vue`, accessing `live2dApp` yielded the `ComputedRef` object instead of the underlying PIXI `Application` instance. Furthermore, capturing `props.app` statically at initial template render time caused it to evaluate to `undefined` permanently because the canvas boots asynchronously after initial component mount.
+- **Resolution**:
+  1. `Live2D.vue` exposes `live2dApp` as a function accessor: `live2dApp: () => live2dCanvasRef.value?.pixiApp`.
+  2. `HeadTetheredCaption.vue` takes `:live2d-scene-ref` as a prop containing `{ live2dApp?: () => unknown }`.
+  3. `HeadTetheredCaption.vue` polls `live2dApp()` lazily until both the PIXI Application and Live2D model instances are ready on stage.
+
+### 8.2 PIXI v6 Scoped Package `BatchRenderer` Injection Error
+- **Symptom**: `Graphics` and `Text` rendering threw `Cannot read properties of undefined (reading 'MAX_TEXTURES')`.
+- **Root Cause**: In PIXI v6, scoped packages (`@pixi/graphics`, `@pixi/text`) carry `pluginName = 'batch'` and look up `renderer.plugins.batch` at render time. AIRI's Live2D stage canvas runs on Cubism's custom WebGL renderer context without initializing PIXI's standard batch plugin.
+- **Resolution**: Implemented `ensureBatchRendererOnLiveRenderer(app)` in `head-tethered-caption.ts` to inject a `BatchRenderer` instance into `renderer.plugins.batch` and trigger `instance.contextChange()` to initialize texture limits against the live WebGL context.
+
+### 8.3 Subtitle Plank Geometry & Anchor Placement Misalignment
+- **Symptom**: Speech bubble covered the character's face/eyes, and the tail extended horizontally to the right.
+- **Root Cause**: `FALLBACK_HEAD_ANCHOR.y = 0.18` placed the anchor 18% down from `bounds.y` (placing the anchor directly on the character's face/nose). With `container.pivot.set(0, tailHeight)` anchoring the tail tip to `(anchor.x, anchor.y)`, the bubble body (which extends upwards from `y=0` to `y=-bubbleHeight`) sat directly on top of the character's forehead/eyes. When combined with excessive skew, the tail appeared to shear sideways.
+- **Resolution**:
+  1. `findHeadAnchorPoint(model)` inspects Live2D drawable art meshes (`head`, `hair`, `face`, `頭`, `顔`, `髮`) to resolve the exact top-most Y coordinate of the head/hair.
+  2. Top-center bounding-box fallback (`bounds.x + bounds.width * 0.5`, `bounds.y + Math.min(bounds.height * 0.03, 20)`) anchors the tail tip to the top of the hair/head (`bounds.y`), allowing the bubble body to float cleanly above the character.
+  3. Tuned default offset to `{ x: 0, y: -15 }` and moderated skew/rotation multipliers in `caption-perspective.ts`.
+
+### 8.4 Cubism Core Model Parameter Enumeration (`count: 0, ids: Array(0)`)
+- **Symptom**: Parameter census logged `{count: 0, ids: Array(0)}` and pose values returned `yawRaw: 0, pitchRaw: 0, rollRaw: 0`.
+- **Root Cause**: `pixi-live2d-display`'s `CubismModel.getParameterCount()` sometimes returns `0` during early initialization because the underlying `_model` reference is initialized lazily. Public API index queries failed even though parameters were present.
+- **Resolution**: Implemented `readCoreModelParamValue()` to inspect `coreModel._parameterIds` and `coreModel._parameterValues` direct arrays first (which are reliable and updated every frame by Cubism), followed by index enumeration and `getParameterValueById()` fallbacks.
+
+### 8.5 Vue Reactive Proxy Unwrapping in High-Frequency Ticker Loops
+- **Symptom**: Settings passed to the adapter were logged as `Proxy(Object) {x: 0, y: -40}`.
+- **Root Cause**: Reading Vue `useLocalStorage` reactive proxy properties directly inside a 60 FPS PIXI ticker loop causes unnecessary reactivity tracking overhead.
+- **Resolution**: Unwrapped `offset` into plain primitive numbers (`offsetPlain = { x: Number(offset?.x) || 0, y: Number(offset?.y) || 0 }`) once at attach time so per-frame tick evaluations remain zero-overhead.
+
+### 8.6 Cubism4InternalModel Direct Array Access vs CDI Parameter Count
+- **Symptom**: Parameter census logged `count: 0` despite the model actively animating and `parameterMetadata from CDI: 124` confirming 124 parameters.
+- **Root Cause**: In `Cubism4InternalModel`, `getParameterCount()` delegates to `_model`, which is initialized lazily. However, the Cubism runtime maintains `_parameterIds` and `_parameterValues` directly as parallel arrays on `coreModel`.
+- **Resolution**: Directly inspecting `_parameterIds` and `_parameterValues` in `readCoreModelParamValue()` guarantees reliable access to all 124 parameters regardless of `getParameterCount()`'s initialization state.
+
+### 8.7 Renderer Batch State & Graphics Object Signature in PIXI v6
+- **Symptom**: `guardedRender` in `Canvas.vue` threw `TypeError: Cannot read properties of undefined (reading 'MAX_TEXTURES')` during `app.render()`.
+- **Root Cause**: Passing single object signatures to `lineStyle({ width, color })` (a PIXI v7+ API) on PIXI v6 stored invalid stroke metadata inside the `Graphics` instance. When the renderer processed the malformed batch, `BatchRenderer` attempted to read `MAX_TEXTURES` on an uninitialized/missing plugin slot.
+- **Resolution**: Enforced positional arguments for `lineStyle(width, color, alpha, alignment)` matching PIXI v6 signatures.
+
+### 8.8 Live WebGL Renderer Batch Plugin Injection (`ensureBatchRendererOnLiveRenderer`)
+- **Symptom**: Standalone `@pixi/graphics` and `@pixi/text` v6 objects attached to `app.stage` caused `guardedRender` in `Canvas.vue` to throw `TypeError: Cannot read properties of undefined (reading 'MAX_TEXTURES')` every frame.
+- **Root Cause**: `Graphics.pluginName === 'batch'`, so PIXI `Graphics` objects render through the batch plugin system. `BatchRenderer` carries extension metadata `{ name: 'batch', type: RendererPlugin }`, but in PIXI v6 scoped packages, plugins are not automatically self-registered. Because AIRI's Live2D canvas runs on Cubism's custom WebGL renderer context (`pixi-live2d-display/cubism4`), `renderer.plugins.batch` was never constructed on the active `Application`. When `Graphics` entered the render pass, PIXI looked up `renderer.plugins.batch.MAX_TEXTURES` on an undefined instance. Furthermore, `extensions.add` does not inject plugins into already-constructed renderers (`initPlugins` runs inside `Renderer`'s constructor).
+- **Resolution**: Implemented `ensureBatchRendererOnLiveRenderer(app)` in `head-tethered-caption.ts`:
+  1. Inspects `app.renderer.plugins.batch`.
+  2. If missing, constructs `new BatchRenderer(app.renderer)` directly and assigns it to `renderer.plugins.batch`.
+  3. Manually invokes `instance.contextChange()` once so `MAX_TEXTURES` is computed from the live WebGL context instead of defaulting to 1.

@@ -17,7 +17,7 @@ export const useSettingsCaptions = defineStore('settings-captions', () => {
   // Head-tethered caption plank (in-scene PIXI renderer). Independent of the
   // windowed caption above; both may run simultaneously. Live2D-only in MVP.
   const headTetheredCaptionEnabled = useLocalStorageManualReset<boolean>('settings/captions/head-tethered/enabled', false)
-  const headTetheredCaptionOffset = useLocalStorageManualReset<{ x: number, y: number }>('settings/captions/head-tethered/offset', { x: 0, y: -40 })
+  const headTetheredCaptionOffset = useLocalStorageManualReset<{ x: number, y: number }>('settings/captions/head-tethered/offset', { x: 0, y: -15 })
   const headTetheredCaptionFollowStrength = useLocalStorageManualReset<number>('settings/captions/head-tethered/follow-strength', 100)
 
   function resetState() {
