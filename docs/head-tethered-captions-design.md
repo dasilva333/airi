@@ -314,8 +314,12 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
   - The actor's color (`activeSegment.color` or default slate `0x0F172A`) is applied to the **bubble border outline** (`bubble.lineStyle(outlineWidth, actorOutlineColor, outlineAlpha, 0.5)`).
   - The inner font fill color remains consistent dark slate (`0x0F172A`) for maximum contrast and legibility.
 - **Actor ID Omission**: `actorId` is omitted from visual display on the bubble plank.
-- **Default State & Persistence**:
-  - Initial default text: `"Hello there! ✨ Floating with AIRI! 💖🌸"`.
-  - The bubble is always visible when enabled.
-  - When speech turns finish or reset payloads arrive (`segments: []`), the plank **persists the last active sentence state** (omits fade-out or dismissal) to enable continuous visual inspection and debugging.
+### 8.11 Micro-Pacer & Dynamic Clause Sub-Chunking
+- **Symptom / Failure Mode**: Upstream TTS or suggestion pipelines can emit long multi-sentence paragraphs as a single `isActive: true` segment (e.g. 180+ characters). Rendering a giant 6-line bubble causes the top of the bubble to clip off-screen or cover the character's face.
+- **Micro-Pacer Algorithm**:
+  - `subChunkText(text, maxChars = 80)`: Splits long active segments at natural punctuation/clause boundaries (`~`, `,`, `.`, `!`, `?`, `;`, `—`, `:`) or space boundaries into compact, 2-line sub-phrases (max 80 chars each).
+  - **Reading-Speed Pacer**: Calculates sub-phrase display cadence based on character count (~16 characters per second or ~250ms per word, minimum 1.5s per sub-phrase).
+  - Sequences through the sub-chunks automatically while `isActive: true` holds on the parent segment.
+  - On the final sub-chunk, holds state and persists the last sub-phrase.
+
 

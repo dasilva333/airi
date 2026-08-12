@@ -39,10 +39,93 @@ const attachedInstance = ref<AttachLive2DHeadTetheredCaptionResult | null>(null)
 // Polls `live2dApp()` until the PIXI canvas is available; cleared on detach.
 const appPollTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
+/**
+ * Sub-chunks a long active segment into bite-sized sub-phrases (max ~75-80 chars)
+ * at clause/punctuation boundaries (~, ,, ., !, ?, ;, —, :) so the bubble stays compact.
+ */
+function subChunkText(fullText: string, maxChars = 80): string[] {
+  const trimmed = fullText.trim()
+  if (!trimmed)
+    return []
+  if (trimmed.length <= maxChars)
+    return [trimmed]
+
+  // Primary clause splitters: keep the trailing punctuation with the preceding phrase
+  const rawClauses = trimmed.split(/(?<=[.,!?;—~:])\s+/)
+  const subChunks: string[] = []
+  let currentChunk = ''
+
+  for (const clause of rawClauses) {
+    if ((currentChunk + (currentChunk ? ' ' : '') + clause).length <= maxChars) {
+      currentChunk = currentChunk ? `${currentChunk} ${clause}` : clause
+    }
+    else {
+      if (currentChunk) {
+        subChunks.push(currentChunk)
+        currentChunk = ''
+      }
+
+      // If a single clause exceeds maxChars, split on space boundaries
+      if (clause.length > maxChars) {
+        const words = clause.split(/\s+/)
+        for (const word of words) {
+          if ((currentChunk + (currentChunk ? ' ' : '') + word).length <= maxChars) {
+            currentChunk = currentChunk ? `${currentChunk} ${word}` : word
+          }
+          else {
+            if (currentChunk)
+              subChunks.push(currentChunk)
+            currentChunk = word
+          }
+        }
+      }
+      else {
+        currentChunk = clause
+      }
+    }
+  }
+
+  if (currentChunk) {
+    subChunks.push(currentChunk)
+  }
+
+  return subChunks.length > 0 ? subChunks : [trimmed]
+}
+
 // Sentence Sync state: default to initial text, persist last active state once updated
 const defaultText = props.text ?? 'Hello there! ✨ Floating with AIRI! 💖🌸'
 const currentCaptionText = ref(defaultText)
 const currentCaptionColor = ref<string | undefined>(undefined)
+
+let pacerTimer: ReturnType<typeof setTimeout> | null = null
+let currentSegmentText = ''
+
+function clearPacer() {
+  if (pacerTimer) {
+    clearTimeout(pacerTimer)
+    pacerTimer = null
+  }
+}
+
+function startPacingSubChunks(subChunks: string[], index: number, color?: string) {
+  clearPacer()
+  if (index >= subChunks.length)
+    return
+
+  const activeChunk = subChunks[index]
+  currentCaptionText.value = activeChunk
+  currentCaptionColor.value = color
+  attachedInstance.value?.updateText(activeChunk, color)
+
+  // If there are remaining sub-chunks, schedule the next step based on reading speed (~16 chars/sec, min 1.5s)
+  if (index < subChunks.length - 1) {
+    const chars = activeChunk.length
+    const durationMs = Math.max(1500, Math.round((chars / 16) * 1000))
+    pacerTimer = setTimeout(() => {
+      startPacingSubChunks(subChunks, index + 1, color)
+    }, durationMs)
+  }
+}
 
 // Sentence Sync BroadcastChannel listener
 const { data: captionChannelData } = useBroadcastChannel<any, any>({ name: 'airi-caption-overlay' })
@@ -53,10 +136,10 @@ watch(captionChannelData, (evt) => {
 
   if (evt.type === 'caption-assistant' && Array.isArray(evt.segments)) {
     const activeSegment = (evt.segments as CaptionSegment[]).find(s => s?.isActive)
-    if (activeSegment?.text) {
-      currentCaptionText.value = activeSegment.text
-      currentCaptionColor.value = activeSegment.color
-      attachedInstance.value?.updateText(currentCaptionText.value, currentCaptionColor.value)
+    if (activeSegment?.text && activeSegment.text !== currentSegmentText) {
+      currentSegmentText = activeSegment.text
+      const subChunks = subChunkText(activeSegment.text, 80)
+      startPacingSubChunks(subChunks, 0, activeSegment.color)
     }
     // Falsy / inactive payloads are ignored to persist the last spoken state
   }
@@ -72,6 +155,7 @@ function clearAppPoll() {
 function detach(reason: string) {
   console.info(TAG, 'detach', { reason })
   clearAppPoll()
+  clearPacer()
   attachedInstance.value?.detach()
   attachedInstance.value = null
 }
