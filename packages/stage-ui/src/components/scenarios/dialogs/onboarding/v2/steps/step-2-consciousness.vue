@@ -14,6 +14,7 @@ import ProviderPickerGrid from '../components/provider-picker-grid.vue'
 
 import { WEB_LLM_MODELS } from '../../../../../../libs/inference/constants'
 import { useProvidersStore } from '../../../../../../stores/providers'
+import { BrainModelPicker } from '../../../../chat'
 import { useOnboardingV2Draft } from '../draft-store'
 import { onboardingV2GateKey } from '../gate'
 
@@ -187,8 +188,33 @@ const modelPlaceholder = computed(() => (isLoadingActiveProviderModels.value ? '
 
     <CompanionBubble
       class="flex-shrink-0"
-      message="WebLLM is pre-configured to run 100% locally on WebGPU. Pick a model size your GPU can handle — it'll download and compile right here before we move on!"
+      message="WebLLM is pre-configured to run 100% locally on WebGPU. Pick a model size your GPU can handle — or choose one of your existing configured LLMs to move on instantly!"
     />
+
+    <!-- Quick-Pick for Configured Brains -->
+    <div
+      v-if="configuredChatProvidersMetadata.length > 0"
+      class="flex flex-col gap-3 border border-purple-500/30 rounded-xl bg-purple-500/10 p-4 backdrop-blur-md"
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="i-solar:stars-line-bold-duotone h-4.5 w-4.5 text-purple-500" />
+          <span class="text-xs text-purple-800 font-bold tracking-wide uppercase dark:text-purple-300">Quick Pick: Configured LLM Brains</span>
+        </div>
+        <span class="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-700 font-bold dark:text-purple-300">1-CLICK SELECTION</span>
+      </div>
+      <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-400">
+        You already have active AI LLM models configured in AIRI! Attach one of your existing models to this companion in 1 click:
+      </p>
+      <BrainModelPicker
+        v-model:provider="selectedProviderId"
+        v-model:model="selectedModelId"
+        variant="button"
+        title="Select Consciousness LLM"
+        side="bottom"
+        class="w-full"
+      />
+    </div>
 
     <!-- WebGPU warning when local engine unavailable -->
     <div

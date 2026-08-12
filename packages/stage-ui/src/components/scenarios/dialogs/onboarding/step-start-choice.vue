@@ -82,48 +82,34 @@ function handleNext() {
               </div>
             </div>
             <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
-              Set Up as New User
+              Create New Companion
             </h3>
             <p class="mt-2 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Start fresh with a clean slate. Configure model keys and choose or customize a default character to begin chatting.
+              Create or customize a character. Guided setup for brain, voice, avatar, and persona.
             </p>
           </div>
         </div>
 
-        <!-- Returning User Option -->
+        <!-- Returning User Option (Disabled Preview) -->
         <div
-          class="relative min-h-[160px] flex flex-col cursor-pointer justify-between overflow-hidden border-2 rounded-2xl p-6 transition-all duration-300 ease-out"
-          :class="[
-            selectedPath === 'returning'
-              ? 'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500 dark:border-purple-400 shadow-lg shadow-purple-500/5'
-              : 'bg-white/40 dark:bg-neutral-900/40 border-neutral-200/60 dark:border-neutral-800/80 hover:border-purple-500/50 dark:hover:border-purple-400/50 backdrop-blur-md',
-          ]"
-          @click="selectedPath = 'returning'"
+          class="pointer-events-none relative min-h-[160px] flex flex-col cursor-not-allowed select-none justify-between overflow-hidden border-2 border-neutral-200/60 rounded-2xl bg-neutral-100/40 p-6 opacity-50 transition-all duration-300 ease-out dark:border-neutral-800/80 dark:bg-neutral-900/20"
         >
           <div>
             <div class="mb-4 flex items-center justify-between">
               <div
-                class="rounded-xl p-3"
-                :class="[
-                  selectedPath === 'returning'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300',
-                ]"
+                class="rounded-xl bg-neutral-200/80 p-3 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
               >
                 <div class="i-solar:cloud-storage-line-duotone h-6 w-6" />
               </div>
-              <div
-                class="h-5 w-5 flex items-center justify-center border-2 rounded-full transition-colors"
-                :class="selectedPath === 'returning' ? 'border-purple-500 dark:border-purple-400' : 'border-neutral-300 dark:border-neutral-600'"
-              >
-                <div v-if="selectedPath === 'returning'" class="h-2.5 w-2.5 rounded-full bg-purple-500 dark:bg-purple-400" />
-              </div>
+              <span class="rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] text-purple-600 font-bold dark:text-purple-400">
+                COMING SOON
+              </span>
             </div>
             <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
               Returning User
             </h3>
             <p class="mt-2 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Restore your databases, settings, and media assets using your existing Google account or S3 storage provider.
+              Cloud backup restore and multi-device account sync. (Coming Soon)
             </p>
           </div>
         </div>
