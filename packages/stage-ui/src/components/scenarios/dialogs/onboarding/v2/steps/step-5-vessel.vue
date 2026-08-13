@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
-import { useDisplayModelsStore } from '../../../../../../stores/display-models'
+import { DisplayModelFormat, useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { ModelSelectorDialog } from '../../../model-selector'
 import { useOnboardingV2Draft } from '../draft-store'
 
@@ -45,6 +45,52 @@ const starterBodies = [
   { id: 'avatar-a', name: 'AvatarSample_A', format: '3D VRM', preview: presetVrmAvatarAPreview },
   { id: 'avatar-b', name: 'AvatarSample_B', format: '3D VRM', preview: presetVrmAvatarBPreview },
 ]
+
+const activeModel = computed(() => {
+  const starter = starterBodies.find(b => b.id === selectedBody.value)
+  if (starter) {
+    return { name: starter.name, format: starter.format, isStarter: true }
+  }
+  const custom = displayModelsStore.displayModels.find(m => m.id === selectedBody.value)
+  if (custom) {
+    return { name: custom.name || custom.id, format: custom.format || 'Custom Avatar', isStarter: false }
+  }
+  return { name: selectedBody.value, format: 'Custom Avatar', isStarter: false }
+})
+
+const isUploading = ref(false)
+
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file)
+    return
+
+  isUploading.value = true
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    let format: DisplayModelFormat = DisplayModelFormat.VRM
+    if (ext === 'zip' || ext === 'moc3')
+      format = DisplayModelFormat.Live2dZip
+    else if (ext === 'skel')
+      format = DisplayModelFormat.SpineZip
+    else if (ext === 'pmx')
+      format = DisplayModelFormat.PMXZip
+
+    await displayModelsStore.addDisplayModel(format, file)
+    const newModel = displayModelsStore.displayModels[displayModelsStore.displayModels.length - 1]
+    if (newModel?.id) {
+      selectedBody.value = newModel.id
+    }
+  }
+  catch (error) {
+    console.error('[Step 5 Vessel] Failed to upload model file:', error)
+  }
+  finally {
+    isUploading.value = false
+    target.value = ''
+  }
+}
 
 // Mirrors the full marketplaces catalog from model-selector.vue.
 const exploreLinks = [
@@ -107,6 +153,31 @@ const exploreLinks = [
       message="This is what she'll look like on stage! Try a starter body now — you can swap forms any time without losing her personality."
     />
 
+    <!-- Active Selection Indicator Banner -->
+    <div
+      class="flex flex-shrink-0 items-center justify-between border border-primary-500/40 rounded-xl bg-primary-500/10 px-4 py-2.5 shadow-sm dark:border-primary-400/30 dark:bg-primary-500/15"
+    >
+      <div class="flex items-center gap-2.5">
+        <div class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500" />
+        <div class="flex flex-col">
+          <span class="text-[10px] text-neutral-500 font-semibold tracking-wider uppercase dark:text-neutral-400">
+            Selected Vessel Avatar
+          </span>
+          <span class="text-sm text-neutral-900 font-bold dark:text-neutral-50">
+            {{ activeModel.name }}
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="border border-primary-500/30 rounded-full bg-primary-500/20 px-2.5 py-0.5 text-xs text-primary-700 font-bold dark:text-primary-300">
+          {{ activeModel.format }}
+        </span>
+        <span v-if="!activeModel.isStarter" class="border border-emerald-500/30 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs text-emerald-700 font-bold dark:text-emerald-300">
+          Custom Avatar
+        </span>
+      </div>
+    </div>
+
     <!-- Ever-present custom dropzone -->
     <label
       :class="[
@@ -114,10 +185,13 @@ const exploreLinks = [
         'border-neutral-300/80 bg-white/30 dark:border-neutral-700/80 dark:bg-neutral-900/30 hover:border-primary-500/60',
       ]"
     >
-      <div class="i-solar:cloud-upload-bold-duotone h-6 w-6 flex-shrink-0 text-neutral-400" />
+      <div
+        :class="isUploading ? 'i-svg-spinners:ring-resize text-primary-500' : 'i-solar:cloud-upload-bold-duotone text-neutral-400'"
+        class="h-6 w-6 flex-shrink-0"
+      />
       <div class="flex flex-col text-left">
         <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">
-          Drop or browse a model file (<span class="text-primary-500 font-bold font-mono">.vrm</span> or <span class="text-primary-500 font-bold font-mono">.zip</span> archive)
+          {{ isUploading ? 'Processing and adding avatar model...' : 'Drop or browse a model file (.vrm or .zip archive)' }}
         </span>
         <span class="text-[11px] text-neutral-400 dark:text-neutral-500">
           Supports <span class="font-mono">.vrm</span> 3D avatars, or <span class="font-mono">.zip</span> archives with Live2D (<span class="font-mono">.moc3</span> Cubism 3–5), Spine (<span class="font-mono">.skel</span> 3.8–4.2), &amp; MMD (<span class="font-mono">.pmx</span>)
@@ -127,6 +201,8 @@ const exploreLinks = [
         type="file"
         accept=".vrm,.zip,.moc3,.skel,.pmx"
         class="hidden"
+        :disabled="isUploading"
+        @change="handleFileUpload"
       >
     </label>
 

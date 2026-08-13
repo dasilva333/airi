@@ -4,15 +4,24 @@ import { OnboardingV2 } from '@proj-airi/stage-ui/components'
 import { useTheme } from '@proj-airi/ui'
 import { computed } from 'vue'
 
-import { electronOnboardingClose } from '../../shared/eventa'
+import { electronOnboardingClose, electronOpenChat, electronStageToggleVisibility } from '../../shared/eventa'
 
 const { isDark } = useTheme()
 
 const bgClass = computed(() => isDark.value ? 'bg-[#0f0f0f]' : 'bg-white')
 
 const closeWindow = useElectronEventaInvoke(electronOnboardingClose)
+const openChat = useElectronEventaInvoke(electronOpenChat)
+const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 
 async function handleCloseV2() {
+  try {
+    await toggleStageVisibility(true)
+    await openChat(true)
+  }
+  catch (error) {
+    console.warn('[Onboarding Page] Failed to reveal Stage or Chat window:', error)
+  }
   await closeWindow()
 }
 </script>

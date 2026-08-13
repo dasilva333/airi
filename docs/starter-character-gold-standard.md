@@ -192,9 +192,13 @@ This document defines the high-fidelity defaults for the three primary starter c
 
 ---
 
-## 9. Extension Constants (The Global Defaults)
+## 9. Extension Constants & Central Single Source of Truth
 
-These prompts will be centralized in `packages/stage-ui/src/constants/prompts/character-defaults.ts` and shared across all starter characters.
+All 8 starter character definitions (ReLU, Dr. Aria, Lupin, Kira, Rin, Yuki, Mio, Hana) are centralized in `packages/stage-ui/src/constants/prompts/character-defaults.ts` under the **`STARTER_CHARACTERS`** export.
+
+- **Seeded Core Characters (`isSeeded: true`)**: Only **ReLU** (`default`), **Dr. Aria** (`aria`), and **Lupin** (`lupin`) seed into IndexedDB on first startup with default 2D/3D model bindings (`defaultDisplayModelId`) and artistry prompt prefixes (`artistryPromptPrefix`).
+- **Archetype Presets (`isSeeded: false`)**: **Kira**, **Rin**, **Yuki**, **Mio**, and **Hana** serve as transient templates for Onboarding / Wizard synthesis and do not seed into IndexedDB on app startup.
+- **UI Metadata**: Contains `tag`, `accent`, and `ring` styling fields used by Onboarding V2's persona card selector.
 
 ### Model Expression (ACT Tokens)
 ```markdown

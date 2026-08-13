@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
+import { DEFAULT_POST_HISTORY_INSTRUCTIONS, getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
+import { useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
@@ -23,6 +25,7 @@ const userProfileStore = useSettingsUserProfile()
 const cardStore = useAiriCardStore()
 const onboardingStore = useOnboardingStore()
 const draftStore = useOnboardingV2Draft()
+const displayModelsStore = useDisplayModelsStore()
 
 const badges = [
   { label: 'Consciousness', icon: 'i-solar:cpu-bolt-bold-duotone' },
@@ -32,11 +35,87 @@ const badges = [
   { label: 'Personality Soul', icon: 'i-solar:heart-bold-duotone' },
 ]
 
-const companionName = 'ReLU'
 const userName = computed(() => userProfileStore.name || 'Manager')
 
-// Simulated typewriter greeting
-const fullGreeting = computed(() => `Hello ${userName.value}! I'm ${companionName}. Everything is warmed up and ready — I'm ready whenever you are!`)
+const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
+
+const resolvedPersona = computed(() => {
+  const persona = draftStore.state.persona
+
+  if (persona.importedCardDraft) {
+    const rawData = persona.importedCardDraft as any
+    const data = rawData.data || rawData
+    return {
+      name: data.nickname || data.name || 'AI Companion',
+      description: data.description || 'Your default AI companion on stage.',
+      personality: data.personality || 'Friendly, caring, and bright assistant.',
+      scenario: data.scenario || '',
+      systemPrompt: data.system_prompt || data.systemPrompt || '',
+      postHistoryInstructions: data.post_history_instructions || data.postHistoryInstructions || DEFAULT_POST_HISTORY_INSTRUCTIONS,
+      greetings: (data.greetings || (data.first_mes ? [data.first_mes, ...(data.alternate_greetings || [])] : [])) as string[],
+      messageExample: (data.message_example || data.messageExample || []) as [string, string][],
+    }
+  }
+
+  const cardId = persona.cardId || 'default'
+  if (STARTER_CHARACTERS[cardId]) {
+    const p = getStarterCharacter(cardId)
+    return {
+      name: p.name,
+      description: p.description,
+      personality: p.personality,
+      scenario: p.scenario.replace(USER_TOKEN_REGEX, userName.value),
+      systemPrompt: p.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
+      postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
+      greetings: p.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName.value)),
+      messageExample: (p.messageExample || []).map(([uMsg, cMsg]) => [
+        uMsg.replace(USER_TOKEN_REGEX, userName.value),
+        cMsg.replace(USER_TOKEN_REGEX, userName.value),
+      ]) as [string, string][],
+    }
+  }
+
+  const installedCard = cardStore.getCard(cardId) as any
+  if (installedCard) {
+    const data = installedCard.data || installedCard
+    return {
+      name: data.nickname || data.name || 'AI Companion',
+      description: data.description || 'Your default AI companion on stage.',
+      personality: data.personality || 'Friendly, caring, and bright assistant.',
+      scenario: data.scenario || '',
+      systemPrompt: data.system_prompt || data.systemPrompt || '',
+      postHistoryInstructions: data.post_history_instructions || data.postHistoryInstructions || DEFAULT_POST_HISTORY_INSTRUCTIONS,
+      greetings: (data.greetings || (data.first_mes ? [data.first_mes, ...(data.alternate_greetings || [])] : [])) as string[],
+      messageExample: (data.message_example || data.messageExample || []) as [string, string][],
+    }
+  }
+
+  const d = STARTER_CHARACTERS.default
+  return {
+    name: d.name,
+    description: d.description,
+    personality: d.personality,
+    scenario: d.scenario.replace(USER_TOKEN_REGEX, userName.value),
+    systemPrompt: d.systemPrompt.replace(USER_TOKEN_REGEX, userName.value),
+    postHistoryInstructions: DEFAULT_POST_HISTORY_INSTRUCTIONS,
+    greetings: d.greetings.map(g => g.replace(USER_TOKEN_REGEX, userName.value)),
+    messageExample: (d.messageExample || []).map(([uMsg, cMsg]) => [
+      uMsg.replace(USER_TOKEN_REGEX, userName.value),
+      cMsg.replace(USER_TOKEN_REGEX, userName.value),
+    ]) as [string, string][],
+  }
+})
+
+const fullGreeting = computed(() => resolvedPersona.value.greetings[0] || '')
+
+const resolvedVesselName = computed(() => {
+  const modelId = draftStore.state.vessel.displayModelId
+  if (!modelId)
+    return 'Hiyori (Free)'
+  const found = displayModelsStore.displayModels.find(m => m.id === modelId)
+  return found?.name || modelId
+})
+
 const typedGreeting = ref('')
 let typeTimer: ReturnType<typeof setInterval> | undefined
 
@@ -52,30 +131,49 @@ onMounted(() => {
 
 onBeforeUnmount(() => clearInterval(typeTimer))
 
-async function handleFinish() {
-  const draft = draftStore.state
+const showPayload = ref(false)
 
-  if (draft.userProfile.name) {
-    userProfileStore.name = draft.userProfile.name
-  }
+const compiledCardPayload = computed(() => {
+  const draft = draftStore.state
+  const inheritedArtistry = cardStore.activeCard?.extensions?.airi?.artistry
+    ? JSON.parse(JSON.stringify(cardStore.activeCard.extensions.airi.artistry))
+    : {}
 
   if (draft.persona.importedCardDraft) {
-    const cardId = await cardStore.addCard(draft.persona.importedCardDraft)
-    cardStore.activeCardId = cardId
+    return draft.persona.importedCardDraft
   }
-  else if (draft.persona.cardId) {
-    cardStore.activeCardId = draft.persona.cardId
-  }
-  else {
-    const cardId = await cardStore.addCard({
-      name: companionName,
-      description: 'Your default AI companion on stage.',
-      personality: 'Friendly, caring, and bright assistant.',
-      greetings: [fullGreeting.value],
-      version: '1.0.0',
+
+  const greetings = resolvedPersona.value.greetings || []
+  const firstGreeting = greetings[0] || ''
+  const alternateGreetings = greetings.slice(1)
+
+  return {
+    spec: 'chara_card_v3' as const,
+    spec_version: '3.0' as const,
+    data: {
+      name: resolvedPersona.value.name,
+      nickname: resolvedPersona.value.name,
+      creator: 'AIRI',
+      creator_notes: 'Created via Onboarding V2',
+      character_version: '1.0.0',
+      description: resolvedPersona.value.description,
+      personality: resolvedPersona.value.personality,
+      scenario: resolvedPersona.value.scenario,
+      system_prompt: resolvedPersona.value.systemPrompt,
+      post_history_instructions: resolvedPersona.value.postHistoryInstructions,
+      first_mes: firstGreeting,
+      alternate_greetings: alternateGreetings,
+      group_only_greetings: [],
+      mes_example: (resolvedPersona.value.messageExample || [])
+        .map(pair => pair.join('\n'))
+        .join('\n<START>\n'),
+      tags: ['onboarding-v2'],
       extensions: {
         airi: {
           agents: {},
+          artistry: {
+            ...inheritedArtistry,
+          },
           modules: {
             displayModelId: draft.vessel.displayModelId || 'hiyori-free',
             consciousness: {
@@ -90,9 +188,21 @@ async function handleFinish() {
           },
         },
       },
-    })
-    cardStore.activeCardId = cardId
+    },
   }
+})
+
+async function handleFinish() {
+  const draft = draftStore.state
+
+  if (draft.userProfile.name) {
+    userProfileStore.name = draft.userProfile.name
+  }
+
+  // Synthesize and persist the brand new card payload
+  const payload = compiledCardPayload.value
+  const newCardId = await cardStore.addCard(payload)
+  await cardStore.activateCard(newCardId)
 
   onboardingStore.markSetupCompleted()
   draftStore.reset()
@@ -166,6 +276,39 @@ async function handleFinish() {
       <div class="i-solar:rocket-2-bold-duotone h-5 w-5" />
       Enter AIRI Stage
     </button>
+
+    <!-- Dev / Inspection Payload Viewer Button -->
+    <div class="flex flex-col items-center gap-2">
+      <button
+        type="button"
+        class="flex items-center gap-1.5 border border-neutral-200/80 rounded-lg bg-neutral-100/60 px-3 py-1.5 text-xs text-neutral-600 font-semibold transition-colors dark:border-neutral-800 dark:bg-neutral-900/60 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        @click="showPayload = !showPayload"
+      >
+        <div class="i-solar:code-square-bold-duotone h-4 w-4 text-primary-500" />
+        {{ showPayload ? 'Hide Card Payload JSON' : '🔍 View Compiled Card Payload' }}
+      </button>
+
+      <!-- Raw JSON Code Inspector -->
+      <div
+        v-if="showPayload"
+        class="w-full flex flex-col gap-1 border border-neutral-200/80 rounded-xl bg-neutral-950 p-3 text-left shadow-inner dark:border-neutral-800"
+      >
+        <div class="flex items-center justify-between border-b border-neutral-800 pb-1.5">
+          <span class="text-[10px] text-neutral-400 font-bold tracking-wider font-mono uppercase">
+            Raw Compiled Card &amp; AiriExtension Payload
+          </span>
+          <span class="text-[10px] text-primary-400 font-bold font-mono">
+            Vessel: {{ resolvedVesselName }} | Persona: {{ resolvedPersona.name }}
+          </span>
+        </div>
+        <textarea
+          readonly
+          :value="JSON.stringify(compiledCardPayload, null, 2)"
+          class="h-64 w-full resize-none border-none bg-transparent pt-1.5 text-[11px] text-emerald-400 font-mono outline-none"
+        />
+      </div>
+    </div>
+
     <p class="pb-1 text-center text-[10px] text-neutral-400 italic">
       Launches AIRI Stage and commits your custom setup.
     </p>

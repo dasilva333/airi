@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
+import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
@@ -14,6 +16,8 @@ const draftStore = useOnboardingV2Draft()
 const providersStore = useProvidersStore()
 const speechStore = useSpeechStore()
 const userProfileStore = useSettingsUserProfile()
+
+const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
 
 const selectedProvider = ref<string>(draftStore.state.speech.provider || 'kokoro')
 const selectedModel = ref<string>(draftStore.state.speech.model || 'kokoro-v1')
@@ -57,14 +61,46 @@ watch(selectedProvider, async (providerId) => {
   }
 }, { immediate: true })
 
-const personaName = computed(() => {
-  const imported = draftStore.state.persona.importedCardDraft as any
-  if (imported)
-    return ('data' in imported ? imported.data?.name : imported?.name) || 'ReLU'
-  return 'ReLU'
+const resolvedPersona = computed(() => {
+  const persona = draftStore.state.persona
+  const userName = userProfileStore.name || 'Manager'
+
+  if (persona.importedCardDraft) {
+    const rawData = persona.importedCardDraft as any
+    const data = rawData.data || rawData
+    const greeting = data.first_mes || data.greetings?.[0]
+    return {
+      name: data.nickname || data.name || 'Companion',
+      greeting: greeting ? greeting.replace(USER_TOKEN_REGEX, userName) : '',
+    }
+  }
+
+  const cardId = persona.cardId || 'default'
+  if (STARTER_CHARACTERS[cardId]) {
+    const p = getStarterCharacter(cardId)
+    return {
+      name: p.name,
+      greeting: (p.greetings[0] || '').replace(USER_TOKEN_REGEX, userName),
+    }
+  }
+
+  const d = STARTER_CHARACTERS.default
+  return {
+    name: d.name,
+    greeting: (d.greetings[0] || '').replace(USER_TOKEN_REGEX, userName),
+  }
 })
 
-const sampleText = ref(`Hello ${userProfileStore.name || 'Manager'}! I'm ${personaName.value}. Everything is ready — how do I sound?`)
+const sampleText = ref('')
+
+watch(resolvedPersona, (p) => {
+  if (p.greeting) {
+    sampleText.value = p.greeting
+  }
+  else {
+    sampleText.value = `Hello ${userProfileStore.name || 'Manager'}! I'm ${p.name}. Everything is ready — how do I sound?`
+  }
+}, { immediate: true })
 
 // Synchronize with transient onboarding draft store
 if (!draftStore.state.speech.provider) {
@@ -256,12 +292,67 @@ function openConsole() {
   }
 }
 
-function togglePreview() {
-  isPlaying.value = !isPlaying.value
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+
+async function togglePreview() {
   if (isPlaying.value) {
-    setTimeout(() => {
+    if (audioPlayer.value) {
+      audioPlayer.value.pause()
+      audioPlayer.value = null
+    }
+    isPlaying.value = false
+    return
+  }
+
+  isPlaying.value = true
+  try {
+    const textToSpeak = sampleText.value || 'Hello! I am ready to be your companion. How do I sound?'
+    const providerId = selectedProvider.value === 'kokoro' ? 'kokoro-local' : selectedProvider.value
+    const voiceId = selectedVoice.value || 'af_heart'
+    const modelId = selectedModel.value || 'q4'
+
+    const providerInstance = await providersStore.getProviderInstance(providerId)
+    const activeProvider = providerInstance || await providersStore.getProviderInstance('kokoro-local')
+
+    if (!activeProvider) {
+      toast.error(`Speech provider "${providerId}" is not configured. Please enter credentials or select Kokoro.`)
       isPlaying.value = false
-    }, 3000)
+      return
+    }
+
+    toast.info('Synthesizing voice audio preview...')
+    const audioData = await speechStore.speech(
+      activeProvider as any,
+      modelId,
+      textToSpeak,
+      voiceId,
+    )
+
+    if (!audioData || audioData.byteLength === 0) {
+      throw new Error('TTS provider returned empty audio buffer')
+    }
+
+    const blob = new Blob([audioData], { type: 'audio/wav' })
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    audioPlayer.value = audio
+
+    audio.onended = () => {
+      isPlaying.value = false
+      audioPlayer.value = null
+    }
+    audio.onerror = () => {
+      isPlaying.value = false
+      audioPlayer.value = null
+      toast.error('Audio playback error')
+    }
+
+    await audio.play()
+  }
+  catch (error: any) {
+    console.error('[Step 6 Speech] Preview error:', error)
+    toast.error(error.message || 'Failed to synthesize voice preview.')
+    isPlaying.value = false
   }
 }
 </script>

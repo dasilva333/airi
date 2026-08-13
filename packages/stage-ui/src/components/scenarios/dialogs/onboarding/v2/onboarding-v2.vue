@@ -16,6 +16,7 @@ import Step6Speech from './steps/step-6-speech.vue'
 import Step7Calibration from './steps/step-7-calibration.vue'
 
 import { useOnboardingStore } from '../../../../../stores/onboarding'
+import { useOnboardingV2Draft } from './draft-store'
 import { onboardingV2GateKey } from './gate'
 
 /**
@@ -128,6 +129,13 @@ const canProceed = computed(() => {
   return Boolean(unref(val))
 })
 
+const draftStore = useOnboardingV2Draft()
+
+function resetOnboardingState() {
+  v2State.value = { stepId: 'welcome', path: 'new' }
+  draftStore.reset()
+}
+
 function handleStepSkip() {
   requestNextStep()
 }
@@ -135,11 +143,13 @@ function handleStepSkip() {
 function handleSkip() {
   v2Skipped.value = true
   onboardingStore.markSetupSkipped()
+  resetOnboardingState()
   emit('close')
 }
 
 function handleFinish() {
   v2Completed.value = true
+  resetOnboardingState()
   emit('close')
 }
 </script>
