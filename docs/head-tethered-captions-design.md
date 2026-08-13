@@ -322,4 +322,177 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
   - Sequences through the sub-chunks automatically while `isActive: true` holds on the parent segment.
   - On the final sub-chunk, holds state and persists the last sub-phrase.
 
+---
+
+## 9. 4-Channel In-Bubble Visual Effects & Expressive Tail System Architecture
+
+To elevate the head-tethered caption plank from a static dialogue bubble into a dynamic, expressive comic surface, the system employs a WebGL-accelerated **4-Channel Animation Engine** inside the PIXI container directly between the background bubble shape and the foreground text node.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ HeadTetheredCaption Plank Container (PIXI.Container)     │
+│ ├── 1. Bubble Background & Outline (Graphics)           │
+│ ├── 2. Masked Effects Layer Container (Mask = Bubble)   │
+│ │    ├── Channel 1: AMBIENT (Hearts, Rain, Grid, Stars)│
+│ │    ├── Channel 2: ACCENT  (Flash, Sweat, Lightbulb)  │
+│ │    ├── Channel 3: MOTION  (Bounce, Wobble, Shake)    │
+│ │    └── Channel 4: RIM/TAIL(Wag, Heart-Curl, Droop)  │
+│ └── 3. Caption Text Node (PIXI.Text)                    │ <-- Always on top for legibility
+└──────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 9.1 The 4-Channel Concurrency Manager
+
+To prevent visual clutter, effects are organized into **four orthogonal channels**. The system allows at most **one active effect per channel**, capping overall concurrency at 2–3 active channels simultaneously:
+
+1. **`ambient` (Background Atmosphere)**: Continuous background textures, particle flows, or gradients (e.g. floating hearts, rain, cyber grid, starfield, gloomy mist).
+2. **`accent` (One-Shot Pops & Icons)**: Brief 250ms–600ms visual bursts or overlay icons (e.g. lightbulb flash, impact ring, checkmark sweep, sweat drop sticker, anger mark `💢`).
+3. **`motion` (Bubble Physics Transforms)**: Container-level spring/sine transforms (e.g. nervous wobble, excited bounce, angry horizontal shake, breathing pulse, squash-and-stretch).
+4. **`rim/tail` (Outline & Tail Limb Expressions)**: Vector border paths and tail limb poses (e.g. tail wagging, tail curling into a heart, tail drooping, jagged starburst outline, scalloped thought-cloud outline, frost border).
+
+#### Cue Structure Interface
+```ts
+export interface CaptionEffectCue {
+  id: string
+  channel: 'ambient' | 'accent' | 'motion' | 'rim'
+  effect: string
+  durationMs: number
+  intensity: number // 0.0 .. 1.0
+  priority: number // Higher priority pre-empts lower priority in same channel
+  seed: number // Stable hash derived from text for organic deterministic rendering
+  cooldownMs?: number
+}
+```
+
+---
+
+### 9.2 Expressive Speech-Bubble Tail & Border System
+
+The speech-bubble tail acts as an **expressive character limb** that reacts dynamically to the dialogue mood:
+
+| Tail / Border Pose | Visual Behavior | Emotion / Mood Context |
+| :--- | :--- | :--- |
+| **`wag`** | Tail wags side-to-side (`~`) in a smooth sine wave. | Playful, happy, teasing, cat-speech (`nya`, `meow`). |
+| **`heart-curl`** | Tail tip curls into a sweet heart loop (`♡`). | Affectionate, loving, flirting, compliments. |
+| **`droop`** | Tail droops downward limply. | Sadness, disappointment, embarrassment, crying. |
+| **`jagged`** | Border vector redrawn into a sharp, starburst outline with a jagged tail. | Anger, annoyance, shock, screaming (`ALL CAPS`). |
+| **`scalloped-cloud`** | Border vector morphs into a 3-part thought cloud with trailing dots. | Thinking, pondering, inner monologues `(parentheses)`. |
+| **`heartbeat-pulse`** | Tail and border pulse in a subtle double-beat rhythm (`thump-thump`). | Yandere, intense devotion, possessive affection. |
+| **`frost-rim`** | Crystalline frost grows inward from the border edges. | Scared, chilled, creepy, terrified. |
+| **`flower-bloom`** | Small flower/star blooms grow along the bottom border. | Gratitude (`thanks`), compliments (`pretty`), achievements. |
+
+---
+
+### 9.3 Parametric Continuous Vector Path Builder (`VectorBubblePathBuilder`)
+
+To guarantee **zero internal seams or stroke overlap**, the speech bubble is **never** constructed from separate body and tail shapes. Instead, a single `VectorBubblePathBuilder` function traces the **entire outer perimeter—body, corners, bottom edge, and tail—in one continuous stroke pass**:
+
+```ts
+export interface VectorBubbleOptions {
+  width: number
+  height: number
+  bodyStyle: 'standard-rounded' | 'jagged-starburst' | 'scalloped-cloud'
+  tailStyle: 'pointer' | 'wagging' | 'heart-curl' | 'thought-dots' | 'none'
+  wagPhase?: number // Driven by 60 FPS ticker for dynamic tail wagging
+  color: number
+  outlineWidth: number
+  outlineAlpha: number
+  fillColor: number
+  fillAlpha: number
+}
+```
+
+#### Seamless Single-Pass Execution:
+1. **`standard-rounded` + `wagging`**: Traces rounded top/right corners ➔ Bottom edge ➔ Applies `wagPhase` horizontal sine offset to tail tip ➔ Traces rounded left corners ➔ `closePath()` ➔ `endFill()`.
+2. **`standard-rounded` + `heart-curl`**: Traces bottom edge ➔ `bezierCurveTo()` loops the tail tip into a heart loop (`♡`) ➔ Seamlessly returns to bottom edge ➔ Traces rounded corners ➔ `endFill()`.
+3. **`jagged-starburst` + `jagged-pointer`**: Traces alternating inner/outer spike vertices along the entire perimeter, including the tail, in a single continuous vector polygon.
+4. **`scalloped-cloud` + `thought-dots`**: Traces overlapping circular arcs (`arcTo` / `bezierCurveTo`) around the body ➔ Closes main cloud path ➔ Draws 3 trailing standalone circles below leading to the head.
+
+Redrawing a 20-point PIXI `Graphics` vector path on text change or during a 60 FPS tick takes **under 0.01ms**, preserving 100% smooth rendering.
+
+---
+
+### 9.4 Trigger Resolution Hierarchy & Safeguards
+
+To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angry"` triggering anger), the resolver evaluates input using a **5-tier priority hierarchy**:
+
+```
+1. Explicit <|ACT:emotion|> Tag  (Highest Priority)
+   └─► 2. Structural Patterns (Stutters u-um, Ellipses ..., CAPS, Asides)
+        └─► 3. Multi-word Phrases ("I miss you", "what if", "we did it")
+             └─► 4. Regex Word Boundaries (\bmad\b, \bblush\b)
+                  └─► 5. Character Persona Defaults  (Lowest Priority)
+```
+
+#### Safeguards & Exclusions:
+- **Word Boundary Enforcement**: All keyword matches use explicit word boundaries (e.g., `/\b(mad|hiss)\b/i`).
+- **Negation Exclusion**: Phrases like `"not angry"`, `"don't cry"`, or `"no problem"` are stripped before sentiment scanning.
+- **Content Exclusions**: Code blocks (` ``` `), URLs (`https://...`), and quoted user text (`"..."`) are excluded from semantic trigger evaluation.
+
+---
+
+### 9.5 Complete 30+ Trigger & Visual Effect Catalog
+
+| Trigger Pattern / Context | Channel Assignment | Visual FX & Bubble Behavior |
+| :--- | :--- | :--- |
+| **Stutter**: `I-I`, `w-wait`, `u-um`, `b-dummy` | `motion` + `accent` | Nervous wobble transform + rose blush wash + sweat drop sliding down edge. |
+| **Pause / Hesitation**: `...`, `…` | `ambient` + `motion` | 3 glowing dots drift like fireflies; bubble container "holds its breath" (slow scale down). |
+| **Surprise / Shock**: `!!`, `!?`, `?!`, `[gasp]` | `accent` + `motion` | Comic impact ring + radial speed lines + scale spring punch (`1.12 ➔ 1.0`). |
+| **Curious / Ponder**: `??`, `hmm`, `wonder`, `curious` | `ambient` + `rim` | Question marks orbit behind text; scalloped thought cloud outline with trailing dots. |
+| **Laughter**: `haha`, `hehe`, `giggle`, `lol` | `ambient` + `motion` | Confetti freckles / bubbles rising + double vertical hop motion. |
+| **Affection**: `love`, `cute`, `darling`, `sweetheart` | `ambient` + `rim` | Hearts inflate and float upward + heart-curl tail pose (`♡`). |
+| **Compliment Received**: `pretty`, `beautiful`, `amazing` | `ambient` + `rim` | Pink blush wash spreads inward + flower blooms grow along bottom border. |
+| **Gratitude**: `thanks`, `thank you`, `appreciate` | `rim` | Small daisy/star blooms sprout along the bottom outline. |
+| **Success**: `yay`, `done`, `perfect`, `we did it` | `accent` + `motion` | Confetti burst + gleaming checkmark sweep + upward bounce. |
+| **Epiphany**: `aha`, `idea`, `realized`, `what if` | `accent` | Golden lightbulb flash + expanding idea rings. |
+| **Apology / Mistake**: `oops`, `uh oh`, `my bad`, `sorry` | `accent` + `motion` | Slight bubble squash + sweat drop / bandage sticker in corner. |
+| **Sadness**: `sad`, `miss you`, `cry`, `sniff`, `lonely` | `ambient` + `rim` | Raindrops slide down interior + drooping tail pose + blue gradient wash. |
+| **Anger / Tsundere**: `angry`, `hmph`, `grr`, `annoyed` | `ambient` + `rim` | Jagged starburst outline + anger mark `💢` + red edge pulse + horizontal shake. |
+| **Yandere / Possessive**: `mine`, `jealous`, `don't leave` | `ambient` + `rim` | Dark vignette + black hearts `🖤` + heartbeat tail pulse (`thump-thump`). |
+| **Fear / Cold**: `scared`, `eek`, `creepy`, `cold` | `ambient` + `rim` | Frost crystals creep inward from border + rapid trembling wobble. |
+| **Sleepy**: `sleep`, `tired`, `yawn`, `goodnight` | `ambient` + `motion` | Floating `Z` `z` `z` letters in sine wave + slow breathing scale cycle. |
+| **Cozy / Calm**: `cozy`, `warm`, `relax`, `purr` | `ambient` | Warm sunbeam gradient + floating dust motes + soft slow pulse. |
+| **Music / Singing**: `sing`, `music`, `la la`, `hum` | `ambient` + `rim` | Musical notes travel along a staff line + outline pulses like a audio waveform. |
+| **Magic / Spell**: `magic`, `wish`, `dream`, `spell` | `accent` | Star constellations draw themselves, rotate once, and dissolve into sparkles. |
+| **System / Tech**: `analyze`, `code`, `system`, `data` | `ambient` | Cyan scanline + matrix grid drift + blinking cursor accent. |
+| **Glitch / Error**: `error`, `glitch`, `404`, malformed text | `accent` | Tasteful RGB split + single scanline tear + pixel block recovery. |
+| **Whisper**: `secret`, `psst`, `whisper`, `between us` | `ambient` + `motion` | Background dims around edges + hush ripple travels inward from tail. |
+| **Food / Treat**: `yummy`, `sweet`, `cake`, `cookie`, `food` | `accent` | Strawberry / candy sprinkle icons bounce along bottom border. |
+| **Playful Cat**: `meow`, `nya`, `purr` | `accent` + `rim` | Paw-print trail crosses bubble background + playful tail wag. |
+| **Boop**: `boop`, `poke`, `bonk` | `accent` + `motion` | Contact ripple at edge + elastic squash-and-rebound transform. |
+| **Self-Correction**: `—no`, `I mean`, `actually...` | `accent` | Scribble briefly crosses previous motif, then replacement effect pops in. |
+| **Elongated Words**: `soooo`, `noooo`, `cuteeee` | `motion` | Stretch background motif in reading direction (duration scaled by repeat count). |
+| **ALL CAPS**: Full uppercase sentence | `motion` + `rim` | Chunky comic drop shadow + sharp outline pulse + strong impact motion. |
+| **Parenthetical Aside**: `(inner thoughts like this)` | `rim` | Mini floating thought bubbles behind text for an "inner monologue" look. |
+| **Countdown**: `3... 2... 1...` | `accent` | Illuminated dots extinguish one by one, ending in a confetti burst. |
+
+---
+
+### 9.6 Micro-Chunk Sequence Pacing (Comic Book Panel Pacing)
+
+As long messages stream or pace via the Micro-Pacer (~80-char sub-phrases), each sub-phrase operates as its own **animated comic frame**:
+
+```
+"U-um... I think I really like you!!"
+ ├── 1. "U-um..." ➔ Motion: Wobble | Accent: Sweat Drop | Rim: Blush Wash
+ ├── 2. "I think" ➔ Ambient: Floating ? Dots | Rim: Scalloped Cloud
+ └── 3. "I really like you!!" ➔ Ambient: Hearts | Rim: Heart-Curl Tail | Motion: Impact Bounce
+```
+
+---
+
+### 9.7 Performance, Texture Pooling & Batching Safeguards
+
+While PIXI WebGL rendering is fast, maintaining high 60 FPS performance requires strict resource bounds:
+
+1. **Sprite Pool Budget**: Max **16–32 active visible sprites** total across all 4 channels. Sprites are pre-allocated and recycled from an in-memory pool.
+2. **Texture Atlas Caching**: Reuses a single shared 512×512 texture atlas containing primitive icons (`heart`, `star`, `dot`, `drop`, `flower`, `spark`, `music_note`, `paw`).
+3. **No Allocation in Ticker**: Zero `new` object or array instantiations inside the `updateTick(timeMs)` loop.
+4. **Target Execution Time**: < **0.08ms per frame** total GPU/CPU execution time.
+
+
+
+
 
