@@ -15,10 +15,14 @@ During active development in Vite dev mode, editing core stores or service files
 Currently, **Pinia store HMR is 0% wired in AIRI** (zero calls to `acceptHMRUpdate`). When a developer saves a `.ts` store file today, Vite finds no accept boundary and triggers a **full-page window reload**.
 
 This initiative is a **forward-looking architectural foundation**:
-1. **Phase 0A (Prerequisites)**: Splits multi-store export modules (`hearing.ts`, `character/index.ts`) into single-store files before wiring accept boundaries.
-2. **Phase 0B (Pure Stores)**: Introduces `acceptHMRUpdate` to pure state stores verified to own no setup side-effects.
-3. **Phase 0C (Lifecycle Stores)**: Vertical completion gate where each lifecycle store receives single combined disposal ledgers, `effectScope()` teardowns, async epoch guards, and `acceptHMRUpdate` **atomically in a single change**.
-4. **Phase 0D (Hard Invalidation)**: Explicitly marks WebGPU allocators, workers, AudioContext, and RPC-ABI modules as `import.meta.hot.invalidate()` boundaries until dedicated worker lifecycle owners exist.
+1. **Phase 0A (Prerequisites)**: `[GREENLIT FOR EXECUTION]` Splits multi-store export modules (`hearing.ts`, `character/index.ts`) into single-store files before wiring accept boundaries.
+2. **Phase 0B (Pure Stores)**: `[HELD PENDING 0A]` Introduces `acceptHMRUpdate` to pure state stores verified to own no setup side-effects.
+3. **Phase 0C (Lifecycle Stores)**: `[HELD PENDING 0A]` **Atomic Vertical Completion Gate** — for each lifecycle store (`chat.ts`, `session-store.ts`, `context-store.ts`, `stream-store.ts`, `compaction.ts`, `salience.ts`, `maintenance.ts`, `speech-runtime.ts`, `proactivity.ts`, `character/orchestrator`), single combined disposal ledgers, `effectScope()` disposers, async epoch guards, and `acceptHMRUpdate` land **atomically in a single change per store**.
+4. **Phase 0D (Hard Invalidation)**: `[HELD PENDING 0A]` Explicitly marks WebGPU allocators, workers, AudioContext, and RPC-ABI modules as `import.meta.hot.invalidate()` boundaries until dedicated worker lifecycle owners exist.
+
+> [!IMPORTANT]
+> **Isolated Feature Branch Execution Strategy**:
+> All implementation phases (starting with Phase 0A) must be executed and validated on a dedicated feature branch (e.g. `feat/hmr-resilience`) rather than directly on `main`. Because `main` is a public release surface that community users pull, developing store refactors and HMR boundary wiring on a feature branch protects `main` from intermediate dev states until Phase 0A/0B/0C are fully verified.
 
 ---
 
@@ -32,7 +36,8 @@ An empirical audit of `packages/stage-ui/src/stores/` and `node_modules/pinia` r
 | **Pinia `acceptHMRUpdate`** | ❌ **0% Wired** — Pinia's HMR helper is not called in any store definition file. | `grep -r "acceptHMRUpdate" packages/stage-ui/src/stores` → **0 matches** |
 | **Chat Event Bus (`createChatHooks`)** | ⚠️ **Un-persisted Module Singleton** — Hoisted to module scope in `chat.ts:96`, but lost whenever Vite re-evaluates `chat.ts` ESM module. Holds 11 closure arrays ([`hooks.ts:6-16`](./packages/stage-ui/src/stores/chat/hooks.ts#L6-L16)). | [`packages/stage-ui/src/stores/chat.ts:96`](./packages/stage-ui/src/stores/chat.ts#L96) |
 | **Speech Runtime Host Registry** | ⚠️ **Ephemeral In-Memory State** — Stores single nullable `hostPipeline = null` inside setup closure ([`pipeline-runtime.ts:36`](./packages/stage-ui/src/services/speech/pipeline-runtime.ts#L36)). Resets to `null` on HMR; falls back to remote intent bus. | [`packages/stage-ui/src/stores/speech-runtime.ts:6`](./packages/stage-ui/src/stores/speech-runtime.ts#L6) |
-| **Setup-Scope Side Effects** | ⚠️ **Un-disposed Effect Scopes** — Stores call composables (`useBroadcastChannel`, `useIntervalFn`, `setInterval`) directly in setup scope. `settings/chat.ts` calls `useLocalStorageManualReset`, which creates un-exposed internal watchers. | [`chat.ts:125`](./packages/stage-ui/src/stores/chat.ts#L125), [`proactivity.ts:247,835`](./packages/stage-ui/src/stores/proactivity.ts#L247) |
+| **Setup-Scope Side Effects** | ⚠️ **Un-disposed Effect Scopes** — Stores call composables (`useBroadcastChannel`, `useIntervalFn`, `setInterval`) directly in setup scope. `settings/chat.ts` calls `useLocalStorageManualReset`, which creates un-exposed internal watchers requiring `effectScope()`. | [`chat.ts:125`](./packages/stage-ui/src/stores/chat.ts#L125), [`proactivity.ts:247,835`](./packages/stage-ui/src/stores/proactivity.ts#L247) |
+| **Closure-Local Non-Reactive Maps** | ⚠️ **Context Store Desync** — [`context-store.ts:9-20`](./packages/stage-ui/src/stores/chat/context-store.ts#L9-L20) holds a closure-local `currentActiveContexts` `Map`. Accepting the store creates a fresh empty map while Pinia preserves the old reactive mirror. Must stash `Map` in `hot.data.activeContextsMap`. | [`context-store.ts:9`](./packages/stage-ui/src/stores/chat/context-store.ts#L9) |
 | **Multi-Store Export Hazard** | ⚠️ **Pinia HMR ID-Mismatch Prerequisite** — [`hearing.ts`](./packages/stage-ui/src/stores/modules/hearing.ts#L60-L316) exports two stores (`useHearingStore` & `useHearingSpeechInputPipeline`). [`character/index.ts`](./packages/stage-ui/src/stores/character/index.ts#L11-L36) defines a store while re-exporting child stores. Must be split into single-store modules in Phase 0A. | [`hearing.ts:60`](./packages/stage-ui/src/stores/modules/hearing.ts#L60), [`character/index.ts:11`](./packages/stage-ui/src/stores/character/index.ts#L11) |
 
 ---
@@ -82,8 +87,8 @@ An empirical audit of `packages/stage-ui/src/stores/` and `node_modules/pinia` r
 ### Strategy A: Controlled Accept Boundary & Version-Guarded Singletons
 > **Status**: `[Status: Proposed]`
 
-#### Controlling Accept Callback & ABI Invalidation
-To prevent race conditions where Pinia's stock accept callback patches the store to an incompatible bus before invalidation propagates:
+#### Controlling Accept Callback & ABI Invalidation Race Resolution
+To prevent race conditions where Pinia's stock accept callback patches the store to an incompatible bus before invalidation propagates, use a single controlling accept callback:
 
 ```typescript
 const acceptStore = acceptHMRUpdate(useChatOrchestratorStore, import.meta.hot)
@@ -210,7 +215,7 @@ if (import.meta.hot) {
 | Store File Path | Store ID | Category | Owned Effects / Async Work | HMR Migration Strategy |
 | :--- | :--- | :--- | :--- | :--- |
 | `packages/stage-ui/src/stores/settings/base.ts` | `settings-base` | **Phase 0B (Pure)** | Reactive state, `useLocalStorage` | `acceptHMRUpdate` pure state patching. |
-| `packages/stage-ui/src/stores/settings/chat.ts` | `settings-chat` | **Phase 0C (Lifecycle)** | `useLocalStorageManualReset` | Wrap setup in `effectScope()`, ledger `scope.stop()`, `acceptHMRUpdate`. |
+| `packages/stage-ui/src/stores/settings/chat.ts` | `settings-chat` | **Phase 0C (Lifecycle)** | `useLocalStorageManualReset` internal watchers | Wrap setup in `effectScope()`, ledger `scope.stop()`, `acceptHMRUpdate`. |
 | `packages/stage-ui/src/stores/chat.ts` | `chat` | **Phase 0C (Lifecycle)** | `createChatHooks`, `useBroadcastChannel`, `performSend` async stream | Controlling accept callback, `hot.data` hooks, single dispose ledger, `hmrEpoch` guard. |
 | `packages/stage-ui/src/stores/chat/session-store.ts` | `chat-session` | **Phase 0C (Lifecycle)** | `useBroadcastChannel(CHAT_STREAM_CHANNEL_NAME)`, IndexedDB queue | Single dispose ledger, close channel, `acceptHMRUpdate`. |
 | `packages/stage-ui/src/stores/chat/context-store.ts` | `chat-context` | **Phase 0C (Lifecycle)** | Closure-local `currentActiveContexts` `Map` | Preserve/version `Map` in `hot.data.activeContextsMap`, single dispose ledger. |
@@ -239,10 +244,10 @@ Local model drivers (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV) rely on WebGPU a
 
 | Phase | Target Area | Description | Status |
 | :--- | :--- | :--- | :--- |
-| **Phase 0A** | Prerequisites | Split `hearing.ts` and `character/index.ts` into single-store files before wiring accept boundaries. | `[Status: Proposed]` |
-| **Phase 0B** | Pure Stores | Wire `acceptHMRUpdate` across pure state stores (`settings/base.ts`, etc.). | `[Status: Proposed]` |
-| **Phase 0C** | Lifecycle Stores | **Vertical Completion Gate**: For each store (`chat.ts`, `session-store.ts`, `context-store.ts`, `stream-store.ts`, `compaction.ts`, `salience.ts`, `maintenance.ts`, `speech-runtime.ts`, `proactivity.ts`, `character/orchestrator`), land accept boundary + single `dispose` handler + `effectScope()` + `hmrEpoch` guard **atomically in one change**. | `[Status: Proposed]` |
-| **Phase 0D** | Hard Invalidation | Add explicit `import.meta.hot.invalidate()` to AudioContext, WebGPU Coordinators, Workers, and RPC-ABI modules. | `[Status: Proposed]` |
+| **Phase 0A** | Prerequisites | Split `hearing.ts` and `character/index.ts` into single-store files before wiring accept boundaries. | **`[GREENLIT FOR EXECUTION]`** |
+| **Phase 0B** | Pure Stores | Wire `acceptHMRUpdate` across pure state stores (`settings/base.ts`, etc.). | `[HELD PENDING 0A]` |
+| **Phase 0C** | Lifecycle Stores | **Atomic Vertical Completion Gate**: For each store (`chat.ts`, `session-store.ts`, `context-store.ts`, `stream-store.ts`, `compaction.ts`, `salience.ts`, `maintenance.ts`, `speech-runtime.ts`, `proactivity.ts`, `character/orchestrator`), land accept boundary + single `dispose` handler + `effectScope()` + `hmrEpoch` guard **atomically in one change per store**. | `[HELD PENDING 0A]` |
+| **Phase 0D** | Hard Invalidation | Add explicit `import.meta.hot.invalidate()` to AudioContext, WebGPU Coordinators, Workers, and RPC-ABI modules. | `[HELD PENDING 0A]` |
 
 ---
 
