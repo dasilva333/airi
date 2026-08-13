@@ -825,7 +825,7 @@ interface VoiceProfile {
 | `settings/hearing/active-provider` | `string` | `''` | `stores/modules/hearing.ts` |
 | `settings/hearing/active-model` | `string` | `''` | `stores/modules/hearing.ts` |
 | `settings/hearing/active-custom-model` | `string` | `''` | `stores/modules/hearing.ts` |
-| `settings/hearing/auto-send-enabled` | `boolean` | `false` | `stores/modules/hearing.ts` |
+| `settings/hearing/auto-send-enabled` | `boolean` | `true` | `stores/modules/hearing.ts` |
 | `settings/hearing/auto-send-delay` | `number` | `2000` | `stores/modules/hearing.ts` |
 | `settings/hearing/detection-mode` | `'vad' \| 'manual'` | `'vad'` | `stores/modules/hearing.ts` |
 | `settings/hearing/speech-provider-settings` | `Record<string, { deviceId, sampleRate }>` | `{}` | `stores/modules/hearing.ts` |
