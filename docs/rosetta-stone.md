@@ -563,9 +563,10 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 
 ### HMR & State Lifecycle Resilience
 
-- **HMR State Isolation Pitfalls**: During Vite HMR, re-evaluating ESM modules and re-executing Pinia setup functions creates new store instances, event buses, and callback arrays while long-lived UI renderers (`ControlStripHost.vue`, `RendererStage.vue`) remain mounted with stale closures and orphaned object references.
-- **5 Core Failure Patterns**: (1) Imperative callback arrays wiped on setup re-execution; (2) Static sibling store pointers captured at setup scope (`useChatOrchestratorStore()`); (3) Module-level singletons re-instantiated on file edit; (4) Ephemeral service host arrays (`speech-runtime.ts`) resetting to `[]`; (5) Un-disposed watchers/timers accumulating on setup re-runs.
+- **HMR State & Multi-Window Pitfalls**: Without `acceptHMRUpdate`, saving `.ts` store files triggers full page reloads across open Electron windows. If a backgrounded window misses the WebSocket reload, multi-window desync occurs (e.g. text streams in Chatbox while Control Strip misses tokens). Wiring soft HMR (`acceptHMRUpdate`) patches store state in-place, but requires teardown ledgers for setup-scope composables (`useBroadcastChannel`, `useIntervalFn`).
+- **Key Mitigation Architecture**: (1) Version-guarded `import.meta.hot.data` singletons for module event buses; (2) Pinia `acceptHMRUpdate` in-place patching; (3) Action destructuring audit to prevent snapshot closure traps; (4) Side-effect teardown ledgers for setup composables.
 - **Canonical Reference**: Full technical architecture, remedies, and mitigation strategies are documented in [`docs/project-hmr-resilience-architecture.md`](./project-hmr-resilience-architecture.md).
+
 
 
 ---
