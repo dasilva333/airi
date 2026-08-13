@@ -2,11 +2,12 @@
 import { Button } from '@proj-airi/ui'
 import { onMounted, ref } from 'vue'
 
-import { clearModelCache, DEFAULT_WEB_RWKV_MODEL, formatBytes, getModelCacheSize, isModelCached } from '../../../libs/inference'
+import { clearModelCache, clearSingleModelCache, DEFAULT_WEB_RWKV_MODEL, formatBytes, getModelCacheSize, isModelCached } from '../../../libs/inference'
 
 const cacheSize = ref(0)
 const loading = ref(true)
 const clearing = ref(false)
+const clearingModelId = ref<string | null>(null)
 
 // Known model IDs to check cache status
 const knownModels = [
@@ -50,6 +51,17 @@ async function handleClearCache() {
   }
   finally {
     clearing.value = false
+  }
+}
+
+async function handleClearSingleCache(modelId: string) {
+  clearingModelId.value = modelId
+  try {
+    await clearSingleModelCache(modelId)
+    await refresh()
+  }
+  finally {
+    clearingModelId.value = null
   }
 }
 
@@ -98,16 +110,28 @@ onMounted(refresh)
         ]"
       >
         <span>{{ model.name }}</span>
-        <span
-          :class="[
-            'rounded-full px-2 py-0.5 text-xs',
-            model.cached
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
-              : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400',
-          ]"
-        >
-          {{ model.cached ? 'Cached' : 'Not cached' }}
-        </span>
+        <div flex items-center gap-2>
+          <span
+            :class="[
+              'rounded-full px-2 py-0.5 text-xs',
+              model.cached
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+                : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400',
+            ]"
+          >
+            {{ model.cached ? 'Cached' : 'Not cached' }}
+          </span>
+          <Button
+            v-if="model.cached"
+            variant="danger"
+            size="sm"
+            icon="i-solar:trash-bin-trash-linear"
+            :disabled="clearingModelId === model.id || clearing"
+            :loading="clearingModelId === model.id"
+            title="Delete this model from cache"
+            @click="handleClearSingleCache(model.id)"
+          />
+        </div>
       </div>
     </div>
 
@@ -133,7 +157,7 @@ onMounted(refresh)
         size="sm"
         :label="clearing ? 'Clearing...' : 'Clear All Cache'"
         icon="i-solar:trash-bin-trash-bold"
-        :disabled="clearing || loading"
+        :disabled="clearing || loading || clearingModelId !== null"
         :loading="clearing"
         @click="handleClearCache"
       />

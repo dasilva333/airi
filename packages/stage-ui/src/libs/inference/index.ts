@@ -2,6 +2,7 @@ export { createLocalVisionAdapter } from './adapters/blip'
 export type { LocalVisionAdapter } from './adapters/blip'
 export {
   clearModelCache,
+  clearSingleModelCache,
   clearWebLlmCache,
   formatBytes,
   getModelCacheSize,

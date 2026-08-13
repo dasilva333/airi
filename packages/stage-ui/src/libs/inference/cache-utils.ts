@@ -120,6 +120,21 @@ async function clearOpfsCache(): Promise<void> {
   }
 }
 
+async function clearSingleOpfsModelCache(modelUrl: string): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
+    return
+  try {
+    const root = await navigator.storage.getDirectory()
+    const dir = await root.getDirectoryHandle(OPFS_DIR_NAME, { create: false })
+    const key = await cacheKeyForModel(modelUrl)
+    const fileName = `${key}.f16cache`
+    await dir.removeEntry(fileName)
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to delete OPFS model entry', modelUrl, error)
+  }
+}
+
 async function isOpfsModelCached(modelUrl: string): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.getDirectory)
     return false
@@ -201,6 +216,25 @@ export async function clearModelCache(): Promise<void> {
   await clearWebLlmCache()
 }
 
+/**
+ * Clear a specific model from cache by ID.
+ */
+export async function clearSingleModelCache(modelId: string): Promise<void> {
+  if (modelId === 'moss-tts-nano') {
+    await clearMossOpfsCache()
+    return
+  }
+  if (modelId === 'web-llm') {
+    await clearWebLlmCache()
+    return
+  }
+  if (modelId.startsWith('http')) {
+    await clearSingleOpfsModelCache(modelId)
+    return
+  }
+  await clearSingleTransformersModelCache(modelId)
+}
+
 async function clearTransformersCache(): Promise<void> {
   if (typeof caches === 'undefined')
     return
@@ -210,6 +244,24 @@ async function clearTransformersCache(): Promise<void> {
   }
   catch {
     // Silently ignore if cache doesn't exist
+  }
+}
+
+async function clearSingleTransformersModelCache(modelId: string): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+
+  try {
+    const cache = await caches.open(TRANSFORMERS_CACHE_NAME)
+    const keys = await cache.keys()
+    for (const request of keys) {
+      if (request.url.includes(modelId)) {
+        await cache.delete(request)
+      }
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to delete transformers cache entry', modelId, error)
   }
 }
 
@@ -300,22 +352,36 @@ export async function isWebLlmModelCached(modelId?: string): Promise<boolean> {
 
     if (typeof indexedDB !== 'undefined') {
       try {
-        const req = indexedDB.open(name)
-        const db = await new Promise<IDBDatabase | null>((resolve) => {
-          req.onsuccess = () => resolve(req.result)
-          req.onerror = () => resolve(null)
-        })
-        if (db && db.objectStoreNames.contains('urls')) {
-          const count = await new Promise<number>((resolve) => {
-            const tx = db.transaction('urls', 'readonly')
-            const store = tx.objectStore('urls')
-            const cntReq = store.count()
-            cntReq.onsuccess = () => resolve(cntReq.result)
-            cntReq.onerror = () => resolve(0)
+        let exists = true
+        if (typeof indexedDB.databases === 'function') {
+          const dbs = await indexedDB.databases()
+          exists = dbs.some(d => d.name === name)
+        }
+        if (exists) {
+          const req = indexedDB.open(name)
+          const db = await new Promise<IDBDatabase | null>((resolve) => {
+            req.onsuccess = () => resolve(req.result)
+            req.onerror = () => resolve(null)
           })
-          db.close()
-          if (count > 0)
-            return true
+          if (db) {
+            if (db.objectStoreNames.contains('urls')) {
+              const count = await new Promise<number>((resolve) => {
+                const tx = db.transaction('urls', 'readonly')
+                const store = tx.objectStore('urls')
+                const cntReq = store.count()
+                cntReq.onsuccess = () => resolve(cntReq.result)
+                cntReq.onerror = () => resolve(0)
+              })
+              db.close()
+              if (count > 0)
+                return true
+            }
+            else {
+              // Stub database created without object stores; clean it up
+              db.close()
+              indexedDB.deleteDatabase(name)
+            }
+          }
         }
       }
       catch {

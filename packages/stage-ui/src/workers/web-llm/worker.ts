@@ -149,6 +149,40 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
     loadedModelId = payload.modelId
   }
   catch (error) {
+    const errStr = String(error)
+    if (errStr.includes('NotFoundError') || errStr.includes('object stores was not found')) {
+      console.warn('[web-llm:worker] detected corrupted IndexedDB database stub, purging and retrying engine creation...', error)
+      for (const dbName of ['webllm/model', 'webllm/wasm', 'webllm/config']) {
+        try {
+          indexedDB.deleteDatabase(dbName)
+        }
+        catch {
+          // ignore
+        }
+      }
+      try {
+        const created = await CreateMLCEngine(payload.modelId, {
+          appConfig,
+          initProgressCallback: (report) => {
+            emit(toProgress(report))
+          },
+        })
+        if (signal?.aborted) {
+          await created.unload().catch(() => {})
+          return
+        }
+        engine = created
+        loadedModelId = payload.modelId
+        console.info('[web-llm:worker] engine creation succeeded on retry after clearing corrupted IndexedDB', { modelId: payload.modelId })
+        emit({ kind: 'ready', info: { device: 'webgpu', metadata: { model: payload.modelId } } })
+        return
+      }
+      catch (retryErr) {
+        console.error('[web-llm:worker] engine creation failed on retry:', retryErr)
+        throw retryErr
+      }
+    }
+
     // Surface MLC's device-lost / OOM message verbatim — it already tells the
     // user to reload with a smaller model; the adapter classifies it via
     // classifyError() into DEVICE_LOST / OOM for telemetry and restart.
