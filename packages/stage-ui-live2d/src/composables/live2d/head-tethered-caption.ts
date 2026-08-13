@@ -338,6 +338,40 @@ export interface AnalyzedSentenceEffects {
   rim: 'flower-bloom' | 'frost-rim' | 'heartbeat-pulse' | null
 }
 
+// Helpers to draw crisp vector shapes
+function drawVectorHeart(g: Graphics, size: number, color: number, alpha: number) {
+  g.beginFill(color, alpha)
+  g.moveTo(0, size * 0.3)
+  g.bezierCurveTo(-size * 0.5, -size * 0.3, -size, size * 0.2, 0, size)
+  g.bezierCurveTo(size, size * 0.2, size * 0.5, -size * 0.3, 0, size * 0.3)
+  g.endFill()
+}
+
+function drawVectorRaindrop(g: Graphics, size: number, color: number, alpha: number) {
+  g.beginFill(color, alpha)
+  g.moveTo(0, -size)
+  g.bezierCurveTo(size * 0.6, -size * 0.2, size * 0.6, size * 0.6, 0, size)
+  g.bezierCurveTo(-size * 0.6, size * 0.6, -size * 0.6, -size * 0.2, 0, -size)
+  g.endFill()
+}
+
+function drawVector6PointStar(g: Graphics, size: number, color: number, alpha: number) {
+  g.beginFill(color, alpha)
+  const outerR = size
+  const innerR = size * 0.4
+  for (let i = 0; i < 12; i++) {
+    const angle = (i * Math.PI) / 6 - Math.PI / 2
+    const r = i % 2 === 0 ? outerR : innerR
+    const x = Math.cos(angle) * r
+    const y = Math.sin(angle) * r
+    if (i === 0)
+      g.moveTo(x, y)
+    else g.lineTo(x, y)
+  }
+  g.closePath()
+  g.endFill()
+}
+
 // ── 9.1 Sentence & Clause Trigger Analyzer (No <|ACT|>) ───────────────────────
 
 export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
@@ -367,10 +401,10 @@ export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
   const negatedSpans: string[] = []
   cleanText = cleanText.replace(/\b(?:not|no|don't|never)\s+\w+/gi, (match) => {
     negatedSpans.push(match.toLowerCase())
-    return ' ' // replace with blank space
+    return ' '
   })
 
-  // 1. Bracket Tokens (e.g. [flustered], [angry], [sad], [thinking])
+  // 1. Bracket Tokens (Highest explicit trigger)
   const bracketMatch = text.match(/\[([\w-]+)\]/)
   if (bracketMatch) {
     const token = bracketMatch[1].toLowerCase()
@@ -409,7 +443,54 @@ export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
     }
   }
 
-  // 2. Structural Triggers
+  // 2. Keyword / Phrase Matches (Evaluated BEFORE generic structural ellipses)
+  const lower = cleanText.toLowerCase()
+
+  if (/\b(love|cute|darling|sweetheart|like you)\b/i.test(lower)) {
+    res.ambient = 'hearts'
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'heart-curl'
+  }
+  else if (/\b(thanks|thank you|pretty|beautiful|amazing)\b/i.test(lower)) {
+    if (!res.rim)
+      res.rim = 'flower-bloom'
+  }
+  else if (/\b(sorry|miss you|cry|lonely|sniff|alone)\b/i.test(lower)) {
+    res.ambient = 'rain'
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'droop'
+  }
+  else if (/\b(angry|hmph|grr|annoyed|shut up)\b/i.test(lower)) {
+    res.bodyStyle = 'jagged-starburst'
+    res.tailStyle = 'jagged-pointer'
+    res.accent = 'anger-mark'
+    res.motion = 'shake'
+  }
+  else if (/\b(mine|jealous|belong to me|forever)\b/i.test(lower)) {
+    res.ambient = 'vignette'
+    res.rim = 'heartbeat-pulse'
+  }
+  else if (/\b(scared|eek|creepy|cold)\b/i.test(lower)) {
+    res.ambient = 'fireflies'
+    if (!res.motion)
+      res.motion = 'wobble'
+    if (!res.rim)
+      res.rim = 'frost-rim'
+  }
+  else if (/\b(meow|nya|purr)\b/i.test(lower)) {
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'wagging'
+  }
+  else if (/\b(code|system|analyze|data|diagnostic)\b/i.test(lower)) {
+    res.ambient = 'scanline'
+  }
+  else if (/\b(cozy|warm|relax|goodnight|sleepy|yawn)\b/i.test(lower)) {
+    res.ambient = 'sunbeam'
+    if (!res.motion)
+      res.motion = 'breath'
+  }
+
+  // 3. Structural Triggers (Fallback for unmatched sentences)
   // Stutters (e.g. u-um, w-wait, I-I, b-dummy)
   if (/\b[a-z]-[a-z]{1,4}\b/i.test(cleanText)) {
     if (!res.ambient)
@@ -454,62 +535,6 @@ export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
   if (/([a-z])\1{3,}/i.test(cleanText)) {
     if (!res.motion)
       res.motion = 'stretch'
-  }
-
-  // 3. Keyword / Phrase Matches
-  const lower = cleanText.toLowerCase()
-
-  if (/\b(love|cute|darling|sweetheart|like you)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'hearts'
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'heart-curl'
-  }
-  else if (/\b(thanks|thank you|pretty|beautiful|amazing)\b/i.test(lower)) {
-    if (!res.rim)
-      res.rim = 'flower-bloom'
-  }
-  else if (/\b(sorry|miss you|cry|lonely|sniff)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'rain'
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'droop'
-  }
-  else if (/\b(angry|hmph|grr|annoyed|shut up)\b/i.test(lower)) {
-    res.bodyStyle = 'jagged-starburst'
-    res.tailStyle = 'jagged-pointer'
-    if (!res.accent)
-      res.accent = 'anger-mark'
-    if (!res.motion)
-      res.motion = 'shake'
-  }
-  else if (/\b(mine|jealous|don't leave|forever)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'vignette'
-    if (!res.rim)
-      res.rim = 'heartbeat-pulse'
-  }
-  else if (/\b(scared|eek|creepy|cold)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'fireflies'
-    if (!res.motion)
-      res.motion = 'wobble'
-    if (!res.rim)
-      res.rim = 'frost-rim'
-  }
-  else if (/\b(meow|nya|purr)\b/i.test(lower)) {
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'wagging'
-  }
-  else if (/\b(code|system|analyze|data)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'scanline'
-  }
-  else if (/\b(cozy|warm|relax)\b/i.test(lower)) {
-    if (!res.ambient)
-      res.ambient = 'sunbeam'
-    if (!res.motion)
-      res.motion = 'breath'
   }
 
   return res
@@ -569,7 +594,8 @@ export const vectorBubblePathBuilder: VectorBubbleGeometry = {
       g.lineTo(halfW, -radius)
       g.arcTo(halfW, 0, halfW - radius, 0, radius)
 
-      if (tailStyle !== 'none') {
+      // Only draw pointer if tailStyle is an active limb pose (not thought-dots)
+      if (tailStyle !== 'none' && tailStyle !== 'thought-dots') {
         g.lineTo(tailBaseHalf, 0)
         g.lineTo(0, tailHeight)
         g.lineTo(-tailBaseHalf, 0)
@@ -624,6 +650,7 @@ export const vectorBubblePathBuilder: VectorBubbleGeometry = {
       g.lineTo(0, tailHeight)
       g.lineTo(-tailBaseHalf, 0)
     }
+    // Note: 'thought-dots' and 'none' do NOT draw a bottom triangle pointer
 
     // Bottom-left corner -> Left edge -> Top-left corner
     g.lineTo(-halfW + radius, 0)
@@ -763,22 +790,20 @@ export function buildCaptionBubblePlank(opts: {
     if (activeEffects.ambient === 'blush') {
       const blush = new Graphics()
       blush.beginFill(0xF472B6, 0.22)
-      blush.drawRect(-widthPx / 2, -bubbleHeight / 2, widthPx, bubbleHeight / 2)
+      blush.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
       blush.endFill()
       ambientContainer.addChild(blush)
     }
     else if (activeEffects.ambient === 'hearts') {
       if (ambientParticles.length === 0) {
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 5; i++) {
           const heart = new Graphics()
-          heart.beginFill(0xEC4899, 0.7)
-          heart.drawCircle(0, 0, 3)
-          heart.endFill()
+          drawVectorHeart(heart, 5 + Math.random() * 3, 0xEC4899, 0.75)
           ambientParticles.push({
             x: (Math.random() - 0.5) * (widthPx * 0.7),
             y: -Math.random() * bubbleHeight,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: -0.4 - Math.random() * 0.4,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: -0.5 - Math.random() * 0.4,
             alpha: 0.8,
             scale: 0.8 + Math.random() * 0.4,
             sprite: heart,
@@ -788,12 +813,69 @@ export function buildCaptionBubblePlank(opts: {
 
       for (const p of ambientParticles) {
         p.y += p.vy
-        p.x += p.vx
-        if (p.y < -bubbleHeight)
+        p.x += Math.sin(timeMs / 200 + p.y) * 0.3
+        if (p.y < -bubbleHeight - 10)
           p.y = 0
         p.sprite.position.set(p.x, p.y)
         ambientContainer.addChild(p.sprite)
       }
+    }
+    else if (activeEffects.ambient === 'scanline') {
+      const scanlineG = new Graphics()
+      // Cyber cyan background tint
+      scanlineG.beginFill(0x06B6D4, 0.12)
+      scanlineG.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
+      scanlineG.endFill()
+
+      // Moving scanline beam
+      const scanY = -bubbleHeight + ((timeMs * 0.08) % bubbleHeight)
+      scanlineG.beginFill(0x22D3EE, 0.35)
+      scanlineG.drawRect(-widthPx / 2, scanY, widthPx, 3)
+      scanlineG.endFill()
+
+      ambientContainer.addChild(scanlineG)
+    }
+    else if (activeEffects.ambient === 'vignette') {
+      const vigG = new Graphics()
+      vigG.beginFill(0x581C87, 0.18)
+      vigG.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
+      vigG.endFill()
+
+      // Dark edge frame
+      vigG.lineStyle(4, 0x3B0764, 0.3)
+      vigG.drawRect(-widthPx / 2 + 2, -bubbleHeight + 2, widthPx - 4, bubbleHeight - 4)
+      ambientContainer.addChild(vigG)
+    }
+    else if (activeEffects.ambient === 'fireflies') {
+      const fireflyG = new Graphics()
+      fireflyG.beginFill(0x60A5FA, 0.15)
+      fireflyG.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
+      fireflyG.endFill()
+
+      for (let i = 0; i < 4; i++) {
+        const x = Math.sin(timeMs / 400 + i * 1.5) * (widthPx * 0.35)
+        const y = -bubbleHeight / 2 + Math.cos(timeMs / 500 + i * 2.0) * (bubbleHeight * 0.3)
+        fireflyG.beginFill(0x93C5FD, 0.6)
+        fireflyG.drawCircle(x, y, 2.5)
+        fireflyG.endFill()
+      }
+      ambientContainer.addChild(fireflyG)
+    }
+    else if (activeEffects.ambient === 'rain') {
+      const rainG = new Graphics()
+      rainG.beginFill(0x3B82F6, 0.12)
+      rainG.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
+      rainG.endFill()
+
+      for (let i = 0; i < 4; i++) {
+        const x = -widthPx / 2 + 16 + i * (widthPx / 3.5)
+        const dropY = -bubbleHeight + ((timeMs * 0.1 + i * 25) % bubbleHeight)
+        const dropG = new Graphics()
+        drawVectorRaindrop(dropG, 4, 0x60A5FA, 0.7)
+        dropG.position.set(x, dropY)
+        rainG.addChild(dropG)
+      }
+      ambientContainer.addChild(rainG)
     }
 
     // 3. Render Channel 2: ACCENT
@@ -814,6 +896,20 @@ export function buildCaptionBubblePlank(opts: {
       anger.moveTo(widthPx / 2 - 8, -bubbleHeight + 8)
       anger.lineTo(widthPx / 2 - 16, -bubbleHeight + 16)
       exteriorAccentContainer.addChild(anger)
+    }
+
+    // 4. Render Channel 4: RIM / BORDER ACCENTS
+    rimContainer.removeChildren()
+    if (activeEffects.rim === 'flower-bloom') {
+      const rimG = new Graphics()
+      for (let i = 0; i < 4; i++) {
+        const starX = -widthPx / 2 + 12 + i * (widthPx / 3.5)
+        const starG = new Graphics()
+        drawVector6PointStar(starG, 4, 0xF472B6, 0.85)
+        starG.position.set(starX, 0)
+        rimG.addChild(starG)
+      }
+      rimContainer.addChild(rimG)
     }
 
     // 4. Render Channel 3: MOTION
