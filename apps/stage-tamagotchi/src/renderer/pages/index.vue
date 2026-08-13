@@ -8,6 +8,7 @@ import {
   useElectronEventaInvoke,
   useElectronMouseInElement,
   useElectronMouseInWindow,
+  useElectronRelativeMouse,
 } from '@proj-airi/electron-vueuse'
 import { debug } from '@proj-airi/stage-shared'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
@@ -357,29 +358,49 @@ async function handleApplySizePreset(e: Event) {
 
 const hearingDialogOpen = ref(false)
 const whisperDockOpen = ref(false)
+const { x: relativeMouseX, y: relativeMouseY } = useElectronRelativeMouse()
 
 function applyTransparencyState() {
-  if (hearingDialogOpen.value || whisperDockOpen.value || stageViewControlsEnabled.value || activePopover.value) {
+  const isNotchMode = autoHideMode.value && collapsed.value && !hoverExpanded.value && !activePopover.value
+
+  if (!isNotchMode && (hearingDialogOpen.value || whisperDockOpen.value || stageViewControlsEnabled.value || activePopover.value)) {
     isIgnoringMouseEvents.value = false
     setIgnoreMouseEvents([false, { forward: true }])
     return
   }
 
-  const insideControls = !isOutsideForInstant.value
+  let insideControls = !isOutsideForInstant.value
+  const edge = controlStripStore.dockedEdge
+  const rx = relativeMouseX.value
+  const ry = relativeMouseY.value
+  const winW = lastOrientation.value === 'vertical' ? 48 : stripLength.value
+  const winH = lastOrientation.value === 'vertical' ? stripLength.value : 48
 
+  if (isNotchMode) {
+    if (edge === 'left')
+      insideControls = rx >= 0 && rx <= 14 && ry >= 0 && ry <= winH
+    else if (edge === 'right')
+      insideControls = rx >= winW - 14 && rx <= winW && ry >= 0 && ry <= winH
+    else if (edge === 'top')
+      insideControls = ry >= 0 && ry <= 14 && rx >= 0 && rx <= winW
+    else if (edge === 'bottom')
+      insideControls = ry >= winH - 14 && ry <= winH && rx >= 0 && rx <= winW
+  }
+
+  const insideWindow = !isOutsideWindow.value
+  let ignore = false
   if (insideControls) {
-    isIgnoringMouseEvents.value = false
-    setIgnoreMouseEvents([false, { forward: true }])
+    ignore = false
   }
   else {
-    const insideWindow = !isOutsideWindow.value
-    const ignore = insideWindow
-    isIgnoringMouseEvents.value = ignore
-    setIgnoreMouseEvents([ignore, { forward: true }])
+    ignore = insideWindow
   }
+
+  isIgnoringMouseEvents.value = ignore
+  setIgnoreMouseEvents([ignore, { forward: true }])
 }
 
-watch([isOutsideForInstant, isOutsideWindow, hearingDialogOpen, whisperDockOpen, stageViewControlsEnabled, activePopover], applyTransparencyState)
+watch([isOutsideForInstant, isOutsideWindow, hearingDialogOpen, whisperDockOpen, stageViewControlsEnabled, activePopover, () => collapsed.value, hoverExpanded], applyTransparencyState)
 
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { stream, enabled } = storeToRefs(settingsAudioDeviceStore)

@@ -31,22 +31,33 @@ AIRI Desktop features multiple floating overlay windows backed by Main Process W
 
 ### Pinia Stores
 - `packages/stage-ui/src/stores/settings/controls-island.ts` — `useSettingsControlsIsland`. Manages control island visibility, dock positions, and pinned states.
+- `packages/stage-ui/src/stores/settings/control-strip.ts` — `useSettingsControlStrip`. Manages strip buttons, orientation, stageMode, collapsed state, and `dockedEdge` (`left` | `right` | `top` | `bottom` | `null`).
 
 ## 3. Core SOPs & Guidelines
 
-### 1. Creating or Modifying a Window Overlay
+### 1. Control Strip Edge Docking & Notch Auto-Hide Behavior
+- **Edge Docking (`dockedEdge`):** When snapped/docked to an edge (`left`, `right`, `top`, `bottom`) and collapsed (`collapsed: true`), `ControlStrip.vue` applies `autoHideTabClasses`.
+- **CSS Notch Transformation:** Translates the container off-screen (`calc(100% - 14px)`), leaving a 14px rounded tab protruding from the display edge with a directional expansion icon (`i-solar:double-alt-arrow-*`).
+- **Proximity Hover & Debounce:** Hovering over the tab (`onContainerMouseEnter`) expands the full strip with a `duration-300 ease-out` transition (`hoverExpanded = true`). Mouse exit (`onContainerMouseLeave`) triggers a 400ms debounce timer before re-collapsing into the notch tab.
+
+- **Deterministic Geometric Hit-Testing:** During collapsed Notch Mode, DOM `getBoundingClientRect()` measurements become stale across 300ms CSS transforms if the cursor remains stationary. To prevent swallowing OS clicks on desktop elements beneath the empty 34px window area, hit-testing MUST compute coordinates geometrically from `useElectronRelativeMouse` (`x <= 14` for left dock, `x >= width - 14` for right dock, `y <= 14` for top, `y >= height - 14` for bottom) rather than relying on DOM element rect measuring.
+
+### 2. Creating or Modifying a Window Overlay
 1. Register window bounds and flags in `apps/stage-tamagotchi/src/main/windows/<window-name>/`.
 2. Set transparent/frameless flags (`transparent: true`, `frame: false`, `alwaysOnTop: true`).
 3. Pass position updates across process boundaries via `@moeru/eventa` or `BroadcastChannel`.
 
-### 2. Styling Stage UI Components
+### 3. Styling Stage UI Components
 - Use UnoCSS classes with readable array syntax (`:class="['px-2 py-1', 'flex items-center']"`).
 - Prefer primitives from `@proj-airi/ui` and Iconify icons over custom SVGs.
 
 ## 4. Known Pitfalls & Failure Modes
 
+- **Global Click-Through Override Trap**: Persistent stage settings like `stageViewControlsEnabled` (`settings/stage/view-controls-enabled` for model repositioning/drag mode), active popovers, or open dialogs evaluate early in `applyTransparencyState()`. If uncapped, these guard clauses return early and set `setIgnoreMouseEvents([false, { forward: true }])`, forcing full-window click capture globally across all modes. In collapsed Notch Mode, `isNotchMode` MUST scope these guard clauses (`if (!isNotchMode && ...)`) so persistent stage flags do not silently intercept desktop OS clicks over the 34px transparent window region.
+- **DOM Rect Staleness across CSS Transforms**: `useElectronMouseInElement` reads `getBoundingClientRect()`, which only updates on mouse movement or class/style mutations at transition start. If the mouse is stationary during a 300ms collapse transform, `isOutside` remains stale (`false`), keeping `setIgnoreMouseEvents(false)` active over transparent window space. Always use mathematical spatial boundaries (`useElectronRelativeMouse`) for animated edge-docked notches.
 - **Click-Through Translucency Traps**: On Windows and macOS, transparent areas must set `setIgnoreMouseEvents(true, { forward: true })` so clicks pass through to background desktop windows, while interactive buttons explicitly disable click-through.
 - **Window Lifetime Destruction**: Calling BrowserWindow methods on destroyed instances crashes Electron. Check `!win.isDestroyed()` before invoking window methods.
+
 
 ## 5. Verification Workflows
 

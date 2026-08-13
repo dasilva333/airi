@@ -49,7 +49,10 @@ graph LR
 
 ### 2. Sleek Drag & Orientation Toggle
 - **Perpendicular Toggle:** The top of the strip features a grab-to-drag icon. Clicking this icon alternates the strip between **Vertical Column** and **Horizontal Row** orientations.
-- **Magnetic Docking:** Snaps neatly to the screen edges (Left, Right, Top, Bottom) when dragged close to them.
+- **Magnetic Docking & Edge Notch Auto-Hide:** Snaps neatly to the screen edges (`left`, `right`, `top`, `bottom`) via `dockedEdge`. When collapsed into auto-hide mode, the main body translates off-screen (`calc(100% - 14px)`), leaving a subtle 14px rounded notch tab protruding from the edge. Hovering the cursor over the notch expands the full strip with a 300ms smooth transition, and exiting the container triggers a 400ms debounced re-collapse into the edge tab.
+- **Deterministic Geometric Hit-Testing:** To prevent `getBoundingClientRect()` staleness across 300ms CSS transforms (where a stationary cursor over the empty window area could swallow clicks meant for desktop toolbars beneath), Notch Mode derives `setIgnoreMouseEvents` pass-through using pure geometric boundary bounds (`x <= 14` for left dock, `x >= width - 14` for right dock, etc.) from `useElectronRelativeMouse` rather than measuring DOM element rects.
+
+
 
 ### 3. Clear Pointer Interaction Paradigm (3-Way Mode Toggle)
 Currently, dragging the model, looking at the cursor, and clicking/poking the avatar collide in event handling. We introduce a clean **3-way Interaction Mode** at the root level of the strip:
