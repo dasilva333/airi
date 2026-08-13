@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
+import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 import { useOnboardingV2Draft } from '../draft-store'
@@ -11,6 +12,7 @@ import { useOnboardingV2Draft } from '../draft-store'
 
 const draftStore = useOnboardingV2Draft()
 const providersStore = useProvidersStore()
+const speechStore = useSpeechStore()
 const userProfileStore = useSettingsUserProfile()
 
 const selectedProvider = ref<string>(draftStore.state.speech.provider || 'kokoro')
@@ -25,6 +27,35 @@ const downloadProgress = ref(0)
 const speed = ref(1.0)
 const pitch = ref(1.0)
 const isPlaying = ref(false)
+
+const isLocalProvider = computed(() => {
+  return ['kokoro', 'pocket', 'moss', 'kokoro-local', 'pocket-tts-local', 'moss-nano-local'].includes(selectedProvider.value)
+})
+
+// Dynamic models & listVoices queries from stores
+const providerModels = computed(() => providersStore.getModelsForProvider(selectedProvider.value) || [])
+const providerVoices = computed(() => speechStore.getVoicesForProvider(selectedProvider.value) || [])
+
+// Auto-fill API credentials from saved provider instances and trigger dynamic model/voice fetching
+watch(selectedProvider, async (providerId) => {
+  if (!providerId)
+    return
+
+  // 1. Pre-fill API key from saved credentials
+  const config = providersStore.getProviderConfig(providerId)
+  if (config?.apiKey) {
+    apiKeyInput.value = String(config.apiKey)
+  }
+  else {
+    apiKeyInput.value = ''
+  }
+
+  // 2. Fetch models and listVoices dynamically if non-local cloud provider
+  if (!isLocalProvider.value) {
+    void providersStore.fetchModelsForProvider(providerId)
+    void speechStore.loadVoicesForProvider(providerId)
+  }
+}, { immediate: true })
 
 const personaName = computed(() => {
   const imported = draftStore.state.persona.importedCardDraft as any
@@ -140,10 +171,6 @@ const cloudProviders = computed(() => {
   }))
 })
 
-const isLocalProvider = computed(() => {
-  return ['kokoro', 'pocket', 'moss', 'kokoro-local', 'pocket-tts-local', 'moss-nano-local'].includes(selectedProvider.value)
-})
-
 const activeConsoleUrl = computed(() => {
   const match = cloudProviders.value.find(p => p.id === selectedProvider.value)
   return match?.consoleUrl || ''
@@ -156,9 +183,17 @@ const availableModels = computed(() => {
     return [{ id: 'pocket-0.1b', label: 'Pocket 0.1B CPU Voice' }]
   if (selectedProvider.value === 'moss' || selectedProvider.value === 'moss-nano-local')
     return [{ id: 'moss-nano', label: 'Moss-Nano Fast Engine' }]
+
+  if (providerModels.value.length > 0) {
+    return providerModels.value.map((m: any) => ({
+      id: m.id,
+      label: m.name || m.id,
+    }))
+  }
+
   if (selectedProvider.value === 'elevenlabs')
     return [{ id: 'eleven_multilingual_v2', label: 'Eleven Multilingual v2' }, { id: 'eleven_turbo_v2_5', label: 'Eleven Turbo v2.5' }]
-  if (selectedProvider.value === 'openai-audio')
+  if (selectedProvider.value === 'openai-audio' || selectedProvider.value === 'openai-audio-speech')
     return [{ id: 'tts-1', label: 'OpenAI TTS-1' }, { id: 'tts-1-hd', label: 'OpenAI TTS-1 HD' }]
   return [{ id: 'default', label: 'Standard Voice Model' }]
 })
@@ -173,6 +208,14 @@ const availableVoices = computed(() => {
       { id: 'am_michael', label: 'Michael (Male · Deep)' },
     ]
   }
+
+  if (providerVoices.value.length > 0) {
+    return providerVoices.value.map((v: any) => ({
+      id: v.id,
+      label: v.name ? `${v.name}${v.lang ? ` (${v.lang})` : ''}` : v.id,
+    }))
+  }
+
   return [
     { id: 'cloud_voice_1', label: 'Rachel (Expressive · Conversational)' },
     { id: 'cloud_voice_2', label: 'Domi (Confident · Energetic)' },
@@ -180,6 +223,18 @@ const availableVoices = computed(() => {
     { id: 'cloud_voice_4', label: 'Antoni (Smooth · Warm)' },
   ]
 })
+
+watch(availableModels, (models) => {
+  if (models.length > 0 && (!selectedModel.value || !models.some(m => m.id === selectedModel.value))) {
+    selectedModel.value = models[0].id
+  }
+}, { immediate: true })
+
+watch(availableVoices, (voices) => {
+  if (voices.length > 0 && (!selectedVoice.value || !voices.some(v => v.id === selectedVoice.value))) {
+    selectedVoice.value = voices[0].id
+  }
+}, { immediate: true })
 
 function triggerDownload() {
   if (isDownloading.value)
