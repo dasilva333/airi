@@ -202,3 +202,82 @@ Repository status remained clean after the review. No files were changed and no 
 * Replace the 35 developer-machine `file:///Users/...` links with repository-relative links, and refresh Rosetta Stone §16 with the single-dispose rule, async epoch, and 0A–0D taxonomy.
 
 Once those gates are addressed, I would sign off on 0B–0D. The repository was not modified; the worktree is clean, with local `main` two commits behind the fetched `origin/main`.
+
+-------
+
+## Final sign-off
+
+**Approved for Phase 0A prerequisite splitting only. Hold 0B–0D.** Commit `61682779c` closes most third-pass findings, but four execution-safety gaps remain.
+
+### Integrated findings
+
+| Update                                     | Status                                 |
+| ------------------------------------------ | -------------------------------------- |
+| Single combined `hot.dispose()`            | Closed                                 |
+| Multi-store prerequisite                   | Closed, with one stale phase reference |
+| Child-store classification                 | Partially closed                       |
+| Worker preserve-vs-terminate contradiction | Closed                                 |
+| Proactivity citations                      | Closed                                 |
+| Destructured-wrapper wording               | Closed                                 |
+
+### Remaining gates
+
+1. **ABI invalidation and Pinia acceptance still race.**
+
+   Strategy A calls `invalidate()` during new-module evaluation, creates a new hooks bus, and Strategy E independently runs the stock Pinia accept callback. Pinia can therefore patch the store to the incompatible bus before invalidation propagates.
+
+   Use one controlling accept callback:
+
+   ```ts
+   const acceptStore = acceptHMRUpdate(useChatOrchestratorStore, import.meta.hot)
+
+   import.meta.hot.accept((nextModule) => {
+     if (!nextModule)
+       return
+
+     if (nextModule.CHAT_HOOKS_VERSION !== CHAT_HOOKS_VERSION) {
+       requestHardReload('Chat hooks ABI changed')
+       return
+     }
+
+     acceptStore(nextModule)
+   })
+   ```
+
+   More importantly, `hot.invalidate()` does **not inherently force a page reload**; Vite says it propagates the update to importers. An accepting store farther up the graph can become the next boundary. Phase 0D therefore needs either a verified no-boundary propagation path or a Vite-side forced-full-reload rule. Invalidation should also occur inside an accept callback, as Vite recommends. [Vite HMR API](https://vite.dev/guide/api-hmr)
+
+2. **Phase sequencing remains contradictory.**
+
+   [Roadmap 0C](https://github.com/dasilva333/airi/blob/61682779ca5db1190963ce65b088dd882d8715f0/docs/project-hmr-resilience-architecture.md#L282-L292) says acceptance lands bundled with singletons, ledgers, and epochs, while Phases 1–3 say those safeguards are implemented afterward.
+
+   Make 0C a vertical completion gate: for each lifecycle store, singleton preservation, teardown, async quiescence, and acceptance land atomically. Recast Phases 1–3 as workstreams within 0C rather than later chronological phases.
+
+3. **The allowlists still are not executable.**
+
+   “Simple Settings & Config Stores” is not a safe pure-store category. For example, [`settings/chat.ts`](https://github.com/dasilva333/airi/blob/61682779ca5db1190963ce65b088dd882d8715f0/packages/stage-ui/src/stores/settings/chat.ts#L7-L12) uses `useLocalStorageManualReset`, whose implementation creates `useLocalStorage` plus two watchers without exposing their stop handles. [`use-local-storage-manual-reset.ts`](https://github.com/dasilva333/airi/blob/61682779ca5db1190963ce65b088dd882d8715f0/packages/stage-shared/src/composables/use-local-storage-manual-reset.ts#L7-L17)
+
+   Add an explicit per-file matrix: path, store ID, category, owned effects, async work, migration rule, and expected HMR outcome.
+
+   The Sol-review list is also only partially incorporated: `chat/compaction.ts`, `chat/salience.ts`, and `chat/maintenance.ts` remain unclassified. `chat.ts` directly imports compaction and salience, while `InteractiveArea.vue` retains a destructured maintenance action.
+
+4. **Classification alone does not fix `context-store.ts`.**
+
+   [`currentActiveContexts`](https://github.com/dasilva333/airi/blob/61682779ca5db1190963ce65b088dd882d8715f0/packages/stage-ui/src/stores/chat/context-store.ts#L9-L20) remains a closure-local `Map`. Accepting the store creates a fresh empty map while Pinia preserves the old reactive mirror.
+
+   Before acceptance, choose one:
+
+   * Make the registry a single Pinia-managed reactive source.
+   * Preserve/version the map in `hot.data`.
+   * Explicitly reset both registry and mirror during disposal.
+
+### Implementation corrections
+
+* The shown `useBroadcastChannel('airi-chat-input-bridge')` call will not typecheck. VueUse expects `useBroadcastChannel({ name: 'airi-chat-input-bridge' })`. [VueUse API](https://vueuse.org/core/usebroadcastchannel/)
+* A ledger cannot directly stop `useLocalStorage` because it returns a ref, not a cleanup handle. Run such composables in a dedicated nested `effectScope()` and ledger `scope.stop()`, or replace them with explicit watch/listener handles.
+* The document still does not specify active `AbortController` abortion or queued-promise rejection. Epoch checks stop stale mutations but do not settle callers or necessarily cancel the underlying stream.
+* Late async resource acquisition must recheck the epoch and immediately close the resource if disposal occurred while awaiting.
+* Section 5 still says “Phase 0C Hard Invalidation”; it is now 0D. The baseline also says split before 0B; lifecycle acceptance is now 0C.
+* From the repository root, `pnpm dev` starts `stage-web`, not Electron. Use `pnpm -F @proj-airi/stage-tamagotchi dev`.
+* Replace the 35 developer-machine `file:///Users/...` links with repository-relative links, and refresh Rosetta Stone §16 with the single-dispose rule, async epoch, and 0A–0D taxonomy.
+
+Once those gates are addressed, I would sign off on 0B–0D. The repository was not modified; the worktree is clean, with local `main` two commits behind the fetched `origin/main`.
