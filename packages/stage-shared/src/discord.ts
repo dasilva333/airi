@@ -163,6 +163,7 @@ export interface CloudRelayDeployPayload {
   discordBotToken?: string
   memoryMode?: 'fixed' | 'unlimited'
   initialHistory?: Array<{ role: string, content: string }>
+  targetSubdomain?: string
 }
 
 export interface CloudRelayDeployResult {
@@ -174,6 +175,23 @@ export interface CloudRelayDeployResult {
 
 export const discordServiceDeployCloudRelay = defineInvokeEventa<CloudRelayDeployResult, CloudRelayDeployPayload>(
   'eventa:invoke:electron:discord:deploy-cloud-relay',
+)
+
+export interface CloudflareSubdomainPayload {
+  apiToken: string
+  accountId: string
+}
+
+export interface CloudflareSetSubdomainPayload extends CloudflareSubdomainPayload {
+  subdomain: string
+}
+
+export const discordServiceGetCloudflareSubdomain = defineInvokeEventa<{ success: boolean, subdomain: string | null, error?: string }, CloudflareSubdomainPayload>(
+  'eventa:invoke:electron:discord:get-cloudflare-subdomain',
+)
+
+export const discordServiceSetCloudflareSubdomain = defineInvokeEventa<{ success: boolean, subdomain?: string, error?: string }, CloudflareSetSubdomainPayload>(
+  'eventa:invoke:electron:discord:set-cloudflare-subdomain',
 )
 
 export interface CloudRelayFetchMemoriesPayload {

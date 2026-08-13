@@ -47,6 +47,50 @@ export class CloudflareStageDeployer {
   }
 
   /**
+   * Fetch current workers.dev subdomain for account. Returns string or null if unconfigured.
+   */
+  public async getSubdomain(): Promise<string | null> {
+    const accountId = await this.ensureAccountId()
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
+      headers: { Authorization: `Bearer ${this.client.apiToken}` },
+    })
+    if (!res.ok) {
+      return null
+    }
+    const json: any = await res.json()
+    const subdomain = json.result?.subdomain || null
+    return subdomain && subdomain !== 'workers' ? subdomain : null
+  }
+
+  /**
+   * Register or update workers.dev subdomain for account.
+   */
+  public async setSubdomain(subdomain: string): Promise<string> {
+    const accountId = await this.ensureAccountId()
+    const cleanSubdomain = subdomain.toLowerCase().trim().replace(/[^a-z0-9-]/g, '')
+    if (!cleanSubdomain) {
+      throw new Error('Subdomain must contain valid alphanumeric characters.')
+    }
+
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.client.apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ subdomain: cleanSubdomain }),
+    })
+
+    const json: any = await res.json()
+    if (!res.ok || !json.success) {
+      const errText = json.errors?.[0]?.message || (await res.text())
+      throw new Error(`Cloudflare subdomain registration failed: ${errText}`)
+    }
+
+    return json.result?.subdomain || cleanSubdomain
+  }
+
+  /**
    * Helper to ensure accountId is resolved from token if not explicitly provided.
    */
   private async ensureAccountId(): Promise<string> {
@@ -119,7 +163,7 @@ export class CloudflareStageDeployer {
   /**
    * Programmatically uploads compiled Worker script & binds KV and secrets to Cloudflare.
    */
-  public async deployWorker(options: WorkerDeployOptions): Promise<{ workerUrl: string, namespaceId: string, publicKey: string }> {
+  public async deployWorker(options: WorkerDeployOptions & { targetSubdomain?: string }): Promise<{ workerUrl: string, namespaceId: string, publicKey: string }> {
     console.info(`[Stage-Deployer] Initiating zero-custody Worker deployment for "${options.scriptName}"...`)
 
     // 0. Auto-resolve Discord Public Key if bot token provided
@@ -200,7 +244,17 @@ export default {
       throw new Error(`Worker script upload failed -> HTTP ${res.status}: ${errText}`)
     }
 
-    // 4. Enable workers.dev subdomain route and retrieve account subdomain name
+    // 4. Ensure workers.dev subdomain registration & enable route
+    let subdomainName = await this.getSubdomain()
+    if (options.targetSubdomain && (!subdomainName || options.targetSubdomain !== subdomainName)) {
+      console.info(`[Stage-Deployer] Registering account subdomain "${options.targetSubdomain}"...`)
+      subdomainName = await this.setSubdomain(options.targetSubdomain)
+    }
+
+    if (!subdomainName) {
+      throw new Error('Cloudflare Workers account has no active workers.dev subdomain registered. Subdomain registration is required before deploying.')
+    }
+
     await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.accountId}/workers/scripts/${options.scriptName}/subdomain`, {
       method: 'POST',
       headers: {
@@ -209,12 +263,6 @@ export default {
       },
       body: JSON.stringify({ enabled: true }),
     })
-
-    const subRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.accountId}/workers/subdomain`, {
-      headers: { Authorization: `Bearer ${this.client.apiToken}` },
-    })
-    const subJson: any = await subRes.json()
-    const subdomainName = subJson.result?.subdomain || 'workers'
 
     const workerUrl = `https://${options.scriptName}.${subdomainName}.workers.dev`
     console.info(`\n🎉 Worker deployed successfully!`)

@@ -26,12 +26,14 @@ import {
   discordServiceDeployCloudRelay,
   discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
+  discordServiceGetCloudflareSubdomain,
   discordServiceGetStatus,
   discordServiceLeave,
   discordServiceRegisterCommands,
   discordServiceReplyInteraction,
   discordServiceSendMessage,
   discordServiceSendTyping,
+  discordServiceSetCloudflareSubdomain,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStop,
@@ -440,6 +442,7 @@ export function setupDiscordService() {
         discordBotToken: payload.discordBotToken,
         memoryMode: payload.memoryMode,
         initialHistory: payload.initialHistory,
+        targetSubdomain: payload.targetSubdomain,
       })
 
       pushLog('DEPLOY', `Deployment successful! Worker URL: ${res.workerUrl}`)
@@ -455,6 +458,41 @@ export function setupDiscordService() {
         success: false,
         error: err?.message || String(err),
       }
+    }
+  })
+
+  defineInvokeHandler(context, discordServiceGetCloudflareSubdomain, async (payload) => {
+    try {
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const apiToken = payload?.apiToken || ''
+      const accountId = payload?.accountId || ''
+      const deployer = new CloudflareStageDeployer({
+        apiToken,
+        accountId,
+      })
+      const subdomain = await deployer.getSubdomain()
+      return { success: true, subdomain }
+    }
+    catch (err: any) {
+      return { success: false, subdomain: null, error: err?.message || String(err) }
+    }
+  })
+
+  defineInvokeHandler(context, discordServiceSetCloudflareSubdomain, async (payload) => {
+    try {
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const apiToken = payload?.apiToken || ''
+      const accountId = payload?.accountId || ''
+      const targetSub = payload?.subdomain || ''
+      const deployer = new CloudflareStageDeployer({
+        apiToken,
+        accountId,
+      })
+      const subdomain = await deployer.setSubdomain(targetSub)
+      return { success: true, subdomain }
+    }
+    catch (err: any) {
+      return { success: false, error: err?.message || String(err) }
     }
   })
 

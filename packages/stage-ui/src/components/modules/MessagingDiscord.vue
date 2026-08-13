@@ -13,6 +13,7 @@ import { buildSystemPrompt, useAiriCardStore } from '../../stores/modules/airi-c
 import { useConsciousnessStore } from '../../stores/modules/consciousness'
 import { useDiscordStore } from '../../stores/modules/discord'
 import { useProvidersStore } from '../../stores/providers'
+import { useSettingsUserProfile } from '../../stores/settings/user-profile'
 import { BrainModelPicker } from '../scenarios/chat'
 
 const { t } = useI18n()
@@ -21,6 +22,7 @@ const chatSessionStore = useChatSessionStore()
 const airiCardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const providersStore = useProvidersStore()
+const userProfileStore = useSettingsUserProfile()
 
 const { activeCardId, activeCard } = storeToRefs(airiCardStore)
 const { activeSessionId } = storeToRefs(chatSessionStore)
@@ -71,6 +73,46 @@ const selectedConsciousnessProvider = ref(consciousnessStore.activeProvider || '
 const selectedConsciousnessModel = ref(consciousnessStore.activeModel || 'gpt-4o-mini')
 const selectedHistoryDepth = ref<'prompt' | '10' | '50' | 'all'>('prompt')
 const showSystemPromptPreview = ref(false)
+
+// Subdomain Probing & Configuration State
+const existingSubdomain = ref<string | null>(null)
+const targetSubdomainInput = ref<string>('')
+const isCheckingSubdomain = ref(false)
+
+function slugifyName(name: string): string {
+  const clean = (name || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '')
+  return clean || `airi-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function generateRandomSubdomainSlug() {
+  const base = slugifyName(userProfileStore.name || ownerUsername.value || 'user')
+  const rand = Math.random().toString(36).slice(2, 7)
+  targetSubdomainInput.value = `${base}-${rand}`
+}
+
+async function probeSubdomainState() {
+  isCheckingSubdomain.value = true
+  try {
+    const sub = await discordStore.getCloudflareSubdomain()
+    existingSubdomain.value = sub
+    if (!sub) {
+      const derived = slugifyName(userProfileStore.name || ownerUsername.value || 'user')
+      targetSubdomainInput.value = derived
+    }
+  }
+  catch (err) {
+    console.warn('[DiscordControlPlane] Failed to probe subdomain:', err)
+  }
+  finally {
+    isCheckingSubdomain.value = false
+  }
+}
+
+watch(inspectModalOpen, (val) => {
+  if (val) {
+    probeSubdomainState()
+  }
+})
 
 const characterSessions = computed(() => {
   if (!activeCardId.value)
@@ -313,6 +355,27 @@ async function handleLaunchDeployment() {
   if (isDeployingRelay.value)
     return
 
+  // If subdomain is unconfigured, validate subdomain input first
+  if (!existingSubdomain.value) {
+    const cleanSub = targetSubdomainInput.value.toLowerCase().trim().replace(/[^a-z0-9-]/g, '')
+    if (!cleanSub) {
+      toast.error('Cloudflare Workers subdomain is required. Please specify a valid handle.')
+      return
+    }
+
+    try {
+      const toastSubId = toast.loading(`Registering workers.dev subdomain "${cleanSub}"...`)
+      const registeredSub = await discordStore.setCloudflareSubdomain(cleanSub)
+      existingSubdomain.value = registeredSub
+      toast.success(`✓ Subdomain "${registeredSub}.workers.dev" registered!`, { id: toastSubId })
+    }
+    catch (err: any) {
+      console.error('[DiscordControlPlane] Subdomain registration failed:', err)
+      toast.error(`Subdomain registration failed: ${err?.message || err}. Try another handle or click "Generate Random Slug".`)
+      return
+    }
+  }
+
   isDeployingRelay.value = true
   const toastId = toast.loading('1/3: Assembling character prompt & memory context...')
 
@@ -365,6 +428,7 @@ async function handleLaunchDeployment() {
       cardId: activeCardId.value || 'default',
       sessionId: deployTargetSessionId.value,
       initialHistory,
+      targetSubdomain: existingSubdomain.value || undefined,
     })
 
     toast.success(`🎉 ${cardName} is now LIVE 24/7 on Cloudflare Edge! (${res.workerUrl})`, { id: toastId })
@@ -1239,6 +1303,58 @@ function formatTimestamp(ts: number) {
                 <span v-else class="text-neutral-800 font-bold dark:text-neutral-200">
                   Global (All Connected Servers & DMs)
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 1.5: Cloudflare Subdomain Status / Registration -->
+          <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-4 space-y-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="i-solar:globus-bold-duotone text-base text-primary-500" />
+                <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">Cloudflare Workers Domain</span>
+              </div>
+              <span v-if="existingSubdomain" class="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] text-emerald-500 font-bold">
+                Registered: {{ existingSubdomain }}.workers.dev
+              </span>
+              <span v-else class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] text-amber-500 font-bold uppercase">
+                Action Required
+              </span>
+            </div>
+
+            <div v-if="existingSubdomain" class="text-[11px] text-neutral-400">
+              Active Cloudflare root subdomain: <code class="rounded bg-neutral-200 px-1 py-0.5 text-neutral-800 font-mono dark:bg-neutral-800 dark:text-neutral-200">{{ existingSubdomain }}.workers.dev</code>
+            </div>
+
+            <div v-else class="pt-1 space-y-2">
+              <div class="border border-amber-500/30 rounded-lg bg-amber-500/10 p-2.5 text-[11px] text-amber-700 leading-snug dark:text-amber-300">
+                ⚠️ <strong>Subdomain Setup Required:</strong> This Cloudflare account does not have a <code class="font-bold font-mono">workers.dev</code> root subdomain yet. Setting it registers your global deployment handle (affecting all Workers on your account).
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[11px] text-neutral-600 font-bold dark:text-neutral-300">
+                  Workers Root Subdomain Handle
+                </label>
+                <div class="flex items-center gap-2">
+                  <div class="relative flex-1">
+                    <input
+                      v-model="targetSubdomainInput"
+                      type="text"
+                      placeholder="e.g. dasilva333"
+                      class="w-full border border-neutral-300 rounded-xl bg-white px-3 py-1.5 text-xs text-neutral-800 font-mono outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
+                    >
+                  </div>
+                  <span class="text-xs text-neutral-400 font-semibold font-mono">.workers.dev</span>
+                  <Button
+                    label="Generate Random Slug"
+                    variant="secondary"
+                    class="text-xs"
+                    @click="generateRandomSubdomainSlug"
+                  />
+                </div>
+                <p class="text-[10px] text-neutral-400 italic">
+                  Derived from your User Profile ("{{ userProfileStore.name }}"). If this handle is taken on Cloudflare, click "Generate Random Slug" or type another custom handle.
+                </p>
               </div>
             </div>
           </div>

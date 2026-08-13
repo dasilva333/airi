@@ -7,6 +7,7 @@ import {
   discordServiceDeployCloudRelay,
   discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
+  discordServiceGetCloudflareSubdomain,
   discordServiceGetStatus,
   discordServiceLeave,
   discordServiceRegisterCommands,
@@ -14,6 +15,7 @@ import {
   discordServiceSendImage,
   discordServiceSendMessage,
   discordServiceSendTyping,
+  discordServiceSetCloudflareSubdomain,
   discordServiceSimulateEvent,
   discordServiceStart,
   discordServiceStop,
@@ -359,6 +361,31 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeLeave = isElectron ? useElectronEventaInvoke(discordServiceLeave) : null
   const invokeDeployCloudRelay = isElectron ? useElectronEventaInvoke(discordServiceDeployCloudRelay) : null
   const invokeFetchCloudRelayMemories = isElectron ? useElectronEventaInvoke(discordServiceFetchCloudRelayMemories) : null
+  const invokeGetCloudflareSubdomain = isElectron ? useElectronEventaInvoke(discordServiceGetCloudflareSubdomain) : null
+  const invokeSetCloudflareSubdomain = isElectron ? useElectronEventaInvoke(discordServiceSetCloudflareSubdomain) : null
+
+  async function getCloudflareSubdomain(): Promise<string | null> {
+    const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
+    const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
+    if (!apiToken || !invokeGetCloudflareSubdomain)
+      return null
+    const res = await invokeGetCloudflareSubdomain({ apiToken, accountId })
+    return res.success ? res.subdomain : null
+  }
+
+  async function setCloudflareSubdomain(subdomain: string): Promise<string> {
+    const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
+    const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
+    if (!apiToken)
+      throw new Error('Cloudflare API token missing.')
+    if (!invokeSetCloudflareSubdomain)
+      throw new Error('Subdomain registration unavailable in non-Electron environment.')
+    const res = await invokeSetCloudflareSubdomain({ apiToken, accountId, subdomain })
+    if (!res.success || !res.subdomain) {
+      throw new Error(res.error || 'Subdomain registration failed.')
+    }
+    return res.subdomain
+  }
 
   async function deployCloudRelay(payload: {
     scriptName: string
@@ -371,6 +398,7 @@ export const useDiscordStore = defineStore('discord', () => {
     cardId: string
     sessionId: string
     initialHistory?: Array<{ role: string, content: string }>
+    targetSubdomain?: string
   }) {
     const apiToken = cfApiToken.value || cfOAuthTokens.value?.accessToken || ''
     const accountId = cfAccountId.value || cfOAuthTokens.value?.accountId || ''
@@ -395,6 +423,7 @@ export const useDiscordStore = defineStore('discord', () => {
       discordBotToken: token.value,
       memoryMode: payload.memoryMode,
       initialHistory: payload.initialHistory,
+      targetSubdomain: payload.targetSubdomain,
     })
 
     if (!res?.success || !res.workerUrl) {
@@ -2456,6 +2485,8 @@ export const useDiscordStore = defineStore('discord', () => {
     startService,
     stopService,
     authenticateWithCloudflare,
+    getCloudflareSubdomain,
+    setCloudflareSubdomain,
     deployCloudRelay,
     fetchCloudRelayMemories,
     refreshStatus,
