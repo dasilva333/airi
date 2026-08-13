@@ -294,6 +294,388 @@ function getBreathingPinkPurpleColorHex(timeMs: number): number {
   return hslToHex(hue, 0.85, 0.68)
 }
 
+// ── 9.0 Vector Bubble Types & Geometry Contracts ──────────────────────────────
+
+export type BubbleBodyStyle
+  = | 'standard-rounded'
+    | 'jagged-starburst'
+    | 'scalloped-cloud'
+
+export type BubbleTailStyle
+  = | 'pointer'
+    | 'wagging'
+    | 'heart-curl'
+    | 'jagged-pointer'
+    | 'droop'
+    | 'thought-dots'
+    | 'none'
+
+export interface VectorBubbleOptions {
+  width: number
+  height: number
+  bodyStyle: BubbleBodyStyle
+  tailStyle: BubbleTailStyle
+  wagPhase?: number
+  color: number
+  outlineWidth?: number
+  outlineAlpha?: number
+  fillColor?: number
+  fillAlpha?: number
+}
+
+export interface VectorBubbleGeometry {
+  drawVisibleBubble: (graphics: Graphics, opts: VectorBubbleOptions) => void
+  drawInteriorMask: (graphics: Graphics, opts: VectorBubbleOptions) => void
+  drawAuxiliaryShapes: (graphics: Graphics, opts: VectorBubbleOptions) => void
+}
+
+export interface AnalyzedSentenceEffects {
+  bodyStyle: BubbleBodyStyle
+  tailStyle: BubbleTailStyle
+  ambient: 'hearts' | 'rain' | 'scanline' | 'fireflies' | 'blush' | 'vignette' | 'sunbeam' | 'confetti' | null
+  accent: 'sweat-drop' | 'flash-burst' | 'lightbulb' | 'anger-mark' | 'checkmark' | 'question-mark' | 'star-sparkles' | null
+  motion: 'wobble' | 'bounce' | 'shake' | 'breath' | 'stretch' | null
+  rim: 'flower-bloom' | 'frost-rim' | 'heartbeat-pulse' | null
+}
+
+// ── 9.1 Sentence & Clause Trigger Analyzer (No <|ACT|>) ───────────────────────
+
+export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
+  const res: AnalyzedSentenceEffects = {
+    bodyStyle: 'standard-rounded',
+    tailStyle: 'pointer',
+    ambient: null,
+    accent: null,
+    motion: null,
+    rim: null,
+  }
+
+  if (!text || !text.trim())
+    return res
+
+  // Strip code blocks, URLs, and quoted text before sentiment scanning
+  let cleanText = text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/"[^"]*"/g, '')
+    .trim()
+
+  if (!cleanText)
+    return res
+
+  // Negation Filtering: Suppress emotion matches in negated spans
+  const negatedSpans: string[] = []
+  cleanText = cleanText.replace(/\b(?:not|no|don't|never)\s+\w+/gi, (match) => {
+    negatedSpans.push(match.toLowerCase())
+    return ' ' // replace with blank space
+  })
+
+  // 1. Bracket Tokens (e.g. [flustered], [angry], [sad], [thinking])
+  const bracketMatch = text.match(/\[([\w-]+)\]/)
+  if (bracketMatch) {
+    const token = bracketMatch[1].toLowerCase()
+    if (['flustered', 'blush', 'shy'].includes(token)) {
+      res.ambient = 'blush'
+      res.accent = 'sweat-drop'
+      res.motion = 'wobble'
+      res.tailStyle = 'heart-curl'
+    }
+    else if (['angry', 'tsundere', 'hmph', 'grr'].includes(token)) {
+      res.bodyStyle = 'jagged-starburst'
+      res.tailStyle = 'jagged-pointer'
+      res.accent = 'anger-mark'
+      res.motion = 'shake'
+    }
+    else if (['thinking', 'wonder', 'hmm'].includes(token)) {
+      res.bodyStyle = 'scalloped-cloud'
+      res.tailStyle = 'thought-dots'
+      res.accent = 'question-mark'
+    }
+    else if (['gasp', 'surprised', 'shock'].includes(token)) {
+      res.accent = 'flash-burst'
+      res.motion = 'bounce'
+    }
+    else if (['sad', 'cry', 'pout', 'sigh'].includes(token)) {
+      res.ambient = 'rain'
+      res.tailStyle = 'droop'
+    }
+    else if (['yandere', 'obsessive'].includes(token)) {
+      res.ambient = 'vignette'
+      res.rim = 'heartbeat-pulse'
+    }
+    else if (['sleepy', 'tired', 'yawn'].includes(token)) {
+      res.ambient = 'fireflies'
+      res.motion = 'breath'
+    }
+  }
+
+  // 2. Structural Triggers
+  // Stutters (e.g. u-um, w-wait, I-I, b-dummy)
+  if (/\b[a-z]-[a-z]{1,4}\b/i.test(cleanText)) {
+    if (!res.ambient)
+      res.ambient = 'blush'
+    if (!res.accent)
+      res.accent = 'sweat-drop'
+    if (!res.motion)
+      res.motion = 'wobble'
+  }
+
+  // Ellipses (...)
+  if (/\.{3}|…/.test(cleanText)) {
+    if (!res.ambient)
+      res.ambient = 'fireflies'
+    if (!res.motion)
+      res.motion = 'breath'
+  }
+
+  // Punctuation Spikes (!! or !?)
+  if (/!{2,}|\?{2,}|!\?|\?!/.test(cleanText)) {
+    if (!res.accent)
+      res.accent = 'flash-burst'
+    if (!res.motion)
+      res.motion = 'bounce'
+  }
+
+  // Parenthetical Asides (inner monologue)
+  if (/\([^)]+\)/.test(cleanText)) {
+    res.bodyStyle = 'scalloped-cloud'
+    res.tailStyle = 'thought-dots'
+  }
+
+  // ALL CAPS
+  if (/^[A-Z0-9\s!?,.'"-]{5,}$/.test(cleanText) && cleanText !== cleanText.toLowerCase()) {
+    res.bodyStyle = 'jagged-starburst'
+    res.tailStyle = 'jagged-pointer'
+    if (!res.motion)
+      res.motion = 'shake'
+  }
+
+  // Elongated Words (soooo, cuteeee)
+  if (/([a-z])\1{3,}/i.test(cleanText)) {
+    if (!res.motion)
+      res.motion = 'stretch'
+  }
+
+  // 3. Keyword / Phrase Matches
+  const lower = cleanText.toLowerCase()
+
+  if (/\b(love|cute|darling|sweetheart|like you)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'hearts'
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'heart-curl'
+  }
+  else if (/\b(thanks|thank you|pretty|beautiful|amazing)\b/i.test(lower)) {
+    if (!res.rim)
+      res.rim = 'flower-bloom'
+  }
+  else if (/\b(sorry|miss you|cry|lonely|sniff)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'rain'
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'droop'
+  }
+  else if (/\b(angry|hmph|grr|annoyed|shut up)\b/i.test(lower)) {
+    res.bodyStyle = 'jagged-starburst'
+    res.tailStyle = 'jagged-pointer'
+    if (!res.accent)
+      res.accent = 'anger-mark'
+    if (!res.motion)
+      res.motion = 'shake'
+  }
+  else if (/\b(mine|jealous|don't leave|forever)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'vignette'
+    if (!res.rim)
+      res.rim = 'heartbeat-pulse'
+  }
+  else if (/\b(scared|eek|creepy|cold)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'fireflies'
+    if (!res.motion)
+      res.motion = 'wobble'
+    if (!res.rim)
+      res.rim = 'frost-rim'
+  }
+  else if (/\b(meow|nya|purr)\b/i.test(lower)) {
+    if (res.tailStyle === 'pointer')
+      res.tailStyle = 'wagging'
+  }
+  else if (/\b(code|system|analyze|data)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'scanline'
+  }
+  else if (/\b(cozy|warm|relax)\b/i.test(lower)) {
+    if (!res.ambient)
+      res.ambient = 'sunbeam'
+    if (!res.motion)
+      res.motion = 'breath'
+  }
+
+  return res
+}
+
+// ── 9.2 Vector Bubble Path Builder ────────────────────────────────────────────
+
+export const vectorBubblePathBuilder: VectorBubbleGeometry = {
+  drawVisibleBubble(g: Graphics, opts: VectorBubbleOptions) {
+    const { width, height, bodyStyle, tailStyle, wagPhase = 0, color, outlineWidth = 2.5, outlineAlpha = 0.92, fillColor = 0xFFFFFF, fillAlpha = 0.92 } = opts
+
+    g.lineStyle(outlineWidth, color, outlineAlpha, 0.5)
+    g.beginFill(fillColor, fillAlpha)
+
+    const halfW = width / 2
+    const tailBaseHalf = Math.max(8, Math.round(width * 0.05))
+    const tailHeight = Math.max(10, Math.round(width * 0.05))
+
+    if (bodyStyle === 'jagged-starburst') {
+      // Jagged starburst outer polygon pass
+      const spikes = 16
+      const topY = -height
+      const botY = 0
+
+      g.moveTo(-halfW, -height / 2)
+      for (let i = 0; i <= spikes; i++) {
+        const step = i / spikes
+        const x = -halfW + step * width
+        const spikeY = (i % 2 === 0) ? topY - 4 : topY + 4
+        g.lineTo(x, spikeY)
+      }
+      g.lineTo(halfW + 4, -height / 2)
+
+      // Right jagged edge
+      g.lineTo(halfW, botY)
+
+      // Bottom edge with jagged tail
+      if (tailStyle !== 'none') {
+        g.lineTo(tailBaseHalf, 0)
+        g.lineTo(0, tailHeight + 4)
+        g.lineTo(-tailBaseHalf, 0)
+      }
+      g.lineTo(-halfW, botY)
+      g.closePath()
+      g.endFill()
+      return
+    }
+
+    if (bodyStyle === 'scalloped-cloud') {
+      // Scalloped cloud outer perimeter
+      const radius = Math.min(14, Math.round(height * 0.25))
+      g.moveTo(-halfW + radius, -height)
+
+      // Top cloud arcs
+      g.lineTo(halfW - radius, -height)
+      g.arcTo(halfW, -height, halfW, -height + radius, radius)
+      g.lineTo(halfW, -radius)
+      g.arcTo(halfW, 0, halfW - radius, 0, radius)
+
+      if (tailStyle !== 'none') {
+        g.lineTo(tailBaseHalf, 0)
+        g.lineTo(0, tailHeight)
+        g.lineTo(-tailBaseHalf, 0)
+      }
+
+      g.lineTo(-halfW + radius, 0)
+      g.arcTo(-halfW, 0, -halfW, -radius, radius)
+      g.lineTo(-halfW, -height + radius)
+      g.arcTo(-halfW, -height, -halfW + radius, -height, radius)
+      g.closePath()
+      g.endFill()
+      return
+    }
+
+    // Standard Rounded Body
+    const radius = Math.min(14, Math.round(height * 0.25))
+    g.moveTo(-halfW + radius, -height)
+
+    // Top edge -> Top-right corner
+    g.lineTo(halfW - radius, -height)
+    g.arcTo(halfW, -height, halfW, -height + radius, radius)
+
+    // Right edge -> Bottom-right corner
+    g.lineTo(halfW, -radius)
+    g.arcTo(halfW, 0, halfW - radius, 0, radius)
+
+    // Bottom edge + Tail pose
+    if (tailStyle === 'wagging') {
+      const wagX = Math.sin(wagPhase) * (tailHeight * 0.7)
+      g.lineTo(tailBaseHalf, 0)
+      g.lineTo(wagX, tailHeight)
+      g.lineTo(-tailBaseHalf, 0)
+    }
+    else if (tailStyle === 'heart-curl') {
+      g.lineTo(tailBaseHalf, 0)
+      g.bezierCurveTo(tailBaseHalf + 6, tailHeight * 0.6, 6, tailHeight + 6, 0, tailHeight)
+      g.bezierCurveTo(-6, tailHeight + 6, -tailBaseHalf - 6, tailHeight * 0.6, -tailBaseHalf, 0)
+    }
+    else if (tailStyle === 'droop') {
+      g.lineTo(tailBaseHalf, 0)
+      g.bezierCurveTo(tailBaseHalf, tailHeight * 0.8, -8, tailHeight + 4, -12, tailHeight)
+      g.lineTo(-tailBaseHalf, 0)
+    }
+    else if (tailStyle === 'jagged-pointer') {
+      g.lineTo(tailBaseHalf, 0)
+      g.lineTo(tailBaseHalf / 2, tailHeight / 2)
+      g.lineTo(0, tailHeight + 3)
+      g.lineTo(-tailBaseHalf, 0)
+    }
+    else if (tailStyle === 'pointer') {
+      g.lineTo(tailBaseHalf, 0)
+      g.lineTo(0, tailHeight)
+      g.lineTo(-tailBaseHalf, 0)
+    }
+
+    // Bottom-left corner -> Left edge -> Top-left corner
+    g.lineTo(-halfW + radius, 0)
+    g.arcTo(-halfW, 0, -halfW, -radius, radius)
+    g.lineTo(-halfW, -height + radius)
+    g.arcTo(-halfW, -height, -halfW + radius, -height, radius)
+
+    g.closePath()
+    g.endFill()
+  },
+
+  drawInteriorMask(g: Graphics, opts: VectorBubbleOptions) {
+    const { width, height } = opts
+    g.clear()
+    g.beginFill(0xFFFFFF, 1.0)
+    const halfW = width / 2
+    const radius = Math.min(14, Math.round(height * 0.25))
+
+    // Body-only mask without tail so interior effects stay strictly inside bubble body
+    g.moveTo(-halfW + radius, -height)
+    g.lineTo(halfW - radius, -height)
+    g.arcTo(halfW, -height, halfW, -height + radius, radius)
+    g.lineTo(halfW, -radius)
+    g.arcTo(halfW, 0, halfW - radius, 0, radius)
+    g.lineTo(-halfW + radius, 0)
+    g.arcTo(-halfW, 0, -halfW, -radius, radius)
+    g.lineTo(-halfW, -height + radius)
+    g.arcTo(-halfW, -height, -halfW + radius, -height, radius)
+    g.closePath()
+    g.endFill()
+  },
+
+  drawAuxiliaryShapes(g: Graphics, opts: VectorBubbleOptions) {
+    const { tailStyle, color } = opts
+    g.clear()
+
+    if (tailStyle === 'thought-dots') {
+      // Draw 3 trailing standalone circles below bubble leading to head
+      g.beginFill(0xFFFFFF, 0.92)
+      g.lineStyle(2, color, 0.92)
+
+      g.drawCircle(0, 8, 4)
+      g.drawCircle(-3, 16, 2.5)
+      g.drawCircle(-5, 22, 1.5)
+
+      g.endFill()
+    }
+  },
+}
+
+// ── 9.3 Main Plank Builder with 4-Channel Engine ──────────────────────────────
+
 export function buildCaptionBubblePlank(opts: {
   text: string
   widthPx: number
@@ -307,11 +689,12 @@ export function buildCaptionBubblePlank(opts: {
   let hasExplicitColor = Boolean(opts.color)
   let currentOutlineColor = opts.color ? parseHexColor(opts.color) : getBreathingPinkPurpleColorHex(Date.now())
 
+  // Text Node (Always top layer for crisp legibility)
   const textNode = new Text(opts.text, {
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize,
     fontWeight: '500',
-    fill: 0x0F172A, // slate-900 — high contrast on white bubble
+    fill: 0x0F172A,
     wordWrap: true,
     wordWrapWidth: widthPx - padX * 2,
     align: 'center',
@@ -320,69 +703,153 @@ export function buildCaptionBubblePlank(opts: {
   })
   textNode.anchor.set(0.5, 0.5)
 
-  const bubbleWidth = widthPx
-  const tailBaseHalf = Math.max(8, Math.round(widthPx * 0.05))
+  // Initial trigger analysis
+  let activeEffects = analyzeCaptionSentence(opts.text)
+
+  // PIXI Containers for 4-Channel Layering
+  const motionContainer = new PixiContainer()
+  const bubbleGraphics = new Graphics()
+  const bodyMaskGraphics = new Graphics()
+  const interiorEffectsContainer = new PixiContainer()
+  const ambientContainer = new PixiContainer()
+  const interiorAccentContainer = new PixiContainer()
+  const rimContainer = new PixiContainer()
+  const exteriorAccentContainer = new PixiContainer()
+  const auxiliaryGraphics = new Graphics()
+
+  // Assemble Scene Graph Hierarchy
+  interiorEffectsContainer.mask = bodyMaskGraphics
+  interiorEffectsContainer.addChild(ambientContainer)
+  interiorEffectsContainer.addChild(interiorAccentContainer)
+
+  motionContainer.addChild(bubbleGraphics)
+  motionContainer.addChild(bodyMaskGraphics)
+  motionContainer.addChild(interiorEffectsContainer)
+  motionContainer.addChild(rimContainer)
+  motionContainer.addChild(exteriorAccentContainer)
+  motionContainer.addChild(auxiliaryGraphics)
+  motionContainer.addChild(textNode)
+
   const tailHeight = Math.max(10, Math.round(widthPx * 0.05))
-  const bubble = new Graphics()
 
-  function drawBubble(outlineColor: number) {
-    bubble.clear()
+  // Particle state memory
+  let ambientParticles: Array<{ x: number, y: number, vx: number, vy: number, alpha: number, scale: number, sprite: Graphics }> = []
+
+  function renderPlank(timeMs: number) {
     const bubbleHeight = textNode.height + padY * 2
-    const outlineAlpha = 0.92
-    const outlineWidth = 2.5
-    const fillColor = 0xFFFFFF
-    const fillAlpha = 0.92
+    const bubbleOpts: VectorBubbleOptions = {
+      width: widthPx,
+      height: bubbleHeight,
+      bodyStyle: activeEffects.bodyStyle,
+      tailStyle: activeEffects.tailStyle,
+      wagPhase: timeMs / 180,
+      color: currentOutlineColor,
+      outlineWidth: 2.5,
+      outlineAlpha: 0.92,
+      fillColor: 0xFFFFFF,
+      fillAlpha: 0.92,
+    }
 
-    const radius = Math.min(14, padY + 3)
-    const halfW = bubbleWidth / 2
+    // 1. Draw Visible Bubble & Body Mask
+    bubbleGraphics.clear()
+    vectorBubblePathBuilder.drawVisibleBubble(bubbleGraphics, bubbleOpts)
+    vectorBubblePathBuilder.drawInteriorMask(bodyMaskGraphics, bubbleOpts)
+    vectorBubblePathBuilder.drawAuxiliaryShapes(auxiliaryGraphics, bubbleOpts)
 
-    // Single continuous vector path: seamless body + tail with zero internal seams
-    bubble.lineStyle(outlineWidth, outlineColor, outlineAlpha, 0.5)
-    bubble.beginFill(fillColor, fillAlpha)
-
-    // Start at top edge (after top-left corner radius)
-    bubble.moveTo(-halfW + radius, -bubbleHeight)
-
-    // Top edge ➔ top-right corner
-    bubble.lineTo(halfW - radius, -bubbleHeight)
-    bubble.arcTo(halfW, -bubbleHeight, halfW, -bubbleHeight + radius, radius)
-
-    // Right edge ➔ bottom-right corner
-    bubble.lineTo(halfW, -radius)
-    bubble.arcTo(halfW, 0, halfW - radius, 0, radius)
-
-    // Bottom edge right of tail ➔ tail tip ➔ tail left
-    bubble.lineTo(tailBaseHalf, 0)
-    bubble.lineTo(0, tailHeight)
-    bubble.lineTo(-tailBaseHalf, 0)
-
-    // Bottom edge left of tail ➔ bottom-left corner
-    bubble.lineTo(-halfW + radius, 0)
-    bubble.arcTo(-halfW, 0, -halfW, -radius, radius)
-
-    // Left edge ➔ top-left corner
-    bubble.lineTo(-halfW, -bubbleHeight + radius)
-    bubble.arcTo(-halfW, -bubbleHeight, -halfW + radius, -bubbleHeight, radius)
-
-    bubble.closePath()
-    bubble.endFill()
-
-    // Centre text in the bubble body
     textNode.position.set(0, -bubbleHeight / 2)
+
+    // 2. Render Channel 1: AMBIENT
+    ambientContainer.removeChildren()
+    if (activeEffects.ambient === 'blush') {
+      const blush = new Graphics()
+      blush.beginFill(0xF472B6, 0.22)
+      blush.drawRect(-widthPx / 2, -bubbleHeight / 2, widthPx, bubbleHeight / 2)
+      blush.endFill()
+      ambientContainer.addChild(blush)
+    }
+    else if (activeEffects.ambient === 'hearts') {
+      if (ambientParticles.length === 0) {
+        for (let i = 0; i < 6; i++) {
+          const heart = new Graphics()
+          heart.beginFill(0xEC4899, 0.7)
+          heart.drawCircle(0, 0, 3)
+          heart.endFill()
+          ambientParticles.push({
+            x: (Math.random() - 0.5) * (widthPx * 0.7),
+            y: -Math.random() * bubbleHeight,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: -0.4 - Math.random() * 0.4,
+            alpha: 0.8,
+            scale: 0.8 + Math.random() * 0.4,
+            sprite: heart,
+          })
+        }
+      }
+
+      for (const p of ambientParticles) {
+        p.y += p.vy
+        p.x += p.vx
+        if (p.y < -bubbleHeight)
+          p.y = 0
+        p.sprite.position.set(p.x, p.y)
+        ambientContainer.addChild(p.sprite)
+      }
+    }
+
+    // 3. Render Channel 2: ACCENT
+    interiorAccentContainer.removeChildren()
+    exteriorAccentContainer.removeChildren()
+    if (activeEffects.accent === 'sweat-drop') {
+      const drop = new Graphics()
+      drop.beginFill(0x38BDF8, 0.85)
+      drop.drawCircle(widthPx / 2 - 12, -bubbleHeight + 10, 4)
+      drop.endFill()
+      interiorAccentContainer.addChild(drop)
+    }
+    else if (activeEffects.accent === 'anger-mark') {
+      const anger = new Graphics()
+      anger.lineStyle(2, 0xEF4444, 0.9)
+      anger.moveTo(widthPx / 2 - 16, -bubbleHeight + 8)
+      anger.lineTo(widthPx / 2 - 8, -bubbleHeight + 16)
+      anger.moveTo(widthPx / 2 - 8, -bubbleHeight + 8)
+      anger.lineTo(widthPx / 2 - 16, -bubbleHeight + 16)
+      exteriorAccentContainer.addChild(anger)
+    }
+
+    // 4. Render Channel 3: MOTION
+    if (activeEffects.motion === 'wobble') {
+      motionContainer.rotation = Math.sin(timeMs / 120) * 0.04
+      motionContainer.scale.set(1.0, 1.0)
+    }
+    else if (activeEffects.motion === 'bounce') {
+      motionContainer.rotation = 0
+      motionContainer.scale.set(1.0, 1.0 + Math.sin(timeMs / 100) * 0.05)
+    }
+    else if (activeEffects.motion === 'shake') {
+      motionContainer.position.x = (Math.random() - 0.5) * 4
+      motionContainer.rotation = 0
+    }
+    else {
+      motionContainer.rotation = 0
+      motionContainer.position.set(0, 0)
+      motionContainer.scale.set(1.0, 1.0)
+    }
   }
 
-  drawBubble(currentOutlineColor)
+  renderPlank(Date.now())
 
   const container = new PixiContainer() as Container & {
     updateText: (newText: string, colorStr?: string) => void
     updateTick: (timeMs: number) => void
   }
-  container.addChild(bubble)
-  container.addChild(textNode)
+  container.addChild(motionContainer)
   container.pivot.set(0, tailHeight)
 
   container.updateText = (newText: string, colorStr?: string) => {
     textNode.text = newText
+    activeEffects = analyzeCaptionSentence(newText)
+    ambientParticles = [] // reset particles on new text
+
     if (colorStr) {
       hasExplicitColor = true
       currentOutlineColor = parseHexColor(colorStr)
@@ -391,18 +858,15 @@ export function buildCaptionBubblePlank(opts: {
       hasExplicitColor = false
       currentOutlineColor = getBreathingPinkPurpleColorHex(Date.now())
     }
-    drawBubble(currentOutlineColor)
+    renderPlank(Date.now())
     container.pivot.set(0, tailHeight)
   }
 
   container.updateTick = (timeMs: number) => {
-    if (hasExplicitColor)
-      return
-    const newColor = getBreathingPinkPurpleColorHex(timeMs)
-    if (newColor !== currentOutlineColor) {
-      currentOutlineColor = newColor
-      drawBubble(currentOutlineColor)
+    if (!hasExplicitColor) {
+      currentOutlineColor = getBreathingPinkPurpleColorHex(timeMs)
     }
+    renderPlank(timeMs)
   }
 
   return container
