@@ -1,38 +1,46 @@
-# 🚀 AIRI v0.9.23-stable.20260808 — Release Notes
+# 🚀 AIRI v0.9.24-stable.20260813 — Release Notes
 
-This release introduces **Stage Edge 24/7 Discord Companion Presence**, the **Multi-Instance Provider Studio**, the **Live2D DSL Virtual Machine Engine & Intimacy Overlay**, **MOSS-TTS-Nano Voice Acceleration**, and **WebGL Performance Optimizations**.
+This release introduces **Live2D Head-Tethered Captions & WebGL Comic FX**, the all-new **Companion Creation Wizard**, a **Built-in WebLLM WebGPU Provider (Zero API Keys)**, the **Kyutai Pocket TTS Engine with 26 Voices**, **Attention Ecology 24/7 Vision Perception**, and the **Unified Event Ledger**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🌐 Stage Edge & 24/7 Discord Companion Presence
-* **24/7 Discord Cloud Relay (`stage-edge`)**: Launched the `stage-edge` Cloudflare Worker package! Your companion can now stay online 24/7 in your Discord servers via Cloudflare Workers — even when your desktop app is turned off.
-* **2-Step Deployment Review Flow**: Includes a 2-step Cloud Relay deployment wizard with automatic Cloudflare account resolution, OAuth PKCE auto-prompting, and CORS bypass coalescence.
-* **Smart Rolling Memory Seeding**: Features 2-way rolling memory and conversation history seeding so your companion retains past context seamlessly between desktop and cloud runs.
-* **Visual Memory Review Modal**: Added an interactive memory review modal before deploying, with automatic execution mode handovers.
-* **Clean Discord Tag Stripping**: Automatically strips internal visual tags (`<|ACT|>`) from LLM responses before delivering messages to Discord.
+### 💬 Live2D Head-Tethered Speech Captions & WebGL Comic FX Engine
+* **3D Head-Tethered Speech Bubbles**: Speech captions now dynamically anchor directly above your character’s head in real time! Features 3D perspective tracking, 0-seam continuous vector paths, and automatic viewport clamping so bubbles never clip off-screen.
+* **Dynamic 4-Channel WebGL Comic FX**: Your companion’s dialogue now transforms the bubble into an animated comic panel per-phrase based on emotions, punctuation, and natural speech habits:
+  * 💖 **Flustered / Affection**: Floating vector hearts, pink blush wash, and heart-curled tails (`♡`).
+  * 💭 **Thought Cloud**: Morphs into a scalloped cloud bubble with trailing thought-dots for inner monologues `(parentheses)`.
+  * ⚡ **Shock / Exclamation**: Comic impact ring bursts, radial speed lines, and spring scale punches on `!!` / `!?`.
+  * 💢 **Tsundere / Angry**: Jagged starburst vector outline, pulsing anger marks (`💢`), and horizontal shake.
+  * 🌧️ **Melancholic Rain**: Translucent blue teardrop rain sliding down the interior and drooping tail.
+  * 🖤 **Yandere / Obsessive**: Dark violet vignette glow and heartbeat outline pulse (`🖤`).
+  * 🌸 **Star Blooms**: 6-pointed vector star blooms sprouting along the top outline for compliments and praise.
+  * 🐾 **Playful Cat**: Dynamic 60 FPS sine-wave tail wagging on cat speech (`nya~`, `meow`, `purr`).
+  * 🌐 **Cyber Scanlines**: Animated cyan scanlines and data grid drift for tech / system diagnostics.
+* **How to Enable**: Open **Customizer ➔ Captions** window and toggle **"Head-Tethered Captions"** ON (*Active for Live2D models today, with VRM 3D & Spine support coming soon!*).
 
-### 🎛️ Provider Studio Overhaul & Multi-Instance Providers
-* **Multi-Instance Provider Support**: Completely re-architected provider settings! You can now configure and run **multiple concurrent instances** of any provider type (e.g. 3 separate OpenAI-compatible endpoints, multiple Ollama endpoints, etc.) with per-instance API keys and custom configuration.
-* **1-Click Model Activation**: Added 1-click active model activation directly from provider cards.
-* **Modern Provider Studio UI**: Redesigned the Provider Settings surface with hero headers, endcap console links (`consoleUrl`), API key eye toggles, and exposed form layouts.
-* **Smooth Provider Navigation**: Fixed back-button navigation in settings so returning from a provider page lands directly on its category anchor without history loops.
+### 🪄 The All-New Companion Wizard
+* **Redesigned Setup Experience**: We've completely replaced the old setup screens with a sleek, step-by-step **Companion Wizard**.
+* **Frictionless Guided Flow**: New users get a smooth, friendly walkthrough to set up their companion's hearing (speech-to-text), speech (voice engine), 2D/3D body model, persona card, user profile, and AI brain — explained in plain, simple words.
+* **Multi-Companion Creation**: Existing users can launch the wizard anytime to quickly craft brand-new companions, seamlessly reusing their existing API keys, local models, and saved provider settings without starting from scratch.
+* **Easy Access**: Launch the Companion Wizard anytime from the **"+ Create Companion"** button in the AIRI Cards page or directly from the **System Tray** menu!
 
-### 🎭 Live2D DSL Engine & Intimacy Overlay (`live2d-runtime`)
-* **Standalone Live2D DSL VM (`live2d-runtime`)**: Built a dedicated Live2D Domain-Specific Language (DSL) Virtual Machine package with manifest parsing, heap variable tracking (`VarFloats`), and motion group dispatching.
-* **Choice Menus & Intimacy Integration**: Bridged Live2D DSL choice menus and character intimacy tracking directly into the dating-sim overlay interface.
-* **Standalone Playground & Headless Harness**: Added a standalone Live2D DSL playground, zip-loader fixes, and a headless scenario runner test suite (`HeadlessDslTestHarness`).
+### 🧠 Native WebLLM WebGPU Provider (Zero API Keys)
+* **Local WebGPU AI Engine**: Run top open models (Gemma 3, Llama 3.2, Qwen 2.5, Phi 3.5, SmolLM2) locally on your GPU with **zero API keys** and zero external servers!
+* **Model Search & VRAM Tiering**: Includes model catalog search indexing and Local Free AI quick shortcuts.
 
-### ⚡ Voice Cloning Acceleration & Speech Polish
-* **MOSS-TTS-Nano Acceleration**: Accelerated the MOSS-TTS-Nano voice cloning pipeline with `prompt_audio_codes` audio caching for near-instant speech generation.
-* **Smart Field Prioritization**: Speech and transcription settings now intelligently prioritize active credentials and active model options.
+### 🗣️ Kyutai Pocket TTS Engine & 26 Preset Voices
+* **Local Neural Speech Flow**: Integrated the local Kyutai Pocket TTS neural flow sampling engine for ultra-fast local speech synthesis.
+* **26 Predefined Kyutai Voices**: Cataloged 26 Kyutai Pocket TTS voices filtered by language selection, complete with HuggingFace gated model token support and voice presets.
 
-### 🚀 WebGL Memory & 512x768 WebP Model Catalog
-* **WebGL Background Scene Pausing**: Automatically pauses background 3D WebGL scenes when opening the Model Selector dialog, eliminating GPU memory spikes and frame stutter.
-* **High-Res WebP Thumbnails**: Upgraded model preview thumbnails to crisp 512x768 WebP images alongside compressed metadata caching.
+### 👁️ Attention Ecology & 24/7 Vision Perception
+* **Cascaded Salience Gate**: Implemented a 4-tier salience gate (pHash → CLIP vision embedding → WASM Tesseract.js OCR → VLM forwarder) for zero-cost 24/7 background vision perception.
+* **DevTools Perception Inspector**: Added a live ASCII terminal dashboard script and DevTools inspector for background perception metrics.
 
-### 🛠️ Desktop Windowing & Build Tooling
-* **Stage Caption Follow Rules**: Consolidated stage-caption follow rules in the main process and gated ghost capture windows.
-* **Multi-Actor Pre-Speech Sync**: Resolved actor model desync on multi-actor pre-speech writes.
-* **Portable Windows ZIP Target**: Updated release scripts to automatically package and upload a portable `.zip` release alongside setup `.exe` installers to bypass Windows Defender SmartScreen blocks.
+### 📊 Unified Event Ledger
+* **Real-time Event Logging**: Integrated a unified Event Log store emitting live user input ingestion, tool calls, and assistant response events into a workspace route drawer UI.
+
+### 🎭 Live2D Runtime Enhancements
+* **State-Preserving Costume Swaps (`change_cos`)**: Added support for structured target costume hot-swaps (`change_cos`) without resetting motion state.
+* **Motion Gating**: Added `MotionEnable` and `MotionDisable` instruction toggles to control character motion triggers.

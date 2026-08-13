@@ -20,7 +20,7 @@
  * a WASM lib URL; an unverified repo without a published WASM lib 404s at load.
  */
 
-import type { ModelRecord } from '@mlc-ai/web-llm'
+import type { CreateMLCEngine, ModelRecord } from '@mlc-ai/web-llm'
 
 import type { LoadStreamItem } from '../../libs/inference/contract'
 import type {
@@ -29,7 +29,6 @@ import type {
   WebLlmLoadRequest,
 } from './contract'
 
-import { CreateMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { defineInvokeHandler, defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
 
@@ -40,6 +39,10 @@ import {
 } from '../../libs/inference/contract'
 
 const { context } = createContext()
+
+async function getMlcWebLlm() {
+  return await import('@mlc-ai/web-llm')
+}
 
 // MLCEngine is a heavy, mutable class; typed loosely here because the runtime is
 // only exercised inside the worker and its public surface (chat.completions,
@@ -68,7 +71,8 @@ function toProgress(report: { progress: number, text: string }): LoadStreamItem 
  * Build the `AppConfig` for a load request: the full prebuilt catalog plus a
  * custom record when the request carries a weights URL.
  */
-function buildAppConfig(request: WebLlmLoadRequest) {
+async function buildAppConfig(request: WebLlmLoadRequest) {
+  const { prebuiltAppConfig } = await getMlcWebLlm()
   const modelList: ModelRecord[] = prebuiltAppConfig.model_list.map((record) => {
     // Ensure sliding_window_size is set to -1 when context_window_size is positive,
     // preventing MLC runtime assertion errors (e.g. gemma3-1b-it where both are positive by default).
@@ -115,7 +119,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
     return
   }
 
-  const appConfig = buildAppConfig(payload)
+  const appConfig = await buildAppConfig(payload)
 
   emit({ kind: 'progress', payload: { phase: 'download', percent: -1, message: 'Initializing WebLLM engine...' } })
   console.info('[web-llm:worker] creating engine', { modelId: payload.modelId, custom: !!payload.modelUrl })
@@ -135,6 +139,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
   }
 
   try {
+    const { CreateMLCEngine } = await getMlcWebLlm()
     const created = await CreateMLCEngine(payload.modelId, {
       appConfig,
       initProgressCallback: (report) => {
