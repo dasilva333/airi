@@ -5,9 +5,9 @@
   "private": true,
   "description": "Standalone Edge Relay & Cloudflare Worker for AIRI 24/7 Discord & BYOS Sync",
   "exports": {
-    ".": "./dist/index.mjs",
-    "./deployer": "./dist/deployer/index.mjs",
-    "./deployer/oauth": "./dist/deployer/oauth.mjs"
+    ".": "./src/index.ts",
+    "./deployer": "./src/deployer/index.ts",
+    "./deployer/oauth": "./src/deployer/oauth.ts"
   },
   "bin": {
     "airi-edge": "./bin/airi-edge.js"
