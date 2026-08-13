@@ -326,26 +326,25 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 
 ## 9. 4-Channel In-Bubble Visual Effects & Expressive Tail System Architecture
 
-To elevate the head-tethered caption plank from a static dialogue bubble into a dynamic, expressive comic surface, the system employs a WebGL-accelerated **4-Channel Animation Engine** inside the PIXI container directly between the background bubble shape and the foreground text node.
+To elevate the head-tethered caption plank from a static dialogue bubble into a dynamic, expressive comic surface, the system employs a WebGL-accelerated **4-Channel Animation Engine** inside the PIXI container.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│ HeadTetheredCaption Plank Container (PIXI.Container)     │
-│ ├── 1. Bubble Background & Outline (Graphics)           │
-│ ├── 2. Masked Effects Layer Container (Mask = Bubble)   │
-│ │    ├── Channel 1: AMBIENT (Hearts, Rain, Grid, Stars)│
-│ │    ├── Channel 2: ACCENT  (Flash, Sweat, Lightbulb)  │
-│ │    ├── Channel 3: MOTION  (Bounce, Wobble, Shake)    │
-│ │    └── Channel 4: RIM/TAIL(Wag, Heart-Curl, Droop)  │
-│ └── 3. Caption Text Node (PIXI.Text)                    │ <-- Always on top for legibility
-└──────────────────────────────────────────────────────────┘
+```text
+Head-follow container
+└── Motion container
+    ├── Bubble body + fill
+    ├── Body mask
+    │   ├── Ambient layer
+    │   └── Interior accent layer
+    ├── Rim/tail layer
+    ├── Exterior accent layer
+    └── Text
 ```
 
 ---
 
 ### 9.1 The 4-Channel Concurrency Manager
 
-To prevent visual clutter, effects are organized into **four orthogonal channels**. The system allows at most **one active effect per channel**, capping overall concurrency at 2–3 active channels simultaneously:
+To prevent visual clutter while allowing expressive combinations, effects are organized into **four orthogonal channels**. Each channel permits one selected effect at a time, but all four channels may run concurrently. Same-channel conflicts are resolved by priority; there is no cross-channel suppression:
 
 1. **`ambient` (Background Atmosphere)**: Continuous background textures, particle flows, or gradients (e.g. floating hearts, rain, cyber grid, starfield, gloomy mist).
 2. **`accent` (One-Shot Pops & Icons)**: Brief 250ms–600ms visual bursts or overlay icons (e.g. lightbulb flash, impact ring, checkmark sweep, sweat drop sticker, anger mark `💢`).
@@ -361,8 +360,6 @@ export interface CaptionEffectCue {
   durationMs: number
   intensity: number // 0.0 .. 1.0
   priority: number // Higher priority pre-empts lower priority in same channel
-  seed: number // Stable hash derived from text for organic deterministic rendering
-  cooldownMs?: number
 }
 ```
 
@@ -377,7 +374,7 @@ The speech-bubble tail acts as an **expressive character limb** that reacts dyna
 | **`wag`** | Tail wags side-to-side (`~`) in a smooth sine wave. | Playful, happy, teasing, cat-speech (`nya`, `meow`). |
 | **`heart-curl`** | Tail tip curls into a sweet heart loop (`♡`). | Affectionate, loving, flirting, compliments. |
 | **`droop`** | Tail droops downward limply. | Sadness, disappointment, embarrassment, crying. |
-| **`jagged`** | Border vector redrawn into a sharp, starburst outline with a jagged tail. | Anger, annoyance, shock, screaming (`ALL CAPS`). |
+| **`jagged-pointer`** | Border vector redrawn into a sharp, starburst outline with a jagged tail. | Anger, annoyance, shock, screaming (`ALL CAPS`). |
 | **`scalloped-cloud`** | Border vector morphs into a 3-part thought cloud with trailing dots. | Thinking, pondering, inner monologues `(parentheses)`. |
 | **`heartbeat-pulse`** | Tail and border pulse in a subtle double-beat rhythm (`thump-thump`). | Yandere, intense devotion, possessive affection. |
 | **`frost-rim`** | Crystalline frost grows inward from the border edges. | Scared, chilled, creepy, terrified. |
@@ -387,14 +384,28 @@ The speech-bubble tail acts as an **expressive character limb** that reacts dyna
 
 ### 9.3 Parametric Continuous Vector Path Builder (`VectorBubblePathBuilder`)
 
-To guarantee **zero internal seams or stroke overlap**, the speech bubble is **never** constructed from separate body and tail shapes. Instead, a single `VectorBubblePathBuilder` function traces the **entire outer perimeter—body, corners, bottom edge, and tail—in one continuous stroke pass**:
+To guarantee **zero internal seams or stroke overlap**, connected body-and-tail combinations use **one closed outer path and one stroke pass**. Intentionally disconnected decorations, such as thought dots, are emitted as auxiliary paths by the same builder:
 
 ```ts
+export type BubbleBodyStyle
+  = | 'standard-rounded'
+    | 'jagged-starburst'
+    | 'scalloped-cloud'
+
+export type BubbleTailStyle
+  = | 'pointer'
+    | 'wagging'
+    | 'heart-curl'
+    | 'jagged-pointer'
+    | 'droop'
+    | 'thought-dots'
+    | 'none'
+
 export interface VectorBubbleOptions {
   width: number
   height: number
-  bodyStyle: 'standard-rounded' | 'jagged-starburst' | 'scalloped-cloud'
-  tailStyle: 'pointer' | 'wagging' | 'heart-curl' | 'thought-dots' | 'none'
+  bodyStyle: BubbleBodyStyle
+  tailStyle: BubbleTailStyle
   wagPhase?: number // Driven by 60 FPS ticker for dynamic tail wagging
   color: number
   outlineWidth: number
@@ -402,13 +413,18 @@ export interface VectorBubbleOptions {
   fillColor: number
   fillAlpha: number
 }
+
+export interface VectorBubbleGeometry {
+  drawVisibleBubble: (graphics: PIXI.Graphics) => void
+  drawInteriorMask: (graphics: PIXI.Graphics) => void
+  drawAuxiliaryShapes: (graphics: PIXI.Graphics) => void
+}
 ```
 
-#### Seamless Single-Pass Execution:
-1. **`standard-rounded` + `wagging`**: Traces rounded top/right corners ➔ Bottom edge ➔ Applies `wagPhase` horizontal sine offset to tail tip ➔ Traces rounded left corners ➔ `closePath()` ➔ `endFill()`.
-2. **`standard-rounded` + `heart-curl`**: Traces bottom edge ➔ `bezierCurveTo()` loops the tail tip into a heart loop (`♡`) ➔ Seamlessly returns to bottom edge ➔ Traces rounded corners ➔ `endFill()`.
-3. **`jagged-starburst` + `jagged-pointer`**: Traces alternating inner/outer spike vertices along the entire perimeter, including the tail, in a single continuous vector polygon.
-4. **`scalloped-cloud` + `thought-dots`**: Traces overlapping circular arcs (`arcTo` / `bezierCurveTo`) around the body ➔ Closes main cloud path ➔ Draws 3 trailing standalone circles below leading to the head.
+#### Geometry Separation for Clean Rendering:
+- **`drawVisibleBubble`**: Draws the complete visible outline including the expressive tail (`pointer`, `wagging`, `heart-curl`, `jagged-pointer`, `droop`).
+- **`drawInteriorMask`**: Emits a **body-only** mask path so interior ambient textures (hearts, rain, scanlines) stay inside the bubble body without leaking into the tail.
+- **`drawAuxiliaryShapes`**: Emits disconnected auxiliary paths (such as the 3 trailing thought-dots for `thought-dots`).
 
 Redrawing a 20-point PIXI `Graphics` vector path on text change or during a 60 FPS tick takes **under 0.01ms**, preserving 100% smooth rendering.
 
@@ -426,9 +442,10 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
                   └─► 5. Character Persona Defaults  (Lowest Priority)
 ```
 
-#### Safeguards & Exclusions:
+#### Resolution & Exclusions Rules:
+- **Conflict Resolution**: Phrase priority resolves **semantic conflicts** (e.g. `"I'm not angry"`) without preventing compatible structural effects (e.g. `"I miss you!!"` triggers sadness/affection ambient styling **and** an exclamation impact accent).
+- **Negation Filtering**: Negation filtering suppresses the matched emotion span (e.g. suppressing the anger match in `"not angry"`) while leaving the rest of the sentence intact for trigger evaluation.
 - **Word Boundary Enforcement**: All keyword matches use explicit word boundaries (e.g., `/\b(mad|hiss)\b/i`).
-- **Negation Exclusion**: Phrases like `"not angry"`, `"don't cry"`, or `"no problem"` are stripped before sentiment scanning.
 - **Content Exclusions**: Code blocks (` ``` `), URLs (`https://...`), and quoted user text (`"..."`) are excluded from semantic trigger evaluation.
 
 ---
@@ -437,7 +454,7 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 
 | Trigger Pattern / Context | Channel Assignment | Visual FX & Bubble Behavior |
 | :--- | :--- | :--- |
-| **Stutter**: `I-I`, `w-wait`, `u-um`, `b-dummy` | `motion` + `accent` | Nervous wobble transform + rose blush wash + sweat drop sliding down edge. |
+| **Stutter**: `I-I`, `w-wait`, `u-um`, `b-dummy` | `ambient` + `accent` + `motion` | Nervous wobble transform + rose blush wash + sweat drop sliding down edge. |
 | **Pause / Hesitation**: `...`, `…` | `ambient` + `motion` | 3 glowing dots drift like fireflies; bubble container "holds its breath" (slow scale down). |
 | **Surprise / Shock**: `!!`, `!?`, `?!`, `[gasp]` | `accent` + `motion` | Comic impact ring + radial speed lines + scale spring punch (`1.12 ➔ 1.0`). |
 | **Curious / Ponder**: `??`, `hmm`, `wonder`, `curious` | `ambient` + `rim` | Question marks orbit behind text; scalloped thought cloud outline with trailing dots. |
@@ -449,9 +466,9 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 | **Epiphany**: `aha`, `idea`, `realized`, `what if` | `accent` | Golden lightbulb flash + expanding idea rings. |
 | **Apology / Mistake**: `oops`, `uh oh`, `my bad`, `sorry` | `accent` + `motion` | Slight bubble squash + sweat drop / bandage sticker in corner. |
 | **Sadness**: `sad`, `miss you`, `cry`, `sniff`, `lonely` | `ambient` + `rim` | Raindrops slide down interior + drooping tail pose + blue gradient wash. |
-| **Anger / Tsundere**: `angry`, `hmph`, `grr`, `annoyed` | `ambient` + `rim` | Jagged starburst outline + anger mark `💢` + red edge pulse + horizontal shake. |
+| **Anger / Tsundere**: `angry`, `hmph`, `grr`, `annoyed` | `ambient` + `accent` + `motion` + `rim` | Jagged starburst outline + anger mark `💢` + red edge pulse + horizontal shake. |
 | **Yandere / Possessive**: `mine`, `jealous`, `don't leave` | `ambient` + `rim` | Dark vignette + black hearts `🖤` + heartbeat tail pulse (`thump-thump`). |
-| **Fear / Cold**: `scared`, `eek`, `creepy`, `cold` | `ambient` + `rim` | Frost crystals creep inward from border + rapid trembling wobble. |
+| **Fear / Cold**: `scared`, `eek`, `creepy`, `cold` | `ambient` + `motion` + `rim` | Frost crystals creep inward from border + rapid trembling wobble + frost rim. |
 | **Sleepy**: `sleep`, `tired`, `yawn`, `goodnight` | `ambient` + `motion` | Floating `Z` `z` `z` letters in sine wave + slow breathing scale cycle. |
 | **Cozy / Calm**: `cozy`, `warm`, `relax`, `purr` | `ambient` | Warm sunbeam gradient + floating dust motes + soft slow pulse. |
 | **Music / Singing**: `sing`, `music`, `la la`, `hum` | `ambient` + `rim` | Musical notes travel along a staff line + outline pulses like a audio waveform. |
@@ -467,6 +484,7 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 | **ALL CAPS**: Full uppercase sentence | `motion` + `rim` | Chunky comic drop shadow + sharp outline pulse + strong impact motion. |
 | **Parenthetical Aside**: `(inner thoughts like this)` | `rim` | Mini floating thought bubbles behind text for an "inner monologue" look. |
 | **Countdown**: `3... 2... 1...` | `accent` | Illuminated dots extinguish one by one, ending in a confetti burst. |
+
 
 ---
 
