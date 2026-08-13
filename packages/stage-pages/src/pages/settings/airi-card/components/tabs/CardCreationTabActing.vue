@@ -39,12 +39,21 @@ function toggleIdleAnimation(name: string) {
 
 const FALLBACK_MOOD_TAGS = [
   { tag: 'happy', description: 'Happy / Joy / Laugh / Grin / Smile' },
-  { tag: 'sad', description: 'Sad / Cry / Sorrow / Pout / Sigh / Whimper' },
-  { tag: 'angry', description: 'Angry / Mad / Annoy / Frustrate / Glare' },
-  { tag: 'surprised', description: 'Surprise / Shock / Wonder / Gasp / Blink' },
-  { tag: 'thinking', description: 'Think / Ponder / Curious / Hmm / Question' },
-  { tag: 'blush', description: 'Blush / Shy / Embarrassed / Awkward' },
-  { tag: 'whisper', description: 'Relaxed / Whisper / Soft / Calm' },
+  { tag: 'flustered', description: 'Flustered / Blush / Shy / Heart-Curl Tail' },
+  { tag: 'angry', description: 'Angry / Mad / Annoy / Jagged Starburst & Anger Mark 💢' },
+  { tag: 'surprised', description: 'Surprise / Shock / Gasp / Impact Flash' },
+  { tag: 'thinking', description: 'Thinking / Ponder / Cloud Bubble & Thought Dots' },
+  { tag: 'sad', description: 'Sad / Cry / Sorrow / Drooping Tail & Raindrops' },
+  { tag: 'yandere', description: 'Yandere / Possessive / Vignette & Heartbeat Pulse' },
+  { tag: 'sleepy', description: 'Sleepy / Tired / Yawn / Floating Fireflies' },
+]
+
+const CAPTION_FX_STRUCTURAL_TAGS = [
+  { snippet: 'u-um...', tag: 'Stutter', description: 'Flustered ➔ Blush Wash, Sweat Drop & Wobble' },
+  { snippet: '(hmm... what if...)', tag: 'Parenthetical Aside', description: 'Inner Monologue ➔ Scalloped Cloud & Thought Dots' },
+  { snippet: 'WHAT?! No way!!', tag: 'Punctuation Spike', description: 'Shock ➔ Impact Burst & Spring Scale Punch' },
+  { snippet: 'Nya~ meow!', tag: 'Cat Speech', description: 'Playful ➔ Dynamic Wagging Tail' },
+  { snippet: 'belong to me... 🖤', tag: 'Yandere Cue', description: 'Possessive ➔ Dark Vignette & Heartbeat Outline Pulse' },
 ]
 </script>
 
@@ -213,20 +222,43 @@ const FALLBACK_MOOD_TAGS = [
               </div>
             </div>
           </div>
-          <div v-else class="flex flex-col gap-2">
-            <div class="mb-1 text-xs text-neutral-400">
-              The selected speech provider does not expose tag helpers. Here are the core visual Mood Tags you can use instead:
+          <div v-else class="flex flex-col gap-3">
+            <div class="border border-primary-200/60 rounded-lg bg-primary-50/40 p-2.5 text-xs text-primary-900/80 dark:border-primary-800/40 dark:bg-primary-950/30 dark:text-primary-200">
+              💡 <strong>Head-Tethered Caption FX:</strong> AIRI's live speech bubble dynamically morphs its vector shape, wags its tail, and renders WebGL ambient effects (hearts, rain, scanlines, starbursts) from these cues!
             </div>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="item in FALLBACK_MOOD_TAGS"
-                :key="item.tag"
-                class="border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
-                :title="item.description"
-                @click="insertSpeechTag(item.tag, item.description)"
-              >
-                [{{ item.tag }}]
-              </button>
+
+            <div class="flex flex-col gap-1.5">
+              <div class="text-xs text-neutral-400 font-medium">
+                Bracket Mood Tags
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="item in FALLBACK_MOOD_TAGS"
+                  :key="item.tag"
+                  class="border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
+                  :title="item.description"
+                  @click="insertSpeechTag(item.tag, item.description)"
+                >
+                  [{{ item.tag }}]
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-1 flex flex-col gap-1.5">
+              <div class="text-xs text-neutral-400 font-medium">
+                Structural & Punctuation Cues
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="item in CAPTION_FX_STRUCTURAL_TAGS"
+                  :key="item.tag"
+                  class="border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
+                  :title="item.description"
+                  @click="insertSpeechTag(item.snippet, item.description)"
+                >
+                  {{ item.tag }}: <span class="font-mono opacity-80">{{ item.snippet }}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
