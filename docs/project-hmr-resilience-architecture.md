@@ -1,7 +1,7 @@
 # AIRI HMR Resilience Architecture & State Lifecycle Initiative
 
 > **Status**: Active Architecture Initiative
-> **Canonical Target**: Establishing HMR accept boundaries, side-effect teardown ledgers, version-guarded `import.meta.hot.data` singletons, and HMR async epoch guards across Pinia stores and service pipelines in development environments.
+> **Canonical Target**: Establishing HMR accept boundaries, combined side-effect teardown ledgers, version-guarded `import.meta.hot.data` singletons, and HMR async epoch guards across Pinia stores and service pipelines in development environments.
 
 ---
 
@@ -15,8 +15,8 @@ During active development in Vite dev mode, editing core stores or service files
 Currently, **Pinia store HMR is 0% wired in AIRI** (zero calls to `acceptHMRUpdate`). When a developer saves a `.ts` store file today, Vite finds no accept boundary and triggers a **full-page window reload**.
 
 This initiative is a **forward-looking architectural foundation**:
-1. **Phase 0** categorizes and introduces `import.meta.hot.accept(acceptHMRUpdate(...))` boundaries to hot-path stores, shifting the dev environment from disruptive full-page reloads to smooth **in-place soft HMR proxy patching**.
-2. **Phases 1–3** implement the 5 Mitigation Strategies to ensure soft HMR updates operate cleanly without triggering stale closure traps, orphaned event buses, duplicate watchers/timers, or WebGPU/Worker concurrency conflicts.
+1. **Phase 0 (Prerequisite & Boundaries)**: Splits multi-store export modules (`hearing.ts`, `character/index.ts`) into single-store files, then introduces `import.meta.hot.accept(acceptHMRUpdate(...))` boundaries to hot-path stores, shifting the dev environment from disruptive full-page reloads to smooth **in-place soft HMR proxy patching**.
+2. **Phases 1–3**: Implement the 5 Mitigation Strategies to ensure soft HMR updates operate cleanly without triggering stale closure traps, orphaned event buses, duplicate watchers/timers, or WebGPU/Worker concurrency conflicts.
 
 ---
 
@@ -30,15 +30,15 @@ An empirical audit of `packages/stage-ui/src/stores/` and `node_modules/pinia` r
 | **Pinia `acceptHMRUpdate`** | ❌ **0% Wired** — Pinia's HMR helper is not called in any store definition file. | `grep -r "acceptHMRUpdate" packages/stage-ui/src/stores` → **0 matches** |
 | **Chat Event Bus (`createChatHooks`)** | ⚠️ **Un-persisted Module Singleton** — Hoisted to module scope in `chat.ts:96`, but lost whenever Vite re-evaluates `chat.ts` ESM module. Holds 11 closure arrays ([`hooks.ts:6-16`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/hooks.ts#L6-L16)). | [`packages/stage-ui/src/stores/chat.ts:96`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts#L96) |
 | **Speech Runtime Host Registry** | ⚠️ **Ephemeral In-Memory State** — Stores single nullable `hostPipeline = null` inside setup closure ([`pipeline-runtime.ts:36`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/services/speech/pipeline-runtime.ts#L36)). Resets to `null` on HMR; falls back to remote intent bus. | [`packages/stage-ui/src/stores/speech-runtime.ts:6`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/speech-runtime.ts#L6) |
-| **Setup-Scope Side Effects** | ⚠️ **Un-disposed Effect Scopes** — Stores call composables (`useBroadcastChannel`, `useIntervalFn`, `useLocalStorage`) directly in setup scope. | [`chat.ts:125`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts#L125), [`proactivity.ts:79-80`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts#L79-L80) |
-| **Multi-Store & Barrel Modules** | ⚠️ **Pinia HMR Conflict Hazard** — [`hearing.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/hearing.ts#L60-L316) exports two stores (`useHearingStore` & `useHearingSpeechInputPipeline`). [`character/index.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character/index.ts#L11-L36) defines a store while re-exporting child stores. | [`hearing.ts:60`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/hearing.ts#L60), [`character/index.ts:11`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character/index.ts#L11) |
+| **Setup-Scope Side Effects** | ⚠️ **Un-disposed Effect Scopes** — Stores call composables (`useBroadcastChannel`, `useIntervalFn`, `setInterval`) directly in setup scope. | [`chat.ts:125`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts#L125), [`proactivity.ts:247,835`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts#L247) |
+| **Multi-Store Export Hazard** | ⚠️ **Pinia HMR ID-Mismatch Prerequisite** — [`hearing.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/hearing.ts#L60-L316) exports two stores (`useHearingStore` & `useHearingSpeechInputPipeline`). [`character/index.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character/index.ts#L11-L36) defines a store while re-exporting child stores. Must be split into single-store modules before Phase 0B. | [`hearing.ts:60`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/hearing.ts#L60), [`character/index.ts:11`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character/index.ts#L11) |
 
 ### Empirical Breakdown of Pinia 3.0.4 HMR Engine (`node_modules/pinia/dist/pinia.mjs`)
 Inspection of Pinia 3.0.4 source code ([`node_modules/pinia/dist/pinia.mjs:1108`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs#L1108)) reveals how Pinia handles soft store HMR:
 1. `acceptHMRUpdate(useStore, import.meta.hot)` captures `pinia._s.get(id)` on existing store instances.
 2. When HMR triggers, Pinia creates a temporary setup store (`__hot:${id}`) and invokes `store._hotUpdate(newStore)` ([`pinia.mjs:1557`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs#L1557)).
 3. `_hotUpdate` **copies existing reactive state values into the new store** (`newStore.$state[stateKey] = oldStateSource`), preserving existing `ref` instances in place, while replacing actions and getters on the **same store instance object**.
-4. **Multi-Store Export Warning**: Pinia's default `acceptHMRUpdate` helper iterates every store export in the module ([`pinia.mjs:1122`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs#L1122)). If a module exports multiple stores, `acceptHMRUpdate` requires that the passed store ID matches the exported store ID, or else it triggers `hot.invalidate()`. Multi-store modules must be split or provided with custom accept callbacks.
+4. **Multi-Store Export Warning**: Pinia's default `acceptHMRUpdate` helper iterates every store export in the module ([`pinia.mjs:1122`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs#L1122)). If a module exports multiple stores, `acceptHMRUpdate` requires that the passed store ID matches the exported store ID, or else it triggers `hot.invalidate()`. Multi-store modules must be split into single-store files prior to acceptance.
 5. **Effect Scope Caveat**: Pinia's `_hotUpdate` **does NOT stop or dispose the old setup function's Vue effect scope**. Setup-scope watchers, intervals, and event listeners remain alive unless explicitly torn down via a side-effect ledger.
 
 ---
@@ -79,7 +79,8 @@ Below is an empirical analysis of the failure modes that trigger when store HMR 
 ### Failure Mode 5: Un-Disposed Background Side Effects & BroadcastChannel Multiplication
 * **Source Locations**:
   * [`packages/stage-ui/src/stores/chat.ts:125`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts#L125) — `useBroadcastChannel('airi-chat-input-bridge')` in setup scope
-  * [`packages/stage-ui/src/stores/proactivity.ts:79-80`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts#L79-L80) — `useIntervalFn` & `useElectronEventaInvoke`
+  * [`packages/stage-ui/src/stores/chat/session-store.ts:41`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-store.ts#L41) — `useBroadcastChannel(CHAT_STREAM_CHANNEL_NAME)` in setup scope
+  * [`packages/stage-ui/src/stores/proactivity.ts:247,835`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts#L247) — `useIntervalFn` sensor poll & raw `setInterval` heartbeat
   * [`packages/stage-ui/src/stores/modules/live-session.ts:159-165`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/live-session.ts#L159-L165) — `useLocalStorage` watchers
 * **Mechanism**:
   Pinia's `_hotUpdate` does **not** stop the old setup's Vue effect scope. Each accepted HMR re-evaluates setup, instantiating **duplicate `BroadcastChannel` instances, intervals, and IPC listeners**. Per W3C spec, duplicate same-name `BroadcastChannel` objects in the same context deliver messages to each other, resulting in **duplicate input submissions and double heartbeat turn executions**.
@@ -128,8 +129,8 @@ if (import.meta.hot) {
 ```
 
 > [!TIP]
-> **Neutralizing the Vue 3 Component Destructuring Trap**:
-> If a component destructured a store function at setup execution (`const { onTokenLiteral } = store`), that local variable retains a static snapshot of the function wrapper. By preserving the underlying `hooks` instance via `import.meta.hot.data`, the function reference returned by `createChatHooks()` remains **100% identical in memory across HMR reloads**. Even destructured function wrappers continue pushing to the exact same array that the newly reloaded store reads from!
+> **Behavioral Continuity for Destructured Wrappers**:
+> If a component destructured a store function wrapper at setup execution (`const { onTokenLiteral } = store`), that local variable retains a static snapshot of the wrapper. By preserving the underlying `hooks` instance via `import.meta.hot.data`, the preserved arrays remain active. The destructured wrapper stays **behaviorally valid** because it delegates to the exact same preserved hooks array in memory!
 
 #### Strategy Tracking Log
 - **2026-08-13**: Strategy refined with namespaced hot data slot and `import.meta.hot.invalidate()` ABI mismatch handling. Target files: `chat.ts`, `speech-runtime.ts`.
@@ -167,15 +168,11 @@ function onUserAction() { chatStore.performSend(...) }
 Renderers register callbacks via imperative methods like `chatStore.onToken(...)`. Furthermore, Pinia's `acceptHMRUpdate` helper is currently 0% wired across AIRI stores.
 
 #### Target Implementation & HMR Async Epoch Guard
-Prefer Pinia reactive state (`storeToRefs(chatStreamStore).streamingMessage`) over imperative registration arrays. Wire `acceptHMRUpdate` across all hot-path stores, combined with an **HMR Async Epoch Guard** for in-flight loops:
+Prefer Pinia reactive state (`storeToRefs(chatStreamStore).streamingMessage`) over imperative registration arrays. Wire `acceptHMRUpdate` across all hot-path stores, combined with a **module-scope HMR Async Epoch Guard**:
 
 ```typescript
-// In-Flight Async Loop Guard:
+// Module-Scope In-Flight Async Loop Guard (must remain a module-level 'let'):
 let hmrEpoch = 0
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => { hmrEpoch++ })
-  import.meta.hot.accept(acceptHMRUpdate(useChatOrchestratorStore, import.meta.hot))
-}
 
 // Inside performSend async streaming loop:
 async function performSend(...) {
@@ -192,7 +189,7 @@ async function performSend(...) {
 * **Guarantee**: Pinia's `_hotUpdate` copies existing state values into the new store (`newStore.$state[stateKey] = oldStateSource`), preserving existing `ref` instances in place, while replacing actions/getters on the existing store instance pointer. Vue `watch()` and `watchEffect()` blocks in components automatically track and update across HMR state patches without needing re-registration.
 
 #### Strategy Tracking Log
-- **2026-08-13**: Strategy updated with HMR Async Epoch Guard for in-flight loops. Target allowlist: `chat.ts`, `speech-runtime.ts`, `proactivity.ts`, `live-session.ts`, `hearing.ts`, `character/index.ts`.
+- **2026-08-13**: Strategy updated with module-scope HMR Async Epoch Guard for in-flight loops. Target allowlist: `chat.ts`, `session-store.ts`, `context-store.ts`, `stream-store.ts`, `speech-runtime.ts`, `proactivity.ts`, `live-session.ts`, `hearing.ts`, `character/orchestrator/store.ts`.
 
 ---
 
@@ -206,31 +203,37 @@ Cross-boundary events (e.g. streaming tokens from orchestrator to TTS host) rely
 For cross-window or cross-boundary communication, rely on primitive string channels over `@moeru/eventa` or `BroadcastChannel`. To prevent duplicate delivery when HMR instantiates new channels:
 1. Payloads must carry monotonic sequence IDs (`originId`, `sequence`) and build epoch headers for consumer-side deduplication.
 2. Cross-window receivers running mismatched protocol versions reject incompatible traffic or trigger a coordinated reload.
-3. Old channel instances must be explicitly closed in `import.meta.hot.dispose()`.
+3. Old channel instances must be explicitly closed in the single `import.meta.hot.dispose()` callback.
 
 #### Strategy Tracking Log
 - **2026-08-13**: Strategy updated with protocol epoch headers and BroadcastChannel deduplication. Target files: `ControlStripHost.vue`, `RendererStage.vue`, `bus.ts`.
 
 ---
 
-### Strategy E: Side-Effect Teardown Ledger via `import.meta.hot.dispose()`
+### Strategy E: Single Combined Teardown Ledger via `import.meta.hot.dispose()`
 > **Status**: `[Status: Proposed]`
 
-#### Current Reality
-Stores initializing setup-scope composables (`useBroadcastChannel`, `useIntervalFn`, `useElectronEventaInvoke`) have zero `import.meta.hot.dispose()` teardown handlers.
+> [!IMPORTANT]
+> **Strict Architectural Rule: Exactly ONE `import.meta.hot.dispose()` Callback Per Module**:
+> Vite's HMR client stores disposal handlers in a map keyed by module path ([`client.mjs:48-49`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/vite/dist/client/client.mjs#L48-L49)). Registering `import.meta.hot.dispose()` multiple times in the same file will **silently overwrite previous handlers**. Every accepting store module must use a **single combined `dispose` callback**.
 
-#### Target Implementation & Side-Effect Ledger Pattern
-Setup stores that initialize long-lived side effects must register teardown callbacks into a `hot.data`-preserved ledger array:
+#### Target Implementation & Combined Teardown Pattern
+Setup stores that initialize long-lived side effects must register teardown callbacks into a `hot.data`-preserved ledger array, executed within a single combined disposal handler:
 
 ```typescript
-// Pattern for Side-Effect Teardown Ledger in setup stores:
+// Single Combined Teardown & Epoch Teardown Pattern per Module:
 const hotData = import.meta.hot?.data as { disposers?: Array<() => void> } | undefined
 const disposers = hotData?.disposers ?? []
 
 if (import.meta.hot) {
   import.meta.hot.data.disposers = disposers
+
+  // EXACTLY ONE dispose callback per module:
   import.meta.hot.dispose(() => {
-    // Drain LIFO and execute all setup-scope teardowns synchronously before re-evaluation
+    // 1. Mark generation disposed synchronously FIRST so in-flight loops abort immediately:
+    hmrEpoch++
+
+    // 2. Drain LIFO and execute all setup-scope teardowns synchronously:
     while (disposers.length > 0) {
       const dispose = disposers.pop()
       try {
@@ -240,16 +243,16 @@ if (import.meta.hot) {
       }
     }
   })
+
+  // Register Pinia accept boundary after teardown handler:
+  import.meta.hot.accept(acceptHMRUpdate(useChatOrchestratorStore, import.meta.hot))
 }
 
-// Registering handles inside store setup:
-const stopWatch = watch(...)
-disposers.push(() => stopWatch())
-
+// Registering handles inside setup scope:
 const bc = useBroadcastChannel('airi-chat-input-bridge')
 disposers.push(() => bc.close())
 
-// Exact function reference removal for IPC listeners:
+// Exact function reference removal for IPC / Eventa .on() listeners:
 function onIpcEvent(evt, data) { ... }
 ipcRenderer.on('custom-evt', onIpcEvent)
 disposers.push(() => ipcRenderer.removeListener('custom-evt', onIpcEvent))
@@ -260,7 +263,7 @@ disposers.push(() => ipcRenderer.removeListener('custom-evt', onIpcEvent))
 > Calling `store.$dispose()` deletes the store ID from `pinia._s`. This causes `acceptHMRUpdate`'s `pinia._s.has(id)` check to fail, skipping the hot update and leaving components with orphaned store objects. Teardown ledgers must target specific setup side-effects (intervals, channels, IPC listeners) only.
 
 #### Strategy Tracking Log
-- **2026-08-13**: Strategy refined with exact function reference IPC removal, promise queue rejection, and failure logging. Target files: `chat.ts`, `proactivity.ts`, `live-session.ts`.
+- **2026-08-13**: Enforced single combined `import.meta.hot.dispose()` architectural rule. Refined teardown execution sequence (epoch bump first -> LIFO ledger drain).
 
 ---
 
@@ -272,7 +275,7 @@ Local model drivers (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV) rely on WebGPU r
 * **The Hazard**: Re-evaluating worker/adapter modules creates parallel global GPU allocators and duplicate worker threads, exhausting WebGPU device contexts and VRAM.
 * **Architecture Requirement**:
   1. Worker and GPU adapter modules are classified under **Phase 0C (Hard Invalidation)**. Saving worker/coordinator modules triggers an explicit `import.meta.hot.invalidate('WebGPU coordinator graph update')` to force a clean full-reload.
-  2. Worker handles must be stashed in version-guarded `hot.data` singletons with `worker.terminate()` executed in `import.meta.hot.dispose()`.
+  2. Future worker lifecycle managers must enforce a single versioned owner with worker-reply generation IDs to prevent late worker messages from mutating superseded state.
 
 ---
 
@@ -280,11 +283,12 @@ Local model drivers (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV) rely on WebGPU r
 
 | Phase | Sub-Phase | Target Area | Description | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Phase 0** | **0A — Pure Stores** | Simple Settings & Config Stores | Wire `acceptHMRUpdate` across pure state stores without setup side-effects. | `[Status: Proposed]` |
-| | **0B — Lifecycle Stores** | Core Orchestrators (`chat`, `speech-runtime`, `proactivity`, `live-session`, `hearing`) | Wire `acceptHMRUpdate` bundled together with Strategy A/E side-effect ledgers and async epoch guards in the same change. | `[Status: Proposed]` |
-| | **0C — Hard Invalidation** | AudioContext, WebGPU Coordinators, Workers | Add explicit `import.meta.hot.invalidate()` to heavy resource modules until dedicated worker lifecycle managers exist. | `[Status: Proposed]` |
+| **Phase 0** | **0A — Prerequisites** | `hearing.ts`, `character/index.ts` | **Prerequisite**: Split multi-store export files into single-store modules before adding accept boundaries. | `[Status: Proposed]` |
+| | **0B — Pure Stores** | Simple Settings & Config Stores | Wire `acceptHMRUpdate` across pure state stores without setup side-effects. | `[Status: Proposed]` |
+| | **0C — Lifecycle Stores** | Core Orchestrators & Child Stores (`chat`, `session-store`, `context-store`, `stream-store`, `speech-runtime`, `proactivity`, `live-session`, `hearing`, `character/orchestrator`) | Wire `acceptHMRUpdate` bundled together with Strategy A/E side-effect ledgers, single `dispose` handlers, and `hmrEpoch` guards in the same change. | `[Status: Proposed]` |
+| | **0D — Hard Invalidation** | AudioContext, WebGPU Coordinators, Workers | Add explicit `import.meta.hot.invalidate()` to heavy resource modules until dedicated worker lifecycle managers exist. | `[Status: Proposed]` |
 | **Phase 1** | **Core Singletons** | `chat.ts` hooks, `speech-runtime.ts` host registry, `bus.ts` | Refactor module singletons to use version-guarded `import.meta.hot.data` slots with `invalidate()` on ABI mismatch. | `[Status: Proposed]` |
-| **Phase 2** | **Teardown Ledgers** | Setup-scope composables (`useBroadcastChannel`, `useIntervalFn`, `useLocalStorage`) | Implement Side-Effect Teardown Ledgers and `import.meta.hot.dispose()` handlers with LIFO synchronous execution. | `[Status: Proposed]` |
+| **Phase 2** | **Teardown Ledgers** | Setup-scope composables (`useBroadcastChannel`, `useIntervalFn`, `useLocalStorage`) | Implement Side-Effect Teardown Ledgers and single `import.meta.hot.dispose()` handlers with LIFO synchronous execution. | `[Status: Proposed]` |
 | **Phase 3** | **Destructuring Audit & Epochs** | Renderers (`ControlStripHost.vue`, `InteractiveArea.vue`) & Async Loops | Conduct targeted action destructuring audit and add `hmrEpoch` checks to in-flight LLM streaming loops. | `[Status: Proposed]` |
 
 ---
@@ -307,6 +311,6 @@ Local model drivers (Kokoro TTS, Whisper STT, WebLLM, Web-RWKV) rely on WebGPU r
 ### Manual Dev-Mode HMR Verification
 1. Launch `stage-tamagotchi` in dev mode (`pnpm dev`).
 2. Trigger an LLM chat turn to verify initial TTS speech playback.
-3. Edit `session-store.ts` or `chat.ts` and save while the app is running.
+3. Edit `session-store.ts` or `chat.ts` (both 0C-accepted stores) and save while the app is running.
 4. Trigger a second LLM chat turn without restarting the app or refreshing the window.
 5. **Pass Criteria**: Audio streams seamlessly, TTS pipeline receives tokens, and proactivity heartbeats operate normally without duplicate executions or silent audio drops.

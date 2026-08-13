@@ -121,3 +121,103 @@ Two additions worth mandating: (1) a **shape/version guard** — if you edit `cr
 ---
 
 **Bottom line**: approve the initiative's direction, but request a revision before implementation — the "current mechanism" narrative is empirically wrong (verified: no accept boundaries exist, Pinia 3 patches in place, full-reload is today's actual behavior), Strategy A's snippet won't compile, and FM5 + the missing Phase 0 should drive sequencing. Happy to do a focused editing pass on the doc (and the §16 entry) incorporating all of the above if you want — per our pair-programming protocol I've made no changes yet.
+
+-----
+
+Let me read the updated definitive document and both review files to verify the integration.
+This is a thorough revision. Let me verify the new claims against source and Vite's actual HMR API, focusing on the corrections Sol raised and the newly introduced code patterns.
+Let me confirm three more things: whether `useElectronEventaInvoke` is actually a persistent listener (Sol's correction), and whether the omitted child chat stores actually own side effects that make their omission risky.
+I've verified the revision against source, Pinia 3.0.4, Vite's actual client HMR implementation, and both prior reviews. The document has improved substantially — the `pinia._s.set` error is fixed, the Strategy A `??=` syntax error is gone, Phase 0 framing is now correct, and FM4/the destructuring rescope are accurate. But there is **one new blocking bug introduced by the revision itself**, plus several of Sol's corrections that did not fully land. Findings below, prioritized.
+
+---
+
+## BLOCKER 1 — Double `import.meta.hot.dispose()` overwrite (new bug, in neither prior review)
+
+This is the most important pre-execution finding. I read Vite's client at [client.mjs:48-49](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/vite/dist/client/client.mjs):
+
+```js
+dispose(cb) {
+  this.hmrClient.disposeMap.set(this.ownerPath, cb);
+}
+```
+
+`disposeMap` is keyed by module path via `.set()` — **there is exactly one dispose callback per module, and each call overwrites the previous one.**
+
+The revised doc now registers `import.meta.hot.dispose()` **twice in the same module**:
+- Strategy C ([line 176](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L176)): `import.meta.hot.dispose(() => { hmrEpoch++ })`
+- Strategy E ([line 232](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L232)): `import.meta.hot.dispose(() => { /* drain ledger */ })`
+
+And Roadmap **0B explicitly bundles both into the same change** for `chat`, `speech-runtime`, `proactivity`, `live-session` ([line 284](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L284)). As written, the second `dispose()` registration **silently discards the first** — whichever runs last wins, so either the epoch never bumps (in-flight loops don't abort) or the ledger never drains (FM5 leaks persist). This defeats two of the five strategies simultaneously and would be invisible in a quick smoke test.
+
+**Required fix**: mandate a **single** `import.meta.hot.dispose` callback per module that does everything in order — mark generation disposed (`hmrEpoch++`) **first**, then drain the ledger LIFO. Show it as one combined block, and add a rule: "never call `import.meta.hot.dispose()` more than once per module."
+
+---
+
+## BLOCKER 2 — Multi-store split is documented as a hazard but never sequenced as a prerequisite
+
+Sol raised two blockers on `hearing.ts` (exports `useHearingStore` + `useHearingSpeechInputPipeline`) and `character/index.ts` (store + barrel re-export). The revision **documents** these in the §2 baseline table ([line 34](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L34)) and §2.4 — good — but the **roadmap never actions the split**. Phase 0B just says "Wire `acceptHMRUpdate` ... (hearing)" with no gating step. Per Pinia 3.0.4's helper ([pinia.mjs:1122-1132](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs)), an ID mismatch triggers `hot.invalidate()` → the accept boundary never engages. Splitting (or a filtered custom accept callback) is a **hard prerequisite** to 0B, not a footnote.
+
+**Required fix**: add an explicit Phase 0 prerequisite row: "Split `hearing.ts` and `character/index.ts` into single-store modules (leave barrels passive) **before** wiring their accept boundaries."
+
+---
+
+## HIGH 3 — Allowlist still omits the child chat stores Sol flagged, and the Verification Plan tests one of them
+
+The Strategy C allowlist ([line 195](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L195)) and Roadmap 0B still list only `chat / speech-runtime / proactivity / live-session / hearing / character`. Sol's High finding — `chat/session-store.ts`, `context-store.ts`, `stream-store.ts`, `character/orchestrator/store.ts` — is unaddressed. I verified these are not inert:
+
+- [session-store.ts:41](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-store.ts) owns `useBroadcastChannel(CHAT_STREAM_CHANNEL_NAME)` in setup scope — a textbook FM5 duplication hazard.
+- [context-store.ts:10](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/context-store.ts) holds `let currentActiveContexts = new Map(...)` — a **closure-local non-reactive Map** mirrored into a reactive ref. On HMR, `_hotUpdate` preserves the reactive mirror while a fresh empty Map is created; new actions close over the empty map → exactly the desync Sol described.
+
+**Sharpest contradiction**: the Verification Plan ([line 310](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L310)) instructs "Edit `session-store.ts` and save" — but `session-store.ts` is in **no allowlist**, so the canonical test edits a module the design doesn't cover. Either classify these child stores in 0B (session-store needs a ledger; context-store needs its Map preserved in `hot.data` or reset-on-dispose) or state they full-reload — and align the verification step to edit an accepted store.
+
+---
+
+## HIGH 4 — Section 5 worker guidance is internally contradictory (Sol's correction not applied)
+
+§5 gives two mutually exclusive requirements: point 1 "trigger `import.meta.hot.invalidate()` to force a clean full-reload" ([line 274](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L274)), and point 2 "stash worker handles in `hot.data` singletons with `worker.terminate()` in dispose" ([line 275](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L275)). Sol explicitly warned these are "not simultaneously valid defaults." If a module hard-invalidates, it full-reloads — `hot.data` preservation is moot; if it preserves in `hot.data`, it must *not* invalidate.
+
+**Required fix**: for Phase 0C, pick **invalidate-only** (the safe interim). Move the `hot.data`+`terminate` idea to a clearly-labeled "future versioned-owner design" that must choose exactly one of {preserve compatible worker} XOR {terminate + recreate on ABI change}, and add Sol's worker-reply **generation ID** so a superseded/terminated worker can't mutate current state on a late reply.
+
+---
+
+## MEDIUM 5 — FM5 and Strategy E still misattribute proactivity's side effects (Sol's correction not applied)
+
+I verified the proactivity internals directly:
+- [proactivity.ts:79-85](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts) is `useElectronEventaInvoke(...)`, which I traced to [use-electron-eventa-context.ts:44](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/electron-vueuse/src/composables/use-electron-eventa-context.ts) — it returns `defineInvoke(ctx, invoke)` on a **shared context**. It is an invoke function, **not a persistent subscription**, so it is not an FM5 duplication hazard.
+- `useIntervalFn(updateSensors, 10000)` is at [line 247](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts) (sensor polling), not 79-80.
+- The real duplicated-timer hazard is the **raw `setInterval` heartbeat** at [line 835](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts) (`heartbeatInterval`).
+
+Yet FM5 ([line 82](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L82)) still cites `proactivity.ts:79-80 — useIntervalFn & useElectronEventaInvoke`, and Strategy E "Current Reality" ([line 220](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L220)) again lists `useElectronEventaInvoke` as a teardown target. Both carry forward the exact inaccuracy Sol corrected.
+
+**Fix**: cite line 247 (sensor poll) + line 835 (raw heartbeat `setInterval`) as the FM5 duplication hazards; remove `useElectronEventaInvoke` from teardown targets. The genuine subscription cases to teardown are eventa `.on(...)` handlers and raw `ipcRenderer.on(...)`.
+
+---
+
+## MEDIUM 6 — Strategy A TIP overclaims function identity (Sol's exact warning still present)
+
+The TIP ([line 132](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L132)) says a destructured function wrapper "remains **100% identical in memory** across HMR reloads." That's imprecise in the way Sol flagged. Store functions returned from setup are wrapped by Pinia's `action()` ([pinia.mjs:1503](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs)), and `_hotUpdate` **replaces that wrapper with a new one** ([pinia.mjs:1593-1598](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs)). The destructured variable holds the **old wrapper** (different identity). It works only because both old and new wrappers delegate to the same `hooks` array preserved via `hot.data`.
+
+**Fix**: reword to "the destructured wrapper stays *behaviorally valid* because it delegates to the preserved hooks bus" — not "identical." (This is correct precisely for `hooks.*` methods because they're preserved; it does **not** generalize to arbitrary destructured actions, which is exactly why Strategy B's audit is still needed. Worth stating that boundary explicitly.)
+
+---
+
+## Things the revision got right (verified)
+
+- **Strategy A snippet** is now syntactically valid; the `??=`-on-optional-chain error is gone, and the version/ABI-invalidate branch is sound.
+- **`hmrEpoch` correctly separate from `QueuedSend.generation`** (Sol's point honored). One note worth adding: `hmrEpoch` must stay a **per-module-evaluation `let`** (never stashed in `hot.data`) — it works precisely because the old module's dispose closure and its in-flight loop share the same binding, so the old loop sees the bump and aborts while the new module starts fresh at 0. The doc does this correctly but should state the invariant so no one "helpfully" moves it into `hot.data`.
+- **`$dispose()` CAUTION** ([line 258](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/project-hmr-resilience-architecture.md#L258)) is accurate against [pinia.mjs:1363-1368](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/node_modules/pinia/dist/pinia.mjs).
+- **Pinia `_hotUpdate` mechanism** (§2.4) now correctly describes in-place patching, not registry replacement.
+
+---
+
+## Bottom line
+
+Do **not** start Phase 0 exactly as written. Blockers 1 and 2 will cause silent failures on the very first 0B store. Recommended pre-execution edits, in order:
+
+1. Merge the two `hot.dispose` callbacks into one per module (epoch-bump then LIFO drain); add the "one dispose per module" rule. **(Blocker)**
+2. Add a Phase 0 prerequisite row to split `hearing.ts` / `character/index.ts` before their accept boundaries. **(Blocker)**
+3. Classify `session-store.ts` / `context-store.ts` / `stream-store.ts` / `character/orchestrator/store.ts` in 0B (or explicitly as hard-reload), and fix the Verification Plan to edit an accepted store. **(High)**
+4. Resolve the §5 worker contradiction to invalidate-only for now; defer preserve-vs-terminate to a versioned owner with a worker-reply generation ID. **(High)**
+5. Fix the proactivity FM5/Strategy-E citations and reword the Strategy A "identical" TIP. **(Medium)**
+
+Per our pair-programming protocol I've made no edits — this was a read-only audit and the working tree is unchanged. If you'd like, I can apply findings 1–6 as a focused editing pass on `project-hmr-resilience-architecture.md` (and correct the Rosetta Stone §16 wording noted in my first-pass review), leaving the commit decision to you.
