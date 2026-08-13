@@ -313,7 +313,6 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 - **Actor Identity Accent via Border Outline**:
   - The actor's color (`activeSegment.color` or default slate `0x0F172A`) is applied to the **bubble border outline** (`bubble.lineStyle(outlineWidth, actorOutlineColor, outlineAlpha, 0.5)`).
   - The inner font fill color remains consistent dark slate (`0x0F172A`) for maximum contrast and legibility.
-- **Actor ID Omission**: `actorId` is omitted from visual display on the bubble plank.
 ### 8.11 Micro-Pacer & Dynamic Clause Sub-Chunking
 - **Symptom / Failure Mode**: Upstream TTS or suggestion pipelines can emit long multi-sentence paragraphs as a single `isActive: true` segment (e.g. 180+ characters). Rendering a giant 6-line bubble causes the top of the bubble to clip off-screen or cover the character's face.
 - **Micro-Pacer Algorithm**:
@@ -329,15 +328,15 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 To elevate the head-tethered caption plank from a static dialogue bubble into a dynamic, expressive comic surface, the system employs a WebGL-accelerated **4-Channel Animation Engine** inside the PIXI container.
 
 ```text
-Head-follow container
-└── Motion container
-    ├── Bubble body + fill
-    ├── Body mask
-    │   ├── Ambient layer
-    │   └── Interior accent layer
-    ├── Rim/tail layer
-    ├── Exterior accent layer
-    └── Text
+Motion container
+├── Bubble body + fill
+├── Body mask
+├── Interior effects container (mask = Body mask)
+│   ├── Ambient layer
+│   └── Interior accent layer
+├── Rim/tail layer
+├── Exterior accent layer
+└── Text
 ```
 
 ---
@@ -369,7 +368,7 @@ export interface CaptionEffectCue {
 
 The speech-bubble tail acts as an **expressive character limb** that reacts dynamically to the dialogue mood:
 
-| Tail / Border Pose | Visual Behavior | Emotion / Mood Context |
+| Body / Tail / Border Pose | Visual Behavior | Emotion / Mood Context |
 | :--- | :--- | :--- |
 | **`wag`** | Tail wags side-to-side (`~`) in a smooth sine wave. | Playful, happy, teasing, cat-speech (`nya`, `meow`). |
 | **`heart-curl`** | Tail tip curls into a sweet heart loop (`♡`). | Affectionate, loving, flirting, compliments. |
@@ -470,7 +469,7 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 | **Yandere / Possessive**: `mine`, `jealous`, `don't leave` | `ambient` + `rim` | Dark vignette + black hearts `🖤` + heartbeat tail pulse (`thump-thump`). |
 | **Fear / Cold**: `scared`, `eek`, `creepy`, `cold` | `ambient` + `motion` + `rim` | Frost crystals creep inward from border + rapid trembling wobble + frost rim. |
 | **Sleepy**: `sleep`, `tired`, `yawn`, `goodnight` | `ambient` + `motion` | Floating `Z` `z` `z` letters in sine wave + slow breathing scale cycle. |
-| **Cozy / Calm**: `cozy`, `warm`, `relax`, `purr` | `ambient` | Warm sunbeam gradient + floating dust motes + soft slow pulse. |
+| **Cozy / Calm**: `cozy`, `warm`, `relax`, `purr` | `ambient` + `motion` | Warm sunbeam gradient + floating dust motes + soft slow pulse. |
 | **Music / Singing**: `sing`, `music`, `la la`, `hum` | `ambient` + `rim` | Musical notes travel along a staff line + outline pulses like a audio waveform. |
 | **Magic / Spell**: `magic`, `wish`, `dream`, `spell` | `accent` | Star constellations draw themselves, rotate once, and dissolve into sparkles. |
 | **System / Tech**: `analyze`, `code`, `system`, `data` | `ambient` | Cyan scanline + matrix grid drift + blinking cursor accent. |
@@ -485,7 +484,6 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 | **Parenthetical Aside**: `(inner thoughts like this)` | `rim` | Mini floating thought bubbles behind text for an "inner monologue" look. |
 | **Countdown**: `3... 2... 1...` | `accent` | Illuminated dots extinguish one by one, ending in a confetti burst. |
 
-
 ---
 
 ### 9.6 Micro-Chunk Sequence Pacing (Comic Book Panel Pacing)
@@ -494,7 +492,7 @@ As long messages stream or pace via the Micro-Pacer (~80-char sub-phrases), each
 
 ```
 "U-um... I think I really like you!!"
- ├── 1. "U-um..." ➔ Motion: Wobble | Accent: Sweat Drop | Rim: Blush Wash
+ ├── 1. "U-um..." ➔ Motion: Wobble | Accent: Sweat Drop | Ambient: Blush Wash
  ├── 2. "I think" ➔ Ambient: Floating ? Dots | Rim: Scalloped Cloud
  └── 3. "I really like you!!" ➔ Ambient: Hearts | Rim: Heart-Curl Tail | Motion: Impact Bounce
 ```
