@@ -1,37 +1,113 @@
-# Proposal: Web CORS Proxy Bypass via User-Hosted Cloudflare Workers
+# Architecture & Design: Cross-Platform CORS Bypass & Intelligent Error Resolution
 
-## Background & Problem
-For the Desktop app (**stage-tamagotchi**), CORS restrictions are bypassed natively at the Electron session layer by intercepting responses and injecting permissive access control headers.
-However, for the Web app (**stage-web**), we do not have Electron main-process interception. If a user runs the web client and tries to use standard CORS-restrictive endpoints (such as Deepgram, Pioneer, or Opencode), their browser will block the XHR/fetch requests due to missing CORS response headers from the providers.
+## 1. Background & Problem
 
-To solve this for Web users without introducing a centralized, privacy-compromising proxy server (which would expose users' private API keys and chat history to the host), we can allow users to host their own secure, free CORS proxy on Cloudflare Workers or Deno Deploy.
+Many LLM, speech, and transcription providers (such as TokenHarbor, Deepgram, Pioneer, Opencode, local servers, etc.) do not emit permissive `Access-Control-Allow-Origin` headers by default.
 
----
-
-## Proposed Design: Settings > System > Connection
-
-We will add a new configuration section right next to the existing **CORS Bypass URLs** list:
-
-### 1. The Deployment Button
-* Provide a **"Deploy to Cloudflare Workers"** button directly in the UI.
-* This button will open a browser tab pointing to the Cloudflare template deployer (`https://deploy.workers.cloudflare.com/?url=...`), automatically setting up a private reverse proxy inside the user's free Cloudflare account using our repository template.
-
-### 2. Custom Worker URL Configuration
-* Introduce a new input field: **CORS Proxy Worker URL** (e.g., `https://my-cors-proxy.my-subdomain.workers.dev/`).
-* A checkbox or toggle: **Enable CORS Proxy Worker for Web stage**.
-
-### 3. Routing Mechanism
-* When the proxy worker URL is configured:
-  1. Any network request made by the renderer (e.g., fetch calls to providers) will check if the target destination matches any wildcard pattern in the **CORS Bypass URLs** list (e.g., `https://pioneer.ai/*`).
-  2. If a match is found:
-     * Instead of requesting `https://pioneer.ai/v1/chat/completions` directly, the client re-routes the request through their worker:
-       `https://my-cors-proxy.my-subdomain.workers.dev/https://pioneer.ai/v1/chat/completions`
-     * The private worker fetches the real destination, strips headers like `CF-` and IP tracking headers, appends permissive wildcard CORS headers, and streams the response back to the client.
-  3. If no match is found, the request proceeds directly to the destination.
+When the AIRI client tries to validate connectivity or fetch `/models` from these endpoints:
+1. The browser engine (Chromium in Electron, or standard web browsers in Web stage) sends an `OPTIONS` preflight request.
+2. The remote server responds without permissive CORS headers.
+3. The browser engine cancels the request and throws a generic `TypeError: Failed to fetch` in client-side JavaScript.
+4. The user is left with empty model dropdowns or cryptic "Failed to fetch" errors, without knowing that CORS is blocking their requests.
 
 ---
 
-## Benefits
-* **High Privacy**: User API keys and conversation bodies are never exposed to any third party—they stay entirely within the user's own private Cloudflare account namespace.
-* **Unified Client Configuration**: Desktop users can continue using the fast, local Electron interceptor, while Web stage users can seamlessly toggle the Cloudflare Worker fallback to bypass the exact same list of domains.
-* **No Server Costs**: Bypasses the need for Moeru AI to host, scale, or pay for proxy servers.
+## 2. Platform Architecture
+
+AIRI provides a unified CORS bypass approach tailored to each runtime:
+
+```
+                               ┌──────────────────────────────────────────────┐
+                               │             AIRI Renderer Client             │
+                               │  (useCorsBypassStore & Provider Validation)  │
+                               └──────────────────────┬───────────────────────┘
+                                                      │
+                       ┌──────────────────────────────┴──────────────────────────────┐
+                       │                                                             │
+             [Desktop / Electron]                                              [Web Stage]
+                       ▼                                                             ▼
+       ┌───────────────────────────────┐                             ┌───────────────────────────────┐
+       │   Native Session Interceptor  │                             │ User-Hosted Cloudflare Worker │
+       │ (onHeadersReceived & Headers) │                             │   (Private Reverse Proxy)     │
+       └───────────────┬───────────────┘                             └───────────────┬───────────────┘
+                       │                                                             │
+                       └──────────────────────────────┬──────────────────────────────┘
+                                                      ▼
+                                       ┌─────────────────────────────┐
+                                       │ Target Provider Endpoint    │
+                                       │ (e.g. tokenharbor.ai/v1)    │
+                                       └─────────────────────────────┘
+```
+
+### A. Desktop App (`stage-tamagotchi`)
+- **Native Session Interception**: Intercepts matching wildcard patterns in `corsBypassUrls` using Electron's `session.defaultSession.webRequest.onHeadersReceived` and `onBeforeSendHeaders`.
+- **Zero External Infrastructure**: Bypasses CORS locally at 0ms latency with no proxy servers needed.
+
+### B. Web App (`stage-web`)
+- **User-Hosted Cloudflare Worker**: When a user configures their private Cloudflare Worker proxy URL (`https://my-cors-proxy.my-subdomain.workers.dev/`), requests matching `corsBypassUrls` are transparently routed as `https://my-cors-proxy.my-subdomain.workers.dev/https://target-domain.com/...`.
+- **Zero Privacy Compromise**: API keys and payload data remain completely within the user's private Cloudflare account namespace.
+
+---
+
+## 3. Intelligent CORS Detection & Reachability Probing
+
+### The Browser Limitation
+Per W3C Fetch security specifications, browsers intentionally suppress CORS error details from JavaScript `catch(err)` blocks to prevent cross-origin side-channel probing. JavaScript only receives `TypeError: Failed to fetch` for both CORS failures and true offline/DNS errors.
+
+### The Reachability Probe Solution
+To determine with 100% confidence that a failure is a CORS block:
+
+1. **Candidate Heuristic**: When `fetch(url)` fails with `TypeError: Failed to fetch`, check if the URL's origin (e.g. `https://tokenharbor.ai/*`) is already present in `corsBypassUrls`.
+2. **Main-Process Reachability Probe (Electron)**:
+   - Renderer invokes IPC `electronCheckUrlReachability({ url })`.
+   - Electron Main executes a direct Node.js `fetch(url, { method: 'HEAD' / 'GET' })` (Node is not constrained by browser CORS rules).
+   - If Node.js receives any HTTP status code (`200 OK`, `401 Unauthorized`, `403 Forbidden`, etc.), the endpoint is proven to be online and reachable.
+   - Since the server is reachable via Node but failed in Chromium renderer, it is **definitively confirmed to be a browser CORS restriction**.
+   - If Node.js also fails (e.g. `ENOTFOUND`, `ECONNREFUSED`), it is accurately classified as a real network/DNS outage.
+3. **Web Heuristic (Web Stage)**:
+   - If the endpoint fails on an external origin not in the bypass list, the client flags it as a likely CORS candidate and offers to add it to the proxy list.
+
+---
+
+## 4. User Experience & Resolution Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Provider UI / ModelBrowser
+    participant Store as useCorsBypassStore
+    participant Main as Electron Main / Net Probe
+    participant Remote as Remote Provider
+
+    User->>UI: Configures Base URL (e.g. https://tokenharbor.ai/v1)
+    UI->>Remote: fetch("/models")
+    Note over UI,Remote: Preflight OPTIONS blocked by browser CORS
+    UI->>Store: Report "Failed to fetch" error
+    Store->>Main: IPC electronCheckUrlReachability(url)
+    Main->>Remote: Node direct HTTP probe
+    Remote-->>Main: 200 OK / 401 Unauthorized
+    Main-->>Store: { reachable: true } -> Confirmed CORS Block
+    Store-->>UI: isCorsBlocked = true, target = "https://tokenharbor.ai/*"
+    UI->>User: Displays 1-Click "Bypass CORS & Retry" (Inline Alert / Modal)
+    User->>UI: Clicks "Bypass CORS & Retry"
+    UI->>Store: addCorsBypass("https://tokenharbor.ai/*")
+    Store->>Main: electronSetCorsBypassUrls([...urls, "https://tokenharbor.ai/*"])
+    Main->>Main: Updates session.defaultSession.webRequest
+    Store->>UI: Triggers auto-retry of fetchModelsForProvider()
+    UI->>Remote: fetch("/models") (Now Bypassed)
+    Remote-->>UI: 200 OK (Model List returned)
+    UI->>User: Models populate instantly in dropdown
+```
+
+### Interaction Surfaces
+1. **Inline 1-Click Alert in `ProviderValidationAlerts`**:
+   - Amber alert banner: *"Requests to `tokenharbor.ai` are blocked by browser CORS."*
+   - Button: `[Bypass CORS for this domain & Retry]`
+2. **Inline Action in `ProviderModelBrowser`**:
+   - If models cannot load due to CORS, shows `[CORS Blocked - Bypass & Reload Models]`.
+3. **Global / Modal Dialog (`CorsBypassModal`)**:
+   - Modal triggered for wizard flows or explicit dialog prompts.
+4. **Settings -> System -> Connection (`ConnectionSettings`)**:
+   - Retains full manual control to view, add, or delete wildcard patterns from `CORS Bypass URLs`.
+   - On Web stage: Provides the **Deploy to Cloudflare Workers** button and **CORS Proxy Worker URL** configuration.

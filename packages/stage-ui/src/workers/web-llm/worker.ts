@@ -20,8 +20,6 @@
  * a WASM lib URL; an unverified repo without a published WASM lib 404s at load.
  */
 
-import type { CreateMLCEngine, ModelRecord } from '@mlc-ai/web-llm'
-
 import type { LoadStreamItem } from '../../libs/inference/contract'
 import type {
   WebLlmGenerateChunk,
@@ -41,13 +39,12 @@ import {
 const { context } = createContext()
 
 async function getMlcWebLlm() {
-  return await import('@mlc-ai/web-llm')
+  const pkgName = '@mlc-ai/web-llm'
+  return await import(/* @vite-ignore */ pkgName)
 }
 
-// MLCEngine is a heavy, mutable class; typed loosely here because the runtime is
-// only exercised inside the worker and its public surface (chat.completions,
-// reload, unload, setInitProgressCallback) is used dynamically.
-type Engine = Awaited<ReturnType<typeof CreateMLCEngine>>
+type ModelRecord = any
+type Engine = any
 
 let engine: Engine | null = null
 /** The model id the engine currently has loaded, or null when bare. */
