@@ -27,6 +27,11 @@ const props = defineProps<{
   defaultDisplayModelIdPlaceholder: string
   consciousnessProviderActive: boolean
   speechProviderActive: boolean
+  hasVisualAssets?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'studio'): void
 }>()
 const selectedConsciousnessProvider = defineModel<string>('selectedConsciousnessProvider', { required: true })
 const selectedConsciousnessModel = defineModel<string>('selectedConsciousnessModel', { required: true })
@@ -126,6 +131,30 @@ function handleSaveVoice(payload: { baseProvider: string, baseModel: string, bas
             </span>
           </div>
           <div class="i-solar:pen-bold-duotone ml-1 shrink-0 text-xs text-neutral-400" />
+        </button>
+      </div>
+
+      <!-- Studio Multi-Actor Voice Warning Callout (Span 2) -->
+      <div
+        v-if="hasVisualAssets"
+        :class="[
+          'sm:col-span-2 flex flex-col gap-2 rounded-xl p-3 text-xs leading-relaxed transition-all',
+          'border border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-200',
+        ]"
+      >
+        <div class="flex items-start gap-2">
+          <div class="i-solar:info-circle-bold-duotone mt-0.5 shrink-0 text-base text-amber-600 dark:text-amber-400" />
+          <p>
+            This card contains Studio actor concepts (<code class="rounded bg-amber-500/20 px-1 py-0.5 text-[11px] font-mono">visual_assets</code>), so voices are managed dynamically per actor rather than globally. This field serves as a base display / fallback value. To configure an actor's voice, open <strong>Studio</strong>, click the <strong>Edit</strong> button on the target actor in the <strong>Concept Registry</strong>, switch to the <strong>Speech</strong> tab, and assign their voice there.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="ml-6 inline-flex items-center self-start gap-1.5 text-[11px] text-amber-700 font-bold dark:text-amber-300 hover:underline"
+          @click="emit('studio')"
+        >
+          <div class="i-solar:clapperboard-play-bold-duotone text-xs" />
+          <span>Configure actor voices in Studio &rarr;</span>
         </button>
       </div>
 

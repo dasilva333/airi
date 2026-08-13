@@ -279,6 +279,43 @@ function handleDeleteProvider(providerId: string) {
       </button>
     </div>
 
+    <!-- Voice Playground Info / Guidance Banner -->
+    <div
+      v-if="activeTab === 'global'"
+      :class="[
+        'flex flex-col gap-3 rounded-xl p-4 text-xs leading-relaxed transition-all',
+        'border border-sky-500/20 bg-sky-500/5 text-neutral-700 dark:border-sky-500/30 dark:bg-sky-950/20 dark:text-neutral-300',
+      ]"
+    >
+      <div class="flex items-start gap-3">
+        <div class="i-solar:lightbulb-bolt-bold-duotone mt-0.5 shrink-0 text-xl text-sky-500 dark:text-sky-400" />
+        <div class="flex flex-1 flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-neutral-800 font-bold dark:text-neutral-100">
+              Voice Playground &amp; Setup Guide
+            </span>
+          </div>
+          <p>
+            This page functions as a <strong>testing playground</strong> to audition providers and preview voices. There is no concept of a global active voice here.
+          </p>
+          <div class="flex flex-col gap-1.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+            <div class="flex items-start gap-1.5">
+              <div class="i-solar:arrow-right-bold mt-0.5 shrink-0 text-[10px] text-sky-500" />
+              <span>
+                <strong>Assign to Character:</strong> Visit <RouterLink to="/settings/airi-card" class="text-primary-500 font-bold hover:underline">Settings &rarr; AIRI Card</RouterLink> to bind a voice to your character (under the <strong>Modules</strong> tab for standard cards, or the <strong>Studio</strong> tab for multi-actor concept cards).
+              </span>
+            </div>
+            <div class="flex items-start gap-1.5">
+              <div class="i-solar:arrow-right-bold mt-0.5 shrink-0 text-[10px] text-sky-500" />
+              <span>
+                <strong>Create Custom Profiles:</strong> Switch to the <button type="button" class="inline text-primary-500 font-bold hover:underline" @click="activeTab = 'studio'">Audio Studio Console</button> tab to design custom virtual voice profiles with audio filters that can be attached to your characters.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab Contents -->
     <div v-if="activeTab === 'global'" flex="~ col md:row gap-6">
       <div bg="neutral-100 dark:[rgba(0,0,0,0.3)]" rounded-xl p-4 flex="~ col gap-4" class="h-fit w-full md:w-[40%]">

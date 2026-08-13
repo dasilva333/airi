@@ -376,13 +376,23 @@ async function toggleConcept(conceptId: string) {
                 <div class="flex items-center gap-1.5">
                   <div v-if="activeConcepts.includes(id as string)" class="i-solar:check-circle-bold text-xs text-primary-500" />
                   <button
-                    class="rounded bg-neutral-100 p-1 text-neutral-400 transition-colors dark:bg-neutral-800 hover:bg-primary-500 hover:text-white"
+                    :class="[
+                      'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+                      'bg-neutral-100 text-neutral-600 hover:bg-primary-500 hover:text-white',
+                      'dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-primary-500 dark:hover:text-white',
+                    ]"
                     @click.stop="handleEditConcept(id as string, asset)"
                   >
                     <div class="i-solar:pen-new-square-linear text-[10px]" />
+                    <span>Edit</span>
                   </button>
                   <button
-                    class="rounded bg-neutral-100 p-1 text-neutral-400 transition-colors dark:bg-neutral-800 hover:bg-red-500 hover:text-white"
+                    :class="[
+                      'rounded p-1 text-neutral-400 transition-colors',
+                      'bg-neutral-100 hover:bg-red-500 hover:text-white',
+                      'dark:bg-neutral-800 dark:hover:bg-red-500 dark:hover:text-white',
+                    ]"
+                    title="Delete concept"
                     @click.stop="handleDeleteConcept(id as string)"
                   >
                     <div class="i-solar:trash-bin-trash-linear text-[10px]" />

@@ -1356,6 +1356,8 @@ function handleGeneratorSave(newValue: string) {
             :default-display-model-id-placeholder="getDefaultPlaceholder(defaultDisplayModelId)"
             :consciousness-provider-active="Boolean(consciousnessProvider)"
             :speech-provider-active="Boolean(speechProvider)"
+            :has-visual-assets="Object.keys(visualAssets).length > 0"
+            @studio="emit('studio', props.cardId || '')"
           />
           <CardCreationTabCognition
             v-else-if="activeTab === 'cognition'"
