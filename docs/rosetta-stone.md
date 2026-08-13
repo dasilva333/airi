@@ -561,6 +561,13 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 - **Centralized Model Mapping Persistence**: Store model mappings (`emotionMappings`, `motionMappings`, `hiddenExpressions`, `hiddenMotions`, `favoriteExpressions`) directly on `DisplayModelFile` (1:1 with the model object) using a single store action (`displayModelsStore.updateDisplayModelMappings()`) to prevent scattered duplicate write paths.
 - **Lightweight Model Catalog vs On-Demand Binary Loading**: Catalog items in `displayModels.value` carry lightweight metadata (name, format, tags, groups, previewImage) with `file: undefined` to prevent multi-megabyte `File`/`Blob` memory bloat across local models. Full model binary payloads must be loaded on-demand via `displayModelsStore.getDisplayModel(id)`.
 
+### HMR & State Lifecycle Resilience
+
+- **HMR State Isolation Pitfalls**: During Vite HMR, re-evaluating ESM modules and re-executing Pinia setup functions creates new store instances, event buses, and callback arrays while long-lived UI renderers (`ControlStripHost.vue`, `RendererStage.vue`) remain mounted with stale closures and orphaned object references.
+- **5 Core Failure Patterns**: (1) Imperative callback arrays wiped on setup re-execution; (2) Static sibling store pointers captured at setup scope (`useChatOrchestratorStore()`); (3) Module-level singletons re-instantiated on file edit; (4) Ephemeral service host arrays (`speech-runtime.ts`) resetting to `[]`; (5) Un-disposed watchers/timers accumulating on setup re-runs.
+- **Canonical Reference**: Full technical architecture, remedies, and mitigation strategies are documented in [`docs/project-hmr-resilience-architecture.md`](./project-hmr-resilience-architecture.md).
+
+
 ---
 
 ## 17. Deprecated & Removed Surfaces
