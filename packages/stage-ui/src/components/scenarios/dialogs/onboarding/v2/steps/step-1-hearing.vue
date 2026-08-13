@@ -77,7 +77,11 @@ const whisperProgress = ref(0)
 const whisperAbort = ref<AbortController>()
 const selectedWhisperModel = ref<string>(WHISPER_MODELS[0].id)
 
-const isWhisperSelected = computed(() => activeTranscriptionProvider.value === 'browser-local-audio-transcription')
+function isLocalWhisperProvider(providerId?: string) {
+  return providerId === 'app-local-audio-transcription' || providerId === 'browser-local-audio-transcription'
+}
+
+const isWhisperSelected = computed(() => isLocalWhisperProvider(activeTranscriptionProvider.value))
 const isWebSpeechSelected = computed(() => activeTranscriptionProvider.value === 'browser-web-speech-api')
 
 const WHISPER_PROGRESS_TOTAL = 800 * 1024 * 1024
@@ -86,6 +90,16 @@ function formatMB(bytes?: number) {
   if (!bytes)
     return ''
   return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
+}
+
+function getWhisperModelSpec(id: string) {
+  if (id.includes('tiny'))
+    return '~40 MB DL · ~250 MB VRAM'
+  if (id.includes('base'))
+    return '~80 MB DL · ~500 MB VRAM'
+  if (id.includes('small'))
+    return '~250 MB DL · ~1 GB VRAM'
+  return '~800 MB DL · ~3 GB VRAM'
 }
 
 async function startWhisperDownload() {
@@ -120,10 +134,10 @@ function onSelectProvider(provider: ProviderMetadata) {
   activeTranscriptionProvider.value = provider.id
   draft.setHearing({ provider: provider.id, model: draft.state.hearing.model })
   verification.value = 'idle'
-  // Cloud providers surface their credential form; local ones skip straight to testing.
-  if (provider.id === 'browser-local-audio-transcription' && whisperDownloadState.value === 'idle')
+  // Local whisper providers skip credential form and start Whisper download if idle
+  if (isLocalWhisperProvider(provider.id) && whisperDownloadState.value === 'idle')
     void startWhisperDownload()
-  else if (provider.id !== 'browser-local-audio-transcription')
+  else if (!isLocalWhisperProvider(provider.id))
     whisperDownloadState.value = 'idle'
   void hearingStore.loadModelsForProvider(provider.id)
 }
@@ -370,8 +384,8 @@ watch(selectedAudioInput, async () => {
       <FieldSelect
         v-model="selectedWhisperModel"
         label="Whisper Model"
-        description="Larger is more accurate; smaller downloads faster."
-        :options="WHISPER_MODELS.map(m => ({ label: `${m.name} (${m.id.includes('small') ? '~480 MB' : '~800 MB'})`, value: m.id }))"
+        description="Larger is more accurate; smaller downloads faster and uses less VRAM."
+        :options="WHISPER_MODELS.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
         layout="vertical"
         :disabled="whisperDownloadState === 'downloading'"
       />
