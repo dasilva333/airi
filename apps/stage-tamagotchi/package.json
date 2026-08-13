@@ -24,7 +24,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && tsx scripts/copy-deps.ts && electron-builder --win",
-    "build:mac": "pnpm run build && electron-builder --mac",
+    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
     "build:linux": "pnpm run build && electron-builder --linux",
     "start:linux": "ELECTRON_RUN_AS_NODE= ELECTRON_DISABLE_SANDBOX=1 electron-vite preview",
     "dev:linux": "node scripts/ensure-electron.js && ELECTRON_RUN_AS_NODE= ELECTRON_DISABLE_SANDBOX=1 electron-vite dev",
