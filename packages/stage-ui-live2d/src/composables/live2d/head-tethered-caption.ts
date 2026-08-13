@@ -332,7 +332,7 @@ export interface VectorBubbleGeometry {
 export interface AnalyzedSentenceEffects {
   bodyStyle: BubbleBodyStyle
   tailStyle: BubbleTailStyle
-  ambient: 'hearts' | 'rain' | 'scanline' | 'fireflies' | 'blush' | 'vignette' | 'sunbeam' | 'confetti' | null
+  ambient: 'hearts' | 'rain' | 'scanline' | 'fireflies' | 'blush' | 'vignette' | 'sunbeam' | 'confetti' | 'stars' | null
   accent: 'sweat-drop' | 'flash-burst' | 'lightbulb' | 'anger-mark' | 'checkmark' | 'question-mark' | 'star-sparkles' | null
   motion: 'wobble' | 'bounce' | 'shake' | 'breath' | 'stretch' | null
   rim: 'flower-bloom' | 'frost-rim' | 'heartbeat-pulse' | null
@@ -451,9 +451,9 @@ export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
     if (res.tailStyle === 'pointer')
       res.tailStyle = 'heart-curl'
   }
-  else if (/\b(thanks|thank you|pretty|beautiful|amazing)\b/i.test(lower)) {
-    if (!res.rim)
-      res.rim = 'flower-bloom'
+  else if (/\b(thanks|thank you|pretty|beautiful|amazing|star|sparkle)\b/i.test(lower)) {
+    res.rim = 'flower-bloom'
+    res.ambient = 'stars'
   }
   else if (/\b(sorry|miss you|cry|lonely|sniff|alone)\b/i.test(lower)) {
     res.ambient = 'rain'
@@ -877,6 +877,38 @@ export function buildCaptionBubblePlank(opts: {
       }
       ambientContainer.addChild(rainG)
     }
+    else if (activeEffects.ambient === 'stars') {
+      const starG = new Graphics()
+      starG.beginFill(0xF472B6, 0.1)
+      starG.drawRect(-widthPx / 2, -bubbleHeight, widthPx, bubbleHeight)
+      starG.endFill()
+
+      if (ambientParticles.length === 0) {
+        for (let i = 0; i < 5; i++) {
+          const star = new Graphics()
+          drawVector6PointStar(star, 6 + Math.random() * 3, 0xF472B6, 0.85)
+          ambientParticles.push({
+            x: (Math.random() - 0.5) * (widthPx * 0.7),
+            y: -Math.random() * bubbleHeight,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: -0.3 - Math.random() * 0.3,
+            alpha: 0.85,
+            scale: 0.8 + Math.random() * 0.4,
+            sprite: star,
+          })
+        }
+      }
+
+      for (const p of ambientParticles) {
+        p.y += p.vy
+        p.x += Math.sin(timeMs / 250 + p.y) * 0.2
+        if (p.y < -bubbleHeight - 10)
+          p.y = 0
+        p.sprite.position.set(p.x, p.y)
+        starG.addChild(p.sprite)
+      }
+      ambientContainer.addChild(starG)
+    }
 
     // 3. Render Channel 2: ACCENT
     interiorAccentContainer.removeChildren()
@@ -902,11 +934,11 @@ export function buildCaptionBubblePlank(opts: {
     rimContainer.removeChildren()
     if (activeEffects.rim === 'flower-bloom') {
       const rimG = new Graphics()
-      for (let i = 0; i < 4; i++) {
-        const starX = -widthPx / 2 + 12 + i * (widthPx / 3.5)
+      for (let i = 0; i < 5; i++) {
+        const starX = -widthPx / 2 + 12 + i * (widthPx / 4.2)
         const starG = new Graphics()
-        drawVector6PointStar(starG, 4, 0xF472B6, 0.85)
-        starG.position.set(starX, 0)
+        drawVector6PointStar(starG, 7, 0xEC4899, 0.95)
+        starG.position.set(starX, -bubbleHeight - 4) // Sprouting along the top border outline!
         rimG.addChild(starG)
       }
       rimContainer.addChild(rimG)
