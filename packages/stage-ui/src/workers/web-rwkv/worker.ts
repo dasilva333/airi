@@ -115,10 +115,12 @@ async function fetchRange(url: string, start: number, end: number, signal?: Abor
       throw new DOMException('Aborted', 'AbortError')
     try {
       const headers: Record<string, string> = { Range: `bytes=${start}-${end}` }
-      if (hfToken) {
+      const isHfHubUrl = url.includes('huggingface.co') && !url.includes('cdn.hf.co')
+      const attachAuth = !!(hfToken && isHfHubUrl)
+      if (attachAuth) {
         headers.Authorization = `Bearer ${hfToken}`
       }
-      console.info(`[web-rwkv:fetch] range ${start}-${end} url=${url.slice(0, 120)}… auth=${!!hfToken} attempt=${attempt}`)
+      console.info(`[web-rwkv:fetch] range ${start}-${end} url=${url.slice(0, 120)}… auth=${attachAuth} attempt=${attempt}`)
       const res = await fetch(url, { headers, cache: 'no-store', signal })
       const contentType = res.headers.get('content-type') || '(none)'
       console.info(`[web-rwkv:fetch] -> status=${res.status} content-type=${contentType} responseUrl=${res.url.slice(0, 120)}`)
@@ -209,10 +211,11 @@ async function buildReader(
   // served even after the user adds a valid HF token. `no-store` forces a fresh
   // network round-trip every time. Our OPFS cache is the real caching layer.
   const headers: Record<string, string> = { Range: 'bytes=0-7' }
-  if (hfToken) {
+  const isHfHubUrl = url.includes('huggingface.co') && !url.includes('cdn.hf.co')
+  if (hfToken && isHfHubUrl) {
     headers.Authorization = `Bearer ${hfToken}`
   }
-  console.info(`[web-rwkv:probe] fetching url=${url} auth=${!!hfToken}`)
+  console.info(`[web-rwkv:probe] fetching url=${url} auth=${!!(hfToken && isHfHubUrl)}`)
   const probe = await fetch(url, { headers, cache: 'no-store', signal })
   const probeContentType = probe.headers.get('content-type') || '(none)'
   console.info(`[web-rwkv:probe] -> status=${probe.status} content-type=${probeContentType} responseUrl=${probe.url}`)
@@ -234,7 +237,11 @@ async function buildReader(
     // under load returns errors lacking CORS headers — surfacing in the browser
     // as `TypeError: Failed to fetch`. `probe.url` is the final URL after the
     // redirect, so every range goes straight to the CDN.
-    const dataUrl = probe.url || url
+    // NOTICE: Strip pre-signed AWS query parameters (Expires, Signature, Policy, ByteRange)
+    // because individual Range chunk fetches supply their own Range headers and query-based
+    // ByteRange constraints trigger 403 Forbidden on subsequent tensor fetches.
+    const rawDataUrl = probe.url || url
+    const dataUrl = rawDataUrl.includes('?') ? rawDataUrl.split('?')[0] : rawDataUrl
     console.info(`[web-rwkv:probe] resolved CDN url=${dataUrl.slice(0, 120)}`)
     const head8 = new Uint8Array(await probe.arrayBuffer())
     if (head8.byteLength < 8)
@@ -248,7 +255,7 @@ async function buildReader(
       throw new Error(`web-rwkv: invalid safetensors header length (${headerLen} bytes). The file may be corrupt or not a valid safetensors format. (Preview of first 8 bytes: "${preview}")`)
     }
 
-    const headBytes = await fetchRange(dataUrl, 0, 8 + headerLen - 1, signal, hfToken)
+    const headBytes = await fetchRange(url, 0, 8 + headerLen - 1, signal, hfToken)
     const { tensors, dataStart } = readSafetensorsHeader(headBytes)
     const names = Object.keys(tensors)
     // Embedding width, used to detect raw-HF adapter matrices that need transposing.
@@ -294,7 +301,7 @@ async function buildReader(
         const chunkStart = chunk[0].start
         const chunkEnd = chunk[chunk.length - 1].end
         const bytes = chunkEnd > chunkStart
-          ? await fetchRange(dataUrl, dataStart + chunkStart, dataStart + chunkEnd - 1, signal, hfToken)
+          ? await fetchRange(url, dataStart + chunkStart, dataStart + chunkEnd - 1, signal, hfToken)
           : new Uint8Array(0)
         for (const entry of chunk) {
           const info = tensors[entry.name]

@@ -68,14 +68,37 @@ export const useChatSalienceStore = defineStore('chat-salience', () => {
   const SALIENCE_MULTIPLIER = 1.5
 
   async function probeTurn(turnText: string): Promise<SalienceTurnMetrics | null> {
-    if (!enabled.value || !turnText || !turnText.trim())
+    if (!enabled.value) {
+      console.log('[SalienceGate] probeTurn skipped: salienceGateEnabled is false on active card')
       return null
+    }
+    if (!turnText || !turnText.trim()) {
+      console.log('[SalienceGate] probeTurn skipped: turn text is empty')
+      return null
+    }
 
     // Call the real WebGPU worker over the Eventa bridge (Phase-6 contract).
     const { getWebRwkvAdapter } = await import('../../libs/inference/adapters/web-rwkv')
+    const { DEFAULT_WEB_RWKV_MODEL } = await import('../../libs/inference/constants')
+    const { useProvidersStore } = await import('../providers')
     const adapter = await getWebRwkvAdapter()
-    if (adapter.state !== 'ready')
+
+    if (adapter.state === 'idle') {
+      const providersStore = useProvidersStore()
+      const config = providersStore.getProviderConfig('web-rwkv')
+      const modelUrl = (config?.model as string) || DEFAULT_WEB_RWKV_MODEL
+      const vocab = (config?.vocab as string) || undefined
+
+      console.info('[SalienceGate] RWKV adapter is idle. Triggering official web-rwkv provider load...')
+      void adapter.loadModel(modelUrl, vocab).catch((err) => {
+        console.error('[SalienceGate] Error loading web-rwkv model via provider adapter:', err)
+      })
+    }
+
+    if (adapter.state !== 'ready') {
+      console.warn(`[SalienceGate] probeTurn skipped: WebGPU RWKV adapter is not ready (adapter.state = "${adapter.state}").`)
       return null
+    }
 
     const samplerPayload = await adapter.stateDelta({
       turnText,
@@ -117,6 +140,15 @@ export const useChatSalienceStore = defineStore('chat-salience', () => {
       threshold: Math.max(...thresholds),
       controlMean: control.reduce((a, b) => a + b, 0) / control.length,
     }
+
+    console.log('[SalienceGate] turn probe metrics:', {
+      turnPreview: turnText.slice(0, 40),
+      lateLayerDeltas: late.map(d => d.toFixed(4)),
+      lateLayerMean: lateMean.toFixed(4),
+      thresholds: thresholds.map(t => t.toFixed(4)),
+      votes,
+      hot: metrics.hot,
+    })
 
     hot.value = metrics.hot
     history.value = [...history.value.slice(-23), metrics]

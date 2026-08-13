@@ -257,7 +257,7 @@ function handleToggleSalienceGate() {
                 ]"
               />
               <div class="flex flex-col text-left">
-                <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">Salience Gating (RWKV 0.1B)</span>
+                <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">Salience Gating (RWKV)</span>
                 <span class="text-[9px] text-neutral-400">Flag high-intensity turns for grounding</span>
               </div>
             </div>

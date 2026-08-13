@@ -54,7 +54,7 @@ const backgroundStore = useBackgroundStore()
 const airiCardStore = useAiriCardStore()
 const echoesStore = useEchoesStore()
 const salienceStore = useChatSalienceStore()
-const { hot: salienceHot, history: salienceHistory } = storeToRefs(salienceStore)
+const { enabled: salienceEnabled, hot: salienceHot, history: salienceHistory } = storeToRefs(salienceStore)
 
 const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
@@ -1092,8 +1092,19 @@ defineExpose({
           <span v-if="activeCard?.extensions?.airi?.groundingEnabled" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Sensors Active</span>
           <span v-if="activeCard?.extensions?.airi?.groundingMemoryEnabled && groundedMemories.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Grounded Memories ({{ groundedMemories.length }})</span>
           <span v-if="activeCard?.extensions?.airi?.groundingTopicsEnabled && activeCard?.extensions?.airi?.recentTopics?.length" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Recent Topics ({{ activeCard.extensions.airi.recentTopics.length }})</span>
-          <!-- Phase 6: L9–L11 Δh salience spike indicator; only lights on a vote-2of3 hot verdict. -->
-          <span v-if="salienceHot && salienceHistory.length > 0" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400" :title="`Salience hit: late-layer Δcos ≥ ${(salienceHistory[salienceHistory.length - 1].threshold).toFixed(3)} (turn on the latest message)`">Salience Vibe Active</span>
+          <!-- Phase 6: L9–L11 Δh salience indicator. Shows Salience Standby when armed; lights Salience Vibe Active on hot verdict. -->
+          <span
+            v-if="salienceEnabled"
+            class="border rounded px-1.5 py-0.2 text-[8px] font-bold font-mono transition-colors duration-200"
+            :class="salienceHot && salienceHistory.length > 0
+              ? 'border-amber-300 bg-amber-100/50 text-amber-800 dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400'
+              : 'border-neutral-300/40 bg-neutral-100/30 text-neutral-400 dark:border-neutral-700/40 dark:bg-black/20 dark:text-neutral-500'"
+            :title="salienceHot && salienceHistory.length > 0
+              ? `Salience hit: late-layer Δcos ≥ ${(salienceHistory[salienceHistory.length - 1].threshold).toFixed(3)}`
+              : 'Salience Gate Armed (Waiting for next turn probe)'"
+          >
+            {{ salienceHot && salienceHistory.length > 0 ? 'Salience Vibe Active' : 'Salience Standby' }}
+          </span>
           <span v-if="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled && latestDirectorScratchpad" class="border border-amber-300 rounded bg-amber-100/50 px-1.5 py-0.2 text-[8px] text-amber-800 font-bold font-mono dark:border-amber-500/25 dark:bg-black/30 dark:text-amber-400">Visual Scene Active</span>
         </div>
         <div class="flex items-center gap-1.5">

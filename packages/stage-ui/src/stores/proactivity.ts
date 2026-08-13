@@ -244,16 +244,26 @@ export const useProactivityStore = defineStore('proactivity', () => {
     return !!(config?.enabled || grounding)
   })
 
+  const isPrimaryWindowDelegate = computed(() => {
+    if (typeof window === 'undefined')
+      return true
+    // In multi-window Electron environments, standalone windows (like /chat, /settings)
+    // delegate background sensor polling to the primary Stage host window ('/' or root hash).
+    const hash = window.location.hash || ''
+    const isSecondaryWindow = hash.includes('/chat') || hash.includes('/settings') || hash.includes('/devtools')
+    return !isSecondaryWindow
+  })
+
   const { pause, resume } = useIntervalFn(updateSensors, 10000, { immediate: false })
 
-  watch(isProactivityLoopNeeded, (needed) => {
-    if (needed) {
-      debug('[Proactivity] Resuming sensor polling loop.')
+  watch([isProactivityLoopNeeded, isPrimaryWindowDelegate], ([needed, isDelegate]) => {
+    if (needed && isDelegate) {
+      debug('[Proactivity] Resuming sensor polling loop on primary window delegate.')
       resume()
       setTrackingEnabledInvoke?.({ enabled: true })
     }
     else {
-      debug('[Proactivity] Pausing sensor polling loop (idle).')
+      debug('[Proactivity] Pausing sensor polling loop (idle or secondary window context).')
       pause()
       setTrackingEnabledInvoke?.({ enabled: false })
     }

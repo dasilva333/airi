@@ -132,6 +132,26 @@ function handleToggleGroundingDirectorScratchpad() {
     airiCardStore.toggleGroundingDirectorScratchpad(activeCardId.value)
 }
 
+async function handleToggleSalienceGate() {
+  if (!activeCardId.value)
+    return
+  await airiCardStore.toggleSalienceGate(activeCardId.value)
+  const isEnabled = !!activeCard.value?.extensions?.airi?.salienceGateEnabled
+  if (isEnabled) {
+    const { getWebRwkvAdapter } = await import('@proj-airi/stage-ui/libs/inference/adapters/web-rwkv')
+    const { DEFAULT_WEB_RWKV_MODEL } = await import('@proj-airi/stage-ui/libs/inference/constants')
+    const { useProvidersStore } = await import('@proj-airi/stage-ui/stores/providers')
+    const adapter = await getWebRwkvAdapter()
+    if (adapter.state === 'idle') {
+      const providersStore = useProvidersStore()
+      const config = providersStore.getProviderConfig('web-rwkv')
+      const modelUrl = (config?.model as string) || DEFAULT_WEB_RWKV_MODEL
+      const vocab = (config?.vocab as string) || undefined
+      void adapter.loadModel(modelUrl, vocab).catch(err => console.error('[SalienceGate] Error loading web-rwkv model on toggle:', err))
+    }
+  }
+}
+
 const hasTextJournal = computed(() => {
   const allowed = activeCard.value?.extensions?.airi?.generation?.known?.allowedTools
   return allowed === undefined || allowed.includes('text_journal')
@@ -910,6 +930,34 @@ function selectSurface(surface: typeof activeSurface.value) {
                   >
                     <span
                       :class="activeCard?.extensions?.airi?.groundingDirectorScratchpadEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Toggle: Salience Gating (RWKV 0.1B) -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleSalienceGate"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.salienceGateEnabled
+                        ? 'text-amber-500 i-solar:pulse-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:pulse-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Salience Gating (RWKV)</span>
+                      <span class="text-[9px] text-neutral-400">Flag high-intensity turns for grounding</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.salienceGateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.salienceGateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
                       class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
                     />
                   </div>
