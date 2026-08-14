@@ -442,66 +442,51 @@ defineExpose({
 
     <!-- Explicit Companion Configuration Prompt Modal -->
     <Teleport to="body">
-      <Transition name="config-modal-fade">
-        <div
-          v-if="isConfigModalOpen"
-          class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          style="z-index: 999999;"
-          @click.self="isConfigModalOpen = false"
-        >
-          <div class="max-w-md w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl backdrop-blur-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
-            <div class="mb-4 flex items-center gap-3">
-              <div class="size-12 flex items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
-                <div class="i-solar:magic-stick-3-bold-duotone size-6.5" />
-              </div>
-              <div>
-                <h3 class="text-base text-neutral-900 font-bold dark:text-white">
-                  Configure Your Companion
-                </h3>
-                <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                  Setup required for AI reasoning & suggestions
-                </p>
-              </div>
+      <div
+        v-if="isConfigModalOpen"
+        class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        style="z-index: 999999;"
+        @click.self="isConfigModalOpen = false"
+      >
+        <div class="max-w-md w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl backdrop-blur-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+          <div class="mb-4 flex items-center gap-3">
+            <div class="size-12 flex items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
+              <div class="i-solar:magic-stick-3-bold-duotone size-6.5" />
             </div>
-
-            <p class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-300">
-              Please configure your stuff using the companion wizard to get started with the fun!
-            </p>
-
-            <div class="mt-6 flex flex-col gap-2.5">
-              <button
-                type="button"
-                class="w-full flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary-500 py-3 text-sm text-white font-bold shadow-lg shadow-primary-500/25 transition active:scale-98 hover:bg-primary-600"
-                @click="handleOpenWizard"
-              >
-                <div class="i-solar:magic-stick-3-bold-duotone size-4.5" />
-                <span>Open Companion Wizard</span>
-              </button>
-
-              <button
-                type="button"
-                class="w-full cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-                @click="isConfigModalOpen = false"
-              >
-                Later
-              </button>
+            <div>
+              <h3 class="text-base text-neutral-900 font-bold dark:text-white">
+                Configure Your Companion
+              </h3>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Setup required for AI reasoning & suggestions
+              </p>
             </div>
           </div>
+
+          <p class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-300">
+            Please configure your stuff using the companion wizard to get started with the fun!
+          </p>
+
+          <div class="mt-6 flex flex-col gap-2.5">
+            <button
+              type="button"
+              class="w-full flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary-500 py-3 text-sm text-white font-bold shadow-lg shadow-primary-500/25 transition active:scale-98 hover:bg-primary-600"
+              @click="handleOpenWizard"
+            >
+              <div class="i-solar:magic-stick-3-bold-duotone size-4.5" />
+              <span>Open Companion Wizard</span>
+            </button>
+
+            <button
+              type="button"
+              class="w-full cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              @click="isConfigModalOpen = false"
+            >
+              Later
+            </button>
+          </div>
         </div>
-      </Transition>
+      </div>
     </Teleport>
   </div>
 </template>
-
-<style scoped>
-.config-modal-fade-enter-active,
-.config-modal-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.config-modal-fade-enter-from,
-.config-modal-fade-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-</style>
