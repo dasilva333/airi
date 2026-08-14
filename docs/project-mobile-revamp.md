@@ -268,3 +268,45 @@ WhisperDock Family
 ### Phase 5: Verification & Performance Tuning
 1. Validate on iOS Simulator (iPhone 17) via live HMR.
 2. Verify smooth 60fps gesture transitions and 0% CPU burn when idle.
+
+---
+
+## 10. Lessons Learned
+
+### L-01 · Vue `<Transition>` + Scoped CSS = Invisible Elements (Critical Bug Pattern)
+
+**Symptom**: A popover or modal mounts in the DOM (confirmed via DevTools — correct HTML, correct z-index, `display: flex`, `pointer-events: auto`), but `opacity` is permanently `0`. The element is there but invisible and cannot be interacted with.
+
+**Root Cause**: Vue's `<Transition>` component applies CSS class names like `popover-fade-enter-from` and `popover-fade-enter-active` to trigger the animation. When the transition CSS is in a `<style scoped>` block, Vue hashes the selector to e.g. `.popover-fade-enter-from[data-v-b45c11cd]`. In certain build configurations (particularly with UnoCSS or custom Vite plugins active), the hash on the compiled CSS does not match the hash emitted on the element in the same tick, so the `enter-from → enter-to` transition never fires. The element stays stuck at `opacity: 0` for its lifetime.
+
+**How We Found It**: DOM probe (`document.querySelector(...).classList`) showed the element had both `popover-fade-enter-from` and `popover-fade-enter-active` classes simultaneously without `enter-to` ever being applied. `getComputedStyle(...).opacity` confirmed `"0"`.
+
+**Fix**: Remove the `<Transition>` wrapper entirely. Popovers and modals mount/unmount instantly via `v-if` — no animation. This is functionally clean and avoids the bug.
+
+**Files Affected**: `BrainModelPicker.vue`, `MobileUtilityPopover.vue`, `MobileSessionSwitcherPopover.vue`, `WhisperComposerBar.vue`.
+
+**Rule Going Forward**: Never use `<Transition>` with `<style scoped>` CSS class names for popovers/modals in this project. If animation is needed, use either:
+- **Inline style transitions** on the element itself (`style="transition: opacity 0.15s"`)
+- **Global (non-scoped) CSS** in `index.css` or an unscoped `<style>` block
+- **`<Teleport to="body">`** moves the element out of the scoped subtree, but the scoped CSS hash issue can still apply — remove `<Transition>` regardless
+
+---
+
+### L-02 · Vue `<KeepAlive :include>` Requires `defineOptions({ name })` to Match
+
+**Symptom**: Navigating away from the main stage page (e.g. to `/settings/stage`) and back causes the 3D model, WebGL canvas, and floating hearts to disappear. Clicking back restores the route but the stage is blank.
+
+**Root Cause**: `App.vue` wraps `<RouterView>` in `<KeepAlive :include="['IndexScenePage', 'StageScenePage']">`. Vue KeepAlive matches against the component's **internal `name` option** — not the route filename or route meta. Without `defineOptions({ name: 'IndexScenePage' })` in `index.vue`, Vue assigns the default name `index`, which does not match, so the component is unmounted and remounted on every navigation, tearing down the WebGL context.
+
+**Fix**: Add `defineOptions({ name: 'IndexScenePage' })` to `apps/stage-pocket/src/pages/index.vue`.
+
+---
+
+### L-03 · Invisible Overlay Blocking Pointer Events on Fresh Load
+
+**Symptom**: On hard refresh, clicking the Brain, Lightning bolt, or Main Timeline header buttons does nothing. After opening the Customizer settings page and navigating back, all three suddenly work.
+
+**Root Cause**: `App.vue` was auto-opening the onboarding drawer (`showingSetup = true`) on mount when `needsOnboarding` was true. The vaul-vue `<DrawerRoot>` renders a `fixed inset-0 z-999` transparent overlay that blocks pointer events on the header (`z-50`). Navigating to `/settings/stage` closed `showingSetup`, removing the invisible blocker — which is why buttons worked after visiting Customizer.
+
+**Fix**: Remove the automatic `showingSetup = true` on mount in `App.vue`. The onboarding drawer should only open on explicit user action, not silently on every cold boot.
+
