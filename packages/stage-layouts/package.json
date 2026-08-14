@@ -21,9 +21,12 @@
     "./components/Layouts/InteractiveArea/Actions/*": "./src/components/Layouts/InteractiveArea/Actions/*.vue",
     "./components/Layouts/ViewControls/*": "./src/components/Layouts/ViewControls/*",
     "./components/Widgets/*": "./src/components/Widgets/*.vue",
+    "./components/Backgrounds": "./src/components/Backgrounds/index.ts",
     "./components/Backgrounds/*": "./src/components/Backgrounds/*",
     "./composables/*": "./src/composables/*.ts",
-    "./stores/*": "./src/stores/*.ts"
+    "./stores/*": "./src/stores/*.ts",
+    "./src/*": "./src/*"
+
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit"

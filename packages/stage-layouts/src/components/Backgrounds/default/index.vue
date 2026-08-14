@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import { isStageCapacitor } from '@proj-airi/stage-shared'
 import { useTheme } from '@proj-airi/ui'
 
-import { PartAnimatedWave, PatternCross } from '.'
+import { PartAnimatedWave, PatternCross, PatternHearts } from '.'
 
 const { isDark } = useTheme()
+const isMobile = isStageCapacitor()
 </script>
 
 <template>
-  <PatternCross>
+  <PatternHearts v-if="isMobile">
+    <slot />
+  </PatternHearts>
+  <PatternCross v-else>
     <PartAnimatedWave
       :fill-color="isDark
         ? 'oklch(35% calc(var(--chromatic-chroma) * 0.6) var(--chromatic-hue))'

@@ -7,7 +7,7 @@ import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHead
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
-import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
+import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds/index'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'

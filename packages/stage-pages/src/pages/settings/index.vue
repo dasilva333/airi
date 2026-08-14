@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { IconItem, RippleGrid } from '@proj-airi/stage-ui/components'
+import { isStageCapacitor, isStageTamagotchi } from '@proj-airi/stage-shared'
+import { AboutContent, AboutDialog, IconItem, RippleGrid } from '@proj-airi/stage-ui/components'
+import { useBuildInfo } from '@proj-airi/stage-ui/composables'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
@@ -18,6 +20,22 @@ const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 
 const settingsStore = useSettings()
 const onboardingStore = useOnboardingStore()
+
+const showAbout = ref(false)
+const buildInfo = useBuildInfo()
+const aboutLinks = [
+  { label: 'Home', href: 'https://airi.moeru.ai/docs/', icon: 'i-solar:home-smile-outline' },
+  { label: 'Documentations', href: 'https://airi.moeru.ai/docs/en/docs/overview/', icon: 'i-solar:document-add-outline' },
+  { label: 'GitHub', href: 'https://github.com/moeru-ai/airi', icon: 'i-simple-icons:github' },
+]
+
+const edition = computed(() => {
+  return isStageTamagotchi()
+    ? t('base.edition.desktop')
+    : isStageCapacitor()
+      ? t('base.edition.mobile')
+      : t('base.edition.web')
+})
 
 watch(
   () => route.query.action,
@@ -162,6 +180,25 @@ function isActive(to: string) {
         </template>
       </RippleGrid>
     </div>
+
+    <!-- About & Build Metadata Footer -->
+    <div class="mt-2 flex flex-col items-center justify-center gap-1.5 pt-4 text-center text-xs text-neutral-400 dark:text-neutral-500">
+      <button
+        class="flex items-center gap-1.5 border border-neutral-200/60 rounded-xl bg-white/70 px-3.5 py-2 text-neutral-700 font-semibold shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/80 dark:bg-neutral-900/70 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        @click="showAbout = true"
+      >
+        <div class="i-solar:info-circle-bold-duotone size-4 text-primary-500" />
+        <span>About AIRI</span>
+      </button>
+      <div class="text-[11px] text-neutral-400/80 font-mono">
+        v{{ buildInfo.version }} · {{ edition }}
+      </div>
+    </div>
+
+    <AboutDialog v-model="showAbout">
+      <AboutContent :subtitle="edition" :build-info="buildInfo" :links="aboutLinks" />
+    </AboutDialog>
+
     <div
       v-motion
       text="neutral-200/50 dark:neutral-600/20" pointer-events-none
