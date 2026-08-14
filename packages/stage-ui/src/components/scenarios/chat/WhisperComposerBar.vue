@@ -2,17 +2,17 @@
 import { BasicTextarea } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
-import { computed, ref, useTemplateRef } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+
+import ProducerChoiceBubble from './ProducerChoiceBubble.vue'
+import ProducerGuidanceModal from './ProducerGuidanceModal.vue'
 
 import { useChatComposer } from '../../../composables/use-chat-composer'
 import { useProducer } from '../../../composables/use-producer'
 import { useChatOrchestratorStore } from '../../../stores/chat'
 import { useChatSessionStore } from '../../../stores/chat/session-store'
-import { useChatStreamStore } from '../../../stores/chat/stream-store'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useOnboardingStore } from '../../../stores/onboarding'
@@ -34,12 +34,9 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'send', text: string): void
-  (e: 'getSuggestions', text: string): void
-  (e: 'clearSuggestions'): void
   (e: 'voiceToggle', active: boolean): void
 }>()
 
-const { t } = useI18n()
 let router: ReturnType<typeof useRouter> | undefined
 try {
   router = useRouter()
@@ -51,25 +48,25 @@ catch {
 const cardStore = useAiriCardStore()
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
-const chatStream = useChatStreamStore()
 const consciousnessStore = useConsciousnessStore()
+const { sending } = storeToRefs(chatOrchestrator)
 const onboardingStore = useOnboardingStore()
 const { generateSuggestions } = useProducer()
 
 const { activeCard } = storeToRefs(cardStore)
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
-const { sending } = storeToRefs(chatOrchestrator)
-const { streamingMessage } = storeToRefs(chatStream)
-
-const isStreaming = computed(() => !!streamingMessage.value && sending.value)
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef')
-const isWandMenuOpen = ref(false)
 const isConfigModalOpen = ref(false)
-const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const isHFTokenModalOpen = ref(false)
+const isProducerModalOpen = ref(false)
 
-const producerSuggestions = ref<Array<{ title: string, message: string }>>([])
-const isGeneratingSuggestions = ref(false)
+// Producer state — matches InteractiveArea pattern
+const producerSuggestion = ref<{ choices: Array<{ title: string, message: string }>, loading?: boolean } | null>(null)
+const lastProducerConfig = ref<{ guidance: string, contextDepth: number, count: number, shortReplies: boolean } | null>(null)
+const quickSuggestContextDepth = useLocalStorage('airi:producer:context-depth', 6)
+const quickSuggestCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const quickSuggestShortReplies = useLocalStorage('airi:producer:short-replies', true)
 
 function showConfigPrompt(reason: string) {
   console.error(`[WhisperComposerBar] ${reason}: No active AI provider or model configured.`)
@@ -85,6 +82,11 @@ function handleOpenWizard() {
       router?.push('/settings')
     })
   }
+}
+
+function openHFTokenPage() {
+  isHFTokenModalOpen.value = false
+  window.open('https://huggingface.co/settings/tokens', '_blank')
 }
 
 const {
@@ -118,22 +120,45 @@ function triggerFileInput() {
   fileInputRef.value?.click()
 }
 
-async function handleWandClick() {
-  if (isGeneratingSuggestions.value)
-    return
+// --- Producer / Wand Logic (matches InteractiveArea chatbox pattern) ---
 
-  if (producerSuggestions.value.length > 0) {
-    producerSuggestions.value = []
-    emit('clearSuggestions')
+function handleWandClick() {
+  // If suggestions are currently showing, dismiss them
+  if (producerSuggestion.value) {
+    producerSuggestion.value = null
     return
   }
 
+  // Guard: need a configured provider
   if (!activeProvider.value || !activeModel.value) {
-    showConfigPrompt('Error generating suggestions')
+    showConfigPrompt('No AI provider configured')
     return
   }
 
-  isGeneratingSuggestions.value = true
+  const input = messageInput.value.trim()
+  if (input) {
+    // Non-empty input → quick-suggest with input as guidance
+    messageInput.value = ''
+    handleProducerSubmit({
+      guidance: input,
+      contextDepth: quickSuggestContextDepth.value,
+      count: quickSuggestCount.value,
+      shortReplies: quickSuggestShortReplies.value,
+    })
+  }
+  else {
+    // Empty input → open the full ProducerGuidanceModal
+    isProducerModalOpen.value = true
+  }
+}
+
+async function handleProducerSubmit(payload: { guidance: string, contextDepth: number, count: number, shortReplies: boolean }) {
+  lastProducerConfig.value = payload
+  producerSuggestion.value = {
+    choices: [],
+    loading: true,
+  }
+
   try {
     const characterNameVal = activeCard.value?.name || 'Companion'
     const messagesVal = chatSession.messages || []
@@ -141,59 +166,52 @@ async function handleWandClick() {
     const choices = await generateSuggestions({
       characterName: characterNameVal,
       messages: messagesVal as any,
-      guidance: messageInput.value.trim() || undefined,
-      count: suggestionCount.value,
-      shortReplies: false,
+      guidance: payload.guidance || undefined,
+      contextDepth: payload.contextDepth,
+      count: payload.count,
+      shortReplies: payload.shortReplies,
     })
 
-    producerSuggestions.value = choices
-    emit('getSuggestions', messageInput.value)
+    producerSuggestion.value = {
+      choices,
+      loading: false,
+    }
   }
   catch (err) {
     console.error('[WhisperComposerBar] Failed to generate suggestions:', err)
+    producerSuggestion.value = null
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.includes('No active AI provider') || msg.includes('未选择模型') || !activeModel.value) {
       showConfigPrompt('Error generating suggestions')
     }
     else {
-      toast.error('Failed to generate suggestions')
+      toast.error('Failed to generate suggestions. Please check your provider settings.')
     }
   }
-  finally {
-    isGeneratingSuggestions.value = false
-  }
 }
 
-function handleWandContextMenu() {
-  isWandMenuOpen.value = true
-}
-
-function setSuggestionCount(count: number) {
-  suggestionCount.value = count
-  isWandMenuOpen.value = false
-}
-
-function selectSuggestion(message: string) {
-  messageInput.value = message
-  producerSuggestions.value = []
-  emit('clearSuggestions')
-}
-
-async function sendSuggestion(message: string) {
-  if (!activeProvider.value || !activeModel.value) {
-    showConfigPrompt('Error sending suggestion')
+async function handleRetryProducer() {
+  if (!lastProducerConfig.value) {
+    isProducerModalOpen.value = true
     return
   }
-
-  messageInput.value = message
-  producerSuggestions.value = []
-  emit('clearSuggestions')
-  await handleSend()
+  await handleProducerSubmit(lastProducerConfig.value)
 }
 
-function clearSuggestions() {
-  producerSuggestions.value = []
-  emit('clearSuggestions')
+function handleDeleteProducer() {
+  producerSuggestion.value = null
+}
+
+function handleChooseOption(choice: { title: string, message: string }, isPlaybackOnly = false) {
+  messageInput.value = choice.message
+
+  // Auto-send if configured (ONLY if NOT playback only)
+  if (!isPlaybackOnly) {
+    const autoSend = localStorage.getItem('airi:producer:auto-send') === 'true'
+    if (autoSend) {
+      handleSend()
+    }
+  }
 }
 
 async function handleVoiceClick() {
@@ -220,8 +238,7 @@ async function onSubmit() {
     return
   }
 
-  producerSuggestions.value = []
-  emit('clearSuggestions')
+  producerSuggestion.value = null
   await handleSend()
 }
 
@@ -229,7 +246,7 @@ defineExpose({
   messageInput,
   attachments,
   isListening,
-  producerSuggestions,
+  producerSuggestion,
   send: onSubmit,
 })
 </script>
@@ -257,55 +274,14 @@ defineExpose({
       </div>
     </div>
 
-    <!-- Producer Suggestions Pill Strip -->
-    <Transition name="config-modal-fade">
-      <div
-        v-if="producerSuggestions.length > 0 || isGeneratingSuggestions"
-        class="border border-neutral-200/80 rounded-2xl bg-white/95 p-2 shadow-xl backdrop-blur-2xl dark:border-neutral-800/80 dark:bg-neutral-900/95"
-      >
-        <div class="mb-1.5 flex items-center justify-between px-1">
-          <div class="flex items-center gap-1.5 text-xs text-amber-500 font-bold">
-            <div v-if="isGeneratingSuggestions" class="i-solar:magic-stick-3-bold-duotone size-4 animate-spin" />
-            <div v-else class="i-solar:magic-stick-3-bold-duotone size-4" />
-            <span>{{ isGeneratingSuggestions ? 'Writing Suggestions...' : 'Suggestions' }}</span>
-          </div>
-          <button
-            type="button"
-            class="size-5 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            @click="clearSuggestions"
-          >
-            <div class="i-solar:close-circle-bold size-3.5" />
-          </button>
-        </div>
-
-        <div v-if="producerSuggestions.length > 0" class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          <button
-            v-for="(choice, idx) in producerSuggestions"
-            :key="idx"
-            type="button"
-            class="flex cursor-pointer items-center justify-between gap-2 border border-neutral-200/70 rounded-xl bg-neutral-50/80 px-2.5 py-1.5 text-left transition dark:border-neutral-800/70 hover:border-amber-400/50 dark:bg-neutral-800/50 hover:bg-amber-500/5 dark:hover:bg-amber-500/10"
-            @click="selectSuggestion(choice.message)"
-          >
-            <div class="min-w-0 flex-1">
-              <div class="truncate text-[11px] text-amber-600 font-bold dark:text-amber-400">
-                {{ choice.title }}
-              </div>
-              <div class="line-clamp-1 text-xs text-neutral-700 dark:text-neutral-300">
-                {{ choice.message }}
-              </div>
-            </div>
-            <button
-              type="button"
-              class="size-6 flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 transition hover:bg-amber-500 dark:text-amber-400 hover:text-white"
-              title="Send instantly"
-              @click.stop="sendSuggestion(choice.message)"
-            >
-              <div class="i-solar:plain-bold size-3.5" />
-            </button>
-          </button>
-        </div>
-      </div>
-    </Transition>
+    <!-- Producer Suggestions (ProducerChoiceBubble — DRY with desktop chatbox) -->
+    <ProducerChoiceBubble
+      v-if="producerSuggestion"
+      :message="producerSuggestion"
+      @choose="handleChooseOption"
+      @retry="handleRetryProducer"
+      @delete="handleDeleteProducer"
+    />
 
     <!-- Main Composer Input Pill -->
     <div
@@ -346,52 +322,20 @@ defineExpose({
         </span>
       </button>
 
-      <!-- [✨] Producer Magic Wand Popover -->
-      <PopoverRoot v-if="showMagicWand" v-model:open="isWandMenuOpen">
-        <PopoverAnchor as-child>
-          <button
-            type="button"
-            :class="[
-              'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-              'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
-              isGeneratingSuggestions ? 'animate-pulse text-amber-500' : '',
-            ]"
-            title="Producer Suggestions (Right click / long press for options)"
-            @click="handleWandClick"
-            @contextmenu.prevent="handleWandContextMenu"
-          >
-            <div class="i-solar:magic-stick-3-bold-duotone size-4.5 text-amber-500" />
-          </button>
-        </PopoverAnchor>
-        <PopoverPortal>
-          <PopoverContent
-            side="top"
-            align="start"
-            :side-offset="8"
-            class="z-50 min-w-36 border border-neutral-200/80 rounded-2xl bg-white/95 p-2 font-sans shadow-xl backdrop-blur-xl dark:border-neutral-800/80 dark:bg-neutral-900/95"
-          >
-            <div class="px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-              Suggestions Count
-            </div>
-            <div class="flex flex-col gap-0.5">
-              <button
-                v-for="count in [2, 3, 4, 5]"
-                :key="count"
-                :class="[
-                  'flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer',
-                  suggestionCount === count
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                    : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800',
-                ]"
-                @click="setSuggestionCount(count)"
-              >
-                <span>{{ count }} options</span>
-                <div v-if="suggestionCount === count" class="i-solar:check-circle-bold size-3.5 text-amber-500" />
-              </button>
-            </div>
-          </PopoverContent>
-        </PopoverPortal>
-      </PopoverRoot>
+      <!-- [✨] Producer Magic Wand Button -->
+      <button
+        v-if="showMagicWand"
+        type="button"
+        :class="[
+          'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
+          'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+          producerSuggestion?.loading ? 'animate-pulse text-amber-500' : '',
+        ]"
+        title="Producer Suggestions (empty input opens config, with text generates quick suggestions)"
+        @click.stop="handleWandClick"
+      >
+        <div class="i-solar:magic-stick-3-bold-duotone size-4.5 text-amber-500" />
+      </button>
 
       <!-- [Textarea] Auto-Expanding Input -->
       <div class="min-w-0 flex-1 px-1">
@@ -428,15 +372,16 @@ defineExpose({
         :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !sending)"
         :class="[
           'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-          (messageInput.trim() || attachments.length > 0)
-            ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600 active:scale-95'
-            : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-600 opacity-60 cursor-not-allowed',
+          sending
+            ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
+            : messageInput.trim() || attachments.length > 0
+              ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600'
+              : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
         ]"
-        title="Send Message"
+        :title="sending ? 'Stop Generating' : 'Send'"
         @click="onSubmit"
       >
-        <div v-if="sending" class="i-solar:restart-square-bold size-4.5 animate-spin text-primary-500 dark:text-white" />
-        <div v-else class="i-solar:plain-bold size-4.5" />
+        <div :class="[sending ? 'i-solar:stop-bold size-4' : 'i-solar:plain-bold size-4.5']" />
       </button>
     </div>
 
@@ -457,26 +402,24 @@ defineExpose({
               <h3 class="text-base text-neutral-900 font-bold dark:text-white">
                 Configure Your Companion
               </h3>
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                Setup required for AI reasoning & suggestions
+              <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                Set up an AI provider to start chatting
               </p>
             </div>
           </div>
 
-          <p class="text-sm text-neutral-700 leading-relaxed dark:text-neutral-300">
-            Please configure your stuff using the companion wizard to get started with the fun!
+          <p class="mb-5 text-sm text-neutral-600 leading-relaxed dark:text-neutral-300">
+            To send messages and get AI-powered suggestions, you need to configure an AI provider (like OpenAI, Google, or a local model).
           </p>
 
-          <div class="mt-6 flex flex-col gap-2.5">
+          <div class="flex flex-col gap-2">
             <button
               type="button"
-              class="w-full flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary-500 py-3 text-sm text-white font-bold shadow-lg shadow-primary-500/25 transition active:scale-98 hover:bg-primary-600"
+              class="w-full cursor-pointer rounded-2xl bg-primary-500 py-2.5 text-xs text-white font-semibold shadow-md shadow-primary-500/25 transition active:scale-95 hover:bg-primary-600"
               @click="handleOpenWizard"
             >
-              <div class="i-solar:magic-stick-3-bold-duotone size-4.5" />
-              <span>Open Companion Wizard</span>
+              Open Setup Wizard
             </button>
-
             <button
               type="button"
               class="w-full cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
@@ -488,5 +431,62 @@ defineExpose({
         </div>
       </div>
     </Teleport>
+
+    <!-- HuggingFace Token Required Modal -->
+    <Teleport to="body">
+      <div
+        v-if="isHFTokenModalOpen"
+        class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        style="z-index: 999999;"
+        @click.self="isHFTokenModalOpen = false"
+      >
+        <div class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+          <div class="mb-4 flex items-center gap-3">
+            <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
+              <div class="i-solar:key-bold-duotone size-6.5" />
+            </div>
+            <div>
+              <h3 class="text-base text-neutral-900 font-bold dark:text-white">
+                HuggingFace Token Required
+              </h3>
+              <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                This voice is behind a gated model
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2.5 text-xs text-white font-semibold shadow-amber-500/25 shadow-md transition active:scale-95 hover:bg-amber-600"
+              @click="openHFTokenPage"
+            >
+              <div class="i-solar:key-bold-duotone size-3.5" />
+              Get HF Token
+            </button>
+            <button
+              type="button"
+              class="flex-1 cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              @click="isHFTokenModalOpen = false"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Producer Guidance Modal (DRY — same component as desktop chatbox) -->
+    <ProducerGuidanceModal
+      v-model="isProducerModalOpen"
+      :character-name="activeCard?.name || 'Companion'"
+      @submit="handleProducerSubmit"
+    />
   </div>
 </template>
+
+<style scoped>
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+</style>
