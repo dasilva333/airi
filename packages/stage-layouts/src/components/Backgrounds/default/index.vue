@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { isStageCapacitor } from '@proj-airi/stage-shared'
 import { useTheme } from '@proj-airi/ui'
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
+import { computed } from 'vue'
 
 import { PartAnimatedWave, PatternCross, PatternHearts } from '.'
 
 const { isDark } = useTheme()
-const isMobile = isStageCapacitor()
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = computed(() => {
+  if (isStageCapacitor())
+    return true
+  if (typeof window !== 'undefined' && !(window as any).electron)
+    return true
+  return breakpoints.smaller('md').value
+})
 </script>
 
 <template>

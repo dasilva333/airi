@@ -11,7 +11,6 @@ const controlStripStore = useSettingsControlStrip()
 const { buttons, dockedEdge } = storeToRefs(controlStripStore)
 
 const selectedCategory = ref<string>('all')
-const MAX_MOBILE_SLOTS = 7
 
 // List of all active/enabled buttons in their current order (filtered for mobile)
 const activeButtons = computed(() => {
@@ -71,10 +70,8 @@ function isControlOnStrip(itemId: string): boolean {
 
 // Add or enable a control on the strip
 function handleAddControl(item: { id: string, label: string, icon: string }) {
-  if (activeButtons.value.length >= MAX_MOBILE_SLOTS)
-    return
-
   const existingIndex = buttons.value.findIndex(b => b.id === item.id)
+
   if (existingIndex >= 0) {
     // If it exists in the list but was disabled, re-enable it and move to active list end
     const updated = [...buttons.value]
@@ -238,15 +235,8 @@ function handleGoBack() {
             <label class="text-[11px] text-neutral-400 font-bold tracking-wider uppercase">
               2. Active Strip Slots
             </label>
-            <span
-              :class="[
-                'px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold',
-                activeButtons.length >= MAX_MOBILE_SLOTS
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  : 'bg-primary-500/10 text-primary-600 dark:text-primary-400',
-              ]"
-            >
-              {{ activeButtons.length }} / {{ MAX_MOBILE_SLOTS }} Used
+            <span class="rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] text-primary-600 font-bold font-mono dark:text-primary-400">
+              {{ activeButtons.length }} Active
             </span>
           </div>
           <span class="text-[10px] text-neutral-400">

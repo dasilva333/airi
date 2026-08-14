@@ -40,6 +40,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:refresh-linear' },
   { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-call-bold-duotone' },
+  { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
   { id: 'actor-expressions', enabled: true, label: 'Expressions (Facial)', icon: 'i-solar:mask-happly-outline' },

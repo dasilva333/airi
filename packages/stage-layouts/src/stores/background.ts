@@ -47,7 +47,7 @@ export const useBackgroundStore = defineStore('stage-layouts:background', () => 
 
   const loading = ref(false)
   const galleryOptions = useLocalStorage<BackgroundPreferenceRecord>('settings/theme/background/gallery-options', {})
-  const galleryId = useLocalStorage<string>('settings/theme/background/gallery-active', presets[0]?.id)
+  const galleryId = useLocalStorage<string>('settings/theme/background/gallery-active', 'colorful-wave')
   const storedOptions = ref<BackgroundItem[]>([])
 
   const sampledColor = useLocalStorage<string>('settings/theme/background/sampled-color', '')

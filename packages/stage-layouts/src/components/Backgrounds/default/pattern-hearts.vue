@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { useTheme } from '@proj-airi/ui'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrameId: number | null = null
+const { isDark } = useTheme()
 
 interface Particle {
   x: number
@@ -33,7 +35,7 @@ function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, size: nu
   }
   else {
     ctx.strokeStyle = color
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = 2
     ctx.stroke()
   }
   ctx.restore()
@@ -47,8 +49,10 @@ onMounted(() => {
   if (!ctx)
     return
 
-  let width = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth)
-  let height = (canvas.height = canvas.parentElement?.clientHeight || window.innerHeight)
+  let width = canvas.parentElement?.clientWidth || window.innerWidth
+  let height = canvas.parentElement?.clientHeight || window.innerHeight
+  canvas.width = width
+  canvas.height = height
 
   const handleResize = () => {
     if (!canvas)
@@ -58,36 +62,61 @@ onMounted(() => {
   }
   window.addEventListener('resize', handleResize)
 
-  const colors = ['#f472b6', '#38bdf8', '#fb7185', '#2dd4bf']
-  const particleCount = 22
+  const lightColors = ['#f43f5e', '#fb7185', '#ec4899', '#38bdf8', '#818cf8', '#f59e0b', '#10b981']
+  const darkColors = ['#f472b6', '#38bdf8', '#fb7185', '#2dd4bf', '#a78bfa', '#fbbf24']
+
+  function getColors() {
+    return isDark.value ? darkColors : lightColors
+  }
+
+  const particleCount = 28
   const particles: Particle[] = []
 
   for (let i = 0; i < particleCount; i++) {
+    const colors = getColors()
     particles.push({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 12 + 8, // 8px - 20px
-      speedY: Math.random() * 0.4 + 0.2, // Slow upward drift
+      size: Math.random() * 16 + 14, // 14px - 30px
+      speedY: Math.random() * 0.5 + 0.3, // Slow upward drift
       swaySpeed: Math.random() * 0.02 + 0.01,
       swayOffset: Math.random() * Math.PI * 2,
-      opacity: Math.random() * 0.35 + 0.12,
-      filled: Math.random() > 0.45,
+      opacity: Math.random() * 0.4 + 0.5, // 0.5 - 0.9 (clearly visible!)
+      filled: Math.random() > 0.4,
       color: colors[Math.floor(Math.random() * colors.length)],
     })
   }
 
+  watch(isDark, () => {
+    const colors = getColors()
+    for (const p of particles) {
+      p.color = colors[Math.floor(Math.random() * colors.length)]
+    }
+  })
+
   let tick = 0
   const render = () => {
+    const displayWidth = canvas.parentElement?.clientWidth || window.innerWidth
+    const displayHeight = canvas.parentElement?.clientHeight || window.innerHeight
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth
+      canvas.height = displayHeight
+      width = displayWidth
+      height = displayHeight
+    }
+
     ctx.clearRect(0, 0, width, height)
     tick++
 
     for (const p of particles) {
       p.y -= p.speedY
-      p.x += Math.sin(tick * p.swaySpeed + p.swayOffset) * 0.4
+      p.x += Math.sin(tick * p.swaySpeed + p.swayOffset) * 0.6
 
-      if (p.y < -30) {
+      if (p.y < -40) {
         p.y = height + 20
         p.x = Math.random() * width
+        const colors = getColors()
+        p.color = colors[Math.floor(Math.random() * colors.length)]
       }
 
       drawHeart(ctx, p.x, p.y, p.size, p.filled, p.color, p.opacity)
@@ -108,24 +137,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="relative h-full w-full overflow-hidden bg-[#0a0d14]">
-    <!-- Ambient Radial Gradient -->
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(14,24,42,0.8),rgba(10,13,20,1))]" />
+  <div class="relative h-full w-full overflow-hidden bg-[#f8fafc] transition-colors duration-300 dark:bg-[#0a0d14]">
+    <!-- Ambient Radial Gradient for Light & Dark modes -->
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(241,245,249,0.9),rgba(248,250,252,1))] transition-opacity duration-300 dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(14,24,42,0.8),rgba(10,13,20,1))]" />
 
     <!-- Particle Canvas Layer -->
     <canvas ref="canvasRef" class="pointer-events-none absolute inset-0 z-0 h-full w-full" />
 
-    <!-- Concentric Stage Platform -->
-    <div class="pointer-events-none absolute bottom-[14%] left-1/2 z-1 -translate-x-1/2">
-      <!-- Outer Glow Ring -->
-      <div class="h-28 w-80 border border-teal-400/20 rounded-[50%] from-teal-500/10 to-transparent bg-gradient-to-t shadow-[0_0_30px_rgba(45,212,191,0.15)] backdrop-blur-[2px] transition-all sm:w-96" />
-      <!-- Inner Ring -->
-      <div class="absolute inset-x-6 inset-y-3 border border-teal-300/30 rounded-[50%] bg-teal-500/5 shadow-[inset_0_0_15px_rgba(45,212,191,0.2)]" />
-      <!-- Center Core Disc -->
-      <div class="absolute inset-x-14 inset-y-6 border border-teal-200/40 rounded-[50%] bg-teal-400/10 shadow-[0_0_20px_rgba(45,212,191,0.25)]" />
-    </div>
-
-    <!-- Content Slot -->
+    <!-- Content Slot (Avatar Stage & Overlays) -->
     <div class="relative z-10 h-full w-full">
       <slot />
     </div>
