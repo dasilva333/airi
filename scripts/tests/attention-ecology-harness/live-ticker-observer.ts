@@ -74,12 +74,12 @@ async function runTick() {
     ocrEvidence,
     zeroShot,
     0.0,
-    { ocrErrorPatternsMin: 2 },
+    { ocrErrorPatternsMin: 2, interestKeywordsMin: 1 },
   )
 
   const totalMs = Date.now() - startMs
   const decisionBadge = salience.decision === 'PROMOTE'
-    ? '🚨 PROMOTED (HIGH SALIENCE ERROR CASCADE)'
+    ? (ocrEvidence.errorPatternHits >= 2 ? '🚨 PROMOTED (ERROR CASCADE)' : `🎯 PROMOTED (INTEREST: ${ocrEvidence.interestKeywords.join(', ')})`)
     : salience.decision === 'NOTE'
       ? '📝 NOTE (WINDOW / CONTEXT SHIFT)'
       : '💤 IGNORED (QUIET FRAME)'
@@ -87,7 +87,7 @@ async function runTick() {
   console.log(`  ├─ Verdict:       ${decisionBadge}`)
   console.log(`  ├─ Stage 0 aHash: norm=${stage0.normalizedDistance.toFixed(4)} (CHANGED)`)
   console.log(`  ├─ Stage 1 CLIP:  novelty=${novelty.toFixed(4)} (threshold: 0.0200) | Top: ${zeroShot.topLabel}`)
-  console.log(`  ├─ Stage 2 OCR:   errorHits=${ocrEvidence.errorPatternHits} (${ocrEvidence.errorPatternHits >= 2 ? 'PROMOTED' : 'QUIET'})`)
+  console.log(`  ├─ Stage 2 OCR:   errorHits=${ocrEvidence.errorPatternHits} | interestHits=${ocrEvidence.interestKeywordHits} [${ocrEvidence.interestKeywords.join(', ')}]`)
   console.log(`  └─ Total Latency: ${totalMs}ms`)
 
   if (salience.decision === 'PROMOTE') {

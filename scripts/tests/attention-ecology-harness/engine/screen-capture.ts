@@ -1,7 +1,6 @@
 /**
- * Cross-platform desktop screen capture engine for Attention Ecology harness.
- * Supports macOS (screencapture), Windows (PowerShell GDI BitBlt), and Linux (import/scrot/grim).
- * Automatically provides fixture frame simulation mode for headless CI or fallback.
+ * Cross-platform live desktop screen capture engine for Attention Ecology harness.
+ * Supports macOS (screencapture), Windows (PowerShell GDI BitBlt), and Linux (import/scrot/grim/maim).
  */
 
 import fs from 'node:fs'
@@ -9,60 +8,24 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { execFileSync, execSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-
-const HARNESS_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const FIXTURES_DIR = path.join(HARNESS_ROOT, 'test-screenshots')
-
-export const FIXTURE_FRAMES = [
-  { id: '01', file: '01-static-editor.png', desc: 'Baseline Work Centroid v0 (VS Code)' },
-  { id: '02', file: '02-static-editor-cursor.png', desc: 'Static Micro-Change (Stage 0 Filtered)' },
-  { id: '03', file: '03-window-switch-term.png', desc: 'Context Switch to Terminal (Stage 1 Novelty Spike)' },
-  { id: '04', file: '04-term-error-stack.png', desc: 'Terminal Error Cascade (Stage 2 OCR Promoted)' },
-  { id: '05a', file: '05a-browser-video-frame1.png', desc: 'Browser Video Stream Baseline' },
-  { id: '05b', file: '05b-browser-video-frame2.png', desc: 'Browser Video Drift (Stage 1 Centroid Muted)' },
-]
 
 export interface CaptureResult {
   success: boolean
   method: string
-  isSimulated: boolean
   error?: string
-  fixtureDesc?: string
 }
 
 export class DesktopCaptureManager {
-  private simulated: boolean = false
-  private simulationTick: number = 0
   private winScriptPath: string | null = null
 
-  constructor(options?: { simulated?: boolean }) {
-    this.simulated = !!options?.simulated
-  }
-
-  public get isSimulated(): boolean {
-    return this.simulated
-  }
-
-  public set isSimulated(val: boolean) {
-    this.simulated = val
-  }
-
-  public toggleSimulation(): boolean {
-    this.simulated = !this.simulated
-    return this.simulated
-  }
-
   public getMethodName(): string {
-    if (this.simulated)
-      return 'Simulation (Test Fixtures)'
     if (process.platform === 'darwin')
       return 'macOS screencapture'
     if (process.platform === 'win32')
-      return 'Windows GDI BitBlt'
+      return 'Windows GDI'
     if (process.platform === 'linux')
       return 'Linux Screen Capture'
-    return 'Generic Desktop'
+    return 'Generic Desktop Capture'
   }
 
   private ensureWindowsScript(): string {
@@ -123,30 +86,16 @@ if (-not ([System.Management.Automation.PSTypeName]'WinCap').Type) {
   }
 
   public capture(destPath: string): CaptureResult {
-    if (this.simulated) {
-      const fixture = FIXTURE_FRAMES[this.simulationTick % FIXTURE_FRAMES.length]
-      this.simulationTick++
-      const fixturePath = path.join(FIXTURES_DIR, fixture.file)
-      if (fs.existsSync(fixturePath)) {
-        fs.copyFileSync(fixturePath, destPath)
-        return {
-          success: true,
-          method: 'Simulation (Test Fixture)',
-          isSimulated: true,
-          fixtureDesc: `[#${fixture.id}] ${fixture.desc}`,
-        }
-      }
-    }
-
-    // Attempt Native Screen Capture
     try {
       if (process.platform === 'darwin') {
         execSync(`screencapture -x "${destPath}"`, { stdio: 'ignore' })
         if (fs.existsSync(destPath) && fs.statSync(destPath).size > 0) {
-          return { success: true, method: 'macOS screencapture', isSimulated: false }
+          return { success: true, method: 'macOS screencapture' }
         }
+        return { success: false, method: 'macOS screencapture', error: 'Empty screen capture output' }
       }
-      else if (process.platform === 'win32') {
+
+      if (process.platform === 'win32') {
         const script = this.ensureWindowsScript()
         execFileSync('powershell.exe', [
           '-NoProfile',
@@ -158,11 +107,12 @@ if (-not ([System.Management.Automation.PSTypeName]'WinCap').Type) {
           destPath,
         ], { stdio: 'ignore' })
         if (fs.existsSync(destPath) && fs.statSync(destPath).size > 0) {
-          return { success: true, method: 'Windows GDI', isSimulated: false }
+          return { success: true, method: 'Windows GDI' }
         }
+        return { success: false, method: 'Windows GDI', error: 'Empty screen capture output' }
       }
-      else if (process.platform === 'linux') {
-        // Try common Linux capture tools in order
+
+      if (process.platform === 'linux') {
         const tools = [
           `import -window root "${destPath}"`,
           `scrot "${destPath}"`,
@@ -173,22 +123,19 @@ if (-not ([System.Management.Automation.PSTypeName]'WinCap').Type) {
           try {
             execSync(cmd, { stdio: 'ignore' })
             if (fs.existsSync(destPath) && fs.statSync(destPath).size > 0) {
-              return { success: true, method: cmd.split(' ')[0], isSimulated: false }
+              return { success: true, method: cmd.split(' ')[0] }
             }
           }
           catch {}
         }
+        return { success: false, method: 'Linux Screen Capture', error: 'No working Linux screen capture tool found (install scrot/grim/maim/imagemagick)' }
       }
+
+      return { success: false, method: 'Generic', error: `Unsupported platform: ${process.platform}` }
     }
     catch (err: any) {
-      // Native capture failed; fallback to simulation
-      this.simulated = true
-      return this.capture(destPath)
+      return { success: false, method: this.getMethodName(), error: err.message || String(err) }
     }
-
-    // If native capture didn't produce a valid file, fallback to simulation
-    this.simulated = true
-    return this.capture(destPath)
   }
 
   public dispose() {

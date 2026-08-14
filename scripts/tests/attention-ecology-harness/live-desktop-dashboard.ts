@@ -13,9 +13,7 @@ import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder
 const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
 const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
 
-const captureManager = new DesktopCaptureManager({
-  simulated: process.argv.includes('--simulate') || process.argv.includes('--fixture'),
-})
+const captureManager = new DesktopCaptureManager()
 
 let tickCount = 0
 let currentCentroid: Float32Array | null = null
@@ -29,7 +27,6 @@ let stage3Status = '💤 IDLE'
 let overallStatus = '💤 MONITORING SCREEN (0-COST IDLE)'
 let lastLatencyMs = 0
 let lastCaptureSource = captureManager.getMethodName()
-let lastFixtureDesc = ''
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 let spinnerIndex = 0
@@ -104,17 +101,13 @@ function renderDashboard() {
     streamBoxLines = `${formattedBlocks.join('\n')}\n`
   }
 
-  const fixtureLine = lastFixtureDesc
-    ? `│ 🎬 FRAME: ${lastFixtureDesc.padEnd(65, ' ')} │\n├─────────────────────────────────────────────────────────────────────────────┤\n`
-    : ''
-
   const ui = `\x1B[H\x1B[J`
     + `┌─────────────────────────────────────────────────────────────────────────────┐\n`
-    + `│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME MONITOR    ${captureTag.padStart(20, ' ')} ${spinner} [TICK #${tickStr}] │\n`
+    + `│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME DESKTOP MONITOR                     │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│ STATUS: ${overallStatus.padEnd(46, ' ')} LATENCY: ${latencyStr.padEnd(8, ' ')} │\n`
+    + `│ STATUS: ${overallStatus.padEnd(36, ' ')} SOURCE: ${lastCaptureSource.padEnd(14, ' ')} ⏱️ ${latencyStr.padEnd(7, ' ')} ${spinner} │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `${fixtureLine}`
+    + `│                                                                             │\n`
     + `│ ─── STAGE 0: Perceptual Hash (aHash \\mu s) ──────────────────────────────── │\n`
     + `│    ${stage0Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
@@ -132,7 +125,7 @@ function renderDashboard() {
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `${streamBoxLines}`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│  ⌨️  [S] Toggle Mode (Live/Sim)  │  [R] Reset Baseline  │  [Q / ^C] Exit     │\n`
+    + `│  ⌨️  [R] Reset Baseline Centroid  │  [Q / ^C] Clean Exit                    │\n`
     + `└─────────────────────────────────────────────────────────────────────────────┘\n`
 
   process.stdout.write(ui)
@@ -150,8 +143,11 @@ function captureDesktopScreen(): boolean {
 
     const res = captureManager.capture(TEMP_CAPTURE_PATH)
     lastCaptureSource = res.method
-    lastFixtureDesc = res.fixtureDesc || ''
-    return res.success
+    if (!res.success) {
+      overallStatus = `❌ CAPTURE FAILED: ${res.error || 'Unknown error'}`
+      return false
+    }
+    return true
   }
   catch (err: any) {
     overallStatus = `❌ CAPTURE ERROR: ${err.message || String(err)}`
@@ -192,9 +188,9 @@ async function warmUpPipeline() {
     }
   })
 
-  renderWarmupScreen('[4/4] Stage 0 Desktop Capture & Centroid', 'Capturing initial baseline...', 90)
-  captureDesktopScreen()
-  if (fs.existsSync(TEMP_CAPTURE_PATH)) {
+  renderWarmupScreen('[4/4] Stage 0 Desktop Capture & Centroid', 'Capturing initial screen baseline...', 90)
+  const initialCaptureOk = captureDesktopScreen()
+  if (initialCaptureOk && fs.existsSync(TEMP_CAPTURE_PATH)) {
     const { embedding } = await getVisionEmbedding(TEMP_CAPTURE_PATH)
     currentCentroid = embedding
     stage0Status = '⚡ BASELINE SEEDED'
@@ -203,7 +199,7 @@ async function warmUpPipeline() {
   }
 
   renderWarmupScreen('Ready', 'All engines warmed up successfully!', 100)
-  await new Promise(r => setTimeout(r, 600))
+  await new Promise(r => setTimeout(r, 500))
 }
 
 async function runLiveTick() {
@@ -214,7 +210,6 @@ async function runLiveTick() {
 
   const captured = captureDesktopScreen()
   if (!captured) {
-    overallStatus = '❌ CAPTURE FAILED'
     renderDashboard()
     isProcessing = false
     return
@@ -273,15 +268,23 @@ async function runLiveTick() {
       ocrEvidence,
       zeroShot,
       0.0,
-      { ocrErrorPatternsMin: 2 },
+      { ocrErrorPatternsMin: 2, interestKeywordsMin: 1 },
     )
 
-    stage2Status = ocrEvidence.errorPatternHits >= 2
-      ? `🚨 [PROMOTED] errorHits=${ocrEvidence.errorPatternHits}/2 (${ocrEvidence.errorPatterns.join(', ')})`
-      : `🟢 [QUIET] errorHits=${ocrEvidence.errorPatternHits}/2`
+    if (ocrEvidence.errorPatternHits >= 2) {
+      stage2Status = `🚨 [ERROR CASCADE] errors=${ocrEvidence.errorPatternHits}/2 (${ocrEvidence.errorPatterns.join(', ')})`
+    }
+    else if (ocrEvidence.interestKeywordHits >= 1) {
+      stage2Status = `🎯 [INTEREST MATCH] (${ocrEvidence.interestKeywords.join(', ')})`
+    }
+    else {
+      stage2Status = `🟢 [QUIET] errors=0/2 | interest=0`
+    }
 
     if (salience.decision === 'PROMOTE') {
-      overallStatus = '🚨 HIGH SALIENCE EVENT PROMOTED'
+      overallStatus = ocrEvidence.errorPatternHits >= 2
+        ? '🚨 HIGH SALIENCE ERROR PROMOTED'
+        : `🎯 PROJECT INTEREST EVENT: [${ocrEvidence.interestKeywords.join(', ')}]`
       stage3Status = '📷 [VLM RUNNING] Synthesizing Visual Event Summary...'
       renderDashboard()
 
@@ -323,6 +326,8 @@ async function runLiveTick() {
           caption,
           ocrHits: ocrEvidence.errorPatternHits,
           ocrPatterns: ocrEvidence.errorPatterns,
+          interestHits: ocrEvidence.interestKeywordHits,
+          interestKeywords: ocrEvidence.interestKeywords,
           vlmMs: roundedVlmMs,
         })
         fs.appendFileSync(logPath, `${entry}\n`, 'utf-8')
@@ -375,12 +380,6 @@ if (process.stdin.isTTY) {
     }
     else if (key.name === 'q') {
       cleanExit()
-    }
-    else if (key.name === 's') {
-      const sim = captureManager.toggleSimulation()
-      lastCaptureSource = captureManager.getMethodName()
-      overallStatus = sim ? '🎬 SWITCHED TO SIMULATION (Test Fixtures)' : '🖥️ SWITCHED TO LIVE CAPTURE'
-      renderDashboard()
     }
     else if (key.name === 'r') {
       currentCentroid = null

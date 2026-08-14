@@ -1,27 +1,10 @@
 /**
  * Stage 2 — Salience Promotion Gate.
  *
- * Phase-1 harness scope: heuristic salience judgment (proposal M1/M2 tier).
- * The RWKV-7 subconscious constrained-decoding judgment (proposal §4 Stage 2,
- * M3) is out of scope for this harness; this module stands in with an
- * explainable, deterministic gate so thresholds can be benchmarked now.
- *
- * Promotion is gated by LOCALIZED OCR TEXT EVIDENCE (see stage2-ocr.ts):
- * a frame promotes iff its changed region shows >= 2 distinct error
- * patterns. Rationale (measured in Phase 1, resolved in Phase 2):
- *
- *   - Zero-shot CLIP classification (text tower in the same 512-dim space as
- *     the frame embedding) could NOT detect the terminal error: the error
- *     margin stayed negative (~-0.04) because a few text lines drown in the
- *     global embedding. Retained here as a REPORTED diagnostic only.
- *   - Red-alert pixel ratio could NOT separate frame 04 from frame 03 (03
- *     already contains a red error marker). Retained as a reported diagnostic.
- *   - tesseract.js WASM OCR of the delta region reads the error text
- *     verbatim: frame 03 has 1 pattern ("command not found" — a lone typo,
- *     routine), frame 04 has 3 ("command not found", "invalid option",
- *     "usage:") — an error cascade, "caught in the act". The >=2 floor is
- *     deliberately conservative (proposal §12: false interruptions are worse
- *     than misses): a single error line never promotes.
+ * Evaluates visual and text evidence across:
+ * 1. System Error Cascades (>= 2 distinct error patterns)
+ * 2. Semantic Project / Tool Interest Keywords (antigravity, airi, projects, etc.)
+ * 3. Zero-shot CLIP classifications and luminance red alert ratios.
  */
 
 import type { ProgressCallback } from './stage1-vision-embed.js'
@@ -51,8 +34,10 @@ export interface ZeroShotResult {
 }
 
 export interface SalienceThresholds {
-  /** Minimum distinct OCR error patterns in the changed region to promote. */
-  ocrErrorPatternsMin: number
+  /** Minimum distinct OCR error patterns in the changed region to promote. Default: 2 */
+  ocrErrorPatternsMin?: number
+  /** Minimum distinct semantic interest keywords in the changed region to promote. Default: 1 */
+  interestKeywordsMin?: number
 }
 
 export interface PromotionPacket {
@@ -64,6 +49,8 @@ export interface PromotionPacket {
   signals: {
     ocrErrorPatternHits: number
     ocrErrorPatterns: string[]
+    interestKeywordHits: number
+    interestKeywords: string[]
     /** Untrusted screen text, truncated — see proposal §6 sanitization. */
     ocrSnippet: string
     errorMargin: number
@@ -99,7 +86,7 @@ export async function loadTextEncoder(onLog?: (msg: string) => void, onProgress?
   return Promise.all([tokenizerPromise, textModelPromise])
 }
 
-/** Releases the text-tower ONNX session; see disposeVisionEncoder for why. */
+/** Releases the text-tower ONNX session. */
 export async function disposeTextEncoder(): Promise<void> {
   if (textModelPromise) {
     const model = await textModelPromise
@@ -168,10 +155,7 @@ export async function computeRedAlertRatio(imagePath: string): Promise<{ ratio: 
 }
 
 /**
- * Deterministic promotion gate, precision-first (proposal §12). A frame
- * promotes iff OCR error evidence in its changed region clears the floor
- * (>= 2 distinct patterns); the first pattern alone is treated as a routine
- * typo and only bumped to the diary as monitoring evidence.
+ * Deterministic promotion gate evaluating both error cascades and project interest keywords.
  */
 export function evaluateSalience(
   frameId: string,
@@ -179,43 +163,54 @@ export function evaluateSalience(
   ocr: OcrEvidence,
   zeroShot: ZeroShotResult,
   redAlertRatio: number,
-  thresholds: SalienceThresholds,
+  thresholds: SalienceThresholds = {},
 ): SalienceEvaluation {
-  const hits = ocr.errorPatternHits
-  const promote = hits >= thresholds.ocrErrorPatternsMin
+  const errorMin = thresholds.ocrErrorPatternsMin ?? 2
+  const interestMin = thresholds.interestKeywordsMin ?? 1
 
-  if (promote) {
+  const isErrorCascade = ocr.errorPatternHits >= errorMin
+  const isInterestMatch = ocr.interestKeywordHits >= interestMin
+
+  if (isErrorCascade || isInterestMatch) {
+    const reason = isErrorCascade
+      ? `OCR error evidence: ${ocr.errorPatternHits} distinct pattern(s) [${ocr.errorPatterns.join(', ')}] >= ${errorMin}`
+      : `Semantic project interest match: [${ocr.interestKeywords.join(', ')}]`
+
+    const caption: SalienceLabel = isErrorCascade ? 'terminal_error' : zeroShot.topLabel
+
     return {
       decision: 'PROMOTE',
-      reason: `OCR error evidence: ${hits} distinct pattern(s) [${ocr.errorPatterns.join(', ')}] >= ${thresholds.ocrErrorPatternsMin}`,
+      reason,
       packet: {
         type: 'PROMOTION_PACKET',
         frameId,
         timestamp: new Date().toISOString(),
-        caption: 'terminal_error',
+        caption,
         novelty,
         signals: {
-          ocrErrorPatternHits: hits,
+          ocrErrorPatternHits: ocr.errorPatternHits,
           ocrErrorPatterns: ocr.errorPatterns,
+          interestKeywordHits: ocr.interestKeywordHits,
+          interestKeywords: ocr.interestKeywords,
           ocrSnippet: ocr.text.replace(/\s+/g, ' ').trim().slice(0, 200),
           errorMargin: zeroShot.errorMargin,
           redAlertRatio,
           zeroShotScores: zeroShot.scores,
         },
-        reason: 'terminal error cascade confirmed by localized OCR text evidence',
+        reason,
       },
     }
   }
 
-  if (hits === 1) {
+  if (ocr.errorPatternHits === 1) {
     return {
       decision: 'NOTE',
-      reason: `minor error evidence (1 pattern: ${ocr.errorPatterns[0]}) below promotion floor ${thresholds.ocrErrorPatternsMin}; monitoring in diary`,
+      reason: `minor error evidence (1 pattern: ${ocr.errorPatterns[0]}) below promotion floor ${errorMin}; monitoring in diary`,
     }
   }
 
   return {
     decision: 'NOTE',
-    reason: 'routine event (no OCR error evidence in changed region); writing to diary buffer only',
+    reason: 'routine event (no error cascade or interest keywords); writing to diary buffer only',
   }
 }

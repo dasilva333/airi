@@ -48,10 +48,9 @@ const STAGE0_HAMMING_MIN = 0.0015
 const NOVELTY_SPIKE_MIN = 0.005
 const PROPOSAL_NOVELTY_TARGET = 0.45
 const GATE_THRESHOLDS = {
-  // Precision-first promotion floor (proposal §12): a single error line is a
-  // routine typo (03 = 1 pattern); >= 2 distinct patterns = error cascade
-  // "caught in the act" (04 = 3 patterns), measured via tesseract.js OCR.
+  // Pure error-cascade baseline benchmark threshold
   ocrErrorPatternsMin: 2,
+  interestKeywordsMin: 99,
 }
 
 interface ManifestEntry {
@@ -207,7 +206,7 @@ async function runAttentionEcologyEval() {
 
     console.log(`[tick ${entry.file}] Stage0 hamming=${delta.hammingDistance} (norm ${delta.normalizedDistance.toFixed(4)}) -> CHANGED (${stage0Ms.toFixed(1)}ms)`)
     console.log(`  Stage1 novelty vs centroid = ${novelty.toFixed(4)} (embed ${encodeMs.toFixed(0)}ms, gate total ${(performance.now() - t1).toFixed(0)}ms)`)
-    console.log(`  Stage2 OCR region=${ocr.bbox ? `${ocr.bbox.width}x${ocr.bbox.height}@(${ocr.bbox.left},${ocr.bbox.top})` : 'none'} hits=${ocr.errorPatternHits} [${ocr.errorPatterns.join(', ') || '-'}] (${ocr.ocrMs.toFixed(0)}ms)`)
+    console.log(`  Stage2 OCR errors=${ocr.errorPatternHits} [${ocr.errorPatterns.join(', ') || '-'}] | interest=${ocr.interestKeywordHits} [${ocr.interestKeywords.join(', ') || '-'}] (${ocr.ocrMs.toFixed(0)}ms)`)
     console.log(`  Stage2 zero-shot: ${fmtSimMap(zeroShot)} | errorMargin=${zeroShot.errorMargin.toFixed(4)} redAlert=${(redAlertRatio * 100).toFixed(3)}%`)
     console.log(`  -> ${evaluation.decision}: ${evaluation.reason}\n`)
   }

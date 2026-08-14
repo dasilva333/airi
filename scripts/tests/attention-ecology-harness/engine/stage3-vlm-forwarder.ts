@@ -199,7 +199,7 @@ export async function runForwarder(
 ): Promise<VlmForwarderResult> {
   const window = activeWindowLabel(zeroShot)
   const theme = await computeTheme(framePath)
-  const snippet = extractErrorSnippet(ocr.text, ocr.errorPatterns)
+  const snippet = extractErrorSnippet(ocr.text, [...ocr.errorPatterns, ...ocr.interestKeywords])
 
   const lines = [
     '[Visual Event]',

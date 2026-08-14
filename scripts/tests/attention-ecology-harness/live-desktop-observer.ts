@@ -12,15 +12,13 @@ import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder
 const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
 const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
 
-const captureManager = new DesktopCaptureManager({
-  simulated: process.argv.includes('--simulate') || process.argv.includes('--fixture'),
-})
+const captureManager = new DesktopCaptureManager()
 
 console.log('='.repeat(80))
 console.log('  🖥️  ATTENTION ECOLOGY GUARD: LIVE REAL-TIME DESKTOP SCREEN OBSERVER')
 console.log('='.repeat(80))
 console.log(`  Capture Engine: ${captureManager.getMethodName()}`)
-console.log('  Capturing desktop frames every 2.0 seconds.')
+console.log('  Capturing live desktop frames every 2.0 seconds.')
 console.log('  Switch windows, run terminal commands, or trigger errors to observe live events.')
 console.log('  Press Ctrl+C to stop.\n')
 
@@ -39,10 +37,11 @@ function captureDesktopScreen(): boolean {
       prevPathExists = true
     }
     const res = captureManager.capture(TEMP_CAPTURE_PATH)
-    if (res.fixtureDesc) {
-      console.log(`  🎬 Simulated frame: ${res.fixtureDesc}`)
+    if (!res.success) {
+      console.error('Capture failed:', res.error)
+      return false
     }
-    return res.success
+    return true
   }
   catch (err) {
     console.error('Failed to capture screen:', err)
@@ -98,12 +97,12 @@ async function runLiveTick() {
       ocrEvidence,
       { scores: { terminal_error: 0, terminal_normal: 0, code_editor: 0, video_player: 0 }, topLabel: 'code_editor', errorMargin: 0 },
       0.0,
-      { ocrErrorPatternsMin: 2 },
+      { ocrErrorPatternsMin: 2, interestKeywordsMin: 1 },
     )
 
     const totalMs = Date.now() - startMs
     const decisionBadge = salience.decision === 'PROMOTE'
-      ? '🚨 PROMOTED (HIGH SALIENCE ERROR / CASCADE)'
+      ? (ocrEvidence.errorPatternHits >= 2 ? '🚨 PROMOTED (ERROR CASCADE)' : `🎯 PROMOTED (INTEREST: ${ocrEvidence.interestKeywords.join(', ')})`)
       : salience.decision === 'NOTE'
         ? '📝 NOTE (WINDOW / CONTEXT SHIFT)'
         : '💤 IGNORED (QUIET FRAME)'
@@ -111,11 +110,11 @@ async function runLiveTick() {
     console.log(`[${timestamp}] Ticker #${tickCount} | Latency: ${totalMs}ms | ${decisionBadge}`)
     console.log(`  ├─ Stage 0 aHash:  norm=${stage0.normalizedDistance.toFixed(4)} (CHANGED)`)
     console.log(`  ├─ Stage 1 CLIP:   novelty=${novelty.toFixed(4)} (threshold: 0.0200)`)
-    console.log(`  └─ Stage 2 OCR:    errorHits=${ocrEvidence.errorPatternHits} (${ocrEvidence.errorPatternHits >= 2 ? 'PROMOTED' : 'QUIET'})`)
+    console.log(`  └─ Stage 2 OCR:    errorHits=${ocrEvidence.errorPatternHits} | interestHits=${ocrEvidence.interestKeywordHits} [${ocrEvidence.interestKeywords.join(', ')}]`)
 
     if (salience.decision === 'PROMOTE') {
       console.log('\n  ┌────────────────────────────────────────────────────────────┐')
-      console.log('  │  🚨 HIGH SALIENCE EVENT PROMOTED - SYNTHESIZING SUMMARY...  │')
+      console.log('  │  PROMOTED ATTENTION EVENT - SYNTHESIZING VISUAL SUMMARY...  │')
       console.log('  └────────────────────────────────────────────────────────────┘')
       const summaryResult = await runForwarder(
         TEMP_CAPTURE_PATH,
