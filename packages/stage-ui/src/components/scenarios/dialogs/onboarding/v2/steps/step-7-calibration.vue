@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
@@ -106,7 +106,13 @@ const resolvedPersona = computed(() => {
   }
 })
 
-const fullGreeting = computed(() => resolvedPersona.value.greetings[0] || '')
+const fullGreeting = computed(() => {
+  const g = resolvedPersona.value.greetings?.[0]
+  if (g) {
+    return g.replace(USER_TOKEN_REGEX, userName.value).replace(/\{\{user\}\}/gi, userName.value)
+  }
+  return `Hello ${userName.value}! Everything is ready — let's step onto the stage.`
+})
 
 const resolvedVesselName = computed(() => {
   const modelId = draftStore.state.vessel.displayModelId
@@ -119,17 +125,39 @@ const resolvedVesselName = computed(() => {
 const typedGreeting = ref('')
 let typeTimer: ReturnType<typeof setInterval> | undefined
 
-onMounted(() => {
+function startTypewriter(text: string) {
+  if (typeTimer) {
+    clearInterval(typeTimer)
+    typeTimer = undefined
+  }
+  if (!text) {
+    typedGreeting.value = ''
+    return
+  }
   let i = 0
+  typedGreeting.value = ''
   typeTimer = setInterval(() => {
     i++
-    typedGreeting.value = fullGreeting.value.slice(0, i)
-    if (i >= fullGreeting.value.length)
+    typedGreeting.value = text.slice(0, i)
+    if (i >= text.length) {
       clearInterval(typeTimer)
-  }, 28)
-})
+      typeTimer = undefined
+    }
+  }, 24)
+}
 
-onBeforeUnmount(() => clearInterval(typeTimer))
+watch(fullGreeting, (newGreeting) => {
+  if (newGreeting) {
+    startTypewriter(newGreeting)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (typeTimer) {
+    clearInterval(typeTimer)
+    typeTimer = undefined
+  }
+})
 
 const showPayload = ref(false)
 
@@ -197,6 +225,15 @@ async function handleFinish() {
 
   if (draft.userProfile.name) {
     userProfileStore.name = draft.userProfile.name
+  }
+  if (draft.userProfile.description) {
+    userProfileStore.description = draft.userProfile.description
+  }
+  if (draft.userProfile.prompt) {
+    userProfileStore.prompt = draft.userProfile.prompt
+  }
+  if (draft.userProfile.voiceProfileId) {
+    userProfileStore.voiceProfileId = draft.userProfile.voiceProfileId
   }
 
   // Synthesize and persist the brand new card payload

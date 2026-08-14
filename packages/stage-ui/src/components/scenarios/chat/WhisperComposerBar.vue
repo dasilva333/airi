@@ -395,9 +395,18 @@ defineExpose({
         v-if="isConfigModalOpen"
         class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         style="z-index: 999999;"
-        @click.self="isConfigModalOpen = false"
+        @pointerdown.stop
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop.self="isConfigModalOpen = false"
       >
-        <div class="max-w-md w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl backdrop-blur-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+        <div
+          class="max-w-md w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl backdrop-blur-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+          @pointerdown.stop
+          @mousedown.stop
+          @touchstart.stop
+          @click.stop
+        >
           <div class="mb-4 flex items-center gap-3">
             <div class="size-12 flex items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
               <div class="i-solar:magic-stick-3-bold-duotone size-6.5" />
@@ -420,14 +429,16 @@ defineExpose({
             <button
               type="button"
               class="w-full cursor-pointer rounded-2xl bg-primary-500 py-2.5 text-xs text-white font-semibold shadow-md shadow-primary-500/25 transition active:scale-95 hover:bg-primary-600"
-              @click="handleOpenWizard"
+              @pointerdown.stop
+              @click.stop="handleOpenWizard"
             >
               Open Setup Wizard
             </button>
             <button
               type="button"
               class="w-full cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-              @click="isConfigModalOpen = false"
+              @pointerdown.stop
+              @click.stop="isConfigModalOpen = false"
             >
               Later
             </button>
@@ -442,9 +453,18 @@ defineExpose({
         v-if="isHFTokenModalOpen"
         class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         style="z-index: 999999;"
-        @click.self="isHFTokenModalOpen = false"
+        @pointerdown.stop
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop.self="isHFTokenModalOpen = false"
       >
-        <div class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+        <div
+          class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+          @pointerdown.stop
+          @mousedown.stop
+          @touchstart.stop
+          @click.stop
+        >
           <div class="mb-4 flex items-center gap-3">
             <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
               <div class="i-solar:key-bold-duotone size-6.5" />
@@ -463,7 +483,8 @@ defineExpose({
             <button
               type="button"
               class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2.5 text-xs text-white font-semibold shadow-amber-500/25 shadow-md transition active:scale-95 hover:bg-amber-600"
-              @click="openHFTokenPage"
+              @pointerdown.stop
+              @click.stop="openHFTokenPage"
             >
               <div class="i-solar:key-bold-duotone size-3.5" />
               Get HF Token
@@ -471,7 +492,8 @@ defineExpose({
             <button
               type="button"
               class="flex-1 cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-              @click="isHFTokenModalOpen = false"
+              @pointerdown.stop
+              @click.stop="isHFTokenModalOpen = false"
             >
               Later
             </button>

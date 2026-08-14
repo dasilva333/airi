@@ -631,7 +631,6 @@ function handleWizardMode() {
   const onboardingStore = useOnboardingStore()
   onboardingStore.resetSetupState()
   onboardingStore.forceShowSetup()
-  router.push('/')
 }
 
 function handleGuidedMode() {
@@ -1135,27 +1134,25 @@ function getDisplayModelId(id: string) {
     </div>
 
     <!-- Toggleable Upload Area -->
-    <Transition name="fade-slide">
-      <div v-if="isUploadZoneOpen" class="w-full">
-        <InputFile v-model="inputFiles" accept="*.json,*.png" class="w-full">
-          <template #default="{ isDragging }">
-            <div
-              :class="[
-                'relative flex flex-col cursor-pointer items-center justify-center p-6 rounded-xl border-2 border-dashed transition-all duration-300 h-[80px] w-full',
-                isDragging
-                  ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10 text-primary-500'
-                  : 'border-neutral-200 dark:border-neutral-800 bg-white/40 dark:bg-neutral-900/10 hover:border-primary-300 dark:hover:border-primary-700 hover:bg-white/60 dark:hover:bg-neutral-900/20',
-              ]"
-            >
-              <div i-solar:upload-square-line-duotone class="mb-1 text-xl text-neutral-400 dark:text-neutral-500" />
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                {{ isDragging ? t('settings.pages.card.drop_here') : 'Click or drag card files here' }}
-              </p>
-            </div>
-          </template>
-        </InputFile>
-      </div>
-    </Transition>
+    <div v-if="isUploadZoneOpen" class="w-full">
+      <InputFile v-model="inputFiles" accept="*.json,*.png" class="w-full">
+        <template #default="{ isDragging }">
+          <div
+            :class="[
+              'relative flex flex-col cursor-pointer items-center justify-center p-6 rounded-xl border-2 border-dashed transition-all duration-300 h-[80px] w-full',
+              isDragging
+                ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10 text-primary-500'
+                : 'border-neutral-200 dark:border-neutral-800 bg-white/40 dark:bg-neutral-900/10 hover:border-primary-300 dark:hover:border-primary-700 hover:bg-white/60 dark:hover:bg-neutral-900/20',
+            ]"
+          >
+            <div i-solar:upload-square-line-duotone class="mb-1 text-xl text-neutral-400 dark:text-neutral-500" />
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+              {{ isDragging ? t('settings.pages.card.drop_here') : 'Click or drag card files here' }}
+            </p>
+          </div>
+        </template>
+      </InputFile>
+    </div>
 
     <!-- Responsive card layout (2 columns for portrait, 4 columns for landscape) -->
     <div
@@ -1351,22 +1348,20 @@ function getDisplayModelId(id: string) {
   </div>
 
   <!-- Full screen Drag and Drop Overlay -->
-  <Transition name="fade-slide">
-    <div
-      v-if="isWindowDragging"
-      class="pointer-events-none fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-md"
-    >
-      <div class="max-w-sm flex flex-col items-center gap-4 border-2 border-primary-500 rounded-2xl border-dashed bg-neutral-900/80 p-8 text-center">
-        <div i-solar:upload-square-line-duotone class="animate-bounce text-6xl text-primary-500" />
-        <h3 class="text-xl font-bold">
-          Import Character Card
-        </h3>
-        <p class="text-sm opacity-80">
-          Drop your .png (Chara Card V2) or .json files anywhere to import them into AIRI
-        </p>
-      </div>
+  <div
+    v-if="isWindowDragging"
+    class="pointer-events-none fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-md"
+  >
+    <div class="max-w-sm flex flex-col items-center gap-4 border-2 border-primary-500 rounded-2xl border-dashed bg-neutral-900/80 p-8 text-center">
+      <div i-solar:upload-square-line-duotone class="animate-bounce text-6xl text-primary-500" />
+      <h3 class="text-xl font-bold">
+        Import Character Card
+      </h3>
+      <p class="text-sm opacity-80">
+        Drop your .png (Chara Card V2) or .json files anywhere to import them into AIRI
+      </p>
     </div>
-  </Transition>
+  </div>
 </template>
 
 <route lang="yaml">
@@ -1381,15 +1376,3 @@ meta:
   stageTransition:
     name: slide
 </route>
-
-<style scoped>
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.2s ease-in-out;
-}
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-</style>

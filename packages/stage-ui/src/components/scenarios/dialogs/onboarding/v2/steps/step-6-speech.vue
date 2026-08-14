@@ -49,7 +49,11 @@ const isEngineReady = ref(false)
 
 const speed = ref(1.0)
 const pitch = ref(1.0)
-const isPlaying = ref(false)
+const userSpeed = ref(1.0)
+const userPitch = ref(1.0)
+const isPlayingCompanion = ref(false)
+const isPlayingUser = ref(false)
+const selectedUserVoice = ref<string>(userProfileStore.voiceProfileId || draftStore.state.userProfile.voiceProfileId || '')
 const isHFTokenModalOpen = ref(false)
 
 function openHFTokenPage() {
@@ -146,15 +150,20 @@ const resolvedPersona = computed(() => {
   }
 })
 
-const sampleText = ref('')
+const companionName = computed(() => resolvedPersona.value.name || 'Companion')
+const userName = computed(() => userProfileStore.name || draftStore.state.userProfile.name || 'You')
 
-watch(resolvedPersona, (p) => {
+const sampleText = ref('')
+const userSampleText = ref('')
+
+watch([resolvedPersona, userName], ([p, uName]) => {
   if (p.greeting) {
     sampleText.value = p.greeting
   }
   else {
-    sampleText.value = `Hello ${userProfileStore.name || 'Manager'}! I'm ${p.name}. Everything is ready — how do I sound?`
+    sampleText.value = `Hello ${uName}! I'm ${p.name}. Everything is ready — how do I sound?`
   }
+  userSampleText.value = `Hey ${p.name}, I'm ${uName}! Looking forward to working with you.`
 }, { immediate: true })
 
 // Synchronize with transient onboarding draft store
@@ -357,8 +366,24 @@ watch(availableModels, (models) => {
 }, { immediate: true })
 
 watch(availableVoices, (voices) => {
-  if (voices.length > 0 && (!selectedVoice.value || !voices.some((v: any) => v.id === selectedVoice.value))) {
-    selectedVoice.value = voices[0].id
+  if (voices.length > 0) {
+    if (!selectedVoice.value || !voices.some((v: any) => v.id === selectedVoice.value)) {
+      selectedVoice.value = voices[0].id
+    }
+    if (!selectedUserVoice.value || !voices.some((v: any) => v.id === selectedUserVoice.value)) {
+      const alt = voices.find((v: any) => v.id !== selectedVoice.value) || voices[0]
+      selectedUserVoice.value = alt.id
+    }
+  }
+}, { immediate: true })
+
+watch(selectedUserVoice, (val) => {
+  if (val) {
+    draftStore.setUserProfile({
+      ...draftStore.state.userProfile,
+      voiceProfileId: val,
+    })
+    userProfileStore.voiceProfileId = val
   }
 }, { immediate: true })
 
@@ -468,15 +493,26 @@ function openConsole() {
 
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 
-async function togglePreview() {
-  if (isPlaying.value) {
+async function togglePreview(target: 'companion' | 'user' = 'companion') {
+  const isTargetPlaying = target === 'user' ? isPlayingUser : isPlayingCompanion
+
+  if (isTargetPlaying.value) {
     if (audioPlayer.value) {
       audioPlayer.value.pause()
       audioPlayer.value = null
     }
-    isPlaying.value = false
+    isPlayingCompanion.value = false
+    isPlayingUser.value = false
     return
   }
+
+  // Stop any active playing audio
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+    audioPlayer.value = null
+  }
+  isPlayingCompanion.value = false
+  isPlayingUser.value = false
 
   // If local provider and not ready yet, trigger download automatically first
   if (isLocalProvider.value && !isEngineReady.value) {
@@ -487,21 +523,25 @@ async function togglePreview() {
     }
   }
 
-  isPlaying.value = true
+  isTargetPlaying.value = true
   try {
-    const textToSpeak = sampleText.value || 'Hello! I am ready to be your companion. How do I sound?'
+    const textToSpeak = target === 'user'
+      ? (userSampleText.value || `Hello ${companionName.value}! I am ${userName.value}.`)
+      : (sampleText.value || `Hello ${userName.value}! I am ${companionName.value}. Everything is ready — how do I sound?`)
     const providerId = normalizeProviderId(selectedProvider.value)
-    const voiceId = selectedVoice.value || availableVoices.value[0]?.id || 'anna'
+    const voiceId = target === 'user'
+      ? (selectedUserVoice.value || availableVoices.value[1]?.id || availableVoices.value[0]?.id || 'adam')
+      : (selectedVoice.value || availableVoices.value[0]?.id || 'anna')
     const modelId = selectedModel.value || availableModels.value[0]?.id || 'english_2026-04'
 
     const providerInstance = await providersStore.getProviderInstance(providerId)
     if (!providerInstance) {
       toast.error(`Speech provider "${providerId}" is not configured.`)
-      isPlaying.value = false
+      isTargetPlaying.value = false
       return
     }
 
-    toast.info('Synthesizing voice audio preview...')
+    toast.info(`Synthesizing ${target === 'user' ? userName.value : companionName.value}'s voice audio preview...`)
     const audioData = await speechStore.speech(
       providerInstance as any,
       modelId,
@@ -519,11 +559,11 @@ async function togglePreview() {
     audioPlayer.value = audio
 
     audio.onended = () => {
-      isPlaying.value = false
+      isTargetPlaying.value = false
       audioPlayer.value = null
     }
     audio.onerror = () => {
-      isPlaying.value = false
+      isTargetPlaying.value = false
       audioPlayer.value = null
       toast.error('Audio playback error')
     }
@@ -540,7 +580,7 @@ async function togglePreview() {
     else {
       toast.error(msg || 'Failed to synthesize voice preview.')
     }
-    isPlaying.value = false
+    isTargetPlaying.value = false
   }
 }
 
@@ -785,8 +825,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- SECTION C: Unified Voice Selection & Tone Tuning Controls -->
-      <div class="border border-neutral-200/60 rounded-xl bg-white/40 p-4 backdrop-blur-md space-y-4 dark:border-neutral-800/80 dark:bg-neutral-900/40">
+      <!-- SECTION C: Companion's Voice Profile -->
+      <div class="border border-neutral-200/60 rounded-xl bg-white/40 p-4 backdrop-blur-md space-y-3 dark:border-neutral-800/80 dark:bg-neutral-900/40">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="i-solar:heart-bold-duotone h-4 w-4 text-primary-500" />
+            <span class="text-xs text-neutral-800 font-bold tracking-wider uppercase dark:text-neutral-200">
+              {{ companionName }}'s Voice Profile
+            </span>
+          </div>
+          <span class="rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600 font-bold dark:text-primary-400">
+            Companion Voice
+          </span>
+        </div>
+
         <!-- Voice Dropdown + Load Voices Button -->
         <div class="flex flex-col gap-1.5">
           <label class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Voice Persona</label>
@@ -811,9 +863,9 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <!-- Speed & Pitch Sliders (Range: 0.75x to 1.5x) -->
-        <div class="grid grid-cols-1 gap-4 border-t border-neutral-200/50 pt-3 sm:grid-cols-2 dark:border-neutral-800/50">
-          <div class="flex flex-col gap-1.5">
+        <!-- Speed & Pitch Sliders -->
+        <div class="grid grid-cols-1 gap-4 border-t border-neutral-200/50 pt-2 sm:grid-cols-2 dark:border-neutral-800/50">
+          <div class="flex flex-col gap-1">
             <div class="flex items-center justify-between text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">
               <span>Speech Rate / Speed</span>
               <span class="text-primary-500 font-mono">{{ speed.toFixed(2) }}x</span>
@@ -828,7 +880,7 @@ onBeforeUnmount(() => {
             >
           </div>
 
-          <div class="flex flex-col gap-1.5">
+          <div class="flex flex-col gap-1">
             <div class="flex items-center justify-between text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">
               <span>Pitch Modifier</span>
               <span class="text-primary-500 font-mono">{{ pitch.toFixed(2) }}x</span>
@@ -843,31 +895,127 @@ onBeforeUnmount(() => {
             >
           </div>
         </div>
+
+        <!-- Live Audio Playground for Companion -->
+        <div class="border-t border-neutral-200/50 pt-2 space-y-1.5 dark:border-neutral-800/50">
+          <div class="flex items-center justify-between text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">
+            <span>Audio Preview</span>
+            <span class="text-[9px] font-normal lowercase">sample speech</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              v-model="sampleText"
+              type="text"
+              class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
+            >
+            <button
+              :class="[
+                'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 shadow-md shrink-0 cursor-pointer',
+                isPlayingCompanion ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary-500 shadow-primary-500/20 hover:bg-primary-600',
+              ]"
+              @click="togglePreview('companion')"
+            >
+              <div :class="isPlayingCompanion ? 'i-solar:pause-bold' : 'i-solar:play-bold'" class="h-3.5 w-3.5" />
+              {{ isPlayingCompanion ? 'Playing...' : 'Play Preview' }}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- SECTION D: Live Audio Preview Playground -->
+      <!-- SECTION D: User's Voice Profile (Producer Voice) -->
       <div class="border border-neutral-200/60 rounded-xl bg-white/40 p-4 backdrop-blur-md space-y-3 dark:border-neutral-800/80 dark:bg-neutral-900/40">
-        <span class="px-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">
-          Live Audio Playground
-        </span>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="i-solar:user-speak-bold-duotone h-4 w-4 text-purple-500" />
+            <span class="text-xs text-neutral-800 font-bold tracking-wider uppercase dark:text-neutral-200">
+              {{ userName }}'s Voice Profile
+            </span>
+          </div>
+          <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-bold dark:text-purple-400">
+            Producer / User Voice
+          </span>
+        </div>
 
-        <div class="flex items-center gap-2">
-          <input
-            v-model="sampleText"
-            type="text"
-            class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
-          >
+        <!-- Voice Dropdown + Load Voices Button -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">Voice Persona</label>
+          <div class="flex items-center gap-2">
+            <select
+              v-model="selectedUserVoice"
+              class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-purple-500 dark:bg-neutral-900 dark:text-neutral-200"
+            >
+              <option v-for="voice in availableVoices" :key="voice.id" :value="voice.id">
+                {{ voice.label }}
+              </option>
+            </select>
 
-          <button
-            :class="[
-              'flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white transition-all active:scale-95 shadow-md',
-              isPlaying ? 'bg-amber-500 shadow-amber-500/20' : 'bg-primary-500 shadow-primary-500/20 hover:bg-primary-600',
-            ]"
-            @click="togglePreview"
-          >
-            <div :class="isPlaying ? 'i-solar:pause-bold' : 'i-solar:play-bold'" class="h-4 w-4" />
-            {{ isPlaying ? 'Playing...' : 'Play Preview' }}
-          </button>
+            <button
+              class="h-9 flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-neutral-100 px-3 text-xs text-neutral-700 font-semibold transition-colors dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              title="Refresh voice catalog"
+              @click="refreshVoices"
+            >
+              <div class="i-solar:restart-bold-duotone h-4 w-4 text-purple-500" />
+              <span>Load Voices</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Speed & Pitch Sliders -->
+        <div class="grid grid-cols-1 gap-4 border-t border-neutral-200/50 pt-2 sm:grid-cols-2 dark:border-neutral-800/50">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">
+              <span>Speech Rate / Speed</span>
+              <span class="text-purple-500 font-mono">{{ userSpeed.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="userSpeed"
+              type="range"
+              min="0.75"
+              max="1.5"
+              step="0.05"
+              class="h-1.5 cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-purple-500 dark:bg-neutral-800"
+            >
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between text-[11px] text-neutral-600 font-semibold dark:text-neutral-300">
+              <span>Pitch Modifier</span>
+              <span class="text-purple-500 font-mono">{{ userPitch.toFixed(2) }}x</span>
+            </div>
+            <input
+              v-model.number="userPitch"
+              type="range"
+              min="0.75"
+              max="1.5"
+              step="0.05"
+              class="h-1.5 cursor-pointer appearance-none rounded-lg bg-neutral-200 accent-purple-500 dark:bg-neutral-800"
+            >
+          </div>
+        </div>
+
+        <!-- Live Audio Playground for User -->
+        <div class="border-t border-neutral-200/50 pt-2 space-y-1.5 dark:border-neutral-800/50">
+          <div class="flex items-center justify-between text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">
+            <span>Audio Preview</span>
+            <span class="text-[9px] font-normal lowercase">sample speech</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              v-model="userSampleText"
+              type="text"
+              class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-2 text-xs text-neutral-800 outline-none dark:border-neutral-700 focus:border-purple-500 dark:bg-neutral-900 dark:text-neutral-200"
+            >
+            <button
+              :class="[
+                'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 shadow-md shrink-0 cursor-pointer',
+                isPlayingUser ? 'bg-amber-500 shadow-amber-500/20' : 'bg-purple-600 shadow-purple-500/20 hover:bg-purple-700',
+              ]"
+              @click="togglePreview('user')"
+            >
+              <div :class="isPlayingUser ? 'i-solar:pause-bold' : 'i-solar:play-bold'" class="h-3.5 w-3.5" />
+              {{ isPlayingUser ? 'Playing...' : 'Play Preview' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -879,9 +1027,18 @@ onBeforeUnmount(() => {
       v-if="isHFTokenModalOpen"
       class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       style="z-index: 999999;"
-      @click.self="isHFTokenModalOpen = false"
+      @pointerdown.stop
+      @mousedown.stop
+      @touchstart.stop
+      @click.stop.self="isHFTokenModalOpen = false"
     >
-      <div class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+      <div
+        class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900"
+        @pointerdown.stop
+        @mousedown.stop
+        @touchstart.stop
+        @click.stop
+      >
         <!-- Icon + Title -->
         <div class="mb-4 flex items-center gap-3">
           <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
@@ -924,7 +1081,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2.5 text-xs text-white font-semibold shadow-amber-500/25 shadow-md transition active:scale-95 hover:bg-amber-600"
-            @click="openHFTokenPage"
+            @pointerdown.stop
+            @click.stop="openHFTokenPage"
           >
             <div class="i-solar:key-bold-duotone size-3.5" />
             Get HF Token
@@ -932,7 +1090,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="flex-1 cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            @click="isHFTokenModalOpen = false"
+            @pointerdown.stop
+            @click.stop="isHFTokenModalOpen = false"
           >
             Later
           </button>

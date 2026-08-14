@@ -24,7 +24,7 @@ export interface OnboardingV2DraftState {
   speech: { provider?: string, model?: string, voiceId?: string }
   persona: { cardId?: string, source?: OnboardingPersonaSource, importedCardDraft?: Card | ccv3.CharacterCardV3 }
   vessel: { displayModelId?: string }
-  userProfile: { name?: string, description?: string, prompt?: string }
+  userProfile: { name?: string, description?: string, prompt?: string, voiceProfileId?: string }
 }
 
 export const useOnboardingV2Draft = defineStore('onboarding-v2-draft', () => {

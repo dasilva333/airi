@@ -40,9 +40,9 @@ function selectAdvanced() {
 <template>
   <DialogRoot :open="modelValue" @update:open="emit('update:modelValue', $event)">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
+      <DialogOverlay class="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
       <DialogContent
-        class="fixed left-1/2 top-1/2 z-100 max-h-[90vh] max-w-3xl w-[92%] overflow-y-auto border border-neutral-200/80 rounded-2xl bg-white/95 p-5 shadow-2xl -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-800/80 dark:bg-neutral-900/95 sm:p-6"
+        class="fixed left-1/2 top-1/2 z-[9999] max-h-[90vh] max-w-3xl w-[92%] overflow-y-auto border border-neutral-200/80 rounded-2xl bg-white/95 p-5 shadow-2xl -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-800/80 dark:bg-neutral-900/95 sm:p-6"
       >
         <DialogTitle class="mb-1 text-lg text-neutral-800 font-bold sm:text-xl dark:text-neutral-100">
           Create New Character Card

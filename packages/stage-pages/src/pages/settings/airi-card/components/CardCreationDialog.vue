@@ -36,6 +36,18 @@ import ImageTagExtractorModal from './ImageTagExtractorModal.vue'
 import CardCreationTabActing from './tabs/CardCreationTabActing.vue'
 import CardCreationTabArtistry from './tabs/CardCreationTabArtistry.vue'
 import CardCreationTabCognition from './tabs/CardCreationTabCognition.vue'
+import CardCreationTabGeneration from './tabs/CardCreationTabGeneration.vue'
+import CardCreationTabIdentity from './tabs/CardCreationTabIdentity.vue'
+import CardCreationTabModules from './tabs/CardCreationTabModules.vue'
+import CardCreationTabProactivity from './tabs/CardCreationTabProactivity.vue'
+import CardCreationTabTools from './tabs/CardCreationTabTools.vue'
+
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: boolean): void
+  (e: 'studio', cardId: string): void
+}>()
 
 function kebabcase(str: string): string {
   return str
@@ -44,22 +56,11 @@ function kebabcase(str: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 }
-import CardCreationTabGeneration from './tabs/CardCreationTabGeneration.vue'
-import CardCreationTabIdentity from './tabs/CardCreationTabIdentity.vue'
-import CardCreationTabModules from './tabs/CardCreationTabModules.vue'
-import CardCreationTabProactivity from './tabs/CardCreationTabProactivity.vue'
-import CardCreationTabTools from './tabs/CardCreationTabTools.vue'
 
 interface Props {
   modelValue: boolean
   cardId?: string // If provided, edit mode; otherwise create mode
 }
-
-const props = defineProps<Props>()
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'studio', cardId: string): void
-}>()
 
 const modelValue = defineModel<boolean>()
 
@@ -1259,8 +1260,8 @@ function handleGeneratorSave(newValue: string) {
 <template>
   <DialogRoot :open="modelValue" @update:open="emit('update:modelValue', $event)">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-100 bg-black/50 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
-      <DialogContent class="fixed left-1/2 top-1/2 z-100 m-0 max-h-[90vh] max-w-6xl w-[92vw] flex flex-col overflow-auto border border-neutral-200 rounded-xl bg-white p-5 shadow-xl 2xl:w-[60vw] lg:w-[80vw] md:w-[85vw] xl:w-[70vw] -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-700 dark:bg-neutral-800 sm:p-6">
+      <DialogOverlay class="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
+      <DialogContent class="fixed left-1/2 top-1/2 z-[9999] m-0 max-h-[90vh] max-w-6xl w-[92vw] flex flex-col overflow-auto border border-neutral-200 rounded-xl bg-white p-5 shadow-xl 2xl:w-[60vw] lg:w-[80vw] md:w-[85vw] xl:w-[70vw] -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-700 dark:bg-neutral-800 sm:p-6">
         <div class="w-full flex flex-col gap-5">
           <div flex="~ row" items-center justify-between>
             <DialogTitle text-2xl font-normal class="from-primary-500 to-primary-400 bg-gradient-to-r bg-clip-text text-transparent">
