@@ -9,15 +9,16 @@ import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&u
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds/index'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
+import { ControlStrip } from '@proj-airi/stage-ui/components'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
-import { useLive2d } from '@proj-airi/stage-ui/stores/live2d'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
@@ -29,9 +30,47 @@ function handleSettingsOpen(open: boolean) {
 }
 
 const positionCursor = useMouse()
-const { scale, position, positionInPercentageString } = storeToRefs(useLive2d())
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
+
+const positioningStore = usePositioningStore()
+const settingsStore = useSettings()
+const { stageModelSelected, stageModelRenderer } = storeToRefs(settingsStore)
+
+const computedScale = computed(() => {
+  const key = stageModelSelected.value || 'global'
+  return positioningStore.getPosition(key).scale
+})
+
+const computedXOffset = computed(() => {
+  const key = stageModelSelected.value || 'global'
+  return positioningStore.getPosition(key).x
+})
+
+const computedYOffset = computed(() => {
+  const key = stageModelSelected.value || 'global'
+  const y = positioningStore.getPosition(key).y
+  if (stageModelRenderer.value === 'live2d') {
+    return -y
+  }
+  return y
+})
+
+function handleScaleChange(newScale: number) {
+  const key = stageModelSelected.value || 'global'
+  const current = positioningStore.getPosition(key)
+  positioningStore.setPosition(key, { ...current, scale: newScale })
+}
+
+function handleOffsetChange(offset: { x: number, y: number }) {
+  const key = stageModelSelected.value || 'global'
+  const current = positioningStore.getPosition(key)
+  positioningStore.setPosition(key, {
+    ...current,
+    x: offset.x,
+    y: stageModelRenderer.value === 'live2d' ? -offset.y : offset.y,
+  })
+}
 
 const backgroundStore = useBackgroundStore()
 const { selectedOption, sampledColor } = storeToRefs(backgroundStore)
@@ -194,10 +233,15 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
             x: positionCursor.x.value,
             y: positionCursor.y.value,
           }"
-          :x-offset="`${isMobile ? position.x : position.x - 10}%`"
-          :y-offset="positionInPercentageString.y"
-          :scale="scale"
+          :x-offset="computedXOffset"
+          :y-offset="computedYOffset"
+          :scale="computedScale"
+          @scale-change="handleScaleChange"
+          @offset-change="handleOffsetChange"
         />
+        <!-- Pinned Mobile Control Strip with 14px Edge Notch -->
+        <ControlStrip mode="mobile" class="z-40" />
+
         <InteractiveArea v-if="!isMobile" class="absolute right-4 h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col" />
         <MobileInteractiveArea v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>

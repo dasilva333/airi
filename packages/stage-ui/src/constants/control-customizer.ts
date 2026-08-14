@@ -6,6 +6,8 @@ export interface CustomizerItem {
   type: 'toggle' | 'cycler' | 'action' | 'menu'
   defaultOnStrip: boolean
   binding?: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled'
+  /** If true, this item is specific to desktop multi-window managers and hidden on mobile */
+  desktopOnly?: boolean
 }
 
 export interface CustomizerGroup {
@@ -32,6 +34,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'stageEnabled',
+        desktopOnly: true,
       },
       {
         id: 'always-on-top',
@@ -40,6 +43,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:pin-linear',
         type: 'toggle',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'viewport-tactile',
@@ -88,6 +92,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:restart-square-outline',
         type: 'action',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'viewport-auto-hide',
@@ -96,6 +101,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-ph:eye-slash',
         type: 'toggle',
         defaultOnStrip: true,
+        desktopOnly: true,
       },
     ],
   },
@@ -113,6 +119,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'chatOpen',
+        desktopOnly: true,
       },
       {
         id: 'mic',
@@ -122,6 +129,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'micEnabled',
+        desktopOnly: true,
       },
       {
         id: 'settings',
@@ -130,6 +138,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:settings-linear',
         type: 'action',
         defaultOnStrip: true,
+        desktopOnly: true,
       },
       {
         id: 'theme-mode',
@@ -146,6 +155,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:close-circle-outline',
         type: 'action',
         defaultOnStrip: true,
+        desktopOnly: true,
       },
       {
         id: 'layout',
@@ -154,6 +164,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:widget-linear',
         type: 'action',
         defaultOnStrip: true,
+        desktopOnly: true,
       },
     ],
   },
@@ -171,6 +182,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'captionOpen',
+        desktopOnly: true,
       },
       {
         id: 'head-tethered-caption',
@@ -188,6 +200,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:align-bottom-line-duotone',
         type: 'cycler',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'caption-sync-position',
@@ -196,6 +209,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:magnet-bold-duotone',
         type: 'toggle',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'caption-sync-visibility',
@@ -204,6 +218,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:eye-bold-duotone',
         type: 'toggle',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'caption-theme-mode',
@@ -220,6 +235,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:layers-minimalistic-linear',
         type: 'cycler',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'caption-layout-mode',
@@ -228,6 +244,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:window-frame-linear',
         type: 'cycler',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
     ],
   },
@@ -325,6 +342,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:camera-linear',
         type: 'toggle',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'gemini-manual-capture',
@@ -341,6 +359,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         icon: 'i-solar:clock-circle-linear',
         type: 'cycler',
         defaultOnStrip: false,
+        desktopOnly: true,
       },
       {
         id: 'gemini-tts',

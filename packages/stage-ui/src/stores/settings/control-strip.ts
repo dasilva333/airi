@@ -18,7 +18,7 @@ export interface ControlStripButton {
 // * ONLY bump this version if there is a severe, incompatible breaking change in the data structure itself (e.g. data schema type changes) where old layouts are fundamentally broken.
 const BUTTONS_CATALOG_VERSION = 'v4'
 
-const DEFAULT_BUTTONS: ControlStripButton[] = [
+export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'chat', enabled: true, label: 'Chat Toggle', icon: 'i-solar:chat-line-linear' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'mic', enabled: true, label: 'Microphone Toggle', icon: 'i-solar:muted-linear' },
@@ -35,6 +35,16 @@ const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'gemini-schedule', enabled: false, label: 'Respect Schedule', icon: 'i-solar:calendar-linear' },
   { id: 'gemini-grounding', enabled: false, label: 'Google Search Grounding', icon: 'i-solar:global-linear' },
   { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-bold-duotone' },
+]
+
+export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
+  { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:refresh-linear' },
+  { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-call-bold-duotone' },
+  { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
+  { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
+  { id: 'actor-expressions', enabled: true, label: 'Expressions (Facial)', icon: 'i-solar:mask-happly-outline' },
+  { id: 'gemini-session', enabled: true, label: 'Active Session', icon: 'i-ph:sparkle' },
+  { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
 ]
 
 export const useSettingsControlStrip = defineStore('settings-control-strip', () => {

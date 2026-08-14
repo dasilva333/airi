@@ -11,6 +11,8 @@ import { computed, onMounted, ref, toRef, watch } from 'vue'
 
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
 
+import { useControlStripAction } from '../../../composables/use-control-strip-action'
+import { CUSTOMIZER_CATALOG } from '../../../constants/control-customizer'
 import { useBackgroundStore } from '../../../stores/background'
 import { useDatingSimStore } from '../../../stores/dating-sim'
 import { useDisplayModelsStore } from '../../../stores/display-models'
@@ -24,7 +26,15 @@ import { useSettingsAudioDevice } from '../../../stores/settings/audio-device'
 import { useSettingsControlStrip } from '../../../stores/settings/control-strip'
 import { useSettingsControlsIsland } from '../../../stores/settings/controls-island'
 
+const props = withDefaults(defineProps<{
+  mode?: 'desktop' | 'mobile'
+}>(), {
+  mode: 'desktop',
+})
+
+const { dispatchAction } = useControlStripAction()
 const settingsStore = useSettings()
+
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
 const colorMode = useColorMode()
 const controlStripStore = useSettingsControlStrip()
@@ -192,7 +202,17 @@ function selectAvatar(modelId: string) {
 
 // Filter for active buttons
 const activeButtons = computed(() => {
-  return buttons.value.filter(btn => btn.enabled)
+  const isMobile = props.mode === 'mobile'
+  const allCatalog = CUSTOMIZER_CATALOG.flatMap(g => g.items)
+  const desktopOnlyMap = new Map(allCatalog.map(i => [i.id, !!i.desktopOnly]))
+
+  return buttons.value.filter((btn) => {
+    if (!btn.enabled)
+      return false
+    if (isMobile && desktopOnlyMap.get(btn.id))
+      return false
+    return true
+  })
 })
 
 // Persistent dragging position, defaults to top-right layout bounds
@@ -591,6 +611,9 @@ function openPresetPopover(btnId: string) {
 }
 
 const popoverPlacement = computed(() => {
+  if (props.mode === 'mobile') {
+    return dockedEdge.value === 'left' ? 'right' : 'left'
+  }
   if (typeof window === 'undefined')
     return 'bottom'
 
@@ -616,6 +639,21 @@ const stripLength = computed(() => {
 })
 
 const containerStyle = computed(() => {
+  if (props.mode === 'mobile') {
+    const styles: Record<string, string> = {
+      top: '50%',
+      transform: 'translateY(-50%)',
+      backgroundColor: backgroundTint.value || '',
+      opacity: '0.85',
+    }
+    if (dockedEdge.value === 'left') {
+      styles.left = '0px'
+    }
+    else {
+      styles.right = '0px'
+    }
+    return styles
+  }
   if (isElectron.value) {
     const styles: Record<string, string> = {
       backgroundColor: backgroundTint.value || '',
@@ -946,6 +984,11 @@ let startTouchScreenY = 0
 let startWindowBounds: { x: number, y: number, width: number, height: number } | null = null
 
 async function onDragStart(e: MouseEvent | TouchEvent) {
+  if (props.mode === 'mobile') {
+    collapsed.value = !collapsed.value
+    return
+  }
+
   if ('button' in e && e.button !== 0)
     return
 
@@ -1091,16 +1134,7 @@ function handleAction(actionId: string) {
   }
 
   activePopover.value = null
-
-  if (actionId === 'layout') {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('control-strip:open-customizer'))
-    }
-    return
-  }
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('control-strip:action', { detail: { action: actionId } }))
-  }
+  dispatchAction(actionId)
 }
 
 function handleRightClick(e: MouseEvent) {
@@ -1111,6 +1145,8 @@ function handleRightClick(e: MouseEvent) {
 }
 
 function toggleOrientation() {
+  if (props.mode === 'mobile')
+    return
   controlStripStore.toggleOrientation()
 }
 

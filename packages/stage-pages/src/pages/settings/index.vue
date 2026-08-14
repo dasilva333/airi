@@ -97,8 +97,15 @@ const settingsGroups = computed(() => [
         icon: 'i-solar:heart-bold-duotone',
         to: '/settings/dating-sim',
       },
+      {
+        title: 'Control Strip',
+        description: 'Customize floating action strip slots, docking edge, and quick triggers',
+        icon: 'i-solar:widget-2-bold-duotone',
+        to: '/settings/stage',
+      },
     ],
   },
+
   {
     id: 'intelligence',
     title: 'INTELLIGENCE',
