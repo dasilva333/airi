@@ -2,6 +2,7 @@
 import type { DuckDBWasmDrizzleDatabase } from '@proj-airi/drizzle-duckdb-wasm'
 import type { Live2DLipSync, Live2DLipSyncOptions } from '@proj-airi/model-driver-lipsync'
 import type { Profile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
+import type { TtsRequest } from '@proj-airi/pipelines-audio'
 import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import type { UnElevenLabsOptions } from 'unspeech'
 
@@ -105,6 +106,7 @@ const { data: sessionUpdate } = useBroadcastChannel<any, any>({ name: 'airi-chat
 const actorColors = new Map<string, string>()
 const parserActorId = ref<string>('default')
 const playbackActorId = ref<string>('default')
+let lastActivatedActorId: string | null = null
 
 function getActorColor(id: string): string {
   try {
@@ -589,37 +591,50 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
     if (actorId) {
       debug('[Stage:Playback] Actor swap token reached playback, activating concept:', actorId)
 
+      const cardStore = useAiriCardStore()
+      const currentActiveConcepts = cardStore.activeCard?.extensions?.airi?.active_concepts || []
+      const isAlreadyActive = lastActivatedActorId === actorId || currentActiveConcepts[currentActiveConcepts.length - 1] === actorId
+
+      const actorChanged = !isAlreadyActive
+      lastActivatedActorId = actorId
       playbackActorId.value = actorId
 
       // Trigger concept activation
       void artistryAutonomousStore.activateConcept(actorId)
 
-      // Wait for airi-stage-model-ready signal with 5s timeout fallback
-      await new Promise<void>((resolve) => {
-        const onAbort = () => {
-          if (stageModelReadyResolver === resolve) {
-            stageModelReadyResolver = null
+      if (actorChanged) {
+        // Wait for airi-stage-model-ready signal with 5s timeout fallback
+        await new Promise<void>((resolve) => {
+          const onAbort = () => {
+            if (stageModelReadyResolver === resolve) {
+              stageModelReadyResolver = null
+            }
+            resolve()
           }
-          resolve()
-        }
-        if (signal.aborted) {
-          resolve()
-          return
-        }
-        signal.addEventListener('abort', onAbort, { once: true })
-
-        stageModelReadyResolver = () => {
-          signal.removeEventListener('abort', onAbort)
-          resolve()
-        }
-
-        setTimeout(() => {
-          if (stageModelReadyResolver) {
-            debug('[Stage:Playback] Timeout waiting for model ready signal for actor:', actorId)
-            stageModelReadyResolver()
+          if (signal.aborted) {
+            resolve()
+            return
           }
-        }, 5000)
-      })
+          signal.addEventListener('abort', onAbort, { once: true })
+
+          stageModelReadyResolver = () => {
+            signal.removeEventListener('abort', onAbort)
+            resolve()
+          }
+
+          setTimeout(() => {
+            if (stageModelReadyResolver) {
+              debug('[Stage:Playback] Timeout waiting for model ready signal for actor:', actorId)
+              stageModelReadyResolver()
+            }
+          }, 5000)
+        })
+
+        // Deliberate theatrical pacing delay between different actors (1.2s)
+        if (!signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, 1200))
+        }
+      }
 
       // Update the global speechStore settings so voice indicators, pitch, rate, etc. update precisely on speaking start
       const resolvedSpeech = artistryAutonomousStore.resolveSpeechConfigForActor(actorId)
@@ -768,189 +783,330 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
 
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
 
-const speechPipeline = createSpeechPipeline<AudioBuffer>({
-  tts: async (request, signal) => {
-    if (import.meta.env.DEV)
-      debug('[Stage:TTS] Request received:', { text: request.text?.slice(0, 30), special: request.special })
+async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal): Promise<AudioBuffer | null> {
+  if (import.meta.env.DEV)
+    debug('[Stage:TTS] Request received:', { text: request.text?.slice(0, 30), special: request.special })
 
-    if (signal.aborted) {
-      debug('[Stage:TTS] Request aborted early')
+  if (signal.aborted) {
+    debug('[Stage:TTS] Request aborted early')
+    return null
+  }
+
+  if (request.special) {
+    const actorId = parseActor(request.special)
+    if (actorId) {
+      debug('[Stage:TTS] Actor swap detected — prefetching model/voice in background', actorId)
+      const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(actorId)
+      if (resolved && resolved.modelId) {
+        debug('[Stage:TTS] Warming model cache for displayModelId:', resolved.modelId)
+        void displayModelsStore.getDisplayModel(resolved.modelId).then(async (model) => {
+          if (model && (model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMD)) {
+            void displayModelsStore.getDisplayModelTextures(model.id).catch(() => {})
+          }
+        }).catch(() => {})
+      }
       return null
     }
+  }
 
-    if (request.special) {
-      const actorId = parseActor(request.special)
-      if (actorId) {
-        debug('[Stage:TTS] Actor swap detected — prefetching model/voice in background', actorId)
-        const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(actorId)
-        if (resolved && resolved.modelId) {
-          debug('[Stage:TTS] Warming model cache for displayModelId:', resolved.modelId)
-          void displayModelsStore.getDisplayModel(resolved.modelId).then(async (model) => {
-            if (model && (model.format === DisplayModelFormat.PMXZip || model.format === DisplayModelFormat.PMD)) {
-              void displayModelsStore.getDisplayModelTextures(model.id).catch(() => {})
-            }
-          }).catch(() => {})
-        }
-        return null
-      }
-    }
+  if (activeSpeechProvider.value === 'speech-noop')
+    return null
 
-    if (activeSpeechProvider.value === 'speech-noop')
-      return null
+  if (!activeSpeechProvider.value)
+    return null
 
-    if (!activeSpeechProvider.value)
-      return null
+  let targetProviderId = activeSpeechProvider.value
+  let targetModel = activeSpeechModel.value
+  let targetVoice = activeSpeechVoice.value
 
-    let targetProviderId = activeSpeechProvider.value
-    let targetModel = activeSpeechModel.value
-    let targetVoice = activeSpeechVoice.value
+  if (request.actorId) {
+    const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(request.actorId)
+    if (resolved) {
+      targetProviderId = resolved.provider || targetProviderId
+      targetModel = resolved.model || targetModel
 
-    if (request.actorId) {
-      const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(request.actorId)
-      if (resolved) {
-        targetProviderId = resolved.provider || targetProviderId
-        targetModel = resolved.model || targetModel
-
-        if (resolved.voiceId) {
-          const baseVoices = speechStore.getVoicesForProvider(targetProviderId)
-          const resolvedVoice = baseVoices.find(v => v.id === resolved.voiceId)
-          if (resolvedVoice) {
-            targetVoice = resolvedVoice
-          }
-          else {
-            targetVoice = {
-              id: resolved.voiceId,
-              name: resolved.voiceId,
-              provider: targetProviderId,
-              languages: [{ code: 'en', title: 'English' }],
-            }
-          }
-        }
-      }
-    }
-    else {
-      // Narrator/undefined block fallback to user's voice profile if in multi-actor mode
-      const cardStore = useAiriCardStore()
-      const isMultiActor = cardStore.systemPrompt?.includes('<|ACTOR') || false
-
-      if (isMultiActor) {
-        const userProfileStore = useSettingsUserProfile()
-        const userVoiceId = userProfileStore.voiceProfileId
-        if (userVoiceId) {
-          targetProviderId = 'virtual-audio-studio'
-          targetVoice = {
-            id: userVoiceId,
-            name: userVoiceId,
-            provider: 'virtual-audio-studio',
-            languages: [{ code: 'en', title: 'English' }],
-          }
-        }
-      }
-    }
-
-    if (targetProviderId === 'virtual-audio-studio' && targetVoice) {
-      const profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id)
-      if (profile) {
-        targetProviderId = profile.baseProvider
-        targetModel = profile.baseModel
-
-        const baseVoices = speechStore.getVoicesForProvider(profile.baseProvider)
-        const resolvedVoice = baseVoices.find(v => v.id === profile.baseVoice)
+      if (resolved.voiceId) {
+        const baseVoices = speechStore.getVoicesForProvider(targetProviderId)
+        const resolvedVoice = baseVoices.find(v => v.id === resolved.voiceId)
         if (resolvedVoice) {
           targetVoice = resolvedVoice
         }
         else {
           targetVoice = {
-            id: profile.baseVoice,
-            name: profile.baseVoice,
-            provider: profile.baseProvider,
+            id: resolved.voiceId,
+            name: resolved.voiceId,
+            provider: targetProviderId,
             languages: [{ code: 'en', title: 'English' }],
           }
+        }
+      }
+    }
+  }
+  else {
+    // Narrator/undefined block fallback to user's voice profile if in multi-actor mode
+    const cardStore = useAiriCardStore()
+    const isMultiActor = cardStore.systemPrompt?.includes('<|ACTOR') || false
+
+    if (isMultiActor) {
+      const userProfileStore = useSettingsUserProfile()
+      const userVoiceId = userProfileStore.voiceProfileId
+      if (userVoiceId) {
+        targetProviderId = 'virtual-audio-studio'
+        targetVoice = {
+          id: userVoiceId,
+          name: userVoiceId,
+          provider: 'virtual-audio-studio',
+          languages: [{ code: 'en', title: 'English' }],
+        }
+      }
+    }
+  }
+
+  if (targetProviderId === 'virtual-audio-studio' && targetVoice) {
+    const profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id)
+    if (profile) {
+      targetProviderId = profile.baseProvider
+      targetModel = profile.baseModel
+
+      const baseVoices = speechStore.getVoicesForProvider(profile.baseProvider)
+      const resolvedVoice = baseVoices.find(v => v.id === profile.baseVoice)
+      if (resolvedVoice) {
+        targetVoice = resolvedVoice
+      }
+      else {
+        targetVoice = {
+          id: profile.baseVoice,
+          name: profile.baseVoice,
+          provider: profile.baseProvider,
+          languages: [{ code: 'en', title: 'English' }],
+        }
+      }
+    }
+    else {
+      console.error('Active virtual voice profile not found')
+      return null
+    }
+  }
+
+  const targetProviderConfig = providersStore.getProviderConfig(targetProviderId)
+
+  const provider = await providersStore.getProviderInstance(targetProviderId) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
+  if (!provider) {
+    console.error('Failed to initialize speech provider')
+    return null
+  }
+
+  if (!request.text && !request.special)
+    return null
+
+  let model = targetModel || (targetProviderId ? (providersStore.getProviderConfig(targetProviderId)?.model as string) : '') || ''
+  let voice = targetVoice
+
+  if (targetProviderId === 'openai-compatible-audio-speech') {
+    model = model || targetProviderConfig?.model as string || 'tts-1'
+
+    if (!voice) {
+      if (targetProviderConfig?.voice) {
+        voice = {
+          id: targetProviderConfig.voice as string,
+          name: targetProviderConfig.voice as string,
+          description: targetProviderConfig.voice as string,
+          previewURL: '',
+          languages: [{ code: 'en', title: 'English' }],
+          provider: targetProviderId,
+          gender: 'neutral',
         }
       }
       else {
-        console.error('Active virtual voice profile not found')
-        return null
-      }
-    }
-
-    const targetProviderConfig = providersStore.getProviderConfig(targetProviderId)
-
-    const provider = await providersStore.getProviderInstance(targetProviderId) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
-    if (!provider) {
-      console.error('Failed to initialize speech provider')
-      return null
-    }
-
-    if (!request.text && !request.special)
-      return null
-
-    let model = targetModel || (targetProviderId ? (providersStore.getProviderConfig(targetProviderId)?.model as string) : '') || ''
-    let voice = targetVoice
-
-    if (targetProviderId === 'openai-compatible-audio-speech') {
-      model = model || targetProviderConfig?.model as string || 'tts-1'
-
-      if (!voice) {
-        if (targetProviderConfig?.voice) {
-          voice = {
-            id: targetProviderConfig.voice as string,
-            name: targetProviderConfig.voice as string,
-            description: targetProviderConfig.voice as string,
-            previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
-            provider: targetProviderId,
-            gender: 'neutral',
-          }
-        }
-        else {
-          voice = {
-            id: 'alloy',
-            name: 'alloy',
-            description: 'alloy',
-            previewURL: '',
-            languages: [{ code: 'en', title: 'English' }],
-            provider: targetProviderId,
-            gender: 'neutral',
-          }
+        voice = {
+          id: 'alloy',
+          name: 'alloy',
+          description: 'alloy',
+          previewURL: '',
+          languages: [{ code: 'en', title: 'English' }],
+          provider: targetProviderId,
+          gender: 'neutral',
         }
       }
-
-      debug('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
     }
 
-    if (!model || !voice)
+    debug('[Speech Pipeline] Resolved OpenAI Compatible Stats', { model, voice: voice?.id })
+  }
+
+  if (!model || !voice)
+    return null
+
+  const transformedText = speechStore.transformTextForSpeech(request.text, activeSpeechProvider.value)
+
+  if (!transformedText.trim())
+    return null
+
+  const input = ssmlEnabled.value
+    ? speechStore.generateSSML(transformedText, voice, { ...targetProviderConfig, pitch: pitch.value })
+    : transformedText
+
+  try {
+    const res = await generateSpeech({
+      ...provider.speech(model, targetProviderConfig),
+      input,
+      voice: voice.id,
+    })
+
+    if (signal.aborted || !res || res.byteLength === 0)
       return null
+
+    // Tap into the audio stream for Discord Voice Notes
+    // We slice() because decodeAudioData(res) will detach the original buffer.
+    // Save it temporarily in the map to maintain exact sequence ordering
+    rawAudioBuffers.set(request.segmentId, res.slice(0))
+
+    const audioBuffer = await audioContext.decodeAudioData(res)
+    return audioBuffer
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * True when the active speech provider can deliver audio incrementally, i.e. the
+ * local airi-audio-server exposing OpenAI-style `stream_format: "sse"`.
+ */
+function resolveStreamingSpeechEndpoint(): { url: string, apiKey: string, model: string } | null {
+  if (activeSpeechProvider.value !== 'chatterbox' && activeSpeechProvider.value !== 'openai-compatible-audio-speech')
+    return null
+
+  const config = providersStore.getProviderConfig(activeSpeechProvider.value) as Record<string, any>
+  const rawBaseUrl = typeof config?.baseUrl === 'string' ? config.baseUrl.trim() : ''
+  if (!rawBaseUrl)
+    return null
+
+  const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl : `${rawBaseUrl}/`
+  return {
+    url: `${baseUrl}audio/speech`,
+    apiKey: typeof config?.apiKey === 'string' ? config.apiKey.trim() : '',
+    model: (activeSpeechModel.value as string) || (config?.model as string) || 'tts-1',
+  }
+}
+
+// Streamed pieces share a sample rate and channel count, so joining them is a straight
+// copy into one buffer sized to the total.
+function concatAudioBuffers(pieces: AudioBuffer[]): AudioBuffer {
+  const [first] = pieces
+  const totalLength = pieces.reduce((sum, piece) => sum + piece.length, 0)
+  const merged = audioContext.createBuffer(first.numberOfChannels, totalLength, first.sampleRate)
+
+  for (let channel = 0; channel < first.numberOfChannels; channel++) {
+    const target = merged.getChannelData(channel)
+    let offset = 0
+    for (const piece of pieces) {
+      // A piece with fewer channels than the first would read out of range.
+      target.set(piece.getChannelData(Math.min(channel, piece.numberOfChannels - 1)), offset)
+      offset += piece.length
+    }
+  }
+
+  return merged
+}
+
+const speechPipeline = createSpeechPipeline<AudioBuffer>({
+  tts: generateSpeechBuffered,
+  concatAudio: concatAudioBuffers,
+  ttsStream: async (request: TtsRequest, signal: AbortSignal, onAudio: (audio: AudioBuffer) => void) => {
+    const endpoint = resolveStreamingSpeechEndpoint()
+
+    // Providers without an incremental endpoint still work: generate the whole
+    // segment and hand it over as a single piece.
+    if (!endpoint) {
+      const audio = await generateSpeechBuffered(request, signal)
+      if (audio)
+        onAudio(audio)
+      return
+    }
 
     const transformedText = speechStore.transformTextForSpeech(request.text, activeSpeechProvider.value)
-
     if (!transformedText.trim())
-      return null
+      return
 
-    const input = ssmlEnabled.value
-      ? speechStore.generateSSML(transformedText, voice, { ...targetProviderConfig, pitch: pitch.value })
-      : transformedText
+    const voice = activeSpeechVoice.value
+    const response = await fetch(endpoint.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model: endpoint.model,
+        input: transformedText,
+        voice: voice?.id,
+        stream_format: 'sse',
+      }),
+      signal,
+    })
 
-    try {
-      const res = await generateSpeech({
-        ...provider.speech(model, targetProviderConfig),
-        input,
-        voice: voice.id,
-      })
-
-      if (signal.aborted || !res || res.byteLength === 0)
-        return null
-
-      // Tap into the audio stream for Discord Voice Notes
-      // We slice() because decodeAudioData(res) will detach the original buffer.
-      // Save it temporarily in the map to maintain exact sequence ordering
-      rawAudioBuffers.set(request.segmentId, res.slice(0))
-
-      const audioBuffer = await audioContext.decodeAudioData(res)
-      return audioBuffer
+    if (!response.ok || !response.body) {
+      // Fall back rather than losing the utterance entirely.
+      const audio = await generateSpeechBuffered(request, signal)
+      if (audio)
+        onAudio(audio)
+      return
     }
-    catch {
-      return null
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffered = ''
+    let pieceIdx = 0
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done)
+        break
+      if (signal.aborted)
+        return
+
+      buffered += decoder.decode(value, { stream: true })
+      const lines = buffered.split('\n')
+      buffered = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data:'))
+          continue
+        const payload = line.slice(5).trim()
+        if (!payload || payload === '[DONE]')
+          continue
+
+        let event: any
+        try {
+          event = JSON.parse(payload)
+        }
+        catch {
+          continue
+        }
+
+        if (event.type !== 'speech.audio.delta' || !event.audio)
+          continue
+
+        // Each delta is a self-contained WAV, so it decodes on its own.
+        const binary = atob(event.audio)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++)
+          bytes[i] = binary.charCodeAt(i)
+
+        // Store raw WAV chunk for Discord Voice Notes
+        const segmentKey = pieceIdx === 0 ? request.segmentId : `${request.segmentId}:${pieceIdx}`
+        rawAudioBuffers.set(segmentKey, bytes.buffer.slice(0))
+        pieceIdx++
+
+        try {
+          const audioBuffer = await audioContext.decodeAudioData(bytes.buffer)
+          if (!signal.aborted) {
+            onAudio(audioBuffer)
+          }
+        }
+        catch (err) {
+          debug('[Stage:TTS] Failed to decode streamed chunk', err)
+        }
+      }
     }
   },
   playback: playbackManager,

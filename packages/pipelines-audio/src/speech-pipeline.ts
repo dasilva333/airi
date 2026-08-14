@@ -22,6 +22,22 @@ import { createPushStream } from './stream'
 
 export interface SpeechPipelineOptions<TAudio> {
   tts: (request: TtsRequest, signal: AbortSignal) => Promise<TAudio | null>
+  /**
+   * Optional streaming alternative to `tts`.
+   *
+   * Emits audio for one segment in pieces, calling `onAudio` as each becomes
+   * available so playback can start before the whole segment is synthesized. When
+   * supplied this replaces `tts` for text segments; `tts` still handles specials.
+   */
+  ttsStream?: (
+    request: TtsRequest,
+    signal: AbortSignal,
+    onAudio: (audio: TAudio) => void,
+  ) => Promise<void>
+  /**
+   * Joins streamed pieces that arrived while the previous one was playing.
+   */
+  concatAudio?: (pieces: TAudio[]) => TAudio
   playback: {
     schedule: (item: PlaybackItem<TAudio>) => void
     stopAll: (reason: string) => void
@@ -64,10 +80,36 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
   const pending: IntentState[] = []
   let activeIntent: IntentState | null = null
 
+  // Resolvers for callers awaiting a specific playback item to finish. Registered
+  // once because playback listeners cannot be unsubscribed; keyed by item id so a
+  // single listener can serve every waiter.
+  const playbackWaiters = new Map<string, () => void>()
+
+  function settlePlaybackWaiter(id: string) {
+    const resolve = playbackWaiters.get(id)
+    if (resolve) {
+      playbackWaiters.delete(id)
+      resolve()
+    }
+  }
+
+  function waitForPlayback(id: string): Promise<void> {
+    return new Promise<void>(resolve => playbackWaiters.set(id, resolve))
+  }
+
   options.playback.onStart(event => context.emit(speechPipelineEventMap.onPlaybackStart, event))
-  options.playback.onEnd(event => context.emit(speechPipelineEventMap.onPlaybackEnd, event))
-  options.playback.onInterrupt(event => context.emit(speechPipelineEventMap.onPlaybackInterrupt, event))
-  options.playback.onReject(event => context.emit(speechPipelineEventMap.onPlaybackReject, event))
+  options.playback.onEnd((event) => {
+    settlePlaybackWaiter(event.item.id)
+    context.emit(speechPipelineEventMap.onPlaybackEnd, event)
+  })
+  options.playback.onInterrupt((event) => {
+    settlePlaybackWaiter(event.item.id)
+    context.emit(speechPipelineEventMap.onPlaybackInterrupt, event)
+  })
+  options.playback.onReject((event) => {
+    settlePlaybackWaiter(event.item.id)
+    context.emit(speechPipelineEventMap.onPlaybackReject, event)
+  })
 
   function enqueueIntent(intent: IntentState) {
     pending.push(intent)
@@ -206,6 +248,122 @@ export function createSpeechPipeline<TAudio>(options: SpeechPipelineOptions<TAud
           }
 
           context.emit(speechPipelineEventMap.onTtsRequest, request)
+
+          // Streaming path: schedule each piece of audio as it arrives rather than
+          // waiting for the whole segment. Segments are generated strictly in order
+          // here, since their pieces interleave in the playback queue otherwise.
+          if (options.ttsStream && !request.special) {
+            const prevPlayPromiseStreaming = lastPlayPromise
+            const streamingPromise = (async () => {
+              try {
+                await prevPlayPromiseStreaming
+              }
+              catch {}
+
+              if (intent.controller.signal.aborted || intent.canceled)
+                return
+
+              await acquireTtsSlot()
+              try {
+                // Pieces are produced far faster than they play back, and the playback
+                // manager allows only one voice per owner: scheduling them all up front
+                // makes each new piece stop the one before it. So buffer them here and
+                // schedule the next only once the current has finished.
+                const readyPieces: TAudio[] = []
+                let notifyPiece: (() => void) | null = null
+                let producerDone = false
+                let producerError: unknown = null
+
+                const producer = (async () => {
+                  try {
+                    await options.ttsStream!(request, intent.controller.signal, (audio) => {
+                      readyPieces.push(audio)
+                      notifyPiece?.()
+                    })
+                  }
+                  catch (err) {
+                    producerError = err
+                  }
+                  finally {
+                    producerDone = true
+                    notifyPiece?.()
+                  }
+                })()
+
+                let pieceIndex = 0
+                while (true) {
+                  if (readyPieces.length === 0) {
+                    if (producerDone)
+                      break
+                    await new Promise<void>((resolve) => {
+                      notifyPiece = () => {
+                        notifyPiece = null
+                        resolve()
+                      }
+                    })
+                    continue
+                  }
+
+                  if (intent.controller.signal.aborted || intent.canceled)
+                    break
+
+                  // Take everything buffered so far, not just the next piece: the
+                  // producer runs far ahead of playback, so this is usually several
+                  // pieces and merging them removes the gaps between them.
+                  const batch = readyPieces.splice(0, readyPieces.length)
+                  const audio = batch.length > 1 && options.concatAudio
+                    ? options.concatAudio(batch)
+                    : batch[0] as TAudio
+                  if (batch.length > 1 && !options.concatAudio)
+                    readyPieces.unshift(...batch.slice(1))
+
+                  const ttsResult: TtsResult<TAudio> = {
+                    streamId: request.streamId,
+                    intentId: request.intentId,
+                    segmentId: pieceIndex === 0 ? request.segmentId : `${request.segmentId}:${pieceIndex}`,
+                    text: pieceIndex === 0 ? request.text : '',
+                    special: request.special,
+                    actorId: request.actorId,
+                    audio,
+                    createdAt: Date.now(),
+                  }
+                  pieceIndex++
+
+                  context.emit(speechPipelineEventMap.onTtsResult, ttsResult)
+
+                  const playbackId = createId('playback')
+                  const finished = waitForPlayback(playbackId)
+                  options.playback.schedule({
+                    id: playbackId,
+                    streamId: ttsResult.streamId,
+                    intentId: ttsResult.intentId,
+                    segmentId: ttsResult.segmentId,
+                    ownerId: intent.ownerId,
+                    priority: intent.priority,
+                    text: ttsResult.text,
+                    special: ttsResult.special,
+                    actorId: ttsResult.actorId,
+                    audio: ttsResult.audio,
+                    createdAt: Date.now(),
+                  })
+                  await finished
+                }
+
+                await producer
+                if (producerError)
+                  throw producerError
+              }
+              catch (err) {
+                logger.warn('Streaming TTS generation failed:', err)
+              }
+              finally {
+                releaseTtsSlot()
+              }
+            })()
+
+            lastPlayPromise = streamingPromise
+            continue
+          }
 
           // Call TTS with concurrency limiting (max 5)
           const ttsPromise = (async () => {

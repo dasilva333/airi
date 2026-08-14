@@ -482,7 +482,9 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         effectiveTools = undefined // Vision models often do not support tools, and we only need them for direct reply
       }
 
-      const sessionMessagesForSend = chatSession.getSessionMessages(sessionId)
+      const sessionMessagesForSend = chatSession
+        .getSessionMessages(sessionId)
+        .filter(message => message.id !== userMessageId)
 
       const userText = promptShimText
         ? `${promptShimText}\n\n${sendingMessage}`
@@ -1763,6 +1765,26 @@ Format your output as a raw thought log.`
     }
   }
 
+  function postInputBridgePayload(payload: {
+    sendingMessage: string
+    options?: Record<string, unknown>
+    targetSessionId?: string
+  }) {
+    let cloneable: {
+      sendingMessage: string
+      options?: Record<string, unknown>
+      targetSessionId?: string
+    }
+    try {
+      cloneable = JSON.parse(JSON.stringify(payload)) as typeof cloneable
+    }
+    catch (err) {
+      console.error('[IngestDebug] Failed to serialize chat-input-bridge payload:', err)
+      throw new Error('Failed to prepare message for the main window (payload not serializable).')
+    }
+    postInput(cloneable)
+  }
+
   async function ingest(
     sendingMessage: string,
     options: SendOptions = {},
@@ -1774,7 +1796,7 @@ Format your output as a raw thought log.`
     if (!isMainWindow) {
       if (options.triggerOnly) {
         debug(`[IngestDebug] Secondary window ingesting with triggerOnly. Bypassing verification loop.`)
-        postInput({
+        postInputBridgePayload({
           sendingMessage,
           options: {
             ...options,
@@ -1835,7 +1857,7 @@ Format your output as a raw thought log.`
           { immediate: true, deep: true },
         )
 
-        postInput({
+        postInputBridgePayload({
           sendingMessage,
           options: {
             ...options,

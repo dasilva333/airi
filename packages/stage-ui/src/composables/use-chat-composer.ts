@@ -54,6 +54,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   // Auto-send timers
   let autoSendTimeout: ReturnType<typeof setTimeout> | undefined
   const pendingAutoSendText = ref('')
+  let autoSendDispatched = false
 
   function clearPendingAutoSend() {
     if (autoSendTimeout) {
@@ -81,6 +82,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       if (textToSend && autoSendEnabled.value) {
         try {
           const providerConfig = providersStore.getProviderConfig(activeProvider.value)
+          autoSendDispatched = true
           await ingest(textToSend, {
             chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,
             model: activeModel.value,
@@ -91,6 +93,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
           pendingAutoSendText.value = ''
         }
         catch (err) {
+          autoSendDispatched = false
           console.error('[ChatComposer] Auto-send error:', err)
         }
       }
@@ -231,6 +234,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
 
   // Listening Loop
   async function startListening() {
+    autoSendDispatched = false
     try {
       if (!hearingConfigured.value) {
         const isWebSpeechAvailable = typeof window !== 'undefined'
@@ -277,7 +281,11 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
           onSpeechEnd: (text) => {
             if (!text || !text.trim())
               return
+            const alreadyDispatched = autoSendDispatched
+            autoSendDispatched = false
             clearPendingAutoSend()
+            if (alreadyDispatched)
+              return
             void (async () => {
               try {
                 const provider = await providersStore.getProviderInstance(activeProvider.value)

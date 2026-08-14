@@ -1345,6 +1345,17 @@ app.whenReady().then(async () => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+
+    window.webContents.on('console-message', (event) => {
+      const { level, message, lineNumber, sourceId } = event as unknown as {
+        level: string | number
+        message: string
+        lineNumber: number
+        sourceId: string
+      }
+      const where = sourceId ? `${sourceId.split('/').pop()}:${lineNumber}` : 'renderer'
+      process.stdout.write(`[renderer:${window.id}] [${level}] ${message}  (${where})\n`)
+    })
   })
 }).catch((err) => {
   log.withError(err).error('Error during app initialization')

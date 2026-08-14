@@ -40,7 +40,7 @@ export async function* chunkTtsInput(
   const {
     boost = 2,
     minimumWords = 4,
-    maximumWords = 12,
+    maximumWords = 40,
   } = options ?? {}
 
   const iterator = readGraphemeClusters(
