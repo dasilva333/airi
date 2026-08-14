@@ -3,7 +3,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
-import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
+import MobileWhisperSheet from '@proj-airi/stage-layouts/components/Layouts/MobileWhisperSheet.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds/index'
@@ -243,7 +243,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
         <ControlStrip mode="mobile" class="z-40" />
 
         <InteractiveArea v-if="!isMobile" class="absolute right-4 h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col" />
-        <MobileInteractiveArea v-if="isMobile" @settings-open="handleSettingsOpen" />
+        <MobileWhisperSheet v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>
   </BackgroundProvider>

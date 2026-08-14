@@ -213,6 +213,15 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
       return
     }
 
+    if (!activeProvider.value || !activeModel.value) {
+      console.error('[useChatComposer] Error sending message: No active AI provider/model configured.')
+      messageInput.value = textToSend
+      attachments.value = attachmentsToSend
+      const error = new Error('No active AI provider/model configured.')
+      options.onSendError?.(error)
+      return
+    }
+
     try {
       const providerConfig = providersStore.getProviderConfig(activeProvider.value)
       await ingest(textToSend, {
