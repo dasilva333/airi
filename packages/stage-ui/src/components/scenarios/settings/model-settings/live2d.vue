@@ -2,7 +2,6 @@
 import { defaultModelParameters, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCacheV2 } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldRange, SelectTab } from '@proj-airi/ui'
-import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -10,7 +9,6 @@ import { useI18n } from 'vue-i18n'
 import ModelCustomizer from './ModelCustomizer.vue'
 
 import { useLHackStore } from '../../../../stores'
-import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { Section } from '../../../layouts'
@@ -91,49 +89,6 @@ const selectedRuntimeMotion = ref<string>('')
 const selectedRuntimeMotionName = ref<string>('')
 const runtimeMotions = ref<Array<{ name: string, fullPath: string, displayPath: string, group: string, index: number, sound?: string }>>([])
 const showMotionSelector = ref(false)
-
-const airiCardStore = useAiriCardStore()
-const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-
-const motionMappings = ref<Record<string, string>>({})
-const hiddenMotions = ref<string[]>([])
-
-const saveLive2dState = useDebounceFn(async () => {
-  if (!activeCard.value || !activeCardId.value)
-    return
-
-  const displayModelId = airiCardStore.getCardDisplayModelId(activeCardId.value)
-  if (!displayModelId)
-    return
-
-  if (settings.stageModelSelected !== displayModelId)
-    return
-
-  const displayModelsStore = await import('../../../../stores/display-models').then(m => m.useDisplayModelsStore())
-  await displayModelsStore.updateDisplayModelMappings(displayModelId, {
-    motionMappings: { ...motionMappings.value },
-    hiddenMotions: [...hiddenMotions.value],
-  })
-}, 1000)
-
-watch([motionMappings, hiddenMotions], () => {
-  saveLive2dState()
-}, { deep: true })
-
-watch(activeCard, async (card) => {
-  if (!card)
-    return
-  const displayModelId = airiCardStore.getCardDisplayModelId(activeCardId.value)
-  if (!displayModelId)
-    return
-
-  const displayModelsStore = await import('../../../../stores/display-models').then(m => m.useDisplayModelsStore())
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-  if (model) {
-    motionMappings.value = model.motionMappings || {}
-    hiddenMotions.value = model.hiddenMotions || []
-  }
-}, { immediate: true })
 
 const fpsOptions = computed(() => [
   { value: 0, label: t('settings.live2d.fps.options.unlimited') },

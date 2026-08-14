@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
 import { getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
+import { getKokoroAdapter } from '../../../../../../libs/inference/adapters/kokoro'
 import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useProvidersStore } from '../../../../../../stores/providers'
+import { getMossAdapterInstance } from '../../../../../../stores/providers/moss-audio-utils'
+import { getPocketTtsAdapterInstance } from '../../../../../../stores/providers/pocket-audio-utils'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
+import { KOKORO_MODELS } from '../../../../../../workers/kokoro/constants'
 import { useOnboardingV2Draft } from '../draft-store'
+import { onboardingV2GateKey } from '../gate'
 
 // V2 onboarding — Step 6: Contextual Speech (Her Voice Studio Setup).
 
@@ -19,34 +24,51 @@ const userProfileStore = useSettingsUserProfile()
 
 const USER_TOKEN_REGEX = /(?<!\{)\{user\}(?!\})/g
 
-const selectedProvider = ref<string>(draftStore.state.speech.provider || 'kokoro')
-const selectedModel = ref<string>(draftStore.state.speech.model || 'kokoro-v1')
-const selectedVoice = ref<string>(draftStore.state.speech.voiceId || 'af_heart')
+function normalizeProviderId(id: string) {
+  if (id === 'kokoro')
+    return 'kokoro-local'
+  if (id === 'pocket')
+    return 'pocket-tts-local'
+  if (id === 'moss')
+    return 'moss-nano-local'
+  return id
+}
+
+const selectedProvider = ref<string>(draftStore.state.speech.provider || 'pocket')
+const selectedModel = ref<string>(draftStore.state.speech.model || 'english_2026-04')
+const selectedVoice = ref<string>(draftStore.state.speech.voiceId || 'anna')
 
 const showApiKey = ref(false)
 const apiKeyInput = ref('')
+
 const isDownloading = ref(false)
 const downloadProgress = ref(0)
+const downloadStatusText = ref('')
+const downloadError = ref('')
+const isEngineReady = ref(false)
 
 const speed = ref(1.0)
 const pitch = ref(1.0)
 const isPlaying = ref(false)
 
 const isLocalProvider = computed(() => {
-  return ['kokoro', 'pocket', 'moss', 'kokoro-local', 'pocket-tts-local', 'moss-nano-local'].includes(selectedProvider.value)
+  const norm = normalizeProviderId(selectedProvider.value)
+  return ['kokoro-local', 'pocket-tts-local', 'moss-nano-local'].includes(norm)
 })
 
 // Dynamic models & listVoices queries from stores
-const providerModels = computed(() => providersStore.getModelsForProvider(selectedProvider.value) || [])
-const providerVoices = computed(() => speechStore.getVoicesForProvider(selectedProvider.value) || [])
+const providerModels = computed(() => providersStore.getModelsForProvider(normalizeProviderId(selectedProvider.value)) || [])
+const providerVoices = computed(() => speechStore.getVoicesForProvider(normalizeProviderId(selectedProvider.value)) || [])
 
 // Auto-fill API credentials from saved provider instances and trigger dynamic model/voice fetching
 watch(selectedProvider, async (providerId) => {
   if (!providerId)
     return
 
+  const normId = normalizeProviderId(providerId)
+
   // 1. Pre-fill API key from saved credentials
-  const config = providersStore.getProviderConfig(providerId)
+  const config = providersStore.getProviderConfig(normId)
   if (config?.apiKey) {
     apiKeyInput.value = String(config.apiKey)
   }
@@ -56,10 +78,23 @@ watch(selectedProvider, async (providerId) => {
 
   // 2. Fetch models and listVoices dynamically if non-local cloud provider
   if (!isLocalProvider.value) {
-    void providersStore.fetchModelsForProvider(providerId)
-    void speechStore.loadVoicesForProvider(providerId)
+    void providersStore.fetchModelsForProvider(normId)
+    void speechStore.loadVoicesForProvider(normId)
+  }
+  else {
+    void checkEngineReadiness()
   }
 }, { immediate: true })
+
+watch(apiKeyInput, (val) => {
+  if (!isLocalProvider.value && val.trim()) {
+    const normId = normalizeProviderId(selectedProvider.value)
+    providersStore.providers[normId] = {
+      ...providersStore.providers[normId],
+      apiKey: val.trim(),
+    }
+  }
+})
 
 const resolvedPersona = computed(() => {
   const persona = draftStore.state.persona
@@ -105,7 +140,7 @@ watch(resolvedPersona, (p) => {
 // Synchronize with transient onboarding draft store
 if (!draftStore.state.speech.provider) {
   draftStore.setSpeech({
-    provider: selectedProvider.value,
+    provider: normalizeProviderId(selectedProvider.value),
     model: selectedModel.value,
     voiceId: selectedVoice.value,
   })
@@ -113,7 +148,7 @@ if (!draftStore.state.speech.provider) {
 
 watch([selectedProvider, selectedModel, selectedVoice], () => {
   draftStore.setSpeech({
-    provider: selectedProvider.value,
+    provider: normalizeProviderId(selectedProvider.value),
     model: selectedModel.value,
     voiceId: selectedVoice.value,
   })
@@ -122,22 +157,22 @@ watch([selectedProvider, selectedModel, selectedVoice], () => {
 // 1. Local Engine Hero Cards
 const localEngines = [
   {
-    id: 'kokoro',
-    name: 'Kokoro Local WebGPU',
-    icon: 'i-solar:heart-bold-duotone',
-    accent: 'text-pink-500',
-    tag: 'RECOMMENDED',
-    desc: 'High-performance local neural TTS with multilingual voices.',
-    badges: ['🇺🇸 EN', '🇯🇵 JP', '🇨🇳 ZH', '🇪🇸 ES', '🇫🇷 FR'],
-  },
-  {
     id: 'pocket',
     name: 'Pocket-TTS Local',
     icon: 'i-solar:microphone-3-bold-duotone',
     accent: 'text-emerald-500',
-    tag: 'CPU · VOICE CLONING',
-    desc: 'Low-latency 0.1B multilingual CPU engine — the local pick when WebGPU is unavailable.',
-    badges: ['🇺🇸 EN', '🇫🇷 FR', '🇪🇸 ES', '🇩🇪 DE', '🇵🇹 PT', '🇮🇹 IT'],
+    tag: 'RECOMMENDED · CPU',
+    desc: 'Low-latency ~100M multilingual CPU engine with zero-shot voice synthesis.',
+    badges: ['🇺🇸 EN', '🇫🇷 FR', '🇪🇸 ES', '🇩🇪 DE', '🇮🇹 IT'],
+  },
+  {
+    id: 'kokoro',
+    name: 'Kokoro Local TTS',
+    icon: 'i-solar:heart-bold-duotone',
+    accent: 'text-pink-500',
+    tag: 'NEURAL AUDIO',
+    desc: 'High-quality 82M neural TTS with expressive multilingual voices.',
+    badges: ['🇺🇸 EN', '🇯🇵 JP', '🇨🇳 ZH', '🇪🇸 ES', '🇫🇷 FR'],
   },
   {
     id: 'moss',
@@ -145,7 +180,7 @@ const localEngines = [
     icon: 'i-solar:bolt-bold-duotone',
     accent: 'text-amber-500',
     tag: 'ULTRA-FAST',
-    desc: 'Tiny low-resource voice for instant feedback on modest hardware.',
+    desc: 'Tiny low-resource voice engine for instant speech on any hardware.',
     badges: ['🇺🇸 EN', '🇨🇳 ZH'],
   },
 ]
@@ -213,12 +248,26 @@ const activeConsoleUrl = computed(() => {
 })
 
 const availableModels = computed(() => {
-  if (selectedProvider.value === 'kokoro' || selectedProvider.value === 'kokoro-local')
-    return [{ id: 'kokoro-v1', label: 'Kokoro v1.0 (82M Neural)' }, { id: 'kokoro-v019', label: 'Kokoro v0.19 (Legacy)' }]
-  if (selectedProvider.value === 'pocket' || selectedProvider.value === 'pocket-tts-local')
-    return [{ id: 'pocket-0.1b', label: 'Pocket 0.1B CPU Voice' }]
-  if (selectedProvider.value === 'moss' || selectedProvider.value === 'moss-nano-local')
-    return [{ id: 'moss-nano', label: 'Moss-Nano Fast Engine' }]
+  const normId = normalizeProviderId(selectedProvider.value)
+  if (normId === 'pocket-tts-local') {
+    return [
+      { id: 'english_2026-04', label: 'Pocket TTS English (100M CPU)' },
+      { id: 'french_24l', label: 'Pocket TTS French (24L)' },
+      { id: 'spanish_24l', label: 'Pocket TTS Spanish (24L)' },
+      { id: 'german_24l', label: 'Pocket TTS German (24L)' },
+      { id: 'italian_24l', label: 'Pocket TTS Italian (24L)' },
+    ]
+  }
+  if (normId === 'kokoro-local') {
+    return [
+      { id: 'q4', label: 'Kokoro Q4 (Fast CPU WASM)' },
+      { id: 'q8', label: 'Kokoro Q8 (High Quality WASM)' },
+      { id: 'q4-webgpu', label: 'Kokoro Q4 (WebGPU)' },
+    ]
+  }
+  if (normId === 'moss-nano-local') {
+    return [{ id: 'moss-tts-nano-100m', label: 'Moss-Nano Fast Engine (100M)' }]
+  }
 
   if (providerModels.value.length > 0) {
     return providerModels.value.map((m: any) => ({
@@ -235,13 +284,34 @@ const availableModels = computed(() => {
 })
 
 const availableVoices = computed(() => {
-  if (isLocalProvider.value) {
+  const normId = normalizeProviderId(selectedProvider.value)
+  if (normId === 'pocket-tts-local') {
+    return [
+      { id: 'anna', label: 'Anna (Female · Conversational)' },
+      { id: 'eve', label: 'Eve (Female · Conversational)' },
+      { id: 'jane', label: 'Jane (Female · Conversational)' },
+      { id: 'mary', label: 'Mary (Female · Conversational)' },
+      { id: 'vera', label: 'Vera (Female · Conversational)' },
+      { id: 'alba', label: 'Alba (Female · Reading)' },
+      { id: 'charles', label: 'Charles (Male · Conversational)' },
+      { id: 'george', label: 'George (Male · Conversational)' },
+      { id: 'michael', label: 'Michael (Male · Conversational)' },
+    ]
+  }
+  if (normId === 'kokoro-local') {
     return [
       { id: 'af_heart', label: 'Heart (Female · Warm)' },
       { id: 'af_bella', label: 'Bella (Female · Soft)' },
       { id: 'af_nicole', label: 'Nicole (Female · Energetic)' },
+      { id: 'af_sky', label: 'Sky (Female · Sweet)' },
       { id: 'am_adam', label: 'Adam (Male · Natural)' },
       { id: 'am_michael', label: 'Michael (Male · Deep)' },
+    ]
+  }
+  if (normId === 'moss-nano-local') {
+    return [
+      { id: 'Trump', label: 'Trump (Preset)' },
+      { id: 'LJS', label: 'LJ Speech (Female Preset)' },
     ]
   }
 
@@ -261,29 +331,113 @@ const availableVoices = computed(() => {
 })
 
 watch(availableModels, (models) => {
-  if (models.length > 0 && (!selectedModel.value || !models.some(m => m.id === selectedModel.value))) {
+  if (models.length > 0 && (!selectedModel.value || !models.some((m: any) => m.id === selectedModel.value))) {
     selectedModel.value = models[0].id
   }
 }, { immediate: true })
 
 watch(availableVoices, (voices) => {
-  if (voices.length > 0 && (!selectedVoice.value || !voices.some(v => v.id === selectedVoice.value))) {
+  if (voices.length > 0 && (!selectedVoice.value || !voices.some((v: any) => v.id === selectedVoice.value))) {
     selectedVoice.value = voices[0].id
   }
 }, { immediate: true })
 
-function triggerDownload() {
+async function checkEngineReadiness() {
+  const normId = normalizeProviderId(selectedProvider.value)
+  try {
+    if (normId === 'pocket-tts-local') {
+      const adapter = await getPocketTtsAdapterInstance()
+      isEngineReady.value = adapter.state === 'ready'
+    }
+    else if (normId === 'kokoro-local') {
+      const adapter = await getKokoroAdapter()
+      isEngineReady.value = adapter.state === 'ready'
+    }
+    else if (normId === 'moss-nano-local') {
+      const adapter = await getMossAdapterInstance()
+      isEngineReady.value = adapter.state === 'ready'
+    }
+    else {
+      isEngineReady.value = true
+    }
+  }
+  catch {
+    isEngineReady.value = false
+  }
+}
+
+async function activateAndDownloadEngine() {
   if (isDownloading.value)
     return
+
   isDownloading.value = true
-  downloadProgress.value = 10
-  const interval = setInterval(() => {
-    downloadProgress.value += 20
-    if (downloadProgress.value >= 100) {
-      clearInterval(interval)
-      isDownloading.value = false
+  downloadProgress.value = 0
+  downloadStatusText.value = 'Initializing weights download...'
+  downloadError.value = ''
+
+  try {
+    const normId = normalizeProviderId(selectedProvider.value)
+
+    if (normId === 'pocket-tts-local') {
+      const adapter = await getPocketTtsAdapterInstance()
+      await adapter.loadModel({
+        language: selectedModel.value || 'english_2026-04',
+        onProgress: (p: any) => {
+          downloadProgress.value = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
+          downloadStatusText.value = p.file || p.name || p.message || 'Downloading Pocket TTS weights...'
+        },
+      })
     }
-  }, 300)
+    else if (normId === 'kokoro-local') {
+      const adapter = await getKokoroAdapter()
+      const modelDef = KOKORO_MODELS.find(m => m.id === selectedModel.value) || KOKORO_MODELS.find(m => m.id === 'q4') || KOKORO_MODELS[0]
+      await adapter.loadModel(modelDef.quantization, modelDef.platform, {
+        onProgress: (p: any) => {
+          downloadProgress.value = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
+          downloadStatusText.value = p.file || p.name || 'Downloading Kokoro weights...'
+        },
+      })
+    }
+    else if (normId === 'moss-nano-local') {
+      const adapter = await getMossAdapterInstance()
+      await adapter.loadModel({
+        onProgress: (p: any) => {
+          downloadProgress.value = Math.round(p.percent ?? (p.loaded && p.total ? (p.loaded / p.total) * 100 : 0))
+          downloadStatusText.value = p.file || p.name || 'Downloading MOSS weights...'
+        },
+      })
+    }
+
+    isEngineReady.value = true
+    downloadProgress.value = 100
+    toast.success('Speech engine ready!')
+  }
+  catch (err: any) {
+    console.error('[Step 6 Speech] Download error:', err)
+    downloadError.value = err?.message || 'Failed to download TTS weights'
+    toast.error(downloadError.value)
+    isEngineReady.value = false
+  }
+  finally {
+    isDownloading.value = false
+  }
+}
+
+async function refreshVoices() {
+  const normId = normalizeProviderId(selectedProvider.value)
+  toast.info('Refreshing voice list...')
+  try {
+    const voices = await speechStore.loadVoicesForProvider(normId)
+    if (voices && voices.length > 0) {
+      toast.success(`Discovered ${voices.length} voices`)
+    }
+    else {
+      toast.info('Voice catalog loaded')
+    }
+  }
+  catch (err: any) {
+    toast.error(err?.message || 'Could not load voices')
+  }
 }
 
 function openConsole() {
@@ -304,25 +458,32 @@ async function togglePreview() {
     return
   }
 
+  // If local provider and not ready yet, trigger download automatically first
+  if (isLocalProvider.value && !isEngineReady.value) {
+    toast.info('Initializing TTS engine weights first...')
+    await activateAndDownloadEngine()
+    if (!isEngineReady.value) {
+      return
+    }
+  }
+
   isPlaying.value = true
   try {
     const textToSpeak = sampleText.value || 'Hello! I am ready to be your companion. How do I sound?'
-    const providerId = selectedProvider.value === 'kokoro' ? 'kokoro-local' : selectedProvider.value
-    const voiceId = selectedVoice.value || 'af_heart'
-    const modelId = selectedModel.value || 'q4'
+    const providerId = normalizeProviderId(selectedProvider.value)
+    const voiceId = selectedVoice.value || availableVoices.value[0]?.id || 'anna'
+    const modelId = selectedModel.value || availableModels.value[0]?.id || 'english_2026-04'
 
     const providerInstance = await providersStore.getProviderInstance(providerId)
-    const activeProvider = providerInstance || await providersStore.getProviderInstance('kokoro-local')
-
-    if (!activeProvider) {
-      toast.error(`Speech provider "${providerId}" is not configured. Please enter credentials or select Kokoro.`)
+    if (!providerInstance) {
+      toast.error(`Speech provider "${providerId}" is not configured.`)
       isPlaying.value = false
       return
     }
 
     toast.info('Synthesizing voice audio preview...')
     const audioData = await speechStore.speech(
-      activeProvider as any,
+      providerInstance as any,
       modelId,
       textToSpeak,
       voiceId,
@@ -355,6 +516,17 @@ async function togglePreview() {
     isPlaying.value = false
   }
 }
+
+const gate = inject(onboardingV2GateKey, null)
+onMounted(() => {
+  gate?.setGate('speech', {
+    canProceed: true,
+    skipLabel: 'Skip Step',
+  })
+})
+onBeforeUnmount(() => {
+  gate?.clearGate('speech')
+})
 </script>
 
 <template>
@@ -457,21 +629,67 @@ async function togglePreview() {
           </select>
         </div>
 
-        <!-- Local Provisioning Branch: Download Progress -->
+        <!-- Local Provisioning Branch: Download Progress & Readiness Status -->
         <div v-if="isLocalProvider" class="flex flex-col gap-2 pt-1">
           <div class="flex items-center justify-between">
             <button
+              v-if="!isEngineReady && !isDownloading"
               class="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3.5 py-1.5 text-xs text-white font-bold transition-transform active:scale-95 hover:bg-primary-600"
-              @click="triggerDownload"
+              @click="activateAndDownloadEngine"
             >
               <div class="i-solar:download-square-bold-duotone h-4 w-4" />
-              {{ isDownloading ? 'Downloading Weights...' : 'Activate & Download Engine' }}
+              <span>Activate & Download Engine</span>
             </button>
+
+            <button
+              v-else-if="isDownloading"
+              disabled
+              class="flex cursor-wait items-center gap-1.5 rounded-lg bg-primary-500/80 px-3.5 py-1.5 text-xs text-white font-bold"
+            >
+              <div class="i-solar:restart-square-bold h-4 w-4 animate-spin" />
+              <span>Downloading Weights...</span>
+            </button>
+
+            <div v-else class="flex items-center gap-2">
+              <span class="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-600 font-bold dark:text-emerald-400">
+                <div class="i-solar:check-circle-bold-duotone h-4 w-4" />
+                Engine Initialized & Ready
+              </span>
+              <button
+                class="border border-neutral-200 rounded-lg bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 font-semibold transition-colors dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                title="Force re-download weights"
+                @click="activateAndDownloadEngine"
+              >
+                Re-download
+              </button>
+            </div>
+
             <span v-if="isDownloading" class="text-xs text-primary-500 font-mono">{{ downloadProgress }}%</span>
           </div>
 
-          <div v-if="isDownloading" class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-            <div class="h-full bg-primary-500 transition-all duration-300" :style="{ width: `${downloadProgress}%` }" />
+          <!-- Progress Bar & Status Text -->
+          <div v-if="isDownloading" class="flex flex-col gap-1">
+            <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+              <div class="h-full bg-primary-500 transition-all duration-300" :style="{ width: `${downloadProgress}%` }" />
+            </div>
+            <span v-if="downloadStatusText" class="truncate text-[10px] text-neutral-400 font-mono dark:text-neutral-500">{{ downloadStatusText }}</span>
+          </div>
+
+          <!-- Error Alert if failed -->
+          <div v-if="downloadError" class="flex items-start gap-2 border border-red-500/30 rounded-lg bg-red-500/10 p-2.5 text-xs text-red-600 dark:text-red-400">
+            <div class="i-solar:danger-triangle-bold-duotone mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+            <div class="min-w-0 flex-1">
+              <span class="font-bold">Download Failed:</span>
+              <p class="mt-0.5 break-all text-[11px] leading-snug">
+                {{ downloadError }}
+              </p>
+            </div>
+            <button
+              class="rounded bg-red-500/20 px-2 py-0.5 text-[10px] text-red-600 font-bold hover:bg-red-500/30 dark:text-red-300"
+              @click="activateAndDownloadEngine"
+            >
+              Retry
+            </button>
           </div>
         </div>
 
@@ -526,6 +744,7 @@ async function togglePreview() {
             <button
               class="h-9 flex items-center gap-1.5 border border-neutral-200 rounded-lg bg-neutral-100 px-3 text-xs text-neutral-700 font-semibold transition-colors dark:border-neutral-700 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
               title="Refresh voice catalog"
+              @click="refreshVoices"
             >
               <div class="i-solar:restart-bold-duotone h-4 w-4 text-primary-500" />
               <span>Load Voices</span>

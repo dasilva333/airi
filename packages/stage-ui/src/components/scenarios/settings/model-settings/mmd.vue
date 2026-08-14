@@ -2,14 +2,12 @@
 import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { Checkbox, FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ModelSceneSettings from './components/ModelSceneSettings.vue'
 import ModelCustomizer from './ModelCustomizer.vue'
 
-import { useDisplayModelsStore } from '../../../../stores/display-models'
-import { useAiriCardStore } from '../../../../stores/modules'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
 import { Section } from '../../../layouts'
@@ -28,8 +26,6 @@ const settingsStore = useSettings()
 const { t } = useI18n()
 const { stageModelSelected } = storeToRefs(settingsStore)
 const {
-  morphMappings,
-  hiddenMorphs,
   followSpeed,
   physicsEnabled,
   ikEnabled,
@@ -44,71 +40,6 @@ const mouseTrackingEnabled = computed({
     gazeMode.value = val ? 'mouse' : 'none'
   },
 })
-
-const airiCardStore = useAiriCardStore()
-const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-
-const displayModelsStore = useDisplayModelsStore()
-
-// Local refs for MMD motions customization
-const motionMappings = ref<Record<string, string>>({})
-const hiddenMotions = ref<string[]>([])
-
-// Watch mappings to save to display model metadata
-// Watch card changes to load mappings & run legacy local storage migration
-watch(activeCard, async (card) => {
-  if (!card)
-    return
-  const displayModelId = airiCardStore.getCardDisplayModelId(activeCardId.value)
-  if (!displayModelId)
-    return
-
-  const model = displayModelsStore.displayModels.find(m => m.id === displayModelId)
-  if (model) {
-    // Check for legacy local storage mappings to migrate
-    const legacyMmdMappingsStr = localStorage.getItem('settings/mmd/morph-mappings')
-    const legacyMmdHiddenStr = localStorage.getItem('settings/mmd/hidden-morphs')
-    let migrated = false
-    let updatedEmotionMappings = { ...model.emotionMappings }
-    let updatedHiddenExpressions = [...(model.hiddenExpressions || [])]
-
-    if (legacyMmdMappingsStr) {
-      try {
-        const legacyMappings = JSON.parse(legacyMmdMappingsStr)
-        if (Object.keys(legacyMappings).length > 0) {
-          updatedEmotionMappings = { ...updatedEmotionMappings, ...legacyMappings }
-          migrated = true
-        }
-        localStorage.removeItem('settings/mmd/morph-mappings')
-      }
-      catch (e) {}
-    }
-
-    if (legacyMmdHiddenStr) {
-      try {
-        const legacyHidden = JSON.parse(legacyMmdHiddenStr)
-        if (legacyHidden.length > 0) {
-          updatedHiddenExpressions = Array.from(new Set([...updatedHiddenExpressions, ...legacyHidden]))
-          migrated = true
-        }
-        localStorage.removeItem('settings/mmd/hidden-morphs')
-      }
-      catch (e) {}
-    }
-
-    if (migrated) {
-      await displayModelsStore.updateDisplayModelMappings(displayModelId, {
-        emotionMappings: updatedEmotionMappings,
-        hiddenExpressions: updatedHiddenExpressions,
-      })
-    }
-
-    morphMappings.value = model.emotionMappings || {}
-    hiddenMorphs.value = model.hiddenExpressions || []
-    motionMappings.value = model.motionMappings || {}
-    hiddenMotions.value = model.hiddenMotions || []
-  }
-}, { immediate: true })
 </script>
 
 <template>

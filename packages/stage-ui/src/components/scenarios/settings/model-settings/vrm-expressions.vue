@@ -3,35 +3,20 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 import { Button, Input, Select } from '@proj-airi/ui'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import ModelCustomizer from './ModelCustomizer.vue'
 
-import { useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { Container } from '../../../data-pane'
 
 const airiCardStore = useAiriCardStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const modelStore = useModelStore()
-const { availableExpressions, activeExpressions, emotionMappings, favoriteExpression } = storeToRefs(modelStore)
-const displayModelsStore = useDisplayModelsStore()
+const { availableExpressions, activeExpressions } = storeToRefs(modelStore)
 const displayModelId = computed(() => {
   return activeCardId.value ? airiCardStore.getCardDisplayModelId(activeCardId.value) || undefined : undefined
 })
-
-watch([emotionMappings, favoriteExpression], async () => {
-  if (!activeCardId.value)
-    return
-  const displayModelId = airiCardStore.getCardDisplayModelId(activeCardId.value)
-  if (!displayModelId)
-    return
-
-  await displayModelsStore.updateDisplayModelMappings(displayModelId, {
-    emotionMappings: { ...emotionMappings.value },
-    favoriteExpressions: favoriteExpression.value ? [favoriteExpression.value] : [],
-  })
-}, { deep: true })
 
 const uniqueExpressions = computed(() => [...new Set(availableExpressions.value)])
 

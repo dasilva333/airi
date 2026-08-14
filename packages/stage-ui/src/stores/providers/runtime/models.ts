@@ -16,19 +16,11 @@ export interface ProviderModelsDeps {
   providerInstanceOptions?: (providerId: string, instanceId?: string) => Record<string, unknown> | undefined
 }
 
-/**
- * Model fetching and normalization runtime.
- *
- * All three state refs are store-owned singletons injected from
- * `providers.ts`. `availableProviders` is the configured-provider selector
- * (also produced by the store) passed in so `loadModelsForConfiguredProviders`
- * iterates exactly the same list the UI consumes.
- */
 export function createProviderModels(deps: ProviderModelsDeps) {
   const { providerCredentials, providerRuntimeState, providerMetadata } = deps
 
   /**
-   * Fetch the model catalog for a provider instance.
+   * Fetch the model catalog for a provider instance dynamically from the provider API.
    *
    * Instance-aware: if `options.instanceId` is supplied and the store exposes a
    * per-instance options getter, the model fetch targets that explicit instance
@@ -56,53 +48,58 @@ export function createProviderModels(deps: ProviderModelsDeps) {
     if (!metadata)
       return []
 
-    const runtimeState = providerRuntimeState.value[providerId]
-    if (runtimeState) {
-      runtimeState.isLoadingModels = true
-      runtimeState.modelLoadError = null
+    if (!providerRuntimeState.value[providerId]) {
+      providerRuntimeState.value[providerId] = {
+        isConfigured: false,
+        isInitialized: false,
+        isLoadingModels: false,
+        modelLoadError: null,
+        isAvailable: false,
+        isValidating: false,
+        models: [],
+      }
     }
+
+    const runtimeState = providerRuntimeState.value[providerId]
+    runtimeState.isLoadingModels = true
+    runtimeState.modelLoadError = null
 
     try {
       const models = metadata.capabilities.listModels ? await metadata.capabilities.listModels(config) : []
 
       // Transform and store the models
-      if (runtimeState) {
-        runtimeState.models = uniqBy(models.filter(model => !!model.id), m => m.id)
-          .map(model => ({
-            ...model, // Preserve all additional fields (modalities, architecture, etc.)
-            id: model.id,
-            name: model.name || model.id,
-            description: model.description,
-            contextLength: model.contextLength || model.context_length,
-            deprecated: model.deprecated,
-            provider: providerId,
-          }))
-        return runtimeState.models
-      }
-      return []
+      runtimeState.models = uniqBy(models.filter(model => !!model.id), m => m.id)
+        .map(model => ({
+          ...model, // Preserve all additional fields (modalities, architecture, etc.)
+          id: model.id,
+          name: model.name || model.id,
+          description: model.description,
+          contextLength: model.contextLength || model.context_length,
+          deprecated: model.deprecated,
+          provider: providerId,
+        }))
+      return runtimeState.models
     }
     catch (error) {
-      console.error(`Error fetching models for ${providerId}:`, error)
-      if (runtimeState) {
-        runtimeState.modelLoadError = error instanceof Error ? error.message : 'Unknown error'
-      }
+      console.warn(`Error fetching live models for ${providerId}:`, error)
+      runtimeState.modelLoadError = error instanceof Error ? error.message : 'Unknown error'
+      runtimeState.models = []
       return []
     }
     finally {
-      if (runtimeState) {
-        runtimeState.isLoadingModels = false
-      }
+      runtimeState.isLoadingModels = false
     }
   }
 
   // Load models for all configured providers
   async function loadModelsForConfiguredProviders() {
     for (const providerId of deps.availableProviders.value) {
-      if (providerMetadata[providerId].capabilities.listModels) {
-        await fetchModelsForProvider(providerId)
-      }
+      await fetchModelsForProvider(providerId)
     }
   }
 
-  return { fetchModelsForProvider, loadModelsForConfiguredProviders }
+  return {
+    fetchModelsForProvider,
+    loadModelsForConfiguredProviders,
+  }
 }

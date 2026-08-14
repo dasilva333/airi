@@ -37,6 +37,10 @@ import {
   whisperUnloadEvent,
 } from '../inference/contract'
 
+// Initialize HuggingFace environment
+env.allowLocalModels = false
+env.useBrowserCache = true
+
 const { context } = createContext()
 
 export interface WhisperInput {

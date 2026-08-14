@@ -12,11 +12,16 @@ export interface OnboardingV2GateState {
   canProceed: ComputedRef<boolean> | boolean | (() => boolean)
   /** When present, renders an always-enabled Skip button with this label. */
   skipLabel?: string
+  /** Contextual hint string rendered in footer when !canProceed. */
+  hint?: string
+  /** Optional handler intercepting the step skip button. Return false to prevent advance. */
+  onSkip?: () => boolean | void | Promise<boolean | void>
 }
 
 export interface OnboardingV2GateApi {
   setGate: (id: string, gate: OnboardingV2GateState) => void
   clearGate: (id: string) => void
+  requestNext?: () => void
 }
 
 export const onboardingV2GateKey: InjectionKey<OnboardingV2GateApi> = Symbol('onboarding-v2-gate')

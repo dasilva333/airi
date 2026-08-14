@@ -54,15 +54,20 @@ watch(selectedPath, (path) => {
         >
           <div>
             <div class="mb-3 flex items-center justify-between">
-              <div
-                class="rounded-xl p-2.5"
-                :class="[
-                  selectedPath === 'new'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300',
-                ]"
-              >
-                <div class="i-solar:stars-line-duotone h-5 w-5" />
+              <div class="flex items-center gap-2">
+                <div
+                  class="rounded-xl p-2.5"
+                  :class="[
+                    selectedPath === 'new'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300',
+                  ]"
+                >
+                  <div class="i-solar:stars-line-duotone h-5 w-5" />
+                </div>
+                <span class="rounded-full bg-primary-500/15 px-2 py-0.5 text-[10px] text-primary-600 font-bold dark:text-primary-400">
+                  LOCAL-FIRST
+                </span>
               </div>
               <div
                 class="h-5 w-5 flex items-center justify-center border-2 rounded-full transition-colors"
@@ -72,34 +77,39 @@ watch(selectedPath, (path) => {
               </div>
             </div>
             <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-              Create New Companion
+              Local Companion (Offline)
             </h3>
             <p class="mt-1.5 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Create or customize a character. Guided setup for brain, voice, avatar, and persona.
+              100% private, on-device setup for brain, voice, avatar, and persona. No account required.
             </p>
           </div>
         </div>
 
-        <!-- Returning User Option (Disabled Preview) -->
+        <!-- Cloudflare Connected Option (Disabled Preview) -->
         <div
-          class="pointer-events-none relative min-h-[150px] flex flex-col cursor-not-allowed select-none justify-between overflow-hidden border-2 border-neutral-200/60 rounded-2xl bg-neutral-100/40 p-5 opacity-50 transition-all duration-300 ease-out dark:border-neutral-800/80 dark:bg-neutral-900/20"
+          class="pointer-events-none relative min-h-[150px] flex flex-col cursor-not-allowed select-none justify-between overflow-hidden border-2 border-neutral-200/60 rounded-2xl bg-neutral-100/40 p-5 opacity-60 transition-all duration-300 ease-out dark:border-neutral-800/80 dark:bg-neutral-900/20"
         >
           <div>
             <div class="mb-3 flex items-center justify-between">
-              <div
-                class="rounded-xl bg-neutral-200/80 p-2.5 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
-              >
-                <div class="i-solar:cloud-storage-line-duotone h-5 w-5" />
+              <div class="flex items-center gap-2">
+                <div
+                  class="rounded-xl bg-neutral-200/80 p-2.5 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+                >
+                  <div class="i-solar:cloud-storage-line-duotone h-5 w-5" />
+                </div>
+                <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
+                  ZERO-TRUST
+                </span>
               </div>
               <span class="rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] text-purple-600 font-bold dark:text-purple-400">
                 COMING SOON
               </span>
             </div>
             <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
-              Returning User
+              Sign In with Cloudflare
             </h3>
             <p class="mt-1.5 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-              Cloud backup restore and multi-device account sync. (Coming Soon)
+              Sync existing companions across devices, or connect a fresh account for automated edge relays and private zero-trust backups.
             </p>
           </div>
         </div>

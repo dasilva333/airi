@@ -1,6 +1,5 @@
 import type { ProviderDefinition } from '../../types'
 
-import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { z } from 'zod'
 
 import whisperWorkerUrl from '../../../workers/worker?worker&url'
@@ -90,7 +89,6 @@ const definition: ProviderDefinition<LocalTranscriptionConfig> = {
   deployment: 'local',
   beginnerRecommended: true,
   tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
-  isAvailableBy: isStageTamagotchi,
   defaultOptions: () => ({}),
   createProviderConfig: () => localTranscriptionConfigSchema as any,
   createProvider: async (_config: LocalTranscriptionConfig) => {

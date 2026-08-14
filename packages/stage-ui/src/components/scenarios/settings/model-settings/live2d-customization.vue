@@ -46,15 +46,9 @@ const saveLive2dState = useDebounceFn(async () => {
     modelParameters: { ...modelParameters.value },
   }
   airiCardStore.updateCard(activeCardId.value, { extensions })
-
-  // Save mapping properties to Display Model
-  const displayModelsStore = await import('../../../../stores/display-models').then(m => m.useDisplayModelsStore())
-  await displayModelsStore.updateDisplayModelMappings(displayModelId, {
-    emotionMappings: { ...emotionMappings.value },
-  })
 }, 1000)
 
-watch([activeExpressions, modelParameters, emotionMappings], () => {
+watch([activeExpressions, modelParameters], () => {
   saveLive2dState()
 }, { deep: true })
 

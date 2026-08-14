@@ -74,6 +74,30 @@ export type LoadStreamItem
   = | { kind: 'progress', payload: ProgressPayload }
     | { kind: 'ready', info: ModelReadyInfo }
 
+// Polyfill ReadableStream.prototype[Symbol.asyncIterator] for mobile WebKit engines
+if (typeof ReadableStream !== 'undefined' && !(Symbol.asyncIterator in ReadableStream.prototype)) {
+  (ReadableStream.prototype as any)[Symbol.asyncIterator] = function (this: any) {
+    const reader = this.getReader()
+    return {
+      async next() {
+        const { done, value } = await reader.read()
+        if (done) {
+          reader.releaseLock()
+          return { done: true, value: undefined }
+        }
+        return { done: false, value }
+      },
+      async return() {
+        reader.releaseLock()
+        return { done: true, value: undefined }
+      },
+      [Symbol.asyncIterator]() {
+        return this
+      },
+    }
+  }
+}
+
 /**
  * Drain a model-load stream: forward progress to `onProgress` and resolve with
  * the terminal `ready` info.
@@ -93,12 +117,24 @@ export async function consumeLoadStream(
   onProgress?: (p: ProgressPayload) => void,
 ): Promise<ModelReadyInfo> {
   let ready: ModelReadyInfo | undefined
-  for await (const item of stream) {
-    if (item.kind === 'progress')
-      onProgress?.(item.payload)
-    else
-      ready = item.info
+  const reader = stream.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done)
+        break
+      if (value) {
+        if (value.kind === 'progress')
+          onProgress?.(value.payload)
+        else if (value.kind === 'ready')
+          ready = value.info
+      }
+    }
   }
+  finally {
+    reader.releaseLock()
+  }
+
   if (!ready)
     throw new Error('inference: model load stream ended without a ready signal')
   return ready
@@ -120,8 +156,26 @@ export async function consumeLoadStream(
 export function signalWithTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
   if (!Number.isFinite(timeoutMs))
     return signal ?? new AbortController().signal
-  const timeout = AbortSignal.timeout(timeoutMs)
-  return signal ? AbortSignal.any([signal, timeout]) : timeout
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    controller.abort(new DOMException('TimeoutError', 'TimeoutError'))
+  }, timeoutMs)
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId)
+      controller.abort(signal.reason)
+    }
+    else {
+      signal.addEventListener('abort', () => {
+        clearTimeout(timeoutId)
+        controller.abort(signal.reason)
+      }, { once: true })
+    }
+  }
+
+  return controller.signal
 }
 
 /** An inactivity-timeout handle for a streaming inference op. */
