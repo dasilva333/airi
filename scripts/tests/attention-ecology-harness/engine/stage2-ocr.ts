@@ -54,10 +54,6 @@ const BBOX_PAD = 40
  *  precision is enforced by the gate, not the pattern list (proposal §12).
  */
 const ERROR_PATTERNS: RegExp[] = [
-  /antigravity/i,
-  /open ide/i,
-  /airi/i,
-  /projects/i,
   /command not found/i,
   /invalid option/i,
   /usage:/i,
@@ -89,11 +85,19 @@ export interface OcrEvidence {
 
 let workerPromise: Promise<Worker> | null = null
 
-async function getWorker(): Promise<Worker> {
+export async function getWorker(onProgress?: (m: any) => void): Promise<Worker> {
   if (!workerPromise) {
-    workerPromise = createWorker('eng', 1, { cachePath: TESSDATA_CACHE, cacheMethod: 'write' })
+    workerPromise = createWorker('eng', 1, {
+      cachePath: TESSDATA_CACHE,
+      cacheMethod: 'write',
+      logger: typeof onProgress === 'function' ? onProgress : () => {},
+    })
   }
   return workerPromise
+}
+
+export async function loadOcrEngine(onProgress?: (m: any) => void): Promise<Worker> {
+  return getWorker(onProgress)
 }
 
 /** Releases the tesseract.js worker (worker thread). */

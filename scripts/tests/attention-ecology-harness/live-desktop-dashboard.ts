@@ -1,15 +1,21 @@
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import readline from 'node:readline'
 
-import { execSync } from 'node:child_process'
-
+import { DesktopCaptureManager } from './engine/screen-capture.js'
 import { computeImageDelta } from './engine/stage0-phash.js'
-import { calculateCosineSimilarity, getVisionEmbedding, normalizeVector } from './engine/stage1-vision-embed.js'
-import { analyzeDeltaRegion } from './engine/stage2-ocr.js'
-import { classifyZeroShot, evaluateSalience } from './engine/stage2-salience-eval.js'
+import { calculateCosineSimilarity, disposeVisionEncoder, getVisionEmbedding, loadVisionEncoder, normalizeVector } from './engine/stage1-vision-embed.js'
+import { analyzeDeltaRegion, disposeOcrEngine, loadOcrEngine } from './engine/stage2-ocr.js'
+import { classifyZeroShot, disposeTextEncoder, evaluateSalience, loadTextEncoder } from './engine/stage2-salience-eval.js'
 import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
 
-const TEMP_CAPTURE_PATH = '/tmp/airi-live-screen-capture.png'
-const TEMP_PREV_PATH = '/tmp/airi-live-screen-prev.png'
+const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
+const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
+
+const captureManager = new DesktopCaptureManager({
+  simulated: process.argv.includes('--simulate') || process.argv.includes('--fixture'),
+})
 
 let tickCount = 0
 let currentCentroid: Float32Array | null = null
@@ -22,6 +28,11 @@ let stage2Status = '🟢 0/2 QUIET'
 let stage3Status = '💤 IDLE'
 let overallStatus = '💤 MONITORING SCREEN (0-COST IDLE)'
 let lastLatencyMs = 0
+let lastCaptureSource = captureManager.getMethodName()
+let lastFixtureDesc = ''
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+let spinnerIndex = 0
 
 interface PromotedEvent {
   timeStr: string
@@ -32,30 +43,46 @@ interface PromotedEvent {
 const MAX_EVENT_STREAM = 5
 const eventStream: PromotedEvent[] = []
 
-function captureDesktopScreen(): boolean {
-  try {
-    if (fs.existsSync(TEMP_CAPTURE_PATH)) {
-      if (fs.existsSync(TEMP_PREV_PATH)) {
-        fs.unlinkSync(TEMP_PREV_PATH)
-      }
-      fs.renameSync(TEMP_CAPTURE_PATH, TEMP_PREV_PATH)
-      prevPathExists = true
-    }
-    execSync(`screencapture -x ${TEMP_CAPTURE_PATH}`, { stdio: 'ignore' })
-    return true
-  }
-  catch {
-    return false
-  }
-}
-
 function formatTime12h(date = new Date()): string {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
+}
+
+function renderProgressBar(percent: number, width = 20): string {
+  const p = Math.max(0, Math.min(100, percent))
+  const filled = Math.round((p / 100) * width)
+  const empty = width - filled
+  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${p.toFixed(0).padStart(3, ' ')}%`
+}
+
+function renderWarmupScreen(step: string, detail: string, percent?: number) {
+  const bar = percent !== undefined ? ` ${renderProgressBar(percent, 18)}` : ''
+  const ui = `\x1B[H\x1B[J`
+    + `┌─────────────────────────────────────────────────────────────────────────────┐\n`
+    + `│ 👁️  AIRI ATTENTION ECOLOGY :: SYSTEM WARMUP & INITIALIZATION               │\n`
+    + `├─────────────────────────────────────────────────────────────────────────────┤\n`
+    + `│ STATUS: ⏳ WARMING UP NEURAL & PERCEPTION PIPELINE...                        │\n`
+    + `├─────────────────────────────────────────────────────────────────────────────┤\n`
+    + `│                                                                             │\n`
+    + `│ ─── CURRENT STEP: ${step.padEnd(57, ' ')} │\n`
+    + `│    ${(detail + bar).slice(0, 72).padEnd(72, ' ')} │\n`
+    + `│                                                                             │\n`
+    + `│ ─── COMPONENTS ──────────────────────────────────────────────────────────── │\n`
+    + `│    • Stage 0: 32x32 aHash Luma Perceptual Delta (CPU)                       │\n`
+    + `│    • Stage 1: Fast CLIP Vision Model (Xenova/clip-vit-base-patch32)         │\n`
+    + `│    • Stage 2: Localized Tesseract WASM OCR + Zero-Shot Salience Gate        │\n`
+    + `│    • Stage 3: Vision-Language Model Forwarder (Moondream2 / Heuristic)      │\n`
+    + `│                                                                             │\n`
+    + `└─────────────────────────────────────────────────────────────────────────────┘\n`
+  process.stdout.write(ui)
 }
 
 function renderDashboard() {
   const tickStr = String(tickCount).padStart(3, '0')
   const latencyStr = `${lastLatencyMs}ms`
+  const spinner = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length]
+  spinnerIndex++
+
+  const captureTag = `[${lastCaptureSource}]`
 
   let streamBoxLines = ''
   if (eventStream.length === 0) {
@@ -77,13 +104,17 @@ function renderDashboard() {
     streamBoxLines = `${formattedBlocks.join('\n')}\n`
   }
 
+  const fixtureLine = lastFixtureDesc
+    ? `│ 🎬 FRAME: ${lastFixtureDesc.padEnd(65, ' ')} │\n├─────────────────────────────────────────────────────────────────────────────┤\n`
+    : ''
+
   const ui = `\x1B[H\x1B[J`
     + `┌─────────────────────────────────────────────────────────────────────────────┐\n`
-    + `│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME DESKTOP MONITOR       [TICK #${tickStr}]   │\n`
+    + `│ 👁️  AIRI ATTENTION ECOLOGY :: REAL-TIME MONITOR    ${captureTag.padStart(20, ' ')} ${spinner} [TICK #${tickStr}] │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `│ STATUS: ${overallStatus.padEnd(46, ' ')} LATENCY: ${latencyStr.padEnd(8, ' ')} │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│                                                                             │\n`
+    + `${fixtureLine}`
     + `│ ─── STAGE 0: Perceptual Hash (aHash \\mu s) ──────────────────────────────── │\n`
     + `│    ${stage0Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
@@ -97,12 +128,82 @@ function renderDashboard() {
     + `│    ${stage3Status.padEnd(72, ' ')} │\n`
     + `│                                                                             │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
-    + `│ 🧠 AIRI BRAIN INGESTION :: RECENT PROMOTED EVENTS STREAM (LAST ${eventStream.length}/${MAX_EVENT_STREAM})       │\n`
+    + `│ 🧠 AIRI BRAIN INGESTION :: RECENT PROMOTED EVENTS STREAM (LAST ${String(eventStream.length).padStart(1, '0')}/${MAX_EVENT_STREAM})       │\n`
     + `├─────────────────────────────────────────────────────────────────────────────┤\n`
     + `${streamBoxLines}`
+    + `├─────────────────────────────────────────────────────────────────────────────┤\n`
+    + `│  ⌨️  [S] Toggle Mode (Live/Sim)  │  [R] Reset Baseline  │  [Q / ^C] Exit     │\n`
     + `└─────────────────────────────────────────────────────────────────────────────┘\n`
 
   process.stdout.write(ui)
+}
+
+function captureDesktopScreen(): boolean {
+  try {
+    if (fs.existsSync(TEMP_CAPTURE_PATH)) {
+      if (fs.existsSync(TEMP_PREV_PATH)) {
+        fs.unlinkSync(TEMP_PREV_PATH)
+      }
+      fs.renameSync(TEMP_CAPTURE_PATH, TEMP_PREV_PATH)
+      prevPathExists = true
+    }
+
+    const res = captureManager.capture(TEMP_CAPTURE_PATH)
+    lastCaptureSource = res.method
+    lastFixtureDesc = res.fixtureDesc || ''
+    return res.success
+  }
+  catch (err: any) {
+    overallStatus = `❌ CAPTURE ERROR: ${err.message || String(err)}`
+    return false
+  }
+}
+
+async function warmUpPipeline() {
+  renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', 'Initializing weights...', 0)
+
+  await loadVisionEncoder(
+    (msg) => {
+      renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', msg)
+    },
+    (info) => {
+      const pct = info.progress ?? (info.loaded && info.total ? (info.loaded / info.total) * 100 : undefined)
+      const file = info.file ? ` (${path.basename(info.file)})` : ''
+      renderWarmupScreen('[1/4] Stage 1 CLIP Vision Model', `Downloading ${info.name || 'model'}${file}`, pct)
+    },
+  )
+
+  renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', 'Loading tokenizer & embeddings...', 30)
+  await loadTextEncoder(
+    (msg) => {
+      renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', msg)
+    },
+    (info) => {
+      const pct = info.progress ?? (info.loaded && info.total ? (info.loaded / info.total) * 100 : undefined)
+      renderWarmupScreen('[2/4] Stage 2 CLIP Text & Salience Model', `Downloading ${info.name || 'tokenizer'}`, pct)
+    },
+  )
+
+  renderWarmupScreen('[3/4] Stage 2 Local WASM OCR Engine', 'Initializing Tesseract worker...', 60)
+  await loadOcrEngine((m) => {
+    if (m && typeof m.progress === 'number') {
+      const pct = Math.round(m.progress * 100)
+      renderWarmupScreen('[3/4] Stage 2 Local WASM OCR Engine', `${m.status || 'Loading traineddata'}`, pct)
+    }
+  })
+
+  renderWarmupScreen('[4/4] Stage 0 Desktop Capture & Centroid', 'Capturing initial baseline...', 90)
+  captureDesktopScreen()
+  if (fs.existsSync(TEMP_CAPTURE_PATH)) {
+    const { embedding } = await getVisionEmbedding(TEMP_CAPTURE_PATH)
+    currentCentroid = embedding
+    stage0Status = '⚡ BASELINE SEEDED'
+    stage1Status = '💤 CENTROID ESTABLISHED'
+    overallStatus = '💤 MONITORING SCREEN (0-COST IDLE)'
+  }
+
+  renderWarmupScreen('Ready', 'All engines warmed up successfully!', 100)
+  await new Promise(r => setTimeout(r, 600))
 }
 
 async function runLiveTick() {
@@ -113,13 +214,15 @@ async function runLiveTick() {
 
   const captured = captureDesktopScreen()
   if (!captured) {
+    overallStatus = '❌ CAPTURE FAILED'
+    renderDashboard()
     isProcessing = false
     return
   }
 
   const startMs = Date.now()
   try {
-    if (!prevPathExists) {
+    if (!prevPathExists || !currentCentroid) {
       const { embedding } = await getVisionEmbedding(TEMP_CAPTURE_PATH)
       currentCentroid = embedding
       stage0Status = '⚡ BASELINE SEEDED'
@@ -156,7 +259,7 @@ async function runLiveTick() {
 
     const zeroShot = await classifyZeroShot(embedding)
     const topTag = zeroShot.topLabel
-    const topScore = zeroShot.scores[topTag].toFixed(2)
+    const topScore = zeroShot.scores[topTag]?.toFixed(2) ?? '0.00'
 
     stage1Status = novelty > 0.02
       ? `🎯 [NOVELTY SPIKE] novelty=${novelty.toFixed(4)} │ Tag: ${topTag} (${topScore})`
@@ -170,7 +273,7 @@ async function runLiveTick() {
       ocrEvidence,
       zeroShot,
       0.0,
-      { clipNovelty: 0.02, ocrErrorPatternsMin: 2, redAlertRatio: 0.05 },
+      { ocrErrorPatternsMin: 2 },
     )
 
     stage2Status = ocrEvidence.errorPatternHits >= 2
@@ -246,7 +349,7 @@ async function runLiveTick() {
     renderDashboard()
   }
   catch (err: any) {
-    overallStatus = `❌ ERROR: ${err.message || err}`
+    overallStatus = `❌ ERROR: ${err.message || String(err)}`
     renderDashboard()
   }
   finally {
@@ -254,22 +357,64 @@ async function runLiveTick() {
   }
 }
 
-// Initial render
+// Pre-flight warmup sequence
+await warmUpPipeline()
+
 renderDashboard()
 await runLiveTick()
 
 const timer = setInterval(runLiveTick, 2000)
 
-process.on('SIGINT', () => {
+// Interactive keyboard controls
+if (process.stdin.isTTY) {
+  readline.emitKeypressEvents(process.stdin)
+  process.stdin.setRawMode(true)
+  process.stdin.on('keypress', (_str, key) => {
+    if (key.ctrl && key.name === 'c') {
+      cleanExit()
+    }
+    else if (key.name === 'q') {
+      cleanExit()
+    }
+    else if (key.name === 's') {
+      const sim = captureManager.toggleSimulation()
+      lastCaptureSource = captureManager.getMethodName()
+      overallStatus = sim ? '🎬 SWITCHED TO SIMULATION (Test Fixtures)' : '🖥️ SWITCHED TO LIVE CAPTURE'
+      renderDashboard()
+    }
+    else if (key.name === 'r') {
+      currentCentroid = null
+      prevPathExists = false
+      overallStatus = '⚡ BASELINE CENTROID RESET'
+      stage0Status = '⚡ RE-INITIALIZING'
+      stage1Status = '💤 RE-INITIALIZING'
+      renderDashboard()
+    }
+  })
+}
+
+async function cleanExit() {
   clearInterval(timer)
-  disposeVlmForwarder()
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(false)
+  }
+  process.stdout.write('\n\nShutting down engines...\n')
   try {
+    await Promise.all([
+      disposeVisionEncoder(),
+      disposeTextEncoder(),
+      disposeOcrEngine(),
+      disposeVlmForwarder(),
+    ])
+    captureManager.dispose()
     if (fs.existsSync(TEMP_CAPTURE_PATH))
       fs.unlinkSync(TEMP_CAPTURE_PATH)
     if (fs.existsSync(TEMP_PREV_PATH))
       fs.unlinkSync(TEMP_PREV_PATH)
   }
   catch {}
-  console.log('\n👋 Terminal Observer Dashboard stopped cleanly.')
+  console.log('👋 Terminal Observer Dashboard stopped cleanly.')
   process.exit(0)
-})
+}
+
+process.on('SIGINT', cleanExit)

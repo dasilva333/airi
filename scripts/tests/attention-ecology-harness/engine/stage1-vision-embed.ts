@@ -39,14 +39,27 @@ export interface VisionEmbeddingResult {
   encodeMs: number
 }
 
-async function loadVisionEncoder(onLog?: (msg: string) => void): Promise<[any, any]> {
+export type ProgressCallback = (info: {
+  status?: string
+  name?: string
+  file?: string
+  progress?: number
+  loaded?: number
+  total?: number
+}) => void
+
+export async function loadVisionEncoder(onLog?: (msg: string) => void, onProgress?: ProgressCallback): Promise<[any, any]> {
   if (!processorPromise) {
     onLog?.(`Loading CLIP image processor (${CLIP_MODEL_ID})...`)
-    processorPromise = AutoProcessor.from_pretrained(CLIP_MODEL_ID)
+    processorPromise = AutoProcessor.from_pretrained(CLIP_MODEL_ID, {
+      progress_callback: onProgress,
+    })
   }
   if (!visionModelPromise) {
     onLog?.(`Loading CLIP vision model (${CLIP_MODEL_ID})...`)
-    visionModelPromise = CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL_ID)
+    visionModelPromise = CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL_ID, {
+      progress_callback: onProgress,
+    })
   }
   return Promise.all([processorPromise, visionModelPromise])
 }

@@ -24,6 +24,7 @@
  *     than misses): a single error line never promotes.
  */
 
+import type { ProgressCallback } from './stage1-vision-embed.js'
 import type { OcrEvidence } from './stage2-ocr.js'
 
 import sharp from 'sharp'
@@ -86,6 +87,18 @@ let tokenizerPromise: Promise<any> | null = null
 let textModelPromise: Promise<any> | null = null
 const textEmbeddingCache = new Map<SalienceLabel, Float32Array>()
 
+export async function loadTextEncoder(onLog?: (msg: string) => void, onProgress?: ProgressCallback): Promise<[any, any]> {
+  if (!tokenizerPromise) {
+    onLog?.(`Loading CLIP tokenizer (${CLIP_MODEL_ID})...`)
+    tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID, { progress_callback: onProgress })
+  }
+  if (!textModelPromise) {
+    onLog?.(`Loading CLIP text model (${CLIP_MODEL_ID})...`)
+    textModelPromise = CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL_ID, { progress_callback: onProgress })
+  }
+  return Promise.all([tokenizerPromise, textModelPromise])
+}
+
 /** Releases the text-tower ONNX session; see disposeVisionEncoder for why. */
 export async function disposeTextEncoder(): Promise<void> {
   if (textModelPromise) {
@@ -98,16 +111,7 @@ export async function disposeTextEncoder(): Promise<void> {
 }
 
 async function getTextEmbedding(prompt: string, onLog?: (msg: string) => void): Promise<Float32Array> {
-  if (!tokenizerPromise) {
-    onLog?.(`Loading CLIP tokenizer (${CLIP_MODEL_ID})...`)
-    tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID)
-  }
-  if (!textModelPromise) {
-    onLog?.(`Loading CLIP text model (${CLIP_MODEL_ID})...`)
-    textModelPromise = CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL_ID)
-  }
-
-  const [tokenizer, textModel] = await Promise.all([tokenizerPromise, textModelPromise])
+  const [tokenizer, textModel] = await loadTextEncoder(onLog)
   const inputs = await tokenizer(prompt)
   const { text_embeds } = await textModel(inputs)
   return normalizeVector(text_embeds.data as Float32Array)

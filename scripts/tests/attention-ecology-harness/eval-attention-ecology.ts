@@ -26,7 +26,7 @@ import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
 import { classifyZeroShot, computeRedAlertRatio, disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
 import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
 
-const SCREENSHOT_DIR = path.resolve(process.cwd(), 'test-screenshots')
+const SCREENSHOT_DIR = path.resolve(import.meta.dirname, 'test-screenshots')
 
 // ---------------------------------------------------------------------------
 // Thresholds (calibrated against measured values — see benchmark output).

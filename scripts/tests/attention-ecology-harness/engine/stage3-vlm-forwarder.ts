@@ -38,6 +38,7 @@
  * failure (proposal §11 heuristics fallback), keeping the benchmark green.
  */
 
+import type { ProgressCallback } from './stage1-vision-embed.js'
 import type { OcrEvidence } from './stage2-ocr.js'
 import type { SalienceLabel, ZeroShotResult } from './stage2-salience-eval.js'
 
@@ -104,12 +105,16 @@ let captionModelPromise: Promise<{ model: any, processor: any, tokenizer: any }>
 let vlmAttempted = false
 let numImageTokens: number | null = null
 
-async function loadCaptioner(): Promise<{ model: any, processor: any, tokenizer: any }> {
+export async function loadCaptioner(onProgress?: ProgressCallback): Promise<{ model: any, processor: any, tokenizer: any }> {
   // NOTICE: direct class load bypasses the AutoModelForVision2Seq auto-map
   // bug (see header NOTICE A).
-  const model = await Moondream1ForConditionalGeneration.from_pretrained(VLM_MODEL_ID, { device: 'cpu', dtype: 'q8' })
-  const processor = await AutoProcessor.from_pretrained(VLM_MODEL_ID)
-  const tokenizer = await AutoTokenizer.from_pretrained(VLM_MODEL_ID)
+  const model = await Moondream1ForConditionalGeneration.from_pretrained(VLM_MODEL_ID, {
+    device: 'cpu',
+    dtype: 'q8',
+    progress_callback: onProgress,
+  })
+  const processor = await AutoProcessor.from_pretrained(VLM_MODEL_ID, { progress_callback: onProgress })
+  const tokenizer = await AutoTokenizer.from_pretrained(VLM_MODEL_ID, { progress_callback: onProgress })
   return { model, processor, tokenizer }
 }
 

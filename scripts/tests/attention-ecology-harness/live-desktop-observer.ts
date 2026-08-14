@@ -1,20 +1,26 @@
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
-import { execSync } from 'node:child_process'
-
+import { DesktopCaptureManager } from './engine/screen-capture.js'
 import { computeImageDelta } from './engine/stage0-phash.js'
-import { calculateCosineSimilarity, getVisionEmbedding, normalizeVector } from './engine/stage1-vision-embed.js'
-import { analyzeDeltaRegion } from './engine/stage2-ocr.js'
-import { evaluateSalience } from './engine/stage2-salience-eval.js'
+import { calculateCosineSimilarity, disposeVisionEncoder, getVisionEmbedding, normalizeVector } from './engine/stage1-vision-embed.js'
+import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
+import { disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
 import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
 
-const TEMP_CAPTURE_PATH = '/tmp/airi-live-screen-capture.png'
-const TEMP_PREV_PATH = '/tmp/airi-live-screen-prev.png'
+const TEMP_CAPTURE_PATH = path.join(os.tmpdir(), 'airi-live-screen-capture.png')
+const TEMP_PREV_PATH = path.join(os.tmpdir(), 'airi-live-screen-prev.png')
+
+const captureManager = new DesktopCaptureManager({
+  simulated: process.argv.includes('--simulate') || process.argv.includes('--fixture'),
+})
 
 console.log('='.repeat(80))
 console.log('  🖥️  ATTENTION ECOLOGY GUARD: LIVE REAL-TIME DESKTOP SCREEN OBSERVER')
 console.log('='.repeat(80))
-console.log('  Capturing live macOS screen via screencapture (-x) every 2.0 seconds.')
+console.log(`  Capture Engine: ${captureManager.getMethodName()}`)
+console.log('  Capturing desktop frames every 2.0 seconds.')
 console.log('  Switch windows, run terminal commands, or trigger errors to observe live events.')
 console.log('  Press Ctrl+C to stop.\n')
 
@@ -32,9 +38,11 @@ function captureDesktopScreen(): boolean {
       fs.renameSync(TEMP_CAPTURE_PATH, TEMP_PREV_PATH)
       prevPathExists = true
     }
-    // High-speed silent screen capture using macOS native screencapture utility
-    execSync(`screencapture -x ${TEMP_CAPTURE_PATH}`, { stdio: 'ignore' })
-    return true
+    const res = captureManager.capture(TEMP_CAPTURE_PATH)
+    if (res.fixtureDesc) {
+      console.log(`  🎬 Simulated frame: ${res.fixtureDesc}`)
+    }
+    return res.success
   }
   catch (err) {
     console.error('Failed to capture screen:', err)
@@ -90,7 +98,7 @@ async function runLiveTick() {
       ocrEvidence,
       { scores: { terminal_error: 0, terminal_normal: 0, code_editor: 0, video_player: 0 }, topLabel: 'code_editor', errorMargin: 0 },
       0.0,
-      { clipNovelty: 0.02, ocrErrorPatternsMin: 2, redAlertRatio: 0.05 },
+      { ocrErrorPatternsMin: 2 },
     )
 
     const totalMs = Date.now() - startMs
@@ -142,10 +150,16 @@ await runLiveTick()
 // Loop every 2000ms
 const timer = setInterval(runLiveTick, 2000)
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   clearInterval(timer)
-  disposeVlmForwarder()
   try {
+    await Promise.all([
+      disposeVisionEncoder(),
+      disposeTextEncoder(),
+      disposeOcrEngine(),
+      disposeVlmForwarder(),
+    ])
+    captureManager.dispose()
     if (fs.existsSync(TEMP_CAPTURE_PATH))
       fs.unlinkSync(TEMP_CAPTURE_PATH)
     if (fs.existsSync(TEMP_PREV_PATH))

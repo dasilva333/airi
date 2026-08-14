@@ -1,27 +1,31 @@
 import path from 'node:path'
 
-import { evalFrame } from './engine/stage2-salience-eval.js'
-import { disposeStage3, synthesizeVisualEventSummary } from './engine/stage3-vlm-forwarder.js'
+import { computeImageDelta } from './engine/stage0-phash.js'
+import { calculateCosineSimilarity, disposeVisionEncoder, getVisionEmbedding, normalizeVector } from './engine/stage1-vision-embed.js'
+import { analyzeDeltaRegion, disposeOcrEngine } from './engine/stage2-ocr.js'
+import { classifyZeroShot, disposeTextEncoder, evaluateSalience } from './engine/stage2-salience-eval.js'
+import { disposeVlmForwarder, runForwarder } from './engine/stage3-vlm-forwarder.js'
 
-const FIXTURES_DIR = path.resolve(import.meta.dirname, 'fixtures')
+const FIXTURES_DIR = path.resolve(import.meta.dirname, 'test-screenshots')
 
 const TEST_CYCLES = [
-  { id: '01', name: '01-idle-terminal.png', desc: 'Idle Baseline' },
-  { id: '02', name: '02-idle-terminal-subtle-cursor.png', desc: 'Subtle Cursor Shift (Stage 0 Filtered)' },
-  { id: '03', name: '03-app-switch-vs-code.png', desc: 'App Switch to VS Code (Stage 1 Window Change)' },
+  { id: '01', name: '01-static-editor.png', desc: 'Baseline Work Centroid v0 (VS Code)' },
+  { id: '02', name: '02-static-editor-cursor.png', desc: 'Static Micro-Change (Stage 0 Filtered)' },
+  { id: '03', name: '03-window-switch-term.png', desc: 'Context Switch to Terminal (Stage 1 Novelty Spike)' },
   { id: '04', name: '04-term-error-stack.png', desc: 'Terminal Error Cascade (Stage 2 OCR Promoted)' },
-  { id: '05a', name: '05a-video-frame-1.png', desc: 'Video Drift Frame 1' },
-  { id: '05b', name: '05b-video-frame-2.png', desc: 'Video Drift Frame 2 (Stage 1 Centroid Muted)' },
+  { id: '05a', name: '05a-browser-video-frame1.png', desc: 'Browser Video Stream Baseline' },
+  { id: '05b', name: '05b-browser-video-frame2.png', desc: 'Browser Video Drift (Stage 1 Centroid Muted)' },
 ]
 
 console.log('='.repeat(80))
 console.log('  👁️  ATTENTION ECOLOGY GUARD: LIVE TERMINAL OBSERVER & TELEMETRY')
 console.log('='.repeat(80))
-console.log('  Mode: Continuous Live Ticker (Press Ctrl+C to stop)\n')
+console.log('  Mode: Continuous Live Ticker over Seeded Benchmark Cycle')
+console.log('  Press Ctrl+C to stop.\n')
 
 let tickCount = 0
 let prevPath: string | null = null
-let currentCentroid: number[] | null = null
+let currentCentroid: Float32Array | null = null
 
 async function runTick() {
   tickCount++
@@ -32,39 +36,75 @@ async function runTick() {
   console.log(`[${timestamp}] --- TICK #${tickCount} | Frame: ${item.name} (${item.desc}) ---`)
 
   const startMs = Date.now()
-  const result = await evalFrame({
-    framePath: currentPath,
-    prevPath: prevPath ?? currentPath,
-    centroid: currentCentroid,
-  })
-  const totalMs = Date.now() - startMs
 
-  prevPath = currentPath
-  if (result.newCentroid) {
-    currentCentroid = result.newCentroid
+  // Stage 0: aHash delta
+  if (!prevPath || !currentCentroid) {
+    const { embedding } = await getVisionEmbedding(currentPath)
+    currentCentroid = embedding
+    prevPath = currentPath
+    console.log(`  ├─ Verdict:       ⚡ BASELINE SEEDED (Centroid Established)`)
+    console.log(`  └─ Total Latency: ${Date.now() - startMs}ms\n`)
+    return
   }
 
-  const decisionBadge = result.decision === 'PROMOTE'
-    ? '🚨 PROMOTED (HIGH SALIENCE)'
-    : result.decision === 'NOTE'
-      ? '📝 NOTE (QUIET DIARY)'
-      : '💤 IGNORED (0-COST FILTERED)'
+  const stage0 = await computeImageDelta(prevPath, currentPath, 0.005)
+  prevPath = currentPath
+
+  if (!stage0.hasChanged) {
+    console.log(`  ├─ Verdict:       💤 IGNORED (0-COST FILTERED)`)
+    console.log(`  ├─ Stage 0 aHash: norm=${stage0.normalizedDistance.toFixed(4)} < 0.0050`)
+    console.log(`  └─ Total Latency: ${Date.now() - startMs}ms\n`)
+    return
+  }
+
+  // Stage 1: CLIP embedding
+  const { embedding } = await getVisionEmbedding(currentPath)
+  let novelty = 0.0
+  if (currentCentroid) {
+    const similarity = calculateCosineSimilarity(embedding, currentCentroid)
+    novelty = Math.max(0, 1 - similarity)
+  }
+
+  // Stage 2: OCR and salience
+  const zeroShot = await classifyZeroShot(embedding)
+  const ocrEvidence = await analyzeDeltaRegion(prevPath, currentPath)
+  const salience = evaluateSalience(
+    `live-ticker-${tickCount}`,
+    novelty,
+    ocrEvidence,
+    zeroShot,
+    0.0,
+    { ocrErrorPatternsMin: 2 },
+  )
+
+  const totalMs = Date.now() - startMs
+  const decisionBadge = salience.decision === 'PROMOTE'
+    ? '🚨 PROMOTED (HIGH SALIENCE ERROR CASCADE)'
+    : salience.decision === 'NOTE'
+      ? '📝 NOTE (WINDOW / CONTEXT SHIFT)'
+      : '💤 IGNORED (QUIET FRAME)'
 
   console.log(`  ├─ Verdict:       ${decisionBadge}`)
-  console.log(`  ├─ Stage 0 aHash:  norm=${result.ahashNorm.toFixed(4)} (threshold: 0.0050)`)
-  console.log(`  ├─ Stage 1 CLIP:   novelty=${result.clipNovelty.toFixed(4)} (threshold: 0.0200)`)
-  console.log(`  ├─ Stage 2 OCR:    errorHits=${result.ocrHits} (${result.ocrHits >= 2 ? 'TRIGGERED' : 'QUIET'})`)
-  console.log(`  └─ Total Latency:  ${totalMs}ms`)
+  console.log(`  ├─ Stage 0 aHash: norm=${stage0.normalizedDistance.toFixed(4)} (CHANGED)`)
+  console.log(`  ├─ Stage 1 CLIP:  novelty=${novelty.toFixed(4)} (threshold: 0.0200) | Top: ${zeroShot.topLabel}`)
+  console.log(`  ├─ Stage 2 OCR:   errorHits=${ocrEvidence.errorPatternHits} (${ocrEvidence.errorPatternHits >= 2 ? 'PROMOTED' : 'QUIET'})`)
+  console.log(`  └─ Total Latency: ${totalMs}ms`)
 
-  if (result.decision === 'PROMOTE') {
-    console.log('  ┌────────────────────────────────────────────────────────────┐')
+  if (salience.decision === 'PROMOTE') {
+    console.log('\n  ┌────────────────────────────────────────────────────────────┐')
     console.log('  │  SYNTHESIZING PROMOTION PACKET & VISUAL EVENT SUMMARY...  │')
     console.log('  └────────────────────────────────────────────────────────────┘')
-    const summary = await synthesizeVisualEventSummary({
-      framePath: currentPath,
-      ocrHits: result.ocrHits,
-    })
-    console.log(summary)
+    const summaryResult = await runForwarder(currentPath, zeroShot, ocrEvidence)
+    console.log(summaryResult.summary)
+  }
+  else {
+    if (currentCentroid && novelty > 0.01) {
+      const blended = new Float32Array(embedding.length)
+      for (let i = 0; i < embedding.length; i++) {
+        blended[i] = currentCentroid[i] * 0.8 + embedding[i] * 0.2
+      }
+      currentCentroid = normalizeVector(blended)
+    }
   }
 
   console.log('')
@@ -81,9 +121,17 @@ const interval = setInterval(async () => {
   }
 }, 2500)
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   clearInterval(interval)
-  disposeStage3()
+  try {
+    await Promise.all([
+      disposeVisionEncoder(),
+      disposeTextEncoder(),
+      disposeOcrEngine(),
+      disposeVlmForwarder(),
+    ])
+  }
+  catch {}
   console.log('\n👋 Observer stopped. Clean teardown complete.')
   process.exit(0)
 })
