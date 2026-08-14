@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { onClickOutside, useLocalStorage } from '@vueuse/core'
+import { onClickOutside } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
@@ -11,10 +11,10 @@ const isOpen = ref(false)
 const popoverRef = ref<HTMLElement>()
 
 onClickOutside(popoverRef, () => {
-  isOpen.value = false
+  if (isOpen.value) {
+    isOpen.value = false
+  }
 })
-
-const captionPosition = useLocalStorage<'head' | 'dock' | 'off'>('airi:mobile:caption-position', 'head')
 
 // --- Context Injections ---
 const isGroundingEnabled = computed(() => {
@@ -249,7 +249,7 @@ function handleToggleHeartbeats() {
       ]"
       type="button"
       title="Runtime Controls & Context Injections"
-      @click="isOpen = !isOpen"
+      @click.stop="isOpen = !isOpen"
     >
       <div class="i-solar:bolt-bold-duotone size-4.5 text-amber-500/90 dark:text-amber-400" />
     </button>
@@ -269,58 +269,13 @@ function handleToggleHeartbeats() {
       >
         <!-- Header -->
         <div class="mb-2 flex items-center justify-between border-b border-neutral-200/40 pb-2 dark:border-neutral-800/40">
-          <div class="flex items-center gap-1.5 text-xs text-neutral-800 font-bold tracking-wider uppercase dark:text-neutral-200">
+          <div class="flex items-center gap-1.5 text-xs text-neutral-800 font-bold tracking-wider font-sans uppercase dark:text-neutral-200">
             <div class="i-solar:tuning-square-2-bold-duotone text-primary-500" />
             <span>Context Injections</span>
           </div>
-          <span class="rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-600 font-semibold dark:text-primary-400">
+          <span class="rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[9px] text-primary-600 font-semibold font-sans dark:text-primary-400">
             Runtime
           </span>
-        </div>
-
-        <!-- Section: Captions Mode -->
-        <div class="mb-2.5 flex flex-col gap-1.5">
-          <label class="text-[10px] text-neutral-400 font-semibold tracking-wider uppercase">
-            Captions
-          </label>
-          <div class="grid grid-cols-3 gap-1 rounded-xl bg-neutral-100/80 p-1 dark:bg-neutral-900/80">
-            <button
-              :class="[
-                'flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-medium transition-all cursor-pointer',
-                captionPosition === 'head'
-                  ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100 font-bold'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-              ]"
-              @click="captionPosition = 'head'"
-            >
-              <div class="i-solar:chat-round-dots-bold-duotone mb-0.5 size-3.5 text-teal-500" />
-              <span>Head</span>
-            </button>
-            <button
-              :class="[
-                'flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-medium transition-all cursor-pointer',
-                captionPosition === 'dock'
-                  ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100 font-bold'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-              ]"
-              @click="captionPosition = 'dock'"
-            >
-              <div class="i-solar:dialog-bold-duotone mb-0.5 size-3.5 text-blue-500" />
-              <span>Dock</span>
-            </button>
-            <button
-              :class="[
-                'flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-medium transition-all cursor-pointer',
-                captionPosition === 'off'
-                  ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100 font-bold'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-              ]"
-              @click="captionPosition = 'off'"
-            >
-              <div class="i-solar:volume-cross-bold-duotone mb-0.5 size-3.5 text-neutral-400" />
-              <span>Audio</span>
-            </button>
-          </div>
         </div>
 
         <!-- Section: Context Injections -->

@@ -21,7 +21,9 @@ const isOpen = ref(false)
 const popoverRef = ref<HTMLElement>()
 
 onClickOutside(popoverRef, () => {
-  isOpen.value = false
+  if (isOpen.value) {
+    isOpen.value = false
+  }
 })
 
 interface Props {
@@ -254,7 +256,7 @@ const activeModelDisplay = computed(() => {
         class="size-8.5 flex cursor-pointer items-center justify-center border border-neutral-200/30 rounded-full bg-white/10 text-neutral-700 shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-700/40 dark:bg-neutral-800/60 dark:text-neutral-200"
         :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
         :title="title"
-        @click="isOpen = !isOpen"
+        @click.stop="isOpen = !isOpen"
       >
         <div class="i-ph:brain-duotone size-4.5 text-teal-500 dark:text-teal-400" />
       </button>
@@ -263,7 +265,7 @@ const activeModelDisplay = computed(() => {
         class="w-fit flex cursor-pointer items-center justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/30 dark:bg-neutral-800/70"
         :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
         :title="title"
-        @click="isOpen = !isOpen"
+        @click.stop="isOpen = !isOpen"
       >
         <div class="i-ph:brain-duotone size-5 text-neutral-500 dark:text-neutral-400" />
       </button>
@@ -273,7 +275,7 @@ const activeModelDisplay = computed(() => {
         class="h-9 inline-flex cursor-pointer items-center gap-2 border border-neutral-200 rounded-xl bg-white px-3 text-xs text-neutral-700 font-medium shadow-sm transition-all dark:border-neutral-800 hover:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-primary-800"
         :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
         :title="title"
-        @click="isOpen = !isOpen"
+        @click.stop="isOpen = !isOpen"
       >
         <div class="i-ph:brain-duotone text-sm text-primary-500" />
         <span class="max-w-40 truncate text-[11px] font-mono">
@@ -286,7 +288,7 @@ const activeModelDisplay = computed(() => {
         class="flex cursor-pointer items-center justify-center rounded-xl p-1.5 text-neutral-500 transition-colors duration-200 ease-in-out hover:bg-neutral-200 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
         :title="title"
-        @click="isOpen = !isOpen"
+        @click.stop="isOpen = !isOpen"
       >
         <div class="i-ph:brain-duotone text-base" />
       </button>

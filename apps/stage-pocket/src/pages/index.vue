@@ -23,6 +23,10 @@ import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
+defineOptions({
+  name: 'IndexScenePage',
+})
+
 const paused = ref(false)
 
 function handleSettingsOpen(open: boolean) {

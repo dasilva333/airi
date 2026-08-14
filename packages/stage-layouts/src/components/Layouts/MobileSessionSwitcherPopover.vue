@@ -16,7 +16,9 @@ const popoverRef = ref<HTMLElement>()
 const showManageModal = ref(false)
 
 onClickOutside(popoverRef, () => {
-  isOpen.value = false
+  if (isOpen.value) {
+    isOpen.value = false
+  }
 })
 
 // List of sessions for dropdown
@@ -108,7 +110,7 @@ function handleOpenManage() {
       ]"
       type="button"
       title="Switch Timeline / Story"
-      @click="isOpen = !isOpen"
+      @click.stop="isOpen = !isOpen"
     >
       <div class="i-solar:notebook-bookmark-bold-duotone size-3.5 shrink-0 text-primary-500" />
       <span class="max-w-24 truncate text-neutral-800 sm:max-w-36 dark:text-neutral-200">

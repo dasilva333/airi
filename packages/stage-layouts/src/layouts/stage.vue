@@ -9,7 +9,7 @@ const { isLoginDrawerOpen } = storeToRefs(authStore)
 </script>
 
 <template>
-  <main h-full font-cute>
+  <main h-full font-sans>
     <RouterView />
     <LoginDrawer v-model:open="isLoginDrawerOpen" />
   </main>

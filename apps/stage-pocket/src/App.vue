@@ -68,10 +68,6 @@ onMounted(async () => {
   analyticsStore.initialize()
   cardStore.initialize()
 
-  if (onboardingStore.needsOnboarding) {
-    onboardingStore.showingSetup = true
-  }
-
   await serverChannelStore.initialize({ possibleEvents: ['ui:configure'] }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
   await contextBridgeStore.initialize()
   characterOrchestratorStore.initialize()
