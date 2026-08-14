@@ -144,7 +144,7 @@ export const useModelStore = defineStore('modelStore', () => {
   const cameraPosition = useLocalStorage('settings/stage-ui-three/camera-position', { x: 0, y: 0, z: -1 })
   const cameraDistance = useLocalStorage('settings/stage-ui-three/cameraDistance', 0)
 
-  const interactionMode = useLocalStorage<InteractionMode>('settings/stage-ui-three/interaction-mode', 'orbit')
+  const interactionMode = useLocalStorage<InteractionMode>('settings/stage-ui-three/interaction-mode', 'tactile')
 
   const lookAtTarget = useLocalStorage('settings/stage-ui-three/lookAtTarget', { x: 0, y: 0, z: 0 })
   const trackingMode = useLocalStorage('settings/stage-ui-three/trackingMode', 'none' as 'camera' | 'mouse' | 'none')
@@ -170,6 +170,8 @@ export const useModelStore = defineStore('modelStore', () => {
     cameraFOV.value = 40
     cameraPosition.value = { x: 0, y: 0, z: 0 }
     cameraDistance.value = 0
+
+    interactionMode.value = 'tactile'
 
     lookAtTarget.value = { x: 0, y: 0, z: 0 }
     trackingMode.value = 'none'

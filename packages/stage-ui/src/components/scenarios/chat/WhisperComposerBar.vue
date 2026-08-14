@@ -213,6 +213,7 @@ function handleChooseOption(choice: { title: string, message: string }, isPlayba
   if (!isPlaybackOnly) {
     const autoSend = localStorage.getItem('airi:producer:auto-send') === 'true'
     if (autoSend) {
+      producerSuggestion.value = null
       handleSend()
     }
   }

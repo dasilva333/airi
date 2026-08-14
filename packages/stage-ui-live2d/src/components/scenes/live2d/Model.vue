@@ -75,7 +75,7 @@ const props = withDefaults(defineProps<{
   live2dForceAutoBlinkEnabled: false,
   live2dShadowEnabled: true,
   idleAnimations: () => [],
-  interactionMode: 'orbit',
+  interactionMode: 'tactile',
 })
 
 const emits = defineEmits<{

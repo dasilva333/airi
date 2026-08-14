@@ -109,6 +109,11 @@ export function useProducer() {
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
   const cacheAligned = useLocalStorage('airi:producer:cache-aligned', true)
+  if (typeof window !== 'undefined' && localStorage.getItem('airi:producer:cache-aligned-migrated-v1') !== 'true') {
+    cacheAligned.value = true
+    localStorage.setItem('airi:producer:cache-aligned-migrated-v1', 'true')
+    localStorage.setItem('airi:producer:cache-aligned', 'true')
+  }
   const airiCardStore = useAiriCardStore()
   const customPromptTemplate = useLocalStorage(
     computed(() => `airi:producer:system-prompt-template:${airiCardStore.activeCardId || 'global'}`),

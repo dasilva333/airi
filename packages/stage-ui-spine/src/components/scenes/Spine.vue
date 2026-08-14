@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<{
   idleAnimationEnabled: true,
   maxFps: 0,
   renderScale: 1,
-  interactionMode: 'orbit',
+  interactionMode: 'tactile',
   xOffset: 0,
   yOffset: 0,
   scale: 1,

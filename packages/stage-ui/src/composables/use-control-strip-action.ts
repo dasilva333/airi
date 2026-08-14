@@ -91,12 +91,9 @@ export function useControlStripAction() {
         colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
         break
 
-      case 'caption-theme-mode': {
-        const themes: ('dark' | 'light' | 'system')[] = ['dark', 'light', 'system']
-        const currIdx = themes.indexOf((settingsStore.captionThemeMode as any) || 'system')
-        settingsStore.captionThemeMode = themes[(currIdx + 1) % themes.length]
+      case 'caption-theme-mode':
+        colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
         break
-      }
 
       case 'caption-sync-position':
         settingsStore.captionFollowStagePosition = !settingsStore.captionFollowStagePosition

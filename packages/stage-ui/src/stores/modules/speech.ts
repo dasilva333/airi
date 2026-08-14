@@ -423,6 +423,16 @@ export const useSpeechStore = defineStore('speech', () => {
       }
     }
     else {
+      if (model === 'virtual' || (targetProvider as any)?.speech?.('virtual')?.baseURL?.includes('virtual-audio-studio')) {
+        const fallbackProviderId = activeSpeechProvider.value !== 'virtual-audio-studio' && activeSpeechProvider.value !== 'speech-noop'
+          ? activeSpeechProvider.value
+          : 'pocket-tts-local'
+        const rawFallback = await providersStore.getProviderInstance(fallbackProviderId)
+        if (rawFallback) {
+          targetProvider = rawFallback as any
+          targetModel = activeSpeechModel.value || (providersStore.getProviderConfig(fallbackProviderId)?.model as string) || 'english_2026-04'
+        }
+      }
       transformedInput = transformTextForSpeech(input, activeSpeechProvider.value)
     }
 

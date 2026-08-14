@@ -26,6 +26,7 @@ import { createAliyunNLSProvider as createAliyunNlsStreamProvider } from '../ali
 import { isBrowserAndMemoryEnough, logWarn, validateProviderBaseUrl } from '../helpers'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { createWebSpeechAPIProvider } from '../web-speech-api'
+import { createWhisperLocalTranscriptionProvider } from '../whisper-local'
 
 const ALIYUN_NLS_REGIONS = [
   'cn-shanghai',
@@ -70,14 +71,14 @@ export const transcriptionMetadata = {
     requiresCredentials: false,
     isAvailableBy: isBrowserAndMemoryEnough,
     defaultOptions: () => ({}),
-    createProvider: async () => ({
-      transcription: () => ({
-        baseURL: 'http://browser-local-audio-transcription.invalid/v1/',
-        model: 'noop',
-      }),
-    }),
+    createProvider: async (config?: any) => createWhisperLocalTranscriptionProvider(config),
     capabilities: {
-      listModels: async () => [],
+      listModels: async () => [
+        { id: 'onnx-community/whisper-tiny.en', name: 'Whisper Tiny (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
+        { id: 'onnx-community/whisper-base.en', name: 'Whisper Base (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
+        { id: 'onnx-community/whisper-small.en', name: 'Whisper Small (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
+        { id: 'onnx-community/whisper-large-v3-turbo', name: 'Whisper Large v3 Turbo (High Perf)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
+      ],
       listVoices: async () => [],
     },
     validators: {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { CUSTOMIZER_CATALOG } from '@proj-airi/stage-ui/constants/control-customizer'
-import { DEFAULT_BUTTONS, DEFAULT_MOBILE_BUTTONS, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
+import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -131,13 +131,7 @@ function handleMoveButton(indexInActive: number, direction: 'left' | 'right') {
 
 // Reset strip to default buttons
 function handleResetDefaults() {
-  const isDesktop = isStageTamagotchi()
-  if (isDesktop) {
-    buttons.value = [...DEFAULT_BUTTONS]
-  }
-  else {
-    buttons.value = [...DEFAULT_MOBILE_BUTTONS]
-  }
+  controlStripStore.resetButtons()
 }
 
 function handleGoBack() {

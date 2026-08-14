@@ -267,15 +267,15 @@ export function streamWebSpeechAPITranscription(
       return
     }
 
-    if (errorType === 'audio-capture') {
-      console.warn('Web Speech API: Microphone access issue. Please check microphone permissions.')
+    if (errorType === 'aborted') {
       return
     }
 
-    if (errorType === 'network' || errorType === 'aborted') {
-      return
-    }
-    const error = new Error(`Speech recognition error: ${errorType}`)
+    const isNetworkError = errorType === 'network'
+    const errorMsg = isNetworkError
+      ? 'Web Speech API network error: Unable to reach speech service. Please check your internet connection or use Local Whisper.'
+      : `Speech recognition error: ${errorType}`
+    const error = new Error(errorMsg)
     fullStreamCtrl?.error(error)
     textStreamCtrl?.error(error)
     deferredText.reject(error)
@@ -284,15 +284,17 @@ export function streamWebSpeechAPITranscription(
   }
 
   recognition.onend = () => {
-    console.info('Web Speech API recognition ended. Continuous mode:', options?.continuous !== false, 'Aborted:', options?.abortSignal?.aborted)
+    console.info('Web Speech API recognition ended. Continuous mode:', options?.continuous !== false, 'Aborted:', options?.abortSignal?.aborted, 'Rejected:', deferredText.isRejected)
 
-    // If continuous mode and not aborted, restart recognition
-    if (options?.continuous !== false && !options?.abortSignal?.aborted) {
+    // If continuous mode, not aborted, and not rejected due to an error, restart recognition
+    if (options?.continuous !== false && !options?.abortSignal?.aborted && !deferredText.isRejected) {
       // Use the current recognitionInstance to ensure we're using the correct instance
       const currentRecognition = recognitionInstance || recognition
 
       // Small delay before restarting to avoid rapid restart loops
       setTimeout(() => {
+        if (options?.abortSignal?.aborted || deferredText.isRejected)
+          return
         try {
           currentRecognition.start()
           console.info('Web Speech API recognition restarted (continuous mode)')

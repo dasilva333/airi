@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<{
   defaultMixDuration: 0.2,
   idleAnimationEnabled: true,
   maxFps: 0,
-  interactionMode: 'orbit',
+  interactionMode: 'tactile',
   xOffset: 0,
   yOffset: 0,
   scale: 1,

@@ -667,8 +667,9 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!isModelSyncPrevented.value) {
       const newModelId = extension.active_state?.displayModelId ?? extension.modules?.displayModelId
       const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
+      const rendererUninitialized = !stageModelStore.stageModelRenderer || !stageModelStore.stageModelSelectedDisplayModel
 
-      if (newModelId && modelChanged) {
+      if (newModelId && (modelChanged || force || rendererUninitialized)) {
         stageModelStore.stageModelSelected = newModelId
         // updateStageModel has internal stability guards for blob URL creation
         await stageModelStore.updateStageModel()

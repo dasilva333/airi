@@ -112,19 +112,42 @@ async function startWhisperDownload() {
   whisperDownloadState.value = 'downloading'
   whisperProgress.value = 0
   whisperErrorMessage.value = ''
+
+  const shardMap = new Map<string, { loaded: number, total: number }>()
+
   try {
     await ensureWhisperLoaded({
       model: selectedWhisperModel.value,
       signal: controller.signal,
       onProgress: (p: ProgressPayload) => {
-        if (typeof p.percent === 'number' && p.percent >= 0)
-          whisperProgress.value = Math.min(100, p.percent)
-        else if (p.loaded && p.total)
-          whisperProgress.value = Math.min(100, (p.loaded / p.total) * 100)
+        if (p.file) {
+          shardMap.set(p.file, {
+            loaded: p.loaded || 0,
+            total: p.total || 0,
+          })
+          let sumLoaded = 0
+          let sumTotal = 0
+          for (const s of shardMap.values()) {
+            sumLoaded += s.loaded
+            sumTotal += s.total
+          }
+          if (sumTotal > 0) {
+            const calculated = Math.round((sumLoaded / sumTotal) * 100)
+            whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, calculated))
+          }
+          else if (typeof p.percent === 'number' && p.percent >= 0) {
+            whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, Math.round(p.percent)))
+          }
+        }
+        else if (typeof p.percent === 'number' && p.percent >= 0) {
+          whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, Math.round(p.percent)))
+        }
       },
     })
-    if (!controller.signal.aborted)
+    if (!controller.signal.aborted) {
+      whisperProgress.value = 100
       whisperDownloadState.value = 'ready'
+    }
   }
   catch (err) {
     if (!controller.signal.aborted) {

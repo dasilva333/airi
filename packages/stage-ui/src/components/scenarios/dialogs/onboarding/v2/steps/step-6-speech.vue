@@ -49,8 +49,8 @@ const isEngineReady = ref(false)
 
 const speed = ref(1.0)
 const pitch = ref(1.0)
-const userSpeed = ref(1.0)
-const userPitch = ref(1.0)
+const userSpeed = ref(draftStore.state.userProfile.rate ?? 1.0)
+const userPitch = ref(draftStore.state.userProfile.pitch ?? 1.0)
 const isPlayingCompanion = ref(false)
 const isPlayingUser = ref(false)
 const selectedUserVoice = ref<string>(userProfileStore.voiceProfileId || draftStore.state.userProfile.voiceProfileId || '')
@@ -377,13 +377,14 @@ watch(availableVoices, (voices) => {
   }
 }, { immediate: true })
 
-watch(selectedUserVoice, (val) => {
+watch([selectedUserVoice, userSpeed, userPitch], ([val, rate, pitch]) => {
   if (val) {
     draftStore.setUserProfile({
       ...draftStore.state.userProfile,
       voiceProfileId: val,
+      rate,
+      pitch,
     })
-    userProfileStore.voiceProfileId = val
   }
 }, { immediate: true })
 

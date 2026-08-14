@@ -6,6 +6,7 @@ import CompanionBubble from '../components/companion-bubble.vue'
 import { DEFAULT_POST_HISTORY_INSTRUCTIONS, getStarterCharacter, STARTER_CHARACTERS } from '../../../../../../constants/prompts/character-defaults'
 import { useDisplayModelsStore } from '../../../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../../../stores/modules/airi-card'
+import { useSpeechStore } from '../../../../../../stores/modules/speech'
 import { useOnboardingStore } from '../../../../../../stores/onboarding'
 import { useSettingsUserProfile } from '../../../../../../stores/settings/user-profile'
 import { useOnboardingV2Draft } from '../draft-store'
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 
 const userProfileStore = useSettingsUserProfile()
 const cardStore = useAiriCardStore()
+const speechStore = useSpeechStore()
 const onboardingStore = useOnboardingStore()
 const draftStore = useOnboardingV2Draft()
 const displayModelsStore = useDisplayModelsStore()
@@ -118,6 +120,14 @@ const resolvedVesselName = computed(() => {
   const modelId = draftStore.state.vessel.displayModelId
   if (!modelId)
     return 'Hiyori (Free)'
+  const starter = [
+    { id: 'preset-live2d-2', name: 'Hiyori (Free)' },
+    { id: 'preset-live2d-1', name: 'Hiyori (Pro)' },
+    { id: 'preset-vrm-1', name: 'AvatarSample_A' },
+    { id: 'preset-vrm-2', name: 'AvatarSample_B' },
+  ].find(b => b.id === modelId)
+  if (starter)
+    return starter.name
   const found = displayModelsStore.displayModels.find(m => m.id === modelId)
   return found?.name || modelId
 })
@@ -168,7 +178,28 @@ const compiledCardPayload = computed(() => {
     : {}
 
   if (draft.persona.importedCardDraft) {
-    return draft.persona.importedCardDraft
+    const card = JSON.parse(JSON.stringify(draft.persona.importedCardDraft))
+    const isV3 = 'data' in card
+    const extTarget = isV3 ? (card.data.extensions = card.data.extensions || {}) : (card.extensions = card.extensions || {})
+    extTarget.airi = extTarget.airi || {}
+    extTarget.airi.modules = extTarget.airi.modules || {}
+    if (draft.vessel.displayModelId) {
+      extTarget.airi.modules.displayModelId = draft.vessel.displayModelId
+    }
+    if (draft.consciousness.provider) {
+      extTarget.airi.modules.consciousness = {
+        provider: draft.consciousness.provider,
+        model: draft.consciousness.model || '',
+      }
+    }
+    if (draft.speech.provider) {
+      extTarget.airi.modules.speech = {
+        provider: draft.speech.provider,
+        model: draft.speech.model || '',
+        voice_id: draft.speech.voiceId || '',
+      }
+    }
+    return card
   }
 
   const greetings = resolvedPersona.value.greetings || []
@@ -233,13 +264,51 @@ async function handleFinish() {
     userProfileStore.prompt = draft.userProfile.prompt
   }
   if (draft.userProfile.voiceProfileId) {
-    userProfileStore.voiceProfileId = draft.userProfile.voiceProfileId
+    const rawVoice = draft.userProfile.voiceProfileId
+    const baseProvider = draft.speech.provider || 'pocket-tts-local'
+    const baseModel = draft.speech.model || 'english_2026-04'
+    const userVoiceRate = draft.userProfile.rate ?? 1.0
+    const userVoicePitch = draft.userProfile.pitch ?? 1.0
+    const userNameStr = draft.userProfile.name || 'User'
+    const profileId = `voice_profile_user_${userNameStr.toLowerCase().replace(/\s+/g, '_')}`
+
+    const newProfile = {
+      id: profileId,
+      name: `${userNameStr}'s Voice`,
+      baseProvider,
+      baseModel,
+      baseVoice: rawVoice,
+      effects: {
+        pitch: userVoicePitch,
+        rate: userVoiceRate,
+        volume: 1.0,
+        asmr: 0,
+        radio: 0,
+        robot: 0,
+        reverb: 0,
+        spatial: 0,
+      },
+      ust: {
+        enabled: true,
+        mode: 'mute' as any,
+        customStripChars: '*_[]()<>"\'',
+        stripEmojis: true,
+        tildeReplacement: '',
+        autoLowercaseCapsThreshold: 2,
+        autoLowercaseCapsExclude: [],
+        convertBracketsToTokenFormat: true,
+        customReplacements: [],
+      },
+    }
+
+    speechStore.saveVoiceProfile(newProfile as any)
+    userProfileStore.voiceProfileId = profileId
   }
 
   // Synthesize and persist the brand new card payload
   const payload = compiledCardPayload.value
   const newCardId = await cardStore.addCard(payload)
-  await cardStore.activateCard(newCardId)
+  await cardStore.activateCard(newCardId, true)
 
   onboardingStore.markSetupCompleted()
   draftStore.reset()

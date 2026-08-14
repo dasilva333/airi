@@ -78,6 +78,10 @@ function handleTouchEnd(e: TouchEvent) {
     }
   }
 }
+
+defineExpose({
+  composerRef,
+})
 </script>
 
 <template>
@@ -112,7 +116,7 @@ function handleTouchEnd(e: TouchEvent) {
         'pointer-events-auto w-full flex flex-col transition-all duration-300 ease-out',
         'border-t border-neutral-200/80 dark:border-neutral-800/80',
         'bg-white/95 dark:bg-neutral-900/90 backdrop-blur-2xl shadow-2xl shadow-black/10',
-        currentPosture === 'history' ? 'rounded-t-3xl h-[85dvh]' : 'rounded-t-2xl',
+        currentPosture === 'history' ? 'rounded-t-3xl h-[85dvh]' : 'rounded-t-2xl max-h-[50dvh]',
       ]"
       :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '')), 12)}px` }"
       @touchstart="handleTouchStart"
@@ -131,33 +135,40 @@ function handleTouchEnd(e: TouchEvent) {
         />
       </div>
 
-      <!-- Expanded History Archive (Posture 3) -->
+      <!-- Expanded History Archive Header (Posture 3) -->
       <div
         v-if="currentPosture === 'history'"
-        class="min-h-0 flex flex-1 flex-col overflow-hidden px-3 pb-2"
+        class="flex items-center justify-between border-b border-neutral-200/60 px-4 pb-2 pt-0.5 dark:border-neutral-800/60"
       >
-        <div class="flex items-center justify-between border-b border-neutral-200/60 px-1 pb-2 pt-0.5 dark:border-neutral-800/60">
-          <div class="flex items-center gap-2">
-            <div class="i-solar:chat-round-line-linear size-4 text-primary-500" />
-            <span class="text-[11px] text-neutral-500 font-bold tracking-wider font-sans uppercase dark:text-neutral-400">
-              Conversation History
-            </span>
-          </div>
-          <button
-            type="button"
-            class="cursor-pointer rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 font-semibold transition dark:bg-neutral-800 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-700"
-            @click="setPosture('conversation')"
-          >
-            Done
-          </button>
+        <div class="flex items-center gap-2">
+          <div class="i-solar:chat-round-line-linear size-4 text-primary-500" />
+          <span class="text-[11px] text-neutral-500 font-bold tracking-wider font-sans uppercase dark:text-neutral-400">
+            Conversation History
+          </span>
         </div>
+        <button
+          type="button"
+          class="cursor-pointer rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 font-semibold transition dark:bg-neutral-800 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          @click="setPosture('conversation')"
+        >
+          Done
+        </button>
+      </div>
 
+      <!-- Chat History (Active in Posture 1 and Posture 3) -->
+      <div
+        v-if="currentPosture === 'history' || historyMessages.length > 0 || sending || streamingMessage?.content"
+        :class="[
+          'min-h-0 flex flex-1 flex-col overflow-hidden px-3 pb-1',
+          currentPosture === 'history' ? 'pt-2' : 'max-h-[38dvh]',
+        ]"
+      >
         <ChatHistory
           variant="mobile"
           :messages="historyMessages"
           :sending="sending"
           :streaming-message="streamingMessage"
-          class="min-h-0 flex-1 overflow-y-auto pt-2"
+          class="min-h-0 flex-1 overflow-y-auto"
         />
       </div>
 

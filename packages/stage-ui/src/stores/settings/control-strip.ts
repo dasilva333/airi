@@ -1,3 +1,4 @@
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
@@ -14,7 +15,7 @@ export interface ControlStripButton {
 
 // CRITICAL NOTICE: Bumping BUTTONS_CATALOG_VERSION will COMPLETELY WIPE every user's custom control strip button arrangement and force-reset them to defaults.
 // * DO NOT bump this version simply for adding new button IDs or changing defaults.
-// * The automatic merge logic below will safely append new DEFAULT_BUTTONS to existing user lists without wiping their custom states.
+// * The automatic merge logic below will safely append new defaults to existing user lists without wiping their custom states.
 // * ONLY bump this version if there is a severe, incompatible breaking change in the data structure itself (e.g. data schema type changes) where old layouts are fundamentally broken.
 const BUTTONS_CATALOG_VERSION = 'v4'
 
@@ -47,6 +48,10 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'gemini-session', enabled: true, label: 'Active Session', icon: 'i-ph:sparkle' },
   { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
 ]
+
+export function getDefaultControlStripButtons(): ControlStripButton[] {
+  return isStageTamagotchi() ? DEFAULT_BUTTONS : DEFAULT_MOBILE_BUTTONS
+}
 
 export const useSettingsControlStrip = defineStore('settings-control-strip', () => {
   const orientation = useLocalStorageManualReset<'vertical' | 'horizontal'>('settings/control-strip/orientation', 'vertical')
@@ -81,42 +86,46 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   const dockedEdge = ref<'left' | 'right' | 'top' | 'bottom' | null>(null)
   const selfieIncludeBg = useLocalStorageManualReset<boolean>('settings/control-strip/selfie-include-bg', true)
 
+  const defaultButtons = getDefaultControlStripButtons()
+  const expectedVersion = isStageTamagotchi() ? BUTTONS_CATALOG_VERSION : `${BUTTONS_CATALOG_VERSION}-mobile`
+
   // NOTICE: buttons uses useLocalStorage directly (not the ManualReset wrapper) because
   // useLocalStorageManualReset has a shallow watcher that doesn't reliably propagate
   // array-reference replacements back to localStorage in the Electron multi-window context.
   // useLocalStorage owns its own serialization watcher and is the source of truth.
-  const buttons = useLocalStorage<ControlStripButton[]>('settings/control-strip/buttons', DEFAULT_BUTTONS)
+  const buttons = useLocalStorage<ControlStripButton[]>('settings/control-strip/buttons', defaultButtons)
 
-  // On first load, check if stored data is from a stale catalog version.
-  // If so, wipe it and start fresh with DEFAULT_BUTTONS rather than silently
-  // producing a partial/broken state from old code shapes.
+  // On first load, check if stored data is from a stale catalog version or different platform.
+  // Desktop preserves existing 'v4' and 'v5' configs without wiping user layouts.
   const storedVersion = localStorage.getItem('settings/control-strip/buttons-version')
-  if (storedVersion !== 'v4' && storedVersion !== 'v5') {
-    buttons.value = [...DEFAULT_BUTTONS]
-    localStorage.setItem('settings/control-strip/buttons-version', BUTTONS_CATALOG_VERSION)
+  const isValidDesktopVersion = isStageTamagotchi() && (storedVersion === 'v4' || storedVersion === 'v5')
+  const isValidMobileVersion = !isStageTamagotchi() && storedVersion === 'v4-mobile'
+
+  if (!isValidDesktopVersion && !isValidMobileVersion) {
+    buttons.value = [...defaultButtons]
+    localStorage.setItem('settings/control-strip/buttons-version', expectedVersion)
   }
   else if (Array.isArray(buttons.value)) {
     // Version matches: merge carefully, preserving user's enabled states and custom order.
-    // NOTICE: We validate against ALL_KNOWN_IDS (DEFAULT_BUTTONS + full CUSTOMIZER_CATALOG)
-    // because users can enable catalog items (like always-on-top) that aren't in DEFAULT_BUTTONS.
-    // Previously this only checked DEFAULT_BUTTONS, which stripped user-added catalog items on reload.
+    // NOTICE: We validate against ALL_KNOWN_IDS (defaultButtons + full CUSTOMIZER_CATALOG)
+    // because users can enable catalog items (like always-on-top) that aren't in defaultButtons.
     const allCatalogItems = CUSTOMIZER_CATALOG.flatMap(g => g.items)
     const allKnownIds = new Set([
-      ...DEFAULT_BUTTONS.map(b => b.id),
+      ...defaultButtons.map(b => b.id),
       ...allCatalogItems.map(i => i.id),
     ])
 
     let changed = false
     const existing = [...buttons.value]
 
-    // 1. Remove buttons whose IDs no longer exist in either DEFAULT_BUTTONS or the catalog
+    // 1. Remove buttons whose IDs no longer exist in either defaultButtons or the catalog
     const filtered = existing.filter(btn => allKnownIds.has(btn.id))
     if (filtered.length !== existing.length)
       changed = true
 
-    // 2. Sync icons/labels from DEFAULT_BUTTONS or catalog; preserve user's enabled state
+    // 2. Sync icons/labels from defaultButtons or catalog; preserve user's enabled state
     const updated = filtered.map((btn) => {
-      const def = DEFAULT_BUTTONS.find(d => d.id === btn.id)
+      const def = defaultButtons.find(d => d.id === btn.id)
       const catalogDef = allCatalogItems.find(c => c.id === btn.id)
       const canonical = def || catalogDef
       if (canonical && (btn.icon !== canonical.icon || btn.label !== canonical.label)) {
@@ -126,8 +135,8 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
       return btn
     })
 
-    // 3. Append any DEFAULT_BUTTONS entries not yet in the user's list
-    for (const def of DEFAULT_BUTTONS) {
+    // 3. Append any defaultButtons entries not yet in the user's list
+    for (const def of defaultButtons) {
       if (!updated.some(btn => btn.id === def.id)) {
         updated.push({ ...def })
         changed = true
@@ -158,8 +167,10 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   }
 
   function resetButtons() {
-    buttons.value = [...DEFAULT_BUTTONS]
-    localStorage.setItem('settings/control-strip/buttons-version', BUTTONS_CATALOG_VERSION)
+    const defaultButtons = getDefaultControlStripButtons()
+    buttons.value = [...defaultButtons]
+    const expectedVersion = isStageTamagotchi() ? BUTTONS_CATALOG_VERSION : `${BUTTONS_CATALOG_VERSION}-mobile`
+    localStorage.setItem('settings/control-strip/buttons-version', expectedVersion)
   }
 
   function resetState() {

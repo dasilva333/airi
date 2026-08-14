@@ -184,8 +184,9 @@ onBeforeUnmount(() => {
         <button
           v-for="(choice, idx) in message.choices"
           :key="idx"
+          type="button"
           :class="[
-            'group relative border rounded-xl bg-primary-100/10 dark:bg-neutral-900/20 p-3 text-left transition-all active:scale-[0.98]',
+            'group relative border rounded-xl bg-primary-100/10 dark:bg-neutral-900/20 p-3 text-left transition-all active:scale-[0.98] cursor-pointer',
             'hover:border-primary-500/40 hover:bg-primary-50/50 dark:hover:bg-primary-950/10 hover:shadow-[0_2px_10px_rgba(var(--primary-rgb),0.05)]',
             activePlayingIndex === idx
               ? 'border-primary-500/50 bg-primary-50/50 dark:bg-primary-950/10'
