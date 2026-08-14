@@ -303,8 +303,8 @@ const whisperDockRef = ref<any>(null)
 const actorSuggestions = ref<any[]>([])
 const isGeneratingSuggestions = ref(false)
 
-const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 4)
-const cacheAligned = useLocalStorage('airi:producer:cache-aligned', false)
+const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 2)
+const cacheAligned = useLocalStorage('airi:producer:cache-aligned', true)
 const contextDepth = useLocalStorage('airi:producer:context-depth', 6)
 const shortReplies = useLocalStorage('airi:producer:short-replies', true)
 
@@ -431,7 +431,7 @@ async function handleGetSuggestions(guidance: string) {
     }))
 
     // Auto-play respect settings
-    const autoPlayAll = localStorage.getItem('airi:producer:auto-play-all') === 'true'
+    const autoPlayAll = (localStorage.getItem('airi:producer:auto-play-all') ?? 'true') === 'true'
     if (autoPlayAll && choices.length > 0) {
       void playAllChoices()
     }

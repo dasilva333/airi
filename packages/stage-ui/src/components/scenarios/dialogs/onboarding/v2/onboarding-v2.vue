@@ -183,43 +183,41 @@ function handleFinish() {
 
     <!-- Step content -->
     <div class="min-h-0 flex-1 overflow-x-hidden">
-      <Transition :name="direction === 'next' ? 'v2-slide-next' : 'v2-slide-prev'" mode="out-in">
-        <StepStartChoice
-          v-if="currentId === 'triage'"
-          key="triage"
-          :on-next="requestNextStep"
-          :on-previous="requestPreviousStep"
-          :on-select-path="handleSelectPath"
-        />
-        <!-- Returning-user path stays on V1's restore pipeline -->
-        <div
-          v-else-if="currentId === 'hearing' && v2State.path === 'returning'"
-          key="returning-notice"
-          class="h-full flex flex-col items-center justify-center gap-4 px-6 text-center"
+      <StepStartChoice
+        v-if="currentId === 'triage'"
+        key="triage"
+        :on-next="requestNextStep"
+        :on-previous="requestPreviousStep"
+        :on-select-path="handleSelectPath"
+      />
+      <!-- Returning-user path stays on V1's restore pipeline -->
+      <div
+        v-else-if="currentId === 'hearing' && v2State.path === 'returning'"
+        key="returning-notice"
+        class="h-full flex flex-col items-center justify-center gap-4 px-6 text-center"
+      >
+        <div class="i-solar:cloud-storage-bold-duotone h-14 w-14 text-purple-500" />
+        <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
+          Returning User Restore (Preserved V1 Flow)
+        </h3>
+        <p class="max-w-md text-sm text-neutral-500 leading-relaxed dark:text-neutral-400">
+          Google Cloud OAuth / S3 sync restore is intentionally preserved from V1 and is not part of this UI mockup.
+        </p>
+        <button
+          class="text-sm text-primary-500 font-medium hover:underline"
+          @click="() => { handleSelectPath('new'); direction = 'previous'; v2State.stepId = 'triage' }"
         >
-          <div class="i-solar:cloud-storage-bold-duotone h-14 w-14 text-purple-500" />
-          <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
-            Returning User Restore (Preserved V1 Flow)
-          </h3>
-          <p class="max-w-md text-sm text-neutral-500 leading-relaxed dark:text-neutral-400">
-            Google Cloud OAuth / S3 sync restore is intentionally preserved from V1 and is not part of this UI mockup.
-          </p>
-          <button
-            class="text-sm text-primary-500 font-medium hover:underline"
-            @click="() => { handleSelectPath('new'); direction = 'previous'; v2State.stepId = 'triage' }"
-          >
-            ← Back to Path Triage
-          </button>
-        </div>
-        <Step0Welcome v-else-if="currentId === 'welcome'" key="welcome" :on-next="requestNextStep" :on-skip="handleSkip" />
-        <Step1Hearing v-else-if="currentId === 'hearing'" key="hearing" />
-        <Step2Consciousness v-else-if="currentId === 'consciousness'" key="consciousness" />
-        <Step3UserProfile v-else-if="currentId === 'profile'" key="profile" />
-        <Step4Persona v-else-if="currentId === 'persona'" key="persona" />
-        <Step5Vessel v-else-if="currentId === 'vessel'" key="vessel" />
-        <Step6Speech v-else-if="currentId === 'speech'" key="speech" />
-        <Step7Calibration v-else-if="currentId === 'calibration'" key="calibration" :on-finish="handleFinish" />
-      </Transition>
+          ← Back to Path Triage
+        </button>
+      </div>
+      <Step0Welcome v-else-if="currentId === 'welcome'" key="welcome" :on-next="requestNextStep" :on-skip="handleSkip" />
+      <Step1Hearing v-else-if="currentId === 'hearing'" key="hearing" />
+      <Step2Consciousness v-else-if="currentId === 'consciousness'" key="consciousness" />
+      <Step3UserProfile v-else-if="currentId === 'profile'" key="profile" />
+      <Step4Persona v-else-if="currentId === 'persona'" key="persona" />
+      <Step5Vessel v-else-if="currentId === 'vessel'" key="vessel" />
+      <Step6Speech v-else-if="currentId === 'speech'" key="speech" />
+      <Step7Calibration v-else-if="currentId === 'calibration'" key="calibration" :on-finish="handleFinish" />
     </div>
 
     <!-- Global nav footer (hidden for steps with their own navigation) -->
@@ -258,85 +256,3 @@ function handleFinish() {
     </div>
   </div>
 </template>
-
-<style scoped>
-.v2-slide-next-enter-active,
-.v2-slide-next-leave-active,
-.v2-slide-prev-enter-active,
-.v2-slide-prev-leave-active {
-  will-change: transform, opacity;
-}
-
-.v2-slide-next-enter-active {
-  animation: v2-slide-next-in 0.2s ease-in-out both;
-}
-
-.v2-slide-next-leave-active {
-  animation: v2-slide-next-out 0.2s ease-in-out both;
-}
-
-.v2-slide-prev-enter-active {
-  animation: v2-slide-prev-in 0.2s ease-in-out both;
-}
-
-.v2-slide-prev-leave-active {
-  animation: v2-slide-prev-out 0.2s ease-in-out both;
-}
-
-@keyframes v2-slide-next-in {
-  from {
-    transform: translateX(2rem);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes v2-slide-next-out {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  to {
-    transform: translateX(-2rem);
-    opacity: 0;
-  }
-}
-
-@keyframes v2-slide-prev-in {
-  from {
-    transform: translateX(-2rem);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes v2-slide-prev-out {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  to {
-    transform: translateX(2rem);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .v2-slide-next-enter-active,
-  .v2-slide-next-leave-active,
-  .v2-slide-prev-enter-active,
-  .v2-slide-prev-leave-active {
-    animation-duration: 1ms;
-  }
-}
-</style>

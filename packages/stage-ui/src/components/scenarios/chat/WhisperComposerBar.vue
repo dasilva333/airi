@@ -65,7 +65,7 @@ const isProducerModalOpen = ref(false)
 const producerSuggestion = ref<{ choices: Array<{ title: string, message: string }>, loading?: boolean } | null>(null)
 const lastProducerConfig = ref<{ guidance: string, contextDepth: number, count: number, shortReplies: boolean } | null>(null)
 const quickSuggestContextDepth = useLocalStorage('airi:producer:context-depth', 6)
-const quickSuggestCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const quickSuggestCount = useLocalStorage('airi:producer:suggestion-count', 2)
 const quickSuggestShortReplies = useLocalStorage('airi:producer:short-replies', true)
 
 function showConfigPrompt(reason: string) {
@@ -77,8 +77,12 @@ function handleOpenWizard() {
   isConfigModalOpen.value = false
   onboardingStore.resetSetupState()
   onboardingStore.forceShowSetup()
+}
+
+function handleOpenUserProfile() {
+  isProducerModalOpen.value = false
   if (router) {
-    router.push('/settings/airi-card/guided').catch(() => {
+    router.push('/settings/system/user-profile').catch(() => {
       router?.push('/settings')
     })
   }
@@ -481,6 +485,7 @@ defineExpose({
       v-model="isProducerModalOpen"
       :character-name="activeCard?.name || 'Companion'"
       @submit="handleProducerSubmit"
+      @open-user-profile="handleOpenUserProfile"
     />
   </div>
 </template>

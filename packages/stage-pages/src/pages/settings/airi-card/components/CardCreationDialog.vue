@@ -3,8 +3,6 @@ import type { Card } from '@proj-airi/ccc'
 import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
 
-import kebabcase from '@stdlib/string-base-kebabcase'
-
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
@@ -38,6 +36,14 @@ import ImageTagExtractorModal from './ImageTagExtractorModal.vue'
 import CardCreationTabActing from './tabs/CardCreationTabActing.vue'
 import CardCreationTabArtistry from './tabs/CardCreationTabArtistry.vue'
 import CardCreationTabCognition from './tabs/CardCreationTabCognition.vue'
+
+function kebabcase(str: string): string {
+  return str
+    .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 import CardCreationTabGeneration from './tabs/CardCreationTabGeneration.vue'
 import CardCreationTabIdentity from './tabs/CardCreationTabIdentity.vue'
 import CardCreationTabModules from './tabs/CardCreationTabModules.vue'

@@ -393,7 +393,7 @@ const lastProducerConfig = ref<{ guidance: string, contextDepth: number, count: 
 const requestNotice = useElectronEventaInvoke(noticeWindowEventa.openWindow)
 
 const quickSuggestContextDepth = useLocalStorage('airi:producer:context-depth', 6)
-const quickSuggestCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const quickSuggestCount = useLocalStorage('airi:producer:suggestion-count', 2)
 const quickSuggestShortReplies = useLocalStorage('airi:producer:short-replies', true)
 
 function handleOpenUserProfile() {

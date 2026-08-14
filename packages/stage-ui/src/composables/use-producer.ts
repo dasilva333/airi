@@ -108,7 +108,7 @@ export function useProducer() {
   const providersStore = useProvidersStore()
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
-  const cacheAligned = useLocalStorage('airi:producer:cache-aligned', false)
+  const cacheAligned = useLocalStorage('airi:producer:cache-aligned', true)
   const airiCardStore = useAiriCardStore()
   const customPromptTemplate = useLocalStorage(
     computed(() => `airi:producer:system-prompt-template:${airiCardStore.activeCardId || 'global'}`),

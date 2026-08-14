@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
 const userProfileStore = useSettingsUserProfile()
 const chatOrchestratorStore = useChatOrchestratorStore()
-const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 2)
 
 const { play: playSpeech, stop: stopSpeech } = useSpeechCaptionPlayer()
 
@@ -101,7 +101,7 @@ function stopPlayAll() {
 // Auto-play all if enabled and choices become loaded/available
 watch(() => props.message.loading, (isLoading) => {
   if (isLoading === false && props.message.choices.length > 0) {
-    const autoPlayAll = localStorage.getItem('airi:producer:auto-play-all') === 'true'
+    const autoPlayAll = (localStorage.getItem('airi:producer:auto-play-all') ?? 'true') === 'true'
     if (autoPlayAll) {
       void playAllChoices()
     }

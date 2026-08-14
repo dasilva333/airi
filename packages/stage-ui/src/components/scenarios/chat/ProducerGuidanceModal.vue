@@ -24,11 +24,11 @@ const airiCardStore = useAiriCardStore()
 const guidance = ref('')
 const contextDepth = useLocalStorage('airi:producer:context-depth', 6)
 const autoSend = useLocalStorage('airi:producer:auto-send', true)
-const autoPlayAll = useLocalStorage('airi:producer:auto-play-all', false)
-const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 4)
+const autoPlayAll = useLocalStorage('airi:producer:auto-play-all', true)
+const suggestionCount = useLocalStorage('airi:producer:suggestion-count', 2)
 const shortReplies = useLocalStorage('airi:producer:short-replies', true)
 
-const cacheAligned = useLocalStorage('airi:producer:cache-aligned', false)
+const cacheAligned = useLocalStorage('airi:producer:cache-aligned', true)
 const showPromptEditor = ref(false)
 const customPromptTemplate = useLocalStorage(
   computed(() => `airi:producer:system-prompt-template:${airiCardStore.activeCardId || 'global'}`),
@@ -63,6 +63,11 @@ watch(() => props.modelValue, (newVal) => {
 
 function close() {
   emit('update:modelValue', false)
+}
+
+function handleOpenUserProfile() {
+  close()
+  emit('openUserProfile')
 }
 
 function handleGenerate() {
@@ -292,8 +297,8 @@ function resetTemplate() {
           <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
             Tip: You can configure the narrator's voice by setting up your
             <button
-              class="text-primary-500 font-semibold underline underline-offset-2 transition-colors hover:text-primary-400"
-              @click="emit('openUserProfile')"
+              class="cursor-pointer text-primary-500 font-semibold underline underline-offset-2 transition-colors hover:text-primary-400"
+              @click="handleOpenUserProfile"
             >
               user's setting
             </button>.
