@@ -60,7 +60,11 @@ const {
   handleSaveAndClear,
   handleClearAnyway,
   handleSend,
-} = useChatComposer()
+} = useChatComposer({
+  onSendError: (err) => {
+    toast.error(err instanceof Error ? err.message : String(err))
+  },
+})
 
 function navigateToImageJournal() {
   if (!activeCardId.value)
@@ -81,14 +85,8 @@ const { audioContext } = useAudioContext()
 const { startAnalyzer, stopAnalyzer, volumeLevel } = useAudioAnalyzer()
 let analyzerSource: MediaStreamAudioSourceNode | undefined
 
-function isMobileDevice() {
-  return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-}
-
 async function handleSubmit() {
-  if (!isMobileDevice()) {
-    await handleSend()
-  }
+  await handleSend()
 }
 
 function teardownAnalyzer() {
@@ -224,11 +222,13 @@ onMounted(() => {
             @compositionend="isComposing = false"
           />
           <button
-            v-if="messageInput.trim() || isComposing || attachments.length > 0"
-            class="aspect-square h-[calc(1lh+4px+4px)] w-[calc(1lh+4px+4px)] flex items-center self-end justify-center rounded-full bg-primary-50/80 text-neutral-500 outline-none backdrop-blur-md transition-all duration-250 ease-in-out dark:bg-neutral-100/80 hover:bg-neutral-50 dark:text-neutral-900 hover:text-neutral-600 dark:hover:text-neutral-800"
+            v-if="messageInput.trim() || isComposing || attachments.length > 0 || sending"
+            :disabled="sending"
+            class="aspect-square h-[calc(1lh+4px+4px)] w-[calc(1lh+4px+4px)] flex items-center self-end justify-center rounded-full bg-primary-50/80 text-neutral-500 outline-none backdrop-blur-md transition-all duration-250 ease-in-out dark:bg-neutral-100/80 hover:bg-neutral-50 dark:text-neutral-900 hover:text-neutral-600 disabled:opacity-60 dark:hover:text-neutral-800"
             @click="handleSend"
           >
-            <div i-solar:arrow-up-outline />
+            <div v-if="sending" class="i-solar:restart-square-bold size-4 animate-spin text-primary-500" />
+            <div v-else class="i-solar:arrow-up-outline" />
           </button>
         </div>
       </div>

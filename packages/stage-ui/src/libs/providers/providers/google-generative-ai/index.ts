@@ -38,10 +38,23 @@ const googleFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init)
 
   // Only intercept chat completion streams
-  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-  const isStream = init?.body && typeof init.body === 'string' && JSON.parse(init.body).stream === true
+  const url = typeof input === 'string'
+    ? input
+    : (input && typeof (input as any).url === 'string')
+        ? (input as any).url
+        : (input instanceof URL ? input.toString() : String(input || ''))
 
-  if (url.includes('/chat/completions') && isStream && response.body) {
+  let isStream = false
+  if (init?.body && typeof init.body === 'string') {
+    try {
+      isStream = JSON.parse(init.body).stream === true
+    }
+    catch {
+      isStream = false
+    }
+  }
+
+  if (url && url.includes('/chat/completions') && isStream && response.body) {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     const encoder = new TextEncoder()

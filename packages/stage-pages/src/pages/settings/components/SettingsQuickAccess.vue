@@ -102,7 +102,7 @@ function navigate(to: string) {
       <span class="text-[10px] text-neutral-400/80 font-normal normal-case">Deep links</span>
     </div>
 
-    <!-- 2-Row Grid (Square Cards: Icon top, Title bottom) -->
+    <!-- 2-Row Grid (Taller cards: Icon top, Multi-line Title bottom) -->
     <div class="flex flex-col gap-1.5">
       <!-- Row 1: Core & Services -->
       <div class="grid grid-cols-5 gap-1.5">
@@ -110,7 +110,7 @@ function navigate(to: string) {
           v-for="item in row1Items"
           :key="item.id"
           :class="[
-            'group flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all duration-200',
+            'group flex flex-col items-center justify-center rounded-xl px-1 py-2 min-h-19 text-center transition-all duration-200',
             'border border-neutral-200/80 bg-white/70 shadow-xs',
             'dark:border-neutral-800/80 dark:bg-neutral-900/60',
             'hover:border-primary-500/50 hover:bg-white hover:-translate-y-0.5 hover:shadow-md',
@@ -120,15 +120,15 @@ function navigate(to: string) {
         >
           <div
             :class="[
-              'h-8 w-8 flex items-center justify-center rounded-lg transition-transform',
+              'h-7 w-7 flex shrink-0 items-center justify-center rounded-lg transition-transform',
               'bg-primary-500/10 text-primary-500',
               'dark:bg-primary-500/15 dark:text-primary-400',
               'group-hover:scale-110',
             ]"
           >
-            <div :class="item.icon" class="text-lg" />
+            <div :class="item.icon" class="text-base" />
           </div>
-          <span class="mt-2 truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400">
+          <span class="line-clamp-2 mt-1 w-full text-[10px] text-neutral-800 font-medium leading-3 dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400">
             {{ item.title }}
           </span>
         </button>
@@ -140,7 +140,7 @@ function navigate(to: string) {
           v-for="item in row2Items"
           :key="item.id"
           :class="[
-            'group flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all duration-200',
+            'group flex flex-col items-center justify-center rounded-xl px-1 py-2 min-h-19 text-center transition-all duration-200',
             'border border-neutral-200/80 bg-white/70 shadow-xs',
             'dark:border-neutral-800/80 dark:bg-neutral-900/60',
             'hover:border-primary-500/50 hover:bg-white hover:-translate-y-0.5 hover:shadow-md',
@@ -150,15 +150,15 @@ function navigate(to: string) {
         >
           <div
             :class="[
-              'h-8 w-8 flex items-center justify-center rounded-lg transition-transform',
+              'h-7 w-7 flex shrink-0 items-center justify-center rounded-lg transition-transform',
               'bg-primary-500/10 text-primary-500',
               'dark:bg-primary-500/15 dark:text-primary-400',
               'group-hover:scale-110',
             ]"
           >
-            <div :class="item.icon" class="text-lg" />
+            <div :class="item.icon" class="text-base" />
           </div>
-          <span class="mt-2 truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400">
+          <span class="line-clamp-2 mt-1 w-full text-[10px] text-neutral-800 font-medium leading-3 dark:text-neutral-100 group-hover:text-primary-600 dark:group-hover:text-primary-400">
             {{ item.title }}
           </span>
         </button>

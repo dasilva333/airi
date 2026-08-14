@@ -864,7 +864,7 @@ function playMotion(motion: any) {
     localStorage.setItem(`live2d-${modelId}-selected-motion`, motion.raw.displayPath)
     localStorage.setItem(`live2d-${modelId}-selected-motion-name`, motion.raw.name)
     localStorage.setItem(`live2d-${modelId}-selected-motion-group`, motion.raw.group)
-    localStorage.setItem(`live2d-${modelId}-selected-motion-index`, motion.raw.index.toString())
+    localStorage.setItem(`live2d-${modelId}-selected-motion-index`, motion.raw.index != null ? String(motion.raw.index) : '0')
   }
   else if (settingsStore.stageModelRenderer === 'mmd') {
     mmdStore.currentMotion = motion.key

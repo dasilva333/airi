@@ -175,7 +175,7 @@ const compiledCardPayload = computed(() => {
             ...inheritedArtistry,
           },
           modules: {
-            displayModelId: draft.vessel.displayModelId || 'hiyori-free',
+            displayModelId: draft.vessel.displayModelId || 'preset-live2d-2',
             consciousness: {
               provider: draft.consciousness.provider || 'openai',
               model: draft.consciousness.model || 'gpt-4o',

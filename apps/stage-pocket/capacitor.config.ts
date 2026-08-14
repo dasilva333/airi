@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   server: serverURL
     ? {
         url: serverURL,
-        cleartext: false,
+        cleartext: true,
       }
     : undefined,
   plugins: {},

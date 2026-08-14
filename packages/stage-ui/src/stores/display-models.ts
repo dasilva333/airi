@@ -377,12 +377,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
   const displayModelCache = new Map<string, { model: DisplayModelFile, addedTime: number }>()
 
-  async function getDisplayModel(id: string) {
-    console.log(`[DisplayModels:getDisplayModel] Called for ID "${id}". Loading flag: ${displayModelsFromIndexedDBLoading.value}`)
+  const MODEL_ID_ALIASES: Record<string, string> = {
+    'hiyori-free': 'preset-live2d-2',
+    'hiyori-pro': 'preset-live2d-1',
+    'avatar-sample-a': 'preset-vrm-1',
+    'avatar-sample-b': 'preset-vrm-2',
+  }
+
+  async function getDisplayModel(rawId: string) {
+    const id = MODEL_ID_ALIASES[rawId] || rawId
+    console.log(`[DisplayModels:getDisplayModel] Called for ID "${rawId}" (resolved: "${id}"). Loading flag: ${displayModelsFromIndexedDBLoading.value}`)
     await until(displayModelsFromIndexedDBLoading).toBe(false)
 
     // Check in-memory catalog first (only if the full File object is already attached)
-    const inMemoryModel = displayModels.value.find(m => m.id === id)
+    const inMemoryModel = displayModels.value.find(m => m.id === id || m.id === rawId)
     if (inMemoryModel && inMemoryModel.type === 'file' && (inMemoryModel as DisplayModelFile).file) {
       console.log(`[DisplayModels:getDisplayModel] In-memory store hit for "${id}":`, inMemoryModel)
       return inMemoryModel as DisplayModelFile

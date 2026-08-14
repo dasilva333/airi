@@ -6,10 +6,11 @@ import type { BackgroundOption } from './types'
 import { BasicInputFile } from '@proj-airi/ui'
 import { useObjectUrl } from '@vueuse/core'
 import { nanoid } from 'nanoid'
+import { storeToRefs } from 'pinia'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
 
 import { colorFromElement, patchThemeSamplingHtml2CanvasClone } from '../../../../libs'
-import { useSettings } from '../../../../stores/settings'
+import { useSettingsTheme } from '../../../../stores/settings/theme'
 import { BackgroundGradientOverlay } from '../../../layouts/backgrounds'
 
 const props = withDefaults(defineProps<{
@@ -28,7 +29,7 @@ const emit = defineEmits<{
   (e: 'remove', option: BackgroundOption): void
 }>()
 
-const { themeColorsHue } = useSettings()
+const { themeColorsHue } = storeToRefs(useSettingsTheme())
 
 const modelValue = defineModel<BackgroundOption | undefined>({ default: undefined })
 
@@ -101,7 +102,7 @@ watch(selectedOption, async (option) => {
   previewColor.value = undefined
   emit('change', { option })
   if (option?.kind === 'wave') {
-    previewColor.value = themeColorsHue.toString()
+    previewColor.value = themeColorsHue.value !== undefined ? String(themeColorsHue.value) : undefined
   }
   else if (option) {
     await waitForPreviewReady()
@@ -171,7 +172,7 @@ async function applySelection(isImport = false) {
   busy.value = true
   try {
     if (selectedOption.value.kind === 'wave') {
-      const color = themeColorsHue.toString()
+      const color = themeColorsHue.value !== undefined ? String(themeColorsHue.value) : ''
 
       const payload = { option: { ...selectedOption.value, blur: enableBlur.value }, color }
       if (isImport)

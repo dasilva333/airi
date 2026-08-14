@@ -1548,8 +1548,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         },
       }),
       createProvider: async (config) => {
-        const apiKey = (config.apiKey as string).trim()
-        const baseUrl = (config.baseUrl as string).trim().replace(/\/$/, '')
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        const baseUrl = (typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://api.elevenlabs.io/v1').replace(/\/$/, '')
         const voiceSettings = (config as any).voiceSettings ?? { similarityBoost: 0.75, stability: 0.5 }
 
         // We bypass the unspeech proxy and call ElevenLabs' native API directly across
@@ -1574,8 +1574,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           })
         },
         listVoices: async (config: Record<string, unknown>) => {
-          const apiKey = (config.apiKey as string).trim()
-          const baseUrl = (config.baseUrl as string).trim().replace(/\/$/, '')
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const baseUrl = (typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://api.elevenlabs.io/v1').replace(/\/$/, '')
 
           // Fetch ElevenLabs native GET /v1/voices directly.
           // The unspeech SDK's listVoices() constructs {baseURL}/api/voices?provider=elevenlabs
@@ -1643,7 +1643,9 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         baseUrl: 'https://unspeech.hyp3r.link/v1/',
       }),
       createProvider: async (config) => {
-        const provider = createUnDeepgram((config.apiKey as string).trim(), (config.baseUrl as string).trim()) as SpeechProviderWithExtraOptions<string, UnDeepgramOptions>
+        const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+        const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://unspeech.hyp3r.link/v1/'
+        const provider = createUnDeepgram(apiKey, baseUrl) as SpeechProviderWithExtraOptions<string, UnDeepgramOptions>
         return provider
       },
       capabilities: {
@@ -1678,7 +1680,9 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           ]
         },
         listVoices: async (config) => {
-          const provider = createUnDeepgram((config.apiKey as string).trim(), (config.baseUrl as string).trim()) as VoiceProviderWithExtraOptions<UnDeepgramOptions>
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'https://unspeech.hyp3r.link/v1/'
+          const provider = createUnDeepgram(apiKey, baseUrl) as VoiceProviderWithExtraOptions<UnDeepgramOptions>
 
           const voices = await listVoices({
             ...provider.voice(),
@@ -2380,10 +2384,10 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       descriptionKey: 'settings.pages.providers.provider.player2-speech.description',
       description: 'Game-Ready AI - High-fidelity character voices with zero developer costs and revenue sharing',
       icon: 'i-lobe-icons:player2',
-      defaultOptions: () => ({
-        baseUrl: 'http://localhost:4315/v1/',
-      }),
-      createProvider: async config => createPlayer2((config.baseUrl as string).trim(), 'airi'),
+      createProvider: async (config) => {
+        const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.trim() ? config.baseUrl.trim() : 'http://localhost:4315/v1/'
+        return createPlayer2(baseUrl, 'airi')
+      },
       capabilities: {
         listModels: async () => {
           return [

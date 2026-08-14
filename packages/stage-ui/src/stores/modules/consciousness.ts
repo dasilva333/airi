@@ -72,11 +72,6 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     return !!activeProvider.value && !!activeModel.value
   })
 
-  watch(providerModels, (models) => {
-    if (activeModel.value && models.length > 0 && !models.find(m => m.id === activeModel.value))
-      resetModelSelection()
-  })
-
   function resetState() {
     activeProvider.reset()
     resetModelSelection()

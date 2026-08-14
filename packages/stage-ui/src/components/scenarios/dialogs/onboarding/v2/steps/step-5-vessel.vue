@@ -29,7 +29,7 @@ const presetVrmAvatarBPreview = new URL('../../../../../../assets/vrm/models/Ava
 
 type ViewMode = 'starters' | 'explore'
 const viewMode = ref<ViewMode>('starters')
-const selectedBody = ref(draftStore.state.vessel.displayModelId || 'hiyori-free')
+const selectedBody = ref(draftStore.state.vessel.displayModelId || 'preset-live2d-2')
 
 if (!draftStore.state.vessel.displayModelId) {
   draftStore.setVessel({ displayModelId: selectedBody.value })
@@ -40,10 +40,10 @@ watch(selectedBody, (val) => {
 })
 
 const starterBodies = [
-  { id: 'hiyori-free', name: 'Hiyori (Free)', format: 'Live2D', preview: presetLive2dPreview },
-  { id: 'hiyori-pro', name: 'Hiyori (Pro)', format: 'Live2D', preview: presetLive2dPreview },
-  { id: 'avatar-a', name: 'AvatarSample_A', format: '3D VRM', preview: presetVrmAvatarAPreview },
-  { id: 'avatar-b', name: 'AvatarSample_B', format: '3D VRM', preview: presetVrmAvatarBPreview },
+  { id: 'preset-live2d-2', name: 'Hiyori (Free)', format: 'Live2D', preview: presetLive2dPreview },
+  { id: 'preset-live2d-1', name: 'Hiyori (Pro)', format: 'Live2D', preview: presetLive2dPreview },
+  { id: 'preset-vrm-1', name: 'AvatarSample_A', format: '3D VRM', preview: presetVrmAvatarAPreview },
+  { id: 'preset-vrm-2', name: 'AvatarSample_B', format: '3D VRM', preview: presetVrmAvatarBPreview },
 ]
 
 const activeModel = computed(() => {

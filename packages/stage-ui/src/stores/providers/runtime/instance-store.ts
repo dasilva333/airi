@@ -268,6 +268,25 @@ export function createProviderInstanceStore(
     })
   }
 
+  function createOptionsProxy(providerId: string, instanceId: string, options: Record<string, unknown>) {
+    return new Proxy(options, {
+      set(target, prop, val, receiver) {
+        Reflect.set(target, prop, val, receiver)
+        const row = getProviderInstanceConfig(providerId, instanceId)
+        row.options[prop as string] = val
+        writeRow(row)
+        return true
+      },
+      deleteProperty(target, prop) {
+        Reflect.deleteProperty(target, prop)
+        const row = getProviderInstanceConfig(providerId, instanceId)
+        delete row.options[prop as string]
+        writeRow(row)
+        return true
+      },
+    })
+  }
+
   /**
    * Backward-compatible writable projection of the primary instance's options.
    *
@@ -284,16 +303,38 @@ export function createProviderInstanceStore(
       for (const [key, row] of Object.entries(snap.instancesByInstanceKey)) {
         const providerId = key.split(':', 1)[0]
         const primaryKey = `${providerId}:${PRIMARY_INSTANCE_INFIX}`
-        const primaryOptions = snap.instancesByInstanceKey[primaryKey]?.options
+        const primaryRow = snap.instancesByInstanceKey[primaryKey]
+        const targetRow = primaryRow ?? (row.isPrimary ? row : undefined)
         // NOTICE: Never synthesize `{}` for a provider with no primary row.
         // Upstream semantics treat *missing* credentials as `undefined` so
         // callers can distinguish "unconfigured" from "empty object"; an
         // empty-but-truthy `{}` was the Phase-3 regression root cause.
-        const resolved = primaryOptions ?? (row.isPrimary ? row.options : undefined)
-        if (resolved !== undefined)
-          out[providerId] = resolved
+        if (targetRow && targetRow.options !== undefined) {
+          out[providerId] = createOptionsProxy(providerId, targetRow.id, targetRow.options)
+        }
       }
-      return out
+      return new Proxy(out, {
+        set(target, prop, value, receiver) {
+          if (typeof prop === 'string') {
+            const providerId = prop
+            const row = getProviderInstanceConfig(providerId, PRIMARY_INSTANCE_INFIX)
+            row.options = value ? { ...value } : {}
+            writeRow(row)
+            target[providerId] = createOptionsProxy(providerId, PRIMARY_INSTANCE_INFIX, row.options)
+            return true
+          }
+          return Reflect.set(target, prop, value, receiver)
+        },
+        deleteProperty(target, prop) {
+          if (typeof prop === 'string') {
+            const providerId = prop
+            removeInstance(providerId, PRIMARY_INSTANCE_INFIX)
+            delete target[providerId]
+            return true
+          }
+          return Reflect.deleteProperty(target, prop)
+        },
+      })
     },
     set: (next) => {
       const snap = snapshot()

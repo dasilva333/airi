@@ -96,6 +96,20 @@ watch(apiKeyInput, (val) => {
   }
 })
 
+const showHfTokenInput = ref(false)
+const hfTokenInput = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || '' : '')
+
+function saveHfToken() {
+  if (typeof localStorage !== 'undefined') {
+    if (hfTokenInput.value.trim()) {
+      localStorage.setItem('settings/connection/hf-token', hfTokenInput.value.trim())
+    }
+    else {
+      localStorage.removeItem('settings/connection/hf-token')
+    }
+  }
+}
+
 const resolvedPersona = computed(() => {
   const persona = draftStore.state.persona
   const userName = userProfileStore.name || 'Manager'
@@ -631,6 +645,38 @@ onBeforeUnmount(() => {
 
         <!-- Local Provisioning Branch: Download Progress & Readiness Status -->
         <div v-if="isLocalProvider" class="flex flex-col gap-2 pt-1">
+          <!-- Optional Hugging Face Token for gated models (like kyutai/pocket-tts voices) -->
+          <div class="flex flex-col gap-1 rounded-lg bg-neutral-50/80 p-2.5 dark:bg-neutral-800/40">
+            <button
+              type="button"
+              class="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+              @click="showHfTokenInput = !showHfTokenInput"
+            >
+              <div class="flex items-center gap-1.5">
+                <div class="i-lobe-icons:huggingface h-3.5 w-3.5" />
+                <span class="font-semibold">Hugging Face Token (for Pocket-TTS gated voices)</span>
+              </div>
+              <div :class="showHfTokenInput ? 'i-solar:alt-arrow-down-line-duotone' : 'i-solar:alt-arrow-right-line-duotone'" class="h-3.5 w-3.5" />
+            </button>
+            <div v-if="showHfTokenInput" class="flex gap-2 pt-1.5">
+              <input
+                v-model="hfTokenInput"
+                type="password"
+                placeholder="hf_..."
+                class="flex-1 border border-neutral-200 rounded-lg bg-white px-3 py-1.5 text-xs font-mono outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
+                @input="saveHfToken"
+              >
+              <a
+                href="https://huggingface.co/settings/tokens"
+                target="_blank"
+                class="flex items-center self-center gap-1 px-1 text-[11px] text-primary-500 font-semibold hover:underline"
+              >
+                <span>Get Token</span>
+                <div class="i-solar:square-top-down-bold h-3 w-3" />
+              </a>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between">
             <button
               v-if="!isEngineReady && !isDownloading"

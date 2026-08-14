@@ -29,7 +29,7 @@ const USER_ARCHETYPES: UserArchetype[] = [
     gender: 'male',
     label: 'Rustic Craftsman',
     subtitle: 'Rugged workwear & suspenders',
-    icon: 'i-solar:hammer-bold-duotone',
+    icon: 'i-solar:sledgehammer-bold-duotone',
     description: 'This is the user. He is wearing dark leather Y-back suspenders over a collarless henley grandfather shirt with rolled-up sleeves.',
     prompt: ', (1man, solo, messy brown hair, dark leather Y-back suspenders, olive green collarless henley shirt, rolled-up sleeves, dark canvas work trousers, casual rustic workwear style)',
   },

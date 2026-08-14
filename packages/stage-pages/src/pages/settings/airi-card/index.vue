@@ -11,6 +11,7 @@ import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/s
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
+import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { AiriCardSchema } from '@proj-airi/stage-ui/types'
 import { Button, InputFile } from '@proj-airi/ui'
@@ -627,7 +628,10 @@ function handleCardCreationDialog() {
 }
 
 function handleWizardMode() {
-  router.push('/onboarding')
+  const onboardingStore = useOnboardingStore()
+  onboardingStore.resetSetupState()
+  onboardingStore.forceShowSetup()
+  router.push('/')
 }
 
 function handleGuidedMode() {

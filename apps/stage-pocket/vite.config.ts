@@ -18,10 +18,46 @@ import VueDevTools from 'vite-plugin-vue-devtools'
 import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
 
-import { resilient } from '@proj-airi/stage-shared/vite'
 import { Download } from '@proj-airi/unplugin-fetch/vite'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk/vite'
 import { defineConfig } from 'vite'
+
+/**
+ * Helper to retry an async function multiple times with optional backoff.
+ */
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  try {
+    return await fn()
+  }
+  catch (error) {
+    if (retries <= 0)
+      throw error
+    console.warn(`[Retry] Action failed, retrying in ${delay}ms... (${retries} retries left)`)
+    await new Promise(resolve => setTimeout(resolve, delay))
+    return withRetry(fn, retries - 1, delay * 2)
+  }
+}
+
+/**
+ * Wraps a Vite plugin's configResolved hook to make it resilient to failures.
+ * If the hook fails (e.g. download error), it will retry and ultimately let the build proceed.
+ */
+function resilient(plugin: any) {
+  const originalHook = plugin.configResolved
+  if (!originalHook)
+    return plugin
+
+  plugin.configResolved = async (config: any) => {
+    try {
+      await withRetry(() => originalHook.call(plugin, config), 3, 2000)
+    }
+    catch (error: any) {
+      console.error(`[ResilientPlugin] ${plugin.name} failed after all retries:`, error.message)
+      console.warn(`[ResilientPlugin] Proceeding without ${plugin.name} assets.`)
+    }
+  }
+  return plugin
+}
 
 function isEnvTruthy(value: string | undefined | null): boolean {
   if (value == null)
@@ -34,6 +70,7 @@ const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 
 export default defineConfig({
   optimizeDeps: {
+    esbuildOptions: { target: 'esnext' },
     exclude: [
       // Internal Packages
       '@proj-airi/stage-ui/*',
@@ -99,12 +136,16 @@ export default defineConfig({
   },
 
   plugins: [
-    ...isEnvTruthy(process.env.VITE_SKIP_MKCERT ?? '') ? [] : [mkcert((() => {
+    ...isEnvTruthy(process.env.VITE_USE_MKCERT ?? '') ? [mkcert((() => {
       // Workaround: plugin's bundled downloader has a feaxios bug, prefer system mkcert
       const command = process.platform === 'win32' ? 'where' : 'which'
-      try { return { mkcertPath: execSync(`${command} mkcert`, { stdio: 'pipe' }).toString().trim().split(/\r?\n/)[0] } }
+      try {
+        const out = execSync(`${command} mkcert`, { stdio: 'pipe' }).toString().trim().split(/\r?\n/)[0]
+        execSync(`"${out}" -CAROOT`, { stdio: 'pipe' })
+        return { mkcertPath: out }
+      }
       catch { return {} }
-    })())],
+    })())] : [],
 
     Info(),
 
