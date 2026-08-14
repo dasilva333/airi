@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
-
 import { ref, watch } from 'vue'
 
 interface Props {
-  onNext: OnboardingStepNextHandler
-  onPrevious: OnboardingStepPrevHandler
+  onNext?: () => void
+  onPrevious?: () => void
   onSelectPath?: (path: 'new' | 'returning') => void
 }
 
@@ -18,16 +16,16 @@ watch(selectedPath, (path) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-6 font-sans">
-    <!-- Header -->
+  <div class="h-full flex flex-col gap-5 font-sans">
     <div
       v-motion
       :initial="{ opacity: 0, y: -10 }"
       :enter="{ opacity: 1, y: 0 }"
       :duration="400"
+      class="text-center"
     >
       <h2 class="text-xl text-neutral-800 font-semibold md:text-2xl dark:text-neutral-100">
-        Get Started
+        Choose Your Path
       </h2>
       <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
         Choose how you want to configure your companion.
@@ -42,11 +40,11 @@ watch(selectedPath, (path) => {
         :enter="{ opacity: 1, y: 0 }"
         :duration="500"
         :delay="100"
-        class="grid grid-cols-1 gap-6 sm:grid-cols-2"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
         <!-- New User Option -->
         <div
-          class="relative min-h-[160px] flex flex-col cursor-pointer justify-between overflow-hidden border-2 rounded-2xl p-6 transition-all duration-300 ease-out"
+          class="relative min-h-[150px] flex flex-col cursor-pointer justify-between overflow-hidden border-2 rounded-2xl p-5 transition-all duration-300 ease-out"
           :class="[
             selectedPath === 'new'
               ? 'bg-gradient-to-br from-primary-500/10 to-indigo-500/10 border-primary-500 dark:border-primary-400 shadow-lg shadow-primary-500/5'
@@ -55,16 +53,16 @@ watch(selectedPath, (path) => {
           @click="selectedPath = 'new'"
         >
           <div>
-            <div class="mb-4 flex items-center justify-between">
+            <div class="mb-3 flex items-center justify-between">
               <div
-                class="rounded-xl p-3"
+                class="rounded-xl p-2.5"
                 :class="[
                   selectedPath === 'new'
                     ? 'bg-primary-500 text-white'
                     : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300',
                 ]"
               >
-                <div class="i-solar:stars-line-duotone h-6 w-6" />
+                <div class="i-solar:stars-line-duotone h-5 w-5" />
               </div>
               <div
                 class="h-5 w-5 flex items-center justify-center border-2 rounded-full transition-colors"
@@ -73,10 +71,10 @@ watch(selectedPath, (path) => {
                 <div v-if="selectedPath === 'new'" class="h-2.5 w-2.5 rounded-full bg-primary-500 dark:bg-primary-400" />
               </div>
             </div>
-            <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
+            <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
               Create New Companion
             </h3>
-            <p class="mt-2 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+            <p class="mt-1.5 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
               Create or customize a character. Guided setup for brain, voice, avatar, and persona.
             </p>
           </div>
@@ -84,23 +82,23 @@ watch(selectedPath, (path) => {
 
         <!-- Returning User Option (Disabled Preview) -->
         <div
-          class="pointer-events-none relative min-h-[160px] flex flex-col cursor-not-allowed select-none justify-between overflow-hidden border-2 border-neutral-200/60 rounded-2xl bg-neutral-100/40 p-6 opacity-50 transition-all duration-300 ease-out dark:border-neutral-800/80 dark:bg-neutral-900/20"
+          class="pointer-events-none relative min-h-[150px] flex flex-col cursor-not-allowed select-none justify-between overflow-hidden border-2 border-neutral-200/60 rounded-2xl bg-neutral-100/40 p-5 opacity-50 transition-all duration-300 ease-out dark:border-neutral-800/80 dark:bg-neutral-900/20"
         >
           <div>
-            <div class="mb-4 flex items-center justify-between">
+            <div class="mb-3 flex items-center justify-between">
               <div
-                class="rounded-xl bg-neutral-200/80 p-3 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+                class="rounded-xl bg-neutral-200/80 p-2.5 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
               >
-                <div class="i-solar:cloud-storage-line-duotone h-6 w-6" />
+                <div class="i-solar:cloud-storage-line-duotone h-5 w-5" />
               </div>
               <span class="rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] text-purple-600 font-bold dark:text-purple-400">
                 COMING SOON
               </span>
             </div>
-            <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
+            <h3 class="text-base text-neutral-800 font-bold dark:text-neutral-100">
               Returning User
             </h3>
-            <p class="mt-2 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+            <p class="mt-1.5 text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
               Cloud backup restore and multi-device account sync. (Coming Soon)
             </p>
           </div>

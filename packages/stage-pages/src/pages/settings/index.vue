@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconItem, OnboardingV2, RippleGrid } from '@proj-airi/stage-ui/components'
+import { IconItem, RippleGrid } from '@proj-airi/stage-ui/components'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
@@ -18,20 +18,13 @@ const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 
 const settingsStore = useSettings()
 const onboardingStore = useOnboardingStore()
-const showOnboardingV2 = ref(false)
 
 watch(
   () => route.query.action,
   (action) => {
-    if (action === 'onboarding') {
+    if (action === 'onboarding' || action === 'onboarding-v2') {
       onboardingStore.resetSetupState()
       onboardingStore.forceShowSetup()
-      router.replace({ query: {} })
-    }
-    // V2 preview: isolated overlay, must NOT call resetSetupState() — that
-    // would clear the live `onboarding/completed` flag.
-    else if (action === 'onboarding-v2') {
-      showOnboardingV2.value = true
       router.replace({ query: {} })
     }
   },
@@ -181,32 +174,6 @@ function isActive(to: string) {
     >
       <div v-motion text="60" i-solar:settings-bold-duotone />
     </div>
-
-    <!-- V2 onboarding preview overlay (UI mockup scaffold) -->
-    <Teleport to="body">
-      <div
-        v-if="showOnboardingV2"
-        class="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
-        @click.self="showOnboardingV2 = false"
-      >
-        <div class="absolute left-1/2 top-1/2 h-[600px] max-h-[85dvh] max-w-5xl w-[92dvw] flex flex-col -translate-x-1/2 -translate-y-1/2">
-          <div :class="['h-full max-h-[92dvh]', 'flex flex-col', 'rounded-2xl border border-neutral-200/60', 'bg-white/95 dark:bg-neutral-900/95', 'shadow-2xl backdrop-blur-xl', 'overflow-hidden']">
-            <div class="flex flex-shrink-0 items-center justify-between border-b border-neutral-200/60 px-5 py-3 dark:border-neutral-800/80">
-              <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">AIRI Setup · V2 Preview</span>
-              <button
-                class="h-7 w-7 flex items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-                @click="showOnboardingV2 = false"
-              >
-                <div class="i-solar:close-circle-bold-duotone h-5 w-5" />
-              </button>
-            </div>
-            <div class="min-h-0 flex-1 overflow-y-auto p-5">
-              <OnboardingV2 @close="showOnboardingV2 = false" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
