@@ -50,6 +50,12 @@ const isEngineReady = ref(false)
 const speed = ref(1.0)
 const pitch = ref(1.0)
 const isPlaying = ref(false)
+const isHFTokenModalOpen = ref(false)
+
+function openHFTokenPage() {
+  isHFTokenModalOpen.value = false
+  window.open('https://huggingface.co/settings/tokens', '_blank')
+}
 
 const isLocalProvider = computed(() => {
   const norm = normalizeProviderId(selectedProvider.value)
@@ -526,7 +532,14 @@ async function togglePreview() {
   }
   catch (error: any) {
     console.error('[Step 6 Speech] Preview error:', error)
-    toast.error(error.message || 'Failed to synthesize voice preview.')
+    const msg: string = error?.message || ''
+    const isGated = msg.includes('HTTP 401') || msg.includes('gated') || msg.includes('HF token') || msg.includes('huggingface')
+    if (isGated) {
+      isHFTokenModalOpen.value = true
+    }
+    else {
+      toast.error(msg || 'Failed to synthesize voice preview.')
+    }
     isPlaying.value = false
   }
 }
@@ -859,4 +872,72 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+
+  <!-- HuggingFace Token Required Modal -->
+  <Teleport to="body">
+    <div
+      v-if="isHFTokenModalOpen"
+      class="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      style="z-index: 999999;"
+      @click.self="isHFTokenModalOpen = false"
+    >
+      <div class="max-w-sm w-full border border-neutral-200/80 rounded-3xl bg-white p-6 shadow-2xl dark:border-neutral-800/80 dark:bg-neutral-900">
+        <!-- Icon + Title -->
+        <div class="mb-4 flex items-center gap-3">
+          <div class="size-12 flex shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 dark:bg-amber-500/25">
+            <div class="i-solar:key-bold-duotone size-6.5" />
+          </div>
+          <div>
+            <h3 class="text-base text-neutral-900 font-bold dark:text-white">
+              HuggingFace Token Required
+            </h3>
+            <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+              This voice is behind a gated model
+            </p>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <p class="mb-5 text-sm text-neutral-600 leading-relaxed dark:text-neutral-300">
+          The voice you selected (<span class="text-neutral-800 font-semibold dark:text-neutral-100">{{ selectedVoice }}</span>) is hosted on a gated HuggingFace repository.
+          To use it, you need a free HuggingFace account, accept the model gate, and paste your access token in the provider settings.
+        </p>
+
+        <!-- Steps -->
+        <ol class="mb-5 text-xs text-neutral-500 space-y-2 dark:text-neutral-400">
+          <li class="flex items-start gap-2">
+            <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">1</span>
+            Create a free account at <span class="text-neutral-700 font-semibold dark:text-neutral-200">huggingface.co</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">2</span>
+            Accept the gate at <span class="text-neutral-700 font-semibold dark:text-neutral-200">kyutai/pocket-tts</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="mt-0.5 size-4 flex shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[10px] text-amber-600 font-bold dark:text-amber-400">3</span>
+            Generate a <span class="text-neutral-700 font-semibold dark:text-neutral-200">Read</span> access token and paste it in Settings
+          </li>
+        </ol>
+
+        <!-- Actions -->
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2.5 text-xs text-white font-semibold shadow-amber-500/25 shadow-md transition active:scale-95 hover:bg-amber-600"
+            @click="openHFTokenPage"
+          >
+            <div class="i-solar:key-bold-duotone size-3.5" />
+            Get HF Token
+          </button>
+          <button
+            type="button"
+            class="flex-1 cursor-pointer rounded-2xl bg-neutral-100 py-2.5 text-xs text-neutral-600 font-semibold transition active:scale-98 dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            @click="isHFTokenModalOpen = false"
+          >
+            Later
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
