@@ -1,116 +1,90 @@
-# AIRI Modernized Onboarding Specification (Zero-Friction & Local-First)
+# AIRI Modernized Onboarding Specification (Zero-Friction & Local-First + Cloudflare Edge Relay)
 
 ---
 
 ## 1. Overview & Rationale
 
-The original AIRI setup experience relied on a choice between an "Easy Mode" (which required registering on external cloud platforms and pasting API keys) and an "Advanced Mode" provider picker.
+The original AIRI setup experience relied on a choice between an "Easy Mode" (which required registering on external cloud platforms and pasting API keys) and an "Advanced Mode" provider picker, alongside a deprecated Google Drive AppData sync for returning users.
 
-Since that initial design was drafted, **AIRI's local ecosystem has matured dramatically**:
+Since that initial design was drafted, **AIRI's local and edge ecosystems have matured dramatically**:
 - **Built-in Local Consciousness (LLMs)**: High-performance in-browser WebGPU inference via **WebLLM** (Qwen 3.5 0.8B/4B, Gemma 3 1B, Ministral 3B, Phi-4-mini) and **Web-RWKV**.
 - **Built-in Local Speech (TTS)**: Out-of-the-box local synthesis engines (**Kokoro-WebGPU**, **Pocket-TTS**, and **Moss-Nano**), delivering instant neural voice output without external credentials or API keys.
-- **Built-in Local Hearing (STT)**: In-browser speech recognition via **Whisper-WebGPU** (featuring `whisper-large-v3-turbo` and `whisper-small`) enabling fully offline, zero-telemetry listening, alongside the zero-download browser-native **Web Speech API** as a fallback (recognition backend and privacy characteristics vary by browser/OS).
+- **Built-in Local Hearing (STT)**: In-browser speech recognition via **Whisper-WebGPU** (featuring `whisper-large-v3-turbo` and `whisper-small`) enabling fully offline, zero-telemetry listening, alongside the zero-download browser-native **Web Speech API** as a fallback.
+- **Zero-Custody Cloud Relay & Cloud Sync (Cloudflare OAuth PKCE + R2/KV)**: Replaces legacy Google AppData sync with user-owned Cloudflare infrastructure ("Vercel for Characters"). Users authenticate directly with Cloudflare to automatically provision their personal edge CORS proxy, 24/7 Discord interaction worker, and S3-compatible R2 storage bucket for private zero-trust backups without any proprietary AIRI backend servers.
+- **Mobile Native CORS Bypass (`@capacitor/http`)**: On Pocket Stage (iOS/Android), network requests leverage native `URLSession` / Java HTTP to bypass browser WebKit CORS restrictions out-of-the-box for local network models (e.g. LAN Ollama) and unproxied cloud APIs.
 
-This modernized onboarding architecture shifts AIRI to a **Zero-Friction, Local-First Experience**. Users can launch their AI companion within seconds without leaving the browser or typing a single API key, while still preserving full access to advanced cloud providers through a unified, elegant visual hierarchy.
+This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Local-First, Zero-Custody Experience**. Users can either connect their Cloudflare account to sync existing assets and provision edge relays, or launch an entirely local AI companion within seconds without leaving the browser, creating an account, or typing an API key.
 
 ---
 
 ## 2. Core Design Principles
 
-1. **In-Context Component Preparation**: No late 99% download screens (avoiding NekoGPT's batch failure flaw). Selecting a local engine initializes its WebWorker, WASM, or WebGPU weights immediately on that step with a live progress bar and test playground.
+1. **In-Context Component Preparation**: No late 99% download screens. Selecting a local engine initializes its WebWorker, WASM, or WebGPU weights immediately on that step with a live progress bar and test playground.
 2. **Decoupled Soul & Form**: Personality/Lore (Step 4) and Physical Avatar Body (Step 5) are completely decoupled, granting total mix-and-match freedom.
 3. **Hardware Capability Transparency**: Every local model card clearly displays VRAM requirements, model size, and supported languages so users make informed choices based on their hardware.
 4. **Early Hardware & WebGPU Detection**: Detects `isWebGPUSupported()` globally on startup to guide the user toward WebGPU vs. WASM/Browser-native options.
-5. **No Forced Fallbacks**: If a local model fails or isn't supported, users can easily pick another provider or skip — no silent redirects.
-6. **Transient Composition State & Deferred Card Assembly**: Onboarding V2 collects choices (STT, LLM, User Profile, Persona, Vessel, TTS) in a clean, transient onboarding composition draft store. It does **NOT** dirty-mutate existing IndexedDB character cards as a step-by-step scratchpad. On Step 7 (Calibration / Finale), the assembled choices are cleanly compiled into the target `AiriCard` and `AiriExtension` payload.
+5. **Zero-Custody Cloud Relay**: Cloud accounts authenticate via Cloudflare OAuth 2.0 PKCE. All storage (R2/S3) and compute (Workers/KV) run inside the user's personal Cloudflare account. AIRI never holds custody of user API keys or master credentials.
+6. **Transient Composition State & Deferred Card Assembly**: Onboarding V2 collects choices (STT, LLM, User Profile, Persona, Vessel, TTS) in a clean, transient onboarding composition draft store (`useOnboardingV2Draft`). It does **NOT** dirty-mutate existing IndexedDB character cards as a step-by-step scratchpad. On Step 7 (Calibration / Finale), the assembled choices are cleanly compiled into the target `AiriCard` and `AiriExtension` payload.
 
 ---
 
-## 3. The Modernized 7-Step Sequence
+## 3. The Modernized Sequence & Dual-Track Flow
 
 ```text
-Step 0: Welcome Landing (Warm Companion Introduction)
-  ├── Ref: `step-welcome-triage.vue` & `useOnboardingStore`
-  └── Primary: "Let's Get Started" → Opens Step 0.5 Path Triage
-        │
-Step 0.5: Path Triage (Preserved Choice Screen)
-  ├── Ref: `packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue`
-  ├── Option A: "Set Up as New User" → Begins Step 1 (New User Setup)
-  └── Option B: "Returning User" → Unchanged Existing Restore Flow (Google Cloud OAuth / S3 Sync)
-        │
-Step 1: Hearing & Mic Playground (STT / Ear Setup)
-  ├── Ref: `v2/step-hearing.vue` & `useHearingStore`
-  ├── Hardware: Microphone Selector + Live Audio Volume Meter
-  ├── Local Hero Cards:
-  │    ├── 🎙️ Whisper WebGPU (Large-v3-turbo ~800MB | Small ~480MB — fully offline)
-  │    └── 🌐 Browser Web Speech API (Zero Download — browser-native, no model weights; backend varies by browser)
-  └── Integrated Playground: Live download progress bar + instant real-time speech transcription test
-        │
-Step 2: Consciousness (Mind / LLM Setup)
-  ├── Ref: `v2/step-consciousness.vue`, `useConsciousnessStore` & `constants.ts`
-  ├── 💡 Setup LLM FIRST so AI Character Creators & Synthesizers have an active brain!
-  ├── Local WebLLM Hero Cards (VRAM from `vramMB` in `libs/inference/constants.ts`):
-  │    ├── ⭐ Qwen 3.5 4B (Recommended - ~3.9 GB VRAM - Most capable for RP/Chat)
-  │    ├── ⚡ Qwen 3.5 0.8B (Fast Distill - ~1.6 GB VRAM)
-  │    ├── 🌐 Gemma 3 1B (Lowest VRAM - ~0.7 GB - mobile/integrated GPUs)
-  │    ├── 🔬 Ministral 3B (High Reasoning - ~2.9 GB VRAM)
-  │    └── 🧠 Phi-4 Mini (Microsoft 3.8B - ~3.4 GB VRAM)
-  └── Preserved Provider Grid: `step-provider-selection.vue` (OpenAI, Anthropic, Gemini, Groq, Ollama, LM Studio)
-        │
-Step 3: User Profile & Identity Setup
-  ├── Ref: `v2/step-user-profile.vue`, `user-profile.vue` & `useSettingsUserProfile`
-  ├── 💡 Dedicated step BEFORE Persona so AI Card Synthesizers know who the user is!
-  ├── Speech Bubble ("Tell her who you are! What should she call you? She's not a mind reader, right?")
-  └── Fields: User Display Name (`name`), Narrative Description (`description`), Visual Prompt Tags (`prompt`)
-        │
-Step 4: Soul & Persona (Personality Selection & Card Builder)
-  ├── Ref: `v2/step-persona.vue` & `useAiriCardStore`
-  ├── 💬 Speech Bubble: "Choose your companion's personality! This layer isn't permanent."
-  ├── 3-Tier Persona Selection:
-  │    ├── Tier 1: 1-Click Starter Cards (ReLU, Dr. Aria, Lupin, Anime Archetypes)
-  │    ├── Tier 2: Community Card Hub & Interceptor (JannyAI, Chub AI, JanitorAI, Risu Realm, DataCat)
-  │    └── Tier 3: AI Guided Creator Wizard (`guided.vue` AnimaDex builder using Step 2 LLM + Step 3 Profile!)
-        │
-Step 5: Physical Vessel (3D VRM & 2D Live2D Avatar Selection)
-  ├── Ref: `v2/step-physical-vessel.vue`, `models/index.vue` & `useDisplayModelsStore`
-  ├── Built-in Avatar Portals: Hiyori (2D Live2D), AvatarSample_A (3D VRM), AvatarSample_B (3D VRM)
-  ├── Custom Model Dropzone: Drag-and-drop `.vrm`, `.model3.json`, or `.zip` assets
-  └── Viewport Swap: Tapping `[ 🌐 Find Free Bodies ]` swaps starter cards for external Explore Link Wall
-        │
-Step 6: Contextual Speech (Her Voice Studio Setup)
-  ├── Ref: `v2/step-speech.vue`, `useSpeechStore` & `AutoVoiceConfigModal.vue`
-  ├── Section A (Provider Hierarchy):
-  │    ├── 3x Prominent Local Hero Cards: Kokoro WebGPU, Pocket-TTS (CPU voice cloning), Moss-Nano (Ultra-Fast EN/ZH)
-  │    └── Remote Cloud Mini-Card Grid: ElevenLabs, OpenAI Audio, Deepgram Aura, Azure Speech, Fish Speech
-  ├── Section B (Model Selection & Provisioning):
-  │    ├── Model Dropdown (populated per active provider)
-  │    ├── Local: [ Activate & Download ] button + real-time WASM/worker progress bar
-  │    └── Remote: API Key password input + inline 👁️ eye icon show/hide toggle + ↗ quick console URL link
-  ├── Section C (Voice Studio & Tone Tuning Controls):
-  │    ├── Voice Selector Dropdown + [ 🔄 Load Voices ] button (invokes provider.getVoices())
-  │    └── Speed & Pitch Sliders: Constrained range 0.75x to 1.5x (step 0.05) to prevent distortion
-  ├── Section D (Live Audio Preview Playground):
-  │    ├── Dynamic sample text prompt: "Hello {userName}! I'm {personaName}. Everything is ready — how do I sound?"
-  │    └── [ ▶ Play Preview ] button: Synthesizes live audio via Audio Studio proxy & plays in browser
-  └── Internal Tuple & Audio Studio Proxy: `draft.speech` represented as 3-part tuple (`providerId`, `modelId`, `voiceId`) mapping to `virtual-audio-studio` proxy provider & generated `VoiceProfile`
-        │
-Step 7: Stage Calibration & Victory Launch
-  ├── Ref: `v2/step-calibration.vue` & `useOnboardingStore`
-  └── Victory Badges Card + Live interactive chat preview with [Character Name] → Instant AIRI Stage Launch!
+                     ┌──────────────────────────────────────────────┐
+                     │           Step 0: Welcome Landing            │
+                     │   "Welcome to AIRI · Zero-Custody Stage"     │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                                            ▼
+                     ┌──────────────────────────────────────────────┐
+                     │          Step 0.5: Path Triage               │
+                     │  "Choose How You Want to Experience AIRI"   │
+                     └──────────────┬───────────────────────────────┘
+                                    │
+               ┌────────────────────┴────────────────────┐
+               ▼                                         ▼
+   [ Sign In with Cloudflare ]                  [ Continue Offline / Later ]
+   (Cloud-Connected & Multi-Device Sync)        (New Users & 100% Local-First)
+               │                                         │
+               ▼                                         ▼
+   ┌───────────────────────┐                 ┌───────────────────────┐
+   │ Cloudflare OAuth PKCE │                 │ 7-Step Guided Wizard  │
+   │  - Auth with CF       │                 │  1. Hearing (Whisper) │
+   │  - Provision Worker   │                 │  2. Consciousness     │
+   │  - Connect S3/R2      │                 │  3. User Profile      │
+   │  - Sync/Restore State │                 │  4. Persona           │
+   └───────────┬───────────┘                 │  5. Vessel (Avatar)   │
+               │                             │  6. Voice (TTS)       │
+               ▼                             │  7. Calibration       │
+   ┌───────────────────────┐                 └───────────┬───────────┘
+   │  "Everything Synced!" │                             │
+   │  [ Enter Stage ]  OR  │                             │
+   │  [ + New Companion ]  │ ────────────────────────────┘
+   └───────────┬───────────┘
+               │
+               ▼
+   ┌───────────────────────┐
+   │    Live AIRI Stage    │
+   └───────────────────────┘
 ```
 
 ---
 
 ## 4. Detailed Step Breakdown
 
-### Step 0: Welcome Landing & Triage
-- **Hardware Check**: Runs `isWebGPUSupported()` early and stores flag in onboarding state.
-- **Companion Bubble**: *"Don't worry, it's easier than it looks! We've pre-configured everything to run locally on your machine."*
-- **Triage (`step-start-choice.vue`)**:
-  - `Set Up as New User` → Begins Step 1.
-  - `Returning User` → Routes into existing Google Cloud OAuth / S3 sync restore pipeline.
+### Step 0: Welcome Landing & Path Triage
+- **Hardware Check**: Runs `isWebGPUSupported()` early and stores the capability flag in memory.
+- **Companion Bubble**: *"Don't worry, it's easier than it looks! We've pre-configured everything to run locally on your machine, or you can sign in with Cloudflare for zero-trust cloud backup."*
+- **Triage Action (`step-start-choice.vue`)**:
+  - **Track A: "Sign In with Cloudflare" (`[ZERO-TRUST]`) (Cloud-Connected / Multi-Device Sync)**:
+    - Initiates OAuth 2.0 PKCE directly with Cloudflare.
+    - Automates personal Worker deployment (Edge CORS proxy + 24/7 Discord bot host) and R2 bucket connectivity for private zero-trust backups.
+    - **Existing Data Found**: Hydrates character cards, 3D VRM/2D Live2D models, and memory archives from S3/R2 into local IndexedDB $\rightarrow$ Drops to Victory Stage with active companion ready, or opens Wizard to add another companion.
+    - **New Cloudflare Account / Empty Sync**: Provisions the user's empty cloud bucket/worker upfront, then proceeds into the 7-step wizard so new companions are immediately cloud-backed and portable.
+  - **Track B: "Local Companion (Offline)" (`[LOCAL-FIRST]`) (Local-First Wizard)**:
+    - Advances to Step 1 for 100% offline, private local companion creation without an account.
 
----
 
 ### Step 1: Hearing & Mic Playground (STT / Ear Setup)
 - **Why Right After Welcome?**: Speech recognition has zero dependencies on character language or persona! Combining the microphone hardware test with the STT provider picker creates an immediate, interactive playground right after the welcome page.
@@ -219,8 +193,6 @@ Step 7: Stage Calibration & Victory Launch
   - `draftStore.state.speech` stores a **3-part tuple**: `providerId: 'virtual-audio-studio'`, `modelId: 'virtual'`, `voiceId: voice_profile_{personaName}_onboarding`.
   - Under the hood, this compiles into a temporary/final `VoiceProfile` containing the real `baseProvider`, `baseModel`, `baseVoice`, and `effects: { pitch, rate, volume }`.
 
----
-
 ### Step 7: Stage Calibration & Victory Launch
 - **Zero Download Waiting**: Every local engine was already cached and verified on steps 1, 2, 5, and 6.
 - **Summary Badges**: Green status indicators for Consciousness, Hearing, Speech, Avatar, and Soul.
@@ -229,15 +201,11 @@ Step 7: Stage Calibration & Victory Launch
 
 ---
 
-## 5. Implementation & Migration Strategy (Side-by-Side Evolution)
+## 5. Implementation Status & Active Architecture
 
-1. **Isolated Directory**: All V2 step components live in `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/`.
-2. **Safe Preview Route**:
-   - System Tray item **"Show Setup Wizard"** currently opens `/settings?action=onboarding` (V1, wired in `apps/stage-tamagotchi/src/main/tray/index.ts`). Implementation must add a sibling tray item and a new `action=onboarding-v2` handler in `packages/stage-pages/src/pages/settings/index.vue` for the V2 preview.
-   - The existing `action=onboarding` handler calls `resetSetupState()`, which **clears the persisted `onboarding/completed` flag** — a V2 preview must not reuse it verbatim. V2 uses a separate `onboarding/v2-state` key in `localStorage` (and never calls `resetSetupState()` for preview), so testing V2 does **NOT** mutate live `onboarding/completed` flags or collide with V1's index-based `airi-onboarding-state` progress restore.
-3. **The "Flip & Sweep" Launch**:
-   - `needsOnboarding` in `useOnboardingStore` is a **computed boolean gate** (`!hasSkippedSetup && !hasCompletedSetup`) — it cannot select V1 vs V2 and flipping it does nothing to route versions. The actual flip is a version flag: read an `onboarding/version` localStorage flag (`'v1' | 'v2'`) at the two wizard mount points — `onboarding-dialog.vue` (stage-web `App.vue`) and the Tamagotchi dedicated onboarding window (`apps/stage-tamagotchi/src/renderer/pages/onboarding.vue`) — and render the V2 step sequence when set to `'v2'`.
-   - Once all 7 V2 steps pass testing, change the flag default to `'v2'`, then delete legacy V1 step files in a clean final commit.
+- **Canonical Implementation**: V2 onboarding is the single active onboarding implementation across all platforms. Legacy V1 files have been completely removed.
+- **Modal Mounting**: `OnboardingDialog` (`packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding-dialog.vue`) directly mounts `OnboardingV2` within desktop `DialogRoot` and mobile `DrawerRoot`.
+- **State Isolation**: Transient state is isolated in `useOnboardingV2Draft` (`onboarding/v2-draft`), guaranteeing that cancelling or navigating back never leaves orphaned or corrupted cards in IndexedDB.
 
 ---
 
@@ -245,12 +213,12 @@ Step 7: Stage Calibration & Victory Launch
 
 | Step | Vue Component Path | Pinia Store Ref | Key Constants / Services |
 |---|---|---|---|
-| **0** | `v2/step-welcome-triage.vue` | `useOnboardingStore` | `isWebGPUSupported()` |
-| **0.5**| [`step-start-choice.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')` |
-| **1** | `v2/step-hearing.vue` | `useHearingStore` | `providers/whisper-local` (`whisper-large-v3-turbo`) |
-| **2** | `v2/step-consciousness.vue` | `useConsciousnessStore` / `useProvidersStore` | [`constants.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/constants.ts) `WEB_LLM_MODELS` (`Qwen3.5-4B-q4f16_1-MLC`, `Qwen3.5-0.8B-q4f16_1-MLC`, `gemma3-1b-it-q4f16_1-MLC`, `Ministral-3-3B-Reasoning-2512-q4f16_1-MLC`, `Phi-4-mini-instruct-q4f16_1-MLC` — VRAM from `vramMB`) |
-| **3** | `v2/step-user-profile.vue` | [`useSettingsUserProfile`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/settings/user-profile.ts) | [`user-profile.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/system/user-profile.vue) (`name`, `description`, `prompt`) |
-| **4** | `v2/step-persona.vue` | `useAiriCardStore` | [`airi-card/index.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/index.vue), [`guided.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/guided.vue) |
-| **5** | `v2/step-physical-vessel.vue` | `useDisplayModelsStore` | [`models/index.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/models/index.vue) (`openModelSelector('explore')`) |
-| **6** | `v2/step-speech.vue` | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
-| **7** | `v2/step-calibration.vue` | `useOnboardingStore` | Victory summary & live chat preview |
+| **0** | [`v2/steps/step-0-welcome.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | `useOnboardingStore` | `isWebGPUSupported()` |
+| **0.5**| [`step-start-choice.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')`, Cloudflare OAuth PKCE |
+| **1** | [`v2/steps/step-1-hearing.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-1-hearing.vue) | `useHearingStore` | `WHISPER_MODELS`, `useAudioContext` |
+| **2** | [`v2/steps/step-2-consciousness.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-2-consciousness.vue) | `useConsciousnessStore` / `useProvidersStore` | `WEB_LLM_MODELS`, `getWebLlmAdapter()` |
+| **3** | [`v2/steps/step-3-user-profile.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-3-user-profile.vue) | `useSettingsUserProfile` | `name`, `description`, `prompt` |
+| **4** | [`v2/steps/step-4-persona.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | `useAiriCardStore` | `STARTER_CHARACTERS`, `getStarterCharacter()` |
+| **5** | [`v2/steps/step-5-vessel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `displayModelsStore.displayModels` |
+| **6** | [`v2/steps/step-6-speech.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
+| **7** | [`v2/steps/step-7-calibration.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Atomic card synthesis & launch |

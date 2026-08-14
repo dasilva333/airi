@@ -103,12 +103,44 @@ const cachedExpressions = ref<string[]>([])
 const cachedMotions = ref<string[]>([])
 const capabilitiesLoading = ref(false)
 
+function applyModelMappings(model?: any) {
+  if (!model)
+    return
+  emotionMappings.value = { ...model.emotionMappings }
+  favoriteExpressions.value = [...(model.favoriteExpressions || [])]
+  hiddenExpressions.value = [...(model.hiddenExpressions || [])]
+  motionMappings.value = { ...model.motionMappings }
+  hiddenMotions.value = [...(model.hiddenMotions || [])]
+
+  // Sync to store for stage window cross-process triggers
+  live2dStore.motionMap = { ...motionMappings.value }
+  live2dStore.emotionMappings = { ...emotionMappings.value }
+}
+
+// React when currentModel in store updates (e.g. from IndexedDB or background sync)
+watch(currentModel, (model) => {
+  if (model && !editingKey.value) {
+    applyModelMappings(model)
+  }
+})
+
 // Sync local state + capabilities when modelId changes
 watch(() => props.modelId, async (newId) => {
   if (!newId)
     return
 
-  const model = displayModelsStore.displayModels.find(m => m.id === newId)
+  // Ensure displayModels catalog is populated from IndexedDB if not yet loaded
+  if (displayModelsStore.displayModels.length === 0) {
+    await displayModelsStore.loadDisplayModelsFromIndexedDB()
+  }
+
+  let model = displayModelsStore.displayModels.find(m => m.id === newId)
+  if (!model) {
+    const rawModel = await displayModelsStore.getDisplayModel(newId)
+    if (rawModel)
+      model = rawModel as any
+  }
+
   console.log(`[ModelCustomizer] modelId changed → ${newId}`, {
     found: !!model,
     format: model?.format,
@@ -119,15 +151,7 @@ watch(() => props.modelId, async (newId) => {
   })
 
   if (model) {
-    emotionMappings.value = model.emotionMappings || {}
-    favoriteExpressions.value = model.favoriteExpressions || []
-    hiddenExpressions.value = model.hiddenExpressions || []
-    motionMappings.value = model.motionMappings || {}
-    hiddenMotions.value = model.hiddenMotions || []
-
-    // Sync to store for stage window cross-process triggers
-    live2dStore.motionMap = { ...motionMappings.value }
-    live2dStore.emotionMappings = { ...emotionMappings.value }
+    applyModelMappings(model)
   }
 
   // Resolve expression + motion lists via the store resolver.

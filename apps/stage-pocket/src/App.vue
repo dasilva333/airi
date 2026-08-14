@@ -16,8 +16,6 @@ import { useI18n } from 'vue-i18n'
 import { RouterView } from 'vue-router'
 import { toast, Toaster } from 'vue-sonner'
 
-import OnboardingPermissionsStep from './components/onboarding/step-permissions.vue'
-
 const contextBridgeStore = useContextBridgeStore()
 const i18n = useI18n()
 const displayModelsStore = useDisplayModelsStore()
@@ -94,13 +92,6 @@ function handleSetupConfigured() {
 function handleSetupSkipped() {
   onboardingStore.markSetupSkipped()
 }
-
-const extraSteps = computed(() => [
-  {
-    id: 'step-permissions',
-    component: OnboardingPermissionsStep,
-  },
-])
 </script>
 
 <template>
@@ -127,7 +118,6 @@ const extraSteps = computed(() => [
   <!-- First Time Setup Dialog -->
   <OnboardingDialog
     v-model="showingSetup"
-    :extra-steps="extraSteps"
     @configured="handleSetupConfigured"
     @skipped="handleSetupSkipped"
   />

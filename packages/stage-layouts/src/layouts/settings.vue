@@ -79,11 +79,11 @@ watch(() => route.path, () => {
 })
 
 function handleBack() {
-  // Declarative back: never navigate 'up' out of the settings surface. The router
-  // guard already blocks `/settings` -> `/`, and `disableBackButton` hides the
-  // control here, but early-return as a belt-and-suspenders against direct calls.
-  if (route.meta?.rootOfSettings)
+  // If we are at the root of settings (or rootOfSettings is set), navigate back to the home screen
+  if (route.path === '/settings' || route.path === '/settings/' || route.meta?.rootOfSettings) {
+    router.push('/')
     return
+  }
 
   if (route.path.startsWith('/settings/providers/')) {
     const segments = route.path.split('/').filter(Boolean)
@@ -121,7 +121,7 @@ function handleBack() {
       <PageHeader
         :title="routeHeaderMetadata?.title || ''"
         :subtitle="routeHeaderMetadata?.subtitle"
-        :disable-back-button="routeMeta.rootOfSettings"
+        :disable-back-button="false"
         @back="handleBack"
       />
       <div id="settings-scroll-container" ref="scrollContainerRef" relative min-h-0 flex-1 overflow-y-auto scrollbar-none>

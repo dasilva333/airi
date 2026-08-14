@@ -117,7 +117,7 @@ function clearGate(id: string) {
   delete gates[id]
 }
 
-provide(onboardingV2GateKey, { setGate, clearGate })
+provide(onboardingV2GateKey, { setGate, clearGate, requestNext: requestNextStep })
 
 const activeGate = computed(() => gates[currentId.value])
 const canProceed = computed(() => {
@@ -136,7 +136,12 @@ function resetOnboardingState() {
   draftStore.reset()
 }
 
-function handleStepSkip() {
+async function handleStepSkip() {
+  if (activeGate.value?.onSkip) {
+    const res = await activeGate.value.onSkip()
+    if (res === false)
+      return
+  }
   requestNextStep()
 }
 
@@ -229,10 +234,10 @@ function handleFinish() {
       </button>
       <div class="min-w-0 flex flex-1 items-center justify-end gap-3">
         <span
-          v-if="activeGate && !canProceed"
+          v-if="activeGate && !canProceed && activeGate.hint"
           class="truncate text-xs text-neutral-400 italic dark:text-neutral-500"
         >
-          Speak into your microphone — Next unlocks once we hear you.
+          {{ activeGate.hint }}
         </span>
         <button
           v-if="activeGate?.skipLabel"

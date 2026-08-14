@@ -25,6 +25,7 @@ export const providerPollinations = defineProvider<PollinationsConfig>({
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.pollinations.description'),
   tasks: ['chat'],
   icon: 'i-solar:cloud-bold',
+  requiresCredentials: false,
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',

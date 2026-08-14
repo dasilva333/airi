@@ -14,6 +14,7 @@ const config: CapacitorConfig = {
         cleartext: false,
       }
     : undefined,
+  plugins: {},
 }
 
 export default config

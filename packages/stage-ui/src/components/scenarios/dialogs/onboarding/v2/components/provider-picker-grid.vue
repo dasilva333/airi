@@ -22,11 +22,14 @@ const deploymentFilter = ref<'all' | 'local' | 'cloud'>('all')
 const pricingFilter = ref<'all' | 'free' | 'paid'>('all')
 
 const filteredProviders = computed(() => {
-  return props.providers.filter((p) => {
-    const matchDeployment = deploymentFilter.value === 'all' || p.deployment === deploymentFilter.value
-    const matchPricing = pricingFilter.value === 'all' || p.pricing === pricingFilter.value
-    return matchDeployment && matchPricing
-  })
+  return props.providers
+    .filter((p) => {
+      const matchDeployment = deploymentFilter.value === 'all' || p.deployment === deploymentFilter.value
+      const matchPricing = pricingFilter.value === 'all' || p.pricing === pricingFilter.value
+      return matchDeployment && matchPricing
+    })
+    .slice()
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
 })
 
 const selectedIdModel = computed({

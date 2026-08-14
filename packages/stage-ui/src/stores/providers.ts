@@ -144,7 +144,7 @@ export const useProvidersStore = defineStore('providers', () => {
   })
 
   // Get models for a specific provider (supports composite instance keys like providerId:instanceId)
-  function getModelsForProvider(providerKey: string) {
+  function getModelsForProvider(providerKey: string): ModelInfo[] {
     const baseId = providerKey.includes(':') ? providerKey.split(':')[0] : providerKey
     return providerRuntimeState.value[baseId]?.models || []
   }

@@ -1120,6 +1120,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return
 
     displayModel.name = name
+    displayModelCache.delete(id)
 
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
@@ -1140,7 +1141,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelName] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
-      void syncMetadataCacheFromMemory()
+      await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1160,6 +1161,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if ('groups' in updates) {
       displayModel.groups = updates.groups
     }
+    displayModelCache.delete(id)
 
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
@@ -1185,7 +1187,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelMeta] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
-      void syncMetadataCacheFromMemory()
+      await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1200,6 +1202,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return
 
     displayModel.tags = tags
+    displayModelCache.delete(id)
 
     // Update reactive state
     const index = displayModels.value.findIndex(m => m.id === id)
@@ -1220,7 +1223,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelTags] Accountable write to IndexedDB:', { id, isFileInstance: targetFile instanceof File || targetFile instanceof Blob, fileType: typeof targetFile, cleanModel })
       await localforage.setItem(id, cleanModel)
-      void syncMetadataCacheFromMemory()
+      await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1254,6 +1257,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (mappings.favoriteExpressions)
       displayModel.favoriteExpressions = [...mappings.favoriteExpressions]
 
+    // Invalidate binary LRU cache so subsequent getDisplayModel fetches fresh data
+    displayModelCache.delete(id)
+
     // Update in-memory reactive store list
     const index = displayModels.value.findIndex(m => m.id === id)
     if (index !== -1) {
@@ -1268,6 +1274,31 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         target.hiddenMotions = [...mappings.hiddenMotions]
       if (mappings.favoriteExpressions)
         target.favoriteExpressions = [...mappings.favoriteExpressions]
+      triggerRef(displayModels)
+    }
+    else if (id.startsWith('display-model-')) {
+      const compressedPreview = await compressPreviewDataUrl(displayModel.previewImage)
+      const itemMeta: DisplayModelFile = {
+        id,
+        format: displayModel.format,
+        type: 'file',
+        file: undefined,
+        name: displayModel.name || id,
+        importedAt: displayModel.importedAt || Date.now(),
+        previewImage: compressedPreview,
+        nsfw: displayModel.nsfw,
+        groups: displayModel.groups,
+        tags: displayModel.tags,
+        expressions: displayModel.expressions,
+        motions: displayModel.motions,
+        emotionMappings: displayModel.emotionMappings,
+        motionMappings: displayModel.motionMappings,
+        hiddenExpressions: displayModel.hiddenExpressions,
+        hiddenMotions: displayModel.hiddenMotions,
+        favoriteExpressions: displayModel.favoriteExpressions,
+        _searchKey: `${displayModel.name || ''} ${Array.isArray(displayModel.tags) ? displayModel.tags.join(' ') : ''} ${Array.isArray(displayModel.groups) ? displayModel.groups.join(' ') : ''}`.toLowerCase(),
+      }
+      displayModels.value.push(itemMeta)
       triggerRef(displayModels)
     }
 
@@ -1286,7 +1317,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         cleanModel,
       })
       await localforage.setItem(id, cleanModel)
-      void syncMetadataCacheFromMemory()
+      await syncMetadataCacheFromMemory()
       broadcastModelsSync(Date.now())
     }
   }
@@ -1375,9 +1406,20 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function getOrLoadModelCapabilities(id: string): Promise<{ expressions: string[], motions: string[] }> {
-    const model = displayModels.value.find(m => m.id === id)
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+    if (displayModels.value.length === 0) {
+      await loadDisplayModelsFromIndexedDB()
+    }
+
+    let model = displayModels.value.find(m => m.id === id)
     if (!model) {
-      return { expressions: [], motions: [] }
+      const modelFromFile = await getDisplayModel(id)
+      if (modelFromFile) {
+        model = modelFromFile
+      }
+      else {
+        return { expressions: [], motions: [] }
+      }
     }
 
     const isSpine = model.format === DisplayModelFormat.SpineZip
@@ -1759,16 +1801,18 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (model.type === 'file') {
       const fullModel = await localforage.getItem<any>(id)
       if (fullModel) {
-        // Strip any Vue reactivity proxies that might be nested inside the retrieved object
-        const cleanModel = JSON.parse(JSON.stringify(fullModel))
-        cleanModel.expressions = [...model.expressions]
-        cleanModel.motions = [...model.motions]
-
-        // Restore the original Blob file since JSON.stringify converts Blobs to empty objects
-        cleanModel.file = fullModel.file
+        const rawFullModel = toRaw(fullModel)
+        const cleanModel = {
+          ...rawFullModel,
+          expressions: [...model.expressions],
+          motions: [...model.motions],
+          ...('file' in rawFullModel ? { file: toRaw(rawFullModel.file) } : {}),
+        }
 
         await localforage.setItem(id, cleanModel)
       }
+      displayModelCache.delete(id)
+      void syncMetadataCacheFromMemory()
     }
 
     (model as any).capabilitiesLoaded = true

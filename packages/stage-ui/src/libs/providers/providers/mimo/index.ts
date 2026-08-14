@@ -67,6 +67,7 @@ export const providerMimo = defineProvider<MimoConfig>({
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.mimo.description'),
   tasks: ['chat'],
   icon: 'i-solar:cpu-bold',
+  requiresCredentials: false,
   business: () => ({
     pricing: 'free',
     deployment: 'cloud',

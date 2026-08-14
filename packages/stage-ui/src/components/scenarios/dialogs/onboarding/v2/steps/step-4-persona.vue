@@ -89,6 +89,17 @@ const hubSources = [
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
 const activeBrowserSource = ref<{ name: string, url: string } | null>(null)
 
+const availableTiers = computed(() => {
+  const list: { id: TierId, label: string, icon: string }[] = [
+    { id: 'presets', label: 'Starter Cards', icon: 'i-solar:stars-line-bold-duotone' },
+  ]
+  if (isElectron.value) {
+    list.push({ id: 'hub', label: 'Community Hub', icon: 'i-solar:planet-bold-duotone' })
+  }
+  list.push({ id: 'wizard', label: 'AI Creator', icon: 'i-solar:magic-stick-3-bold-duotone' })
+  return list
+})
+
 function openHubSource(source: { name: string, url: string }) {
   if (isElectron.value) {
     activeBrowserSource.value = source
@@ -278,11 +289,7 @@ onBeforeUnmount(() => {
     <!-- Tier tabs -->
     <div class="flex flex-shrink-0 items-center gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
       <button
-        v-for="tier in [
-          { id: 'presets', label: 'Starter Cards', icon: 'i-solar:stars-line-bold-duotone' },
-          { id: 'hub', label: 'Community Hub', icon: 'i-solar:planet-bold-duotone' },
-          { id: 'wizard', label: 'AI Creator', icon: 'i-solar:magic-stick-3-bold-duotone' },
-        ]"
+        v-for="tier in availableTiers"
         :key="tier.id"
         :class="[
           'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all',

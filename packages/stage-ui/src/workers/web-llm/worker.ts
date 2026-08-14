@@ -70,7 +70,7 @@ function toProgress(report: { progress: number, text: string }): LoadStreamItem 
  */
 async function buildAppConfig(request: WebLlmLoadRequest) {
   const { prebuiltAppConfig } = await getMlcWebLlm()
-  const modelList: ModelRecord[] = prebuiltAppConfig.model_list.map((record) => {
+  const modelList: ModelRecord[] = prebuiltAppConfig.model_list.map((record: any) => {
     // Ensure sliding_window_size is set to -1 when context_window_size is positive,
     // preventing MLC runtime assertion errors (e.g. gemma3-1b-it where both are positive by default).
     if (record.overrides || record.model_id.includes('gemma3') || record.model_id.includes('gemma')) {
@@ -118,12 +118,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
 
   const appConfig = await buildAppConfig(payload)
 
-  emit({ kind: 'progress', payload: { phase: 'download', percent: -1, message: 'Initializing WebLLM engine...' } })
-  console.info('[web-llm:worker] creating engine', { modelId: payload.modelId, custom: !!payload.modelUrl })
-
-  // A previous engine may hold VRAM for a different model. Dispose it before
-  // allocating the new one so the swap frees the old weights first (the
-  // pre-allocation check on the main thread assumes the prior model is gone).
+  // Discard any existing engine cleanly
   if (engine) {
     try {
       await engine.unload()
@@ -139,7 +134,7 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
     const { CreateMLCEngine } = await getMlcWebLlm()
     const created = await CreateMLCEngine(payload.modelId, {
       appConfig,
-      initProgressCallback: (report) => {
+      initProgressCallback: (report: { progress: number, text: string }) => {
         emit(toProgress(report))
       },
     })
@@ -163,9 +158,10 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
         }
       }
       try {
+        const { CreateMLCEngine } = await getMlcWebLlm()
         const created = await CreateMLCEngine(payload.modelId, {
           appConfig,
-          initProgressCallback: (report) => {
+          initProgressCallback: (report: { progress: number, text: string }) => {
             emit(toProgress(report))
           },
         })

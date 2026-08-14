@@ -56,13 +56,14 @@ const { startAnalyzer, stopAnalyzer, volumeLevel } = useAudioAnalyzer()
 
 // --- Verification state machine ---
 const verification = ref<Verification>('idle')
-const isVerified = computed(() => verification.value === 'verified')
+const isVerified = computed(() => verification.value === 'verified' || transcribedText.value.trim().length > 0 || testStreamingText.value.trim().length > 0)
 
 const gate = inject(onboardingV2GateKey, null)
 onMounted(() => {
   gate?.setGate('hearing', {
     canProceed: computed(() => isVerified.value),
     skipLabel: 'Skip Step',
+    hint: 'Speak into your microphone — Next unlocks once we hear you.',
   })
 })
 onBeforeUnmount(() => gate?.clearGate('hearing'))
@@ -102,12 +103,15 @@ function getWhisperModelSpec(id: string) {
   return '~800 MB DL · ~3 GB VRAM'
 }
 
+const whisperErrorMessage = ref('')
+
 async function startWhisperDownload() {
   whisperAbort.value?.abort()
   const controller = new AbortController()
   whisperAbort.value = controller
   whisperDownloadState.value = 'downloading'
   whisperProgress.value = 0
+  whisperErrorMessage.value = ''
   try {
     await ensureWhisperLoaded({
       model: selectedWhisperModel.value,
@@ -125,7 +129,9 @@ async function startWhisperDownload() {
   catch (err) {
     if (!controller.signal.aborted) {
       whisperDownloadState.value = 'error'
-      console.error('[V2 Hearing] Whisper download failed:', err)
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      whisperErrorMessage.value = msg
+      console.error('[V2 Hearing] Whisper download failed:', msg, err)
     }
   }
 }
@@ -183,18 +189,16 @@ const testError = ref('')
 const testStreamWasStarted = ref(false)
 
 const canStartTest = computed(() => {
-  if (!activeTranscriptionProvider.value || !selectedAudioInput.value)
+  if (!activeTranscriptionProvider.value)
     return false
   if (isWhisperSelected.value && whisperDownloadState.value !== 'ready')
     return false
   return true
 })
 
-watch(transcribedText, (text) => {
-  if (text.trim())
+watch([transcribedText, testStreamingText], ([text, streaming]) => {
+  if (text.trim() || streaming.trim())
     verification.value = 'verified'
-  else if (verification.value === 'verified')
-    verification.value = 'transcribed'
 })
 
 async function setupMonitoring() {
@@ -357,8 +361,8 @@ watch(selectedAudioInput, async () => {
       message="Pick a speech engine below, then talk to me! The big button unlocks as soon as I actually hear you — no mock progress bars here."
     />
 
-    <!-- Step 1: Mic device -->
-    <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']">
+    <!-- Step 1: Mic device (only shown when multiple hardware devices are detected) -->
+    <div v-if="micOptions.length > 1" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md']">
       <FieldSelect
         v-model="selectedAudioInput"
         label="Microphone"
@@ -402,12 +406,17 @@ watch(selectedAudioInput, async () => {
         <div class="i-solar:check-circle-bold-duotone h-4 w-4" />
         Engine cached & verified — ready to transcribe.
       </div>
-      <div v-else-if="whisperDownloadState === 'error'" class="flex items-center gap-2 text-xs text-red-600 font-bold dark:text-red-400">
-        <div class="i-solar:danger-circle-bold-duotone h-4 w-4" />
-        Download failed.
-        <button class="underline" @click="startWhisperDownload">
-          Retry
-        </button>
+      <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 text-xs text-red-600 dark:text-red-400">
+        <div class="flex items-center gap-2 font-bold">
+          <div class="i-solar:danger-circle-bold-duotone h-4 w-4" />
+          Download failed.
+          <button class="underline" @click="startWhisperDownload">
+            Retry
+          </button>
+        </div>
+        <span v-if="whisperErrorMessage" class="break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+          {{ whisperErrorMessage }}
+        </span>
       </div>
     </div>
 
@@ -426,7 +435,7 @@ watch(selectedAudioInput, async () => {
       <FieldSelect
         v-model="activeTranscriptionModel"
         label="Model"
-        :options="providerModels.map(m => ({ label: m.name || m.id, value: m.id }))"
+        :options="providerModels.map((m: any) => ({ label: m.name || m.id, value: m.id }))"
         placeholder="Select a transcription model"
         layout="vertical"
       />
