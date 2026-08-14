@@ -10,9 +10,13 @@ interface Props {
   // 'down': opens below the trigger (for elements near the top, e.g. header)
   // 'up': opens above the trigger (for elements near the bottom, e.g. floating island)
   placement?: 'down' | 'up'
+  align?: 'left' | 'right'
 }
 
-const props = withDefaults(defineProps<Props>(), { placement: 'down' })
+const props = withDefaults(defineProps<Props>(), {
+  placement: 'down',
+  align: 'right',
+})
 
 const emit = defineEmits<{
   (e: 'manage'): void
@@ -88,10 +92,11 @@ function handleImageJournal() {
       <div
         v-if="open"
         :class="[
-          'absolute right-0 z-50 min-w-48',
+          'absolute z-50 min-w-48',
+          props.align === 'left' ? 'left-0' : 'right-0',
           placement === 'up'
-            ? 'bottom-full mb-2 origin-bottom-right'
-            : 'top-full mt-2 origin-top-right',
+            ? (props.align === 'left' ? 'bottom-full mb-2 origin-bottom-left' : 'bottom-full mb-2 origin-bottom-right')
+            : (props.align === 'left' ? 'top-full mt-2 origin-top-left' : 'top-full mt-2 origin-top-right'),
           'border border-neutral-200/60 dark:border-neutral-800/60 rounded-xl',
           'bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl shadow-xl',
           'divide-y divide-neutral-100 dark:divide-neutral-800',

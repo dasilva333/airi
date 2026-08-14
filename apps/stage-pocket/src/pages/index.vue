@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
-import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
@@ -182,10 +181,10 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
   >
     <div class="relative z-2 h-100dvh w-100vw flex flex-col overflow-hidden py-safe">
       <!-- header -->
-      <div class="w-full flex gap-2 px-0 py-1 md:px-3 md:py-3">
-        <Header class="hidden md:flex" />
-        <MobileHeader class="flex md:hidden" />
+      <div class="relative z-50 w-full flex gap-2 px-0 py-1 md:px-3 md:py-3">
+        <MobileHeader class="w-full" />
       </div>
+
       <!-- page -->
       <div class="relative min-h-0 flex flex-1 flex-row gap-x-2 gap-y-0 <md:flex-col">
         <WidgetStage

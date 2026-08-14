@@ -11,7 +11,7 @@ The AIRI mobile application (`apps/stage-pocket`) is evolving from a fragmented 
 When interacting with an AI companion on a handheld touchscreen, facial expressions, micro-glances, head tilts, and kinetic body language are where the bond is forged. To preserve spatial presence and eye contact, the mobile experience is divided into four strictly organized interaction planes:
 
 1. **Stage & Ambient Atmosphere Layer**: Pure companion presence (Live2D/VRM/MMD/Spine), subtle floating heart particle canvas, and grounding concentric digital pedestal.
-2. **Top System Control Plane (4-Pill Power Strip)**: High-level model selection (`[🧠]`), context injections & runtime engine (`[⚡]`), Control Customizer (`[⊞]`), and Settings (`[⚙]`).
+2. **Top System Control Plane (4-Pill Power Strip + Profile Capsule)**: Character/Storyline hot-swap (`[📖 ProfileSwitcher]`), model selection (`[🧠]`), context injections & runtime engine (`[⚡]`), Control Customizer (`[⊞]`), and Settings (`[⚙]`).
 3. **Vertical Edge Notch & Control Strip**: A 14px edge tab docked to the **Left** or **Right** edge that smoothly expands into a **5–7 slot vertical ribbon** for quick companion actions (Tactile/Zoom modes, Outfits, Emotions, Live voice).
 4. **Composition & Archive Layer (WhisperDock Family)**: The user's streamlined message creation dock (`[+]`, `[✨]`, input, `[🎤]`, `[✈]`) anchored above the bottom safe area with an expandable 3-posture history drawer.
 
@@ -21,7 +21,7 @@ When interacting with an AI companion on a handheld touchscreen, facial expressi
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ [Logo]           [🧠 LLM]   [⚡ Injections]   [⊞ Strip Config]   [⚙ Settings] │ ← Top System Bar
+│ [Logo] [📖 Profile / Story ▾]    [🧠 LLM] [⚡ Injections] [⊞ Strip] [⚙] │ ← Top System Bar
 │ ═════════════════════════════════════════┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈   │ ← Token Progress Line
 ├────────────────────────────────────────────────────────────────────────┤
 │                                                                        │
@@ -44,13 +44,19 @@ When interacting with an AI companion on a handheld touchscreen, facial expressi
 
 ---
 
-## 3. Top System Control Bar: The 4-Pill Power Strip
+## 3. Top System Control Bar: Profile Capsule & 4-Pill Power Strip
 
 - **Primary file**: `packages/stage-layouts/src/components/Layouts/MobileHeader.vue`
 - **Minimal Brand Anchor**: Icon-only AIRI logo (`Logo.svg` / `LogoDark.svg`) on the top-left.
 - **Token Capacity Progress Bar**: 1.5px glowing animated line beneath the header line (`sessionTokens / contextWidth`).
 
-### The 4 Header Action Badges
+### 3.1 Character & Profile Capsule (`ProfileSwitcherPopover`)
+- Reuses the shared desktop `ProfileSwitcherPopover.vue` (`packages/stage-ui/src/components/misc/profile-switcher-popover.vue`) directly via DRY architecture.
+- **Trigger Pill**: A frosted glass capsule pill beside the logo: `[ 🐱 Kira ▾ ]` with max-width clamping (`max-w-28 sm:max-w-36 truncate`).
+- **Instant Hot-Swap**: Tapping drops down the active character & story profile list to hot-swap cards and models with zero stage reload.
+- **Variant Support**: `variant="mobile"` prop allows sharing identical data logic while adapting popover padding and touch targets for mobile.
+
+### 3.2 The 4 Header Action Badges
 
 ```
 ┌─────────────┬───────────────────┬───────────────────┬──────────────┐
@@ -218,7 +224,8 @@ WhisperDock Family
 
 | Area | File Path | Scope of Implementation |
 | :--- | :--- | :--- |
-| **Mobile Header** | `packages/stage-layouts/src/components/Layouts/MobileHeader.vue` | 4-pill power strip (`Brain`, `Injections`, `Customizer`, `Settings`) & token line. |
+| **Mobile Header** | `packages/stage-layouts/src/components/Layouts/MobileHeader.vue` | Profile capsule (`ProfileSwitcherPopover`) + 4-pill power strip (`Brain`, `Injections`, `Customizer`, `Settings`) & token line. |
+| **Profile Switcher** | `packages/stage-ui/src/components/misc/profile-switcher-popover.vue` | Shared character & profile switcher popover with `placement` & `variant` support. |
 | **Injections Popover** | `packages/stage-layouts/src/components/Layouts/MobileInjectionsPopover.vue` | Chat layout, sensor/memory/intrusion switches, Image Director & spawn modes. |
 | **Control Strip** | `packages/stage-layouts/src/components/Layouts/MobileControlStrip.vue` | Vertical edge notch tab & 5–7 slot expandable strip (Left/Right dockable). |
 | **Mobile Customizer** | `packages/stage-layouts/src/components/Layouts/MobileControlCustomizerDialog.vue` | Dedicated mobile sheet for slot selection and Left/Right edge preference. |
@@ -240,10 +247,11 @@ WhisperDock Family
 3. Implement the ambient dark backdrop with floating multi-toned heart particles and concentric circular pedestal.
 4. Clean legacy floating buttons from `MobileInteractiveArea.vue`.
 
-### Phase 2: Injections Popover & Control Strip with Mobile Customizer
-1. Build `MobileInjectionsPopover.vue` (`[⚡]` button) matching the rich context injections & modes mockup.
-2. Create dedicated `MobileControlCustomizerDialog.vue` (`[⊞]` button) supporting Left/Right edge preference and mobile-filtered slots.
-3. Build `MobileControlStrip.vue` (14px edge notch tab with vertical 5–7 slot expansion, left/right docking, and touch gestures).
+### Phase 2: Profile Capsule, Injections Popover, and Control Strip with Customizer
+1. Mount shared `ProfileSwitcherPopover.vue` in `MobileHeader.vue` beside the logo for instant character/story hot-swapping.
+2. Build `MobileInjectionsPopover.vue` (`[⚡]` button) matching the rich context injections & modes mockup.
+3. Create dedicated `MobileControlCustomizerDialog.vue` (`[⊞]` button) supporting Left/Right edge preference and mobile-filtered slots.
+4. Build `MobileControlStrip.vue` (14px edge notch tab with vertical 5–7 slot expansion, left/right docking, and touch gestures).
 
 ### Phase 3: WhisperDock Family & Three-Posture Sheet
 1. Extract `useProducerSuggestions.ts` controller from `actor.vue`.

@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { useLocalStorage } from '@vueuse/core'
+import { onClickOutside, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
 
-const props = withDefaults(defineProps<{
+const props = withDefaults(defineProps<Props>(), {
+  title: 'Model & Provider',
+  variant: 'default',
+  side: 'top',
+})
+const emit = defineEmits<{
+  (e: 'update:provider', value: string): void
+  (e: 'update:model', value: string): void
+  (e: 'change', value: { provider: string, model: string }): void
+}>()
+const isOpen = ref(false)
+const popoverRef = ref<HTMLElement>()
+
+onClickOutside(popoverRef, () => {
+  isOpen.value = false
+})
+
+interface Props {
   /** Tooltip or title for the popover header */
   title?: string
   /** Trigger button visual variant */
-  variant?: 'default' | 'mobile' | 'button' | 'custom'
+  variant?: 'default' | 'mobile' | 'circle' | 'button' | 'custom'
   /** Trigger button custom label when variant === 'button' */
   buttonLabel?: string
   /** Side where the popover renders */
@@ -21,17 +37,7 @@ const props = withDefaults(defineProps<{
   provider?: string
   /** Optional custom bound model. If not provided, falls back to consciousnessStore.activeModel */
   model?: string
-}>(), {
-  title: 'Model & Provider',
-  variant: 'default',
-  side: 'top',
-})
-
-const emit = defineEmits<{
-  (e: 'update:provider', value: string): void
-  (e: 'update:model', value: string): void
-  (e: 'change', value: { provider: string, model: string }): void
-}>()
+}
 
 // Store bindings
 const consciousnessStore = useConsciousnessStore()
@@ -240,44 +246,63 @@ const activeModelDisplay = computed(() => {
 </script>
 
 <template>
-  <PopoverRoot>
-    <PopoverTrigger as-child>
-      <slot name="trigger">
-        <button
-          v-if="variant === 'mobile'"
-          class="w-fit flex items-center justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/30 dark:bg-neutral-800/70"
-          :title="title"
-        >
-          <div class="i-ph:brain-duotone size-5 text-neutral-500 dark:text-neutral-400" />
-        </button>
-        <button
-          v-else-if="variant === 'button'"
-          type="button"
-          class="h-9 inline-flex items-center gap-2 border border-neutral-200 rounded-xl bg-white px-3 text-xs text-neutral-700 font-medium shadow-sm transition-all dark:border-neutral-800 hover:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-primary-800"
-          :title="title"
-        >
-          <div class="i-ph:brain-duotone text-sm text-primary-500" />
-          <span class="max-w-40 truncate text-[11px] font-mono">
-            {{ buttonLabel || activeModelDisplay }}
-          </span>
-          <div class="i-solar:alt-arrow-down-bold text-[10px] text-neutral-400" />
-        </button>
-        <button
-          v-else
-          class="flex cursor-pointer items-center justify-center rounded-xl p-1.5 text-neutral-500 transition-colors duration-200 ease-in-out hover:bg-neutral-200 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          :title="title"
-        >
-          <div class="i-ph:brain-duotone text-base" />
-        </button>
-      </slot>
-    </PopoverTrigger>
+  <div ref="popoverRef" class="relative">
+    <slot name="trigger" :open="isOpen" :toggle="() => isOpen = !isOpen">
+      <button
+        v-if="variant === 'circle'"
+        type="button"
+        class="size-8.5 flex cursor-pointer items-center justify-center border border-neutral-200/30 rounded-full bg-white/10 text-neutral-700 shadow-sm backdrop-blur-md transition-all active:scale-95 dark:border-neutral-700/40 dark:bg-neutral-800/60 dark:text-neutral-200"
+        :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
+        :title="title"
+        @click="isOpen = !isOpen"
+      >
+        <div class="i-ph:brain-duotone size-4.5 text-teal-500 dark:text-teal-400" />
+      </button>
+      <button
+        v-else-if="variant === 'mobile'"
+        class="w-fit flex cursor-pointer items-center justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/30 dark:bg-neutral-800/70"
+        :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
+        :title="title"
+        @click="isOpen = !isOpen"
+      >
+        <div class="i-ph:brain-duotone size-5 text-neutral-500 dark:text-neutral-400" />
+      </button>
+      <button
+        v-else-if="variant === 'button'"
+        type="button"
+        class="h-9 inline-flex cursor-pointer items-center gap-2 border border-neutral-200 rounded-xl bg-white px-3 text-xs text-neutral-700 font-medium shadow-sm transition-all dark:border-neutral-800 hover:border-primary-300 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-primary-800"
+        :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
+        :title="title"
+        @click="isOpen = !isOpen"
+      >
+        <div class="i-ph:brain-duotone text-sm text-primary-500" />
+        <span class="max-w-40 truncate text-[11px] font-mono">
+          {{ buttonLabel || activeModelDisplay }}
+        </span>
+        <div class="i-solar:alt-arrow-down-bold text-[10px] text-neutral-400" />
+      </button>
+      <button
+        v-else
+        class="flex cursor-pointer items-center justify-center rounded-xl p-1.5 text-neutral-500 transition-colors duration-200 ease-in-out hover:bg-neutral-200 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+        :class="isOpen ? 'ring-2 ring-primary-500/30' : ''"
+        :title="title"
+        @click="isOpen = !isOpen"
+      >
+        <div class="i-ph:brain-duotone text-base" />
+      </button>
+    </slot>
 
-    <PopoverPortal>
-      <PopoverContent
-        :side="side"
-        :side-offset="8"
-        align="end"
-        class="animate-in fade-in zoom-in z-[9999] w-80 border border-neutral-200/50 rounded-2xl bg-white/90 p-4 shadow-2xl backdrop-blur-xl duration-200 dark:border-neutral-700/50 dark:bg-neutral-900/90"
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="-translate-y-1 opacity-0 scale-95"
+      enter-to-class="translate-y-0 opacity-100 scale-100"
+      leave-active-class="transition duration-100 ease-in"
+      leave-from-class="translate-y-0 opacity-100 scale-100"
+      leave-to-class="-translate-y-1 opacity-0 scale-95"
+    >
+      <div
+        v-if="isOpen"
+        class="absolute right-0 top-full z-[9999] mt-2 max-h-[85dvh] max-w-[calc(100vw-24px)] w-80 flex flex-col origin-top-right overflow-y-auto border border-neutral-200/50 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-2xl scrollbar-thin dark:border-neutral-700/50 dark:bg-neutral-900/95"
       >
         <!-- Header -->
         <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">
@@ -446,9 +471,9 @@ const activeModelDisplay = computed(() => {
             </div>
           </Transition>
         </div>
-      </PopoverContent>
-    </PopoverPortal>
-  </PopoverRoot>
+      </div>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>
