@@ -393,100 +393,124 @@ const sceneOptions = computed(() => {
   ]
 })
 
+const activeCardModel = computed(() => {
+  const modelId = selectedDisplayModelId.value || defaultDisplayModelId.value || cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
+  return modelId ? displayModelsStore.displayModels.find(m => m.id === modelId) : null
+})
+
 const actingModelEmotionOptions = computed(() => {
-  const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-  const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
+  const activeModel = activeCardModel.value
   if (activeModel?.expressions && activeModel.expressions.length > 0) {
-    return activeModel.expressions
-  }
-  if (isLive2d.value) {
-    return live2dExpressions.value.map(e => e.name).sort((a, b) => a.localeCompare(b))
-  }
-  if (isMmd.value) {
-    const mappings = mmdStore.morphMappings || {}
-    const hidden = mmdStore.hiddenMorphs || []
-
+    const mappings = activeModel.emotionMappings || {}
+    const hidden = activeModel.hiddenExpressions || []
     const mapped: string[] = []
-    const unmapped: string[] = []
 
-    mmdMorphs.value.forEach((m) => {
-      if (hidden.includes(m))
-        return
-
-      const mappedName = mappings[m]
-      if (mappedName) {
-        mapped.push(mappedName)
+    for (const key of activeModel.expressions) {
+      if (hidden.includes(key))
+        continue
+      const customName = mappings[key]
+      if (customName && customName.trim()) {
+        mapped.push(customName.trim())
       }
       else {
-        unmapped.push(m)
+        mapped.push(key)
       }
-    })
-
-    if (mapped.length > 0) {
-      return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
     }
-    else {
-      return [...new Set(unmapped)].sort((a, b) => a.localeCompare(b))
-    }
+    return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
   }
-  return [...availableExpressions.value].sort((a, b) => a.localeCompare(b))
+
+  if (isLive2d.value) {
+    const mappings = activeModel?.emotionMappings || {}
+    const hidden = activeModel?.hiddenExpressions || []
+    const mapped = live2dExpressions.value
+      .filter(e => !hidden.includes(e.fileName) && !hidden.includes(e.name))
+      .map(e => mappings[e.fileName] || mappings[e.name] || e.name)
+    return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
+  }
+
+  if (isMmd.value) {
+    const mappings = activeModel?.emotionMappings || mmdStore.morphMappings || {}
+    const hidden = activeModel?.hiddenExpressions || mmdStore.hiddenMorphs || []
+
+    const mapped: string[] = []
+    for (const m of mmdMorphs.value) {
+      if (hidden.includes(m))
+        continue
+      const mappedName = mappings[m]
+      mapped.push(mappedName || m)
+    }
+    return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
+  }
+
+  const mappings = activeModel?.emotionMappings || {}
+  const hidden = activeModel?.hiddenExpressions || []
+  const mapped = availableExpressions.value
+    .filter(e => !hidden.includes(e))
+    .map(e => mappings[e] || e)
+  return [...new Set(mapped)].sort((a, b) => a.localeCompare(b))
 })
 
 const actingIdleAnimationOptions = computed(() => {
-  if (isLive2d.value) {
-    const displayModelId = cardStore.activeCard?.extensions?.airi?.modules?.displayModelId
-    const activeModel = displayModelId ? displayModelsStore.displayModels.find(m => m.id === displayModelId) : null
-    const motionMappings = activeModel?.motionMappings || {}
-    const hiddenMotions = activeModel?.hiddenMotions || []
+  const activeModel = activeCardModel.value
+  const motionMappings = activeModel?.motionMappings || {}
+  const hiddenMotions = activeModel?.hiddenMotions || []
 
-    const mappedMotions: { label: string, value: string }[] = []
-    const unmappedMotions: { label: string, value: string }[] = []
+  const normalize = (s: string) =>
+    s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
 
-    const normalize = (s: string) =>
-      s.split(/[\\/]/).pop()?.replace(/_File_\d+/gi, '').replace(/\.(motion3\.)?json$/i, '').replace(/^(motions?|expressions?)[_-]/i, '').toLowerCase() || s.toLowerCase()
-
-    live2dStore.availableMotions.forEach((m) => {
-      if (hiddenMotions.includes(m.fileName))
-        return
-
-      const name = m.fileName.split('/').pop() || m.fileName
-      const cleanName = name.replace('.motion3.json', '').replace('.json', '')
-
-      const mNorm = normalize(m.fileName)
-      let mappedName
+  function resolveMotionLabel(rawKey: string): { label: string, value: string } {
+    const cleanName = rawKey.split('/').pop()?.replace('.motion3.json', '').replace('.json', '') || rawKey
+    const rawNorm = normalize(rawKey)
+    let mappedName = motionMappings[rawKey]
+    if (!mappedName) {
       for (const [mapKey, val] of Object.entries(motionMappings)) {
-        if (normalize(mapKey) === mNorm) {
+        if (normalize(mapKey) === rawNorm) {
           mappedName = val as string
           break
         }
       }
+    }
+    const finalLabel = mappedName || cleanName
+    return { label: finalLabel, value: finalLabel }
+  }
 
-      if (mappedName) {
-        mappedMotions.push({ label: mappedName, value: mappedName })
-      }
-      else {
-        unmappedMotions.push({ label: cleanName, value: cleanName })
-      }
+  if (activeModel?.motions && activeModel.motions.length > 0) {
+    const options: { label: string, value: string }[] = []
+    for (const key of activeModel.motions) {
+      if (hiddenMotions.includes(key))
+        continue
+      options.push(resolveMotionLabel(key))
+    }
+    return options.sort((a, b) => a.label.localeCompare(b.label))
+  }
+
+  if (isLive2d.value) {
+    const options: { label: string, value: string }[] = []
+    live2dStore.availableMotions.forEach((m) => {
+      if (hiddenMotions.includes(m.fileName))
+        return
+      options.push(resolveMotionLabel(m.fileName))
     })
-
-    mappedMotions.sort((a, b) => a.label.localeCompare(b.label))
-    unmappedMotions.sort((a, b) => a.label.localeCompare(b.label))
-
-    if (mappedMotions.length > 0) {
-      return mappedMotions
-    }
-    else {
-      return unmappedMotions
-    }
+    return options.sort((a, b) => a.label.localeCompare(b.label))
   }
+
   if (isSpine.value) {
-    return spineAnimations.value.map(a => ({ label: a.name, value: a.name }))
+    return spineAnimations.value
+      .filter(a => !hiddenMotions.includes(a.name))
+      .map(a => resolveMotionLabel(a.name))
+      .sort((a, b) => a.label.localeCompare(b.label))
   }
+
   if (isMmd.value) {
-    const builtIn = mmdMotions.value.map(m => ({ label: m, value: m }))
-    const custom = mmdCustomMotions.value.map(m => ({ label: m.name, value: m.name }))
+    const builtIn = mmdMotions.value
+      .filter(m => !hiddenMotions.includes(m))
+      .map(m => resolveMotionLabel(m))
+    const custom = mmdCustomMotions.value
+      .filter(m => !hiddenMotions.includes(m.name) && (!m.id || !hiddenMotions.includes(m.id)))
+      .map(m => resolveMotionLabel(m.name))
     return [...builtIn, ...custom].sort((a, b) => a.label.localeCompare(b.label))
   }
+
   return animationOptions.value
 })
 
