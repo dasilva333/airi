@@ -179,7 +179,7 @@ The desktop customizer (`w-[760px]` 2-column modal) cannot be rendered on mobile
 
 ---
 
-## 6. WhisperDock Component Family & DRY Architecture
+## 6. WhisperDock Family & Dual-Mode Mobile Posture Architecture
 
 To maintain a single source of truth without bloating desktop leaf components or duplicating mobile logic:
 
@@ -187,19 +187,34 @@ To maintain a single source of truth without bloating desktop leaf components or
 WhisperDock Family
 ├── WhisperComposerBar.vue        ← Shared visual composer row ([+] · [✨] · [textarea] · [🎤] · [✈])
 ├── WhisperDock.vue               ← Desktop Actor-stage wrapper (4-state mouse hover/proximity, auto-dismiss)
-├── MobileWhisperSheet.vue        ← Mobile touch wrapper (safe-area insets, 3 postures, drag gestures, ChatHistory)
+├── MobileWhisperSheet.vue        ← Unified mobile touch wrapper (safe-area insets, 3 postures, dual presentation modes)
 ├── useChatComposer.ts            ← Core state: message input, attachments, STT, optimistic send/rollback
 └── useProducerSuggestions.ts     ← Extracted suggestion state controller (unifying actor.vue & mobile)
 ```
 
-### The Three Mobile Postures
+### 6.1 Dual Presentation Modes (Translucent HUD vs. Frosted Sheet)
 
-| Feature / State | Posture 1: Conversation (Default) | Posture 2: Immersive Voice | Posture 3: History Archive |
-| :--- | :--- | :--- | :--- |
-| **Primary Focus** | Balanced text & avatar interaction | Hands-free verbal intimacy & gaze | Transcript review & memory management |
-| **Bottom Sheet State** | Compact input dock pinned above safe area | Collapsed into minimal notch with recording ring | Expanded full-height frosted glass sheet |
-| **Head-Tethered Caption** | **Active** (displays live speech beside head) | **Active** (full focus on companion speech) | **Suppressed / Faded** (prevents duplicate text) |
-| **Trigger / Transition** | App launch or sheet swipe-down | Tapping `[🎤]` voice button | Swiping up on grab handle `-` |
+Mobile users interact with companions across diverse aesthetic preferences. To support both Visual Novel / HUD immersion and high-contrast message archiving, the mobile chat container supports two distinct presentation modes, switchable via a 1-tap toggle in the posture handle strip:
+
+1. **Mode A: Translucent HUD (Floating Canvas — Anime VN Style)**:
+   - Container background is `bg-transparent border-transparent shadow-none`.
+   - Chat bubbles float directly over the 3D/2D avatar canvas.
+   - The top of the message stream applies a soft vertical CSS gradient mask (`mask-image: linear-gradient(to bottom, transparent 0%, black 20%)`) so messages gracefully dissolve as they scroll upward toward the header.
+   - Preserves 100% avatar visibility behind active conversation.
+
+2. **Mode B: Frosted Sheet (Encased Card — Traditional Mobile Style)**:
+   - Container is encased in a frosted backdrop-blur sheet (`bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl border-t border-neutral-200/40 dark:border-neutral-800/40`).
+   - Guarantees 100% text contrast and readability against complex, bright, or rapidly moving 3D scenes.
+
+### 6.2 The Four Unified Mobile Postures
+
+| Feature / State | Posture 1: `voice` (Voice Capsule) | Posture 2: `composer` (Dock Only) | Posture 3: `preview` (~40–50vh) | Posture 4: `history` (~85vh Full) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Primary Focus** | Hands-free verbal intimacy & gaze | Clean stage canvas with quick input access | Conversational back-and-forth & recent turns | In-depth transcript review, editing & memory actions |
+| **Translucent HUD Presentation** | Minimal floating voice capsule pill | Bottom composer dock pinned above safe area | Recent 1–2 messages floating with top gradient dissolve | Full-height message stream extending to header with top fade |
+| **Frosted Sheet Presentation** | Minimal floating voice capsule pill | Bottom composer dock pinned above safe area | Classic half-sheet card overlaying bottom half of stage | Full-height sheet container with edge-to-edge scroll |
+| **Head-Tethered Caption** | **Active** (focused on companion speech) | **Active** (displays live speech beside head) | **Active** (companion speech tethered or inline) | **Suppressed / Faded** (prevents duplicate text) |
+| **Trigger / Transition** | Tapping `[🎤]` voice button | Swiping down to bottom / tap chevron-down | Sending a message / tapping grab handle / chevron-up | Swiping up to max height / tapping grab handle / chevron-up |
 
 ---
 
@@ -269,6 +284,12 @@ WhisperDock Family
 1. Validate on iOS Simulator (iPhone 17) via live HMR.
 2. Verify smooth 60fps gesture transitions and 0% CPU burn when idle.
 
+### Phase 6: Dual-Mode Mobile Chat & Cross-Platform Unification
+1. Unify `MobileWhisperSheet.vue` across `stage-pocket` and `stage-web` portrait mode.
+2. Implement 1-tap mode toggle (Translucent Floating HUD vs. Frosted Sheet) in the drag strip.
+3. Wire the soft top gradient mask (`mask-image: linear-gradient(...)`) on the translucent message stream spanning Preview (~40vh) and Full-Height (~85vh) postures.
+4. Retire legacy slim input in `MobileInteractiveArea.vue`.
+
 ---
 
 ## 10. Lessons Learned
@@ -321,5 +342,17 @@ WhisperDock Family
 **Root Cause**: In `apps/stage-pocket/src/main.ts`, the router was configured with `createWebHistory()` (HTML5 pushState history). When packaged natively inside Capacitor for iOS, WKWebView serves the local asset bundle from `capacitor://localhost/index.html`. `createWebHistory()` parses `window.location.pathname` as `"/index.html"`. Because Vue Router only defined routes for `"/"`, `"/settings"`, etc., `/index.html` resulted in zero matched routes (`matched: []`). `<RouterView>` rendered `undefined`, yielding a completely blank white screen.
 
 **Fix**: Always configure `createRouter({ history: createWebHashHistory() })` for `apps/stage-pocket`. Hash routing (`capacitor://localhost/index.html#/`) maps `#` / `#/` directly to the `/` root route, completely avoiding the `/index.html` path mismatch in native WKWebView. In addition, always ensure `npx cap sync ios` is executed after running `pnpm -F @proj-airi/stage-pocket build` to copy the fresh `dist/` bundle into `apps/stage-pocket/ios/App/App/public/` before creating Xcode archives.
+
+---
+
+### L-05 · `unplugin-vue-router` Multi-Root Directory Shadowing & Single-Window Back Routing
+
+**Symptom**: In `stage-web`, navigating to `/settings` resulted in a blank page or was unable to navigate back to `/`.
+
+**Root Cause**:
+1. When `apps/stage-web/src/pages/settings/` exists as a local folder, `unplugin-vue-router` groups routes under `settings/` but requires an explicit `index.vue` in that directory rather than automatically falling through to `packages/stage-pages/src/pages/settings/index.vue`.
+2. A legacy router guard (`if (from.meta.rootOfSettings && to.path === '/') return false`) intended strictly for multi-window Electron (`stage-tamagotchi`) was erroneously copied into `apps/stage-web/src/main.ts`, trapping web users on the settings page.
+
+**Fix**: Explicitly mount `SettingsIndexPage` in `apps/stage-web/src/pages/settings/index.vue` with `titleKey: settings.title`, and ensure single-window applications (`stage-web`, `stage-pocket`) always allow returning to the home stage (`/`).
 
 

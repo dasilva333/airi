@@ -5,11 +5,12 @@ import { ChatHistory, WhisperComposerBar } from '@proj-airi/stage-ui/components'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
-import { useScreenSafeArea } from '@vueuse/core'
+import { useLocalStorage, useScreenSafeArea } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 export type MobilePosture = 'voice' | 'composer' | 'preview' | 'history'
+export type PresentationMode = 'translucent' | 'frosted'
 
 const props = defineProps<{
   tools?: any[]
@@ -27,6 +28,15 @@ const emit = defineEmits<{
 // 4. 'history' - full history list view (expanded 85dvh transcript sheet)
 const currentPosture = ref<MobilePosture>('preview')
 const previousPosture = ref<MobilePosture>('preview')
+
+// Dual Presentation Modes:
+// - 'translucent': Floating HUD overlay with soft top gradient dissolve (Anime VN style)
+// - 'frosted': High-contrast frosted glass bottom sheet (Classic mobile card style)
+const presentationMode = useLocalStorage<PresentationMode>('airi:mobile-chat-presentation-mode', 'translucent')
+
+function togglePresentationMode() {
+  presentationMode.value = presentationMode.value === 'translucent' ? 'frosted' : 'translucent'
+}
 
 const composerRef = useTemplateRef<InstanceType<typeof WhisperComposerBar>>('composerRef')
 const screenSafeArea = useScreenSafeArea()
@@ -136,7 +146,7 @@ defineExpose({
   <div
     :class="[
       'fixed inset-x-0 bottom-0 z-40 flex flex-col justify-end transition-all duration-300 ease-out select-none',
-      currentPosture === 'history' ? 'top-14 bg-black/20 backdrop-blur-[2px]' : 'pointer-events-none',
+      currentPosture === 'history' && presentationMode === 'frosted' ? 'top-14 bg-black/20 backdrop-blur-[2px]' : 'pointer-events-none',
     ]"
     @click.self="setPosture('preview')"
   >
@@ -157,14 +167,19 @@ defineExpose({
       </button>
     </div>
 
-    <!-- POSTURE 2, 3 & 4: Sheet Container -->
+    <!-- POSTURE 2, 3 & 4: Dual-Mode Sheet Container -->
     <div
       v-else
       :class="[
-        'pointer-events-auto w-full flex flex-col transition-all duration-300 ease-out',
-        'border-t border-neutral-200/80 dark:border-neutral-800/80',
-        'bg-white/95 dark:bg-neutral-900/90 backdrop-blur-2xl shadow-2xl shadow-black/10',
-        currentPosture === 'history' ? 'rounded-t-3xl h-[85dvh]' : currentPosture === 'preview' ? 'rounded-t-2xl max-h-[50dvh]' : 'rounded-t-2xl',
+        'w-full flex flex-col transition-all duration-300 ease-out',
+        presentationMode === 'frosted'
+          ? 'pointer-events-auto border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-2xl shadow-2xl shadow-black/10'
+          : 'bg-transparent border-transparent shadow-none backdrop-blur-none pointer-events-none',
+        currentPosture === 'history'
+          ? (presentationMode === 'frosted' ? 'rounded-t-3xl h-[85dvh]' : 'h-[85dvh]')
+          : currentPosture === 'preview'
+            ? (presentationMode === 'frosted' ? 'rounded-t-2xl max-h-[50dvh]' : 'max-h-[50dvh]')
+            : 'rounded-t-2xl',
       ]"
       :style="{ paddingBottom: `${Math.max(Number.parseFloat(screenSafeArea.bottom.value.replace('px', '')), 12)}px` }"
       @pointerdown="handlePointerDown"
@@ -173,19 +188,24 @@ defineExpose({
     >
       <!-- Grab Handle Bar with Quick Controls -->
       <div
-        class="w-full flex items-center justify-between px-3 py-1.5"
+        :class="[
+          'w-full flex items-center justify-between px-3 py-1.5',
+          presentationMode === 'translucent' ? 'pointer-events-auto' : '',
+        ]"
       >
         <!-- Left Action: Collapse (when in preview or history) -->
-        <button
-          v-if="currentPosture === 'preview' || currentPosture === 'history'"
-          type="button"
-          class="size-6 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          title="Collapse to Composer"
-          @click.stop="setPosture('composer')"
-        >
-          <div class="i-solar:alt-arrow-down-linear size-3.5" />
-        </button>
-        <div v-else class="size-6" />
+        <div class="flex items-center gap-1">
+          <button
+            v-if="currentPosture === 'preview' || currentPosture === 'history'"
+            type="button"
+            class="size-7 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100/80 hover:text-neutral-700 dark:hover:bg-neutral-800/80 dark:hover:text-neutral-200"
+            title="Collapse to Composer"
+            @click.stop="setPosture('composer')"
+          >
+            <div class="i-solar:alt-arrow-down-linear size-3.5" />
+          </button>
+          <div v-else class="size-7" />
+        </div>
 
         <!-- Center Grab Handle Pill -->
         <div
@@ -200,22 +220,45 @@ defineExpose({
           />
         </div>
 
-        <!-- Right Action: Expand (when in composer or preview) -->
-        <button
-          v-if="currentPosture === 'composer' || currentPosture === 'preview'"
-          type="button"
-          class="size-6 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-          :title="currentPosture === 'composer' ? 'Show Chat Preview' : 'Open Full History'"
-          @click.stop="stepPosture('up')"
-        >
-          <div class="i-solar:alt-arrow-up-linear size-3.5" />
-        </button>
-        <div v-else class="size-6" />
+        <!-- Right Actions: Presentation Mode Toggle + Expand -->
+        <div class="flex items-center gap-1">
+          <!-- Presentation Mode Toggle (Translucent HUD vs. Frosted Sheet) -->
+          <button
+            type="button"
+            :class="[
+              'size-7 flex cursor-pointer items-center justify-center rounded-full transition',
+              presentationMode === 'translucent'
+                ? 'text-primary-500 bg-primary-500/10 hover:bg-primary-500/20'
+                : 'text-neutral-400 hover:bg-neutral-100/80 hover:text-neutral-700 dark:hover:bg-neutral-800/80 dark:hover:text-neutral-200',
+            ]"
+            :title="presentationMode === 'translucent' ? 'Switch to Frosted Sheet' : 'Switch to Floating HUD'"
+            @click.stop="togglePresentationMode"
+          >
+            <div
+              :class="[
+                presentationMode === 'translucent' ? 'i-solar:ghost-linear' : 'i-solar:card-2-linear',
+                'size-3.5',
+              ]"
+            />
+          </button>
+
+          <!-- Expand Posture Button -->
+          <button
+            v-if="currentPosture === 'composer' || currentPosture === 'preview'"
+            type="button"
+            class="size-7 flex cursor-pointer items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100/80 hover:text-neutral-700 dark:hover:bg-neutral-800/80 dark:hover:text-neutral-200"
+            :title="currentPosture === 'composer' ? 'Show Chat Preview' : 'Open Full History'"
+            @click.stop="stepPosture('up')"
+          >
+            <div class="i-solar:alt-arrow-up-linear size-3.5" />
+          </button>
+          <div v-else class="size-7" />
+        </div>
       </div>
 
-      <!-- POSTURE 4: Expanded History Archive Header -->
+      <!-- POSTURE 4: Expanded History Archive Header (Frosted Mode Only) -->
       <div
-        v-if="currentPosture === 'history'"
+        v-if="currentPosture === 'history' && presentationMode === 'frosted'"
         class="flex items-center justify-between border-b border-neutral-200/60 px-4 pb-2 pt-0.5 dark:border-neutral-800/60"
       >
         <div class="flex items-center gap-2">
@@ -226,7 +269,7 @@ defineExpose({
         </div>
         <button
           type="button"
-          class="cursor-pointer rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 font-semibold transition dark:bg-neutral-800 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          class="cursor-pointer rounded-full bg-neutral-100/90 px-3 py-1 text-xs text-neutral-700 font-semibold shadow-sm backdrop-blur-md transition dark:bg-neutral-800/90 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
           @click="setPosture('preview')"
         >
           Done
@@ -237,8 +280,9 @@ defineExpose({
       <div
         v-if="currentPosture === 'history' || currentPosture === 'preview'"
         :class="[
-          'min-h-0 flex flex-1 flex-col overflow-hidden px-3 pb-1',
+          'min-h-0 flex flex-1 flex-col overflow-hidden px-3 pb-1 pointer-events-auto',
           currentPosture === 'history' ? 'pt-2' : 'max-h-[38dvh]',
+          presentationMode === 'translucent' ? 'chat-history-masked' : '',
         ]"
       >
         <ChatHistory
@@ -251,7 +295,7 @@ defineExpose({
       </div>
 
       <!-- Whisper Composer Bar (Active in Postures 2, 3 & 4) -->
-      <div class="w-full px-3 pt-1">
+      <div class="pointer-events-auto w-full px-3 pt-1">
         <WhisperComposerBar
           ref="composerRef"
           :tools="props.tools"
@@ -261,3 +305,17 @@ defineExpose({
     </div>
   </div>
 </template>
+
+<style scoped>
+.chat-history-masked {
+  --gradient: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 18%);
+  -webkit-mask-image: var(--gradient);
+  mask-image: var(--gradient);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: bottom;
+  mask-position: bottom;
+}
+</style>

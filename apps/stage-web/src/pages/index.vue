@@ -4,13 +4,14 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import Header from '@proj-airi/stage-layouts/components/Layouts/Header.vue'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
-import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea.vue'
+import MobileWhisperSheet from '@proj-airi/stage-layouts/components/Layouts/MobileWhisperSheet.vue'
 import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { useBackgroundThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { useBackgroundStore } from '@proj-airi/stage-layouts/stores/background'
+import { ControlStrip } from '@proj-airi/stage-ui/components'
 import { WidgetStage } from '@proj-airi/stage-ui/components/scenes'
 import { useAudioRecorder } from '@proj-airi/stage-ui/composables/audio/audio-recorder'
 import { useVAD } from '@proj-airi/stage-ui/stores/ai/models/vad'
@@ -258,7 +259,9 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           </div>
         </div>
         <InteractiveArea v-if="!isMobile" h="85dvh" absolute right-4 z-10 flex flex-1 flex-col max-w="500px" min-w="30%" />
-        <MobileInteractiveArea v-if="isMobile" z-10 @settings-open="handleSettingsOpen" />
+        <!-- Pinned Mobile Control Strip with 14px Edge Notch -->
+        <ControlStrip v-if="isMobile" mode="mobile" class="z-40" />
+        <MobileWhisperSheet v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>
   </BackgroundProvider>
