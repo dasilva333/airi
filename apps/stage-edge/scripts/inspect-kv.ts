@@ -15,53 +15,118 @@ import path from 'node:path'
 
 import { Cloudflare } from 'cloudflare'
 
-// ── Load .env ────────────────────────────────────────────────────────────────
+// ── Load .env & Auto-Refresh Token ──────────────────────────────────────────
 
-function loadEnvFile(): Record<string, string> {
+const CLOUDFLARE_OAUTH_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7'
+const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token'
+
+function getEnvPath(): string {
   const candidates = [
     path.resolve(process.cwd(), 'apps/stage-edge/.env'),
     path.resolve(process.cwd(), '.env'),
   ]
-  for (const envPath of candidates) {
-    if (fs.existsSync(envPath)) {
-      const vars: Record<string, string> = {}
-      for (const line of fs.readFileSync(envPath, 'utf-8').split('\n')) {
-        const match = line.match(/^([^#=]+)=(.*)$/)
-        if (match) {
-          const key = match[1].trim()
-          const val = match[2].trim().replace(/^["']|["']$/g, '')
-          vars[key] = val
-          if (!process.env[key])
-            process.env[key] = val
-        }
-      }
-      return vars
-    }
+  for (const p of candidates) {
+    if (fs.existsSync(p))
+      return p
   }
   throw new Error('No .env file found')
 }
 
-async function main() {
-  const env = loadEnvFile()
-  const apiToken = env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN
+function loadEnvFile(): { envPath: string, vars: Record<string, string> } {
+  const envPath = getEnvPath()
+  const vars: Record<string, string> = {}
+  for (const line of fs.readFileSync(envPath, 'utf-8').split('\n')) {
+    const match = line.match(/^([^#=]+)=(.*)$/)
+    if (match) {
+      const key = match[1].trim()
+      const val = match[2].trim().replace(/^["']|["']$/g, '')
+      vars[key] = val
+      if (!process.env[key])
+        process.env[key] = val
+    }
+  }
+  return { envPath, vars }
+}
 
-  if (!apiToken) {
-    throw new Error('CLOUDFLARE_API_TOKEN is missing!')
+async function refreshAccessToken(refreshToken: string, envPath: string): Promise<string> {
+  console.info('🔄 Cloudflare Access Token expired or missing. Auto-refreshing via OAuth PKCE...')
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: CLOUDFLARE_OAUTH_CLIENT_ID,
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Token refresh failed: ${await res.text()}`)
   }
 
-  const client = new Cloudflare({ apiToken })
+  const tokenData: any = await res.json()
+  const newAccessToken = tokenData.access_token
+  const newRefreshToken = tokenData.refresh_token || refreshToken
+
+  let content = fs.readFileSync(envPath, 'utf-8')
+  if (content.includes('CLOUDFLARE_API_TOKEN=')) {
+    content = content.replace(/CLOUDFLARE_API_TOKEN="[^"]*"/, `CLOUDFLARE_API_TOKEN="${newAccessToken}"`)
+  }
+  else {
+    content += `\nCLOUDFLARE_API_TOKEN="${newAccessToken}"`
+  }
+
+  if (tokenData.refresh_token && content.includes('CLOUDFLARE_REFRESH_TOKEN=')) {
+    content = content.replace(/CLOUDFLARE_REFRESH_TOKEN="[^"]*"/, `CLOUDFLARE_REFRESH_TOKEN="${newRefreshToken}"`)
+  }
+
+  fs.writeFileSync(envPath, content, 'utf-8')
+  console.info('✓ Successfully refreshed OAuth token and updated .env!')
+  return newAccessToken
+}
+
+async function main() {
+  const { envPath, vars: env } = loadEnvFile()
+  let apiToken = env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN
+  const refreshToken = env.CLOUDFLARE_REFRESH_TOKEN || process.env.CLOUDFLARE_REFRESH_TOKEN
+
+  if (!apiToken && refreshToken) {
+    apiToken = await refreshAccessToken(refreshToken, envPath)
+  }
+
+  if (!apiToken) {
+    throw new Error('CLOUDFLARE_API_TOKEN and CLOUDFLARE_REFRESH_TOKEN are missing!')
+  }
+
+  let client = new Cloudflare({ apiToken })
 
   console.info('\n======================================================')
   console.info('   🔍 AIRI Stage Edge: Cloudflare KV Memory Inspector')
   console.info('======================================================\n')
 
-  // 1. Resolve target account
+  // 1. Resolve target account (with auto-refresh on 401/403)
   let accountId = env.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID
   if (!accountId) {
-    for await (const account of client.accounts.list()) {
-      accountId = account.id
-      console.info(`✓ Resolved Cloudflare Account: "${account.name}" (${accountId})`)
-      break
+    try {
+      for await (const account of client.accounts.list()) {
+        accountId = account.id
+        console.info(`✓ Resolved Cloudflare Account: "${account.name}" (${accountId})`)
+        break
+      }
+    }
+    catch (err: any) {
+      if ((err?.status === 401 || err?.status === 403 || String(err).includes('Invalid access token')) && refreshToken) {
+        apiToken = await refreshAccessToken(refreshToken, envPath)
+        client = new Cloudflare({ apiToken })
+        for await (const account of client.accounts.list()) {
+          accountId = account.id
+          console.info(`✓ Resolved Cloudflare Account: "${account.name}" (${accountId})`)
+          break
+        }
+      }
+      else {
+        throw err
+      }
     }
   }
 
@@ -70,14 +135,13 @@ async function main() {
   }
 
   // 2. Find target KV namespace(s)
-  const targetName = process.argv[2] || 'airi-baseline-test'
-  const targetTitle = `airi-kv-${targetName}`
+  const targetName = process.argv[2] || ''
 
-  console.info(`\nSearching for KV namespaces matching "${targetTitle}"...\n`)
+  console.info(`\nSearching for AIRI KV namespaces...\n`)
 
   const namespaces: Array<{ id: string, title: string }> = []
   for await (const ns of client.kv.namespaces.list({ account_id: accountId })) {
-    if (ns.title.includes('airi-kv') || ns.title === targetTitle) {
+    if (ns.title.startsWith('airi-') || (targetName && ns.title.includes(targetName))) {
       namespaces.push({ id: ns.id, title: ns.title })
     }
   }

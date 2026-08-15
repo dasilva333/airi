@@ -4,4 +4,7 @@ dist/
 .cache/
 node_modules/
 .models/
+kv-dump.json
+*.dump.json
+scripts/kv-dump.json
 

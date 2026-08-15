@@ -40,6 +40,9 @@ cert*/
 *.cer
 *.key
 *.p12
+kv-dump.json
+*.dump.json
+**/kv-dump.json
 
 # Test coverage
 coverage/
