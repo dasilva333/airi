@@ -14,6 +14,8 @@ import Step4Persona from './steps/step-4-persona.vue'
 import Step5Vessel from './steps/step-5-vessel.vue'
 import Step6Speech from './steps/step-6-speech.vue'
 import Step7Calibration from './steps/step-7-calibration.vue'
+import StepCloudInfrastructure from './steps/step-cloud-infrastructure.vue'
+import StepCloudRestore from './steps/step-cloud-restore.vue'
 
 import { useOnboardingStore } from '../../../../../stores/onboarding'
 import { useOnboardingV2Draft } from './draft-store'
@@ -41,18 +43,6 @@ const emit = defineEmits<{
   (e: 'skipped'): void
 }>()
 
-const STEPS: V2StepDef[] = [
-  { id: 'welcome', label: 'Welcome', ownNav: true },
-  { id: 'triage', label: 'Your Path' },
-  { id: 'hearing', label: 'Hearing' },
-  { id: 'consciousness', label: 'Consciousness' },
-  { id: 'profile', label: 'You' },
-  { id: 'persona', label: 'Persona' },
-  { id: 'vessel', label: 'Vessel' },
-  { id: 'speech', label: 'Voice' },
-  { id: 'calibration', label: 'Launch', ownNav: true },
-]
-
 const onboardingStore = useOnboardingStore()
 
 // Mock step/path state, persisted separately from the live V1 flags.
@@ -65,21 +55,50 @@ const v2Completed = useLocalStorage('onboarding/v2-completed', false)
 
 const direction = ref<'next' | 'previous'>('next')
 
+const STEPS = computed<V2StepDef[]>(() => {
+  if (v2State.value.path === 'returning') {
+    return [
+      { id: 'welcome', label: 'Welcome', ownNav: true },
+      { id: 'triage', label: 'Your Path' },
+      { id: 'cloud-infrastructure', label: 'Edge Services' },
+      { id: 'cloud-restore', label: 'Cloud Restore' },
+      { id: 'hearing', label: 'Hearing' },
+      { id: 'consciousness', label: 'Consciousness' },
+      { id: 'profile', label: 'You' },
+      { id: 'persona', label: 'Persona' },
+      { id: 'vessel', label: 'Vessel' },
+      { id: 'speech', label: 'Voice' },
+      { id: 'calibration', label: 'Launch', ownNav: true },
+    ]
+  }
+  return [
+    { id: 'welcome', label: 'Welcome', ownNav: true },
+    { id: 'triage', label: 'Your Path' },
+    { id: 'hearing', label: 'Hearing' },
+    { id: 'consciousness', label: 'Consciousness' },
+    { id: 'profile', label: 'You' },
+    { id: 'persona', label: 'Persona' },
+    { id: 'vessel', label: 'Vessel' },
+    { id: 'speech', label: 'Voice' },
+    { id: 'calibration', label: 'Launch', ownNav: true },
+  ]
+})
+
 const stepIndex = computed(() => {
-  const idx = STEPS.findIndex(s => s.id === v2State.value.stepId)
+  const idx = STEPS.value.findIndex(s => s.id === v2State.value.stepId)
   return idx === -1 ? 0 : idx
 })
 
-const currentStep = computed(() => STEPS[stepIndex.value])
+const currentStep = computed(() => STEPS.value[stepIndex.value] || STEPS.value[0])
 const currentId = computed(() => currentStep.value.id)
-const isLastStep = computed(() => stepIndex.value === STEPS.length - 1)
+const isLastStep = computed(() => stepIndex.value === STEPS.value.length - 1)
 
 watch(stepIndex, () => {
   v2State.value.stepId = currentId.value
 })
 
 function goTo(id: string) {
-  const target = STEPS.findIndex(s => s.id === id)
+  const target = STEPS.value.findIndex(s => s.id === id)
   if (target === -1 || target === stepIndex.value)
     return
   direction.value = target > stepIndex.value ? 'next' : 'previous'
@@ -90,7 +109,7 @@ const requestNextStep: OnboardingStepNextHandler = () => {
   if (isLastStep.value)
     return
   direction.value = 'next'
-  const next = STEPS[stepIndex.value + 1]
+  const next = STEPS.value[stepIndex.value + 1]
   if (next)
     v2State.value.stepId = next.id
 }
@@ -99,7 +118,7 @@ const requestPreviousStep: OnboardingStepPrevHandler = () => {
   if (stepIndex.value <= 0)
     return
   direction.value = 'previous'
-  const prev = STEPS[stepIndex.value - 1]
+  const prev = STEPS.value[stepIndex.value - 1]
   if (prev)
     v2State.value.stepId = prev.id
 }
@@ -195,26 +214,14 @@ function handleFinish() {
         :on-previous="requestPreviousStep"
         :on-select-path="handleSelectPath"
       />
-      <!-- Returning-user path stays on V1's restore pipeline -->
-      <div
-        v-else-if="currentId === 'hearing' && v2State.path === 'returning'"
-        key="returning-notice"
-        class="h-full flex flex-col items-center justify-center gap-4 px-6 text-center"
-      >
-        <div class="i-solar:cloud-storage-bold-duotone h-14 w-14 text-purple-500" />
-        <h3 class="text-lg text-neutral-800 font-bold dark:text-neutral-100">
-          Returning User Restore (Preserved V1 Flow)
-        </h3>
-        <p class="max-w-md text-sm text-neutral-500 leading-relaxed dark:text-neutral-400">
-          Google Cloud OAuth / S3 sync restore is intentionally preserved from V1 and is not part of this UI mockup.
-        </p>
-        <button
-          class="text-sm text-primary-500 font-medium hover:underline"
-          @click="() => { handleSelectPath('new'); direction = 'previous'; v2State.stepId = 'triage' }"
-        >
-          ← Back to Path Triage
-        </button>
-      </div>
+      <StepCloudInfrastructure
+        v-else-if="currentId === 'cloud-infrastructure'"
+        key="cloud-infrastructure"
+      />
+      <StepCloudRestore
+        v-else-if="currentId === 'cloud-restore'"
+        key="cloud-restore"
+      />
       <Step0Welcome v-else-if="currentId === 'welcome'" key="welcome" :on-next="requestNextStep" :on-skip="handleSkip" />
       <Step1Hearing v-else-if="currentId === 'hearing'" key="hearing" />
       <Step2Consciousness v-else-if="currentId === 'consciousness'" key="consciousness" />

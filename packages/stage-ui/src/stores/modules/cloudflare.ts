@@ -1,5 +1,9 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { discordServiceCloudflareOAuth } from '@proj-airi/stage-shared'
+import {
+  discordServiceCloudflareOAuth,
+  discordServiceGetCloudflareSubdomain,
+  discordServiceSetCloudflareSubdomain,
+} from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -57,6 +61,10 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     'settings/cloudflare/cfApiToken',
     initialApiToken,
   )
+  const cfSubdomain = useLocalStorageManualReset<string>(
+    'settings/cloudflare/cfSubdomain',
+    '',
+  )
 
   const isAuthenticating = ref(false)
   const authError = ref<string | null>(null)
@@ -67,6 +75,8 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
 
   const isElectron = typeof window !== 'undefined' && !!(window as any).electron
   const invokeCloudflareOAuth = isElectron ? useElectronEventaInvoke(discordServiceCloudflareOAuth) : null
+  const invokeGetSubdomain = isElectron ? useElectronEventaInvoke(discordServiceGetCloudflareSubdomain) : null
+  const invokeSetSubdomain = isElectron ? useElectronEventaInvoke(discordServiceSetCloudflareSubdomain) : null
 
   async function authenticateWithCloudflare() {
     if (!invokeCloudflareOAuth) {
@@ -89,6 +99,8 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
         if (res.accountId) {
           cfAccountId.value = res.accountId
         }
+        // Auto-fetch subdomain on login
+        void getCloudflareSubdomain().catch(() => {})
       }
       return res
     }
@@ -101,6 +113,39 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     }
   }
 
+  async function getCloudflareSubdomain(): Promise<string | null> {
+    const apiToken = activeAccessToken.value
+    const accountId = activeAccountId.value
+    if (!apiToken || !invokeGetSubdomain)
+      return cfSubdomain.value || null
+    try {
+      const res = await invokeGetSubdomain({ apiToken, accountId })
+      if (res.success && res.subdomain) {
+        cfSubdomain.value = res.subdomain
+        return res.subdomain
+      }
+      return cfSubdomain.value || null
+    }
+    catch {
+      return cfSubdomain.value || null
+    }
+  }
+
+  async function setCloudflareSubdomain(subdomain: string): Promise<string> {
+    const apiToken = activeAccessToken.value
+    const accountId = activeAccountId.value
+    if (!apiToken)
+      throw new Error('Cloudflare access token missing.')
+    if (!invokeSetSubdomain)
+      throw new Error('Subdomain registration unavailable in non-Electron environment.')
+    const res = await invokeSetSubdomain({ apiToken, accountId, subdomain })
+    if (!res.success || !res.subdomain) {
+      throw new Error(res.error || 'Subdomain registration failed.')
+    }
+    cfSubdomain.value = res.subdomain
+    return res.subdomain
+  }
+
   function logout() {
     cfOAuthTokens.value = null
     authError.value = null
@@ -110,12 +155,15 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     cfOAuthTokens,
     cfAccountId,
     cfApiToken,
+    cfSubdomain,
     isAuthenticating,
     authError,
     isAuthenticated,
     activeAccessToken,
     activeAccountId,
     authenticateWithCloudflare,
+    getCloudflareSubdomain,
+    setCloudflareSubdomain,
     logout,
   }
 })

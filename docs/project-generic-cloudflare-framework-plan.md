@@ -118,8 +118,10 @@ Based on inspecting the production `cloud-relay-worker.js` code, the following a
 
 ```
 AIRI UI Surfaces
-├── Onboarding Screen (New Machine Setup)
-│   └── 🔑 "Connect with Cloudflare" (Target 3 Edge Key Vault Auto-Restore)
+├── Onboarding Flow (New Machine Setup & Cloud Onboarding)
+│   ├── Step 2: 🔑 Path Selection ("Sign In with Cloudflare" OAuth PKCE)
+│   ├── Step 3: ⚙️ Cloud Infrastructure Hub (Subdomain *.workers.dev, CORS proxy, Discord Relay, Edge Vault)
+│   └── Step 4: 📦 Selective Sync & Restore Hub (selective-sync-panel.vue granular asset/memory pull)
 │
 ├── System > Connection
 │   └── 🛡️ CORS Proxy Worker Deployer (Target 1)
@@ -132,6 +134,24 @@ AIRI UI Surfaces
     └── Tab 3: 🔐 Access & Routing (Channel Mapping, DM Isolation, ACL Matrix)
 ```
 
+### 5.1 Two-Stage Cloudflare Onboarding Sequence
+
+```
+[ Step 2: Sign In with Cloudflare (OAuth PKCE) ]
+                       │
+                       ▼
+[ Step 3: Cloud Infrastructure & Edge Services ]
+  • Subdomain Resolution (*.workers.dev via get/setCloudflareSubdomain)
+  • Service Toggles (CORS Reverse Proxy, Discord Cloud Relay, Edge Key Vault)
+  • Remote Storage Inspection (R2 "airi-sync" stats scan: cards, models, animations)
+                       │
+                       ▼
+[ Step 4: Selective Sync & Restore Hub ]
+  • Embeds `selective-sync-panel.vue`
+  • Granular model/memory selection & IndexedDB download pipeline
+  • Seamlessly fast-forwards to Hearing / Consciousness or Launch Calibration
+```
+
 ---
 
 ## 6. Summary of Benefits
@@ -139,3 +159,4 @@ AIRI UI Surfaces
 1. **Modular Edge Framework**: Decouples Cloudflare REST API management into a generic, reusable service for any future edge worker requirement.
 2. **Zero Third-Party Verification**: Replaces complex Google AppData verification with zero-custody Cloudflare key vaults.
 3. **Seamless Cloud/Desktop Parity**: Users can author locally, deploy to the edge in one click, and sync character memories back down when they get home!
+
