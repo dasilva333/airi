@@ -3,7 +3,7 @@ import type { ProgressPayload } from '../../../../../../libs/inference/protocol'
 import type { ProviderMetadata } from '../../../../../../stores/providers'
 
 import { useAudioAnalyzer, useAudioRecorder } from '@proj-airi/stage-ui/composables'
-import { FieldSelect } from '@proj-airi/ui'
+import { Button, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -84,6 +84,48 @@ function isLocalWhisperProvider(providerId?: string) {
 
 const isWhisperSelected = computed(() => isLocalWhisperProvider(activeTranscriptionProvider.value))
 const isWebSpeechSelected = computed(() => activeTranscriptionProvider.value === 'browser-web-speech-api')
+
+const heroProviderIds = ['browser-web-speech-api', 'app-local-audio-transcription', 'browser-local-audio-transcription']
+
+const cloudProviders = computed(() => {
+  return allAudioTranscriptionProvidersMetadata.value.filter(p => !heroProviderIds.includes(p.id))
+})
+
+function selectWebSpeech() {
+  const meta = allAudioTranscriptionProvidersMetadata.value.find(p => p.id === 'browser-web-speech-api')
+  if (meta) {
+    onSelectProvider(meta)
+  }
+  else {
+    onSelectProvider({
+      id: 'browser-web-speech-api',
+      name: 'Web Speech API',
+      category: 'transcription',
+      tasks: ['speech-to-text'],
+    } as any)
+  }
+}
+
+function selectLocalWhisper() {
+  const meta = allAudioTranscriptionProvidersMetadata.value.find(p => isLocalWhisperProvider(p.id))
+  if (meta) {
+    onSelectProvider(meta)
+  }
+  else {
+    onSelectProvider({
+      id: 'app-local-audio-transcription',
+      name: 'App (Local)',
+      category: 'transcription',
+      tasks: ['speech-to-text'],
+    } as any)
+  }
+}
+
+function cancelWhisperDownload() {
+  whisperAbort.value?.abort()
+  whisperDownloadState.value = 'idle'
+  whisperProgress.value = 0
+}
 
 const WHISPER_PROGRESS_TOTAL = 800 * 1024 * 1024
 
@@ -199,8 +241,12 @@ watch([activeTranscriptionProvider, activeTranscriptionModel], ([p, m]) => {
     draft.setHearing({ provider: p, model: m || selectedWhisperModel.value })
 })
 watch(selectedWhisperModel, (m) => {
-  if (isWhisperSelected.value)
+  if (isWhisperSelected.value) {
     draft.setHearing({ provider: activeTranscriptionProvider.value, model: m })
+    whisperDownloadState.value = 'idle'
+    whisperProgress.value = 0
+    whisperErrorMessage.value = ''
+  }
 })
 
 // --- Live test ---
@@ -246,6 +292,7 @@ async function startTest() {
   testStreamingText.value = ''
   transcribedText.value = ''
   verification.value = 'idle'
+  isTesting.value = true
 
   try {
     if (!stream.value) {
@@ -265,7 +312,7 @@ async function startTest() {
       await transcribeForMediaStream(stream.value, {
         onSentenceEnd: (delta) => {
           if (delta?.trim()) {
-            testStreamingText.value += `${delta} `
+            testStreamingText.value = delta.trim()
             if (verification.value === 'listening')
               verification.value = 'transcribed'
           }
@@ -294,7 +341,6 @@ async function startTest() {
     testStatusMessage.value = ''
     isTesting.value = false
   }
-  isTesting.value = true
 }
 
 onStopRecord(async (recording) => {
@@ -396,51 +442,203 @@ watch(selectedAudioInput, async () => {
       />
     </div>
 
-    <!-- Step 2: provider matrix (reused grid primitive) -->
-    <div :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']">
-      <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Choose a Speech Engine</span>
-      <SttProviderPicker
-        v-model="activeTranscriptionProvider"
-        :providers="allAudioTranscriptionProvidersMetadata"
-        @select="onSelectProvider"
-      />
+    <!-- Step 2: Featured On-Device & Built-In STT Options (Hero Cards) -->
+    <div class="flex flex-col gap-2.5">
+      <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+        Choose a Speech Engine
+      </span>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <!-- Hero Card 1: Web Speech API -->
+        <div
+          :class="[
+            'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+            'backdrop-blur-md',
+            isWebSpeechSelected
+              ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+              : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+          ]"
+          @click="selectWebSpeech"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div
+                :class="[
+                  'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                  isWebSpeechSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                ]"
+              >
+                <div class="i-solar:microphone-3-bold-duotone h-5 w-5" />
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Web Speech API</span>
+                  <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-600 font-medium dark:text-emerald-400">
+                    Built-in
+                  </span>
+                </div>
+                <span class="text-xs text-neutral-500 dark:text-neutral-400">Zero Setup · Realtime Streaming</span>
+              </div>
+            </div>
+            <div
+              v-if="isWebSpeechSelected"
+              class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+            />
+          </div>
+          <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+            Uses your browser & OS speech recognition engine. Instant streaming transcription with zero downloads and zero API keys.
+          </p>
+        </div>
+
+        <!-- Hero Card 2: App (Local) Whisper -->
+        <div
+          :class="[
+            'relative flex flex-col justify-between p-4 rounded-2xl cursor-pointer border transition-all duration-200',
+            'backdrop-blur-md',
+            isWhisperSelected
+              ? 'border-primary-500 bg-primary-500/10 shadow-sm shadow-primary-500/10 ring-2 ring-primary-500/30'
+              : 'border-neutral-200/60 dark:border-neutral-800/80 bg-white/50 dark:bg-neutral-900/50 hover:border-primary-400/50 hover:bg-white/80 dark:hover:bg-neutral-900/80',
+          ]"
+          @click="selectLocalWhisper"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div
+                :class="[
+                  'h-10 w-10 flex items-center justify-center rounded-xl transition-colors',
+                  isWhisperSelected ? 'bg-primary-500 text-white' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+                ]"
+              >
+                <div class="i-solar:cpu-bolt-bold-duotone h-5 w-5" />
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">App (Local) Whisper</span>
+                  <span class="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600 font-medium dark:text-purple-400">
+                    WebGPU Offline
+                  </span>
+                </div>
+                <span class="text-xs text-neutral-500 dark:text-neutral-400">100% Private · On-Device</span>
+              </div>
+            </div>
+            <div
+              v-if="isWhisperSelected"
+              class="i-solar:check-circle-bold-duotone h-5 w-5 flex-shrink-0 text-primary-500"
+            />
+          </div>
+          <p class="mt-3 text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+            Runs OpenAI Whisper locally in your browser/app. Complete offline privacy with zero telemetry.
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Whisper model picker + in-context download -->
-    <div v-if="isWhisperSelected" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']">
-      <FieldSelect
-        v-model="selectedWhisperModel"
-        label="Whisper Model"
-        description="Larger is more accurate; smaller downloads faster and uses less VRAM."
-        :options="WHISPER_MODELS.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
-        layout="vertical"
-        :disabled="whisperDownloadState === 'downloading'"
-      />
-      <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2">
-        <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-          <span>Downloading weight shards…</span>
-          <span>{{ Math.floor(whisperProgress) }}%<template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * WHISPER_PROGRESS_TOTAL) }} / {{ formatMB(WHISPER_PROGRESS_TOTAL) }})</template></span>
+    <!-- Whisper model picker + in-context download & manual action trigger -->
+    <div v-if="isWhisperSelected" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3.5']">
+      <div class="flex flex-col gap-1">
+        <span class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">Whisper WebGPU Model</span>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400">
+          Larger models offer higher accuracy; smaller models download faster with less VRAM.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2.5 sm:flex-row sm:items-end">
+        <div class="flex-1">
+          <FieldSelect
+            v-model="selectedWhisperModel"
+            label="Model Shard"
+            :options="WHISPER_MODELS.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+            layout="vertical"
+            :disabled="whisperDownloadState === 'downloading'"
+          />
         </div>
-        <div class="h-2.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+        <div class="flex flex-shrink-0 items-center gap-2">
+          <Button
+            v-if="whisperDownloadState === 'idle'"
+            variant="primary"
+            class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+            @click="startWhisperDownload"
+          >
+            <div class="i-solar:cloud-download-bold-duotone text-base" />
+            <span>Download Model</span>
+          </Button>
+
+          <Button
+            v-else-if="whisperDownloadState === 'downloading'"
+            variant="secondary"
+            class="h-[38px] flex items-center gap-1.5 px-4 text-xs font-medium"
+            @click="cancelWhisperDownload"
+          >
+            <div class="i-solar:close-circle-bold-duotone text-base" />
+            <span>Cancel</span>
+          </Button>
+
+          <Button
+            v-else-if="whisperDownloadState === 'ready'"
+            variant="secondary"
+            class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+            @click="startWhisperDownload"
+          >
+            <div class="i-solar:refresh-circle-bold-duotone text-base" />
+            <span>Re-download</span>
+          </Button>
+
+          <Button
+            v-else-if="whisperDownloadState === 'error'"
+            variant="primary"
+            class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
+            @click="startWhisperDownload"
+          >
+            <div class="i-solar:restart-bold-duotone text-base" />
+            <span>Retry Download</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- Download progress display -->
+      <div v-if="whisperDownloadState === 'downloading'" class="flex flex-col gap-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3">
+        <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
+          <div class="flex items-center gap-1.5">
+            <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
+            <span>Downloading model shards into local cache…</span>
+          </div>
+          <span class="font-medium font-mono">{{ Math.floor(whisperProgress) }}%<template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * WHISPER_PROGRESS_TOTAL) }} / {{ formatMB(WHISPER_PROGRESS_TOTAL) }})</template></span>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
           <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />
         </div>
       </div>
-      <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 text-xs text-emerald-600 font-bold dark:text-emerald-400">
-        <div class="i-solar:check-circle-bold-duotone h-4 w-4" />
-        Engine cached & verified — ready to transcribe.
+
+      <!-- Ready status -->
+      <div v-else-if="whisperDownloadState === 'ready'" class="flex items-center gap-2 border border-emerald-500/20 rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-700 font-medium dark:text-emerald-300">
+        <div class="i-solar:check-circle-bold-duotone h-4 w-4 flex-shrink-0 text-emerald-500" />
+        <span>Whisper model shard is cached & resident in memory — ready to transcribe.</span>
       </div>
-      <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 text-xs text-red-600 dark:text-red-400">
+
+      <!-- Error status -->
+      <div v-else-if="whisperDownloadState === 'error'" class="flex flex-col gap-1 border border-red-500/20 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
         <div class="flex items-center gap-2 font-bold">
-          <div class="i-solar:danger-circle-bold-duotone h-4 w-4" />
-          Download failed.
-          <button class="underline" @click="startWhisperDownload">
-            Retry
-          </button>
+          <div class="i-solar:danger-circle-bold-duotone h-4 w-4 text-red-500" />
+          <span>Download failed or connection interrupted.</span>
         </div>
-        <span v-if="whisperErrorMessage" class="break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+        <span v-if="whisperErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
           {{ whisperErrorMessage }}
         </span>
       </div>
+    </div>
+
+    <!-- Cloud & Custom providers grid (filtered, excluding hero options) -->
+    <div v-if="cloudProviders.length > 0" :class="['p-4 rounded-xl', 'bg-white/40 dark:bg-neutral-900/40', 'border border-neutral-200/60 dark:border-neutral-800/80', 'backdrop-blur-md', 'flex flex-col gap-3']">
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">
+          Cloud & Remote Engines (API Key Required)
+        </span>
+        <span class="text-[11px] text-neutral-400">Optional</span>
+      </div>
+      <SttProviderPicker
+        v-model="activeTranscriptionProvider"
+        :providers="cloudProviders"
+        @select="onSelectProvider"
+      />
     </div>
 
     <!-- Inline cloud credential configuration -->

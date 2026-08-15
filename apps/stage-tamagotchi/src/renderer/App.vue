@@ -370,8 +370,8 @@ watch(
   { immediate: true },
 )
 
-watch(() => onboardingStore.needsOnboarding, () => {
-  if (onboardingStore.needsOnboarding) {
+watch(() => [isMainWindow.value, onboardingStore.needsOnboarding] as const, ([isMain, needSetup]) => {
+  if (isMain && needSetup) {
     openOnboarding()
   }
 }, { immediate: true })

@@ -23,7 +23,18 @@ onMounted(() => screenSafeArea.update())
 function handleClose() {
   showDialog.value = false
   emit('close')
+}
+
+function handleFinish() {
+  showDialog.value = false
   emit('configured')
+  emit('close')
+}
+
+function handleSkipped() {
+  showDialog.value = false
+  emit('skipped')
+  emit('close')
 }
 </script>
 
@@ -36,7 +47,11 @@ function handleClose() {
           <DialogTitle>AIRI Onboarding</DialogTitle>
         </VisuallyHidden>
         <div class="min-h-0 flex-1 overflow-y-auto">
-          <OnboardingV2 @close="handleClose" />
+          <OnboardingV2
+            @close="handleClose"
+            @finish="handleFinish"
+            @skipped="handleSkipped"
+          />
         </div>
       </DialogContent>
     </DialogPortal>
@@ -50,7 +65,11 @@ function handleClose() {
       >
         <DrawerHandle class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         <div class="min-h-0 flex-1 overflow-y-auto">
-          <OnboardingV2 @close="handleClose" />
+          <OnboardingV2
+            @close="handleClose"
+            @finish="handleFinish"
+            @skipped="handleSkipped"
+          />
         </div>
       </DrawerContent>
     </DrawerPortal>

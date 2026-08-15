@@ -37,6 +37,8 @@ interface V2StepDef {
 
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'finish'): void
+  (e: 'skipped'): void
 }>()
 
 const STEPS: V2StepDef[] = [
@@ -149,12 +151,15 @@ function handleSkip() {
   v2Skipped.value = true
   onboardingStore.markSetupSkipped()
   resetOnboardingState()
+  emit('skipped')
   emit('close')
 }
 
 function handleFinish() {
   v2Completed.value = true
+  onboardingStore.markSetupCompleted()
   resetOnboardingState()
+  emit('finish')
   emit('close')
 }
 </script>

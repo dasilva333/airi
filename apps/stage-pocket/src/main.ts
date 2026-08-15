@@ -1,16 +1,15 @@
 import type { Plugin } from 'vue'
-import type { Router, RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 
 import Tres from '@tresjs/core'
 import NProgress from 'nprogress'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
-import { isEnvTruthy } from '@proj-airi/stage-shared'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
 import { createApp } from 'vue'
-import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import { routes } from 'vue-router/auto-routes'
 
 import App from './App.vue'
@@ -31,11 +30,14 @@ const pinia = createPinia()
 // TODO: vite-plugin-vue-layouts is long deprecated, replace with another layout solution
 const routeRecords = setupLayouts(routes as RouteRecordRaw[])
 
-let router: Router
-if (isEnvTruthy(import.meta.env.VITE_APP_TARGET_HUGGINGFACE_SPACE))
-  router = createRouter({ routes: routeRecords, history: createWebHashHistory() })
-else
-  router = createRouter({ routes: routeRecords, history: createWebHistory() })
+// NOTICE: Always use createWebHashHistory for Pocket / Capacitor / WKWebView environments.
+// When bundled inside native iOS (Capacitor), the local bundle serves from `capacitor://localhost/index.html`.
+// HTML5 History mode (createWebHistory) parses pathname as `/index.html` which fails to match `/` routes,
+// causing a blank white screen. Hash history cleanly resolves `#/` to the root route on all native webviews.
+const router = createRouter({
+  routes: routeRecords,
+  history: createWebHashHistory(),
+})
 
 router.beforeEach((to, from) => {
   if (to.path !== from.path)

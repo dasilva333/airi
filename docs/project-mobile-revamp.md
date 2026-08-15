@@ -302,11 +302,24 @@ WhisperDock Family
 
 ---
 
-### L-03 · Invisible Overlay Blocking Pointer Events on Fresh Load
+### L-03 · Onboarding Wizard Overlay & Clean-Slate Auto-Launch Lifecycle
 
-**Symptom**: On hard refresh, clicking the Brain, Lightning bolt, or Main Timeline header buttons does nothing. After opening the Customizer settings page and navigating back, all three suddenly work.
+**Symptom**: On cold boot with a clean slate, the onboarding setup wizard was not displaying, or when dismissed temporarily, the overlay could block clicks if not cleanly bound to persisted onboarding flags.
 
-**Root Cause**: `App.vue` was auto-opening the onboarding drawer (`showingSetup = true`) on mount when `needsOnboarding` was true. The vaul-vue `<DrawerRoot>` renders a `fixed inset-0 z-999` transparent overlay that blocks pointer events on the header (`z-50`). Navigating to `/settings/stage` closed `showingSetup`, removing the invisible blocker — which is why buttons worked after visiting Customizer.
+**Root Cause**: In `packages/stage-ui/src/stores/onboarding.ts`, `needsOnboarding` is computed from `!hasSkippedSetup.value && !hasCompletedSetup.value` (persisted under `onboarding/skipped` and `onboarding/completed`). If `onboardingStore.showingSetup` was not initialized from `needsOnboarding` on mount, clean installs would skip the setup wizard entirely. Conversely, if closing the modal emitted `@configured` prematurely, `hasCompletedSetup` was wrongly flagged as true.
 
-**Fix**: Remove the automatic `showingSetup = true` on mount in `App.vue`. The onboarding drawer should only open on explicit user action, not silently on every cold boot.
+**Fix**:
+1. On app boot (`App.vue` `onMounted`), check `if (onboardingStore.needsOnboarding) { onboardingStore.showingSetup = true }` so first-run clean slate launches the Companion Setup Wizard.
+2. Only mark `hasCompletedSetup` as true when the user actually completes the wizard (Step 7 Launch), and only mark `hasSkippedSetup` as true when the user explicitly clicks "Skip Permanently". Simply closing/minimizing the sheet without completing leaves the flag unset so the wizard can prompt again on cold boot until configured or permanently dismissed.
+
+---
+
+### L-04 · Capacitor WKWebView Requires `createWebHashHistory` (White Screen Prevention)
+
+**Symptom**: On iOS Simulator / web dev server, the app loaded and rendered properly, but on real physical devices installed via TestFlight (production Capacitor bundle), the app booted into a solid white screen.
+
+**Root Cause**: In `apps/stage-pocket/src/main.ts`, the router was configured with `createWebHistory()` (HTML5 pushState history). When packaged natively inside Capacitor for iOS, WKWebView serves the local asset bundle from `capacitor://localhost/index.html`. `createWebHistory()` parses `window.location.pathname` as `"/index.html"`. Because Vue Router only defined routes for `"/"`, `"/settings"`, etc., `/index.html` resulted in zero matched routes (`matched: []`). `<RouterView>` rendered `undefined`, yielding a completely blank white screen.
+
+**Fix**: Always configure `createRouter({ history: createWebHashHistory() })` for `apps/stage-pocket`. Hash routing (`capacitor://localhost/index.html#/`) maps `#` / `#/` directly to the `/` root route, completely avoiding the `/index.html` path mismatch in native WKWebView. In addition, always ensure `npx cap sync ios` is executed after running `pnpm -F @proj-airi/stage-pocket build` to copy the fresh `dist/` bundle into `apps/stage-pocket/ios/App/App/public/` before creating Xcode archives.
+
 

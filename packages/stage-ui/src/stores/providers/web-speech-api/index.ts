@@ -97,24 +97,26 @@ export function createWebSpeechAPIProvider(): TranscriptionProviderWithExtraOpti
 
           recognition.onresult = (event: any) => {
             let finalTranscript = ''
+            let interimTranscript = ''
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript
               if (event.results[i].isFinal) {
                 finalTranscript += transcript
               }
+              else {
+                interimTranscript += transcript
+              }
             }
 
-            // Emit final results as deltas
+            // Emit final or interim results as deltas
             if (finalTranscript) {
               fullText += finalTranscript
               textStreamCtrl?.enqueue(finalTranscript)
             }
-
-            // Optionally emit interim results (commented out to avoid spam)
-            // if (interimTranscript) {
-            //   textStreamCtrl?.enqueue(interimTranscript)
-            // }
+            else if (interimTranscript) {
+              textStreamCtrl?.enqueue(interimTranscript)
+            }
           }
 
           recognition.onerror = (event: any) => {
@@ -231,11 +233,10 @@ export function streamWebSpeechAPITranscription(
       const transcript = result[0]?.transcript || ''
 
       if (result.isFinal) {
-        finalTranscript = `${finalTranscript}${transcript} ` // Add space between final results
+        finalTranscript += `${transcript} `
       }
       else if (recognition.interimResults) {
-        // Collect interim results but don't emit them as final yet
-        interimTranscript += transcript
+        interimTranscript += `${transcript} `
       }
     }
 
@@ -252,10 +253,17 @@ export function streamWebSpeechAPITranscription(
       options?.onSentenceEnd?.(trimmedTranscript)
       console.info('Web Speech API transcribed (final):', trimmedTranscript)
     }
-
-    // Log interim results for debugging (don't emit as final)
-    if (interimTranscript && recognition.interimResults) {
-      console.info('Web Speech API transcribed (interim):', interimTranscript)
+    else if (interimTranscript.trim()) {
+      // On iOS WKWebView and mobile WebKit, results stream almost exclusively as interim until pause
+      const trimmedInterim = interimTranscript.trim()
+      const delta: StreamTranscriptionDelta = {
+        type: 'transcript.text.delta',
+        delta: trimmedInterim,
+      }
+      fullStreamCtrl?.enqueue(delta)
+      textStreamCtrl?.enqueue(trimmedInterim)
+      options?.onSentenceEnd?.(trimmedInterim)
+      console.info('Web Speech API transcribed (interim stream):', trimmedInterim)
     }
   }
 
