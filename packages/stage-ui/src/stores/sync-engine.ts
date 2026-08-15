@@ -15,8 +15,21 @@ export interface StorageClient {
   validate: () => Promise<{ success: boolean, error?: string }>
   listFiles: () => Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number }>, error?: string }>
   readFile: (relPath: string, encoding?: 'utf-8' | 'base64') => Promise<{ success: boolean, content?: string, error?: string }>
-  writeFile: (relPath: string, content: string, encoding?: 'utf-8' | 'base64', append?: boolean) => Promise<{ success: boolean, mtime?: number, error?: string }>
+  writeFile: (relPath: string, content: string | Blob | Uint8Array, encoding?: 'utf-8' | 'base64', append?: boolean) => Promise<{ success: boolean, mtime?: number, error?: string }>
   deleteFile: (relPath: string) => Promise<{ success: boolean, error?: string }>
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const result = reader.result as string
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
 export class ElectronFSClient implements StorageClient {
@@ -53,11 +66,25 @@ export class ElectronFSClient implements StorageClient {
     return await this.electron.ipcRenderer.invoke('byos-fs:read-file', { dir: this.fsBackupPath, relPath, encoding })
   }
 
-  async writeFile(relPath: string, content: string, encoding?: 'utf-8' | 'base64', append?: boolean): Promise<{ success: boolean, mtime?: number, error?: string }> {
+  async writeFile(relPath: string, content: string | Blob | Uint8Array, encoding?: 'utf-8' | 'base64', append?: boolean): Promise<{ success: boolean, mtime?: number, error?: string }> {
     if (!this.hasElectron()) {
       return { success: false, error: 'File system access is only available in the desktop application.' }
     }
-    return await this.electron.ipcRenderer.invoke('byos-fs:write-file', { dir: this.fsBackupPath, relPath, content, encoding, append })
+    let payload = content
+    let enc = encoding
+    if (content instanceof Blob) {
+      payload = await blobToBase64(content)
+      enc = 'base64'
+    }
+    else if (content instanceof Uint8Array) {
+      let binaryStr = ''
+      for (let i = 0; i < content.length; i++) {
+        binaryStr += String.fromCharCode(content[i])
+      }
+      payload = btoa(binaryStr)
+      enc = 'base64'
+    }
+    return await this.electron.ipcRenderer.invoke('byos-fs:write-file', { dir: this.fsBackupPath, relPath, content: payload, encoding: enc, append })
   }
 
   async deleteFile(relPath: string): Promise<{ success: boolean, error?: string }> {
@@ -184,23 +211,46 @@ export class S3StorageClient implements StorageClient {
     }
   }
 
-  async writeFile(relPath: string, content: string, encoding?: 'utf-8' | 'base64', append?: boolean): Promise<{ success: boolean, mtime?: number, error?: string }> {
+  async writeFile(relPath: string, content: string | Blob | Uint8Array, encoding?: 'utf-8' | 'base64', append?: boolean): Promise<{ success: boolean, mtime?: number, error?: string }> {
     try {
       const url = this.getS3Url(relPath)
-      let body: Blob | string = content
       let contentType = 'application/json'
+      let body: Blob | string = typeof content === 'string' ? content : content instanceof Blob ? content : new Blob([content as any], { type: contentType })
 
-      if (encoding === 'base64') {
-        const binRes = await fetch(`data:application/octet-stream;base64,${content}`)
-        body = await binRes.blob()
-        // NOTICE: Map file extension to correct content-type for image assets
+      if (content instanceof Blob || content instanceof Uint8Array) {
         if (relPath.endsWith('.png'))
           contentType = 'image/png'
         else if (relPath.endsWith('.avif'))
           contentType = 'image/avif'
         else if (relPath.endsWith('.webp'))
           contentType = 'image/webp'
+        else if (relPath.endsWith('.bin'))
+          contentType = 'application/octet-stream'
+        else if (relPath.endsWith('.json'))
+          contentType = 'application/json'
         else contentType = 'application/octet-stream'
+
+        if (!(content instanceof Blob) && !(typeof content === 'string')) {
+          body = new Blob([content as any], { type: contentType })
+        }
+      }
+      else if (encoding === 'base64') {
+        const binaryStr = atob(content)
+        const bytes = new Uint8Array(binaryStr.length)
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i)
+        }
+        if (relPath.endsWith('.png'))
+          contentType = 'image/png'
+        else if (relPath.endsWith('.avif'))
+          contentType = 'image/avif'
+        else if (relPath.endsWith('.webp'))
+          contentType = 'image/webp'
+        else if (relPath.endsWith('.bin'))
+          contentType = 'application/octet-stream'
+        else contentType = 'application/octet-stream'
+
+        body = new Blob([bytes as any], { type: contentType })
       }
 
       if (append) {
@@ -209,7 +259,7 @@ export class S3StorageClient implements StorageClient {
         if (readRes.success && readRes.content) {
           existingContent = readRes.content
         }
-        body = existingContent + content
+        body = existingContent + (typeof content === 'string' ? content : '')
       }
 
       const res = await this.client.fetch(url, {
@@ -609,19 +659,6 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
   const { post: broadcastBgSync } = useBroadcastChannel({ name: 'airi:background-sync' })
   const { post: broadcastReload } = useBroadcastChannel({ name: 'airi:store-reload' })
 
-  function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        const base64 = result.split(',')[1]
-        resolve(base64)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  }
-
   async function reconcileBackgrounds(): Promise<void> {
     debug('[SyncEngine] Reconciling backgrounds...')
     // NOTICE: No upfront quota block here — the upload half (local→remote) doesn't consume
@@ -714,11 +751,10 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           await client.writeFile(jsonRelPath, JSON.stringify(metadata, null, 2))
 
           if (blob instanceof Blob) {
-            const base64 = await blobToBase64(blob)
             // NOTICE: Uploads as PNG (the local blob format). To save space on the remote,
             // run the rescue_backgrounds.mjs script with --optimize to batch re-encode to AVIF.
             const imageRelPath = `assets/backgrounds/${id}.png`
-            await client.writeFile(imageRelPath, base64, 'base64')
+            await client.writeFile(imageRelPath, blob)
           }
           else {
             await logDebug(`Warning: background ${id} has no valid Blob object locally.`)
@@ -846,6 +882,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }>
         deleted?: string[]
       } = { models: {}, deleted: [] }
+      let manifestExists = false
       try {
         const readRes = await client.readFile('assets/models/manifest.json')
         if (readRes.success && readRes.content) {
@@ -853,6 +890,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           if (!manifest.deleted) {
             manifest.deleted = []
           }
+          manifestExists = true
         }
       }
       catch (e) {
@@ -980,9 +1018,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         if (!manifest.models[id]) {
           debug(`[SyncEngine] Uploading model to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
-            const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/models/${id}.bin`
-            const uploadRes = await client.writeFile(binRelPath, base64, 'base64')
+            const uploadRes = await client.writeFile(binRelPath, entry.file)
             if (!uploadRes.success) {
               console.error(`[SyncEngine] Failed to upload model binary for ${id}:`, uploadRes.error)
               continue
@@ -1306,7 +1343,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
       }
 
       // Write updated manifest to remote
-      if (manifestModified) {
+      if (manifestModified || !manifestExists) {
         debug('[SyncEngine] Writing updated model manifest to remote.')
         await client.writeFile('assets/models/manifest.json', JSON.stringify(manifest, null, 2))
       }
@@ -1433,9 +1470,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           debug(`[SyncEngine] Uploading VMD motion to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
-            const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/mmd/animations/${id}.bin`
-            const uploadRes = await client.writeFile(binRelPath, base64, 'base64')
+            const uploadRes = await client.writeFile(binRelPath, entry.file)
             if (!uploadRes.success) {
               console.error(`[SyncEngine] Failed to upload VMD binary for ${id}:`, uploadRes.error)
               continue
@@ -1500,7 +1536,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
 
-      if (manifestModified) {
+      if (manifestModified || !manifestExists) {
         debug('[SyncEngine] Writing updated MMD manifest to remote.')
         await client.writeFile('assets/mmd/manifest.json', JSON.stringify(manifest, null, 2))
       }
@@ -1641,9 +1677,8 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           debug(`[SyncEngine] Uploading VRMA animation to remote: ${id} (${entry.name})`)
           if (entry.file instanceof Blob || entry.file instanceof File) {
-            const base64 = await blobToBase64(entry.file)
             const binRelPath = `assets/vrma/animations/${id}.bin`
-            const uploadRes = await client.writeFile(binRelPath, base64, 'base64')
+            const uploadRes = await client.writeFile(binRelPath, entry.file)
             if (!uploadRes.success) {
               console.error(`[SyncEngine] Failed to upload VRMA binary for ${id}:`, uploadRes.error)
               continue
@@ -1710,7 +1745,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         }
       }
 
-      if (manifestModified) {
+      if (manifestModified || !manifestExists) {
         debug('[SyncEngine] Writing updated VRMA manifest to remote.')
         await client.writeFile('assets/vrma/manifest.json', JSON.stringify(manifest, null, 2))
       }
@@ -1790,10 +1825,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
 
           const audioBlob = await blobStore.getItem<Blob>(id)
           if (audioBlob instanceof Blob) {
-            const base64 = await blobToBase64(audioBlob)
             const ext = audioBlob.type.includes('mp3') ? 'mp3' : audioBlob.type.includes('ogg') ? 'ogg' : 'wav'
             const audioRelPath = `assets/voice-profiles/${id}.${ext}`
-            await client.writeFile(audioRelPath, base64, 'base64')
+            await client.writeFile(audioRelPath, audioBlob)
             await logDebug(`Successfully uploaded voice profile audio: ${audioRelPath}`)
           }
         }
