@@ -1,5 +1,7 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
+  cloudflareServiceFetchEdgeVault,
+  cloudflareServiceSaveEdgeVault,
   discordServiceCloudflareOAuth,
   discordServiceGetCloudflareSubdomain,
   discordServiceSetCloudflareSubdomain,
@@ -77,6 +79,8 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   const invokeCloudflareOAuth = isElectron ? useElectronEventaInvoke(discordServiceCloudflareOAuth) : null
   const invokeGetSubdomain = isElectron ? useElectronEventaInvoke(discordServiceGetCloudflareSubdomain) : null
   const invokeSetSubdomain = isElectron ? useElectronEventaInvoke(discordServiceSetCloudflareSubdomain) : null
+  const invokeSaveEdgeVault = isElectron ? useElectronEventaInvoke(cloudflareServiceSaveEdgeVault) : null
+  const invokeFetchEdgeVault = isElectron ? useElectronEventaInvoke(cloudflareServiceFetchEdgeVault) : null
 
   async function authenticateWithCloudflare() {
     if (!invokeCloudflareOAuth) {
@@ -146,6 +150,34 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     return res.subdomain
   }
 
+  async function saveToEdgeVault(vaultData: Record<string, any>) {
+    const apiToken = activeAccessToken.value
+    const accountId = activeAccountId.value
+    if (!apiToken)
+      throw new Error('Cloudflare access token missing.')
+    if (!invokeSaveEdgeVault)
+      throw new Error('Edge Key Vault saving unavailable in non-Electron environment.')
+    const res = await invokeSaveEdgeVault({ apiToken, accountId, vaultData })
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to save to Edge Key Vault.')
+    }
+    return res
+  }
+
+  async function fetchFromEdgeVault(): Promise<Record<string, any> | null> {
+    const apiToken = activeAccessToken.value
+    const accountId = activeAccountId.value
+    if (!apiToken || !invokeFetchEdgeVault)
+      return null
+    try {
+      const res = await invokeFetchEdgeVault({ apiToken, accountId })
+      return res.success && res.vaultData ? res.vaultData : null
+    }
+    catch {
+      return null
+    }
+  }
+
   function logout() {
     cfOAuthTokens.value = null
     authError.value = null
@@ -164,6 +196,8 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     authenticateWithCloudflare,
     getCloudflareSubdomain,
     setCloudflareSubdomain,
+    saveToEdgeVault,
+    fetchFromEdgeVault,
     logout,
   }
 })

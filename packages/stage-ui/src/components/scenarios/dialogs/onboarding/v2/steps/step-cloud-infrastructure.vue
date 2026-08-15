@@ -83,6 +83,28 @@ async function handleSaveSubdomain() {
   }
 }
 
+async function syncCredentialsToEdgeVault() {
+  if (!saveToEdgeVault.value)
+    return
+  if (!syncStore.s3Endpoint || !syncStore.s3Bucket)
+    return
+  try {
+    const vaultData = {
+      s3Endpoint: syncStore.s3Endpoint,
+      s3Bucket: syncStore.s3Bucket,
+      s3Region: syncStore.s3Region || 'auto',
+      s3AccessKeyId: syncStore.s3AccessKeyId,
+      s3SecretAccessKey: syncStore.s3SecretAccessKey,
+      activeProvider: 's3',
+      savedAt: Date.now(),
+    }
+    await cloudflareStore.saveToEdgeVault(vaultData)
+  }
+  catch (e) {
+    console.warn('[CloudInfrastructure] Failed to sync credentials to Edge Vault:', e)
+  }
+}
+
 onMounted(async () => {
   gate?.setGate('cloud-infrastructure', {
     canProceed: true,
@@ -104,9 +126,13 @@ onMounted(async () => {
 
   // Scan remote storage
   void checkRemoteVault()
+
+  // Save current R2 credentials to Edge Vault
+  void syncCredentialsToEdgeVault()
 })
 
 onBeforeUnmount(() => {
+  void syncCredentialsToEdgeVault()
   gate?.clearGate('cloud-infrastructure')
 })
 </script>

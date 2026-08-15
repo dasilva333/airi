@@ -315,6 +315,8 @@ export * from '@proj-airi/electron-eventa/electron-updater'
 
 export { artistryGenerateHeadless } from '@proj-airi/stage-shared'
 export {
+  cloudflareServiceFetchEdgeVault,
+  cloudflareServiceSaveEdgeVault,
   discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
   discordServiceEventLog,

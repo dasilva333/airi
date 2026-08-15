@@ -224,6 +224,37 @@ export const discordServiceSendImage = defineInvokeEventa<void, DiscordOutboundI
   'eventa:invoke:electron:discord:send-image',
 )
 
+export interface CloudflareSaveEdgeVaultPayload {
+  apiToken: string
+  accountId: string
+  vaultData: Record<string, any>
+}
+
+export interface CloudflareSaveEdgeVaultResult {
+  success: boolean
+  namespaceId?: string
+  error?: string
+}
+
+export interface CloudflareFetchEdgeVaultPayload {
+  apiToken: string
+  accountId: string
+}
+
+export interface CloudflareFetchEdgeVaultResult {
+  success: boolean
+  vaultData?: Record<string, any>
+  error?: string
+}
+
+export const cloudflareServiceSaveEdgeVault = defineInvokeEventa<CloudflareSaveEdgeVaultResult, CloudflareSaveEdgeVaultPayload>(
+  'eventa:invoke:electron:cloudflare:save-edge-vault',
+)
+
+export const cloudflareServiceFetchEdgeVault = defineInvokeEventa<CloudflareFetchEdgeVaultResult, CloudflareFetchEdgeVaultPayload>(
+  'eventa:invoke:electron:cloudflare:fetch-edge-vault',
+)
+
 // ── Event Contracts (Main → Renderer, push-based) ──────────────────────────────
 
 /** Emitted when the service connection state changes. */

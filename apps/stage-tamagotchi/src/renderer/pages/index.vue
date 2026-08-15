@@ -863,7 +863,8 @@ onMounted(async () => {
     else if (y + h >= availTop + availHeight - threshold)
       edge = 'bottom'
 
-    controlStripStore.dockedEdge = edge
+    if (edge)
+      controlStripStore.dockedEdge = edge
   }
   if (mainConfig?.collapsed !== undefined) {
     controlStripStore.collapsed = mainConfig.collapsed
@@ -944,7 +945,8 @@ onMounted(async () => {
         else if (y + h >= availTop + availHeight - threshold)
           edge = 'bottom'
 
-        controlStripStore.dockedEdge = edge
+        if (edge)
+          controlStripStore.dockedEdge = edge
       }
     })
   }

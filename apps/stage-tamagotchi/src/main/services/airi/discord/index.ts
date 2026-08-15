@@ -22,6 +22,8 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { nanoid } from 'nanoid'
 
 import {
+  cloudflareServiceFetchEdgeVault,
+  cloudflareServiceSaveEdgeVault,
   discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
   discordServiceFetchCloudRelayMemories,
@@ -522,6 +524,41 @@ export function setupDiscordService() {
         key: payload.key || 'context/rolling',
         error: err?.message || String(err),
       }
+    }
+  })
+
+  defineInvokeHandler(context, cloudflareServiceSaveEdgeVault, async (payload) => {
+    try {
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const deployer = new CloudflareStageDeployer({
+        apiToken: payload.apiToken,
+        accountId: payload.accountId,
+      })
+      const namespaceId = await deployer.ensureKvNamespace('airi-edge-vault')
+      await deployer.setKvValue(namespaceId, 'vault/credentials', JSON.stringify(payload.vaultData))
+      pushLog('DEPLOY', `Saved credentials to Cloudflare KV namespace "${namespaceId}"`)
+      return { success: true, namespaceId }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Failed to save credentials to Edge Key Vault: ${err?.message || err}`)
+      return { success: false, error: err?.message || String(err) }
+    }
+  })
+
+  defineInvokeHandler(context, cloudflareServiceFetchEdgeVault, async (payload) => {
+    try {
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const deployer = new CloudflareStageDeployer({
+        apiToken: payload.apiToken,
+        accountId: payload.accountId,
+      })
+      const namespaceId = await deployer.ensureKvNamespace('airi-edge-vault')
+      const raw = await deployer.getKvValue(namespaceId, 'vault/credentials')
+      const vaultData = typeof raw === 'string' ? JSON.parse(raw) : raw
+      return { success: true, vaultData }
+    }
+    catch (err: any) {
+      return { success: false, error: err?.message || String(err) }
     }
   })
 

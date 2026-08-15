@@ -4,6 +4,7 @@ import { ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useCloudflareStore } from '../../../../stores/modules/cloudflare'
+import { useSyncEngineStore } from '../../../../stores/sync-engine'
 
 interface Props {
   onNext?: () => void
@@ -15,6 +16,7 @@ const props = defineProps<Props>()
 const selectedPath = ref<'new' | 'returning'>('new')
 
 const cloudflareStore = useCloudflareStore()
+const syncStore = useSyncEngineStore()
 const { cfOAuthTokens, cfAccountId, isAuthenticating, isAuthenticated } = storeToRefs(cloudflareStore)
 
 async function handleCloudflareAuthClick() {
@@ -23,6 +25,19 @@ async function handleCloudflareAuthClick() {
     try {
       await cloudflareStore.authenticateWithCloudflare()
       toast.success('Successfully connected to Cloudflare!')
+
+      // Check Edge Vault for saved S3/R2 credentials
+      const vault = await cloudflareStore.fetchFromEdgeVault()
+      if (vault && vault.s3Endpoint && vault.s3Bucket) {
+        syncStore.s3Endpoint = vault.s3Endpoint
+        syncStore.s3Bucket = vault.s3Bucket
+        syncStore.s3Region = vault.s3Region || 'auto'
+        syncStore.s3AccessKeyId = vault.s3AccessKeyId || ''
+        syncStore.s3SecretAccessKey = vault.s3SecretAccessKey || ''
+        syncStore.activeProvider = 's3'
+        syncStore.syncEnabled = true
+        toast.info('Restored R2 Cloud Sync credentials from Edge Key Vault!')
+      }
     }
     catch (err: any) {
       toast.error(err?.message || 'Cloudflare authentication failed')
