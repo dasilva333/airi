@@ -290,11 +290,27 @@ Mobile users interact with companions across diverse aesthetic preferences. To s
 1. Validate on iOS Simulator (iPhone 17) via live HMR.
 2. Verify smooth 60fps gesture transitions and 0% CPU burn when idle.
 
-### Phase 6: Dual-Mode Mobile Chat & Cross-Platform Unification
+### Phase 6: Dual-Mode Mobile Chat & Cross-Platform Unification (Completed ✅)
 1. Unify `MobileWhisperSheet.vue` across `stage-pocket` and `stage-web` portrait mode.
 2. Implement 1-tap mode toggle (Translucent Floating HUD vs. Frosted Sheet) in the drag strip.
 3. Wire the soft top gradient mask (`mask-image: linear-gradient(...)`) on the translucent message stream spanning Preview (~40vh) and Full-Height (~85vh) postures.
 4. Retire legacy slim input in `MobileInteractiveArea.vue`.
+
+### Phase 7: Priority Feature Track & Major Pending Items
+
+1. **Double-Tap Stage Canvas Coordinate Reset Gesture**:
+   - Native double-tap/double-click pointer handler on `WidgetStage` canvas to instantly reset `position.x`, `position.y`, and `scale` to default center without needing the control strip button.
+2. **Expressive Speech Bubble Silhouettes for 3D/VRM & Spine**:
+   - Currently fully spec'ed and implemented for Live2D models; extend dynamic emotion-morphing balloon shapes (flustered blush scalloping, tsundere burst outline with `💢`, thought bubbles) to 3D/VRM and Spine avatar rendering pipelines.
+3. **Autonomous Artistry Spawn Mode Routing across Viewports**:
+   - Complete multi-viewport visual manifest routing (`Background` vs. `Widget` vs. `Inline`) spanning single-window mobile/web (`stage-web`, `stage-pocket`) and multi-window desktop (`stage-tamagotchi`).
+4. **"Sign In with Cloudflare" Zero-Trust Edge Ecosystem & Cross-Device Restore (Top Priority / High Traffic Path)**:
+   - Activates Step 2 ("Choose Your Path") in Onboarding (`OnboardingV2` / `step-1-mode-selection.vue`):
+     - **Option 1: Local Companion (Offline)**: 100% private on-device setup.
+     - **Option 2: Sign In with Cloudflare**: Zero-Trust edge relay and automated cloud sync without manual S3/R2 credential entry.
+   - Deploys and connects to user-owned `airi-edge-vault` KV namespace on Cloudflare's free edge tier.
+   - 1-click authorization instantly restores all character cards, long-term memories, voice profiles, and settings on fresh installs, mobile devices, and browser web instances without third-party app verification friction.
+   - Integrates with generic Cloudflare Worker Deployment Framework (`docs/project-generic-cloudflare-framework-plan.md`) for CORS Proxy, Always-On Discord Relays, and Edge Vaults.
 
 ---
 
