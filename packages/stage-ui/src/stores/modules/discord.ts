@@ -3,7 +3,6 @@ import type { DiscordCommandDefinition, DiscordEventLogEntry, DiscordInboundMess
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
   debug,
-  discordServiceCloudflareOAuth,
   discordServiceDeployCloudRelay,
   discordServiceFetchCloudRelayMemories,
   discordServiceForceSync,
@@ -25,7 +24,7 @@ import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useBroadcastChannel } from '@vueuse/core'
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { stripMarkers } from '../../composables/response-categoriser'
@@ -36,6 +35,7 @@ import { useSettings } from '../settings'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
+import { useCloudflareStore } from './cloudflare'
 import { useConsciousnessStore } from './consciousness'
 import { useHearingSpeechInputPipeline } from './hearing'
 import { useLiveSessionStore } from './live-session'
@@ -261,10 +261,9 @@ export const useDiscordStore = defineStore('discord', () => {
   const ownerUsername = useLocalStorageManualReset<string>('settings/discord/ownerUsername', '')
   const ownerUserId = useLocalStorageManualReset<string>('settings/discord/ownerUserId', '')
 
-  // Cloud Relay persisted state
-  const cfAccountId = useLocalStorageManualReset<string>('settings/discord/cfAccountId', '')
-  const cfApiToken = useLocalStorageManualReset<string>('settings/discord/cfApiToken', '')
-  const cfOAuthTokens = useLocalStorageManualReset<{ accessToken: string, refreshToken: string, accountId?: string } | null>('settings/discord/cfOAuthTokens', null)
+  // Cloud Relay persisted state & instances
+  const cloudflareStore = useCloudflareStore()
+  const { cfAccountId, cfApiToken, cfOAuthTokens } = storeToRefs(cloudflareStore)
   const cloudRelayInstances = useLocalStorageManualReset<Record<string, { scriptName: string, workerUrl: string, namespaceId: string, memoryMode: 'fixed' | 'unlimited', deployedAt: number, cardId: string, sessionId: string }>>('settings/discord/cloudRelayInstances', {})
 
   const lastRegisteredVersion = useLocalStorageManualReset<number>('settings/discord/lastRegisteredVersion', 0)
@@ -322,33 +321,9 @@ export const useDiscordStore = defineStore('discord', () => {
   const invokeStart = isElectron ? useElectronEventaInvoke(discordServiceStart) : null
   const invokeStop = isElectron ? useElectronEventaInvoke(discordServiceStop) : null
   const invokeGetStatus = isElectron ? useElectronEventaInvoke(discordServiceGetStatus) : null
-  const invokeCloudflareOAuth = isElectron ? useElectronEventaInvoke(discordServiceCloudflareOAuth) : null
 
   async function authenticateWithCloudflare() {
-    if (!invokeCloudflareOAuth) {
-      debug('[DiscordStore] Cloudflare OAuth unavailable in non-Electron environment')
-      return
-    }
-    try {
-      debug('[DiscordStore] Invoking Cloudflare OAuth PKCE login flow...')
-      const res = await invokeCloudflareOAuth()
-      if (res) {
-        cfOAuthTokens.value = {
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
-          accountId: res.accountId,
-        }
-        if (res.accountId) {
-          cfAccountId.value = res.accountId
-        }
-        debug('[DiscordStore] Cloudflare OAuth tokens successfully captured!')
-      }
-      return res
-    }
-    catch (err: any) {
-      debug('[DiscordStore] Cloudflare OAuth login error:', err)
-      throw err
-    }
+    return await cloudflareStore.authenticateWithCloudflare()
   }
   const invokeForceSync = isElectron ? useElectronEventaInvoke(discordServiceForceSync) : null
   const invokeSimulate = isElectron ? useElectronEventaInvoke(discordServiceSimulateEvent) : null
