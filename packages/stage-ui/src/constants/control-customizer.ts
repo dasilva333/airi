@@ -81,7 +81,7 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         id: 'viewport-cycle-modes',
         label: 'Cycle Viewport Modes',
         description: 'Cycles sequentially through the four pointer interaction modes.',
-        icon: 'i-solar:refresh-linear',
+        icon: 'i-solar:cursor-bold-duotone',
         type: 'cycler',
         defaultOnStrip: false,
       },

@@ -4,7 +4,6 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import InteractiveArea from '@proj-airi/stage-layouts/components/Layouts/InteractiveArea.vue'
 import MobileHeader from '@proj-airi/stage-layouts/components/Layouts/MobileHeader.vue'
 import MobileWhisperSheet from '@proj-airi/stage-layouts/components/Layouts/MobileWhisperSheet.vue'
-import ViewControlInputs from '@proj-airi/stage-layouts/components/Layouts/ViewControls/Inputs.vue'
 import workletUrl from '@proj-airi/stage-ui/workers/vad/process.worklet?worker&url'
 
 import { BackgroundProvider } from '@proj-airi/stage-layouts/components/Backgrounds'
@@ -19,7 +18,7 @@ import { useLLM } from '@proj-airi/stage-ui/stores/llm'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
 import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -35,7 +34,9 @@ function handleSettingsOpen(open: boolean) {
 
 const positionCursor = useMouse()
 const settingsStore = useSettings()
+const controlStripStore = useSettingsControlStrip()
 const { stageModelSelected, lastReloadReason } = storeToRefs(settingsStore)
+const { dockedEdge } = storeToRefs(controlStripStore)
 const positioningStore = usePositioningStore()
 
 const scale = computed(() => {
@@ -210,9 +211,6 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
       </div>
       <!-- page -->
       <div relative flex="~ 1 row gap-y-0 gap-x-2 <md:col">
-        <div v-if="!isMobile" class="fixed left-4 top-[50%] z-10 px-3 -translate-y-1/2">
-          <ViewControlInputs />
-        </div>
         <WidgetStage
           v-model:state="componentStateStage"
           flex-1 min-w="1/2"
@@ -256,9 +254,15 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
             </div>
           </div>
         </div>
-        <InteractiveArea v-if="!isMobile" h="85dvh" absolute right-4 z-10 flex flex-1 flex-col max-w="500px" min-w="30%" />
-        <!-- Pinned Mobile Control Strip with 14px Edge Notch -->
-        <ControlStrip v-if="isMobile" mode="mobile" class="z-40" />
+        <InteractiveArea
+          v-if="!isMobile"
+          :class="[
+            'h-[85dvh] absolute z-10 flex flex-1 flex-col max-w-[500px] min-w-[30%] transition-all duration-300 ease-out',
+            dockedEdge === 'left' ? 'right-6' : 'left-6',
+          ]"
+        />
+        <!-- Edge-Docked Control Strip with 14px Notch Anchor -->
+        <ControlStrip mode="mobile" class="z-40" />
         <MobileWhisperSheet v-if="isMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>

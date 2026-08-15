@@ -1149,6 +1149,9 @@ function toggleOrientation() {
 }
 
 function getButtonIcon(btnId: string, defaultIcon: string): string {
+  if (btnId === 'viewport-cycle-modes') {
+    return 'i-solar:cursor-bold-duotone'
+  }
   if (btnId === 'theme-mode') {
     return colorMode.value === 'light' ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
   }
@@ -1161,7 +1164,32 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
   return defaultIcon
 }
 
+function getButtonIconColor(btnId: string): string {
+  if (btnId === 'viewport-cycle-modes') {
+    const mode = settingsStore.controlStripInteractionMode
+    if (mode === 'tactile')
+      return 'text-rose-500 dark:text-rose-400'
+    if (mode === 'drag')
+      return 'text-orange-500 dark:text-orange-400'
+    if (mode === 'positioning')
+      return 'text-emerald-500 dark:text-emerald-400'
+    if (mode === 'orbit')
+      return 'text-indigo-500 dark:text-indigo-400'
+  }
+  return ''
+}
+
 function getButtonTitle(btnId: string, defaultLabel: string): string {
+  if (btnId === 'viewport-cycle-modes') {
+    const mode = settingsStore.controlStripInteractionMode
+    const modeLabels: Record<string, string> = {
+      tactile: 'Tactile (Rose)',
+      drag: 'Drag (Orange)',
+      positioning: 'Positioning (Emerald)',
+      orbit: 'Orbit (Indigo)',
+    }
+    return `Cycle Viewport Modes: ${modeLabels[mode] || 'Tactile'}`
+  }
   if (btnId === 'chat') {
     return `Chat Toggle: ${chatOpen.value ? 'Open (Green)' : 'Closed (Red)'}`
   }
@@ -1357,6 +1385,7 @@ function getShortLabel(btnId: string): string {
         <span
           :class="[
             getButtonIcon(btn.id, btn.icon),
+            getButtonIconColor(btn.id),
             'text-lg absolute transition-all duration-200 ease-in-out',
             hoveredButtonId === btn.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100',
           ]"

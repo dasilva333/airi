@@ -2,7 +2,7 @@ import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import { CUSTOMIZER_CATALOG } from '../../constants/control-customizer'
 
@@ -39,7 +39,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
-  { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:refresh-linear' },
+  { id: 'viewport-cycle-modes', enabled: true, label: 'Cycle Viewport Modes', icon: 'i-solar:cursor-bold-duotone' },
   { id: 'head-tethered-caption', enabled: true, label: 'Head-Tethered Caption', icon: 'i-solar:chat-round-call-bold-duotone' },
   { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
@@ -83,7 +83,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
   const backgroundTint = useLocalStorageManualReset<string>('settings/control-strip/background-tint', '#171717')
   const collapsed = useLocalStorageManualReset<boolean>('settings/control-strip/collapsed', false)
-  const dockedEdge = ref<'left' | 'right' | 'top' | 'bottom' | null>(null)
+  const dockedEdge = useLocalStorageManualReset<'left' | 'right' | 'top' | 'bottom'>('settings/control-strip/docked-edge', 'right')
   const selfieIncludeBg = useLocalStorageManualReset<boolean>('settings/control-strip/selfie-include-bg', true)
 
   const defaultButtons = getDefaultControlStripButtons()
