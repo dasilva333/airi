@@ -16,14 +16,15 @@ export async function ensureWhisperLoaded(
   options: {
     model: string
     signal?: AbortSignal
+    force?: boolean
     onProgress?: (p: ProgressPayload) => void
   },
 ): Promise<void> {
   const adapter = await getWhisperAdapter()
-  // Skip the download entirely if this exact model is already resident.
-  if (adapter.state === 'ready' && adapter.manifest?.model === options.model)
+  // Skip the download entirely if this exact model is already resident and not forcing reload.
+  if (!options.force && adapter.state === 'ready' && adapter.manifest?.model === options.model)
     return
-  await adapter.load(options.onProgress, { signal: options.signal, model: options.model })
+  await adapter.load(options.onProgress, { signal: options.signal, model: options.model, force: options.force })
 }
 
 export type { ProgressPayload }

@@ -165,6 +165,9 @@ export interface GpuWorkerHost<Rpc> {
 
   /** Tear down the worker, cancel a pending restart, release VRAM, and run `onTerminate`. */
   terminate: () => void
+
+  /** Tear down the existing worker immediately (freeing all VRAM) and spawn a fresh one. */
+  reset: () => Rpc
 }
 
 /**
@@ -354,12 +357,27 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
     onTerminate?.()
   }
 
+  function reset(): Rpc {
+    if (restartTimer != null) {
+      clearTimeout(restartTimer)
+      restartTimer = null
+    }
+    destroyWorker()
+    if (allocationToken) {
+      getGPUCoordinator().release(allocationToken)
+      allocationToken = null
+    }
+    phase = 'idle'
+    return ensure()
+  }
+
   return {
     get phase() { return phase },
     get rpc() { return rpc },
     get deviceLossCount() { return deviceLossCount },
     setPhase(next) { phase = next },
     ensure,
+    reset,
     runExclusive,
     runOnGpu,
     handleWorkerError,

@@ -61,7 +61,7 @@ export interface WhisperStreamUpdate {
   numTokens: number
 }
 
-const MAX_NEW_TOKENS = 64
+const MAX_NEW_TOKENS = 448
 const MODEL_ID = MODEL_IDS.WHISPER
 
 // Whisper's encoder consumes a fixed-size log-mel spectrogram: 30 s of audio at
@@ -301,6 +301,7 @@ defineStreamInvokeHandler(context, whisperTranscribeEvent, toStreamHandler<Whisp
     const generateOptions: any = {
       ...inputs,
       max_new_tokens: MAX_NEW_TOKENS,
+      return_timestamps: false,
       streamer,
     }
 

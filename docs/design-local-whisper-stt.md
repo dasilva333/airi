@@ -47,10 +47,10 @@ AIRI exposes 4 Whisper model tiers in [`packages/stage-ui/src/libs/inference/con
 
 | Shard ID | Model Tier | Download Size | VRAM Footprint | Multilingual | Primary Target |
 |---|---|---|---|---|---|
-| `onnx-community/whisper-tiny.en` | Tiny (English) | ~40 MB | ~150 MB | No (English-only) | Low-end mobile / CPU fallback |
-| `onnx-community/whisper-base.en` | Base (English) | ~80 MB | ~250 MB | No (English-only) | Balanced low-resource devices |
-| `onnx-community/whisper-small.en` | Small (English) | ~250 MB | ~500 MB | No (English-only) | Mid-range laptops |
-| `onnx-community/whisper-large-v3-turbo` | Large V3 Turbo (**Default**) | ~800 MB | ~800 MB | **Yes (99+ languages)** | Desktop WebGPU / High accuracy |
+| `onnx-community/whisper-tiny` | Tiny (Multilingual) | ~75 MB | ~250 MB | **Yes (99+ languages)** | Low-end mobile / CPU fallback |
+| `onnx-community/whisper-base` | Base (Multilingual) | ~145 MB | ~500 MB | **Yes (99+ languages)** | Balanced low-resource devices |
+| `onnx-community/whisper-small` | Small (Multilingual) | ~460 MB | ~1 GB | **Yes (99+ languages)** | Mid-range laptops |
+| `onnx-community/whisper-large-v3-turbo` | Large V3 Turbo (**Default**) | ~800 MB | ~3 GB | **Yes (99+ languages)** | Desktop WebGPU / High accuracy |
 
 * **Default Model**: `onnx-community/whisper-large-v3-turbo` (`DEFAULT_WHISPER_MODEL`).
 * **Mel-Filterbank Configuration**:

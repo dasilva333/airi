@@ -60,7 +60,7 @@ export interface WhisperAdapter {
    */
   load: (
     onProgress?: (p: ProgressPayload) => void,
-    options?: { signal?: AbortSignal, model?: string },
+    options?: { signal?: AbortSignal, model?: string, force?: boolean },
   ) => Promise<void>
 
   /**
@@ -147,8 +147,17 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
 
   async function load(
     onProgress?: (p: ProgressPayload) => void,
-    options?: { signal?: AbortSignal, model?: string },
+    options?: { signal?: AbortSignal, model?: string, force?: boolean },
   ): Promise<void> {
+    const isModelSwitch = !!(lastManifest?.model && options?.model && lastManifest.model !== options.model)
+    const isForced = !!options?.force
+
+    // When switching models or forced reload, invalidate previous manifest so
+    // we reset the worker and ensure 100% of old VRAM is released by the GPU.
+    if (isModelSwitch || isForced) {
+      lastManifest = null
+    }
+
     // NOTICE: Proactive WASM promotion after repeated device-loss events.
     // Whisper always requests 'webgpu' from the caller today.
     const requestedDevice = host.promoteDevice('webgpu')
@@ -160,7 +169,7 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
 
       return host.runOnGpu(MODEL_NAMES.WHISPER, GPU_PRIORITY.STT_LOAD, options?.signal, async ({ crashSignal }) => {
         throwIfAborted(options?.signal)
-        const rpc = host.ensure()
+        const rpc = (isModelSwitch || isForced) ? host.reset() : host.ensure()
 
         const hfToken = typeof localStorage !== 'undefined' ? localStorage.getItem('settings/connection/hf-token') || undefined : undefined
         const stream = rpc.load(

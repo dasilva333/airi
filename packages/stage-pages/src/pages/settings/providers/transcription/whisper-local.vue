@@ -76,7 +76,7 @@ async function checkModelStatus() {
   }
 }
 
-async function downloadModel(modelId: string) {
+async function downloadModel(modelId: string, force = false) {
   if (isDownloading.value)
     return
 
@@ -111,7 +111,7 @@ async function downloadModel(modelId: string) {
       else if (typeof p.percent === 'number' && p.percent >= 0) {
         loadingProgress.value = Math.min(100, Math.max(loadingProgress.value, Math.round(p.percent)))
       }
-    }, { model: modelId })
+    }, { model: modelId, force })
 
     isDownloading.value = false
     isModelResident.value = true
@@ -301,7 +301,7 @@ onMounted(async () => {
                 variant="secondary"
                 :disabled="isDownloading"
                 class="flex items-center gap-1 text-xs"
-                @click="downloadModel(model)"
+                @click="downloadModel(model, true)"
               >
                 <div class="i-solar:refresh-circle-bold-duotone text-sm" />
                 <span>Reload</span>

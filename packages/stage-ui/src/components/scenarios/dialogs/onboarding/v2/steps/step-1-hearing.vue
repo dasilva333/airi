@@ -146,14 +146,16 @@ function getWhisperModelSpec(id: string) {
 }
 
 const whisperErrorMessage = ref('')
+const whisperPhaseMessage = ref('Downloading model shards into local cache…')
 
-async function startWhisperDownload() {
+async function startWhisperDownload(force = false) {
   whisperAbort.value?.abort()
   const controller = new AbortController()
   whisperAbort.value = controller
   whisperDownloadState.value = 'downloading'
   whisperProgress.value = 0
   whisperErrorMessage.value = ''
+  whisperPhaseMessage.value = 'Downloading model shards into local cache…'
 
   const shardMap = new Map<string, { loaded: number, total: number }>()
 
@@ -161,8 +163,13 @@ async function startWhisperDownload() {
     await ensureWhisperLoaded({
       model: selectedWhisperModel.value,
       signal: controller.signal,
+      force,
       onProgress: (p: ProgressPayload) => {
-        if (p.file) {
+        if (p.phase === 'warmup' || (p.message && p.message.includes('warm'))) {
+          whisperPhaseMessage.value = p.message || 'Compiling WebGPU shaders and warming up model…'
+          whisperProgress.value = 100
+        }
+        else if (p.file) {
           shardMap.set(p.file, {
             loaded: p.loaded || 0,
             total: p.total || 0,
@@ -624,7 +631,7 @@ watch(selectedAudioInput, async () => {
             v-else-if="whisperDownloadState === 'ready'"
             variant="secondary"
             class="h-[38px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
-            @click="startWhisperDownload"
+            @click="startWhisperDownload(true)"
           >
             <div class="i-solar:refresh-circle-bold-duotone text-base" />
             <span>Re-download</span>
@@ -634,7 +641,7 @@ watch(selectedAudioInput, async () => {
             v-else-if="whisperDownloadState === 'error'"
             variant="primary"
             class="h-[38px] flex items-center gap-1.5 px-4 font-medium"
-            @click="startWhisperDownload"
+            @click="startWhisperDownload(true)"
           >
             <div class="i-solar:restart-bold-duotone text-base" />
             <span>Retry Download</span>
@@ -647,7 +654,7 @@ watch(selectedAudioInput, async () => {
         <div class="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300">
           <div class="flex items-center gap-1.5">
             <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
-            <span>Downloading model shards into local cache…</span>
+            <span>{{ whisperPhaseMessage }}</span>
           </div>
           <span class="font-medium font-mono">{{ Math.floor(whisperProgress) }}%<template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template></span>
         </div>
