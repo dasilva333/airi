@@ -20,7 +20,7 @@ import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/module
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettings, useSettingsAudioDevice, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
-import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
+import { breakpointsTailwind, useBreakpoints, useMediaQuery, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
@@ -69,7 +69,8 @@ function handleOffsetChange(val: { x: number, y: number }) {
 }
 
 const breakpoints = useBreakpoints(breakpointsTailwind)
-const isMobile = breakpoints.smaller('md')
+const isLandscape = useMediaQuery('(orientation: landscape)')
+const isPortraitMobile = computed(() => breakpoints.smaller('md').value && !isLandscape.value)
 
 const backgroundStore = useBackgroundStore()
 const { selectedOption, sampledColor } = storeToRefs(backgroundStore)
@@ -255,7 +256,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           </div>
         </div>
         <InteractiveArea
-          v-if="!isMobile"
+          v-if="!isPortraitMobile"
           :class="[
             'h-[85dvh] absolute z-10 flex flex-1 flex-col max-w-[500px] min-w-[30%] transition-all duration-300 ease-out',
             dockedEdge === 'left' ? 'right-6' : 'left-6',
@@ -263,7 +264,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
         />
         <!-- Edge-Docked Control Strip with 14px Notch Anchor -->
         <ControlStrip mode="mobile" class="z-40" />
-        <MobileWhisperSheet v-if="isMobile" @settings-open="handleSettingsOpen" />
+        <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>
   </BackgroundProvider>

@@ -96,37 +96,43 @@ Unlike desktop (which supports both horizontal bars and vertical columns), **mob
 - Comfortably accommodates **5 to 7 action icons** (44px touch targets) without encroaching on the center avatar or bottom WhisperDock.
 - Avoids the cramped 3–4 button limit of horizontal mobile bars.
 
-### 4.2 Left or Right Edge Docking (`dockEdge`)
-- Users can choose whether the strip docks against the **Left Edge** or **Right Edge** of the screen (`dockEdge: 'left' | 'right'`), optimizing for left-handed vs. right-handed one-handed thumb use.
+### 4.2 Left or Right Edge Docking & Opposite-Edge Dynamic Docking (`dockedEdge`)
+- Users can choose whether the Control Strip docks against the **Left Edge** or **Right Edge** of the screen (`dockedEdge: 'left' | 'right'`), optimizing for left-handed vs. right-handed one-handed thumb use.
+- **Opposite-Edge Chatbox Coordination (Landscape & Desktop)**: To eliminate UI collision and maximize viewport balance, the chatbox (`InteractiveArea`) automatically and fluidly anchors to the **exact opposite edge** of the Control Strip:
+  - When `dockedEdge === 'right'` (Default) ➔ **Control Strip**: Right edge (`right-0`) · **Chatbox**: Left edge (`left-6`).
+  - When `dockedEdge === 'left'` ➔ **Control Strip**: Left edge (`left-0`) · **Chatbox**: Right edge (`right-6`).
 
 ```
-      [Left Edge Docked]                           [Right Edge Docked]
-┌──────────────────────────────┐             ┌──────────────────────────────┐
-│ │ ⠿ │ (14px Tab)             │             │             (14px Tab) │ ⠿ │ │
-│ ────                         │             │                         ──── │
-│ ╭────────╮                   │     OR      │                   ╭────────╮ │
-│ │   🐾   │ Tactile / Zoom    │             │ Tactile / Zoom    │   🐾   │ │
-│ │   👗   │ Wardrobe Outfits  │             │ Wardrobe Outfits  │   👗   │ │
-│ │   🎭   │ Expressions Grid  │             │ Expressions Grid  │   🎭   │ │
-│ │   ✨   │ Live Voice (Bidi) │             │ Live Voice (Bidi) │   ✨   │ │
-│ │   💬   │ Chat Drawer       │             │ Chat Drawer       │   💬   │ │
-│ │   📸   │ Vision Capture    │             │ Vision Capture    │   📸   │ │
-│ ╰────────╯                   │             │                   ╰────────╯ │
-└──────────────────────────────┘             └──────────────────────────────┘
+       [Right Edge Docked (Default)]                         [Left Edge Docked]
+┌────────────────────────────────────────┐       ┌────────────────────────────────────────┐
+│ ┌──────────────┐          ╭─╮ (14px)   │       │   (14px) ╭─╮          ┌──────────────┐ │
+│ │   Chatbox    │  Avatar  │«│ Control  │  OR   │  Control │»│  Avatar  │   Chatbox    │ │
+│ │ (Interactive)│  Stage   ╰─╯  Strip   │       │   Strip  ╰─╯  Stage   │ (Interactive)│ │
+│ └──────────────┘                       │       │                       └──────────────┘ │
+└────────────────────────────────────────┘       └────────────────────────────────────────┘
 ```
 
-### 4.3 Expand / Collapse Touch Physics
+### 4.3 Orientation-Aware Responsive Layout (`isPortraitMobile`)
+To seamlessly support mobile phones, landscape rotations, foldable devices, and tablets:
+- **`isLandscape` Detection**: Computed via `useMediaQuery('(orientation: landscape)')`.
+- **`isPortraitMobile` Guard**: `computed(() => breakpoints.smaller('md').value && !isLandscape.value)`.
+- **Layout Switching**:
+  1. **Portrait Handheld (`isPortraitMobile === true`)**: Centers the companion vertically above the bottom `MobileWhisperSheet` dock, with the Control Strip 14px tab flush on the selected edge.
+  2. **Landscape Handheld / Tablet / Desktop (`isPortraitMobile === false`)**: Seamlessly activates the side-by-side companion theatre layout, centering the avatar between the edge-docked Control Strip and the opposite-edge `InteractiveArea` chatbox.
+
+### 4.4 Expand / Collapse Touch Physics
 - **Collapsed**: A subtle 14px rounded glass tab (`╭─ ⠿ ─╮`) rests flush against the screen bezel.
 - **Expanded**: Tapping or swiping inward expands the **vertical translucent pill** anchored to that edge with fluid spring easing (`slide-in-from-right` or `slide-in-from-left`).
 - **Auto-Collapse**: Tapping the stage or swiping back toward the bezel re-docks it into the tab.
 
-### 4.4 Touch Viewport Paradigm (Replacing Clumsy Desktop Sliders)
+### 4.5 Touch Viewport Paradigm (Replacing Clumsy Desktop Sliders)
 In legacy mobile, opening coordinate controls spawned desktop-oriented slider inputs that hijacked touch events and froze the screen. Under the Control Strip model:
-- **Tactile Mode (Default)**: Touching the companion triggers organic pokes, blushes, and physical Live2D reactions with zero coordinate drift.
-- **Touch Positioning Mode**: Tapping `[🐾]` enters positioning mode with native mobile gestures:
-  - **Pinch-to-zoom**: Dynamically scales avatar model (`scale`).
-  - **1-finger drag**: Pans the model smoothly across the screen (`position.x`, `position.y`).
-  - **Double-tap**: Instantly resets coordinates to default center.
+- **Pointer Cursor Cycler (`[↖] i-solar:cursor-bold-duotone`)**: Replaced generic refresh arrows with an intuitive pointer cursor icon whose symbol color dynamically synchronizes with the active interaction mode:
+  - **Tactile Mode**: Rose cursor (`text-rose-500`) + Rose dot badge. Poking triggers physical Live2D reactions without coordinate drift.
+  - **Drag Mode**: Orange cursor (`text-orange-500`) + Orange dot badge. 1-finger drag pans the model smoothly (`position.x`, `position.y`).
+  - **Positioning Mode**: Emerald cursor (`text-emerald-500`) + Emerald dot badge. Pinch-to-zoom scales the avatar model (`scale`).
+  - **Orbit Mode**: Indigo cursor (`text-indigo-500`) + Indigo dot badge. Drag rotates camera viewport around 3D/VRM environments.
+- **Double-tap**: Instantly resets coordinates to default center.
 
 ---
 
@@ -354,5 +360,24 @@ Mobile users interact with companions across diverse aesthetic preferences. To s
 2. A legacy router guard (`if (from.meta.rootOfSettings && to.path === '/') return false`) intended strictly for multi-window Electron (`stage-tamagotchi`) was erroneously copied into `apps/stage-web/src/main.ts`, trapping web users on the settings page.
 
 **Fix**: Explicitly mount `SettingsIndexPage` in `apps/stage-web/src/pages/settings/index.vue` with `titleKey: settings.title`, and ensure single-window applications (`stage-web`, `stage-pocket`) always allow returning to the home stage (`/`).
+
+---
+
+### L-06 · Opposite-Edge Docking & Orientation-Aware Reactive Layouts
+
+**Symptom**:
+1. In landscape and desktop viewports, the side chatbox collided or overlapped with the Control Strip tab when both were anchored to the same edge.
+2. In `apps/stage-pocket`, changing the edge docking preference in Settings moved the Control Strip but left the chatbox statically hardcoded to `right-4`.
+3. In handheld devices rotated sideways, screens with narrow pixel dimensions triggered the portrait bottom sheet (`MobileWhisperSheet`), taking up the full height and obscuring the companion.
+
+**Root Cause**:
+1. `dockedEdge` in `useSettingsControlStrip` was not persistent and lacked a layout coordinator to dynamically assign opposing anchors.
+2. Breakpoints were checking only `width < 768px` (`breakpoints.smaller('md')`), which miscategorized mobile landscape orientations (e.g. 667x375) as portrait mobile.
+
+**Fix**:
+1. Persist `dockedEdge` in `useLocalStorageManualReset<'left' | 'right' | 'top' | 'bottom'>('settings/control-strip/docked-edge', 'right')`.
+2. Compute `isLandscape = useMediaQuery('(orientation: landscape)')` and define `isPortraitMobile = computed(() => breakpoints.smaller('md').value && !isLandscape.value)`.
+3. In single-window applications (`stage-web` and `stage-pocket`), dynamically set `InteractiveArea`'s class to `:class="[dockedEdge === 'left' ? 'right-6' : 'left-6', ...]"` when `!isPortraitMobile`, ensuring zero UI collision between the Control Strip and Chatbox.
+
 
 

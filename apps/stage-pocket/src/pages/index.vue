@@ -17,9 +17,9 @@ import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingSpeechInputPipeline } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
-import { breakpointsTailwind, useBreakpoints, useMouse } from '@vueuse/core'
+import { breakpointsTailwind, useBreakpoints, useMediaQuery, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 
@@ -35,11 +35,14 @@ function handleSettingsOpen(open: boolean) {
 
 const positionCursor = useMouse()
 const breakpoints = useBreakpoints(breakpointsTailwind)
-const isMobile = breakpoints.smaller('md')
+const isLandscape = useMediaQuery('(orientation: landscape)')
+const isPortraitMobile = computed(() => breakpoints.smaller('md').value && !isLandscape.value)
 
 const positioningStore = usePositioningStore()
 const settingsStore = useSettings()
+const controlStripStore = useSettingsControlStrip()
 const { stageModelSelected, stageModelRenderer } = storeToRefs(settingsStore)
+const { dockedEdge } = storeToRefs(controlStripStore)
 
 const computedScale = computed(() => {
   const key = stageModelSelected.value || 'global'
@@ -246,8 +249,14 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
         <!-- Pinned Mobile Control Strip with 14px Edge Notch -->
         <ControlStrip mode="mobile" class="z-40" />
 
-        <InteractiveArea v-if="!isMobile" class="absolute right-4 h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col" />
-        <MobileWhisperSheet v-if="isMobile" @settings-open="handleSettingsOpen" />
+        <InteractiveArea
+          v-if="!isPortraitMobile"
+          :class="[
+            'absolute h-[85dvh] max-w-[500px] min-w-[30%] flex flex-1 flex-col transition-all duration-300 ease-out z-10',
+            dockedEdge === 'left' ? 'right-6' : 'left-6',
+          ]"
+        />
+        <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>
   </BackgroundProvider>
