@@ -577,9 +577,9 @@ function handleApply() {
 <template>
   <DialogRoot :open="modelValue" @update:open="emit('update:modelValue', $event)">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-120 bg-black/60 backdrop-blur-md" />
+      <DialogOverlay class="fixed inset-0 z-[10001] bg-black/60 backdrop-blur-md" />
       <DialogContent
-        class="border-neutral-205 fixed left-1/2 top-1/2 z-120 m-0 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-hidden border rounded-2xl bg-white shadow-2xl -translate-x-1/2 -translate-y-1/2 dark:border-neutral-800 dark:bg-neutral-900"
+        class="border-neutral-205 fixed left-1/2 top-1/2 z-[10001] m-0 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-hidden border rounded-2xl bg-white shadow-2xl -translate-x-1/2 -translate-y-1/2 dark:border-neutral-800 dark:bg-neutral-900"
       >
         <!-- Header -->
         <div class="border-b border-neutral-200 p-6 dark:border-neutral-800">

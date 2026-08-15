@@ -467,6 +467,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       updatedAt: Date.now(),
     }
 
+    console.log('[AiriCard Store] 💾 updateCard persisting card:', {
+      id,
+      name: (updatedCard as any).name || (updatedCard as any).data?.name,
+      speechModule: (updatedCard as any).extensions?.airi?.modules?.speech || (updatedCard as any).data?.extensions?.airi?.modules?.speech,
+      fullUpdatedCard: JSON.parse(JSON.stringify(updatedCard)),
+    })
+
     const nextCards = new Map(cards.value)
     nextCards.set(id, compactCard(updatedCard))
     void persistCards(nextCards)
@@ -653,6 +660,19 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const nextConsciousnessModel = extension.modules?.consciousness?.model
     if (nextConsciousnessModel && activeConsciousnessModel.value !== nextConsciousnessModel)
       activeConsciousnessModel.value = nextConsciousnessModel
+
+    // 2. Sync Speech (TTS) with stability guards
+    const nextSpeechProvider = extension.modules?.speech?.provider
+    if (nextSpeechProvider && activeSpeechProvider.value !== nextSpeechProvider)
+      activeSpeechProvider.value = nextSpeechProvider
+
+    const nextSpeechModel = extension.modules?.speech?.model
+    if (nextSpeechModel && activeSpeechModel.value !== nextSpeechModel)
+      activeSpeechModel.value = nextSpeechModel
+
+    const nextSpeechVoiceId = extension.modules?.speech?.voice_id
+    if (nextSpeechVoiceId && activeSpeechVoiceId.value !== nextSpeechVoiceId)
+      activeSpeechVoiceId.value = nextSpeechVoiceId
 
     // 3. Sync Models & Parameters.
     // NOTICE: `force` no longer bypasses the speech gate or forces a re-apply of the

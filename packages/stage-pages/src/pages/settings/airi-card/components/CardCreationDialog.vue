@@ -914,6 +914,21 @@ async function saveCard(card: Card): Promise<boolean> {
     journalIntrusionPrompt: selectedJournalIntrusionPrompt.value,
   }
 
+  console.log('[CardCreationDialog] 📊 DUMPING SAVED CHARACTER PROFILE GRAPH:', {
+    isEditMode: isEditMode.value,
+    cardId: props.cardId,
+    name: cardWithModules.name,
+    speechFormState: {
+      selectedSpeechProvider: selectedSpeechProvider.value,
+      selectedSpeechModel: selectedSpeechModel.value,
+      selectedSpeechVoiceId: selectedSpeechVoiceId.value,
+      defaultSpeechVoiceId: defaultSpeechVoiceId.value,
+    },
+    modules: cardWithModules.extensions.airi.modules,
+    extensionsAiri: cardWithModules.extensions.airi,
+    fullCardPayload: JSON.parse(JSON.stringify(cardWithModules)),
+  })
+
   if (isEditMode.value && props.cardId) {
     // Edit mode: update existing card
     cardStore.updateCard(props.cardId, cardWithModules)

@@ -11,6 +11,7 @@ const controlStripStore = useSettingsControlStrip()
 const { buttons, dockedEdge } = storeToRefs(controlStripStore)
 
 const selectedCategory = ref<string>('all')
+const MAX_MOBILE_SLOTS = 7
 
 // List of all active/enabled buttons in their current order (filtered for mobile)
 const activeButtons = computed(() => {

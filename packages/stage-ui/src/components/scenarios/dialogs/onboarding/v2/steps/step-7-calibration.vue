@@ -240,9 +240,9 @@ const compiledCardPayload = computed(() => {
               model: draft.consciousness.model || 'gpt-4o',
             },
             speech: {
-              provider: draft.speech.provider || 'kokoro',
-              model: draft.speech.model || 'kokoro-v1',
-              voice_id: draft.speech.voiceId || 'af_heart',
+              provider: draft.speech.provider || 'pocket-tts-local',
+              model: draft.speech.model || 'english_2026-04',
+              voice_id: draft.speech.voiceId || 'anna',
             },
           },
         },
@@ -263,6 +263,8 @@ async function handleFinish() {
   if (draft.userProfile.prompt) {
     userProfileStore.prompt = draft.userProfile.prompt
   }
+
+  // 1. Persist User Voice Profile (for Suggestions / Director Directives)
   if (draft.userProfile.voiceProfileId) {
     const rawVoice = draft.userProfile.voiceProfileId
     const baseProvider = draft.speech.provider || 'pocket-tts-local'
@@ -305,8 +307,52 @@ async function handleFinish() {
     userProfileStore.voiceProfileId = profileId
   }
 
+  // 2. Persist Character Voice Profile (appears in Audio Studio & Card Editor)
+  const charName = resolvedPersona.value.name || 'Companion'
+  const charRawVoice = draft.speech.voiceId || 'anna'
+  const charBaseProvider = draft.speech.provider || 'pocket-tts-local'
+  const charBaseModel = draft.speech.model || 'english_2026-04'
+  const charProfileId = `voice_profile_${charName.toLowerCase().replace(/\s+/g, '_')}`
+
+  const charVoiceProfile = {
+    id: charProfileId,
+    name: `${charName}'s Voice`,
+    baseProvider: charBaseProvider,
+    baseModel: charBaseModel,
+    baseVoice: charRawVoice,
+    effects: {
+      pitch: 1.0,
+      rate: 1.0,
+      volume: 1.0,
+      asmr: 0,
+      radio: 0,
+      robot: 0,
+      reverb: 0,
+      spatial: 0,
+    },
+    ust: {
+      enabled: true,
+      mode: 'mute' as any,
+      customStripChars: '*_[]()<>"\'',
+      stripEmojis: true,
+      tildeReplacement: '',
+      autoLowercaseCapsThreshold: 2,
+      autoLowercaseCapsExclude: [],
+      convertBracketsToTokenFormat: true,
+      customReplacements: [],
+    },
+  }
+
+  speechStore.saveVoiceProfile(charVoiceProfile as any)
+  speechStore.activeSpeechProvider = charBaseProvider
+  speechStore.activeSpeechModel = charBaseModel
+  speechStore.activeSpeechVoiceId = charProfileId
+
   // Synthesize and persist the brand new card payload
   const payload = compiledCardPayload.value
+  if (payload.data?.extensions?.airi?.modules?.speech) {
+    payload.data.extensions.airi.modules.speech.voice_id = charProfileId
+  }
   const newCardId = await cardStore.addCard(payload)
   await cardStore.activateCard(newCardId, true)
 
