@@ -22,18 +22,18 @@ const emit = defineEmits<{
       <button
         v-if="variant === 'mobile'"
         class="w-fit flex items-center justify-center border-2 border-neutral-100/60 rounded-xl border-solid bg-neutral-50/70 p-2 backdrop-blur-md transition-all active:scale-95 dark:border-neutral-800/30 dark:bg-neutral-800/70"
-        :title="title || 'Add Media'"
+        :title="title || 'Attach Image'"
       >
-        <div class="i-solar:add-circle-bold-duotone size-5 text-neutral-500 dark:text-neutral-400" />
+        <div class="i-solar:gallery-add-bold-duotone size-5 text-neutral-500 dark:text-neutral-400" />
       </button>
 
-      <!-- Default (composer inline) trigger — styled as a [+] button -->
+      <!-- Default (composer inline) trigger -->
       <button
         v-else
         class="h-8 w-8 flex items-center justify-center rounded-xl bg-neutral-200/20 text-neutral-500 transition-all duration-200 active:scale-95 dark:bg-neutral-800/20 hover:bg-neutral-200/40 dark:text-neutral-400 hover:text-neutral-700 dark:hover:bg-neutral-800/40 dark:hover:text-neutral-200"
-        :title="title || 'Add Media'"
+        :title="title || 'Attach Image'"
       >
-        <div class="i-solar:add-circle-bold text-base" />
+        <div class="i-solar:gallery-add-bold text-base" />
       </button>
     </PopoverTrigger>
 
@@ -46,8 +46,8 @@ const emit = defineEmits<{
       >
         <!-- Header -->
         <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">
-          <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Add Media</span>
-          <div class="i-solar:add-circle-bold-duotone text-xs text-primary-500" />
+          <span class="text-xs text-neutral-400 font-bold tracking-wider uppercase">Attach Image</span>
+          <div class="i-solar:gallery-add-bold-duotone text-xs text-primary-500" />
         </div>
 
         <!-- Take Screenshot -->
