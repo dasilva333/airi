@@ -1,6 +1,6 @@
 # Architectural Spec: The Cloudflare Worker Deployment Subsystem & Generic Cloud Framework
 
-**Status:** Evolutionary Blueprint / Architecture Revision
+**Status:** Canonical Reference & Implementation Record (Active in Production)
 **Authors:** AIRI Team & AI Assistant
 **Replaces & Extends:**
 - [`cloud-relay-design.md`](./cloud-relay-design.md) (Pivoted from single-purpose relay to generic Cloudflare edge engine framework)
@@ -10,153 +10,145 @@
 
 ---
 
-## 1. Executive Summary & Architectural Pivot
+## 1. Executive Summary & Architectural Reality
 
-The initial `cloud-relay-design.md` conceptualized Cloudflare Workers primarily as a single-purpose, always-on Discord character bot ("Cloud Relay").
-
-However, inspecting real-world implementations (`cloud-relay-worker.js`, `proposal-web-cors-proxy-bypass.md`, and `project-byos-cloud-sync.md`) reveals a broader architectural truth: **AIRI needs a generic, modular Cloudflare Worker Deployment Framework**.
-
-AIRI is not just deploying a Discord bot; it is managing a **suite of user-hosted serverless microservices & key vaults** at the Cloudflare edge. These services run entirely within the user's free Cloudflare account, preserving AIRI's **zero-custody, zero-server-cost** core philosophy.
+AIRI manages a **suite of user-hosted serverless edge microservices, CORS proxies, and key vaults** on the user's private Cloudflare account (`*.workers.dev`). These services run entirely within Cloudflare's free tier, preserving AIRI's **zero-custody, zero-server-cost** core philosophy.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    AIRI Control Plane (Desktop & Web GUI)                   │
+│                    AIRI Control Plane (Desktop, Web & Mobile)               │
 │          "Serverless Cloud Infrastructure Management Studio"                │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
-                                       ▼ Cloudflare REST API / OAuth Handshake
+                                       ▼ Cloudflare REST API / OAuth PKCE Handshake
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                   User's Private Cloudflare Account Edge                    │
 │                                                                             │
 │  ┌──────────────────────────┐  ┌──────────────────────────┐  ┌───────────┐  │
 │  │ 🛡️ CORS Proxy Worker     │  │ 🌐 Cloud Relay Worker    │  │ 🔑 Vault  │  │
-│  │ (Bypasses web CORS for   │  │ (Always-on Discord Bot & │  │  Worker   │  │
-│  │  Deepgram, Pioneer)      │  │  KV Transactional Log)   │  │  & KV     │  │
+│  │ (Bypasses web CORS for   │  │ (Always-on Discord Bot & │  │  Namespace│  │
+│  │  REST & KV in stage-web) │  │  KV Transactional Log)   │  │  & KV     │  │
+│  │  /cors-proxy?url=...     │  │  /discord & /health      │  │           │  │
 │  └──────────────────────────┘  └─────────────┬────────────┘  └─────┬─────┘  │
 │                                              │                     │        │
 │                                              ▼ Cloudflare KV       ▼        │
-│                                  [ airi-relay-<characterId> ] [ airi-vault ]│
+│                                  [ airi-kv-<characterId> ]  [ airi-edge-    │
+│                                                                 vault ]     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. The Generic Cloudflare Deployment Engine (`CloudflareService`)
+## 2. Core Service Architecture & State Management
 
-Instead of hardcoding Cloudflare REST API calls in individual feature components, AIRI establishes a central, reusable service in the main process (`injeca` dependency-injected service or shared store): `@proj-airi/stage-ui/src/services/cloudflare.ts`.
+### 2.1 Unified Store: `useCloudflareStore`
+Location: [`packages/stage-ui/src/stores/modules/cloudflare.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/cloudflare.ts)
 
-### 2.1 Unified Credential & Wrangler-Style Authorization
-AIRI provides two authentication mechanisms:
-1. **API Token Entry** (reusing credentials from **BYOS Cloud Sync** `project-byos-cloud-sync.md`):
-   - `account_id`: Cloudflare Account ID.
-   - `api_token`: Cloudflare API Token with `Workers Scripts:Edit`, `Workers KV Storage:Edit`, and `Worker Routes:Edit` permissions.
-2. **Wrangler-Style OAuth Authorization**:
-   - Performs a 1-click browser OAuth / token handshake (similar to `wrangler login`) to grant AIRI client-side authorization to deploy workers and manage KV namespaces without manual token configuration.
+The central Pinia store encapsulates all Cloudflare credentials, OAuth tokens, subdomain states, and edge actions:
+- **`cfOAuthTokens`**: Persisted in `settings/cloudflare/cfOAuthTokens` (`{ accessToken, refreshToken, expiresIn, accountId }`).
+- **`cfAccountId`**: Resolved account ID (`settings/cloudflare/cfAccountId`).
+- **`cfSubdomain`**: User's registered workers subdomain (`settings/cloudflare/cfSubdomain`, e.g. `<subdomain>`).
+- **Automatic Migration**: Reads and elevates legacy `settings/discord/cf*` keys with zero data loss.
 
-### 2.2 Standard Worker Deployment Pipeline API
-```typescript
-interface WorkerDeploymentSpec {
-  scriptName: string // e.g. "airi-cors-proxy", "airi-relay-loona", "airi-edge-vault"
-  templateScript: string // Raw JS bundle string (e.g. cloud-relay-worker.js)
-  bindings: {
-    kvNamespaces?: Array<{ binding: string, namespaceId: string }>
-    environmentVariables?: Record<string, string>
-    secrets?: Record<string, string>
-  }
-}
+### 2.2 Cross-Platform Execution Matrix
 
-class CloudflareDeploymentEngine {
-  async ensureKvNamespace(title: string): Promise<string> // Returns namespace ID
-  async uploadWorker(spec: WorkerDeploymentSpec): Promise<{ workerUrl: string }>
-  async deleteWorker(scriptName: string): Promise<void>
-}
-```
+| Platform | OAuth PKCE Flow | KV Storage Operations | Worker Deployments |
+| :--- | :--- | :--- | :--- |
+| **Electron Desktop** (`stage-tamagotchi`) | Local loopback server (`http://localhost:8976/oauth/callback`) + system browser | Main process Eventa IPC $\rightarrow$ `CloudflareStageDeployer` | Full multi-part Worker bundle compilation & deployment |
+| **Web Browser SPA** (`stage-web`) | Browser popup + WebCrypto PKCE (`S256`) + `window.postMessage` | Proxied REST `fetch()` through `https://<subdomain>.workers.dev/cors-proxy` | Delegated to Desktop or CLI |
+| **Mobile App** (`stage-pocket` iOS/Android) | System Auth Session (`ASWebAuthenticationSession`) | Direct native REST `fetch()` to `api.cloudflare.com` (no CORS restrictions) | Delegated to Desktop or CLI |
 
 ---
 
-## 3. Worker Deployment Targets
+## 3. Worker Deployment Targets & KV Namespaces
 
-AIRI natively packages and deploys **three distinct edge worker targets** through this framework:
+### Target 1: 🛡️ Web CORS Reverse-Proxy Worker (`airi-cors-proxy`)
+- **Worker Script**: `airi-cors-proxy` deployed to `https://airi-cors-proxy.<subdomain>.workers.dev`
+- **Purpose**: Eliminates browser CORS blocks on `stage-web` when interacting with Cloudflare REST APIs, KV storage, or third-party AI endpoints.
+- **Route Handlers**:
+  - `GET /health` $\rightarrow$ `{ "status": "ok", "worker": "@proj-airi/stage-edge" }`
+  - `OPTIONS /cors-proxy` $\rightarrow$ HTTP 204 with permissive preflight headers (`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: *`, `Access-Control-Allow-Headers: *`, `Access-Control-Max-Age: 86400`).
+  - `GET/POST/PUT/DELETE /cors-proxy?url=<target_url>` $\rightarrow$ Strips browser host/origin headers, forwards payload to upstream, and injects permissive CORS response headers.
 
-### Target 1: 🛡️ CORS Reverse-Proxy Worker
-* **Reference**: [`proposal-web-cors-proxy-bypass.md`](./proposal-web-cors-proxy-bypass.md)
-* **Problem**: In `stage-web` (browser-native app), missing CORS response headers from providers (Deepgram, Pioneer, Opencode) block direct XHR/fetch requests.
-* **Worker Behavior**: Lightweight worker script (~50 lines) that accepts proxy requests (`https://user-cors-proxy.workers.dev/https://api.pioneer.ai/v1/...`), strips tracking headers, appends permissive CORS headers (`Access-Control-Allow-Origin: *`), and streams the payload back.
-* **AIRI Integration**: Automatically deployed to user's Cloudflare account and registered under `Settings > System > Connection > CORS Bypass Proxy`.
+### Target 2: 🌐 Always-On Character Relay Worker (`airi-kv-<characterId>`)
+- **Worker Script**: `airi-<characterId>` (e.g. `airi-moriv`, `airi-baseline-test`)
+- **Purpose**: Runs 24/7 serverless companion interactions on Discord with zero local machine dependencies.
+- **Route Handlers**:
+  - `POST /discord` $\rightarrow$ Validates Discord Ed25519 signatures, evaluates slash commands, performs LLM streaming inference, and writes dialogue turns to KV.
+- **KV Namespace**: `airi-kv-<characterId>`
+  - Key `context/rolling`: Array of recent dialogue turns (50 items rolling history).
+  - Key `system/prompt`: Immutable system persona instructions.
+  - Key `ping`: Health verification (`pong`).
 
-### Target 2: 🌐 Always-On Character Relay Worker
-* **References**: [`cloud-relay-design.md`](./cloud-relay-design.md) & [`cloud-relay-worker.js`](./cloud-relay-worker.js)
-* **Problem**: Local desktop machine is powered off, leaving mobile users disconnected from their characters.
-* **Worker Behavior**: Full 5,700-line production worker template. Evaluates Discord Ed25519 signatures (<5ms), issues Type 5 deferred responses, logs turns to transactional KV keys (`history_turn_*`), compacts every 10 turns into immutable archives (`history_archive_*`), and runs long-term memory summarization every 20 turns (`memory_summary_*`).
-* **AIRI Integration**: Managed via **Tab 2 (Cloud Relay Studio)** under `Settings > Discord`.
-
-### Target 3: 🔑 Edge Key Vault & Onboarding Authenticator
-* **Reference**: [`project-byos-cloud-sync.md`](./project-byos-cloud-sync.md)
-* **Problem**: Google Drive AppData sync requires managing OAuth App verification, client IDs, and scaring users with "Unverified App" screens. Manually entering S3/R2 keys on every new device installation creates huge onboarding friction.
-* **Worker & KV Behavior**: Deploys a dedicated `airi-edge-vault` KV namespace to the user's Cloudflare account. Stores client-side encrypted S3/R2 storage keys, active character presets, and system preferences.
-* **AIRI Integration (Cross-Device Restore)**:
-  - On a fresh installation of AIRI or opening `stage-web` on a new computer, the user clicks **"Connect with Cloudflare"**.
-  - AIRI authenticates, queries `airi-edge-vault`, retrieves the encrypted S3/R2 storage credentials, connects to the user's cloud storage, and **instantly restores all character cards, memories, voices, and settings** without any third-party app verification process!
+### Target 3: 🔑 Cloudflare Edge Key Vault (`airi-edge-vault`)
+- **KV Namespace**: `airi-edge-vault`
+- **Purpose**: Provides 1-click cloud sync restoration across devices without manual S3/R2 key entry.
+- **Stored Keys**:
+  - Key `vault/credentials`:
+    ```json
+    {
+      "s3Endpoint": "https://<account_id>.r2.cloudflarestorage.com",
+      "s3Bucket": "airi-sync",
+      "s3Region": "auto",
+      "s3AccessKeyId": "...",
+      "s3SecretAccessKey": "...",
+      "activeProvider": "s3",
+      "savedAt": 1700000000000
+    }
+    ```
+- **Cross-Device Flow**: When signing in with Cloudflare on a new device (`stage-web` or `stage-pocket`), the app queries `airi-edge-vault` and immediately auto-populates `useSyncEngineStore`, activating companion selective sync instantly.
 
 ---
 
-## 4. Architectural Revisions to Original `cloud-relay-design.md`
-
-Based on inspecting the production `cloud-relay-worker.js` code, the following architectural adjustments are codified:
-
-1. **Transactional KV Write-Ahead Log over Direct Overwrites**:
-   - *Original Assumption*: Worker overwrites a single JSON string in KV per chat.
-   - *Revised Reality*: `cloud-relay-worker.js` writes each turn to an independent KV key (`history_turn_<userId>_<interactionId>`) and compacts every 10 turns into immutable archive keys. This prevents KV read/write race conditions during concurrent user interactions.
-2. **Unified Credential & ACL Environment Injection**:
-   - The worker deployment pipeline serializes the character's system prompt, `OWNER_USER_ID`, and Channel ACL rules directly into Worker environment variables during deploy time, guaranteeing that **cloud worker deployments enforce the exact same channel isolation rules as the desktop application**.
-3. **Bidirectional Memory Synchronization**:
-   - `[Sync Memories ↓]` pulls KV archives (`history_archive_*`) and memory summaries (`memory_summary_*`) directly into AIRI's local `short-term-memory` and `text-journal` Pinia stores, enabling seamless continuity when returning to the PC.
-
----
-
-## 5. UI Integration Map (`Settings > Discord` & `Settings > System` & Onboarding)
+## 4. Two-Stage Onboarding Flow & UI Surfaces
 
 ```
-AIRI UI Surfaces
-├── Onboarding Flow (New Machine Setup & Cloud Onboarding)
-│   ├── Step 2: 🔑 Path Selection ("Sign In with Cloudflare" OAuth PKCE)
-│   ├── Step 3: ⚙️ Cloud Infrastructure Hub (Subdomain *.workers.dev, CORS proxy, Discord Relay, Edge Vault)
-│   └── Step 4: 📦 Selective Sync & Restore Hub (selective-sync-panel.vue granular asset/memory pull)
-│
-├── System > Connection
-│   └── 🛡️ CORS Proxy Worker Deployer (Target 1)
-│       ├── [Deploy CORS Worker to Cloudflare] Button
-│       └── Custom CORS Proxy Worker URL Input
-│
-└── Discord Integration & Cloud Control Plane (Unified 3-Tab Interface)
-    ├── Tab 1: 🔌 Bot Connection (Local Bot Credentials & Tokens)
-    ├── Tab 2: 🌐 Cloud Relay Studio (Target 2 Deployment, Worker Logs, Memory Sync ↓)
-    └── Tab 3: 🔐 Access & Routing (Channel Mapping, DM Isolation, ACL Matrix)
-```
-
-### 5.1 Two-Stage Cloudflare Onboarding Sequence
-
-```
-[ Step 2: Sign In with Cloudflare (OAuth PKCE) ]
+[ Step 2: Sign In with Cloudflare ]
+  • OAuth PKCE 1-click authorization
+  • Proof of zero-trust connection
+  • Auto-fetches R2 credentials from Edge Vault if returning user
                        │
                        ▼
-[ Step 3: Cloud Infrastructure & Edge Services ]
-  • Subdomain Resolution (*.workers.dev via get/setCloudflareSubdomain)
-  • Service Toggles (CORS Reverse Proxy, Discord Cloud Relay, Edge Key Vault)
-  • Remote Storage Inspection (R2 "airi-sync" stats scan: cards, models, animations)
+[ Step 3: Cloud Infrastructure & Edge Services ] (step-cloud-infrastructure.vue)
+  • Workers Edge Subdomain (*.workers.dev display, claim, or active status)
+  • Edge Service Modules:
+      ☑ Web CORS Reverse-Proxy Worker (Auto-deploys airi-cors-proxy)
+      ☑ Always-On Discord Cloud Relay (Pre-configures worker triggers)
+      ☑ Save Credentials to Edge Key Vault (Encrypts R2 keys to airi-edge-vault)
+  • Remote Storage Inspection (Live R2 catalog scan: cards, models, animations count)
                        │
                        ▼
-[ Step 4: Selective Sync & Restore Hub ]
-  • Embeds `selective-sync-panel.vue`
-  • Granular model/memory selection & IndexedDB download pipeline
-  • Seamlessly fast-forwards to Hearing / Consciousness or Launch Calibration
+[ Step 4: Companion Cloud Restore ] (step-cloud-restore.vue)
+  • Embeds selective-sync-panel.vue
+  • Granular model, animation, background, and memory selection
+  • Restores companion assets directly into local IndexedDB
+                       │
+                       ▼
+[ Step 5+: Hearing, Consciousness, Calibration ]
 ```
 
 ---
 
-## 6. Summary of Benefits
+## 5. Developer Tooling & CLI Utilities
 
-1. **Modular Edge Framework**: Decouples Cloudflare REST API management into a generic, reusable service for any future edge worker requirement.
-2. **Zero Third-Party Verification**: Replaces complex Google AppData verification with zero-custody Cloudflare key vaults.
-3. **Seamless Cloud/Desktop Parity**: Users can author locally, deploy to the edge in one click, and sync character memories back down when they get home!
+### 5.1 KV Inspector with Auto-Refresh
+Location: [`apps/stage-edge/scripts/inspect-kv.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-edge/scripts/inspect-kv.ts)
+
+Command:
+```bash
+npx tsx apps/stage-edge/scripts/inspect-kv.ts
+```
+
+- Discovers all active `airi-*` KV namespaces (`airi-kv-*`, `airi-edge-vault`).
+- Automatically intercepts expired OAuth tokens (HTTP 401/403) and uses `CLOUDFLARE_REFRESH_TOKEN` to refresh credentials and update `.env` without manual steps.
+- Dumps sanitized local snapshots to `kv-dump.json` (protected by `.gitignore`).
+
+---
+
+## 6. Security & Release Principles
+
+1. **Zero Hardcoded Secrets**: All OAuth access tokens, refresh tokens, and R2 credentials reside exclusively in user-owned local storage, Electron secure memory, or the user's private Cloudflare KV vault.
+2. **Subdomain Immutability**: The deployment engine preserves pre-existing user subdomains (e.g. `<subdomain>`) and never overwrites account-level names.
+3. **Strict Git Tracking Safeguards**: All dump files (`*.dump.json`, `kv-dump.json`) and environment configs (`.env`) are permanently ignored in repository `.gitignore`.
+
 

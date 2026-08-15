@@ -25,9 +25,77 @@ export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
+    // Handle CORS preflight for all endpoints
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Max-Age': '86400',
+        },
+      })
+    }
+
     // Health check endpoint
     if (url.pathname === '/health') {
-      return jsonResponse({ status: 'ok', worker: '@proj-airi/stage-edge' })
+      return jsonResponse({ status: 'ok', worker: '@proj-airi/stage-edge' }, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    }
+
+    // Generic Web CORS Reverse-Proxy endpoint (/cors-proxy?url=... or /proxy?url=...)
+    if (url.pathname === '/cors-proxy' || url.pathname === '/proxy') {
+      const targetUrl = url.searchParams.get('url') || request.headers.get('x-target-url')
+      if (!targetUrl) {
+        return jsonResponse(
+          { error: 'Missing target URL parameter. Example: /cors-proxy?url=https://api.cloudflare.com/client/v4/user' },
+          { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } },
+        )
+      }
+
+      try {
+        const parsedTarget = new URL(targetUrl)
+        const forwardHeaders = new Headers(request.headers)
+        forwardHeaders.delete('host')
+        forwardHeaders.delete('referer')
+        forwardHeaders.delete('origin')
+        forwardHeaders.delete('x-target-url')
+
+        // Map custom target authorization header if provided
+        const customAuth = request.headers.get('x-target-authorization')
+        if (customAuth) {
+          forwardHeaders.set('Authorization', customAuth)
+          forwardHeaders.delete('x-target-authorization')
+        }
+
+        const upstreamRes = await fetch(parsedTarget.toString(), {
+          method: request.method,
+          headers: forwardHeaders,
+          body: (request.method !== 'GET' && request.method !== 'HEAD') ? request.body : undefined,
+          redirect: 'follow',
+        })
+
+        const responseHeaders = new Headers(upstreamRes.headers)
+        responseHeaders.set('Access-Control-Allow-Origin', '*')
+        responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+        responseHeaders.set('Access-Control-Allow-Headers', '*')
+
+        return new Response(upstreamRes.body, {
+          status: upstreamRes.status,
+          statusText: upstreamRes.statusText,
+          headers: responseHeaders,
+        })
+      }
+      catch (err: any) {
+        return jsonResponse(
+          { error: `Upstream fetch failed: ${err?.message || err}` },
+          { status: 502, headers: { 'Access-Control-Allow-Origin': '*' } },
+        )
+      }
     }
 
     // Handle Discord interaction webhooks

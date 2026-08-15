@@ -22,6 +22,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { nanoid } from 'nanoid'
 
 import {
+  cloudflareServiceDeployCorsProxy,
   cloudflareServiceFetchEdgeVault,
   cloudflareServiceSaveEdgeVault,
   discordServiceCloudflareOAuth,
@@ -558,6 +559,26 @@ export function setupDiscordService() {
       return { success: true, vaultData }
     }
     catch (err: any) {
+      return { success: false, error: err?.message || String(err) }
+    }
+  })
+
+  defineInvokeHandler(context, cloudflareServiceDeployCorsProxy, async (payload) => {
+    try {
+      pushLog('DEPLOY', 'Initiating Web CORS Reverse-Proxy Worker deployment...')
+      const { CloudflareStageDeployer } = await import('@proj-airi/stage-edge/deployer')
+      const deployer = new CloudflareStageDeployer({
+        apiToken: payload.apiToken,
+        accountId: payload.accountId,
+      })
+      const res = await deployer.deployCorsProxy({
+        targetSubdomain: payload.targetSubdomain,
+      })
+      pushLog('DEPLOY', `Web CORS Reverse-Proxy deployed successfully: ${res.workerUrl}`)
+      return { success: true, workerUrl: res.workerUrl }
+    }
+    catch (err: any) {
+      pushLog('ERROR', `Web CORS Reverse-Proxy deployment failed: ${err?.message || err}`)
       return { success: false, error: err?.message || String(err) }
     }
   })

@@ -2,12 +2,15 @@
  * Helper utilities for formatting Discord REST & webhook interaction responses.
  */
 
-export function jsonResponse(body: unknown, status = 200): Response {
+export function jsonResponse(body: unknown, init?: number | ResponseInit): Response {
+  const options: ResponseInit = typeof init === 'number' ? { status: init } : (init || {})
+  const headers = new Headers(options.headers)
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json; charset=utf-8')
+  }
   return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-    },
+    ...options,
+    headers,
   })
 }
 

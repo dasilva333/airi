@@ -291,4 +291,93 @@ export default {
 
     return { workerUrl, namespaceId, publicKey: resolvedPublicKey }
   }
+
+  /**
+   * Deploys the lightweight Web CORS Reverse-Proxy Worker to the user's workers.dev subdomain.
+   */
+  public async deployCorsProxy(options?: { scriptName?: string, targetSubdomain?: string }): Promise<{ workerUrl: string }> {
+    const scriptName = options?.scriptName || 'airi-cors-proxy'
+    console.info(`[Stage-Deployer] Deploying Web CORS Reverse-Proxy Worker "${scriptName}"...`)
+
+    const accountId = await this.ensureAccountId()
+
+    let workerScriptCode = ''
+    try {
+      const { packageWorkerScript } = await import('./packager')
+      workerScriptCode = await packageWorkerScript()
+    }
+    catch {
+      const { BUNDLED_WORKER_SCRIPT } = await import('../bundle-code')
+      workerScriptCode = BUNDLED_WORKER_SCRIPT
+    }
+
+    const metadata = {
+      main_module: 'index.js',
+      compatibility_date: '2025-02-04',
+      compatibility_flags: ['nodejs_compat'],
+      bindings: [],
+    }
+
+    const formData = new FormData()
+    formData.append(
+      'metadata',
+      new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+      'metadata',
+    )
+    formData.append(
+      'index.js',
+      new Blob([workerScriptCode], { type: 'application/javascript+module' }),
+      'index.js',
+    )
+
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${scriptName}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${this.client.apiToken}`,
+      },
+      body: formData,
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`CORS proxy upload failed -> HTTP ${res.status}: ${errText}`)
+    }
+
+    let subdomainName = await this.getSubdomain()
+    if (options?.targetSubdomain && (!subdomainName || options.targetSubdomain !== subdomainName)) {
+      subdomainName = await this.setSubdomain(options.targetSubdomain)
+    }
+
+    if (!subdomainName) {
+      throw new Error('No workers.dev subdomain registered.')
+    }
+
+    await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${scriptName}/subdomain`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.client.apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ enabled: true }),
+    })
+
+    const workerUrl = `https://${scriptName}.${subdomainName}.workers.dev`
+    console.info(`✓ Web CORS Reverse-Proxy deployed: ${workerUrl}`)
+    return { workerUrl }
+  }
+
+  /**
+   * Deletes a deployed Worker script from the Cloudflare account.
+   */
+  public async deleteWorker(scriptName: string): Promise<boolean> {
+    const accountId = await this.ensureAccountId()
+    console.info(`[Stage-Deployer] Deleting Worker "${scriptName}" from account ${accountId}...`)
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${scriptName}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${this.client.apiToken}`,
+      },
+    })
+    return res.ok
+  }
 }

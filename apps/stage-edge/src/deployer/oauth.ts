@@ -154,3 +154,28 @@ export async function loginWithCloudflareOAuth(): Promise<OAuthTokens> {
     })
   })
 }
+
+export async function refreshOAuthToken(refreshToken: string): Promise<OAuthTokens> {
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: CLOUDFLARE_OAUTH_CLIENT_ID,
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Token refresh failed: ${err}`)
+  }
+
+  const data: any = await res.json()
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || refreshToken,
+    expiresIn: data.expires_in,
+    accountId: data.account_id,
+  }
+}

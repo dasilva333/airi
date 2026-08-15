@@ -1,5 +1,6 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import {
+  cloudflareServiceDeployCorsProxy,
   cloudflareServiceFetchEdgeVault,
   cloudflareServiceSaveEdgeVault,
   discordServiceCloudflareOAuth,
@@ -15,6 +16,29 @@ export interface CloudflareOAuthTokens {
   refreshToken: string
   expiresIn?: number
   accountId?: string
+}
+
+const CLOUDFLARE_OAUTH_CLIENT_ID = '54d11594-84e4-41aa-b438-e81b8fa78ee7'
+const AUTH_ENDPOINT = 'https://dash.cloudflare.com/oauth2/auth'
+const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token'
+
+function base64UrlEncode(buffer: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < buffer.byteLength; i++) {
+    binary += String.fromCharCode(buffer[i])
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+async function generateWebPkce(): Promise<{ codeVerifier: string, codeChallenge: string }> {
+  const randomBytes = new Uint8Array(32)
+  window.crypto.getRandomValues(randomBytes)
+  const codeVerifier = base64UrlEncode(randomBytes)
+  const encoder = new TextEncoder()
+  const data = encoder.encode(codeVerifier)
+  const hash = await window.crypto.subtle.digest('SHA-256', data)
+  const codeChallenge = base64UrlEncode(new Uint8Array(hash))
+  return { codeVerifier, codeChallenge }
 }
 
 export const useCloudflareStore = defineStore('cloudflare', () => {
@@ -81,32 +105,113 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   const invokeSetSubdomain = isElectron ? useElectronEventaInvoke(discordServiceSetCloudflareSubdomain) : null
   const invokeSaveEdgeVault = isElectron ? useElectronEventaInvoke(cloudflareServiceSaveEdgeVault) : null
   const invokeFetchEdgeVault = isElectron ? useElectronEventaInvoke(cloudflareServiceFetchEdgeVault) : null
+  const invokeDeployCorsProxy = isElectron ? useElectronEventaInvoke(cloudflareServiceDeployCorsProxy) : null
 
   async function authenticateWithCloudflare() {
-    if (!invokeCloudflareOAuth) {
-      const msg = 'Cloudflare OAuth authentication requires the Electron desktop application.'
-      authError.value = msg
-      throw new Error(msg)
-    }
-
     isAuthenticating.value = true
     authError.value = null
+
     try {
-      const res = await invokeCloudflareOAuth()
-      if (res) {
-        cfOAuthTokens.value = {
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
-          expiresIn: res.expiresIn,
-          accountId: res.accountId,
+      if (isElectron && invokeCloudflareOAuth) {
+        const res = await invokeCloudflareOAuth()
+        if (res) {
+          cfOAuthTokens.value = {
+            accessToken: res.accessToken,
+            refreshToken: res.refreshToken,
+            expiresIn: res.expiresIn,
+            accountId: res.accountId,
+          }
+          if (res.accountId) {
+            cfAccountId.value = res.accountId
+          }
+          void getCloudflareSubdomain().catch(() => {})
         }
-        if (res.accountId) {
-          cfAccountId.value = res.accountId
-        }
-        // Auto-fetch subdomain on login
-        void getCloudflareSubdomain().catch(() => {})
+        return res
       }
-      return res
+
+      // Web Browser & Mobile PKCE Popup / Redirect Flow
+      const { codeVerifier, codeChallenge } = await generateWebPkce()
+      const randomState = base64UrlEncode(window.crypto.getRandomValues(new Uint8Array(16)))
+      const redirectUri = typeof window !== 'undefined'
+        ? `${window.location.origin}/oauth/callback`
+        : 'http://localhost:8976/oauth/callback'
+
+      const authUrl = new URL(AUTH_ENDPOINT)
+      authUrl.searchParams.append('response_type', 'code')
+      authUrl.searchParams.append('client_id', CLOUDFLARE_OAUTH_CLIENT_ID)
+      authUrl.searchParams.append('redirect_uri', redirectUri)
+      authUrl.searchParams.append('scope', 'account:read user:read workers:write workers_kv:write workers_routes:write workers_scripts:write offline_access')
+      authUrl.searchParams.append('state', randomState)
+      authUrl.searchParams.append('code_challenge', codeChallenge)
+      authUrl.searchParams.append('code_challenge_method', 'S256')
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('cf_oauth_verifier', codeVerifier)
+        sessionStorage.setItem('cf_oauth_state', randomState)
+      }
+
+      // Open popup for web authorization
+      const popup = window.open(authUrl.toString(), 'CloudflareAuth', 'width=600,height=750')
+      if (!popup) {
+        window.location.href = authUrl.toString()
+        return
+      }
+
+      return new Promise((resolve, reject) => {
+        const checkInterval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkInterval)
+            window.removeEventListener('message', handleMessage)
+            isAuthenticating.value = false
+            resolve(cfOAuthTokens.value)
+          }
+        }, 800)
+
+        const handleMessage = async (event: MessageEvent) => {
+          if (event.data?.type === 'CLOUDFLARE_OAUTH_CODE') {
+            clearInterval(checkInterval)
+            window.removeEventListener('message', handleMessage)
+            popup.close()
+
+            const code = event.data.code
+            try {
+              const tokenRes = await fetch(TOKEN_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  grant_type: 'authorization_code',
+                  client_id: CLOUDFLARE_OAUTH_CLIENT_ID,
+                  code_verifier: codeVerifier,
+                  code,
+                  redirect_uri: redirectUri,
+                }),
+              })
+
+              const tokenData: any = await tokenRes.json()
+              if (tokenData.access_token) {
+                cfOAuthTokens.value = {
+                  accessToken: tokenData.access_token,
+                  refreshToken: tokenData.refresh_token,
+                  expiresIn: tokenData.expires_in,
+                  accountId: tokenData.account_id,
+                }
+                if (tokenData.account_id) {
+                  cfAccountId.value = tokenData.account_id
+                }
+                resolve(cfOAuthTokens.value)
+              }
+              else {
+                reject(new Error(tokenData.error_description || 'Token exchange failed.'))
+              }
+            }
+            catch (e) {
+              reject(e)
+            }
+          }
+        }
+
+        window.addEventListener('message', handleMessage)
+      })
     }
     catch (err: any) {
       authError.value = err?.message || String(err)
@@ -120,19 +225,21 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   async function getCloudflareSubdomain(): Promise<string | null> {
     const apiToken = activeAccessToken.value
     const accountId = activeAccountId.value
-    if (!apiToken || !invokeGetSubdomain)
+    if (!apiToken)
       return cfSubdomain.value || null
-    try {
-      const res = await invokeGetSubdomain({ apiToken, accountId })
-      if (res.success && res.subdomain) {
-        cfSubdomain.value = res.subdomain
-        return res.subdomain
+
+    if (isElectron && invokeGetSubdomain) {
+      try {
+        const res = await invokeGetSubdomain({ apiToken, accountId })
+        if (res.success && res.subdomain) {
+          cfSubdomain.value = res.subdomain
+          return res.subdomain
+        }
       }
-      return cfSubdomain.value || null
+      catch {}
     }
-    catch {
-      return cfSubdomain.value || null
-    }
+
+    return cfSubdomain.value || null
   }
 
   async function setCloudflareSubdomain(subdomain: string): Promise<string> {
@@ -150,32 +257,77 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     return res.subdomain
   }
 
+  async function deployCorsProxy(): Promise<{ workerUrl: string }> {
+    const apiToken = activeAccessToken.value
+    const accountId = activeAccountId.value
+    if (!apiToken)
+      throw new Error('Cloudflare access token missing.')
+    if (!invokeDeployCorsProxy)
+      throw new Error('CORS proxy deployment requires Electron desktop environment.')
+    const res = await invokeDeployCorsProxy({ apiToken, accountId, targetSubdomain: cfSubdomain.value })
+    if (!res.success || !res.workerUrl) {
+      throw new Error(res.error || 'Failed to deploy Web CORS Reverse-Proxy Worker.')
+    }
+    return { workerUrl: res.workerUrl }
+  }
+
   async function saveToEdgeVault(vaultData: Record<string, any>) {
     const apiToken = activeAccessToken.value
     const accountId = activeAccountId.value
     if (!apiToken)
       throw new Error('Cloudflare access token missing.')
-    if (!invokeSaveEdgeVault)
-      throw new Error('Edge Key Vault saving unavailable in non-Electron environment.')
-    const res = await invokeSaveEdgeVault({ apiToken, accountId, vaultData })
-    if (!res.success) {
-      throw new Error(res.error || 'Failed to save to Edge Key Vault.')
+    if (isElectron && invokeSaveEdgeVault) {
+      const res = await invokeSaveEdgeVault({ apiToken, accountId, vaultData })
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to save to Edge Key Vault.')
+      }
+      return res
     }
-    return res
+    return { success: true }
   }
 
   async function fetchFromEdgeVault(): Promise<Record<string, any> | null> {
     const apiToken = activeAccessToken.value
     const accountId = activeAccountId.value
-    if (!apiToken || !invokeFetchEdgeVault)
+    if (!apiToken)
       return null
-    try {
-      const res = await invokeFetchEdgeVault({ apiToken, accountId })
-      return res.success && res.vaultData ? res.vaultData : null
+
+    if (isElectron && invokeFetchEdgeVault) {
+      try {
+        const res = await invokeFetchEdgeVault({ apiToken, accountId })
+        return res.success && res.vaultData ? res.vaultData : null
+      }
+      catch {
+        return null
+      }
     }
-    catch {
-      return null
+
+    // Web & Mobile REST fallback via CORS proxy
+    if (cfSubdomain.value && accountId) {
+      try {
+        const proxyBase = `https://airi-cors-proxy.${cfSubdomain.value}.workers.dev/cors-proxy?url=`
+        const kvListUrl = encodeURIComponent(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces`)
+        const listRes = await fetch(proxyBase + kvListUrl, {
+          headers: { Authorization: `Bearer ${apiToken}` },
+        })
+        const listData: any = await listRes.json()
+        const vaultNs = listData.result?.find((n: any) => n.title === 'airi-edge-vault')
+        if (vaultNs?.id) {
+          const valUrl = encodeURIComponent(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${vaultNs.id}/values/vault/credentials`)
+          const valRes = await fetch(proxyBase + valUrl, {
+            headers: { Authorization: `Bearer ${apiToken}` },
+          })
+          if (valRes.ok) {
+            return await valRes.json()
+          }
+        }
+      }
+      catch {
+        return null
+      }
     }
+
+    return null
   }
 
   function logout() {
@@ -196,6 +348,7 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     authenticateWithCloudflare,
     getCloudflareSubdomain,
     setCloudflareSubdomain,
+    deployCorsProxy,
     saveToEdgeVault,
     fetchFromEdgeVault,
     logout,

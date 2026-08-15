@@ -105,6 +105,17 @@ async function syncCredentialsToEdgeVault() {
   }
 }
 
+async function deployCorsProxyService() {
+  if (!corsProxyEnabled.value)
+    return
+  try {
+    await cloudflareStore.deployCorsProxy()
+  }
+  catch (e) {
+    console.warn('[CloudInfrastructure] Failed to deploy CORS proxy worker:', e)
+  }
+}
+
 onMounted(async () => {
   gate?.setGate('cloud-infrastructure', {
     canProceed: true,
@@ -129,10 +140,14 @@ onMounted(async () => {
 
   // Save current R2 credentials to Edge Vault
   void syncCredentialsToEdgeVault()
+
+  // Deploy CORS proxy worker if enabled
+  void deployCorsProxyService()
 })
 
 onBeforeUnmount(() => {
   void syncCredentialsToEdgeVault()
+  void deployCorsProxyService()
   gate?.clearGate('cloud-infrastructure')
 })
 </script>

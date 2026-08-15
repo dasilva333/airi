@@ -255,6 +255,22 @@ export const cloudflareServiceFetchEdgeVault = defineInvokeEventa<CloudflareFetc
   'eventa:invoke:electron:cloudflare:fetch-edge-vault',
 )
 
+export interface CloudflareDeployCorsProxyPayload {
+  apiToken: string
+  accountId: string
+  targetSubdomain?: string
+}
+
+export interface CloudflareDeployCorsProxyResult {
+  success: boolean
+  workerUrl?: string
+  error?: string
+}
+
+export const cloudflareServiceDeployCorsProxy = defineInvokeEventa<CloudflareDeployCorsProxyResult, CloudflareDeployCorsProxyPayload>(
+  'eventa:invoke:electron:cloudflare:deploy-cors-proxy',
+)
+
 // ── Event Contracts (Main → Renderer, push-based) ──────────────────────────────
 
 /** Emitted when the service connection state changes. */
