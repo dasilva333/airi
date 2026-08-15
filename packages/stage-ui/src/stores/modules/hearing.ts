@@ -519,6 +519,7 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
     idleTimeoutMs?: number
     onSentenceEnd?: (delta: string) => void
     onSpeechEnd?: (text: string) => void
+    onError?: (error: string) => void
   }) {
     console.info('[Hearing Pipeline] transcribeForMediaStream called', {
       supportsStreamInput: supportsStreamInput.value,
@@ -731,6 +732,11 @@ export const useHearingSpeechInputPipeline = defineStore('modules:hearing:speech
             hearingStore.isTranscribing = false
             // Call the options callback
             options?.onSpeechEnd?.(text)
+          },
+          onError: (errMsg) => {
+            hearingStore.isTranscribing = false
+            error.value = errMsg
+            options?.onError?.(errMsg)
           },
         })
 

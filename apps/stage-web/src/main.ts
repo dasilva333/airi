@@ -47,14 +47,6 @@ router.beforeEach((to, from) => {
     NProgress.start()
 })
 
-// Ground rule: the settings surface must never fall back to `/` (the stage home /
-// Control-Strip-equivalent) when backing out of its root. Declared via route meta
-// so the shared `packages/stage-layouts` settings layout doesn't string-match the path.
-router.beforeEach((to, from) => {
-  if (from.meta?.rootOfSettings && to.path === '/')
-    return false
-})
-
 router.afterEach(() => {
   NProgress.done()
 })

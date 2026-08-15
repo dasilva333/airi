@@ -486,6 +486,17 @@ async function refreshVoices() {
   }
 }
 
+async function handleApiKeyBlur() {
+  if (!isLocalProvider.value && apiKeyInput.value.trim()) {
+    const normId = normalizeProviderId(selectedProvider.value)
+    providersStore.providers[normId] = {
+      ...providersStore.providers[normId],
+      apiKey: apiKeyInput.value.trim(),
+    }
+    await refreshVoices()
+  }
+}
+
 function openConsole() {
   if (activeConsoleUrl.value) {
     window.open(activeConsoleUrl.value, '_blank')
@@ -803,6 +814,8 @@ onBeforeUnmount(() => {
                 :type="showApiKey ? 'text' : 'password'"
                 placeholder="Enter API Key (sk-...)"
                 class="w-full border border-neutral-200 rounded-lg bg-white py-2 pl-3 pr-9 text-xs font-mono outline-none dark:border-neutral-700 focus:border-primary-500 dark:bg-neutral-900 dark:text-neutral-200"
+                @blur="handleApiKeyBlur"
+                @keydown.enter="handleApiKeyBlur"
               >
               <button
                 class="absolute right-2.5 top-1/2 text-neutral-400 -translate-y-1/2 hover:text-neutral-600 dark:hover:text-neutral-200"

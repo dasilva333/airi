@@ -324,6 +324,12 @@ async function startTest() {
             testStatusMessage.value = 'Transcription received.'
           }
         },
+        onError: (errMsg) => {
+          testError.value = errMsg
+          verification.value = 'idle'
+          testStatusMessage.value = ''
+          isTesting.value = false
+        },
       })
     }
     else {

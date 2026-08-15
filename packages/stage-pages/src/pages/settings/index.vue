@@ -4,7 +4,6 @@ import { AboutContent, AboutDialog, IconItem, RippleGrid } from '@proj-airi/stag
 import { useBuildInfo } from '@proj-airi/stage-ui/composables'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
-import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -14,11 +13,9 @@ import SettingsSearchBar from './components/SettingsSearchBar.vue'
 
 const router = useRouter()
 const route = useRoute()
-const resolveAnimation = ref<() => void>()
 const { t } = useI18n()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 
-const settingsStore = useSettings()
 const onboardingStore = useOnboardingStore()
 
 const showAbout = ref(false)
@@ -48,19 +45,6 @@ watch(
   },
   { immediate: true },
 )
-
-const removeBeforeEach = router.beforeEach(async (_, __, next) => {
-  if (!settingsStore.usePageSpecificTransitions || settingsStore.disableTransitions) {
-    next()
-    return
-  }
-
-  await new Promise<void>((resolve) => {
-    resolveAnimation.value = resolve
-  })
-  removeBeforeEach()
-  next()
-})
 
 const settingsGroups = computed(() => [
   {

@@ -1,6 +1,8 @@
 import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
 import type { StreamTranscriptionDelta, StreamTranscriptionResult } from '@xsai/stream-transcription'
 
+import { toast } from 'vue-sonner'
+
 // NOTICE: Copied/adapted from @xsai/stream-transcription delayed promise helper.
 // Ref: @xsai/stream-transcription@0.4.0-beta.8 (dist/index.js DelayedPromise usage).
 function createDeferred<T>() {
@@ -36,6 +38,7 @@ export interface WebSpeechAPIExtraOptions {
   interimResults?: boolean
   maxAlternatives?: number
   abortSignal?: AbortSignal
+  onError?: (errorMessage: string) => void
 }
 
 /**
@@ -213,8 +216,12 @@ export function streamWebSpeechAPITranscription(
   const recognition = new SpeechRecognition()
   recognitionInstance = recognition
 
+  const isMobileWebKit = typeof navigator !== 'undefined'
+    && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
   recognition.lang = options?.language || 'en-US'
-  recognition.continuous = options?.continuous ?? true
+  // NOTICE: iOS WebKit / WKWebView does not support continuous mode and drops connections with network errors if continuous is true
+  recognition.continuous = isMobileWebKit ? false : (options?.continuous ?? true)
   recognition.interimResults = options?.interimResults ?? true // Default to true for real-time feedback
   recognition.maxAlternatives = options?.maxAlternatives ?? 1
 
@@ -280,10 +287,24 @@ export function streamWebSpeechAPITranscription(
     }
 
     const isNetworkError = errorType === 'network'
-    const errorMsg = isNetworkError
-      ? 'Web Speech API network error: Unable to reach speech service. Please check your internet connection or use Local Whisper.'
-      : `Speech recognition error: ${errorType}`
+    let errorMsg = `Speech recognition error: ${errorType}`
+    if (isNetworkError) {
+      errorMsg = 'Web Speech API network error: Unable to reach speech service. If using Brave or privacy shields, speech recognition servers are blocked by default. Please switch to Local Whisper or test in Chrome/Safari.'
+    }
+    else if (errorType === 'not-allowed') {
+      errorMsg = 'Microphone permission was denied. Please grant microphone access in browser settings.'
+    }
+    else if (errorType === 'service-not-allowed') {
+      errorMsg = 'Speech recognition service is not allowed by this browser or platform.'
+    }
+
+    toast.error(errorMsg, {
+      id: 'web-speech-api-error',
+      duration: 7000,
+    })
+
     const error = new Error(errorMsg)
+    options?.onError?.(errorMsg)
     fullStreamCtrl?.error(error)
     textStreamCtrl?.error(error)
     deferredText.reject(error)
