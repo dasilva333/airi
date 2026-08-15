@@ -26,7 +26,6 @@
     "./composables": "./src/composables/index.ts",
     "./constants/*": "./src/constants/*.ts",
     "./constants": "./src/constants/index.ts",
-    "./libs/workers/whisper": "./src/libs/workers/whisper/index.ts",
     "./libs/*": "./src/libs/*.ts",
     "./libs": "./src/libs/index.ts",
     "./stores/providers/aliyun": "./src/stores/providers/aliyun/index.ts",

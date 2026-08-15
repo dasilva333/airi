@@ -21,7 +21,7 @@ import {
 } from '@xsai-ext/providers/utils'
 import { listModels } from '@xsai/model'
 
-import { appLocalAudioTranscription } from '../../../libs/providers/providers/transcription/app-local-audio-transcription'
+import { DEFAULT_WHISPER_MODEL, WHISPER_MODELS } from '../../../libs/inference/constants'
 import { createAliyunNLSProvider as createAliyunNlsStreamProvider } from '../aliyun/stream-transcription'
 import { isBrowserAndMemoryEnough, logWarn, validateProviderBaseUrl } from '../helpers'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
@@ -58,27 +58,34 @@ type AnyProvider
  * validator ref was a stable `{ value: validateProviderBaseUrl }` wrapper).
  */
 export const transcriptionMetadata = {
-  'app-local-audio-transcription': appLocalAudioTranscription as any,
-  'browser-local-audio-transcription': {
-    id: 'browser-local-audio-transcription',
-    name: 'Browser (Local)',
-    nameKey: 'settings.pages.providers.provider.browser-local-audio-transcription.title',
-    descriptionKey: 'settings.pages.providers.provider.browser-local-audio-transcription.description',
+  'whisper-local': {
+    id: 'whisper-local',
+    name: 'Whisper (Local)',
+    nameKey: 'settings.pages.providers.provider.whisper-local.title',
+    descriptionKey: 'settings.pages.providers.provider.whisper-local.description',
     icon: 'i-lobe-icons:huggingface',
     description: 'Private & Secure - In-browser transcription via WebGPU',
     category: 'transcription',
+    pricing: 'free',
+    deployment: 'local',
+    beginnerRecommended: true,
     tasks: ['speech-to-text', 'automatic-speech-recognition', 'asr', 'stt'],
     requiresCredentials: false,
     isAvailableBy: isBrowserAndMemoryEnough,
-    defaultOptions: () => ({}),
+    defaultOptions: () => ({
+      model: DEFAULT_WHISPER_MODEL,
+      language: 'en',
+    }),
     createProvider: async (config?: any) => createWhisperLocalTranscriptionProvider(config),
     capabilities: {
-      listModels: async () => [
-        { id: 'onnx-community/whisper-tiny.en', name: 'Whisper Tiny (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
-        { id: 'onnx-community/whisper-base.en', name: 'Whisper Base (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
-        { id: 'onnx-community/whisper-small.en', name: 'Whisper Small (English)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
-        { id: 'onnx-community/whisper-large-v3-turbo', name: 'Whisper Large v3 Turbo (High Perf)', provider: 'browser-local-audio-transcription', tasks: ['speech-to-text'], deployment: 'local' },
-      ],
+      listModels: async () => WHISPER_MODELS.map(m => ({
+        id: m.id,
+        name: m.name,
+        provider: 'whisper-local',
+        tasks: ['speech-to-text'],
+        deployment: 'local' as const,
+        description: m.description,
+      })),
       listVoices: async () => [],
     },
     validators: {

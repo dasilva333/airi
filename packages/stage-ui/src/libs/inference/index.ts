@@ -4,6 +4,7 @@ export {
   clearModelCache,
   clearSingleModelCache,
   clearWebLlmCache,
+  evictOtherWhisperModels,
   formatBytes,
   getModelCacheSize,
   getWebLlmCacheSize,

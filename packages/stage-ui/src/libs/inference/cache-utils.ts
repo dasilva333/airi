@@ -265,6 +265,28 @@ async function clearSingleTransformersModelCache(modelId: string): Promise<void>
   }
 }
 
+/**
+ * Evict all cached Whisper model shards except the specified model repository ID.
+ * Ensures that only a single active Whisper model shard is retained in browser storage.
+ */
+export async function evictOtherWhisperModels(keepModelId: string): Promise<void> {
+  if (typeof caches === 'undefined')
+    return
+
+  try {
+    const cache = await caches.open(TRANSFORMERS_CACHE_NAME)
+    const keys = await cache.keys()
+    for (const request of keys) {
+      if (request.url.includes('whisper') && !request.url.includes(keepModelId)) {
+        await cache.delete(request)
+      }
+    }
+  }
+  catch (error) {
+    console.warn('[cache-utils] failed to evict other whisper model shards', error)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // WebLLM (Cache Storage API, `webllm/*` scopes)
 // ---------------------------------------------------------------------------

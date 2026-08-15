@@ -84,8 +84,7 @@ const staticIndex: SearchItem[] = [
 
   // ── Providers: Transcription (STT) ──
   // Routes verified from providers/transcription/*.vue filenames
-  { id: 'prov-whisper', title: 'App Local Whisper STT', category: 'Providers (Transcription)', description: 'Speech-to-text transcription engine', to: '/settings/providers/transcription/whisper-local', icon: 'i-solar:microphone-3-bold-duotone' },
-  { id: 'prov-app-local-transcription', title: 'App Local Audio Transcription', category: 'Providers (Transcription)', description: 'Built-in local transcription', to: '/settings/providers/transcription/app-local-audio-transcription', icon: 'i-solar:volume-loud-bold-duotone' },
+  { id: 'prov-whisper', title: 'Whisper (Local)', category: 'Providers (Transcription)', description: 'Private & secure in-browser WebGPU transcription', to: '/settings/providers/transcription/whisper-local', icon: 'i-solar:microphone-3-bold-duotone' },
   { id: 'prov-deepgram-stt', title: 'Deepgram Transcription', category: 'Providers (Transcription)', description: 'Cloud transcription API', to: '/settings/providers/transcription/deepgram-transcription', icon: 'i-solar:bolt-bold-duotone' },
   { id: 'prov-web-speech', title: 'Browser Web Speech API', category: 'Providers (Transcription)', description: 'Browser-native speech recognition', to: '/settings/providers/transcription/browser-web-speech-api', icon: 'i-solar:global-bold-duotone' },
 

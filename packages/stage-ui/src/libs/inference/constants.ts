@@ -48,13 +48,52 @@ export const DEFAULT_LOCAL_VISION_MODEL: typeof LOCAL_VISION_MODELS[number]['id'
  * Hugging Face repo passed straight to the worker's load request, so no id↔repo
  * mapping is needed. Larger = more accurate but slower / bigger download.
  */
-export const WHISPER_MODELS = [
-  { id: 'onnx-community/whisper-large-v3-turbo', name: 'Whisper Large V3 Turbo', description: 'Most accurate. ~800 MB download on first use.' },
-  { id: 'onnx-community/whisper-small', name: 'Whisper Small', description: 'Faster and lighter (~480 MB), good accuracy. Multilingual.' },
+export interface WhisperModelInfo {
+  id: string
+  name: string
+  description: string
+  downloadBytes: number
+  vramBytes: number
+  multilingual?: boolean
+}
+
+export const WHISPER_MODELS: readonly WhisperModelInfo[] = [
+  {
+    id: 'onnx-community/whisper-tiny.en',
+    name: 'Whisper Tiny (English)',
+    description: 'Fastest & lightest (~40 MB DL · ~250 MB VRAM). English only.',
+    downloadBytes: 40 * 1024 * 1024,
+    vramBytes: 250 * 1024 * 1024,
+    multilingual: false,
+  },
+  {
+    id: 'onnx-community/whisper-base.en',
+    name: 'Whisper Base (English)',
+    description: 'Lightweight (~80 MB DL · ~500 MB VRAM). English only.',
+    downloadBytes: 80 * 1024 * 1024,
+    vramBytes: 500 * 1024 * 1024,
+    multilingual: false,
+  },
+  {
+    id: 'onnx-community/whisper-small.en',
+    name: 'Whisper Small (English)',
+    description: 'Balanced speed & quality (~250 MB DL · ~1 GB VRAM). English only.',
+    downloadBytes: 250 * 1024 * 1024,
+    vramBytes: 1024 * 1024 * 1024,
+    multilingual: false,
+  },
+  {
+    id: 'onnx-community/whisper-large-v3-turbo',
+    name: 'Whisper Large V3 Turbo',
+    description: 'Highest accuracy & multilingual (~800 MB DL · ~3 GB VRAM).',
+    downloadBytes: 800 * 1024 * 1024,
+    vramBytes: 3 * 1024 * 1024 * 1024,
+    multilingual: true,
+  },
 ] as const
 
 /** Default Whisper model id (matches {@link MODEL_IDS}.WHISPER). */
-export const DEFAULT_WHISPER_MODEL: typeof WHISPER_MODELS[number]['id'] = 'onnx-community/whisper-large-v3-turbo'
+export const DEFAULT_WHISPER_MODEL: string = 'onnx-community/whisper-large-v3-turbo'
 
 /**
  * Local web-rwkv (WebGPU RWKV) chat models. `id` is the model's `.safetensors`

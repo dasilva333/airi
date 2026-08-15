@@ -19,6 +19,7 @@ import { defaultPerfTracer } from '@proj-airi/stage-shared'
 import { Mutex } from 'async-mutex'
 
 import { removeInferenceStatus, updateInferenceStatus } from '../../../composables/use-inference-status'
+import { evictOtherWhisperModels } from '../cache-utils'
 import { MODEL_NAMES, TIMEOUTS } from '../constants'
 import { consumeLoadStream, createIdleTimeout, signalWithTimeout, whisperLoadEvent, whisperTranscribeEvent } from '../contract'
 import { MODEL_VRAM_ESTIMATES } from '../coordinator'
@@ -197,11 +198,17 @@ export function createWhisperAdapter(workerUrl?: string | URL): WhisperAdapter {
         host.allocate(MODEL_NAMES.WHISPER, MODEL_VRAM_ESTIMATES[MODEL_NAMES.WHISPER] ?? 800 * 1024 * 1024)
 
         // The worker echoes the model it actually loaded back via metadata.
-        lastManifest = { device: actualDevice, model: info.metadata?.model as string | undefined }
+        const loadedModel = (info.metadata?.model as string | undefined) || options?.model
+        lastManifest = { device: actualDevice, model: loadedModel }
         host.setPhase('ready')
         updateInferenceStatus(MODEL_NAMES.WHISPER, { state: 'ready', device: actualDevice })
         emit({ type: 'model-ready' })
         host.recordSuccess()
+
+        // Enforce single active Whisper model shard in browser cache storage.
+        if (loadedModel) {
+          void evictOtherWhisperModels(loadedModel)
+        }
       })
     }).catch((error) => {
       // Don't route AbortError through handleWorkerError — cancellation is

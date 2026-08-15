@@ -13,7 +13,8 @@ import LockKeyPicker from '../components/lock-key-picker.vue'
 import SttProviderPicker from '../components/provider-picker-grid.vue'
 import SttTestBox from '../components/stt-test-box.vue'
 
-import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'
+import { getWhisperAdapter } from '../../../../../../libs/inference/adapters/whisper'
+import { DEFAULT_WHISPER_MODEL, WHISPER_MODELS } from '../../../../../../libs/inference/constants'
 import { useAudioContext } from '../../../../../../stores/audio'
 import { useHearingSpeechInputPipeline, useHearingStore } from '../../../../../../stores/modules/hearing'
 import { useProvidersStore } from '../../../../../../stores/providers'
@@ -76,19 +77,23 @@ type WhisperDL = 'idle' | 'downloading' | 'ready' | 'error'
 const whisperDownloadState = ref<WhisperDL>('idle')
 const whisperProgress = ref(0)
 const whisperAbort = ref<AbortController>()
-const selectedWhisperModel = ref<string>(WHISPER_MODELS[0].id)
+const selectedWhisperModel = ref<string>(draft.state.hearing.model || DEFAULT_WHISPER_MODEL)
 
 function isLocalWhisperProvider(providerId?: string) {
-  return providerId === 'app-local-audio-transcription' || providerId === 'browser-local-audio-transcription'
+  return providerId === 'whisper-local'
 }
 
 const isWhisperSelected = computed(() => isLocalWhisperProvider(activeTranscriptionProvider.value))
 const isWebSpeechSelected = computed(() => activeTranscriptionProvider.value === 'browser-web-speech-api')
 
-const heroProviderIds = ['browser-web-speech-api', 'app-local-audio-transcription', 'browser-local-audio-transcription']
+const heroProviderIds = ['browser-web-speech-api', 'whisper-local']
 
 const cloudProviders = computed(() => {
   return allAudioTranscriptionProvidersMetadata.value.filter(p => !heroProviderIds.includes(p.id))
+})
+
+const selectedModelInfo = computed(() => {
+  return WHISPER_MODELS.find(m => m.id === selectedWhisperModel.value) || WHISPER_MODELS[0]
 })
 
 function selectWebSpeech() {
@@ -113,8 +118,8 @@ function selectLocalWhisper() {
   }
   else {
     onSelectProvider({
-      id: 'app-local-audio-transcription',
-      name: 'App (Local)',
+      id: 'whisper-local',
+      name: 'Whisper (Local)',
       category: 'transcription',
       tasks: ['speech-to-text'],
     } as any)
@@ -127,8 +132,6 @@ function cancelWhisperDownload() {
   whisperProgress.value = 0
 }
 
-const WHISPER_PROGRESS_TOTAL = 800 * 1024 * 1024
-
 function formatMB(bytes?: number) {
   if (!bytes)
     return ''
@@ -136,12 +139,9 @@ function formatMB(bytes?: number) {
 }
 
 function getWhisperModelSpec(id: string) {
-  if (id.includes('tiny'))
-    return '~40 MB DL · ~250 MB VRAM'
-  if (id.includes('base'))
-    return '~80 MB DL · ~500 MB VRAM'
-  if (id.includes('small'))
-    return '~250 MB DL · ~1 GB VRAM'
+  const m = WHISPER_MODELS.find(item => item.id === id)
+  if (m)
+    return `${formatMB(m.downloadBytes)} DL · ${formatMB(m.vramBytes)} VRAM`
   return '~800 MB DL · ~3 GB VRAM'
 }
 
@@ -203,7 +203,13 @@ async function startWhisperDownload() {
 
 function onSelectProvider(provider: ProviderMetadata) {
   activeTranscriptionProvider.value = provider.id
-  draft.setHearing({ provider: provider.id, model: draft.state.hearing.model })
+  if (isLocalWhisperProvider(provider.id)) {
+    hearingStore.activeTranscriptionModel = selectedWhisperModel.value
+    draft.setHearing({ provider: provider.id, model: selectedWhisperModel.value })
+  }
+  else {
+    draft.setHearing({ provider: provider.id, model: draft.state.hearing.model })
+  }
   verification.value = 'idle'
   // Local whisper providers skip credential form and start Whisper download if idle
   if (isLocalWhisperProvider(provider.id) && whisperDownloadState.value === 'idle')
@@ -240,12 +246,28 @@ watch([activeTranscriptionProvider, activeTranscriptionModel], ([p, m]) => {
   if (p)
     draft.setHearing({ provider: p, model: m || selectedWhisperModel.value })
 })
-watch(selectedWhisperModel, (m) => {
+watch(selectedWhisperModel, async (m) => {
   if (isWhisperSelected.value) {
+    hearingStore.activeTranscriptionModel = m
     draft.setHearing({ provider: activeTranscriptionProvider.value, model: m })
-    whisperDownloadState.value = 'idle'
-    whisperProgress.value = 0
-    whisperErrorMessage.value = ''
+    try {
+      const adapter = await getWhisperAdapter()
+      if (adapter.state === 'ready' && adapter.manifest?.model === m) {
+        whisperDownloadState.value = 'ready'
+        whisperProgress.value = 100
+        whisperErrorMessage.value = ''
+      }
+      else {
+        whisperDownloadState.value = 'idle'
+        whisperProgress.value = 0
+        whisperErrorMessage.value = ''
+      }
+    }
+    catch {
+      whisperDownloadState.value = 'idle'
+      whisperProgress.value = 0
+      whisperErrorMessage.value = ''
+    }
   }
 })
 
@@ -357,10 +379,11 @@ onStopRecord(async (recording) => {
     if (result)
       transcribedText.value = result
     else
-      testError.value = 'No transcription returned from provider.'
+      testError.value = 'No transcription returned from provider. Please check microphone input volume and model status.'
   }
   catch (err) {
-    testError.value = err instanceof Error ? err.message : String(err)
+    testError.value = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    console.error('[V2 Hearing] Recording transcription error:', err)
   }
   finally {
     testStatusMessage.value = ''
@@ -393,6 +416,25 @@ onBeforeUnmount(async () => {
 })
 
 onMounted(() => {
+  void (async () => {
+    try {
+      const adapter = await getWhisperAdapter()
+      if (adapter.state === 'ready') {
+        if (adapter.manifest?.model) {
+          selectedWhisperModel.value = adapter.manifest.model
+          if (isWhisperSelected.value) {
+            hearingStore.activeTranscriptionModel = adapter.manifest.model
+          }
+        }
+        whisperDownloadState.value = 'ready'
+        whisperProgress.value = 100
+      }
+    }
+    catch (err) {
+      console.debug('[V2 Hearing] Whisper probe on mount:', err)
+    }
+  })()
+
   if (audioInputs.value.length === 0) {
     void startStream().then(() => {
       stopStream()
@@ -607,7 +649,7 @@ watch(selectedAudioInput, async () => {
             <div class="i-solar:cloud-download-bold-duotone animate-pulse text-primary-500" />
             <span>Downloading model shards into local cache…</span>
           </div>
-          <span class="font-medium font-mono">{{ Math.floor(whisperProgress) }}%<template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * WHISPER_PROGRESS_TOTAL) }} / {{ formatMB(WHISPER_PROGRESS_TOTAL) }})</template></span>
+          <span class="font-medium font-mono">{{ Math.floor(whisperProgress) }}%<template v-if="whisperProgress > 0"> ({{ formatMB((whisperProgress / 100) * selectedModelInfo.downloadBytes) }} / {{ formatMB(selectedModelInfo.downloadBytes) }})</template></span>
         </div>
         <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
           <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${whisperProgress}%` }" />

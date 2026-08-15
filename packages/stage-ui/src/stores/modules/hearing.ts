@@ -76,8 +76,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
     'browser-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
   })
   const transcriptionProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/transcription-provider-settings', {
-    'app-local-audio-transcription': { deviceId: 'default', sampleRate: 16000 },
-    'browser-local-audio-transcription': { deviceId: 'default', sampleRate: 16000 },
+    'whisper-local': { deviceId: 'default', sampleRate: 16000 },
   })
 
   // Computed properties
