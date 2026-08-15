@@ -186,7 +186,7 @@ async function triggerTransitionAsyncFn(params: StageTransitionCommonParams, nex
     showTransition.value = true
 
     // Enter active phase
-    await triggerHooks('enter-active', { transitionName: name })
+    await triggerHooks('enter-active', { transitionName: params.name })
 
     // Trigger navigation phase at the configured time
     setTimeout(async () => {
@@ -225,7 +225,15 @@ async function triggerTransitionAsyncFn(params: StageTransitionCommonParams, nex
     }, transition.duration + totalDuration)
   }
   catch (error) {
-    console.error(error)
+    console.error('[StageTransitionGroup] Transition failed, resetting:', error)
+    showTransition.value = false
+    activeTransitionName.value = ''
+    activeStageTransitionParams.value = undefined
+    if (!hasNavigated) {
+      hasNavigated = true
+      next()
+    }
+    resolve()
   }
   finally {
     // Always remove the navigation hook
@@ -248,8 +256,14 @@ function triggerTransition(params: StageTransitionCommonParams, next: Navigation
   })
 }
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to, from, next) => {
   if (props.disableTransitions) {
+    next()
+    return
+  }
+
+  // NOTICE: Do not run page transition on initial cold boot / entry route
+  if (!from.name && from.matched.length === 0) {
     next()
     return
   }

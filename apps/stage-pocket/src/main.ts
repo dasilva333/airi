@@ -48,11 +48,21 @@ router.afterEach(() => {
   NProgress.done()
 })
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.warn('Unhandled rejection:', event.reason)
+window.addEventListener('error', (event) => {
+  console.error('[Pocket Global Error]:', event.error || event.message)
 })
 
-createApp(App)
+window.addEventListener('unhandledrejection', (event) => {
+  console.warn('[Pocket Unhandled Rejection]:', event.reason)
+})
+
+const app = createApp(App)
+
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Pocket Vue Error]:', err, info)
+}
+
+app
   .use(MotionPlugin)
   // TODO: Fix autoAnimatePlugin type error
   .use(autoAnimatePlugin as unknown as Plugin)
