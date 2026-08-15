@@ -1,7 +1,7 @@
 import type { ChatHistoryItem, ChatStreamEvent } from '../../types/chat'
 import type { ChatSessionMeta, ChatSessionRecord, ChatSessionsExport, ChatSessionsIndex } from '../../types/chat-session'
 
-import { debug } from '@proj-airi/stage-shared'
+import { debug, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useBroadcastChannel, watchDebounced } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -40,8 +40,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   // other windows (e.g. chatbox) that session data changed and they should reload from DB.
   const { post: broadcastStreamEvent, data: incomingSessionUpdate } = useBroadcastChannel<ChatStreamEvent, ChatStreamEvent>({ name: CHAT_STREAM_CHANNEL_NAME })
 
-  const isMainWindow = typeof window !== 'undefined'
-    && (window.location.hash === '' || window.location.hash === '#/' || window.location.hash === '#')
+  const isMainWindow = !isStageTamagotchi()
+    || (typeof window !== 'undefined' && (window.location.hash === '' || window.location.hash === '#/' || window.location.hash === '#'))
 
   const activeSessionId = ref<string>('')
   const sessionMessages = ref<Record<string, ChatHistoryItem[]>>({})
@@ -1495,6 +1495,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     createSession,
     setActiveSession,
+    ensureActiveSessionForCharacter,
     cleanupMessages,
     getAllSessions,
     resetAllSessions,

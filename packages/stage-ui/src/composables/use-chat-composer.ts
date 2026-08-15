@@ -223,6 +223,9 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
 
     try {
+      if (!activeSessionId.value) {
+        await chatSession.ensureActiveSessionForCharacter()
+      }
       const providerConfig = providersStore.getProviderConfig(activeProvider.value)
       await ingest(textToSend, {
         chatProvider: await providersStore.getProviderInstance(activeProvider.value) as ChatProvider,

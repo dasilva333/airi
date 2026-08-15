@@ -5,7 +5,7 @@ import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
 import type { StreamEvent, StreamOptions } from './llm'
 
-import { debug, healMozibake } from '@proj-airi/stage-shared'
+import { debug, healMozibake, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { createQueue } from '@proj-airi/stream-kit'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
@@ -114,8 +114,8 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const { activeSessionId } = storeToRefs(chatSession)
   const { streamingMessage } = storeToRefs(chatStream)
 
-  const isMainWindow = typeof window !== 'undefined'
-    && (window.location.hash === '' || window.location.hash === '#/' || window.location.hash === '#')
+  const isMainWindow = !isStageTamagotchi()
+    || (typeof window !== 'undefined' && (window.location.hash === '' || window.location.hash === '#/' || window.location.hash === '#'))
 
   const isChatWindow = typeof window !== 'undefined'
     && window.location.hash.startsWith('#/chat')
@@ -1790,7 +1790,11 @@ Format your output as a raw thought log.`
     options: SendOptions = {},
     targetSessionId?: string,
   ) {
-    const sessionId = targetSessionId || activeSessionId.value
+    let sessionId = targetSessionId || activeSessionId.value
+    if (!sessionId) {
+      await chatSession.ensureActiveSessionForCharacter()
+      sessionId = activeSessionId.value
+    }
     chatLog('Ingesting message:', { sendingMessage, sessionId, sending: sending.value })
 
     if (!isMainWindow) {
