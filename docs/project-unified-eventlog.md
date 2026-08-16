@@ -53,7 +53,7 @@ The primary UI surface for inspecting, filtering, and watching the Unified Event
 
 ---
 
-## 3. Curated Event Catalog by Domain
+## 3. Curated Event Catalog by Domain & Live Implementation Status
 
 Every event adheres to a clean TypeScript interface:
 
@@ -68,73 +68,103 @@ export interface AiriSystemEvent<T = Record<string, unknown>> {
   type: string // Specific event type identifier
   source: string // Subsystem origin (e.g. 'mcp:desktop', 'attention-ecology')
   textSummary: string // Natural language 1-line text sentence for LLM stream
-  payload?: T // Optional raw data for UI drawer inspection
+  payload?: T // Lightweight stable keys only ({ id, title, source, characterId })
   inspectable?: boolean // Whether raw payload can be expanded in UI drawer
 }
 ```
 
-### Curated Domain Event Specifications:
+### 📋 Curated Domain Event Specifications & Implementation Status:
 
-#### 1. Visual Attention & Perception (`[Vision]`)
-*Only promoted, high-salience events survive.*
-- **`vision:promoted_event`**: `[Vision] Active Window: {windowTitle} — {vlmCaption}`
-  - *Example*: `[10:51 AM] [Vision] Active Window: VS Code (contract.ts) — Noticed TypeScript error on line 42.`
+#### 1. Memory & Journaling (`[Memory]`)
+*High-value memory milestones and introspections.*
+* **`memory:text_journal`** — `[Memory] Saved text journal entry: "{title}"`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/memory-text-journal.ts:createEntry`)
+  * **Summary:** `Saved text journal entry: "Fixed 3D perspective skew math"`
+  * **Payload:** `{ id, title, source, characterId }`
+* **`memory:image_journal`** — `[Memory] Generated image journal artwork: "{title}"`
+  * **Status:** ✅ **COMPLETED** (Centralized at `backgroundStore.addBackground` & `image-journal.ts`)
+  * **Summary:** `Generated image journal artwork: "Cyberpunk desk with Live2D character"`
+  * **Payload:** `{ id, title, mode, characterId }`
+* **`memory:dream_consolidated`** — `[Memory] Dream state consolidated: synthesized {count} echo chips ({richness})`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/proactivity.ts:evaluateDreamState`)
+  * **Summary:** `Dream state consolidated: synthesized 4 echo chips (balanced)`
+  * **Payload:** `{ characterId, chipCount, richness, lastTurnAt }`
+* **`memory:lifetime_updated`** — `[Memory] Updated Lifetime Memory Artifact (version {v})`
+  * **Status:** ⏸️ **DEFERRED** (Pending dedicated Lifetime Memory architecture & design document)
 
-#### 2. Tools & MCP Executions (`[Tools]`)
-*Tracks actual completed or failed actions.*
-- **`tool:executed`**: `[Tools] Executed {toolName} — Result: {naturalSummary}`
-  - *Example*: `[10:48 AM] [Tools] Executed mcp::read_file on contract.ts — Read 145 lines.`
-- **`tool:failed`**: `[Tools] Failed {toolName} — Error: {errorMessage}`
-  - *Example*: `[10:49 AM] [Tools] Failed mcp::write_file — Permission denied on /etc/config.`
-- **`mcp:server_status`**: `[Tools] MCP Server '{serverName}' {status: connected/disconnected}`
-  - *Example*: `[10:40 AM] [Tools] MCP Server 'desktop-automation' connected (4 tools available).`
+#### 2. User & Assistant Dialogue (`[Chat]`)
+*High-level conversation markers with source tag differentiation (text, voice STT, Discord).*
+* **`chat:user-message-ingested`** — `[Chat] User: "{textSnippet}"`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/chat.ts:ingest`)
+  * **Summary:** `User: "Can you help me check this code?"`
+  * **Payload:** `{ role: 'user', messageId, source: 'text', timestamp }`
+* **`chat:user-voice-ingested`** — `[Chat] User (voice): "{textSnippet}"`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/chat.ts:ingest`)
+  * **Summary:** `User (voice): "Good morning Kira, how are you?"`
+  * **Payload:** `{ role: 'user', messageId, source: 'stt', timestamp }`
+* **`chat:user-discord-ingested`** — `[Chat] User (@{username} via Discord): "{textSnippet}"`
+  * **Status:** ⏳ **PENDING** (To be tagged directly in `chat.ts:ingest` when forwarded from Discord)
+  * **Summary:** `User (@Cody via Discord): "Need help with proactivity heartbeats"`
+  * **Payload:** `{ role: 'user', messageId, source: 'discord', author: '@Cody' }`
+* **`chat:assistant-reply-completed`** — `[Chat] {characterName} replied: "{textSnippet}"`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/chat.ts:performSend`)
+  * **Summary:** `Kira replied: "Sure! Let's take a look at the contract file."`
+  * **Payload:** `{ role: 'assistant', messageId, timestamp }`
 
-#### 3. User & Assistant Dialogue (`[Chat]`)
-*High-level conversation markers only—no streaming chunks or token arrays.*
-- **`chat:user_sent`**: `[Chat] User: "{textSnippet}"`
-  - *Example*: `[10:50 AM] [Chat] User: "Can you help me check this code?"`
-- **`chat:assistant_responded`**: `[Chat] Assistant: "{textSnippet}"`
-  - *Example*: `[10:50 AM] [Chat] Assistant: "Sure! Let's take a look at the contract file."`
-- **`chat:producer_choice_selected`**: `[Chat] User selected suggestion: "{choiceLabel}"`
-  - *Example*: `[10:52 AM] [Chat] User selected suggestion: "Ask about perspective skew"`
+#### 3. Proactivity & Sensor State (`[Proactivity]`)
+*Heartbeat outcomes, telemetry gating, and idle-return transitions.*
+* **`proactivity:heartbeat_gated`** — `[Proactivity] Proactive heartbeat evaluated: silent (NO_REPLY)`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/proactivity.ts:evaluateHeartbeat`)
+  * **Summary:** `Proactive heartbeat evaluated: silent (NO_REPLY)`
+  * **Payload:** `{ provider, model, idleSec }`
+* **`proactivity:heartbeat_spoke`** — `[Proactivity] {characterName} proactively spoke: "{thoughtSnippet}"`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/proactivity.ts:evaluateHeartbeat`)
+  * **Summary:** `Kira proactively spoke: "I noticed you've been focused on TypeScript for a while..."`
+  * **Payload:** `{ message, provider, model }`
+* **`sensor:user_idle_resumed`** — `[Proactivity] User returned after being idle for {idleMinutes}m`
+  * **Status:** ⏳ **PENDING** (`packages/stage-ui/src/stores/proactivity.ts`)
+  * **Definition:** Qualified as duration in minutes being idle before activity was restored.
+  * **Summary:** `User returned after being idle for 42m`
+  * **Payload:** `{ idleMinutes, previousIdleSec, restoredAt }`
+* **`sensor:window_transition`** — `[Proactivity] Switched window to {appName} ({windowTitle})`
+  * **Status:** ⏳ **PENDING** (`packages/stage-ui/src/stores/proactivity.ts:updateSensors`)
 
-#### 4. Proactivity & Sensor State (`[Proactivity]`)
-*Curated window transitions and heartbeat outcomes.*
-- **`sensor:window_transition`**: `[Proactivity] Switched window to {appName} ({windowTitle})`
-  - *Example*: `[10:45 AM] [Proactivity] Switched window to VS Code (contract.ts)`
-- **`sensor:user_idle`**: `[Proactivity] User became AFK / Idle ({idleMinutes}m)`
-  - *Example*: `[11:00 AM] [Proactivity] User became AFK (15m idle)`
-- **`proactivity:heartbeat_gated`**: `[Proactivity] Heartbeat checked state — Silent (NO_REPLY)`
-  - *Example*: `[10:55 AM] [Proactivity] Heartbeat checked state — Silent (NO_REPLY)`
-- **`proactivity:heartbeat_spoke`**: `[Proactivity] Heartbeat initiated proactive thought: "{thoughtSnippet}"`
-  - *Example*: `[10:58 AM] [Proactivity] Heartbeat initiated proactive thought: "Noticed user has been coding for 1 hour"`
+#### 4. Tools & MCP Executions (`[Tools]`)
+*Tracks completed or failed tool invocations and notable MCP server connection drops.*
+* **`tools:tool-executed`** — `[Tools] Executed {toolName} — Result: {naturalSummary}`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/chat.ts:toolCallQueue`)
+  * **Summary:** `Executed mcp::read_file — Result: Read contract.ts (145 lines)`
+  * **Payload:** `{ id, toolName, state: 'done' }`
+* **`tools:tool-failed`** — `[Tools] Failed {toolName} — Error: {errorMessage}`
+  * **Status:** ✅ **COMPLETED** (`packages/stage-ui/src/stores/chat.ts:toolCallQueue`)
+  * **Summary:** `Failed mcp::write_file — Error: Permission denied`
+  * **Payload:** `{ id, toolName, state: 'error' }`
+* **`mcp:server_status`** — `[Tools] MCP Server '{serverName}' {status: crashed/disconnected/reconnected}`
+  * **Status:** ⏳ **PENDING** (`apps/stage-tamagotchi/src/main/services/airi/mcp-servers/index.ts`)
+  * **Discipline:** Strictly non-spammy; emits only on unexpected disconnects, errors, or manual reconnections (no startup spam).
 
-#### 5. Memory & Journaling (`[Memory]`)
-*All memory milestones are high-value and retained.*
-- **`memory:text_journal`**: `[Memory] Saved text journal entry: "{titleOrSnippet}"`
-  - *Example*: `[10:30 AM] [Memory] Saved text journal entry: "Fixed 3D perspective skew math"`
-- **`memory:image_journal`**: `[Memory] Generated image journal moment: "{promptSnippet}"`
-  - *Example*: `[10:35 AM] [Memory] Generated image journal moment: "Cyberpunk desk with Live2D character"`
-- **`memory:lifetime_updated`**: `[Memory] Updated Lifetime Memory Artifact (version {v})`
-  - *Example*: `[09:00 AM] [Memory] Updated Lifetime Memory Artifact (version 14)`
-- **`memory:dreaming_pass`**: `[Memory] Subconscious dreaming pass completed — Mood shifted to {mood}`
-  - *Example*: `[07:00 AM] [Memory] Subconscious dreaming pass completed — Mood shifted to Companionable`
+#### 5. Visual Attention & Perception (`[Vision]`)
+*Promoted high-salience screen events.*
+* **`vision:promoted_event`** — `[Vision] Active Window: {windowTitle} — {vlmCaption}`
+  * **Status:** ⏸️ **DEFERRED** (Scheduled for Screen Watching Phase 3)
 
 #### 6. Stage & Scene (`[Stage]`)
-*Visual character shifts that affect presence.*
-- **`stage:outfit_switched`**: `[Stage] Switched outfit to {outfitName}`
-  - *Example*: `[10:00 AM] [Stage] Switched outfit to Casual Hoodie`
-- **`stage:background_changed`**: `[Stage] Changed scene background to {bgName}`
-  - *Example*: `[10:05 AM] [Stage] Changed scene background to Evening Study`
-- **`stage:tethered_caption`**: `[Stage] Floating caption displayed: "{captionText}"`
-  - *Example*: `[10:52 AM] [Stage] Floating caption displayed: "Hello there! ✨ Floating with AIRI! 💖🌸"`
+*Presence, avatar shifts, and tactile interactions.*
+* **`stage:tactile_interaction`** — `[Stage] User {interactionType} character {bodyPart}`
+  * **Status:** 💡 **UNDER CONSIDERATION** (For Live2D/VRM models with raycast / hit-testing support)
+  * **Summary:** `User patted head` / `User tapped shoulder`
+  * **Payload:** `{ modelId, hitArea, interactionType }`
+* **`stage:outfit_switched`** — `[Stage] Switched outfit to {outfitName}`
+  * **Status:** ⏸️ **DEFERRED**
+* **`stage:background_changed`** — `[Stage] Changed scene background to {bgName}`
+  * **Status:** ⏸️ **DEFERRED**
 
 #### 7. External Messaging (`[Discord]`)
-*Only user-facing external communications.*
-- **`discord:message_received`**: `[Discord] Received message from @{author} in #{channel}: "{textSnippet}"`
-  - *Example*: `[08:25 AM] [Discord] Received message from @Cody in #general: "Need help with proactivity heartbeats"`
-- **`discord:command_executed`**: `[Discord] Executed slash command /{commandName}`
-  - *Example*: `[08:26 AM] [Discord] Executed slash command /vibe`
+*User-facing Discord slash commands.*
+* **`discord:command_executed`** — `[Discord] Executed slash command /{commandName}`
+  * **Status:** ⏳ **PENDING** (`packages/stage-ui/src/stores/modules/discord.ts`)
+  * **Summary:** `Executed slash command /vibe`
+  * **Payload:** `{ commandName, author, channel }`
 
 ---
 
@@ -144,12 +174,12 @@ When a proactivity heartbeat ticks or when sampling recent events for context, t
 
 ```text
 [ Unified Event Stream (Last 6 Events) ]
-• [10:45 AM] [Proactivity] Switched window to VS Code (contract.ts)
-• [10:48 AM] [Tools] Executed mcp::read_file on contract.ts — Read 145 lines.
+• [10:45 AM] [Chat] User (voice): "Can you help me check this code?"
+• [10:48 AM] [Tools] Executed mcp::read_file — Result: Read contract.ts (145 lines)
 • [10:50 AM] [Memory] Saved text journal entry: "Fixed 3D perspective skew math"
-• [10:51 AM] [Vision] Active Window: VS Code — Noticed TypeScript error on line 42.
-• [10:52 AM] [Stage] Floating caption displayed: "Hello there! ✨ Floating with AIRI! 💖🌸"
-• [10:55 AM] [Proactivity] Heartbeat checked state — Silent (NO_REPLY)
+• [10:52 AM] [Memory] Generated image journal artwork: "Cyberpunk desk scene"
+• [10:55 AM] [Proactivity] Proactive heartbeat evaluated: silent (NO_REPLY)
+• [11:00 AM] [Memory] Dream state consolidated: synthesized 4 echo chips (balanced)
 ```
 
 ---
@@ -182,10 +212,36 @@ To ensure multi-device synchronization (e.g., syncing event ledgers between lapt
 
 ---
 
-## 7. Phased Implementation Roadmap
+## 7. Implementation Scorecard & Roadmap
 
+| Domain | Event Type | Target Source | Status |
+| :--- | :--- | :--- | :--- |
+| **Memory** | `memory:text_journal` | `memory-text-journal.ts:createEntry` | ✅ **DONE** |
+| **Memory** | `memory:image_journal` | `backgroundStore.addBackground` & `image-journal.ts` | ✅ **DONE** |
+| **Memory** | `memory:dream_consolidated` | `proactivity.ts:evaluateDreamState` | ✅ **DONE** |
+| **Memory** | `memory:lifetime_updated` | `memory-lifetime.ts` | ⏸️ **DEFERRED** *(Design doc needed)* |
+| **Chat** | `chat:user-message-ingested` | `chat.ts:ingest` (text) | ✅ **DONE** |
+| **Chat** | `chat:user-voice-ingested` | `chat.ts:ingest` (STT voice) | ✅ **DONE** |
+| **Chat** | `chat:user-discord-ingested` | `chat.ts:ingest` (Discord source tag) | ⏳ **PENDING** |
+| **Chat** | `chat:assistant-reply-completed` | `chat.ts:performSend` | ✅ **DONE** |
+| **Proactivity** | `proactivity:heartbeat_gated` | `proactivity.ts:evaluateHeartbeat` (`NO_REPLY`) | ✅ **DONE** |
+| **Proactivity** | `proactivity:heartbeat_spoke` | `proactivity.ts:evaluateHeartbeat` | ✅ **DONE** |
+| **Proactivity** | `sensor:user_idle_resumed` | `proactivity.ts` | ⏳ **PENDING** |
+| **Proactivity** | `sensor:window_transition` | `proactivity.ts:updateSensors` | ⏳ **PENDING** |
+| **Tools** | `tools:tool-executed` | `chat.ts:toolCallQueue` | ✅ **DONE** |
+| **Tools** | `tools:tool-failed` | `chat.ts:toolCallQueue` | ✅ **DONE** |
+| **Tools** | `mcp:server_status` | `mcp-servers/index.ts` (Non-spammy) | ⏳ **PENDING** |
+| **Vision** | `vision:promoted_event` | `attention-ecology-vision` | ⏸️ **DEFERRED** |
+| **Stage** | `stage:tactile_interaction` | Hit-test / Raycast listeners | 💡 **CONSIDERATION** |
+| **Stage** | `stage:outfit_switched` | `airi-card.ts` | ⏸️ **DEFERRED** |
+| **Stage** | `stage:background_changed` | `background.ts` | ⏸️ **DEFERRED** |
+| **Discord** | `discord:command_executed` | `discord.ts` | ⏳ **PENDING** |
+
+---
+
+### Phased Roadmap Milestones:
 - [x] **Phase 1: Architecture & Curated Specification** (`docs/project-unified-eventlog.md`).
-- [ ] **Phase 2: IndexedDB Storage & Pinia Store with BYOS Interceptor** (`packages/stage-ui/src/stores/event-log.ts` with localforage/unstorage persistence & cloud sync outbox alignment).
-- [ ] **Phase 3: Chat Area Left Drawer UI Surface** (`packages/stage-layouts/src/components/Widgets/ChatArea.vue` slide-over drawer with search, category filters, and live event cards).
-- [ ] **Phase 4: Seed Initial Test Emitters** (Wire `stage:tethered_caption` and `chat:user_sent` to verify live streaming into the UI drawer).
-- [ ] **Phase 5: Full Subsystem Event Wiring & Dual Push/Pull Integration** (Connect Attention Ecology promoted events, MCP tool calls, memory writes, and proactivity heartbeats).
+- [x] **Phase 2: IndexedDB Storage & Pinia Store** (`packages/stage-ui/src/stores/event-log.ts` with localforage persistence & rolling capacity).
+- [x] **Phase 3: Live UI Drawer & Sidebar Surface** (`apps/stage-tamagotchi/src/renderer/components/chat/chat_event_log.vue` with search, category filters, and live card inspection).
+- [x] **Phase 4: Core Subsystem Event Emitters** (Text Journal, Image Journal, Dream Consolidation, Voice STT, User/Assistant Chat, Heartbeat Gated/Spoke, Tool Execution Success/Failures).
+- [ ] **Phase 5: Extended Telemetry & Peripheral Emitters** (`sensor:user_idle_resumed`, Discord source tags, Discord slash commands, non-spammy MCP health).

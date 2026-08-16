@@ -18,6 +18,7 @@ import { useAuthStore } from './auth'
 import { CHAT_STREAM_CHANNEL_NAME } from './chat/constants'
 import { stageJournalIntrusion } from './chat/intrusion-staging'
 import { useChatSessionStore } from './chat/session-store'
+import { useEventLogStore } from './event-log'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
 import { useProvidersStore } from './providers'
@@ -337,6 +338,22 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     const nextEntries = [nextEntry, ...entries.value]
     try {
       await persist(nextEntries)
+
+      // Emit event to Event Ledger
+      const eventLogStore = useEventLogStore()
+      void eventLogStore.appendEvent({
+        category: 'memory',
+        type: 'text_journal',
+        source: nextEntry.characterName || 'AIRI',
+        textSummary: `Saved text journal entry: "${nextEntry.title}"`,
+        payload: {
+          id: nextEntry.id,
+          title: nextEntry.title,
+          source: nextEntry.source,
+          characterId: nextEntry.characterId,
+        },
+        inspectable: true,
+      })
     }
     catch (err) {
       throw new Error(`text_journal: failed to persist new entry "${nextEntry.title}": ${err instanceof Error ? err.message : String(err)}`)

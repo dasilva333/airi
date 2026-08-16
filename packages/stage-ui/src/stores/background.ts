@@ -10,6 +10,7 @@ import cozyTeaCornerInPastelHuesUrl from '../assets/backgrounds/cozy-tea-corner-
 import cuteStreamingRoomWithPastelDecorUrl from '../assets/backgrounds/cute-streaming-room-with-pastel-decor.avif'
 
 import { useChatSessionStore } from './chat/session-store'
+import { useEventLogStore } from './event-log'
 import { useAiriCardStore } from './modules/airi-card'
 
 export interface BackgroundEntry {
@@ -379,6 +380,30 @@ export const useBackgroundStore = defineStore('background', () => {
       const entryWithMetadata = { ...entry, metadata }
       for (const hook of onBackgroundAddedHooks) {
         void hook(entryWithMetadata)
+      }
+
+      // Emit event to Event Ledger if this is a journal entry
+      if (type === 'journal') {
+        try {
+          const eventLogStore = useEventLogStore()
+          const charName = airiCardStore.activeCard?.name || 'AIRI'
+          void eventLogStore.appendEvent({
+            category: 'memory',
+            type: 'image_journal',
+            source: charName,
+            textSummary: `Generated image journal artwork: "${entry.title}"`,
+            payload: {
+              id: entry.id,
+              title: entry.title,
+              type: entry.type,
+              characterId: entry.characterId,
+            },
+            inspectable: true,
+          })
+        }
+        catch (e) {
+          console.warn('[BackgroundStore] Failed to emit event to Event Ledger:', e)
+        }
       }
 
       debug(`[BackgroundStore] Successfully added background: ${id} (${type})`)

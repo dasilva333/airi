@@ -292,16 +292,18 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       // Record live system event in Event Ledger
       if (typeof sendingMessage === 'string' && sendingMessage.trim()) {
         const previewText = sendingMessage.trim().slice(0, 45)
-        const textSummary = `User sent: "${previewText}${sendingMessage.length > 45 ? '...' : ''}"`
+        const isVoice = options.metadata?.source === 'stt' || options.metadata?.source === 'voice'
+        const speakerLabel = isVoice ? 'User (voice)' : 'User'
+        const textSummary = `${speakerLabel}: "${previewText}${sendingMessage.length > 45 ? '...' : ''}"`
         void eventLogStore.appendEvent({
           category: 'chat',
-          type: 'user-message-ingested',
+          type: isVoice ? 'user-voice-ingested' : 'user-message-ingested',
           source: 'chat-orchestrator',
           textSummary,
           payload: {
             role: 'user',
             messageId: userMessageId,
-            preview: sendingMessage.slice(0, 50),
+            source: isVoice ? 'stt' : 'text',
             timestamp: sendingCreatedAt,
           },
           inspectable: true,
@@ -975,8 +977,30 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
                 return tc.id === resultData.id || tc.toolCallId === resultData.id
               })
               if (slice && slice.type === 'tool-call') {
-                slice.state = ctx.data.result?.toString().toLowerCase().includes('failed') ? 'error' : 'done'
+                const isError = ctx.data.result?.toString().toLowerCase().includes('failed') || ctx.data.result?.toString().toLowerCase().includes('error:')
+                slice.state = isError ? 'error' : 'done'
                 slice.result = ctx.data.result
+
+                // Log tool execution to Event Ledger
+                const toolName = (slice.toolCall as any)?.function?.name || (slice.toolCall as any)?.name || 'tool'
+                const rawResultStr = typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result || '')
+                const resultSnippet = rawResultStr.slice(0, 60)
+                const textSummary = isError
+                  ? `Failed ${toolName} — Error: ${resultSnippet}${rawResultStr.length > 60 ? '...' : ''}`
+                  : `Executed ${toolName} — Result: ${resultSnippet}${rawResultStr.length > 60 ? '...' : ''}`
+
+                void eventLogStore.appendEvent({
+                  category: 'tools',
+                  type: isError ? 'tool-failed' : 'tool-executed',
+                  source: activeCard.value?.name || 'AIRI',
+                  textSummary,
+                  payload: {
+                    id: resultData.id,
+                    toolName,
+                    state: slice.state,
+                  },
+                  inspectable: true,
+                })
               }
 
               updateUI()
