@@ -463,6 +463,14 @@ The vendored fork is Windows-first. It **compiles and imports cleanly on macOS a
 - **Camera orientation is manual.** The first build pointed the camera *away* from the model (you only saw the default skybox). Fixed with an explicit camera rig + `LookAt`-style framing; orbit controls were added since the scene has no editor/tooling to pan with.
 - **Load the model on `Start()`, not on WS-connect.** First iteration gated the fallback load behind the WebSocket connect, so the model only appeared with the harness running. It now loads unconditionally at startup.
 
+### Window Chrome (eye icon + size presets + persistence)
+
+- **Spike finding**: Unity *can* resize its own macOS window at runtime — the fork bundles Kirurobo's `UniWindowController` with a native macOS `LibUniWinC.bundle` (not just the Windows `.dll`), exposing a settable `windowSize` (`UniWinCore.SetSize`). No new native plugin needed.
+- `MateSidecarBuild.cs` adds a `UniWindowController` component to the scene; `MateSidecar.cs` holds a reference to it.
+- `MateSidecar.cs` draws an eye icon (top-right, Immediate Mode GUI) that toggles a popover of size presets — `mini` 220×315, `med.` 450×600, `large` 800×1000 — copied from [`design-actor-stage.md`](./design-actor-stage.md) §3.2. (`full`/work-area is deferred; needs monitor-workarea query.)
+- **Persistence**: last size stored in `PlayerPrefs` (`stage-mate-window-size`); on `Start()` the sidecar reads it (default `med.` 450×600) and applies it once `UniWindowController` has attached its native window (lazy attach on first `Update`; polled until `windowSize` is non-zero).
+- **Known gap**: presets use *window frame* size, while the Actor Stage presets are *client area* dimensions — identical for a borderless window, but should switch to client-size math when we port the actor-stage chrome 1:1.
+
 ### Wire Protocol (v0)
 
 - Server: `ws://localhost:6171` (env-overridable via `MATE_HARNESS_PORT`).
