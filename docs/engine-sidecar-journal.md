@@ -471,6 +471,33 @@ The vendored fork is Windows-first. It **compiles and imports cleanly on macOS a
 - **Persistence**: last size stored in `PlayerPrefs` (`stage-mate-window-size`); on `Start()` the sidecar reads it (default `med.` 450×600) and applies it once `UniWindowController` has attached its native window (lazy attach on first `Update`; polled until `windowSize` is non-zero).
 - **Known gap**: presets use *window frame* size, while the Actor Stage presets are *client area* dimensions — identical for a borderless window, but should switch to client-size math when we port the actor-stage chrome 1:1.
 
+### Viewport Interaction Modes & Camera Orientation Specification
+
+#### 1. Model Spawn Orientation (The Front-Facing Invariant)
+- **Problem**: Standard VRM models loaded at `Quaternion.identity` face along $+Z$, pointing away from a camera situated at $(0, 1.3, -3)$ looking along $+Z$.
+- **Rule**: When any VRM model is loaded into the sidecar (at `Start()` or via `stage:vrm:load`), its local rotation must be initialized to `Quaternion.Euler(0f, 180f, 0f)` so the avatar always starts facing the camera directly.
+
+#### 2. Viewport Interaction Modes (Mutually Exclusive)
+- **Mode 1: Model Spin (`ViewMode.ModelSpin`)**
+  - **Interaction**: Left mouse button (LMB) drag spins the model in place around its world Y axis (`loadedModel.transform.Rotate(0, -Input.GetAxis("Mouse X") * 5f, 0, Space.World)`).
+  - **Invariant**: Model position and camera angle/distance do not change.
+- **Mode 2: Drag Mode / Screen-Plane Pan (`ViewMode.Drag`)**
+  - **Interaction**: LMB drag translates the model across the plane parallel to the camera view plane (`new Plane(-orbitCamera.transform.forward, dragStartModelPos)`).
+  - **Invariant**: Scale/zoom is 100% constant. Dragging up/down/left/right moves the avatar to any screen corner without altering distance to the camera or depth perspective. Do not project onto an XZ ground plane (which distorts scale on vertical mouse movements).
+- **Mode 3: Camera Orbit (`ViewMode.CameraOrbit`)**
+  - **Interaction**: LMB drag orbits camera pitch and yaw around the camera rig (`pitch` clamped `[-80°, 80°]`, full 360° `yaw`).
+  - **Invariant**: Model position and rotation do not change.
+- **Universal: Scroll Wheel Zoom**
+  - **Interaction**: Mouse scroll wheel adjusts camera distance (`distance = Mathf.Clamp(distance - scroll * 2f, 0.5f, 12f)`).
+  - **Invariant**: Active across all 3 modes; never overrides or interferes with LMB actions.
+
+#### 3. Control Surface & State Sync
+- Single source of truth: `enum ViewMode { ModelSpin, Drag, CameraOrbit }`.
+- Mode switching:
+  - OnGUI buttons: `[1. Spin]`, `[2. Drag]`, `[3. Orbit]`.
+  - Keyboard shortcuts: `V` (cycles modes), `1`/`S` (Spin), `2`/`D` (Drag), `3`/`O` (Orbit).
+  - UI status label dynamically displays the active mode and interaction hint.
+
 ### Wire Protocol (v0)
 
 - Server: `ws://localhost:6171` (env-overridable via `MATE_HARNESS_PORT`).
