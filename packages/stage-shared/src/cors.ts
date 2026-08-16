@@ -3,6 +3,8 @@
  */
 
 export const DEFAULT_CORS_BYPASS_URLS: string[] = [
+  'https://api.cloudflare.com/*',
+  'https://dash.cloudflare.com/*',
   'https://api.deepgram.com/*',
   'https://opencode.ai/*',
   'https://pioneer.ai/*',
@@ -16,6 +18,8 @@ export const DEFAULT_CORS_BYPASS_URLS: string[] = [
 ]
 
 export const DEFAULT_SKIP_CORS_HOSTS: string[] = [
+  'api.cloudflare.com',
+  'dash.cloudflare.com',
   'api.deepgram.com',
   'opencode.ai',
   'pioneer.ai',
@@ -78,7 +82,8 @@ export function formatCorsProxyUrl(targetUrl: string, customProxyBase?: string):
 
   if (!proxyBase && typeof window !== 'undefined') {
     // Try to get configured subdomain from localStorage
-    const savedSubdomain = window.localStorage.getItem('settings/cloudflare/subdomain')
+    const savedSubdomain = (window.localStorage.getItem('settings/cloudflare/cfSubdomain')
+      || window.localStorage.getItem('settings/cloudflare/subdomain'))
       ?.replace(/^["']|["']$/g, '')
       ?.trim()
 

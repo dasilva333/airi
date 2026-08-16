@@ -16,7 +16,7 @@
     "lint:swift": "swiftlint ios",
     "preview": "vite preview",
     "open:ios": "cap open ios",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=\"--max-old-space-size=8192\" vue-tsc --noEmit",
     "dev:web": "vite",
     "dev:ios": "cap-vite -- ios"
   },

@@ -3,12 +3,13 @@ import Capacitor
 import WebKit
 
 class DevBridgeViewController: CAPBridgeViewController {
+    private var initialAppUrl: URL?
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         webView?.allowsBackForwardNavigationGestures = true
     }
 
-    #if DEBUG
     override func viewDidLoad() {
         super.viewDidLoad()
         if let webView = bridge?.webView {
@@ -18,19 +19,73 @@ class DevBridgeViewController: CAPBridgeViewController {
             print("[DevBridge] Warning: WebView not available in viewDidLoad")
         }
     }
-    #endif
 }
 
-#if DEBUG
 extension DevBridgeViewController: WKNavigationDelegate {
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
-        if let url = navigationAction.request.url {
-            print("[DevBridge] Navigation request to: \(url.absoluteString)")
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.allow)
+            return
         }
+
+        print("[DevBridge] Navigation request to: \(url.absoluteString)")
+
+        // Track the local application URL scheme
+        if url.scheme == "capacitor" || url.host == "localhost" && (url.port == nil || url.port != 8976) {
+            initialAppUrl = url
+        }
+
+        // Native OAuth 2.0 PKCE Callback Interceptor for Cloudflare Wrangler
+        if (url.host == "localhost" || url.host == "127.0.0.1"), url.port == 8976, url.path == "/oauth/callback" {
+            print("[DevBridge] Intercepted OAuth Callback URL on port 8976!")
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let code = components?.queryItems?.first(where: { $0.name == "code" })?.value ?? ""
+            let state = components?.queryItems?.first(where: { $0.name == "state" })?.value ?? ""
+            let error = components?.queryItems?.first(where: { $0.name == "error" })?.value ?? ""
+
+            decisionHandler(.cancel)
+
+            // Resolve root app base URL
+            let baseString: String
+            if let serverUrl = self.bridge?.config.serverURL {
+                baseString = serverUrl.absoluteString
+            } else if let initial = initialAppUrl {
+                baseString = "\(initial.scheme ?? "capacitor")://\(initial.host ?? "localhost")"
+            } else {
+                baseString = "capacitor://localhost"
+            }
+
+            let safeBase = baseString.replacingOccurrences(of: "/$", with: "", options: .regularExpression)
+
+            if !code.isEmpty {
+                print("[DevBridge] Successfully intercepted OAuth code: \(code.prefix(10))...")
+                let safeCode = code.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? code
+                let safeState = state.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? state
+                let returnUrlString = "\(safeBase)/#/?cf_code=\(safeCode)&cf_state=\(safeState)"
+
+                if let returnUrl = URL(string: returnUrlString) {
+                    print("[DevBridge] Returning to app: \(returnUrl.absoluteString)")
+                    DispatchQueue.main.async {
+                        webView.load(URLRequest(url: returnUrl))
+                    }
+                }
+            } else {
+                print("[DevBridge] OAuth returned with error: \(error)")
+                let safeError = error.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? error
+                let returnUrlString = "\(safeBase)/#/?cf_error=\(safeError)"
+                if let returnUrl = URL(string: returnUrlString) {
+                    DispatchQueue.main.async {
+                        webView.load(URLRequest(url: returnUrl))
+                    }
+                }
+            }
+            return
+        }
+
         decisionHandler(.allow)
     }
 
@@ -46,29 +101,15 @@ extension DevBridgeViewController: WKNavigationDelegate {
         didReceive challenge: URLAuthenticationChallenge,
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
-        let host = challenge.protectionSpace.host
         let authMethod = challenge.protectionSpace.authenticationMethod
-        print(
-            "[DevBridge] Certificate challenge for host: \(host), method: \(authMethod)"
-        )
 
         if authMethod == NSURLAuthenticationMethodServerTrust {
             if let serverTrust = challenge.protectionSpace.serverTrust {
-                print(
-                    "[DevBridge] Trusting certificate for development host: \(host)"
-                )
                 completionHandler(.useCredential, URLCredential(trust: serverTrust))
                 return
-            } else {
-                print(
-                    "[DevBridge] Warning: No serverTrust available for host: \(host)"
-                )
             }
         }
 
-        print(
-            "[DevBridge] Using default certificate handling for host: \(host)"
-        )
         completionHandler(.performDefaultHandling, nil)
     }
 
@@ -78,16 +119,6 @@ extension DevBridgeViewController: WKNavigationDelegate {
         withError error: Error
     ) {
         print("[DevBridge] Navigation failed: \(error.localizedDescription)")
-        if let nsError = error as NSError? {
-            print(
-                "[DevBridge] Error domain: \(nsError.domain), code: \(nsError.code)"
-            )
-            if nsError.code == -1001 {
-                print(
-                    "[DevBridge] Timeout error - check if Vite server is running and accessible."
-                )
-            }
-        }
     }
 
     func webView(
@@ -98,4 +129,3 @@ extension DevBridgeViewController: WKNavigationDelegate {
         print("[DevBridge] Navigation didFail: \(error.localizedDescription)")
     }
 }
-#endif

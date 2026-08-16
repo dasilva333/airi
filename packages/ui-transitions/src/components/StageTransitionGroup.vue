@@ -263,7 +263,7 @@ router.beforeEach((to, from, next) => {
   }
 
   // NOTICE: Do not run page transition on initial cold boot / entry route
-  if (!from.name && from.matched.length === 0) {
+  if (!from.name && ((from as any).matched?.length ?? 0) === 0) {
     next()
     return
   }

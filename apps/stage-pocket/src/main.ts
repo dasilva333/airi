@@ -5,6 +5,7 @@ import Tres from '@tresjs/core'
 import NProgress from 'nprogress'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
+import { setupWebCorsProxy } from '@proj-airi/stage-shared'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
@@ -24,6 +25,9 @@ import 'splitpanes/dist/splitpanes.css'
 import 'vue-sonner/style.css'
 import './styles/main.css'
 import 'uno.css'
+
+// Install transparent Web CORS reverse-proxy interceptor for Pocket clients
+setupWebCorsProxy()
 
 const pinia = createPinia()
 
@@ -58,7 +62,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 const app = createApp(App)
 
-app.config.errorHandler = (err, instance, info) => {
+app.config.errorHandler = (err, _instance, info) => {
   console.error('[Pocket Vue Error]:', err, info)
 }
 

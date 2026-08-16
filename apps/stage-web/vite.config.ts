@@ -75,17 +75,95 @@ function cloudflareOAuthBridgePlugin() {
             res.end(`
               <!DOCTYPE html>
               <html>
-              <head><title>Cloudflare Authorization</title></head>
-              <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #f8fafc;">
-                <h2>✓ Authorization Successful</h2>
-                <p>Returning to AIRI...</p>
-                <script>
-                  if (window.opener) {
-                    window.opener.postMessage({ type: 'CLOUDFLARE_OAUTH_CODE', code: ${JSON.stringify(code)}, state: ${JSON.stringify(state)} }, '*');
-                    setTimeout(() => window.close(), 300);
-                  } else {
-                    document.body.innerHTML += '<p>You may now close this window.</p>';
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Cloudflare Authorization</title>
+                <style>
+                  body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    text-align: center;
+                    padding: 40px 20px;
+                    background: #0f172a;
+                    color: #f8fafc;
+                    margin: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 80vh;
                   }
+                  .card {
+                    background: rgba(30, 41, 59, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 16px;
+                    padding: 32px 24px;
+                    max-width: 400px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+                  }
+                  .btn {
+                    display: inline-block;
+                    margin-top: 20px;
+                    padding: 12px 28px;
+                    background: #0284c7;
+                    color: white;
+                    text-decoration: none;
+                    font-weight: 600;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    border: none;
+                    font-size: 1rem;
+                  }
+                  .countdown {
+                    color: #38bdf8;
+                    font-weight: bold;
+                    font-size: 1.1rem;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+                  <h2 style="margin: 0 0 8px 0; color: #38bdf8;">Authorization Successful</h2>
+                  <p style="color: #94a3b8; margin: 0 0 16px 0;">Returning to AIRI...</p>
+                  <p style="font-size: 0.9rem; color: #cbd5e1;">Window will close automatically in <span class="countdown" id="timer">5</span>s</p>
+                  <button class="btn" id="closeBtn" onclick="closeOrReturn()">Return to AIRI</button>
+                </div>
+                <script>
+                  const code = ${JSON.stringify(code)};
+                  const state = ${JSON.stringify(state)};
+
+                  // Broadcast credentials to app
+                  try {
+                    if (window.opener) {
+                      window.opener.postMessage({ type: 'CLOUDFLARE_OAUTH_CODE', code, state }, '*');
+                      window.opener.postMessage({ type: 'CLOUDFLARE_AUTH_CALLBACK', code, state }, '*');
+                    }
+                    if (typeof BroadcastChannel !== 'undefined') {
+                      new BroadcastChannel('airi_cf_oauth_channel').postMessage({ type: 'CLOUDFLARE_OAUTH_CODE', code, state });
+                    }
+                    localStorage.setItem('airi_cf_oauth_callback', JSON.stringify({ code, state, timestamp: Date.now() }));
+                  } catch (e) {}
+
+                  function closeOrReturn() {
+                    try { window.close(); } catch (e) {}
+                    if (window.history.length > 1) {
+                      window.history.back();
+                    } else {
+                      window.location.href = '/';
+                    }
+                  }
+
+                  let remaining = 5;
+                  const timerEl = document.getElementById('timer');
+                  const interval = setInterval(() => {
+                    remaining--;
+                    if (timerEl) timerEl.textContent = remaining;
+                    if (remaining <= 0) {
+                      clearInterval(interval);
+                      closeOrReturn();
+                    }
+                  }, 1000);
                 </script>
               </body>
               </html>
