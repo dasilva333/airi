@@ -5,7 +5,7 @@ import Tres from '@tresjs/core'
 import NProgress from 'nprogress'
 
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
-import { debug, isEnvTruthy } from '@proj-airi/stage-shared'
+import { debug, isEnvTruthy, setupWebCorsProxy } from '@proj-airi/stage-shared'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
@@ -30,6 +30,9 @@ import 'splitpanes/dist/splitpanes.css'
 import 'vue-sonner/style.css'
 import './styles/main.css'
 import 'uno.css'
+
+// Install transparent Web CORS reverse-proxy interceptor for web clients
+setupWebCorsProxy()
 
 const pinia = createPinia()
 

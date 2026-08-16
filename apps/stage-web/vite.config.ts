@@ -184,6 +184,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: path => path.replace(/^\/api\/cloudflare/, ''),
       },
+      '/cors-proxy': {
+        target: 'https://airi-cors-proxy.r1ch4rd.workers.dev',
+        changeOrigin: true,
+      },
     },
     warmup: {
       clientFiles: [

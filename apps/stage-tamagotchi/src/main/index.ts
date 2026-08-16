@@ -12,6 +12,7 @@ import { Format, LogLevel, setGlobalFormat, setGlobalLogLevel, useLogg } from '@
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { initScreenCaptureForMain } from '@proj-airi/electron-screen-capture/main'
+import { DEFAULT_CORS_BYPASS_URLS } from '@proj-airi/stage-shared'
 import { app, BrowserWindow, ipcMain, Notification, screen, session } from 'electron'
 import { createLoggLogger, injeca, lifecycle } from 'injeca'
 import { isLinux } from 'std-env'
@@ -376,18 +377,7 @@ app.whenReady().then(async () => {
       createVisionService({ context })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
-      const defaultBypassUrls = [
-        'https://api.deepgram.com/*',
-        'https://opencode.ai/*',
-        'https://pioneer.ai/*',
-        'https://integrate.api.nvidia.com/*',
-        'https://text.pollinations.ai/*',
-        'https://api.xiaomimimo.com/*',
-        'http://localhost:11434/*',
-        'http://127.0.0.1:11434/*',
-        'http://localhost:1234/*',
-        'http://127.0.0.1:1234/*',
-      ]
+      const defaultBypassUrls = DEFAULT_CORS_BYPASS_URLS
 
       const coalesceCorsBypassUrls = (userUrls?: string[]): string[] => {
         const list = Array.isArray(userUrls) ? [...userUrls] : []
