@@ -54,6 +54,67 @@ function resilient(plugin: any) {
   return plugin
 }
 
+/**
+ * Spawns a local loopback callback server on port 8976 during Vite dev
+ * so that Cloudflare OAuth PKCE redirects succeed and message the web client.
+ */
+function cloudflareOAuthBridgePlugin() {
+  let server: any = null
+  return {
+    name: 'vite-plugin-cloudflare-oauth-bridge',
+    configureServer() {
+      import('node:http').then(({ createServer }) => {
+        if (server)
+          return
+        server = createServer((req, res) => {
+          const url = new URL(req.url || '/', 'http://localhost:8976')
+          if (url.pathname === '/oauth/callback') {
+            const code = url.searchParams.get('code')
+            const state = url.searchParams.get('state')
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(`
+              <!DOCTYPE html>
+              <html>
+              <head><title>Cloudflare Authorization</title></head>
+              <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #f8fafc;">
+                <h2>✓ Authorization Successful</h2>
+                <p>Returning to AIRI...</p>
+                <script>
+                  if (window.opener) {
+                    window.opener.postMessage({ type: 'CLOUDFLARE_OAUTH_CODE', code: ${JSON.stringify(code)}, state: ${JSON.stringify(state)} }, '*');
+                    setTimeout(() => window.close(), 300);
+                  } else {
+                    document.body.innerHTML += '<p>You may now close this window.</p>';
+                  }
+                </script>
+              </body>
+              </html>
+            `)
+          }
+          else {
+            res.writeHead(404)
+            res.end('Not Found')
+          }
+        })
+        server.on('error', (err: any) => {
+          if (err.code !== 'EADDRINUSE') {
+            console.warn('[CloudflareOAuthBridge] Server error:', err.message)
+          }
+        })
+        server.listen(8976, '127.0.0.1', () => {
+          console.info('✓ Cloudflare OAuth Bridge listening on http://localhost:8976/oauth/callback')
+        })
+      })
+    },
+    closeBundle() {
+      if (server) {
+        server.close()
+        server = null
+      }
+    },
+  }
+}
+
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 
@@ -112,6 +173,18 @@ export default defineConfig({
     fs: {
       strict: false,
     },
+    proxy: {
+      '/api/cf-oauth-token': {
+        target: 'https://dash.cloudflare.com',
+        changeOrigin: true,
+        rewrite: () => '/oauth2/token',
+      },
+      '/api/cloudflare': {
+        target: 'https://api.cloudflare.com/client/v4',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/cloudflare/, ''),
+      },
+    },
     warmup: {
       clientFiles: [
         `${resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src'))}/*.vue`,
@@ -166,6 +239,8 @@ export default defineConfig({
         resolve(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src', 'layouts'),
       ],
     }),
+
+    cloudflareOAuthBridgePlugin(),
 
     // https://github.com/antfu/unocss
     // see uno.config.ts for config

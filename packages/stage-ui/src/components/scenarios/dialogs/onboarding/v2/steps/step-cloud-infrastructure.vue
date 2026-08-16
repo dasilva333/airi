@@ -122,16 +122,31 @@ onMounted(async () => {
     hint: 'Cloud services configured',
   })
 
-  // Load existing subdomain if known
-  if (cfSubdomain.value) {
-    subdomainInput.value = cfSubdomain.value
+  // Load existing subdomain if known or fetch from Cloudflare
+  let sub = cfSubdomain.value
+  if (!sub) {
+    sub = await cloudflareStore.getCloudflareSubdomain() || ''
+  }
+  if (sub) {
+    subdomainInput.value = sub
     subdomainVerified.value = true
   }
-  else {
-    const sub = await cloudflareStore.getCloudflareSubdomain()
-    if (sub) {
-      subdomainInput.value = sub
-      subdomainVerified.value = true
+
+  // If local sync store is missing credentials, attempt to auto-restore from Edge Vault
+  if (!syncStore.s3Endpoint || !syncStore.s3Bucket) {
+    try {
+      const vault = await cloudflareStore.fetchFromEdgeVault()
+      if (vault && vault.s3Endpoint && vault.s3Bucket) {
+        syncStore.s3Endpoint = vault.s3Endpoint
+        syncStore.s3Bucket = vault.s3Bucket
+        syncStore.s3Region = vault.s3Region || 'auto'
+        syncStore.s3AccessKeyId = vault.s3AccessKeyId
+        syncStore.s3SecretAccessKey = vault.s3SecretAccessKey
+        syncStore.activeProvider = 's3'
+      }
+    }
+    catch (e) {
+      console.warn('[CloudInfrastructure] Failed to auto-restore from Edge Vault:', e)
     }
   }
 
@@ -141,7 +156,7 @@ onMounted(async () => {
   // Save current R2 credentials to Edge Vault
   void syncCredentialsToEdgeVault()
 
-  // Deploy CORS proxy worker if enabled
+  // Deploy/verify CORS proxy worker if enabled
   void deployCorsProxyService()
 })
 

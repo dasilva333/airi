@@ -13,20 +13,15 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const selectedPath = ref<'new' | 'returning'>('new')
-
 const cloudflareStore = useCloudflareStore()
 const syncStore = useSyncEngineStore()
 const { cfOAuthTokens, cfAccountId, isAuthenticating, isAuthenticated } = storeToRefs(cloudflareStore)
 
-async function handleCloudflareAuthClick() {
-  selectedPath.value = 'returning'
-  if (!isAuthenticated.value) {
-    try {
-      await cloudflareStore.authenticateWithCloudflare()
-      toast.success('Successfully connected to Cloudflare!')
+const selectedPath = ref<'new' | 'returning'>(isAuthenticated.value ? 'returning' : 'new')
 
-      // Check Edge Vault for saved S3/R2 credentials
+async function restoreVaultCredentials() {
+  if (!syncStore.s3Endpoint || !syncStore.s3Bucket) {
+    try {
       const vault = await cloudflareStore.fetchFromEdgeVault()
       if (vault && vault.s3Endpoint && vault.s3Bucket) {
         syncStore.s3Endpoint = vault.s3Endpoint
@@ -39,17 +34,42 @@ async function handleCloudflareAuthClick() {
         toast.info('Restored R2 Cloud Sync credentials from Edge Key Vault!')
       }
     }
+    catch (e) {
+      console.warn('[StepStartChoice] Failed to restore from Edge Vault:', e)
+    }
+  }
+}
+
+async function handleCloudflareAuthClick() {
+  selectedPath.value = 'returning'
+  if (!isAuthenticated.value) {
+    try {
+      await cloudflareStore.authenticateWithCloudflare()
+      toast.success('Successfully connected to Cloudflare!')
+      await restoreVaultCredentials()
+    }
     catch (err: any) {
       toast.error(err?.message || 'Cloudflare authentication failed')
     }
+  }
+  else {
+    await restoreVaultCredentials()
   }
 }
 
 function handleSignOutClick(e: Event) {
   e.stopPropagation()
   cloudflareStore.logout()
+  selectedPath.value = 'new'
   toast.info('Disconnected from Cloudflare')
 }
+
+watch(isAuthenticated, (authed) => {
+  if (authed) {
+    selectedPath.value = 'returning'
+    void restoreVaultCredentials()
+  }
+}, { immediate: true })
 
 watch(selectedPath, (path) => {
   props.onSelectPath?.(path)

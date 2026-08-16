@@ -49,6 +49,7 @@ const onboardingStore = useOnboardingStore()
 const v2State = useLocalStorage<{ stepId: string, path: 'new' | 'returning' }>(
   'onboarding/v2-state',
   { stepId: 'welcome', path: 'new' },
+  { deep: true },
 )
 const v2Skipped = useLocalStorage('onboarding/v2-skipped', false)
 const v2Completed = useLocalStorage('onboarding/v2-completed', false)
@@ -94,7 +95,9 @@ const currentId = computed(() => currentStep.value.id)
 const isLastStep = computed(() => stepIndex.value === STEPS.value.length - 1)
 
 watch(stepIndex, () => {
-  v2State.value.stepId = currentId.value
+  if (v2State.value.stepId !== currentId.value) {
+    v2State.value = { ...v2State.value, stepId: currentId.value }
+  }
 })
 
 function goTo(id: string) {
@@ -102,7 +105,7 @@ function goTo(id: string) {
   if (target === -1 || target === stepIndex.value)
     return
   direction.value = target > stepIndex.value ? 'next' : 'previous'
-  v2State.value.stepId = id
+  v2State.value = { ...v2State.value, stepId: id }
 }
 
 const requestNextStep: OnboardingStepNextHandler = () => {
@@ -110,8 +113,10 @@ const requestNextStep: OnboardingStepNextHandler = () => {
     return
   direction.value = 'next'
   const next = STEPS.value[stepIndex.value + 1]
-  if (next)
-    v2State.value.stepId = next.id
+  if (next) {
+    console.info(`[OnboardingV2] Advancing from ${currentId.value} to ${next.id}`)
+    v2State.value = { ...v2State.value, stepId: next.id }
+  }
 }
 
 const requestPreviousStep: OnboardingStepPrevHandler = () => {
@@ -119,12 +124,15 @@ const requestPreviousStep: OnboardingStepPrevHandler = () => {
     return
   direction.value = 'previous'
   const prev = STEPS.value[stepIndex.value - 1]
-  if (prev)
-    v2State.value.stepId = prev.id
+  if (prev) {
+    console.info(`[OnboardingV2] Stepping back from ${currentId.value} to ${prev.id}`)
+    v2State.value = { ...v2State.value, stepId: prev.id }
+  }
 }
 
 function handleSelectPath(path: 'new' | 'returning') {
-  v2State.value.path = path
+  console.info(`[OnboardingV2] Selected path: ${path}`)
+  v2State.value = { ...v2State.value, path }
 }
 
 // --- Per-step verification gate contract (provided to v2 steps) ---

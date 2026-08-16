@@ -151,4 +151,28 @@ npx tsx apps/stage-edge/scripts/inspect-kv.ts
 2. **Subdomain Immutability**: The deployment engine preserves pre-existing user subdomains (e.g. `<subdomain>`) and never overwrites account-level names.
 3. **Strict Git Tracking Safeguards**: All dump files (`*.dump.json`, `kv-dump.json`) and environment configs (`.env`) are permanently ignored in repository `.gitignore`.
 
+---
+
+## 7. Architectural Lessons Learned & Gotchas
+
+### 7.1 OAuth PKCE Token Response Does NOT Include `account_id`
+* **Gotcha**: Cloudflare's OAuth 2.0 token endpoint (`https://dash.cloudflare.com/oauth2/token`) returns strictly `{ access_token, refresh_token, expires_in, scope }`. It **never** returns `account_id` in the token response payload.
+* **Rule**: As soon as `access_token` is received, the client must immediately dispatch a `GET https://api.cloudflare.com/client/v4/accounts` query with the `Bearer` token to resolve and persist `accountId` (`accounts[0].id`). Skipping this step causes subsequent subdomain (`/workers/subdomain`) and KV REST calls to fail silently.
+
+### 7.2 Wrangler Client ID Enforces Localhost Callback
+* **Gotcha**: The public Wrangler OAuth Client ID (`54d11594-84e4-41aa-b438-e81b8fa78ee7`) has strictly pre-registered redirect URIs (`http://localhost:8976/oauth/callback`). Attempting to use custom browser origins (e.g. `http://localhost:5173/oauth/callback`) triggers an immediate `invalid_request: redirect_uri does not match` rejection from Cloudflare.
+* **Rule**: All OAuth PKCE handshakes must send `redirect_uri=http://localhost:8976/oauth/callback`. In `stage-web`, the Vite dev server spins up `cloudflareOAuthBridgePlugin` on port `8976` to receive the authorization code and post it back to `window.opener`.
+
+### 7.3 Web Browser CORS Constraints on Token & API Endpoints
+* **Gotcha**: Cloudflare's `dash.cloudflare.com/oauth2/token` and `api.cloudflare.com` endpoints do not return `Access-Control-Allow-Origin` headers for arbitrary browser web origins. Direct browser `fetch()` calls will be blocked by CORS.
+* **Rule**:
+  - In local web development (`stage-web`), route requests through Vite proxies (`/api/cf-oauth-token`, `/api/cloudflare`).
+  - In production web deployments, route requests through the user's deployed `airi-cors-proxy` worker (`https://airi-cors-proxy.<subdomain>.workers.dev/cors-proxy?url=...`).
+  - In mobile apps (`stage-pocket`), use native Capacitor HTTP (`@capacitor/http`) which executes outside the browser sandbox and is unaffected by CORS.
+
+### 7.4 Composite State Reactivity with `useLocalStorage`
+* **Gotcha**: Storing navigation objects (e.g. `{ stepId, path }`) in VueUse's `useLocalStorage` without `{ deep: true }` prevents property mutations (`v2State.value.stepId = ...`) from triggering computed watchers across step components.
+* **Rule**: Always configure `{ deep: true }` and reassign objects (`v2State.value = { ...v2State.value, stepId }`) when controlling wizard navigation state.
+
+
 
