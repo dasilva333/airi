@@ -4,6 +4,21 @@ This document tracks research, architecture plans, and formal design specificati
 
 ---
 
+## 📚 Required Reading (same stage, different format)
+
+The Mate-Engine sidecar is the **native re-implementation of the Actor Stage**. These documents specify the same surface (model rendering, idle animation, viewport controls, window chrome) in the two runtime formats this project targets. Read them together:
+
+| Doc | Format | What it covers |
+| :--- | :--- | :--- |
+| [`design-actor-stage.md`](./design-actor-stage.md) | Electron / WebGL | The canonical Actor Stage UX: window chrome, size presets (`mini`/`medium`/`large`/`full`), corner snap, view config overlay, proximity/dismiss behavior. The sidecar's window chrome is being ported from here. |
+| [`idle-animation-design.md`](./idle-animation-design.md) | Cross-format reference | Idle animation data model + playback semantics (AIRI WebGL base-idle vs. idle-cycle, and the Mate-Engine/Unity implementation). |
+| [`rosetta-stone.md`](./rosetta-stone.md) | Repo index | Concept → file-path index. §2 (Core UI), §13 (BroadcastChannels), §14 (key dirs) are the relevant sections. |
+
+> **Rule of thumb**: if a feature exists on the Actor Stage (WebGL), the sidecar (Unity) is where its native equivalent lands. Always read the Actor Stage spec before touching the sidecar's UI/UX surface — they must stay in lock-step.
+
+---
+
+
 ## 🧭 Upstream Godot Attempts
 
 Upstream `main` has been working on an experimental **Godot 4 Sidecar Window** (tracked via PRs #1697, #1724, #1830).
