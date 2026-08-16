@@ -52,6 +52,7 @@ export interface HeartbeatConfig {
     end: string // e.g., '23:00'
   }
   respectSchedule: boolean
+  prefixCacheOptimized?: boolean
 }
 
 export interface DreamStateConfig {
@@ -818,6 +819,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         end: '22:00',
       },
       respectSchedule: true,
+      prefixCacheOptimized: true,
     }
 
     const defaultDreamState: DreamStateConfig = {
@@ -1024,6 +1026,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           end: existingExtension?.heartbeats?.schedule?.end ?? defaultHeartbeats.schedule.end,
         },
         respectSchedule: existingExtension?.heartbeats?.respectSchedule ?? defaultHeartbeats.respectSchedule,
+        prefixCacheOptimized: existingExtension?.heartbeats?.prefixCacheOptimized ?? defaultHeartbeats.prefixCacheOptimized,
       },
       dreamState: {
         ...existingExtension?.dreamState,

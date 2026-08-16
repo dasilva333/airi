@@ -40,6 +40,7 @@ interface SynthesizeEchoOptions {
   force?: boolean
   universeId?: string
   sessionId?: string
+  richness?: 'minimal' | 'balanced' | 'lush'
 }
 
 interface WindowMessage {
@@ -253,8 +254,21 @@ export const useEchoesStore = defineStore('echo-chips', () => {
         })
         .join('\n')
 
+      const richness = options?.richness || 'balanced'
+      let countInstruction = 'Extract 3-5 semantic Echo Chips'
+      let focusInstruction = 'Prefer durable motifs, emotional shifts, distinctive rituals, or memorable turns. Ignore pure greetings, microphone tests, or generic filler.'
+
+      if (richness === 'minimal') {
+        countInstruction = 'Extract 1-3 high-impact, pivotal Echo Chips'
+        focusInstruction = 'Focus strictly on critical turning points, major topic shifts, or explicit user preferences.'
+      }
+      else if (richness === 'lush') {
+        countInstruction = 'Extract 5-8 deeply evocative Echo Chips'
+        focusInstruction = 'Capture subtle atmospheric tones, subtext, recurring idioms, emotional nuances, and relational cadence.'
+      }
+
       const prompt = `
-Extract 3-5 semantic Echo Chips from the following raw conversation evidence window.
+${countInstruction} from the following raw conversation evidence window.
 These are for a character memory-stream; avoid clinical labels and generic chatter.
 
 Requirements:
@@ -262,7 +276,7 @@ Requirements:
 2. TYPE: Identify whether each chip is a "mood", "flavor" (trait/fact), or "journal_candidate" (noteworthy moment worth preserving).
 3. RELEVANCE: Provide a relevanceScore from 0.0 to 1.0.
 4. EVIDENCE: Use evidence_indices to point at the most relevant lines from the evidence window.
-5. FOCUS: Prefer durable motifs, emotional shifts, distinctive rituals, or memorable turns. Ignore pure greetings, microphone tests, or generic filler.
+5. FOCUS: ${focusInstruction}
 
 Evidence Window:
 ${evidenceWindow}

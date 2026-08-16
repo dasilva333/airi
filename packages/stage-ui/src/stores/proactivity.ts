@@ -29,6 +29,7 @@ import { useChatContextStore } from './chat/context-store'
 import { mergeLoadedSessionMessages } from './chat/session-message-merge'
 import { useChatSessionStore } from './chat/session-store'
 import { useEchoesStore } from './echo-chips'
+import { useEventLogStore } from './event-log'
 import { useLLM } from './llm'
 import { useTextJournalStore } from './memory-text-journal'
 import { useAiriCardStore } from './modules/airi-card'
@@ -52,8 +53,18 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const liveSessionStore = useLiveSessionStore()
   const visionStore = useVisionStore()
   const echoesStore = useEchoesStore()
+  const eventLogStore = useEventLogStore()
 
   debug('[Proactivity] Proactivity Store initialized.')
+
+  const isPipeBusy = computed(() => {
+    return (
+      Boolean(chatOrchestrator.sending)
+      || Boolean(chatOrchestrator.activeSpokenText)
+      || isHeartbeatEvaluating.value
+      || isDreamStateEvaluating.value
+    )
+  })
 
   const registeredTools = ref<(any | (() => Promise<any[] | undefined>))[]>([])
 
@@ -378,7 +389,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
   }
 
   async function evaluateDreamState(options?: { force?: boolean }) {
-    if (isDreamStateEvaluating.value && !options?.force) {
+    if ((isDreamStateEvaluating.value || (!options?.force && isPipeBusy.value)) && !options?.force) {
+      debug('[Dream State] Aborted: Evaluation in progress or pipe is busy.')
       return
     }
 
@@ -444,6 +456,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
         force: options?.force,
         universeId: currentUniverseId,
         sessionId: activeSessionId,
+        richness: config.journalingThreshold || 'balanced',
       })
 
       const pendingDreamChips = (newChips || []).map(chip => chip.content)
@@ -465,6 +478,19 @@ export const useProactivityStore = defineStore('proactivity', () => {
           },
         },
       } as any)
+
+      await eventLogStore.appendEvent({
+        category: 'memory',
+        type: 'dream_consolidated',
+        source: card.name || 'AIRI',
+        textSummary: `Dream state consolidated: synthesized ${newChips?.length || 0} echo chips (${config.journalingThreshold || 'balanced'})`,
+        payload: {
+          characterId,
+          chipCount: newChips?.length || 0,
+          richness: config.journalingThreshold || 'balanced',
+          lastTurnAt,
+        },
+      })
     }
     catch (err) {
       console.error('[Dream State] Synthesis failed.', {
@@ -485,8 +511,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
     console.time('[Proactivity] evaluateHeartbeat')
     try {
-      if (isHeartbeatEvaluating.value && !options?.force) {
-        debug('[Proactivity] Evaluation already in progress, skipping.')
+      if ((isHeartbeatEvaluating.value || (!options?.force && isPipeBusy.value)) && !options?.force) {
+        debug('[Proactivity] Evaluation already in progress or pipe is busy, skipping.')
         return
       }
 
@@ -497,11 +523,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
         return
       }
 
-      // NOTICE: Guard against mid-card-switch state. When the user imports or switches to a new
-      // character card, ensureActiveSessionForCharacter() runs async and updates activeSessionId.
-      // If the heartbeat fires before that resolves, sessionMessages[activeSessionId] still holds
-      // the *previous* character's conversation, which would be injected as context for the new
-      // character — causing completely wrong roleplay history to appear in Nan0's proactive prompt.
       if (!options?.force && chatSession.isEnsuringSession) {
         debug('[Proactivity] Aborted: Session switch in progress, deferring heartbeat.')
         return
@@ -509,7 +530,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
 
       const now = new Date()
 
-      // Check schedule
       if (!options?.force && config?.respectSchedule && config?.schedule?.start && config?.schedule?.end) {
         const isInWindow = isWithinSchedule(config!.schedule!.start, config!.schedule!.end)
 
@@ -520,11 +540,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
       }
 
       if (config?.useAsLocalGate) {
-        // "Interval" is reinterpreted as "required continuous idle minutes" in this mode: the
-        // heartbeat fires once the user has been away for that long, then waits for them to
-        // return (idleTimeSec drops back down) before the next idle stretch can fire again.
-        // Reuses the idleTimeSec ref kept fresh by the 10s updateSensors() background loop,
-        // rather than issuing a second, redundant sensor query here.
         if (idleTimeSec.value === undefined)
           await refreshIdleTimeOnly()
 
@@ -547,8 +562,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
         firedForIdleSession.value = true
       }
       else {
-        // Wall-clock cooldown, unrelated to activity: fires every `intervalMinutes` regardless
-        // of whether the user is present.
         const intervalMs = (config?.intervalMinutes || 1) * 60 * 1000
         const timeSinceLast = now.getTime() - lastHeartbeatTime.value
         const timeLeftMs = Math.max(0, intervalMs - timeSinceLast)
@@ -580,10 +593,6 @@ export const useProactivityStore = defineStore('proactivity', () => {
       isHeartbeatEvaluating.value = true
 
       try {
-        const promptText = config?.prompt || 'Evaluate heartbeat and situational context.'
-
-        debug(`[Proactivity] >>> TRIGGERING LLM <<< Prompt:\n${promptText}`)
-
         const messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
 
         if (airiCardStore.systemPrompt) {
@@ -594,29 +603,10 @@ export const useProactivityStore = defineStore('proactivity', () => {
         }
 
         const contextsSnapshot = chatContext.getContextsSnapshot()
-        const sensorPayloadRaw = config?.injectIntoPrompt ? sensorPayload.value : ''
-
-        if (Object.keys(contextsSnapshot).length > 0 || sensorPayloadRaw) {
-          let contextContent = ''
-          if (Object.keys(contextsSnapshot).length > 0) {
-            contextContent += 'These are the contextual information retrieved or on-demand updated from other modules:\n'
-              + `${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}\n`
-          }
-
-          if (sensorPayloadRaw) {
-            contextContent += `${contextContent ? '\n---\n' : ''
-            }[ENVIRONMENTAL AWARENESS]\n`
-            + `The following telemetry describes your current environmental context. `
-            + `Use it to stay grounded in the user's reality and inform your response. `
-            + `You may reference specific values (like time or active applications) if relevant `
-            + `to the conversation, but avoid a dry, technical recitation of the data.\n`
-            + `---\n`
-            + `${sensorPayloadRaw}\n`
-          }
-
+        if (Object.keys(contextsSnapshot).length > 0) {
           messages.push({
             role: 'system',
-            content: contextContent.trim(),
+            content: `These are the contextual information retrieved or on-demand updated from other modules:\n${Object.entries(contextsSnapshot).map(([key, value]) => `Module ${key}: ${JSON.stringify(value)}`).join('\n')}`,
           })
         }
 
@@ -641,9 +631,10 @@ export const useProactivityStore = defineStore('proactivity', () => {
           })
         }
         else {
-          // Inject the last 6 messages (approx 3 turns) for conversational context
-          const recentMessages = sessionMessages.slice(-6)
-          for (const msg of recentMessages) {
+          const usePrefixCacheFraming = config?.prefixCacheOptimized !== false
+          const historyToInject = usePrefixCacheFraming ? sessionMessages : sessionMessages.slice(-6)
+
+          for (const msg of historyToInject) {
             if (msg.role === 'user' || msg.role === 'assistant') {
               let msgContent = ''
               if (typeof msg.content === 'string') {
@@ -665,7 +656,31 @@ export const useProactivityStore = defineStore('proactivity', () => {
           }
         }
 
-        messages.push({ role: 'user', content: promptText })
+        // 4. Ephemeral Tail Envelope (Strategy A: Volatile data at prompt tail)
+        let tailDirective = ''
+        const sensorPayloadRaw = config?.injectIntoPrompt ? sensorPayload.value : ''
+
+        if (sensorPayloadRaw) {
+          tailDirective += `[ENVIRONMENTAL AWARENESS]\n`
+            + `The following telemetry describes your current environmental context. `
+            + `Use it to stay grounded in the user's reality and inform your response. `
+            + `You may reference specific values (like time or active applications) if relevant `
+            + `to the conversation, but avoid a dry, technical recitation of the data.\n`
+            + `---\n`
+            + `${sensorPayloadRaw}\n\n`
+        }
+
+        const recentLedgerEvents = eventLogStore.getRecentEventsText(6)
+        if (recentLedgerEvents) {
+          tailDirective += `[UNIFIED EVENT STREAM]\n`
+            + `Recent activity across the environment:\n`
+            + `${recentLedgerEvents}\n\n`
+        }
+
+        const promptText = config?.prompt || 'Review situational context. Comment on user progress if natural, or output NO_REPLY to remain silent.'
+        tailDirective += `[FOCUS DIRECTIVE]\n${promptText}`
+
+        messages.push({ role: 'user', content: tailDirective.trim() })
 
         const activeProviderId = consciousnessStore.activeProvider
         const activeModel = consciousnessStore.activeModel
@@ -710,6 +725,17 @@ export const useProactivityStore = defineStore('proactivity', () => {
         // replay, captions, or TTS.
         if ((rawReply || '').trim() === 'NO_REPLY') {
           debug('[Proactivity] AI decided to remain silent via NO_REPLY sentinel.')
+          await eventLogStore.appendEvent({
+            category: 'proactivity',
+            type: 'heartbeat_gated',
+            source: activeCard.value?.name || 'AIRI',
+            textSummary: 'Proactive heartbeat evaluated: silent (NO_REPLY)',
+            payload: {
+              provider: activeProviderId,
+              model: activeModel,
+              idleSec: idleTimeSec.value,
+            },
+          })
           return
         }
 
@@ -759,10 +785,13 @@ export const useProactivityStore = defineStore('proactivity', () => {
                 lastSlice.text += speechOnly
               }
               else {
-                buildingMessage.slices.push({ type: 'text', text: speechOnly })
+                buildingMessage.slices.push({
+                  type: 'text',
+                  text: speechOnly,
+                })
               }
+              updateUI()
             }
-            updateUI()
           },
           onSpecial: async (special) => {
             await chatOrchestrator.emitTokenSpecialHooks(special, streamingContext)
@@ -805,6 +834,18 @@ export const useProactivityStore = defineStore('proactivity', () => {
           outputText: trimmedReply,
           toolCalls: [],
         }, streamingContext)
+
+        await eventLogStore.appendEvent({
+          category: 'proactivity',
+          type: 'heartbeat_spoke',
+          source: activeCard.value?.name || 'AIRI',
+          textSummary: `${activeCard.value?.name || 'Character'} proactively spoke: "${trimmedReply.slice(0, 80)}${trimmedReply.length > 80 ? '...' : ''}"`,
+          payload: {
+            message: trimmedReply,
+            provider: activeProviderId,
+            model: activeModel,
+          },
+        })
 
         // Piggyback vision capture onto the proactivity heartbeat when Live API is active.
         // This eliminates the need for a separate vision polling loop — proactivity's AFK,
