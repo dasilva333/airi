@@ -4,7 +4,8 @@
   "private": true,
   "description": "Mate-Engine sidecar prototype: headless mock harness + Unity VRM sidecar",
   "scripts": {
-    "harness": "tsx harness/index.ts"
+    "harness": "tsx harness/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@types/ws": "catalog:",

@@ -463,13 +463,56 @@ The vendored fork is Windows-first. It **compiles and imports cleanly on macOS a
 - **Camera orientation is manual.** The first build pointed the camera *away* from the model (you only saw the default skybox). Fixed with an explicit camera rig + `LookAt`-style framing; orbit controls were added since the scene has no editor/tooling to pan with.
 - **Load the model on `Start()`, not on WS-connect.** First iteration gated the fallback load behind the WebSocket connect, so the model only appeared with the harness running. It now loads unconditionally at startup.
 
-### Window Chrome (eye icon + size presets + persistence)
+### Stage Chrome & UI Parity (Porting from `actor.vue`)
 
-- **Spike finding**: Unity *can* resize its own macOS window at runtime — the fork bundles Kirurobo's `UniWindowController` with a native macOS `LibUniWinC.bundle` (not just the Windows `.dll`), exposing a settable `windowSize` (`UniWinCore.SetSize`). No new native plugin needed.
-- `MateSidecarBuild.cs` adds a `UniWindowController` component to the scene; `MateSidecar.cs` holds a reference to it.
-- `MateSidecar.cs` draws an eye icon (top-right, Immediate Mode GUI) that toggles a popover of size presets — `mini` 220×315, `med.` 450×600, `large` 800×1000 — copied from [`design-actor-stage.md`](./design-actor-stage.md) §3.2. (`full`/work-area is deferred; needs monitor-workarea query.)
-- **Persistence**: last size stored in `PlayerPrefs` (`stage-mate-window-size`); on `Start()` the sidecar reads it (default `med.` 450×600) and applies it once `UniWindowController` has attached its native window (lazy attach on first `Update`; polled until `windowSize` is non-zero).
-- **Known gap**: presets use *window frame* size, while the Actor Stage presets are *client area* dimensions — identical for a borderless window, but should switch to client-size math when we port the actor-stage chrome 1:1.
+The Mate-Engine sidecar window chrome is designed to mirror the production **Actor Stage** ([`docs/design-actor-stage.md`](./design-actor-stage.md)) 1:1:
+
+```
+┌────────────────────────────────────────────────────────┐
+│ [⤢ Drag Handle] [⚙ Stage Config]                      │ ◄── Top-Right Floating Toolbar (actor.vue:600)
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ [ + / ⧉ ] Mode Switch       [ 👁⃥ ] Hide Window  │  │ ◄── Row 1 (StageConfigOverlay.vue)
+│  ├──────────────────────────────────────────────────┤  │
+│  │ [ Mini ] (220×315)       [ Med. ] (450×600)      │  │ ◄── Row 2 (Size Mode)
+│  │ [ Large ] (800×1000)     [ Full ] (Workarea)     │  │ ◄── Row 3 OR Corner Snap [ ↖ ↗ ↙ ↘ ]
+│  ├──────────────────────────────────────────────────┤  │
+│  │ [ 🖼 / 🖼⃥ ] Background     [ 👤 / 👤⃥ ] Model       │  │ ◄── Row 4 (Layer Visibility)
+│  └──────────────────────────────────────────────────┘  │
+│                                                        │
+│                     ( 3D Avatar )                      │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
+
+#### 1. Top-Right Floating Toolbar (`actor.vue:600-626`)
+- **Drag Handle Button** (`i-ph:arrows-out-cardinal`): Triggers native window dragging across monitors because the stage window is chromeless/frameless (implemented via `UniWindowController` native window repositioning).
+- **Stage Config Button** (`i-ph:gear`): Toggles the floating frosted-glass configuration overlay panel.
+- **Auto-Fade on Hover**: The toolbar auto-fades in on cursor discovery and fades out to 0% opacity when the mouse is idle.
+
+#### 2. Stage Config Overlay (`StageConfigOverlay.vue`)
+- **Row 1: Mode Switch & Hide Window**
+  - Mode Switch: Toggles between **Size Mode** (Presets) and **Position Mode** (Corner Snap).
+  - Hide Button: Minimizes/hides the sidecar window.
+- **Rows 2 & 3: 2×2 Grid**
+  - **Size Mode**: `mini` (220×315), `med.` (450×600), `large` (800×1000), `full` (work area). Applied to `windowController.windowSize`.
+  - **Position Mode**: Snaps window to display corners (`top-left` ↖, `top-right` ↗, `bottom-left` ↙, `bottom-right` ↘).
+- **Row 4: Layer Visibility Toggles (Scene vs. Transparent Model)**
+  - `showBackground`: Toggles between 2D scene background / skybox and **100% transparent desktop overlay**.
+  - `showModel`: Toggles avatar rendering visibility.
+
+#### 3. Transparent Canvas & Automatic Pass-Through Click
+- **Transparent Desktop Mode**: When `showBackground` is false, camera renders SolidColor `Color(0,0,0,0)`, making the window transparent with only the avatar floating on the desktop.
+- **Dynamic Hit-Testing**: `UniWindowController` runs `HitTestCoroutine` with `HitTestType.Opacity` / `HitTestType.Raycast`. Empty transparent pixels pass clicks directly through to underlying applications (`NSWindow.ignoresMouseEvents = YES`), while the avatar's silhouette captures clicks for interaction. No manual click-through toggle is displayed on the stage.
+- **Clean Production Surface**: Viewport debug modes (`Spin`, `Drag`, `Orbit`) are kept to developer keyboard shortcuts and excluded from the user-facing chrome.
+
+#### 4. Developer Mock Harness Evolution Roadmap (`apps/stage-mate/harness/`)
+- Upgrade the headless mock harness into an **interactive CLI or lightweight GUI** to simulate the complete AIRI lifecycle:
+  - Live model swapping & directory scanning (`stage:vrm:load`)
+  - Idle animation sequence triggering (`stage:vrm:idle`)
+  - Size preset & visibility dispatch (`stage:vrm:visibility`)
+  - Simulated lip-sync RMS audio waveforms (`stage:vrm:lip-sync`)
+  - `<|ACT|>` expression & motion trigger testing
 
 ### Viewport Interaction Modes & Camera Orientation Specification
 
@@ -498,25 +541,53 @@ The vendored fork is Windows-first. It **compiles and imports cleanly on macOS a
   - Keyboard shortcuts: `V` (cycles modes), `1`/`S` (Spin), `2`/`D` (Drag), `3`/`O` (Orbit).
   - UI status label dynamically displays the active mode and interaction hint.
 
-### Wire Protocol (v0)
+### Wire Protocol & Signal Mapping (`CUSTOMIZER_CATALOG` Alignment)
 
-- Server: `ws://localhost:6171` (env-overridable via `MATE_HARNESS_PORT`).
-- Plain JSON frames, no auth, no superjson, no heartbeat protocol (all deferred).
+Rather than inventing arbitrary string message types, the sidecar wire protocol maps directly to the canonical IDs from [`packages/stage-ui/src/constants/control-customizer.ts`](../packages/stage-ui/src/constants/control-customizer.ts) (`CUSTOMIZER_CATALOG`):
 
-Harness → engine:
+#### 1. Control Customizer Signals (`control:*`)
 
-```json
-{ "type": "stage:vrm:load", "data": { "modelPath": "<abs path to test-model.vrm>" } }
-{ "type": "ping", "data": { "t": 1234567890 } }
-```
+These signals mirror the AIRI Control Strip and Settings toggles:
 
-Engine → harness:
+| Customizer `id` | Wire Message `type` | Payload `data` | Mate-Engine Sidecar Action |
+|---|---|---|---|
+| `stage` | `control:stage` | `{ enabled: boolean }` | Toggles rendering/visibility of the sidecar window. |
+| `always-on-top` | `control:always-on-top` | `{ enabled: boolean }` | Toggles window floating status (`windowController.isTopmost = enabled`). |
+| `viewport-tactile` | `control:viewport-tactile` | `{}` | Sets interaction mode to Tactile (gaze tracking / mesh raycasting). |
+| `viewport-drag` | `control:viewport-drag` | `{}` | Sets interaction mode to Drag Mode (view-plane translation). |
+| `viewport-positioning` | `control:viewport-positioning` | `{}` | Sets interaction mode to Positioning Mode (coordinate placement). |
+| `viewport-orbit` | `control:viewport-orbit` | `{}` | Sets interaction mode to Camera Orbit Mode. |
+| `viewport-cycle-modes` | `control:viewport-cycle-modes` | `{}` | Cycles to the next interaction mode sequentially. |
+| `viewport-reset-coordinates` | `control:viewport-reset-coordinates` | `{}` | Resets model position to `Vector3.zero` and camera distance to default. |
+| `viewport-auto-hide` | `control:viewport-auto-hide` | `{ enabled: boolean }` | Toggles whether stage UI overlays auto-fade on mouse leave. |
 
-```json
-{ "type": "stage:vrm:ready", "data": { "modelPath": "..." } }
-```
+#### 2. Stage Management & Telemetry Signals (`stage:*`)
 
-The periodic `ping` is how the window proves *live data flow* (brief blink per received frame), distinct from the socket-open green dot.
+| Wire Message `type` | Payload `data` | Description / Mate-Engine Action |
+|---|---|---|
+| `stage:size-preset` | `{ preset: 'mini' \| 'med.' \| 'large' \| 'full' }` | Resizes window frame to preset dimensions (`220×315`, `450×600`, `800×1000`, work area). |
+| `stage:vrm:load` | `{ modelPath: string }` | Loads VRM model from local filesystem path, sets `localRotation = Quaternion.Euler(0,180,0)`. |
+| `stage:vrm:idle` | `{ idleAnimations: string[] }` | Configures active idle animation cycle pool. |
+| `stage:vrm:lip-sync` | `{ rms: number }` | Real-time mouth blendshape amplitude (0.0 to 1.0) for speech playback. |
+| `stage:vrm:ready` | `{ modelPath: string }` | (Engine → Harness) Notifies that model loading is complete. |
+| `ping` | `{ t: number }` | Periodic heartbeat; produces brief status dot activity blink. |
+
+#### 3. Stage vs. Harness Control Boundary (Separation of Concerns)
+
+- **Driven by Harness & Control Strip**: `size-preset`, `always-on-top`, `viewport-*` interaction modes, `stage:vrm:lip-sync` simulated audio, and model loading.
+- **Local-Only to Actor Stage**: `showBackground` (Scene artwork vs. transparent desktop) and `showModel` (Model layer toggle) are strictly controlled locally by the stage's own `StageConfigOverlay.vue` (Row 4) and are not driven by external harness signals.
+
+#### 4. Interactive Mock Harness Design (`apps/stage-mate/harness/`)
+
+The mock harness script (`pnpm -F @proj-airi/stage-mate harness`) provides a zero-dependency, minimal-logic testbed:
+- **Interactive Keyboard Controls**:
+  - `[1]`, `[2]`, `[3]`, `[4]` → Send size presets (`mini`, `med.`, `large`, `full`)
+  - `[t]` → Toggle `always-on-top`
+  - `[d]`, `[o]`, `[s]`, `[c]` → Toggle `viewport-drag`, `viewport-orbit`, `viewport-spin`, `viewport-cycle-modes`
+  - `[m]` → Swap test models (`stage:vrm:load`)
+  - `[l]` → Fire simulated speech lip-sync RMS waveform (`stage:vrm:lip-sync`)
+  - `[r]` → Reset coordinates (`viewport-reset-coordinates`)
+- **HTTP / Web Control GUI (Optional Minimal Dashboard)**: Serves a simple web page on `http://localhost:6171` with buttons tied 1:1 to each signal string for point-and-click sidecar testing.
 
 ### Model Asset Handling
 

@@ -57,16 +57,50 @@ The expanded drawer stays **locked open** even if the cursor leaves the window. 
 
 Container padding tightened (`px-6` → `px-3`), item gap reduced (`gap-3` → `gap-2`). Action cluster (`flex-shrink: 0`) never squashes; text input (`flex: 1; min-width: 0`) truncates instead of pushing.
 
-## 3. Phase 2: Stage Config Overlay
+## 3. Phase 2: Top-Right Stage Controls & Stage Config Overlay
 
-The top-right toolbar's eye-slash button is replaced with a **gear icon** (`i-ph:gear`) that opens a floating frosted-glass panel for window management.
+The top-right floating toolbar (`apps/stage-tamagotchi/src/renderer/pages/actor.vue:600-626`) provides essential frameless window controls with zero visual distraction. It auto-fades in on cursor discovery and fades out to 0% opacity when idle.
 
-### 3.1 Layout
+### 3.1 Top-Right Toolbar Structure (`actor.vue`)
 
-- **Row 1:** Mode toggle (left) + Hide stage eye-slash (right)
-- **Row 2:** Top row of 2×2 grid — sizes in Size mode (`mini` / `med.`), corner positions in Position mode (`top-left` / `top-right`)
-- **Row 3:** Bottom row of 2×2 grid — sizes in Size mode (`large` / `full`), corner positions in Position mode (`bottom-left` / `bottom-right`)
-- **Row 4:** Visibility toggles — Background image toggle (left) + Model layer toggle (right)
+The toolbar is a compact, frosted pill anchored at `top-2.5 right-2.5` (`z-50`) containing two `size-6` (24×24px) buttons:
+
+| Button | Icon | Title / Action | Description |
+|---|---|---|---|
+| **Window Drag Handle** | `i-ph:arrows-out-cardinal` | `"Drag to Reposition Stage"` | Triggers native OS window dragging (`electronStartDraggingWindow`) across displays because the window is borderless/frameless. |
+| **Stage Config Button** | `i-ph:gear` | `"Stage Size & Position"` | Toggles the floating `StageConfigOverlay.vue` panel open/closed. |
+
+### 3.2 Stage Config Overlay (`packages/stage-ui/src/components/scenarios/StageConfigOverlay.vue`)
+
+When triggered, a floating frosted-glass panel (`bg-neutral-50/30 dark:bg-neutral-900/30 backdrop-blur-xl border border-neutral-200/20 rounded-2xl p-3 shadow-xl`) opens at `right-3 top-10`:
+
+```
+┌──────────────────────────────────────────────┐
+│  [ + / ⧉ ] Mode Toggle      [ 👁⃥ ] Hide Stage │ ◄── Row 1
+├──────────────────────────────────────────────┤
+│  [ Mini ] (220×315)      [ Med. ] (450×600)  │ ◄── Row 2 (Size Mode)
+│  [ Large ] (800×1000)    [ Full ] (Workarea) │ ◄── Row 3 OR [ ↖ ↗ ↙ ↘ ] (Position Mode)
+├──────────────────────────────────────────────┤
+│  [ 🖼 / 🖼⃥ ] Background    [ 👤 / 👤⃥ ] Model   │ ◄── Row 4 (Layer Visibility)
+└──────────────────────────────────────────────┘
+```
+
+#### 3.3 Overlay Row Layout & Actions
+
+- **Row 1: Mode Switch & Hide**
+  - Left: Mode Toggle (`i-ph:plus-square` ↔ `i-ph:copy`) — switches between Size Preset Mode and Corner Snap Position Mode.
+  - Right: Hide Stage (`i-ph:eye-slash`) — invokes `electronStageToggleVisibility(false)` to minimize/hide stage.
+- **Rows 2 & 3: 2×2 Grid (Size Mode vs. Position Mode)**
+  - **Size Mode**: `mini` (220×315), `med.` (450×600), `large` (800×1000), `full` (display work area). Calls `electronApplySizePreset({ target: 'actor', preset })`.
+  - **Position Mode**: Corner snap targets (`top-left` ↖, `top-right` ↗, `bottom-left` ↙, `bottom-right` ↘). Calls `electronApplySizePreset({ target: 'actor', alignment })`.
+- **Row 4: Layer Visibility Toggles (Scene vs. Transparent Model)**
+  - Left: `showBackground` (`i-ph:image` ↔ `i-ph:image-slash`) — toggles between 2D scene background artwork and 100% transparent desktop passthrough.
+  - Right: `showModel` (`i-ph:user` ↔ `i-ph:user-slash`) — toggles 3D/2D avatar rendering layer visibility.
+
+### 3.4 Pass-Through Click & Viewport Invariants
+
+1. **Automatic Pass-Through Click**: On transparent background areas, mouse clicks pass directly through to underlying applications without requiring a manual toggle switch on stage.
+2. **Clean Canvas**: Viewport debugging/camera modes (`Spin`, `Drag`, `Orbit`) are not rendered on the user-facing stage chrome. The stage surface is strictly dedicated to artwork, dialogue captions, and proximity-based controls.
 
 ### 3.2 Size Presets
 
