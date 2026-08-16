@@ -45,6 +45,12 @@ const groundingEnabled = defineModel<boolean>('groundingEnabled', { default: fal
 
 // 2. Screen Watching (Push / Attention Ecology) Models
 const screenWatchingEnabled = defineModel<boolean>('screenWatchingEnabled', { default: false })
+const screenWatchingSourceType = defineModel<'displays' | 'applications' | 'auto_focused'>('screenWatchingSourceType', { default: 'displays' })
+const screenWatchingSourceId = defineModel<string>('screenWatchingSourceId', { default: '' })
+const screenWatchingCaptureIntervalMs = defineModel<number>('screenWatchingCaptureIntervalMs', { default: 2000 })
+const screenWatchingDownscalePercent = defineModel<number>('screenWatchingDownscalePercent', { default: 100 })
+const screenWatchingWorkload = defineModel<'attention-guard' | 'screen:interpret' | 'screen:ocr'>('screenWatchingWorkload', { default: 'attention-guard' })
+const screenWatchingPublishToContext = defineModel<boolean>('screenWatchingPublishToContext', { default: false })
 const screenWatchingInterestTags = defineModel<string[]>('screenWatchingInterestTags', {
   default: () => ['antigravity', 'terminal_error', 'youtube', 'discord'],
 })
@@ -52,7 +58,28 @@ const screenWatchingDeferWhileSpeaking = defineModel<boolean>('screenWatchingDef
 const screenWatchingMaxPerHour = defineModel<number>('screenWatchingMaxPerHour', { default: 4 })
 const screenWatchingHysteresisMinutes = defineModel<number>('screenWatchingHysteresisMinutes', { default: 3 })
 
-// New Tag Input Helper State
+// Mock Display and Window sources for the visual picker
+const mockDisplaySources = [
+  { id: 'screen:primary', name: 'Display 1 (Primary - 1440p)', resolution: '2560×1440 @ 120Hz', icon: 'i-solar:screencast-2-line-duotone' },
+  { id: 'screen:secondary', name: 'Display 2 (Secondary - 1080p)', resolution: '1920×1080 @ 60Hz', icon: 'i-solar:screencast-2-line-duotone' },
+]
+
+const mockAppSources = [
+  { id: 'window:vscode', name: 'VS Code (contract.ts)', category: 'Development', icon: 'i-solar:code-line-duotone' },
+  { id: 'window:terminal', name: 'Terminal (zsh)', category: 'Shell', icon: 'i-solar:terminal-line-duotone' },
+  { id: 'window:browser', name: 'Browser (AIRI Docs)', category: 'Web', icon: 'i-solar:global-line-duotone' },
+  { id: 'window:discord', name: 'Discord (#general)', category: 'Social', icon: 'i-solar:chat-round-line-duotone' },
+]
+
+const isRefetchingSources = ref(false)
+function refetchSources() {
+  isRefetchingSources.value = true
+  setTimeout(() => {
+    isRefetchingSources.value = false
+  }, 400)
+}
+
+// Tag Input Helper State
 const newTagInput = ref('')
 function addInterestTag() {
   const tag = newTagInput.value.trim().toLowerCase()
@@ -130,7 +157,7 @@ const intervalPresets = [2, 5, 10, 20]
       </button>
     </div>
 
-    <!-- Sub-Tab Panels -->
+    <!-- Sub-Tab Panels Container -->
     <div class="border border-neutral-200/80 rounded-xl bg-white/70 p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
       <!-- ================================================================= -->
       <!-- 1. AMBIENT HEARTBEATS SUB-TAB                                     -->
@@ -292,6 +319,21 @@ const intervalPresets = [2, 5, 10, 20]
       <!-- 2. SCREEN WATCHING (PUSH & ATTENTION ECOLOGY) SUB-TAB             -->
       <!-- ================================================================= -->
       <div v-else-if="activeSubTab === 'screen'" class="flex flex-col gap-6">
+        <!-- Developer Preview Banner -->
+        <div class="flex items-start gap-3 border border-blue-200/80 rounded-xl bg-blue-50/70 p-4 dark:border-blue-900/60 dark:bg-blue-950/30">
+          <span class="i-solar:videocamera-record-bold-duotone shrink-0 text-xl text-blue-600 dark:text-blue-400" />
+          <div class="flex flex-col gap-1 text-xs text-blue-900 dark:text-blue-200">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold tracking-wide uppercase">Developer Preview · Attention Ecology Engine</span>
+              <span class="rounded bg-blue-200/80 px-1.5 py-0.2 text-[10px] text-blue-800 font-bold dark:bg-blue-900/80 dark:text-blue-200">0-Cost WebGPU</span>
+            </div>
+            <p class="text-[11px] text-blue-700 leading-relaxed dark:text-blue-300">
+              Continuous background vision runs an efficient 4-stage local cascade (aHash ➔ CLIP Vision ➔ WASM OCR). Promoted visual novelties write to the Unified Event Ledger and trigger proactive dialogue turns.
+            </p>
+          </div>
+        </div>
+
+        <!-- Master Ticker Switch -->
         <div class="flex items-center justify-between border-b border-neutral-100 pb-4 dark:border-neutral-800">
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
@@ -302,11 +344,11 @@ const intervalPresets = [2, 5, 10, 20]
                 class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
               >
               <label for="screen-watching-toggle" class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">
-                Enable Screen Watching (Visual Attention Ecology)
+                Enable Screen Watching (Autonomous Perception Ticker)
               </label>
             </div>
             <p class="pl-6 text-xs text-neutral-500 dark:text-neutral-400">
-              Monitors active displays and windows using 0-cost local WebGPU gates, reacting to high-salience compiler errors and apps.
+              Starts the background capture loop for this character, evaluating frames for visual changes and OCR errors.
             </p>
           </div>
           <span
@@ -321,50 +363,222 @@ const intervalPresets = [2, 5, 10, 20]
           </span>
         </div>
 
-        <div v-if="screenWatchingEnabled" class="flex flex-col gap-5">
-          <!-- Interest Keywords & High-Salience Tags -->
-          <div class="flex flex-col gap-2">
-            <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
-              Interest Keywords & High-Salience Tags
-            </label>
-            <div class="flex flex-wrap items-center gap-2 border border-neutral-200 rounded-lg bg-neutral-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-950">
-              <span
-                v-for="(tag, idx) in screenWatchingInterestTags"
-                :key="tag"
-                class="flex items-center gap-1.5 border border-primary-200 rounded-md bg-primary-50 px-2.5 py-1 text-xs text-primary-700 font-medium dark:border-primary-800 dark:bg-primary-950/60 dark:text-primary-300"
-              >
-                <span>#{{ tag }}</span>
-                <button
-                  type="button"
-                  class="text-primary-400 hover:text-primary-600 dark:hover:text-primary-200"
-                  @click="removeInterestTag(idx)"
-                >
-                  <span class="i-lucide:x text-[10px]" />
-                </button>
+        <div v-if="screenWatchingEnabled" class="flex flex-col gap-6">
+          <!-- 1. Capture Target & Source Scope -->
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
+                1. Capture Target & Source Scope
               </span>
-              <div class="flex items-center gap-1">
-                <input
-                  v-model="newTagInput"
-                  type="text"
-                  placeholder="+ Add Keyword"
-                  class="w-28 bg-transparent px-2 py-0.5 text-xs outline-none"
-                  @keydown.enter.prevent="addInterestTag"
-                >
+              <button
+                type="button"
+                class="flex items-center gap-1 text-xs text-primary-600 transition-colors dark:text-primary-400 hover:text-primary-700"
+                @click="refetchSources"
+              >
+                <span :class="[isRefetchingSources ? 'i-svg-spinners:ring-resize' : 'i-solar:refresh-line-duotone', 'text-sm']" />
+                <span>{{ isRefetchingSources ? 'Refetching...' : 'Refetch Sources' }}</span>
+              </button>
+            </div>
+
+            <!-- Source Mode Selection -->
+            <div class="flex items-center gap-4">
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-700 dark:text-neutral-300">
+                <input v-model="screenWatchingSourceType" type="radio" value="displays" class="text-primary-600">
+                <span>Displays (Full Monitor)</span>
+              </label>
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-700 dark:text-neutral-300">
+                <input v-model="screenWatchingSourceType" type="radio" value="applications" class="text-primary-600">
+                <span>Specific Application Window</span>
+              </label>
+            </div>
+
+            <!-- Source Picker Grid -->
+            <div class="grid grid-cols-1 max-h-36 gap-2 overflow-y-auto sm:grid-cols-2">
+              <template v-if="screenWatchingSourceType === 'displays'">
                 <button
+                  v-for="source in mockDisplaySources"
+                  :key="source.id"
                   type="button"
-                  class="rounded bg-neutral-200 px-2 py-0.5 text-[11px] text-neutral-700 font-medium dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-300 hover:text-white"
-                  @click="addInterestTag"
+                  :class="[
+                    'flex items-center justify-between p-2.5 rounded-lg border text-left text-xs transition-colors',
+                    screenWatchingSourceId === source.id || (!screenWatchingSourceId && source.id === 'screen:primary')
+                      ? 'border-primary-500 bg-primary-50/70 text-primary-900 dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200 ring-1 ring-primary-400'
+                      : 'border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300 hover:bg-neutral-100',
+                  ]"
+                  @click="screenWatchingSourceId = source.id"
                 >
-                  Add
+                  <div class="flex items-center gap-2.5 truncate">
+                    <span :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
+                    <span class="truncate font-medium">{{ source.name }}</span>
+                  </div>
+                  <span class="shrink-0 text-[10px] text-neutral-400 font-mono">{{ source.resolution }}</span>
                 </button>
+              </template>
+              <template v-else>
+                <button
+                  v-for="source in mockAppSources"
+                  :key="source.id"
+                  type="button"
+                  :class="[
+                    'flex items-center justify-between p-2.5 rounded-lg border text-left text-xs transition-colors',
+                    screenWatchingSourceId === source.id
+                      ? 'border-primary-500 bg-primary-50/70 text-primary-900 dark:border-primary-500 dark:bg-primary-950/40 dark:text-primary-200 ring-1 ring-primary-400'
+                      : 'border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300 hover:bg-neutral-100',
+                  ]"
+                  @click="screenWatchingSourceId = source.id"
+                >
+                  <div class="flex items-center gap-2.5 truncate">
+                    <span :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
+                    <span class="truncate font-medium">{{ source.name }}</span>
+                  </div>
+                  <span class="rounded bg-neutral-200/80 px-1.5 py-0.2 text-[10px] text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">{{ source.category }}</span>
+                </button>
+              </template>
+            </div>
+
+            <!-- Capture Intervals & Downscaling -->
+            <div class="grid grid-cols-1 mt-1 gap-4 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                    Capture Interval
+                  </label>
+                  <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">{{ screenWatchingCaptureIntervalMs }}ms</span>
+                </div>
+                <input
+                  v-model.number="screenWatchingCaptureIntervalMs"
+                  type="range"
+                  min="500"
+                  max="15000"
+                  step="500"
+                  class="h-1.5 w-full cursor-pointer accent-primary-500"
+                >
+                <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                  <span>500ms (High FPS)</span>
+                  <span>2000ms (Standard)</span>
+                  <span>15s (Power Saver)</span>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                    Input Downscale
+                  </label>
+                  <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                    {{ screenWatchingDownscalePercent }}% ({{ Math.round(1280 * screenWatchingDownscalePercent / 100) }}×{{ Math.round(720 * screenWatchingDownscalePercent / 100) }})
+                  </span>
+                </div>
+                <input
+                  v-model.number="screenWatchingDownscalePercent"
+                  type="range"
+                  min="25"
+                  max="100"
+                  step="5"
+                  class="h-1.5 w-full cursor-pointer accent-primary-500"
+                >
+                <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                  <span>25% (Low VRAM)</span>
+                  <span>100% (Native 720p)</span>
+                </div>
               </div>
             </div>
-            <span class="text-[11px] text-neutral-400">Events matching these tags (e.g. build errors, specific titles) trigger candidate interventions.</span>
           </div>
 
-          <!-- Busy Pipe Safeguard -->
-          <div class="flex flex-col gap-2 border border-neutral-200 rounded-lg bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/50">
-            <div class="flex items-start gap-2.5">
+          <!-- 2. Zero-Cost Salience & Interest Tags -->
+          <div class="flex flex-col gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+            <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
+              2. Zero-Cost Salience Gating & Interest Tags
+            </span>
+
+            <!-- Workload Selector -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                Vision Engine Workload
+              </label>
+              <select
+                v-model="screenWatchingWorkload"
+                class="border border-neutral-200 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs outline-none dark:border-neutral-700 dark:bg-neutral-800"
+              >
+                <option value="attention-guard">
+                  Attention Ecology Guard (0-Cost Local WebGPU / OCR)
+                </option>
+                <option value="screen:interpret">
+                  screen:interpret (Full Visual Scene Comprehension)
+                </option>
+                <option value="screen:ocr">
+                  screen:ocr (WASM Text Stream Extraction)
+                </option>
+              </select>
+            </div>
+
+            <!-- Interest Tags -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                High-Salience Interest Keywords & Filter Tags
+              </label>
+              <div class="flex flex-wrap items-center gap-2 border border-neutral-200 rounded-lg bg-neutral-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <span
+                  v-for="(tag, idx) in screenWatchingInterestTags"
+                  :key="tag"
+                  class="flex items-center gap-1.5 border border-primary-200 rounded-md bg-primary-50 px-2.5 py-1 text-xs text-primary-700 font-medium dark:border-primary-800 dark:bg-primary-950/60 dark:text-primary-300"
+                >
+                  <span>#{{ tag }}</span>
+                  <button
+                    type="button"
+                    class="text-primary-400 hover:text-primary-600 dark:hover:text-primary-200"
+                    @click="removeInterestTag(idx)"
+                  >
+                    <span class="i-lucide:x text-[10px]" />
+                  </button>
+                </span>
+                <div class="flex items-center gap-1">
+                  <input
+                    v-model="newTagInput"
+                    type="text"
+                    placeholder="+ Add Keyword"
+                    class="w-28 bg-transparent px-2 py-0.5 text-xs outline-none"
+                    @keydown.enter.prevent="addInterestTag"
+                  >
+                  <button
+                    type="button"
+                    class="rounded bg-neutral-200 px-2 py-0.5 text-[11px] text-neutral-700 font-medium dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-300 hover:text-white"
+                    @click="addInterestTag"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+              <span class="text-[11px] text-neutral-400">Frames matching these tags are automatically promoted and written to the Unified Event Ledger.</span>
+            </div>
+          </div>
+
+          <!-- 3. Cognitive Push & Dialogue Interference -->
+          <div class="flex flex-col gap-3.5 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+            <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
+              3. Cognitive Push & Dialogue Interference
+            </span>
+
+            <!-- Publish to Context Toggle -->
+            <div class="flex items-start gap-2.5 border border-primary-200/70 rounded-lg bg-primary-50/40 p-3.5 dark:border-primary-900/60 dark:bg-primary-950/20">
+              <input
+                id="publish-to-context"
+                v-model="screenWatchingPublishToContext"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 border-gray-300 rounded text-primary-600"
+              >
+              <div class="flex flex-col gap-0.5">
+                <label for="publish-to-context" class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                  Publish Promoted Events to Character Dialogue (Active Push)
+                </label>
+                <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                  When off, promoted visual events are logged quietly to the Event Ledger for Heartbeats. When enabled, high-salience novelties actively trigger proactive character speech.
+                </p>
+              </div>
+            </div>
+
+            <!-- Busy Pipe Safeguard -->
+            <div class="flex items-start gap-2.5 border border-neutral-200 rounded-lg bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/50">
               <input
                 id="defer-while-speaking"
                 v-model="screenWatchingDeferWhileSpeaking"
@@ -375,40 +589,40 @@ const intervalPresets = [2, 5, 10, 20]
                 <label for="defer-while-speaking" class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
                   Busy Pipe Safeguard (Defer & Batch While Speaking)
                 </label>
-                <p class="text-xs text-neutral-500 dark:text-neutral-400">
-                  Never interrupts active TTS speech or streaming chat generation. Queues triggers into a pending batch and consolidates them once conversation clears.
+                <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
+                  Never interrupts active TTS voice generation or streaming chat. Queues triggers into a pending batch and consolidates them once conversation clears.
                 </p>
               </div>
             </div>
-          </div>
 
-          <!-- Interruption Cooldowns -->
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
-                Max Interventions per Hour
-              </label>
-              <input
-                v-model.number="screenWatchingMaxPerHour"
-                type="number"
-                min="1"
-                max="30"
-                class="w-full border border-neutral-200 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-800"
-              >
-              <span class="text-[11px] text-neutral-400">Prevents chat spam during high-activity sessions.</span>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
-                Hysteresis Cooldown (Minutes)
-              </label>
-              <input
-                v-model.number="screenWatchingHysteresisMinutes"
-                type="number"
-                min="1"
-                max="60"
-                class="w-full border border-neutral-200 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-800"
-              >
-              <span class="text-[11px] text-neutral-400">Minimum quiet time required after any promoted intervention.</span>
+            <!-- Rate Limits & Cooldown -->
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                  Max Interventions per Hour
+                </label>
+                <input
+                  v-model.number="screenWatchingMaxPerHour"
+                  type="number"
+                  min="1"
+                  max="30"
+                  class="w-full border border-neutral-200 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                <span class="text-[11px] text-neutral-400">Prevents repetitive chat triggers during intense work sessions.</span>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                  Hysteresis Cooldown (Minutes)
+                </label>
+                <input
+                  v-model.number="screenWatchingHysteresisMinutes"
+                  type="number"
+                  min="1"
+                  max="60"
+                  class="w-full border border-neutral-200 rounded-lg bg-neutral-50 px-3 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                <span class="text-[11px] text-neutral-400">Minimum quiet duration enforced after any promoted speech turn.</span>
+              </div>
             </div>
           </div>
         </div>
