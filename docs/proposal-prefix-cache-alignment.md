@@ -9,57 +9,61 @@ This document outlines the standard for **Prefix Cache Alignment** across AIRI s
 For modern LLM providers supporting prefix caching (such as DeepSeek, OpenRouter, and Gemini), input prompts are cached sequentially starting from the first token.
 
 1. **Prefix Invalidation**: Any dynamic tokens injected early in the sequence (e.g. active window titles, system load, or timestamps placed *above* the conversation history) completely invalidate the cache for everything following them.
-2. **Context Count Mismatches**: Slicing the chat history to different lengths (e.g. 6 messages for proactivity, 15 for suggestions, and all messages for journaling) creates distinct context structures, preventing them from sharing cache hits.
-3. **Optimized Layout**: To maximize cache reuse across different features, we must position the static system prompt and stable conversation history at the beginning (prefix) of the input array, and push volatile sensor telemetry and instructions to the absolute end (tail).
+2. **The Hard Slicing Pitfall**: Physically slicing the message array (`messages.slice(-N)`) shifts token starting indices. Even if the text of recent turns is identical, their offset in the token stream changes completely, turning a warm 98% cached request into a 100% cold cache miss.
+3. **Optimized Layout & Soft Slicing (Tail Framing)**: To maximize cache reuse across different features, we must:
+   - Position the static system prompt and stable conversation history at the beginning (prefix) of the input array.
+   - Keep the historical message sequence intact across auxiliary loops (Proactivity, Suggestions, Journaling).
+   - Constrain character attention and prevent drift through **Tail Framing Directives** (e.g., appending *"Focus your response strictly on the last $N$ dialogue exchanges above"* at the tail) rather than destroying the prefix cache via physical array truncation.
 
 ```
-[System Prompt] -> [Sensor Data (Deltas)] -> [Conversation History] ❌ INVALIDS CACHE ON EVERY HEARTBEAT
-[System Prompt] -> [Conversation History] -> [Tail/Sensor Telemetry] ✅ CACHE HITS SECURED
+[System Prompt] -> [Sensor Data (Deltas)] -> [Conversation History] ❌ INVALIDATES CACHE ON EVERY HEARTBEAT
+[System Prompt] -> [Sliced History (6 msgs)] -> [Instructions]      ❌ BREAKS PREFIX CACHE OF MAIN CHAT
+[System Prompt] -> [Full History (Warm Cache)] -> [Tail Directive]  ✅ 100% CACHE HITS + FOCUSED ATTENTION
 ```
 
 ---
 
 ## 2. Subsystem Audit & Context Profiles
 
-We have identified 4 distinct prompt-compilation flows that build overlapping context arrays.
+We have identified distinct prompt-compilation flows that build overlapping context arrays.
 
 ### A. Proactivity Heartbeat
 * **Path:** [proactivity.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/proactivity.ts#L540-L602)
-* **Default Context:** Historical context (typically recent messages) paired with volatile telemetry (CPU load, active windows, idle seconds).
-* **Caching Strategy:** Must leverage **Global Performance Controls** directly. It does not warrant its own settings panel or character-level controls. Volatile telemetry must be appended as a suffix block at the tail.
+* **Default Context:** Historical context paired with volatile telemetry (CPU load, active windows, idle seconds).
+* **Caching Strategy:** Must leverage **Global Performance Controls** directly. Volatile telemetry is appended as a suffix block at the tail after the warm conversation history.
 
 ### B. Destiny 2 Event-Driven OCR Loop
 * **Path:** [proposal-destiny2-plugin.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/proposal-destiny2-plugin.md)
 * **Default Context:** Tactical officer system prompts, active game state telemetry (HUD crop text recognition), and chat history.
-* **Caching Strategy:** Will leverage **Global Performance Controls** directly. Building dedicated plugin-level caching controls would introduce unnecessary complexity. Game telemetry crops are appended at the tail of the message array.
+* **Caching Strategy:** Leverages **Global Performance Controls** directly. Game telemetry crops are appended at the tail of the message array.
 
 ### C. Producer Lite (Reply Suggestion Generator)
 * **Path:** [use-producer.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/use-producer.ts#L151-L222)
-* **Default Context:** Reconstructs the system prompt, environment sensors, chat transcript, and generating instructions.
-* **Caching Strategy:** Requires **Per-Turn Controls**. The user must be able to override global defaults on a turn-by-turn basis to define whether suggestions use the full session history or slice to the last $X$ turns.
+* **Default Context:** Character system prompt, environment sensors, chat transcript, and reply generation instructions.
+* **Caching Strategy:** Uses **Tail Framing (Soft Slicing)**. The full conversation history prefix remains intact for cache hits, while a tail instruction directs the model: *"Focus suggestions strictly on the last N exchanges above."*
 
 ### D. Journal Moments
 * **Path:** [memory-text-journal.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/memory-text-journal.ts#L431-L501)
 * **Default Context:** Active character system prompt, environmental context, and chat history.
-* **Caching Strategy:** Requires strict **Per-Invocation Controls**. The user must be able to specify the exact history scope for the journal entry (e.g. journaling about the last narrative arc/last $X$ turns vs. summarizing the entire conversation history) to prevent the character from losing focus or drifting into unrelated historical details.
+* **Caching Strategy:** Uses **Tail Framing (Soft Slicing)** with Per-Invocation Controls. To prevent character drift without breaking the prefix cache, the full history prefix is preserved and a tail directive explicitly bounds the reflection scope (e.g. *"Reflect and journal strictly about the last N turns / recent narrative arc above; ignore earlier topics"*).
 
 ### E. VLM "Forward to LLM" Pipeline
 * **Path:** [chat.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts)
 * **Default Context:** When forwarding is enabled, user message history and the image are sent to the VLM to produce a description.
-* **Caching Strategy:** Will benefit from prefix cache alignment by placing the conversation history cleanly at the prefix so that repeated images/messages with identical history prefix cache hits are maximized, and volatile prompt-shims or instructions are kept at the tail.
+* **Caching Strategy:** Maintains conversation history cleanly at the prefix so that repeated images/messages with identical history maximize cache hits, while volatile prompt-shims or image directives are kept at the tail.
 
 ---
 
 ## 3. Global LLM Performance Configurations
 
-To govern default behavior for automated subsystems (Proactivity and Destiny 2) and act as a fallback for user-facing features, we introduce a new global settings store: `useSettingsLlmPerformance`.
+To govern default behavior for automated subsystems (Proactivity and Destiny 2) and act as a fallback for user-facing features, we introduce a global settings store: `useSettingsLlmPerformance`.
 
 ### Store Schema (`packages/stage-ui/src/stores/settings/llm-performance.ts`)
 ```typescript
 export interface LlmPerformanceSettings {
   prefixCacheAlignment: boolean // Aligns prompt segments to maximize prefix cache hits
-  globalHistoryMode: 'full' | 'slice' // Default history scope
-  globalSliceCount: number // Default message count when slicing (defaults to 6)
+  softSlicingEnabled: boolean // Uses tail-framing directives instead of array-slicing to preserve prefix cache
+  defaultFocusRounds: number // Default round count when framing recent focus (defaults to 6)
 }
 ```
 
@@ -71,11 +75,14 @@ This panel will be placed under **Settings > Behavior > LLM Performance**:
 │                                                        │
 │  [X] Enable Prefix Cache Alignment                     │
 │      Re-orders prompt segments (system -> history ->    │
-│      telemetry) to optimize prefix cache hits.         │
+│      telemetry/directives) to maximize cache hits.     │
 │                                                        │
-│  Default Conversation History Scope:                   │
-│  ( ) Slice last [ 6  ] messages (Saves output tokens)  │
-│  (X) Full History (Maximizes character context memory) │
+│  [X] Use Soft Slicing (Tail Framing)                  │
+│      Preserves the full history prefix in the cache    │
+│      and appends focus directives at the tail.         │
+│                                                        │
+│  Default Focus Scope:                                  │
+│  Focus on the last [ 6  ] dialogue rounds             │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -83,7 +90,7 @@ This panel will be placed under **Settings > Behavior > LLM Performance**:
 
 ## 4. The Unified Prefix Builder Utility (`useContextBuilder`)
 
-To dry up context assembly across the four subsystems and handle global fallback logic, we define the `useContextBuilder` composable.
+To dry up context assembly across companion subsystems and enforce cache-preserving tail framing, we define the `useContextBuilder` composable.
 
 ```typescript
 import { useSettingsLlmPerformance } from '../stores/settings/llm-performance'
@@ -92,10 +99,10 @@ export interface ContextBuilderOptions {
   activeCard: any
   messages: any[]
 
-  // Per-turn/Per-invocation Overrides:
+  // Per-turn / Per-invocation Overrides:
   cacheAligned?: boolean
-  historyMode?: 'full' | 'slice'
-  sliceCount?: number
+  softSlicing?: boolean
+  focusRounds?: number
 
   // Telemetry & Instructions:
   injectSensors?: boolean
@@ -110,13 +117,17 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
     ? options.cacheAligned
     : performanceSettings.prefixCacheAlignment
 
-  const mode = options.historyMode !== undefined
-    ? options.historyMode
-    : performanceSettings.globalHistoryMode
+  const isSoftSlicing = options.softSlicing !== undefined
+    ? options.softSlicing
+    : performanceSettings.softSlicingEnabled
 
-  const sliceLimit = options.sliceCount !== undefined
-    ? options.sliceCount
-    : performanceSettings.globalSliceCount
+  const focusRounds = options.focusRounds !== undefined
+    ? options.focusRounds
+    : performanceSettings.defaultFocusRounds
+
+  if (!isCacheAligned) {
+    return compileFlatLegacyPrompt(options) // Fallback to unaligned layout
+  }
 
   const systemMessages: Array<{ role: 'system', content: string }> = []
 
@@ -126,19 +137,16 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
     systemMessages.push({ role: 'system', content: baseSystemPrompt })
   }
 
-  // 2. Conversation History
-  // Filters out system messages and formats the history turns
+  // 2. Full Conversation History (Preserving the warm prefix cache)
   const chatMessages = options.messages.filter(m => m.role === 'user' || m.role === 'assistant')
-  const historyLimit = mode === 'slice' ? sliceLimit : chatMessages.length
-  const conversationMsgs = chatMessages.slice(-historyLimit)
 
-  const formattedHistory = conversationMsgs.map(m => ({
+  // Format message history without truncating prefix tokens
+  const formattedHistory = chatMessages.map(m => ({
     role: m.role,
-    content: extractRawText(m.rawContent || m.content)
+    content: extractRawText(m.rawContent || m.content),
   }))
 
-  // 3. Volatile Sensor Payloads & Context Overlays
-  // CRITICAL: Appended AFTER the static prefix or history to protect cache alignment
+  // 3. Volatile Sensor Payloads & Context Overlays (Tail System Message)
   const suffixDirectives: string[] = []
   if (options.injectSensors) {
     const proactivityStore = useProactivityStore()
@@ -147,21 +155,29 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
     }
   }
 
-  // Combine instructions and volatile telemetry into system instructions at the tail
   if (suffixDirectives.length > 0) {
     systemMessages.push({ role: 'system', content: suffixDirectives.join('\n---\n') })
   }
 
-  // 4. Instructions / Actions (The tail of the prompt)
+  // 4. User Messages & Tail Focus Framing
   const userMessages = [...formattedHistory]
+  const tailInstructions: string[] = []
+
+  // Soft Slicing: Guide model attention without breaking the prefix cache
+  if (isSoftSlicing && focusRounds && focusRounds > 0 && chatMessages.length > focusRounds) {
+    tailInstructions.push(`[FOCUS DIRECTIVE]: You are provided with the full dialogue history above for context continuity, but you must focus your task and reflection strictly on the last ${focusRounds} dialogue exchanges.`)
+  }
+
   if (options.instructionSuffix) {
-    userMessages.push({ role: 'user', content: options.instructionSuffix })
+    tailInstructions.push(options.instructionSuffix)
+  }
+
+  if (tailInstructions.length > 0) {
+    userMessages.push({ role: 'user', content: tailInstructions.join('\n\n') })
   }
 
   return {
-    messages: isCacheAligned
-      ? [...systemMessages, ...userMessages]
-      : compileFlatLegacyPrompt(options) // Fallback to unaligned layout
+    messages: [...systemMessages, ...userMessages],
   }
 }
 ```
@@ -171,44 +187,42 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
 ## 5. Subsystem Integration & UI Controls
 
 ### A. Proactivity Heartbeat
-* **No UI Changes**: The proactivity loop calls `compileCacheAlignedPrompt` without passing `historyMode` or `sliceCount`, inheriting the global behavior settings directly.
-* **Prompt Assembly**: Telemetry data (idle time, load, window titles) is pushed to the tail of the message chain.
+* **Behavior**: The proactivity loop calls `compileCacheAlignedPrompt` with `injectSensors: true`.
+* **Prompt Assembly**: History prefix remains warm; telemetry data (idle time, load, window titles) is pushed to the tail.
 
 ### B. Destiny 2 OCR Plugin
-* **No UI Changes**: The Destiny 2 OCR agent invokes the prompt builder utilizing global fallbacks.
-* **Prompt Assembly**: The HUD recognition details (e.g. weapon loadouts, score differentials, super status) are formatted as a tail directive after the conversation history.
+* **Behavior**: The Destiny 2 OCR agent invokes the prompt builder utilizing global fallbacks.
+* **Prompt Assembly**: HUD recognition details (weapon loadouts, score differentials, super status) are formatted as a tail directive after the conversation history.
 
 ### C. Producer Lite (Per-Turn Controls)
-* **UI Controls**: We add control toggles within the reply suggestions popover or settings sidebar.
+* **UI Controls**: Control toggles within the reply suggestions popover or settings sidebar.
   ```
   [Suggestions Options]
-  History Source:
-  (o) Use Global Default
-  ( ) Full History
-  ( ) Slices Last [ 6 ] Turns
+  Focus Scope:
+  (o) Soft Focus on last [ 6 ] rounds (Prefix-Cache Preserved)
+  ( ) Full History Context
   ```
-* **Invocation**: Passes user selections directly to the suggestions request.
+* **Invocation**: Passes focus parameters directly to the suggestions request:
   ```typescript
   // Inside useProducer.ts
   const prompt = compileCacheAlignedPrompt({
     activeCard: activeCard.value,
     messages: options.messages,
-    historyMode: localHistoryMode.value, // 'full' | 'slice' | undefined (for global fallback)
-    sliceCount: localSliceCount.value, // number | undefined
+    softSlicing: true,
+    focusRounds: localFocusRounds.value,
     instructionSuffix: compiledInstructions,
   })
   ```
 
 ### D. Journal Moments (Per-Invocation Controls)
-* **UI Controls**: When triggering a journal moment (e.g., from the conversation action menu), a modal or mini-overlay prompts the user to select the narrative context scope.
+* **UI Controls**: When triggering a journal moment (e.g. from the conversation action menu), a modal or mini-overlay prompts the user to select the reflection scope:
   ```
   [Create Journal Entry]
-  Choose Context Window:
-  ( ) Journal about the entire chat session (Full History)
-  (o) Journal about the last [ 10 ] turns (Recent Arc)
-      Prevents character from drifting or journaling about older topics.
+  Choose Focus Scope:
+  (o) Soft Focus on the last [ 10 ] turns (Recent Arc - Cache Preserved)
+  ( ) Journal about entire chat history
   ```
-* **Invocation**: Maps the selection to the invocation input for prompt generation.
+* **Invocation**: Maps the selection to the invocation input for prompt generation:
   ```typescript
   // Inside memory-text-journal.ts
   async function createJournalMoment(input: {
@@ -216,8 +230,8 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
     instructions?: string
     modelId: string
     providerId: string
-    historyMode?: 'full' | 'slice'
-    sliceCount?: number
+    softSlicing?: boolean
+    focusRounds?: number
   }) {
     // Passes overrides directly to useContextBuilder / compileCacheAlignedPrompt
   }
