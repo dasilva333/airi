@@ -8,9 +8,14 @@ import { WebSocketServer } from 'ws'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.MATE_HARNESS_PORT ?? 6171)
 const MODEL_PATH = path.resolve(process.env.MATE_MODEL_PATH ?? path.join(here, '..', 'test-model.vrm'))
+const IDLE_ANIMATIONS = (process.env.MATE_IDLE_ANIMATIONS ?? '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
 
 console.log(`[harness] model path: ${MODEL_PATH}`)
 console.log(`[harness] model exists: ${fs.existsSync(MODEL_PATH)}`)
+console.log(`[harness] idle animations: ${IDLE_ANIMATIONS.length > 0 ? IDLE_ANIMATIONS.join(', ') : '(none)'}`)
 
 const wss = new WebSocketServer({ port: PORT })
 console.log(`[harness] listening on ws://localhost:${PORT}`)
@@ -22,6 +27,13 @@ wss.on('connection', (ws) => {
     type: 'stage:vrm:load',
     data: { modelPath: MODEL_PATH },
   }))
+
+  if (IDLE_ANIMATIONS.length > 0) {
+    ws.send(JSON.stringify({
+      type: 'stage:vrm:idle',
+      data: { idleAnimations: IDLE_ANIMATIONS },
+    }))
+  }
 
   const ping = setInterval(() => {
     if (ws.readyState === ws.OPEN) {
