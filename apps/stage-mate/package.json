@@ -1,0 +1,16 @@
+{
+  "name": "@proj-airi/stage-mate",
+  "type": "module",
+  "private": true,
+  "description": "Mate-Engine sidecar prototype: headless mock harness + Unity VRM sidecar",
+  "scripts": {
+    "harness": "tsx harness/index.ts"
+  },
+  "dependencies": {
+    "@types/ws": "catalog:",
+    "ws": "catalog:"
+  },
+  "devDependencies": {
+    "tsx": "catalog:"
+  }
+}

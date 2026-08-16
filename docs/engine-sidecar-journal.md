@@ -23,9 +23,17 @@ The current upstream path is a "slow grind." The Godot VRM 1.0 runtime integrati
 Instead of building a Godot-based rendering pipeline from scratch, we evaluate the adoption of [Mate-Engine](https://github.com/shinyflvre/Mate-Engine) as a sidecar alternative for VRM rendering.
 
 ### Why Mate-Engine?
-* **Out-of-the-Box Stability**: Written in C# and ShaderLab (Unity), Mate-Engine is already a stable, mature, and highly performant VRM desktop rendering engine. It handles custom shaders, desktop transparency, physics, and window overlays natively.
-* **Overhead Bypass**: Rather than spending months hand-rolling a Godot scene importer, we treat the compiled Mate-Engine binary as a Sidecar runtime that connects via WebSockets to AIRI (`server-runtime`).
-* **Cross-OS Support**: Unity natively targets Windows, macOS, and Linux with standard driver support and low latency rendering.
+
+> **Correction (2026-08-16, from the actual [`shinyflvre/Mate-Engine`](https://github.com/shinyflvre/Mate-Engine) README).** The prior "Cross-OS" claim was wrong.
+
+- **What it is**: a free, open-source **Desktop Mate alternative** — a Unity (C# + ShaderLab) desktop-pet application that renders custom VRM avatars on the desktop with transparency, window/taskbar sitting, and physics.
+- **Already has the hard parts**: head/eye/spine tracking, touch regions, blendshape editing, idle/drag/dance animation, custom shaders, a built-in modding SDK, and an MMD music-dance player. Much of what this journal earlier listed as "re-implement in C#" (tactile/gaze) is **already shipped** — we extend, not rebuild.
+- **Overhead Bypass**: rather than months hand-rolling a Godot scene importer, we treat the compiled Mate-Engine binary as a sidecar that connects to AIRI over WebSocket (`server-runtime`).
+- **VRM is the entry format, not the ceiling**: Mate-Engine loads VRM natively; MMD/Spine/Live2D remain Phase 1+ (§Multi-Format).
+- **Licensing**: GNU AGPLv3 + MateProv2. The default avatar is **All Rights Reserved** (Yorshka Shop) and must **not** be redistributed in our builds. Qwen 2.5 1.5b LLM is Apache-2.0.
+- **Platform reality**: upstream ships a Windows exe (`MateEngineX.exe`) plus a community **Linux port**. There is **no upstream macOS build** — on macOS dev machines (this repo) we must build the Unity project ourselves via Unity Hub. That is a Phase 0 risk, not a given.
+
+> **Mate-Engine vs UniVRM**: they are not interchangeable. [UniVRM](https://github.com/vrm-c/UniVRM) is the VRM Consortium's official *Unity library* for loading/driving VRM models at runtime — the kind of package Mate-Engine uses *internally* (VRM-in-Unity is almost always UniVRM). Mate-Engine is the *application* we fork. We are **not** building a fresh UniVRM project; that would re-implement the desktop-pet shell Mate-Engine already provides.
 
 ---
 
@@ -369,6 +377,118 @@ When offloading rendering to Unity, gaze can operate in two distinct modes:
 
 ---
 
+## 🧪 Phase 0 — Prototype Spike (Pre-MVP)
+
+> **Status: ✅ COMPLETE (2026-08-16).** Two native processes — a Node/TS mock harness and a real Mate-Engine Unity build — talk over WebSocket. The Unity side renders a local `.vrm` in T-pose, centered with floor + sky, with working drag-to-orbit + scroll-to-zoom controls, and a red→green connection dot.
+
+> **This is the entry point.** It precedes and is far smaller than MVP. Do not begin MVP until Phase 0 passes its definition of done.
+
+### Goal
+
+Prove, with the least code, the two things the entire sidecar bet rests on:
+
+1. A headless **mock harness** (Node/TS) can hold a WebSocket connection to a **separate native process**.
+2. That native process — a real **Mate-Engine / Unity** build — opens a window, renders a VRM loaded from a **local file path**, and reflects connection state in the UI.
+
+### Definition of Done
+
+- `pnpm -F @proj-airi/stage-mate harness` starts the headless mock harness on `ws://localhost:6171`.
+- Launching the Mate-Engine build opens a window.
+- A status dot is **red** while disconnected and turns **green** once the WebSocket connects.
+- The harness sends `stage:vrm:load { modelPath }`; the window loads and renders the model (a fixed T-pose is acceptable).
+
+### Hard Constraints (non-negotiable)
+
+- **Option A only.** The "other process" MUST be the real Unity / Mate-Engine build. A WebGL or Electron stub reusing the existing three.js stack is explicitly rejected — it re-uses the stack AIRI already ships and therefore validates nothing about native offload.
+- **No shortcuts that defer the hard problem.** The point of Phase 0 is to do the difficult Mate-Engine work first, not to paper over it.
+
+### Repo Layout
+
+```
+apps/stage-mate/                      # package @proj-airi/stage-mate (pnpm workspace)
+  package.json                        # `harness` script: pnpm -F @proj-airi/stage-mate harness
+  harness/index.ts                    # headless mock WS server (tsx + raw `ws`) on :6171
+  .gitignore                          # ignores *.vrm and mate-engine/
+  test-model.vrm                      # gitignored local test asset (generic name)
+  mate-engine/                        # vendored/forked Mate-Engine Unity project (gitignored)
+    Assets/StageMate/MateSidecar.cs           # C#: WS client + VRM loader + status dot + orbit cam
+    Assets/StageMate/MateSidecarBuild.cs      # editor script: builds scene + StandaloneOSX .app
+    Assets/StageMate/MateSidecarScene.unity   # generated scene (camera rig, light, sidecar)
+    Build/StageMate.app                       # built macOS app (clickable, no .dmg needed)
+```
+
+Package name: `@proj-airi/stage-mate`.
+
+### Launch & Run
+
+```sh
+# terminal 1 — mock harness (ws://localhost:6171)
+pnpm -F @proj-airi/stage-mate harness
+
+# terminal 2 — launch the app (either opens Finder-handshaked or runs directly)
+open apps/stage-mate/mate-engine/Build/StageMate.app
+apps/stage-mate/mate-engine/Build/StageMate.app/Contents/MacOS/MateEngineX
+```
+
+The built binary is named `MateEngineX` (the fork's PlayerSettings Product Name); the folder it lives in is `StageMate.app`. A `.dmg` is *not* required — a clickable `.app` bundle is the usable artifact. The model loads on `Start()` regardless of the harness (WebSocket is connection-status only for the dot); the harness's `stage:vrm:load` can also drive a reload over the wire.
+
+### macOS Porting Notes (what we changed to make it build)
+
+The vendored fork is Windows-first. It **compiles and imports cleanly on macOS after two small, convention-matching fixes** — no deep porting was needed:
+
+- **Script compilation on Mac originally failed with 62 `CS0246` errors in exactly two files**: `Assets/MATE ENGINE - Scripts/AvatarHandlers/AvatarWindowHandler.cs` and `AvatarHideHandler.cs` (the "window sitting / window hiding" features). Root cause: the author wrapped the P/Invoke + struct *declarations* (`RECT`, `POINT`, `WindowEntry`, `WINDOWPLACEMENT`, `MONITORINFO`) in `#if UNITY_STANDALONE_WIN`, but the *fields/methods that reference them* were left unguarded.
+- **Fix**: removed the two `#if UNITY_STANDALONE_WIN` / `#endif` wrappers so the DllImports + structs are always declared — matching how the *sibling* Windows handlers (`AvatarGravityController`, `AvatarTaskbarController`, `AvatarLocomotionController`, `AvatarSwayController`) already ship their DllImports unguarded. On Mac those declarations compile fine; they'd only throw at runtime if actually invoked (they aren't in the reduced scene).
+- **Toolchain**: Unity `6000.2.6f2` + `MacStandaloneSupport` module via Unity Hub. Required a valid Unity Personal license (the auto-generated `AUTHENTICATION_TOKEN` hub is separate from Unity's own licensing).
+- **Non-fatal import warnings** (do not block): 3 bundled DLC `.vrm` (`Zome`, `Lazuli_VRM`, `aldina`) fail import with `ArgumentNullException`; `kage-master`'s nested `XRSettings.asset` fails to load; `MToon10` URP fallback shader missing. None affect our empty scene.
+- **pnpm workspace**: `apps/**` glob was reaching the Unity `Library/PackageCache/*/package.json` files inside `mate-engine/`. Fixed by excluding it in `pnpm-workspace.yaml` (`'!apps/stage-mate/mate-engine/**'`).
+
+### Prototype Gotchas (learned the hard way)
+
+- **Enable renderers after VRM load.** UniVRM imports can leave `SkinnedMeshRenderer` disabled, so the model loads into the scene graph (`stage:vrm:ready` fires) but renders nothing. The upstream `VRMLoader.FinalizeLoadedModel` calls `EnableSkinnedMeshRenderers`; our `MateSidecar` must too (`EnableAllRenderers`).
+- **Camera orientation is manual.** The first build pointed the camera *away* from the model (you only saw the default skybox). Fixed with an explicit camera rig + `LookAt`-style framing; orbit controls were added since the scene has no editor/tooling to pan with.
+- **Load the model on `Start()`, not on WS-connect.** First iteration gated the fallback load behind the WebSocket connect, so the model only appeared with the harness running. It now loads unconditionally at startup.
+
+### Wire Protocol (v0)
+
+- Server: `ws://localhost:6171` (env-overridable via `MATE_HARNESS_PORT`).
+- Plain JSON frames, no auth, no superjson, no heartbeat protocol (all deferred).
+
+Harness → engine:
+
+```json
+{ "type": "stage:vrm:load", "data": { "modelPath": "<abs path to test-model.vrm>" } }
+{ "type": "ping", "data": { "t": 1234567890 } }
+```
+
+Engine → harness:
+
+```json
+{ "type": "stage:vrm:ready", "data": { "modelPath": "..." } }
+```
+
+The periodic `ping` is how the window proves *live data flow* (brief blink per received frame), distinct from the socket-open green dot.
+
+### Model Asset Handling
+
+- The test VRM is copied into `apps/stage-mate/test-model.vrm` and **gitignored** so personal paths and the ~20 MB binary never leak into the repo or the harness config.
+- Mate-Engine reads it **directly from the local filesystem path** — the "just read the file locally" prototype answer. No IndexedDB mounting, no binary streaming.
+
+### Explicitly Deferred (out of Phase 0)
+
+- Lip-sync / RMS telemetry, beat-sync bridging
+- Control Customizer toggle (`stage:vrm:visibility`)
+- Token provisioning / `module:authenticate` handshake / superjson / heartbeat
+- `route.destinations` multi-peer routing
+- Model materialization from IndexedDB blobs
+- All non-VRM formats (MMD/Spine/Live2D), gaze, and tactile interaction
+
+### Open Questions (resolve before/while building)
+
+- **How to vendor Mate-Engine:** git-submodule vs. vendored copy of `shinyflvre/Mate-Engine` under `apps/stage-mate/mate-engine/`. (We fork the *app*; we do **not** build a fresh UniVRM scene — UniVRM is just the library Mate-Engine already uses internally.)
+- **macOS build path:** upstream has no macOS build. Confirm we can open the Unity project in Unity Hub and build a macOS target, or whether Phase 0 must run under the Linux port / Windows. This is the biggest Phase 0 unknown.
+
+---
+
 ## 🏁 Minimum Viable Product (MVP) Specification
 
 To provide a clear, achievable target for early development without scope creep, the MVP threshold for MATE Engine integration is defined across 5 core requirements:
@@ -434,10 +554,18 @@ Launching the full AIRI application, LLM pipeline, and Electron runtime on every
 
 ## 📅 Roadmap & Next Steps
 
-1. **Developer Mock Harness**: Ship `scripts/mock-airi-stage-server.ts` to simulate AIRI WebSocket events for Unity sidecar testing.
-2. **Standalone WebSocket Handshake**: Implement `Client` handshake in MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
-3. **Proxy Gateway Relay**: Add the `StageProxyGateway` service in AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
-4. **Control Customizer Toggle**: Add `MATE Engine Stage` switch under the **Stage View** section in the Control Customizer.
-5. **Tactile & Gaze Telemetry**: Implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
-6. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
+### Phase 0 — Prototype Spike (✅ complete)
+
+1. ✅ **Headless mock harness**: `apps/stage-mate/harness` — raw `ws` server on `:6171` that pushes `stage:vrm:load` + periodic `ping`.
+2. ✅ **Mate-Engine sidecar**: fork/vendor `apps/stage-mate/mate-engine`, C# WS client (`MateSidecar.cs`) connects to the harness and loads the local `test-model.vrm`, red→green status dot.
+3. ✅ **Definition of Done**: harness + Unity window side-by-side, dot green, model visible (T-pose, centered, orbit/zoom working).
+
+### Phase 1 — MVP (deferred; Phase 0 passed)
+
+1. **Developer Mock Harness (full)**: extend the Phase 0 harness to simulate the real `module:authenticate` $\rightarrow$ `module:announce` handshake and all `stage:vrm:*` events for Unity sidecar testing.
+2. **Standalone WebSocket Handshake**: implement the `Client` handshake in the MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
+3. **Proxy Gateway Relay**: add the `StageProxyGateway` service in the AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
+4. **Control Customizer Toggle**: add `MATE Engine Stage` switch under the **Stage View** section in the Control Customizer.
+5. **Tactile & Gaze Telemetry**: implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
+6. **Compare Resource Usage**: benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
 

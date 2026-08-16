@@ -9,6 +9,7 @@ packages:
   - docs/**
   - apps/**
   - '!**/dist/**'
+  - '!apps/stage-mate/mate-engine/**'
 overrides:
   array-flatten: npm:@nolyfill/array-flatten@^1.0.44
   axios: npm:feaxios@^0.0.23
