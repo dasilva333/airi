@@ -844,6 +844,30 @@ Based on empirical testing of the compiled base player (`MateEngineX.exe`), we u
 
 ---
 
+### 11. Architecture Pivot: Subtractive Adaptation of Production Scene over Cleanroom Synthesis
+
+#### Empirical Finding (2026-08-17)
+During the Phase 1 decomposition execution, we attempted a **cleanroom scene synthesis** approach (`MateSidecarScene.unity`), constructing empty scenes programmatically in Unity batchmode with custom components (`VrmModelDriver`, `StageMateCameraRig`, `StageMateWindowManager`, `VrmSwayDriver`).
+
+While the modular C# contracts and WebSocket state-sync protocol succeeded, cleanroom synthesis on Windows 11 / Direct3D 11 exposed severe engine-level friction:
+1. **Hidden Engine State & Shader Compositing**: Unity scenes carry implicit settings (Lighting ambient modes, skybox passes, PostProcessLayer alpha retention with `keepAlpha: 1`, DWM swapchain flags, LayerMasks). In an empty scene, Direct3D 11 compositing with `DwmExtendFrameIntoClientArea` renders transparent backgrounds as solid white if any lighting, MSAA, HDR, or shadow pass writes opaque alpha.
+2. **Re-inventing Calibrated Systems**: Mate-Engine's original scene (`Mate Engine Main.unity`) represents years of tuning: physics spring-damper curves, smooth crossfade curves, shadow projector shaders, pie menus (`CircleSelector.cs`), multi-layer animations, and lighting rigs. Cleanroom synthesis requires reverse-engineering each delicate visual detail by hand.
+
+#### The Pivot Decision
+**Pivot from Cleanroom Synthesis to Subtractive Adaptation**:
+- **Strategy**: Use the tested, production-grade `Mate Engine Main.unity` scene as the base canvas.
+- **Implementation**:
+  1. Attach a lightweight **`StageMateBridge`** component to `Mate Engine Main.unity`.
+  2. The bridge connects to AIRI WebSocket IPC (`ws://localhost:6171`), receives viewport/mode/model sync events, and routes them to Mate Engine's existing native controllers (`AvatarAnimatorController`, `UniWindowController`, `VrmLoader`).
+  3. Strip/bypass standalone standalone UI menus that AIRI doesn't need (or let AIRI drive them via IPC).
+- **Benefits**:
+  - Out-of-the-box native transparency and real-time desktop drop shadows.
+  - Battle-tested, fluid idle transitions, breathing, and physics springs without drift.
+  - Zero-effort inheritance of the radial pie context menu (`CircleSelector.cs`), perspective zoom, and physics interactions.
+  - Minimal maintenance surface: a single clean bridge script rather than rebuilding the entire Unity engine runtime.
+
+---
+
 ## 📅 Roadmap & Next Steps
 
 ### Phase 0 — Prototype Spike (✅ Complete)
@@ -852,14 +876,15 @@ Based on empirical testing of the compiled base player (`MateEngineX.exe`), we u
 3. ✅ **Dynamic Model Cache Gate (Option A)**: Stateless query-first cache gate in Electron Main (`userData/stage-mate-cache/`) with atomic write safety and in-flight deduplication.
 4. ✅ **Control Strip Customizer Integration**: Added `stage-mate` toggle to `CUSTOMIZER_CATALOG`, with live status dot and action handlers.
 
-### Phase 1 — State Sync, Viewport Controls & Decomposition (✅ In Progress)
+### Phase 1 — State Sync, Viewport Controls & Subtractive Bridge (🔄 Active Pivot)
 1. ✅ **`stage:state:sync` Post-Handshake Bootstrap**: Unified state snapshot emission from Electron Main / `StageMateService` (window bounds, model path, positioning, mode, visibility).
 2. ✅ **Tier 1 & Tier 2 Positioning**: Desktop window bounds saved to `config.json`, and in-canvas model offsets committed to `usePositioningStore`.
 3. ✅ **LookAt Decoupling & Fix**: Explicitly neutralized UniVRM LookAt components when gaze is inactive to eliminate head inversion.
 4. ✅ **Clean Source Overlay (`unity-src/`)**: Isolated all custom code into `apps/stage-mate/unity-src/` and verified multi-platform build scripts.
 5. ✅ **Base Mate-Engine Feature Tour**: Evaluated upstream capabilities and finalized the cherry-picking architecture.
-6. ⏳ **Monolith Decomposition Execution**: Refactor `MateSidecar.cs` into modular services (`Core/`, `Window/`, `Viewport/`, `Companion/`, `Models/`) incorporating the drop shadow, hand holding, head petting, waist drag, and macaron bed.
-7. ⏳ **Live Lip-Sync Relay**: Connect `stage:vrm:lip-sync` RMS stream to `VrmModelDriver.cs` mouth blendshapes.
+6. ✅ **Modular IPC & StateSync Proof-of-Concept**: Validated WebSocket state sync, protocol envelopes, and dynamic model resolver (`feat(stage-mate)` snapshot).
+7. ⏳ **Subtractive Adaptation of `Mate Engine Main`**: Hook `StageMateBridge.cs` into `Mate Engine Main.unity` native controllers, disable redundant standalone UI, and verify native transparency + pie menu.
+8. ⏳ **Live Lip-Sync Relay**: Connect `stage:vrm:lip-sync` RMS stream to Mate Engine mouth blendshapes.
 
 ---
 
@@ -868,6 +893,7 @@ Based on empirical testing of the compiled base player (`MateEngineX.exe`), we u
 - MMD Dance Player integration via `airi::beat-sync` (`<|ACT:motion="dance"|>`).
 - Centralized vision/gaze tracking (`stage:vrm:gaze`).
 - Automatic sidecar executable lifecycle management (`execProcess`).
+
 
 
 

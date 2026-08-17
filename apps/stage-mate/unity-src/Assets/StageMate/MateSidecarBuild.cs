@@ -10,12 +10,27 @@ using UnityEngine.SceneManagement;
 
 public static class MateSidecarBuild
 {
+    private const string MainScenePath = "Assets/MATE ENGINE - Scenes/Mate Engine Main.unity";
     private const string ScenePath = "Assets/StageMate/MateSidecarScene.unity";
     private const string BuildDir = "Build/StageMate";
     private const string IdleControllerPath = "Assets/StageMate/StageMateIdleController.controller";
     private const string PlaceholderAPath = "Assets/StageMate/StageMateIdleA.anim";
     private const string PlaceholderBPath = "Assets/StageMate/StageMateIdleB.anim";
     private const string IdleClipFolder = "Assets/MATE ENGINE - Animations/PET_IDLE";
+
+    public static void EnsureBridgeInMainScene()
+    {
+        var scene = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Single);
+        var existing = GameObject.Find("StageMateBridge");
+        if (existing == null)
+        {
+            var bridgeGO = new GameObject("StageMateBridge");
+            bridgeGO.AddComponent<StageMate.Core.StageMateBridge>();
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[MateSidecarBuild] Injected StageMateBridge into {MainScenePath}");
+        }
+    }
 
     public static void Build()
     {
@@ -24,13 +39,13 @@ public static class MateSidecarBuild
 
     public static void BuildMac()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         Directory.CreateDirectory(BuildDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(BuildDir, "StageMate.app"),
             target = BuildTarget.StandaloneOSX,
             options = BuildOptions.None,
@@ -44,14 +59,14 @@ public static class MateSidecarBuild
 
     public static void BuildWindows()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         var winDir = "Build/Windows";
         Directory.CreateDirectory(winDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(winDir, "StageMate.exe"),
             target = BuildTarget.StandaloneWindows64,
             options = BuildOptions.None,
@@ -65,35 +80,19 @@ public static class MateSidecarBuild
 
     public static void BuildOriginalWindows()
     {
-        var mainScene = "Assets/MATE ENGINE - Scenes/Mate Engine Main.unity";
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(mainScene, true) };
-
-        var outDir = "Build/MateEngineMain";
-        Directory.CreateDirectory(outDir);
-        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
-        {
-            scenes = new[] { mainScene },
-            locationPathName = Path.Combine(outDir, "MateEngineX.exe"),
-            target = BuildTarget.StandaloneWindows64,
-            options = BuildOptions.None,
-        });
-
-        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
-            Debug.Log($"[MateSidecarBuild] original mate engine build succeeded: {outDir}");
-        else
-            Debug.LogError($"[MateSidecarBuild] original mate engine build failed: {report.summary.result}");
+        BuildWindows();
     }
 
     public static void BuildLinux()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         var linuxDir = "Build/Linux";
         Directory.CreateDirectory(linuxDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(linuxDir, "StageMate.x86_64"),
             target = BuildTarget.StandaloneLinux64,
             options = BuildOptions.None,
