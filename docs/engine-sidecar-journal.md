@@ -672,21 +672,158 @@ Post-handshake, AIRI pushes a comprehensive bootstrap state snapshot to Stage-Ma
 
 ---
 
+### 6. The LookAt Decoupling & Inverted Head Post-Mortem
+
+#### The Bug
+During initial stage testing, when dragging the avatar across the screen or translating local model position in canvas space, the avatar's head, face mesh, eyes, and neck would suddenly vanish or invert backwards into the hollow cavity of the hair geometry.
+
+#### Root Cause
+Even when custom procedural head tracking was toggled off, UniVRM's internal components (`VRMLookAtHead` in VRM 0.x and `Vrm10Instance.LookAtTarget` in VRM 1.0) remained active in UniVRM's own internal `LateUpdate()` loop.
+These components were locked to a static world coordinate target at `(0, 1.3, -3)` (the camera location). When the avatar was translated away from the origin (e.g. panned to the left, right, or top), the target coordinate ended up behind the model's new local coordinate space. UniVRM's solver calculated a 180° reverse yaw/pitch angle and violently twisted the neck and head bones backwards into the hair.
+
+```
+[ Model at Origin (0,0,0) ] ──────(Normal 0° LookAt)─────▶ [ Camera Target (0,1.3,-3) ]
+                                                                      ▲
+[ Model Dragged to (2,1,0) ] ─────(180° Inverted LookAt)──────────────┘
+(Head snaps backwards into hair cavity!)
+```
+
+#### The Invariant & Fix
+1. **Explicit Component Neutralization**: When gaze/head-tracking is disabled or when the viewport is in translation/drag mode, UniVRM LookAt targets must be explicitly detached and disabled:
+   - VRM 1.0: `vrm10.LookAtTarget = null;`
+   - VRM 0.x: `vrm0LookAt.Target = null; vrm0LookAt.enabled = false;`
+2. **Elimination of Inline Tracking Cruft**: All temporary bone drivers (`HeadDriver`, `SpineDriver`, `lookAtTargetTransform`) must not be lazily left ticking in `LateUpdate()`.
+3. **Canonical Gaze Architecture**: Gaze tracking must be driven centrally by AIRI's global OS/sensor coordinates via `stage:vrm:gaze` and consumed cleanly by a dedicated model driver, rather than hardcoding viewport-local mouse positions.
+
+---
+
+### 7. Clean Source Overlay (`unity-src/`) & Monorepo Bloat Isolation
+
+#### Problem Statement
+The upstream Mate-Engine repository is over 500MB of heavy 3D assets, textures, third-party vendor shaders (LilToon, etc.), and sample scenes. Committing this directly to the AIRI monorepo would cause massive git bloat and slow down clone/fetch operations.
+
+#### Architecture Solution
+We isolate our custom work in [`apps/stage-mate/unity-src/`](../apps/stage-mate/unity-src/) while keeping `apps/stage-mate/mate-engine/` strictly in `.gitignore`.
+
+```
+apps/stage-mate/
+├── unity-src/                               # TRACKED in Git (Clean C#, Scenes, Build scripts)
+│   ├── Assets/StageMate/
+│   │   ├── MateSidecar.cs                   # Sidecar socket & runtime logic
+│   │   ├── MateSidecarBuild.cs              # Multi-target batchmode compiler
+│   │   ├── MateSidecarScene.unity           # Lightweight empty companion stage scene
+│   │   └── StageMateIdleController.*        # Procedural idle animation controllers
+│   ├── Assets/StreamingAssets/              # Mock config stubs (LLMManager.json)
+│   ├── Patches/                             # Cross-platform P/Invoke patches
+│   │   └── AvatarHandlers/                  # AvatarHideHandler.cs, AvatarWindowHandler.cs
+│   ├── ProjectSettings/                     # Standalone EditorBuildSettings.asset
+│   ├── README.md                            # Directory architecture documentation
+│   └── build.sh                             # Fast local macOS build script
+├── mate-engine/                             # GITIGNORED (Local 500MB+ Unity workspace)
+└── scripts/
+    ├── setup.ts                             # Clones base Mate-Engine & overlays unity-src/
+    └── build.ts                             # Cross-platform TypeScript build runner
+```
+
+#### Automation Workflow
+1. `pnpm -F @proj-airi/stage-mate setup` (`scripts/setup.ts`):
+   - Clones upstream `shinyflvre/Mate-Engine` if not present.
+   - Copies `unity-src/` overlay into `mate-engine/Assets/StageMate/`.
+   - Applies cross-platform macOS P/Invoke patches.
+2. `pnpm -F @proj-airi/stage-mate build [mac|win|linux|all]` (`scripts/build.ts`):
+   - Auto-discovers the local Unity executable path.
+   - Runs `MateSidecarBuild.Build[Target]` in non-interactive batchmode.
+
+---
+
+### 8. Cross-Platform Build Pipeline & Multi-OS Discovery
+
+#### 1. Multi-Target Build Methods (`MateSidecarBuild.cs`)
+`MateSidecarBuild.cs` defines dedicated entry points for each operating system:
+* `BuildMac()`: Produces `Build/StageMate.app` (`StandaloneOSX`).
+* `BuildWindows()`: Produces `Build/Windows/StageMate.exe` (`StandaloneWindows64`).
+* `BuildLinux()`: Produces `Build/Linux/StageMate.x86_64` (`StandaloneLinux64`).
+* `BuildAll()`: Batch compiles all configured targets.
+
+#### 2. Cross-Platform Executable Resolution (`StageMateService.resolveBinaryPath`)
+Electron Main automatically resolves the correct executable depending on the host OS and environment (dev vs. packaged extraResources):
+* **Windows (`win32`)**: Checks `Build/Windows/StageMate.exe`, `Build/StageMate.exe`, and `resourcesPath/StageMate.exe`.
+* **macOS (`darwin`)**: Checks `Build/StageMate.app`, `Build/macOS/StageMate.app`, and `resourcesPath/StageMate.app`.
+* **Linux (`linux`)**: Checks `Build/Linux/StageMate.x86_64`, `Build/StageMate.x86_64`, and `resourcesPath/StageMate.x86_64`.
+
+#### 3. macOS P/Invoke Compilation Patch
+Upstream Mate-Engine wrapped Win32 struct declarations (`RECT`, `POINT`, `WindowEntry`, `WINDOWPLACEMENT`, `MONITORINFO`) in `#if UNITY_STANDALONE_WIN` while leaving referencing method signatures unguarded. On macOS, removing the `#if` wrapper allows the structs to compile cleanly across all platforms without runtime penalty.
+
+---
+
+### 9. Monolith Decomposition Blueprint (Scaling to 4 Formats)
+
+As `MateSidecar.cs` approaches ~1,700 lines, maintaining transport, windowing, UI chrome, model loading, and blendshape morphing in a single script creates unnecessary coupling.
+
+To support clean expansion to **VRM, MMD, Spine, and Live2D**, we plan to decompose the sidecar into modular C# components:
+
+```
+apps/stage-mate/unity-src/Assets/StageMate/
+├── Core/
+│   ├── StageMateSocket.cs            # WebSocket client, auth handshake, message routing
+│   ├── StageMateProtocol.cs          # Wire message JSON data structures & serialization
+│   └── StageMateStateSync.cs         # stage:state:sync parsing & bootstrap dispatch
+├── Window/
+│   ├── StageMateWindowManager.cs     # Native window drag, top-left bounds conversion, hit-testing
+│   └── StageMateChromeUI.cs          # Top-right MOVE / CFG handles and config overlay
+├── Viewport/
+│   ├── StageMateViewportController.cs# Drag translation, camera orbit, zoom, pointer mode state
+│   └── StageMateCameraRig.cs         # Camera rig framing, FOV, and background solid/transparent clearing
+└── Models/
+    ├── IStageModelDriver.cs          # Universal interface (Load, SetPosition, SetExpression, SetLipSync)
+    ├── VrmModelDriver.cs             # UniVRM driver (isolated, clean, no dead tracking cruft)
+    ├── MmdModelDriver.cs             # (Future) PMX/VMD driver
+    ├── SpineModelDriver.cs           # (Future) Spine-Unity runtime driver
+    └── Live2DModelDriver.cs          # (Future) CubismFramework driver
+```
+
+---
+
+### 10. Base Mate-Engine Feature Tour & Cherry-Picking Catalog
+
+Mate-Engine contains a rich suite of built-in desktop companion features developed by `shinyflvre`. Below is a catalog of native capabilities available out-of-the-box that can be bridged into AIRI's LLM action pipeline (`<|ACT:...|>`):
+
+| Feature Area | Source Scripts | Native Capability | Potential AIRI Action Tag |
+|---|---|---|---|
+| **Window Sitting & Edge Physics** | `AvatarWindowHandler.cs`<br/>`AvatarGravityController.cs` | Detects foreground OS windows via Win32/AppKit APIs. Avatar sits on top of the active browser/editor window and drops with gravity when the window moves. | `<|ACT:action="sit"|>`<br/>`<|ACT:action="drop"|>` |
+| **Edge Locomotion & Peeking** | `AvatarLocomotionController.cs`<br/>`AvatarHideHandler.cs` | Avatar walks along the bottom taskbar, hides behind the screen edge, and peeks out when idle. | `<|ACT:motion="walk"|>`<br/>`<|ACT:action="peek"|>` |
+| **MMD Dance Player** | `AvatarDancePlayer.cs`<br/>`AvatarDanceSync.cs` | Built-in dance player that loads `.vmd` motion clips and dances in sync with music or audio beats. | `<|ACT:motion="dance"|>` |
+| **Breathing & Swaying** | `AvatarSwayController.cs` | Procedural idle posture swaying and natural breathing physics. | Automatic idle layer |
+| **Focus & Pomodoro Timer** | `AvatarBigScreenTimer.cs`<br/>`AvatarBigScreenHandler.cs` | Screen-dimming focus timer where the avatar cheers the user on or sleeps while the user works. | `<|ACT:mode="focus"|>` |
+| **Speech Bubbles & Reactions** | `AvatarBubbleHandler.cs`<br/>`PetVoiceReactionHandler.cs` | Floating comic-style speech bubbles and audio reaction triggers. | `<|ACT:bubble="text"|>` |
+| **Costumes & Bone Attachments** | `ModItemPrefab`<br/>`AccessoiresHandler.cs` | Dynamic costume swapping and attaching accessory meshes/props to humanoid bones. | `<|ACT:costume="outfit_id"|>` |
+
+#### Exploring Base Mate-Engine As-Is
+To test drive these native features before deciding which ones to bridge:
+1. Open the base scene in Unity Editor: `Assets/MATE ENGINE - Scenes/PetScene.unity` (or `MainMenu.unity`).
+2. Run or build `MateEngineX` to test window sitting, physics, the MMD dance player, and UI menus.
+
+---
+
 ## 📅 Roadmap & Next Steps
 
-### Phase 0 — Prototype Spike (✅ complete)
+### Phase 0 — Prototype Spike (✅ Complete)
 1. ✅ **Headless mock harness**: `apps/stage-mate/harness` — raw `ws` server on `:6171` with handshake & token verification.
 2. ✅ **Mate-Engine sidecar**: C# WS client (`MateSidecar.cs`) with multi-source auth discovery, zero-trust token handshake, and solid status indicator dot.
 3. ✅ **Dynamic Model Cache Gate (Option A)**: Stateless query-first cache gate in Electron Main (`userData/stage-mate-cache/`) with atomic write safety and in-flight deduplication.
 4. ✅ **Control Strip Customizer Integration**: Added `stage-mate` toggle to `CUSTOMIZER_CATALOG`, with live status dot and action handlers.
 
-### Phase 1 — State Sync & Viewport Controls (In Progress)
-1. **`stage:state:sync` Post-Handshake Bootstrap**: Implement the unified state snapshot emission from Electron Main / `StageMateService`.
-2. **Tier 1 OS Window Positioning**: Connect Stage-Mate top-bar chrome handle to `stage:window:bounds` $\rightarrow$ `config.json` persistence.
-3. **Tier 2 Model Positioning**: Connect Stage-Mate `dragMode` / `positionMode` canvas translation to `stage:model:position` $\rightarrow$ `usePositioningStore`.
-4. **Control Strip Viewport Mode Sync**: Wire `control:viewport:mode` broadcasts from `controlStripStore.stageMode` to Stage-Mate.
-5. **Basic Lip-Sync Telemetry Relay**: Relay `stage:vrm:lip-sync` RMS amplitude to VRM mouth blendshapes during TTS speech.
-6. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
+### Phase 1 — State Sync & Viewport Controls (✅ In Progress / Testing)
+1. ✅ **`stage:state:sync` Post-Handshake Bootstrap**: Unified state snapshot emission from Electron Main / `StageMateService` (window bounds, model path, positioning, mode, visibility).
+2. ✅ **Tier 1 OS Window Positioning**: Connected Stage-Mate top-bar chrome handle to `stage:window:bounds` $\rightarrow$ `config.json` persistence.
+3. ✅ **Tier 2 Model Positioning**: Connected Stage-Mate `dragMode` canvas translation to `stage:model:position` $\rightarrow$ `usePositioningStore`.
+4. ✅ **Control Strip Viewport Mode Sync**: Wired `control:viewport:mode` broadcasts from `controlStripStore.stageMode` to Stage-Mate.
+5. ✅ **Control Customizer 4-Mode Toggles**: Added `viewport-tactile`, `viewport-drag`, `viewport-positioning`, and `viewport-orbit` toggle handlers in `customizer.vue`.
+6. ✅ **LookAt Decoupling Fix**: Explicitly detached UniVRM LookAt targets when tracking is disabled to prevent head inversion.
+7. ✅ **Clean Source Overlay (`unity-src/`)**: Isolated all custom code into `apps/stage-mate/unity-src/` and added `scripts/setup.ts` / `scripts/build.ts`.
+8. ⏳ **Live User Verification**: Confirm head stability and per-model offset persistence across model switching.
+9. ⏳ **Basic Lip-Sync Telemetry Relay**: Relay `stage:vrm:lip-sync` RMS amplitude to VRM mouth blendshapes during TTS speech.
+10. ⏳ **First Windows Build Validation**: Compile and test `StageMate.exe` on Windows using the new `unity-src` overlay and setup scripts.
 
 ---
 
@@ -695,5 +832,6 @@ Post-handshake, AIRI pushes a comprehensive bootstrap state snapshot to Stage-Ma
 - Gaze target relay (`stage:vrm:gaze`).
 - Non-VRM formats (MMD, Spine, Live2D).
 - Automatic sidecar executable spawning (`execProcess`).
+
 
 
