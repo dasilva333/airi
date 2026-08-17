@@ -241,6 +241,14 @@ function isUnboundToggleActive(itemId: string): boolean {
     return alwaysOnTop.value
   if (itemId === 'viewport-auto-hide')
     return fadeOnHoverEnabled.value
+  if (itemId === 'viewport-tactile')
+    return controlStripStore.stageMode === 'tactileMode'
+  if (itemId === 'viewport-drag')
+    return controlStripStore.stageMode === 'dragMode'
+  if (itemId === 'viewport-positioning')
+    return controlStripStore.stageMode === 'positionMode'
+  if (itemId === 'viewport-orbit')
+    return controlStripStore.stageMode === 'orbitMode'
   if (itemId === 'theme-mode')
     return colorMode.value === 'dark'
   if (itemId === 'caption-sync-position')
@@ -268,7 +276,19 @@ function hasToggleButton(item: (typeof CUSTOMIZER_CATALOG)[0]['items'][0]): bool
   // Show toggle button for bound items and for known unbound toggles
   if (item.binding)
     return true
-  return ['always-on-top', 'viewport-auto-hide', 'theme-mode', 'caption-sync-position', 'caption-sync-visibility', 'caption-docking', 'caption-layout-mode'].includes(item.id)
+  return [
+    'always-on-top',
+    'viewport-auto-hide',
+    'viewport-tactile',
+    'viewport-drag',
+    'viewport-positioning',
+    'viewport-orbit',
+    'theme-mode',
+    'caption-sync-position',
+    'caption-sync-visibility',
+    'caption-docking',
+    'caption-layout-mode',
+  ].includes(item.id)
 }
 
 const geminiDotClasses = computed(() => {

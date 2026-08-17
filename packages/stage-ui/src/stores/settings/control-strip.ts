@@ -2,7 +2,7 @@ import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 import { CUSTOMIZER_CATALOG } from '../../constants/control-customizer'
 
@@ -166,6 +166,30 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
       stageMode.value = 'tactileMode'
     }
   }
+
+  watch(stageMode, async (newMode) => {
+    if (typeof window !== 'undefined' && (window as any).electron) {
+      try {
+        const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+        const { electronStageMateSetViewportMode } = await import('@proj-airi/stage-shared')
+        const setViewportMode = useElectronEventaInvoke(electronStageMateSetViewportMode)
+        await setViewportMode(newMode)
+      }
+      catch {}
+    }
+  })
+
+  watch(stageMateEnabled, async (newVal) => {
+    if (typeof window !== 'undefined' && (window as any).electron) {
+      try {
+        const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+        const { electronStageMateToggleVisibility } = await import('@proj-airi/stage-shared')
+        const toggleVisibility = useElectronEventaInvoke(electronStageMateToggleVisibility)
+        await toggleVisibility(newVal)
+      }
+      catch {}
+    }
+  })
 
   function resetButtons() {
     const defaultButtons = getDefaultControlStripButtons()

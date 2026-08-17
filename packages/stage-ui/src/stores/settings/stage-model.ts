@@ -262,19 +262,30 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     await updateStageModel(reason || 'initialization')
   }
 
+  let inFlightSyncModelId = ''
   async function syncVrmToStageMate(model: any): Promise<void> {
     if (typeof window === 'undefined' || !(window as any).electron || !model?.file)
       return
 
+    if (inFlightSyncModelId === model.id)
+      return
+
+    inFlightSyncModelId = model.id
+
     try {
       const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
       const { electronStageMateEnsureModel, electronStageMateSaveModel } = await import('@proj-airi/stage-shared')
+      const { usePositioningStore } = await import('./positioning')
+      const positioningStore = usePositioningStore()
+      const pos = positioningStore.getPosition(model.id)
+
       const ensureModel = useElectronEventaInvoke(electronStageMateEnsureModel)
       const saveModel = useElectronEventaInvoke(electronStageMateSaveModel)
 
       const checkRes = await ensureModel({
         modelId: model.id,
         modelName: model.name || 'model.vrm',
+        position: pos,
       })
 
       if (checkRes?.status === 'need_binary') {
@@ -284,6 +295,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
           modelId: model.id,
           modelName: model.name || 'model.vrm',
           data: Array.from(new Uint8Array(arrayBuffer)),
+          position: pos,
         })
         console.log(`[StageModel] Stage-Mate cache saved for ${model.id}.`)
       }
@@ -294,6 +306,31 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     catch (err) {
       console.warn('[StageModel] Failed to sync model with Stage-Mate:', err)
     }
+    finally {
+      if (inFlightSyncModelId === model.id) {
+        setTimeout(() => {
+          if (inFlightSyncModelId === model.id)
+            inFlightSyncModelId = ''
+        }, 500)
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined' && (window as any).electron?.ipcRenderer) {
+    ;(window as any).electron.ipcRenderer.on('stage-mate:model-position-changed', async (_event: any, data: any) => {
+      if (data?.modelId) {
+        try {
+          const { usePositioningStore } = await import('./positioning')
+          const positioningStore = usePositioningStore()
+          positioningStore.setPosition(data.modelId, {
+            x: data.x,
+            y: data.y,
+            scale: data.scale ?? 1,
+          })
+        }
+        catch {}
+      }
+    })
   }
 
   useEventListener('unload', () => {

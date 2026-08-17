@@ -583,85 +583,110 @@ The mock harness script (`pnpm -F @proj-airi/stage-mate harness`) provides a zer
 - **Interactive Keyboard Controls**:
   - `[1]`, `[2]`, `[3]`, `[4]` → Send size presets (`mini`, `med.`, `large`, `full`)
   - `[t]` → Toggle `always-on-top`
-  - `[d]`, `[o]`, `[s]`, `[c]` → Toggle `viewport-drag`, `viewport-orbit`, `viewport-spin`, `viewport-cycle-modes`
-  - `[m]` → Swap test models (`stage:vrm:load`)
-  - `[l]` → Fire simulated speech lip-sync RMS waveform (`stage:vrm:lip-sync`)
-  - `[r]` → Reset coordinates (`viewport-reset-coordinates`)
-- **HTTP / Web Control GUI (Optional Minimal Dashboard)**: Serves a simple web page on `http://localhost:6171` with buttons tied 1:1 to each signal string for point-and-click sidecar testing.
-
-### Model Asset Handling
-
-- The test VRM is copied into `apps/stage-mate/test-model.vrm` and **gitignored** so personal paths and the ~20 MB binary never leak into the repo or the harness config.
-- Mate-Engine reads it **directly from the local filesystem path** — the "just read the file locally" prototype answer. No IndexedDB mounting, no binary streaming.
-
-### Explicitly Deferred (out of Phase 0)
-
-- Lip-sync / RMS telemetry, beat-sync bridging
-- Control Customizer toggle (`stage:vrm:visibility`)
-- Token provisioning / `module:authenticate` handshake / superjson / heartbeat
-- `route.destinations` multi-peer routing
-- Model materialization from IndexedDB blobs
-- All non-VRM formats (MMD/Spine/Live2D), gaze, and tactile interaction
-
-### Open Questions (resolve before/while building)
-
-- **How to vendor Mate-Engine:** git-submodule vs. vendored copy of `shinyflvre/Mate-Engine` under `apps/stage-mate/mate-engine/`. (We fork the *app*; we do **not** build a fresh UniVRM scene — UniVRM is just the library Mate-Engine already uses internally.)
-- **macOS build path:** upstream has no macOS build. Confirm we can open the Unity project in Unity Hub and build a macOS target, or whether Phase 0 must run under the Linux port / Windows. This is the biggest Phase 0 unknown.
-
----
-
-## 🏁 Minimum Viable Product (MVP) Specification
-
-To provide a clear, achievable target for early development without scope creep, the MVP threshold for MATE Engine integration is defined across 5 core requirements:
-
----
-
-### 1. Connection & Token Handshake
-- MATE Engine connects over WebSocket to `ws://localhost:6121/ws`.
+  - `[d]`, `[o]`, `[s]`, `[c]` → - MATE Engine connects over WebSocket to `ws://localhost:6171` (or dynamic port via `--port`).
 - Completes the `module:authenticate` token exchange:
-  `Plugin → server: { type: 'module:authenticate', data: { token: '...' } }`
-- Sends `module:announce` to register as an active stage renderer module (`possibleEvents: ['stage:vrm:*']`).
+  `StageMate → server: { type: 'module:authenticate', data: { token: '...' } }`
+- Sends `module:announce` to register as an active stage renderer module:
+  `StageMate → server: { type: 'module:announce', data: { name: 'proj-airi:stage-mate' } }`
 
 ---
 
-### 2. Local File Path Model Resolution (Zero-Copy)
-- **No re-uploading or binary streaming required**: AIRI and MATE Engine run locally on the user's OS and share the local filesystem.
-- When an avatar is loaded or swapped, AIRI's `displayModelsStore` resolves the absolute local file path of the active VRM model and sends a `stage:vrm:load` WebSocket frame:
-  ```json
-  {
-    "type": "stage:vrm:load",
-    "data": {
-      "modelId": "display-model-0d3mUbNvk0nSPXVwTuS1",
-      "modelPath": "/Users/richy/Library/Application Support/airi/models/avatar.vrm"
+### 2. Dynamic Model Cache Gate (Option A — Stateless Query-First)
+- **Local Disk Cache**: Main process manages `userData/stage-mate-cache/<modelId>.vrm`.
+- **Stateless Query Gate**:
+  1. On model switch, AIRI checks `electronStageMateEnsureModel({ modelId })`.
+  2. **Cache HIT**: 0 bytes across IPC; Main broadcasts `stage:vrm:load` immediately.
+  3. **Cache MISS**: Renderer reads `model.file.arrayBuffer()` $\rightarrow$ `electronStageMateSaveModel({ modelId, data })` $\rightarrow$ Main writes atomically to disk cache $\rightarrow$ broadcasts `stage:vrm:load`.
+- **Atomic Concurrency Safety**: In-flight Promise deduplication prevents parallel write corruption across multi-window renderer instances.
+
+---
+
+### 3. The Two-Tier Positioning Architecture
+
+To align with AIRI's established window and model management specs (see [`project-positioning-store-migration.md`](./project-positioning-store-migration.md) and [`control-customizer.ts`](../packages/stage-ui/src/constants/control-customizer.ts)), Stage-Mate decouples desktop window coordinates from internal viewport model coordinates:
+
+| Tier | Scope | Controlled By | Persisted In |
+|:---|:---|:---|:---|
+| **Tier 1: OS Window Bounds** | Desktop screen placement $(X, Y, W, H)$ | Top-right chrome handle / `MOVE` header | `userData/@proj-airi/config.json`<br/>`windows: [{ tag: 'stage-mate', title: 'AIRI', x, y, width, height }]` |
+| **Tier 2: Model Placement & Scale** | In-canvas avatar offset and scale $(x, y, scale)$ | Viewport drag interaction in `dragMode` / `positionMode` | `usePositioningStore`<br/>`settings/positioning/models` keyed by `modelId` |
+
+#### Canonical Viewport Interaction Modes (`stageMode`)
+* `'tactileMode'`: Default idle pointer interaction & gaze following.
+* `'dragMode'`: Translates model offset $(x, y)$ inside the canvas viewport, syncing to `usePositioningStore`.
+* `'positionMode'`: Precise coordinate placement and scaling mode.
+* `'orbitMode'`: Rotates the camera viewport around the 3D scene.
+
+---
+
+### 4. Post-Handshake State Synchronization Protocol (`stage:state:sync`)
+
+Post-handshake, AIRI pushes a comprehensive bootstrap state snapshot to Stage-Mate:
+
+```json
+{
+  "type": "stage:state:sync",
+  "data": {
+    "window": {
+      "x": 1200,
+      "y": 450,
+      "width": 300,
+      "height": 450,
+      "alwaysOnTop": true
+    },
+    "model": {
+      "modelId": "display-model-fd9WyKqGwXlA17d82QhNC",
+      "modelPath": "/Users/.../stage-mate-cache/display-model-fd9WyKqGwXlA17d82QhNC.vrm"
+    },
+    "positioning": {
+      "x": 0.0,
+      "y": 0.0,
+      "scale": 1.0
+    },
+    "viewport": {
+      "mode": "tactileMode"
+    },
+    "stage": {
+      "enabled": true
     }
   }
-  ```
-- MATE Engine's C# `UniVRM` loader reads that local file path directly off the disk. If a model URL is passed instead, `UniVRM` downloads it into memory via `UnityWebRequest`.
+}
+```
+
+#### Bi-Directional Runtime Event Contracts
+1. **Window Bounds Update (`stage:window:bounds`)**:
+   - `StageMate → AIRI`: Emitted on drag-stop of the window chrome handle.
+   - AIRI validates coordinates with `ensureWindowInVisibleBounds` and updates `config.json` under `tag: 'stage-mate'`.
+2. **Model Offset Update (`stage:model:position`)**:
+   - `StageMate → AIRI`: Emitted when model is panned/scaled in `dragMode`/`positionMode`.
+   - AIRI commits position/scale to `usePositioningStore.setPosition(modelId, { x, y, scale })`.
+   - When switching models in AIRI, AIRI emits `stage:model:position` to Stage-Mate to restore that character's specific saved coordinates.
+3. **Viewport Mode Dispatch (`control:viewport:mode`)**:
+   - `AIRI → StageMate`: Emitted when the user cycles or selects modes on the Control Strip (`'tactileMode' | 'dragMode' | 'positionMode' | 'orbitMode'`).
 
 ---
 
-### 3. Basic Lip-Sync Telemetry Relay
-- Listens to `stage:vrm:lip-sync` WebSocket events emitted by AIRI's Stage Proxy Gateway.
-- Applies RMS amplitude (0.0 to 1.0) to the VRM mouth blendshape (`mouthOpen` / `aa`) during TTS audio playback.
+### 5. Control Customizer & Stage View Integration
+- **UI Location**: Located inside the **Control Customizer** under the **`Stage View`** section (`stage-mate`).
+- **Independent Stage Toggle**: MATE Engine operates as a dedicated, independent stage provider toggle (`Stage Mate`). Users can run Stage Mate independently or side-by-side with the WebGL stage.
+- **Visibility Control**: Toggling the `Stage Mate` switch dispatches `{ type: "control:stage", data: { enabled: boolean } }` to show/hide the companion stage.
 
 ---
 
-### 4. Control Customizer & Stage View Integration
-- **UI Location**: Located inside the **Control Customizer** under the **`Stage View`** section (alongside *Actor Stage*, *Always-on-Top*, and interaction mode toggles).
-- **Independent Stage Toggle**: MATE Engine operates as a dedicated, independent stage provider toggle (`MATE Engine Stage`). Users can run MATE Engine independently or alongside the browser WebGL stage.
-- **Visibility Control**: Toggling the `MATE Engine Stage` switch sends a `{ type: "stage:vrm:visibility", data: { visible: boolean } }` WebSocket frame, causing the Unity window to toggle desktop visibility.
+## 📅 Roadmap & Next Steps
 
----
+### Phase 0 — Prototype Spike (✅ complete)
+1. ✅ **Headless mock harness**: `apps/stage-mate/harness` — raw `ws` server on `:6171` with handshake & token verification.
+2. ✅ **Mate-Engine sidecar**: C# WS client (`MateSidecar.cs`) with multi-source auth discovery, zero-trust token handshake, and solid status indicator dot.
+3. ✅ **Dynamic Model Cache Gate (Option A)**: Stateless query-first cache gate in Electron Main (`userData/stage-mate-cache/`) with atomic write safety and in-flight deduplication.
+4. ✅ **Control Strip Customizer Integration**: Added `stage-mate` toggle to `CUSTOMIZER_CATALOG`, with live status dot and action handlers.
 
-### 5. Developer Mock Harness Strategy (Isolated Fast Iteration)
-
-Launching the full AIRI application, LLM pipeline, and Electron runtime on every build iteration is slow and heavy. To accelerate developer velocity during MVP development:
-
-- **Mock AIRI Harness Server (`scripts/mock-airi-stage-server.ts`)**:
-  - A lightweight Node.js/TypeScript script that mocks AIRI's `server-runtime` WebSocket server on `ws://localhost:6121/ws`.
-  - Simulates the `module:authenticate` $\rightarrow$ `module:announced` handshake.
-  - Exposes interactive CLI triggers to fire simulated `stage:vrm:load`, `stage:vrm:lip-sync` RMS sine waves, `stage:vrm:expression`, and `stage:vrm:visibility` frames.
-- **Benefits**: A developer working on MATE Engine in the Unity Editor can run `pnpm mock:stage-server` to test model loading, lip-sync, and visibility in seconds—completely isolated from the main AIRI Electron process.
+### Phase 1 — State Sync & Viewport Controls (In Progress)
+1. **`stage:state:sync` Post-Handshake Bootstrap**: Implement the unified state snapshot emission from Electron Main / `StageMateService`.
+2. **Tier 1 OS Window Positioning**: Connect Stage-Mate top-bar chrome handle to `stage:window:bounds` $\rightarrow$ `config.json` persistence.
+3. **Tier 2 Model Positioning**: Connect Stage-Mate `dragMode` / `positionMode` canvas translation to `stage:model:position` $\rightarrow$ `usePositioningStore`.
+4. **Control Strip Viewport Mode Sync**: Wire `control:viewport:mode` broadcasts from `controlStripStore.stageMode` to Stage-Mate.
+5. **Basic Lip-Sync Telemetry Relay**: Relay `stage:vrm:lip-sync` RMS amplitude to VRM mouth blendshapes during TTS speech.
+6. **Compare Resource Usage**: Benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
 
 ---
 
@@ -671,22 +696,4 @@ Launching the full AIRI application, LLM pipeline, and Electron runtime on every
 - Non-VRM formats (MMD, Spine, Live2D).
 - Automatic sidecar executable spawning (`execProcess`).
 
----
-
-## 📅 Roadmap & Next Steps
-
-### Phase 0 — Prototype Spike (✅ complete)
-
-1. ✅ **Headless mock harness**: `apps/stage-mate/harness` — raw `ws` server on `:6171` that pushes `stage:vrm:load` + periodic `ping`.
-2. ✅ **Mate-Engine sidecar**: fork/vendor `apps/stage-mate/mate-engine`, C# WS client (`MateSidecar.cs`) connects to the harness and loads the local `test-model.vrm`, red→green status dot.
-3. ✅ **Definition of Done**: harness + Unity window side-by-side, dot green, model visible (T-pose, centered, orbit/zoom working).
-
-### Phase 1 — MVP (deferred; Phase 0 passed)
-
-1. **Developer Mock Harness (full)**: extend the Phase 0 harness to simulate the real `module:authenticate` $\rightarrow$ `module:announce` handshake and all `stage:vrm:*` events for Unity sidecar testing.
-2. **Standalone WebSocket Handshake**: implement the `Client` handshake in the MATE Engine C# client (`module:authenticate` $\rightarrow$ `module:announce`).
-3. **Proxy Gateway Relay**: add the `StageProxyGateway` service in the AIRI main process to subscribe to `airi::beat-sync` and `airi-stores-live2d` and push `stage:vrm:*` WS events.
-4. **Control Customizer Toggle**: add `MATE Engine Stage` switch under the **Stage View** section in the Control Customizer.
-5. **Tactile & Gaze Telemetry**: implement `stage:vrm:interact` and `stage:vrm:gaze` WebSocket events for touch and eye tracking.
-6. **Compare Resource Usage**: benchmark CPU/GPU frame times of the Three.js WebGL canvas vs. the Mate-Engine sidecar to quantify rendering efficiency.
 

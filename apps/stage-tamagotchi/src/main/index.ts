@@ -376,7 +376,7 @@ app.whenReady().then(async () => {
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
-      createStageMateService()
+      createStageMateService({ appConfig: deps.appConfig })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
       const defaultBypassUrls = DEFAULT_CORS_BYPASS_URLS
