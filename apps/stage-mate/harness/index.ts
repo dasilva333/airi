@@ -9,7 +9,41 @@ import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
+
+// 1. Source .env if present
+const localEnvPath = path.join(here, '..', '.env')
+if (fs.existsSync(localEnvPath)) {
+  const envContent = fs.readFileSync(localEnvPath, 'utf8')
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#'))
+      continue
+    const eq = trimmed.indexOf('=')
+    if (eq > 0) {
+      const key = trimmed.slice(0, eq).trim()
+      const val = trimmed.slice(eq + 1).trim()
+      if (!process.env[key])
+        process.env[key] = val
+    }
+  }
+}
+
+// 2. Source from AIRI stage-tamagotchi server-channel-config.json if not set
+if (!process.env.AIRI_AUTH_TOKEN) {
+  try {
+    const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? ''
+    const appDataCandidate = path.join(homeDir, 'Library/Application Support/@proj-airi/stage-tamagotchi/server-channel-config.json')
+    if (fs.existsSync(appDataCandidate)) {
+      const cfg = JSON.parse(fs.readFileSync(appDataCandidate, 'utf8'))
+      if (cfg.authToken)
+        process.env.AIRI_AUTH_TOKEN = cfg.authToken
+    }
+  }
+  catch {}
+}
+
 const PORT = Number(process.env.MATE_HARNESS_PORT ?? 6171)
+const AUTH_TOKEN = process.env.AIRI_AUTH_TOKEN ?? process.env.MATE_AUTH_TOKEN ?? 'mate-stage-dev-token'
 
 // Model discovery
 const defaultModel = path.resolve(process.env.MATE_MODEL_PATH ?? path.join(here, '..', 'test-model.vrm'))
@@ -37,6 +71,8 @@ const IDLE_ANIMATIONS = (process.env.MATE_IDLE_ANIMATIONS ?? '')
 // State
 let activeModelIndex = 0
 let clientCount = 0
+let authenticatedCount = 0
+let peerIdentity: string | null = null
 let lastEvent = 'Harness started, waiting for sidecar connection...'
 let alwaysOnTop = false
 let stageVisible = true
@@ -60,12 +96,13 @@ const c = {
 }
 
 const clients = new Set<WebSocket>()
+const authenticatedClients = new Set<WebSocket>()
 
 const wss = new WebSocketServer({ port: PORT })
 
 function broadcast(msg: object) {
   const json = JSON.stringify(msg)
-  for (const client of clients) {
+  for (const client of authenticatedClients) {
     if (client.readyState === client.OPEN) {
       client.send(json)
     }
@@ -82,7 +119,12 @@ function sendLoad(ws: WebSocket, modelPath: string) {
 function logEvent(msg: string) {
   const now = new Date().toTimeString().split(' ')[0]
   lastEvent = `[${now}] ${msg}`
-  render()
+  if (!process.stdout.isTTY) {
+    console.log(`[harness ${now}] ${msg}`)
+  }
+  else {
+    render()
+  }
 }
 
 let activeExpression = 'Neutral'
@@ -91,7 +133,11 @@ function render() {
   if (!process.stdout.isTTY)
     return
 
-  const statusDot = clientCount > 0 ? `${c.green}● CONNECTED (${clientCount})${c.reset}` : `${c.red}○ WAITING FOR SIDECAR${c.reset}`
+  const statusDot = authenticatedCount > 0
+    ? `${c.green}● AUTHENTICATED (${authenticatedCount})${c.reset}`
+    : clientCount > 0
+      ? `${c.yellow}○ CONNECTING / AUTH...${c.reset}`
+      : `${c.red}○ WAITING FOR SIDECAR${c.reset}`
   const curModel = modelPaths[activeModelIndex] ? path.basename(modelPaths[activeModelIndex]) : '(none)'
   const modelExists = fs.existsSync(modelPaths[activeModelIndex] ?? '')
   const modelStatus = modelExists ? `${c.cyan}${curModel}${c.reset} ${c.dim}[${activeModelIndex + 1}/${modelPaths.length}]${c.reset}` : `${c.red}${curModel} (missing)${c.reset}`
@@ -103,6 +149,7 @@ function render() {
   const exprStatus = activeExpression !== 'Neutral'
     ? `${c.red}${c.bold}😡 ${activeExpression} (Active)${c.reset}`
     : `${c.dim}Neutral${c.reset}`
+  const peerStatus = peerIdentity ? `${c.green}${peerIdentity}${c.reset}` : `${c.dim}(unauthenticated)${c.reset}`
 
   const lines = [
     '\x1B[2J\x1B[H',
@@ -111,6 +158,8 @@ function render() {
     `${c.bold}${c.cyan}╰────────────────────────────────────────────────────────────────────────╯${c.reset}`,
     '',
     `  ${c.bold}Sidecar Link:${c.reset}     ${statusDot}`,
+    `  ${c.bold}Peer Identity:${c.reset}    ${peerStatus}`,
+    `  ${c.bold}Auth Token:${c.reset}       ${c.dim}${AUTH_TOKEN}${c.reset}`,
     `  ${c.bold}WebSocket URL:${c.reset}    ${c.blue}ws://localhost:${PORT}${c.reset}`,
     `  ${c.bold}Active Model:${c.reset}     ${modelStatus}`,
     `  ${c.bold}Size Preset:${c.reset}      ${c.yellow}${activeSizePreset}${c.reset}`,
@@ -283,18 +332,7 @@ function handleKeypress(key: string) {
 wss.on('connection', (ws) => {
   clients.add(ws)
   clientCount = clients.size
-  logEvent('Sidecar client connected')
-
-  if (modelPaths.length > 0 && modelPaths[activeModelIndex]) {
-    sendLoad(ws, modelPaths[activeModelIndex])
-  }
-
-  if (IDLE_ANIMATIONS.length > 0) {
-    ws.send(JSON.stringify({
-      type: 'stage:vrm:idle',
-      data: { idleAnimations: IDLE_ANIMATIONS },
-    }))
-  }
+  logEvent('Client socket connected, awaiting authentication...')
 
   const pingTimer = setInterval(() => {
     if (ws.readyState === ws.OPEN) {
@@ -305,6 +343,70 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString())
+
+      // 1. Handshake Step 1: Authentication
+      if (msg.type === 'module:authenticate') {
+        const token = msg.data?.token
+        const caller = msg.data?.caller ?? 'stage-mate'
+        const purpose = msg.data?.purpose ?? 'Native VRM Stage Renderer'
+
+        if (token === AUTH_TOKEN) {
+          authenticatedClients.add(ws)
+          authenticatedCount = authenticatedClients.size
+          peerIdentity = `${caller}`
+          ws.send(JSON.stringify({
+            type: 'module:authenticated',
+            data: { authenticated: true },
+          }))
+          logEvent(`Auth SUCCESS: ${caller} (${purpose})`)
+        }
+        else {
+          ws.send(JSON.stringify({
+            type: 'module:authenticated',
+            data: { authenticated: false, error: 'Invalid token' },
+          }))
+          logEvent(`Auth REJECTED: invalid token from ${caller}`)
+          ws.close()
+        }
+        render()
+        return
+      }
+
+      // 2. Handshake Step 2: Announcement
+      if (msg.type === 'module:announce') {
+        if (!authenticatedClients.has(ws)) {
+          ws.close()
+          return
+        }
+
+        peerIdentity = msg.data?.name ?? 'proj-airi:stage-mate'
+        ws.send(JSON.stringify({
+          type: 'module:announced',
+          data: { ok: true, name: peerIdentity },
+        }))
+        logEvent(`Announced: ${peerIdentity}`)
+
+        // Send initial state to newly authenticated peer
+        if (modelPaths.length > 0 && modelPaths[activeModelIndex]) {
+          sendLoad(ws, modelPaths[activeModelIndex])
+        }
+
+        if (IDLE_ANIMATIONS.length > 0) {
+          ws.send(JSON.stringify({
+            type: 'stage:vrm:idle',
+            data: { idleAnimations: IDLE_ANIMATIONS },
+          }))
+        }
+        render()
+        return
+      }
+
+      // Block unauthenticated messages from non-handshake events
+      if (!authenticatedClients.has(ws)) {
+        logEvent(`Blocked unauthenticated message: ${msg.type}`)
+        return
+      }
+
       if (msg.type === 'stage:vrm:ready') {
         logEvent(`Sidecar ready with: ${path.basename(msg.data?.modelPath ?? '')}`)
       }
@@ -319,9 +421,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     clients.delete(ws)
+    authenticatedClients.delete(ws)
     clientCount = clients.size
+    authenticatedCount = authenticatedClients.size
+    if (authenticatedCount === 0)
+      peerIdentity = null
     clearInterval(pingTimer)
     logEvent('Sidecar client disconnected')
+    render()
   })
 
   ws.on('error', (err) => {

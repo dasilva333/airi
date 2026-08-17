@@ -38,7 +38,7 @@ const settingsStore = useSettings()
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
 const colorMode = useColorMode()
 const controlStripStore = useSettingsControlStrip()
-const { orientation, buttons, stageEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
+const { orientation, buttons, stageEnabled, stageMateEnabled, chatOpen, captionOpen, backgroundTint, stageMode, collapsed, dockedEdge, selfieIncludeBg } = storeToRefs(controlStripStore)
 const isHoveredHandle = ref(false)
 const displayModelsStore = useDisplayModelsStore()
 const datingSimStore = useDatingSimStore()
@@ -1196,6 +1196,9 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
   if (btnId === 'stage') {
     return `Actor Stage: ${stageEnabled.value ? 'Visible (Green)' : 'Hidden (Red)'}`
   }
+  if (btnId === 'stage-mate') {
+    return `Stage Mate: ${stageMateEnabled.value ? 'Active (Green)' : 'Disabled (Red)'}`
+  }
   if (btnId === 'mic') {
     return `Microphone: ${micEnabled.value ? 'Active (Green)' : 'Muted (Red)'}`
   }
@@ -1407,6 +1410,15 @@ function getShortLabel(btnId: string): string {
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
             stageEnabled ? 'bg-green-500' : 'bg-red-500',
+          ]"
+        />
+
+        <!-- Status dot badge for Stage Mate -->
+        <span
+          v-if="btn.id === 'stage-mate'"
+          :class="[
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
+            stageMateEnabled ? 'bg-green-500' : 'bg-red-500',
           ]"
         />
 

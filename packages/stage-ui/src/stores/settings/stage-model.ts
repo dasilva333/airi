@@ -230,6 +230,13 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       }
 
       stageModelSelectedDisplayModel.value = model
+
+      // Sync VRM model to Stage-Mate disk cache via Option A (Query-First Cache Gate)
+      if (model.format === DisplayModelFormat.VRM && model.type === 'file' && model.file) {
+        syncVrmToStageMate(model).catch((err) => {
+          console.warn('[StageModel] Stage-Mate cache sync warning:', err)
+        })
+      }
     }
     catch (error) {
       console.error('[StageModel] Failed to update stage model:', error)
@@ -253,6 +260,40 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
 
   async function initializeStageModel(reason?: string) {
     await updateStageModel(reason || 'initialization')
+  }
+
+  async function syncVrmToStageMate(model: any): Promise<void> {
+    if (typeof window === 'undefined' || !(window as any).electron || !model?.file)
+      return
+
+    try {
+      const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+      const { electronStageMateEnsureModel, electronStageMateSaveModel } = await import('@proj-airi/stage-shared')
+      const ensureModel = useElectronEventaInvoke(electronStageMateEnsureModel)
+      const saveModel = useElectronEventaInvoke(electronStageMateSaveModel)
+
+      const checkRes = await ensureModel({
+        modelId: model.id,
+        modelName: model.name || 'model.vrm',
+      })
+
+      if (checkRes?.status === 'need_binary') {
+        console.log(`[StageModel] Stage-Mate cache MISS for ${model.id}. Transferring binary to Main process...`)
+        const arrayBuffer = await model.file.arrayBuffer()
+        await saveModel({
+          modelId: model.id,
+          modelName: model.name || 'model.vrm',
+          data: Array.from(new Uint8Array(arrayBuffer)),
+        })
+        console.log(`[StageModel] Stage-Mate cache saved for ${model.id}.`)
+      }
+      else {
+        console.log(`[StageModel] Stage-Mate cache HIT for ${model.id}. Zero binary transferred across IPC.`)
+      }
+    }
+    catch (err) {
+      console.warn('[StageModel] Failed to sync model with Stage-Mate:', err)
+    }
   }
 
   useEventListener('unload', () => {

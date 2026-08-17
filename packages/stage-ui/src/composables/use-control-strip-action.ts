@@ -129,6 +129,10 @@ export function useControlStripAction() {
         controlStripStore.stageEnabled = !controlStripStore.stageEnabled
         break
 
+      case 'stage-mate':
+        controlStripStore.stageMateEnabled = !controlStripStore.stageMateEnabled
+        break
+
       case 'chat':
         controlStripStore.chatOpen = !controlStripStore.chatOpen
         break

@@ -79,6 +79,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   })
   const isAdvancedPositioningOpen = useLocalStorageManualReset<boolean>('settings/control-strip/advanced-positioning-open', false)
   const stageEnabled = useLocalStorageManualReset<boolean>('settings/stage-enabled', true)
+  const stageMateEnabled = useLocalStorageManualReset<boolean>('settings/stage-mate-enabled', false)
   const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', false)
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
   const backgroundTint = useLocalStorageManualReset<string>('settings/control-strip/background-tint', '#171717')
@@ -178,6 +179,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     stageMode.reset()
     isAdvancedPositioningOpen.reset()
     stageEnabled.reset()
+    stageMateEnabled.reset()
     chatOpen.reset()
     captionOpen.reset()
     resetButtons()
@@ -192,6 +194,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     interactionMode,
     isAdvancedPositioningOpen,
     stageEnabled,
+    stageMateEnabled,
     chatOpen,
     captionOpen,
     buttons,

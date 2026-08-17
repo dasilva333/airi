@@ -1,5 +1,9 @@
 # Local test assets (never tracked)
 *.vrm
+.env
+*.env
+.env.*
 
 # Vendored Mate-Engine fork (tracked in its own repo, not this monorepo)
 mate-engine/
+

@@ -5,7 +5,7 @@ export interface CustomizerItem {
   icon: string
   type: 'toggle' | 'cycler' | 'action' | 'menu'
   defaultOnStrip: boolean
-  binding?: 'chatOpen' | 'stageEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled'
+  binding?: 'chatOpen' | 'stageEnabled' | 'stageMateEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled'
   /** If true, this item is specific to desktop multi-window managers and hidden on mobile */
   desktopOnly?: boolean
 }
@@ -29,11 +29,21 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
       {
         id: 'stage',
         label: 'Actor Stage',
-        description: 'Toggles rendering of the Live2D/VRM actor stage.',
+        description: 'Toggles rendering of the companion stage window.',
         icon: 'i-solar:clapperboard-play-bold-duotone',
         type: 'toggle',
         defaultOnStrip: true,
         binding: 'stageEnabled',
+        desktopOnly: true,
+      },
+      {
+        id: 'stage-mate',
+        label: 'Stage Mate',
+        description: 'Toggles the native high-performance VRM companion stage.',
+        icon: 'i-solar:box-minimalistic-bold-duotone',
+        type: 'toggle',
+        defaultOnStrip: false,
+        binding: 'stageMateEnabled',
         desktopOnly: true,
       },
       {
