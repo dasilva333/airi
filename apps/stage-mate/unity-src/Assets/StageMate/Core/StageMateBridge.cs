@@ -91,8 +91,15 @@ namespace StageMate.Core
                     break;
 
                 case "control:model:load":
+                case "stage:vrm:load":
                     string p = env.data != null && !string.IsNullOrEmpty(env.data.modelPath) ? env.data.modelPath : env.path;
-                    if (!string.IsNullOrEmpty(p)) LoadModel(p);
+                    if (!string.IsNullOrEmpty(p))
+                    {
+                        activeModelPath = p;
+                        if (env.data != null && !string.IsNullOrEmpty(env.data.modelId))
+                            activeModelId = env.data.modelId;
+                        LoadModel(p);
+                    }
                     break;
             }
         }
@@ -188,6 +195,7 @@ namespace StageMate.Core
             {
                 Debug.Log($"[StageMateBridge] Invoking native VRMLoader for: {path}");
                 vrmLoader.LoadVRM(path);
+                socket?.SendJson($"{{\"type\":\"stage:vrm:ready\",\"data\":{{\"modelPath\":\"{path.Replace("\\", "\\\\")}\",\"modelId\":\"{activeModelId}\"}}}}");
             }
             else
             {
