@@ -868,6 +868,35 @@ While the modular C# contracts and WebSocket state-sync protocol succeeded, clea
 
 ---
 
+### 12. AIRI Sensor-Driven Window Sitting & Anti-Cheat Safe Relay (Deferred / Future Roadmap)
+
+#### Background & Mechanics
+In base Mate-Engine, the **"Window and Taskbar Sitting"** feature enables the avatar to sit on foreground application windows and the taskbar, swaying when windows move and dropping with gravity when closed.
+However, in base Unity on Windows, this is achieved by polling Win32 OS APIs (`GetForegroundWindow`, `EnumWindows`, `GetWindowRect`, and `SHAppBarMessage(ABM_GETTASKBARPOS)`).
+- **Anti-Cheat Warning**: Kernel-level game anti-cheats (Vanguard, Easy Anti-Cheat) frequently flag background software running `EnumWindows` loops as unauthorized screen hooks or overlay cheats.
+- **macOS Incompatibility**: These Win32 DLLs do not exist on macOS, causing `DllNotFoundException` crashes when invoked directly.
+
+#### Architectural Proposal (AIRI Sensor Pipeline)
+Rather than maintaining platform-specific C#/P-Invoke window scanners in Unity, AIRI already has a native OS sensor engine in Electron Main (`active-window-and-idle-time` / AppleScript / Cocoa `CGWindowListCopyWindowInfo`):
+1. **AIRI Proactivity Sensor**: Electron Main tracks the active foreground window coordinates $(X, Y, W, H)$ across macOS, Windows, and Linux safely.
+2. **WebSocket Event Relay**: When window sitting is enabled, AIRI emits:
+   ```json
+   {
+     "type": "stage:active-window:bounds",
+     "data": {
+       "x": 350,
+       "y": 120,
+       "width": 900,
+       "height": 600,
+       "title": "Visual Studio Code"
+     }
+   }
+   ```
+3. **Engine Snapping**: `AvatarWindowHandler` consumes the relayed coordinates to snap the avatar to the title bar and trigger the sitting animation.
+4. **Status**: **DEFERRED (Phase 2+)**. We will circle back to this once the core companion stage and blendshape/lip-sync flows are finalized.
+
+---
+
 ## 📅 Roadmap & Next Steps
 
 ### Phase 0 — Prototype Spike (✅ Complete)
@@ -883,12 +912,14 @@ While the modular C# contracts and WebSocket state-sync protocol succeeded, clea
 4. ✅ **Clean Source Overlay (`unity-src/`)**: Isolated all custom code into `apps/stage-mate/unity-src/` and verified multi-platform build scripts.
 5. ✅ **Base Mate-Engine Feature Tour**: Evaluated upstream capabilities and finalized the cherry-picking architecture.
 6. ✅ **Modular IPC & StateSync Proof-of-Concept**: Validated WebSocket state sync, protocol envelopes, and dynamic model resolver (`feat(stage-mate)` snapshot).
-7. ⏳ **Subtractive Adaptation of `Mate Engine Main`**: Hook `StageMateBridge.cs` into `Mate Engine Main.unity` native controllers, disable redundant standalone UI, and verify native transparency + pie menu.
-8. ⏳ **Live Lip-Sync Relay**: Connect `stage:vrm:lip-sync` RMS stream to Mate Engine mouth blendshapes.
+7. ✅ **Cross-Platform NAudio / Win32 Guards**: Guarded Windows-only APIs in `AvatarAnimatorController`, `AvatarGravityController`, `AvatarWindowHandler`, `IgnoredAppsManager`, and `SettingsMenuPosition` for 100% clean macOS / Windows parity.
+8. ⏳ **Subtractive Adaptation of `Mate Engine Main`**: Hook `StageMateBridge.cs` into `Mate Engine Main.unity` native controllers, disable redundant standalone UI, and verify native transparency + pie menu.
+9. ⏳ **Live Lip-Sync Relay**: Connect `stage:vrm:lip-sync` RMS stream to Mate Engine mouth blendshapes.
 
 ---
 
 ### Phase 2 — Extended Companion Actions:
+- Deferred: AIRI Sensor-Driven Window Sitting & Anti-Cheat Safe Relay (`stage:active-window:bounds`).
 - Modular outfit swapping via `extensions.airi.outfits` (`<|ACT:costume="..."|>`).
 - MMD Dance Player integration via `airi::beat-sync` (`<|ACT:motion="dance"|>`).
 - Centralized vision/gaze tracking (`stage:vrm:gaze`).
