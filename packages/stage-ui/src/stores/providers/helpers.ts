@@ -1,7 +1,7 @@
 import type { ProviderValidationResult } from './types'
 
-import { isStageTamagotchi, isUrl } from '@proj-airi/stage-shared'
-import { isWebGPUSupported } from 'gpuu/webgpu'
+import { isUrl } from '@proj-airi/stage-shared'
+import { isWebGPUSupported } from '@proj-airi/stage-shared/webgpu'
 
 export function logWarn(...args: unknown[]) {
   try {
@@ -61,9 +61,6 @@ export function validateProviderBaseUrl(baseUrl: unknown): ProviderValidationRes
 }
 
 export async function isBrowserAndMemoryEnough() {
-  if (isStageTamagotchi())
-    return false
-
   const webGPUAvailable = await isWebGPUSupported()
   if (webGPUAvailable) {
     return true
