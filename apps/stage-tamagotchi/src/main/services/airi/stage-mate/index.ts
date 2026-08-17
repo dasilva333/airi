@@ -276,10 +276,13 @@ export function createStageMateService(params?: {
     else if (platform === 'darwin') {
       const candidates = [
         join(baseDevPath, 'StageMate.app'),
+        join(baseDevPath, 'StageMate', 'StageMate.app'),
         join(baseDevPath, 'macOS', 'StageMate.app'),
         join(process.resourcesPath, 'StageMate.app'),
         join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
       ]
       for (const cand of candidates) {
         if (existsSync(cand))

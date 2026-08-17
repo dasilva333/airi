@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -882,7 +882,13 @@ public class AvatarWindowHandler : MonoBehaviour
         r.Left = p.X; r.Top = p.Y; r.Right = p.X + client.Right; r.Bottom = p.Y + client.Bottom;
         return true;
     }
-    void SetTopMost(bool en) => SetWindowPos(unityHWND, en ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    void SetTopMost(bool en)
+    {
+#if UNITY_STANDALONE_WIN
+        if (unityHWND != IntPtr.Zero)
+            SetWindowPos(unityHWND, en ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#endif
+    }
 
     bool IsWindowMaximized(IntPtr hwnd)
     {

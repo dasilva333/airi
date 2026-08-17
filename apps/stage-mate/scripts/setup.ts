@@ -31,12 +31,12 @@ export function setupMateEngine(): boolean {
     cpSync(unityAssetsSrc, join(mateEngineDir, 'Assets'), { recursive: true, force: true })
   }
 
-  // 3. Overlay unity-src/Patches/AvatarHandlers -> mate-engine/Assets/MATE ENGINE - Scripts/AvatarHandlers/
-  const patchesSrc = join(unitySrcDir, 'Patches', 'AvatarHandlers')
-  const targetHandlers = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scripts', 'AvatarHandlers')
-  if (existsSync(patchesSrc) && existsSync(targetHandlers)) {
-    console.log('[setup] Applying patches -> mate-engine/Assets/MATE ENGINE - Scripts/AvatarHandlers/...')
-    cpSync(patchesSrc, targetHandlers, { recursive: true, force: true })
+  // 3. Overlay unity-src/Patches/ -> mate-engine/Assets/MATE ENGINE - Scripts/
+  const patchesSrc = join(unitySrcDir, 'Patches')
+  const targetScripts = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scripts')
+  if (existsSync(patchesSrc) && existsSync(targetScripts)) {
+    console.log('[setup] Applying patches -> mate-engine/Assets/MATE ENGINE - Scripts/...')
+    cpSync(patchesSrc, targetScripts, { recursive: true, force: true })
   }
 
   // 4. Overlay unity-src/ProjectSettings/ -> mate-engine/ProjectSettings/
