@@ -85,6 +85,8 @@ function logEvent(msg: string) {
   render()
 }
 
+let activeExpression = 'Neutral'
+
 function render() {
   if (!process.stdout.isTTY)
     return
@@ -98,6 +100,9 @@ function render() {
   const lipStatus = lipSyncRemaining > 0
     ? `${c.magenta}🗣️ Playing (${(lipSyncRemaining / 10).toFixed(1)}s)${c.reset}`
     : `${c.dim}Idle${c.reset}`
+  const exprStatus = activeExpression !== 'Neutral'
+    ? `${c.red}${c.bold}😡 ${activeExpression} (Active)${c.reset}`
+    : `${c.dim}Neutral${c.reset}`
 
   const lines = [
     '\x1B[2J\x1B[H',
@@ -112,6 +117,7 @@ function render() {
     `  ${c.bold}Always-on-Top:${c.reset}    ${aotStatus}`,
     `  ${c.bold}Stage State:${c.reset}      ${visStatus}`,
     `  ${c.bold}View Mode:${c.reset}        ${c.cyan}${activeViewMode}${c.reset}`,
+    `  ${c.bold}Expression:${c.reset}       ${exprStatus}`,
     `  ${c.bold}Lip-Sync Telemetry:${c.reset} ${lipStatus}`,
     '',
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
@@ -119,7 +125,7 @@ function render() {
     `  ${c.yellow}[1]${c.reset} Mini (220×315)     ${c.yellow}[2]${c.reset} Med. (450×600)    ${c.yellow}[3]${c.reset} Large (800×1000)   ${c.yellow}[4]${c.reset} Full (Workarea)`,
     `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})`,
     `  ${c.green}[D]${c.reset} Viewport Drag      ${c.green}[O]${c.reset} Viewport Orbit    ${c.green}[S]${c.reset} Viewport Spin      ${c.green}[C]${c.reset} Cycle Modes`,
-    `  ${c.magenta}[L]${c.reset} Lip-Sync Speech Wave                  ${c.blue}[R]${c.reset} Reset Coordinates`,
+    `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.blue}[R]${c.reset} Reset Coordinates`,
     `  ${c.red}[Q]${c.reset} Quit Harness`,
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
     `  ${c.bold}Last Event:${c.reset} ${c.dim}${lastEvent}${c.reset}`,
@@ -166,10 +172,31 @@ function triggerLipSyncSimulation() {
   }, 100)
 }
 
+function triggerExpression(name: string, durationMs = 2500) {
+  activeExpression = name
+  broadcast({
+    type: 'stage:vrm:expression',
+    data: { name, weight: 1.0, durationMs },
+  })
+  logEvent(`Sent stage:vrm:expression → ${name} (1.0 for ${(durationMs / 1000).toFixed(1)}s)`)
+  render()
+
+  setTimeout(() => {
+    if (activeExpression === name) {
+      activeExpression = 'Neutral'
+      render()
+    }
+  }, durationMs)
+}
+
 function handleKeypress(key: string) {
   const k = key.toLowerCase()
 
   switch (k) {
+    case 'e':
+    case 'a':
+      triggerExpression('Angry', 2500)
+      break
     case '1':
       activeSizePreset = 'mini (220×315)'
       broadcast({ type: 'stage:size-preset', data: { preset: 'mini' } })
