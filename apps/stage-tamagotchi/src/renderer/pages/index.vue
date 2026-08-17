@@ -42,7 +42,8 @@ import {
   electronGetMainWindowConfig,
   electronOpenChat,
   electronOpenSettings,
-  //  electronStageSetAlwaysOnTop,
+  electronStageMateSetViewportMode,
+  electronStageMateToggleVisibility,
   electronStageToggleVisibility,
   electronStartDraggingWindow,
   noticeWindowEventa,
@@ -106,10 +107,12 @@ const { live2dLookAtX, live2dLookAtY } = storeToRefs(useWindowStore())
 const settingsStore = useSettings()
 const positioningStore = usePositioningStore()
 const controlStripStore = useSettingsControlStrip()
-const { stageEnabled, captionOpen, collapsed, chatOpen } = storeToRefs(controlStripStore)
+const { stageEnabled, stageMateEnabled, stageMode, captionOpen, collapsed, chatOpen } = storeToRefs(controlStripStore)
 const controlsIslandStore = useSettingsControlsIsland()
 const { fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
+const toggleStageMateVisibility = useElectronEventaInvoke(electronStageMateToggleVisibility)
+const setStageMateViewportMode = useElectronEventaInvoke(electronStageMateSetViewportMode)
 const liveSessionStore = useLiveSessionStore()
 
 const cardStore = useAiriCardStore()
@@ -133,6 +136,14 @@ watch(stageEnabled, (val) => {
     captionOpen.value = val
   }
 }, { immediate: true })
+
+watch(stageMateEnabled, (val) => {
+  toggleStageMateVisibility(val)
+})
+
+watch(stageMode, (val) => {
+  setStageMateViewportMode(val)
+})
 
 // NOTICE: the caption is *not* secretly owned by this watcher alone. When "follow stage visibility" is
 // on, main/index.ts already hides/shows the caption in lockstep with the stage and echoes the result
@@ -717,6 +728,9 @@ function handleControlStripAction(e: Event) {
   }
   else if (action === 'stage') {
     controlStripStore.stageEnabled = !controlStripStore.stageEnabled
+  }
+  else if (action === 'stage-mate') {
+    controlStripStore.stageMateEnabled = !controlStripStore.stageMateEnabled
   }
   else if (action === 'gemini-session') {
     if (!liveSessionStore.isActive) {

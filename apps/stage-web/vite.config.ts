@@ -296,6 +296,11 @@ export default defineConfig({
       plugins: {
         vue: Vue({
           include: [/\.vue$/, /\.md$/],
+          template: {
+            compilerOptions: {
+              isCustomElement: (tag: string) => tag.startsWith('Tres') && tag !== 'TresCanvas',
+            },
+          },
         }),
         vueJsx: false,
       },

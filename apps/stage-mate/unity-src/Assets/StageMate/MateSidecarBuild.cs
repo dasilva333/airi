@@ -125,6 +125,10 @@ public static class MateSidecarBuild
         camGO.transform.localPosition = new Vector3(0f, 0f, -3f);
         var cam = camGO.AddComponent<Camera>();
         cam.fieldOfView = 40f;
+        cam.nearClipPlane = 0.01f;
+        cam.farClipPlane = 50f;
+        cam.allowHDR = false;
+        cam.allowMSAA = false;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
         camGO.AddComponent<AudioListener>();
@@ -143,6 +147,11 @@ public static class MateSidecarBuild
         // 3. Model Root & VRM Drivers
         var modelRootGO = new GameObject("ModelRoot");
         var vrmDriver = modelRootGO.AddComponent<StageMate.Models.VrmModelDriver>();
+        var idle = EnsureIdleController();
+        vrmDriver.idleCatalog = GatherIdleCatalog();
+        vrmDriver.idleBaseController = idle.controller;
+        vrmDriver.idlePlaceholderA = idle.placeholderA;
+        vrmDriver.idlePlaceholderB = idle.placeholderB;
 
         // 4. Companion Systems (Tactile, Locomotion, Macaron Bed)
         var companionGO = new GameObject("CompanionSystems");
@@ -159,6 +168,7 @@ public static class MateSidecarBuild
         windowCtrl.opacityThreshold = 0.05f;
         windowCtrl.autoSwitchCameraBackground = true;
         windowCtrl.currentCamera = cam;
+        windowCtrl.transparentType = UniWindowController.TransparentType.Alpha;
 
         var windowManager = windowCtrlGO.AddComponent<StageMate.Window.StageMateWindowManager>();
         windowManager.windowController = windowCtrl;
@@ -184,23 +194,10 @@ public static class MateSidecarBuild
         stateSync.locomotion = locomotion;
         stateSync.plushBed = plushBed;
         stateSync.vrmDriver = vrmDriver;
-
-        // 8. Backward-compatible MateSidecar Coordinator
-        var sidecarGO = new GameObject("MateSidecar");
-        var sidecar = sidecarGO.AddComponent<MateSidecar>();
-        sidecar.fallbackModelPath = ResolveFallbackModelPath();
-        sidecar.cameraRig = camRig.transform;
-        sidecar.orbitCamera = cam;
-        sidecar.windowController = windowCtrl;
-
-        var idle = EnsureIdleController();
-        sidecar.idleCatalog = GatherIdleCatalog();
-        sidecar.idleBaseController = idle.controller;
-        sidecar.idlePlaceholderA = idle.placeholderA;
-        sidecar.idlePlaceholderB = idle.placeholderB;
+        stateSync.fallbackModelPath = ResolveFallbackModelPath();
 
         EditorSceneManager.SaveScene(scene, ScenePath);
-        Debug.Log($"[MateSidecarBuild] modular scene created: {ScenePath} (fallback model: '{sidecar.fallbackModelPath}')");
+        Debug.Log($"[MateSidecarBuild] modular scene created: {ScenePath} (fallback model: '{stateSync.fallbackModelPath}')");
     }
 
     private static (AnimatorController controller, AnimationClip placeholderA, AnimationClip placeholderB) EnsureIdleController()

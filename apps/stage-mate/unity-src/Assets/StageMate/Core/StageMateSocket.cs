@@ -151,7 +151,11 @@ namespace StageMate.Core
 
                 // Authenticate
                 string token = ResolveAuthToken();
-                var authMsg = new AuthMessage { type = "auth", token = token };
+                var authMsg = new AuthMessage
+                {
+                    type = "module:authenticate",
+                    data = new AuthData { token = token, caller = "stage-mate" }
+                };
                 string authJson = JsonUtility.ToJson(authMsg);
                 byte[] authBytes = Encoding.UTF8.GetBytes(authJson);
                 await socket.SendAsync(new ArraySegment<byte>(authBytes), WebSocketMessageType.Text, true, cts.Token);
@@ -236,28 +240,40 @@ namespace StageMate.Core
             if (!string.IsNullOrEmpty(envToken))
                 return envToken;
 
-            // 3. Electron AppData config.json
+            // 3. Known AIRI user-data config on disk (e.g. server-channel-config.json)
             try
             {
+                string home = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string configPath = Path.Combine(appData, "airi", "config.json");
-                if (File.Exists(configPath))
+
+                string[] searchPaths = new string[]
                 {
-                    string json = File.ReadAllText(configPath);
-                    int idx = json.IndexOf("\"token\"");
-                    if (idx >= 0)
+                    Path.Combine(appData, "@proj-airi", "stage-tamagotchi", "server-channel-config.json"),
+                    Path.Combine(appData, "airi", "server-channel-config.json"),
+                    Path.Combine(home, "Library", "Application Support", "@proj-airi", "stage-tamagotchi", "server-channel-config.json"),
+                    Path.Combine(home, ".config", "@proj-airi", "stage-tamagotchi", "server-channel-config.json")
+                };
+
+                foreach (var sp in searchPaths)
+                {
+                    if (File.Exists(sp))
                     {
-                        int colon = json.IndexOf(':', idx);
-                        int quote1 = json.IndexOf('"', colon + 1);
-                        int quote2 = json.IndexOf('"', quote1 + 1);
-                        if (quote1 >= 0 && quote2 > quote1)
-                            return json.Substring(quote1 + 1, quote2 - quote1 - 1);
+                        string text = File.ReadAllText(sp);
+                        int idx = text.IndexOf("\"authToken\"");
+                        if (idx >= 0)
+                        {
+                            int colon = text.IndexOf(':', idx);
+                            int q1 = text.IndexOf('"', colon + 1);
+                            int q2 = text.IndexOf('"', q1 + 1);
+                            if (q1 >= 0 && q2 > q1)
+                                return text.Substring(q1 + 1, q2 - q1 - 1).Trim();
+                        }
                     }
                 }
             }
             catch { }
 
-            return "mock-harness-token";
+            return "mate-stage-dev-token";
         }
     }
 }

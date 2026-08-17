@@ -23,6 +23,22 @@ function getRuntimeLogPath(): string {
   return path.resolve(import.meta.dirname, '..', 'mate-engine', 'Build', 'stagemate-runtime.log')
 }
 
+if (mode === 'clear' || mode === 'clean' || mode === 'reset') {
+  const deep = getDeepLogPath()
+  const runtime = getRuntimeLogPath()
+  try {
+    if (fs.existsSync(deep))
+      fs.writeFileSync(deep, '')
+    if (fs.existsSync(runtime))
+      fs.writeFileSync(runtime, '')
+    console.log('[logs] Cleared both Player.log and stagemate-runtime.log!')
+  }
+  catch (err: any) {
+    console.error(`[logs] Error clearing logs: ${err.message}`)
+  }
+  process.exit(0)
+}
+
 const targetFile = mode === 'deep' ? getDeepLogPath() : getRuntimeLogPath()
 
 console.log(`[logs] Viewing ${mode === 'deep' ? 'deep (Player.log)' : 'runtime (stagemate-runtime.log)'}:`)

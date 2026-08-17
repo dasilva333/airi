@@ -22,6 +22,9 @@ namespace StageMate.Models
         private Vector3 currentSwayOffset;
         private float breathingPhase;
 
+        private Vector3 initialHipsLocalPos;
+        private bool hasInitialHips;
+
         public void BindBones(Animator animator)
         {
             if (animator == null) return;
@@ -32,6 +35,13 @@ namespace StageMate.Models
             lastRootPos = transform.position;
             currentSwayOffset = Vector3.zero;
             swayVelocity = Vector3.zero;
+            breathingPhase = 0f;
+
+            if (hips != null)
+            {
+                initialHipsLocalPos = hips.localPosition;
+                hasInitialHips = true;
+            }
         }
 
         private void LateUpdate()
@@ -61,8 +71,16 @@ namespace StageMate.Models
             breathingPhase += dt * breathingSpeed;
             float breathY = Mathf.Sin(breathingPhase) * breathingAmount;
 
-            // 4. Apply to Hips and Spine
-            hips.localPosition += new Vector3(currentSwayOffset.x * 0.5f, currentSwayOffset.y * 0.5f + breathY, currentSwayOffset.z * 0.5f);
+            // 4. Apply non-accumulating offset to Hips and Spine
+            if (!hasInitialHips)
+            {
+                initialHipsLocalPos = hips.localPosition;
+                hasInitialHips = true;
+            }
+
+            Vector3 swayOffset = new Vector3(currentSwayOffset.x * 0.5f, currentSwayOffset.y * 0.5f + breathY, currentSwayOffset.z * 0.5f);
+            hips.localPosition = initialHipsLocalPos + swayOffset;
+
             if (spine != null)
             {
                 spine.localRotation *= Quaternion.Euler(-currentSwayOffset.z * 30f, 0f, -currentSwayOffset.x * 30f);

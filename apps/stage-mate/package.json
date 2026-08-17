@@ -16,6 +16,8 @@
     "logs": "tsx scripts/logs.ts runtime",
     "logs:runtime": "tsx scripts/logs.ts runtime",
     "logs:deep": "tsx scripts/logs.ts deep",
+    "logs:clean": "tsx scripts/logs.ts clean",
+    "logs:clear": "tsx scripts/logs.ts clean",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -46,7 +46,13 @@ export default defineConfig({
     // TODO: Type wrong for `unplugin-yaml` in Histoire required
     // Vite version, wait until Histoire updates to support Vite 7
     Yaml() as Plugin,
-    Vue(),
+    Vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag: string) => tag.startsWith('Tres') && tag !== 'TresCanvas',
+        },
+      },
+    }),
     Unocss(),
     // TODO: Type wrong for `unplugin-yaml` in Histoire required
     // Vite version, wait until Histoire updates to support Vite 7

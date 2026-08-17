@@ -3,7 +3,6 @@ using UnityEngine;
 using StageMate.Core;
 using StageMate.Window;
 using StageMate.Companion;
-using StageMate.Models;
 
 namespace StageMate.Viewport
 {
@@ -11,10 +10,10 @@ namespace StageMate.Viewport
     {
         public enum ViewportMode
         {
-            Tactile = 0,
-            Drag = 1,
-            Orbit = 2,
-            Position = 3
+            Tactile,
+            Drag,
+            Orbit,
+            Position,
         }
 
         public ViewportMode currentMode = ViewportMode.Tactile;
@@ -41,14 +40,18 @@ namespace StageMate.Viewport
             switch (modeStr?.ToLowerInvariant())
             {
                 case "drag":
+                case "dragmode":
                 case "viewport-drag":
                     currentMode = ViewportMode.Drag;
                     break;
                 case "orbit":
+                case "orbitmode":
                 case "viewport-orbit":
                     currentMode = ViewportMode.Orbit;
                     break;
                 case "position":
+                case "positionmode":
+                case "positioning":
                 case "viewport-positioning":
                     currentMode = ViewportMode.Position;
                     break;
@@ -59,6 +62,8 @@ namespace StageMate.Viewport
 
             if (tactileHandler != null)
                 tactileHandler.enableTactile = (currentMode == ViewportMode.Tactile);
+
+            Debug.Log($"[StageMateViewportController] Mode set to {currentMode} from '{modeStr}'");
         }
 
         public void SetModelTransform(Vector3 pos, Vector3 rot, Vector3 scale)
@@ -152,15 +157,15 @@ namespace StageMate.Viewport
         {
             if (Input.GetMouseButton(0))
             {
-                float dx = Input.GetAxis("Mouse X") * 3f;
-                float dy = Input.GetAxis("Mouse Y") * 3f;
+                float dx = Input.GetAxis("Mouse X") * 4f;
+                float dy = Input.GetAxis("Mouse Y") * 4f;
                 cameraRig?.SetOrbit(dy, dx, 0f);
             }
 
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (Mathf.Abs(scroll) > 0.01f)
+            if (Mathf.Abs(scroll) > 0.001f)
             {
-                cameraRig?.SetOrbit(0f, 0f, scroll * 2f);
+                cameraRig?.SetOrbit(0f, 0f, scroll * 2.0f);
             }
         }
     }

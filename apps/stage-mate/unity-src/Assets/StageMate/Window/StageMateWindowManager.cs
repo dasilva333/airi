@@ -11,7 +11,7 @@ namespace StageMate.Window
         public bool isTopmost = true;
         public bool isTransparent = true;
         public Vector2 defaultWindowSize = new Vector2(450f, 600f);
-        public bool showDebugHUD = true;
+        public bool showDebugHUD = false;
 
         public event Action<WindowBoundsDto> OnWindowMoved;
 
@@ -27,9 +27,18 @@ namespace StageMate.Window
 
             if (windowController != null)
             {
+                if (windowController.currentCamera == null)
+                    windowController.currentCamera = Camera.main ?? FindFirstObjectByType<Camera>();
+
                 windowController.isTopmost = isTopmost;
-                windowController.isTransparent = isTransparent;
+                windowController.transparentType = UniWindowController.TransparentType.ColorKey;
+                windowController.keyColor = new Color32(1, 0, 1, 0);
+                windowController.isHitTestEnabled = true;
+                windowController.hitTestType = UniWindowController.HitTestType.Opacity;
+                windowController.opacityThreshold = 0.05f;
+                windowController.autoSwitchCameraBackground = true;
                 windowController.alphaValue = 1.0f;
+                windowController.isTransparent = isTransparent;
             }
         }
 
@@ -39,6 +48,16 @@ namespace StageMate.Window
             if (Input.GetKeyDown(KeyCode.F12))
             {
                 showDebugHUD = !showDebugHUD;
+            }
+
+            // Toggle between ColorKey and Alpha transparency with F11
+            if (Input.GetKeyDown(KeyCode.F11) && windowController != null)
+            {
+                var nextType = (windowController.transparentType == UniWindowController.TransparentType.ColorKey)
+                    ? UniWindowController.TransparentType.Alpha
+                    : UniWindowController.TransparentType.ColorKey;
+                windowController.SetTransparentType(nextType);
+                Debug.Log($"[StageMateWindowManager] Switched transparency type to: {nextType}");
             }
 
             // Self-initialize default position once window controller attaches
