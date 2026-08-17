@@ -79,6 +79,17 @@ Both files must stay in lock-step — the menu is driven by a **builder function
 ### 4) Journal / memory chip rendering
 - Chips come from `groupedTextEntries` / `latestImageEntries` computed in `InteractiveArea.vue`. Grouping logic (splitting single entries vs `echo-group` tickers) is at lines ~329-348; click opens `useJournalPreviewStore().openTextPreview(...)` / `openImagePreview(...)`.
 
+### 5) Pre-Flight Grounding Panel (Amber/Orange Context Preview)
+- **Location:** `InteractiveArea.vue:L1080-L1190` (amber/orange themed container `.grounding-preview-panel`).
+- **Debounced Real-Time Search:** When `groundingMemoryEnabled` is true on the active card, `watchDebounced(messageInput, ...)` (lines 155-184, 400ms-1000ms debounce) executes `textJournalStore.searchEntries({ query: messageInput.value, limit: 3, characterId })` and populates `groundedMemories`.
+- **Pre-Flight Status Badges:**
+  - `Sensors Active` (`activeCard.extensions.airi.groundingEnabled`) — environmental telemetry is polled.
+  - `Grounded Memories (N)` (`groundingMemoryEnabled && groundedMemories.length > 0`) — shows count of retrieved memories; expandable preview list.
+  - `Recent Topics (N)` (`groundingTopicsEnabled && recentTopics.length`) — active conversation threads.
+  - `Salience Vibe Active / Standby` (`salienceEnabled`) — RWKV-7 L9-L11 state vector salience verdict.
+  - `Visual Scene Active` (`groundingDirectorScratchpadEnabled && latestDirectorScratchpad`) — Director's visual board.
+- **Inference Injection Alignment:** In `packages/stage-ui/src/stores/chat.ts:L565-L620`, the actual send payload (`performSend`) injects matching system blocks: `[ENVIRONMENTAL AWARENESS]`, `[GROUNDED LONG-TERM MEMORIES]`, `[RECENT TOPICS]`, and `[VISUAL STATE BOARD]`.
+
 ## Known Pitfalls
 
 - **Per-window Pinia stores need BroadcastChannel sync.** Chat and director state mutate independently in each Electron window. Mutations must post the canonical `BroadcastChannel` event (see `docs/rosetta-stone.md` §13 for the full registry — do not re-list every channel here). The ones you'll most often touch from this surface: `airi:director-notes-sync` (director notes; publisher in `packages/stage-ui/src/stores/modules/artistry-autonomous.ts:58`) and the chat/presence channels (`airi-chat-input-bridge`, `airi-chat-stream`, `airi-chat-present`, `airi-intrusion-staging`). Match the exact channel-name string.

@@ -8,8 +8,10 @@ description: >-
 
 - `docs/memory_lab/retrieval-and-ranking-spec.md` — Canonical spec for the retrieval pipeline; defines query analysis, search plans, candidate fusion, reranking, category priors, and evidence selection.
 - `docs/memory_lab/search-probe-harness-plan.md` — Test-harness plan for measuring product-shaped search quality and latency (requires iterative search, hit@k, <30s wall clock).
-- `packages/stage-ui/src/libs/search/layered-memory.ts` — Wrapper over the search worker; persists to a separate `airi-search-index` IndexedDB; maps record kinds to layers (`raw`/`stmm`/`ltmm`).
-- `packages/stage-ui/src/libs/search/hybrid-scorer.ts` — `defaultScorerConfig` + `scoreHybridResults()` combine vector and keyword signals into a fused rank.
+- `packages/stage-ui/src/libs/workers/search/search.worker.ts` — Browser-native search worker. Runs `@huggingface/transformers` (`Xenova/bge-small-en-v1.5` on WebGPU/WASM) for embeddings alongside an in-memory `Map<string, SearchDocument>` and token frequency caches for BM25.
+- `packages/stage-ui/src/libs/search/layered-memory.ts` — Wrapper over the search worker; persists index snapshots to a separate `airi-search-index` IndexedDB via unstorage; maps record kinds to layers (`raw`/`stmm`/`ltmm`).
+- `packages/stage-ui/src/libs/search/hybrid-scorer.ts` — `defaultScorerConfig` (`weightVector: 0.68`, `weightKeyword: 0.32`, `temporalWeight: 0.12`, `minVectorSimilarity: 0.38`, `minScoreSpread: 0.04`, `halfLifeDays: 30`, `rrfK: 60`, `mmrLambda: 0.5`) + `scoreHybridResults()` combine vector and keyword signals into a fused rank.
+- `packages/stage-ui/src/stores/memory-text-journal.ts` — `searchEntries({ query, limit: 3, characterId })` executes layered memory queries across LTMM/STMM/Raw.
 - Docs root: `docs/rosetta-stone.md` §9 for the memory-systems canonical path index.
 
 ## When to Use
@@ -23,6 +25,8 @@ Use this skill when you need to design, debug, or benchmark memory retrieval:
 
 ## Common Pitfalls
 
+- **Candidate pool sizing vs limit** — `search.worker.ts` computes `candidateLimit = Math.max(limit * 5, 20)` (minimum 20 candidates). The final scored list is sliced to `limit` (default 3 in chat ingestion / pre-flight grounding). Do not assume `limit` is what the worker retrieves from raw vector candidates.
+- **Worker in-memory RAM vs IndexedDB** — Embeddings and BM25 index maps live in the Web Worker's heap in RAM for instant lookup. When documents are indexed/removed, `searchWorker.persist()` outputs a snapshot that is saved to IndexedDB (`airi-search-index`). If you bypass `layeredMemory.persist()` or fail to call `init()`, the worker starts empty.
 - **Single wide search** — The spec explicitly forbids "one wide blind search"; always prefer multi-pass retrieval with purpose-built search plans (baseline, temporal, multi-hop, causal, open-domain).
 - **Treating `room` as a hard filter** — `room` is optional experimental metadata and should only be a soft reranking feature / hint, not a mandatory taxonomy gate.
 - **Rewriting protected layers** — The retrieval spec says the system should remain "evidence-first"; summaries are allowed for open-domain but must stay anchored to evidence. Never let a retrospective/abstraction summary become the sole citation for a fact check.
