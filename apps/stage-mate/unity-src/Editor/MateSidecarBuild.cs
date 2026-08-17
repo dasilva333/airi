@@ -1,234 +1,213 @@
-using System;
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using Kirurobo;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace StageMate.Editor
+public static class MateSidecarBuild
 {
-    public static class MateSidecarBuild
+    private const string ScenePath = "Assets/StageMate/MateSidecarScene.unity";
+    private const string BuildDir = "Build/StageMate";
+    private const string IdleControllerPath = "Assets/StageMate/StageMateIdleController.controller";
+    private const string PlaceholderAPath = "Assets/StageMate/StageMateIdleA.anim";
+    private const string PlaceholderBPath = "Assets/StageMate/StageMateIdleB.anim";
+    private const string IdleClipFolder = "Assets/MATE ENGINE - Animations/PET_IDLE";
+
+    public static void Build()
     {
-        private const string ScenePath = "Assets/StageMate/MateSidecarScene.unity";
-        private const string ControllerPath = "Assets/StageMate/StageMateIdleController.controller";
-        private const string IdleClipsFolder = "Assets/MATE ENGINE - Animations/PET_IDLE";
+        BuildMac();
+    }
 
-        [MenuItem("AIRI/StageMate/1. Setup Scene & Catalog", false, 1)]
-        public static void SetupSceneAndCatalog()
+    public static void BuildMac()
+    {
+        CreateScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+        Directory.CreateDirectory(BuildDir);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            EnsureStageMateFolders();
-            var controller = EnsureIdleController();
-            var catalog = ScanIdleCatalog();
-            CreateOrUpdateScene(controller, catalog);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log($"[MateSidecarBuild] Scene and Idle Catalog setup complete! Found {catalog.Count} idle clips.");
+            scenes = new[] { ScenePath },
+            locationPathName = Path.Combine(BuildDir, "StageMate.app"),
+            target = BuildTarget.StandaloneOSX,
+            options = BuildOptions.None,
+        });
+
+        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            Debug.Log($"[MateSidecarBuild] build succeeded: {BuildDir}");
+        else
+            Debug.LogError($"[MateSidecarBuild] build failed: {report.summary.result}");
+    }
+
+    public static void BuildWindows()
+    {
+        CreateScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+        var winDir = "Build/Windows";
+        Directory.CreateDirectory(winDir);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        {
+            scenes = new[] { ScenePath },
+            locationPathName = Path.Combine(winDir, "StageMate.exe"),
+            target = BuildTarget.StandaloneWindows64,
+            options = BuildOptions.None,
+        });
+
+        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            Debug.Log($"[MateSidecarBuild] windows build succeeded: {winDir}");
+        else
+            Debug.LogError($"[MateSidecarBuild] windows build failed: {report.summary.result}");
+    }
+
+    public static void BuildLinux()
+    {
+        CreateScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+        var linuxDir = "Build/Linux";
+        Directory.CreateDirectory(linuxDir);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        {
+            scenes = new[] { ScenePath },
+            locationPathName = Path.Combine(linuxDir, "StageMate.x86_64"),
+            target = BuildTarget.StandaloneLinux64,
+            options = BuildOptions.None,
+        });
+
+        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            Debug.Log($"[MateSidecarBuild] linux build succeeded: {linuxDir}");
+        else
+            Debug.LogError($"[MateSidecarBuild] linux build failed: {report.summary.result}");
+    }
+
+    public static void BuildAll()
+    {
+        BuildMac();
+    }
+
+    private static void CreateScene()
+    {
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        var camRig = new GameObject("CameraRig");
+        camRig.transform.position = new Vector3(0f, 1.3f, 0f);
+
+        var camGO = new GameObject("Main Camera");
+        camGO.tag = "MainCamera";
+        camGO.transform.SetParent(camRig.transform, false);
+        camGO.transform.localPosition = new Vector3(0f, 0f, -3f);
+        var cam = camGO.AddComponent<Camera>();
+        cam.fieldOfView = 40f;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
+        camGO.AddComponent<AudioListener>();
+
+        var lightGO = new GameObject("Directional Light");
+        var light = lightGO.AddComponent<Light>();
+        light.type = LightType.Directional;
+        light.intensity = 1.2f;
+        lightGO.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+        var sidecarGO = new GameObject("MateSidecar");
+        var sidecar = sidecarGO.AddComponent<MateSidecar>();
+        sidecar.fallbackModelPath = ResolveFallbackModelPath();
+        sidecar.cameraRig = camRig.transform;
+        sidecar.orbitCamera = cam;
+
+        // Native window controller (Kirurobo/UniWindowController) for runtime resize and transparent pass-through hit-testing.
+        var windowCtrlGO = new GameObject("UniWindowController");
+        var windowCtrl = windowCtrlGO.AddComponent<UniWindowController>();
+        windowCtrl.isTransparent = true;
+        windowCtrl.isHitTestEnabled = true;
+        windowCtrl.hitTestType = UniWindowController.HitTestType.Opacity;
+        windowCtrl.opacityThreshold = 0.05f;
+        windowCtrl.autoSwitchCameraBackground = true;
+        windowCtrl.currentCamera = cam;
+        sidecar.windowController = windowCtrl;
+
+        var idle = EnsureIdleController();
+        sidecar.idleCatalog = GatherIdleCatalog();
+        sidecar.idleBaseController = idle.controller;
+        sidecar.idlePlaceholderA = idle.placeholderA;
+        sidecar.idlePlaceholderB = idle.placeholderB;
+
+        EditorSceneManager.SaveScene(scene, ScenePath);
+        Debug.Log($"[MateSidecarBuild] scene created: {ScenePath} (fallback model: '{sidecar.fallbackModelPath}', idle clips: {sidecar.idleCatalog.Length})");
+    }
+
+    private static (AnimatorController controller, AnimationClip placeholderA, AnimationClip placeholderB) EnsureIdleController()
+    {
+        var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(IdleControllerPath);
+        var placeholderA = AssetDatabase.LoadAssetAtPath<AnimationClip>(PlaceholderAPath);
+        var placeholderB = AssetDatabase.LoadAssetAtPath<AnimationClip>(PlaceholderBPath);
+
+        if (controller == null)
+        {
+            Directory.CreateDirectory("Assets/StageMate");
+            controller = AnimatorController.CreateAnimatorControllerAtPath(IdleControllerPath);
+        }
+        if (placeholderA == null)
+        {
+            placeholderA = new AnimationClip { name = "StageMateIdleA" };
+            AssetDatabase.CreateAsset(placeholderA, PlaceholderAPath);
+        }
+        if (placeholderB == null)
+        {
+            placeholderB = new AnimationClip { name = "StageMateIdleB" };
+            AssetDatabase.CreateAsset(placeholderB, PlaceholderBPath);
         }
 
-        [MenuItem("AIRI/StageMate/2. Build Current Active Platform", false, 20)]
-        public static void Build()
+        controller.name = "StageMateIdleController";
+        controller.layers[0].name = "Idle Layer";
+
+        var sm = controller.layers[0].stateMachine;
+        EnsureState(sm, "IdleA", placeholderA, new Vector3(220f, 80f, 0f));
+        EnsureState(sm, "IdleB", placeholderB, new Vector3(460f, 80f, 0f));
+
+        AssetDatabase.SaveAssets();
+        return (controller, placeholderA, placeholderB);
+    }
+
+    private static void EnsureState(AnimatorStateMachine sm, string name, AnimationClip placeholder, Vector3 position)
+    {
+        foreach (var existing in sm.states)
         {
-            SetupSceneAndCatalog();
-
-#if UNITY_STANDALONE_WIN
-            BuildWindows();
-#elif UNITY_STANDALONE_LINUX
-            BuildLinux();
-#elif UNITY_STANDALONE_OSX
-            BuildMac();
-#else
-            BuildWindows();
-#endif
-        }
-
-        [MenuItem("AIRI/StageMate/Build/Windows (x64 .exe)", false, 50)]
-        public static void BuildWindows()
-        {
-            SetupSceneAndCatalog();
-            string outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Build/Windows"));
-            if (!Directory.Exists(outDir))
-                Directory.CreateDirectory(outDir);
-
-            string exePath = Path.Combine(outDir, "StageMate.exe");
-
-            BuildPlayerOptions opt = new BuildPlayerOptions
+            if (existing.state.name == name)
             {
-                scenes = new[] { ScenePath },
-                locationPathName = exePath,
-                target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.None
-            };
-
-            Debug.Log($"[MateSidecarBuild] Starting Windows 64-bit build -> {exePath}");
-            var report = BuildPipeline.BuildPlayer(opt);
-            Debug.Log($"[MateSidecarBuild] Windows Build Result: {report.summary.result} ({report.summary.totalSize} bytes, {report.summary.totalTime.TotalSeconds:F1}s)");
-
-            // Also copy to root Build/StageMate.exe for standard dev discovery
-            try
-            {
-                string rootBuildDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Build"));
-                string rootExe = Path.Combine(rootBuildDir, "StageMate.exe");
-                if (File.Exists(exePath))
-                {
-                    File.Copy(exePath, rootExe, true);
-                }
+                existing.state.motion = placeholder;
+                return;
             }
-            catch { }
         }
+        var state = sm.AddState(name, position);
+        state.motion = placeholder;
+    }
 
-        [MenuItem("AIRI/StageMate/Build/Linux (x86_64)", false, 51)]
-        public static void BuildLinux()
+    private static MateSidecar.IdleClipEntry[] GatherIdleCatalog()
+    {
+        var guids = AssetDatabase.FindAssets("t:AnimationClip", new[] { IdleClipFolder });
+        var entries = new List<MateSidecar.IdleClipEntry>();
+        foreach (var guid in guids)
         {
-            SetupSceneAndCatalog();
-            string outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Build/Linux"));
-            if (!Directory.Exists(outDir))
-                Directory.CreateDirectory(outDir);
-
-            string binPath = Path.Combine(outDir, "StageMate.x86_64");
-
-            BuildPlayerOptions opt = new BuildPlayerOptions
-            {
-                scenes = new[] { ScenePath },
-                locationPathName = binPath,
-                target = BuildTarget.StandaloneLinux64,
-                options = BuildOptions.None
-            };
-
-            Debug.Log($"[MateSidecarBuild] Starting Linux 64-bit build -> {binPath}");
-            var report = BuildPipeline.BuildPlayer(opt);
-            Debug.Log($"[MateSidecarBuild] Linux Build Result: {report.summary.result} ({report.summary.totalSize} bytes, {report.summary.totalTime.TotalSeconds:F1}s)");
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+            if (clip == null)
+                continue;
+            var settings = AnimationUtility.GetAnimationClipSettings(clip);
+            entries.Add(new MateSidecar.IdleClipEntry { name = clip.name, clip = clip, loopTime = settings.loopTime });
         }
+        entries.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+        return entries.ToArray();
+    }
 
-        [MenuItem("AIRI/StageMate/Build/macOS (.app)", false, 52)]
-        public static void BuildMac()
-        {
-            SetupSceneAndCatalog();
-            string outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../Build"));
-            if (!Directory.Exists(outDir))
-                Directory.CreateDirectory(outDir);
-
-            string appPath = Path.Combine(outDir, "StageMate.app");
-
-            BuildPlayerOptions opt = new BuildPlayerOptions
-            {
-                scenes = new[] { ScenePath },
-                locationPathName = appPath,
-                target = BuildTarget.StandaloneOSX,
-                options = BuildOptions.None
-            };
-
-            Debug.Log($"[MateSidecarBuild] Starting macOS Standalone build -> {appPath}");
-            var report = BuildPipeline.BuildPlayer(opt);
-            Debug.Log($"[MateSidecarBuild] macOS Build Result: {report.summary.result} ({report.summary.totalSize} bytes, {report.summary.totalTime.TotalSeconds:F1}s)");
-        }
-
-        [MenuItem("AIRI/StageMate/Build/All Platforms (Win + Linux + Mac)", false, 60)]
-        public static void BuildAll()
-        {
-            Debug.Log("[MateSidecarBuild] Executing multi-platform batch build...");
-            try { BuildWindows(); } catch (Exception e) { Debug.LogError($"Windows build failed: {e.Message}"); }
-            try { BuildLinux(); } catch (Exception e) { Debug.LogError($"Linux build failed: {e.Message}"); }
-            try { BuildMac(); } catch (Exception e) { Debug.LogError($"macOS build failed: {e.Message}"); }
-        }
-
-        private static void EnsureStageMateFolders()
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/StageMate"))
-                AssetDatabase.CreateFolder("Assets", "StageMate");
-            if (!AssetDatabase.IsValidFolder("Assets/StageMate/Editor"))
-                AssetDatabase.CreateFolder("Assets/StageMate", "Editor");
-        }
-
-        private static AnimatorController EnsureIdleController()
-        {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
-            if (controller != null)
-                return controller;
-
-            controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
-            var rootStateMachine = controller.layers[0].stateMachine;
-
-            // Create placeholder clips for IdleA and IdleB
-            var clipA = new AnimationClip { name = "PlaceholderIdleA" };
-            var clipB = new AnimationClip { name = "PlaceholderIdleB" };
-            AssetDatabase.AddObjectToAsset(clipA, controller);
-            AssetDatabase.AddObjectToAsset(clipB, controller);
-
-            var stateA = rootStateMachine.AddState("IdleA");
-            stateA.motion = clipA;
-
-            var stateB = rootStateMachine.AddState("IdleB");
-            stateB.motion = clipB;
-
-            rootStateMachine.defaultState = stateA;
-            AssetDatabase.SaveAssets();
-            return controller;
-        }
-
-        private static List<IdleClipEntry> ScanIdleCatalog()
-        {
-            var catalog = new List<IdleClipEntry>();
-            string[] guids = AssetDatabase.FindAssets("t:AnimationClip", new[] { IdleClipsFolder });
-
-            foreach (string guid in guids)
-            {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
-                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(assetPath);
-                if (clip != null)
-                {
-                    bool isLoop = clip.isLooping || clip.wrapMode == WrapMode.Loop;
-                    catalog.Add(new IdleClipEntry
-                    {
-                        name = clip.name,
-                        clip = clip,
-                        loopTime = isLoop
-                    });
-                }
-            }
-
-            return catalog;
-        }
-
-        private static void CreateOrUpdateScene(AnimatorController controller, List<IdleClipEntry> catalog)
-        {
-            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            // 1. Camera Rig
-            var camObj = new GameObject("StageMateCamera");
-            var cam = camObj.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.Color;
-            cam.backgroundColor = new Color(0.08f, 0.08f, 0.12f, 1f);
-            cam.fieldOfView = 30f;
-            cam.nearClipPlane = 0.1f;
-            cam.farClipPlane = 100f;
-            camObj.transform.position = new Vector3(0f, 1.3f, -2.4f);
-            camObj.transform.LookAt(new Vector3(0f, 1.1f, 0f));
-            camObj.tag = "MainCamera";
-
-            // 2. Directional Light
-            var lightObj = new GameObject("Directional Light");
-            var light = lightObj.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.color = Color.white;
-            light.intensity = 1.2f;
-            lightObj.transform.rotation = Quaternion.Euler(35f, -30f, 0f);
-
-            // 3. Model Root
-            var modelRootObj = new GameObject("ModelRoot");
-            modelRootObj.transform.position = Vector3.zero;
-
-            // 4. MateSidecar Manager
-            var managerObj = new GameObject("StageMateManager");
-            var sidecar = managerObj.AddComponent<MateSidecar>();
-            sidecar.orbitCamera = cam;
-            sidecar.modelRoot = modelRootObj.transform;
-            sidecar.mainLight = light;
-            sidecar.baseIdleController = controller;
-            sidecar.idleCatalog = catalog;
-
-            EditorSceneManager.SaveScene(scene, ScenePath);
-        }
+    private static string ResolveFallbackModelPath()
+    {
+        var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        var candidate = Path.GetFullPath(Path.Combine(projectRoot, "..", "test-model.vrm"));
+        return File.Exists(candidate) ? candidate : "";
     }
 }
+#endif

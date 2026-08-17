@@ -19,6 +19,11 @@ public static class MateSidecarBuild
 
     public static void Build()
     {
+        BuildMac();
+    }
+
+    public static void BuildMac()
+    {
         CreateScene();
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
@@ -26,7 +31,7 @@ public static class MateSidecarBuild
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
             scenes = new[] { ScenePath },
-            locationPathName = BuildDir,
+            locationPathName = Path.Combine(BuildDir, "StageMate.app"),
             target = BuildTarget.StandaloneOSX,
             options = BuildOptions.None,
         });
@@ -35,6 +40,53 @@ public static class MateSidecarBuild
             Debug.Log($"[MateSidecarBuild] build succeeded: {BuildDir}");
         else
             Debug.LogError($"[MateSidecarBuild] build failed: {report.summary.result}");
+    }
+
+    public static void BuildWindows()
+    {
+        CreateScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+        var winDir = "Build/Windows";
+        Directory.CreateDirectory(winDir);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        {
+            scenes = new[] { ScenePath },
+            locationPathName = Path.Combine(winDir, "StageMate.exe"),
+            target = BuildTarget.StandaloneWindows64,
+            options = BuildOptions.None,
+        });
+
+        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            Debug.Log($"[MateSidecarBuild] windows build succeeded: {winDir}");
+        else
+            Debug.LogError($"[MateSidecarBuild] windows build failed: {report.summary.result}");
+    }
+
+    public static void BuildLinux()
+    {
+        CreateScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+        var linuxDir = "Build/Linux";
+        Directory.CreateDirectory(linuxDir);
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+        {
+            scenes = new[] { ScenePath },
+            locationPathName = Path.Combine(linuxDir, "StageMate.x86_64"),
+            target = BuildTarget.StandaloneLinux64,
+            options = BuildOptions.None,
+        });
+
+        if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            Debug.Log($"[MateSidecarBuild] linux build succeeded: {linuxDir}");
+        else
+            Debug.LogError($"[MateSidecarBuild] linux build failed: {report.summary.result}");
+    }
+
+    public static void BuildAll()
+    {
+        BuildMac();
     }
 
     private static void CreateScene()
