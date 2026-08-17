@@ -54,7 +54,9 @@ function findUnityExecutable(): string | null {
 const targetArg = process.argv[2] ?? 'all'
 let executeMethod = 'MateSidecarBuild.Build'
 
-if (targetArg === 'win' || targetArg === 'windows')
+if (targetArg === 'original' || targetArg === 'main')
+  executeMethod = 'MateSidecarBuild.BuildOriginalWindows'
+else if (targetArg === 'win' || targetArg === 'windows')
   executeMethod = 'MateSidecarBuild.BuildWindows'
 else if (targetArg === 'linux')
   executeMethod = 'MateSidecarBuild.BuildLinux'

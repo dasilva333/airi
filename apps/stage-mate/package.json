@@ -9,9 +9,13 @@
     "harness": "tsx harness/index.ts",
     "build": "tsx scripts/build.ts",
     "build:win": "tsx scripts/build.ts win",
+    "build:original": "tsx scripts/build.ts original",
     "build:linux": "tsx scripts/build.ts linux",
     "build:mac": "tsx scripts/build.ts mac",
     "build:all": "tsx scripts/build.ts all",
+    "logs": "tsx scripts/logs.ts runtime",
+    "logs:runtime": "tsx scripts/logs.ts runtime",
+    "logs:deep": "tsx scripts/logs.ts deep",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

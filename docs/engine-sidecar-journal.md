@@ -756,27 +756,33 @@ Upstream Mate-Engine wrapped Win32 struct declarations (`RECT`, `POINT`, `Window
 
 ---
 
-### 9. Monolith Decomposition Blueprint (Scaling to 4 Formats)
+### 9. Monolith Decomposition Blueprint (Scaling to Modular Companion Services)
 
-As `MateSidecar.cs` approaches ~1,700 lines, maintaining transport, windowing, UI chrome, model loading, and blendshape morphing in a single script creates unnecessary coupling.
+As `MateSidecar.cs` approaches ~1,700 lines, maintaining transport, windowing, UI chrome, model loading, blendshape morphing, and companion physics in a single script creates unnecessary coupling.
 
-To support clean expansion to **VRM, MMD, Spine, and Live2D**, we plan to decompose the sidecar into modular C# components:
+We decompose the sidecar into clean, focused C# modules organized by domain:
 
 ```
 apps/stage-mate/unity-src/Assets/StageMate/
 ├── Core/
-│   ├── StageMateSocket.cs            # WebSocket client, auth handshake, message routing
+│   ├── StageMateSocket.cs            # WebSocket client, auth handshake, message routing (:6171)
 │   ├── StageMateProtocol.cs          # Wire message JSON data structures & serialization
 │   └── StageMateStateSync.cs         # stage:state:sync parsing & bootstrap dispatch
 ├── Window/
-│   ├── StageMateWindowManager.cs     # Native window drag, top-left bounds conversion, hit-testing
-│   └── StageMateChromeUI.cs          # Top-right MOVE / CFG handles and config overlay
+│   ├── StageMateWindowManager.cs     # Native window drag (waist grab / DWM transparent window)
+│   ├── StageMateShadowRig.cs         # Real-time transparent desktop drop-shadow projector quad
+│   └── StageMateRadialMenu.cs        # Circular pie menu overlay & quick action ring
 ├── Viewport/
-│   ├── StageMateViewportController.cs# Drag translation, camera orbit, zoom, pointer mode state
-│   └── StageMateCameraRig.cs         # Camera rig framing, FOV, and background solid/transparent clearing
+│   ├── StageMateViewportController.cs# Drag translation, camera orbit, zoom, mode state machine
+│   └── StageMateCameraRig.cs         # Camera rig framing, Face Zoom toggle, FOV, solid/alpha clear
+├── Companion/
+│   ├── StageMateTactileHandler.cs    # Hand-holding IK, head petting, heart/blush FX, Ki-lift aura
+│   ├── StageMateLocomotion.cs        # Window top sitting (2 poses), taskbar walk, edge peeking, gravity
+│   └── StageMatePlushBed.cs          # Floating macaron bed, props & companion resting furniture
 └── Models/
     ├── IStageModelDriver.cs          # Universal interface (Load, SetPosition, SetExpression, SetLipSync)
-    ├── VrmModelDriver.cs             # UniVRM driver (isolated, clean, no dead tracking cruft)
+    ├── VrmModelDriver.cs             # UniVRM driver (isolated, clean, UniversalBlendshapes, ChibiToggle)
+    ├── VrmSwayDriver.cs              # Inertial posture swaying & natural breathing physics
     ├── MmdModelDriver.cs             # (Future) PMX/VMD driver
     ├── SpineModelDriver.cs           # (Future) Spine-Unity runtime driver
     └── Live2DModelDriver.cs          # (Future) CubismFramework driver
@@ -784,24 +790,57 @@ apps/stage-mate/unity-src/Assets/StageMate/
 
 ---
 
-### 10. Base Mate-Engine Feature Tour & Cherry-Picking Catalog
+### 10. The Unified Mode Architecture & Cherry-Picked Feature Catalog
 
-Mate-Engine contains a rich suite of built-in desktop companion features developed by `shinyflvre`. Below is a catalog of native capabilities available out-of-the-box that can be bridged into AIRI's LLM action pipeline (`<|ACT:...|>`):
+Based on empirical testing of the compiled base player (`MateEngineX.exe`), we unify the stage modes so that **`tactileMode` is the full native desktop companion experience**:
 
-| Feature Area | Source Scripts | Native Capability | Potential AIRI Action Tag |
-|---|---|---|---|
-| **Window Sitting & Edge Physics** | `AvatarWindowHandler.cs`<br/>`AvatarGravityController.cs` | Detects foreground OS windows via Win32/AppKit APIs. Avatar sits on top of the active browser/editor window and drops with gravity when the window moves. | `<|ACT:action="sit"|>`<br/>`<|ACT:action="drop"|>` |
-| **Edge Locomotion & Peeking** | `AvatarLocomotionController.cs`<br/>`AvatarHideHandler.cs` | Avatar walks along the bottom taskbar, hides behind the screen edge, and peeks out when idle. | `<|ACT:motion="walk"|>`<br/>`<|ACT:action="peek"|>` |
-| **MMD Dance Player** | `AvatarDancePlayer.cs`<br/>`AvatarDanceSync.cs` | Built-in dance player that loads `.vmd` motion clips and dances in sync with music or audio beats. | `<|ACT:motion="dance"|>` |
-| **Breathing & Swaying** | `AvatarSwayController.cs` | Procedural idle posture swaying and natural breathing physics. | Automatic idle layer |
-| **Focus & Pomodoro Timer** | `AvatarBigScreenTimer.cs`<br/>`AvatarBigScreenHandler.cs` | Screen-dimming focus timer where the avatar cheers the user on or sleeps while the user works. | `<|ACT:mode="focus"|>` |
-| **Speech Bubbles & Reactions** | `AvatarBubbleHandler.cs`<br/>`PetVoiceReactionHandler.cs` | Floating comic-style speech bubbles and audio reaction triggers. | `<|ACT:bubble="text"|>` |
-| **Costumes & Bone Attachments** | `ModItemPrefab`<br/>`AccessoiresHandler.cs` | Dynamic costume swapping and attaching accessory meshes/props to humanoid bones. | `<|ACT:costume="outfit_id"|>` |
+```
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              AIRI STAGE VIEWPORT MODES                                │
+├───────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                       │
+│  🌟 'tactileMode' (Default - Full Desktop Companion Mode):                            │
+│     • Gaze & Head Follow (AIRI-driven stage:vrm:gaze coordinate stream)               │
+│     • Hand Holding IK (hand tracks cursor within interaction radius)                  │
+│     • Head Petting & Heart Particles (rubbing head triggers blush + voice + hearts)   │
+│     • Real-time Cast Desktop Drop Shadow (projects onto apps & wallpaper)             │
+│     • Window & Taskbar Sitting (Pose 1: Dangle legs; Pose 2: Lie down kicking heels)  │
+│     • Monitor Edge Peeking & Gravity Drop when windows close                          │
+│     • Waist-Grab Window Move (replaces clumsy corner handles with natural dragging)   │
+│     • Floating Macaron Plush Bed Mode & Props (relaxing companion furniture)          │
+│     • Chibi Bobblehead Mode (universal Humanoid bone scaling)                         │
+│     • Posture Swaying & Breathing Inertia (spring-damper physics)                     │
+│     • Radial Pie Context Menu & Face Zoom toggle                                      │
+│                                                                                       │
+│  🔧 'dragMode':                                                                       │
+│     • Temporarily pauses companion tactile triggers so LMB pans model coordinates     │
+│                                                                                       │
+│  🎥 'orbitMode':                                                                      │
+│     • Temporarily pauses companion tactile triggers so LMB orbits camera 360°         │
+│                                                                                       │
+│  📐 'positionMode':                                                                   │
+│     • Precise coordinate placement & numerical scale adjustment                       │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-#### Exploring Base Mate-Engine As-Is
-To test drive these native features before deciding which ones to bridge:
-1. Open the base scene in Unity Editor: `Assets/MATE ENGINE - Scenes/PetScene.unity` (or `MainMenu.unity`).
-2. Run or build `MateEngineX` to test window sitting, physics, the MMD dance player, and UI menus.
+#### Final Cherry-Picked Component Matrix
+
+| Feature Area | Source Script | Architectural Decision |
+|---|---|---|
+| **Cast Desktop Drop Shadow** | `TransparentShadow.shader` / `ShadowOnly.shader` | ✅ **Core Rig (`StageMateShadowRig.cs`)**: Real-time directional shadow cast onto transparent desktop. |
+| **Hand Holding IK** | `HandHolder.cs` | ✅ **Tactile Layer**: Arm IK reaches out to hold cursor when hovered near hands. |
+| **Head Petting & Hearts** | `PetVoiceReactionHandler.cs` / `AvatarParticleHandler.cs` | ✅ **Tactile Layer**: Petting head triggers happy facial expressions, audio, and floating heart particles. |
+| **Waist Drag & Ki Aura** | `AvatarDragSoundHandler.cs` / `TransformFX` | ✅ **Tactile Layer**: Dragging avatar by waist moves window directly, replacing external corner handles. |
+| **Window Sitting & Dangles** | `AvatarWindowHandler.cs` | ✅ **Locomotion Layer**: Latch onto title bars with 2 sit poses (dangling legs / lying kicking heels). |
+| **Edge Peeking & Gravity** | `AvatarHideHandler.cs` / `AvatarGravityController.cs` | ✅ **Locomotion Layer**: Snaps behind monitor bezels and drops with gravity when windows close. |
+| **Macaron Plush Bed** | `AvatarSleepController.cs` / Mod items | ✅ **Companion Layer**: Floating macaron resting bed for idle / sleep states. |
+| **Radial Pie Menu** | `CircleSelector.cs` | ✅ **Overlay Layer**: Context radial selector for quick stage actions. |
+| **Face Zoom In/Out** | Camera Rig preset | ✅ **Camera Layer**: Instant facial close-up toggle. |
+| **Chibi Mode** | `ChibiToggle.cs` | ✅ **Model Layer**: Universal Humanoid bone scaling (works on 100% of VRM models). |
+| **Posture Swaying & Inertia** | `AvatarSwayController.cs` | ✅ **Model Layer**: Spring-damper physics on hips/limbs during movement. |
+| **Universal Blendshapes** | `UniversalBlendshapes.cs` | ✅ **Model Layer**: VRM 0.x / 1.0 normalization and smooth dampening. |
+| **Modular Outfit Toggles** | `AccessoiresHandler.cs` | 🚀 **Phase 2**: Map to AIRI's `extensions.airi.outfits` schema. |
+| **MMD Dance Player** | `AvatarDancePlayer.cs` | 🚀 **Phase 2**: Wire into `airi::beat-sync` and `<|ACT:motion="dance"|>`. |
 
 ---
 
@@ -813,25 +852,22 @@ To test drive these native features before deciding which ones to bridge:
 3. ✅ **Dynamic Model Cache Gate (Option A)**: Stateless query-first cache gate in Electron Main (`userData/stage-mate-cache/`) with atomic write safety and in-flight deduplication.
 4. ✅ **Control Strip Customizer Integration**: Added `stage-mate` toggle to `CUSTOMIZER_CATALOG`, with live status dot and action handlers.
 
-### Phase 1 — State Sync & Viewport Controls (✅ In Progress / Testing)
+### Phase 1 — State Sync, Viewport Controls & Decomposition (✅ In Progress)
 1. ✅ **`stage:state:sync` Post-Handshake Bootstrap**: Unified state snapshot emission from Electron Main / `StageMateService` (window bounds, model path, positioning, mode, visibility).
-2. ✅ **Tier 1 OS Window Positioning**: Connected Stage-Mate top-bar chrome handle to `stage:window:bounds` $\rightarrow$ `config.json` persistence.
-3. ✅ **Tier 2 Model Positioning**: Connected Stage-Mate `dragMode` canvas translation to `stage:model:position` $\rightarrow$ `usePositioningStore`.
-4. ✅ **Control Strip Viewport Mode Sync**: Wired `control:viewport:mode` broadcasts from `controlStripStore.stageMode` to Stage-Mate.
-5. ✅ **Control Customizer 4-Mode Toggles**: Added `viewport-tactile`, `viewport-drag`, `viewport-positioning`, and `viewport-orbit` toggle handlers in `customizer.vue`.
-6. ✅ **LookAt Decoupling Fix**: Explicitly detached UniVRM LookAt targets when tracking is disabled to prevent head inversion.
-7. ✅ **Clean Source Overlay (`unity-src/`)**: Isolated all custom code into `apps/stage-mate/unity-src/` and added `scripts/setup.ts` / `scripts/build.ts`.
-8. ⏳ **Live User Verification**: Confirm head stability and per-model offset persistence across model switching.
-9. ⏳ **Basic Lip-Sync Telemetry Relay**: Relay `stage:vrm:lip-sync` RMS amplitude to VRM mouth blendshapes during TTS speech.
-10. ⏳ **First Windows Build Validation**: Compile and test `StageMate.exe` on Windows using the new `unity-src` overlay and setup scripts.
+2. ✅ **Tier 1 & Tier 2 Positioning**: Desktop window bounds saved to `config.json`, and in-canvas model offsets committed to `usePositioningStore`.
+3. ✅ **LookAt Decoupling & Fix**: Explicitly neutralized UniVRM LookAt components when gaze is inactive to eliminate head inversion.
+4. ✅ **Clean Source Overlay (`unity-src/`)**: Isolated all custom code into `apps/stage-mate/unity-src/` and verified multi-platform build scripts.
+5. ✅ **Base Mate-Engine Feature Tour**: Evaluated upstream capabilities and finalized the cherry-picking architecture.
+6. ⏳ **Monolith Decomposition Execution**: Refactor `MateSidecar.cs` into modular services (`Core/`, `Window/`, `Viewport/`, `Companion/`, `Models/`) incorporating the drop shadow, hand holding, head petting, waist drag, and macaron bed.
+7. ⏳ **Live Lip-Sync Relay**: Connect `stage:vrm:lip-sync` RMS stream to `VrmModelDriver.cs` mouth blendshapes.
 
 ---
 
-### Out of Scope for MVP (Phase 2+):
-- Tactile spring-damper bone dragging & mesh raycast events (`stage:vrm:interact`).
-- Gaze target relay (`stage:vrm:gaze`).
-- Non-VRM formats (MMD, Spine, Live2D).
-- Automatic sidecar executable spawning (`execProcess`).
+### Phase 2 — Extended Companion Actions:
+- Modular outfit swapping via `extensions.airi.outfits` (`<|ACT:costume="..."|>`).
+- MMD Dance Player integration via `airi::beat-sync` (`<|ACT:motion="dance"|>`).
+- Centralized vision/gaze tracking (`stage:vrm:gaze`).
+- Automatic sidecar executable lifecycle management (`execProcess`).
 
 
 
