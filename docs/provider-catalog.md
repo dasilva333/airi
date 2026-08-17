@@ -44,15 +44,14 @@ Provider metadata is currently inline in `providers.ts` — see the restructurin
 
 | Provider ID | File | Line | Notes |
 | :--- | :--- | :--- | :--- |
-| `browser-local-audio-transcription` | `providers.ts` | ~258 | Browser native speech recognition |
-| `openai-audio-transcription` | `providers.ts` | ~893 | OpenAI Whisper (gpt-4o-transcribe, whisper-1) |
-| `openai-compatible-audio-transcription` | `providers.ts` | ~971 | Generic OpenAI-compatible STT |
-| `aliyun-nls-transcription` | `providers.ts` | ~1023 | Alibaba Cloud NLS speech recognition |
-| `browser-web-speech-api` | `providers.ts` | ~1115 | Web Speech API (browser native) |
-| `deepgram-transcription` | `providers.ts` | ~1382 | Deepgram STT (nova models) |
-| `comet-api-transcription` | `providers.ts` | ~1980 | CometAPI transcription gateway |
-| `xai-audio-transcription` | `providers.ts` | ~2182 | xAI transcription |
-| `whisper-local` | `providers.ts` | ~2851 | Local Whisper via ONNX + WebGPU/WASM |
+| `whisper-local` | `stores/providers/registry/transcription.ts` | ~61 | Local Whisper via ONNX + WebGPU/WASM (`@huggingface/transformers`) |
+| `openai-audio-transcription` | `stores/providers/registry/transcription.ts` | ~99 | OpenAI Whisper (gpt-4o-transcribe, whisper-1) |
+| `openai-compatible-audio-transcription` | `stores/providers/registry/transcription.ts` | ~178 | Generic OpenAI-compatible STT |
+| `aliyun-nls-transcription` | `stores/providers/registry/transcription.ts` | ~230 | Alibaba Cloud NLS speech recognition |
+| `browser-web-speech-api` | `stores/providers/registry/transcription.ts` | ~322 | Web Speech API (browser native, browser only) |
+| `deepgram-transcription` | `stores/providers/registry/transcription.ts` | ~402 | Deepgram STT (nova models) |
+| `xai-audio-transcription` | `stores/providers/registry/transcription.ts` | ~449 | xAI transcription |
+| `comet-api-transcription` | `stores/providers/registry/transcription.ts` | ~500 | CometAPI transcription gateway |
 
 ---
 
@@ -67,7 +66,8 @@ These use `buildOpenAICompatibleProvider()` by default (category `chat` unless o
 | `vllm` | `providers.ts` | ~2232 | vLLM inference server |
 | `cloudflare-workers-ai` | `providers.ts` | ~2362 | Cloudflare Workers AI |
 | `player2` | `providers.ts` | ~2452 | Player2 |
-| `web-rwkv` | `providers.ts` | ~2894 | RWKV local inference |
+| `web-rwkv` | `stores/providers/registry/local-engines.ts` | ~20 | RWKV local inference (WebGPU) |
+| `web-llm` | `stores/providers/registry/local-engines.ts` | ~75 | WebLLM local inference (WebGPU) |
 
 ### OpenAI-Compatible Chat Providers
 
@@ -102,7 +102,7 @@ These all use `buildOpenAICompatibleProvider()` without overriding the category.
 
 | Provider ID | File | Line | Notes |
 | :--- | :--- | :--- | :--- |
-| *(none currently registered with `category: 'vision'`)* | — | — | Vision providers are expected to be registered in the provider system with `category: 'vision'` or tasks including `'vision'`/`'image-to-text'`. Currently no providers declare this — vision/VLM support is handled through the standalone vision module (`stores/modules/vision.ts`) or through chat providers that support multimodal inputs. |
+| `blip-local` | `stores/providers/registry/local-engines.ts` | ~158 | On-device vision tagging (WD14 Tagger / BLIP) running via WebGPU |
 
 ---
 
@@ -110,11 +110,16 @@ These all use `buildOpenAICompatibleProvider()` without overriding the category.
 
 These run locally with ONNX/WebGPU/WASM:
 
-| Provider ID | Category | Line | Runtime |
+| Provider ID | Category | File | Runtime |
 | :--- | :--- | :--- | :--- |
-| `kokoro-local` | speech | ~2642 | `kokoro-js` (transformers.js) |
-| `whisper-local` | transcription | ~2851 | `whisper.cpp` / ONNX |
-| `web-rwkv` | chat | ~2894 | RWKV WebGPU |
+| `kokoro-local` | speech | `stores/providers/registry/speech.ts` | `kokoro-js` (transformers.js WebGPU/WASM) |
+| `pocket-tts-local` | speech | `stores/providers/registry/speech.ts` | Pocket TTS 0.1B (WASM/CPU) |
+| `moss-nano-local` | speech | `stores/providers/registry/speech.ts` | MOSS TTS Nano (WebGPU) |
+| `whisper-local` | transcription | `stores/providers/registry/transcription.ts` | Whisper ASR via `@huggingface/transformers` (WebGPU / WASM fallback) |
+| `web-rwkv` | chat | `stores/providers/registry/local-engines.ts` | RWKV-7 WebGPU |
+| `web-llm` | chat | `stores/providers/registry/local-engines.ts` | MLC WebLLM WebGPU |
+| `blip-local` | vision | `stores/providers/registry/local-engines.ts` | BLIP / WD14 WebGPU |
+| `flowmdm` | motion | `packages/stage-pages/src/pages/settings/providers/motion/flowmdm.vue` | FlowMDM 3D motion diffusion (WebGPU) |
 | `Xenova/modnet` | background-removal | — | ONNX (transformers.js) |
 | `onnx-community/blip-image-captioning-base` | vision | — | ONNX (transformers.js) |
 | `onnx-community/blip2-opt-2.7b` | vision | — | ONNX (transformers.js) |

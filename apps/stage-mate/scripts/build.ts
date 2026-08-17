@@ -52,16 +52,18 @@ function findUnityExecutable(): string | null {
 }
 
 const targetArg = process.argv[2] ?? 'all'
-let executeMethod = 'StageMate.Editor.MateSidecarBuild.Build'
+let executeMethod = 'MateSidecarBuild.Build'
 
-if (targetArg === 'win' || targetArg === 'windows')
-  executeMethod = 'StageMate.Editor.MateSidecarBuild.BuildWindows'
+if (targetArg === 'original' || targetArg === 'main')
+  executeMethod = 'MateSidecarBuild.BuildOriginalWindows'
+else if (targetArg === 'win' || targetArg === 'windows')
+  executeMethod = 'MateSidecarBuild.BuildWindows'
 else if (targetArg === 'linux')
-  executeMethod = 'StageMate.Editor.MateSidecarBuild.BuildLinux'
+  executeMethod = 'MateSidecarBuild.BuildLinux'
 else if (targetArg === 'mac' || targetArg === 'osx')
-  executeMethod = 'StageMate.Editor.MateSidecarBuild.BuildMac'
+  executeMethod = 'MateSidecarBuild.BuildMac'
 else if (targetArg === 'all')
-  executeMethod = 'StageMate.Editor.MateSidecarBuild.BuildAll'
+  executeMethod = 'MateSidecarBuild.BuildAll'
 
 const unityPath = findUnityExecutable()
 if (!unityPath) {

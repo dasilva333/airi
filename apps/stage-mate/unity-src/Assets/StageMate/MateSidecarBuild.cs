@@ -10,12 +10,27 @@ using UnityEngine.SceneManagement;
 
 public static class MateSidecarBuild
 {
+    private const string MainScenePath = "Assets/MATE ENGINE - Scenes/Mate Engine Main.unity";
     private const string ScenePath = "Assets/StageMate/MateSidecarScene.unity";
     private const string BuildDir = "Build/StageMate";
     private const string IdleControllerPath = "Assets/StageMate/StageMateIdleController.controller";
     private const string PlaceholderAPath = "Assets/StageMate/StageMateIdleA.anim";
     private const string PlaceholderBPath = "Assets/StageMate/StageMateIdleB.anim";
     private const string IdleClipFolder = "Assets/MATE ENGINE - Animations/PET_IDLE";
+
+    public static void EnsureBridgeInMainScene()
+    {
+        var scene = EditorSceneManager.OpenScene(MainScenePath, OpenSceneMode.Single);
+        var existing = GameObject.Find("StageMateBridge");
+        if (existing == null)
+        {
+            var bridgeGO = new GameObject("StageMateBridge");
+            bridgeGO.AddComponent<StageMate.Core.StageMateBridge>();
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[MateSidecarBuild] Injected StageMateBridge into {MainScenePath}");
+        }
+    }
 
     public static void Build()
     {
@@ -24,13 +39,13 @@ public static class MateSidecarBuild
 
     public static void BuildMac()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         Directory.CreateDirectory(BuildDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(BuildDir, "StageMate.app"),
             target = BuildTarget.StandaloneOSX,
             options = BuildOptions.None,
@@ -44,14 +59,14 @@ public static class MateSidecarBuild
 
     public static void BuildWindows()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         var winDir = "Build/Windows";
         Directory.CreateDirectory(winDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(winDir, "StageMate.exe"),
             target = BuildTarget.StandaloneWindows64,
             options = BuildOptions.None,
@@ -63,16 +78,21 @@ public static class MateSidecarBuild
             Debug.LogError($"[MateSidecarBuild] windows build failed: {report.summary.result}");
     }
 
+    public static void BuildOriginalWindows()
+    {
+        BuildWindows();
+    }
+
     public static void BuildLinux()
     {
-        CreateScene();
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        EnsureBridgeInMainScene();
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(MainScenePath, true) };
 
         var linuxDir = "Build/Linux";
         Directory.CreateDirectory(linuxDir);
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
+            scenes = new[] { MainScenePath },
             locationPathName = Path.Combine(linuxDir, "StageMate.x86_64"),
             target = BuildTarget.StandaloneLinux64,
             options = BuildOptions.None,
@@ -93,8 +113,10 @@ public static class MateSidecarBuild
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
+        // 1. Camera Rig & Face Zoom
         var camRig = new GameObject("CameraRig");
         camRig.transform.position = new Vector3(0f, 1.3f, 0f);
+        var cameraRigComponent = camRig.AddComponent<StageMate.Viewport.StageMateCameraRig>();
 
         var camGO = new GameObject("Main Camera");
         camGO.tag = "MainCamera";
@@ -102,23 +124,41 @@ public static class MateSidecarBuild
         camGO.transform.localPosition = new Vector3(0f, 0f, -3f);
         var cam = camGO.AddComponent<Camera>();
         cam.fieldOfView = 40f;
+        cam.nearClipPlane = 0.01f;
+        cam.farClipPlane = 50f;
+        cam.allowHDR = false;
+        cam.allowMSAA = false;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
         camGO.AddComponent<AudioListener>();
+        cameraRigComponent.rigCamera = cam;
 
+        // 2. Directional Light & Shadow Projector Rig
         var lightGO = new GameObject("Directional Light");
         var light = lightGO.AddComponent<Light>();
         light.type = LightType.Directional;
         light.intensity = 1.2f;
         lightGO.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
-        var sidecarGO = new GameObject("MateSidecar");
-        var sidecar = sidecarGO.AddComponent<MateSidecar>();
-        sidecar.fallbackModelPath = ResolveFallbackModelPath();
-        sidecar.cameraRig = camRig.transform;
-        sidecar.orbitCamera = cam;
+        var shadowRigGO = new GameObject("ShadowRig");
+        var shadowRig = shadowRigGO.AddComponent<StageMate.Window.StageMateShadowRig>();
 
-        // Native window controller (Kirurobo/UniWindowController) for runtime resize and transparent pass-through hit-testing.
+        // 3. Model Root & VRM Drivers
+        var modelRootGO = new GameObject("ModelRoot");
+        var vrmDriver = modelRootGO.AddComponent<StageMate.Models.VrmModelDriver>();
+        var idle = EnsureIdleController();
+        vrmDriver.idleCatalog = GatherIdleCatalog();
+        vrmDriver.idleBaseController = idle.controller;
+        vrmDriver.idlePlaceholderA = idle.placeholderA;
+        vrmDriver.idlePlaceholderB = idle.placeholderB;
+
+        // 4. Companion Systems (Tactile, Locomotion, Macaron Bed)
+        var companionGO = new GameObject("CompanionSystems");
+        var tactileHandler = companionGO.AddComponent<StageMate.Companion.StageMateTactileHandler>();
+        var locomotion = companionGO.AddComponent<StageMate.Companion.StageMateLocomotion>();
+        var plushBed = companionGO.AddComponent<StageMate.Companion.StageMatePlushBed>();
+
+        // 5. Window Manager & Native Transparency
         var windowCtrlGO = new GameObject("UniWindowController");
         var windowCtrl = windowCtrlGO.AddComponent<UniWindowController>();
         windowCtrl.isTransparent = true;
@@ -127,16 +167,36 @@ public static class MateSidecarBuild
         windowCtrl.opacityThreshold = 0.05f;
         windowCtrl.autoSwitchCameraBackground = true;
         windowCtrl.currentCamera = cam;
-        sidecar.windowController = windowCtrl;
+        windowCtrl.transparentType = UniWindowController.TransparentType.Alpha;
 
-        var idle = EnsureIdleController();
-        sidecar.idleCatalog = GatherIdleCatalog();
-        sidecar.idleBaseController = idle.controller;
-        sidecar.idlePlaceholderA = idle.placeholderA;
-        sidecar.idlePlaceholderB = idle.placeholderB;
+        var windowManager = windowCtrlGO.AddComponent<StageMate.Window.StageMateWindowManager>();
+        windowManager.windowController = windowCtrl;
+
+        // 6. Viewport Controller
+        var viewportGO = new GameObject("ViewportController");
+        var viewportCtrl = viewportGO.AddComponent<StageMate.Viewport.StageMateViewportController>();
+        viewportCtrl.cameraRig = cameraRigComponent;
+        viewportCtrl.windowManager = windowManager;
+        viewportCtrl.tactileHandler = tactileHandler;
+        viewportCtrl.locomotion = locomotion;
+        viewportCtrl.modelRoot = modelRootGO;
+
+        // 7. Core Socket & State Sync Dispatcher
+        var coreGO = new GameObject("StageMateCore");
+        var socket = coreGO.AddComponent<StageMate.Core.StageMateSocket>();
+        var stateSync = coreGO.AddComponent<StageMate.Core.StageMateStateSync>();
+        stateSync.socket = socket;
+        stateSync.windowManager = windowManager;
+        stateSync.viewportController = viewportCtrl;
+        stateSync.cameraRig = cameraRigComponent;
+        stateSync.tactileHandler = tactileHandler;
+        stateSync.locomotion = locomotion;
+        stateSync.plushBed = plushBed;
+        stateSync.vrmDriver = vrmDriver;
+        stateSync.fallbackModelPath = ResolveFallbackModelPath();
 
         EditorSceneManager.SaveScene(scene, ScenePath);
-        Debug.Log($"[MateSidecarBuild] scene created: {ScenePath} (fallback model: '{sidecar.fallbackModelPath}', idle clips: {sidecar.idleCatalog.Length})");
+        Debug.Log($"[MateSidecarBuild] modular scene created: {ScenePath} (fallback model: '{stateSync.fallbackModelPath}')");
     }
 
     private static (AnimatorController controller, AnimationClip placeholderA, AnimationClip placeholderB) EnsureIdleController()

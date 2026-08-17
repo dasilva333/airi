@@ -73,6 +73,7 @@ export interface StageMateSaveModelResult {
 export const electronStageMateEnsureModel = defineInvokeEventa<StageMateEnsureModelResult, StageMateEnsureModelPayload>('eventa:invoke:electron:stage-mate:ensure-model')
 export const electronStageMateSaveModel = defineInvokeEventa<StageMateSaveModelResult, StageMateSaveModelPayload>('eventa:invoke:electron:stage-mate:save-model')
 export const electronStageMateToggleVisibility = defineInvokeEventa<void, boolean>('eventa:invoke:electron:stage-mate:toggle-visibility')
+export const electronStageMateSetViewportMode = defineInvokeEventa<void, string>('eventa:invoke:electron:stage-mate:set-viewport-mode')
 export const electronStageMateGetState = defineInvokeEventa<{ enabled: boolean, running: boolean }>('eventa:invoke:electron:stage-mate:get-state')
 
 export type RequestWindowActionDefault = 'confirm' | 'cancel' | 'close'

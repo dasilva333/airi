@@ -1,14 +1,11 @@
-# Implementation Plan: Onboarding Character Selection (High Fidelity)
+# Architecture: Onboarding Character Selection (Shipped V2)
 
-We are elevating the "Character Selection" step into a premium visual experience. Each trope will be presented with its **Built-in Thumbnail**, **Name**, and **Brief Bio** to create a compelling "Choose Your Starter" moment.
+> [!NOTE]
+> **Implementation Status**: This specification is fully implemented and active in **Onboarding V2** via decoupled steps:
+> - **Step 4: Soul & Persona** ([`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue))
+> - **Step 5: Physical Vessel** ([`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue))
 
-## User Review Required
-
-> [!IMPORTANT]
-> **This is the final draft of the Character Selection Step.**
-> - **Visuals**: We will use the `previewImage` from the `display-models` store (AvatarSample_A/B and Hiyori) to show their faces in the onboarding.
-> - **Scientist Pivot**: "Dr. Aris" is officially renamed to **Dr. Aria** (Female Scientist archetype).
-> - **Janny Promotion**: **JannyAI (https://jannyai.com/)** is prioritized as the cleanest landing page for discovery.
+The Character Selection experience presents each starter trope with its **Built-in Thumbnail**, **Name**, and **Brief Bio** to create a compelling "Choose Your Starter" moment.
 
 ## 1. Character Grid (The "Starter Souls")
 
@@ -21,34 +18,18 @@ We are elevating the "Character Selection" step into a premium visual experience
 
 ---
 
-## 2. Proposed Changes
+## 2. Active Components & Stores
 
-### [Component] Step Character Selection
-#### [NEW] [step-character-selection.vue](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-character-selection.vue)
-- Create a reactive grid using `UnoCSS`.
-- Fetch `previewImage` URLs from `useDisplayModelsStore`.
-- Implement a hover-zoom effect for character portraits.
-- Add the discovery footer promoting **JannyAI** (https://jannyai.com/), Chub.ai, and CharacterHub.
+### [Component] Step Persona (Soul)
+- [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue)
+- 3-tier structure: Seeded starter cards, Anime Archetypes (`assets/animadex-catalog.json`), and Community Hub imports (JannyAI, Chub.ai, CharacterHub).
 
-### [Component] Onboarding Orchestrator
-#### [MODIFY] [onboarding.vue](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/onboarding.vue)
-- Insert the `StepCharacterSelection` component as Step 5 (after Model Selection).
-- Implement the "Finalization" logic: When the user finish the onboarding, call `cardStore.seedDefaults()` to ensure all 3 starters are added to their permanent library.
+### [Component] Step Vessel (Body)
+- [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue)
+- 3D VRM & 2D Live2D preset selector with dropzone for custom models and explore links.
 
-### [Store] AIRI Card Store
-#### [MODIFY] [airi-card.ts](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/stores/modules/airi-card.ts)
-- Add the `seedDefaults()` method.
-- This method will verify if ReLU, Aria, and Lupin exist; if not, it will create them using the **Gold Standard** proactive prompts and correct `displayModelId` links.
+### [Store] Transient Draft & AIRI Card Stores
+- [`packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/draft-store.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/draft-store.ts)
+- [`packages/stage-ui/src/stores/modules/airi-card.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/stores/modules/airi-card.ts)
 
----
-
-## 3. Visual Strategy
-- **Portraits**: Large circular or rounded-square avatars.
-- **Glassmorphism**: Cards will use `backdrop-blur` and a slight white border for a premium feel.
-- **Micro-Animations**: Transitions between cards and model selection will be a smooth horizontal slide.
-
-## Open Questions
-
-1. **JanitorAI Note**: You mentioned JanitorAI doesn't allow SillyTavern exports easily—I'll remove it from the "Cleanest Experience" recommendation in the text if you prefer, leaving only JannyAI as the "best" one.
-2. **First Greeting**: I will use the first greeting from the `greetings` array as the "Sub-text" under the bio in the card. Does that sound good?
 

@@ -19,10 +19,11 @@ description: >-
 - `packages/stage-ui/src/database/repos/provisioning-session.repo.ts` — tracks `ProvisioningSession` (`local:memory/provisioning-session/{characterId}`) with phases `idle | aggregating | chunking | synthesizing | distill_pass_1 | distill_pass_2 | success`; persists chunk summaries so a long provisioning run can be resumed.
 - `packages/stage-ui/src/database/repos/echo-chips.repo.ts`
 
-**Semantic Search Index**
-- `packages/stage-ui/src/libs/search/layered-memory.ts` — wraps the `searchWorker` and persists the snapshot to a separate `airi-search-index` IndexedDB store. Supports `init()`, `persist()`, `search(query, limit, characterId)`, `indexDocuments()`, `removeDocument()`; maps doc kinds (`user_turn`/`assistant_turn`/`memory_block`/`journal_entry`/`echo_chip`/`lifetime_entry`) to layers (`raw`/`stmm`/`ltmm`).
-- `packages/stage-ui/src/libs/search/hybrid-scorer.ts` — computes fused (`vector`/`keyword`) hybrid scoring after retrieval.
-- Search worker code lives under `packages/stage-ui/src/libs/workers/search/`.
+**Semantic Search Index & Vector Engine**
+- `packages/stage-ui/src/libs/workers/search/search.worker.ts` — Browser-native search worker running `@huggingface/transformers` (`Xenova/bge-small-en-v1.5` with WebGPU acceleration and WASM fallback). Maintains an in-memory `Map<string, SearchDocument>` and BM25 token frequencies in the worker heap for zero-latency lookups. Candidate pool fetches `Math.max(limit * 5, 20)` (20 minimum).
+- `packages/stage-ui/src/libs/search/layered-memory.ts` — wraps `searchWorker` and persists serialized snapshots to a separate `airi-search-index` IndexedDB store via unstorage. Supports `init()`, `persist()`, `search(query, limit = 10, characterId)`, `indexDocuments()`, `removeDocument()`; maps doc kinds (`user_turn`/`assistant_turn`/`memory_block`/`journal_entry`/`echo_chip`/`lifetime_entry`) to layers (`raw`/`stmm`/`ltmm`).
+- `packages/stage-ui/src/libs/search/hybrid-scorer.ts` — computes fused (`vector` + `keyword` + temporal decay + layer boosts) hybrid scoring via Reciprocal Rank Fusion (RRF, $k=60$). Thresholds: `minVectorSimilarity: 0.38`, `minScoreSpread: 0.04`, `halfLifeDays: 30`.
+- **Injection Limits During Inference (`chat.ts`):** Grounded memory RAG injects top **3** memories (`limit: 3`); STMM injects `windowSize` daily recap blocks (default **3**, configurable per card); Lifetime injects **1** distilled summary artifact.
 
 ## When to Use
 Use this skill whenever you add, debug, or refactor anything that:

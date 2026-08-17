@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -24,18 +24,29 @@ export function setupMateEngine(): boolean {
     }
   }
 
-  // 2. Ensure target Assets/StageMate folder exists
-  if (!existsSync(targetStageMateAssets)) {
-    mkdirSync(targetStageMateAssets, { recursive: true })
+  // 2. Overlay unity-src/Assets/ -> mate-engine/Assets/
+  const unityAssetsSrc = join(unitySrcDir, 'Assets')
+  if (existsSync(unityAssetsSrc)) {
+    console.log('[setup] Syncing unity-src/Assets/ -> mate-engine/Assets/...')
+    cpSync(unityAssetsSrc, join(mateEngineDir, 'Assets'), { recursive: true, force: true })
   }
 
-  // 3. Overlay unity-src/ into Assets/StageMate/
-  if (existsSync(unitySrcDir)) {
-    console.log('[setup] Syncing unity-src/ -> mate-engine/Assets/StageMate/...')
-    cpSync(unitySrcDir, targetStageMateAssets, { recursive: true, force: true })
+  // 3. Overlay unity-src/Patches/AvatarHandlers -> mate-engine/Assets/MATE ENGINE - Scripts/AvatarHandlers/
+  const patchesSrc = join(unitySrcDir, 'Patches', 'AvatarHandlers')
+  const targetHandlers = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scripts', 'AvatarHandlers')
+  if (existsSync(patchesSrc) && existsSync(targetHandlers)) {
+    console.log('[setup] Applying patches -> mate-engine/Assets/MATE ENGINE - Scripts/AvatarHandlers/...')
+    cpSync(patchesSrc, targetHandlers, { recursive: true, force: true })
   }
 
-  // 4. Apply cross-platform macOS P/Invoke compilation fixes if needed
+  // 4. Overlay unity-src/ProjectSettings/ -> mate-engine/ProjectSettings/
+  const projectSettingsSrc = join(unitySrcDir, 'ProjectSettings')
+  if (existsSync(projectSettingsSrc)) {
+    console.log('[setup] Syncing ProjectSettings -> mate-engine/ProjectSettings/...')
+    cpSync(projectSettingsSrc, join(mateEngineDir, 'ProjectSettings'), { recursive: true, force: true })
+  }
+
+  // 5. Apply cross-platform macOS P/Invoke compilation fixes if needed
   patchMacCompatibility()
 
   console.log('[setup] Stage-Mate workspace ready.')

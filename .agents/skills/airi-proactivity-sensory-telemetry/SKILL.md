@@ -29,20 +29,21 @@ the user is appropriate before any TTS/LLM output is produced.
     `sensorsGetActiveWindow`, `sensorsGetActiveWindowHistory`, `sensorsGetSystemLoad`,
     `sensorsGetLocalTime`, `sensorsGetVolumeLevel`, `sensorsSetTrackingEnabled`.
   - **Reactive sensor state:** `idleTimeSec` (line 87), `activeWinStr`, `winHistory`
-    (line 89, `ActiveWindowEntry[]`), `sysLoad`, `locTime`, `volLevel` (lines 90-92).
+    (line 89, `ActiveWindowEntry[]`), `sysLoad`, `locTime` (`Current Local Time`, line 91), `volLevel` (line 92).
   - **`updateSensors()`** (line 116) — parallelizes all probes (`Promise.allSettled`)
-    to bound latency by the slowest single call.
+    to bound latency by the slowest single call. Captures `locTime` from `sensorsGetLocalTime` or browser `toLocaleTimeString`.
   - **Polling loop:** `useIntervalFn(updateSensors, 10000)` (line 247), paused/resumed by
     `isProactivityLoopNeeded` (line 241).
-  - **`sensorPayload` computed** (line 266) — compiles the environmental telemetry block.
+  - **`sensorPayload` computed** (line 266) — compiles the environmental telemetry block (`Current Local Time: HH:MM`, `User Idle: Ns`, active program/window, CPU/GPU load, volume).
+  - **Prompt Grounding Integration (`packages/stage-ui/src/stores/chat.ts:L565-L572`):** When `groundingEnabled` is active, `chat.ts` calls `updateSensors()` and injects `sensorPayload` into the `[ENVIRONMENTAL AWARENESS]` system message on every user chat turn, allowing the companion to know the current time, active app, and idle state in real time.
   - **`resolveRegisteredTools()`** (line 850) — flattens static + async-factory tools.
   - **`registerTools()`** (line 60) and `registeredTools` (line 58).
   - **`NO_REPLY` handling** (lines 698-702).
 
 ## When to Use
 
-- Touching OS sensor capture, idle/AFK detection, active-window or volume telemetry.
-- Adjusting the environmental telemetry injected into proactive prompts.
+- Touching OS sensor capture, local clock/time awareness, idle/AFK detection, active-window or volume telemetry.
+- Adjusting the environmental telemetry injected into proactive prompts or standard chat turn grounding (`[ENVIRONMENTAL AWARENESS]`).
 - Working on the heartbeat timer, schedule window, or idle-stretch dedup logic.
 - Debugging why a heartbeat aborted, fired late, or stayed silent.
 - Registering/resolving proactive or MCP tools available to the heartbeat (and Live API).

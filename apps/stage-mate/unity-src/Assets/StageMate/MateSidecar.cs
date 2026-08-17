@@ -1389,9 +1389,34 @@ private void ApplyPendingInitialSize()
         return tex;
     }
 
+    private void DrawDebugScreenBorder()
+    {
+        float thickness = 3f;
+        Color borderColor = new Color(0.2f, 1f, 0.2f, 0.85f); // Lime Green
+        Color prevColor = GUI.color;
+        GUI.color = borderColor;
+
+        float sw = Screen.width;
+        float sh = Screen.height;
+
+        // Top edge
+        GUI.DrawTexture(new Rect(0, 0, sw, thickness), Texture2D.whiteTexture);
+        // Bottom edge
+        GUI.DrawTexture(new Rect(0, sh - thickness, sw, thickness), Texture2D.whiteTexture);
+        // Left edge
+        GUI.DrawTexture(new Rect(0, 0, thickness, sh), Texture2D.whiteTexture);
+        // Right edge
+        GUI.DrawTexture(new Rect(sw - thickness, 0, thickness, sh), Texture2D.whiteTexture);
+
+        GUI.color = prevColor;
+    }
+
     private void OnGUI()
     {
         EnsureStyles();
+
+        // 0. Debug viewport boundary border (always-on lime green)
+        DrawDebugScreenBorder();
 
         // 1. Top-Left Status Dot (Green = Authenticated, Orange = Connecting/Auth, Red = Disconnected)
         Color dotColor = (connected && authenticated)

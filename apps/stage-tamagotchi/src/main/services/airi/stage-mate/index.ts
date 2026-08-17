@@ -291,6 +291,9 @@ export function createStageMateService(params?: {
   }
 
   async function ensureRunning(): Promise<void> {
+    if (authenticatedSockets.size > 0)
+      return
+
     if (sidecarProcess && !sidecarProcess.killed)
       return
 
