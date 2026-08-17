@@ -44,6 +44,12 @@ namespace StageMate.Core
             // Suppress standalone non-sidecar UI menus in sidecar mode
             SuppressStandaloneUI();
 
+            // Attach Telemetry Probe for runtime event tracking
+            if (GetComponent<MateTelemetryProbe>() == null)
+            {
+                gameObject.AddComponent<MateTelemetryProbe>();
+            }
+
             // Load initial model if specified
             string initial = ResolveInitialModelPath();
             if (!string.IsNullOrEmpty(initial))

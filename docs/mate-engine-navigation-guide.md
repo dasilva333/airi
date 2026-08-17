@@ -128,8 +128,129 @@ grep -n "guid: <GUID_HERE>" "apps/stage-mate/mate-engine/Assets/MATE ENGINE - Sc
 grep -n "id: <BUTTON_ID>" "apps/stage-mate/mate-engine/Assets/MATE ENGINE - Scenes/Mate Engine Main.unity"
 ```
 
-### Applying Patches Safely (`unity-src/Patches/`)
+### Applying Patches Safely (`unity-src/Patches/` and `scripts/setup.ts`)
 1. Never edit `mate-engine/` directly for custom code—those are ephemeral and overwritten during setup.
 2. Put modified scripts in `apps/stage-mate/unity-src/Patches/<RelativePath>/ScriptName.cs`.
-3. Run `pnpm -F @proj-airi/stage-mate run engine:setup` (or `build:mac` / `build:win`).
-4. `setup.ts` automatically overlays the patch into the engine directory before building.
+3. Put modified package runtime scripts in `apps/stage-mate/unity-src/Packages/<RelativePath>/ScriptName.cs`.
+4. Run `pnpm -F @proj-airi/stage-mate run engine:setup` (or `build:mac` / `build:win`).
+5. `setup.ts` automatically overlays patches, synchronizes packages, and runs automated scene/C# pre-compilation passes before building.
+
+---
+
+## 6. Settings Panel Hierarchy & Modular Cleanups
+
+The settings overlay is a scrollable UI panel managed by `AvatarSettingsMenu.cs` and modular handler classes under `MATE ENGINE - Scripts/Settings/SettingsMenu/`.
+
+### 6.1. Scene Hierarchy Map (`Mate Engine Main.unity`)
+Inside the scene YAML, the main settings view is grouped under **`Main Menu`** (Transform `3252351821447245177`):
+
+| Section Name Anchor (`m_Name`) | Purpose / Feature | Default State | Status in AIRI |
+| :--- | :--- | :--- | :--- |
+| `= MOVEMENT` | Head/Eye/Spine follow, IK Feet, Hand Holding, Husbando toggle | `m_IsActive: 1` | **Active** |
+| `= APPEARANCE` | Particle themes, Hue Shift, Saturation, Bloom, Day/Night | `m_IsActive: 1` | **Active** |
+| `= AUDIO` | Pet volume, Sound effects, Menu volume, Voice pack | `m_IsActive: 1` | **Active** |
+| `= DANCING` | Auto-dance intervals, Dance transitions, Allowed music apps | `m_IsActive: 1` | **Active** |
+| `= SCREENSAVER` | Inactivity timer close-up / screensaver | `m_IsActive: 1` | **Active** |
+| `= WINDOW FEATURE` | Window sitting Y-offset, Title-bar latching | `m_IsActive: 1` | **Active** |
+| `= GENERAL` | Topmost toggle, FPS limiter, Language selector | `m_IsActive: 1` | **Active** |
+| `= AI` | Standalone local LLaMA prompt box & context length | `m_IsActive: 1` | ❌ **Disabled (`setup.ts`)** |
+| `= STEAM DLC` | Standalone Steam Halo/Mask upsell promo card | `m_IsActive: 1` | ❌ **Disabled (`setup.ts`)** |
+| `= FOOD SYSTEM` | Standalone Smoothie/Cake early-access paywall card | `m_IsActive: 1` | ❌ **Disabled (`setup.ts`)** |
+| `= MINECRAFT` | Standalone Minecraft UDP event integration promo card | `m_IsActive: 1` | ❌ **Disabled (`setup.ts`)** |
+| `= Steam Exklusives` | Standalone Steam exclusive accessories list | `m_IsActive: 1` | ❌ **Disabled (`setup.ts`)** |
+
+### 6.2. Decoupled Card Backgrounds & Graphics Containers
+Unlike standard UI layout systems where background containers enclose their children, Mate Engine decouples background visuals into parallel sibling GameObjects:
+1. **`Category Background` Container** (GO `1621117029`):
+   - Contains individual rectangular translucent image cards (`Image (2)` through `Image (14)`), each positioned at fixed manual Y offsets.
+   - `Image (10)` (GO `1420350588`, height $803.5\text{px}$): AI card frame.
+   - `Image (12)` (GO `1409282222`, height $436\text{px}$): Steam DLC card frame.
+   - `Image (14)` (GO `839638719`, height $284\text{px}$): Food System card frame.
+   - `Image (13)` (GO `1922270003`, height $284\text{px}$): Minecraft card frame.
+   - **Fix**: All 4 unused background frames are deactivated via `m_IsActive: 0`.
+2. **Graphic Artwork Containers**:
+   - The Smoothie wallpaper (`Food System` GO `234303499`), Minecraft background (`MinecraftPanel` GO `1344334329`), and Steam Halo illustrations (`SteamContent` GO `1247369941`) are deactivated via `m_IsActive: 0`.
+
+### 6.3. Geometry Alignment & Scroll Bounds Clamping
+Because the menu does not use a `VerticalLayoutGroup`, removing the 800px AI block leaves a void between `= SCREENSAVER` and `= DEBUG`.
+- **DEBUG Repositioning**:
+  - `DEBUG` header (RT `976934797`) shifted from $y = -3418$ up to $y = -2604$.
+  - `Image (11)` DEBUG card frame (RT `820205948`) shifted from $y = -3643$ up to $y = -2828$.
+- **Scroll Bounds Clamping**:
+  - Scroll container (RT `6157687972013927576`) trimmed from hardcoded height $5000\text{px} \rightarrow 3100\text{px}$, completely eliminating trailing whitespace.
+
+> [!NOTE]
+> **Automated Scene Patching (`patchSettingsMenuUI`)**:
+> `apps/stage-mate/scripts/setup.ts` automatically executes these deactivations, coordinate shifts, and scroll bounds resizings during every `engine:setup`.
+
+---
+
+## 7. Coordinate Space Inversion & macOS Cocoa Blur Safeguard
+
+### 7.1. The Root Cause of the Negative Y Underflow Bug
+- **Windows / Web / Unity UI**: Desktop origin $(0, 0)$ is at **top-left**, with $Y$ increasing downwards.
+- **macOS Cocoa (`NSWindow`)**: Desktop origin $(0, 0)$ is at **bottom-left**, with $Y$ increasing upwards.
+- `LibUniWinC` (the native macOS windowing plugin) converts coordinates via:
+  $$Y_{\text{cocoa}} = \text{ScreenHeight} - Y_{\text{topleft}} - \text{WindowHeight}$$
+- When focus leaves the window, `UniWindowController.UpdateClickThrough()` calls `SetClickThrough(true)`, altering the Cocoa window mask (`[window setIgnoresMouseEvents:YES]`).
+- On Retina / high-DPI displays, changing the mask triggers a Cocoa frame recalculation with mismatched scale factors, causing $Y$ to jump into negative numbers (e.g. `(35, -354)`), pushing the avatar under the Dock.
+
+### 7.2. The Durable Coordinate Clamp
+In `UniWindowController.cs`:
+1. **Clamped Setter**:
+   ```csharp
+   public Vector2 windowPosition
+   {
+       get { return (_uniWinCore != null ? _uniWinCore.GetWindowPosition() : Vector2.zero); }
+       set
+       {
+           #if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+           Vector2 safeVal = new Vector2(value.x, Mathf.Max(0f, value.y));
+           _uniWinCore?.SetWindowPosition(safeVal);
+           #else
+           _uniWinCore?.SetWindowPosition(value);
+           #endif
+       }
+   }
+   ```
+2. **Blur Event Recovery**:
+   ```csharp
+   private void OnApplicationFocus(bool focus)
+   {
+       if (focus) { ... }
+       #if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+       else
+       {
+           Vector2 cur = windowPosition;
+           if (cur.y < 0f) windowPosition = new Vector2(cur.x, 0f);
+       }
+       #endif
+   }
+   ```
+
+---
+
+## 8. Character Profiles & Motion Modes (`Husbando` vs `Waifu`)
+
+Located in `AvatarAnimatorController.cs` (lines 44-65):
+* **`enableHusbandoMode == false` (Default / Waifu Mode)**:
+  - Sets animator parameters: `isFemale = 1.0f`, `isMale = 0.0f`.
+  - Stance: Narrower feet, inward toes, cute hip sway during idle cycles, soft resting arm gestures.
+* **`enableHusbandoMode == true` (Husbando Mode)**:
+  - Sets animator parameters: `isFemale = 0.0f`, `isMale = 1.0f`.
+  - Stance: Broader shoulder-width stance, neutral grounded posture, masculine idle breathing cycles tailored for male VRM avatars.
+
+---
+
+## 9. Model Importing Mechanics (`VRM/ME`)
+
+Located in `VRMLoader.cs`:
+* **The `VRM/ME` Button**: Invokes `VRMLoader.OpenFileDialogAndLoadVRM()`.
+* **File Types Supported**:
+  - **`.vrm`**: Universal humanoid avatar format (VRM 0.x / VRM 1.0).
+  - **`.me`**: Mate Engine custom AssetBundle package (exported from Unity via Mod SDK) containing custom rigged models, dynamic bones, and clothing variants.
+* **Flow**:
+  1. Opens macOS native file dialog (`StandaloneFileBrowser.OpenFilePanel`).
+  2. Parses model bytes (`Vrm10Importer` / `GlbFileParser` / `AssetBundle.LoadFromFile`).
+  3. Replaces active `VRMModel` and binds animations, blendshapes, and IK.
+
