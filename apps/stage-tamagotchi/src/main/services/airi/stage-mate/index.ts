@@ -145,20 +145,46 @@ export function createStageMateService(params?: { authToken?: string }): StageMa
   }
 
   function resolveBinaryPath(): string | null {
-    // 1. Development relative build path
-    const devPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/mate-engine/Build/StageMate.app')
-    if (existsSync(devPath))
-      return devPath
+    const baseDevPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/mate-engine/Build')
 
-    // 2. Production packaged extraResources
-    const prodPath = join(process.resourcesPath, 'StageMate.app')
-    if (existsSync(prodPath))
-      return prodPath
-
-    // 3. Fallback executable binary inside bundle
-    const binDev = join(devPath, 'Contents/MacOS/StageMate')
-    if (existsSync(binDev))
-      return binDev
+    if (platform === 'win32') {
+      const candidates = [
+        join(baseDevPath, 'Windows', 'StageMate.exe'),
+        join(baseDevPath, 'StageMate.exe'),
+        join(baseDevPath, 'StageMate', 'StageMate.exe'),
+        join(baseDevPath, 'MateEngineX.exe'),
+        join(process.resourcesPath, 'StageMate.exe'),
+        join(process.resourcesPath, 'StageMate', 'StageMate.exe'),
+      ]
+      for (const cand of candidates) {
+        if (existsSync(cand))
+          return cand
+      }
+    }
+    else if (platform === 'linux') {
+      const candidates = [
+        join(baseDevPath, 'Linux', 'StageMate.x86_64'),
+        join(baseDevPath, 'StageMate.x86_64'),
+        join(process.resourcesPath, 'StageMate.x86_64'),
+      ]
+      for (const cand of candidates) {
+        if (existsSync(cand))
+          return cand
+      }
+    }
+    else if (platform === 'darwin') {
+      const candidates = [
+        join(baseDevPath, 'StageMate.app'),
+        join(baseDevPath, 'macOS', 'StageMate.app'),
+        join(process.resourcesPath, 'StageMate.app'),
+        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+      ]
+      for (const cand of candidates) {
+        if (existsSync(cand))
+          return cand
+      }
+    }
 
     return null
   }
