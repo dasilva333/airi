@@ -242,15 +242,43 @@ Located in `AvatarAnimatorController.cs` (lines 44-65):
 
 ---
 
-## 9. Model Importing Mechanics (`VRM/ME`)
+## 10. Native Avatar Rigs vs. Dynamic Runtime VRM Importers
 
-Located in `VRMLoader.cs`:
-* **The `VRM/ME` Button**: Invokes `VRMLoader.OpenFileDialogAndLoadVRM()`.
-* **File Types Supported**:
-  - **`.vrm`**: Universal humanoid avatar format (VRM 0.x / VRM 1.0).
-  - **`.me`**: Mate Engine custom AssetBundle package (exported from Unity via Mod SDK) containing custom rigged models, dynamic bones, and clothing variants.
-* **Flow**:
-  1. Opens macOS native file dialog (`StandaloneFileBrowser.OpenFilePanel`).
-  2. Parses model bytes (`Vrm10Importer` / `GlbFileParser` / `AssetBundle.LoadFromFile`).
-  3. Replaces active `VRMModel` and binds animations, blendshapes, and IK.
+### 10.1. The Authored Scene Rig
+In `Mate Engine Main.unity`, the native `DEFAULT AVATAR` (`VRMModel`) contains a rich nested GameObject hierarchy pre-authored in the Unity editor:
+```text
+DEFAULT AVATAR (VRMModel)
+├── ADS_ProxyRoot                # ◄── Physics proxy for Ki dragging & body drag inertia
+├── TransformFX                  # ◄── Ki Aura particle system & drag glow
+├── HandColliders (L/R)          # ◄── Trigger zones for cursor hand-holding IK
+├── HeadPettingTriggerZone       # ◄── Mesh collider for blush / petting reactions
+└── AudioSources (DragStart/End) # ◄── Audio emitters for dragging sounds
+```
+
+### 10.2. The Runtime Importer Limitation (`VRMLoader.LoadVRM`)
+When a model is dynamically loaded at runtime via `VRMLoader.LoadVRM()`:
+1. `VRMLoader` instantiates the raw imported GLB/VRM root (`CustomVRM(Clone)`).
+2. `InjectComponentsFromPrefab()` copies flat `MonoBehaviour` script components onto the model.
+3. **Critical Trap**: `InjectComponentsFromPrefab()` copies C# scripts, but **does not construct nested child GameObjects** (`ADS_ProxyRoot`, hand colliders, audio source objects).
+4. **The Consequence**: `AvatarAnimatorController` and `AvatarLocomotionController` require `ADS_ProxyRoot` to calculate dragging momentum. If `ADS_ProxyRoot` is absent or unassigned, dragging silently aborts every frame and locks the model in its idle stance.
+5. **Architectural Invariant**: `StageMateBridge` must **never eagerly swap the native avatar on boot**. The pristine `DEFAULT AVATAR` must remain active for standalone/default companion mode, and dynamic imports must only occur on explicit IPC commands (`stage:vrm:load` / `stage:state:sync`).
+
+---
+
+## 11. Global Interaction Gates & Lockouts
+
+Mate Engine contains two global static lockouts that can silently disable 100% of companion physics, dragging, and locomotion:
+
+### 11.1. `TutorialMenu.IsActive` Lockout
+- When `settings.json` is fresh or missing (`data.tutorialDone == false`), `TutorialMenu.cs` sets `TutorialMenu.IsActive = true`.
+- While `TutorialMenu.IsActive == true`:
+  - `AvatarAnimatorController.cs` (lines 140/156): `if (TutorialMenu.IsActive) { if (isDragging) SetDragging(false); return; }`
+  - `MenuActions.cs` (line 88): `moveCanvas.SetActive(!TutorialMenu.IsActive)`
+- **The Pitfall**: If an agent hides the tutorial Canvas without setting `tutorialDone = true`, `TutorialMenu.IsActive` remains stuck at `true` in static memory forever, freezing all waist-dragging and ki physics.
+- **The Invariant**: `StageMateBridge.cs` must explicitly set `SaveLoadHandler.Instance.data.tutorialDone = true` and auto-dismiss `TutorialMenu` on startup.
+
+### 11.2. `MenuActions.IsMovementBlocked()` Lockout
+- `MenuActions.cs` scans all `menuEntries`. If any menu whose `blockMovement == true` is currently `activeInHierarchy`, all movement and dragging are blocked globally.
+- When customizing UI or opening custom drawers, always call `menuActions.CloseAllMenus()` or ensure standalone modal menus are deactivated.
+
 

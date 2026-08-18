@@ -41,6 +41,12 @@ namespace StageMate.Core
                 windowController.alphaValue = 1.0f;
             }
 
+            // Mark tutorial done so TutorialMenu.IsActive is false and companion interactions are unlocked
+            if (SaveLoadHandler.Instance != null)
+            {
+                SaveLoadHandler.Instance.data.tutorialDone = true;
+            }
+
             // Suppress standalone non-sidecar UI menus in sidecar mode
             SuppressStandaloneUI();
 
@@ -48,14 +54,6 @@ namespace StageMate.Core
             if (GetComponent<MateTelemetryProbe>() == null)
             {
                 gameObject.AddComponent<MateTelemetryProbe>();
-            }
-
-            // Load initial model if specified
-            string initial = ResolveInitialModelPath();
-            if (!string.IsNullOrEmpty(initial))
-            {
-                Debug.Log($"[StageMateBridge] Loading initial model on start: {initial}");
-                LoadModel(initial);
             }
         }
 
@@ -211,6 +209,18 @@ namespace StageMate.Core
 
         private void SuppressStandaloneUI()
         {
+            // Ensure any active TutorialMenu is properly dismissed
+            var tut = FindFirstObjectByType<TutorialMenu>();
+            if (tut != null)
+            {
+                if (tut.tutorialRoot != null) tut.tutorialRoot.SetActive(false);
+                tut.gameObject.SetActive(false);
+            }
+
+            // Close any lingering modal menus that could block dragging
+            var menuActions = FindFirstObjectByType<MenuActions>();
+            menuActions?.CloseAllMenus();
+
             // Deactivate standalone UI canvases that AIRI replaces
             string[] standaloneCanvasNames = new[] { "SettingsMenu", "AvatarLibrary", "TutorialMenu", "QuickMenu" };
             foreach (var canvasName in standaloneCanvasNames)
