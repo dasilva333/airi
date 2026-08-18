@@ -4,6 +4,19 @@ This document serves as the canonical technical navigation manual for developers
 
 ---
 
+## 0. Golden Rule of Workspace Purity: Never Edit `mate-engine/` Directly
+
+`apps/stage-mate/mate-engine/` is a gitignored clone of upstream `shinyflvre/Mate-Engine`.
+
+- **Single Source of Truth**: All persistent modifications must live in `apps/stage-mate/unity-src/`:
+  - `apps/stage-mate/unity-src/Assets/` (custom runtime scripts, bridge, probe)
+  - `apps/stage-mate/unity-src/Patches/` (patches overlaid on `Assets/MATE ENGINE - Scripts/`)
+  - `apps/stage-mate/unity-src/ProjectSettings/` (project configurations)
+- Every build command automatically runs `pnpm -F @proj-airi/stage-mate run engine:setup` (`scripts/setup.ts`), which overlays `unity-src/` onto `mate-engine/`.
+- If an agent modifies `mate-engine/` directly, those changes pollute the local clone and evade root Git versioning and bisections.
+
+---
+
 ## 1. Anatomy of Unity's "Kraken" File (`.unity` Scene YAML)
 
 When inspecting `apps/stage-mate/mate-engine/Assets/MATE ENGINE - Scenes/Mate Engine Main.unity` (~287,000 lines), it looks like an insurmountable monolith. In reality, **it is not code—it is a declarative YAML object graph of the entire game world**.

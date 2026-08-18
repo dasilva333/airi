@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Kirurobo;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace StageMate.Core
 {
@@ -20,6 +21,7 @@ namespace StageMate.Core
             if (socket == null) socket = GetComponent<StageMateSocket>() ?? gameObject.AddComponent<StageMateSocket>();
             if (windowController == null) windowController = FindFirstObjectByType<UniWindowController>();
             if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
+            gameObject.AddComponent<MateTelemetryProbe>();
         }
 
         private void Start()
@@ -33,9 +35,14 @@ namespace StageMate.Core
             {
                 windowController.isTopmost = true;
                 windowController.transparentType = UniWindowController.TransparentType.Alpha;
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+                windowController.isHitTestEnabled = false;
+                windowController.windowSize = new Vector2(768, 512);
+#else
                 windowController.isHitTestEnabled = true;
                 windowController.hitTestType = UniWindowController.HitTestType.Opacity;
                 windowController.opacityThreshold = 0.05f;
+#endif
                 windowController.autoSwitchCameraBackground = true;
                 windowController.isTransparent = true;
                 windowController.alphaValue = 1.0f;
@@ -205,14 +212,58 @@ namespace StageMate.Core
 
         private void SuppressStandaloneUI()
         {
-            // Deactivate standalone UI canvases that AIRI replaces
-            string[] standaloneCanvasNames = new[] { "SettingsMenu", "AvatarLibrary", "TutorialMenu", "QuickMenu" };
+            // Close all registered menus in MenuActions
+            var menuActions = FindFirstObjectByType<MenuActions>();
+            if (menuActions != null)
+            {
+                menuActions.CloseAllMenus();
+            }
+
+            // Ensure tutorial is marked done and deactivated
+            if (SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null)
+            {
+                SaveLoadHandler.Instance.data.tutorialDone = true;
+            }
+            var tut = FindFirstObjectByType<TutorialMenu>(FindObjectsInactive.Include);
+            if (tut != null)
+            {
+                if (tut.tutorialRoot != null) tut.tutorialRoot.SetActive(false);
+                tut.gameObject.SetActive(false);
+            }
+
+            // Deactivate all modal canvases by name (including with Canvas suffix)
+            string[] standaloneCanvasNames = new[] { 
+                "SettingsMenuCanvas", "SettingsMenu", 
+                "AvatarLibraryCanvas", "AvatarLibrary", 
+                "TutorialMenuCanvas", "TutorialMenu", 
+                "QuickMenuCanvas", "QuickMenu",
+                "AlarmsMenuCanvas", "AlarmsMenu",
+                "ChatCanvas", "ChatBox"
+            };
+
             foreach (var canvasName in standaloneCanvasNames)
             {
                 var go = GameObject.Find(canvasName);
                 if (go != null)
                 {
                     go.SetActive(false);
+                }
+            }
+
+            // Ensure an active EventSystem exists for UI and radial menu pointer rays
+            if (EventSystem.current == null)
+            {
+                var existing = FindFirstObjectByType<EventSystem>(FindObjectsInactive.Include);
+                if (existing != null)
+                {
+                    existing.gameObject.SetActive(true);
+                    existing.enabled = true;
+                }
+                else
+                {
+                    var esGo = new GameObject("StageMateEventSystem");
+                    esGo.AddComponent<EventSystem>();
+                    esGo.AddComponent<StandaloneInputModule>();
                 }
             }
         }
