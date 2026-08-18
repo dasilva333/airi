@@ -411,5 +411,34 @@ apps/stage-mate/
 4. Overlays `unity-src/ProjectSettings/` $\rightarrow$ `mate-engine/ProjectSettings/`.
 5. Executes automated compatibility transformations (`preserveFramebufferAlpha`, `patchSettingsMenuUI`).
 
+---
+
+## 14. 3D Floatie / Prop Subsystems & Interactive Flavor Cycling
+
+Located in `Assets/noirunn/KawaiiMacaronMotion/` and managed via `AvatarBubbleHandler.cs`:
+
+### 14.1. Asset Anatomy & Skeletal Sync
+1. **3D Prop Mesh (`FBX/macaron.fbx`)**:
+   - A fully modeled 3D sandwich cookie with whip cream filling and candy heart toppings.
+   - Casts dynamic Unity shadows and renders in real-time alongside the avatar.
+2. **3-Slot Material Pipeline**:
+   - **Slot 0 (Cookie Shell)**: Base color (`pink`, `blue`, `green`, `yellow`, `purple`, `brawn`, `orange`).
+   - **Slot 1 (Whip Cream)**: Cream filling (`berry`, `chocolate`, `matcha`, `milk`, `strawberry`).
+   - **Slot 2 (Heart Topping)**: Candy topper accent.
+3. **Character Skeletal Pose (`KawaiiMacaronMotion01.anim`)**:
+   - Synchronized with `AvatarBubbleHandler`: `animator.SetBool("isSitting", true)` switches the VRM avatar into a floating/swimming pose with elbows resting on the top cookie and legs kicking in the air.
+
+### 14.2. Direct Click-to-Cycle Floatie Interaction
+- Rather than navigating complex multi-slice radial submenus, `AvatarBubbleHandler.cs` implements an intuitive, tactile **Click-to-Cycle** mechanic:
+  1. **Direct 3D Raycast Click**: While floating, clicking directly on the 3D macaron mesh immediately cycles through the 12 flavor presets and plays a pleasant chime.
+  2. **Radial Menu Tap**: Clicking the Macaron button in the radial menu activates floating mode if inactive, or cycles to the next flavor if already active.
+  3. **12 Flavor Presets**:
+     - *Strawberry Cream*, *Vanilla Strawberry*, *Chocolate Berry*
+     - *Ice Mint*, *Blueberry Whip*, *Mint Chocolate*
+     - *Matcha Classic*, *Matcha Latte*, *Matcha Choco*
+     - *Lemon Custard*, *Lavender Berry*, *Mocha Caramel*
+  4. Real-time material properties (`_Color`, `_BaseColor`) update dynamically on `attachTarget` with zero memory allocation or asset reload overhead.
+
+
 
 
