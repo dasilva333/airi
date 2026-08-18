@@ -10,12 +10,16 @@ import ModelCustomizer from './ModelCustomizer.vue'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { Container } from '../../../data-pane'
 
+const props = defineProps<{
+  modelId?: string
+}>()
+
 const airiCardStore = useAiriCardStore()
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const modelStore = useModelStore()
 const { availableExpressions, activeExpressions } = storeToRefs(modelStore)
 const displayModelId = computed(() => {
-  return activeCardId.value ? airiCardStore.getCardDisplayModelId(activeCardId.value) || undefined : undefined
+  return props.modelId || (activeCardId.value ? airiCardStore.getCardDisplayModelId(activeCardId.value) || undefined : undefined)
 })
 
 const uniqueExpressions = computed(() => [...new Set(availableExpressions.value)])
