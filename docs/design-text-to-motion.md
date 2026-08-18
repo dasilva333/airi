@@ -239,3 +239,59 @@ To ensure open-source maintainability and reproducibility, all Python scripts us
 4. **Phase 4: Tool Handler & Playground**:
    - Wire `generate_motion` tool call handler to inspect `Settings > Modules > Text to Motion` and dispatch to the selected engine.
    - Build interactive Motion Provider Playground.
+
+---
+
+## 7. Multi-Tier Motion Hierarchy & Next-Gen Research (Kimodo & TMR-SOMA)
+
+To balance immediate on-device speed, zero external dependencies, and future cinematic motion fidelity, AIRI adopts a **Three-Tier Motion Hierarchy**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 AIRI MOTION TIERS                                      │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ Tier 1: On-Device Core (Current)  │ FlowMDM + CLIP (~427MB, WebGPU, ~2-3s)            │
+│ Tier 2: Semantic Retrieval Cache   │ TMR-SOMA Embeddings (<50ms, Pre-baked .vrma library)│
+│ Tier 3A: Kimodo-Lite (WebGPU)     │ Distilled 282M + CLIP/T5 (~280MB INT8, ~3s)        │
+│ Tier 3B: Kimodo-Pro (CUDA Daemon) │ Full 282M + LLaMA-3-8B (Waypoints, 2D Paths)       │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.1 Tier Breakdown
+
+#### Tier 1: Default On-Device Core (FlowMDM + CLIP)
+* **Status**: Primary production baseline.
+* **Mechanism**: CLIP Text Encoder (`Xenova/clip-vit-base-patch32`) + FlowMDM ONNX Denoiser running via `onnxruntime-web` WebGPU.
+* **Pros**: Complete offline autonomy, zero backend server requirement, lightweight browser footprint (~427 MB total), fast ~2–3s generation.
+
+#### Tier 2: Sub-50ms Semantic Retrieval Cache (TMR-SOMA)
+* **Mechanism**: Leverages Text-to-Motion Retrieval ([`nvidia/TMR-SOMA-RP-v1`](https://huggingface.co/nvidia/TMR-SOMA-RP-v1), based on *TMR: Text-to-Motion Retrieval Using Contrastive 3D Human Motion Synthesis*, ICCV 2023).
+* **Execution**:
+  1. A library of standard, verified `.vrma` animations is pre-encoded with the TMR motion encoder into vector embeddings.
+  2. Incoming motion prompts (e.g. *"wave politely"*, *"stretch"*, *"nod"*) are embedded via the lightweight TMR text encoder.
+  3. If cosine similarity exceeds a threshold (e.g. $\ge 0.88$), the pre-baked `.vrma` is served in **<50ms**, bypassing diffusion entirely.
+  4. If no cache match exists, execution falls back to Tier 1 / Tier 3 generation.
+
+#### Tier 3: Next-Gen High-Fidelity Kinematic Diffusion ([NVIDIA Kimodo](https://github.com/nv-tlabs/kimodo))
+NVIDIA's Kimodo family introduces a two-stage transformer architecture separating global root motion from body joint rotations, trained on 700+ hours of optical MoCap (*Bones Rigplay*).
+
+* **Tier 3A: Kimodo-Lite (WebGPU On-Device Distillation)**
+  * **Text Encoder Swap**: Replace `Meta-Llama-3-8B-Instruct` with `Xenova/clip-vit-base-patch32` (or `google/flan-t5-base`) by fine-tuning the cross-attention projection matrices ($W_k, W_v \in \mathbb{R}^{d_{\text{text}} \times d_{\text{model}}}$) on the [`nvidia/Kimodo-SOMA-SEED-v1.1`](https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1) / HumanML3D datasets.
+  * **Step Distillation**: Distill from 50 DDPM steps down to 8–12 steps via Consistency Distillation or Flow Matching.
+  * **ONNX WebGPU Quantization**: Export in INT8/FP16 (~280 MB binary) with CFG fusion and `float32` RoPE monkeypatches per AIRI's ONNX export playbook.
+* **Tier 3B: Kimodo-Pro (Local CUDA Sidecar / Remote API)**
+  * **Mechanism**: External Python/CUDA daemon or FastAPI endpoint serving the full 282M model ([`nvidia/Kimodo-SOMA-RP-v1.1`](https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1) or [`nvidia/Kimodo-SMPLX-RP-v1`](https://huggingface.co/nvidia/Kimodo-SMPLX-RP-v1)).
+  * **Capabilities**: Supports 2D screen waypoint navigation, path tracking, and full cinematic avatar movement across desktop multi-window stages.
+
+---
+
+### 7.2 Research References & Model Manifest
+* **NVIDIA Kimodo Repository**: [`nv-tlabs/kimodo`](https://github.com/nv-tlabs/kimodo)
+* **Model Checkpoints**:
+  * [`nvidia/Kimodo-SOMA-RP-v1.1`](https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1) (30-joint SOMA skeleton on Rigplay)
+  * [`nvidia/Kimodo-SOMA-SEED-v1.1`](https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1) (SOMA skeleton on SEED open benchmark)
+  * [`nvidia/Kimodo-SMPLX-RP-v1`](https://huggingface.co/nvidia/Kimodo-SMPLX-RP-v1) (22-joint SMPL-X mesh)
+  * [`nvidia/Kimodo-G1-RP-v1`](https://huggingface.co/nvidia/Kimodo-G1-RP-v1) (34-joint Unitree G1 robot)
+  * [`nvidia/TMR-SOMA-RP-v1`](https://huggingface.co/nvidia/TMR-SOMA-RP-v1) (Text-to-Motion Retrieval encoder)
+  * [`nvidia/Kimodo-Motion-Gen-Benchmark`](https://huggingface.co/datasets/nvidia/Kimodo-Motion-Gen-Benchmark) (Standardized evaluation benchmark)
+
