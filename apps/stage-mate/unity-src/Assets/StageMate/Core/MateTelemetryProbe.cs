@@ -100,6 +100,7 @@ namespace StageMate.Core
             bool moveBlocked = MenuActions.IsMovementBlocked();
             bool blockOverride = animCtrl != null && animCtrl.BlockDraggingOverride;
             bool hasEventSys = EventSystem.current != null && EventSystem.current.isActiveAndEnabled;
+            bool isTopmost = winCtrl != null && winCtrl.isTopmost;
 
             var blockingNames = new List<string>();
             var allMenuActions = Resources.FindObjectsOfTypeAll<MenuActions>();
@@ -116,7 +117,7 @@ namespace StageMate.Core
             }
 
             string blockList = blockingNames.Count > 0 ? string.Join("+", blockingNames) : "None";
-            return $"TutDone:{tutDone}, TutActive:{tutActive}, MoveBlocked:{moveBlocked}({blockList}), BlockOverride:{blockOverride}, EventSysActive:{hasEventSys}";
+            return $"Topmost:{isTopmost}, TutDone:{tutDone}, TutActive:{tutActive}, MoveBlocked:{moveBlocked}({blockList}), BlockOverride:{blockOverride}, EventSysActive:{hasEventSys}";
         }
 
         private string Probe3DHit(Vector2 mousePos)

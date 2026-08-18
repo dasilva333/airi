@@ -68,10 +68,12 @@ Toggles, cyclers, and actions governing the active Gemini generative session, vi
 ---
 
 ### 2. 👤 Actor & Wardrobe
-Visual adjustments, expression grids, clothes swapping, and model selections.
+Visual adjustments, expression grids, clothes swapping, model selections, and companion stage layers.
 
 | Feature Name | Description | Current Icon | Display Type | Default on Strip? |
 | :--- | :--- | :--- | :--- | :--- |
+| **Actor Stage** (`stage`) | Toggles visibility of the primary Electron 2D/3D WebGL stage (`stageEnabled`). Right-click opens Size Presets (`Mini`, `Medium`, `Large`, `Full`). | `i-solar:clapperboard-play-bold-duotone` | Toggle (Switch) | **Yes** (Default on) |
+| **Stage-Mate Sidecar** (`stage-mate`) | Toggles execution/visibility of the Unity desktop companion runtime (`stageMateEnabled`). Independent from Electron stage. | `i-solar:ghost-bold-duotone` | Toggle (Switch) | No |
 | **Characters** | Swaps active character profile and loads new Live2D/VRM models. | `i-solar:users-group-rounded-outline` | Menu Display (Opens overlay list) | No |
 | **Wardrobe (Outfits)** | Swaps visual skins, textures, and outfit configurations. | `i-solar:t-shirt-outline` | Menu Display (Opens overlay list) | No |
 | **Expressions (Emotions)**| Triggers persistent emotional and facial expression profiles. | `i-solar:mask-happly-outline` | Menu Display (Opens overlay grid) | No |
@@ -114,6 +116,7 @@ Window alignments, presets, diagnostics, and application management.
 | :--- | :--- | :--- | :--- | :--- |
 | **Settings** | Opens the main configuration settings menu pane. | `i-solar:settings-linear` | Action Button | **Yes** (Default on) |
 | **Customizer** | Toggles visibility of this Control Customizer configuration window. | `i-solar:widget-linear` | Action Button | **Yes** (Default on) |
-| **Always-on-Top** | Toggles window floating status above full-screen applications. | `i-solar:pin-linear` | Toggle (Switch) | **Yes** (Default on) |
+| **Always-on-Top** | Toggles window floating status above full-screen applications for both Electron stage and Stage-Mate companion. | `i-solar:pin-linear` | Toggle (Switch) | **Yes** (Default on) |
 | **Theme Mode** | Swaps light/dark application color themes. | `i-solar:sun-linear` / `i-solar:moon-linear` | Toggle (Switch) | **Yes** (Default on) |
 | **Exit Application** | Clean-quits and shuts down the active AIRI process cycle. | `i-solar:close-circle-outline` | Action Button | **Yes** (Default on) |
+

@@ -44,6 +44,7 @@ import {
   electronOpenSettings,
   electronStageMateSetViewportMode,
   electronStageMateToggleVisibility,
+  electronStageSetAlwaysOnTop,
   electronStageToggleVisibility,
   electronStartDraggingWindow,
   noticeWindowEventa,
@@ -60,7 +61,7 @@ const openChat = useElectronEventaInvoke(electronOpenChat)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
-// const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
+const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
 const quitApp = useElectronEventaInvoke(electronAppQuit)
 const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 const startDraggingWindow = useElectronEventaInvoke(electronStartDraggingWindow)
@@ -144,6 +145,10 @@ watch(stageMateEnabled, (val) => {
 watch(stageMode, (val) => {
   setStageMateViewportMode(val)
 })
+
+watch(alwaysOnTop, (val) => {
+  void setAlwaysOnTop(val)
+}, { immediate: true })
 
 // NOTICE: the caption is *not* secretly owned by this watcher alone. When "follow stage visibility" is
 // on, main/index.ts already hides/shows the caption in lockstep with the stage and echoes the result

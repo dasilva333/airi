@@ -925,6 +925,33 @@ Rather than maintaining platform-specific C#/P-Invoke window scanners in Unity, 
 - Centralized vision/gaze tracking (`stage:vrm:gaze`).
 - Automatic sidecar executable lifecycle management (`execProcess`).
 
+---
+
+## 13. The Golden Breakthrough: Workspace Purity & The Two Independent Stages
+
+### 13.1. Golden Rule of Workspace Purity (`apps/stage-mate/unity-src/`)
+In earlier development passes, direct edits to `apps/stage-mate/mate-engine/` (a gitignored clone of upstream) caused persistent serialized state corruption, phantom coordinate offsets, and interaction lockouts.
+
+**The Immutable Standard**:
+- `mate-engine/` is a pristine upstream clone (`origin/main`) and is **never edited directly**.
+- All persistent custom code, bridges, telemetry probes, and patches live strictly in `apps/stage-mate/unity-src/` (`Assets/`, `Patches/`, `ProjectSettings/`).
+- Every build command automatically runs `pnpm -F @proj-airi/stage-mate run engine:setup` (`scripts/setup.ts`), which overlays `unity-src/` onto `mate-engine/`.
+
+### 13.2. Resolution of the 5 Interaction Lockout Gates
+Through diagnostic telemetry probing (`MateTelemetryProbe.cs`), we identified and unlocked all 5 gates required for 100% smooth companion physics and Ki dragging:
+1. **`TutDone`**: Auto-marked `tutorialDone = true` in `SaveLoadHandler.Instance.data`.
+2. **`TutActive`**: Auto-dismissed `TutorialMenu` on startup.
+3. **`MoveBlocked`**: Deactivated lingering modal canvases (`SettingsMenuCanvas`, etc.) on boot.
+4. **`Radial Scale-Check`**: Replaced upstream `localScale.x > 0.01f` with semantic boolean `radialMenu.opened` in `MenuActions.IsRadialOpen()`.
+5. **`EventSysActive`**: Auto-instantiated/activated Unity `EventSystem` + `StandaloneInputModule` for 2D UI pointer raycasts.
+
+### 13.3. Two Independent Stages Architecture
+AIRI maintains two completely independent stage toggle lanes:
+1. **`stageEnabled`** (`settings/stage-enabled`): Primary Electron 2D/3D WebGL Actor Stage window (`electronStageToggleVisibility`).
+2. **`stageMateEnabled`** (`settings/stage-mate-enabled`): Unity Desktop Companion Runtime (`electronStageMateToggleVisibility` $\rightarrow$ `control:stage`).
+3. **Global Always-on-Top (`alwaysOnTop`)**: Dispatches `electronStageSetAlwaysOnTop`, which sets `deps.stageWindow.setAlwaysOnTop` AND broadcasts `{ type: 'control:always-on-top', data: { enabled } }` to Stage-Mate (`LibUniWinC.SetTopmost`).
+
+
 
 
 

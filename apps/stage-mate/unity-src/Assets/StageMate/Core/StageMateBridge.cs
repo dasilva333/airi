@@ -1,8 +1,11 @@
 using System;
+using System.Collections;
 using System.IO;
 using Kirurobo;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using VRM;
+using UniVRM10;
 
 namespace StageMate.Core
 {
@@ -96,9 +99,70 @@ namespace StageMate.Core
                     HandleStateSync(json);
                     break;
 
+                case "control:stage":
+                case "stage:visibility":
+                    bool stageEn = env.data != null ? env.data.enabled : true;
+                    if (windowController != null) windowController.alphaValue = stageEn ? 1.0f : 0.0f;
+                    Debug.Log($"[StageMateBridge] Set Stage Visibility: {stageEn}");
+                    break;
+
+                case "stage:size-preset":
+                case "control:size-preset":
+                    if (env.data != null && !string.IsNullOrEmpty(env.data.preset))
+                        ApplySizePreset(env.data.preset);
+                    break;
+
+                case "stage:window:bounds":
+                case "control:window:bounds":
+                    if (env.data != null && windowController != null)
+                    {
+                        if (env.data.x != 0 || env.data.y != 0)
+                            windowController.windowPosition = new Vector2(env.data.x, env.data.y);
+                        if (env.data.scale > 0) // if width/height used
+                            windowController.windowSize = new Vector2(env.data.scale, env.data.scale);
+                    }
+                    break;
+
                 case "control:viewport:mode":
                     string mode = env.data != null && !string.IsNullOrEmpty(env.data.mode) ? env.data.mode : env.mode;
                     SetViewportMode(mode);
+                    break;
+
+                case "control:viewport-drag":
+                    SetViewportMode("drag");
+                    break;
+
+                case "control:viewport-orbit":
+                    SetViewportMode("orbit");
+                    break;
+
+                case "control:viewport-tactile":
+                case "control:viewport-spin":
+                    SetViewportMode("tactile");
+                    break;
+
+                case "stage:vrm:lip-sync":
+                    if (env.data != null)
+                        ApplyLipSync(env.data.rms);
+                    break;
+
+                case "stage:vrm:expression":
+                    if (env.data != null)
+                    {
+                        string expr = !string.IsNullOrEmpty(env.data.name) ? env.data.name : env.data.expression;
+                        float w = env.data.weight > 0f ? env.data.weight : 1f;
+                        float dur = env.data.durationMs > 0f ? env.data.durationMs / 1000f : 2.5f;
+                        ApplyExpression(expr ?? "Angry", w, dur);
+                    }
+                    break;
+
+                case "control:always-on-top":
+                case "stage:always-on-top":
+                    bool aot = env.data != null ? env.data.enabled : true;
+                    if (windowController != null) windowController.isTopmost = aot;
+                    if (SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null)
+                        SaveLoadHandler.Instance.data.isTopmost = aot;
+                    Debug.Log($"[StageMateBridge] Set AlwaysOnTop: {aot}");
                     break;
 
                 case "control:model:load":
@@ -130,6 +194,9 @@ namespace StageMate.Core
                     windowController.windowPosition = new Vector2(d.window.x, d.window.y);
                     if (d.window.width > 0 && d.window.height > 0)
                         windowController.windowSize = new Vector2(d.window.width, d.window.height);
+                    windowController.isTopmost = d.window.alwaysOnTop;
+                    if (SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null)
+                        SaveLoadHandler.Instance.data.isTopmost = d.window.alwaysOnTop;
                 }
 
                 if (d.viewport != null && !string.IsNullOrEmpty(d.viewport.mode))
@@ -211,6 +278,126 @@ namespace StageMate.Core
             else
             {
                 Debug.LogError("[StageMateBridge] VRMLoader not found in scene!");
+            }
+        }
+
+        private void ApplySizePreset(string preset)
+        {
+            if (string.IsNullOrEmpty(preset) || windowController == null) return;
+            string p = preset.Trim().ToLowerInvariant();
+            if (p == "mini")
+            {
+                windowController.windowSize = new Vector2(220, 315);
+            }
+            else if (p == "med." || p == "medium" || p == "med")
+            {
+                windowController.windowSize = new Vector2(450, 600);
+            }
+            else if (p == "large")
+            {
+                windowController.windowSize = new Vector2(800, 1000);
+            }
+            else if (p == "full")
+            {
+                windowController.windowPosition = Vector2.zero;
+                windowController.windowSize = new Vector2(Screen.currentResolution.width, Screen.currentResolution.height);
+            }
+            Debug.Log($"[StageMateBridge] Applied size preset: {p} -> {windowController.windowSize}");
+        }
+
+        private void ApplyLipSync(float rms)
+        {
+            var animators = FindObjectsByType<Animator>(FindObjectsSortMode.None);
+            foreach (var a in animators)
+            {
+                var vrm10 = a.GetComponent<Vrm10Instance>();
+                if (vrm10 != null && vrm10.Runtime != null && vrm10.Runtime.Expression != null)
+                {
+                    vrm10.Runtime.Expression.SetWeight(ExpressionKey.Aa, Mathf.Clamp01(rms));
+                    return;
+                }
+                var vrm0 = a.GetComponent<VRMBlendShapeProxy>();
+                if (vrm0 != null)
+                {
+                    vrm0.SetValue(BlendShapeKey.CreateFromPreset(BlendShapePreset.A), Mathf.Clamp01(rms));
+                    return;
+                }
+            }
+        }
+
+        private Coroutine activeExpressionCoroutine;
+
+        private void ApplyExpression(string exprName, float weight, float duration)
+        {
+            if (activeExpressionCoroutine != null)
+                StopCoroutine(activeExpressionCoroutine);
+            activeExpressionCoroutine = StartCoroutine(ExpressionRoutine(exprName, weight, duration));
+        }
+
+        private IEnumerator ExpressionRoutine(string exprName, float peakWeight, float duration)
+        {
+            float holdTime = Mathf.Max(0.3f, duration - 0.6f);
+            float fadeOutTime = 0.6f;
+
+            SetVrmExpressionWeight(exprName, peakWeight);
+
+            yield return new WaitForSeconds(holdTime);
+
+            float elapsed = 0f;
+            while (elapsed < fadeOutTime)
+            {
+                elapsed += Time.deltaTime;
+                float w = Mathf.Lerp(peakWeight, 0f, elapsed / fadeOutTime);
+                SetVrmExpressionWeight(exprName, w);
+                yield return null;
+            }
+
+            SetVrmExpressionWeight(exprName, 0f);
+            activeExpressionCoroutine = null;
+        }
+
+        private void SetVrmExpressionWeight(string exprName, float weight)
+        {
+            if (string.IsNullOrEmpty(exprName)) return;
+            string nameLower = exprName.Trim().ToLowerInvariant();
+
+            var animators = FindObjectsByType<Animator>(FindObjectsSortMode.None);
+            foreach (var a in animators)
+            {
+                var vrm10 = a.GetComponent<Vrm10Instance>();
+                if (vrm10 != null && vrm10.Runtime != null && vrm10.Runtime.Expression != null)
+                {
+                    ExpressionKey key = nameLower switch
+                    {
+                        "angry" => ExpressionKey.Angry,
+                        "happy" or "joy" => ExpressionKey.Happy,
+                        "sad" or "sorrow" => ExpressionKey.Sad,
+                        "relaxed" or "neutral" => ExpressionKey.Relaxed,
+                        "surprised" => ExpressionKey.Surprised,
+                        "blink" => ExpressionKey.Blink,
+                        "aa" => ExpressionKey.Aa,
+                        _ => ExpressionKey.CreateCustom(exprName)
+                    };
+                    vrm10.Runtime.Expression.SetWeight(key, Mathf.Clamp01(weight));
+                    return;
+                }
+
+                var vrm0 = a.GetComponent<VRMBlendShapeProxy>();
+                if (vrm0 != null)
+                {
+                    BlendShapeKey key = nameLower switch
+                    {
+                        "angry" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Angry),
+                        "happy" or "joy" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Joy),
+                        "sad" or "sorrow" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Sorrow),
+                        "neutral" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Neutral),
+                        "blink" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Blink),
+                        "a" or "aa" => BlendShapeKey.CreateFromPreset(BlendShapePreset.A),
+                        _ => BlendShapeKey.CreateUnknown(exprName)
+                    };
+                    vrm0.SetValue(key, Mathf.Clamp01(weight));
+                    return;
+                }
             }
         }
 

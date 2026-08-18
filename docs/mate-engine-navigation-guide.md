@@ -294,4 +294,93 @@ Mate Engine contains two global static lockouts that can silently disable 100% o
 - `MenuActions.cs` scans all `menuEntries`. If any menu whose `blockMovement == true` is currently `activeInHierarchy`, all movement and dragging are blocked globally.
 - When customizing UI or opening custom drawers, always call `menuActions.CloseAllMenus()` or ensure standalone modal menus are deactivated.
 
+### 11.3. The Radial Scale-Tweening Trap (`IsRadialOpen()` vs `CircleSelector.opened`)
+- **The Upstream Implementation**:
+  ```csharp
+  bool IsRadialOpen() => radialMenuObject && radialMenuObject.transform.localScale.x > 0.01f;
+  ```
+- **The Pitfall**: In `Mate Engine Main.unity`, `radialMenuObject` (the PieMenu canvas) is saved with default serialized scale `localScale = (1, 1, 1)`. When the application boots, `localScale.x == 1.0f > 0.01f` evaluates to `true` before `CircleSelector` finishes its scale-down tween.
+- **The Consequence**: Because `radialBlockMovement == true`, `IsMovementBlocked()` evaluates to `true` on boot, immediately and silently killing left-click Ki dragging on frame tick.
+- **The Durable Fix**: In `MenuActions.cs`, `IsRadialOpen()` must check the true semantic boolean `radialMenu.opened`:
+  ```csharp
+  bool IsRadialOpen()
+  {
+      if (radialMenu != null) return radialMenu.opened;
+      return radialMenuObject && radialMenuObject.transform.localScale.x > 0.01f;
+  }
+  ```
+
+### 11.4. The Inactive `EventSystem` & UI Pointer Raycast Trap
+- **The Problem**: In `Mate Engine Main.unity`, the Unity `EventSystem` GameObject was serialized with `m_IsActive: 0`.
+- **The Consequence**: Without an active `EventSystem`, Unity cannot process 2D UI pointer raycasts (`ProbeUIHits` returns `[NoEventSystem]`). Mouse clicks on UI elements fail, right-clicks cannot trigger radial buttons, and coroutine execution throws `Coroutine couldn't be started because the game object is inactive!`.
+- **The Invariant**: `StageMateBridge.SuppressStandaloneUI()` must dynamically locate or instantiate an active `EventSystem` + `StandaloneInputModule` on boot:
+  ```csharp
+  if (EventSystem.current == null)
+  {
+      var existing = FindFirstObjectByType<EventSystem>(FindObjectsInactive.Include);
+      if (existing != null)
+      {
+          existing.gameObject.SetActive(true);
+          existing.enabled = true;
+      }
+      else
+      {
+          var esGo = new GameObject("StageMateEventSystem");
+          esGo.AddComponent<EventSystem>();
+          esGo.AddComponent<StandaloneInputModule>();
+      }
+  }
+  ```
+
+### 11.5. Persistent Modal Canvas Lockout (`SettingsMenuCanvas`)
+- Upstream `SettingsMenuCanvas` has `blockMovement: 1` configured in `MenuActions.menuEntries`.
+- If the application is closed while the settings menu is open (or serialized active in the scene YAML), `SettingsMenuCanvas.activeInHierarchy` starts `true` on subsequent launches.
+- **The Invariant**: `StageMateBridge.cs` must enforce a clean state reset during `SuppressStandaloneUI()`, explicitly calling `menuActions.CloseAllMenus()` and deactivating all known standalone modal canvas names (`SettingsMenuCanvas`, `AvatarLibraryCanvas`, `TutorialMenuCanvas`, `QuickMenuCanvas`, `AlarmsMenuCanvas`, `ChatCanvas`).
+
+---
+
+## 12. Telemetry & Live Diagnostic Probing (`MateTelemetryProbe.cs`)
+
+Located in `apps/stage-mate/unity-src/Assets/StageMate/Core/MateTelemetryProbe.cs`:
+A real-time diagnostic component attached to the sidecar root that streams live telemetry to `Player.log`:
+
+```text
+[MateTelemetryProbe:STATE] UnityMouse=(764.0, 333.0) | OSPos=(731.5, 310.8) | WinPos=(0.0, 0.0) | WinSize=(768.0, 512.0) | Screen=(1536x1024) | clickThrough=False | 3DHit=Model (Layer:Model) | UIHits=[None] | Dragging=False | Gates=[TutDone:True, TutActive:False, MoveBlocked:False(None), BlockOverride:False, EventSysActive:True]
+```
+
+### The 5 Lockout Gates Monitored in Real Time:
+1. **`TutDone`**: `SaveLoadHandler.Instance.data.tutorialDone` (must be `True`).
+2. **`TutActive`**: `TutorialMenu.IsActive` (must be `False`).
+3. **`MoveBlocked`**: `MenuActions.IsMovementBlocked()` with exact active blocking menu list (must be `False(None)`).
+4. **`BlockOverride`**: `AvatarAnimatorController.BlockDraggingOverride` (must be `False` in normal mode).
+5. **`EventSysActive`**: `EventSystem.current.isActiveAndEnabled` (must be `True`).
+
+---
+
+## 13. Submodule Isolation & Versioned Overlay Architecture
+
+```text
+apps/stage-mate/
+├── mate-engine/                 # ◄── Pristine upstream git repository (gitignored, NEVER edited directly)
+├── unity-src/                   # ◄── Single Source of Truth (tracked in root AIRI repo)
+│   ├── Assets/                  # ◄── Custom scripts & bridge (StageMateBridge, MateTelemetryProbe, VRMLoader)
+│   ├── Patches/                 # ◄── Overrides for upstream MATE ENGINE - Scripts/
+│   │   ├── AvatarHandlers/      # ◄── AvatarAnimatorController, AvatarGravityController, etc.
+│   │   ├── Settings/            # ◄── MenuActions, IgnoredAppsManager, SettingsMenuPosition
+│   │   └── Tasty Pie Menu/      # ◄── CircleSelector.cs
+│   └── ProjectSettings/         # ◄── Version-controlled Unity project settings
+├── backups/                     # ◄── Complete upstream diff patches & WIP safety snapshots
+└── scripts/
+    ├── setup.ts                 # ◄── Overlay sync engine: copies unity-src/ -> mate-engine/
+    └── build.ts                 # ◄── Headless Unity batchmode build orchestrator
+```
+
+### The Setup Pipeline (`pnpm run engine:setup`)
+1. Ensures `mate-engine/` exists (clones upstream if absent).
+2. Overlays `unity-src/Assets/` $\rightarrow$ `mate-engine/Assets/`.
+3. Overlays `unity-src/Patches/` $\rightarrow$ `mate-engine/Assets/MATE ENGINE - Scripts/`.
+4. Overlays `unity-src/ProjectSettings/` $\rightarrow$ `mate-engine/ProjectSettings/`.
+5. Executes automated compatibility transformations (`preserveFramebufferAlpha`, `patchSettingsMenuUI`).
+
+
 

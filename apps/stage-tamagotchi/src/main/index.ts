@@ -376,7 +376,7 @@ app.whenReady().then(async () => {
       createI18nService({ context, window: deps.mainWindow, i18n: deps.i18n })
       createMicToggleService({ context, window: deps.mainWindow })
       createVisionService({ context })
-      createStageMateService({ appConfig: deps.appConfig })
+      const stageMateService = createStageMateService({ appConfig: deps.appConfig })
       const sensorsServicePromise = createSensorsService({ context })
       setupDiscordService()
       const defaultBypassUrls = DEFAULT_CORS_BYPASS_URLS
@@ -497,6 +497,10 @@ app.whenReady().then(async () => {
             deps.stageWindow.setAlwaysOnTop(false)
           }
         }
+        stageMateService.broadcast({
+          type: 'control:always-on-top',
+          data: { enabled: flag },
+        })
       })
 
       defineInvokeHandler(context, electronShowToast, async (payload) => {
@@ -544,6 +548,13 @@ app.whenReady().then(async () => {
           return
         const { target, preset, monitorIndex, alignment } = payload
         console.log(`[@proj-airi/stage-tamagotchi] [Main] Apply size preset: ${preset} for target: ${target}, monitor: ${monitorIndex}, align: ${alignment}`)
+
+        if (target === 'actor') {
+          stageMateService.broadcast({
+            type: 'stage:size-preset',
+            data: { preset },
+          })
+        }
 
         let targetWin: BrowserWindow | null = null
         if (target === 'actor') {
