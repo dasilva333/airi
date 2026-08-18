@@ -68,8 +68,25 @@ const IDLE_ANIMATIONS = (process.env.MATE_IDLE_ANIMATIONS ?? '')
   .map(s => s.trim())
   .filter(Boolean)
 
+// Macaron Presets
+export const MACARON_PRESETS = [
+  { id: 'strawberry_cream', name: 'Strawberry Cream (Default)', shell: 'pink', whip: 'berry', heart: 'pink' },
+  { id: 'vanilla_strawberry', name: 'Vanilla Strawberry', shell: 'pink', whip: 'milk', heart: 'blue' },
+  { id: 'chocolate_berry', name: 'Chocolate Berry', shell: 'pink', whip: 'chocolate', heart: 'brawn' },
+  { id: 'mint_fresh', name: 'Mint Fresh', shell: 'blue', whip: 'milk', heart: 'blue' },
+  { id: 'blueberry_whip', name: 'Blueberry Whip', shell: 'blue', whip: 'berry', heart: 'purple' },
+  { id: 'mint_choco', name: 'Mint Choco', shell: 'blue', whip: 'chocolate', heart: 'brawn' },
+  { id: 'matcha_classic', name: 'Matcha Classic', shell: 'green', whip: 'matcha', heart: 'green' },
+  { id: 'matcha_milk', name: 'Matcha Milk', shell: 'green', whip: 'milk', heart: 'yellow' },
+  { id: 'matcha_chocolate', name: 'Matcha Chocolate', shell: 'green', whip: 'chocolate', heart: 'brawn' },
+  { id: 'lemon_custard', name: 'Lemon Custard', shell: 'yellow', whip: 'milk', heart: 'yellow' },
+  { id: 'lavender_berry', name: 'Lavender Berry', shell: 'purple', whip: 'berry', heart: 'purple' },
+  { id: 'mocha_caramel', name: 'Mocha Caramel', shell: 'brawn', whip: 'chocolate', heart: 'brawn' },
+] as const
+
 // State
 let activeModelIndex = 0
+let activeMacaronIndex = 0
 let clientCount = 0
 let authenticatedCount = 0
 let peerIdentity: string | null = null
@@ -167,6 +184,7 @@ function render() {
     `  ${c.bold}Stage State:${c.reset}      ${visStatus}`,
     `  ${c.bold}View Mode:${c.reset}        ${c.cyan}${activeViewMode}${c.reset}`,
     `  ${c.bold}Expression:${c.reset}       ${exprStatus}`,
+    `  ${c.bold}Macaron Flavor:${c.reset}   ${c.magenta}${MACARON_PRESETS[activeMacaronIndex].name}${c.reset} ${c.dim}[${activeMacaronIndex + 1}/${MACARON_PRESETS.length}]${c.reset}`,
     `  ${c.bold}Lip-Sync Telemetry:${c.reset} ${lipStatus}`,
     '',
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
@@ -174,8 +192,8 @@ function render() {
     `  ${c.yellow}[1]${c.reset} Mini (220×315)     ${c.yellow}[2]${c.reset} Med. (450×600)    ${c.yellow}[3]${c.reset} Large (800×1000)   ${c.yellow}[4]${c.reset} Full (Workarea)`,
     `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})`,
     `  ${c.green}[D]${c.reset} Viewport Drag      ${c.green}[O]${c.reset} Viewport Orbit    ${c.green}[S]${c.reset} Viewport Spin      ${c.green}[C]${c.reset} Cycle Modes`,
-    `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.blue}[R]${c.reset} Reset Coordinates`,
-    `  ${c.red}[Q]${c.reset} Quit Harness`,
+    `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.magenta}[P]${c.reset} Cycle Macaron (${MACARON_PRESETS.length})`,
+    `  ${c.blue}[R]${c.reset} Reset Coordinates ${c.red}[Q]${c.reset} Quit Harness`,
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
     `  ${c.bold}Last Event:${c.reset} ${c.dim}${lastEvent}${c.reset}`,
     '',
@@ -322,6 +340,23 @@ function handleKeypress(key: string) {
     case 'l':
       triggerLipSyncSimulation()
       break
+
+    case 'p': {
+      activeMacaronIndex = (activeMacaronIndex + 1) % MACARON_PRESETS.length
+      const p = MACARON_PRESETS[activeMacaronIndex]
+      broadcast({
+        type: 'stage:prop:macaron',
+        data: {
+          materials: {
+            shell: p.shell,
+            whip: p.whip,
+            heart: p.heart,
+          },
+        },
+      })
+      logEvent(`Sent stage:prop:macaron → ${p.name} (${p.shell}/${p.whip}/${p.heart})`)
+      break
+    }
 
     case 'q':
       cleanupAndExit()

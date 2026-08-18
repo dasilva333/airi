@@ -424,21 +424,55 @@ Located in `Assets/noirunn/KawaiiMacaronMotion/` and managed via `AvatarBubbleHa
 2. **3-Slot Material Pipeline**:
    - **Slot 0 (Cookie Shell)**: Base color (`pink`, `blue`, `green`, `yellow`, `purple`, `brawn`, `orange`).
    - **Slot 1 (Whip Cream)**: Cream filling (`berry`, `chocolate`, `matcha`, `milk`, `strawberry`).
-   - **Slot 2 (Heart Topping)**: Candy topper accent.
+   - **Slot 2 (Heart Topping)**: Candy topper accent (`pink`, `blue`, `green`, `yellow`, `purple`, `brawn`, `orange`).
 3. **Character Skeletal Pose (`KawaiiMacaronMotion01.anim`)**:
    - Synchronized with `AvatarBubbleHandler`: `animator.SetBool("isSitting", true)` switches the VRM avatar into a floating/swimming pose with elbows resting on the top cookie and legs kicking in the air.
 
-### 14.2. Direct Click-to-Cycle Floatie Interaction
-- Rather than navigating complex multi-slice radial submenus, `AvatarBubbleHandler.cs` implements an intuitive, tactile **Click-to-Cycle** mechanic:
-  1. **Direct 3D Raycast Click**: While floating, clicking directly on the 3D macaron mesh immediately cycles through the 12 flavor presets and plays a pleasant chime.
-  2. **Radial Menu Tap**: Clicking the Macaron button in the radial menu activates floating mode if inactive, or cycles to the next flavor if already active.
-  3. **12 Flavor Presets**:
-     - *Strawberry Cream*, *Vanilla Strawberry*, *Chocolate Berry*
-     - *Ice Mint*, *Blueberry Whip*, *Mint Chocolate*
-     - *Matcha Classic*, *Matcha Latte*, *Matcha Choco*
-     - *Lemon Custard*, *Lavender Berry*, *Mocha Caramel*
-  4. Real-time material properties (`_Color`, `_BaseColor`) update dynamically on `attachTarget` with zero memory allocation or asset reload overhead.
+### 14.2. Stateless Unity Bridge & Sidecar Wire Protocol (`stage:prop:macaron`)
 
+Rather than mutating upstream C# scripts or hardcoding state cycles into Unity, AIRI adopts a **stateless rendering engine + intelligent sidecar harness** architecture:
 
+1. **Hierarchy Reference in Scene**:
+   - The active 3D prop is located at `BarObject/Macaroon` in `Mate Engine Main.unity`.
+   - MeshRenderer has 3 material slots:
+     - **Slot 0**: `Base` (Cookie Shell)
+     - **Slot 1**: `Whip` (Cream Filling)
+     - **Slot 2**: `Heart` (Candy Heart Accent)
 
+2. **Wire Protocol Specification (`stage:prop:macaron`)**:
+   ```json
+   {
+     "type": "stage:prop:macaron",
+     "data": {
+       "materials": {
+         "shell": "green", // pink | blue | green | yellow | purple | brawn | orange
+         "whip": "matcha", // milk | strawberry | matcha | chocolate | berry
+         "heart": "green" // pink | blue | green | yellow | purple | brawn | orange
+       }
+     }
+   }
+   ```
+
+3. **Dynamic Material Loading**:
+   - `scripts/setup.ts` overlays all 19 material assets into `Assets/Resources/Materials/`.
+   - `StageMateBridge.ApplyMacaronMaterials()` dynamically loads materials via `Resources.Load<Material>($"Materials/{Category}/{name}")` and updates `MeshRenderer.sharedMaterials` in runtime memory with zero latency and zero frame hit.
+
+4. **12 Canonical Flavor Presets (Defined in Harness / TypeScript)**:
+   | Index | Preset Name | Shell | Whip | Heart |
+   | :--- | :--- | :--- | :--- | :--- |
+   | 1 | **Strawberry Cream (Default)** | `pink` | `berry` | `pink` |
+   | 2 | **Vanilla Strawberry** | `pink` | `milk` | `blue` |
+   | 3 | **Chocolate Berry** | `pink` | `chocolate` | `brawn` |
+   | 4 | **Mint Fresh** | `blue` | `milk` | `blue` |
+   | 5 | **Blueberry Whip** | `blue` | `berry` | `purple` |
+   | 6 | **Mint Choco** | `blue` | `chocolate` | `brawn` |
+   | 7 | **Matcha Classic** | `green` | `matcha` | `green` |
+   | 8 | **Matcha Milk** | `green` | `milk` | `yellow` |
+   | 9 | **Matcha Chocolate** | `green` | `chocolate` | `brawn` |
+   | 10 | **Lemon Custard** | `yellow` | `milk` | `yellow` |
+   | 11 | **Lavender Berry** | `purple` | `berry` | `purple` |
+   | 12 | **Mocha Caramel** | `brawn` | `chocolate` | `brawn` |
+
+5. **Interactive Harness Integration**:
+   - In `apps/stage-mate/harness/index.ts`, hotkey `[P]` dynamically steps through the 12 presets live over WebSocket.
 

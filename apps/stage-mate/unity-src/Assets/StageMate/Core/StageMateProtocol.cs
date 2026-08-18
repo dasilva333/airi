@@ -35,11 +35,23 @@ namespace StageMate.Core
         public float y;
         public float scale;
         public string[] idleAnimations;
+        public WireMacaronMaterials materials;
+        public string shell;
+        public string whip;
+        public string heart;
         public WireSyncWindow window;
         public WireSyncModel model;
         public WireSyncPositioning positioning;
         public WireSyncViewport viewport;
         public WireSyncStage stage;
+    }
+
+    [Serializable]
+    public class WireMacaronMaterials
+    {
+        public string shell;
+        public string whip;
+        public string heart;
     }
 
     [Serializable]

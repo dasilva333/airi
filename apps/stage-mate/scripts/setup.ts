@@ -54,6 +54,13 @@ export function setupMateEngine(): boolean {
     cpSync(projectSettingsSrc, join(mateEngineDir, 'ProjectSettings'), { recursive: true, force: true })
   }
 
+  // 4b. Sync Macaron materials to Assets/Resources/Materials for instant runtime loading
+  const macaronMatsSrc = join(mateEngineDir, 'Assets', 'noirunn', 'KawaiiMacaronMotion', 'Materials')
+  const resourcesMatsTarget = join(mateEngineDir, 'Assets', 'Resources', 'Materials')
+  if (existsSync(macaronMatsSrc)) {
+    cpSync(macaronMatsSrc, resourcesMatsTarget, { recursive: true, force: true })
+  }
+
   // 5. Apply cross-platform macOS P/Invoke compilation fixes if needed
   patchMacCompatibility()
 

@@ -176,6 +176,15 @@ namespace StageMate.Core
                         LoadModel(p);
                     }
                     break;
+
+                case "stage:prop:macaron":
+                case "set_macaron_materials":
+                case "control:prop:macaron":
+                    string shell = env.data != null ? (env.data.materials != null ? env.data.materials.shell : env.data.shell) : null;
+                    string whip = env.data != null ? (env.data.materials != null ? env.data.materials.whip : env.data.whip) : null;
+                    string heart = env.data != null ? (env.data.materials != null ? env.data.materials.heart : env.data.heart) : null;
+                    ApplyMacaronMaterials(shell, whip, heart);
+                    break;
             }
         }
 
@@ -399,6 +408,75 @@ namespace StageMate.Core
                     return;
                 }
             }
+        }
+
+        private GameObject cachedMacaronGo;
+
+        private GameObject GetMacaronGameObject()
+        {
+            if (cachedMacaronGo != null) return cachedMacaronGo;
+            var allGos = Resources.FindObjectsOfTypeAll<GameObject>();
+            foreach (var go in allGos)
+            {
+                if (go != null && go.name.Equals("Macaroon", StringComparison.OrdinalIgnoreCase) && go.GetComponent<MeshRenderer>() != null)
+                {
+                    cachedMacaronGo = go;
+                    return go;
+                }
+            }
+            return null;
+        }
+
+        public void ApplyMacaronMaterials(string shell, string whip, string heart)
+        {
+            var macaronGo = GetMacaronGameObject();
+            if (macaronGo == null)
+            {
+                Debug.LogWarning("[StageMateBridge] Macaroon GameObject not found in scene.");
+                return;
+            }
+
+            var mr = macaronGo.GetComponent<MeshRenderer>();
+            if (mr == null) return;
+
+            var mats = mr.materials;
+            if (mats.Length < 3) mats = new Material[3];
+
+            if (!string.IsNullOrEmpty(shell))
+            {
+                var mat = Resources.Load<Material>($"Materials/Base/{shell}") ?? FindMaterialFallback(shell);
+                if (mat != null) mats[0] = mat;
+            }
+
+            if (!string.IsNullOrEmpty(whip))
+            {
+                var mat = Resources.Load<Material>($"Materials/Whip/{whip}") ?? FindMaterialFallback(whip);
+                if (mat != null) mats[1] = mat;
+            }
+
+            if (!string.IsNullOrEmpty(heart))
+            {
+                var mat = Resources.Load<Material>($"Materials/Heart/{heart}") ?? FindMaterialFallback(heart);
+                if (mat != null) mats[2] = mat;
+            }
+
+            mr.materials = mats;
+            mr.sharedMaterials = mats;
+            Debug.Log($"[StageMateBridge] Applied Macaron Materials -> Shell:{shell}, Whip:{whip}, Heart:{heart}");
+        }
+
+        private Material FindMaterialFallback(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            name = name.Trim();
+
+            var allMaterials = Resources.FindObjectsOfTypeAll<Material>();
+            foreach (var m in allMaterials)
+            {
+                if (m != null && m.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return m;
+            }
+            return null;
         }
 
         private void SuppressStandaloneUI()
