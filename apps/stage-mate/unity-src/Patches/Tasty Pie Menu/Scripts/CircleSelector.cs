@@ -76,6 +76,14 @@ namespace Xamin
 
         public bool Open()
         {
+            Transform cur = transform;
+            while (cur != null)
+            {
+                if (!cur.gameObject.activeSelf)
+                    cur.gameObject.SetActive(true);
+                cur = cur.parent;
+            }
+
             RefreshAllButtonColorsDelayed();
             EnsureAnimatorReceiver();
             BuildButtons();
@@ -288,7 +296,13 @@ namespace Xamin
                 btn.SetColor(Color.Lerp(btn.currentColor, btn.unlocked ? (btn.useCustomColor ? btn.customColor : AccentColor) : DisabledColor, LerpAmount));
         }
 
-        public void RefreshAllButtonColorsDelayed() => StartCoroutine(DoRefreshAllButtonColorsDelayed());
+        public void RefreshAllButtonColorsDelayed()
+        {
+            if (gameObject.activeInHierarchy)
+                StartCoroutine(DoRefreshAllButtonColorsDelayed());
+            else
+                RefreshAllButtonColors();
+        }
         private System.Collections.IEnumerator DoRefreshAllButtonColorsDelayed() { yield return null; RefreshAllButtonColors(); }
 
         void CheckForInput()

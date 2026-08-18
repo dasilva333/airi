@@ -457,6 +457,20 @@ namespace StageMate.Core
                     esGo.AddComponent<StandaloneInputModule>();
                 }
             }
+
+            // Ensure CircleSelector and its parent Canvas/UI root are active
+            var circleSelector = FindFirstObjectByType<Xamin.CircleSelector>(FindObjectsInactive.Include);
+            if (circleSelector != null)
+            {
+                Transform cur = circleSelector.transform;
+                while (cur != null)
+                {
+                    if (!cur.gameObject.activeSelf)
+                        cur.gameObject.SetActive(true);
+                    cur = cur.parent;
+                }
+                Debug.Log("[StageMateBridge] Activated CircleSelector and its parent UI hierarchy.");
+            }
         }
 
         private string ResolveInitialModelPath()

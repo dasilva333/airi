@@ -337,6 +337,35 @@ Mate Engine contains two global static lockouts that can silently disable 100% o
 - If the application is closed while the settings menu is open (or serialized active in the scene YAML), `SettingsMenuCanvas.activeInHierarchy` starts `true` on subsequent launches.
 - **The Invariant**: `StageMateBridge.cs` must enforce a clean state reset during `SuppressStandaloneUI()`, explicitly calling `menuActions.CloseAllMenus()` and deactivating all known standalone modal canvas names (`SettingsMenuCanvas`, `AvatarLibraryCanvas`, `TutorialMenuCanvas`, `QuickMenuCanvas`, `AlarmsMenuCanvas`, `ChatCanvas`).
 
+### 11.6. The Inactive Root `UI` Hierarchy Trap (`Circle Selector` / Pie Menu Activation)
+- **Failure Symptom**: Right-clicking the avatar produces the menu sound effect and triggers character facial/body reactions, but the radial menu never appears on screen. `Player.log` emits:
+  ```text
+  Coroutine couldn't be started because the game object 'Circle Selector' is inactive!
+  ```
+- **Forensic YAML Object Chain (`Mate Engine Main.unity`)**:
+  ```text
+  1. MenuActions (GUID: c347cc09ec9d33a408d0652592dbcaeb, Scene #L103478)
+     └── radialMenuObject: {fileID: 534228283}
+  2. Circle Selector (GameObject #L19459, Prefab GUID: 483c946d35a69704b9c4e151528ab04c)
+     └── PrefabInstance: {fileID: 1096526317} (#L81990)
+  3. Parent Canvas (RectTransform &743501261, GameObject #L32860)
+     └── m_Father: {fileID: 234665254}
+  4. Grandparent UI Root (Transform &234665254, GameObject #L6422)
+     ├── m_Name: UI
+     └── m_IsActive: 0   ◄── [ROOT CAUSE: Inactive root disables all descendant UI raycasts/renders]
+  ```
+- **The Invariant**: `CircleSelector.Open()` and `StageMateBridge.SuppressStandaloneUI()` must dynamically traverse `transform.parent` up to root and activate the entire ancestor chain:
+  ```csharp
+  Transform cur = circleSelector.transform;
+  while (cur != null)
+  {
+      if (!cur.gameObject.activeSelf)
+          cur.gameObject.SetActive(true);
+      cur = cur.parent;
+  }
+  ```
+- In addition, `CircleSelector.RefreshAllButtonColorsDelayed()` must safely fallback to synchronous `RefreshAllButtonColors()` whenever `!gameObject.activeInHierarchy` to prevent coroutine spawn aborts.
+
 ---
 
 ## 12. Telemetry & Live Diagnostic Probing (`MateTelemetryProbe.cs`)
