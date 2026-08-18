@@ -183,7 +183,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   })()
 
-  // User models are lazy-loaded when opening ModelSelector or explicit catalog features.
+  // Eagerly load lightweight metadata catalog on initialization (< 1ms from cache)
+  void (async () => {
+    try {
+      await loadDisplayModelsFromIndexedDB(true)
+    }
+    catch (e) {
+      console.error('[DisplayModels] Failed to eagerly load models catalog:', e)
+    }
+  })()
 
   const { data: modelsSyncSignal, post: broadcastModelsSync } = useBroadcastChannel({ name: 'airi:display-models-sync' })
 

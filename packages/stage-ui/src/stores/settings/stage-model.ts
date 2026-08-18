@@ -278,24 +278,27 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
       const { usePositioningStore } = await import('./positioning')
       const positioningStore = usePositioningStore()
       const pos = positioningStore.getPosition(model.id)
+      const rawPos = pos
+        ? { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0), scale: Number(pos.scale ?? 1) }
+        : { x: 0, y: 0, scale: 1 }
 
       const ensureModel = useElectronEventaInvoke(electronStageMateEnsureModel)
       const saveModel = useElectronEventaInvoke(electronStageMateSaveModel)
 
       const checkRes = await ensureModel({
-        modelId: model.id,
-        modelName: model.name || 'model.vrm',
-        position: pos,
+        modelId: String(model.id),
+        modelName: String(model.name || 'model.vrm'),
+        position: rawPos,
       })
 
       if (checkRes?.status === 'need_binary') {
         console.log(`[StageModel] Stage-Mate cache MISS for ${model.id}. Transferring binary to Main process...`)
         const arrayBuffer = await model.file.arrayBuffer()
         await saveModel({
-          modelId: model.id,
-          modelName: model.name || 'model.vrm',
-          data: Array.from(new Uint8Array(arrayBuffer)),
-          position: pos,
+          modelId: String(model.id),
+          modelName: String(model.name || 'model.vrm'),
+          data: new Uint8Array(arrayBuffer),
+          position: rawPos,
         })
         console.log(`[StageModel] Stage-Mate cache saved for ${model.id}.`)
       }

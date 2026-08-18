@@ -542,6 +542,7 @@ const selectedAlignment = ref('center')
 const monitorCount = ref(1)
 
 onMounted(async () => {
+  void displayModelsStore.loadDisplayModelsFromIndexedDB(true)
   if (isElectron.value && (window as any).electron?.ipcRenderer) {
     try {
       monitorCount.value = await (window as any).electron.ipcRenderer.invoke('eventa:invoke:electron:windows:get-monitor-count')
@@ -696,6 +697,9 @@ const containerStyle = computed(() => {
 })
 
 watch(activePopover, (newVal) => {
+  if (newVal === 'actor-avatars') {
+    void displayModelsStore.loadDisplayModelsFromIndexedDB(true)
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('control-strip:popover-changed', {
       detail: {
