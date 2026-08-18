@@ -195,7 +195,11 @@ public class MenuActions : MonoBehaviour
         return false;
     }
 
-    bool IsRadialOpen() => radialMenuObject && radialMenuObject.transform.localScale.x > 0.01f;
+    bool IsRadialOpen()
+    {
+        if (radialMenu != null) return radialMenu.opened;
+        return radialMenuObject && radialMenuObject.transform.localScale.x > 0.01f;
+    }
 
     void CloseOtherRadials()
     {

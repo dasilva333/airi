@@ -42,6 +42,14 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 - Put translations in `packages/i18n`. Before locating or editing a YAML key, read [`docs/settings-yaml.md`](./docs/settings-yaml.md) and use `scripts/yaml-manager.js` as it directs. Do not brute-force-search locale YAML or read the manager source unless the documented interface cannot answer the task.
 - Add comments for non-obvious decisions, workarounds, platform behavior, or algorithms—not narration. Use `// NOTICE:` for a workaround and include its cause and relevant reference when useful.
 
+## Stage-Mate & Unity Workspace Purity
+- **NEVER directly edit or mutate files inside `apps/stage-mate/mate-engine/`**. `mate-engine/` is a gitignored upstream clone that must remain pristine.
+- **All Stage-Mate code changes MUST be written into `apps/stage-mate/unity-src/`**:
+  - `unity-src/Assets/` for custom assets and scripts (e.g. `StageMateBridge.cs`, `MateSidecar.cs`).
+  - `unity-src/Patches/` for overriding upstream `MATE ENGINE - Scripts/`.
+  - `unity-src/ProjectSettings/` for project configuration.
+- Running `pnpm -F @proj-airi/stage-mate run engine:setup` automatically syncs these version-controlled overlays into `mate-engine/`.
+
 ## Validation
 
 Choose the smallest validation that gives useful confidence; validation is not a ritual.

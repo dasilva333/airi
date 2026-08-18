@@ -1,171 +1,155 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using Kirurobo;
 
 namespace StageMate.Core
 {
-    public class MateTelemetryProbe : MonoBehaviour
+    /// <summary>
+    /// Live diagnostic telemetry probe for observing macOS Cocoa window state,
+    /// mouse coordinates, physics/UI raycasts, static interaction lockouts,
+    /// and Unity input events in real time.
+    /// </summary>
+    public sealed class MateTelemetryProbe : MonoBehaviour
     {
-        private Kirurobo.UniWindowController uniwinc;
-        private Animator activeAnimator;
-        private Transform activeAvatarTransform;
+        private UniWindowController winCtrl;
+        private Camera mainCam;
+        private AvatarAnimatorController animCtrl;
 
-        private Vector2 lastWinPos = Vector2.zero;
-        private Vector2 lastWinSize = Vector2.zero;
-        private Vector3 lastAvatarWorldPos = Vector3.zero;
-        private Vector3 lastAvatarLocalPos = Vector3.zero;
-        private bool lastFocus = true;
+        private float lastLogTime = 0f;
+        private bool lastClickThrough = false;
 
-        private bool lastIsSitting = false;
-        private bool lastIsWindowSit = false;
-        private bool lastIsTaskbarSit = false;
-        private bool lastIsDragging = false;
-        private bool lastIsIdle = false;
+        private readonly List<RaycastResult> uiRaycastResults = new List<RaycastResult>();
+        private PointerEventData pointerData;
 
-        private static readonly int IsSittingHash = Animator.StringToHash("isSitting");
-        private static readonly int IsWindowSitHash = Animator.StringToHash("isWindowSit");
-        private static readonly int IsTaskbarSitHash = Animator.StringToHash("isTaskbarSit");
-        private static readonly int IsDraggingHash = Animator.StringToHash("isDragging");
-        private static readonly int IsIdleHash = Animator.StringToHash("isIdle");
-
-        void Start()
+        private void Awake()
         {
-            uniwinc = FindFirstObjectByType<Kirurobo.UniWindowController>();
-            RefreshReferences();
-            Debug.Log("[TELEMETRY][INIT] MateTelemetryProbe attached and active.");
-            LogFullState("STARTUP");
+            winCtrl = GetComponent<UniWindowController>() ?? FindFirstObjectByType<UniWindowController>();
+            mainCam = Camera.main ?? FindFirstObjectByType<Camera>();
+            animCtrl = FindFirstObjectByType<AvatarAnimatorController>();
+            Debug.Log("[MateTelemetryProbe] Initialized diagnostic probe with static lockout gates.");
         }
 
-        void OnApplicationFocus(bool focus)
+        private void Update()
         {
-            lastFocus = focus;
-            Debug.Log($"[TELEMETRY][FOCUS_EVENT] >>> Application focus changed to: {focus.ToString().ToUpper()} <<<");
-            RefreshReferences();
-            LogFullState(focus ? "FOCUS_GAINED" : "FOCUS_LOST");
-        }
+            if (mainCam == null) mainCam = Camera.main ?? FindFirstObjectByType<Camera>();
+            if (animCtrl == null) animCtrl = FindFirstObjectByType<AvatarAnimatorController>();
+            if (winCtrl == null) winCtrl = FindFirstObjectByType<UniWindowController>();
 
-        void Update()
-        {
-            if (activeAvatarTransform == null || activeAnimator == null)
+            Vector2 unityMouse = Input.mousePosition;
+            Vector2 osMouse = UniWindowController.GetCursorPosition();
+
+            bool leftDown = Input.GetMouseButtonDown(0);
+            bool rightDown = Input.GetMouseButtonDown(1);
+            bool middleDown = Input.GetMouseButtonDown(2);
+            bool f1Down = Input.GetKeyDown(KeyCode.F1);
+            bool leftUp = Input.GetMouseButtonUp(0);
+            bool rightUp = Input.GetMouseButtonUp(1);
+
+            bool curClickThrough = winCtrl != null && winCtrl.isClickThrough;
+
+            // Log immediately on clicks or hotkeys
+            if (leftDown || rightDown || middleDown || f1Down || leftUp || rightUp)
             {
-                RefreshReferences();
+                LogClickEvent(leftDown, rightDown, middleDown, f1Down, leftUp, rightUp, unityMouse, osMouse, curClickThrough);
             }
 
-            // 1. Window Position Tracking
-            if (uniwinc != null)
+            // Periodic probe every 1.0s or when clickThrough state changes
+            if (Time.unscaledTime - lastLogTime > 1.0f || curClickThrough != lastClickThrough)
             {
-                Vector2 wp = uniwinc.windowPosition;
-                if ((wp - lastWinPos).sqrMagnitude > 0.5f)
-                {
-                    Debug.Log($"[TELEMETRY][WIN_POS] windowPosition moved: {lastWinPos} -> {wp} (delta: {wp - lastWinPos})");
-                    lastWinPos = wp;
-                }
+                lastLogTime = Time.unscaledTime;
+                lastClickThrough = curClickThrough;
 
-                Vector2 ws = uniwinc.windowSize;
-                if ((ws - lastWinSize).sqrMagnitude > 0.5f)
-                {
-                    Debug.Log($"[TELEMETRY][WIN_SIZE] windowSize changed: {lastWinSize} -> {ws} (delta: {ws - lastWinSize})");
-                    lastWinSize = ws;
-                }
-            }
-
-            // 2. Avatar Transform Tracking
-            if (activeAvatarTransform != null)
-            {
-                Vector3 ap = activeAvatarTransform.position;
-                if ((ap - lastAvatarWorldPos).sqrMagnitude > 0.0001f)
-                {
-                    Debug.Log($"[TELEMETRY][AVATAR_WORLD_POS] World pos: {lastAvatarWorldPos} -> {ap} (delta: {ap - lastAvatarWorldPos})");
-                    lastAvatarWorldPos = ap;
-                }
-
-                Vector3 lp = activeAvatarTransform.localPosition;
-                if ((lp - lastAvatarLocalPos).sqrMagnitude > 0.0001f)
-                {
-                    Debug.Log($"[TELEMETRY][AVATAR_LOCAL_POS] Local pos: {lastAvatarLocalPos} -> {lp} (delta: {lp - lastAvatarLocalPos})");
-                    lastAvatarLocalPos = lp;
-                }
-            }
-
-            // 3. Animator Parameter Tracking
-            if (activeAnimator != null)
-            {
-                bool sit = HasParam(activeAnimator, "isSitting") && activeAnimator.GetBool(IsSittingHash);
-                bool winSit = HasParam(activeAnimator, "isWindowSit") && activeAnimator.GetBool(IsWindowSitHash);
-                bool taskSit = HasParam(activeAnimator, "isTaskbarSit") && activeAnimator.GetBool(IsTaskbarSitHash);
-                bool drag = HasParam(activeAnimator, "isDragging") && activeAnimator.GetBool(IsDraggingHash);
-                bool idle = HasParam(activeAnimator, "isIdle") && activeAnimator.GetBool(IsIdleHash);
-
-                if (sit != lastIsSitting || winSit != lastIsWindowSit || taskSit != lastIsTaskbarSit || drag != lastIsDragging || idle != lastIsIdle)
-                {
-                    Debug.Log($"[TELEMETRY][ANIM_PARAM_CHANGE] sit: {lastIsSitting}->{sit} | winSit: {lastIsWindowSit}->{winSit} | taskSit: {lastIsTaskbarSit}->{taskSit} | drag: {lastIsDragging}->{drag} | idle: {lastIsIdle}->{idle}");
-                    lastIsSitting = sit;
-                    lastIsWindowSit = winSit;
-                    lastIsTaskbarSit = taskSit;
-                    lastIsDragging = drag;
-                    lastIsIdle = idle;
-                }
-            }
-
-            // 4. Mouse Button Tracking
-            if (Input.GetMouseButtonDown(0))
-            {
-                Vector2 cp = uniwinc != null ? uniwinc.cursorPosition : (Vector2)Input.mousePosition;
-                Debug.Log($"[TELEMETRY][INPUT] Mouse DOWN (0) at Cursor: {cp} | WinPos: {(uniwinc ? uniwinc.windowPosition : Vector2.zero)}");
-            }
-            if (Input.GetMouseButtonUp(0))
-            {
-                Vector2 cp = uniwinc != null ? uniwinc.cursorPosition : (Vector2)Input.mousePosition;
-                Debug.Log($"[TELEMETRY][INPUT] Mouse UP (0) at Cursor: {cp} | WinPos: {(uniwinc ? uniwinc.windowPosition : Vector2.zero)}");
-                LogFullState("MOUSE_RELEASE");
+                LogPeriodicState(unityMouse, osMouse, curClickThrough);
             }
         }
 
-        private void RefreshReferences()
+        private void LogClickEvent(bool lDown, bool rDown, bool mDown, bool f1, bool lUp, bool rUp, Vector2 unityMouse, Vector2 osMouse, bool clickThrough)
         {
-            if (uniwinc == null) uniwinc = FindFirstObjectByType<Kirurobo.UniWindowController>();
-            var anims = FindObjectsByType<Animator>(FindObjectsSortMode.None);
-            foreach (var a in anims)
+            string clickType = "";
+            if (lDown) clickType += "[MOUSE_0_DOWN (Left)] ";
+            if (rDown) clickType += "[MOUSE_1_DOWN (Right)] ";
+            if (mDown) clickType += "[MOUSE_2_DOWN (Middle)] ";
+            if (f1) clickType += "[KEY_F1] ";
+            if (lUp) clickType += "[MOUSE_0_UP] ";
+            if (rUp) clickType += "[MOUSE_1_UP] ";
+
+            string hit3d = Probe3DHit(unityMouse);
+            string uiHits = ProbeUIHits(unityMouse);
+            string gates = ProbeGates();
+
+            Debug.Log($"[MateTelemetryProbe:CLICK] {clickType}UnityPos=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}]");
+        }
+
+        private void LogPeriodicState(Vector2 unityMouse, Vector2 osMouse, bool clickThrough)
+        {
+            string hit3d = Probe3DHit(unityMouse);
+            string uiHits = ProbeUIHits(unityMouse);
+            string gates = ProbeGates();
+            Vector2 winPos = winCtrl != null ? winCtrl.windowPosition : Vector2.zero;
+            Vector2 winSize = winCtrl != null ? winCtrl.windowSize : Vector2.zero;
+
+            Debug.Log($"[MateTelemetryProbe:STATE] UnityMouse=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | WinPos=({winPos.x:F1}, {winPos.y:F1}) | WinSize=({winSize.x:F1}, {winSize.y:F1}) | Screen=({Screen.width}x{Screen.height}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}]");
+        }
+
+        private string ProbeGates()
+        {
+            bool tutDone = SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null && SaveLoadHandler.Instance.data.tutorialDone;
+            bool tutActive = TutorialMenu.IsActive;
+            bool moveBlocked = MenuActions.IsMovementBlocked();
+            bool blockOverride = animCtrl != null && animCtrl.BlockDraggingOverride;
+            bool hasEventSys = EventSystem.current != null && EventSystem.current.isActiveAndEnabled;
+
+            var blockingNames = new List<string>();
+            var allMenuActions = Resources.FindObjectsOfTypeAll<MenuActions>();
+            foreach (var ma in allMenuActions)
             {
-                if (a.isHuman || a.gameObject.name.Contains("Model") || a.gameObject.name.Contains("Avatar") || a.gameObject.name.Contains("CustomVRM") || a.gameObject.name.Contains("Root"))
+                if (ma.menuEntries == null) continue;
+                foreach (var entry in ma.menuEntries)
                 {
-                    activeAnimator = a;
-                    activeAvatarTransform = a.transform;
-                    break;
+                    if (entry.menu != null && entry.menu.activeInHierarchy && entry.blockMovement)
+                    {
+                        blockingNames.Add($"{entry.menu.name}(GO_Active:{entry.menu.activeSelf})");
+                    }
                 }
             }
+
+            string blockList = blockingNames.Count > 0 ? string.Join("+", blockingNames) : "None";
+            return $"TutDone:{tutDone}, TutActive:{tutActive}, MoveBlocked:{moveBlocked}({blockList}), BlockOverride:{blockOverride}, EventSysActive:{hasEventSys}";
         }
 
-        public void LogFullState(string triggerReason)
+        private string Probe3DHit(Vector2 mousePos)
         {
-            Vector2 wp = uniwinc != null ? uniwinc.windowPosition : Vector2.zero;
-            Vector2 ws = uniwinc != null ? uniwinc.windowSize : Vector2.zero;
-            Vector2 cp = uniwinc != null ? uniwinc.cursorPosition : (Vector2)Input.mousePosition;
-            Vector3 ap = activeAvatarTransform != null ? activeAvatarTransform.position : Vector3.zero;
-            Vector3 lp = activeAvatarTransform != null ? activeAvatarTransform.localPosition : Vector3.zero;
-            string objName = activeAvatarTransform != null ? activeAvatarTransform.name : "null";
+            if (mainCam == null || !mainCam.isActiveAndEnabled) return "NoCamera";
 
-            string animInfo = "none";
-            if (activeAnimator != null)
+            Ray ray = mainCam.ScreenPointToRay(mousePos);
+            if (Physics.Raycast(ray, out RaycastHit hit, 100f))
             {
-                bool sit = HasParam(activeAnimator, "isSitting") && activeAnimator.GetBool(IsSittingHash);
-                bool winSit = HasParam(activeAnimator, "isWindowSit") && activeAnimator.GetBool(IsWindowSitHash);
-                bool taskSit = HasParam(activeAnimator, "isTaskbarSit") && activeAnimator.GetBool(IsTaskbarSitHash);
-                bool drag = HasParam(activeAnimator, "isDragging") && activeAnimator.GetBool(IsDraggingHash);
-                bool idle = HasParam(activeAnimator, "isIdle") && activeAnimator.GetBool(IsIdleHash);
-                animInfo = $"sit={sit}, winSit={winSit}, taskSit={taskSit}, drag={drag}, idle={idle}";
+                return $"{hit.collider.gameObject.name} (Layer:{LayerMask.LayerToName(hit.collider.gameObject.layer)})";
             }
-
-            Debug.Log($"[TELEMETRY][STATE_DUMP][{triggerReason}] Focus={lastFocus} | WinPos={wp} | WinSize={ws} | Cursor={cp} | AvatarTarget='{objName}' WorldPos={ap} LocalPos={lp} | Animator({animInfo})");
+            return "None";
         }
 
-        private bool HasParam(Animator anim, string paramName)
+        private string ProbeUIHits(Vector2 mousePos)
         {
-            if (anim == null) return false;
-            foreach (var p in anim.parameters)
+            if (EventSystem.current == null) return "NoEventSystem";
+
+            if (pointerData == null) pointerData = new PointerEventData(EventSystem.current);
+            pointerData.position = mousePos;
+
+            uiRaycastResults.Clear();
+            EventSystem.current.RaycastAll(pointerData, uiRaycastResults);
+
+            if (uiRaycastResults.Count == 0) return "None";
+
+            var names = new List<string>();
+            for (int i = 0; i < Math.Min(uiRaycastResults.Count, 3); i++)
             {
-                if (p.name == paramName) return true;
+                var r = uiRaycastResults[i];
+                names.Add($"{r.gameObject.name}(Layer:{LayerMask.LayerToName(r.gameObject.layer)})");
             }
-            return false;
+            return string.Join(", ", names);
         }
     }
 }

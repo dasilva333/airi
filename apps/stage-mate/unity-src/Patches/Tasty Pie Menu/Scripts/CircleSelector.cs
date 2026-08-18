@@ -48,7 +48,8 @@ namespace Xamin
         public float pieThickness = 85;
         public bool snap, tiltTowardsMouse;
         public float tiltAmount = 15;
-        private bool opened;
+        public bool opened;
+        public bool IsOpen => opened;
         public enum ControlType { mouseAndTouch, gamepad, customVector }
         public enum ButtonSource { prefabs, scene }
         public enum AnimationType { zoomIn, zoomOut }
