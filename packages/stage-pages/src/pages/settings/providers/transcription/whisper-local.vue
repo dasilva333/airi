@@ -85,31 +85,33 @@ async function downloadModel(modelId: string, force = false) {
   loadingProgress.value = 0
 
   const shardMap = new Map<string, { loaded: number, total: number }>()
+  const expectedTotalBytes = (WHISPER_MODELS.find(m => m.id === modelId)?.downloadBytes) || selectedModelInfo.value?.downloadBytes || (800 * 1024 * 1024)
 
   try {
     const adapter = await getWhisperAdapter()
     await adapter.load((p) => {
-      if (p.file) {
+      if (p.phase === 'warmup' || (p.message && p.message.includes('warm'))) {
+        loadingProgress.value = 100
+      }
+      else if (p.file) {
         shardMap.set(p.file, {
           loaded: p.loaded || 0,
           total: p.total || 0,
         })
         let sumLoaded = 0
-        let sumTotal = 0
         for (const s of shardMap.values()) {
           sumLoaded += s.loaded
-          sumTotal += s.total
         }
-        if (sumTotal > 0) {
-          const calculated = Math.round((sumLoaded / sumTotal) * 100)
-          loadingProgress.value = Math.min(100, Math.max(loadingProgress.value, calculated))
+        if (expectedTotalBytes > 0) {
+          const calculated = Math.min(99, Math.round((sumLoaded / expectedTotalBytes) * 100))
+          loadingProgress.value = Math.max(loadingProgress.value, calculated)
         }
         else if (typeof p.percent === 'number' && p.percent >= 0) {
-          loadingProgress.value = Math.min(100, Math.max(loadingProgress.value, Math.round(p.percent)))
+          loadingProgress.value = Math.min(99, Math.max(loadingProgress.value, Math.round(p.percent)))
         }
       }
       else if (typeof p.percent === 'number' && p.percent >= 0) {
-        loadingProgress.value = Math.min(100, Math.max(loadingProgress.value, Math.round(p.percent)))
+        loadingProgress.value = Math.min(99, Math.max(loadingProgress.value, Math.round(p.percent)))
       }
     }, { model: modelId, force })
 

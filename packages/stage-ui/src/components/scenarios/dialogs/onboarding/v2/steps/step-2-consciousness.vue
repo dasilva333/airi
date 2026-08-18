@@ -4,6 +4,7 @@ import type { ProgressPayload } from '../../../../../../libs/inference/protocol'
 import type { ProviderMetadata } from '../../../../../../stores/providers'
 
 import { isWebGPUSupported } from '@proj-airi/stage-shared/webgpu'
+import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -54,6 +55,7 @@ const isLoadingActiveProviderModels = computed(() => providersStore.isLoadingMod
 const webgpuSupported = ref(false)
 onMounted(async () => {
   webgpuSupported.value = await isWebGPUSupported()
+  await checkModelResident()
 })
 
 // --- WebLLM in-context download ---
@@ -62,16 +64,46 @@ const downloadState = ref<DownloadState>('idle')
 const downloadProgress = ref(0)
 const downloadStatusText = ref('')
 const downloadAbort = ref<AbortController>()
-const selectedLlmModel = ref<string>(WEB_LLM_MODELS[0].id)
+const selectedLlmModel = ref<string>(draft.state.consciousness.model || WEB_LLM_MODELS[0].id)
 
 const isWebLlmSelected = computed(() => selectedProviderId.value === 'web-llm')
 
-// Start download as soon as WebLLM is picked (with the curated default), or when
-// the user switches WebLLM model while it's the active provider.
-watch([isWebLlmSelected, selectedLlmModel, webgpuSupported], ([selected, , gpuOk]) => {
-  if (selected && downloadState.value === 'idle' && gpuOk)
-    void startWebLlmDownload()
-}, { immediate: true })
+async function checkModelResident() {
+  if (!isWebLlmSelected.value)
+    return
+  try {
+    const { getWebLlmAdapter } = await import('../../../../../../libs/inference/adapters/web-llm')
+    const adapter = await getWebLlmAdapter()
+    if (adapter.state === 'ready' && adapter.manifest?.modelId === selectedLlmModel.value) {
+      downloadState.value = 'ready'
+      downloadProgress.value = 100
+    }
+    else {
+      downloadState.value = 'idle'
+      downloadProgress.value = 0
+    }
+  }
+  catch {
+    downloadState.value = 'idle'
+  }
+}
+
+function selectWebLlmModel(modelId: string) {
+  if (downloadState.value === 'downloading') {
+    cancelWebLlmDownload()
+  }
+  selectedProviderId.value = 'web-llm'
+  selectedLlmModel.value = modelId
+  selectedModelId.value = modelId
+  recordDraft()
+  void checkModelResident()
+}
+
+function cancelWebLlmDownload() {
+  downloadAbort.value?.abort()
+  downloadState.value = 'idle'
+  downloadProgress.value = 0
+}
 
 const downloadErrorMessage = ref('')
 
@@ -102,6 +134,7 @@ async function startWebLlmDownload() {
     })
     if (!controller.signal.aborted) {
       downloadState.value = 'ready'
+      downloadProgress.value = 100
       toast.success('Local WebLLM brain ready!')
     }
   }
@@ -439,7 +472,7 @@ watch(verified, (v) => {
               : 'border-neutral-200/60 bg-white/40 dark:border-neutral-800/80 dark:bg-neutral-900/40 hover:border-primary-500/50',
             !webgpuSupported ? 'cursor-not-allowed' : '',
           ]"
-          @click="() => { selectedProviderId = 'web-llm'; selectedLlmModel = model.id; selectedModelId = model.id; recordDraft() }"
+          @click="selectWebLlmModel(model.id)"
         >
           <div
             class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl"
@@ -467,32 +500,75 @@ watch(verified, (v) => {
         </button>
       </div>
 
-      <!-- In-context download progress -->
-      <div v-if="isWebLlmSelected" class="flex flex-col gap-2 border border-neutral-200/60 rounded-lg bg-neutral-50/60 p-3 dark:border-neutral-700/60 dark:bg-neutral-800/40">
-        <template v-if="downloadState === 'downloading'">
+      <!-- In-context download & action controls -->
+      <div v-if="isWebLlmSelected" class="flex flex-col gap-2.5 border border-neutral-200/60 rounded-xl bg-white/40 p-3.5 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-900/40">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0 flex flex-1 flex-col">
+            <span class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+              Selected: {{ WEB_LLM_MODELS.find(m => m.id === selectedLlmModel)?.name }}
+            </span>
+            <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+              {{ downloadState === 'ready' ? 'Model is downloaded and ready to think.' : (downloadState === 'downloading' ? 'Downloading model shards into browser cache…' : 'Click to download and activate this model locally on WebGPU.') }}
+            </span>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex flex-shrink-0 items-center gap-2">
+            <Button
+              v-if="downloadState === 'idle'"
+              variant="primary"
+              class="h-[34px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+              :disabled="!webgpuSupported"
+              @click="startWebLlmDownload"
+            >
+              <div class="i-solar:cloud-download-bold-duotone text-base" />
+              <span>Download & Activate</span>
+            </Button>
+
+            <Button
+              v-else-if="downloadState === 'downloading'"
+              variant="secondary"
+              class="h-[34px] flex items-center gap-1.5 px-3 text-xs font-medium"
+              @click="cancelWebLlmDownload"
+            >
+              <div class="i-solar:close-circle-bold-duotone text-base" />
+              <span>Cancel</span>
+            </Button>
+
+            <div
+              v-else-if="downloadState === 'ready'"
+              class="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-600 font-bold dark:text-emerald-400"
+            >
+              <div class="i-solar:check-circle-bold-duotone text-base" />
+              <span>Active & Ready</span>
+            </div>
+
+            <Button
+              v-else-if="downloadState === 'error'"
+              variant="primary"
+              class="h-[34px] flex items-center gap-1.5 px-3.5 text-xs font-medium"
+              @click="startWebLlmDownload"
+            >
+              <div class="i-solar:restart-bold-duotone text-base" />
+              <span>Retry Download</span>
+            </Button>
+          </div>
+        </div>
+
+        <!-- Download progress bar -->
+        <div v-if="downloadState === 'downloading'" class="flex flex-col gap-1.5 pt-1">
           <div class="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span class="truncate">{{ downloadStatusText }}</span>
             <span class="font-bold font-mono">{{ Math.floor(downloadProgress) }}%</span>
           </div>
-          <div class="h-2.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+          <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
             <div class="h-full rounded-full from-primary-500 to-indigo-500 bg-gradient-to-r transition-all duration-150" :style="{ width: `${downloadProgress}%` }" />
           </div>
-        </template>
-        <div v-else-if="downloadState === 'ready'" class="flex items-center gap-2 text-xs text-emerald-600 font-bold dark:text-emerald-400">
-          <div class="i-solar:check-circle-bold-duotone h-4 w-4" />
-          Brain cached & verified — ready to think.
         </div>
-        <div v-else-if="downloadState === 'error'" class="flex flex-col gap-1 text-xs text-red-600 dark:text-red-400">
-          <div class="flex items-center gap-2 font-bold">
-            <div class="i-solar:danger-circle-bold-duotone h-4 w-4" />
-            Download failed.
-            <button class="underline" @click="startWebLlmDownload">
-              Retry
-            </button>
-          </div>
-          <span v-if="downloadErrorMessage" class="break-all text-[11px] text-neutral-500 dark:text-neutral-400">
-            {{ downloadErrorMessage }}
-          </span>
+
+        <!-- Error message -->
+        <div v-if="downloadState === 'error' && downloadErrorMessage" class="break-all text-[11px] text-red-600/80 dark:text-red-400/80">
+          {{ downloadErrorMessage }}
         </div>
       </div>
     </div>

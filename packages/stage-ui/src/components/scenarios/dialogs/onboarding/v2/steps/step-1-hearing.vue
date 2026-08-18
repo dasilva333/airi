@@ -158,6 +158,7 @@ async function startWhisperDownload(force = false) {
   whisperPhaseMessage.value = 'Downloading model shards into local cache…'
 
   const shardMap = new Map<string, { loaded: number, total: number }>()
+  const expectedTotalBytes = selectedModelInfo.value?.downloadBytes || (800 * 1024 * 1024)
 
   try {
     await ensureWhisperLoaded({
@@ -175,21 +176,19 @@ async function startWhisperDownload(force = false) {
             total: p.total || 0,
           })
           let sumLoaded = 0
-          let sumTotal = 0
           for (const s of shardMap.values()) {
             sumLoaded += s.loaded
-            sumTotal += s.total
           }
-          if (sumTotal > 0) {
-            const calculated = Math.round((sumLoaded / sumTotal) * 100)
-            whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, calculated))
+          if (expectedTotalBytes > 0) {
+            const calculated = Math.min(99, Math.round((sumLoaded / expectedTotalBytes) * 100))
+            whisperProgress.value = Math.max(whisperProgress.value, calculated)
           }
           else if (typeof p.percent === 'number' && p.percent >= 0) {
-            whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, Math.round(p.percent)))
+            whisperProgress.value = Math.min(99, Math.max(whisperProgress.value, Math.round(p.percent)))
           }
         }
         else if (typeof p.percent === 'number' && p.percent >= 0) {
-          whisperProgress.value = Math.min(100, Math.max(whisperProgress.value, Math.round(p.percent)))
+          whisperProgress.value = Math.min(99, Math.max(whisperProgress.value, Math.round(p.percent)))
         }
       },
     })
@@ -207,6 +206,27 @@ async function startWhisperDownload(force = false) {
     }
   }
 }
+
+watch(selectedWhisperModel, async (newModel) => {
+  if (isWhisperSelected.value) {
+    hearingStore.activeTranscriptionModel = newModel
+    draft.setHearing({ provider: 'whisper-local', model: newModel })
+    try {
+      const adapter = await getWhisperAdapter()
+      if (adapter.state === 'ready' && adapter.manifest?.model === newModel) {
+        whisperDownloadState.value = 'ready'
+        whisperProgress.value = 100
+      }
+      else {
+        whisperDownloadState.value = 'idle'
+        whisperProgress.value = 0
+      }
+    }
+    catch {
+      whisperDownloadState.value = 'idle'
+    }
+  }
+})
 
 function onSelectProvider(provider: ProviderMetadata) {
   activeTranscriptionProvider.value = provider.id
