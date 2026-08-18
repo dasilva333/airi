@@ -131,6 +131,27 @@ function patchSettingsMenuUI() {
       modified = true
     }
 
+    // 5. Ensure WindowAPI root GameObject is active so UniWindowController initializes window transparency
+    const windowApiPattern = /(--- !u!1 &1395823393\r?\n[\s\S]*?m_Name: WindowAPI\r?\n[\s\S]*?m_IsActive:) 0/g
+    if (windowApiPattern.test(content)) {
+      content = content.replace(windowApiPattern, '$1 1')
+      modified = true
+    }
+
+    // 6. Ensure MenuActions GameObject is active so right-click radial menu triggers
+    const menuActionsPattern = /(--- !u!1 &1495899419\r?\n[\s\S]*?m_Name: MenuActions\r?\n[\s\S]*?m_IsActive:) 0/g
+    if (menuActionsPattern.test(content)) {
+      content = content.replace(menuActionsPattern, '$1 1')
+      modified = true
+    }
+
+    // 7. Disable isHitTestEnabled on UniWindowController so Cocoa mouse events are never dropped
+    const hitTestPattern = /(--- !u!114 &2416199871966935624\r?\n[\s\S]*?isHitTestEnabled:) 1/g
+    if (hitTestPattern.test(content)) {
+      content = content.replace(hitTestPattern, '$1 0')
+      modified = true
+    }
+
     if (modified) {
       writeFileSync(scenePath, content, 'utf8')
       console.log('[setup] Cleaned up settings menu UI framing, backgrounds, and scroll bounds in Mate Engine Main.unity')
@@ -139,6 +160,16 @@ function patchSettingsMenuUI() {
 }
 
 function patchMacCompatibility() {
+  const projectSettingsPath = join(mateEngineDir, 'ProjectSettings', 'ProjectSettings.asset')
+  if (existsSync(projectSettingsPath)) {
+    let settings = readFileSync(projectSettingsPath, 'utf8')
+    if (settings.includes('preserveFramebufferAlpha: 0')) {
+      settings = settings.replace('preserveFramebufferAlpha: 0', 'preserveFramebufferAlpha: 1')
+      writeFileSync(projectSettingsPath, settings, 'utf8')
+      console.log('[setup] Enabled preserveFramebufferAlpha for macOS window transparency.')
+    }
+  }
+
   const windowHandlerPath = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scripts', 'AvatarHandlers', 'AvatarWindowHandler.cs')
   if (existsSync(windowHandlerPath)) {
     let content = readFileSync(windowHandlerPath, 'utf8')

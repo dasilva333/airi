@@ -353,15 +353,13 @@ namespace Kirurobo
         void Awake()
         {
             // シングルトンとする。既にインスタンスがあれば自分を破棄
-            if (this != current)
+            if (_current != null && _current != this)
             {
                 Destroy(this.gameObject);
                 return;
             }
-            else
-            {
-                _current = this;
-            }
+            
+            _current = this;
 
             // フルスクリーン強制解除。エディタでは何もしない
 #if !UNITY_EDITOR
@@ -435,16 +433,9 @@ namespace Kirurobo
         /// <returns></returns>
         private static UniWindowController FindOrCreateInstance()
         {
+            if (_current != null) return _current;
             var instance = GameObject.FindAnyObjectByType<UniWindowController>();
-            
-            // 勝手に生成するのは今のところ無効としてみる
-            // // シーンに見つからなければ新規作成
-            // if (!instance)
-            // {
-            //     var obj = new GameObject(nameof(UniWindowController));
-            //     obj.AddComponent<UniWindowController>();
-            // }
-
+            if (instance != null) _current = instance;
             return instance;
         }
         
