@@ -9,6 +9,8 @@ const unitySrcDir = join(rootStageMate, 'unity-src')
 const mateEngineDir = join(rootStageMate, 'mate-engine')
 const targetStageMateAssets = join(mateEngineDir, 'Assets', 'StageMate')
 
+export const CANONICAL_MATE_ENGINE_COMMIT = '2c5ea6b8f4cf5e1773a0816b46d9267cda5174d4'
+
 export function setupMateEngine(): boolean {
   console.log('[setup] Initializing Stage-Mate workspace...')
 
@@ -22,6 +24,8 @@ export function setupMateEngine(): boolean {
       console.error('[setup] Failed to clone Mate-Engine repository.')
       return false
     }
+    // Pin to verified canonical commit
+    spawnSync('git', ['-C', mateEngineDir, 'checkout', CANONICAL_MATE_ENGINE_COMMIT], { stdio: 'inherit' })
   }
 
   // 2. Overlay unity-src/Assets/ -> mate-engine/Assets/

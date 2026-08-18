@@ -951,6 +951,13 @@ AIRI maintains two completely independent stage toggle lanes:
 2. **`stageMateEnabled`** (`settings/stage-mate-enabled`): Unity Desktop Companion Runtime (`electronStageMateToggleVisibility` $\rightarrow$ `control:stage`).
 3. **Global Always-on-Top (`alwaysOnTop`)**: Dispatches `electronStageSetAlwaysOnTop`, which sets `deps.stageWindow.setAlwaysOnTop` AND broadcasts `{ type: 'control:always-on-top', data: { enabled } }` to Stage-Mate (`LibUniWinC.SetTopmost`).
 
+### 13.4. Canonical Upstream Pin & The Hard Purity Lesson
+- **Canonical Remote**: `https://github.com/shinyflvre/Mate-Engine.git`
+- **Canonical Commit Pin**: `2c5ea6b8f4cf5e1773a0816b46d9267cda5174d4` (`2c5ea6b8` — *"Prepare 3.4 Features"*)
+- **Clean Slate Script**: `pnpm -F @proj-airi/stage-mate run engine:clean` (executes `git -C apps/stage-mate/mate-engine reset --hard 2c5ea6b8 && git -C apps/stage-mate/mate-engine clean -fd`).
+- **Durable Post-Mortem Lesson**: Never allow agents or developers to touch `mate-engine/` directly. During cross-platform development on macOS, direct mutations to `mate-engine/` caused 6–8 hours of painful regressions that vanished the instant the folder was purged back to `2c5ea6b8`. Workspace purity via `unity-src/` overlay is mandatory.
+
+
 
 
 

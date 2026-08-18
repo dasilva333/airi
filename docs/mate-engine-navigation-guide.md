@@ -8,12 +8,14 @@ This document serves as the canonical technical navigation manual for developers
 
 `apps/stage-mate/mate-engine/` is a gitignored clone of upstream `shinyflvre/Mate-Engine`.
 
+- **Pinned Canonical Upstream Commit**: `shinyflvre/Mate-Engine@2c5ea6b8f4cf5e1773a0816b46d9267cda5174d4` (`2c5ea6b8` — *"Prepare 3.4 Features"*).
 - **Single Source of Truth**: All persistent modifications must live in `apps/stage-mate/unity-src/`:
   - `apps/stage-mate/unity-src/Assets/` (custom runtime scripts, bridge, probe)
   - `apps/stage-mate/unity-src/Patches/` (patches overlaid on `Assets/MATE ENGINE - Scripts/`)
   - `apps/stage-mate/unity-src/ProjectSettings/` (project configurations)
-- Every build command automatically runs `pnpm -F @proj-airi/stage-mate run engine:setup` (`scripts/setup.ts`), which overlays `unity-src/` onto `mate-engine/`.
-- If an agent modifies `mate-engine/` directly, those changes pollute the local clone and evade root Git versioning and bisections.
+- **Automated Sync**: Every build command automatically runs `pnpm -F @proj-airi/stage-mate run engine:setup` (`scripts/setup.ts`), which overlays `unity-src/` onto `mate-engine/`.
+- **Instant Clean Slate**: Run `pnpm -F @proj-airi/stage-mate run engine:clean` to instantly reset `mate-engine/` back to pristine upstream `2c5ea6b8`.
+- **Durable Rule**: If an agent modifies `mate-engine/` directly, those changes pollute the local clone, break cross-platform dev between macOS/Windows, and evade Git tracking. Never edit `mate-engine/` directly.
 
 ---
 

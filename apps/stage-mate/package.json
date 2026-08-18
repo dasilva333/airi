@@ -6,6 +6,8 @@
   "scripts": {
     "engine:setup": "tsx scripts/setup.ts",
     "setup:engine": "tsx scripts/setup.ts",
+    "engine:clean": "tsx scripts/clean.ts",
+    "clean:engine": "tsx scripts/clean.ts",
     "harness": "tsx harness/index.ts",
     "build": "tsx scripts/build.ts",
     "build:win": "tsx scripts/build.ts win",

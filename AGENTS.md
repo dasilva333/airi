@@ -43,12 +43,12 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 - Add comments for non-obvious decisions, workarounds, platform behavior, or algorithms—not narration. Use `// NOTICE:` for a workaround and include its cause and relevant reference when useful.
 
 ## Stage-Mate & Unity Workspace Purity
-- **NEVER directly edit or mutate files inside `apps/stage-mate/mate-engine/`**. `mate-engine/` is a gitignored upstream clone that must remain pristine.
+- **NEVER directly edit or mutate files inside `apps/stage-mate/mate-engine/`**. `mate-engine/` is a gitignored upstream clone that must remain pristine. Pinned upstream commit: `shinyflvre/Mate-Engine@2c5ea6b8f4cf5e1773a0816b46d9267cda5174d4` ("Prepare 3.4 Features").
 - **All Stage-Mate code changes MUST be written into `apps/stage-mate/unity-src/`**:
   - `unity-src/Assets/` for custom assets and scripts (e.g. `StageMateBridge.cs`, `MateSidecar.cs`).
   - `unity-src/Patches/` for overriding upstream `MATE ENGINE - Scripts/`.
   - `unity-src/ProjectSettings/` for project configuration.
-- Running `pnpm -F @proj-airi/stage-mate run engine:setup` automatically syncs these version-controlled overlays into `mate-engine/`.
+- Running `pnpm -F @proj-airi/stage-mate run engine:setup` automatically syncs these version-controlled overlays into `mate-engine/`. Run `git -C apps/stage-mate/mate-engine reset --hard 2c5ea6b8 && git -C apps/stage-mate/mate-engine clean -fd` for a clean slate.
 
 ## Validation
 
