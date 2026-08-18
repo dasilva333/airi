@@ -16,6 +16,7 @@ import {
   electronStageMateGetState,
   electronStageMateSaveModel,
   electronStageMateSetModelPosition,
+  electronStageMateSetPropMacaron,
   electronStageMateSetViewportMode,
   electronStageMateToggleVisibility,
 } from '@proj-airi/stage-shared'
@@ -433,6 +434,16 @@ export function createStageMateService(params?: {
     broadcast({
       type: 'stage:model:position',
       data: payload,
+    })
+  })
+
+  defineInvokeHandler(context, electronStageMateSetPropMacaron, async (payload) => {
+    log.withFields(payload).log('Stage-Mate macaron materials dispatched')
+    broadcast({
+      type: 'stage:prop:macaron',
+      data: {
+        materials: payload,
+      },
     })
   })
 

@@ -36,6 +36,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'gemini-schedule', enabled: false, label: 'Respect Schedule', icon: 'i-solar:calendar-linear' },
   { id: 'gemini-grounding', enabled: false, label: 'Google Search Grounding', icon: 'i-solar:global-linear' },
   { id: 'actor-selfies', enabled: false, label: 'Selfies', icon: 'i-solar:camera-bold-duotone' },
+  { id: 'actor-macaron', enabled: false, label: 'Macaron Floatie', icon: 'i-solar:donut-bold-duotone' },
 ]
 
 export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [

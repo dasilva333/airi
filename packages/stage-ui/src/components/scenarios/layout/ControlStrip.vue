@@ -7,6 +7,7 @@ import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-
 import { onClickOutside, useBroadcastChannel, useColorMode, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { toast } from 'vue-sonner'
 // Ported stores & states for Popovers
 
 import CharacterAvatar from '../../misc/CharacterAvatar.vue'
@@ -530,6 +531,73 @@ watch([activePopover, selfieCountdown], ([popover, countdown]) => {
     countdown,
   })
 }, { immediate: true })
+
+const macaronTab = ref<'featured' | 'custom'>('featured')
+const selectedMacaronPreset = ref('strawberry_cream')
+const customShell = ref('pink')
+const customWhip = ref('berry')
+const customHeart = ref('pink')
+
+const FEATURED_MACARONS = [
+  { id: 'strawberry_cream', name: 'Strawberry Cream', emoji: '🍓', shell: 'pink', whip: 'berry', heart: 'pink' },
+  { id: 'matcha_classic', name: 'Matcha Classic', emoji: '🍵', shell: 'green', whip: 'matcha', heart: 'green' },
+  { id: 'blueberry_whip', name: 'Blueberry Whip', emoji: '🫐', shell: 'blue', whip: 'berry', heart: 'purple' },
+  { id: 'mint_choco', name: 'Mint Choco', emoji: '🍫', shell: 'blue', whip: 'chocolate', heart: 'brawn' },
+  { id: 'lemon_custard', name: 'Lemon Custard', emoji: '🍋', shell: 'yellow', whip: 'milk', heart: 'yellow' },
+  { id: 'lavender_berry', name: 'Lavender Berry', emoji: '💜', shell: 'purple', whip: 'berry', heart: 'purple' },
+  { id: 'mocha_caramel', name: 'Mocha Caramel', emoji: '☕', shell: 'brawn', whip: 'chocolate', heart: 'brawn' },
+  { id: 'vanilla_strawberry', name: 'Vanilla Strawberry', emoji: '🍦', shell: 'pink', whip: 'milk', heart: 'blue' },
+  { id: 'chocolate_berry', name: 'Chocolate Berry', emoji: '🍩', shell: 'pink', whip: 'chocolate', heart: 'brawn' },
+] as const
+
+const SHELL_OPTIONS = [
+  { value: 'pink', label: 'Pastel Pink' },
+  { value: 'green', label: 'Green Tea' },
+  { value: 'blue', label: 'Ice Blue' },
+  { value: 'yellow', label: 'Lemon Yellow' },
+  { value: 'purple', label: 'Soft Purple' },
+  { value: 'brawn', label: 'Roast Brown' },
+  { value: 'orange', label: 'Peach Orange' },
+]
+
+const WHIP_OPTIONS = [
+  { value: 'berry', label: 'Berry Cream' },
+  { value: 'matcha', label: 'Matcha Cream' },
+  { value: 'milk', label: 'Fresh Milk' },
+  { value: 'chocolate', label: 'Rich Cocoa' },
+  { value: 'strawberry', label: 'Strawberry Puree' },
+]
+
+const HEART_OPTIONS = [
+  { value: 'pink', label: 'Pink Heart' },
+  { value: 'green', label: 'Green Heart' },
+  { value: 'blue', label: 'Blue Heart' },
+  { value: 'yellow', label: 'Yellow Heart' },
+  { value: 'purple', label: 'Purple Heart' },
+  { value: 'brawn', label: 'Chocolate Heart' },
+  { value: 'orange', label: 'Caramel Heart' },
+]
+
+async function applyMacaron(shell: string, whip: string, heart: string, presetId?: string) {
+  if (presetId) {
+    selectedMacaronPreset.value = presetId
+  }
+  else {
+    selectedMacaronPreset.value = ''
+  }
+  if (isElectron.value) {
+    try {
+      const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+      const { electronStageMateSetPropMacaron } = await import('@proj-airi/stage-shared')
+      const setMacaron = useElectronEventaInvoke(electronStageMateSetPropMacaron)
+      await setMacaron({ shell, whip, heart })
+      toast.success(`Applied floatie style: ${shell} / ${whip}`)
+    }
+    catch (err) {
+      console.warn('Failed to dispatch macaron materials:', err)
+    }
+  }
+}
 
 const hoveredButtonId = ref<string | null>(null)
 const popoverRef = ref<HTMLElement | null>(null)
@@ -1124,7 +1192,7 @@ function cleanupDragListeners() {
 function handleAction(actionId: string) {
   console.info(`[Control Strip] Button clicked: "${actionId}".`)
 
-  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-expressions', 'actor-motions', 'actor-all-emotions', 'actor-selfies', 'gemini-voice']
+  const menuButtons = ['actor-characters', 'actor-avatars', 'actor-wardrobe', 'actor-expressions', 'actor-motions', 'actor-all-emotions', 'actor-selfies', 'actor-macaron', 'gemini-voice']
   if (menuButtons.includes(actionId)) {
     if (activePopover.value === actionId) {
       activePopover.value = null
@@ -1274,6 +1342,7 @@ function getShortLabel(btnId: string): string {
     'actor-motions': 'Move',
     'actor-all-emotions': 'Mood',
     'actor-selfies': 'Self',
+    'actor-macaron': 'Snack',
     'theme-mode': 'Color',
     'caption-docking': settingsStore.captionDocking === 'none'
       ? 'None'
@@ -2746,6 +2815,113 @@ function getShortLabel(btnId: string): string {
               <span class="i-solar:camera-bold-duotone text-2xl" />
               <span class="mt-2 text-[10px]">No selfies captured yet.</span>
             </div>
+          </div>
+        </div>
+
+        <!-- COMPANION MACARON / PROPS POPOVER -->
+        <div v-if="activePopover === 'actor-macaron'" class="flex flex-col gap-2">
+          <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
+            <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Floaties & Treats</span>
+            <button class="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
+              <span class="i-solar:close-circle-outline text-lg" />
+            </button>
+          </div>
+
+          <!-- Segmented Toggle: Featured vs Custom Recipe -->
+          <div class="flex rounded-xl bg-neutral-200/40 p-0.5 dark:bg-neutral-950/40">
+            <button
+              :class="[
+                'flex-1 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer text-center',
+                macaronTab === 'featured'
+                  ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300',
+              ]"
+              @click="macaronTab = 'featured'"
+            >
+              Featured Flavors
+            </button>
+            <button
+              :class="[
+                'flex-1 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer text-center',
+                macaronTab === 'custom'
+                  ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300',
+              ]"
+              @click="macaronTab = 'custom'"
+            >
+              Custom Recipe
+            </button>
+          </div>
+
+          <!-- TAB 1: 3x3 FEATURED PRESETS GRID -->
+          <div v-if="macaronTab === 'featured'" class="grid grid-cols-3 gap-1">
+            <div
+              v-for="item in FEATURED_MACARONS"
+              :key="item.id"
+              :class="[
+                'group relative aspect-square border rounded-xl overflow-hidden cursor-pointer flex flex-col items-center justify-center p-1 text-center transition-all bg-neutral-200/10 dark:bg-neutral-800/10',
+                selectedMacaronPreset === item.id
+                  ? 'border-sky-500 ring-2 ring-sky-500/40 bg-sky-500/10 dark:bg-sky-500/15'
+                  : 'border-neutral-200/40 dark:border-neutral-800/40 hover:ring-2 hover:ring-sky-500/50 hover:bg-neutral-200/20 dark:hover:bg-neutral-800/20',
+              ]"
+              @click="applyMacaron(item.shell, item.whip, item.heart, item.id)"
+            >
+              <span class="select-none text-xl leading-none">{{ item.emoji }}</span>
+              <span class="mt-1 w-full truncate text-[8px] text-neutral-700 font-semibold dark:text-neutral-300">
+                {{ item.name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- TAB 2: CUSTOM RECIPE DROPDOWNS -->
+          <div v-else class="flex flex-col gap-2">
+            <!-- Cookie Shell Dropdown -->
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-neutral-400 font-semibold">Cookie Shell:</span>
+              <select
+                v-model="customShell"
+                class="w-full cursor-pointer border border-neutral-200/10 rounded-xl bg-neutral-200/40 px-2 py-1 text-[10px] text-neutral-700 dark:border-neutral-800/10 dark:bg-neutral-800/40 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+              >
+                <option v-for="opt in SHELL_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Whip Filling Dropdown -->
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-neutral-400 font-semibold">Cream Whip:</span>
+              <select
+                v-model="customWhip"
+                class="w-full cursor-pointer border border-neutral-200/10 rounded-xl bg-neutral-200/40 px-2 py-1 text-[10px] text-neutral-700 dark:border-neutral-800/10 dark:bg-neutral-800/40 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+              >
+                <option v-for="opt in WHIP_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Heart Candy Dropdown -->
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-neutral-400 font-semibold">Heart Candy:</span>
+              <select
+                v-model="customHeart"
+                class="w-full cursor-pointer border border-neutral-200/10 rounded-xl bg-neutral-200/40 px-2 py-1 text-[10px] text-neutral-700 dark:border-neutral-800/10 dark:bg-neutral-800/40 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+              >
+                <option v-for="opt in HEART_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Apply Button -->
+            <button
+              class="mt-1 w-full flex items-center justify-center gap-1.5 rounded-xl bg-sky-500/90 py-1.5 text-[10px] text-white font-bold shadow transition-all active:scale-[0.98] hover:bg-sky-500"
+              @click="applyMacaron(customShell, customWhip, customHeart)"
+            >
+              <span class="i-solar:magic-stick-3-bold text-xs" />
+              Apply Custom Float
+            </button>
           </div>
         </div>
       </div>

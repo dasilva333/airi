@@ -328,6 +328,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'menu',
         defaultOnStrip: false,
       },
+      {
+        id: 'actor-macaron',
+        label: 'Floaties & Treats',
+        description: 'Customize 3D companion floaties and snack props.',
+        icon: 'i-solar:donut-bold-duotone',
+        type: 'menu',
+        defaultOnStrip: false,
+      },
     ],
   },
   {
