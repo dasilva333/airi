@@ -9,6 +9,7 @@
     "engine:clean": "tsx scripts/clean.ts",
     "clean:engine": "tsx scripts/clean.ts",
     "harness": "tsx harness/index.ts",
+    "dev:harness": "tsx harness/index.ts",
     "build": "tsx scripts/build.ts",
     "build:win": "tsx scripts/build.ts win",
     "build:original": "tsx scripts/build.ts original",

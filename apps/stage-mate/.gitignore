@@ -1,5 +1,6 @@
 # Local test assets (never tracked)
 *.vrm
+test-vrm-clothes/
 .env
 *.env
 .env.*

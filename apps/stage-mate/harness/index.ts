@@ -32,11 +32,26 @@ if (fs.existsSync(localEnvPath)) {
 if (!process.env.AIRI_AUTH_TOKEN) {
   try {
     const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? ''
-    const appDataCandidate = path.join(homeDir, 'Library/Application Support/@proj-airi/stage-tamagotchi/server-channel-config.json')
-    if (fs.existsSync(appDataCandidate)) {
-      const cfg = JSON.parse(fs.readFileSync(appDataCandidate, 'utf8'))
-      if (cfg.authToken)
-        process.env.AIRI_AUTH_TOKEN = cfg.authToken
+    const appData = process.env.APPDATA ?? path.join(homeDir, 'AppData', 'Roaming')
+    const candidates = [
+      path.join(appData, '@proj-airi', 'stage-tamagotchi', 'server-channel-config.json'),
+      path.join(appData, 'ai.moeru.airi', 'server-channel-config.json'),
+      path.join(appData, 'airi', 'server-channel-config.json'),
+      path.join(homeDir, 'Library/Application Support/@proj-airi/stage-tamagotchi/server-channel-config.json'),
+      path.join(homeDir, 'Library/Application Support/ai.moeru.airi/server-channel-config.json'),
+      path.join(homeDir, 'Library/Application Support/airi/server-channel-config.json'),
+      path.join(homeDir, '.config/@proj-airi/stage-tamagotchi/server-channel-config.json'),
+      path.join(homeDir, '.config/ai.moeru.airi/server-channel-config.json'),
+      path.join(homeDir, '.config/airi/server-channel-config.json'),
+    ]
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        const cfg = JSON.parse(fs.readFileSync(cand, 'utf8'))
+        if (cfg.authToken) {
+          process.env.AIRI_AUTH_TOKEN = cfg.authToken
+          break
+        }
+      }
     }
   }
   catch {}
@@ -190,7 +205,7 @@ function render() {
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
     `  ${c.bold}Interactive Hotkeys (Customizer-Aligned):${c.reset}`,
     `  ${c.yellow}[1]${c.reset} Mini (220×315)     ${c.yellow}[2]${c.reset} Med. (450×600)    ${c.yellow}[3]${c.reset} Large (800×1000)   ${c.yellow}[4]${c.reset} Full (Workarea)`,
-    `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})`,
+    `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})  ${c.magenta}[F]${c.reset} Outfits Test (Komoe)`,
     `  ${c.green}[D]${c.reset} Viewport Drag      ${c.green}[O]${c.reset} Viewport Orbit    ${c.green}[S]${c.reset} Viewport Spin      ${c.green}[C]${c.reset} Cycle Modes`,
     `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.magenta}[P]${c.reset} Cycle Macaron (${MACARON_PRESETS.length})`,
     `  ${c.blue}[R]${c.reset} Reset Coordinates ${c.red}[Q]${c.reset} Quit Harness`,
@@ -336,6 +351,18 @@ function handleKeypress(key: string) {
         logEvent(`Sent stage:vrm:load → ${path.basename(target)}`)
       }
       break
+
+    case 'f': {
+      const outfitTestVrm = path.resolve(here, '..', 'test-vrm-clothes', 'komoe.vrm')
+      if (fs.existsSync(outfitTestVrm)) {
+        broadcast({ type: 'stage:vrm:load', data: { modelPath: outfitTestVrm } })
+        logEvent(`Sent stage:vrm:load → komoe.vrm (outfit test)`)
+      }
+      else {
+        logEvent(`Outfit test VRM not found at: ${outfitTestVrm}`)
+      }
+      break
+    }
 
     case 'l':
       triggerLipSyncSimulation()
