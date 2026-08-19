@@ -61,6 +61,17 @@ export async function setupMainWindow(params: {
     width = valid.width
     height = valid.height
   }
+  else {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const workArea = primaryDisplay.workArea
+      x = workArea.x + 24
+      y = workArea.y + Math.round((workArea.height - height) / 2)
+    }
+    catch (e) {
+      console.warn('Failed to calculate default Main window position:', e)
+    }
+  }
 
   const window = new BrowserWindow({
     title: 'AIRI',

@@ -10,7 +10,7 @@ import clickDragPlugin from 'electron-click-drag-plugin'
 
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { throttle } from 'es-toolkit'
 import { isLinux } from 'std-env'
 
@@ -56,6 +56,17 @@ export async function setupActorStageWindow(params: {
     initialY = valid.y
     initialWidth = valid.width
     initialHeight = valid.height
+  }
+  else {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const workArea = primaryDisplay.workArea
+      initialX = Math.round(workArea.x + workArea.width - initialWidth - 32)
+      initialY = Math.round(workArea.y + workArea.height - initialHeight - 32)
+    }
+    catch (e) {
+      console.warn('Failed to calculate default Stage window position:', e)
+    }
   }
 
   const window = new BrowserWindow({

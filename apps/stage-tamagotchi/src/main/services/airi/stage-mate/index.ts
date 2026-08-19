@@ -295,17 +295,21 @@ export function createStageMateService(params?: {
     }
     else if (platform === 'darwin') {
       const candidates = [
-        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseDevPath, 'StageMate.app'),
-        join(baseDevPath, 'StageMate', 'StageMate.app'),
-        join(baseDevPath, 'macOS', 'StageMate.app'),
+        join(process.resourcesPath, 'StageMate', 'StageMate.app'),
         join(process.resourcesPath, 'StageMate.app'),
+        join(baseDevPath, 'StageMate', 'StageMate.app'),
+        join(baseDevPath, 'StageMate.app'),
+        join(baseDevPath, 'macOS', 'StageMate.app'),
       ]
       for (const cand of candidates) {
         if (existsSync(cand))
@@ -385,6 +389,15 @@ export function createStageMateService(params?: {
       }
       catch {}
     }
+
+    if (platform === 'darwin') {
+      try {
+        const { execSync } = require('node:child_process')
+        execSync('killall -9 StageMate MateEngineX 2>/dev/null || true')
+      }
+      catch {}
+    }
+
     sidecarProcess = null
     sidecarPid = null
     broadcast({ type: 'control:stage', data: { enabled: false } })
