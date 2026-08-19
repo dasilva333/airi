@@ -1,6 +1,6 @@
 # AIRI Fork: Core Feature Report
 
-> **Provenance**: Revised against commits through `ca618d5b3` (2026-08-18, post `v0.9.25-stable.20260818`). Previous revisions: `6d5cf8467` (2026-07-18, 34-feature catalog) and `b6917fe4c` (2026-07-10). Sections marked **(NEW)** were added in this revision; bullets marked *new* extend a pre-existing section.
+> **Provenance**: Revised against commits through `fb1a8a4ab` (2026-08-19, post `v0.9.25-stable.20260818`). Previous revisions: `ca618d5b3` (2026-08-18), `6d5cf8467` (2026-07-18, 34-feature catalog) and `b6917fe4c` (2026-07-10). Sections marked **(NEW)** were added in this revision; bullets marked *new* extend a pre-existing section.
 
 This document tracks the high-level, user-facing features and architectural shifts that define this fork. It serves as a living reference for the project's evolution beyond the baseline implementation.
 
@@ -37,6 +37,26 @@ Focuses on immersion, transparency, and reducing the "black box" nature of AI in
 - **Generation Stats Popover** *(new)*: Per-turn generation statistics (tokens, timing, output-limit controls) surfaced inline on messages, so cost/length behavior is inspectable without devtools.
 - **Pre-Flight Grounding Panel** *(new)*: The four context blocks injected on every send — `[ENVIRONMENTAL AWARENESS]`, `[GROUNDED LONG-TERM MEMORIES]`, `[RECENT TOPICS]`, `[VISUAL STATE BOARD]` — are composed and previewable *before* the prompt leaves the machine, making "what does she actually see?" a first-class UI question.
 - **Unified Event Ledger** *(new)*: A workspace-wide audit stream (`stores/event-log.ts`, spec `docs/project-unified-eventlog.md`) that records live user ingestion, assistant responses, voice STT, tool results, and text/image-journal writes — a replayable paper trail decoupled from the chat transcript.
+
+### Desktop Stage (Control Island & UI)
+The floating interaction hub for the desktop experience.
+
+- **Glassmorphic Control Island**: A floating, draggable UI component using `backdrop-blur-xl` and semi-transparent backgrounds, following an iOS-style **"island" pattern**.
+- **Control Island Mutual Exclusion**: Main and Gemini/Module islands now auto-collapse each other, ensuring the desktop always remains clean and only one interaction hub is active at a time.
+- **Gemini Control Island UX Refinements**: New button interaction patterns (Toggle/Action buttons auto-hide the island; Cycle buttons remain persistent) to match the premium "Main" island experience.
+- **Emotion Picker Sub-Menu**: Direct access to **8 emotion triggers** (Happy, Sad, Angry, Surprised, Neutral, Think, Cool, Random) from the Control Island drawer.
+- **Fade-on-Hover Intelligence**: A specialized **"Eye" mode** that makes the UI nearly invisible when the mouse hovers over the model area, ensuring the character's performance is never obscured.
+- **Integrated Profile Switcher**: A dedicated sub-menu within the Control Island that replaces the main view, featuring a scrollable list of character profiles with deep-links to Gallery and Management settings. Ensures the UI remains usable at any window size.
+- **Animation Cycle Button**: One-click cycling through available VRM idle animations directly from the island.
+- **ScrollLock Mic Toggle**: A physical hardware key binding for **push-to-talk / toggle microphone** without touching the UI.
+- **Manual (Pure Mic) Mode**: Bypasses VAD entirely for **clean push-to-talk** microphone triggering.
+- **Resource Status Island**: A separate floating indicator that shows real-time **module loading progress** and a "Ready!" status with expandable details.
+- **Transcription Feedback Toasts**: Real-time `🎤 You said: {text}` confirmation during voice interactions.
+- **Gallery "Download" Support**: Added a direct Download button to the Image Journal gallery in settings, allowing users to save their captured selfies to their local machine.
+- **UI Icon Hygiene**: Standardized the icons for Profile Switcher (`solar:users-group-rounded-outline`) and Emotions (`solar:mask-happly-outline`) to improve visual distinctness.
+- **Chat Hover Timestamps**: Contextual time display (e.g., "14:32") appears smoothly on message hover, providing immediate continuity feedback without cluttering the chat history.
+- **WhisperDock Flush Alignment**: Recalibrated the floating voice control hub's position to align perfectly with the side controls at all window scaling levels.
+- **Unified Gemini "Emerald" Brand**: System-wide update to use **Emerald/Emerald-Dark** accents for all Gemini-powered features, increasing visual consistency across the "Consciousness" modules.
 
 ---
 
@@ -149,6 +169,7 @@ Custom provider integrations not present in the upstream project.
     - **Semantic Speech Pipeline**: End-to-end flow from ACT token parsing → provider-side text preprocessing → mannerism transformation → TTS synthesis.
 - **App (Local) Speech & Transcription**: Direct in-app, privacy-first implementation of **Whisper** (transcription) and **Kokoro** (speech synthesis) via `xsai-transformers`. Runs fully locally in the Electron main process with WebGPU acceleration support, requiring zero external dependencies or API keys.
 - **Qwen Portal Provider**: Added a first-class **Qwen Portal** integration with dedicated OAuth plumbing through the unified provider registry.
+- **OpenRouter (Easy Mode)**: Integrated **OpenRouter** as the primary backend for the "Sense Portal" Easy Mode, providing a streamlined, high-performance LLM experience with minimal configuration.
 - **Deepgram STT (Nova-2/Nova-3)**: Native integration for high-speed transcription with a secure **main-process JWT-based CORS bypass** for the Electron environment.
 - **Amazon AWS Polly**: Native high-quality neural speech synthesis integration using `aws4fetch` for secure V4 signing. Supports both **Neural** and **Standard** engines with dynamic voice discovery across all AWS regions.
 - **DeepSeek / GLM-4 Streaming**: Added streaming support for `reasoning-delta` events and hardened the categorizer against **malformed tag typos** to prevent prompt stalls.
@@ -283,6 +304,15 @@ Previous section "Onboarding Overhaul (Phase 1)" described the retired Sense Por
 - **Atomic Card Synthesis**: steps 1–6 write only to a temporary draft store; Step 7 composes everything into the production `AiriCard` + module stores in one shot — canceling never leaves a half-baked card behind.
 - **Customizer Exits**: The wizard is reachable from the first run, the **"Start Companion Wizard"** tray item, and from **Settings → AIRI Cards → Create → Companion Wizard (Recommended)**, where it re-gates the setup state.
 
+### Retired Phase-1 Onboarding (historical lineage)
+The previous "Onboarding Overhaul (Phase 1)" flow that shipped before the V2 wizard. Superseded but retained as catalog history.
+
+- **Sense Portal (Easy Mode)**: A zero-config setup path that used **OpenRouter** for instant LLM access and **Deepgram** for high-speed voice services.
+- **Automated Provider Configuration**: Successfully completing the Easy Mode flow automatically configured all internal stores (Consciousness, Speech, Hearing) with optimal default models (e.g., `aura-2`, `nova-3`).
+- **Advanced Mode**: Retained granular control for power users who preferred custom OpenAI, Anthropic, or local (Ollama/LM Studio) configurations.
+- **Onboarding Orchestrator**: A modular, multi-step dialog system that handled branching setup paths and character initialization in a single unified flow.
+- **Polymorphic UI Primitives**: Upgraded core UI components (e.g., `Button`) to support polymorphic rendering, enabling seamless integration of external setup links into the premium onboarding interface.
+
 ---
 
 ## 18. Platform Parity: Web, Mobile & Native (NEW)
@@ -349,18 +379,31 @@ A native desktop "pet" engine — **Unity 6000.2.6f2** (`apps/stage-mate`) — t
 ## 21. Platform & Operations
 Internal hardening so the app remains a stable, performant "daily driver" across targets.
 
-- **Portable & Clean Release Packaging**: a Windows portable ZIP build that excludes the legacy `node_modules` directory and clears the runtime config, a renderer build shim, and Capacitor Android sync, so authors get a clean out-of-the-box runtime.
+- **Windows ZIP + NSIS distribution**: the Electron release builds both an NSIS installer and a ZIP distribution target, with `node_modules` size pruning in the file filter — plus a renderer build shim and Capacitor Android sync, so users get a reasonably clean out-of-the-box runtime.
 - **Windows StageMate packaging**: the Electron-builder config now ships the Stage-Mate sidecar artifacts alongside the desktop package (see §20).
 - **WebLLM static-worker bundling**: web-llm is statically bundled into the web worker to resolve runtime module-specifier errors, keeping the WebGPU provider working in packaged builds.
 - **Dev-loop Hygiene**: `ELECTRON_RUN_AS_NODE` is explicitly cleared in dev scripts, `start_airi.sh` resolves turbo/electron-vite + checks dependencies automatically.
 - **Production Electron Sandbox**: full Chromium sandbox is enabled for the Electron environment, a meaningful security improvement for web-forwarded provider integrations.
 - **Release Provenance**: published releases follow a `v0.9.x-stable.YYYYMMDD` tag (e.g., `v0.9.25-stable.20260818`, `v0.9.24-stable.20260813`, `v0.9.23-stable.20260808`), giving community users a stable pull point.
-- **Operations Skills Catalog**: 38 specialized AIRI skill files + a Rosetta-Stone governing index (`ae3025738`, `35c7fd580`) document subsystem contracts and failure modes, keeping contributors and agents in sync with shipping reality.
+- **Operations Skills Catalog**: 44 specialized AIRI skill files + a Rosetta-Stone governing index (`ae3025738`, `35c7fd580`) document subsystem contracts and failure modes, keeping contributors and agents in sync with shipping reality.
+
+### Retained Legacy Hardening
+Carried forward from the previous revision's Platform & Operations section; still in force.
+
+- **Interaction Throttling**: window move/resize events are rate-limited on the main process (e.g. `throttle(handleNewBounds, 200)` in the chat window, per-frame throttling for caption follow) to prevent IPC flooding and UI stutter during desktop manipulation.
+- **Secure CORS Bypass**: an `onHeadersReceived` / `onBeforeSendHeaders` interceptor on `defaultSession` strips `Origin`/`Referer` and injects permissive CORS headers for trusted provider origins — main-process-controlled, so the renderer's network stack stays safe.
+- **Environment Guardrails**: the root `package.json` enforces `node >=20.14.0 <28.0.0` and `pnpm@10.32.1` (`packageManager`), guarding against the `tsdown` build crashes found in newer toolchains.
+- **Identity-Guarded Character Switching**: redundant model reloads and duplicate toasts are suppressed when card metadata updates without an actual model switch.
+- **Tray Position Restore**: window bounds/state are persisted to a config snapshot and restored on startup.
+- **Improved Animation Cycles**: hardened VRM idle-cycle logic in `airi-card.ts` for reliable cross-fading and state transitions during AI-acting and manual overrides.
+- **Provider Onboarding & Metadata UX**: the provider settings surface ships beginner-friendly onboarding cues and richer provider metadata presentation.
+- **macOS Compatibility**: Node.js constraint relaxed (`<28.0.0`) and TextJournalEntry type mismatches resolved so the app builds cleanly on modern Apple Silicon.
+- **MCP Config Stabilization**: canonical path resolution in the MCP module places custom tool config under `@appData/airi` for cross-platform reliability (see §14).
 
 ---
 
 ## 22. Integrated Upstream PRs
-Pending upstream PRs squatted, integrated, and maintained in this fork. Status ✅ means integrated; ❌ is reserved upstream (evaluated, not adopted).
+Features from upstream PRs that were integrated, squatted, and maintained in this fork. Status ✅ means integrated; ❌ is reserved upstream (evaluated, not adopted).
 
 | PR # | Function | Author | Status |
 |:---|:---|:---|:---|
@@ -373,6 +416,6 @@ Pending upstream PRs squatted, integrated, and maintained in this fork. Status �
 | #1065 | **Manual Model Entry** — manual model string when auto-detect is empty | @liuxiaopai-ai | ✅ |
 | #1107 | **Native ElevenLabs API on Desktop** — avoids unspeech-proxy 401s | @Hanfeng-Lin | ✅ |
 | #1324 | **Server-runtime route fix** — preserves an explicit empty route target | @Gujiassh | ✅ |
-| #1190 | **Local Provider Config routes** — resolves missing local provider config routes | @Sakurinda | ✅ |
+| #1190 | **Local Provider Config routes** — resolves missing local provider config routes | @Sakuranda | ✅ |
 
 The integration of [#1324/#1190](https://github.com/moeru-ai/airi/commit/97e5f8b66) (`97e5f8b66`) also restored the missing **local provider settings routes** (`app-local-audio-speech`, `browser-local-audio-speech`, `app-local-audio-transcription`, `browser-local-audio-transcription`) in addition to amazon-bedrock, carried the upstream fix for explicit empty route destinations in `server-runtime`, and included type-fix and encoding-correction passes. A historical full catalog (including ❌ evaluated-but-not-adopted PRs) lived at `docs/FULL_UPSTREAM_PR_CATALOG.md` before the docs reorganization (see commit `97e5f8b66`).

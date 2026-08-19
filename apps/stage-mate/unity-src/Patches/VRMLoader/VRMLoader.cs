@@ -326,17 +326,20 @@ public class VRMLoader : MonoBehaviour
         public string[] meshes;
     }
 
+    public void ReloadDynamicOutfits(string modelPath = null)
+    {
+        string path = !string.IsNullOrEmpty(modelPath) ? modelPath : (SaveLoadHandler.Instance != null ? SaveLoadHandler.Instance.data.selectedModelPath : null);
+        if (currentModel != null && !string.IsNullOrEmpty(path))
+        {
+            TryInjectDynamicOutfitEntries(currentModel, path);
+            SettingsHandlerUtility.ReloadAllSettingsHandlers();
+            Debug.Log($"[VRMLoader] ReloadDynamicOutfits complete for: {path}");
+        }
+    }
+
     private void TryInjectDynamicOutfitEntries(GameObject model, string modelPath)
     {
         if (model == null || string.IsNullOrEmpty(modelPath)) return;
-
-        // Check if MEClothes is already attached and populated (e.g. from a .me prefab)
-        var existingClothes = model.GetComponent<MEClothes>() ?? model.GetComponentInChildren<MEClothes>(true);
-        if (existingClothes != null && existingClothes.entries != null && existingClothes.entries.Length > 0 && existingClothes.entries[0] != null && existingClothes.entries[0].gameObjects != null && existingClothes.entries[0].gameObjects.Length > 0)
-        {
-            Debug.Log("[VRMLoader] Avatar already has populated MEClothes attached.");
-            return;
-        }
 
         // Look for sidecar outfit json
         string dir = Path.GetDirectoryName(modelPath);

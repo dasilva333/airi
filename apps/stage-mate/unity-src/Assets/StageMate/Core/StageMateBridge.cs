@@ -177,6 +177,17 @@ namespace StageMate.Core
                     }
                     break;
 
+                case "stage:vrm:reload-outfits":
+                case "stage:vrm:sync-outfits":
+                    string syncPath = env.data != null && !string.IsNullOrEmpty(env.data.modelPath) ? env.data.modelPath : activeModelPath;
+                    if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
+                    if (vrmLoader != null && !string.IsNullOrEmpty(syncPath))
+                    {
+                        Debug.Log($"[StageMateBridge] Direct reload of dynamic outfits requested: {syncPath}");
+                        vrmLoader.ReloadDynamicOutfits(syncPath);
+                    }
+                    break;
+
                 case "stage:prop:macaron":
                 case "set_macaron_materials":
                 case "control:prop:macaron":
@@ -218,7 +229,7 @@ namespace StageMate.Core
                     windowController.alphaValue = d.stage.enabled ? 1.0f : 0.0f;
                 }
 
-                if (d.model != null && !string.IsNullOrEmpty(d.model.modelPath) && d.model.modelPath != activeModelPath)
+                if (d.model != null && !string.IsNullOrEmpty(d.model.modelPath))
                 {
                     activeModelPath = d.model.modelPath;
                     activeModelId = d.model.modelId;
@@ -245,7 +256,7 @@ namespace StageMate.Core
                     SetViewportMode(p.stageMode);
                 }
 
-                if (!string.IsNullOrEmpty(p.currentModelPath) && p.currentModelPath != activeModelPath)
+                if (!string.IsNullOrEmpty(p.currentModelPath))
                 {
                     activeModelPath = p.currentModelPath;
                     LoadModel(activeModelPath);
@@ -258,14 +269,26 @@ namespace StageMate.Core
             if (string.IsNullOrEmpty(mode)) return;
             Debug.Log($"[StageMateBridge] Setting viewport mode: {mode}");
 
-            var animCtrl = FindFirstObjectByType<AvatarAnimatorController>();
-            if (animCtrl != null)
+            // Handle standard mode strings
+            if (mode == "tactileMode" || mode == "tactile" || mode == "touch")
             {
-                // In TACTILE mode, dragging avatar by waist moves window and allows petting/IK
-                // In DRAG / ORBIT mode, block native dragging so external controls can operate
-                bool isTactile = mode.Equals("tactile", StringComparison.OrdinalIgnoreCase) ||
-                                 mode.Equals("tactileMode", StringComparison.OrdinalIgnoreCase);
-                animCtrl.BlockDraggingOverride = !isTactile;
+                if (tactileHandler != null) tactileHandler.enabled = true;
+                if (locomotion != null) locomotion.enabled = false;
+            }
+            else if (mode == "dragMode" || mode == "drag" || mode == "interactive")
+            {
+                if (tactileHandler != null) tactileHandler.enabled = false;
+                if (locomotion != null) locomotion.enabled = false;
+            }
+            else if (mode == "companionMode" || mode == "companion" || mode == "locomotion")
+            {
+                if (tactileHandler != null) tactileHandler.enabled = true;
+                if (locomotion != null) locomotion.enabled = true;
+            }
+            else
+            {
+                if (tactileHandler != null) tactileHandler.enabled = false;
+                if (locomotion != null) locomotion.enabled = false;
             }
         }
 
@@ -280,6 +303,15 @@ namespace StageMate.Core
             if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
             if (vrmLoader != null)
             {
+                // If model is already active in scene, hot-reload dynamic outfits in-place
+                if (vrmLoader.GetCurrentModel() != null && path.Equals(activeModelPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.Log($"[StageMateBridge] Hot-reloading dynamic outfits for active model: {path}");
+                    vrmLoader.ReloadDynamicOutfits(path);
+                    socket?.SendJson($"{{\"type\":\"stage:vrm:ready\",\"data\":{{\"modelPath\":\"{path.Replace("\\", "\\\\")}\",\"modelId\":\"{activeModelId}\"}}}}");
+                    return;
+                }
+
                 Debug.Log($"[StageMateBridge] Invoking native VRMLoader for: {path}");
                 vrmLoader.LoadVRM(path);
                 socket?.SendJson($"{{\"type\":\"stage:vrm:ready\",\"data\":{{\"modelPath\":\"{path.Replace("\\", "\\\\")}\",\"modelId\":\"{activeModelId}\"}}}}");

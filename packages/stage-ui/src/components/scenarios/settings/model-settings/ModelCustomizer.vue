@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import type { AiriOutfit } from '../../../../stores/modules/airi-card'
+
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
 import { useSpine } from '@proj-airi/stage-ui-spine'
 import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-three'
+import { Input } from '@proj-airi/ui'
+import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -10,6 +14,7 @@ import { toast } from 'vue-sonner'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettingsControlStrip } from '../../../../stores/settings/control-strip'
+import { Container } from '../../../data-pane'
 
 interface Props {
   modelId: string
@@ -102,6 +107,7 @@ const hiddenMotions = ref<string[]>([])
 const cachedExpressions = ref<string[]>([])
 const cachedMotions = ref<string[]>([])
 const capabilitiesLoading = ref(false)
+const modelOutfits = ref<AiriOutfit[]>([])
 
 function applyModelMappings(model?: any) {
   if (!model)
@@ -111,6 +117,7 @@ function applyModelMappings(model?: any) {
   hiddenExpressions.value = [...(model.hiddenExpressions || [])]
   motionMappings.value = { ...model.motionMappings }
   hiddenMotions.value = [...(model.hiddenMotions || [])]
+  modelOutfits.value = [...(model.outfits || [])]
 
   // Sync to store for stage window cross-process triggers
   live2dStore.motionMap = { ...motionMappings.value }
@@ -183,6 +190,7 @@ async function saveMetadata() {
     hiddenExpressions: [...hiddenExpressions.value],
     motionMappings: { ...motionMappings.value },
     hiddenMotions: [...hiddenMotions.value],
+    outfits: [...modelOutfits.value],
   })
 
   // Sync to store for stage window cross-process triggers
@@ -380,11 +388,211 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
 })
 
 // Filter states
-const activeTab = ref<'expressions' | 'motions'>('expressions')
+const activeTab = ref<'expressions' | 'motions' | 'outfits'>('expressions')
 const showHidden = ref(false)
 const filterRenamedOnly = ref(false)
 const editingKey = ref<string | null>(null)
 const editingValue = ref('')
+
+// === Inline Wardrobe Builder State ===
+const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
+const isBuildingOutfit = ref(false)
+const isSavingOutfit = ref(false)
+const isSyncingStageMate = ref(false)
+const selectedMeshes = ref(new Set<string>())
+const slotName = ref('')
+const slotTag = ref('')
+const slotIcon = ref('i-solar:t-shirt-bold-duotone')
+const searchMeshQuery = ref('')
+
+async function syncStageMateSidecar(reload = false) {
+  if (!isElectron.value || !props.modelId)
+    return false
+
+  try {
+    const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+    const { electronStageMateSyncOutfits } = await import('@proj-airi/stage-shared')
+    const syncOutfitsInvoke = useElectronEventaInvoke(electronStageMateSyncOutfits)
+
+    const payload = {
+      modelId: props.modelId,
+      outfits: modelOutfits.value.map(o => ({
+        name: o.name,
+        tag: o.tag || '',
+        meshes: o.meshes || [],
+      })),
+      reload,
+    }
+
+    const res = await syncOutfitsInvoke(payload)
+    return !!res?.success
+  }
+  catch (err) {
+    console.error('[ModelCustomizer] Failed to sync outfits with Stage-Mate:', err)
+    return false
+  }
+}
+
+async function handleManualStageMateSync() {
+  if (isSyncingStageMate.value)
+    return
+
+  isSyncingStageMate.value = true
+  const toastId = toast.loading('Syncing outfits with Stage-Mate…')
+
+  try {
+    const success = await syncStageMateSidecar(true)
+    if (success) {
+      toast.success('Stage-Mate synchronized successfully!', { id: toastId })
+    }
+    else {
+      toast.warning('Sidecar JSON written to cache.', { id: toastId })
+    }
+  }
+  catch (err: any) {
+    toast.error(`Failed to sync Stage-Mate: ${err?.message || 'Unknown error'}`, { id: toastId })
+  }
+  finally {
+    isSyncingStageMate.value = false
+  }
+}
+
+const availableIcons = [
+  'i-solar:t-shirt-bold-duotone',
+  'i-solar:hanger-bold-duotone',
+  'i-solar:magic-stick-3-bold-duotone',
+  'i-solar:glasses-bold-duotone',
+  'i-solar:crown-bold-duotone',
+  'i-solar:cat-bold-duotone',
+  'i-solar:heart-bold-duotone',
+  'i-solar:star-bold-duotone',
+  'i-solar:tag-bold-duotone',
+  'i-solar:palette-bold-duotone',
+  'i-solar:medal-ribbons-star-bold-duotone',
+  'i-solar:mask-happly-bold-duotone',
+]
+
+const suggestedTags = [
+  { label: 'Independent', value: '' },
+  { label: 'Outfit / Dress', value: 'outfit' },
+  { label: 'Hairstyle', value: 'hair' },
+  { label: 'Headwear', value: 'headwear' },
+  { label: 'Shoes / Footwear', value: 'shoes' },
+  { label: 'Accessories', value: 'accessories' },
+]
+
+const { discoveredMeshes } = storeToRefs(modelStore)
+const filteredDiscoveredMeshes = computed(() => {
+  const query = searchMeshQuery.value.trim().toLowerCase()
+  if (!query)
+    return discoveredMeshes.value
+  return discoveredMeshes.value.filter(m => m.name.toLowerCase().includes(query))
+})
+
+function startBuildingOutfit() {
+  isBuildingOutfit.value = true
+  selectedMeshes.value.clear()
+  slotName.value = ''
+  slotTag.value = ''
+  slotIcon.value = 'i-solar:t-shirt-bold-duotone'
+  searchMeshQuery.value = ''
+}
+
+function cancelBuildingOutfit() {
+  for (const name of selectedMeshes.value) {
+    modelStore.setMeshVisibility(name, true)
+  }
+  selectedMeshes.value.clear()
+  slotName.value = ''
+  slotTag.value = ''
+  slotIcon.value = 'i-solar:t-shirt-bold-duotone'
+  searchMeshQuery.value = ''
+  isBuildingOutfit.value = false
+}
+
+function toggleMesh(meshName: string) {
+  if (selectedMeshes.value.has(meshName)) {
+    selectedMeshes.value.delete(meshName)
+    modelStore.setMeshVisibility(meshName, true)
+  }
+  else {
+    selectedMeshes.value.add(meshName)
+    modelStore.setMeshVisibility(meshName, false)
+  }
+}
+
+function selectAllMeshes() {
+  for (const m of filteredDiscoveredMeshes.value) {
+    selectedMeshes.value.add(m.name)
+    modelStore.setMeshVisibility(m.name, false)
+  }
+}
+
+function clearAllMeshes() {
+  for (const m of filteredDiscoveredMeshes.value) {
+    selectedMeshes.value.delete(m.name)
+    modelStore.setMeshVisibility(m.name, true)
+  }
+}
+
+async function saveOutfitSlot() {
+  if (!slotName.value.trim() || selectedMeshes.value.size === 0 || isSavingOutfit.value)
+    return
+
+  if (modelOutfits.value.length >= 8) {
+    toast.error('Maximum 8 outfit slots reached.')
+    return
+  }
+
+  isSavingOutfit.value = true
+  const toastId = toast.loading('Saving outfit to database…')
+
+  try {
+    modelOutfits.value.push({
+      id: nanoid(),
+      name: slotName.value.trim(),
+      tag: slotTag.value.trim(),
+      icon: slotIcon.value,
+      meshes: Array.from(selectedMeshes.value),
+      defaultEnabled: true,
+    })
+
+    await saveMetadata()
+
+    // Auto-export sidecar to Stage-Mate disk cache
+    void syncStageMateSidecar(false)
+
+    cancelBuildingOutfit()
+    toast.success('Wardrobe slot saved.', { id: toastId })
+  }
+  catch (err: any) {
+    console.error('[ModelCustomizer] Failed to save outfit slot:', err)
+    toast.error(`Failed to save outfit: ${err?.message || 'Unknown error'}`, { id: toastId })
+  }
+  finally {
+    isSavingOutfit.value = false
+  }
+}
+
+async function deleteSlot(id: string) {
+  modelOutfits.value = modelOutfits.value.filter(o => o.id !== id)
+  await saveMetadata()
+  void syncStageMateSidecar(false)
+  toast.success('Wardrobe slot removed.')
+}
+
+function isSlotVisible(slot: AiriOutfit) {
+  const meshes = slot.meshes || []
+  if (meshes.length === 0)
+    return true
+  return meshes.every(name => !modelStore.hiddenMeshes.includes(name))
+}
+
+function toggleSlotVisibility(slot: AiriOutfit) {
+  const currentlyVisible = isSlotVisible(slot)
+  const meshes = slot.meshes || []
+  modelStore.setMeshesVisibility(meshes, !currentlyVisible)
+}
 
 const expressionsToRender = computed(() => {
   let list = showHidden.value ? rawExpressions.value : rawExpressions.value.filter(e => e.isVisible)
@@ -597,8 +805,8 @@ function toggleMotionCycle(key: string) {
         </p>
       </div>
 
-      <!-- Segment Toggle: Emotions / Motions -->
-      <div v-if="rawMotions.length > 0" class="shrink-0 pb-1">
+      <!-- Segment Toggle: Emotions / Motions / Outfits -->
+      <div v-if="rawMotions.length > 0 || modelType === 'vrm'" class="shrink-0 pb-1">
         <div class="flex rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800">
           <button
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -610,6 +818,7 @@ function toggleMotionCycle(key: string) {
             Emotions ({{ rawExpressions.length }})
           </button>
           <button
+            v-if="rawMotions.length > 0"
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
             :class="activeTab === 'motions'
               ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
@@ -617,6 +826,16 @@ function toggleMotionCycle(key: string) {
             @click="activeTab = 'motions'"
           >
             Motions ({{ rawMotions.length }})
+          </button>
+          <button
+            v-if="modelType === 'vrm'"
+            class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+            :class="activeTab === 'outfits'
+              ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'"
+            @click="activeTab = 'outfits'"
+          >
+            Outfits ({{ modelOutfits.length }})
           </button>
         </div>
       </div>
@@ -627,8 +846,8 @@ function toggleMotionCycle(key: string) {
         <span class="ml-1">Loading model capabilities…</span>
       </div>
 
-      <!-- Filter Controls -->
-      <div v-if="!capabilitiesLoading" class="flex shrink-0 items-center justify-between py-2">
+      <!-- Filter Controls (Emotions & Motions only) -->
+      <div v-if="!capabilitiesLoading && activeTab !== 'outfits'" class="flex shrink-0 items-center justify-between py-2">
         <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
           Filters
         </span>
@@ -757,7 +976,7 @@ function toggleMotionCycle(key: string) {
         </template>
 
         <!-- ====== MOTIONS LIST ====== -->
-        <template v-else>
+        <template v-else-if="activeTab === 'motions'">
           <div v-if="Object.keys(motionsToRender).length === 0" class="py-8 text-center text-xs text-neutral-400">
             No motions available for this model.
           </div>
@@ -870,6 +1089,290 @@ function toggleMotionCycle(key: string) {
               </div>
             </div>
           </template>
+        </template>
+
+        <!-- ====== OUTFITS TAB ====== -->
+        <template v-else-if="activeTab === 'outfits'">
+          <!-- Wardrobe Builder Mode -->
+          <div v-if="isBuildingOutfit" class="flex flex-col gap-3 pt-2">
+            <div class="flex items-center justify-between px-1">
+              <span class="text-xs text-neutral-500 dark:text-neutral-400">
+                {{ discoveredMeshes.length }} meshes discovered · select parts to bundle
+              </span>
+              <div class="flex gap-1">
+                <button
+                  class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                  :class="[
+                    isSavingOutfit || selectedMeshes.size === 0 || !slotName.trim()
+                      ? 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed'
+                      : 'bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400 cursor-pointer',
+                  ]"
+                  :disabled="isSavingOutfit || selectedMeshes.size === 0 || !slotName.trim()"
+                  @click="saveOutfitSlot"
+                >
+                  <div v-if="isSavingOutfit" class="i-solar:spinner-bold size-3.5 animate-spin" />
+                  <span>{{ isSavingOutfit ? 'Saving…' : `Done (${selectedMeshes.size})` }}</span>
+                </button>
+                <button
+                  class="rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600 transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                  :disabled="isSavingOutfit"
+                  @click="cancelBuildingOutfit"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- Slot Configuration Form -->
+            <Container title="New Wardrobe Slot" :expand="true" inner-class="flex flex-col gap-3 p-3">
+              <!-- Slot Name -->
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Slot Name *
+                </label>
+                <Input
+                  v-model="slotName"
+                  placeholder="e.g. FLOATIE, BUNNY EARS, SUMMER DRESS, GLASSES"
+                />
+              </div>
+
+              <!-- Group Tag (Exclusivity Group) -->
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Exclusivity Group Tag (Optional)
+                </label>
+                <Input
+                  v-model="slotTag"
+                  placeholder="e.g. outfit, hair, headwear (or leave blank for independent)"
+                />
+                <!-- Quick Suggestion Chips -->
+                <div class="flex flex-wrap gap-1 pt-1">
+                  <button
+                    v-for="sug in suggestedTags"
+                    :key="sug.value"
+                    type="button"
+                    class="rounded px-2 py-0.5 text-[10px] transition-colors"
+                    :class="[
+                      slotTag === sug.value
+                        ? 'bg-primary-500 text-white font-medium'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700',
+                    ]"
+                    @click="slotTag = sug.value"
+                  >
+                    {{ sug.label }}
+                  </button>
+                </div>
+                <span class="text-[10px] text-neutral-400">
+                  Slots with the same tag deactivate each other when activated. Blank tag is independent.
+                </span>
+              </div>
+
+              <!-- Icon Selector -->
+              <div class="flex flex-col gap-1">
+                <label class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Icon
+                </label>
+                <div class="grid grid-cols-6 gap-1.5 rounded-xl bg-neutral-50 p-2 dark:bg-neutral-800/60">
+                  <button
+                    v-for="icon in availableIcons"
+                    :key="icon"
+                    type="button"
+                    class="size-8 flex items-center justify-center rounded-lg transition-colors"
+                    :class="[
+                      slotIcon === icon
+                        ? 'bg-primary-500 text-white shadow-sm'
+                        : 'text-neutral-500 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-700',
+                    ]"
+                    @click="slotIcon = icon"
+                  >
+                    <div :class="icon" class="size-5" />
+                  </button>
+                </div>
+              </div>
+            </Container>
+
+            <!-- Discovered 3D Meshes Selection Grid -->
+            <Container
+              :title="`Discovered 3D Meshes (${discoveredMeshes.length})`"
+              :expand="true"
+              inner-class="flex flex-col gap-2 p-3"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <Input
+                  v-model="searchMeshQuery"
+                  placeholder="Search meshes..."
+                  size="sm"
+                  class="flex-1"
+                />
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="text-[10px] text-primary-500 hover:underline"
+                    @click="selectAllMeshes"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    class="text-[10px] text-neutral-400 hover:underline"
+                    @click="clearAllMeshes"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div
+                v-if="filteredDiscoveredMeshes.length === 0"
+                class="p-4 text-center text-xs text-neutral-400"
+              >
+                {{ discoveredMeshes.length === 0 ? 'No 3D meshes detected on loaded model.' : 'No meshes match filter.' }}
+              </div>
+
+              <div v-else class="flex flex-wrap gap-1.5 pt-1">
+                <button
+                  v-for="mesh in filteredDiscoveredMeshes"
+                  :key="mesh.name"
+                  type="button"
+                  class="group relative flex items-center gap-1.5 border border-neutral-200 rounded-lg border-solid px-2.5 py-1 text-xs transition-all duration-150 dark:border-neutral-700"
+                  :class="[
+                    selectedMeshes.has(mesh.name)
+                      ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 font-medium ring-1 ring-amber-500'
+                      : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-800/60 dark:text-neutral-300 dark:hover:bg-neutral-700',
+                  ]"
+                  @click="toggleMesh(mesh.name)"
+                >
+                  <div
+                    class="size-3.5 flex items-center justify-center border rounded-sm"
+                    :class="selectedMeshes.has(mesh.name) ? 'bg-amber-500 border-amber-500 text-white' : 'border-neutral-400 text-neutral-400'"
+                  >
+                    <div :class="selectedMeshes.has(mesh.name) ? 'i-solar:eye-closed-bold-duotone text-[10px]' : 'i-solar:eye-bold-duotone text-[10px]'" />
+                  </div>
+                  <span class="font-mono">{{ mesh.name }}</span>
+                  <span v-if="selectedMeshes.has(mesh.name)" class="text-[9px] text-amber-600 font-bold uppercase dark:text-amber-400">hidden</span>
+                  <span v-else class="text-[9px] text-neutral-400">({{ mesh.vertexCount }}v)</span>
+                </button>
+              </div>
+            </Container>
+          </div>
+
+          <!-- Wardrobe Slot List Overview -->
+          <div v-else class="flex flex-col gap-3 pt-2">
+            <!-- Header with Build & Sync Buttons -->
+            <div class="flex items-center justify-between px-1">
+              <span class="text-xs text-neutral-500 font-medium dark:text-neutral-400">
+                Wardrobe Slots ({{ modelOutfits.length }} / 8)
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button
+                  v-if="isElectron"
+                  class="flex items-center gap-1 rounded-md bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600 font-medium transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 disabled:opacity-50 dark:hover:bg-neutral-700"
+                  :disabled="isSyncingStageMate"
+                  title="Export outfits sidecar JSON and reload model in Stage-Mate"
+                  @click="handleManualStageMateSync"
+                >
+                  <div :class="isSyncingStageMate ? 'i-solar:spinner-bold animate-spin' : 'i-solar:bolt-bold-duotone text-amber-500'" class="size-3.5" />
+                  <span>{{ isSyncingStageMate ? 'Syncing…' : 'Sync Stage-Mate' }}</span>
+                </button>
+                <button
+                  class="rounded-md bg-primary-500/10 px-2.5 py-1 text-xs text-primary-600 font-medium transition-colors hover:bg-primary-500/20 dark:text-primary-400 disabled:opacity-50"
+                  :disabled="modelOutfits.length >= 8"
+                  @click="startBuildingOutfit"
+                >
+                  + Build Outfit
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div
+              v-if="modelOutfits.length === 0"
+              class="flex flex-col items-center justify-center border border-neutral-200 rounded-xl border-dashed p-8 text-center dark:border-neutral-800"
+            >
+              <div class="i-solar:hanger-bold-duotone mb-2 text-3xl text-neutral-300 dark:text-neutral-700" />
+              <span class="text-xs text-neutral-600 font-medium dark:text-neutral-300">
+                No Wardrobe Slots Configured
+              </span>
+              <p class="mt-1 max-w-xs text-[11px] text-neutral-400">
+                Click <strong>+ Build Outfit</strong> above to discover 3D meshes and group them into toggleable clothing and accessories.
+              </p>
+            </div>
+
+            <!-- Single-Column Clean Card Stack -->
+            <div v-else class="flex flex-col gap-2">
+              <div
+                v-for="slot in modelOutfits"
+                :key="slot.id"
+                class="group relative flex flex-col justify-between border border-neutral-200 rounded-xl bg-neutral-50/50 p-3 transition-colors dark:border-neutral-800 hover:border-neutral-300 dark:bg-neutral-900/50 dark:hover:border-neutral-700"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-2.5">
+                    <div class="size-8 flex items-center justify-center rounded-lg bg-primary-500/10 text-primary-500">
+                      <div :class="slot.icon || 'i-solar:t-shirt-bold-duotone'" class="text-lg" />
+                    </div>
+                    <div class="min-w-0 flex flex-col">
+                      <span class="truncate text-xs text-neutral-800 font-bold dark:text-neutral-100">
+                        {{ slot.name }}
+                      </span>
+                      <span
+                        v-if="slot.tag"
+                        class="w-fit rounded bg-amber-500/10 px-1.5 py-0.2 text-[9px] text-amber-600 font-medium tracking-tight uppercase dark:text-amber-400"
+                      >
+                        Group: {{ slot.tag }}
+                      </span>
+                      <span
+                        v-else
+                        class="w-fit rounded bg-neutral-200/60 px-1.5 py-0.2 text-[9px] text-neutral-500 font-medium tracking-tight uppercase dark:bg-neutral-800 dark:text-neutral-400"
+                      >
+                        Independent
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="flex shrink-0 items-center gap-1">
+                    <!-- Test Slot Toggle Button -->
+                    <button
+                      class="rounded-lg p-1.5 transition-colors"
+                      :class="[
+                        isSlotVisible(slot)
+                          ? 'text-primary-500 hover:bg-primary-500/10'
+                          : 'text-amber-500 hover:bg-amber-500/10',
+                      ]"
+                      :title="isSlotVisible(slot) ? 'Test: Hide Mesh Parts' : 'Test: Show Mesh Parts'"
+                      @click="toggleSlotVisibility(slot)"
+                    >
+                      <div :class="isSlotVisible(slot) ? 'i-solar:eye-bold-duotone' : 'i-solar:eye-closed-bold-duotone'" class="size-4" />
+                    </button>
+
+                    <!-- Delete Slot Button -->
+                    <button
+                      class="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                      title="Delete Slot"
+                      @click="deleteSlot(slot.id)"
+                    >
+                      <div class="i-solar:trash-bin-trash-bold-duotone size-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="mt-2.5 flex flex-wrap gap-1">
+                  <span
+                    v-for="mesh in (slot.meshes || []).slice(0, 4)"
+                    :key="mesh"
+                    class="rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-600 font-mono dark:bg-neutral-800 dark:text-neutral-300"
+                  >
+                    {{ mesh }}
+                  </span>
+                  <span
+                    v-if="(slot.meshes || []).length > 4"
+                    class="rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-400 dark:bg-neutral-800"
+                  >
+                    +{{ (slot.meshes || []).length - 4 }} more
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </template>
 
         <!-- Rehearsal UI Controls Legend -->

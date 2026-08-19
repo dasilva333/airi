@@ -1,5 +1,7 @@
 import type { MmdTextureFile } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extractor'
 
+import type { AiriOutfit } from './modules/airi-card'
+
 import JSZip from 'jszip'
 import localforage from 'localforage'
 
@@ -48,6 +50,7 @@ export interface DisplayModelCloud {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  outfits?: AiriOutfit[]
   _searchKey?: string
 }
 
@@ -82,6 +85,7 @@ export interface DisplayModelFile {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  outfits?: AiriOutfit[]
   _searchKey?: string
 }
 
@@ -103,6 +107,7 @@ export interface DisplayModelURL {
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
+  outfits?: AiriOutfit[]
   _searchKey?: string
 }
 
@@ -270,14 +275,15 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             tags: rawM.tags,
             expressions: rawM.expressions,
             motions: rawM.motions,
-            emotionMappings: rawM.emotionMappings,
-            motionMappings: rawM.motionMappings,
-            hiddenExpressions: rawM.hiddenExpressions,
-            hiddenMotions: rawM.hiddenMotions,
-            favoriteExpressions: rawM.favoriteExpressions,
+            emotionMappings: rawM.emotionMappings ? JSON.parse(JSON.stringify(rawM.emotionMappings)) : undefined,
+            motionMappings: rawM.motionMappings ? JSON.parse(JSON.stringify(rawM.motionMappings)) : undefined,
+            hiddenExpressions: rawM.hiddenExpressions ? [...rawM.hiddenExpressions] : undefined,
+            hiddenMotions: rawM.hiddenMotions ? [...rawM.hiddenMotions] : undefined,
+            favoriteExpressions: rawM.favoriteExpressions ? [...rawM.favoriteExpressions] : undefined,
+            outfits: rawM.outfits ? JSON.parse(JSON.stringify(rawM.outfits)) : undefined,
           }
         }))
-      await storage.setItemRaw('local:display-models/metadata-cache', toRaw(metaList))
+      await storage.setItemRaw('local:display-models/metadata-cache', JSON.parse(JSON.stringify(metaList)))
     }
     catch (e) {
       console.error('[DisplayModels] Failed to sync metadata cache:', e)
@@ -1252,6 +1258,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       hiddenExpressions?: string[]
       hiddenMotions?: string[]
       favoriteExpressions?: string[]
+      outfits?: AiriOutfit[]
     },
   ) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
@@ -1263,15 +1270,17 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return
 
     if (mappings.emotionMappings)
-      displayModel.emotionMappings = { ...mappings.emotionMappings }
+      displayModel.emotionMappings = JSON.parse(JSON.stringify(mappings.emotionMappings))
     if (mappings.motionMappings)
-      displayModel.motionMappings = { ...mappings.motionMappings }
+      displayModel.motionMappings = JSON.parse(JSON.stringify(mappings.motionMappings))
     if (mappings.hiddenExpressions)
       displayModel.hiddenExpressions = [...mappings.hiddenExpressions]
     if (mappings.hiddenMotions)
       displayModel.hiddenMotions = [...mappings.hiddenMotions]
     if (mappings.favoriteExpressions)
       displayModel.favoriteExpressions = [...mappings.favoriteExpressions]
+    if (mappings.outfits)
+      displayModel.outfits = JSON.parse(JSON.stringify(mappings.outfits))
 
     // Invalidate binary LRU cache so subsequent getDisplayModel fetches fresh data
     displayModelCache.delete(id)
@@ -1281,15 +1290,17 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (index !== -1) {
       const target = displayModels.value[index]
       if (mappings.emotionMappings)
-        target.emotionMappings = { ...mappings.emotionMappings }
+        target.emotionMappings = JSON.parse(JSON.stringify(mappings.emotionMappings))
       if (mappings.motionMappings)
-        target.motionMappings = { ...mappings.motionMappings }
+        target.motionMappings = JSON.parse(JSON.stringify(mappings.motionMappings))
       if (mappings.hiddenExpressions)
         target.hiddenExpressions = [...mappings.hiddenExpressions]
       if (mappings.hiddenMotions)
         target.hiddenMotions = [...mappings.hiddenMotions]
       if (mappings.favoriteExpressions)
         target.favoriteExpressions = [...mappings.favoriteExpressions]
+      if (mappings.outfits)
+        target.outfits = JSON.parse(JSON.stringify(mappings.outfits))
       triggerRef(displayModels)
     }
     else if (id.startsWith('display-model-')) {
@@ -1303,15 +1314,16 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         importedAt: displayModel.importedAt || Date.now(),
         previewImage: compressedPreview,
         nsfw: displayModel.nsfw,
-        groups: displayModel.groups,
-        tags: displayModel.tags,
-        expressions: displayModel.expressions,
-        motions: displayModel.motions,
-        emotionMappings: displayModel.emotionMappings,
-        motionMappings: displayModel.motionMappings,
-        hiddenExpressions: displayModel.hiddenExpressions,
-        hiddenMotions: displayModel.hiddenMotions,
-        favoriteExpressions: displayModel.favoriteExpressions,
+        groups: displayModel.groups ? [...displayModel.groups] : undefined,
+        tags: displayModel.tags ? [...displayModel.tags] : undefined,
+        expressions: displayModel.expressions ? [...displayModel.expressions] : undefined,
+        motions: displayModel.motions ? [...displayModel.motions] : undefined,
+        emotionMappings: displayModel.emotionMappings ? JSON.parse(JSON.stringify(displayModel.emotionMappings)) : undefined,
+        motionMappings: displayModel.motionMappings ? JSON.parse(JSON.stringify(displayModel.motionMappings)) : undefined,
+        hiddenExpressions: displayModel.hiddenExpressions ? [...displayModel.hiddenExpressions] : undefined,
+        hiddenMotions: displayModel.hiddenMotions ? [...displayModel.hiddenMotions] : undefined,
+        favoriteExpressions: displayModel.favoriteExpressions ? [...displayModel.favoriteExpressions] : undefined,
+        outfits: displayModel.outfits ? JSON.parse(JSON.stringify(displayModel.outfits)) : undefined,
         _searchKey: `${displayModel.name || ''} ${Array.isArray(displayModel.tags) ? displayModel.tags.join(' ') : ''} ${Array.isArray(displayModel.groups) ? displayModel.groups.join(' ') : ''}`.toLowerCase(),
       }
       displayModels.value.push(itemMeta)
@@ -1321,11 +1333,28 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Persist if file-based model
     if (id.startsWith('display-model-')) {
       const rawModel = toRaw(displayModel)
-      const cleanModel = {
-        ...rawModel,
-        ...('file' in rawModel ? { file: toRaw((rawModel as any).file) } : {}),
+      const targetFile = 'file' in rawModel ? toRaw((rawModel as any).file) : undefined
+      const cleanModel: DisplayModelFile = {
+        id: rawModel.id,
+        format: rawModel.format,
+        type: 'file',
+        file: targetFile,
+        name: rawModel.name,
+        previewImage: rawModel.previewImage,
+        importedAt: rawModel.importedAt || Date.now(),
+        nsfw: rawModel.nsfw,
+        groups: rawModel.groups ? [...rawModel.groups] : undefined,
+        tags: rawModel.tags ? [...rawModel.tags] : undefined,
+        expressions: rawModel.expressions ? [...rawModel.expressions] : undefined,
+        motions: rawModel.motions ? [...rawModel.motions] : undefined,
+        emotionMappings: rawModel.emotionMappings ? JSON.parse(JSON.stringify(rawModel.emotionMappings)) : undefined,
+        motionMappings: rawModel.motionMappings ? JSON.parse(JSON.stringify(rawModel.motionMappings)) : undefined,
+        hiddenExpressions: rawModel.hiddenExpressions ? [...rawModel.hiddenExpressions] : undefined,
+        hiddenMotions: rawModel.hiddenMotions ? [...rawModel.hiddenMotions] : undefined,
+        favoriteExpressions: rawModel.favoriteExpressions ? [...rawModel.favoriteExpressions] : undefined,
+        outfits: rawModel.outfits ? JSON.parse(JSON.stringify(rawModel.outfits)) : undefined,
+        _searchKey: rawModel._searchKey,
       }
-      const targetFile = (cleanModel as any).file
       console.log('[DisplayModels:updateDisplayModelMappings] Accountable write to IndexedDB:', {
         id,
         isFileInstance: targetFile instanceof File || targetFile instanceof Blob,

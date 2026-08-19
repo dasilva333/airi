@@ -18,6 +18,7 @@ import {
   electronStageMateSetModelPosition,
   electronStageMateSetPropMacaron,
   electronStageMateSetViewportMode,
+  electronStageMateSyncOutfits,
   electronStageMateToggleVisibility,
 } from '@proj-airi/stage-shared'
 import { app, BrowserWindow, ipcMain } from 'electron'
@@ -483,6 +484,40 @@ export function createStageMateService(params?: {
 
     inFlightWrites.set(req.modelId, writePromise)
     return await writePromise
+  })
+
+  defineInvokeHandler(context, electronStageMateSyncOutfits, async (req) => {
+    const sidecarFile = join(cacheDir, `${req.modelId}.outfits.json`)
+    const targetVrmFile = join(cacheDir, `${req.modelId}.vrm`)
+
+    try {
+      const config = {
+        entries: (req.outfits || []).map(o => ({
+          name: o.name,
+          tag: o.tag || '',
+          meshes: o.meshes || [],
+        })),
+      }
+
+      writeFileSync(sidecarFile, JSON.stringify(config, null, 2), 'utf8')
+      log.withFields({ modelId: req.modelId, sidecarFile, count: config.entries.length }).log('Wrote Stage-Mate outfits sidecar JSON')
+
+      if (req.reload !== false && existsSync(targetVrmFile)) {
+        log.log(`Dispatching stage:vrm:load to reload model with updated sidecar`)
+        dispatchModelLoad(targetVrmFile, req.modelId, activeModelPosition)
+      }
+
+      return {
+        success: true,
+        path: sidecarFile,
+      }
+    }
+    catch (err: any) {
+      log.withError(err).error('Failed to write Stage-Mate outfits sidecar JSON')
+      return {
+        success: false,
+      }
+    }
   })
 
   defineInvokeHandler(context, electronStageMateSetViewportMode, async (mode) => {
