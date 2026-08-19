@@ -25,9 +25,9 @@ import { useDiscordStore } from '@proj-airi/stage-ui/stores/modules/discord'
 import { useHearingSpeechInputPipeline, useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
 import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positioning'
-import { useBroadcastChannel, useColorMode } from '@vueuse/core'
+import { useBroadcastChannel } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -73,7 +73,6 @@ const getMainWindowConfig = useElectronEventaInvoke(electronGetMainWindowConfig)
 const setIgnoreMouseEvents = useElectronEventaInvoke(electron.window.setIgnoreMouseEvents)
 const requestNotice = useElectronEventaInvoke(noticeWindowEventa.openWindow)
 
-const colorMode = useColorMode()
 const modelStore = useModelStore()
 
 const isLoading = ref(true)
@@ -109,8 +108,6 @@ const settingsStore = useSettings()
 const positioningStore = usePositioningStore()
 const controlStripStore = useSettingsControlStrip()
 const { stageEnabled, stageMateEnabled, stageMode, captionOpen, collapsed, chatOpen } = storeToRefs(controlStripStore)
-const controlsIslandStore = useSettingsControlsIsland()
-const { fadeOnHoverEnabled } = storeToRefs(controlsIslandStore)
 const toggleStageVisibility = useElectronEventaInvoke(electronStageToggleVisibility)
 const toggleStageMateVisibility = useElectronEventaInvoke(electronStageMateToggleVisibility)
 const setStageMateViewportMode = useElectronEventaInvoke(electronStageMateSetViewportMode)
@@ -140,7 +137,7 @@ watch(stageEnabled, (val) => {
 
 watch(stageMateEnabled, (val) => {
   toggleStageMateVisibility(val)
-})
+}, { immediate: true })
 
 watch(stageMode, (val) => {
   setStageMateViewportMode(val)
@@ -718,24 +715,14 @@ function handleControlStripAction(e: Event) {
   const action = (e as CustomEvent).detail.action
   console.info(`[Main Page] [Control Strip Action] Received action: "${action}"`)
   if (action === 'chat') {
-    controlStripStore.chatOpen = !controlStripStore.chatOpen
     console.info(`[Main Page] [Control Strip Action] Invoking openChat(${controlStripStore.chatOpen})...`)
     openChat(controlStripStore.chatOpen)
   }
   else if (action === 'settings') {
     openSettings()
   }
-  else if (action === 'caption') {
-    controlStripStore.captionOpen = !controlStripStore.captionOpen
-  }
-  else if (action === 'mic') {
-    settingsAudioDeviceStore.enabled = !settingsAudioDeviceStore.enabled
-  }
-  else if (action === 'stage') {
-    controlStripStore.stageEnabled = !controlStripStore.stageEnabled
-  }
-  else if (action === 'stage-mate') {
-    controlStripStore.stageMateEnabled = !controlStripStore.stageMateEnabled
+  else if (action === 'exit-app') {
+    quitApp()
   }
   else if (action === 'gemini-session') {
     if (!liveSessionStore.isActive) {
@@ -751,82 +738,10 @@ function handleControlStripAction(e: Event) {
         })
       }
     }
-    liveSessionStore.toggle()
-  }
-  else if (action === 'always-on-top') {
-    alwaysOnTop.value = !alwaysOnTop.value
-  }
-  else if (action === 'theme-mode') {
-    colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
-  }
-  else if (action === 'caption-sync-position') {
-    settingsStore.captionFollowStagePosition = !settingsStore.captionFollowStagePosition
-    debug('[ControlStrip] caption-sync-position toggled:', settingsStore.captionFollowStagePosition)
-  }
-  else if (action === 'caption-sync-visibility') {
-    settingsStore.captionFollowStageVisibility = !settingsStore.captionFollowStageVisibility
-    debug('[ControlStrip] caption-sync-visibility toggled:', settingsStore.captionFollowStageVisibility)
-  }
-  else if (action === 'head-tethered-caption') {
-    settingsStore.headTetheredCaptionEnabled = !settingsStore.headTetheredCaptionEnabled
-    debug('[ControlStrip] head-tethered-caption toggled:', settingsStore.headTetheredCaptionEnabled)
   }
   else if (action === 'caption-docking') {
-    const DOCK_CYCLE = ['none', 'bottom', 'top', 'head'] as const
     const current = settingsStore.captionDocking ?? 'none'
-    const next = DOCK_CYCLE[(DOCK_CYCLE.indexOf(current) + 1) % DOCK_CYCLE.length]
-    settingsStore.captionDocking = next
-    syncCaptionDocking(next)
-    debug('[ControlStrip] caption-docking cycled to:', next)
-  }
-  else if (action === 'caption-layout-mode') {
-    settingsStore.captionLayoutMode = settingsStore.captionLayoutMode === 'single' ? 'multi' : 'single'
-  }
-  else if (action === 'exit-app') {
-    quitApp()
-  }
-  else if (action === 'viewport-tactile') {
-    modelStore.interactionMode = 'tactile'
-    stageViewControlsEnabled.value = false
-    controlStripStore.stageMode = 'tactileMode'
-  }
-  else if (action === 'viewport-drag') {
-    modelStore.interactionMode = 'drag'
-    stageViewControlsEnabled.value = true
-    controlStripStore.stageMode = 'dragMode'
-  }
-  else if (action === 'viewport-positioning') {
-    modelStore.interactionMode = 'positioning'
-    stageViewControlsEnabled.value = true
-    controlStripStore.stageMode = 'positionMode'
-  }
-  else if (action === 'viewport-orbit') {
-    modelStore.interactionMode = 'orbit'
-    stageViewControlsEnabled.value = false
-    controlStripStore.stageMode = 'orbitMode'
-  }
-  else if (action === 'viewport-cycle-modes') {
-    controlStripStore.cycleStageMode()
-    const mode = controlStripStore.stageMode
-    if (mode === 'tactileMode') {
-      modelStore.interactionMode = 'tactile'
-      stageViewControlsEnabled.value = false
-    }
-    else if (mode === 'dragMode') {
-      modelStore.interactionMode = 'drag'
-      stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'positionMode') {
-      modelStore.interactionMode = 'positioning'
-      stageViewControlsEnabled.value = true
-    }
-    else if (mode === 'orbitMode') {
-      modelStore.interactionMode = 'orbit'
-      stageViewControlsEnabled.value = false
-    }
-  }
-  else if (action === 'viewport-auto-hide') {
-    fadeOnHoverEnabled.value = !fadeOnHoverEnabled.value
+    syncCaptionDocking(current)
   }
   else if (action === 'viewport-reset-coordinates') {
     const key = stageModelSelected.value

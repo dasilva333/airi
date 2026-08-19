@@ -1316,6 +1316,7 @@ function getShortLabel(btnId: string): string {
     'chat': 'Chat',
     'mic': 'Mic',
     'stage': 'Stage',
+    'stage-mate': 'Mate',
     'caption': 'CC',
     'gemini-session': 'Live',
     'settings': 'Set',

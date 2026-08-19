@@ -49,10 +49,24 @@ export function createStageMateService(params?: {
   let wss: WebSocketServer | null = null
   const authenticatedSockets = new Set<WebSocket>()
   let sidecarProcess: ChildProcess | null = null
+  let sidecarPid: number | null = null
   let isEnabled = true
   const inFlightWrites = new Map<string, Promise<{ success: boolean, path: string }>>()
   let lastBroadcastPath = ''
   let lastBroadcastTime = 0
+
+  function isProcessAlive(pid: number | null): boolean {
+    if (!pid)
+      return false
+    try {
+      // Signal 0 checks for process existence without sending a terminating signal
+      process.kill(pid, 0)
+      return true
+    }
+    catch (e: any) {
+      return e.code === 'EPERM'
+    }
+  }
 
   let activeModelId = ''
   let activeModelPath = ''
@@ -221,6 +235,11 @@ export function createStageMateService(params?: {
         ws.on('close', () => {
           authenticatedSockets.delete(ws)
           log.log('Stage-Mate socket disconnected')
+          if (authenticatedSockets.size === 0 && sidecarPid && !isProcessAlive(sidecarPid)) {
+            log.log('StageMate sidecar process confirmed exited upon socket disconnection')
+            sidecarProcess = null
+            sidecarPid = null
+          }
         })
 
         ws.on('error', (err) => {
@@ -276,14 +295,17 @@ export function createStageMateService(params?: {
     }
     else if (platform === 'darwin') {
       const candidates = [
-        join(baseDevPath, 'StageMate.app'),
-        join(baseDevPath, 'StageMate', 'StageMate.app'),
-        join(baseDevPath, 'macOS', 'StageMate.app'),
-        join(process.resourcesPath, 'StageMate.app'),
         join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseDevPath, 'StageMate.app'),
+        join(baseDevPath, 'StageMate', 'StageMate.app'),
+        join(baseDevPath, 'macOS', 'StageMate.app'),
+        join(process.resourcesPath, 'StageMate.app'),
       ]
       for (const cand of candidates) {
         if (existsSync(cand))
@@ -298,8 +320,12 @@ export function createStageMateService(params?: {
     if (authenticatedSockets.size > 0)
       return
 
-    if (sidecarProcess && !sidecarProcess.killed)
+    if (sidecarPid && isProcessAlive(sidecarPid))
       return
+
+    // Stale references cleanup
+    sidecarProcess = null
+    sidecarPid = null
 
     const binPath = resolveBinaryPath()
     if (!binPath) {
@@ -311,29 +337,56 @@ export function createStageMateService(params?: {
     log.withFields({ binPath }).log('Spawning StageMate sidecar process...')
 
     if (platform === 'darwin' && binPath.endsWith('.app')) {
-      sidecarProcess = spawn('open', ['-n', binPath, '--args', '--token', token], {
+      const child = spawn('open', ['-n', binPath, '--args', '--token', token], {
         detached: true,
         stdio: 'ignore',
       })
+      sidecarProcess = child
+      sidecarPid = child.pid ?? null
+      child.on('exit', () => {
+        // macOS open command exits immediately once launched
+      })
+      child.unref()
     }
     else {
-      sidecarProcess = spawn(binPath, ['--token', token], {
+      const child = spawn(binPath, ['--token', token], {
         detached: true,
         stdio: 'ignore',
       })
-    }
+      sidecarProcess = child
+      sidecarPid = child.pid ?? null
 
-    sidecarProcess.unref()
+      child.on('exit', (code, signal) => {
+        log.withFields({ code, signal, pid: sidecarPid }).log('StageMate sidecar process exited')
+        sidecarProcess = null
+        sidecarPid = null
+      })
+
+      child.on('error', (err) => {
+        log.withError(err).error('StageMate sidecar process error')
+        sidecarProcess = null
+        sidecarPid = null
+      })
+
+      child.unref()
+    }
   }
 
   async function stop(): Promise<void> {
-    if (sidecarProcess && !sidecarProcess.killed) {
+    if (sidecarPid && isProcessAlive(sidecarPid)) {
+      try {
+        process.kill(sidecarPid, 'SIGTERM')
+      }
+      catch {}
+    }
+    else if (sidecarProcess && !sidecarProcess.killed) {
       try {
         sidecarProcess.kill('SIGTERM')
       }
       catch {}
-      sidecarProcess = null
     }
+    sidecarProcess = null
+    sidecarPid = null
     broadcast({ type: 'control:stage', data: { enabled: false } })
   }
 
@@ -463,7 +516,7 @@ export function createStageMateService(params?: {
   defineInvokeHandler(context, electronStageMateGetState, async () => {
     return {
       enabled: isEnabled,
-      running: authenticatedSockets.size > 0 || (sidecarProcess !== null && !sidecarProcess.killed),
+      running: authenticatedSockets.size > 0 || (sidecarPid !== null && isProcessAlive(sidecarPid)),
     }
   })
 
@@ -482,6 +535,6 @@ export function createStageMateService(params?: {
     ensureRunning,
     stop,
     broadcast,
-    isStageMateRunning: () => authenticatedSockets.size > 0,
+    isStageMateRunning: () => authenticatedSockets.size > 0 || (sidecarPid !== null && isProcessAlive(sidecarPid)),
   }
 }

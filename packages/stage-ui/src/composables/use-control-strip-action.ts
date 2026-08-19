@@ -3,13 +3,12 @@ import { useBroadcastChannel, useColorMode } from '@vueuse/core'
 
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useLiveSessionStore } from '../stores/modules/live-session'
-import { useSettings } from '../stores/settings'
-import { useSettingsAudioDevice } from '../stores/settings/audio-device'
-import { useSettingsControlStrip } from '../stores/settings/control-strip'
+import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip } from '../stores/settings'
 
 export function useControlStripAction() {
   const settingsStore = useSettings()
   const controlStripStore = useSettingsControlStrip()
+  const controlsIslandStore = useSettingsControlsIsland()
   const settingsAudioDeviceStore = useSettingsAudioDevice()
   const liveSessionStore = useLiveSessionStore()
   const airiCardStore = useAiriCardStore()
@@ -123,6 +122,14 @@ export function useControlStripAction() {
 
       case 'gemini-tts':
         liveSessionStore.toggleOutputMode()
+        break
+
+      case 'always-on-top':
+        controlsIslandStore.alwaysOnTop = !controlsIslandStore.alwaysOnTop
+        break
+
+      case 'viewport-auto-hide':
+        controlsIslandStore.fadeOnHoverEnabled = !controlsIslandStore.fadeOnHoverEnabled
         break
 
       case 'stage':
