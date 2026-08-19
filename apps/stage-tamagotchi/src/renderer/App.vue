@@ -10,6 +10,7 @@ import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/charac
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
 import { clearMcpToolBridge, setMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { useMemoryLifetimeStore } from '@proj-airi/stage-ui/stores/memory-lifetime'
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
@@ -75,6 +76,7 @@ const pluginHostInspectorStore = usePluginHostInspectorStore()
 const discordStore = useDiscordStore()
 const textJournalStore = useTextJournalStore()
 const shortTermMemoryStore = useShortTermMemoryStore()
+const lifetimeMemoryStore = useMemoryLifetimeStore()
 const backupStore = useBackupStore()
 usePerfTracerBridgeStore()
 
@@ -96,6 +98,19 @@ async function ensureYesterdayShortTermBlockForActiveCharacter() {
   }
   catch (error) {
     console.warn('[ShortTermMemory] Failed to auto-generate yesterday block.', error)
+  }
+
+  // NOTICE: lifetime maintenance rides the STMM cadence but runs as fire-and-forget background
+  // work — a multi-day catch-up merge must never block app boot or card switches.
+  try {
+    const activeSessionId = chatSessionStore.getCharacterIndex(cardStore.activeCardId)?.activeSessionId || chatSessionStore.activeSessionId
+    const activeSessionMeta = chatSessionStore.getSessionMeta(activeSessionId)
+    const universeId = activeSessionMeta?.universeId || 'global'
+    void lifetimeMemoryStore.applyIncrementalUpdate(cardStore.activeCardId, universeId)
+      .catch(error => console.warn('[LifetimeMemory] Background incremental update failed.', error))
+  }
+  catch (error) {
+    console.warn('[LifetimeMemory] Failed to kick off background incremental update.', error)
   }
 }
 

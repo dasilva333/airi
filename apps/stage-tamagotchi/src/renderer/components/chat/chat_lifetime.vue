@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { estimateTokens } from '@proj-airi/stage-shared'
 import { MarkdownRenderer } from '@proj-airi/stage-ui/components'
+import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useMemoryLifetimeStore } from '@proj-airi/stage-ui/stores/memory-lifetime'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { Button } from '@proj-airi/ui'
@@ -14,12 +15,16 @@ const airiCardStore = useAiriCardStore()
 const { activeCardId, cards } = storeToRefs(airiCardStore)
 const lifetimeStore = useMemoryLifetimeStore()
 const { artifacts, isProvisioning } = storeToRefs(lifetimeStore)
+const chatSessionStore = useChatSessionStore()
 
 // --- Local State ---
 const showSourceModal = ref(false)
 const showHistoryModal = ref(false)
 const showLifetimeModal = ref(false)
 const autoHandoff = ref(true)
+const isSyncing = ref(false)
+const lastSyncResult = ref<'idle' | 'updating' | 'up-to-date' | 'bootstrapped' | 'error'>('idle')
+const lastSyncError = ref<string | null>(null)
 
 const activeCharacterArtifact = computed(() => {
   if (!activeCardId.value)
@@ -45,14 +50,71 @@ const artifactTokens7k = computed(() => {
   return content ? estimateTokens(content) : 0
 })
 
-const threadStatus = computed(() => [
-  { label: 'Soul Active', icon: 'i-solar:dna-bold-duotone' },
-  { label: `Archive: ${activeCharacterArtifact.value?.metadata?.chunkCount || 0} Chunks`, icon: 'i-solar:layers-bold-duotone' },
-  {
-    label: activeCharacterArtifact.value?.chunkSummaries?.length ? 'Foundation: OK' : 'Foundation: Missing',
-    icon: activeCharacterArtifact.value?.chunkSummaries?.length ? 'i-solar:database-bold-duotone' : 'i-solar:database-minimalistic-bold-duotone',
-  },
-])
+const activeUniverseId = computed(() => {
+  if (!activeCardId.value)
+    return 'global'
+  const activeSessionId = chatSessionStore.getCharacterIndex(activeCardId.value)?.activeSessionId || chatSessionStore.activeSessionId
+  const activeSessionMeta = chatSessionStore.getSessionMeta(activeSessionId)
+  return activeSessionMeta?.universeId || 'global'
+})
+
+const updateHistory = computed(() => {
+  const history = activeCharacterArtifact.value?.metadata?.updateHistory
+  return Array.isArray(history) ? [...history].reverse() : []
+})
+
+async function syncLifetimeThread() {
+  if (!activeCardId.value || isSyncing.value)
+    return
+
+  isSyncing.value = true
+  lastSyncError.value = null
+  lastSyncResult.value = 'updating'
+
+  const beforeWatermark = activeCharacterArtifact.value?.metadata?.lastConsumedDay
+  try {
+    await lifetimeStore.applyIncrementalUpdate(activeCardId.value, activeUniverseId.value)
+    await loadData()
+    const afterWatermark = activeCharacterArtifact.value?.metadata?.lastConsumedDay
+
+    if (lifetimeStore.error) {
+      lastSyncResult.value = 'error'
+      lastSyncError.value = lifetimeStore.error
+    }
+    else if (afterWatermark === beforeWatermark) {
+      lastSyncResult.value = 'up-to-date'
+    }
+    else if (!beforeWatermark && afterWatermark) {
+      lastSyncResult.value = 'bootstrapped'
+    }
+    else {
+      lastSyncResult.value = 'updating'
+    }
+  }
+  catch (error) {
+    lastSyncResult.value = 'error'
+    lastSyncError.value = error instanceof Error ? error.message : String(error)
+  }
+  finally {
+    isSyncing.value = false
+  }
+}
+
+const threadStatus = computed(() => {
+  const metadata = activeCharacterArtifact.value?.metadata
+  return [
+    { label: 'Soul Active', icon: 'i-solar:dna-bold-duotone' },
+    { label: `Archive: ${metadata?.chunkCount || 0} Chunks`, icon: 'i-solar:layers-bold-duotone' },
+    {
+      label: metadata?.lastConsumedDay ? `Thread Sealed Up To: ${metadata.lastConsumedDay}` : 'Thread Not Yet Sealed',
+      icon: metadata?.lastConsumedDay ? 'i-solar:calendar-bold-duotone' : 'i-solar:calendar-minimalistic-bold-duotone',
+    },
+    {
+      label: activeCharacterArtifact.value?.chunkSummaries?.length ? 'Foundation: OK' : 'Foundation: Missing',
+      icon: activeCharacterArtifact.value?.chunkSummaries?.length ? 'i-solar:database-bold-duotone' : 'i-solar:database-minimalistic-bold-duotone',
+    },
+  ]
+})
 
 async function loadData() {
   if (activeCardId.value) {
@@ -225,7 +287,38 @@ onMounted(() => loadData())
             </div>
             <div class="flex gap-3">
               <Button label="View Thread History" variant="secondary" icon="i-solar:history-line-duotone" @click="showHistoryModal = true" />
+              <Button :label="isSyncing ? 'Merging New Days...' : 'Sync Thread Now'" variant="secondary" icon="i-solar:refresh-bold-duotone" :disabled="isSyncing" @click="syncLifetimeThread" />
               <Button label="Merge Lifetime History" variant="primary" icon="i-solar:restart-bold-duotone" @click="showLifetimeModal = true" />
+            </div>
+            <div v-if="lastSyncResult !== 'idle'" class="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                v-if="lastSyncResult === 'updating'"
+                class="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] text-amber-700 font-bold dark:text-amber-400"
+              >
+                <div class="i-solar:dna-bold-duotone" />
+                New days merged — thread version {{ activeCharacterArtifact?.version }}
+              </span>
+              <span
+                v-else-if="lastSyncResult === 'up-to-date'"
+                class="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] text-emerald-700 font-bold dark:text-emerald-400"
+              >
+                <div class="i-solar:check-circle-bold-duotone" />
+                Thread fully up to date
+              </span>
+              <span
+                v-else-if="lastSyncResult === 'bootstrapped'"
+                class="flex items-center gap-1.5 rounded-full bg-sky-500/10 px-3 py-1 text-[10px] text-sky-700 font-bold dark:text-sky-400"
+              >
+                <div class="i-solar:info-circle-bold-duotone" />
+                Legacy thread sealed — incremental tracking starts from yesterday
+              </span>
+              <span
+                v-else-if="lastSyncResult === 'error'"
+                class="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-[10px] text-red-700 font-bold dark:text-red-400"
+              >
+                <div class="i-solar:danger-triangle-bold-duotone" />
+                Sync failed: {{ lastSyncError || lifetimeStore.error || 'Unknown error' }}
+              </span>
             </div>
           </div>
         </div>
@@ -237,13 +330,72 @@ onMounted(() => loadData())
           Lifetime Controls
         </h2>
         <div class="grid gap-12 lg:grid-cols-2">
-          <div class="flex flex-col justify-end">
+          <div class="flex flex-col gap-4">
             <div class="flex items-center gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 px-6 py-4 dark:border-neutral-700 dark:bg-neutral-800/40">
               <input id="handoff" v-model="autoHandoff" type="checkbox" class="h-5 w-5 border-neutral-300 rounded text-amber-500">
               <label for="handoff" class="flex flex-col cursor-pointer">
                 <span class="text-sm text-neutral-700 font-bold dark:text-neutral-200">Daily Update Handoff</span>
-                <span class="mt-0.5 text-[10px] text-neutral-500 font-bold tracking-wider uppercase">Your daily changes are merged into the thread at midnight</span>
+                <span class="mt-0.5 text-[10px] text-neutral-500 font-bold tracking-wider uppercase">New days merge into the thread automatically when AIRI starts</span>
               </label>
+            </div>
+
+            <div class="flex flex-col gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 px-6 py-4 dark:border-neutral-700 dark:bg-neutral-800/40">
+              <div class="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+                <div class="i-solar:calendar-bold-duotone text-lg text-amber-500" />
+                <span class="text-xs font-bold tracking-tight uppercase">Thread Maintenance</span>
+              </div>
+              <div class="flex flex-wrap gap-x-8 gap-y-3">
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-neutral-500 tracking-wider uppercase">Sealed Up To</span>
+                  <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">{{ activeCharacterArtifact?.metadata?.lastConsumedDay || 'Not sealed yet' }}</span>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-neutral-500 tracking-wider uppercase">Thread Version</span>
+                  <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">v{{ activeCharacterArtifact?.version || 1 }}</span>
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-[9px] text-neutral-500 tracking-wider uppercase">Last Pass</span>
+                  <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">{{ activeCharacterArtifact?.metadata?.lastUpdateType || 'init' }}</span>
+                </div>
+              </div>
+              <p class="text-[10px] text-neutral-500 italic dark:text-neutral-400">
+                Routine days leave the thread untouched. Only durable relationship shifts bump the version.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-2 text-neutral-600 dark:text-neutral-300">
+              <div class="i-solar:history-bold-duotone text-lg text-orange-500" />
+              <span class="text-xs font-bold tracking-tight uppercase">Maintenance Ledger</span>
+            </div>
+            <div v-if="updateHistory.length === 0" class="border border-neutral-200 rounded-2xl border-dashed px-6 py-8 text-center text-[11px] text-neutral-500 italic dark:border-neutral-700 dark:text-neutral-400">
+              No incremental merges recorded yet.
+            </div>
+            <div v-else class="max-h-56 flex flex-col gap-2 overflow-y-auto pr-1">
+              <div
+                v-for="entry in updateHistory"
+                :key="`${entry.day}-${entry.updatedAt}`"
+                class="flex items-start gap-3 border border-neutral-200 rounded-2xl bg-neutral-50/50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40"
+              >
+                <div :class="entry.changed ? 'i-solar:restart-bold-duotone text-orange-500' : 'i-solar:check-circle-bold-duotone text-emerald-500'" class="mt-0.5 text-base" />
+                <div class="min-w-0 flex flex-col gap-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-neutral-800 font-bold dark:text-neutral-200">{{ entry.day }}</span>
+                    <span
+                      :class="entry.changed
+                        ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'"
+                      class="rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase"
+                    >
+                      {{ entry.changed ? 'Thread Updated' : 'No Durable Change' }}
+                    </span>
+                  </div>
+                  <p v-if="entry.notes?.length" class="truncate text-[10px] text-neutral-500 dark:text-neutral-400">
+                    {{ entry.notes[0] }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

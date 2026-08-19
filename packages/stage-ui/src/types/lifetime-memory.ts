@@ -1,3 +1,11 @@
+/** Audit record of one incremental merge pass. Newest entries are kept; the chain is capped. */
+export interface LifetimeUpdateRecord {
+  day: string
+  changed: boolean
+  updatedAt: number
+  notes?: string[]
+}
+
 export interface LifetimeMemoryArtifact {
   id: string
   characterId: string
@@ -12,6 +20,8 @@ export interface LifetimeMemoryArtifact {
   distillPass1Pack?: Record<string, any>
   /** The compressed, distilled relational essence (~1k tokens) */
   distilledContent: string
+  /** Structured final distilled pack (source of incremental merges). Missing on artifacts produced before incremental maintenance. */
+  finalPack?: Record<string, any>
   sourceManifest: {
     rawTurnCount: number
     stmmBlockCount: number
@@ -24,5 +34,10 @@ export interface LifetimeMemoryArtifact {
     totalElapsedMs: number
     chunkCount: number
     targetTokens?: number
+    /** Incremental watermark: the last local day key (YYYY-MM-DD) fully consumed into this artifact. Missing on legacy artifacts. */
+    lastConsumedDay?: string
+    lastUpdateType?: 'init' | 'incremental'
+    /** Capped audit chain of incremental merge passes, newest last */
+    updateHistory?: LifetimeUpdateRecord[]
   }
 }
