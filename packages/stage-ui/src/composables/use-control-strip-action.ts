@@ -1,5 +1,6 @@
 import { useModelStore } from '@proj-airi/stage-ui-three'
 import { useBroadcastChannel, useColorMode } from '@vueuse/core'
+import { toast } from 'vue-sonner'
 
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useLiveSessionStore } from '../stores/modules/live-session'
@@ -133,6 +134,10 @@ export function useControlStripAction() {
         break
 
       case 'stage':
+        if (controlStripStore.stageDisabled) {
+          toast.info('WebGL Actor Stage is disabled via startup flag (--disable-webgl-stage)')
+          break
+        }
         controlStripStore.stageEnabled = !controlStripStore.stageEnabled
         break
 

@@ -40,6 +40,7 @@ import {
   electronControlStripSyncState,
   electronCustomizerToggleVisibility,
   electronGetMainWindowConfig,
+  electronGetStageDisabled,
   electronOpenChat,
   electronOpenSettings,
   electronStageMateSetViewportMode,
@@ -62,6 +63,7 @@ const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
 const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
+const getStageDisabled = useElectronEventaInvoke(electronGetStageDisabled)
 const quitApp = useElectronEventaInvoke(electronAppQuit)
 const syncCaptionDocking = useElectronEventaInvoke(electronCaptionSyncDocking)
 const startDraggingWindow = useElectronEventaInvoke(electronStartDraggingWindow)
@@ -761,6 +763,11 @@ function handleControlStripAction(e: Event) {
 }
 
 onMounted(async () => {
+  try {
+    controlStripStore.stageDisabled = await getStageDisabled()
+  }
+  catch {}
+
   chatStore.setToolsResolver(builtinTools)
   tools.value = await builtinTools()
   initVAD().catch((err) => {

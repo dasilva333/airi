@@ -1266,6 +1266,9 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
     return `Chat Toggle: ${chatOpen.value ? 'Open (Green)' : 'Closed (Red)'}`
   }
   if (btnId === 'stage') {
+    if (controlStripStore.stageDisabled) {
+      return 'Actor Stage: Disabled (--disable-webgl-stage)'
+    }
     return `Actor Stage: ${stageEnabled.value ? 'Visible (Green)' : 'Hidden (Red)'}`
   }
   if (btnId === 'stage-mate') {
@@ -1451,6 +1454,7 @@ function getShortLabel(btnId: string): string {
           'w-9 h-9 rounded-full border border-neutral-200 dark:border-white/10',
           'bg-neutral-100 hover:bg-neutral-200 dark:bg-white/10 dark:hover:bg-white/20 text-neutral-800 dark:text-neutral-100',
           'transition-all duration-200 hover:scale-105 cursor-pointer control-strip-btn shadow-sm',
+          btn.id === 'stage' && controlStripStore.stageDisabled ? 'opacity-40 grayscale cursor-not-allowed' : '',
         ]"
         :title="getButtonTitle(btn.id, btn.label)"
         @mouseenter="hoveredButtonId = btn.id"
@@ -1483,7 +1487,7 @@ function getShortLabel(btnId: string): string {
           v-if="btn.id === 'stage'"
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            stageEnabled ? 'bg-green-500' : 'bg-red-500',
+            controlStripStore.stageDisabled ? 'bg-neutral-400 dark:bg-neutral-600' : stageEnabled ? 'bg-green-500' : 'bg-red-500',
           ]"
         />
 

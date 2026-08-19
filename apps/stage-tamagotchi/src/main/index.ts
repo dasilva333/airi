@@ -29,6 +29,7 @@ import {
   electronGetChatWindowState,
   electronGetCorsBypassUrls,
   electronGetMonitorCount,
+  electronGetStageDisabled,
   electronResetWindowPositions,
   electronSetCorsBypassUrls,
   electronSetIgnoreMouseEvents,
@@ -66,7 +67,7 @@ import { setupNoticeWindowManager } from './windows/notice'
 import { setupOnboardingWindowManager } from './windows/onboarding'
 import { setupSettingsWindowReusableFunc } from './windows/settings'
 import { ensureWindowInVisibleBounds } from './windows/shared/display'
-import { setStageVisibleState, setupActorStageWindow } from './windows/stage'
+import { isStageDisabledByFlag, setStageVisibleState, setupActorStageWindow } from './windows/stage'
 import { setupWidgetsWindowManager } from './windows/widgets'
 
 // Guard BrowserWindow prototype methods against destroyed window objects to prevent "Object has been destroyed" exceptions
@@ -429,8 +430,7 @@ app.whenReady().then(async () => {
         await deps.captionWindow.toggleVisibility(enabled)
       })
       defineInvokeHandler(context, electronGetChatWindowState, async () => {
-        const win = await deps.chatWindow()
-        const isOpen = Boolean(win && !win.isDestroyed() && win.isVisible())
+        const isOpen = deps.chatWindow.isVisible()
         console.log('[@proj-airi/stage-tamagotchi] [Main] Retrieved chat window state:', isOpen)
         return isOpen
       })
@@ -502,14 +502,15 @@ app.whenReady().then(async () => {
           data: { enabled: flag },
         })
       })
+      defineInvokeHandler(context, electronGetStageDisabled, async () => isStageDisabledByFlag())
 
       defineInvokeHandler(context, electronShowToast, async (payload) => {
         if (!payload)
           return
 
-        let targetWin = await deps.chatWindow()
+        let targetWin: BrowserWindow | null = deps.chatWindow.getExistingWindow() ?? null
         if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
-          targetWin = deps.stageWindow
+          targetWin = deps.stageWindow ?? null
         }
         if (!targetWin || targetWin.isDestroyed() || !targetWin.isVisible()) {
           targetWin = deps.mainWindow
@@ -561,7 +562,7 @@ app.whenReady().then(async () => {
           targetWin = deps.stageWindow
         }
         else if (target === 'chat') {
-          targetWin = await deps.chatWindow()
+          targetWin = deps.chatWindow.getExistingWindow() ?? null
         }
 
         if (!targetWin || targetWin.isDestroyed())
@@ -908,7 +909,7 @@ app.whenReady().then(async () => {
         if (deps.stageWindow && !deps.stageWindow.isDestroyed()) {
           deps.stageWindow.setBounds(actorBounds)
         }
-        const chatWin = await deps.chatWindow()
+        const chatWin = deps.chatWindow.getExistingWindow()
         if (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) {
           chatWin.setBounds(chatBounds)
         }

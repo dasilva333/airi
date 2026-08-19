@@ -46,6 +46,7 @@ export const electronCaptionSetFollowStageVisibility = defineInvokeEventa<void, 
 export const electronSetIgnoreMouseEvents = defineInvokeEventa<void, boolean>('eventa:invoke:electron:window:set-ignore-mouse-events')
 export const electronStageToggleVisibility = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:stage:toggle-visibility')
 export const electronStageSetAlwaysOnTop = defineInvokeEventa<void, boolean>('eventa:invoke:electron:windows:stage:set-always-on-top')
+export const electronGetStageDisabled = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:stage:get-disabled')
 export const electronCustomizerToggleVisibility = defineInvokeEventa<void, boolean | { enabled?: boolean, group?: string } | undefined>('eventa:invoke:electron:windows:customizer:toggle-visibility')
 export const electronGetCustomizerWindowState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:customizer:get-state')
 

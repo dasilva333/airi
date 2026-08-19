@@ -15,6 +15,7 @@ import icon from '../../../../resources/icon.png?asset'
 import { baseUrl, getElectronMainDirname, load, withHashRoute } from '../../libs/electron/location'
 import { createReusableWindow } from '../../libs/electron/window-manager'
 import { ensureWindowInVisibleBounds } from '../shared/display'
+import { toggleWindowShow } from '../shared/window'
 import { setupChatWindowElectronInvokes } from './rpc/index.electron'
 
 let isChatVisible = false
@@ -23,14 +24,22 @@ export function setChatVisibleState(visible: boolean) {
   isChatVisible = visible
 }
 
+export interface ChatWindowManager {
+  getWindow: () => Promise<BrowserWindow>
+  openChat: (enabled?: boolean) => Promise<void>
+  isVisible: () => boolean
+  hasWindow: () => boolean
+  getExistingWindow: () => BrowserWindow | undefined
+}
+
 export function setupChatWindowReusableFunc(params: {
   widgetsManager: WidgetsWindowManager
   serverChannel: ServerChannel
   mcpStdioManager: McpStdioManager
   i18n: I18n
   appConfig: Config<typeof globalAppConfigSchema>
-}) {
-  return createReusableWindow(async () => {
+}): ChatWindowManager {
+  const reusable = createReusableWindow(async () => {
     const getConfig = () => params.appConfig.get() ?? { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' as const }
     const chatConfig = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'chat')
 
@@ -205,5 +214,48 @@ export function setupChatWindowReusableFunc(params: {
     })
 
     return window
-  }).getWindow
+  })
+
+  async function openChat(enabled?: boolean) {
+    if (enabled === false) {
+      if (!reusable.hasWindow()) {
+        setChatVisibleState(false)
+        return
+      }
+      const win = await reusable.getWindow()
+      setChatVisibleState(false)
+      win.hide()
+      return
+    }
+
+    if (enabled === true) {
+      setChatVisibleState(true)
+      const win = await reusable.getWindow()
+      win.show()
+      win.focus()
+      return
+    }
+
+    // enabled is undefined (toggle)
+    if (!reusable.hasWindow()) {
+      setChatVisibleState(true)
+      const win = await reusable.getWindow()
+      win.show()
+      win.focus()
+      return
+    }
+
+    const win = await reusable.getWindow()
+    const nextState = !win.isVisible()
+    setChatVisibleState(nextState)
+    toggleWindowShow(win)
+  }
+
+  return {
+    getWindow: reusable.getWindow,
+    openChat,
+    isVisible: reusable.isVisible,
+    hasWindow: reusable.hasWindow,
+    getExistingWindow: reusable.getExistingWindow,
+  }
 }

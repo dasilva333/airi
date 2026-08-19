@@ -7,6 +7,7 @@ import type { I18n } from '../../libs/i18n'
 import type { ServerChannel } from '../../services/airi/channel-server'
 import type { McpStdioManager } from '../../services/airi/mcp-servers'
 import type { AutoUpdater } from '../../services/electron/auto-updater'
+import type { ChatWindowManager } from '../chat'
 import type { NoticeWindowManager } from '../notice'
 import type { OnboardingWindowManager } from '../onboarding'
 import type { SettingsWindowManager } from '../settings'
@@ -29,7 +30,7 @@ import { setupMainWindowElectronInvokes } from './rpc/index.electron'
 
 export async function setupMainWindow(params: {
   settingsWindow: SettingsWindowManager
-  chatWindow: () => Promise<BrowserWindow>
+  chatWindow: ChatWindowManager
   widgetsManager: WidgetsWindowManager
   noticeWindow: NoticeWindowManager
   autoUpdater: AutoUpdater

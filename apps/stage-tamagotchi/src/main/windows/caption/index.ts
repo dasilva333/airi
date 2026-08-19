@@ -67,8 +67,10 @@ function clampBoundsWithinRect(bounds: Rectangle, rect: Rectangle): Rectangle {
   return { x, y, width: bounds.width, height: bounds.height }
 }
 
-function computeInitialCaptionBounds(params: { stageWindow: BrowserWindow, captionOptions?: Partial<Rectangle> }): Rectangle {
-  const mainBounds = params.stageWindow.getBounds()
+function computeInitialCaptionBounds(params: { stageWindow?: BrowserWindow | null, captionOptions?: Partial<Rectangle> }): Rectangle {
+  const mainBounds = (params.stageWindow && !params.stageWindow.isDestroyed())
+    ? params.stageWindow.getBounds()
+    : { x: 0, y: 0, width: 450, height: 600 }
 
   let mainX = mainBounds.x
   let mainY = mainBounds.y
@@ -186,7 +188,7 @@ function createCaptionWindow(options?: BrowserWindowConstructorOptions) {
 
 export function setupCaptionWindowManager(params: {
   mainWindow: BrowserWindow
-  stageWindow: BrowserWindow
+  stageWindow?: BrowserWindow | null
   serverChannel: ServerChannel
   i18n: I18n
   appConfig: Config<typeof globalAppConfigSchema>
@@ -217,7 +219,9 @@ export function setupCaptionWindowManager(params: {
 
   function computeRelativeOffset(win: BrowserWindow): { dx: number, dy: number } {
     const caption = win.getBounds()
-    const main = params.stageWindow.getBounds()
+    const main = (params.stageWindow && !params.stageWindow.isDestroyed())
+      ? params.stageWindow.getBounds()
+      : { x: 0, y: 0, width: 450, height: 600 }
     let dx = caption.x - main.x
     let dy = caption.y - main.y
     if (isNaN(dx) || isNaN(dy)) {
@@ -228,7 +232,9 @@ export function setupCaptionWindowManager(params: {
   }
 
   function calculateDockingBounds(win: BrowserWindow, dock?: 'top' | 'bottom'): Rectangle {
-    const main = params.stageWindow.getBounds()
+    const main = (params.stageWindow && !params.stageWindow.isDestroyed())
+      ? params.stageWindow.getBounds()
+      : { x: 0, y: 0, width: 450, height: 600 }
     const b = win.getBounds()
 
     let mainX = main.x
@@ -404,7 +410,7 @@ export function setupCaptionWindowManager(params: {
     updateConfig(cfgToSave)
 
     const syncNow = () => {
-      if (win.isDestroyed() || params.stageWindow.isDestroyed())
+      if (win.isDestroyed() || !params.stageWindow || params.stageWindow.isDestroyed())
         return
 
       const config = params.appConfig.get()
@@ -418,7 +424,9 @@ export function setupCaptionWindowManager(params: {
         const stored = getConfig()?.matrices[matrixHash]?.relativeToMain ?? initialOffset
         let dx = stored?.dx
         let dy = stored?.dy
-        const main = params.stageWindow.getBounds()
+        const main = (params.stageWindow && !params.stageWindow.isDestroyed())
+          ? params.stageWindow.getBounds()
+          : { x: 0, y: 0, width: 450, height: 600 }
         const b = win.getBounds()
 
         let mainWidth = main.width
@@ -495,8 +503,10 @@ export function setupCaptionWindowManager(params: {
       onMainChange()
     }
     onMainChange()
-    params.stageWindow.on('move', onMainChange)
-    params.stageWindow.on('resize', onMainChange)
+    if (params.stageWindow && !params.stageWindow.isDestroyed()) {
+      params.stageWindow.on('move', onMainChange)
+      params.stageWindow.on('resize', onMainChange)
+    }
     detachMainMoveListener = () => {
       moveThrottled.cancel()
       settleDebounced.cancel()

@@ -28,6 +28,10 @@ app.on('before-quit', () => {
 
 let isStageVisible = true
 
+export function isStageDisabledByFlag(): boolean {
+  return process.argv.includes('--disable-webgl-stage') || process.env.AIRI_DISABLE_WEBGL_STAGE === 'true'
+}
+
 export function setStageVisibleState(visible: boolean) {
   isStageVisible = visible
 }
@@ -36,7 +40,12 @@ export async function setupActorStageWindow(params: {
   appConfig: Config<typeof globalAppConfigSchema>
   serverChannel: ServerChannel
   i18n: I18n
-}) {
+}): Promise<BrowserWindow | null> {
+  if (isStageDisabledByFlag()) {
+    console.info('[@proj-airi/stage-tamagotchi] [Stage] WebGL Actor Stage disabled via --disable-webgl-stage flag.')
+    return null
+  }
+
   const getConfig = () => params.appConfig.get() ?? { language: 'en', windows: [], microphoneToggleHotkey: 'Scroll' as const }
   const actorConfig = getConfig().windows?.find((w: any) => w.title === 'AIRI' && w.tag === 'actor')
 

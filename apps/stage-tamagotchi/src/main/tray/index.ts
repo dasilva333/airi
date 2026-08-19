@@ -3,8 +3,9 @@ import type { BrowserWindow } from 'electron'
 
 import type { I18n } from '../libs/i18n'
 import type { ServerChannel } from '../services/airi/channel-server'
-import type { setupBeatSync } from '../windows/beat-sync'
+import type { BeatSyncWindowManager } from '../windows/beat-sync'
 import type { setupCaptionWindowManager } from '../windows/caption'
+import type { ChatWindowManager } from '../windows/chat'
 import type { CustomizerWindowManager } from '../windows/customizer'
 import type { OnboardingWindowManager } from '../windows/onboarding'
 import type { SettingsWindowManager } from '../windows/settings'
@@ -27,10 +28,10 @@ export function setupTray(params: {
   onboardingWindow: OnboardingWindowManager
   captionWindow: ReturnType<typeof setupCaptionWindowManager>
   widgetsWindow: WidgetsWindowManager
-  beatSyncBgWindow: Awaited<ReturnType<typeof setupBeatSync>>
+  beatSyncBgWindow: BeatSyncWindowManager
   aboutWindow: () => Promise<BrowserWindow>
-  chatWindow?: () => Promise<BrowserWindow>
-  stageWindow: BrowserWindow
+  chatWindow?: ChatWindowManager
+  stageWindow?: BrowserWindow | null
   customizerWindow: CustomizerWindowManager
   serverChannel: ServerChannel
   i18n: I18n
@@ -55,14 +56,12 @@ export function setupTray(params: {
         {
           label: 'Toggle Chat',
           click: async () => {
-            const chatWin = await params.chatWindow?.()
-            if (chatWin) {
-              toggleWindowShow(chatWin)
-            }
+            await params.chatWindow?.openChat()
           },
         },
         {
           label: 'Toggle Character Stage',
+          enabled: Boolean(params.stageWindow),
           click: () => {
             if (params.stageWindow && !params.stageWindow.isDestroyed()) {
               toggleWindowShow(params.stageWindow)

@@ -2,7 +2,7 @@ import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLocalStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import { CUSTOMIZER_CATALOG } from '../../constants/control-customizer'
 
@@ -80,6 +80,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
   })
   const isAdvancedPositioningOpen = useLocalStorageManualReset<boolean>('settings/control-strip/advanced-positioning-open', false)
   const stageEnabled = useLocalStorageManualReset<boolean>('settings/stage-enabled', true)
+  const stageDisabled = ref(false)
   const stageMateEnabled = useLocalStorageManualReset<boolean>('settings/stage-mate-enabled', false)
   const chatOpen = useLocalStorageManualReset<boolean>('settings/chat-open', false)
   const captionOpen = useLocalStorageManualReset<boolean>('settings/caption-open', false)
@@ -195,6 +196,7 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
     interactionMode,
     isAdvancedPositioningOpen,
     stageEnabled,
+    stageDisabled,
     stageMateEnabled,
     chatOpen,
     captionOpen,

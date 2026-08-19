@@ -2,6 +2,7 @@ import type { I18n } from '../../../libs/i18n'
 import type { ServerChannel } from '../../../services/airi/channel-server'
 import type { McpStdioManager } from '../../../services/airi/mcp-servers'
 import type { AutoUpdater } from '../../../services/electron/auto-updater'
+import type { ChatWindowManager } from '../../chat'
 import type { NoticeWindowManager } from '../../notice'
 import type { OnboardingWindowManager } from '../../onboarding'
 import type { SettingsWindowManager } from '../../settings'
@@ -28,14 +29,12 @@ import { createOnboardingService } from '../../../services/airi/onboarding'
 import { createWidgetsService } from '../../../services/airi/widgets'
 import { createAutoUpdaterService } from '../../../services/electron'
 import { createDockModeService } from '../../../services/electron/dock-mode'
-import { setChatVisibleState } from '../../chat'
-import { toggleWindowShow } from '../../shared'
 import { setupBaseWindowElectronInvokes } from '../../shared/window'
 
 export async function setupMainWindowElectronInvokes(params: {
   window: BrowserWindow
   settingsWindow: SettingsWindowManager
-  chatWindow: () => Promise<BrowserWindow>
+  chatWindow: ChatWindowManager
   widgetsManager: WidgetsWindowManager
   noticeWindow: NoticeWindowManager
   autoUpdater: AutoUpdater
@@ -62,26 +61,7 @@ export async function setupMainWindowElectronInvokes(params: {
   defineInvokeHandler(context, electronOpenMainDevtools, () => params.window.webContents.openDevTools({ mode: 'detach' }))
   defineInvokeHandler(context, electronOpenSettings, async payload => params.settingsWindow.openWindow(payload?.route))
   defineInvokeHandler(context, electronOpenChat, async (enabled?: boolean) => {
-    const win = await params.chatWindow()
-    console.info(`[Main Process] [Chat Window] openChat handler called. enabled: ${enabled}, window exists: ${!!win}`)
-    if (win && !win.isDestroyed()) {
-      if (enabled === undefined) {
-        const nextState = !win.isVisible()
-        setChatVisibleState(nextState)
-        toggleWindowShow(win)
-      }
-      else if (enabled) {
-        console.info('[Main Process] [Chat Window] Showing chat window')
-        setChatVisibleState(true)
-        win.show()
-        win.focus()
-      }
-      else {
-        console.info('[Main Process] [Chat Window] Hiding chat window')
-        setChatVisibleState(false)
-        win.hide()
-      }
-    }
+    await params.chatWindow.openChat(enabled)
   })
   defineInvokeHandler(context, noticeWindowEventa.openWindow, payload => params.noticeWindow.open(payload))
 
