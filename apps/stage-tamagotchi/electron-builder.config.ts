@@ -2,9 +2,22 @@
 
 import type { Configuration } from 'electron-builder'
 
+import fs from 'node:fs'
+import path from 'node:path'
+
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 import { isMacOS } from 'std-env'
+
+const here = path.dirname(fileURLToPath(import.meta.url))
+const stageMateBuildDir = path.resolve(here, '../stage-mate/mate-engine/Build')
+const stageMateMacApp = path.join(stageMateBuildDir, 'StageMate', 'StageMate.app')
+const stageMateMacRootApp = path.join(stageMateBuildDir, 'StageMate.app')
+const hasStageMateMac = fs.existsSync(stageMateMacApp) || fs.existsSync(stageMateMacRootApp)
+const stageMateMacSource = fs.existsSync(stageMateMacApp) ? stageMateMacApp : stageMateMacRootApp
+
+console.info(`[electron-builder/config] Stage-Mate macOS App found: ${hasStageMateMac} (${stageMateMacSource})`)
 
 function hasXcode26OrAbove() {
   if (!isMacOS)
@@ -35,6 +48,8 @@ else {
   console.info('[electron-builder/config] Xcode version is 26 or above. Using .icon format for macOS app icon.')
 }
 
+const isReleaseSigning = Boolean(process.env.CSC_LINK || process.env.APPLE_DEVELOPER_TEAM_ID)
+
 export default {
   appId: 'ai.moeru.airi',
   productName: 'AIRI',
@@ -44,12 +59,24 @@ export default {
   },
   afterPack: async (context) => {
     const { execSync } = require('node:child_process')
+    const { existsSync } = require('node:fs')
+    const { join } = require('node:path')
     console.log(`  • cleaning detritus for codesign: xattr -cr ${context.appOutDir}`)
     try {
       execSync(`xattr -cr "${context.appOutDir}"`)
       execSync(`find "${context.appOutDir}" -name ".DS_Store" -delete`)
-      console.log(`  • removing existing signatures to prevent detritus conflicts`)
-      execSync(`find "${context.appOutDir}" -type f -exec codesign --remove-signature {} + 2>/dev/null || true`)
+
+      // Deep-sign nested StageMate helper apps and frameworks so electron-builder signs successfully
+      const candidates = [
+        join(context.appOutDir, 'airi.app/Contents/Resources/StageMate/StageMate.app'),
+        join(context.appOutDir, 'AIRI.app/Contents/Resources/StageMate/StageMate.app'),
+      ]
+      for (const cand of candidates) {
+        if (existsSync(cand)) {
+          console.log(`  • deep signing nested StageMate bundle: ${cand}`)
+          execSync(`codesign --sign - --force --deep "${cand}"`)
+        }
+      }
     }
     catch (e) {
       console.warn(`  • warning: metadata cleanup failed: ${e.message}`)
@@ -136,12 +163,19 @@ export default {
     // an Apple Developer account, comment and uncomment the following 4 lines.
     // Later on when you obtained one, you can set up the necessary certificates and provisioning
     // profiles to enable these security features.
-    // hardenedRuntime: false,
-    hardenedRuntime: true,
-    // notarize: false,
-    notarize: true,
+    hardenedRuntime: isReleaseSigning,
+    notarize: isReleaseSigning,
     executableName: 'airi',
     icon: useIconFormattedMacAppIcon ? 'icon.icon' : 'icon.icns',
+    extraResources: (hasStageMateMac
+      ? [
+          {
+            from: stageMateMacSource,
+            to: 'StageMate/StageMate.app',
+            filter: ['**/*'],
+          },
+        ]
+      : []),
   },
   dmg: {
     artifactName: '${productName}-${version}-darwin-${arch}.${ext}',
