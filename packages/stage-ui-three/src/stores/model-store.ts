@@ -13,6 +13,12 @@ export type TrackingMode = 'camera' | 'mouse' | 'none'
 export type InteractionMode = 'orbit' | 'tactile' | 'drag' | 'positioning'
 export type HexColor = string & { __hex?: true }
 
+export interface DiscoveredMeshNode {
+  name: string
+  isSkinned: boolean
+  vertexCount: number
+}
+
 export interface FieldBase<T> {
   space: string // name space
   key: string // name key
@@ -153,6 +159,8 @@ export const useModelStore = defineStore('modelStore', () => {
 
   const availableExpressions = useLocalStorage<string[]>('settings/stage-ui-three/availableExpressions', [])
   const activeExpressions = useLocalStorage<Record<string, number>>('settings/stage-ui-three/activeExpressions', {})
+  // Discovered 3D Mesh nodes in loaded VRM
+  const discoveredMeshes = ref<DiscoveredMeshNode[]>([])
   // Maps VRM expression names to ACT emotion slots (e.g., { "anger": "angry", "pixel_glasses": "cool" })
   const emotionMappings = useLocalStorage<Record<string, string>>('settings/stage-ui-three/emotionMappings', {})
   // Quick-toggle favorite expression (e.g., "pixel_glasses")
@@ -180,6 +188,7 @@ export const useModelStore = defineStore('modelStore', () => {
 
     availableExpressions.value = []
     activeExpressions.value = {}
+    discoveredMeshes.value = []
     emotionMappings.value = {}
     favoriteExpression.value = ''
     vrmIdleAnimation.value = 'idleLoop'
@@ -274,6 +283,7 @@ export const useModelStore = defineStore('modelStore', () => {
 
     availableExpressions,
     activeExpressions,
+    discoveredMeshes,
     emotionMappings,
     favoriteExpression,
     vrmIdleAnimation,

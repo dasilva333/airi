@@ -88,9 +88,12 @@ export interface ActingConfig {
 export interface AiriOutfit {
   id: string
   name: string
-  icon: string
-  type: 'base' | 'overlay'
-  expressions: Record<string, number>
+  icon?: string
+  tag?: string
+  meshes?: string[]
+  type?: 'base' | 'overlay'
+  expressions?: Record<string, number>
+  defaultEnabled?: boolean
 }
 
 export interface CharacterGenerationConfig {
@@ -1279,16 +1282,17 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         return
 
       const nextExpressions = { ...vrmStore.activeExpressions }
+      const expressions = outfit.expressions || {}
 
       // Logic: If it's an overlay, check if it's already active to support toggling OFF
       if (outfit.type === 'overlay') {
-        const isCurrentlyActive = Object.entries(outfit.expressions).every(([name, weight]) => {
+        const isCurrentlyActive = Object.entries(expressions).every(([name, weight]) => {
           return Math.abs((nextExpressions[name] || 0) - weight) < 0.05
         })
 
         if (isCurrentlyActive) {
           // Toggle OFF: Zero out the expressions belonging to this overlay
-          for (const name of Object.keys(outfit.expressions)) {
+          for (const name of Object.keys(expressions)) {
             nextExpressions[name] = 0
           }
           vrmStore.activeExpressions = nextExpressions
@@ -1301,14 +1305,14 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       if (outfit.type === 'base') {
         const otherBaseOutfits = (extension.outfits || []).filter(o => o.type === 'base' && o.id !== outfitId)
         for (const other of otherBaseOutfits) {
-          for (const expr of Object.keys(other.expressions)) {
+          for (const expr of Object.keys(other.expressions || {})) {
             nextExpressions[expr] = 0
           }
         }
       }
 
       // Apply new outfit weights
-      for (const [name, weight] of Object.entries(outfit.expressions)) {
+      for (const [name, weight] of Object.entries(expressions)) {
         nextExpressions[name] = weight
       }
 

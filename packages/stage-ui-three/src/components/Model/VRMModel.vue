@@ -651,6 +651,19 @@ async function loadModel() {
         modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
       }
 
+      // Populate discovered 3D mesh nodes for the wardrobe/outfits UI
+      const meshNodes: Array<{ name: string, isSkinned: boolean, vertexCount: number }> = []
+      _vrm.scene.traverse((node: any) => {
+        if ((node.isMesh || node.isSkinnedMesh) && node.name) {
+          meshNodes.push({
+            name: node.name,
+            isSkinned: Boolean(node.isSkinnedMesh),
+            vertexCount: node.geometry?.attributes?.position?.count ?? 0,
+          })
+        }
+      })
+      modelStore.discoveredMeshes = meshNodes
+
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
       if (hipNode) {
         hipNode.updateMatrixWorld(true)

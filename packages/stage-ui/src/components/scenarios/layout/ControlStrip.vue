@@ -795,7 +795,7 @@ const wardrobeItems = computed(() => {
 
 function isOutfitActive(outfitId: string) {
   const outfit = activeCard.value?.extensions?.airi?.outfits?.find(o => o.id === outfitId)
-  if (!outfit)
+  if (!outfit || !outfit.expressions)
     return false
   return Object.entries(outfit.expressions).every(([name, weight]) => {
     return Math.abs((activeExpressions.value[name] || 0) - weight) < 0.05

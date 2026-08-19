@@ -105,9 +105,12 @@ const AiriShortTermMemorySchema = object({
 const AiriOutfitSchema = object({
   id: string(),
   name: string(),
-  icon: string(),
-  type: union([literal('base'), literal('overlay')]),
-  expressions: record(string(), number()),
+  icon: optional(string()),
+  tag: optional(string()),
+  meshes: optional(array(string())),
+  type: optional(union([literal('base'), literal('overlay')])),
+  expressions: optional(record(string(), number())),
+  defaultEnabled: optional(boolean()),
 })
 
 const AiriExtensionSchema = looseObject({
