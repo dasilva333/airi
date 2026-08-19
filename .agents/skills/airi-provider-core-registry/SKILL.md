@@ -1,7 +1,7 @@
 ---
 name: airi-provider-core-registry
-description: "Use when working with >-"
-  Use when defining new LLM/TTS/STT provider backends, writing defineProvider() metadata contracts, specifying capabilities (listModels, listVoices, loadModel), or defining Zod config validators.
+description: >-
+  Use when defining new LLM/TTS/STT/vision provider backends, writing defineProvider() metadata contracts, specifying capabilities (listModels, listVoices, loadModel, getSpeechCapabilities), registering Zod config validators, wiring providers into the central registry.ts, or localizing provider UI metadata via packages/i18n.
 ---
 
 # AIRI Provider Core Registry
@@ -16,13 +16,11 @@ This skill provides step-by-step instructions for implementing, extending, and m
 - **Registration:** All providers must be exported from their own directory and then manually imported and registered in the global registry.
 
 **Crucial File Paths:**
-- [`packages/stage-ui/src/libs/providers/types.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/types.ts) - The canonical source of truth for `ProviderDefinition`, `ProviderInstance`, `ModelInfo`, etc.
-- [`packages/stage-ui/src/libs/providers/providers/registry.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/registry.ts) - The central registry mapping IDs to ProviderDefinitions.
+- [`packages/stage-ui/src/libs/providers/types.ts`](packages/stage-ui/src/libs/providers/types.ts) - The canonical source of truth for `ProviderDefinition`, `ProviderInstance`, `ModelInfo`, etc.
+- [`packages/stage-ui/src/libs/providers/providers/registry.ts`](packages/stage-ui/src/libs/providers/providers/registry.ts) - The central registry mapping IDs to ProviderDefinitions.
 - `packages/stage-ui/src/libs/providers/providers/<provider_id>/index.ts` - Where individual providers are implemented.
 
-## 2. Key Code Paths
-
-## 3. Core SOPs & Guidelines
+## 2. Core SOPs & Guidelines
 ### Step-by-Step SOPs
 
 ### 1. Scaffold a New Provider Directory
@@ -98,16 +96,16 @@ Note: Many providers are likely auto-registered or manually imported in an aggre
 
 Ensure all translation keys referenced in `nameLocalize`, `descriptionLocalize`, and Zod `meta` fields are actually defined in `packages/i18n/`. (Use the `scripts/yaml-manager.js` script to add translations as documented in `docs/settings-yaml.md`).
 
-## 4. Known Pitfalls & Failure Modes
+## 3. Known Pitfalls & Failure Modes
 
 - **Schema Drift:** Be mindful of upstream API changes. The Zod validators are strict by design.
 - **Zod Localization:** Do not use raw strings for user-facing UI labels in Zod. Always map them using the `.meta()` extension pattern with the `t` function.
 - **Lazy Loading:** Limit expensive operations during `defineProvider`. The registry is loaded synchronously; delay heavy initialization to `createProvider`.
 - **Validation:** Do not forget to attach appropriate connectivity validators (e.g., `createOpenAICompatibleValidators`) for seamless user experience.
 
-## 5. Verification Workflows
+## 4. Verification Workflows
 
-1. **Typechecking:** Run `pnpm -F stage-ui typecheck` to ensure there are no schema or typing errors.
+1. **Typechecking:** Run `pnpm -F @proj-airi/stage-ui typecheck` to ensure there are no schema or typing errors.
 2. **Schema Verification:** Ensure the Zod validation correctly captures empty API keys and required configuration states.
 3. **UI Preview:** If instructed by the user to test visually, spin up the web application (e.g., `pnpm dev`) and navigate to the providers settings page to confirm the provider shows up with the correct icon and form fields.
 
