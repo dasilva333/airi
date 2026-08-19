@@ -1,66 +1,76 @@
 ---
 name: airi-memory-systems
 description: >-
-  Use when working with AIRI memory systems — long-term journal, short-term daily summaries, lifetime-memory synthesis, Echo-Chips, semantic search indexing, and the stores/repos under packages/stage-ui/src (memory-text-journal, memory-short-term, memory-lifetime, echo-chips) including Orama/Voy/Transformers.js, RWKV-7 salience gating, and provisioning sessions.
+  Use when working with AIRI memory systems at scale — the Eight Pillars of Memory hub skill covering chat sessions, text journal (LTMM), short-term daily summaries (STMM), echo chips, lifetime artifacts, image journal / autonomous artistry backgrounds, event log, and provisioning sessions. This skill is deliberately a map-of-maps: it locates each pillar's store, repo, storage namespace, universe tagging, and prompt-injection point, then defers implementation detail to the eight dedicated pillar skills plus retrieval (airi-memory-retrieval-engine), consolidation (airi-memory-consolidation-dreaming), and UI (airi-memory-ui-pages). Trigger on cross-pillar questions, universe isolation, memory data model overview, or "which skill owns this memory". Grounded in: docs/data-catalog.md, docs/timeline-flat-design.md, docs/memory_lab/.
 ---
 
-## Key Files/Locations
+# AIRI Memory Systems — The Eight Pillars Hub
 
-**Pinia Stores**
-- `packages/stage-ui/src/stores/memory-text-journal.ts` — Long-term journal (`local:memory/text-journal/{userId}`) used for append-only personal journal entries; owned by the user/AIRI, never auto-rewritten.
-- `packages/stage-ui/src/stores/memory-short-term.ts` — Daily summary blocks (`local:memory/short-term/{userId}`) with `tokenBudgetPerDay` (default 1000) and `windowSize` (default 3); exposes `rebuildFromHistory()` and `rebuildToday()` for per-day token-budget rebuilding across chat history, and `ensureYesterdayBlock()` for continuity.
-- `packages/stage-ui/src/stores/memory-lifetime.ts` — Eternal Thread lifetime artifact (`local:memory/lifetime/{characterId}`) plus provisioning pipeline; composes the synthesis prompts and orchestrates chunked summarization from raw history into a canned identity profile.
-- `packages/stage-ui/src/stores/echo-chips.ts` — Semantic "Echo Chips" (`local:memory/echo-chips/{userId}`); `synthesizeForCharacter()` extracts 3–5 chips (types: `mood`, `flavor`, `journal_candidate`) via `llmStore.generateObject` against a sanitized evidence window.
+Every durable piece of character memory in AIRI is one of **eight pillars** (user canonical framing; the six-pillar table in `docs/timeline-flat-design.md` §2 is the original citation, extended here with Event Log and Provisioning). Each pillar is effectively **its own store/repo and its own feature** — this hub skill only maps them; for implementation depth, load the pillar's dedicated skill.
 
-**Database Repos**
-- `packages/stage-ui/src/database/repos/text-journal.repo.ts`
-- `packages/stage-ui/src/database/repos/short-term-memory.repo.ts`
-- `packages/stage-ui/src/database/repos/lifetime-memory.repo.ts`
-- `packages/stage-ui/src/database/repos/provisioning-session.repo.ts` — tracks `ProvisioningSession` (`local:memory/provisioning-session/{characterId}`) with phases `idle | aggregating | chunking | synthesizing | distill_pass_1 | distill_pass_2 | success`; persists chunk summaries so a long provisioning run can be resumed.
-- `packages/stage-ui/src/database/repos/echo-chips.repo.ts`
+## 1. The Eight Pillars at a Glance
 
-**Semantic Search Index & Vector Engine**
-- `packages/stage-ui/src/libs/workers/search/search.worker.ts` — Browser-native search worker running `@huggingface/transformers` (`Xenova/bge-small-en-v1.5` with WebGPU acceleration and WASM fallback). Maintains an in-memory `Map<string, SearchDocument>` and BM25 token frequencies in the worker heap for zero-latency lookups. Candidate pool fetches `Math.max(limit * 5, 20)` (20 minimum).
-- `packages/stage-ui/src/libs/search/layered-memory.ts` — wraps `searchWorker` and persists serialized snapshots to a separate `airi-search-index` IndexedDB store via unstorage. Supports `init()`, `persist()`, `search(query, limit = 10, characterId)`, `indexDocuments()`, `removeDocument()`; maps doc kinds (`user_turn`/`assistant_turn`/`memory_block`/`journal_entry`/`echo_chip`/`lifetime_entry`) to layers (`raw`/`stmm`/`ltmm`).
-- `packages/stage-ui/src/libs/search/hybrid-scorer.ts` — computes fused (`vector` + `keyword` + temporal decay + layer boosts) hybrid scoring via Reciprocal Rank Fusion (RRF, $k=60$). Thresholds: `minVectorSimilarity: 0.38`, `minScoreSpread: 0.04`, `halfLifeDays: 30`.
-- **Injection Limits During Inference (`chat.ts`):** Grounded memory RAG injects top **3** memories (`limit: 3`); STMM injects `windowSize` daily recap blocks (default **3**, configurable per card); Lifetime injects **1** distilled summary artifact.
+| # | Pillar | Store | Repo / key | Dedicated skill |
+| --- | --- | --- | --- | --- |
+| 1 | Chat Sessions | `stores/chat/session-store.ts` (1529 ln) | `chat-sessions.repo` → `local:chat/*` | `airi-memory-chat-sessions` |
+| 2 | Text Journal (LTMM) | `stores/memory-text-journal.ts` (598 ln) | `text-journal.repo` → `local:memory/text-journal/{userId}` | `airi-memory-text-journal` |
+| 3 | Short-Term Memory (STMM) | `stores/memory-short-term.ts` (574 ln) | `short-term-memory.repo` → `local:memory/short-term/{userId}` | `airi-memory-short-term` |
+| 4 | Echo Chips | `stores/echo-chips.ts` (374 ln) | `echo-chips.repo` → `local:memory/echo-chips/{userId}` | `airi-memory-echo-chips` |
+| 5 | Lifetime Artifact | `stores/memory-lifetime.ts` (995 ln) | `lifetime-memory.repo` → `local:memory/lifetime/{characterId}:{universeId}` | `airi-memory-lifetime` |
+| 6 | Image Journal (incl. Autonomous Artistry) | `stores/background.ts` | `localforage` `bg-{nanoid}` keys (`BackgroundEntry` type `journal`/`selfie`) | `airi-memory-image-journal` |
+| 7 | Event Log | `stores/event-log.ts` (144 ln) | unstorage key `local:event-log` (cap 500) | `airi-memory-event-log` |
+| 8 | Provisioning Session | (lives in #5's pipeline) | `provisioning-session.repo` → `local:memory/provisioning-session/{characterId}` | `airi-memory-provisioning` |
 
-## When to Use
-Use this skill whenever you add, debug, or refactor anything that:
-- Stores or retrieves long-term journal entries, short-term daily summary blocks, lifetime memory artifacts, or Echo Chips.
-- Changes the daily-summary token budget (`tokenBudgetPerDay`) or the sliding context window (`windowSize`).
-- Updates the 5-stage lifetime synthesis pipeline (collect → chunk → base → Pass 1 → Pass 2).
-- Touches the embedding/semantic index (Orama / Voy / Transformers.js) or the `layered-memory.ts` search wrapper.
-- Works with the RWKV-7 0.1B salience gate that decides which chat turns are promoted into Echo-Chip candidates.
-- Deals with resumable provisioning sessions (LLM-based profile generation from raw chat).
+Secondary engines sitting across pillars (not pillars themselves):
+- **Retrieval/RAG** — `libs/search/layered-memory.ts`, `hybrid-scorer.ts`, search worker → `airi-memory-retrieval-engine`
+- **Consolidation/Dreaming** — nightly summarization, Sacred Journal Rule, DRMM → `airi-memory-consolidation-dreaming`
+- **Memory Settings UI / Eternal Thread** → `airi-memory-ui-pages`
 
-## Common Pitfalls
+## 2. The Prompt-Injection Spine (how pillars reach the LLM)
 
-- **Citing `crates/` for memory code** — the legacy Tauri path is gone. All current memory code lives in `packages/stage-ui/src/stores/` and `packages/stage-ui/src/database/repos/`.
-- **Breaking the sacred journal rule** — Long-term / manual journal entries (`text-journal.repo.ts`) are append-only and high-authority. Do not introduce in-place editing, deletion, or auto-rewriting by workers; only derived stores (DRMM/lifetime/echo-chips) may be updated by the consolidation pipelines.
-- **Forgetting the separate search index** — `layered-memory.ts` persists vector/embeddings to a *separate* IndexedDB named `airi-search-index`. Data loss or schema mismatches often come from assuming the index lives in the regular `local:*` namespace.
-- **Wrong layer mapping** — `KIND_MAP` in `layered-memory.ts` maps `memory_block` → `stmm`, `journal_entry` → `ltmm`, etc. If you add a new record kind and don't add the mapping, the query router will treat it as `raw`.
-- **Missing resume checkpoints** — Lifetime provisioning is resumable via `provisioning-session.repo.ts`. Never refactor the pipeline to clear state without writing an update; do not bypass `collectSourceDocs()` -> chunked summarization.
-- **Echo-Chips salience over-promise** — Echo-Chips are *gated* by a 0.1B RWKV-7 Δh state-vector vote (Phase 4b provenance: L9–L11 Δh vote-2of3 @ 1.5×, Recall 0.818 / Precision 0.90 / F1 0.857 / FPR 0.125). The 0.1B model itself does **not** generate tags (Phase 3 showed 0/14 structured output) — tag generation is delegated to the LLM in `synthesizeForCharacter()`. Don't assume the tiny model emits final chips.
-- **Token budget mishandling** — `rebuildFromHistory()` and `rebuildToday()` in `memory-short-term.ts` source `tokenBudgetPerDay` from `card.extensions.airi.shortTermMemory` with a fallback of 1000. Hard-coding a different default will desync character-specific configs.
+All memory lands in the system prompt through `session-store.ts`, never directly from the memory stores:
 
+- `buildShortTermMemoryContext(characterId)` (:210) — last `windowSize` (default 3, `card.extensions.airi.shortTermMemory`) STMM blocks as `[Short-Term Memory]`.
+- `buildLifetimeMemoryContext(characterId)` (:226) — the single distilled lifetime artifact as `[Lifetime Artifact]`.
+- Grounded journal RAG — top-3 journal entries (plus search-scoped candidates) per `airi-memory-retrieval-engine` limits.
+- Recent Echo Chips and Event-Ledger text (`eventLogStore.getRecentEventsText(6)`, consumed by proactivity at `proactivity.ts:673`) ride the heartbeat/retrieval paths.
 
-### Authoritative Design & Architecture Documents
+## 3. Universe Isolation (the flat model, not Git branching)
 
-- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §9 memory-systems canonical path index.
-- [docs/content/en/docs/advanced/architecture/arch-memory-system-overview.md](docs/content/en/docs/advanced/architecture/arch-memory-system-overview.md) — Memory system architecture overview.
-- [docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md](docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
-- [docs/content/en/docs/advanced/architecture/arch-short-term-memory-summaries.md](docs/content/en/docs/advanced/architecture/arch-short-term-memory-summaries.md) — Short-term memory summaries architecture.
-- [docs/content/en/docs/advanced/architecture/design-text-journal-storage.md](docs/content/en/docs/advanced/architecture/design-text-journal-storage.md) — Text journal storage design.
-- [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
-- [docs/memory_lab/state-of-system.md](docs/memory_lab/state-of-system.md) — Memory lab state-of-system document.
-- [docs/memory_lab/memory-engine-integration-plan.md](docs/memory_lab/memory-engine-integration-plan.md) — Memory engine integration plan.
-- [docs/memory_lab/production-transition-spec.md](docs/memory_lab/production-transition-spec.md) — Memory production transition spec.
-- [docs/proposal-echo-chips-rwkv-synthesis.md](docs/proposal-echo-chips-rwkv-synthesis.md) — Echo chips RWKV synthesis proposal.
+Per `docs/timeline-flat-design.md`: a Universe (`universeId`) decouples chat threads from memory banks; multiple sessions share one universe's memory. Consequences every pillar skill must respect:
 
-## Verification
+- Entries carry `universeId?: string`; every query falls back `entry.universeId || 'global'` (implemented in text-journal :90, STMM `collectCharacterDayBuckets(charId, universeId)`, background `journalEntries` computed :299).
+- Lifetime is universe-keyed; sessions carry `universeId` in `sessionMetas`; migration/rescoping flows edit tags, never move history (flat-model §3 / §7 Smart-Heal).
+- The old nested-timeline design (`docs/timeline-nested-design.md`) is superseded — do not implement ancestry walking.
 
-1. `pnpm -F stage-ui typecheck` (or the workspace-specific typecheck) to ensure the stores and repos compile.
-2. Inspect `localStorage` equivalent in the app: confirm `local:memory/short-term/*`, `local:memory/text-journal/*`, and `local:memory/echo-chips/*` populate after a journal refresh / rebuild run.
-3. Run a journaling or rebuild action in the Settings → "Short-Term Memory" UI (or via the internal store call) and verify a `Snapshot` write occurs in the `airi-search-index` IndexedDB (visible in the browser DevTools Application tab).
-4. For lifetime memory changes, verify `provisioning-session.repo.ts` state progresses through phases `aggregating → chunking → synthesizing → distill_pass_1 → distill_pass_2 → success` and that the final artifact appears in `local:memory/lifetime/{characterId}`.
+## 4. Storage-Layer Boundary
+
+`local:*` namespaces go through `database/storage.ts` (unstorage, sync-engine tracked). **Binary blobs bypass it**: backgrounds/images live in `localforage` (separate IndexedDB) reconciled via `reconcileBackgrounds()` — see `docs/data-catalog.md` §3.1 and `airi-binary-safety` for the binary-proxy pitfalls (toRaw before setItem).
+
+## 5. Cross-Pillar Flows
+
+1. **Turn → memory**: `chat.ts` inscribes turn → STMM rebuild (today/yesterday) → journal tool calls (LTMM) → AA/headless image save (pillar 6) → event-log append (pillar 7).
+2. **Consolidation**: Dreaming/summarization loops (STMM→ journal candidates → chips → lifetime distill) — `airi-memory-consolidation-dreaming`.
+3. **Provisioning**: raw history → 5-stage artifact build tracked by pillar 8 → lifetime keyed per universe.
+4. **Retrieval**: semantic index (`airi-search-index` IndexedDB) unifies `memory_block`→stmm, `journal_entry`→ltmm, raw turns for verbatim recall.
+
+## 6. Common Pitfalls
+
+- **Breaking the Sacred Journal rule** — pillar 2 manual entries are append-only; workers may derive but never rewrite/delete (see consolidation skill).
+- **Forgetting `|| 'global'` universe fallback** — every per-character read must apply it; missing it causes memories to leak across universes.
+- **Confusing `image_journal` with Autonomous Artistry** — the tool is assistant-initiated; AA is a deterministic side-channel (2nd LLM) that calls the same save path while the talking assistant stays unaware. Details: `airi-memory-image-journal`.
+- **Assuming everything is in `local:*`** — blob-heavy pillars (backgrounds/image journal, models, stickers) are `localforage`.
+- **Lifetime key shape** — current key is `{characterId}:{universeId}` with one-way migration from bare `{characterId}` (`lifetime-memory.repo.ts:10`).
+
+## 7. Verification
+
+- `pnpm -F @proj-airi/stage-ui typecheck` for store/repo changes (add App: `pnpm -F @proj-airi/stage-tamagotchi typecheck`).
+- Spot-check each touched pillar's key in DevTools Application → IndexedDB (`airi-*` / `local:*`), and binaries under the `localforage` instance — keep Subject A's memory distinct per universe while testing.
+
+## 8. Authoritative Sources
+
+- `docs/data-catalog.md` — the storage ground truth for all eight pillars (IndexedDB/`localforage`/localStorage split).
+- `docs/timeline-flat-design.md` / `docs/timeline-nested-design.md` — Universe model (flat is canonical).
+- `docs/memory_lab/` — schema, retrieval, provisioning, evaluation specs (see pillar skills for per-spec links).
+- `docs/rosetta-stone.md` — canonical path index; §9 memory-systems.
+- Peer skills: `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-memory-ui-pages`, `airi-data-persistence`, `airi-binary-safety`.

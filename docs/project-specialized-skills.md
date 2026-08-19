@@ -53,7 +53,7 @@ flowchart TD
 
 ## 3. Comprehensive Domain Skill Sitemap Catalog
 
-Below is the complete, categorized sitemap of all 41 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
+Below is the complete, categorized sitemap of all 51 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
 
 > **Authoring requirement for worker agents.** Every authored `SKILL.md` **must** include a keyword-rich `description:` frontmatter trigger of the form `Use when working with …`, explicitly naming the domain, the key technologies (e.g. `eventa`, `unstorage`, `localforage`, `defineProvider`, `BroadcastChannel`), and the kinds of tasks it applies to. Model it on the example in §1.
 
@@ -165,9 +165,9 @@ Below is the complete, categorized sitemap of all 41 specialized skills mapped a
 - **Content**: Main process Discord gateway service, slash command registration (`COMMANDS_VERSION`), image attachment vision routing, and tool availability fallthrough.
 
 #### 3.4 `airi-memory-systems`
-- **Target Domain**: Long-Term Journal, Short-Term Summaries, Lifetime Memory Synthesis, Echo-Chips.
-- **Key Paths**: `packages/stage-ui/src/stores/memory-{text-journal,short-term,lifetime}.ts`, `echo-chips.ts`, `packages/stage-ui/src/database/repos/{text-journal,short-term-memory,lifetime-memory,provisioning-session,echo-chips}.repo.ts`, `packages/stage-ui/src/libs/search/layered-memory.ts`.
-- **Content**: Long-term text journal (Orama/Voy semantic index), daily summary token budget rebuilding, Lifetime Memory Eternal Thread multi-pass synthesis pipeline, and Echo-Chips RWKV-7 salience sensor gating.
+- **Target Domain**: The Eight Pillars of Memory — hub / map-of-maps skill.
+- **Key Paths**: `packages/stage-ui/src/stores/` (memory-* stores, event-log, background), `packages/stage-ui/src/database/repos/`, `docs/data-catalog.md`, `docs/timeline-flat-design.md`.
+- **Content**: Deliberately thin map-of-maps: locates each of the eight pillars (chat sessions, text journal, short-term, echo chips, lifetime, image journal, event log, provisioning) with store → repo → namespace key → universe tagging → prompt-injection point, then defers depth to the eight dedicated pillar skills (3.13–3.20) plus retrieval (3.8), consolidation (3.9), and Memory UI (5.10). Owns the `local:*` vs `localforage` storage boundary, the session-store injection spine, and the flat-`universeId` isolation rules.
 
 #### 3.5 `airi-prompt-builder-engine`
 - **Target Domain**: System Prompt Builder, ACT Pipeline & Dating Sim Engine.
@@ -208,6 +208,46 @@ Below is the complete, categorized sitemap of all 41 specialized skills mapped a
 - **Target Domain**: Tool Registry, Builtin Tool Authoring & Per-Surface Availability.
 - **Key Paths**: `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/index.ts`, `packages/stage-ui/src/stores/proactivity.ts`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/llm.ts`.
 - **Content**: The two registries (chat `toolsResolver` + ProactivityStore `registerTools`/`resolveRegisteredTools`), the `builtinTools` factory composition and gateables, ACT-marker tool bridging, card-level `allowedTools` gating, the per-surface availability matrix (desktop/secondary-windows/proactivity/Discord text+voice+steer/Gemini Live native/web-stage/pocket/VLM), tool-call rendering in chat slices and Discord outbound formatting, and builtin tool authoring. Peer skills: `airi-mcp-integration`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`.
+
+#### 3.13 `airi-memory-chat-sessions`
+- **Target Domain**: Memory Pillar 1 — Chat Sessions & the prompt-injection spine.
+- **Key Paths**: `packages/stage-ui/src/stores/chat/session-store.ts`, `packages/stage-ui/src/database/repos/chat-sessions.repo.ts`, `docs/data-catalog.md` §1.4/§1.5.
+- **Content**: Session lifecycle (index, metas, generation checkpoints), universe metadata, fork/switch flows, and `buildShortTermMemoryContext`/`buildLifetimeMemoryContext` injection point.
+
+#### 3.14 `airi-memory-text-journal`
+- **Target Domain**: Memory Pillar 2 — Long-Term Text Journal (LTMM).
+- **Key Paths**: `packages/stage-ui/src/stores/memory-text-journal.ts`, `packages/stage-ui/src/database/repos/text-journal.repo.ts`, `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/text-journal.ts`.
+- **Content**: Append-only Sacred Journal rule, `text_journal` tool write path, universe-scoped filtering, journal→search indexing.
+
+#### 3.15 `airi-memory-short-term`
+- **Target Domain**: Memory Pillar 3 — Short-Term Memory daily blocks (STMM).
+- **Key Paths**: `packages/stage-ui/src/stores/memory-short-term.ts`, `packages/stage-ui/src/database/repos/short-term-memory.repo.ts`.
+- **Content**: One block per character per day, `tokenBudgetPerDay`/`windowSize` card config, rebuild flows, universe-scoped day buckets.
+
+#### 3.16 `airi-memory-echo-chips`
+- **Target Domain**: Memory Pillar 4 — Echo Chips.
+- **Key Paths**: `packages/stage-ui/src/stores/echo-chips.ts`, `packages/stage-ui/src/database/repos/echo-chips.repo.ts`, `docs/proposal-echo-chips-rwkv-synthesis.md`.
+- **Content**: 3–5 typed chips per character, two-stage RWKV-7 salience gate + LLM tag synthesis, evidence windows.
+
+#### 3.17 `airi-memory-lifetime`
+- **Target Domain**: Memory Pillar 5 — Lifetime Artifacts / Eternal Thread.
+- **Key Paths**: `packages/stage-ui/src/stores/memory-lifetime.ts`, `packages/stage-ui/src/database/repos/lifetime-memory.repo.ts`, `docs/memory_lab/lifetime-artifact-generation-plan.md`.
+- **Content**: The 5-stage resumable provisioning synthesis (`collect → chunk → base → distill_pass_1 → distill_pass_2 → success`), universe-keyed storage, `[Lifetime Artifact]` injection.
+
+#### 3.18 `airi-memory-image-journal`
+- **Target Domain**: Memory Pillar 6 — Image Journal & Autonomous Artistry.
+- **Key Paths**: `packages/stage-ui/src/stores/background.ts`, `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`, `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/image-journal.ts`, `docs/content/en/docs/advanced/architecture/design-image-journal-storage.md`.
+- **Content**: `BackgroundEntry` (`journal`/`selfie` types) in localforage; distinguishes the assistant-driven `image_journal` tool call from the deterministic Autonomous Artistry side-pipeline (Director 2nd-LLM → threshold gate → headless generation → journal save, invisible to the talking assistant).
+
+#### 3.19 `airi-memory-event-log`
+- **Target Domain**: Memory Pillar 7 — Event Log ledger.
+- **Key Paths**: `packages/stage-ui/src/stores/event-log.ts`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_event_log.vue`.
+- **Content**: 500-cap bounded ledger, seven event categories, `getRecentEventsText` heartbeat injection, UI pane.
+
+#### 3.20 `airi-memory-provisioning`
+- **Target Domain**: Memory Pillar 8 — Provisioning Sessions (resumable build state).
+- **Key Paths**: `packages/stage-ui/src/database/repos/provisioning-session.repo.ts`, `docs/data-catalog.md` §1.9.
+- **Content**: Phase state machine, chunk-summary checkpoint persistence, resume/reprovision/restart semantics paired with pillar 5.
 
 ---
 
@@ -300,9 +340,9 @@ Below is the complete, categorized sitemap of all 41 specialized skills mapped a
 |---|---|---|---|
 | **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure` | 7 |
 | **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer` | 9 |
-| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming` | 9 |
+| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning` | 20 |
 | **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research` | 5 |
 | **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages` | 10 |
-| | **TOTAL** | | **40** |
+| | **TOTAL** | | **51** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
