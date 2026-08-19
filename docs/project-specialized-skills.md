@@ -53,7 +53,7 @@ flowchart TD
 
 ## 3. Comprehensive Domain Skill Sitemap Catalog
 
-Below is the complete, categorized sitemap of all 39 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
+Below is the complete, categorized sitemap of all 41 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
 
 > **Authoring requirement for worker agents.** Every authored `SKILL.md` **must** include a keyword-rich `description:` frontmatter trigger of the form `Use when working with …`, explicitly naming the domain, the key technologies (e.g. `eventa`, `unstorage`, `localforage`, `defineProvider`, `BroadcastChannel`), and the kinds of tasks it applies to. Model it on the example in §1.
 
@@ -189,6 +189,16 @@ Below is the complete, categorized sitemap of all 39 specialized skills mapped a
 - **Key Paths**: `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/modules/live-session.ts`, `packages/stage-ui/src/services/speech/`, `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`.
 - **Content**: The seven input→hub→output routes (typed text × 4 surfaces, app mic STT, Discord classic voice → STT, proactivity heartbeats, Discord gemini voice, in-app Gemini Live mic, typed-text-mid-call short-circuit), the module-level hooks bus (HMR lesson, `chat.ts:96`), the six-layer TTS chain (`emitTokenLiteralHooks` → host intent → speech runtime → UST pipeline → playback), `performSend` generation-gated checkpoints (`bumpSessionGeneration` as the canonical mid-flight lever, Discord steer mode as the working precedent), the stop/cancel-in-flight audit (decorative stop button at `WhisperComposerBar.vue:233`, propose-first stop recipe), and a current-status reconciliation of the arch-doc Failure Log. Peer skills: `airi-audio-pipeline`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-discord-integration`. Phase 3 foundation referenced by Phase 5 `airi-desktop-chatbox`.
 
+#### 3.11 `airi-llm-dispatch-gateway`
+- **Target Domain**: LLM Request Dispatch Gateway (`useLLM` store).
+- **Key Paths**: `packages/stage-ui/src/stores/llm.ts`, `packages/stage-ui/src/stores/chat.ts`, `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`.
+- **Content**: The single renderer-side LLM funnel (`stream`/`generate`/`generateObject`/`discoverToolsCompatibility`), the `StreamOptions` contract (abortSignal, waitForTools, supportsTools, lazy tools resolver, requestOverrides sanitization), the `StreamEvent` protocol, the dual-settlement stream promise, message/system-message sanitization, and the one-way per-model tools-compatibility cache. Peer skills: `airi-provider-core-registry`, `airi-tool-registry-builtin-tools`, `airi-interaction-pipelines`.
+
+#### 3.12 `airi-tool-registry-builtin-tools`
+- **Target Domain**: Tool Registry, Builtin Tool Authoring & Per-Surface Availability.
+- **Key Paths**: `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/index.ts`, `packages/stage-ui/src/stores/proactivity.ts`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/llm.ts`.
+- **Content**: The two registries (chat `toolsResolver` + ProactivityStore `registerTools`/`resolveRegisteredTools`), the `builtinTools` factory composition and gateables, ACT-marker tool bridging, card-level `allowedTools` gating, the per-surface availability matrix (desktop/secondary-windows/proactivity/Discord text+voice+steer/Gemini Live native/web-stage/pocket/VLM), tool-call rendering in chat slices and Discord outbound formatting, and builtin tool authoring. Peer skills: `airi-mcp-integration`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`.
+
 ---
 
 ### 🟡 Phase 4: Operational SOPs & Upstream Research
@@ -280,9 +290,9 @@ Below is the complete, categorized sitemap of all 39 specialized skills mapped a
 |---|---|---|---|
 | **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure` | 7 |
 | **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision` | 7 |
-| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines` | 10 |
+| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools` | 12 |
 | **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research` | 5 |
 | **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages` | 10 |
-| | **TOTAL** | | **39** |
+| | **TOTAL** | | **41** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
