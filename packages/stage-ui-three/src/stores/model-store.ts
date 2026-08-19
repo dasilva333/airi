@@ -63,6 +63,7 @@ type BroadcastChannelEvents
   = | BroadcastChannelEventShouldUpdateView
     | BroadcastChannelEventTriggerEmotion
     | BroadcastChannelEventTriggerMotion
+    | BroadcastChannelEventSetMeshVisibility
 
 interface BroadcastChannelEventShouldUpdateView {
   type: 'should-update-view'
@@ -78,6 +79,12 @@ interface BroadcastChannelEventTriggerEmotion {
 interface BroadcastChannelEventTriggerMotion {
   type: 'trigger-motion'
   name: string
+}
+
+interface BroadcastChannelEventSetMeshVisibility {
+  type: 'set-mesh-visibility'
+  meshName: string
+  visible: boolean
 }
 
 export const useModelStore = defineStore('modelStore', () => {
@@ -125,6 +132,47 @@ export const useModelStore = defineStore('modelStore', () => {
     triggerMotionHooks.value.forEach(hook => hook(name))
   }
 
+  const hiddenMeshes = ref<string[]>([])
+
+  function applyMeshVisibility(meshName: string, visible: boolean) {
+    if (visible) {
+      hiddenMeshes.value = hiddenMeshes.value.filter(m => m !== meshName)
+    }
+    else if (!hiddenMeshes.value.includes(meshName)) {
+      hiddenMeshes.value.push(meshName)
+    }
+
+    if (!activeVrm.value?.scene)
+      return
+    activeVrm.value.scene.traverse((node: any) => {
+      if ((node.isMesh || node.isSkinnedMesh) && node.name === meshName) {
+        node.visible = visible
+      }
+    })
+  }
+
+  function setMeshVisibility(meshName: string, visible: boolean) {
+    post({ type: 'set-mesh-visibility', meshName, visible })
+    applyMeshVisibility(meshName, visible)
+  }
+
+  function setMeshesVisibility(meshNames: string[], visible: boolean) {
+    for (const name of meshNames) {
+      setMeshVisibility(name, visible)
+    }
+  }
+
+  function resetMeshVisibility() {
+    if (activeVrm.value?.scene) {
+      activeVrm.value.scene.traverse((node: any) => {
+        if (node.isMesh || node.isSkinnedMesh) {
+          node.visible = true
+        }
+      })
+    }
+    hiddenMeshes.value = []
+  }
+
   watch(data, (event) => {
     if (event.type === 'should-update-view') {
       shouldUpdateViewHooks.value.forEach(hook => hook(event.reason))
@@ -134,6 +182,9 @@ export const useModelStore = defineStore('modelStore', () => {
     }
     else if (event.type === 'trigger-motion') {
       triggerMotionHooks.value.forEach(hook => hook(event.name))
+    }
+    else if (event.type === 'set-mesh-visibility') {
+      applyMeshVisibility(event.meshName, event.visible)
     }
   })
 
@@ -284,6 +335,7 @@ export const useModelStore = defineStore('modelStore', () => {
     availableExpressions,
     activeExpressions,
     discoveredMeshes,
+    hiddenMeshes,
     emotionMappings,
     favoriteExpression,
     vrmIdleAnimation,
@@ -293,6 +345,11 @@ export const useModelStore = defineStore('modelStore', () => {
     activeVrmParser,
     activeVrmIdentity,
     detectedWardrobe,
+
+    setMeshVisibility,
+    applyMeshVisibility,
+    setMeshesVisibility,
+    resetMeshVisibility,
 
     onShouldUpdateView,
     shouldUpdateView,

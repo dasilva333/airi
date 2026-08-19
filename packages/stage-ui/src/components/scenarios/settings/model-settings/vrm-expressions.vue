@@ -73,6 +73,7 @@ function resetAll() {
     reset[name] = 0
   }
   activeExpressions.value = reset
+  modelStore.resetMeshVisibility()
 }
 
 function startBuildingOutfit() {
@@ -85,28 +86,35 @@ function startBuildingOutfit() {
 }
 
 function cancelBuildingOutfit() {
-  isBuildingOutfit.value = false
+  for (const name of selectedMeshes.value) {
+    modelStore.setMeshVisibility(name, true)
+  }
   selectedMeshes.value.clear()
+  isBuildingOutfit.value = false
 }
 
 function toggleMesh(meshName: string) {
   if (selectedMeshes.value.has(meshName)) {
     selectedMeshes.value.delete(meshName)
+    modelStore.setMeshVisibility(meshName, true)
   }
   else {
     selectedMeshes.value.add(meshName)
+    modelStore.setMeshVisibility(meshName, false)
   }
 }
 
 function selectAllMeshes() {
   for (const m of filteredDiscoveredMeshes.value) {
     selectedMeshes.value.add(m.name)
+    modelStore.setMeshVisibility(m.name, false)
   }
 }
 
 function clearAllMeshes() {
   for (const m of filteredDiscoveredMeshes.value) {
     selectedMeshes.value.delete(m.name)
+    modelStore.setMeshVisibility(m.name, true)
   }
 }
 
@@ -128,6 +136,9 @@ function saveOutfitSlot() {
   })
 
   airiCardStore.updateCardOutfits(activeCardId.value, currentOutfits)
+  for (const name of selectedMeshes.value) {
+    modelStore.setMeshVisibility(name, true)
+  }
   isBuildingOutfit.value = false
   selectedMeshes.value.clear()
 }
@@ -138,6 +149,19 @@ function deleteSlot(id: string) {
   const updated = outfits.value.filter(o => o.id !== id)
   airiCardStore.updateCardOutfits(activeCardId.value, updated)
 }
+
+function isSlotVisible(slot: AiriOutfit) {
+  const meshes = slot.meshes || []
+  if (meshes.length === 0)
+    return true
+  return meshes.every(name => !modelStore.hiddenMeshes.includes(name))
+}
+
+function toggleSlotVisibility(slot: AiriOutfit) {
+  const currentlyVisible = isSlotVisible(slot)
+  const meshes = slot.meshes || []
+  modelStore.setMeshesVisibility(meshes, !currentlyVisible)
+}
 </script>
 
 <template>
@@ -146,7 +170,7 @@ function deleteSlot(id: string) {
       No expressions or meshes available. Load a VRM model first.
     </div>
 
-    <template v-else>
+    <div v-else class="flex flex-col gap-2">
       <!-- Sub-Header Controls -->
       <div class="flex items-center justify-between px-2 pt-1">
         <span class="text-xs text-neutral-500 dark:text-neutral-400">
@@ -186,7 +210,7 @@ function deleteSlot(id: string) {
       </div>
 
       <!-- === Inline Wardrobe Builder View === -->
-      <div v-if="isBuildingOutfit" class="mt-2 flex flex-col gap-4">
+      <div v-show="isBuildingOutfit" class="mt-2 flex flex-col gap-4">
         <!-- Slot Configuration Form -->
         <Container title="New Wardrobe Slot" :expand="true" inner-class="flex flex-col gap-3 p-3">
           <!-- Slot Name -->
@@ -301,19 +325,20 @@ function deleteSlot(id: string) {
               class="group relative flex items-center gap-1.5 border border-neutral-200 rounded-lg border-solid px-2.5 py-1 text-xs transition-all duration-150 dark:border-neutral-700"
               :class="[
                 selectedMeshes.has(mesh.name)
-                  ? 'bg-primary-500/20 border-primary-500 text-primary-600 dark:text-primary-400 font-medium ring-1 ring-primary-500'
+                  ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 font-medium ring-1 ring-amber-500'
                   : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-800/60 dark:text-neutral-300 dark:hover:bg-neutral-700',
               ]"
               @click="toggleMesh(mesh.name)"
             >
               <div
-                class="size-3 flex items-center justify-center border rounded-sm"
-                :class="selectedMeshes.has(mesh.name) ? 'bg-primary-500 border-primary-500 text-white' : 'border-neutral-400'"
+                class="size-3.5 flex items-center justify-center border rounded-sm"
+                :class="selectedMeshes.has(mesh.name) ? 'bg-amber-500 border-amber-500 text-white' : 'border-neutral-400 text-neutral-400'"
               >
-                <div v-if="selectedMeshes.has(mesh.name)" class="i-solar:check-read-bold text-[9px]" />
+                <div :class="selectedMeshes.has(mesh.name) ? 'i-solar:eye-closed-bold-duotone text-[10px]' : 'i-solar:eye-bold-duotone text-[10px]'" />
               </div>
               <span class="font-mono">{{ mesh.name }}</span>
-              <span class="text-[9px] text-neutral-400">({{ mesh.vertexCount }}v)</span>
+              <span v-if="selectedMeshes.has(mesh.name)" class="text-[9px] text-amber-600 font-bold uppercase dark:text-amber-400">hidden</span>
+              <span v-else class="text-[9px] text-neutral-400">({{ mesh.vertexCount }}v)</span>
             </button>
           </div>
         </Container>
@@ -354,13 +379,30 @@ function deleteSlot(id: string) {
                 </div>
               </div>
 
-              <button
-                class="p-1 text-neutral-400 transition-colors hover:text-red-500"
-                title="Delete Slot"
-                @click="deleteSlot(slot.id)"
-              >
-                <div class="i-solar:trash-bin-trash-bold-duotone size-4" />
-              </button>
+              <div class="flex items-center gap-1">
+                <!-- Test Slot Toggle Button -->
+                <button
+                  class="rounded p-1 transition-colors"
+                  :class="[
+                    isSlotVisible(slot)
+                      ? 'text-primary-500 hover:bg-primary-500/10'
+                      : 'text-amber-500 hover:bg-amber-500/10',
+                  ]"
+                  :title="isSlotVisible(slot) ? 'Test: Hide Mesh Parts' : 'Test: Show Mesh Parts'"
+                  @click="toggleSlotVisibility(slot)"
+                >
+                  <div :class="isSlotVisible(slot) ? 'i-solar:eye-bold-duotone' : 'i-solar:eye-closed-bold-duotone'" class="size-4" />
+                </button>
+
+                <!-- Delete Slot Button -->
+                <button
+                  class="p-1 text-neutral-400 transition-colors hover:text-red-500"
+                  title="Delete Slot"
+                  @click="deleteSlot(slot.id)"
+                >
+                  <div class="i-solar:trash-bin-trash-bold-duotone size-4" />
+                </button>
+              </div>
             </div>
 
             <div class="mt-2 flex flex-wrap gap-1">
@@ -383,12 +425,13 @@ function deleteSlot(id: string) {
       </div>
 
       <!-- === Standard Customize View (ModelCustomizer) === -->
-      <ModelCustomizer
-        v-else
-        :model-id="displayModelId || ''"
-        class="mt-2"
-        :local-stage="true"
-      />
-    </template>
+      <div v-show="!isBuildingOutfit">
+        <ModelCustomizer
+          :model-id="displayModelId || ''"
+          class="mt-2"
+          :local-stage="true"
+        />
+      </div>
+    </div>
   </div>
 </template>
