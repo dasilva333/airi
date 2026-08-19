@@ -11,6 +11,8 @@ description: >-
 - `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts` — Electron **main-process** gateway service: owns the `discord.js` `Client` (`GatewayIntentBits`, `Partials`), `@discordjs/voice` voice connections, and IPC-exposed operations (`discordServiceRegisterCommands`, `discordServiceSendMessage`, `discordServiceReplyInteraction`, `discordServiceSendTyping`, `discordServiceGetStatus`, `discordServiceLeave`, `discordService*` cloud-relay ops).
 - `packages/stage-ui/src/stores/modules/discord.ts` — renderer orchestration store: slash-command registration gated by `COMMANDS_VERSION` (currently **11**; bump to force re-registration, `lastRegisteredVersion` skips re-register below it), `visionEnabled` (`settings/discord/visionEnabled`, default `true`), `sendImageToDiscord` (native IPC bypass via `toRaw({ channelId, base64, content, filename })`), message → `chatOrchestrator.ingest` routing, `/vision` command toggling VLM processing.
 - `packages/stage-ui/src/stores/chat.ts` — `performSend(sendingMessage, options, generation, sessionId)`: chat pipeline Discord messages flow through; tools fall through to `toolsResolver.value` (e.g. `builtinTools`) and are stripped only on VLM turns (`chat.ts` ~line 1127 evaluation).
+- `packages/stage-ui/src/stores/modules/cloudflare.ts` — OAuth session + `CloudflareStageDeployer` facade + Edge Vault (`saveToEdgeVault`/`fetchFromEdgeVault`).
+- `apps/stage-edge/` — the Cloudflare Worker (`/discord` webhook, `/cors-proxy`, `/health`) that hosts characters offline; see `airi-cloud-relay-infrastructure`.
 - `docs/feat-discord-revamp.md` — current revamp spec.
 - `docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md` — original design (slash-command list, guild vs global registration latency note).
 
@@ -28,6 +30,16 @@ description: >-
 - **Tools fallthrough.** Tools are NOT passed explicitly by the Discord store — `performSend` falls back to `toolsResolver.value` (set to `builtinTools` in the page), so all built-in tools (journal, widgets, stickers, MCP, dating sim) work from Discord automatically. Don't add special-casing unless stripping for a VLM turn.
 - **Command registration caching.** Slash commands re-register only when `COMMANDS_VERSION` is bumped above `lastRegisteredVersion`; global commands can take up to an hour to propagate — register per-guild during development.
 - **Large payloads.** `sendImageToDiscord` bypasses generic IPC serialization with a native channel and `toRaw`; keep payload shape `{ channelId, base64, content?, filename? }` and log size in KB, not raw base64.
+
+## Cloud Relay / Edge Interop
+
+Discord is the primary consumer of Cloud Relay: the local gateway service and the Edge worker are two execution surfaces for the same bot.
+
+- **Legacy (Gen 1):** local Electron gateway service (`services/airi/discord/index.ts`) owns the `discord.js` client and handles interactions on device.
+- **Edge (Cloud Relay):** when the user deploys, the Worker (`apps/stage-edge`) handles the `/discord` webhook with Ed25519 verification, Type-5 defer + PATCH to `messages/@original`, KV `context/rolling`, and the 2000-char trim; local client pauses its own loop (`executionMode: 'remote'`).
+- **`cloudRelayInstances`** (manual-reset localStorage, keyed by `scriptName`) = `{ scriptName, workerUrl, namespaceId, memoryMode ('fixed'|'unlimited', default 'unlimited'), deployedAt, cardId, sessionId }`. `fetchCloudRelayMemories(namespaceId, key='context/rolling')` pulls remote history back into the local session for the memory-review modal.
+- Slash commands register to BOTH surfaces via `registerSlashCommands(discordBotToken)` during `deployWorker`; keep the command list in sync between `services/airi/discord/index.ts` and `apps/stage-edge/src/discord/client.ts`.
+- Do not double-answer: if a relay instance is active for this bot, the local gateway must not also respond to the same interaction (see execution handover in `airi-cloud-relay-infrastructure`).
 
 
 ### Authoritative Design & Architecture Documents

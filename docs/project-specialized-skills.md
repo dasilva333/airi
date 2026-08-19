@@ -135,6 +135,16 @@ Below is the complete, categorized sitemap of all 41 specialized skills mapped a
 - **Key Paths**: `docs/proposal-attention-ecology-local-webgpu-guard.md`, `docs/implementation-plan-vision-witness.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`.
 - **Content**: Cascaded Salience Gate (pHash → CLIP vision embedding & novelty scoring → WASM OCR / RWKV-7 gate → VLM forwarder), privacy app exclusion filters, push/pull cognitive mechanics, and Vibe Island integration.
 
+#### 2.8 `airi-model-customizer`
+- **Target Domain**: The inline **ModelCustomizer** widget (`ModelCustomizer.vue`) — the embedded per-model capability editor used by all four model-type settings panels (VRM/Live2D/Spine/MMD) and the Rehearsal Room acting sandbox.
+- **Key Paths**: `packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`, `vrm-expressions.vue`, `live2d.vue`, `mmd.vue`, `spine.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, `packages/stage-ui/src/stores/display-models.ts` (`getOrLoadModelCapabilities`), `packages/stage-ui-three/src/stores/model-store.ts` (`discoveredMeshes`, `setMeshVisibility`), `docs/modelcustomizer-design.md`.
+- **Content**: Universal 4-format expression/motion explorer driven by indexed model capabilities (works with model off-stage); per-type preview dispatch (`triggerExpressionEffect`/`triggerMotionEffect`); ACT emotion and motion mapping + `<|ACT:...|>` insert-token contract; rename/visibility/favorite/idle-cycle toggles; and the mesh-part wardrobe builder (outfits + mesh names) expanding into a third domain. **Disambiguation**: this is the *inline widget*; the floating window is `airi-controlstrip-customizer`.
+
+#### 2.9 `airi-controlstrip-customizer`
+- **Target Domain**: The floating **Control Strip Customizer** window — user-facing "Customizer" (NOT the inline ModelCustomizer widget).
+- **Key Paths**: `apps/stage-tamagotchi/src/main/windows/customizer/index.ts`, `apps/stage-tamagotchi/src/renderer/pages/customizer.vue`, `packages/stage-ui/src/constants/control-customizer.ts` (`CUSTOMIZER_CATALOG`), eventa IPC (`electronCustomizerToggleVisibility`, `electronGetCustomizerWindowState`), `apps/stage-tamagotchi/src/renderer/pages/index.vue`.
+- **Content**: Floating glassmorphic configuration panel (opened from Control Strip / tray / hotkey) tweaking stage, captions, actor/wardrobe, Gemini, and system-window state in real time via direct Pinia store binding. `desktopOnly` items gate the desktop multi-window managers. **Disambiguation**: this is the *floating window*; the embedded settings widget is `airi-model-customizer`.
+
 ---
 
 ### 🟣 Phase 3: Module Systems, Cognition & Memory
@@ -289,10 +299,10 @@ Below is the complete, categorized sitemap of all 41 specialized skills mapped a
 | Phase | Target Scope | Output Skills | Count |
 |---|---|---|---|
 | **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure` | 7 |
-| **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision` | 7 |
-| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools` | 12 |
+| **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer` | 9 |
+| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming` | 9 |
 | **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research` | 5 |
 | **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages` | 10 |
-| | **TOTAL** | | **41** |
+| | **TOTAL** | | **40** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
