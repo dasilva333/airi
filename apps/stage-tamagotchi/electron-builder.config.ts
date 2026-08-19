@@ -57,7 +57,19 @@ else {
   console.info('[electron-builder/config] Xcode version is 26 or above. Using .icon format for macOS app icon.')
 }
 
-const isReleaseSigning = Boolean(process.env.CSC_LINK || process.env.APPLE_DEVELOPER_TEAM_ID)
+const STAGE_MATE_RESOURCE_FILTERS = [
+  '**/*',
+  '!*.log',
+  '!*.dmp',
+  '!*.vrm',
+  '!*.me',
+  '!*.prefab',
+  '!test_run.log',
+  '!*_BurstDebugInformation_DoNotShip/**/*',
+  '!**/CustomAvatars/**/*',
+  '!**/CustomDances/**/*',
+  '!**/Mods/**/*',
+]
 
 export default {
   appId: 'ai.moeru.airi',
@@ -106,7 +118,7 @@ export default {
   //     console.warn('Skipping notarizing step. Packaging is not running in CI')
   //     return
   //   }
-
+  //
   //   const appName = context.packager.appInfo.productFilename
   //   await notarize({
   //     appPath: `${appOutDir}/${appName}.app`,
@@ -153,11 +165,7 @@ export default {
           {
             from: stageMateWinSource,
             to: 'StageMate',
-            filter: [
-              '**/*',
-              '!*.log',
-              '!*_BurstDebugInformation_DoNotShip/**/*',
-            ],
+            filter: STAGE_MATE_RESOURCE_FILTERS,
           },
         ]
       : []),
@@ -194,7 +202,7 @@ export default {
           {
             from: stageMateMacSource,
             to: 'StageMate/StageMate.app',
-            filter: ['**/*'],
+            filter: STAGE_MATE_RESOURCE_FILTERS,
           },
         ]
       : []),
