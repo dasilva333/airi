@@ -1,46 +1,27 @@
-# 🚀 AIRI v0.9.24-stable.20260813 — Release Notes
+# 🚀 AIRI v0.9.25-stable.20260818 — Release Notes
 
-This release introduces **Live2D Head-Tethered Captions & WebGL Comic FX**, the all-new **Companion Creation Wizard**, a **Built-in WebLLM WebGPU Provider (Zero API Keys)**, the **Kyutai Pocket TTS Engine with 26 Voices**, **Attention Ecology 24/7 Vision Perception**, and the **Unified Event Ledger**.
+This release introduces the **Unity Stage-Mate Engine & Companion Floaties**, the **Full 9-Step Companion Wizard with Cloudflare Edge Vault**, **Stage-Mobile Dual Presentation Modes**, and **Proactivity Sub-Tabs with a Sneak Peek at Screen Watching**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 💬 Live2D Head-Tethered Speech Captions & WebGL Comic FX Engine
-* **3D Head-Tethered Speech Bubbles**: Speech captions now dynamically anchor directly above your character’s head in real time! Features 3D perspective tracking, 0-seam continuous vector paths, and automatic viewport clamping so bubbles never clip off-screen.
-* **Dynamic 4-Channel WebGL Comic FX**: Your companion’s dialogue now transforms the bubble into an animated comic panel per-phrase based on emotions, punctuation, and natural speech habits:
-  * 💖 **Flustered / Affection**: Floating vector hearts, pink blush wash, and heart-curled tails (`♡`).
-  * 💭 **Thought Cloud**: Morphs into a scalloped cloud bubble with trailing thought-dots for inner monologues `(parentheses)`.
-  * ⚡ **Shock / Exclamation**: Comic impact ring bursts, radial speed lines, and spring scale punches on `!!` / `!?`.
-  * 💢 **Tsundere / Angry**: Jagged starburst vector outline, pulsing anger marks (`💢`), and horizontal shake.
-  * 🌧️ **Melancholic Rain**: Translucent blue teardrop rain sliding down the interior and drooping tail.
-  * 🖤 **Yandere / Obsessive**: Dark violet vignette glow and heartbeat outline pulse (`🖤`).
-  * 🌸 **Star Blooms**: 6-pointed vector star blooms sprouting along the top outline for compliments and praise.
-  * 🐾 **Playful Cat**: Dynamic 60 FPS sine-wave tail wagging on cat speech (`nya~`, `meow`, `purr`).
-  * 🌐 **Cyber Scanlines**: Animated cyan scanlines and data grid drift for tech / system diagnostics.
-* **How to Enable**: Open **Customizer ➔ Captions** window and toggle **"Head-Tethered Captions"** ON (*Active for Live2D models today, with VRM 3D & Spine support coming soon!*).
+### 🎮 Unity Stage-Mate Engine & Interactive Companion Floaties
+* **Modular Unity Engine Sidecar (`stage-mate`)**: Integrated the new `stage-mate` Unity engine sidecar! Brings dynamic 3D VRM model loading, realistic sway dynamics, C# IPC sidecar relays, radial pie menus, and 2-tier positioning persistence across both Windows and macOS.
+* **Companion Floaties & Snack Props**: Give your companion interactive props and snacks directly from the Control Strip! Choose from pre-made presets (boba, tea, taiyaki, game controllers) or use the custom recipe builder to spawn floating items around your companion on the stage.
+* **Settings Model Preview Sync**: Fixed VRM expression preview propagation in settings so expressions and materials update seamlessly in real time.
 
-### 🪄 The All-New Companion Wizard
-* **Redesigned Setup Experience**: We've completely replaced the old setup screens with a sleek, step-by-step **Companion Wizard**.
-* **Frictionless Guided Flow**: New users get a smooth, friendly walkthrough to set up their companion's hearing (speech-to-text), speech (voice engine), 2D/3D body model, persona card, user profile, and AI brain — explained in plain, simple words.
-* **Multi-Companion Creation**: Existing users can launch the wizard anytime to quickly craft brand-new companions, seamlessly reusing their existing API keys, local models, and saved provider settings without starting from scratch.
-* **Easy Access**: Launch the Companion Wizard anytime from the **"+ Create Companion"** button in the AIRI Cards page or directly from the **System Tray** menu!
+### 🪄 The Full 9-Step Companion Wizard & Cloudflare Edge Vault
+* **Complete 9-Step Guided Setup**: Modernized the companion creation flow into an end-to-end guided sequence: **Hearing (STT) ➔ Speech (TTS) ➔ Body Vessel ➔ User Profile ➔ Persona ➔ Consciousness Brain ➔ Cloudflare Restore ➔ Calibration**.
+* **Sign-In with Cloudflare & Edge Vault**: Connect your Cloudflare account directly within the setup wizard to instantly back up or selectively restore your credentials and companion states with `airi-edge-vault` encrypted KV storage and zero-CORS edge routing.
+* **Local Provider Auto-Wiring**: Overhauled under-the-hood provider initialization during setup — Local Whisper now cleanly reclaims VRAM on model switches, resolves word truncation, and configures alongside WebLLM and Kokoro with zero friction.
 
-### 🧠 Native WebLLM WebGPU Provider (Zero API Keys)
-* **Local WebGPU AI Engine**: Run top open models (Gemma 3, Llama 3.2, Qwen 2.5, Phi 3.5, SmolLM2) locally on your GPU with **zero API keys** and zero external servers!
-* **Model Search & VRAM Tiering**: Includes model catalog search indexing and Local Free AI quick shortcuts.
+### 📱 Stage-Mobile & Stage-Pocket Revamp
+* **Dual Mobile Presentation Modes**: Unified the mobile chat experience with 4 distinct sheet postures, smooth drag controls, Producer Guidance modals, and Producer Choice bubbles.
+* **Theme-Aware Ambient Floating Hearts**: Added a theme-aware floating hearts stage scene layer alongside a frosted light control strip.
 
-### 🗣️ Kyutai Pocket TTS Engine & 26 Preset Voices
-* **Local Neural Speech Flow**: Integrated the local Kyutai Pocket TTS neural flow sampling engine for ultra-fast local speech synthesis.
-* **26 Predefined Kyutai Voices**: Cataloged 26 Kyutai Pocket TTS voices filtered by language selection, complete with HuggingFace gated model token support and voice presets.
-
-### 👁️ Attention Ecology & 24/7 Vision Perception
-* **Cascaded Salience Gate**: Implemented a 4-tier salience gate (pHash → CLIP vision embedding → WASM Tesseract.js OCR → VLM forwarder) for zero-cost 24/7 background vision perception.
-* **DevTools Perception Inspector**: Added a live ASCII terminal dashboard script and DevTools inspector for background perception metrics.
-
-### 📊 Unified Event Ledger
-* **Real-time Event Logging**: Integrated a unified Event Log store emitting live user input ingestion, tool calls, and assistant response events into a workspace route drawer UI.
-
-### 🎭 Live2D Runtime Enhancements
-* **State-Preserving Costume Swaps (`change_cos`)**: Added support for structured target costume hot-swaps (`change_cos`) without resetting motion state.
-* **Motion Gating**: Added `MotionEnable` and `MotionDisable` instruction toggles to control character motion triggers.
+### ⚡ Proactivity, Audio Engine & Developer Previews
+* **Proactivity Settings Revamp**: Re-architected Proactivity settings into 5 thematic sub-tabs with a busy pipe mutex and prefix-cache tail framing to keep automated heartbeats cost-effective and responsive.
+* **Screen Watching (Developer Sneak Peek)**: A glimpse into our upcoming vision awareness engine! The developer preview tab and visual source picker UI are now in place as we finalize the background perception pipeline.
+* **Real-Time SSE Audio Streaming**: Added real-time SSE audio streaming with actor pacing and synchronized character voice profiles across desktop and mobile.
+* **Comprehensive Event Ledger**: Wired text/image journals, voice STT events, and tool execution results directly into the real-time Event Ledger.
