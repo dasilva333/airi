@@ -17,10 +17,10 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 
 ## 2. Key Code Paths
 
-- [`packages/stage-ui/src/stores/provider-catalog.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/provider-catalog.ts) - The Pinia store managing multi-instance configurations.
-- [`packages/stage-ui/src/database/repos/providers.repo.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/database/repos/providers.repo.ts) - IndexedDB persistence layer.
-- [`packages/stage-ui/src/composables/use-provider-validation.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/use-provider-validation.ts) - Validation logic and debouncing.
-- [`docs/design-multi-instance-provider-studio.md`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-multi-instance-provider-studio.md) - Architecture design document.
+- [`packages/stage-ui/src/stores/provider-catalog.ts`](packages/stage-ui/src/stores/provider-catalog.ts) - The Pinia store managing multi-instance configurations.
+- [`packages/stage-ui/src/database/repos/providers.repo.ts`](packages/stage-ui/src/database/repos/providers.repo.ts) - IndexedDB persistence layer.
+- [`packages/stage-ui/src/composables/use-provider-validation.ts`](packages/stage-ui/src/composables/use-provider-validation.ts) - Validation logic and debouncing.
+- [`docs/design-multi-instance-provider-studio.md`](docs/design-multi-instance-provider-studio.md) - Architecture design document.
 
 ## 3. Core SOPs & Guidelines
 

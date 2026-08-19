@@ -267,8 +267,21 @@ export default defineConfig({
           return null
         },
         load(id) {
-          if (id === '\0virtual:node-shim')
-            return 'export default {};'
+          if (id === '\0virtual:node-shim') {
+            return `
+              export default {};
+              export const readFileSync = () => '';
+              export const writeFileSync = () => {};
+              export const existsSync = () => false;
+              export const statSync = () => ({ isDirectory: () => false, isFile: () => false });
+              export const promises = { readFile: async () => '', writeFile: async () => {} };
+              export const join = (...args) => args.filter(Boolean).join('/');
+              export const resolve = (...args) => args.filter(Boolean).join('/');
+              export const dirname = (p) => (p ? p.split('/').slice(0, -1).join('/') : '');
+              export const basename = (p) => (p ? p.split('/').pop() : '');
+              export const extname = (p) => (p && p.includes('.') ? '.' + p.split('.').pop() : '');
+            `
+          }
           return null
         },
       },

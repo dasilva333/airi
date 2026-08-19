@@ -67,7 +67,15 @@
     "editor.formatOnSave": true
   },
   "rust-analyzer.checkOnSave": true,
-  "rust-analyzer.cachePriming.enable": false, // Disable cache priming on workspace startup to save some memory while working on non-Rust tasks
-
-  "vitest.disableWorkspaceWarning": true
+  "vitest.disableWorkspaceWarning": true,
+  "files.watcherExclude": {
+    "**/dist/**": true,
+    "**/out/**": true,
+    "**/mate-engine/Build/**": true
+  },
+  "search.exclude": {
+    "**/dist/**": true,
+    "**/out/**": true,
+    "**/mate-engine/Build/**": true
+  }
 }

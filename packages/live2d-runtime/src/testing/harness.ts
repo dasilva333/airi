@@ -1,7 +1,5 @@
 import type { DslMotionGroup, MotionRef } from '../dsl/types'
 
-import * as fs from 'node:fs'
-
 import { captureDslGroups } from '../../../stage-ui-live2d/src/runtime/dsl-capture'
 import { DSLVirtualMachine } from '../dsl/interpreter'
 
@@ -87,7 +85,19 @@ export class HeadlessDslTestHarness {
   /** Load manifest from DslMotionGroup[], raw manifest JSON object, or file path. */
   load(groupsOrManifest: DslMotionGroup[] | Record<string, unknown> | string): void {
     if (typeof groupsOrManifest === 'string') {
-      const content = fs.readFileSync(groupsOrManifest, 'utf-8')
+      let content = groupsOrManifest
+      if (!groupsOrManifest.trim().startsWith('{')) {
+        try {
+          // NOTICE: Node-only file reading in test harness
+          const req = typeof require !== 'undefined' ? require : null
+          if (req) {
+            content = req('node:fs').readFileSync(groupsOrManifest, 'utf-8')
+          }
+        }
+        catch {
+          // Fall through
+        }
+      }
       const parsed = JSON.parse(content)
       const motions = parsed.FileReferences?.Motions || parsed.motions
       this.vm.loadGroups(captureDslGroups(motions))

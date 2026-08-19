@@ -17,7 +17,16 @@ const stageMateMacRootApp = path.join(stageMateBuildDir, 'StageMate.app')
 const hasStageMateMac = fs.existsSync(stageMateMacApp) || fs.existsSync(stageMateMacRootApp)
 const stageMateMacSource = fs.existsSync(stageMateMacApp) ? stageMateMacApp : stageMateMacRootApp
 
+const stageMateWinCandidates = [
+  path.join(stageMateBuildDir, 'Windows'),
+  path.join(stageMateBuildDir, 'StageMate'),
+  stageMateBuildDir,
+]
+const stageMateWinSource = stageMateWinCandidates.find(dir => fs.existsSync(path.join(dir, 'StageMate.exe')) || fs.existsSync(path.join(dir, 'MateEngineX.exe')))
+const hasStageMateWin = Boolean(stageMateWinSource)
+
 console.info(`[electron-builder/config] Stage-Mate macOS App found: ${hasStageMateMac} (${stageMateMacSource})`)
+console.info(`[electron-builder/config] Stage-Mate Windows binary found: ${hasStageMateWin} (${stageMateWinSource})`)
 
 function hasXcode26OrAbove() {
   if (!isMacOS)
@@ -139,6 +148,19 @@ export default {
       'nsis',
       'zip',
     ],
+    extraResources: (hasStageMateWin && stageMateWinSource
+      ? [
+          {
+            from: stageMateWinSource,
+            to: 'StageMate',
+            filter: [
+              '**/*',
+              '!*.log',
+              '!*_BurstDebugInformation_DoNotShip/**/*',
+            ],
+          },
+        ]
+      : []),
   },
   nsis: {
     artifactName: '${productName}-${version}-windows-${arch}-setup.${ext}',
