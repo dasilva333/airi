@@ -296,11 +296,95 @@ export interface AiriVrmWardrobeManifest {
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
+## 5. Data Architecture: Card vs. DisplayModel Asset Ownership
+
+### 5.1 Why Outfits Belong to `DisplayModelFile` (Not Character Cards)
+In the initial exploration, outfits were placed under `activeCard.extensions.airi.modules.outfits`. Real-world testing with diverse models (e.g. **Komoe** vs. **Morinatsu**) revealed why this was architecturally incorrect:
+
+1. **Meshes Belong to 3D Assets**:
+   - `SwimsuitRing`, `HeadbandEar_1` are unique to `Komoe.vrm`.
+   - `Cube001`, `Sphere006`, `Plane002` are unique to `Morinatsu.vrm`.
+2. **Multi-Model Character Switching**:
+   - A single character card can reference different display models over time. If outfits were tied to the character card, changing the active model would leave invalid, orphaned mesh bindings.
+3. **Multi-Engine Scalability**:
+   - Storing `outfits: AiriOutfit[]` in `DisplayModelFile` inside `displayModelsStore` (alongside `emotionMappings`, `motionMappings`, and `favoriteExpressions` in IndexedDB) ensures that:
+     - Every VRM model maintains its own tailored wardrobe slots.
+     - MMD (PMX/PMD), Spine, and Live2D can reuse the exact same schema and store layer.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│               IndexedDB: `display-models`                   │
+│                                                             │
+│  DisplayModelFile (Komoe.vrm)                               │
+│  ├── emotionMappings: { "joy": "happy", "anger": "pout" }   │
+│  ├── motionMappings:  { "wave": "greeting" }                │
+│  └── outfits: [                                             │
+│       { id: "1", name: "FLOATIE", tag: "accessories",       │
+│         meshes: ["SwimsuitRing"] }                          │
+│      ]                                                      │
+│                                                             │
+│  DisplayModelFile (Morinatsu.vrm)                           │
+│  └── outfits: [                                             │
+│       { id: "2", name: "SEMI-DRESS", tag: "outfit",         │
+│         meshes: ["Sphere006", "Sphere007", "Sphere008"] }   │
+│      ]                                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Real-Time Mesh Probing: Option 2 ("Check to Hide & Bundle")
+
+When working with avatars exported directly from Blender, mesh names are often generic (`Cube001`, `NurbsCurve012`, `Plane002`, `Sphere006`). Users cannot know what part of the avatar a node corresponds to without live visual feedback.
+
+### 6.1 Interaction Mechanics
+1. **Default State**:
+   - When entering the Wardrobe Builder, all 3D meshes on the avatar are visible.
+2. **Click-to-Vanish Probing**:
+   - Clicking a mesh pill checks the box `[✓]` and immediately flips `node.visible = false` on the 3D model in Three.js (synced across windows via BroadcastChannel `airi-stores-live2d`).
+   - The user immediately sees the butterfly or mushroom disappear on the model, identifying the node instantly.
+   - Unchecking restores `node.visible = true`.
+3. **Save & Reset**:
+   - Clicking `[Done (N)]` bundles the checked meshes into the new wardrobe slot, restores preview visibility, and persists to `displayModelsStore`.
+   - Clicking `[Cancel]` restores all preview meshes back to `node.visible = true`.
+
+---
+
+## 7. `ModelCustomizer` 3-Tab Unified UI
+
+Instead of disconnected outer settings tabs or disruptive popups, wardrobe management is natively integrated as the third tab inside `ModelCustomizer.vue`:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [ Emotions (97) ]    [ Motions (47) ]    [ Outfits (2/8) ]  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 7.1 Single-Column Wardrobe Card Layout
+Configured wardrobe slots render as full-width cards in a single-column stack, preventing text collisions and tag wrapping:
+- **Left Side**: Icon + Slot Display Name + Exclusivity Group Tag (`GROUP: ACCESSORIES` or `INDEPENDENT`) + Mesh Name Badges (`[Sphere006]`, `[Sphere007]`, `+5 more`).
+- **Right Side**: Dedicated Action Toolbar:
+  - `[👁️ / 🙈]` **Live Test Toggle**: Hides/shows the bundled meshes on the live stage.
+  - `[🗑️]` **Delete Button**: Removes the slot from the model's metadata.
+
+---
+
+## 8. Phased Implementation Roadmap
+
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Phase 2: Three.js Real-Time Rendering & Toggling                      │
-│ - Consume stored wardrobe config in VRMModel.vue / Three.js stage      │
-│ - Live mesh.visible = true/false evaluation across active slots & tags │
-│ - Stage UI / Customizer interactive toggle buttons                     │
+│ Phase 1: ModelCustomizer 3-Tab UI & DisplayModels Persistence (DONE)   │
+│ - Integrated Outfits tab in ModelCustomizer.vue                        │
+│ - DisplayModelFile.outfits schema & IndexedDB persistence              │
+│ - Single-column responsive card layout with live test toggles          │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ Phase 2: Three.js Real-Time Inverted Mesh Probing & Toggling (DONE)    │
+│ - Option 2 check-to-hide mesh discovery in VRMModel.vue                │
+│ - BroadcastChannel event set-mesh-visibility cross-window sync         │
+│ - Active slot mutual exclusivity tag resolution                        │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
@@ -318,33 +402,6 @@ export interface AiriVrmWardrobeManifest {
 │ - Built-in tool calling (set_outfit_mesh / toggle_accessory)           │
 └────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Phase 1: Pure UI & Modal Architecture + Store Persistence (Current Target)
-1. **Mesh Discovery**: Scan the model's glTF structure to extract all child mesh node names.
-2. **Revamp Settings UI**: In [`packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/settings/model-settings/vrm.vue) and [`vrm-expressions.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-expressions.vue), remove the legacy blendshape outfit modal.
-3. **New Wardrobe Modal**:
-   - Discovered mesh catalog checklist.
-   - Slot builder (Up to 8 slots):
-     - Display Name (`name`).
-     - Group Tag (`tag` - open-ended string input with common suggestions like `"outfit"`, `"hair"`, `"headwear"` or empty for independent).
-     - Mesh multi-select (assign 1 or more meshes to the slot).
-     - Delete / reorder slots.
-4. **State Persistence**: Save to Pinia (`useAiriCardStore` / `activeCard.extensions.airi.modules.outfits`) and IndexedDB.
-5. *Boundary*: Pure UI & persistence; does not alter Three.js stage rendering state yet.
-
-### Phase 2: Three.js Real-Time Rendering & Toggling
-1. Integrate wardrobe state into `VRMModel.vue` in `packages/stage-ui-three/`.
-2. Map slot activation to `node.visible = true/false` on the active Three.js scene graph.
-3. Support interactive toggling from the stage viewport and character customizer controls.
-
-### Phase 3: StageMate Bridge & Auto-Sidecar Sync
-1. In `apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts`, automatically write `<modelId>.outfits.json` alongside `.vrm` files in `stage-mate-cache/`.
-2. StageMate's patched `VRMLoader.cs` dynamically attaches `MEClothes` with matching entries on load.
-3. Verify full parity in StageMate's radial pie menu.
-
-### Phase 4: LLM Action Tokens & Roleplay Tool Calling
-1. Parse `<|ACT:outfit="..."|>` and `<|ACT:accessory="..."|>` in `packages/stage-ui/src/composables/llm-marker-parser.ts`.
-2. Register built-in tool for conversational wardrobe modification.
 
 ---
 

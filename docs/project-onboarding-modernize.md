@@ -116,33 +116,34 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 ### Step 2: Consciousness (Mind / LLM Setup)
 - **Unified Composition**: Top section displays WebLLM hero cards; bottom section reuses the category-agnostic Provider Grid primitive for cloud & local providers.
 - **Top Section - WebLLM Hero Cards (with VRAM Transparency)**:
-  - Sourced directly from `WEB_LLM_MODELS` in [`libs/inference/constants.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/constants.ts):
+  - Sourced directly from `WEB_LLM_MODELS` in [`libs/inference/constants.ts`](packages/stage-ui/src/libs/inference/constants.ts):
     - `Qwen 3.5 4B` — `[⭐ RECOMMENDED]` — VRAM: ~3.9 GB (3868 MB) — Outstanding chat, instruction, & roleplay.
     - `Qwen 3.5 0.8B` — VRAM: ~1.6 GB (1629 MB) — Fast distill for lightweight systems.
     - `Gemma 3 1B` — VRAM: ~0.7 GB (711 MB) — Lowest VRAM; integrated GPUs & mobile.
     - `Ministral 3B` — VRAM: ~2.9 GB (2864 MB) — High reasoning capability.
     - `Phi-4 Mini` — VRAM: ~3.4 GB (3438 MB) — Compact Microsoft 3.8B model.
 - **In-Context WebLLM Weight Download**:
-  - Bridge helper `ensureWebLlmLoaded(modelId, onProgress, signal)` in `v2/webllm-loader.ts` delegates to `getWebLlmAdapter().loadModel()`, streaming real `ProgressPayload` percent/bytes to drive the progress bar on Step 2.
+  - Selecting a WebLLM hero card dynamically imports `getWebLlmAdapter()` (`libs/inference/adapters/web-llm.ts`) and calls `adapter.loadModel(target, { onProgress })` inline, streaming real `ProgressPayload` percent/bytes to drive the progress bar on Step 2.
 - **Hardware & WebGPU Gating**:
   - If `isWebGPUSupported()` is `false`, displays an amber callout ("Local AI brain needs WebGPU") and steers users to the cloud provider grid.
 - **Bottom Section - Reused Provider Grid Primitive**:
-  - Reuses the shared provider grid primitive (`stt-provider-picker.vue` / `ProviderPickerGrid`) pointed at `allChatProvidersMetadata`.
+  - Reuses the shared provider grid primitive (`ProviderPickerGrid`) pointed at `allChatProvidersMetadata`.
   - Selecting cloud cards (OpenAI, Anthropic, Gemini, Groq, NVIDIA NIM, OpenRouter, Ollama, LM Studio) expands `step-provider-configuration` inline for API key entry.
-- **Bidirectional Store & Character-Card Sync**:
-  - Selecting a provider/model updates `consciousnessStore.activeProvider` & `consciousnessStore.activeModel` **AND** patches `activeCard.extensions.airi.modules.consciousness = { provider, model }`. This ensures Step 4 Persona & Tier 3 AnimaDex Wizard borrow the configured brain.
-- **Verification Gate & Navigation**:
-  - WebLLM: Verified when `loadModel()` resolves and inference status flips to `ready`.
-  - Cloud LLMs: Verified when provider is configured and a model is selected.
+- **Transient Draft Composition (Core Principle 6)**:
+  - Provider/model selection writes ONLY into `useOnboardingV2Draft` (`recordDraft()` → `setConsciousness({ provider, model, engine: 'web-llm' | 'cloud' })`). `consciousnessStore.activeProvider` / `activeModel` and `activeCard.extensions.airi.modules.consciousness` are NOT touched until Step 7 performs the atomic synthesis.
+  - The only in-step production write is the entered API key itself (account credentials committed to `providersStore` via `markProviderAdded` when the user connects a provider) — credentials are account config, not card state, and survive Step 7 synthesis intentionally.
+- **Live Inference Probe & Verification Gate**:
+  - An ad-hoc inference validation widget is implemented (formerly a future-polish note): connecting a provider allows a live `generateText` probe (`probeState`: `connecting` → `inferencing` → `verified`).
+  - WebLLM: Verified when `loadModel()` resolves and adapter state flips to `ready`.
+  - Cloud LLMs: Verified on probe success, or as a fallback when a provider is configured and a model is selected.
   - Orchestrator Gate (`provide`/`inject` `onboardingV2Gate` contract):
     - `[ Skip Step ]`: Always enabled.
-    - `[ Next > ]`: **Disabled by default** until the selected LLM engine is verified ready.
-- **Future Polish Pass Note**: We will revisit Step 2 in a dedicated follow-up pass to build a lightweight ad-hoc inference validation widget so users can test live LLM output for remote cloud providers before moving on.
+    - `[ Next > ]`: **Disabled by default** until the selected LLM engine is verified ready (probe verified, or provider+model chosen).
 
 ---
 
 ### Step 3: User Profile & Identity Setup
-- **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/system/user-profile.vue)
+- **Source Ref**: [`packages/stage-pages/src/pages/settings/system/user-profile.vue`](packages/stage-pages/src/pages/settings/system/user-profile.vue)
 - **Store**: `useSettingsUserProfile` (`name`, `description`, `prompt`, `voiceProfileId`).
 - **Purpose**: Captures User Display Name, Narrative Description, and Visual Prompt Tags **before** Persona Selection so Tier 3 AI Card Creators and SillyTavern template engines know who the user is.
 
@@ -213,12 +214,12 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 
 | Step | Vue Component Path | Pinia Store Ref | Key Constants / Services |
 |---|---|---|---|
-| **0** | [`v2/steps/step-0-welcome.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | `useOnboardingStore` | `isWebGPUSupported()` |
-| **0.5**| [`step-start-choice.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')`, Cloudflare OAuth PKCE |
-| **1** | [`v2/steps/step-1-hearing.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-1-hearing.vue) | `useHearingStore` | `WHISPER_MODELS`, `useAudioContext` |
-| **2** | [`v2/steps/step-2-consciousness.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-2-consciousness.vue) | `useConsciousnessStore` / `useProvidersStore` | `WEB_LLM_MODELS`, `getWebLlmAdapter()` |
-| **3** | [`v2/steps/step-3-user-profile.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-3-user-profile.vue) | `useSettingsUserProfile` | `name`, `description`, `prompt` |
-| **4** | [`v2/steps/step-4-persona.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | `useAiriCardStore` | `STARTER_CHARACTERS`, `getStarterCharacter()` |
-| **5** | [`v2/steps/step-5-vessel.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `displayModelsStore.displayModels` |
-| **6** | [`v2/steps/step-6-speech.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
-| **7** | [`v2/steps/step-7-calibration.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Atomic card synthesis & launch |
+| **0** | [`v2/steps/step-0-welcome.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-0-welcome.vue) | `useOnboardingStore` | `isWebGPUSupported()` |
+| **0.5**| [`step-start-choice.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/step-start-choice.vue) | `useOnboardingStore` | `onSelectPath('new' \| 'returning')`, Cloudflare OAuth PKCE |
+| **1** | [`v2/steps/step-1-hearing.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-1-hearing.vue) | `useHearingStore` | `WHISPER_MODELS`, `useAudioContext` |
+| **2** | [`v2/steps/step-2-consciousness.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-2-consciousness.vue) | `useConsciousnessStore` / `useProvidersStore` | `WEB_LLM_MODELS`, `getWebLlmAdapter()` |
+| **3** | [`v2/steps/step-3-user-profile.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-3-user-profile.vue) | `useSettingsUserProfile` | `name`, `description`, `prompt` |
+| **4** | [`v2/steps/step-4-persona.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-4-persona.vue) | `useAiriCardStore` | `STARTER_CHARACTERS`, `getStarterCharacter()` |
+| **5** | [`v2/steps/step-5-vessel.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `displayModelsStore.displayModels` |
+| **6** | [`v2/steps/step-6-speech.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
+| **7** | [`v2/steps/step-7-calibration.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Atomic card synthesis & launch |
