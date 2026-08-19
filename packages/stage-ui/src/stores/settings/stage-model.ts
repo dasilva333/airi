@@ -32,17 +32,39 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const lastReloadReason = ref<string | undefined>(undefined)
   const mmdTextureMap = ref<Map<string, string | ImageBitmap>>(new Map())
 
-  function isSameFile(f1?: File, f2?: File) {
+  function isSameFile(f1?: Blob | File, f2?: Blob | File) {
     if (f1 === f2)
       return true
     if (!f1 || !f2)
       return false
-    return f1.name === f2.name && f1.size === f2.size && f1.lastModified === f2.lastModified
+    if (f1.size !== f2.size)
+      return false
+    if (f1.type !== f2.type)
+      return false
+
+    const name1 = (f1 as File).name
+    const name2 = (f2 as File).name
+    if (name1 && name2 && name1 !== name2)
+      return false
+
+    const mod1 = (f1 as File).lastModified
+    const mod2 = (f2 as File).lastModified
+    if (mod1 && mod2 && mod1 !== mod2)
+      return false
+
+    return true
   }
 
   function revokeStageModelUrl(url?: string) {
-    if (url?.startsWith('blob:'))
-      URL.revokeObjectURL(url)
+    if (url?.startsWith('blob:')) {
+      // Graceful delayed revocation: allow in-flight GLTFLoader/texture decoders to complete cleanly
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(url)
+        }
+        catch {}
+      }, 5000)
+    }
   }
 
   function cleanupMmdTextures() {
@@ -141,11 +163,13 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
           return
         }
 
-        // If we already have a URL for this exact file, don't re-create it.
+        // If we already have a URL for this exact model and file, don't re-create it.
         // Re-creating the URL triggers replaceStageModelUrl which revokes the active one.
-        // NOTICE: IndexedDB returns clones of File objects, so we must compare properties.
-        if (isSameFile(stageModelSelectedFile.value, model.file) && stageModelSelectedUrl.value?.startsWith('blob:')) {
+        const isSameModel = stageModelSelectedDisplayModel.value?.id === model.id
+        const isSameFileData = isSameFile(stageModelSelectedFile.value, model.file)
+        if ((isSameModel || isSameFileData) && stageModelSelectedUrl.value?.startsWith('blob:')) {
           stageModelSelectedDisplayModel.value = model
+          stageModelSelectedFile.value = model.file
           // Update renderer just in case
           switch (model.format) {
             case DisplayModelFormat.Live2dZip: stageModelRenderer.value = 'live2d'; break

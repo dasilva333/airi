@@ -557,11 +557,8 @@ async function loadModel() {
 
     const loadId = ++currentLoadId
 
-    if (vrmGroup.value || scene.value) {
-      componentCleanUp()
-    }
-
     if (!modelSrc.value) {
+      componentCleanUp()
       console.warn('NO model src, cannot load VRM model.')
       return
     }
@@ -584,16 +581,6 @@ async function loadModel() {
         ),
       })
 
-      // Phase A: Binary Capture for Surgical Persistence
-      try {
-        const response = await fetch(modelSrc.value)
-        const buffer = await response.arrayBuffer()
-        emit('binaryLoaded', buffer)
-      }
-      catch (e) {
-        console.warn('[VRMModel] Precise binary capture failed:', e)
-      }
-
       if (!_vrmInfo || !_vrmInfo._vrm || !_vrmInfo?._vrmGroup) {
         console.warn('VRM model loading failure!')
         return
@@ -615,6 +602,9 @@ async function loadModel() {
         _vrmGroup.removeFromParent()
         return
       }
+
+      // Atomic Model Swap: Clean up the previous model right before mounting the new one
+      componentCleanUp()
 
       /*
         * Model setting

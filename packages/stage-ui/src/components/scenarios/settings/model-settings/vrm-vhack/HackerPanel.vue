@@ -10,7 +10,10 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 
 import { useArtistryStore } from '../../../../../stores/modules/artistry'
+import { useSettings } from '../../../../../stores/settings'
 import { useVHackStore } from '../../../../../stores/vhack'
+
+const settingsStore = useSettings()
 
 const vhackStore = useVHackStore()
 const modelStore = useModelStore()
@@ -722,7 +725,25 @@ function finalizeEraserBake() {
 // Binary Export Logic
 // Binary Export Logic (Surgical)
 async function exportVrm() {
-  if (!activeVrm.value || !vhackStore.sourceArrayBuffer) {
+  if (!activeVrm.value)
+    return
+
+  if (!vhackStore.sourceArrayBuffer) {
+    if (settingsStore.stageModelSelectedFile) {
+      vhackStore.setSourceArrayBuffer(await settingsStore.stageModelSelectedFile.arrayBuffer())
+    }
+    else if (settingsStore.stageModelSelectedUrl) {
+      try {
+        const res = await fetch(settingsStore.stageModelSelectedUrl)
+        vhackStore.setSourceArrayBuffer(await res.arrayBuffer())
+      }
+      catch (e) {
+        console.warn('[VHack] Failed to fetch source ArrayBuffer on demand:', e)
+      }
+    }
+  }
+
+  if (!vhackStore.sourceArrayBuffer) {
     aiError.value = 'No source binary found (Reload model?)'
     return
   }
