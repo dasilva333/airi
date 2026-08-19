@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// Release signing credentials, never committed:
+// - apps/stage-pocket/android/keystore.properties (copy of keystore.properties.example)
+// - or env vars AIRI_KEYSTORE_FILE / AIRI_KEYSTORE_PASSWORD / AIRI_KEY_ALIAS / AIRI_KEY_PASSWORD (CI-friendly)
+def airiKeystoreProps = new Properties()
+def airiKeystorePropsFile = rootProject.file('keystore.properties')
+if (airiKeystorePropsFile.exists()) {
+    airiKeystorePropsFile.withInputStream { stream -> airiKeystoreProps.load(stream) }
+}
+def airiKeystoreConfigured = (System.getenv('AIRI_KEYSTORE_FILE') ?: airiKeystoreProps['storeFile']) as String
+
 android {
     namespace = "ai.moeru.airipocket"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +26,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (airiKeystoreConfigured) {
+                storeFile file(System.getenv('AIRI_KEYSTORE_FILE') ?: airiKeystoreProps['storeFile'])
+                storePassword System.getenv('AIRI_KEYSTORE_PASSWORD') ?: airiKeystoreProps['storePassword']
+                keyAlias System.getenv('AIRI_KEY_ALIAS') ?: airiKeystoreProps['keyAlias']
+                keyPassword System.getenv('AIRI_KEY_PASSWORD') ?: airiKeystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (airiKeystoreConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

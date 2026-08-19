@@ -18,7 +18,8 @@
     "open:ios": "cap open ios",
     "typecheck": "NODE_OPTIONS=\"--max-old-space-size=8192\" vue-tsc --noEmit",
     "dev:web": "vite",
-    "dev:ios": "cap-vite -- ios"
+    "dev:ios": "cap-vite -- ios",
+    "dev:android": "cap-vite -- android"
   },
   "dependencies": {
     "@capacitor/android": "catalog:",
