@@ -11,7 +11,19 @@ echo [3/4] Building target packages...
 call pnpm run build
 
 echo [Stage-Mate] Checking companion runtime...
-call pnpm -F @proj-airi/stage-mate run engine:fetch
+set "HAS_MATE="
+if exist "apps\stage-mate\bin\StageMate.exe" set HAS_MATE=1
+if exist "apps\stage-mate\bin\MateEngineX.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\MateEngineMain\MateEngineX.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\Windows\StageMate.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\StageMate\StageMate.exe" set HAS_MATE=1
+
+if not defined HAS_MATE (
+    echo [Stage-Mate] Companion runtime not detected. Fetching prebuilt release...
+    call pnpm -F @proj-airi/stage-mate run engine:fetch
+) else (
+    echo [Stage-Mate] Companion runtime already available. Skipping download.
+)
 
 echo [4/4] Starting AIRI...
 call start_airi.bat

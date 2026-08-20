@@ -8,9 +8,18 @@ set /p PORT_NUM="Enter port (default 5173): "
 if "%PORT_NUM%"=="" set PORT_NUM=5173
 
 :: Ensure Stage-Mate companion runtime is available
-if not exist "apps\stage-mate\bin\StageMate.exe" if not exist "apps\stage-mate\mate-engine\Build\StageMate.exe" (
-    echo [Stage-Mate] Prebuilt companion runtime not detected. Fetching runtime...
+set "HAS_MATE="
+if exist "apps\stage-mate\bin\StageMate.exe" set HAS_MATE=1
+if exist "apps\stage-mate\bin\MateEngineX.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\MateEngineMain\MateEngineX.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\Windows\StageMate.exe" set HAS_MATE=1
+if exist "apps\stage-mate\mate-engine\Build\StageMate\StageMate.exe" set HAS_MATE=1
+
+if not defined HAS_MATE (
+    echo [Stage-Mate] Companion runtime not detected. Fetching prebuilt release...
     call pnpm -F @proj-airi/stage-mate run engine:fetch
+) else (
+    echo [Stage-Mate] Companion runtime detected. Skipping fetch.
 )
 
 echo [1/2] Building packages...
