@@ -10,6 +10,9 @@ call pnpm install
 echo [3/4] Building target packages...
 call pnpm run build
 
+echo [Stage-Mate] Checking companion runtime...
+call pnpm -F @proj-airi/stage-mate run engine:fetch
+
 echo [4/4] Starting AIRI...
 call start_airi.bat
 

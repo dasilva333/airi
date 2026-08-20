@@ -7,6 +7,12 @@
 set /p PORT_NUM="Enter port (default 5173): "
 if "%PORT_NUM%"=="" set PORT_NUM=5173
 
+:: Ensure Stage-Mate companion runtime is available
+if not exist "apps\stage-mate\bin\StageMate.exe" if not exist "apps\stage-mate\mate-engine\Build\StageMate.exe" (
+    echo [Stage-Mate] Prebuilt companion runtime not detected. Fetching runtime...
+    call pnpm -F @proj-airi/stage-mate run engine:fetch
+)
+
 echo [1/2] Building packages...
 call pnpm run build:packages
 

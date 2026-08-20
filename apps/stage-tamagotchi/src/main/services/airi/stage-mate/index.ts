@@ -268,9 +268,13 @@ export function createStageMateService(params?: {
 
   function resolveBinaryPath(): string | null {
     const baseDevPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/mate-engine/Build')
+    const baseBinPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/bin')
 
     if (platform === 'win32') {
       const candidates = [
+        join(baseBinPath, 'StageMate.exe'),
+        join(baseBinPath, 'StageMate', 'StageMate.exe'),
+        join(baseBinPath, 'Windows', 'StageMate.exe'),
         join(baseDevPath, 'Windows', 'StageMate.exe'),
         join(baseDevPath, 'StageMate.exe'),
         join(baseDevPath, 'StageMate', 'StageMate.exe'),
@@ -285,6 +289,8 @@ export function createStageMateService(params?: {
     }
     else if (platform === 'linux') {
       const candidates = [
+        join(baseBinPath, 'StageMate.x86_64'),
+        join(baseBinPath, 'Linux', 'StageMate.x86_64'),
         join(baseDevPath, 'Linux', 'StageMate.x86_64'),
         join(baseDevPath, 'StageMate.x86_64'),
         join(process.resourcesPath, 'StageMate.x86_64'),
@@ -296,6 +302,11 @@ export function createStageMateService(params?: {
     }
     else if (platform === 'darwin') {
       const candidates = [
+        join(baseBinPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseBinPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(baseBinPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
+        join(baseBinPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
+        join(baseBinPath, 'StageMate.app'),
         join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
