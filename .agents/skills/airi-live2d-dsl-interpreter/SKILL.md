@@ -23,14 +23,14 @@ The DSL VM executes scripting instructions attached to Live2D character models:
 - `packages/stage-ui-live2d/src/components/scenes/live2d/` — Live2D stage manager and canvas renderer.
 
 ### Related Specs
-- `docs/live2d-dsl-interpreter-spec.md` — Formal specification document for the Live2D Scripting DSL instruction set, grammar, and VM heap architecture.
+- `docs/design-live2d-dsl-interpreter-spec.md` — Formal specification document for the Live2D Scripting DSL instruction set, grammar, and VM heap architecture.
 - `docs/handoff-live2d-dsl-phase2.md` — Phase 2 implementation handoff document detailing instruction dispatch and test cases.
-- `docs/project-live2d-multimoc-changecos-design.md` — Architectural specification for multi-moc3 costume switching (`change_cos`).
+- `docs/design-live2d-multimoc-changecos.md` — Architectural specification for multi-moc3 costume switching (`change_cos`).
 
 ## 3. Core SOPs & Guidelines
 
 ### 1. Adding a New DSL Instruction
-1. Define the instruction syntax and opcode in `docs/live2d-dsl-interpreter-spec.md`.
+1. Define the instruction syntax and opcode in `docs/design-live2d-dsl-interpreter-spec.md`.
 2. Add the instruction parser handler inside `live2d/Model.vue` (`dispatchDsl`).
 3. Update the `VarFloats` state heap evaluator if the instruction mutates variables.
 
@@ -45,18 +45,18 @@ The DSL VM executes scripting instructions attached to Live2D character models:
 ## 5. Verification Workflows
 
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui-live2d typecheck`
-- **Specification Check**: Verify instruction opcodes match `docs/live2d-dsl-interpreter-spec.md`.
+- **Specification Check**: Verify instruction opcodes match `docs/design-live2d-dsl-interpreter-spec.md`.
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/live2d-dsl-interpreter-spec.md](docs/live2d-dsl-interpreter-spec.md) — Formal specification for the Live2D Scripting DSL instruction set.
+- [docs/design-live2d-dsl-interpreter-spec.md](docs/design-live2d-dsl-interpreter-spec.md) — Formal specification for the Live2D Scripting DSL instruction set.
 - [docs/handoff-live2d-dsl-phase2.md](docs/handoff-live2d-dsl-phase2.md) — Phase 2 implementation handoff (instruction dispatch, test cases).
-- [docs/project-live2d-multimoc-changecos-design.md](docs/project-live2d-multimoc-changecos-design.md) — Multi-moc3 costume switching (change_cos) design.
-- [docs/live2d-dsl-test-cases-handoff.md](docs/live2d-dsl-test-cases-handoff.md) — DSL test cases handoff.
-- [docs/live2d-change-cos-dependency-challenge.md](docs/live2d-change-cos-dependency-challenge.md) — change_cos dependency challenge.
-- [docs/live2d-special-sauce-insights.md](docs/live2d-special-sauce-insights.md) — Live2D special sauce insights.
+- [docs/design-live2d-multimoc-changecos.md](docs/design-live2d-multimoc-changecos.md) — Multi-moc3 costume switching (change_cos) design.
+- [docs/design-live2d-dsl-test-cases.md](docs/design-live2d-dsl-test-cases.md) — DSL test cases handoff.
+- [docs/design-live2d-change-cos-challenge.md](docs/design-live2d-change-cos-challenge.md) — change_cos dependency challenge.
+- [docs/research-live2d-special-sauce.md](docs/research-live2d-special-sauce.md) — Live2D special sauce insights.
 - [docs/project-standalone-live2d-engine-plan.md](docs/project-standalone-live2d-engine-plan.md) — Standalone Live2D engine plan.
 
 ## Related Skills & References
 
-- **Key Documents**: [[live2d-dsl-interpreter-spec]], [[handoff-live2d-dsl-phase2]], [[project-live2d-multimoc-changecos-design]], [[live2d-dsl-test-cases-handoff]], [[live2d-change-cos-dependency-challenge]], [[live2d-special-sauce-insights]], [[project-standalone-live2d-engine-plan]]
+- **Key Documents**: [[design-live2d-dsl-interpreter-spec]], [[handoff-live2d-dsl-phase2]], [[design-live2d-multimoc-changecos]], [[design-live2d-dsl-test-cases]], [[design-live2d-change-cos-challenge]], [[research-live2d-special-sauce]], [[project-standalone-live2d-engine-plan]]

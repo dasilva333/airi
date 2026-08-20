@@ -54,7 +54,7 @@ Note: a second background store exists in `packages/stage-layouts/src/stores/bac
 
 ## Sources
 
-`docs/content/en/docs/advanced/architecture/design-image-journal-storage.md`; `docs/data-catalog.md` §3.1 (BackgroundEntry) & §4.8 (Artistry settings); peer: `airi-memory-systems` (hub), `airi-scenes-backgrounds`, `airi-binary-safety`, `airi-tool-registry-builtin-tools` (image_journal registration/gating), `airi-dating-sim-engine` (AA choice addon).
+`docs/design-image-journal-storage.md`; `docs/data-catalog.md` §3.1 (BackgroundEntry) & §4.8 (Artistry settings); peer: `airi-memory-systems` (hub), `airi-scenes-backgrounds`, `airi-binary-safety`, `airi-tool-registry-builtin-tools` (image_journal registration/gating), `airi-dating-sim-engine` (AA choice addon).
 
 ## Related Skills & References
 

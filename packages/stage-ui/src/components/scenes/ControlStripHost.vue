@@ -398,7 +398,7 @@ specialTokenQueue.onHandlerEvent('actor', (actorId) => {
   // starts, which clobbers whoever is currently speaking. The playback-level handler
   // (playFunction, ~line 590) is the authoritative speaker moment and fires
   // activateConcept sequenced with audio; this handler only tracks the parsed actor
-  // for caption-color hints. See docs/fix-actor-stage-desync.md (v4, Leg 1).
+  // for caption-color hints. See docs/design-fix-actor-stage-desync.md (v4, Leg 1).
   debug('[Stage] Actor swap token detected (parser):', actorId)
   parserActorId.value = actorId
 })

@@ -109,7 +109,7 @@ Reuses the existing `useSettings` slice. Add one new setting and one new binding
 * `captionAnchorFollowStrength: 0..100` — attenuates perspective; `0` makes the plank static over the model, `100` is the full "twist".
 * Existing `captionFollowStageVisibility`, `captionFollowStagePosition`, theme, opacity, font scale, and Sentence Sync continue to apply unchanged.
 
-The `captionDocking: 'character-head'` experimental entry already exists in `docs/captions-widget-system.md`. **The work is to make that mode render head-tethered instead of pretending to be a *repositioned window*.** This preserves the settings UI surface and the control-customizer `cycler` row (`packages/stage-ui/src/constants/control-customizer.ts` L161).
+The `captionDocking: 'character-head'` experimental entry already exists in `docs/design-captions-widget-system.md`. **The work is to make that mode render head-tethered instead of pretending to be a *repositioned window*.** This preserves the settings UI surface and the control-customizer `cycler` row (`packages/stage-ui/src/constants/control-customizer.ts` L161).
 
 ### 3.4 Per-renderer adapters
 
@@ -233,7 +233,7 @@ Non-goals for MVP clarifications:
 | New control-customizer row | `packages/stage-ui/src/constants/control-customizer.ts` (inside `captions-layout`) |
 | Mount in stage host | `packages/stage-ui/src/components/scenes/RendererStage.vue` |
 | Translations | `packages/i18n/…` per `docs/settings-yaml.md` |
-| Doc keepalive | this file + `docs/captions-widget-system.md` (mark `character-head` mode as powered by head-tethered renderer when available) |
+| Doc keepalive | this file + `docs/design-captions-widget-system.md` (mark `character-head` mode as powered by head-tethered renderer when available) |
 
 The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPanel.vue`, the Electron caption window manager, and the caption BroadcastChannel contract all stay untouched.
 

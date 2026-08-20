@@ -1,7 +1,7 @@
 ---
 name: airi-discord-integration
 description: >-
-  Use when working with the AIRI Discord bot integration and multi-modal routing: Electron main-process gateway service in apps/stage-tamagotchi/src/main/services/airi/discord/index.ts, renderer orchestration store packages/stage-ui/src/stores/modules/discord.ts (slash-command COMMANDS_VERSION, visionEnabled toggle, sendImageToDiscord native IPC bypass), slash-command registration and sync, image attachment to vision/VLM routing via chatOrchestrator.ingest as base64 data-URL, tool-availability fallthrough where tools flow through chat store performSend and are stripped only on VLM turns, discordServiceRegisterCommands/SendMessage/ReplyInteraction/GetStatus IPC contracts, voice channel audio, docs/feat-discord-revamp.md and docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md.
+  Use when working with the AIRI Discord bot integration and multi-modal routing: Electron main-process gateway service in apps/stage-tamagotchi/src/main/services/airi/discord/index.ts, renderer orchestration store packages/stage-ui/src/stores/modules/discord.ts (slash-command COMMANDS_VERSION, visionEnabled toggle, sendImageToDiscord native IPC bypass), slash-command registration and sync, image attachment to vision/VLM routing via chatOrchestrator.ingest as base64 data-URL, tool-availability fallthrough where tools flow through chat store performSend and are stripped only on VLM turns, discordServiceRegisterCommands/SendMessage/ReplyInteraction/GetStatus IPC contracts, voice channel audio, docs/feat-discord-revamp.md and docs/design-discord-bot-integration.md.
 ---
 
 # AIRI Discord Integration
@@ -14,7 +14,7 @@ description: >-
 - `packages/stage-ui/src/stores/modules/cloudflare.ts` — OAuth session + `CloudflareStageDeployer` facade + Edge Vault (`saveToEdgeVault`/`fetchFromEdgeVault`).
 - `apps/stage-edge/` — the Cloudflare Worker (`/discord` webhook, `/cors-proxy`, `/health`) that hosts characters offline; see `airi-cloud-relay-infrastructure`.
 - `docs/feat-discord-revamp.md` — current revamp spec.
-- `docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md` — original design (slash-command list, guild vs global registration latency note).
+- `docs/design-discord-bot-integration.md` — original design (slash-command list, guild vs global registration latency note).
 
 ## When to Use
 
@@ -45,14 +45,14 @@ Discord is the primary consumer of Cloud Relay: the local gateway service and th
 ### Authoritative Design & Architecture Documents
 
 - [docs/feat-discord-revamp.md](docs/feat-discord-revamp.md) — Current Discord revamp spec.
-- [docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md](docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md) — Original Discord bot integration design.
+- [docs/design-discord-bot-integration.md](docs/design-discord-bot-integration.md) — Original Discord bot integration design.
 - [docs/design-discord-context-routing.md](docs/design-discord-context-routing.md) — Discord context routing design.
 - [docs/design-discord-control-plane.md](docs/design-discord-control-plane.md) — Discord control plane design.
 - [docs/content/en/docs/manual/config/discord-commands.md](docs/content/en/docs/manual/config/discord-commands.md) — Discord commands manual.
 - [docs/content/en/docs/contributing/services/discord.md](docs/content/en/docs/contributing/services/discord.md) — Contributing guide for Discord service.
 - [docs/content/en/docs/showcase/10-discord-integration.md](docs/content/en/docs/showcase/10-discord-integration.md) — Discord integration showcase.
-- [docs/cloud-relay-design.md](docs/cloud-relay-design.md) — Cloud relay architecture (Discord Edge deployment).
-- [docs/project-telegram-design.md](docs/project-telegram-design.md) — Telegram project design.
+- [docs/design-cloud-relay.md](docs/design-cloud-relay.md) — Cloud relay architecture (Discord Edge deployment).
+- [docs/design-telegram-integration.md](docs/design-telegram-integration.md) — Telegram project design.
 - [docs/content/en/docs/contributing/services/telegram.md](docs/content/en/docs/contributing/services/telegram.md) — Contributing guide for Telegram service.
 - [docs/content/en/docs/contributing/services/satori.md](docs/content/en/docs/contributing/services/satori.md) — Contributing guide for Satori protocol.
 - [docs/proposal-twitch-plugin.md](docs/proposal-twitch-plugin.md) — Twitch plugin proposal.
@@ -66,4 +66,4 @@ Discord is the primary consumer of Cloud Relay: the local gateway service and th
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-cloud-relay-infrastructure]]
-- **Key Documents**: [[feat-discord-revamp]], [[design-discord-bot-integration]], [[design-discord-context-routing]], [[design-discord-control-plane]], [[discord-commands]], [[discord]], [[10-discord-integration]], [[cloud-relay-design]], [[project-telegram-design]], [[telegram]], [[satori]], [[proposal-twitch-plugin]], [[proposal-destiny2-plugin]]
+- **Key Documents**: [[feat-discord-revamp]], [[design-discord-bot-integration]], [[design-discord-context-routing]], [[design-discord-control-plane]], [[discord-commands]], [[discord]], [[10-discord-integration]], [[design-cloud-relay]], [[design-telegram-integration]], [[telegram]], [[satori]], [[proposal-twitch-plugin]], [[proposal-destiny2-plugin]]

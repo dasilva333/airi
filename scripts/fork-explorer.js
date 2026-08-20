@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const ROOT_DIR = path.resolve(__dirname, '..')
 const CACHE_FILE = path.join(ROOT_DIR, '.fork-explorer-cache.json')
-const DEFAULT_REPORT_FILE = path.join(ROOT_DIR, 'docs', 'fork-harvest-report.md')
+const DEFAULT_REPORT_FILE = path.join(ROOT_DIR, 'docs', 'research-fork-harvest-report.md')
 
 // ── Curated Fingerprint Profiles ──
 const PROFILES = {

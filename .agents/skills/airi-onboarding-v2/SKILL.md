@@ -19,7 +19,7 @@ The codebase id `v2` refers to an architecture version, not a generation counter
 | (fork) v3 | Sense Portal (easy mode) | Easy-mode TTS + LLM setup, then character | Retired |
 | **(fork) v4 — `v2` in code** | **Onboarding V2** | **Full multi-domain wizard: STT, LLM, user profile, persona, vessel, TTS, cloud sync/restore** | **Active, canonical** |
 
-Commit-history markers if you're digging through git: "implement functional Sense Portal (easy mode) onboarding flow" (v3) → "scaffold onboarding v2" (v4 begins) → "V2 Step 1 STT Playground…" etc. Future post-V2 roadmap (Advanced Setup Lab, ACT/VRMA/ComfyUI/proactivity steps) lives in `docs/onboarding-overhaul-plan.md` and is NOT part of this skill's shipped surface.
+Commit-history markers if you're digging through git: "implement functional Sense Portal (easy mode) onboarding flow" (v3) → "scaffold onboarding v2" (v4 begins) → "V2 Step 1 STT Playground…" etc. Future post-V2 roadmap (Advanced Setup Lab, ACT/VRMA/ComfyUI/proactivity steps) lives in `docs/proposal-onboarding-overhaul.md` and is NOT part of this skill's shipped surface.
 
 ## Key Files/Locations
 
@@ -140,8 +140,8 @@ The orchestrator's NOTICE comment is load-bearing: V2 previewing must never muta
 ### Authoritative Design & Architecture Documents
 
 - [docs/project-onboarding-modernize.md](docs/project-onboarding-modernize.md) — Shipped V2 spec (Core Principles 1–6, per-step behavior, dual-track flow, codebase reference table). Note its `file:///` links are historical artifacts; resolve paths repo-relative.
-- [docs/onboarding-overhaul-plan.md](docs/onboarding-overhaul-plan.md) — Post-V2 roadmap (Advanced Setup Lab, ACT token calibration, ComfyUI, VRMA, Proactivity) — future work, not this skill's surface.
-- [docs/content/en/docs/advanced/architecture/design-onboarding-character-selection.md](docs/content/en/docs/advanced/architecture/design-onboarding-character-selection.md) — Character selection & starter souls.
+- [docs/proposal-onboarding-overhaul.md](docs/proposal-onboarding-overhaul.md) — Post-V2 roadmap (Advanced Setup Lab, ACT token calibration, ComfyUI, VRMA, Proactivity) — future work, not this skill's surface.
+- [docs/design-onboarding-character-selection.md](docs/design-onboarding-character-selection.md) — Character selection & starter souls.
 - [docs/proposal-global-user-profile.md](docs/proposal-global-user-profile.md) — Global user profile spec (Step 3).
 
 ## Verification
@@ -151,4 +151,4 @@ The orchestrator's NOTICE comment is load-bearing: V2 previewing must never muta
 
 ## Related Skills & References
 
-- **Key Documents**: [[project-onboarding-modernize]], [[onboarding-overhaul-plan]], [[design-onboarding-character-selection]], [[proposal-global-user-profile]]
+- **Key Documents**: [[project-onboarding-modernize]], [[proposal-onboarding-overhaul]], [[design-onboarding-character-selection]], [[proposal-global-user-profile]]

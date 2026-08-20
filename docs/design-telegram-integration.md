@@ -4,7 +4,7 @@
 **Target Workspaces:** `apps/stage-tamagotchi` (Local Service) & `apps/stage-edge` (Cloud Relay Worker)
 
 **Related Documents:**
-- [`cloud-relay-design.md`](./cloud-relay-design.md) — Universal Cloud Relay architecture & Cloudflare Edge KV memory model.
+- [`design-cloud-relay.md`](./design-cloud-relay.md) — Universal Cloud Relay architecture & Cloudflare Edge KV memory model.
 - [`feat-discord-revamp.md`](./feat-discord-revamp.md) — In-process messaging platform service pattern & interactive component UX.
 - [`design-discord-context-routing.md`](./design-discord-context-routing.md) — Multi-user channel context isolation & ACL permission matrix.
 

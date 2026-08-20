@@ -33,7 +33,7 @@ Philosophy: **Local-First, Zero-Custody, Edge-Native**. There are no proprietary
 - `modules/onboarding-v2` — Step 7 Cloud Infra: OAuth PKCE → deploy CORS proxy / Discord worker / R2 backup, restore from existing instances.
 
 ### Design docs
-- `docs/cloud-relay-design.md` — master Cloud Relay architecture doc.
+- `docs/design-cloud-relay.md` — master Cloud Relay architecture doc.
 - `docs/project-generic-cloudflare-framework-plan.md` — generic Cloudflare framework plan.
 - `docs/design-discord-control-plane.md`, `docs/design-discord-context-routing.md` — control-plane + context-routing lineage. (There is NO `docs/design-discord-cloud-relay.md`.)
 
@@ -128,4 +128,4 @@ interface CloudRelayInstance {
 
 ## Related Skills & References
 
-- **Key Documents**: [[cloud-relay-design]], [[project-generic-cloudflare-framework-plan]], [[design-discord-control-plane]], [[design-discord-context-routing]], [[design-discord-cloud-relay]]
+- **Key Documents**: [[design-cloud-relay]], [[project-generic-cloudflare-framework-plan]], [[design-discord-control-plane]], [[design-discord-context-routing]], [[design-discord-cloud-relay]]

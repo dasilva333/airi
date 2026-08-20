@@ -102,7 +102,7 @@ Currently, `updateStageModel` calls `replaceStageModelUrl(undefined)` or clears/
 
 ## Senior Engineer's Analysis & Vetting
 
-I've now traced every link in the chain end-to-end: the modal, `updateCard`/`persistCards`, both `airi-card.ts` watchers, `syncCardState`, `updateStageModel`, the Live2D `Model.vue` loader, the cross-window rails, and the prior `fix-actor-stage-desync.md` architecture doc. Here's my vetting.
+I've now traced every link in the chain end-to-end: the modal, `updateCard`/`persistCards`, both `airi-card.ts` watchers, `syncCardState`, `updateStageModel`, the Live2D `Model.vue` loader, the cross-window rails, and the prior `design-fix-actor-stage-desync.md` architecture doc. Here's my vetting.
 
 ### Verdict
 
@@ -145,7 +145,7 @@ So one logical assignment produces up to **three** serialized `loadModel()` exec
 
 **On Strategy A's two concrete options:**
 - **`isInternalSync` flag**: brittle. It wraps an async boundary (set flag → set state → watcher fires next tick → clear flag), leaks under re-entrancy, and only fixes this one call site while the identical pattern stays live in `handleModelPick`, `ControlStrip`, and the force-path concept watcher.
-- **Remove the watcher altogether**: **not viable.** `ControlStrip.vue`'s `selectAvatar` (line 167-168) sets `stageModelSelected` with *no* explicit call — it relies solely on the watcher. So does the cross-window rail (Rail 4 in `fix-actor-stage-desync.md`): the stage window picks up localStorage changes via storage events, and the watcher is what applies them. Removing it silently breaks both.
+- **Remove the watcher altogether**: **not viable.** `ControlStrip.vue`'s `selectAvatar` (line 167-168) sets `stageModelSelected` with *no* explicit call — it relies solely on the watcher. So does the cross-window rail (Rail 4 in `design-fix-actor-stage-desync.md`): the stage window picks up localStorage changes via storage events, and the watcher is what applies them. Removing it silently breaks both.
 
 ### The fix I'd implement instead
 

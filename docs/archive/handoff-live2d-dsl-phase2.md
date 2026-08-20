@@ -42,7 +42,7 @@
 ## 3. Next Phase Roadmap & Instructions to Proceed
 
 ### Next Phase A: Multi-Costume MOC Buffer Hot-Swapping (`ChangeCos`)
-- **Objective**: Implement WebGL buffer hot-swapping for multi-costume Live2D packages as specified in `docs/project-live2d-multimoc-changecos-design.md`.
+- **Objective**: Implement WebGL buffer hot-swapping for multi-costume Live2D packages as specified in `docs/design-live2d-multimoc-changecos.md`.
 - **Key Design Constraint**: Swapping `.moc3` WebGL VRAM buffers on `ChangeCos` must **NOT** re-fetch from disk or wipe the active DSL VM heap (`VarFloats`, intimacy score, active expressions).
 - **Files to Modify**: `packages/stage-ui-live2d/src/utils/live2d-zip-loader.ts`, `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue`.
 

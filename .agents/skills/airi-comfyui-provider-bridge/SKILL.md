@@ -80,7 +80,7 @@ Non-Electron surfaces (stage-web/pocket) can't reach main-process providers: `ar
 ## 6. Cross-Citations & Verification
 
 - `airi-artistry-comfyui-widgets` — the widget/headless/autonomous layer that routes INTO this provider; `airi-card-schema` — card-level `artistry` overrides.
-- `docs/content/en/docs/advanced/architecture/design-comfyui-image-generation-widget.md` + `arch-comfyui-native-api-engine.md` — design + engine architecture docs.
+- `docs/design-comfyui-image-generation-widget.md` + `arch-comfyui-native-api-engine.md` — design + engine architecture docs.
 - `docs/data-catalog.md` §4.8 — the `artistry-comfyui-*` localStorage keys.
 - Typecheck: `pnpm -F @proj-airi/stage-tamagotchi typecheck` (provider + main handlers), `pnpm -F @proj-airi/stage-pages typecheck` (comfyui.vue), `pnpm -F @proj-airi/stage-ui typecheck` (store).
 

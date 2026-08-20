@@ -44,9 +44,9 @@ In-memory turn history + durable session metadata/index. The session store is bo
 
 ## Sources
 
-`docs/data-catalog.md` §1.4/§1.5; `docs/timeline-flat-design.md`; peer: `airi-memory-systems` (hub), `airi-interaction-pipelines`, `airi-data-persistence`.
+`docs/data-catalog.md` §1.4/§1.5; `docs/design-timeline-flat.md`; peer: `airi-memory-systems` (hub), `airi-interaction-pipelines`, `airi-data-persistence`.
 
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-data-persistence]], [[airi-interaction-pipelines]], [[airi-memory-systems]]
-- **Key Documents**: [[data-catalog]], [[timeline-flat-design]]
+- **Key Documents**: [[data-catalog]], [[design-timeline-flat]]

@@ -91,9 +91,9 @@ The shipped `flow_mdm.onnx` was produced and verified by committed Python toolin
 
 - `docs/design-text-to-motion.md` — **canonical, current architecture doc**. Supersedes the founding proposal. Covers dual engine, provider/module/settings integration, three-tier roadmap (FlowMDM core → TMR-SOMA retrieval cache → Kimodo next-gen), ONNX export workarounds, and multi-format decoders (VRMA / VMD / Live2D motion.json).
 - `docs/proposal-text-to-vrma-system.md` — original Text-to-VRMA founding proposal (historic reference for the procedural/keyframe lineage).
-- `docs/content/en/references/research/text-to-motion.md` — academic research survey.
-- `docs/content/en/references/research/mocap.md` — mocap companion reference.
-- `docs/content/en/docs/advanced/architecture/design-vrm-animation-ecosystem.md` — broader VRM animation ecosystem design.
+- `docs/text-to-motion.md` — academic research survey.
+- `docs/mocap.md` — mocap companion reference.
+- `docs/design-vrm-animation-ecosystem.md` — broader VRM animation ecosystem design.
 - `docs/proposal-emotion-motion-library.md` — emotion-motion library proposal.
 - `.agents/skills/airi-tool-registry-builtin-tools/` — `generate_motion` registry entry & availability matrix.
 - `.agents/skills/airi-character-rendering/` — VRM model mounting & expression pipeline.

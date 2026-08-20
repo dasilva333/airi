@@ -4,7 +4,7 @@
 **Authors:** AIRI Team & AI Assistant
 **Target Workspace:** `apps/stage-edge/` & `packages/stage-pages/src/pages/settings/modules/discord.vue`
 **Related Docs:**
-- [`cloud-relay-design.md`](./cloud-relay-design.md) — Architectural specification for always-on Cloudflare Worker character presence.
+- [`design-cloud-relay.md`](./design-cloud-relay.md) — Architectural specification for always-on Cloudflare Worker character presence.
 - [`cloud-relay-worker.js`](./cloud-relay-worker.js) — The 5,700-line monolithic Cloudflare Worker reference implementation.
 - [`design-discord-context-routing.md`](./design-discord-context-routing.md) — Channel context routing (`channel-{id}`, `dm-{userId}`), DM privacy isolation, and Access Control List (ACL) permission matrix.
 - [`project-byos-cloud-sync.md`](./project-byos-cloud-sync.md) — BYOS Cloud Sync engine.

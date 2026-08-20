@@ -88,12 +88,12 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 1.6 `airi-card-schema`
 - **Target Domain**: Character Card Specifications (CCv2/CCv3) & AIRI Extension Schema.
-- **Key Paths**: `packages/stage-ui/src/types/card.schema.ts`, `packages/stage-ui/src/stores/modules/airi-card.ts`, `packages/ccc/src/define/card.ts` (base `Card` shape), `docs/airi-card-design.md`.
+- **Key Paths**: `packages/stage-ui/src/types/card.schema.ts`, `packages/stage-ui/src/stores/modules/airi-card.ts`, `packages/ccc/src/define/card.ts` (base `Card` shape), `docs/design-airi-card.md`.
 - **Content**: `AiriCard` and `AiriExtension` structure, Valibot schema validation, PNG `tEXt` chunk writing (`chara` keyword → base64 UTF-8 JSON → zlib CRC-32 per PNG tEXt chunk rules), and Electron webview `will-download` interception for `.png` card imports.
 
 #### 1.7 `airi-cloud-relay-infrastructure`
 - **Target Domain**: Serverless Edge Workers, BYOS Cloud Sync & Remote Proxy Infrastructure.
-- **Key Paths**: `apps/stage-edge/`, `docs/cloud-relay-design.md`, `docs/project-byos-cloud-sync.md`, `docs/project-audit-cloudsync.md`, `docs/superpowers/specs/2026-07-04-commercial-backend-phase-1-provider-data-boundary-design.md`.
+- **Key Paths**: `apps/stage-edge/`, `docs/design-cloud-relay.md`, `docs/project-byos-cloud-sync.md`, `docs/project-audit-cloudsync.md`, `docs/superpowers/specs/2026-07-04-commercial-backend-phase-1-provider-data-boundary-design.md`.
 - **Content**: Deploying and maintaining Cloudflare Workers, Edge KV memory models, BYOS cloud sync outbox queues, commercial API server proxy boundaries, and `PERSONAL_DATA_CLOUD_SYNC_ENABLED` storage guards.
 
 #### 1.8 `airi-byos-cloud-sync`
@@ -127,7 +127,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 2.5 `airi-live2d-dsl-interpreter`
 - **Target Domain**: Live2D Scripting DSL Virtual Machine & Kinetic Staging Engine.
-- **Key Paths**: `docs/live2d-dsl-interpreter-spec.md`, `docs/handoff-live2d-dsl-phase2.md`, `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue`.
+- **Key Paths**: `docs/design-live2d-dsl-interpreter-spec.md`, `docs/handoff-live2d-dsl-phase2.md`, `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue`.
 - **Content**: `pixi-live2d-display` instruction parser, `VarFloats` reactive heap (conditional guards & state modifiers), Sequencer pipeline (`start_mtn`, `clear_exp`), `change_cos` zero-latency WebGL costume hot-swapping, and `Live2DStageManager` delta ticking loop.
 
 #### 2.6 `airi-generative-motion-vrma`
@@ -137,12 +137,12 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 2.7 `airi-attention-ecology-vision`
 - **Target Domain**: Continuous Vision Perception & Attention Ecology Gate.
-- **Key Paths**: `docs/proposal-attention-ecology-local-webgpu-guard.md`, `docs/implementation-plan-vision-witness.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`.
+- **Key Paths**: `docs/proposal-attention-ecology-local-webgpu-guard.md`, `docs/proposal-vision-witness.md`, `packages/stage-ui/src/stores/modules/vision/orchestrator.ts`.
 - **Content**: Cascaded Salience Gate (pHash → CLIP vision embedding & novelty scoring → WASM OCR / RWKV-7 gate → VLM forwarder), privacy app exclusion filters, push/pull cognitive mechanics, and Vibe Island integration.
 
 #### 2.8 `airi-model-customizer`
 - **Target Domain**: The inline **ModelCustomizer** widget (`ModelCustomizer.vue`) — the embedded per-model capability editor used by all four model-type settings panels (VRM/Live2D/Spine/MMD) and the Rehearsal Room acting sandbox.
-- **Key Paths**: `packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`, `vrm-expressions.vue`, `live2d.vue`, `mmd.vue`, `spine.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, `packages/stage-ui/src/stores/display-models.ts` (`getOrLoadModelCapabilities`), `packages/stage-ui-three/src/stores/model-store.ts` (`discoveredMeshes`, `setMeshVisibility`), `docs/modelcustomizer-design.md`.
+- **Key Paths**: `packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`, `vrm-expressions.vue`, `live2d.vue`, `mmd.vue`, `spine.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, `packages/stage-ui/src/stores/display-models.ts` (`getOrLoadModelCapabilities`), `packages/stage-ui-three/src/stores/model-store.ts` (`discoveredMeshes`, `setMeshVisibility`), `docs/design-model-customizer.md`.
 - **Content**: Universal 4-format expression/motion explorer driven by indexed model capabilities (works with model off-stage); per-type preview dispatch (`triggerExpressionEffect`/`triggerMotionEffect`); ACT emotion and motion mapping + `<|ACT:...|>` insert-token contract; rename/visibility/favorite/idle-cycle toggles; and the mesh-part wardrobe builder (outfits + mesh names) expanding into a third domain. **Disambiguation**: this is the *inline widget*; the floating window is `airi-controlstrip-customizer`.
 
 #### 2.9 `airi-controlstrip-customizer`
@@ -181,7 +181,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 3.4 `airi-memory-systems`
 - **Target Domain**: The Eight Pillars of Memory — hub / map-of-maps skill.
-- **Key Paths**: `packages/stage-ui/src/stores/` (memory-* stores, event-log, background), `packages/stage-ui/src/database/repos/`, `docs/data-catalog.md`, `docs/timeline-flat-design.md`.
+- **Key Paths**: `packages/stage-ui/src/stores/` (memory-* stores, event-log, background), `packages/stage-ui/src/database/repos/`, `docs/data-catalog.md`, `docs/design-timeline-flat.md`.
 - **Content**: Deliberately thin map-of-maps: locates each of the eight pillars (chat sessions, text journal, short-term, echo chips, lifetime, image journal, event log, provisioning) with store → repo → namespace key → universe tagging → prompt-injection point, then defers depth to the eight dedicated pillar skills (3.13–3.20) plus retrieval (3.8), consolidation (3.9), and Memory UI (5.10). Owns the `local:*` vs `localforage` storage boundary, the session-store injection spine, and the flat-`universeId` isolation rules.
 
 #### 3.5 `airi-prompt-builder-engine`
@@ -339,7 +339,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 5.7 `airi-modular-outfits-system`
 - **Target Domain**: Character `outfits` in the `AiriExtension` schema, Live2D/VRM costume variants, and visual-asset manifestations.
-- **Key Paths**: `packages/stage-ui/src/types/card.schema.ts` (`outfits` field), `packages/stage-ui/src/stores/modules/airi-card.ts`, `docs/design-modular-outfits-system.md`, `docs/project-live2d-multimoc-changecos-design.md`.
+- **Key Paths**: `packages/stage-ui/src/types/card.schema.ts` (`outfits` field), `packages/stage-ui/src/stores/modules/airi-card.ts`, `docs/design-modular-outfits-system.md`, `docs/design-live2d-multimoc-changecos.md`.
 - **Content**: `AiriOutfit` structure, outfit→display-model and outfit→visual_asset manifestation mapping, and how outfit switching propagates through the card and renderer. Pitfalls: not a standalone store — it rides on the card schema (Phase 1.5) and Live2D/VRM rendering (Phase 2.1). Cross-link to both.
 
 #### 5.8 `airi-provider-ui-pages`
@@ -349,7 +349,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 5.9 `airi-vrm-vhack-studio`
 - **Target Domain**: V-HACK DevTools & Live VRM Binary Modding Studio.
-- **Key Paths**: `docs/vhack-design-doc.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/` (`HackerPanel.vue`), `packages/stage-ui/src/stores/vhack.ts`.
+- **Key Paths**: `docs/design-vhack-studio.md`, `packages/stage-ui/src/components/scenarios/settings/model-settings/vrm-vhack/` (`HackerPanel.vue`), `packages/stage-ui/src/stores/vhack.ts`.
 - **Content**: In-memory Three.js VRM material inspector (`_RimWidth`, `_ShadeShift`), Texture Deck hot-swapper, glTF JSON / GLB byte-level repacker, and AI UV map generation via Artistry.
 
 #### 5.10 `airi-memory-ui-pages`

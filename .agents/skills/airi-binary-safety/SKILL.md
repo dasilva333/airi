@@ -30,7 +30,7 @@ Binary payloads die silently. Vue 3 reactive proxies plus `JSON.stringify()` wil
 ### Authoritative Design & Architecture Documents
 
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical failure-mode index; §16 Model Persistence & IndexedDB Serialization (binary-proxy lesson).
-- [docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md](docs/content/en/docs/advanced/architecture/arch-indexeddb-storage.md) — IndexedDB storage architecture.
+- [docs/arch-indexeddb-storage.md](docs/arch-indexeddb-storage.md) — IndexedDB storage architecture.
 
 ## Verification
 

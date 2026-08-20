@@ -53,17 +53,17 @@ AIRI's audio infrastructure consists of 2 primary real-time pipelines:
 ### Authoritative Design & Architecture Documents
 
 - [docs/feat-audio-studio.md](docs/feat-audio-studio.md) — Audio studio feature spec (VoiceProfiles, UST).
-- [docs/openai-compatible-tts.md](docs/openai-compatible-tts.md) — OpenAI-compatible TTS.
-- [docs/content/en/docs/advanced/architecture/blueprint-tts-universal-speech-transformer.md](docs/content/en/docs/advanced/architecture/blueprint-tts-universal-speech-transformer.md) — TTS universal speech transformer blueprint.
-- [docs/content/en/docs/advanced/architecture/blueprint-aws-polly-integration.md](docs/content/en/docs/advanced/architecture/blueprint-aws-polly-integration.md) — AWS Polly integration blueprint.
+- [docs/design-openai-compatible-tts.md](docs/design-openai-compatible-tts.md) — OpenAI-compatible TTS.
+- [docs/blueprint-tts-universal-speech-transformer.md](docs/blueprint-tts-universal-speech-transformer.md) — TTS universal speech transformer blueprint.
+- [docs/blueprint-aws-polly-integration.md](docs/blueprint-aws-polly-integration.md) — AWS Polly integration blueprint.
 - [docs/analysis-pocket-tts-viability.md](docs/analysis-pocket-tts-viability.md) — Pocket TTS viability analysis.
 - [docs/analysis-gpt-sovits-onnx-webgpu-viability.md](docs/analysis-gpt-sovits-onnx-webgpu-viability.md) — GPT-SoVITS ONNX WebGPU viability analysis.
 - [docs/proposal-higgs-audio-v3-tts-integration.md](docs/proposal-higgs-audio-v3-tts-integration.md) — Higgs Audio V3 TTS integration proposal.
 - [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
 - [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
-- [docs/content/en/references/research/tts.md](docs/content/en/references/research/tts.md) — TTS research reference.
-- [docs/content/en/references/research/lipsync.md](docs/content/en/references/research/lipsync.md) — Lipsync research reference.
+- [docs/tts.md](docs/tts.md) — TTS research reference.
+- [docs/lipsync.md](docs/lipsync.md) — Lipsync research reference.
 
 ## Related Skills & References
 
-- **Key Documents**: [[feat-audio-studio]], [[openai-compatible-tts]], [[blueprint-tts-universal-speech-transformer]], [[blueprint-aws-polly-integration]], [[analysis-pocket-tts-viability]], [[analysis-gpt-sovits-onnx-webgpu-viability]], [[proposal-higgs-audio-v3-tts-integration]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[project-multimodal-audio-transport]], [[tts]], [[lipsync]]
+- **Key Documents**: [[feat-audio-studio]], [[design-openai-compatible-tts]], [[blueprint-tts-universal-speech-transformer]], [[blueprint-aws-polly-integration]], [[analysis-pocket-tts-viability]], [[analysis-gpt-sovits-onnx-webgpu-viability]], [[proposal-higgs-audio-v3-tts-integration]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[project-multimodal-audio-transport]], [[tts]], [[lipsync]]

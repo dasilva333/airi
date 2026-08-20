@@ -687,7 +687,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // displayModelId actually differs (written explicitly by activateConcept at playback,
     // or by the Director for Base-sourced outfit swaps). Card activation never needs
     // force here because it clears isModelSyncPrevented first, so a genuinely different
-    // model applies via `modelChanged`. See docs/fix-actor-stage-desync.md (v4, Leg 2a).
+    // model applies via `modelChanged`. See docs/design-fix-actor-stage-desync.md (v4, Leg 2a).
     if (!isModelSyncPrevented.value) {
       const newModelId = extension.active_state?.displayModelId ?? extension.modules?.displayModelId
       const modelChanged = newModelId && newModelId !== stageModelStore.stageModelSelected
@@ -964,7 +964,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           // the actor pipeline (activateConcept), manual sync, or the Director (Base-
           // sourced modelIds only). Folding the scene stack here re-derived an arbitrary
           // actor's model whenever the Director reordered concepts mid-speech.
-          // See docs/fix-actor-stage-desync.md (Rail 2).
+          // See docs/design-fix-actor-stage-desync.md (Rail 2).
           displayModelId: resolvedDisplayModelId,
           activeBackgroundId: foldedBackgroundId,
           active_expressions: foldedExpressions,

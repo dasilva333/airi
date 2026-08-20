@@ -12,7 +12,7 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *   **Modular Token Lifecycle Management**: Implement automatic refresh handshakes for Dropbox/Google Drive integrations.
 
 ### Web CORS Proxy Bypass & Cloudflare Workers Bundle
-*References: [proposal-web-cors-proxy-bypass.md](../../../../../proposal-web-cors-proxy-bypass.md) | [cloud-relay-design.md](../../../../../cloud-relay-design.md)*
+*References: [proposal-web-cors-proxy-bypass.md](../../../../../proposal-web-cors-proxy-bypass.md) | [design-cloud-relay.md](../../../../../design-cloud-relay.md)*
 *   **Cloudflare Workers Deployer & Ecosystem Cross-Reference**: Bundle the "Deploy to Cloudflare Workers" private CORS reverse-proxy worker template together with the Cloud Relay user deployment flow.
 *   **System Connection Settings**: Introduce Worker URL inputs and Web CORS bypass toggles in Settings > System > Connection.
 *   **Dynamic XHR/Fetch Routing**: Redirect requests to CORS-restricted endpoints (Deepgram, Pioneer, Opencode) through the user's private worker when matching the bypass list.
@@ -43,7 +43,7 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *   **Prompt Template & Model Selector**: Add a prompt template configuration selector and custom model URL input to allow power users to load arbitrary Hugging Face safetensors.
 
 ### Engine Sidecar (Godot vs. Mate-Engine)
-*Reference: [engine-sidecar-journal.md](../../../../../engine-sidecar-journal.md)*
+*Reference: [design-engine-sidecar-journal.md](../../../../../design-engine-sidecar-journal.md)*
 *   **Render Offloading Spike (Design Revamped)**: Architecture heavily revamped recently; core design updated, implementation open. Evaluate offloading VRM rendering into native sidecar window (Godot 4 vs Mate-Engine Unity runtime).
 
 ### Computer Use & Desktop Agent Subsystem
@@ -82,14 +82,14 @@ This document tracks all active pending items, architectural roadmaps, and featu
 ## Memory & Grounding RAG
 
 ### Memory & Grounding RAG
-*References: [proposal-dynamic-memory-rag-injection.md](../../../../../proposal-dynamic-memory-rag-injection.md) | [nan0-integration-feedback.md](../../../../../nan0-integration-feedback.md) | [proposal-introspective-context-injection.md](../../../../../proposal-introspective-context-injection.md) | [proposal-tools-tab.md](../../../../../proposal-tools-tab.md)*
+*References: [proposal-dynamic-memory-rag-injection.md](../../../../../proposal-dynamic-memory-rag-injection.md) | [design-nan0-integration-feedback.md](../../../../../design-nan0-integration-feedback.md) | [proposal-introspective-context-injection.md](../../../../../proposal-introspective-context-injection.md) | [proposal-tools-tab.md](../../../../../proposal-tools-tab.md)*
 *   **Toggle 2 — Session-Scoped Timeline Memory (RAG)**: Enforce semantic search limited strictly to the current active session ID (cross-session / cross-universe searching removed by design).
 *   **Toggle 4 — Recent Topics Revisit (Researcher Agent Candidate)**: Review/re-architect decaying topic frequency map (Turn-Based/Segment-Based/Wall-Clock decay strategies). Failed/suboptimal implementation flagged for researcher agent rework.
 *   **Actor & Relationship Schema Integration**: Enhance `layered-memory.ts` and memory repositories with native TypeScript actor properties (`actorId`, `targetActorId`, and `relationship`) for episodic vector indexing.
 
 
 ### Live2D DSL Manifest Scripting Interpreter [HIGH PRIORITY / High Reasoning Target]
-*Reference: [live2d-dsl-interpreter-spec.md](../../../../../live2d-dsl-interpreter-spec.md)*
+*Reference: [design-live2d-dsl-interpreter-spec.md](../../../../../design-live2d-dsl-interpreter-spec.md)*
 *   **DSL Virtual Machine**: Event-driven VM parsing custom metadata manifests (logic parameters, assignment codes, intimacy multipliers) for advanced third-party Live2D models. Marked as **HIGH PRIORITY** for high-reasoning agent implementation.
 *   **Active Staging & Dating Sim Development Branches**:
     *   `feature/dating-sim-demo`
@@ -137,7 +137,7 @@ This document tracks all active pending items, architectural roadmaps, and featu
 *   **Director Spatial Upgrade**: Evolve Director LLM into Spatial Scene Architect, AIRIRegionalResolver custom ComfyUI node, Ideogram 4 spatial integration (0-1000 grid).
 
 ### Unified Texture Editor (V-HACK / L-HACK & ModelCustomizer)
-*References: [vhack-design-doc.md](../../../../../vhack-design-doc.md) | [modelcustomizer-design.md](../../../../../modelcustomizer-design.md)*
+*References: [design-vhack-studio.md](../../../../../design-vhack-studio.md) | [design-model-customizer.md](../../../../../design-model-customizer.md)*
 *   **Multi-Model Reskin & ModelCustomizer Extension**: ModelCustomizer unified model handling across VRM (3D), Live2D (2D), MMD/PMX, and Spine. The dynamic reskinning editor is the direct feature extension building on this unified model foundation.
 
 ### Sticker System Specification (Anchored Pseudo-Stickers)

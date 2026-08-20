@@ -54,7 +54,7 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 
 - [docs/design-multi-instance-provider-studio.md](docs/design-multi-instance-provider-studio.md) — Multi-instance provider studio architecture design.
 - [docs/provider-catalog.md](docs/provider-catalog.md) — Provider catalog reference.
-- [docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md](docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md) — Provider store current structure architecture.
+- [docs/arch-provider-store-current-structure.md](docs/arch-provider-store-current-structure.md) — Provider store current structure architecture.
 - [docs/project-provider-store-restructuring-plan.md](docs/project-provider-store-restructuring-plan.md) — Provider store restructuring plan.
 - [docs/project-codex-provider-restructuring-plan.md](docs/project-codex-provider-restructuring-plan.md) — Codex provider restructuring plan.
 - [docs/project-provider-store-phase1-handoff.md](docs/project-provider-store-phase1-handoff.md) — Provider store phase 1 handoff.

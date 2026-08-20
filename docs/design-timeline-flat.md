@@ -1,12 +1,12 @@
 # Proposal: Flat Universe-Based Memory Isolation (Simplified Timeline Model)
 
-This document outlines the simplified, flat **Universe-Based Memory Isolation** model for AIRI, which decouples conversation threads from the character memory banks. This design replaces the complex, Git-like nested tree inheritance model detailed in [timeline-nested-design.md](file:///docs/timeline-nested-design.md).
+This document outlines the simplified, flat **Universe-Based Memory Isolation** model for AIRI, which decouples conversation threads from the character memory banks. This design replaces the complex, Git-like nested tree inheritance model detailed in [design-timeline-nested.md](file:///docs/design-timeline-nested.md).
 
 ---
 
 ## 1. Architectural Pivot: Nested vs. Flat
 
-In the previous nested architecture ([timeline-nested-design.md](file:///docs/timeline-nested-design.md)), conversation timelines were treated like branching Git commits, inheriting memory from ancestors using a recursive tree-climbing search engine.
+In the previous nested architecture ([design-timeline-nested.md](file:///docs/design-timeline-nested.md)), conversation timelines were treated like branching Git commits, inheriting memory from ancestors using a recursive tree-climbing search engine.
 
 While technically elegant, the nested model introduced significant practical issues:
 1. **The New Session Dilemma**: Starting a fresh, empty conversation thread has no parent message turn. Linking it to a parent timeline to inherit memory was overly complex and unintuitive.

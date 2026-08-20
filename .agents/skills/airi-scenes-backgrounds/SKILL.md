@@ -91,9 +91,9 @@ Both exist. Choose the correct import path for the surface you are editing; do n
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/content/en/docs/advanced/architecture/design-scenes-and-backgrounds-system.md](docs/content/en/docs/advanced/architecture/design-scenes-and-backgrounds-system.md) — Scenes and backgrounds system design.
-- [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
-- [docs/artistry-porting-report.md](docs/artistry-porting-report.md) — Artistry porting report.
+- [docs/design-scenes-and-backgrounds-system.md](docs/design-scenes-and-backgrounds-system.md) — Scenes and backgrounds system design.
+- [docs/design-image-journal-storage.md](docs/design-image-journal-storage.md) — Image journal storage design.
+- [docs/project-artistry-porting-report.md](docs/project-artistry-porting-report.md) — Artistry porting report.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 toRaw/binary lesson.
 
 ## Verification
@@ -105,4 +105,4 @@ pnpm -F @proj-airi/stage-pages typecheck
 
 ## Related Skills & References
 
-- **Key Documents**: [[design-scenes-and-backgrounds-system]], [[design-image-journal-storage]], [[artistry-porting-report]], [[rosetta-stone]]
+- **Key Documents**: [[design-scenes-and-backgrounds-system]], [[design-image-journal-storage]], [[project-artistry-porting-report]], [[rosetta-stone]]

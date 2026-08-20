@@ -95,14 +95,14 @@ If you skip this, concurrent edits (e.g., another tab writing a separate `airi` 
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/content/en/docs/advanced/architecture/design-character-card-import-export.md](docs/content/en/docs/advanced/architecture/design-character-card-import-export.md) — Character card import/export design.
+- [docs/design-character-card-import-export.md](docs/design-character-card-import-export.md) — Character card import/export design.
 - [docs/content/en/docs/showcase/02-animadex-wizard.md](docs/content/en/docs/showcase/02-animadex-wizard.md) — AnimaDex wizard showcase.
 - [docs/proposal-animadex-wizard.md](docs/proposal-animadex-wizard.md) — AnimaDex wizard proposal.
 - [docs/proposal-animadex-new-characters.md](docs/proposal-animadex-new-characters.md) — AnimaDex new characters proposal.
-- [docs/animadex-wizard-pending-items.md](docs/animadex-wizard-pending-items.md) — AnimaDex wizard pending items.
+- [docs/project-animadex-wizard-pending-items.md](docs/project-animadex-wizard-pending-items.md) — AnimaDex wizard pending items.
 - [docs/proposal-default-cards-revamp.md](docs/proposal-default-cards-revamp.md) — Default cards revamp proposal.
-- [docs/airi-card-design.md](docs/airi-card-design.md) — AIRI card design spec.
-- [docs/nan0-integration-feedback.md](docs/nan0-integration-feedback.md) — NAN0 integration feedback.
+- [docs/design-airi-card.md](docs/design-airi-card.md) — AIRI card design spec.
+- [docs/design-nan0-integration-feedback.md](docs/design-nan0-integration-feedback.md) — NAN0 integration feedback.
 
 ## Verification
 
@@ -115,4 +115,4 @@ pnpm -F @proj-airi/stage-ui typecheck
 
 ## Related Skills & References
 
-- **Key Documents**: [[design-character-card-import-export]], [[02-animadex-wizard]], [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[animadex-wizard-pending-items]], [[proposal-default-cards-revamp]], [[airi-card-design]], [[nan0-integration-feedback]]
+- **Key Documents**: [[design-character-card-import-export]], [[02-animadex-wizard]], [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[project-animadex-wizard-pending-items]], [[proposal-default-cards-revamp]], [[design-airi-card]], [[design-nan0-integration-feedback]]

@@ -44,7 +44,7 @@ Runs the same semantic search but across **all other sessions** and memory entri
 
 > [!IMPORTANT]
 > **Universe-Based Scoping & Flat Design**
-> As defined in [timeline-flat-design.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/timeline-flat-design.md), multiple chat sessions can coexist inside a **Universe** (`universeId`). To prevent memory/relationship leaks or timeline contradictions, any cross-session semantic search **MUST** be strictly filtered. It queries only sessions or memory entries belonging to the **active universe** (`activeUniverseId`) associated with the current session.
+> As defined in [design-timeline-flat.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-timeline-flat.md), multiple chat sessions can coexist inside a **Universe** (`universeId`). To prevent memory/relationship leaks or timeline contradictions, any cross-session semantic search **MUST** be strictly filtered. It queries only sessions or memory entries belonging to the **active universe** (`activeUniverseId`) associated with the current session.
 
 ---
 

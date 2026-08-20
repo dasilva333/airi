@@ -360,7 +360,7 @@ Relay isn't just a chat bot — it's also the spine of state persistence between
 - **Onboarding cloud track**: Onboarding V2 adds **Cloud Infrastructure** and **Selective Restore** steps — Cloudflare sign-in provisions your own edge CORS proxy / Discord worker / R2 backup bucket, then offers a per-artifact selective restore of prior state (see §17).
 - **Platform Parity via Relay**: by routing DB and vault reads through the Cloudflare Web CORS reverse-proxy, the same cloud surface serves the web (`stage-web`) and mobile (`stage-pocket`) targets — a single zero-custody spine across desktop, web, and mobile.
 
-> **Design lineage**: the master blueprint is `docs/cloud-relay-design.md`; the generic framework plan is `docs/project-generic-cloudflare-framework-plan.md`. Sibling Discord design specs: `docs/design-discord-context-routing.md` + `docs/design-discord-control-plane.md`.
+> **Design lineage**: the master blueprint is `docs/design-cloud-relay.md`; the generic framework plan is `docs/project-generic-cloudflare-framework-plan.md`. Sibling Discord design specs: `docs/design-discord-context-routing.md` + `docs/design-discord-control-plane.md`.
 
 ---
 

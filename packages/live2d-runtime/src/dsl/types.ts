@@ -2,7 +2,7 @@
  * Live2D DSL type system.
  *
  * These types mirror the *manifest wire format* exactly as observed in
- * `docs/live2d-special-sauce-insights.md` — PascalCase keys, `#`/`:` lane and
+ * `docs/research-live2d-special-sauce.md` — PascalCase keys, `#`/`:` lane and
  * priority hints embedded in names — because they are parsed straight from
  * pruned `.model.json` / `.model3.json` custom motion-group entries.
  */

@@ -130,7 +130,7 @@ Edit the `mode === 'mobile'` branches in §3's table — not a new component. To
 - [docs/project-control-strip-rfc.md](docs/project-control-strip-rfc.md) — Control Strip revamp RFC (pill schema, endcaps, mode toggle, notch docking, startup visibility orchestration).
 - [docs/catalog-control-strip.md](docs/catalog-control-strip.md) — master catalog of strip items by category with icons/display-type/default-state.
 - [docs/project-mobile-revamp.md](docs/project-mobile-revamp.md) — mobile UX design (interaction planes, dockedEdge coordination, touch-first customizer). **Partially stale**: its named `MobileControlStrip.vue`/`MobileControlCustomizerDialog.vue` files were never built; the shipped version is `ControlStrip mode="mobile"` (§3).
-- [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Stage UI context bridge / control island architecture.
+- [docs/design-stage-ui-context-bridge-control-island.md](docs/design-stage-ui-context-bridge-control-island.md) — Stage UI context bridge / control island architecture.
 - [docs/project-navigation-routing-overhaul.md](docs/project-navigation-routing-overhaul.md) — Navigation & routing overhaul project plan.
 - [docs/proposal-studio-sidetab.md](docs/proposal-studio-sidetab.md) — Studio sidetab proposal.
 - [docs/proposal-novel-stage-concepts.md](docs/proposal-novel-stage-concepts.md) — Stage↔Chat unification concepts (inline/sidebar stage, Magic Wand WhisperDock).

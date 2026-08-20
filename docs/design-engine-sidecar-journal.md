@@ -11,7 +11,7 @@ The Mate-Engine sidecar is the **native re-implementation of the Actor Stage**. 
 | Doc | Format | What it covers |
 | :--- | :--- | :--- |
 | [`design-actor-stage.md`](./design-actor-stage.md) | Electron / WebGL | The canonical Actor Stage UX: window chrome, size presets (`mini`/`medium`/`large`/`full`), corner snap, view config overlay, proximity/dismiss behavior. The sidecar's window chrome is being ported from here. |
-| [`idle-animation-design.md`](./idle-animation-design.md) | Cross-format reference | Idle animation data model + playback semantics (AIRI WebGL base-idle vs. idle-cycle, and the Mate-Engine/Unity implementation). |
+| [`design-idle-animation.md`](./design-idle-animation.md) | Cross-format reference | Idle animation data model + playback semantics (AIRI WebGL base-idle vs. idle-cycle, and the Mate-Engine/Unity implementation). |
 | [`rosetta-stone.md`](./rosetta-stone.md) | Repo index | Concept → file-path index. §2 (Core UI), §13 (BroadcastChannels), §14 (key dirs) are the relevant sections. |
 
 > **Rule of thumb**: if a feature exists on the Actor Stage (WebGL), the sidecar (Unity) is where its native equivalent lands. Always read the Actor Stage spec before touching the sidecar's UI/UX surface — they must stay in lock-step.

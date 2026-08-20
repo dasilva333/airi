@@ -1,6 +1,6 @@
 # Review Report: Root Cause Analysis Validation for `<|ACTOR:|>` Token Sync
 
-> **Reviewed document:** [`docs/journal-actor-token-sync.md`](./journal-actor-token-sync.md)
+> **Reviewed document:** [`docs/design-journal-actor-token-sync.md`](./design-journal-actor-token-sync.md)
 > **Review date:** 2026-06-12
 > **Method:** Line-by-line code trace of the speech pipeline, chunker, playback manager, artistry store, and card store. All line numbers below refer to the current working tree.
 

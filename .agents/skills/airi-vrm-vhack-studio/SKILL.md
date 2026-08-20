@@ -6,7 +6,7 @@ description: >-
 
 # AIRI V-HACK Studio — Native VRM Binary Modding Panel
 
-V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HACKER MODE panel embedded in AIRI's Model Settings that binary-modifies the loaded VRM **in-memory** — live MToon shader sliders, texture deck, AI texture generation, and a surgical GLB repatcher that compiles changes back to `.vrm`. `docs/vhack-design-doc.md` is the founding spec; this skill maps the implementation.
+V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HACKER MODE panel embedded in AIRI's Model Settings that binary-modifies the loaded VRM **in-memory** — live MToon shader sliders, texture deck, AI texture generation, and a surgical GLB repatcher that compiles changes back to `.vrm`. `docs/design-vhack-studio.md` is the founding spec; this skill maps the implementation.
 
 ## 1. Key Code Paths
 
@@ -17,7 +17,7 @@ V-HACK is the "hidden devtools" pivot: rather than a standalone app, it is a HAC
 | Panel mount point | `packages/stage-ui/src/components/scenarios/settings/model-settings/index.vue` — imports both panels (:13, :17) and the store (:24) |
 | Tab store | `packages/stage-ui/src/stores/vhack.ts` — `useVHackStore` (132 lines) |
 | Desktop settings route | `packages/stage-pages/src/pages/settings/models/index.vue` |
-| Design doc | `docs/vhack-design-doc.md` |
+| Design doc | `docs/design-vhack-studio.md` |
 
 **How to reach it**: Settings → Models → V-HACK toggle button launches `toggleHackerMode()` and the panel slides in on the right of the Model Settings viewport.
 
@@ -58,11 +58,11 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 
 ### Authoritative Docs & Cross-Citations
 
-- [docs/vhack-design-doc.md](docs/vhack-design-doc.md) — V-HACK founding spec (panel layout, module breakdown, MVP priorities).
+- [docs/design-vhack-studio.md](docs/design-vhack-studio.md) — V-HACK founding spec (panel layout, module breakdown, MVP priorities).
 - `airi-character-rendering` — model/schema layer this panel modifies.
 - `airi-card-schema` — if exploring "write mutated VRM back onto the outfit card" flows.
 
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-card-schema]], [[airi-character-rendering]]
-- **Key Documents**: [[vhack-design-doc]]
+- **Key Documents**: [[design-vhack-studio]]

@@ -78,14 +78,14 @@ enriches it per-session with memory and environmental context, and parses specia
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/prompt-crafting-catalog.md](docs/prompt-crafting-catalog.md) — Prompt crafting catalog.
+- [docs/design-prompt-crafting-catalog.md](docs/design-prompt-crafting-catalog.md) — Prompt crafting catalog.
 - [docs/proposal-introspective-context-injection.md](docs/proposal-introspective-context-injection.md) — Introspective context injection proposal.
 - [docs/proposal-dynamic-memory-rag-injection.md](docs/proposal-dynamic-memory-rag-injection.md) — Dynamic memory RAG injection proposal.
-- [docs/content/en/docs/advanced/architecture/design-character-configurable-llm.md](docs/content/en/docs/advanced/architecture/design-character-configurable-llm.md) — Character-configurable LLM design.
-- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/design-character-configurable-llm.md](docs/design-character-configurable-llm.md) — Character-configurable LLM design.
+- [docs/design-director-producer-roles.md](docs/design-director-producer-roles.md) — Director/producer roles document.
 - [docs/proposal-core-agent-revamp.md](docs/proposal-core-agent-revamp.md) — Core agent revamp proposal.
 - [docs/journal-the-reasoning-content-bug.md](docs/journal-the-reasoning-content-bug.md) — Reasoning-content bug journal.
-- [docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md](docs/content/en/docs/advanced/architecture/design-act-token-expression-system.md) — ACT token expression system design.
+- [docs/design-act-token-expression-system.md](docs/design-act-token-expression-system.md) — ACT token expression system design.
 
 ## Verification
 
@@ -99,4 +99,4 @@ enriches it per-session with memory and environmental context, and parses specia
 
 ## Related Skills & References
 
-- **Key Documents**: [[prompt-crafting-catalog]], [[proposal-introspective-context-injection]], [[proposal-dynamic-memory-rag-injection]], [[design-character-configurable-llm]], [[director-producer-roles]], [[proposal-core-agent-revamp]], [[journal-the-reasoning-content-bug]], [[design-act-token-expression-system]]
+- **Key Documents**: [[design-prompt-crafting-catalog]], [[proposal-introspective-context-injection]], [[proposal-dynamic-memory-rag-injection]], [[design-character-configurable-llm]], [[design-director-producer-roles]], [[proposal-core-agent-revamp]], [[journal-the-reasoning-content-bug]], [[design-act-token-expression-system]]

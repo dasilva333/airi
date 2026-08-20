@@ -31,7 +31,7 @@ Instead of manually grepping through the 287,000-line `Mate Engine Main.unity` s
 | **`pnpm -F @proj-airi/stage-mate run scene tree [RootName] [depth]`** | `scene tree SettingsMenuCanvas 3` | Renders an ASCII/Markdown hierarchy tree showing active states (`[🟢 Active]` / `[🔴 Inactive]`), UI RectTransform bounds, and attached scripts. |
 | **`pnpm -F @proj-airi/stage-mate run scene find <query>`** | `scene find OuterMenu` | Searches by GameObject name, Script Class, GUID, or fileID. Prints breadcrumb paths and components. |
 | **`pnpm -F @proj-airi/stage-mate run scene path <nameOrId>`** | `scene path OuterMenu` | Traverses up `m_Father` pointers to print the exact Root-to-Leaf ancestor chain (critical for discovering inactive parents!). |
-| **`pnpm -F @proj-airi/stage-mate run scene dump-md`** | `scene dump-md` | Generates the complete collapsible Markdown reference map: [`docs/mate-scene-hierarchy.md`](./mate-scene-hierarchy.md). |
+| **`pnpm -F @proj-airi/stage-mate run scene dump-md`** | `scene dump-md` | Generates the complete collapsible Markdown reference map: [`docs/design-mate-scene-hierarchy.md`](./design-mate-scene-hierarchy.md). |
 
 ---
 

@@ -649,7 +649,7 @@ export function runCli(argv: string[] = process.argv.slice(2)) {
     }
 
     case 'dump-md': {
-      const outPath = arg1 ? resolve(process.cwd(), arg1) : resolve(rootStageMate, '..', '..', 'docs', 'mate-scene-hierarchy.md')
+      const outPath = arg1 ? resolve(process.cwd(), arg1) : resolve(rootStageMate, '..', '..', 'docs', 'design-mate-scene-hierarchy.md')
       console.log(`Exporting Markdown hierarchy to: ${outPath}...`)
       const md = generateMarkdownHierarchy(graph, basename(sceneFile))
       const outDir = resolve(outPath, '..')

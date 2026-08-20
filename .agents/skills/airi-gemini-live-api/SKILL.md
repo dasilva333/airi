@@ -7,7 +7,7 @@ description: >-
   live marker parsing, native tool calling mid-turn, and Google Search Grounding gated on
   isGroundingEnabled. Key tech: google-genai SDK, raw Bidi WebSocket, Pinia, Vue 3,
   useLlmmarkerParser, streaming categorizer. Paths:
-  docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md,
+  docs/design-gemini-live-api-integration.md,
   packages/stage-ui/src/stores/modules/live-session.ts,
   apps/stage-tamagotchi/src/renderer/pages/notice/gemini.vue.
 ---
@@ -19,7 +19,7 @@ Real-time, sub-second bidirectional multimodal streaming over a Bidi WebSocket u
 
 ## Key Files/Locations
 
-- `docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md` —
+- `docs/design-gemini-live-api-integration.md` —
   canonical design doc: Mandatory AUDIO rule, verified wire formats, `google_search` tool
   key, OAuth-vs-API-key auth caveats, tool schema bridge, 5-call rate cap.
 - `packages/stage-ui/src/stores/modules/live-session.ts` — `LiveSessionStore` Pinia store.
@@ -65,9 +65,9 @@ Real-time, sub-second bidirectional multimodal streaming over a Bidi WebSocket u
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md](docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md) — Canonical Gemini Live API integration design.
+- [docs/design-gemini-live-api-integration.md](docs/design-gemini-live-api-integration.md) — Canonical Gemini Live API integration design.
 - [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
-- [docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md](docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
+- [docs/arch-chat-stt-proactivity-pipelines.md](docs/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
 
 ## Verification
 

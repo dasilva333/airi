@@ -46,8 +46,8 @@ Research first, port deliberately. This fork is highly divergent; the `upstream`
 - [docs/project-upstream-squat-candidates.md](docs/project-upstream-squat-candidates.md) — Upstream squat candidates.
 - [docs/project-squat-1622-report.md](docs/project-squat-1622-report.md) — Squat 1622 report.
 - [docs/project-rebase-changelog.md](docs/project-rebase-changelog.md) — Rebase changelog.
-- [docs/fork-harvest-report.md](docs/fork-harvest-report.md) — Fork harvest report.
-- [docs/forks-ecosystem.md](docs/forks-ecosystem.md) — Forks ecosystem.
+- [docs/research-fork-harvest-report.md](docs/research-fork-harvest-report.md) — Fork harvest report.
+- [docs/research-forks-ecosystem.md](docs/research-forks-ecosystem.md) — Forks ecosystem.
 - [docs/proposal-fork-explorer-harvest-scanner.md](docs/proposal-fork-explorer-harvest-scanner.md) — Fork explorer harvest scanner proposal.
 - [docs/superpowers/README.md](docs/superpowers/README.md) — Superpowers docs README (commercial backend plans/specs index).
 - [docs/project-specialized-skills.md](docs/project-specialized-skills.md) — Specialized skills project plan.
@@ -61,4 +61,4 @@ Research first, port deliberately. This fork is highly divergent; the `upstream`
 
 ## Related Skills & References
 
-- **Key Documents**: [[roadmap]], [[project-selective-upstream-sync-protocol]], [[project-selective-upstream-sync-shortlist]], [[project-selective-upstream-sync-p1-file-manifest]], [[project-selective-upstream-sync-phase-a-buy-in]], [[project-selective-upstream-sync-phase-b-buy-in]], [[project-critical-upstream-sync-hashes]], [[project-upstream-sync-alpha15-alpha22]], [[project-upstream-sync-alpha15-alpha22-v2]], [[project-upstream-sync-report-alpha22-to-latest]], [[project-upstream-pr-catalog]], [[project-upstream-squat-candidates]], [[project-squat-1622-report]], [[project-rebase-changelog]], [[fork-harvest-report]], [[forks-ecosystem]], [[proposal-fork-explorer-harvest-scanner]], [[project-specialized-skills]]
+- **Key Documents**: [[roadmap]], [[project-selective-upstream-sync-protocol]], [[project-selective-upstream-sync-shortlist]], [[project-selective-upstream-sync-p1-file-manifest]], [[project-selective-upstream-sync-phase-a-buy-in]], [[project-selective-upstream-sync-phase-b-buy-in]], [[project-critical-upstream-sync-hashes]], [[project-upstream-sync-alpha15-alpha22]], [[project-upstream-sync-alpha15-alpha22-v2]], [[project-upstream-sync-report-alpha22-to-latest]], [[project-upstream-pr-catalog]], [[project-upstream-squat-candidates]], [[project-squat-1622-report]], [[project-rebase-changelog]], [[research-fork-harvest-report]], [[research-forks-ecosystem]], [[proposal-fork-explorer-harvest-scanner]], [[project-specialized-skills]]

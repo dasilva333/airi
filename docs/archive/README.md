@@ -22,3 +22,4 @@ This directory contains historical handoffs, point-in-time model reviews, comple
 | `[[bugfix-apply-btn-race]]` | Resolved Bug Report | Resolved model disappearance race condition report. |
 | `[[journal-the-reasoning-content-bug]]` | Resolved Bug Report | Resolved DeepSeek reasoning_content speech bug post-mortem. |
 | `[[linux-wayland-chat-cpu-spikes]]` | Resolved Bug Report | Resolved Linux Wayland CPU spike diagnostic memo. |
+| `[[pr-summary]]` | Historical Upstream Sync Log | Upstream PR snapshot (#1861-#1895). |

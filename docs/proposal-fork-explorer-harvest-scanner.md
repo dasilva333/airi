@@ -145,14 +145,14 @@ node scripts/fork-explorer.js --profile telegram-modern --days 14
 node scripts/fork-explorer.js --profile browser-ml,live2d-dsl,vrm-touch-ik --days 30
 
 # 4. Generate a comprehensive Markdown harvest catalog report
-node scripts/fork-explorer.js --all --output docs/fork-harvest-report.md
+node scripts/fork-explorer.js --all --output docs/research-fork-harvest-report.md
 ```
 
 ### 5.1 Short-Run & Dry-Run Protection (`--limit`, `--dry-run`)
 - **`--limit <N>`**: Caps the scan to the top $N$ most recently updated forks (e.g. `--limit 5`). Perfect for sanity-checking rules before starting a 500-repo sweep.
 - **`--dry-run`**: Runs signature matching and prints terminal diagnostics without updating `.fork-explorer-cache.json` or writing report files.
 
-### Generated Harvest Report Format (`docs/fork-harvest-report.md`)
+### Generated Harvest Report Format (`docs/research-fork-harvest-report.md`)
 
 ```markdown
 # AIRI Ecosystem R&D Harvest Report (Generated 2026-08-10)

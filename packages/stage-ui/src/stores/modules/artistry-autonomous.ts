@@ -247,7 +247,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
         // Track whether the winning modelId came from a Base concept (exclusionary
         // state change) or a Layer (additive scene member). Callers that apply the
         // model to the physical stage gate on this — see runArtistTask and
-        // docs/fix-actor-stage-desync.md (Rail 1 gate).
+        // docs/design-fix-actor-stage-desync.md (Rail 1 gate).
         resolvedModelIdFromBase = asset.isBase === true
       }
       if (asset.manifestation?.mood) {
@@ -749,7 +749,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
       // concept (exclusionary state change, e.g. outfit swap — Setup B). Layer-sourced
       // modelIds (actor concepts coexisting in a multi-character scene) belong to the
       // ACTOR-token pipeline; applying them here clobbers the currently-speaking
-      // actor's stage model. See docs/fix-actor-stage-desync.md (Rail 1 gate).
+      // actor's stage model. See docs/design-fix-actor-stage-desync.md (Rail 1 gate).
       if (folded.modelId && folded.modelIdFromBase) {
         immediateModuleUpdates.displayModelId = folded.modelId
       }
@@ -1074,7 +1074,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
     // keep the gate true, do the update, then run one explicit un-gated syncCardState on
     // the next microtask — after Vue's flush has batched all watchers from updateCard —
     // which applies the model via its (now change-only) path. See
-    // docs/fix-actor-stage-desync.md (v4, Leg 2b).
+    // docs/design-fix-actor-stage-desync.md (v4, Leg 2b).
     await cardStore.updateCard(activeCardId, {
       extensions: {
         ...activeCard.extensions,

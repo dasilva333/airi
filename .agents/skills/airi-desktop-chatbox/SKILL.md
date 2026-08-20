@@ -156,7 +156,7 @@ Keep both files in lockstep — the menu is driven by the **builder function**, 
 
 ## 9. Canonical Design & Architecture Docs
 
-- [docs/content/en/docs/advanced/architecture/design-tamagotchi-chatbox-ux-improvements.md](docs/content/en/docs/advanced/architecture/design-tamagotchi-chatbox-ux-improvements.md) — Tamagotchi chatbox UX improvements design.
+- [docs/design-tamagotchi-chatbox-ux-improvements.md](docs/design-tamagotchi-chatbox-ux-improvements.md) — Tamagotchi chatbox UX improvements design.
 - [docs/design-chatbox-magic-wand-flow.md](docs/design-chatbox-magic-wand-flow.md) — Chatbox magic-wand flow design.
 - [docs/proposal-chatbox-revamp.md](docs/proposal-chatbox-revamp.md) — Chatbox revamp proposal.
 - [docs/proposal-chatbox-slash-commands.md](docs/proposal-chatbox-slash-commands.md) — Chatbox slash-commands proposal.

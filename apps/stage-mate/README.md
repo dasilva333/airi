@@ -149,8 +149,8 @@ apps/stage-mate/
 | `harness/index.ts` | WebSocket mock server |
 | `Assets/StageMate/MateSidecar.cs` | Unity runtime: WS client, VRM loader, drag, idle, orbit |
 | `Assets/StageMate/MateSidecarBuild.cs` | Editor build script |
-| `docs/idle-animation-design.md` | Idle animation system design |
-| `docs/engine-sidecar-journal.md` | Full design journal |
+| `docs/design-idle-animation.md` | Idle animation system design |
+| `docs/design-engine-sidecar-journal.md` | Full design journal |
 | `design-actor-stage.md` | Actor Stage UX reference |
 
 ---

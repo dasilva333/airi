@@ -14,7 +14,7 @@ description: >-
 
 ## 1. Canonical Design Document
 
-Read **`docs/modelcustomizer-design.md`** first. It defines the separation-of-concerns boundary:
+Read **`docs/design-model-customizer.md`** first. It defines the separation-of-concerns boundary:
 
 - **`ModelCustomizer.vue`** = zero-side-effects capabilities explorer: transient click-to-preview, rename / visibility / favorite / idle-cycle toggles, ACT mapping. It must NOT own LLM generation, sandbox dialogues, or prompt injection — that belongs to parent containers.
 - **Parent containers**: settings panels (`vrm-expressions.vue`, `live2d.vue`, `mmd.vue`, `spine.vue`) and the Rehearsal Room (`apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, which passes `showInsertActions` for token insertion and owns LLM generation + backup download).
@@ -63,7 +63,7 @@ Read **`docs/modelcustomizer-design.md`** first. It defines the separation-of-co
 - **`update:visible-capabilities`** — `({ emotions: string[], motions: string[] })` surfaced after filtering for visibility/renamed-only. Lets parents reflect "what the AI can actually use" without re-deriving.
 
 > [!IMPORTANT]
-> **Previewed Model vs Active Character Card Model**: When a user browses models in Settings, `stageModelSelected` holds the *previewed* ID. Hosts MUST pass `props.modelId || stageModelSelected` so lists reflect the model on screen, NOT the unapplied `activeCard.displayModelId`. See `docs/modelcustomizer-design.md`.
+> **Previewed Model vs Active Character Card Model**: When a user browses models in Settings, `stageModelSelected` holds the *previewed* ID. Hosts MUST pass `props.modelId || stageModelSelected` so lists reflect the model on screen, NOT the unapplied `activeCard.displayModelId`. See `docs/design-model-customizer.md`.
 
 ---
 
@@ -150,4 +150,4 @@ All lists are driven by `getOrLoadModelCapabilities` output (model-file level), 
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-binary-safety]], [[airi-controlstrip-customizer]], [[airi-modular-outfits-system]]
-- **Key Documents**: [[modelcustomizer-design]]
+- **Key Documents**: [[design-model-customizer]]

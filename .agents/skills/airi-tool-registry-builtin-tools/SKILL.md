@@ -1,7 +1,7 @@
 ---
 name: airi-tool-registry-builtin-tools
 description: >-
-  Use when working with tool calling across AIRI surfaces — the builtinTools factory (apps/stage-tamagotchi/src/renderer/stores/tools/builtin/), the tool registry inside ProactivityStore (registerTools/resolveRegisteredTools), the chat orchestrator toolsResolver, the card-level allowedTools gate in llmStore.filterToolsByAllowedTools, and the per-surface availability matrix (desktop chatbox, secondary windows/WhisperDock relay, web-stage, pocket, proactivity heartbeats, Discord text/voice/steer, Gemini Live Bidi native function calls, VLM turns). Covers tool-call rendering in chat slices and Discord outbound formatting, authoring new builtin tools, and registration pitfalls. Peer skills: airi-mcp-integration (MCP meta-tools), airi-interaction-pipelines (routing), airi-llm-dispatch-gateway (gateway-side filtering), airi-discord-integration, airi-gemini-live-api, airi-artistry-comfyui-widgets (image_journal), airi-generative-motion-vrma (generate_motion). Cites docs/rosetta-stone.md and docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md.
+  Use when working with tool calling across AIRI surfaces — the builtinTools factory (apps/stage-tamagotchi/src/renderer/stores/tools/builtin/), the tool registry inside ProactivityStore (registerTools/resolveRegisteredTools), the chat orchestrator toolsResolver, the card-level allowedTools gate in llmStore.filterToolsByAllowedTools, and the per-surface availability matrix (desktop chatbox, secondary windows/WhisperDock relay, web-stage, pocket, proactivity heartbeats, Discord text/voice/steer, Gemini Live Bidi native function calls, VLM turns). Covers tool-call rendering in chat slices and Discord outbound formatting, authoring new builtin tools, and registration pitfalls. Peer skills: airi-mcp-integration (MCP meta-tools), airi-interaction-pipelines (routing), airi-llm-dispatch-gateway (gateway-side filtering), airi-discord-integration, airi-gemini-live-api, airi-artistry-comfyui-widgets (image_journal), airi-generative-motion-vrma (generate_motion). Cites docs/rosetta-stone.md and docs/arch-chat-stt-proactivity-pipelines.md.
 ---
 
 # AIRI Tool Registry & Builtin Tools
@@ -108,7 +108,7 @@ So a tool can be fully registered and still invisible per-card. See `airi-llm-di
 ## 9. Sources & Peer Skills
 
 - Ground truth: `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/index.ts`, `packages/stage-ui/src/stores/proactivity.ts` (registry), `packages/stage-ui/src/stores/chat.ts` (resolver/loop), `packages/stage-ui/src/stores/llm.ts` (gating).
-- `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`, `docs/rosetta-stone.md`.
+- `docs/arch-chat-stt-proactivity-pipelines.md`, `docs/rosetta-stone.md`.
 - Peer skills: `airi-mcp-integration`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-discord-integration`, `airi-gemini-live-api`, `airi-artistry-comfyui-widgets`, `airi-generative-motion-vrma`, `airi-dating-sim-engine`, `airi-desktop-chatbox`.
 
 ## Related Skills & References

@@ -121,9 +121,9 @@ Two styles coexist in AIRI. Dating-sim uses the raw `new BroadcastChannel('datin
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/dating-sim-gamestate-mechanics.md](docs/dating-sim-gamestate-mechanics.md) — Dating sim gamestate mechanics.
-- [docs/dating-sim-intimacy-spec.md](docs/dating-sim-intimacy-spec.md) — Dating sim intimacy spec.
-- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/design-dating-sim-gamestate-mechanics.md](docs/design-dating-sim-gamestate-mechanics.md) — Dating sim gamestate mechanics.
+- [docs/design-dating-sim-intimacy-spec.md](docs/design-dating-sim-intimacy-spec.md) — Dating sim intimacy spec.
+- [docs/design-director-producer-roles.md](docs/design-director-producer-roles.md) — Director/producer roles document.
 - [docs/content/en/docs/showcase/07-producer-subsystem.md](docs/content/en/docs/showcase/07-producer-subsystem.md) — Producer subsystem showcase.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §13 BroadcastChannel registry.
 
@@ -135,4 +135,4 @@ pnpm -F @proj-airi/stage-ui typecheck
 
 ## Related Skills & References
 
-- **Key Documents**: [[dating-sim-gamestate-mechanics]], [[dating-sim-intimacy-spec]], [[director-producer-roles]], [[07-producer-subsystem]], [[rosetta-stone]]
+- **Key Documents**: [[design-dating-sim-gamestate-mechanics]], [[design-dating-sim-intimacy-spec]], [[design-director-producer-roles]], [[07-producer-subsystem]], [[rosetta-stone]]

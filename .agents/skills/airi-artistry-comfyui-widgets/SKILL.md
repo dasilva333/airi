@@ -72,11 +72,11 @@ description: >-
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/content/en/docs/advanced/architecture/design-comfyui-image-generation-widget.md](docs/content/en/docs/advanced/architecture/design-comfyui-image-generation-widget.md) — ComfyUI image generation widget design.
-- [docs/content/en/docs/advanced/architecture/arch-comfyui-native-api-engine.md](docs/content/en/docs/advanced/architecture/arch-comfyui-native-api-engine.md) — ComfyUI native API engine architecture.
-- [docs/content/en/docs/advanced/architecture/design-flux-grid-slice-image-generation.md](docs/content/en/docs/advanced/architecture/design-flux-grid-slice-image-generation.md) — Flux grid slice image generation design.
-- [docs/artistry-porting-report.md](docs/artistry-porting-report.md) — Artistry porting report.
-- [docs/ideogram-4-schema.md](docs/ideogram-4-schema.md) — Ideogram 4 schema.
+- [docs/design-comfyui-image-generation-widget.md](docs/design-comfyui-image-generation-widget.md) — ComfyUI image generation widget design.
+- [docs/arch-comfyui-native-api-engine.md](docs/arch-comfyui-native-api-engine.md) — ComfyUI native API engine architecture.
+- [docs/design-flux-grid-slice-image-generation.md](docs/design-flux-grid-slice-image-generation.md) — Flux grid slice image generation design.
+- [docs/project-artistry-porting-report.md](docs/project-artistry-porting-report.md) — Artistry porting report.
+- [docs/design-ideogram-4-schema.md](docs/design-ideogram-4-schema.md) — Ideogram 4 schema.
 - [docs/project-widget-system-status-report.md](docs/project-widget-system-status-report.md) — Widget system status report.
 - [docs/proposal-comfyui-generative-music-dj-engine.md](docs/proposal-comfyui-generative-music-dj-engine.md) — Unified DJ/Music engine proposal (ComfyUI generative + Spotify catalog).
 - [docs/content/en/docs/showcase/09-artistry.md](docs/content/en/docs/showcase/09-artistry.md) — Artistry showcase.
@@ -92,4 +92,4 @@ description: >-
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-comfyui-provider-bridge]]
-- **Key Documents**: [[rosetta-stone]], [[design-comfyui-image-generation-widget]], [[arch-comfyui-native-api-engine]], [[design-flux-grid-slice-image-generation]], [[artistry-porting-report]], [[ideogram-4-schema]], [[project-widget-system-status-report]], [[proposal-comfyui-generative-music-dj-engine]], [[09-artistry]]
+- **Key Documents**: [[rosetta-stone]], [[design-comfyui-image-generation-widget]], [[arch-comfyui-native-api-engine]], [[design-flux-grid-slice-image-generation]], [[project-artistry-porting-report]], [[design-ideogram-4-schema]], [[project-widget-system-status-report]], [[proposal-comfyui-generative-music-dj-engine]], [[09-artistry]]

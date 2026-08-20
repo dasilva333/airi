@@ -17,7 +17,7 @@ AIRI extends the standard Character Card specification with the `AiriExtension` 
 - `packages/stage-ui/src/stores/modules/airi-card.ts`: Pinia store (`useAiriCardStore`) managing memory structures and persistence. Persists to IndexedDB `local:airi-cards` rather than localStorage to avoid QuotaExceeded errors with large card bases.
 
 ### 3. Architecture & Documentation
-- `docs/airi-card-design.md`: The canonical document outlining the AIRI Package Spec v2, upstream ZIP packaging, and ecosystem interoperability logic.
+- `docs/design-airi-card.md`: The canonical document outlining the AIRI Package Spec v2, upstream ZIP packaging, and ecosystem interoperability logic.
 
 ### 4. UI & Parsing Overlords
 - `packages/stage-pages/src/pages/settings/airi-card/index.vue`: Main UI for managing cards and triggering exports.
@@ -72,12 +72,12 @@ AIRI maintains an advanced fork of the upstream (`moeru-ai/airi:main`).
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/airi-card-design.md](docs/airi-card-design.md) — AIRI Package Spec v2, upstream ZIP packaging, ecosystem interoperability.
-- [docs/content/en/docs/advanced/architecture/design-character-card-import-export.md](docs/content/en/docs/advanced/architecture/design-character-card-import-export.md) — Character card import/export design.
+- [docs/design-airi-card.md](docs/design-airi-card.md) — AIRI Package Spec v2, upstream ZIP packaging, ecosystem interoperability.
+- [docs/design-character-card-import-export.md](docs/design-character-card-import-export.md) — Character card import/export design.
 - [docs/content/en/docs/manual/config/character-card.md](docs/content/en/docs/manual/config/character-card.md) — Character card manual/config.
 - [docs/content/en/docs/showcase/01-card-system.md](docs/content/en/docs/showcase/01-card-system.md) — Card system showcase.
-- [docs/starter-character-gold-standard.md](docs/starter-character-gold-standard.md) — Starter character gold standard.
+- [docs/design-starter-character-gold-standard.md](docs/design-starter-character-gold-standard.md) — Starter character gold standard.
 
 ## Related Skills & References
 
-- **Key Documents**: [[airi-card-design]], [[design-character-card-import-export]], [[character-card]], [[01-card-system]], [[starter-character-gold-standard]]
+- **Key Documents**: [[design-airi-card]], [[design-character-card-import-export]], [[character-card]], [[01-card-system]], [[design-starter-character-gold-standard]]

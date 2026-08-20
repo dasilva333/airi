@@ -8,7 +8,7 @@ description: >-
   idle heartbeat loop, sensor compilation and registered-tool resolution in
   ProactivityStore. Key tech: Electron main-process sensors via eventa invoke, Pinia,
   useIntervalFn, useElectronEventaInvoke, xsai tools. Paths:
-  docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md,
+  docs/design-proactivity-heartbeats-engine.md,
   packages/stage-ui/src/stores/proactivity.ts.
 ---
 
@@ -21,7 +21,7 @@ the user is appropriate before any TTS/LLM output is produced.
 
 ## Key Files/Locations
 
-- `docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md` —
+- `docs/design-proactivity-heartbeats-engine.md` —
   design doc: 5-phase pipeline (Timer/Hard Gates → Sensor Polling → Heuristic Gates →
   Prompt Formulation → LLM Execution/TTS), HeartbeatConfig model, NO_REPLY contract.
 - `packages/stage-ui/src/stores/proactivity.ts` — `ProactivityStore`. Contains:
@@ -76,11 +76,11 @@ the user is appropriate before any TTS/LLM output is produced.
 
 ### Authoritative Design & Architecture Documents
 
-- [docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md](docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md) — Proactivity heartbeats engine design (5-phase pipeline).
-- [docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md](docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
+- [docs/design-proactivity-heartbeats-engine.md](docs/design-proactivity-heartbeats-engine.md) — Proactivity heartbeats engine design (5-phase pipeline).
+- [docs/arch-chat-stt-proactivity-pipelines.md](docs/arch-chat-stt-proactivity-pipelines.md) — Chat/STT/proactivity pipelines architecture.
 - [docs/project-proactivity-enrichment-roadmap.md](docs/project-proactivity-enrichment-roadmap.md) — Proactivity enrichment roadmap.
 - [docs/proposal-proactivity-vision.md](docs/proposal-proactivity-vision.md) — Proactivity vision proposal.
-- [docs/director-producer-roles.md](docs/director-producer-roles.md) — Director/producer roles document.
+- [docs/design-director-producer-roles.md](docs/design-director-producer-roles.md) — Director/producer roles document.
 - [docs/content/en/docs/showcase/07-producer-subsystem.md](docs/content/en/docs/showcase/07-producer-subsystem.md) — Producer subsystem showcase.
 
 ## Verification
@@ -95,4 +95,4 @@ the user is appropriate before any TTS/LLM output is produced.
 
 ## Related Skills & References
 
-- **Key Documents**: [[design-proactivity-heartbeats-engine]], [[arch-chat-stt-proactivity-pipelines]], [[project-proactivity-enrichment-roadmap]], [[proposal-proactivity-vision]], [[director-producer-roles]], [[07-producer-subsystem]]
+- **Key Documents**: [[design-proactivity-heartbeats-engine]], [[arch-chat-stt-proactivity-pipelines]], [[project-proactivity-enrichment-roadmap]], [[proposal-proactivity-vision]], [[design-director-producer-roles]], [[07-producer-subsystem]]

@@ -132,7 +132,7 @@ To bridge this gap, the next evolution of AIRI onboarding introduces an **option
 ---
 
 ### Module 3: Sensory Proactivity Playground (Live Telemetry & Isolated Simulation)
-*Connecting to:* [`packages/stage-ui/src/stores/proactivity.ts`](packages/stage-ui/src/stores/proactivity.ts) & [`docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md`](docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md)
+*Connecting to:* [`packages/stage-ui/src/stores/proactivity.ts`](packages/stage-ui/src/stores/proactivity.ts) & [`docs/design-proactivity-heartbeats-engine.md`](docs/design-proactivity-heartbeats-engine.md)
 
 * **Purpose**: Demonstrates OS environmental telemetry, idle AFK detection, and NO_REPLY decision gating without waiting hours for a natural heartbeat.
 * **The Interactive UX Flow**:

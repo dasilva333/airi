@@ -134,10 +134,10 @@ Harness env vars: `MATE_MODEL_PATH`, `MATE_MODEL_PATH_2` (ping-pong), `MATE_MODE
 - [`AGENTS.md`](AGENTS.md) "Stage-Mate & Unity Workspace Purity" section — canonical source of the purity rule.
 - `apps/stage-mate/README.md` — quickstart + wire protocol reference.
 - `apps/stage-mate/project-structure.md` — overlay architecture + cross-machine sync workflow.
-- `docs/mate-engine-navigation-guide.md` — canonical navigation manual (scene-tree.ts CLI, Unity YAML anatomy, workspace-purity recap).
-- `docs/stagemate-companion-runtime-distribution.md` — prebuilt companion runtime distribution (GitHub Releases fetch, `bin/` layout).
+- `docs/design-mate-engine-navigation-guide.md` — canonical navigation manual (scene-tree.ts CLI, Unity YAML anatomy, workspace-purity recap).
+- `docs/design-stagemate-companion-runtime.md` — prebuilt companion runtime distribution (GitHub Releases fetch, `bin/` layout).
 - `docs/rosetta-stone.md` §14 — repository directory map.
 
 ## Related Skills & References
 
-- **Key Documents**: [[AGENTS]], [[project-structure]], [[mate-engine-navigation-guide]], [[stagemate-companion-runtime-distribution]], [[rosetta-stone]]
+- **Key Documents**: [[AGENTS]], [[project-structure]], [[design-mate-engine-navigation-guide]], [[design-stagemate-companion-runtime]], [[rosetta-stone]]

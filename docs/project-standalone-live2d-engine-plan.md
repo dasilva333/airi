@@ -3,10 +3,10 @@
 **Status:** Phases 1–3 substantially landed; Phase 2 multi-gen `.moc` routing deferred. See §4.2 Progress Log.
 **Target Package:** `@proj-airi/live2d-runtime` (headless, framework-agnostic) + `packages/stage-ui-live2d/src/runtime/` host adapter
 **References:**
-- DSL Interpreter Spec: [live2d-dsl-interpreter-spec.md](./live2d-dsl-interpreter-spec.md)
-- Special Sauce Manifests: [live2d-special-sauce-insights.md](./live2d-special-sauce-insights.md)
-- DSL Test Cases / Handoff: [live2d-dsl-test-cases-handoff.md](./live2d-dsl-test-cases-handoff.md)
-- change_cos dependency challenge: [live2d-change-cos-dependency-challenge.md](./live2d-change-cos-dependency-challenge.md)
+- DSL Interpreter Spec: [design-live2d-dsl-interpreter-spec.md](./design-live2d-dsl-interpreter-spec.md)
+- Special Sauce Manifests: [research-live2d-special-sauce.md](./research-live2d-special-sauce.md)
+- DSL Test Cases / Handoff: [design-live2d-dsl-test-cases.md](./design-live2d-dsl-test-cases.md)
+- change_cos dependency challenge: [design-live2d-change-cos-challenge.md](./design-live2d-change-cos-challenge.md)
 - Upstream Rosetta Stone: [rosetta-stone.md](./rosetta-stone.md)
 - ~~Upstream PR #2197~~ — superseded; we build on our own vendored `pixi-live2d-display` cubism2 build, not that PR.
 
@@ -92,7 +92,7 @@ Cubism 2 + Cubism 3/4 unification lives in `packages/stage-ui-live2d`, not in th
 
 ## 3. Component: Live2D DSL Virtual Machine (`VarFloats` Engine)
 
-Extracted from real manifests in [`live2d-special-sauce-insights.md`](./live2d-special-sauce-insights.md). **Recon found the original schema under-specified**; the runtime implements the full observed superset.
+Extracted from real manifests in [`research-live2d-special-sauce.md`](./research-live2d-special-sauce.md). **Recon found the original schema under-specified**; the runtime implements the full observed superset.
 
 ### 3.1 State Heap Schema
 ```typescript
@@ -141,7 +141,7 @@ Parses `;`-delimited command chains from `Command`/`PostCommand` fields. **Lane/
 ### Phase 1: Headless DSL VM + Vitest Suite (DONE — see §4.2)
 1. Scaffold `packages/live2d-runtime` (`@proj-airi/live2d-runtime`) as pure TS; add to `pnpm-workspace`/Vitest `projects`. Wire `typecheck`.
 2. Implement `dsl/` (types, var-store, command-parser, selector, template, interpreter) and `ports.ts` interfaces.
-3. Isolated Vitest suite built directly from [`live2d-dsl-test-cases-handoff.md`](./live2d-dsl-test-cases-handoff.md) and `live2d-special-sauce-insights.md` fixtures: operator superset, atomic guard→mutate toggles, `assign rand(20,25)`, OpenChat toggle, Flandre `Tapbody` intimacy ladder, weighted `Update7#98` Intimacy→IntimacyVI mapping, `change_cos` heap-preservation.
+3. Isolated Vitest suite built directly from [`design-live2d-dsl-test-cases.md`](./design-live2d-dsl-test-cases.md) and `research-live2d-special-sauce.md` fixtures: operator superset, atomic guard→mutate toggles, `assign rand(20,25)`, OpenChat toggle, Flandre `Tapbody` intimacy ladder, weighted `Update7#98` Intimacy→IntimacyVI mapping, `change_cos` heap-preservation.
 
 ### Phase 2: Multi-Gen Cubism Adapter (render host) — PARTIAL
 1. ⏳ Route Cubism 2 `.moc` manifests to the vendored `cubism2` entry; union-type `Cubism2InternalModel | Cubism4InternalModel`. **DEFERRED** — not yet wired into `Model.vue`'s loader; `change_cos` is upstream-blocked (ingestion split), so `.moc` routing is a follow-up.

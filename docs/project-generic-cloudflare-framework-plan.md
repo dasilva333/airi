@@ -3,7 +3,7 @@
 **Status:** Canonical Reference & Implementation Record (Active in Production)
 **Authors:** AIRI Team & AI Assistant
 **Replaces & Extends:**
-- [`cloud-relay-design.md`](./cloud-relay-design.md) (Pivoted from single-purpose relay to generic Cloudflare edge engine framework)
+- [`design-cloud-relay.md`](./design-cloud-relay.md) (Pivoted from single-purpose relay to generic Cloudflare edge engine framework)
 - [`proposal-web-cors-proxy-bypass.md`](./proposal-web-cors-proxy-bypass.md) (Integrated as Worker Deployment Target #1: CORS Proxy Worker)
 - [`cloud-relay-worker.js`](./cloud-relay-worker.js) (Integrated as Worker Deployment Target #2: Always-On Discord Character Relay)
 - [`project-byos-cloud-sync.md`](./project-byos-cloud-sync.md) (Integrated as Target #3: Cloudflare Edge Key Vault & Onboarding Authenticator)

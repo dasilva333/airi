@@ -40,7 +40,7 @@ Use this skill when:
 - [docs/memory_lab/great_merger_cheat_sheet.md](docs/memory_lab/great_merger_cheat_sheet.md) — Great merger cheat sheet.
 - [docs/memory_lab/ultimate_hybrid_design_doc_detailed.md](docs/memory_lab/ultimate_hybrid_design_doc_detailed.md) — Ultimate hybrid design doc (detailed).
 - [docs/memory_lab/lifetime-artifact-generation-plan.md](docs/memory_lab/lifetime-artifact-generation-plan.md) — Lifetime artifact generation plan.
-- [docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md](docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
+- [docs/arch-long-term-memory-journal.md](docs/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
 
 ## Verification
 

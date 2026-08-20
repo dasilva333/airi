@@ -445,7 +445,7 @@ section('Scenario 6: Phase 2 — intimacy Bonus persists to the host store (prod
 
 // ===========================================================================
 // Scenario 4 — Authored Choices / double-click DSL (pruned from Kasane, see
-// docs/live2d-special-sauce-insights.md): VarFloats guard + Choices + command chain.
+// docs/research-live2d-special-sauce.md): VarFloats guard + Choices + command chain.
 // ===========================================================================
 
 section('Scenario 4: authored DSL — DoubleClick guard + Choices menu + command chain')

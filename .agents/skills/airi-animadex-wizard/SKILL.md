@@ -95,7 +95,7 @@ Script: lines 1-909. Template: lines 911-1929. Imports tell the dependency story
 
 - `docs/proposal-animadex-wizard.md` — founding spec (Step 4 schema, suggestions UX, pending speech gaps §8).
 - `docs/proposal-animadex-new-characters.md` — ad-hoc cast expansion into live cards (three prompt-parsing modes A/B/C; same bindings map + `visual_assets` ground truth).
-- `docs/animadex-wizard-pending-items.md` — live implementation status ledger.
+- `docs/project-animadex-wizard-pending-items.md` — live implementation status ledger.
 - `docs/content/en/docs/showcase/02-animadex-wizard.md` — product showcase.
 - Peer skills: `airi-card-editor-wizard` (index.vue editor + import), `airi-card-schema` (AiriCard/AiriExtension Valibot), `airi-tool-registry-builtin-tools` (visual_assets consumers), `airi-memory-ui-pages` — none of these covers this wizard's internals.
 
@@ -107,4 +107,4 @@ Script: lines 1-909. Template: lines 911-1929. Imports tell the dependency story
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-card-editor-wizard]], [[airi-card-schema]], [[airi-memory-ui-pages]], [[airi-tool-registry-builtin-tools]]
-- **Key Documents**: [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[animadex-wizard-pending-items]], [[02-animadex-wizard]]
+- **Key Documents**: [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[project-animadex-wizard-pending-items]], [[02-animadex-wizard]]

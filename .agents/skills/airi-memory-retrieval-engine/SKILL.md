@@ -43,8 +43,8 @@ Use this skill when you need to design, debug, or benchmark memory retrieval:
 - [docs/memory_lab/evaluation-and-benchmarking-methodology.md](docs/memory_lab/evaluation-and-benchmarking-methodology.md) — Evaluation and benchmarking methodology.
 - [docs/memory_lab/benchmark_history_and_outlook.md](docs/memory_lab/benchmark_history_and_outlook.md) — Benchmark history and outlook.
 - [docs/memory_lab/scoped-probe-window-plan.md](docs/memory_lab/scoped-probe-window-plan.md) — Scoped probe window plan.
-- [docs/content/en/docs/advanced/architecture/design-semantic-search-browser-native.md](docs/content/en/docs/advanced/architecture/design-semantic-search-browser-native.md) — Browser-native semantic search design.
-- [docs/content/en/docs/advanced/architecture/blueprint-semantic-search-integration.md](docs/content/en/docs/advanced/architecture/blueprint-semantic-search-integration.md) — Semantic search integration blueprint.
+- [docs/design-semantic-search-browser-native.md](docs/design-semantic-search-browser-native.md) — Browser-native semantic search design.
+- [docs/blueprint-semantic-search-integration.md](docs/blueprint-semantic-search-integration.md) — Semantic search integration blueprint.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §9 memory-systems canonical path index.
 
 ## Verification

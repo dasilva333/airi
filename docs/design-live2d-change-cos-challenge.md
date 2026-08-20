@@ -4,8 +4,8 @@
 This document addresses a critical architectural conflict discovered during the design phase of the **Live2D DSL Interpreter Engine** for AIRI. It acts as an open design question and must be resolved before proceeding with the implementation of the interpreter.
 
 For background details on the interactive DSL triggers and original creator structures, refer to:
-*   [Live2D DSL Interpreter Specification](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/live2d-dsl-interpreter-spec.md)
-*   [Live2D Custom Animation & Expression Insights (Special Sauce)](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/live2d-special-sauce-insights.md)
+*   [Live2D DSL Interpreter Specification](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-live2d-dsl-interpreter-spec.md)
+*   [Live2D Custom Animation & Expression Insights (Special Sauce)](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/research-live2d-special-sauce.md)
 
 ---
 

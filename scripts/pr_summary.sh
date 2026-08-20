@@ -15,7 +15,7 @@ fi
 
 # Configuration
 SRC_ROOT="/Users/richardpinedo/Projects.nosync/airi/airi_dasilva333"
-OUTPUT_FILE="$SRC_ROOT/docs/pr-summary.md"
+OUTPUT_FILE="$SRC_ROOT/docs/archive/pr-summary.md"
 
 # Clean output file
 > "$OUTPUT_FILE"

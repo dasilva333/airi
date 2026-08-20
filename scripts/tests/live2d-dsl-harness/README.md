@@ -20,7 +20,7 @@ engine) directly against the extracted model fixtures under `apps/stage-edge/.mo
 - **`2262182171` (Flandre)** — intimacy-gating ladder (`Taphead`/`Tapbody`). Dispatched here.
 - **`3626567931.zip` (Kasane)** — VarFloats heap + intimacy/Max/negative-Bonus gating on the
   `DREFTouchBox*` touch groups. Its authored *Choices / double-click* DSL (`Tap`/`DoubliClick`)
-  was pruned during extraction (see `docs/live2d-special-sauce-insights.md`), so the Choices /
+  was pruned during extraction (see `docs/research-live2d-special-sauce.md`), so the Choices /
   command-chain assertions run on those authored DSL groups instead.
 
 ## Run

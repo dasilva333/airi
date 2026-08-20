@@ -1,12 +1,12 @@
 ---
 name: airi-memory-systems
 description: >-
-  Use when working with AIRI memory systems at scale — the Eight Pillars of Memory hub skill covering chat sessions, text journal (LTMM), short-term daily summaries (STMM), echo chips, lifetime artifacts, image journal / autonomous artistry backgrounds, event log, and provisioning sessions. This skill is deliberately a map-of-maps: it locates each pillar's store, repo, storage namespace, universe tagging, and prompt-injection point, then defers implementation detail to the eight dedicated pillar skills plus retrieval (airi-memory-retrieval-engine), consolidation (airi-memory-consolidation-dreaming), and UI (airi-memory-ui-pages). Trigger on cross-pillar questions, universe isolation, memory data model overview, or "which skill owns this memory". Grounded in: docs/data-catalog.md, docs/timeline-flat-design.md, docs/memory_lab/.
+  Use when working with AIRI memory systems at scale — the Eight Pillars of Memory hub skill covering chat sessions, text journal (LTMM), short-term daily summaries (STMM), echo chips, lifetime artifacts, image journal / autonomous artistry backgrounds, event log, and provisioning sessions. This skill is deliberately a map-of-maps: it locates each pillar's store, repo, storage namespace, universe tagging, and prompt-injection point, then defers implementation detail to the eight dedicated pillar skills plus retrieval (airi-memory-retrieval-engine), consolidation (airi-memory-consolidation-dreaming), and UI (airi-memory-ui-pages). Trigger on cross-pillar questions, universe isolation, memory data model overview, or "which skill owns this memory". Grounded in: docs/data-catalog.md, docs/design-timeline-flat.md, docs/memory_lab/.
 ---
 
 # AIRI Memory Systems — The Eight Pillars Hub
 
-Every durable piece of character memory in AIRI is one of **eight pillars** (user canonical framing; the six-pillar table in `docs/timeline-flat-design.md` §2 is the original citation, extended here with Event Log and Provisioning). Each pillar is effectively **its own store/repo and its own feature** — this hub skill only maps them; for implementation depth, load the pillar's dedicated skill.
+Every durable piece of character memory in AIRI is one of **eight pillars** (user canonical framing; the six-pillar table in `docs/design-timeline-flat.md` §2 is the original citation, extended here with Event Log and Provisioning). Each pillar is effectively **its own store/repo and its own feature** — this hub skill only maps them; for implementation depth, load the pillar's dedicated skill.
 
 ## 1. The Eight Pillars at a Glance
 
@@ -37,11 +37,11 @@ All memory lands in the system prompt through `session-store.ts`, never directly
 
 ## 3. Universe Isolation (the flat model, not Git branching)
 
-Per `docs/timeline-flat-design.md`: a Universe (`universeId`) decouples chat threads from memory banks; multiple sessions share one universe's memory. Consequences every pillar skill must respect:
+Per `docs/design-timeline-flat.md`: a Universe (`universeId`) decouples chat threads from memory banks; multiple sessions share one universe's memory. Consequences every pillar skill must respect:
 
 - Entries carry `universeId?: string`; every query falls back `entry.universeId || 'global'` (implemented in text-journal :90, STMM `collectCharacterDayBuckets(charId, universeId)`, background `journalEntries` computed :299).
 - Lifetime is universe-keyed; sessions carry `universeId` in `sessionMetas`; migration/rescoping flows edit tags, never move history (flat-model §3 / §7 Smart-Heal).
-- The old nested-timeline design (`docs/timeline-nested-design.md`) is superseded — do not implement ancestry walking.
+- The old nested-timeline design (`docs/design-timeline-nested.md`) is superseded — do not implement ancestry walking.
 
 ## 4. Storage-Layer Boundary
 
@@ -70,7 +70,7 @@ Per `docs/timeline-flat-design.md`: a Universe (`universeId`) decouples chat thr
 ## 8. Authoritative Sources
 
 - `docs/data-catalog.md` — the storage ground truth for all eight pillars (IndexedDB/`localforage`/localStorage split).
-- `docs/timeline-flat-design.md` / `docs/timeline-nested-design.md` — Universe model (flat is canonical).
+- `docs/design-timeline-flat.md` / `docs/design-timeline-nested.md` — Universe model (flat is canonical).
 - `docs/memory_lab/` — schema, retrieval, provisioning, evaluation specs (see pillar skills for per-spec links).
 - `docs/rosetta-stone.md` — canonical path index; §9 memory-systems.
 - Peer skills: `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-memory-ui-pages`, `airi-data-persistence`, `airi-binary-safety`.
@@ -78,4 +78,4 @@ Per `docs/timeline-flat-design.md`: a Universe (`universeId`) decouples chat thr
 ## Related Skills & References
 
 - **Peer Skills**: [[airi-binary-safety]], [[airi-data-persistence]], [[airi-memory-chat-sessions]], [[airi-memory-consolidation-dreaming]], [[airi-memory-echo-chips]], [[airi-memory-event-log]], [[airi-memory-image-journal]], [[airi-memory-lifetime]], [[airi-memory-provisioning]], [[airi-memory-retrieval-engine]], [[airi-memory-short-term]], [[airi-memory-text-journal]], [[airi-memory-ui-pages]]
-- **Key Documents**: [[data-catalog]], [[timeline-flat-design]], [[timeline-nested-design]], [[rosetta-stone]]
+- **Key Documents**: [[data-catalog]], [[design-timeline-flat]], [[design-timeline-nested]], [[rosetta-stone]]

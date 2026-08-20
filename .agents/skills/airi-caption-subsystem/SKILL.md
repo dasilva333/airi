@@ -47,7 +47,7 @@ Captions are a single **publisher/ subscriber BroadcastChannel protocol** (`airi
 - **Live2D adapter**: `packages/stage-ui-live2d/src/composables/live2d/head-tethered-caption.ts` — builds the comic-bubble PIXI Graphics/Text, injects `BatchRenderer` into the live renderer when missing, reads Cubism pose params via `coreModel.getParameterValueById` (alias table for `ParamAngleX` / `PARAM_ANGLE_X` variants), and applies the fake-perspective transform.
 - **Math**: `packages/stage-shared/src/utils/caption-perspective.ts` — `poseToCaptionTransform(...)` is the shared single-source for future Spine/VRM/MMD adapters. Current exports are consumed only by Live2D.
 - **Mount**: `RendererStage.vue:504` — `<HeadTetheredCaption v-if="stageModelRenderer === 'live2d'" :live2d-scene-ref="live2dSceneRef" />`. The wrapper gets the *component instance*, not the resolved PIXI app; the adapter polls internally.
-- **Status**: Live2D only. Spine/VRM/MMD have **no** tethered adapter yet; the design doc (`docs/head-tethered-captions-design.md` §3.1) pre-specifies Spine (PIXI child, bone-driven worldTransform), VRM, and MMD (three.js CSS3DSprite / canvas-sprite, head-bone quaternion). Nothing ports yet — leave `caption-perspective.ts` renderer-agnostic if you add an adapter, and read this doc before starting.
+- **Status**: Live2D only. Spine/VRM/MMD have **no** tethered adapter yet; the design doc (`docs/design-head-tethered-captions.md` §3.1) pre-specifies Spine (PIXI child, bone-driven worldTransform), VRM, and MMD (three.js CSS3DSprite / canvas-sprite, head-bone quaternion). Nothing ports yet — leave `caption-perspective.ts` renderer-agnostic if you add an adapter, and read this doc before starting.
 
 ### 1.4 Stage-Mate bubble bridge (dormant)
 - The Unity engine already has a markdown-rendered chat bubble: `apps/stage-mate/mate-engine/Assets/MATE ENGINE - Scripts/AvatarHandlers/AvatarBubbleHandler.cs` + `ThemeManager/AiBubble.mat` (dormant today; candidate for bridging head-tethered/data captions into the desktop div).
@@ -87,7 +87,7 @@ Shared presentation for windowed + dating-sim. Props: `showActiveSentenceOnly`, 
 ### 3.1 TTS pipeline → Sentence Sync
 The primary path: streaming-tts token deltas are chunked per sentence and pushed with `isActive` by whichever session owns the audio (see `useSpeechCaptionPlayer` for the reference implementation).
 
-### 3.2 Live2D baked-in motion captions (`docs/live2d-caption-design.md`)
+### 3.2 Live2D baked-in motion captions (`docs/design-live2d-caption.md`)
 Captions come from **inline `Text` + `Language` fields on `model3.json` `FileReferences.Motions` entries** — NOT from `motion3.json` UserData or sidecar JSON. Pipeline in `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue`:
 1. `:756-766` — after load, builds `availableMotions` straight from `motionManager.definitions` (the parsed `Motions` block), capturing `text`/`language`.
 2. `:907-963` (approx.) — on motion fire, looks up `activeMotionDef`, **resolves English localization** (sibling entries sharing `File`+`Sound` with `Language: "en"` win), then posts `caption-assistant`; if settings disable captions this falls back to an OS/notification toast.
@@ -128,8 +128,8 @@ Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-
 
 ## 6. Known Drift / Documentation Warnings
 
-- `docs/captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding field exists in `stores/settings/captions.ts` and no `caption-theme-mode` case in either `use-control-strip-action.ts` or `ControlStrip.vue` handlers (only icon/label branches, :1233/:1359). If you're asked to implement this, it's a real gap, not a rename.
-- `docs/head-tethered-captions-design.md` pre-specifies Spine/VRM/MMD tethered adapters that **do not exist yet**; treat its platform table as plan-of-record, not inventory.
+- `docs/design-captions-widget-system.md` spec mentions **`captionThemeMode`** (`light|dark|system`) with a caption-background-theme cycler — no corresponding field exists in `stores/settings/captions.ts` and no `caption-theme-mode` case in either `use-control-strip-action.ts` or `ControlStrip.vue` handlers (only icon/label branches, :1233/:1359). If you're asked to implement this, it's a real gap, not a rename.
+- `docs/design-head-tethered-captions.md` pre-specifies Spine/VRM/MMD tethered adapters that **do not exist yet**; treat its platform table as plan-of-record, not inventory.
 - Some older skills/docs still name the caption settings `settingsStore.captionFollowStage…` nested fields; flattened barrel refs in `settings/index.ts` are current.
 
 ---
@@ -176,12 +176,12 @@ Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-
 
 ## 9. Authoritative Design & Architecture Documents
 
-- [docs/captions-widget-system.md](docs/captions-widget-system.md) — Canonical widget/window + Sentence-Sync system spec (may predate current store names; see §6).
-- [docs/head-tethered-captions-design.md](docs/head-tethered-captions-design.md) — Head-tethered plank design and cross-model roadmap.
-- [docs/live2d-caption-design.md](docs/live2d-caption-design.md) — Baked-in motion Text/Language pipeline (canonical).
+- [docs/design-captions-widget-system.md](docs/design-captions-widget-system.md) — Canonical widget/window + Sentence-Sync system spec (may predate current store names; see §6).
+- [docs/design-head-tethered-captions.md](docs/design-head-tethered-captions.md) — Head-tethered plank design and cross-model roadmap.
+- [docs/design-live2d-caption.md](docs/design-live2d-caption.md) — Baked-in motion Text/Language pipeline (canonical).
 - [docs/catalog-control-strip.md](docs/catalog-control-strip.md) — Catalog of caption strip buttons.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — §13 BroadcastChannel registry.
 
 ## Related Skills & References
 
-- **Key Documents**: [[head-tethered-captions-design]], [[live2d-caption-design]], [[captions-widget-system]], [[catalog-control-strip]], [[rosetta-stone]]
+- **Key Documents**: [[design-head-tethered-captions]], [[design-live2d-caption]], [[design-captions-widget-system]], [[catalog-control-strip]], [[rosetta-stone]]

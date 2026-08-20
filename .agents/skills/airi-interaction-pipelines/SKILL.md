@@ -6,7 +6,7 @@ description: >-
 
 # AIRI Interaction Pipelines
 
-Cross-cutting skill covering every route that feeds LLM inference and every route that renders output as speech. Grounded in `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md` (the canonical source for these pipelines). Where that doc's Failure Log predates fixes, this skill records the current code reality (§8).
+Cross-cutting skill covering every route that feeds LLM inference and every route that renders output as speech. Grounded in `docs/arch-chat-stt-proactivity-pipelines.md` (the canonical source for these pipelines). Where that doc's Failure Log predates fixes, this skill records the current code reality (§8).
 
 **Two parallel LLM implementations** exist by design: the turn-based `chat.ts` orchestrator (typed text, microphone STT, Discord classic voice, proactivity) and the **Gemini Live Bidi** implementation (app-real-time voice over WebSocket). Text ingestion auto-routes between them (§2.1); speech output routing depends on Gemini's `outputMode` (§6). AirPlay output is OS-native over system audio — no app-specific AirPlay code path exists.
 
@@ -175,10 +175,10 @@ The arch-doc's Failure Log is the living failure reference; verify against code 
 
 ## 10. Authoritative Documents & Peer Skills
 
-- `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md` — ground-truth pipeline architecture and Failure Log (this skill supersedes it where code moved; see §8).
-- `docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md` — Bidi implementation design (peer skill: `airi-gemini-live-api`).
-- `docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md` — heartbeat engine design (peer skill: `airi-proactivity-sensory-telemetry`).
-- `docs/feat-discord-revamp.md`, `docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md` — Discord gateway + voice contracts (peer skill: `airi-discord-integration`).
+- `docs/arch-chat-stt-proactivity-pipelines.md` — ground-truth pipeline architecture and Failure Log (this skill supersedes it where code moved; see §8).
+- `docs/design-gemini-live-api-integration.md` — Bidi implementation design (peer skill: `airi-gemini-live-api`).
+- `docs/design-proactivity-heartbeats-engine.md` — heartbeat engine design (peer skill: `airi-proactivity-sensory-telemetry`).
+- `docs/feat-discord-revamp.md`, `docs/design-discord-bot-integration.md` — Discord gateway + voice contracts (peer skill: `airi-discord-integration`).
 - `docs/feat-audio-studio.md` — UST/VoiceProfiles spec (peer skill: `airi-audio-pipeline`).
 - `docs/rosetta-stone.md` §13 — BroadcastChannel registry (`airi-chat-input-bridge`, `airi-caption-overlay`, speech-runtime channels).
 

@@ -28,7 +28,7 @@ Build and verify the robust parsing and runtime execution of custom interactive 
 
 The target models contain advanced, interactive scripting blocks that were stripped out of the core `.model3.json` structure to prevent WebGL renderer crashes, but need to be parsed and interpreted at the application layer.
 
-* **Insights & Stripped Schema Document**: [live2d-special-sauce-insights.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/live2d-special-sauce-insights.md)
+* **Insights & Stripped Schema Document**: [research-live2d-special-sauce.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/research-live2d-special-sauce.md)
   Refer to this file to inspect how each Steam ID uses custom logic. For instance:
   * **Choices / Menus** (`live2d_2883004043`, `live2d_3626567931`): DSL nodes containing structured arrays of `Choices` (e.g. `{"Text": "Option", "NextMtn": "A"}`).
   * **Intimacy & Expression Hooks** (`live2d_2262182171`): Command sequences invoking sound clips, custom expressions, and intimacy bonuses (e.g. `{"Command": "start_mtn Face#2:01", "Intimacy": {"Min": 20, "Bonus": 1}}`).
@@ -39,8 +39,8 @@ The target models contain advanced, interactive scripting blocks that were strip
 ## ⚙️ Step 3: Implement & Test the DSL Interpreter
 
 1. **Review interpreter specs**:
-   * Review [live2d-dsl-interpreter-spec.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/live2d-dsl-interpreter-spec.md) for context on how the interpreter parses variables, conditional statements (`equal`, `greater`, etc.), and sequence triggers.
-   * Understand the game mechanics integration: [dating-sim-gamestate-mechanics.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/dating-sim-gamestate-mechanics.md) and [dating-sim-intimacy-spec.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/dating-sim-intimacy-spec.md).
+   * Review [design-live2d-dsl-interpreter-spec.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-live2d-dsl-interpreter-spec.md) for context on how the interpreter parses variables, conditional statements (`equal`, `greater`, etc.), and sequence triggers.
+   * Understand the game mechanics integration: [design-dating-sim-gamestate-mechanics.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-dating-sim-gamestate-mechanics.md) and [design-dating-sim-intimacy-spec.md](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/design-dating-sim-intimacy-spec.md).
 
 2. **Load Models into Airi**:
    Place the generated Live2D directories inside the Airi assets/cache paths (typically `packages/stage-ui-live2d/` or within the dev runtime cache directories).

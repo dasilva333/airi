@@ -33,7 +33,7 @@ This fork exists to keep AIRI moving as a practical daily-driver build. The prio
 
 If you want the original project history and broader upstream context, see [`moeru-ai/airi`](https://github.com/moeru-ai/airi). If you want the branch actively tuned for usability, this repository is that branch.
 
-For the full list of major features added in this fork (34 systems and counting), see [`docs/major-features-added.md`](./docs/major-features-added.md). For detailed sub-features and technical specifics, see [`docs/content/en/docs/chronicles/feature-report.md`](./docs/content/en/docs/chronicles/feature-report.md). For pending and planned work, see [`docs/content/en/docs/chronicles/roadmap.md`](./docs/content/en/docs/chronicles/roadmap.md).
+For the full list of major features added in this fork (34 systems and counting), see [`docs/project-major-features-added.md`](./docs/project-major-features-added.md). For detailed sub-features and technical specifics, see [`docs/content/en/docs/chronicles/feature-report.md`](./docs/content/en/docs/chronicles/feature-report.md). For pending and planned work, see [`docs/content/en/docs/chronicles/roadmap.md`](./docs/content/en/docs/chronicles/roadmap.md).
 
 ---
 
@@ -270,7 +270,7 @@ pnpm dev:docs
 - [x] MOSS-TTS-Nano (TTS, browser-local, voice cloning)
 - [x] WebGPU RWKV-7 (local LLM inference)
 - [x] [Gemini Live](https://developers.generativeai.google) (real-time audio streaming)
-- [x] OpenAI Compatible TTS (BYO endpoint — see [`docs/openai-compatible-tts.md`](./docs/openai-compatible-tts.md))
+- [x] OpenAI Compatible TTS (BYO endpoint — see [`docs/design-openai-compatible-tts.md`](./docs/design-openai-compatible-tts.md))
 
 ---
 
