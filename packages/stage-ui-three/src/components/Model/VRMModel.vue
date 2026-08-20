@@ -651,17 +651,48 @@ async function loadModel() {
         modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
       }
 
-      // Populate discovered 3D mesh nodes for the wardrobe/outfits UI
+      // Populate discovered 3D mesh nodes for the wardrobe/outfits UI using native glTF nodes
       const meshNodes: Array<{ name: string, isSkinned: boolean, vertexCount: number }> = []
-      _vrm.scene.traverse((node: any) => {
-        if ((node.isMesh || node.isSkinnedMesh) && node.name) {
-          meshNodes.push({
-            name: node.name,
-            isSkinned: Boolean(node.isSkinnedMesh),
-            vertexCount: node.geometry?.attributes?.position?.count ?? 0,
-          })
+      const gltfNodes = vrmParser?.json?.nodes
+      const gltfMeshes = vrmParser?.json?.meshes
+
+      if (Array.isArray(gltfNodes) && gltfNodes.length > 0) {
+        for (let i = 0; i < gltfNodes.length; i++) {
+          const gNode = gltfNodes[i]
+          if (gNode.mesh !== undefined) {
+            const nodeName = gNode.name || gltfMeshes?.[gNode.mesh]?.name || `Mesh_${gNode.mesh}`
+            let totalVerts = 0
+            _vrm.scene.traverse((sceneNode: any) => {
+              if (sceneNode.isMesh || sceneNode.isSkinnedMesh) {
+                const assoc = vrmParser?.associations?.get(sceneNode)
+                if (assoc && assoc.nodes === i) {
+                  totalVerts += sceneNode.geometry?.attributes?.position?.count ?? 0
+                }
+                else if (sceneNode.name && (sceneNode.name === nodeName || sceneNode.name.startsWith(`${nodeName}baked`) || sceneNode.name.startsWith(`${nodeName}.`))) {
+                  totalVerts += sceneNode.geometry?.attributes?.position?.count ?? 0
+                }
+              }
+            })
+
+            meshNodes.push({
+              name: nodeName,
+              isSkinned: gNode.skin !== undefined,
+              vertexCount: totalVerts,
+            })
+          }
         }
-      })
+      }
+      else {
+        _vrm.scene.traverse((node: any) => {
+          if ((node.isMesh || node.isSkinnedMesh) && node.name) {
+            meshNodes.push({
+              name: node.name,
+              isSkinned: Boolean(node.isSkinnedMesh),
+              vertexCount: node.geometry?.attributes?.position?.count ?? 0,
+            })
+          }
+        })
+      }
       modelStore.discoveredMeshes = meshNodes
 
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')

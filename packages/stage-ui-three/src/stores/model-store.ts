@@ -144,9 +144,50 @@ export const useModelStore = defineStore('modelStore', () => {
 
     if (!activeVrm.value?.scene)
       return
+
+    const gltfNodes = activeVrmParser.value?.json?.nodes
+    let targetNodeIndex = -1
+    let targetMeshIndex = -1
+
+    if (Array.isArray(gltfNodes)) {
+      targetNodeIndex = gltfNodes.findIndex((n: any) => n.name === meshName)
+      if (targetNodeIndex !== -1 && gltfNodes[targetNodeIndex]?.mesh !== undefined) {
+        targetMeshIndex = gltfNodes[targetNodeIndex].mesh
+      }
+    }
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const stripSuffix = (s: string) => s.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '').replace(/(_\d+)$/, '')
+    const normTarget = normalize(stripSuffix(meshName))
+
     activeVrm.value.scene.traverse((node: any) => {
-      if ((node.isMesh || node.isSkinnedMesh) && node.name === meshName) {
-        node.visible = visible
+      if (node.isMesh || node.isSkinnedMesh) {
+        let isMatch = false
+
+        // Match by glTF parser association (node index or mesh index)
+        if (activeVrmParser.value?.associations) {
+          const assoc = activeVrmParser.value.associations.get(node)
+          if (assoc) {
+            if (targetNodeIndex !== -1 && assoc.nodes === targetNodeIndex) {
+              isMatch = true
+            }
+            else if (targetMeshIndex !== -1 && assoc.meshes === targetMeshIndex) {
+              isMatch = true
+            }
+          }
+        }
+
+        // Fallback match by normalized name
+        if (!isMatch && node.name) {
+          const normNode = normalize(stripSuffix(node.name))
+          if (normNode === normTarget) {
+            isMatch = true
+          }
+        }
+
+        if (isMatch) {
+          node.visible = visible
+        }
       }
     })
   }

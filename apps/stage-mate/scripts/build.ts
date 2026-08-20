@@ -86,6 +86,20 @@ const args = [
   join(mateEngineDir, 'Build', 'build.log'),
 ]
 
+// Ensure any running instances are terminated so macOS doesn't lock the app binary
+if (platform === 'darwin') {
+  try {
+    spawnSync('killall', ['-9', 'StageMate', 'MateEngineX'], { stdio: 'ignore' })
+  }
+  catch {}
+}
+else if (platform === 'win32') {
+  try {
+    spawnSync('taskkill', ['/F', '/IM', 'StageMate.exe', '/IM', 'MateEngineX.exe', '/T'], { stdio: 'ignore' })
+  }
+  catch {}
+}
+
 // Ensure Build directory exists for log
 const buildDir = join(mateEngineDir, 'Build')
 if (!existsSync(buildDir)) {

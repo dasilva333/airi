@@ -362,13 +362,27 @@ public class VRMLoader : MonoBehaviour
         {
             string jsonText = File.ReadAllText(chosenJsonPath);
             var config = JsonUtility.FromJson<DynamicOutfitConfig>(jsonText);
-            if (config == null || config.entries == null || config.entries.Length == 0) return;
+            Debug.Log($"[VRMLoader:OUTFITS] >>> RAW AIRI MANIFEST LOADED from {chosenJsonPath}:\n{jsonText}");
 
             var clothes = model.GetComponent<MEClothes>() ?? model.AddComponent<MEClothes>();
             int count = Mathf.Min(8, config.entries.Length);
             clothes.entries = new MEClothes.OutfitEntry[count];
 
             var allTransforms = model.GetComponentsInChildren<Transform>(true);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[VRMLoader:OUTFITS] >>> ALL UNITY RENDERERS ON AVATAR (Total transforms: {allTransforms.Length}):");
+            foreach (var t in allTransforms)
+            {
+                var smr = t.GetComponent<SkinnedMeshRenderer>();
+                var mf = t.GetComponent<MeshFilter>();
+                if (smr != null || mf != null)
+                {
+                    string meshName = smr != null && smr.sharedMesh != null ? smr.sharedMesh.name : (mf != null && mf.sharedMesh != null ? mf.sharedMesh.name : "<none>");
+                    sb.AppendLine($"  - [RENDERER] GO='{t.name}' (normGO='{NormalizeMeshName(t.name)}') | Mesh='{meshName}' (normMesh='{NormalizeMeshName(meshName)}') | active={t.gameObject.activeSelf}");
+                }
+            }
+            Debug.Log(sb.ToString());
 
             for (int i = 0; i < count; i++)
             {
@@ -379,26 +393,36 @@ public class VRMLoader : MonoBehaviour
                     tag = cfgEntry.tag ?? ""
                 };
 
+                Debug.Log($"[VRMLoader:OUTFITS] Processing Outfit Entry [{i}]: '{entry.name}' (tag: '{entry.tag}', meshes defined: {cfgEntry.meshes?.Length ?? 0})");
+
                 var matchedObjects = new System.Collections.Generic.List<GameObject>();
                 if (cfgEntry.meshes != null)
                 {
                     foreach (var meshName in cfgEntry.meshes)
                     {
                         if (string.IsNullOrEmpty(meshName)) continue;
+                        string meshNorm = NormalizeMeshName(meshName);
+                        int meshMatchCount = 0;
                         foreach (var t in allTransforms)
                         {
                             if (IsMeshMatch(meshName, t.gameObject))
                             {
                                 if (!matchedObjects.Contains(t.gameObject))
                                     matchedObjects.Add(t.gameObject);
+                                meshMatchCount++;
+                                Debug.Log($"[VRMLoader:OUTFITS]   [MATCH] AIRI mesh '{meshName}' (norm: '{meshNorm}') -> Matched Unity GO '{t.name}' (active={t.gameObject.activeSelf})");
                             }
+                        }
+                        if (meshMatchCount == 0)
+                        {
+                            Debug.LogWarning($"[VRMLoader:OUTFITS]   [NO MATCH] AIRI mesh '{meshName}' (norm: '{meshNorm}') found NO matching GameObjects on avatar!");
                         }
                     }
                 }
 
                 entry.gameObjects = matchedObjects.ToArray();
                 clothes.entries[i] = entry;
-                Debug.Log($"[VRMLoader] Dynamically mapped outfit entry [{entry.name}] -> {matchedObjects.Count} GameObjects.");
+                Debug.Log($"[VRMLoader:OUTFITS] >>> Finished Entry [{entry.name}] -> Mapped {matchedObjects.Count} GameObjects: [{string.Join(", ", matchedObjects.ConvertAll(g => g.name))}]");
             }
 
             Debug.Log($"[VRMLoader] Dynamic MEClothes injection complete with {count} outfit entries from {Path.GetFileName(chosenJsonPath)}!");
@@ -424,42 +448,45 @@ public class VRMLoader : MonoBehaviour
     {
         if (go == null || string.IsNullOrEmpty(searchName)) return false;
 
+        // 1. Must be a visual renderer (never a bone transform like skirtRoot!)
+        var smr = go.GetComponent<SkinnedMeshRenderer>();
+        var mf = go.GetComponent<MeshFilter>();
+        if (smr == null && mf == null) return false;
+
         string searchExact = searchName.Trim();
         string searchNorm = NormalizeMeshName(searchName);
 
-        // 1. Exact or case-insensitive match on GameObject name
+        // 2. Exact or case-insensitive match on GameObject name
         if (go.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // 2. Exact match on SkinnedMeshRenderer / MeshFilter sharedMesh name
-        var smr = go.GetComponent<SkinnedMeshRenderer>();
+        // 3. Exact match on SkinnedMeshRenderer / MeshFilter sharedMesh name
         if (smr != null && smr.sharedMesh != null && smr.sharedMesh.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        var mf = go.GetComponent<MeshFilter>();
         if (mf != null && mf.sharedMesh != null && mf.sharedMesh.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // 3. Normalized stem matching on GameObject name
+        // 4. Normalized exact equality on GameObject name
         string goNorm = NormalizeMeshName(go.name);
         if (!string.IsNullOrEmpty(searchNorm) && !string.IsNullOrEmpty(goNorm))
         {
-            if (goNorm == searchNorm || goNorm.StartsWith(searchNorm) || searchNorm.StartsWith(goNorm))
+            if (goNorm == searchNorm)
                 return true;
         }
 
-        // 4. Normalized stem matching on sharedMesh name
+        // 5. Normalized exact equality on sharedMesh name
         if (smr != null && smr.sharedMesh != null)
         {
             string meshNorm = NormalizeMeshName(smr.sharedMesh.name);
-            if (!string.IsNullOrEmpty(meshNorm) && (meshNorm == searchNorm || meshNorm.StartsWith(searchNorm) || searchNorm.StartsWith(meshNorm)))
+            if (!string.IsNullOrEmpty(meshNorm) && meshNorm == searchNorm)
                 return true;
         }
 
         if (mf != null && mf.sharedMesh != null)
         {
             string meshNorm = NormalizeMeshName(mf.sharedMesh.name);
-            if (!string.IsNullOrEmpty(meshNorm) && (meshNorm == searchNorm || meshNorm.StartsWith(searchNorm) || searchNorm.StartsWith(meshNorm)))
+            if (!string.IsNullOrEmpty(meshNorm) && meshNorm == searchNorm)
                 return true;
         }
 
