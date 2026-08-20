@@ -1,12 +1,11 @@
 import process from 'node:process'
 
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import { getFilenames } from './utils'
 
 const ROOT_DIR = resolve(import.meta.dirname, '..', '..', '..')
-const DOCS_DIR = resolve(ROOT_DIR, 'docs')
 
 // GitHub releases download URLs
 const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
@@ -52,13 +51,6 @@ async function main() {
   const readmeFiles: string[] = [
     resolve(ROOT_DIR, 'README.md'),
   ]
-
-  const docsFiles = await readdir(DOCS_DIR)
-  for (const file of docsFiles) {
-    if (file.startsWith('README') && file.endsWith('.md')) {
-      readmeFiles.push(resolve(DOCS_DIR, file))
-    }
-  }
 
   let updatedCount = 0
   for (const filePath of readmeFiles) {

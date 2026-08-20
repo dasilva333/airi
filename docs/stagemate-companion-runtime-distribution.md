@@ -115,3 +115,7 @@ dir apps\stage-mate\bin
 # 4. Run the Windows starter
 start_airi.bat
 ```
+
+## Relevant Skills
+
+- [[airi-stage-mate-unity]]

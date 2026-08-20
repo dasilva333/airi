@@ -102,9 +102,7 @@ I ported many of the animation transitions from [yui540](https://github.com/yui5
 [repository](https://github.com/yui540/css-animations) to
 [https://proj-airi-packages-ui-transitions.netlify.app/#/](https://proj-airi-packages-ui-transitions.netlify.app/#/).
 
-It worked really well:
-
-![](./assets/animation-transitions.gif)
+It worked really well (demo available on Netlify).
 
 That's all for today's DevLog, thank you to everyone that joined the DevStream
 and stayed with me until the end. I'll see you all tomorrow.

@@ -122,3 +122,7 @@ The Stage window (rendering Live2D/VRM) occupies significant screen space. The e
 ## Recommendation
 
 **Option 2 (Collapse to Corner Pill)** is the recommended path forward. It turns the Stage from a bulky overlord into a collapsible, premium-feeling desktop companion. The implementation surface is manageable — a new button in the existing drag-handle group, an IPC call for resizing, and bounds save/restore logic in the positioning store. This pairs well with Option 1 (the one-way hide) as a complementary mid-level visibility action: the user can either fully hide (Option 1) or collapse to a pill (Option 2).
+
+## Relevant Skills
+
+- [[airi-stage-ui-surfaces]]

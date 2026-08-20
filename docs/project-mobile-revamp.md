@@ -395,5 +395,6 @@ Mobile users interact with companions across diverse aesthetic preferences. To s
 2. Compute `isLandscape = useMediaQuery('(orientation: landscape)')` and define `isPortraitMobile = computed(() => breakpoints.smaller('md').value && !isLandscape.value)`.
 3. In single-window applications (`stage-web` and `stage-pocket`), dynamically set `InteractiveArea`'s class to `:class="[dockedEdge === 'left' ? 'right-6' : 'left-6', ...]"` when `!isPortraitMobile`, ensuring zero UI collision between the Control Strip and Chatbox.
 
+## Relevant Skills
 
-
+- [[airi-stage-ui-surfaces]]

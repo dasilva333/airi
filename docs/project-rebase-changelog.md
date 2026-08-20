@@ -113,3 +113,7 @@
 | **alpha.12** | Electron bump, onboarding crash fix |
 | **alpha.13** | Provider dedup, SSML removal |
 | **alpha.14** | VRM tracing, connection status, plugin SDK fixes |
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

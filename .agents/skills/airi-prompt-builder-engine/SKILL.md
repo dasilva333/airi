@@ -96,3 +96,7 @@ enriches it per-session with memory and environmental context, and parses specia
   blocks remain (check `[ChatSession] Successfully refreshed and pruned` debug log).
 - For bridged tool calls, confirm the outbound `tool_calls` chunk includes `index: 0` (a
   missing index surfaces as a gateway 400).
+
+## Related Skills & References
+
+- **Key Documents**: [[prompt-crafting-catalog]], [[proposal-introspective-context-injection]], [[proposal-dynamic-memory-rag-injection]], [[design-character-configurable-llm]], [[director-producer-roles]], [[proposal-core-agent-revamp]], [[journal-the-reasoning-content-bug]], [[design-act-token-expression-system]]

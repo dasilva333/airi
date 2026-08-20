@@ -236,3 +236,7 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
     // Passes overrides directly to useContextBuilder / compileCacheAlignedPrompt
   }
   ```
+
+## Relevant Skills
+
+- [[airi-prefix-cache-alignment]]

@@ -96,3 +96,7 @@ While the runtime itself is unstable, the **Apeira Plugin API** is the most prom
 1. **Track Upstream Releases**: Monitor `moeru-ai/apeira` for changes to the persistence interfaces and stable runner contracts.
 2. **Draft Plugin Interfaces**: Design a bridge mapping our local Pinia stage-stores and layered-memory indexes to a pluggable hook layout compatible with Apeira.
 3. **Prototype Runner Replacement**: Experiment with replacing local WebGPU and Cloud providers via Apeira runners in a sandboxed branch once stability is achieved.
+
+## Relevant Skills
+
+- [[airi-prompt-builder-engine]]

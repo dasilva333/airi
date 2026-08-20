@@ -181,3 +181,8 @@ The arch-doc's Failure Log is the living failure reference; verify against code 
 - `docs/feat-discord-revamp.md`, `docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md` — Discord gateway + voice contracts (peer skill: `airi-discord-integration`).
 - `docs/feat-audio-studio.md` — UST/VoiceProfiles spec (peer skill: `airi-audio-pipeline`).
 - `docs/rosetta-stone.md` §13 — BroadcastChannel registry (`airi-chat-input-bridge`, `airi-caption-overlay`, speech-runtime channels).
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-audio-pipeline]], [[airi-caption-subsystem]], [[airi-desktop-chatbox]], [[airi-discord-integration]], [[airi-gemini-live-api]], [[airi-prefix-cache-alignment]], [[airi-proactivity-sensory-telemetry]], [[airi-stage-ui-surfaces]]
+- **Key Documents**: [[arch-chat-stt-proactivity-pipelines]], [[AGENTS]], [[design-gemini-live-api-integration]], [[design-proactivity-heartbeats-engine]], [[feat-discord-revamp]], [[design-discord-bot-integration]], [[feat-audio-studio]], [[rosetta-stone]]

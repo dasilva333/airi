@@ -174,3 +174,7 @@ node scripts/fork-explorer.js --all --output docs/fork-harvest-report.md
 1. **Phase 1**: Script substrate (`scripts/fork-explorer.js`) with GitHub API auth (`gh auth token` / `GITHUB_TOKEN`), fork iterator, and rate-limit backoff.
 2. **Phase 2**: Fingerprint registry loader (`profiles/` or JSON regex rules) with the curated initial list (`telegram-modern`, `browser-ml`, `live2d-dsl`, `vrm-touch-ik`, `rwkv-vector-rag`).
 3. **Phase 3**: Cache persistence (`.fork-explorer-cache.json`) and Markdown harvest report output.
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

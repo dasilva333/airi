@@ -1,27 +1,53 @@
+---
+title: Configuring the AIRI Gateway
+description: How to configure the local WebSocket gateway, find and rotate authentication tokens, and securely pair external companion apps.
+---
+
 # Configuring the AIRI Gateway
 
-The AIRI Gateway supports securely connecting external clients (such as mobile applications, VS Code Extensions, and custom Python servers) using WebSockets.
+The **AIRI Gateway** is a local WebSocket server that allows external clients—such as the Android/iOS Pocket companion apps, VS Code extensions, and custom Python scripts—to securely connect, stream audio, and interact with your desktop AIRI instance.
 
-## Gateway Authentication
+---
 
-Starting with version `0.9.0-alpha.16`, the AIRI Gateway forces an authentication handshake locally to protect your computer from unauthorized software and unauthorized network devices routing through your local network IP (LAN attacks).
+## 1. Gateway Security & Authentication
 
-### Application Gateway Key
-By default, AIRI Desktop (Tamagotchi) generates a random, secure UUID known as the **Application Gateway Key** (or `authToken`).
-Any client that attempts to connect to `ws://127.0.0.1:6121` must provide this token.
+Starting with version `0.9.0-alpha.16`, the AIRI Gateway enforces a mandatory authentication handshake on every connection to prevent unauthorized software or LAN devices from accessing your companion.
 
-To find your token:
-1. Open the AIRI Desktop application.
-2. Click the **Settings** gear icon.
-3. Access the **Connection** tab.
-4. Locate the **Application Gateway Key** text field. You can securely copy this key into your client application (like the VS Code Extension).
+### Application Gateway Key (Auth Token)
+When AIRI is first installed, it generates a secure, random cryptographic UUID known as the **Gateway Auth Token**.
+Any client connecting to `ws://127.0.0.1:6121` must pass this token during the WebSocket initialization handshake.
 
-### Hostname Binding
-For maximum security, the AIRI Gateway defaults to binding directly to your local loopback address: `127.0.0.1`.
-This prevents external devices on your WiFi network from contacting your AIRI server.
+### Finding Your Gateway Token
+You can find your Gateway Token in two ways:
 
-If you wish to allow external devices (for example, setting up the Android/iOS pocket application) to connect properly, you must:
-1. Open the **Connection** tab in AIRI Settings.
-2. Locate the **AIRI Gateway Hostname** text field.
-3. Set the Hostname to `0.0.0.0`.
-4. (Optional) Provide your Secure WebSocket keys (WSS) immediately below it if accessing over public WiFi.
+1. **In the Settings UI**:
+   - Open **Settings &rarr; System &rarr; Gateway / Connection**.
+   - View or copy the **Application Gateway Key** using the copy button.
+2. **In the Local Filesystem**:
+   - On Windows: `%APPDATA%\airi\config.json` or `%APPDATA%\stage-tamagotchi\config.json`
+   - On macOS: `~/Library/Application Support/airi/config.json`
+   - On Linux: `~/.config/airi/config.json`
+   - Look for the `"gatewayToken"` field.
+
+### Rotating the Gateway Token
+If you suspect your key has leaked or you want to revoke access to previously paired devices:
+1. Go to **Settings &rarr; System &rarr; Gateway**.
+2. Click **"Regenerate Key"**.
+3. Re-pair your authorized mobile or extension clients with the new token.
+
+---
+
+## 2. Hostname Binding & LAN Pairing
+
+For maximum security, the AIRI Gateway defaults to binding to the local loopback address: `127.0.0.1`.
+
+| Binding Address | Access Scope | Security Level |
+| :--- | :--- | :--- |
+| `127.0.0.1` *(Default)* | Local PC only | **High** (External devices cannot reach the port). |
+| `0.0.0.0` | Local Network (LAN) | **Standard** (Enables mobile Pocket apps on same WiFi; protected by token). |
+
+### Pairing with Mobile (Stage Pocket) on Local WiFi
+1. Change **AIRI Gateway Hostname** to `0.0.0.0` in Gateway Settings.
+2. Ensure your PC's local IP address (e.g., `192.168.1.50`) is accessible across your home WiFi router.
+3. In the Mobile Pocket app, enter your PC's IP, port `6121`, and your **Gateway Auth Token**.
+4. Tap **Connect** to establish the live companion link.

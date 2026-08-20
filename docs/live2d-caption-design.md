@@ -193,3 +193,7 @@ To support bilingual captions, add a second entry per motion with `"Language": "
 ```
 
 The runtime already prefers `en` when both exist (`enLocalized?.text ? enLocalized : defaultDef`), so this is backwards compatible. Displaying `ja` would require a user preference toggle — not yet implemented.
+
+## Relevant Skills
+
+- [[airi-caption-subsystem]]

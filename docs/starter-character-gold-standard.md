@@ -292,3 +292,7 @@ Based on the current [Sensor Data], pick **exactly one** of the following "nudge
 * **No Meta-Talk**: Never mention "Sensor Data" or "Heartbeats".
 * **Silence is Valid**: If no nudge feels right, output exactly `NO_REPLY`.
 ```
+
+## Relevant Skills
+
+- [[airi-card-schema]]

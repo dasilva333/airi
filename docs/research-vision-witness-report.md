@@ -72,3 +72,7 @@ Based on the plan, we will implement the following strictly in rebase:
 You are not "catching up" to main. You are **surpassing it** by actually implementing the feature they only have documentation for.
 - **Main**: Has a PDF/Doc saying "We have vision" and a settings toggle that does nothing.
 - **Rebase**: Will have a working, privacy-conscious, interval-based Witness system integrated into the existing Proactivity heartbeat.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

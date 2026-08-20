@@ -41,3 +41,7 @@ Stable prefix first, volatile tail last. The whole point is layout geometry: kee
 - Confirm the static/system prefix occupies the head of the composed message list and every volatile segment is appended at the tail.
 - Validate cache-hit behavior empirically against the target provider (compare latency/token-cost before vs. after an alignment change) — do not assume a layout change hits cache without measurement.
 - Logic changes to `session-store.ts` or related `.ts`: run `pnpm -F <workspace> typecheck` per `AGENTS.md`, then run `git status` and report open/unstaged files.
+
+## Related Skills & References
+
+- **Key Documents**: [[proposal-prefix-cache-alignment]], [[proposal-director-cache-alignment-analysis]], [[token-usage-metrics]], [[journal-the-reasoning-content-bug]], [[AGENTS]]

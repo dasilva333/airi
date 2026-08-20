@@ -63,3 +63,7 @@ The final step of the onboarding flow (`step-character-selection.vue`) will be u
 
 1.  **Hiyori Inclusion in Combo**: Should we keep the combo card restricted to Aria and Lupin (making it a duo), or should we find a premise that naturally integrates ReLU (Hiyori) as well, showcasing all three built-in models?
 2.  **Voice Profile ID Clashes**: How do we ensure that importing the default card dynamically registers the default Kokoro profiles in the global speech store without clashing if the user resets their data or edits them?
+
+## Relevant Skills
+
+- [[airi-card-editor-wizard]]

@@ -85,3 +85,7 @@ Once the MVP is verified, we will progressively implement the following:
 2. Enable "Vision Witness" Module.
 3. Observe Amber pulse on Control Island.
 4. Open a test image (e.g., a photo of a Cat) -> Verify AIRI comments via Native Audio on the next heartbeat.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

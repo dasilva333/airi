@@ -303,3 +303,7 @@ Avoid using emojis and try to opt for SVGs.
 You can also take this as a reference(source: Amagami)
 
 **Make this concept a reality. Sky is truely the limit**
+
+## Relevant Skills
+
+- [[airi-live2d-dsl-interpreter]]

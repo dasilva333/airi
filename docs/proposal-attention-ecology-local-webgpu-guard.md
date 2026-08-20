@@ -462,3 +462,8 @@ To prevent fragmentation across DevTools and global system settings, all Push an
 | **Privacy Exposure** | Chat text only | Every frame uploaded | Local-by-default; captions-only promotion; exclusion lists |
 | **Calibration** | n/a | n/a | Trainable classifier + user feedback loop; measured precision/recall |
 | **Entity Feeling** | Passive assistant | Spammy bot | Continuity: a subconscious that persists, a diary that consolidates, soul-controlled animations |
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]
+- [[airi-local-inference-engines]]

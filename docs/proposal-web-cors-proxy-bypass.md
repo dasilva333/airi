@@ -111,3 +111,7 @@ sequenceDiagram
 4. **Settings -> System -> Connection (`ConnectionSettings`)**:
    - Retains full manual control to view, add, or delete wildcard patterns from `CORS Bypass URLs`.
    - On Web stage: Provides the **Deploy to Cloudflare Workers** button and **CORS Proxy Worker URL** configuration.
+
+## Relevant Skills
+
+- [[airi-provider-core-registry]]

@@ -172,3 +172,7 @@ To allow legacy chat histories to be migrated to new universes in the future, th
 1. **Single-Session Character**: If a character has **exactly one** chat session in their history, the system updates all legacy memories, daily blocks, and background images for that character, setting their `sessionId` to that single session's ID.
 2. **Multi-Session Character**: If a character has **two or more** chat sessions in their history, their legacy memory `sessionId` fields are left as `null`. This prevents misattribution of memories, leaving them safely shared in the `"global"` memory pool.
 
+## Relevant Skills
+
+- [[airi-memory-chat-sessions]]
+- [[airi-memory-systems]]

@@ -399,7 +399,7 @@ A game layer on top of the Actor Stage with deep Live2D integration. Implements 
 | **Vision plumbing** | Intercepts Discord attachments → `chatOrchestrator.ingest` as base64 |
 | **Tool call availability** | Discord messages flow through the same `performSend` pipeline as desktop inputs. Tools are NOT passed explicitly by the Discord store, but `chat.ts:297` falls through to `toolsResolver.value` (set to `builtinTools` at `index.vue:728`). All built-in tools (text journal, widgets, stickers, MCP, dating sim) are available from Discord. The only exception is VLM turns (image attachments) — tools are stripped for all sources, not just Discord. |
 | **Full spec** | [`feat-discord-revamp.md`](./feat-discord-revamp.md) |
-| **Architecture doc** | `docs/content/en/docs/advanced/architecture/design-discord-bot-integration.md` |
+| **Architecture doc** | [`design-discord-bot-integration.md`](./design-discord-bot-integration.md) |
 
 ---
 
@@ -594,3 +594,26 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `customizer` window / `pages/customizer.vue` | ✅ **Active** | Unchanged — Control Strip customizer action bus uses `airi-control-strip-actions` channel (§13) |
 | `widgets` window / `artistry-bridge.ts` | ✅ **Active** | `main/services/airi/widgets/` + `renderer/stores/tools/builtin/widgets.ts` |
 
+## Relevant Skills
+
+- [[airi-app-entry-wiring]]
+- [[airi-artistry-comfyui-widgets]]
+- [[airi-binary-safety]]
+- [[airi-broadcast-channels]]
+- [[airi-caption-subsystem]]
+- [[airi-character-rendering]]
+- [[airi-codebase-verification]]
+- [[airi-data-persistence]]
+- [[airi-dating-sim-engine]]
+- [[airi-desktop-chatbox]]
+- [[airi-interaction-pipelines]]
+- [[airi-ipc-eventa]]
+- [[airi-llm-dispatch-gateway]]
+- [[airi-mcp-integration]]
+- [[airi-memory-retrieval-engine]]
+- [[airi-memory-systems]]
+- [[airi-release-packaging-deploy]]
+- [[airi-scenes-backgrounds]]
+- [[airi-stage-mate-unity]]
+- [[airi-stage-ui-surfaces]]
+- [[airi-tool-registry-builtin-tools]]

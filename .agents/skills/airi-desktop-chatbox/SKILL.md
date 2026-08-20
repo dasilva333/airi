@@ -163,3 +163,7 @@ Keep both files in lockstep — the menu is driven by the **builder function**, 
 - [docs/content/en/docs/showcase/05-chatbox-redesign.md](docs/content/en/docs/showcase/05-chatbox-redesign.md) — Chatbox redesign showcase.
 - [docs/linux-wayland-chat-cpu-spikes.md](docs/linux-wayland-chat-cpu-spikes.md) — Linux Wayland chat CPU spikes (performance failure mode).
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — canonical concept→path index; §13 BroadcastChannel registry.
+
+## Related Skills & References
+
+- **Key Documents**: [[rosetta-stone]], [[design-tamagotchi-chatbox-ux-improvements]], [[design-chatbox-magic-wand-flow]], [[proposal-chatbox-revamp]], [[proposal-chatbox-slash-commands]], [[05-chatbox-redesign]], [[linux-wayland-chat-cpu-spikes]]

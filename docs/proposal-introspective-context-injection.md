@@ -140,3 +140,7 @@ During the sending pipeline:
 ## 5. UI Integration & Configuration
 
 All toggle preferences and editable prompt templates reside in the new **Tools Tab** of the card creator, while session-specific actions (like background Journal Moments) will inherit these defaults but remain overrideable at trigger time.
+
+## Relevant Skills
+
+- [[airi-prompt-builder-engine]]

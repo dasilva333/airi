@@ -37,3 +37,8 @@ Lightweight semantic fragments (3–5 per character) surfaced as at-a-glance rec
 ## Sources
 
 `docs/proposal-echo-chips-rwkv-synthesis.md`; `docs/memory_lab/state-of-system.md` (chip/pill generation); peer: `airi-memory-systems` (hub), `airi-memory-consolidation-dreaming`, `airi-local-inference-engines` (RWKV worker), `airi-memory-ui-pages`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-local-inference-engines]], [[airi-memory-consolidation-dreaming]], [[airi-memory-systems]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[proposal-echo-chips-rwkv-synthesis]], [[state-of-system]]

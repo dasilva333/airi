@@ -77,3 +77,7 @@ AIRI maintains an advanced fork of the upstream (`moeru-ai/airi:main`).
 - [docs/content/en/docs/manual/config/character-card.md](docs/content/en/docs/manual/config/character-card.md) — Character card manual/config.
 - [docs/content/en/docs/showcase/01-card-system.md](docs/content/en/docs/showcase/01-card-system.md) — Card system showcase.
 - [docs/starter-character-gold-standard.md](docs/starter-character-gold-standard.md) — Starter character gold standard.
+
+## Related Skills & References
+
+- **Key Documents**: [[airi-card-design]], [[design-character-card-import-export]], [[character-card]], [[01-card-system]], [[starter-character-gold-standard]]

@@ -39,3 +39,8 @@ A bounded, append-mostly system ledger of what AIRI has been doing — the chara
 ## Sources
 
 `apps/stage-tamagotchi/src/renderer/components/chat/chat_event_log.vue` (UI); `docs/memory_lab/state-of-system.md`; peer: `airi-memory-systems` (hub), `airi-proactivity-sensory-telemetry` (ledger consumer), `airi-tool-registry-builtin-tools` (tool-category events).
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-memory-systems]], [[airi-proactivity-sensory-telemetry]], [[airi-tool-registry-builtin-tools]]
+- **Key Documents**: [[state-of-system]]

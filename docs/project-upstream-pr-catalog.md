@@ -89,3 +89,7 @@
 | #1227 | Codex/feat GitHub | **gemini-code-assist[bot]** (2026-03-10): ## Summary of Changes  Hello, I'm Gemini Code Assist[^1]! I'm currently reviewing this pull request ... | ❌ | [1227](https://github.com/moeru-ai/airi/pull/1227) |
 | #1076 | refactor: replace unsafe any types with unknown | **shinohara-rin** (2026-03-20): ci failing | Name       ... | ❌ | [1076](https://github.com/moeru-ai/airi/pull/1076) |
 | #1048 | Upgrade GitHub Actions to latest versions | **nekomeowww** (2026-03-01): Rebase is needed. | ❌ | [1048](https://github.com/moeru-ai/airi/pull/1048) |
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

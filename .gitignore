@@ -129,5 +129,9 @@ plugins-development
 
 apps/stage-pocket/ios/buildServer.json
 .ghfs/
-.obsidian/
+.obsidian/*
+!.obsidian/app.json
+!.obsidian/appearance.json
+!.obsidian/core-plugins.json
+!.obsidian/graph.json
 apps/stage-mate/bin/

@@ -50,3 +50,7 @@ We propose starting with the following baseline commands:
 
 - **UI Host Component**: [InteractiveArea.vue](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue)
 - **Chat Orchestration**: [session-store.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-store.ts) or [chat.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts) to route slash-prefixed commands correctly if the user hits Send directly.
+
+## Relevant Skills
+
+- [[airi-desktop-chatbox]]

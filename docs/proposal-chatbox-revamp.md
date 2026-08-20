@@ -546,3 +546,7 @@ If something does not fit one of these, it does not belong in the current model.
 ---
 
 This version removes ambiguity, locks the layout rules that would otherwise break under pressure, and cleanly separates what belongs where. It also sets you up to scale without reintroducing the chaos you just eliminated.
+
+## Relevant Skills
+
+- [[airi-desktop-chatbox]]

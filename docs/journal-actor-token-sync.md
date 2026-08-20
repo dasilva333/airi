@@ -2,6 +2,8 @@
 
 This document serves as the canonical diagnostics journal and architectural design record for resolving the timing, synchronization, and text-swallowing bugs associated with the `<|ACTOR:|>` swap tokens.
 
+> **Validated by:** [`docs/review-actor-token-sync-root-causes.md`](./review-actor-token-sync-root-causes.md) — independent line-by-line code-trace review (2026-06-12); verdicts on A–D corrected where the original mechanisms were misdiagnosed.
+
 ---
 
 ## 1. Executive Summary
@@ -125,3 +127,7 @@ To resolve the synchronization issues, the following sequence of changes is prop
 *   **[`docs/proposal-visual-state-outfit-hook.md`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/proposal-visual-state-outfit-hook.md)**: Architecture spec for Director-led modular visual assets.
 *   **[`docs/proposal-visual-state-outfit-hook-implementation-plan.md`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/proposal-visual-state-outfit-hook-implementation-plan.md)**: Implementation checkpoints and test protocols.
 *   **[`docs/content/en/docs/advanced/architecture/design-acting-tab-and-chatterbox.md`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/content/en/docs/advanced/architecture/design-acting-tab-and-chatterbox.md)**: Spec for prompt acting behaviors and capabilities payload mappings.
+
+## Relevant Skills
+
+- [[airi-acting-cue-act-tokens]]

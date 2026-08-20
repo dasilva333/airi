@@ -32,6 +32,7 @@ The Attention Ecology Vision engine provides non-intrusive 24/7 visual awareness
 - `docs/proposal-attention-ecology-local-webgpu-guard.md` — Specification document for the Attention Ecology local WebGPU salience guard.
 - `docs/implementation-plan-vision-witness.md` — Vision witness implementation plan and salience scoring harness.
 - `docs/proposal-poc-attention-ecology-vibe-island.md` — Vibe Island proof-of-concept design specification.
+- `docs/proposal-wd14tagged-models.md` — WD14 tagger auto-indexing of local model previews into semantic search (Model Selector).
 
 ## 3. Core SOPs & Guidelines
 
@@ -65,3 +66,7 @@ The Attention Ecology Vision engine provides non-intrusive 24/7 visual awareness
 - [docs/proposal-salience-gate-ui-integration.md](docs/proposal-salience-gate-ui-integration.md) — Salience gate UI integration proposal.
 - [docs/proposal-vlm-forward-to-llm.md](docs/proposal-vlm-forward-to-llm.md) — VLM forward-to-LLM proposal.
 - [docs/content/en/docs/showcase/08-situational-awareness.md](docs/content/en/docs/showcase/08-situational-awareness.md) — Situational awareness showcase.
+
+## Related Skills & References
+
+- **Key Documents**: [[proposal-attention-ecology-local-webgpu-guard]], [[implementation-plan-vision-witness]], [[proposal-poc-attention-ecology-vibe-island]], [[proposal-wd14tagged-models]], [[design-vision-system-support]], [[design-vision-api-cost-analysis]], [[research-vision-witness-report]], [[project-vision-architecture-review-alpha22]], [[proposal-salience-gate-ui-integration]], [[proposal-vlm-forward-to-llm]], [[08-situational-awareness]]

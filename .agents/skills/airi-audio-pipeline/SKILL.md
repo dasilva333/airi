@@ -63,3 +63,7 @@ AIRI's audio infrastructure consists of 2 primary real-time pipelines:
 - [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
 - [docs/content/en/references/research/tts.md](docs/content/en/references/research/tts.md) — TTS research reference.
 - [docs/content/en/references/research/lipsync.md](docs/content/en/references/research/lipsync.md) — Lipsync research reference.
+
+## Related Skills & References
+
+- **Key Documents**: [[feat-audio-studio]], [[openai-compatible-tts]], [[blueprint-tts-universal-speech-transformer]], [[blueprint-aws-polly-integration]], [[analysis-pocket-tts-viability]], [[analysis-gpt-sovits-onnx-webgpu-viability]], [[proposal-higgs-audio-v3-tts-integration]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[project-multimodal-audio-transport]], [[tts]], [[lipsync]]

@@ -135,3 +135,8 @@ The migration follows a strict "Clean Room" protocol to ensure the Target mainta
       gh pr create --title "feat: port artistry & chatbox enhancements" --body-file PR_BODY.md
       ```
     - **Outcome**: Ensures the PR is professional, well-documented, and ready for immediate stakeholder review.
+
+## Relevant Skills
+
+- [[airi-artistry-comfyui-widgets]]
+- [[airi-scenes-backgrounds]]

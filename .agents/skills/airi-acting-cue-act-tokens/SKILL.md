@@ -108,4 +108,10 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 - `packages/stage-ui/src/types/chat.ts` (:25-48) — `rawContent`/`content` contract; `chat.ts` (:1113-1117, :1648-1656).
 - `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (:387-421, :465) — cue dispatch.
 - `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue` — playground.
+- `docs/journal-actor-token-sync.md` + `docs/review-actor-token-sync-root-causes.md` — ACTOR-token sync diagnostics journal and its validated code-trace review (generation/playback clock skew, text-swallowing, single-flight gaps).
 - Peer skills: `airi-prompt-builder-engine`, `airi-character-rendering`, `airi-model-customizer`, `airi-interaction-pipelines`, `airi-onboarding-v2`, `airi-tool-registry-builtin-tools`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-character-rendering]], [[airi-discord-integration]], [[airi-gemini-live-api]], [[airi-interaction-pipelines]], [[airi-model-customizer]], [[airi-onboarding-v2]], [[airi-prompt-builder-engine]], [[airi-tool-registry-builtin-tools]]
+- **Key Documents**: [[journal-actor-token-sync]], [[review-actor-token-sync-root-causes]]

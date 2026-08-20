@@ -141,3 +141,8 @@ window.electron.ipcRenderer.on('set-customizer-group', (_event, group: string) =
    Use `electronCustomizerToggleVisibility` and `electronGetCustomizerWindowState` for window management. Do not bypass eventa with raw IPC strings.
 4. **Verification**:
    Run `pnpm -F @proj-airi/stage-ui typecheck` after modifying `control-customizer.ts` or `customizer.vue`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-model-customizer]]
+- **Key Documents**: [[modelcustomizer-design]], [[catalog-control-strip]], [[project-control-strip-rfc]], [[design-stage-ui-context-bridge-control-island]], [[bugfix-apply-btn-race]]

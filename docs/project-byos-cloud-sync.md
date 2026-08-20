@@ -231,4 +231,7 @@ While S3 remains our high-performance asset engine, the credentials workflow sho
 * **Independent Tokens:** If Google Drive itself is selected as the main storage engine, the AppData folder is used to hold credentials for other sub-services, or standard storage directories are mapped.
 * **Modular Refresh Handshake:** The client will independently manage token lifecycles (such as OAuth refresh tokens for Dropbox/Google Drive) behind the scenes without interrupting the user's local interaction.
 
+## Relevant Skills
 
+- [[airi-byos-cloud-sync]]
+- [[airi-data-persistence]]

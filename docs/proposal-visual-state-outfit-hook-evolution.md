@@ -72,3 +72,7 @@ This solution cleanly resolves visual resets while preserving architectural simp
 
 ### Phase 3: Validation
 - Verify that changes made via incoming streams are instantly visible in the Concept Studio UI and persist across new turns.
+
+## Relevant Skills
+
+- [[airi-modular-outfits-system]]

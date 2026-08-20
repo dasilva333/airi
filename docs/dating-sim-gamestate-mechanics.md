@@ -115,3 +115,7 @@ If the player runs out of turns and `positiveScore === negativeScore`, the syste
 
 1.  **Tie-Breaker Metric**: Evaluate secondary states to break the tie, e.g., checking the companion's active `Mood` (resolving as victory if Mood is Max/High, or defeat if Low).
 2.  **Neutral/Stalemate Climax**: Inject a third specialized system prompt `[DATING SIM CLIMAX RESOLUTION: NEUTRAL]` when scores are tied, prompting the assistant to write a rich, ambiguous "stalemate" resolution (e.g. agreeing to meet again but remaining guardedly distant).
+
+## Relevant Skills
+
+- [[airi-dating-sim-engine]]

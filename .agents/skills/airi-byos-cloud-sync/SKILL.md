@@ -42,3 +42,7 @@ Provides privacy-preserving multi-device sync using standard S3/R2/Google Drive 
 - **Infinite Sync Loops**: Forgetting to check `isImportingRemoteData` during remote data ingestion will trigger infinite re-upload cascades.
 - **S3 mtime Translations**: S3 objects do not support custom file modification time writes. AIRI relies on the native `LastModified` timestamp returned by `ListObjectsV2`, requiring precise sequence tracking to avoid redundant downloads.
 - **Contraction Triggers**: Replacing a database with an empty array triggers an anti-contraction error requiring manual conflict resolution.
+
+## Related Skills & References
+
+- **Key Documents**: [[project-byos-cloud-sync]], [[project-audit-cloudsync]]

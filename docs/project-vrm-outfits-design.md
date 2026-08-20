@@ -420,3 +420,6 @@ Configured wardrobe slots render as full-width cards in a single-column stack, p
 | **AIRI Three.js VRM Scene** | [`packages/stage-ui-three/src/components/Model/VRMModel.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui-three/src/components/Model/VRMModel.vue) | WebGL stage mesh node loader and visibility renderer. |
 | **AIRI Model Customizer** | [`packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/components/scenarios/settings/model-settings/ModelCustomizer.vue) | Unified avatar customization controller across VRM, Live2D, Spine, MMD. |
 
+## Relevant Skills
+
+- [[airi-modular-outfits-system]]

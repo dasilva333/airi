@@ -298,3 +298,7 @@ To maximize compute efficiency and ensure zero wasted usage limits across hostin
 
 ---
 
+## Relevant Skills
+
+- [[airi-discord-integration]]
+- [[airi-interaction-pipelines]]

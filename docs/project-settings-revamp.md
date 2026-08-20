@@ -153,3 +153,7 @@ Index each of System's 8 distinct sub-menus directly:
 * **Search Responsiveness**: Instant filtering as user types, with fallback to empty state prompt if no matches.
 * **Deep Navigation**: Verifying `router.push` correctly opens target sub-pages, tabs, and modals (e.g. opening `model-selector` directly to `explore` tab).
 * **Keyboard Navigation**: `⌘K` opens/focuses search; arrow keys cycle results; `Enter` navigates.
+
+## Relevant Skills
+
+- [[airi-provider-ui-pages]]

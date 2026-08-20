@@ -50,3 +50,7 @@ The target models contain advanced, interactive scripting blocks that were strip
    * **Parse commands**: Parse actions such as `clear_exp`, `start_mtn`, `change_cos`, and UI buttons dynamically.
    * **Manage Intimacy & Tension states**: Map parameters like `"Intimacy": {"Min": 80, "Bonus": 1}` directly into the active dating session / tamagotchi store.
    * **Execute conditional branches**: Support conditional animation playing based on the current intimacy level and expression states.
+
+## Relevant Skills
+
+- [[airi-live2d-dsl-interpreter]]

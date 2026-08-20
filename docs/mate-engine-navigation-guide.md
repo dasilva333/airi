@@ -529,3 +529,6 @@ To prevent runtime `DllNotFoundException` crashes on macOS and preserve Windows 
 4. **Dock Registration (`cachedWindows`)**: On macOS, `UpdateCachedWindows()` inserts the macOS Dock entry directly into `cachedWindows`, immediately activating the upstream sitting blend tree and gesture engine.
 5. **Phase 2 Expansion**: Querying `CGWindowListCopyWindowInfo` to register visible window headers into `cachedWindows` unlocks sitting on top of any macOS app window (Safari, Finder, Discord) with zero extra changes.
 
+## Relevant Skills
+
+- [[airi-stage-mate-unity]]

@@ -113,3 +113,7 @@ AIRI exposes 4 Whisper model tiers in [`packages/stage-ui/src/libs/inference/con
    * Inspect browser console for Eventa streaming updates: `[V2 Hearing]` and `[Whisper Adapter]`.
    * Check WebGPU status in DevTools via `navigator.gpu`.
    * Inspect Cache Storage in DevTools: `Application > Storage > Cache storage > transformers-cache`.
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

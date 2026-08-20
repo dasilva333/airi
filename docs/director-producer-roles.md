@@ -102,3 +102,9 @@ We will dynamically append the story parameters to the global prompt system to m
 3. Verify that the launcher does **not** show the hardcoded generic suggestions, but instead triggers the LLM to generate 4 story-tailored choices.
 4. Verify that the initial character subtitle matches the setting.
 5. Choose an option, verify that the intimacy changes and that the choices continue generating.
+
+## Relevant Skills
+
+- [[airi-dating-sim-engine]]
+- [[airi-proactivity-sensory-telemetry]]
+- [[airi-prompt-builder-engine]]

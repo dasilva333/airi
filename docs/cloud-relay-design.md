@@ -327,3 +327,8 @@ Rather than forcing users to micromanage manual `/togglebot` commands, the syste
 - Deploy button creates a working, publicly reachable Worker.
 - Relay KV memories appear in AIRI local memory after Sync ↓.
 - Teardown fully removes Worker and KV namespace from Cloudflare account.
+
+## Relevant Skills
+
+- [[airi-cloud-relay-infrastructure]]
+- [[airi-discord-integration]]

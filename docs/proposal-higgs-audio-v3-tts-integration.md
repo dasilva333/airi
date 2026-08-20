@@ -218,3 +218,7 @@ Higgs TTS server receives: "That was incredible. <|emotion:awe|> I didn't expect
 - **Provider registration**: Should Higgs v3 get its own named TTS provider entry in `providers.ts`, or should it be registered as an OpenAI-compatible TTS endpoint and identified by the `convertBracketsToTokenFormat` toggle? The latter keeps it provider-agnostic and would work for any future control-token TTS that follows the same pattern.
 - **Server rename/rebrand**: The chatterbox sidecar project has outgrown its name — it now ships OmniVoice support and is about to get Higgs bolted on. `chatterbox-tts-airi` is increasingly a misnomer (the upstream Chatterbox project has also effectively gone dormant). Worth renaming to something engine-agnostic (e.g. `airi-tts-server` or `airi-speech-sidecar`) and reworking the `/chatterbox/capabilities` endpoint path to something like `/airi/capabilities`. Since both this sidecar and the AIRI fork are owned by the same author, the rename is a single self-coordinated pass: update the server endpoint, update the AIRI-side capabilities URL, ship together.
 - **License gate**: Research & non-commercial only at time of writing. If a commercial license becomes available, this raises the implementation priority significantly.
+
+## Relevant Skills
+
+- [[airi-audio-pipeline]]

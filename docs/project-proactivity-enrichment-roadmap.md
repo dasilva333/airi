@@ -130,3 +130,7 @@ To provide transparency and "peace of mind," each sensor will feature a circular
 2. **Counter Persistence:** Perform 5 chat messages, 2 TTS generations, and 1 STT transcription. Verify the payload tooltip reflects `Chat (Last Hr): 5`, `TTS (Last Hr): 2`, `STT (Last Hr): 1`.
 3. **Milestone Trigger:** Set a low milestone (e.g., 5 turns) and verify the payload reflects the target.
 4. **Active Window History:** Switch between 3 different applications for 1 minute each, then check if the history payload correctly lists them with durations.
+
+## Relevant Skills
+
+- [[airi-proactivity-sensory-telemetry]]

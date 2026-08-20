@@ -168,3 +168,8 @@ To implement this revamp, the following files will be refactored:
    - [NEW] `packages/stage-ui/src/components/scenarios/layout/ControlStrip.vue` — The core interactive glassmorphic pill widget with support for orientation switching, drag/drop sorting, and custom action rendering.
 4. **Settings Page integration:**
    - [NEW] `packages/stage-pages/src/pages/settings/layout/ControlStripEditor.vue` — The layout configuration editor.
+
+## Relevant Skills
+
+- [[airi-controlstrip-customizer]]
+- [[airi-stage-ui-surfaces]]

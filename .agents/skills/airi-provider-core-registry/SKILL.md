@@ -116,3 +116,7 @@ Ensure all translation keys referenced in `nameLocalize`, `descriptionLocalize`,
 - [docs/project-provider-metadata-catalog.md](docs/project-provider-metadata-catalog.md) — Provider metadata catalog project.
 - [docs/design-multi-instance-provider-studio.md](docs/design-multi-instance-provider-studio.md) — Multi-instance provider studio design.
 - [docs/proposal-web-cors-proxy-bypass.md](docs/proposal-web-cors-proxy-bypass.md) — Web CORS proxy bypass proposal.
+
+## Related Skills & References
+
+- **Key Documents**: [[settings-yaml]], [[provider-catalog]], [[project-provider-metadata-catalog]], [[design-multi-instance-provider-studio]], [[proposal-web-cors-proxy-bypass]]

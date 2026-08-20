@@ -19,8 +19,6 @@ into a reusable Vue component for any of the Vue project to be able to use it.
 The result is quite good, already deployed to
 [https://proj-airi-packages-ui-transitions.netlify.app/#/](https://proj-airi-packages-ui-transitions.netlify.app/#/).
 
-![](./assets/animation-transitions.gif)
-
 > And also, from now on, all of the playgrounds of each packages will use
 > "proj-airi" + "${subDirectory}" + "$｛packageName}" pattern for the Netlify
 > deployment.

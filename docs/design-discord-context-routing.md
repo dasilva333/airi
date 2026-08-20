@@ -293,3 +293,8 @@ graph TD
 * **3.3 Deduplication & Edit Handling**:
   * Durable event deduplication for Discord gateway retries (survives window reload).
   * Configurable handling for edited messages (ignore vs re-evaluate).
+
+## Relevant Skills
+
+- [[airi-cloud-relay-infrastructure]]
+- [[airi-discord-integration]]

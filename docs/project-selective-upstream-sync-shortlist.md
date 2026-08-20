@@ -273,3 +273,7 @@ When a PR lands on fork `main`, record upstream merge SHA + fork commit here or 
 | PR | Upstream merged | Fork landing commit | Notes |
 |----|-----------------|---------------------|-------|
 | | | | |
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

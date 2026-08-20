@@ -200,3 +200,7 @@ For consistency across code, comments, and documentation:
 | The unified background sweep (Director + IC merged) | **The Director/IC Sweep** | `director-ic-sweep` |
 | The player-facing branching overlay | **The Stage Overlay** | `dating-sim-overlay` |
 | The DSL-based character interaction state machine | **The Model DSL Engine** | `dsl-engine` |
+
+## Relevant Skills
+
+- [[airi-dating-sim-engine]]

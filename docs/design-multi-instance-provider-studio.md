@@ -117,3 +117,9 @@ The provider settings layout adopts a responsive **2-Column Split / 1-Column Res
 1. **Phase 1 (Current Handoff)**: Complete structural extraction of `providers.ts` metadata into `registry/speech.ts`, `registry/transcription.ts`, and `registry/local-engines.ts`.
 2. **Phase 2 (Multi-Instance Engine & Store Update)**: Extend `useProvidersStore` to manage `ProviderInstanceConfig[]` and inject multi-instance cards into `createProviderRegistry`.
 3. **Phase 3 (Provider Studio UI Overhaul)**: Update shared provider setting layout components (`packages/stage-pages/src/pages/settings/providers/components/`) with smart field prioritization, direct console links, embedded model lists, and SSML guardrails.
+
+## Relevant Skills
+
+- [[airi-provider-core-registry]]
+- [[airi-provider-store-instances]]
+- [[airi-provider-ui-pages]]

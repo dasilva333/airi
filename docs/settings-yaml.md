@@ -48,3 +48,10 @@ npx tsx scripts/yaml-manager.js <command> <file> [args]
 ## Cross-locale work
 
 When a new source-language key is added, run `sync` against each locale that is in scope for the task. Do not assume a fixed locale list; inspect `packages/i18n/src/locales/` when deciding targets.
+
+## Relevant Skills
+
+- [[airi-i18n-localization]]
+- [[airi-provider-core-registry]]
+- [[airi-provider-store-instances]]
+- [[airi-provider-ui-pages]]

@@ -117,3 +117,7 @@ scripts/tests/rwkv-harness/
 1. **Execution Stability**: Run 100 consecutive turns in Node/WASM without memory leaks or state corruption.
 2. **State Delta Verification**: Log cosine distance between $\mathbf{wkv}_{t}$ and $\mathbf{wkv}_{t-1}$ when changing topics (e.g. switching from "cooking pasta" to "Rust programming").
 3. **Keyword Projections**: Verify if linear projections of $\mathbf{wkv}$ can reliably surface top-5 topic embeddings.
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

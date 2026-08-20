@@ -183,3 +183,7 @@ Interpretation:
 - GitHub may still report the fork as being behind upstream
 - that number is historical, not a full measure of functional drift
 - future selective sync passes should compare against the last reviewed upstream head first, not just the raw behind count
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

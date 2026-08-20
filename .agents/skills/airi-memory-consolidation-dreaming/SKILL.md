@@ -51,3 +51,7 @@ Use this skill when:
    - Mood/log updates emitted during Dreaming produce a measurable `MoodState` delta and a `MoodLogEntry` that lands in the appropriate store/logs.
    - Contradictions result in new/linked records with `Invalidate`/`Supersede` semantics rather than silent overwrite.
 3. Validate artifact feeds (chat UI rail, Rich Journal feed) render the three tiers distinctly (Daily Recap, Personal Insight, Episode, Fact) and that the UI respects the "sacred" distinction when any kind of edit affordance is exposed.
+
+## Related Skills & References
+
+- **Key Documents**: [[design-prospective-rich-journal]], [[memory-schema-and-lifecycle-spec]], [[memory-lifecycle-and-features]], [[great_merger_cheat_sheet]], [[ultimate_hybrid_design_doc_detailed]], [[lifetime-artifact-generation-plan]], [[arch-long-term-memory-journal]]

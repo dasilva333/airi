@@ -103,3 +103,8 @@ Combines multiple system messages into one for Gemini (`googleapis.com`), web-ll
 - `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md` — pipeline placement of the gateway
 - `docs/rosetta-stone.md` — provider/LLM section index
 - Peer skills: `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-tool-registry-builtin-tools`, `airi-interaction-pipelines`
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-interaction-pipelines]], [[airi-prefix-cache-alignment]], [[airi-provider-core-registry]], [[airi-provider-store-instances]], [[airi-tool-registry-builtin-tools]]
+- **Key Documents**: [[rosetta-stone]], [[arch-chat-stt-proactivity-pipelines]]

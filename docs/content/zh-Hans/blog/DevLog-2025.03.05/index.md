@@ -90,8 +90,6 @@ https://www.youtube.com/watch?v=_AIgv0EsOE4
 我将 [yui540](https://github.com/yui540) [仓库](https://github.com/yui540/css-animations) 中的
 许多动画过渡效果移植到了 [https://proj-airi-packages-ui-transitions.netlify.app/#/](https://proj-airi-packages-ui-transitions.netlify.app/#/)。
 
-移植后的效果相当不错：
-
-![](./assets/animation-transitions.gif)
+移植后的效果非常不错（可在 Netlify 上查看演示）。
 
 今天的 DevLog 就到这里，感谢所有参加 DevStream 并一直陪伴到最后的大家。明天见。

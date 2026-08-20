@@ -125,3 +125,7 @@ interface CloudRelayInstance {
 - **KV binding size**: large system prompts exceed the 5.1KB binding cap — read them from the `system/prompt` KV key instead (verified pattern in `src/index.ts`).
 - **Eventual consistency**: Cloudflare KV propagation lag can momentarily desync edge reads; the per-turn key adapter (`history_*`) keeps windows coherent on writes-afforded reads.
 - **No `docs/design-discord-cloud-relay.md`**: link the two real lineage docs (`design-discord-control-plane.md`, `design-discord-context-routing.md`), never a nonexistent path.
+
+## Related Skills & References
+
+- **Key Documents**: [[cloud-relay-design]], [[project-generic-cloudflare-framework-plan]], [[design-discord-control-plane]], [[design-discord-context-routing]], [[design-discord-cloud-relay]]

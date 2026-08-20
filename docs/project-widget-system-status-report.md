@@ -163,3 +163,7 @@ If CUIPP is ever extracted into something open and reusable, the scope should be
   - final asset path or URL out
 
 `remix` should be treated as a CUIPP-first capability that can later expand to other providers, not as something every provider must support on day one.
+
+## Relevant Skills
+
+- [[airi-artistry-comfyui-widgets]]

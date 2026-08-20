@@ -131,3 +131,7 @@ graph TD
    - Display dynamic action buttons based on local vs. remote status:
      - **If Local:** Show **Select** / **Pick** and a sub-menu to **Remove Local Copy**.
      - **If Remote-Only:** Show **Download & Select** button.
+
+## Relevant Skills
+
+- [[airi-provider-ui-pages]]

@@ -383,3 +383,9 @@ The Director maintains a small persistent "scratchpad" of visual state (location
 <summary>I want a manual scene update without the Director intervening</summary>
 
 Disable **Autonomous Artistry** on the card. Your actor tokens continue to work — only the background-image generation stops.
+
+---
+
+## Related Guides
+
+For practical end-user examples of creating multi-actor cards and switching character outfits in the desktop UI, see the [Multi-Actor Staging & Wardrobes Feature Guide](../multi-actor-staging.md).

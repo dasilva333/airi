@@ -289,3 +289,7 @@ We will provide configurations matching the guidelines defined in the **Prompt C
 ##### [MODIFY] [CardCreationTabArtistry.vue](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabArtistry.vue)
 * Enable `sparkle` prop on the Artistry `selectedArtistryPromptPrefix` input.
 * Listen to `@sparkle-click` and trigger visual DNA prompt prefix generation using the character description and personality as context.
+
+## Relevant Skills
+
+- [[airi-prompt-builder-engine]]

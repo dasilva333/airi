@@ -458,6 +458,6 @@ When developing locally inside `apps/stage-tamagotchi` without a Cloudflare Tunn
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## Relevant Skills
 
-
-
+- [[airi-discord-integration]]

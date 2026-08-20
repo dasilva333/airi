@@ -146,3 +146,8 @@ All lists are driven by `getOrLoadModelCapabilities` output (model-file level), 
 - `pnpm -F @proj-airi/stage-ui typecheck` — the widget lives in `stage-ui`.
 - Manual (desktop): open Settings → a model panel for each format; rename a technical key; map one to an ACT emotion; toggle idle cycle; confirm previews effectuate the actor window; in Rehearsal Room confirm insert-token appends to the sandbox. For VRM: build an outfit slot with mesh parts and confirm hide/show per slot.
 - Not a label/comment-only change: this is component + store behavior; run the typecheck target above.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-binary-safety]], [[airi-controlstrip-customizer]], [[airi-modular-outfits-system]]
+- **Key Documents**: [[modelcustomizer-design]]

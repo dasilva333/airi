@@ -378,3 +378,9 @@ To maintain complete compatibility across all versions:
    - If no `manifest.json`: Falls back to searching for `card.json` or character PNGs inside the ZIP.
 3. **PNG Inspector**: Processes SillyTavern `tEXt` chunk `'chara'`.
 4. **JSON Inspector**: Processes AIRI v1 JSON or CCv2/v3 JSON.
+
+## Relevant Skills
+
+- [[airi-card-editor-wizard]]
+- [[airi-card-schema]]
+- [[airi-modular-outfits-system]]

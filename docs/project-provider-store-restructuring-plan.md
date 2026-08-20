@@ -427,3 +427,7 @@ It provides a real win:
 - better provider-family organization
 
 And it does so without committing the project to a broad rewrite or a compatibility campaign across many files.
+
+## Relevant Skills
+
+- [[airi-provider-store-instances]]

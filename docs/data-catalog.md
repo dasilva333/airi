@@ -1482,3 +1482,17 @@ When implementing MOSS-TTS-Nano voice cloning, the voice profile store should fo
 ---
 
 > **Maintainer note**: This document should be updated whenever a new `local:*` namespace, `localforage` key pattern, or significant localStorage key is added to the codebase. When implementing selective sync, reference Section 6 (Merge Strategies) to determine how each key should be handled, and Section 8 (Cross-Store Reference Relationships) for the runtime tree-building chains, and Section 9 (Not-Yet-Synced) for candidates needing reconciliation logic.
+
+## Relevant Skills
+
+- [[airi-comfyui-provider-bridge]]
+- [[airi-data-persistence]]
+- [[airi-memory-chat-sessions]]
+- [[airi-memory-echo-chips]]
+- [[airi-memory-image-journal]]
+- [[airi-memory-lifetime]]
+- [[airi-memory-provisioning]]
+- [[airi-memory-short-term]]
+- [[airi-memory-systems]]
+- [[airi-memory-text-journal]]
+- [[airi-provider-core-registry]]

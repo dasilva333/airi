@@ -71,3 +71,7 @@ When previewing or playing user speech (such as Producer Directive suggestions i
 *   **Dynamic Playback Routing:**
     *   **Option A (Isolated Preview - Default):** When the user does *not* have an active 3D/2D model representation configured in their profile, speech plays back in isolation using a localized HTML5 `Audio` instance. This prevents story timeline pollution and avoids interrupting active character dialog.
     *   **Option B (Stage-Linked Playback - Immersive):** When the user *has* a bound 3D/2D display model representation on the stage, the preview routes the text through the main speech pipeline (`speechRuntimeStore.openIntent`). This dynamically activates the user's model, registers the speech segment in the live captions system, and triggers physical LipSync and visual animations on the user's avatar for a fully immersive preview.
+
+## Relevant Skills
+
+- [[airi-onboarding-v2]]

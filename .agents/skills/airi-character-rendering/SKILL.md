@@ -147,3 +147,7 @@ Expressions can be activated via three distinct pathways:
   - `pnpm -F @proj-airi/stage-ui-three typecheck`
   - `pnpm -F @proj-airi/stage-ui-live2d typecheck`
   - `pnpm -F @proj-airi/stage-tamagotchi typecheck`
+
+## Related Skills & References
+
+- **Key Documents**: [[modelcustomizer-design]], [[design-act-token-expression-system]], [[design-vrm-animation-ecosystem]], [[rosetta-stone]], [[vrm-cloth-interaction-deepdive]]

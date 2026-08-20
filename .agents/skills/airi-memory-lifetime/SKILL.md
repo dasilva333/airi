@@ -95,3 +95,8 @@ Lab-validated mechanism (`docs/memory_lab/state-of-system.md`, "base artifact pl
 ## Sources
 
 `docs/memory_lab/lifetime-artifact-generation-plan.md` (update cadence, change threshold, rebase rules, failure modes); `docs/memory_lab/state-of-system.md` (base + diffs validation); `docs/memory_lab/memory-engine-integration-plan.md` (original Dream State hook sketch, superseded by STMM trigger); `docs/data-catalog.md` §1.8/§1.9; peer: `airi-memory-systems` (hub), `airi-memory-provisioning`, `airi-memory-short-term` (trigger/cadence), `airi-memory-text-journal` (LTMM input), `airi-memory-ui-pages` (Eternal Thread), `airi-memory-chat-sessions`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-memory-chat-sessions]], [[airi-memory-provisioning]], [[airi-memory-short-term]], [[airi-memory-systems]], [[airi-memory-text-journal]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[state-of-system]], [[lifetime-artifact-generation-plan]], [[memory-engine-integration-plan]]

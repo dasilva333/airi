@@ -130,3 +130,7 @@ graph TD
 
 ### Phase 6: UI & Provider Settings Integration (`06-ui-integration.ts`)
 * **Goal**: Expose state presets in `web-rwkv.vue` settings and wire worker adapters.
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

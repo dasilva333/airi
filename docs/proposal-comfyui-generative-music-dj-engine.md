@@ -235,3 +235,7 @@ Instead of arbitrary clock-interval polling, the DJ engine hooks directly into t
 - [ ] **Unified DJ Tools**: Implement `dj_queue_track`, `dj_search_catalog`, `dj_get_status`, and `dj_control` in `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/`.
 - [ ] **Playback-Anchored Proactivity**: Connect DJ deck remaining-time threshold to the proactivity dispatcher.
 - [ ] **DJ Widget & UI**: Create the "Now Playing / On Deck" media strip component on Stage and Control Strip.
+
+## Relevant Skills
+
+- [[airi-artistry-comfyui-widgets]]

@@ -554,3 +554,7 @@ This complements **Web-RWKV 0.1B** (the background attention guard) by providing
 4. Verify both instances register in model selectors.
 5. Verify download progress bars stream percentages and complete cleanly during initial load.
 6. Check **Model Cache** widget on Providers page and verify storage tracking across `webllm/*` Cache API scopes.
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

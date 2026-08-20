@@ -78,3 +78,7 @@ Real-time, sub-second bidirectional multimodal streaming over a Bidi WebSocket u
   that `groundingMetadata` citations are captured (line 805).
 - In gemini output mode, verify exactly one zero-length literal fires per turn and no
   secondary full-text TTS pass runs.
+
+## Related Skills & References
+
+- **Key Documents**: [[design-gemini-live-api-integration]], [[project-multimodal-audio-transport]], [[arch-chat-stt-proactivity-pipelines]]

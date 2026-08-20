@@ -215,4 +215,6 @@ To bridge this gap, the next evolution of AIRI onboarding introduces an **option
 - **Auxiliary Window / Sidecar Host**: `apps/stage-tamagotchi/src/main/windows/` (`customizer/`, `notice/`, `dashboard/`)
 - **BroadcastChannel State Relays**: `airi:stage:motion-event`, `airi:widgets:command`, `airi:proactivity:telemetry`, `airi:memory:sync`
 
+## Relevant Skills
 
+- [[airi-onboarding-v2]]

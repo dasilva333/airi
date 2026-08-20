@@ -95,3 +95,8 @@ Additionally, `settingsWindow` reuses a single `BrowserWindow` instance and re-t
 | 2026-08-10 | Dead Prop Cleanup | Removed `onBack` from `provider-settings-layout.vue` prop contract (was never rendered), `navigateBackToProviders` from `use-provider-validation.ts`, and its bindings in `[providerId]`/`ollama`/`lm-studio`/`web-llm` chat pages + `speech`/`transcription-provider-settings.vue` (incl. orphaned `useRouter`). | 🟢 Completed |
 | 2026-08-10 | Validation | `stage-layouts`, `stage-pages` typecheck ✅ 0 errors. `stage-tamagotchi` introduces 0 new errors; 5 pre-existing on `main` remain (baselined via `git stash`): `chat.vue(133)` unused `handleToggleSalienceGate`, `devtools/vision.vue(95,117)` `orchestrator.lastError` null + `.value` on string. Out of scope; flagged for follow-up. | 🟡 Pre-existing |
 | 2026-08-15 | Web & Pocket Stage Back Button | Corrected platform distinction: Single-window environments (`stage-web` and `stage-pocket`) require the Settings root back button to return to the Stage homeview (`/`). The `rootOfSettings` block guard (`from.meta.rootOfSettings && to.path === '/'`) is strictly scoped to multi-window Electron (`stage-tamagotchi`) where Settings is an isolated window. Removed the overzealous guard from `apps/stage-web/src/main.ts` and removed `apps/stage-web/src/pages/settings/index.vue` shadow stub so `stage-web` renders `packages/stage-pages/src/pages/settings/index.vue` directly. | 🟢 Completed |
+
+## Relevant Skills
+
+- [[airi-app-entry-wiring]]
+- [[airi-stage-ui-surfaces]]

@@ -314,3 +314,7 @@ After `generateSuggestions` returns, `producerSuggestion.value` is updated in `I
 | `handleRetryProducer` | `InteractiveArea.vue:348` | Regenerates with last config |
 | `handleDeleteProducer` | `InteractiveArea.vue:356` | Dismisses the suggestions bubble |
 | `historyMessages` | `InteractiveArea.vue:616` | Merges chat messages + producer bubble |
+
+## Relevant Skills
+
+- [[airi-desktop-chatbox]]

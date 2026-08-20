@@ -58,3 +58,7 @@ Research first, port deliberately. This fork is highly divergent; the `upstream`
 - Confirm remote names with `git remote -v`; cite upstream/fork diffs from real remotes, not invented paths.
 - For any research that leads to a code change proposal, state the decision point and tradeoffs and get approval before implementing.
 - After any modification made during the task, run `git status` and report open/unstaged files.
+
+## Related Skills & References
+
+- **Key Documents**: [[roadmap]], [[project-selective-upstream-sync-protocol]], [[project-selective-upstream-sync-shortlist]], [[project-selective-upstream-sync-p1-file-manifest]], [[project-selective-upstream-sync-phase-a-buy-in]], [[project-selective-upstream-sync-phase-b-buy-in]], [[project-critical-upstream-sync-hashes]], [[project-upstream-sync-alpha15-alpha22]], [[project-upstream-sync-alpha15-alpha22-v2]], [[project-upstream-sync-report-alpha22-to-latest]], [[project-upstream-pr-catalog]], [[project-upstream-squat-candidates]], [[project-squat-1622-report]], [[project-rebase-changelog]], [[fork-harvest-report]], [[forks-ecosystem]], [[proposal-fork-explorer-harvest-scanner]], [[project-specialized-skills]]

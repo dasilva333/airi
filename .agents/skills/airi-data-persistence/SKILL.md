@@ -80,3 +80,7 @@ AIRI's data persistence architecture is designed for local-first operations, uti
 - [docs/content/en/docs/advanced/architecture/design-image-journal-storage.md](docs/content/en/docs/advanced/architecture/design-image-journal-storage.md) — Image journal storage design.
 - [docs/project-byos-cloud-sync.md](docs/project-byos-cloud-sync.md) — BYOS cloud sync outbox/reconciliation design.
 - [docs/data-catalog.md](docs/data-catalog.md) — Data catalog reference.
+
+## Related Skills & References
+
+- **Key Documents**: [[rosetta-stone]], [[arch-indexeddb-storage]], [[design-text-journal-storage]], [[design-image-journal-storage]], [[project-byos-cloud-sync]], [[data-catalog]]

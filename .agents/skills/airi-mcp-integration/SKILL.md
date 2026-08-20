@@ -40,3 +40,7 @@ description: >-
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` and build `pnpm -F stage-tamagotchi build` (its build includes typechecking) after touching `shared/eventa.ts` or the service manager.
 - Manual: add a stdio server to `mcp.json`, apply-and-restart, confirm `getRuntimeStatus()` reports it `running`, `mcp_list_tools` enumerates `server::tool` entries, and `mcp_call_tool` round-trips; verify a second window sees the same bridge via `window.__AIRI_MCP_BRIDGE__`.
+
+## Related Skills & References
+
+- **Key Documents**: [[arch-mcp-integration]], [[finding-open-apis-mcp-servers-plugins]], [[rosetta-stone]]

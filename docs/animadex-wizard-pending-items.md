@@ -59,3 +59,8 @@ Planned as part of [proposal-animadex-new-characters.md](file:///Users/richardpi
 | 9.3 | Mode C Injection | High | Coercive conversion and wrapping of single-character cards into actor formats |
 | 9.4 | UI / Integration Hooks | Medium | "Add Character" dashboard widget loading Wizard Steps 1 & 2 in modal context |
 | 9.5 | Safety Backups | Small | Automatic backup or derivative generation prior to card modifications |
+
+## Relevant Skills
+
+- [[airi-animadex-wizard]]
+- [[airi-card-editor-wizard]]

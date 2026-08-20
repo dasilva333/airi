@@ -161,4 +161,4 @@ Ensure the bot has `Connect` and `Speak` permissions in the voice channel, and t
 
 - [Discord Developer Portal — Bot Tokens](https://discord.com/developers/applications)
 - [discord.js Guide — Slash Commands](https://discordjs.guide/interactions/slash-commands.html)
-- [Architecture: Discord Bot Integration](../advanced/architecture/design-discord-bot-integration.md)
+- [Feature Showcase: Discord Integration](../../showcase/10-discord-integration)

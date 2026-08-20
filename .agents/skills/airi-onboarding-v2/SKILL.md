@@ -148,3 +148,7 @@ The orchestrator's NOTICE comment is load-bearing: V2 previewing must never muta
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` (covers orchestrator, gate, draft-store, steps).
 - Manual: launch onboarding on each platform mount (Electron window vs Dialog/Drawer); confirm Next disabled until `canProceed` true, skip appears only where `skipLabel` is set, refresh resumes from `onboarding/v2-state`+draft, `onboarding/completed`/`onboarding/skipped` are untouched until Step 7 finish or global skip, and no IndexedDB character-card writes happen on cancel.
+
+## Related Skills & References
+
+- **Key Documents**: [[project-onboarding-modernize]], [[onboarding-overhaul-plan]], [[design-onboarding-character-selection]], [[proposal-global-user-profile]]

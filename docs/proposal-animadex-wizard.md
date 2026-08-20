@@ -354,3 +354,8 @@ This ensures the field is never blank and always improves TTS output quality eve
 - `wizardStore.boundVoices` is a `Record<string, string>` mapping character ID → voice profile ID, already reactive.
 - The `ust` field shape is defined in the speech store type definitions — import or inline the type when building the payload snippet.
 - The `speechExpressionPrompt` write path in `confirmCreateCard()` should be updated alongside the `modelExpressionPrompt` concat.
+
+## Relevant Skills
+
+- [[airi-animadex-wizard]]
+- [[airi-card-editor-wizard]]

@@ -60,3 +60,7 @@ To address this dependency issue, two primary options are proposed:
     3.  Provide the canvas rendering viewport with the ability to dynamically hot-swap `.moc3` files and texture atlases in WebGL memory on the fly.
 *   **Pros**: Highly accurate to the original creator specs, visually seamless costume transitions.
 *   **Cons**: Significant development overhead in the importer and WebGL staging container.
+
+## Relevant Skills
+
+- [[airi-live2d-dsl-interpreter]]

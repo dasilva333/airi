@@ -108,3 +108,8 @@ For Option 1 (Unified Multi-Costume Card):
    - Implement `MultiMocRegistry` in `packages/stage-ui-live2d/src/utils/live2d-zip-loader.ts`.
    - Add MOC3 ArrayBuffer pre-loading & WebGL hot-swap bridge in `@proj-airi/stage-ui-live2d`.
    - Add Multi-Costume Import Modal to `ModelImporter.vue`.
+
+## Relevant Skills
+
+- [[airi-live2d-dsl-interpreter]]
+- [[airi-modular-outfits-system]]

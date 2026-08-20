@@ -157,3 +157,7 @@ The feature is designed to gracefully degrade — Toggle 1 (sensor data), Toggle
 ## Gemini & Single-System-Prompt Providers
 
 Gemini enforces a single system prompt at position 0. When the active provider is Gemini (or any other single-system-prompt provider), all enabled context blocks are **silently folded** into the base system prompt in `chat.ts` (lines 888-896) behind an internal delimiter rather than injected as a secondary system message.
+
+## Relevant Skills
+
+- [[airi-prompt-builder-engine]]

@@ -91,3 +91,7 @@ The **Proactivity** tab in the **Edit Card** modal will be expanded to support t
 
 ### API Cost Control
 * **Proactivity Gating:** VLMs are expensive. If heartbeats run on a 1-minute timer, vision prompts can drain API budgets rapidly. We should recommend matching screenshot triggers to larger intervals or only taking a screenshot when the user's active window/title changes.
+
+## Relevant Skills
+
+- [[airi-proactivity-sensory-telemetry]]

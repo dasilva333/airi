@@ -191,12 +191,12 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 3.6 `airi-gemini-live-api`
 - **Target Domain**: Real-Time Bidirectional Multimodal WebSocket Streaming (`google-genai`).
-- **Key Paths**: `docs/content/en/docs/advanced/architecture/design-gemini-live-api-integration.md`, `packages/stage-ui/src/stores/modules/live-session.ts`.
+- **Key Paths**: `docs/design-gemini-live-api-integration.md`, `packages/stage-ui/src/stores/modules/live-session.ts`.
 - **Content**: Sub-second latency WebSocket Bidi streaming (`LiveSessionStore`), mandatory `['AUDIO']` modality rule (prevents Error 1007/1011), zero-length TTS suppress hack, live marker parsing, and native tool calling.
 
 #### 3.7 `airi-proactivity-sensory-telemetry`
 - **Target Domain**: OS Sensor Polling, Environmental Telemetry & Attention Ecology Gate.
-- **Key Paths**: `docs/content/en/docs/advanced/architecture/design-proactivity-heartbeats-engine.md`, `packages/stage-ui/src/stores/proactivity.ts`.
+- **Key Paths**: `docs/design-proactivity-heartbeats-engine.md`, `packages/stage-ui/src/stores/proactivity.ts`.
 - **Content**: OS sensor polling (Active Window Title, Program Name, AFK status, Volume, Time), 5-event rolling clipboard buffer, invisible emotion meters (Trust, Patience, Playfulness), heuristic gating, and `NO_REPLY` decision logic.
 
 #### 3.8 `airi-memory-retrieval-engine`
@@ -211,12 +211,12 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 3.10 `airi-interaction-pipelines`
 - **Target Domain**: End-to-end Interaction & Voice Pipelines (Cross-Cutting Map-of-Maps).
-- **Key Paths**: `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/modules/live-session.ts`, `packages/stage-ui/src/services/speech/`, `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`.
+- **Key Paths**: `docs/arch-chat-stt-proactivity-pipelines.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/modules/live-session.ts`, `packages/stage-ui/src/services/speech/`, `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`.
 - **Content**: The seven input→hub→output routes (typed text × 4 surfaces, app mic STT, Discord classic voice → STT, proactivity heartbeats, Discord gemini voice, in-app Gemini Live mic, typed-text-mid-call short-circuit), the module-level hooks bus (HMR lesson, `chat.ts:96`), the six-layer TTS chain (`emitTokenLiteralHooks` → host intent → speech runtime → UST pipeline → playback), `performSend` generation-gated checkpoints (`bumpSessionGeneration` as the canonical mid-flight lever, Discord steer mode as the working precedent), the stop/cancel-in-flight audit (decorative stop button at `WhisperComposerBar.vue:233`, propose-first stop recipe), and a current-status reconciliation of the arch-doc Failure Log. Peer skills: `airi-audio-pipeline`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-discord-integration`. Phase 3 foundation referenced by Phase 5 `airi-desktop-chatbox`.
 
 #### 3.11 `airi-llm-dispatch-gateway`
 - **Target Domain**: LLM Request Dispatch Gateway (`useLLM` store).
-- **Key Paths**: `packages/stage-ui/src/stores/llm.ts`, `packages/stage-ui/src/stores/chat.ts`, `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`.
+- **Key Paths**: `packages/stage-ui/src/stores/llm.ts`, `packages/stage-ui/src/stores/chat.ts`, `docs/arch-chat-stt-proactivity-pipelines.md`.
 - **Content**: The single renderer-side LLM funnel (`stream`/`generate`/`generateObject`/`discoverToolsCompatibility`), the `StreamOptions` contract (abortSignal, waitForTools, supportsTools, lazy tools resolver, requestOverrides sanitization), the `StreamEvent` protocol, the dual-settlement stream promise, message/system-message sanitization, and the one-way per-model tools-compatibility cache. Peer skills: `airi-provider-core-registry`, `airi-tool-registry-builtin-tools`, `airi-interaction-pipelines`.
 
 #### 3.12 `airi-tool-registry-builtin-tools`
@@ -251,7 +251,7 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 
 #### 3.18 `airi-memory-image-journal`
 - **Target Domain**: Memory Pillar 6 — Image Journal & Autonomous Artistry.
-- **Key Paths**: `packages/stage-ui/src/stores/background.ts`, `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`, `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/image-journal.ts`, `docs/content/en/docs/advanced/architecture/design-image-journal-storage.md`.
+- **Key Paths**: `packages/stage-ui/src/stores/background.ts`, `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`, `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/image-journal.ts`, `docs/design-image-journal-storage.md`.
 - **Content**: `BackgroundEntry` (`journal`/`selfie` types) in localforage; distinguishes the assistant-driven `image_journal` tool call from the deterministic Autonomous Artistry side-pipeline (Director 2nd-LLM → threshold gate → headless generation → journal save, invisible to the talking assistant).
 
 #### 3.19 `airi-memory-event-log`
@@ -367,17 +367,32 @@ Below is the complete, categorized sitemap of all 58 specialized skills mapped a
 - **Key Paths**: `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` (391-line provider), `providers/base.ts`; `packages/stage-pages/src/pages/settings/providers/artistry/comfyui.vue` (734-line settings UI); `packages/stage-ui/src/stores/modules/artistry.ts` (`ComfyUIWorkflowTemplate`, `artistry-comfyui-*` keys); `packages/stage-shared/src/artistry.ts` (`artistryComfyHealthCheck`); `generateComfyUIWeb` in `packages/stage-ui/src/stores/modules/artistry-autonomous.ts:294`.
 - **Content**: API-format-only upload rule (`File > Export (API)`), prompt/image target annotation (link-array exclusion, smart auto-select, `{{IMAGE}}` burned into saved JSON at save time), template resolution order (`extra.template` > `model` > `activeWorkflowId`), `{{PROMPT}}` opt-out of auto-injection, endpoint surface (`POST /prompt` 30s, `GET /history` 5s poll/10min timeout + 1s empty-outputs race retry, `GET /view`, `POST /upload/image` `vhack_{ts}.png`, `GET /system_stats`), and the exposed-fields-only security boundary (`comfyui.ts:314-315`). Pitfalls: unexposed overrides silently dropped by design; web fallback diverges (3s/5min, `text`-only injection, no `{{IMAGE}}`). Peer skills: `airi-artistry-comfyui-widgets`, `airi-card-schema`.
 
+#### 5.13 `airi-gateway-websocket-protocol`
+- **Target Domain**: Local WebSocket Gateway & Channel Server Protocol.
+- **Key Paths**: `apps/stage-tamagotchi/src/main/services/airi/channel-server/index.ts`, `apps/stage-tamagotchi/src/shared/eventa.ts`, `packages/server-runtime/src/server/index.ts`, `docs/arch-gateway-security-hardening.md`.
+- **Content**: Electron main-process channel server on port `6121` (`SERVER_CHANNEL_PORT`), mandatory cryptographic `authToken` handshake, auto-healing `server-channel/config.json`, loopback (`127.0.0.1`) vs LAN (`0.0.0.0`) binding, mkcert TLS certificate management, and pairing with mobile (`stage-pocket`) / extension clients.
+
+#### 5.14 `airi-docs-site-maintenance`
+- **Target Domain**: Documentation Website Pipeline & Single-Source-of-Truth Sync.
+- **Key Paths**: `docs/shared-sidebar.ts`, `docs/.vitepress/config.ts`, `docs/content/en/`, `docs/content/ja/`, `docs/content/zh-Hans/`.
+- **Content**: VitePress documentation setup, `shared-sidebar.ts` single-source-of-truth syncing across web and in-app viewers, multi-locale synchronization, Markdown frontmatter standards, asset resolution rules, and strict separation between technical root docs (`docs/*.md`) and public user-facing guides (`docs/content/`).
+
 ---
 
 ## 4. Execution Roadmap Summary
 
 | Phase | Target Scope | Output Skills | Count |
 |---|---|---|---|
-| **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay, BYOS Sync | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure`, `airi-byos-cloud-sync` | 8 |
+| **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay, BYOS Sync, Gateway | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure`, `airi-byos-cloud-sync`, `airi-gateway-websocket-protocol` | 9 |
 | **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers, Captions, Stage-Mate | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer`, `airi-caption-subsystem`, `airi-stage-mate-unity` | 11 |
 | **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars, ACT Tokens | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-acting-cue-act-tokens` | 21 |
-| **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research, Release & Deploy | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research`, `airi-release-packaging-deploy` | 6 |
+| **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research, Release & Deploy, Docs Site | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research`, `airi-release-packaging-deploy`, `airi-docs-site-maintenance` | 7 |
 | **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK, AnimaDex) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-comfyui-provider-bridge`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages`, `airi-animadex-wizard` | 12 |
-| | **TOTAL** | | **58** |
+| | **TOTAL** | | **60** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
+
+## Relevant Skills
+
+- [[airi-codebase-verification]]
+- [[airi-roadmap-upstream-research]]

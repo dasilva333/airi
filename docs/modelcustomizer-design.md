@@ -67,3 +67,9 @@ To prevent component pollution and ensure high reusability across both settings 
 
 * **Goal**: Enable complete deprecation of custom animation table code inside `vrm.vue` in favor of `<ModelCustomizer>`.
 * **Consistency**: Ensure checking "Loop / Cycle Toggle" (infinity icon) maps identically across Settings panels and the Rehearsal Room, updating the card's acting config `idleAnimations` prefix-free for VRM animations.
+
+## Relevant Skills
+
+- [[airi-character-rendering]]
+- [[airi-controlstrip-customizer]]
+- [[airi-model-customizer]]

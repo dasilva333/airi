@@ -181,3 +181,7 @@ Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-
 - [docs/live2d-caption-design.md](docs/live2d-caption-design.md) — Baked-in motion Text/Language pipeline (canonical).
 - [docs/catalog-control-strip.md](docs/catalog-control-strip.md) — Catalog of caption strip buttons.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — §13 BroadcastChannel registry.
+
+## Related Skills & References
+
+- **Key Documents**: [[head-tethered-captions-design]], [[live2d-caption-design]], [[captions-widget-system]], [[catalog-control-strip]], [[rosetta-stone]]

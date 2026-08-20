@@ -55,3 +55,8 @@ Multi-window AIRI (Electron chat + stage + caption + widgets, or web split panes
 
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — §13 canonical registry.
 - Skills that consume specific channels: `airi-caption-subsystem`, `airi-dating-sim-engine`, `airi-scenes-backgrounds`, `airi-stage-ui-surfaces`, `airi-byos-cloud-sync`, `airi-cloud-relay-infrastructure`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-byos-cloud-sync]], [[airi-caption-subsystem]], [[airi-cloud-relay-infrastructure]], [[airi-dating-sim-engine]], [[airi-scenes-backgrounds]], [[airi-stage-ui-surfaces]]
+- **Key Documents**: [[rosetta-stone]]

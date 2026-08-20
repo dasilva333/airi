@@ -5,8 +5,8 @@ date: 2025-07-18
 excerpt: |
   We would love to share how we plan to improve our Factorio AI agent project, `airi-factorio`, based on the Factorio Learning Environment paper.
 preview-cover:
-  light: "@assets('./assets/factorio-belt.gif')"
-  dark: "@assets('./assets/factorio-belt.gif')"
+  light: "@assets('./assets/structure-after.avif')"
+  dark: "@assets('./assets/structure-after.avif')"
 ---
 
 Hello, I'm [@LemonNeko](https://github.com/LemonNekoGH), one of the maintainers of AIRI.

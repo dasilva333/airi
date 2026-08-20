@@ -39,3 +39,8 @@ The resumable build-state record for lifetime-artifact generation. Pillar 5 does
 ## Sources
 
 `docs/memory_lab/memory-engine-integration-plan.md` (3-phase provisioning milestones); `docs/memory_lab/lifetime-artifact-generation-plan.md`; `docs/data-catalog.md` §1.9; peer: `airi-memory-lifetime` (synthesis owner), `airi-memory-systems` (hub), `airi-memory-ui-pages` (provisioning triggers in UI).
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-memory-lifetime]], [[airi-memory-systems]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[memory-engine-integration-plan]], [[lifetime-artifact-generation-plan]]

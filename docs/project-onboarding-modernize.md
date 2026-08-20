@@ -223,3 +223,7 @@ This modernized onboarding architecture unifies AIRI into a **Zero-Friction, Loc
 | **5** | [`v2/steps/step-5-vessel.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-5-vessel.vue) | `useDisplayModelsStore` | `displayModelsStore.displayModels` |
 | **6** | [`v2/steps/step-6-speech.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-6-speech.vue) | `useSpeechStore` | `kokoro-local`, `pocket-tts-local`, `moss-nano-local` |
 | **7** | [`v2/steps/step-7-calibration.vue`](packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-7-calibration.vue) | `useOnboardingStore` / `useAiriCardStore` | Atomic card synthesis & launch |
+
+## Relevant Skills
+
+- [[airi-onboarding-v2]]

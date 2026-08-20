@@ -157,3 +157,7 @@ All hypotheses run on a **synthetic replay harness**: scripted tick streams with
 2.  **M2 — Phase 1 ticker**: Binary activity lines, coalescing, 3-state constrained probe, Control Island dot + debug drawer.
 3.  **M3 — Phase 2 router**: Category regex UI, 4–5 state vocabulary, prompt modifier with trajectory, soliloquy with JS delta detection.
 4.  **M4 — Learning layer**: Mismatch-log collection, linear readout probe, engagement logging + animation policy.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

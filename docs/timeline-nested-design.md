@@ -193,3 +193,7 @@ export async function getLifetimeArtifactForTimeline(activeTimelineId: string): 
   2. **Active State**: The system prompt builder retrieves the parent's synthesized artifact from IndexedDB via the ancestry fallback logic.
   3. **New Compilation**: When the user explicitly runs a new consolidation step (or the daily dream cycle invokes synthesis for the branch), the pipeline synthesizes and writes a new artifact specifically to `local:memory/lifetime/{newTimelineId}`.
   4. From that point on, the child timeline uses its own customized artifact, ignoring the parent's original one.
+
+## Relevant Skills
+
+- [[airi-memory-systems]]

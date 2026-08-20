@@ -170,3 +170,7 @@ graph TD
 | `activateConcept` speech writes; `preloadConceptVoice` | `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` | 981–987, 1026–1065 |
 | cards-sync broadcast, reload, `active_concepts` watcher, forced `syncCardState` speech/model sync | `packages/stage-ui/src/stores/modules/airi-card.ts` | 285–304, 333–340, 480–547 |
 | Actor window renderer (no playback queue) | `apps/stage-tamagotchi/src/renderer/pages/actor.vue` | 6, 261 |
+
+## Relevant Skills
+
+- [[airi-acting-cue-act-tokens]]

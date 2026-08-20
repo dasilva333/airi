@@ -122,3 +122,8 @@ Capacitor app (config `capacitor.config.ts`: appId `ai.moeru.airi-pocket`, appNa
 - [docs/delivery/AIRI-customer-deployment-guide.zh-CN.md](docs/delivery/AIRI-customer-deployment-guide.zh-CN.md) — customer-facing deployment guide (zh-CN).
 - `.github/workflows/release-tamagotchi.yml` · `.github/workflows/release-docker.yaml` · `.github/workflows/deploy-docs.yml` — automation surfaces described above.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — repo layout & persistence references for anything release-adjacent.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-cloud-relay-infrastructure]], [[airi-codebase-verification]], [[airi-stage-mate-unity]]
+- **Key Documents**: [[windows-release-guide]], [[macos-release-guide]], [[release-notes]], [[zh-CN]], [[rosetta-stone]]

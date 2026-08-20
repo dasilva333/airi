@@ -74,3 +74,8 @@ Per `docs/timeline-flat-design.md`: a Universe (`universeId`) decouples chat thr
 - `docs/memory_lab/` — schema, retrieval, provisioning, evaluation specs (see pillar skills for per-spec links).
 - `docs/rosetta-stone.md` — canonical path index; §9 memory-systems.
 - Peer skills: `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-memory-ui-pages`, `airi-data-persistence`, `airi-binary-safety`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-binary-safety]], [[airi-data-persistence]], [[airi-memory-chat-sessions]], [[airi-memory-consolidation-dreaming]], [[airi-memory-echo-chips]], [[airi-memory-event-log]], [[airi-memory-image-journal]], [[airi-memory-lifetime]], [[airi-memory-provisioning]], [[airi-memory-retrieval-engine]], [[airi-memory-short-term]], [[airi-memory-text-journal]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[timeline-flat-design]], [[timeline-nested-design]], [[rosetta-stone]]

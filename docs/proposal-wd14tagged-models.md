@@ -99,4 +99,6 @@ The tags field is consumed or will be integrated in the following files:
 *   **Problem**: Sequentially awaiting database writes and firing reactive cross-window broadcasts for each model (363 re-saves) caused a massive I/O bottleneck.
 *   **Proposed Optimization**: In the next iteration, we will use a **Chunked Batch Queue** (e.g., size of 10) that writes updates in parallel via `Promise.all` and fires the cross-window sync broadcast only once per batch.
 
+## Relevant Skills
 
+- [[airi-attention-ecology-vision]]

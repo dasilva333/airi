@@ -76,3 +76,7 @@ To ensure successful integration into the AIRI ecosystem:
 2. Implement `/voicemode` with full support for `puppet`, `voicenote`, and `none` modes.
 3. Implement `/voicecall` focusing on the classic `tts` engine (Deepgram + Custom LLM/TTS).
 4. Enforce per-channel session/character mapping to resolve multi-guild context tracking.
+
+## Relevant Skills
+
+- [[airi-card-editor-wizard]]

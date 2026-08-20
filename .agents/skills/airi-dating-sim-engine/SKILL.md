@@ -132,3 +132,7 @@ Two styles coexist in AIRI. Dating-sim uses the raw `new BroadcastChannel('datin
 ```bash
 pnpm -F @proj-airi/stage-ui typecheck
 ```
+
+## Related Skills & References
+
+- **Key Documents**: [[dating-sim-gamestate-mechanics]], [[dating-sim-intimacy-spec]], [[director-producer-roles]], [[07-producer-subsystem]], [[rosetta-stone]]

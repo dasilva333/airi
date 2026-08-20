@@ -2,6 +2,8 @@
 
 This document specifies the architecture, codebase entry points, and phased rollout plan for integrating local, on-device vision models (BLIP / BLIP-2) running client-side via ONNX Runtime and WebGPU.
 
+> **Related proposal:** [`docs/proposal-wd14tagged-models.md`](./proposal-wd14tagged-models.md) — applies this tagger pipeline to auto-index local model previews (VRM/Live2D/Spine/MMD) into semantic Model Selector search.
+
 ---
 
 ## 🗺️ Codebase Map & Key Integration Points
@@ -105,3 +107,7 @@ During development, we identified key differences in how the browser runtime exe
 ### 3. CSV Vocabulary Parsing
 * **Quoted Fields**: Several tags in `selected_tags.csv` contain commas (e.g. `"eyes, closed"`). Standard `.split(',')` shifts indices and corrupts tag classification categories. A custom quote-aware CSV parser is required to keep category bounds mapped.
 * **Resampling Kernels**: Standard browser canvas resizes differ from Pillow's C-based `BICUBIC` interpolation, introducing minor sub-pixel variance that can cause tags close to the boundary threshold to slide in or out. Using `{ resample: 3 }` (Bicubic) in `RawImage.resize` keeps values closest to reference.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

@@ -261,3 +261,7 @@ _vs. base 4b.2 vote-2of3:_ recall 1.00 / precision 0.40 / FPR 0.40 → now preci
 2. **What to measure.** After each assistant turn, compute **L9, L10, L11 Δcos** against the previous turn's snapshot (state_len ≈ 608k, 12×50688 layout). Trigger rule = **≥2 of 3 late layers exceed 1.5 × control-mean-threshold**.
 3. **On trigger.** `stwSalienceTriggered` event → Toggle-4 records a `salienceEvent` (turn index, Δh scores, trigger rule) instead of running a heavy per-turn JSON parse. Feed those events into the Echo-Chips offline batch as *candidate windows* (not generations)—the 0.1B simply says "don't burn cloud tokens on plain turns."
 4. **Not changing.** The existing `recent-topics.ts` text pipeline stays authoritative for current grounding. Toggle-4 with salience is a **new** side-channel: cheap ("0-cost") WebGPU-only signal, explicitly *not* a text-extractor replacement.
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

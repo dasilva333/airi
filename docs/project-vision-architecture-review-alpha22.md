@@ -36,3 +36,7 @@ Upstream has introduced a complex **Sensing Pipeline**.
 Because your system is focused on the **Reactive Route** (direct response), upstream's **Proactive Route** is currently out of scope.
 > [!IMPORTANT]
 > **Keep your current `chat.ts` logic.** It is the only place where the VLM is actually used as a primary responder for user-attached images. Upstream provides no equivalent for this specific "handover" behavior.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

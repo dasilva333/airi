@@ -56,3 +56,7 @@ The DSL VM executes scripting instructions attached to Live2D character models:
 - [docs/live2d-change-cos-dependency-challenge.md](docs/live2d-change-cos-dependency-challenge.md) — change_cos dependency challenge.
 - [docs/live2d-special-sauce-insights.md](docs/live2d-special-sauce-insights.md) — Live2D special sauce insights.
 - [docs/project-standalone-live2d-engine-plan.md](docs/project-standalone-live2d-engine-plan.md) — Standalone Live2D engine plan.
+
+## Related Skills & References
+
+- **Key Documents**: [[live2d-dsl-interpreter-spec]], [[handoff-live2d-dsl-phase2]], [[project-live2d-multimoc-changecos-design]], [[live2d-dsl-test-cases-handoff]], [[live2d-change-cos-dependency-challenge]], [[live2d-special-sauce-insights]], [[project-standalone-live2d-engine-plan]]

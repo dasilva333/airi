@@ -7,7 +7,7 @@ Provider metadata is currently inline in `providers.ts` — see the restructurin
 > **Related documents:**
 > - [`docs/project-provider-store-restructuring-plan.md`](./project-provider-store-restructuring-plan.md) — Phase 1 safe extraction plan (ongoing)
 > - [`docs/project-codex-provider-restructuring-plan.md`](./project-codex-provider-restructuring-plan.md) — Long-term target architecture
-> - [`docs/content/en/docs/advanced/architecture/arch-provider-store-current-structure.md`](./content/en/docs/advanced/architecture/arch-provider-store-current-structure.md) — Current structure reference
+> - [`docs/arch-provider-store-current-structure.md`](./arch-provider-store-current-structure.md) — Current structure reference
 > - [`docs/rosetta-stone.md`](./rosetta-stone.md) §6 — Provider system overview in the Rosetta Stone
 
 ---
@@ -151,3 +151,9 @@ These run locally with ONNX/WebGPU/WASM:
 ---
 
 > **Maintainer note:** This catalog should be updated whenever a new provider is added or an existing one is moved during the restructuring. The line numbers are approximate — use them as a starting point for navigation, not as fixed API.
+
+## Relevant Skills
+
+- [[airi-provider-core-registry]]
+- [[airi-provider-store-instances]]
+- [[airi-provider-ui-pages]]

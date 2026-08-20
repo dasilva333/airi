@@ -102,3 +102,7 @@ Both exist. Choose the correct import path for the surface you are editing; do n
 pnpm -F @proj-airi/stage-ui typecheck
 pnpm -F @proj-airi/stage-pages typecheck
 ```
+
+## Related Skills & References
+
+- **Key Documents**: [[design-scenes-and-backgrounds-system]], [[design-image-journal-storage]], [[artistry-porting-report]], [[rosetta-stone]]

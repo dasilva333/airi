@@ -330,3 +330,7 @@ The moss adapter currently doesn't register in the coordinator. Integration poin
 ---
 
 *Report generated after reading 15+ source files across `packages/stage-ui/src/workers/moss/`, `packages/stage-ui/src/libs/inference/`, `packages/stage-ui/src/stores/`, and `packages/stage-pages/src/pages/settings/providers/speech/`.*
+
+## Relevant Skills
+
+- [[airi-local-inference-engines]]

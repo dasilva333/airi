@@ -14,10 +14,8 @@ date: 2025-03-06
 > 关于 yui540 的详细信息以及相关引用库和工作内容，都已经整理到新部署的文档网站中：
 > [https://airi.build/references/design-guidelines/resources/](../references/design-guidelines/resources/)。
 
-最终的移植效果相当不错，已经部署到
+最终的移植效果还不错，已经部署到
 [https://proj-airi-packages-ui-transitions.netlify.app/#/](https://proj-airi-packages-ui-transitions.netlify.app/#/)。
-
-![](./assets/animation-transitions.gif)
 
 > 另外，从现在开始，每个包的所有演示场都将使用
 > "proj-airi" + "${subDirectory}" + "${packageName}" 模式进行 Netlify

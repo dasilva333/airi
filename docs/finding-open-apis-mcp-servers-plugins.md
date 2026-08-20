@@ -74,3 +74,6 @@ At the same time, the only clearly documented fully open registry‑style API is
 
 13. [MCP Adoption Statistics 2025](https://mcpmanager.ai/blog/mcp-adoption-statistics/) - As of today (10/22/2025), the popular MCP registry, PulseMCP, has over 5,500 servers listed on it. H...
 
+## Relevant Skills
+
+- [[airi-mcp-integration]]

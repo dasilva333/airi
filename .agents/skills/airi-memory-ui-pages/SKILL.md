@@ -39,3 +39,7 @@ description: "Use when working with working on Memory Settings Control Hub UI Su
 - [docs/memory_lab/rich-journal-mockups.md](docs/memory_lab/rich-journal-mockups.md) — Rich journal mockups.
 - [docs/memory_lab/archive-index.md](docs/memory_lab/archive-index.md) — Archive index.
 - [docs/memory_lab/in_progress.md](docs/memory_lab/in_progress.md) — In-progress items.
+
+## Related Skills & References
+
+- **Key Documents**: [[memory-settings-home-page-plan]], [[rich-journal-mockups]], [[archive-index]], [[in_progress]]

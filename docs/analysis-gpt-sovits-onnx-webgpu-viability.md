@@ -62,3 +62,7 @@ GPT-SoVITS **is viable** for browser-native integration under AIRI's updated arc
 - Extract reference audio features once and store `prompt_audio_codes` in IndexedDB/OPFS.
 - Run the GPT sampling & VITS vocoder stages via WASM SIMD in a dedicated Web Worker.
 - Option to offer local Python sidecar for high-end desktop GPUs when extreme batch sizes are required.
+
+## Relevant Skills
+
+- [[airi-audio-pipeline]]

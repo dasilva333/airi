@@ -345,3 +345,7 @@ plugins/
 - [ ] Who manages the Twitch OAuth token lifecycle / refresh? The plugin, or does AIRI's config system store + rotate it?
 - [ ] Should chat history windowing (trimming older messages from context) be handled inside the plugin or by the server-runtime context assembler?
 - [ ] Channel point redemption handling: should only specific redemption titles trigger sparks, or all of them?
+
+## Relevant Skills
+
+- [[airi-discord-integration]]

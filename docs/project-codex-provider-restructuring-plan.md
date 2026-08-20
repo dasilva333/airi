@@ -813,3 +813,7 @@ If those constraints are followed, the first several phases can remain internal 
 Treat this refactor as an architectural extraction, not a formatting cleanup. The main goal is not just to make `providers.ts` shorter. The goal is to make `useProvidersStore` the clear orchestrator of a provider system whose definitions, runtime behavior, and selectors are each maintained in the right place.
 
 If the work is phased in the order described above, the project can get most of the maintainability benefit early without taking on the risk of a large rewrite.
+
+## Relevant Skills
+
+- [[airi-provider-store-instances]]

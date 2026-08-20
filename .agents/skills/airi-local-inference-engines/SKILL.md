@@ -65,3 +65,7 @@ VRAM allocation, hardware feature detection, and worker load queues are coordina
 - [docs/project-rwkv-cleanroom-harness-plan.md](docs/project-rwkv-cleanroom-harness-plan.md) — RWKV cleanroom harness plan.
 - [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
 - [docs/moss-tts-nano-research-report.md](docs/moss-tts-nano-research-report.md) — MOSS TTS nano research report.
+
+## Related Skills & References
+
+- **Key Documents**: [[design-local-whisper-stt]], [[proposal-built-in-llm-webgpu]], [[proposal-attention-ecology-local-webgpu-guard]], [[proposal-toggle4-rework-and-rwkv-harness]], [[project-rwkv-kimi]], [[project-rwkv-cleanroom-harness-plan]], [[proposal-moss-tts-nano-provider-unified-webgpu]], [[moss-tts-nano-research-report]]

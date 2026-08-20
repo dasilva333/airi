@@ -114,3 +114,7 @@ Because AIRI is an Electron app, it has the file-system access required to execu
 ---
 
 > **Why this works:** AIRI already handles the hardest parts—loading the VRM via `VRMModel.vue`, managing the expression queues (`queues.ts`), and handling Artistry generation. By docking V-HACK as a right-hand panel in the Settings page, we get a world-class dev-tool environment without building a standalone app from scratch.
+
+## Relevant Skills
+
+- [[airi-vrm-vhack-studio]]

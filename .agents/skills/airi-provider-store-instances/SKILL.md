@@ -63,3 +63,7 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 - [docs/project-provider-store-phase4-handoff.md](docs/project-provider-store-phase4-handoff.md) — Provider store phase 4 handoff.
 - [docs/project-provider-store-phase5-handoff.md](docs/project-provider-store-phase5-handoff.md) — Provider store phase 5 handoff.
 - [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager guide.
+
+## Related Skills & References
+
+- **Key Documents**: [[design-multi-instance-provider-studio]], [[provider-catalog]], [[arch-provider-store-current-structure]], [[project-provider-store-restructuring-plan]], [[project-codex-provider-restructuring-plan]], [[project-provider-store-phase1-handoff]], [[project-provider-store-phase2-handoff]], [[project-provider-store-phase3-handoff]], [[project-provider-store-phase4-handoff]], [[project-provider-store-phase5-handoff]], [[settings-yaml]]

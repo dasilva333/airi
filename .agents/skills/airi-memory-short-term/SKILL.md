@@ -38,3 +38,8 @@ Daily continuity blocks distilled from chat history — one block per character 
 ## Sources
 
 `docs/content/en/docs/advanced/architecture/arch-short-term-memory-summaries.md`; `docs/memory_lab/memory-lifecycle-and-features.md` (Summary adapter); peer: `airi-memory-systems` (hub), `airi-memory-consolidation-dreaming`, `airi-memory-chat-sessions`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-memory-chat-sessions]], [[airi-memory-consolidation-dreaming]], [[airi-memory-retrieval-engine]], [[airi-memory-systems]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[arch-short-term-memory-summaries]], [[memory-lifecycle-and-features]]

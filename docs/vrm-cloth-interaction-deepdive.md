@@ -56,3 +56,7 @@ This document memorializes the architectural evolution of the AIRI VRM pipeline,
 
 ---
 **Status**: `Verified Stable on HEAD (3534e29db)`
+
+## Relevant Skills
+
+- [[airi-character-rendering]]

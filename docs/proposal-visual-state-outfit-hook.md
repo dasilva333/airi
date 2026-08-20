@@ -86,3 +86,7 @@ To reduce prompt editing friction:
 *   Add action shortcut buttons inside the Image Studio prompt panel.
 *   Tapping these injects the corresponding active concept's tags (`actor_gura`, `actor_lain`) directly into the final ComfyUI prompt line.
 *   Includes a **`+ Add User`** shortcut that resolves and injects the global user visual concept tags.
+
+## Relevant Skills
+
+- [[airi-modular-outfits-system]]

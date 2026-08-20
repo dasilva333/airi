@@ -184,3 +184,7 @@ _Notable implementation fixes during build: lane-hint dispatch shadowing (caught
   - Load legacy Cubism 2.0 `.moc` model (e.g. *BanG Dream!*).
   - Load an advanced third-party model with `VarFloats`/`Choices` metadata.
   - Verify eye blink, beat sync, idle gaze in `stage-tamagotchi`.
+
+## Relevant Skills
+
+- [[airi-live2d-dsl-interpreter]]

@@ -197,6 +197,6 @@ npx tsx apps/stage-edge/scripts/inspect-kv.ts
 * **Web (`stage-web`)**: **100% Ready & Verified**. Uses `setupWebCorsProxy()`, Vite dev proxies, and live `airi-cors-proxy` edge worker. Provider models (OpenCode Go, Deepgram) tested with HTTP 200.
 * **Mobile (`stage-pocket`)**: **Ready for Device/Simulator Testing**. Configured with `createWebHashHistory`, `setupWebCorsProxy()`, dev server proxies, and verified typechecking.
 
+## Relevant Skills
 
-
-
+- [[airi-cloud-relay-infrastructure]]

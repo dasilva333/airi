@@ -64,3 +64,7 @@ This approach involves modifying the internal configuration of the rendering eng
   * **Safety**: 🔴 **Extremely Dangerous**
   * **Impact**: Custom binary compilation and modifying underlying layout flags introduces instability, risk of memory leaks, and potentially breaks standard rendering behaviors for complex scripts (such as CJK, Arabic, or Indic languages).
   * **Feasibility**: Low. Closed-source downstream platforms like Discord cannot be modified, making this ineffective for outbound message corruption.
+
+## Relevant Skills
+
+- [[airi-i18n-localization]]

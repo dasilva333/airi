@@ -89,3 +89,7 @@ This catalog outlines the recommended `pricing`, `deployment`, and `description`
 | `comfyui` | `free` | `local` | **Infinite Creativity** - Run your own local ComfyUI workflows |
 | `flux` | `paid` | `cloud` | **Realistic Generation** - State-of-the-art realistic image generation |
 | `stability-ai` | `paid` | `cloud` | **The Open Standard** - Standard-setting Stable Diffusion models |
+
+## Relevant Skills
+
+- [[airi-provider-core-registry]]

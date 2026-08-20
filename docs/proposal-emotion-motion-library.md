@@ -156,3 +156,7 @@ graph TD
 2. **Model-Bound Integrity**: Groups remain tied to `displayModelId`, preventing expression preset leakage across different models.
 3. **Background Persistence**: The background listener remains active across all app pages and desktop tamagotchi widgets.
 4. **Coordinated Developer Workflow**: Main AIRI core only needs to expose `<PluginActionGroupHook :model-id="modelId" />` inside `ModelCustomizer.vue`.
+
+## Relevant Skills
+
+- [[airi-generative-motion-vrma]]

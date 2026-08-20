@@ -21,13 +21,11 @@ Hello everyone, here's LemonNeko, one of maintainer of AIRI. Today's DevLog is t
 
 First of all, we need to know, there are two basic interactions of Live2D: **Focus**, and **Tap**, when we create a Live2D canvas, model will auto focus the position of our cursor, head will look at it, like this:
 
-![](./assets/airi-tamagotchi-focus.gif)
-
 但是当鼠标离开网页内容后，Live2D 就不再会知道鼠标的位置在哪了，所以我们需要手动告诉它鼠标在哪。
 
 But, if the cursor is out of web page, Live2D won't know the position of our cursor, so we need to tell the Live2D engine where is our cursor.
 
-为了告诉 Live2D 鼠标的位置，我们需要利用 Tauri 的原生代码调用能力来调用 Windows API 和 macOS API，~~写一大堆 unsafe~~ 来取得鼠标在整块屏幕上的位置与窗口本身的位置，最后进行一些简单的计算，得到鼠标与窗口的相对位置。
+为了告诉 Live2D 鼠标的位置，我们需要利用 Tauri 的原生代码调用能力来调用 Windows API 和 macOS API，~~写一大罪 unsafe~~ 来取得鼠标在整块屏幕上的位置与窗口本身的位置，最后进行一些简单的计算，得到鼠标与窗口的相对位置。
 
 To tell the position of cursor to Live2D, we need to use native code calling ability of Tauri, and get the position of cursor and window frame. Then we can calculate the relative position of cursor to window.
 

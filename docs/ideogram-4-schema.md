@@ -128,3 +128,7 @@ Must be ordered exactly as:
   }
 }
 ```
+
+## Relevant Skills
+
+- [[airi-artistry-comfyui-widgets]]

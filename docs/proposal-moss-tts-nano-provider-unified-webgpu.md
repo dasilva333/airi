@@ -470,3 +470,7 @@ Register `moss-nano-local` with tags to let the providers UI detect its capabili
   - “generate short non-cloned speech to WAV”
   - “only then add voice cloning + streaming”.
 
+## Relevant Skills
+
+- [[airi-audio-pipeline]]
+- [[airi-local-inference-engines]]

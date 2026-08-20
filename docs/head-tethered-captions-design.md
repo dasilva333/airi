@@ -508,7 +508,6 @@ While PIXI WebGL rendering is fast, maintaining high 60 FPS performance requires
 3. **No Allocation in Ticker**: Zero `new` object or array instantiations inside the `updateTick(timeMs)` loop.
 4. **Target Execution Time**: < **0.08ms per frame** total GPU/CPU execution time.
 
+## Relevant Skills
 
-
-
-
+- [[airi-caption-subsystem]]

@@ -110,3 +110,8 @@ So a tool can be fully registered and still invisible per-card. See `airi-llm-di
 - Ground truth: `apps/stage-tamagotchi/src/renderer/stores/tools/builtin/index.ts`, `packages/stage-ui/src/stores/proactivity.ts` (registry), `packages/stage-ui/src/stores/chat.ts` (resolver/loop), `packages/stage-ui/src/stores/llm.ts` (gating).
 - `docs/content/en/docs/advanced/architecture/arch-chat-stt-proactivity-pipelines.md`, `docs/rosetta-stone.md`.
 - Peer skills: `airi-mcp-integration`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-discord-integration`, `airi-gemini-live-api`, `airi-artistry-comfyui-widgets`, `airi-generative-motion-vrma`, `airi-dating-sim-engine`, `airi-desktop-chatbox`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-artistry-comfyui-widgets]], [[airi-card-editor-wizard]], [[airi-dating-sim-engine]], [[airi-desktop-chatbox]], [[airi-discord-integration]], [[airi-gemini-live-api]], [[airi-generative-motion-vrma]], [[airi-interaction-pipelines]], [[airi-llm-dispatch-gateway]], [[airi-mcp-integration]]
+- **Key Documents**: [[rosetta-stone]], [[arch-chat-stt-proactivity-pipelines]]

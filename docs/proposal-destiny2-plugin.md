@@ -184,3 +184,7 @@ To guarantee high cache hit rates during active match periods (where the loop ev
 1. **No Dedicated Caching UI**: The Destiny 2 plugin settings page will not introduce local controls for prefix caching or history depth. This prevents UI clutter and keeps plugin settings focused entirely on gameplay mechanics.
 2. **Global Fallbacks**: Prompt generation for the Destiny 2 agent will directly invoke `compileCacheAlignedPrompt` from the unified `useContextBuilder` utility, inheriting the global `useSettingsLlmPerformance` defaults.
 3. **Suffix Payload Formatting**: Telemetry data (such as active weapon loadouts, score differentials, team performance, or time notifications) is structured as a schema-aligned suffix and passed via `instructionSuffix` at the absolute tail of the prompt. This keeps the initial system prompt and historical chat message arrays completely static, maximizing cache hits across evaluations.
+
+## Relevant Skills
+
+- [[airi-discord-integration]]

@@ -55,3 +55,7 @@ Vite compiles `import.meta.glob` mappings at build/compile time. Because the mar
 To force Vite to re-glob the filesystem and register your new page without restarting the dev server, touch the route file by modifying a comment or adding a newline in [\[...path\].vue](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/pages/settings/docs/[...path].vue).
 
 This forces Vite to re-compile the component and re-run the glob scan.
+
+## Relevant Skills
+
+- [[airi-codebase-verification]]

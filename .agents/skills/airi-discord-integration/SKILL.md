@@ -62,3 +62,8 @@ Discord is the primary consumer of Cloud Relay: the local gateway service and th
 
 - Typecheck: `pnpm -F @proj-airi/stage-ui typecheck` for the store; `pnpm -F stage-tamagotchi build` (includes typecheck) when touching the main-process service.
 - Manual: connect the bot, run a slash command, send a text message (confirm tool calls execute), send an image with vision on (confirm VLM turn, tools stripped) and off (confirm text-only path), and confirm `COMMANDS_VERSION` bump triggers re-registration.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-cloud-relay-infrastructure]]
+- **Key Documents**: [[feat-discord-revamp]], [[design-discord-bot-integration]], [[design-discord-context-routing]], [[design-discord-control-plane]], [[discord-commands]], [[discord]], [[10-discord-integration]], [[cloud-relay-design]], [[project-telegram-design]], [[telegram]], [[satori]], [[proposal-twitch-plugin]], [[proposal-destiny2-plugin]]

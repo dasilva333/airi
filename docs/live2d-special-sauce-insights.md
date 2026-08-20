@@ -1377,4 +1377,6 @@ To fix this natively without losing outfit switching capabilities, the Stateful 
 | :--- | :--- |
 | `ParamValue` | `{"Items": [{"Name": "MomokaSono", "Ids": ["ParamMomokaSono"], "Value": 0.5, "KeyValues": [...]}, {"Name": "LegSwitch", "Ids": ["ParamLegSwitch"], "KeyValues": [...]}, {"Name": "BedColor", "Ids": ["ParamBedColor"], "KeyValues": [...]}, {"Name": "HairColor", "Ids": ["ParamHairColor"], "KeyValues": [...]}, {"Name": "BedSwitch", "Ids": ["ParamBackground"], "KeyValues": [...]}, {"Name": "HairOrnmt", "Ids": ["ParamHairornamentSwitch"], "KeyValues": [...]}, {"Name": "HairSwitch", "Ids": ["ParamHairSwitch"], "KeyValues": [...]}, {"Name": "CheekSwitch", "Ids": ["ParamCheek"], "KeyValues": [...]}, {"Name": "PhoneSwitch", "Ids": ["ParamPhoneSwitch"], "KeyValues": [...]}, {"Name": "BedColor2", "Ids": ["ParamBedS"], "KeyValues": [...]}, {"Name": "PillowColor2", "Ids": ["ParamPillowS"], "KeyValues": [...]}], "Enabled": true}` |
 
+## Relevant Skills
 
+- [[airi-live2d-dsl-interpreter]]

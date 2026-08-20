@@ -52,3 +52,7 @@ Use this skill when you need to design, debug, or benchmark memory retrieval:
 1. Run `pnpm -F stage-ui typecheck` to ensure the search libs and related stores compile after any change.
 2. Inspect the `airi-search-index` IndexedDB (DevTools → Application → IndexedDB) to confirm documents were indexed under the expected layer/kind.
 3. Execute a manual query through the search API (or a quick probe per `search-probe-harness-plan.md`) and confirm: (a) answers surface near top, (b) the experience is iterative, (c) the total loop stays <30s, and (d) per-run artifacts include plan names, per-plan ranks, matched fields, and final fusion scores.
+
+## Related Skills & References
+
+- **Key Documents**: [[retrieval-and-ranking-spec]], [[search-probe-harness-plan]], [[rosetta-stone]], [[memory-lifecycle-and-features]], [[evaluation-and-benchmarking-methodology]], [[benchmark_history_and_outlook]], [[scoped-probe-window-plan]], [[design-semantic-search-browser-native]], [[blueprint-semantic-search-integration]]

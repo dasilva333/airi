@@ -133,4 +133,9 @@ Edit the `mode === 'mobile'` branches in §3's table — not a new component. To
 - [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Stage UI context bridge / control island architecture.
 - [docs/project-navigation-routing-overhaul.md](docs/project-navigation-routing-overhaul.md) — Navigation & routing overhaul project plan.
 - [docs/proposal-studio-sidetab.md](docs/proposal-studio-sidetab.md) — Studio sidetab proposal.
+- [docs/proposal-novel-stage-concepts.md](docs/proposal-novel-stage-concepts.md) — Stage↔Chat unification concepts (inline/sidebar stage, Magic Wand WhisperDock).
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — canonical concept→path index; §1 eventa, §13 BroadcastChannel registry (`airi-control-strip-actions` lives there).
+
+## Related Skills & References
+
+- **Key Documents**: [[project-control-strip-rfc]], [[catalog-control-strip]], [[project-mobile-revamp]], [[design-stage-ui-context-bridge-control-island]], [[project-navigation-routing-overhaul]], [[proposal-studio-sidetab]], [[proposal-novel-stage-concepts]], [[rosetta-stone]]

@@ -51,3 +51,7 @@ Command form (all commands):
 npx tsx scripts/yaml-manager.js <command> <file> [args]
 ```
 Typical sequence: `analyze` → `find-key`/`search` → `update <file> <dotted-path> <value>` → `audit` → `sync` → review diff.
+
+## Related Skills & References
+
+- **Key Documents**: [[settings-yaml]], [[proposal-broader-unicode-support]], [[AGENTS]]

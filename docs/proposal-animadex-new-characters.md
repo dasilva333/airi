@@ -120,3 +120,7 @@ Rather than asking the user to manually configure each character from scratch, t
 4. **Modal Mounting**: Map these properties to the `<AutoVoiceConfigModal>` options, allowing the user to select the preferred TTS provider (AWS Polly, Deepgram, or Kokoro) and review the matches.
 5. **Writeback**: On user confirmation, write the returned bindings directly into the card's `visual_assets[actorKey].speech` and `modules[actorKey].speech` targets, and save the card.
 
+## Relevant Skills
+
+- [[airi-animadex-wizard]]
+- [[airi-card-editor-wizard]]

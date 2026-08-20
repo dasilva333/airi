@@ -295,3 +295,6 @@ NVIDIA's Kimodo family introduces a two-stage transformer architecture separatin
   * [`nvidia/TMR-SOMA-RP-v1`](https://huggingface.co/nvidia/TMR-SOMA-RP-v1) (Text-to-Motion Retrieval encoder)
   * [`nvidia/Kimodo-Motion-Gen-Benchmark`](https://huggingface.co/datasets/nvidia/Kimodo-Motion-Gen-Benchmark) (Standardized evaluation benchmark)
 
+## Relevant Skills
+
+- [[airi-generative-motion-vrma]]

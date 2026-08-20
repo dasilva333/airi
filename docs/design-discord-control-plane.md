@@ -176,3 +176,8 @@ When clicking **`[Sync Memories ↓]`** on a deployed instance card, AIRI execut
 - **Transparency**: Pre-views all incoming messages and learned facts before writing to local storage.
 - **Preset Filters**: 1-click **`[Select Only Owner]`** filter isolates messages from `ownerUserId` and ignores multi-user server chatter.
 - **Safety**: Zero risk of unintentional local session corruption or unwanted multi-user text ingestion.
+
+## Relevant Skills
+
+- [[airi-cloud-relay-infrastructure]]
+- [[airi-discord-integration]]

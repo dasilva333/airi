@@ -78,6 +78,7 @@ description: >-
 - [docs/artistry-porting-report.md](docs/artistry-porting-report.md) — Artistry porting report.
 - [docs/ideogram-4-schema.md](docs/ideogram-4-schema.md) — Ideogram 4 schema.
 - [docs/project-widget-system-status-report.md](docs/project-widget-system-status-report.md) — Widget system status report.
+- [docs/proposal-comfyui-generative-music-dj-engine.md](docs/proposal-comfyui-generative-music-dj-engine.md) — Unified DJ/Music engine proposal (ComfyUI generative + Spotify catalog).
 - [docs/content/en/docs/showcase/09-artistry.md](docs/content/en/docs/showcase/09-artistry.md) — Artistry showcase.
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa/IPC wiring, §13 BroadcastChannel registry.
 
@@ -87,3 +88,8 @@ description: >-
 - Main-process widget-services changes (`main/services/airi/widgets/**`): same `pnpm -F @proj-airi/stage-tamagotchi typecheck`. A full desktop build (`pnpm -F @proj-airi/stage-tamagotchi build`) typechecks and rebuilds the Electron bundle when the change touches main-process service wiring.
 - Stage-UI store changes (`packages/stage-ui/src/stores/modules/artistry.ts`, `artistry-autonomous.ts`): `pnpm -F @proj-airi/stage-ui typecheck`.
 - UI-only class/copy tweaks normally need no script; run the above whenever you changed TS logic, a store, an import, an eventa contract, or a `zod` tool schema.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-comfyui-provider-bridge]]
+- **Key Documents**: [[rosetta-stone]], [[design-comfyui-image-generation-widget]], [[arch-comfyui-native-api-engine]], [[design-flux-grid-slice-image-generation]], [[artistry-porting-report]], [[ideogram-4-schema]], [[project-widget-system-status-report]], [[proposal-comfyui-generative-music-dj-engine]], [[09-artistry]]

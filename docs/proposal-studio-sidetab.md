@@ -91,3 +91,7 @@ An asset is classified as a **Place** if:
 1. **Rename Component**: Rename `chat_characters.vue` to `chat_studio.vue`.
 2. **Update Layout Sidebar**: Update `chat.vue` to import `chat_studio`, rename the sidebar tab label to `"Studio"`, and set a clean icon (`i-solar:layers-minimalistic-bold-duotone` or similar).
 3. **Build Parser Utils**: Implement structured regex parsers in `chat_studio.vue` to extract Actor/Setting descriptions from the raw prompt strings.
+
+## Relevant Skills
+
+- [[airi-stage-ui-surfaces]]

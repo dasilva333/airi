@@ -74,3 +74,8 @@ interface RealtimeProvider {
 
 ## Conclusion
 The "Manco Fork" demonstrates that AIRI is no longer just a "chat wrapper." It is now a sophisticated transport layer for multimodal intelligence, capable of bridging the gap between cloud-scale performance and private, local execution.
+
+## Relevant Skills
+
+- [[airi-audio-pipeline]]
+- [[airi-gemini-live-api]]

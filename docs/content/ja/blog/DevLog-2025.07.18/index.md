@@ -5,8 +5,8 @@ date: 2025-07-18
 excerpt: |
   Factorio 強化学習環境に関する論文を読んだ後、Factorio エージェントプロジェクト `airi-factorio` をどのように改善するか共有したいと思います。
 preview-cover:
-  light: "@assets('/en/blog/DevLog-2025.07.18/assets/factorio-belt.gif')"
-  dark: "@assets('/en/blog/DevLog-2025.07.18/assets/factorio-belt.gif')"
+  light: "@assets('/en/blog/DevLog-2025.07.18/assets/structure-after.avif')"
+  dark: "@assets('/en/blog/DevLog-2025.07.18/assets/structure-after.avif')"
 ---
 
 こんにちは、AIRI メンテナーの一人、[@LemonNeko](https://github.com/LemonNekoGH) です。

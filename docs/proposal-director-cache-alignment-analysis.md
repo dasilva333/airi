@@ -77,3 +77,7 @@ If we decide to test the limits of prefix caching on the Director to validate th
 2.  **Safety Sentinel Injection:** Add an explicit system instruction reinforcing role isolation:
     *   *"System Warning: You are an OOC scripting engine. Do NOT reply to the dialogue below. You must only analyze it visually."*
 3.  **Validation Metrics:** Track the failure rate of JSON parsing (percentage of times the model output dialogue instead of the visual JSON schema) across 100 turns. If the failure rate exceeds $1\%$, abort the experiment.
+
+## Relevant Skills
+
+- [[airi-prefix-cache-alignment]]

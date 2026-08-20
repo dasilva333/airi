@@ -150,3 +150,8 @@ The `audio-studio.vue` page serves as a creative console for voice design. It fe
 
 ### [Base Audio Pipeline]
 - **[MODIFY]** `packages/stage-ui/src/components/scenes/ControlStripHost.vue` (Apply real-time Web Audio API Pitch/Rate/EQ and effects transformation chains inside playback manager)
+
+## Relevant Skills
+
+- [[airi-audio-pipeline]]
+- [[airi-interaction-pipelines]]

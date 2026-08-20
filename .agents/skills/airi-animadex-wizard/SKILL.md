@@ -103,3 +103,8 @@ Script: lines 1-909. Template: lines 911-1929. Imports tell the dependency story
 
 - `pnpm -F @proj-airi/stage-pages typecheck` after guided.vue or component changes; `pnpm -F @proj-airi/stage-ui typecheck` for store-level edits.
 - Runtime: Settings → AIRI Card → "Create With Wizard" (`/settings/airi-card/guided`); step 4 end-to-end requires an active consciousness model.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-card-editor-wizard]], [[airi-card-schema]], [[airi-memory-ui-pages]], [[airi-tool-registry-builtin-tools]]
+- **Key Documents**: [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[animadex-wizard-pending-items]], [[02-animadex-wizard]]

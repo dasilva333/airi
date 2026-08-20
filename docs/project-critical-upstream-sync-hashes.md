@@ -36,3 +36,7 @@ These files remain at the alpha.15 baseline due to significant logic drift or re
 1. Perform additive YAML sync (merge new keys only).
 2. Side-by-side review of the new Vision Engine.
 3. Hand-merge structural updates to Model Settings layout if needed.
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

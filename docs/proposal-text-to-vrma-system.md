@@ -246,6 +246,6 @@ To compile the intermediate motion intent into a Live2D-compatible motion file:
    <button v-if="activeCharacter.modelType === 'live2d'">Generate Live2D Motion</button>
    ```
 
+## Relevant Skills
 
-
-
+- [[airi-generative-motion-vrma]]

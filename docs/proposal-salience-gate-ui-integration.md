@@ -115,3 +115,7 @@ This matches the measured rule exactly (no translation-layer bugs) and keeps GPU
 ## 7. Verification hook for the UI phase
 
 Reuse the proven harness: `04-toggle4-realtime.ts` stands as the acceptance test — when wiring lands, re-run `pnpm test:topics-realtime`; UI flag may replay store triggers but must not change the underlying numeric verdicts.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

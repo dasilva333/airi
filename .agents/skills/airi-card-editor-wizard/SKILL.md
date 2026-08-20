@@ -112,3 +112,7 @@ run after any change in this skill:
 pnpm -F @proj-airi/stage-pages typecheck
 pnpm -F @proj-airi/stage-ui typecheck
 ```
+
+## Related Skills & References
+
+- **Key Documents**: [[design-character-card-import-export]], [[02-animadex-wizard]], [[proposal-animadex-wizard]], [[proposal-animadex-new-characters]], [[animadex-wizard-pending-items]], [[proposal-default-cards-revamp]], [[airi-card-design]], [[nan0-integration-feedback]]

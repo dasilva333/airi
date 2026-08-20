@@ -45,3 +45,8 @@ Manual and assistant-written journal entries are **append-only and high-authorit
 ## Sources
 
 `docs/content/en/docs/advanced/architecture/arch-long-term-memory-journal.md`; `docs/content/en/docs/advanced/architecture/design-text-journal-storage.md`; `docs/memory_lab/memory-schema-and-lifecycle-spec.md` (Journal/Sacred record family); peer skills: `airi-memory-systems` (hub), `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-data-persistence`.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-data-persistence]], [[airi-memory-consolidation-dreaming]], [[airi-memory-retrieval-engine]], [[airi-memory-systems]], [[airi-memory-ui-pages]]
+- **Key Documents**: [[data-catalog]], [[arch-long-term-memory-journal]], [[design-text-journal-storage]], [[memory-schema-and-lifecycle-spec]]

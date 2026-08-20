@@ -91,3 +91,7 @@ When an audio playback session begins:
 Any custom speech-playing interface (e.g., Whisper Dock suggestion previews, Producer custom choices, etc.) **must** align with this paradigm:
 *   **Do NOT** just post single text chunks individually without context; always accumulate the sentences of the preview block, setting `isActive: true` only on the chunk currently outputting audio.
 *   **Always** invoke a full reset on completion (`clearCaption()`) to vacate the rendering overlay.
+
+## Relevant Skills
+
+- [[airi-caption-subsystem]]

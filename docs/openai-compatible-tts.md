@@ -216,3 +216,7 @@ AIRI filters the model list to entries whose `id` contains `tts`, `speech`, `aud
 | `packages/stage-pages/src/pages/settings/modules/speech.vue` (L560–594) | Manual voice name input UI |
 | `packages/stage-pages/src/pages/settings/providers/speech/openai-compatible-audio-speech.vue` | Provider config page: model, voice, speed, voicesPath |
 | `packages/stage-ui/src/components/scenarios/providers/speech-playground-openai-compatible.vue` | Playground component with free-text voice input |
+
+## Relevant Skills
+
+- [[airi-audio-pipeline]]

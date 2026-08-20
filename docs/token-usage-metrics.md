@@ -130,3 +130,7 @@ The solution focuses on:
 4. Maintaining global aggregation (no splitting)
 
 The control strip emerges as the primary surface for stats due to its ever-presence and customization capabilities, making the 28M number impossible to miss while providing rich interaction possibilities.
+
+## Relevant Skills
+
+- [[airi-prefix-cache-alignment]]

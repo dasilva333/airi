@@ -162,3 +162,6 @@ Download path in `pocket_model_store.ts`: `ensurePredefinedVoiceEmbedding(langFo
 - **Dynamic Voice List Filtering**: `listVoices({ language })` returns `[...languagePredefinedVoices, ...customUploadedProfiles]`, ensuring that selecting a language model in `pocket-tts-local.vue` immediately updates the available voice options while keeping user-cloned voice profiles available across all languages.
 - **Language-to-Folder Normalization**: The worker-level `normalizePocketLanguage()` (`worker.ts`) maps both bare codes (`english`) and bundle IDs (`english_2026-04`) to canonical OPFS folder names, ensuring `getOrLoadPocketSessions()` and `ensurePredefinedVoiceEmbedding()` always use the correct path regardless of which identifier the provider config surfaces.
 
+## Relevant Skills
+
+- [[airi-audio-pipeline]]

@@ -196,3 +196,7 @@ To survey active forks on a regular basis:
 2. The script uses the GitHub API to fetch the 50 newest created forks, sorts them in-memory by their recent `pushed_at` timestamp, compares their commits against upstream `moeru-ai/airi` to filter out passive synced forks, and outputs a list of active forks showing their custom commits.
 3. Review any forks with significant custom commits not already cataloged in this document, and add them under the appropriate category.
 4. Update the "Last surveyed" date at the top.
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

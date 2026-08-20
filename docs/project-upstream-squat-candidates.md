@@ -51,3 +51,7 @@
 - **PR #1295**: Re-open candidate. The actual fix for "crackly" audio was identified as the `mediabunny` library, not the previous stability attempts.
 - **PR #1289**: Needs a comment explaining the "Snapshot Restore" necessity: It allows users to snap back to their favorite position after moving the window willingly.
 - **PR #1298**: Needs updating to current state before posting new screenshots.
+
+## Relevant Skills
+
+- [[airi-roadmap-upstream-research]]

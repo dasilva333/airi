@@ -61,3 +61,8 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 - [docs/vhack-design-doc.md](docs/vhack-design-doc.md) — V-HACK founding spec (panel layout, module breakdown, MVP priorities).
 - `airi-character-rendering` — model/schema layer this panel modifies.
 - `airi-card-schema` — if exploring "write mutated VRM back onto the outfit card" flows.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-card-schema]], [[airi-character-rendering]]
+- **Key Documents**: [[vhack-design-doc]]

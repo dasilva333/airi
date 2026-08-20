@@ -39,3 +39,7 @@ Binary payloads die silently. Vue 3 reactive proxies plus `JSON.stringify()` wil
 - Confirm catalog entries use `file: undefined` and full binaries come only from `getDisplayModel(id)`.
 - Confirm no new eager deep watcher was added in a UI wrapper — persistence flows through explicit store methods.
 - Logic changes to `.ts`/Pinia stores: run `pnpm -F <workspace> typecheck` for the affected workspace (per `AGENTS.md`), then run `git status` and report open/unstaged files.
+
+## Related Skills & References
+
+- **Key Documents**: [[rosetta-stone]], [[arch-indexeddb-storage]], [[AGENTS]]

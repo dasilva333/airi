@@ -103,3 +103,8 @@ The shipped `flow_mdm.onnx` was produced and verified by committed Python toolin
 - **Typecheck**: `pnpm -F @proj-airi/stage-ui typecheck` (store + flowmdm utils) and `pnpm -F @proj-airi/stage-ui-three typecheck` (playback side).
 - **Sandbox test**: use the desktop Rehearsal Room (`chat_rehearsal.vue`) to call `generateMotion()` end-to-end and watch the saved `.vrma` land in `useCustomVrmAnimationsStore`.
 - **Re-export parity gate**: `python scripts/motion-export/test_onnx_parity.py` must pass before any `flow_mdm.onnx` replacement is published.
+
+## Related Skills & References
+
+- **Peer Skills**: [[airi-character-rendering]], [[airi-tool-registry-builtin-tools]]
+- **Key Documents**: [[design-text-to-motion]], [[proposal-text-to-vrma-system]], [[text-to-motion]], [[mocap]], [[design-vrm-animation-ecosystem]], [[proposal-emotion-motion-library]]

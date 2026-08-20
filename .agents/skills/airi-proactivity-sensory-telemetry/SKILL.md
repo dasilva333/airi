@@ -92,3 +92,7 @@ the user is appropriate before any TTS/LLM output is produced.
   sentinel` with nothing added to history/TTS.
 - Confirm `sensorPayload` includes `User Idle`, `Active Program`, `Active Window Title`,
   `Volume Level`, and the trailing window-history entries as expected.
+
+## Related Skills & References
+
+- **Key Documents**: [[design-proactivity-heartbeats-engine]], [[arch-chat-stt-proactivity-pipelines]], [[project-proactivity-enrichment-roadmap]], [[proposal-proactivity-vision]], [[director-producer-roles]], [[07-producer-subsystem]]

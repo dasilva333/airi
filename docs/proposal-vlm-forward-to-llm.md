@@ -113,3 +113,7 @@ The compiled message sent to the primary LLM contains the textual representation
 > Get off my desk!
 
 The primary text-only LLM (e.g. DeepSeek) reads the description and responds in the character's authentic voice, reacting naturally to the situation.
+
+## Relevant Skills
+
+- [[airi-attention-ecology-vision]]

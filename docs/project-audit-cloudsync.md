@@ -126,3 +126,7 @@ Extracting full local IndexedDB & Localforage data catalog...
 ## 📝 Documenting Gaps for Collaborative Resolution
 
 This document serves as the living record for sync shortcomings flagged by the auditor. When new storage stores are added to [`docs/data-catalog.md`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/docs/data-catalog.md), corresponding audit rules should be updated in `scripts/audit_backup_sync.mjs`.
+
+## Relevant Skills
+
+- [[airi-byos-cloud-sync]]

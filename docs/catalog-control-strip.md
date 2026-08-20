@@ -120,3 +120,8 @@ Window alignments, presets, diagnostics, and application management.
 | **Theme Mode** | Swaps light/dark application color themes. | `i-solar:sun-linear` / `i-solar:moon-linear` | Toggle (Switch) | **Yes** (Default on) |
 | **Exit Application** | Clean-quits and shuts down the active AIRI process cycle. | `i-solar:close-circle-outline` | Action Button | **Yes** (Default on) |
 
+## Relevant Skills
+
+- [[airi-caption-subsystem]]
+- [[airi-controlstrip-customizer]]
+- [[airi-stage-ui-surfaces]]

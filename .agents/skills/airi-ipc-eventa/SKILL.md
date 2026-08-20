@@ -85,3 +85,7 @@ For high-frequency or renderer-to-renderer communication where routing through t
 
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §1 eventa IPC contracts, §13 BroadcastChannel registry.
 - [docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md](docs/content/en/docs/advanced/architecture/design-stage-ui-context-bridge-control-island.md) — Control Island / Stage UI context bridge architecture.
+
+## Related Skills & References
+
+- **Key Documents**: [[rosetta-stone]], [[design-stage-ui-context-bridge-control-island]]

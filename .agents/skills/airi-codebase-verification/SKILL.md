@@ -41,3 +41,7 @@ Choose the smallest validation that gives useful confidence; validation is not a
 - After any modification, run `git status` and report open/unstaged files verbatim.
 - Before any user-requested commit/push, inspect full `git status` and the complete intended diff, and confirm the required typecheck/build passed.
 - State which validation you ran and why broader validation was unnecessary.
+
+## Related Skills & References
+
+- **Key Documents**: [[AGENTS]], [[rosetta-stone]], [[project-specialized-skills]], [[project-how-to-maintain-manual]]
