@@ -280,6 +280,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Whisper adapter** | `packages/stage-ui/src/libs/inference/adapters/whisper.ts` |
 | **Audio Studio UST proposal** | [`proposal-higgs-audio-v3-tts-integration.md`](./proposal-higgs-audio-v3-tts-integration.md) |
 | **MOSS-TTS-Nano proposal** | [`proposal-moss-tts-nano-provider-unified-webgpu.md`](./proposal-moss-tts-nano-provider-unified-webgpu.md) |
+| **Conversational Pacing & Thinking Fillers proposal** | [`proposal-conversational-pacing-thinking-fillers.md`](./proposal-conversational-pacing-thinking-fillers.md) — dynamic audio thinking fillers, CoT cue interception, post-CoT text velocity |
 | **GPT-SoVITS ONNX analysis** | [`analysis-gpt-sovits-onnx-webgpu-viability.md`](./analysis-gpt-sovits-onnx-webgpu-viability.md) — technical evaluation & ONNX WebGPU vetting checklist |
 | **Text-to-Motion design** | [`design-text-to-motion.md`](./design-text-to-motion.md) (supercedes `proposal-text-to-vrma-system.md`) |
 | **Audio pipelines (transcribe)** | `packages/audio-pipelines-transcribe/` — audio transcription pipeline implementations |
