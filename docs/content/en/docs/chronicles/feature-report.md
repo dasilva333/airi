@@ -385,7 +385,7 @@ Internal hardening so the app remains a stable, performant "daily driver" across
 - **Dev-loop Hygiene**: `ELECTRON_RUN_AS_NODE` is explicitly cleared in dev scripts, `start_airi.sh` resolves turbo/electron-vite + checks dependencies automatically.
 - **Production Electron Sandbox**: full Chromium sandbox is enabled for the Electron environment, a meaningful security improvement for web-forwarded provider integrations.
 - **Release Provenance**: published releases follow a `v0.9.x-stable.YYYYMMDD` tag (e.g., `v0.9.25-stable.20260818`, `v0.9.24-stable.20260813`, `v0.9.23-stable.20260808`), giving community users a stable pull point.
-- **Operations Skills Catalog**: 44 specialized AIRI skill files + a Rosetta-Stone governing index (`ae3025738`, `35c7fd580`) document subsystem contracts and failure modes, keeping contributors and agents in sync with shipping reality.
+- **Operations Skills Catalog**: 56 specialized AIRI skill files + a Rosetta-Stone governing index (`ae3025738`, `35c7fd580`) document subsystem contracts and failure modes, keeping contributors and agents in sync with shipping reality.
 
 ### Retained Legacy Hardening
 Carried forward from the previous revision's Platform & Operations section; still in force.
