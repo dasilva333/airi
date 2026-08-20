@@ -10,8 +10,8 @@ public class AvatarTaskbarController : MonoBehaviour
     public Animator avatarAnimator;
 
     [Header("Detection Settings")]
-    public Vector2 snapZoneOffset = new Vector2(0, -5);
-    public Vector2 snapZoneSize = new Vector2(100, 10);
+    public Vector2 snapZoneOffset = new Vector2(0, 0);
+    public Vector2 snapZoneSize = new Vector2(240, 80);
 
     [Header("Attach Settings")]
     public GameObject attachTarget;
@@ -27,7 +27,7 @@ public class AvatarTaskbarController : MonoBehaviour
     public Color taskbarGizmoColor = Color.green;
     public Color pinkZoneGizmoColor = Color.magenta;
 
-    private IntPtr unityHWND;
+    private IntPtr unityHWND = IntPtr.Zero;
     private Vector2 unityPos;
     private Rect taskbarRect;
     private Rect pinkZoneDesktopRect;
@@ -42,9 +42,12 @@ public class AvatarTaskbarController : MonoBehaviour
     private bool scalingUp = false;
 
     private bool wasAllowSpawn = false;
-
+    private bool wasNearTaskbar = false;
 
     private static readonly int IsSitting = Animator.StringToHash("isSitting");
+    private static readonly int IsTaskbarSit = Animator.StringToHash("isTaskbarSit");
+    private static readonly int IsWindowSit = Animator.StringToHash("isWindowSit");
+    private static readonly int WindowSitIndex = Animator.StringToHash("WindowSitIndex");
 
     void Start()
     {
@@ -70,23 +73,40 @@ public class AvatarTaskbarController : MonoBehaviour
 
     void Update()
     {
-#if !UNITY_STANDALONE_WIN
-        return;
-#else
-        if (unityHWND == IntPtr.Zero || animator == null) return;
+        if (animator == null)
+            animator = avatarAnimator ?? GetComponent<Animator>();
+        if (animator == null) return;
 
         UpdateUnityWindowPosition();
         UpdateTaskbarRect();
         UpdatePinkZone();
 
-        Rect topBar = new Rect(taskbarRect.x, taskbarRect.y, taskbarRect.width, 5);
+#if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+        // On macOS Cocoa: Dock is at bottom (y = 0..dockHeight)
+        float dockHeight = taskbarRect.height > 0 ? taskbarRect.height : 66f;
+        Rect dockZone = new Rect(taskbarRect.x, 0, taskbarRect.width, dockHeight + 45f);
+        bool isNearTaskbar = pinkZoneDesktopRect.Overlaps(dockZone);
+#else
+        // Windows original: Taskbar top ledge is at taskbarRect.y
+        Rect topBar = new Rect(taskbarRect.x, taskbarRect.y, taskbarRect.width, Mathf.Max(5f, taskbarRect.height * 0.35f));
         bool isNearTaskbar = pinkZoneDesktopRect.Overlaps(topBar);
+#endif
+
+        if (isNearTaskbar && !wasNearTaskbar)
+        {
+            animator.SetFloat(WindowSitIndex, UnityEngine.Random.Range(0, 4));
+        }
+        wasNearTaskbar = isNearTaskbar;
 
         animator.SetBool(IsSitting, isNearTaskbar);
+        animator.SetBool(IsTaskbarSit, isNearTaskbar);
+        animator.SetBool(IsWindowSit, isNearTaskbar);
 
-        bool allowSpawn = isNearTaskbar && animator
-            .GetCurrentAnimatorStateInfo(0)
-            .IsName("Sitting");
+        bool allowSpawn = isNearTaskbar && (
+            animator.GetCurrentAnimatorStateInfo(0).IsName("Sitting") ||
+            animator.GetCurrentAnimatorStateInfo(0).IsName("WindowSit") ||
+            animator.GetCurrentAnimatorStateInfo(0).IsName("Sit")
+        );
 
         if (attachBoneTransform == null && attachTarget != null)
             attachBoneTransform = animator.GetBoneTransform(attachBone);
@@ -140,40 +160,99 @@ public class AvatarTaskbarController : MonoBehaviour
             attachTarget.transform.position = attachBoneTransform.position;
 
         wasAllowSpawn = allowSpawn;
-#endif
     }
 
     void UpdatePinkZone()
     {
+        float unityWidth = 768f;
+        float unityHeight = 512f;
+
+        if (Kirurobo.UniWindowController.current != null)
+        {
+            var sz = Kirurobo.UniWindowController.current.windowSize;
+            if (sz.x > 0 && sz.y > 0)
+            {
+                unityWidth = sz.x;
+                unityHeight = sz.y;
+            }
+        }
 #if UNITY_STANDALONE_WIN
-        GetWindowRect(unityHWND, out RECT rect);
-        int unityWidth = rect.Right - rect.Left;
-        int unityHeight = rect.Bottom - rect.Top;
+        else if (unityHWND != IntPtr.Zero)
+        {
+            GetWindowRect(unityHWND, out RECT rect);
+            unityWidth = rect.Right - rect.Left;
+            unityHeight = rect.Bottom - rect.Top;
+        }
+#endif
 
-        float centerX = unityPos.x + unityWidth / 2f + snapZoneOffset.x;
-        float bottomY = unityPos.y + unityHeight + snapZoneOffset.y;
+        Transform hips = null;
+        if (animator != null)
+        {
+            hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        }
 
+        var cam = Camera.main;
 
-        pinkZoneDesktopRect = new Rect(centerX - snapZoneSize.x / 2f, bottomY, snapZoneSize.x, snapZoneSize.y);
+#if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+        // macOS Cocoa coordinates: origin (0,0) is bottom-left of screen
+        if (hips != null && cam != null)
+        {
+            Vector3 screenPt = cam.WorldToScreenPoint(hips.position);
+            float normX = screenPt.x / (float)Screen.width;
+            float normY = screenPt.y / (float)Screen.height;
+
+            float hipDesktopX = unityPos.x + normX * unityWidth + snapZoneOffset.x;
+            float hipDesktopY = unityPos.y + normY * unityHeight + snapZoneOffset.y;
+
+            pinkZoneDesktopRect = new Rect(hipDesktopX - snapZoneSize.x / 2f, hipDesktopY - snapZoneSize.y / 2f, snapZoneSize.x, snapZoneSize.y);
+        }
+        else
+        {
+            float centerX = unityPos.x + unityWidth / 2f + snapZoneOffset.x;
+            float bottomY = unityPos.y + unityHeight * 0.40f + snapZoneOffset.y;
+            pinkZoneDesktopRect = new Rect(centerX - snapZoneSize.x / 2f, bottomY - snapZoneSize.y / 2f, snapZoneSize.x, snapZoneSize.y);
+        }
+#else
+        // Windows original coordinates: origin (0,0) is top-left of screen
+        if (hips != null && cam != null)
+        {
+            Vector3 screenPt = cam.WorldToScreenPoint(hips.position);
+            float normX = screenPt.x / (float)Screen.width;
+            float normY = 1.0f - (screenPt.y / (float)Screen.height);
+
+            float hipDesktopX = unityPos.x + normX * unityWidth + snapZoneOffset.x;
+            float hipDesktopY = unityPos.y + normY * unityHeight + snapZoneOffset.y;
+
+            pinkZoneDesktopRect = new Rect(hipDesktopX - snapZoneSize.x / 2f, hipDesktopY - snapZoneSize.y / 2f, snapZoneSize.x, snapZoneSize.y);
+        }
+        else
+        {
+            float centerX = unityPos.x + unityWidth / 2f + snapZoneOffset.x;
+            float bottomY = unityPos.y + unityHeight + snapZoneOffset.y;
+            pinkZoneDesktopRect = new Rect(centerX - snapZoneSize.x / 2f, bottomY - snapZoneSize.y / 2f, snapZoneSize.x, snapZoneSize.y);
+        }
 #endif
     }
 
     void UpdateUnityWindowPosition()
     {
+        if (Kirurobo.UniWindowController.current != null)
+        {
+            unityPos = Kirurobo.UniWindowController.current.windowPosition;
+        }
 #if UNITY_STANDALONE_WIN
-        GetWindowRect(unityHWND, out RECT rect);
-        unityPos = new Vector2(rect.Left, rect.Top);
+        else if (unityHWND != IntPtr.Zero)
+        {
+            GetWindowRect(unityHWND, out RECT rect);
+            unityPos = new Vector2(rect.Left, rect.Top);
+        }
 #endif
     }
 
     void UpdateTaskbarRect()
     {
-#if UNITY_STANDALONE_WIN
         taskbarRect = MonitorHelper.GetTaskbarRectForWindow(unityHWND);
-#endif
     }
-
-
 
     void OnDrawGizmos()
     {
@@ -190,8 +269,8 @@ public class AvatarTaskbarController : MonoBehaviour
     {
         float cx = desktopRect.x + desktopRect.width / 2f;
         float cy = desktopRect.y + desktopRect.height / 2f;
-        int screenWidth = Display.main.systemWidth;
-        int screenHeight = Display.main.systemHeight;
+        int screenWidth = Display.main.systemWidth > 0 ? Display.main.systemWidth : Screen.width;
+        int screenHeight = Display.main.systemHeight > 0 ? Display.main.systemHeight : Screen.height;
 
         float unityX = (cx - screenWidth / 2f) / basePixel;
         float unityY = -(cy - screenHeight / 2f) / basePixel;
@@ -203,19 +282,7 @@ public class AvatarTaskbarController : MonoBehaviour
     }
 
     #region WinAPI
-    private const int ABM_GETTASKBARPOS = 0x00000005;
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct APPBARDATA
-    {
-        public int cbSize;
-        public IntPtr hWnd;
-        public uint uCallbackMessage;
-        public uint uEdge;
-        public RECT rc;
-        public int lParam;
-    }
-
+#if UNITY_STANDALONE_WIN
     [StructLayout(LayoutKind.Sequential)]
     struct RECT
     {
@@ -224,10 +291,6 @@ public class AvatarTaskbarController : MonoBehaviour
         public int Right;
         public int Bottom;
     }
-
-#if UNITY_STANDALONE_WIN
-    [DllImport("shell32.dll", SetLastError = true)]
-    static extern UInt32 SHAppBarMessage(UInt32 dwMessage, ref APPBARDATA pData);
 
     [DllImport("user32.dll")]
     static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);

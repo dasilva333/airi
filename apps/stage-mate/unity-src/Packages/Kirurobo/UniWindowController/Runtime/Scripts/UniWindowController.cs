@@ -276,12 +276,7 @@ namespace Kirurobo
             get { return (_uniWinCore != null ? _uniWinCore.GetWindowPosition() : Vector2.zero); }
             set
             {
-                #if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
-                Vector2 safeVal = new Vector2(value.x, Mathf.Max(0f, value.y));
-                _uniWinCore?.SetWindowPosition(safeVal);
-                #else
                 _uniWinCore?.SetWindowPosition(value);
-                #endif
             }
         }
 
