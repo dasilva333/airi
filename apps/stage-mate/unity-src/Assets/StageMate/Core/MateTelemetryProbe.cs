@@ -78,8 +78,9 @@ namespace StageMate.Core
             string hit3d = Probe3DHit(unityMouse);
             string uiHits = ProbeUIHits(unityMouse);
             string gates = ProbeGates();
+            string settingsUI = ProbeSettingsUI();
 
-            Debug.Log($"[MateTelemetryProbe:CLICK] {clickType}UnityPos=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}]");
+            Debug.Log($"[MateTelemetryProbe:CLICK] {clickType}UnityPos=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}] | SettingsUI=[{settingsUI}]");
         }
 
         private void LogPeriodicState(Vector2 unityMouse, Vector2 osMouse, bool clickThrough)
@@ -87,10 +88,11 @@ namespace StageMate.Core
             string hit3d = Probe3DHit(unityMouse);
             string uiHits = ProbeUIHits(unityMouse);
             string gates = ProbeGates();
+            string settingsUI = ProbeSettingsUI();
             Vector2 winPos = winCtrl != null ? winCtrl.windowPosition : Vector2.zero;
             Vector2 winSize = winCtrl != null ? winCtrl.windowSize : Vector2.zero;
 
-            Debug.Log($"[MateTelemetryProbe:STATE] UnityMouse=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | WinPos=({winPos.x:F1}, {winPos.y:F1}) | WinSize=({winSize.x:F1}, {winSize.y:F1}) | Screen=({Screen.width}x{Screen.height}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}]");
+            Debug.Log($"[MateTelemetryProbe:STATE] UnityMouse=({unityMouse.x:F1}, {unityMouse.y:F1}) | OSPos=({osMouse.x:F1}, {osMouse.y:F1}) | WinPos=({winPos.x:F1}, {winPos.y:F1}) | WinSize=({winSize.x:F1}, {winSize.y:F1}) | Screen=({Screen.width}x{Screen.height}) | clickThrough={clickThrough} | 3DHit={hit3d} | UIHits=[{uiHits}] | Dragging={(animCtrl != null && animCtrl.isDragging)} | Gates=[{gates}] | SettingsUI=[{settingsUI}]");
         }
 
         private string ProbeGates()
@@ -151,6 +153,23 @@ namespace StageMate.Core
                 names.Add($"{r.gameObject.name}(Layer:{LayerMask.LayerToName(r.gameObject.layer)})");
             }
             return string.Join(", ", names);
+        }
+
+        private string ProbeSettingsUI()
+        {
+            var settingsCanvas = GameObject.Find("SettingsMenuCanvas");
+            if (settingsCanvas == null) return "NoCanvas";
+            if (!settingsCanvas.activeInHierarchy) return "CanvasInactive";
+
+            var outer = GameObject.Find("OuterMenu");
+            var catBg = GameObject.Find("Category Background");
+            var img2 = catBg != null ? catBg.transform.Find("Image (2)") : null;
+
+            bool outerActive = outer != null && outer.activeInHierarchy;
+            bool catBgActive = catBg != null && catBg.activeInHierarchy;
+            bool img2Active = img2 != null && img2.gameObject.activeInHierarchy;
+
+            return $"Open(OuterMenu:{outerActive}, CatBg:{catBgActive}, Img2:{img2Active})";
         }
     }
 }

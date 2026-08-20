@@ -21,6 +21,11 @@
     "logs:deep": "tsx scripts/logs.ts deep",
     "logs:clean": "tsx scripts/logs.ts clean",
     "logs:clear": "tsx scripts/logs.ts clean",
+    "scene": "tsx scripts/scene-tree.ts",
+    "scene:tree": "tsx scripts/scene-tree.ts tree",
+    "scene:find": "tsx scripts/scene-tree.ts find",
+    "scene:path": "tsx scripts/scene-tree.ts path",
+    "scene:dump": "tsx scripts/scene-tree.ts dump-md",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

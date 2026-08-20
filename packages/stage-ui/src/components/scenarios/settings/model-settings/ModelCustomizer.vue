@@ -8,7 +8,7 @@ import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-
 import { Input } from '@proj-airi/ui'
 import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
@@ -414,15 +414,22 @@ async function syncStageMateSidecar(reload = false) {
     const { electronStageMateSyncOutfits } = await import('@proj-airi/stage-shared')
     const syncOutfitsInvoke = useElectronEventaInvoke(electronStageMateSyncOutfits)
 
-    const payload = {
-      modelId: props.modelId,
-      outfits: modelOutfits.value.map(o => ({
-        name: o.name,
-        tag: o.tag || '',
-        meshes: o.meshes || [],
-      })),
-      reload,
-    }
+    const rawOutfits = toRaw(modelOutfits.value) || []
+    const plainOutfits = rawOutfits.map((o) => {
+      const plainObj = toRaw(o)
+      const rawMeshes = plainObj.meshes ? toRaw(plainObj.meshes) : []
+      return {
+        name: String(plainObj.name || ''),
+        tag: String(plainObj.tag || ''),
+        meshes: Array.from(rawMeshes).map(m => String(m)),
+      }
+    })
+
+    const payload = JSON.parse(JSON.stringify({
+      modelId: String(props.modelId),
+      outfits: plainOutfits,
+      reload: Boolean(reload),
+    }))
 
     const res = await syncOutfitsInvoke(payload)
     return !!res?.success
@@ -446,7 +453,7 @@ async function handleManualStageMateSync() {
       toast.success('Stage-Mate synchronized successfully!', { id: toastId })
     }
     else {
-      toast.warning('Sidecar JSON written to cache.', { id: toastId })
+      toast.error('Failed to sync Stage-Mate outfits sidecar.', { id: toastId })
     }
   }
   catch (err: any) {

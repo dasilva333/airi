@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using VRM;
 using UniVRM10;
+using StageMate.Companion;
 
 namespace StageMate.Core
 {
@@ -14,21 +15,32 @@ namespace StageMate.Core
         public StageMateSocket socket;
         public UniWindowController windowController;
         public VRMLoader vrmLoader;
+        public StageMateTactileHandler tactileHandler;
+        public StageMateLocomotion locomotion;
         public string fallbackModelPath;
 
         private string activeModelPath;
         private string activeModelId;
+        private string loadedModelPath;
 
         private void Awake()
         {
             if (socket == null) socket = GetComponent<StageMateSocket>() ?? gameObject.AddComponent<StageMateSocket>();
             if (windowController == null) windowController = FindFirstObjectByType<UniWindowController>();
             if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
+            if (tactileHandler == null) tactileHandler = GetComponent<StageMateTactileHandler>() ?? FindFirstObjectByType<StageMateTactileHandler>();
+            if (locomotion == null) locomotion = GetComponent<StageMateLocomotion>() ?? FindFirstObjectByType<StageMateLocomotion>();
             gameObject.AddComponent<MateTelemetryProbe>();
         }
 
         private void Start()
         {
+            if (SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null)
+            {
+                loadedModelPath = SaveLoadHandler.Instance.data.selectedModelPath;
+                activeModelPath = loadedModelPath;
+            }
+
             if (socket != null)
             {
                 socket.OnMessageReceived += HandleMessage;
@@ -170,16 +182,16 @@ namespace StageMate.Core
                     string p = env.data != null && !string.IsNullOrEmpty(env.data.modelPath) ? env.data.modelPath : env.path;
                     if (!string.IsNullOrEmpty(p))
                     {
-                        activeModelPath = p;
-                        if (env.data != null && !string.IsNullOrEmpty(env.data.modelId))
-                            activeModelId = env.data.modelId;
-                        LoadModel(p);
+                        string modelId = env.data != null ? env.data.modelId : null;
+                        LoadModel(p, modelId);
                     }
                     break;
 
                 case "stage:vrm:reload-outfits":
                 case "stage:vrm:sync-outfits":
-                    string syncPath = env.data != null && !string.IsNullOrEmpty(env.data.modelPath) ? env.data.modelPath : activeModelPath;
+                    string syncPath = env.data != null && !string.IsNullOrEmpty(env.data.modelPath) 
+                        ? env.data.modelPath 
+                        : (!string.IsNullOrEmpty(loadedModelPath) ? loadedModelPath : activeModelPath);
                     if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
                     if (vrmLoader != null && !string.IsNullOrEmpty(syncPath))
                     {
@@ -231,9 +243,7 @@ namespace StageMate.Core
 
                 if (d.model != null && !string.IsNullOrEmpty(d.model.modelPath))
                 {
-                    activeModelPath = d.model.modelPath;
-                    activeModelId = d.model.modelId;
-                    LoadModel(activeModelPath);
+                    LoadModel(d.model.modelPath, d.model.modelId);
                 }
                 return;
             }
@@ -242,7 +252,6 @@ namespace StageMate.Core
             if (syncMsg.payload != null)
             {
                 var p = syncMsg.payload;
-                activeModelId = p.activeModelId;
 
                 if (p.windowBounds != null && windowController != null)
                 {
@@ -258,8 +267,7 @@ namespace StageMate.Core
 
                 if (!string.IsNullOrEmpty(p.currentModelPath))
                 {
-                    activeModelPath = p.currentModelPath;
-                    LoadModel(activeModelPath);
+                    LoadModel(p.currentModelPath, p.activeModelId);
                 }
             }
         }
@@ -292,7 +300,7 @@ namespace StageMate.Core
             }
         }
 
-        private void LoadModel(string path)
+        private void LoadModel(string path, string modelId = null)
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
@@ -300,11 +308,18 @@ namespace StageMate.Core
                 return;
             }
 
+            if (!string.IsNullOrEmpty(modelId))
+                activeModelId = modelId;
+
             if (vrmLoader == null) vrmLoader = FindFirstObjectByType<VRMLoader>();
             if (vrmLoader != null)
             {
-                // If model is already active in scene, hot-reload dynamic outfits in-place
-                if (vrmLoader.GetCurrentModel() != null && path.Equals(activeModelPath, StringComparison.OrdinalIgnoreCase))
+                string currentActive = !string.IsNullOrEmpty(loadedModelPath) 
+                    ? loadedModelPath 
+                    : (SaveLoadHandler.Instance != null && SaveLoadHandler.Instance.data != null ? SaveLoadHandler.Instance.data.selectedModelPath : null);
+
+                // If the same model is already instantiated in scene, hot-reload dynamic outfits in-place
+                if (vrmLoader.GetCurrentModel() != null && !string.IsNullOrEmpty(currentActive) && path.Equals(currentActive, StringComparison.OrdinalIgnoreCase))
                 {
                     Debug.Log($"[StageMateBridge] Hot-reloading dynamic outfits for active model: {path}");
                     vrmLoader.ReloadDynamicOutfits(path);
@@ -312,7 +327,9 @@ namespace StageMate.Core
                     return;
                 }
 
-                Debug.Log($"[StageMateBridge] Invoking native VRMLoader for: {path}");
+                Debug.Log($"[StageMateBridge] Swapping avatar -> Invoking native VRMLoader for: {path}");
+                loadedModelPath = path;
+                activeModelPath = path;
                 vrmLoader.LoadVRM(path);
                 socket?.SendJson($"{{\"type\":\"stage:vrm:ready\",\"data\":{{\"modelPath\":\"{path.Replace("\\", "\\\\")}\",\"modelId\":\"{activeModelId}\"}}}}");
             }

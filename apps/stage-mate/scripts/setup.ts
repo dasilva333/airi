@@ -97,7 +97,9 @@ function patchSettingsMenuUI() {
     ]
 
     for (const name of targetNames) {
-      const pattern = new RegExp(`(m_Name: ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\r?\\n[\\s\\S]*?m_IsActive:) 1`, 'g')
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // Match m_Name followed by m_IsActive strictly within the same GameObject block (never crossing '---' or 'GameObject:')
+      const pattern = new RegExp(`(m_Name:\\s*${escapedName}\\r?\\n(?:(?!---|GameObject:)[^\\n]*\\r?\\n){0,10}?\\s*m_IsActive:)\\s*1`, 'g')
       if (pattern.test(content)) {
         content = content.replace(pattern, '$1 0')
         modified = true
@@ -113,9 +115,27 @@ function patchSettingsMenuUI() {
     ]
 
     for (const goId of targetBackgroundGOs) {
-      const pattern = new RegExp(`(--- !u!1 &${goId}\\r?\\n[\\s\\S]*?m_IsActive:) 1`, 'g')
+      const pattern = new RegExp(`(--- !u!1 &${goId}\\r?\\n(?:(?!---|GameObject:)[^\\n]*\\r?\\n){0,15}?\\s*m_IsActive:)\\s*1`, 'g')
       if (pattern.test(content)) {
         content = content.replace(pattern, '$1 0')
+        modified = true
+      }
+    }
+
+    // 2b. Ensure essential background frames are explicitly active:
+    // - OuterMenu (GO 2353896506954849683 - master settings background frame)
+    // - Image (2) (GO 143430234 - Movement card frame)
+    // - Image (3) (GO 848735562 - Appearance card frame)
+    const essentialActiveGOs = [
+      '2353896506954849683', // OuterMenu
+      '143430234', // Image (2) - Movement
+      '848735562', // Image (3) - Appearance
+    ]
+
+    for (const goId of essentialActiveGOs) {
+      const pattern = new RegExp(`(--- !u!1 &${goId}\\r?\\n(?:(?!---|GameObject:)[^\\n]*\\r?\\n){0,15}?\\s*m_IsActive:)\\s*0`, 'g')
+      if (pattern.test(content)) {
+        content = content.replace(pattern, '$1 1')
         modified = true
       }
     }

@@ -502,6 +502,16 @@ export function createStageMateService(params?: {
       writeFileSync(sidecarFile, JSON.stringify(config, null, 2), 'utf8')
       log.withFields({ modelId: req.modelId, sidecarFile, count: config.entries.length }).log('Wrote Stage-Mate outfits sidecar JSON')
 
+      // 1. Broadcast direct dynamic outfits reload to Stage-Mate
+      broadcast({
+        type: 'stage:vrm:reload-outfits',
+        data: {
+          modelId: req.modelId,
+          modelPath: targetVrmFile,
+        },
+      })
+
+      // 2. Also dispatch stage:vrm:load if reload is requested and target exists
       if (req.reload !== false && existsSync(targetVrmFile)) {
         log.log(`Dispatching stage:vrm:load to reload model with updated sidecar`)
         dispatchModelLoad(targetVrmFile, req.modelId, activeModelPosition)

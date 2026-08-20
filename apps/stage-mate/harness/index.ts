@@ -99,6 +99,27 @@ export const MACARON_PRESETS = [
   { id: 'mocha_caramel', name: 'Mocha Caramel', shell: 'brawn', whip: 'chocolate', heart: 'brawn' },
 ] as const
 
+// Outfits Test Manifests (Customizer / Mesh Wardrobe Probing)
+export const OUTFIT_MANIFEST_A = {
+  entries: [
+    { name: 'WINGS', tag: '', meshes: ['Wing'] },
+    { name: 'HEAD DRESS', tag: '', meshes: ['HeadDress'] },
+    { name: 'CLOTHES A', tag: 'dress', meshes: ['ClothesA'] },
+    { name: 'CLOTHES B', tag: 'dress', meshes: ['ClothesB'] },
+  ],
+}
+
+export const OUTFIT_MANIFEST_B = {
+  entries: [
+    { name: 'WINGS', tag: '', meshes: ['Wing'] },
+    { name: 'HEAD DRESS', tag: '', meshes: ['HeadDress'] },
+    { name: 'LONG SLEEVES', tag: '', meshes: ['LongSleeve'] },
+    { name: 'LONG SKIRT', tag: '', meshes: ['Skirt_Long'] },
+    { name: 'CLOTHES A', tag: 'dress', meshes: ['ClothesA'] },
+    { name: 'CLOTHES B', tag: 'dress', meshes: ['ClothesB'] },
+  ],
+}
+
 // State
 let activeModelIndex = 0
 let activeMacaronIndex = 0
@@ -112,6 +133,32 @@ let activeSizePreset = 'med.'
 let activeViewMode = 'Drag'
 let lipSyncInterval: NodeJS.Timeout | null = null
 let lipSyncRemaining = 0
+
+function applyOutfitManifest(label: string, manifest: { entries: Array<{ name: string, tag: string, meshes: string[] }> }) {
+  const target = modelPaths[activeModelIndex] ?? defaultModel
+  const dir = path.dirname(target)
+  const ext = path.extname(target)
+  const baseName = path.basename(target, ext)
+  const sidecarPath = path.join(dir, `${baseName}.outfits.json`)
+
+  try {
+    fs.writeFileSync(sidecarPath, JSON.stringify(manifest, null, 2), 'utf8')
+    logEvent(`Wrote ${label} (${manifest.entries.length} slots) -> ${path.basename(sidecarPath)}`)
+  }
+  catch (err: any) {
+    logEvent(`Failed to write outfits sidecar: ${err.message}`)
+    return
+  }
+
+  broadcast({
+    type: 'stage:vrm:reload-outfits',
+    data: { modelPath: target },
+  })
+  broadcast({
+    type: 'stage:vrm:load',
+    data: { modelPath: target },
+  })
+}
 
 // ANSI formatting helpers
 const c = {
@@ -205,7 +252,8 @@ function render() {
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
     `  ${c.bold}Interactive Hotkeys (Customizer-Aligned):${c.reset}`,
     `  ${c.yellow}[1]${c.reset} Mini (220×315)     ${c.yellow}[2]${c.reset} Med. (450×600)    ${c.yellow}[3]${c.reset} Large (800×1000)   ${c.yellow}[4]${c.reset} Full (Workarea)`,
-    `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})  ${c.magenta}[F]${c.reset} Outfits Test (Komoe)`,
+    `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})`,
+    `  ${c.magenta}[F]${c.reset} Manifest A (4 slots)  ${c.magenta}[G]${c.reset} Manifest B (6 slots)`,
     `  ${c.green}[D]${c.reset} Viewport Drag      ${c.green}[O]${c.reset} Viewport Orbit    ${c.green}[S]${c.reset} Viewport Spin      ${c.green}[C]${c.reset} Cycle Modes`,
     `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.magenta}[P]${c.reset} Cycle Macaron (${MACARON_PRESETS.length})`,
     `  ${c.blue}[R]${c.reset} Reset Coordinates ${c.red}[Q]${c.reset} Quit Harness`,
@@ -352,17 +400,13 @@ function handleKeypress(key: string) {
       }
       break
 
-    case 'f': {
-      const outfitTestVrm = path.resolve(here, '..', 'test-vrm-clothes', 'komoe.vrm')
-      if (fs.existsSync(outfitTestVrm)) {
-        broadcast({ type: 'stage:vrm:load', data: { modelPath: outfitTestVrm } })
-        logEvent(`Sent stage:vrm:load → komoe.vrm (outfit test)`)
-      }
-      else {
-        logEvent(`Outfit test VRM not found at: ${outfitTestVrm}`)
-      }
+    case 'f':
+      applyOutfitManifest('Manifest A (4 slots)', OUTFIT_MANIFEST_A)
       break
-    }
+
+    case 'g':
+      applyOutfitManifest('Manifest B (6 slots)', OUTFIT_MANIFEST_B)
+      break
 
     case 'l':
       triggerLipSyncSimulation()

@@ -387,7 +387,7 @@ public class VRMLoader : MonoBehaviour
                         if (string.IsNullOrEmpty(meshName)) continue;
                         foreach (var t in allTransforms)
                         {
-                            if (t.name.Equals(meshName, StringComparison.OrdinalIgnoreCase))
+                            if (IsMeshMatch(meshName, t.gameObject))
                             {
                                 if (!matchedObjects.Contains(t.gameObject))
                                     matchedObjects.Add(t.gameObject);
@@ -407,6 +407,63 @@ public class VRMLoader : MonoBehaviour
         {
             Debug.LogError($"[VRMLoader] Failed to inject dynamic outfits: {ex.Message}");
         }
+    }
+
+    private static string NormalizeMeshName(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        string lower = s.Trim().ToLowerInvariant();
+        // Strip .baked or baked suffix (and any trailing _0, _1, etc.)
+        lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\.?baked(_\d+)?$", "");
+        // Strip delimiters
+        lower = System.Text.RegularExpressions.Regex.Replace(lower, @"[._\-\s]", "");
+        return lower;
+    }
+
+    private static bool IsMeshMatch(string searchName, GameObject go)
+    {
+        if (go == null || string.IsNullOrEmpty(searchName)) return false;
+
+        string searchExact = searchName.Trim();
+        string searchNorm = NormalizeMeshName(searchName);
+
+        // 1. Exact or case-insensitive match on GameObject name
+        if (go.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // 2. Exact match on SkinnedMeshRenderer / MeshFilter sharedMesh name
+        var smr = go.GetComponent<SkinnedMeshRenderer>();
+        if (smr != null && smr.sharedMesh != null && smr.sharedMesh.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var mf = go.GetComponent<MeshFilter>();
+        if (mf != null && mf.sharedMesh != null && mf.sharedMesh.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // 3. Normalized stem matching on GameObject name
+        string goNorm = NormalizeMeshName(go.name);
+        if (!string.IsNullOrEmpty(searchNorm) && !string.IsNullOrEmpty(goNorm))
+        {
+            if (goNorm == searchNorm || goNorm.StartsWith(searchNorm) || searchNorm.StartsWith(goNorm))
+                return true;
+        }
+
+        // 4. Normalized stem matching on sharedMesh name
+        if (smr != null && smr.sharedMesh != null)
+        {
+            string meshNorm = NormalizeMeshName(smr.sharedMesh.name);
+            if (!string.IsNullOrEmpty(meshNorm) && (meshNorm == searchNorm || meshNorm.StartsWith(searchNorm) || searchNorm.StartsWith(meshNorm)))
+                return true;
+        }
+
+        if (mf != null && mf.sharedMesh != null)
+        {
+            string meshNorm = NormalizeMeshName(mf.sharedMesh.name);
+            if (!string.IsNullOrEmpty(meshNorm) && (meshNorm == searchNorm || meshNorm.StartsWith(searchNorm) || searchNorm.StartsWith(meshNorm)))
+                return true;
+        }
+
+        return false;
     }
 
     public Texture2D MakeReadableCopy(Texture texture)

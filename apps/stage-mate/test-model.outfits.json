@@ -1,0 +1,46 @@
+{
+  "entries": [
+    {
+      "name": "WINGS",
+      "tag": "",
+      "meshes": [
+        "Wing"
+      ]
+    },
+    {
+      "name": "HEAD DRESS",
+      "tag": "",
+      "meshes": [
+        "HeadDress"
+      ]
+    },
+    {
+      "name": "LONG SLEEVES",
+      "tag": "",
+      "meshes": [
+        "LongSleeve"
+      ]
+    },
+    {
+      "name": "LONG SKIRT",
+      "tag": "",
+      "meshes": [
+        "Skirt_Long"
+      ]
+    },
+    {
+      "name": "CLOTHES A",
+      "tag": "dress",
+      "meshes": [
+        "ClothesA"
+      ]
+    },
+    {
+      "name": "CLOTHES B",
+      "tag": "dress",
+      "meshes": [
+        "ClothesB"
+      ]
+    }
+  ]
+}
