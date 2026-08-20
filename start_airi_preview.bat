@@ -9,6 +9,7 @@ echo [2/3] Building Tamagotchi production assets...
 call pnpm -F @proj-airi/stage-tamagotchi run build
 
 echo [3/3] Starting Tamagotchi in Preview Mode...
+set ELECTRON_RUN_AS_NODE=
 :: Try to use local config if it exists, otherwise use default
 if exist "apps\stage-tamagotchi\electron.vite.config.local.ts" (
     call pnpm -F @proj-airi/stage-tamagotchi start --config electron.vite.config.local.ts
