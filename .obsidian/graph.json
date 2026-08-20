@@ -1,0 +1,86 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:\".agents/skills\"",
+      "color": {
+        "a": 1,
+        "rgb": 14702166
+      }
+    },
+    {
+      "query": "path:\"docs/content\"",
+      "color": {
+        "a": 1,
+        "rgb": 5677280
+      }
+    },
+    {
+      "query": "path:\"docs/\"",
+      "color": {
+        "a": 1,
+        "rgb": 15246141
+      }
+    },
+    {
+      "query": "path:\"packages/\"",
+      "color": {
+        "a": 1,
+        "rgb": 5677184
+      }
+    },
+    {
+      "query": "path:\"apps/component-calling\"",
+      "color": {
+        "a": 1,
+        "rgb": 3123360
+      }
+    },
+    {
+      "query": "path:\"apps/stage-mate\"",
+      "color": {
+        "a": 1,
+        "rgb": 14708778
+      }
+    },
+    {
+      "query": "path:\"apps/stage-pocket\"",
+      "color": {
+        "a": 1,
+        "rgb": 14046878
+      }
+    },
+    {
+      "query": "path:\"apps/stage-tamagotchi\"",
+      "color": {
+        "a": 1,
+        "rgb": 8214240
+      }
+    },
+    {
+      "query": "path:\"apps/stage-web\"",
+      "color": {
+        "a": 1,
+        "rgb": 5810012
+      }
+    }
+  ],
+  "collapse-display": true,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 0.13168724279835364,
+  "close": false
+}

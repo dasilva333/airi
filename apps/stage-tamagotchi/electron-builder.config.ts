@@ -66,6 +66,8 @@ else {
   console.info('[electron-builder/config] Xcode version is 26 or above. Using .icon format for macOS app icon.')
 }
 
+const isReleaseSigning = Boolean(process.env.CSC_LINK || process.env.APPLE_DEVELOPER_TEAM_ID)
+
 const STAGE_MATE_RESOURCE_FILTERS = [
   '**/*',
   '!*.log',
