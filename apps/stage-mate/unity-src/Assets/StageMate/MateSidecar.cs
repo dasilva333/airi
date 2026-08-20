@@ -130,6 +130,24 @@ public class MateSidecar : MonoBehaviour
         pendingInitialSize = LoadSavedSize();
         hasPendingInitialSize = true;
 
+        // Deactivate full-screen legacy DragMoveCanvas / WindowMoveHandle so it doesn't intercept raycasts
+        var dragCanvas = GameObject.Find("DragMoveCanvas");
+        if (dragCanvas != null) dragCanvas.SetActive(false);
+
+        var moveHandle = GameObject.Find("WindowMoveHandle");
+        if (moveHandle != null) moveHandle.SetActive(false);
+
+        // Remove physics collider from ground Shadow so only the avatar catches clicks (visual shadow renderer remains intact)
+        var shadowObj = GameObject.Find("Shadow");
+        if (shadowObj != null)
+        {
+            var colliders = shadowObj.GetComponents<Collider>();
+            foreach (var c in colliders)
+            {
+                if (c != null) Destroy(c);
+            }
+        }
+
         if (windowController != null)
         {
             windowController.isTransparent = !showBackground;

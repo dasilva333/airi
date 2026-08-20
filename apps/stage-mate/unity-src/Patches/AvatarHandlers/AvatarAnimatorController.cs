@@ -148,6 +148,9 @@ public class AvatarAnimatorController : MonoBehaviour
         return false;
     }
 
+    private Vector2 dragGrabOffset;
+    private bool isWindowDragging;
+
     void Update()
     {
         animator.SetFloat(isFemaleParam, enableHusbandoMode ? 0f : 1f);
@@ -157,22 +160,45 @@ public class AvatarAnimatorController : MonoBehaviour
         {
             if (isDragging) SetDragging(false);
             if (isDancing) SetDancing(false);
+            isWindowDragging = false;
             return;
         }
         if (Input.GetMouseButtonDown(0))
         {
-            SetDragging(true);
-            mouseHeld = true;
-            dragLockTimer = 0.30f;
-            SetDancing(false);
+            if (IsMouseOverAvatar())
+            {
+                SetDragging(true);
+                mouseHeld = true;
+                dragLockTimer = 0.30f;
+                SetDancing(false);
+
+                if (Kirurobo.UniWindowController.current != null)
+                {
+                    isWindowDragging = true;
+                    dragGrabOffset = Kirurobo.UniWindowController.current.windowPosition - Kirurobo.UniWindowController.current.cursorPosition;
+                }
+            }
         }
-        if (Input.GetMouseButtonUp(0)) mouseHeld = false;
+        if (Input.GetMouseButton(0) && isWindowDragging && Kirurobo.UniWindowController.current != null)
+        {
+            Vector2 curCursor = Kirurobo.UniWindowController.current.cursorPosition;
+            Kirurobo.UniWindowController.current.windowPosition = curCursor + dragGrabOffset;
+        }
+        if (Input.GetMouseButtonUp(0))
+        {
+            mouseHeld = false;
+            isWindowDragging = false;
+        }
         if (dragLockTimer > 0f)
         {
             dragLockTimer -= Time.deltaTime;
             animator.SetBool(isDraggingParam, true);
         }
-        else if (!mouseHeld && isDragging) SetDragging(false);
+        else if (!mouseHeld && isDragging)
+        {
+            SetDragging(false);
+            isWindowDragging = false;
+        }
 
         idleTimer += Time.deltaTime;
         if (idleTimer > IDLE_SWITCH_TIME)
@@ -247,6 +273,40 @@ public class AvatarAnimatorController : MonoBehaviour
     }
 
     public bool IsInIdleState() => isIdle;
+
+    private bool IsMouseOverAvatar()
+    {
+        // If UniWindowController indicates we are on a transparent pixel, reject dragging
+        if (Kirurobo.UniWindowController.current != null && Kirurobo.UniWindowController.current.isTransparent)
+        {
+            if (!Kirurobo.UniWindowController.current.isPointerOnObject)
+                return false;
+        }
+
+        // Raycast to check if mouse actually clicked on an avatar model collider/mesh
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out RaycastHit hit, 100f))
+            {
+                if (hit.collider != null)
+                {
+                    // Ignore non-avatar ground shadow
+                    if (hit.collider.gameObject.name.Equals("Shadow", System.StringComparison.OrdinalIgnoreCase))
+                        return false;
+                    return true;
+                }
+            }
+        }
+
+        if (Kirurobo.UniWindowController.current != null)
+        {
+            return Kirurobo.UniWindowController.current.isPointerOnObject;
+        }
+
+        return true;
+    }
 
     void CleanupAudioResources()
     {

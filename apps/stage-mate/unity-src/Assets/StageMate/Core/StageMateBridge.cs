@@ -50,13 +50,11 @@ namespace StageMate.Core
             {
                 windowController.isTopmost = true;
                 windowController.transparentType = UniWindowController.TransparentType.Alpha;
-#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-                windowController.isHitTestEnabled = false;
-                windowController.windowSize = new Vector2(768, 512);
-#else
                 windowController.isHitTestEnabled = true;
                 windowController.hitTestType = UniWindowController.HitTestType.Opacity;
                 windowController.opacityThreshold = 0.05f;
+#if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+                windowController.windowSize = new Vector2(768, 512);
 #endif
                 windowController.autoSwitchCameraBackground = true;
                 windowController.isTransparent = true;
@@ -565,6 +563,24 @@ namespace StageMate.Core
                 if (go != null)
                 {
                     go.SetActive(false);
+                }
+            }
+
+            // Deactivate legacy DragMoveCanvas / WindowMoveHandle
+            var dragCanvas = GameObject.Find("DragMoveCanvas");
+            if (dragCanvas != null) dragCanvas.SetActive(false);
+
+            var moveHandle = GameObject.Find("WindowMoveHandle");
+            if (moveHandle != null) moveHandle.SetActive(false);
+
+            // Remove physics collider from ground Shadow so only the avatar catches clicks (visual shadow renderer remains intact)
+            var shadowObj = GameObject.Find("Shadow");
+            if (shadowObj != null)
+            {
+                var colliders = shadowObj.GetComponents<Collider>();
+                foreach (var c in colliders)
+                {
+                    if (c != null) Destroy(c);
                 }
             }
 

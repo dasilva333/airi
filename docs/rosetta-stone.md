@@ -2,6 +2,8 @@
 
 Concept-to-file-path index for rapid context retrieval. Use this to find where anything lives — UI, data, providers, modules, audio, memory, or the integration plumbing between them.
 
+> **Relationship to `.agents/skills/`:** The skills directory contains ~52 deep-dive domain guides (staged entry points, pitfalls, SOPs). This Rosetta Stone is the dense index layer — use it to locate where something lives; load the corresponding skill for implementation procedure.
+
 ---
 
 ## 0. Reading Order & Index (Read This First)
@@ -20,7 +22,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 > | LLM orchestration, ACT pipeline, tool calls, system-prompt composition, dating sim | **10** |
 > | Discord bot, slash commands, vision routing | **11** |
 > | MCP servers, tool bridges, stdio services | **12** |
-> | Cross-window state sync — the **canonical 28-channel BroadcastChannel registry** | **13** |
+> | Cross-window state sync — the **canonical BroadcastChannel registry (27 channels as of this pass)** | **13** |
 > | Repo layout — "which package/app owns X" | **14** |
 > | Decoding slang a user/agent used ("the tamagotchi", "the brain", "the strip") | **15** |
 > | Hard-won pitfalls & failure modes (binary proxies, eventa serializer, eager watchers) | **16** |
@@ -131,7 +133,7 @@ The canonical reference for every storage key, type, and sync behavior is **[`do
 | `local:chat/index/{userId}` | Session index (organized by character) | Merged per-session |
 | `local:memory/text-journal/{userId}` | Long-term memory entries | Merged by ID |
 | `local:memory/short-term/{userId}` | Daily summary blocks | Merged by ID |
-| `local:memory/lifetime/{characterId}` | Eternal thread artifacts | Full LWW |
+| `local:memory/lifetime/{characterId}` | Eternal thread artifacts | Universe-scoped key (`{characterId}:{universeId}`); data merged by artifact id (LWW) |
 | `local:memory/echo-chips/{userId}` | Semantic bursts | Merged by ID |
 | `local:director/sessions/{id}` | Director notes | Full LWW, conflict-protected |
 | `local:characters` | Community character catalog | Full LWW |
@@ -331,7 +333,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 
 | Concept | Path |
 | :--- | :--- |
-| **ACT Pipeline (Parser)** | `packages/stage-ui/src/composables/use-llm-marker-parser.ts` |
+| **ACT Pipeline (Parser)** | `packages/stage-ui/src/composables/llm-marker-parser.ts` |
 | **ACT Pipeline (Execution)** | `packages/stage-ui-three/src/composables/vrm/expression.ts` |
 | **Artistry / ComfyUI** | `apps/stage-tamagotchi/src/main/services/airi/widgets/providers/comfyui.ts` |
 | **Artistry Bridge** | `apps/stage-tamagotchi/src/main/services/airi/widgets/artistry-bridge.ts` |
@@ -449,7 +451,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `airi-control-strip-actions` | `renderer/pages/customizer.vue` | Control-strip customizer action bus |
 | `airi:custom-vrma-sync` | `stage-ui-three/src/stores/custom-vrm-animations.ts` | Custom VRMA animation import/deletion sync |
 | `airi::beat-sync` | `stage-shared/src/beat-sync/eventa.ts` | **(raw `new BroadcastChannel`, note `::`)** Audio beat detection & lip-sync amplitude relay across processes/windows |
-| `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows |
+| `dating-sim-sync` | `stores/dating-sim.ts` | **(raw `new BroadcastChannel`)** Dating-sim game-state sync across windows; a dedicated `live2d-dsl-bridge` channel relays DSL motion commands |
 
 ---
 
@@ -497,7 +499,10 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `crates/` | Legacy Tauri desktop app (current desktop is Electron — ignore) |
 | `docs/` | Proposal docs, reference sheets, how-to guides |
 | `docs/content/en/docs/` | In-app manual content (vitepress) |
-| `docs/design-prospective-rich-journal.md` | Specification for the Cognitive Memory / Dreaming UI ("the rich journal") |
+| `scripts/motion-export/` | ONNX texture-export lineage (`compile_onnx.py`, `inspect_sampler.py`, `test_onnx_parity.py`) |
+| `docs/proposal-echo-chips-rwkv-synthesis.md` | Echo chips synthesis proposal |
+| `docs/memory_lab/` | Memory-lab experimental docs (rich journal, activation, STMM/LTMM specs) |
+| `docs/design-text-to-motion.md` | Supersedes `proposal-text-to-vrma-system.md` as canonical motion design |
 
 ---
 

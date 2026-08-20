@@ -258,6 +258,12 @@ namespace Kirurobo
         [Header("State")]
         [SerializeField, ReadOnly, Tooltip("Is the mouse pointer on an opaque pixel? (Read only)")]
         private bool onObject = true;
+
+        /// <summary>
+        /// Public accessor for whether cursor is on an opaque pixel/object
+        /// </summary>
+        public bool isPointerOnObject => onObject;
+        public bool onObjectState => onObject;
         
         /// <summary>
         /// Pixel color under the mouse pointer. (Read only)
@@ -648,8 +654,29 @@ namespace Kirurobo
         /// </summary>
         private Vector2 GetClientCursorPosition()
         {
+#if UNITY_EDITOR 
+    #if ENABLE_LEGACY_INPUT_MANAGER
+            return Input.mousePosition;
+    #elif UNITY_EDITOR && ENABLE_INPUT_SYSTEM
+            return Mouse.current.position.ReadValue();
+    #else
+            return Input.mousePosition;
+    #endif
+#elif (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+            Vector2 mousePos = UniWinCore.GetCursorPosition();
+            Vector2 winPos = windowPosition;
+            Vector2 size = clientSize;
+            float winW = size.x > 0 ? size.x : (windowSize.x > 0 ? windowSize.x : (float)Screen.width);
+            float winH = size.y > 0 ? size.y : (windowSize.y > 0 ? windowSize.y : (float)Screen.height);
 
-            // New Input System ではフォーカスが無い場合にマウス座標が取得できないため独自に計算する
+            float normX = (mousePos.x - winPos.x) / winW;
+            float normY = (mousePos.y - winPos.y) / winH;
+
+            float localX = normX * Screen.width;
+            float localY = (1.0f - normY) * Screen.height;
+            return new Vector2(localX, localY);
+#else
+            // Windows native path
             Vector2 mousePos = UniWinCore.GetCursorPosition();
             Vector2 winPos = windowPosition;
             Rect clientRect = _uniWinCore.GetClientRectangle();
@@ -657,30 +684,6 @@ namespace Kirurobo
                 (mousePos.x - winPos.x - clientRect.x) * Screen.width / clientRect.width,
                 (mousePos.y - winPos.y - clientRect.y) * Screen.height / clientRect.height
                 );
-
-//             // デバッグ用
-//             // Unityで取得した値と比較
-// #if ENABLE_LEGACY_INPUT_MANAGER
-//             Vector2 position = Input.mousePosition;
-// #elif ENABLE_INPUT_SYSTEM
-//             Vector2 position = Mouse.current.position.ReadValue();
-// #endif
-//             if (!position.Equals(unityPos))
-//             {
-//                 Debug.LogWarning("Mouse position diff : " + position + " / " + unityPos);
-//             }
-
-            // エディターの場合は常にUnityの機能でマウス座標を取得
-            //   Gameウィンドウ単体ではなかったり、Scaleが異なる場合があるため単純計算では求まらない
-#if UNITY_EDITOR 
-    #if ENABLE_LEGACY_INPUT_MANAGER
-            return Input.mousePosition;
-    #elif UNITY_EDITOR && ENABLE_INPUT_SYSTEM
-            return Mouse.current.position.ReadValue();
-    #else
-            return unityPos;
-    #endif
-#else
             return unityPos;
 #endif
         }
