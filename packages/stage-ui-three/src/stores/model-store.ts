@@ -14,9 +14,11 @@ export type InteractionMode = 'orbit' | 'tactile' | 'drag' | 'positioning'
 export type HexColor = string & { __hex?: true }
 
 export interface DiscoveredMeshNode {
+  id?: string
   name: string
   isSkinned: boolean
   vertexCount: number
+  children?: DiscoveredMeshNode[]
 }
 
 export interface FieldBase<T> {
@@ -177,11 +179,18 @@ export const useModelStore = defineStore('modelStore', () => {
           }
         }
 
-        // Fallback match by normalized name
-        if (!isMatch && node.name) {
-          const normNode = normalize(stripSuffix(node.name))
-          if (normNode === normTarget) {
-            isMatch = true
+        // Fallback match by normalized name or ancestor container name
+        if (!isMatch) {
+          let curr: any = node
+          while (curr && curr !== activeVrm.value?.scene) {
+            if (curr.name) {
+              const normCurr = normalize(stripSuffix(curr.name))
+              if (normCurr === normTarget) {
+                isMatch = true
+                break
+              }
+            }
+            curr = curr.parent
           }
         }
 

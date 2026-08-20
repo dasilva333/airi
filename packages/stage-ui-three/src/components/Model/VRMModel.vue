@@ -17,7 +17,7 @@ import type {
 } from 'three'
 import type { Ref, WatchStopHandle } from 'vue'
 
-import type { Vec3 } from '../../stores/model-store'
+import type { DiscoveredMeshNode, Vec3 } from '../../stores/model-store'
 
 import { VRMUtils } from '@pixiv/three-vrm'
 import { useLoop, useTresContext } from '@tresjs/core'
@@ -651,49 +651,65 @@ async function loadModel() {
         modelStore.availableExpressions = [...nativeExpressions, ...vrmUnlockedExpressions].sort()
       }
 
-      // Populate discovered 3D mesh nodes for the wardrobe/outfits UI using native glTF nodes
-      const meshNodes: Array<{ name: string, isSkinned: boolean, vertexCount: number }> = []
-      const gltfNodes = vrmParser?.json?.nodes
-      const gltfMeshes = vrmParser?.json?.meshes
+      // Populate discovered 3D mesh hierarchy tree for the wardrobe/outfits UI
+      function buildMeshHierarchy(scene: any): DiscoveredMeshNode[] {
+        function processNode(node: any): DiscoveredMeshNode | null {
+          const isDirectMesh = Boolean(node.isMesh || node.isSkinnedMesh)
+          const directVerts = isDirectMesh ? (node.geometry?.attributes?.position?.count ?? 0) : 0
+          const childrenNodes: DiscoveredMeshNode[] = []
 
-      if (Array.isArray(gltfNodes) && gltfNodes.length > 0) {
-        for (let i = 0; i < gltfNodes.length; i++) {
-          const gNode = gltfNodes[i]
-          if (gNode.mesh !== undefined) {
-            const nodeName = gNode.name || gltfMeshes?.[gNode.mesh]?.name || `Mesh_${gNode.mesh}`
-            let totalVerts = 0
-            _vrm.scene.traverse((sceneNode: any) => {
-              if (sceneNode.isMesh || sceneNode.isSkinnedMesh) {
-                const assoc = vrmParser?.associations?.get(sceneNode)
-                if (assoc && assoc.nodes === i) {
-                  totalVerts += sceneNode.geometry?.attributes?.position?.count ?? 0
-                }
-                else if (sceneNode.name && (sceneNode.name === nodeName || sceneNode.name.startsWith(`${nodeName}baked`) || sceneNode.name.startsWith(`${nodeName}.`))) {
-                  totalVerts += sceneNode.geometry?.attributes?.position?.count ?? 0
-                }
+          if (node.children && Array.isArray(node.children)) {
+            for (const child of node.children) {
+              const childRes = processNode(child)
+              if (childRes) {
+                childrenNodes.push(childRes)
               }
-            })
+            }
+          }
 
-            meshNodes.push({
-              name: nodeName,
-              isSkinned: gNode.skin !== undefined,
-              vertexCount: totalVerts,
-            })
+          const totalVerts = directVerts + childrenNodes.reduce((sum, c) => sum + c.vertexCount, 0)
+          const hasMeshes = isDirectMesh || childrenNodes.length > 0
+
+          if (!hasMeshes)
+            return null
+
+          const rawName = node.name || (isDirectMesh ? 'Mesh' : 'Group')
+          const cleanName = rawName.replace(/\.baked(_\d+)?$/i, '').replace(/baked(_\d+)?$/i, '')
+
+          return {
+            id: node.uuid || cleanName,
+            name: cleanName,
+            isSkinned: Boolean(node.isSkinnedMesh) || childrenNodes.some(c => c.isSkinned),
+            vertexCount: totalVerts,
+            children: childrenNodes.length > 0 ? childrenNodes : undefined,
           }
         }
-      }
-      else {
-        _vrm.scene.traverse((node: any) => {
-          if ((node.isMesh || node.isSkinnedMesh) && node.name) {
-            meshNodes.push({
-              name: node.name,
-              isSkinned: Boolean(node.isSkinnedMesh),
-              vertexCount: node.geometry?.attributes?.position?.count ?? 0,
-            })
+
+        let nodes: DiscoveredMeshNode[] = []
+        if (scene?.children) {
+          for (const child of scene.children) {
+            const res = processNode(child)
+            if (res)
+              nodes.push(res)
           }
-        })
+        }
+
+        // Unwrap single top-level wrapper if it contains no direct geometry
+        while (nodes.length === 1 && nodes[0].children && nodes[0].children.length > 0) {
+          const single = nodes[0]
+          const obj = scene.getObjectByName(single.name)
+          if (obj && !obj.isMesh && !obj.isSkinnedMesh) {
+            nodes = single.children ?? []
+          }
+          else {
+            break
+          }
+        }
+
+        return nodes
       }
-      modelStore.discoveredMeshes = meshNodes
+
+      modelStore.discoveredMeshes = buildMeshHierarchy(_vrm.scene)
 
       const hipNode = _vrm.humanoid?.getNormalizedBoneNode('hips')
       if (hipNode) {

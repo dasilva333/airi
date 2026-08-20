@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { DiscoveredMeshNode } from '@proj-airi/stage-ui-three'
+
 import type { AiriOutfit } from '../../../../stores/modules/airi-card'
 
 import { useLive2d } from '@proj-airi/stage-ui-live2d/stores'
@@ -10,6 +12,8 @@ import { nanoid } from 'nanoid'
 import { storeToRefs } from 'pinia'
 import { computed, ref, toRaw, watch } from 'vue'
 import { toast } from 'vue-sonner'
+
+import WardrobeMeshTreeNode from './components/WardrobeMeshTreeNode.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
@@ -489,12 +493,26 @@ const suggestedTags = [
 ]
 
 const { discoveredMeshes } = storeToRefs(modelStore)
-const filteredDiscoveredMeshes = computed(() => {
-  const query = searchMeshQuery.value.trim().toLowerCase()
-  if (!query)
-    return discoveredMeshes.value
-  return discoveredMeshes.value.filter(m => m.name.toLowerCase().includes(query))
-})
+
+function getAllLeafNamesFromNode(node: DiscoveredMeshNode): string[] {
+  if (!node.children || node.children.length === 0)
+    return [node.name]
+  const list: string[] = []
+  for (const c of node.children) {
+    list.push(...getAllLeafNamesFromNode(c))
+  }
+  return list
+}
+
+function getAllLeafNamesFromTree(tree: DiscoveredMeshNode[]): string[] {
+  const list: string[] = []
+  for (const node of tree) {
+    list.push(...getAllLeafNamesFromNode(node))
+  }
+  return list
+}
+
+const allDiscoveredLeafMeshes = computed(() => getAllLeafNamesFromTree(discoveredMeshes.value))
 
 function startBuildingOutfit() {
   isBuildingOutfit.value = true
@@ -528,17 +546,33 @@ function toggleMesh(meshName: string) {
   }
 }
 
+function toggleSubtree(node: DiscoveredMeshNode, shouldHide: boolean) {
+  const leaves = getAllLeafNamesFromNode(node)
+  for (const leaf of leaves) {
+    if (shouldHide) {
+      selectedMeshes.value.add(leaf)
+      modelStore.setMeshVisibility(leaf, false)
+    }
+    else {
+      selectedMeshes.value.delete(leaf)
+      modelStore.setMeshVisibility(leaf, true)
+    }
+  }
+}
+
 function selectAllMeshes() {
-  for (const m of filteredDiscoveredMeshes.value) {
-    selectedMeshes.value.add(m.name)
-    modelStore.setMeshVisibility(m.name, false)
+  const leaves = allDiscoveredLeafMeshes.value
+  for (const name of leaves) {
+    selectedMeshes.value.add(name)
+    modelStore.setMeshVisibility(name, false)
   }
 }
 
 function clearAllMeshes() {
-  for (const m of filteredDiscoveredMeshes.value) {
-    selectedMeshes.value.delete(m.name)
-    modelStore.setMeshVisibility(m.name, true)
+  const leaves = allDiscoveredLeafMeshes.value
+  for (const name of leaves) {
+    selectedMeshes.value.delete(name)
+    modelStore.setMeshVisibility(name, true)
   }
 }
 
@@ -1104,7 +1138,7 @@ function toggleMotionCycle(key: string) {
           <div v-if="isBuildingOutfit" class="flex flex-col gap-3 pt-2">
             <div class="flex items-center justify-between px-1">
               <span class="text-xs text-neutral-500 dark:text-neutral-400">
-                {{ discoveredMeshes.length }} meshes discovered · select parts to bundle
+                {{ allDiscoveredLeafMeshes.length }} meshes discovered · select parts to bundle
               </span>
               <div class="flex gap-1">
                 <button
@@ -1198,16 +1232,16 @@ function toggleMotionCycle(key: string) {
               </div>
             </Container>
 
-            <!-- Discovered 3D Meshes Selection Grid -->
+            <!-- Discovered 3D Meshes Selection Hierarchy Tree -->
             <Container
-              :title="`Discovered 3D Meshes (${discoveredMeshes.length})`"
+              :title="`Discovered 3D Meshes (${allDiscoveredLeafMeshes.length})`"
               :expand="true"
               inner-class="flex flex-col gap-2 p-3"
             >
               <div class="flex items-center justify-between gap-2">
                 <Input
                   v-model="searchMeshQuery"
-                  placeholder="Search meshes..."
+                  placeholder="Search meshes or parts..."
                   size="sm"
                   class="flex-1"
                 />
@@ -1230,35 +1264,23 @@ function toggleMotionCycle(key: string) {
               </div>
 
               <div
-                v-if="filteredDiscoveredMeshes.length === 0"
+                v-if="discoveredMeshes.length === 0"
                 class="p-4 text-center text-xs text-neutral-400"
               >
-                {{ discoveredMeshes.length === 0 ? 'No 3D meshes detected on loaded model.' : 'No meshes match filter.' }}
+                No 3D meshes detected on loaded model.
               </div>
 
-              <div v-else class="flex flex-wrap gap-1.5 pt-1">
-                <button
-                  v-for="mesh in filteredDiscoveredMeshes"
-                  :key="mesh.name"
-                  type="button"
-                  class="group relative flex items-center gap-1.5 border border-neutral-200 rounded-lg border-solid px-2.5 py-1 text-xs transition-all duration-150 dark:border-neutral-700"
-                  :class="[
-                    selectedMeshes.has(mesh.name)
-                      ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-300 font-medium ring-1 ring-amber-500'
-                      : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-800/60 dark:text-neutral-300 dark:hover:bg-neutral-700',
-                  ]"
-                  @click="toggleMesh(mesh.name)"
-                >
-                  <div
-                    class="size-3.5 flex items-center justify-center border rounded-sm"
-                    :class="selectedMeshes.has(mesh.name) ? 'bg-amber-500 border-amber-500 text-white' : 'border-neutral-400 text-neutral-400'"
-                  >
-                    <div :class="selectedMeshes.has(mesh.name) ? 'i-solar:eye-closed-bold-duotone text-[10px]' : 'i-solar:eye-bold-duotone text-[10px]'" />
-                  </div>
-                  <span class="font-mono">{{ mesh.name }}</span>
-                  <span v-if="selectedMeshes.has(mesh.name)" class="text-[9px] text-amber-600 font-bold uppercase dark:text-amber-400">hidden</span>
-                  <span v-else class="text-[9px] text-neutral-400">({{ mesh.vertexCount }}v)</span>
-                </button>
+              <div v-else class="max-h-72 flex flex-col gap-1 overflow-y-auto pt-1">
+                <WardrobeMeshTreeNode
+                  v-for="rootNode in discoveredMeshes"
+                  :key="rootNode.id || rootNode.name"
+                  :node="rootNode"
+                  :selected-meshes="selectedMeshes"
+                  :search-query="searchMeshQuery"
+                  :depth="0"
+                  @toggle-mesh="toggleMesh"
+                  @toggle-subtree="toggleSubtree"
+                />
               </div>
             </Container>
           </div>

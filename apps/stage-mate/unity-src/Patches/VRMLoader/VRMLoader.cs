@@ -490,6 +490,28 @@ public class VRMLoader : MonoBehaviour
                 return true;
         }
 
+        // 6. Check if any parent/ancestor container transform matches searchName
+        Transform curr = go.transform.parent;
+        while (curr != null && curr != curr.root)
+        {
+            string parentNorm = NormalizeMeshName(curr.name);
+            if (!string.IsNullOrEmpty(parentNorm) && parentNorm == searchNorm)
+                return true;
+            if (curr.name.Equals(searchExact, StringComparison.OrdinalIgnoreCase))
+                return true;
+            curr = curr.parent;
+        }
+
+        // 7. Prefix match for sub-parts (e.g. "skirt" matches "skirtbaked", "skirt_0", "skirt_1")
+        if (!string.IsNullOrEmpty(goNorm) && goNorm.StartsWith(searchNorm))
+            return true;
+        if (smr != null && smr.sharedMesh != null)
+        {
+            string meshNorm = NormalizeMeshName(smr.sharedMesh.name);
+            if (!string.IsNullOrEmpty(meshNorm) && meshNorm.StartsWith(searchNorm))
+                return true;
+        }
+
         return false;
     }
 
