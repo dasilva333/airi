@@ -25,7 +25,12 @@ if not defined HAS_MATE (
     echo [Stage-Mate] Companion runtime already available. Skipping download.
 )
 
-echo [4/4] Starting AIRI...
-call start_airi.bat
+echo.
+echo ===================================================
+echo  Installation complete! You can now launch AIRI:
+echo    - Standard: start_airi.bat
+echo    - Dual / Dedicated GPU: start_airi_hiperf.bat
+echo ===================================================
+echo.
 
 endlocal
