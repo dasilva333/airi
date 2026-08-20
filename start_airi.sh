@@ -13,8 +13,8 @@ if [ ! -d "node_modules" ] || ! command -v pnpm exec turbo &> /dev/null; then
 fi
 
 # Ensure Stage-Mate companion runtime is available
-if [ ! -d "apps/stage-mate/bin/StageMate.app" ] && [ ! -f "apps/stage-mate/bin/StageMate.x86_64" ] && [ ! -d "apps/stage-mate/mate-engine/Build" ]; then
-  echo "[Stage-Mate] Prebuilt companion runtime not detected. Fetching runtime..."
+if [ ! -d "apps/stage-mate/bin/StageMate.app" ] && [ ! -f "apps/stage-mate/bin/StageMate.x86_64" ]; then
+  echo "[Stage-Mate] Prebuilt companion runtime not detected in apps/stage-mate/bin/. Fetching runtime..."
   pnpm -F @proj-airi/stage-mate run engine:fetch || echo "[Stage-Mate] Notice: Runtime fetch skipped. You can fetch later via 'pnpm run stage-mate:fetch'."
 fi
 

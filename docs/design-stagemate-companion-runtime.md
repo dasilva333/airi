@@ -27,34 +27,37 @@ flowchart LR
 
 | Path | Description | Git Status |
 |---|---|---|
-| `apps/stage-mate/bin/` | Primary location for downloaded prebuilt companion runtimes (`StageMate.app`, `StageMate.exe`, `StageMate.x86_64`) | **Gitignored** (`.gitignore`) |
-| `apps/stage-mate/mate-engine/Build/` | Local build output from Unity Editor when compiling via `pnpm build:mac` or `build:win` | **Gitignored** |
+| `apps/stage-mate/bin/` | **Single canonical location** for companion runtimes (`StageMate.app`, `StageMate.exe`, `StageMate.x86_64`). Used in both local build outputs and dynamic fetches. | **Gitignored** (`.gitignore`) |
+| `apps/stage-mate/mate-engine/Build/` | Intermediate Unity Editor scratch build output directory | **Gitignored** |
 | `apps/stage-mate/unity-src/` | Pure version-controlled Unity source code, scripts, patches, and assets | **Tracked** |
-| `apps/stage-mate/scripts/fetch-runtime.ts` | Platform-aware streaming download & extraction script | **Tracked** |
+| `apps/stage-mate/scripts/fetch-runtime.ts` | Platform-aware streaming download & extraction script into `apps/stage-mate/bin/` | **Tracked** |
+| `apps/stage-mate/scripts/build.ts` | Native compiler script that automatically syncs outputs to `apps/stage-mate/bin/` | **Tracked** |
 
 ---
 
 ## 3. Modified Files & System Contracts
 
 1. **`.gitignore`**:
-   - Added `apps/stage-mate/bin/` so downloaded binaries never pollute Git commits.
+   - Added `apps/stage-mate/bin/` so companion binaries never pollute Git commits.
 2. **`apps/stage-mate/scripts/fetch-runtime.ts`**:
    - Detects `process.platform` (`darwin`, `win32`, `linux`).
-   - Downloads `StageMate-<Platform>.zip` from GitHub Release `stagemate-engine-v3.4` (or custom `STAGEMATE_RELEASE_URL`).
-   - Extracts into `apps/stage-mate/bin/` using native tools (`unzip` on Unix, `tar -xf` / `Expand-Archive` on Windows).
+   - Downloads `StageMate-<Platform>.zip` from GitHub Release `stagemate-engine-v3.4`.
+   - Extracts directly into `apps/stage-mate/bin/` using native tools (`unzip` on Unix, `tar -xf` / `Expand-Archive` on Windows).
    - Sets executable permissions (`chmod +x`) on macOS/Linux binaries.
-3. **`apps/stage-mate/package.json` & root `package.json`**:
+3. **`apps/stage-mate/scripts/build.ts`**:
+   - Compiles Unity and automatically syncs the output to `apps/stage-mate/bin/`.
+4. **`apps/stage-mate/package.json` & root `package.json`**:
    - Added `"engine:fetch": "tsx scripts/fetch-runtime.ts"` and root script `"stage-mate:fetch"`.
-4. **Startup Scripts**:
-   - `start_airi.sh`: Auto-checks for `apps/stage-mate/bin/` or `mate-engine/Build/` and triggers fetch if missing.
-   - `start_airi.bat`: Auto-checks for `apps\stage-mate\bin\StageMate.exe` or `Build\StageMate.exe` and triggers fetch if missing.
-   - `install.bat`: Adds an explicit runtime verification step.
-5. **`apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts` (`resolveBinaryPath`)**:
-   - Checks `apps/stage-mate/bin/` first $\rightarrow$ `apps/stage-mate/mate-engine/Build/` $\rightarrow$ `process.resourcesPath/StageMate`.
-6. **`apps/stage-tamagotchi/electron-builder.config.ts`**:
-   - Includes `apps/stage-mate/bin/` in `stageMateWinCandidates` and `stageMateMacCandidates` for production packaging.
-7. **`apps/stage-mate/unity-src/Patches/VRMLoader/VRMLoader.cs` (`IsMeshMatch`)**:
-   - Added ancestor GameObject container matching and normalized prefix matching so V3 outfit groups (e.g. `skirt`) seamlessly toggle all nested child renderers in Unity.
+5. **Startup Scripts**:
+   - `start_airi.sh`: Auto-checks `apps/stage-mate/bin/` and triggers fetch if missing.
+   - `start_airi.bat`: Auto-checks `apps\stage-mate\bin\` and triggers fetch if missing.
+   - `install.bat`: Verifies `apps\stage-mate\bin\` during install and suggests launcher options.
+6. **`apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts` (`resolveBinaryPath`)**:
+   - Checks `apps/stage-mate/bin/` exclusively in development mode $\rightarrow$ `process.resourcesPath/StageMate` in packaged production releases.
+7. **`apps/stage-tamagotchi/electron-builder.config.ts`**:
+   - Bundles from `apps/stage-mate/bin/` for production packaging.
+8. **Subtractive Outfits in Unity (`MEClothes.cs` & `VRMLoader.cs`)**:
+   - Configured `isSubtractive = true` on dynamic `MEClothes` injection so AIRI outfits hide target meshes (`activeSelf = false`) and keep avatar bodies intact.
 
 ---
 

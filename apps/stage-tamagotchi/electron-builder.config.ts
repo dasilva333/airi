@@ -11,14 +11,11 @@ import { fileURLToPath } from 'node:url'
 import { isMacOS } from 'std-env'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const stageMateBuildDir = path.resolve(here, '../stage-mate/mate-engine/Build')
 const stageMateBinDir = path.resolve(here, '../stage-mate/bin')
 
 const stageMateMacCandidates = [
   path.join(stageMateBinDir, 'StageMate.app'),
   path.join(stageMateBinDir, 'StageMate', 'StageMate.app'),
-  path.join(stageMateBuildDir, 'StageMate', 'StageMate.app'),
-  path.join(stageMateBuildDir, 'StageMate.app'),
 ]
 const stageMateMacSource = stageMateMacCandidates.find(appPath => fs.existsSync(appPath))
 const hasStageMateMac = Boolean(stageMateMacSource)
@@ -27,9 +24,6 @@ const stageMateWinCandidates = [
   path.join(stageMateBinDir, 'Windows'),
   path.join(stageMateBinDir, 'StageMate'),
   stageMateBinDir,
-  path.join(stageMateBuildDir, 'Windows'),
-  path.join(stageMateBuildDir, 'StageMate'),
-  stageMateBuildDir,
 ]
 const stageMateWinSource = stageMateWinCandidates.find(dir => fs.existsSync(path.join(dir, 'StageMate.exe')) || fs.existsSync(path.join(dir, 'MateEngineX.exe')))
 const hasStageMateWin = Boolean(stageMateWinSource)

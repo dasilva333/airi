@@ -267,7 +267,6 @@ export function createStageMateService(params?: {
   }
 
   function resolveBinaryPath(): string | null {
-    const baseDevPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/mate-engine/Build')
     const baseBinPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/bin')
 
     if (platform === 'win32') {
@@ -275,10 +274,6 @@ export function createStageMateService(params?: {
         join(baseBinPath, 'StageMate.exe'),
         join(baseBinPath, 'StageMate', 'StageMate.exe'),
         join(baseBinPath, 'Windows', 'StageMate.exe'),
-        join(baseDevPath, 'Windows', 'StageMate.exe'),
-        join(baseDevPath, 'StageMate.exe'),
-        join(baseDevPath, 'StageMate', 'StageMate.exe'),
-        join(baseDevPath, 'MateEngineX.exe'),
         join(process.resourcesPath, 'StageMate.exe'),
         join(process.resourcesPath, 'StageMate', 'StageMate.exe'),
       ]
@@ -291,8 +286,6 @@ export function createStageMateService(params?: {
       const candidates = [
         join(baseBinPath, 'StageMate.x86_64'),
         join(baseBinPath, 'Linux', 'StageMate.x86_64'),
-        join(baseDevPath, 'Linux', 'StageMate.x86_64'),
-        join(baseDevPath, 'StageMate.x86_64'),
         join(process.resourcesPath, 'StageMate.x86_64'),
       ]
       for (const cand of candidates) {
@@ -311,17 +304,8 @@ export function createStageMateService(params?: {
         join(process.resourcesPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(process.resourcesPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseDevPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseDevPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
-        join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/StageMate'),
-        join(baseDevPath, 'macOS', 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(process.resourcesPath, 'StageMate', 'StageMate.app'),
         join(process.resourcesPath, 'StageMate.app'),
-        join(baseDevPath, 'StageMate', 'StageMate.app'),
-        join(baseDevPath, 'StageMate.app'),
-        join(baseDevPath, 'macOS', 'StageMate.app'),
       ]
       for (const cand of candidates) {
         if (existsSync(cand))

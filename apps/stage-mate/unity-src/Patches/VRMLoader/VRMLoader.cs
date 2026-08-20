@@ -365,10 +365,12 @@ public class VRMLoader : MonoBehaviour
             Debug.Log($"[VRMLoader:OUTFITS] >>> RAW AIRI MANIFEST LOADED from {chosenJsonPath}:\n{jsonText}");
 
             var clothes = model.GetComponent<MEClothes>() ?? model.AddComponent<MEClothes>();
+            clothes.isSubtractive = true;
             int count = Mathf.Min(8, config.entries.Length);
             clothes.entries = new MEClothes.OutfitEntry[count];
 
             var allTransforms = model.GetComponentsInChildren<Transform>(true);
+            var avatarRenderers = new System.Collections.Generic.List<GameObject>();
 
             var sb = new System.Text.StringBuilder();
             sb.AppendLine($"[VRMLoader:OUTFITS] >>> ALL UNITY RENDERERS ON AVATAR (Total transforms: {allTransforms.Length}):");
@@ -378,10 +380,14 @@ public class VRMLoader : MonoBehaviour
                 var mf = t.GetComponent<MeshFilter>();
                 if (smr != null || mf != null)
                 {
+                    if (!avatarRenderers.Contains(t.gameObject))
+                        avatarRenderers.Add(t.gameObject);
                     string meshName = smr != null && smr.sharedMesh != null ? smr.sharedMesh.name : (mf != null && mf.sharedMesh != null ? mf.sharedMesh.name : "<none>");
                     sb.AppendLine($"  - [RENDERER] GO='{t.name}' (normGO='{NormalizeMeshName(t.name)}') | Mesh='{meshName}' (normMesh='{NormalizeMeshName(meshName)}') | active={t.gameObject.activeSelf}");
                 }
             }
+            clothes.allRenderers = avatarRenderers.ToArray();
+            clothes.RestoreAllRenderers();
             Debug.Log(sb.ToString());
 
             for (int i = 0; i < count; i++)

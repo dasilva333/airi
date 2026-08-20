@@ -110,6 +110,40 @@ if (!existsSync(buildDir)) {
 const result = spawnSync(unityPath, args, { stdio: 'inherit' })
 if (result.status === 0) {
   console.log(`[build] Build completed successfully for ${targetArg}!`)
+
+  // Automatically sync build output to the single canonical runtime directory: apps/stage-mate/bin/
+  const canonicalBinDir = join(here, '../bin')
+  const { cpSync, mkdirSync } = await import('node:fs')
+  mkdirSync(canonicalBinDir, { recursive: true })
+
+  try {
+    if (platform === 'darwin') {
+      const srcApp = join(buildDir, 'StageMate', 'StageMate.app')
+      const targetApp = join(canonicalBinDir, 'StageMate.app')
+      if (existsSync(srcApp)) {
+        console.log(`[build] Syncing ${srcApp} -> ${targetApp}...`)
+        cpSync(srcApp, targetApp, { recursive: true, force: true })
+      }
+    }
+    else if (platform === 'win32') {
+      const srcWin = join(buildDir, 'Windows')
+      if (existsSync(srcWin)) {
+        console.log(`[build] Syncing ${srcWin} -> ${canonicalBinDir}...`)
+        cpSync(srcWin, canonicalBinDir, { recursive: true, force: true })
+      }
+    }
+    else if (platform === 'linux') {
+      const srcLinux = join(buildDir, 'Linux')
+      if (existsSync(srcLinux)) {
+        console.log(`[build] Syncing ${srcLinux} -> ${canonicalBinDir}...`)
+        cpSync(srcLinux, canonicalBinDir, { recursive: true, force: true })
+      }
+    }
+    console.log(`[build] Synced companion runtime to canonical directory: ${canonicalBinDir}`)
+  }
+  catch (err: any) {
+    console.warn(`[build] Warning: failed to copy output to bin: ${err.message}`)
+  }
 }
 else {
   console.warn(`[build] Unity build exited with status ${result.status}. Skipping native compile pass (prebuilt release binary will be downloaded instead).`)
