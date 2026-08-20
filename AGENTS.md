@@ -3,6 +3,9 @@
 
 Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) before broad architecture exploration or a cross-cutting change. It is the canonical concept-to-path index and records known failure modes. If it conflicts with current source, source wins; correct the Rosetta Stone when the change moves a canonical entry point or establishes a durable lesson.
 
+- **Skills index**: [`docs/project-specialized-skills.md`](./docs/project-specialized-skills.md) is the glossary of every `.agents/skills/` domain guide. Consult it before static architecture exploration — a skill likely exists for the subsystem you are touching, and loading it beats rediscovery. Keep it in sync with the skills directory when adding a skill.
+- **Data catalog**: [`docs/data-catalog.md`](./docs/data-catalog.md) is the canonical inventory of every persisted key (IndexedDB `local:*`/`outbox:*`, localforage blob assets, localStorage settings). Consult it before adding or renaming a storage key, and keep it in sync when keys move — it drifts easily by design of the persistence layer.
+
 ## Pair programming
 
 - Treat this as pair programming: stay in sync with the user's intent instead of racing to code.

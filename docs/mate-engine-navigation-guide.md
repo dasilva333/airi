@@ -494,3 +494,38 @@ Rather than mutating upstream C# scripts or hardcoding state cycles into Unity, 
 5. **Interactive Harness Integration**:
    - In `apps/stage-mate/harness/index.ts`, hotkey `[P]` dynamically steps through the 12 presets live over WebSocket.
 
+---
+
+## 15. Window Sitting, Taskbar/Dock Snapping & macOS Coordinate Unification
+
+### 15.1. Architectural Anatomy: `AvatarWindowHandler` vs Legacy `AvatarTaskbarController`
+- **Active Scene Component**: In upstream MateEngine (`Mate Engine Main.unity`), both window ledge sitting and taskbar sitting are unified under **`AvatarWindowHandler.cs`** attached to the avatar root.
+- **The Core State Machine**:
+  - `isWindowSit` (bool) & `isTaskbarSit` (bool): Drive the sitting animation layers and disable standard locomotion.
+  - `WindowSitIndex` (float): Cycles through distinct physical sitting postures (e.g., lying flat on chest with legs kicked up, sitting upright, dangling legs, leaning on elbows).
+  - `PinToTarget(RECT tr)`: Smoothly dampens and pins the avatar's hip anchor to the target ledge.
+  - `FollowSnapped(bool isDragging)`: Keeps the avatar anchored to the target ledge during window moves and unsnaps when pulled away vertically.
+
+### 15.2. macOS Cocoa Coordinate Inversion (Bottom-Up vs Top-Down)
+Desktop coordinate geometries differ fundamentally between platforms:
+- **Windows (Top-Down)**: Desktop origin `(0, 0)` is at the **top-left**. The taskbar is located at `y = ScreenHeight - TaskbarHeight`, and the sit ledge is `taskbar.top`.
+- **macOS Cocoa (Bottom-Up)**: Desktop origin `(0, 0)` is at the **bottom-left**. The Dock is located at `y = 0 .. DockHeight` (default `66px`), and the sit ledge is at `y = DockHeight`.
+- **Projection Mapping**:
+  - In `ComputeDesktopFromWorld()` and `CalibrateSeatAnchorToDesktopY()`:
+    - **macOS**: `py = uCli.Top + (sp.y / cam.pixelHeight) * uCli.Height`
+    - **Windows**: `py = uCli.Top + (cam.pixelHeight - sp.y) * uCli.Height`
+  - In `MacScreenBridge.mm`: Dock rect is reported as `Rect(visible.origin.x, 0, visible.size.width, visible.origin.y)`.
+
+### 15.3. Vertical Drag Overflow & Hip-Anchored Snapping
+- **The Hip Anchor Contract**: Avatars do not sit from their feet; their seat anchor is located at the 3D **`HumanBodyBones.Hips`** bone.
+- **Leg Overflow**: To allow the avatar's hips to rest flush on the 66px Dock ledge, the lower half of the Unity transparent window (`y < 0`) must be allowed to sink below the bottom screen edge.
+- **Unclamped Window Position**: `UniWindowController.windowPosition` must pass positions directly to `_uniWinCore.SetWindowPosition` without artificial `Mathf.Max(0f, value.y)` clamps.
+
+### 15.4. Cross-Platform P/Invoke Safety Rules
+To prevent runtime `DllNotFoundException` crashes on macOS and preserve Windows functionality:
+1. **Process ID**: Use standard C# `(uint)Process.GetCurrentProcess().Id` rather than Windows `kernel32.dll!GetCurrentProcessId`.
+2. **Cursor Position**: Use `SafeGetCursorPos` reading `UniWindowController.current.cursorPosition` rather than Win32 `user32.dll!GetCursorPos`.
+3. **Window Enumeration & Visibility**: Scope `EnumWindows`, `IsIconic`, `GetWindowPlacement`, `GetWindowThreadProcessId`, and `SetWindowPos` under `#if UNITY_STANDALONE_WIN`.
+4. **Dock Registration (`cachedWindows`)**: On macOS, `UpdateCachedWindows()` inserts the macOS Dock entry directly into `cachedWindows`, immediately activating the upstream sitting blend tree and gesture engine.
+5. **Phase 2 Expansion**: Querying `CGWindowListCopyWindowInfo` to register visible window headers into `cachedWindows` unlocks sitting on top of any macOS app window (Safari, Finder, Discord) with zero extra changes.
+

@@ -483,7 +483,32 @@ interface DirectorNote {
 }
 ```
 
-### 1.12 Sync Metadata — Timestamps
+### 1.12 Event Log (System Event Ledger)
+
+| Attribute | Value |
+| :--- | :--- |
+| **Key** | `local:event-log` |
+| **Store** | `packages/stage-ui/src/stores/event-log.ts` — `useEventLogStore` |
+| **Type** | `AiriSystemEvent[]` |
+| **Sync** | **Not synced** (structured-data store lives in `unstorage` but no merge rule wired yet) |
+| **Size** | Small-to-medium |
+
+```typescript
+// packages/stage-ui/src/stores/event-log.ts:8
+
+interface AiriSystemEvent<T = Record<string, unknown>> {
+  id: string
+  timestamp: number
+  type: string
+  source: 'user' | 'system' | 'agent'
+  payload?: T
+  inspectable?: boolean
+}
+```
+
+The event log is the read-mostly audit trail for chat-related state events. Entries are written by the chat store and consumed by the Event Ledger workspace view inside the chat window.
+
+### 1.13 Sync Metadata — Timestamps
 
 | Attribute | Value |
 | :--- | :--- |
@@ -493,7 +518,7 @@ interface DirectorNote {
 | **Description** | Written on every `storage.setItemRaw`/`removeItem` to track the last modification time of each key |
 | **Sync** | **Skipped** by the sync engine (internal metadata) |
 
-### 1.13 Sync Metadata — Conflicts
+### 1.14 Sync Metadata — Conflicts
 
 | Attribute | Value |
 | :--- | :--- |
@@ -515,7 +540,7 @@ interface SyncConflict {
 }
 ```
 
-### 1.14 Sync Metadata — Deleted Backgrounds
+### 1.15 Sync Metadata — Deleted Backgrounds
 
 | Attribute | Value |
 | :--- | :--- |
@@ -524,7 +549,7 @@ interface SyncConflict {
 | **Type** | `number` — `Date.now()` |
 | **Sync** | **Skipped** (internal metadata) |
 
-### 1.15 Sync Metadata — Deleted Models
+### 1.16 Sync Metadata — Deleted Models
 
 | Attribute | Value |
 | :--- | :--- |
@@ -533,7 +558,7 @@ interface SyncConflict {
 | **Type** | `true` (boolean) |
 | **Sync** | **Skipped** (internal metadata) |
 
-### 1.16 localStorage Bridge (Synced Settings)
+### 1.17 localStorage Bridge (Synced Settings)
 
 | Attribute | Value |
 | :--- | :--- |
@@ -835,23 +860,33 @@ interface VoiceProfile {
 
 | Key | Type | Default | File |
 | :--- | :--- | :--- | :--- |
-| `settings/vision/active-provider` | `string` | — | `stores/modules/vision.ts` |
-| `settings/vision/active-model` | `string` | — | `stores/modules/vision.ts` |
-| `settings/vision/context-window` | — | — | `stores/modules/vision.ts` |
-| `settings/vision/prompt-shim` | — | — | `stores/modules/vision.ts` |
-| `settings/vision/witness-enabled` | — | — | `stores/modules/vision.ts` |
-| `settings/vision/witness-prompt` | — | — | `stores/modules/vision.ts` |
-| `settings/vision/respect-schedule` | — | — | `stores/modules/vision.ts` |
-| `settings/vision/last-heartbeat` | — | — | `stores/modules/vision.ts` |
+| `settings/vision/strategy` | `'direct' \| 'forward'` | `'direct'` | `stores/modules/vision.ts` |
+| `settings/vision/active-provider` | `string` | `''` | `stores/modules/vision.ts` |
+| `settings/vision/active-model` | `string` | `''` | `stores/modules/vision.ts` |
+| `settings/vision/context-window` | `number` (images in context) | `1` | `stores/modules/vision.ts` |
+| `settings/vision/prompt-shim` | `string` | — | `stores/modules/vision.ts` |
+| `settings/vision/prompt-shim-forward` | `string` | — | `stores/modules/vision.ts` |
+| `settings/vision/witness-enabled` | `boolean` | `false` | `stores/modules/vision.ts` |
+| `settings/vision/witness-prompt` | `string` | — | `stores/modules/vision.ts` |
+| `settings/vision/respect-schedule` | `boolean` | `true` | `stores/modules/vision.ts` |
+| `settings/vision/last-heartbeat` | `number` | `0` | `stores/modules/vision.ts` |
 
 ### 4.7 Discord
 
 | Key | Type | Default | File |
 | :--- | :--- | :--- | :--- |
-| `settings/discord/enabled` | `boolean` | — | `stores/modules/discord.ts` |
-| `settings/discord/token` | `string` | — | `stores/modules/discord.ts` |
-| `settings/discord/lastRegisteredVersion` | `string` | — | `stores/modules/discord.ts` |
-| `settings/discord/chatMode` | `string` | — | `stores/modules/discord.ts` |
+| `settings/discord/enabled` | `boolean` | `false` | `stores/modules/discord.ts` |
+| `settings/discord/token` | `string` | `''` | `stores/modules/discord.ts` |
+| `settings/discord/executionMode` | `'local' \| 'remote'` | `'local'` | `stores/modules/discord.ts` |
+| `settings/discord/ownerUsername` | `string` | `''` | `stores/modules/discord.ts` |
+| `settings/discord/ownerUserId` | `string` | `''` | `stores/modules/discord.ts` |
+| `settings/discord/cloudRelayInstances` | `Record<string, CloudRelayInstance>` | `{}` | `stores/modules/discord.ts` |
+| `settings/discord/lastRegisteredVersion` | `number` | `0` | `stores/modules/discord.ts` |
+| `settings/discord/chatMode` | `'followup' \| 'steer' \| 'collect'` | `'followup'` | `stores/modules/discord.ts` |
+| `settings/discord/voiceMode` | `'puppet' \| 'voicenote' \| 'none'` | `'puppet'` | `stores/modules/discord.ts` |
+| `settings/discord/voiceCall` | `'classic' \| 'gemini' \| 'off'` | `'off'` | `stores/modules/discord.ts` |
+| `settings/discord/visionEnabled` | `boolean` | `true` | `stores/modules/discord.ts` |
+| `settings/discord/dmsEnabled` | `boolean` | `false` | `stores/modules/discord.ts` |
 
 ### 4.8 Artistry (Image Generation)
 
@@ -896,8 +931,20 @@ interface VoiceProfile {
 | `settings/chat/stream-idle-timeout-ms` | `number` | `600000` | `stores/settings/chat.ts` |
 | `settings/chat/show-director-notes` | `boolean` | `true` | `stores/settings/chat.ts` |
 | `settings/chat/combine-system-messages` | `boolean` | `false` | `stores/settings/chat.ts` |
+| `settings/chat/suggest-mode` | `string` | — | `stores/settings/chat.ts` |
 | `chat/messages/v2` | (chat history) | — | `stores/chat/constants.ts` |
 | `chat/active-session` | `string` | — | `stores/chat/constants.ts` |
+| `airi:chat:grounding-preview-expanded` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:left-panel-open` | `boolean` | — | `apps/stage-tamagotchi/.../pages/chat.vue` |
+| `airi:chat:right-panel-open` | `boolean` | — | `apps/stage-tamagotchi/.../pages/chat.vue` |
+| `airi:chat:media-collapsed` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:memories-collapsed` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:memories-preview-expanded` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:scratchpad-preview-expanded` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:topics-preview-expanded` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:rp-current-scene-collapsed` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:rp-media-collapsed` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
+| `airi:chat:rp-memories-collapsed` | `boolean` | — | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
 
 ### 4.11 Control Strip
 
@@ -911,6 +958,9 @@ interface VoiceProfile {
 | `settings/control-strip/selfie-include-bg` | `boolean` | `true` | `stores/settings/control-strip.ts` |
 | `settings/control-strip/buttons` | `ControlStripButton[]` | default catalog | `stores/settings/control-strip.ts` |
 | `settings/control-strip/buttons-version` | `string` | `'v4'` | `stores/settings/control-strip.ts` |
+| `settings/control-strip/docked-edge` | `'left' \| 'right' \| 'top' \| 'bottom'` | `'right'` | `stores/settings/control-strip.ts` |
+| `settings/control-strip/position` | `{ x: number, y: number }` | `{ x: 20, y: 150 }` | `scenarios/layout/ControlStrip.vue` |
+| `settings/stage-mate-enabled` | `boolean` | `false` | `stores/settings/control-strip.ts` |
 | `settings/controls-island/icon-size` | `'auto' \| 'large' \| 'small'` | `'auto'` | `stores/settings/controls-island.ts` |
 | `controls-island/fade-on-hover-enabled` | `boolean` | `false` | `stores/settings/controls-island.ts` |
 
@@ -921,10 +971,16 @@ interface VoiceProfile {
 | `settings/captions/enabled` | `boolean` | `true` | `stores/settings/captions.ts` |
 | `settings/captions/font-size` | `number` | `100` | `stores/settings/captions.ts` |
 | `settings/captions/opacity` | `number` | `20` | `stores/settings/captions.ts` |
-| `settings/captions/docking` | `CaptionDocking` | `'bottom'` | `stores/settings/captions.ts` |
-| `settings/captions/follow-stage` | `boolean` | `false` | `stores/settings/captions.ts` |
+| `settings/captions/docking` | `CaptionDocking` | `'none'` | `stores/settings/captions.ts` |
+| `settings/captions/follow-stage-visibility` | `boolean` | `true` | `stores/settings/captions.ts` |
+| `settings/captions/follow-stage-position` | `boolean` | `true` | `stores/settings/captions.ts` |
 | `settings/captions/layout-mode` | `CaptionLayoutMode` | `'single'` | `stores/settings/captions.ts` |
 | `settings/captions/reset-trigger` | `number` | `0` | `stores/settings/captions.ts` |
+| `settings/captions/head-tethered/enabled` | `boolean` | `false` | `stores/settings/captions.ts` |
+| `settings/captions/head-tethered/offset` | `{ x: number, y: number }` | `{ x: 0, y: -15 }` | `stores/settings/captions.ts` |
+| `settings/captions/head-tethered/follow-strength` | `number` | `100` | `stores/settings/captions.ts` |
+
+Note: head-tethered captions render as a floating PIXIRenderer panel pointing at the model head (Live2D-only MVP); they are separate from the windowed caption flow.
 
 ### 4.13 Live2D
 
@@ -937,6 +993,7 @@ interface VoiceProfile {
 | `settings/live2d/force-auto-blink-enabled` | `boolean` | `false` | `stores/settings/live2d.ts` |
 | `settings/live2d/shadow-enabled` | `boolean` | `true` | `stores/settings/live2d.ts` |
 | `settings/live2d/max-fps` | `number` | `0` | `stores/settings/live2d.ts` |
+| `settings/live2d/scale` | `number` | `1` | `stores/settings/live2d.ts` |
 
 ### 4.14 Spine
 
@@ -947,6 +1004,7 @@ interface VoiceProfile {
 | `settings/spine/idle-enabled` | `boolean` | `true` | `stores/settings/spine.ts` |
 | `settings/spine/max-fps` | `number` | `0` | `stores/settings/spine.ts` |
 | `settings/spine/render-scale` | `number` | `1` | `stores/settings/spine.ts` |
+| `settings/spine/scale` | `number` | `1` | `stores/settings/spine.ts` |
 
 ### 4.15 MMD
 
@@ -954,6 +1012,8 @@ interface VoiceProfile {
 | :--- | :--- | :--- | :--- |
 | `settings/mmd/idle-enabled` | `boolean` | `true` | `stores/settings/mmd.ts` |
 | `settings/mmd/render-scale` | `number` | `1` | `stores/settings/mmd.ts` |
+| `settings/mmd/scale` | `number` | `1` | `stores/settings/mmd.ts` |
+| `settings/mmd/rotationY` | `number` | `0` | `stores/settings/mmd.ts` |
 
 ### 4.16 Model Positioning
 
@@ -961,7 +1021,36 @@ interface VoiceProfile {
 | :--- | :--- | :--- | :--- |
 | `settings/positioning/models` | `Record<string, PositionScale>` | `{}` | `stores/settings/positioning.ts` |
 
-### 4.17 Provider Credentials & State
+### 4.17 Stage (Three.js) Camera & Environment
+
+Persisted Three.js scene state — camera rig, model transform, lighting, and skybox. Read/written by `packages/stage-ui-three/src/stores/model-store.ts` and components `ThreeScene.vue` / `VRMModel.vue`.
+
+| Key | Type | Default | File |
+| :--- | :--- | :--- | :--- |
+| `settings/stage-ui-three/cameraDistance` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/cameraFOV` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/camera-position` | `{x,y,z}` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/trackingMode` | `string` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/eyeHeight` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/followSpeed` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/modelSize` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/modelOffset` | `{x,y,z}` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/modelOrigin` | `{x,y,z}` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/modelRotationY` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/lookAtTarget` | `{x,y,z}` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/lastModelSrc` | `string` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/lastModelIdentity` | `string` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/renderScale` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/scale` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/multisampling` | `boolean` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/envEnabled` | `boolean` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/skyBoxUrl` | `string` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/skyBoxIntensity` | `number` | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/scenes/scene/ambient-light/*` | number/color | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/scenes/scene/directional-light/*` | number/color/vec | — | `stage-ui-three/src/stores/model-store.ts` |
+| `settings/stage-ui-three/scenes/scene/hemisphere-light/*` | number/color | — | `stage-ui-three/src/stores/model-store.ts` |
+
+### 4.18 Provider Credentials & State
 
 | Key | Type | File |
 | :--- | :--- | :--- |
@@ -969,25 +1058,37 @@ interface VoiceProfile {
 | `settings/providers/added` | `Record<string, boolean>` | `stores/providers.ts` |
 | `settings/providers/runtime` | `Record<string, ProviderRuntimeState>` | `stores/providers.ts` |
 
-### 4.18 Onboarding
+### 4.19 Onboarding
 
 | Key | Type | Default | File |
 | :--- | :--- | :--- | :--- |
 | `onboarding/completed` | `boolean` | `false` | `stores/onboarding.ts` |
 | `onboarding/skipped` | `boolean` | `false` | `stores/onboarding.ts` |
+| `onboarding/v2-draft` | `OnboardingV2DraftState` | `{}` | `dialogs/onboarding/v2/draft-store.ts` |
+| `onboarding/v2-state` | `{ stepId, path }` | `'welcome'` / `'new'` | `dialogs/onboarding/v2/onboarding-v2.vue` |
+| `onboarding/v2-skipped` | `boolean` | `false` | `dialogs/onboarding/v2/onboarding-v2.vue` |
+| `onboarding/v2-completed` | `boolean` | `false` | `dialogs/onboarding/v2/onboarding-v2.vue` |
+| `airi:onboarding:magic-wand-seen` | `boolean` | `false` | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
 
-### 4.19 Dating Sim / Producer
+### 4.20 Dating Sim / Producer
 
 | Key | Type | Default | File |
 | :--- | :--- | :--- | :--- |
 | `airi:producer:context-depth` | `number` | `6` | `stores/dating-sim.ts` |
+| `airi:producer:auto-send` | `boolean` | — | `composables/use-producer.ts` |
+| `airi:producer:auto-play-all` | `boolean` | — | `composables/use-producer.ts` |
+| `airi:producer:short-replies` | `boolean` | — | `composables/use-producer.ts` |
+| `airi:producer:cache-aligned` | `boolean` | `true` | `composables/use-producer.ts` |
+| `airi:producer:cache-aligned-migrated-v1` | `string` | `'true'` | `composables/use-producer.ts` |
+| `airi:producer:suggestion-count` | `number` | — | `composables/use-producer.ts` |
+| `airi:producer:system-prompt-template:{cardId}` | `string` | — | `composables/use-producer.ts` |
 | `airi:dating-sim:game-mode` | `'open_ended' \| 'goal_driven'` | `'goal_driven'` | `stores/dating-sim.ts` |
 | `airi:dating-sim:show-choice-weights` | `boolean` | `false` | `stores/dating-sim.ts` |
 | `airi:dating-sim:max-score` | `number` | `15` | `stores/dating-sim.ts` |
 | `airi:dating-sim:max-turns-temp` | `number` | `18` | `stores/dating-sim.ts` |
 | `airi:dating-sim:scenery-route` | `'background' \| 'widget' \| 'bg_widget' \| 'inherit'` | `'inherit'` | `stores/dating-sim.ts` |
 
-### 4.20 Other localStorage Keys
+### 4.21 Other localStorage Keys
 
 | Key | Type | File |
 | :--- | :--- | :--- |

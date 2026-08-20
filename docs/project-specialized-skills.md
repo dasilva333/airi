@@ -53,7 +53,7 @@ flowchart TD
 
 ## 3. Comprehensive Domain Skill Sitemap Catalog
 
-Below is the complete, categorized sitemap of all 56 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
+Below is the complete, categorized sitemap of all 58 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
 
 > **Authoring requirement for worker agents.** Every authored `SKILL.md` **must** include a keyword-rich `description:` frontmatter trigger of the form `Use when working with …`, explicitly naming the domain, the key technologies (e.g. `eventa`, `unstorage`, `localforage`, `defineProvider`, `BroadcastChannel`), and the kinds of tasks it applies to. Model it on the example in §1.
 
@@ -97,9 +97,9 @@ Below is the complete, categorized sitemap of all 56 specialized skills mapped a
 - **Content**: Deploying and maintaining Cloudflare Workers, Edge KV memory models, BYOS cloud sync outbox queues, commercial API server proxy boundaries, and `PERSONAL_DATA_CLOUD_SYNC_ENABLED` storage guards.
 
 #### 1.8 `airi-byos-cloud-sync`
-- **Target Domain**: Bring Your Own Storage (BYOS) Active-State Cloud Backup & Multi-Device Synchronization.
-- **Key Paths**: `packages/stage-ui/src/stores/sync-engine.ts` + BYOS adapter layer (`S3`/`R2`/Google Drive), unstorage outbox queues, `docs/project-byos-cloud-sync.md`, `docs/project-audit-cloudsync.md`, `docs/settings-yaml.md` (storage-mode keys).
-- **Content**: BYOS active-state cloud backup — S3/R2/Google Drive storage adapters, unstorage outbox queues, IndexedDB → cloud sync reconciliations, and multi-device state synchronization (active state only, not raw import/export blobs).
+- **Target Domain**: Bring Your Own Storage (BYOS) active-state cloud backup, S3/R2/Google Drive adapters, unstorage outbox queues, IndexedDB sync reconciliations, multi-device state sync.
+- **Key Paths**: `packages/stage-ui/src/database/storage.ts`, `packages/stage-ui/src/stores/sync-engine.ts`, `packages/stage-ui/src/components/scenarios/providers/selective-sync-panel.vue`, `packages/stage-ui/src/components/scenarios/dialogs/onboarding/v2/steps/step-cloud-infrastructure.vue` / `step-cloud-restore.vue`, `packages/stage-ui/src/stores/modules/cloudflare.ts`, `docs/project-byos-cloud-sync.md`, `docs/project-audit-cloudsync.md`.
+- **Content**: The unstorage interceptor + outbox queue architecture, LWW vs mergeable-key vs manifest reconciliation rules, voice-profile reconciliation with quota gates, Google Drive AppData bootstrap + Edge Vault credential recovery, loop prevention (`isImportingRemoteData`), anti-contraction safeguard, and selective restore (metadata required, heavy blobs opt-in). Peer skill: `airi-cloud-relay-infrastructure` (edge relay side).
 
 ---
 
@@ -150,10 +150,15 @@ Below is the complete, categorized sitemap of all 56 specialized skills mapped a
 - **Key Paths**: `apps/stage-tamagotchi/src/main/windows/customizer/index.ts`, `apps/stage-tamagotchi/src/renderer/pages/customizer.vue`, `packages/stage-ui/src/constants/control-customizer.ts` (`CUSTOMIZER_CATALOG`), eventa IPC (`electronCustomizerToggleVisibility`, `electronGetCustomizerWindowState`), `apps/stage-tamagotchi/src/renderer/pages/index.vue`.
 - **Content**: Floating glassmorphic configuration panel (opened from Control Strip / tray / hotkey) tweaking stage, captions, actor/wardrobe, Gemini, and system-window state in real time via direct Pinia store binding. `desktopOnly` items gate the desktop multi-window managers. **Disambiguation**: this is the *floating window*; the embedded settings widget is `airi-model-customizer`.
 
-#### 2.10 `airi-stage-mate-unity`
-- **Target Domain**: Stage-Mate native Unity/VRM sidecar (companion pet engine).
-- **Key Paths**: `apps/stage-mate/` (`unity-src/Assets/StageMate/`, `unity-src/Patches/`, `unity-src/ProjectSettings/`), `scripts/setup.ts` (overlay sync), `CANONICAL_MATE_ENGINE_COMMIT`, harness WebSocket `ws://localhost:6171`, `docs/content/en/docs/chronicles/feature-report.md` §20.
-- **Content**: The Unity/VRM native sidecar of the Electron app. Workspace-purity rule: never edit/reset `mate-engine/` directly — all custom code lives in `unity-src/` and is overlaid via `setup.ts`; pinned upstream `Mate-Engine` commit; `stage:vrm` wire protocol; C# sidecar runtime (`StageMateSocket`, `StageMateBridge`, `StageMateStateSync`, VRM drivers, camera/viewport rig); upstream patches; Unity batch builds; runtime logging (`stagemate-runtime.log` vs deep `Player.log`); and platform-specific `UniWindowController` transparency behavior.
+#### 2.10 `airi-caption-subsystem`
+- **Target Domain**: Captions/subtitles across all render surfaces — standalone Electron caption window, DatingSim inline panel, head-tethered comic-bubble plank, and the shared `'airi-caption-overlay'` BroadcastChannel streaming protocol.
+- **Key Paths**: `apps/stage-tamagotchi/src/main/windows/caption/`, `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `packages/stage-ui/src/components/scenes/CaptionPanel.vue`, `packages/stage-ui/src/components/scenes/HeadTetheredCaption.vue`, `packages/stage-ui/src/composables/use-speech-caption-player.ts`, `packages/stage-ui/src/stores/settings/captions.ts`.
+- **Content**: The segment/isActive streaming protocol, CaptionPanel segment highlighting, Live2D baked-in motion Text captions, Sentence-Sync TTS player, caption settings (docking, follow-stage, head-tether, opacity, layout mode), and the desktop-only-with-shared-in-scene-behavior distinction. Peer skills: `airi-broadcast-channels`, `airi-audio-pipeline`.
+
+#### 2.11 `airi-stage-mate-unity`
+- **Target Domain**: Stage-Mate — the Unity/VRM native sidecar (`apps/stage-mate`): workspace purity rules, harness WebSocket protocol, C# sidecar runtime, upstream patches, batch builds.
+- **Key Paths**: `apps/stage-mate/unity-src/Assets/StageMate/`, `apps/stage-mate/unity-src/Patches/`, `apps/stage-mate/scripts/setup.ts` / `build.ts`, `apps/stage-mate/CANONICAL_MATE_ENGINE_COMMIT`.
+- **Content**: The never-edit-`mate-engine/` rule and overlay sync, `ws://localhost:6171` mock harness + `stage:vrm` wire protocol, StageMateSocket/Bridge/StateSync C# runtime, VRM model drivers, camera/viewport/shadow rigs, runtime log split (stagemate-runtime.log vs Player.log), and platform-specific UniWindowController transparency. Peer skill: `airi-character-rendering`.
 
 ---
 
@@ -294,9 +299,9 @@ Below is the complete, categorized sitemap of all 56 specialized skills mapped a
 - **Content**: Evaluating unbuilt features, reading architectural proposals, inspecting upstream repository changes, comparing divergent fork paths, and planning feature implementations safely without scope creep.
 
 #### 4.6 `airi-release-packaging-deploy`
-- **Target Domain**: Stable-Release Workflow, electron-builder Packaging & Deployment Automation.
-- **Key Paths**: `release-tamagotchi.yml` CI matrix, electron-builder config, `apps/stage-pocket` (Capacitor APK/IPA), `apps/stage-web` Docker/OCI on `ghcr.io`, `apps/stage-edge` Cloudflare worker deployment, docs deployment to GitHub Pages, stable-release scripts (`pnpm release:win` / `release:mac`).
-- **Content**: Stable-release workflow (version stamping, git tag, release notes), electron-builder packaging for Windows/macOS/Linux (exe/zip/dmg/deb/rpm/flatpak), the nightly/detached CI matrix (SignPath code signing, Apple notarization via `CSC_CONTENT`/`APPLE_ID`, `latest*.yml` auto-update feeds), Android/iOS packaging via Capacitor, Docker images of `stage-web`, Cloudflare edge-worker deployment, and `gh` CLI release-upload auth quirks.
+- **Target Domain**: Shipping AIRI artifacts and deploying services — stable releases, electron-builder packaging, CI matrix, mobile packaging, Docker/docs deploys, edge-worker deploys.
+- **Key Paths**: `release-tamagotchi.yml`, `apps/stage-tamagotchi/` (electron-builder config, `release:win`/`release:mac`), `apps/stage-pocket/` (Capacitor), `apps/stage-web/` (Docker/Pages), `apps/stage-edge/` (Cloudflare).
+- **Content**: Version stamping/git-tag/notes workflow, SignPath code signing + Apple notarization (CSC_CONTENT/APPLE_ID), `latest*.yml` auto-update feeds, Android APK + iOS IPA via Capacitor, ghcr.io Docker images, GitHub Pages docs deployment, Cloudflare worker deploys, and gh CLI release-upload auth quirks.
 
 ---
 
@@ -352,10 +357,10 @@ Below is the complete, categorized sitemap of all 56 specialized skills mapped a
 - **Key Paths**: `docs/memory_lab/memory-settings-home-page-plan.md`, `packages/stage-pages/src/pages/settings/modules/memory-short-term.vue`.
 - **Content**: Maintaining `Settings > Memory` 4-lane control hub (Short-Term Memory, Long-Term Memory, Lifetime Archive, Chips/LTMM Artifacts), top contract status strips, lane budget controls, manual session rebuild triggers, and memory artifact preview cards.
 
-#### 5.11 `airi-caption-subsystem`
-- **Target Domain**: Captions & Subtitles Across All Render Surfaces (desktop caption window, in-scene overlays, Live2D comic-bubble planks).
-- **Key Paths**: `apps/stage-tamagotchi/src/main/windows/caption/` + `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `packages/stage-ui/src/stores/settings/captions.ts`, `packages/stage-ui/src/stores/modules/speech.ts` (`useSpeechCaptionPlayer` Sentence-Sync TTS player), `airi-caption-overlay` BroadcastChannel, `apps/stage-mate/` bubble bridge (dormant).
-- **Content**: Airi captions/subtitles across all render surfaces — standalone Electron caption window, DatingSim inline caption panel, head-tethered comic-bubble plank (Live2D-only so far), dormant Stage-Mate bubble bridge, and the shared BroadcastChannel (`airi-caption-overlay`) segment/isActive streaming protocol. Also covers `CaptionPanel` segment highlighting, Live2D baked-in motion Text captions (hit zones), caption settings, and the control-strip/customizer captions-layout group (docking, follow-stage position/visibility, theme, opacity, layout mode, head-tether toggle). Consistently distinguishes desktop-only windowed features from shared in-scene behavior.
+#### 5.11 `airi-animadex-wizard`
+- **Target Domain**: The AnimaDex Wizard — 4-step cast-to-card guided synthesis (bundled 36k-character tuple catalog, sticky character-bindings localStorage map, model auto-linking, LLM voice/story/synthesis pipelines, multi-actor card assembly).
+- **Key Paths**: `packages/stage-pages/src/pages/settings/airi-card/guided.vue` (1929-line monolith, mapped with line anchors), `packages/stage-ui/src/stores/animadex-wizard.ts`, `packages/stage-ui/src/stores/custom-characters.ts`, `packages/stage-ui/src/components/scenarios/dialogs/model-selector/model-selector.vue` (`runAutoLinkCatalog`), `packages/stage-pages/src/pages/settings/airi-card/components/AutoVoiceConfigModal.vue` / `CustomCharacterModal.vue` / `VoiceCreatorModal.vue`, `packages/stage-ui/src/assets/animadex-catalog.json`.
+- **Content**: Catalog tuple contract (`[id, copyrightIdx, name, trigger, tags, traits]`) and its consumers (load, autocomplete, Jaccard auto-link @ ≥0.3, blacklist), the `settings/airi-card/character-bindings*` sticky maps, Step-1 surface anatomy (search, chip filters, Has-Model toggle, custom characters with BLIP auto-tagging, World Dock hotbar), Step-2 roster binding (prefill from bindings map, model/voice pickers, AutoVoiceConfigModal LLM voice + idle-animation assignment), Step-3 story suggester (trope templates, `{Name}` placeholder substitution from user-profile settings, BrainModelPicker sourcing), Step-4 synthesis (deterministic 4-copy actor-slug keys, keyed-ACT-tag rules, mock-fallback dashboard, `doCreateCard` order-of-operations and CC-v3 card shape), and cross-cutting pitfalls (bindings map is localStorage-only, not BYOS-synced; tuple indices are load-bearing). Peer skills: `airi-card-editor-wizard`, `airi-card-schema`, `airi-acting-cue-act-tokens`.
 
 ---
 
@@ -364,10 +369,10 @@ Below is the complete, categorized sitemap of all 56 specialized skills mapped a
 | Phase | Target Scope | Output Skills | Count |
 |---|---|---|---|
 | **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay, BYOS Sync | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure`, `airi-byos-cloud-sync` | 8 |
-| **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers, Stage-Mate | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer`, `airi-stage-mate-unity` | 10 |
+| **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers, Captions, Stage-Mate | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer`, `airi-caption-subsystem`, `airi-stage-mate-unity` | 11 |
 | **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars, ACT Tokens | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-acting-cue-act-tokens` | 21 |
-| **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research, Release/Deploy | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research`, `airi-release-packaging-deploy` | 6 |
-| **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK, Captions) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages`, `airi-caption-subsystem` | 11 |
-| | **TOTAL** | | **56** |
+| **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research, Release & Deploy | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research`, `airi-release-packaging-deploy` | 6 |
+| **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK, AnimaDex) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages`, `airi-animadex-wizard` | 11 |
+| | **TOTAL** | | **57** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.
