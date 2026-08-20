@@ -29,7 +29,8 @@ const orchestrator = useChatOrchestratorStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const { stageEnabled } = storeToRefs(controlStripStore)
+const { stageEnabled, stageMateEnabled } = storeToRefs(controlStripStore)
+const isStageOpen = computed(() => Boolean(stageEnabled.value || stageMateEnabled.value))
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
 
 onMounted(async () => {
@@ -264,8 +265,8 @@ async function createMotion() {
 }
 
 async function playRehearsal() {
-  if (!stageEnabled.value) {
-    toast.error('Stage window must be open to orchestrate rehearsals.')
+  if (!isStageOpen.value) {
+    toast.error('Stage or Stage-Mate window must be open to orchestrate rehearsals.')
     return
   }
   if (isRehearsing.value)

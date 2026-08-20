@@ -55,7 +55,8 @@ const modelStore = useModelStore() // VRM
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const { stageEnabled } = storeToRefs(controlStripStore)
+const { stageEnabled, stageMateEnabled } = storeToRefs(controlStripStore)
+const isStageOpen = computed(() => Boolean(props.localStage || stageEnabled.value || stageMateEnabled.value))
 
 // Resolve Model Format
 const currentModel = computed(() => {
@@ -672,8 +673,8 @@ const hasTechnicalKeys = computed(() => {
 
 // Trigger Click-to-Effectuate on Stage
 function triggerExpressionEffect(key: string) {
-  if (!props.localStage && !stageEnabled.value) {
-    toast.error('Stage window must be open to preview expressions.')
+  if (!isStageOpen.value) {
+    toast.error('Stage or Stage-Mate window must be open to preview expressions.')
     return
   }
   if (modelType.value === 'live2d') {
@@ -704,8 +705,8 @@ function triggerExpressionEffect(key: string) {
 }
 
 function triggerMotionEffect(key: string) {
-  if (!props.localStage && !stageEnabled.value) {
-    toast.error('Stage window must be open to preview motions.')
+  if (!isStageOpen.value) {
+    toast.error('Stage or Stage-Mate window must be open to preview motions.')
     return
   }
   if (modelType.value === 'live2d') {

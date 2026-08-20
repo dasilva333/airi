@@ -658,18 +658,7 @@ namespace Kirurobo
             return Input.mousePosition;
     #endif
 #elif (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
-            Vector2 mousePos = UniWinCore.GetCursorPosition();
-            Vector2 winPos = windowPosition;
-            Vector2 size = clientSize;
-            float winW = size.x > 0 ? size.x : (windowSize.x > 0 ? windowSize.x : (float)Screen.width);
-            float winH = size.y > 0 ? size.y : (windowSize.y > 0 ? windowSize.y : (float)Screen.height);
-
-            float normX = (mousePos.x - winPos.x) / winW;
-            float normY = (mousePos.y - winPos.y) / winH;
-
-            float localX = normX * Screen.width;
-            float localY = (1.0f - normY) * Screen.height;
-            return new Vector2(localX, localY);
+            return Input.mousePosition;
 #else
             // Windows native path
             Vector2 mousePos = UniWinCore.GetCursorPosition();
@@ -689,6 +678,12 @@ namespace Kirurobo
         private void HitTestByOpaquePixel()
         {
             Vector2 mousePos = GetClientCursorPosition();
+
+            if (mousePos.x < 0 || mousePos.x >= Screen.width || mousePos.y < 0 || mousePos.y >= Screen.height)
+            {
+                onObject = false;
+                return;
+            }
 
             // マウス座標を調べる
             if (GetOnOpaquePixel(mousePos))

@@ -161,8 +161,16 @@ namespace StageMate.Core
                     {
                         string expr = !string.IsNullOrEmpty(env.data.name) ? env.data.name : env.data.expression;
                         float w = env.data.weight > 0f ? env.data.weight : 1f;
-                        float dur = env.data.durationMs > 0f ? env.data.durationMs / 1000f : 2.5f;
-                        ApplyExpression(expr ?? "Angry", w, dur);
+                        bool isFixed = env.data.isFixed || env.data.durationMs <= 0f;
+                        if (isFixed)
+                        {
+                            ToggleFixedExpression(expr ?? "Neutral", w);
+                        }
+                        else
+                        {
+                            float dur = env.data.durationMs / 1000f;
+                            ApplyExpression(expr ?? "Angry", w, dur);
+                        }
                     }
                     break;
 
@@ -358,7 +366,19 @@ namespace StageMate.Core
                 windowController.windowPosition = Vector2.zero;
                 windowController.windowSize = new Vector2(Screen.currentResolution.width, Screen.currentResolution.height);
             }
-            Debug.Log($"[StageMateBridge] Applied size preset: {p} -> {windowController.windowSize}");
+
+            // Ensure window position does not clip into negative offscreen bounds
+            if (p != "full")
+            {
+                float safeX = Mathf.Max(0f, windowController.windowPosition.x);
+                float safeY = Mathf.Max(0f, windowController.windowPosition.y);
+                if (safeX != windowController.windowPosition.x || safeY != windowController.windowPosition.y)
+                {
+                    windowController.windowPosition = new Vector2(safeX, safeY);
+                }
+            }
+
+            Debug.Log($"[StageMateBridge] Applied size preset: {p} -> {windowController.windowSize} at {windowController.windowPosition}");
         }
 
         private void ApplyLipSync(float rms)
@@ -412,6 +432,26 @@ namespace StageMate.Core
             activeExpressionCoroutine = null;
         }
 
+        private readonly System.Collections.Generic.Dictionary<string, float> activeFixedExpressions = new System.Collections.Generic.Dictionary<string, float>(System.StringComparer.OrdinalIgnoreCase);
+
+        private void ToggleFixedExpression(string exprName, float targetWeight)
+        {
+            if (string.IsNullOrEmpty(exprName)) return;
+
+            if (activeFixedExpressions.TryGetValue(exprName, out float currentWeight) && currentWeight > 0.01f)
+            {
+                activeFixedExpressions[exprName] = 0.0f;
+                SetVrmExpressionWeight(exprName, 0.0f);
+                Debug.Log($"[StageMateBridge] Fixed Expression '{exprName}' TOGGLED OFF.");
+            }
+            else
+            {
+                activeFixedExpressions[exprName] = targetWeight;
+                SetVrmExpressionWeight(exprName, targetWeight);
+                Debug.Log($"[StageMateBridge] Fixed Expression '{exprName}' TOGGLED ON (weight={targetWeight}).");
+            }
+        }
+
         private void SetVrmExpressionWeight(string exprName, float weight)
         {
             if (string.IsNullOrEmpty(exprName)) return;
@@ -441,16 +481,32 @@ namespace StageMate.Core
                 var vrm0 = a.GetComponent<VRMBlendShapeProxy>();
                 if (vrm0 != null)
                 {
-                    BlendShapeKey key = nameLower switch
+                    BlendShapeKey key;
+                    if (vrm0.BlendShapeAvatar != null && vrm0.BlendShapeAvatar.Clips != null)
                     {
-                        "angry" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Angry),
-                        "happy" or "joy" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Joy),
-                        "sad" or "sorrow" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Sorrow),
-                        "neutral" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Neutral),
-                        "blink" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Blink),
-                        "a" or "aa" => BlendShapeKey.CreateFromPreset(BlendShapePreset.A),
-                        _ => BlendShapeKey.CreateUnknown(exprName)
-                    };
+                        var clip = vrm0.BlendShapeAvatar.Clips.Find(c => c != null && c.Key.Name.Equals(exprName, System.StringComparison.OrdinalIgnoreCase));
+                        if (clip != null)
+                        {
+                            key = clip.Key;
+                        }
+                        else
+                        {
+                            key = nameLower switch
+                            {
+                                "angry" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Angry),
+                                "happy" or "joy" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Joy),
+                                "sad" or "sorrow" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Sorrow),
+                                "neutral" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Neutral),
+                                "blink" => BlendShapeKey.CreateFromPreset(BlendShapePreset.Blink),
+                                "a" or "aa" => BlendShapeKey.CreateFromPreset(BlendShapePreset.A),
+                                _ => BlendShapeKey.CreateUnknown(exprName)
+                            };
+                        }
+                    }
+                    else
+                    {
+                        key = BlendShapeKey.CreateUnknown(exprName);
+                    }
                     vrm0.SetValue(key, Mathf.Clamp01(weight));
                     return;
                 }

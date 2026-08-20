@@ -255,8 +255,8 @@ function render() {
     `  ${c.cyan}[T]${c.reset} Toggle Always-Top  ${c.cyan}[H]${c.reset} Toggle Stage Vis. ${c.cyan}[M]${c.reset} Swap Model (${modelPaths.length})`,
     `  ${c.magenta}[F]${c.reset} Manifest A (4 slots)  ${c.magenta}[G]${c.reset} Manifest B (6 slots)`,
     `  ${c.green}[D]${c.reset} Viewport Drag      ${c.green}[O]${c.reset} Viewport Orbit    ${c.green}[S]${c.reset} Viewport Spin      ${c.green}[C]${c.reset} Cycle Modes`,
-    `  ${c.red}[E]${c.reset} Trigger "Angry"    ${c.magenta}[L]${c.reset} Lip-Sync Wave     ${c.magenta}[P]${c.reset} Cycle Macaron (${MACARON_PRESETS.length})`,
-    `  ${c.blue}[R]${c.reset} Reset Coordinates ${c.red}[Q]${c.reset} Quit Harness`,
+    `  ${c.red}[E]${c.reset} Pixel Glasses (2.5s) ${c.red}[X]${c.reset} Crying (2.5s)  ${c.yellow}[Z]${c.reset} Star Eyes (Fixed)  ${c.magenta}[V]${c.reset} Heart (Fixed)`,
+    `  ${c.magenta}[L]${c.reset} Lip-Sync Wave      ${c.magenta}[P]${c.reset} Cycle Macaron (${MACARON_PRESETS.length}) ${c.blue}[R]${c.reset} Reset Coordinates ${c.red}[Q]${c.reset} Quit`,
     `${c.dim}──────────────────────────────────────────────────────────────────────────${c.reset}`,
     `  ${c.bold}Last Event:${c.reset} ${c.dim}${lastEvent}${c.reset}`,
     '',
@@ -319,13 +319,35 @@ function triggerExpression(name: string, durationMs = 2500) {
   }, durationMs)
 }
 
+const fixedExpressionStates: Record<string, boolean> = {}
+
+function toggleFixedExpression(name: string) {
+  const next = !fixedExpressionStates[name]
+  fixedExpressionStates[name] = next
+  broadcast({
+    type: 'stage:vrm:expression',
+    data: { name, weight: next ? 1.0 : 0.0, durationMs: 0, isFixed: true },
+  })
+  activeExpression = next ? `${name} (Fixed ON)` : 'Neutral'
+  logEvent(`Sent stage:vrm:expression → ${name} (Fixed ${next ? 'ON' : 'OFF'})`)
+  render()
+}
+
 function handleKeypress(key: string) {
   const k = key.toLowerCase()
 
   switch (k) {
     case 'e':
-    case 'a':
-      triggerExpression('Angry', 2500)
+      triggerExpression('pixel_glasses', 2500)
+      break
+    case 'x':
+      triggerExpression('crying', 2500)
+      break
+    case 'z':
+      toggleFixedExpression('star_eyes')
+      break
+    case 'v':
+      toggleFixedExpression('heart')
       break
     case '1':
       activeSizePreset = 'mini (220×315)'
@@ -428,6 +450,11 @@ function handleKeypress(key: string) {
       logEvent(`Sent stage:prop:macaron → ${p.name} (${p.shell}/${p.whip}/${p.heart})`)
       break
     }
+
+    case 'r':
+      broadcast({ type: 'stage:window:bounds', data: { x: 100, y: 100 } })
+      logEvent('Sent stage:window:bounds → Reset Coordinates (100, 100)')
+      break
 
     case 'q':
       cleanupAndExit()

@@ -30,6 +30,7 @@ namespace StageMate.Core
         public string name;
         public float weight;
         public float durationMs;
+        public bool isFixed;
         public float rms;
         public float x;
         public float y;
