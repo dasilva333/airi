@@ -53,7 +53,7 @@ flowchart TD
 
 ## 3. Comprehensive Domain Skill Sitemap Catalog
 
-Below is the complete, categorized sitemap of all 51 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
+Below is the complete, categorized sitemap of all 52 specialized skills mapped against AIRI's architectural domains in [`docs/rosetta-stone.md`](./rosetta-stone.md).
 
 > **Authoring requirement for worker agents.** Every authored `SKILL.md` **must** include a keyword-rich `description:` frontmatter trigger of the form `Use when working with …`, explicitly naming the domain, the key technologies (e.g. `eventa`, `unstorage`, `localforage`, `defineProvider`, `BroadcastChannel`), and the kinds of tasks it applies to. Model it on the example in §1.
 
@@ -249,6 +249,11 @@ Below is the complete, categorized sitemap of all 51 specialized skills mapped a
 - **Key Paths**: `packages/stage-ui/src/database/repos/provisioning-session.repo.ts`, `docs/data-catalog.md` §1.9.
 - **Content**: Phase state machine, chunk-summary checkpoint persistence, resume/reprovision/restart semantics paired with pillar 5.
 
+#### 3.21 `airi-acting-cue-act-tokens`
+- **Target Domain**: The ACT token system — acting-cue orchestration protocol (emotion/motion/delay/actor tokens), cross-cutting Phase 2 rendering and Phase 3 prompt assembly.
+- **Key Paths**: `packages/stage-ui/src/composables/llm-marker-parser.ts`, `packages/stage-ui/src/composables/response-categoriser.ts`, `packages/stage-ui/src/constants/prompts/character-defaults.ts`, `packages/stage-ui/src/types/chat.ts` (`rawContent`/`content`), `packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue`, `FieldAiGeneratorModal.vue`, `apps/stage-tamagotchi/src/renderer/components/chat/chat_rehearsal.vue`, `packages/stage-ui/src/components/scenes/ControlStripHost.vue`.
+- **Content**: The two official ACT formats (Short Format, JSON Chaining Format), hidden/tolerated forms (legacy bare-`>` close whitelisted for ACT/DELAY/LLM_, `|}` normalization, escapes), DELAY and ACTOR tokens, rawContent-vs-content dual-key drift contract, teaching layer (DEFAULT_ACTING_* prompts, `AiriExtension.acting`, Acting tab, Field AI Generator templates), cue-execution chain (parser → categoriser → hooks → special-token queue → VRM/Live2D), Rehearsal Room playground, Model Customizer mapping nexus, Discord outbound stripping, and the planned Onboarding-V2 Advanced-Lab acting step. Peer skills: `airi-prompt-builder-engine`, `airi-model-customizer`, `airi-character-rendering`, `airi-interaction-pipelines`, `airi-onboarding-v2`.
+
 ---
 
 ### 🟡 Phase 4: Operational SOPs & Upstream Research
@@ -340,9 +345,9 @@ Below is the complete, categorized sitemap of all 51 specialized skills mapped a
 |---|---|---|---|
 | **Phase 1** | Core Plumbing, IPC, Data Persistence, Providers, Cards, Cloud Relay | `airi-app-entry-wiring`, `airi-ipc-eventa`, `airi-data-persistence`, `airi-provider-core-registry`, `airi-provider-store-instances`, `airi-card-schema`, `airi-cloud-relay-infrastructure` | 7 |
 | **Phase 2** | Character Rendering (VRM/Live2D/Spine/MMD), Audio, Local Inference, Motion, Sensing, Model/Control-Strip Customizers | `airi-character-rendering`, `airi-audio-pipeline`, `airi-local-inference-engines`, `airi-stage-ui-surfaces`, `airi-live2d-dsl-interpreter`, `airi-generative-motion-vrma`, `airi-attention-ecology-vision`, `airi-model-customizer`, `airi-controlstrip-customizer` | 9 |
-| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning` | 20 |
+| **Phase 3** | Onboarding V2, MCP, Discord, Memory Engine, Gemini Live, Proactivity, Interaction Pipelines, Memory Pillars | `airi-onboarding-v2`, `airi-mcp-integration`, `airi-discord-integration`, `airi-memory-systems`, `airi-prompt-builder-engine`, `airi-gemini-live-api`, `airi-proactivity-sensory-telemetry`, `airi-memory-retrieval-engine`, `airi-memory-consolidation-dreaming`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-tool-registry-builtin-tools`, `airi-memory-chat-sessions`, `airi-memory-text-journal`, `airi-memory-short-term`, `airi-memory-echo-chips`, `airi-memory-lifetime`, `airi-memory-image-journal`, `airi-memory-event-log`, `airi-memory-provisioning`, `airi-acting-cue-act-tokens` | 21 |
 | **Phase 4** | i18n Localization, Binary Safety, Verification SOPs, Prefix Cache, Upstream Research | `airi-i18n-localization`, `airi-binary-safety`, `airi-codebase-verification`, `airi-prefix-cache-alignment`, `airi-roadmap-upstream-research` | 5 |
 | **Phase 5** | Feature-Dense UI Surfaces (Chatbox, Wizard, Scenes, Dating Sim, Memory UI, V-HACK) | `airi-desktop-chatbox`, `airi-card-editor-wizard`, `airi-scenes-backgrounds`, `airi-dating-sim-engine`, `airi-artistry-comfyui-widgets`, `airi-broadcast-channels`, `airi-modular-outfits-system`, `airi-provider-ui-pages`, `airi-vrm-vhack-studio`, `airi-memory-ui-pages` | 10 |
-| | **TOTAL** | | **51** |
+| | **TOTAL** | | **52** |
 
 > **Phasing note.** Phases 1–4 remain the dependency-ordered build sequence (plumbing → rendering → modules → SOPs). **Phase 5 skills depend on Phases 1–3** (they reference the card schema, rendering engines, and provider/memory stores) and should be authored **after** the foundations they link to are stable, so their "Surface Map / State & Store Map" sections can accurately deep-link the underlying skills. Interleave them: author Phase 5 entries in parallel with, or immediately after, their Phase 1–3 dependencies rather than as a strictly serial fifth batch.

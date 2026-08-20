@@ -31,9 +31,9 @@ Instead of bound timelines, we introduce the concept of a **Universe** (or Group
 
 ---
 
-## 2. Mapping the 6 Pillars of Memory to the Universe
+## 2. Mapping the 8 Pillars of Memory to the Universe
 
-By shifting to the Universe model, we simplify the database queries and data tagging across all 6 memory pillars:
+By shifting to the Universe model, we simplify the database queries and data tagging across all 8 memory pillars (the canonical roster — see the `airi-memory-systems` hub skill):
 
 | Memory Pillar | Storage Key / Location | Flat Universe Strategy | Schema Updates |
 | :--- | :--- | :--- | :--- |
@@ -41,8 +41,10 @@ By shifting to the Universe model, we simplify the database queries and data tag
 | **2. Text Journal (LTMM)** | `local:memory/text-journal/{userId}` | Each memory block is tagged with `universeId` and `sessionId`. Queries filter by `universeId`. | Add `universeId?: string` and `sessionId?: string` to `TextJournalEntry`. |
 | **3. Short-Term Memory** | `local:memory/short-term/{userId}` | Daily summary blocks are tagged and queried by `universeId` and track original `sessionId`. | Add `universeId?: string` and `sessionId?: string` to `ShortTermMemoryBlock`. |
 | **4. Echo Chips** | `local:memory/echo-chips/{userId}` | Emotional anchor chips are tagged and queried by `universeId`. | Add `universeId?: string` and `sessionId?: string` to `EchoChip`. |
-| **5. Lifetime Artifact** | `local:memory/lifetime/{universeId}` | The synthesized character personality blueprint is isolated per `universeId`. | Keyed directly by `{universeId}`. |
+| **5. Lifetime Artifact** | `local:memory/lifetime/{characterId}:{universeId}` | The synthesized character personality blueprint is isolated per character **and** `universeId`. Legacy bare-`{characterId}` keys migrate one-way on read. | Keyed by `{characterId}:{universeId}`. |
 | **6. Image Journal** | `localforage` index entries | Photo gallery metadata and custom backdrops are tagged by `universeId` and `sessionId`. | Add `universeId?: string` and `sessionId?: string` to `BackgroundEntry`. |
+| **7. Event Log** | `local:event-log` | App-global 500-entry ledger, deliberately **not** universe-scoped — it records what AIRI did, not what happened in one storyline. | `AiriSystemEvent` (category/type/source/textSummary/payload). |
+| **8. Provisioning Session** | `local:memory/provisioning-session/{characterId}` | Resumable lifetime-artifact build state, tracked per character (runs must be serialized across universes of one character). | `ProvisioningSession` phase state machine + chunk summaries. |
 
 ---
 

@@ -19,6 +19,22 @@ This document serves as the canonical technical navigation manual for developers
 
 ---
 
+## 0.1 Essential Navigation Tool: Unity Scene Graph Explorer (`scene-tree.ts`)
+
+Instead of manually grepping through the 287,000-line `Mate Engine Main.unity` scene file, use the built-in, ultra-fast streaming Scene Inspector tool (`apps/stage-mate/scripts/scene-tree.ts`). It indexes the entire scene in **<150ms** and resolves GameObject relationships, transforms, and C# MonoBehaviour scripts.
+
+### Available CLI Commands (from repo root or `apps/stage-mate`):
+
+| Command | Usage | Description |
+| :--- | :--- | :--- |
+| **`pnpm -F @proj-airi/stage-mate run scene stats`** | `scene stats` | Prints total GameObjects, active vs inactive counts, RectTransforms, and MonoBehaviours. |
+| **`pnpm -F @proj-airi/stage-mate run scene tree [RootName] [depth]`** | `scene tree SettingsMenuCanvas 3` | Renders an ASCII/Markdown hierarchy tree showing active states (`[🟢 Active]` / `[🔴 Inactive]`), UI RectTransform bounds, and attached scripts. |
+| **`pnpm -F @proj-airi/stage-mate run scene find <query>`** | `scene find OuterMenu` | Searches by GameObject name, Script Class, GUID, or fileID. Prints breadcrumb paths and components. |
+| **`pnpm -F @proj-airi/stage-mate run scene path <nameOrId>`** | `scene path OuterMenu` | Traverses up `m_Father` pointers to print the exact Root-to-Leaf ancestor chain (critical for discovering inactive parents!). |
+| **`pnpm -F @proj-airi/stage-mate run scene dump-md`** | `scene dump-md` | Generates the complete collapsible Markdown reference map: [`docs/mate-scene-hierarchy.md`](./mate-scene-hierarchy.md). |
+
+---
+
 ## 1. Anatomy of Unity's "Kraken" File (`.unity` Scene YAML)
 
 When inspecting `apps/stage-mate/mate-engine/Assets/MATE ENGINE - Scenes/Mate Engine Main.unity` (~287,000 lines), it looks like an insurmountable monolith. In reality, **it is not code—it is a declarative YAML object graph of the entire game world**.
