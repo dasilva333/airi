@@ -469,7 +469,11 @@ public class AvatarWindowHandler : MonoBehaviour
         }
 
         int spr = ScaledProbeRadiusI();
-        float sprF = Mathf.Max(spr, 60f);
+#if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+        float sprF = Mathf.Max(ScaledProbeRadiusF(), 100f);
+#else
+        float sprF = ScaledProbeRadiusF();
+#endif
 
         UnityEngine.Debug.Log($"[AvatarWindowHandler:TRY_SNAP] px={px:F1}, py={py:F1} | sprF={sprF:F1} | cachedCount={cachedWindows.Count}");
 
@@ -509,8 +513,7 @@ public class AvatarWindowHandler : MonoBehaviour
             _recentUnsnap = false;
             SetTopMost(true);
 
-            Kirurobo.WinApi.POINT cp;
-            if (Kirurobo.WinApi.GetCursorPos(out cp)) _snapCursorY = cp.y;
+            if (SafeGetCursorPos(out Vector2 cp)) _snapCursorY = (int)cp.y;
             _guard = Mathf.Max(1, snapGuardFrames);
             _latch = Mathf.Max(1, snapLatchFrames);
 
@@ -580,7 +583,11 @@ public class AvatarWindowHandler : MonoBehaviour
             Vector3 testW = transform.localToWorldMatrix.MultiplyPoint3x4(testL);
             Vector3 sp = targetCamera.WorldToScreenPoint(testW);
             float clientH = Mathf.Max(1f, uCli.Bottom - uCli.Top);
+#if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
+            float py = uCli.Top + Mathf.Clamp(sp.y, 0, targetCamera.pixelHeight) * (clientH / Mathf.Max(1, targetCamera.pixelHeight));
+#else
             float py = uCli.Top + (targetCamera.pixelHeight - Mathf.Clamp(sp.y, 0, targetCamera.pixelHeight)) * (clientH / Mathf.Max(1, targetCamera.pixelHeight));
+#endif
             float err = py - targetDesktopY;
             if (Mathf.Abs(err) < Mathf.Abs(bestErr)) { bestErr = err; bestY = mid; }
             if (err > 0f) high = mid; else low = mid;
@@ -657,8 +664,7 @@ public class AvatarWindowHandler : MonoBehaviour
 
             if (controller.isDragging && animator.GetBool("isWindowSit"))
             {
-                Kirurobo.WinApi.POINT cp;
-                if (!Kirurobo.WinApi.GetCursorPos(out cp)) return true;
+                if (!SafeGetCursorPos(out Vector2 cp)) return true;
                 int vBand = Mathf.Max(unsnapVerticalBand, ScaledProbeRadiusI());
                 if (Mathf.Abs(cp.y - _snapCursorY) > vBand) return false;
             }
