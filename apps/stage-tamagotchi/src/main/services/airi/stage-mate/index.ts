@@ -16,6 +16,7 @@ import {
   electronStageMateGetState,
   electronStageMateLipSync,
   electronStageMateSaveModel,
+  electronStageMateSendCaption,
   electronStageMateSetModelPosition,
   electronStageMateSetPropMacaron,
   electronStageMateSetViewportMode,
@@ -588,6 +589,14 @@ export function createStageMateService(params?: {
   defineInvokeHandler(context, electronStageMateLipSync, async (payload) => {
     broadcast({
       type: 'stage:vrm:lip-sync',
+      data: payload,
+    })
+  })
+
+  defineInvokeHandler(context, electronStageMateSendCaption, async (payload) => {
+    log.withFields({ text: payload.text, clear: payload.clear, sockets: authenticatedSockets.size }).log('Stage-Mate send-caption invoked')
+    broadcast({
+      type: 'stage:caption',
       data: payload,
     })
   })

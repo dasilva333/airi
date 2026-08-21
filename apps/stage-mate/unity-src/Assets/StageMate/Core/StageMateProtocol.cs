@@ -27,6 +27,10 @@ namespace StageMate.Core
         public string modelId;
         public string preset;
         public string weapon;
+        public string text;
+        public bool isActive;
+        public string speaker;
+        public bool clear;
         public string expression;
         public string name;
         public float weight;

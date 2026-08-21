@@ -174,6 +174,27 @@ namespace StageMate.Core
                     }
                     break;
 
+                case "stage:caption":
+                case "stage:vrm:speech":
+                case "stage:speech":
+                    if (env.data != null)
+                    {
+                        Debug.Log($"[StageMateBridge] stage:caption received: text='{env.data.text}', clear={env.data.clear}");
+                        var randomMsg = FindFirstObjectByType<AvatarRandomMessages>();
+                        if (randomMsg != null)
+                        {
+                            if (env.data.clear || string.IsNullOrEmpty(env.data.text))
+                                randomMsg.RemoveBubble();
+                            else
+                                randomMsg.ShowCustomCaption(env.data.text);
+                        }
+                        else
+                        {
+                            Debug.LogWarning("[StageMateBridge] AvatarRandomMessages not found on avatar!");
+                        }
+                    }
+                    break;
+
                 case "control:always-on-top":
                 case "stage:always-on-top":
                     bool aot = env.data != null ? env.data.enabled : true;

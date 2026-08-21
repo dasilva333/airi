@@ -625,6 +625,49 @@ watch(gunslingerStance, async (stance) => {
   }
 }, { immediate: true })
 
+interface CaptionSegment { text: string, color: string, actorId: string, isActive?: boolean }
+type CaptionChannelEvent
+  = | { type: 'caption-speaker', text: string }
+    | { type: 'caption-assistant', segments: CaptionSegment[] }
+
+const { data: captionChannelData } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+
+watch(captionChannelData, async (event) => {
+  if (!isElectron.value || !event)
+    return
+  try {
+    const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+    const { electronStageMateSendCaption } = await import('@proj-airi/stage-shared')
+    const sendCaption = useElectronEventaInvoke(electronStageMateSendCaption)
+
+    if (event.type === 'caption-assistant') {
+      const active = event.segments?.find(s => s.isActive)
+      if (active && active.text?.trim()) {
+        await sendCaption({
+          text: active.text,
+          isActive: true,
+          speaker: active.actorId || 'assistant',
+        })
+      }
+      else if (!event.segments || event.segments.length === 0 || !event.segments.some(s => s.isActive)) {
+        await sendCaption({ clear: true })
+      }
+    }
+  }
+  catch (err) {
+    console.warn('Failed to relay caption to Stage-Mate:', err)
+  }
+})
+
+if (typeof window !== 'undefined') {
+  (window as any).__AIRI_DEVTOOLS_MATE_SPEECH__ = async (text: string) => {
+    const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+    const { electronStageMateSendCaption } = await import('@proj-airi/stage-shared')
+    const sendCaption = useElectronEventaInvoke(electronStageMateSendCaption)
+    return await sendCaption({ text, isActive: true, speaker: 'AIRI' })
+  }
+}
+
 const activeMonitor = ref(1)
 const selectedAlignment = ref('center')
 const monitorCount = ref(1)
