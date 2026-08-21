@@ -1,7 +1,7 @@
 # Architectural Proposal: Conversational Pacing, Dynamic Thinking Fillers & Post-CoT Text Velocity
 
 **Status:** Proposed Architecture & Research Specification
-**Authors:** AIRI Team (Richy / dasilva333, Eiki) & AI Assistant
+**Authors:** AIRI Team (Richy / dasilva333) & AI Assistant
 **Target Components:**
 - `packages/stage-ui/src/stores/chat/session-store.ts` (Chat orchestration & SSE stream lifecycle)
 - `packages/stage-ui/src/stores/modules/speech.ts` (TTS playback queue & dynamic audio cache)
@@ -172,6 +172,48 @@ stateDiagram-v2
    - The main response TTS stream is queued behind the thinking filler.
    - If the main response finishes generating while the filler is playing, it waits for the short filler snippet (typically 0.8s–1.8s) to conclude before speaking the main response.
    - **No Engine Double-Triggering**: The speech runtime pipeline treats the thinking snippet as the initial item in the turn's speech queue, preventing audio driver restarts.
+
+---
+
+### 2.5 Event-Driven Lifecycle & Dynamic Duration Calibration
+
+While fixed wall-clock timers ($3.0\text{s}$ fallback, $1.0\text{s}$ CoT window) provide a predictable baseline model, real-world network conditions and model response profiles introduce significant timing variance. A rigid clock-only approach risks brittleness if a stream takes $3.1\text{s}$ to connect or if reasoning tokens take slightly longer to ramp up.
+
+To solve this, the execution architecture incorporates an **Event-Driven Transition Layer**:
+
+1. **State-Driven Milestones**:
+   - `STREAM_DISPATCHED` ($T_0$): Dispatches request, triggers non-verbal avatar staging, starts adaptive safety timer.
+   - `SSE_HEADER_RECEIVED`: Marks stream connectivity; pauses/aborts fixed fallback timers immediately.
+   - `REASONING_CHUNK_DETECTED`: Shifts directly into active CoT scanning mode upon the first `reasoning_content` token.
+   - `CONTENT_CHUNK_DETECTED`: Indicates final speech/content generation has begun; immediately suppresses pending fillers if audio has not yet started playback.
+2. **Adaptive Latency Calibration**:
+   - Moving average tracking of provider Time-to-First-Token (TTFT) and Time-to-First-Reasoning (TTFR).
+   - If a provider consistently responds in $800\text{ms}$, the system dynamically tightens thresholds to avoid unnecessary filler scheduling.
+   - If a provider (e.g. deep local reasoning model) consistently takes $5\text{s}$, the fallback safely scales to avoid premature generic filler firing before reasoning stream extraction begins.
+
+---
+
+### 2.6 TTS Velocity Variability & Audio Buffer Scheduling
+
+Different TTS engines exhibit drastically different synthesis speeds and playback velocities:
+- **Local WebGPU (Kokoro)**: Fast first-chunk synthesis (~200–400ms), fixed playback duration.
+- **EdgeTTS / Cloud Providers (OpenAI, Azure, ElevenLabs)**: Network round-trip latency (300–1200ms) with variable audio compression and pacing.
+- **Self-Hosted / Sidecar Engines (FastAPI / SGLang)**: Variable batching performance depending on local GPU VRAM pressure.
+
+#### Audio Buffer Coordination Contract
+To prevent race conditions where main speech audio arrives while a thinking filler is still playing:
+- **Audio Chaining Queue**: The speech pipeline (`packages/pipelines-audio/src/speech-pipeline.ts`) schedules the thinking snippet as `PlaybackItem[0]`.
+- **Pre-buffering Subsequent Chunks**: As the main LLM response generates and streams chunks via `chunkTTSInput()` or `chunkTtsInput()`, the main speech audio is synthesized and decoded in the background while `PlaybackItem[0]` is playing.
+- **Zero-Gap Handoff**: When `PlaybackItem[0].onEnd` fires, `PlaybackItem[1]` starts immediately with zero audio gap or driver reset.
+
+---
+
+### 2.7 Situational & Conditional CoT Activation
+
+CoT audio cue scanning is not designed as a heavy, mandatory per-turn tax. Instead, it operates as a **situational capability**:
+- **Explicit Keyword Rules**: Evaluated against the lightweight streaming buffer without full JSON parsing.
+- **Card-Level Configuration**: Creators can toggle CoT scanning on or off per card or per personality archetype.
+- **Prompt Complexity Heuristics**: Lightweight heuristics (e.g., presence of analytical inquiries, decision-making, or complex questions) determine whether CoT extraction is prioritized or if direct fast response routing is favored.
 
 ---
 
