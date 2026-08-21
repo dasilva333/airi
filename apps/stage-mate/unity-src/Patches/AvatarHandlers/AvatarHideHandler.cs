@@ -93,22 +93,98 @@ public class AvatarHideHandler : MonoBehaviour
         calibRemaining = 0;
     }
 
+    public void SetAnimator(Animator a)
+    {
+        animator = a;
+        if (animator != null && animator.isHuman && animator.avatar != null)
+        {
+            leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+            rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+        }
+    }
+
+    void ResolveReferences()
+    {
+        if (controller == null || !controller.gameObject.activeInHierarchy)
+        {
+            var controllers = FindObjectsByType<AvatarAnimatorController>(FindObjectsSortMode.None);
+            foreach (var c in controllers)
+            {
+                if (c.gameObject.activeInHierarchy)
+                {
+                    controller = c;
+                    break;
+                }
+            }
+        }
+
+        if (controller != null)
+        {
+            if (animator == null || animator != controller.animator)
+            {
+                animator = controller.animator;
+                if (animator != null && animator.isHuman && animator.avatar != null)
+                {
+                    leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+                    rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+                }
+            }
+        }
+        else if (animator == null || !animator.gameObject.activeInHierarchy)
+        {
+            var animators = FindObjectsByType<Animator>(FindObjectsSortMode.None);
+            foreach (var a in animators)
+            {
+                if (a.gameObject.activeInHierarchy && a.isHuman)
+                {
+                    animator = a;
+                    leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+                    rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+                    break;
+                }
+            }
+        }
+
+        if (cam == null) cam = Camera.main ?? FindFirstObjectByType<Camera>();
+    }
+
+    float GetDesiredWindowX(Side side, Vector2 winSize, int screenW)
+    {
+        if (side == Side.Left)
+        {
+            return (-winSize.x * 0.565f) - edgeInsetPx;
+        }
+        else if (side == Side.Right)
+        {
+            return (screenW - (winSize.x * 0.44f)) + edgeInsetPx;
+        }
+        return 0f;
+    }
+
     void Update()
     {
 #if !UNITY_STANDALONE_WIN && !UNITY_EDITOR_WIN
+        ResolveReferences();
         var uniwinc = Kirurobo.UniWindowController.current ?? FindFirstObjectByType<Kirurobo.UniWindowController>();
         if (animator == null || controller == null || uniwinc == null) return;
 
-        Vector2 mousePos = GlobalMouse.GetPosition();
+        Vector2 mousePos = uniwinc.cursorPosition;
         int screenW = Screen.width > 0 ? Screen.width : 1536;
         Vector2 winPos = uniwinc.windowPosition;
         Vector2 winSize = uniwinc.windowSize;
 
-        if (controller.isDragging)
+        bool isDraggingNow = controller.isDragging || animator.GetBool("isDragging");
+
+        if (isDraggingNow)
         {
-            int thrSnap = Math.Max(16, snapThresholdPx);
+            int thrSnap = Math.Max(32, snapThresholdPx);
             bool nearLeft = (mousePos.x <= thrSnap);
             bool nearRight = (mousePos.x >= screenW - thrSnap);
+
+            if (mousePos.x <= 150f || mousePos.x >= screenW - 150f)
+            {
+                UnityEngine.Debug.Log($"[AvatarHideHandler:DRAG_EDGE] mouseX={mousePos.x:F1}, screenW={screenW}, thrSnap={thrSnap}, nearLeft={nearLeft}, nearRight={nearRight}, isDragging={isDraggingNow}, snapped={snappedSide}");
+            }
 
             if (snappedSide == Side.None)
             {
@@ -119,12 +195,14 @@ public class AvatarHideHandler : MonoBehaviour
                         snappedSide = Side.Left;
                         SetHide(true, false);
                         snappedAt = Time.unscaledTime;
+                        UnityEngine.Debug.Log($"[AvatarHideHandler:SNAP] Snapped LEFT at x={mousePos.x:F1}");
                     }
                     else if (nearRight)
                     {
                         snappedSide = Side.Right;
                         SetHide(false, true);
                         snappedAt = Time.unscaledTime;
+                        UnityEngine.Debug.Log($"[AvatarHideHandler:SNAP] Snapped RIGHT at x={mousePos.x:F1}");
                     }
                 }
             }
@@ -132,7 +210,7 @@ public class AvatarHideHandler : MonoBehaviour
             {
                 if (Time.unscaledTime >= snappedAt + unsnapGraceTime)
                 {
-                    int thrUnsnap = Math.Max(48, unsnapThresholdPx);
+                    int thrUnsnap = Math.Max(64, unsnapThresholdPx);
                     if (snappedSide == Side.Left && mousePos.x > thrUnsnap) Unsnap();
                     else if (snappedSide == Side.Right && mousePos.x < screenW - thrUnsnap) Unsnap();
                 }
@@ -140,7 +218,7 @@ public class AvatarHideHandler : MonoBehaviour
 
             if (snappedSide != Side.None)
             {
-                float targetX = (snappedSide == Side.Left) ? -winSize.x * 0.45f : screenW - (winSize.x * 0.55f);
+                float targetX = GetDesiredWindowX(snappedSide, winSize, screenW);
                 float targetY = winPos.y;
                 float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
                 uniwinc.windowPosition = new Vector2(nx, targetY);
@@ -150,13 +228,13 @@ public class AvatarHideHandler : MonoBehaviour
         {
             if (snappedSide != Side.None)
             {
-                float targetX = (snappedSide == Side.Left) ? -winSize.x * 0.45f : screenW - (winSize.x * 0.55f);
+                float targetX = GetDesiredWindowX(snappedSide, winSize, screenW);
                 float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
                 uniwinc.windowPosition = new Vector2(nx, winPos.y);
             }
         }
 
-        wasDragging = controller.isDragging;
+        wasDragging = isDraggingNow;
 #else
         if (unityHWND == IntPtr.Zero || animator == null || controller == null) return;
 

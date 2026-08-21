@@ -54,8 +54,18 @@ public static class GlobalMouse
             return new Vector2(p.x, p.y);
         }
         catch { }
+#else
+        try
+        {
+            if (Kirurobo.UniWindowController.current != null)
+            {
+                return Kirurobo.UniWindowController.current.cursorPosition;
+            }
+            return Kirurobo.UniWindowController.GetCursorPosition();
+        }
+        catch { }
 #endif
-        // Canonical top-left contract across macOS/Linux
+        // Fallback canonical top-left contract across macOS/Linux
         return new Vector2(Input.mousePosition.x, UnityEngine.Screen.height - Input.mousePosition.y);
     }
 

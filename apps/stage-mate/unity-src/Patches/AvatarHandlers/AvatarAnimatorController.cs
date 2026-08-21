@@ -181,8 +181,12 @@ public class AvatarAnimatorController : MonoBehaviour
         }
         if (Input.GetMouseButton(0) && isWindowDragging && Kirurobo.UniWindowController.current != null)
         {
-            Vector2 curCursor = Kirurobo.UniWindowController.current.cursorPosition;
-            Kirurobo.UniWindowController.current.windowPosition = curCursor + dragGrabOffset;
+            bool isSnapped = animator != null && (animator.GetBool("HideLeft") || animator.GetBool("HideRight") || animator.GetBool("isWindowSit") || animator.GetBool("isTaskbarSit"));
+            if (!isSnapped)
+            {
+                Vector2 curCursor = Kirurobo.UniWindowController.current.cursorPosition;
+                Kirurobo.UniWindowController.current.windowPosition = curCursor + dragGrabOffset;
+            }
         }
         if (Input.GetMouseButtonUp(0))
         {

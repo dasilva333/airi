@@ -374,12 +374,14 @@ public sealed class AvatarLocomotionController : MonoBehaviour
         bool isDrag = false;
         bool isDance = false;
         bool isSit = false;
+        bool isHide = false;
 
         try { isDrag = Animator.GetBool("isDragging"); } catch { }
         try { isDance = Animator.GetBool("isDancing"); } catch { }
         try { isSit = Animator.GetBool("isSitting") || Animator.GetBool("isWindowSit") || Animator.GetBool("isTaskbarSit"); } catch { }
+        try { isHide = Animator.GetBool("HideLeft") || Animator.GetBool("HideRight"); } catch { }
 
-        if (isDrag || isDance || isSit) return false;
+        if (isDrag || isDance || isSit || isHide) return false;
 
         return true;
     }

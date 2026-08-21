@@ -1000,20 +1000,27 @@ AIRI maintains two completely independent stage toggle lanes:
   6. `walk_cycle_sexy_03.anim` (GUID `94d2091c4d2a00a4abc04d495782a62a`)
   7. `walk_cycle_sexy_03_light.anim` (GUID `c84b1e40b1ee3df478b08d62a066ca2e`)
 - **Controller Wiring Reality**:
-  - A global GUID search across all `.controller` files proved that **only `PET_WALK_LEFT` and `PET_WALK_RIGHT` are wired into `AvatarAnimatorControllerV2 1.controller`**. The other 5 clips have 0 references in any controller in the entire project.
-  - The `walk_cycle_sexy_*` clips are forward-facing catwalk/strut cycles (root rotation $0^\circ$). When played while sliding a 2D desktop window horizontally, the avatar steps forward towards the camera while sliding sideways.
-  - `PET_WALK_LEFT` and `PET_WALK_RIGHT` have the $\pm 90^\circ$ sideways turns baked into their humanoid root transforms, making them the only valid 2D window desktop locomotion animations in the upstream engine.
+  - A global GUID search across all 21 `.controller` files proved that **only `PET_WALK_LEFT` and `PET_WALK_RIGHT` are wired into `AvatarAnimatorControllerV2 1.controller`**. The other 5 clips have 0 references anywhere in the project.
+  - **The Catwalk Trap**: The `walk_cycle_sexy_*` clips are forward-facing catwalk/strut cycles (root rotation $0^\circ$). When played while sliding a 2D desktop window horizontally, the avatar steps forward towards the camera while sliding sideways ("moonwalking"), rather than turning her body into the direction of travel.
+  - `PET_WALK_LEFT` and `PET_WALK_RIGHT` have the $\pm 90^\circ$ sideways body turns baked directly into their humanoid root transforms, making them the only valid 2D window desktop locomotion animations in the upstream engine.
+  - **Discord Community Consensus**: Modders and power users on Steam (Beard, Shinobu, azimuthal-observer) confirmed that in stock Mate Engine, she only ever uses the standard left/right directional walk. The promotional teaser clips of alternative walks were pre-rendered showcase assets that were never integrated into runtime locomotion logic.
 
 ### 15.3. Monitor Edge Peeking / Hiding Mechanics (`AvatarHideHandler.cs`)
-- **Activation Lifecycle**:
+- **Why Upstream Users Never Saw It ("The Ghost Feature")**:
+  1. **Missing from Main Scene**: `AvatarHideHandler` was completely omitted from the shipped `Mate Engine Main.unity` scene and existed exclusively in the unreleased `Mate Engine Update.unity` workspace.
+  2. **Microscopic 12px Hand-Bone Threshold**: Upstream's Windows implementation computed `GetAnchorDesktopX(Side)` from the 3D world position of `HumanBodyBones.LeftHand` / `RightHand` projected to screen space, requiring the avatar's tiny wrist bone to come within $\le 12\text{px}$ of the screen edge while being dragged by the mouse. If dragged by the waist or torso, the hand rarely touched the $12\text{px}$ boundary.
+  3. **Multi-Monitor Edge Suppression**: Upstream's Win32 monitor adjacency scanner disabled the inner edges between adjacent monitors, preventing triggering on multi-display setups.
+  4. **Win32-Only Lockout**: The entire handler was hardcoded to Windows User32 APIs (`GetCursorPos`, `GetWindowRect`, `MonitorFromWindow`), causing total dormancy or compilation failure on macOS/Linux.
+- **Activation Lifecycle (Patched Architecture)**:
   1. **Interaction Prerequisite**: The avatar must be actively dragged with the mouse (`controller.isDragging == true`).
-  2. **Proximity Trigger**: While being dragged, the cursor moves within `snapThresholdPx` ($\le 16\text{px}$ from screen left or $\ge \text{Screen.width} - 16\text{px}$ from screen right).
+  2. **Proximity Trigger**: While being dragged, the cursor moves within `snapThresholdPx` ($\le 24\text{px}$ from screen left or $\ge \text{Screen.width} - 24\text{px}$ from screen right).
   3. **Snap Execution**: `SnapTo(Side.Left)` or `SnapTo(Side.Right)` triggers:
      - Sets `HideLeft = true` or `HideRight = true` on the Animator.
-     - Transitions state machine to `PET_HIDE_SHOW_LOOP_LEFT` / `PET_HIDE_SHOW_LOOP_RIGHT`.
-     - Smoothly offsets window coordinates to dock the avatar partially behind the monitor bezel.
+     - Transitions state machine to `PET_HIDE_SHOW_LOOP_LEFT` / `PET_HIDE_SHOW_LOOP_RIGHT` (avatar peeks around the screen edge).
+     - Smoothly offsets window coordinates to dock the avatar partially behind the monitor bezel (`-winSize.x * 0.45f` or `Screen.width - winSize.x * 0.55f`).
   4. **Unsnap Condition**: Clicking and dragging the avatar $> 48\text{px}$ away from the screen edge invokes `Unsnap()`, resetting `HideLeft`/`HideRight` to `false` and restoring normal standing posture.
 - **Cross-Platform macOS Resolution**:
+  - Dynamically resolved and attached in `StageMateBridge.cs`.
   - Replaced Win32-only `GetWindowRect` / `GetCursorPos` / `MonitorFromWindow` calls with `GlobalMouse.GetPosition()` and `UniWindowController.windowPosition`.
 
 ### 15.4. Dock & Window Ledge Snapping Calibration (`AvatarTaskbarController` & `AvatarWindowHandler`)
@@ -1023,6 +1030,7 @@ AIRI maintains two completely independent stage toggle lanes:
   - **Hip Detection Hitbox (`AvatarTaskbarController.cs`)**: Reduced `snapZoneSize` from `Vector2(240, 80)` $\rightarrow$ `Vector2(120, 36)`.
   - **Dock Overlap Extension (`AvatarTaskbarController.cs`)**: Reduced vertical reach above the Dock from `dockHeight + 45f` $\rightarrow$ `dockHeight + 10f`.
 - **Result**: The avatar sits naturally only when dragged in close proximity to the Dock bar or a window titlebar, and releases cleanly with no sticky residual pull.
+
 
 
 
