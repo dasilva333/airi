@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 #if UNITY_STANDALONE_WIN
 using NAudio.CoreAudioApi;
@@ -33,6 +34,10 @@ public class AvatarAnimatorController : MonoBehaviour
 #if UNITY_STANDALONE_WIN
     private MMDevice defaultDevice;
     private MMDeviceEnumerator enumerator;
+#else
+    private AudioClip micClip;
+    private float[] micSamples = new float[256];
+    private bool micInitialized = false;
 #endif
     private Coroutine soundCheckCoroutine, idleTransitionCoroutine, danceTransitionCoroutine;
     private float lastSoundCheckTime, idleTimer, danceTimer;
@@ -58,14 +63,14 @@ public class AvatarAnimatorController : MonoBehaviour
             defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
         }
         catch { }
+#else
+        InitMacAudio();
 #endif
 
         animator.SetFloat(isFemaleParam, enableHusbandoMode ? 0f : 1f);
         animator.SetFloat(isMaleParam, enableHusbandoMode ? 1f : 0f);
 
-#if UNITY_STANDALONE_WIN
         soundCheckCoroutine = StartCoroutine(CheckSoundContinuously());
-#endif
     }
 
     void OnDisable() => CleanupAudioResources();
@@ -74,7 +79,7 @@ public class AvatarAnimatorController : MonoBehaviour
 
     IEnumerator CheckSoundContinuously()
     {
-        var wait = new WaitForSeconds(2f);
+        var wait = new WaitForSeconds(1f);
         while (true) { CheckForSound(); yield return wait; }
     }
 
@@ -85,22 +90,24 @@ public class AvatarAnimatorController : MonoBehaviour
             if (isDancing) SetDancing(false);
             return;
         }
+
 #if UNITY_STANDALONE_WIN
         if (defaultDevice == null) return;
+#endif
+
         if (!isDragging)
         {
             bool valid = IsValidAppPlaying();
             if (valid && !isDancing) StartDancing();
             else if (!valid && isDancing) SetDancing(false);
         }
-#endif
     }
 
     void StartDancing()
     {
         isDancing = true;
         danceTimer = 0f;
-        danceState = Random.Range(0, DANCE_CLIP_COUNT);
+        danceState = UnityEngine.Random.Range(0, DANCE_CLIP_COUNT);
         animator.SetBool(isDancingParam, true);
         animator.SetFloat(danceIndexParam, danceState);
     }
@@ -114,6 +121,119 @@ public class AvatarAnimatorController : MonoBehaviour
             danceTransitionCoroutine = null;
         }
     }
+
+#if !UNITY_STANDALONE_WIN
+    void InitMacAudio()
+    {
+        if (micInitialized) return;
+        try
+        {
+            if (Microphone.devices.Length > 0)
+            {
+                micClip = Microphone.Start(null, true, 10, 44100);
+                micInitialized = true;
+            }
+        }
+        catch { }
+    }
+
+    float GetMacAudioPeak()
+    {
+        if (!micInitialized || micClip == null) return 0f;
+        try
+        {
+            int pos = Microphone.GetPosition(null) - 256;
+            if (pos < 0) return 0f;
+            if (micClip.GetData(micSamples, pos))
+            {
+                float max = 0f;
+                for (int i = 0; i < 256; i++)
+                {
+                    float v = Mathf.Abs(micSamples[i]);
+                    if (v > max) max = v;
+                }
+                return max;
+            }
+        }
+        catch { }
+        return 0f;
+    }
+
+    string RunAppleScript(string script)
+    {
+        try
+        {
+            using (var p = new Process())
+            {
+                p.StartInfo.FileName = "/usr/bin/osascript";
+                p.StartInfo.Arguments = $"-e '{script}'";
+                p.StartInfo.UseShellExecute = false;
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.CreateNoWindow = true;
+                p.Start();
+                string output = p.StandardOutput.ReadToEnd();
+                p.WaitForExit(300);
+                return output;
+            }
+        }
+        catch { return null; }
+    }
+
+    bool IsMacMediaAppPlaying()
+    {
+        if (allowedApps == null || allowedApps.Count == 0) return false;
+        try
+        {
+            for (int i = 0; i < allowedApps.Count; i++)
+            {
+                string app = allowedApps[i].ToLowerInvariant();
+                if (app.Contains("spotify"))
+                {
+                    string res = RunAppleScript("tell application \"Spotify\" to if it is running then return (get player state as string)");
+                    if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                else if (app.Contains("music") || app.Contains("itunes"))
+                {
+                    string res = RunAppleScript("tell application \"Music\" to if it is running then return (get player state as string)");
+                    if (res != null && res.Trim().Equals("playing", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    bool IsAllowedAppRunning()
+    {
+        if (allowedApps == null || allowedApps.Count == 0) return true;
+        try
+        {
+            var running = Process.GetProcesses();
+            foreach (var p in running)
+            {
+                try
+                {
+                    string pname = p.ProcessName;
+                    if (string.IsNullOrEmpty(pname)) continue;
+                    for (int j = 0; j < allowedApps.Count; j++)
+                    {
+                        if (pname.StartsWith(allowedApps[j], System.StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return false;
+    }
+#endif
 
     bool IsValidAppPlaying()
     {
@@ -144,8 +264,25 @@ public class AvatarAnimatorController : MonoBehaviour
             }
         }
         catch { defaultDevice?.Dispose(); defaultDevice = null; }
-#endif
         return false;
+#else
+        if (Time.time - lastSoundCheckTime < 1.5f) return isDancing;
+        lastSoundCheckTime = Time.time;
+
+        if (IsMacMediaAppPlaying())
+        {
+            return true;
+        }
+
+        InitMacAudio();
+
+        if (IsAllowedAppRunning())
+        {
+            float peak = GetMacAudioPeak();
+            return peak > SOUND_THRESHOLD;
+        }
+        return false;
+#endif
     }
 
     private Vector2 dragGrabOffset;
@@ -320,6 +457,13 @@ public class AvatarAnimatorController : MonoBehaviour
 #if UNITY_STANDALONE_WIN
         defaultDevice?.Dispose(); defaultDevice = null;
         enumerator?.Dispose(); enumerator = null;
+#else
+        if (micInitialized && micClip != null)
+        {
+            try { Microphone.End(null); } catch { }
+            micClip = null;
+            micInitialized = false;
+        }
 #endif
     }
 }

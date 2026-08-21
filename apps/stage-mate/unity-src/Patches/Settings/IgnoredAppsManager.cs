@@ -67,7 +67,16 @@ public class AllowedAppsManager : MonoBehaviour
 
         var filteredAppNames = currentRunningAppNames
             .Where(app => !allowedApps.Contains(app))
-            .OrderBy(app => app)
+            .OrderBy(app =>
+            {
+                if (app.Contains("spotify")) return 0;
+                if (app.Contains("music")) return 1;
+                if (app.Contains("discord")) return 2;
+                if (app.Contains("chrome")) return 3;
+                if (app.Contains("safari")) return 4;
+                return 10;
+            })
+            .ThenBy(app => app)
             .ToList();
 
         runningAppsDropdown.ClearOptions();
@@ -138,9 +147,44 @@ public class AllowedAppsManager : MonoBehaviour
             }
         }
         catch { }
+#else
+        try
+        {
+            string[] knownMediaKeywords = new string[]
+            {
+                "spotify", "discord", "music", "chrome", "safari", "firefox",
+                "vlc", "brave", "arc", "edge", "opera", "telegram", "slack",
+                "obs", "itunes", "tidal", "qobuz", "foobar", "audacity", "steam"
+            };
+
+            var processes = Process.GetProcesses();
+            foreach (var p in processes)
+            {
+                try
+                {
+                    string name = p.ProcessName;
+                    if (string.IsNullOrEmpty(name)) continue;
+                    name = name.ToLowerInvariant();
+
+                    if (name.Contains("crashpad") || name.Contains("helper") || name.Contains("xpc") || name.Contains("agent") || name.Contains("service") || name.Contains("daemon"))
+                        continue;
+
+                    for (int k = 0; k < knownMediaKeywords.Length; k++)
+                    {
+                        if (name.Contains(knownMediaKeywords[k]))
+                        {
+                            appNames.Add(name);
+                            break;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
 #endif
 
-        return appNames.OrderBy(n => n).ToList();
+        return appNames.ToList();
     }
 
     private void OnDestroy()
