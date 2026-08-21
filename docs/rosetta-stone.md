@@ -75,6 +75,7 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | **System Tray** | `apps/stage-tamagotchi/src/main/tray/index.ts` |
 | **Caption Overlay** | `apps/stage-tamagotchi/src/renderer/pages/caption.vue` (UI) | `apps/stage-tamagotchi/src/main/windows/caption/` (Manager) |
 | **Widgets Host** | `apps/stage-tamagotchi/src/renderer/pages/widgets.vue` | `apps/stage-tamagotchi/src/main/windows/widgets/index.ts` (Manager) |
+| **Stage-Mate (Unity Companion)** | `apps/stage-mate/` (Sidecar Runtime) \| `apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts` (Service) \| Spec: [`docs/project-gunslinger-sidecar-mod.md`](./project-gunslinger-sidecar-mod.md) |
 
 ---
 
