@@ -470,7 +470,7 @@ public class AvatarWindowHandler : MonoBehaviour
 
         int spr = ScaledProbeRadiusI();
 #if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
-        float sprF = Mathf.Max(ScaledProbeRadiusF(), 100f);
+        float sprF = Mathf.Max(ScaledProbeRadiusF(), 28f);
 #else
         float sprF = ScaledProbeRadiusF();
 #endif

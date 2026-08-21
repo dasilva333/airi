@@ -980,6 +980,52 @@ AIRI maintains two completely independent stage toggle lanes:
   - **100% Click-Through**: Set `raycastTarget = false` and `blocksRaycasts = false` so mouse clicks pass through completely unimpeded.
 - **Runtime Lifecycle**: Automatically attached on boot via `StageMateBridge.cs` inside `Mate Engine Main.unity`.
 
+---
+
+## 15. Upstream v3.4 Scene Transition (`Mate Engine Update.unity`), Locomotion Analysis & Edge Peeking Mechanics
+
+### 15.1. The Scene Flip to `Mate Engine Update.unity`
+- **Upstream Structure**: Upstream Mate Engine commit `2c5ea6b8` transitioned development into `Assets/MATE ENGINE - Scenes/Mate Engine Update.unity`, which contains modern camera/viewport components, updated UI layer hierarchies, and the dedicated `AvatarHideHandler` edge-docking system (which was completely missing from legacy `Mate Engine Main.unity`).
+- **Automation Integration**:
+  - `MateSidecarBuild.cs`: Flipped `MainScenePath` to `Assets/MATE ENGINE - Scenes/Mate Engine Update.unity` and updated `EnsureBridgeInMainScene()` to dynamically inject `StageMateBridge.cs`.
+  - `setup.ts`: Enhanced `patchSettingsMenuUI()` to scrub redundant standalone promo and DLC sections across both scene assets.
+
+### 15.2. Exhaustive Locomotion & Animation Audit (The 7-Clip Truth)
+- **Asset Directory**: `Assets/MATE ENGINE - Animations/PET_LOCOMOTION/` contains exactly 7 clips:
+  1. `PET_WALK_LEFT.anim` (GUID `a24a598257e9e9c40a12d7a4f7ba59fa`)
+  2. `PET_WALK_RIGHT.anim` (GUID `28d67e85ba927c34896c32c482f7daed`)
+  3. `walk_cycle_sexy_01_light.anim` (GUID `d878287b7a8e4834195d5bc1a8de50bd`)
+  4. `walk_cycle_sexy_02.anim` (GUID `50d57d0a689b32e46a5754c4bf45658a`)
+  5. `walk_cycle_sexy_02_light.anim` (GUID `e0287df6b7c7b134c9d5aa01d15c6c7f`)
+  6. `walk_cycle_sexy_03.anim` (GUID `94d2091c4d2a00a4abc04d495782a62a`)
+  7. `walk_cycle_sexy_03_light.anim` (GUID `c84b1e40b1ee3df478b08d62a066ca2e`)
+- **Controller Wiring Reality**:
+  - A global GUID search across all `.controller` files proved that **only `PET_WALK_LEFT` and `PET_WALK_RIGHT` are wired into `AvatarAnimatorControllerV2 1.controller`**. The other 5 clips have 0 references in any controller in the entire project.
+  - The `walk_cycle_sexy_*` clips are forward-facing catwalk/strut cycles (root rotation $0^\circ$). When played while sliding a 2D desktop window horizontally, the avatar steps forward towards the camera while sliding sideways.
+  - `PET_WALK_LEFT` and `PET_WALK_RIGHT` have the $\pm 90^\circ$ sideways turns baked into their humanoid root transforms, making them the only valid 2D window desktop locomotion animations in the upstream engine.
+
+### 15.3. Monitor Edge Peeking / Hiding Mechanics (`AvatarHideHandler.cs`)
+- **Activation Lifecycle**:
+  1. **Interaction Prerequisite**: The avatar must be actively dragged with the mouse (`controller.isDragging == true`).
+  2. **Proximity Trigger**: While being dragged, the cursor moves within `snapThresholdPx` ($\le 16\text{px}$ from screen left or $\ge \text{Screen.width} - 16\text{px}$ from screen right).
+  3. **Snap Execution**: `SnapTo(Side.Left)` or `SnapTo(Side.Right)` triggers:
+     - Sets `HideLeft = true` or `HideRight = true` on the Animator.
+     - Transitions state machine to `PET_HIDE_SHOW_LOOP_LEFT` / `PET_HIDE_SHOW_LOOP_RIGHT`.
+     - Smoothly offsets window coordinates to dock the avatar partially behind the monitor bezel.
+  4. **Unsnap Condition**: Clicking and dragging the avatar $> 48\text{px}$ away from the screen edge invokes `Unsnap()`, resetting `HideLeft`/`HideRight` to `false` and restoring normal standing posture.
+- **Cross-Platform macOS Resolution**:
+  - Replaced Win32-only `GetWindowRect` / `GetCursorPos` / `MonitorFromWindow` calls with `GlobalMouse.GetPosition()` and `UniWindowController.windowPosition`.
+
+### 15.4. Dock & Window Ledge Snapping Calibration (`AvatarTaskbarController` & `AvatarWindowHandler`)
+- **Initial Generous Thresholds**: During early macOS porting, snap thresholds were aggressively boosted to guarantee detection on non-standard resolution displays (e.g. `sprF = 100f` vertical reach and `snapZoneSize = 240x80px`).
+- **Precision Calibration**:
+  - **Ledge Magnet Reach (`AvatarWindowHandler.cs`)**: Reduced vertical probe radius `sprF` from $100\text{px} \rightarrow 28\text{px}$, preventing magnetic snap from pulling the avatar when far above the Dock/window.
+  - **Hip Detection Hitbox (`AvatarTaskbarController.cs`)**: Reduced `snapZoneSize` from `Vector2(240, 80)` $\rightarrow$ `Vector2(120, 36)`.
+  - **Dock Overlap Extension (`AvatarTaskbarController.cs`)**: Reduced vertical reach above the Dock from `dockHeight + 45f` $\rightarrow$ `dockHeight + 10f`.
+- **Result**: The avatar sits naturally only when dragged in close proximity to the Dock bar or a window titlebar, and releases cleanly with no sticky residual pull.
+
+
+
 
 
 

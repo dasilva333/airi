@@ -11,7 +11,7 @@ public class AvatarTaskbarController : MonoBehaviour
 
     [Header("Detection Settings")]
     public Vector2 snapZoneOffset = new Vector2(0, 0);
-    public Vector2 snapZoneSize = new Vector2(240, 80);
+    public Vector2 snapZoneSize = new Vector2(120, 36);
 
     [Header("Attach Settings")]
     public GameObject attachTarget;
@@ -84,7 +84,7 @@ public class AvatarTaskbarController : MonoBehaviour
 #if (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
         // On macOS Cocoa: Dock is at bottom (y = 0..dockHeight)
         float dockHeight = taskbarRect.height > 0 ? taskbarRect.height : 66f;
-        Rect dockZone = new Rect(taskbarRect.x, 0, taskbarRect.width, dockHeight + 45f);
+        Rect dockZone = new Rect(taskbarRect.x, 0, taskbarRect.width, dockHeight + 10f);
         bool isNearTaskbar = pinkZoneDesktopRect.Overlaps(dockZone);
 #else
         // Windows original: Taskbar top ledge is at taskbarRect.y
