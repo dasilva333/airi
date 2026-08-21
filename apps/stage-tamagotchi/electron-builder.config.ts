@@ -64,6 +64,7 @@ const isReleaseSigning = Boolean(process.env.CSC_LINK || process.env.APPLE_DEVEL
 
 const STAGE_MATE_RESOURCE_FILTERS = [
   '**/*',
+  '!Build/**/*',
   '!*.log',
   '!*.dmp',
   '!*.vrm',
@@ -99,6 +100,8 @@ export default {
       ]
       for (const cand of candidates) {
         if (existsSync(cand)) {
+          execSync(`rm -rf "${cand}/Build"`)
+          execSync(`xattr -cr "${cand}"`)
           console.log(`  • deep signing nested StageMate bundle: ${cand}`)
           execSync(`codesign --sign - --force --deep "${cand}"`)
         }

@@ -1,27 +1,32 @@
-# 🚀 AIRI v0.9.25-stable.20260818 — Release Notes
+# 🚀 AIRI v0.9.26-stable.20260820 — Release Notes
 
-This release introduces the **Unity Stage-Mate Engine & Companion Floaties**, the **Full 9-Step Companion Wizard with Cloudflare Edge Vault**, **Stage-Mobile Dual Presentation Modes**, and **Proactivity Sub-Tabs with a Sneak Peek at Screen Watching**.
+This release introduces the **3D Mesh Wardrobe Builder & Modular Outfits System**, **Stage-Mate Unity Lip-Sync & Expression Bridging**, **macOS Dock Snap & Sitting Postures**, **Incremental Lifetime Memory Maintenance**, and **Ultra-Lightweight Desktop Rendering Modes**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🎮 Unity Stage-Mate Engine & Interactive Companion Floaties
-* **Modular Unity Engine Sidecar (`stage-mate`)**: Integrated the new `stage-mate` Unity engine sidecar! Brings dynamic 3D VRM model loading, realistic sway dynamics, C# IPC sidecar relays, radial pie menus, and 2-tier positioning persistence across both Windows and macOS.
-* **Companion Floaties & Snack Props**: Give your companion interactive props and snacks directly from the Control Strip! Choose from pre-made presets (boba, tea, taiyaki, game controllers) or use the custom recipe builder to spawn floating items around your companion on the stage.
-* **Settings Model Preview Sync**: Fixed VRM expression preview propagation in settings so expressions and materials update seamlessly in real time.
+### 👗 3D Mesh Wardrobe Builder & Modular Outfits System
+* **Inline Wardrobe Builder Tab**: Added a dedicated **Outfits** tab in the Model Customizer to build, preview, and save custom clothing slots with real-time mesh toggle probing.
+* **Hierarchical 3D Mesh Discovery**: Automatically inspects native glTF/VRM mesh hierarchies and presents them in an intuitive tri-state tree view with ancestor matching.
+* **Hot-Reloading Unity Sidecar Sync**: Dynamically syncs outfit slots directly with the Stage-Mate Unity engine runtime via `MEClothes` injection.
 
-### 🪄 The Full 9-Step Companion Wizard & Cloudflare Edge Vault
-* **Complete 9-Step Guided Setup**: Modernized the companion creation flow into an end-to-end guided sequence: **Hearing (STT) ➔ Speech (TTS) ➔ Body Vessel ➔ User Profile ➔ Persona ➔ Consciousness Brain ➔ Cloudflare Restore ➔ Calibration**.
-* **Sign-In with Cloudflare & Edge Vault**: Connect your Cloudflare account directly within the setup wizard to instantly back up or selectively restore your credentials and companion states with `airi-edge-vault` encrypted KV storage and zero-CORS edge routing.
-* **Local Provider Auto-Wiring**: Overhauled under-the-hood provider initialization during setup — Local Whisper now cleanly reclaims VRAM on model switches, resolves word truncation, and configures alongside WebLLM and Kokoro with zero friction.
+### 🎮 Stage-Mate Unity Companion: Lip-Sync, Expressions & macOS Dock Snap
+* **Phonetic Lip-Sync & Expression Bridging**: Stream real-time blendshape mouth shapes and phonetic lip-sync directly from the TTS runtime into the Unity avatar.
+* **Fixed vs. Transient Expressions**: Companion now supports persistent resting emotions as well as fleeting facial cues that gracefully decay back to idle.
+* **macOS Dock Snap & Sitting Posture**: Your companion can now snap and sit directly atop the macOS Dock or taskbar edge with calibrated seat anchors and unclamped vertical stage overflow.
+* **Direct Body Drag & Transparent Click-Through**: Enjoy smooth dragging directly by clicking the avatar's body while maintaining transparent pixel click-through for windows underneath.
 
-### 📱 Stage-Mobile & Stage-Pocket Revamp
-* **Dual Mobile Presentation Modes**: Unified the mobile chat experience with 4 distinct sheet postures, smooth drag controls, Producer Guidance modals, and Producer Choice bubbles.
-* **Theme-Aware Ambient Floating Hearts**: Added a theme-aware floating hearts stage scene layer alongside a frosted light control strip.
+### 🧠 Memory Systems: Incremental Lifetime Maintenance
+* **STMM-Cadence Lifetime Maintenance**: Short-term memory (STMM) daily blocks now automatically consolidate into the character's overarching **Lifetime Artifact** on daily rollover without requiring manual reprovisioning.
+* **Universe-Scoped Changelogs**: Retains incremental maintenance diffs with zero-change deduplication and capped audit logs.
 
-### ⚡ Proactivity, Audio Engine & Developer Previews
-* **Proactivity Settings Revamp**: Re-architected Proactivity settings into 5 thematic sub-tabs with a busy pipe mutex and prefix-cache tail framing to keep automated heartbeats cost-effective and responsive.
-* **Screen Watching (Developer Sneak Peek)**: A glimpse into our upcoming vision awareness engine! The developer preview tab and visual source picker UI are now in place as we finalize the background perception pipeline.
-* **Real-Time SSE Audio Streaming**: Added real-time SSE audio streaming with actor pacing and synchronized character voice profiles across desktop and mobile.
-* **Comprehensive Event Ledger**: Wired text/image journals, voice STT events, and tool execution results directly into the real-time Event Ledger.
+### ⚡ Desktop Performance & Runtime Packaging
+* **Headless / Low-Power Mode (`--disable-webgl-stage`)**: Run AIRI in ultra-lightweight tray/sidecar mode or dedicate 100% of GPU rendering to the Unity engine.
+* **Prebuilt Stage-Mate Companion Fetcher**: Integrated automated fetching and startup scripts for prebuilt Stage-Mate binaries on Windows and macOS.
+* **Texture & Memory Stability**: Fixed VRM texture loading failures, resolved premature Blob URL revocations, and made V-HACK binary captures lazy to save RAM.
+
+### 🪄 Onboarding & Startup Reliability
+* **Granular Step-7 Synthesis Error Handling**: Enhanced error recovery, network retries, and example dialogue parsing in the Companion Wizard.
+* **Windows VS Code Terminal Fix**: Automatically clears `ELECTRON_RUN_AS_NODE` in Windows startup scripts to prevent terminal launch lockups.
+* **DELAY Token Pacing**: Calibrated `<|DELAY:...|>` pause tokens and conversational speech pacing heuristics.
