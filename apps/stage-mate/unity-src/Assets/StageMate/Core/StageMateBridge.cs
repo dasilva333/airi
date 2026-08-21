@@ -251,6 +251,14 @@ namespace StageMate.Core
                         Debug.Log($"[StageMateBridge] Weapon mode updated: enabled={en}, weapon={w}");
                     }
                     break;
+
+                case "stage:control:mouse":
+                case "control:mouse":
+                    if (env.data != null)
+                    {
+                        GlobalMouse.SetStreamedPosition(env.data.x, env.data.y);
+                    }
+                    break;
             }
         }
 

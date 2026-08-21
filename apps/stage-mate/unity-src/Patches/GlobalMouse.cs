@@ -11,19 +11,44 @@ public static class GlobalMouse
         public int y;
     }
 
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
     [DllImport("user32.dll")]
     static extern bool GetCursorPos(out POINT lpPoint);
 
-    public static Vector2 GetPosition()
-    {
-        GetCursorPos(out POINT p);
-        return new Vector2(p.x, p.y);
-    }
-    const int VK_LBUTTON = 0x01;
-    const int VK_RBUTTON = 0x02;
-
     [DllImport("user32.dll")]
     static extern short GetAsyncKeyState(int vKey);
+
+    const int VK_LBUTTON = 0x01;
+    const int VK_RBUTTON = 0x02;
+#endif
+
+    private static Vector2 streamedPosition = Vector2.zero;
+    private static bool hasStreamedPosition = false;
+
+    public static void SetStreamedPosition(float x, float y)
+    {
+        streamedPosition = new Vector2(x, y);
+        hasStreamedPosition = true;
+    }
+
+    public static Vector2 GetPosition()
+    {
+        if (hasStreamedPosition)
+        {
+            return streamedPosition;
+        }
+
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            GetCursorPos(out POINT p);
+            return new Vector2(p.x, p.y);
+        }
+        catch { }
+#endif
+        // Canonical top-left contract across macOS/Linux
+        return new Vector2(Input.mousePosition.x, UnityEngine.Screen.height - Input.mousePosition.y);
+    }
 
     static bool prevLeftDown;
     static bool prevRightDown;
@@ -39,27 +64,55 @@ public static class GlobalMouse
     /// </summary>
     public static bool LeftMouseDown()
     {
-        return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+        }
+        catch { }
+#endif
+        return Input.GetMouseButton(0);
     }
     public static bool RightMouseDown()
     {
-        return (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            return (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+        }
+        catch { }
+#endif
+        return Input.GetMouseButton(1);
     }
     public static bool LeftMouseUp()
     {
-        bool isDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-        bool upThisFrame = prevLeftDown && !isDown;
-        BothDown = prevBothDown && !upThisFrame;
-        prevLeftDown = isDown;
-        return upThisFrame;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            bool isDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+            bool upThisFrame = prevLeftDown && !isDown;
+            BothDown = prevBothDown && !upThisFrame;
+            prevLeftDown = isDown;
+            return upThisFrame;
+        }
+        catch { }
+#endif
+        return Input.GetMouseButtonUp(0) || Input.GetMouseButtonDown(0);
     }
     public static bool RightMouseUp()
     {
-        bool isDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-        bool upThisFrame = prevRightDown && !isDown;
-        BothDown = prevBothDown && !upThisFrame;
-        prevRightDown = isDown;
-        return upThisFrame;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            bool isDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+            bool upThisFrame = prevRightDown && !isDown;
+            BothDown = prevBothDown && !upThisFrame;
+            prevRightDown = isDown;
+            return upThisFrame;
+        }
+        catch { }
+#endif
+        return Input.GetMouseButtonUp(1);
     }
     public static bool BothMouseDownOnce()
     {
@@ -90,7 +143,14 @@ public static class GlobalMouse
     }
     public static bool IsKeyDown(int vKey)
     {
-        return (GetAsyncKeyState(vKey) & 0x8000) != 0;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            return (GetAsyncKeyState(vKey) & 0x8000) != 0;
+        }
+        catch { }
+#endif
+        return false;
     }
 
     //static void OnMouseHook(int msg, IntPtr lParam)

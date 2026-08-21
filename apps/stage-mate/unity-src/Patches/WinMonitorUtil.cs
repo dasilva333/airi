@@ -26,11 +26,12 @@ public static class WinMonitorUtil
     // Win32 imports
     // -----------------------------
 
-    [DllImport("user32.dll")]
-    public static extern IntPtr GetActiveWindow();
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+    [DllImport("user32.dll", EntryPoint = "GetActiveWindow")]
+    static extern IntPtr GetActiveWindow_Win32();
 
-    [DllImport("user32.dll")]
-    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll", EntryPoint = "GetWindowRect")]
+    static extern bool GetWindowRect_Win32(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
     static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
@@ -39,6 +40,35 @@ public static class WinMonitorUtil
     static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     const uint MONITOR_DEFAULTTONEAREST = 2;
+#endif
+
+    public static IntPtr GetActiveWindow()
+    {
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            return GetActiveWindow_Win32();
+        }
+        catch { }
+#endif
+        return IntPtr.Zero;
+    }
+
+    public static bool GetWindowRect(IntPtr hWnd, out RECT lpRect)
+    {
+        lpRect = default;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            return GetWindowRect_Win32(hWnd, out lpRect);
+        }
+        catch { }
+#endif
+        int w = UnityEngine.Screen.width;
+        int h = UnityEngine.Screen.height;
+        lpRect = new RECT { left = 0, top = 0, right = w, bottom = h };
+        return true;
+    }
 
     // -----------------------------
     // Public helper
@@ -48,21 +78,34 @@ public static class WinMonitorUtil
     {
         monitorRect = default;
 
-        IntPtr hwnd = GetActiveWindow();
-        if (hwnd == IntPtr.Zero)
-            return false;
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        try
+        {
+            IntPtr hwnd = GetActiveWindow();
+            if (hwnd != IntPtr.Zero)
+            {
+                IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                if (monitor != IntPtr.Zero)
+                {
+                    MONITORINFO info = new MONITORINFO();
+                    info.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
 
-        IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (monitor == IntPtr.Zero)
-            return false;
+                    if (GetMonitorInfo(monitor, ref info))
+                    {
+                        monitorRect = info.rcMonitor;
+                        return true;
+                    }
+                }
+            }
+        }
+        catch { }
+#endif
 
-        MONITORINFO info = new MONITORINFO();
-        info.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-
-        if (!GetMonitorInfo(monitor, ref info))
-            return false;
-
-        monitorRect = info.rcMonitor;
+        int w = UnityEngine.Screen.width > 0 ? UnityEngine.Screen.width : UnityEngine.Screen.currentResolution.width;
+        int h = UnityEngine.Screen.height > 0 ? UnityEngine.Screen.height : UnityEngine.Screen.currentResolution.height;
+        if (w <= 0) w = 1920;
+        if (h <= 0) h = 1080;
+        monitorRect = new RECT { left = 0, top = 0, right = w, bottom = h };
         return true;
     }
 }

@@ -25,7 +25,7 @@ import {
   electronStageMateToggleVisibility,
   electronStageMateTriggerExpression,
 } from '@proj-airi/stage-shared'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { WebSocket, WebSocketServer } from 'ws'
 
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
@@ -400,6 +400,7 @@ export function createStageMateService(params?: {
 
     sidecarProcess = null
     sidecarPid = null
+    stopMouseTelemetry()
     broadcast({ type: 'control:stage', data: { enabled: false } })
   }
 
@@ -557,8 +558,45 @@ export function createStageMateService(params?: {
     })
   })
 
+  let mouseTicker: NodeJS.Timeout | null = null
+  let lastMousePos = { x: -1, y: -1 }
+
+  function startMouseTelemetry() {
+    if (mouseTicker)
+      return
+    mouseTicker = setInterval(() => {
+      if (authenticatedSockets.size === 0)
+        return
+      try {
+        const pt = screen.getCursorScreenPoint()
+        if (pt.x !== lastMousePos.x || pt.y !== lastMousePos.y) {
+          lastMousePos = { x: pt.x, y: pt.y }
+          broadcast({
+            type: 'stage:control:mouse',
+            data: {
+              x: pt.x,
+              y: pt.y,
+            },
+          })
+        }
+      }
+      catch {}
+    }, 16)
+  }
+
+  function stopMouseTelemetry() {
+    if (mouseTicker) {
+      clearInterval(mouseTicker)
+      mouseTicker = null
+    }
+  }
+
   defineInvokeHandler(context, electronStageMateSetWeapon, async (payload) => {
     log.withFields(payload).log('Stage-Mate weapon control dispatched')
+    if (payload.enabled)
+      startMouseTelemetry()
+    else
+      stopMouseTelemetry()
     broadcast({
       type: 'stage:control:weapon',
       data: payload,
