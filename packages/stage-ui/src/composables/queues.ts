@@ -103,10 +103,10 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
     handlers: [
       async (ctx) => {
         // 1. Check for Delay
-        const delay = parseDelay(ctx.data)
-        if (delay !== null) {
-          ctx.emit('delay', delay)
-          await sleep(delay * 1000)
+        const delayMs = parseDelay(ctx.data)
+        if (delayMs !== null) {
+          ctx.emit('delay', delayMs)
+          await sleep(delayMs)
           return
         }
 
@@ -131,12 +131,30 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
   })
 }
 
+export function normalizeDelayMs(rawDelay: number): number {
+  if (Number.isNaN(rawDelay) || rawDelay <= 0)
+    return 0
+
+  let ms: number
+  // If >= 50, caller passed milliseconds (e.g. 800, 1000, 2500)
+  if (rawDelay >= 50) {
+    ms = rawDelay
+  }
+  // Otherwise, caller passed seconds / decimals (e.g. 0.5, 1, 2.5, 3)
+  else {
+    ms = rawDelay * 1000
+  }
+
+  // Safety ceiling: Cap any single pause at 10 seconds max so runaway values never freeze the queue
+  return Math.min(ms, 10000)
+}
+
 export function parseDelay(content: string) {
-  const match = /<\|DELAY:\s*(\d+)\s*(?:\|>|>)/i.exec(content)
+  const match = /<\|DELAY:\s*([\d.]+)\s*(?:\|>|>)/i.exec(content)
   if (!match)
     return null
   const delay = Number.parseFloat(match[1])
-  return Number.isNaN(delay) ? 0 : delay
+  return normalizeDelayMs(delay)
 }
 
 export function parseActor(content: string) {

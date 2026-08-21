@@ -44,6 +44,7 @@ import { useDiscordStore } from '../../stores/modules/discord'
 import { useSpeechStore } from '../../stores/modules/speech'
 import { useProvidersStore } from '../../stores/providers'
 import { useSettings } from '../../stores/settings'
+import { useSettingsControlStrip } from '../../stores/settings/control-strip'
 import { useSettingsUserProfile } from '../../stores/settings/user-profile'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
@@ -230,13 +231,26 @@ watch(activeModelMetadata, (model) => {
 
 // Animation scheduling has been decoupled
 
-// Animation queue and computed attributes decoupled
+const controlStripStore = useSettingsControlStrip()
+const { stageMateEnabled } = storeToRefs(controlStripStore)
 
 const emotionsQueue = createQueue<EmotionPayload>({
   handlers: [
     async (ctx) => {
+      const emotionName = ctx.data.name
+      const intensity = ctx.data.intensity
+
+      // Forward ACT emotion cues to Stage-Mate sidecar if enabled
+      if (stageMateEnabled.value && isElectron.value) {
+        import('@proj-airi/electron-vueuse').then(({ useElectronEventaInvoke }) => {
+          import('@proj-airi/stage-shared').then(({ electronStageMateTriggerExpression }) => {
+            const triggerExpr = useElectronEventaInvoke(electronStageMateTriggerExpression)
+            triggerExpr({ name: emotionName, weight: intensity, durationMs: 2500 })
+          })
+        }).catch(() => {})
+      }
+
       if (stageModelRenderer.value === 'vrm') {
-        const emotionName = ctx.data.name
         debug('[Stage] VRM emotion/motion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
         const matchedOption = customVrmAnimationsStore.animationOptions.find(opt =>
           opt.value === emotionName
@@ -1211,6 +1225,9 @@ playbackManager.onStart(({ item }) => {
   }
 })
 
+let lastStageMateLipSyncTime = 0
+let lastStageMateRms = -1
+
 function startLipSyncLoop() {
   if (lipSyncLoopId.value)
     return
@@ -1222,6 +1239,22 @@ function startLipSyncLoop() {
     else {
       mouthOpenSize.value = live2dLipSync.value.getMouthOpen()
     }
+
+    if (stageMateEnabled.value && isElectron.value) {
+      const now = performance.now()
+      const curRms = mouthOpenSize.value
+      if (now - lastStageMateLipSyncTime > 33 || (curRms === 0 && lastStageMateRms > 0)) {
+        lastStageMateLipSyncTime = now
+        lastStageMateRms = curRms
+        import('@proj-airi/electron-vueuse').then(({ useElectronEventaInvoke }) => {
+          import('@proj-airi/stage-shared').then(({ electronStageMateLipSync }) => {
+            const triggerLipSync = useElectronEventaInvoke(electronStageMateLipSync)
+            triggerLipSync({ rms: curRms })
+          })
+        }).catch(() => {})
+      }
+    }
+
     lipSyncLoopId.value = requestAnimationFrame(tick)
   }
 

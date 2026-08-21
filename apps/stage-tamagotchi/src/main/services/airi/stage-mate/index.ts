@@ -14,12 +14,14 @@ import { createContext } from '@moeru/eventa/adapters/electron/main'
 import {
   electronStageMateEnsureModel,
   electronStageMateGetState,
+  electronStageMateLipSync,
   electronStageMateSaveModel,
   electronStageMateSetModelPosition,
   electronStageMateSetPropMacaron,
   electronStageMateSetViewportMode,
   electronStageMateSyncOutfits,
   electronStageMateToggleVisibility,
+  electronStageMateTriggerExpression,
 } from '@proj-airi/stage-shared'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { WebSocket, WebSocketServer } from 'ws'
@@ -564,6 +566,21 @@ export function createStageMateService(params?: {
     else {
       broadcast({ type: 'control:stage', data: { enabled: false } })
     }
+  })
+
+  defineInvokeHandler(context, electronStageMateTriggerExpression, async (payload) => {
+    log.withFields(payload).log('Stage-Mate expression dispatched')
+    broadcast({
+      type: 'stage:vrm:expression',
+      data: payload,
+    })
+  })
+
+  defineInvokeHandler(context, electronStageMateLipSync, async (payload) => {
+    broadcast({
+      type: 'stage:vrm:lip-sync',
+      data: payload,
+    })
   })
 
   defineInvokeHandler(context, electronStageMateGetState, async () => {

@@ -682,6 +682,14 @@ function triggerExpressionEffect(key: string) {
   }
   else if (modelType.value === 'vrm') {
     modelStore.triggerEmotion(key, 1.0)
+    if (stageMateEnabled.value && isElectron.value) {
+      import('@proj-airi/electron-vueuse').then(({ useElectronEventaInvoke }) => {
+        import('@proj-airi/stage-shared').then(({ electronStageMateTriggerExpression }) => {
+          const triggerExpr = useElectronEventaInvoke(electronStageMateTriggerExpression)
+          triggerExpr({ name: key, weight: 1.0, durationMs: 2500 })
+        })
+      }).catch(() => {})
+    }
   }
   else if (modelType.value === 'mmd') {
     mmdStore.previewExpression = key

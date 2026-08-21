@@ -45,6 +45,17 @@ export interface StageMateSetPropMacaronPayload {
   heart: string
 }
 
+export interface StageMateTriggerExpressionPayload {
+  name: string
+  weight?: number
+  durationMs?: number
+  isFixed?: boolean
+}
+
+export interface StageMateLipSyncPayload {
+  rms: number
+}
+
 export interface StageMateSyncOutfitsEntry {
   name: string
   tag?: string
@@ -70,3 +81,5 @@ export const electronStageMateGetState = defineInvokeEventa<{ enabled: boolean, 
 export const electronStageMateSetViewportMode = defineInvokeEventa<void, StageMateViewportMode>('eventa:invoke:electron:stage-mate:set-viewport-mode')
 export const electronStageMateSetModelPosition = defineInvokeEventa<void, StageMateModelPosition>('eventa:invoke:electron:stage-mate:set-model-position')
 export const electronStageMateSetPropMacaron = defineInvokeEventa<void, StageMateSetPropMacaronPayload>('eventa:invoke:electron:stage-mate:set-prop-macaron')
+export const electronStageMateTriggerExpression = defineInvokeEventa<void, StageMateTriggerExpressionPayload>('eventa:invoke:electron:stage-mate:trigger-expression')
+export const electronStageMateLipSync = defineInvokeEventa<void, StageMateLipSyncPayload>('eventa:invoke:electron:stage-mate:lip-sync')

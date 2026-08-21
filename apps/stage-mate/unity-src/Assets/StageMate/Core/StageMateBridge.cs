@@ -383,22 +383,11 @@ namespace StageMate.Core
 
         private void ApplyLipSync(float rms)
         {
-            var animators = FindObjectsByType<Animator>(FindObjectsSortMode.None);
-            foreach (var a in animators)
-            {
-                var vrm10 = a.GetComponent<Vrm10Instance>();
-                if (vrm10 != null && vrm10.Runtime != null && vrm10.Runtime.Expression != null)
-                {
-                    vrm10.Runtime.Expression.SetWeight(ExpressionKey.Aa, Mathf.Clamp01(rms));
-                    return;
-                }
-                var vrm0 = a.GetComponent<VRMBlendShapeProxy>();
-                if (vrm0 != null)
-                {
-                    vrm0.SetValue(BlendShapeKey.CreateFromPreset(BlendShapePreset.A), Mathf.Clamp01(rms));
-                    return;
-                }
-            }
+            float clamped = Mathf.Clamp01(rms);
+            // Drive canonical VRM vowel 'A' / 'Aa' via dynamic clip resolution
+            SetVrmExpressionWeight("a", clamped);
+            // Drive ARKit 'JawOpen' if the model has Apple/ARKit face blendshapes
+            SetVrmExpressionWeight("JawOpen", clamped);
         }
 
         private Coroutine activeExpressionCoroutine;
