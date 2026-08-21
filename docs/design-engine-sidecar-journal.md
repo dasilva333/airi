@@ -925,8 +925,6 @@ Rather than maintaining platform-specific C#/P-Invoke window scanners in Unity, 
 - Centralized vision/gaze tracking (`stage:vrm:gaze`).
 - Automatic sidecar executable lifecycle management (`execProcess`).
 
----
-
 ## 13. The Golden Breakthrough: Workspace Purity & The Two Independent Stages
 
 ### 13.1. Golden Rule of Workspace Purity (`apps/stage-mate/unity-src/`)
@@ -956,6 +954,32 @@ AIRI maintains two completely independent stage toggle lanes:
 - **Canonical Commit Pin**: `2c5ea6b8f4cf5e1773a0816b46d9267cda5174d4` (`2c5ea6b8` — *"Prepare 3.4 Features"*)
 - **Clean Slate Script**: `pnpm -F @proj-airi/stage-mate run engine:clean` (executes `git -C apps/stage-mate/mate-engine reset --hard 2c5ea6b8 && git -C apps/stage-mate/mate-engine clean -fd`).
 - **Durable Post-Mortem Lesson**: Never allow agents or developers to touch `mate-engine/` directly. During cross-platform development on macOS, direct mutations to `mate-engine/` caused 6–8 hours of painful regressions that vanished the instant the folder was purged back to `2c5ea6b8`. Workspace purity via `unity-src/` overlay is mandatory.
+
+---
+
+## 14. Cross-Platform Input & UI Chrome Parity: Gunslinger Telemetry & Border Glow Highlight
+
+### 14.1. The Canonical Top-Left Coordinate Contract (`GlobalMouse.cs`)
+- **Retina $2\times$ Discrepancy**: On macOS Retina displays, `Display.main.systemHeight` returned physical hardware pixels ($2048\text{px}$) rather than logical points ($1024\text{pt}$), causing mouse ratio calculations `(2048 - y) / 2048` to never drop below $0.50$, falsely keeping stance armed across the entire screen.
+- **Normalization Boundary**: Updated `WinMonitorUtil.cs` and `StageMateWindowManager.cs` to query `Screen.width` ($1536$) and `Screen.height` ($1024$).
+- **Top-Left Invariant**: Unified `GlobalMouse.GetPosition()` to guarantee $(0..W, 0..H)$ top-left coordinates across all platforms and input modes (Electron stream, Win32 `GetCursorPos`, and Unity fallback `Screen.height - Input.mousePosition.y`), leaving downstream consumers like `AvatarMouseTracking.cs` 100% clean and stock upstream.
+
+### 14.2. Global Click Telemetry Stream (`stage:control:mouse`)
+- **Transparent Click-Through Limitation**: In click-through overlay mode, OS clicks bypass the Unity window, causing `Input.GetMouseButton(0)` to stay `false`.
+- **Zero-Latency Electron FFI**: In `apps/stage-tamagotchi/src/main/services/airi/stage-mate/index.ts`, wired `koffi` to query OS-level mouse button state (`CGEventSourceButtonState` on macOS, `GetAsyncKeyState` on Windows).
+- **Stream Integration**: Telemetry loop streams `{ x, y, isDown }` over `stage:control:mouse` at 60Hz. `StageMateBridge.cs` forwards to `GlobalMouse.SetStreamedPosition(x, y, isClick)`, enabling `LeftMouseUp()` to detect global gunfire releases with zero lag.
+
+### 14.3. Actor Stage Border Glow Highlight Parity (`StageMateBorderGlow.cs`)
+- **Visual Design Parity**: Replicated the WebGL Actor Stage highlight styling from `apps/stage-tamagotchi/src/renderer/pages/actor.vue`:
+  - **Color**: `#a855f7` (AIRI theme violet/purple `b-primary/50`).
+  - **Border**: $4\text{px}$ width with $16\text{px}$ rounded corners (`rounded-2xl`).
+  - **Animation**: Continuous $3$-second sine wave breathing pulse ($50\%$ to $100\%$ opacity), with $250\text{ms}$ smooth ease-in/out transitions.
+- **Robust Multi-Pass Architecture**:
+  - **Canvas Overlay**: Procedurally generates a $16\text{px}$ rounded-rect 9-slice sprite texture rendered via `RenderMode.ScreenSpaceCamera` bound to `UniWindowController.currentCamera`.
+  - **OnGUI Immediate-Mode Pass**: Direct backbuffer `GUI.DrawTexture` pass ensures full visibility across all camera clear flags and window layering modes.
+  - **100% Click-Through**: Set `raycastTarget = false` and `blocksRaycasts = false` so mouse clicks pass through completely unimpeded.
+- **Runtime Lifecycle**: Automatically attached on boot via `StageMateBridge.cs` inside `Mate Engine Main.unity`.
+
 
 
 

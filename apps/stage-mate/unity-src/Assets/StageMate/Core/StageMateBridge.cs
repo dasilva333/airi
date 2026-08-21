@@ -7,6 +7,7 @@ using UnityEngine.EventSystems;
 using VRM;
 using UniVRM10;
 using StageMate.Companion;
+using StageMate.Window;
 
 namespace StageMate.Core
 {
@@ -74,6 +75,12 @@ namespace StageMate.Core
             if (GetComponent<MateTelemetryProbe>() == null)
             {
                 gameObject.AddComponent<MateTelemetryProbe>();
+            }
+
+            // Attach Border Glow Highlight
+            if (GetComponent<StageMate.Window.StageMateBorderGlow>() == null)
+            {
+                gameObject.AddComponent<StageMate.Window.StageMateBorderGlow>();
             }
         }
 

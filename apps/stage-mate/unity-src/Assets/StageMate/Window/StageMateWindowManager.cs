@@ -40,6 +40,11 @@ namespace StageMate.Window
                 windowController.alphaValue = 1.0f;
                 windowController.isTransparent = isTransparent;
             }
+
+            if (GetComponent<StageMateBorderGlow>() == null)
+            {
+                gameObject.AddComponent<StageMateBorderGlow>();
+            }
         }
 
         private void Update()
@@ -76,8 +81,8 @@ namespace StageMate.Window
         {
             if (windowController == null) return;
 
-            int screenW = Display.main.systemWidth > 0 ? Display.main.systemWidth : Screen.currentResolution.width;
-            int screenH = Display.main.systemHeight > 0 ? Display.main.systemHeight : Screen.currentResolution.height;
+            int screenW = Screen.width > 0 ? Screen.width : Screen.currentResolution.width;
+            int screenH = Screen.height > 0 ? Screen.height : Screen.currentResolution.height;
 
             windowController.windowSize = defaultWindowSize;
 
@@ -97,8 +102,8 @@ namespace StageMate.Window
             if (windowController == null) return;
 
             // Invert Y coordinate from top-left (web/electron) to bottom-left (Kirurobo)
-            int screenH = Display.main.systemHeight > 0 ? Display.main.systemHeight : Screen.currentResolution.height;
-            int screenW = Display.main.systemWidth > 0 ? Display.main.systemWidth : Screen.currentResolution.width;
+            int screenH = Screen.height > 0 ? Screen.height : Screen.currentResolution.height;
+            int screenW = Screen.width > 0 ? Screen.width : Screen.currentResolution.width;
 
             int unityY = Mathf.Max(0, screenH - (y + height));
 
@@ -122,7 +127,7 @@ namespace StageMate.Window
             Vector2 pos = windowController.windowPosition;
             Vector2 size = windowController.windowSize;
 
-            int screenH = Display.main.systemHeight > 0 ? Display.main.systemHeight : Screen.currentResolution.height;
+            int screenH = Screen.height > 0 ? Screen.height : Screen.currentResolution.height;
             int electronY = Mathf.Max(0, screenH - Mathf.RoundToInt(pos.y + size.y));
 
             return new WindowBoundsDto
