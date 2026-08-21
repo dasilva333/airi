@@ -19,6 +19,7 @@ import {
   electronStageMateSetModelPosition,
   electronStageMateSetPropMacaron,
   electronStageMateSetViewportMode,
+  electronStageMateSetWeapon,
   electronStageMateSyncOutfits,
   electronStageMateToggleVisibility,
   electronStageMateTriggerExpression,
@@ -552,6 +553,14 @@ export function createStageMateService(params?: {
       data: {
         materials: payload,
       },
+    })
+  })
+
+  defineInvokeHandler(context, electronStageMateSetWeapon, async (payload) => {
+    log.withFields(payload).log('Stage-Mate weapon control dispatched')
+    broadcast({
+      type: 'stage:control:weapon',
+      data: payload,
     })
   })
 

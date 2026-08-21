@@ -336,6 +336,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
         type: 'menu',
         defaultOnStrip: false,
       },
+      {
+        id: 'actor-gunslinger',
+        label: 'Gunslinger Stance',
+        description: 'Cycle companion weapon stance: OFF > CAT > BLK > GRAY.',
+        icon: 'i-ph:crosshair-bold',
+        type: 'cycler',
+        defaultOnStrip: false,
+      },
     ],
   },
   {

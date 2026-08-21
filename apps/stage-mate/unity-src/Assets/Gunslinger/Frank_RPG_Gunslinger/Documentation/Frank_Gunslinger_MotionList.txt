@@ -1,0 +1,117 @@
+75 Root Motion
+
+It is a Gunslinger motion set that can be used for RPG and action games.
+8-way Run,Walk has been added and there are 75 motions.
+
+
+4 Combo
+1 AirCombo
+4 Skill
+5 Single Attack
+8way walk, run
+
+If you want to add custom animation, please contact me by email below.
+climax0625@gmail.com
+Charges occur when custom motion requests. hope you understand
+
+
+Frank_RPG_Gunslinger_Unequip_Idle
+Frank_RPG_Gunslinger_Equip
+Frank_RPG_Gunslinger_Equip_Idle
+Frank_RPG_Gunslinger_Unequip
+
+Frank_RPG_Gunslinger_Run01
+Frank_RPG_Gunslinger_Run02
+Frank_RPG_Gunslinger_Run03_Faster
+Frank_RPG_Gunslinger_Run04_HandGun_Aim
+Frank_RPG_Gunslinger_Run05_ShotGun_Aim
+Frank_RPG_Gunslinger_Run06_Rifle_Aim
+Frank_RPG_Gunslinger_Run07_Dual_Aim
+
+Frank_RPG_Gunslinger_Step_F
+Frank_RPG_Gunslinger_Step_B
+Frank_RPG_Gunslinger_Step_L
+Frank_RPG_Gunslinger_Step_R
+
+Frank_RPG_Gunslinger_Evade_F
+Frank_RPG_Gunslinger_Evade_B
+Frank_RPG_Gunslinger_Evade_L
+Frank_RPG_Gunslinger_Evade_R
+
+
+Frank_RPG_Gunslinger_Walk
+Frank_RPG_Gunslinger_Walk_Faster
+Frank_RPG_Gunslinger_Unequip_Run
+Frank_RPG_Gunslinger_Unequip_Run_Faster
+
+Frank_RPG_Gunslinger_8Way_Walk_F
+Frank_RPG_Gunslinger_8Way_Walk_B
+Frank_RPG_Gunslinger_8Way_Walk_L
+Frank_RPG_Gunslinger_8Way_Walk_R
+Frank_RPG_Gunslinger_8Way_Walk_FL
+Frank_RPG_Gunslinger_8Way_Walk_FR
+Frank_RPG_Gunslinger_8Way_Walk_BL
+Frank_RPG_Gunslinger_8Way_Walk_BR
+
+
+Frank_RPG_Gunslinger_Jump_01
+Frank_RPG_Gunslinger_Jump_02
+Frank_RPG_Gunslinger_Jump_0H
+
+Frank_RPG_Gunslinger_Guard
+Frank_RPG_Gunslinger_Block
+
+Frank_RPG_Gunslinger_Hit01
+Frank_RPG_Gunslinger_Hit02
+Frank_RPG_Gunslinger_Hit03
+Frank_RPG_Gunslinger_Hit_Knockback
+Frank_RPG_Gunslinger_Hit_Knockdown
+Frank_RPG_Gunslinger_Hit_Knockdown_Loop
+
+Frank_RPG_Gunslinger_Getup
+Frank_RPG_Gunslinger_Die
+
+Frank_RPG_Gunslinger_8Way_Run_F
+Frank_RPG_Gunslinger_8Way_Run_B
+Frank_RPG_Gunslinger_8Way_Run_L
+Frank_RPG_Gunslinger_8Way_Run_R
+Frank_RPG_Gunslinger_8Way_Run_FL
+Frank_RPG_Gunslinger_8Way_Run_FR
+Frank_RPG_Gunslinger_8Way_Run_BL
+Frank_RPG_Gunslinger_8Way_Run_BR
+
+
+Frank_RPG_Gunslinger_Crouch_Start
+Frank_RPG_Gunslinger_Crouch_Idle
+Frank_RPG_Gunslinger_Crouch_end
+
+Frank_RPG_Gunslinger_Handgun_Aim
+Frank_RPG_Gunslinger_Handgun_Fire
+
+Frank_RPG_Gunslinger_Shotgun_Aim
+Frank_RPG_Gunslinger_Shotgun_Fire
+
+Frank_RPG_Gunslinger_Rifle_Aim
+Frank_RPG_Gunslinger_Rifle_Fire
+
+
+
+Frank_RPG_Gunslinger_Attack01
+Frank_RPG_Gunslinger_Attack02
+Frank_RPG_Gunslinger_Attack03
+Frank_RPG_Gunslinger_Attack04
+Frank_RPG_Gunslinger_Attack05
+
+Frank_RPG_Gunslinger_Combo01_All
+Frank_RPG_Gunslinger_Combo02_All
+Frank_RPG_Gunslinger_Combo03_All
+Frank_RPG_Gunslinger_Combo04_All
+
+Frank_RPG_Gunslinger_AirCombo01_All
+
+
+Frank_RPG_Gunslinger_Skill01
+Frank_RPG_Gunslinger_Skill02
+Frank_RPG_Gunslinger_Skill03
+Frank_RPG_Gunslinger_Skill04
+

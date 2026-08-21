@@ -1097,6 +1097,7 @@ Persisted Three.js scene state — camera rig, model transform, lighting, and sk
 | `stickers/library-v2` | `StickerMetadata[]` | `stores/stickers.ts` |
 | `stickers/standalone-mode` | `boolean` | `stores/stickers.ts` |
 | `settings/stage/view-controls-enabled` | `boolean` | `stores/settings/stage-model.ts` |
+| `settings/stage/gunslinger-stance` | `'off' \| 'cat' \| 'blk' \| 'gray'` | `stores/settings/stage-model.ts` |
 | `settings/mcp/server-cmd` | `string` | `stores/mcp.ts` |
 | `settings/mcp/server-args` | `string` | `stores/mcp.ts` |
 | `mcp/connected` | `boolean` | `stores/mcp.ts` |

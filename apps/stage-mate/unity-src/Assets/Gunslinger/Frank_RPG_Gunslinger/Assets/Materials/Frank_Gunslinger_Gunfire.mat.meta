@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: faf8018114f0e9d48983c642a8ae8948
+timeCreated: 1556500975
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 145087
+  packageName: Frank RPG Gunslinger
+  packageVersion: 1.0
+  assetPath: Assets/Frank_RPG_Gunslinger/Assets/Materials/Frank_Gunslinger_Gunfire.mat
+  uploadId: 501695

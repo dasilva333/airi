@@ -26,6 +26,7 @@ import { useSettings } from '../../../stores/settings'
 import { useSettingsAudioDevice } from '../../../stores/settings/audio-device'
 import { useSettingsControlStrip } from '../../../stores/settings/control-strip'
 import { useSettingsControlsIsland } from '../../../stores/settings/controls-island'
+import { useSettingsStageModel } from '../../../stores/settings/stage-model'
 
 const props = withDefaults(defineProps<{
   mode?: 'desktop' | 'mobile'
@@ -35,6 +36,8 @@ const props = withDefaults(defineProps<{
 
 const { dispatchAction } = useControlStripAction()
 const settingsStore = useSettings()
+const stageModelSettings = useSettingsStageModel()
+const { gunslingerStance } = storeToRefs(stageModelSettings)
 
 console.log('[ControlStrip.vue] Setup loaded with Selfie feature support')
 const colorMode = useColorMode()
@@ -604,6 +607,23 @@ const popoverRef = ref<HTMLElement | null>(null)
 const wardrobeFilter = ref<'all' | 'base' | 'overlay'>('all')
 
 const isElectron = computed(() => typeof window !== 'undefined' && !!(window as any).electron)
+
+watch(gunslingerStance, async (stance) => {
+  if (isElectron.value) {
+    try {
+      const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+      const { electronStageMateSetWeapon } = await import('@proj-airi/stage-shared')
+      const setWeapon = useElectronEventaInvoke(electronStageMateSetWeapon)
+      await setWeapon({
+        enabled: stance !== 'off',
+        weapon: stance,
+      })
+    }
+    catch (err) {
+      console.warn('Failed to dispatch gunslinger weapon to Stage-Mate:', err)
+    }
+  }
+}, { immediate: true })
 
 const activeMonitor = ref(1)
 const selectedAlignment = ref('center')
@@ -1221,6 +1241,9 @@ function toggleOrientation() {
 }
 
 function getButtonIcon(btnId: string, defaultIcon: string): string {
+  if (btnId === 'actor-gunslinger') {
+    return 'i-ph:crosshair-bold'
+  }
   if (btnId === 'viewport-cycle-modes') {
     return 'i-solar:cursor-bold-duotone'
   }
@@ -1237,6 +1260,16 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
 }
 
 function getButtonIconColor(btnId: string): string {
+  if (btnId === 'actor-gunslinger') {
+    const stance = stageModelSettings.gunslingerStance
+    if (stance === 'cat')
+      return 'text-pink-400 dark:text-pink-300'
+    if (stance === 'blk')
+      return 'text-emerald-400 dark:text-emerald-300'
+    if (stance === 'gray')
+      return 'text-cyan-400 dark:text-cyan-300'
+    return 'text-neutral-500 opacity-50'
+  }
   if (btnId === 'viewport-cycle-modes') {
     const mode = settingsStore.controlStripInteractionMode
     if (mode === 'tactile')
@@ -1252,6 +1285,16 @@ function getButtonIconColor(btnId: string): string {
 }
 
 function getButtonTitle(btnId: string, defaultLabel: string): string {
+  if (btnId === 'actor-gunslinger') {
+    const stance = stageModelSettings.gunslingerStance
+    const stanceLabels: Record<string, string> = {
+      off: 'Disabled (Safe)',
+      cat: 'Cat Gun (Rapid Spray)',
+      blk: 'M1911 Black (.45 ACP)',
+      gray: 'M1911 Silver (Steel Custom)',
+    }
+    return `Gunslinger Stance: ${stanceLabels[stance] || 'Disabled'}`
+  }
   if (btnId === 'viewport-cycle-modes') {
     const mode = settingsStore.controlStripInteractionMode
     const modeLabels: Record<string, string> = {
@@ -1647,6 +1690,18 @@ function getShortLabel(btnId: string): string {
             settingsStore.controlStripInteractionMode === 'drag' ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)]' : '',
             settingsStore.controlStripInteractionMode === 'positioning' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : '',
             settingsStore.controlStripInteractionMode === 'orbit' ? 'bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.5)]' : '',
+          ]"
+        />
+
+        <!-- Status dot badge for actor-gunslinger -->
+        <span
+          v-if="btn.id === 'actor-gunslinger'"
+          :class="[
+            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-all duration-200',
+            stageModelSettings.gunslingerStance === 'off' ? 'bg-neutral-500/40' : '',
+            stageModelSettings.gunslingerStance === 'cat' ? 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]' : '',
+            stageModelSettings.gunslingerStance === 'blk' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : '',
+            stageModelSettings.gunslingerStance === 'gray' ? 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]' : '',
           ]"
         />
 

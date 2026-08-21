@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: deae0466d43ff3341bf3443294c38293
+timeCreated: 1556500457
+licenseType: Store
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 145087
+  packageName: Frank RPG Gunslinger
+  packageVersion: 1.0
+  assetPath: Assets/Frank_RPG_Gunslinger/Demo/Frank_RPG_Gunslinger.unity
+  uploadId: 501695

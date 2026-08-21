@@ -31,8 +31,8 @@ public class AvatarHideHandler : MonoBehaviour
     Transform rightHand;
     Camera cam;
 
-    enum Side { None, Left, Right }
-    Side snappedSide = Side.None;
+    public enum Side { None, Left, Right }
+    public Side snappedSide = Side.None;
 
     int cursorOffsetY;
     float velX, velY;

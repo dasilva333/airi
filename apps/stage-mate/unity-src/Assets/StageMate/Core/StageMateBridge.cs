@@ -214,6 +214,22 @@ namespace StageMate.Core
                     string heart = env.data != null ? (env.data.materials != null ? env.data.materials.heart : env.data.heart) : null;
                     ApplyMacaronMaterials(shell, whip, heart);
                     break;
+
+                case "stage:control:weapon":
+                case "control:weapon":
+                case "stage:vrm:weapon":
+                    if (env.data != null)
+                    {
+                        bool en = env.data.enabled;
+                        string w = !string.IsNullOrEmpty(env.data.weapon) ? env.data.weapon : "cat";
+                        var tracking = FindFirstObjectByType<AvatarMouseTracking>();
+                        if (tracking != null)
+                        {
+                            tracking.SetWeaponMode(en, w);
+                        }
+                        Debug.Log($"[StageMateBridge] Weapon mode updated: enabled={en}, weapon={w}");
+                    }
+                    break;
             }
         }
 

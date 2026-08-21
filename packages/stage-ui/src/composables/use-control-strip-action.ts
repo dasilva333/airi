@@ -4,7 +4,7 @@ import { toast } from 'vue-sonner'
 
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useLiveSessionStore } from '../stores/modules/live-session'
-import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip } from '../stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlsIsland, useSettingsControlStrip, useSettingsStageModel } from '../stores/settings'
 
 export function useControlStripAction() {
   const settingsStore = useSettings()
@@ -20,6 +20,19 @@ export function useControlStripAction() {
     console.info(`[Control Strip Action Dispatcher] Executing action: "${actionId}"`)
 
     switch (actionId) {
+      case 'actor-gunslinger': {
+        const stageModelSettings = useSettingsStageModel()
+        const nextStance = stageModelSettings.cycleGunslingerStance()
+        const labels: Record<string, string> = {
+          off: 'Disabled (Safe)',
+          cat: 'Cat Gun (Rapid Spray)',
+          blk: 'M1911 Black (.45 ACP)',
+          gray: 'M1911 Silver (Steel Custom)',
+        }
+        toast.info(`Gunslinger: ${labels[nextStance] || nextStance}`)
+        break
+      }
+
       case 'head-tethered-caption':
         settingsStore.headTetheredCaptionEnabled = !settingsStore.headTetheredCaptionEnabled
         break

@@ -4,7 +4,7 @@ import { estimateTokens } from '@proj-airi/stage-shared'
 import { CUSTOMIZER_CATALOG } from '@proj-airi/stage-ui/constants/control-customizer'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
-import { useSettings, useSettingsAudioDevice, useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings'
+import { useSettings, useSettingsAudioDevice, useSettingsControlStrip, useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsControlsIsland } from '@proj-airi/stage-ui/stores/settings/controls-island'
 import { useBroadcastChannel, useColorMode } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -16,6 +16,7 @@ import { chatSessionsRepo } from '../../../../../packages/stage-ui/src/database/
 import { electronCustomizerToggleVisibility, electronResetWindowPositions } from '../../shared/eventa'
 
 const settingsStore = useSettings()
+const stageModelSettings = useSettingsStageModel()
 const controlStripStore = useSettingsControlStrip()
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const liveSessionStore = useLiveSessionStore()
@@ -172,6 +173,9 @@ const { post: postControlStripAction } = useBroadcastChannel<string, string>({ n
 const colorMode = useColorMode()
 
 function getButtonIcon(btnId: string, defaultIcon: string): string {
+  if (btnId === 'actor-gunslinger') {
+    return 'i-ph:crosshair-bold'
+  }
   if (btnId === 'theme-mode') {
     return colorMode.value === 'light' ? 'i-solar:moon-linear' : 'i-solar:sun-linear'
   }
@@ -182,6 +186,20 @@ function getButtonIcon(btnId: string, defaultIcon: string): string {
     return settingsStore.captionLayoutMode === 'multi' ? 'i-solar:layers-linear' : 'i-solar:window-frame-linear'
   }
   return defaultIcon
+}
+
+function getButtonIconColor(btnId: string): string {
+  if (btnId === 'actor-gunslinger') {
+    const stance = stageModelSettings.gunslingerStance
+    if (stance === 'cat')
+      return 'text-pink-400 dark:text-pink-300'
+    if (stance === 'blk')
+      return 'text-emerald-400 dark:text-emerald-300'
+    if (stance === 'gray')
+      return 'text-cyan-400 dark:text-cyan-300'
+    return 'text-neutral-500 opacity-60'
+  }
+  return 'text-neutral-300'
 }
 
 const modelSelected = computed(() => settingsStore.stageModelSelected || 'default')
@@ -1166,7 +1184,7 @@ onMounted(() => {
               >
                 <div class="space-y-0.5">
                   <div class="flex items-center gap-2">
-                    <div :class="[getButtonIcon(item.id, item.icon), 'text-neutral-300 text-sm shrink-0']" />
+                    <div :class="[getButtonIcon(item.id, item.icon), getButtonIconColor(item.id), 'text-sm shrink-0']" />
                     <span class="text-xs text-neutral-200 font-semibold">{{ item.label }}</span>
 
                     <!-- State Indicator Dot for bound items -->
@@ -1179,6 +1197,22 @@ onMounted(() => {
                       />
                       <span class="text-[9px] text-neutral-500 font-mono">
                         {{ item.binding === 'geminiSession' ? powerState : (isBoundActive(item.binding) ? 'active' : 'inactive') }}
+                      </span>
+                    </span>
+
+                    <!-- State Indicator Dot for actor-gunslinger -->
+                    <span v-else-if="item.id === 'actor-gunslinger'" class="flex items-center gap-1">
+                      <span
+                        :class="[
+                          'h-2 w-2 rounded-full inline-block transition-all duration-200',
+                          stageModelSettings.gunslingerStance === 'off' ? 'bg-neutral-500/40' : '',
+                          stageModelSettings.gunslingerStance === 'cat' ? 'bg-pink-400 shadow-[0_0_6px_rgba(244,114,182,0.6)]' : '',
+                          stageModelSettings.gunslingerStance === 'blk' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : '',
+                          stageModelSettings.gunslingerStance === 'gray' ? 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]' : '',
+                        ]"
+                      />
+                      <span class="text-[9px] text-neutral-400 font-mono uppercase">
+                        {{ stageModelSettings.gunslingerStance }}
                       </span>
                     </span>
 
@@ -1266,7 +1300,12 @@ onMounted(() => {
                     class="border border-white/10 rounded-md bg-white/5 px-2.5 py-0.5 text-[9px] text-neutral-200 font-semibold transition-all active:scale-95 hover:bg-white/10"
                     @click="handleAction(item.id)"
                   >
-                    {{ item.type === 'cycler' ? 'Cycle' : 'Run' }}
+                    <template v-if="item.id === 'actor-gunslinger'">
+                      Cycle ({{ stageModelSettings.gunslingerStance.toUpperCase() }})
+                    </template>
+                    <template v-else>
+                      {{ item.type === 'cycler' ? 'Cycle' : 'Run' }}
+                    </template>
                   </button>
                 </div>
               </div>

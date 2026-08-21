@@ -73,6 +73,11 @@ export interface StageMateSyncOutfitsResult {
   path?: string
 }
 
+export interface StageMateSetWeaponPayload {
+  enabled: boolean
+  weapon: 'cat' | 'blk' | 'gray' | string
+}
+
 export const electronStageMateEnsureModel = defineInvokeEventa<StageMateEnsureModelResult, StageMateEnsureModelPayload>('eventa:invoke:electron:stage-mate:ensure-model')
 export const electronStageMateSaveModel = defineInvokeEventa<StageMateSaveModelResult, StageMateSaveModelPayload>('eventa:invoke:electron:stage-mate:save-model')
 export const electronStageMateSyncOutfits = defineInvokeEventa<StageMateSyncOutfitsResult, StageMateSyncOutfitsPayload>('eventa:invoke:electron:stage-mate:sync-outfits')
@@ -83,3 +88,5 @@ export const electronStageMateSetModelPosition = defineInvokeEventa<void, StageM
 export const electronStageMateSetPropMacaron = defineInvokeEventa<void, StageMateSetPropMacaronPayload>('eventa:invoke:electron:stage-mate:set-prop-macaron')
 export const electronStageMateTriggerExpression = defineInvokeEventa<void, StageMateTriggerExpressionPayload>('eventa:invoke:electron:stage-mate:trigger-expression')
 export const electronStageMateLipSync = defineInvokeEventa<void, StageMateLipSyncPayload>('eventa:invoke:electron:stage-mate:lip-sync')
+export const electronStageMateSetWeapon = defineInvokeEventa<void, StageMateSetWeaponPayload>('eventa:invoke:electron:stage-mate:set-weapon')
+

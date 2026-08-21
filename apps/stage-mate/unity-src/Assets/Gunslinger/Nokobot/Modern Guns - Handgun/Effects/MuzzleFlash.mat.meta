@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3b9b73bdf59096b4f8ca30c0a5d98a45
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 129821
+  packageName: 'Modern Guns: Handgun'
+  packageVersion: 1.2
+  assetPath: Assets/Gunslinger/Nokobot/Modern Guns - Handgun/Effects/MuzzleFlash.mat
+  uploadId: 390457

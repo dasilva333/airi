@@ -26,6 +26,7 @@ namespace StageMate.Core
         public string modelPath;
         public string modelId;
         public string preset;
+        public string weapon;
         public string expression;
         public string name;
         public float weight;

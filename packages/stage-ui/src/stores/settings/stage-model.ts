@@ -9,11 +9,13 @@ import { toast } from 'vue-sonner'
 import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
 
 export type StageModelRenderer = 'live2d' | 'vrm' | 'spine' | 'mmd' | 'disabled' | undefined
+export type GunslingerStance = 'off' | 'cat' | 'blk' | 'gray'
 
 export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const displayModelsStore = useDisplayModelsStore()
   let stageModelUpdateQueue: Promise<void> = Promise.resolve()
   const stageModelStorageKey = 'settings/stage/model'
+  const gunslingerStanceStorageKey = 'settings/stage/gunslinger-stance'
 
   const stageModelSelectedState = useLocalStorageManualReset<string>(stageModelStorageKey, 'preset-live2d-1')
   const stageModelSelected = computed<string>({
@@ -26,6 +28,22 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   const stageModelSelectedUrl = refManualReset<string | undefined>(undefined)
   const stageModelSelectedFile = refManualReset<File | undefined>(undefined)
   const stageModelRenderer = refManualReset<StageModelRenderer>(undefined)
+
+  const gunslingerStanceState = useLocalStorageManualReset<GunslingerStance>(gunslingerStanceStorageKey, 'off')
+  const gunslingerStance = computed<GunslingerStance>({
+    get: () => gunslingerStanceState.value,
+    set: (val) => {
+      gunslingerStanceState.value = val
+    },
+  })
+
+  function cycleGunslingerStance(): GunslingerStance {
+    const sequence: GunslingerStance[] = ['off', 'cat', 'blk', 'gray']
+    const nextIdx = (sequence.indexOf(gunslingerStanceState.value) + 1) % sequence.length
+    const next = sequence[nextIdx]
+    gunslingerStanceState.value = next
+    return next
+  }
 
   const stageViewControlsEnabled = useLocalStorageManualReset<boolean>('settings/stage/view-controls-enabled', false)
   const stageViewControlsMode = ref<'x' | 'y' | 'z' | 'scale'>('scale')
@@ -392,6 +410,8 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     stageModelSelectedDisplayModel,
     stageViewControlsEnabled,
     stageViewControlsMode,
+    gunslingerStance,
+    cycleGunslingerStance,
     lastReloadReason,
     mmdTextureMap,
 

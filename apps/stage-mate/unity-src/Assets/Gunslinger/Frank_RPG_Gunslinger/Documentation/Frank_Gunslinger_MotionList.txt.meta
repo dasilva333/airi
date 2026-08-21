@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d9f94dda11148f142973c52e412fd54f
+timeCreated: 1556500457
+licenseType: Store
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 145087
+  packageName: Frank RPG Gunslinger
+  packageVersion: 1.0
+  assetPath: Assets/Frank_RPG_Gunslinger/Documentation/Frank_Gunslinger_MotionList.txt
+  uploadId: 501695
