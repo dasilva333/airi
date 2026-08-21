@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { join } from 'node:path'
 import { env, platform } from 'node:process'
 
+import koffi from 'koffi'
+
 import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
@@ -558,8 +560,39 @@ export function createStageMateService(params?: {
     })
   })
 
+  let isLeftButtonDown: () => boolean = () => false
+
+  try {
+    if (platform === 'darwin') {
+      const cg = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+      const CGEventSourceButtonState = cg.func('bool CGEventSourceButtonState(int stateID, int button)')
+      isLeftButtonDown = () => {
+        try {
+          return CGEventSourceButtonState(1, 0)
+        }
+        catch {
+          return false
+        }
+      }
+    }
+    else if (platform === 'win32') {
+      const user32 = koffi.load('user32.dll')
+      const GetAsyncKeyState = user32.func('short GetAsyncKeyState(int vKey)')
+      isLeftButtonDown = () => {
+        try {
+          return (GetAsyncKeyState(0x01) & 0x8000) !== 0
+        }
+        catch {
+          return false
+        }
+      }
+    }
+  }
+  catch {}
+
   let mouseTicker: NodeJS.Timeout | null = null
   let lastMousePos = { x: -1, y: -1 }
+  let lastLeftDown = false
 
   function startMouseTelemetry() {
     if (mouseTicker)
@@ -569,13 +602,16 @@ export function createStageMateService(params?: {
         return
       try {
         const pt = screen.getCursorScreenPoint()
-        if (pt.x !== lastMousePos.x || pt.y !== lastMousePos.y) {
+        const isDown = isLeftButtonDown()
+        if (pt.x !== lastMousePos.x || pt.y !== lastMousePos.y || isDown !== lastLeftDown) {
           lastMousePos = { x: pt.x, y: pt.y }
+          lastLeftDown = isDown
           broadcast({
             type: 'stage:control:mouse',
             data: {
               x: pt.x,
               y: pt.y,
+              isDown,
             },
           })
         }

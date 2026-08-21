@@ -256,7 +256,8 @@ namespace StageMate.Core
                 case "control:mouse":
                     if (env.data != null)
                     {
-                        GlobalMouse.SetStreamedPosition(env.data.x, env.data.y);
+                        bool isClick = env.data.isDown || env.data.down;
+                        GlobalMouse.SetStreamedPosition(env.data.x, env.data.y, isClick);
                     }
                     break;
             }

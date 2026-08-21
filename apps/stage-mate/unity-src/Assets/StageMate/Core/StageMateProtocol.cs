@@ -39,6 +39,8 @@ namespace StageMate.Core
         public float rms;
         public float x;
         public float y;
+        public bool isDown;
+        public bool down;
         public float scale;
         public string[] idleAnimations;
         public WireMacaronMaterials materials;

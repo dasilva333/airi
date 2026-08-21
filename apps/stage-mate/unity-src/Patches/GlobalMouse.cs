@@ -24,11 +24,20 @@ public static class GlobalMouse
 
     private static Vector2 streamedPosition = Vector2.zero;
     private static bool hasStreamedPosition = false;
+    private static bool streamedLeftDown = false;
+    private static bool prevStreamedLeftDown = false;
 
-    public static void SetStreamedPosition(float x, float y)
+    public static void SetStreamedPosition(float x, float y, bool isDown)
     {
         streamedPosition = new Vector2(x, y);
         hasStreamedPosition = true;
+        prevStreamedLeftDown = streamedLeftDown;
+        streamedLeftDown = isDown;
+    }
+
+    public static void SetStreamedPosition(float x, float y)
+    {
+        SetStreamedPosition(x, y, false);
     }
 
     public static Vector2 GetPosition()
@@ -64,6 +73,10 @@ public static class GlobalMouse
     /// </summary>
     public static bool LeftMouseDown()
     {
+        if (hasStreamedPosition && streamedLeftDown)
+        {
+            return true;
+        }
 #if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
         try
         {
@@ -86,6 +99,12 @@ public static class GlobalMouse
     }
     public static bool LeftMouseUp()
     {
+        if (hasStreamedPosition)
+        {
+            bool up = prevStreamedLeftDown && !streamedLeftDown;
+            prevStreamedLeftDown = streamedLeftDown;
+            if (up) return true;
+        }
 #if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
         try
         {
@@ -93,11 +112,11 @@ public static class GlobalMouse
             bool upThisFrame = prevLeftDown && !isDown;
             BothDown = prevBothDown && !upThisFrame;
             prevLeftDown = isDown;
-            return upThisFrame;
+            if (upThisFrame) return true;
         }
         catch { }
 #endif
-        return Input.GetMouseButtonUp(0) || Input.GetMouseButtonDown(0);
+        return Input.GetMouseButtonUp(0);
     }
     public static bool RightMouseUp()
     {
