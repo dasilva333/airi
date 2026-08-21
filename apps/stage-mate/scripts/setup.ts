@@ -76,8 +76,12 @@ export function setupMateEngine(): boolean {
 }
 
 function patchSettingsMenuUI() {
-  const scenePath = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scenes', 'Mate Engine Main.unity')
-  if (existsSync(scenePath)) {
+  const sceneNames = ['Mate Engine Main.unity', 'Mate Engine Update.unity']
+  for (const sceneName of sceneNames) {
+    const scenePath = join(mateEngineDir, 'Assets', 'MATE ENGINE - Scenes', sceneName)
+    if (!existsSync(scenePath))
+      continue
+
     let content = readFileSync(scenePath, 'utf8')
     let modified = false
 
@@ -185,7 +189,7 @@ function patchSettingsMenuUI() {
 
     if (modified) {
       writeFileSync(scenePath, content, 'utf8')
-      console.log('[setup] Cleaned up settings menu UI framing, backgrounds, and scroll bounds in Mate Engine Main.unity')
+      console.log(`[setup] Cleaned up settings menu UI framing, backgrounds, and scroll bounds in ${sceneName}`)
     }
   }
 }

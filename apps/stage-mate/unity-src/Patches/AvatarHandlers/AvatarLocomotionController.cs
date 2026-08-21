@@ -519,12 +519,14 @@ public sealed class AvatarLocomotionController : MonoBehaviour
             }
         }
 #else
-        var uniwinc = UniWindowController.current;
+        var uniwinc = UniWindowController.current ?? FindFirstObjectByType<UniWindowController>();
         if (uniwinc != null)
         {
             Vector2 curPos = uniwinc.windowPosition;
+            int screenW = Screen.width > 0 ? Screen.width : 1536;
+            float winW = uniwinc.windowSize.x > 0 ? uniwinc.windowSize.x : 768f;
             float minX = 0f;
-            float maxX = Mathf.Max(minX, Display.main.systemWidth - 250f);
+            float maxX = Mathf.Max(minX, screenW - winW);
             float targetX = curPos.x + (move * _dir);
             float clampedX = Mathf.Clamp(targetX, minX, maxX);
 

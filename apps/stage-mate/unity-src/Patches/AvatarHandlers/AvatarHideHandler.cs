@@ -52,6 +52,9 @@ public class AvatarHideHandler : MonoBehaviour
     [StructLayout(LayoutKind.Sequential)]
     struct RECT { public int Left, Top, Right, Bottom; }
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT { public int x; public int y; }
+
     struct MonitorData
     {
         public IntPtr hmon;
@@ -92,8 +95,68 @@ public class AvatarHideHandler : MonoBehaviour
 
     void Update()
     {
-#if !UNITY_STANDALONE_WIN
-        return;
+#if !UNITY_STANDALONE_WIN && !UNITY_EDITOR_WIN
+        var uniwinc = Kirurobo.UniWindowController.current ?? FindFirstObjectByType<Kirurobo.UniWindowController>();
+        if (animator == null || controller == null || uniwinc == null) return;
+
+        Vector2 mousePos = GlobalMouse.GetPosition();
+        int screenW = Screen.width > 0 ? Screen.width : 1536;
+        Vector2 winPos = uniwinc.windowPosition;
+        Vector2 winSize = uniwinc.windowSize;
+
+        if (controller.isDragging)
+        {
+            int thrSnap = Math.Max(16, snapThresholdPx);
+            bool nearLeft = (mousePos.x <= thrSnap);
+            bool nearRight = (mousePos.x >= screenW - thrSnap);
+
+            if (snappedSide == Side.None)
+            {
+                if (Time.unscaledTime >= unsnapCooldownUntil)
+                {
+                    if (nearLeft)
+                    {
+                        snappedSide = Side.Left;
+                        SetHide(true, false);
+                        snappedAt = Time.unscaledTime;
+                    }
+                    else if (nearRight)
+                    {
+                        snappedSide = Side.Right;
+                        SetHide(false, true);
+                        snappedAt = Time.unscaledTime;
+                    }
+                }
+            }
+            else
+            {
+                if (Time.unscaledTime >= snappedAt + unsnapGraceTime)
+                {
+                    int thrUnsnap = Math.Max(48, unsnapThresholdPx);
+                    if (snappedSide == Side.Left && mousePos.x > thrUnsnap) Unsnap();
+                    else if (snappedSide == Side.Right && mousePos.x < screenW - thrUnsnap) Unsnap();
+                }
+            }
+
+            if (snappedSide != Side.None)
+            {
+                float targetX = (snappedSide == Side.Left) ? -winSize.x * 0.45f : screenW - (winSize.x * 0.55f);
+                float targetY = winPos.y;
+                float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
+                uniwinc.windowPosition = new Vector2(nx, targetY);
+            }
+        }
+        else
+        {
+            if (snappedSide != Side.None)
+            {
+                float targetX = (snappedSide == Side.Left) ? -winSize.x * 0.45f : screenW - (winSize.x * 0.55f);
+                float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
+                uniwinc.windowPosition = new Vector2(nx, winPos.y);
+            }
+        }
+
+        wasDragging = controller.isDragging;
 #else
         if (unityHWND == IntPtr.Zero || animator == null || controller == null) return;
 
@@ -209,6 +272,7 @@ public class AvatarHideHandler : MonoBehaviour
 #endif
     }
 
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
     int GetBaseDesiredEdgeX(RECT mon, Side side)
     {
         if (side == Side.Left) return mon.Left + edgeInsetPx;
@@ -361,6 +425,7 @@ public class AvatarHideHandler : MonoBehaviour
 
         if (keepTopmostWhileSnapped) SetTopMost(true);
     }
+#endif
 
     void Unsnap()
     {
@@ -381,10 +446,14 @@ public class AvatarHideHandler : MonoBehaviour
 
     void SetHide(bool left, bool right)
     {
-        animator.SetBool("HideLeft", left);
-        animator.SetBool("HideRight", right);
+        if (animator != null)
+        {
+            animator.SetBool("HideLeft", left);
+            animator.SetBool("HideRight", right);
+        }
     }
 
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
     void MoveSmooth(int curX, int curY, int targetX, int targetY)
     {
         if (!enableSmoothing || !smoothingActive)
@@ -489,16 +558,21 @@ public class AvatarHideHandler : MonoBehaviour
         r.Bottom = p.y + client.Bottom;
         return true;
     }
+#endif
 
     void SetTopMost(bool on)
     {
-        SetWindowPos(unityHWND, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
+        if (unityHWND != IntPtr.Zero)
+            SetWindowPos(unityHWND, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#else
+        var uniwinc = Kirurobo.UniWindowController.current ?? FindFirstObjectByType<Kirurobo.UniWindowController>();
+        if (uniwinc != null) uniwinc.isTopmost = on;
+#endif
     }
 
+#if (UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN)
     delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
-
-    [StructLayout(LayoutKind.Sequential)]
-    struct POINT { public int x; public int y; }
 
     [StructLayout(LayoutKind.Sequential)]
     struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public int dwFlags; }
@@ -527,4 +601,5 @@ public class AvatarHideHandler : MonoBehaviour
     const int SM_CYVIRTUALSCREEN = 79;
     const int SM_XVIRTUALSCREEN = 76;
     const int SM_YVIRTUALSCREEN = 77;
+#endif
 }

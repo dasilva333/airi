@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 
 public static class MateSidecarBuild
 {
-    private const string MainScenePath = "Assets/MATE ENGINE - Scenes/Mate Engine Main.unity";
+    private const string MainScenePath = "Assets/MATE ENGINE - Scenes/Mate Engine Update.unity";
     private const string ScenePath = "Assets/StageMate/MateSidecarScene.unity";
     private const string BuildDir = "Build/StageMate";
     private const string IdleControllerPath = "Assets/StageMate/StageMateIdleController.controller";
