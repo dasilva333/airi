@@ -1103,14 +1103,18 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         postHistoryInstructions: normalizeRequiredText(ccv3Card.data.post_history_instructions, defaultPostHistoryInstructions),
         messageExample: ccv3Card.data.mes_example
           ? ccv3Card.data.mes_example
-              .split('<START>\n')
+              .split(/<START>/i)
+              .map(example => example.trim())
               .filter(Boolean)
               .map(example => example.split('\n')
+                .map(line => line.trim())
+                .filter(Boolean)
                 .map((line) => {
                   if (line.startsWith('{{char}}:') || line.startsWith('{{user}}:'))
                     return line as `{{char}}: ${string}` | `{{user}}: ${string}`
-                  throw new Error(`Invalid message example format: ${line}`)
+                  return `{{char}}: ${line}` as `{{char}}: ${string}`
                 }))
+              .filter(example => example.length > 0)
           : [],
         tags: ccv3Card.data.tags ?? [],
         extensions: {

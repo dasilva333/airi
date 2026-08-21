@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
@@ -224,7 +225,8 @@ const compiledCardPayload = computed(() => {
       alternate_greetings: alternateGreetings,
       group_only_greetings: [],
       mes_example: (resolvedPersona.value.messageExample || [])
-        .map(pair => pair.join('\n'))
+        .map(pair => pair.filter(Boolean).join('\n'))
+        .filter(block => block.trim().length > 0)
         .join('\n<START>\n'),
       tags: ['onboarding-v2'],
       extensions: {
@@ -251,116 +253,173 @@ const compiledCardPayload = computed(() => {
   }
 })
 
+const isSubmitting = ref(false)
+
 async function handleFinish() {
-  const draft = draftStore.state
+  if (isSubmitting.value)
+    return
 
-  if (draft.userProfile.name) {
-    userProfileStore.name = draft.userProfile.name
-  }
-  if (draft.userProfile.description) {
-    userProfileStore.description = draft.userProfile.description
-  }
-  if (draft.userProfile.prompt) {
-    userProfileStore.prompt = draft.userProfile.prompt
-  }
+  isSubmitting.value = true
+  let createdCardId: string | null = null
 
-  // 1. Persist User Voice Profile (for Suggestions / Director Directives)
-  if (draft.userProfile.voiceProfileId) {
-    const rawVoice = draft.userProfile.voiceProfileId
-    const baseProvider = draft.speech.provider || 'pocket-tts-local'
-    const baseModel = draft.speech.model || 'english_2026-04'
-    const userVoiceRate = draft.userProfile.rate ?? 1.0
-    const userVoicePitch = draft.userProfile.pitch ?? 1.0
-    const userNameStr = draft.userProfile.name || 'User'
-    const profileId = `voice_profile_user_${userNameStr.toLowerCase().replace(/\s+/g, '_')}`
+  try {
+    const draft = draftStore.state
 
-    const newProfile = {
-      id: profileId,
-      name: `${userNameStr}'s Voice`,
-      baseProvider,
-      baseModel,
-      baseVoice: rawVoice,
-      effects: {
-        pitch: userVoicePitch,
-        rate: userVoiceRate,
-        volume: 1.0,
-        asmr: 0,
-        radio: 0,
-        robot: 0,
-        reverb: 0,
-        spatial: 0,
-      },
-      ust: {
-        enabled: true,
-        mode: 'mute' as any,
-        customStripChars: '*_[]()<>"\'',
-        stripEmojis: true,
-        tildeReplacement: '',
-        autoLowercaseCapsThreshold: 2,
-        autoLowercaseCapsExclude: [],
-        convertBracketsToTokenFormat: true,
-        customReplacements: [],
-      },
+    // 1. Persist User Profile Preferences (Step 3)
+    try {
+      if (draft.userProfile.name)
+        userProfileStore.name = draft.userProfile.name
+      if (draft.userProfile.description)
+        userProfileStore.description = draft.userProfile.description
+      if (draft.userProfile.prompt)
+        userProfileStore.prompt = draft.userProfile.prompt
+    }
+    catch (err) {
+      console.warn('[Onboarding:Step7] Failed to save user profile settings:', err)
+      toast.warning('Could not save user profile preferences. You can update this later in Settings > Profile.')
     }
 
-    speechStore.saveVoiceProfile(newProfile as any)
-    userProfileStore.voiceProfileId = profileId
+    // 2. Persist User Voice Profile (Step 6)
+    if (draft.userProfile.voiceProfileId) {
+      try {
+        const rawVoice = draft.userProfile.voiceProfileId
+        const baseProvider = draft.speech.provider || 'pocket-tts-local'
+        const baseModel = draft.speech.model || 'english_2026-04'
+        const userVoiceRate = draft.userProfile.rate ?? 1.0
+        const userVoicePitch = draft.userProfile.pitch ?? 1.0
+        const userNameStr = draft.userProfile.name || 'User'
+        const profileId = `voice_profile_user_${userNameStr.toLowerCase().replace(/\s+/g, '_')}`
+
+        const newProfile = {
+          id: profileId,
+          name: `${userNameStr}'s Voice`,
+          baseProvider,
+          baseModel,
+          baseVoice: rawVoice,
+          effects: {
+            pitch: userVoicePitch,
+            rate: userVoiceRate,
+            volume: 1.0,
+            asmr: 0,
+            radio: 0,
+            robot: 0,
+            reverb: 0,
+            spatial: 0,
+          },
+          ust: {
+            enabled: true,
+            mode: 'mute' as any,
+            customStripChars: '*_[]()<>"\'',
+            stripEmojis: true,
+            tildeReplacement: '',
+            autoLowercaseCapsThreshold: 2,
+            autoLowercaseCapsExclude: [],
+            convertBracketsToTokenFormat: true,
+            customReplacements: [],
+          },
+        }
+
+        speechStore.saveVoiceProfile(newProfile as any)
+        userProfileStore.voiceProfileId = profileId
+      }
+      catch (err) {
+        console.error('[Onboarding:Step7] Failed to save user voice profile:', err)
+        toast.error('Failed to save your voice profile. Please check Step 6 (Voice).')
+      }
+    }
+
+    // 3. Persist Character Voice Profile (Step 6)
+    let charProfileId = 'anna'
+    try {
+      const charName = resolvedPersona.value.name || 'Companion'
+      const charRawVoice = draft.speech.voiceId || 'anna'
+      const charBaseProvider = draft.speech.provider || 'pocket-tts-local'
+      const charBaseModel = draft.speech.model || 'english_2026-04'
+      charProfileId = `voice_profile_${charName.toLowerCase().replace(/\s+/g, '_')}`
+
+      const charVoiceProfile = {
+        id: charProfileId,
+        name: `${charName}'s Voice`,
+        baseProvider: charBaseProvider,
+        baseModel: charBaseModel,
+        baseVoice: charRawVoice,
+        effects: {
+          pitch: 1.0,
+          rate: 1.0,
+          volume: 1.0,
+          asmr: 0,
+          radio: 0,
+          robot: 0,
+          reverb: 0,
+          spatial: 0,
+        },
+        ust: {
+          enabled: true,
+          mode: 'mute' as any,
+          customStripChars: '*_[]()<>"\'',
+          stripEmojis: true,
+          tildeReplacement: '',
+          autoLowercaseCapsThreshold: 2,
+          autoLowercaseCapsExclude: [],
+          convertBracketsToTokenFormat: true,
+          customReplacements: [],
+        },
+      }
+
+      speechStore.saveVoiceProfile(charVoiceProfile as any)
+      speechStore.activeSpeechProvider = charBaseProvider
+      speechStore.activeSpeechModel = charBaseModel
+      speechStore.activeSpeechVoiceId = charProfileId
+    }
+    catch (err) {
+      console.error('[Onboarding:Step7] Failed to save character voice profile:', err)
+      toast.error('Failed to configure companion voice profile. Please check Step 6 (Voice).')
+    }
+
+    // 4. Synthesize & persist the brand new card payload (Step 4 / Persona)
+    try {
+      const payload = compiledCardPayload.value
+      if (payload.data?.extensions?.airi?.modules?.speech) {
+        payload.data.extensions.airi.modules.speech.voice_id = charProfileId
+      }
+      createdCardId = await cardStore.addCard(payload)
+    }
+    catch (err) {
+      console.error('[Onboarding:Step7] Failed to create companion card:', err)
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to create companion card: ${errorMsg}`, {
+        description: 'Please review your persona selection in Step 4.',
+      })
+      return
+    }
+
+    // 5. Activate the newly created card on stage (Step 5 / Vessel)
+    if (createdCardId) {
+      try {
+        await cardStore.activateCard(createdCardId, true)
+      }
+      catch (err) {
+        console.warn('[Onboarding:Step7] Card created, but stage activation warning:', err)
+        toast.warning('Companion card created, but initial stage model preview had a warning. You can adjust the avatar model in Settings.')
+      }
+    }
+
+    // 6. Mark setup completed
+    try {
+      onboardingStore.markSetupCompleted()
+    }
+    catch (err) {
+      console.warn('[Onboarding:Step7] Failed to update onboarding completion flag:', err)
+    }
   }
-
-  // 2. Persist Character Voice Profile (appears in Audio Studio & Card Editor)
-  const charName = resolvedPersona.value.name || 'Companion'
-  const charRawVoice = draft.speech.voiceId || 'anna'
-  const charBaseProvider = draft.speech.provider || 'pocket-tts-local'
-  const charBaseModel = draft.speech.model || 'english_2026-04'
-  const charProfileId = `voice_profile_${charName.toLowerCase().replace(/\s+/g, '_')}`
-
-  const charVoiceProfile = {
-    id: charProfileId,
-    name: `${charName}'s Voice`,
-    baseProvider: charBaseProvider,
-    baseModel: charBaseModel,
-    baseVoice: charRawVoice,
-    effects: {
-      pitch: 1.0,
-      rate: 1.0,
-      volume: 1.0,
-      asmr: 0,
-      radio: 0,
-      robot: 0,
-      reverb: 0,
-      spatial: 0,
-    },
-    ust: {
-      enabled: true,
-      mode: 'mute' as any,
-      customStripChars: '*_[]()<>"\'',
-      stripEmojis: true,
-      tildeReplacement: '',
-      autoLowercaseCapsThreshold: 2,
-      autoLowercaseCapsExclude: [],
-      convertBracketsToTokenFormat: true,
-      customReplacements: [],
-    },
+  finally {
+    isSubmitting.value = false
+    if (createdCardId) {
+      draftStore.reset()
+      emit('finish')
+      props.onFinish?.()
+    }
   }
-
-  speechStore.saveVoiceProfile(charVoiceProfile as any)
-  speechStore.activeSpeechProvider = charBaseProvider
-  speechStore.activeSpeechModel = charBaseModel
-  speechStore.activeSpeechVoiceId = charProfileId
-
-  // Synthesize and persist the brand new card payload
-  const payload = compiledCardPayload.value
-  if (payload.data?.extensions?.airi?.modules?.speech) {
-    payload.data.extensions.airi.modules.speech.voice_id = charProfileId
-  }
-  const newCardId = await cardStore.addCard(payload)
-  await cardStore.activateCard(newCardId, true)
-
-  onboardingStore.markSetupCompleted()
-  draftStore.reset()
-
-  emit('finish')
-  props.onFinish?.()
 }
 </script>
 
@@ -422,11 +481,13 @@ async function handleFinish() {
       :enter="{ opacity: 1, y: 0 }"
       :duration="400"
       :delay="400"
-      class="w-full flex items-center justify-center gap-2 rounded-xl from-primary-500 to-indigo-500 bg-gradient-to-r px-6 py-3.5 text-base text-white font-bold shadow-lg shadow-primary-500/30 transition-all active:scale-[0.98] hover:shadow-primary-500/50"
+      :disabled="isSubmitting"
+      class="w-full flex items-center justify-center gap-2 rounded-xl from-primary-500 to-indigo-500 bg-gradient-to-r px-6 py-3.5 text-base text-white font-bold shadow-lg shadow-primary-500/30 transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 hover:shadow-primary-500/50"
       @click="handleFinish"
     >
-      <div class="i-solar:rocket-2-bold-duotone h-5 w-5" />
-      Enter AIRI Stage
+      <div v-if="isSubmitting" class="i-svg-spinners:ring-resize h-5 w-5" />
+      <div v-else class="i-solar:rocket-2-bold-duotone h-5 w-5" />
+      {{ isSubmitting ? 'Calibrating Stage...' : 'Enter AIRI Stage' }}
     </button>
 
     <!-- Dev / Inspection Payload Viewer Button -->
