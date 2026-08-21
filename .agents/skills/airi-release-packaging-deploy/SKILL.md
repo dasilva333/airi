@@ -71,11 +71,13 @@ Capacitor app (config `capacitor.config.ts`: appId `ai.moeru.airi-pocket`, appNa
 - Facts: applicationId `ai.moeru.airipocket`, `minSdkVersion 24`, `targetSdkVersion`/`compileSdkVersion 36`, `versionCode 1` / `versionName "1.0"` (`app/build.gradle`).
 - `capacitor.settings.gradle` hard-codes `.pnpm` store paths for `@capacitor/android`, `@capacitor/local-notifications`, `capacitor-native-settings` — it breaks when versions bump until `capacitor update` / `cap sync` regenerates it (`pnpm install --frozen-lockfile` keeps paths stable across machines).
 
-### iOS IPA (manual, macOS + Xcode required)
-1. Same web build + `cap sync ios`.
-2. Open `ios/App/App.xcodeproj` in Xcode (or `xcodebuild`): set signing team & bundle id `ai.moeru.airi-pocket`.
-3. **Archive** (Product → Archive) → **Distribute App** (App Store Connect / Ad Hoc / Development) for the `.ipa`. No `ExportOptions.plist` / distribution automation exists in-repo yet.
-4. Versioning lives in Xcode project: `MARKETING_VERSION` (CFBundleShortVersionString) and `CURRENT_PROJECT_VERSION` (CFBundleVersion).
+### iOS IPA (Automated Headless & Manual Xcode)
+1. **Automated Headless Build & Upload**:
+   - `pnpm run release:ios` (from root): builds web bundle, syncs Capacitor iOS, runs headless `xcodebuild archive`, packages `AIRI-<version>-ios.ipa`, and uploads to the active GitHub release.
+   - `pnpm run build:pocket:ipa` (or `pnpm -F @proj-airi/stage-pocket run build:ipa`): generates `App.ipa` and `AIRI-<version>-ios.ipa` in `apps/stage-pocket/build/` without uploading.
+2. **Manual Xcode Export**:
+   - Open `ios/App/App.xcodeproj` in Xcode: `Product` → `Archive` → `Distribute App` (App Store Connect / Ad Hoc / Development).
+3. Versioning lives in Xcode project: `MARKETING_VERSION` (CFBundleShortVersionString) and `CURRENT_PROJECT_VERSION` (CFBundleVersion).
 - `Info.plist` (tracked): mic + speech-recognition usage descriptions (`NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`), `NSAllowsArbitraryLoads: true` (LAN/local model HTTP), `ITSAppUsesNonExemptEncryption: false`, iPhone-only, portrait+landscape.
 - `lint:swift` runs swiftlint over `ios/` (`swiftlint.yml` present).
 

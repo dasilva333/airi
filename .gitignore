@@ -50,6 +50,7 @@ coverage/
 # Build
 out/
 bundle/
+apps/stage-pocket/build/
 .flatpak-builder/
 .flatpak-repo/
 *.flatpak

@@ -12,6 +12,9 @@
   "license": "MIT",
   "scripts": {
     "build": "vite build",
+    "build:ios": "tsx scripts/build-ipa.ts",
+    "build:ipa": "tsx scripts/build-ipa.ts",
+    "release:ios": "tsx scripts/build-ipa.ts --upload",
     "lint": "eslint .",
     "lint:swift": "swiftlint ios",
     "preview": "vite preview",
@@ -132,6 +135,7 @@
     "csstype": "^3.2.3",
     "hfup": "^1.0.0",
     "less": "^4.5.1",
+    "tsx": "catalog:",
     "unplugin-info": "^1.2.4",
     "unplugin-vue-router": "^0.19.2",
     "unplugin-yaml": "^4.0.0",
