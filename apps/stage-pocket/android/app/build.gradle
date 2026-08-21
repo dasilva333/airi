@@ -29,7 +29,12 @@ android {
     signingConfigs {
         release {
             if (airiKeystoreConfigured) {
-                storeFile file(System.getenv('AIRI_KEYSTORE_FILE') ?: airiKeystoreProps['storeFile'])
+                def keystorePath = (System.getenv('AIRI_KEYSTORE_FILE') ?: airiKeystoreProps['storeFile']) as String
+                def keystoreFile = rootProject.file(keystorePath)
+                if (!keystoreFile.exists()) {
+                    keystoreFile = file(keystorePath)
+                }
+                storeFile keystoreFile
                 storePassword System.getenv('AIRI_KEYSTORE_PASSWORD') ?: airiKeystoreProps['storePassword']
                 keyAlias System.getenv('AIRI_KEY_ALIAS') ?: airiKeystoreProps['keyAlias']
                 keyPassword System.getenv('AIRI_KEY_PASSWORD') ?: airiKeystoreProps['keyPassword']
@@ -40,6 +45,8 @@ android {
         release {
             if (airiKeystoreConfigured) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -115,64 +115,112 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
       || (typeof window !== 'undefined' ? (localStorage.getItem('cf_oauth_verifier') || sessionStorage.getItem('cf_oauth_verifier') || '') : '')
 
     const redirectUri = 'http://localhost:8976/oauth/callback'
-    const isViteDev = typeof window !== 'undefined'
-      && (window.location.protocol === 'http:' || window.location.protocol === 'https:')
-      && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const isViteDev = Boolean(
+      import.meta.env?.DEV
+        && !isElectron
+        && typeof window !== 'undefined'
+        && !(window as any)?.Capacitor?.isNativePlatform?.()
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        && window.location.port,
+    )
 
-    const tokenEndpoint = isElectron
-      ? TOKEN_ENDPOINT
-      : (isViteDev
-          ? '/api/cf-oauth-token'
-          : (cfSubdomain.value ? `https://airi-cors-proxy.${cfSubdomain.value}.workers.dev/cors-proxy?url=${encodeURIComponent(TOKEN_ENDPOINT)}` : `https://airi-cors-proxy.r1ch4rd.workers.dev/cors-proxy?url=${encodeURIComponent(TOKEN_ENDPOINT)}`))
+    const endpointsToTry: string[] = []
 
-    const tokenRes = await fetch(tokenEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: CLOUDFLARE_OAUTH_CLIENT_ID,
-        code_verifier: effectiveVerifier,
-        code,
-        redirect_uri: redirectUri,
-      }),
-    })
-
-    const tokenData: any = await tokenRes.json()
-    if (tokenData.access_token) {
-      let accountId = tokenData.account_id || ''
-      if (!accountId) {
-        try {
-          const accRes = await fetch(`${getCfApiBaseUrl()}/accounts`, {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          })
-          if (accRes.ok) {
-            const accData: any = await accRes.json()
-            if (accData.result?.[0]?.id) {
-              accountId = accData.result[0].id
-            }
-          }
-        }
-        catch (e) {
-          console.warn('[useCloudflareStore] Failed to auto-fetch account ID:', e)
-        }
-      }
-
-      cfOAuthTokens.value = {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresIn: tokenData.expires_in,
-        accountId,
-      }
-      if (accountId) {
-        cfAccountId.value = accountId
-      }
-
-      void getCloudflareSubdomain().catch(() => {})
-      return cfOAuthTokens.value
+    if (isElectron) {
+      endpointsToTry.push(TOKEN_ENDPOINT)
+    }
+    else if (isViteDev) {
+      endpointsToTry.push('/api/cf-oauth-token')
+      endpointsToTry.push(TOKEN_ENDPOINT)
     }
     else {
-      throw new Error(tokenData.error_description || tokenData.error || 'Token exchange failed')
+      // In native mobile or web production, use CORS proxy worker, then direct endpoint
+      if (cfSubdomain.value) {
+        endpointsToTry.push(`https://airi-cors-proxy.${cfSubdomain.value}.workers.dev/cors-proxy?url=${encodeURIComponent(TOKEN_ENDPOINT)}`)
+      }
+      endpointsToTry.push(`https://airi-cors-proxy.r1ch4rd.workers.dev/cors-proxy?url=${encodeURIComponent(TOKEN_ENDPOINT)}`)
+      endpointsToTry.push(TOKEN_ENDPOINT)
     }
+
+    let tokenData: any = null
+    let lastError: any = null
+
+    for (const endpoint of endpointsToTry) {
+      try {
+        const tokenRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: CLOUDFLARE_OAUTH_CLIENT_ID,
+            code_verifier: effectiveVerifier,
+            code,
+            redirect_uri: redirectUri,
+          }),
+        })
+
+        const contentType = tokenRes.headers.get('content-type') || ''
+        if (contentType.includes('text/html')) {
+          // HTML index.html fallback from SPA webview, try next endpoint
+          continue
+        }
+
+        const rawText = await tokenRes.text()
+        try {
+          const parsed = JSON.parse(rawText)
+          if (parsed.access_token) {
+            tokenData = parsed
+            break
+          }
+          else if (parsed.error_description || parsed.error) {
+            throw new Error(parsed.error_description || parsed.error)
+          }
+        }
+        catch (e: any) {
+          if (e.message && !e.message.includes('JSON')) {
+            throw e
+          }
+        }
+      }
+      catch (err: any) {
+        lastError = err
+      }
+    }
+
+    if (!tokenData?.access_token) {
+      throw lastError || new Error('Failed to exchange OAuth token with Cloudflare.')
+    }
+
+    let accountId = tokenData.account_id || ''
+    if (!accountId) {
+      try {
+        const accRes = await fetch(`${getCfApiBaseUrl()}/accounts`, {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        })
+        if (accRes.ok) {
+          const accData: any = await accRes.json()
+          if (accData.result?.[0]?.id) {
+            accountId = accData.result[0].id
+          }
+        }
+      }
+      catch (e) {
+        console.warn('[useCloudflareStore] Failed to auto-fetch account ID:', e)
+      }
+    }
+
+    cfOAuthTokens.value = {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+      accountId,
+    }
+    if (accountId) {
+      cfAccountId.value = accountId
+    }
+
+    void getCloudflareSubdomain().catch(() => {})
+    return cfOAuthTokens.value
   }
 
   // Auto-detect OAuth code passed in URL hash / search params from mobile / web redirects
@@ -336,9 +384,14 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
   }
 
   function getCfApiBaseUrl(): string {
-    const isViteDev = typeof window !== 'undefined'
-      && (window.location.protocol === 'http:' || window.location.protocol === 'https:')
-      && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const isViteDev = Boolean(
+      import.meta.env?.DEV
+        && !isElectron
+        && typeof window !== 'undefined'
+        && !(window as any)?.Capacitor?.isNativePlatform?.()
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        && window.location.port,
+    )
 
     if (isViteDev) {
       return '/api/cloudflare'
@@ -573,8 +626,97 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     return null
   }
 
+  async function verifyAndSetApiToken(token: string): Promise<string> {
+    const cleanToken = token.trim()
+    if (!cleanToken) {
+      throw new Error('API Token is required')
+    }
+
+    const apiBase = getCfApiBaseUrl()
+    let verified = false
+    let accountId = ''
+
+    // 1. Try /user/tokens/verify
+    try {
+      const verifyRes = await fetch(`${apiBase}/user/tokens/verify`, {
+        headers: { Authorization: `Bearer ${cleanToken}` },
+      })
+      if (verifyRes.ok) {
+        const verifyData: any = await verifyRes.json()
+        if (verifyData.result?.status === 'active' || verifyData.success) {
+          verified = true
+        }
+      }
+    }
+    catch (e) {
+      console.warn('[useCloudflareStore] Direct /user/tokens/verify check:', e)
+    }
+
+    // 2. Fetch accounts list to confirm validity and find accountId
+    try {
+      const accRes = await fetch(`${apiBase}/accounts`, {
+        headers: { Authorization: `Bearer ${cleanToken}` },
+      })
+      if (accRes.ok) {
+        const accData: any = await accRes.json()
+        if (accData.success && accData.result?.length > 0) {
+          verified = true
+          accountId = accData.result[0]?.id || ''
+        }
+      }
+      else if (!verified) {
+        const errData: any = await accRes.json().catch(() => ({}))
+        throw new Error(errData.errors?.[0]?.message || 'Invalid Cloudflare API token or unauthorized.')
+      }
+    }
+    catch (e: any) {
+      if (!verified) {
+        throw new Error(e?.message || 'Failed to verify Cloudflare API token. Check network or token permissions.')
+      }
+    }
+
+    if (!verified) {
+      throw new Error('Cloudflare API token verification failed. Please ensure the token is active.')
+    }
+
+    cfApiToken.value = cleanToken
+    cfOAuthTokens.value = null
+    if (accountId) {
+      cfAccountId.value = accountId
+    }
+
+    void getCloudflareSubdomain().catch(() => {})
+    return cleanToken
+  }
+
+  async function handleManualCallbackInput(input: string, customVerifier?: string): Promise<CloudflareOAuthTokens | null> {
+    const raw = input.trim()
+    if (!raw) {
+      throw new Error('Please enter the authorization code or redirect URL.')
+    }
+
+    let code = raw
+    if (raw.includes('code=')) {
+      try {
+        const url = new URL(raw.startsWith('http') ? raw : `http://${raw}`)
+        code = url.searchParams.get('code') || raw
+      }
+      catch {
+        const match = raw.match(/code=([^&]+)/)
+        if (match)
+          code = match[1]
+      }
+    }
+
+    const tokens = await exchangeAuthCode(code, customVerifier)
+    isAuthenticating.value = false
+    return tokens
+  }
+
   function logout() {
     cfOAuthTokens.value = null
+    cfApiToken.value = ''
+    cfAccountId.value = ''
     authError.value = null
   }
 
@@ -589,6 +731,9 @@ export const useCloudflareStore = defineStore('cloudflare', () => {
     activeAccessToken,
     activeAccountId,
     authenticateWithCloudflare,
+    verifyAndSetApiToken,
+    handleManualCallbackInput,
+    exchangeAuthCode,
     getCloudflareSubdomain,
     setCloudflareSubdomain,
     deployCorsProxy,
