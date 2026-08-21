@@ -21,6 +21,12 @@ This document outlines the architectural plan, asset mapping, and cross-platform
    - Muzzle flash particle effect instantiates at the muzzle transform.
 4. **Holster Transition**: When the cursor moves back below the threshold, the avatar holsters the weapon and returns to idle/locomotion.
 
+### 2.2 Weapon Variants & Selection (The "Cat Gun" & Weapon Switching)
+1. **Weapon Selection Protocol**: Stage-Mate supports switching active weapons via a WebSocket control message (e.g. `stage:control:weapon`).
+2. **Standard M1911 Handgun**: The default realistic handgun mesh, slide recoil animation, muzzle flash, and brass casing ejector.
+3. **The "Cat Gun" Variant**: A custom weapon option that overrides the standard visual model. Mechanically, this is implemented by turning the M1911 gun mesh invisible and rendering a solid 3D Cat mesh attached directly to the handgun's transform structure. It shares the same aiming IK, trigger events, and recoil coordinates but changes the visual model (and potentially custom firing effects).
+
+
 ---
 
 ## 3. Asset & Patch Manifest (Stage-Mate Overlay Architecture)
@@ -31,14 +37,17 @@ In accordance with the **Stage-Mate Workspace Purity Contract** in `AGENTS.md`, 
 apps/stage-mate/unity-src/
 ├── Assets/
 │   ├── Gunslinger/
-│   │   └── Nokobot/
-│   │       └── Modern Guns - Handgun/
-│   │           ├── Animations/ (M1911 Handgun Controller, M1911@Fire.anim)
-│   │           ├── Effects/ (MuzzleFlash.mat, MuzzleFlash.prefab, MuzzleFlash_SpriteSheet.png)
-│   │           ├── Materials/ (M1911 Handgun_Black.mat, 45ACP_Bullet_Silver.mat, etc.)
-│   │           ├── Meshes/ (M1911 Handgun.fbx, 45ACP Bullet.fbx, M1911 Magazine.fbx)
-│   │           ├── Textures/ (Albedo, MetallicSmoothness, Normal maps)
-│   │           └── _Prefabs/ (M1911 Handgun_Black (Shooting).prefab, Bullet_Casing.prefab, etc.)
+│   │   ├── Nokobot/
+│   │   │   └── Modern Guns - Handgun/
+│   │   │       ├── Animations/ (M1911 Handgun Controller, M1911@Fire.anim)
+│   │   │       ├── Effects/ (MuzzleFlash.mat, MuzzleFlash.prefab, MuzzleFlash_SpriteSheet.png)
+│   │   │       ├── Materials/ (M1911 Handgun_Black.mat, 45ACP_Bullet_Silver.mat, etc.)
+│   │   │       ├── Meshes/ (M1911 Handgun.fbx, 45ACP Bullet.fbx, M1911 Magazine.fbx)
+│   │   │       ├── Textures/ (Albedo, MetallicSmoothness, Normal maps)
+│   │   │       └── _Prefabs/ (M1911 Handgun_Black (Shooting).prefab, Bullet_Casing.prefab, etc.)
+│   │   └── CatGun/
+│   │       ├── Meshes/ (CatGun.fbx)
+│   │       └── Materials/ (CatGun.mat, CatGun_Albedo.png)
 │   └── MATE ENGINE - Animations/
 │       ├── AM Gunslinger.mask
 │       ├── Gunslinger_Handgun_Aim_FingerGun.anim
@@ -101,7 +110,51 @@ To eliminate JSON serialization overhead and keep latency sub-millisecond ($< 0.
 
 ---
 
-## 6. Related Architecture & Cross-References
+## 6. Control Strip & Customizer Integration Specification
+
+To support seamless, in-context weapon toggling and cycling, the Gunslinger mod integrates directly into the Control Strip Customizer under the **Actor & Wardrobe** settings panel.
+
+### 6.1 Customizer Catalog Registration
+Add a new cycler button entry `actor-gunslinger` into the `CUSTOMIZER_CATALOG` in [`packages/stage-ui/src/constants/control-customizer.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/constants/control-customizer.ts) right below the Macaron Floatie option (`actor-macaron`):
+
+```typescript
+{
+  id: 'actor-gunslinger',
+  label: 'Gunslinger Stance',
+  description: 'Cycles companion weapon mode or selects active gun types.',
+  icon: 'i-mdi:pistol',
+  type: 'cycler',
+  defaultOnStrip: false,
+  binding: 'gunslingerStance', // Pinia store binding
+}
+```
+
+### 6.2 Settings Store & State Mapping
+Extend [`packages/stage-ui/src/stores/settings/stage-model.ts`](file:///c:/Users/h4rdc/Documents/Github/airi-rebase-scratch/packages/stage-ui/src/stores/settings/stage-model.ts) to define and persist the selected weapon:
+* **Storage Key**: `settings/stage/gunslinger-stance`
+* **Stance Values**:
+  * `'off'` (Weapon Mod disabled, default)
+  * `'m1911'` (Standard Handgun active)
+  * `'cat-gun'` (Solid Cat Gun variant active)
+
+### 6.3 Telemetry & Weapon Control Event
+When the `gunslingerStance` state changes in the renderer store, the Stage-Mate service compiles and dispatches a weapon control message to the Unity sidecar:
+
+```json
+{
+  "type": "stage:control:weapon",
+  "data": {
+    "enabled": true,
+    "weapon": "m1911" | "cat-gun"
+  }
+}
+```
+*If stance is `'off'`, `enabled` is set to `false`.*
+
+---
+
+## 7. Related Architecture & Cross-References
 - **Stage-Mate Architecture**: [`docs/rosetta-stone.md`](./rosetta-stone.md) § Stage-Mate Unity Companion.
 - **Workspace Purity Contract**: [`AGENTS.md`](../AGENTS.md) § Stage-Mate & Unity Workspace Purity.
 - **Sidecar IPC Contracts**: [`packages/stage-shared/src/stage-mate.ts`](../packages/stage-shared/src/stage-mate.ts).
+
