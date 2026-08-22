@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatSlicesText } from '../../../types/chat'
+import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices } from '../../../types/chat'
 
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
@@ -15,6 +15,7 @@ import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useTextJournalStore } from '../../../stores/memory-text-journal'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
+import { hydrateLegacyActorSlices, isValidActorId } from '../../../utils/chat-actor-slices'
 import { MarkdownRenderer } from '../../markdown'
 import { ChatActionMenu } from './components/action-menu'
 import { getChatHistoryItemCopyText } from './utils'
@@ -36,14 +37,6 @@ const emit = defineEmits<{
 const activeSpokenText = computed(() => chatOrchestrator.activeSpokenText)
 const activeSpokenColor = computed(() => chatOrchestrator.activeSpokenColor)
 
-function injectActorColors(content: string): string {
-  if (!content)
-    return ''
-
-  // Translate actor tags to safe text markers so the markdown parser won't strip them
-  return content.replace(/<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi, '[ACTOR:$1]')
-}
-
 const showJournalModal = ref(false)
 
 const chatSession = useChatSessionStore()
@@ -56,46 +49,9 @@ const formattedTime = computed(() => {
   return new Date(props.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
 })
 
-interface DisplaySegment {
-  type: 'text' | 'act'
-  content: string
-}
-
-function processContent(content: string): DisplaySegment[] {
-  const markerRegex = /<\|ACT:([^|>]+)\|>/g
-  const segments: DisplaySegment[] = []
-  let lastIndex = 0
-  let match
-
-  while ((match = markerRegex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({
-        type: 'text',
-        content: content.slice(lastIndex, match.index),
-      })
-    }
-
-    const command = match[1].trim()
-    segments.push({
-      type: 'act',
-      content: command,
-    })
-
-    lastIndex = markerRegex.lastIndex
-  }
-
-  if (lastIndex < content.length) {
-    segments.push({
-      type: 'text',
-      content: content.slice(lastIndex),
-    })
-  }
-
-  return segments
-}
-
 const slices = computed(() => props.message.slices || [])
 const toolResults = computed(() => props.message.tool_results || [])
+const actorAwareSlices = computed(() => hydrateLegacyActorSlices(slices.value, props.message.rawContent))
 
 // The shrink-wrap visual container constraints
 const containerClasses = computed(() => [
@@ -558,45 +514,21 @@ const boxStyle = computed(() => {
 })
 
 const resolvedSlices = computed(() => {
-  const rs: (ChatSlices | (ChatSlicesText & { displaySegments?: DisplaySegment[], defaultActorId?: string }))[] = []
+  const rs: ChatSlices[] = []
 
-  let textBuffer = ''
-  let currentActorId: string | null = null
-
-  const processBuffer = () => {
-    if (textBuffer.trim()) {
-      const actorRegex = /<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi
-      let match
-      let lastActorInSlice: string | null = null
-
-      actorRegex.lastIndex = 0
-      while ((match = actorRegex.exec(textBuffer)) !== null) {
-        lastActorInSlice = match[1].trim()
-      }
-
-      rs.push({
-        type: 'text',
-        text: textBuffer,
-        displaySegments: processContent(textBuffer),
-        defaultActorId: currentActorId || undefined,
-      })
-
-      if (lastActorInSlice) {
-        currentActorId = lastActorInSlice
-      }
-
-      textBuffer = ''
-    }
-  }
-
-  for (const slice of slices.value) {
+  for (const slice of actorAwareSlices.value) {
     if (slice.type === 'text') {
-      textBuffer += slice.text
+      const lastSlice = rs.at(-1)
+      if (lastSlice?.type === 'text' && !slice.startsActor && lastSlice.actorId === slice.actorId) {
+        lastSlice.text += slice.text
+      }
+      else {
+        rs.push({ ...slice })
+      }
       continue
     }
 
     if (slice.type === 'tool-call') {
-      processBuffer()
       const toolCallId = (slice.toolCall as any)?.id || (slice.toolCall as any)?.toolCallId
       if (toolCallId) {
         const result = toolResults.value.find((tr: any) => tr.toolCallId === toolCallId || tr.id === toolCallId)
@@ -618,7 +550,6 @@ const resolvedSlices = computed(() => {
     }
 
     if (slice.type === 'tool-call-result') {
-      processBuffer()
       continue
     }
 
@@ -627,43 +558,14 @@ const resolvedSlices = computed(() => {
     }
   }
 
-  processBuffer()
   return rs
 })
 
-function getSegmentedText(sliceText: string): string {
-  const raw = (props.message as any).rawContent
-
-  if (!raw || typeof raw !== 'string' || !raw.includes('<|ACTOR:')) {
-    return injectActorColors(sliceText)
-  }
-
-  // Check if we only have one text slice to make it perfectly safe
-  const textSlicesCount = resolvedSlices.value.filter(s => s.type === 'text').length
-  if (textSlicesCount === 1) {
-    // Strip other tags (ACT and DELAY) from rawContent, leaving only text and ACTOR tags.
-    // Use word boundary (\b) to avoid stripping <|ACTOR:...|> tags because ACTOR starts with ACT!
-    const cleanedRaw = raw
-      .replace(/<\|ACT\b[\s\S]*?(?:\|>|>)/gi, '')
-      .replace(/<\|DELAY\b[\s\S]*?(?:\|>|>)/gi, '')
-
-    return injectActorColors(cleanedRaw)
-  }
-
-  return injectActorColors(sliceText)
-}
-
 const dynamicStyles = computed(() => {
-  const raw = (props.message as any).rawContent
-  if (!raw || typeof raw !== 'string')
-    return ''
-
-  const actorRegex = /<\|ACTOR:\s*([\w-]+)\s*(?:\|>|>)/gi
   const actorIds = new Set<string>()
-  let match
-  actorRegex.lastIndex = 0
-  while ((match = actorRegex.exec(raw)) !== null) {
-    actorIds.add(match[1].trim())
+  for (const slice of actorAwareSlices.value) {
+    if (slice.type === 'text' && isValidActorId(slice.actorId))
+      actorIds.add(slice.actorId)
   }
 
   const cardStore = useAiriCardStore()
@@ -796,10 +698,11 @@ const dynamicStyles = computed(() => {
                 <template v-else-if="slice.type === 'tool-call-result'" />
                 <template v-else-if="slice.type === 'text'">
                   <MarkdownRenderer
-                    :content="getSegmentedText(slice.text)"
+                    :content="slice.text"
                     :active-text="isLatestAssistantMessage ? activeSpokenText : undefined"
                     :active-color="isLatestAssistantMessage ? activeSpokenColor : undefined"
-                    :default-actor-id="(slice as any).defaultActorId"
+                    :actor-id="slice.actorId"
+                    :starts-actor="slice.startsActor"
                   />
                 </template>
               </template>

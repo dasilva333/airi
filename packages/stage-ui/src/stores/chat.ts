@@ -22,6 +22,7 @@ import {
   DEFAULT_DREAM_INTRUSION_PROMPT,
   DEFAULT_JOURNAL_INTRUSION_PROMPT,
 } from '../constants/prompts/character-defaults'
+import { appendActorAwareTextSlice, captureActorToken, createActorSliceState } from '../utils/chat-actor-slices'
 import { useCompactionStore } from './chat/compaction'
 import { createDatetimeContext, createEternalRecordContext, createExpressionsContext, createScenesContext, createStickersContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
@@ -698,6 +699,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
       const categorizer = createStreamingCategorizer(effectiveProviderId)
       let streamPosition = 0
+      const actorSliceState = createActorSliceState()
 
       const createLiteralInterceptor = () => createLlmJsonInterceptor({
         onText: async (text) => {
@@ -725,16 +727,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
             await hooks.emitTokenLiteralHooks(speechOnly, streamingMessageContext)
 
-            const lastSlice = (buildingMessage as any).slices.at(-1)
-            if (lastSlice?.type === 'text') {
-              lastSlice.text += speechOnly
-            }
-            else {
-              ;(buildingMessage as any).slices.push({
-                type: 'text',
-                text: speechOnly,
-              })
-            }
+            appendActorAwareTextSlice(buildingMessage.slices, speechOnly, actorSliceState)
           }
           updateUI()
         },
@@ -1052,6 +1045,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
               return
             }
 
+            captureActorToken(actorSliceState, special)
             await hooks.emitTokenSpecialHooks(special, streamingMessageContext)
           },
 
@@ -1609,10 +1603,7 @@ Format your output as a raw thought log.`
           textSlice.text = fallbackText
         }
         else {
-          buildingMessage.slices.push({
-            type: 'text',
-            text: fallbackText,
-          })
+          appendActorAwareTextSlice(buildingMessage.slices, fallbackText, actorSliceState)
         }
         updateUI()
       }

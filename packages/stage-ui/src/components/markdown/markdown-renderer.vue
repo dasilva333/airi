@@ -6,13 +6,15 @@ import { onMounted, ref, watch, watchPostEffect } from 'vue'
 
 import { useMarkdown } from '../../composables/markdown'
 import { useBackgroundStore } from '../../stores/background'
+import { postProcessActorColors } from './actor-colors'
 
 interface Props {
   content: string
   class?: string
   activeText?: string
   activeColor?: string
-  defaultActorId?: string
+  actorId?: string
+  startsActor?: boolean
 }
 
 const props = defineProps<Props>()
@@ -20,62 +22,6 @@ const props = defineProps<Props>()
 const processedContent = ref('')
 const containerRef = ref<HTMLElement | null>(null)
 const { process, processSync } = useMarkdown()
-
-function formatActorName(id: string): string {
-  const name = id.replace(/^(actress_|actor_)/i, '')
-  const customNames: Record<string, string> = {
-    cg1: 'Nia',
-    cg2: 'Vara',
-    juewa: 'Juewa',
-    rumi: 'Rumi',
-  }
-  const lower = name.toLowerCase()
-  if (customNames[lower])
-    return customNames[lower]
-
-  return name
-    .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
-
-function postProcessActorColors(html: string, defaultActorId: string | null = null): string {
-  if (!html.includes('[ACTOR:') && !defaultActorId)
-    return html
-
-  // Match standard paragraph <p>...</p> or list item <li>...</li> blocks
-  const blockRegex = /(<p>|<li>)([\s\S]*?)(<\/p>|<\/li>)/gi
-  let activeActorId: string | null = defaultActorId
-
-  const result = html.replace(blockRegex, (match, openTag, innerContent, closeTag) => {
-    // Check if this block contains an actor marker: [ACTOR:xxx]
-    const markerRegex = /\[ACTOR:\s*([\w-]+)\s*\]/i
-    const markerMatch = markerRegex.exec(innerContent)
-
-    let isNewMarker = false
-    if (markerMatch) {
-      activeActorId = markerMatch[1].trim()
-      // Strip the marker from the block content
-      innerContent = innerContent.replace(markerRegex, '')
-      isNewMarker = true
-    }
-
-    if (activeActorId) {
-      // If this was a new marker block, prepend the polished pill badge!
-      let chipHtml = ''
-      if (isNewMarker) {
-        const displayName = formatActorName(activeActorId)
-        chipHtml = `<span class="actor-chip actor-chip-${activeActorId}">${displayName}</span>`
-      }
-      // Wrap only the inner content of this block in our inline styled class
-      return `${openTag}${chipHtml}<span class="actor-color-${activeActorId}">${innerContent}</span>${closeTag}`
-    }
-
-    return match
-  })
-
-  return result
-}
 
 async function processContent() {
   if (!props.content) {
@@ -147,12 +93,12 @@ async function processContent() {
 
   try {
     const rawCompiled = await process(healed)
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props.defaultActorId)
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props)
   }
   catch (error) {
     console.warn('Failed to process markdown with syntax highlighting, using fallback:', error)
     const rawCompiled = processSync(healed)
-    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props.defaultActorId)
+    processedContent.value = postProcessActorColors(DOMPurify.sanitize(rawCompiled, sanitizeConfig), props)
   }
 }
 
@@ -424,8 +370,8 @@ function scheduleHighlight() {
   })
 }
 
-// Process content when it changes
-watch(() => props.content, () => {
+// Process content or actor presentation metadata when either changes.
+watch(() => [props.content, props.actorId, props.startsActor], () => {
   lastMatchIndex = 0
   processContent()
 }, { immediate: true })

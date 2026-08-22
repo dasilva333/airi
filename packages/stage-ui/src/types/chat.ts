@@ -4,6 +4,8 @@ import type { AssistantMessage, CommonContentPart, CompletionToolCall, Message, 
 export interface ChatSlicesText {
   type: 'text'
   text: string
+  actorId?: string
+  startsActor?: boolean
 }
 
 export interface ChatSlicesToolCall {
