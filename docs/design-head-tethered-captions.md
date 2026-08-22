@@ -52,23 +52,45 @@ So this is **a new widget, not a setting on the current caption window.**
 
 ## 3. Proposed design for AIRI
 
-### 3.1 One feature, two surfaces
+### 3.1 Architecture & Architectural Boundaries
 
-Head-tethered captions are an *overlay mode* of the existing pipeline, with **one settings toggle and two render targets** chosen automatically by stage renderer:
+Head-tethered captions operate across two clearly decoupled tiers: a **renderer-agnostic shared data/analysis layer** and **per-runtime rendering backends**.
 
-| Stage Renderer | Caption surface | Transform mechanism |
-| --- | --- | --- |
-| `live2d` | In-stage **PIXI child** added to the same stage as the Live2D model | `position` + `scale` + `skew` + `rotation` |
-| `spine` | In-stage **PIXI child** (`@pixi/ui`/`Text`/`Sprite`) on the stage the `SpineScene` already runs | bone-driven `worldTransform` (real, not fake perspective) |
-| `vrm` | In-stage **sprite on the three.js scene** (CSS3DSprite or a `THREE.Sprite` with a canvas texture) | head bone world quaternion projected to 2D |
-| `mmd` | Same as VRM; three.js scene | head bone world quaternion projected to 2D |
-| none/configure | Fall back to the existing dedicated caption window | unchanged |
-
-The **same component** (`packages/stage-ui/src/components/scenes/HeadTetheredCaption.vue`) drives data and props; a small adapter per renderer supplies `(parameters, anchor)` and accepts `(transform)` back.
-
-### 3.2 Component & data flow
-
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        @proj-airi/stage-shared                         │
+│  • analyzeCaptionSentence(text)  (30+ regex triggers, negation filter) │
+│  • CaptionEffectCue / AnalyzedSentenceEffects types                    │
+│  • poseToCaptionTransform(...)   (squash, skew, roll perspective math) │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+           Emits normalized { effects, transform, anchor }
+                                    │
+          ┌─────────────────────────┴────────────────────────┐
+          ▼                                                  ▼
+┌──────────────────────────────┐           ┌───────────────────────────────────┐
+│     stage-ui-live2d          │           │    Screen-Space Canvas2D Overlay  │
+│  • PIXI.Graphics / Container │           │  • CanvasRenderingContext2D       │
+│  • PIXI WebGL masks          │           │  • Path2D vector builder & masks  │
+│  (Native Pixi WebGL backend) │           │  (Shared: VRM, MMD, and Spine)    │
+└──────────────────────────────┘           └───────────────────────────────────┘
 ```
+
+#### Render Surface Strategy by Model Format:
+
+| Stage Renderer | Engine / Context | Head Anchor Source | Caption Surface & Transform Mechanism |
+| :--- | :--- | :--- | :--- |
+| `live2d` | Pixi.js v6 | `coreModel` parameters + drawable bounds | In-stage **PIXI child** (`PIXI.Graphics`, `PIXI.Container`, WebGL masks) with native Pixi transform. |
+| `vrm` | Three.js | `vrm.humanoid.getNormalizedBoneNode('head')` | **Screen-Space 2D Canvas Overlay**; head world position projected to NDC via `project(camera)`, Euler yaw/pitch/roll into `poseToCaptionTransform`. |
+| `mmd` | Three.js | `skeleton.bones['頭']` / `neck` | **Screen-Space 2D Canvas Overlay** (100% shared with VRM via `project(camera)`). |
+| `spine` | Spine-WebGL | `skeleton.findBone('head')` | **Screen-Space 2D Canvas Overlay**; feeds 2D bone stage coordinates `(worldX, worldY)` directly. |
+| none/configure | Fallback | N/A | Fall back to the existing dedicated caption window. |
+
+The **same component** (`packages/stage-ui/src/components/scenes/HeadTetheredCaption.vue`) orchestrates data, settings, and Sentence-Sync BroadcastChannel events.
+
+### 3.2 Component & Data Flow
+
+```text
 ┌──────────────────────────────┐
 │ CaptionPanel.vue             │  ← shared text/segment typography
 │  (existing — keeps Sentence  │     (no pose logic)
@@ -77,163 +99,109 @@ The **same component** (`packages/stage-ui/src/components/scenes/HeadTetheredCap
                │ segments
                ▼
 ┌──────────────────────────────┐
-│ HeadTetheredCaption.vue      │  ← new wrapper: frame loop + pose→transform
+│ HeadTetheredCaption.vue      │  ← host wrapper: frame loop + Sentence Sync
 │  • watches BroadcastChannel  │
 │  • reads anchor from settings│
-│  • calls StagePoseAdapter.   │
-│    snapshotPose() each frame │
-│  • emits CSS style for DOM   │
-│    or mutates PIXI sprite    │
+│  • calls analyzeCaptionSentence()
+│  • computes poseToCaptionTransform()
 └──────┬───────────────┬───────┘
        │               │
        ▼               ▼
-┌─────────────────┐  ┌──────────────────────┐
-│ DomStageAdapter │  │ PixiStageAdapter     │
-│ (three.js / VRM │  │ (Live2D / Spine)     │
-│  / MMD via CSS) │  │  • pose from         │
-│                 │  │    coreModel params  │
-│                 │  │  • anchor from       │
-│                 │  │    drawable bounds   │
-│                 │  │    or model bounds % │
-└─────────────────┘  └──────────────────────┘
+┌──────────────────────────────┐  ┌──────────────────────┐
+│ Canvas2D Overlay Component   │  │ PixiStageAdapter     │
+│ (Shared for VRM/MMD/Spine    │  │ (Live2D only)        │
+│  via Canvas2D / Path2D)      │  │  • native PIXI.Graph │
+└──────────────────────────────┘  └──────────────────────┘
 ```
 
-### 3.3 Settings surface
+### 3.3 Settings Surface
 
 Reuses the existing `useSettings` slice. Add one new setting and one new binding; do **not** create a parallel system.
 
-* `captionAnchorDocking: 'none' | 'head' | 'face' | 'chest'` — *new*; sub-mode under `captionDocking`.
+* `captionAnchorDocking: 'none' | 'head' | 'face' | 'chest'` — sub-mode under `captionDocking`.
   * When `captionDocking === 'character-head'`, use the head-tethered renderer instead of positioning the Electron window.
   * The other three options select which anchor the plank follows, in case the user wants it on the mouth (subtitles) or chest (signboard).
 * `captionAnchorOffset: { x: number; y: number }` — pixel offset from the anchor point for fine-tuning.
 * `captionAnchorFollowStrength: 0..100` — attenuates perspective; `0` makes the plank static over the model, `100` is the full "twist".
 * Existing `captionFollowStageVisibility`, `captionFollowStagePosition`, theme, opacity, font scale, and Sentence Sync continue to apply unchanged.
 
-The `captionDocking: 'character-head'` experimental entry already exists in `docs/design-captions-widget-system.md`. **The work is to make that mode render head-tethered instead of pretending to be a *repositioned window*.** This preserves the settings UI surface and the control-customizer `cycler` row (`packages/stage-ui/src/constants/control-customizer.ts` L161).
+### 3.4 Per-Renderer Adapters & The Canvas2D Consolidation
 
-### 3.4 Per-renderer adapters
+#### Why Canvas2D was chosen over `CSS3DObject` and Pure CSS:
+* **`CSS3DObject` (Eliminated)**: Running a secondary `CSS3DRenderer` alongside TresJS/WebGL adds significant multi-renderer sync overhead, does not provide WebGL depth benefits, and suffers from blurry rasterization on camera FOV changes.
+* **Pure CSS / DOM (Eliminated)**: Standard CSS `border-radius` and borders cannot draw dynamic 16-spike starburst outlines, frame-by-frame 60 FPS sine-wave wagging tails, or interior-masked particle systems.
+* **Canvas2D Overlay (Chosen Solution)**: Standard HTML5 `CanvasRenderingContext2D` provides exact 1:1 syntax parity with PIXI's vector drawing model (`beginPath()`, `bezierCurveTo()`, `arcTo()`, `stroke()`, and `clip()` for the body mask). A single screen-space overlay canvas delivers razor-sharp Retina resolution, 0 GPU texture upload cost, and runs 60 FPS particle layers seamlessly.
 
-#### Live2D (`packages/stage-ui-live2d`)
-* `Live2DScene` already exposes the model with `internalModel.coreModel`. Read parameters with a tiny alias table (`ParamAngleX` / `PARAM_ANGLE_X` / `ParamHeadAngleX` / …).
-* Anchor: use `internalModel.getDrawableBounds` for a head-tagged drawable when present; otherwise `model.getBounds()` × `FALLBACK_ANCHOR_POSITION[anchor]`.
-* The caption plank is a `PIXI.Container` holding a `Text`/background `Sprite`, added as a sibling *after* `model.value` in the stage so it draws on top.
-* Update on the same latch `Model.vue` uses to push `mouthOpenSize` (around line 1073 of `Model.vue`); this is the same frame the motion/motion manager update completes, so the plank never lags the head.
+#### Adapter Implementation Details:
 
-#### Spine (`packages/stage-ui-spine`)
-* The skeleton already runs through bones with `worldX/worldY` — see `use-spine-preview.ts`'s `findBoneByNames(skeleton, ['head','face','neck',…])`.
-* Use `skeleton.findBone('head')` (with a small alias list) for the anchor point.
-* For rotation/scale pull from `bone.worldRotationX/Y` or compose from the bone's world matrix `a,b,c,d`. This gives real perspective (no fake skew needed); still apply a small additional skew for stylistic consistency with Live2D.
-* Same PIXI Stage renderer — plank is a PIXI child.
+#### 1. Live2D (`packages/stage-ui-live2d`)
+* Reads Cubism parameters (`ParamAngleX/Y/Z`) from `coreModel` with fallback to `focusController`.
+* Uses native `PIXI.Graphics`, `PIXI.Container`, and WebGL masks inside the existing Pixi stage canvas.
 
-#### VRM / MMD (`packages/stage-ui-vrm`, `packages/stage-ui-mmd` / three.js)
-* Use the head bone (`vrm.humanoid.getNormalizedBoneNode('head')` or `mmd`'s `頭`/`neck` bone) — get world position and world quaternion.
-* Render the caption in a `THREE.CSS3DObject` (so text stays crisp) or a `THREE.Sprite` with a canvas texture. Position: `headBone.getWorldPosition(v); camera-project to NDC → stage pixels`. Rotation/skew: project the quaternion's X/Y components to 2D skew values using a fixed gain remap.
-* The same `HeadTetheredCaption.vue` must run in that scene's frame loop.
+#### 2. VRM & MMD (`packages/stage-ui-three`, `packages/stage-ui-mmd`)
+* VRM reads `vrm.humanoid.getNormalizedBoneNode('head')`; MMD reads `skeleton.bones['頭']`.
+* On the frame tick (after animation update), extracts world position `vec3` and quaternion `quat`.
+* Projects 3D world coordinate to 2D screen coordinates via Three.js: `vec3.project(camera)`.
+* Converts quaternion rotation to Euler `yaw`, `pitch`, `roll`, clamps to `[-1, 1]`, and feeds into `poseToCaptionTransform`.
+* Renders the 4-channel vector bubble and particles directly on the screen-space Canvas2D overlay.
 
-#### Shared math
-One pure-function helper in `packages/stage-ui/src/utils/caption-perspective.ts`:
+#### 3. Spine (`packages/stage-ui-spine`)
+* Spine uses `@esotericsoftware/spine-webgl` (raw WebGL canvas, no Pixi).
+* Reads `skeleton.findBone('head')` to obtain 2D bone stage coordinates `(bone.worldX, bone.worldY)`.
+* Feeds `(worldX, worldY)` directly as the anchor to the shared Canvas2D overlay, getting the full 4-channel expressive vector bubble without building bespoke raw WebGL shader pipelines.
 
-```ts
-export interface PoseSnapshot {
-  yaw: number // headYaw in -30..30
-  pitch: number // headPitch in -30..30
-  roll: number // headRoll in -30..30
-  bodyYaw?: number
-  bodyPitch?: number
-  bodyRoll?: number
-}
-
-export interface AnchorPoint { x: number, y: number }
-
-export function poseToCaptionTransform(
-  pose: PoseSnapshot,
-  anchor: AnchorPoint,
-  opts: { strength: number, offsetX: number, offsetY: number },
-): { x: number, y: number, scaleX: number, scaleY: number, skewX: number, skewY: number, rotation: number }
-```
-
-All adapters fill a `PoseSnapshot` (each with its own runtime quirks) and call this one function. This keeps the math single-sourced and lets the prose, a11y, theming, and Sentence-Sync logic stay untouched.
-
-### 3.5 Existing rules the design must respect
-
-* **Same Sentence Sync broadcast** (`airi-caption-overlay`) drives `segments`; `HeadTetheredCaption.vue` consumes it exactly the way `CaptionPanel.vue` does. No changes to `ChatExecutionService`, `useMobileChatSync`, or chat logic.
-* **`captionFollowStageVisibility`** still hides the whole overlay; head-tethered mode also fades with the model when the stage window is hidden.
-* **Click-through**: since it lives inside the stage canvas, the plank must not intercept pointer events (`pointer-events-none` for DOM adapter, `eventMode='none'` for PIXI).
-* **Pinia/settings**: additions are limited to `packages/stage-ui/src/stores/settings/captions.ts`; Control Customizer entries get a new item under the existing `captions-layout` group, not a new group.
-* **i18n**: new strings go into `packages/i18n` per `docs/settings-yaml.md`.
-* **Respect the existing caption window**: when `captionDocking !== 'character-head'`, the existing windowed caption continues to work exactly as today. Head-tethered mode is opt-in and only active for that one docking value.
+#### Shared Upstream Modules in `@proj-airi/stage-shared`:
+1. `packages/stage-shared/src/utils/caption-perspective.ts`: `poseToCaptionTransform(pose, anchor, opts)` — pure transform math.
+2. `packages/stage-shared/src/utils/caption-sentiment.ts`: `analyzeCaptionSentence(text)` — pure sentiment, negation filtering, and 30+ regex trigger analyzer.
 
 ---
 
-## 4. Compatibility across models — considerations
+## 4. Compatibility Across Models — Considerations
 
 | Concern | Live2D | Spine | VRM (3D) | MMD (3D) |
-| --- | --- | --- | --- | --- |
-| Pose source | `coreModel.getParameterValueById('ParamAngleX')` + aliases | bone world matrix (`head`) | head bone world quaternion | head bone world quaternion |
-| Anchor bound | drawable bounds tagged "head"/"face" → fallback % of model bounds | `findBoneByNames(['head','face','neck'])` world position | `VRMHumanoid.head` world position | `skeleton.bones` searched via JP/EN aliases |
-| Perspective shape | fake skew + scale (no true 3D) | fake skew + slight real rotation from bone | real quaternion → 2D skew + slight 3D rotation on a `CSS3DObject` | same as VRM |
-| Rotation range | Live2D angle params are typically ±30 | bone rotation in radians, clamp to ±0.6 | quaternion → eulers, clamp | quaternion → eulers, clamp |
-| Auto-fallback | Model has no `ParamAngleX` → use `ParamBodyAngleX` * 1.3 gain, else skip | No head bone → use top of bone-bounds box | No head bone? Throw — humanoid contract | Same as VRM |
-| Frame hook | `motionManager.update` wrap (already used) | after `skeleton.updateWorldTransform()` | after `vrm.update(delta)` | after `mmd.update(delta)` |
-| Stage coords | PIXI stage pixels | PIXI stage pixels | three.js NDC → canvas px via `project()` | same |
-
-**Fallback ordering** (uniform across all four renderers):
-1. If a real head-shape anchor is available, use its center.
-2. Else if a head *parameter/bone* is available, use the model-bounds fallback point plus the pose parameters for skew.
-3. Else fall back to the model-bounds center-top and behave like a static caption glued to the model (no skew).
-4. If even that is unavailable, fall back to the existing windowed caption for the session.
-
-**Degradation**: if `captionAnchorFollowStrength = 0`, the plank still positions at the head but ignores `skewX/skewY/scaleX/scaleY/rotation`, giving a clean "pinned but not perspective" mode.
-
-**Test matrix when implementing**:
-- Live2D models with `ParamAngleX`/`ParamAngleY`/`ParamAngleZ` only.
-- Live2D models with `PARAM_ANGLE_*` (Cubism 2-style IDs).
-- Spine with `head` bone, Spine with `face` only, Spine with neither.
-- VRM with T-pose and head-roll animation.
-- MMD with Japanese bone naming (`頭`), confirming the alias covers both.
+| :--- | :--- | :--- | :--- | :--- |
+| **Engine** | Pixi.js v6 | `@esotericsoftware/spine-webgl` | Three.js / TresJS | Three.js |
+| **Pose Source** | `coreModel` parameters + aliases | `bone.worldRotationX/Y` | `head` bone quaternion | `頭` bone quaternion |
+| **Anchor Bound** | `findHeadAnchorPoint(model)` | `skeleton.findBone('head').worldX/Y` | `VRMHumanoid.head` world position | `skeleton.bones['頭']` world position |
+| **Render Surface** | In-stage PIXI Container | Screen-Space Canvas2D Overlay | Screen-Space Canvas2D Overlay | Screen-Space Canvas2D Overlay |
+| **Perspective Shape** | Fake skew + scale in PIXI | Fake skew + scale on Canvas2D | Quaternion → Euler → 2D skew + scale | Quaternion → Euler → 2D skew + scale |
+| **Frame Hook** | `app.ticker` (LOW priority) | After `skeleton.updateWorldTransform()` | After `vrm.update(delta)` in render loop | After `mmd.update(delta)` in render loop |
+| **Stage Coords** | PIXI stage pixels | Canvas2D stage pixels | Three.js NDC → `project(camera)` | Three.js NDC → `project(camera)` |
 
 ---
 
-## 5. Locked decisions (MVP scope)
+## 5. Locked Decisions (MVP Scope)
 
 The original open questions are now resolved for MVP:
 
 | # | Question | Locked decision |
 |---|---|---|
-| 1 | Toggle shape | **Independent toggle**, not a cycler sub-mode. New global boolean `headTetheredCaptionEnabled`, single toggle row in the `captions-layout` group of the control customizer. Fully orthogonal to `captionDocking`, `captionFollowStagePosition`, `captionFollowStageVisibility`, theme, opacity, layout mode. Both caption systems may run side-by-side; user manages overlap. |
+| 1 | Toggle shape | **Independent toggle**, not a cycler sub-mode. New global boolean `headTetheredCaptionEnabled`, single toggle row in the `captions-layout` group of the control customizer. |
 | 2 | Customizer versioning | **No config version bump.** New rows blend in naturally; version increments are reserved for changing existing options. |
-| 3 | Customizer row placement | **`captions-layout` group, second item** (immediately after `caption` master toggle). Description: *"Live2D only · more formats coming soon."* |
+| 3 | Customizer row placement | **`captions-layout` group, second item** (immediately after `caption` master toggle). Description: *"In-scene comic captions for 2D & 3D avatars."* |
 | 4 | Settings → Captions panel surface | **Not added** for MVP. Toggle is customizer-only. |
-| 5 | Drag-to-offset | **Deferred.** MVP uses fixed `headTetheredCaptionOffset = { x: 0, y: -40 }` in the settings schema; no pointer events on the plank this phase. Drag work later is purely additive on the existing key. |
-| 6 | Text source | **Fixed placeholder string** for MVP. `HeadTetheredCaption.vue` accepts `text`, `width`, `offset`, `followStrength` as props. The BroadastChannel/Sentence Sync hookup later changes the parent's `computed`, not the component. |
-| 7 | Plank sizing | **Proportional to model on-screen height**, not fixed pixels. Width ≈ `modelHeight * 0.45`, font scales with model size so the bubble feels glued to the character at any zoom. |
-| 8 | Plank style | **Comic speech bubble**: translucent white background, thick black border, soft tail pointer toward the head anchor. No neon, no message-window header. |
-| 9 | Persistence scope | **Single global toggle.** No per-model enablement in MVP. |
-| 10 | Off behavior | When off, the PIXI container is destroyed (not just hidden) — no residual render cost. |
-| 11 | Adapter scope for MVP | **Live2D only.** If the toggle is on with a VRM/Spine/MMD model active, no plank appears. |
-| 12 | Multi-actor | **Single actor.** No `actorId` follow-target switching. |
-
-Non-goals for MVP clarifications:
-
-- No `captionDocking === 'character-head'` interaction; the existing experimental window-positioning mode is untouched and behaves exactly as it does today.
-- No change to the existing windowed `caption.vue`, `CaptionPanel.vue`, the Electron caption window manager, or the `airi-caption-overlay` BroadcastChannel contract.
+| 5 | Drag-to-offset | **Deferred.** MVP uses fixed `headTetheredCaptionOffset = { x: 0, y: -15 }` in the settings schema; no pointer events on the plank this phase. |
+| 6 | Text source | **Sentence Sync BroadcastChannel (`airi-caption-overlay`)** with Micro-Pacer sub-chunking. |
+| 7 | Plank sizing | **Proportional to model on-screen height** (width ≈ `modelHeight * 0.35`, capped to 65% viewport). |
+| 8 | Plank style | **Comic speech bubble**: continuous vector outline, dynamic tail limb morphing (`wag`, `heart-curl`, `droop`, `jagged-pointer`), interior-masked ambient particles. |
+| 9 | Persistence scope | **Single global toggle.** |
+| 10 | Off behavior | When off, container / canvas ticker is destroyed (zero residual render cost). |
+| 11 | Multi-format rollout | **Phase 1: Live2D** (active). **Phase 2: VRM, MMD & Spine** via shared Canvas2D overlay. |
+| 12 | Multi-actor | **Single actor.** |
 
 ---
 
-## 6. Files the implementation will touch
+## 6. Files & Implementation Roadmap
 
-| Purpose | Path |
-| --- | --- |
-| New wrapper component (drives pose loop, owns BroadcastChannel consumption) | `packages/stage-ui/src/components/scenes/HeadTetheredCaption.vue` |
-| Pure pose→transform math | `packages/stage-ui/src/utils/caption-perspective.ts` |
-| Live2D adapter (pose read + PIXI child) | `packages/stage-ui-live2d/src/composables/use-head-tethered-caption.ts` |
-| Spine adapter | `packages/stage-ui-spine/src/composables/use-head-tethered-caption.ts` |
-| VRM / MMD adapters | `packages/stage-ui-vrm/...` and `packages/stage-ui-mmd/...` equivalents |
-| New settings keys + defaults | `packages/stage-ui/src/stores/settings/captions.ts` |
-| New control-customizer row | `packages/stage-ui/src/constants/control-customizer.ts` (inside `captions-layout`) |
-| Mount in stage host | `packages/stage-ui/src/components/scenes/RendererStage.vue` |
-| Translations | `packages/i18n/…` per `docs/settings-yaml.md` |
-| Doc keepalive | this file + `docs/design-captions-widget-system.md` (mark `character-head` mode as powered by head-tethered renderer when available) |
+| Purpose | Path | Action |
+| :--- | :--- | :--- |
+| Extract sentiment & trigger analyzer | `packages/stage-shared/src/utils/caption-sentiment.ts` | **NEW**: Move `analyzeCaptionSentence` and cue types from Live2D into shared. |
+| Pure pose→transform math | `packages/stage-shared/src/utils/caption-perspective.ts` | **EXISTING**: Shared single-source math. |
+| Live2D adapter (Pixi WebGL) | `packages/stage-ui-live2d/src/composables/live2d/head-tethered-caption.ts` | **MODIFY**: Consume `analyzeCaptionSentence` from `@proj-airi/stage-shared`. |
+| Shared Canvas2D Overlay Component | `packages/stage-ui/src/components/scenes/HeadTetheredCanvas2D.vue` | **NEW**: Canvas2D vector builder & particle engine for VRM, MMD, and Spine. |
+| VRM adapter & bone projection | `packages/stage-ui-three/src/composables/vrm/head-tether.ts` | **NEW**: Expose projected head bone anchor & Euler angles. |
+| Spine & MMD bone projection hooks | `packages/stage-ui-spine/...` & `packages/stage-ui-mmd/...` | **NEW**: Expose head bone anchor coordinates. |
+| Mount & orchestration host | `packages/stage-ui/src/components/scenes/RendererStage.vue` | **MODIFY**: Mount Canvas2D overlay for VRM, MMD, Spine alongside Live2D Pixi mount. |
 
 The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPanel.vue`, the Electron caption window manager, and the caption BroadcastChannel contract all stay untouched.
 
