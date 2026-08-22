@@ -52,6 +52,12 @@ We have identified distinct prompt-compilation flows that build overlapping cont
 * **Default Context:** When forwarding is enabled, user message history and the image are sent to the VLM to produce a description.
 * **Caching Strategy:** Maintains conversation history cleanly at the prefix so that repeated images/messages with identical history maximize cache hits, while volatile prompt-shims or image directives are kept at the tail.
 
+### F. Primary Chat Ingestion & STMM / Lifetime Grounding
+* **Path:** [chat.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat.ts) & [session-store.ts](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-store.ts)
+* **Decoupled Architecture:** `messages[0]` is strictly reserved for the pure, immutable character persona system prompt (`buildSystemPrompt()`), preserving a 100% frozen prefix across all auxiliary subsystems (Proactivity, Suggestions, Journaling).
+* **Trailing System Stack:** Past daily continuity summaries (`[PAST CONTINUITY / DAILY SUMMARIES]`), relationship artifacts (`[LIFETIME RELATIONSHIP ARTIFACT]`), semantic RAG entries (`[GROUNDED LONG-TERM MEMORIES]`), live sensor telemetry (`[ENVIRONMENTAL AWARENESS]`), active topics (`[RECENT TOPICS]`), and director scratchpads (`[VISUAL STATE BOARD]`) are injected as dedicated trailing `role: 'system'` grounding blocks immediately before the active user prompt.
+* **Attention Recency Advantage:** Placing grounding context at the tail leverages transformer attention recency to prevent memory loss in long dialogues while keeping the shared prefix completely warm.
+
 ---
 
 ## 3. Global LLM Performance Configurations
@@ -237,6 +243,26 @@ export function compileCacheAlignedPrompt(options: ContextBuilderOptions) {
   }
   ```
 
+---
+
+## 6. Prefix Cache Validation & Empirical Tooling
+
+To ensure that prefix alignment remains intact across regressions and updates, the monorepo includes an empirical validator script at [`scripts/validate-prefix-cache.js`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/scripts/validate-prefix-cache.js).
+
+### Running Cache Alignment Audits
+```bash
+node scripts/validate-prefix-cache.js [payloadA.json] [payloadB.json]
+```
+
+### Layer-by-Layer Verification Output
+The validator decomposes prompt payloads into three distinct layers:
+1. **Leading System / Persona Prefix (Index 0)**: Ensures immutable persona text matches byte-for-byte.
+2. **Monotonic Dialogue Turns (Indices 1..N)**: Measures identical history turns and token reuse.
+3. **Trailing Telemetry / Directives**: Confirms dynamic blocks diverge only at the tail.
+
+---
+
 ## Relevant Skills
 
 - [[airi-prefix-cache-alignment]]
+

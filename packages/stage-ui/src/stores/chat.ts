@@ -586,6 +586,24 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         })
       }
 
+      // 1.5. Short-Term Memory (STMM Daily Continuity)
+      const shortTermContext = chatSession.buildShortTermMemoryContext(activeCardId.value)
+      if (shortTermContext) {
+        groundingMessages.push({
+          role: 'system',
+          content: shortTermContext,
+        })
+      }
+
+      // 1.6. Lifetime Memory Artifact
+      const lifetimeContext = chatSession.buildLifetimeMemoryContext(activeCardId.value)
+      if (lifetimeContext) {
+        groundingMessages.push({
+          role: 'system',
+          content: lifetimeContext,
+        })
+      }
+
       // 2. RAG Universe Memory Injection
       if (activeCard.value?.extensions?.airi?.groundingMemoryEnabled && !options.triggerOnly && typeof sendingMessage === 'string' && sendingMessage.trim().length > 3) {
         chatLog('Grounding Memory active. Fetching semantic query matches...')

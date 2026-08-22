@@ -207,7 +207,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     })
   }
 
-  function buildShortTermMemoryContext(characterId: string) {
+  function buildShortTermMemoryContext(characterId = getCurrentCharacterId()) {
+    if (!characterId)
+      return ''
     const cardStore = useAiriCardStore()
     const card = cardStore.getCard(characterId)
     const limit = card?.extensions?.airi?.shortTermMemory?.windowSize ?? 3
@@ -216,39 +218,31 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return ''
 
     return [
-      '[Short-Term Memory]',
-      'The following daily continuity blocks were distilled from recent chat history for this active character.',
-      'Use them as hidden continuity context for the current session.',
+      '[PAST CONTINUITY / DAILY SUMMARIES]',
+      'The following daily continuity blocks were distilled from recent chat history from previous days. Use them as background continuity context:',
       ...blocks.map(block => `Date: ${block.date}\n${block.summary}`),
     ].join('\n\n')
   }
 
-  function buildLifetimeMemoryContext(characterId: string) {
+  function buildLifetimeMemoryContext(characterId = getCurrentCharacterId()) {
+    if (!characterId)
+      return ''
     const artifact = lifetimeMemory.artifacts.get(characterId)
     const distilledContent = artifact?.distilledContent?.trim()
     if (!distilledContent)
       return ''
 
     return [
-      '[Lifetime Artifact]',
-      'The following distilled long-horizon continuity block represents the durable relationship context for this active character.',
-      'Use it as hidden continuity context alongside recent short-term memory.',
+      '[LIFETIME RELATIONSHIP ARTIFACT]',
+      'The following distilled long-horizon continuity block represents the durable relationship context for this character. Use it as background continuity alongside recent short-term memory:',
       distilledContent,
     ].join('\n\n')
   }
 
-  function generateInitialMessageFromPrompt(prompt: string, characterId = getCurrentCharacterId()) {
-    const shortTermContext = buildShortTermMemoryContext(characterId)
-    const lifetimeContext = buildLifetimeMemoryContext(characterId)
-    const content = [
-      prompt,
-      shortTermContext,
-      lifetimeContext,
-    ].filter(Boolean).join('\n\n')
-
+  function generateInitialMessageFromPrompt(prompt: string, _characterId = getCurrentCharacterId()) {
     return {
       role: 'system',
-      content,
+      content: prompt,
       id: nanoid(),
       createdAt: Date.now(),
     } satisfies ChatHistoryItem
@@ -1543,5 +1537,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     persistIndex,
     sessionGenerations,
     migrateSessionUniverse,
+
+    buildShortTermMemoryContext,
+    buildLifetimeMemoryContext,
   }
 })
