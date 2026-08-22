@@ -1248,7 +1248,25 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     const { sessionId, message } = event
     const current = sessionMessages.value[sessionId] ?? []
-    const existingIndex = message.id ? current.findIndex(m => m.id === message.id) : -1
+    let existingIndex = message.id ? current.findIndex(m => m.id === message.id) : -1
+
+    if (existingIndex === -1) {
+      const msgContent = extractMessageContent(message)
+      const msgTime = message.createdAt || 0
+      if (msgContent.trim()) {
+        existingIndex = current.findIndex((m) => {
+          if (m.role !== message.role)
+            return false
+          if (extractMessageContent(m) !== msgContent)
+            return false
+          const mTime = m.createdAt || 0
+          if (msgTime && mTime && Math.abs(msgTime - mTime) <= 3000)
+            return true
+          return false
+        })
+      }
+    }
+
     if (existingIndex !== -1) {
       debug(`[ChatStore] Cross-window session-updated UPDATING existing message:`, {
         id: message.id,

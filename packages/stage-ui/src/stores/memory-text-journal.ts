@@ -320,6 +320,18 @@ export const useTextJournalStore = defineStore('text-journal', () => {
     if (!nextEntry.characterId)
       throw new Error('Active character could not be resolved for text journal entry creation.')
 
+    // NOTICE: Deduplicate rapid duplicate createEntry calls (e.g. native tool call + fallback marker bridge double-firing)
+    const recentDuplicate = entries.value.find(e =>
+      e.characterId === nextEntry.characterId
+      && e.title === nextEntry.title
+      && e.content === nextEntry.content
+      && Math.abs(now - (e.createdAt || 0)) <= 5000,
+    )
+    if (recentDuplicate) {
+      console.warn('[TextJournal] Deduplicated rapid duplicate createEntry call:', nextEntry.title)
+      return recentDuplicate
+    }
+
     // Hook: If journal intrusion is enabled, stage the pending journal entry via BroadcastChannel + local call
     const injectJournalContext = targetCard.extensions?.airi?.textJournal?.injectJournalContext
     console.warn('[TextJournal Debug] injectJournalContext value:', injectJournalContext)

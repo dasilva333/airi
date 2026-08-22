@@ -37,7 +37,7 @@ import { BasicTextarea, Button } from '@proj-airi/ui'
 import { useLocalStorage, watchDebounced } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot } from 'reka-ui'
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
@@ -532,7 +532,9 @@ const stageBackgroundDialogOpen = ref(false)
 // --- Deep Links ---
 
 function updateWindowTitle() {
-  const nextTitle = messageInput.value.trim()
+  const isTyping = messageInput.value.trim().length > 0
+  chatOrchestrator.setUserTyping(isTyping)
+  const nextTitle = isTyping
     ? `${CHAT_WINDOW_TITLE} - User Typing...`
     : CHAT_WINDOW_TITLE
 
@@ -766,6 +768,10 @@ onMounted(() => {
   }
 
   window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  chatOrchestrator.setUserTyping(false)
 })
 
 let lastSaveTime = 0

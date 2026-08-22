@@ -2,6 +2,7 @@
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover } from '@proj-airi/stage-ui/components'
+import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
@@ -91,6 +92,39 @@ const rightPanelMediaCollapsed = useLocalStorage('airi:chat:rp-media-collapsed',
 // Left Panel Routing States
 const isLeftPanelOpen = useLocalStorage('airi:chat:left-panel-open', true)
 const activeSurface = useLocalStorage<'messages' | 'director' | 'world' | 'characters' | 'media' | 'archives' | 'notes' | 'rehearsal' | 'event-log'>('airi:chat:left-panel-active', 'messages')
+
+const SURFACE_LABELS: Record<string, string> = {
+  'messages': 'Chat View',
+  'director': 'Director\'s Monitor',
+  'world': 'World Bible',
+  'characters': 'Studio',
+  'media': 'Media Library',
+  'archives': 'Eternal Thread',
+  'event-log': 'Event Ledger',
+  'notes': 'Notes',
+  'rehearsal': 'Rehearsal',
+}
+
+const activeSurfaceLabel = computed(() => SURFACE_LABELS[activeSurface.value] || 'Chat View')
+
+const chatOrchestrator = useChatOrchestratorStore()
+const { isUserTyping } = storeToRefs(chatOrchestrator)
+
+watch(
+  () => [activeSurface.value, isUserTyping.value] as const,
+  ([surface, typing]) => {
+    if (surface === 'messages') {
+      document.title = typing
+        ? 'AIRI - Chat Window - User Typing...'
+        : 'AIRI - Chat Window'
+    }
+    else {
+      const label = SURFACE_LABELS[surface] || 'Chat View'
+      document.title = `AIRI - Chat Window - ${label}`
+    }
+  },
+  { immediate: true },
+)
 
 const activeSurfaceComponent = computed(() => {
   const map = {
@@ -543,7 +577,7 @@ function selectSurface(surface: typeof activeSurface.value) {
 <template>
   <div class="h-full w-full flex flex-col overflow-hidden pt-[44px]">
     <WindowTitleBar
-      title="Chat"
+      :title="activeSurface === 'messages' ? 'Chat' : activeSurfaceLabel"
       icon="i-solar:chat-line-bold"
     >
       <div class="relative w-full flex items-center justify-between px-2" drag-region>

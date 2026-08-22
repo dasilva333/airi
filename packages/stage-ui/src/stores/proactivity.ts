@@ -63,6 +63,7 @@ export const useProactivityStore = defineStore('proactivity', () => {
       || Boolean(chatOrchestrator.activeSpokenText)
       || isHeartbeatEvaluating.value
       || isDreamStateEvaluating.value
+      || Boolean(chatOrchestrator.isUserTyping)
     )
   })
 

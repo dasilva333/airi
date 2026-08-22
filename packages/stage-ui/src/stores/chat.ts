@@ -148,6 +148,20 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     toolsResolver.value = resolver
   }
 
+  const isUserTyping = ref(false)
+  const { data: composerState, post: postComposerState } = useBroadcastChannel<{ isTyping: boolean }, { isTyping: boolean }>({ name: 'airi:chat-composer-state' })
+
+  watch(composerState, (st) => {
+    if (st && typeof st.isTyping === 'boolean') {
+      isUserTyping.value = st.isTyping
+    }
+  })
+
+  function setUserTyping(typing: boolean) {
+    isUserTyping.value = typing
+    postComposerState({ isTyping: typing })
+  }
+
   const activeSpokenText = ref('')
   const activeSpokenColor = ref('')
 
@@ -1949,6 +1963,8 @@ Format your output as a raw thought log.`
     activeSpokenColor,
 
     isMainWindow,
+    isUserTyping,
+    setUserTyping,
     toolsResolver,
     setToolsResolver,
 
