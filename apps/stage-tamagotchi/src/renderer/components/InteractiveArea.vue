@@ -142,6 +142,16 @@ const isTopicsPreviewExpanded = useLocalStorage('airi:chat:topics-preview-expand
 const isScratchpadPreviewExpanded = useLocalStorage('airi:chat:scratchpad-preview-expanded', true)
 const artistryStore = useAutonomousArtistryStore()
 
+watch(
+  isGroundingPreviewExpanded,
+  (expanded) => {
+    if (expanded) {
+      void proactivityStore.updateSensors()
+    }
+  },
+  { immediate: true },
+)
+
 const latestDirectorScratchpad = computed(() => {
   if (!artistryStore.directorNotes || artistryStore.directorNotes.length === 0)
     return ''

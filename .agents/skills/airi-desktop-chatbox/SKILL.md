@@ -124,11 +124,19 @@ Keep both files in lockstep — the menu is driven by the **builder function**, 
 ### 6.4 Journal / memory chips (desktop host)
 - Chips come from `groupedTextEntries` (line 327) / `latestImageEntries` (352). Group splitting into `'single' | 'echo-group'` at ~327-350; echo entries carry `echoType` from `useEchoesStore` (set at 271, 317). Click opens `useJournalPreviewStore().openTextPreview(...)` / `openImagePreview(...)` (bound at line 211, rendered at ~906-1060; collapsed flags `airi:chat:memories-collapsed` / `airi:chat:media-collapsed`).
 
-### 6.5 Pre-Flight Grounding Panel (desktop only)
-- Location: `InteractiveArea.vue:~1077-1190` (amber `.grounding-preview-panel`, shown when any grounding source is active).
-- Debounced real-time search: `watchDebounced(messageInput, ..., { debounce: 1000 })` (155-184) → `textJournalStore.searchEntries({ query, limit: 3, characterId })` when `activeCard.extensions.airi.groundingMemoryEnabled`; sibling watcher (186-207) re-searches when the flag flips on.
-- Badges (1092-1108): `Sensors Active` (`groundingEnabled`), `Grounded Memories (N)`, `Recent Topics (N)` (`groundingTopicsEnabled && recentTopics.length`), salience pill (`salienceEnabled`; `Salience Vibe Active` only when `salienceHot && salienceHistory.length > 0`, else `Salience Standby`), `Visual Scene Active` (`groundingDirectorScratchpadEnabled && latestDirectorScratchpad`).
-- Injection alignment: `performSend` in `stores/chat.ts` injects `[ENVIRONMENTAL AWARENESS]` (~570), `[GROUNDED LONG-TERM MEMORIES]` (~588), `[RECENT TOPICS]` (~605), `[VISUAL STATE BOARD]` (~620).
+### 6.5 Pre-Flight Grounding Panel & Context Injections Popover
+- **Context Injections Trigger & Popover**: `ChatGroundingPopover.vue` (`packages/stage-ui/src/components/scenarios/chat/ChatGroundingPopover.vue`, ~294 lines). Mounted in header/composer with the CPU icon (`i-solar:cpu-bold-duotone`, amber `i-solar:cpu-bolt-bold-duotone` when any grounding toggle is active).
+  - **Option 1: System Sensors** (`groundingEnabled`): Toggles `activeCard.extensions.airi.groundingEnabled`. Injects `[ENVIRONMENTAL AWARENESS]` (active window, idle seconds, system load, volume, local time). Activating turns on main process OS tracking in the primary delegate; turning off stops tracking when heartbeats are also disabled.
+  - **Option 2: In-Context History**: (Disabled placeholder for future token sliding window).
+  - **Option 3: Long-Term Memory** (`groundingMemoryEnabled`): Toggles `activeCard.extensions.airi.groundingMemoryEnabled`. Real-time debounced hybrid search on `textJournalStore` (`searchEntries`) based on `messageInput`; injects `[GROUNDED LONG-TERM MEMORIES]`.
+  - **Option 4: Recent Topics** (`groundingTopicsEnabled`): Toggles `activeCard.extensions.airi.groundingTopicsEnabled`. Injects trending conversational topics from `useRecentTopicsStore` (`[RECENT TOPICS]`).
+  - **Option 5: Visual Scene State** (`groundingDirectorScratchpadEnabled`): Toggles `activeCard.extensions.airi.groundingDirectorScratchpadEnabled`. Injects the latest Director's scratchpad notes from `useAutonomousArtistryStore` (`[VISUAL STATE BOARD]`).
+  - **Option 6: Salience Gating (RWKV 0.1B)** (`salienceGateEnabled`): Toggles `activeCard.extensions.airi.salienceGateEnabled`. Fast local RWKV-7 / Delta-h hidden-state spike detector gating high-intensity emotional moments.
+- **Pre-Flight Grounding Panel (desktop host)**: `InteractiveArea.vue:~1077-1190` (amber `.grounding-preview-panel`, shown above composer when any grounding toggle is active).
+  - Debounced real-time search: `watchDebounced(messageInput, ..., { debounce: 1000 })` (155-184) → `textJournalStore.searchEntries({ query, limit: 3, characterId })` when `activeCard.extensions.airi.groundingMemoryEnabled`; sibling watcher (186-207) re-searches when the flag flips on.
+  - Telemetry sync: Watches `isGroundingPreviewExpanded` to trigger `proactivityStore.updateSensors()` on expand.
+  - Badges (1092-1108): `Sensors Active` (`groundingEnabled`), `Grounded Memories (N)`, `Recent Topics (N)` (`groundingTopicsEnabled && recentTopics.length`), salience pill (`salienceEnabled`; `Salience Vibe Active` only when `salienceHot && salienceHistory.length > 0`, else `Salience Standby`), `Visual Scene Active` (`groundingDirectorScratchpadEnabled && latestDirectorScratchpad`).
+  - Injection alignment: `performSend` in `stores/chat.ts` injects `[ENVIRONMENTAL AWARENESS]` (~570), `[GROUNDED LONG-TERM MEMORIES]` (~588), `[RECENT TOPICS]` (~605), `[VISUAL STATE BOARD]` (~620).
 
 ### 6.6 Bubble / chip styling (desktop host)
 - Echo chips class-switch on `entry.echoType === 'mood' | 'flavor'` (else indigo) in the chip row at ~960-1000; the echo-group two-story ticker sits above the single-entry cards. Journal chip download handlers call `journalPreviewStore.downloadImage` (~line 1057).

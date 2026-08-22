@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useProactivityStore } from '@proj-airi/stage-ui/stores'
 import {
   TooltipArrow,
   TooltipContent,
@@ -6,7 +7,7 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 const props = defineProps<{
   sensorPayload?: string
@@ -16,6 +17,23 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'sparkle-click', fieldId: string): void
 }>()
+
+const proactivityStore = useProactivityStore()
+const isRefreshingSensors = ref(false)
+
+async function refreshTelemetry() {
+  isRefreshingSensors.value = true
+  try {
+    await proactivityStore.updateSensors()
+  }
+  finally {
+    isRefreshingSensors.value = false
+  }
+}
+
+onMounted(() => {
+  void proactivityStore.updateSensors()
+})
 
 // Sub-Tab Navigation State
 type SubTabId = 'heartbeats' | 'screen' | 'dream' | 'ledger' | 'short_term'
@@ -901,20 +919,32 @@ const intervalPresets = [2, 5, 10, 20]
           <!-- Live Payload Inspector Box -->
           <div class="flex flex-col gap-1.5 border-t border-neutral-100 pt-3 dark:border-neutral-800">
             <div class="flex items-center justify-between">
-              <span class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
-                Live Sensor & Ledger Ingestion Preview
-              </span>
-              <TooltipProvider :delay-duration="0">
-                <TooltipRoot>
-                  <TooltipTrigger as-child>
-                    <span class="i-lucide:info cursor-help text-xs text-neutral-400" />
-                  </TooltipTrigger>
-                  <TooltipContent class="z-110 max-w-sm rounded-lg bg-neutral-900 p-2.5 text-xs text-white shadow-xl">
-                    <span>This block is appended at the tail of the LLM prompt to preserve KV prefix cache alignment.</span>
-                    <TooltipArrow class="fill-neutral-900" />
-                  </TooltipContent>
-                </TooltipRoot>
-              </TooltipProvider>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                  Live Sensor & Ledger Ingestion Preview
+                </span>
+                <TooltipProvider :delay-duration="0">
+                  <TooltipRoot>
+                    <TooltipTrigger as-child>
+                      <span class="i-lucide:info cursor-help text-xs text-neutral-400" />
+                    </TooltipTrigger>
+                    <TooltipContent class="z-110 max-w-sm rounded-lg bg-neutral-900 p-2.5 text-xs text-white shadow-xl">
+                      <span>This block is appended at the tail of the LLM prompt to preserve KV prefix cache alignment.</span>
+                      <TooltipArrow class="fill-neutral-900" />
+                    </TooltipContent>
+                  </TooltipRoot>
+                </TooltipProvider>
+              </div>
+
+              <button
+                type="button"
+                class="flex items-center gap-1 text-[11px] text-primary-600 font-medium transition dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+                :disabled="isRefreshingSensors"
+                @click="refreshTelemetry"
+              >
+                <span :class="isRefreshingSensors ? 'i-lucide:loader-2 animate-spin' : 'i-lucide:refresh-cw'" class="text-xs" />
+                <span>{{ isRefreshingSensors ? 'Polling OS Probes...' : 'Refresh Telemetry' }}</span>
+              </button>
             </div>
             <pre class="max-h-36 overflow-y-auto border border-neutral-200 rounded-lg bg-neutral-950 p-3 text-[11px] text-green-400 font-mono dark:border-neutral-700">{{ sensorPayload || staticSamplePayload }}</pre>
           </div>

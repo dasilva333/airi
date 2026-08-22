@@ -47,4 +47,30 @@ describe('mergeLoadedSessionMessages', () => {
 
     assert.equal(mergeLoadedSessionMessages(storedMessages, currentMessages), storedMessages)
   })
+
+  it('does not duplicate messages when IDs differ or are missing across windows', () => {
+    const storedMessages: ChatHistoryItem[] = [
+      { role: 'system', content: 'system', createdAt: 1, id: 'system-stored' },
+      { role: 'assistant', content: 'proactive quote', createdAt: 1000, id: 'nanoid-A', slices: [], tool_results: [] },
+    ]
+    const currentMessages: ChatHistoryItem[] = [
+      { role: 'system', content: 'system', createdAt: 3, id: 'system-current' },
+      { role: 'assistant', content: 'proactive quote', createdAt: 1000, id: 'nanoid-B', slices: [], tool_results: [] },
+    ]
+
+    assert.equal(mergeLoadedSessionMessages(storedMessages, currentMessages), storedMessages)
+  })
+
+  it('does not duplicate messages with identical content within 2s timestamp jitter', () => {
+    const storedMessages: ChatHistoryItem[] = [
+      { role: 'system', content: 'system', createdAt: 1, id: 'system-stored' },
+      { role: 'assistant', content: 'proactive quote', createdAt: 1000, id: 'nanoid-A', slices: [], tool_results: [] },
+    ]
+    const currentMessages: ChatHistoryItem[] = [
+      { role: 'system', content: 'system', createdAt: 3, id: 'system-current' },
+      { role: 'assistant', content: 'proactive quote', createdAt: 1050, id: 'nanoid-C', slices: [], tool_results: [] },
+    ]
+
+    assert.equal(mergeLoadedSessionMessages(storedMessages, currentMessages), storedMessages)
+  })
 })

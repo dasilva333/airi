@@ -19,7 +19,6 @@ function extractMessageContent(message: ChatHistoryItem) {
 
 function getMessageFingerprint(message: ChatHistoryItem) {
   return [
-    message.id ?? '',
     message.role,
     message.createdAt ?? '',
     extractMessageContent(message),
@@ -39,6 +38,27 @@ export function mergeLoadedSessionMessages(storedMessages: ChatHistoryItem[], cu
     const fingerprint = getMessageFingerprint(message)
     if (storedFingerprints.has(fingerprint))
       return false
+
+    // Jitter & ID-mismatch tolerance: if storedMessages already contains an entry with the same role and non-empty content
+    // whose createdAt timestamp is within 2 seconds, treat it as the same message
+    const content = extractMessageContent(message)
+    if (content.trim()) {
+      const msgTime = message.createdAt || 0
+      const isDuplicateByContentAndTime = storedMessages.some((stored) => {
+        if (stored.role !== message.role)
+          return false
+        const storedContent = extractMessageContent(stored)
+        if (storedContent !== content)
+          return false
+        const storedTime = stored.createdAt || 0
+        if (msgTime && storedTime && Math.abs(msgTime - storedTime) <= 2000)
+          return true
+        return false
+      })
+      if (isDuplicateByContentAndTime)
+        return false
+    }
+
     return true
   })
 

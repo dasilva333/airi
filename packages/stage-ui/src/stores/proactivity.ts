@@ -99,7 +99,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
   const activeWinStr = ref('')
   const winHistory = ref<ActiveWindowEntry[]>([])
   const sysLoad = ref<SystemLoadAverages | null>(null)
-  const locTime = ref('')
+  const initialDate = new Date()
+  const locTime = ref(initialDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }))
   const volLevel = ref<number | undefined>(undefined)
 
   const recentTtsCount = ref(0)
@@ -272,11 +273,14 @@ export const useProactivityStore = defineStore('proactivity', () => {
       debug('[Proactivity] Resuming sensor polling loop on primary window delegate.')
       resume()
       setTrackingEnabledInvoke?.({ enabled: true })
+      void updateSensors()
     }
     else {
       debug('[Proactivity] Pausing sensor polling loop (idle or secondary window context).')
       pause()
-      setTrackingEnabledInvoke?.({ enabled: false })
+      if (isDelegate) {
+        setTrackingEnabledInvoke?.({ enabled: false })
+      }
     }
   }, { immediate: true })
 
