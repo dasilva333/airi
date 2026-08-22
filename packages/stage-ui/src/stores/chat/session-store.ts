@@ -212,6 +212,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return ''
     const cardStore = useAiriCardStore()
     const card = cardStore.getCard(characterId)
+    if (card?.extensions?.airi?.shortTermMemory?.enabled === false)
+      return ''
     const limit = card?.extensions?.airi?.shortTermMemory?.windowSize ?? 3
     const blocks = shortTermMemory.getCharacterBlocks(characterId).slice(0, limit)
     if (blocks.length === 0)

@@ -98,6 +98,8 @@ interface AiriExtension {
   heartbeats?: HeartbeatConfig
   dreamState?: DreamStateConfig
   shortTermMemory?: ShortTermMemoryConfig
+  screenWatching?: ScreenWatchingConfig
+  eventLedger?: EventLedgerConfig
   groundingEnabled?: boolean
   visual_assets?: Record<string, {
     description: string

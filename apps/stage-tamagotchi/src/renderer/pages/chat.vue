@@ -156,11 +156,6 @@ function handleToggleGroundingMemory() {
     airiCardStore.toggleGroundingMemory(activeCardId.value)
 }
 
-function handleToggleGroundingTopics() {
-  if (activeCardId.value)
-    airiCardStore.toggleGroundingTopics(activeCardId.value)
-}
-
 function handleToggleGroundingDirectorScratchpad() {
   if (activeCardId.value)
     airiCardStore.toggleGroundingDirectorScratchpad(activeCardId.value)
@@ -199,6 +194,24 @@ const hasImageJournal = computed(() => {
 const isDreamStateEnabled = computed(() => {
   return activeCard.value?.extensions?.airi?.dreamState?.enabled ?? false
 })
+
+function handleToggleDreamState() {
+  if (!activeCardId.value || !activeCard.value)
+    return
+  const current = activeCard.value.extensions?.airi?.dreamState?.enabled ?? false
+  airiCardStore.updateCard(activeCardId.value, {
+    extensions: {
+      ...activeCard.value.extensions,
+      airi: {
+        ...activeCard.value.extensions?.airi,
+        dreamState: {
+          ...activeCard.value.extensions?.airi?.dreamState,
+          enabled: !current,
+        },
+      },
+    },
+  } as any)
+}
 
 function handleToggleDreamIntrusion() {
   if (!activeCardId.value || !activeCard.value || !isDreamStateEnabled.value)
@@ -837,6 +850,115 @@ function selectSurface(surface: typeof activeSurface.value) {
                 align="end"
                 :side-offset="8"
               >
+                <!-- Section: Modes -->
+                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Modes
+                </div>
+
+                <!-- Toggle: Heartbeats -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleHeartbeats"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled
+                        ? 'text-primary-500 i-solar:heart-pulse-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:heart-pulse-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Heartbeats</span>
+                      <span class="text-[9px] text-neutral-400">Activates character periodically</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Toggle: Dreams -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleDreamState"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="isDreamStateEnabled
+                        ? 'text-indigo-500 i-solar:sleeping-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:sleeping-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dreams</span>
+                      <span class="text-[9px] text-neutral-400">Offline memory consolidation</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="isDreamStateEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="isDreamStateEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Toggle: Visual Novel (replaces Image Director) -->
+                <div
+                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  @click="handleToggleImageDirector"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <div
+                      class="text-base"
+                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled
+                        ? 'text-primary-500 i-solar:gallery-wide-bold-duotone'
+                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-wide-linear'"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Visual Novel</span>
+                      <span class="text-[9px] text-neutral-400">Generates a new image for every turn</span>
+                    </div>
+                  </div>
+                  <div
+                    :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+                  >
+                    <span
+                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    />
+                  </div>
+                </div>
+
+                <!-- Section: Image Spawn Mode -->
+                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
+                  Image Spawn Mode
+                </div>
+                <div class="mx-2 mb-1.5 flex gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-900">
+                  <button
+                    v-for="mode in (['bg', 'widget', 'inline'] as const)"
+                    :key="mode"
+                    :class="[
+                      'flex-1 py-1 text-[10px] font-bold rounded-md transition-all text-center whitespace-nowrap',
+                      activeCard?.extensions?.airi?.artistry?.spawnMode === mode
+                        ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                    ]"
+                    @click="handleSetSpawnMode(mode)"
+                  >
+                    {{ mode === 'bg' ? 'Background' : mode === 'widget' ? 'Widget' : 'Inline' }}
+                  </button>
+                </div>
+
                 <!-- Section: Chat Layout -->
                 <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
                   Chat Layout
@@ -908,34 +1030,6 @@ function selectSurface(surface: typeof activeSurface.value) {
                   >
                     <span
                       :class="activeCard?.extensions?.airi?.groundingMemoryEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Toggle: Recent Topics -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleGroundingTopics"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.groundingTopicsEnabled
-                        ? 'text-amber-500 i-solar:hashtag-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:hashtag-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Recent Topics</span>
-                      <span class="text-[9px] text-neutral-400">Inject active trending context</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.groundingTopicsEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.groundingTopicsEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
                       class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
                     />
                   </div>
@@ -1017,7 +1111,7 @@ function selectSurface(surface: typeof activeSurface.value) {
                       <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Dream Intrusion</span>
                       <span class="text-[9px] text-neutral-400">
                         Inject offline consolidated dreams
-                        <span v-if="!isDreamStateEnabled" class="text-red-500 font-semibold dark:text-red-400"> (Requires Dream State)</span>
+                        <span v-if="!isDreamStateEnabled" class="text-red-500 font-semibold dark:text-red-400"> (Requires Dreams)</span>
                       </span>
                     </div>
                   </div>
@@ -1085,87 +1179,6 @@ function selectSurface(surface: typeof activeSurface.value) {
                   >
                     <span
                       :class="activeCard?.extensions?.airi?.artistry?.injectArtistryContext ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Section: Modes -->
-                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Modes
-                </div>
-
-                <!-- Toggle: Image Director -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleImageDirector"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled
-                        ? 'text-primary-500 i-solar:gallery-wide-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:gallery-wide-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Image Director</span>
-                      <span class="text-[9px] text-neutral-400">Generates a new image for every turn</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.artistry?.autonomousEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
-                      class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                    />
-                  </div>
-                </div>
-
-                <!-- Section: Image Spawn Mode -->
-                <div class="select-none px-2 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
-                  Image Spawn Mode
-                </div>
-                <div class="mx-2 mb-1.5 flex gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-900">
-                  <button
-                    v-for="mode in (['bg', 'widget', 'inline'] as const)"
-                    :key="mode"
-                    :class="[
-                      'flex-1 py-1 text-[10px] font-bold rounded-md transition-all text-center whitespace-nowrap',
-                      activeCard?.extensions?.airi?.artistry?.spawnMode === mode
-                        ? 'bg-white dark:bg-neutral-800 text-primary-600 dark:text-primary-400 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-                    ]"
-                    @click="handleSetSpawnMode(mode)"
-                  >
-                    {{ mode === 'bg' ? 'Background' : mode === 'widget' ? 'Widget' : 'Inline' }}
-                  </button>
-                </div>
-
-                <!-- Toggle: Heartbeats -->
-                <div
-                  class="w-full flex cursor-pointer items-center justify-between rounded-xl px-3 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  @click="handleToggleHeartbeats"
-                >
-                  <div class="flex items-center gap-2.5">
-                    <div
-                      class="text-base"
-                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled
-                        ? 'text-primary-500 i-solar:heart-pulse-bold-duotone'
-                        : 'text-neutral-400 dark:text-neutral-500 i-solar:heart-pulse-linear'"
-                    />
-                    <div class="flex flex-col">
-                      <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Heartbeats</span>
-                      <span class="text-[9px] text-neutral-400">Activates character periodically</span>
-                    </div>
-                  </div>
-                  <div
-                    :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
-                    class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
-                  >
-                    <span
-                      :class="activeCard?.extensions?.airi?.heartbeats?.enabled ? 'translate-x-3.5' : 'translate-x-0.5'"
                       class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
                     />
                   </div>

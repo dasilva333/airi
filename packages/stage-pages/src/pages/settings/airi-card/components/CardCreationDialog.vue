@@ -268,7 +268,45 @@ const heartbeatsContextUsageMetrics = ref<boolean>(true)
 const heartbeatsRespectSchedule = ref<boolean>(true)
 const dreamStateEnabled = ref<boolean>(false)
 const dreamStateStrictAfkGating = ref<boolean>(true)
+const dreamStateRichness = ref<'minimal' | 'balanced' | 'lush'>('balanced')
+const dreamStateAfkThresholdMinutes = ref<number>(5)
+const dreamStateSessionTimeoutMinutes = ref<number>(60)
+const dreamStateMaxSessionsPerDay = ref<number>(4)
+const dreamStateInjectDreamContext = ref<boolean>(true)
+const dreamStateMinConversationTurns = ref<number>(4)
+
+// Screen Watching (Attention Ecology)
+const screenWatchingEnabled = ref<boolean>(false)
+const screenWatchingSourceType = ref<'displays' | 'applications' | 'auto_focused'>('displays')
+const screenWatchingSourceId = ref<string>('')
+const screenWatchingCaptureIntervalMs = ref<number>(2000)
+const screenWatchingDownscalePercent = ref<number>(100)
+const screenWatchingWorkload = ref<'attention-guard' | 'screen:interpret' | 'screen:ocr'>('attention-guard')
+const screenWatchingPublishToContext = ref<boolean>(false)
+const screenWatchingInterestTags = ref<string[]>(['antigravity', 'terminal_error', 'youtube', 'discord'])
+const screenWatchingDeferWhileSpeaking = ref<boolean>(true)
+const screenWatchingMaxPerHour = ref<number>(4)
+const screenWatchingHysteresisMinutes = ref<number>(3)
+
+// Sensors & Event Ledger
+const eventLedgerEnabled = ref<boolean>(true)
+const eventLedgerSampleDepth = ref<number>(6)
+const eventLedgerDomains = ref<string[]>(['vision', 'tools', 'chat', 'memory', 'discord'])
+
+// Short-Term Memory (24h Daily Summaries)
+const shortTermMemoryEnabled = ref<boolean>(true)
+const shortTermMemoryWindowSize = ref<number>(3)
+const shortTermMemoryTokenBudget = ref<number>(1000)
+
 const groundingEnabled = ref<boolean>(false)
+
+watch(dreamStateInjectDreamContext, (val) => {
+  selectedInjectDreamContext.value = val
+})
+
+watch(selectedInjectDreamContext, (val) => {
+  dreamStateInjectDreamContext.value = val
+})
 
 const staticSamplePayload = `[Sensor Data]
 User Idle: 15s
@@ -842,16 +880,41 @@ async function saveCard(card: Card): Promise<boolean> {
           ...existingAiriExt?.dreamState,
           enabled: dreamStateEnabled.value,
           strictAfkGating: dreamStateStrictAfkGating.value,
-          journalingThreshold: existingAiriExt?.dreamState?.journalingThreshold || 'balanced',
-          maxSessionsPerDay: existingAiriExt?.dreamState?.maxSessionsPerDay || 4,
-          sessionTimeoutMinutes: existingAiriExt?.dreamState?.sessionTimeoutMinutes || 60,
-          afkThresholdMinutes: existingAiriExt?.dreamState?.afkThresholdMinutes || 5,
-          minConversationTurns: existingAiriExt?.dreamState?.minConversationTurns || 4,
+          journalingThreshold: dreamStateRichness.value,
+          maxSessionsPerDay: dreamStateMaxSessionsPerDay.value,
+          sessionTimeoutMinutes: dreamStateSessionTimeoutMinutes.value,
+          afkThresholdMinutes: dreamStateAfkThresholdMinutes.value,
+          minConversationTurns: dreamStateMinConversationTurns.value || 4,
           lastProcessedAt: existingAiriExt?.dreamState?.lastProcessedAt,
           dailyRunDate: existingAiriExt?.dreamState?.dailyRunDate,
           dailyRunCount: existingAiriExt?.dreamState?.dailyRunCount ?? 0,
-          injectDreamContext: selectedInjectDreamContext.value,
+          injectDreamContext: dreamStateInjectDreamContext.value,
           dreamIntrusionPrompt: selectedDreamIntrusionPrompt.value,
+        },
+        shortTermMemory: {
+          ...existingAiriExt?.shortTermMemory,
+          windowSize: shortTermMemoryWindowSize.value,
+          tokenBudgetPerDay: shortTermMemoryTokenBudget.value,
+        },
+        screenWatching: {
+          ...existingAiriExt?.screenWatching,
+          enabled: screenWatchingEnabled.value,
+          sourceType: screenWatchingSourceType.value,
+          sourceId: screenWatchingSourceId.value,
+          captureIntervalMs: screenWatchingCaptureIntervalMs.value,
+          downscalePercent: screenWatchingDownscalePercent.value,
+          workload: screenWatchingWorkload.value,
+          publishToContext: screenWatchingPublishToContext.value,
+          interestTags: screenWatchingInterestTags.value,
+          deferWhileSpeaking: screenWatchingDeferWhileSpeaking.value,
+          maxPerHour: screenWatchingMaxPerHour.value,
+          hysteresisMinutes: screenWatchingHysteresisMinutes.value,
+        },
+        eventLedger: {
+          ...existingAiriExt?.eventLedger,
+          enabled: eventLedgerEnabled.value,
+          sampleDepth: eventLedgerSampleDepth.value,
+          domains: eventLedgerDomains.value,
         },
         acting: {
           ...existingAiriExt?.acting,
@@ -1025,8 +1088,39 @@ function initializeCard(): Card {
   heartbeatsContextSystemLoad.value = airiExt?.heartbeats?.contextOptions?.systemLoad ?? true
   heartbeatsContextUsageMetrics.value = airiExt?.heartbeats?.contextOptions?.usageMetrics ?? true
   heartbeatsRespectSchedule.value = airiExt?.heartbeats?.respectSchedule ?? true
+  // Dream State
   dreamStateEnabled.value = airiExt?.dreamState?.enabled ?? false
   dreamStateStrictAfkGating.value = airiExt?.dreamState?.strictAfkGating ?? true
+  dreamStateRichness.value = airiExt?.dreamState?.journalingThreshold ?? 'balanced'
+  dreamStateAfkThresholdMinutes.value = airiExt?.dreamState?.afkThresholdMinutes ?? 5
+  dreamStateSessionTimeoutMinutes.value = airiExt?.dreamState?.sessionTimeoutMinutes ?? 60
+  dreamStateMaxSessionsPerDay.value = airiExt?.dreamState?.maxSessionsPerDay ?? 4
+  dreamStateMinConversationTurns.value = airiExt?.dreamState?.minConversationTurns ?? 4
+  dreamStateInjectDreamContext.value = airiExt?.dreamState?.injectDreamContext ?? false
+
+  // Screen Watching (Attention Ecology)
+  screenWatchingEnabled.value = airiExt?.screenWatching?.enabled ?? false
+  screenWatchingSourceType.value = airiExt?.screenWatching?.sourceType ?? 'displays'
+  screenWatchingSourceId.value = airiExt?.screenWatching?.sourceId ?? ''
+  screenWatchingCaptureIntervalMs.value = airiExt?.screenWatching?.captureIntervalMs ?? 2000
+  screenWatchingDownscalePercent.value = airiExt?.screenWatching?.downscalePercent ?? 100
+  screenWatchingWorkload.value = airiExt?.screenWatching?.workload ?? 'attention-guard'
+  screenWatchingPublishToContext.value = airiExt?.screenWatching?.publishToContext ?? false
+  screenWatchingInterestTags.value = airiExt?.screenWatching?.interestTags ?? ['antigravity', 'terminal_error', 'youtube', 'discord']
+  screenWatchingDeferWhileSpeaking.value = airiExt?.screenWatching?.deferWhileSpeaking ?? true
+  screenWatchingMaxPerHour.value = airiExt?.screenWatching?.maxPerHour ?? 4
+  screenWatchingHysteresisMinutes.value = airiExt?.screenWatching?.hysteresisMinutes ?? 3
+
+  // Sensors & Event Ledger
+  eventLedgerEnabled.value = airiExt?.eventLedger?.enabled ?? true
+  eventLedgerSampleDepth.value = airiExt?.eventLedger?.sampleDepth ?? 6
+  eventLedgerDomains.value = airiExt?.eventLedger?.domains ?? ['vision', 'tools', 'chat', 'memory', 'discord']
+
+  // Short-Term Memory (24h Daily Summaries)
+  shortTermMemoryEnabled.value = airiExt?.shortTermMemory ? true : true
+  shortTermMemoryWindowSize.value = airiExt?.shortTermMemory?.windowSize ?? 3
+  shortTermMemoryTokenBudget.value = airiExt?.shortTermMemory?.tokenBudgetPerDay ?? 1000
+
   groundingEnabled.value = airiExt?.groundingEnabled ?? false
 
   // Load Tools Tab configuration
@@ -1458,6 +1552,28 @@ function handleGeneratorSave(newValue: string) {
             v-model:heartbeats-respect-schedule="heartbeatsRespectSchedule"
             v-model:dream-state-enabled="dreamStateEnabled"
             v-model:dream-state-strict-afk-gating="dreamStateStrictAfkGating"
+            v-model:dream-state-richness="dreamStateRichness"
+            v-model:dream-state-afk-threshold-minutes="dreamStateAfkThresholdMinutes"
+            v-model:dream-state-session-timeout-minutes="dreamStateSessionTimeoutMinutes"
+            v-model:dream-state-max-sessions-per-day="dreamStateMaxSessionsPerDay"
+            v-model:dream-state-inject-dream-context="dreamStateInjectDreamContext"
+            v-model:screen-watching-enabled="screenWatchingEnabled"
+            v-model:screen-watching-source-type="screenWatchingSourceType"
+            v-model:screen-watching-source-id="screenWatchingSourceId"
+            v-model:screen-watching-capture-interval-ms="screenWatchingCaptureIntervalMs"
+            v-model:screen-watching-downscale-percent="screenWatchingDownscalePercent"
+            v-model:screen-watching-workload="screenWatchingWorkload"
+            v-model:screen-watching-publish-to-context="screenWatchingPublishToContext"
+            v-model:screen-watching-interest-tags="screenWatchingInterestTags"
+            v-model:screen-watching-defer-while-speaking="screenWatchingDeferWhileSpeaking"
+            v-model:screen-watching-max-per-hour="screenWatchingMaxPerHour"
+            v-model:screen-watching-hysteresis-minutes="screenWatchingHysteresisMinutes"
+            v-model:event-ledger-enabled="eventLedgerEnabled"
+            v-model:event-ledger-sample-depth="eventLedgerSampleDepth"
+            v-model:event-ledger-domains="eventLedgerDomains"
+            v-model:short-term-memory-enabled="shortTermMemoryEnabled"
+            v-model:short-term-memory-window-size="shortTermMemoryWindowSize"
+            v-model:short-term-memory-token-budget="shortTermMemoryTokenBudget"
             v-model:grounding-enabled="groundingEnabled"
             :sensor-payload="sensorPayload"
             :static-sample-payload="staticSamplePayload"

@@ -84,6 +84,23 @@ async function handleRebuildFromHistory() {
   await shortTermMemory.rebuildFromHistory(activeCardId.value)
 }
 
+const activeCard = computed(() => {
+  if (!activeCardId.value)
+    return undefined
+  return airiCardStore.getCard(activeCardId.value)
+})
+
+const isShortTermMemoryEnabled = computed(() => {
+  if (!activeCard.value)
+    return true
+  return activeCard.value.extensions?.airi?.shortTermMemory?.enabled ?? true
+})
+
+function handleToggleShortTermMemory() {
+  if (activeCardId.value)
+    airiCardStore.toggleShortTermMemory(activeCardId.value)
+}
+
 function navigateToMemory() {
   router.push('/settings/memory')
 }
@@ -145,8 +162,36 @@ function navigateToMemory() {
           </div>
         </button>
 
-        <!-- Cache Status (Optional for full UI) -->
-        <div v-if="showCacheStatus" class="mb-2 space-y-2">
+        <!-- Toggle: Short-Term Memory (STMM) -->
+        <div
+          class="mb-2 w-full flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          @click="handleToggleShortTermMemory"
+        >
+          <div class="flex items-center gap-2.5">
+            <div
+              class="text-base"
+              :class="isShortTermMemoryEnabled
+                ? 'text-amber-500 i-solar:bolt-circle-bold-duotone'
+                : 'text-neutral-400 dark:text-neutral-500 i-solar:bolt-circle-linear'"
+            />
+            <div class="flex flex-col">
+              <span class="text-xs text-neutral-700 font-semibold dark:text-neutral-200">Short-Term Memory</span>
+              <span class="text-[9px] text-neutral-400">Inject 24h daily summary blocks</span>
+            </div>
+          </div>
+          <div
+            :class="isShortTermMemoryEnabled ? 'bg-primary-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+            class="relative h-4 w-7 inline-flex shrink-0 cursor-pointer items-center border border-transparent rounded-full transition-colors duration-200 ease-in-out"
+          >
+            <span
+              :class="isShortTermMemoryEnabled ? 'translate-x-3.5' : 'translate-x-0.5'"
+              class="pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            />
+          </div>
+        </div>
+
+        <!-- Cache Status (Optional for full UI, hidden if STMM is disabled) -->
+        <div v-if="showCacheStatus && isShortTermMemoryEnabled" class="mb-2 space-y-2">
           <!-- Rebuild Progress -->
           <div v-if="shortTermMemory.rebuilding" class="rounded-lg bg-primary-50 p-2 dark:bg-primary-900/30">
             <div class="flex items-center gap-2 text-xs text-primary-600 dark:text-primary-300">

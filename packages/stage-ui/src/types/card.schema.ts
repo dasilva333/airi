@@ -98,6 +98,7 @@ const AiriTextJournalSchema = object({
 })
 
 const AiriShortTermMemorySchema = object({
+  enabled: optional(boolean()),
   windowSize: number(),
   tokenBudgetPerDay: number(),
 })

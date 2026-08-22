@@ -73,6 +73,7 @@ export interface DreamStateConfig {
 }
 
 export interface ShortTermMemoryConfig {
+  enabled?: boolean
   windowSize: number
   tokenBudgetPerDay: number
 }
@@ -118,6 +119,26 @@ export interface CharacterGenerationConfig {
     originalKeys?: string[]
     importedAt?: string
   }
+}
+
+export interface ScreenWatchingConfig {
+  enabled: boolean
+  sourceType: 'displays' | 'applications' | 'auto_focused'
+  sourceId: string
+  captureIntervalMs: number
+  downscalePercent: number
+  workload: 'attention-guard' | 'screen:interpret' | 'screen:ocr'
+  publishToContext: boolean
+  interestTags: string[]
+  deferWhileSpeaking: boolean
+  maxPerHour: number
+  hysteresisMinutes: number
+}
+
+export interface EventLedgerConfig {
+  enabled: boolean
+  sampleDepth: number
+  domains: string[]
 }
 
 export interface AiriExtension {
@@ -211,6 +232,8 @@ export interface AiriExtension {
   heartbeats?: HeartbeatConfig
   dreamState?: DreamStateConfig
   shortTermMemory?: ShortTermMemoryConfig
+  screenWatching?: ScreenWatchingConfig
+  eventLedger?: EventLedgerConfig
   groundingEnabled?: boolean
   groundingMemoryEnabled?: boolean
   groundingTopicsEnabled?: boolean
@@ -528,6 +551,32 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     } as any)
   }
 
+  const toggleShortTermMemory = async (id: string) => {
+    await until(cardsLoading).toBe(false)
+    const card = cards.value.get(id)
+    if (!card) {
+      debug('[AiriCard] toggleShortTermMemory: card not found for id', id)
+      return
+    }
+
+    const current = card.extensions?.airi?.shortTermMemory?.enabled ?? true
+    debug('[AiriCard] toggleShortTermMemory:', { id, current, next: !current })
+    await updateCard(id, {
+      extensions: {
+        ...card.extensions,
+        airi: {
+          ...card.extensions?.airi,
+          shortTermMemory: {
+            ...card.extensions?.airi?.shortTermMemory,
+            windowSize: card.extensions?.airi?.shortTermMemory?.windowSize ?? 3,
+            tokenBudgetPerDay: card.extensions?.airi?.shortTermMemory?.tokenBudgetPerDay ?? 1000,
+            enabled: !current,
+          },
+        },
+      },
+    } as any)
+  }
+
   const toggleGroundingTopics = async (id: string) => {
     // Resolve store instances synchronously before any await to preserve Vue setup context
     const sessionStore = useChatSessionStore()
@@ -839,6 +888,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }
 
     const defaultShortTermMemory: ShortTermMemoryConfig = {
+      enabled: true,
       windowSize: 3,
       tokenBudgetPerDay: 1000,
     }
@@ -1045,9 +1095,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         dailyRunCount: existingExtension?.dreamState?.dailyRunCount ?? defaultDreamState.dailyRunCount,
       },
       shortTermMemory: {
+        enabled: existingExtension?.shortTermMemory?.enabled ?? defaultShortTermMemory.enabled,
         windowSize: existingExtension?.shortTermMemory?.windowSize ?? defaultShortTermMemory.windowSize,
         tokenBudgetPerDay: existingExtension?.shortTermMemory?.tokenBudgetPerDay ?? defaultShortTermMemory.tokenBudgetPerDay,
       },
+      screenWatching: existingExtension?.screenWatching,
+      eventLedger: existingExtension?.eventLedger,
       proactivity_metrics: {
         ...existingExtension?.proactivity_metrics,
         ttsCount: existingExtension?.proactivity_metrics?.ttsCount ?? 0,
@@ -1249,6 +1302,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     getCard,
     toggleGrounding,
     toggleGroundingMemory,
+    toggleShortTermMemory,
     toggleGroundingTopics,
     toggleGroundingDirectorScratchpad,
     toggleSalienceGate,
