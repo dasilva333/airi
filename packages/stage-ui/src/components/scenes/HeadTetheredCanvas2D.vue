@@ -34,9 +34,12 @@ export interface HeadPoseData {
 
 const props = defineProps<{
   /**
-   * 3D VRM scene component instance (from `RendererStage.vue`).
+   * 3D Scene component instance (VRM, MMD, etc. from `RendererStage.vue`).
    * Provides `getHeadPose()` method to resolve projected screen-space head coordinates.
    */
+  sceneRef?: {
+    getHeadPose?: () => HeadPoseData | null
+  } | null
   vrmSceneRef?: {
     getHeadPose?: () => HeadPoseData | null
   } | null
@@ -189,8 +192,8 @@ function renderFrame(nowMs: number) {
   ctx.scale(dpr, dpr)
   ctx.clearRect(0, 0, displayW, displayH)
 
-  // Query head pose from VRM scene ref
-  const headPose = props.vrmSceneRef?.getHeadPose?.()
+  // Query head pose from active 3D scene ref (VRM, MMD, etc.)
+  const headPose = props.sceneRef?.getHeadPose?.() ?? props.vrmSceneRef?.getHeadPose?.()
   if (!headPose) {
     ctx.restore()
     rafId = requestAnimationFrame(renderFrame)

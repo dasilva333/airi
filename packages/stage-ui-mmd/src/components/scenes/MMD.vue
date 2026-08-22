@@ -24,6 +24,7 @@ import {
   Clock,
   Color,
   DirectionalLight,
+  Euler,
   Group,
   Mesh,
   NoToneMapping,
@@ -881,6 +882,55 @@ defineExpose({
   setEmotion,
   listMorphs: () => morphs?.availableMorphs ?? [],
   listMotions: () => animation?.availableClips() ?? [],
+  getHeadPose: () => {
+    if (!mesh || !camera || !canvasRef.value)
+      return null
+
+    // Find MMD head bone (standard MMD PMX/PMD rig: '頭' or English 'head')
+    const headBone = mesh.skeleton?.bones?.find(
+      b => b.name === '頭' || b.name.toLowerCase() === 'head',
+    )
+    if (!headBone)
+      return null
+
+    const worldPos = new Vector3()
+    const worldQuat = new Quaternion()
+    headBone.getWorldPosition(worldPos)
+    headBone.getWorldQuaternion(worldQuat)
+
+    // Project head top anchor (offset along head's local up vector so hair/hat are cleared)
+    const headUp = new Vector3(0, 1, 0).applyQuaternion(worldQuat)
+    const headTopPos = worldPos.clone().addScaledVector(headUp, 2.0)
+    const ndc = headTopPos.project(camera)
+
+    const rect = canvasRef.value.getBoundingClientRect()
+    const screenX = ((ndc.x + 1) / 2) * rect.width
+    const screenY = ((-ndc.y + 1) / 2) * rect.height
+
+    // Calculate approximate screen model height (head to hips/center)
+    const hipsBone = mesh.skeleton?.bones?.find(
+      b => b.name === 'センター' || b.name === '下半身' || b.name.toLowerCase().includes('hip'),
+    )
+    let modelHeightPx = rect.height * 0.5
+    if (hipsBone) {
+      const hipsPos = new Vector3()
+      hipsBone.getWorldPosition(hipsPos)
+      const hipsNdc = hipsPos.clone().project(camera)
+      const hipsScreenY = ((-hipsNdc.y + 1) / 2) * rect.height
+      modelHeightPx = Math.max(120, Math.abs(hipsScreenY - screenY) * 2.2)
+    }
+
+    const euler = new Euler().setFromQuaternion(worldQuat, 'YXZ')
+
+    return {
+      screenX,
+      screenY,
+      yaw: euler.y,
+      pitch: euler.x,
+      roll: euler.z,
+      modelHeightPx,
+    }
+  },
 })
 </script>
 
