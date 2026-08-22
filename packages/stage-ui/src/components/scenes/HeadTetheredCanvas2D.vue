@@ -34,14 +34,14 @@ export interface HeadPoseData {
 
 const props = defineProps<{
   /**
-   * 3D Scene component instance (VRM, MMD, etc. from `RendererStage.vue`).
+   * 3D Scene component instance (VRM, MMD, Spine, etc. from `RendererStage.vue`).
    * Provides `getHeadPose()` method to resolve projected screen-space head coordinates.
    */
   sceneRef?: {
-    getHeadPose?: () => HeadPoseData | null
+    getHeadPose?: () => HeadPoseData | null | undefined
   } | null
   vrmSceneRef?: {
-    getHeadPose?: () => HeadPoseData | null
+    getHeadPose?: () => HeadPoseData | null | undefined
   } | null
   /** Default fallback text */
   text?: string

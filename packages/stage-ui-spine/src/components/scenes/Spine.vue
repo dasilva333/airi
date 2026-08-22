@@ -133,6 +133,7 @@ defineExpose({
   setEmotion: (emotion: Emotion, intensity?: number) => modelRef.value?.setEmotion(emotion, intensity),
   listAnimations: () => modelRef.value?.listAnimations() ?? [],
   listSkins: () => modelRef.value?.listSkins() ?? [],
+  getHeadPose: () => modelRef.value?.getHeadPose?.() ?? null,
 })
 </script>
 

@@ -1131,6 +1131,47 @@ defineExpose({
   setEmotion,
   listAnimations: () => animationManager?.listAnimations() ?? [],
   listSkins: () => availableSkins.value.map(s => s.name),
+  getHeadPose: () => {
+    if (!skeleton || !canvas.value)
+      return null
+
+    const headBone = skeleton.findBone('head')
+      || skeleton.findBone('Head')
+      || skeleton.findBone('face')
+      || skeleton.findBone('Face')
+      || skeleton.bones.find(b => b.data.name.toLowerCase().includes('head'))
+
+    if (!headBone)
+      return null
+
+    const cssW = canvas.value.clientWidth || props.width
+    const cssH = canvas.value.clientHeight || props.height
+
+    // Spine skeleton origin is centered at (cssW / 2, cssH / 2)
+    const rawScreenX = (cssW / 2) + headBone.worldX
+    const rawScreenY = (cssH / 2) - headBone.worldY
+
+    // Estimated model height in CSS pixels
+    const modelHeightPx = Math.max(140, Math.min(cssH * 0.9, (skeleton.data?.height || 500) * Math.abs(skeleton.scaleY || 1)))
+
+    // Anchor at crown of head
+    const screenX = rawScreenX
+    const screenY = rawScreenY - (modelHeightPx * 0.10)
+
+    const rotDeg = (typeof (headBone as any).getWorldRotationX === 'function')
+      ? (headBone as any).getWorldRotationX()
+      : (headBone.arotation ?? headBone.rotation ?? 0)
+    const rollRad = rotDeg * (Math.PI / 180)
+
+    return {
+      screenX,
+      screenY,
+      yaw: 0,
+      pitch: 0,
+      roll: rollRad,
+      modelHeightPx,
+    }
+  },
 })
 
 import.meta.hot?.dispose(() => {

@@ -549,8 +549,6 @@ To prevent false positives (e.g., `chassis` triggering `hiss`, or `"I'm not angr
 | **Parenthetical Aside**: `(inner thoughts like this)` | `rim` | Mini floating thought bubbles behind text for an "inner monologue" look. |
 | **Countdown**: `3... 2... 1...` | `accent` | Illuminated dots extinguish one by one, ending in a confetti burst. |
 
----
-
 ### 9.6 Micro-Chunk Sequence Pacing (Comic Book Panel Pacing)
 
 As long messages stream or pace via the Micro-Pacer (~80-char sub-phrases), each sub-phrase operates as its own **animated comic frame**:
@@ -572,6 +570,24 @@ While PIXI WebGL rendering is fast, maintaining high 60 FPS performance requires
 2. **Texture Atlas Caching**: Reuses a single shared 512×512 texture atlas containing primitive icons (`heart`, `star`, `dot`, `drop`, `flower`, `spark`, `music_note`, `paw`).
 3. **No Allocation in Ticker**: Zero `new` object or array instantiations inside the `updateTick(timeMs)` loop.
 4. **Target Execution Time**: < **0.08ms per frame** total GPU/CPU execution time.
+
+---
+
+### 9.8 Kinetic Anchor Paradigms: 2D Planar Roll-Tilt vs 3D Projected Perspective
+
+During empirical cross-format implementation across all four avatar renderers, two distinct positioning and rotational behaviors emerged:
+
+#### Group A: 2D Planar Roll-Tilt (Live2D & Spine)
+* **Mechanics**: Head anchors are resolved from 2D bounding boxes and planar skeleton transforms (`ParamAngleZ` in Live2D Cubism, `bone.getWorldRotationX()` in Spine).
+* **Kinetic Character**: When the user pans/drags the character or when the character tilts their head, the anchor naturally sweeps along the circular arc of the head crown. This causes the speech bubble to dynamically roll, swing, and shift its center of gravity across the top-left or top-right of the avatar.
+* **Feel**: Organic, playful, and responsive to direct canvas manipulation—giving a lively comic-strip feel where nudging the character directly redistributes the dialogue bubble.
+
+#### Group B: 3D Camera-Projected Perspective (VRM & MMD)
+* **Mechanics**: Head anchors are resolved by projecting 3D humanoid bone coordinates (`headBone.getWorldPosition() + headUp * offset`) through the Three.js `PerspectiveCamera` into 2D Normalized Device Coordinates (`.project(camera)`).
+* **Kinetic Character**: The anchor remains rigidly glued to the projected 3D head crown in world space. Rotational dynamics are driven by 3D Euler angles (`yaw`, `pitch`, `roll`) which apply perspective shearing and squashing via `poseToCaptionTransform`.
+* **Feel**: Rock-solid spatial stability, depth consistency during camera orbits and zooms, and cinematic anchoring.
+
+Both paradigms offer distinct visual appeal: 2D formats deliver kinetic, tactile interplay, while 3D formats deliver spatial precision.
 
 ## Relevant Skills
 

@@ -507,8 +507,8 @@ defineExpose({
       :live2d-scene-ref="live2dSceneRef"
     />
     <HeadTetheredCanvas2D
-      v-if="(stageModelRenderer === 'vrm' || stageModelRenderer === 'mmd') && settingsStore.headTetheredCaptionEnabled"
-      :scene-ref="stageModelRenderer === 'vrm' ? vrmViewerRef : mmdViewerRef"
+      v-if="(stageModelRenderer === 'vrm' || stageModelRenderer === 'mmd' || stageModelRenderer === 'spine') && settingsStore.headTetheredCaptionEnabled"
+      :scene-ref="stageModelRenderer === 'vrm' ? vrmViewerRef : stageModelRenderer === 'mmd' ? mmdViewerRef : spineViewerRef"
     />
     <DatingSimOverlay />
   </div>
