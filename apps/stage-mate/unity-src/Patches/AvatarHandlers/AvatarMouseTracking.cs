@@ -550,6 +550,7 @@ public class AvatarMouseTracking : MonoBehaviour
                 if (GlobalMouse.LeftMouseUp())
                 {
                     gunAnim.SetTrigger("Fire");
+                    StageMate.Effects.BulletHoleManager.Instance.SpawnAt(Input.mousePosition);
                 }
                 else if (gunAnim.HasParameter("Firing", AnimatorControllerParameterType.Bool))
                 {
