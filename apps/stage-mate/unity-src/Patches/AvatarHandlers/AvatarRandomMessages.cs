@@ -184,7 +184,6 @@ public class AvatarRandomMessages : MonoBehaviour
 
         isBubbleActive = true;
 
-        if (streamAudioSource != null) { streamAudioSource.Stop(); streamAudioSource.Play(); }
         if (streamCoroutine != null) StopCoroutine(streamCoroutine);
 
         if (avatarAnimator != null) avatarAnimator.SetBool("isTalking", true);
@@ -242,7 +241,6 @@ public class AvatarRandomMessages : MonoBehaviour
 
         isBubbleActive = true;
 
-        if (streamAudioSource != null) { streamAudioSource.Stop(); streamAudioSource.Play(); }
         if (streamCoroutine != null) StopCoroutine(streamCoroutine);
 
         if (avatarAnimator != null) avatarAnimator.SetBool("isTalking", true);

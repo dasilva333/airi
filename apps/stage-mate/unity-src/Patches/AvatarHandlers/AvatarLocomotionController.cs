@@ -375,13 +375,21 @@ public sealed class AvatarLocomotionController : MonoBehaviour
         bool isDance = false;
         bool isSit = false;
         bool isHide = false;
+        bool isBigScreen = false;
 
         try { isDrag = Animator.GetBool("isDragging"); } catch { }
         try { isDance = Animator.GetBool("isDancing"); } catch { }
         try { isSit = Animator.GetBool("isSitting") || Animator.GetBool("isWindowSit") || Animator.GetBool("isTaskbarSit"); } catch { }
         try { isHide = Animator.GetBool("HideLeft") || Animator.GetBool("HideRight"); } catch { }
+        try { isBigScreen = Animator.GetBool("isBigScreen") || Animator.GetBool("isBigScreenSaver") || Animator.GetBool("isBigScreenAlarm"); } catch { }
 
-        if (isDrag || isDance || isSit || isHide) return false;
+        if (isDrag || isDance || isSit || isHide || isBigScreen) return false;
+
+        try
+        {
+            if (MenuActions.IsMovementBlocked() || TutorialMenu.IsActive) return false;
+        }
+        catch { }
 
         return true;
     }
