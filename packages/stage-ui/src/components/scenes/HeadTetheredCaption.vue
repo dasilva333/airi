@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AttachLive2DHeadTetheredCaptionResult } from '@proj-airi/stage-ui-live2d/composables/live2d'
 
+import { subChunkText } from '@proj-airi/stage-shared/utils/caption-sentiment'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { attachLive2DHeadTetheredCaption } from '@proj-airi/stage-ui-live2d/composables/live2d'
 import { useBroadcastChannel } from '@vueuse/core'
@@ -38,59 +39,6 @@ const { model } = storeToRefs(live2dStore)
 const attachedInstance = ref<AttachLive2DHeadTetheredCaptionResult | null>(null)
 // Polls `live2dApp()` until the PIXI canvas is available; cleared on detach.
 const appPollTimer = ref<ReturnType<typeof setInterval> | null>(null)
-
-/**
- * Sub-chunks a long active segment into bite-sized sub-phrases (max ~75-80 chars)
- * at clause/punctuation boundaries (~, ,, ., !, ?, ;, —, :) so the bubble stays compact.
- */
-function subChunkText(fullText: string, maxChars = 80): string[] {
-  const trimmed = fullText.trim()
-  if (!trimmed)
-    return []
-  if (trimmed.length <= maxChars)
-    return [trimmed]
-
-  // Primary clause splitters: keep the trailing punctuation with the preceding phrase
-  const rawClauses = trimmed.split(/(?<=[.,!?;—~:])\s+/)
-  const subChunks: string[] = []
-  let currentChunk = ''
-
-  for (const clause of rawClauses) {
-    if ((currentChunk + (currentChunk ? ' ' : '') + clause).length <= maxChars) {
-      currentChunk = currentChunk ? `${currentChunk} ${clause}` : clause
-    }
-    else {
-      if (currentChunk) {
-        subChunks.push(currentChunk)
-        currentChunk = ''
-      }
-
-      // If a single clause exceeds maxChars, split on space boundaries
-      if (clause.length > maxChars) {
-        const words = clause.split(/\s+/)
-        for (const word of words) {
-          if ((currentChunk + (currentChunk ? ' ' : '') + word).length <= maxChars) {
-            currentChunk = currentChunk ? `${currentChunk} ${word}` : word
-          }
-          else {
-            if (currentChunk)
-              subChunks.push(currentChunk)
-            currentChunk = word
-          }
-        }
-      }
-      else {
-        currentChunk = clause
-      }
-    }
-  }
-
-  if (currentChunk) {
-    subChunks.push(currentChunk)
-  }
-
-  return subChunks.length > 0 ? subChunks : [trimmed]
-}
 
 // Sentence Sync state: default to initial text, persist last active state once updated
 const defaultText = props.text ?? 'Hello there! ✨ Floating with AIRI! 💖🌸'

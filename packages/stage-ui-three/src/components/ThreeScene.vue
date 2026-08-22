@@ -23,6 +23,7 @@ import {
   Euler,
   MathUtils,
   PerspectiveCamera,
+  Quaternion,
   Vector3,
 } from 'three'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
@@ -372,6 +373,58 @@ defineExpose({
     return new Promise<Blob | null>((resolve) => {
       renderer.instance.domElement.toBlob(resolve)
     })
+  },
+  getVRM: () => modelRef.value?.getVRM?.(),
+  getHeadBone: () => modelRef.value?.getHeadBone?.(),
+  getHeadPose: () => {
+    const activeVrm = modelRef.value?.getVRM?.()
+    const activeCam = camera.value
+    const container = sceneContainerRef.value
+    if (!activeVrm || !activeCam || !container)
+      return null
+
+    const headBone = activeVrm.humanoid?.getNormalizedBoneNode('head')
+    if (!headBone)
+      return null
+
+    const worldPos = new Vector3()
+    const worldQuat = new Quaternion()
+    headBone.getWorldPosition(worldPos)
+    headBone.getWorldQuaternion(worldQuat)
+
+    // Project head top anchor (offset along head's local up vector so hair/hat are cleared)
+    const headUp = new Vector3(0, 1, 0).applyQuaternion(worldQuat)
+    const headTopPos = worldPos.clone().addScaledVector(headUp, 0.20)
+    const ndc = headTopPos.project(activeCam)
+
+    // Convert NDC to pixel coordinates relative to the container element
+    const rect = container.getBoundingClientRect()
+    const screenX = ((ndc.x + 1) / 2) * rect.width
+    // In Three.js NDC, +Y is up, but in screen-space canvas +Y is down
+    const screenY = ((-ndc.y + 1) / 2) * rect.height
+
+    // Calculate approximate screen model height (head to hips projection)
+    const hipsBone = activeVrm.humanoid?.getNormalizedBoneNode('hips')
+    let modelHeightPx = rect.height * 0.5
+    if (hipsBone) {
+      const hipsPos = new Vector3()
+      hipsBone.getWorldPosition(hipsPos)
+      const hipsNdc = hipsPos.clone().project(activeCam)
+      const hipsScreenY = ((-hipsNdc.y + 1) / 2) * rect.height
+      modelHeightPx = Math.max(120, Math.abs(hipsScreenY - screenY) * 2.2)
+    }
+
+    // Euler rotation angles (YXZ order: yaw is around Y, pitch is around X, roll is around Z)
+    const euler = new Euler().setFromQuaternion(worldQuat, 'YXZ')
+
+    return {
+      screenX,
+      screenY,
+      yaw: euler.y,
+      pitch: euler.x,
+      roll: euler.z,
+      modelHeightPx,
+    }
   },
 })
 

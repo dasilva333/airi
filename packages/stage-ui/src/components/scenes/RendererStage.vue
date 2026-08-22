@@ -9,6 +9,7 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import DatingSimOverlay from './DatingSimOverlay.vue'
+import HeadTetheredCanvas2D from './HeadTetheredCanvas2D.vue'
 import HeadTetheredCaption from './HeadTetheredCaption.vue'
 
 import { useIdleAnimations } from '../../composables'
@@ -502,8 +503,12 @@ defineExpose({
       cope with the canvas booting after the model.
     -->
     <HeadTetheredCaption
-      v-if="stageModelRenderer === 'live2d'"
+      v-if="stageModelRenderer === 'live2d' && settingsStore.headTetheredCaptionEnabled"
       :live2d-scene-ref="live2dSceneRef"
+    />
+    <HeadTetheredCanvas2D
+      v-if="stageModelRenderer === 'vrm' && settingsStore.headTetheredCaptionEnabled"
+      :vrm-scene-ref="vrmViewerRef"
     />
     <DatingSimOverlay />
   </div>

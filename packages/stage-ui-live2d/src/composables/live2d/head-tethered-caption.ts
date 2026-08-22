@@ -12,6 +12,12 @@
 
 import type { Application } from '@pixi/app'
 import type { Container } from '@pixi/display'
+import type {
+  AnalyzedSentenceEffects,
+  BubbleBodyStyle,
+  BubbleTailStyle,
+  CaptionEffectCue,
+} from '@proj-airi/stage-shared/utils/caption-sentiment'
 
 import { BatchRenderer } from '@pixi/core'
 import { Container as PixiContainer } from '@pixi/display'
@@ -20,6 +26,17 @@ import { Text } from '@pixi/text'
 import {
   poseToCaptionTransform,
 } from '@proj-airi/stage-shared/utils/caption-perspective'
+import {
+  analyzeCaptionSentence,
+} from '@proj-airi/stage-shared/utils/caption-sentiment'
+
+export type {
+  AnalyzedSentenceEffects,
+  BubbleBodyStyle,
+  BubbleTailStyle,
+  CaptionEffectCue,
+}
+export { analyzeCaptionSentence }
 
 // NOTICE: PIXI v6's scoped packages do NOT self-register object renderers, and
 // this app's stage only ever rendered the Live2D model — which draws through
@@ -294,21 +311,7 @@ function getBreathingPinkPurpleColorHex(timeMs: number): number {
   return hslToHex(hue, 0.85, 0.68)
 }
 
-// ── 9.0 Vector Bubble Types & Geometry Contracts ──────────────────────────────
-
-export type BubbleBodyStyle
-  = | 'standard-rounded'
-    | 'jagged-starburst'
-    | 'scalloped-cloud'
-
-export type BubbleTailStyle
-  = | 'pointer'
-    | 'wagging'
-    | 'heart-curl'
-    | 'jagged-pointer'
-    | 'droop'
-    | 'thought-dots'
-    | 'none'
+// ── 9.0 Vector Bubble Geometry Contracts (PIXI WebGL Native) ──────────────────
 
 export interface VectorBubbleOptions {
   width: number
@@ -327,15 +330,6 @@ export interface VectorBubbleGeometry {
   drawVisibleBubble: (graphics: Graphics, opts: VectorBubbleOptions) => void
   drawInteriorMask: (graphics: Graphics, opts: VectorBubbleOptions) => void
   drawAuxiliaryShapes: (graphics: Graphics, opts: VectorBubbleOptions) => void
-}
-
-export interface AnalyzedSentenceEffects {
-  bodyStyle: BubbleBodyStyle
-  tailStyle: BubbleTailStyle
-  ambient: 'hearts' | 'rain' | 'scanline' | 'fireflies' | 'blush' | 'vignette' | 'sunbeam' | 'confetti' | 'stars' | null
-  accent: 'sweat-drop' | 'flash-burst' | 'lightbulb' | 'anger-mark' | 'checkmark' | 'question-mark' | 'star-sparkles' | null
-  motion: 'wobble' | 'bounce' | 'shake' | 'breath' | 'stretch' | null
-  rim: 'flower-bloom' | 'frost-rim' | 'heartbeat-pulse' | null
 }
 
 // Helpers to draw crisp vector shapes
@@ -370,174 +364,6 @@ function drawVector6PointStar(g: Graphics, size: number, color: number, alpha: n
   }
   g.closePath()
   g.endFill()
-}
-
-// ── 9.1 Sentence & Clause Trigger Analyzer (No <|ACT|>) ───────────────────────
-
-export function analyzeCaptionSentence(text: string): AnalyzedSentenceEffects {
-  const res: AnalyzedSentenceEffects = {
-    bodyStyle: 'standard-rounded',
-    tailStyle: 'pointer',
-    ambient: null,
-    accent: null,
-    motion: null,
-    rim: null,
-  }
-
-  if (!text || !text.trim())
-    return res
-
-  // Strip code blocks, URLs, and quoted text before sentiment scanning
-  let cleanText = text
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/"[^"]*"/g, '')
-    .trim()
-
-  if (!cleanText)
-    return res
-
-  // Negation Filtering: Suppress emotion matches in negated spans
-  const negatedSpans: string[] = []
-  cleanText = cleanText.replace(/\b(?:not|no|don't|never)\s+\w+/gi, (match) => {
-    negatedSpans.push(match.toLowerCase())
-    return ' '
-  })
-
-  // 1. Bracket Tokens (Highest explicit trigger)
-  const bracketMatch = text.match(/\[([\w-]+)\]/)
-  if (bracketMatch) {
-    const token = bracketMatch[1].toLowerCase()
-    if (['flustered', 'blush', 'shy'].includes(token)) {
-      res.ambient = 'blush'
-      res.accent = 'sweat-drop'
-      res.motion = 'wobble'
-      res.tailStyle = 'heart-curl'
-    }
-    else if (['angry', 'tsundere', 'hmph', 'grr'].includes(token)) {
-      res.bodyStyle = 'jagged-starburst'
-      res.tailStyle = 'jagged-pointer'
-      res.accent = 'anger-mark'
-      res.motion = 'shake'
-    }
-    else if (['thinking', 'wonder', 'hmm'].includes(token)) {
-      res.bodyStyle = 'scalloped-cloud'
-      res.tailStyle = 'thought-dots'
-      res.accent = 'question-mark'
-    }
-    else if (['gasp', 'surprised', 'shock'].includes(token)) {
-      res.accent = 'flash-burst'
-      res.motion = 'bounce'
-    }
-    else if (['sad', 'cry', 'pout', 'sigh'].includes(token)) {
-      res.ambient = 'rain'
-      res.tailStyle = 'droop'
-    }
-    else if (['yandere', 'obsessive'].includes(token)) {
-      res.ambient = 'vignette'
-      res.rim = 'heartbeat-pulse'
-    }
-    else if (['sleepy', 'tired', 'yawn'].includes(token)) {
-      res.ambient = 'fireflies'
-      res.motion = 'breath'
-    }
-  }
-
-  // 2. Keyword / Phrase Matches (Evaluated BEFORE generic structural ellipses)
-  const lower = cleanText.toLowerCase()
-
-  if (/\b(love|cute|darling|sweetheart|like you)\b/i.test(lower)) {
-    res.ambient = 'hearts'
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'heart-curl'
-  }
-  else if (/\b(thanks|thank you|pretty|beautiful|amazing|star|sparkle)\b/i.test(lower)) {
-    res.rim = 'flower-bloom'
-    res.ambient = 'stars'
-  }
-  else if (/\b(sorry|miss you|cry|lonely|sniff|alone)\b/i.test(lower)) {
-    res.ambient = 'rain'
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'droop'
-  }
-  else if (/\b(angry|hmph|grr|annoyed|shut up)\b/i.test(lower)) {
-    res.bodyStyle = 'jagged-starburst'
-    res.tailStyle = 'jagged-pointer'
-    res.accent = 'anger-mark'
-    res.motion = 'shake'
-  }
-  else if (/\b(mine|jealous|belong to me|forever)\b/i.test(lower)) {
-    res.ambient = 'vignette'
-    res.rim = 'heartbeat-pulse'
-  }
-  else if (/\b(scared|eek|creepy|cold)\b/i.test(lower)) {
-    res.ambient = 'fireflies'
-    if (!res.motion)
-      res.motion = 'wobble'
-    if (!res.rim)
-      res.rim = 'frost-rim'
-  }
-  else if (/\b(meow|nya|purr)\b/i.test(lower)) {
-    if (res.tailStyle === 'pointer')
-      res.tailStyle = 'wagging'
-  }
-  else if (/\b(code|system|analyze|data|diagnostic)\b/i.test(lower)) {
-    res.ambient = 'scanline'
-  }
-  else if (/\b(cozy|warm|relax|goodnight|sleepy|yawn)\b/i.test(lower)) {
-    res.ambient = 'sunbeam'
-    if (!res.motion)
-      res.motion = 'breath'
-  }
-
-  // 3. Structural Triggers (Fallback for unmatched sentences)
-  // Stutters (e.g. u-um, w-wait, I-I, b-dummy)
-  if (/\b[a-z]-[a-z]{1,4}\b/i.test(cleanText)) {
-    if (!res.ambient)
-      res.ambient = 'blush'
-    if (!res.accent)
-      res.accent = 'sweat-drop'
-    if (!res.motion)
-      res.motion = 'wobble'
-  }
-
-  // Ellipses (...)
-  if (/\.{3}|…/.test(cleanText)) {
-    if (!res.ambient)
-      res.ambient = 'fireflies'
-    if (!res.motion)
-      res.motion = 'breath'
-  }
-
-  // Punctuation Spikes (!! or !?)
-  if (/!{2,}|\?{2,}|!\?|\?!/.test(cleanText)) {
-    if (!res.accent)
-      res.accent = 'flash-burst'
-    if (!res.motion)
-      res.motion = 'bounce'
-  }
-
-  // Parenthetical Asides (inner monologue)
-  if (/\([^)]+\)/.test(cleanText)) {
-    res.bodyStyle = 'scalloped-cloud'
-    res.tailStyle = 'thought-dots'
-  }
-
-  // ALL CAPS
-  if (/^[A-Z0-9\s!?,.'"-]{5,}$/.test(cleanText) && cleanText !== cleanText.toLowerCase()) {
-    res.bodyStyle = 'jagged-starburst'
-    res.tailStyle = 'jagged-pointer'
-    if (!res.motion)
-      res.motion = 'shake'
-  }
-
-  // Elongated Words (soooo, cuteeee)
-  if (/([a-z])\1{3,}/i.test(cleanText)) {
-    if (!res.motion)
-      res.motion = 'stretch'
-  }
-
-  return res
 }
 
 // ── 9.2 Vector Bubble Path Builder ────────────────────────────────────────────

@@ -1011,6 +1011,8 @@ defineExpose({
     }
     vrm.value.expressionManager.update()
   },
+  getVRM: () => vrm.value,
+  getHeadBone: () => vrm.value?.humanoid?.getNormalizedBoneNode('head'),
 })
 
 // === Manual Expression Sync ===

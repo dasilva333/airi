@@ -207,11 +207,108 @@ The existing `apps/stage-tamagotchi/src/renderer/pages/caption.vue`, `CaptionPan
 
 ---
 
-## 7. MVP acceptance gates
+## 7. MVP Acceptance Gates & Visual Parity Test Suite
 
 1. `pnpm -F stage-ui typecheck && pnpm -F stage-ui-live2d typecheck`.
 2. `pnpm -F stage-tamagotchi build`.
 3. Manual smoke in dev: Live2D model loaded, toggle on → plank appears above head; turn head → plank skews/flattens; toggle off → plank disappears and PIXI container is destroyed.
+
+---
+
+### 7.1 Cross-Model Visual Parity Test Suite
+
+To ensure 100% visual parity across all model engines (Live2D, VRM, MMD, Spine), execute these test payloads in the DevTools console via the `airi-caption-overlay` BroadcastChannel and verify the resolved 4-channel composition:
+
+```javascript
+// Test 1: Gratitude & Praise (Flower Bloom Rim + Floating Stars)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Thank you so much, you are amazing! pretty...', isActive: true, color: '#F472B6' }]
+})
+
+// Test 2: Sadness & Sniffle (Droop Tail + Falling Raindrops)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Don\'t leave me alone... sniff...', isActive: true, color: '#3B82F6' }]
+})
+
+// Test 3: Sparkle & Compliment (Star Ambient + Flower Rim Accent)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Thank you so much, you are amazing! pretty sparkle star...', isActive: true, color: '#EC4899' }]
+})
+
+// Test 4: Yandere & Devotion (Vignette Background + Heartbeat Pulse)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'You belong to me forever... don\'t leave my side... 🖤', isActive: true, color: '#8B5CF6' }]
+})
+
+// Test 5: Tech / Cyber (Cyan Cyber Scanline Beam)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Analyzing system telemetry and running data diagnostic...', isActive: true, color: '#06B6D4' }]
+})
+
+// Test 6: Affection / Flirt (Rising Hearts + Heart-Curl Tail Pose ♡)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'I really love spending time with you! ♡', isActive: true, color: '#EC4899' }]
+})
+
+// Test 7: Cat Speech / Playful (60 FPS Wagging Tail Sine Wave ~)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Nya~ meow! I want a treat right now! purr...', isActive: true, color: '#F472B6' }]
+})
+
+// Test 8: Surprise / Shock (Flash Burst + Impact Bounce Motion)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'WHAT?! No way!! System diagnostic failed?!', isActive: true, color: '#F59E0B' }]
+})
+
+// Test 9: Anger / Tsundere (Starburst Outline + Jagged Pointer + Anger Mark 💢 + Shake)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Hmph! Shut up! Don\'t get the wrong idea! 💢', isActive: true, color: '#EF4444' }]
+})
+
+// Test 10: Stutter & Shyness (Blush Wash + Sweat Drop + Anxious Wobble + Heart-Curl Tail)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'U-um... w-wait a second! b-dummy!', isActive: true, color: '#F472B6' }]
+})
+
+// Test 11: Cozy & Rest (Warm Sunbeam Gradient + Slow Breathing Pulse)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Time to relax and have a warm cozy evening... yawn...', isActive: true, color: '#F59E0B' }]
+})
+
+// Test 12: Micro-Pacer Dynamic Sub-Chunking (Sequences 100+ chars across animated comic frames)
+new BroadcastChannel('airi-caption-overlay').postMessage({
+  type: 'caption-assistant',
+  segments: [{ text: 'Hello there! I\'m so happy to see you today! Let\'s work together and make this the best session ever! ✨', isActive: true, color: '#10B981' }]
+})
+```
+
+#### Expected 4-Channel Matrix for Test Cases:
+
+| Test # | Trigger Input | Body Style | Tail Style | Ambient | Accent | Motion | Rim |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | `"Thank you so much, you are amazing! pretty..."` | `standard-rounded` | `pointer` | `stars` | — | — | `flower-bloom` |
+| **2** | `"Don't leave me alone... sniff..."` | `standard-rounded` | `droop` | `rain` | — | — | — |
+| **3** | `"Thank you... pretty sparkle star..."` | `standard-rounded` | `pointer` | `stars` | — | — | `flower-bloom` |
+| **4** | `"You belong to me forever... 🖤"` | `standard-rounded` | `pointer` | `vignette` | — | — | `heartbeat-pulse` |
+| **5** | `"Analyzing system telemetry..."` | `standard-rounded` | `pointer` | `scanline` | — | — | — |
+| **6** | `"I really love spending time with you! ♡"` | `standard-rounded` | `heart-curl` | `hearts` | — | — | — |
+| **7** | `"Nya~ meow! I want a treat... purr..."` | `standard-rounded` | `wagging` | — | — | — | — |
+| **8** | `"WHAT?! No way!! System diagnostic failed?!"` | `standard-rounded` | `pointer` | — | `flash-burst` | `bounce` | — |
+| **9** | `"Hmph! Shut up! Don't get the wrong idea! 💢"` | `jagged-starburst` | `jagged-pointer` | — | `anger-mark` | `shake` | — |
+| **10** | `"U-um... w-wait a second! b-dummy!"` | `standard-rounded` | `heart-curl` | `blush` | `sweat-drop` | `wobble` | — |
+| **11** | `"Time to relax and have a warm cozy evening... yawn..."` | `standard-rounded` | `pointer` | `sunbeam` | — | `breath` | — |
+| **12** | `"Hello there! I'm so happy to see you today! ... ✨"` | `standard-rounded` | `pointer` | — | — | — | (Paced) |
 
 ---
 
