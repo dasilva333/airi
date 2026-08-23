@@ -8,16 +8,21 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(here, '..')
 const binDir = path.resolve(rootDir, 'bin')
 
-// Default GitHub release endpoint for prebuilt Stage-Mate companion binaries
-const DEFAULT_TAG = 'stagemate-engine-v3.4'
+// Version-pinned GitHub release endpoint for prebuilt Stage-Mate companion binaries
+const pkgJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8'))
+const version = pkgJson.version ?? '3.4.1'
+const DEFAULT_TAG = process.env.STAGEMATE_RELEASE_TAG || `stagemate-v${version}`
+const FALLBACK_TAG = 'stagemate-engine-v3.4'
 const BASE_URL = process.env.STAGEMATE_RELEASE_URL || `https://github.com/dasilva333/airi/releases/download/${DEFAULT_TAG}`
+const FALLBACK_BASE_URL = `https://github.com/dasilva333/airi/releases/download/${FALLBACK_TAG}`
 
-function getPlatformAsset(): { name: string, url: string, expectedExe: string } {
+function getPlatformAsset(): { name: string, url: string, fallbackUrl: string, expectedExe: string } {
   const platform = process.platform
   if (platform === 'darwin') {
     return {
       name: 'StageMate-macOS.zip',
       url: `${BASE_URL}/StageMate-macOS.zip`,
+      fallbackUrl: `${FALLBACK_BASE_URL}/StageMate-macOS.zip`,
       expectedExe: path.join(binDir, 'StageMate.app', 'Contents', 'MacOS', 'StageMate'),
     }
   }
@@ -25,6 +30,7 @@ function getPlatformAsset(): { name: string, url: string, expectedExe: string } 
     return {
       name: 'StageMate-Windows.zip',
       url: `${BASE_URL}/StageMate-Windows.zip`,
+      fallbackUrl: `${FALLBACK_BASE_URL}/StageMate-Windows.zip`,
       expectedExe: path.join(binDir, 'StageMate.exe'),
     }
   }
@@ -32,6 +38,7 @@ function getPlatformAsset(): { name: string, url: string, expectedExe: string } 
     return {
       name: 'StageMate-Linux.zip',
       url: `${BASE_URL}/StageMate-Linux.zip`,
+      fallbackUrl: `${FALLBACK_BASE_URL}/StageMate-Linux.zip`,
       expectedExe: path.join(binDir, 'StageMate.x86_64'),
     }
   }
@@ -108,7 +115,18 @@ async function main() {
   const tempZip = path.join(binDir, asset.name)
 
   try {
-    await downloadFile(asset.url, tempZip)
+    try {
+      await downloadFile(asset.url, tempZip)
+    }
+    catch (err: any) {
+      if (asset.fallbackUrl && asset.fallbackUrl !== asset.url) {
+        console.warn(`[fetch-runtime] Notice: Failed to fetch from pinned release (${err.message}). Trying fallback endpoint...`)
+        await downloadFile(asset.fallbackUrl, tempZip)
+      }
+      else {
+        throw err
+      }
+    }
     extractZip(tempZip, binDir)
 
     // Set execute permissions on macOS / Linux

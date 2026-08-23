@@ -272,35 +272,36 @@ export function createStageMateService(params?: {
     }
   }
 
-  function resolveBinaryPath(): string | null {
+  function resolveBinaryPath(): { binPath: string | null, candidates: string[], baseBinPath: string } {
     const baseBinPath = join(getElectronMainDirname(), '../../../../apps/stage-mate/bin')
+    let candidates: string[] = []
 
     if (platform === 'win32') {
-      const candidates = [
+      candidates = [
         join(baseBinPath, 'StageMate.exe'),
+        join(baseBinPath, 'MateEngineX.exe'),
         join(baseBinPath, 'StageMate', 'StageMate.exe'),
+        join(baseBinPath, 'StageMate', 'MateEngineX.exe'),
         join(baseBinPath, 'Windows', 'StageMate.exe'),
+        join(baseBinPath, 'Windows', 'MateEngineX.exe'),
         join(process.resourcesPath, 'StageMate.exe'),
+        join(process.resourcesPath, 'MateEngineX.exe'),
         join(process.resourcesPath, 'StageMate', 'StageMate.exe'),
+        join(process.resourcesPath, 'StageMate', 'MateEngineX.exe'),
       ]
-      for (const cand of candidates) {
-        if (existsSync(cand))
-          return cand
-      }
     }
     else if (platform === 'linux') {
-      const candidates = [
+      candidates = [
         join(baseBinPath, 'StageMate.x86_64'),
+        join(baseBinPath, 'MateEngineX.x86_64'),
         join(baseBinPath, 'Linux', 'StageMate.x86_64'),
+        join(baseBinPath, 'Linux', 'MateEngineX.x86_64'),
         join(process.resourcesPath, 'StageMate.x86_64'),
+        join(process.resourcesPath, 'MateEngineX.x86_64'),
       ]
-      for (const cand of candidates) {
-        if (existsSync(cand))
-          return cand
-      }
     }
     else if (platform === 'darwin') {
-      const candidates = [
+      candidates = [
         join(baseBinPath, 'StageMate.app', 'Contents/MacOS/StageMate'),
         join(baseBinPath, 'StageMate.app', 'Contents/MacOS/MateEngineX'),
         join(baseBinPath, 'StageMate', 'StageMate.app', 'Contents/MacOS/StageMate'),
@@ -313,13 +314,14 @@ export function createStageMateService(params?: {
         join(process.resourcesPath, 'StageMate', 'StageMate.app'),
         join(process.resourcesPath, 'StageMate.app'),
       ]
-      for (const cand of candidates) {
-        if (existsSync(cand))
-          return cand
-      }
     }
 
-    return null
+    for (const cand of candidates) {
+      if (existsSync(cand))
+        return { binPath: cand, candidates, baseBinPath }
+    }
+
+    return { binPath: null, candidates, baseBinPath }
   }
 
   async function ensureRunning(): Promise<void> {
@@ -333,9 +335,15 @@ export function createStageMateService(params?: {
     sidecarProcess = null
     sidecarPid = null
 
-    const binPath = resolveBinaryPath()
+    const { binPath, candidates, baseBinPath } = resolveBinaryPath()
     if (!binPath) {
-      log.warn('StageMate standalone app binary not found. Launch StageMate externally or run build.sh.')
+      log.withFields({
+        platform,
+        baseBinPath,
+        checkedPaths: candidates,
+        resourcesPath: process.resourcesPath,
+        cwd: process.cwd(),
+      }).warn('StageMate standalone app binary not found. Launch StageMate externally or run pnpm stage-mate:fetch.')
       return
     }
 
