@@ -20,7 +20,7 @@ const fallbackTag = 'stagemate-engine-v3.4'
 const targetArg = process.argv[2] ?? (platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : 'linux')
 
 function ensureGhCli(): void {
-  const res = spawnSync('gh', ['--version'], { stdio: 'ignore' })
+  const res = spawnSync('gh', ['--version'], { stdio: 'ignore', shell: true })
   if (res.status !== 0) {
     console.error('[release] Error: GitHub CLI (gh) is not installed or not in PATH. Please install gh CLI.')
     process.exit(1)
@@ -29,7 +29,7 @@ function ensureGhCli(): void {
 
 function runBuild(target: string): void {
   console.log(`[release] Building Stage-Mate companion runtime for ${target}...`)
-  const res = spawnSync('pnpm', ['run', `build:${target}`], { cwd: rootDir, stdio: 'inherit' })
+  const res = spawnSync('pnpm', ['run', `build:${target}`], { cwd: rootDir, stdio: 'inherit', shell: true })
   if (res.status !== 0) {
     console.error(`[release] Build failed for ${target}. Aborting release.`)
     process.exit(1)
@@ -99,7 +99,7 @@ function uploadToGitHub(tag: string, zipPath: string): void {
   console.log(`[release] Publishing ${zipPath} to GitHub release tag: ${tag} on ${repoTarget}...`)
 
   // Check if tag/release already exists
-  const check = spawnSync('gh', ['release', 'view', tag, '--repo', repoTarget], { stdio: 'ignore' })
+  const check = spawnSync('gh', ['release', 'view', tag, '--repo', repoTarget], { stdio: 'ignore', shell: true })
   if (check.status === 0) {
     console.log(`[release] Release ${tag} found. Uploading asset with --clobber...`)
     execSync(`gh release upload "${tag}" "${zipPath}" --repo "${repoTarget}" --clobber`, { stdio: 'inherit' })
