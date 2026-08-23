@@ -17,6 +17,9 @@ interface Props {
   modelValue: boolean
   characterName?: string
   characterGender?: 'Female' | 'Male' | string
+  initialProvider?: string
+  initialModel?: string
+  initialVoice?: string
 }
 
 const props = defineProps<Props>()
@@ -73,7 +76,9 @@ watch(() => voiceForm.value.baseProvider, async (newProvider) => {
         gender: 'saved profile',
       }))
     if (selectedProviderVoices.value.length > 0) {
-      voiceForm.value.baseVoice = selectedProviderVoices.value[0].id
+      if (!voiceForm.value.baseVoice || !selectedProviderVoices.value.some(v => v.id === voiceForm.value.baseVoice)) {
+        voiceForm.value.baseVoice = selectedProviderVoices.value[0].id
+      }
     }
     else {
       voiceForm.value.baseVoice = ''
@@ -90,16 +95,20 @@ watch(() => voiceForm.value.baseProvider, async (newProvider) => {
     selectedProviderModels.value = providersStore.getModelsForProvider(newProvider) || []
 
     if (selectedProviderVoices.value.length > 0) {
-      voiceForm.value.baseVoice = selectedProviderVoices.value[0].id
+      if (!voiceForm.value.baseVoice || !selectedProviderVoices.value.some(v => v.id === voiceForm.value.baseVoice)) {
+        voiceForm.value.baseVoice = selectedProviderVoices.value[0].id
+      }
     }
-    else {
+    else if (!voiceForm.value.baseVoice) {
       voiceForm.value.baseVoice = ''
     }
 
     if (selectedProviderModels.value.length > 0) {
-      voiceForm.value.baseModel = selectedProviderModels.value[0].id
+      if (!voiceForm.value.baseModel || !selectedProviderModels.value.some(m => m.id === voiceForm.value.baseModel)) {
+        voiceForm.value.baseModel = selectedProviderModels.value[0].id
+      }
     }
-    else {
+    else if (!voiceForm.value.baseModel) {
       const config = providersStore.getProviderConfig(newProvider)
       voiceForm.value.baseModel = (config?.model as string) || ''
     }
@@ -124,35 +133,49 @@ const filteredVoicePresets = computed(() => {
 })
 
 // Initialize state
-watch(() => [props.modelValue, props.characterName, props.characterGender], () => {
+watch(() => [props.modelValue, props.characterName, props.characterGender, props.initialProvider, props.initialModel, props.initialVoice], () => {
   if (props.modelValue) {
     const slug = props.characterName ? props.characterName.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'custom'
     voiceForm.value.name = `${slug}_voice`
-    voiceForm.value.baseProvider = 'kokoro-local'
     voiceForm.value.pitch = 1.0
     voiceForm.value.rate = 1.0
 
-    if (props.characterGender) {
-      const g = props.characterGender.toLowerCase()
-      if (g === 'female') {
-        voiceForm.value.baseVoice = 'af_heart'
-        voiceForm.value.filterByGender = true
+    if (props.initialProvider && props.initialProvider !== 'kokoro-local') {
+      voiceForm.value.baseProvider = props.initialProvider
+      voiceForm.value.baseModel = props.initialModel || ''
+      voiceForm.value.baseVoice = props.initialVoice || ''
+    }
+    else {
+      voiceForm.value.baseProvider = 'kokoro-local'
+      if (props.initialVoice) {
+        voiceForm.value.baseVoice = props.initialVoice
       }
-      else if (g === 'male') {
-        voiceForm.value.baseVoice = 'am_adam'
-        voiceForm.value.filterByGender = true
+      else if (props.characterGender) {
+        const g = props.characterGender.toLowerCase()
+        if (g === 'female') {
+          voiceForm.value.baseVoice = 'af_heart'
+          voiceForm.value.filterByGender = true
+        }
+        else if (g === 'male') {
+          voiceForm.value.baseVoice = 'am_adam'
+          voiceForm.value.filterByGender = true
+        }
+        else {
+          voiceForm.value.filterByGender = false
+        }
       }
       else {
         voiceForm.value.filterByGender = false
       }
     }
-    else {
-      voiceForm.value.filterByGender = false
-    }
   }
 }, { immediate: true })
 
 function handleSave() {
+  if (document.activeElement instanceof HTMLInputElement) {
+    document.activeElement.blur()
+  }
+
   if (voiceForm.value.baseProvider !== 'kokoro-local') {
     emit('save', {
       baseProvider: voiceForm.value.baseProvider,

@@ -1036,6 +1036,9 @@ function handleClone() {
   <VoiceCreatorModal
     v-model="showVoiceCreator"
     :character-name="conceptId ? conceptId : undefined"
+    :initial-provider="selectedSpeechProvider"
+    :initial-model="selectedSpeechModel"
+    :initial-voice="selectedSpeechVoiceId"
     @save="(payload) => {
       selectedSpeechProvider = payload.baseProvider
       selectedSpeechModel = payload.baseModel

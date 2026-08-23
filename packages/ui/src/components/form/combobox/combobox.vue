@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
   options: { groupLabel: string, children?: { label: string, value: T }[] }[]
   placeholder?: string
   openOnClick?: boolean
+  disabled?: boolean
 }>(), {
   openOnClick: true,
 })
@@ -29,7 +30,64 @@ const modelValue = defineModel<T>({ required: false })
 
 function toDisplayValue(value: T): string {
   const option = props.options.flatMap(group => group.children).find(option => option?.value === value)
-  return option ? option.label : props.placeholder || ''
+  return option ? option.label : (typeof value === 'string' && value ? value : props.placeholder || '')
+}
+
+function findMatchingOption(text: string): { label: string, value: T } | undefined {
+  const allOptions = props.options.flatMap(group => group.children || [])
+  const trimmed = text.trim()
+  if (!trimmed)
+    return undefined
+
+  // 1. Exact value match
+  let matched = allOptions.find(opt => opt?.value === trimmed)
+  if (matched)
+    return matched
+
+  // 2. Exact label match
+  matched = allOptions.find(opt => opt?.label === trimmed)
+  if (matched)
+    return matched
+
+  // 3. Case-insensitive label match
+  matched = allOptions.find(opt => opt?.label?.toLowerCase() === trimmed.toLowerCase())
+  if (matched)
+    return matched
+
+  // 4. Case-insensitive value match
+  matched = allOptions.find(opt => typeof opt?.value === 'string' && (opt.value as string).toLowerCase() === trimmed.toLowerCase())
+  if (matched)
+    return matched
+
+  return undefined
+}
+
+function handleInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input)
+    return
+  const matched = findMatchingOption(input.value)
+  if (matched) {
+    modelValue.value = matched.value
+  }
+}
+
+function handleChangeOrBlur(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input)
+    return
+  const val = input.value.trim()
+  if (!val) {
+    modelValue.value = '' as T
+    return
+  }
+  const matched = findMatchingOption(val)
+  if (matched) {
+    modelValue.value = matched.value
+  }
+  else {
+    modelValue.value = val as T
+  }
 }
 </script>
 
@@ -37,6 +95,7 @@ function toDisplayValue(value: T): string {
   <ComboboxRoot
     v-model="modelValue"
     :open-on-click="props.openOnClick"
+    :disabled="props.disabled"
     :class="['relative', 'w-full', 'h-fit']"
   >
     <ComboboxAnchor
@@ -57,6 +116,9 @@ function toDisplayValue(value: T): string {
         ]"
         :placeholder="props.placeholder"
         :display-value="(val) => toDisplayValue(val)"
+        @input="handleInput"
+        @change="handleChangeOrBlur"
+        @blur="handleChangeOrBlur"
       />
       <ComboboxTrigger>
         <div

@@ -236,6 +236,9 @@ function handleSaveVoice(payload: { baseProvider: string, baseModel: string, bas
     <!-- Voice Creator Modal -->
     <VoiceCreatorModal
       v-model="showVoiceCreator"
+      :initial-provider="selectedSpeechProvider"
+      :initial-model="selectedSpeechModel"
+      :initial-voice="selectedSpeechVoiceId"
       @save="handleSaveVoice"
     />
   </div>

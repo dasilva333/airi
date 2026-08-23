@@ -27,5 +27,11 @@ provide('hide', handleHide)
 </script>
 
 <template>
-  <Combobox v-model="modelValue" :default-value="modelValue" :options="[{ groupLabel: '', children: props.options }]" />
+  <Combobox
+    v-model="modelValue"
+    :default-value="modelValue"
+    :placeholder="props.placeholder"
+    :disabled="props.disabled"
+    :options="[{ groupLabel: '', children: props.options }]"
+  />
 </template>

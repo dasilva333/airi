@@ -685,22 +685,25 @@ watch(selectedSpeechProvider, async (newProvider, oldProvider) => {
       await providersStore.fetchModelsForProvider(newProvider)
     }
     await loadActingSpeechCapabilities(newProvider)
-    // Reset model and voice selection
-    selectedSpeechModel.value = ''
-    selectedSpeechVoiceId.value = ''
+
+    const availableModels = providersStore.getModelsForProvider(newProvider)
+    if (selectedSpeechModel.value && availableModels.length > 0 && !availableModels.some(m => m.id === selectedSpeechModel.value)) {
+      selectedSpeechModel.value = ''
+    }
+    const availableVoices = speechStore.getVoicesForProvider(newProvider)
+    if (selectedSpeechVoiceId.value && availableVoices.length > 0 && !availableVoices.some(v => v.id === selectedSpeechVoiceId.value) && !speechStore.savedVoiceProfiles.some(p => p.id === selectedSpeechVoiceId.value)) {
+      selectedSpeechVoiceId.value = ''
+    }
   }
 })
 
-// Reset voice when speech model changes (different models may have different voices)
+// Reload voices when speech model changes without clobbering voice ID
 watch(selectedSpeechModel, async (newModel, oldModel) => {
-  // Only reset if model actually changed and we're not initializing
+  // Only reload if model actually changed and we're not initializing
   const provider = selectedSpeechProvider.value || speechProvider.value
   if (oldModel !== undefined && newModel !== oldModel && provider) {
     // Reload voices for the current provider
     await speechStore.loadVoicesForProvider(provider)
-
-    // Reset voice selection to default
-    selectedSpeechVoiceId.value = defaultSpeechVoiceId.value || ''
   }
 })
 
