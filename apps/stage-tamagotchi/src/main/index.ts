@@ -25,6 +25,7 @@ import {
   electronCaptionSetFollowStageVisibility,
   electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
+  electronEnsureBeatSync,
   electronGetCaptionWindowState,
   electronGetChatWindowState,
   electronGetCorsBypassUrls,
@@ -369,7 +370,7 @@ app.whenReady().then(async () => {
   })
 
   injeca.invoke({
-    dependsOn: { mainWindow, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, chatWindow, customizerWindow },
+    dependsOn: { mainWindow, tray, serverChannel, pluginHost, mcpStdioManager, onboardingWindow: onboardingWindowManager, appConfig, i18n, captionWindow, stageWindow, chatWindow, customizerWindow, beatSync },
     callback: (deps) => {
       const context = createContext(ipcMain).context
       createServerChannelService({ serverChannel: deps.serverChannel })
@@ -440,6 +441,9 @@ app.whenReady().then(async () => {
         const isOpen = Boolean(winEnabled || winVisible)
         console.log('[@proj-airi/stage-tamagotchi] [Main] Retrieved caption window state:', isOpen, 'enabled:', winEnabled, 'visible:', winVisible)
         return isOpen
+      })
+      defineInvokeHandler(context, electronEnsureBeatSync, async () => {
+        await deps.beatSync.getWindow()
       })
       defineInvokeHandler(context, electronCaptionSyncDocking, async (dock) => {
         console.log('[@proj-airi/stage-tamagotchi] [Main] Caption docking sync triggered via Control Island:', dock)

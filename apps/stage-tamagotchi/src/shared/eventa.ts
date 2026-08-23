@@ -49,6 +49,7 @@ export const electronStageSetAlwaysOnTop = defineInvokeEventa<void, boolean>('ev
 export const electronGetStageDisabled = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:stage:get-disabled')
 export const electronCustomizerToggleVisibility = defineInvokeEventa<void, boolean | { enabled?: boolean, group?: string } | undefined>('eventa:invoke:electron:windows:customizer:toggle-visibility')
 export const electronGetCustomizerWindowState = defineInvokeEventa<boolean>('eventa:invoke:electron:windows:customizer:get-state')
+export const electronEnsureBeatSync = defineInvokeEventa<void, void>('eventa:invoke:electron:beat-sync:ensure')
 
 export interface StageMateEnsureModelPayload {
   modelId: string

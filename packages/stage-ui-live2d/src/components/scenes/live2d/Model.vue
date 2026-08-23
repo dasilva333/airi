@@ -1706,7 +1706,10 @@ watch(live2dIdleAnimationEnabled, (enabled) => {
 })
 
 onMounted(() => {
-  const removeListener = listenBeatSyncBeatSignal(() => beatSync.scheduleBeat())
+  const removeListener = listenBeatSyncBeatSignal((e) => {
+    console.debug('[Live2D Model] Received beat signal:', e)
+    beatSync.scheduleBeat()
+  })
   const cleanupTriggerMotion = live2dStore.onTriggerMotion((group, index) => {
     setMotion(group, index)
   })

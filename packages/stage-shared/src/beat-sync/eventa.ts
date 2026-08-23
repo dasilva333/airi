@@ -8,6 +8,7 @@ import { createContext as createBroadcastChannelContext } from '@moeru/eventa/ad
 import { isElectronWindow } from '@proj-airi/stage-shared'
 
 // Functions
+export const electronEnsureBeatSync = defineInvokeEventa<void, void>('eventa:invoke:electron:beat-sync:ensure')
 export const beatSyncToggleInvokeEventa = defineInvokeEventa<void, boolean>('eventa:invoke:electron:beat-sync:toggle')
 export const beatSyncGetStateInvokeEventa = defineInvokeEventa<BeatSyncDetectorState>('eventa:invoke:electron:beat-sync:get-state')
 export const beatSyncUpdateParametersInvokeEventa = defineInvokeEventa<void, Partial<AnalyserWorkletParameters>>('eventa:event:electron:beat-sync:update-parameters')

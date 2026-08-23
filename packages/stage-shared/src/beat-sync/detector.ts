@@ -19,6 +19,7 @@ import {
   beatSyncToggleInvokeEventa,
   beatSyncUpdateParametersInvokeEventa,
   createContext,
+  electronEnsureBeatSync,
 } from './eventa'
 
 export const inputAnalyserFFTSize = 1024
@@ -256,7 +257,21 @@ function getContext() {
   return context
 }
 
-export function toggleBeatSync(enabled: boolean) {
+let electronMainContext: EventContext<any, any> | undefined
+async function ensureElectronBeatSyncWindow() {
+  if (!isStageTamagotchi())
+    return
+  if (typeof window === 'undefined' || !isElectronWindow(window))
+    return
+
+  if (!electronMainContext) {
+    const { createContext } = await import('@moeru/eventa/adapters/electron/renderer')
+    electronMainContext = createContext(window.electron.ipcRenderer).context
+  }
+  await defineInvoke(electronMainContext, electronEnsureBeatSync)()
+}
+
+export async function toggleBeatSync(enabled: boolean) {
   if (isStageWeb()) {
     if (enabled) {
       return getDetector().startScreenCapture()
@@ -267,6 +282,7 @@ export function toggleBeatSync(enabled: boolean) {
   }
 
   if (isStageTamagotchi()) {
+    await ensureElectronBeatSyncWindow()
     const toggleFn = defineInvoke(getContext(), beatSyncToggleInvokeEventa)
     return toggleFn(enabled)
   }
@@ -280,18 +296,20 @@ export async function getBeatSyncState() {
   }
 
   if (isStageTamagotchi()) {
+    await ensureElectronBeatSyncWindow()
     return defineInvoke(getContext(), beatSyncGetStateInvokeEventa)()
   }
 
   throw new Error('Unknown environment for getBeatSyncState()')
 }
 
-export function updateBeatSyncParameters(params: Partial<AnalyserWorkletParameters>) {
+export async function updateBeatSyncParameters(params: Partial<AnalyserWorkletParameters>) {
   if (isStageWeb()) {
     return getDetector().updateParameters(params)
   }
 
   if (isStageTamagotchi()) {
+    await ensureElectronBeatSyncWindow()
     return defineInvoke(getContext(), beatSyncUpdateParametersInvokeEventa)(params)
   }
 
@@ -328,6 +346,7 @@ export async function getBeatSyncInputByteFrequencyData() {
   }
 
   if (isStageTamagotchi()) {
+    await ensureElectronBeatSyncWindow()
     return defineInvoke(getContext(), beatSyncGetInputByteFrequencyDataInvokeEventa)()
   }
 

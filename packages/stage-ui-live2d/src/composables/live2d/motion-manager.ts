@@ -121,29 +121,42 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
 // -- Plugins ---------------------------------------------------------------
 
 export function useMotionUpdatePluginBeatSync(beatSync: BeatSyncController): MotionManagerPlugin {
+  let curAngleX = 0
+  let curAngleY = 0
+  let curAngleZ = 0
+  let initialized = false
+  let lastLogTime = 0
+
   return (ctx) => {
     beatSync.updateTargets(ctx.now)
+
+    // Normalize timeDelta to seconds (safe clamp between 0.001s and 0.1s)
+    const rawDelta = Math.max(ctx.timeDelta ?? 0, 0)
+    const dt = Math.min(0.1, (rawDelta > 5 ? rawDelta / 1000 : rawDelta) || 0.016)
 
     // Semi-implicit Euler approach
     const stiffness = 120 // Higher -> Snappier
     const damping = 16 // Higher -> Less bounce
     const mass = 1
 
-    let paramAngleX = ctx.model.getParameterValueById('ParamAngleX') as number
-    let paramAngleY = ctx.model.getParameterValueById('ParamAngleY') as number
-    let paramAngleZ = ctx.model.getParameterValueById('ParamAngleZ') as number
+    if (!initialized) {
+      curAngleX = beatSync.targetX.value || 0
+      curAngleY = beatSync.targetY.value || 0
+      curAngleZ = beatSync.targetZ.value || 0
+      initialized = true
+    }
 
     // X
     {
       const target = beatSync.targetX.value
-      const pos = paramAngleX
+      const pos = curAngleX
       const vel = beatSync.velocityX.value
       const accel = (stiffness * (target - pos) - damping * vel) / mass
-      beatSync.velocityX.value = vel + accel * ctx.timeDelta
-      paramAngleX = pos + beatSync.velocityX.value * ctx.timeDelta
+      beatSync.velocityX.value = vel + accel * dt
+      curAngleX = pos + beatSync.velocityX.value * dt
 
-      if (Math.abs(target - paramAngleX) < 0.01 && Math.abs(beatSync.velocityX.value) < 0.01) {
-        paramAngleX = target
+      if (Math.abs(target - curAngleX) < 0.01 && Math.abs(beatSync.velocityX.value) < 0.01) {
+        curAngleX = target
         beatSync.velocityX.value = 0
       }
     }
@@ -151,15 +164,15 @@ export function useMotionUpdatePluginBeatSync(beatSync: BeatSyncController): Mot
     // Y
     {
       const target = beatSync.targetY.value
-      const pos = paramAngleY
+      const pos = curAngleY
       const vel = beatSync.velocityY.value
       const accel = (stiffness * (target - pos) - damping * vel) / mass
-      beatSync.velocityY.value = vel + accel * ctx.timeDelta
-      paramAngleY = pos + beatSync.velocityY.value * ctx.timeDelta
+      beatSync.velocityY.value = vel + accel * dt
+      curAngleY = pos + beatSync.velocityY.value * dt
 
       // Snap
-      if (Math.abs(target - paramAngleY) < 0.01 && Math.abs(beatSync.velocityY.value) < 0.01) {
-        paramAngleY = target
+      if (Math.abs(target - curAngleY) < 0.01 && Math.abs(beatSync.velocityY.value) < 0.01) {
+        curAngleY = target
         beatSync.velocityY.value = 0
       }
     }
@@ -167,22 +180,35 @@ export function useMotionUpdatePluginBeatSync(beatSync: BeatSyncController): Mot
     // Z
     {
       const target = beatSync.targetZ.value
-      const pos = paramAngleZ
+      const pos = curAngleZ
       const vel = beatSync.velocityZ.value
       const accel = (stiffness * (target - pos) - damping * vel) / mass
-      beatSync.velocityZ.value = vel + accel * ctx.timeDelta
-      paramAngleZ = pos + beatSync.velocityZ.value * ctx.timeDelta
+      beatSync.velocityZ.value = vel + accel * dt
+      curAngleZ = pos + beatSync.velocityZ.value * dt
 
       // Snap
-      if (Math.abs(target - paramAngleZ) < 0.01 && Math.abs(beatSync.velocityZ.value) < 0.01) {
-        paramAngleZ = target
+      if (Math.abs(target - curAngleZ) < 0.01 && Math.abs(beatSync.velocityZ.value) < 0.01) {
+        curAngleZ = target
         beatSync.velocityZ.value = 0
       }
     }
 
-    ctx.model.setParameterValueById('ParamAngleX', paramAngleX)
-    ctx.model.setParameterValueById('ParamAngleY', paramAngleY)
-    ctx.model.setParameterValueById('ParamAngleZ', paramAngleZ)
+    // Diagnostic logging when beat sync is active (throttled to once per second)
+    const debug = beatSync.debugState()
+    if (debug.primed && ctx.now - lastLogTime > 1000) {
+      lastLogTime = ctx.now
+      console.debug('[Live2D BeatSync]', {
+        bpm: debug.bpm ? Math.round(debug.bpm) : null,
+        style: debug.style,
+        segments: debug.segments.length,
+        targets: { x: Number(beatSync.targetX.value.toFixed(2)), y: Number(beatSync.targetY.value.toFixed(2)), z: Number(beatSync.targetZ.value.toFixed(2)) },
+        applied: { x: Number(curAngleX.toFixed(2)), y: Number(curAngleY.toFixed(2)), z: Number(curAngleZ.toFixed(2)) },
+      })
+    }
+
+    ctx.model.setParameterValueById('ParamAngleX', curAngleX)
+    ctx.model.setParameterValueById('ParamAngleY', curAngleY)
+    ctx.model.setParameterValueById('ParamAngleZ', curAngleZ)
   }
 }
 
