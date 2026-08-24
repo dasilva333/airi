@@ -542,14 +542,15 @@ public sealed class AvatarLocomotionController : MonoBehaviour
             float screenLeft = 0f;
             float screenW = Screen.width > 0 ? Screen.width : 1536f;
             float winCenterX = curPos.x + winW * 0.5f;
-            int monCount = UniWinCore.GetMonitorCount();
+            int monCount = Kirurobo.UniWindowController.GetMonitorCount();
             for (int i = 0; i < monCount; i++)
             {
-                if (UniWinCore.GetMonitorRectangle(i, out Vector2 monPos, out Vector2 monSize)
-                    && winCenterX >= monPos.x && winCenterX < monPos.x + monSize.x)
+                Rect monRect = Kirurobo.UniWindowController.GetMonitorRect(i);
+                if (monRect.width > 0 && monRect.height > 0
+                    && winCenterX >= monRect.x && winCenterX < monRect.x + monRect.width)
                 {
-                    screenLeft = monPos.x;
-                    screenW = monSize.x;
+                    screenLeft = monRect.x;
+                    screenW = monRect.width;
                     break;
                 }
             }

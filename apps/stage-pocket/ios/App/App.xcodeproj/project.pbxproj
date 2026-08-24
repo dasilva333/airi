@@ -315,9 +315,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.25;
+				MARKETING_VERSION = 0.9.27;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
-				PRODUCT_BUNDLE_IDENTIFIER = "ai.dasilva333.airi-pocket";
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.dasilva333.airi-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -343,8 +343,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.25;
-				PRODUCT_BUNDLE_IDENTIFIER = "ai.dasilva333.airi-pocket";
+				MARKETING_VERSION = 0.9.27;
+				PRODUCT_BUNDLE_IDENTIFIER = "ai.dasilva333.airi-ios";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";

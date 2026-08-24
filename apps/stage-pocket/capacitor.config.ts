@@ -5,8 +5,8 @@ import { env } from 'node:process'
 const serverURL = env.CAPACITOR_DEV_SERVER_URL
 
 const config: CapacitorConfig = {
-  appId: 'ai.moeru.airi-pocket',
-  appName: 'AIRI',
+  appId: 'ai.dasilva333.airi-ios',
+  appName: 'Richy\'s AIRI',
   webDir: 'dist',
   server: serverURL
     ? {

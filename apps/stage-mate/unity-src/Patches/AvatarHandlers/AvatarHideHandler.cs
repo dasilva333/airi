@@ -170,14 +170,15 @@ public class AvatarHideHandler : MonoBehaviour
     // windows at ~screen middle, fighting the user's drag.
     bool TryGetCursorMonitorRect(Vector2 desktopPoint, out float screenLeft, out float screenW)
     {
-        int monCount = Kirurobo.UniWinCore.GetMonitorCount();
+        int monCount = Kirurobo.UniWindowController.GetMonitorCount();
         for (int i = 0; i < monCount; i++)
         {
-            if (Kirurobo.UniWinCore.GetMonitorRectangle(i, out Vector2 monPos, out Vector2 monSize)
-                && desktopPoint.x >= monPos.x && desktopPoint.x < monPos.x + monSize.x)
+            Rect monRect = Kirurobo.UniWindowController.GetMonitorRect(i);
+            if (monRect.width > 0 && monRect.height > 0
+                && desktopPoint.x >= monRect.x && desktopPoint.x < monRect.x + monRect.width)
             {
-                screenLeft = monPos.x;
-                screenW = monSize.x;
+                screenLeft = monRect.x;
+                screenW = monRect.width;
                 return true;
             }
         }

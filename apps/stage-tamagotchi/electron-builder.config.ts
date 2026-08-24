@@ -203,7 +203,6 @@ export default {
     // profiles to enable these security features.
     hardenedRuntime: isReleaseSigning,
     notarize: isReleaseSigning,
-    executableName: 'airi',
     icon: useIconFormattedMacAppIcon ? 'icon.icon' : 'icon.icns',
     extraResources: (hasStageMateMac
       ? [

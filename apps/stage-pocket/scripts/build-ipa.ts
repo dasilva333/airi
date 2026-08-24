@@ -73,9 +73,20 @@ const args = process.argv.slice(2)
 if (args.includes('--upload') || process.env.UPLOAD_RELEASE === 'true') {
   const tag = `v${version}`
   console.info(`[build:ipa] Uploading ${ipaFileName} to GitHub Release ${tag}...`)
-  execSync(`env GITHUB_TOKEN="" gh release upload "${tag}" "${ipaOutputPath}" --repo dasilva333/airi --clobber`, {
-    cwd: rootDir,
-    stdio: 'inherit',
-  })
-  console.info(`[build:ipa] Successfully uploaded ${ipaFileName} to release ${tag}!`)
+  try {
+    execSync(`env GITHUB_TOKEN="" gh release upload "${tag}" "${ipaOutputPath}" --repo dasilva333/airi --clobber`, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    })
+  }
+  catch {
+    console.info(`[build:ipa] Release ${tag} not found, creating release with ${ipaFileName}...`)
+    const notesFile = join(rootDir, 'release-notes.md')
+    const notesArg = existsSync(notesFile) ? `--notes-file "${notesFile}"` : `--notes "Release ${tag}"`
+    execSync(`env GITHUB_TOKEN="" gh release create "${tag}" "${ipaOutputPath}" --repo dasilva333/airi --title "AIRI ${tag}" ${notesArg}`, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    })
+  }
+  console.info(`[build:ipa] Successfully published ${ipaFileName} to release ${tag}!`)
 }
