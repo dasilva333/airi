@@ -11,3 +11,7 @@ webroot/vendor/p5/**
 webroot/rwkv_vocab_v20230424.json
 .venv/
 *.state
+credentials.json
+keys.json
+*.local.json
+.env*
