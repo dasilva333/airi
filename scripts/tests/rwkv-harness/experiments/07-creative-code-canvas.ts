@@ -112,15 +112,18 @@ async function main() {
     await renderer.open(bridge.baseUrl)
     console.log('✓ Render page ready\n')
 
-    // 6. Attempt ladder.
-    const attempts: AttemptSpec[] = []
-    for (const [name, temperature] of [['A-chat', 0.9], ['A-chat-hi', 1.3]] as const)
-      attempts.push({ name, baseline: 'A', frame: 'chat', temperature, maxTokens: maxTokensArg })
-    if (!skipS0)
-      attempts.push({ name: 'B-chat-s0', baseline: 'B', frame: 'chat', temperature: 0.9, maxTokens: maxTokensArg })
-    attempts.push({ name: 'A-completion', baseline: 'A', frame: 'completion', temperature: 0.7, maxTokens: maxTokensArg })
-    if (!skipS0)
-      attempts.push({ name: 'B-completion-s0', baseline: 'B', frame: 'completion', temperature: 0.7, maxTokens: maxTokensArg })
+    // 6. Attempt ladder. --ladder=core (default) runs only the two round-1-viable
+    // frames; --ladder=full re-adds the round-1-dead variants (temp 1.3, S0).
+    const ladderArg = argv.find(a => a.startsWith('--ladder='))?.split('=')[1] ?? 'core'
+    const attempts: AttemptSpec[] = [
+      { name: 'A-chat', baseline: 'A', frame: 'chat', temperature: 0.9, maxTokens: maxTokensArg },
+      { name: 'A-completion', baseline: 'A', frame: 'completion', temperature: 0.7, maxTokens: maxTokensArg },
+    ]
+    if (ladderArg === 'full') {
+      attempts.splice(1, 0, { name: 'A-chat-hi', baseline: 'A', frame: 'chat', temperature: 1.3, maxTokens: maxTokensArg }, ...(skipS0 ? [] : [{ name: 'B-chat-s0', baseline: 'B', frame: 'chat', temperature: 0.9, maxTokens: maxTokensArg }] as const as AttemptSpec[]))
+      if (!skipS0)
+        attempts.push({ name: 'B-completion-s0', baseline: 'B', frame: 'completion', temperature: 0.7, maxTokens: maxTokensArg })
+    }
 
     for (let i = 0; i < attempts.length && !winner; i++) {
       const a = attempts[i]
