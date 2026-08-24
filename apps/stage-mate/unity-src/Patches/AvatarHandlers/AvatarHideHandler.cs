@@ -148,17 +148,42 @@ public class AvatarHideHandler : MonoBehaviour
         if (cam == null) cam = Camera.main ?? FindFirstObjectByType<Camera>();
     }
 
-    float GetDesiredWindowX(Side side, Vector2 winSize, int screenW)
+    float GetDesiredWindowX(Side side, Vector2 winSize, float screenLeft, float screenW)
     {
         if (side == Side.Left)
         {
-            return (-winSize.x * 0.565f) - edgeInsetPx;
+            return screenLeft + (-winSize.x * 0.565f) - edgeInsetPx;
         }
         else if (side == Side.Right)
         {
-            return (screenW - (winSize.x * 0.44f)) + edgeInsetPx;
+            return screenLeft + (screenW - (winSize.x * 0.44f)) + edgeInsetPx;
         }
-        return 0f;
+        return screenLeft;
+    }
+
+    // NOTICE: resolve snap geometry from the monitor that actually contains the cursor,
+    // using UniWinC desktop coordinates (same space as uniwinc.cursorPosition). The old
+    // code used Screen.width, which is the render width: at fullscreen it equals the
+    // display width so the "except" half-works, but for any other window size the right
+    // edge trigger fires at the right edge of the *window*, and on secondary displays
+    // the whole comparison was in the wrong origin. It also positioned oversized
+    // windows at ~screen middle, fighting the user's drag.
+    bool TryGetCursorMonitorRect(Vector2 desktopPoint, out float screenLeft, out float screenW)
+    {
+        int monCount = Kirurobo.UniWinCore.GetMonitorCount();
+        for (int i = 0; i < monCount; i++)
+        {
+            if (Kirurobo.UniWinCore.GetMonitorRectangle(i, out Vector2 monPos, out Vector2 monSize)
+                && desktopPoint.x >= monPos.x && desktopPoint.x < monPos.x + monSize.x)
+            {
+                screenLeft = monPos.x;
+                screenW = monSize.x;
+                return true;
+            }
+        }
+        screenLeft = 0f;
+        screenW = Screen.width > 0 ? Screen.width : 1536f;
+        return false;
     }
 
     void Update()
@@ -169,21 +194,30 @@ public class AvatarHideHandler : MonoBehaviour
         if (animator == null || controller == null || uniwinc == null) return;
 
         Vector2 mousePos = uniwinc.cursorPosition;
-        int screenW = Screen.width > 0 ? Screen.width : 1536;
         Vector2 winPos = uniwinc.windowPosition;
         Vector2 winSize = uniwinc.windowSize;
+
+        TryGetCursorMonitorRect(mousePos, out float screenLeft, out float screenW);
+
+        // A window that spans (nearly) the whole monitor has no meaningful edge to
+        // peek from — snapping it would wedge it at ~screen middle and fight the drag.
+        bool snapEligible = winSize.x < screenW * 0.8f;
+        if (snappedSide != Side.None && !snapEligible)
+        {
+            Unsnap();
+        }
 
         bool isDraggingNow = controller.isDragging || animator.GetBool("isDragging");
 
         if (isDraggingNow)
         {
             int thrSnap = Math.Max(32, snapThresholdPx);
-            bool nearLeft = (mousePos.x <= thrSnap);
-            bool nearRight = (mousePos.x >= screenW - thrSnap);
+            bool nearLeft = snapEligible && (mousePos.x <= screenLeft + thrSnap);
+            bool nearRight = snapEligible && (mousePos.x >= screenLeft + screenW - thrSnap);
 
-            if (mousePos.x <= 150f || mousePos.x >= screenW - 150f)
+            if (mousePos.x <= screenLeft + 150f || mousePos.x >= screenLeft + screenW - 150f)
             {
-                UnityEngine.Debug.Log($"[AvatarHideHandler:DRAG_EDGE] mouseX={mousePos.x:F1}, screenW={screenW}, thrSnap={thrSnap}, nearLeft={nearLeft}, nearRight={nearRight}, isDragging={isDraggingNow}, snapped={snappedSide}");
+                UnityEngine.Debug.Log($"[AvatarHideHandler:DRAG_EDGE] mouseX={mousePos.x:F1}, screenLeft={screenLeft:F1}, screenW={screenW:F1}, thrSnap={thrSnap}, nearLeft={nearLeft}, nearRight={nearRight}, isDragging={isDraggingNow}, snapped={snappedSide}");
             }
 
             if (snappedSide == Side.None)
@@ -211,14 +245,14 @@ public class AvatarHideHandler : MonoBehaviour
                 if (Time.unscaledTime >= snappedAt + unsnapGraceTime)
                 {
                     int thrUnsnap = Math.Max(64, unsnapThresholdPx);
-                    if (snappedSide == Side.Left && mousePos.x > thrUnsnap) Unsnap();
-                    else if (snappedSide == Side.Right && mousePos.x < screenW - thrUnsnap) Unsnap();
+                    if (snappedSide == Side.Left && mousePos.x > screenLeft + thrUnsnap) Unsnap();
+                    else if (snappedSide == Side.Right && mousePos.x < screenLeft + screenW - thrUnsnap) Unsnap();
                 }
             }
 
             if (snappedSide != Side.None)
             {
-                float targetX = GetDesiredWindowX(snappedSide, winSize, screenW);
+                float targetX = GetDesiredWindowX(snappedSide, winSize, screenLeft, screenW);
                 float targetY = winPos.y;
                 float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
                 uniwinc.windowPosition = new Vector2(nx, targetY);
@@ -228,7 +262,7 @@ public class AvatarHideHandler : MonoBehaviour
         {
             if (snappedSide != Side.None)
             {
-                float targetX = GetDesiredWindowX(snappedSide, winSize, screenW);
+                float targetX = GetDesiredWindowX(snappedSide, winSize, screenLeft, screenW);
                 float nx = Mathf.SmoothDamp(winPos.x, targetX, ref velX, smoothingTime, smoothingMaxSpeed, Time.unscaledDeltaTime);
                 uniwinc.windowPosition = new Vector2(nx, winPos.y);
             }

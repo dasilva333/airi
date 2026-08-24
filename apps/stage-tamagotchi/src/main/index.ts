@@ -636,6 +636,12 @@ app.whenReady().then(async () => {
               case 'full':
                 width = workArea.width
                 height = workArea.height
+                // A full preset is exactly the work area — pin it deterministically
+                // instead of letting the default 'center' alignment / expand-around-center
+                // path compute a position that the oversize-safe clamp can drift.
+                newX = workArea.x
+                newY = workArea.y
+                boundsDetermined = true
                 break
               case 'dating-sim-on': {
                 ;(targetWin as any).__is_dating_sim_active = true

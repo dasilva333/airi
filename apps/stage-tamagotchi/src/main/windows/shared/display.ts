@@ -220,8 +220,16 @@ export function ensureWindowInVisibleBounds(bounds: Rectangle): Rectangle {
 
   // Clamp to the best-overlapping display's work area
   const dw = bestDisplay.workArea
-  const clampedX = Math.max(dw.x, Math.min(sanitized.x, dw.x + dw.width - sanitized.width))
-  const clampedY = Math.max(dw.y, Math.min(sanitized.y, dw.y + dw.height - sanitized.height))
+  // NOTICE: only clamp an axis when the window is smaller than the work area on that
+  // axis. When width >= dw.width the valid interval [dw.x, dw.x + dw.width - width]
+  // has zero or negative extent and the plain clamp collapses to dw.x, pinning
+  // fullscreen/oversized windows to the work-area corner and erasing their position.
+  const clampedX = sanitized.width >= dw.width
+    ? sanitized.x
+    : Math.max(dw.x, Math.min(sanitized.x, dw.x + dw.width - sanitized.width))
+  const clampedY = sanitized.height >= dw.height
+    ? sanitized.y
+    : Math.max(dw.y, Math.min(sanitized.y, dw.y + dw.height - sanitized.height))
 
   return {
     x: clampedX,

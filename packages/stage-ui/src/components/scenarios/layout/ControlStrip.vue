@@ -670,6 +670,12 @@ if (typeof window !== 'undefined') {
 
 const activeMonitor = ref(1)
 const selectedAlignment = ref('center')
+// Only pass alignment to apply-size-preset after the user explicitly chose one —
+// otherwise every size-preset click silently re-centers the window (selectedAlignment
+// defaults to 'center'), which made oversized windows snap to the screen middle.
+const alignmentChosen = ref(false)
+watch(selectedAlignment, () => alignmentChosen.value = true)
+const presetAlignment = computed(() => alignmentChosen.value ? selectedAlignment.value : undefined)
 const monitorCount = ref(1)
 
 onMounted(async () => {
@@ -1833,7 +1839,7 @@ function getShortLabel(btnId: string): string {
               v-for="p in PRESETS"
               :key="p.name"
               class="flex flex-col cursor-pointer items-center justify-center gap-1.5 border border-neutral-200/50 rounded-xl bg-neutral-50/50 px-1 py-2.5 text-[11px] text-neutral-700 font-semibold transition-all duration-200 active:scale-95 dark:border-neutral-800/20 hover:border-sky-400/50 dark:bg-neutral-800/40 hover:bg-sky-500/10 dark:text-neutral-300 hover:text-sky-600 dark:hover:bg-sky-500/20 dark:hover:text-sky-300"
-              @click="applySizePreset('actor', p.name, selectedAlignment)"
+              @click="applySizePreset('actor', p.name, presetAlignment)"
             >
               <span :class="[p.icon, 'text-lg']" />
               <span class="text-[10px]">{{ p.label }}</span>
@@ -1998,7 +2004,7 @@ function getShortLabel(btnId: string): string {
               v-for="p in PRESETS"
               :key="p.name"
               class="flex-1 cursor-pointer rounded-lg py-1.5 text-center text-[10px] text-neutral-600 font-bold transition-all active:scale-95 hover:bg-white/40 dark:text-neutral-400 hover:text-sky-500 dark:hover:bg-neutral-800/40 dark:hover:text-sky-400"
-              @click="applySizePreset('chat', p.name, selectedAlignment)"
+              @click="applySizePreset('chat', p.name, presetAlignment)"
             >
               {{ p.label === 'Medium' ? 'Med.' : p.label }}
             </button>

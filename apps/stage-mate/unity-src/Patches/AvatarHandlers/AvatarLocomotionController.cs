@@ -533,10 +533,29 @@ public sealed class AvatarLocomotionController : MonoBehaviour
         if (uniwinc != null)
         {
             Vector2 curPos = uniwinc.windowPosition;
-            int screenW = Screen.width > 0 ? Screen.width : 1536;
             float winW = uniwinc.windowSize.x > 0 ? uniwinc.windowSize.x : 768f;
-            float minX = 0f;
-            float maxX = Mathf.Max(minX, screenW - winW);
+
+            // NOTICE: Screen.width is the render width, not the desktop width — for a
+            // fullscreen window it collapses maxX to 0 and pins the walking avatar to
+            // x=0. Use the rect of the monitor containing the window center, in UniWinC
+            // desktop coordinates (same space as windowPosition).
+            float screenLeft = 0f;
+            float screenW = Screen.width > 0 ? Screen.width : 1536f;
+            float winCenterX = curPos.x + winW * 0.5f;
+            int monCount = UniWinCore.GetMonitorCount();
+            for (int i = 0; i < monCount; i++)
+            {
+                if (UniWinCore.GetMonitorRectangle(i, out Vector2 monPos, out Vector2 monSize)
+                    && winCenterX >= monPos.x && winCenterX < monPos.x + monSize.x)
+                {
+                    screenLeft = monPos.x;
+                    screenW = monSize.x;
+                    break;
+                }
+            }
+
+            float minX = screenLeft;
+            float maxX = Mathf.Max(minX, screenLeft + screenW - winW);
             float targetX = curPos.x + (move * _dir);
             float clampedX = Mathf.Clamp(targetX, minX, maxX);
 
