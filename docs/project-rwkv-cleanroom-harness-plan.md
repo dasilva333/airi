@@ -67,7 +67,8 @@ scripts/tests/rwkv-harness/
 │   ├── 03-echo-chip-eval.ts     ← Phase 3: Offline Echo Chips synthesis vs ground-truth baseline
 │   ├── 04-toggle4-realtime.ts   ← Phase 4: Real-time per-turn topic tracking on multi-turn dialogue
 │   ├── 05-corpus-benchmark.ts   ← Phase 5: Large corpus scale & comparative benchmark suite
-│   └── 06-ui-integration.ts     ← Phase 6: Application UI & provider settings integration
+│   ├── 06-ui-integration.ts     ← Phase 6: Application UI & provider settings integration
+│   └── 07-creative-code-canvas.ts ← Phase 7: 1.6B/3B Creative code painting & state-tuned canvas
 └── test-prompts/
     ├── miss-strawberry.json    ← Canonical Miss Strawberry benchmark prompt & hyperparams
     ├── topic-matrix.json       ← 3-part control & experiment dialogue turns
@@ -86,6 +87,7 @@ graph TD
     P3 --> P4["Phase 4: Toggle 4 Real-Time Tracking"]
     P4 --> P5["Phase 5: Large Corpus Scale Validation"]
     P5 --> P6["Phase 6: UI & Provider Settings Integration"]
+    P6 --> P7["Phase 7: 1.6B/3B Creative Code Canvas & State-Tuning"]
 ```
 
 ### Phase 2: Roleplay State File Overlay Presets (`02-state-presets.ts`)
@@ -131,6 +133,16 @@ graph TD
 ### Phase 6: UI & Provider Settings Integration (`06-ui-integration.ts`)
 * **Goal**: Expose state presets in `web-rwkv.vue` settings and wire worker adapters.
 
+---
+
+### Phase 7: 1.6B/3B Creative Code Canvas & State-Tuning (`07-creative-code-canvas.ts`)
+* **Goal**: Transition from 0.1B salience gating to **1.6B / 2.9B RWKV-7** weights to validate local generative canvas art and dynamic background painting via `p5.brush` / HTML5 Canvas scripts.
+* **Specification**: Documented in [`docs/proposal-generative-code-painting-rwkv-webllm.md`](./proposal-generative-code-painting-rwkv-webllm.md).
+* **Core Discovery**: 0.1B (100M) parameter capacity is empirically insufficient for generative code synthesis, but 1.6B+ weights paired with $S_0$ style statefiles enable $O(1)$ constant-VRAM generative background art on WebGPU.
+
 ## Relevant Skills
 
 - [[airi-local-inference-engines]]
+- [[airi-scenes-backgrounds]]
+- [[airi-artistry-comfyui-widgets]]
+
