@@ -6,6 +6,8 @@
 - `packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue` (Dual-Engine Configuration & Studio)
 - `packages/stage-ui/src/stores/modules/artistry.ts` & `artistry-autonomous.ts` (Artistry & Director Routing)
 - `packages/stage-ui/src/components/scenarios/chat/BrainModelPicker.vue` (LLM Consciousness Model Binding)
+- `packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue` (Global Model Cache Oversight)
+- `packages/stage-ui/src/libs/inference/cache-utils.ts` (OPFS & CacheStorage Management)
 - `packages/stage-ui/src/workers/web-rwkv/` (WebGPU RWKV-7 Worker & S0 State Ingestion)
 - `scripts/tests/rwkv-harness/` (Cleanroom Execution & Dataset Lineage)
 
@@ -13,6 +15,7 @@
 - **Inspiration & Methodology:** Surya Narreddi & Cameron Franz, [*"Training AI to Paint with Code"*](https://surya.website/rling-qwen-to-paint-with-code) (August 2026) — Reinforcement learning (GRPO) on Qwen models to generate painterly watercolor artwork via `p5.brush` JavaScript scripts.
 - [`docs/project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md) — Cleanroom Test Harness, Scaffold-Prefill Breakthrough, and Phase 7–10 Verification.
 - [`docs/design-text-to-motion.md`](./design-text-to-motion.md) — Parallel Dual-Engine Pattern (Procedural LLM vs. Dedicated Neural Engine).
+- [`.agents/skills/airi-provider-core-registry/`](../.agents/skills/airi-provider-core-registry/SKILL.md) — Provider registry, OPFS storage, and ModelCacheManager architecture.
 - [`.agents/skills/airi-artistry-comfyui-widgets/`](../.agents/skills/airi-artistry-comfyui-widgets/SKILL.md) — Artistry store, widget routing, and headless generation contracts.
 - [`.agents/skills/airi-generative-motion-vrma/`](../.agents/skills/airi-generative-motion-vrma/SKILL.md) — Dual-engine module reference implementation.
 
@@ -101,6 +104,9 @@ Located in `packages/stage-pages/src/pages/settings/providers/artistry/code-pain
 │  │ • Style Cartridge Pack: [ p5-watercolor-1.5b.state (12.2 MB) ▼ ]                │  │
 │  │ • WebGPU Status: [ ✓ Apple M-Series Metal GPU Accelerated (18.9 tok/s) ]         │  │
 │  │ • Token Budget: [ ───────●────── 800 tokens ]                                    │  │
+│  │                                                                                  │  │
+│  │ 📦 Weight Cache Management:                                                      │  │
+│  │ [ Status: 2.8 GB Cached in OPFS ]   [ ⬇️ Pre-download ]   [ 🗑️ Evict from Disk ] │  │
 │  └──────────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                        │
 │  ── Interactive Art Studio Playground ───────────────────────────────────────────────  │
@@ -121,7 +127,29 @@ Located in `packages/stage-pages/src/pages/settings/providers/artistry/code-pain
 
 ---
 
-## 3. End-to-End Execution Pipeline
+## 3. Provider Cache & Storage Oversight Architecture
+
+To maintain absolute user transparency over disk space, the RWKV-7 model weights and stylistic cartridges are formally registered in AIRI's central model cache system:
+
+### 3.1 Model Registry Entries
+Registered in [`packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue`](packages/stage-ui/src/components/scenarios/settings/ModelCacheManager.vue):
+```typescript
+{ id: 'rwkv7-g1d-1.5b-canvas', name: 'RWKV-7 1.5B (Code Painter Base)', size: '2.8 GB', target: 'opfs' },
+{ id: 'p5-watercolor-1.5b.state', name: 'Watercolor S0 Cartridge', size: '12.2 MB', target: 'opfs' },
+```
+
+### 3.2 Storage Backend (OPFS)
+- Weights are cached in browser Origin Private File System (`OPFS_DIR_NAME = 'web-rwkv'`) via `cache-utils.ts`.
+- **Zero Silent Downloads**: Downloads occur only upon explicit user action ("Download & Cache" button or first manual canvas generation in the Studio).
+- **Per-Model Eviction**: Users can reclaim disk space directly from the Global Model Cache Manager (`Settings > Providers`) or the inline Code Painter card using `clearSingleModelCache('rwkv7-g1d-1.5b-canvas')`.
+
+### 3.3 Cartridge Distribution Plan
+- **Base Model**: `DanielClough/rwkv7-g1-safetensors` (`rwkv7-g1d-1.5b-20260212-ctx8192.safetensors`).
+- **State Cartridge**: Hosted on Hugging Face at `dasilva333/airi-cartridges` (`p5-watercolor-1.5b.state`, 12.19 MB) with optional client-side asset bundling in desktop releases.
+
+---
+
+## 4. End-to-End Execution Pipeline
 
 ```mermaid
 graph TD
@@ -156,9 +184,9 @@ graph TD
 
 ---
 
-## 4. Shared Canvas Runtime Contracts
+## 5. Shared Canvas Runtime Contracts
 
-### 4.1 Scaffold-Prefill Protocol
+### 5.1 Scaffold-Prefill Protocol
 To prevent models from hallucinating `createCanvas` dimensions or getting trapped in configuration boilerplate loops, both engines use the canonical **Scaffold Prefill**:
 
 ```javascript
@@ -171,7 +199,7 @@ function setup() {
   // Model begins emitting painting operations immediately at (0,0) center
 ```
 
-### 4.2 Syntax Auto-Balancer (`repairTruncatedProgram`)
+### 5.2 Syntax Auto-Balancer (`repairTruncatedProgram`)
 Token-budget truncation and raw token slips are automatically healed before canvas execution:
 1. **Unquoted Hex Color Repair**: Converts unquoted `#hex` identifiers (e.g. `brush.set("HB", #f4e8a1)`) into valid JavaScript string literals `brush.set("HB", "#f4e8a1")`.
 2. **Method Alias Normalization**: Maps hallucinated method aliases (e.g. `brush.blend(...)` $\rightarrow$ `brush.bleed(...)`).
@@ -179,7 +207,7 @@ Token-budget truncation and raw token slips are automatically healed before canv
 
 ---
 
-## 5. Verified Cleanroom Milestones (Empirical Results)
+## 6. Verified Cleanroom Milestones (Empirical Results)
 
 All core mechanisms have been verified in the cleanroom harness (`scripts/tests/rwkv-harness/`):
 
@@ -193,11 +221,12 @@ All core mechanisms have been verified in the cleanroom harness (`scripts/tests/
 
 ---
 
-## 6. Implementation Checklist
+## 7. Implementation Checklist
 
 - [x] **Cleanroom Harness & Engine Validation** (`scripts/tests/rwkv-harness/`)
 - [x] **PyTorch State-Tuner ($S_0$) Pipeline & Export** (`trainer/train_state_s0.py`)
 - [x] **Syntax Auto-Balancer & Truncation Healer** (`engine/sketch-extract.ts`)
+- [ ] **Provider Cache Registration**: Add Code Painter base model and `p5-watercolor-1.5b.state` to `ModelCacheManager.vue` and `cache-utils.ts`.
 - [ ] **Store Integration**: Extend `useArtistryStore` in `packages/stage-ui/src/stores/modules/artistry.ts` with `codePainterMode: 'procedural' | 'rwkv'` and provider options.
 - [ ] **Settings UI**: Build `packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue` with `BrainModelPicker` and RWKV cartridge selector.
 - [ ] **Tool & Autonomous Artistry Bridge**: Wire `image-journal.ts` and `artistry-autonomous.ts` to dispatch via the selected Code Painter engine when active.
