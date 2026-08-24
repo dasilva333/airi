@@ -1,0 +1,92 @@
+[
+  {
+    "id": "botanical-peach-hibiscus-01",
+    "title": "Peach Hibiscus with Velvet Core",
+    "theme": "botanical",
+    "prompt": "blooming peach hibiscus with soft watercolor petals, golden pollen, and olive leaves",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(42);\n  background(252, 248, 240);\n\n  // Background wash\n  brush.noStroke();\n  brush.bleed(0.4, \"out\");\n  brush.fill(245, 230, 218, 50);\n  brush.circle(0, 0, 240, true);\n\n  // Broad sage watercolor leaves\n  brush.fill(95, 128, 92, 120);\n  brush.bleed(0.3, \"out\");\n  brush.beginShape(0.4);\n  brush.vertex(-180, 80);\n  brush.vertex(-80, 40);\n  brush.vertex(-40, 160);\n  brush.vertex(-140, 200);\n  brush.endShape(CLOSE);\n\n  brush.fill(75, 110, 78, 130);\n  brush.beginShape(0.4);\n  brush.vertex(40, 120);\n  brush.vertex(160, 60);\n  brush.vertex(190, 170);\n  brush.vertex(80, 190);\n  brush.endShape(CLOSE);\n\n  // Curved stem\n  brush.set(\"HB\", \"#3b533b\", 2.2);\n  brush.field(\"curved\");\n  brush.line(0, 50, -20, 260);\n\n  // Outer peach petals\n  const angles = [0, 72, 144, 216, 288];\n  for (let i = 0; i < angles.length; i++) {\n    const rad = radians(angles[i] - 15);\n    const cx = cos(rad) * 65;\n    const cy = sin(rad) * 65 - 30;\n    brush.fill(248, 172, 150, 135);\n    brush.bleed(0.35, \"out\");\n    brush.circle(cx, cy, 75, true);\n  }\n\n  // Inner crimson core wash\n  for (let i = 0; i < angles.length; i++) {\n    const rad = radians(angles[i] + 18);\n    const cx = cos(rad) * 35;\n    const cy = sin(rad) * 35 - 30;\n    brush.fill(188, 38, 72, 170);\n    brush.bleed(0.45, \"out\");\n    brush.circle(cx, cy, 42, true);\n  }\n\n  // Stamen and golden pollen\n  brush.set(\"2B\", \"#4a1824\", 1.5);\n  for (let i = 0; i < 8; i++) {\n    const a = radians(i * 45 + 10);\n    const ex = cos(a) * 55;\n    const ey = sin(a) * 55 - 30;\n    brush.line(0, -30, ex, ey);\n    brush.fill(248, 198, 48, 220);\n    brush.bleed(0.1, \"out\");\n    brush.circle(ex, ey, 5, true);\n  }\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.3239,
+      "uniqueColors": 268,
+      "structureScore": 0.5877777777777777,
+      "renderMs": 2928
+    },
+    "previewPng": "dataset/previews/botanical-peach-hibiscus-01.png"
+  },
+  {
+    "id": "botanical-lotus-pond-02",
+    "title": "Pink Lotus Floating in Twilight Water",
+    "theme": "botanical",
+    "prompt": "zen pink lotus flower floating on calm emerald pond with watercolor ripples",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(108);\n  background(242, 245, 243);\n\n  // Pond water washes\n  brush.noStroke();\n  brush.bleed(0.5, \"out\");\n  brush.fill(42, 95, 110, 80);\n  brush.rect(-280, -200, 560, 480);\n  brush.fill(28, 68, 85, 90);\n  brush.rect(-260, -50, 520, 320);\n\n  // Lotus pads (broad emerald discs)\n  brush.bleed(0.3, \"out\");\n  brush.fill(48, 118, 88, 160);\n  brush.circle(-130, 80, 110, true);\n  brush.fill(36, 92, 70, 180);\n  brush.circle(140, 110, 130, true);\n\n  // Lotus flower petals (layered white to magenta)\n  const petalLayers = [\n    { count: 7, r: 85, fill: [255, 230, 240, 140], bleed: 0.35 },\n    { count: 6, r: 60, fill: [248, 150, 190, 160], bleed: 0.3 },\n    { count: 5, r: 40, fill: [225, 45, 120, 190], bleed: 0.25 },\n  ];\n\n  for (const layer of petalLayers) {\n    brush.fill(...layer.fill);\n    brush.bleed(layer.bleed, \"out\");\n    for (let i = 0; i < layer.count; i++) {\n      const a = map(i, 0, layer.count - 1, -PI * 0.85, -PI * 0.15);\n      const px = cos(a) * layer.r;\n      const py = sin(a) * (layer.r * 0.9) - 10;\n      brush.circle(px, py, layer.r * 0.55, true);\n    }\n  }\n\n  // Golden lotus pod core\n  brush.fill(242, 195, 45, 230);\n  brush.bleed(0.15, \"out\");\n  brush.circle(0, -25, 22, true);\n\n  // Delicate ripple lines\n  brush.set(\"rotring\", \"#245866\", 0.9);\n  brush.noFill();\n  brush.circle(0, 20, 180, false);\n  brush.circle(0, 30, 240, false);\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.6958222222222222,
+      "uniqueColors": 322,
+      "structureScore": 0.8934666666666666,
+      "renderMs": 2871
+    },
+    "previewPng": "dataset/previews/botanical-lotus-pond-02.png"
+  },
+  {
+    "id": "botanical-cherry-blossom-03",
+    "title": "Spring Sakura Branch in Morning Light",
+    "theme": "botanical",
+    "prompt": "delicate cherry blossom sakura branch with blush pink petals on washi paper",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(77);\n  background(253, 250, 245);\n\n  // Soft sky morning glow\n  brush.noStroke();\n  brush.bleed(0.45, \"out\");\n  brush.fill(255, 235, 215, 60);\n  brush.circle(-80, -100, 260, true);\n\n  // Rugged dark branch\n  brush.set(\"charcoal\", \"#2d1e18\", 3.2);\n  brush.field(\"curved\");\n  brush.line(-280, 160, -80, 20);\n  brush.line(-80, 20, 140, -110);\n  brush.line(140, -110, 270, -180);\n\n  // Sub-branches\n  brush.set(\"charcoal\", \"#2d1e18\", 1.8);\n  brush.line(-80, 20, -30, -70);\n  brush.line(30, -50, 90, -10);\n  brush.line(140, -110, 170, -40);\n\n  // Sakura blossom clusters\n  const clusterPos = [\n    [-180, 100], [-120, 50], [-70, -20], [-30, -80],\n    [20, -40], [80, -20], [140, -120], [200, -150], [240, -180]\n  ];\n\n  for (const [bx, by] of clusterPos) {\n    // Petal wash cluster\n    for (let p = 0; p < 5; p++) {\n      const pa = radians(p * 72 + random(-15, 15));\n      const px = bx + cos(pa) * random(14, 28);\n      const py = by + sin(pa) * random(14, 28);\n      brush.fill(255, 192, 203, 145);\n      brush.bleed(0.3, \"out\");\n      brush.circle(px, py, random(18, 28), true);\n    }\n    // Deep rose center\n    brush.fill(219, 68, 108, 180);\n    brush.bleed(0.2, \"out\");\n    brush.circle(bx, by, 10, true);\n\n    // Stamen dots\n    brush.set(\"2B\", \"#5c1b2c\", 1.0);\n    for (let d = 0; d < 4; d++) {\n      const da = radians(d * 90);\n      brush.line(bx, by, bx + cos(da) * 8, by + sin(da) * 8);\n    }\n  }\n\n  // Floating fallen petals\n  for (let f = 0; f < 12; f++) {\n    brush.fill(255, 182, 193, 110);\n    brush.bleed(0.25, \"out\");\n    brush.circle(random(-240, 240), random(0, 260), random(10, 16), true);\n  }\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.20386666666666667,
+      "uniqueColors": 130,
+      "structureScore": 0.5416000000000001,
+      "renderMs": 3302
+    },
+    "previewPng": "dataset/previews/botanical-cherry-blossom-03.png"
+  },
+  {
+    "id": "nocturne-rainy-alley-01",
+    "title": "Rainy Kyoto Alley with Glowing Lanterns",
+    "theme": "nocturne",
+    "prompt": "nocturne rainy alley in Kyoto with amber paper lanterns and wet asphalt reflections",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(314);\n  background(18, 22, 34);\n\n  // Indigo twilight wash\n  brush.noStroke();\n  brush.bleed(0.5, \"out\");\n  brush.fill(32, 42, 68, 140);\n  brush.rect(-300, -300, 600, 360);\n\n  // Silhouette buildings framing alley\n  brush.fill(12, 14, 22, 230);\n  brush.bleed(0.15, \"out\");\n  // Left roof & wall\n  brush.beginShape(0.1);\n  brush.vertex(-300, -300);\n  brush.vertex(-120, -180);\n  brush.vertex(-90, 80);\n  brush.vertex(-300, 140);\n  brush.endShape(CLOSE);\n  // Right roof & wall\n  brush.beginShape(0.1);\n  brush.vertex(110, -200);\n  brush.vertex(300, -290);\n  brush.vertex(300, 140);\n  brush.vertex(80, 80);\n  brush.endShape(CLOSE);\n\n  // Wet pavement ground wash\n  brush.bleed(0.4, \"out\");\n  brush.fill(24, 28, 40, 220);\n  brush.rect(-300, 80, 600, 220);\n\n  // Warm glowing paper lanterns\n  const lanterns = [\n    { x: -105, y: -40, r: 24, c: [255, 140, 25, 230], halo: [255, 160, 40, 70] },\n    { x: -75, y: 10, r: 18, c: [255, 120, 20, 230], halo: [255, 140, 30, 60] },\n    { x: 95, y: -20, r: 22, c: [255, 80, 60, 220], halo: [255, 100, 80, 65] },\n  ];\n\n  for (const l of lanterns) {\n    // Ambient light halo\n    brush.fill(...l.halo);\n    brush.bleed(0.6, \"out\");\n    brush.circle(l.x, l.y, l.r * 3.5, true);\n\n    // Solid lantern body\n    brush.fill(...l.c);\n    brush.bleed(0.2, \"out\");\n    brush.rect(l.x - l.r * 0.6, l.y - l.r, l.r * 1.2, l.r * 1.8);\n\n    // Wet puddle light reflection on ground\n    brush.fill(l.c[0], l.c[1], l.c[2], 90);\n    brush.bleed(0.5, \"out\");\n    brush.rect(l.x - l.r * 0.8, 120 + l.y * 0.4, l.r * 1.6, 90);\n  }\n\n  // Cyan shop sign glow\n  brush.fill(35, 210, 240, 60);\n  brush.bleed(0.5, \"out\");\n  brush.circle(130, -70, 70, true);\n  brush.fill(35, 210, 240, 190);\n  brush.rect(115, -85, 30, 30);\n  // Cyan puddle reflection\n  brush.fill(35, 210, 240, 70);\n  brush.rect(110, 140, 40, 70);\n\n  // Overhead wire lines\n  brush.set(\"rotring\", \"#1a1e28\", 1.1);\n  brush.noFill();\n  brush.line(-300, -110, 300, -80);\n  brush.line(-300, -90, 300, -50);\n\n  // Fine rain streaks\n  brush.set(\"pen\", \"rgba(180, 200, 230, 0.45)\", 0.8);\n  for (let r = 0; r < 35; r++) {\n    const rx = random(-280, 280);\n    const ry = random(-250, 220);\n    brush.line(rx, ry, rx - 8, ry + 26);\n  }\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.5644444444444444,
+      "uniqueColors": 367,
+      "structureScore": 0.8319222222222222,
+      "renderMs": 2896
+    },
+    "previewPng": "dataset/previews/nocturne-rainy-alley-01.png"
+  },
+  {
+    "id": "landscape-misty-mountains-01",
+    "title": "Misty Alpine Mountain Ridge at Sunrise",
+    "theme": "landscape",
+    "prompt": "atmospheric sumi-e watercolor of misty mountain ridges with sunrise glow and pine silhouettes",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(512);\n  background(250, 245, 236);\n\n  // Soft morning sun disc\n  brush.noStroke();\n  brush.fill(255, 145, 75, 160);\n  brush.bleed(0.4, \"out\");\n  brush.circle(110, -120, 95, true);\n\n  // Distant mountain ridge (pale indigo)\n  brush.fill(168, 178, 198, 110);\n  brush.bleed(0.3, \"out\");\n  brush.beginShape(0.2);\n  brush.vertex(-300, -50);\n  brush.vertex(-160, -140);\n  brush.vertex(-40, -90);\n  brush.vertex(140, -170);\n  brush.vertex(300, -70);\n  brush.vertex(300, 60);\n  brush.vertex(-300, 60);\n  brush.endShape(CLOSE);\n\n  // Mid-ground mountain ridge (slate blue-green)\n  brush.fill(102, 128, 142, 160);\n  brush.bleed(0.25, \"out\");\n  brush.beginShape(0.2);\n  brush.vertex(-300, 10);\n  brush.vertex(-190, -40);\n  brush.vertex(-60, 40);\n  brush.vertex(70, -30);\n  brush.vertex(220, 60);\n  brush.vertex(300, 20);\n  brush.vertex(300, 160);\n  brush.vertex(-300, 160);\n  brush.endShape(CLOSE);\n\n  // Foreground hill (deep evergreen charcoal)\n  brush.fill(38, 56, 52, 220);\n  brush.bleed(0.15, \"out\");\n  brush.beginShape(0.15);\n  brush.vertex(-300, 110);\n  brush.vertex(-110, 70);\n  brush.vertex(80, 130);\n  brush.vertex(300, 90);\n  brush.vertex(300, 300);\n  brush.vertex(-300, 300);\n  brush.endShape(CLOSE);\n\n  // Pine tree silhouettes\n  brush.set(\"2B\", \"#1b2b25\", 1.8);\n  const pineX = [-230, -180, -130, -80, 140, 190, 240];\n  for (const px of pineX) {\n    const py = 90 + random(-15, 20);\n    const th = random(45, 80);\n    // Trunk\n    brush.line(px, py, px, py - th);\n    // Branch tiers\n    for (let t = 0; t < 5; t++) {\n      const by = py - th + (t * th * 0.18);\n      const bw = (t + 1) * 6;\n      brush.line(px - bw, by + 4, px + bw, by + 4);\n    }\n  }\n\n  // Soft mist bands across valleys\n  brush.fill(250, 245, 236, 120);\n  brush.bleed(0.55, \"out\");\n  brush.rect(-300, -20, 600, 45);\n  brush.rect(-300, 60, 600, 40);\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.2979111111111111,
+      "uniqueColors": 64,
+      "structureScore": 0.8119111111111111,
+      "renderMs": 2818
+    },
+    "previewPng": "dataset/previews/landscape-misty-mountains-01.png"
+  },
+  {
+    "id": "celestial-aurora-borealis-01",
+    "title": "Emerald & Violet Aurora over Dark Tundra",
+    "theme": "celestial",
+    "prompt": "glowing emerald green and violet aurora borealis flowing across starry polar night sky",
+    "code": "function setup() {\n  createCanvas(600, 600, WEBGL);\n  brush.load();\n  noLoop();\n  brush.seed(999);\n  background(12, 15, 28);\n\n  // Deep night sky gradient washes\n  brush.noStroke();\n  brush.bleed(0.5, \"out\");\n  brush.fill(24, 28, 55, 150);\n  brush.rect(-300, -300, 600, 400);\n\n  // Flowing violet aurora ribbon\n  brush.fill(155, 58, 210, 95);\n  brush.bleed(0.55, \"out\");\n  brush.beginShape(0.6);\n  brush.vertex(-300, -180);\n  brush.vertex(-120, -240);\n  brush.vertex(60, -160);\n  brush.vertex(220, -220);\n  brush.vertex(300, -150);\n  brush.vertex(300, -90);\n  brush.vertex(140, -110);\n  brush.vertex(-60, -180);\n  brush.vertex(-300, -110);\n  brush.endShape(CLOSE);\n\n  // Luminous emerald green aurora ribbons\n  brush.fill(42, 235, 160, 120);\n  brush.bleed(0.6, \"out\");\n  brush.beginShape(0.7);\n  brush.vertex(-300, -130);\n  brush.vertex(-150, -190);\n  brush.vertex(20, -110);\n  brush.vertex(180, -180);\n  brush.vertex(300, -100);\n  brush.vertex(300, -40);\n  brush.vertex(120, -60);\n  brush.vertex(-80, -130);\n  brush.vertex(-300, -60);\n  brush.endShape(CLOSE);\n\n  // Vertical light curtain rays\n  brush.set(\"marker\", \"rgba(80, 255, 190, 0.25)\", 4.5);\n  for (let r = -240; r < 260; r += 22) {\n    const topY = -230 + sin(r * 0.02) * 40;\n    const botY = -50 + cos(r * 0.02) * 30;\n    brush.line(r, topY, r + random(-6, 6), botY);\n  }\n\n  // Polar snowy tundra silhouette\n  brush.fill(16, 20, 32, 240);\n  brush.bleed(0.15, \"out\");\n  brush.beginShape(0.1);\n  brush.vertex(-300, 110);\n  brush.vertex(-140, 95);\n  brush.vertex(50, 130);\n  brush.vertex(210, 105);\n  brush.vertex(300, 125);\n  brush.vertex(300, 300);\n  brush.vertex(-300, 300);\n  brush.endShape(CLOSE);\n\n  // Tiny distant pine trees\n  brush.set(\"2B\", \"#0d141e\", 1.2);\n  for (let x = -260; x < 280; x += 38) {\n    const py = 115 + random(-10, 15);\n    brush.line(x, py, x, py - random(14, 26));\n  }\n\n  // Delicate starry speckles\n  brush.set(\"pen\", \"rgba(255, 255, 255, 0.8)\", 1.0);\n  for (let s = 0; s < 30; s++) {\n    const sx = random(-280, 280);\n    const sy = random(-280, 60);\n    brush.circle(sx, sy, 1.5, true);\n  }\n}",
+    "verified": true,
+    "metrics": {
+      "inkCoverage": 0.6801444444444444,
+      "uniqueColors": 221,
+      "structureScore": 0.8979444444444444,
+      "renderMs": 3204
+    },
+    "previewPng": "dataset/previews/celestial-aurora-borealis-01.png"
+  }
+]
