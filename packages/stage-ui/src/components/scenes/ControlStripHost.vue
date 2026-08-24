@@ -182,7 +182,7 @@ watch([mouthOpenSize, nowSpeaking], ([mouth, speaking]) => {
 const cardStore = useAiriCardStore()
 const { activeCard } = storeToRefs(cardStore)
 const speechStore = useSpeechStore()
-const { ssmlEnabled, activeSpeechProvider, activeSpeechModel, activeSpeechVoice, pitch } = storeToRefs(speechStore)
+const { ssmlEnabled, activeSpeechProvider, activeSpeechModel, activeSpeechVoice, activeSpeechVoiceId, pitch } = storeToRefs(speechStore)
 const { activeProvider: activeChatProvider } = storeToRefs(consciousnessStore)
 const activeCardId = computed(() => activeCard.value?.name ?? 'default')
 const speechRuntimeStore = useSpeechRuntimeStore()
@@ -1042,21 +1042,42 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
     if (!transformedText.trim())
       return
 
-    const voice = activeSpeechVoice.value
-    const response = await fetch(endpoint.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: endpoint.model,
-        input: transformedText,
-        voice: voice?.id,
-        stream_format: 'sse',
-      }),
-      signal,
-    })
+    let targetVoiceId = activeSpeechVoice.value?.id
+    if (request.actorId) {
+      const resolved = artistryAutonomousStore.resolveSpeechConfigForActor(request.actorId)
+      if (resolved?.voiceId) {
+        targetVoiceId = resolved.voiceId
+      }
+    }
+    if (!targetVoiceId) {
+      const providerConfig = providersStore.getProviderConfig(activeSpeechProvider.value) as Record<string, any>
+      targetVoiceId = (providerConfig?.voice as string) || (activeSpeechVoiceId.value as string) || 'alloy'
+    }
+
+    let response: Response
+    try {
+      response = await fetch(endpoint.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          model: endpoint.model,
+          input: transformedText,
+          voice: targetVoiceId,
+          stream_format: 'sse',
+        }),
+        signal,
+      })
+    }
+    catch (fetchErr) {
+      debug('[Stage:TTS] Streaming fetch failed, falling back to buffered:', fetchErr)
+      const audio = await generateSpeechBuffered(request, signal)
+      if (audio)
+        onAudio(audio)
+      return
+    }
 
     if (!response.ok || !response.body) {
       // Fall back rather than losing the utterance entirely.
@@ -1066,10 +1087,30 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
       return
     }
 
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('text/event-stream')) {
+      // Server returned standard binary audio (e.g. audio/wav, audio/mpeg, audio/mp3)
+      try {
+        const arrayBuf = await response.arrayBuffer()
+        if (signal.aborted || arrayBuf.byteLength === 0)
+          return
+        rawAudioBuffers.set(request.segmentId, arrayBuf.slice(0))
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuf)
+        if (!signal.aborted && audioBuffer) {
+          onAudio(audioBuffer)
+        }
+      }
+      catch (err) {
+        debug('[Stage:TTS] Failed to decode binary audio response', err)
+      }
+      return
+    }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffered = ''
     let pieceIdx = 0
+    let hasSseError = false
 
     while (true) {
       const { value, done } = await reader.read()
@@ -1097,6 +1138,12 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
           continue
         }
 
+        if (event.type === 'error') {
+          debug('[Stage:TTS] SSE returned error event:', event.error)
+          hasSseError = true
+          continue
+        }
+
         if (event.type !== 'speech.audio.delta' || !event.audio)
           continue
 
@@ -1120,6 +1167,15 @@ const speechPipeline = createSpeechPipeline<AudioBuffer>({
         catch (err) {
           debug('[Stage:TTS] Failed to decode streamed chunk', err)
         }
+      }
+    }
+
+    // If the SSE stream failed with error or delivered 0 audio pieces, fall back to buffered generation
+    if ((hasSseError || pieceIdx === 0) && !signal.aborted) {
+      debug('[Stage:TTS] SSE delivered 0 audio chunks, falling back to buffered generation')
+      const audio = await generateSpeechBuffered(request, signal)
+      if (audio && !signal.aborted) {
+        onAudio(audio)
       }
     }
   },
