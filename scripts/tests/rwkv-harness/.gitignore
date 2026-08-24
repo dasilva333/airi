@@ -9,3 +9,5 @@ webroot/vendor/**/*.wasm
 webroot/vendor/web-rwkv-wasm/web_rwkv_wasm.js
 webroot/vendor/p5/**
 webroot/rwkv_vocab_v20230424.json
+.venv/
+*.state
