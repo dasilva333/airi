@@ -33,14 +33,21 @@ function handleHideStage() {
 const configOverlayOpen = ref(false)
 const showBackgroundLayer = ref(true)
 const showModelLayer = ref(true)
+const monitorCount = ref(1)
+const activeMonitor = ref(1)
 
 function handleApplyPreset(preset: string) {
   const mapped = preset === 'med.' ? 'medium' : preset
   applySizePreset({ target: 'actor', preset: mapped })
 }
 
-function handleApplyAlignment(alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') {
-  applySizePreset({ target: 'actor', alignment })
+function handleApplyAlignment(alignment: string) {
+  applySizePreset({ target: 'actor', alignment: alignment as any })
+}
+
+function handleSelectMonitor(m: number) {
+  activeMonitor.value = m
+  applySizePreset({ target: 'actor', monitorIndex: m })
 }
 
 function handleOverlayHide() {
@@ -519,6 +526,16 @@ onBeforeUnmount(() => {
           :y-offset="yOffset"
           :scale="scale"
           :mouth-open-size="mouthOpenSize"
+          :show-background="showBackgroundLayer"
+          :show-model="showModelLayer"
+          :monitor-count="monitorCount"
+          :active-monitor="activeMonitor"
+          @update:show-background="(val) => showBackgroundLayer = val"
+          @update:show-model="(val) => showModelLayer = val"
+          @apply-preset="handleApplyPreset"
+          @apply-alignment="handleApplyAlignment"
+          @hide-stage="handleHideStage"
+          @select-monitor="handleSelectMonitor"
           @scale-change="handleScaleChange"
           @offset-change="handleOffsetChange"
         />

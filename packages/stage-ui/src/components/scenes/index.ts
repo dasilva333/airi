@@ -1,4 +1,5 @@
 export { default as WidgetStage } from './ControlStripHost.vue'
+export { default as HeadTetheredRadialMenu } from './HeadTetheredRadialMenu.vue'
 export { default as RendererStage } from './RendererStage.vue'
 export {
   Live2DCanvas,

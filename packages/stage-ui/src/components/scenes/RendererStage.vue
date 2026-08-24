@@ -11,6 +11,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'v
 import DatingSimOverlay from './DatingSimOverlay.vue'
 import HeadTetheredCanvas2D from './HeadTetheredCanvas2D.vue'
 import HeadTetheredCaption from './HeadTetheredCaption.vue'
+import HeadTetheredRadialMenu from './HeadTetheredRadialMenu.vue'
 
 import { useIdleAnimations } from '../../composables'
 import { useBackgroundStore } from '../../stores/background'
@@ -30,12 +31,22 @@ const props = withDefaults(defineProps<{
   isWindowResizing?: boolean
   vrmActiveAnimation?: string
   vrmEffectiveIdleCycleEnabled?: boolean
+  showBackground?: boolean
+  showModel?: boolean
+  monitorCount?: number
+  activeMonitor?: number
+  radialMenuEnabled?: boolean
 }>(), {
   paused: false,
   scale: 1,
   mouthOpenSize: 0,
   isWindowResizing: false,
   vrmEffectiveIdleCycleEnabled: false,
+  showBackground: true,
+  showModel: true,
+  monitorCount: 1,
+  activeMonitor: 1,
+  radialMenuEnabled: true,
 })
 
 const emits = defineEmits<{
@@ -44,6 +55,12 @@ const emits = defineEmits<{
   (e: 'offsetChange', value: { x: number, y: number }): void
   (e: 'animationFinished'): void
   (e: 'animationPlayStatus', status: { duration: number, url: string }): void
+  (e: 'applyPreset', preset: 'mini' | 'medium' | 'large' | 'full'): void
+  (e: 'applyAlignment', alignment: string): void
+  (e: 'hideStage'): void
+  (e: 'selectMonitor', monitorId: number): void
+  (e: 'update:showBackground', val: boolean): void
+  (e: 'update:showModel', val: boolean): void
 }>()
 
 debug('[RendererStage.vue] Setup loaded with stage capture listener')
@@ -377,6 +394,24 @@ onUnmounted(() => {
   }
 })
 
+const radialMenuOpen = ref(false)
+let pointerDownPos = { x: 0, y: 0 }
+
+function onStagePointerDown(e: PointerEvent) {
+  pointerDownPos = { x: e.clientX, y: e.clientY }
+}
+
+function onStageContextMenu(e: MouseEvent) {
+  if (!props.radialMenuEnabled)
+    return
+  const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y)
+  if (dist > 8)
+    return
+  e.preventDefault()
+  e.stopPropagation()
+  radialMenuOpen.value = !radialMenuOpen.value
+}
+
 defineExpose({
   canvasElement,
   captureFrame,
@@ -385,11 +420,16 @@ defineExpose({
   live2dSceneRef,
   spineViewerRef,
   mmdViewerRef,
+  radialMenuOpen,
 })
 </script>
 
 <template>
-  <div class="relative h-full w-full">
+  <div
+    class="relative h-full w-full"
+    @pointerdown="onStagePointerDown"
+    @contextmenu="onStageContextMenu"
+  >
     <Live2DScene
       v-if="stageModelRenderer === 'live2d'"
       ref="live2dSceneRef"
@@ -511,5 +551,23 @@ defineExpose({
       :scene-ref="stageModelRenderer === 'vrm' ? vrmViewerRef : stageModelRenderer === 'mmd' ? mmdViewerRef : spineViewerRef"
     />
     <DatingSimOverlay />
+    <!-- Head-Tethered Radial Menu — 5 base stage controls floating above avatar across all 4 model types -->
+    <HeadTetheredRadialMenu
+      v-if="radialMenuEnabled"
+      v-model:open="radialMenuOpen"
+      :scene-ref="stageModelRenderer === 'vrm' ? vrmViewerRef : stageModelRenderer === 'mmd' ? mmdViewerRef : spineViewerRef"
+      :live2d-scene-ref="live2dSceneRef"
+      :stage-model-renderer="stageModelRenderer"
+      :show-background="showBackground"
+      :show-model="showModel"
+      :monitor-count="monitorCount"
+      :active-monitor="activeMonitor"
+      @update:show-background="(val) => emits('update:showBackground', val)"
+      @update:show-model="(val) => emits('update:showModel', val)"
+      @apply-preset="(preset) => emits('applyPreset', preset)"
+      @apply-alignment="(alignment) => emits('applyAlignment', alignment)"
+      @hide-stage="() => emits('hideStage')"
+      @select-monitor="(id) => emits('selectMonitor', id)"
+    />
   </div>
 </template>
