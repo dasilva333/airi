@@ -1,219 +1,203 @@
-# Architectural Proposal: Generative Code-Painting Background Engine (WebLLM & RWKV-7 State Tuning)
+# Architectural Specification: Generative Code-Painting Dual-Engine (Procedural LLM & RWKV-7 State Tuning)
 
-**Status:** Proposed R&D Specification & Phase 7 Cleanroom Roadmap
+**Status:** Approved Architectural Specification & Cleanroom Verification Complete
 **Target Subsystems:**
-- `scripts/tests/rwkv-harness/` (Cleanroom CLI Test Harness)
-- `packages/stage-ui/src/workers/web-rwkv/` (WebGPU RWKV-7 Worker)
-- `packages/stage-ui/src/workers/webllm/` (WebLLM WebGPU Worker)
-- `packages/stage-ui/src/stores/background.ts` & `packages/stage-ui/src/components/scenes/RendererStage.vue` (Stage Canvas Layer)
-- `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` (Autonomous Artistry Director Pipeline)
+- `packages/stage-pages/src/pages/settings/modules/artistry.vue` (Artistry Module Switchboard)
+- `packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue` (Dual-Engine Configuration & Studio)
+- `packages/stage-ui/src/stores/modules/artistry.ts` & `artistry-autonomous.ts` (Artistry & Director Routing)
+- `packages/stage-ui/src/components/scenarios/chat/BrainModelPicker.vue` (LLM Consciousness Model Binding)
+- `packages/stage-ui/src/workers/web-rwkv/` (WebGPU RWKV-7 Worker & S0 State Ingestion)
+- `scripts/tests/rwkv-harness/` (Cleanroom Execution & Dataset Lineage)
 
 **Authoritative References & Prior Work:**
 - **Inspiration & Methodology:** Surya Narreddi & Cameron Franz, [*"Training AI to Paint with Code"*](https://surya.website/rling-qwen-to-paint-with-code) (August 2026) — Reinforcement learning (GRPO) on Qwen models to generate painterly watercolor artwork via `p5.brush` JavaScript scripts.
-- [`docs/project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md) — The Standalone RWKV Cleanroom Test Harness & Experiment Matrix.
-- [`docs/proposal-built-in-llm-webgpu.md`](./proposal-built-in-llm-webgpu.md) — WebGPU RWKV architecture & OPFS model caching.
-- [`docs/proposal-echo-chips-rwkv-synthesis.md`](./proposal-echo-chips-rwkv-synthesis.md) — RWKV offline synthesis & empirical schema adherence limits.
-- [`docs/arch-comfyui-native-api-engine.md`](./arch-comfyui-native-api-engine.md) — Legacy diffusion backend architecture.
+- [`docs/project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md) — Cleanroom Test Harness, Scaffold-Prefill Breakthrough, and Phase 7–10 Verification.
+- [`docs/design-text-to-motion.md`](./design-text-to-motion.md) — Parallel Dual-Engine Pattern (Procedural LLM vs. Dedicated Neural Engine).
+- [`.agents/skills/airi-artistry-comfyui-widgets/`](../.agents/skills/airi-artistry-comfyui-widgets/SKILL.md) — Artistry store, widget routing, and headless generation contracts.
+- [`.agents/skills/airi-generative-motion-vrma/`](../.agents/skills/airi-generative-motion-vrma/SKILL.md) — Dual-engine module reference implementation.
 
 ---
 
 ## 1. Executive Summary & Problem Context
 
-AIRI currently relies on heavy local or cloud Diffusion models (Stable Diffusion XL, Flux.1, ComfyUI via MCP/API) for scene backgrounds and Autonomous Artistry (AA). While diffusion models generate high-fidelity raster pixels, they present severe constraints for a lightweight desktop companion:
+AIRI historically relied exclusively on heavy raster Diffusion models (ComfyUI via WSL/CUDA, Replicate, NanoBanana) for background generation and Autonomous Artistry (AA). While diffusion generates detailed static pixels, it creates severe barriers for desktop and mobile companions:
 
-1. **Massive VRAM Overhead**: Running local diffusion requires 8GB–16GB of dedicated VRAM, making it impossible to run concurrently with Live2D/VRM 3D rendering on mid-range laptops or integrated GPUs (Apple Silicon unified memory, Intel Arc).
-2. **Static & Lifeless Assets**: Diffusion models emit static PNG/WebP grids. They cannot animate, react to day/night cycles, pulse with ambient music, or shift in response to the avatar's `MoodState`.
-3. **Heavy Storage & Latency**: Each generated scene background consumes 5MB–25MB of disk storage in IndexedDB/`localforage` and takes 10–40 seconds to generate.
+1. **Massive VRAM Overhead**: Local diffusion requires 8GB–16GB of dedicated VRAM, competing directly with Live2D/VRM 3D avatar rendering.
+2. **Static & Lifeless Assets**: Raster PNGs cannot react in real time to day/night lighting, music tempo, or the character's dynamic `MoodState`.
+3. **Cloud/API Dependency**: Cloud diffusion incurs recurring API token costs and requires active internet access.
 
-### The Breakthrough: Generative Code-Painting via Policy-Optimized Models
+### The Solution: Dual-Engine Generative Code-Painting
 
-Surya Narreddi and Cameron Franz demonstrated that by using **Group Relative Policy Optimization (GRPO)** with a vision reward model (pairwise VLM judge + HPSv3 aesthetic score), an LLM can be trained to write expressive, organic `p5.brush` JavaScript sketches. The resulting outputs are not rigid, geometric "programmer clipart," but rich, multi-layered watercolor paintings with genuine artistic composition.
+Generative Code-Painting turns prompts into lightweight, executable **`p5.brush` JavaScript sketches** that render directly in WebGL as organic, multi-layered watercolor paintings.
+
+To ensure **zero-friction universality across all devices**, AIRI adopts the **Symmetric Dual-Engine Architecture** pioneered by the Text-to-Motion subsystem:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               Pipeline Comparison                                      │
+│                        Generative Code-Painting Dual Engines                           │
 ├──────────────────────────────────────┬─────────────────────────────────────────────────┤
-│ 🖼️ Traditional Diffusion (ComfyUI)   │ 🎨 Generative Code-Painting (WebLLM / RWKV)      │
+│ 🧠 Engine A: Procedural LLM          │ ⚡ Engine B: RWKV-7 WebGPU (S0 Cartridge)        │
+│    (General Consciousness)           │    (Dedicated On-Device Neural Model)           │
 ├──────────────────────────────────────┼─────────────────────────────────────────────────┤
-│ • 8GB–16GB VRAM required             │ • 0 extra VRAM beyond lightweight local model   │
-│ • Static, non-interactive raster PNG │ • Live HTML5 / WebGL interactive 60 FPS canvas  │
-│ • 10MB–20MB storage per image        │ • 2KB JavaScript snippet stored as text         │
-│ • Heavy PyTorch / Python environment │ • 100% in-browser WebGPU & WebAssembly execution│
-│ • Opaque pixels, un-editable         │ • Human-readable, parameter-editable code      │
+│ • Zero local GPU memory overhead     │ • 100% free, runs completely offline on WebGPU  │
+│ • Runs on any device (phone/web/mac) │ • Zero cloud dependency or API keys required    │
+│ • Bound via <BrainModelPicker />     │ • O(1) constant-speed recurrent inference       │
+│ • Uses Claude, GPT-4o, DeepSeek,     │ • Pre-conditioned S0 stylistic state cartridge  │
+│   or local Ollama                    │   (p5-watercolor-1.5b.state, 12.19 MB)          │
 └──────────────────────────────────────┴─────────────────────────────────────────────────┘
 ```
 
-This proposal defines the integration of Generative Code-Painting into AIRI using two local inference backends: **WebLLM (Qwen-2.5-Coder / Distilled Coder)** and **RWKV-7 with State-Tuning ($S_0$)**, extending the **RWKV Cleanroom Test Harness** (`scripts/tests/rwkv-harness/`) with **Phase 7**.
+Both engines compile to the **exact same downstream WebGL canvas pipeline**, meaning character cards, the `image_journal` tool, and the Autonomous Artistry Director treat both engines interchangeably.
 
 ---
 
-## 2. Theoretical Foundations: Why Reinforcement Learning Is Required
+## 2. Settings & UI Surface Design
 
-When a stock LLM is asked to *"draw a flower in p5.js"*, it fails to produce art because next-token prediction over internet text only teaches syntactic correctness, not visual aesthetics.
+### 2.1 Settings > Modules > Artistry (Subsystem Switchboard)
+
+Located in `packages/stage-pages/src/pages/settings/modules/artistry.vue`. The user selects the active image-generation backend:
+- `None` (Disabled)
+- `ComfyUI (Local Diffusion)`
+- `Replicate.ai (Cloud Diffusion)`
+- `NanoBanana (Cloud Diffusion)`
+- **`Code Painter (Generative Canvas Art)`** `[NEW]` $\rightarrow$ Links to `/settings/providers/artistry/code-painter`
+
+---
+
+### 2.2 Settings > Providers > Artistry > Code Painter (Dual-Engine Studio)
+
+Located in `packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue`.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  🎨 Generative Code Painter Settings                                                   │
+│  Configure how AIRI paints on-device watercolor and canvas artwork from text prompts.  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                        │
+│  Active Engine Mode:                                                                   │
+│  ┌────────────────────────────────────────┐ ┌────────────────────────────────────────┐ │
+│  │ 🧠 Procedural LLM Acting (Default)    │ │ ⚡ RWKV-7 WebGPU (On-Device Neural)   │ │
+│  │ [Lightweight]                         │ │ [WebGPU 0-Cost]                        │ │
+│  │                                        │ │                                        │ │
+│  │ Uses your configured chat LLM to      │ │ Dedicated local RNN with pre-baked S0  │ │
+│  │ synthesize p5.brush watercolor code.  │ │ watercolor stylistic state cartridges. │ │
+│  │ Zero GPU memory overhead.             │ │ 100% offline & free on local GPU.      │ │
+│  └────────────────────────────────────────┘ └────────────────────────────────────────┘ │
+│                                                                                        │
+│  ── [ IF PROCEDURAL SELECTED ] ──────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🧠 Consciousness Model Binding                                                   │  │
+│  │ Select which LLM provider and model will generate creative canvas code.          │  │
+│  │                                                                                  │  │
+│  │ [ <BrainModelPicker v-model:provider="..." v-model:model="..." /> ]              │  │
+│  │ [✓] Inherit from active character consciousness by default                       │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                        │
+│  ── [ IF RWKV-7 WEBGPU SELECTED ] ───────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ ⚡ RWKV-7 WebGPU Runtime & Cartridge Configuration                               │  │
+│  │                                                                                  │  │
+│  │ • Base Model: [ RWKV-7 1.5B (ctx 8192, 2.8 GB) ▼ ]                               │  │
+│  │ • Style Cartridge Pack: [ p5-watercolor-1.5b.state (12.2 MB) ▼ ]                │  │
+│  │ • WebGPU Status: [ ✓ Apple M-Series Metal GPU Accelerated (18.9 tok/s) ]         │  │
+│  │ • Token Budget: [ ───────●────── 800 tokens ]                                    │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                        │
+│  ── Interactive Art Studio Playground ───────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Prompt: [ "blooming peach rose with translucent blush petals"                 ]  │  │
+│  │ [ 🎨 Paint on Canvas ]                                                           │  │
+│  │                                                                                  │  │
+│  │ ┌───────────────────────────────────┐  Generation Telemetry:                     │  │
+│  │ │                                   │  • Latency: 25.9s (477 tokens @ 18.4 t/s)  │  │
+│  │ │       [ Live WebGL Canvas ]       │  • Ink Coverage: 51.3%                     │  │
+│  │ │     (p5.brush Watercolor Render)  │  • Unique Colors: 77                       │  │
+│  │ │                                   │  • Structure Score: 0.604                  │  │
+│  │ └───────────────────────────────────┘                                            │  │
+│  │ [ 💾 Save as Background ] [ 🖼️ Add to Journal ] [ ⬇️ Export PNG ]                 │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. End-to-End Execution Pipeline
 
 ```mermaid
 graph TD
-    subgraph Pretrained Baseline
-        PromptA["Prompt: 'peach hibiscus'"] --> BaseLLM["Stock LLM (Frozen Weights)"]
-        BaseLLM --> CodeA["p5.js Script"]
-        CodeA --> RenderA["Browser Render"]
-        RenderA --> ResultA["Rigid Polygons & Hatch Lines (Step 11 Clipart)"]
+    UserPrompt["User / Director Prompt"] --> EngineRouter{"useArtistryStore.codePainterMode"}
+
+    subgraph Engine A: Procedural
+        EngineRouter -->|procedural| BrainPicker["BrainModelPicker (Claude / GPT-4o / Ollama)"]
+        BrainPicker --> LLMCall["llmStore.generateText() + System Prompt"]
     end
 
-    subgraph GRPO Policy Optimization Loop
-        PromptB["Prompt: 'peach hibiscus'"] --> Model["Policy Model (Qwen / RWKV-7)"]
-        Model --> CodeB["p5.brush JavaScript"]
-        CodeB --> SandboxedRender["Headless Puppeteer Execution"]
-        SandboxedRender --> RasterPNG["Rendered Canvas PNG"]
-        RasterPNG --> VLMJudge["Pairwise VLM Judge + HPSv3 Reward"]
-        VLMJudge --> Reward["Reward Scalar (Aesthetics, Bleed, Composition)"]
-        Reward --> GRPO["GRPO Gradient Step (Updates Model Weights / S0 State)"]
-        GRPO -.-> Model
-        SandboxedRender -.-> ResultB["Organic Multi-layered Watercolor (Step 625)"]
+    subgraph Engine B: RWKV-7 WebGPU
+        EngineRouter -->|rwkv| WebGpuSession["Web-RWKV WebGPU Session"]
+        WebGpuSession --> S0Mount["Mount S0 Cartridge (p5-watercolor-1.5b.state)"]
+        S0Mount --> RWKVStream["Recurrent Generation (Scaffold Prefill)"]
     end
-```
 
-### The 4-Step GRPO Training Harness (Surya & Cameron Lineage)
+    LLMCall --> RawCode["Raw JavaScript String"]
+    RWKVStream --> RawCode
 
-1. **Generation**: The model generates a complete `p5.brush` JavaScript script within a constrained token budget (<2,000 tokens).
-2. **Headless Execution**: A sandboxed headless browser (Puppeteer) evaluates the script and captures a 600×600 PNG render.
-3. **Multimodal Reward Evaluation**:
-   - **Syntax & Execution Filter**: Strict binary reward (0 if syntax error or runtime crash).
-   - **HPSv3 Score**: Human Preference Score baseline for visual structure.
-   - **Pairwise Reference Comparison**: The generated image is compared against reference paintings from a curated dataset by a vision model (e.g. Gemini 1.5 Flash / Qwen-VL) to rank artistic nuance, watercolor bleed, and color depth.
-4. **Policy Step**: GRPO computes the advantage across a group of sampled rollouts and updates the model parameters.
-
----
-
-## 3. Backend Architecture: WebLLM vs. RWKV-7 State Tuning
-
-AIRI can support two distinct deployment candidates for generating canvas art:
-
-### Candidate A: WebLLM (Qwen-2.5-Coder-3B / 7B)
-- **Engine**: Apache TVM / WebLLM running on WebGPU.
-- **Mechanism**: Standard autoregressive Transformer execution of a fine-tuned GGUF/MLC model shard.
-- **Strengths**: Extremely strong baseline code comprehension; easily fine-tuned using standard LoRA/GRPO pipelines.
-- **Trade-off**: Requires $O(N)$ KV-cache allocation during generation.
-
-### Candidate B: RWKV-7 with Hot-Swappable State Cartridges ($S_0$)
-- **Engine**: `@cryscan/web-rwkv-wasm` WebGPU execution.
-- **Mechanism**: Recurrent Linear Attention with State Tuning. The model weights remain frozen, and an initial hidden state tensor $S_0$ ($10\text{MB}–30\text{MB}$) is pre-conditioned for specific artistic styles.
-- **Strengths**:
-  1. **$O(1)$ Constant Memory**: Zero KV cache growth during generation.
-  2. **Instant Style Swapping**: Swapping from `watercolor.state` to `cyberpunk_glsl.state` requires loading a 15MB tensor into the recurrent state at $t=0$, taking **0ms model reload time**.
-  3. **Zero-Token Prefix Overhead**: No need to inject 1,500 tokens of `p5.brush` API reference in the system prompt; the API priors are baked into the initial hidden activations.
-
----
-
-## 4. Cleanroom Experiment Plan: Introducing Phase 7 to RWKV Harness
-
-In the RWKV Cleanroom Harness (`scripts/tests/rwkv-harness/`), previous research established the empirical boundaries of the tiny **0.1B (100M)** RWKV model:
-
-> **Prior Cleanroom Findings (Phases 3 & 4b):**
-> - **Phase 3 (Echo Chips Synthesis)**: The 0.1B model **failed** structured JSON extraction (0/14 ground truth matches) due to insufficient parameter capacity.
-> - **Phase 4b (Salience Sensor)**: The 0.1B model **succeeded** as a zero-cost conversational intensity and topic-shift detector via recurrent hidden state vector deltas ($\Delta h$, $F_1 = 0.57$).
->
-> **Conclusion**: Using the 100M parameter model for generative artistic code synthesis is a non-starter. Generative creative coding requires moving to **RWKV-7 1.5B / 2.9B** weights.
->
-> **Checkpoint reality (2026-08-24)**: The "1.6B" referenced throughout this proposal does not exist. [`DanielClough/rwkv7-g1-safetensors`](https://huggingface.co/DanielClough/rwkv7-g1-safetensors) ships `g1d-{0.1b,0.4b,1.5b,2.9b,7.2b,13.3b}` (ctx8192). Phase 7 uses **`rwkv7-g1d-1.5b`** by default with `g1d-2.9b` opt-in. Additionally, no `.state`/StateFFT assets exist for `g1d` on HF and web-rwkv has no state-file mount path, so Phase 7's Baseline B implements $S_0$ as a **corpus-conditioned state built in-browser** (`session.load()`/`session.back()` snapshot of an ingested `p5.brush` style corpus) rather than a pre-trained `p5-watercolor.state` file. See the Phase 7 Decision Log in [`project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md).
-
-### Phase 7 Specification: `07-creative-code-canvas.ts`
-
-**Location**: `scripts/tests/rwkv-harness/experiments/07-creative-code-canvas.ts`
-
-```mermaid
-graph TD
-    subgraph Phase 7 Architecture
-        Model16B["RWKV-7 1.5B / 2.9B Weights"] --> StateMount["Load S0 State (corpus-conditioned)"]
-        StateMount --> WASMSession["WebGPU Session.from_reader()"]
-        Prompt["Prompt: 'rainy tokyo alley at dusk'"] --> WASMSession
-        WASMSession --> StreamTok["Stream Tokens (O(1) Memory)"]
-        StreamTok --> CodeExtractor["Extract p5.brush Script"]
-        CodeExtractor --> PuppeteerHeadless["Puppeteer Headless Runner"]
-        PuppeteerHeadless --> OutputCanvas["600x600 PNG Render"]
-        OutputCanvas --> MetricBench["Benchmark Metrics: Execution %, Token Len, Aesthetic Cosine"]
+    subgraph Shared Canvas Runtime
+        RawCode --> Balancer["Syntax Auto-Balancer (repairTruncatedProgram)"]
+        Balancer --> CodeCleanup["#hex string quote repair + paren/brace balancer"]
+        CodeCleanup --> WebGLCanvas["Headless / In-Scene CanvasRenderer (p5.brush)"]
+        WebGLCanvas --> RenderedPNG["600x600 High-Res RGBA PNG"]
     end
-```
 
-#### Experiment Objectives:
-1. **Model Capacity Threshold**: Validate that the **1.5B RWKV-7 (`g1d-1.5b`)** model possesses sufficient syntax depth and spatial reasoning to emit executable `p5.brush` / HTML5 Canvas blocks.
-2. **State Tuning Isolation**: Measure code generation quality with:
-   - **Baseline A**: Raw 1.5B base weights + Few-shot text prompt.
-   - **Baseline B**: 1.5B base weights + in-browser corpus-conditioned $S_0$ state (p5.brush style corpus ingested via `session.load()`/`session.back()`).
-3. **Headless Cleanroom Validation**:
-   - **Smoke track (implemented first, 2026-08-24)**: single scene prompt → extract script → headless render → one 600×600 PNG for human review. Stop as soon as a credible image exists.
-   - Deferred 50-prompt automated compile-rate sweep (Puppeteer) until base output is reviewed.
-   - Measure token efficiency: Ensure generated scripts stay under 2,500 tokens without infinite prose looping.
-   - Verify non-blocking execution inside the Web Worker.
+    RenderedPNG --> TargetRoute{"Destination"}
+    TargetRoute -->|image_journal| ImageJournal["Image Journal Storage (localforage)"]
+    TargetRoute -->|background| StageBG["RendererStage Background Layer"]
+    TargetRoute -->|widget| StageWidget["Floating Artistry Widget"]
+```
 
 ---
 
-## 5. AIRI Runtime Integration Architecture
+## 4. Shared Canvas Runtime Contracts
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          AIRI Renderer Process                              │
-│                                                                             │
-│  ┌──────────────────────┐      Scene Prompt       ┌──────────────────────┐  │
-│  │ Autonomous Artistry  │ ──────────────────────► │ Local Inference      │  │
-│  │ Director LLM         │                         │ Worker (RWKV/WebLLM) │  │
-│  └──────────────────────┘                         └──────────┬───────────┘  │
-│                                                              │              │
-│                                                      p5.js Script (2KB)     │
-│                                                              │              │
-│                                                              ▼              │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │ RendererStage.vue (Stage Background Canvas Layer)                     │  │
-│  │ ┌──────────────────────────────────────────────────────────────────┐  │  │
-│  │ │ <canvas id="airi-generative-bg" />                               │  │  │
-│  │ │ • Sandboxed execution of p5.brush / WebGL shader                 │  │  │
-│  │ │ • Live uniform bindings: timeOfDay, audioVolume, characterMood   │  │  │
-│  │ └──────────────────────────────────────────────────────────────────┘  │  │
-│  │                                                                       │  │
-│  │ ┌──────────────────────────────────────────────────────────────────┐  │  │
-│  │ │ Live2D / VRM Avatar Layer (Foreground)                           │  │  │
-│  │ └──────────────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+### 4.1 Scaffold-Prefill Protocol
+To prevent models from hallucinating `createCanvas` dimensions or getting trapped in configuration boilerplate loops, both engines use the canonical **Scaffold Prefill**:
+
+```javascript
+function setup() {
+  createCanvas(600, 600, WEBGL);
+  brush.load();
+  noLoop();
+  brush.seed(42);
+  background(250, 246, 238);
+  // Model begins emitting painting operations immediately at (0,0) center
 ```
 
-### 1. Storage Contract in `background.ts`
-Instead of saving large binary image blobs in `localforage` under `bg-{nanoid}`, generative canvas backgrounds are stored as lightweight code records:
-
-```typescript
-export interface GenerativeCodeBackgroundEntry {
-  id: string
-  type: 'generative_code'
-  name: string
-  engine: 'p5.brush' | 'threejs_shader' | 'canvas2d'
-  code: string // Complete executable script (~2KB)
-  parameters?: Record<string, any>
-  createdAt: number
-}
-```
-
-### 2. Live Interactive Uniforms
-Because the background is rendered in real-time JavaScript, it can receive continuous eventa/Pinia reactive bindings:
-- `timeOfDay`: Shifts palette from dawn pastels to twilight watercolors.
-- `characterMood`: Subtle dynamic shifts (e.g. slight rain splatters when character intimacy is melancholy).
-- `audioVolume`: Responsive canvas brush pulses during speech.
+### 4.2 Syntax Auto-Balancer (`repairTruncatedProgram`)
+Token-budget truncation and raw token slips are automatically healed before canvas execution:
+1. **Unquoted Hex Color Repair**: Converts unquoted `#hex` identifiers (e.g. `brush.set("HB", #f4e8a1)`) into valid JavaScript string literals `brush.set("HB", "#f4e8a1")`.
+2. **Method Alias Normalization**: Maps hallucinated method aliases (e.g. `brush.blend(...)` $\rightarrow$ `brush.bleed(...)`).
+3. **Paren & Brace Auto-Balancing**: Strips incomplete trailing function calls at the last clean statement boundary and balances closing parens `)` and braces `}` before closing `setup()`.
 
 ---
 
-## 6. Implementation Roadmap
+## 5. Verified Cleanroom Milestones (Empirical Results)
 
-| Milestone | Target Component | Deliverable |
+All core mechanisms have been verified in the cleanroom harness (`scripts/tests/rwkv-harness/`):
+
+| Phase | Milestone | Outcome & Metric |
 | :--- | :--- | :--- |
-| **M1: Cleanroom Phase 7** | `scripts/tests/rwkv-harness/experiments/07-creative-code-canvas.ts` | Test harness script for `g1d-1.5b` code generation + Puppeteer render validation (single-image smoke first; 50-prompt sweep deferred). |
-| **M2: Synthetic Dataset & State Tuning** | External Training Script | 3,000 verified `p5.brush` sketches dataset; train $S_0$ state `p5-watercolor-1.5b` (Phase 7 approximates this with an in-browser corpus-conditioned state). |
-| **M3: Stage Canvas Component** | `packages/stage-ui/src/components/scenes/CanvasCodeBackground.vue` | Hardware-accelerated canvas background component with sandboxed JS execution. |
-| **M4: Autonomous Artistry Wiring** | `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` | Wire Director LLM to trigger the local code painter when scene switches occur. |
+| **Phase 7** | Headless Brave WebGL Canvas Bridge | 600×600 WebGL canvas execution with modal-histogram background detection. |
+| **Phase 7b** | Scaffold Prefill Discovery | Prefilling setup boilerplate eliminated 100% of base model configuration loops. |
+| **Phase 8** | Verified Synthetic Watercolor Corpus | Built 100% non-blank multi-theme training dataset (`p5-watercolor-corpus.jsonl`). |
+| **Phase 9** | PyTorch MPS State-Tuner | Exported **12.19 MB `p5-watercolor-1.5b.state`** cartridge optimized on Apple Silicon Metal GPU. |
+| **Phase 10** | 20-Scene Nature, Florals & Skies Sweep | **45% non-blank hit rate**; **19–30s generation latency**; up to **83.1% ink coverage** (*Turquoise Ocean Waves*) and **60.2% ink with 210 colors** (*Winter Ramen Shop*). |
 
 ---
 
-## Relevant Skills
+## 6. Implementation Checklist
 
-- [[airi-local-inference-engines]]
-- [[airi-scenes-backgrounds]]
-- [[airi-artistry-comfyui-widgets]]
-- [[airi-memory-image-journal]]
+- [x] **Cleanroom Harness & Engine Validation** (`scripts/tests/rwkv-harness/`)
+- [x] **PyTorch State-Tuner ($S_0$) Pipeline & Export** (`trainer/train_state_s0.py`)
+- [x] **Syntax Auto-Balancer & Truncation Healer** (`engine/sketch-extract.ts`)
+- [ ] **Store Integration**: Extend `useArtistryStore` in `packages/stage-ui/src/stores/modules/artistry.ts` with `codePainterMode: 'procedural' | 'rwkv'` and provider options.
+- [ ] **Settings UI**: Build `packages/stage-pages/src/pages/settings/providers/artistry/code-painter.vue` with `BrainModelPicker` and RWKV cartridge selector.
+- [ ] **Tool & Autonomous Artistry Bridge**: Wire `image-journal.ts` and `artistry-autonomous.ts` to dispatch via the selected Code Painter engine when active.
