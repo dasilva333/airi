@@ -3,8 +3,9 @@ node_modules/
 dist/
 .chrome/
 reports/
-# webroot: track bridge source (index.html, runner.js, spike.js, tokprobe.js, tokrun.html)
-# but not downloadable blobs (wasm binary, vendored npm/vocab JSON).
+# webroot: track bridge source (index.html, runner.js, render.{html,js}, spike.js, tokprobe.js, tokrun.html)
+# but not downloadable blobs (wasm binary, vendored npm/vocab JSON, p5 assets).
 webroot/vendor/**/*.wasm
 webroot/vendor/web-rwkv-wasm/web_rwkv_wasm.js
+webroot/vendor/p5/**
 webroot/rwkv_vocab_v20230424.json

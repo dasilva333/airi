@@ -68,7 +68,7 @@ scripts/tests/rwkv-harness/
 │   ├── 04-toggle4-realtime.ts   ← Phase 4: Real-time per-turn topic tracking on multi-turn dialogue
 │   ├── 05-corpus-benchmark.ts   ← Phase 5: Large corpus scale & comparative benchmark suite
 │   ├── 06-ui-integration.ts     ← Phase 6: Application UI & provider settings integration
-│   └── 07-creative-code-canvas.ts ← Phase 7: 1.6B/3B Creative code painting & state-tuned canvas
+│   └── 07-creative-code-canvas.ts ← Phase 7: 1.5B/2.9B Creative code painting & state-tuned canvas
 └── test-prompts/
     ├── miss-strawberry.json    ← Canonical Miss Strawberry benchmark prompt & hyperparams
     ├── topic-matrix.json       ← 3-part control & experiment dialogue turns
@@ -87,7 +87,7 @@ graph TD
     P3 --> P4["Phase 4: Toggle 4 Real-Time Tracking"]
     P4 --> P5["Phase 5: Large Corpus Scale Validation"]
     P5 --> P6["Phase 6: UI & Provider Settings Integration"]
-    P6 --> P7["Phase 7: 1.6B/3B Creative Code Canvas & State-Tuning"]
+    P6 --> P7["Phase 7: 1.5B/2.9B Creative Code Canvas & State-Tuning"]
 ```
 
 ### Phase 2: Roleplay State File Overlay Presets (`02-state-presets.ts`)
@@ -135,10 +135,36 @@ graph TD
 
 ---
 
-### Phase 7: 1.6B/3B Creative Code Canvas & State-Tuning (`07-creative-code-canvas.ts`)
-* **Goal**: Transition from 0.1B salience gating to **1.6B / 2.9B RWKV-7** weights to validate local generative canvas art and dynamic background painting via `p5.brush` / HTML5 Canvas scripts.
+### Phase 7: 1.5B/2.9B Creative Code Canvas & State-Tuning (`07-creative-code-canvas.ts`)
+* **Goal**: Transition from 0.1B salience gating to **1.5B / 2.9B RWKV-7** weights to validate local generative canvas art and dynamic background painting via `p5.brush` / HTML5 Canvas scripts.
 * **Specification**: Documented in [`docs/proposal-generative-code-painting-rwkv-webllm.md`](./proposal-generative-code-painting-rwkv-webllm.md).
-* **Core Discovery**: 0.1B (100M) parameter capacity is empirically insufficient for generative code synthesis, but 1.6B+ weights paired with $S_0$ style statefiles enable $O(1)$ constant-VRAM generative background art on WebGPU.
+* **Core Discovery**: 0.1B (100M) parameter capacity is empirically insufficient for generative code synthesis, but 1.5B+ weights paired with $S_0$ style statefiles enable $O(1)$ constant-VRAM generative background art on WebGPU.
+* **Checkpoint reality (2026-08-24)**: The proposal's "1.6B" does not exist. [`DanielClough/rwkv7-g1-safetensors`](https://huggingface.co/DanielClough/rwkv7-g1-safetensors) ships `g1d-0.1b / 0.4b / 1.5b / 2.9b / 7.2b / 13.3b` (all ctx8192). Phase 7 defaults to `rwkv7-g1d-1.5b-20260212-ctx8192.safetensors` (~4 GB) with `rwkv7-g1d-2.9b-20260131-ctx8192.safetensors` opt-in. G1's StarCoder training data makes codegen a plausible capability.
+
+#### Phase 7 Decision Log (living — keep current)
+
+| Date | Decision | Rationale |
+| :--- | :--- | :--- |
+| 2026-08-24 | **1.5B default, 2.9B opt-in** (`--model=2.9b`) | 1.6B checkpoint doesn't exist; 1.5B is the actual g1d checkpoint and the cheapest capacity step-up. User-approved. |
+| 2026-08-24 | **Baseline B = corpus-conditioned S0, built in-browser** | web-rwkv has **no** `.state`/StateFFT mount path and HF ships no g1d state assets (see `engine/state-merger.ts` removed-overlay note). But `session.load()`/`session.back()` exist: ingest a p5.brush style-conditioning corpus (no sampling), snapshot the recurrent state, and load it as $S_0$ before each generation. Zero external training. GRPO-trained states stay M2 scope. User-approved. |
+| 2026-08-24 | **Single-image smoke first; NO 50-prompt sweep** | Stop as soon as one rendered PNG shows real art (or we gain high confidence one is impossible). 50-prompt sweep deferred until base output is human-reviewed. User-directed. |
+| 2026-08-24 | **WebLLM candidate & VLM/HPSv3 judges out of Phase 7 scope** | Harness is RWKV-only; aesthetic reward models need external APIs. Aesthetic evidence = human review + deterministic pixel stats (ink coverage, color diversity). |
+| 2026-08-24 | **Render harness = 2nd tab in the same headed Brave** | macOS denies headless Chrome a GPU; inference page stays warm (needed for S0 reuse), rendering runs on an isolated same-origin iframe per sketch. Models/assets stay HTTP-served; only scalars + a small base64 PNG cross CDP. |
+| 2026-08-24 | **Pin p5 v1.11.13 + p5.brush v1.1.4** (vendored under `webroot/vendor/p5/`) | p5.brush **v2.x peers p5 ^2.2** — the p5 v2 API is unlikely to be well-represented in g1d training data; v1 pairs `p5 ^1.11` and matches the API the model most likely emits. Reference block in `engine/canvas-prompts.ts` distilled from the official v1.1.4 README (tag `v.1.1.4`). |
+| 2026-08-24 | **Extractor v2 = repair, not clip** (`engine/sketch-extract.ts`) | Round-1 attempt-1 proved the old brace-balance clip silently discarded the truncated `draw()` paint body. v2 cuts at the last clean statement boundary (drops partial trailing calls like `brush.fill(`) and auto-closes unclosed braces, keeping truncated paintings runnable. |
+| 2026-08-24 | **Offline re-render tool** (`reprocess-07-renders.ts`) | Extractor/render improvements can be replayed over saved `raw.txt` outputs with zero model generation (~5s/sketch vs ~3–10 min/generation). Keep as a standing harness tool for future phases. |
+| 2026-08-24 | **Ink metric fix: modal-bucket background + structure score** (user-reported) | Corner-averaged background was structurally wrong both ways: dark-wash corners + light corners average to a fake mid-tone that soft watercolor pixels cluster near (false **blank**), and dark-wash paintings deviate from it everywhere (false **inflate** — attempt-1 read 85.7% before, 42.0% after). New metric: 12-bit quantized histogram, background = modal bucket's mean color, ink = deviation from mode, `structureScore = 1 − modal frequency`; blank ⇔ ink ≤ 0.5% AND structure ≤ 0.02. Verified: true blanks now show `uniqueColors=1` (pure white), paintings show 200+. |
+
+#### Phase 7 Status
+- **2026-08-24**: Smoke-track implementation started. New files: `experiments/07-creative-code-canvas.ts`, `engine/canvas-prompts.ts`, `engine/canvas-renderer.ts`, `engine/sketch-extract.ts`, `reprocess-07-renders.ts`, `webroot/render.{html,js}`, `webroot/vendor/p5/*`. Measured results appended here after the smoke run.
+- **2026-08-24 render-path calibration (pre-model, hand-authored sketches)**: both reference sketches rendered **non-blank** in ~2.5s each — flower: ink coverage 4.7%, 69 unique colors; street: 54% ink, 106 colors. Confirmed: iframe isolation, WEBGL capture via `preserveDrawingBuffer` getContext monkeypatch, and the UMD `globalThis.brush` namespace all work in headed Brave. Human review rated the street output "Starry Night-ish / very artsy". This calibrates the non-blank gate before any model output arrives.
+- **2026-08-24 Round-1 smoke results (g1d-1.5b, "peach hibiscus", run `07-creative-code-canvas-2026-08-24T18-06-12-515Z`)**:
+  - **Infra fixes forced by the run**: (1) Node `readFileSync` throws at 2 GiB → `ensureModelCached()` streams to disk; (2) the tab's one-shot 2.85 GB Range fetch fails → runner.js switched to **per-tensor range fetches** (production `buildReader` shape). Cache: `rwkv7-g1d-1.5b-20260212-ctx8192.safetensors` = 2.85 GB; boot = 798 tensors, emb=2048, vocab=65536, **state_len=3,244,032 floats (~13 MB f32)**.
+  - **S0 conditioning is cheap**: 1,399 corpus tokens ingested in 4.4 s (~318 tok/s).
+  - **Sampling speed degraded across the session**: 9.8 → 5.5 → 2.5 → 5.0 → 2.8 tok/s (attempts 1–5). Cause unknown (thermal/other load); plan iterations accordingly.
+  - **Attempt results (v1 extractor)**: A-chat (0.9) wrote real paint code but budget-truncated at 1500 tok; extractor clipped the `draw()` → blank. A-chat-hi (1.3) hallucinated `brush.width/height` + undefined `brushName` → blank. B-chat-s0 (0.9) **anchored on the conditioning corpus** — emitted a commented-out paraphrase of the few-shot example → no canvas. A-completion (0.7) ran 148 frames but hallucinated **sub-pixel unit-circle vertices** (`vertex(cos(i*0.3), sin(i*0.3), 0)`) → 0% ink. B-completion-s0 (0.7) echo-stopped after 31 tokens (its own re-emitted ``` fence tripped the completion stopSeqs — a harness bug in that frame, not a model finding).
+  - **Offline re-render with extractor v2**: attempt-1's saved raw (two duplicated `setup()` + truncated `draw()` with genuine WEBGL-center coordinates) was repaired + re-rendered: **ok=true, no runtime error, 1 frame** → `attempt-01-A-chat/reextract.png`. After the modal-bucket metric fix the honest stats are **ink coverage 42.0%, 205 unique color buckets** (the earlier 85.7%/258 reading came from the flawed corner-average metric). Attempts 02/04 confirmed as **true blanks** under the fixed metric (`uniqueColors=1`, pure white). **First successful model-generated render — smoke goal reached 2026-08-24; awaiting human review before any further iteration.**
+- **Open items for round 2 (after human review)**: v2 prompt (single `setup()`, paint-in-setup, 300–600-token target, default budget 2400 — all prepared in code but not yet run); completion-frame stopSeqs fence-echo fix; S0 corpus likely needs to be *style-only prose* rather than full example sketches to avoid anchoring.
 
 ## Relevant Skills
 

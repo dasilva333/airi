@@ -21,8 +21,21 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+
 export const DEFAULT_BASE_MODEL_URL
   = 'https://huggingface.co/DanielClough/rwkv7-g1-safetensors/resolve/main/rwkv7-g1d-0.1b-20260129-ctx8192.safetensors'
+
+/**
+ * Phase 7 creative-code-painting checkpoints. No "1.6B" exists — the g1d line is
+ * 0.1b/0.4b/1.5b/2.9b/7.2b/13.3b (all ctx8192, StarCoder-inclusive training data).
+ * 1.5B is the Phase 7 default; 2.9B is opt-in (`--model=2.9b`).
+ */
+export const PHASE7_MODEL_URL_1_5B
+  = 'https://huggingface.co/DanielClough/rwkv7-g1-safetensors/resolve/main/rwkv7-g1d-1.5b-20260212-ctx8192.safetensors'
+export const PHASE7_MODEL_URL_2_9B
+  = 'https://huggingface.co/DanielClough/rwkv7-g1-safetensors/resolve/main/rwkv7-g1d-2.9b-20260131-ctx8192.safetensors'
 
 const CACHE_DIR = path.resolve(process.cwd(), '.cache')
 
@@ -53,6 +66,36 @@ export async function fetchTensorBinary(url: string): Promise<ArrayBuffer> {
 /** Resolve the on-disk cached path for a model URL (no download if absent). */
 export function cachedModelPath(url: string = DEFAULT_BASE_MODEL_URL): string {
   return path.join(CACHE_DIR, path.basename(new URL(url).pathname))
+}
+
+/**
+ * Phase 7: ensure a model binary is on disk, streaming it to a file (no RAM
+ * buffering) when missing. Unlike `fetchTensorBinary` — which readFileSync's
+ * the cache back into an ArrayBuffer — this is safe for >2 GiB checkpoints
+ * (Node readFileSync throws ERR_FS_FILE_TOO_LARGE at the 2 GiB mark). The
+ * bridge page fetches the file over local HTTP anyway, so Node never needs
+ * the bytes. Returns the on-disk cache path.
+ */
+export async function ensureModelCached(url: string): Promise<string> {
+  if (!fs.existsSync(CACHE_DIR))
+    fs.mkdirSync(CACHE_DIR, { recursive: true })
+
+  const cachedFilePath = cachedModelPath(url)
+  if (fs.existsSync(cachedFilePath)) {
+    console.info(`[RWKV-Cache] Model present on disk: ${cachedFilePath}`)
+    return cachedFilePath
+  }
+
+  console.info(`[RWKV-Harness] Disk cache miss. Streaming tensor binary to disk: ${url}`)
+  const response = await fetch(url)
+  if (!response.ok || !response.body)
+    throw new Error(`Failed to fetch tensor asset ${url} -> HTTP ${response.status}`)
+
+  const tmpPath = `${cachedFilePath}.part`
+  await pipeline(Readable.fromWeb(response.body as any), fs.createWriteStream(tmpPath))
+  fs.renameSync(tmpPath, cachedFilePath)
+  console.info(`[RWKV-Cache] Saved tensor binary to local disk cache: ${cachedFilePath} (${(fs.statSync(cachedFilePath).size / 1024 / 1024).toFixed(2)} MB)`)
+  return cachedFilePath
 }
 
 /* ------------------------------------------------------------------------- */

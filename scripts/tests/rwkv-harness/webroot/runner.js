@@ -20,6 +20,13 @@ const VOCAB_URL = '/rwkv_vocab_v20230424.json'
 
 let __engine = null
 
+/**
+ * Phase 7: in-browser S0 "state cartridge" registry. States never cross the CDP
+ * bridge (they are multi-MB Float32Arrays) — only their names do. Built by
+ * `__rwkvMakeState` (corpus-conditioning) and consumed via `opts.stateName`.
+ */
+const __states = {}
+
 async function fetchRange(url, start, end) {
   const res = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, cache: 'no-store' })
   if (res.status !== 206 && res.status !== 200)
@@ -42,14 +49,16 @@ async function boot() {
   const { tensors, dataStart } = ST.readSafetensorsHeader(headBytes)
   const names = Object.keys(tensors)
   const numEmb = tensors['emb.weight']?.shape[1] ?? Number.NaN
-  const dataEnd = Math.max(...names.map(n => tensors[n].data_offsets[1]))
-  const fileBytes = await fetchRange(MODEL_URL, dataStart, dataStart + dataEnd - 1)
 
+  // Per-tensor range fetches (mirrors production buildReader). The old
+  // single whole-file fetch worked at 364 MB (0.1B), but a one-shot
+  // fetch+arrayBuffer of the 2.85 GB g1d-1.5b payload fails in-tab
+  // (TypeError: Failed to fetch), so tensors are streamed individually.
   const built = []
   for (const nm of names) {
     const info = tensors[nm]
     const [s, e] = info.data_offsets
-    const raw = fileBytes.subarray(s, e)
+    const raw = await fetchRange(MODEL_URL, dataStart + s, dataStart + e - 1)
     const f16 = ST.toF16Bytes(raw, info.dtype)
     const o = ST.orientAdapterMatrix(nm, f16, info.shape, numEmb)
     built.push(new Tensor(nm, Uint32Array.from(o.shape), o.data.buffer.slice(o.data.byteOffset, o.data.byteOffset + o.data.byteLength)))
@@ -74,7 +83,12 @@ async function boot() {
    */
   async function runSampler(prompt, opts, stopSeqs) {
     const { session, tokenizer, info, STOP } = __engine
-    session.load(new Float32Array(session.state_len())) // stateless per request
+    // Phase 7: optionally start from a corpus-conditioned S0 cartridge instead
+    // of the zero state (Baseline B). `slice()` because load may consume the array.
+    if (opts.stateName && __states[opts.stateName])
+      session.load(__states[opts.stateName].slice())
+    else
+      session.load(new Float32Array(session.state_len())) // stateless per request
     const sampler = new NucleusSampler(
       info,
       opts.temperature ?? 0.7,
@@ -309,6 +323,45 @@ async function boot() {
       __prevRwkvState = cur.slice()
     }
     return out
+  }
+
+  /**
+   * Phase 7: code generation (raw completion mode). No JSON-ish stops by default —
+   * the caller supplies stopSeqs (e.g. a closing code fence) and a token budget.
+   * Supports opts.stateName for S0 cartridge loading (Baseline B).
+   */
+  window.__rwkvGenerateCode = async (opts) => {
+    const { raw, promptTokens } = await runSampler(opts.prompt, opts, opts.stopSeqs ?? [])
+    const completionTokens = (await __engine.tokenizer.encode(new TextEncoder().encode(raw))).length
+    return { text: raw, raw, promptTokens, completionTokens }
+  }
+
+  /**
+   * Phase 7 Baseline B: build a corpus-conditioned S0 state cartridge. Ingests
+   * `texts` through the model with NO sampling, snapshots the recurrent state via
+   * session.back(), and keeps it in the in-browser registry (never crosses CDP).
+   * Returns only scalars.
+   */
+  window.__rwkvMakeState = async ({ name, texts, appendTo }) => {
+    const { session, tokenizer, info } = __engine
+    const enc = new TextEncoder()
+    const base = (appendTo && __states[appendTo])
+      ? __states[appendTo].slice()
+      : new Float32Array(session.state_len())
+    session.load(base)
+    const scratch = new Float32Array(info.num_vocab)
+    let fedTokens = 0
+    for (const text of texts) {
+      const tokens = tokenizer.encode(enc.encode(text))
+      if (tokens.length > 0) {
+        await session.run(tokens, scratch)
+        fedTokens += tokens.length
+      }
+    }
+    const snapshot = new Float32Array(session.state_len())
+    await session.back(snapshot)
+    __states[name] = snapshot
+    return { name, fedTokens, stateLen: snapshot.length }
   }
 
   return {

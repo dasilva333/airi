@@ -42,6 +42,8 @@ export interface RwkvGenerationOptions {
    * Passed through to the browser runner; sampling is still free elsewhere.
    */
   constrainEnum?: { key: string, values: string[] }
+  /** Phase 7 Baseline B: load this in-browser S0 cartridge before generating. */
+  stateName?: string
 }
 
 export interface ConstrainEnumSpec {
@@ -64,6 +66,27 @@ export interface EngineBootInfo {
   stateLen: number
 }
 
+/** Phase 7: raw completion-mode code generation options (no chat wrapping). */
+export interface RwkvCodeGenOptions {
+  prompt: string
+  maxTokens?: number
+  temperature?: number
+  topP?: number
+  presencePenalty?: number
+  countPenalty?: number
+  penaltyDecay?: number
+  /** Stop sequences for code output (e.g. ['\n```\n'] to close a fence). */
+  stopSeqs?: string[]
+  /** Baseline B: load this in-browser S0 cartridge before generating. */
+  stateName?: string
+}
+
+export interface MakeStateResult {
+  name: string
+  fedTokens: number
+  stateLen: number
+}
+
 const BRAVE_PATH = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
 
 export class RwkvWebGpuBridge {
@@ -78,6 +101,13 @@ export class RwkvWebGpuBridge {
     if (!this.bootInfo)
       throw new Error('engine not booted')
     return this.bootInfo
+  }
+
+  /** Base URL of the local static server (webroot + model). */
+  get baseUrl(): string {
+    if (!this.server)
+      throw new Error('engine not booted')
+    return this.server.baseUrl
   }
 
   private resolveChromeExecutable(): string {
@@ -98,6 +128,9 @@ export class RwkvWebGpuBridge {
     this.browser = await puppeteer.launch({
       executablePath: this.resolveChromeExecutable(),
       headless: false, // headed: macOS denies headless Chrome a WebGPU adapter
+      // Phase 7: 1.5B+ generations and S0 corpus conditioning routinely exceed
+      // the default 180s CDP protocol timeout, so widen it per-bridge.
+      protocolTimeout: 30 * 60 * 1000,
       args: [
         '--enable-unsafe-webgpu',
         '--use-angle=metal',
@@ -129,7 +162,7 @@ export class RwkvWebGpuBridge {
     }
   }
 
-  private async callRunner(fn: '__rwkvGenerate' | '__rwkvGenerateRaw', opts: object): Promise<RwkvGenerationResult> {
+  private async callRunner(fn: '__rwkvGenerate' | '__rwkvGenerateRaw' | '__rwkvGenerateCode', opts: object): Promise<RwkvGenerationResult> {
     if (!this.page || !this.bootInfo)
       throw new Error('call boot() before generate()')
     // Pass small args via a global to avoid a giant CDP-serialized arg list.
@@ -150,6 +183,35 @@ export class RwkvWebGpuBridge {
   /** Lever A: completion-mode continuation (prompt already ends with the scaffold). */
   async generateRaw(opts: RwkvGenerationOptions): Promise<RwkvGenerationResult> {
     return this.callRunner('__rwkvGenerateRaw', opts)
+  }
+
+  /** Phase 7: raw completion-mode code generation (caller-chosen stops). */
+  async generateCode(opts: RwkvCodeGenOptions): Promise<RwkvGenerationResult> {
+    return this.callRunner('__rwkvGenerateCode', opts)
+  }
+
+  /**
+   * Phase 7 Baseline B: build an in-browser corpus-conditioned S0 cartridge.
+   * Only scalars cross the bridge; the state lives in the page's registry.
+   */
+  async makeState(spec: { name: string, texts: string[], appendTo?: string }): Promise<MakeStateResult> {
+    if (!this.page || !this.bootInfo)
+      throw new Error('call boot() before makeState()')
+    await this.page.evaluate((s) => { (window as any).__RWkvNextMakeState = s }, spec)
+    const result = await this.page.evaluate(async () => {
+      const g = (window as any).__rwkvMakeState
+      if (!g)
+        throw new Error('runner not ready: __rwkvMakeState missing')
+      return await g((window as any).__RWkvNextMakeState)
+    })
+    return result as MakeStateResult
+  }
+
+  /** Phase 7: open a second tab in the same browser (e.g. the canvas render page). */
+  async newPage(): Promise<Page> {
+    if (!this.browser)
+      throw new Error('call boot() before newPage()')
+    return await this.browser.newPage()
   }
 
   /** Phase 4b: reset the persistent Δh chain (start a fresh conversation timeline). */

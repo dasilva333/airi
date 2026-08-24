@@ -1,0 +1,10 @@
+{
+  "note": "Phase 7 scene prompts. Smoke track renders only the first scene (or --scene=<id>). The 50-prompt sweep is deferred until base output is human-reviewed.",
+  "scenes": [
+    { "id": "peach-hibiscus", "prompt": "peach hibiscus" },
+    { "id": "rainy-tokyo-alley", "prompt": "rainy tokyo alley at dusk" },
+    { "id": "lavender-field-golden-hour", "prompt": "lavender field at golden hour" },
+    { "id": "koi-pond-lily-pads", "prompt": "koi pond with lily pads" },
+    { "id": "misty-pine-dawn", "prompt": "misty pine mountains at dawn" }
+  ]
+}

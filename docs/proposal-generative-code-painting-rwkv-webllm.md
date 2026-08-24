@@ -113,7 +113,9 @@ In the RWKV Cleanroom Harness (`scripts/tests/rwkv-harness/`), previous research
 > - **Phase 3 (Echo Chips Synthesis)**: The 0.1B model **failed** structured JSON extraction (0/14 ground truth matches) due to insufficient parameter capacity.
 > - **Phase 4b (Salience Sensor)**: The 0.1B model **succeeded** as a zero-cost conversational intensity and topic-shift detector via recurrent hidden state vector deltas ($\Delta h$, $F_1 = 0.57$).
 >
-> **Conclusion**: Using the 100M parameter model for generative artistic code synthesis is a non-starter. Generative creative coding requires moving to **RWKV-7 1.6B / 2.9B World** weights.
+> **Conclusion**: Using the 100M parameter model for generative artistic code synthesis is a non-starter. Generative creative coding requires moving to **RWKV-7 1.5B / 2.9B** weights.
+>
+> **Checkpoint reality (2026-08-24)**: The "1.6B" referenced throughout this proposal does not exist. [`DanielClough/rwkv7-g1-safetensors`](https://huggingface.co/DanielClough/rwkv7-g1-safetensors) ships `g1d-{0.1b,0.4b,1.5b,2.9b,7.2b,13.3b}` (ctx8192). Phase 7 uses **`rwkv7-g1d-1.5b`** by default with `g1d-2.9b` opt-in. Additionally, no `.state`/StateFFT assets exist for `g1d` on HF and web-rwkv has no state-file mount path, so Phase 7's Baseline B implements $S_0$ as a **corpus-conditioned state built in-browser** (`session.load()`/`session.back()` snapshot of an ingested `p5.brush` style corpus) rather than a pre-trained `p5-watercolor.state` file. See the Phase 7 Decision Log in [`project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md).
 
 ### Phase 7 Specification: `07-creative-code-canvas.ts`
 
@@ -122,7 +124,7 @@ In the RWKV Cleanroom Harness (`scripts/tests/rwkv-harness/`), previous research
 ```mermaid
 graph TD
     subgraph Phase 7 Architecture
-        Model16B["RWKV-7 1.6B / 2.9B Weights"] --> StateMount["Mount S0 Tensor (p5-watercolor.state)"]
+        Model16B["RWKV-7 1.5B / 2.9B Weights"] --> StateMount["Load S0 State (corpus-conditioned)"]
         StateMount --> WASMSession["WebGPU Session.from_reader()"]
         Prompt["Prompt: 'rainy tokyo alley at dusk'"] --> WASMSession
         WASMSession --> StreamTok["Stream Tokens (O(1) Memory)"]
@@ -134,12 +136,13 @@ graph TD
 ```
 
 #### Experiment Objectives:
-1. **Model Capacity Threshold**: Validate that the **1.6B RWKV-7** model possesses sufficient syntax depth and spatial reasoning to emit executable `p5.brush` / HTML5 Canvas blocks.
+1. **Model Capacity Threshold**: Validate that the **1.5B RWKV-7 (`g1d-1.5b`)** model possesses sufficient syntax depth and spatial reasoning to emit executable `p5.brush` / HTML5 Canvas blocks.
 2. **State Tuning Isolation**: Measure code generation quality with:
-   - **Baseline A**: Raw 1.6B base weights + Few-shot text prompt.
-   - **Baseline B**: 1.6B base weights + `p5-watercolor.state` ($S_0$ state tensor).
+   - **Baseline A**: Raw 1.5B base weights + Few-shot text prompt.
+   - **Baseline B**: 1.5B base weights + in-browser corpus-conditioned $S_0$ state (p5.brush style corpus ingested via `session.load()`/`session.back()`).
 3. **Headless Cleanroom Validation**:
-   - Automated compile-rate test: Execute 50 diverse scene prompts in Puppeteer.
+   - **Smoke track (implemented first, 2026-08-24)**: single scene prompt → extract script → headless render → one 600×600 PNG for human review. Stop as soon as a credible image exists.
+   - Deferred 50-prompt automated compile-rate sweep (Puppeteer) until base output is reviewed.
    - Measure token efficiency: Ensure generated scripts stay under 2,500 tokens without infinite prose looping.
    - Verify non-blocking execution inside the Web Worker.
 
@@ -201,8 +204,8 @@ Because the background is rendered in real-time JavaScript, it can receive conti
 
 | Milestone | Target Component | Deliverable |
 | :--- | :--- | :--- |
-| **M1: Cleanroom Phase 7** | `scripts/tests/rwkv-harness/experiments/07-creative-code-canvas.ts` | Test harness script benchmarking 1.6B RWKV code generation + Puppeteer render validation. |
-| **M2: Synthetic Dataset & State Tuning** | External Training Script | 3,000 verified `p5.brush` sketches dataset; train $S_0$ state file `p5-watercolor-1.6b.state`. |
+| **M1: Cleanroom Phase 7** | `scripts/tests/rwkv-harness/experiments/07-creative-code-canvas.ts` | Test harness script for `g1d-1.5b` code generation + Puppeteer render validation (single-image smoke first; 50-prompt sweep deferred). |
+| **M2: Synthetic Dataset & State Tuning** | External Training Script | 3,000 verified `p5.brush` sketches dataset; train $S_0$ state `p5-watercolor-1.5b` (Phase 7 approximates this with an in-browser corpus-conditioned state). |
 | **M3: Stage Canvas Component** | `packages/stage-ui/src/components/scenes/CanvasCodeBackground.vue` | Hardware-accelerated canvas background component with sandboxed JS execution. |
 | **M4: Autonomous Artistry Wiring** | `packages/stage-ui/src/stores/modules/artistry-autonomous.ts` | Wire Director LLM to trigger the local code painter when scene switches occur. |
 

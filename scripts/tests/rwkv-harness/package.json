@@ -7,6 +7,7 @@
     "test:topics": "tsx experiments/01-toggle4-topics.ts",
     "test:echo-chips": "tsx experiments/03-echo-chip-eval.ts",
     "test:topics-realtime": "tsx experiments/04-toggle4-realtime.ts",
+    "test:canvas": "tsx experiments/07-creative-code-canvas.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
