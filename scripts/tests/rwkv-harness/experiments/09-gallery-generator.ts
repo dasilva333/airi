@@ -51,10 +51,10 @@ ${SCAFFOLD_HEADER}`
 }
 
 async function main() {
-  console.log('=== RWKV Cleanroom Harness: 10-Scene Gallery Generator (with S0 Cartridge) ===\n')
+  console.log('=== RWKV Cleanroom Harness: 10-Scene Gallery Generator (3,000-Step S0 Cartridge) ===\n')
 
   const modelPath = await ensureModelCached(PHASE7_MODEL_URL_1_5B)
-  const galleryDir = path.resolve(process.cwd(), 'reports/gallery-500-steps')
+  const galleryDir = path.resolve(process.cwd(), 'reports/gallery-3000-steps')
   fs.mkdirSync(galleryDir, { recursive: true })
 
   const bridge = new RwkvWebGpuBridge({ modelFilePath: modelPath })
@@ -97,10 +97,10 @@ async function main() {
         maxTokens: 1200,
         temperature: 0.75,
         topP: 0.9,
-        presencePenalty: 0.3,
-        countPenalty: 0.3,
+        presencePenalty: 0.2,
+        countPenalty: 0.2,
         stateName: STATE_NAME,
-        stopSeqs: ['\n```\n', '```\n', '\n```', '```'],
+        stopSeqs: ['\n```\n', '```\n', '\n```'],
       })
       const genMs = Date.now() - t0
       console.log(`  ✓ Generated ${genResult.completionTokens} tok in ${(genMs / 1000).toFixed(1)}s (${(genResult.completionTokens / (genMs / 1000)).toFixed(1)} tok/s)`)
@@ -114,6 +114,9 @@ async function main() {
         if (openBrace >= 0)
           rawCode = rawCode.slice(openBrace + 1)
       }
+
+      // Auto-sanitize unquoted #hex color tokens (e.g. brush.set("HB", #f4e8a1) -> brush.set("HB", "#f4e8a1"))
+      rawCode = rawCode.replace(/([,(]\s*)(#[0-9a-f]{3,8})(\s*[,)])/gi, '$1"$2"$3')
 
       const assembledCode = `${SCAFFOLD_HEADER}\n${rawCode}`
       const repairedSketch = repairTruncatedProgram(assembledCode) || assembledCode

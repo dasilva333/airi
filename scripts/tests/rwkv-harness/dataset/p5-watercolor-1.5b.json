@@ -2,9 +2,9 @@
   "model": "rwkv7-g1d-1.5b",
   "state_file": "p5-watercolor-1.5b.state",
   "file_size_mb": 12.191764831542969,
-  "steps": 500,
+  "steps": 3000,
   "final_loss": 6.0,
-  "trained_at": "2026-08-24T19:57:05Z",
+  "trained_at": "2026-08-24T20:59:05Z",
   "dataset": "dataset/p5-watercolor-corpus.jsonl",
   "num_samples": 6
 }
