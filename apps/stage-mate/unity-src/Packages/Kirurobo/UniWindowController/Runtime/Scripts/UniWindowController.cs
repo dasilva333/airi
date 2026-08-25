@@ -657,18 +657,23 @@ namespace Kirurobo
     #else
             return Input.mousePosition;
     #endif
-#elif (UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX)
-            return Input.mousePosition;
 #else
-            // Windows native path
+            // Native path for Windows, macOS, and Linux
             Vector2 mousePos = UniWinCore.GetCursorPosition();
             Vector2 winPos = windowPosition;
-            Rect clientRect = _uniWinCore.GetClientRectangle();
-            Vector2 unityPos = new Vector2(
-                (mousePos.x - winPos.x - clientRect.x) * Screen.width / clientRect.width,
-                (mousePos.y - winPos.y - clientRect.y) * Screen.height / clientRect.height
-                );
-            return unityPos;
+            if (_uniWinCore != null)
+            {
+                Rect clientRect = _uniWinCore.GetClientRectangle();
+                if (clientRect.width > 0 && clientRect.height > 0)
+                {
+                    Vector2 unityPos = new Vector2(
+                        (mousePos.x - winPos.x - clientRect.x) * Screen.width / clientRect.width,
+                        (mousePos.y - winPos.y - clientRect.y) * Screen.height / clientRect.height
+                        );
+                    return unityPos;
+                }
+            }
+            return new Vector2(mousePos.x - winPos.x, mousePos.y - winPos.y);
 #endif
         }
 
@@ -717,6 +722,14 @@ namespace Kirurobo
                 )
             {
                 return false;
+            }
+
+            // Check if cursor is within border resize handle zone (14px from any edge)
+            float borderThreshold = 14f;
+            if (mousePos.x <= borderThreshold || mousePos.x >= w - borderThreshold
+                || mousePos.y <= borderThreshold || mousePos.y >= h - borderThreshold)
+            {
+                return true; // Keep border clickable so resize handles work on transparent window borders
             }
 
             // 透過状態でなければ、範囲内なら不透過扱いとする

@@ -83,6 +83,12 @@ namespace StageMate.Core
                 gameObject.AddComponent<StageMate.Window.StageMateBorderGlow>();
             }
 
+            // Attach Window Resize Handle
+            if (GetComponent<StageMate.Window.StageMateWindowResizeHandle>() == null)
+            {
+                gameObject.AddComponent<StageMate.Window.StageMateWindowResizeHandle>();
+            }
+
             // Attach persistent AvatarHideHandler to ensure edge hiding works across all avatar instantiations
             if (GetComponent<AvatarHideHandler>() == null)
             {

@@ -10,6 +10,7 @@ namespace StageMate.Window
     {
         [Header("Appearance")]
         public Color borderColor = new Color(0.659f, 0.333f, 0.969f, 0.7f); // #a855f7 (b-primary)
+        public Color resizeHighlightColor = new Color(0.22f, 0.74f, 0.97f, 0.95f); // #38bdf8 (cyan)
         public float borderWidth = 4f;
         public float cornerRadius = 16f;
         public float fadeSpeed = 4f; // 250ms fade duration
@@ -17,6 +18,7 @@ namespace StageMate.Window
 
         private CanvasGroup canvasGroup;
         private StageMateWindowManager windowManager;
+        private StageMateWindowResizeHandle resizeHandle;
         private float currentFade = 0f;
         private bool isHovered = false;
 
@@ -26,6 +28,7 @@ namespace StageMate.Window
         private void Awake()
         {
             windowManager = GetComponent<StageMateWindowManager>() ?? FindFirstObjectByType<StageMateWindowManager>();
+            resizeHandle = GetComponent<StageMateWindowResizeHandle>() ?? FindFirstObjectByType<StageMateWindowResizeHandle>();
             uniWindow = GetComponent<Kirurobo.UniWindowController>() ?? FindFirstObjectByType<Kirurobo.UniWindowController>();
             BuildBorderUI();
             Debug.Log("[StageMateBorderGlow] Initialized StageMateBorderGlow component");
@@ -188,6 +191,11 @@ namespace StageMate.Window
                              mousePos.y >= 0 && mousePos.y <= screenH);
             }
 
+            if (resizeHandle != null && (resizeHandle.CurrentHoveredEdge != ResizeEdge.None || resizeHandle.IsResizing))
+            {
+                isHovered = true;
+            }
+
             float targetAlpha = isHovered ? 1f : 0f;
             currentFade = Mathf.MoveTowards(currentFade, targetAlpha, Time.deltaTime * fadeSpeed);
 
@@ -203,18 +211,34 @@ namespace StageMate.Window
         {
             if (currentFade <= 0.01f) return;
 
+            if (resizeHandle == null)
+                resizeHandle = GetComponent<StageMateWindowResizeHandle>() ?? FindFirstObjectByType<StageMateWindowResizeHandle>();
+
             Color oldColor = GUI.color;
             float pulse = 0.75f + 0.25f * Mathf.Sin((Time.time * Mathf.PI * 2f) / pulsePeriod);
-            GUI.color = new Color(borderColor.r, borderColor.g, borderColor.b, borderColor.a * currentFade * pulse);
+            Color baseCol = new Color(borderColor.r, borderColor.g, borderColor.b, borderColor.a * currentFade * pulse);
+            Color activeCol = new Color(resizeHighlightColor.r, resizeHighlightColor.g, resizeHighlightColor.b, resizeHighlightColor.a);
 
             int w = Screen.width;
             int h = Screen.height;
             int b = Mathf.Max(2, (int)borderWidth);
 
-            // Draw 4 border rectangles (Top, Bottom, Left, Right)
+            ResizeEdge activeEdge = (resizeHandle != null) ? resizeHandle.CurrentHoveredEdge : ResizeEdge.None;
+
+            // Top edge (in GUI space, 0 is top)
+            GUI.color = (activeEdge & ResizeEdge.Top) != 0 ? activeCol : baseCol;
             GUI.DrawTexture(new Rect(0, 0, w, b), Texture2D.whiteTexture);
+
+            // Bottom edge (in GUI space, h - b is bottom)
+            GUI.color = (activeEdge & ResizeEdge.Bottom) != 0 ? activeCol : baseCol;
             GUI.DrawTexture(new Rect(0, h - b, w, b), Texture2D.whiteTexture);
+
+            // Left edge
+            GUI.color = (activeEdge & ResizeEdge.Left) != 0 ? activeCol : baseCol;
             GUI.DrawTexture(new Rect(0, 0, b, h), Texture2D.whiteTexture);
+
+            // Right edge
+            GUI.color = (activeEdge & ResizeEdge.Right) != 0 ? activeCol : baseCol;
             GUI.DrawTexture(new Rect(w - b, 0, b, h), Texture2D.whiteTexture);
 
             GUI.color = oldColor;

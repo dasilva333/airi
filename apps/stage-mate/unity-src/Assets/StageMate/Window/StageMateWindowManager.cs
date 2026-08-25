@@ -45,6 +45,11 @@ namespace StageMate.Window
             {
                 gameObject.AddComponent<StageMateBorderGlow>();
             }
+
+            if (GetComponent<StageMateWindowResizeHandle>() == null)
+            {
+                gameObject.AddComponent<StageMateWindowResizeHandle>();
+            }
         }
 
         private void Update()
@@ -159,6 +164,11 @@ namespace StageMate.Window
             if (!isDraggingWindow || windowController == null) return;
             isDraggingWindow = false;
             windowController.isHitTestEnabled = prevHitTestState;
+            NotifyWindowMoved();
+        }
+
+        public void NotifyWindowMoved()
+        {
             OnWindowMoved?.Invoke(GetCurrentBounds());
         }
 
