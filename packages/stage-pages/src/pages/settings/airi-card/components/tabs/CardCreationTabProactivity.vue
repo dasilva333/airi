@@ -337,17 +337,28 @@ const intervalPresets = [2, 5, 10, 20]
       <!-- 2. SCREEN WATCHING (PUSH & ATTENTION ECOLOGY) SUB-TAB             -->
       <!-- ================================================================= -->
       <div v-else-if="activeSubTab === 'screen'" class="flex flex-col gap-6">
-        <!-- Developer Preview Banner -->
-        <div class="flex items-start gap-3 border border-blue-200/80 rounded-xl bg-blue-50/70 p-4 dark:border-blue-900/60 dark:bg-blue-950/30">
-          <span class="i-solar:videocamera-record-bold-duotone shrink-0 text-xl text-blue-600 dark:text-blue-400" />
-          <div class="flex flex-col gap-1 text-xs text-blue-900 dark:text-blue-200">
-            <div class="flex items-center gap-2">
-              <span class="font-semibold tracking-wide uppercase">Developer Preview · Attention Ecology Engine</span>
-              <span class="rounded bg-blue-200/80 px-1.5 py-0.2 text-[10px] text-blue-800 font-bold dark:bg-blue-900/80 dark:text-blue-200">0-Cost WebGPU</span>
+        <!-- Demonstration & Preview Disclaimer Banner -->
+        <div class="relative overflow-hidden border border-amber-500/30 rounded-2xl bg-amber-500/10 p-5 transition-all dark:border-amber-500/25 dark:bg-amber-500/5">
+          <div class="flex items-start gap-4">
+            <div class="h-11 w-11 flex flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <div class="i-solar:danger-triangle-bold-duotone text-2xl" />
             </div>
-            <p class="text-[11px] text-blue-700 leading-relaxed dark:text-blue-300">
-              Continuous background vision runs an efficient 4-stage local cascade (aHash ➔ CLIP Vision ➔ WASM OCR). Promoted visual novelties write to the Unified Event Ledger and trigger proactive dialogue turns.
-            </p>
+            <div class="flex-1 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-md bg-amber-500/25 px-2.5 py-0.5 text-[10px] text-amber-800 font-black tracking-wider uppercase dark:text-amber-200">
+                  DEMONSTRATION PURPOSES ONLY
+                </span>
+                <span class="rounded-md bg-neutral-500/15 px-2 py-0.5 text-[10px] text-neutral-600 font-bold uppercase dark:text-neutral-300">
+                  EARLY ACCESS PREVIEW
+                </span>
+              </div>
+              <h4 class="text-sm text-neutral-900 font-bold dark:text-neutral-100">
+                Attention Ecology & Screen Watching — Interface Preview
+              </h4>
+              <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+                Screen watching and autonomous visual perception controls are currently an interactive interface preview presented for demonstration and feedback purposes only. The background screen capture ticker, local WebGPU salience gates, and automated OCR pipelines are not yet active or wired into live character execution. These controls and mock source pickers are presented early so you can evaluate the proposed configuration model and share feedback on the desired workflow.
+              </p>
+            </div>
           </div>
         </div>
 

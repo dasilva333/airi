@@ -105,4 +105,36 @@ describe('providers converters', () => {
     expect(result.reason).toContain('Base URL is required.')
     expect(result.reason).toContain('Default to https://example.com/v1/.')
   })
+
+  it('merges schema defaults into createProvider when optional config fields are omitted', async () => {
+    let capturedConfig: any = null
+    const definition = {
+      id: 'test-provider',
+      tasks: ['chat'],
+      name: 'Test Provider',
+      nameLocalize: ({ t }: { t: (input: string) => string }) => t('name.key'),
+      description: 'test',
+      descriptionLocalize: ({ t }: { t: (input: string) => string }) => t('description.key'),
+      createProviderConfig: () => z.object({
+        apiKey: z.string(),
+        baseUrl: z.string().optional().default('https://integrate.api.nvidia.com/v1/'),
+      }),
+      createProvider: (cfg: any) => {
+        capturedConfig = cfg
+        return {
+          model: () => ({ baseURL: cfg.baseUrl, apiKey: cfg.apiKey }),
+        } as any
+      },
+    } as any
+
+    const metadata = convertProviderDefinitionToMetadata(definition, ((key: string) => key) as any)
+
+    // User only provides apiKey without baseUrl
+    await metadata.createProvider({ apiKey: 'nvapi-12345' })
+
+    expect(capturedConfig).toMatchObject({
+      apiKey: 'nvapi-12345',
+      baseUrl: 'https://integrate.api.nvidia.com/v1/',
+    })
+  })
 })

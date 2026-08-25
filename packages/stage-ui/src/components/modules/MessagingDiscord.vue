@@ -971,29 +971,32 @@ function formatTimestamp(ts: number) {
     <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div v-else-if="activeTab === 'acl'" class="space-y-6">
       <!-- Feature Preview & Feedback Banner -->
-      <div class="relative overflow-hidden border border-amber-500/30 rounded-2xl bg-amber-500/10 p-4 transition-all dark:border-amber-500/25 dark:bg-amber-500/5">
-        <div class="flex items-start gap-3.5">
-          <div class="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
-            <div class="i-solar:stars-line-duotone text-xl" />
+      <div class="relative overflow-hidden border border-amber-500/30 rounded-2xl bg-amber-500/10 p-5 transition-all dark:border-amber-500/25 dark:bg-amber-500/5">
+        <div class="flex items-start gap-4">
+          <div class="h-11 w-11 flex flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+            <div class="i-solar:danger-triangle-bold-duotone text-2xl" />
           </div>
-          <div class="flex-1 space-y-1">
-            <div class="flex items-center gap-2">
-              <h4 class="text-xs text-neutral-900 font-bold dark:text-neutral-100">
-                Interface Preview — Early Feedback Requested
-              </h4>
-              <span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] text-amber-700 font-extrabold uppercase dark:text-amber-300">
-                In Development
+          <div class="flex-1 space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-md bg-amber-500/25 px-2.5 py-0.5 text-[10px] text-amber-800 font-black tracking-wider uppercase dark:text-amber-200">
+                DEMONSTRATION PURPOSES ONLY
+              </span>
+              <span class="rounded-md bg-neutral-500/15 px-2 py-0.5 text-[10px] text-neutral-600 font-bold uppercase dark:text-neutral-300">
+                EARLY ACCESS PREVIEW
               </span>
             </div>
+            <h4 class="text-sm text-neutral-900 font-bold dark:text-neutral-100">
+              Access & Context Routing Interface Preview
+            </h4>
             <p class="text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
-              Access & Context Routing is currently under active design. We'd love your thoughts! Please join our Discord server to let us know if this interface fits your workflow.
+              This routing matrix and channel access control interface is an early architectural preview presented for demonstration and feedback purposes only. The underlying multi-channel routing pipeline and per-context isolation layers are actively being refined. We've surfaced these configuration controls early so you can explore the proposed workflow and provide feedback on whether this layout meets your needs before the live routing engine is implemented.
             </p>
           </div>
           <a
             href="https://discord.gg"
             target="_blank"
             rel="noopener noreferrer"
-            class="items-center gap-1.5 rounded-xl bg-amber-500/15 px-3.5 py-2 text-xs text-amber-700 font-bold transition-all hidden sm:flex hover:bg-amber-500/25 dark:text-amber-300"
+            class="shrink-0 items-center gap-1.5 rounded-xl bg-amber-500/15 px-3.5 py-2 text-xs text-amber-700 font-bold transition-all hidden sm:flex hover:bg-amber-500/25 dark:text-amber-300"
           >
             <span>Discord</span>
             <div class="i-solar:alt-arrow-right-line-duotone text-xs" />

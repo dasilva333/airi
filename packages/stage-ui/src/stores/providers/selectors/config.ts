@@ -18,10 +18,20 @@ export interface ProvidersConfigSelectorsState {
   providerCredentials: Ref<Record<string, Record<string, unknown>>>
   addedProviders: Ref<Record<string, boolean>>
   providerMetadata: Record<string, ProviderMetadata>
+  providerInstanceOptions?: (providerId: string, instanceId?: string) => Record<string, unknown> | undefined
 }
 
 export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsState) {
-  function getDefaultProviderConfig(providerId: string) {
+  function splitProviderKey(providerKey: string): { providerId: string, instanceId?: string } {
+    if (providerKey.includes(':')) {
+      const parts = providerKey.split(':')
+      return { providerId: parts[0], instanceId: parts[1] }
+    }
+    return { providerId: providerKey }
+  }
+
+  function getDefaultProviderConfig(providerKey: string) {
+    const { providerId } = splitProviderKey(providerKey)
     const metadata = state.providerMetadata[providerId]
     const defaultOptions = metadata?.defaultOptions?.() || {}
     return {
@@ -30,18 +40,23 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     }
   }
 
-  function getProviderConfig(providerId: string) {
+  function getProviderConfig(providerKey: string) {
+    const { providerId, instanceId } = splitProviderKey(providerKey)
     const metadata = state.providerMetadata[providerId]
     const defaults = metadata?.defaultOptions?.() || {}
-    const persisted = state.providerCredentials.value[providerId] || {}
+    const persisted = state.providerInstanceOptions?.(providerId, instanceId)
+      ?? state.providerCredentials.value[providerId]
+      ?? {}
     return {
       ...defaults,
       ...persisted,
     }
   }
 
-  function isProviderConfigDirty(providerId: string) {
-    const config = state.providerCredentials.value[providerId]
+  function isProviderConfigDirty(providerKey: string) {
+    const { providerId, instanceId } = splitProviderKey(providerKey)
+    const config = state.providerInstanceOptions?.(providerId, instanceId)
+      ?? state.providerCredentials.value[providerId]
     if (!config)
       return false
 
@@ -49,11 +64,12 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     return JSON.stringify(config) !== JSON.stringify(defaultOptions)
   }
 
-  function isProviderConfigured(providerId: string) {
+  function isProviderConfigured(providerKey: string) {
     // Category visibility is catalog-driven (registry) — never gated by
     // background validation. The remaining question here is whether a given
     // provider has sufficient persisted configuration to be considered
     // "configured" for runtime purposes.
+    const { providerId, instanceId } = splitProviderKey(providerKey)
     const metadata = state.providerMetadata[providerId]
     if (!metadata)
       return false
@@ -67,7 +83,8 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     if (metadata.requiresCredentials === false || metadata.deployment === 'local' || providerId === 'browser-web-speech-api')
       return true
 
-    const config = state.providerCredentials.value[providerId]
+    const config = state.providerInstanceOptions?.(providerId, instanceId)
+      ?? state.providerCredentials.value[providerId]
     if (!config)
       return false
 
@@ -91,8 +108,9 @@ export function createProvidersConfigSelectors(state: ProvidersConfigSelectorsSt
     return false
   }
 
-  function shouldListProvider(providerId: string) {
-    return !!state.addedProviders.value[providerId] || isProviderConfigDirty(providerId)
+  function shouldListProvider(providerKey: string) {
+    const { providerId } = splitProviderKey(providerKey)
+    return !!state.addedProviders.value[providerId] || isProviderConfigDirty(providerKey)
   }
 
   return {

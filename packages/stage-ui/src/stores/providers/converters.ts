@@ -4,6 +4,7 @@ import type { ProviderDefinition } from '../../libs/providers/types'
 import type { ProviderValidationPlan } from '../../libs/providers/validators/run'
 import type { ProviderMetadata } from './types'
 
+import { merge } from '@moeru/std'
 import { listModels } from '@xsai/model'
 
 import { isModelProvider } from '../../libs/providers/types'
@@ -24,6 +25,22 @@ function getCategoryFromTasks(tasks: string[]): ProviderMetadata['category'] {
   }
 
   return 'chat'
+}
+
+function resolveEffectiveConfig(
+  schemaDefaults: Record<string, unknown>,
+  fallbackDefaults: (() => Record<string, unknown>) | undefined,
+  config: unknown,
+): Record<string, unknown> {
+  const defaults = Object.keys(schemaDefaults).length > 0
+    ? schemaDefaults
+    : (fallbackDefaults?.() || {})
+  const raw = (config && typeof config === 'object') ? (config as Record<string, unknown>) : {}
+  const merged = merge(defaults, raw) as Record<string, unknown>
+  if (typeof merged.baseUrl === 'string' && !merged.baseUrl.trim() && typeof defaults.baseUrl === 'string' && defaults.baseUrl.trim()) {
+    merged.baseUrl = defaults.baseUrl
+  }
+  return merged
 }
 
 function extractSchemaDefaults(definition: ProviderDefinition<any>, t: ComposerTranslation) {
@@ -157,13 +174,17 @@ export function convertProviderDefinitionToMetadata(
 
       return options.fallbackDefaultOptions?.() || {}
     },
-    createProvider: async config => await definition.createProvider(config as any) as any,
+    createProvider: async (config) => {
+      const effectiveConfig = resolveEffectiveConfig(schemaDefaults, options.fallbackDefaultOptions, config)
+      return await definition.createProvider(effectiveConfig as any) as any
+    },
     capabilities: {
       listModels: definition.extraMethods?.listModels
         ? async (config) => {
-          const provider = await definition.createProvider(config as any)
+          const effectiveConfig = resolveEffectiveConfig(schemaDefaults, options.fallbackDefaultOptions, config)
+          const provider = await definition.createProvider(effectiveConfig as any)
           try {
-            const models = await definition.extraMethods!.listModels!(config as any, provider)
+            const models = await definition.extraMethods!.listModels!(effectiveConfig as any, provider)
             return mapModelsToMetadataModels(definition.id, models as any[])
           }
           finally {
@@ -171,15 +192,16 @@ export function convertProviderDefinitionToMetadata(
           }
         }
         : async (config) => {
-          const provider = await definition.createProvider(config as any)
+          const effectiveConfig = resolveEffectiveConfig(schemaDefaults, options.fallbackDefaultOptions, config)
+          const provider = await definition.createProvider(effectiveConfig as any)
           try {
             if (isModelProvider(provider)) {
               const models = await listModels(provider.model())
               return mapModelsToMetadataModels(definition.id, models as any[])
             }
 
-            const baseUrl = typeof (config as any).baseUrl === 'string' ? (config as any).baseUrl.trim() : ''
-            const apiKey = typeof (config as any).apiKey === 'string' ? (config as any).apiKey.trim() : ''
+            const baseUrl = typeof effectiveConfig.baseUrl === 'string' ? effectiveConfig.baseUrl.trim() : ''
+            const apiKey = typeof effectiveConfig.apiKey === 'string' ? effectiveConfig.apiKey.trim() : ''
             if (!baseUrl)
               return []
 
@@ -198,9 +220,10 @@ export function convertProviderDefinitionToMetadata(
         },
       listVoices: definition.extraMethods?.listVoices
         ? async (config) => {
-          const provider = await definition.createProvider(config as any)
+          const effectiveConfig = resolveEffectiveConfig(schemaDefaults, options.fallbackDefaultOptions, config)
+          const provider = await definition.createProvider(effectiveConfig as any)
           try {
-            return await definition.extraMethods!.listVoices!(config as any, provider)
+            return await definition.extraMethods!.listVoices!(effectiveConfig as any, provider)
           }
           finally {
             await (provider as { dispose?: () => Promise<void> | void }).dispose?.()
@@ -209,9 +232,10 @@ export function convertProviderDefinitionToMetadata(
         : undefined,
       loadModel: definition.extraMethods?.loadModel
         ? async (config, hooks) => {
-          const provider = await definition.createProvider(config as any)
+          const effectiveConfig = resolveEffectiveConfig(schemaDefaults, options.fallbackDefaultOptions, config)
+          const provider = await definition.createProvider(effectiveConfig as any)
           try {
-            await definition.extraMethods!.loadModel!(config as any, provider, hooks)
+            await definition.extraMethods!.loadModel!(effectiveConfig as any, provider, hooks)
           }
           finally {
             await (provider as { dispose?: () => Promise<void> | void }).dispose?.()

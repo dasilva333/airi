@@ -62,6 +62,7 @@ export const useProvidersStore = defineStore('providers', () => {
     providerCredentials,
     addedProviders,
     providerMetadata,
+    providerInstanceOptions: (providerId, instanceId) => instanceStore.providerInstanceOptions(providerId, instanceId),
   })
 
   const {
@@ -82,6 +83,7 @@ export const useProvidersStore = defineStore('providers', () => {
     getProviderCredentials: () => providerCredentials.value,
     setProviderCredentials: (providerId, config) => { providerCredentials.value[providerId] = config },
     getDefaultProviderConfig,
+    providerInstanceOptions: (providerId, instanceId) => instanceStore.providerInstanceOptions(providerId, instanceId),
   })
 
   const { fetchModelsForProvider, loadModelsForConfiguredProviders } = createProviderModels({
@@ -89,6 +91,7 @@ export const useProvidersStore = defineStore('providers', () => {
     providerRuntimeState,
     providerMetadata,
     availableProviders,
+    providerInstanceOptions: (providerId, instanceId) => instanceStore.providerInstanceOptions(providerId, instanceId),
   })
 
   function markProviderAdded(providerId: string) {

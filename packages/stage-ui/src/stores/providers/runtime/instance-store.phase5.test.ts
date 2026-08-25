@@ -1,15 +1,15 @@
 import type { Ref } from 'vue'
 
-import type { ProviderMetadata } from '../types'
 import type { ProvidersConfigSelectorsState } from '../selectors/config'
+import type { ProviderMetadata } from '../types'
 import type { ProviderInstancesDeps } from './instances'
 
-import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 
+import { createProvidersConfigSelectors } from '../selectors/config'
 import { createProviderInstanceStore } from './instance-store'
 import { createProviderInstances } from './instances'
-import { createProvidersConfigSelectors } from '../selectors/config'
 
 function makeCloudProviderMetadata(id: string, requiresCredentials: boolean = true): ProviderMetadata {
   return {
@@ -275,6 +275,41 @@ describe('phase 5: upstream migration compatibility & defensive validation', () 
       const instance = await getProviderInstance('openrouter-ai')
       expect(instance).toEqual({ stubProvider: 'openrouter-ai' })
       expect(deps.providerMetadata['openrouter-ai'].createProvider).toHaveBeenCalledOnce()
+    })
+
+    it('resolves composite provider keys like openrouter-ai:* using instance options', async () => {
+      const deps = makeDeps({
+        providerInstanceOptions: (providerId, instanceId) => {
+          if (providerId === 'openrouter-ai' && instanceId === '*') {
+            return { apiKey: 'sk-or-primary-key' }
+          }
+          return undefined
+        },
+      })
+      const { getProviderInstance } = createProviderInstances(deps)
+      const instance = await getProviderInstance('openrouter-ai:*')
+      expect(instance).toEqual({ stubProvider: 'openrouter-ai' })
+      expect(deps.providerMetadata['openrouter-ai'].createProvider).toHaveBeenCalledWith({
+        apiKey: 'sk-or-primary-key',
+      })
+    })
+
+    it('resolves named secondary instance keys like openrouter-ai:custom', async () => {
+      const deps = makeDeps({
+        providerInstanceOptions: (providerId, instanceId) => {
+          if (providerId === 'openrouter-ai' && instanceId === 'custom') {
+            return { apiKey: 'sk-or-custom-key', baseUrl: 'https://custom.endpoint/v1' }
+          }
+          return undefined
+        },
+      })
+      const { getProviderInstance } = createProviderInstances(deps)
+      const instance = await getProviderInstance('openrouter-ai:custom')
+      expect(instance).toEqual({ stubProvider: 'openrouter-ai' })
+      expect(deps.providerMetadata['openrouter-ai'].createProvider).toHaveBeenCalledWith({
+        apiKey: 'sk-or-custom-key',
+        baseUrl: 'https://custom.endpoint/v1',
+      })
     })
   })
 })

@@ -18,6 +18,7 @@ export interface ProviderInstancesDeps {
   getProviderCredentials: () => Record<string, Record<string, unknown>>
   setProviderCredentials: (providerId: string, config: Record<string, unknown>) => void
   getDefaultProviderConfig: (providerId: string) => Record<string, unknown>
+  providerInstanceOptions?: (providerId: string, instanceId?: string) => Record<string, unknown> | undefined
 }
 
 /**
@@ -33,7 +34,7 @@ export interface ProviderInstancesDeps {
 export function createProviderInstances(deps: ProviderInstancesDeps) {
   const { providerInstanceCache, providerMetadata } = deps
 
-  // Function to get provider object by provider id
+  // Function to get provider object by provider id (or composite providerKey like "providerId:instanceId")
   async function getProviderInstance<R extends
   | ChatProvider
   | ChatProviderWithExtraOptions
@@ -43,14 +44,28 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
   | SpeechProviderWithExtraOptions
   | TranscriptionProvider
   | TranscriptionProviderWithExtraOptions,
-  >(providerId: string): Promise<R> {
-    const cached = providerInstanceCache.value[providerId] as R | undefined
+  >(providerKey: string): Promise<R> {
+    if (!providerKey) {
+      console.warn('getProviderInstance called with empty providerKey')
+      return null as any
+    }
+
+    const cached = providerInstanceCache.value[providerKey] as R | undefined
     if (cached)
       return cached
 
+    let providerId = providerKey
+    let targetInstanceId: string | undefined
+
+    if (providerKey.includes(':')) {
+      const parts = providerKey.split(':')
+      providerId = parts[0]
+      targetInstanceId = parts[1]
+    }
+
     const metadata = providerMetadata[providerId]
     if (!metadata) {
-      console.warn(`Provider metadata for ${providerId} not found`)
+      console.warn(`Provider metadata for ${providerKey} (base: ${providerId}) not found`)
       return null as any
     }
 
@@ -61,14 +76,15 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
     // instead of a network round-trip that ends in a 401.
     const noCredentials = metadata.requiresCredentials === false || metadata.deployment === 'local' || providerId === 'browser-web-speech-api'
 
-    let config = deps.getProviderCredentials()[providerId]
+    let config = deps.providerInstanceOptions?.(providerId, targetInstanceId)
+      ?? deps.getProviderCredentials()[providerId]
     if (!config && noCredentials) {
       config = deps.getDefaultProviderConfig(providerId)
       deps.setProviderCredentials(providerId, config)
     }
 
     if (!config && !noCredentials)
-      throw new Error(`Provider credentials for ${providerId} are missing or incomplete.`)
+      throw new Error(`Provider credentials for ${providerKey} are missing or incomplete.`)
 
     if (config && !noCredentials) {
       // Defensive check: an empty-but-truthy `{}` (or whitespace-only
@@ -79,26 +95,26 @@ export function createProviderInstances(deps: ProviderInstancesDeps) {
       const hasAwsKey = typeof anyCfg.accessKeyId === 'string' && anyCfg.accessKeyId.trim().length > 0
         && typeof anyCfg.secretAccessKey === 'string' && anyCfg.secretAccessKey.trim().length > 0
       if (!hasKey && !hasAwsKey)
-        throw new Error(`Provider credentials for ${providerId} are missing or incomplete.`)
+        throw new Error(`Provider credentials for ${providerKey} are missing or incomplete.`)
     }
 
     try {
       const instance = await metadata.createProvider(config || {}) as R
-      providerInstanceCache.value[providerId] = instance
+      providerInstanceCache.value[providerKey] = instance
       return instance
     }
     catch (error) {
-      console.error(`Error creating provider instance for ${providerId}:`, error)
+      console.error(`Error creating provider instance for ${providerKey}:`, error)
       throw error
     }
   }
 
-  async function disposeProviderInstance(providerId: string) {
-    const instance = providerInstanceCache.value[providerId] as { dispose?: () => Promise<void> | void } | undefined
+  async function disposeProviderInstance(providerKey: string) {
+    const instance = providerInstanceCache.value[providerKey] as { dispose?: () => Promise<void> | void } | undefined
     if (instance?.dispose)
       await instance.dispose()
 
-    delete providerInstanceCache.value[providerId]
+    delete providerInstanceCache.value[providerKey]
   }
 
   return { getProviderInstance, disposeProviderInstance }
