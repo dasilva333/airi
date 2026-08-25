@@ -231,8 +231,15 @@ async function handleVoiceClick() {
 }
 
 async function onSubmit() {
-  if (props.disabled || sending.value)
+  if (props.disabled)
     return
+
+  // While generating, the send button morphs into the Stop button — cancel the
+  // in-flight generation instead of swallowing the click.
+  if (sending.value) {
+    await chatOrchestrator.stopCurrentGeneration(chatSession.activeSessionId)
+    return
+  }
 
   const text = messageInput.value.trim()
   if (!text && attachments.value.length === 0)

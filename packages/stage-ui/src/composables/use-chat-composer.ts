@@ -38,7 +38,8 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const { activeCardId } = storeToRefs(airiCardStore)
   const { messages, activeSessionId } = storeToRefs(chatSession)
-  const { ingest } = chatOrchestrator
+  const { ingest, stopCurrentGeneration } = chatOrchestrator
+  const { sending } = storeToRefs(chatOrchestrator)
   const { stream, enabled } = storeToRefs(settingsAudioDevice)
 
   // Transcription/Hearing
@@ -244,6 +245,10 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     }
   }
 
+  async function stopGeneration() {
+    await stopCurrentGeneration(activeSessionId.value)
+  }
+
   // Listening Loop
   async function startListening() {
     autoSendDispatched = false
@@ -398,6 +403,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     isImagineMode,
     isListening,
     trashConfirmOpen,
+    sending,
 
     handleFilePaste,
     handleFileSelect,
@@ -406,6 +412,7 @@ export function useChatComposer(options: ChatComposerOptions = {}) {
     handleSaveAndClear,
     handleClearAnyway,
     handleSend,
+    stopGeneration,
     startListening,
     stopListening,
   }

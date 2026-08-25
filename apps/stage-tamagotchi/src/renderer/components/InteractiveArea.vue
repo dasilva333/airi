@@ -60,7 +60,7 @@ const { activeCard } = storeToRefs(airiCardStore)
 const shortTermMemory = useShortTermMemoryStore()
 
 const { cleanupMessages } = useChatMaintenanceStore()
-const { ingest, onAfterMessageComposed } = chatOrchestrator
+const { ingest, onAfterMessageComposed, stopCurrentGeneration } = chatOrchestrator
 const { messages, activeSessionId } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
 const { sending } = storeToRefs(chatOrchestrator)
@@ -598,6 +598,10 @@ async function handleSend() {
     }
     toast.error('Message failed to send. Draft restored.')
   }
+}
+
+function handleStopGeneration() {
+  void stopCurrentGeneration(activeSessionId.value)
 }
 
 async function handleFilePaste(files: File[]) {
@@ -1339,10 +1343,20 @@ defineExpose({
           </PopoverPortal>
         </PopoverRoot>
 
-        <!-- Send / Greet Inline Button -->
+        <!-- Send / Greet Inline Button — morphs into the Stop button while a reply streams,
+             so the escape hatch lives exactly where the send muscle memory aims. -->
         <PopoverRoot v-model:open="isSendMenuOpen">
           <PopoverAnchor as-child>
             <button
+              v-if="sending"
+              class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
+              title="Stop Generating"
+              @click="handleStopGeneration"
+            >
+              <div class="i-solar:stop-bold-duotone text-base" />
+            </button>
+            <button
+              v-else
               class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-primary-600 text-white transition-all duration-250 active:scale-95 dark:bg-primary-500 hover:bg-primary-700 dark:hover:bg-primary-600"
               :class="[
                 messageInput.trim()

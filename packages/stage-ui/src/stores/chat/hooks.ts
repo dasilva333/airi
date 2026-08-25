@@ -13,6 +13,7 @@ export function createChatHooks() {
   const onAssistantResponseEndHooks: Array<(message: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onAssistantMessageHooks: Array<(message: StreamingAssistantMessage, messageText: string, context: ChatStreamEventContext) => Promise<void>> = []
   const onChatTurnCompleteHooks: Array<(chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) => Promise<void>> = []
+  const onGenerationStoppedHooks: Array<(context: ChatStreamEventContext) => Promise<void>> = []
   const onWidgetHooks: Array<(payload: any, context: ChatStreamEventContext) => Promise<void>> = []
 
   function onBeforeMessageComposed(cb: (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>) {
@@ -105,6 +106,18 @@ export function createChatHooks() {
     }
   }
 
+  // Fired when the user cancels an in-flight generation. Distinct from onStreamEnd /
+  // onAssistantResponseEnd because those drain remaining speech; consumers that must
+  // become silent immediately (TTS playback, captions) should listen here instead.
+  function onGenerationStopped(cb: (context: ChatStreamEventContext) => Promise<void>) {
+    onGenerationStoppedHooks.push(cb)
+    return () => {
+      const index = onGenerationStoppedHooks.indexOf(cb)
+      if (index >= 0)
+        onGenerationStoppedHooks.splice(index, 1)
+    }
+  }
+
   function onWidget(cb: (payload: any, context: ChatStreamEventContext) => Promise<void>) {
     onWidgetHooks.push(cb)
     return () => {
@@ -125,6 +138,7 @@ export function createChatHooks() {
     onAssistantResponseEndHooks.length = 0
     onAssistantMessageHooks.length = 0
     onChatTurnCompleteHooks.length = 0
+    onGenerationStoppedHooks.length = 0
     onWidgetHooks.length = 0
   }
 
@@ -178,6 +192,11 @@ export function createChatHooks() {
       await hook(chat, context)
   }
 
+  async function emitGenerationStoppedHooks(context: ChatStreamEventContext) {
+    for (const hook of onGenerationStoppedHooks)
+      await hook(context)
+  }
+
   async function emitWidgetHooks(payload: any, context: ChatStreamEventContext) {
     for (const hook of onWidgetHooks)
       await hook(payload, context)
@@ -194,6 +213,7 @@ export function createChatHooks() {
     onAssistantResponseEnd,
     onAssistantMessage,
     onChatTurnComplete,
+    onGenerationStopped,
     onWidget,
     emitBeforeMessageComposedHooks,
     emitAfterMessageComposedHooks,
@@ -205,6 +225,7 @@ export function createChatHooks() {
     emitAssistantResponseEndHooks,
     emitAssistantMessageHooks,
     emitChatTurnCompleteHooks,
+    emitGenerationStoppedHooks,
     emitWidgetHooks,
     clearHooks,
   }

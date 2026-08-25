@@ -79,7 +79,7 @@ const { audioContext } = useAudioContext()
 const currentAudioSource = ref<AudioBufferSourceNode>()
 const isPlaybackSuppressed = ref(false)
 
-const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd } = useChatOrchestratorStore()
+const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd, onGenerationStopped } = useChatOrchestratorStore()
 const chatHookCleanups: Array<() => void> = []
 // WORKAROUND: clear previous handlers on unmount to avoid duplicate calls when this component remounts.
 //             We keep per-hook disposers instead of wiping the global chat hooks to play nicely with
@@ -1483,6 +1483,24 @@ chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
 }))
 
 // Animation finishes decoupled
+
+// User hit Stop: silence immediately. Cancel (not end) so already-synthesized audio is
+// dropped instead of draining. The assistant-end hook fired right after this by the
+// orchestrator relies on currentChatIntentReceivedLiteral NOT being reset here — keeping
+// it prevents the fallback-speech path from speaking the partial message.
+chatHookCleanups.push(onGenerationStopped(async () => {
+  debug('[Stage] onGenerationStopped -> cancelling speech intent')
+  currentChatIntent?.cancel('generation-stopped')
+  currentChatIntent = null
+
+  assistantCaptionSegments.value = []
+  try {
+    postCaption({ type: 'caption-assistant', segments: [] })
+  }
+  catch (error) {
+    debug('[Stage] Failed to post caption reset on stop (channel may be closed)', { error })
+  }
+}))
 
 onUnmounted(() => {
   lipSyncStarted.value = false

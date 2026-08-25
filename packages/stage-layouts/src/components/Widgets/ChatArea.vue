@@ -55,6 +55,8 @@ const {
   handleFileSelect,
   removeAttachment,
   handleSend,
+  sending,
+  stopGeneration,
 } = useChatComposer({
   tools: props.tools,
 })
@@ -243,6 +245,15 @@ const contextPercentage = computed(() => {
         max-h="[10lh]"
       >
         <button
+          v-if="sending"
+          class="h-9 w-10 flex items-center justify-center outline-none transition-transform active:scale-95 hover:bg-red-500/10"
+          title="Stop Generating"
+          @click="stopGeneration"
+        >
+          <div class="i-solar:stop-bold-duotone text-xl text-red-500 dark:text-red-400" />
+        </button>
+        <button
+          v-else
           class="h-9 w-10 flex items-center justify-center outline-none transition-transform active:scale-95 hover:bg-primary-500/10"
           title="Send Message"
           @click="handleSend"

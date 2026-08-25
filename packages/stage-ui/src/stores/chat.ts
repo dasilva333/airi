@@ -96,6 +96,17 @@ const chatLog = import.meta.env.DEV ? debug.bind(null, '[ChatDebug]') : () => {}
 // Keeping hooks at module scope ensures listeners survive store re-instantiation.
 const hooks = createChatHooks()
 
+// NOTICE: same module-scope reasoning as the hooks singleton above. Tracks every
+// in-flight performSend so stopCurrentGeneration() can capture the partial turn,
+// kill the HTTP stream, and finalize speech/caption state. Keyed by sessionId.
+interface ActiveSendHandle {
+  controller?: AbortController
+  context: ChatStreamEventContext
+  buildingMessage: ChatAssistantMessage
+  getRawText: () => string
+}
+const activeSendHandles = new Map<string, ActiveSendHandle>()
+
 export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const llmStore = useLLM()
   const providersStore = useProvidersStore()
@@ -125,12 +136,14 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
   const { data: broadcastedInput, post: postInput } = useBroadcastChannel<
     {
-      sendingMessage: string
+      type?: 'stop'
+      sendingMessage?: string
       options?: any
       targetSessionId?: string
     },
     {
-      sendingMessage: string
+      type?: 'stop'
+      sendingMessage?: string
       options?: any
       targetSessionId?: string
     }
@@ -169,6 +182,17 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     watch(broadcastedInput, (payload) => {
       if (payload) {
         chatLog('Received broadcasted chat input from secondary window:', payload)
+
+        // Stop requests from secondary windows (chat window, actor stage) ask the main
+        // window — the only process that runs performSend — to cancel the in-flight turn.
+        if (payload.type === 'stop') {
+          void stopCurrentGeneration(payload.targetSessionId)
+          return
+        }
+
+        if (!payload.sendingMessage)
+          return
+
         // NOTICE: Align the main window's active session to the sender's target so that in-band
         // tool executions and memory/context resolution resolve against the user's intended
         // timeline, not whichever snapshot this process last cached. setActiveSession short-
@@ -468,9 +492,22 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     const proactivityStore = useProactivityStore()
     proactivityStore.incrementMetric('chat')
     let streamIdleTimeout: ReturnType<typeof setTimeout> | undefined
+    // Hoisted so the catch block can tell a user-initiated stop (abort AFTER a
+    // generation bump) apart from genuine stream failures or idle-timeout aborts.
+    let activeAbortController: AbortController | undefined
 
     let fullText = ''
     let rawFullText = ''
+
+    // Register the in-flight turn so stopCurrentGeneration() can reach it.
+    // NOTICE: getRawText closes over the mutable accumulators above; it must only
+    // be invoked while this send is still registered in activeSendHandles.
+    activeSendHandles.set(sessionId, {
+      context: streamingMessageContext,
+      buildingMessage,
+      getRawText: () => rawFullText,
+    })
+
     let effectiveModel = options.model || activeModel.value
     let effectiveProviderId = typeof options.chatProvider === 'string'
       ? options.chatProvider
@@ -1424,6 +1461,9 @@ Format your output as a raw thought log.`
         const generationConfig = activeCard.value?.extensions?.airi?.generation
         const generationKnown = generationConfig?.enabled ? generationConfig.known : undefined
         const abortController = new AbortController()
+        activeAbortController = abortController
+        // Publish the controller so stopCurrentGeneration() can abort the live HTTP stream.
+        activeSendHandles.get(sessionId)!.controller = abortController
 
         const clearStreamIdleTimeout = () => {
           if (streamIdleTimeout)
@@ -1570,7 +1610,7 @@ Format your output as a raw thought log.`
         })
 
         // Final attempt to bridge any unclosed markers in the full accumulated text for THIS turn
-        if (fullText.includes('<|') || fullText.includes('[call_tool:') || fullText.includes('<tool_call>')) {
+        if (!shouldAbort() && (fullText.includes('<|') || fullText.includes('[call_tool:') || fullText.includes('<tool_call>'))) {
           chatLog('Scanning for unclosed tool calls in fullText accumulator')
           let lastRecovered: { matchedText: string, bridged: boolean }
           while ((lastRecovered = await tryBridgeMarker(fullText)).matchedText !== '') {
@@ -1726,6 +1766,15 @@ Format your output as a raw thought log.`
       }
     }
     catch (error: any) {
+      // User-initiated stop: stopCurrentGeneration() already bumped the session generation and
+      // aborted the stream controller, persisted the partial reply, and emitted the finalize hooks.
+      // Exit cleanly — no error bubble, no rethrow (a rethrow would reject the queued send's promise
+      // and trick the composer into restoring the already-sent draft).
+      if (isStaleGeneration() && activeAbortController?.signal.aborted) {
+        chatLog('performSend terminated by stopCurrentGeneration; skipping error path', { sessionId })
+        return
+      }
+
       console.error('Error sending message:', { sessionId, generation, error })
 
       let errorMessage = 'An unknown error occurred.'
@@ -1808,6 +1857,7 @@ Format your output as a raw thought log.`
     finally {
       if (streamIdleTimeout)
         clearTimeout(streamIdleTimeout)
+      activeSendHandles.delete(sessionId)
       sending.value = false
     }
   }
@@ -1973,6 +2023,84 @@ Format your output as a raw thought log.`
       : []
   }
 
+  /**
+   * User-facing cancellation of an in-flight chat generation.
+   *
+   * Secondary windows (Electron chat window, actor stage) do not run performSend — the
+   * stage window does — so they relay the stop over the input bridge and let the main
+   * window execute the real teardown. The main window then:
+   *   1. persists whatever has streamed so far as a partial assistant turn (steer-mode
+   *      precedent: the character's partial thought keeps turn-context intact),
+   *   2. bumps the session generation so every shouldAbort() checkpoint in performSend
+   *      early-returns and no further persistence happens,
+   *   3. aborts the live HTTP stream so tokens stop immediately instead of waiting for
+   *      the next provider event or the 600s idle timeout,
+   *   4. emits generation-stopped + stream-end + assistant-end so speech is cancelled
+   *      (not drained) and secondary windows' mirrored `sending`/stream state settles
+   *      exactly like a normal turn completion (context-bridge broadcasts them).
+   */
+  async function stopCurrentGeneration(targetSessionId?: string) {
+    const sessionId = targetSessionId ?? activeSessionId.value
+    if (!sessionId)
+      return
+
+    if (!isMainWindow) {
+      chatLog('stopCurrentGeneration: relaying stop request to main window', { sessionId })
+      postInput({ type: 'stop', targetSessionId: sessionId })
+      return
+    }
+
+    const handle = activeSendHandles.get(sessionId)
+    if (!handle) {
+      // Nothing streaming; still drain anything queued behind it.
+      cancelPendingSends(sessionId)
+      return
+    }
+
+    chatLog('stopCurrentGeneration: stopping in-flight generation', { sessionId })
+
+    // 1. Capture + persist the partial reply BEFORE bumping the generation so the
+    //    in-flight performSend's stale-generation checks skip its own persistence paths.
+    const partialMessage = toRaw(handle.buildingMessage)
+    const partialText = typeof partialMessage.content === 'string' ? partialMessage.content.trim() : ''
+    const hadContent = partialText.length > 0 || partialMessage.slices.length > 0
+    if (hadContent) {
+      const currentMessages = chatSession.getSessionMessages(sessionId)
+      chatSession.setSessionMessages(sessionId, [
+        ...currentMessages,
+        // NOTICE: keep rawContent (including orchestration tokens streamed so far) for the
+        // same token-retention reason as the normal persist path.
+        { ...partialMessage, rawContent: handle.getRawText(), aborted: true } as any,
+      ])
+    }
+
+    // 2. Invalidate the turn + drain queued sends.
+    chatSession.bumpSessionGeneration(sessionId)
+    cancelPendingSends(sessionId)
+
+    void eventLogStore.appendEvent({
+      category: 'chat',
+      type: 'user-stopped-generation',
+      source: 'chat-orchestrator',
+      textSummary: partialText
+        ? `User stopped generation at: "${partialText.slice(0, 45)}${partialText.length > 45 ? '...' : ''}"`
+        : 'User stopped generation',
+      payload: { sessionId, partialLength: partialText.length },
+      inspectable: true,
+    })
+
+    // 3. Kill the HTTP stream. performSend's catch detects stale generation + aborted
+    //    controller and exits without an error bubble or rethrow.
+    handle.controller?.abort(new Error('Generation stopped by user'))
+
+    // 4. Finalize: generation-stopped first so the speech host cancels the active intent
+    //    (immediate silence); stream-end / assistant-end afterwards so secondary windows
+    //    finalize their mirrored state through the existing context-bridge broadcast.
+    await hooks.emitGenerationStoppedHooks(handle.context)
+    await hooks.emitStreamEndHooks(handle.context)
+    await hooks.emitAssistantResponseEndHooks(partialText, handle.context)
+  }
+
   return {
     sending,
     streamingMessage,
@@ -1989,6 +2117,7 @@ Format your output as a raw thought log.`
     ingest,
     ingestOnFork,
     cancelPendingSends,
+    stopCurrentGeneration,
 
     clearHooks: hooks.clearHooks,
 
@@ -2002,6 +2131,7 @@ Format your output as a raw thought log.`
     emitAssistantResponseEndHooks: hooks.emitAssistantResponseEndHooks,
     emitAssistantMessageHooks: hooks.emitAssistantMessageHooks,
     emitChatTurnCompleteHooks: hooks.emitChatTurnCompleteHooks,
+    emitGenerationStoppedHooks: hooks.emitGenerationStoppedHooks,
 
     onBeforeMessageComposed: hooks.onBeforeMessageComposed,
     onAfterMessageComposed: hooks.onAfterMessageComposed,
@@ -2013,6 +2143,7 @@ Format your output as a raw thought log.`
     onAssistantResponseEnd: hooks.onAssistantResponseEnd,
     onAssistantMessage: hooks.onAssistantMessage,
     onChatTurnComplete: hooks.onChatTurnComplete,
+    onGenerationStopped: hooks.onGenerationStopped,
     onWidget: hooks.onWidget,
   }
 })
