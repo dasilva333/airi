@@ -38,6 +38,15 @@ function handleApplyPreset(preset: string) {
   applySizePreset({ target: 'actor', preset: mapped })
 }
 
+function handleCenterModel() {
+  const current = positioningStore.getPosition(stageModelSelected.value)
+  positioningStore.setPosition(stageModelSelected.value, {
+    ...current,
+    x: 0,
+    y: 0,
+  })
+}
+
 function handleApplyAlignment(alignment: string) {
   applySizePreset({ target: 'actor', alignment: alignment as any })
 }
@@ -704,7 +713,7 @@ onBeforeUnmount(() => {
         v-model:show-background="showBackgroundLayer"
         v-model:show-model="showModelLayer"
         @apply-preset="handleApplyPreset"
-        @apply-alignment="handleApplyAlignment"
+        @center-model="handleCenterModel"
         @hide-stage="handleOverlayHide"
       />
 

@@ -15,25 +15,17 @@ const emit = defineEmits<{
   (e: 'update:showBackground', val: boolean): void
   (e: 'update:showModel', val: boolean): void
   (e: 'apply-preset', preset: 'mini' | 'med.' | 'large' | 'full'): void
-  (e: 'apply-alignment', alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'): void
+  (e: 'center-model'): void
   (e: 'hide-stage'): void
 }>()
 
 const isOpen = ref(false)
-const mode = ref<'size' | 'position'>('size')
 
 const PRESETS = [
   { name: 'mini' as const, icon: 'i-solar:minimize-square-3-linear' },
   { name: 'med.' as const, icon: 'i-solar:maximize-square-2-linear' },
   { name: 'large' as const, icon: 'i-solar:maximize-square-3-linear' },
   { name: 'full' as const, icon: 'i-solar:screencast-linear' },
-]
-
-const CORNERS = [
-  { id: 'top-left' as const, icon: 'i-ph:arrow-up-left' },
-  { id: 'top-right' as const, icon: 'i-ph:arrow-up-right' },
-  { id: 'bottom-left' as const, icon: 'i-ph:arrow-down-left' },
-  { id: 'bottom-right' as const, icon: 'i-ph:arrow-down-right' },
 ]
 
 watch(() => props.open, (val) => {
@@ -46,17 +38,13 @@ watch(isOpen, (val) => {
   emit('update:open', val)
 })
 
-function toggleMode() {
-  mode.value = mode.value === 'size' ? 'position' : 'size'
+function handleCenterModel() {
+  emit('center-model')
+  isOpen.value = false
 }
 
 function handlePreset(preset: 'mini' | 'med.' | 'large' | 'full') {
   emit('apply-preset', preset)
-  isOpen.value = false
-}
-
-function handleCorner(alignment: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') {
-  emit('apply-alignment', alignment)
   isOpen.value = false
 }
 
@@ -100,7 +88,7 @@ function toggleModel() {
             'shadow-xl shadow-black/5 dark:shadow-black/20',
           ]"
         >
-          <!-- Row 1: Mode Toggle + Hide -->
+          <!-- Row 1: Center Mascot + Hide Stage -->
           <div class="flex items-center justify-between gap-2">
             <button
               :class="[
@@ -110,13 +98,12 @@ function toggleModel() {
                 'backdrop-blur-md',
                 'text-neutral-700 dark:text-neutral-200',
                 'transition-all duration-150',
-                'hover:bg-white/30 dark:hover:bg-neutral-700/40',
+                'hover:bg-white/30 dark:hover:bg-neutral-700/40 hover:text-primary-500 dark:hover:text-primary-400',
               ]"
-              :title="mode === 'size' ? 'Switch to Position Mode' : 'Switch to Size Mode'"
-              @click="toggleMode"
+              title="Center Mascot in Viewport"
+              @click="handleCenterModel"
             >
-              <div v-if="mode === 'size'" class="i-ph:plus-square size-5" />
-              <div v-else class="i-ph:copy size-5" />
+              <div class="i-ph:crosshair-simple size-5" />
             </button>
 
             <button
@@ -137,7 +124,7 @@ function toggleModel() {
           </div>
 
           <!-- Rows 2 & 3: Size Presets Grid -->
-          <div v-if="mode === 'size'" class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <button
               v-for="p in PRESETS"
               :key="p.name"
@@ -154,27 +141,6 @@ function toggleModel() {
               @click="handlePreset(p.name)"
             >
               <span class="text-[9px] font-semibold capitalize">{{ p.name }}</span>
-            </button>
-          </div>
-
-          <!-- Rows 2 & 3: Corner Positions Grid -->
-          <div v-else class="grid grid-cols-2 gap-2">
-            <button
-              v-for="c in CORNERS"
-              :key="c.id"
-              :class="[
-                'flex flex-col items-center justify-center gap-1 rounded-xl cursor-pointer aspect-square',
-                'border border-white/20 dark:border-neutral-500/20',
-                'bg-white/15 dark:bg-neutral-800/30',
-                'backdrop-blur-md',
-                'text-neutral-700 dark:text-neutral-200',
-                'transition-all duration-150',
-                'hover:bg-white/30 dark:hover:bg-neutral-700/40',
-              ]"
-              :title="c.id"
-              @click="handleCorner(c.id)"
-            >
-              <div :class="[c.icon, 'size-6']" />
             </button>
           </div>
 
