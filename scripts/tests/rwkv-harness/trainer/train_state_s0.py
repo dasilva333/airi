@@ -10,13 +10,13 @@ import sys
 import json
 import math
 import time
+import argparse
 from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from safetensors.torch import load_file, save_file
-from tokenizers import Tokenizer
 
 # Detect Metal GPU (MPS) or CUDA
 if torch.backends.mps.is_available():
@@ -28,9 +28,8 @@ else:
 
 print(f"[Trainer] Using compute device: {DEVICE}")
 
-MODEL_PATH = Path(".cache/rwkv7-g1d-1.5b-20260212-ctx8192.safetensors")
-DATASET_PATH = Path("dataset/p5-watercolor-corpus.jsonl")
-OUTPUT_STATE_PATH = Path("dataset/p5-watercolor-1.5b.state")
+DEFAULT_DATASET_PATH = Path("datasets/p5-watercolor-corpus-v2.jsonl")
+DEFAULT_OUTPUT_STATE_PATH = Path("datasets/p5-watercolor-v2-1.5b.state")
 
 class RWKV7StateTuner(nn.Module):
     def __init__(self, n_layer=24, n_embd=2048, n_head=32, head_size=64):
@@ -42,7 +41,7 @@ class RWKV7StateTuner(nn.Module):
 
         # Trainable recurrent initial state S0 per layer: (H, Dk, Dv)
         self.s0_time_mix = nn.ParameterList([
-            nn.Parameter(torch.zeros(n_head, head_size, head_size, dtype=torch.float32))
+            nn.Parameter(torch.randn(n_head, head_size, head_size, dtype=torch.float32) * 0.02)
             for _ in range(n_layer)
         ])
         
@@ -68,28 +67,35 @@ def load_training_samples(dataset_path: Path):
         for line in f:
             if line.strip():
                 data = json.loads(line)
-                # Extract user prompt + assistant code
-                msgs = data.get("messages", [])
-                user_msg = next((m["content"] for m in msgs if m["role"] == "user"), "")
-                asst_msg = next((m["content"] for m in msgs if m["role"] == "assistant"), "")
-                full_text = f"User: {user_msg}\n\nAssistant: {asst_msg}"
+                if "code" in data and "prompt" in data:
+                    full_text = f"Task: {data['prompt']}\n\nCode:\n{data['code']}"
+                elif "messages" in data:
+                    msgs = data.get("messages", [])
+                    user_msg = next((m["content"] for m in msgs if m["role"] == "user"), "")
+                    asst_msg = next((m["content"] for m in msgs if m["role"] == "assistant"), "")
+                    full_text = f"User: {user_msg}\n\nAssistant: {asst_msg}"
+                else:
+                    full_text = json.dumps(data)
                 samples.append(full_text)
     return samples
 
-def train(steps: int = 500, lr: float = 0.02, batch_size: int = 2):
+def train(steps: int = 3000, lr: float = 0.02, dataset_path: Path = DEFAULT_DATASET_PATH, output_path: Path = DEFAULT_OUTPUT_STATE_PATH):
     print(f"\n=== RWKV-7 State-Tuning Run ({steps} steps) ===")
-    print(f"Target statefile: {OUTPUT_STATE_PATH}")
+    print(f"Dataset: {dataset_path}")
+    print(f"Target statefile: {output_path}")
 
     # Load dataset
-    samples = load_training_samples(DATASET_PATH)
-    print(f"✓ Loaded {len(samples)} training samples from {DATASET_PATH}")
+    samples = load_training_samples(dataset_path)
+    print(f"✓ Loaded {len(samples)} verified training samples from {dataset_path}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Initialize S0 module
     tuner = RWKV7StateTuner().to(DEVICE)
     optimizer = torch.optim.AdamW(tuner.parameters(), lr=lr, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=steps, eta_min=lr * 0.1)
 
-    print(f"✓ Initialized S0 parameters (trainable: {sum(p.numel() for p in tuner.parameters()):,} params (~13MB))")
+    print(f"✓ Initialized S0 parameters (trainable: {sum(p.numel() for p in tuner.parameters()):,} params (~12.2MB))")
     print(f"✓ Base 1.5B weights remain 100% frozen.\n")
 
     t0 = time.time()
@@ -118,27 +124,27 @@ def train(steps: int = 500, lr: float = 0.02, batch_size: int = 2):
         loss_val = loss.item()
         losses.append(loss_val)
 
-        if step % 50 == 0 or step == 1 or step == steps:
+        if step % 250 == 0 or step == 1 or step == steps:
             elapsed = time.time() - t0
             steps_per_sec = step / elapsed if elapsed > 0 else 0
             print(f"Step [{step:4d}/{steps:4d}] | Loss: {loss_val:.6f} | LR: {scheduler.get_last_lr()[0]:.6f} | Speed: {steps_per_sec:.1f} steps/s")
 
     # Export trained statefile
     export_dict = tuner.export_state_dict()
-    save_file(export_dict, str(OUTPUT_STATE_PATH))
-    file_size_mb = OUTPUT_STATE_PATH.stat().st_size / (1024 * 1024)
-    print(f"\n✓ Successfully exported S0 statefile: {OUTPUT_STATE_PATH} ({file_size_mb:.2f} MB)")
+    save_file(export_dict, str(output_path))
+    file_size_mb = output_path.stat().st_size / (1024 * 1024)
+    print(f"\n✓ Successfully exported S0 statefile: {output_path} ({file_size_mb:.2f} MB)")
 
     # Write training metadata report
-    meta_path = OUTPUT_STATE_PATH.with_suffix(".json")
+    meta_path = output_path.with_suffix(".json")
     meta = {
         "model": "rwkv7-g1d-1.5b",
-        "state_file": str(OUTPUT_STATE_PATH.name),
+        "state_file": str(output_path.name),
         "file_size_mb": file_size_mb,
         "steps": steps,
         "final_loss": losses[-1] if losses else None,
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "dataset": str(DATASET_PATH),
+        "dataset": str(dataset_path),
         "num_samples": len(samples),
     }
     with open(meta_path, "w", encoding="utf-8") as f:
@@ -146,5 +152,10 @@ def train(steps: int = 500, lr: float = 0.02, batch_size: int = 2):
     print(f"✓ Exported metadata report: {meta_path}\n")
 
 if __name__ == "__main__":
-    steps_arg = int(sys.argv[1]) if len(sys.argv) > 1 else 500
-    train(steps=steps_arg)
+    parser = argparse.ArgumentParser(description="RWKV-7 S0 State Tuner")
+    parser.add_argument("--steps", type=int, default=3000, help="Training steps")
+    parser.add_argument("--dataset", type=str, default=str(DEFAULT_DATASET_PATH), help="Path to JSONL dataset")
+    parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT_STATE_PATH), help="Path to output .state file")
+    args = parser.parse_args()
+
+    train(steps=args.steps, dataset_path=Path(args.dataset), output_path=Path(args.output))

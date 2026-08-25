@@ -44,6 +44,8 @@ export function repairTruncatedProgram(code: string): string | null {
     .replace(/([,(]\s*)(#[0-9a-f]{3,8})(\s*[,)])/gi, '$1"$2"$3')
     // Fix common hallucinated method names
     .replace(/\bbrush\.blend\s*\(/g, 'brush.bleed(')
+    .replace(/\bbrush\.noStroke\s*\(\s*\)/g, 'noStroke()')
+    .replace(/\bbrush\.endShape\s*\(\s*CLOSE\s*\)/gi, 'brush.endShape("close")')
 
   let lastClean = 0
   let paren = 0
