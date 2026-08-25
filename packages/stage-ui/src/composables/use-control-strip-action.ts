@@ -40,7 +40,7 @@ export function useControlStripAction() {
       case 'viewport-cycle-modes': {
         controlStripStore.cycleStageMode()
         const mode = controlStripStore.stageMode
-        settingsStore.stageViewControlsEnabled = (mode === 'dragMode' || mode === 'positionMode')
+        settingsStore.stageViewControlsEnabled = (mode === 'dragMode')
         try {
           const modelStore = useModelStore()
           if (mode === 'tactileMode')
@@ -88,7 +88,7 @@ export function useControlStripAction() {
 
       case 'viewport-positioning': {
         controlStripStore.stageMode = 'positionMode'
-        settingsStore.stageViewControlsEnabled = true
+        settingsStore.stageViewControlsEnabled = false
         try {
           useModelStore().interactionMode = 'positioning'
         }

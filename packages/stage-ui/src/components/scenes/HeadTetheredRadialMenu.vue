@@ -8,6 +8,9 @@ import {
 } from '@proj-airi/stage-shared'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { useControlStripAction } from '../../composables/use-control-strip-action'
+import { useSettingsControlStrip } from '../../stores/settings/control-strip'
+
 export interface HeadPoseData {
   screenX: number
   screenY: number
@@ -18,10 +21,19 @@ export interface HeadPoseData {
 }
 
 interface RadialWedgeDef {
-  id: 'size' | 'align' | 'layers' | 'hide' | 'monitor'
+  id: 'size' | 'align' | 'mode' | 'layers' | 'hide' | 'monitor'
   icon: string
   label: string
   color: string
+}
+
+interface ModeSliceDef {
+  id: 'tactileMode' | 'orbitMode' | 'dragMode' | 'positionMode'
+  label: string
+  sub: string
+  icon: string
+  action: 'viewport-tactile' | 'viewport-orbit' | 'viewport-drag' | 'viewport-positioning'
+  active: boolean
 }
 
 interface SizePresetDef {
@@ -66,7 +78,7 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = ref(false)
-const subMenuMode = ref<'none' | 'size' | 'align' | 'layers' | 'monitor'>('none')
+const subMenuMode = ref<'none' | 'size' | 'align' | 'mode' | 'layers' | 'monitor'>('none')
 const hoveredIndex = ref<number | null>(null)
 const mouseRelX = ref(0)
 const mouseRelY = ref(0)
@@ -75,15 +87,19 @@ const menuCenter = ref<{ x: number, y: number }>({ x: 150, y: 150 })
 const containerBounds = ref<{ width: number, height: number }>({ width: 450, height: 600 })
 const stageOverlayRef = ref<HTMLDivElement | null>(null)
 
+const controlStripStore = useSettingsControlStrip()
+const { dispatchAction } = useControlStripAction()
+
 // ── Definitions for Root and Sub-Radial Wheels ────────────────────────────────
 
-// 1. Root Menu: 5 Core Slices (or 4 when single display)
+// 1. Root Menu: 6 Core Slices (or 5 when single display)
 const MAIN_WEDGES: RadialWedgeDef[] = [
-  { id: 'size', icon: 'i-solar:maximize-square-2-linear', label: 'Size', color: '#38BDF8' }, // Top
-  { id: 'align', icon: 'i-ph:corners-out', label: 'Snap', color: '#A855F7' }, // Right / Top-Right
-  { id: 'layers', icon: 'i-ph:stack', label: 'Layers', color: '#EC4899' }, // Bottom / Bottom-Right
-  { id: 'hide', icon: 'i-ph:eye-slash', label: 'Hide', color: '#EF4444' }, // Left / Bottom-Left
-  { id: 'monitor', icon: 'i-ph:desktop', label: 'Monitor', color: '#F59E0B' }, // Top-Left (multi-display only)
+  { id: 'size', icon: 'i-solar:maximize-square-2-linear', label: 'Size', color: '#38BDF8' }, // Sky Blue
+  { id: 'align', icon: 'i-ph:corners-out', label: 'Snap', color: '#A855F7' }, // Purple
+  { id: 'mode', icon: 'i-ph:hand-pointing', label: 'Mode', color: '#10B981' }, // Emerald
+  { id: 'layers', icon: 'i-ph:stack', label: 'Layers', color: '#EC4899' }, // Pink
+  { id: 'hide', icon: 'i-ph:eye-slash', label: 'Hide', color: '#EF4444' }, // Red
+  { id: 'monitor', icon: 'i-ph:desktop', label: 'Monitor', color: '#F59E0B' }, // Amber (multi-display only)
 ]
 
 const activeMainWedges = computed(() => {
@@ -93,7 +109,15 @@ const activeMainWedges = computed(() => {
   return MAIN_WEDGES.filter(w => w.id !== 'monitor')
 })
 
-// 2. Size Presets: 4 Radial Slices (90° each)
+// 2. Mode Presets: 4 Radial Slices (90° each)
+const MODE_SLICES = computed<ModeSliceDef[]>(() => [
+  { id: 'tactileMode', label: 'Tactile', sub: 'Interact', icon: 'i-ph:sparkle', action: 'viewport-tactile', active: controlStripStore.stageMode === 'tactileMode' }, // 0° (Top)
+  { id: 'orbitMode', label: 'Orbit', sub: '3D Rotate', icon: 'i-ph:arrows-clockwise', action: 'viewport-orbit', active: controlStripStore.stageMode === 'orbitMode' }, // 90° (Right)
+  { id: 'dragMode', label: 'Pan', sub: 'Offset', icon: 'i-ph:hand-palm', action: 'viewport-drag', active: controlStripStore.stageMode === 'dragMode' }, // 180° (Bottom)
+  { id: 'positionMode', label: 'Move', sub: 'Window Drag', icon: 'i-ph:app-window', action: 'viewport-positioning', active: controlStripStore.stageMode === 'positionMode' }, // 270° (Left)
+])
+
+// 3. Size Presets: 4 Radial Slices (90° each)
 const SIZE_PRESETS: SizePresetDef[] = [
   { id: 'mini', label: 'Mini', sub: '220×315', icon: 'i-solar:minimize-square-3-linear' }, // 0° (Top)
   { id: 'medium', label: 'Med', sub: '450×600', icon: 'i-solar:maximize-square-2-linear' }, // 90° (Right)
@@ -101,7 +125,7 @@ const SIZE_PRESETS: SizePresetDef[] = [
   { id: 'full', label: 'Full', sub: 'Workarea', icon: 'i-solar:screencast-linear' }, // 270° (Left)
 ]
 
-// 3. Snap / Alignment: 8 Directional Radial Slices (45° each)
+// 4. Snap / Alignment: 8 Directional Radial Slices (45° each)
 const ALIGN_SLICES: AlignSliceDef[] = [
   { id: 'top', icon: 'i-ph:arrow-up', label: 'Top' }, // 0°
   { id: 'top-right', icon: 'i-ph:arrow-up-right', label: 'Top-Right' }, // 45°
@@ -113,7 +137,7 @@ const ALIGN_SLICES: AlignSliceDef[] = [
   { id: 'top-left', icon: 'i-ph:arrow-up-left', label: 'Top-Left' }, // 315°
 ]
 
-// 4. Layer Visibility: 2 Radial Slices (180° each)
+// 5. Layer Visibility: 2 Radial Slices (180° each)
 const LAYER_SLICES = computed(() => [
   {
     id: 'model',
@@ -131,7 +155,7 @@ const LAYER_SLICES = computed(() => [
   }, // Left Half (270°)
 ])
 
-// 5. Monitor Presets: N Slices (360° / count)
+// 6. Monitor Presets: N Slices (360° / count)
 const MONITOR_SLICES = computed(() => {
   const count = Math.max(1, props.monitorCount)
   return Array.from({ length: count }, (_, i) => ({
@@ -162,6 +186,8 @@ const currentSliceCount = computed(() => {
     return SIZE_PRESETS.length
   if (subMenuMode.value === 'align')
     return ALIGN_SLICES.length
+  if (subMenuMode.value === 'mode')
+    return MODE_SLICES.value.length
   if (subMenuMode.value === 'layers')
     return LAYER_SLICES.value.length
   if (subMenuMode.value === 'monitor')
@@ -376,6 +402,10 @@ function onSliceClick(idx: number) {
       subMenuMode.value = 'align'
       hoveredIndex.value = null
     }
+    else if (wedge.id === 'mode') {
+      subMenuMode.value = 'mode'
+      hoveredIndex.value = null
+    }
     else if (wedge.id === 'layers') {
       subMenuMode.value = 'layers'
       hoveredIndex.value = null
@@ -406,6 +436,13 @@ function onSliceClick(idx: number) {
     const dir = ALIGN_SLICES[idx]
     if (dir) {
       emit('apply-alignment', dir.id)
+      closeMenu()
+    }
+  }
+  else if (subMenuMode.value === 'mode') {
+    const slice = MODE_SLICES.value[idx]
+    if (slice) {
+      void dispatchAction(slice.action)
       closeMenu()
     }
   }
@@ -588,6 +625,30 @@ function getSectorPath(startAngle: number, endAngle: number, innerR = INNER_RADI
             }"
           >
             <div :class="[dir.icon, 'text-2xl']" />
+          </div>
+        </template>
+
+        <!-- ── LEVEL 2: MODE SELECTION RADIAL WHEEL (4 Slices) ────────────── -->
+        <template v-else-if="subMenuMode === 'mode'">
+          <div
+            v-for="(m, idx) in MODE_SLICES"
+            :key="m.id"
+            :class="[
+              'pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+              'flex flex-col items-center justify-center select-none',
+              'transition-all duration-150',
+              hoveredIndex === idx
+                ? 'scale-115 text-white drop-shadow-[0_2px_10px_rgba(16,185,129,0.7)]'
+                : 'text-neutral-300 opacity-80',
+            ]"
+            :style="{
+              transform: `translate(calc(-50% + ${currentPolarLayouts[idx]?.x || 0}px), calc(-50% + ${currentPolarLayouts[idx]?.y || 0}px)) scale(${hoveredIndex === idx ? 1.15 : 1})`,
+            }"
+          >
+            <div :class="[m.icon, 'text-2xl']" />
+            <span class="mt-0.5 text-[11px] font-bold">{{ m.label }}</span>
+            <span class="text-[8px] font-mono" :class="m.active ? 'text-emerald-400 font-bold' : 'text-neutral-400'">{{ m.sub }}</span>
+            <div v-if="m.active" class="mt-0.5 size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
           </div>
         </template>
 
