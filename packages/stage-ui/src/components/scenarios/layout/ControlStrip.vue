@@ -7,6 +7,7 @@ import { useCustomVrmAnimationsStore, useModelStore } from '@proj-airi/stage-ui-
 import { onClickOutside, useBroadcastChannel, useColorMode, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, toRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 // Ported stores & states for Popovers
 
@@ -450,12 +451,28 @@ function cardInitialColor(name: string): string {
   return palette[Math.abs(h) % palette.length]
 }
 
+const router = useRouter()
+
+function openSettingsRoute(route: string) {
+  if (typeof window !== 'undefined' && (window as any).electron) {
+    window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
+      detail: { route },
+    }))
+  }
+  else if (router && typeof router.push === 'function') {
+    void router.push(route)
+  }
+  else {
+    window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
+      detail: { route },
+    }))
+  }
+}
+
 function handleEditActiveCard() {
   if (!activeCardId.value)
     return
-  window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
-    detail: { route: `/settings/airi-card?cardId=${activeCardId.value}&edit=true` },
-  }))
+  openSettingsRoute(`/settings/airi-card?cardId=${activeCardId.value}&edit=true`)
   activePopover.value = null
 }
 
@@ -1091,17 +1108,13 @@ function triggerWardrobeItem(id: string) {
 
 function handleViewGallery() {
   if (activeCardId.value) {
-    window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
-      detail: { route: `/settings/airi-card?cardId=${activeCardId.value}&tab=gallery` },
-    }))
+    openSettingsRoute(`/settings/airi-card?cardId=${activeCardId.value}&tab=gallery`)
     activePopover.value = null
   }
 }
 
 function handleManageProfiles() {
-  window.dispatchEvent(new CustomEvent('control-strip:open-settings', {
-    detail: { route: '/settings/airi-card' },
-  }))
+  openSettingsRoute('/settings/airi-card')
   activePopover.value = null
 }
 

@@ -22,10 +22,13 @@ import { usePositioningStore } from '@proj-airi/stage-ui/stores/settings/positio
 import { breakpointsTailwind, useBreakpoints, useMediaQuery, useMouse } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 defineOptions({
   name: 'IndexScenePage',
 })
+
+const router = useRouter()
 
 const paused = ref(false)
 
@@ -82,9 +85,24 @@ function handleOffsetChange(offset: { x: number, y: number }) {
 const backgroundStore = useBackgroundStore()
 const { selectedOption, sampledColor } = storeToRefs(backgroundStore)
 const backgroundSurface = useTemplateRef<InstanceType<typeof BackgroundProvider>>('backgroundSurface')
-
 const { syncBackgroundTheme } = useBackgroundThemeColor({ backgroundSurface, selectedOption, sampledColor })
-onMounted(() => syncBackgroundTheme())
+
+onMounted(() => {
+  syncBackgroundTheme()
+
+  if (typeof window !== 'undefined') {
+    const handleOpenSettings = (e: Event) => {
+      const route = (e as CustomEvent).detail?.route
+      if (route) {
+        void router.push(route)
+      }
+    }
+    window.addEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    onUnmounted(() => {
+      window.removeEventListener('control-strip:open-settings', handleOpenSettings as EventListener)
+    })
+  }
+})
 
 // Audio + transcription pipeline (mirrors stage-tamagotchi)
 const settingsAudioDeviceStore = useSettingsAudioDevice()

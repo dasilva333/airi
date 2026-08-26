@@ -35,7 +35,7 @@ const { t } = useI18n()
 const cardStore = useAiriCardStore()
 const displayModelsStore = useDisplayModelsStore()
 const { addCard, removeCard } = cardStore
-const { cards, activeCardId } = storeToRefs(cardStore)
+const { cards, activeCardId, cardsLoading } = storeToRefs(cardStore)
 const modelStore = useModelStore()
 const stageModelStore = useSettingsStageModel()
 const backgroundStore = useBackgroundStore()
@@ -126,15 +126,18 @@ onUnmounted(() => {
 // Initial tab for the detail dialog
 const initialTab = ref<string | undefined>(undefined)
 
-// Watch for deep-linking query parameters
+// Watch for deep-linking query parameters with asynchronous cards-load safety
 watch(
-  () => route.query,
-  (query) => {
+  [() => route.query, () => cards.value.size, () => cardsLoading.value],
+  ([query, _size, loading]) => {
     const cardId = query.cardId as string
     const tab = query.tab as string
     const edit = query.edit as string
 
-    if (cardId && cards.value.has(cardId)) {
+    if (!cardId || loading)
+      return
+
+    if (cards.value.has(cardId)) {
       if (edit === 'true') {
         editingCardId.value = cardId
         isCardCreationDialogOpen.value = true
@@ -145,8 +148,8 @@ watch(
         isCardDialogOpen.value = true
       }
 
-      // Clear query params after handling
-      router.replace({ query: {} })
+      // Clear query params after handling so refresh doesn't reopen unexpectedly
+      void router.replace({ query: {} })
     }
   },
   { immediate: true },

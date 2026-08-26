@@ -1294,6 +1294,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   return {
     cards,
+    cardsLoading,
     activeCard,
     activeCardId,
     activateCard,
