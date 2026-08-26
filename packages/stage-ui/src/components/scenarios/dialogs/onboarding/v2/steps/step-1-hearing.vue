@@ -6,6 +6,7 @@ import { useAudioAnalyzer, useAudioRecorder } from '@proj-airi/stage-ui/composab
 import { Button, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import StepProviderConfiguration from '../../step-provider-configuration.vue'
 import CompanionBubble from '../components/companion-bubble.vue'
@@ -257,7 +258,15 @@ const inlineConfigProvider = computed(() => {
 })
 const showInlineConfig = computed(() => !!inlineConfigProvider.value && !configuredTranscriptionProvidersMetadata.value.some(p => p.id === inlineConfigProvider.value!.id))
 
-function handleConfigured() {
+function handleConfigured(config?: Record<string, unknown>) {
+  if (activeTranscriptionProvider.value && config) {
+    providersStore.providers[activeTranscriptionProvider.value] = {
+      ...providersStore.providers[activeTranscriptionProvider.value],
+      ...config,
+    }
+    providersStore.markProviderAdded(activeTranscriptionProvider.value)
+    toast.success(`${inlineConfigProvider.value?.name || 'Provider'} connected!`)
+  }
   void hearingStore.loadModelsForProvider(activeTranscriptionProvider.value)
 }
 

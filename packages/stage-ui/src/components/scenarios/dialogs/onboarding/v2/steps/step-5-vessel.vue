@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useFileDialog } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
 import CompanionBubble from '../components/companion-bubble.vue'
 
@@ -60,13 +62,9 @@ const activeModel = computed(() => {
 
 const isUploading = ref(false)
 
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file)
-    return
-
+async function processModelFile(file: File) {
   isUploading.value = true
+  toast.info(`Processing ${file.name}...`)
   try {
     const ext = file.name.split('.').pop()?.toLowerCase()
     let format: DisplayModelFormat = DisplayModelFormat.VRM
@@ -78,17 +76,39 @@ async function handleFileUpload(event: Event) {
       format = DisplayModelFormat.PMXZip
 
     await displayModelsStore.addDisplayModel(format, file)
-    const newModel = displayModelsStore.displayModels[displayModelsStore.displayModels.length - 1]
+    const newModel = displayModelsStore.displayModels[0]
     if (newModel?.id) {
       selectedBody.value = newModel.id
+      toast.success(`Loaded avatar "${newModel.name || file.name}"!`)
     }
   }
-  catch (error) {
+  catch (error: any) {
     console.error('[Step 5 Vessel] Failed to upload model file:', error)
+    toast.error(`Failed to load avatar: ${error?.message || 'Invalid model file'}`)
   }
   finally {
     isUploading.value = false
-    target.value = ''
+  }
+}
+
+const { open: openFileDialog, onChange: onFileChange } = useFileDialog({
+  accept: '.vrm,.zip,application/zip',
+  multiple: false,
+  reset: true,
+})
+
+onFileChange((files) => {
+  const file = files?.[0]
+  if (file) {
+    void processModelFile(file)
+  }
+})
+
+function handleFileDrop(event: DragEvent) {
+  event.preventDefault()
+  const file = event.dataTransfer?.files?.[0]
+  if (file && !isUploading.value) {
+    void processModelFile(file)
   }
 }
 
@@ -179,11 +199,17 @@ const exploreLinks = [
     </div>
 
     <!-- Ever-present custom dropzone -->
-    <label
+    <button
+      type="button"
+      :disabled="isUploading"
       :class="[
-        'flex flex-shrink-0 items-center justify-center gap-3 border-2 border-dashed rounded-xl px-4 py-3 text-center cursor-pointer transition-colors',
+        'flex flex-shrink-0 items-center justify-center gap-3 border-2 border-dashed rounded-xl px-4 py-3 text-center cursor-pointer transition-colors w-full',
         'border-neutral-300/80 bg-white/30 dark:border-neutral-700/80 dark:bg-neutral-900/30 hover:border-primary-500/60',
+        isUploading ? 'opacity-60 cursor-not-allowed' : '',
       ]"
+      @click="openFileDialog()"
+      @dragover.prevent
+      @drop="handleFileDrop"
     >
       <div
         :class="isUploading ? 'i-svg-spinners:ring-resize text-primary-500' : 'i-solar:cloud-upload-bold-duotone text-neutral-400'"
@@ -197,14 +223,7 @@ const exploreLinks = [
           Supports <span class="font-mono">.vrm</span> 3D avatars, or <span class="font-mono">.zip</span> archives with Live2D (<span class="font-mono">.moc3</span> Cubism 3–5), Spine (<span class="font-mono">.skel</span> 3.8–4.2), &amp; MMD (<span class="font-mono">.pmx</span>)
         </span>
       </div>
-      <input
-        type="file"
-        accept=".vrm,.zip,.moc3,.skel,.pmx"
-        class="hidden"
-        :disabled="isUploading"
-        @change="handleFileUpload"
-      >
-    </label>
+    </button>
 
     <div class="min-h-0 flex-1 overflow-y-auto pr-1">
       <!-- View A: starter bodies -->
