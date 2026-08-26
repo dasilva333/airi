@@ -422,6 +422,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         )
 
         vlmImageAnalysis = vlmResponse.text || null
+        useLiveSessionStore().recordInferenceUsage(vlmResponse.usage)
         chatLog('[Vision] Received VLM analysis:', vlmImageAnalysis)
 
         // Strip the image attachments so the primary LLM turn is text-only.
@@ -1411,6 +1412,7 @@ Format your output as a raw thought log.`
               )
 
               const rawOutput = firstHopResponse.text || ''
+              useLiveSessionStore().recordInferenceUsage(firstHopResponse.usage)
               chatLog('[Cognition] Raw 1st-Hop output:', rawOutput)
 
               let monologueText = ''
@@ -1580,11 +1582,12 @@ Format your output as a raw thought log.`
                   }
                 }).catch(() => {})
                 break
-              case 'usage':
+              case 'usage': {
                 chatLog('usage report:', event.usage)
                 const liveSession = useLiveSessionStore()
-                liveSession.recordInferenceUsage(event.usage.total_tokens || event.usage.totalTokenCount || event.usage.totalUsage || 0)
+                liveSession.recordInferenceUsage(event.usage)
                 break
+              }
               case 'error':
                 throw event.error ?? new Error('Stream error')
             }

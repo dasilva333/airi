@@ -717,11 +717,8 @@ export const useProactivityStore = defineStore('proactivity', () => {
         })
         const rawReply = llmResponse.text
 
-        // Record token usage for persistent tracking
-        if (llmResponse.usage) {
-          const totalTokens = llmResponse.usage.total_tokens || (llmResponse.usage.prompt_tokens + llmResponse.usage.completion_tokens) || 0
-          liveSessionStore.recordInferenceUsage(totalTokens)
-        }
+        // Record token usage for persistent tracking (handles string-typed usage fields safely)
+        liveSessionStore.recordInferenceUsage(llmResponse.usage)
 
         debug(`[Proactivity] LLM Raw Response: "${rawReply}"`)
 

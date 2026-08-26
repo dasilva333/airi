@@ -141,6 +141,19 @@ export function mapAiriToolToGemini(tool: Tool): Record<string, unknown> {
   }
 }
 
+/**
+ * Coerces any provider-supplied token count to a safe non-negative integer.
+ *
+ * NOTICE: Some gateways serialize usage counts as JSON strings ("total_tokens": "2186").
+ * Adding a string to the persisted counter silently becomes string concatenation
+ * ("2186" + "074" → "2186074"), inflating the displayed total to billions within a
+ * single session. Every arithmetic site MUST route values through this helper.
+ */
+export function sanitizeTokenCount(value: unknown): number {
+  const num = Number(value)
+  return (Number.isFinite(num) && num > 0) ? Math.floor(num) : 0
+}
+
 export const useLiveSessionStore = defineStore('live-session', () => {
   const providersStore = useProvidersStore()
   const chatSession = useChatSessionStore()
@@ -158,7 +171,9 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const lastTranscript = ref('')
   const voiceTokens = useLocalStorage('settings/gemini/voice-tokens', 0)
   const inferenceTokens = useLocalStorage('settings/gemini/inference-tokens', 0)
-  const totalTokens = computed(() => voiceTokens.value + inferenceTokens.value)
+  const inferencePromptTokens = useLocalStorage('settings/gemini/inference-prompt-tokens', 0)
+  const inferenceCompletionTokens = useLocalStorage('settings/gemini/inference-completion-tokens', 0)
+  const totalTokens = computed(() => sanitizeTokenCount(voiceTokens.value) + sanitizeTokenCount(inferenceTokens.value))
   const tokenDetails = ref<any[]>([])
   const voiceName = ref<'Leda' | 'Zephyr' | 'Achernar' | 'Algenib' | 'Fenrir'>('Leda')
   const isGroundingEnabled = useLocalStorage('settings/gemini/grounding', false)
@@ -856,11 +871,11 @@ export const useLiveSessionStore = defineStore('live-session', () => {
         // Capture usage metadata for token tracking and cost calculation
         const usage = response.usageMetadata || response.serverContent?.usageMetadata
         if (usage) {
-          const totalInSession = usage.totalTokenCount ?? 0
+          const totalInSession = sanitizeTokenCount(usage.totalTokenCount)
           const delta = Math.max(0, totalInSession - sessionTokenHighWaterMark)
 
           if (delta > 0) {
-            voiceTokens.value += delta
+            voiceTokens.value = sanitizeTokenCount(voiceTokens.value) + delta
             sessionTokenHighWaterMark = totalInSession
           }
 
@@ -1096,10 +1111,41 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     }
   }
 
-  function recordInferenceUsage(tokens: number) {
-    if (tokens > 0) {
-      inferenceTokens.value += tokens
-      debug(`[LiveSession] Inference usage recorded: +${tokens}. New total inference: ${inferenceTokens.value}`)
+  /**
+   * Records consumed inference tokens from any LLM call (chat turns, VLM/cognition
+   * first hops, proactivity heartbeats, memory provisioning, artistry analysis).
+   *
+   * Accepts either a raw total count or a provider usage object
+   * ({ total_tokens | totalTokenCount, prompt_tokens, completion_tokens }).
+   *
+   * NOTICE: Heartbeats and other background loops are recorded here even when the
+   * model stays silent (NO_REPLY) — those tokens were genuinely billed by the API.
+   */
+  function recordInferenceUsage(usage: number | object | null | undefined) {
+    let total = 0
+    let prompt = 0
+    let completion = 0
+
+    if (typeof usage === 'number') {
+      total = sanitizeTokenCount(usage)
+    }
+    else if (usage && typeof usage === 'object') {
+      prompt = sanitizeTokenCount((usage as any).prompt_tokens ?? (usage as any).promptTokenCount)
+      completion = sanitizeTokenCount(
+        (usage as any).completion_tokens ?? (usage as any).candidatesTokenCount ?? (usage as any).outputTokenCount,
+      )
+      total = sanitizeTokenCount((usage as any).total_tokens ?? (usage as any).totalTokenCount)
+      if (total === 0)
+        total = prompt + completion
+    }
+
+    if (total > 0) {
+      // Sanitize the persisted operand too: a previously-tainted localStorage value
+      // (a string from an old session) must not turn this addition into concatenation.
+      inferenceTokens.value = sanitizeTokenCount(inferenceTokens.value) + total
+      inferencePromptTokens.value = sanitizeTokenCount(inferencePromptTokens.value) + prompt
+      inferenceCompletionTokens.value = sanitizeTokenCount(inferenceCompletionTokens.value) + completion
+      debug(`[LiveSession] Inference usage recorded: +${total}. New total inference: ${inferenceTokens.value}`)
     }
   }
 
@@ -1229,6 +1275,8 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     totalTokens,
     voiceTokens,
     inferenceTokens,
+    inferencePromptTokens,
+    inferenceCompletionTokens,
     tokenDetails,
     voiceName,
     isGroundingEnabled,

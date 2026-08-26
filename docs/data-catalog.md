@@ -1109,6 +1109,10 @@ Persisted Three.js scene state — camera rig, model transform, lighting, and sk
 | `settings/connection/websocket-url` | `string` | `packages/stage-pages/.../ConnectionSettings.vue` |
 | `settings/connection/auth-token` | `string` | `packages/stage-pages/.../ConnectionSettings.vue` |
 | `settings/connection/hf-token` | `string` | `packages/stage-pages/.../ConnectionSettings.vue` |
+| `settings/gemini/voice-tokens` | `number` (all-time Gemini Live Bidi tokens) | `stores/modules/live-session.ts` |
+| `settings/gemini/inference-tokens` | `number` (all-time inference tokens, full context + output) | `stores/modules/live-session.ts` |
+| `settings/gemini/inference-prompt-tokens` | `number` (all-time inference prompt/input tokens) | `stores/modules/live-session.ts` |
+| `settings/gemini/inference-completion-tokens` | `number` (all-time inference completion/output tokens) | `stores/modules/live-session.ts` |
 | `airi:context-width-map` | `string` (JSON) | `packages/stage-pages/.../CardCreationTabGeneration.vue` |
 | `airi-chatbox-draft` | `string` | `apps/stage-tamagotchi/.../InteractiveArea.vue` |
 | `vhack_gemini_api_key` | `string` | `stores/vhack.ts` |

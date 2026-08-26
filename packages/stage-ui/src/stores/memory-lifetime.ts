@@ -17,6 +17,7 @@ import { useAuthStore } from './auth'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useLiveSessionStore } from './modules/live-session'
 import { useProvidersStore } from './providers'
 
 interface ProvisioningProgress {
@@ -615,6 +616,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
       const response = await llmStore.generate(modelId, provider, messages, {
         requestOverrides: { response_format: { type: 'json_object' } },
       })
+      useLiveSessionStore().recordInferenceUsage(response.usage)
       const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
       console.log(`[memory-lifetime] [json_object] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
@@ -635,6 +637,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
           },
         },
       })
+      useLiveSessionStore().recordInferenceUsage(response.usage)
       const text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
       console.log(`[memory-lifetime] [json_schema] Response text length: ${text.length}`)
       const parsed = JSON.parse(text)
@@ -648,6 +651,7 @@ export const useMemoryLifetimeStore = defineStore('memory-lifetime', () => {
     // 3. Fallback: No response_format, rely purely on system prompt and try to parse
     try {
       const response = await llmStore.generate(modelId, provider, messages, {})
+      useLiveSessionStore().recordInferenceUsage(response.usage)
       let text = response.text || (response as any).reasoning || (response as any).reasoning_content || '{}'
 
       // Clean potential markdown fences

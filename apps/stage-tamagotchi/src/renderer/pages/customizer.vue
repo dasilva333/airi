@@ -369,6 +369,8 @@ async function closeWindow() {
 function resetStats() {
   liveSessionStore.voiceTokens = 0
   liveSessionStore.inferenceTokens = 0
+  liveSessionStore.inferencePromptTokens = 0
+  liveSessionStore.inferenceCompletionTokens = 0
 }
 
 onMounted(() => {
@@ -975,7 +977,10 @@ onMounted(() => {
                       {{ Number(liveSessionStore.inferenceTokens || 0).toLocaleString() }}
                     </span>
                     <p class="mt-1 text-[9px] text-neutral-500">
-                      Global accumulated chat tokens
+                      All-time API tokens (full context + output, incl. background loops)
+                    </p>
+                    <p class="mt-0.5 text-[9px] text-neutral-600 font-mono">
+                      {{ Number(liveSessionStore.inferencePromptTokens || 0).toLocaleString() }} in / {{ Number(liveSessionStore.inferenceCompletionTokens || 0).toLocaleString() }} out
                     </p>
                   </div>
                 </div>

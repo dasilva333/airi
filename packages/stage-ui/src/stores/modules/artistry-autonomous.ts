@@ -19,6 +19,7 @@ import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
+import { useLiveSessionStore } from './live-session'
 import { useSpeechStore } from './speech'
 
 function artistLog(..._args: any[]) {}
@@ -649,6 +650,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
 
       // 2. Call LLM (Non-streaming for structured data)
       const response = await llmStore.generate(modelId, chatProvider, messages)
+      useLiveSessionStore().recordInferenceUsage(response.usage)
 
       const rawContent = (response.text || '').trim()
       artistLog('Received raw response from Director LLM:', rawContent)

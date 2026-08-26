@@ -19,6 +19,7 @@ import { useChatSessionStore } from './chat/session-store'
 import { useLLM } from './llm'
 import { useAiriCardStore } from './modules/airi-card'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useLiveSessionStore } from './modules/live-session'
 import { useProvidersStore } from './providers'
 
 interface RebuildResult {
@@ -327,6 +328,7 @@ export const useShortTermMemoryStore = defineStore('short-term-memory', () => {
       transcript,
       budget,
     ))
+    useLiveSessionStore().recordInferenceUsage(response.usage)
 
     const summary = (response.text || '').trim()
     if (!summary)
