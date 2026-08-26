@@ -123,6 +123,7 @@ export interface CharacterGenerationConfig {
 
 export interface ScreenWatchingConfig {
   enabled: boolean
+  deliveryMode?: 'both' | 'bubble_only' | 'tts_only' | 'off'
   sourceType: 'displays' | 'applications' | 'auto_focused'
   sourceId: string
   captureIntervalMs: number

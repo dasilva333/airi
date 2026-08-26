@@ -103,6 +103,21 @@ const AiriShortTermMemorySchema = object({
   tokenBudgetPerDay: number(),
 })
 
+const AiriScreenWatchingSchema = object({
+  enabled: boolean(),
+  deliveryMode: optional(union([literal('both'), literal('bubble_only'), literal('tts_only'), literal('off')])),
+  sourceType: optional(union([literal('displays'), literal('applications'), literal('auto_focused')])),
+  sourceId: optional(string()),
+  captureIntervalMs: optional(number()),
+  downscalePercent: optional(number()),
+  workload: optional(union([literal('attention-guard'), literal('screen:interpret'), literal('screen:ocr')])),
+  publishToContext: optional(boolean()),
+  interestTags: optional(array(string())),
+  deferWhileSpeaking: optional(boolean()),
+  maxPerHour: optional(number()),
+  hysteresisMinutes: optional(number()),
+})
+
 const AiriOutfitSchema = object({
   id: string(),
   name: string(),
@@ -119,6 +134,7 @@ const AiriExtensionSchema = looseObject({
   heartbeats: optional(AiriHeartbeatSchema),
   dreamState: optional(AiriDreamStateSchema),
   shortTermMemory: optional(AiriShortTermMemorySchema),
+  screenWatching: optional(AiriScreenWatchingSchema),
   textJournal: optional(AiriTextJournalSchema),
   groundingEnabled: optional(boolean()),
   groundingMemoryEnabled: optional(boolean()),

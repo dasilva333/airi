@@ -277,6 +277,7 @@ const dreamStateMinConversationTurns = ref<number>(4)
 
 // Screen Watching (Attention Ecology)
 const screenWatchingEnabled = ref<boolean>(false)
+const screenWatchingDeliveryMode = ref<'both' | 'bubble_only' | 'tts_only' | 'off'>('both')
 const screenWatchingSourceType = ref<'displays' | 'applications' | 'auto_focused'>('displays')
 const screenWatchingSourceId = ref<string>('')
 const screenWatchingCaptureIntervalMs = ref<number>(2000)
@@ -902,6 +903,7 @@ async function saveCard(card: Card): Promise<boolean> {
         screenWatching: {
           ...existingAiriExt?.screenWatching,
           enabled: screenWatchingEnabled.value,
+          deliveryMode: screenWatchingDeliveryMode.value,
           sourceType: screenWatchingSourceType.value,
           sourceId: screenWatchingSourceId.value,
           captureIntervalMs: screenWatchingCaptureIntervalMs.value,
@@ -1103,6 +1105,7 @@ function initializeCard(): Card {
 
   // Screen Watching (Attention Ecology)
   screenWatchingEnabled.value = airiExt?.screenWatching?.enabled ?? false
+  screenWatchingDeliveryMode.value = airiExt?.screenWatching?.deliveryMode ?? 'both'
   screenWatchingSourceType.value = airiExt?.screenWatching?.sourceType ?? 'displays'
   screenWatchingSourceId.value = airiExt?.screenWatching?.sourceId ?? ''
   screenWatchingCaptureIntervalMs.value = airiExt?.screenWatching?.captureIntervalMs ?? 2000
@@ -1561,6 +1564,7 @@ function handleGeneratorSave(newValue: string) {
             v-model:dream-state-max-sessions-per-day="dreamStateMaxSessionsPerDay"
             v-model:dream-state-inject-dream-context="dreamStateInjectDreamContext"
             v-model:screen-watching-enabled="screenWatchingEnabled"
+            v-model:screen-watching-delivery-mode="screenWatchingDeliveryMode"
             v-model:screen-watching-source-type="screenWatchingSourceType"
             v-model:screen-watching-source-id="screenWatchingSourceId"
             v-model:screen-watching-capture-interval-ms="screenWatchingCaptureIntervalMs"

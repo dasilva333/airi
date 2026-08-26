@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useVisionSources } from '@proj-airi/stage-ui/composables'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores'
 import {
   TooltipArrow,
@@ -63,6 +64,7 @@ const groundingEnabled = defineModel<boolean>('groundingEnabled', { default: fal
 
 // 2. Screen Watching (Push / Attention Ecology) Models
 const screenWatchingEnabled = defineModel<boolean>('screenWatchingEnabled', { default: false })
+const screenWatchingDeliveryMode = defineModel<'both' | 'bubble_only' | 'tts_only' | 'off'>('screenWatchingDeliveryMode', { default: 'both' })
 const screenWatchingSourceType = defineModel<'displays' | 'applications' | 'auto_focused'>('screenWatchingSourceType', { default: 'displays' })
 const screenWatchingSourceId = defineModel<string>('screenWatchingSourceId', { default: '' })
 const screenWatchingCaptureIntervalMs = defineModel<number>('screenWatchingCaptureIntervalMs', { default: 2000 })
@@ -76,26 +78,13 @@ const screenWatchingDeferWhileSpeaking = defineModel<boolean>('screenWatchingDef
 const screenWatchingMaxPerHour = defineModel<number>('screenWatchingMaxPerHour', { default: 4 })
 const screenWatchingHysteresisMinutes = defineModel<number>('screenWatchingHysteresisMinutes', { default: 3 })
 
-// Mock Display and Window sources for the visual picker
-const mockDisplaySources = [
-  { id: 'screen:primary', name: 'Display 1 (Primary - 1440p)', resolution: '2560×1440 @ 120Hz', icon: 'i-solar:screencast-2-line-duotone' },
-  { id: 'screen:secondary', name: 'Display 2 (Secondary - 1080p)', resolution: '1920×1080 @ 60Hz', icon: 'i-solar:screencast-2-line-duotone' },
-]
-
-const mockAppSources = [
-  { id: 'window:vscode', name: 'VS Code (contract.ts)', category: 'Development', icon: 'i-solar:code-line-duotone' },
-  { id: 'window:terminal', name: 'Terminal (zsh)', category: 'Shell', icon: 'i-solar:terminal-line-duotone' },
-  { id: 'window:browser', name: 'Browser (AIRI Docs)', category: 'Web', icon: 'i-solar:global-line-duotone' },
-  { id: 'window:discord', name: 'Discord (#general)', category: 'Social', icon: 'i-solar:chat-round-line-duotone' },
-]
-
-const isRefetchingSources = ref(false)
-function refetchSources() {
-  isRefetchingSources.value = true
-  setTimeout(() => {
-    isRefetchingSources.value = false
-  }, 400)
-}
+// Dynamic Display and Window sources from unified vision composable
+const {
+  displaySources,
+  applicationSources,
+  isRefetching: isRefetchingSources,
+  refetchSources,
+} = useVisionSources({ autoFetch: true })
 
 // Tag Input Helper State
 const newTagInput = ref('')
@@ -393,6 +382,85 @@ const intervalPresets = [2, 5, 10, 20]
         </div>
 
         <div v-if="screenWatchingEnabled" class="flex flex-col gap-6">
+          <!-- Reaction Delivery Mode -->
+          <div class="flex flex-col gap-2.5 border border-neutral-200/80 rounded-2xl bg-neutral-50/60 p-4 dark:border-neutral-800/80 dark:bg-neutral-900/50">
+            <div class="flex items-center justify-between">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs text-neutral-800 font-bold tracking-wide uppercase dark:text-neutral-200">
+                  Reaction Delivery Mode
+                </span>
+                <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Controls how proactive screen commentary is communicated to avoid voice spam during gaming or calls.
+                </span>
+              </div>
+              <span class="rounded-full bg-neutral-200/60 px-2 py-0.5 text-[10px] text-neutral-600 font-semibold font-mono dark:bg-neutral-800 dark:text-neutral-300">
+                {{ screenWatchingDeliveryMode === 'both' ? 'Voice + Bubble' : screenWatchingDeliveryMode === 'bubble_only' ? 'Silent (Bubble Only)' : screenWatchingDeliveryMode === 'tts_only' ? 'Voice Only' : 'Muted' }}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button
+                type="button"
+                :class="[
+                  'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all text-center',
+                  screenWatchingDeliveryMode === 'both'
+                    ? 'border-primary-500 bg-primary-50 text-primary-900 ring-1 ring-primary-500 dark:border-primary-500 dark:bg-primary-950/60 dark:text-primary-200'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                ]"
+                @click="screenWatchingDeliveryMode = 'both'"
+              >
+                <div class="i-solar:chat-round-video-bold-duotone text-xl text-primary-500" />
+                <span class="font-bold">Voice & Bubble</span>
+                <span class="text-[10px] text-neutral-400 font-normal">Full Immersion</span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all text-center',
+                  screenWatchingDeliveryMode === 'bubble_only'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-500 dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-200'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                ]"
+                @click="screenWatchingDeliveryMode = 'bubble_only'"
+              >
+                <div class="i-solar:chat-round-line-bold-duotone text-xl text-emerald-500" />
+                <span class="font-bold">Bubble Only</span>
+                <span class="text-[10px] text-neutral-400 font-normal">Silent (Gaming)</span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all text-center',
+                  screenWatchingDeliveryMode === 'tts_only'
+                    ? 'border-violet-500 bg-violet-50 text-violet-900 ring-1 ring-violet-500 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-200'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                ]"
+                @click="screenWatchingDeliveryMode = 'tts_only'"
+              >
+                <div class="i-solar:volume-loud-bold-duotone text-xl text-violet-500" />
+                <span class="font-bold">Voice Only</span>
+                <span class="text-[10px] text-neutral-400 font-normal">Audio Chime-in</span>
+              </button>
+
+              <button
+                type="button"
+                :class="[
+                  'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all text-center',
+                  screenWatchingDeliveryMode === 'off'
+                    ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-500 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-200'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                ]"
+                @click="screenWatchingDeliveryMode = 'off'"
+              >
+                <div class="i-solar:bell-off-bold-duotone text-xl text-amber-500" />
+                <span class="font-bold">Muted</span>
+                <span class="text-[10px] text-neutral-400 font-normal">Telemetry Only</span>
+              </button>
+            </div>
+          </div>
+
           <!-- 1. Capture Target & Source Scope -->
           <div class="flex flex-col gap-3">
             <div class="flex items-center justify-between">
@@ -425,7 +493,7 @@ const intervalPresets = [2, 5, 10, 20]
             <div class="grid grid-cols-1 max-h-36 gap-2 overflow-y-auto sm:grid-cols-2">
               <template v-if="screenWatchingSourceType === 'displays'">
                 <button
-                  v-for="source in mockDisplaySources"
+                  v-for="source in displaySources"
                   :key="source.id"
                   type="button"
                   :class="[
@@ -437,15 +505,24 @@ const intervalPresets = [2, 5, 10, 20]
                   @click="screenWatchingSourceId = source.id"
                 >
                   <div class="flex items-center gap-2.5 truncate">
-                    <span :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
+                    <img
+                      v-if="source.appIconURL"
+                      :src="source.appIconURL"
+                      class="h-5 w-5 shrink-0 rounded object-contain"
+                      alt=""
+                    >
+                    <span v-else :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
                     <span class="truncate font-medium">{{ source.name }}</span>
                   </div>
-                  <span class="shrink-0 text-[10px] text-neutral-400 font-mono">{{ source.resolution }}</span>
+                  <span v-if="source.resolution" class="shrink-0 text-[10px] text-neutral-400 font-mono">{{ source.resolution }}</span>
                 </button>
+                <div v-if="displaySources.length === 0" class="col-span-full py-4 text-center text-xs text-neutral-400">
+                  No displays detected. Click "Refetch Sources" to retry.
+                </div>
               </template>
               <template v-else>
                 <button
-                  v-for="source in mockAppSources"
+                  v-for="source in applicationSources"
                   :key="source.id"
                   type="button"
                   :class="[
@@ -457,11 +534,20 @@ const intervalPresets = [2, 5, 10, 20]
                   @click="screenWatchingSourceId = source.id"
                 >
                   <div class="flex items-center gap-2.5 truncate">
-                    <span :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
+                    <img
+                      v-if="source.appIconURL"
+                      :src="source.appIconURL"
+                      class="h-5 w-5 shrink-0 rounded object-contain"
+                      alt=""
+                    >
+                    <span v-else :class="[source.icon, 'text-lg text-primary-500 shrink-0']" />
                     <span class="truncate font-medium">{{ source.name }}</span>
                   </div>
-                  <span class="rounded bg-neutral-200/80 px-1.5 py-0.2 text-[10px] text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">{{ source.category }}</span>
+                  <span class="rounded bg-neutral-200/80 px-1.5 py-0.2 text-[10px] text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">App</span>
                 </button>
+                <div v-if="applicationSources.length === 0" class="col-span-full py-4 text-center text-xs text-neutral-400">
+                  No application windows detected. Click "Refetch Sources" or ensure permissions are granted.
+                </div>
               </template>
             </div>
 
