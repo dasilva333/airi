@@ -17,7 +17,7 @@ export interface ControlStripButton {
 // * DO NOT bump this version simply for adding new button IDs or changing defaults.
 // * The automatic merge logic below will safely append new defaults to existing user lists without wiping their custom states.
 // * ONLY bump this version if there is a severe, incompatible breaking change in the data structure itself (e.g. data schema type changes) where old layouts are fundamentally broken.
-const BUTTONS_CATALOG_VERSION = 'v4'
+const BUTTONS_CATALOG_VERSION = 'v5'
 
 export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'chat', enabled: true, label: 'Chat Toggle', icon: 'i-solar:chat-line-linear' },
@@ -45,7 +45,6 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
-  { id: 'actor-expressions', enabled: true, label: 'Expressions (Facial)', icon: 'i-solar:mask-happly-outline' },
   { id: 'gemini-session', enabled: true, label: 'Active Session', icon: 'i-ph:sparkle' },
   { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
 ]

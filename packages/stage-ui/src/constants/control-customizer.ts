@@ -8,6 +8,7 @@ export interface CustomizerItem {
   binding?: 'chatOpen' | 'stageEnabled' | 'stageMateEnabled' | 'micEnabled' | 'captionOpen' | 'geminiSession' | 'headTetheredCaptionEnabled'
   /** If true, this item is specific to desktop multi-window managers and hidden on mobile */
   desktopOnly?: boolean
+  disabled?: boolean
 }
 
 export interface CustomizerGroup {
@@ -290,11 +291,12 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
       },
       {
         id: 'actor-expressions',
-        label: 'Expressions (Facial)',
-        description: 'Triggers persistent emotional facial expression overlays.',
+        label: 'Expressions (Facial) [Deprecated]',
+        description: 'DEPRECATED: Legacy 7-emoji emotion trigger. See docs/design-expression-emoji-mapping.md for roadmap.',
         icon: 'i-solar:mask-happly-outline',
         type: 'menu',
         defaultOnStrip: false,
+        disabled: true,
       },
       {
         id: 'actor-idle-animations',
