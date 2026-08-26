@@ -64,6 +64,10 @@ const isReleaseSigning = Boolean(process.env.CSC_LINK || process.env.APPLE_DEVEL
 
 const STAGE_MATE_RESOURCE_FILTERS = [
   '**/*',
+  '!StageMate.app/**/*',
+  '!*.app/**/*',
+  '!__MACOSX/**/*',
+  '!**/.DS_Store',
   '!Build/**/*',
   '!*.log',
   '!*.dmp',
@@ -166,7 +170,6 @@ export default {
     executableName: 'airi',
     target: [
       'nsis',
-      'zip',
     ],
     extraResources: (hasStageMateWin && stageMateWinSource
       ? [

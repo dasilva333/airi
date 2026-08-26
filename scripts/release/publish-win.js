@@ -125,8 +125,19 @@ async function main() {
       }
     }
 
-    // Step 4: Run the build:win script
-    console.log(`\n🔨 Compiling Windows Setup executable...`)
+    // Step 4: Clean stale dist/win-unpacked before packaging
+    if (fs.existsSync(distWinUnpacked)) {
+      console.log(`🧹 Cleaning previous unpacked directory: ${distWinUnpacked}`)
+      try {
+        fs.rmSync(distWinUnpacked, { recursive: true, force: true })
+      }
+      catch (err) {
+        console.warn(`⚠️ Warning: Could not remove previous win-unpacked folder: ${err.message}`)
+      }
+    }
+
+    // Step 5: Run the build:win script
+    console.log(`\n🔨 Compiling Windows Setup executable and portable ZIP...`)
     try {
       execute('pnpm -F @proj-airi/stage-tamagotchi run build:win')
     }
@@ -136,7 +147,7 @@ async function main() {
     }
   }
 
-  // Step 4: Locate generated release artifacts (.exe installer & .zip archive)
+  // Step 6: Locate generated release artifacts (.exe installer & .zip archive)
   const distDir = path.join(tamagotchiDir, 'dist')
   if (!fs.existsSync(distDir)) {
     console.error(`❌ Error: dist folder does not exist at ${distDir}`)
