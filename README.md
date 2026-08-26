@@ -98,7 +98,7 @@ For the full list of major features added in this fork (34 systems and counting)
 ## Download
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.15-stable.20260707/AIRI-0.9.15-stable.20260707-windows-x64-setup.exe">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -113,7 +113,7 @@ For the full list of major features added in this fork (34 systems and counting)
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.windows.light.en-US.avif" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.15-stable.20260707/AIRI-0.9.15-stable.20260707-darwin-arm64.dmg">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -140,7 +140,55 @@ For the full list of major features added in this fork (34 systems and counting)
         srcset="./docs/content/public/assets/download-buttons/download-buttons.linux.light.en-US.avif"
         media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
       />
-      <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.linux.light.en-US.avif" />
+      <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.linux.light.en-US.avif" alt="Linux Release" />
+    </picture>
+  </a>
+</p>
+
+<p float="left" align="center">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-android.apk">
+    <picture>
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.mobile.dark.en-US.avif"
+        media="(prefers-color-scheme: dark)"
+      />
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif"
+        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
+      />
+      <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif" alt="Android APK" />
+    </picture>
+  </a>
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-ios.ipa">
+    <picture>
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.mobile.dark.en-US.avif"
+        media="(prefers-color-scheme: dark)"
+      />
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif"
+        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
+      />
+      <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif" alt="iOS IPA / TestFlight" />
+    </picture>
+  </a>
+  <a href="https://github.com/dasilva333/airi/releases/latest">
+    <picture>
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.browser.dark.en-US.avif"
+        media="(prefers-color-scheme: dark)"
+      />
+      <source
+        width="33%"
+        srcset="./docs/content/public/assets/download-buttons/download-buttons.browser.light.en-US.avif"
+        media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
+      />
+      <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.browser.light.en-US.avif" alt="Web Browser Version" />
     </picture>
   </a>
 </p>

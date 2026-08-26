@@ -8,8 +8,10 @@ import { getFilenames } from './utils'
 const ROOT_DIR = resolve(import.meta.dirname, '..', '..', '..')
 
 // GitHub releases download URLs
-const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
-const GITHUB_MACOS_RE = /https:\/\/github\.com\/moeru-ai\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
+const GITHUB_WINDOWS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
+const GITHUB_MACOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-darwin-arm64\.dmg/g
+const GITHUB_ANDROID_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-android\.apk/g
+const GITHUB_IOS_RE = /https:\/\/github\.com\/(?:moeru-ai|dasilva333)\/airi\/releases\/download\/v[^/]+\/AIRI-[^")\s]+-ios\.ipa/g
 
 // Aliyun OSS mirror download URLs (used by zh-CN README)
 const OSS_WINDOWS_RE = /https:\/\/static-cn-proj-airi\.oss-cn-shanghai\.aliyuncs\.com\/artifacts\/apps\/desktop\/versions\/v[^/]+\/AIRI-[^")\s]+-windows-x64-setup\.exe/g
@@ -42,8 +44,10 @@ async function main() {
 
   function updateContent(content: string): string {
     return content
-      .replace(GITHUB_WINDOWS_RE, `https://github.com/moeru-ai/airi/releases/download/v${cleanVersion}/${windowsExe}`)
-      .replace(GITHUB_MACOS_RE, `https://github.com/moeru-ai/airi/releases/download/v${cleanVersion}/${macosDmg}`)
+      .replace(GITHUB_WINDOWS_RE, `https://github.com/dasilva333/airi/releases/download/v${cleanVersion}/${windowsExe}`)
+      .replace(GITHUB_MACOS_RE, `https://github.com/dasilva333/airi/releases/download/v${cleanVersion}/${macosDmg}`)
+      .replace(GITHUB_ANDROID_RE, `https://github.com/dasilva333/airi/releases/download/v${cleanVersion}/AIRI-${cleanVersion}-android.apk`)
+      .replace(GITHUB_IOS_RE, `https://github.com/dasilva333/airi/releases/download/v${cleanVersion}/AIRI-${cleanVersion}-ios.ipa`)
       .replace(OSS_WINDOWS_RE, `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${windowsExe}`)
       .replace(OSS_MACOS_RE, `https://static-cn-proj-airi.oss-cn-shanghai.aliyuncs.com/artifacts/apps/desktop/versions/v${cleanVersion}/${macosDmg}`)
   }
