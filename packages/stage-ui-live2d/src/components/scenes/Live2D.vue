@@ -92,24 +92,22 @@ function handleWheel(event: WheelEvent) {
 }
 
 const isDragging = ref(false)
+const isPinching = ref(false)
+
+const activePointers = new Map<number, { clientX: number, clientY: number }>()
+let initialPinchDistance = 0
+let initialPinchScale = 1
+
 let dragStartX = 0
 let dragStartY = 0
 let initialOffsetX = 0
 let initialOffsetY = 0
 
-function handlePointerDown(event: PointerEvent) {
-  if (!props.draggable)
-    return
+function getPointersDistance(p1: { clientX: number, clientY: number }, p2: { clientX: number, clientY: number }) {
+  return Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY)
+}
 
-  const target = event.currentTarget as HTMLElement
-  if (target && typeof target.setPointerCapture === 'function') {
-    target.setPointerCapture(event.pointerId)
-  }
-
-  isDragging.value = true
-  dragStartX = event.clientX
-  dragStartY = event.clientY
-
+function resolveCurrentOffsets() {
   let currentX = Number(props.xOffset)
   if (String(props.xOffset).endsWith('%')) {
     currentX = (Number.parseFloat(String(props.xOffset).replace('%', '')) / 100) * (live2dCanvasRef.value?.canvasElement()?.clientWidth || 0)
@@ -126,33 +124,94 @@ function handlePointerDown(event: PointerEvent) {
     currentY = 0
   }
 
-  initialOffsetX = currentX
-  initialOffsetY = currentY
+  return { currentX, currentY }
 }
 
-function handlePointerMove(event: PointerEvent) {
-  if (!isDragging.value)
-    return
-
-  const deltaX = event.clientX - dragStartX
-  const deltaY = event.clientY - dragStartY
-
-  const newX = initialOffsetX + deltaX
-  const newY = initialOffsetY + deltaY
-
-  emits('offsetChange', { x: newX, y: newY })
-}
-
-function handlePointerUp(event: PointerEvent) {
-  if (!isDragging.value)
+function handlePointerDown(event: PointerEvent) {
+  if (!props.draggable)
     return
 
   const target = event.currentTarget as HTMLElement
-  if (target && typeof target.releasePointerCapture === 'function') {
-    target.releasePointerCapture(event.pointerId)
+  if (target && typeof target.setPointerCapture === 'function') {
+    try {
+      target.setPointerCapture(event.pointerId)
+    }
+    catch {}
   }
 
-  isDragging.value = false
+  activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY })
+
+  if (activePointers.size === 2) {
+    isDragging.value = false
+    isPinching.value = true
+    const [p1, p2] = Array.from(activePointers.values())
+    initialPinchDistance = getPointersDistance(p1, p2)
+    initialPinchScale = props.scale !== undefined ? props.scale : storeScale.value
+  }
+  else if (activePointers.size === 1) {
+    isDragging.value = true
+    isPinching.value = false
+    dragStartX = event.clientX
+    dragStartY = event.clientY
+
+    const { currentX, currentY } = resolveCurrentOffsets()
+    initialOffsetX = currentX
+    initialOffsetY = currentY
+  }
+}
+
+function handlePointerMove(event: PointerEvent) {
+  if (!activePointers.has(event.pointerId))
+    return
+
+  activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY })
+
+  if (isPinching.value && activePointers.size >= 2) {
+    const [p1, p2] = Array.from(activePointers.values())
+    const currentDistance = getPointersDistance(p1, p2)
+    if (initialPinchDistance > 0) {
+      const scaleFactor = currentDistance / initialPinchDistance
+      const newScale = Math.min(Math.max(initialPinchScale * scaleFactor, 0.05), 10)
+      emits('scaleChange', newScale)
+    }
+  }
+  else if (isDragging.value && activePointers.size === 1) {
+    const deltaX = event.clientX - dragStartX
+    const deltaY = event.clientY - dragStartY
+
+    const newX = initialOffsetX + deltaX
+    const newY = initialOffsetY + deltaY
+
+    emits('offsetChange', { x: newX, y: newY })
+  }
+}
+
+function handlePointerUp(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement
+  if (target && typeof target.releasePointerCapture === 'function') {
+    try {
+      target.releasePointerCapture(event.pointerId)
+    }
+    catch {}
+  }
+
+  activePointers.delete(event.pointerId)
+
+  if (activePointers.size === 0) {
+    isDragging.value = false
+    isPinching.value = false
+  }
+  else if (activePointers.size === 1) {
+    isPinching.value = false
+    isDragging.value = true
+    const remaining = Array.from(activePointers.values())[0]
+    dragStartX = remaining.clientX
+    dragStartY = remaining.clientY
+
+    const { currentX, currentY } = resolveCurrentOffsets()
+    initialOffsetX = currentX
+    initialOffsetY = currentY
+  }
 }
 
 defineExpose({
@@ -174,7 +233,9 @@ defineExpose({
   <Screen
     v-slot="{ width, height }"
     relative
-    :class="props.draggable ? (isDragging ? 'cursor-grabbing select-none' : 'cursor-grab') : ''"
+    :class="[
+      props.draggable ? ((isDragging || isPinching) ? 'cursor-grabbing select-none touch-none' : 'cursor-grab touch-none') : '',
+    ]"
     @wheel="handleWheel"
     @pointerdown="handlePointerDown"
     @pointermove="handlePointerMove"
