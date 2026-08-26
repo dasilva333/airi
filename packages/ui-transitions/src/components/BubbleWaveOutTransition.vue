@@ -35,6 +35,7 @@ onMounted(() => {
   width: 150vmax;
   height: 150vmax;
   pointer-events: none;
+  animation: bubbleFadeOut 0.35s ease-out calc(var(--circle-expansion-delay) + 0.95s) forwards;
 }
 
 .circle-expansion-transition div {
@@ -73,6 +74,15 @@ onMounted(() => {
   }
   to {
     transform: scale(1);
+  }
+}
+
+@keyframes bubbleFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 </style>

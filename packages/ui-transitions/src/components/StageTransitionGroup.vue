@@ -96,6 +96,7 @@ const transitions = shallowRef<Record<string, TransitionOptions>>({
   'bubble-wave-out': {
     component: BubbleWaveOutTransition,
     duration: 1000,
+    exitDuration: 400,
   },
 })
 
@@ -239,13 +240,18 @@ async function triggerTransitionAsyncFn(params: StageTransitionCommonParams, nex
     // Always remove the navigation hook
     removeNavHook()
 
-    // Safety - ensure navigation happens no matter what
+    // Safety - ensure navigation and transition cleanup happens no matter what
     setTimeout(() => {
       if (!hasNavigated) {
         hasNavigated = true
         next()
       }
-    }, transition.duration * 2) // Conservative timeout
+      if (showTransition.value) {
+        showTransition.value = false
+        activeTransitionName.value = ''
+        activeStageTransitionParams.value = undefined
+      }
+    }, transition.duration + (transition.exitDuration || 400) + 200)
   }
 }
 
