@@ -216,18 +216,15 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         height,
         sourceId,
         workloadId,
+        interestTags: config.interestTags || [],
         timestamp: snapshot.timestamp || Date.now(),
       })
       lastLatencyMs.value = Math.round(performance.now() - tickStart)
       lastDecision.value = processed?.decision || 'UNKNOWN'
       lastSummary.value = processed?.summary || ''
 
-      console.log(`[ScreenWatcher:Engine] 🔍 Result in ${lastLatencyMs.value}ms:`, {
-        decision: processed?.decision,
-        novelty: processed?.novelty?.toFixed(4),
-        ocrErrorPatternHits: processed?.ocrErrorPatternHits,
-        summary: processed?.summary,
-      })
+      const logSummary = processed?.summary ? ` | summary="${processed.summary.replace(/\n/g, ' ')}"` : ''
+      console.log(`[ScreenWatcher:Engine] 🔍 Result in ${lastLatencyMs.value}ms: decision=${processed?.decision || 'UNKNOWN'} | novelty=${processed?.novelty?.toFixed(4) ?? '0.0000'} | errorHits=${processed?.ocrErrorPatternHits ?? 0} | interestHits=${processed?.interestKeywordHits ?? 0}${logSummary}`)
 
       if (processed?.decision === 'PROMOTE') {
         const now = Date.now()
@@ -248,6 +245,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
             sourceId,
             novelty: processed.novelty,
             ocrErrorPatternHits: processed.ocrErrorPatternHits,
+            interestKeywordHits: processed.interestKeywordHits,
           },
         })
 
@@ -301,7 +299,19 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     isRunning.value = false
   }
 
+  function isPrimaryHostWindow(): boolean {
+    if (typeof window === 'undefined')
+      return false
+    const hash = window.location.hash || ''
+    return hash === '' || hash === '#/' || hash === '#'
+  }
+
   function restartWatcher(): void {
+    if (!isPrimaryHostWindow()) {
+      stopWatcher()
+      return
+    }
+
     if (isEnabled.value) {
       startWatcher()
     }
@@ -314,6 +324,8 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   watch(
     () => [activeCardId.value, activeConfig.value?.enabled, activeConfig.value?.captureIntervalMs],
     ([cardId, enabled]) => {
+      if (!isPrimaryHostWindow())
+        return
       console.log('[ScreenWatcher:Watch] Card / config changed:', { cardId, enabled })
       restartWatcher()
     },

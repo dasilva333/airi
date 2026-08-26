@@ -47,6 +47,7 @@ export interface AttentionGuardAdapter {
     dataUrl: string,
     width: number,
     height: number,
+    interestTags?: string[],
     options?: { signal?: AbortSignal },
   ) => Promise<AttentionGuardProcessResult>
   /** Terminate the worker. */
@@ -139,6 +140,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
     dataUrl: string,
     width: number,
     height: number,
+    interestTags?: string[],
     options?: { signal?: AbortSignal },
   ): Promise<AttentionGuardProcessResult> {
     throwIfAborted(options?.signal)
@@ -159,7 +161,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
           GPU_PRIORITY.ATTENTION_GUARD_PROCESS,
           options?.signal,
           ({ crashSignal }) => host.rpc!.process(
-            { dataUrl, width, height },
+            { dataUrl, width, height, interestTags },
             { signal: AbortSignal.any([signalWithTimeout(options?.signal, PROCESS_TIMEOUT), crashSignal]) },
           ),
         )

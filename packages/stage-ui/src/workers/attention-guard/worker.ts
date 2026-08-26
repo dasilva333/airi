@@ -29,7 +29,16 @@ import {
   attentionGuardUnloadEvent,
 
 } from '../../libs/inference/contract'
-import { countErrorPatterns, disposeOcrEngine, extractErrorSnippet, OCR_ERROR_PATTERN_MIN, ocrImageData } from './engine/ocr'
+import {
+  DEFAULT_ERROR_PATTERNS,
+  disposeOcrEngine,
+  extractRelevantSnippet,
+  matchInterestTags,
+  matchPatterns,
+  OCR_ERROR_PATTERN_MIN,
+  OCR_INTEREST_KEYWORD_MIN,
+  ocrImageData,
+} from './engine/ocr'
 import { boxResizeGray, computeAHash, computeDeltaBBox, hammingDistance, STAGE0_HAMMING_MIN, toGray } from './engine/pixels'
 import { activeWindowLabel, buildSummary, disposeVlmForwarder, generateCaption, primeCaptioner, themeFromGray } from './engine/summarizer'
 import { calculateCosineDistance, centroidOf, classifyZeroShot, disposeTextEncoder, disposeVisionEncoder, getVisionEmbedding, warmupVision } from './engine/vision'
@@ -76,30 +85,40 @@ function resetTickState(): void {
 
 /** Extract a delta-region crop as ImageData for tesseract. */
 function cropToImageData(raw: Uint8Array, fullWidth: number, channels: number, bbox: DeltaBBox): ImageData | null {
-  const { left, top, width, height } = bbox
+  const left = Math.max(0, Math.floor(bbox.left))
+  const top = Math.max(0, Math.floor(bbox.top))
+  const width = Math.floor(bbox.width)
+  const height = Math.floor(bbox.height)
   if (width <= 0 || height <= 0)
     return null
-  const crop = new ImageData(width, height)
-  const out = crop.data
-  for (let y = 0; y < height; y++) {
-    const srcRow = (top + y) * fullWidth * channels
-    const dstRow = y * width * 4
-    for (let x = 0; x < width; x++) {
-      const s = srcRow + (left + x) * channels
-      const d = dstRow + x * 4
-      if (channels >= 3) {
-        out[d] = raw[s]
-        out[d + 1] = raw[s + 1]
-        out[d + 2] = raw[s + 2]
-        out[d + 3] = 255
-      }
-      else {
-        out[d] = out[d + 1] = out[d + 2] = raw[s]
-        out[d + 3] = 255
+
+  try {
+    const crop = new ImageData(new Uint8ClampedArray(width * height * 4), width, height)
+    const out = crop.data
+    for (let y = 0; y < height; y++) {
+      const srcRow = (top + y) * fullWidth * channels
+      const dstRow = y * width * 4
+      for (let x = 0; x < width; x++) {
+        const s = srcRow + (left + x) * channels
+        const d = dstRow + x * 4
+        if (channels >= 3) {
+          out[d] = raw[s] ?? 0
+          out[d + 1] = raw[s + 1] ?? 0
+          out[d + 2] = raw[s + 2] ?? 0
+          out[d + 3] = 255
+        }
+        else {
+          out[d] = out[d + 1] = out[d + 2] = raw[s] ?? 0
+          out[d + 3] = 255
+        }
       }
     }
+    return crop
   }
-  return crop
+  catch (err) {
+    console.warn('[attention-guard:worker] cropToImageData failed:', err)
+    return null
+  }
 }
 
 defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any, any>(async ({ payload, emit }) => {
@@ -139,127 +158,159 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
   }
 }))
 
-defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl }) => {
+defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, interestTags }) => {
   const stageMs = { stage0Ms: 0, stage1Ms: 0, stage2Ms: 0, stage3Ms: 0 }
 
-  // -- decode + Stage 0 perceptual hash -------------------------------------
-  const rawImage = await RawImage.fromURL(dataUrl)
-  const raw = rawImage.data as Uint8Array
-  const channels = rawImage.channels
-  const gray = toGray(raw, rawImage.width, rawImage.height, channels)
-  const gray32 = boxResizeGray(gray, 32, 32)
-  const { bits: curHash } = computeAHash(gray32)
+  try {
+    // -- decode + Stage 0 perceptual hash -------------------------------------
+    const rawImage = await RawImage.fromURL(dataUrl)
+    const raw = rawImage.data as Uint8Array
+    const channels = rawImage.channels
+    const gray = toGray(raw, rawImage.width, rawImage.height, channels)
+    const gray32 = boxResizeGray(gray, 32, 32)
+    const { bits: curHash } = computeAHash(gray32)
 
-  if (state.prevHash === null) {
-    // First tick: seed the baseline work centroid v0.
+    if (state.prevHash === null) {
+      // First tick: seed the baseline work centroid v0.
+      const t1 = performance.now()
+      const embedding = await getVisionEmbedding(dataUrl, state.device)
+      stageMs.stage1Ms = performance.now() - t1
+      state.centroid = embedding
+      state.accepted = [embedding]
+      state.prevGray = gray
+      state.prevHash = curHash
+      return {
+        decision: 'BASELINE',
+        stage0Delta: 0,
+        novelty: 0,
+        ocrErrorPatternHits: 0,
+        ocrErrorPatterns: [],
+        interestKeywordHits: 0,
+        interestKeywords: [],
+        stageMs,
+      } satisfies AttentionGuardProcessResult
+    }
+
+    const stage0Start = performance.now()
+    const hamming = hammingDistance(state.prevHash, curHash)
+    const normDistance = hamming / 1024
+    stageMs.stage0Ms = performance.now() - stage0Start
+
+    if (normDistance < STAGE0_HAMMING_MIN) {
+      // Static tick: 0-cost drop before any neural model.
+      state.prevGray = gray
+      state.prevHash = curHash
+      return {
+        decision: 'IGNORE',
+        stage0Delta: normDistance,
+        novelty: 0,
+        ocrErrorPatternHits: 0,
+        ocrErrorPatterns: [],
+        interestKeywordHits: 0,
+        interestKeywords: [],
+        stageMs,
+      } satisfies AttentionGuardProcessResult
+    }
+
+    // -- Stage 1: CLIP embedding + novelty vs rolling centroid ----------------
     const t1 = performance.now()
     const embedding = await getVisionEmbedding(dataUrl, state.device)
+    const novelty = calculateCosineDistance(embedding, state.centroid!)
     stageMs.stage1Ms = performance.now() - t1
-    state.centroid = embedding
-    state.accepted = [embedding]
+
+    // -- Stage 2: delta-region OCR error evidence + interest match -------------
+    const t2 = performance.now()
+    let ocrErrorPatterns: string[] = []
+    let ocrInterestTags: string[] = []
+    let ocrText = ''
+    const bbox = state.prevGray ? computeDeltaBBox(state.prevGray, gray) : null
+    if (bbox) {
+      const crop = cropToImageData(raw, rawImage.width, channels, bbox)
+      if (crop) {
+        const { text } = await ocrImageData(crop)
+        ocrText = text
+        ocrErrorPatterns = matchPatterns(text, DEFAULT_ERROR_PATTERNS)
+        ocrInterestTags = matchInterestTags(text, interestTags)
+      }
+    }
+    stageMs.stage2Ms = performance.now() - t2
+
+    // Gate evaluation aligned with CLI stage2-salience-eval.ts
+    const isErrorCascade = ocrErrorPatterns.length >= OCR_ERROR_PATTERN_MIN
+    const isInterestMatch = ocrInterestTags.length >= OCR_INTEREST_KEYWORD_MIN
+    const promote = isErrorCascade || isInterestMatch
+
+    // Update rolling state. NOTE-level frames join the centroid (routine drift
+    // becomes the new "normal"); event frames never shift it.
     state.prevGray = gray
     state.prevHash = curHash
+
+    // -- Stage 3: summary for promoted frames ---------------------------------
+    let summary: string | undefined
+    let caption: string | null = null
+    let vlmStatus: 'ok' | 'degraded' | 'error' | undefined
+    if (promote) {
+      const t3 = performance.now()
+      const zeroShot = await classifyZeroShot(embedding, state.device)
+      const snippet = extractRelevantSnippet(ocrText, ocrErrorPatterns, ocrInterestTags)
+      const window = activeWindowLabel(zeroShot.topLabel)
+      const theme = themeFromGray(gray32)
+
+      if (state.enableVlm) {
+        const captionResult = await generateCaption(dataUrl, state.device)
+        if (captionResult) {
+          caption = captionResult.caption
+          vlmStatus = 'ok'
+        }
+        else {
+          vlmStatus = 'error'
+        }
+      }
+      else {
+        vlmStatus = 'degraded'
+      }
+
+      summary = buildSummary({
+        window,
+        theme,
+        caption,
+        snippet,
+        matchedInterestTags: ocrInterestTags,
+      })
+      stageMs.stage3Ms = performance.now() - t3
+    }
+    else {
+      state.accepted.push(embedding)
+      state.centroid = centroidOf(state.accepted)
+    }
+
     return {
-      decision: 'BASELINE',
+      decision: promote ? 'PROMOTE' : 'NOTE',
+      stage0Delta: normDistance,
+      novelty,
+      ocrErrorPatternHits: ocrErrorPatterns.length,
+      ocrErrorPatterns,
+      interestKeywordHits: ocrInterestTags.length,
+      interestKeywords: ocrInterestTags,
+      summary,
+      caption,
+      vlmStatus,
+      stageMs,
+    } satisfies AttentionGuardProcessResult
+  }
+  catch (err: any) {
+    console.error('[attention-guard:worker] Process tick error:', err)
+    return {
+      decision: 'NOTE',
       stage0Delta: 0,
       novelty: 0,
       ocrErrorPatternHits: 0,
       ocrErrorPatterns: [],
+      interestKeywordHits: 0,
+      interestKeywords: [],
       stageMs,
     } satisfies AttentionGuardProcessResult
   }
-
-  const stage0Start = performance.now()
-  const hamming = hammingDistance(state.prevHash, curHash)
-  const normDistance = hamming / 1024
-  stageMs.stage0Ms = performance.now() - stage0Start
-
-  if (normDistance < STAGE0_HAMMING_MIN) {
-    // Static tick: 0-cost drop before any neural model.
-    state.prevGray = gray
-    state.prevHash = curHash
-    return {
-      decision: 'IGNORE',
-      stage0Delta: normDistance,
-      novelty: 0,
-      ocrErrorPatternHits: 0,
-      ocrErrorPatterns: [],
-      stageMs,
-    } satisfies AttentionGuardProcessResult
-  }
-
-  // -- Stage 1: CLIP embedding + novelty vs rolling centroid ----------------
-  const t1 = performance.now()
-  const embedding = await getVisionEmbedding(dataUrl, state.device)
-  const novelty = calculateCosineDistance(embedding, state.centroid!)
-  stageMs.stage1Ms = performance.now() - t1
-
-  // -- Stage 2: delta-region OCR error evidence + salience gate -------------
-  const t2 = performance.now()
-  let ocrErrorPatterns: string[] = []
-  let ocrText = ''
-  const bbox = state.prevGray ? computeDeltaBBox(state.prevGray, gray) : null
-  if (bbox) {
-    const crop = cropToImageData(raw, rawImage.width, channels, bbox)
-    if (crop) {
-      const { text } = await ocrImageData(crop)
-      ocrText = text
-      ocrErrorPatterns = countErrorPatterns(text)
-    }
-  }
-  stageMs.stage2Ms = performance.now() - t2
-
-  const promote = ocrErrorPatterns.length >= OCR_ERROR_PATTERN_MIN
-
-  // Update rolling state. NOTE-level frames join the centroid (routine drift
-  // becomes the new "normal"); event frames never shift it.
-  state.prevGray = gray
-  state.prevHash = curHash
-
-  // -- Stage 3: summary for promoted frames ---------------------------------
-  let summary: string | undefined
-  let caption: string | null = null
-  let vlmStatus: 'ok' | 'degraded' | 'error' | undefined
-  if (promote) {
-    const t3 = performance.now()
-    const zeroShot = await classifyZeroShot(embedding, state.device)
-    const snippet = extractErrorSnippet(ocrText, ocrErrorPatterns)
-    const window = activeWindowLabel(zeroShot.topLabel)
-    const theme = themeFromGray(gray32)
-
-    if (state.enableVlm) {
-      const captionResult = await generateCaption(dataUrl, state.device)
-      if (captionResult) {
-        caption = captionResult.caption
-        vlmStatus = 'ok'
-      }
-      else {
-        vlmStatus = 'error'
-      }
-    }
-    else {
-      vlmStatus = 'degraded'
-    }
-
-    summary = buildSummary({ window, theme, caption, snippet })
-    stageMs.stage3Ms = performance.now() - t3
-  }
-  else {
-    state.accepted.push(embedding)
-    state.centroid = centroidOf(state.accepted)
-  }
-
-  return {
-    decision: promote ? 'PROMOTE' : 'NOTE',
-    stage0Delta: normDistance,
-    novelty,
-    ocrErrorPatternHits: ocrErrorPatterns.length,
-    ocrErrorPatterns,
-    summary,
-    caption,
-    vlmStatus,
-    stageMs,
-  } satisfies AttentionGuardProcessResult
 })
 
 defineInvokeHandler(context, attentionGuardUnloadEvent, () => {

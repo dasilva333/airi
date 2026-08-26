@@ -110,13 +110,16 @@ export interface SummaryInput {
   theme: 'dark' | 'light'
   caption: string | null
   snippet: string
+  matchedInterestTags?: string[]
 }
 
-export function buildSummary({ window, theme, caption, snippet }: SummaryInput): string {
+export function buildSummary({ window, theme, caption, snippet, matchedInterestTags }: SummaryInput): string {
   const lines = [
     '[Visual Event]',
     `Active Window: ${window} (${theme} mode)`,
   ]
+  if (matchedInterestTags && matchedInterestTags.length > 0)
+    lines.push(`Matched Interests: ${matchedInterestTags.join(', ')}`)
   if (caption)
     lines.push(`Screen Content Tags: ${caption}`)
   if (snippet)

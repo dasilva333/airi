@@ -39,6 +39,7 @@ export interface VisionCapturePayload {
   sourceId: string
   workloadId: string
   timestamp: number
+  interestTags?: string[]
 }
 
 export interface VisionOrchestratorResult {
@@ -46,6 +47,7 @@ export interface VisionOrchestratorResult {
   summary?: string
   novelty?: number
   ocrErrorPatternHits?: number
+  interestKeywordHits?: number
 }
 
 export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () => {
@@ -139,7 +141,12 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
     if (payload.workloadId === ATTENTION_GUARD_WORKLOAD_ID) {
       try {
         const adapter = await ensureGuardLoaded()
-        const result: AttentionGuardProcessResult = await adapter.process(payload.dataUrl, payload.width, payload.height)
+        const result: AttentionGuardProcessResult = await adapter.process(
+          payload.dataUrl,
+          payload.width,
+          payload.height,
+          payload.interestTags,
+        )
 
         lastResultAt.value = Date.now()
         lastError.value = null
@@ -160,6 +167,7 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
           summary: result.summary,
           novelty: result.novelty,
           ocrErrorPatternHits: result.ocrErrorPatternHits,
+          interestKeywordHits: result.interestKeywordHits,
         }
       }
       catch (err: any) {

@@ -82,7 +82,7 @@ const backupStore = useBackupStore()
 usePerfTracerBridgeStore()
 
 const proactivityStore = useProactivityStore()
-useScreenWatcherStore()
+const screenWatcherStore = useScreenWatcherStore()
 
 async function seedTextJournalEntryFromWindow() {
   await textJournalStore.load()
@@ -214,6 +214,7 @@ onMounted(async () => {
   if (isMainWindow.value) {
     proactivityStore.registerTools(builtinTools)
     proactivityStore.startHeartbeatLoop()
+    screenWatcherStore.restartWatcher()
   }
 
   logStep('Initializing Analytics & Card stores')

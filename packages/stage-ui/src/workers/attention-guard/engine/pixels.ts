@@ -134,14 +134,18 @@ export function computeDeltaBBox(prev: GrayBuffer, curr: GrayBuffer): DeltaBBox 
   let right = -1
   for (let y = 0; y < height; y++) {
     if (rows[y] > colMin) {
-      if (top < 0)
-        top = y; bottom = y
+      if (top < 0) {
+        top = y
+      }
+      bottom = y
     }
   }
   for (let x = 0; x < width; x++) {
     if (cols[x] > rowMin) {
-      if (left < 0)
-        left = x; right = x
+      if (left < 0) {
+        left = x
+      }
+      right = x
     }
   }
   if (top < 0)

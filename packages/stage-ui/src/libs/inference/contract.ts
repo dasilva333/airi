@@ -512,6 +512,8 @@ export interface AttentionGuardProcessRequest {
   /** Capture width after the orchestrator's downscale (stable across ticks). */
   width: number
   height: number
+  /** User/Character interest keywords (e.g. ['AIRI', 'chat_window', 'chrome', 'destiny']). */
+  interestTags?: string[]
 }
 
 export type AttentionGuardDecision = 'BASELINE' | 'IGNORE' | 'NOTE' | 'PROMOTE'
@@ -525,6 +527,9 @@ export interface AttentionGuardProcessResult {
   /** Stage-2 distinct OCR error patterns in the changed region. */
   ocrErrorPatternHits: number
   ocrErrorPatterns: string[]
+  /** Stage-2 matched user interest tags. */
+  interestKeywordHits?: number
+  interestKeywords?: string[]
   /** Stage-3 [Visual Event] summary block (attached on PROMOTE). */
   summary?: string
   caption?: string | null
