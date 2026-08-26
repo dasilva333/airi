@@ -21,16 +21,15 @@ This design document outlines the architecture for **Ambient Multi-User Conversa
 
 ## 2. Empirical Case Study: MekaHime / Sarah & Group Chat Dynamics
 
-Observations from real-world testing in community Discord environments (e.g., MekaHime's Sarah bot) highlight key conversational behaviors and architectural friction points:
-
-* **The "Enthusiastic Responder" Syndrome:**
-  * The bot is highly conversational, witty, and engaging, but replies to nearly every event across users.
-  * When users test with single-character or micro-messages (`"A."`), the bot feels obligated to reply (*"A? That's the whole message? Bold move."*), creating comedic value but escalating conversational clutter.
-* **In-Character Rationalization vs. Architectural Hooks:**
-  * When queried about silence mechanisms or guardrails, the bot notes: *"I don't think I've got a NO_REPLY switch... It's more like I just judge in the moment... I can reply with two words and a vibe instead of writing you an essay."*
-  * This confirms that without an explicit middleware drop sentinel, the model's only recourse is minimizing token output rather than remaining silent.
+* **Multimodal OCR & Visual Mockup Grounding:**
+  * When presented with a screenshot containing an ASCII UI settings mockup, the bot performed full-image OCR, extracted exact configuration headers (*"Throttling modes, 'Collect active,' typing cadence simulator"*), understood the semantic joke about *"Conversational appetite as a slider"*, and made an in-context conversational callback to earlier critique.
+* **Real-Time Dual-Thread Interleaving:**
+  * Demonstrated parallel multi-user conversational tracking across disparate domains: simultaneously conducting a technical inquiry on AI audio engines/singing pipelines with one user (`Koro-san`) while bantering about research notes (*"case study or cautionary tale / 500-line dossier"*) with another (`azimuthal`).
+* **Multi-Target In-Turn Roll-Up (Broadcast Wrap-Up):**
+  * When signing off, the model synthesized an aggregated multi-target farewell addressing both interlocutors in a single cohesive message:
+    > *"azimuthal-observer, if you're still lurking, save the rest of that dossier for next time, I want the full 500 lines eventually. Koro-san, go easy on the singing feature, don't overcook it before launch."*
 * **The "UPD Dialog" & Staggered Cadence Trace:**
-  * Investigation of project changelogs and update notes (`UPD dialog`) suggests that human-like multi-message bursts are often simulated via **heuristic response splitting and timer-based chunk dispatch** rather than multi-pass LLM round-trips.
+  * Investigation of project changelogs and update notes (`UPD dialog`) confirms that human-like multi-message bursts are simulated via **heuristic response splitting and timer-based chunk dispatch** rather than expensive multi-pass LLM round-trips.
 
 ---
 
@@ -400,34 +399,36 @@ async function dispatchMultiTargetResponse(
 
 ## 6. UI Specification: "Group Dynamics & Ambient Tuning" Tab
 
-In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`:
+In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`. It grounds itself in AIRI's existing `/chatmode` engine and unifies the Multi-Target Dialog and Typing Cadence controls:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  Discord Settings                                                        │
 │  [Bot Status]   [★ Group Dynamics]   [Cloud Relay]   [ACL Rules]         │
 ├──────────────────────────────────────────────────────────────────────────┤
-│ Ambient Participation                                                    │
-│ [X] Enable Ambient Listening (Allow bot to participate without @mentions)│
+│ 1. Ingestion & Throttling Mode (Syncs with /chatmode)                   │
+│    Mode: [ Followup (Queue) ]  [ Steer (Interrupt) ]  [ ★ Collect (Batch) ]
 │                                                                          │
-│ Chattiness / Salience Sensitivity                                        │
-│ Low (Only direct topics) [───────●───────] High (Jumps into all banter)  │
-│ Value: 0.65                                                              │
+│    When 'Collect' is Selected:                                           │
+│    • Debounce Window: [────●────────────] 2,500 ms                       │
+│    • Max Batch Buffer: [───────●────────] 6,000 ms                       │
 │                                                                          │
-│ Inbound Burst Debounce                                                   │
-│ Fast [────●────────────] Patient                                         │
-│ Debounce Window: 2,500 ms (Max Batch: 6,000 ms)                          │
+│ 2. Multi-Target Reply & Cadence Engine (The Sarah Dialog System)         │
+│    [X] Enable Multi-Target Response Decomposition (<reply to="@User">)   │
 │                                                                          │
-│ Multi-Target Reply Routing                                                │
-│ [X] Enable <reply to="@User"> Target Decomposition                       │
-│     (Routes multi-line outputs to native Discord message replies)        │
+│    Delivery & Bubble Constraints:                                        │
+│    • Target Delivery Style: (●) Native Discord Reply Bubble   ( ) @Mention│
+│    • Max Bubbles per Ingestion Turn: [ 3 ]                               │
+│    • Max Lines per Target Reply:     [ 2 ]                               │
 │                                                                          │
-│ Silence Sentinel Contract                                                │
-│ [X] Enable NO_REPLY Interceptor (Suppresses empty or irrelevant turns)  │
+│    Typing Cadence Simulator:                                             │
+│    [X] Stagger Multi-Bubble Output                                       │
+│        Typing Speed: 40 ms/char  |  Pause Between Bubbles: 1,500 ms      │
 │                                                                          │
-│ Simulated Typing Cadence                                                 │
-│ [X] Stagger Multi-Bubble Output                                          │
-│     Typing Speed: 40 ms/char  |  Max Pause: 3,500 ms                     │
+│ 3. Conversational Appetite & Prompt Flavor                               │
+│    ( ) Reserved: Speaks only when explicitly addressed or directly asked │
+│    (●) Natural Conversationalist: Participates smoothly in room banter   │
+│    ( ) Hyper-Enthusiastic (Sarah Mode): Quips on micro-messages & banter │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -435,17 +436,18 @@ In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedica
 
 ## 7. Action Items & Phased Implementation Plan
 
-### Phase 1: Inbound Debounce & `NO_REPLY` Hook
-1. [ ] Implement `ChannelDebounceBuffer` in `apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`.
-2. [ ] Add `NO_REPLY` interceptor in `packages/stage-ui/src/stores/modules/discord.ts`.
+### Phase 1: Ingestion Batching & ChatMode UI Binding
+1. [ ] Expose `chatMode` (`followup` | `steer` | `collect`) and `collectTimeoutMs` in the new `'group'` tab of `MessagingDiscord.vue`.
+2. [ ] Replace the hardcoded `5000ms` in `packages/stage-ui/src/stores/modules/discord.ts:730` with reactive `collectDebounceMs` and `maxBatchWaitMs`.
 
 ### Phase 2: Multi-Target Output Parser & Stagger Dispatch
-3. [ ] Implement `<reply to="...">` and `<ambient>` block parser.
-4. [ ] Wire `message.reply(messageId)` routing in the Discord service gateway.
-5. [ ] Implement human-like staggered typing cadence with `sendTypingIndicator()`.
+3. [ ] Implement `<reply to="...">` and `<ambient>` block parser in the Discord response pipeline.
+4. [ ] Wire `message.reply(messageId)` routing in the Discord service gateway (`apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`).
+5. [ ] Implement human-like staggered typing cadence with `sendTypingIndicator()` and `maxBubbles` / `maxLines` clamps.
 
-### Phase 3: Settings UI & Storage Persistence
-6. [ ] Add `'group'` tab to `MessagingDiscord.vue` with Chattiness slider, Debounce config, and Multi-Target toggles.
-7. [ ] Persist settings in `discordStore` under `local:settings/discord/group-dynamics`.
+### Phase 3: Conversational Appetite Prompt Compilation
+6. [ ] Inject conversational appetite rules into the Discord prompt builder (`packages/stage-ui/src/stores/modules/airi-card.ts`).
+7. [ ] Persist settings under `local:settings/discord/group-dynamics`.
+
 
 
