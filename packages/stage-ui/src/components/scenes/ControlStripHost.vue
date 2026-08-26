@@ -1379,9 +1379,13 @@ chatHookCleanups.push(watch(sessionUpdate, (event) => {
 chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   cardStore.isModelSyncPrevented = true
   const isDiscordVoice = !!(context as any)?.message?._discordVoiceSource
-  isPlaybackSuppressed.value = isDiscordVoice
+  const isSilent = !!(context as any)?.options?.metadata?.silent || !!(context as any)?.options?.metadata?.bubbleOnly
+  isPlaybackSuppressed.value = isDiscordVoice || isSilent
   if (isDiscordVoice) {
     debug('[Stage] Ingesting message from Discord voice source, suppressing local speaker playback.')
+  }
+  else if (isSilent) {
+    debug('[Stage] Ingesting silent / bubble-only message, suppressing local speaker audio playback.')
   }
   // NOTICE: chat and proactivity share the same speech lane. Stopping playback alone is not
   // enough if a previous turn left an active or queued intent inside the speech pipeline.

@@ -29,7 +29,7 @@ public class AvatarRandomMessages : MonoBehaviour
     public bool enableRandomMessages = true;
     [Range(5, 60)] public int minDelay = 10;
     [Range(5, 60)] public int maxDelay = 60;
-    [Range(5, 20)] public int despawnTime = 10;
+    [Range(5, 120)] public int despawnTime = 60;
     [Range(0, 100)] public int onActiveChance = 100;
 
     public List<AvatarMessage> messages = new();

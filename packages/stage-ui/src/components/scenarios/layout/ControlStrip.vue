@@ -631,6 +631,7 @@ type CaptionChannelEvent
     | { type: 'caption-assistant', segments: CaptionSegment[] }
 
 const { data: captionChannelData } = useBroadcastChannel<CaptionChannelEvent, CaptionChannelEvent>({ name: 'airi-caption-overlay' })
+let stageMateClearTimeout: any = null
 
 watch(captionChannelData, async (event) => {
   if (!isElectron.value || !event)
@@ -643,6 +644,10 @@ watch(captionChannelData, async (event) => {
     if (event.type === 'caption-assistant') {
       const active = event.segments?.find(s => s.isActive)
       if (active && active.text?.trim()) {
+        if (stageMateClearTimeout) {
+          clearTimeout(stageMateClearTimeout)
+          stageMateClearTimeout = null
+        }
         await sendCaption({
           text: active.text,
           isActive: true,
@@ -650,7 +655,14 @@ watch(captionChannelData, async (event) => {
         })
       }
       else if (!event.segments || event.segments.length === 0 || !event.segments.some(s => s.isActive)) {
-        await sendCaption({ clear: true })
+        // Hold the bubble on screen for generous reading time (60 seconds)
+        if (stageMateClearTimeout) {
+          clearTimeout(stageMateClearTimeout)
+        }
+        stageMateClearTimeout = setTimeout(async () => {
+          await sendCaption({ clear: true })
+          stageMateClearTimeout = null
+        }, 60000)
       }
     }
   }

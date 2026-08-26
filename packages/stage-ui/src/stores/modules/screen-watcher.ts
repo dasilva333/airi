@@ -1,16 +1,11 @@
 import type { ScreenWatchingConfig } from './airi-card'
 
-import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
-import { useChatSessionStore } from '../chat/session-store'
 import { useEventLogStore } from '../event-log'
-import { useLLM } from '../llm'
-import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
-import { useConsciousnessStore } from './consciousness'
 import { useLiveSessionStore } from './live-session'
 import { useVisionStore } from './vision'
 import { ATTENTION_GUARD_WORKLOAD_ID, useVisionOrchestratorStore } from './vision/orchestrator'
@@ -22,10 +17,6 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   const visionOrchestrator = useVisionOrchestratorStore()
   const eventLogStore = useEventLogStore()
   const chatOrchestrator = useChatOrchestratorStore()
-  const chatSessionStore = useChatSessionStore()
-  const consciousnessStore = useConsciousnessStore()
-  const providersStore = useProvidersStore()
-  const llmStore = useLLM()
   const liveSessionStore = useLiveSessionStore()
 
   // State
@@ -74,48 +65,6 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     return true
   }
 
-  async function generateBubbleOnlyReaction(prompt: string) {
-    const activeProviderId = consciousnessStore.activeProvider
-    const activeModel = consciousnessStore.activeModel
-    if (!activeProviderId) {
-      console.warn('[ScreenWatcher:Reaction] Aborted: No active provider found for bubble reaction.')
-      return
-    }
-
-    const activeProvider = (await providersStore.getProviderInstance(activeProviderId)) as any
-    if (!activeProvider) {
-      console.warn('[ScreenWatcher:Reaction] Aborted: Failed to instantiate LLM provider.')
-      return
-    }
-
-    const systemPrompt = activeCard.value?.description
-      || 'You are AIRI, an attentive AI desktop companion. Stay in character.'
-
-    const messages = [
-      { role: 'system' as const, content: systemPrompt },
-      { role: 'user' as const, content: prompt },
-    ]
-
-    console.log('[ScreenWatcher:Reaction] Generating bubble-only commentary turn from LLM...')
-    const response = await llmStore.generate(activeModel, activeProvider, messages, {})
-    const reply = (response.text || '').trim()
-
-    if (!reply || reply === 'NO_REPLY') {
-      console.log('[ScreenWatcher:Reaction] Character decided to stay silent (NO_REPLY).')
-      return
-    }
-
-    console.log(`[ScreenWatcher:Reaction] 💬 Bubble commentary generated: "${reply}"`)
-    chatSessionStore.inscribeTurn({
-      id: nanoid(),
-      role: 'assistant',
-      content: reply,
-      slices: [{ type: 'text', text: reply }],
-      tool_results: [],
-      createdAt: Date.now(),
-    })
-  }
-
   async function dispatchPromotedReaction(visualSummary: string, config: ScreenWatchingConfig) {
     const deliveryMode = config.deliveryMode ?? 'both'
     console.log(`[ScreenWatcher:Reaction] 🎙️ Dispatching real-time reaction (deliveryMode="${deliveryMode}")...`)
@@ -129,22 +78,16 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       + `You just noticed something noteworthy on the user's screen:\n${visualSummary}\n\n`
       + `Give a brief, natural, in-character reaction or comment (1-2 sentences). Do not announce that you are analyzing the screen.`
 
-    if (deliveryMode === 'bubble_only') {
-      await generateBubbleOnlyReaction(reactionPrompt)
-    }
-    else if (deliveryMode === 'both') {
-      console.log('[ScreenWatcher:Reaction] 🔊 Ingesting into Chat Orchestrator (Voice + Bubble)...')
-      await chatOrchestrator.ingest(reactionPrompt, {
-        metadata: {
-          source: 'screen-watcher',
-          visualSummary,
-        },
-      })
-    }
-    else if (deliveryMode === 'tts_only') {
-      console.log('[ScreenWatcher:Reaction] 🗣️ TTS-only reaction dispatched.')
-      await generateBubbleOnlyReaction(reactionPrompt)
-    }
+    const isBubbleOnly = deliveryMode === 'bubble_only'
+    console.log(`[ScreenWatcher:Reaction] 🔊 Ingesting into Chat Orchestrator (${isBubbleOnly ? 'Silent Bubble Only' : 'Voice + Bubble'})...`)
+    await chatOrchestrator.ingest(reactionPrompt, {
+      metadata: {
+        source: 'screen-watcher',
+        visualSummary,
+        silent: isBubbleOnly,
+        bubbleOnly: isBubbleOnly,
+      },
+    })
   }
 
   async function captureAndProcess(): Promise<void> {
@@ -246,8 +189,6 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       if (processed?.decision === 'PROMOTE') {
         const now = Date.now()
         promotionsCount.value++
-        lastPromotionAt.value = now
-        recentPromotionTimestamps.push(now)
 
         console.log(`[ScreenWatcher:Promotion] 🚀 NOVELTY PROMOTED! Summary: "${processed.summary}"`)
 
@@ -269,6 +210,8 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         // 2. Real-Time Push Dispatcher
         if (config.publishToContext) {
           if (rateLimitAllowsPromotion(config, now)) {
+            lastPromotionAt.value = now
+            recentPromotionTimestamps.push(now)
             await dispatchPromotedReaction(processed.summary || 'Novelty detected on screen', config)
           }
         }
