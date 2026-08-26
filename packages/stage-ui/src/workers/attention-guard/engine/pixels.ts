@@ -116,40 +116,65 @@ export function computeDeltaBBox(prev: GrayBuffer, curr: GrayBuffer): DeltaBBox 
   const rows = new Array(height).fill(0)
   const cols = new Array(width).fill(0)
 
+  let changedCount = 0
   for (let y = 0; y < height; y++) {
     const rowBase = y * width
     for (let x = 0; x < width; x++) {
       if (Math.abs(prev.data[rowBase + x] - curr.data[rowBase + x]) > DELTA_PIXEL_THRESHOLD) {
         rows[y]++
         cols[x]++
+        changedCount++
       }
     }
   }
 
-  const rowMin = height * DELTA_PROJECTION_RATIO
-  const colMin = width * DELTA_PROJECTION_RATIO
+  if (changedCount === 0)
+    return null
+
+  const rowThreshold = Math.max(1, Math.floor(width * DELTA_PROJECTION_RATIO))
+  const colThreshold = Math.max(1, Math.floor(height * DELTA_PROJECTION_RATIO))
+
   let top = -1
   let bottom = -1
   let left = -1
   let right = -1
+
   for (let y = 0; y < height; y++) {
-    if (rows[y] > colMin) {
-      if (top < 0) {
+    if (rows[y] >= rowThreshold) {
+      if (top < 0)
         top = y
-      }
       bottom = y
     }
   }
   for (let x = 0; x < width; x++) {
-    if (cols[x] > rowMin) {
-      if (left < 0) {
+    if (cols[x] >= colThreshold) {
+      if (left < 0)
         left = x
-      }
       right = x
     }
   }
-  if (top < 0)
-    return null
+
+  // Fallback: if density projection was too strict for small changes, use raw change extents
+  if (top < 0 || left < 0) {
+    for (let y = 0; y < height; y++) {
+      if (rows[y] > 0) {
+        if (top < 0)
+          top = y
+        bottom = y
+      }
+    }
+    for (let x = 0; x < width; x++) {
+      if (cols[x] > 0) {
+        if (left < 0)
+          left = x
+        right = x
+      }
+    }
+  }
+
+  if (top < 0 || left < 0) {
+    return { left: 0, top: 0, width, height }
+  }
 
   return {
     left: Math.max(0, left - BBOX_PAD),

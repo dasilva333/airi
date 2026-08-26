@@ -263,6 +263,7 @@ export function createGpuWorkerHost<Rpc>(options: GpuWorkerHostOptions<Rpc>): Gp
     // Record device-loss telemetry before teardown so the coordinator sees it
     // even if the host is never used again.
     const error = event instanceof Error ? event : (event as ErrorEvent).error ?? event
+    console.warn(`[GpuWorkerHost:${resolveModelId()}] Worker error occurred:`, (error as Error)?.name, (error as Error)?.message, error)
     // Unblock any in-flight GPU op (see `inflightAbort`) so the shared executor
     // slot is released immediately rather than at the op timeout.
     inflightAbort?.abort(error instanceof Error ? error : new Error(String(error)))

@@ -47,7 +47,9 @@ export interface VisionOrchestratorResult {
   summary?: string
   novelty?: number
   ocrErrorPatternHits?: number
+  ocrErrorPatterns?: string[]
   interestKeywordHits?: number
+  interestKeywords?: string[]
 }
 
 export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () => {
@@ -77,13 +79,21 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
     const adapter = ensureGuardAdapter()
     if (adapter.state === 'ready' || adapter.state === 'processing')
       return adapter
-    if (!guardLoadPromise) {
-      guardLoadPromise = adapter.load({ enableVlm: options?.enableVlm, signal: options?.signal }).catch((err) => {
-        guardLoadPromise = null
+
+    if (!guardLoadPromise || adapter.state === 'idle' || adapter.state === 'error' || adapter.state === 'terminated') {
+      guardLoadPromise = (async () => {
+        try {
+          await adapter.load({ enableVlm: options?.enableVlm, signal: options?.signal })
+        }
+        finally {
+          guardLoadPromise = null
+        }
+      })().catch((err) => {
         lastError.value = `guard load failed: ${err.message || String(err)}`
         throw err
       })
     }
+
     await guardLoadPromise
     return adapter
   }
@@ -141,11 +151,12 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
     if (payload.workloadId === ATTENTION_GUARD_WORKLOAD_ID) {
       try {
         const adapter = await ensureGuardLoaded()
+        const tags = Array.isArray(payload.interestTags) ? Array.from(payload.interestTags).map(t => String(t)) : []
         const result: AttentionGuardProcessResult = await adapter.process(
           payload.dataUrl,
           payload.width,
           payload.height,
-          payload.interestTags,
+          tags,
         )
 
         lastResultAt.value = Date.now()
@@ -167,7 +178,9 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
           summary: result.summary,
           novelty: result.novelty,
           ocrErrorPatternHits: result.ocrErrorPatternHits,
+          ocrErrorPatterns: result.ocrErrorPatterns,
           interestKeywordHits: result.interestKeywordHits,
+          interestKeywords: result.interestKeywords,
         }
       }
       catch (err: any) {

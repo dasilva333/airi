@@ -2,7 +2,7 @@ import type { ScreenWatchingConfig } from './airi-card'
 
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
@@ -187,7 +187,11 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       // Guard readiness check
       if (workloadId === ATTENTION_GUARD_WORKLOAD_ID) {
         try {
-          await visionOrchestrator.ensureGuardLoaded()
+          const adapter = await visionOrchestrator.ensureGuardLoaded()
+          if (adapter.state !== 'ready' && adapter.state !== 'processing') {
+            console.log('[ScreenWatcher:Tick] ⏳ Attention Ecology Guard is loading/downloading models, waiting for ready...')
+            return
+          }
         }
         catch (err: any) {
           console.log('[ScreenWatcher:Tick] ⏳ Attention Ecology Guard is loading/downloading models, waiting for ready...')
@@ -209,6 +213,9 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       captureCount.value++
       lastCaptureAt.value = Date.now()
 
+      const rawTags = config.interestTags ? toRaw(config.interestTags) : []
+      const cleanTags = Array.isArray(rawTags) ? Array.from(rawTags).map(t => String(t)) : []
+
       const tickStart = performance.now()
       const processed = await visionOrchestrator.processCapture({
         dataUrl: snapshot.dataUrl,
@@ -216,15 +223,14 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         height,
         sourceId,
         workloadId,
-        interestTags: config.interestTags || [],
+        interestTags: cleanTags,
         timestamp: snapshot.timestamp || Date.now(),
       })
       lastLatencyMs.value = Math.round(performance.now() - tickStart)
       lastDecision.value = processed?.decision || 'UNKNOWN'
-      lastSummary.value = processed?.summary || ''
-
       const logSummary = processed?.summary ? ` | summary="${processed.summary.replace(/\n/g, ' ')}"` : ''
-      console.log(`[ScreenWatcher:Engine] 🔍 Result in ${lastLatencyMs.value}ms: decision=${processed?.decision || 'UNKNOWN'} | novelty=${processed?.novelty?.toFixed(4) ?? '0.0000'} | errorHits=${processed?.ocrErrorPatternHits ?? 0} | interestHits=${processed?.interestKeywordHits ?? 0}${logSummary}`)
+      const matchedTagsStr = processed?.interestKeywords?.length ? ` ([${processed.interestKeywords.join(', ')}])` : ''
+      console.log(`[ScreenWatcher:Engine] 🔍 Result in ${lastLatencyMs.value}ms: decision=${processed?.decision || 'UNKNOWN'} | novelty=${processed?.novelty?.toFixed(4) ?? '0.0000'} | errorHits=${processed?.ocrErrorPatternHits ?? 0} | interestHits=${processed?.interestKeywordHits ?? 0}${matchedTagsStr} | targets=[${cleanTags.join(', ')}]${logSummary}`)
 
       if (processed?.decision === 'PROMOTE') {
         const now = Date.now()
@@ -262,7 +268,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     }
     catch (err: any) {
       lastError.value = err?.message || String(err)
-      console.error('[ScreenWatcher:Error] Tick failed:', err)
+      console.error('[ScreenWatcher:Error] Tick failed:', err?.name || 'Error', err?.message || String(err), err)
     }
     finally {
       isCapturing.value = false

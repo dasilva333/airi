@@ -78,7 +78,10 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
     onTerminate: () => removeInferenceStatus(MODEL_NAMES.ATTENTION_GUARD),
   })
 
+  let lastLoadConfig: { enableVlm?: boolean, modelId?: string } | null = null
+
   async function load(options?: { enableVlm?: boolean, modelId?: string, onProgress?: (p: ProgressPayload) => void, signal?: AbortSignal }): Promise<void> {
+    lastLoadConfig = { enableVlm: options?.enableVlm, modelId: options?.modelId }
     const requestedDevice = host.promoteDevice('webgpu')
     throwIfAborted(options?.signal)
 
@@ -144,7 +147,14 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
     options?: { signal?: AbortSignal },
   ): Promise<AttentionGuardProcessResult> {
     throwIfAborted(options?.signal)
+
+    // Load-on-demand recovery: if idle or bare worker, load before acquiring execution lock
+    if (host.phase === 'idle' || host.phase === 'loading' || !host.rpc) {
+      await load({ enableVlm: lastLoadConfig?.enableVlm, modelId: lastLoadConfig?.modelId, signal: options?.signal })
+    }
+
     const notReadyError = new Error('Attention Ecology Guard not loaded. Call load() first.')
+    const cleanInterestTags = Array.isArray(interestTags) ? Array.from(interestTags).map(t => String(t)) : []
 
     return defaultPerfTracer.withMeasure('inference', 'attention-guard-process', () => host.runExclusive(async () => {
       throwIfAborted(options?.signal)
@@ -161,7 +171,7 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
           GPU_PRIORITY.ATTENTION_GUARD_PROCESS,
           options?.signal,
           ({ crashSignal }) => host.rpc!.process(
-            { dataUrl, width, height, interestTags },
+            { dataUrl, width, height, interestTags: cleanInterestTags },
             { signal: AbortSignal.any([signalWithTimeout(options?.signal, PROCESS_TIMEOUT), crashSignal]) },
           ),
         )

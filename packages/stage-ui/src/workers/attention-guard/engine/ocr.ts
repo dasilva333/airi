@@ -89,23 +89,41 @@ export function matchPatterns(text: string, patterns: RegExp[]): string[] {
 /** Matches user interest tags against text. */
 export function matchInterestTags(text: string, tags: string[] = []): string[] {
   const matched: string[] = []
+  if (!text || !tags || tags.length === 0)
+    return matched
+
+  const lowerText = text.toLowerCase()
   for (const tag of tags) {
     if (!tag)
       continue
-    // Handle whitespace/underscores in tags (e.g. "chat_window" -> "chat window" or "chat_window")
-    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const trimmed = tag.trim()
+    if (!trimmed)
+      continue
+
+    // 1. Direct case-insensitive substring match
+    if (lowerText.includes(trimmed.toLowerCase())) {
+      matched.push(trimmed)
+      continue
+    }
+
+    // 2. Normalized underscore/hyphen/space match (e.g. "chat_window" matches "chat window")
+    const normalizedTag = trimmed.toLowerCase().replace(/[_-]/g, ' ')
+    const normalizedText = lowerText.replace(/[_-]/g, ' ')
+    if (normalizedText.includes(normalizedTag)) {
+      matched.push(trimmed)
+      continue
+    }
+
+    // 3. Regex word boundary match
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const pattern = escaped.replace(/[_-]/g, '[ _-]')
     try {
       const regex = new RegExp(`\\b${pattern}\\b`, 'i')
       if (regex.test(text)) {
-        matched.push(tag)
+        matched.push(trimmed)
       }
     }
-    catch {
-      if (text.toLowerCase().includes(tag.toLowerCase())) {
-        matched.push(tag)
-      }
-    }
+    catch {}
   }
   return matched
 }
