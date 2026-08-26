@@ -1,5 +1,7 @@
+import type { PrimaryDisplaySize } from '@proj-airi/stage-shared'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionRequestPermission } from '@proj-airi/stage-shared'
+import { isWithinSchedule, visionCaptureScreen, visionCheckPermission, visionGetPrimaryDisplaySize, visionRequestPermission } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -48,6 +50,26 @@ export const useVisionStore = defineStore('vision', () => {
   const captureInvoke = useElectronEventaInvoke(visionCaptureScreen)
   const checkPermissionInvoke = useElectronEventaInvoke(visionCheckPermission)
   const requestPermissionInvoke = useElectronEventaInvoke(visionRequestPermission)
+  const getPrimaryDisplaySizeInvoke = useElectronEventaInvoke(visionGetPrimaryDisplaySize)
+
+  // Cached primary display size so capture-resolution UI and the screen watcher
+  // can reason about native resolution without an IPC round-trip per tick.
+  const primaryDisplaySize = ref<PrimaryDisplaySize | null>(null)
+  let primaryDisplaySizeFetched = false
+
+  async function getPrimaryDisplaySize(options?: { force?: boolean }): Promise<PrimaryDisplaySize | null> {
+    if (primaryDisplaySizeFetched && !options?.force)
+      return primaryDisplaySize.value
+    primaryDisplaySizeFetched = true
+    try {
+      primaryDisplaySize.value = await getPrimaryDisplaySizeInvoke() ?? null
+    }
+    catch (err) {
+      console.warn('[Vision Store] Failed to fetch primary display size:', err)
+      primaryDisplaySize.value = null
+    }
+    return primaryDisplaySize.value
+  }
 
   /**
    * Checks if the app has screen recording permissions on macOS.
@@ -175,8 +197,10 @@ export const useVisionStore = defineStore('vision', () => {
   /**
    * Captures a single snapshot of the screen via IPC.
    * This is a "clean" capture that doesn't trigger ambient vision processing (ingestion).
+   * When no dimensions are provided the capture defaults to the display's native
+   * resolution (needed for accurate OCR).
    */
-  async function captureSnapshot(options?: { width?: number, height?: number }) {
+  async function captureSnapshot(options?: { width?: number, height?: number, native?: boolean, downscalePercent?: number }) {
     console.log('[Vision Store] captureSnapshot requested...')
 
     // 1. Permission Check (macOS only)
@@ -189,8 +213,10 @@ export const useVisionStore = defineStore('vision', () => {
     console.log('[Vision Store] Invoking OS screen capture via Eventa...')
     try {
       const result = await captureInvoke({
-        width: options?.width || 1280,
-        height: options?.height || 720,
+        width: options?.width,
+        height: options?.height,
+        native: options?.native,
+        downscalePercent: options?.downscalePercent,
       })
 
       if (!result || !result.dataUrl) {
@@ -288,6 +314,7 @@ export const useVisionStore = defineStore('vision', () => {
     providerModels,
     isLoadingActiveProviderModels,
     activeProviderModelError,
+    primaryDisplaySize,
 
     // Actions
     resetModelSelection,
@@ -298,6 +325,7 @@ export const useVisionStore = defineStore('vision', () => {
     captureSnapshot,
     checkPermissions,
     openPermissionSettings,
+    getPrimaryDisplaySize,
     resetState,
   }
 })

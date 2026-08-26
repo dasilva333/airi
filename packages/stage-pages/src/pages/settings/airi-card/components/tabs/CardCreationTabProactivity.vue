@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useVisionSources } from '@proj-airi/stage-ui/composables'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores'
+import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import {
   TooltipArrow,
   TooltipContent,
@@ -8,7 +9,7 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 const props = defineProps<{
   sensorPayload?: string
@@ -20,7 +21,12 @@ const emit = defineEmits<{
 }>()
 
 const proactivityStore = useProactivityStore()
+const visionStore = useVisionStore()
 const isRefreshingSensors = ref(false)
+
+// Primary display size so the capture-resolution readout reflects the real
+// display (downscale is relative to native resolution, not a 720p baseline).
+const primaryDisplaySize = ref<{ width: number, height: number } | null>(null)
 
 async function refreshTelemetry() {
   isRefreshingSensors.value = true
@@ -32,8 +38,9 @@ async function refreshTelemetry() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   void proactivityStore.updateSensors()
+  primaryDisplaySize.value = await visionStore.getPrimaryDisplaySize()
 })
 
 // Sub-Tab Navigation State
@@ -77,6 +84,19 @@ const screenWatchingInterestTags = defineModel<string[]>('screenWatchingInterest
 const screenWatchingDeferWhileSpeaking = defineModel<boolean>('screenWatchingDeferWhileSpeaking', { default: true })
 const screenWatchingMaxPerHour = defineModel<number>('screenWatchingMaxPerHour', { default: 4 })
 const screenWatchingHysteresisMinutes = defineModel<number>('screenWatchingHysteresisMinutes', { default: 3 })
+
+// Capture-resolution readout for the downscale slider. Percentages are applied
+// relative to the display's native size; 100% means a full native-resolution
+// capture (required for accurate OCR).
+const downscaleResolutionLabel = computed(() => {
+  const pct = screenWatchingDownscalePercent.value || 100
+  const base = primaryDisplaySize.value
+  if (pct >= 100)
+    return base ? `Native ${base.width}×${base.height}` : 'Native'
+  const refW = base?.width || 1280
+  const refH = base?.height || 720
+  return `${Math.round(refW * pct / 100)}×${Math.round(refH * pct / 100)}`
+})
 
 // Dynamic Display and Window sources from unified vision composable
 const {
@@ -628,7 +648,7 @@ const intervalPresets = [2, 5, 10, 20]
                     Input Downscale
                   </label>
                   <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
-                    {{ screenWatchingDownscalePercent }}% ({{ Math.round(1280 * screenWatchingDownscalePercent / 100) }}×{{ Math.round(720 * screenWatchingDownscalePercent / 100) }})
+                    {{ screenWatchingDownscalePercent }}% ({{ downscaleResolutionLabel }})
                   </span>
                 </div>
                 <input
@@ -641,7 +661,7 @@ const intervalPresets = [2, 5, 10, 20]
                 >
                 <div class="flex items-center justify-between text-[10px] text-neutral-400">
                   <span>25% (Low VRAM)</span>
-                  <span>100% (Native 720p)</span>
+                  <span>100% (Native Resolution)</span>
                 </div>
               </div>
             </div>

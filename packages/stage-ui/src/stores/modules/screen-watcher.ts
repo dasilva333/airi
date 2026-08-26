@@ -174,9 +174,15 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     lastError.value = null
 
     try {
-      const downscale = config.downscalePercent || 75
-      const width = Math.round(1280 * (downscale / 100))
-      const height = Math.round(720 * (downscale / 100))
+      // Capture at the display's native resolution so glyph height stays high
+      // enough for accurate OCR. The `downscalePercent` card setting is applied
+      // relative to the display's real size (not a 720p baseline) and only acts
+      // as an explicit opt-in power saver.
+      const downscale = config.downscalePercent || 100
+      const useNative = downscale >= 100
+      const displaySize = await visionStore.getPrimaryDisplaySize()
+      const width = displaySize ? Math.round(displaySize.width * (useNative ? 100 : downscale) / 100) : 0
+      const height = displaySize ? Math.round(displaySize.height * (useNative ? 100 : downscale) / 100) : 0
       const sourceId = config.sourceId || 'screen:primary'
       const workloadId = config.workload === 'screen:interpret'
         ? 'screen:interpret'
@@ -199,9 +205,14 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         }
       }
 
-      console.log(`[ScreenWatcher:Tick] 📸 Capturing screen frame #${captureCount.value + 1} (${width}×${height}, source="${sourceId}")...`)
+      const resLabel = useNative
+        ? (displaySize ? `native ${displaySize.width}×${displaySize.height}` : 'native')
+        : `${width}×${height} (${downscale}% of native)`
+      console.log(`[ScreenWatcher:Tick] 📸 Capturing screen frame #${captureCount.value + 1} (${resLabel}, source="${sourceId}")...`)
 
-      const snapshot = await visionStore.captureSnapshot({ width, height })
+      const snapshot = await visionStore.captureSnapshot(
+        useNative ? { native: true } : { downscalePercent: downscale },
+      )
       if (!snapshot?.dataUrl) {
         lastError.value = snapshot?.error === 'permission_denied'
           ? 'Screen capture permission denied.'

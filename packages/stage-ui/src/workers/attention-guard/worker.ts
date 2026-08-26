@@ -233,7 +233,9 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl, inter
         ocrInterestTags = matchInterestTags(text, interestTags)
 
         const preview = ocrText.trim().replace(/\s+/g, ' ').slice(0, 100)
-        console.log(`[attention-guard:worker] OCR bbox=(${bbox.left},${bbox.top},${bbox.width}×${bbox.height}) | chars=${ocrText.length} | preview="${preview}" | interestTargets=[${interestTags?.join(', ') || ''}] | interestHits=${ocrInterestTags.length} ([${ocrInterestTags.join(', ')}])`)
+        const frameArea = rawImage.width * rawImage.height
+        const fullFrameTag = bbox.width * bbox.height >= frameArea * 0.5 ? '[FULL-FRAME] ' : ''
+        console.log(`[attention-guard:worker] ${fullFrameTag}OCR bbox=(${bbox.left},${bbox.top},${bbox.width}×${bbox.height}) | chars=${ocrText.length} | preview="${preview}" | interestTargets=[${interestTags?.join(', ') || ''}] | interestHits=${ocrInterestTags.length} ([${ocrInterestTags.join(', ')}])`)
       }
     }
     stageMs.stage2Ms = performance.now() - t2

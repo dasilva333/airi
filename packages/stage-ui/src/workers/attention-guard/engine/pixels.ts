@@ -107,6 +107,9 @@ export function hammingDistance(a: Uint8Array, b: Uint8Array): number {
   return dist
 }
 
+/** Fraction of changed pixels above which the frame is treated as a full redraw (window/app switch). */
+const FULL_FRAME_CHANGE_RATIO = 0.5
+
 /** Bounding box of pixels that changed between two same-dims frames. */
 export function computeDeltaBBox(prev: GrayBuffer, curr: GrayBuffer): DeltaBBox | null {
   if (prev.width !== curr.width || prev.height !== curr.height)
@@ -130,6 +133,12 @@ export function computeDeltaBBox(prev: GrayBuffer, curr: GrayBuffer): DeltaBBox 
 
   if (changedCount === 0)
     return null
+
+  // NOTICE: a window/app switch redraws the whole screen, so delta localization
+  // is meaningless — return the full frame as-is (no projection/padding). The
+  // OCR engine still bounds what it feeds to tesseract for this case.
+  if (changedCount >= width * height * FULL_FRAME_CHANGE_RATIO)
+    return { left: 0, top: 0, width, height }
 
   const rowThreshold = Math.max(1, Math.floor(width * DELTA_PROJECTION_RATIO))
   const colThreshold = Math.max(1, Math.floor(height * DELTA_PROJECTION_RATIO))
