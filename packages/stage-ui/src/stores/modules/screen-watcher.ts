@@ -1,12 +1,18 @@
 import type { ScreenWatchingConfig } from './airi-card'
 
+import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, onUnmounted, ref, toRaw, watch } from 'vue'
 
 import { useChatOrchestratorStore } from '../chat'
+import { useChatSessionStore } from '../chat/session-store'
 import { useEventLogStore } from '../event-log'
+import { useLLM } from '../llm'
+import { useProvidersStore } from '../providers'
 import { useAiriCardStore } from './airi-card'
+import { useConsciousnessStore } from './consciousness'
 import { useLiveSessionStore } from './live-session'
+import { useSpeechStore } from './speech'
 import { useVisionStore } from './vision'
 import { ATTENTION_GUARD_WORKLOAD_ID, useVisionOrchestratorStore } from './vision/orchestrator'
 
@@ -17,6 +23,11 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   const visionOrchestrator = useVisionOrchestratorStore()
   const eventLogStore = useEventLogStore()
   const chatOrchestrator = useChatOrchestratorStore()
+  const chatSessionStore = useChatSessionStore()
+  const consciousnessStore = useConsciousnessStore()
+  const speechStore = useSpeechStore()
+  const providersStore = useProvidersStore()
+  const llmStore = useLLM()
   const liveSessionStore = useLiveSessionStore()
 
   // State
@@ -65,6 +76,41 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     return true
   }
 
+  let currentBubblePlaybackToken: string | null = null
+
+  function splitIntoReadingChunks(text: string, maxChunkLength = 32): string[] {
+    const words = text.trim().split(/\s+/)
+    const chunks: string[] = []
+    let currentChunk = ''
+
+    for (const word of words) {
+      if (!word)
+        continue
+
+      const potential = currentChunk ? `${currentChunk} ${word}` : word
+
+      if (currentChunk && potential.length > maxChunkLength) {
+        chunks.push(currentChunk.trim())
+        currentChunk = word
+      }
+      else {
+        currentChunk = potential
+      }
+
+      // If sentence-ending punctuation is reached and chunk has substance (>= 18 chars), flush early
+      if (/[.!?。！？]$/.test(currentChunk) && currentChunk.length >= 18) {
+        chunks.push(currentChunk.trim())
+        currentChunk = ''
+      }
+    }
+
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim())
+    }
+
+    return chunks.filter(c => c.length > 0)
+  }
+
   async function dispatchPromotedReaction(visualSummary: string, config: ScreenWatchingConfig) {
     const deliveryMode = config.deliveryMode ?? 'both'
     console.log(`[ScreenWatcher:Reaction] 🎙️ Dispatching real-time reaction (deliveryMode="${deliveryMode}")...`)
@@ -78,16 +124,128 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       + `You just noticed something noteworthy on the user's screen:\n${visualSummary}\n\n`
       + `Give a brief, natural, in-character reaction or comment (1-2 sentences). Do not announce that you are analyzing the screen.`
 
-    const isBubbleOnly = deliveryMode === 'bubble_only'
-    console.log(`[ScreenWatcher:Reaction] 🔊 Ingesting into Chat Orchestrator (${isBubbleOnly ? 'Silent Bubble Only' : 'Voice + Bubble'})...`)
-    await chatOrchestrator.ingest(reactionPrompt, {
-      metadata: {
-        source: 'screen-watcher',
-        visualSummary,
-        silent: isBubbleOnly,
-        bubbleOnly: isBubbleOnly,
-      },
-    })
+    const hasActiveSpeech = Boolean(speechStore.activeSpeechProvider && speechStore.activeSpeechProvider !== 'speech-noop')
+
+    if (deliveryMode === 'both' && hasActiveSpeech) {
+      console.log('[ScreenWatcher:Reaction] 🔊 Ingesting into Chat Orchestrator (Voice + Bubble)...')
+      await chatOrchestrator.ingest(reactionPrompt, {
+        metadata: {
+          source: 'screen-watcher',
+          visualSummary,
+        },
+      })
+    }
+    else {
+      if (deliveryMode === 'both' && !hasActiveSpeech) {
+        console.warn(`[ScreenWatcher:Reaction] ⚠️ Delivery mode is "both" but active speech provider is "${speechStore.activeSpeechProvider || 'speech-noop'}". Falling back to silent chunked bubble commentary.`)
+      }
+
+      const activeProviderId = consciousnessStore.activeProvider
+      const activeModel = consciousnessStore.activeModel
+      if (!activeProviderId) {
+        console.warn('[ScreenWatcher:Reaction] Aborted: No active provider found for bubble reaction.')
+        return
+      }
+
+      const activeProvider = (await providersStore.getProviderInstance(activeProviderId)) as any
+      if (!activeProvider) {
+        console.warn('[ScreenWatcher:Reaction] Aborted: Failed to instantiate LLM provider.')
+        return
+      }
+
+      const systemPrompt = activeCard.value?.description
+        || 'You are AIRI, an attentive AI desktop companion. Stay in character.'
+
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: reactionPrompt },
+      ]
+
+      console.log('[ScreenWatcher:Reaction] Generating bubble commentary turn from LLM...')
+      const response = await llmStore.generate(activeModel, activeProvider, messages, {})
+      const rawReply = (response.text || '').trim()
+
+      if (!rawReply || rawReply === 'NO_REPLY') {
+        console.log('[ScreenWatcher:Reaction] Character decided to stay silent (NO_REPLY).')
+        return
+      }
+
+      // Strip ACT cues, markers, and markdown asterisks so only clean speech text is shown in the bubble
+      const cleanReply = rawReply
+        .replace(/<\|ACT:[^>]*\|>/g, '')
+        .replace(/<\|[^>]*\|>/g, '')
+        .replace(/\*+/g, '')
+        .trim()
+
+      if (!cleanReply) {
+        return
+      }
+
+      // Inscribe full response to chat history right away
+      chatSessionStore.inscribeTurn({
+        id: nanoid(),
+        role: 'assistant',
+        content: cleanReply,
+        slices: [{ type: 'text', text: cleanReply }],
+        tool_results: [],
+        createdAt: Date.now(),
+      })
+
+      // Split into small, bite-sized reading chunks that comfortably fit the speech bubble (~32 chars)
+      const chunks = splitIntoReadingChunks(cleanReply, 32)
+      console.log(`[ScreenWatcher:Reaction] 💬 Playing ${chunks.length} reading chunk(s) at reading speed...`, chunks)
+
+      const thisToken = nanoid()
+      currentBubblePlaybackToken = thisToken
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (currentBubblePlaybackToken !== thisToken)
+          break
+
+        const chunkText = chunks[i]
+        const isFinalChunk = i === chunks.length - 1
+
+        // 1. Direct Stage-Mate Unity sidecar hook
+        try {
+          const { useElectronEventaInvoke } = await import('@proj-airi/electron-vueuse')
+          const { electronStageMateSendCaption } = await import('@proj-airi/stage-shared')
+          const sendCaption = useElectronEventaInvoke(electronStageMateSendCaption)
+          await sendCaption({
+            text: chunkText,
+            isActive: true,
+            speaker: activeCard.value?.name || 'assistant',
+          })
+        }
+        catch (err) {
+          console.warn('[ScreenWatcher:Reaction] Failed to invoke Stage-Mate send-caption:', err)
+        }
+
+        // 2. BroadcastChannel to caption overlay / head-tether plank
+        try {
+          const bc = new BroadcastChannel('airi-caption-overlay')
+          bc.postMessage({
+            type: 'caption-assistant',
+            segments: [
+              {
+                text: chunkText,
+                color: (activeCard.value?.extensions?.airi as any)?.theme?.primaryColor || '#8B5CF6',
+                actorId: activeCard.value?.name || 'assistant',
+                isActive: true,
+              },
+            ],
+          })
+        }
+        catch (err) {
+          console.warn('[ScreenWatcher:Reaction] Failed to broadcast caption overlay:', err)
+        }
+
+        // Wait comfortable reading speed before advancing (final chunk lingers indefinitely!)
+        if (!isFinalChunk) {
+          const readingDelayMs = Math.max(2000, Math.min(4500, chunkText.length * 65))
+          await new Promise(resolve => setTimeout(resolve, readingDelayMs))
+        }
+      }
+    }
   }
 
   async function captureAndProcess(): Promise<void> {

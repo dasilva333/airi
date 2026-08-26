@@ -224,15 +224,15 @@ public class AvatarRandomMessages : MonoBehaviour
         {
             sprite = bubbleSprite,
             font = font,
-            fontSize = fontSize > 0 ? fontSize : 24,
+            fontSize = fontSize > 0 ? fontSize : 20,
             fontColor = fontColor,
             bubbleColor = bubbleColor,
             bottomPosition = 0,
             leftPosition = 1,
-            textPadding = textPadding,
+            textPadding = textPadding > 0 ? textPadding : 14f,
             bubbleOffset = bubbleSpacing,
             bubbleWidth = bubbleWidth > 0 ? bubbleWidth : 550,
-            bubbleHeight = -1
+            bubbleHeight = 100f
         };
 
         activeBubble = new LLMUnitySamples.Bubble(chatContainer, ui, "AiriCaptionBubble", "");
@@ -246,8 +246,8 @@ public class AvatarRandomMessages : MonoBehaviour
         if (avatarAnimator != null) avatarAnimator.SetBool("isTalking", true);
 
         streamCoroutine = StartCoroutine(FakeStreamText(text));
-        if (despawnCoroutine != null) StopCoroutine(despawnCoroutine);
-        despawnCoroutine = StartCoroutine(DespawnAfterDelay());
+        if (despawnCoroutine != null) { StopCoroutine(despawnCoroutine); despawnCoroutine = null; }
+        // Let the caption linger indefinitely until a new caption replaces it
     }
 
     string ResolveText(AvatarMessage msg)
