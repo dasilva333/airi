@@ -33,9 +33,27 @@ export function configureVisionEnv(): void {
 }
 
 /** Prime the CLIP vision + text towers (load handler warm-up). */
-export async function warmupVision(device: InferenceDevice): Promise<void> {
-  await getVisionEncoder(device)
-  await getTextEmbedding('a terminal window', device)
+export async function warmupVision(device: InferenceDevice, progressCallback?: (progress: any) => void): Promise<void> {
+  if (!visionProcessorPromise)
+    visionProcessorPromise = AutoProcessor.from_pretrained(CLIP_MODEL_ID)
+  if (!visionModelPromise)
+    visionModelPromise = CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL_ID, { device, progress_callback: progressCallback })
+  if (!tokenizerPromise)
+    tokenizerPromise = AutoTokenizer.from_pretrained(CLIP_MODEL_ID)
+  if (!textModelPromise)
+    textModelPromise = CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL_ID, { device, progress_callback: progressCallback })
+
+  await Promise.all([
+    visionProcessorPromise,
+    visionModelPromise,
+    tokenizerPromise,
+    textModelPromise,
+  ])
+
+  for (const label of Object.keys(SALIENCE_LABELS) as SalienceLabel[]) {
+    if (!textEmbeddingCache.has(label))
+      textEmbeddingCache.set(label, await getTextEmbedding(SALIENCE_LABELS[label], device))
+  }
 }
 
 export function normalizeVector(vec: Float32Array): Float32Array {

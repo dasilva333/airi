@@ -46,9 +46,31 @@ export async function disposeOcrEngine(): Promise<void> {
 /** OCR of a delta-region crop (ImageData). Returns raw text + wall-clock ms. */
 export async function ocrImageData(imageData: ImageData): Promise<{ text: string, ocrMs: number }> {
   const started = performance.now()
-  const worker = await getWorker()
-  const { data: { text } } = await worker.recognize(imageData as any)
-  return { text, ocrMs: performance.now() - started }
+  if (!imageData || imageData.width <= 0 || imageData.height <= 0) {
+    return { text: '', ocrMs: 0 }
+  }
+
+  try {
+    const worker = await getWorker()
+
+    let targetInput: any = imageData
+    if (typeof OffscreenCanvas !== 'undefined') {
+      const canvas = new OffscreenCanvas(imageData.width, imageData.height)
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.putImageData(imageData, 0, 0)
+        const blob = await canvas.convertToBlob({ type: 'image/png' })
+        targetInput = await blob.arrayBuffer()
+      }
+    }
+
+    const { data: { text } } = await worker.recognize(targetInput)
+    return { text: text || '', ocrMs: performance.now() - started }
+  }
+  catch (err) {
+    console.warn('[Attention Guard OCR] OCR failed on delta crop:', err)
+    return { text: '', ocrMs: performance.now() - started }
+  }
 }
 
 /** Distinct matched error patterns in OCR text. */

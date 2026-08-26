@@ -17,6 +17,7 @@ import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/c
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useDiscordStore } from '@proj-airi/stage-ui/stores/modules/discord'
+import { useScreenWatcherStore } from '@proj-airi/stage-ui/stores/modules/screen-watcher'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
@@ -81,6 +82,7 @@ const backupStore = useBackupStore()
 usePerfTracerBridgeStore()
 
 const proactivityStore = useProactivityStore()
+useScreenWatcherStore()
 
 async function seedTextJournalEntryFromWindow() {
   await textJournalStore.load()

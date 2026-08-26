@@ -86,17 +86,64 @@ const {
   refetchSources,
 } = useVisionSources({ autoFetch: true })
 
-// Tag Input Helper State
+// Tag Input Helper State & Categorized Suggestions
 const newTagInput = ref('')
-function addInterestTag() {
-  const tag = newTagInput.value.trim().toLowerCase()
-  if (tag && !screenWatchingInterestTags.value.includes(tag)) {
-    screenWatchingInterestTags.value = [...screenWatchingInterestTags.value, tag]
-    newTagInput.value = ''
-  }
+interface SuggestedTagCategory {
+  label: string
+  icon: string
+  tags: string[]
 }
-function removeInterestTag(index: number) {
-  screenWatchingInterestTags.value = screenWatchingInterestTags.value.filter((_, i) => i !== index)
+
+const SUGGESTED_TAG_GROUPS: SuggestedTagCategory[] = [
+  {
+    label: 'AIRI Hub',
+    icon: 'i-solar:stars-minimalistic-bold-duotone',
+    tags: ['airi', 'chat_window', 'studio', 'director', 'stage'],
+  },
+  {
+    label: 'Daily & Media',
+    icon: 'i-solar:globus-bold-duotone',
+    tags: ['chrome', 'youtube', 'spotify', 'discord', 'reddit', 'twitter', 'twitch'],
+  },
+  {
+    label: 'Gaming',
+    icon: 'i-solar:gamepad-bold-duotone',
+    tags: ['steam', 'minecraft', 'destiny', 'factorio'],
+  },
+  {
+    label: 'Dev & Work',
+    icon: 'i-solar:code-bold-duotone',
+    tags: ['vs_code', 'terminal_error', 'github', 'antigravity', 'error_log'],
+  },
+]
+
+function addInterestTag(customTag?: string) {
+  const raw = (customTag ?? newTagInput.value).trim()
+  if (!raw)
+    return
+
+  const rawParts = raw.split(/[,，\s]+/)
+  const currentTags = screenWatchingInterestTags.value ? [...screenWatchingInterestTags.value] : []
+
+  for (const part of rawParts) {
+    const clean = part.replace(/^#+/, '').trim().toLowerCase()
+    if (clean && !currentTags.includes(clean)) {
+      currentTags.push(clean)
+    }
+  }
+
+  screenWatchingInterestTags.value = currentTags
+  newTagInput.value = ''
+}
+
+function removeInterestTag(indexOrTag: number | string) {
+  if (typeof indexOrTag === 'number') {
+    screenWatchingInterestTags.value = (screenWatchingInterestTags.value || []).filter((_, i) => i !== indexOrTag)
+  }
+  else {
+    const target = indexOrTag.toLowerCase()
+    screenWatchingInterestTags.value = (screenWatchingInterestTags.value || []).filter(t => t.toLowerCase() !== target)
+  }
 }
 
 // 3. Dream State Models
@@ -628,53 +675,98 @@ const intervalPresets = [2, 5, 10, 20]
             </div>
 
             <!-- Interest Tags -->
-            <div class="flex flex-col gap-2">
-              <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
-                High-Salience Interest Keywords & Filter Tags
-              </label>
-              <div class="flex flex-wrap items-center gap-2 border border-neutral-200 rounded-lg bg-neutral-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-950">
-                <span
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                  High-Salience Interest Keywords & Filter Tags
+                </label>
+                <span class="text-[10px] text-neutral-400 font-mono">
+                  {{ screenWatchingInterestTags?.length || 0 }} active tag{{ (screenWatchingInterestTags?.length || 0) === 1 ? '' : 's' }}
+                </span>
+              </div>
+
+              <!-- Active Tags Box -->
+              <div class="min-h-[48px] flex flex-wrap items-center gap-2 border border-neutral-200 rounded-xl bg-neutral-50/80 p-3 dark:border-neutral-700 dark:bg-neutral-950">
+                <button
                   v-for="(tag, idx) in screenWatchingInterestTags"
                   :key="tag"
-                  class="flex items-center gap-1.5 border border-primary-200 rounded-md bg-primary-50 px-2.5 py-1 text-xs text-primary-700 font-medium dark:border-primary-800 dark:bg-primary-950/60 dark:text-primary-300"
+                  type="button"
+                  title="Click to remove tag"
+                  class="group flex cursor-pointer items-center gap-1.5 border border-primary-200 rounded-lg bg-primary-50 px-2.5 py-1 text-xs text-primary-700 font-medium transition-all dark:border-primary-800/80 hover:border-red-400 dark:bg-primary-950/60 hover:bg-red-50 dark:text-primary-300 hover:text-red-600 dark:hover:border-red-800 dark:hover:bg-red-950/60 dark:hover:text-red-300"
+                  @click="removeInterestTag(idx)"
                 >
                   <span>#{{ tag }}</span>
-                  <button
-                    type="button"
-                    class="text-primary-400 hover:text-primary-600 dark:hover:text-primary-200"
-                    @click="removeInterestTag(idx)"
-                  >
-                    <span class="i-lucide:x text-[10px]" />
-                  </button>
-                </span>
-                <div class="flex items-center gap-1">
+                  <span class="i-lucide:x text-[11px] text-primary-400 transition-colors group-hover:text-red-500" />
+                </button>
+
+                <div class="flex items-center gap-1.5">
                   <input
                     v-model="newTagInput"
                     type="text"
-                    placeholder="+ Add Keyword"
-                    class="w-28 bg-transparent px-2 py-0.5 text-xs outline-none"
-                    @keydown.enter.prevent="addInterestTag"
+                    placeholder="+ Add tag..."
+                    class="w-28 bg-transparent px-2 py-1 text-xs text-neutral-800 outline-none dark:text-neutral-200 placeholder-neutral-400"
+                    @keydown.enter.prevent="addInterestTag()"
                   >
                   <button
                     type="button"
-                    class="rounded bg-neutral-200 px-2 py-0.5 text-[11px] text-neutral-700 font-medium dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-300 hover:text-white"
-                    @click="addInterestTag"
+                    class="rounded-lg bg-neutral-200/80 px-2.5 py-1 text-xs text-neutral-700 font-semibold transition-colors dark:bg-neutral-800 hover:bg-primary-500 dark:text-neutral-300 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white"
+                    @click="addInterestTag()"
                   >
                     Add
                   </button>
                 </div>
               </div>
+
+              <!-- Categorized Suggested Tags -->
+              <div class="mt-1 flex flex-col gap-2.5 border-t border-neutral-100 pt-2.5 dark:border-neutral-800">
+                <div class="flex items-center gap-1.5 text-[11px] text-neutral-500 font-semibold tracking-wider uppercase dark:text-neutral-400">
+                  <div class="i-solar:lightbulb-bolt-bold-duotone text-sm text-amber-500" />
+                  <span>Suggested keywords (click to add):</span>
+                </div>
+
+                <div class="flex flex-col gap-2 pl-0.5">
+                  <div
+                    v-for="group in SUGGESTED_TAG_GROUPS"
+                    :key="group.label"
+                    class="flex flex-wrap items-center gap-2"
+                  >
+                    <div class="min-w-[95px] flex shrink-0 items-center gap-1.5 text-[11px] text-neutral-400 font-medium">
+                      <div :class="[group.icon, 'text-xs text-neutral-400']" />
+                      <span>{{ group.label }}:</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <button
+                        v-for="tag in group.tags.filter(t => !screenWatchingInterestTags?.includes(t))"
+                        :key="tag"
+                        type="button"
+                        class="flex cursor-pointer items-center gap-1 border border-neutral-300 rounded-md border-dashed bg-white px-2 py-0.5 text-[11px] text-neutral-600 font-medium transition-all dark:border-neutral-700 hover:border-primary-400 dark:bg-neutral-800/80 hover:bg-primary-50 dark:text-neutral-300 hover:text-primary-600 dark:hover:border-primary-600 dark:hover:bg-primary-950/50 dark:hover:text-primary-300"
+                        @click="addInterestTag(tag)"
+                      >
+                        <span class="text-neutral-400">+</span>
+                        <span>#{{ tag }}</span>
+                      </button>
+                      <span
+                        v-if="group.tags.every(t => screenWatchingInterestTags?.includes(t))"
+                        class="text-[10px] text-neutral-400 italic"
+                      >
+                        (All added)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <span class="text-[11px] text-neutral-400">Frames matching these tags are automatically promoted and written to the Unified Event Ledger.</span>
             </div>
           </div>
 
-          <!-- 3. Cognitive Push & Dialogue Interference -->
+          <!-- 3. Real-Time Reactions & Delivery -->
           <div class="flex flex-col gap-3.5 border-t border-neutral-100 pt-4 dark:border-neutral-800">
             <span class="text-xs text-neutral-700 font-semibold tracking-wider uppercase dark:text-neutral-300">
-              3. Cognitive Push & Dialogue Interference
+              3. Real-Time Reactions & Delivery
             </span>
 
-            <!-- Publish to Context Toggle -->
+            <!-- React Immediately (Real-Time Push) Toggle -->
             <div class="flex items-start gap-2.5 border border-primary-200/70 rounded-lg bg-primary-50/40 p-3.5 dark:border-primary-900/60 dark:bg-primary-950/20">
               <input
                 id="publish-to-context"
@@ -684,10 +776,11 @@ const intervalPresets = [2, 5, 10, 20]
               >
               <div class="flex flex-col gap-0.5">
                 <label for="publish-to-context" class="text-xs text-neutral-800 font-semibold dark:text-neutral-100">
-                  Publish Promoted Events to Character Dialogue (Active Push)
+                  React Immediately to Screen Highlights (Real-Time Push)
                 </label>
                 <p class="text-xs text-neutral-500 leading-relaxed dark:text-neutral-400">
-                  When off, promoted visual events are logged quietly to the Event Ledger for Heartbeats. When enabled, high-salience novelties actively trigger proactive character speech.
+                  <span class="text-neutral-700 font-medium dark:text-neutral-300">When enabled:</span> AIRI speaks or comments right away the moment she spots a notable event on your screen (like a game launch or a terminal error).<br>
+                  <span class="text-neutral-700 font-medium dark:text-neutral-300">When disabled:</span> AIRI watches quietly in the background and only brings up what she noticed during her scheduled check-ins or normal chat.
                 </p>
               </div>
             </div>

@@ -18,7 +18,7 @@
 import type { AttentionGuardProcessResult, InferenceDevice } from '../../libs/inference/contract'
 import type { DeltaBBox, GrayBuffer } from './engine/pixels'
 
-import { AutoProcessor, AutoTokenizer, CLIPTextModelWithProjection, CLIPVisionModelWithProjection, env, RawImage } from '@huggingface/transformers'
+import { env, RawImage } from '@huggingface/transformers'
 import { defineInvokeHandler, defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
 
@@ -32,7 +32,7 @@ import {
 import { countErrorPatterns, disposeOcrEngine, extractErrorSnippet, OCR_ERROR_PATTERN_MIN, ocrImageData } from './engine/ocr'
 import { boxResizeGray, computeAHash, computeDeltaBBox, hammingDistance, STAGE0_HAMMING_MIN, toGray } from './engine/pixels'
 import { activeWindowLabel, buildSummary, disposeVlmForwarder, generateCaption, primeCaptioner, themeFromGray } from './engine/summarizer'
-import { calculateCosineDistance, centroidOf, classifyZeroShot, disposeTextEncoder, disposeVisionEncoder, getVisionEmbedding } from './engine/vision'
+import { calculateCosineDistance, centroidOf, classifyZeroShot, disposeTextEncoder, disposeVisionEncoder, getVisionEmbedding, warmupVision } from './engine/vision'
 
 const { context } = createContext()
 
@@ -75,8 +75,10 @@ function resetTickState(): void {
 }
 
 /** Extract a delta-region crop as ImageData for tesseract. */
-function cropToImageData(raw: Uint8Array, fullWidth: number, channels: number, bbox: DeltaBBox): ImageData {
+function cropToImageData(raw: Uint8Array, fullWidth: number, channels: number, bbox: DeltaBBox): ImageData | null {
   const { left, top, width, height } = bbox
+  if (width <= 0 || height <= 0)
+    return null
   const crop = new ImageData(width, height)
   const out = crop.data
   for (let y = 0; y < height; y++) {
@@ -123,12 +125,7 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
 
   try {
     // Warm the CLIP towers (Stage 1 + Stage 2 zero-shot).
-    await Promise.all([
-      AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32'),
-      CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32', { device, progress_callback: progressCallback }),
-      AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch32'),
-      CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32', { device, progress_callback: progressCallback }),
-    ])
+    await warmupVision(device, progressCallback)
 
     if (state.enableVlm) {
       await primeCaptioner(device)
@@ -204,9 +201,11 @@ defineInvokeHandler(context, attentionGuardProcessEvent, async ({ dataUrl }) => 
   const bbox = state.prevGray ? computeDeltaBBox(state.prevGray, gray) : null
   if (bbox) {
     const crop = cropToImageData(raw, rawImage.width, channels, bbox)
-    const { text } = await ocrImageData(crop)
-    ocrText = text
-    ocrErrorPatterns = countErrorPatterns(text)
+    if (crop) {
+      const { text } = await ocrImageData(crop)
+      ocrText = text
+      ocrErrorPatterns = countErrorPatterns(text)
+    }
   }
   stageMs.stage2Ms = performance.now() - t2
 
