@@ -19,8 +19,11 @@ This design document outlines the architecture for **Ambient Multi-User Conversa
 
 ---
 
-## 2. Empirical Case Study: MekaHime / Sarah & Group Chat Dynamics
+## 2. Empirical Case Studies: Community AI Bot Philosophies
 
+Comparative observations across community bots in the MekaHime Discord environment highlight two distinct architectural paradigms:
+
+### 2.1. Case Study A: Sarah / MekaHime (Multi-Bubble Cadence & Social Interleaving)
 * **Multimodal OCR & Visual Mockup Grounding:**
   * When presented with a screenshot containing an ASCII UI settings mockup, the bot performed full-image OCR, extracted exact configuration headers (*"Throttling modes, 'Collect active,' typing cadence simulator"*), understood the semantic joke about *"Conversational appetite as a slider"*, and made an in-context conversational callback to earlier critique.
 * **Real-Time Dual-Thread Interleaving:**
@@ -30,6 +33,18 @@ This design document outlines the architecture for **Ambient Multi-User Conversa
     > *"azimuthal-observer, if you're still lurking, save the rest of that dossier for next time, I want the full 500 lines eventually. Koro-san, go easy on the singing feature, don't overcook it before launch."*
 * **The "UPD Dialog" & Staggered Cadence Trace:**
   * Investigation of project changelogs and update notes (`UPD dialog`) confirms that human-like multi-message bursts are simulated via **heuristic response splitting and timer-based chunk dispatch** rather than expensive multi-pass LLM round-trips.
+
+---
+
+### 2.2. Case Study B: Nanori / Koro-san (Real-Time SSE Streaming & Live URL Scraping)
+* **Live SSE Token Streaming (`message.edit` Pipeline):**
+  * Unlike Sarah's post-inference message bursts, Nanori dispatches an immediate placeholder message and streams LLM tokens in real-time by repeatedly calling Discord's `message.edit()` API endpoint.
+* **The 3-Second Rate-Limit Floor (Discord 429 Protection):**
+  * Discord enforces strict REST API rate limits (**5 edits per 5 seconds per channel/route**). Calling `message.edit()` on every token causes instant HTTP 429 rate-limiting.
+  * *The Engineering Workaround:* Developer Koro-san implemented a **3-second floor accumulator**—buffering incoming SSE stream chunks and committing edits to Discord in 2–3 second bursts to ensure smooth visual typing without tripping global rate-limit bans.
+* **Inbound URL Tool Scraping & Instant Markdown RAG:**
+  * When a raw GitHub markdown URL was posted in chat, Nanori's pipeline triggered an automated HTTP fetcher/scraper, ingested the architecture document, parsed key concepts (batching, context pruning), and contextualized the document in-character within seconds.
+
 
 ---
 
@@ -395,11 +410,54 @@ async function dispatchMultiTargetResponse(
 }
 ```
 
+### 5.4. Dual Delivery Paradigms: Multi-Bubble Stagger vs. Real-Time SSE Streaming
+
+To accommodate both conversational styles (Sarah's multi-bubble typing bursts vs. Nanori's real-time token streaming), the Discord engine supports dual outbound delivery modes:
+
+#### 1. Multi-Bubble Stagger Dispatch (Sarah Mode)
+* **Execution:** Awaits full completion of the LLM generation turn, decomposes the response into targeted `<reply>` and `<ambient>` blocks, and emits each block sequentially with simulated reading/typing delays via `sendTyping()`.
+* **Strengths:** Produces natural Discord multi-message bursts and separate reply bubbles to different interlocutors.
+
+#### 2. Real-Time SSE Streaming Delivery (Nanori Mode)
+* **Execution:** Immediately posts a placeholder message (`...`) and streams tokens via Server-Sent Events (SSE) directly into Discord `message.edit()` calls.
+* **The Rate-Limit Floor Contract (Discord 429 Prevention):**
+  * Discord REST endpoints enforce a hard quota of **5 edits per 5 seconds per channel/route**.
+  * The stream accumulator buffers incoming LLM token chunks and flushes an edit to Discord only once every **`streamingEditFloorMs`** (default: 2,500ms – 3,000ms), ensuring continuous visual feedback without triggering HTTP 429 global rate-limit lockouts.
+
+```typescript
+async function dispatchSseStreamingResponse(
+  channelId: string,
+  stream: AsyncIterable<string>,
+  editFloorMs = 2500
+) {
+  // 1. Post initial anchor message
+  const anchorMessage = await sendDiscordMessage(channelId, '...')
+  let accumulatedText = ''
+  let lastEditTime = Date.now()
+
+  for await (const token of stream) {
+    accumulatedText += token
+    const now = Date.now()
+
+    // 2. Throttle edits against the rate-limit safety floor
+    if (now - lastEditTime >= editFloorMs) {
+      await editDiscordMessage(channelId, anchorMessage.id, accumulatedText)
+      lastEditTime = now
+    }
+  }
+
+  // 3. Final flush on stream completion
+  if (accumulatedText.trim()) {
+    await editDiscordMessage(channelId, anchorMessage.id, accumulatedText)
+  }
+}
+```
+
 ---
 
 ## 6. UI Specification: "Group Dynamics & Ambient Tuning" Tab
 
-In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`. It grounds itself in AIRI's existing `/chatmode` engine and unifies the Multi-Target Dialog and Typing Cadence controls:
+In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedicated tab **`'group'`** is added alongside `'bot'`, `'relay'`, and `'acl'`. It grounds itself in AIRI's existing `/chatmode` engine and offers selectable delivery paradigms:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -413,17 +471,15 @@ In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedica
 │    • Debounce Window: [────●────────────] 2,500 ms                       │
 │    • Max Batch Buffer: [───────●────────] 6,000 ms                       │
 │                                                                          │
-│ 2. Multi-Target Reply & Cadence Engine (The Sarah Dialog System)         │
-│    [X] Enable Multi-Target Response Decomposition (<reply to="@User">)   │
+│ 2. Outbound Delivery Paradigm                                            │
+│    (●) Multi-Bubble Stagger (Sarah Style)                                │
+│        • Target Delivery Style: (●) Native Discord Reply   ( ) @Mention  │
+│        • Max Bubbles per Ingestion Turn: [ 3 ]  |  Max Lines: [ 2 ]      │
+│        • Typing Cadence: 40 ms/char  |  Pause Between Bubbles: 1,500 ms  │
 │                                                                          │
-│    Delivery & Bubble Constraints:                                        │
-│    • Target Delivery Style: (●) Native Discord Reply Bubble   ( ) @Mention│
-│    • Max Bubbles per Ingestion Turn: [ 3 ]                               │
-│    • Max Lines per Target Reply:     [ 2 ]                               │
-│                                                                          │
-│    Typing Cadence Simulator:                                             │
-│    [X] Stagger Multi-Bubble Output                                       │
-│        Typing Speed: 40 ms/char  |  Pause Between Bubbles: 1,500 ms      │
+│    ( ) Real-Time SSE Streaming (Nanori Style)                            │
+│        • Live Message Edit Throttle Floor: [────●────────] 2,500 ms      │
+│          (Prevents Discord REST 429 rate-limiting)                       │
 │                                                                          │
 │ 3. Conversational Appetite & Prompt Flavor                               │
 │    ( ) Reserved: Speaks only when explicitly addressed or directly asked │
@@ -445,9 +501,14 @@ In `packages/stage-ui/src/components/modules/MessagingDiscord.vue`, a new dedica
 4. [ ] Wire `message.reply(messageId)` routing in the Discord service gateway (`apps/stage-tamagotchi/src/main/services/airi/discord/index.ts`).
 5. [ ] Implement human-like staggered typing cadence with `sendTypingIndicator()` and `maxBubbles` / `maxLines` clamps.
 
-### Phase 3: Conversational Appetite Prompt Compilation
-6. [ ] Inject conversational appetite rules into the Discord prompt builder (`packages/stage-ui/src/stores/modules/airi-card.ts`).
-7. [ ] Persist settings under `local:settings/discord/group-dynamics`.
+### Phase 3: Real-Time SSE Streaming & Rate-Limit Floor
+6. [ ] Implement `dispatchSseStreamingResponse()` with a configurable 2,500ms safety edit floor in the Discord gateway.
+7. [ ] Add URL link tool-call scraper for automatic markdown document parsing on incoming raw URLs.
+
+### Phase 4: Conversational Appetite Prompt Compilation
+8. [ ] Inject conversational appetite rules into the Discord prompt builder (`packages/stage-ui/src/stores/modules/airi-card.ts`).
+9. [ ] Persist settings under `local:settings/discord/group-dynamics`.
+
 
 
 
