@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   showAttachments?: boolean
   showMagicWand?: boolean
   showVoice?: boolean
-  variant?: 'compact' | 'expanded' | 'sheet'
+  variant?: 'compact' | 'expanded' | 'sheet' | 'dock'
 }>(), {
   showAttachments: true,
   showMagicWand: true,
@@ -295,12 +295,13 @@ defineExpose({
       @delete="handleDeleteProducer"
     />
 
-    <!-- Main Composer Input Pill -->
+    <!-- Main Composer Input Pill / Dock -->
     <div
       :class="[
-        'relative flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-200',
-        'bg-white/95 dark:bg-neutral-900/90 backdrop-blur-xl',
-        'border border-neutral-200/80 dark:border-neutral-800/80 shadow-lg shadow-black/5',
+        'relative flex items-center transition-all duration-200',
+        props.variant === 'dock'
+          ? 'w-full rounded-t-2xl rounded-b-none border-t border-b-0 border-x-0 border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 py-2 min-h-[50px] gap-1'
+          : 'rounded-full border border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-neutral-900/90 backdrop-blur-xl shadow-lg shadow-black/5 p-1.5 gap-1',
         isListening ? 'ring-2 ring-rose-500/50 border-rose-500/60' : '',
       ]"
     >
@@ -313,48 +314,51 @@ defineExpose({
         @change="handleFileSelect"
       >
 
-      <!-- [+] Attachment Button -->
-      <button
-        v-if="showAttachments"
-        type="button"
-        :class="[
-          'relative flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-          'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
-          attachments.length > 0 ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/40' : '',
-        ]"
-        title="Attach Image"
-        @click="triggerFileInput"
-      >
-        <div class="i-solar:gallery-add-bold size-4.5" />
-        <span
-          v-if="attachments.length > 0"
-          class="absolute h-3.5 w-3.5 flex items-center justify-center rounded-full bg-primary-500 text-[9px] text-white font-bold -right-0.5 -top-0.5"
+      <!-- Left Actions Cluster (Attachment + Magic Wand) -->
+      <div v-if="showAttachments || showMagicWand" class="flex shrink-0 items-center gap-1">
+        <!-- [+] Attachment Button -->
+        <button
+          v-if="showAttachments"
+          type="button"
+          :class="[
+            'relative flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+            'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+            attachments.length > 0 ? 'text-primary-500 bg-primary-50 dark:bg-primary-950/40' : '',
+          ]"
+          title="Attach Image"
+          @click="triggerFileInput"
         >
-          {{ attachments.length }}
-        </span>
-      </button>
+          <div class="i-solar:gallery-add-bold size-4" />
+          <span
+            v-if="attachments.length > 0"
+            class="absolute h-3.5 w-3.5 flex items-center justify-center rounded-full bg-primary-500 text-[9px] text-white font-bold -right-0.5 -top-0.5"
+          >
+            {{ attachments.length }}
+          </span>
+        </button>
 
-      <!-- [✨] Producer Magic Wand Button -->
-      <button
-        v-if="showMagicWand"
-        type="button"
-        :class="[
-          'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-          'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
-          producerSuggestion?.loading ? 'animate-pulse text-amber-500' : '',
-        ]"
-        title="Producer Suggestions (empty input opens config, with text generates quick suggestions)"
-        @click.stop="handleWandClick"
-      >
-        <div class="i-solar:magic-stick-3-bold-duotone size-4.5 text-amber-500" />
-      </button>
+        <!-- [✨] Producer Magic Wand Button -->
+        <button
+          v-if="showMagicWand"
+          type="button"
+          :class="[
+            'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+            'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+            producerSuggestion?.loading ? 'animate-pulse text-amber-500' : '',
+          ]"
+          title="Producer Suggestions (empty input opens config, with text generates quick suggestions)"
+          @click.stop="handleWandClick"
+        >
+          <div class="i-solar:magic-stick-3-bold-duotone size-4 text-amber-500" />
+        </button>
+      </div>
 
       <!-- [Textarea] Auto-Expanding Input -->
       <div class="min-w-0 flex-1 px-1">
         <BasicTextarea
           v-model="messageInput"
           :placeholder="placeholder || (activeCard?.name ? `Message ${activeCard.name}...` : 'Say something...')"
-          class="max-h-[8lh] min-h-[calc(1lh+4px)] w-full resize-none overflow-y-auto border-0 bg-transparent px-2 py-1 text-sm text-neutral-800 outline-none scrollbar-none dark:text-neutral-100 placeholder:text-neutral-400 placeholder:dark:text-neutral-500"
+          class="max-h-[8lh] min-h-[calc(1lh+4px)] w-full resize-none overflow-y-auto border-0 bg-transparent px-1.5 py-1 text-sm text-neutral-800 outline-none scrollbar-none dark:text-neutral-100 placeholder:text-neutral-400 placeholder:dark:text-neutral-500"
           default-height="1lh"
           @submit="onSubmit"
           @compositionstart="isComposing = true"
@@ -362,39 +366,42 @@ defineExpose({
         />
       </div>
 
-      <!-- [🎤] Voice / STT Mic Button -->
-      <button
-        v-if="showVoice"
-        type="button"
-        :class="[
-          'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-          isListening
-            ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
-            : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
-        ]"
-        :title="isListening ? 'Stop Listening' : 'Voice Input'"
-        @click="handleVoiceClick"
-      >
-        <div :class="[isListening ? 'i-solar:microphone-3-bold size-4.5' : 'i-solar:microphone-linear size-4.5']" />
-      </button>
+      <!-- Right Actions Cluster (Voice Mic + Send) -->
+      <div class="flex shrink-0 items-center gap-1">
+        <!-- [🎤] Voice / STT Mic Button -->
+        <button
+          v-if="showVoice"
+          type="button"
+          :class="[
+            'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+            isListening
+              ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
+              : 'bg-neutral-100 hover:bg-neutral-200/80 text-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-neutral-300',
+          ]"
+          :title="isListening ? 'Stop Listening' : 'Voice Input'"
+          @click="handleVoiceClick"
+        >
+          <div :class="[isListening ? 'i-solar:microphone-3-bold size-4' : 'i-solar:microphone-linear size-4']" />
+        </button>
 
-      <!-- [✈] Send Button -->
-      <button
-        type="button"
-        :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !sending)"
-        :class="[
-          'flex items-center justify-center size-9 rounded-full transition-all cursor-pointer shrink-0',
-          sending
-            ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
-            : messageInput.trim() || attachments.length > 0
-              ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600'
-              : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
-        ]"
-        :title="sending ? 'Stop Generating' : 'Send'"
-        @click="onSubmit"
-      >
-        <div :class="[sending ? 'i-solar:stop-bold size-4' : 'i-solar:plain-bold size-4.5']" />
-      </button>
+        <!-- [✈] Send Button -->
+        <button
+          type="button"
+          :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !sending)"
+          :class="[
+            'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
+            sending
+              ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
+              : messageInput.trim() || attachments.length > 0
+                ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600'
+                : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
+          ]"
+          :title="sending ? 'Stop Generating' : 'Send'"
+          @click="onSubmit"
+        >
+          <div :class="[sending ? 'i-solar:stop-bold size-3.5' : 'i-solar:plain-bold size-4']" />
+        </button>
+      </div>
     </div>
 
     <!-- Explicit Companion Configuration Prompt Modal -->

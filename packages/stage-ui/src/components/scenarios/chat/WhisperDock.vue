@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 
 import WhisperComposerBar from './WhisperComposerBar.vue'
 
@@ -56,6 +56,13 @@ defineExpose({
   isOpen,
   dismiss,
   send: () => composerRef.value?.send(),
+  inputText: computed({
+    get: () => composerRef.value?.messageInput ?? '',
+    set: (val: string) => {
+      if (composerRef.value)
+        composerRef.value.messageInput = val
+    },
+  }),
 })
 </script>
 
@@ -98,35 +105,17 @@ defineExpose({
     <div
       v-if="isOpen"
       :class="[
-        'fixed bottom-0 left-1/2 -translate-x-1/2 z-90',
-        'w-full max-w-xl px-3 py-3',
+        'fixed bottom-0 inset-x-0 z-90 w-full',
       ]"
     >
-      <div class="relative w-full flex items-center gap-2">
-        <div class="flex-1">
-          <WhisperComposerBar
-            ref="composerRef"
-            :tools="props.tools"
-            @send="onSendSuccess"
-            @get-suggestions="handleGetSuggestions"
-            @clear-suggestions="handleClearSuggestions"
-          />
-        </div>
-
-        <!-- Dismiss button -->
-        <button
-          type="button"
-          :class="[
-            'size-8 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer',
-            'bg-white/90 dark:bg-neutral-900/90 border border-neutral-200/80 dark:border-neutral-800/80',
-            'text-neutral-400 hover:text-red-500 shadow-md',
-          ]"
-          title="Close input (Esc)"
-          @click="dismiss"
-        >
-          <div class="i-solar:close-circle-linear size-4" />
-        </button>
-      </div>
+      <WhisperComposerBar
+        ref="composerRef"
+        variant="dock"
+        :tools="props.tools"
+        @send="onSendSuccess"
+        @get-suggestions="handleGetSuggestions"
+        @clear-suggestions="handleClearSuggestions"
+      />
     </div>
   </Transition>
 </template>
