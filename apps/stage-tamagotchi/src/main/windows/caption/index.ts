@@ -596,8 +596,11 @@ export function setupCaptionWindowManager(params: {
       emitVisibilityChanged()
       syncGlobalConfig()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window shown, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', true)
+      const mainWin = (params.mainWindow && !params.mainWindow.isDestroyed())
+        ? params.mainWindow
+        : ElectronBrowserWindow.getAllWindows().find(w => (w as any).__is_main_window === true)
+      if (mainWin && !mainWin.isDestroyed() && mainWin.webContents && !mainWin.webContents.isDestroyed()) {
+        mainWin.webContents.send('caption-window-state', true)
       }
     })
     window.on('hide', () => {
@@ -605,8 +608,11 @@ export function setupCaptionWindowManager(params: {
       emitVisibilityChanged()
       syncGlobalConfig()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window hidden, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', false)
+      const mainWin = (params.mainWindow && !params.mainWindow.isDestroyed())
+        ? params.mainWindow
+        : ElectronBrowserWindow.getAllWindows().find(w => (w as any).__is_main_window === true)
+      if (mainWin && !mainWin.isDestroyed() && mainWin.webContents && !mainWin.webContents.isDestroyed()) {
+        mainWin.webContents.send('caption-window-state', false)
       }
     })
 
@@ -638,8 +644,11 @@ export function setupCaptionWindowManager(params: {
       eventaContext = undefined
       emitVisibilityChanged()
       console.log('[@proj-airi/stage-tamagotchi] [Main] Caption window closed, broadcasting state')
-      if (params.mainWindow && !params.mainWindow.isDestroyed()) {
-        params.mainWindow.webContents.send('caption-window-state', false)
+      const mainWin = (params.mainWindow && !params.mainWindow.isDestroyed())
+        ? params.mainWindow
+        : ElectronBrowserWindow.getAllWindows().find(w => (w as any).__is_main_window === true)
+      if (mainWin && !mainWin.isDestroyed() && mainWin.webContents && !mainWin.webContents.isDestroyed()) {
+        mainWin.webContents.send('caption-window-state', false)
       }
     })
 

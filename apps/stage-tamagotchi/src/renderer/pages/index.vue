@@ -35,6 +35,8 @@ import { toast } from 'vue-sonner'
 import {
   electronApplySizePreset,
   electronAppQuit,
+  electronCaptionSetFollowStagePosition,
+  electronCaptionSetFollowStageVisibility,
   electronCaptionSyncDocking,
   electronCaptionToggleVisibility,
   electronControlStripSyncState,
@@ -61,6 +63,8 @@ const componentStateStage = ref<'pending' | 'loading' | 'mounted'>('pending')
 const openChat = useElectronEventaInvoke(electronOpenChat)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const toggleCaptionVisibility = useElectronEventaInvoke(electronCaptionToggleVisibility)
+const setCaptionFollowStagePosition = useElectronEventaInvoke(electronCaptionSetFollowStagePosition)
+const setCaptionFollowStageVisibility = useElectronEventaInvoke(electronCaptionSetFollowStageVisibility)
 const toggleCustomizerVisibility = useElectronEventaInvoke(electronCustomizerToggleVisibility)
 const setAlwaysOnTop = useElectronEventaInvoke(electronStageSetAlwaysOnTop)
 const getStageDisabled = useElectronEventaInvoke(electronGetStageDisabled)
@@ -127,14 +131,8 @@ let lastIpcChatOpen: boolean | null = null
 watch(stageEnabled, (val) => {
   if (val === lastIpcStageEnabled)
     return
+  lastIpcStageEnabled = val
   toggleStageVisibility(val)
-  // NOTICE: The main process (`main/index.ts`) is the single owner of the stage→caption follow.
-  // It hides/shows the caption alongside the stage when `captionFollowStageVisibility` is on, so we
-  // only mirror the strip toggle state here — we do NOT separately toggle the caption window.
-  if (settingsStore.captionFollowStageVisibility) {
-    lastIpcCaptionOpen = val
-    captionOpen.value = val
-  }
 }, { immediate: true })
 
 watch(stageMateEnabled, (val) => {
@@ -149,34 +147,27 @@ watch(alwaysOnTop, (val) => {
   void setAlwaysOnTop(val)
 }, { immediate: true })
 
-// NOTICE: the caption is *not* secretly owned by this watcher alone. When "follow stage visibility" is
-// on, main/index.ts already hides/shows the caption in lockstep with the stage and echoes the result
-// back via `caption-window-state` (which pre-seeds `lastIpcCaptionOpen`), so this becomes a cheap no-op
-// instead of a duplicate toggle. It only drives the caption when follow is off (independent mode), or to
-// push the renderer's persisted `caption-open` state once on boot via the immediate fire.
 watch(captionOpen, (val) => {
   if (val === lastIpcCaptionOpen)
     return
-  if (settingsStore.captionFollowStageVisibility && val !== stageEnabled.value)
-    return
+  lastIpcCaptionOpen = val
   toggleCaptionVisibility(val)
 }, { immediate: true })
 
 watch(chatOpen, (val) => {
   if (val === lastIpcChatOpen)
     return
+  lastIpcChatOpen = val
   openChat(val)
 }, { immediate: true })
 
-// When the user turns follow back ON, realign caption with the current stage state. The actual
-// show/hide is applied by main/index.ts; this only retracts a desynced `captionOpen` so the
-// captionOpen watcher above doesn't fight the owner.
 watch(() => settingsStore.captionFollowStageVisibility, (newVal) => {
-  if (newVal && captionOpen.value !== stageEnabled.value) {
-    lastIpcCaptionOpen = stageEnabled.value
-    captionOpen.value = stageEnabled.value
-  }
-})
+  void setCaptionFollowStageVisibility(newVal)
+}, { immediate: true })
+
+watch(() => settingsStore.captionFollowStagePosition, (newVal) => {
+  void setCaptionFollowStagePosition(newVal)
+}, { immediate: true })
 
 const { data: broadcastAction } = useBroadcastChannel<string, string>({ name: 'airi-control-strip-actions' })
 watch(broadcastAction, (action) => {
@@ -723,6 +714,9 @@ function handleControlStripAction(e: Event) {
   else if (action === 'settings') {
     openSettings()
   }
+  else if (action === 'caption') {
+    controlStripStore.captionOpen = !controlStripStore.captionOpen
+  }
   else if (action === 'exit-app') {
     quitApp()
   }
@@ -854,14 +848,6 @@ onMounted(async () => {
     window.electron.ipcRenderer.on('stage-window-state', (_, isOpen: boolean) => {
       lastIpcStageEnabled = isOpen
       controlStripStore.stageEnabled = isOpen
-      // The main process owns caption follow: when the stage changes, it syncs the caption and
-      // echoes the result back via `caption-window-state`. Mirror the strip toggle without firing.
-      if (!settingsStore.captionFollowStageVisibility)
-        return
-      if (controlStripStore.captionOpen !== isOpen) {
-        lastIpcCaptionOpen = isOpen
-        controlStripStore.captionOpen = isOpen
-      }
     })
     window.electron.ipcRenderer.on('eventa:event:electron:windows:main:config-changed', (_, config) => {
       if (config) {
