@@ -25,13 +25,14 @@ const WINDOW_LABELS: Record<SalienceLabel, string> = {
 let captionModelPromise: Promise<{ model: any, processor: any, tokenizer: any }> | null = null
 let numImageTokens: number | null = null
 
-async function loadCaptioner(device: InferenceDevice): Promise<{ model: any, processor: any, tokenizer: any }> {
+async function loadCaptioner(device: InferenceDevice, progressCallback?: (progress: any) => void): Promise<{ model: any, processor: any, tokenizer: any }> {
   const model = await Moondream1ForConditionalGeneration.from_pretrained(VLM_MODEL_ID, {
     device,
     dtype: { embed_tokens: 'fp32', vision_encoder: 'q8', decoder_model_merged: 'q4' },
+    progress_callback: progressCallback,
   })
-  const processor = await AutoProcessor.from_pretrained(VLM_MODEL_ID)
-  const tokenizer = await AutoTokenizer.from_pretrained(VLM_MODEL_ID)
+  const processor = await AutoProcessor.from_pretrained(VLM_MODEL_ID, { progress_callback: progressCallback })
+  const tokenizer = await AutoTokenizer.from_pretrained(VLM_MODEL_ID, { progress_callback: progressCallback })
   return { model, processor, tokenizer }
 }
 
@@ -88,9 +89,9 @@ export async function disposeVlmForwarder(): Promise<void> {
 }
 
 /** Prime the Moondream2 captioner (opt-in Stage-3 warm-up at load time). */
-export async function primeCaptioner(device: InferenceDevice): Promise<void> {
+export async function primeCaptioner(device: InferenceDevice, progressCallback?: (progress: any) => void): Promise<void> {
   if (!captionModelPromise)
-    captionModelPromise = loadCaptioner(device)
+    captionModelPromise = loadCaptioner(device, progressCallback)
   await captionModelPromise
 }
 

@@ -33,6 +33,7 @@ import {
   DEFAULT_ERROR_PATTERNS,
   disposeOcrEngine,
   extractRelevantSnippet,
+  getWorker,
   matchInterestTags,
   matchPatterns,
   OCR_ERROR_PATTERN_MIN,
@@ -138,16 +139,55 @@ defineStreamInvokeHandler(context, attentionGuardLoadEvent, toStreamHandler<any,
     (env as any).customHeaders = { Authorization: `Bearer ${payload.hfToken}` }
   }
 
+  const shardMap = new Map<string, { loaded: number, total: number }>()
+
   const progressCallback = (progress: any) => {
-    emit({ kind: 'progress', payload: { phase: 'download', percent: progress?.progress ?? -1, message: progress?.status || 'Downloading model files...' } })
+    if (progress?.file && typeof progress.loaded === 'number' && typeof progress.total === 'number' && progress.total > 0) {
+      shardMap.set(progress.file, { loaded: progress.loaded, total: progress.total })
+      let totalLoaded = 0
+      let totalBytes = 0
+      for (const item of shardMap.values()) {
+        totalLoaded += item.loaded
+        totalBytes += item.total
+      }
+      const aggregatedPercent = totalBytes > 0
+        ? Math.min(99, Math.round((totalLoaded / totalBytes) * 100))
+        : (progress.progress ?? -1)
+
+      emit({
+        kind: 'progress',
+        payload: {
+          phase: 'download',
+          percent: aggregatedPercent,
+          file: progress.file,
+          loaded: totalLoaded,
+          total: totalBytes,
+          message: `Downloading ${progress.file} (${Math.round(progress.progress ?? aggregatedPercent)}%)...`,
+        },
+      })
+    }
+    else {
+      emit({
+        kind: 'progress',
+        payload: {
+          phase: 'download',
+          percent: typeof progress?.progress === 'number' ? Math.min(99, Math.round(progress.progress)) : -1,
+          file: progress?.file,
+          message: progress?.status || progress?.file || 'Downloading model files...',
+        },
+      })
+    }
   }
 
   try {
     // Warm the CLIP towers (Stage 1 + Stage 2 zero-shot).
     await warmupVision(device, progressCallback)
 
+    // Warm the localized OCR worker (Stage 2 tesseract WASM + dictionary).
+    await getWorker()
+
     if (state.enableVlm) {
-      await primeCaptioner(device)
+      await primeCaptioner(device, progressCallback)
     }
 
     resetTickState()

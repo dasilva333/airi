@@ -31,7 +31,7 @@ export const OCR_INTEREST_KEYWORD_MIN = 1
 
 let workerPromise: Promise<Worker> | null = null
 
-async function getWorker(): Promise<Worker> {
+export async function getWorker(): Promise<Worker> {
   if (!workerPromise) {
     workerPromise = createWorker('eng', 1)
   }

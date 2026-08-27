@@ -40,6 +40,7 @@ export interface VisionCapturePayload {
   workloadId: string
   timestamp: number
   interestTags?: string[]
+  enableVlm?: boolean
 }
 
 export interface VisionOrchestratorResult {
@@ -65,6 +66,14 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
   const promotionTimes: number[] = []
   const lastPromotionAt = ref<number>(0)
 
+  // Provisioning state
+  const isProvisioning = ref(false)
+  const provisioningPercent = ref<number>(0)
+  const provisioningMessage = ref<string>('')
+  const provisioningPhase = ref<'idle' | 'downloading' | 'compiling' | 'ready' | 'error'>('idle')
+  const isLightweightReady = ref(false)
+  const isVlmReady = ref(false)
+
   // Guard adapter (lazy)
   let guardAdapter: AttentionGuardAdapter | null = null
   let guardLoadPromise: Promise<void> | null = null
@@ -75,27 +84,105 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
     return guardAdapter
   }
 
-  async function ensureGuardLoaded(options?: { enableVlm?: boolean, signal?: AbortSignal }): Promise<AttentionGuardAdapter> {
+  async function ensureGuardLoaded(options?: {
+    enableVlm?: boolean
+    forceReload?: boolean
+    onProgress?: (p: any) => void
+    signal?: AbortSignal
+  }): Promise<AttentionGuardAdapter> {
     const adapter = ensureGuardAdapter()
-    if (adapter.state === 'ready' || adapter.state === 'processing')
-      return adapter
+    const needsReload = Boolean(options?.forceReload)
+      || (Boolean(options?.enableVlm) && !adapter.lastLoadConfig?.enableVlm)
 
-    if (!guardLoadPromise || adapter.state === 'idle' || adapter.state === 'error' || adapter.state === 'terminated') {
+    if (!needsReload && (adapter.state === 'ready' || adapter.state === 'processing')) {
+      if (options?.enableVlm) {
+        isVlmReady.value = true
+        isLightweightReady.value = true
+      }
+      else {
+        isLightweightReady.value = true
+      }
+      return adapter
+    }
+
+    if (!guardLoadPromise || adapter.state === 'idle' || adapter.state === 'error' || adapter.state === 'terminated' || needsReload) {
       guardLoadPromise = (async () => {
         try {
-          await adapter.load({ enableVlm: options?.enableVlm, signal: options?.signal })
+          await adapter.load({
+            enableVlm: options?.enableVlm,
+            signal: options?.signal,
+            onProgress: (p) => {
+              if (p.phase === 'warmup' || (typeof p.percent === 'number' && p.percent >= 100)) {
+                provisioningPhase.value = 'compiling'
+                provisioningPercent.value = 100
+                provisioningMessage.value = p.message || 'Compiling WebGPU shaders & warming up model…'
+              }
+              else if (typeof p.percent === 'number' && p.percent >= 0) {
+                provisioningPhase.value = 'downloading'
+                const candidate = Math.min(99, Math.round(p.percent))
+                provisioningPercent.value = Math.max(provisioningPercent.value, candidate)
+                provisioningMessage.value = p.message || `Downloading shards (${provisioningPercent.value}%)...`
+              }
+              else if (p.message) {
+                provisioningMessage.value = p.message
+              }
+              options?.onProgress?.(p)
+            },
+          })
+          if (options?.enableVlm) {
+            isVlmReady.value = true
+            isLightweightReady.value = true
+          }
+          else {
+            isLightweightReady.value = true
+          }
+          provisioningPhase.value = 'ready'
+        }
+        catch (err: any) {
+          provisioningPhase.value = 'error'
+          lastError.value = `guard load failed: ${err.message || String(err)}`
+          throw err
         }
         finally {
           guardLoadPromise = null
         }
-      })().catch((err) => {
-        lastError.value = `guard load failed: ${err.message || String(err)}`
-        throw err
-      })
+      })()
     }
 
     await guardLoadPromise
     return adapter
+  }
+
+  async function provisionModels(options: { enableVlm?: boolean }): Promise<void> {
+    if (isProvisioning.value)
+      return
+
+    isProvisioning.value = true
+    provisioningPercent.value = 0
+    provisioningPhase.value = 'downloading'
+    provisioningMessage.value = options.enableVlm
+      ? 'Downloading and compiling Moondream2 VLM (~1.1GB)...'
+      : 'Downloading and compiling Lightweight models (CLIP + Tesseract ~307MB)...'
+
+    try {
+      await ensureGuardLoaded({
+        enableVlm: options.enableVlm,
+        forceReload: true,
+      })
+      provisioningPercent.value = 100
+      provisioningPhase.value = 'ready'
+      provisioningMessage.value = options.enableVlm
+        ? 'Moondream2 VLM primed & ready for real-time commentary.'
+        : 'Lightweight OCR & CLIP engine primed and ready.'
+    }
+    catch (err: any) {
+      provisioningPhase.value = 'error'
+      provisioningMessage.value = `Provisioning failed: ${err.message || String(err)}`
+      throw err
+    }
+    finally {
+      isProvisioning.value = false
+    }
   }
 
   /** True when the §6 promotion budget + hysteresis cooldown allow a publish. */
@@ -150,7 +237,7 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
 
     if (payload.workloadId === ATTENTION_GUARD_WORKLOAD_ID) {
       try {
-        const adapter = await ensureGuardLoaded()
+        const adapter = await ensureGuardLoaded({ enableVlm: payload.enableVlm })
         const tags = Array.isArray(payload.interestTags) ? Array.from(payload.interestTags).map(t => String(t)) : []
         const result: AttentionGuardProcessResult = await adapter.process(
           payload.dataUrl,
@@ -214,6 +301,13 @@ export const useVisionOrchestratorStore = defineStore('vision-orchestrator', () 
     lastResultAt,
     lastError,
     lastWorkloadId,
+    isProvisioning,
+    provisioningPercent,
+    provisioningMessage,
+    provisioningPhase,
+    isLightweightReady,
+    isVlmReady,
+    provisionModels,
     processCapture,
     publishContext,
     terminate,

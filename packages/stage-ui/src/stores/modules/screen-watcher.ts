@@ -16,6 +16,12 @@ import { useSpeechStore } from './speech'
 import { useVisionStore } from './vision'
 import { ATTENTION_GUARD_WORKLOAD_ID, useVisionOrchestratorStore } from './vision/orchestrator'
 
+export interface VisualObservationItem {
+  timestamp: number
+  summary: string
+  matchedInterests?: string[]
+}
+
 export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   const airiCardStore = useAiriCardStore()
   const { activeCard, activeCardId } = storeToRefs(airiCardStore)
@@ -35,6 +41,8 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
   const isCapturing = ref(false)
   const captureCount = ref(0)
   const promotionsCount = ref(0)
+  const observationBuffer = ref<VisualObservationItem[]>([])
+  const MAX_BUFFER_SIZE = 5
   const lastCaptureAt = ref<number>(0)
   const lastPromotionAt = ref<number>(0)
   const lastDecision = ref<string>('IDLE')
@@ -111,7 +119,23 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     return chunks.filter(c => c.length > 0)
   }
 
-  async function dispatchPromotedReaction(visualSummary: string, config: ScreenWatchingConfig) {
+  function formatObservationTimeline(items: VisualObservationItem[]): string {
+    if (!items || items.length === 0)
+      return 'No recent visual observations recorded.'
+
+    if (items.length === 1) {
+      return items[0].summary
+    }
+
+    const now = Date.now()
+    return items.map((item, idx) => {
+      const elapsedSec = Math.max(0, Math.round((now - item.timestamp) / 1000))
+      const timeStr = elapsedSec < 60 ? `${elapsedSec}s ago` : `${Math.round(elapsedSec / 60)}m ago`
+      return `[Observation ${idx + 1} (${timeStr})]\n${item.summary}`
+    }).join('\n\n')
+  }
+
+  async function dispatchPromotedReaction(events: VisualObservationItem[] | string, config: ScreenWatchingConfig) {
     const deliveryMode = config.deliveryMode ?? 'both'
     console.log(`[ScreenWatcher:Reaction] 🎙️ Dispatching real-time reaction (deliveryMode="${deliveryMode}")...`)
 
@@ -120,9 +144,18 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       return
     }
 
-    const reactionPrompt = `[REAL-TIME SCREEN OBSERVATION]\n`
-      + `You just noticed something noteworthy on the user's screen:\n${visualSummary}\n\n`
-      + `Give a brief, natural, in-character reaction or comment (1-2 sentences). Do not announce that you are analyzing the screen.`
+    const timeline = typeof events === 'string'
+      ? events
+      : formatObservationTimeline(events)
+
+    const isMulti = typeof events !== 'string' && events.length > 1
+    const header = isMulti
+      ? `[REAL-TIME SCREEN OBSERVATIONS]\nRecent visual events detected on the user's screen:\n${timeline}\n\n`
+      : `[REAL-TIME SCREEN OBSERVATION]\nYou just noticed something noteworthy on the user's screen:\n${timeline}\n\n`
+
+    const reactionPrompt = `${header
+    }Cross-reference these visual cues with your current [ENVIRONMENTAL AWARENESS] (active window, recent window transitions, dwell time, and system telemetry).\n`
+    + `Synthesize what the user has been working on or switching between rather than merely reading isolated text fragments, and give a brief, natural, in-character reaction or comment (1-2 sentences). Do not announce that you are analyzing the screen.`
 
     const hasActiveSpeech = Boolean(speechStore.activeSpeechProvider && speechStore.activeSpeechProvider !== 'speech-noop')
 
@@ -131,7 +164,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
       await chatOrchestrator.ingest(reactionPrompt, {
         metadata: {
           source: 'screen-watcher',
-          visualSummary,
+          visualSummary: timeline,
         },
       })
     }
@@ -336,6 +369,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         sourceId,
         workloadId,
         interestTags: cleanTags,
+        enableVlm: Boolean(config.enableVlm),
         timestamp: snapshot.timestamp || Date.now(),
       })
       lastLatencyMs.value = Math.round(performance.now() - tickStart)
@@ -365,16 +399,60 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
           },
         })
 
-        // 2. Real-Time Push Dispatcher
+        // 2. Accumulate into Rolling Observation Buffer
+        observationBuffer.value.push({
+          timestamp: now,
+          summary: processed.summary || 'Novelty detected on screen',
+          matchedInterests: processed.interestKeywords,
+        })
+        if (observationBuffer.value.length > MAX_BUFFER_SIZE) {
+          observationBuffer.value.shift()
+        }
+
+        // 3. Real-Time Push Dispatcher
         if (config.publishToContext) {
           if (rateLimitAllowsPromotion(config, now)) {
-            lastPromotionAt.value = now
-            recentPromotionTimestamps.push(now)
-            await dispatchPromotedReaction(processed.summary || 'Novelty detected on screen', config)
+            const isSpeaking = Boolean(chatOrchestrator.sending)
+              || Boolean(chatOrchestrator.activeSpokenText)
+              || Boolean(chatOrchestrator.isUserTyping)
+              || liveSessionStore.isActive
+
+            if (isSpeaking && config.deferWhileSpeaking) {
+              console.log('[ScreenWatcher:Promotion] ⏸️ Pipe is busy (user/assistant active). Preserved in observation buffer for next clear turn.')
+            }
+            else {
+              lastPromotionAt.value = now
+              recentPromotionTimestamps.push(now)
+              const eventsToDispatch = [...observationBuffer.value]
+              observationBuffer.value = []
+              await dispatchPromotedReaction(eventsToDispatch, config)
+            }
+          }
+          else {
+            console.log(`[ScreenWatcher:Promotion] ⏳ Promotion throttled by rate limit/cooldown. Preserved in observation buffer (${observationBuffer.value.length}/${MAX_BUFFER_SIZE} items).`)
           }
         }
         else {
           console.log('[ScreenWatcher:Promotion] 💤 Real-Time Push is OFF. Event logged silently to Unified Event Ledger for next Heartbeat.')
+        }
+      }
+      else if (observationBuffer.value.length > 0 && config.publishToContext) {
+        // Drain pending buffer when cooldown expires and pipe is clear
+        const now = Date.now()
+        if (rateLimitAllowsPromotion(config, now)) {
+          const isSpeaking = Boolean(chatOrchestrator.sending)
+            || Boolean(chatOrchestrator.activeSpokenText)
+            || Boolean(chatOrchestrator.isUserTyping)
+            || liveSessionStore.isActive
+
+          if (!isSpeaking || !config.deferWhileSpeaking) {
+            console.log(`[ScreenWatcher:Promotion] 🚰 Draining ${observationBuffer.value.length} pending buffered observation(s) after pipe cleared...`)
+            lastPromotionAt.value = now
+            recentPromotionTimestamps.push(now)
+            const eventsToDispatch = [...observationBuffer.value]
+            observationBuffer.value = []
+            await dispatchPromotedReaction(eventsToDispatch, config)
+          }
         }
       }
     }
@@ -397,7 +475,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
 
     // Warm guard worker before first tick if using attention guard
     if (!activeConfig.value?.workload || activeConfig.value.workload === 'attention-guard') {
-      void visionOrchestrator.ensureGuardLoaded()
+      void visionOrchestrator.ensureGuardLoaded({ enableVlm: Boolean(activeConfig.value?.enableVlm) })
         .then(() => console.log('[ScreenWatcher:Init] 🚀 Attention Ecology Guard ready.'))
         .catch((err: any) => console.warn('[ScreenWatcher:Init] Guard pre-warm in progress or failed:', err))
     }
@@ -440,11 +518,11 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
 
   // React to card changes or screenWatching configuration toggles
   watch(
-    () => [activeCardId.value, activeConfig.value?.enabled, activeConfig.value?.captureIntervalMs],
-    ([cardId, enabled]) => {
+    () => [activeCardId.value, activeConfig.value?.enabled, activeConfig.value?.captureIntervalMs, activeConfig.value?.enableVlm],
+    ([cardId, enabled, _interval, enableVlm]) => {
       if (!isPrimaryHostWindow())
         return
-      console.log('[ScreenWatcher:Watch] Card / config changed:', { cardId, enabled })
+      console.log('[ScreenWatcher:Watch] Card / config changed:', { cardId, enabled, enableVlm })
       restartWatcher()
     },
     { immediate: true },
@@ -466,6 +544,8 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
         isCapturing: isCapturing.value,
         captureCount: captureCount.value,
         promotionsCount: promotionsCount.value,
+        observationBufferCount: observationBuffer.value.length,
+        observationBuffer: observationBuffer.value,
         lastCaptureAt: lastCaptureAt.value ? new Date(lastCaptureAt.value).toLocaleTimeString() : 'Never',
         lastPromotionAt: lastPromotionAt.value ? new Date(lastPromotionAt.value).toLocaleTimeString() : 'Never',
         lastDecision: lastDecision.value,
@@ -482,6 +562,7 @@ export const useScreenWatcherStore = defineStore('screen-watcher', () => {
     isCapturing,
     captureCount,
     promotionsCount,
+    observationBuffer,
     lastCaptureAt,
     lastPromotionAt,
     lastDecision,

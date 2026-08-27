@@ -330,6 +330,18 @@ function handleToggleScreenWatching() {
       airi: {
         ...activeCard.value.extensions?.airi,
         screenWatching: {
+          deliveryMode: 'both',
+          sourceType: 'displays',
+          sourceId: '',
+          captureIntervalMs: 2000,
+          downscalePercent: 100,
+          workload: 'attention-guard',
+          publishToContext: true,
+          interestTags: ['antigravity', 'terminal_error', 'youtube', 'discord'],
+          deferWhileSpeaking: true,
+          maxPerHour: 4,
+          hysteresisMinutes: 3,
+          enableVlm: false,
           ...activeCard.value.extensions?.airi?.screenWatching,
           enabled: !current,
         },

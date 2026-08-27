@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { useVisionSources } from '@proj-airi/stage-ui/composables'
+import { isModelCached } from '@proj-airi/stage-ui/libs/inference'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
+import { useVisionOrchestratorStore } from '@proj-airi/stage-ui/stores/modules/vision/orchestrator'
+import { storeToRefs } from 'pinia'
 import {
   TooltipArrow,
   TooltipContent,
@@ -22,7 +25,18 @@ const emit = defineEmits<{
 
 const proactivityStore = useProactivityStore()
 const visionStore = useVisionStore()
+const visionOrchestrator = useVisionOrchestratorStore()
+const { isProvisioning, provisioningPercent, provisioningMessage, isLightweightReady, isVlmReady } = storeToRefs(visionOrchestrator)
 const isRefreshingSensors = ref(false)
+
+async function handleProvision() {
+  try {
+    await visionOrchestrator.provisionModels({ enableVlm: screenWatchingEnableVlm.value })
+  }
+  catch (err) {
+    console.error('[CardCreationTabProactivity] Provisioning failed:', err)
+  }
+}
 
 // Primary display size so the capture-resolution readout reflects the real
 // display (downscale is relative to native resolution, not a 720p baseline).
@@ -41,6 +55,17 @@ async function refreshTelemetry() {
 onMounted(async () => {
   void proactivityStore.updateSensors()
   primaryDisplaySize.value = await visionStore.getPrimaryDisplaySize()
+  try {
+    const lightweightCached = await isModelCached('Xenova/clip-vit-base-patch32')
+    const vlmCached = await isModelCached('Xenova/moondream2')
+    if (lightweightCached)
+      isLightweightReady.value = true
+    if (vlmCached)
+      isVlmReady.value = true
+  }
+  catch {
+    // Ignore cache probe failure
+  }
 })
 
 // Sub-Tab Navigation State
@@ -77,13 +102,14 @@ const screenWatchingSourceId = defineModel<string>('screenWatchingSourceId', { d
 const screenWatchingCaptureIntervalMs = defineModel<number>('screenWatchingCaptureIntervalMs', { default: 2000 })
 const screenWatchingDownscalePercent = defineModel<number>('screenWatchingDownscalePercent', { default: 100 })
 const screenWatchingWorkload = defineModel<'attention-guard' | 'screen:interpret' | 'screen:ocr'>('screenWatchingWorkload', { default: 'attention-guard' })
-const screenWatchingPublishToContext = defineModel<boolean>('screenWatchingPublishToContext', { default: false })
+const screenWatchingPublishToContext = defineModel<boolean>('screenWatchingPublishToContext', { default: true })
 const screenWatchingInterestTags = defineModel<string[]>('screenWatchingInterestTags', {
   default: () => ['antigravity', 'terminal_error', 'youtube', 'discord'],
 })
 const screenWatchingDeferWhileSpeaking = defineModel<boolean>('screenWatchingDeferWhileSpeaking', { default: true })
 const screenWatchingMaxPerHour = defineModel<number>('screenWatchingMaxPerHour', { default: 4 })
 const screenWatchingHysteresisMinutes = defineModel<number>('screenWatchingHysteresisMinutes', { default: 3 })
+const screenWatchingEnableVlm = defineModel<boolean>('screenWatchingEnableVlm', { default: false })
 
 // Capture-resolution readout for the downscale slider. Percentages are applied
 // relative to the display's native size; 100% means a full native-resolution
@@ -673,7 +699,7 @@ const intervalPresets = [2, 5, 10, 20]
               2. Zero-Cost Salience Gating & Interest Tags
             </span>
 
-            <!-- Workload Selector -->
+            <!-- Vision Engine Workload -->
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
                 Vision Engine Workload
@@ -692,6 +718,126 @@ const intervalPresets = [2, 5, 10, 20]
                   screen:ocr (WASM Text Stream Extraction)
                 </option>
               </select>
+            </div>
+
+            <!-- Vision Analysis Engine / Mode -->
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-neutral-700 font-medium dark:text-neutral-300">
+                  Analysis Tier & Engine
+                </label>
+                <span class="rounded-full bg-neutral-200/60 px-2 py-0.5 text-[10px] text-neutral-600 font-semibold font-mono dark:bg-neutral-800 dark:text-neutral-300">
+                  {{ screenWatchingEnableVlm ? 'Premium (Moondream2 VLM)' : 'Lightweight (Local OCR)' }}
+                </span>
+              </div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  :class="[
+                    'flex flex-col gap-1 p-3 rounded-xl border text-xs transition-all text-left',
+                    !screenWatchingEnableVlm
+                      ? 'border-primary-500 bg-primary-50 text-primary-900 ring-1 ring-primary-500 dark:border-primary-500 dark:bg-primary-950/60 dark:text-primary-200'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                  ]"
+                  @click="screenWatchingEnableVlm = false"
+                >
+                  <div class="flex items-center gap-2 font-bold">
+                    <div class="i-solar:bolt-bold-duotone text-base text-amber-500" />
+                    <span>Lightweight Mode</span>
+                  </div>
+                  <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Fast & zero extra VRAM. Uses local WASM OCR + CLIP zero-shot interest matching. Instant boot, 0MB download.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  :class="[
+                    'flex flex-col gap-1 p-3 rounded-xl border text-xs transition-all text-left',
+                    screenWatchingEnableVlm
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-500 dark:border-indigo-500 dark:bg-indigo-950/60 dark:text-indigo-200'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700/80 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700/60',
+                  ]"
+                  @click="screenWatchingEnableVlm = true"
+                >
+                  <div class="flex items-center gap-2 font-bold">
+                    <div class="i-solar:eye-bold-duotone text-base text-indigo-500" />
+                    <span>Premium Mode (Moondream2)</span>
+                  </div>
+                  <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Local WebGPU VLM. Generates 1-sentence semantic scene descriptions for promoted events (~700MB download).
+                  </span>
+                </button>
+              </div>
+
+              <!-- Engine Provisioning & Readiness -->
+              <div class="flex flex-col gap-2.5 border border-neutral-200/80 rounded-xl bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div
+                      :class="[
+                        'text-base',
+                        (screenWatchingEnableVlm ? isVlmReady : isLightweightReady)
+                          ? 'i-solar:check-circle-bold-duotone text-emerald-500'
+                          : isProvisioning
+                            ? 'i-solar:refresh-circle-bold-duotone text-primary-500 animate-spin'
+                            : 'i-solar:download-square-bold-duotone text-amber-500',
+                      ]"
+                    />
+                    <div class="flex flex-col">
+                      <span class="text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                        {{ screenWatchingEnableVlm ? 'Moondream2 VLM Package (~1.1GB)' : 'Lightweight OCR Package (~307MB)' }}
+                      </span>
+                      <span class="text-[10px] text-neutral-500 dark:text-neutral-400">
+                        {{ screenWatchingEnableVlm ? 'CLIP Vision/Text + Tesseract WASM + Moondream2 Scene VLM' : 'CLIP Vision/Text Towers + Local Tesseract WASM' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono',
+                      (screenWatchingEnableVlm ? isVlmReady : isLightweightReady)
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                        : isProvisioning
+                          ? 'bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+                    ]"
+                  >
+                    {{ (screenWatchingEnableVlm ? isVlmReady : isLightweightReady) ? 'Ready (Cached)' : isProvisioning ? 'Downloading...' : 'Not Cached' }}
+                  </span>
+                </div>
+
+                <!-- Progress bar when provisioning -->
+                <div v-if="isProvisioning" class="flex flex-col gap-1.5 pt-1">
+                  <div class="flex items-center justify-between text-[11px] text-neutral-600 dark:text-neutral-300">
+                    <span class="max-w-[280px] truncate">{{ provisioningMessage || 'Downloading model weights...' }}</span>
+                    <span class="text-primary-600 font-bold font-mono dark:text-primary-400">{{ provisioningPercent }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                    <div
+                      class="h-full bg-primary-500 transition-all duration-200"
+                      :style="{ width: `${provisioningPercent}%` }"
+                    />
+                  </div>
+                </div>
+
+                <!-- Action button -->
+                <div v-else class="flex items-center justify-between pt-1">
+                  <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {{ (screenWatchingEnableVlm ? isVlmReady : isLightweightReady) ? 'Model weights are verified & cached locally in WebGPU engine.' : 'Download & compile models on demand before saving.' }}
+                  </span>
+
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-neutral-200/80 px-3 py-1.5 text-xs text-neutral-700 font-semibold transition-colors dark:bg-neutral-800 hover:bg-neutral-300 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                    @click="handleProvision"
+                  >
+                    <div :class="(screenWatchingEnableVlm ? isVlmReady : isLightweightReady) ? 'i-solar:refresh-linear' : 'i-solar:download-minimalistic-bold'" />
+                    <span>{{ (screenWatchingEnableVlm ? isVlmReady : isLightweightReady) ? 'Re-verify Engine' : 'Provision Models' }}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Interest Tags -->

@@ -134,6 +134,7 @@ export interface ScreenWatchingConfig {
   deferWhileSpeaking: boolean
   maxPerHour: number
   hysteresisMinutes: number
+  enableVlm?: boolean
 }
 
 export interface EventLedgerConfig {

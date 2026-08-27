@@ -54,6 +54,7 @@ export interface AttentionGuardAdapter {
   terminate: () => void
   readonly state: 'idle' | 'loading' | 'ready' | 'processing' | 'error' | 'terminated'
   readonly deviceLossCount: number
+  readonly lastLoadConfig?: { enableVlm?: boolean, modelId?: string } | null
 }
 
 function createAttentionGuardRpc(worker: Worker) {
@@ -201,5 +202,6 @@ export function createAttentionGuardAdapter(): AttentionGuardAdapter {
     terminate: host.terminate,
     get state() { return host.phase === 'busy' ? 'processing' : host.phase },
     get deviceLossCount() { return host.deviceLossCount },
+    get lastLoadConfig() { return lastLoadConfig },
   }
 }
