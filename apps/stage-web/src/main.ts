@@ -40,10 +40,21 @@ const pinia = createPinia()
 const routeRecords = setupLayouts(routes as RouteRecordRaw[])
 
 let router: Router
-if (isEnvTruthy(import.meta.env.VITE_APP_TARGET_HUGGINGFACE_SPACE))
+if (isEnvTruthy(import.meta.env.VITE_APP_TARGET_HUGGINGFACE_SPACE)) {
   router = createRouter({ routes: routeRecords, history: createWebHashHistory() })
-else
+}
+else {
   router = createRouter({ routes: routeRecords, history: createWebHistory(import.meta.env.BASE_URL) })
+}
+
+// Handle GitHub Pages SPA redirect fallback
+const redirectParam = new URLSearchParams(window.location.search).get('redirect')
+if (redirectParam) {
+  const cleanUrl = new URL(window.location.href)
+  cleanUrl.searchParams.delete('redirect')
+  window.history.replaceState(null, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash)
+  router.replace(redirectParam)
+}
 
 router.beforeEach((to, from) => {
   if (to.path !== from.path)

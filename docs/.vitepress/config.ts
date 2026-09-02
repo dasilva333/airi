@@ -106,6 +106,23 @@ export default defineConfig({
         }
       })()
     `],
+    // GitHub Pages SPA 404 fallback for stage-web
+    ['script', {}, `
+      ;(function () {
+        var pathname = window.location.pathname;
+        var stageIndex = pathname.indexOf('/web-stage');
+        if (stageIndex !== -1) {
+          var prefix = pathname.slice(0, stageIndex + '/web-stage'.length);
+          var subPath = pathname.slice(stageIndex + '/web-stage'.length);
+          if (!subPath || subPath === '') {
+            window.location.replace(prefix + '/' + window.location.search + window.location.hash);
+          } else if (subPath !== '/' && subPath !== '/index.html') {
+            var target = prefix + '/?redirect=' + encodeURIComponent(subPath + window.location.search + window.location.hash);
+            window.location.replace(target);
+          }
+        }
+      })()
+    `],
   ],
   base: env.BASE_URL || '/',
   vue: {
