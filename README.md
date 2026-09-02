@@ -78,7 +78,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
 ## Download
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-windows-x64-setup.exe">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.29-stable.20260902/AIRI-0.9.29-stable.20260902-windows-x64-setup.exe">
     <picture>
       <source
         width="33%"
@@ -93,7 +93,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.windows.light.en-US.avif" alt="Download AIRI for Windows" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-darwin-arm64.dmg">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.29-stable.20260902/AIRI-0.9.29-stable.20260902-darwin-arm64.dmg">
     <picture>
       <source
         width="33%"
@@ -126,7 +126,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
 </p>
 
 <p float="left" align="center">
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-android.apk">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.29-stable.20260902/AIRI-0.9.29-stable.20260902-android.apk">
     <picture>
       <source
         width="33%"
@@ -141,7 +141,7 @@ This fork favors finished, testable paths over indiscriminate accumulation. Upst
       <img width="33%" src="./docs/content/public/assets/download-buttons/download-buttons.mobile.light.en-US.avif" alt="Download AIRI for Android" />
     </picture>
   </a>
-  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.27-stable.20260824/AIRI-0.9.27-stable.20260824-ios.ipa">
+  <a href="https://github.com/dasilva333/airi/releases/download/v0.9.29-stable.20260902/AIRI-0.9.29-stable.20260902-ios.ipa">
     <picture>
       <source
         width="33%"
