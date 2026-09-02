@@ -23,10 +23,20 @@ This document tracks all active pending items, architectural roadmaps, and featu
     *   Build injection engine parsing and generation rules for Mode A (markers), Mode B (multi-actor tags), and Mode C (single-to-multi conversion).
     *   Support Step 4 review interface with choices for "Apply to Current Card (with Backup)" and "Create as New Card".
 
-### Character Card Package Compatibility Bridge (Upstream Spec v1 vs. Fork Spec v2)
-*References: [design-airi-card.md](../../../../../design-airi-card.md) | [design-character-card-import-export.md](../../../../../design-character-card-import-export.md)*
+### Character Card Universal Import/Export & Package Compatibility Bridge
+*References: [design-character-card-import-export.md](../../../../design-character-card-import-export.md) | [design-airi-card.md](../../../../design-airi-card.md)*
+*   **Durable Full-Fidelity AIRI JSON Format**:
+    *   Preserve complete base card metadata, greetings, system prompts, post-history instructions, and all `extensions.airi` data slices (`modules`, `artistry`, `acting`, `heartbeats`, `generation`) without data loss.
+    *   Support auto-versioned JSON wrapper (`{ "format": "airi-card", "version": 1, "card": { ... } }`) with deterministic duplicate renaming (`Lain (2)`, `Lain (3)`).
+*   **Ecosystem CCv2 / SillyTavern PNG Metadata Interoperability**:
+    *   Embed `chara_card_v2` base64 UTF-8 JSON inside PNG `tEXt` chunks under the `chara` keyword for cross-ecosystem card sharing.
+    *   Dual export visual modes: Raw Preview PNG vs Styled Framed Composition (`card-export-frame.png` 925x1436 canvas, portrait inner box `[65, 79, 831, 1295]`).
+    *   Refined export render pipeline reflecting customized outfit variants, active expressions, and character-specific portrait framing.
 *   **ZIP Package Spec v2 Manifest & Multi-Model Layout**: Implement clean asset package structure (`cover.png`, `background.png`, `models/`, `voices/`) replacing inline base64 bloat while supporting multi-model arrays (base 3D VRM + secondary Live2D outfits + manifestations).
-*   **Card Package Export Modal UX**: Provide full user controls in `CardDetailDialog.vue` (selecting format: AIRI Extended ZIP v2, Upstream Main Compatible ZIP v1, SillyTavern CCv2 PNG, Standalone AIRI JSON; asset checkboxes; auto-generating `README.md` with model redistribution licensing notices).
+*   **Card Package Export & Import Modal UX (`CardDetailDialog.vue` & `CardCreationDialog.vue`)**:
+    *   Provide full format controls: AIRI Extended ZIP v2, Upstream Main Compatible ZIP v1, SillyTavern CCv2 PNG, Standalone AIRI JSON.
+    *   Asset inclusion checkboxes and auto-generated `README.md` with model redistribution licensing notices.
+    *   Unified global import tile with clear format guidance and auto-defaulting for missing AIRI-specific extension fields.
 *   **Bidirectional Import Pipeline**: Seamlessly import upstream `moeru-ai/airi` Version 1 single-model packages, fork Version 2 multi-model archives, SillyTavern PNG `tEXt` chunks, and CCv2/CCv3 JSON files.
 
 ---
