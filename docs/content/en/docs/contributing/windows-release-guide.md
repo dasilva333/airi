@@ -134,4 +134,27 @@ When users attempt to open Windows setup binaries (`.exe`), they may encounter t
 2. **Release Portable Zip Artifacts**: Always build and attach a portable `.zip` / archive version of the release alongside the `.exe` setup installer on GitHub Releases so users with restricted installer policies can extract and run the application without administrator setup blocks.
 3. **Document User Workaround**: Advise users encountering WDAC/AppLocker blocks to either unblock the file via **Properties -> General -> Unblock** (or PowerShell `Unblock-File`), run as administrator, or use the portable `.zip` release.
 
+---
+
+## 7. Stage-Mate Engine Release Discipline
+
+The Stage-Mate companion engine (`apps/stage-mate`) has its own independent lifecycle and release schedule:
+
+1. **Standalone Release Schedule**:
+   - The Mate engine is **not** re-released on standard AIRI desktop/mobile version updates.
+   - It maintains its own independent semantic versioning and release schedule (e.g. `stagemate-v3.4.1`, `stagemate-engine-v3.4`).
+   - Standard desktop releases (`v0.9.x-stable.*`) bundle the compiled companion runtime locally inside Electron resources, but do **not** publish a new standalone Stage-Mate zip package unless the engine was intentionally updated.
+
+2. **Bound by Version Tags**:
+   - Stage-Mate releases are strictly bound to their own version tags (`stagemate-v*`), never to AIRI application release tags.
+   - Never upload `StageMate-Windows.zip` to an AIRI application release (`v0.9.x-stable.*`).
+
+3. **Due Diligence Before Releasing**:
+   - Before considering running `pnpm -F @proj-airi/stage-mate run release:win` or incrementing `apps/stage-mate/package.json`:
+     - Inspect git history: `git log [last-mate-tag]..HEAD -- apps/stage-mate/`
+     - Verify whether any code, assets, or patches in `apps/stage-mate/` actually changed.
+     - **If there are no changes, leave it alone and do not touch it.** Do not increment versions, do not create tags, and do not publish new engine release packages.
+     - Only if intentional, tested changes were made to `apps/stage-mate/` should its version be bumped, tagged, and the release pipeline executed.
+
+
 

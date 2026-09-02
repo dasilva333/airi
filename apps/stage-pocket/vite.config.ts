@@ -338,6 +338,29 @@ export default defineConfig({
     // see uno.config.ts for config
     Unocss(),
 
+    {
+      name: 'force-node-crypto-shim',
+      enforce: 'pre',
+      resolveId(id, importer) {
+        if (id === 'node:crypto' || id === 'crypto') {
+          return resolve(join(import.meta.dirname, '..', 'stage-tamagotchi', 'src', 'renderer', 'shims', 'node-crypto.ts'))
+        }
+        if (id.startsWith('node:') || ['process', 'module', 'path', 'fs'].includes(id)) {
+          return '\0virtual:node-shim'
+        }
+        if (id.includes('-node.mjs') && (id.includes('duckdb-wasm') || importer?.includes('duckdb-wasm'))) {
+          return this.resolve(id.replace('-node.mjs', '-browser.mjs'), importer, { skipSelf: true })
+        }
+        return null
+      },
+      load(id) {
+        if (id === '\0virtual:node-shim') {
+          return 'export default {}; export const env = {}; export const cwd = () => "/";'
+        }
+        return null
+      },
+    },
+
     // https://github.com/intlify/bundle-tools/tree/main/packages/unplugin-vue-i18n
     VueI18n({
       runtimeOnly: true,
@@ -346,7 +369,7 @@ export default defineConfig({
     }),
 
     // https://github.com/webfansplz/vite-plugin-vue-devtools
-    VueDevTools(),
+    ...(process.env.NODE_ENV === 'development' ? [VueDevTools()] : []),
 
     ...(!process.env.SKIP_DOWNLOADS
       ? [
