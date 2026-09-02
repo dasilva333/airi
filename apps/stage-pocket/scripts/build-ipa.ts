@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,8 +10,34 @@ const xcodeProj = join(pocketDir, 'ios/App/App.xcodeproj')
 const buildDir = join(pocketDir, 'build')
 const archivePath = join(buildDir, 'App.xcarchive')
 
+function patchSpmPackageForCoreAI() {
+  const spmPath = join(pocketDir, 'ios/App/CapApp-SPM/Package.swift')
+  if (!existsSync(spmPath))
+    return
+
+  let content = readFileSync(spmPath, 'utf-8')
+  // Ensure Swift 6.0 tools version for iOS 18 Core AI / CoreLLMKit
+  content = content.replace(/\/\/ swift-tools-version: .*/, '// swift-tools-version: 6.0')
+  content = content.replace(/platforms: \[\.iOS\(\.v\d+\)\]/, 'platforms: [.iOS(.v18)]')
+
+  // Link local CoreLLMKit if missing
+  if (!content.includes('CoreLLMKit')) {
+    content = content.replace(
+      /(dependencies:\s*\[[\s\S]*?)(capacitor-native-settings[^\n]*\))/,
+      '$1$2,\n        .package(name: "CoreLLMKit", path: "../App/NativeAI/CoreLLMKit")',
+    )
+    content = content.replace(
+      /(dependencies:\s*\[[\s\S]*?\.product\(name: "CapacitorNativeSettings", package: "CapacitorNativeSettings"\))/,
+      '$1,\n                .product(name: "LLMCore", package: "CoreLLMKit"),\n                .product(name: "CoreMLBackend", package: "CoreLLMKit")',
+    )
+  }
+
+  writeFileSync(spmPath, content, 'utf-8')
+  console.info('[build:ipa] Synced CoreLLMKit native dependencies into CapApp-SPM/Package.swift')
+}
+
 // Read root or tamagotchi version
-let version = '0.9.26-stable.20260820'
+let version = '0.9.29-stable.20260902'
 try {
   const pkgTamagotchi = JSON.parse(readFileSync(join(rootDir, 'apps/stage-tamagotchi/package.json'), 'utf-8'))
   if (pkgTamagotchi.version)
@@ -24,6 +50,7 @@ console.info(`[build:ipa] Staging iOS IPA build for version: ${version}`)
 // 1. Build web bundle & sync capacitor iOS
 console.info('[build:ipa] Step 1/4: Building web bundle & syncing Capacitor iOS...')
 execSync('pnpm run build && pnpm exec cap sync ios', { cwd: pocketDir, stdio: 'inherit' })
+patchSpmPackageForCoreAI()
 
 // 2. Clean previous build archives
 if (existsSync(buildDir)) {

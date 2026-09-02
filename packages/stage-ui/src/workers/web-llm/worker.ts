@@ -29,7 +29,6 @@ import type {
   WebLlmLoadRequest,
 } from './contract'
 
-import { CreateMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm'
 import { defineInvokeHandler, defineStreamInvokeHandler, toStreamHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/webworkers/worker'
 
@@ -41,7 +40,11 @@ import {
 
 const { context } = createContext()
 
-type Engine = Awaited<ReturnType<typeof CreateMLCEngine>>
+async function getMlc() {
+  return await import('@mlc-ai/web-llm')
+}
+
+type Engine = any
 
 let engine: Engine | null = null
 /** The model id the engine currently has loaded, or null when bare. */
@@ -65,7 +68,8 @@ function toProgress(report: { progress: number, text: string }): LoadStreamItem 
  * Build the `AppConfig` for a load request: the full prebuilt catalog plus a
  * custom record when the request carries a weights URL.
  */
-function buildAppConfig(request: WebLlmLoadRequest) {
+async function buildAppConfig(request: WebLlmLoadRequest) {
+  const { prebuiltAppConfig } = await getMlc()
   const modelList: ModelRecord[] = prebuiltAppConfig.model_list.map((record: ModelRecord) => {
     // Ensure sliding_window_size is set to -1 when context_window_size is positive,
     // preventing MLC runtime assertion errors (e.g. gemma3-1b-it where both are positive by default).
@@ -112,7 +116,8 @@ defineStreamInvokeHandler(context, webLlmLoadEvent, toStreamHandler<WebLlmLoadRe
     return
   }
 
-  const appConfig = buildAppConfig(payload)
+  const { CreateMLCEngine } = await getMlc()
+  const appConfig = await buildAppConfig(payload)
 
   // Discard any existing engine cleanly
   if (engine) {

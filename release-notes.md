@@ -1,32 +1,39 @@
-# 🚀 AIRI v0.9.28-stable.20260827 — Release Notes
+# 🚀 AIRI v0.9.29-stable.20260902 — Release Notes
 
-This release introduces **Continuous Screen Watching & Autonomous Vision**, **User-Facing In-Flight Chat Cancellation**, a unified **Stage Experience Overhaul across Desktop, Unity & Mobile**, and **Grok (xAI) Strict Tool Schema Hardening**.
+This release marks the **Official Production Graduation of the Proactivity & Screen Watching Engine**, alongside the **Complete Settings Architecture & Navigation Overhaul**, **Apple Core AI On-Device LLM Inference for iOS**, **Revamped Artistry Studio with Free Pollinations AI**, and **5 Progressive Tool Capability Packs**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 👀 Continuous Screen Watching & Autonomous Vision Perception
-* **Ambient Screen Watcher Daemon**: AIRI can now autonomously observe what is on your display in real-time, reacting naturally with visual commentary and proactive insights.
-* **Moondream Local VLM & On-Demand Provisioning**: Integrated local Moondream VLM with automated, on-demand weight downloads and an adaptive screen observation buffer.
-* **Pre-OCR Conditioning & Interest Tag Matching**: High-speed OCR and Levenshtein tag matching intelligently filter changes so your companion only reacts to meaningful screen events.
-* **Chat Options Screen Watching Toggle**: Quickly enable or disable screen watching directly from the chat options menu, with chunked speech bubble commentary and adjustable hold durations.
+### 🌟 Proactivity & Screen Watching: Graduating to Production
+* **Out of Preview Mode**: Proactivity has officially graduated from preview status! The experimental warning banners have been retired in favor of a polished, production-ready continuous companion loop.
+* **Zero-Leak WebGPU & Vision Tensor Engine**: Completely plugged WebGPU tensor memory leaks, eliminated duplicate image decoding overhead, and streamlined the screen watcher daemon for 24/7 background operation.
+* **Silero VAD & Audio Recorder Memory Cleanup**: Prevented audio buffer accumulation with bounded streaming buffers and lazy on-demand VAD model loading.
+* **Unified 4-Layer Attention Gate**: Multi-tier heuristic filtering intelligently balances screen changes, AFK presence detection, active conversation context, and transparent dream consolidation cycles without interrupting you.
 
-### ⏹️ In-Flight Chat Cancellation & Generation Control
-* **Instant Stop/Cancel for LLM Turns**: Stop generation immediately with a dedicated user-facing cancel control that halts in-flight streaming, cancels pending tool invocations, and silences downstream TTS playback on demand.
+### ⚙️ Settings Hub Overhaul & Master-Detail Navigation
+* **4-Cluster Modules Taxonomy**: Reorganized settings into 4 intuitive clusters (Sensory, Intelligence, Manifestation, Memory) with an architectural explainer banner and data-driven topology index.
+* **Master-Detail Layout & Live Avatar Viewport**: Redesigned companion settings into a responsive two-pane split featuring a live, expandable stage preview while editing character parameters.
+* **Omnibar Search & Subpage Discovery**: Added instant global settings search with deep hash-aware breadcrumb navigation.
+* **24-Color Theme Spectrum**: Customize your interface with a 24-color swatch palette and live vibrancy tuning.
+* **4-Tier In-Memory Card Gallery**: Ultra-fast character card browsing with cached author avatars and lazy dialog rendering.
 
-### 🎭 Unified Stage Experience (Desktop, Unity Companion & Mobile)
-* **Stage-Mate (Unity Companion)**:
-  * **Native Edge Window Resizing**: Resize the Stage-Mate companion window directly by dragging its borders, featuring native macOS/Windows resize cursor feedback and hit-test overrides.
-* **Stage Desktop (Electron)**:
-  * **Direct Window Drag & Radial Mode Selector**: Refactored positioning modes to support fluid direct window dragging and added a quick center-mascot reset in the head-anchored radial menu.
-  * **Flush Whisper Dock & Caption Sync**: Aligned Whisper dock flush against stage borders, tightened button spacing, and eliminated caption overlay visibility toggle deadlocks.
-* **Stage-Pocket (Mobile iOS & Android)**:
-  * **Two-Finger Pinch-to-Scale**: Fluidly scale and zoom Live2D models on mobile in POS mode with smooth multi-touch pinch gestures.
-  * **Mobile Onboarding & Model File Picker**: Fixed local model file picking on iOS/Android, persisted cloud STT credentials across restarts, and added Android microphone permissions.
+### 🍎 Apple Core AI & CoreML On-Device Inference (iOS & Pocket)
+* **Native CoreLLMKit Runtime**: Run quantized LLMs 100% locally on Apple Silicon and iOS using the Apple Neural Engine (ANE) via a dedicated Swift native plugin.
+* **Prompt Delta Caching & Batched Prefill**: Deep memory residency optimizations ensuring rapid on-device token generation without draining mobile battery.
+* **Wizard Consciousness Integration**: Choose Apple Core AI directly as your character’s brain in the mobile onboarding flow.
 
-### ⚡ Subsystem Hardening & Packaging Stability
-* **Grok (xAI) & OpenAI Strict Tool Schema Sanitization**: Hardened tool parameter definitions and cleaned parameter schemas specifically for strict **xAI (Grok)** and OpenAI validators to ensure flawless tool execution.
-* **Accurate Token Metering**: Shielded token usage calculations from string concatenation bugs and per-chunk telemetry inflation.
-* **Windows ZIP Packaging Fix**: Resolved Windows release ZIP corruption by properly encapsulating root folder structures in electron-builder.
-* **Typography Polish**: Scoped CJK webfonts via `unicode-range` and refined Cyrillic font fallbacks.
+### 🎨 Artistry Studio Revamp & Free Pollinations AI
+* **Free Pollinations AI Provider**: Generate scene backgrounds and character art with 0 API keys required out-of-the-box.
+* **Segmented Artistry Tab**: Split character artistry into 3 clean sub-tabs (Presets, Autonomous Artistry, Backgrounds) for effortless image workflow management.
+
+### 🧰 5 Progressive Tool Capability Packs & 0-Key MCP Web Search
+* **5 Capability Packs**: Organized character tools into 5 progressive disclosure packs (Core, Web Search, Filesystem, Canvas, DevTools) with card-level ACL filtering.
+* **0-Key Open Web Search & Filesystem MCP**: Enable live web searching with zero API keys and manage character filesystem tools safely.
+
+### 🧠 User Memory Deletion & Sparkle Expression Gating
+* **Direct Record Deletion for STMM & Journals**: Full control to view, inspect, and selectively delete daily short-term continuity blocks and journal memories.
+* **Deterministic Expression Noise Gate**: Eliminates rapid facial expression flickering and adds a 3-step Sparkle AI curation wizard.
+* **Spoken Karaoke Highlights**: Resolved multi-instance text highlight deletion races in MarkdownRenderer during speech playback.
+* **Modern System Tray Menu**: Updated system tray with quick-launch links for the AnimaDex Wizard and Control Strip.

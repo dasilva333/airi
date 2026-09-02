@@ -1,7 +1,7 @@
 {
   "name": "@proj-airi/stage-tamagotchi",
   "type": "module",
-  "version": "0.9.28-stable.20260827",
+  "version": "0.9.29-stable.20260902",
   "private": true,
   "description": "LLM powered virtual character",
   "author": {
@@ -20,7 +20,7 @@
     "app:build": "pnpm run build",
     "start": "electron-vite preview",
     "dev": "node scripts/ensure-electron.js && ELECTRON_RUN_AS_NODE= electron-vite dev",
-    "build": "node scripts/ensure-electron.js && pnpm run typecheck && NODE_OPTIONS=\"--max-old-space-size=12288\" electron-vite build",
+    "build": "node scripts/ensure-electron.js && pnpm run typecheck && node --stack-size=65536 --max-old-space-size=12288 ../../node_modules/electron-vite/bin/electron-vite.js build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
     "build:win": "pnpm -F @proj-airi/stage-mate run build:win && pnpm run build && tsx scripts/copy-deps.ts && electron-builder --win && tsx scripts/package-win-zip.ts",
