@@ -1083,7 +1083,7 @@ async function runAutoLinkCatalog() {
           </DropdownMenuTrigger>
           <DropdownMenuPortal>
             <DropdownMenuContent
-              class="will-change-[opacity,transform] z-10000 max-w-45 border border-neutral-200 rounded-lg bg-neutral-100 p-0.5 text-neutral-900 shadow-md outline-none backdrop-blur-sm data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
+              class="will-change-[opacity,transform] z-[10010] max-w-45 border border-neutral-200 rounded-lg bg-neutral-100 p-0.5 text-neutral-900 shadow-md outline-none backdrop-blur-sm data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100"
               align="end"
               side="bottom"
               :side-offset="8"
@@ -1248,7 +1248,7 @@ async function runAutoLinkCatalog() {
               side="bottom"
               :side-offset="6"
               align="start"
-              class="animate-in fade-in zoom-in z-10000 w-64 border border-neutral-200/50 rounded-xl bg-white/95 p-3 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
+              class="animate-in fade-in zoom-in z-[10010] w-64 border border-neutral-200/50 rounded-xl bg-white/95 p-3 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
             >
               <div class="mb-2 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
                 Filter by Groups
@@ -1309,7 +1309,7 @@ async function runAutoLinkCatalog() {
               side="bottom"
               :side-offset="6"
               align="end"
-              class="animate-in fade-in zoom-in z-10000 w-44 border border-neutral-200/50 rounded-xl bg-white/95 p-1 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
+              class="animate-in fade-in zoom-in z-[10010] w-44 border border-neutral-200/50 rounded-xl bg-white/95 p-1 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
             >
               <button
                 :class="[
@@ -1366,7 +1366,7 @@ async function runAutoLinkCatalog() {
               side="bottom"
               :side-offset="6"
               align="end"
-              class="animate-in fade-in zoom-in z-10000 w-36 border border-neutral-200/50 rounded-xl bg-white/95 p-1 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
+              class="animate-in fade-in zoom-in z-[10010] w-36 border border-neutral-200/50 rounded-xl bg-white/95 p-1 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
             >
               <button
                 :class="[
@@ -1422,7 +1422,7 @@ async function runAutoLinkCatalog() {
               side="bottom"
               :side-offset="6"
               align="start"
-              class="animate-in fade-in zoom-in z-10000 w-68 border border-neutral-200/50 rounded-xl bg-white/95 p-3 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
+              class="animate-in fade-in zoom-in z-[10010] w-68 border border-neutral-200/50 rounded-xl bg-white/95 p-3 shadow-xl backdrop-blur-xl duration-150 dark:border-neutral-700/50 dark:bg-neutral-900/95"
             >
               <div class="mb-2 text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
                 Filter by Tags
@@ -1539,7 +1539,7 @@ async function runAutoLinkCatalog() {
                 <DropdownMenuPortal>
                   <DropdownMenuContent
                     :class="[
-                      'will-change-[opacity,transform] z-10000 max-w-45 rounded-xl p-1 text-white shadow-2xl outline-none data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:text-black',
+                      'will-change-[opacity,transform] z-[10010] max-w-45 rounded-xl p-1 text-white shadow-2xl outline-none data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:text-black',
                       'bg-neutral-900/90 dark:bg-neutral-100/90',
                       'backdrop-blur-xl border border-white/10 dark:border-black/10',
                     ]"

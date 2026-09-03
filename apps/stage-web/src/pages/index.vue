@@ -281,7 +281,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           ]"
         />
         <!-- Edge-Docked Control Strip with 14px Notch Anchor -->
-        <ControlStrip mode="mobile" class="z-40" />
+        <ControlStrip mode="mobile" class="z-45" />
         <MobileWhisperSheet v-if="isPortraitMobile" @settings-open="handleSettingsOpen" />
       </div>
     </div>

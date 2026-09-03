@@ -29,7 +29,7 @@ Guidelines and exact code paths for AIRI's stage overlay surfaces. The **Control
 | App | Where the pill mounts | Mode |
 | --- | --- | --- |
 | Desktop (stage-tamagotchi) | Inside `WidgetStage` (ControlStripHost) — `v-if="isElectron"`, `ControlStripHost.vue:1487-1489` | `desktop` (default) |
-| stage-web / stage-pocket | At page root: `<ControlStrip mode="mobile" class="z-40" />` (`apps/stage-web/src/pages/index.vue:266`, `apps/stage-pocket/src/pages/index.vue:250`) | `mobile` |
+| stage-web / stage-pocket | At page root: `<ControlStrip mode="mobile" class="z-45" />` (`apps/stage-web/src/pages/index.vue:284`, `apps/stage-pocket/src/pages/index.vue:286`) | `mobile` |
 
 Web/pocket never mount the strip inside `WidgetStage` (the `isElectron` guard is false there); instead the page-level mount is always present in both portrait and landscape.
 

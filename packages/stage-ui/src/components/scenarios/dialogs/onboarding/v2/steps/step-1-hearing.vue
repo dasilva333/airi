@@ -2,6 +2,7 @@
 import type { ProgressPayload } from '../../../../../../libs/inference/protocol'
 import type { ProviderMetadata } from '../../../../../../stores/providers'
 
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useAudioAnalyzer, useAudioRecorder } from '@proj-airi/stage-ui/composables'
 import { Button, FieldSelect } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -15,7 +16,7 @@ import SttProviderPicker from '../components/provider-picker-grid.vue'
 import SttTestBox from '../components/stt-test-box.vue'
 
 import { getWhisperAdapter } from '../../../../../../libs/inference/adapters/whisper'
-import { DEFAULT_WHISPER_MODEL, WHISPER_MODELS } from '../../../../../../libs/inference/constants'
+import { WHISPER_MODELS } from '../../../../../../libs/inference/constants'
 import { useAudioContext } from '../../../../../../stores/audio'
 import { useHearingSpeechInputPipeline, useHearingStore } from '../../../../../../stores/modules/hearing'
 import { useProvidersStore } from '../../../../../../stores/providers'
@@ -78,7 +79,20 @@ type WhisperDL = 'idle' | 'downloading' | 'ready' | 'error'
 const whisperDownloadState = ref<WhisperDL>('idle')
 const whisperProgress = ref(0)
 const whisperAbort = ref<AbortController>()
-const selectedWhisperModel = ref<string>(draft.state.hearing.model || DEFAULT_WHISPER_MODEL)
+
+const isTamagotchi = isStageTamagotchi()
+const availableWhisperModels = computed(() => {
+  if (isTamagotchi)
+    return WHISPER_MODELS
+  // On mobile/browser WASM platforms, hide Large models prone to OOM / heap aborts
+  return WHISPER_MODELS.filter(m => !m.id.includes('large'))
+})
+
+const DEFAULT_ONBOARDING_WHISPER_MODEL = 'onnx-community/whisper-tiny'
+const initialWhisperModel = draft.state.hearing.model && (isTamagotchi || !draft.state.hearing.model.includes('large'))
+  ? draft.state.hearing.model
+  : DEFAULT_ONBOARDING_WHISPER_MODEL
+const selectedWhisperModel = ref<string>(initialWhisperModel)
 
 function isLocalWhisperProvider(providerId?: string) {
   return providerId === 'whisper-local'
@@ -94,7 +108,9 @@ const cloudProviders = computed(() => {
 })
 
 const selectedModelInfo = computed(() => {
-  return WHISPER_MODELS.find(m => m.id === selectedWhisperModel.value) || WHISPER_MODELS[0]
+  return availableWhisperModels.value.find(m => m.id === selectedWhisperModel.value)
+    || availableWhisperModels.value[0]
+    || WHISPER_MODELS[0]
 })
 
 function selectWebSpeech() {
@@ -201,7 +217,10 @@ async function startWhisperDownload(force = false) {
   catch (err) {
     if (!controller.signal.aborted) {
       whisperDownloadState.value = 'error'
-      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      const rawMsg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      const msg = rawMsg.includes('Aborted()') || rawMsg.includes('assertions')
+        ? 'Model allocation failed (Out of Memory). Please choose a lighter shard like Whisper Tiny.'
+        : rawMsg
       whisperErrorMessage.value = msg
       console.error('[V2 Hearing] Whisper download failed:', msg, err)
     }
@@ -630,7 +649,7 @@ watch(selectedAudioInput, async () => {
           <FieldSelect
             v-model="selectedWhisperModel"
             label="Model Shard"
-            :options="WHISPER_MODELS.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
+            :options="availableWhisperModels.map(m => ({ label: `${m.name} (${getWhisperModelSpec(m.id)})`, value: m.id }))"
             layout="vertical"
             :disabled="whisperDownloadState === 'downloading'"
           />

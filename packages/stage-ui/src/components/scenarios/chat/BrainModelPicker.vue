@@ -297,7 +297,7 @@ const activeModelDisplay = computed(() => {
         :side-offset="8"
         :align="align"
         :collision-padding="12"
-        class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-[9999] max-h-[85dvh] max-w-[calc(100vw-24px)] w-80 flex flex-col overflow-y-auto border border-neutral-200/50 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-2xl duration-200 scrollbar-thin dark:border-neutral-700/50 dark:bg-neutral-900/95"
+        class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-[10010] max-h-[85dvh] max-w-[calc(100vw-24px)] w-80 flex flex-col overflow-y-auto border border-neutral-200/50 rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-2xl duration-200 scrollbar-thin dark:border-neutral-700/50 dark:bg-neutral-900/95"
       >
         <!-- Header -->
         <div class="mb-3 flex items-center justify-between border-b border-neutral-100 pb-2 dark:border-neutral-800">

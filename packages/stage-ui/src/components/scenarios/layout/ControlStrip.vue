@@ -1292,6 +1292,12 @@ function handleRightClick(e: MouseEvent) {
   }
 }
 
+function handleContainerClick() {
+  if (autoHideMode.value && !isFullyExpanded.value) {
+    collapsed.value = false
+  }
+}
+
 function toggleOrientation() {
   if (props.mode === 'mobile')
     return
@@ -1472,6 +1478,7 @@ function getShortLabel(btnId: string): string {
   <div
     :class="[
       'absolute pointer-events-auto select-none',
+      props.mode === 'mobile' ? 'z-45' : '',
       'bg-white/95 dark:bg-neutral-900/85',
       'backdrop-blur-xl border border-neutral-300/80 dark:border-neutral-800/80',
       'shadow-2xl shadow-black/10 rounded-full',
@@ -1480,6 +1487,7 @@ function getShortLabel(btnId: string): string {
       autoHideTabClasses,
     ]"
     :style="containerStyle"
+    @click="handleContainerClick"
     @contextmenu="handleRightClick"
     @mouseenter="onContainerMouseEnter"
     @mouseleave="onContainerMouseLeave"

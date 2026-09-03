@@ -145,7 +145,7 @@ defineExpose({
 <template>
   <div
     :class="[
-      'fixed inset-x-0 bottom-0 z-40 flex flex-col justify-end transition-all duration-300 ease-out select-none',
+      'fixed inset-x-0 bottom-0 z-30 flex flex-col justify-end transition-all duration-300 ease-out select-none',
       currentPosture === 'history' && presentationMode === 'frosted' ? 'top-14 bg-black/20 backdrop-blur-[2px]' : 'pointer-events-none',
     ]"
     @click.self="setPosture('preview')"

@@ -283,7 +283,7 @@ watch([stream, () => vadLoaded.value], async ([s, loaded]) => {
           @offset-change="handleOffsetChange"
         />
         <!-- Pinned Mobile Control Strip with 14px Edge Notch -->
-        <ControlStrip mode="mobile" class="z-40" />
+        <ControlStrip mode="mobile" class="z-45" />
 
         <InteractiveArea
           v-if="!isPortraitMobile"
