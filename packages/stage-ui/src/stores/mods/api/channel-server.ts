@@ -1,27 +1,52 @@
 import type { ContextUpdate, WebSocketBaseEvent, WebSocketEvent, WebSocketEventOptionalSource, WebSocketEvents } from '@proj-airi/server-sdk'
 
 import { Client, WebSocketEventSource } from '@proj-airi/server-sdk'
-import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
+import { isStageCapacitor, isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
 import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { useWebSocketInspectorStore } from '../../devtools/websocket-inspector'
 
+function isLocalhostUrl(urlStr: string): boolean {
+  if (!urlStr)
+    return false
+  try {
+    const parsed = new URL(urlStr)
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1'
+  }
+  catch {
+    return urlStr.includes('localhost') || urlStr.includes('127.0.0.1')
+  }
+}
+
+export type ChannelServerStatus = 'disconnected' | 'connecting' | 'connected' | 'unreachable'
+
 export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:server', () => {
   const connected = ref(false)
+  const status = ref<ChannelServerStatus>('disconnected')
   const client = ref<Client>()
   const initializing = ref<Promise<void> | null>(null)
   const pendingSend = ref<Array<WebSocketEvent>>([])
   const listenersInitialized = ref(false)
   const listenerDisposers = ref<Array<() => void>>([])
+  let hasLoggedOfflineNotice = false
 
   const defaultWebSocketUrl = import.meta.env.VITE_AIRI_WS_URL || 'ws://localhost:6121/ws'
   const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
   const authToken = useLocalStorage('settings/connection/auth-token', '')
 
-  const callerId = isStageWeb() ? 'stage-web' : isStageTamagotchi() ? 'stage-tamagotchi' : 'stage-web'
+  const isSupported = computed(() => {
+    // If on mobile (Capacitor), only connect if user configured an explicit non-localhost remote URL
+    if (isStageCapacitor()) {
+      const url = websocketUrl.value || defaultWebSocketUrl
+      return !isLocalhostUrl(url)
+    }
+    return true
+  })
+
+  const callerId = isStageWeb() ? 'stage-web' : isStageTamagotchi() ? 'stage-tamagotchi' : isStageCapacitor() ? 'stage-pocket' : 'stage-web'
   const purpose = 'Primary application interface for AIRI.'
 
   const basePossibleEvents: Array<keyof WebSocketEvents> = [
@@ -42,10 +67,18 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   ]
 
   async function initialize(options?: { token?: string, possibleEvents?: Array<keyof WebSocketEvents> }) {
+    if (!isSupported.value) {
+      status.value = 'disconnected'
+      return Promise.resolve()
+    }
+
     if (connected.value && client.value)
       return Promise.resolve()
     if (initializing.value)
       return initializing.value
+
+    const targetUrl = websocketUrl.value || defaultWebSocketUrl
+    status.value = 'connecting'
 
     const possibleEvents = Array.from(new Set<keyof WebSocketEvents>([
       ...basePossibleEvents,
@@ -75,32 +108,40 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
       client.value = new Client({
         name: isStageWeb() ? WebSocketEventSource.StageWeb : isStageTamagotchi() ? WebSocketEventSource.StageTamagotchi : WebSocketEventSource.StageWeb,
-        url: websocketUrl.value || defaultWebSocketUrl,
+        url: targetUrl,
         token: options?.token ?? authToken.value,
         caller: callerId,
         purpose,
         possibleEvents,
+        autoReconnect: true,
+        maxReconnectAttempts: 2,
         onAnyMessage: (event) => {
           useWebSocketInspectorStore().add('incoming', event)
         },
         onAnySend: (event) => {
           useWebSocketInspectorStore().add('outgoing', event)
         },
-        onError: (error) => {
+        onError: (_error) => {
           connected.value = false
+          status.value = 'unreachable'
           initializing.value = null
           clearListeners()
 
-          console.warn('WebSocket server connection error:', error)
+          if (!hasLoggedOfflineNotice) {
+            hasLoggedOfflineNotice = true
+            console.info(`[ChannelServer] WebSocket server is offline at ${targetUrl}; running in standalone mode.`)
+          }
           clearTimeout(timeout)
           resolve() // Still resolve to unblock app
         },
         onClose: () => {
           connected.value = false
+          if (status.value !== 'unreachable') {
+            status.value = 'disconnected'
+          }
           initializing.value = null
           clearListeners()
 
-          console.warn('WebSocket server connection closed')
           clearTimeout(timeout)
           resolve() // Still resolve to unblock app
         },
@@ -110,6 +151,8 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
         if (event.data.authenticated) {
           clearTimeout(timeout)
           connected.value = true
+          status.value = 'connected'
+          hasLoggedOfflineNotice = false
           flush()
           initializeListeners()
           resolve()
@@ -121,6 +164,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
         }
 
         connected.value = false
+        status.value = 'disconnected'
       })
     })
   }
@@ -153,6 +197,9 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   }
 
   function send<C = undefined>(data: WebSocketEventOptionalSource<C>) {
+    if (!isSupported.value)
+      return
+
     if (!client.value && !initializing.value)
       void initialize()
 
@@ -160,7 +207,10 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
       client.value.send(data as WebSocketEvent)
     }
     else {
-      pendingSend.value.push(data as WebSocketEvent)
+      // Bound the queue size to avoid memory leaks when server is offline
+      if (pendingSend.value.length < 50) {
+        pendingSend.value.push(data as WebSocketEvent)
+      }
     }
   }
 
@@ -175,6 +225,9 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   }
 
   function onContextUpdate(callback: (event: WebSocketBaseEvent<'context:update', ContextUpdate>) => void | Promise<void>) {
+    if (!isSupported.value)
+      return () => {}
+
     if (!client.value && !initializing.value)
       void initialize()
 
@@ -189,6 +242,9 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     type: E,
     callback: (event: WebSocketBaseEvent<E, WebSocketEvents[E]>) => void | Promise<void>,
   ) {
+    if (!isSupported.value)
+      return () => {}
+
     if (!client.value && !initializing.value)
       void initialize()
 
@@ -213,6 +269,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
       client.value = undefined
     }
     connected.value = false
+    status.value = 'disconnected'
     initializing.value = null
   }
 
@@ -220,6 +277,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
     if (newUrl === oldUrl)
       return
 
+    hasLoggedOfflineNotice = false
     if (client.value || initializing.value) {
       dispose()
       void initialize()
@@ -228,6 +286,9 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
   return {
     connected,
+    status,
+    isSupported,
+    websocketUrl,
     ensureConnected,
 
     initialize,

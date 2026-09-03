@@ -5,10 +5,12 @@ import { Button, Callout } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 type FilterTab = 'all' | 'scenes' | 'builtin' | 'journal'
 
 const { t } = useI18n()
+const router = useRouter()
 const backgroundStore = useBackgroundStore()
 const cardStore = useAiriCardStore()
 const { activeBackgroundId, activeBackgroundUrl } = storeToRefs(backgroundStore)
@@ -173,6 +175,16 @@ function clearDefault() {
             hidden
             @change="handleFileChange"
           >
+          <Button
+            variant="secondary"
+            :class="['h-10 px-3.5 rounded-xl font-medium border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 flex items-center justify-center gap-2 transition-all']"
+            title="Generate custom AI backgrounds with Pollinations in the Artistry Playground"
+            @click="router.push('/settings/modules/artistry')"
+          >
+            <div :class="['i-solar:magic-stick-3-bold-duotone text-lg text-purple-500']" />
+            <span class="hidden sm:inline">AI Generator</span>
+          </Button>
+
           <Button
             variant="primary"
             :class="['flex-1 md:flex-initial h-10 px-4 rounded-xl shadow-sm font-medium flex items-center justify-center gap-2']"
@@ -427,6 +439,41 @@ function clearDefault() {
             </button>
           </div>
         </div>
+
+        <!-- Artistry Creative Generator Discovery Card -->
+        <div
+          v-if="!searchQuery"
+          :class="[
+            'relative aspect-[16/9] overflow-hidden rounded-2xl border-2 border-dashed group transition-all duration-200 cursor-pointer shadow-sm',
+            'border-purple-300/80 dark:border-purple-800/80 bg-gradient-to-br from-purple-50/70 via-pink-50/40 to-amber-50/60 dark:from-purple-950/30 dark:via-pink-950/20 dark:to-amber-950/20 hover:border-purple-500 hover:shadow-lg hover:scale-[1.01]',
+          ]"
+          @click="router.push('/settings/modules/artistry')"
+        >
+          <div class="absolute inset-0 z-0 flex flex-col items-center justify-center p-4 text-center">
+            <div class="shadow-xs size-12 flex items-center justify-center rounded-2xl bg-purple-500/15 text-2xl text-purple-600 transition-transform group-hover:scale-110 dark:bg-purple-500/25 dark:text-purple-400">
+              <div class="i-solar:magic-stick-3-bold-duotone" />
+            </div>
+            <span class="mt-2 text-xs text-neutral-800 font-bold dark:text-neutral-200">
+              Generate AI Scenes
+            </span>
+            <span class="mt-0.5 max-w-44 text-[10px] text-neutral-500 dark:text-neutral-400">
+              Free instant generation with Pollinations & ComfyUI
+            </span>
+          </div>
+
+          <!-- Top Badge -->
+          <div class="pointer-events-none absolute inset-x-3 top-3 z-1 flex items-center justify-end">
+            <div class="border border-purple-500/20 rounded-lg bg-purple-500/15 px-2 py-0.5 text-[10px] text-purple-700 font-bold dark:text-purple-300">
+              FREE AI
+            </div>
+          </div>
+
+          <!-- Bottom Bar -->
+          <div class="absolute inset-x-0 bottom-0 z-1 flex items-center justify-between from-black/80 via-black/50 to-transparent bg-gradient-to-t px-3.5 pb-2.5 pt-6 text-xs text-white font-medium">
+            <span>Open Artistry Studio</span>
+            <div class="i-solar:arrow-right-line-duotone text-sm transition-transform group-hover:translate-x-1" />
+          </div>
+        </div>
       </div>
 
       <!-- Empty State -->
@@ -467,6 +514,50 @@ function clearDefault() {
           @click="searchQuery = ''; activeTab = 'all'"
         >
           Reset Filters
+        </Button>
+      </div>
+
+      <!-- Artistry Creative Studio Teaser Banner -->
+      <div
+        :class="[
+          'relative overflow-hidden rounded-3xl border border-purple-200/80 dark:border-purple-900/60',
+          'bg-gradient-to-br from-purple-50/90 via-pink-50/40 to-amber-50/70 dark:from-purple-950/40 dark:via-pink-950/20 dark:to-neutral-900/60',
+          'p-5 sm:p-6 backdrop-blur-xl shadow-xs',
+          'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5',
+        ]"
+      >
+        <div class="min-w-0 flex flex-1 items-start gap-4 sm:items-center">
+          <div class="shadow-xs size-12 flex shrink-0 items-center justify-center rounded-2xl bg-purple-500/15 text-2xl text-purple-600 sm:size-14 dark:bg-purple-500/25 sm:text-3xl dark:text-purple-400">
+            <div class="i-solar:palette-round-bold-duotone" />
+          </div>
+
+          <div class="min-w-0 flex flex-1 flex-col gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-sm text-neutral-900 font-bold sm:text-base dark:text-neutral-100">
+                Want custom scenes for your companion?
+              </h3>
+              <span class="border border-emerald-500/20 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600 font-bold dark:text-emerald-400">
+                100% FREE AI
+              </span>
+            </div>
+            <p class="max-w-2xl text-xs text-neutral-600 leading-relaxed dark:text-neutral-300">
+              Dream up infinite rooms, anime landscapes, and scenery in seconds using zero-config generative AI providers like <strong>Pollinations AI</strong> (no API keys or accounts required), or link your local <strong>ComfyUI</strong> workflows in the <strong>Artistry Studio</strong>.
+            </p>
+          </div>
+        </div>
+
+        <Button
+          variant="primary"
+          size="sm"
+          :class="[
+            'shrink-0 font-bold flex items-center gap-2 py-2.5 px-4 shadow-sm rounded-xl',
+            'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 border-none text-white transition-all',
+          ]"
+          @click="router.push('/settings/modules/artistry')"
+        >
+          <div class="i-solar:magic-stick-3-bold-duotone text-base" />
+          <span>Open Artistry Studio</span>
+          <div class="i-solar:arrow-right-line-duotone text-sm" />
         </Button>
       </div>
 
