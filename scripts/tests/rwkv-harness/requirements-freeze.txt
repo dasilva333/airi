@@ -1,0 +1,34 @@
+# Snapshot created on 2026-09-03
+# Python version: Python 3.14 (Homebrew /opt/homebrew/opt/python@3.14/bin/python3.14)
+#
+# Cached safetensors previously stored in .cache/:
+# - rwkv7-g1d-0.1b-20260129-ctx8192.safetensors (364 MB)
+#   URL: https://huggingface.co/DanielClough/rwkv7-g1-safetensors/resolve/main/rwkv7-g1d-0.1b-20260129-ctx8192.safetensors
+# - rwkv7-g1d-1.5b-20260212-ctx8192.safetensors (2.8 GB)
+#   URL: https://huggingface.co/DanielClough/rwkv7-g1-safetensors/resolve/main/rwkv7-g1d-1.5b-20260212-ctx8192.safetensors
+#
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+PyYAML==6.0.3
+anyio==4.14.2
+certifi==2026.7.22
+click==8.4.2
+filelock==3.32.4
+fsspec==2026.7.0
+h11==0.16.0
+hf-xet==1.6.0
+httpcore==1.0.9
+httpx==0.28.1
+huggingface_hub==1.28.0
+idna==3.19
+mpmath==1.3.0
+networkx==3.6.1
+numpy==2.5.2
+packaging==26.3
+safetensors==0.8.0
+setuptools==84.0.0
+sympy==1.14.0
+tokenizers==0.23.1
+torch==2.13.0
+tqdm==4.70.0
+typing_extensions==4.16.0
