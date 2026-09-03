@@ -15,6 +15,7 @@ import type {
 } from './definitions'
 
 import { Capacitor, registerPlugin } from '@capacitor/core'
+import { isApplePlatform, isStageCapacitor } from '@proj-airi/stage-shared'
 
 export * from './definitions'
 
@@ -72,7 +73,13 @@ function createSafeFallbackTelemetry(partial?: Partial<HardwareTelemetry>, raw?:
  */
 export const NativeAI = {
   isNative(): boolean {
-    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+    if (typeof window === 'undefined')
+      return false
+    if (Capacitor.isNativePlatform() && (Capacitor.getPlatform() === 'ios' || isApplePlatform()))
+      return true
+    if (isStageCapacitor() && isApplePlatform())
+      return true
+    return false
   },
 
   async getHardwareTelemetry(): Promise<HardwareTelemetry> {
@@ -157,6 +164,28 @@ export const NativeAI = {
     }
   },
 
+  // In-flight download promises and listeners
+  _activeDownloads: new Map<string, Promise<{ modelId: string, status: string }>>(),
+  _progressListeners: new Map<string, Set<(event: DownloadProgressEvent) => void>>(),
+
+  async isModelCached(modelId: string): Promise<boolean> {
+    if (!this.isNative()) {
+      return true
+    }
+    try {
+      const res = await this.listCachedModels()
+      const sanitized = modelId.replace(/\//g, '_')
+      return (
+        res.models?.some(
+          m => (m.modelId === sanitized || m.modelId === modelId) && m.isCompiled,
+        ) ?? false
+      )
+    }
+    catch {
+      return false
+    }
+  },
+
   async downloadModel(
     options: DownloadModelOptions,
     onProgress?: (event: DownloadProgressEvent) => void,
@@ -193,25 +222,86 @@ export const NativeAI = {
       })
     }
 
-    let listenerHandle: { remove: () => Promise<void> } | null = null
+    // Register progress callback if provided
     if (onProgress) {
-      listenerHandle = await Plugin.addListener('downloadProgress', (event: DownloadProgressEvent) => {
-        if (event.modelId === options.modelId) {
-          onProgress(event)
-          if (event.isCompleted || event.error) {
-            listenerHandle?.remove().catch(() => {})
-          }
-        }
-      })
+      if (!this._progressListeners.has(options.modelId)) {
+        this._progressListeners.set(options.modelId, new Set())
+      }
+      this._progressListeners.get(options.modelId)!.add(onProgress)
     }
 
-    try {
-      return await Plugin.downloadModel(options)
+    // If download is already in progress, return the existing in-flight Promise
+    const existingPromise = this._activeDownloads.get(options.modelId)
+    if (existingPromise) {
+      return existingPromise
     }
-    catch (err) {
-      listenerHandle?.remove().catch(() => {})
-      throw err
+
+    const downloadPromise = new Promise<{ modelId: string, status: string }>(async (resolve, reject) => {
+      let listenerHandle: { remove: () => Promise<void> } | null = null
+
+      try {
+        listenerHandle = await Plugin.addListener('downloadProgress', (event: DownloadProgressEvent) => {
+          if (event.modelId === options.modelId) {
+            const listeners = this._progressListeners.get(options.modelId)
+            listeners?.forEach((cb) => {
+              try {
+                cb(event)
+              }
+              catch (e) {
+                console.error('[NativeAI] Progress callback error:', e)
+              }
+            })
+
+            if (event.isCompleted) {
+              listenerHandle?.remove().catch(() => {})
+              this._activeDownloads.delete(options.modelId)
+              this._progressListeners.delete(options.modelId)
+              resolve({ modelId: options.modelId, status: 'downloaded' })
+            }
+            else if (event.error) {
+              listenerHandle?.remove().catch(() => {})
+              this._activeDownloads.delete(options.modelId)
+              this._progressListeners.delete(options.modelId)
+              reject(new Error(event.error))
+            }
+          }
+        })
+
+        await Plugin.downloadModel(options)
+      }
+      catch (err) {
+        listenerHandle?.remove().catch(() => {})
+        this._activeDownloads.delete(options.modelId)
+        this._progressListeners.delete(options.modelId)
+        reject(err)
+      }
+    })
+
+    this._activeDownloads.set(options.modelId, downloadPromise)
+    return downloadPromise
+  },
+
+  async ensureModelReady(
+    options: LoadModelOptions,
+    onProgress?: (event: DownloadProgressEvent) => void,
+  ): Promise<LoadModelResult> {
+    if (!this.isNative()) {
+      return await this.loadModel(options)
     }
+
+    const isCached = await this.isModelCached(options.modelId)
+    if (!isCached) {
+      console.log(`[NativeAI] Model ${options.modelId} not cached. Auto-downloading on-device weights...`)
+      await this.downloadModel(
+        {
+          modelId: options.modelId,
+          repo: options.modelId,
+        },
+        onProgress,
+      )
+    }
+
+    return await this.loadModel(options)
   },
 
   async loadModel(options: LoadModelOptions): Promise<LoadModelResult> {

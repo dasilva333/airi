@@ -4,6 +4,7 @@ import type { ProgressPayload } from '../../../../../../libs/inference/protocol'
 import type { ProviderMetadata } from '../../../../../../stores/providers'
 
 import { Capacitor } from '@capacitor/core'
+import { isApplePlatform, isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
 import { isWebGPUSupported } from '@proj-airi/stage-shared/webgpu'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -49,10 +50,11 @@ const selectedModelId = ref(draft.state.consciousness.model ?? '')
 
 const { allChatProvidersMetadata, configuredChatProvidersMetadata } = storeToRefs(providersStore)
 
-// Platform detection
-const isIOSNative = computed(() => NativeAI.isNative())
+// Platform detection: iOS/iPadOS runs exclusively via Apple Core AI (Neural Engine / CoreML).
+// WebLLM is restricted to Desktop Electron (Tamagotchi) or Desktop Web (non-Apple).
+const isIOSNative = computed(() => isApplePlatform() || NativeAI.isNative())
 const isAndroidNative = computed(() => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
-const isWebLlmPlatform = computed(() => !isIOSNative.value && !isAndroidNative.value)
+const isWebLlmPlatform = computed(() => (isStageTamagotchi() || (isStageWeb() && !isApplePlatform())) && !isAndroidNative.value)
 
 // Cloud model list is id-keyed and queries live providerRuntimeState.
 const providerModels = computed(() => {
@@ -92,10 +94,8 @@ async function checkCoreAiResident() {
   if (!isIOSNative.value)
     return
   try {
-    const res = await NativeAI.listCachedModels()
-    const sanitized = DEFAULT_APPLE_CORE_AI_MODEL.replace(/\//g, '_')
-    const found = res.models?.some(m => (m.modelId === sanitized || m.modelId === DEFAULT_APPLE_CORE_AI_MODEL) && m.isCompiled)
-    if (found) {
+    const isCached = await NativeAI.isModelCached(DEFAULT_APPLE_CORE_AI_MODEL)
+    if (isCached) {
       coreAiState.value = 'ready'
       coreAiProgress.value = 100
     }

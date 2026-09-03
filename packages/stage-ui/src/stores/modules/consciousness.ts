@@ -3,6 +3,7 @@ import { refManualReset } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, watch } from 'vue'
 
+import { NativeAI } from '../../libs/native-ai'
 import { useOnboardingStore } from '../onboarding'
 import { useProvidersStore } from '../providers'
 
@@ -81,6 +82,19 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
   watch(activeProvider, async (newProvider) => {
     if (newProvider) {
       await loadModelsForProvider(newProvider)
+    }
+  }, { immediate: true })
+
+  // Proactively download on-device Apple Core AI models when selected
+  watch([activeProvider, activeModel], async ([provider, model]) => {
+    if (provider === 'apple-core-ai' && model && NativeAI.isNative()) {
+      const isCached = await NativeAI.isModelCached(model)
+      if (!isCached) {
+        console.log(`[Consciousness] Starting proactive background download for on-device model: ${model}`)
+        NativeAI.downloadModel({ modelId: model, repo: model }).catch((err) => {
+          console.warn('[Consciousness] Proactive Core AI background download failed:', err)
+        })
+      }
     }
   }, { immediate: true })
 

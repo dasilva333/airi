@@ -1,6 +1,6 @@
 import type { ProviderMetadata } from '../types'
 
-import { isStageCapacitor, isStageTamagotchi } from '@proj-airi/stage-shared'
+import { isApplePlatform, isStageCapacitor, isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
 import { isWebGPUSupported } from '@proj-airi/stage-shared/webgpu'
 import { computed } from 'vue'
 
@@ -89,9 +89,9 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
     beginnerRecommended: true,
     // Local in-browser model — no API key.
     requiresCredentials: false,
-    // WebGPU-only: @mlc-ai/web-llm has no WASM/CPU chat backend, so hide it where
-    // WebGPU is unavailable. Works in Electron (Chromium) and WebGPU browsers.
-    isAvailableBy: () => isWebGPUSupported(),
+    // WebGPU-only: WebLLM runs on Desktop Electron (Tamagotchi) and desktop browsers with WebGPU.
+    // iOS/iPadOS is strictly excluded to prevent WebKit OOM crashes and in favor of native Apple Core AI (ANE).
+    isAvailableBy: () => (isStageTamagotchi() || (isStageWeb() && !isApplePlatform())) && isWebGPUSupported(),
     defaultOptions: () => ({
       model: DEFAULT_WEB_LLM_MODEL,
       modelUrl: '',
@@ -221,7 +221,7 @@ export const localEngineMetadata: Record<string, ProviderMetadata> = {
     deployment: 'local',
     beginnerRecommended: true,
     requiresCredentials: false,
-    isAvailableBy: () => isStageCapacitor() || (!isStageTamagotchi() && typeof window !== 'undefined' && ((window as any).Capacitor?.isNativePlatform?.() || NativeAI.isNative)),
+    isAvailableBy: () => isApplePlatform() || isStageCapacitor() || NativeAI.isNative(),
     defaultOptions: () => ({
       model: DEFAULT_APPLE_CORE_AI_MODEL,
     }),

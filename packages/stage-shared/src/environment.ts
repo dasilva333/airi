@@ -23,3 +23,21 @@ export function isUrlMode(mode: 'file' | 'server'): boolean {
 
   return import.meta.env.URL_MODE === mode
 }
+
+export function isApplePlatform(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false
+  }
+
+  const ua = navigator.userAgent || ''
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    return true
+  }
+
+  // Detect iPadOS Safari / WebKit when configured in desktop mode
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    return true
+  }
+
+  return false
+}

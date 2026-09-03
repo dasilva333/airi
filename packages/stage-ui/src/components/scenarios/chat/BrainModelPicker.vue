@@ -3,7 +3,9 @@ import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
+import { NativeAI } from '../../../libs/native-ai'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../stores/modules/consciousness'
 import { useProvidersStore } from '../../../stores/providers'
@@ -230,7 +232,35 @@ function handleSelectFavorite(fav: FavoriteModel) {
       } as any)
     }
   }
+
+  // If selecting on-device Apple Core AI, proactively ensure background download starts
+  if (fav.provider === 'apple-core-ai' && fav.model && NativeAI.isNative()) {
+    NativeAI.isModelCached(fav.model).then((cached) => {
+      if (!cached) {
+        toast.info(`Preparing on-device ${fav.model.split('/').pop() || 'Core AI'} in background...`, {
+          duration: 5000,
+        })
+        NativeAI.downloadModel({ modelId: fav.model, repo: fav.model }).then(() => {
+          toast.success(`${fav.model.split('/').pop() || 'Core AI'} model ready!`)
+        }).catch((err) => {
+          console.warn('[BrainModelPicker] Background download error:', err)
+        })
+      }
+    })
+  }
 }
+
+// Proactively check current selection
+watch([currentProvider, currentModel], async ([provider, model]) => {
+  if (provider === 'apple-core-ai' && model && NativeAI.isNative()) {
+    const cached = await NativeAI.isModelCached(model)
+    if (!cached) {
+      NativeAI.downloadModel({ modelId: model, repo: model }).catch((err) => {
+        console.warn('[BrainModelPicker] Background download error:', err)
+      })
+    }
+  }
+}, { immediate: true })
 
 const activeModelDisplay = computed(() => {
   const matched = favorites.value.find(

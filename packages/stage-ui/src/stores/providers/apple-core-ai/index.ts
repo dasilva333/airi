@@ -2,6 +2,8 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import type { TokenStreamEvent } from '../../../libs/native-ai'
 
+import { toast } from 'vue-sonner'
+
 import { NativeAI } from '../../../libs/native-ai'
 import { openAIChatChunk, openAIChatCompletion, SSE_DONE } from '../web-rwkv/format'
 
@@ -81,11 +83,27 @@ export function createAppleCoreAIChatProvider(config: AppleCoreAIProviderConfig 
         const created = Math.floor(Date.now() / 1000)
         const encoder = new TextEncoder()
 
-        // 1. Ensure model is loaded into RAM
-        await NativeAI.loadModel({
-          modelId,
-          computeUnits: config.computeUnits || 'all',
-        })
+        // 1. Ensure model is downloaded, compiled, and loaded into RAM
+        const isCached = await NativeAI.isModelCached(modelId)
+        if (!isCached) {
+          toast.info('Downloading on-device Gemma 4 CoreML model (first-run setup)...', {
+            duration: 8000,
+          })
+        }
+
+        await NativeAI.ensureModelReady(
+          {
+            modelId,
+            computeUnits: config.computeUnits || 'all',
+          },
+          (progress) => {
+            if (progress.percentage >= 99 && !progress.isCompleted) {
+              toast.info('Compiling neural graphs on Apple Neural Engine (ANE)...', {
+                duration: 6000,
+              })
+            }
+          },
+        )
 
         // 2. Format chat messages into prompt
         const formattedPrompt = buildGemmaPrompt(body.messages || [])
