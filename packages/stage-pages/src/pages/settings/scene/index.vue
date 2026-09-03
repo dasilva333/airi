@@ -2,6 +2,7 @@
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { useAiriCardStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { Button, Callout } from '@proj-airi/ui'
+import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -10,30 +11,13 @@ type FilterTab = 'all' | 'scenes' | 'builtin' | 'journal'
 const { t } = useI18n()
 const backgroundStore = useBackgroundStore()
 const cardStore = useAiriCardStore()
+const { activeBackgroundId, activeBackgroundUrl } = storeToRefs(backgroundStore)
 
 const fileInputRef = ref<HTMLInputElement>()
 const activeTab = ref<FilterTab>('all')
 const searchQuery = ref('')
 
 const allBackgrounds = computed(() => backgroundStore.availableBackgrounds)
-
-const activeBackgroundId = computed({
-  get: () => cardStore.activeCard?.extensions?.airi?.modules?.activeBackgroundId || 'none',
-  set: (val: string) => {
-    if (!cardStore.activeCard)
-      return
-    const extension = JSON.parse(JSON.stringify(cardStore.activeCard.extensions))
-    if (!extension.airi.modules)
-      extension.airi.modules = {}
-
-    extension.airi.modules.activeBackgroundId = val
-
-    cardStore.updateCard(cardStore.activeCardId, {
-      ...cardStore.activeCard,
-      extensions: extension,
-    })
-  },
-})
 
 const activeCardId = computed(() => cardStore.activeCardId)
 const activeCharacterName = computed(() => cardStore.activeCard?.name || 'Active Character')
@@ -88,325 +72,425 @@ async function handleFileChange(event: Event) {
 }
 
 function setAsBackground(id: string) {
-  activeBackgroundId.value = id
+  backgroundStore.setActiveBackground(id)
 }
 
 function removeBackground(id: string) {
   if (confirm(t('settings.pages.scene.gallery.delete_confirm', 'Are you sure you want to delete this background?'))) {
     if (activeBackgroundId.value === id) {
-      activeBackgroundId.value = 'none'
+      backgroundStore.setActiveBackground('none')
     }
     backgroundStore.removeBackground(id)
   }
 }
 
 function clearDefault() {
-  activeBackgroundId.value = 'none'
+  backgroundStore.setActiveBackground('none')
 }
 </script>
 
 <template>
-  <div :class="['w-full max-w-7xl mx-auto flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-28']">
-    <!-- Active Stage Background Spotlight / Hero Card -->
+  <div class="relative min-h-full w-full overflow-hidden">
+    <!-- Dynamic Scene Background Preview Layer -->
     <div
-      :class="[
-        'relative overflow-hidden rounded-3xl border border-neutral-200/80 dark:border-neutral-800',
-        'bg-white/70 dark:bg-neutral-900/60 p-5 sm:p-6 backdrop-blur-xl shadow-sm',
-        'flex flex-col md:flex-row items-start md:items-center justify-between gap-6',
-      ]"
+      v-if="activeBackgroundUrl"
+      class="pointer-events-none fixed inset-0 z-0 transition-opacity duration-700"
+      :style="{
+        backgroundImage: `url(${activeBackgroundUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }"
     >
-      <!-- Left: Character & Active Stage Background details -->
-      <div :class="['flex items-start sm:items-center gap-4 min-w-0 flex-1']">
-        <CharacterAvatar
-          v-if="activeCardId"
-          :card-id="activeCardId"
-          :name="activeCharacterName"
-          size-class="size-14 sm:size-16 shrink-0"
-          shape="rounded"
-          :is-active="true"
-        />
-        <div v-else :class="['size-14 sm:size-16 rounded-2xl bg-neutral-200 dark:bg-neutral-800 shrink-0 flex items-center justify-center text-2xl text-neutral-400']">
-          <div :class="['i-solar:user-bold-duotone']" />
+      <!-- Subtle frosted glass overlay for readability -->
+      <div class="absolute inset-0 bg-white/75 backdrop-blur-md transition-colors duration-500 dark:bg-[#0a0d14]/80" />
+    </div>
+
+    <div :class="['relative z-1 w-full max-w-7xl mx-auto flex flex-col gap-6 p-4 sm:p-6 lg:p-8 pb-28']">
+      <!-- Active Stage Background Spotlight / Hero Card -->
+      <div
+        :class="[
+          'relative overflow-hidden rounded-3xl border border-neutral-200/80 dark:border-neutral-800',
+          'bg-white/70 dark:bg-neutral-900/60 p-5 sm:p-6 backdrop-blur-xl shadow-sm',
+          'flex flex-col md:flex-row items-start md:items-center justify-between gap-6',
+        ]"
+      >
+        <!-- Left: Character & Active Stage Background details -->
+        <div :class="['flex items-start sm:items-center gap-4 min-w-0 flex-1']">
+          <CharacterAvatar
+            v-if="activeCardId"
+            :card-id="activeCardId"
+            :name="activeCharacterName"
+            size-class="size-14 sm:size-16 shrink-0"
+            shape="rounded"
+            :is-active="true"
+          />
+          <div v-else :class="['size-14 sm:size-16 rounded-2xl bg-neutral-200 dark:bg-neutral-800 shrink-0 flex items-center justify-center text-2xl text-neutral-400']">
+            <div :class="['i-solar:user-bold-duotone']" />
+          </div>
+
+          <!-- Active Scene Preview Thumbnail -->
+          <div
+            v-if="activeBgEntry"
+            :class="[
+              'size-14 sm:size-16 rounded-2xl overflow-hidden shrink-0 border-2 border-primary-500/60 shadow-sm relative bg-neutral-100 dark:bg-neutral-800',
+            ]"
+          >
+            <img
+              :src="backgroundStore.getBackgroundUrl(activeBgEntry.id) || undefined"
+              class="h-full w-full object-cover"
+              alt="Active Scene"
+            >
+          </div>
+
+          <div :class="['flex flex-col gap-1 min-w-0 flex-1']">
+            <div :class="['flex items-center gap-2 flex-wrap']">
+              <span :class="['text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 border border-primary-200 dark:border-primary-800/50']">
+                {{ activeCharacterName }}
+              </span>
+              <span v-if="activeBgEntry" :class="['text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-1.5']">
+                <span :class="['size-1.5 rounded-full bg-emerald-500 animate-pulse']" />
+                {{ t('settings.pages.scene.gallery.active_badge', 'Current Scene') }}
+              </span>
+            </div>
+
+            <h2 :class="['text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 truncate']">
+              {{ activeBgEntry ? activeBgEntry.title : t('settings.pages.scene.background_image.no_background', 'Default Canvas (No Stage Background)') }}
+            </h2>
+
+            <p :class="['text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-1']">
+              {{ activeBgEntry ? t('settings.pages.scene.beta_description') : t('settings.pages.scene.description') }}
+            </p>
+          </div>
         </div>
 
-        <div :class="['flex flex-col gap-1 min-w-0 flex-1']">
-          <div :class="['flex items-center gap-2 flex-wrap']">
-            <span :class="['text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 border border-primary-200 dark:border-primary-800/50']">
-              {{ activeCharacterName }}
+        <!-- Right: Quick Actions -->
+        <div :class="['flex items-center gap-3 w-full md:w-auto shrink-0']">
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/*"
+            hidden
+            @change="handleFileChange"
+          >
+          <Button
+            variant="primary"
+            :class="['flex-1 md:flex-initial h-10 px-4 rounded-xl shadow-sm font-medium flex items-center justify-center gap-2']"
+            @click="triggerUpload"
+          >
+            <div :class="['i-solar:upload-bold-duotone text-lg']" />
+            <span>{{ t('settings.pages.scene.background_image.upload') }}</span>
+          </Button>
+
+          <Button
+            v-if="activeBackgroundId !== 'none'"
+            variant="secondary"
+            :class="['h-10 px-4 rounded-xl font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center justify-center gap-2']"
+            @click="clearDefault"
+          >
+            <div :class="['i-solar:trash-bin-trash-bold-duotone text-lg']" />
+            <span>{{ t('settings.pages.scene.background_image.clear') }}</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- Callout note -->
+      <Callout
+        :label="t('settings.pages.scene.beta_label')"
+        theme="orange"
+        icon="i-solar:star-fall-bold-duotone"
+      >
+        <div>
+          {{ t('settings.pages.scene.beta_description') }}
+        </div>
+      </Callout>
+
+      <!-- Toolbar: Filter Pills and Search Bar -->
+      <div :class="['flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2']">
+        <!-- Filter Tabs -->
+        <div :class="['flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800/80 text-xs font-medium overflow-x-auto max-w-full']">
+          <button
+            v-for="tab in filterTabs"
+            :key="tab.id"
+            type="button"
+            :class="[
+              'px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
+              activeTab === tab.id
+                ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-xs font-semibold'
+                : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200',
+            ]"
+            @click="activeTab = tab.id"
+          >
+            <div :class="[tab.icon, 'text-sm']" />
+            <span>{{ tab.label }}</span>
+            <span :class="['text-[10px] px-1.5 py-0.2 rounded-full', activeTab === tab.id ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300' : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400']">
+              {{ tab.count }}
             </span>
-            <span v-if="activeBgEntry" :class="['text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-1.5']">
-              <span :class="['size-1.5 rounded-full bg-emerald-500 animate-pulse']" />
-              {{ t('settings.pages.scene.gallery.active_badge', 'Current Scene') }}
+          </button>
+        </div>
+
+        <!-- Search Input -->
+        <div :class="['relative w-full sm:w-64 md:w-72']">
+          <div :class="['pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-neutral-400 text-sm']">
+            <div :class="['i-solar:magnifer-line-duotone']" />
+          </div>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search backgrounds..."
+            :class="[
+              'w-full h-9 pl-9 pr-8 text-xs rounded-xl bg-white dark:bg-neutral-900',
+              'border border-neutral-200 dark:border-neutral-800 focus:border-primary-500 dark:focus:border-primary-500',
+              'outline-none transition-all placeholder:text-neutral-400',
+            ]"
+          >
+          <button
+            v-if="searchQuery"
+            type="button"
+            :class="['absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer']"
+            @click="searchQuery = ''"
+          >
+            <div :class="['i-solar:close-circle-bold text-sm']" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Gallery Grid (Responsive widescreen) -->
+      <div
+        v-if="filteredEntries.length > 0 || !searchQuery"
+        :class="['grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-5 sm:gap-6']"
+      >
+        <!-- Default Stage (None) Option Card -->
+        <div
+          v-if="!searchQuery && (activeTab === 'all' || activeTab === 'builtin')"
+          :class="[
+            'relative aspect-[16/9] overflow-hidden rounded-2xl border-2 group transition-all duration-200 cursor-pointer shadow-sm',
+            activeBackgroundId === 'none'
+              ? 'border-primary-500 ring-4 ring-primary-500/30 shadow-xl shadow-primary-500/10 scale-[1.01]'
+              : 'border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-100/80 dark:bg-neutral-900/60 hover:border-primary-400/80 hover:shadow-lg',
+          ]"
+          @click="setAsBackground('none')"
+        >
+          <!-- Checkerboard / Solid canvas representation -->
+          <div class="absolute inset-0 z-0 flex flex-col items-center justify-center from-neutral-100 to-neutral-200/60 bg-gradient-to-br p-4 text-center dark:from-neutral-900 dark:to-neutral-800/60">
+            <div class="shadow-xs size-12 flex items-center justify-center rounded-2xl bg-white/80 text-2xl text-neutral-400 transition-transform group-hover:scale-110 dark:bg-neutral-800/80">
+              <div class="i-solar:gallery-remove-bold-duotone" />
+            </div>
+            <span class="mt-2 text-xs text-neutral-600 font-semibold dark:text-neutral-400">Default Stage</span>
+          </div>
+
+          <!-- Top Badges -->
+          <div class="pointer-events-none absolute inset-x-3 top-3 z-1 flex items-center justify-between gap-2">
+            <div
+              v-if="activeBackgroundId === 'none'"
+              class="flex items-center gap-1.5 border border-white/20 rounded-lg bg-primary-600 px-2.5 py-1 text-xs text-white font-bold shadow-md"
+            >
+              <div class="i-solar:check-circle-bold text-sm" />
+              <span>Active Scene</span>
+            </div>
+            <div v-else />
+
+            <div class="shadow-xs border border-neutral-700/50 rounded-lg bg-neutral-900/75 px-2.5 py-1 text-xs text-neutral-100 font-semibold backdrop-blur-md">
+              System
+            </div>
+          </div>
+
+          <!-- Bottom Title Bar -->
+          <div class="absolute inset-x-0 bottom-0 z-1 flex items-center justify-between from-black/90 via-black/60 to-transparent bg-gradient-to-t px-3.5 pb-3 pt-8 text-sm text-white font-semibold">
+            <span class="truncate tracking-wide drop-shadow-sm">None (Default Canvas)</span>
+          </div>
+
+          <!-- Hover Overlay -->
+          <div class="absolute inset-0 z-2 flex items-center justify-center gap-2.5 bg-black/40 p-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <button
+              v-if="activeBackgroundId !== 'none'"
+              type="button"
+              class="h-9 flex cursor-pointer items-center gap-1.5 border border-white/25 rounded-xl bg-primary-600 px-4 text-xs text-white font-bold shadow-lg transition-all active:scale-95 hover:bg-primary-500"
+              @click.stop="setAsBackground('none')"
+            >
+              <div class="i-solar:check-read-bold-duotone text-base" />
+              <span>Reset to None</span>
+            </button>
+            <div
+              v-else
+              class="flex items-center gap-1.5 border border-white/25 rounded-xl bg-emerald-600/95 px-4 py-2 text-xs text-white font-bold shadow-lg"
+            >
+              <div class="i-solar:check-circle-bold text-base text-emerald-200" />
+              <span>Currently Active</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-for="bg in filteredEntries"
+          :key="bg.id"
+          :class="[
+            'relative aspect-[16/9] overflow-hidden rounded-2xl border-2 group transition-all duration-200 cursor-pointer shadow-sm',
+            bg.id === activeBackgroundId
+              ? 'border-primary-500 ring-4 ring-primary-500/30 shadow-xl shadow-primary-500/10 scale-[1.01]'
+              : 'border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-100 dark:bg-neutral-900/60 hover:border-primary-400/80 hover:shadow-lg',
+          ]"
+          @click="setAsBackground(bg.id)"
+        >
+          <!-- Background Preview Image -->
+          <div
+            :class="['absolute inset-0 z-0 transition-transform duration-300 group-hover:scale-105']"
+            :style="{
+              backgroundImage: `url(${backgroundStore.getBackgroundUrl(bg.id)})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }"
+          />
+
+          <!-- Top Badges -->
+          <div :class="['absolute top-3 inset-x-3 flex items-center justify-between z-1 pointer-events-none gap-2']">
+            <div
+              v-if="bg.id === activeBackgroundId"
+              :class="[
+                'bg-primary-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-md',
+                'flex items-center gap-1.5 border border-white/20',
+              ]"
+            >
+              <div :class="['i-solar:check-circle-bold text-sm']" />
+              <span>{{ t('settings.pages.scene.gallery.active_badge', 'Active Scene') }}</span>
+            </div>
+            <div v-else />
+
+            <div
+              :class="[
+                'text-xs font-semibold px-2.5 py-1 rounded-lg shadow-xs backdrop-blur-md',
+                bg.type === 'builtin'
+                  ? 'bg-neutral-900/75 text-neutral-100 border border-neutral-700/50'
+                  : 'bg-primary-950/75 text-primary-200 border border-primary-700/50',
+              ]"
+            >
+              {{ bg.type === 'builtin' ? 'Built-in' : (bg.type === 'journal' ? 'Journal' : 'Custom') }}
+            </div>
+          </div>
+
+          <!-- Bottom Title Bar (Glassmorphic) -->
+          <div
+            :class="[
+              'absolute bottom-0 inset-x-0 z-1',
+              'bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-8 pb-3 px-3.5',
+              'flex items-center justify-between text-white text-sm font-semibold',
+            ]"
+          >
+            <span :class="['truncate tracking-wide drop-shadow-sm']" :title="bg.title">
+              {{ bg.title }}
             </span>
           </div>
 
-          <h2 :class="['text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 truncate']">
-            {{ activeBgEntry ? activeBgEntry.title : t('settings.pages.scene.background_image.no_background', 'Default Canvas (No Stage Background)') }}
-          </h2>
+          <!-- Hover Overlay with Action Buttons -->
+          <div
+            :class="[
+              'absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200',
+              'flex items-center justify-center gap-2.5 z-2 p-3',
+            ]"
+          >
+            <button
+              v-if="bg.id !== activeBackgroundId"
+              type="button"
+              :class="[
+                'cursor-pointer h-9 px-4 rounded-xl font-bold text-xs text-white',
+                'bg-primary-600 hover:bg-primary-500 active:scale-95 transition-all shadow-lg',
+                'flex items-center gap-1.5 border border-white/25',
+              ]"
+              @click.stop="setAsBackground(bg.id)"
+            >
+              <div :class="['i-solar:check-read-bold-duotone text-base']" />
+              <span>Apply Scene</span>
+            </button>
+            <div
+              v-else
+              :class="[
+                'bg-emerald-600/95 text-white text-xs font-bold px-4 py-2 rounded-xl',
+                'flex items-center gap-1.5 shadow-lg border border-white/25',
+              ]"
+            >
+              <div :class="['i-solar:check-circle-bold text-base text-emerald-200']" />
+              <span>Currently Active</span>
+            </div>
 
-          <p :class="['text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 line-clamp-1']">
-            {{ activeBgEntry ? t('settings.pages.scene.beta_description') : t('settings.pages.scene.description') }}
+            <button
+              v-if="bg.type !== 'builtin'"
+              type="button"
+              :class="[
+                'cursor-pointer h-9 px-3 rounded-xl text-xs text-white font-semibold',
+                'bg-red-600 hover:bg-red-500 active:scale-95 transition-all shadow-lg',
+                'flex items-center justify-center border border-white/25',
+              ]"
+              :title="t('settings.pages.scene.gallery.delete', 'Delete from Gallery')"
+              @click.stop="removeBackground(bg.id)"
+            >
+              <div :class="['i-solar:trash-bin-trash-bold-duotone text-base']" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div
+        v-else
+        :class="[
+          'border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-3xl',
+          'p-12 sm:p-16 text-center text-neutral-400 bg-neutral-50/50 dark:bg-neutral-900/30',
+          'flex flex-col items-center justify-center gap-3',
+        ]"
+      >
+        <div :class="['size-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 flex items-center justify-center text-3xl text-neutral-400 dark:text-neutral-500']">
+          <div :class="['i-solar:gallery-wide-bold-duotone']" />
+        </div>
+        <div :class="['flex flex-col gap-1']">
+          <p :class="['text-sm font-semibold text-neutral-700 dark:text-neutral-300']">
+            {{ searchQuery ? 'No matching backgrounds found' : t('settings.pages.scene.gallery.empty') }}
+          </p>
+          <p :class="['text-xs text-neutral-500']">
+            {{ searchQuery ? 'Try adjusting your search or category filter' : 'Upload an image to personalize your stage environment' }}
           </p>
         </div>
-      </div>
-
-      <!-- Right: Quick Actions -->
-      <div :class="['flex items-center gap-3 w-full md:w-auto shrink-0']">
-        <input
-          ref="fileInputRef"
-          type="file"
-          accept="image/*"
-          hidden
-          @change="handleFileChange"
-        >
         <Button
+          v-if="!searchQuery"
           variant="primary"
-          :class="['flex-1 md:flex-initial h-10 px-4 rounded-xl shadow-sm font-medium flex items-center justify-center gap-2']"
+          size="sm"
+          :class="['mt-2 rounded-xl px-4']"
           @click="triggerUpload"
         >
-          <div :class="['i-solar:upload-bold-duotone text-lg']" />
-          <span>{{ t('settings.pages.scene.background_image.upload') }}</span>
+          <div :class="['i-solar:upload-bold-duotone mr-1.5']" />
+          {{ t('settings.pages.scene.background_image.upload') }}
         </Button>
-
         <Button
-          v-if="activeBackgroundId !== 'none'"
+          v-else
           variant="secondary"
-          :class="['h-10 px-4 rounded-xl font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center justify-center gap-2']"
-          @click="clearDefault"
+          size="sm"
+          :class="['mt-2 rounded-xl px-4']"
+          @click="searchQuery = ''; activeTab = 'all'"
         >
-          <div :class="['i-solar:trash-bin-trash-bold-duotone text-lg']" />
-          <span>{{ t('settings.pages.scene.background_image.clear') }}</span>
+          Reset Filters
         </Button>
       </div>
+
+      <!-- Tips callout -->
+      <Callout theme="lime" :label="t('settings.pages.scene.tip.label')">
+        <div v-html="t('settings.pages.scene.tip.description')" />
+      </Callout>
     </div>
 
-    <!-- Callout note -->
-    <Callout
-      :label="t('settings.pages.scene.beta_label')"
-      theme="orange"
-      icon="i-solar:star-fall-bold-duotone"
-    >
-      <div>
-        {{ t('settings.pages.scene.beta_description') }}
-      </div>
-    </Callout>
-
-    <!-- Toolbar: Filter Pills and Search Bar -->
-    <div :class="['flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2']">
-      <!-- Filter Tabs -->
-      <div :class="['flex items-center gap-1.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800/80 text-xs font-medium overflow-x-auto max-w-full']">
-        <button
-          v-for="tab in filterTabs"
-          :key="tab.id"
-          type="button"
-          :class="[
-            'px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
-            activeTab === tab.id
-              ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-xs font-semibold'
-              : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200',
-          ]"
-          @click="activeTab = tab.id"
-        >
-          <div :class="[tab.icon, 'text-sm']" />
-          <span>{{ tab.label }}</span>
-          <span :class="['text-[10px] px-1.5 py-0.2 rounded-full', activeTab === tab.id ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300' : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400']">
-            {{ tab.count }}
-          </span>
-        </button>
-      </div>
-
-      <!-- Search Input -->
-      <div :class="['relative w-full sm:w-64 md:w-72']">
-        <div :class="['pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-neutral-400 text-sm']">
-          <div :class="['i-solar:magnifer-line-duotone']" />
-        </div>
-        <input
-          v-model="searchQuery"
-          type="search"
-          placeholder="Search backgrounds..."
-          :class="[
-            'w-full h-9 pl-9 pr-8 text-xs rounded-xl bg-white dark:bg-neutral-900',
-            'border border-neutral-200 dark:border-neutral-800 focus:border-primary-500 dark:focus:border-primary-500',
-            'outline-none transition-all placeholder:text-neutral-400',
-          ]"
-        >
-        <button
-          v-if="searchQuery"
-          type="button"
-          :class="['absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer']"
-          @click="searchQuery = ''"
-        >
-          <div :class="['i-solar:close-circle-bold text-sm']" />
-        </button>
-      </div>
-    </div>
-
-    <!-- Gallery Grid (Responsive widescreen) -->
+    <!-- Background Icon Decoration -->
     <div
-      v-if="filteredEntries.length > 0"
-      :class="['grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4 sm:gap-5']"
-    >
-      <div
-        v-for="bg in filteredEntries"
-        :key="bg.id"
-        :class="[
-          'relative aspect-[16/10] overflow-hidden rounded-2xl border-2 group transition-all duration-200 cursor-pointer shadow-xs',
-          bg.id === activeBackgroundId
-            ? 'border-primary-500 ring-4 ring-primary-500/25 shadow-lg scale-[1.01]'
-            : 'border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-100 dark:bg-neutral-900/60 hover:border-primary-400/60 hover:shadow-md',
-        ]"
-        @click="setAsBackground(bg.id)"
-      >
-        <!-- Background Preview Image -->
-        <div
-          :class="['absolute inset-0 z-0 transition-transform duration-300 group-hover:scale-105']"
-          :style="{
-            backgroundImage: `url(${backgroundStore.getBackgroundUrl(bg.id)})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }"
-        />
-
-        <!-- Top Badges -->
-        <div :class="['absolute top-2.5 inset-x-2.5 flex items-center justify-between z-1 pointer-events-none gap-2']">
-          <div
-            v-if="bg.id === activeBackgroundId"
-            :class="[
-              'bg-primary-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-lg shadow-md',
-              'flex items-center gap-1 backdrop-blur-xs',
-            ]"
-          >
-            <div :class="['i-solar:check-circle-bold text-xs']" />
-            <span>{{ t('settings.pages.scene.gallery.active_badge', 'Active') }}</span>
-          </div>
-          <div v-else />
-
-          <div
-            :class="[
-              'text-[10px] font-medium px-2 py-0.5 rounded-lg shadow-xs backdrop-blur-md',
-              bg.type === 'builtin'
-                ? 'bg-neutral-900/60 text-neutral-200 border border-neutral-700/50'
-                : 'bg-primary-950/60 text-primary-200 border border-primary-700/50',
-            ]"
-          >
-            {{ bg.type === 'builtin' ? 'Built-in' : (bg.type === 'journal' ? 'Journal' : 'Custom') }}
-          </div>
-        </div>
-
-        <!-- Bottom Title Bar (Glassmorphic) -->
-        <div
-          :class="[
-            'absolute bottom-0 inset-x-0 z-1',
-            'bg-gradient-to-t from-black/85 via-black/50 to-transparent pt-6 pb-2.5 px-3',
-            'flex items-center justify-between text-white text-xs font-medium',
-          ]"
-        >
-          <span :class="['truncate font-semibold tracking-wide drop-shadow-xs']" :title="bg.title">
-            {{ bg.title }}
-          </span>
-        </div>
-
-        <!-- Hover Overlay with Action Buttons -->
-        <div
-          :class="[
-            'absolute inset-0 bg-black/45 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-200',
-            'flex items-center justify-center gap-2 z-2 p-3',
-          ]"
-          @click.stop
-        >
-          <Button
-            v-if="bg.id !== activeBackgroundId"
-            size="sm"
-            variant="primary"
-            :class="['shadow-md font-medium text-xs px-3 h-8 flex items-center gap-1.5 rounded-xl']"
-            @click="setAsBackground(bg.id)"
-          >
-            <div :class="['i-solar:check-read-bold-duotone text-sm']" />
-            <span>Apply</span>
-          </Button>
-          <div
-            v-else
-            :class="['bg-primary-500/90 text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md']"
-          >
-            <div :class="['i-solar:check-circle-bold text-sm']" />
-            <span>Currently Active</span>
-          </div>
-
-          <Button
-            v-if="bg.type !== 'builtin'"
-            size="sm"
-            variant="secondary"
-            :class="['!bg-red-500/90 hover:!bg-red-600 !text-white shadow-md text-xs px-2.5 h-8 rounded-xl flex items-center justify-center']"
-            :title="t('settings.pages.scene.gallery.delete', 'Delete from Gallery')"
-            @click="removeBackground(bg.id)"
-          >
-            <div :class="['i-solar:trash-bin-trash-bold-duotone text-sm']" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else
+      v-motion
       :class="[
-        'border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-3xl',
-        'p-12 sm:p-16 text-center text-neutral-400 bg-neutral-50/50 dark:bg-neutral-900/30',
-        'flex flex-col items-center justify-center gap-3',
+        'text-neutral-200/50 dark:text-neutral-600/20',
+        'pointer-events-none fixed bottom-0 right--5 z--1',
+        'size-60 flex items-center justify-center',
       ]"
+      :style="{ top: 'calc(100dvh - 15rem)' }"
+      :initial="{ scale: 0.9, opacity: 0, y: 20 }"
+      :enter="{ scale: 1, opacity: 1, y: 0 }"
+      :duration="500"
     >
-      <div :class="['size-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 flex items-center justify-center text-3xl text-neutral-400 dark:text-neutral-500']">
-        <div :class="['i-solar:gallery-wide-bold-duotone']" />
-      </div>
-      <div :class="['flex flex-col gap-1']">
-        <p :class="['text-sm font-semibold text-neutral-700 dark:text-neutral-300']">
-          {{ searchQuery ? 'No matching backgrounds found' : t('settings.pages.scene.gallery.empty') }}
-        </p>
-        <p :class="['text-xs text-neutral-500']">
-          {{ searchQuery ? 'Try adjusting your search or category filter' : 'Upload an image to personalize your stage environment' }}
-        </p>
-      </div>
-      <Button
-        v-if="!searchQuery"
-        variant="primary"
-        size="sm"
-        :class="['mt-2 rounded-xl px-4']"
-        @click="triggerUpload"
-      >
-        <div :class="['i-solar:upload-bold-duotone mr-1.5']" />
-        {{ t('settings.pages.scene.background_image.upload') }}
-      </Button>
-      <Button
-        v-else
-        variant="secondary"
-        size="sm"
-        :class="['mt-2 rounded-xl px-4']"
-        @click="searchQuery = ''; activeTab = 'all'"
-      >
-        Reset Filters
-      </Button>
+      <div :class="['text-6xl', 'i-solar:armchair-2-bold-duotone']" />
     </div>
-
-    <!-- Tips callout -->
-    <Callout theme="lime" :label="t('settings.pages.scene.tip.label')">
-      <div v-html="t('settings.pages.scene.tip.description')" />
-    </Callout>
-  </div>
-
-  <!-- Background Icon Decoration -->
-  <div
-    v-motion
-    :class="[
-      'text-neutral-200/50 dark:text-neutral-600/20',
-      'pointer-events-none fixed bottom-0 right--5 z--1',
-      'size-60 flex items-center justify-center',
-    ]"
-    :style="{ top: 'calc(100dvh - 15rem)' }"
-    :initial="{ scale: 0.9, opacity: 0, y: 20 }"
-    :enter="{ scale: 1, opacity: 1, y: 0 }"
-    :duration="500"
-  >
-    <div :class="['text-6xl', 'i-solar:armchair-2-bold-duotone']" />
   </div>
 </template>
 

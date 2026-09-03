@@ -1,7 +1,7 @@
 import localforage from 'localforage'
 
 import { debug } from '@proj-airi/stage-shared'
-import { useBroadcastChannel } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, reactive, ref, watch } from 'vue'
@@ -144,12 +144,9 @@ export const useBackgroundStore = defineStore('background', () => {
         await localforage.removeItem(key)
       }
 
-      // 3. Seeding logic for defaults
-      const hasAnyScenesOrBuiltins = Array.from(loadedEntries.values()).some((e) => {
-        return e.type === 'scene' || e.type === 'builtin'
-      })
-      if (!hasAnyScenesOrBuiltins) {
-        for (const builtin of BUILTIN_BACKGROUNDS) {
+      // 3. Seeding logic for defaults: ensure each builtin exists
+      for (const builtin of BUILTIN_BACKGROUNDS) {
+        if (!loadedEntries.has(builtin.id)) {
           try {
             const blob = await fetchAssetAsBlob(builtin.url)
             const entry: BackgroundEntry = {
@@ -211,12 +208,58 @@ export const useBackgroundStore = defineStore('background', () => {
   // Auto-init once
   initializeStore()
 
-  // Find the active background URL for the current character
+  // Persistent global fallback for active background id when no card is selected or card is empty
+  const globalActiveBackgroundId = useLocalStorage<string>('airi:stage-active-background-id', 'none')
+
+  const activeBackgroundId = computed({
+    get: () => {
+      const airiCardStore = useAiriCardStore()
+      const card = airiCardStore.activeCard
+      const ext = (card as any)?.extensions?.airi || (card as any)?.data?.extensions?.airi
+      const cardBgId = ext?.modules?.activeBackgroundId
+      if (cardBgId && cardBgId !== 'none') {
+        return cardBgId
+      }
+      return globalActiveBackgroundId.value || 'none'
+    },
+    set: (val: string) => {
+      globalActiveBackgroundId.value = val
+      const airiCardStore = useAiriCardStore()
+      if (airiCardStore.activeCard && airiCardStore.activeCardId) {
+        const card = airiCardStore.activeCard
+        const updatedCard = JSON.parse(JSON.stringify(card))
+
+        if (updatedCard.data) {
+          if (!updatedCard.data.extensions)
+            updatedCard.data.extensions = {}
+          if (!updatedCard.data.extensions.airi)
+            updatedCard.data.extensions.airi = {}
+          if (!updatedCard.data.extensions.airi.modules)
+            updatedCard.data.extensions.airi.modules = {}
+          updatedCard.data.extensions.airi.modules.activeBackgroundId = val
+        }
+
+        if (!updatedCard.extensions)
+          updatedCard.extensions = {}
+        if (!updatedCard.extensions.airi)
+          updatedCard.extensions.airi = {}
+        if (!updatedCard.extensions.airi.modules)
+          updatedCard.extensions.airi.modules = {}
+        updatedCard.extensions.airi.modules.activeBackgroundId = val
+
+        void airiCardStore.updateCard(airiCardStore.activeCardId, updatedCard)
+      }
+      broadcastSync(Date.now())
+    },
+  })
+
+  function setActiveBackground(id: string) {
+    activeBackgroundId.value = id
+  }
+
+  // Find the active background URL for the current character or global stage
   const activeBackgroundUrl = computed(() => {
-    const airiCardStore = useAiriCardStore()
-    if (!airiCardStore.activeCard)
-      return null
-    const bgId = airiCardStore.activeCard.extensions?.airi?.modules?.activeBackgroundId
+    const bgId = activeBackgroundId.value
     if (!bgId || bgId === 'none') {
       debug('[BackgroundStore] activeBackgroundUrl: No ID or "none"')
       return null
@@ -468,11 +511,22 @@ export const useBackgroundStore = defineStore('background', () => {
     getCharacterBackgrounds,
     journalEntries,
     getCharacterJournalEntries,
+    activeBackgroundId,
+    setActiveBackground,
     activeBackgroundUrl,
     addBackground,
     removeBackground,
     onBackgroundAdded,
-    getBackgroundUrl: (id: string) => backgroundUrls[id] ?? null,
+    getBackgroundUrl: (id: string) => {
+      if (backgroundUrls[id])
+        return backgroundUrls[id]
+      const entry = entries.value.get(id)
+      if (entry?.url)
+        return entry.url
+      if (entry?.blob instanceof Blob)
+        return ensureObjectUrl(id, entry.blob)
+      return null
+    },
     initializeStore,
   }
 })
