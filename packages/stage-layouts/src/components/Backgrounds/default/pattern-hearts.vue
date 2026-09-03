@@ -2,6 +2,12 @@
 import { useTheme } from '@proj-airi/ui'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
+withDefaults(defineProps<{
+  transparentBg?: boolean
+}>(), {
+  transparentBg: false,
+})
+
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let animationFrameId: number | null = null
 const { isDark } = useTheme()
@@ -137,15 +143,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="relative h-full w-full overflow-hidden bg-[#f8fafc] transition-colors duration-300 dark:bg-[#0a0d14]">
+  <div
+    :class="[
+      'relative h-full w-full overflow-hidden transition-colors duration-300',
+      transparentBg ? 'bg-transparent' : 'bg-[#f8fafc] dark:bg-[#0a0d14]',
+    ]"
+  >
     <!-- Ambient Radial Gradient for Light & Dark modes -->
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(241,245,249,0.9),rgba(248,250,252,1))] transition-opacity duration-300 dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(14,24,42,0.8),rgba(10,13,20,1))]" />
+    <div
+      v-if="!transparentBg"
+      class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(241,245,249,0.9),rgba(248,250,252,1))] transition-opacity duration-300 dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(14,24,42,0.8),rgba(10,13,20,1))]"
+    />
 
     <!-- Particle Canvas Layer -->
     <canvas ref="canvasRef" class="pointer-events-none absolute inset-0 z-0 h-full w-full" />
 
     <!-- Content Slot (Avatar Stage & Overlays) -->
-    <div class="relative z-10 h-full w-full">
+    <div v-if="$slots.default" class="relative z-10 h-full w-full">
       <slot />
     </div>
   </div>

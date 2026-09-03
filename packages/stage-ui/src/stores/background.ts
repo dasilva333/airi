@@ -222,6 +222,10 @@ export const useBackgroundStore = defineStore('background', () => {
       return null
     }
 
+    if (bgId.startsWith('http://') || bgId.startsWith('https://') || bgId.startsWith('data:') || bgId.startsWith('blob:')) {
+      return bgId
+    }
+
     // Normalize prefix just in case they stored 'image-journal-xyz'
     let lookupId = bgId
     if (bgId.startsWith('image-journal-')) {
@@ -244,7 +248,15 @@ export const useBackgroundStore = defineStore('background', () => {
       return null
     }
 
-    return null // Should have been caught by backgroundUrls check above if entry is valid
+    if (entry.url) {
+      return entry.url
+    }
+
+    if (entry.blob instanceof Blob) {
+      return ensureObjectUrl(lookupId, entry.blob)
+    }
+
+    return null
   })
 
   // List of available backgrounds for the current character
