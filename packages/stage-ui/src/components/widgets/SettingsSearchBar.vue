@@ -4,7 +4,7 @@ import type { SearchItem } from '@proj-airi/stage-ui/constants'
 import { convertCatalogItemToSearchItem, convertProviderMetadataToSearchItem, getAllCatalogItems } from '@proj-airi/stage-ui/constants'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { onClickOutside } from '@vueuse/core'
+import { onClickOutside, useMediaQuery } from '@vueuse/core'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -13,24 +13,33 @@ const router = useRouter()
 const cardStore = useAiriCardStore()
 const providersStore = useProvidersStore()
 
+const mobileSearchOpen = defineModel<boolean>('mobileSearchOpen', { default: false })
+const isDesktop = useMediaQuery('(min-width: 640px)')
+
 const searchQuery = ref('')
 const isOpen = ref(false)
 const isExpandedSubPage = ref(false)
 const highlightedIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
+const dropdownRef = ref<HTMLDivElement | null>(null)
 
 const isRoot = computed(() => {
   return route.path === '/settings' || route.path === '/settings/' || Boolean(route.meta?.rootOfSettings)
 })
 
-const showInput = computed(() => isRoot.value || isExpandedSubPage.value)
-
-onClickOutside(containerRef, () => {
-  isOpen.value = false
-  if (!isRoot.value) {
-    isExpandedSubPage.value = false
+const showInput = computed(() => {
+  if (isDesktop.value) {
+    return isRoot.value || isExpandedSubPage.value
   }
+  return mobileSearchOpen.value
+})
+
+onClickOutside(containerRef, (event) => {
+  if (dropdownRef.value && dropdownRef.value.contains(event.target as Node)) {
+    return
+  }
+  handleClose()
 })
 
 watch(() => route.path, () => {
@@ -38,6 +47,7 @@ watch(() => route.path, () => {
     isExpandedSubPage.value = false
   }
   isOpen.value = false
+  mobileSearchOpen.value = false
   searchQuery.value = ''
 })
 
@@ -131,15 +141,30 @@ const searchResults = computed(() => {
 })
 
 function handleExpand() {
-  isExpandedSubPage.value = true
+  if (!isDesktop.value) {
+    mobileSearchOpen.value = true
+  }
+  else {
+    isExpandedSubPage.value = true
+  }
   isOpen.value = true
   nextTick(() => {
     inputRef.value?.focus()
   })
 }
 
+function handleClose() {
+  isOpen.value = false
+  mobileSearchOpen.value = false
+  searchQuery.value = ''
+  if (!isRoot.value) {
+    isExpandedSubPage.value = false
+  }
+}
+
 function handleSelect(item: SearchItem) {
   isOpen.value = false
+  mobileSearchOpen.value = false
   if (!isRoot.value) {
     isExpandedSubPage.value = false
   }
@@ -171,23 +196,14 @@ function handleKeyDown(e: KeyboardEvent) {
     }
   }
   else if (e.key === 'Escape') {
-    isOpen.value = false
-    if (!isRoot.value) {
-      isExpandedSubPage.value = false
-    }
+    handleClose()
   }
 }
 
 function handleGlobalShortcut(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    if (!isRoot.value) {
-      isExpandedSubPage.value = true
-    }
-    isOpen.value = true
-    nextTick(() => {
-      inputRef.value?.focus()
-    })
+    handleExpand()
   }
 }
 
@@ -205,8 +221,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="containerRef" :class="[showInput ? 'relative w-full min-w-[240px] max-w-md lg:max-w-lg' : 'shrink-0']">
-    <!-- Compact Icon Button (Sub-pages default state) -->
+  <div
+    ref="containerRef"
+    :class="[
+      showInput
+        ? 'relative w-full min-w-0 sm:min-w-[240px] max-w-none sm:max-w-md lg:max-w-lg flex items-center'
+        : 'shrink-0',
+    ]"
+  >
+    <!-- Compact Icon Button (Sub-pages default state, or mobile idle state) -->
     <button
       v-if="!showInput"
       type="button"
@@ -221,7 +244,7 @@ onUnmounted(() => {
     <div
       v-else
       :class="[
-        'group relative flex items-center rounded-xl px-3 py-1.5 transition-all duration-200',
+        'group relative flex flex-1 items-center rounded-xl px-3 py-1.5 transition-all duration-200',
         'border border-neutral-200/80 bg-white/70 shadow-2xs backdrop-blur-md',
         'dark:border-neutral-800/80 dark:bg-neutral-900/70',
         'hover:border-primary-500/50',
@@ -244,7 +267,17 @@ onUnmounted(() => {
         @keydown="handleKeyDown"
         @input="handleInput"
       >
-      <div class="ml-2 flex shrink-0 items-center gap-1">
+      <!-- Clear button when text is entered -->
+      <button
+        v-if="searchQuery"
+        type="button"
+        class="ml-1 size-5 flex shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+        title="Clear search"
+        @click.stop="searchQuery = ''; inputRef?.focus()"
+      >
+        <div class="i-solar:close-circle-bold size-3.5" />
+      </button>
+      <div class="ml-2 shrink-0 items-center gap-1 hidden sm:flex">
         <span
           :class="[
             'rounded-md border px-1.5 py-0.5 text-[10px] font-semibold',
@@ -257,15 +290,69 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Autocomplete Dropdown Overlay -->
+    <!-- Mobile Cancel Button -->
+    <button
+      v-if="showInput && !isDesktop"
+      type="button"
+      class="ml-2 h-9 flex shrink-0 cursor-pointer items-center px-1 text-xs text-primary-500 font-semibold transition active:opacity-70 sm:hidden"
+      @click="handleClose"
+    >
+      Cancel
+    </button>
+
+    <!-- Mobile Dimmed Backdrop Scrim & Mobile Viewport Dropdown -->
+    <Teleport to="body">
+      <div
+        v-if="showInput && !isDesktop && isOpen"
+        class="backdrop-blur-xs animate-in fade-in fixed inset-0 top-14 z-[99990] bg-black/30 duration-150"
+        @click="handleClose"
+      />
+
+      <div
+        v-if="showInput && !isDesktop && isOpen && searchResults.length > 0"
+        ref="dropdownRef"
+        class="animate-in fade-in zoom-in-95 fixed inset-x-3 top-16 z-[100000] max-h-[60dvh] overflow-y-auto border border-neutral-200/90 rounded-2xl bg-white/95 p-1.5 shadow-2xl backdrop-blur-2xl duration-150 dark:border-neutral-800/90 dark:bg-neutral-900/95"
+      >
+        <div class="px-2.5 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">
+          {{ searchQuery.trim() ? 'Search Results' : 'Suggested Shortcuts' }}
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <button
+            v-for="(item, idx) in searchResults"
+            :key="item.id"
+            type="button"
+            :class="[
+              'flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors',
+              highlightedIndex === idx
+                ? 'bg-primary-500/10 font-semibold text-primary-600 dark:bg-primary-500/20 dark:text-primary-300'
+                : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800/60',
+            ]"
+            @mouseenter="highlightedIndex = idx"
+            @click.stop="handleSelect(item)"
+          >
+            <div class="min-w-0 flex flex-1 items-center gap-2.5">
+              <div :class="item.icon || 'i-solar:alt-arrow-right-bold-duotone'" class="shrink-0 text-base text-primary-500" />
+              <div class="min-w-0 flex flex-1 flex-col">
+                <span class="truncate">{{ item.title }}</span>
+                <span v-if="item.description" class="truncate text-[10px] text-neutral-400 font-normal dark:text-neutral-500">
+                  {{ item.description }}
+                </span>
+              </div>
+            </div>
+            <span
+              class="ml-2 shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-400 font-medium dark:bg-neutral-800 dark:text-neutral-500"
+            >
+              {{ item.category }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Desktop Autocomplete Dropdown Overlay -->
     <div
-      v-if="showInput && isOpen && searchResults.length > 0"
-      :class="[
-        'absolute left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] top-full z-[99999] mt-2 max-h-96 overflow-y-auto p-1.5',
-        'border rounded-2xl shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150',
-        'border-neutral-200/90 bg-white/95',
-        'dark:border-neutral-800/90 dark:bg-neutral-900/95',
-      ]"
+      v-if="showInput && isDesktop && isOpen && searchResults.length > 0"
+      class="animate-in fade-in zoom-in-95 absolute left-1/2 top-full z-[99999] mt-2 max-h-96 w-[480px] overflow-y-auto border border-neutral-200/90 rounded-2xl bg-white/95 p-1.5 shadow-2xl backdrop-blur-2xl duration-150 -translate-x-1/2 dark:border-neutral-800/90 dark:bg-neutral-900/95"
     >
       <div class="px-2.5 py-1 text-[10px] text-neutral-400 font-bold tracking-wider uppercase dark:text-neutral-500">
         {{ searchQuery.trim() ? 'Search Results' : 'Suggested Shortcuts' }}
@@ -274,6 +361,7 @@ onUnmounted(() => {
         <button
           v-for="(item, idx) in searchResults"
           :key="item.id"
+          type="button"
           :class="[
             'flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors',
             highlightedIndex === idx
@@ -281,7 +369,7 @@ onUnmounted(() => {
               : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800/60',
           ]"
           @mouseenter="highlightedIndex = idx"
-          @click="handleSelect(item)"
+          @click.stop="handleSelect(item)"
         >
           <div class="min-w-0 flex flex-1 items-center gap-2.5">
             <div :class="item.icon || 'i-solar:alt-arrow-right-bold-duotone'" class="shrink-0 text-base text-primary-500" />
@@ -293,11 +381,7 @@ onUnmounted(() => {
             </div>
           </div>
           <span
-            :class="[
-              'ml-2 shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium',
-              'bg-neutral-100 text-neutral-400',
-              'dark:bg-neutral-800 dark:text-neutral-500',
-            ]"
+            class="ml-2 shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] text-neutral-400 font-medium dark:bg-neutral-800 dark:text-neutral-500"
           >
             {{ item.category }}
           </span>

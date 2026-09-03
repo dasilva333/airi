@@ -2,7 +2,7 @@
 import { SettingsSearchBar, SettingsThemeHeaderWidget } from '@proj-airi/stage-ui/components'
 import { buildSettingsCatalogTopology, resolvePathFromRoute } from '@proj-airi/stage-ui/constants'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -18,6 +18,7 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const providersStore = useProvidersStore()
+const isMobileSearchOpen = ref(false)
 
 interface BreadcrumbItem {
   id: string
@@ -76,8 +77,13 @@ function handleBackClick() {
   <header
     class="shadow-2xs relative z-50 h-14 w-full flex items-center justify-between gap-2 border-b border-neutral-200/70 bg-white/70 px-3 backdrop-blur-md sm:gap-3 dark:border-neutral-800/70 dark:bg-neutral-900/70 sm:px-4"
   >
-    <!-- Left: Back Button & Clickable Breadcrumbs -->
-    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+    <!-- Left: Back Button & Clickable Breadcrumbs (Hidden on mobile when spotlight search is active) -->
+    <div
+      :class="[
+        'items-center gap-2 sm:gap-3 shrink-0',
+        isMobileSearchOpen ? 'hidden sm:flex' : 'flex',
+      ]"
+    >
       <!-- Back Button -->
       <button
         type="button"
@@ -125,13 +131,26 @@ function handleBackClick() {
       </nav>
     </div>
 
-    <!-- Center: Horizontally Centered Autocomplete Search Bar -->
-    <div class="mx-2 max-w-xl flex flex-1 items-center justify-center">
-      <SettingsSearchBar class="w-full" />
+    <!-- Center: Horizontally Centered Autocomplete Search Bar (Expands on mobile) -->
+    <div
+      :class="[
+        'flex flex-1 items-center justify-center transition-all duration-200',
+        isMobileSearchOpen ? 'mx-0 w-full max-w-none' : 'mx-2 max-w-xl',
+      ]"
+    >
+      <SettingsSearchBar
+        v-model:mobile-search-open="isMobileSearchOpen"
+        class="w-full"
+      />
     </div>
 
-    <!-- Right: Depth Indicator & Theme / Color Picking Controls -->
-    <div class="flex shrink-0 items-center gap-2 sm:gap-2.5">
+    <!-- Right: Depth Indicator & Theme / Color Picking Controls (Hidden on mobile when spotlight search is active) -->
+    <div
+      :class="[
+        'items-center gap-2 sm:gap-2.5 shrink-0',
+        isMobileSearchOpen ? 'hidden sm:flex' : 'flex',
+      ]"
+    >
       <!-- Depth Level Indicator (深 N) -->
       <div
         class="select-none items-center gap-1 border border-neutral-200/50 rounded-xl bg-neutral-100/50 px-2.5 py-1.5 text-[10px] text-neutral-400 tracking-wider font-mono hidden md:flex dark:border-neutral-800/50 dark:bg-neutral-800/50 dark:text-neutral-500"
