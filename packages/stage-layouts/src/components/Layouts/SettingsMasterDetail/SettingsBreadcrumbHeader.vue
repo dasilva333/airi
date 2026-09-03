@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SettingsSearchBar, SettingsThemeHeaderWidget } from '@proj-airi/stage-ui/components'
+import { CloudflareAccountHeaderWidget, SettingsSearchBar, SettingsThemeHeaderWidget } from '@proj-airi/stage-ui/components'
 import { buildSettingsCatalogTopology, resolvePathFromRoute } from '@proj-airi/stage-ui/constants'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { computed, ref } from 'vue'
@@ -159,6 +159,9 @@ function handleBackClick() {
         <span class="text-primary-500 font-bold">深</span>
         <span>{{ depthLevel }}</span>
       </div>
+
+      <!-- Cloudflare & Edge Account Indicator Widget -->
+      <CloudflareAccountHeaderWidget shrink-0 />
 
       <!-- Color Palette & Theme Mode Header Widget -->
       <SettingsThemeHeaderWidget shrink-0 />
