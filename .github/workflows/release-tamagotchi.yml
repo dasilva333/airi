@@ -9,7 +9,7 @@ env:
   DEB_BUNDLE_NAME: ''
   RPM_BUNDLE_NAME: ''
   FLATPAK_BUNDLE_NAME: ''
-  PRODUCT_NAME: 'AIRI'
+  PRODUCT_NAME: 'AIRI (dasilva333)'
   VERSION: ''
 
 on:

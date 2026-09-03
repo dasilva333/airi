@@ -82,8 +82,8 @@ const STAGE_MATE_RESOURCE_FILTERS = [
 ]
 
 export default {
-  appId: 'ai.moeru.airi',
-  productName: 'AIRI',
+  appId: 'ai.moeru.airi.dasilva333',
+  productName: 'AIRI (dasilva333)',
   directories: {
     output: 'dist',
     buildResources: 'build',
@@ -160,14 +160,14 @@ export default {
     '**/*.node',
   ],
   extraMetadata: {
-    name: 'ai.moeru.airi',
+    name: 'ai.moeru.airi.dasilva333',
     main: 'out/main/index.js',
     homepage: 'https://airi.moeru.ai/docs/',
-    repository: 'https://github.com/moeru-ai/airi',
+    repository: 'https://github.com/dasilva333/airi',
     license: 'MIT',
   },
   win: {
-    executableName: 'airi',
+    executableName: 'airi-dasilva333',
     target: [
       'nsis',
     ],
@@ -226,9 +226,9 @@ export default {
       'rpm',
     ],
     category: 'Utility',
-    synopsis: 'AI VTuber/Waifu chatbot app inspired by Neuro-sama.',
-    description: 'AIRI is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.',
-    executableName: 'airi',
+    synopsis: 'AIRI (dasilva333 fork) - AI VTuber/Waifu chatbot',
+    description: 'AIRI (dasilva333 fork) is an AI VTuber/Waifu chatbot supporting Live2D/VRM avatars, featuring human-like interactions and modular stage-based rendering.',
+    executableName: 'airi-dasilva333',
     artifactName: '${productName}-${version}-linux-${arch}.${ext}',
     icon: 'build/icons/icon.png',
   },

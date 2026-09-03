@@ -1,0 +1,71 @@
+app-id: ai.moeru.airi.dasilva333
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: airi.sh
+
+finish-args:
+  # GUI environment
+  - --share=network
+  - --socket=x11
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --device=all
+  - --socket=pulseaudio
+  - --socket=system-bus
+  - --socket=session-bus
+  - --share=ipc
+
+  # DBus
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --system-talk-name=org.freedesktop.login1
+  - --system-talk-name=org.freedesktop.UPower
+  # Filesystem permissions
+  - --filesystem=xdg-download:rw
+  - --filesystem=xdg-config/airi-fork:create
+  - --filesystem=~/.config/ai.moeru.airi-fork:create
+
+modules:
+  - name: AIRI-App
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/bin
+      - mkdir -p /app/lib/airi
+      - cp -r payload/. /app/lib/airi/
+      - install airi.sh /app/bin/airi.sh
+      - chmod +x /app/lib/airi/airi-dasilva333 || chmod +x /app/lib/airi/airi
+      - ln -s /app/bin/airi.sh /app/bin/airi-dasilva333
+      - ln -s /app/bin/airi.sh /app/bin/airi
+      - install -Dm644 ai.moeru.airi.dasilva333.desktop /app/share/applications/ai.moeru.airi.dasilva333.desktop
+      - install -Dm644 ai.moeru.airi.dasilva333.metainfo.xml /app/share/metainfo/ai.moeru.airi.dasilva333.metainfo.xml
+      - install -Dm644 build/icon-512.png /app/share/icons/hicolor/512x512/apps/ai.moeru.airi.dasilva333.png
+    sources:
+      - type: dir
+        only-arches: [x86_64]
+        path: dist/linux-unpacked
+        dest: payload
+      - type: dir
+        only-arches: [aarch64]
+        path: dist/linux-arm64-unpacked
+        dest: payload
+      - type: file
+        path: ai.moeru.airi.dasilva333.desktop
+      - type: file
+        path: ai.moeru.airi.dasilva333.metainfo.xml
+      - type: file
+        path: build/icon-512.png
+        dest: build
+      - type: script
+        dest-filename: airi.sh
+        commands:
+          - ulimit -c 0
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - |
+            if [ -n "$WAYLAND_DISPLAY" ]; then
+              export ELECTRON_OZONE_PLATFORM_HINT=auto
+            fi
+          - exec zypak-wrapper /app/lib/airi/airi-dasilva333 "$@"

@@ -40,6 +40,7 @@ import {
   electronStageToggleVisibility,
 } from '../shared/eventa'
 import { openDebugger, setupDebugger } from './app/debugger'
+import { ensureLegacyUserDataMigrated } from './app/migration'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
 import { setElectronMainDirname } from './libs/electron/location'
@@ -189,8 +190,16 @@ if (forceHighPerformanceGpu) {
   console.log('[AIRI] High-performance GPU overrides enabled via AIRI_FORCE_HIGH_PERFORMANCE_GPU=1')
 }
 
+const appUserDataPath = env.AIRI_USER_DATA_DIR?.trim() || env.APP_USER_DATA_PATH?.trim()
+if (appUserDataPath) {
+  app.setPath('userData', appUserDataPath)
+}
+
+// Perform seamless one-time migration of existing legacy user data if needed
+ensureLegacyUserDataMigrated(app.getPath('userData'))
+
 app.dock?.setIcon(icon)
-electronApp.setAppUserModelId('ai.moeru.airi')
+electronApp.setAppUserModelId('ai.moeru.airi.dasilva333')
 
 initScreenCaptureForMain()
 

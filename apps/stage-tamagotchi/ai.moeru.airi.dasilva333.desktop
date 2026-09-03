@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=AIRI (dasilva333)
+Exec=airi-dasilva333 %U
+Terminal=false
+Type=Application
+Icon=ai.moeru.airi.dasilva333
+StartupWMClass=AIRI
+Comment=AIRI (dasilva333 fork) - AI VTuber/Waifu chatbot supporting Live2D/VRM avatars.
+Categories=Utility;Development;
