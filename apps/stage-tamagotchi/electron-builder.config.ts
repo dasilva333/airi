@@ -101,6 +101,7 @@ export default {
       const candidates = [
         join(context.appOutDir, 'airi.app/Contents/Resources/StageMate/StageMate.app'),
         join(context.appOutDir, 'AIRI.app/Contents/Resources/StageMate/StageMate.app'),
+        join(context.appOutDir, 'AIRI (dasilva333).app/Contents/Resources/StageMate/StageMate.app'),
       ]
       for (const cand of candidates) {
         if (existsSync(cand)) {

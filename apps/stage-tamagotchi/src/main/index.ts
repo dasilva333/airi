@@ -196,7 +196,10 @@ if (appUserDataPath) {
 }
 
 // Perform seamless one-time migration of existing legacy user data if needed
-ensureLegacyUserDataMigrated(app.getPath('userData'))
+const effectiveUserDataPath = ensureLegacyUserDataMigrated(app.getPath('userData'))
+if (effectiveUserDataPath && effectiveUserDataPath !== app.getPath('userData')) {
+  app.setPath('userData', effectiveUserDataPath)
+}
 
 app.dock?.setIcon(icon)
 electronApp.setAppUserModelId('ai.moeru.airi.dasilva333')

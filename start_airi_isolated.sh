@@ -13,7 +13,13 @@ if [ "$(uname -s)" = "Linux" ]; then
 fi
 
 # Isolated User Data Directory & Origin Port
-export AIRI_USER_DATA_DIR="${AIRI_USER_DATA_DIR:-$HOME/.config/ai.moeru.airi.dasilva333}"
+if [ -z "${AIRI_USER_DATA_DIR:-}" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
+    export AIRI_USER_DATA_DIR="$HOME/Library/Application Support/ai.moeru.airi.dasilva333"
+  else
+    export AIRI_USER_DATA_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ai.moeru.airi.dasilva333"
+  fi
+fi
 export APP_USER_DATA_PATH="$AIRI_USER_DATA_DIR"
 mkdir -p "$AIRI_USER_DATA_DIR"
 

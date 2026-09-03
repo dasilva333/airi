@@ -11,15 +11,28 @@ if [ "$(uname -s)" = "Linux" ]; then
   export ELECTRON_DISABLE_SANDBOX=1
 fi
 
-# Isolated User Data Directory so it never collides with stock AIRI
-export AIRI_USER_DATA_DIR="${AIRI_USER_DATA_DIR:-$HOME/.config/ai.moeru.airi.dasilva333}"
-export APP_USER_DATA_PATH="$AIRI_USER_DATA_DIR"
-mkdir -p "$AIRI_USER_DATA_DIR"
+# Isolated User Data Directory routing
+# If the isolated fork directory exists on disk (e.g. via pnpm data:migrate), use it automatically!
+if [ -z "${AIRI_USER_DATA_DIR:-}" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
+    ISOLATED_DIR="$HOME/Library/Application Support/ai.moeru.airi.dasilva333"
+  else
+    ISOLATED_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ai.moeru.airi.dasilva333"
+  fi
+  if [ -d "$ISOLATED_DIR" ]; then
+    export AIRI_USER_DATA_DIR="$ISOLATED_DIR"
+  fi
+fi
 
-# Ensure workspace dependencies and binaries are installed
-if [ ! -d "node_modules" ] || [ ! -d "node_modules/.bin" ]; then
+if [ -n "${AIRI_USER_DATA_DIR:-}" ]; then
+  export APP_USER_DATA_PATH="$AIRI_USER_DATA_DIR"
+  mkdir -p "$AIRI_USER_DATA_DIR"
+fi
+
+# Ensure workspace dependencies and binaries (turbo, electron-vite, etc.) are installed
+if [ ! -d "node_modules" ] || ! command -v pnpm exec turbo &> /dev/null; then
   echo "[0/2] Installing/updating project dependencies (pnpm install)..."
-  pnpm install --ignore-scripts || pnpm install || { echo "Error: pnpm install failed."; exit 1; }
+  pnpm install || { echo "Error: pnpm install failed."; exit 1; }
 fi
 
 # Ensure Stage-Mate companion runtime is available
