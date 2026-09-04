@@ -20,8 +20,19 @@ export interface TtsInputChunk {
 }
 
 export interface TtsInputChunkOptions {
+  /**
+   * Number of initial chunks eligible for fast-path yielding on soft punctuation.
+   * Defaults to 1 (Slice 1 fast-path). Subsequent chunks yield only on hard punctuation or emergency limit.
+   */
   boost?: number
+  /**
+   * Minimum number of words required before a soft punctuation can trigger a fast-path yield.
+   * Prevents micro-chunks on single-word openings (e.g. "Oh," or "Well,"). Defaults to 4.
+   */
   minimumWords?: number
+  /**
+   * Maximum number of words in a chunk before an emergency limit cut is triggered. Defaults to 40.
+   */
   maximumWords?: number
   stripNarrative?: boolean
   keepNarrativeText?: boolean
@@ -38,7 +49,7 @@ export async function* chunkTtsInput(
   options?: TtsInputChunkOptions,
 ): AsyncGenerator<TtsInputChunk, void, unknown> {
   const {
-    boost = 2,
+    boost = 1,
     minimumWords = 4,
     maximumWords = 40,
   } = options ?? {}
@@ -159,7 +170,8 @@ export async function* chunkTtsInput(
       chunkWordsCount += words.length
       buffer = ''
 
-      if (flush || hard || chunkWordsCount > maximumWords || yieldCount < boost) {
+      const shouldBoost = soft && yieldCount < boost && chunkWordsCount >= minimumWords
+      if (flush || hard || chunkWordsCount > maximumWords || shouldBoost) {
         const text = chunk.trim()
         yield {
           text,
@@ -195,9 +207,6 @@ export async function* chunkTtsInput(
     current = next
   }
 
-  // TODO: remove later
-  // eslint-disable-next-line no-console
-  console.debug('while loop ends, chunk/buffer:', chunk, buffer)
   if (chunk.length > 0 || buffer.length > 0) {
     const text = (chunk + buffer).trim()
     yield {
