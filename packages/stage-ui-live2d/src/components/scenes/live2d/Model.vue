@@ -19,13 +19,16 @@ import { toast } from 'vue-sonner'
 
 import {
   createBeatSyncController,
-
+  createLive2DMotionSpring,
+  disableLive2DSdkBreath,
   hookArtMeshColorsAfterModelUpdate,
   useLive2DMotionManagerUpdate,
   useMotionUpdatePluginAutoEyeBlink,
   useMotionUpdatePluginBeatSync,
+  useMotionUpdatePluginBreathControl,
   useMotionUpdatePluginIdleDisable,
   useMotionUpdatePluginIdleFocus,
+  useMotionUpdatePluginManualControl,
   useMotionUpdatePluginMouseFocus,
 } from '../../../composables/live2d'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
@@ -33,6 +36,7 @@ import { consumePendingDslGroups } from '../../../runtime/dsl-capture'
 import { buildAdapterPorts, Live2DRuntimeAdapter } from '../../../runtime/live2d-runtime-adapter'
 import { DSL_INTIMACY_MAX, useDslIntimacyStore } from '../../../stores/dsl-intimacy'
 import { useLive2d } from '../../../stores/live2d'
+import { getLive2DMotionControlModelOffset, useLive2DMotionControl } from '../../../stores/motion-control'
 import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
@@ -163,7 +167,22 @@ function dslMotionGroupBlocked(group: string, index: number): boolean {
   return !!idlePhysical && isIdleLike && dslAdapter.isMotionGroupEnabled(idlePhysical) === false
 }
 
-const offset = computed(() => parsePropsOffset())
+const motionControlStore = useLive2DMotionControl()
+const {
+  breathControl: manualBreathControl,
+  control: manualMotionControl,
+  exclusiveOwnerId,
+} = storeToRefs(motionControlStore)
+const manualMotionSpring = createLive2DMotionSpring()
+const manualControlOffset = computed(() => getLive2DMotionControlModelOffset(manualMotionSpring.output.value))
+
+const offset = computed(() => {
+  const base = parsePropsOffset()
+  return {
+    xOffset: base.xOffset + manualControlOffset.value.x,
+    yOffset: base.yOffset + manualControlOffset.value.y,
+  }
+})
 
 const pixiApp = toRef(() => props.app)
 const paused = toRef(() => props.paused)
@@ -730,6 +749,7 @@ async function loadModel() {
     const internalModel = model.value.internalModel
     const coreModel = internalModel.coreModel
     const motionManager = internalModel.motionManager
+    disableLive2DSdkBreath(internalModel)
     captureNeutralParameterBaseline(coreModel)
     coreModel.setParameterValueById('ParamMouthOpenY', mouthOpenSize.value)
 
@@ -841,6 +861,10 @@ async function loadModel() {
       const size = props.mouthOpenSize ?? 0
       ctx.model.setParameterValueById('ParamMouthOpenY', Math.max(0, Math.min(1.0, size)))
     }, 'post')
+
+    // Manual / Procedural ambient motion spring controller
+    motionManagerUpdate.register(useMotionUpdatePluginManualControl(manualMotionControl, manualMotionSpring, exclusiveOwnerId), 'post')
+    motionManagerUpdate.register(useMotionUpdatePluginBreathControl(manualBreathControl), 'post')
 
     // NOTICE: ArtMesh colors must be applied after coreModel.update(), not in the motion hook.
     // See Cubism4InternalModel.update(): motionManager.update → … → model.update() → draw.

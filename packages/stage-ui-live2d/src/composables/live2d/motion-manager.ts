@@ -1,14 +1,18 @@
 import type { Cubism4InternalModel, InternalModel } from 'pixi-live2d-display/cubism4'
 import type { Ref } from 'vue'
 
+import type { Live2DBreathControlState, Live2DMotionControlState } from '../../stores/motion-control'
 import type { BeatSyncController } from './beat-sync'
+import type { Live2DMotionSpringController } from './motion-control-spring'
 
+import { sampleLive2DBreath } from '../../stores/motion-control'
 import { useLive2DIdleEyeFocus } from './animation'
 
 type CubismModel = Cubism4InternalModel['coreModel']
 type CubismEyeBlink = Cubism4InternalModel['eyeBlink']
 
 export type PixiLive2DInternalModel = InternalModel & {
+  breath?: unknown
   eyeBlink?: CubismEyeBlink
   coreModel: CubismModel
 }
@@ -568,9 +572,103 @@ export function hookArtMeshColorsAfterModelUpdate(
   }
 }
 
-/** @deprecated Use hookArtMeshColorsAfterModelUpdate ÔÇö motion tick runs before coreModel.update() */
+/** @deprecated Use hookArtMeshColorsAfterModelUpdate — motion tick runs before coreModel.update() */
 export function useMotionUpdatePluginArtMeshColors(artMeshColors: Ref<Record<string, string>>): MotionManagerPlugin {
   return (ctx) => {
     applyArtMeshColorsToDrawables(ctx.internalModel, artMeshColors.value)
+  }
+}
+
+/**
+ * Disables the periodic breath pass that the Cubism runtime applies after AIRI's motion plugins.
+ */
+export function disableLive2DSdkBreath(internalModel: { breath?: unknown }) {
+  delete internalModel.breath
+}
+
+function setModelParameterDual(model: any, idV4: string, idV2: string, value: number) {
+  try {
+    model.setParameterValueById(idV4, value)
+  }
+  catch {}
+  try {
+    model.setParameterValueById(idV2, value)
+  }
+  catch {}
+}
+
+/**
+ * Applies AIRI's manual breath curve after normal motion updates.
+ *
+ * A release restores the configured static breath value once. Normal model
+ * motion can own the parameter again on later frames.
+ */
+export function useMotionUpdatePluginBreathControl(
+  control: Ref<Live2DBreathControlState>,
+  nowMs: () => number = Date.now,
+): MotionManagerPlugin {
+  let activeOwnerId: string | null = null
+
+  return (ctx) => {
+    const state = control.value
+    if (!state.active) {
+      if (activeOwnerId !== null) {
+        setModelParameterDual(ctx.model, 'ParamBreath', 'PARAM_BREATH', ctx.modelParameters.value?.breath ?? 0)
+      }
+      activeOwnerId = null
+      return
+    }
+
+    activeOwnerId = state.ownerId
+    const elapsedSeconds = Math.max(0, nowMs() - state.startedAtMs) / 1000
+    const sample = sampleLive2DBreath(state.options, elapsedSeconds)
+    setModelParameterDual(ctx.model, 'ParamBreath', 'PARAM_BREATH', sample.value)
+  }
+}
+
+/**
+ * Applies the active manual/procedural pose after normal Live2D motion updates.
+ *
+ * Supports both Cubism 2 and Cubism 4 models.
+ * When discrete motions play (!ctx.isIdleMotion) and control is not exclusive,
+ * the ambient engine yields gracefully and steps the spring toward neutral.
+ */
+export function useMotionUpdatePluginManualControl(
+  control: Ref<Live2DMotionControlState>,
+  spring: Live2DMotionSpringController,
+  exclusiveOwnerId?: Ref<string | null>,
+): MotionManagerPlugin {
+  return (ctx) => {
+    const rawDelta = Math.max(ctx.timeDelta ?? 0, 0)
+    const dt = Math.min(0.1, (rawDelta > 5 ? rawDelta / 1000 : rawDelta) || 0.016)
+
+    const isExclusive = !!exclusiveOwnerId?.value && exclusiveOwnerId.value === control.value.ownerId
+
+    // Yield gracefully when a discrete action / DSL motion plays and control is NOT exclusive
+    if (!ctx.isIdleMotion && !isExclusive) {
+      spring.step({ ...control.value, active: false }, dt)
+      return
+    }
+
+    const output = spring.step(control.value, dt)
+    if (!output.active)
+      return
+
+    const { eyeX, eyeY, eyeSquint, headX, headY, headZ, bodyX, bodyY, bodyZ, mouthForm, mouthOpen } = output.pose
+    setModelParameterDual(ctx.model, 'ParamEyeBallX', 'PARAM_EYE_BALL_X', eyeX)
+    setModelParameterDual(ctx.model, 'ParamEyeBallY', 'PARAM_EYE_BALL_Y', eyeY)
+    const remainingEyeOpen = 1 - eyeSquint
+    const currentEyeL = (ctx.model.getParameterValueById('ParamEyeLOpen') ?? ctx.model.getParameterValueById('PARAM_EYE_L_OPEN') ?? 1)
+    const currentEyeR = (ctx.model.getParameterValueById('ParamEyeROpen') ?? ctx.model.getParameterValueById('PARAM_EYE_R_OPEN') ?? 1)
+    setModelParameterDual(ctx.model, 'ParamEyeLOpen', 'PARAM_EYE_L_OPEN', currentEyeL * remainingEyeOpen)
+    setModelParameterDual(ctx.model, 'ParamEyeROpen', 'PARAM_EYE_R_OPEN', currentEyeR * remainingEyeOpen)
+    setModelParameterDual(ctx.model, 'ParamAngleX', 'PARAM_ANGLE_X', headX * 30)
+    setModelParameterDual(ctx.model, 'ParamAngleY', 'PARAM_ANGLE_Y', headY * 30)
+    setModelParameterDual(ctx.model, 'ParamAngleZ', 'PARAM_ANGLE_Z', headZ * 30)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleX', 'PARAM_BODY_ANGLE_X', bodyX * 10)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleY', 'PARAM_BODY_ANGLE_Y', bodyY * 10)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleZ', 'PARAM_BODY_ANGLE_Z', bodyZ * 10)
+    setModelParameterDual(ctx.model, 'ParamMouthForm', 'PARAM_MOUTH_FORM', mouthForm)
+    setModelParameterDual(ctx.model, 'ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y', mouthOpen)
   }
 }

@@ -49,6 +49,8 @@
     "@proj-airi/font-cjkfonts-allseto": "workspace:^",
     "@proj-airi/font-xiaolai": "workspace:^",
     "@proj-airi/i18n": "workspace:^",
+    "@proj-airi/model-driver-magic-live2d": "workspace:^",
+    "@proj-airi/motion-driver-magic": "workspace:^",
     "@proj-airi/plugin-sdk": "workspace:^",
     "@proj-airi/server-sdk": "workspace:*",
     "@proj-airi/stage-layouts": "workspace:^",
