@@ -16,7 +16,7 @@
     "build": "tsdown --entry src/index.ts && node -e \"const fs=require('fs'); const code=fs.readFileSync('dist/index.mjs','utf8'); fs.writeFileSync('src/bundle-code.ts', 'export const BUNDLED_WORKER_SCRIPT = ' + JSON.stringify(code) + ';\\n');\" && tsdown",
     "dev": "wrangler dev",
     "deploy": "tsx src/cli.ts deploy",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "node -e \"const fs=require('fs'); if(!fs.existsSync('src/bundle-code.ts')) fs.writeFileSync('src/bundle-code.ts', 'export const BUNDLED_WORKER_SCRIPT = \\'\\';\\n');\" && vue-tsc --noEmit"
   },
   "dependencies": {
     "@proj-airi/i18n": "workspace:*",

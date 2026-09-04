@@ -88,6 +88,7 @@ components.d.ts
 # Code generation
 **/vscode-airi/src/generated/
 **/vscode-airi/LICENSE
+apps/stage-edge/src/bundle-code.ts
 
 # Make it easy for devenv users to override their local environment.
 # See: https://github.com/moeru-ai/airi/pull/110#discussion_r2024378953
