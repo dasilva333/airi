@@ -13,7 +13,7 @@ import { getImportUrlBundles } from '@proj-airi/drizzle-duckdb-wasm/bundles/impo
 import { useElectronWindowResizeStateEvent } from '@proj-airi/electron-vueuse'
 import { createLive2DLipSync } from '@proj-airi/model-driver-lipsync'
 import { wlipsyncProfile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
-import { createPlaybackManager, createSpeechPipeline } from '@proj-airi/pipelines-audio'
+import { alignSpokenSentences, createPlaybackManager, createSpeechPipeline } from '@proj-airi/pipelines-audio'
 import { debug } from '@proj-airi/stage-shared'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
@@ -586,6 +586,8 @@ async function streamAudioToDiscordVoice(audioBuffer: AudioBuffer) {
   }
 }
 
+let scheduledPlaybackEndTime = 0
+
 async function playFunction(item: Parameters<Parameters<typeof createPlaybackManager<AudioBuffer>>[0]['play']>[0], signal: AbortSignal): Promise<void> {
   if (!audioContext)
     return
@@ -696,6 +698,8 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
   return new Promise<void>((resolve) => {
     let settled = false
+    let sentenceSyncRafId: number | null = null
+
     const resolveOnce = () => {
       if (settled)
         return
@@ -704,6 +708,10 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
     }
 
     const stopPlayback = () => {
+      if (sentenceSyncRafId) {
+        cancelAnimationFrame(sentenceSyncRafId)
+        sentenceSyncRafId = null
+      }
       try {
         source.stop()
         source.disconnect()
@@ -729,6 +737,62 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
     }
 
     try {
+      const itemStartTime = audioContext.currentTime
+      const itemDuration = item.audio.duration
+      scheduledPlaybackEndTime = Math.max(scheduledPlaybackEndTime, itemStartTime) + itemDuration
+
+      // Sentence-Sync: High-precision AudioContext clock listener for multi-sentence batches
+      if (item.boundaries && item.boundaries.length > 1) {
+        let currentBoundaryIdx = 0
+
+        const updateSentenceHighlight = () => {
+          if (signal.aborted || settled)
+            return
+
+          const elapsed = audioContext.currentTime - itemStartTime
+          let matchingIdx = -1
+          for (let i = 0; i < item.boundaries!.length; i++) {
+            const b = item.boundaries![i]
+            if (elapsed >= b.startSec && elapsed < b.endSec) {
+              matchingIdx = i
+              break
+            }
+          }
+          if (matchingIdx === -1 && elapsed >= item.boundaries![item.boundaries!.length - 1].endSec) {
+            matchingIdx = item.boundaries!.length - 1
+          }
+
+          if (matchingIdx !== currentBoundaryIdx && matchingIdx >= 0) {
+            currentBoundaryIdx = matchingIdx
+            const activeBoundary = item.boundaries![matchingIdx]
+            const actorId = playbackActorId.value
+            const color = getActorColor(actorId)
+
+            assistantCaptionSegments.value.forEach(s => s.isActive = false)
+            assistantCaptionSegments.value.push({
+              text: activeBoundary.text,
+              color,
+              actorId,
+              isActive: true,
+            })
+
+            try {
+              postCaption({
+                type: 'caption-assistant',
+                segments: JSON.parse(JSON.stringify(assistantCaptionSegments.value)),
+              })
+            }
+            catch (err) {
+              debug('[Stage] Failed to broadcast caption update:', err)
+            }
+          }
+
+          sentenceSyncRafId = requestAnimationFrame(updateSentenceHighlight)
+        }
+
+        sentenceSyncRafId = requestAnimationFrame(updateSentenceHighlight)
+      }
+
       source.start(0)
     }
     catch {
@@ -744,6 +808,21 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
   overflowPolicy: 'queue',
   ownerOverflowPolicy: 'steal-oldest',
 })
+
+// Intercept schedule to run CPU RMS Pause Aligner on multi-sentence batches before playback begins
+const basePlaybackSchedule = playbackManager.schedule
+playbackManager.schedule = (item) => {
+  if (item.audio && item.subSentences && item.subSentences.length > 1 && (!item.boundaries || item.boundaries.length === 0)) {
+    try {
+      const pcm = item.audio.getChannelData(0)
+      item.boundaries = alignSpokenSentences(pcm, item.audio.sampleRate, item.subSentences)
+    }
+    catch (err) {
+      debug('[Stage:Playback] Failed to align spoken sentences:', err)
+    }
+  }
+  basePlaybackSchedule(item)
+}
 
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
 
@@ -847,7 +926,7 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
       }
     }
     else {
-      console.error('Active virtual voice profile not found')
+      console.error(`[Stage:TTS] Active virtual voice profile "${targetVoice?.id}" (name: "${targetVoice?.name}") not found in speechStore.savedVoiceProfiles. Available profiles:`, speechStore.savedVoiceProfiles.map(p => ({ id: p.id, name: p.name })))
       return null
     }
   }
@@ -976,6 +1055,11 @@ function concatAudioBuffers(pieces: AudioBuffer[]): AudioBuffer {
 const speechPipeline = createSpeechPipeline<AudioBuffer>({
   tts: generateSpeechBuffered,
   concatAudio: concatAudioBuffers,
+  getBufferLead: () => {
+    if (!audioContext)
+      return 0
+    return Math.max(0, scheduledPlaybackEndTime - audioContext.currentTime)
+  },
   ttsStream: async (request: TtsRequest, signal: AbortSignal, onAudio: (audio: AudioBuffer) => void) => {
     const endpoint = resolveStreamingSpeechEndpoint()
 
@@ -1144,12 +1228,14 @@ speechPipeline.on('onIntentEnd', () => {
   cardStore.isModelSyncPrevented = false
   void discordStore.flushAudioTurn()
   rawAudioBuffers.clear()
+  scheduledPlaybackEndTime = 0
 })
 
 speechPipeline.on('onIntentCancel', () => {
   cardStore.isModelSyncPrevented = false
   discordStore.clearAudioTurn()
   rawAudioBuffers.clear()
+  scheduledPlaybackEndTime = 0
 })
 
 // NOTICE: the speech runtime host must follow the Stage lifecycle. If a previous Stage instance
@@ -1170,9 +1256,9 @@ playbackManager.onEnd(({ item }) => {
 
     // Deactivate segment when playback ends
     if (item.text?.trim()) {
-      const segment = assistantCaptionSegments.value.find(s => s.text === item.text && s.isActive)
-      if (segment) {
-        segment.isActive = false
+      const activeSeg = assistantCaptionSegments.value.find(s => s.isActive)
+      if (activeSeg) {
+        activeSeg.isActive = false
         postCaption({
           type: 'caption-assistant',
           segments: JSON.parse(JSON.stringify(assistantCaptionSegments.value)),
@@ -1192,8 +1278,12 @@ playbackManager.onStart(({ item }) => {
   nowSpeaking.value = true
 
   try {
+    const startText = (item.boundaries && item.boundaries.length > 0)
+      ? item.boundaries[0].text
+      : item.text
+
     // Update caption segments when a new audio segment starts
-    if (item.text?.trim()) {
+    if (startText?.trim()) {
       const actorId = playbackActorId.value
       const color = getActorColor(actorId)
 
@@ -1201,7 +1291,7 @@ playbackManager.onStart(({ item }) => {
       assistantCaptionSegments.value.forEach(s => s.isActive = false)
 
       assistantCaptionSegments.value.push({
-        text: item.text,
+        text: startText,
         color,
         actorId,
         isActive: true,

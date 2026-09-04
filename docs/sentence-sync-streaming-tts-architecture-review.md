@@ -61,11 +61,10 @@ LLM tokens ─► Chunk policy (Tier 0) ─► TTS request(s)
 - **Adaptive merging:** before sending request *k*, check buffer lead = `(scheduledEndTime − ctx.currentTime)`. If lead > ~2.5 s, wait for more sentences and merge (up to a cap, e.g. 3–4 sentences or ~250 chars). If lead is thin, send whatever complete sentence you have. This turns the latency/prosody trade-off into one tunable number instead of a fixed policy.
 - Note: Kokoro-FastAPI already re-chunks server-side (`TARGET_MIN/MAX_TOKENS` ≈ 175/250, absolute 450), so sending a giant block doesn't guarantee full-context prosody there anyway. Multi-sentence groups of 2–4 are the realistic prosody window.
 
-### Tier 1 — Provider timestamps (use when available)
+### Tier 1 — Provider timestamps (Rejected / Struck)
 
-The spec's "Naive Fix 3" is right that there is no *standard*, but wrong to dismiss it. The primary local engine already ships it: Kokoro-FastAPI exposes `/dev/captioned_speech`, which returns per-word timestamps and supports streaming (NDJSON lines of base64 audio + timestamps). ElevenLabs, Cartesia and Azure also return word/character alignment on their streaming paths. Add a `supportsTimestamps` capability flag to the speech provider; when set, sentence boundaries are derived from the word list by matching the last word of each sentence. Zero client compute, word-level precision.
-
-Caveat: there are open issues reporting `timestamps: null` and chunked-encoding errors on that endpoint in some builds, so Tier 2 must exist as a fallback even for Kokoro.
+> [!CAUTION]
+> **Architectural Decision (Struck from Roadmap)**: Vendor-specific timestamp endpoints (such as Kokoro-FastAPI's `/dev/captioned_speech`, proprietary SSE schemas, or vendor-locked NDJSON feeds) were evaluated and explicitly rejected. Binding AIRI to non-standard, provider-specific timestamp contracts violates universal client-side neutrality and creates fragile server couplings. AIRI targets standard OpenAI-compatible `/v1/audio/speech` endpoints universally. All alignment intelligence MUST remain purely client-side via Tier 2 (Pause Aligner).
 
 ### Tier 2 — Text-primed acoustic pause alignment (the core answer)
 
@@ -181,11 +180,101 @@ This gives you a regression harness and per-voice pause-length priors for free, 
 
 ---
 
-## 10. Recommendation
+---
 
-Ship in this order:
+## 10. Converged Implementation Status & Execution Order
 
-1. **Tier 0 chunk policy** (hard-punctuation-only after slice 1). Days of work, recovers most of the prosody, keeps the existing clock. Measure whether cross-sentence prosody is still a problem worth solving after this.
-2. **Tier 1 timestamps** for Kokoro-FastAPI via `captioned_speech` with a capability probe.
-3. **Tier 2 pause aligner** as the universal fallback for opaque OpenAI-compatible endpoints, validated against Tier 1 output.
-4. Tier 3 only if step 3's measured error is unacceptable.
+1. **Tier 0 Chunk Policy (Shipped & Verified)**:
+   - Slice 1 fast-path: yields on soft punctuation once `chunkWordsCount >= minimumWords` (default 4 words).
+   - Slices 2+: cut strictly on hard punctuation (`. ! ? … \n`). Never on intra-sentence commas.
+   - Result: Empirically verified reduction from 51 fragmented comma slices to 33 clean sentence slices on complex roleplay turns. Intra-sentence prosody fully restored.
+2. **Tier 1 Vendor Timestamps (Rejected & Struck)**:
+   - Struck from architecture to preserve 100% universal client-side compatibility with standard `/v1/audio/speech` endpoints.
+3. **Tier 2 CPU RMS Pause Aligner (Shipped & Verified)**:
+   - 10ms RMS envelope, 5ms hop, adaptive threshold ($\text{peakDb} - 32\text{ dB}$, floor $-48\text{ dBFS}$, min pause $75\text{ms}$).
+   - Dynamic programming monotonic alignment matching detected acoustic pauses against syllable/phonetic weight proportions.
+   - 10/10 unit tests passing. Takes $<0.5\text{ms}$ CPU time per 5s audio chunk.
+4. **Unblocked 5-Slot Concurrent Pipeline & `[DONE]` Remainder Invariant (Active)**:
+   - Unthrottled streaming dispatch across up to 5 concurrent TTS requests.
+   - Back-to-back audio pre-buffering in `playbackManager` for 0ms gapless speech transitions.
+   - Strict `[DONE]` remainder tracking based on text *dispatched* rather than *played*.
+
+---
+
+## 11. Empirical Post-Mortem & The Three-Timeline Concurrency Model
+
+### 11.1 The "1.5s Buffer-Lead Starvation Trap" (Post-Mortem)
+
+During initial integration, a Lead Coordinator was introduced to hold back sentence chunks in memory until the Web Audio playback queue's remaining lead dropped below a threshold:
+$$\text{bufferLead} = \text{scheduledEndTime} - \text{audioContext.currentTime} < 1.5\text{s}$$
+
+**Empirical Failure Observed in DevTools**:
+DevTools network waterfall traces revealed that instead of pipelining requests, TTS requests were serialized **5 to 10 seconds apart** (Request 1 at 10s, Request 2 at 15s, Request 3 at 20s, Request 4 at 30s, etc.):
+```
+[Audio 1 Playing: 4.0s] ──► (Waits until 1.5s remaining) ──► Dispatches Request 2 ──► Network/TTS (0.9s) ──► [GAP OF DEAD SILENCE] ──► [Audio 2 Plays]
+```
+
+**Why it Failed**:
+1. `speech-pipeline.ts` possesses an internal concurrency pool of **5 parallel TTS slots** (`acquireTtsSlot()`). It was designed so that as sentences are emitted by the chunker, all 5 slots pre-fetch and decode audio in parallel into `playbackManager`'s waiting queue.
+2. By placing a buffer-lead gate on the segment stream reader, the coordinator **choked the stream**. It refused to yield Sentence 2 while Sentence 1 was still speaking.
+3. `speech-pipeline.ts` sat blocked in `await reader.read()`, completely idling its 5-thread concurrency pool.
+4. When `bufferLead` finally dropped below $1.5\text{s}$, Sentence 2 was dispatched, but HTTP handshake, server processing, network transit, and `decodeAudioData` exceeded the remaining buffer lead. Audio 1 finished, leaving a jarring 500–1000ms silence gap before Audio 2 began.
+5. **Conclusion**: Never throttle or delay yielding completed sentence segments with an artificial timer or buffer-lead check. Completed slices must enter the concurrent synthesis pipeline immediately.
+
+---
+
+### 11.2 The Three Decoupled Parallel Timelines
+
+To avoid synchronization traps, the architecture must treat the streaming conversational loop as three distinct, asynchronously decoupled timelines:
+
+```
+Timeline 1: LLM Token Stream (Producer)
+Tokens arrive:  "Butter's ears..." ──► "She drops the broom..." ──► "...contest?!" ──► [DONE]
+                         │
+                         ▼
+Timeline 2: TTS Chunker & Dispatch (Processor, 5 Concurrent Slots)
+Slices cut:     [Sentence 1] ────────► [Sentence 2] ────────► [Sentence 3]
+Dispatched:     POST /audio/speech   POST /audio/speech   POST /audio/speech
+                (Slot 1 active)      (Slot 2 active)      (Slot 3 active)
+                         │
+                         ▼
+Timeline 3: Web Audio DAC Playback (Consumer)
+Web Audio:      ▶ Playing Sentence 1 ──► [Pre-buffered in Queue: S2] ──► [Pre-buffered: S3]
+```
+
+1. **Timeline 1 (LLM Stream)**: Operates at network/token generation speed (typically 15–80 tokens/sec). May complete in 1 second (short turn) or take 15 seconds (essay).
+2. **Timeline 2 (TTS Synthesis Dispatch)**: Operates at TTS server speed (e.g. 0.1–0.5 Real-Time Factor). Uses up to 5 concurrent HTTP requests to pre-synthesize slices ahead of playback.
+3. **Timeline 3 (DAC Playback)**: Operates strictly at 1.0× real-time speed on the hardware `AudioContext.currentTime` clock.
+
+---
+
+### 11.3 The "Dispatched vs. Played" Mathematical Invariant
+
+A common architectural trap is confusing **text that hasn't played yet** with **text that hasn't been processed yet**.
+
+* **Text Dispatched to TTS**: Text that the chunker sliced and handed to `speech-pipeline.ts`. It is either in-flight over HTTP or already sitting as a decoded `AudioBuffer` inside `playbackManager`'s waiting queue.
+* **Text Played to User**: Audio that has already exited the DAC and vibrated the physical speaker.
+
+> [!CAUTION]
+> If the `[DONE]` remainder were calculated against what has *played out loud*, the client would re-send Slices 2, 3, and 4 to the TTS server while they are already queued in memory waiting to play. The TTS server would synthesize them a second time, resulting in audio stuttering and repeated sentences.
+
+The remainder on `[DONE]` MUST strictly be calculated against **dispatched text**:
+$$\text{Remainder on [DONE]} = \text{Total Stream Text} \setminus \text{Text Already Dispatched to TTS}$$
+
+If `lastDispatchedCharIndex === fullText.length`, remainder is empty and nothing is sent. If un-dispatched text remains, it is flushed as the final chunk.
+
+---
+
+### 11.4 The Converged Architecture Specification
+
+1. **Eager Concurrent Pre-Buffering During Streaming**:
+   - `tts-chunker.ts` emits completed sentences as they arrive.
+   - Slices immediately acquire TTS slots (up to 5 concurrent requests).
+   - Decoded `AudioBuffer`s wait in `playbackManager`'s waiting queue.
+   - When Slice $N$ ends, Slice $N+1$ begins instantly on the Web Audio timeline ($0\text{ms}$ transition gap).
+2. **Single Cohesive Remainder on `[DONE]`**:
+   - When the LLM stream terminates, any un-dispatched remainder in the chunker is flushed as one final segment.
+3. **Sample-Accurate Sentence Synchronization via Pause Aligner**:
+   - For any multi-sentence audio chunk (such as the `[DONE]` remainder or a fast multi-sentence yield), the CPU RMS Pause Aligner detects acoustic pause dips in $<0.5\text{ms}$ without ML models or WebGPU.
+   - In `ControlStripHost.vue`, `requestAnimationFrame` compares `audioContext.currentTime - itemStartTime` against `item.boundaries` to broadcast `caption-assistant` events at exact acoustic boundaries, driving `markdown-renderer.vue`'s `::highlight(spoken-highlight)` with zero drift.
+

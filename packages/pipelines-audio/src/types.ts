@@ -13,6 +13,12 @@ export interface TextToken {
   createdAt: number
 }
 
+export interface SpokenSentenceBoundary {
+  text: string
+  startSec: number
+  endSec: number
+}
+
 export interface TextSegment {
   streamId: string
   intentId: string
@@ -21,6 +27,7 @@ export interface TextSegment {
   special: string | null
   reason: 'boost' | 'limit' | 'hard' | 'flush' | 'special'
   actorId?: string
+  subSentences?: string[]
   createdAt: number
 }
 
@@ -31,6 +38,7 @@ export interface TtsRequest {
   text: string
   special: string | null
   actorId?: string
+  subSentences?: string[]
   priority: number
   createdAt: number
 }
@@ -42,6 +50,8 @@ export interface TtsResult<TAudio> {
   text: string
   special: string | null
   actorId?: string
+  subSentences?: string[]
+  boundaries?: SpokenSentenceBoundary[]
   audio: TAudio
   createdAt: number
 }
@@ -56,6 +66,8 @@ export interface PlaybackItem<TAudio> {
   text: string
   special: string | null
   actorId?: string
+  subSentences?: string[]
+  boundaries?: SpokenSentenceBoundary[]
   audio: TAudio
   createdAt: number
 }
