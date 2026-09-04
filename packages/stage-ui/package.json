@@ -27,6 +27,8 @@
     "./constants/*": "./src/constants/*.ts",
     "./constants": "./src/constants/index.ts",
     "./libs/*": "./src/libs/*.ts",
+    "./libs/vfx": "./src/libs/vfx/index.ts",
+    "./libs/vfx/*": "./src/libs/vfx/*",
     "./libs": "./src/libs/index.ts",
     "./stores/providers/aliyun": "./src/stores/providers/aliyun/index.ts",
     "./stores/analytics": "./src/stores/analytics/index.ts",

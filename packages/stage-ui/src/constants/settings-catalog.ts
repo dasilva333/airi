@@ -755,6 +755,20 @@ export const SETTINGS_CATALOG_ITEMS: CatalogNodeItem[] = [
     kind: 'tool',
     desktopOnly: true,
   },
+  {
+    id: 'dev-stage-vfx',
+    label: 'Stage VFX & Elemental Abilities Playground',
+    shortLabel: 'VFX',
+    description: 'Procedural GLSL shaders, GPU instanced particles, bone-bound auras & portal sandbox',
+    glyph: '術',
+    clusterGroup: 'RUNTIME & NEURAL LABS 脳',
+    route: '/devtools/stage-vfx',
+    icon: 'i-solar:flame-bold-duotone',
+    order: 6,
+    parentId: 'sys-developer',
+    kind: 'tool',
+    desktopOnly: true,
+  },
 
   // Cluster: DIAGNOSTICS & SYSTEM 診
   {

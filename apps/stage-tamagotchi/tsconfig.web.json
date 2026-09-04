@@ -26,6 +26,13 @@
       "@proj-airi/stage-layouts/*": [
         "../../packages/stage-layouts/src/*",
         "../../packages/stage-layouts/src/*/index.ts"
+      ],
+      "@proj-airi/stage-ui-three": [
+        "../../packages/stage-ui-three/src/index.ts"
+      ],
+      "@proj-airi/stage-ui-three/*": [
+        "../../packages/stage-ui-three/src/*",
+        "../../packages/stage-ui-three/src/*/index.ts"
       ]
     },
     "resolveJsonModule": true,
