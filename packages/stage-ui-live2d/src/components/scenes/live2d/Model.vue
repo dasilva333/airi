@@ -69,7 +69,7 @@ const props = withDefaults(defineProps<{
   mouthOpenSize: 0,
   paused: false,
   focusAt: () => ({ x: 0, y: 0 }),
-  disableFocusAt: false,
+  disableFocusAt: true,
   followSpeed: 0.5,
   scale: 1,
   themeColorsHue: 220.44,
@@ -850,10 +850,12 @@ async function loadModel() {
     const focusAtRef = toRef(() => props.focusAt)
     const modelRef = ref(model)
 
+    const motionControlActive = computed(() => manualMotionControl.value.active)
+
     motionManagerUpdate.register(useMotionUpdatePluginBeatSync(beatSync), 'pre')
     motionManagerUpdate.register(useMotionUpdatePluginIdleDisable(), 'pre')
-    motionManagerUpdate.register(useMotionUpdatePluginMouseFocus(focusAtRef, disableFocusAtRef, followSpeedRef, modelRef, toRef(() => props.width), toRef(() => props.height)), 'post')
-    motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(disableFocusAtRef), 'post')
+    motionManagerUpdate.register(useMotionUpdatePluginMouseFocus(focusAtRef, disableFocusAtRef, followSpeedRef, modelRef, toRef(() => props.width), toRef(() => props.height), motionControlActive), 'post')
+    motionManagerUpdate.register(useMotionUpdatePluginIdleFocus(disableFocusAtRef, undefined, motionControlActive), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginAutoEyeBlink(), 'post')
 
     // Real-time lip-sync mouth opening

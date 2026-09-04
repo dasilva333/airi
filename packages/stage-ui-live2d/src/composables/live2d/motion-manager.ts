@@ -243,9 +243,10 @@ export function useMotionUpdatePluginIdleDisable(idleEyeFocus = useLive2DIdleEye
 export function useMotionUpdatePluginIdleFocus(
   disableFocusAt?: Ref<boolean>,
   idleEyeFocus = useLive2DIdleEyeFocus(),
+  motionControlActive?: Ref<boolean>,
 ): MotionManagerPlugin {
   return (ctx) => {
-    if (!ctx.isIdleMotion || ctx.handled)
+    if (!ctx.isIdleMotion || ctx.handled || motionControlActive?.value)
       return
 
     // If mouse tracking is enabled (disableFocusAt is false/undefined), skip random idle saccades
@@ -263,13 +264,25 @@ export function useMotionUpdatePluginMouseFocus(
   model: Ref<any>,
   width: Ref<number>,
   height: Ref<number>,
+  motionControlActive?: Ref<boolean>,
 ): MotionManagerPlugin {
   let currentX = 0
   let currentY = 0
   let initialized = false
   return (_ctx) => {
-    if (disableFocusAt.value || !model.value)
+    if (disableFocusAt.value || !model.value || motionControlActive?.value) {
+      if (initialized || _ctx.internalModel.focusController?.x !== 0 || _ctx.internalModel.focusController?.y !== 0) {
+        currentX = 0
+        currentY = 0
+        if (_ctx.internalModel.focusController) {
+          _ctx.internalModel.focusController.focus(0, 0, true)
+          _ctx.internalModel.focusController.vx = 0
+          _ctx.internalModel.focusController.vy = 0
+        }
+        initialized = false
+      }
       return
+    }
 
     const targetX = focusAt.value?.x ?? 0
     const targetY = focusAt.value?.y ?? 0
@@ -653,6 +666,15 @@ export function useMotionUpdatePluginManualControl(
     const output = spring.step(control.value, dt)
     if (!output.active)
       return
+
+    // NOTICE: Zero out FocusController so that pixi-live2d-display's updateFocus()
+    // pass adds exactly 0 degrees to ParamAngleX/Y and ParamEyeBallX/Y, allowing
+    // the procedural AR-HMM / VAR motion to govern head pose cleanly.
+    if (ctx.internalModel.focusController) {
+      ctx.internalModel.focusController.focus(0, 0, true)
+      ctx.internalModel.focusController.vx = 0
+      ctx.internalModel.focusController.vy = 0
+    }
 
     const { eyeX, eyeY, eyeSquint, headX, headY, headZ, bodyX, bodyY, bodyZ, mouthForm, mouthOpen } = output.pose
     setModelParameterDual(ctx.model, 'ParamEyeBallX', 'PARAM_EYE_BALL_X', eyeX)

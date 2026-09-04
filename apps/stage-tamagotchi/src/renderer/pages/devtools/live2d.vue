@@ -62,6 +62,21 @@ const selectedModelFile = ref<File | undefined>()
 
 const playgroundModelId = computed(() => `${PLAYGROUND_ID_PREFIX}${selectedModel.value?.id || 'model'}`)
 
+const followCursor = ref(false)
+const mouseFocusAt = ref({ x: 400, y: 300 })
+
+function handleCanvasPointerMove(event: PointerEvent) {
+  if (!followCursor.value)
+    return
+  const rect = (event.currentTarget as HTMLElement)?.getBoundingClientRect()
+  if (rect) {
+    mouseFocusAt.value = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    }
+  }
+}
+
 const varFloatEntries = computed(() => Object.entries(dslState.value?.varFloats ?? {}).sort(([a], [b]) => a.localeCompare(b)))
 const pendingChoices = computed(() => dslState.value?.pendingChoices ?? null)
 
@@ -243,7 +258,10 @@ onBeforeUnmount(() => {
 
     <div class="grid grid-cols-1 min-h-0 flex-1 lg:grid-cols-[1fr_360px]">
       <!-- Canvas / Model viewport -->
-      <section class="relative min-h-0 border-neutral-800 lg:border-r">
+      <section
+        class="relative min-h-0 border-neutral-800 lg:border-r"
+        @pointermove="handleCanvasPointerMove"
+      >
         <div class="absolute inset-0">
           <Live2DCanvas
             v-if="selectedModelSrc"
@@ -260,6 +278,8 @@ onBeforeUnmount(() => {
               :app="app"
               :width="800"
               :height="600"
+              :disable-focus-at="!followCursor"
+              :focus-at="mouseFocusAt"
               @model-loaded="handleModelLoaded"
               @error="handleModelError"
             />
@@ -303,6 +323,18 @@ onBeforeUnmount(() => {
           >
             <div class="i-solar:gallery-send-bold-duotone text-xs text-primary-400" />
             <span>Change Model ({{ selectedModel?.name }})</span>
+          </button>
+          <button
+            :class="[
+              'flex items-center gap-1.5 border rounded-lg px-3 py-1.5 text-xs backdrop-blur transition-colors',
+              followCursor
+                ? 'border-primary-500/50 bg-primary-500/15 text-primary-300 hover:bg-primary-500/25'
+                : 'border-neutral-700 bg-neutral-900/90 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200',
+            ]"
+            @click="followCursor = !followCursor"
+          >
+            <div :class="followCursor ? 'i-solar:eye-bold' : 'i-solar:eye-closed-bold'" class="text-xs" />
+            <span>Follow Cursor: {{ followCursor ? 'On' : 'Off' }}</span>
           </button>
         </div>
       </section>
