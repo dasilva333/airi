@@ -233,7 +233,7 @@ export const useSpeechStore = defineStore('speech', () => {
    * Transforms text before sending to TTS provider
    */
   function transformTextForSpeech(text: string, providerId: string, voiceProfileId?: string): string {
-    if (providerId === 'chatterbox') {
+    if (providerId === 'chatterbox' || providerId === 'airi-audio-server') {
       return text
     }
 

@@ -19,7 +19,7 @@ Provider metadata is currently inline in `providers.ts` — see the restructurin
 | `speech-noop` | `providers.ts` | ~119 | No-op speech provider (disables TTS) |
 | `virtual-audio-studio` | `providers.ts` | ~147 | Virtual engine for Audio Studio voice profiles |
 | `app-local-audio-speech` | `providers.ts` | ~194 | Desktop local audio output |
-| `browser-local-audio-speech` | `providers.ts` | ~228 | Browser local audio output |
+| `airi-audio-server` | `providers.ts` | ~848 | AIRI Audio Server (audio.cpp C++ microservice, OmniVoice/Chatterbox) |
 | `openai-audio-speech` | `providers.ts` | ~287 | OpenAI TTS (tts-1, tts-1-hd, gpt-4o-mini-tts) |
 | `openai-compatible-audio-speech` | `providers.ts` | ~466 | Generic OpenAI-compatible TTS endpoint |
 | `aws-polly-tts` | `providers.ts` | ~738 | Amazon Polly (neural + standard voices) |

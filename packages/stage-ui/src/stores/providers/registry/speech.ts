@@ -33,7 +33,7 @@ import { getKokoroAdapter } from '../../../libs/inference/adapters/kokoro'
 import { getDefaultKokoroModel, KOKORO_MODELS, kokoroModelsToModelInfo } from '../../../workers/kokoro/constants'
 import { models as elevenLabsModels } from '../elevenlabs/list-models'
 import { createNativeElevenLabsProvider } from '../elevenlabs/native'
-import { isBrowserAndMemoryEnough, logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from '../helpers'
+import { logWarn, toProviderRootBaseUrl, toV1SpeechBaseUrl, validateProviderBaseUrl } from '../helpers'
 import { getMossAdapterInstance, preprocessMossReferenceAudio } from '../moss-audio-utils'
 import { buildOpenAICompatibleProvider } from '../openai-compatible-builder'
 import { getPocketTtsAdapterInstance, preprocessPocketReferenceAudio } from '../pocket-audio-utils'
@@ -845,35 +845,224 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         },
       },
     },
-    'browser-local-audio-speech': buildOpenAICompatibleProvider({
-      id: 'browser-local-audio-speech',
-      name: 'Browser (Local)',
-      nameKey: 'settings.pages.providers.provider.browser-local-audio-speech.title',
-      descriptionKey: 'settings.pages.providers.provider.browser-local-audio-speech.description',
-      icon: 'i-lobe-icons:huggingface',
-      description: 'Private Voice Engine - In-browser speech synthesis via Web Speech API or local engine',
+    'airi-audio-server': buildOpenAICompatibleProvider({
+      id: 'airi-audio-server',
+      name: 'AIRI Audio Server',
+      nameKey: 'settings.pages.providers.provider.airi-audio-server.title',
+      descriptionKey: 'settings.pages.providers.provider.airi-audio-server.description',
+      icon: 'i-solar:server-square-bold-duotone',
+      description: 'High-Performance Neural Audio Server - Local C++ inference with zero-shot voice cloning and paralinguistic expression tags',
       category: 'speech',
-      tasks: ['text-to-speech', 'tts'],
-      isAvailableBy: isBrowserAndMemoryEnough,
-      creator: createOpenAI,
-      validation: [],
+      pricing: 'free',
+      deployment: 'local',
+      beginnerRecommended: true,
+      tasks: ['text-to-speech'],
+      defaultBaseUrl: 'http://127.0.0.1:8095/v1/',
+      capabilities: {
+        listVoices: async (config: Record<string, unknown>) => {
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const apiBaseUrl = toV1SpeechBaseUrl(config.baseUrl)
+          if (!apiBaseUrl)
+            return []
+
+          try {
+            const response = await fetch(`${apiBaseUrl}voices`, {
+              headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+            })
+            if (!response.ok)
+              return []
+
+            const data = await response.json()
+            const voices = Array.isArray(data?.voices) ? data.voices : []
+            return voices.map((voice: any) => ({
+              id: voice.voice_id || voice.id || voice.name,
+              name: voice.name || voice.voice_id || voice.id,
+              provider: 'airi-audio-server',
+              description: voice.type === 'cloned' ? 'Cloned reference voice' : (voice.type === 'virtual' ? 'Preset voice' : 'Native voice'),
+              previewURL: voice.preview_url || voice.preview_audio_url,
+              languages: [{ code: 'en', title: 'English' }],
+              gender: voice.gender || voice.labels?.gender,
+            }) satisfies VoiceInfo)
+          }
+          catch (error) {
+            logWarn('Failed to fetch AIRI Audio Server voices:', error)
+            return []
+          }
+        },
+        listModels: async (config: Record<string, unknown>) => {
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const apiBaseUrl = toV1SpeechBaseUrl(config.baseUrl)
+          const fallbackModels: ModelInfo[] = [
+            {
+              id: 'omnivoice-tts',
+              name: 'OmniVoice Q8_0 (Recommended)',
+              provider: 'airi-audio-server',
+              description: 'Zero-shot voice cloning & expression tags',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'higgs-audio-tts',
+              name: 'Higgs Audio v3 TTS Q8_0',
+              provider: 'airi-audio-server',
+              description: '46 Native paralinguistic emotion tags',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'fish-audio-tts',
+              name: 'Fish Audio S2 Pro Q8_0',
+              provider: 'airi-audio-server',
+              description: 'Fast streaming synthesis & cloning',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'chatterbox-tts',
+              name: 'Chatterbox TTS Q8_0',
+              provider: 'airi-audio-server',
+              description: 'High-fidelity expressive speech',
+              contextLength: 0,
+              deprecated: false,
+            },
+            {
+              id: 'moss-tts',
+              name: 'MOSS TTS Local v1.5 Q8_0',
+              provider: 'airi-audio-server',
+              description: 'Multilingual neural speech',
+              contextLength: 0,
+              deprecated: false,
+            },
+          ]
+
+          if (!apiBaseUrl) {
+            return fallbackModels
+          }
+
+          try {
+            const response = await fetch(`${apiBaseUrl}models`, {
+              headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+            })
+            if (!response.ok)
+              throw new Error(`HTTP ${response.status}`)
+
+            const data = await response.json()
+            const models = Array.isArray(data?.data) ? data.data : []
+            if (models.length > 0) {
+              return models.map((model: any) => ({
+                id: model.id,
+                name: model.name || model.display_name || model.id,
+                provider: 'airi-audio-server',
+                description: model.description || 'AIRI Audio Server speech generation',
+                contextLength: model.context_length || 0,
+                deprecated: false,
+              }) satisfies ModelInfo)
+            }
+          }
+          catch (error) {
+            logWarn('Failed to fetch AIRI Audio Server models:', error)
+          }
+
+          return fallbackModels
+        },
+        getSpeechCapabilities: async (config: Record<string, unknown>) => {
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+          const rootBaseUrl = toProviderRootBaseUrl(config.baseUrl)
+          const apiBaseUrl = toV1SpeechBaseUrl(config.baseUrl)
+          if (!rootBaseUrl && !apiBaseUrl)
+            return null
+
+          const endpointsToTry = [
+            apiBaseUrl ? `${apiBaseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}chatterbox/capabilities` : null,
+          ].filter(Boolean) as string[]
+
+          for (const url of endpointsToTry) {
+            try {
+              const response = await fetch(url, {
+                headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+              })
+              if (!response.ok)
+                continue
+
+              const data = await response.json()
+              const speech = data?.speech || data
+              if (!speech)
+                continue
+
+              return {
+                supportsPresets: speech.supportsPresets ?? false,
+                supportsExpressionTags: speech.supportsExpressionTags ?? (Array.isArray(speech.expressionTags) && speech.expressionTags.length > 0),
+                supportsMannerisms: speech.supportsMannerisms ?? false,
+                expressionTags: Array.isArray(speech.expressionTags) ? speech.expressionTags : [],
+                mannerisms: Array.isArray(speech.mannerisms) ? speech.mannerisms : [],
+              } satisfies SpeechCapabilitiesInfo
+            }
+            catch {}
+          }
+
+          return null
+        },
+      },
       validators: {
-        validateProviderConfig: (config) => {
-          if (!config.baseUrl) {
+        validateProviderConfig: async (config: Record<string, unknown>) => {
+          const errors: Error[] = []
+          const baseUrl = toV1SpeechBaseUrl(config.baseUrl)
+          const rootBaseUrl = toProviderRootBaseUrl(config.baseUrl)
+          const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
+
+          if (!baseUrl) {
+            errors.push(new Error('Base URL is required'))
+          }
+          else if (!isUrl(baseUrl)) {
+            errors.push(new Error('Base URL is invalid. It must be an absolute URL.'))
+          }
+
+          if (errors.length > 0) {
             return {
-              errors: [new Error('Base URL is required.')],
-              reason: 'Base URL is required. This is likely a bug, report to developers on https://github.com/moeru-ai/airi/issues.',
+              errors,
+              reason: errors.map(error => error.message).join(', '),
               valid: false,
             }
           }
 
+          const probeEndpoints = [
+            rootBaseUrl ? `${rootBaseUrl}health` : null,
+            baseUrl ? `${baseUrl}models` : null,
+            baseUrl ? `${baseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}chatterbox/capabilities` : null,
+          ].filter(Boolean) as string[]
+
+          let lastError: Error | null = null
+          for (const endpoint of probeEndpoints) {
+            try {
+              const response = await fetch(endpoint, {
+                headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+              })
+              if (response.ok) {
+                return {
+                  errors: [],
+                  reason: '',
+                  valid: true,
+                }
+              }
+              lastError = new Error(`HTTP ${response.status} from ${endpoint}`)
+            }
+            catch (err) {
+              lastError = err as Error
+            }
+          }
+
+          const connectivityError = new Error(`Connectivity check failed: ${lastError?.message || 'Server unreachable'}`)
           return {
-            errors: [],
-            reason: '',
-            valid: true,
+            errors: [connectivityError],
+            reason: connectivityError.message,
+            valid: false,
           }
         },
       },
+      creator: createOpenAI,
     }),
     'openai-audio-speech': buildOpenAICompatibleProvider({
       id: 'openai-audio-speech',
@@ -1201,19 +1390,20 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
       },
       creator: createOpenAI,
     }),
+
     'chatterbox': buildOpenAICompatibleProvider({
       id: 'chatterbox',
-      name: 'Chatterbox',
+      name: 'Chatterbox (Legacy)',
       nameKey: 'settings.pages.providers.provider.chatterbox.title',
       descriptionKey: 'settings.pages.providers.provider.chatterbox.description',
-      icon: 'i-solar:microphone-3-bold-duotone',
-      description: 'Advanced Voice Engine - Supports tags, profiles, presets, and high-performance playback',
+      icon: 'i-solar:server-square-bold-duotone',
+      description: 'Legacy identifier for AIRI Audio Server - Supports tags, profiles, presets, and high-performance playback',
       category: 'speech',
       pricing: 'free',
       deployment: 'local',
-      beginnerRecommended: true,
+      beginnerRecommended: false,
       tasks: ['text-to-speech'],
-      defaultBaseUrl: 'http://127.0.0.1:8090/v1/',
+      defaultBaseUrl: 'http://127.0.0.1:8095/v1/',
       capabilities: {
         listVoices: async (config: Record<string, unknown>) => {
           const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
@@ -1234,7 +1424,7 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
               id: voice.voice_id || voice.id || voice.name,
               name: voice.name || voice.voice_id || voice.id,
               provider: 'chatterbox',
-              description: voice.type === 'virtual' ? 'Preset voice' : 'Native voice',
+              description: voice.type === 'cloned' ? 'Cloned reference voice' : (voice.type === 'virtual' ? 'Preset voice' : 'Native voice'),
               previewURL: voice.preview_url || voice.preview_audio_url,
               languages: [{ code: 'en', title: 'English' }],
               gender: voice.gender || voice.labels?.gender,
@@ -1250,10 +1440,10 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           const apiBaseUrl = toV1SpeechBaseUrl(config.baseUrl)
           if (!apiBaseUrl) {
             return [{
-              id: 'chatterbox',
-              name: 'Chatterbox',
+              id: 'omnivoice-tts',
+              name: 'OmniVoice Q8_0',
               provider: 'chatterbox',
-              description: 'Chatterbox speech generation',
+              description: 'Zero-shot voice cloning & expression tags',
               contextLength: 0,
               deprecated: false,
             }]
@@ -1284,8 +1474,8 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
           }
 
           return [{
-            id: 'chatterbox',
-            name: 'Chatterbox',
+            id: 'omnivoice-tts',
+            name: 'OmniVoice Q8_0',
             provider: 'chatterbox',
             description: 'Chatterbox speech generation',
             contextLength: 0,
@@ -1295,33 +1485,41 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
         getSpeechCapabilities: async (config: Record<string, unknown>) => {
           const apiKey = typeof config.apiKey === 'string' ? config.apiKey.trim() : ''
           const rootBaseUrl = toProviderRootBaseUrl(config.baseUrl)
-          if (!rootBaseUrl)
+          const apiBaseUrl = toV1SpeechBaseUrl(config.baseUrl)
+          if (!rootBaseUrl && !apiBaseUrl)
             return null
 
-          try {
-            const response = await fetch(`${rootBaseUrl}chatterbox/capabilities`, {
-              headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-            })
-            if (!response.ok)
-              return null
+          const endpointsToTry = [
+            apiBaseUrl ? `${apiBaseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}chatterbox/capabilities` : null,
+          ].filter(Boolean) as string[]
 
-            const data = await response.json()
-            const speech = data?.speech
-            if (!speech)
-              return null
+          for (const url of endpointsToTry) {
+            try {
+              const response = await fetch(url, {
+                headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+              })
+              if (!response.ok)
+                continue
 
-            return {
-              supportsPresets: speech.supportsPresets ?? true,
-              supportsExpressionTags: speech.supportsExpressionTags ?? false,
-              supportsMannerisms: speech.supportsMannerisms ?? false,
-              expressionTags: Array.isArray(speech.expressionTags) ? speech.expressionTags : [],
-              mannerisms: Array.isArray(speech.mannerisms) ? speech.mannerisms : [],
-            } satisfies SpeechCapabilitiesInfo
+              const data = await response.json()
+              const speech = data?.speech || data
+              if (!speech)
+                continue
+
+              return {
+                supportsPresets: speech.supportsPresets ?? true,
+                supportsExpressionTags: speech.supportsExpressionTags ?? false,
+                supportsMannerisms: speech.supportsMannerisms ?? false,
+                expressionTags: Array.isArray(speech.expressionTags) ? speech.expressionTags : [],
+                mannerisms: Array.isArray(speech.mannerisms) ? speech.mannerisms : [],
+              } satisfies SpeechCapabilitiesInfo
+            }
+            catch {}
           }
-          catch (error) {
-            logWarn('Failed to fetch Chatterbox speech capabilities:', error)
-            return null
-          }
+
+          return null
         },
       },
       validators: {
@@ -1346,27 +1544,38 @@ export function createSpeechMetadata(t: ComposerTranslation): Record<string, Pro
             }
           }
 
-          try {
-            const response = await fetch(`${rootBaseUrl}chatterbox/capabilities`, {
-              headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-            })
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}`)
+          const probeEndpoints = [
+            rootBaseUrl ? `${rootBaseUrl}health` : null,
+            baseUrl ? `${baseUrl}models` : null,
+            baseUrl ? `${baseUrl}capabilities` : null,
+            rootBaseUrl ? `${rootBaseUrl}chatterbox/capabilities` : null,
+          ].filter(Boolean) as string[]
+
+          let lastError: Error | null = null
+          for (const endpoint of probeEndpoints) {
+            try {
+              const response = await fetch(endpoint, {
+                headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+              })
+              if (response.ok) {
+                return {
+                  errors: [],
+                  reason: '',
+                  valid: true,
+                }
+              }
+              lastError = new Error(`HTTP ${response.status} from ${endpoint}`)
             }
-          }
-          catch (error) {
-            const connectivityError = new Error(`Capabilities check failed: ${(error as Error).message}`)
-            return {
-              errors: [connectivityError],
-              reason: connectivityError.message,
-              valid: false,
+            catch (err) {
+              lastError = err as Error
             }
           }
 
+          const connectivityError = new Error(`Capabilities check failed: ${lastError?.message || 'Server unreachable'}`)
           return {
-            errors: [],
-            reason: '',
-            valid: true,
+            errors: [connectivityError],
+            reason: connectivityError.message,
+            valid: false,
           }
         },
       },

@@ -73,7 +73,6 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const isTranscribing = ref(false)
   const speechProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/speech-provider-settings', {
     'app-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
-    'browser-local-audio-speech': { deviceId: 'default', sampleRate: 16000 },
   })
   const transcriptionProviderSettings = useLocalStorageManualReset<Record<string, { deviceId: string, sampleRate: number }>>('settings/hearing/transcription-provider-settings', {
     'whisper-local': { deviceId: 'default', sampleRate: 16000 },

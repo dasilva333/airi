@@ -1358,6 +1358,10 @@ pages:
           content: Apple Core AI runs models locally via the native Swift plugin,
             offloading matrix computations to the Apple Neural Engine and Metal
             GPU with near-zero WebKit memory overhead.
+      airi-audio-server:
+        title: AIRI Audio Server
+        description: High-Performance Neural Audio Server - Local C++ inference with
+          zero-shot voice cloning and paralinguistic expression tags
     title: Inference Providers
   connection:
     description: Configure server endpoints, local channel gateway, and model

@@ -223,6 +223,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, { name: string, icon?: string, cons
   'azure-speech': { name: 'Azure Speech', icon: 'i-simple-icons:microsoftazure', consoleUrl: 'https://portal.azure.com' },
   'aws-polly-tts': { name: 'AWS Polly', icon: 'i-simple-icons:amazonaws', consoleUrl: 'https://console.aws.amazon.com/polly' },
   'fish-speech': { name: 'Fish Speech', icon: 'i-solar:fish-bold-duotone', consoleUrl: 'https://fish.audio' },
+  'airi-audio-server': { name: 'AIRI Audio Server', icon: 'i-solar:server-square-bold-duotone', consoleUrl: 'https://github.com/dasilva333/airi-audio-server' },
   'chatterbox': { name: 'Chatterbox', icon: 'i-solar:chat-round-bold-duotone' },
   'index-tts-vllm': { name: 'Index TTS', icon: 'i-solar:server-square-bold-duotone' },
   'alibaba-cloud-model-studio': { name: 'Alibaba Qwen TTS', icon: 'i-simple-icons:alibabacloud', consoleUrl: 'https://dashscope.console.aliyun.com' },
@@ -236,7 +237,6 @@ const PROVIDER_DISPLAY_NAMES: Record<string, { name: string, icon?: string, cons
 const INTERNAL_PROVIDERS = [
   'speech-noop',
   'virtual-audio-studio',
-  'browser-local-audio-speech',
   'kokoro',
   'pocket',
   'moss',

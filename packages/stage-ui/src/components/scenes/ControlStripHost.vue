@@ -937,7 +937,7 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
  * local airi-audio-server exposing OpenAI-style `stream_format: "sse"`.
  */
 function resolveStreamingSpeechEndpoint(): { url: string, apiKey: string, model: string } | null {
-  if (activeSpeechProvider.value !== 'chatterbox' && activeSpeechProvider.value !== 'openai-compatible-audio-speech')
+  if (activeSpeechProvider.value !== 'chatterbox' && activeSpeechProvider.value !== 'airi-audio-server' && activeSpeechProvider.value !== 'openai-compatible-audio-speech')
     return null
 
   const config = providersStore.getProviderConfig(activeSpeechProvider.value) as Record<string, any>
