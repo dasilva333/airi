@@ -1,3 +1,5 @@
+import localforage from 'localforage'
+
 import { useBackgroundStore } from '../stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '../stores/display-models'
 
@@ -68,10 +70,20 @@ export async function extractModelIcon(displayModelId: string): Promise<string |
         const mime = iconFileName.toLowerCase().endsWith('.jpg') ? 'image/jpeg' : 'image/png'
         const rawDataUrl = `data:${mime};base64,${fileData}`
 
-        // Cache in memory and model metadata so this tax is never paid again
+        // Cache in memory, localforage, and model metadata so this tax is never paid again
         iconCache.set(displayModelId, rawDataUrl)
         model.authorIcon = rawDataUrl
         void displayModelsStore.syncMetadataCacheFromMemory()
+        if (fullModel.type === 'file' && displayModelId.startsWith('display-model-')) {
+          void localforage.getItem<any>(displayModelId).then((stored) => {
+            if (stored && !stored.authorIcon) {
+              stored.authorIcon = rawDataUrl
+              return localforage.setItem(displayModelId, stored)
+            }
+          }).catch((err) => {
+            console.error('[CharacterMediaResolver] Failed to persist authorIcon to localforage:', err)
+          })
+        }
         return rawDataUrl
       }
     }

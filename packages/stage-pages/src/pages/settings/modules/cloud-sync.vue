@@ -102,6 +102,7 @@ function isMergeable(key: string): boolean {
   return (
     key.startsWith('local:chat/sessions/')
     || key === 'local:localstorage/settings/live2d/available-motions'
+    || key === 'local:localstorage/settings/speech/voice-profiles'
     || ['local:memory/short-term/local', 'local:memory/text-journal/local', 'local:memory/echo-chips/local', 'local:airi-cards'].includes(key)
     || key.startsWith('local:chat/index/')
   )
@@ -407,7 +408,9 @@ function isMergeable(key: string): boolean {
                   ? 'Merge Message History'
                   : conflict.key === 'local:localstorage/settings/live2d/available-motions'
                     ? 'Merge Motion Lists'
-                    : 'Merge Data'
+                    : conflict.key === 'local:localstorage/settings/speech/voice-profiles'
+                      ? 'Merge Voice Profiles'
+                      : 'Merge Data'
               }}
             </button>
           </div>

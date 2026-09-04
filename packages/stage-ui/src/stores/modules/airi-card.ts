@@ -734,6 +734,20 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (nextSpeechVoiceId && activeSpeechVoiceId.value !== nextSpeechVoiceId)
       activeSpeechVoiceId.value = nextSpeechVoiceId
 
+    // 2b. Auto-register bundled voice profiles into speechStore
+    const embeddedProfiles = extension.voice_profiles
+    if (Array.isArray(embeddedProfiles) && embeddedProfiles.length > 0) {
+      for (const profile of embeddedProfiles) {
+        if (profile && profile.id) {
+          const exists = speechStore.savedVoiceProfiles.some(p => p.id === profile.id)
+          if (!exists) {
+            debug(`[AiriCard Store] Auto-registering bundled voice profile "${profile.name}" (${profile.id})`)
+            speechStore.saveVoiceProfile(profile)
+          }
+        }
+      }
+    }
+
     // 3. Sync Models & Parameters.
     // NOTICE: `force` no longer bypasses the speech gate or forces a re-apply of the
     // same model id. Previously the concept-stack watcher called this with force=true,

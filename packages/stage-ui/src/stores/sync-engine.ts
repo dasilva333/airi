@@ -10,6 +10,7 @@ import { toast } from 'vue-sonner'
 
 import { storage, storageState } from '../database/storage'
 import { SERVER_URL } from '../libs/auth'
+import { mergeVoiceProfiles } from './sync-engine-merge'
 
 export interface StorageClient {
   validate: () => Promise<{ success: boolean, error?: string }>
@@ -312,6 +313,8 @@ async function parallelLimit<T>(
   await Promise.all(promises)
 }
 
+export { mergeVoiceProfiles }
+
 export const useSyncEngineStore = defineStore('sync-engine', () => {
   // Sync Configuration State
   const syncEnabled = useLocalStorageManualReset<boolean>('settings/sync/enabled', false)
@@ -559,6 +562,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
         type: 'file',
         file: fileObj,
         name: remoteModel.name,
+        authorIcon: remoteModel.authorIcon,
         previewImage,
         importedAt: remoteModel.importedAt,
         nsfw: remoteModel.nsfw,
@@ -869,6 +873,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           previewImage?: string
           hasTextures: boolean
           hasPreview?: boolean
+          authorIcon?: string
           nsfw?: boolean
           groups?: string[]
           tags?: string[]
@@ -992,6 +997,23 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
               }
             }
           }
+
+          if (!val.authorIcon && (val.format?.includes('live2d') || val.format?.includes('spine') || val.format?.includes('pmx'))) {
+            try {
+              const { extractModelIcon } = await import('../libs/character-media-resolver')
+              const icon = await extractModelIcon(id)
+              if (icon) {
+                val.authorIcon = icon
+                const updatedVal = await localforage.getItem<any>(id)
+                if (updatedVal) {
+                  localModels.set(id, updatedVal)
+                }
+              }
+            }
+            catch (err) {
+              debug('[SyncEngine] Could not auto-extract authorIcon for active model:', err)
+            }
+          }
         }
       }
       catch (e) {
@@ -1085,6 +1107,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             importedAt: entry.importedAt || Date.now(),
             hasPreview,
             hasTextures,
+            authorIcon: entry.authorIcon,
             nsfw: entry.nsfw,
             groups: entry.groups,
             tags: entry.tags,
@@ -1251,6 +1274,28 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             localModified = true
           }
 
+          // 12. Merge authorIcon
+          if (localEntry.authorIcon !== remoteEntry.authorIcon) {
+            if (localEntry.authorIcon && !remoteEntry.authorIcon) {
+              remoteEntry.authorIcon = localEntry.authorIcon
+              manifestModified = true
+            }
+            else if (remoteEntry.authorIcon && !localEntry.authorIcon) {
+              localEntry.authorIcon = remoteEntry.authorIcon
+              localModified = true
+            }
+            else if (localEntry.authorIcon && remoteEntry.authorIcon) {
+              if (conflictStrategy.value === 'remote-wins') {
+                localEntry.authorIcon = remoteEntry.authorIcon
+                localModified = true
+              }
+              else {
+                remoteEntry.authorIcon = localEntry.authorIcon
+                manifestModified = true
+              }
+            }
+          }
+
           if (localModified) {
             debug(`[SyncEngine] Updating local display model metadata for: ${id}`)
             await localforage.setItem(id, localEntry)
@@ -1302,16 +1347,25 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
           }
 
-          const entry = {
+          const entry: any = {
             id,
             format: remoteModel.format,
             type: 'file',
             file: fileObj,
             name: remoteModel.name,
+            authorIcon: remoteModel.authorIcon,
             previewImage,
             importedAt: remoteModel.importedAt,
             nsfw: remoteModel.nsfw,
             groups: remoteModel.groups,
+            tags: remoteModel.tags,
+            expressions: remoteModel.expressions,
+            motions: remoteModel.motions,
+            emotionMappings: remoteModel.emotionMappings,
+            motionMappings: remoteModel.motionMappings,
+            hiddenExpressions: remoteModel.hiddenExpressions,
+            hiddenMotions: remoteModel.hiddenMotions,
+            favoriteExpressions: remoteModel.favoriteExpressions,
           }
 
           await localforage.setItem(id, entry)
@@ -2299,6 +2353,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           else if (localKey === 'local:localstorage/settings/live2d/available-motions') {
             mergedData = mergeAvailableMotions(localData, remoteData)
           }
+          else if (localKey === 'local:localstorage/settings/speech/voice-profiles') {
+            mergedData = mergeVoiceProfiles(localData, remoteData)
+          }
           else {
             if (Array.isArray(localData) && Array.isArray(remoteData)) {
               mergedData = mergeArraysById(localData, remoteData)
@@ -2462,6 +2519,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           'local:memory/echo-chips/local',
           'local:airi-cards',
           'local:localstorage/settings/live2d/available-motions',
+          'local:localstorage/settings/speech/voice-profiles',
         ].includes(localKey) || localKey.startsWith('local:chat/index/')
 
         if (isMergeableKey) {
@@ -2488,6 +2546,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
           }
           else if (localKey === 'local:localstorage/settings/live2d/available-motions') {
             mergedVal = mergeAvailableMotions(localVal, remoteVal)
+          }
+          else if (localKey === 'local:localstorage/settings/speech/voice-profiles') {
+            mergedVal = mergeVoiceProfiles(localVal, remoteVal)
           }
           else {
             let localArr = localVal || []
@@ -2777,6 +2838,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             'local:memory/echo-chips/local',
             'local:airi-cards',
             'local:localstorage/settings/live2d/available-motions',
+            'local:localstorage/settings/speech/voice-profiles',
           ].includes(item.key) || item.key.startsWith('local:chat/index/')
 
           if (isMergeableKey) {
@@ -2800,6 +2862,9 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
             }
             else if (item.key === 'local:localstorage/settings/live2d/available-motions') {
               mergedVal = mergeAvailableMotions(localVal, remoteVal)
+            }
+            else if (item.key === 'local:localstorage/settings/speech/voice-profiles') {
+              mergedVal = mergeVoiceProfiles(localVal, remoteVal)
             }
             else {
               let localArr = localVal || []

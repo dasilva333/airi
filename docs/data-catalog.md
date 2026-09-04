@@ -1165,6 +1165,8 @@ These keys are merged rather than blindly replaced:
 | `local:memory/text-journal/{userId}` | `mergeArraysById()` | Array merge by `id`, timestamp LWW |
 | `local:memory/echo-chips/{userId}` | `mergeArraysById()` | Array merge by `id`, timestamp LWW |
 | `local:chat/sessions/{sessionId}` | `mergeArraysById()` + `resolveConflict()` | Message-level merge with contraction safety |
+| `local:localstorage/settings/speech/voice-profiles` | `mergeVoiceProfiles()` | Array merge by profile `id`, timestamp LWW |
+| `local:localstorage/settings/live2d/available-motions` | `mergeAvailableMotions()` | Keyed motion merge by model+group+index |
 
 ### Safety Heuristics
 

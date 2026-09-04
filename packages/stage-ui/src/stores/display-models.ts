@@ -338,6 +338,12 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         for (const key of modelKeys) {
           const existing = cachedMetadata.find((m: any) => m.id === key)
           if (existing) {
+            if (!existing.authorIcon) {
+              const val = await localforage.getItem<any>(key)
+              if (val?.authorIcon) {
+                existing.authorIcon = await compressPreviewDataUrl(val.authorIcon, 256, 0.9)
+              }
+            }
             updatedCache.push(existing)
             models.push({
               ...existing,
@@ -1341,6 +1347,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
     else if (id.startsWith('display-model-')) {
       const compressedPreview = await compressPreviewDataUrl(displayModel.previewImage)
+      const compressedAuthorIcon = displayModel.authorIcon ? await compressPreviewDataUrl(displayModel.authorIcon, 256, 0.9) : undefined
       const itemMeta: DisplayModelFile = {
         id,
         format: displayModel.format,
@@ -1348,6 +1355,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         file: undefined,
         name: displayModel.name || id,
         importedAt: displayModel.importedAt || Date.now(),
+        authorIcon: compressedAuthorIcon,
         previewImage: compressedPreview,
         nsfw: displayModel.nsfw,
         groups: displayModel.groups ? [...displayModel.groups] : undefined,
@@ -1376,6 +1384,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         type: 'file',
         file: targetFile,
         name: rawModel.name,
+        authorIcon: rawModel.authorIcon,
         previewImage: rawModel.previewImage,
         importedAt: rawModel.importedAt || Date.now(),
         nsfw: rawModel.nsfw,

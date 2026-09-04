@@ -906,7 +906,16 @@ async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal):
   }
 
   if (targetProviderId === 'virtual-audio-studio' && targetVoice) {
-    const profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id || p.name === targetVoice?.id)
+    let profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id || p.name === targetVoice?.id)
+    if (!profile && activeCard.value?.extensions?.airi?.voice_profiles) {
+      const cardProfile = activeCard.value.extensions.airi.voice_profiles.find((p: any) => p.id === targetVoice?.id || p.name === targetVoice?.id)
+      if (cardProfile) {
+        debug('[Stage:TTS] Found missing voice profile in active card extensions, auto-registering:', cardProfile.id)
+        speechStore.saveVoiceProfile(cardProfile as any)
+        profile = cardProfile as any
+      }
+    }
+
     if (profile) {
       targetProviderId = profile.baseProvider
       targetModel = profile.baseModel
