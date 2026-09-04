@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
 import { ChatBrainPopover, ChatMemoryPopover } from '@proj-airi/stage-ui/components'
+import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -34,6 +36,9 @@ const interactiveAreaRef = computed(() => activeSurfaceRef.value?.interactiveAre
 const chatSessionStore = useChatSessionStore()
 const airiCardStore = useAiriCardStore()
 const liveSessionStore = useLiveSessionStore()
+const backgroundStore = useBackgroundStore()
+const { chatboxActiveBackgroundUrl, chatboxActiveAtmosphereId } = storeToRefs(backgroundStore)
+const activeChatAtmosphereComponent = computed(() => resolveAtmosphereComponent(chatboxActiveAtmosphereId.value))
 
 const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
@@ -618,8 +623,32 @@ function selectSurface(surface: typeof activeSurface.value) {
 </script>
 
 <template>
-  <div class="h-full w-full flex flex-col overflow-hidden pt-[44px]">
+  <div class="relative h-full w-full flex flex-col overflow-hidden pt-[44px]">
+    <!-- Layer 1: Chatbox Wallpaper -->
+    <div
+      v-if="chatboxActiveBackgroundUrl"
+      class="pointer-events-none absolute inset-0 z-0 transition-opacity duration-500"
+      :style="{
+        backgroundImage: `url(${chatboxActiveBackgroundUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }"
+    >
+      <!-- Subtle readability scrim so message bubbles remain clear and distinct -->
+      <div class="absolute inset-0 bg-white/75 backdrop-blur-[1px] dark:bg-neutral-950/75" />
+    </div>
+
+    <!-- Layer 2: Animated Ambient Atmosphere Particles -->
+    <component
+      :is="activeChatAtmosphereComponent"
+      v-if="activeChatAtmosphereComponent"
+      :transparent-bg="true"
+      class="pointer-events-none absolute inset-0 z-1"
+    />
+
     <WindowTitleBar
+      class="relative z-2"
       :title="activeSurface === 'messages' ? 'Chat' : activeSurfaceLabel"
       icon="i-solar:chat-line-bold"
     >
@@ -1252,7 +1281,7 @@ function selectSurface(surface: typeof activeSurface.value) {
         </div>
       </div>
     </WindowTitleBar>
-    <div class="relative flex flex-1 overflow-hidden">
+    <div class="relative z-2 flex flex-1 overflow-hidden">
       <!-- 1. Left Panel Mobile Overlay Drawer -->
       <Transition name="fade">
         <div

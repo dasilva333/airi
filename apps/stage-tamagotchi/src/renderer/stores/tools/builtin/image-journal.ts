@@ -104,6 +104,7 @@ async function executeCreateImageJournalEntry(params: { prompt?: string, title?:
           cardStore.updateCard(cardId, { ...card, extensions: extension })
         }
       }
+      backgroundStore.setActiveBackground(entryId)
     }
 
     if (mode === 'widget' || mode === 'bg_widget') {
@@ -186,6 +187,7 @@ async function executeSetAsBackground(params: { query?: string }) {
           cardStore.updateCard(cardId, { ...card, extensions: extension })
         }
       }
+      backgroundStore.setActiveBackground(entry.id)
       return `Background set to "${entry.title}".`
     }
     catch (e) {

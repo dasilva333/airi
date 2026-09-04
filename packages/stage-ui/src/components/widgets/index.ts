@@ -1,3 +1,5 @@
+export { default as StageWidgetOverlay } from '../scenarios/widgets/StageWidgetOverlay.vue'
+export { default as StageWidgetsContainer } from '../scenarios/widgets/StageWidgetsContainer.vue'
 export { default as CloudflareAccountHeaderWidget } from './CloudflareAccountHeaderWidget.vue'
 export { default as ColorPalette } from './ColorPalette.vue'
 export { default as PoppinText } from './poppin-text/PoppinText.web.vue'

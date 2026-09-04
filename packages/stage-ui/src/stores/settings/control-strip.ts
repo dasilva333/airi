@@ -24,6 +24,7 @@ export const DEFAULT_BUTTONS: ControlStripButton[] = [
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'mic', enabled: true, label: 'Microphone Toggle', icon: 'i-solar:muted-linear' },
   { id: 'stage', enabled: true, label: 'Actor Stage', icon: 'i-solar:clapperboard-play-bold-duotone' },
+  { id: 'stage-atmosphere', enabled: true, label: 'Stage & Chat Theme', icon: 'i-solar:magic-stick-3-bold-duotone' },
   { id: 'caption', enabled: true, label: 'Captions', icon: 'i-ph:closed-captioning-duotone' },
   { id: 'gemini-session', enabled: true, label: 'Toggle Speech Session', icon: 'i-ph:sparkle' },
   { id: 'settings', enabled: true, label: 'Settings', icon: 'i-solar:settings-linear' },
@@ -132,6 +133,18 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
         }
         changed = true
       }
+    }
+    else if (!existing.some(btn => btn.id === 'stage-atmosphere')) {
+      // On desktop, add 'stage-atmosphere' right after 'stage' if missing
+      const stageIdx = existing.findIndex(btn => btn.id === 'stage')
+      const insertAt = stageIdx !== -1 ? stageIdx + 1 : existing.length
+      existing.splice(insertAt, 0, {
+        id: 'stage-atmosphere',
+        enabled: true,
+        label: 'Stage & Chat Theme',
+        icon: 'i-solar:magic-stick-3-bold-duotone',
+      })
+      changed = true
     }
 
     // 1. Remove buttons whose IDs no longer exist in either defaultButtons or the catalog

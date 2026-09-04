@@ -4,7 +4,7 @@ import type { DirectorNote } from '../../types/director'
 
 import { defineInvoke, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
-import { artistryGenerateHeadless } from '@proj-airi/stage-shared'
+import { artistryGenerateHeadless, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { nextTick, ref, toRaw, watch } from 'vue'
@@ -16,6 +16,7 @@ import { useChatSessionStore } from '../chat/session-store'
 import { useDatingSimStore } from '../dating-sim'
 import { useLLM } from '../llm'
 import { useProvidersStore } from '../providers'
+import { useStageWidgetsStore } from '../stage-widgets'
 import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
@@ -34,6 +35,7 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
   const chatSessionStore = useChatSessionStore()
   const speechStore = useSpeechStore()
   const datingSimStore = useDatingSimStore()
+  const stageWidgetsStore = useStageWidgetsStore()
 
   const isProcessing = ref(false)
   const directorNotes = ref<DirectorNote[]>([])
@@ -419,8 +421,13 @@ export const useAutonomousArtistryStore = defineStore('artistry-autonomous', () 
         return { error: `Web generation not supported for ${payload.provider}. Please use Electron for Replicate/OpenAI.` }
       },
       addWidget: async (payload: any) => {
-        artistLog('Widget spawning is disabled in Web environment.', payload)
-        toast.info('Scene generated! Check your Gallery.')
+        artistLog('Spawning in-DOM Stage Widget in Web environment.', payload)
+        stageWidgetsStore.spawnWidget({
+          entryId: payload?.componentProps?.entryId,
+          imageUrl: payload?.componentProps?.imageUrl || '',
+          prompt: payload?.componentProps?.prompt,
+          title: payload?.componentProps?.title || 'Autonomous Scene',
+        })
       },
       showToast: async (payload: any) => {
         toast(payload.message, {
@@ -858,6 +865,7 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
                   },
                 } as any)
               }
+              backgroundStore.setActiveBackground(entryId)
               break
             }
 
@@ -875,23 +883,33 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
             }
 
             case 'widget':
-              try {
-                await invokers.addWidget({
-                  componentName: 'artistry',
-                  componentProps: {
-                    status: 'done',
-                    entryId,
-                    imageUrl: result.imageUrl || result.base64,
-                    prompt: analysis.prompt,
-                    title: analysis.title || 'Autonomous Scene',
-                    _skipIngestion: true,
-                  },
-                  size: 'm',
-                  ttlMs: 0,
-                })
+              if (isStageTamagotchi() && invokers) {
+                try {
+                  await invokers.addWidget({
+                    componentName: 'artistry',
+                    componentProps: {
+                      status: 'done',
+                      entryId,
+                      imageUrl: result.imageUrl || result.base64,
+                      prompt: analysis.prompt,
+                      title: analysis.title || 'Autonomous Scene',
+                      _skipIngestion: true,
+                    },
+                    size: 'm',
+                    ttlMs: 0,
+                  })
+                }
+                catch (widgetErr) {
+                  artistLog('Failed to spawn Result widget', widgetErr)
+                }
               }
-              catch (widgetErr) {
-                artistLog('Failed to spawn Result widget', widgetErr)
+              else {
+                stageWidgetsStore.spawnWidget({
+                  entryId,
+                  imageUrl: (result.imageUrl || result.base64)!,
+                  prompt: analysis.prompt,
+                  title: analysis.title || 'Autonomous Scene',
+                })
               }
               break
 
@@ -922,26 +940,37 @@ LATEST ${target === 'assistant' ? 'COMPANION RESPONSE' : 'USER INPUT'}:
                   },
                 } as any)
 
+                backgroundStore.setActiveBackground(entryId)
                 artistLog('Director Bridge: Card background updated successfully')
               }
 
-              try {
-                await invokers.addWidget({
-                  componentName: 'artistry',
-                  componentProps: {
-                    status: 'done',
-                    entryId,
-                    imageUrl: result.imageUrl || result.base64,
-                    prompt: analysis.prompt,
-                    title: analysis.title || 'Autonomous Scene',
-                    _skipIngestion: true,
-                  },
-                  size: 'm',
-                  ttlMs: 0,
-                })
+              if (isStageTamagotchi() && invokers) {
+                try {
+                  await invokers.addWidget({
+                    componentName: 'artistry',
+                    componentProps: {
+                      status: 'done',
+                      entryId,
+                      imageUrl: result.imageUrl || result.base64,
+                      prompt: analysis.prompt,
+                      title: analysis.title || 'Autonomous Scene',
+                      _skipIngestion: true,
+                    },
+                    size: 'm',
+                    ttlMs: 0,
+                  })
+                }
+                catch (widgetErr) {
+                  artistLog('Failed to spawn Result widget', widgetErr)
+                }
               }
-              catch (widgetErr) {
-                artistLog('Failed to spawn Result widget', widgetErr)
+              else {
+                stageWidgetsStore.spawnWidget({
+                  entryId,
+                  imageUrl: (result.imageUrl || result.base64)!,
+                  prompt: analysis.prompt,
+                  title: analysis.title || 'Autonomous Scene',
+                })
               }
               break
           }

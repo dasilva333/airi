@@ -48,6 +48,7 @@ import { useSettingsControlStrip } from '../../stores/settings/control-strip'
 import { useSettingsUserProfile } from '../../stores/settings/user-profile'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
 import { useVHackStore } from '../../stores/vhack'
+import { StageWidgetsContainer } from '../widgets'
 
 withDefaults(defineProps<{
   paused?: boolean
@@ -1642,6 +1643,9 @@ defineExpose({
 
     <!-- Graphics scene renderer has been moved to standalone Actor Stage Window in Electron -->
     <div v-else :class="['relative h-full w-full']" />
+
+    <!-- In-DOM Draggable Stage Widgets Overlay (Non-Electron Web / Mobile Stage) -->
+    <StageWidgetsContainer v-if="!isElectron" />
 
     <!-- Floating Modular Control Strip Overlay -->
     <div v-if="isElectron" class="pointer-events-none absolute inset-0 z-50 overflow-hidden">

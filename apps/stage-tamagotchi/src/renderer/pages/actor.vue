@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useElectronEventaContext, useElectronEventaInvoke, useElectronMouseAroundWindowBorder, useElectronMouseInElement, useElectronMouseInWindow } from '@proj-airi/electron-vueuse'
+import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { StageConfigOverlay, WhisperDock } from '@proj-airi/stage-ui/components'
 import { RendererStage } from '@proj-airi/stage-ui/components/scenes'
 import { useProducer, useSpeechCaptionPlayer } from '@proj-airi/stage-ui/composables'
@@ -69,7 +70,8 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 }, { capture: true })
 
 const backgroundStore = useBackgroundStore()
-const { activeBackgroundUrl } = storeToRefs(backgroundStore)
+const { activeBackgroundUrl, activeAtmosphereId } = storeToRefs(backgroundStore)
+const activeAtmosphereComponent = computed(() => resolveAtmosphereComponent(activeAtmosphereId.value))
 
 const settingsStore = useSettings()
 const { stageModelSelected } = storeToRefs(settingsStore)
@@ -537,6 +539,14 @@ onBeforeUnmount(() => {
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
         }"
+      />
+
+      <!-- Animated Ambient Atmosphere Particles -->
+      <component
+        :is="activeAtmosphereComponent"
+        v-if="activeAtmosphereComponent && showBackgroundLayer"
+        :transparent-bg="true"
+        class="pointer-events-none absolute inset-0 z-1"
       />
 
       <!-- Standalone Graphics Model Scene Renderer -->

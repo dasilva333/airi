@@ -308,11 +308,8 @@ export const useBackgroundStore = defineStore('background', () => {
     activeAtmosphereId.value = id
   }
 
-  // Find the active background URL for the current character or global stage
-  const activeBackgroundUrl = computed(() => {
-    const bgId = activeBackgroundId.value
+  function resolveBackgroundUrl(bgId: string | null | undefined): string | null {
     if (!bgId || bgId === 'none') {
-      debug('[BackgroundStore] activeBackgroundUrl: No ID or "none"')
       return null
     }
 
@@ -328,17 +325,12 @@ export const useBackgroundStore = defineStore('background', () => {
 
     // Return the reactive URL from our map if it exists
     const url = backgroundUrls[lookupId] ?? null
-
-    // If we have the URL but not the entry in the map yet, it's likely still initializing.
-    // We return the URL anyway to avoid blank backgrounds during sync.
     if (url) {
-      debug(`[BackgroundStore] activeBackgroundUrl resolved for "${lookupId}" (from URL map)`)
       return url
     }
 
     const entry = entries.value.get(lookupId)
     if (!entry) {
-      debug(`[BackgroundStore] activeBackgroundUrl: No entry or URL found for ID "${lookupId}"`)
       return null
     }
 
@@ -351,7 +343,30 @@ export const useBackgroundStore = defineStore('background', () => {
     }
 
     return null
+  }
+
+  // Find the active background URL for the current character or global stage
+  const activeBackgroundUrl = computed(() => {
+    return resolveBackgroundUrl(activeBackgroundId.value)
   })
+
+  // --- Desktop Chatbox Background & Atmosphere ---
+  const chatboxActiveBackgroundId = useLocalStorage<string>('airi:chatbox-active-background-id', 'none')
+  const chatboxActiveAtmosphereId = useLocalStorage<StageAtmosphere>('airi:chatbox-active-atmosphere-id', 'none')
+
+  const chatboxActiveBackgroundUrl = computed(() => {
+    return resolveBackgroundUrl(chatboxActiveBackgroundId.value)
+  })
+
+  function setChatboxActiveBackground(id: string) {
+    chatboxActiveBackgroundId.value = id
+    broadcastSync(Date.now())
+  }
+
+  function setChatboxActiveAtmosphere(id: StageAtmosphere) {
+    chatboxActiveAtmosphereId.value = id
+    broadcastSync(Date.now())
+  }
 
   // List of available backgrounds for the current character
   const availableBackgrounds = computed(() => {
@@ -567,6 +582,11 @@ export const useBackgroundStore = defineStore('background', () => {
     activeAtmosphereId,
     setActiveAtmosphere,
     activeBackgroundUrl,
+    chatboxActiveBackgroundId,
+    chatboxActiveAtmosphereId,
+    chatboxActiveBackgroundUrl,
+    setChatboxActiveBackground,
+    setChatboxActiveAtmosphere,
     addBackground,
     removeBackground,
     onBackgroundAdded,

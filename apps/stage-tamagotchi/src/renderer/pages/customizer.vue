@@ -42,6 +42,7 @@ const DEFAULT_ORDER = [
   'layout',
   'chat',
   'stage',
+  'stage-atmosphere',
   'mic',
   'caption',
   'gemini-session',

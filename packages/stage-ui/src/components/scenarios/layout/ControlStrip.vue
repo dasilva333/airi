@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
@@ -487,7 +488,45 @@ const customVrmAnimationsStore = useCustomVrmAnimationsStore()
 
 // Background & Atmosphere state & actions
 const backgroundStore = useBackgroundStore()
-const { activeAtmosphereId, activeBackgroundId, availableBackgrounds } = storeToRefs(backgroundStore)
+const {
+  activeAtmosphereId,
+  activeBackgroundId,
+  availableBackgrounds,
+  chatboxActiveAtmosphereId,
+  chatboxActiveBackgroundId,
+} = storeToRefs(backgroundStore)
+
+const themeTarget = ref<'stage' | 'chatbox'>('stage')
+
+const effectiveThemeAtmosphereId = computed(() => {
+  return themeTarget.value === 'stage'
+    ? activeAtmosphereId.value
+    : chatboxActiveAtmosphereId.value
+})
+
+const effectiveThemeBackgroundId = computed(() => {
+  return themeTarget.value === 'stage'
+    ? activeBackgroundId.value
+    : chatboxActiveBackgroundId.value
+})
+
+function handleSetAtmosphere(presetId: any) {
+  if (themeTarget.value === 'stage') {
+    backgroundStore.setActiveAtmosphere(presetId)
+  }
+  else {
+    backgroundStore.setChatboxActiveAtmosphere(presetId)
+  }
+}
+
+function handleSetBackground(bgId: string) {
+  if (themeTarget.value === 'stage') {
+    backgroundStore.setActiveBackground(bgId)
+  }
+  else {
+    backgroundStore.setChatboxActiveBackground(bgId)
+  }
+}
 
 const miniBackgrounds = computed(() => {
   return availableBackgrounds.value.slice(0, 5).map(bg => ({
@@ -1359,7 +1398,9 @@ function getButtonIconColor(btnId: string): string {
       return 'text-indigo-500 dark:text-indigo-400'
   }
   if (btnId === 'stage-atmosphere') {
-    if (activeAtmosphereId.value !== 'none' || activeBackgroundId.value !== 'none') {
+    const hasStageActive = activeAtmosphereId.value !== 'none' || activeBackgroundId.value !== 'none'
+    const hasChatboxActive = isStageTamagotchi() && (chatboxActiveAtmosphereId.value !== 'none' || chatboxActiveBackgroundId.value !== 'none')
+    if (hasStageActive || hasChatboxActive) {
       return 'text-amber-500 dark:text-amber-400'
     }
     return 'text-neutral-500 opacity-50'
@@ -1438,6 +1479,9 @@ function getButtonTitle(btnId: string, defaultLabel: string): string {
     return `Head-Tethered Caption: ${settingsStore.headTetheredCaptionEnabled ? 'ON (Green)' : 'OFF (Red)'}`
   }
   if (btnId === 'stage-atmosphere') {
+    if (isStageTamagotchi()) {
+      return `Theme & Atmosphere (Stage: ${activeAtmosphereId.value}, Chat: ${chatboxActiveAtmosphereId.value})`
+    }
     return `Stage Theme & Atmosphere (${activeAtmosphereId.value}, ${activeBackgroundId.value !== 'none' ? 'Wallpaper' : 'No Wallpaper'})`
   }
   return defaultLabel
@@ -1664,7 +1708,9 @@ function getShortLabel(btnId: string): string {
           v-if="btn.id === 'stage-atmosphere'"
           :class="[
             'absolute right-1 top-1 h-1.5 w-1.5 rounded-full transition-colors duration-200',
-            activeAtmosphereId !== 'none' || activeBackgroundId !== 'none' ? 'bg-amber-400 dark:bg-amber-300' : 'bg-neutral-400 opacity-50',
+            (activeAtmosphereId !== 'none' || activeBackgroundId !== 'none' || (isStageTamagotchi() && (chatboxActiveAtmosphereId !== 'none' || chatboxActiveBackgroundId !== 'none')))
+              ? 'bg-amber-400 dark:bg-amber-300'
+              : 'bg-neutral-400 opacity-50',
           ]"
         />
 
@@ -3083,34 +3129,69 @@ function getShortLabel(btnId: string): string {
           </div>
         </div>
 
-        <!-- STAGE ATMOSPHERE / THEME POPOVER -->
+        <!-- STAGE / CHATBOX ATMOSPHERE & THEME POPOVER -->
         <div v-if="activePopover === 'stage-atmosphere'" class="flex flex-col gap-2.5">
           <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
             <div class="flex items-center gap-1.5">
               <span class="i-solar:magic-stick-3-bold-duotone text-sm text-amber-500" />
-              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">Stage Theme</span>
+              <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase">
+                {{ isStageTamagotchi() ? 'Theme & Atmosphere' : 'Stage Theme' }}
+              </span>
             </div>
             <button class="cursor-pointer text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300" @click="activePopover = null">
               <span class="i-solar:close-circle-outline text-lg" />
             </button>
           </div>
 
+          <!-- Target Surface Segmented Switcher (Desktop only: Stage vs Chatbox) -->
+          <div v-if="isStageTamagotchi()" class="grid grid-cols-2 gap-1 rounded-xl bg-neutral-200/50 p-1 dark:bg-neutral-800/50">
+            <button
+              :class="[
+                'flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                themeTarget === 'stage'
+                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+              ]"
+              @click="themeTarget = 'stage'"
+            >
+              <span class="i-solar:clapperboard-play-bold-duotone text-xs text-amber-500" />
+              <span>Stage</span>
+            </button>
+            <button
+              :class="[
+                'flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                themeTarget === 'chatbox'
+                  ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+              ]"
+              @click="themeTarget = 'chatbox'"
+            >
+              <span class="i-solar:chat-line-bold text-xs text-amber-500" />
+              <span>Chatbox</span>
+            </button>
+          </div>
+
           <!-- Section 1: Animated Atmosphere Particles -->
           <div class="flex flex-col gap-1.5">
-            <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Animated Atmosphere</span>
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">Animated Atmosphere</span>
+              <span v-if="isStageTamagotchi()" class="text-[9px] text-amber-600 font-medium dark:text-amber-400">
+                Target: {{ themeTarget === 'stage' ? 'Stage' : 'Chatbox' }}
+              </span>
+            </div>
             <div class="grid grid-cols-2 gap-1.5">
               <button
                 v-for="preset in ATMOSPHERE_PRESETS"
                 :key="preset.id"
                 :class="[
                   'flex items-center gap-1.5 px-2 py-1.5 rounded-xl border text-left transition-all duration-150 cursor-pointer text-xs',
-                  activeAtmosphereId === preset.id
+                  effectiveThemeAtmosphereId === preset.id
                     ? 'border-amber-400/80 bg-amber-500/15 text-amber-600 dark:text-amber-300 font-semibold ring-1 ring-amber-400/40'
                     : 'border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-200/20 dark:bg-neutral-800/40 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/70',
                 ]"
-                @click="backgroundStore.setActiveAtmosphere(preset.id as any)"
+                @click="handleSetAtmosphere(preset.id as any)"
               >
-                <span :class="[preset.icon, 'text-sm shrink-0', activeAtmosphereId === preset.id ? 'text-amber-500' : 'text-neutral-400']" />
+                <span :class="[preset.icon, 'text-sm shrink-0', effectiveThemeAtmosphereId === preset.id ? 'text-amber-500' : 'text-neutral-400']" />
                 <span class="truncate text-[11px]">{{ preset.name }}</span>
               </button>
             </div>
@@ -3133,12 +3214,12 @@ function getShortLabel(btnId: string): string {
               <button
                 :class="[
                   'group relative aspect-video rounded-xl border overflow-hidden flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all duration-150',
-                  activeBackgroundId === 'none'
+                  effectiveThemeBackgroundId === 'none'
                     ? 'border-amber-400/80 ring-2 ring-amber-400/40 bg-amber-500/10'
                     : 'border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-200/30 dark:bg-neutral-800/40 hover:bg-neutral-200/50',
                 ]"
                 title="None (Clean Stencil Only)"
-                @click="backgroundStore.setActiveBackground('none')"
+                @click="handleSetBackground('none')"
               >
                 <span class="i-solar:eye-closed-linear text-sm text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300" />
                 <span class="text-[9px] text-neutral-500 font-medium">None</span>
@@ -3150,12 +3231,12 @@ function getShortLabel(btnId: string): string {
                 :key="bg.id"
                 :class="[
                   'group relative aspect-video rounded-xl border overflow-hidden cursor-pointer transition-all duration-150',
-                  activeBackgroundId === bg.id
+                  effectiveThemeBackgroundId === bg.id
                     ? 'border-amber-400/80 ring-2 ring-amber-400/40'
                     : 'border-neutral-200/60 dark:border-neutral-800/80 hover:ring-1 hover:ring-amber-400/40',
                 ]"
                 :title="bg.title"
-                @click="backgroundStore.setActiveBackground(bg.id)"
+                @click="handleSetBackground(bg.id)"
               >
                 <img
                   v-if="bg.resolvedUrl"
