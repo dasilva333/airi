@@ -1,4 +1,5 @@
 export * from './profiles'
 export * from './settings'
 export * from './use-live2d-motion-magic'
+export * from './use-live2d-stage-ambient-motion'
 export * from './view-target'

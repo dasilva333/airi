@@ -71,4 +71,27 @@ describe('live2d MAGIC settings', () => {
     expect(() => live2dMotionMagicProfiles[settings.profileId].dataset).not.toThrow()
     expect(settings.profileId).toBe('speaking-excited')
   })
+
+  it('manages enabled state and per-model overrides correctly', async () => {
+    const { useLive2DMotionMagicSettings } = await import('./index')
+    const settings = useLive2DMotionMagicSettings()
+
+    expect(settings.isModelEnabled()).toBe(false)
+    expect(settings.isModelEnabled('hiyori')).toBe(false)
+
+    // Set globally
+    settings.setModelEnabled(undefined, true)
+    expect(settings.isModelEnabled()).toBe(true)
+    expect(settings.isModelEnabled('hiyori')).toBe(true)
+
+    // Set specific model override to false
+    settings.setModelEnabled('hiyori', false)
+    expect(settings.isModelEnabled()).toBe(true)
+    expect(settings.isModelEnabled('hiyori')).toBe(false)
+
+    // Reset restores defaults
+    settings.resetState()
+    expect(settings.isModelEnabled()).toBe(false)
+    expect(settings.isModelEnabled('hiyori')).toBe(false)
+  })
 })

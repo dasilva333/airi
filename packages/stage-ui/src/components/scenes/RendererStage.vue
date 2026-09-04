@@ -14,6 +14,7 @@ import HeadTetheredCaption from './HeadTetheredCaption.vue'
 import HeadTetheredRadialMenu from './HeadTetheredRadialMenu.vue'
 
 import { useIdleAnimations } from '../../composables'
+import { useLive2DStageAmbientMotion } from '../../features/motions/live2d'
 import { useBackgroundStore } from '../../stores/background'
 import { useDatingSimStore } from '../../stores/dating-sim'
 import { useAiriCardStore } from '../../stores/modules'
@@ -103,6 +104,8 @@ const mmdStore = useMmd()
 const { previewExpression } = storeToRefs(mmdStore)
 
 const { resolveActiveIdleAnimations } = useIdleAnimations()
+const live2dActiveModelId = computed(() => stageModelRenderer.value === 'live2d' ? stageModelSelected.value : undefined)
+useLive2DStageAmbientMotion({ modelId: live2dActiveModelId })
 
 const { post: postStageModelReady } = useBroadcastChannel<string, string>({ name: 'airi-stage-model-ready' })
 watch(componentState, (state) => {

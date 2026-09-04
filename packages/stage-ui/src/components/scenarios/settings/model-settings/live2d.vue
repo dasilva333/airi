@@ -3,11 +3,12 @@ import { defaultModelParameters, useLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCacheV2 } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ModelCustomizer from './ModelCustomizer.vue'
 
+import { useLive2DMotionMagicSettings, useLive2DStageAmbientMotion } from '../../../../features/motions/live2d'
 import { useLHackStore } from '../../../../stores'
 import { useSettings } from '../../../../stores/settings'
 import { usePositioningStore } from '../../../../stores/settings/positioning'
@@ -96,9 +97,27 @@ const fpsOptions = computed(() => [
   { value: 30, label: '30' },
 ])
 
+const magicSettings = useLive2DMotionMagicSettings()
+const targetModelId = computed(() => props.modelId || settings.stageModelSelected || 'global')
+
+const ambientMotionEnabled = computed({
+  get: () => magicSettings.isModelEnabled(targetModelId.value),
+  set: (val) => {
+    magicSettings.setModelEnabled(targetModelId.value, val)
+  },
+})
+
+const { isSpeaking, isPreviewing, triggerPreview } = useLive2DStageAmbientMotion({
+  modelId: targetModelId,
+})
+
+const speechDynamicsEnabled = toRef(magicSettings, 'speechDynamicsEnabled')
+const motionIntensity = toRef(magicSettings, 'intensity')
+
 const customizationTabs = computed(() => [
   { value: 'customizer', label: 'Customizer', icon: 'i-solar:settings-bold-duotone' },
   { value: 'headFace', label: 'Face', icon: 'i-solar:user-bold-duotone' },
+  { value: 'motion', label: 'Motion', icon: 'i-solar:running-round-bold-duotone' },
 ])
 const activeCustomizationTab = ref('customizer')
 
@@ -346,6 +365,107 @@ onUnmounted(() => {
           </div>
         </template>
       </FieldRange>
+    </div>
+
+    <!-- Motion Tab (Natural Ambient Motion / AR-HMM) -->
+    <div v-else-if="activeCustomizationTab === 'motion'" :class="['space-y-4']">
+      <div :class="['flex', 'items-center', 'justify-between']">
+        <div :class="['flex', 'flex-col', 'gap-1']">
+          <span :class="['text-sm', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">
+            Natural Ambient Motion
+          </span>
+          <span :class="['text-xs', 'text-neutral-500', 'dark:text-neutral-400']">
+            Drives organic head, eye, and body movement during idle and speech states.
+          </span>
+        </div>
+        <Checkbox v-model="ambientMotionEnabled" />
+      </div>
+
+      <div
+        v-if="ambientMotionEnabled"
+        :class="['rounded-lg', 'border', 'border-neutral-200', 'bg-neutral-50/60', 'p-3', 'dark:border-neutral-800', 'dark:bg-neutral-900/60', 'space-y-3']"
+      >
+        <!-- Status & Live State Badge -->
+        <div :class="['flex', 'items-center', 'justify-between']">
+          <div :class="['flex', 'items-center', 'gap-2']">
+            <div :class="['i-solar:shield-check-bold', 'text-xs', 'text-primary-500']" />
+            <span :class="['text-xs', 'font-semibold', 'text-neutral-700', 'dark:text-neutral-300']">
+              Active State
+            </span>
+          </div>
+          <div
+            :class="[
+              'flex', 'items-center', 'gap-1.5', 'px-2.5', 'py-1', 'rounded-full', 'text-xs', 'font-medium', 'transition-all',
+              isSpeaking
+                ? 'bg-amber-500/15 text-amber-500 dark:bg-amber-400/20 dark:text-amber-300 border border-amber-500/30'
+                : 'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/20 dark:text-emerald-300 border border-emerald-500/30',
+            ]"
+          >
+            <span
+              :class="[
+                'h-2', 'w-2', 'rounded-full',
+                isSpeaking ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500',
+              ]"
+            />
+            <span>{{ isSpeaking ? 'Speaking (Dynamic)' : 'Idle (Calm)' }}</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Description -->
+        <p :class="['text-xs', 'text-neutral-500', 'dark:text-neutral-400', 'leading-relaxed']">
+          When idle, the model performs gentle micro-saccades and natural breathing. When speech plays, it can optionally transition into expressive conversational cadence.
+        </p>
+
+        <!-- Conversational Dynamics (Speech) -->
+        <div :class="['flex', 'items-center', 'justify-between', 'border-t', 'border-neutral-200/60', 'pt-3', 'dark:border-neutral-800/60']">
+          <div :class="['flex', 'flex-col', 'gap-0.5']">
+            <span :class="['text-xs', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">
+              Conversational Dynamics (Speech)
+            </span>
+            <span :class="['text-[11px]', 'text-neutral-500', 'dark:text-neutral-400']">
+              Activate animated head and body gestures while speaking.
+            </span>
+          </div>
+          <Checkbox v-model="speechDynamicsEnabled" />
+        </div>
+
+        <!-- Motion Intensity Slider -->
+        <div :class="['space-y-1.5', 'border-t', 'border-neutral-200/60', 'pt-3', 'dark:border-neutral-800/60']">
+          <FieldRange
+            v-model="motionIntensity"
+            :min="0.1"
+            :max="1.0"
+            :step="0.05"
+            label="Motion Intensity"
+          >
+            <template #label>
+              <div :class="['flex', 'items-center', 'justify-between', 'w-full']">
+                <span :class="['text-xs', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">Motion Intensity</span>
+                <span class="text-xs text-neutral-500 font-semibold font-mono">
+                  {{ Math.round(motionIntensity * 100) }}%
+                </span>
+              </div>
+            </template>
+          </FieldRange>
+          <p :class="['text-[11px]', 'text-neutral-500', 'dark:text-neutral-400']">
+            Adjust the amplitude of head and body movement (default 100%).
+          </p>
+        </div>
+
+        <!-- Preview Test Button -->
+        <div :class="['pt-1']">
+          <Button
+            size="sm"
+            variant="secondary"
+            :class="['w-full', 'flex', 'items-center', 'justify-center', 'gap-2']"
+            :disabled="isPreviewing || !speechDynamicsEnabled"
+            @click="triggerPreview(3000)"
+          >
+            <div :class="[isPreviewing ? 'i-svg-spinners:ring-resize' : 'i-solar:play-circle-bold-duotone', 'text-sm']" />
+            <span>{{ isPreviewing ? 'Testing Speech Motion (3s)...' : 'Test Speech Dynamics (3s)' }}</span>
+          </Button>
+        </div>
+      </div>
     </div>
   </Section>
 

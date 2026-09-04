@@ -47,7 +47,7 @@ export interface UseLive2DMotionMagicOptions {
   random?: () => number
 }
 
-function evaluateDataset(dataset: Live2DMotionMagicDataset, atMs: number): Pose {
+export function evaluateDataset(dataset: Live2DMotionMagicDataset, atMs: number): Pose {
   const time = Math.min(dataset.durationMs, Math.max(0, atMs))
   const rightIndex = dataset.samples.findIndex(sample => sample.atMs >= time)
   if (rightIndex <= 0) {
@@ -64,7 +64,7 @@ function evaluateDataset(dataset: Live2DMotionMagicDataset, atMs: number): Pose 
   return pose
 }
 
-function toTrainingSequence(dataset: Live2DMotionMagicDataset, sampleRateHz: number) {
+export function toTrainingSequence(dataset: Live2DMotionMagicDataset, sampleRateHz: number) {
   const frameIntervalMs = 1000 / sampleRateHz
   const frameCount = Math.floor(dataset.durationMs / frameIntervalMs) + 1
   return createTrainingSequence({
