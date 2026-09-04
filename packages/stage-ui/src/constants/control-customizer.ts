@@ -28,6 +28,14 @@ export const CUSTOMIZER_CATALOG: CustomizerGroup[] = [
     icon: 'i-solar:tuning-outline',
     items: [
       {
+        id: 'stage-atmosphere',
+        label: 'Stage Theme',
+        description: 'Quick switcher for stage atmosphere particles and background scene.',
+        icon: 'i-solar:magic-stick-3-bold-duotone',
+        type: 'menu',
+        defaultOnStrip: true,
+      },
+      {
         id: 'stage',
         label: 'Actor Stage',
         description: 'Toggles rendering of the companion stage window.',

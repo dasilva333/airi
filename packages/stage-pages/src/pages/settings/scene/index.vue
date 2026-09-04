@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { StageAtmosphere } from '@proj-airi/stage-ui/stores'
+
+import { ATMOSPHERE_OPTIONS } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { CharacterAvatar } from '@proj-airi/stage-ui/components'
 import { useAiriCardStore, useBackgroundStore } from '@proj-airi/stage-ui/stores'
 import { Button, Callout } from '@proj-airi/ui'
@@ -13,7 +16,7 @@ const { t } = useI18n()
 const router = useRouter()
 const backgroundStore = useBackgroundStore()
 const cardStore = useAiriCardStore()
-const { activeBackgroundId, activeBackgroundUrl } = storeToRefs(backgroundStore)
+const { activeBackgroundId, activeBackgroundUrl, activeAtmosphereId } = storeToRefs(backgroundStore)
 
 const fileInputRef = ref<HTMLInputElement>()
 const activeTab = ref<FilterTab>('all')
@@ -88,6 +91,10 @@ function removeBackground(id: string) {
 
 function clearDefault() {
   backgroundStore.setActiveBackground('none')
+}
+
+function selectAtmosphere(id: StageAtmosphere) {
+  backgroundStore.setActiveAtmosphere(id)
 }
 </script>
 
@@ -203,6 +210,81 @@ function clearDefault() {
             <div :class="['i-solar:trash-bin-trash-bold-duotone text-lg']" />
             <span>{{ t('settings.pages.scene.background_image.clear') }}</span>
           </Button>
+        </div>
+      </div>
+
+      <!-- Stage Atmosphere & Particle Layer Shelf -->
+      <div
+        :class="[
+          'relative overflow-hidden rounded-3xl border border-neutral-200/80 dark:border-neutral-800',
+          'bg-white/70 dark:bg-neutral-900/60 p-5 sm:p-6 backdrop-blur-xl shadow-sm flex flex-col gap-4',
+        ]"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="size-8 flex items-center justify-center rounded-xl bg-primary-500/15 text-primary-500">
+              <div class="i-solar:magic-stick-3-bold-duotone text-lg" />
+            </div>
+            <div>
+              <h3 class="text-sm text-neutral-900 font-bold dark:text-neutral-100">
+                Stage Atmosphere & Particle Layer
+              </h3>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Independent ambient particle effect that floats over your wallpaper
+              </p>
+            </div>
+          </div>
+          <span
+            v-if="activeAtmosphereId !== 'none'"
+            class="items-center gap-1.5 border border-primary-500/20 rounded-full bg-primary-500/10 px-2.5 py-1 text-xs text-primary-600 font-semibold hidden sm:inline-flex dark:text-primary-300"
+          >
+            <span class="size-1.5 animate-pulse rounded-full bg-primary-500" />
+            {{ ATMOSPHERE_OPTIONS.find(opt => opt.id === activeAtmosphereId)?.name }}
+          </span>
+        </div>
+
+        <!-- Atmosphere Tiles Grid -->
+        <div class="grid grid-cols-2 gap-2 lg:grid-cols-7 sm:grid-cols-4">
+          <button
+            v-for="atm in ATMOSPHERE_OPTIONS"
+            :key="atm.id"
+            type="button"
+            :class="[
+              'group relative flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition-all duration-200 cursor-pointer min-h-20',
+              activeAtmosphereId === atm.id
+                ? 'border-primary-500/70 bg-primary-500/10 shadow-sm dark:border-primary-400/80 dark:bg-primary-500/15'
+                : 'border-neutral-200/80 bg-white/60 dark:border-neutral-800/80 dark:bg-neutral-800/40 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/80 dark:hover:bg-neutral-800/70',
+            ]"
+            :title="atm.description"
+            @click="selectAtmosphere(atm.id)"
+          >
+            <div
+              :class="[
+                'size-8 flex items-center justify-center rounded-xl transition-all duration-200',
+                activeAtmosphereId === atm.id
+                  ? 'bg-primary-500 text-white shadow-xs scale-105'
+                  : 'bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 group-hover:scale-105',
+              ]"
+            >
+              <div :class="[atm.icon, 'text-lg']" />
+            </div>
+            <span
+              :class="[
+                'mt-2 text-xs font-medium line-clamp-1 transition-colors',
+                activeAtmosphereId === atm.id
+                  ? 'text-primary-700 dark:text-primary-300 font-bold'
+                  : 'text-neutral-700 dark:text-neutral-300',
+              ]"
+            >
+              {{ atm.name }}
+            </span>
+            <div
+              v-if="activeAtmosphereId === atm.id"
+              class="shadow-xs absolute size-4 flex items-center justify-center rounded-full bg-primary-500 text-[10px] text-white -right-1 -top-1"
+            >
+              <div class="i-solar:check-read-linear text-[10px]" />
+            </div>
+          </button>
         </div>
       </div>
 

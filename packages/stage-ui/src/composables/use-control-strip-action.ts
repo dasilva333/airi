@@ -175,6 +175,10 @@ export function useControlStripAction() {
           window.dispatchEvent(new CustomEvent('control-strip:open-customizer'))
         }
         break
+
+      case 'stage-atmosphere':
+        // Menu popover is handled directly by ControlStrip
+        break
     }
 
     // Broadcast across windows if running in multi-window desktop context

@@ -1,5 +1,5 @@
+export { default as PatternHearts } from '../patterns/pattern-hearts.vue'
 export { default as DefaultBackground } from './index.vue'
 export { default as PartAnimatedWave } from './part-animated-wave.vue'
 export { default as PatternCross } from './pattern-cross.vue'
-export { default as PatternHearts } from './pattern-hearts.vue'
 export { default as DefaultBackgroundPreview } from './preview.vue'

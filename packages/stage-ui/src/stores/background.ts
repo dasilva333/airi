@@ -13,6 +13,8 @@ import { useChatSessionStore } from './chat/session-store'
 import { useEventLogStore } from './event-log'
 import { useAiriCardStore } from './modules/airi-card'
 
+export type StageAtmosphere = 'none' | 'hearts' | 'petals' | 'stars' | 'bubbles' | 'crosses' | 'notes'
+
 export interface BackgroundEntry {
   id: string
   type: 'builtin' | 'scene' | 'journal' | 'selfie'
@@ -255,6 +257,55 @@ export const useBackgroundStore = defineStore('background', () => {
 
   function setActiveBackground(id: string) {
     activeBackgroundId.value = id
+  }
+
+  // Persistent global fallback for active atmosphere id
+  const globalActiveAtmosphereId = useLocalStorage<StageAtmosphere>('airi:stage-active-atmosphere-id', 'hearts')
+
+  const activeAtmosphereId = computed<StageAtmosphere>({
+    get: () => {
+      const airiCardStore = useAiriCardStore()
+      const card = airiCardStore.activeCard
+      const ext = (card as any)?.extensions?.airi || (card as any)?.data?.extensions?.airi
+      const cardAtmosphere = ext?.modules?.activeAtmosphereId as StageAtmosphere | undefined
+      if (cardAtmosphere) {
+        return cardAtmosphere
+      }
+      return (globalActiveAtmosphereId.value as StageAtmosphere) || 'hearts'
+    },
+    set: (val: StageAtmosphere) => {
+      globalActiveAtmosphereId.value = val
+      const airiCardStore = useAiriCardStore()
+      if (airiCardStore.activeCard && airiCardStore.activeCardId) {
+        const card = airiCardStore.activeCard
+        const updatedCard = JSON.parse(JSON.stringify(card))
+
+        if (updatedCard.data) {
+          if (!updatedCard.data.extensions)
+            updatedCard.data.extensions = {}
+          if (!updatedCard.data.extensions.airi)
+            updatedCard.data.extensions.airi = {}
+          if (!updatedCard.data.extensions.airi.modules)
+            updatedCard.data.extensions.airi.modules = {}
+          updatedCard.data.extensions.airi.modules.activeAtmosphereId = val
+        }
+
+        if (!updatedCard.extensions)
+          updatedCard.extensions = {}
+        if (!updatedCard.extensions.airi)
+          updatedCard.extensions.airi = {}
+        if (!updatedCard.extensions.airi.modules)
+          updatedCard.extensions.airi.modules = {}
+        updatedCard.extensions.airi.modules.activeAtmosphereId = val
+
+        void airiCardStore.updateCard(airiCardStore.activeCardId, updatedCard)
+      }
+      broadcastSync(Date.now())
+    },
+  })
+
+  function setActiveAtmosphere(id: StageAtmosphere) {
+    activeAtmosphereId.value = id
   }
 
   // Find the active background URL for the current character or global stage
@@ -513,6 +564,8 @@ export const useBackgroundStore = defineStore('background', () => {
     getCharacterJournalEntries,
     activeBackgroundId,
     setActiveBackground,
+    activeAtmosphereId,
+    setActiveAtmosphere,
     activeBackgroundUrl,
     addBackground,
     removeBackground,

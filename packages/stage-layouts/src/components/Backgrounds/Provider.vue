@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import type { BackgroundItem } from '../../stores/background'
 
-import { isStageCapacitor } from '@proj-airi/stage-shared'
 import { BackgroundGradientOverlay } from '@proj-airi/stage-ui/components'
 import { useBackgroundStore as useStageUiBackgroundStore } from '@proj-airi/stage-ui/stores'
-import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { BackgroundKind } from '../../stores/background'
-import { DefaultBackground, PatternHearts } from '../Backgrounds/default'
+import { DefaultBackground } from '../Backgrounds/default'
+import { resolveAtmosphereComponent } from './patterns'
 
 const props = defineProps<{
   background?: BackgroundItem
@@ -20,16 +19,7 @@ const containerRef = ref<HTMLElement | null>(null)
 
 // Connect to Stage-UI background store (where cardStore.activeCard.extensions.airi.modules.activeBackgroundId lives)
 const uiBackgroundStore = useStageUiBackgroundStore()
-const { activeBackgroundUrl } = storeToRefs(uiBackgroundStore)
-
-const breakpoints = useBreakpoints(breakpointsTailwind)
-const isMobile = computed(() => {
-  if (isStageCapacitor())
-    return true
-  if (typeof window !== 'undefined' && !(window as any).electron)
-    return true
-  return breakpoints.smaller('md').value
-})
+const { activeBackgroundUrl, activeAtmosphereId } = storeToRefs(uiBackgroundStore)
 
 const effectiveBackgroundSrc = computed(() => {
   if (activeBackgroundUrl.value)
@@ -37,6 +27,10 @@ const effectiveBackgroundSrc = computed(() => {
   if (props.background?.kind === BackgroundKind.Image && props.background?.src)
     return props.background.src
   return null
+})
+
+const activeAtmosphereComponent = computed(() => {
+  return resolveAtmosphereComponent(activeAtmosphereId.value)
 })
 
 const isBlurred = computed(() => {
@@ -50,7 +44,7 @@ defineExpose({
 
 <template>
   <div ref="containerRef" class="customized-background relative min-h-100dvh w-full overflow-hidden">
-    <!-- Background layers -->
+    <!-- Layer 1: Background Wallpaper -->
     <div
       class="absolute inset-0 z-0 transition-all duration-300"
       :class="[(isBlurred && effectiveBackgroundSrc) ? 'blur-md scale-110' : '']"
@@ -67,15 +61,16 @@ defineExpose({
         <div class="pointer-events-none absolute inset-0 bg-black/10 dark:bg-black/30" />
       </template>
 
-      <!-- Default Background (Wave on desktop, or gradient on mobile) when no custom image -->
+      <!-- Default Background (Wave on desktop, or ambient radial gradient on mobile) when no custom image -->
       <template v-else>
         <DefaultBackground class="h-full w-full" />
       </template>
     </div>
 
-    <!-- Floating Hearts Layer: Always active on mobile regardless of background picked -->
-    <PatternHearts
-      v-if="isMobile && effectiveBackgroundSrc"
+    <!-- Layer 2: Animated Ambient Atmosphere / Stencil Layer (Independent!) -->
+    <component
+      :is="activeAtmosphereComponent"
+      v-if="activeAtmosphereComponent"
       :transparent-bg="true"
       class="pointer-events-none absolute inset-0 z-1"
     />

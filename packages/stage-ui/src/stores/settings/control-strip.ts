@@ -45,7 +45,7 @@ export const DEFAULT_MOBILE_BUTTONS: ControlStripButton[] = [
   { id: 'theme-mode', enabled: true, label: 'Theme Mode', icon: 'i-solar:sun-2-bold-duotone' },
   { id: 'actor-characters', enabled: true, label: 'Characters', icon: 'i-solar:users-group-rounded-outline' },
   { id: 'actor-avatars', enabled: true, label: 'Avatars', icon: 'i-solar:user-bold-duotone' },
-  { id: 'gemini-session', enabled: true, label: 'Active Session', icon: 'i-ph:sparkle' },
+  { id: 'stage-atmosphere', enabled: true, label: 'Stage Theme', icon: 'i-solar:magic-stick-3-bold-duotone' },
   { id: 'actor-wardrobe', enabled: true, label: 'Wardrobe (Outfits)', icon: 'i-solar:t-shirt-outline' },
 ]
 
@@ -119,6 +119,20 @@ export const useSettingsControlStrip = defineStore('settings-control-strip', () 
 
     let changed = false
     const existing = [...buttons.value]
+
+    // On mobile/web, seamlessly migrate any existing 'gemini-session' button slot to 'stage-atmosphere'
+    if (!isStageTamagotchi()) {
+      const geminiIdx = existing.findIndex(btn => btn.id === 'gemini-session')
+      if (geminiIdx !== -1 && !existing.some(btn => btn.id === 'stage-atmosphere')) {
+        existing[geminiIdx] = {
+          id: 'stage-atmosphere',
+          enabled: true,
+          label: 'Stage Theme',
+          icon: 'i-solar:magic-stick-3-bold-duotone',
+        }
+        changed = true
+      }
+    }
 
     // 1. Remove buttons whose IDs no longer exist in either defaultButtons or the catalog
     const filtered = existing.filter(btn => allKnownIds.has(btn.id))

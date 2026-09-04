@@ -55,16 +55,23 @@ onMounted(() => {
   if (!ctx)
     return
 
-  let width = canvas.parentElement?.clientWidth || window.innerWidth
-  let height = canvas.parentElement?.clientHeight || window.innerHeight
+  function getDims() {
+    const parent = canvas?.parentElement
+    const w = (parent && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth
+    const h = (parent && parent.clientHeight > 0) ? parent.clientHeight : window.innerHeight
+    return { w, h }
+  }
+
+  let { w: width, h: height } = getDims()
   canvas.width = width
   canvas.height = height
 
   const handleResize = () => {
     if (!canvas)
       return
-    width = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth
-    height = canvas.height = canvas.parentElement?.clientHeight || window.innerHeight
+    const dims = getDims()
+    width = canvas.width = dims.w
+    height = canvas.height = dims.h
   }
   window.addEventListener('resize', handleResize)
 
@@ -83,11 +90,11 @@ onMounted(() => {
     particles.push({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 16 + 14, // 14px - 30px
-      speedY: Math.random() * 0.5 + 0.3, // Slow upward drift
+      size: Math.random() * 16 + 14,
+      speedY: Math.random() * 0.5 + 0.3,
       swaySpeed: Math.random() * 0.02 + 0.01,
       swayOffset: Math.random() * Math.PI * 2,
-      opacity: Math.random() * 0.4 + 0.5, // 0.5 - 0.9 (clearly visible!)
+      opacity: Math.random() * 0.4 + 0.5,
       filled: Math.random() > 0.4,
       color: colors[Math.floor(Math.random() * colors.length)],
     })
@@ -102,13 +109,12 @@ onMounted(() => {
 
   let tick = 0
   const render = () => {
-    const displayWidth = canvas.parentElement?.clientWidth || window.innerWidth
-    const displayHeight = canvas.parentElement?.clientHeight || window.innerHeight
-    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth
-      canvas.height = displayHeight
-      width = displayWidth
-      height = displayHeight
+    const dims = getDims()
+    if (canvas.width !== dims.w || canvas.height !== dims.h) {
+      canvas.width = dims.w
+      canvas.height = dims.h
+      width = dims.w
+      height = dims.h
     }
 
     ctx.clearRect(0, 0, width, height)
@@ -145,20 +151,15 @@ onMounted(() => {
 <template>
   <div
     :class="[
-      'relative h-full w-full overflow-hidden transition-colors duration-300',
+      'pointer-events-none absolute inset-0 overflow-hidden transition-colors duration-300',
       transparentBg ? 'bg-transparent' : 'bg-[#f8fafc] dark:bg-[#0a0d14]',
     ]"
   >
-    <!-- Ambient Radial Gradient for Light & Dark modes -->
     <div
       v-if="!transparentBg"
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(241,245,249,0.9),rgba(248,250,252,1))] transition-opacity duration-300 dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_40%,rgba(14,24,42,0.8),rgba(10,13,20,1))]"
     />
-
-    <!-- Particle Canvas Layer -->
     <canvas ref="canvasRef" class="pointer-events-none absolute inset-0 z-0 h-full w-full" />
-
-    <!-- Content Slot (Avatar Stage & Overlays) -->
     <div v-if="$slots.default" class="relative z-10 h-full w-full">
       <slot />
     </div>
