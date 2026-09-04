@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { debug } from '@proj-airi/stage-shared'
-import { OnboardingDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
+import { GetNativeAppDialog, OnboardingDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
+import { useGetNativeAppModal } from '@proj-airi/stage-ui/composables'
 import { useSharedAnalyticsStore } from '@proj-airi/stage-ui/stores/analytics'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -132,6 +133,8 @@ onMounted(async () => {
   window.airi = airi
   debug('--- [AIRI DEBUG] Store bridge active: window.airi is ready ---')
 
+  triggerDelayedGetAppPopup()
+
   debug('[App] onMounted complete')
 })
 
@@ -140,13 +143,27 @@ onUnmounted(() => {
   proactivityStore.stopHeartbeatLoop()
 })
 
+const { hasDismissed: hasDismissedGetApp, open: openGetAppModal } = useGetNativeAppModal()
+
+function triggerDelayedGetAppPopup() {
+  if (!hasDismissedGetApp.value && !onboardingStore.showingSetup && !onboardingStore.needsOnboarding) {
+    setTimeout(() => {
+      if (!hasDismissedGetApp.value && !onboardingStore.showingSetup) {
+        openGetAppModal()
+      }
+    }, 4000)
+  }
+}
+
 // Handle first-time setup events
 function handleSetupConfigured() {
   onboardingStore.markSetupCompleted()
+  setTimeout(() => triggerDelayedGetAppPopup(), 3000)
 }
 
 function handleSetupSkipped() {
   onboardingStore.markSetupSkipped()
+  setTimeout(() => triggerDelayedGetAppPopup(), 3000)
 }
 </script>
 
@@ -175,6 +192,9 @@ function handleSetupSkipped() {
     @configured="handleSetupConfigured"
     @skipped="handleSetupSkipped"
   />
+
+  <!-- Get Native App Dialog -->
+  <GetNativeAppDialog />
 
   <PerformanceOverlay />
 </template>

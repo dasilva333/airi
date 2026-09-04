@@ -348,25 +348,6 @@ function restoreNeutralParameterBaseline(coreModel: any) {
     coreModel.setParameterValueByIndex?.(index, value)
   })
   coreModel.saveParameters?.()
-
-  // Log snapshot restore action
-  const sampleParams: Record<string, number> = {}
-  const paramIds = coreModel._parameterIds || coreModel._model?._parameterIds || []
-  paramIds.forEach((id: string, index: number) => {
-    if (index < 10 || id.includes('Angle') || id.includes('Eye') || id.includes('Mouth') || id.includes('Breath') || id.includes('Cheek')) {
-      sampleParams[id] = Number((coreModel.getParameterValueByIndex?.(index) ?? 0).toFixed(2))
-    }
-  })
-
-  console.info(
-    `[Live2D-Transition] 🧹 Restoring Model Baseline | Actions:`,
-    {
-      action: 'stop-all-motions',
-      snapshotUsed: hasSettledSnapshot ? 'settled-idle-snapshot' : 'load-time-neutral-defaults',
-      parametersRestoredCount: baselineToUse.length,
-      restoredValuesSample: sampleParams,
-    },
-  )
 }
 
 function setScaleAndPosition() {

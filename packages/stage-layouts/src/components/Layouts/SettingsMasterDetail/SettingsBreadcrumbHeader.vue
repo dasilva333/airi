@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { isStageWeb } from '@proj-airi/stage-shared'
 import { CloudflareAccountHeaderWidget, SettingsSearchBar, SettingsThemeHeaderWidget } from '@proj-airi/stage-ui/components'
+import { useGetNativeAppModal } from '@proj-airi/stage-ui/composables'
 import { buildSettingsCatalogTopology, resolvePathFromRoute } from '@proj-airi/stage-ui/constants'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { computed, ref } from 'vue'
@@ -19,6 +21,7 @@ const router = useRouter()
 const { t } = useI18n()
 const providersStore = useProvidersStore()
 const isMobileSearchOpen = ref(false)
+const { open: openGetAppDialog } = useGetNativeAppModal()
 
 interface BreadcrumbItem {
   id: string
@@ -159,6 +162,18 @@ function handleBackClick() {
         <span class="text-primary-500 font-bold">深</span>
         <span>{{ depthLevel }}</span>
       </div>
+
+      <!-- Get Native App Button (Web Stage Only) -->
+      <button
+        v-if="isStageWeb()"
+        type="button"
+        class="shadow-2xs h-8 flex shrink-0 items-center gap-1.5 border border-primary-500/30 rounded-lg bg-primary-500/10 px-2.5 text-xs text-primary-700 font-semibold transition-all active:scale-95 hover:bg-primary-500/20 dark:text-primary-300"
+        title="Get AIRI for Desktop (Win/Mac) & Mobile (iOS/Android)"
+        @click="openGetAppDialog"
+      >
+        <div class="i-solar:devices-bold-duotone text-sm text-primary-500" />
+        <span class="text-[11px] hidden md:inline">Get App</span>
+      </button>
 
       <!-- Cloudflare & Edge Account Indicator Widget -->
       <CloudflareAccountHeaderWidget shrink-0 />

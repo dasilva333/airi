@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isStageWeb } from '@proj-airi/stage-shared'
+import { GetNativeAppDialog } from '@proj-airi/stage-ui/components'
 import { buildSettingsCatalogTopology, resolveSettingsBackRoute } from '@proj-airi/stage-ui/constants'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useTheme } from '@proj-airi/ui'
@@ -98,5 +100,8 @@ function handleBack() {
         </div>
       </div>
     </div>
+
+    <!-- Get Native Apps Dialog (Web Stage) -->
+    <GetNativeAppDialog v-if="isStageWeb()" />
   </div>
 </template>

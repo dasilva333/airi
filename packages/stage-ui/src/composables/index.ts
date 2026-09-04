@@ -11,6 +11,7 @@ export * from './use-chat-session/summary'
 export * from './use-control-strip-action'
 export * from './use-idle-animations'
 
+export * from './use-native-app-modal'
 export * from './use-optimistic'
 export * from './use-producer'
 export * from './use-scroll-to-hash'
