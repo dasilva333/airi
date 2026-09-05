@@ -145,7 +145,29 @@ describe('turnPacingCoordinator (Phase 0)', () => {
 
     // Main answer audio scheduled at 2100ms
     coordinator.notifyAnswerAudioScheduled(clock.now())
-    expect(coordinator.metrics.handoffGapMs).toBe(800) // 2100 - 1300
+    expect(coordinator.metrics.handoffGapMs).toBe(0) // 2100 - 2100 (zero-gap handoff)
+  })
+
+  it('strictly clamps deadline to armMaxMs even when p10 sample exceeds it', () => {
+    const clock = new VirtualClock()
+    // 20 samples with 5000ms TTFT
+    const slowSamples = Array.from({ length: 20 }, () => 5000)
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-clamp',
+      generation: 1,
+      providerKey: 'slow-provider',
+      policy: {
+        ...defaultPolicy,
+        armMinMs: 900,
+        armMaxMs: 3500,
+      },
+      clock,
+      historicalTtftSamples: slowSamples,
+    })
+
+    coordinator.dispatch()
+    // Deadline must be clamped to armMaxMs (3500), not p10 (5000)
+    expect(coordinator.metrics.deadlineMs).toBe(3500)
   })
 
   it('rejects filler when answer audio is scheduled before filler audio starts', () => {

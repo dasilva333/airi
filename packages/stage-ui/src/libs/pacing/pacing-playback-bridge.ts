@@ -19,6 +19,7 @@ export interface PacingPlaybackBridgeOptions<TAudio> {
   voiceParams: ThinkingAudioFingerprintParams
   decodeAudio?: (buffer: ArrayBuffer) => Promise<TAudio>
   clock?: Clock
+  getIntentContext?: () => { intentId?: string, streamId?: string }
 }
 
 export interface ThinkingFillerCandidate {
@@ -65,6 +66,8 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
   private decodeAudio?: (buffer: ArrayBuffer) => Promise<TAudio>
   private clock: Clock
 
+  private getIntentContext?: () => { intentId?: string, streamId?: string }
+
   public fillerScheduledEndTime: number = 0
   public activeFillerItemId: string | null = null
 
@@ -73,6 +76,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     this.playback = options.playback
     this.voiceParams = options.voiceParams
     this.decodeAudio = options.decodeAudio
+    this.getIntentContext = options.getIntentContext
     this.clock = options.clock ?? {
       now: () => Date.now(),
       setTimeout: (fn, delay) => setTimeout(fn, delay),
@@ -130,10 +134,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       generation: this.coordinator.generation,
     }
 
+    const intentCtx = this.getIntentContext?.()
     const item: PlaybackItem<TAudio> & { meta?: PacingPlaybackMeta } = {
       id: itemId,
-      streamId: `stream-${this.coordinator.turnId}`,
-      intentId: `intent-${this.coordinator.turnId}`,
+      streamId: intentCtx?.streamId || `stream-${this.coordinator.turnId}`,
+      intentId: intentCtx?.intentId || `intent-${this.coordinator.turnId}`,
       segmentId: `segment-filler-${this.coordinator.turnId}`,
       priority: 10,
       text: phraseText,
@@ -146,6 +151,15 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     this.coordinator.notifyFillerAudioStarted(now)
     this.playback.schedule(item)
     return true
+  }
+
+  /**
+   * Invoked when filler audio actually begins playback.
+   */
+  public handleFillerStarted(at: number = this.clock.now()): void {
+    if (this.coordinator.state === 'FILLER_ARMED') {
+      this.coordinator.notifyFillerAudioStarted(at)
+    }
   }
 
   /**

@@ -27,6 +27,7 @@ export interface PacingMetrics {
   fillerCandidate?: ThinkingCategory
   fillerOutcome: 'none' | 'cache-miss' | 'canceled' | 'played' | 'rejected'
   fillerStartMs?: number
+  fillerEndMs?: number
   answerFirstAudioMs?: number
   handoffGapMs?: number
   interrupted: boolean

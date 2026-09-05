@@ -1061,6 +1061,12 @@ function resetToDefaultFillers() {
             </div>
           </div>
         </div>
+
+        <!-- Pacing & Proactivity / Thinking Model Tip -->
+        <div class="flex items-start gap-2.5 border border-neutral-200/60 rounded-lg bg-neutral-50/60 p-3 text-xs text-neutral-500 dark:border-neutral-800/60 dark:bg-neutral-900/40 dark:text-neutral-400">
+          <span class="i-solar:info-circle-bold-duotone mt-0.5 shrink-0 text-sm text-primary-500" />
+          <span><strong>Tip:</strong> If a reasoning model deliberates before deciding to remain silent (such as during quiet background proactivity evaluations or returning <code>NO_REPLY</code>), filler phrases allow the avatar to naturally think out loud. For complete silent stealth, disable pacing for that persona.</span>
+        </div>
       </div>
     </div>
   </div>

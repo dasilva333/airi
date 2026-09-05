@@ -49,9 +49,10 @@ The implementation MUST fit these current paths:
 - Events from a stale generation MUST be ignored, including late provider events, timer callbacks, TTS completions, and playback callbacks.
 - There is at most one filler attempt and at most one filler playback item per turn.
 - A filler MUST NOT delay the first answer audio if answer audio is ready and the filler has not started.
-- Once filler audio has started, the answer is queued behind it or the filler is interrupted only by an explicit cancellation policy. It is never played concurrently.
+- Once a filler is armed or actively playing (typically 1–2 seconds), it naturally concludes and smoothly hands off to the main answer audio. It is NOT abruptly aborted or chopped in half simply because early answer tokens or audio became ready; natural conversational flow takes precedence over frantic mid-phrase preemption.
+- Cancellation applies only when the filler has not yet started (i.e. fast answer arrives before the arming deadline `t_arm`), or upon explicit user interruption (barge-in / stop).
 - `stream-end` flushes; `assistant-end` settles. This matches remote replay and speech-host lifecycle rules.
-- `NO_REPLY` produces no filler, no speech intent, and no persisted assistant message.
+- For turns where reasoning deliberates before concluding with `NO_REPLY` (e.g. quiet proactivity evaluations), murmuring a brief filler (e.g. "Hmm, let me see...") before remaining silent is recognized as natural "thinking out loud". Users desiring complete background stealth may disable pacing for that persona.
 - Native Gemini audio mode bypasses this subsystem entirely. Custom Gemini mode follows the normal marker/parser/TTS path but still cannot be mixed with native PCM.
 
 ## 3. Formal Model
@@ -308,6 +309,8 @@ lead ≥ max(2 render quanta, provider scheduling jitter)
 ```
 
 In practice the playback manager MUST schedule the answer buffer against the same context clock before `e0`, not wait for an `onEnd` callback to start a new source. If the answer is not ready by `e0 - lead`, the system chooses continuity over the zero-gap claim: it ends the filler at its natural boundary and starts the answer when ready, recording an underrun metric.
+
+*Conversational Preemption Rule*: If the first answer audio becomes ready while a short filler (1–2s) is already armed or playing, the answer buffer is queued/scheduled at `s1 = e0`. The active filler is NOT aborted mid-speech. Natural conversational pacing treats the brief filler as an authentic human-like preamble rather than a mistake to be chopped off. Mid-speech cancellation is strictly reserved for explicit user interruption (barge-in / stop).
 
 The filler clip MUST be short and bounded:
 

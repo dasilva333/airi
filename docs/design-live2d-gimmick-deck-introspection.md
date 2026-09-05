@@ -332,6 +332,54 @@ sequenceDiagram
 
 ---
 
+## 🧪 Cleanroom Prototyping Strategy & Phasing
+
+### Why In-Engine Prototyping is a Dead End
+Iterating on the Gimmick Deck directly inside the live AIRI desktop application (`devtools/live2d.vue` or `stage-tamagotchi`) introduces severe friction:
+1. **Iteration Velocity**: Full Electron packaging, Vite HMR resets, and WebGL/PIXI canvas recompilation make UI tweaking painfully slow.
+2. **Host Port Limitations**: Several upstream runtime operations (such as `change_cos` in `Model.vue`, multi-atlas texture hot-swapping, and certain expression bindings) have known limitations or empty stub callbacks in the existing host adapter. Attempting to build an end-to-end UI directly in-engine creates phantom buttons that appear valid but produce no visual change on screen.
+3. **Ingestion Reality**: True multi-`.moc3` costume hot-swapping (`change_cos`) is not a simple script patch; it requires updating the model ingestion pipeline with an import wizard/modal allowing users to choose between normalized and legacy layout imports.
+
+### The Isolated Cleanroom Pipeline (`scripts/live2d-cleanroom/`)
+Instead of wrestling with the live runtime, development follows an **isolated cleanroom approach**:
+
+```mermaid
+flowchart LR
+    A[Live2D DSL Model Collection] --> B[scripts/extract-dsl-manifests.mjs]
+    B --> C[Normalized Capability Fixtures]
+    C --> D[Standalone HTML Mock Workbench]
+    D --> E[User UI Review & Label Map Refinement]
+    E --> F[Port Validated Architecture to AIRI Production]
+```
+
+1. **Batch Extraction**:
+   - An offline Node/ESM script scans the user's real collection of Live2D models with DSL manifests.
+   - Extracts choices, motion groups, variable modifiers, parameters, and costume lists into static JSON fixtures.
+2. **Interactive HTML Mock Workbench**:
+   - Generates a standalone, dependency-free interactive HTML test bench.
+   - Renders grouped controls (Switches, Costumes, Sliders, Scene Triggers) for each discovered model scenario.
+   - Provides a zero-latency playground to refine layout density, grouping heuristics, category icons, and user-friendly aliases without touching production code.
+3. **Dual-View UX Architecture**:
+   To prevent discarding the author's carefully curated menu logic by blindly flattening everything:
+   - **"Creator Menu" View**: Preserves the original tree structure, branching options, and text from the creator's `Choices` array.
+   - **"Discovered Features" View**: Groups features by functional capability (Switches, Outfits, Gimmicks, Sliders).
+   Users and designers can toggle between both views to compare ergonomics.
+4. **Three Concrete Experiment Deliverables**:
+   - **Extracted Capability Inventory**: What each package actually declares, with source file references and locations preserved.
+   - **Interactive Control Mock**: Demonstrates whether grouping, labels, menus, and discovery make sense to a human user.
+   - **Coverage & Ambiguity Report**: Identifies which patterns generalize cleanly and which models require special aliases, fallbacks, or manual mapping.
+5. **The 5-Layer Capability Model**:
+   The cleanroom workbench enforces a strict separation of concerns across 5 distinct authorities:
+   - **Layer 1 (Declared)**: What does the creator manifest declare? (Manifest inspection).
+   - **Layer 2 (Host Supported)**: Does this specific host implement the required execution port? (e.g. is `change_cos` wired or stubbed?).
+   - **Layer 3 (State Eligible)**: Is the action valid right now? (Variable guards, intimacy thresholds, cooldowns).
+   - **Layer 4 (Execution Reality)**: What actually played, and did audio/motion complete?
+   - **Layer 5 (User Presentation)**: What should it be called? (Original creator text vs. user aliases).
+6. **Production Porting**:
+   Once the UI ergonomics, grouped controls, and taxonomy maps are refined and approved in the cleanroom mock, the proven patterns will be ported into `@proj-airi/stage-ui-live2d`.
+
+---
+
 ## 🤖 Companion & ACT Token Bridge
 
 The introspected capabilities are not isolated to the UI; they are published directly to the LLM's system prompt and tool registry:

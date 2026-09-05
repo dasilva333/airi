@@ -845,6 +845,10 @@ const turnPacing = useTurnPacing({
   audioContext,
   speechStore,
   isPlaybackSuppressed,
+  getIntentContext: () => ({
+    intentId: currentChatIntent?.intentId,
+    streamId: currentChatIntent?.streamId,
+  }),
 })
 
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
@@ -1312,6 +1316,10 @@ playbackManager.onEnd(({ item }) => {
 
 playbackManager.onStart(({ item }) => {
   nowSpeaking.value = true
+
+  if ((item as any).meta?.role === 'thinking-filler') {
+    turnPacing.onFillerStarted()
+  }
 
   try {
     const startText = (item.boundaries && item.boundaries.length > 0)

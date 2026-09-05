@@ -97,7 +97,6 @@ export class TurnPacingCoordinator {
     }
 
     let deadline = mu - kFast * d
-    deadline = Math.max(minD, Math.min(maxD, deadline))
 
     // Empirical 10th percentile floor when enough samples exist
     if (samples.length >= 20) {
@@ -106,6 +105,7 @@ export class TurnPacingCoordinator {
       deadline = Math.max(deadline, p10)
     }
 
+    deadline = Math.max(minD, Math.min(maxD, deadline))
     return Math.round(deadline)
   }
 
@@ -232,10 +232,14 @@ export class TurnPacingCoordinator {
     this.metrics.fillerOutcome = 'played'
   }
 
-  public notifyFillerAudioEnded(_at: number = this.clock.now()): void {
+  public notifyFillerAudioEnded(at: number = this.clock.now()): void {
     if (this.state !== 'FILLER_ACTIVE')
       return
     this.state = 'HANDOFF'
+    this.metrics.fillerEndMs = at - this.t0
+    if (this.metrics.answerFirstAudioMs != null) {
+      this.metrics.handoffGapMs = this.metrics.answerFirstAudioMs - this.metrics.fillerEndMs
+    }
   }
 
   public notifyAnswerAudioScheduled(at: number = this.clock.now()): void {
@@ -245,8 +249,8 @@ export class TurnPacingCoordinator {
     }
 
     // Calculate handoff gap if filler was played
-    if (this.metrics.fillerStartMs && this.metrics.answerFirstAudioMs) {
-      this.metrics.handoffGapMs = this.metrics.answerFirstAudioMs - this.metrics.fillerStartMs
+    if (this.metrics.fillerEndMs != null && this.metrics.answerFirstAudioMs != null) {
+      this.metrics.handoffGapMs = this.metrics.answerFirstAudioMs - this.metrics.fillerEndMs
     }
 
     // If filler is still in FILLER_ARMED (not started), answer audio preempts and rejects filler

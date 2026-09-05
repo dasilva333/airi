@@ -23,6 +23,7 @@ export interface UseTurnPacingOptions {
   speechStore?: ReturnType<typeof useSpeechStore>
   audioContext?: AudioContext | null
   isPlaybackSuppressed?: Ref<boolean>
+  getIntentContext?: () => { intentId?: string, streamId?: string }
 }
 
 /**
@@ -142,6 +143,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
         getCurrentTime: () => (playbackManager.getCurrentTime ? playbackManager.getCurrentTime() : (getAudioContext()?.currentTime ?? Date.now() / 1000)),
       },
       voiceParams,
+      getIntentContext: options.getIntentContext,
       decodeAudio: async (buffer: ArrayBuffer) => {
         const ctx = getAudioContext()
         if (!ctx)
@@ -194,6 +196,10 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     }
   }
 
+  function onFillerStarted() {
+    activeBridge?.handleFillerStarted()
+  }
+
   function onFillerEnded() {
     activeBridge?.handleFillerEnded()
   }
@@ -204,6 +210,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     onAnswerLiteral,
     onAssistantEnd,
     cancel,
+    onFillerStarted,
     onFillerEnded,
     activePacingMetrics: readonly(activePacingMetrics),
   }
