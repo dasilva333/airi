@@ -176,6 +176,7 @@ export const AiriPacingSchema = object({
   maxFillerDurationMs: optional(pipe(number(), integer(), minValue(400), maxValue(2200))),
   reasoningWindowMs: optional(pipe(number(), integer(), minValue(0), maxValue(1200))),
   categoryThreshold: optional(pipe(number(), minValue(1), maxValue(10))),
+  kFast: optional(pipe(number(), minValue(0), maxValue(2))),
   fillers: optional(array(AiriThinkingFillerSchema)),
   visualTyping: optional(object({
     enabled: boolean(),
@@ -314,3 +315,4 @@ export const AiriCardSchema = looseObject({
 })
 // Exporting for use in the main schema later if needed
 export { AiriExtensionSchema }
+export type AiriCard = InferOutput<typeof AiriCardSchema>

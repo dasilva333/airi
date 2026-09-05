@@ -31,6 +31,7 @@ import RendererStage from './RendererStage.vue'
 import { applyVoiceProfileEffects } from '../../composables/audio/audio-effects'
 import { parseActor, useSpecialTokenQueue } from '../../composables/queues'
 import { categorizeResponse } from '../../composables/response-categoriser'
+import { useTurnPacing } from '../../composables/use-turn-pacing'
 import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EmotionThinkMotionName } from '../../constants/emotions'
 import { useAudioContext, useSpeakingStore } from '../../stores/audio'
@@ -80,7 +81,16 @@ const { audioContext } = useAudioContext()
 const currentAudioSource = ref<AudioBufferSourceNode>()
 const isPlaybackSuppressed = ref(false)
 
-const { onBeforeMessageComposed, onBeforeSend, onTokenLiteral, onTokenSpecial, onStreamEnd, onAssistantResponseEnd, onGenerationStopped } = useChatOrchestratorStore()
+const {
+  onBeforeMessageComposed,
+  onBeforeSend,
+  onTokenLiteral,
+  onTokenSpecial,
+  onStreamEnd,
+  onAssistantResponseEnd,
+  onGenerationStopped,
+  onReasoningChunk,
+} = useChatOrchestratorStore()
 const chatHookCleanups: Array<() => void> = []
 // WORKAROUND: clear previous handlers on unmount to avoid duplicate calls when this component remounts.
 //             We keep per-hook disposers instead of wiping the global chat hooks to play nicely with
@@ -829,6 +839,14 @@ playbackManager.schedule = (item) => {
   basePlaybackSchedule(item)
 }
 
+const turnPacing = useTurnPacing({
+  activeCard,
+  playbackManager,
+  audioContext,
+  speechStore,
+  isPlaybackSuppressed,
+})
+
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
 
 async function generateSpeechBuffered(request: TtsRequest, signal: AbortSignal): Promise<AudioBuffer | null> {
@@ -1259,6 +1277,10 @@ void speechRuntimeStore.registerHost(speechPipeline)
 
 playbackManager.onEnd(({ item }) => {
   try {
+    if ((item as any).meta?.role === 'thinking-filler') {
+      turnPacing.onFillerEnded()
+    }
+
     if (item.special) {
       const actorId = parseActor(item.special)
       if (actorId) {
@@ -1447,6 +1469,7 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   // stale proactivity/chat intent state.
   speechPipeline.stopAll('new-message')
   discordStore.clearAudioTurn()
+  turnPacing.cancel('new-message')
 
   setupAnalyser()
   await setupLipSync()
@@ -1479,12 +1502,18 @@ chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   ensureSpeechIntent()
 }))
 
-chatHookCleanups.push(onBeforeSend(async () => {
+chatHookCleanups.push(onBeforeSend(async (_message, context) => {
   live2dStore.triggerMotion(EmotionThinkMotionName)
   currentMotion.value = { group: EmotionThinkMotionName }
+  turnPacing.startTurn(context?.assistantMessageId || `turn-${Date.now()}`, context)
+}))
+
+chatHookCleanups.push(onReasoningChunk(async (chunk: string) => {
+  turnPacing.onReasoningChunk(chunk)
 }))
 
 chatHookCleanups.push(onTokenLiteral(async (literal) => {
+  turnPacing.onAnswerLiteral(literal)
   // const orchestrator = useChatOrchestratorStore()
   const intent = ensureSpeechIntent()
 
@@ -1512,6 +1541,7 @@ chatHookCleanups.push(onStreamEnd(async () => {
 }))
 
 chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
+  await turnPacing.onAssistantEnd()
   if (!currentChatIntentReceivedLiteral.value) {
     const cardFallback = activeCard.value?.extensions?.airi?.generation?.known?.reasoningFallback
     const fallbackSpeech = categorizeResponse(message, activeChatProvider.value, { reasoningFallback: cardFallback !== false }).speech.trim()
@@ -1547,6 +1577,7 @@ chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
 // orchestrator relies on currentChatIntentReceivedLiteral NOT being reset here — keeping
 // it prevents the fallback-speech path from speaking the partial message.
 chatHookCleanups.push(onGenerationStopped(async () => {
+  turnPacing.cancel('generation-stopped')
   debug('[Stage] onGenerationStopped -> cancelling speech intent')
   currentChatIntent?.cancel('generation-stopped')
   currentChatIntent = null

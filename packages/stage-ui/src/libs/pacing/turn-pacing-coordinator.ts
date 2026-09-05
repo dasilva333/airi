@@ -39,6 +39,9 @@ export class TurnPacingCoordinator {
   private fillerAttempted: boolean = false
 
   public metrics: PacingMetrics
+  private onArmFiller?: (category: ThinkingCategory, deadlineMs: number) => void
+  private onCancelFiller?: (reason: string) => void
+  private onSettled?: (metrics: PacingMetrics) => void
 
   constructor(options: TurnPacingCoordinatorOptions) {
     this.turnId = options.turnId
@@ -46,6 +49,9 @@ export class TurnPacingCoordinator {
     this.providerKey = options.providerKey
     this.policy = options.policy
     this.classifier = options.classifier ?? new BoundedCategoryClassifier(this.policy)
+    this.onArmFiller = options.onArmFiller
+    this.onCancelFiller = options.onCancelFiller
+    this.onSettled = options.onSettled
     this.clock = options.clock ?? {
       now: () => Date.now(),
       setTimeout: (fn, delay) => setTimeout(fn, delay),
@@ -184,6 +190,7 @@ export class TurnPacingCoordinator {
     this.fillerAttempted = true
     this.metrics.fillerCandidate = this.fillerCandidate
     this.metrics.fillerOutcome = 'none' // Will be updated to played, cache-miss, or canceled
+    this.onArmFiller?.(this.fillerCandidate, this.deadlineMs)
   }
 
   private onAnswerLiteralReceived(at: number): void {
@@ -204,6 +211,7 @@ export class TurnPacingCoordinator {
       // Answer arrived before filler audio started -> cancel filler!
       this.state = 'ANSWER_READY'
       this.metrics.fillerOutcome = 'canceled'
+      this.onCancelFiller?.('answer-arrived')
       return
     }
 
@@ -224,7 +232,7 @@ export class TurnPacingCoordinator {
     this.metrics.fillerOutcome = 'played'
   }
 
-  public notifyFillerAudioEnded(at: number = this.clock.now()): void {
+  public notifyFillerAudioEnded(_at: number = this.clock.now()): void {
     if (this.state !== 'FILLER_ACTIVE')
       return
     this.state = 'HANDOFF'
@@ -245,6 +253,7 @@ export class TurnPacingCoordinator {
     if (this.state === 'FILLER_ARMED') {
       this.state = 'ANSWER_READY'
       this.metrics.fillerOutcome = 'rejected'
+      this.onCancelFiller?.('answer-scheduled')
     }
   }
 
@@ -272,6 +281,8 @@ export class TurnPacingCoordinator {
 
     this.metrics.interrupted = true
     this.state = 'SETTLED'
+    this.onCancelFiller?.(reason)
+    this.onSettled?.(this.metrics)
   }
 
   public async onAssistantEnd(): Promise<void> {
@@ -284,5 +295,6 @@ export class TurnPacingCoordinator {
     }
 
     this.state = 'SETTLED'
+    this.onSettled?.(this.metrics)
   }
 }

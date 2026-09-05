@@ -1,6 +1,6 @@
 import type { Clock, PacingPolicyConfig } from '../../types/pacing'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
@@ -272,5 +272,37 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     clock.advance(1800)
     expect(coordinator.state).toBe('FILLER_ARMED')
     expect(coordinator.metrics.fillerCandidate).toBe('analytical')
+  })
+
+  it('invokes onArmFiller, onCancelFiller, and onSettled callbacks appropriately', async () => {
+    const clock = new VirtualClock()
+    const onArmFiller = vi.fn()
+    const onCancelFiller = vi.fn()
+    const onSettled = vi.fn()
+
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-callbacks',
+      generation: 1,
+      providerKey: 'test-provider',
+      policy: defaultPolicy,
+      clock,
+      onArmFiller,
+      onCancelFiller,
+      onSettled,
+    })
+
+    coordinator.dispatch()
+    clock.advance(1800)
+    expect(onArmFiller).toHaveBeenCalledTimes(1)
+    expect(onArmFiller).toHaveBeenCalledWith('generic', 1800)
+
+    // Answer arrives while filler is armed -> onCancelFiller('answer-arrived')
+    coordinator.onInferenceEvent({ type: 'answer', text: 'Hello', at: clock.now() })
+    expect(onCancelFiller).toHaveBeenCalledWith('answer-arrived')
+
+    // Assistant end settles turn -> onSettled
+    await coordinator.onAssistantEnd()
+    expect(onSettled).toHaveBeenCalledTimes(1)
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ turnId: 'turn-callbacks' }))
   })
 })

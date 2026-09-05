@@ -767,7 +767,12 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         chatLog(`[ChatDebug] VLM turn detected. Trimmed history from ${sessionMessagesForSend.length + 1} to ${inferenceMessages.length} messages.`)
       }
 
-      const categorizer = createStreamingCategorizer(effectiveProviderId)
+      const categorizer = createStreamingCategorizer({
+        providerId: effectiveProviderId,
+        onReasoningChunk: async (chunk) => {
+          await hooks.emitReasoningChunkHooks(chunk, streamingMessageContext)
+        },
+      })
       let streamPosition = 0
       const actorSliceState = createActorSliceState()
 
@@ -1561,6 +1566,7 @@ Format your output as a raw thought log.`
                 }
                 ;(buildingMessage as any).categorization.reasoning += healedText
                 updateUI()
+                await hooks.emitReasoningChunkHooks(healedText, streamingMessageContext)
                 break
               }
               case 'finish':
@@ -2135,6 +2141,7 @@ Format your output as a raw thought log.`
     emitAssistantMessageHooks: hooks.emitAssistantMessageHooks,
     emitChatTurnCompleteHooks: hooks.emitChatTurnCompleteHooks,
     emitGenerationStoppedHooks: hooks.emitGenerationStoppedHooks,
+    emitReasoningChunkHooks: hooks.emitReasoningChunkHooks,
 
     onBeforeMessageComposed: hooks.onBeforeMessageComposed,
     onAfterMessageComposed: hooks.onAfterMessageComposed,
@@ -2148,5 +2155,6 @@ Format your output as a raw thought log.`
     onChatTurnComplete: hooks.onChatTurnComplete,
     onGenerationStopped: hooks.onGenerationStopped,
     onWidget: hooks.onWidget,
+    onReasoningChunk: hooks.onReasoningChunk,
   }
 })

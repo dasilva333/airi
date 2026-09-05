@@ -21,6 +21,43 @@ export interface PacingPlaybackBridgeOptions<TAudio> {
   clock?: Clock
 }
 
+export interface ThinkingFillerCandidate {
+  category: ThinkingCategory
+  text: string
+  enabled: boolean
+}
+
+/**
+ * Deterministically resolves the best matching enabled filler phrase for a detected category.
+ * Priority: Exact category match -> 'generic' fallback -> Any enabled filler.
+ */
+export function resolveFillerCandidate(
+  fillers: ThinkingFillerCandidate[],
+  category: ThinkingCategory,
+): string | null {
+  const enabled = fillers.filter(f => f.enabled && f.text?.trim())
+  if (enabled.length === 0)
+    return null
+
+  // 1. Direct match for category
+  const matches = enabled.filter(f => f.category === category)
+  if (matches.length > 0) {
+    const picked = matches[Math.floor(Math.random() * matches.length)]
+    return picked.text.trim()
+  }
+
+  // 2. Fallback to generic
+  const generics = enabled.filter(f => f.category === 'generic')
+  if (generics.length > 0) {
+    const picked = generics[Math.floor(Math.random() * generics.length)]
+    return picked.text.trim()
+  }
+
+  // 3. Fallback to any enabled filler
+  const picked = enabled[Math.floor(Math.random() * enabled.length)]
+  return picked.text.trim()
+}
+
 export class PacingPlaybackBridge<TAudio = AudioBuffer> {
   private coordinator: TurnPacingCoordinator
   private playback: PacingPlaybackScheduler<TAudio>
@@ -48,11 +85,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
    * Attempts instant cache retrieval. On hit, decodes and schedules the filler.
    * On miss, instantly notifies the coordinator to degrade cleanly to normal answer speech.
    */
-  public async handleFillerArmed(category: ThinkingCategory = 'generic'): Promise<boolean> {
+  public async handleFillerArmed(category: ThinkingCategory = 'generic', customText?: string): Promise<boolean> {
+    const phraseText = customText || this.voiceParams.text || category
     const cached = await getThinkingAudio({
       ...this.voiceParams,
-      // Use category or custom text as needed
-      text: this.voiceParams.text || category,
+      text: phraseText,
     })
 
     if (!cached) {
@@ -99,7 +136,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       intentId: `intent-${this.coordinator.turnId}`,
       segmentId: `segment-filler-${this.coordinator.turnId}`,
       priority: 10,
-      text: this.voiceParams.text || category,
+      text: phraseText,
       special: null,
       audio: audioData,
       createdAt: now,

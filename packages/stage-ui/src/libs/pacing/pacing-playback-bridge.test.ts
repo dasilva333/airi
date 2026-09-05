@@ -6,7 +6,7 @@ import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { clearThinkingAudioCache, saveThinkingAudio } from './pacing-cache'
-import { PacingPlaybackBridge } from './pacing-playback-bridge'
+import { PacingPlaybackBridge, resolveFillerCandidate } from './pacing-playback-bridge'
 import { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
 class VirtualClock implements Clock {
@@ -214,5 +214,85 @@ describe('pacing-playback-bridge (Phase 1)', () => {
 
     expect(coordinator.state).toBe('SETTLED')
     expect(coordinator.metrics.interrupted).toBe(true)
+  })
+
+  it('uses customText for phrase retrieval and PlaybackItem text when provided', async () => {
+    const customVoiceParams = {
+      ...voiceParams,
+      text: 'Let me think about that...',
+    }
+    const mockAudio = new Uint8Array([1, 2, 3]).buffer
+    await saveThinkingAudio(customVoiceParams, mockAudio, 1200)
+
+    const clock = new VirtualClock()
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-bridge-custom',
+      generation: 1,
+      providerKey: 'elevenlabs',
+      policy: defaultPolicy,
+      clock,
+    })
+
+    const scheduledItems: PlaybackItem<any>[] = []
+    const playback = {
+      schedule: vi.fn((item: PlaybackItem<any>) => {
+        scheduledItems.push(item)
+      }),
+      getCurrentTime: () => clock.now() / 1000,
+    }
+
+    const bridge = new PacingPlaybackBridge({
+      coordinator,
+      playback,
+      voiceParams: { ...voiceParams, text: '' },
+      clock,
+    })
+
+    coordinator.dispatch()
+    clock.advance(1800)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+
+    const armed = await bridge.handleFillerArmed('analytical', 'Let me think about that...')
+    expect(armed).toBe(true)
+    expect(scheduledItems.length).toBe(1)
+    expect(scheduledItems[0].text).toBe('Let me think about that...')
+  })
+})
+
+describe('resolveFillerCandidate', () => {
+  it('returns null when candidates list is empty', () => {
+    expect(resolveFillerCandidate([], 'generic')).toBeNull()
+  })
+
+  it('returns null when all candidates are disabled', () => {
+    const fillers = [
+      { text: 'Hmm...', category: 'generic' as const, enabled: false },
+      { text: 'Let me think...', category: 'analytical' as const, enabled: false },
+    ]
+    expect(resolveFillerCandidate(fillers, 'analytical')).toBeNull()
+  })
+
+  it('returns exact match for matching category', () => {
+    const fillers = [
+      { text: 'Hmm...', category: 'generic' as const, enabled: true },
+      { text: 'Let me compute that...', category: 'analytical' as const, enabled: true },
+    ]
+    expect(resolveFillerCandidate(fillers, 'analytical')).toBe('Let me compute that...')
+  })
+
+  it('falls back to generic when requested category has no match', () => {
+    const fillers = [
+      { text: 'Hmm...', category: 'generic' as const, enabled: true },
+      { text: 'Let me compute that...', category: 'analytical' as const, enabled: true },
+    ]
+    expect(resolveFillerCandidate(fillers, 'uncertain')).toBe('Hmm...')
+  })
+
+  it('falls back to any enabled filler when generic is also unavailable', () => {
+    const fillers = [
+      { text: 'Hmm...', category: 'generic' as const, enabled: false },
+      { text: 'Let me compute that...', category: 'analytical' as const, enabled: true },
+    ]
+    expect(resolveFillerCandidate(fillers, 'uncertain')).toBe('Let me compute that...')
   })
 })

@@ -15,6 +15,7 @@ export function createChatHooks() {
   const onChatTurnCompleteHooks: Array<(chat: { output: StreamingAssistantMessage, outputText: string, toolCalls: ToolMessage[] }, context: ChatStreamEventContext) => Promise<void>> = []
   const onGenerationStoppedHooks: Array<(context: ChatStreamEventContext) => Promise<void>> = []
   const onWidgetHooks: Array<(payload: any, context: ChatStreamEventContext) => Promise<void>> = []
+  const onReasoningChunkHooks: Array<(chunk: string, context: ChatStreamEventContext) => Promise<void>> = []
 
   function onBeforeMessageComposed(cb: (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>) {
     onBeforeMessageComposedHooks.push(cb)
@@ -127,6 +128,15 @@ export function createChatHooks() {
     }
   }
 
+  function onReasoningChunk(cb: (chunk: string, context: ChatStreamEventContext) => Promise<void>) {
+    onReasoningChunkHooks.push(cb)
+    return () => {
+      const index = onReasoningChunkHooks.indexOf(cb)
+      if (index >= 0)
+        onReasoningChunkHooks.splice(index, 1)
+    }
+  }
+
   function clearHooks() {
     onBeforeMessageComposedHooks.length = 0
     onAfterMessageComposedHooks.length = 0
@@ -140,6 +150,7 @@ export function createChatHooks() {
     onChatTurnCompleteHooks.length = 0
     onGenerationStoppedHooks.length = 0
     onWidgetHooks.length = 0
+    onReasoningChunkHooks.length = 0
   }
 
   async function emitBeforeMessageComposedHooks(message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) {
@@ -202,6 +213,11 @@ export function createChatHooks() {
       await hook(payload, context)
   }
 
+  async function emitReasoningChunkHooks(chunk: string, context: ChatStreamEventContext) {
+    for (const hook of onReasoningChunkHooks)
+      await hook(chunk, context)
+  }
+
   return {
     onBeforeMessageComposed,
     onAfterMessageComposed,
@@ -215,6 +231,7 @@ export function createChatHooks() {
     onChatTurnComplete,
     onGenerationStopped,
     onWidget,
+    onReasoningChunk,
     emitBeforeMessageComposedHooks,
     emitAfterMessageComposedHooks,
     emitBeforeSendHooks,
@@ -227,6 +244,7 @@ export function createChatHooks() {
     emitChatTurnCompleteHooks,
     emitGenerationStoppedHooks,
     emitWidgetHooks,
+    emitReasoningChunkHooks,
     clearHooks,
   }
 }
