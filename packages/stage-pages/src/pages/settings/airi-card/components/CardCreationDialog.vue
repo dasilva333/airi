@@ -2,6 +2,7 @@
 import type { Card } from '@proj-airi/ccc'
 import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/providers'
+import type { ThinkingFillerPhrase } from '@proj-airi/stage-ui/types/pacing'
 
 import { useLive2d } from '@proj-airi/stage-ui-live2d'
 import { useMmd } from '@proj-airi/stage-ui-mmd'
@@ -20,6 +21,7 @@ import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProactivityStore } from '@proj-airi/stage-ui/stores/proactivity'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
+import { DEFAULT_PACING_FILLERS } from '@proj-airi/stage-ui/types/pacing'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import {
@@ -162,6 +164,14 @@ const selectedActingModelExpressionPrompt = ref<string>('')
 const selectedActingSpeechExpressionPrompt = ref<string>('')
 const selectedActingSpeechMannerismPrompt = ref<string>('')
 const selectedActingIdleAnimations = ref<string[]>([])
+
+// Conversational Pacing & Thinking Fillers State
+const pacingEnabled = ref<boolean>(false)
+const pacingArmMinMs = ref<number>(1200)
+const pacingArmMaxMs = ref<number>(3500)
+const pacingMaxFillerDurationMs = ref<number>(1200)
+const pacingCategoryThreshold = ref<number>(1)
+const pacingFillers = ref<ThinkingFillerPhrase[]>([...DEFAULT_PACING_FILLERS])
 
 // Placeholder state variables for Tools tab
 const selectedTextJournalInstruction = ref<string>('')
@@ -948,6 +958,19 @@ async function saveCard(card: Card): Promise<boolean> {
           idleAnimations: activeActorIdleOverride.value
             ? [...(existingAiriExt?.acting?.idleAnimations || [])]
             : [...(selectedActingIdleAnimations.value || [])],
+          pacing: {
+            ...existingAiriExt?.acting?.pacing,
+            enabled: pacingEnabled.value,
+            armMinMs: pacingArmMinMs.value,
+            armMaxMs: pacingArmMaxMs.value,
+            maxFillerDurationMs: pacingMaxFillerDurationMs.value,
+            categoryThreshold: pacingCategoryThreshold.value,
+            fillers: pacingFillers.value.map(f => ({
+              text: f.text,
+              category: f.category,
+              enabled: f.enabled !== false,
+            })),
+          },
         },
         generation: {
           ...existingAiriExt?.generation,
@@ -1081,6 +1104,14 @@ function initializeCard(): Card {
   selectedActingModelExpressionPrompt.value = airiExt?.acting?.modelExpressionPrompt ?? DEFAULT_ACTING_MODEL_PROMPT
   selectedActingSpeechExpressionPrompt.value = airiExt?.acting?.speechExpressionPrompt ?? DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT
   selectedActingSpeechMannerismPrompt.value = airiExt?.acting?.speechMannerismPrompt ?? DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT
+  pacingEnabled.value = airiExt?.acting?.pacing?.enabled ?? false
+  pacingArmMinMs.value = airiExt?.acting?.pacing?.armMinMs ?? 1200
+  pacingArmMaxMs.value = airiExt?.acting?.pacing?.armMaxMs ?? 3500
+  pacingMaxFillerDurationMs.value = airiExt?.acting?.pacing?.maxFillerDurationMs ?? 1200
+  pacingCategoryThreshold.value = airiExt?.acting?.pacing?.categoryThreshold ?? 1
+  pacingFillers.value = airiExt?.acting?.pacing?.fillers && airiExt.acting.pacing.fillers.length > 0
+    ? JSON.parse(JSON.stringify(airiExt.acting.pacing.fillers))
+    : JSON.parse(JSON.stringify(DEFAULT_PACING_FILLERS))
   // Context-aware idle animation initialization:
   // Check if the current stage model matches an actor with custom idleAnimations override.
   const visualAssets = airiExt?.visual_assets || {}
@@ -1490,6 +1521,12 @@ function handleGeneratorSave(newValue: string) {
             v-model:selected-acting-speech-expression-prompt="selectedActingSpeechExpressionPrompt"
             v-model:selected-acting-speech-mannerism-prompt="selectedActingSpeechMannerismPrompt"
             v-model:selected-acting-idle-animations="selectedActingIdleAnimations"
+            v-model:pacing-enabled="pacingEnabled"
+            v-model:pacing-arm-min-ms="pacingArmMinMs"
+            v-model:pacing-arm-max-ms="pacingArmMaxMs"
+            v-model:pacing-max-filler-duration-ms="pacingMaxFillerDurationMs"
+            v-model:pacing-category-threshold="pacingCategoryThreshold"
+            v-model:pacing-fillers="pacingFillers"
             :acting-idle-animation-options="actingIdleAnimationOptions"
             :acting-model-emotion-options="actingModelEmotionOptions"
             :acting-model-motion-options="actingModelMotionOptions"
@@ -1497,6 +1534,9 @@ function handleGeneratorSave(newValue: string) {
             :acting-mannerism-options="actingMannerismOptions"
             :acting-speech-capabilities-loading="actingSpeechCapabilitiesLoading"
             :selected-speech-provider-label="selectedSpeechProvider || speechProvider || 'none'"
+            :selected-speech-provider="selectedSpeechProvider || speechProvider"
+            :selected-speech-model="selectedSpeechModel || defaultSpeechModel"
+            :selected-speech-voice-id="selectedSpeechVoiceId || defaultSpeechVoiceId"
             :is-live2d="isLive2d"
             :is-vrma-expression="isVrmaExpression"
             :insert-model-emotion="insertModelEmotion"

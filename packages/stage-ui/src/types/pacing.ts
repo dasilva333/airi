@@ -53,3 +53,31 @@ export interface PacingPolicyConfig {
   categoryThreshold: number
   kFast?: number
 }
+
+export interface ThinkingFillerPhrase {
+  text: string
+  category: ThinkingCategory
+  enabled: boolean
+}
+
+export const DEFAULT_PACING_FILLERS: ThinkingFillerPhrase[] = [
+  { text: 'Hmm...', category: 'generic', enabled: true },
+  { text: 'Let me see...', category: 'generic', enabled: true },
+  { text: 'Let me think about that...', category: 'generic', enabled: true },
+  { text: 'Working through the steps...', category: 'analytical', enabled: true },
+  { text: 'Let me calculate that...', category: 'analytical', enabled: true },
+  { text: 'Let me think back...', category: 'memory', enabled: true },
+  { text: 'Recalling earlier details...', category: 'memory', enabled: true },
+  { text: 'I hear you, taking that in...', category: 'emotional', enabled: true },
+  { text: 'Hmm, that is a tricky one...', category: 'uncertain', enabled: true },
+]
+
+export const DEFAULT_PACING_POLICY: PacingPolicyConfig = {
+  enabled: false,
+  armMinMs: 1200,
+  armMaxMs: 3500,
+  maxFillerDurationMs: 1200,
+  reasoningWindowMs: 900,
+  categoryThreshold: 1,
+  kFast: 0.5,
+}

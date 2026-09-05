@@ -1,5 +1,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 
+import type { AiriPacing } from '../../types/card.schema'
 import type { VoiceProfile } from '../providers'
 
 import { debug } from '@proj-airi/stage-shared'
@@ -85,7 +86,7 @@ export interface ActingConfig {
   speechExpressionPrompt: string
   speechMannerismPrompt: string
   idleAnimations?: string[]
-
+  pacing?: AiriPacing
 }
 
 export interface AiriOutfit {

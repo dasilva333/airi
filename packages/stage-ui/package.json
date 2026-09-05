@@ -29,6 +29,8 @@
     "./features/motions/live2d": "./src/features/motions/live2d/index.ts",
     "./features/*": "./src/features/*",
     "./libs/*": "./src/libs/*.ts",
+    "./libs/pacing": "./src/libs/pacing/index.ts",
+    "./libs/pacing/*": "./src/libs/pacing/*",
     "./libs/vfx": "./src/libs/vfx/index.ts",
     "./libs/vfx/*": "./src/libs/vfx/*",
     "./libs": "./src/libs/index.ts",
