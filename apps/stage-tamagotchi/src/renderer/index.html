@@ -17,10 +17,79 @@
       connect-src 'self' http: https: ws: wss: blob: data:;"
     /> -->
     <script src="./assets/js/CubismSdkForWeb-5-r.3/Core/live2dcubismcore.min.js"></script>
+    <script>
+      if (location.hash && location.hash !== '#/' && location.hash !== '#') {
+        document.documentElement.classList.add('airi-solid-window')
+      }
+    </script>
+    <style>
+      html.airi-solid-window,
+      html.airi-solid-window body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #121212;
+        overflow: hidden;
+      }
+      .airi-pre-bootstrap {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(circle at 50% 35%, #1e1e24, #121212 75%);
+        user-select: none;
+        -webkit-app-region: drag;
+      }
+      html.airi-solid-window .airi-pre-bootstrap {
+        display: flex;
+      }
+      .airi-pre-pulse {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        background: rgba(244, 114, 182, 0.08);
+        border: 1px solid rgba(244, 114, 182, 0.22);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      }
+      .airi-pre-halo {
+        position: absolute;
+        inset: -6px;
+        border-radius: 22px;
+        background: rgba(244, 114, 182, 0.16);
+        filter: blur(8px);
+        animation: airi-pulse 2s ease-in-out infinite;
+      }
+      .airi-pre-dot {
+        position: relative;
+        width: 16px;
+        height: 16px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #f472b6, #ec4899);
+        box-shadow: 0 0 12px rgba(244, 114, 182, 0.6);
+      }
+      @keyframes airi-pulse {
+        0%, 100% { transform: scale(0.92); opacity: 0.4; }
+        50% { transform: scale(1.08); opacity: 0.9; }
+      }
+    </style>
   </head>
 
   <body class="font-sans">
-    <div id="app"></div>
+    <div id="app">
+      <div class="airi-pre-bootstrap">
+        <div class="airi-pre-pulse">
+          <div class="airi-pre-halo"></div>
+          <div class="airi-pre-dot"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/main.ts"></script>
   </body>
 </html>

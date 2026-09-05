@@ -11,22 +11,24 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, markRaw, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, markRaw, nextTick, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
-import chat_director from '../components/chat/chat_director.vue'
-import chat_event_log from '../components/chat/chat_event_log.vue'
-import chat_lifetime from '../components/chat/chat_lifetime.vue'
-import chat_media from '../components/chat/chat_media.vue'
-// Import Sub-Surfaces
-import chat_messages from '../components/chat/chat_messages.vue'
-import chat_notes from '../components/chat/chat_notes.vue'
-import chat_rehearsal from '../components/chat/chat_rehearsal.vue'
-import chat_studio from '../components/chat/chat_studio.vue'
-import chat_world from '../components/chat/chat_world.vue'
+import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
 import WindowTitleBar from '../components/Window/TitleBar.vue'
 
 import { electronApplySizePreset, electronOpenSettings } from '../../shared/eventa'
+
+// Code-split workspace sub-surfaces to eliminate heavy initial bundle evaluation
+const chat_director = defineAsyncComponent(() => import('../components/chat/chat_director.vue'))
+const chat_event_log = defineAsyncComponent(() => import('../components/chat/chat_event_log.vue'))
+const chat_lifetime = defineAsyncComponent(() => import('../components/chat/chat_lifetime.vue'))
+const chat_media = defineAsyncComponent(() => import('../components/chat/chat_media.vue'))
+const chat_messages = defineAsyncComponent(() => import('../components/chat/chat_messages.vue'))
+const chat_notes = defineAsyncComponent(() => import('../components/chat/chat_notes.vue'))
+const chat_rehearsal = defineAsyncComponent(() => import('../components/chat/chat_rehearsal.vue'))
+const chat_studio = defineAsyncComponent(() => import('../components/chat/chat_studio.vue'))
+const chat_world = defineAsyncComponent(() => import('../components/chat/chat_world.vue'))
 
 // Active Surface Ref
 const activeSurfaceRef = ref<any>(null)
@@ -88,7 +90,7 @@ function handleOpenJournal() {
 
 const isRightPanelOpen = useLocalStorage('airi:chat:right-panel-open', false)
 const { width } = useWindowSize()
-const showRightPanel = computed(() => isRightPanelOpen.value && width.value >= 768 && activeSurface.value === 'messages')
+const showRightPanel = computed(() => isRightPanelOpen.value && width.value >= 768 && activeSurface.value === 'messages' && isCurrentSurfaceReady.value)
 const mediaDisplayCount = ref(12)
 const rightPanelMemoriesCollapsed = useLocalStorage('airi:chat:rp-memories-collapsed', false)
 const rightPanelCurrentSceneCollapsed = useLocalStorage('airi:chat:rp-current-scene-collapsed', false)
@@ -110,7 +112,76 @@ const SURFACE_LABELS: Record<string, string> = {
   'rehearsal': 'Rehearsal',
 }
 
+const SURFACE_ICONS: Record<string, string> = {
+  'messages': 'i-solar:chat-line-bold-duotone',
+  'director': 'i-solar:videocamera-record-bold-duotone',
+  'world': 'i-solar:notes-bold-duotone',
+  'characters': 'i-solar:layers-minimalistic-bold-duotone',
+  'media': 'i-solar:gallery-bold-duotone',
+  'archives': 'i-solar:dna-bold-duotone',
+  'event-log': 'i-solar:document-text-bold-duotone',
+  'notes': 'i-solar:document-text-bold-duotone',
+  'rehearsal': 'i-solar:clapperboard-text-bold-duotone',
+}
+
 const activeSurfaceLabel = computed(() => SURFACE_LABELS[activeSurface.value] || 'Chat View')
+const activeSurfaceIcon = computed(() => SURFACE_ICONS[activeSurface.value] || 'i-solar:chat-line-bold-duotone')
+
+// Track loaded sub-surfaces to skip coordinator on subsequent warm visits
+const loadedSurfaces = ref<Set<string>>(new Set())
+const isCurrentSurfaceReady = computed(() => loadedSurfaces.value.has(activeSurface.value))
+
+const coordinatorProgress = ref(15)
+const coordinatorStatus = ref('Connecting to workspace...')
+
+async function coordinateSurfaceLoad(surface: string) {
+  if (loadedSurfaces.value.has(surface)) {
+    return
+  }
+
+  const label = SURFACE_LABELS[surface] || 'Workspace'
+  coordinatorProgress.value = 25
+  coordinatorStatus.value = `Connecting to ${label}...`
+
+  // Yield to the event loop so the coordinator card renders immediately on first frame
+  await new Promise(r => setTimeout(r, 60))
+
+  if (surface === 'messages') {
+    coordinatorProgress.value = 50
+    coordinatorStatus.value = 'Preparing conversation history...'
+    if (!chatSessionStore.ready) {
+      await chatSessionStore.initialize()
+    }
+  }
+
+  coordinatorProgress.value = 75
+  coordinatorStatus.value = `Mounting ${label}...`
+
+  // Give the async component time to evaluate its chunk and mount into the DOM behind the overlay
+  await nextTick()
+  await new Promise(r => requestAnimationFrame(r))
+  await new Promise(r => setTimeout(r, 160))
+  await nextTick()
+
+  coordinatorProgress.value = 100
+  coordinatorStatus.value = 'Ready'
+
+  await new Promise(r => setTimeout(r, 100))
+  loadedSurfaces.value.add(surface)
+}
+
+watch(
+  activeSurface,
+  (surface) => {
+    void coordinateSurfaceLoad(surface)
+  },
+  { immediate: true },
+)
+
+watch(activeCardId, () => {
+  loadedSurfaces.value.clear()
+  void coordinateSurfaceLoad(activeSurface.value)
+})
 
 const chatOrchestrator = useChatOrchestratorStore()
 const { isUserTyping } = storeToRefs(chatOrchestrator)
@@ -1391,12 +1462,29 @@ function selectSurface(surface: typeof activeSurface.value) {
       </div>
 
       <!-- 3. Dynamic Center Content Workspace Slot -->
-      <div class="h-full flex flex-1 flex-row overflow-hidden">
+      <div class="relative h-full flex flex-1 flex-row overflow-hidden">
+        <!-- Sub-surface Component -->
         <component
           :is="activeSurfaceComponent"
+          :key="`surface-${activeSurface}`"
           ref="activeSurfaceRef"
           class="h-full flex-1 overflow-hidden"
         />
+
+        <!-- Ambient Workspace Coordinator Overlay (Covers viewport while sub-surface mounts) -->
+        <Transition name="fade">
+          <ChatWorkspaceCoordinator
+            v-if="!isCurrentSurfaceReady"
+            :key="`coord-${activeSurface}`"
+            :character-name="activeCard?.name || 'AIRI'"
+            :card-id="activeCardId"
+            :surface-label="activeSurfaceLabel"
+            :surface-icon="activeSurfaceIcon"
+            :progress="coordinatorProgress"
+            :status-text="coordinatorStatus"
+            class="absolute inset-0 z-20"
+          />
+        </Transition>
 
         <!-- Right Context Panel (Exclusive to Chat View) -->
         <Transition name="slide-right">
@@ -1616,6 +1704,15 @@ function selectSurface(surface: typeof activeSurface.value) {
 </template>
 
 <style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease-in-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .slide-right-enter-active,
 .slide-right-leave-active {
   transition: all 0.3s ease;

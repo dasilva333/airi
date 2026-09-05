@@ -68,6 +68,7 @@ export function setupChatWindowReusableFunc(params: {
       x: initialX,
       y: initialY,
       show: false,
+      backgroundColor: '#121212',
       icon,
       webPreferences: {
         preload: join(getElectronMainDirname(), '../preload/index.cjs'),

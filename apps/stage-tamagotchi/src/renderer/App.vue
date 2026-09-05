@@ -245,12 +245,17 @@ onMounted(async () => {
   if (isMainWindow.value) {
     logStep('Checking yesterday short-term block')
     await ensureYesterdayShortTermBlockForActiveCharacter()
+
+    // NOTICE: Stage model rendering and mouse cursor tracking are exclusive to the
+    // primary transparent desktop Stage window. Secondary windows (Chat, Settings,
+    // Caption, Customizer) must NOT query 3D assets or decode textures at boot.
+    logStep('Initializing stage model')
+    await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
+    logStep('Stage model initialized')
+
+    logStep('Starting cursor tracking')
+    await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
   }
-  // TEMPORARY ISOLATION TEST: Disabled eager catalog scan at boot (stage model init handles active model)
-  // await displayModelsStore.loadDisplayModelsFromIndexedDB()
-  logStep('Initializing stage model')
-  await settingsStore.initializeStageModel().catch((err: any) => console.error('[PipelineTTS:App] FAILED stage model init:', err))
-  logStep('Stage model initialized')
 
   logStep('Initializing server channel store')
   await serverChannelStore.initialize({
@@ -260,9 +265,6 @@ onMounted(async () => {
 
   logStep('Initializing character orchestrator')
   characterOrchestratorStore.initialize()
-
-  logStep('Starting cursor tracking')
-  await startTrackingCursorPoint().catch((err: any) => console.error('[PipelineTTS:App] FAILED cursor tracking init:', err))
   logStep('App Startup Complete')
   // Startup initialization complete
 
