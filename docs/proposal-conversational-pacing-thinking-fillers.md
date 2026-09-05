@@ -1,6 +1,6 @@
 # Conversational Pacing and Thinking Fillers
 
-**Status:** Production specification, implementation-ready after review
+**Status:** In active implementation — Phases 0 through 3 completed, Phase 4 (Runtime Wiring & Chat Orchestrator Integration) in progress
 **Scope:** Turn-based text/STT/proactivity responses that use the ordinary chat hook and speech-runtime path
 **Out of scope:** Gemini Live native PCM output (`outputMode: 'gemini'`), which owns its own audio clock and must not be mixed with custom TTS
 
@@ -405,10 +405,11 @@ Recommended default: ship typewriter pacing and caption alignment first; keep si
 
 The configuration belongs under the existing `extensions.airi.acting` object. It is card-scoped policy; audio bytes remain device-local.
 
-Proposed Valibot shape:
+Implemented Valibot shape (`packages/stage-ui/src/types/card.schema.ts`):
 
 ```ts
-const AiriThinkingFillerSchema = object({
+export const AiriThinkingFillerSchema = object({
+  id: string(),
   text: pipe(string(), minLength(1), maxLength(160)),
   category: union([
     literal('generic'),
@@ -420,13 +421,14 @@ const AiriThinkingFillerSchema = object({
   enabled: boolean(),
 })
 
-const AiriPacingSchema = object({
+export const AiriPacingSchema = object({
   enabled: boolean(),
-  armMinMs: pipe(number(), integer(), minValue(900), maxValue(3500)),
-  armMaxMs: pipe(number(), integer(), minValue(900), maxValue(6000)),
-  maxFillerDurationMs: pipe(number(), integer(), minValue(400), maxValue(2200)),
-  reasoningWindowMs: pipe(number(), integer(), minValue(0), maxValue(1200)),
+  armMinMs: pipe(number(), integer(), minValue(500), maxValue(5000)),
+  armMaxMs: pipe(number(), integer(), minValue(500), maxValue(10000)),
+  maxFillerDurationMs: pipe(number(), integer(), minValue(400), maxValue(4000)),
+  reasoningWindowMs: pipe(number(), integer(), minValue(0), maxValue(2000)),
   categoryThreshold: pipe(number(), minValue(1), maxValue(10)),
+  kFast: pipe(number(), minValue(0), maxValue(2)),
   fillers: array(AiriThinkingFillerSchema),
   visualTyping: optional(object({
     enabled: boolean(),
@@ -437,31 +439,57 @@ const AiriPacingSchema = object({
 })
 ```
 
-The actual implementation should use the repository's current Valibot imports and preserve the existing required acting prompt fields. UI work belongs in `CardCreationTabActing.vue`, not a new settings store. The tab MUST explain that category matching is coarse, hidden reasoning may be unavailable, and cache generation is local to the selected voice.
+### 10.1 Acting Tab Segmented UI Architecture
 
-Validation MUST enforce `armMinMs ≤ armMaxMs` at the update boundary. Imported cards with invalid or absent pacing config use the disabled/default policy; they must not prevent card loading.
+To prevent vertical scaling sprawl in `CardCreationTabActing.vue`, the acting tab is organized using a 4-segment pill navigation bar (`expressions`, `speech`, `mannerisms`, `pacing`):
+
+- **Expressions**: Emotion prompt mappings, Live2D/VRM expression links, and emotion tags.
+- **Speech**: Voice delivery, rate, pitch, and voice prompt instructions.
+- **Mannerisms**: Physical idle behaviors, gesture cues, and movement tendencies.
+- **Pacing & Fillers**:
+  - Master toggle (`acting.pacing.enabled`)
+  - Latency timing and sensitivity sliders (`armMinMs`, `armMaxMs`, `maxFillerDurationMs`, `kFast`, `categoryThreshold`, `reasoningWindowMs`)
+  - Thinking fillers table with category badge pills, phrase text inputs, and row-level enable toggles
+  - Live cache verification chips showing "Cached" (emerald) vs "Uncached" (amber) status per phrase against the active character voice
+  - "Pre-warm Audio Cache" batch synthesis button with real-time percentage progress bar
+  - Inline audition playback to preview pre-rendered audio directly in the card editor
+
+Validation enforces `armMinMs ≤ armMaxMs` at the update boundary. Imported cards with invalid or absent pacing config automatically fallback to default safe values.
 
 ## 11. Implementation Boundaries
 
-The implementation should introduce small focused modules rather than embed policy in the session store:
+The subsystem is organized into modular libraries, composables, and hook integration points:
 
 ```text
-packages/stage-ui/src/services/conversation-pacing/
-  types.ts                 normalized events, state, metrics
-  timing.ts                EMA and deadline policy
-  reasoning-classifier.ts  bounded streaming category classifier
-  filler-cache.ts          localforage bytes and eviction
-  coordinator.ts           generation-scoped state machine
+packages/stage-ui/src/
+  types/
+    pacing.ts                     normalized events, pacing state machine, metrics, policy config
+  libs/pacing/
+    turn-pacing-coordinator.ts    generation-scoped state machine and adaptive bounded-EMA deadline
+    category-classifier.ts        bounded incremental streaming keyword & negation classifier
+    pacing-cache.ts               localforage deterministic SHA-256 fingerprint audio store
+    pacing-playback-bridge.ts     zero-gap playback scheduler bridge and preemption manager
+    pacing-prewarm.ts             batch TTS synthesis, duration estimator, and cache status inspector
+  composables/
+    use-turn-pacing.ts            stage host lifecycle orchestrator composable
+    response-categoriser.ts       in-band XML/tag incremental parser with onReasoningChunk callback
+  stores/
+    chat/hooks.ts                 orchestrator chat hooks (including onReasoningChunk)
+    chat.ts                       dual-path reasoning emission (in-band and reasoning-delta)
+  components/scenes/
+    ControlStripHost.vue          stage host hook subscriber, Web Audio playback, and lip-sync node
+packages/stage-pages/src/
+  pages/settings/airi-card/components/tabs/
+    CardCreationTabActing.vue     4-segment pill navigation (expressions, speech, mannerisms, pacing)
 ```
 
 Integration points:
 
-- `chat.ts` creates and settles the coordinator around the existing turn generation; `session-store.ts` remains the session-record/persistence authority.
-- The LLM dispatch/provider adapter emits normalized reasoning and answer events.
-- `useLlmmarkerParser` remains the first parser for answer text before hooks/TTS.
-- The speech host accepts a pacing playback item through the existing intent/runtime contract.
-- `speech.ts` exposes active voice/provider identity; it does not schedule playback.
-- The card store assembles acting prompts and pacing policy into the system prompt only where explicitly enabled. It must never inject raw cache metadata into prompts.
+- `chat.ts` and `response-categoriser.ts` emit unified `onReasoningChunk` hooks for both in-band `<think>` and out-of-band `reasoning-delta` streams.
+- `use-turn-pacing.ts` manages coordinator dispatch, empirical TTFT samples, and bridge scheduling.
+- `ControlStripHost.vue` wires into `onBeforeSend`, `onReasoningChunk`, `onTokenLiteral`, `onAssistantResponseEnd`, and `onGenerationStopped`, connecting directly to `playbackManager` and `audioContext`.
+- `playbackManager` handles zero-gap serialization: active fillers complete naturally while the synthesized answer queues cleanly behind them.
+- `session-store.ts` remains strictly insulated: thinking filler audio and transient metrics are never persisted into session chat history.
 
 ## 12. Observability and Failure Policy
 
@@ -540,41 +568,50 @@ Run the affected audio package typecheck if `packages/pipelines-audio` changes. 
 
 ## 14. Phased Roadmap
 
-### Phase 0: Contracts and instrumentation
+## 14. Phased Roadmap
 
-- Define normalized inference events, turn IDs, metrics, and generation guards.
-- Add fake-clock tests without changing user behavior.
-- Confirm the actual LLM provider adapters that can expose hidden reasoning.
+### Phase 0: Contracts & Instrumentation (Completed)
 
-### Phase 1: Safe filler coordinator
+- Define `AiriPacingSchema` and `AiriThinkingFillerSchema` in `packages/stage-ui/src/types/card.schema.ts`.
+- Define normalized types, state enum, and `InferenceEvent` union in `packages/stage-ui/src/types/pacing.ts`.
+- Initialize default pacing extensions on character cards.
 
-- Implement EMA/deadline policy, local cache manifest/bytes, and one cached generic filler.
-- Integrate one speech intent owner and cancellation.
-- Ship disabled by default behind a feature flag.
+### Phase 1: Safe Filler Coordinator & Audio Cache (Completed)
 
-### Phase 2: Provider adapters and category selection
+- Implement `TurnPacingCoordinator`: state machine (`IDLE` -> `DISPATCHED` -> `STAGING` -> `FILLER_ARMED` -> `FILLER_ACTIVE` -> `HANDOFF` -> `SETTLED`), adaptive bounded-EMA deadline calculation (`calculateDeadline`), and p90 ultra-fast model heuristic bypass.
+- Implement `PacingPlaybackBridge`: preemption of armed fillers, zero-gap handoff behind active fillers, and interruption handling.
+- Implement `pacing-cache`: localforage audio storage with deterministic SHA-256 fingerprinting across voice parameters (`provider`, `model`, `voiceId`, `pitch`, `rate`, `language`, `text`, `format`).
+- Comprehensive unit test suite with virtual clock verification.
 
-- Add separate-field and delimiter adapters.
-- Add bounded category classifier with negation handling.
-- Add Acting tab configuration and schema validation.
+### Phase 2 Part A: Reasoning Normalization & Category Selection (Completed)
 
-### Phase 3: Audio scheduling hardening
+- Implement `BoundedCategoryClassifier`: rolling 1024-character window, token-safe keyword matching, negation suppression, and threshold scoring.
+- Implement incremental `onReasoningChunk` callback in `createStreamingCategorizer` (`packages/stage-ui/src/composables/response-categoriser.ts`) for in-band `<think>` streams.
+- Update `.agents/skills/airi-interaction-pipelines/SKILL.md` to document dual-path reasoning normalization.
 
-- Add same-clock pre-scheduling and lead/underrun metrics.
-- Verify provider-specific TTS streaming behavior and browser AudioContext constraints.
-- Add barge-in wiring only after the existing generation/intent cancellation path is proven.
+### Phase 3: Card Acting Settings UI & Audio Pre-warming Pipeline (Completed)
 
-### Phase 4: Visual pacing
+- Refactor `CardCreationTabActing.vue` into a 4-segment pill navigation bar (`expressions`, `speech`, `mannerisms`, `pacing`) to prevent runaway vertical scaling.
+- Implement latency sliders (`armMinMs`, `armMaxMs`, `maxFillerDurationMs`, `kFast`, `categoryThreshold`, `reasoningWindowMs`).
+- Implement batch audio pre-warming pipeline (`pacing-prewarm.ts`) with real-time percentage progress bar and local cache status chips.
+- Add inline audition audio playback to preview pre-rendered filler audio clips directly in the card editor.
 
-- Add typewriter and caption/audio reconciliation.
-- Add storage-invariant transient presentation state.
-- Keep draft/retype experimental until accessibility and markdown tests pass.
+### Phase 4: Runtime Wiring & Chat Orchestrator Integration (Active Execution)
 
-### Phase 5: Controlled rollout
+- Connect `TurnPacingCoordinator` and `PacingPlaybackBridge` to the live chat generation cycle via `use-turn-pacing.ts`.
+- Add `onReasoningChunk` chat hook to `packages/stage-ui/src/stores/chat/hooks.ts` and emit it from `chat.ts` for both in-band `<think>` chunks and out-of-band `reasoning-delta` chunks.
+- Connect into `ControlStripHost.vue`:
+  - `onBeforeSend`: Dispatches turn pacing coordinator.
+  - `onReasoningChunk`: Feeds reasoning text into classifier.
+  - `onTokenLiteral`: Notifies coordinator that answer text has arrived.
+  - `onAssistantResponseEnd`: Flushes and settles coordinator.
+  - `onGenerationStopped`: Immediately cancels coordinator and stops active filler playback.
+- Route pre-warmed audio decoding through `AudioContext.decodeAudioData` and schedule directly into `playbackManager` for automatic lip sync and 0ms zero-gap handoff.
 
-- Enable for local cached voices first.
-- Compare false-positive filler rate, handoff gap, interruption correctness, and user disablement rate.
-- Expand provider coverage only when adapter telemetry proves event semantics.
+### Phase 5: Visual Presentation Pacing & Typing Simulation (Upcoming)
+
+- Implement ephemeral presentation store for typewriter pacing and caption reconciliation.
+- Ensure safe transient draft buffer that never mutates canonical session history.
 
 ## 15. Acceptance Criteria
 
@@ -596,10 +633,19 @@ The feature is production-ready only when all of the following hold:
 - [`docs/arch-chat-stt-proactivity-pipelines.md`](./arch-chat-stt-proactivity-pipelines.md)
 - [`docs/rosetta-stone.md`](./rosetta-stone.md)
 - [`docs/data-catalog.md`](./data-catalog.md)
+- [`packages/stage-ui/src/types/pacing.ts`](../packages/stage-ui/src/types/pacing.ts)
+- [`packages/stage-ui/src/libs/pacing/turn-pacing-coordinator.ts`](../packages/stage-ui/src/libs/pacing/turn-pacing-coordinator.ts)
+- [`packages/stage-ui/src/libs/pacing/category-classifier.ts`](../packages/stage-ui/src/libs/pacing/category-classifier.ts)
+- [`packages/stage-ui/src/libs/pacing/pacing-cache.ts`](../packages/stage-ui/src/libs/pacing/pacing-cache.ts)
+- [`packages/stage-ui/src/libs/pacing/pacing-playback-bridge.ts`](../packages/stage-ui/src/libs/pacing/pacing-playback-bridge.ts)
+- [`packages/stage-ui/src/libs/pacing/pacing-prewarm.ts`](../packages/stage-ui/src/libs/pacing/pacing-prewarm.ts)
+- [`packages/stage-ui/src/composables/use-turn-pacing.ts`](../packages/stage-ui/src/composables/use-turn-pacing.ts)
+- [`packages/stage-ui/src/composables/response-categoriser.ts`](../packages/stage-ui/src/composables/response-categoriser.ts)
 - [`packages/stage-ui/src/stores/chat.ts`](../packages/stage-ui/src/stores/chat.ts)
+- [`packages/stage-ui/src/stores/chat/hooks.ts`](../packages/stage-ui/src/stores/chat/hooks.ts)
 - [`packages/stage-ui/src/stores/chat/session-store.ts`](../packages/stage-ui/src/stores/chat/session-store.ts)
 - [`packages/stage-ui/src/stores/modules/speech.ts`](../packages/stage-ui/src/stores/modules/speech.ts)
 - [`packages/pipelines-audio/src/speech-pipeline.ts`](../packages/pipelines-audio/src/speech-pipeline.ts)
-- [`packages/stage-ui/src/composables/llm-marker-parser.ts`](../packages/stage-ui/src/composables/llm-marker-parser.ts)
+- [`packages/stage-ui/src/components/scenes/ControlStripHost.vue`](../packages/stage-ui/src/components/scenes/ControlStripHost.vue)
 - [`packages/stage-ui/src/types/card.schema.ts`](../packages/stage-ui/src/types/card.schema.ts)
 - [`packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue`](../packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue)
