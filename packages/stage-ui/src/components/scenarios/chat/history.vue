@@ -2,6 +2,8 @@
 import type { ChatAssistantMessage, ChatHistoryItem, ContextMessage } from '../../../types/chat'
 import type { DirectorNote } from '../../../types/director'
 
+import { useAutoAnimate } from '@formkit/auto-animate/vue'
+import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -11,6 +13,7 @@ import ChatErrorItem from './error-item.vue'
 import ProducerChoiceBubble from './ProducerChoiceBubble.vue'
 import ChatUserItem from './user-item.vue'
 
+import { useChatSessionStore } from '../../../stores/chat/session-store'
 import { useAiriCardStore } from '../../../stores/modules/airi-card'
 import { useAutonomousArtistryStore } from '../../../stores/modules/artistry-autonomous'
 import { useSettingsChat } from '../../../stores/settings'
@@ -35,86 +38,13 @@ const emit = defineEmits<{
   (e: 'delete-producer'): void
 }>()
 
-const chatHistoryRef = ref<HTMLDivElement>()
-const isAtBottom = ref(true)
-
-provide(chatScrollContainerKey, chatHistoryRef)
-
-const { t } = useI18n()
-
-function checkScrollPosition() {
-  if (!chatHistoryRef.value)
-    return
-  const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.value
-  // Allowing a small threshold (10px) to consider 'at bottom'
-  isAtBottom.value = scrollTop + clientHeight >= scrollHeight - 10
-}
-
-function scrollToBottom(force = false) {
-  if (!chatHistoryRef.value)
-    return
-  if (force || isAtBottom.value) {
-    chatHistoryRef.value.scrollTo({
-      top: chatHistoryRef.value.scrollHeight,
-      behavior: force ? 'auto' : 'smooth',
-    })
-  }
-}
-
-// Watch for manual scroll events to track bottom state
-function handleScroll() {
-  checkScrollPosition()
-}
-
-let observer: ResizeObserver | null = null
-
-onUnmounted(() => {
-  observer?.disconnect()
-})
-
-// Use a ResizeObserver to catch changes even during v-auto-animate transitions
-onMounted(async () => {
-  if (!chatHistoryRef.value)
-    return
-
-  observer = new ResizeObserver(() => {
-    if (isAtBottom.value) {
-      scrollToBottom(true)
-    }
-  })
-
-  // We observe the container itself; as it animates/resizes, we keep pinned
-  observer.observe(chatHistoryRef.value)
-
-  // Force scroll to bottom after initial mount DOM generation
-  await nextTick()
-  scrollToBottom(true)
-
-  // Ensure scroll is correct even if dynamic styling or images cause height shifts
-  setTimeout(() => scrollToBottom(true), 50)
-  setTimeout(() => scrollToBottom(true), 150)
-})
-
-watch([() => props.messages, () => props.streamingMessage], () => scrollToBottom(), { deep: true, flush: 'post' })
-watch(() => props.messages.length, (newLen, oldLen) => {
-  if (oldLen === 0 && newLen > 0) {
-    nextTick(() => {
-      scrollToBottom(true)
-      setTimeout(() => scrollToBottom(true), 50)
-      setTimeout(() => scrollToBottom(true), 150)
-    })
-  }
-})
-watch(() => props.sending, (val) => {
-  if (!val) {
-    // When sending finishes, ensure we are at the bottom
-    scrollToBottom(true)
-  }
-}, { flush: 'post' })
-
 const chatSettings = useSettingsChat()
 const artistryStore = useAutonomousArtistryStore()
 const cardStore = useAiriCardStore()
+const chatSessionStore = useChatSessionStore()
+const { activeSessionId } = storeToRefs(chatSessionStore)
+
+const { t } = useI18n()
 
 const labels = computed(() => ({
   assistant: props.assistantLabel ?? cardStore.activeCard?.nickname ?? cardStore.activeCard?.name ?? t('stage.chat.message.character-name.airi'),
@@ -132,6 +62,7 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
 
   return message.context?.createdAt === ts || message.createdAt === ts
 }
+
 const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
   const monitorEnabled = (cardStore.activeCard?.extensions?.airi?.artistry as any)?.autonomousMonitorEnabled ?? true
   const directorNotes = (monitorEnabled && chatSettings.showDirectorNotes) ? (artistryStore.directorNotes || []).filter(n => !n.isArchived) : []
@@ -169,19 +100,214 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
     return idA.localeCompare(idB)
   })
 })
+
+const INITIAL_BATCH_SIZE = 30
+const BATCH_SIZE = 30
+const visibleCount = ref(INITIAL_BATCH_SIZE)
+const isLoadingMore = ref(false)
+const topSentinelRef = ref<HTMLDivElement | null>(null)
+let isInitialScrollSettled = false
+
+const hasMore = computed(() => renderMessages.value.length > visibleCount.value)
+
+const displayedMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
+  if (!hasMore.value) {
+    return renderMessages.value
+  }
+  return renderMessages.value.slice(-visibleCount.value)
+})
+
+const [chatHistoryRef, setAutoAnimateEnabled] = useAutoAnimate<HTMLDivElement>()
+const isAtBottom = ref(true)
+
+provide(chatScrollContainerKey, chatHistoryRef)
+
+function checkScrollPosition() {
+  if (!chatHistoryRef.value)
+    return
+  const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.value
+  // Allowing a small threshold (10px) to consider 'at bottom'
+  isAtBottom.value = scrollTop + clientHeight >= scrollHeight - 10
+}
+
+function scrollToBottom(force = false) {
+  if (!chatHistoryRef.value)
+    return
+  if (force || isAtBottom.value) {
+    chatHistoryRef.value.scrollTo({
+      top: chatHistoryRef.value.scrollHeight,
+      behavior: force ? 'auto' : 'smooth',
+    })
+  }
+}
+
+async function loadMore() {
+  if (isLoadingMore.value || !hasMore.value)
+    return
+
+  const container = chatHistoryRef.value
+  if (!container)
+    return
+
+  isLoadingMore.value = true
+  setAutoAnimateEnabled(false)
+
+  const oldScrollHeight = container.scrollHeight
+  const oldScrollTop = container.scrollTop
+
+  visibleCount.value = Math.min(renderMessages.value.length, visibleCount.value + BATCH_SIZE)
+
+  await nextTick()
+
+  const newScrollHeight = container.scrollHeight
+  const delta = newScrollHeight - oldScrollHeight
+
+  if (delta > 0) {
+    // Compensate scroll position synchronously so user viewport doesn't shift by even 1px
+    container.scrollTop = oldScrollTop + delta
+  }
+
+  requestAnimationFrame(() => {
+    setAutoAnimateEnabled(true)
+    setTimeout(() => {
+      isLoadingMore.value = false
+    }, 100)
+  })
+}
+
+// Watch for manual scroll events to track bottom state and top edge ceiling expansion
+function handleScroll() {
+  checkScrollPosition()
+
+  if (!chatHistoryRef.value)
+    return
+
+  if (isInitialScrollSettled && chatHistoryRef.value.scrollTop <= 100 && hasMore.value && !isLoadingMore.value) {
+    void loadMore()
+  }
+}
+
+let observer: ResizeObserver | null = null
+let topObserver: IntersectionObserver | null = null
+
+onUnmounted(() => {
+  observer?.disconnect()
+  topObserver?.disconnect()
+})
+
+// Use a ResizeObserver to catch changes even during v-auto-animate transitions
+onMounted(async () => {
+  if (!chatHistoryRef.value)
+    return
+
+  observer = new ResizeObserver(() => {
+    if (isAtBottom.value) {
+      scrollToBottom(true)
+    }
+  })
+
+  // We observe the container itself; as it animates/resizes, we keep pinned
+  observer.observe(chatHistoryRef.value)
+
+  // Force scroll to bottom after initial mount DOM generation
+  await nextTick()
+  scrollToBottom(true)
+
+  // Ensure scroll is correct even if dynamic styling or images cause height shifts
+  setTimeout(() => scrollToBottom(true), 50)
+  setTimeout(() => {
+    scrollToBottom(true)
+    isInitialScrollSettled = true
+  }, 150)
+})
+
+watch([topSentinelRef, () => hasMore.value], ([sentinel, more]) => {
+  topObserver?.disconnect()
+  if (sentinel && more) {
+    topObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && isInitialScrollSettled && !isLoadingMore.value && hasMore.value) {
+          void loadMore()
+        }
+      }
+    }, {
+      root: chatHistoryRef.value,
+      rootMargin: '120px 0px 0px 0px',
+      threshold: 0.1,
+    })
+    topObserver.observe(sentinel)
+  }
+})
+
+watch(activeSessionId, () => {
+  visibleCount.value = INITIAL_BATCH_SIZE
+  isInitialScrollSettled = false
+  nextTick(() => {
+    scrollToBottom(true)
+    setTimeout(() => {
+      scrollToBottom(true)
+      isInitialScrollSettled = true
+    }, 150)
+  })
+})
+
+watch([() => props.messages, () => props.streamingMessage], () => scrollToBottom(), { deep: true, flush: 'post' })
+watch(() => props.messages.length, (newLen, oldLen) => {
+  if (oldLen === 0 && newLen > 0) {
+    visibleCount.value = INITIAL_BATCH_SIZE
+    nextTick(() => {
+      scrollToBottom(true)
+      setTimeout(() => scrollToBottom(true), 50)
+      setTimeout(() => {
+        scrollToBottom(true)
+        isInitialScrollSettled = true
+      }, 150)
+    })
+  }
+  else if (oldLen != null && newLen > oldLen) {
+    // A new message arrived at the bottom; grow visibleCount so loaded history isn't truncated
+    visibleCount.value += (newLen - oldLen)
+  }
+  else if (oldLen != null && newLen < oldLen) {
+    visibleCount.value = Math.max(INITIAL_BATCH_SIZE, Math.min(visibleCount.value, newLen))
+  }
+})
+watch(() => props.sending, (val) => {
+  if (!val) {
+    // When sending finishes, ensure we are at the bottom
+    scrollToBottom(true)
+  }
+}, { flush: 'post' })
 </script>
 
 <template>
   <div
     ref="chatHistoryRef"
-    v-auto-animate
     flex="~ col"
     relative h-full w-full
     class="gap-2 overflow-x-hidden overflow-y-auto rounded-xl px-2 py-2"
     :class="[variant === 'mobile' ? 'gap-1' : 'gap-2']"
     @scroll="handleScroll"
   >
-    <template v-for="(message, index) in renderMessages" :key="'id' in message && message.id ? message.id : ('createdAt' in message && message.createdAt ? `ts-${message.createdAt}` : `idx-${index}`)">
+    <!-- Top Sentinel / Ceiling Indicator -->
+    <div
+      v-if="hasMore"
+      ref="topSentinelRef"
+      class="w-full flex shrink-0 select-none items-center justify-center py-2 text-xs text-neutral-400 dark:text-neutral-500"
+    >
+      <span v-if="isLoadingMore" class="i-svg-spinners:ring-resize mr-1.5 shrink-0 text-xs text-primary-500" />
+      <span>{{ isLoadingMore ? 'Loading earlier messages...' : 'Scroll up for earlier messages' }}</span>
+    </div>
+    <div
+      v-else-if="renderMessages.length > INITIAL_BATCH_SIZE"
+      class="w-full flex shrink-0 select-none items-center justify-center py-3 text-xs text-neutral-400 dark:text-neutral-500"
+    >
+      <span class="rounded-full bg-neutral-200/50 px-3 py-1 text-neutral-500 dark:bg-neutral-800/50 dark:text-neutral-400">
+        Beginning of conversation
+      </span>
+    </div>
+
+    <template v-for="(message, index) in displayedMessages" :key="'id' in message && message.id ? message.id : ('createdAt' in message && message.createdAt ? `ts-${message.createdAt}` : `idx-${index}`)">
       <div v-if="'type' in message && message.type === 'director-note'">
         <DirectorNoteBubble :note="message" />
       </div>
@@ -199,7 +325,7 @@ const renderMessages = computed<(ChatHistoryItem | DirectorNote)[]>(() => {
         <ChatErrorItem
           :message="message"
           :label="labels.error"
-          :show-placeholder="sending && index === renderMessages.length - 1"
+          :show-placeholder="sending && index === displayedMessages.length - 1"
           :variant="variant"
         />
       </div>
