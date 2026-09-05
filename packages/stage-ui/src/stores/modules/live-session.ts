@@ -3,7 +3,7 @@ import type { Tool } from '@xsai/shared-chat'
 import type { ChatAssistantMessage, ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
 
 import { debug } from '@proj-airi/stage-shared'
-import { useLocalStorage } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
@@ -21,6 +21,13 @@ import { useAiriCardStore } from './airi-card'
 import { useAutonomousArtistryStore } from './artistry-autonomous'
 import { useDiscordStore } from './discord'
 import { useVisionStore } from './vision'
+
+export interface LatestTurnUsage {
+  prompt: number
+  completion: number
+  total: number
+  recordedAt: number
+}
 
 const MODEL = 'models/gemini-3.1-flash-live-preview'
 const LIVE_WS_BASE = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent'
@@ -173,6 +180,8 @@ export const useLiveSessionStore = defineStore('live-session', () => {
   const inferenceTokens = useLocalStorage('settings/gemini/inference-tokens', 0)
   const inferencePromptTokens = useLocalStorage('settings/gemini/inference-prompt-tokens', 0)
   const inferenceCompletionTokens = useLocalStorage('settings/gemini/inference-completion-tokens', 0)
+  const latestTurnUsage = useLocalStorage<LatestTurnUsage | null>('airi:live-session:latest-turn-usage', null)
+  const { post: postUsageTelemetry } = useBroadcastChannel<LatestTurnUsage, LatestTurnUsage>({ name: 'airi:usage-telemetry' })
   const totalTokens = computed(() => sanitizeTokenCount(voiceTokens.value) + sanitizeTokenCount(inferenceTokens.value))
   const tokenDetails = ref<any[]>([])
   const voiceName = ref<'Leda' | 'Zephyr' | 'Achernar' | 'Algenib' | 'Fenrir'>('Leda')
@@ -1122,6 +1131,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
    * model stays silent (NO_REPLY) — those tokens were genuinely billed by the API.
    */
   function recordInferenceUsage(usage: number | object | null | undefined) {
+    debug('[LiveSession:Usage] recordInferenceUsage received:', usage)
     let total = 0
     let prompt = 0
     let completion = 0
@@ -1130,22 +1140,52 @@ export const useLiveSessionStore = defineStore('live-session', () => {
       total = sanitizeTokenCount(usage)
     }
     else if (usage && typeof usage === 'object') {
-      prompt = sanitizeTokenCount((usage as any).prompt_tokens ?? (usage as any).promptTokenCount)
-      completion = sanitizeTokenCount(
-        (usage as any).completion_tokens ?? (usage as any).candidatesTokenCount ?? (usage as any).outputTokenCount,
+      prompt = sanitizeTokenCount(
+        (usage as any).prompt_tokens
+        ?? (usage as any).promptTokens
+        ?? (usage as any).promptTokenCount
+        ?? (usage as any).input_tokens
+        ?? (usage as any).inputTokens,
       )
-      total = sanitizeTokenCount((usage as any).total_tokens ?? (usage as any).totalTokenCount)
+      completion = sanitizeTokenCount(
+        (usage as any).completion_tokens
+        ?? (usage as any).completionTokens
+        ?? (usage as any).candidatesTokenCount
+        ?? (usage as any).outputTokenCount
+        ?? (usage as any).output_tokens
+        ?? (usage as any).outputTokens,
+      )
+      total = sanitizeTokenCount(
+        (usage as any).total_tokens
+        ?? (usage as any).totalTokens
+        ?? (usage as any).totalTokenCount,
+      )
       if (total === 0)
         total = prompt + completion
     }
 
     if (total > 0) {
+      const payload: LatestTurnUsage = {
+        prompt,
+        completion,
+        total,
+        recordedAt: Date.now(),
+      }
+      latestTurnUsage.value = payload
+      try {
+        postUsageTelemetry(payload)
+      }
+      catch {}
+      console.log('[LiveSession:Usage] Inference tokens recorded:', payload)
       // Sanitize the persisted operand too: a previously-tainted localStorage value
       // (a string from an old session) must not turn this addition into concatenation.
       inferenceTokens.value = sanitizeTokenCount(inferenceTokens.value) + total
       inferencePromptTokens.value = sanitizeTokenCount(inferencePromptTokens.value) + prompt
       inferenceCompletionTokens.value = sanitizeTokenCount(inferenceCompletionTokens.value) + completion
       debug(`[LiveSession] Inference usage recorded: +${total}. New total inference: ${inferenceTokens.value}`)
+    }
+    else {
+      debug('[LiveSession:Usage] recordInferenceUsage yielded 0 total tokens from input:', usage)
     }
   }
 
@@ -1277,6 +1317,7 @@ export const useLiveSessionStore = defineStore('live-session', () => {
     inferenceTokens,
     inferencePromptTokens,
     inferenceCompletionTokens,
+    latestTurnUsage,
     tokenDetails,
     voiceName,
     isGroundingEnabled,

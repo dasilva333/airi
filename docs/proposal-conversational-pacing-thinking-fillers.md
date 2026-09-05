@@ -1,6 +1,6 @@
 # Conversational Pacing and Thinking Fillers
 
-**Status:** In active implementation — Phases 0 through 4 completed, Phase 5 (Extended CoT Pacing & Dynamic Category Flushes) in design
+**Status:** In active implementation — Phases 0 through 5 completed, Phase 6 (Dynamic Live CoT Vocalization & Acting Tab Consolidation) in design
 **Scope:** Turn-based text/STT/proactivity responses that use the ordinary chat hook and speech-runtime path
 **Out of scope:** Gemini Live native PCM output (`outputMode: 'gemini'`), which owns its own audio clock and must not be mixed with custom TTS
 
@@ -15,10 +15,11 @@ Conversational pacing is a coordination problem between four clocks:
 
 The system MUST have one authoritative turn coordinator and one speech intent per turn. Thinking fillers are optional audio items owned by that intent. They are never emitted as assistant text, never inserted into `rawContent`, and never create a second TTS engine or playback queue.
 
-The design has two pillars:
+The design has three pillars:
 
-- **Pillar A, bounded latency masking:** arm at an adaptive threshold, choose a filler only from evidence available before the deadline, and cancel or hand off through the existing speech intent.
-- **Pillar B, presentation pacing:** pace display-only text and visual hesitation independently from TTS, while persisting only the canonical assistant response.
+- **Pillar A, bounded latency masking & multi-stage pacing:** arm at an adaptive threshold, choose a filler only from evidence available before the deadline, scale gracefully into multi-stage pacing for extended CoT, and cancel or hand off through the existing speech intent.
+- **Pillar B, live dynamic vocalization & 3-tier cognitive hierarchy:** for fast local neural TTS engines (RTF $\le 0.28$), synthesize on-the-fly vocalized thoughts from explicit `<think_aloud>` CoT markers or organic conversational pivots during sustained reasoning.
+- **Pillar C, presentation pacing:** pace display-only text and visual hesitation independently from TTS, while persisting only the canonical assistant response.
 
 The design rejects several assumptions in the previous draft:
 
@@ -47,9 +48,10 @@ The implementation MUST fit these current paths:
 
 - Every turn has a unique `turnId`, `sessionId`, and captured `generation`.
 - Events from a stale generation MUST be ignored, including late provider events, timer callbacks, TTS completions, and playback callbacks.
-- There is at most one filler attempt and at most one filler playback item per turn.
+- Pacing cadence supports up to `maxFillersPerTurn` (default 3, configurable 1–8) with strict per-turn category deduplication (`getTopCategoryExcluding`) and phrase deduplication (`usedPhrases`).
 - A filler MUST NOT delay the first answer audio if answer audio is ready and the filler has not started.
 - Once a filler is armed or actively playing (typically 1–2 seconds), it naturally concludes and smoothly hands off to the main answer audio. It is NOT abruptly aborted or chopped in half simply because early answer tokens or audio became ready; natural conversational flow takes precedence over frantic mid-phrase preemption.
+- In-flight dynamic TTS synthesis (for live `<think_aloud>` vocalization) MUST be immediately aborted via `AbortController` if the LLM finishes reasoning before the audio chunk is generated.
 - Cancellation applies only when the filler has not yet started (i.e. fast answer arrives before the arming deadline `t_arm`), or upon explicit user interruption (barge-in / stop).
 - `stream-end` flushes; `assistant-end` settles. This matches remote replay and speech-host lifecycle rules.
 - For turns where reasoning deliberates before concluding with `NO_REPLY` (e.g. quiet proactivity evaluations), murmuring a brief filler (e.g. "Hmm, let me see...") before remaining silent is recognized as natural "thinking out loud". Users desiring complete background stealth may disable pacing for that persona.
@@ -442,20 +444,23 @@ export const AiriPacingSchema = object({
 })
 ```
 
-### 10.1 Acting Tab Segmented UI Architecture
+### 10.1 Acting Tab Segmented UI Architecture & Consolidation
 
-To prevent vertical scaling sprawl in `CardCreationTabActing.vue`, the acting tab is organized using a 4-segment pill navigation bar (`expressions`, `speech`, `mannerisms`, `pacing`):
+To prevent vertical scaling sprawl in `CardCreationTabActing.vue` and eliminate underutilized surfaces, the acting tab is consolidated into a clean 3-segment pill navigation bar (`expressions`, `speech`, `pacing`):
 
-- **Expressions**: Emotion prompt mappings, Live2D/VRM expression links, and emotion tags.
-- **Speech**: Voice delivery, rate, pitch, and voice prompt instructions.
-- **Mannerisms**: Physical idle behaviors, gesture cues, and movement tendencies.
-- **Pacing & Fillers**:
+- **Model Expressions**: Emotion prompt mappings, Live2D/VRM expression links, idle loops, and emotion tags.
+- **Speech Tags**: Audio expressions, paralinguistic tag discovery (`/v1/capabilities`), and head-tethered caption FX.
+- **Pacing & Fillers** (Consolidated Hub):
   - Master toggle (`acting.pacing.enabled`)
-  - Latency timing and sensitivity sliders (`armMinMs`, `armMaxMs`, `maxFillerDurationMs`, `kFast`, `categoryThreshold`, `reasoningWindowMs`)
-  - Thinking fillers table with category badge pills, phrase text inputs, and row-level enable toggles
-  - Live cache verification chips showing "Cached" (emerald) vs "Uncached" (amber) status per phrase against the active character voice
-  - "Pre-warm Audio Cache" batch synthesis button with real-time percentage progress bar
-  - Inline audition playback to preview pre-rendered audio directly in the card editor
+  - Adaptive Latency & Sensitivity Sliders (`armMinMs`, `armMaxMs`, `maxFillerDurationMs`, `maxFillersPerTurn`, `pacingIntervalMs`, `categoryThreshold`, `reasoningWindowMs`)
+  - **Thinking & Conversational Pacing Prompt Scratchpad**:
+    - Backed by `extensions.airi.acting.speechMannerismPrompt` (100% schema & prompt-builder compatible).
+    - 1-click template insertion chips: `[✨ Insert <think_aloud> CoT Template]`, `[✨ Insert Conversational Pacing Template]`.
+    - Preserves provider-side mannerism chips when reported by the active engine.
+  - Thinking fillers table with category badge pills, phrase text inputs, and row-level enable toggles.
+  - Live cache verification chips showing "Cached" (emerald) vs "Uncached" (amber) status per phrase against the active character voice.
+  - "Pre-warm Audio Cache" batch synthesis button with real-time percentage progress bar.
+  - Inline audition playback to preview pre-rendered audio directly in the card editor.
 
 Validation enforces `armMinMs ≤ armMaxMs` at the update boundary. Imported cards with invalid or absent pacing config automatically fallback to default safe values.
 
@@ -569,9 +574,74 @@ pnpm -F @proj-airi/stage-pages typecheck
 
 Run the affected audio package typecheck if `packages/pipelines-audio` changes. A build is required if Electron entry points or packaging are changed. This proposal rewrite itself is documentation-only and does not require a typecheck.
 
-## 14. Phased Roadmap
+## 14. Three-Tier Cognitive Pacing & Live Dynamic CoT Vocalization
 
-## 14. Phased Roadmap
+When extended reasoning models (DeepSeek-R1, QwQ, Claude 3.7 Thinking) deliberate for 30s to 90s, pacing evolves beyond static pre-cached audio clips into dynamic, contextual vocalization when powered by high-speed neural TTS engines (e.g. `airi-audio-server` with C++ inference and RTF $\le 0.28$).
+
+### 14.1 The Three-Tier Cognitive Hierarchy
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ Tier 1: Instant Pre-cached Fillers (The Reflex)            │
+│  • Fires at early adaptive deadline (~1.5–3.5s)           │
+│  • Zero-latency localforage/OPFS cache                     │
+│  • "Hmm...", "Let's see...", "Checking that..."           │
+└─────────────────────────────┬─────────────────────────────┘
+                              │ If reasoning continues past threshold (default 15s)
+┌─────────────────────────────▼─────────────────────────────┐
+│ Tier 3: Explicit <think_aloud> XML Cues (Gold Standard)   │
+│  • Model mutters brief in-character thought directly in CoT│
+│  • Priority 1 when present; sanitized & length-clamped     │
+│  • Handled on closing tag </think_aloud> event             │
+└─────────────────────────────┬─────────────────────────────┘
+                              │ If no explicit tag emitted in reasoning stream
+┌─────────────────────────────▼─────────────────────────────┐
+│ Tier 2: Organic Pivot Extraction (The Natural Fallback)   │
+│  • Scans stream for "Wait...", "Hold on...", "Actually..."│
+│  • Strict code/LaTeX/meta filter; capped at 10–12 words    │
+│  • Evaluated at interval cadence flushes                   │
+└───────────────────────────────────────────────────────────┘
+```
+
+1. **Tier 1: Instant Pre-cached Fillers (The Reflex)**:
+   - Evaluated at `calculateDeadline()` (~1.5s–3.5s).
+   - Serves immediate latency masking for turns completing within 5–10s.
+2. **Tier 2: Organic Pivot Extraction (The Natural Fallback)**:
+   - For turns where reasoning continues past the dynamic threshold (configurable, default 15s) and no explicit `<think_aloud>` cue exists.
+   - Looks for human cognitive turning points: `"Wait, actually..."`, `"Hold on, what if..."`, `"Oh, I see..."`, `"Wait a second..."`.
+   - Rejects code tokens (`{`, `}`, `_`, `\`, `$`), LaTeX, and meta tokens (`user`, `prompt`, `instruction`, `system`, `rule`).
+   - Clamped to 10–12 words max.
+3. **Tier 3: Explicit `<think_aloud>` XML Cues (The Gold Standard)**:
+   - Highest priority. The model intentionally emits a character thought in its reasoning stream:
+     `<think_aloud>Wait, did we import that correctly?</think_aloud>`
+   - Extracted by the streaming parser, sanitized, and vocalized dynamically.
+   - Stripped from user-facing transcripts so raw CoT does not leak into chat history.
+
+### 14.2 Live Dynamic TTS Lifecycle & Invariants
+
+On high-performance local speech engines, synthesizing a short 10-word thought takes ~100–250ms. The turn pacing engine applies two strict timing invariants:
+
+1. **In-Flight TTS Abortion**:
+   - Every dynamic synthesis request holds an `AbortController`.
+   - If the main LLM answer stream arrives while the dynamic TTS HTTP request is still in flight, `abortController.abort()` immediately terminates the connection. No late, unwanted audio is synthesized or queued.
+2. **Zero-Gap Queuing for Active Speech**:
+   - If the dynamic thought has *already started playing* through the audio hardware when the real answer becomes ready, the conversational preemption invariant applies: the active thought completes naturally, and the real answer audio queues seamlessly at `s1 = e0`.
+
+### 14.3 Card Editor Consolidation & Prompt Scratchpad
+
+To unify pacing prompt engineering with character cards:
+- The lonely, underutilized **"Mannerisms"** sub-tab in `CardCreationTabActing.vue` is retired, reducing the navigation bar from 4 tabs to 3 clean hubs:
+  1. `Model Expressions`
+  2. `Speech Tags`
+  3. `Pacing & Fillers`
+- The schema-backed prompt field `extensions.airi.acting.speechMannerismPrompt` is moved into `Pacing & Fillers` and repurposed as the **Thinking & Conversational Pacing Prompt Scratchpad**.
+- 1-Click Action Chips:
+  - `[✨ Insert <think_aloud> CoT Template]`: Injects standard instructions teaching the persona to mutter in `<think_aloud>` during deep reasoning.
+  - `[✨ Insert Conversational Pacing Template]`: Injects natural cadence and hesitation instructions.
+  - Retains provider-reported mannerism chips as optional helpers for backwards compatibility.
+- 100% schema backwards compatibility: existing cards retain all data, and `buildActingInstruction` continues injecting the field into the system prompt.
+
+## 15. Phased Roadmap
 
 ### Phase 0: Contracts & Instrumentation (Completed)
 
@@ -594,7 +664,7 @@ Run the affected audio package typecheck if `packages/pipelines-audio` changes. 
 
 ### Phase 3: Card Acting Settings UI & Audio Pre-warming Pipeline (Completed)
 
-- Refactor `CardCreationTabActing.vue` into a 4-segment pill navigation bar (`expressions`, `speech`, `mannerisms`, `pacing`) to prevent runaway vertical scaling.
+- Refactor `CardCreationTabActing.vue` into a segmented pill navigation bar to prevent runaway vertical scaling.
 - Implement latency sliders (`armMinMs`, `armMaxMs`, `maxFillerDurationMs`, `kFast`, `categoryThreshold`, `reasoningWindowMs`).
 - Implement batch audio pre-warming pipeline (`pacing-prewarm.ts`) with real-time percentage progress bar and local cache status chips.
 - Add inline audition audio playback to preview pre-rendered filler audio clips directly in the card editor.
@@ -615,24 +685,38 @@ Run the affected audio package typecheck if `packages/pipelines-audio` changes. 
 - Fixed deadline clamp math (`Math.max(minD, Math.min(maxD, deadline))` after `p10`) and zero-gap handoff metrics (`fillerEndMs`).
 - Added reasoning/silence guidance tip in `CardCreationTabActing.vue`.
 
-### Phase 5: Extended Chain-of-Thought Pacing & Dynamic Category Flushes (Upcoming)
+### Phase 5: Extended Chain-of-Thought Pacing & Telemetry Diagnostics (Completed)
 
-- **The Long-CoT Problem**: Extended reasoning models (DeepSeek-R1, o1, Qwen-qwq, Claude Thinking) can spend 30s to 90s in heavy reasoning. A single initial filler leaves long periods of dead air.
-- **Rolling Category Hit Accumulator**: Accumulate category match scores in rolling windows across the streaming CoT tokens.
+- **The Long-CoT Problem Solved**: Extended reasoning models (DeepSeek-R1, o1, QwQ, Claude Thinking) spending 30s to 90s in heavy reasoning now receive multi-stage progressive fillers.
+- **Rolling Category Hit Accumulator**: Accumulates category match scores across streaming CoT tokens.
 - **"Once Per Category, Aggregate Winner" Selection**:
-  - At each interval flush, only categories that have *not yet spoken in this turn* are eligible.
-  - The eligible category with the highest aggregate score in that window wins the slot.
-  - Once a category speaks, it is checked off for that turn, preventing parrot loops and ensuring the spoken fillers mirror the evolving phases of the model's subconscious thought.
-  - Falls back to unused `generic` phrases when no semantic category is dominant.
-- **Strict Per-Turn Phrase Deduplication**:
-  - Maintain a set of used phrase IDs per turn so no phrase is ever repeated in the same turn.
+  - Implemented `getTopCategoryExcluding`: at each interval flush, only categories that have not yet spoken in this turn are eligible.
+  - Highest aggregate score in the window wins the slot, preventing parrot loops and mirroring the cognitive arc of thought.
+  - Strict per-turn phrase deduplication via `usedPhrases`.
 - **Configurable Hard Cap & Cadence Controls**:
-  - `maxFillersPerTurn` slider (1 to 8, default 3 or 4). When set to 1, preserves the original single-filler behavior.
-  - `pacingIntervalMs` slider (8s to 30s, default 15s) controlling cadence between CoT progression flushes.
-- **Answer Preemption Invariant**:
-  - When the real answer arrives at any point, the interval timer stops immediately. The answer audio starts smoothly at the natural end of the currently playing filler (or instantly if silent).
+  - `maxFillersPerTurn` slider (1 to 8, default 3) and `pacingIntervalMs` slider (8s to 30s, default 15s).
+- **Answer Preemption & Zero-Gap Handoff**:
+  - Wired `onAnswerAudioScheduled` into `ControlStripHost.vue` audio scheduling, resolving `answerFirstAudioMs` and `handoffGapMs`.
+  - Re-notifies `onSettled` whenever handoff gap resolves.
+- **Limits & Telemetry Popover in Chat Header**:
+  - Surfaces real-time TTFT latency, handoff gap (`ms (seamless)` vs `+ms`), filler count badges, and multi-schema token usage (`tok in / out`) with frosted translucent header styling.
 
-### Phase 6: Visual Presentation Pacing & Typing Simulation (Upcoming)
+### Phase 6: Dynamic Live CoT Vocalization & Acting Tab Consolidation (In Design / Upcoming)
+
+- **3-Tier Cognitive Hierarchy**:
+  - Tier 1: Instant cached reflex (~1.5–3.5s).
+  - Tier 2: Organic pivot extraction (`"Wait..."`, `"Hold on..."`) with safety regex and 10–12 word limit.
+  - Tier 3: Explicit `<think_aloud>` XML cues emitted by the model during CoT.
+- **Live Dynamic TTS with In-Flight Abortion**:
+  - When dynamic thought is triggered on fast local TTS, send prompt to speech engine.
+  - If main answer arrives before TTS synthesis completes, immediately call `abortController.abort()`.
+  - If playback has begun, zero-gap queue answer audio behind the spoken sentence.
+- **Acting Tab Consolidation**:
+  - Retire underutilized "Mannerisms" sub-tab (consolidating 4 tabs to 3: `Model Expressions`, `Speech Tags`, `Pacing & Fillers`).
+  - Repurpose `speechMannerismPrompt` into the dedicated Thinking & Conversational Pacing Prompt scratchpad in `Pacing & Fillers`.
+  - Add 1-click template insertion chips (`[✨ Insert <think_aloud> CoT Template]`, `[✨ Insert Conversational Pacing Template]`).
+
+### Phase 7: Visual Presentation Pacing & Typing Simulation (Upcoming)
 
 - Implement ephemeral presentation store for typewriter pacing and caption reconciliation.
 - Ensure safe transient draft buffer that never mutates canonical session history.

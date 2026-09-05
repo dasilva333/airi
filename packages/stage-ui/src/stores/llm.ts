@@ -88,16 +88,34 @@ function aggregateStepUsage(steps: Array<{ usage?: unknown }> | undefined | null
     if (!usage || typeof usage !== 'object')
       continue
 
-    const stepTotal = toTokenCount((usage as any).total_tokens)
-    const stepPrompt = toTokenCount((usage as any).prompt_tokens)
-    const stepCompletion = toTokenCount((usage as any).completion_tokens)
+    const stepPrompt = toTokenCount(
+      (usage as any).prompt_tokens
+      ?? (usage as any).promptTokens
+      ?? (usage as any).promptTokenCount
+      ?? (usage as any).input_tokens
+      ?? (usage as any).inputTokens,
+    )
+    const stepCompletion = toTokenCount(
+      (usage as any).completion_tokens
+      ?? (usage as any).completionTokens
+      ?? (usage as any).candidatesTokenCount
+      ?? (usage as any).outputTokenCount
+      ?? (usage as any).output_tokens
+      ?? (usage as any).outputTokens,
+    )
+    const stepTotal = toTokenCount(
+      (usage as any).total_tokens
+      ?? (usage as any).totalTokens
+      ?? (usage as any).totalTokenCount,
+    ) || (stepPrompt + stepCompletion)
+
     if (stepTotal === 0 && stepPrompt === 0 && stepCompletion === 0)
       continue
 
     hasUsage = true
     promptTokens += stepPrompt
     completionTokens += stepCompletion
-    totalTokens += stepTotal > 0 ? stepTotal : stepPrompt + stepCompletion
+    totalTokens += stepTotal
   }
 
   if (!hasUsage)
@@ -470,6 +488,9 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
       const result = streamText({
         ...chatConfig,
         ...requestOverrides,
+        streamOptions: {
+          includeUsage: true,
+        },
         maxSteps: 10,
         messages: sanitized,
         headers,
@@ -503,10 +524,20 @@ async function streamFrom(model: string, chatProvider: ChatProvider, messages: M
 
       // Derive usage from per-step final usage objects (see aggregateStepUsage) to
       // avoid the per-chunk cumulative-usage inflation in @xsai/stream-text.
-      void result.steps.then((steps) => {
-        const usage = aggregateStepUsage(steps)
-        if (usage)
+      void result.steps.then(async (steps) => {
+        let usage = aggregateStepUsage(steps)
+        if (!usage) {
+          const rawUsage = await result.usage.catch(() => undefined)
+          if (rawUsage)
+            usage = aggregateStepUsage([{ usage: rawUsage }])
+        }
+        if (usage) {
+          debug('[LLM:Stream] Step usage resolved:', usage)
           onEvent({ type: 'usage', usage })
+        }
+        else {
+          debug('[LLM:Stream] Provider returned no usage statistics for this stream')
+        }
       }).catch(err => console.error('Stream steps usage error:', err))
     }
     catch (err) {

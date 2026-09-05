@@ -824,6 +824,18 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
   ownerOverflowPolicy: 'steal-oldest',
 })
 
+const turnPacing = useTurnPacing({
+  activeCard,
+  playbackManager,
+  audioContext,
+  speechStore,
+  isPlaybackSuppressed,
+  getIntentContext: () => ({
+    intentId: currentChatIntent?.intentId,
+    streamId: currentChatIntent?.streamId,
+  }),
+})
+
 // Intercept schedule to run CPU RMS Pause Aligner on multi-sentence batches before playback begins
 const basePlaybackSchedule = playbackManager.schedule
 playbackManager.schedule = (item) => {
@@ -836,20 +848,12 @@ playbackManager.schedule = (item) => {
       debug('[Stage:Playback] Failed to align spoken sentences:', err)
     }
   }
+  if (item.audio && (item as any)?.meta?.role !== 'thinking-filler') {
+    debug('[Stage:Playback] Answer audio scheduled, notifying pacing coordinator')
+    turnPacing.onAnswerAudioScheduled()
+  }
   basePlaybackSchedule(item)
 }
-
-const turnPacing = useTurnPacing({
-  activeCard,
-  playbackManager,
-  audioContext,
-  speechStore,
-  isPlaybackSuppressed,
-  getIntentContext: () => ({
-    intentId: currentChatIntent?.intentId,
-    streamId: currentChatIntent?.streamId,
-  }),
-})
 
 const rawAudioBuffers = new Map<string, ArrayBuffer>()
 

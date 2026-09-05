@@ -1589,7 +1589,8 @@ Format your output as a raw thought log.`
                 }).catch(() => {})
                 break
               case 'usage': {
-                chatLog('usage report:', event.usage)
+                chatLog('[Chat:Usage] usage report received from LLM stream:', event.usage)
+                console.log('[Chat:Usage] received usage report:', event.usage)
                 const liveSession = useLiveSessionStore()
                 liveSession.recordInferenceUsage(event.usage)
                 break

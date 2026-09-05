@@ -5,7 +5,8 @@ import type { ThinkingAudioFingerprintParams } from '../libs/pacing/pacing-cache
 import type { AiriThinkingFiller } from '../types/card.schema'
 import type { PacingMetrics, PacingPolicyConfig } from '../types/pacing'
 
-import { readonly, ref } from 'vue'
+import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
+import { readonly, ref, toRaw } from 'vue'
 
 import { PacingPlaybackBridge, resolveFillerCandidate } from '../libs/pacing/pacing-playback-bridge'
 import { TurnPacingCoordinator } from '../libs/pacing/turn-pacing-coordinator'
@@ -45,6 +46,8 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   let activeBridge: PacingPlaybackBridge<AudioBuffer> | null = null
 
   const activePacingMetrics = ref<PacingMetrics | null>(null)
+  const latestPacingMetrics = useLocalStorage<PacingMetrics | null>('airi:latest-pacing-metrics', null)
+  const { post: postPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({ name: 'airi:pacing-telemetry' })
 
   function startTurn(turnId: string, _context?: any): TurnPacingCoordinator | null {
     const pacingConfig = activeCard.value?.extensions?.airi?.acting?.pacing
@@ -115,6 +118,15 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       },
       onSettled: (metrics) => {
         activePacingMetrics.value = metrics
+        const raw = toRaw(metrics)
+        latestPacingMetrics.value = raw
+        console.log('[TurnPacing:Settled] Turn pacing metrics settled:', raw)
+        try {
+          postPacingTelemetry(raw)
+        }
+        catch {
+          // BroadcastChannel may fail if window/context is disconnected
+        }
         if (metrics.ttftMs && metrics.ttftMs > 0) {
           const list = ttftSamplesByProvider.get(providerKey) || []
           list.push(metrics.ttftMs)
@@ -181,12 +193,21 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     })
   }
 
+  function onAnswerAudioScheduled(at: number = Date.now()) {
+    if (activeCoordinator) {
+      activeCoordinator.notifyAnswerAudioScheduled(at)
+    }
+  }
+
   async function onAssistantEnd() {
     if (!activeCoordinator)
       return
     await activeCoordinator.onAssistantEnd()
-    activeCoordinator = null
-    activeBridge = null
+    // NOTICE: Do not null activeCoordinator or activeBridge immediately here.
+    // In typical turn lifecycles, answer TTS synthesis finishes and schedules its first
+    // audio chunk shortly after the assistant text stream finishes. Keeping the coordinator
+    // active allows notifyAnswerAudioScheduled to record answerFirstAudioMs and compute handoffGapMs.
+    // Full teardown occurs upon startTurn, cancel, or speech intent completion.
   }
 
   function cancel(reason: string) {
@@ -210,10 +231,12 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     startTurn,
     onReasoningChunk,
     onAnswerLiteral,
+    onAnswerAudioScheduled,
     onAssistantEnd,
     cancel,
     onFillerStarted,
     onFillerEnded,
     activePacingMetrics: readonly(activePacingMetrics),
+    latestPacingMetrics: readonly(latestPacingMetrics),
   }
 }

@@ -300,6 +300,9 @@ export class TurnPacingCoordinator {
     }
     else {
       this.state = 'HANDOFF'
+      if (this.answerAudioScheduled) {
+        this.onSettled?.(this.metrics)
+      }
     }
   }
 
@@ -319,6 +322,10 @@ export class TurnPacingCoordinator {
       this.state = 'ANSWER_READY'
       this.metrics.fillerOutcome = 'rejected'
       this.onCancelFiller?.('answer-scheduled')
+    }
+
+    if (this.state === 'SETTLED' || this.state === 'HANDOFF') {
+      this.onSettled?.(this.metrics)
     }
   }
 

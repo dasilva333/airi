@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { LatestTurnUsage } from '@proj-airi/stage-ui/stores/modules/live-session'
+import type { PacingMetrics } from '@proj-airi/stage-ui/types'
+
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { resolveAtmosphereComponent } from '@proj-airi/stage-layouts/components/Backgrounds'
 import { estimateTokens, formatTokenCount } from '@proj-airi/stage-shared'
@@ -8,14 +11,13 @@ import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-session'
-import { useLocalStorage, useWindowSize } from '@vueuse/core'
+import { useBroadcastChannel, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, defineAsyncComponent, markRaw, nextTick, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
-import WindowTitleBar from '../components/Window/TitleBar.vue'
 
 import { electronApplySizePreset, electronOpenSettings } from '../../shared/eventa'
 
@@ -42,9 +44,16 @@ const backgroundStore = useBackgroundStore()
 const { chatboxActiveBackgroundUrl, chatboxActiveAtmosphereId } = storeToRefs(backgroundStore)
 const activeChatAtmosphereComponent = computed(() => resolveAtmosphereComponent(chatboxActiveAtmosphereId.value))
 
+const { activeCard, activeCardId } = storeToRefs(airiCardStore)
+const { activeSessionId, sessionMetas, messages } = storeToRefs(chatSessionStore)
+const { latestTurnUsage } = storeToRefs(liveSessionStore)
+
 const applySizePreset = useElectronEventaInvoke(electronApplySizePreset)
 const openSettings = useElectronEventaInvoke(electronOpenSettings)
 const isSettingsOpen = ref(false)
+
+if (!activeCardId.value)
+  activeCardId.value = airiCardStore.activeCardId
 
 function handleOpenStudio() {
   if (!activeCardId.value)
@@ -61,8 +70,24 @@ function handleApplyChatPreset(preset: 'mini' | 'medium' | 'large' | 'full') {
   isSettingsOpen.value = false
 }
 
-const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const { activeSessionId, sessionMetas, messages } = storeToRefs(chatSessionStore)
+// Pacing & Latency Telemetry from TurnPacingCoordinator
+const latestPacingMetrics = useLocalStorage<PacingMetrics | null>('airi:latest-pacing-metrics', null)
+const { data: incomingPacingMetrics } = useBroadcastChannel<PacingMetrics, PacingMetrics>({ name: 'airi:pacing-telemetry' })
+const { data: incomingTurnUsage } = useBroadcastChannel<LatestTurnUsage, LatestTurnUsage>({ name: 'airi:usage-telemetry' })
+
+watch(incomingPacingMetrics, (metrics) => {
+  if (metrics) {
+    console.log('[Chat:Popover] Incoming pacing metrics telemetry:', metrics)
+    latestPacingMetrics.value = metrics
+  }
+})
+
+watch(incomingTurnUsage, (usage) => {
+  if (usage) {
+    console.log('[Chat:Popover] Incoming turn usage telemetry:', usage)
+    latestTurnUsage.value = usage
+  }
+})
 
 // --- Bridge handlers for ChatMemoryPopover → InteractiveArea ---
 function handleViewContext() {
@@ -694,7 +719,7 @@ function selectSurface(surface: typeof activeSurface.value) {
 </script>
 
 <template>
-  <div class="relative h-full w-full flex flex-col overflow-hidden pt-[44px]">
+  <div class="relative h-full w-full flex flex-col overflow-hidden">
     <!-- Layer 1: Chatbox Wallpaper -->
     <div
       v-if="chatboxActiveBackgroundUrl"
@@ -718,12 +743,12 @@ function selectSurface(surface: typeof activeSurface.value) {
       class="pointer-events-none absolute inset-0 z-1"
     />
 
-    <WindowTitleBar
-      class="relative z-2"
-      :title="activeSurface === 'messages' ? 'Chat' : activeSurfaceLabel"
-      icon="i-solar:chat-line-bold"
+    <!-- Header Toolbar: Flush to top, frosted glass translucent -->
+    <header
+      class="relative z-10 w-full shrink-0 select-none border-b border-neutral-200/40 bg-white/30 px-3 py-1.5 shadow-sm backdrop-blur-md dark:border-neutral-800/40 dark:bg-neutral-950/20"
+      drag-region
     >
-      <div class="relative w-full flex items-center justify-between px-2" drag-region>
+      <div class="relative w-full flex items-center justify-between" drag-region>
         <!-- Left: Brand Logo, Hamburger Toggle, & Premium Session Selector -->
         <div class="no-drag flex select-none items-center gap-3 outline-none">
           <!-- Hamburger menu toggle -->
@@ -818,7 +843,7 @@ function selectSurface(surface: typeof activeSurface.value) {
               >
                 <!-- Section Header -->
                 <div class="flex items-center justify-between border-b border-neutral-200/40 pb-1.5 dark:border-neutral-800/40">
-                  <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Limits & Context</span>
+                  <span class="text-xs text-neutral-500 font-bold tracking-wider uppercase dark:text-neutral-400">Limits & Telemetry</span>
                   <button
                     v-if="popoverOverrideEnabled"
                     class="text-[10px] text-red-500 font-bold tracking-tight transition dark:text-red-400 hover:text-red-600 hover:dark:text-red-300"
@@ -943,6 +968,56 @@ function selectSurface(surface: typeof activeSurface.value) {
                       class="w-full border border-neutral-200 rounded-lg bg-neutral-50 p-2 text-[10px] text-neutral-700 dark:border-neutral-800 focus:border-primary-300 dark:bg-neutral-900 dark:text-neutral-300 focus:outline-none"
                       @change="saveCardGenerationSettings"
                     />
+                  </div>
+                </div>
+
+                <!-- Section: Latest Turn Telemetry (Live Observation) -->
+                <div class="flex flex-col gap-1.5 border-t border-neutral-200/40 pt-2 dark:border-neutral-800/40">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[9px] text-neutral-400 font-bold tracking-tight uppercase dark:text-neutral-500">Latest Turn Telemetry</span>
+                    <span v-if="latestPacingMetrics?.fillersSpokenCount" class="text-[9px] text-primary-500 font-semibold font-mono dark:text-primary-400">
+                      {{ latestPacingMetrics.fillersSpokenCount }} {{ latestPacingMetrics.fillersSpokenCount === 1 ? 'filler' : 'fillers' }}
+                    </span>
+                    <span v-else class="text-[9px] text-neutral-400 font-medium">
+                      Direct Turn
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-1.5 border border-neutral-200/40 rounded-xl bg-neutral-50/60 p-2 text-[10px] dark:border-neutral-800/40 dark:bg-neutral-900/40">
+                    <!-- Latency / TTFT -->
+                    <div class="flex flex-col">
+                      <span class="text-[8px] text-neutral-400 font-bold uppercase dark:text-neutral-500">Latency (TTFT)</span>
+                      <span class="text-neutral-700 font-semibold font-mono dark:text-neutral-200">
+                        {{ latestPacingMetrics?.ttftMs != null ? `${latestPacingMetrics.ttftMs}ms (${(latestPacingMetrics.ttftMs / 1000).toFixed(2)}s)` : '—' }}
+                      </span>
+                    </div>
+
+                    <!-- Handoff Gap -->
+                    <div class="flex flex-col">
+                      <span class="text-[8px] text-neutral-400 font-bold uppercase dark:text-neutral-500">Handoff Gap</span>
+                      <span class="text-neutral-700 font-semibold font-mono dark:text-neutral-200">
+                        <template v-if="latestPacingMetrics?.handoffGapMs != null">
+                          {{ latestPacingMetrics.handoffGapMs <= 0 ? `${latestPacingMetrics.handoffGapMs}ms (seamless)` : `+${latestPacingMetrics.handoffGapMs}ms` }}
+                        </template>
+                        <template v-else-if="latestPacingMetrics?.fillersSpokenCount">
+                          <span class="text-[9px] text-neutral-400 italic dark:text-neutral-500">syncing...</span>
+                        </template>
+                        <template v-else>
+                          —
+                        </template>
+                      </span>
+                    </div>
+
+                    <!-- Model Token Usage -->
+                    <div class="col-span-2 flex items-center justify-between border-t border-neutral-200/30 pt-1 text-[9px] dark:border-neutral-800/30">
+                      <span class="text-[8px] text-neutral-400 font-bold uppercase dark:text-neutral-500">Turn Tokens</span>
+                      <span v-if="latestTurnUsage && (latestTurnUsage.total || latestTurnUsage.prompt || latestTurnUsage.completion)" class="text-primary-500 font-semibold font-mono dark:text-primary-400">
+                        {{ latestTurnUsage.total || ((latestTurnUsage.prompt || 0) + (latestTurnUsage.completion || 0)) }} tok ({{ latestTurnUsage.prompt || 0 }} in / {{ latestTurnUsage.completion || 0 }} out)
+                      </span>
+                      <span v-else class="text-neutral-400 italic dark:text-neutral-500">
+                        Awaiting next turn
+                      </span>
+                    </div>
                   </div>
                 </div>
               </PopoverContent>
@@ -1351,7 +1426,7 @@ function selectSurface(surface: typeof activeSurface.value) {
           </button>
         </div>
       </div>
-    </WindowTitleBar>
+    </header>
     <div class="relative z-2 flex flex-1 overflow-hidden">
       <!-- 1. Left Panel Mobile Overlay Drawer -->
       <Transition name="fade">
