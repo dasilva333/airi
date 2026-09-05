@@ -69,7 +69,7 @@ const props = withDefaults(defineProps<{
   mouthOpenSize: 0,
   paused: false,
   focusAt: () => ({ x: 0, y: 0 }),
-  disableFocusAt: true,
+  disableFocusAt: false,
   followSpeed: 0.5,
   scale: 1,
   themeColorsHue: 220.44,
@@ -864,8 +864,8 @@ async function loadModel() {
       ctx.model.setParameterValueById('ParamMouthOpenY', Math.max(0, Math.min(1.0, size)))
     }, 'post')
 
-    // Manual / Procedural ambient motion spring controller
-    motionManagerUpdate.register(useMotionUpdatePluginManualControl(manualMotionControl, manualMotionSpring, exclusiveOwnerId), 'post')
+    // Manual / Procedural ambient motion spring controller (with additive mouse focus blending)
+    motionManagerUpdate.register(useMotionUpdatePluginManualControl(manualMotionControl, manualMotionSpring, exclusiveOwnerId, disableFocusAtRef), 'post')
     motionManagerUpdate.register(useMotionUpdatePluginBreathControl(manualBreathControl), 'post')
 
     // NOTICE: ArtMesh colors must be applied after coreModel.update(), not in the motion hook.

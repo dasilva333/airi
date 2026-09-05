@@ -116,7 +116,7 @@ const motionIntensity = toRef(magicSettings, 'intensity')
 
 const customizationTabs = computed(() => [
   { value: 'customizer', label: 'Customizer', icon: 'i-solar:settings-bold-duotone' },
-  { value: 'headFace', label: 'Face', icon: 'i-solar:user-bold-duotone' },
+  { value: 'headFace', label: 'Head & Face', icon: 'i-solar:user-bold-duotone' },
   { value: 'motion', label: 'Motion', icon: 'i-solar:running-round-bold-duotone' },
 ])
 const activeCustomizationTab = ref('customizer')
@@ -273,6 +273,35 @@ onUnmounted(() => {
 
     <!-- Head & Face Tab -->
     <div v-else-if="activeCustomizationTab === 'headFace'" :class="['space-y-4']">
+      <!-- Mouse Tracking (Follow Cursor) -->
+      <div :class="['flex', 'items-center', 'justify-between']">
+        <div :class="['flex', 'flex-col', 'gap-0.5']">
+          <span :class="['text-sm', 'text-neutral-600', 'dark:text-neutral-400']">Follow Cursor (Mouse Tracking)</span>
+          <span :class="['text-xs', 'text-neutral-500', 'dark:text-neutral-400']">Allows head and eyes to track the pointer with natural ambient motion.</span>
+        </div>
+        <Checkbox v-model="mouseTrackingEnabled" />
+      </div>
+
+      <!-- Follow Speed -->
+      <div v-if="mouseTrackingEnabled" :class="['space-y-2', 'pl-3', 'border-l-2', 'border-primary-500/30']">
+        <FieldRange
+          v-model="live2dFollowSpeed"
+          :min="0.01"
+          :max="1"
+          :step="0.01"
+          label="Follow Speed"
+        >
+          <template #label>
+            <div :class="['flex', 'items-center', 'justify-between', 'w-full']">
+              <span :class="['text-xs', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">Follow Speed</span>
+              <span class="text-xs font-bold font-mono">
+                {{ live2dFollowSpeed.toFixed(2) }}
+              </span>
+            </div>
+          </template>
+        </FieldRange>
+      </div>
+
       <div :class="['flex', 'items-center', 'justify-between']">
         <span :class="['text-sm', 'text-neutral-600', 'dark:text-neutral-400']">Auto Blink</span>
         <Checkbox v-model="live2dAutoBlinkEnabled" />
@@ -450,6 +479,22 @@ onUnmounted(() => {
           <p :class="['text-[11px]', 'text-neutral-500', 'dark:text-neutral-400']">
             Adjust the amplitude of head and body movement (default 100%).
           </p>
+        </div>
+
+        <!-- Cursor Tracking Harmony Status -->
+        <div :class="['flex', 'items-center', 'justify-between', 'border-t', 'border-neutral-200/60', 'pt-3', 'dark:border-neutral-800/60']">
+          <div :class="['flex', 'flex-col', 'gap-0.5']">
+            <span :class="['text-xs', 'font-medium', 'text-neutral-700', 'dark:text-neutral-300']">
+              Cursor Tracking Harmony
+            </span>
+            <span :class="['text-[11px]', 'text-neutral-500', 'dark:text-neutral-400']">
+              {{ mouseTrackingEnabled ? 'Additively blending gaze direction with organic breathing.' : 'Mouse tracking is disabled; running pure ambient motion.' }}
+            </span>
+          </div>
+          <div :class="['flex', 'items-center', 'gap-1.5', 'text-xs', mouseTrackingEnabled ? 'text-primary-500' : 'text-neutral-400']">
+            <div :class="mouseTrackingEnabled ? 'i-solar:eye-bold' : 'i-solar:eye-closed-bold'" />
+            <span class="text-[11px] font-medium font-mono">{{ mouseTrackingEnabled ? 'Blended' : 'Pure Ambient' }}</span>
+          </div>
         </div>
 
         <!-- Preview Test Button -->

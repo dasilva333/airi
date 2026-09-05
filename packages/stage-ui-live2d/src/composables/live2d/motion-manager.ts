@@ -270,7 +270,7 @@ export function useMotionUpdatePluginMouseFocus(
   let currentY = 0
   let initialized = false
   return (_ctx) => {
-    if (disableFocusAt.value || !model.value || motionControlActive?.value) {
+    if (disableFocusAt.value || !model.value) {
       if (initialized || _ctx.internalModel.focusController?.x !== 0 || _ctx.internalModel.focusController?.y !== 0) {
         currentX = 0
         currentY = 0
@@ -319,7 +319,13 @@ export function useMotionUpdatePluginMouseFocus(
     // Call focus on the internal focus controller directly with normalized coordinates [-1, 1]
     _ctx.internalModel.focusController.focus(currentX, currentY, true)
 
-    // Additively layer the motion's base offsets back on top of focus targets
+    // NOTICE: When procedural motionControlActive is true, yield manual parameter updates:
+    // useMotionUpdatePluginManualControl will harmoniously blend the focusController targets
+    // with the procedural AR-HMM pose in the next step.
+    if (motionControlActive?.value)
+      return
+
+    // Additively layer the motion's base offsets back on top of focus targets (for discrete motion clips)
     if (baseAngleX !== 0) {
       const cur = _ctx.model.getParameterValueById('ParamAngleX')
       _ctx.model.setParameterValueById('ParamAngleX', Math.max(-30, Math.min(30, cur + baseAngleX)))
@@ -650,6 +656,7 @@ export function useMotionUpdatePluginManualControl(
   control: Ref<Live2DMotionControlState>,
   spring: Live2DMotionSpringController,
   exclusiveOwnerId?: Ref<string | null>,
+  disableFocusAt?: Ref<boolean>,
 ): MotionManagerPlugin {
   return (ctx) => {
     const rawDelta = Math.max(ctx.timeDelta ?? 0, 0)
@@ -667,30 +674,48 @@ export function useMotionUpdatePluginManualControl(
     if (!output.active)
       return
 
-    // NOTICE: Zero out FocusController so that pixi-live2d-display's updateFocus()
-    // pass adds exactly 0 degrees to ParamAngleX/Y and ParamEyeBallX/Y, allowing
-    // the procedural AR-HMM / VAR motion to govern head pose cleanly.
-    if (ctx.internalModel.focusController) {
-      ctx.internalModel.focusController.focus(0, 0, true)
-      ctx.internalModel.focusController.vx = 0
-      ctx.internalModel.focusController.vy = 0
-    }
+    const hasMouse = !disableFocusAt?.value && !!ctx.internalModel.focusController
+    const mouseX = hasMouse ? (ctx.internalModel.focusController.x || 0) : 0
+    const mouseY = hasMouse ? (ctx.internalModel.focusController.y || 0) : 0
+    const mouseDist = Math.min(1, Math.hypot(mouseX, mouseY))
+
+    // Modulate ambient weights so gaze directs focus while ambient motion adds organic breathing
+    const ambientWeight = 1 - (mouseDist * 0.4) // 1.0 at center, 0.6 at edges
+    const eyeAmbientWeight = 1 - (mouseDist * 0.5) // 1.0 at center, 0.5 at edges
 
     const { eyeX, eyeY, eyeSquint, headX, headY, headZ, bodyX, bodyY, bodyZ, mouthForm, mouthOpen } = output.pose
-    setModelParameterDual(ctx.model, 'ParamEyeBallX', 'PARAM_EYE_BALL_X', eyeX)
-    setModelParameterDual(ctx.model, 'ParamEyeBallY', 'PARAM_EYE_BALL_Y', eyeY)
+
+    // Head Angle: Cursor gaze + ambient micro-sway & conversational nodding
+    const finalAngleX = Math.max(-30, Math.min(30, mouseX * 24 + headX * 30 * ambientWeight))
+    const finalAngleY = Math.max(-30, Math.min(30, mouseY * 20 + headY * 30 * ambientWeight))
+    const cursorRoll = mouseX * mouseY * -10
+    const finalAngleZ = Math.max(-30, Math.min(30, cursorRoll * 0.4 + headZ * 30))
+
+    // Eyeballs: Gaze direction + organic micro-saccades around cursor
+    const finalEyeX = Math.max(-1, Math.min(1, mouseX * 0.75 + eyeX * eyeAmbientWeight))
+    const finalEyeY = Math.max(-1, Math.min(1, mouseY * 0.75 + eyeY * eyeAmbientWeight))
+
+    // Torso: Gentle cursor lean + natural breathing
+    const finalBodyX = Math.max(-10, Math.min(10, mouseX * 4 + bodyX * 10))
+    const finalBodyY = Math.max(-10, Math.min(10, bodyY * 10))
+    const finalBodyZ = Math.max(-10, Math.min(10, bodyZ * 10))
+
+    setModelParameterDual(ctx.model, 'ParamEyeBallX', 'PARAM_EYE_BALL_X', finalEyeX)
+    setModelParameterDual(ctx.model, 'ParamEyeBallY', 'PARAM_EYE_BALL_Y', finalEyeY)
     const remainingEyeOpen = 1 - eyeSquint
     const currentEyeL = (ctx.model.getParameterValueById('ParamEyeLOpen') ?? ctx.model.getParameterValueById('PARAM_EYE_L_OPEN') ?? 1)
     const currentEyeR = (ctx.model.getParameterValueById('ParamEyeROpen') ?? ctx.model.getParameterValueById('PARAM_EYE_R_OPEN') ?? 1)
     setModelParameterDual(ctx.model, 'ParamEyeLOpen', 'PARAM_EYE_L_OPEN', currentEyeL * remainingEyeOpen)
     setModelParameterDual(ctx.model, 'ParamEyeROpen', 'PARAM_EYE_R_OPEN', currentEyeR * remainingEyeOpen)
-    setModelParameterDual(ctx.model, 'ParamAngleX', 'PARAM_ANGLE_X', headX * 30)
-    setModelParameterDual(ctx.model, 'ParamAngleY', 'PARAM_ANGLE_Y', headY * 30)
-    setModelParameterDual(ctx.model, 'ParamAngleZ', 'PARAM_ANGLE_Z', headZ * 30)
-    setModelParameterDual(ctx.model, 'ParamBodyAngleX', 'PARAM_BODY_ANGLE_X', bodyX * 10)
-    setModelParameterDual(ctx.model, 'ParamBodyAngleY', 'PARAM_BODY_ANGLE_Y', bodyY * 10)
-    setModelParameterDual(ctx.model, 'ParamBodyAngleZ', 'PARAM_BODY_ANGLE_Z', bodyZ * 10)
+    setModelParameterDual(ctx.model, 'ParamAngleX', 'PARAM_ANGLE_X', finalAngleX)
+    setModelParameterDual(ctx.model, 'ParamAngleY', 'PARAM_ANGLE_Y', finalAngleY)
+    setModelParameterDual(ctx.model, 'ParamAngleZ', 'PARAM_ANGLE_Z', finalAngleZ)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleX', 'PARAM_BODY_ANGLE_X', finalBodyX)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleY', 'PARAM_BODY_ANGLE_Y', finalBodyY)
+    setModelParameterDual(ctx.model, 'ParamBodyAngleZ', 'PARAM_BODY_ANGLE_Z', finalBodyZ)
     setModelParameterDual(ctx.model, 'ParamMouthForm', 'PARAM_MOUTH_FORM', mouthForm)
-    setModelParameterDual(ctx.model, 'ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y', mouthOpen)
+    if (mouthOpen > 0.001) {
+      setModelParameterDual(ctx.model, 'ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y', mouthOpen)
+    }
   }
 }
