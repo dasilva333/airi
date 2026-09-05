@@ -3,6 +3,7 @@
 .DS_Store
 .env
 .fork-explorer-cache.json
+.upstream-tracker-state.json
 
 # Node.js
 node_modules
