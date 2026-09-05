@@ -1,6 +1,7 @@
 import type { ToolMessage } from '@xsai/shared-chat'
 
 import type { ChatStreamEventContext, StreamingAssistantMessage } from '../../types/chat'
+import type { AsideCandidate } from '../../types/pacing'
 
 export function createChatHooks() {
   const onBeforeMessageComposedHooks: Array<(message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>> = []
@@ -16,6 +17,7 @@ export function createChatHooks() {
   const onGenerationStoppedHooks: Array<(context: ChatStreamEventContext) => Promise<void>> = []
   const onWidgetHooks: Array<(payload: any, context: ChatStreamEventContext) => Promise<void>> = []
   const onReasoningChunkHooks: Array<(chunk: string, context: ChatStreamEventContext) => Promise<void>> = []
+  const onDynamicAsideCueHooks: Array<(cue: AsideCandidate, context: ChatStreamEventContext) => Promise<void>> = []
 
   function onBeforeMessageComposed(cb: (message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) => Promise<void>) {
     onBeforeMessageComposedHooks.push(cb)
@@ -137,6 +139,15 @@ export function createChatHooks() {
     }
   }
 
+  function onDynamicAsideCue(cb: (cue: AsideCandidate, context: ChatStreamEventContext) => Promise<void>) {
+    onDynamicAsideCueHooks.push(cb)
+    return () => {
+      const index = onDynamicAsideCueHooks.indexOf(cb)
+      if (index >= 0)
+        onDynamicAsideCueHooks.splice(index, 1)
+    }
+  }
+
   function clearHooks() {
     onBeforeMessageComposedHooks.length = 0
     onAfterMessageComposedHooks.length = 0
@@ -151,6 +162,7 @@ export function createChatHooks() {
     onGenerationStoppedHooks.length = 0
     onWidgetHooks.length = 0
     onReasoningChunkHooks.length = 0
+    onDynamicAsideCueHooks.length = 0
   }
 
   async function emitBeforeMessageComposedHooks(message: string, context: Omit<ChatStreamEventContext, 'composedMessage'>) {
@@ -218,6 +230,11 @@ export function createChatHooks() {
       await hook(chunk, context)
   }
 
+  async function emitDynamicAsideCueHooks(cue: AsideCandidate, context: ChatStreamEventContext) {
+    for (const hook of onDynamicAsideCueHooks)
+      await hook(cue, context)
+  }
+
   return {
     onBeforeMessageComposed,
     onAfterMessageComposed,
@@ -232,6 +249,7 @@ export function createChatHooks() {
     onGenerationStopped,
     onWidget,
     onReasoningChunk,
+    onDynamicAsideCue,
     emitBeforeMessageComposedHooks,
     emitAfterMessageComposedHooks,
     emitBeforeSendHooks,
@@ -245,6 +263,7 @@ export function createChatHooks() {
     emitGenerationStoppedHooks,
     emitWidgetHooks,
     emitReasoningChunkHooks,
+    emitDynamicAsideCueHooks,
     clearHooks,
   }
 }

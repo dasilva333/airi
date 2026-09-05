@@ -58,16 +58,38 @@ const pacingFillers = defineModel<ThinkingFillerPhrase[]>('pacingFillers', {
   default: () => [...DEFAULT_PACING_FILLERS],
 })
 
-// Sub-Tab Navigation
-type ActingSubTabId = 'expressions' | 'speech' | 'mannerisms' | 'pacing'
+// Phase 6 Dynamic Pacing Models
+const pacingDynamicAsidesEnabled = defineModel<boolean>('pacingDynamicAsidesEnabled', { default: false })
+const pacingDynamicAfterMs = defineModel<number>('pacingDynamicAfterMs', { default: 15000 })
+const pacingCandidateTtlMs = defineModel<number>('pacingCandidateTtlMs', { default: 15000 })
+const pacingMaxSynthesisBudgetMs = defineModel<number>('pacingMaxSynthesisBudgetMs', { default: 600 })
+const pacingExperimentalOrganicPivots = defineModel<boolean>('pacingExperimentalOrganicPivots', { default: false })
+
+// Sub-Tab Navigation (Consolidated 3 Hubs)
+type ActingSubTabId = 'expressions' | 'speech' | 'pacing'
 const activeSubTab = ref<ActingSubTabId>('expressions')
 
 const subTabs = [
   { id: 'expressions' as const, label: 'Model Expressions', icon: 'i-solar:smile-circle-bold-duotone', desc: 'Emotions, motions, and idle loops' },
   { id: 'speech' as const, label: 'Speech Tags', icon: 'i-solar:soundwave-bold-duotone', desc: 'Audio expressions & caption FX' },
-  { id: 'mannerisms' as const, label: 'Mannerisms', icon: 'i-solar:chat-round-dots-bold-duotone', desc: 'Vocal styles & dialect cues' },
-  { id: 'pacing' as const, label: 'Pacing & Fillers', icon: 'i-solar:hourglass-bold-duotone', desc: 'Thinking fillers & latency pacing' },
+  { id: 'pacing' as const, label: 'Pacing & Fillers', icon: 'i-solar:hourglass-bold-duotone', desc: 'Thinking fillers, live asides & pacing' },
 ]
+
+const THINK_ALOUD_TEMPLATE = `During deep deliberation and complex reasoning steps, you may speak brief, listener-facing asides to the user using:
+<think_aloud>your brief spoken comment here</think_aloud>
+Keep asides concise (under 12 words), conversational, and natural. Do not expose private calculations or internal monologue.`
+
+const PACING_STYLE_TEMPLATE = `When working through complex questions, feel free to use natural conversational acknowledgments and thinking pauses before providing your complete detailed answer.`
+
+function safeAppendMannerismPrompt(template: string) {
+  const current = selectedActingSpeechMannerismPrompt.value?.trim() || ''
+  if (!current) {
+    selectedActingSpeechMannerismPrompt.value = template
+  }
+  else if (!current.includes(template.trim())) {
+    selectedActingSpeechMannerismPrompt.value = `${current}\n\n${template}`
+  }
+}
 
 function toggleIdleAnimation(name: string) {
   if (selectedActingIdleAnimations.value.includes(name)) {
@@ -635,55 +657,7 @@ function resetToDefaultFillers() {
       </div>
 
       <!-- ================================================================= -->
-      <!-- 2. MANNERISMS SUB-TAB                                             -->
-      <!-- ================================================================= -->
-      <div v-else-if="activeSubTab === 'mannerisms'" class="flex flex-col gap-6">
-        <div class="flex items-center justify-between border-b border-neutral-100 pb-4 dark:border-neutral-800">
-          <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
-              <div class="i-solar:chat-round-dots-bold-duotone text-lg text-primary-500" />
-              <h4 class="text-sm text-neutral-800 font-semibold dark:text-neutral-100">
-                Vocal Mannerisms & Speech Patterns
-              </h4>
-            </div>
-            <p class="pl-6 text-xs text-neutral-500 dark:text-neutral-400">
-              Teach AIRI character-specific speech habits and mannerisms supported by the active speech engine.
-            </p>
-          </div>
-        </div>
-
-        <div class="border border-neutral-200 rounded-xl p-4 dark:border-neutral-700">
-          <FieldInput
-            v-model="selectedActingSpeechMannerismPrompt"
-            label="Speech Mannerisms"
-            description="Teach AIRI when to use provider-supported speech mannerisms without exposing raw transformation internals."
-            :single-line="false"
-          />
-          <div class="mt-3 flex flex-col gap-3">
-            <div class="text-xs text-neutral-500">
-              Insert helper blurbs from the current speech provider
-            </div>
-            <div v-if="actingMannerismOptions.length" class="flex flex-wrap gap-2">
-              <button
-                v-for="item in actingMannerismOptions"
-                :key="item.id"
-                type="button"
-                class="border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
-                :title="item.description || item.label"
-                @click="insertSpeechMannerism(item.id)"
-              >
-                {{ item.label }}
-              </button>
-            </div>
-            <div v-else class="text-xs text-neutral-400">
-              No provider-side mannerism helpers are currently available for this speech provider.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ================================================================= -->
-      <!-- 3. PACING & FILLERS SUB-TAB                                       -->
+      <!-- 2. PACING & FILLERS SUB-TAB (CONSOLIDATED)                        -->
       <!-- ================================================================= -->
       <div v-else-if="activeSubTab === 'pacing'" class="flex flex-col gap-6">
         <!-- Master Enable/Disable Bar -->
@@ -701,7 +675,7 @@ function resetToDefaultFillers() {
               </label>
             </div>
             <p class="pl-6 text-xs text-neutral-500 dark:text-neutral-400">
-              Bridges network and reasoning latency by playing cached audio filler phrases ("Hmm...", "Let me check that...") when model inference exceeds the latency deadline.
+              Bridges network and reasoning latency by playing cached audio filler phrases ("Hmm...", "Let me check that...") and live spoken asides when model inference exceeds latency deadlines.
             </p>
           </div>
           <span
@@ -714,6 +688,203 @@ function resetToDefaultFillers() {
           >
             {{ pacingEnabled ? 'Active' : 'Disabled' }}
           </span>
+        </div>
+
+        <!-- Speech Style & Pacing Instructions Scratchpad -->
+        <div class="border border-neutral-200 rounded-xl bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/60">
+          <div class="mb-3 flex flex-col gap-0.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="i-solar:chat-round-dots-bold-duotone text-primary-500" />
+                <span class="text-xs text-neutral-800 font-semibold tracking-wider uppercase dark:text-neutral-200">
+                  Speech Style & Pacing Instructions
+                </span>
+              </div>
+            </div>
+            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+              Guide how your character communicates during thought pauses and reasoning. Use 1-click templates to teach the model to speak intentional <code>&lt;think_aloud&gt;</code> asides.
+            </p>
+          </div>
+
+          <FieldInput
+            v-model="selectedActingSpeechMannerismPrompt"
+            label="Style & Pacing Prompt"
+            description="Injected into the character's system prompt to guide pacing, mannerisms, and spoken CoT asides."
+            :single-line="false"
+          />
+
+          <!-- Action Chips & Provider Mannerisms -->
+          <div class="mt-3 flex flex-col gap-2.5">
+            <div class="text-[11px] text-neutral-500 font-medium dark:text-neutral-400">
+              Quick Insert Templates & Helpers
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="flex items-center gap-1.5 border border-primary-200 rounded-full bg-primary-50/60 px-3 py-1 text-xs text-primary-700 transition-colors dark:border-primary-800/80 dark:bg-primary-950/40 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-900/60"
+                @click="safeAppendMannerismPrompt(THINK_ALOUD_TEMPLATE)"
+              >
+                <span class="i-solar:magic-stick-3-bold text-xs" />
+                <span>Insert &lt;think_aloud&gt; CoT Template</span>
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 border border-primary-200 rounded-full bg-primary-50/60 px-3 py-1 text-xs text-primary-700 transition-colors dark:border-primary-800/80 dark:bg-primary-950/40 hover:bg-primary-100 dark:text-primary-300 dark:hover:bg-primary-900/60"
+                @click="safeAppendMannerismPrompt(PACING_STYLE_TEMPLATE)"
+              >
+                <span class="i-solar:magic-stick-3-bold text-xs" />
+                <span>Insert Conversational Pacing Template</span>
+              </button>
+              <button
+                v-for="item in actingMannerismOptions"
+                :key="item.id"
+                type="button"
+                class="border border-neutral-200 rounded-full px-3 py-1 text-xs text-neutral-600 transition-colors dark:border-neutral-700 hover:border-primary-400 dark:text-neutral-300 hover:text-primary-500"
+                :title="item.description || item.label"
+                @click="insertSpeechMannerism(item.id)"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Live Asides (<think_aloud>) Settings -->
+        <div class="border border-neutral-200/80 rounded-xl bg-white p-4 shadow-sm dark:border-neutral-700/80 dark:bg-neutral-900/60">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-2">
+                  <input
+                    id="dynamic-asides-toggle"
+                    v-model="pacingDynamicAsidesEnabled"
+                    type="checkbox"
+                    class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                  >
+                  <label for="dynamic-asides-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold tracking-wider uppercase dark:text-neutral-200">
+                    Dynamic Live Asides (&lt;think_aloud&gt;)
+                  </label>
+                </div>
+                <p class="pl-6 text-xs text-neutral-500 dark:text-neutral-400">
+                  Synthesizes on-the-fly vocalizations when the model emits intentional <code>&lt;think_aloud&gt;</code> markers during deep reasoning.
+                </p>
+              </div>
+              <span
+                :class="[
+                  'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
+                  pacingDynamicAsidesEnabled
+                    ? 'bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
+                    : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700',
+                ]"
+              >
+                {{ pacingDynamicAsidesEnabled ? 'Enabled' : 'Disabled' }}
+              </span>
+            </div>
+
+            <div v-if="pacingDynamicAsidesEnabled" class="grid grid-cols-1 gap-4 pt-1 md:grid-cols-3">
+              <!-- Activation Delay (dynamicAfterMs) -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                    Dynamic Aside Delay
+                  </label>
+                  <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                    {{ (pacingDynamicAfterMs / 1000).toFixed(0) }}s
+                  </span>
+                </div>
+                <p class="mb-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Minimum reasoning time elapsed before live dynamic asides become eligible.
+                </p>
+                <input
+                  v-model.number="pacingDynamicAfterMs"
+                  type="range"
+                  min="5000"
+                  max="60000"
+                  step="1000"
+                  class="h-1.5 w-full cursor-pointer accent-primary-500"
+                >
+                <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                  <span>5s (Eager)</span>
+                  <span>15s (Balanced)</span>
+                  <span>60s (Deep CoT)</span>
+                </div>
+              </div>
+
+              <!-- Candidate Expiry / TTL (candidateTtlMs) -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                    Candidate Expiry (TTL)
+                  </label>
+                  <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                    {{ (pacingCandidateTtlMs / 1000).toFixed(0) }}s
+                  </span>
+                </div>
+                <p class="mb-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Maximum freshness window before unvoiced cues expire.
+                </p>
+                <input
+                  v-model.number="pacingCandidateTtlMs"
+                  type="range"
+                  min="5000"
+                  max="30000"
+                  step="1000"
+                  class="h-1.5 w-full cursor-pointer accent-primary-500"
+                >
+                <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                  <span>5s (Fresh)</span>
+                  <span>15s (Default)</span>
+                  <span>30s (Long)</span>
+                </div>
+              </div>
+
+              <!-- Max Synthesis Budget (maxSynthesisBudgetMs) -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                    TTS Synthesis Budget
+                  </label>
+                  <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                    {{ pacingMaxSynthesisBudgetMs }}ms
+                  </span>
+                </div>
+                <p class="mb-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Hard deadline for on-the-fly speech generation. Aborted if exceeded.
+                </p>
+                <input
+                  v-model.number="pacingMaxSynthesisBudgetMs"
+                  type="range"
+                  min="200"
+                  max="2000"
+                  step="50"
+                  class="h-1.5 w-full cursor-pointer accent-primary-500"
+                >
+                <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                  <span>200ms</span>
+                  <span>600ms (Default)</span>
+                  <span>2000ms</span>
+                </div>
+              </div>
+
+              <!-- Experimental Organic Pivots -->
+              <div class="col-span-full border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-center gap-2">
+                  <input
+                    id="organic-pivots-toggle"
+                    v-model="pacingExperimentalOrganicPivots"
+                    type="checkbox"
+                    class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                  >
+                  <label for="organic-pivots-toggle" class="cursor-pointer text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                    Experimental: Extract Organic Thinking Pivots ("Wait, actually...", "Hmm, let me re-evaluate...")
+                  </label>
+                </div>
+                <p class="mt-1 pl-6 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  When enabled, detects short organic pivot sentences in raw CoT reasoning when explicit <code>&lt;think_aloud&gt;</code> cues are absent.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Adaptive Latency Sliders -->

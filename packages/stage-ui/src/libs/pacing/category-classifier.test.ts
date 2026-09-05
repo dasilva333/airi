@@ -137,4 +137,20 @@ describe('boundedCategoryClassifier', () => {
     // Buffer is now empty; without new tokens, getTopCategoryExcluding returns null
     expect(classifier.getTopCategoryExcluding(new Set())).toBeNull()
   })
+
+  it('rejects weak runner-up below 0.5x of dominant category score', () => {
+    const classifier = new BoundedCategoryClassifier({ categoryThreshold: 1 })
+    // Analytical gets 4 tokens (calculate, compute, solve, optimize)
+    // Memory gets 1 token (remember)
+    classifier.consume('Let us calculate, compute, solve, and optimize this equation. Also remember the rule. ')
+
+    // First selection: analytical wins with net score 4
+    const top1 = classifier.getTopCategoryExcluding(new Set())
+    expect(top1).toBe('analytical')
+
+    // Exclude analytical: memory has score 1, but 0.5 * 4 = 2.
+    // Memory score 1 < 2, so it fails the 0.5x runner-up guard!
+    const top2 = classifier.getTopCategoryExcluding(new Set(['analytical']))
+    expect(top2).toBeNull()
+  })
 })

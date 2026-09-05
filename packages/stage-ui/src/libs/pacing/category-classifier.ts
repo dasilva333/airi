@@ -294,6 +294,14 @@ export class BoundedCategoryClassifier {
     const result = this.flush()
     const categories: SpecificThinkingCategory[] = ['analytical', 'memory', 'emotional', 'uncertain']
 
+    let strongestScoreBeforeExclusions = 0
+    for (const cat of categories) {
+      const net = result.scores[cat]?.net ?? 0
+      if (net > strongestScoreBeforeExclusions) {
+        strongestScoreBeforeExclusions = net
+      }
+    }
+
     let bestCategory: SpecificThinkingCategory | null = null
     let highestNet = 0
 
@@ -302,7 +310,11 @@ export class BoundedCategoryClassifier {
         continue
 
       const net = result.scores[cat]?.net ?? 0
-      if (net >= this.threshold && net > highestNet) {
+      if (
+        net >= this.threshold
+        && net >= 0.5 * Math.max(0, strongestScoreBeforeExclusions)
+        && net > highestNet
+      ) {
         highestNet = net
         bestCategory = cat
       }

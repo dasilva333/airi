@@ -175,6 +175,11 @@ const pacingCategoryThreshold = ref<number>(1)
 const pacingMaxFillersPerTurn = ref<number>(3)
 const pacingIntervalMs = ref<number>(15000)
 const pacingFillers = ref<ThinkingFillerPhrase[]>([...DEFAULT_PACING_FILLERS])
+const pacingDynamicAsidesEnabled = ref<boolean>(false)
+const pacingDynamicAfterMs = ref<number>(15000)
+const pacingCandidateTtlMs = ref<number>(15000)
+const pacingMaxSynthesisBudgetMs = ref<number>(600)
+const pacingExperimentalOrganicPivots = ref<boolean>(false)
 
 // Placeholder state variables for Tools tab
 const selectedTextJournalInstruction = ref<string>('')
@@ -971,6 +976,11 @@ async function saveCard(card: Card): Promise<boolean> {
             categoryThreshold: pacingCategoryThreshold.value,
             maxFillersPerTurn: pacingMaxFillersPerTurn.value,
             pacingIntervalMs: pacingIntervalMs.value,
+            dynamicAsidesEnabled: pacingDynamicAsidesEnabled.value,
+            dynamicAfterMs: pacingDynamicAfterMs.value,
+            candidateTtlMs: pacingCandidateTtlMs.value,
+            maxSynthesisBudgetMs: pacingMaxSynthesisBudgetMs.value,
+            experimentalOrganicPivots: pacingExperimentalOrganicPivots.value,
             fillers: pacingFillers.value.map(f => ({
               text: f.text,
               category: f.category,
@@ -1117,6 +1127,11 @@ function initializeCard(): Card {
   pacingCategoryThreshold.value = airiExt?.acting?.pacing?.categoryThreshold ?? 1
   pacingMaxFillersPerTurn.value = airiExt?.acting?.pacing?.maxFillersPerTurn ?? 3
   pacingIntervalMs.value = airiExt?.acting?.pacing?.pacingIntervalMs ?? 15000
+  pacingDynamicAsidesEnabled.value = airiExt?.acting?.pacing?.dynamicAsidesEnabled ?? false
+  pacingDynamicAfterMs.value = airiExt?.acting?.pacing?.dynamicAfterMs ?? 15000
+  pacingCandidateTtlMs.value = airiExt?.acting?.pacing?.candidateTtlMs ?? 15000
+  pacingMaxSynthesisBudgetMs.value = airiExt?.acting?.pacing?.maxSynthesisBudgetMs ?? 600
+  pacingExperimentalOrganicPivots.value = airiExt?.acting?.pacing?.experimentalOrganicPivots ?? false
   pacingFillers.value = airiExt?.acting?.pacing?.fillers && airiExt.acting.pacing.fillers.length > 0
     ? JSON.parse(JSON.stringify(airiExt.acting.pacing.fillers))
     : JSON.parse(JSON.stringify(DEFAULT_PACING_FILLERS))
@@ -1537,6 +1552,11 @@ function handleGeneratorSave(newValue: string) {
             v-model:pacing-max-fillers-per-turn="pacingMaxFillersPerTurn"
             v-model:pacing-interval-ms="pacingIntervalMs"
             v-model:pacing-fillers="pacingFillers"
+            v-model:pacing-dynamic-asides-enabled="pacingDynamicAsidesEnabled"
+            v-model:pacing-dynamic-after-ms="pacingDynamicAfterMs"
+            v-model:pacing-candidate-ttl-ms="pacingCandidateTtlMs"
+            v-model:pacing-max-synthesis-budget-ms="pacingMaxSynthesisBudgetMs"
+            v-model:pacing-experimental-organic-pivots="pacingExperimentalOrganicPivots"
             :acting-idle-animation-options="actingIdleAnimationOptions"
             :acting-model-emotion-options="actingModelEmotionOptions"
             :acting-model-motion-options="actingModelMotionOptions"

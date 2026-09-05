@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 
 import type { ThinkingAudioFingerprintParams } from '../libs/pacing/pacing-cache'
 import type { AiriThinkingFiller } from '../types/card.schema'
-import type { PacingMetrics, PacingPolicyConfig } from '../types/pacing'
+import type { AsideCandidate, PacingMetrics, PacingPolicyConfig } from '../types/pacing'
 
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { readonly, ref, toRaw } from 'vue'
@@ -17,6 +17,7 @@ export interface UseTurnPacingOptions {
   activeCard: Ref<any>
   playbackManager: {
     schedule: (item: PlaybackItem<AudioBuffer>) => void
+    tryCommitFiller?: (item: PlaybackItem<AudioBuffer>, maxAdmissionLeadMs?: number) => any
     stopByIntent?: (intentId: string, reason: string) => void
     stopAll?: (reason: string) => void
     getCurrentTime?: () => number
@@ -25,6 +26,7 @@ export interface UseTurnPacingOptions {
   audioContext?: AudioContext | null
   isPlaybackSuppressed?: Ref<boolean>
   getIntentContext?: () => { intentId?: string, streamId?: string }
+  synthesizeAudio?: (text: string, signal: AbortSignal) => Promise<ArrayBuffer>
 }
 
 /**
@@ -97,6 +99,11 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       kFast: pacingConfig.kFast ?? 0.5,
       maxFillersPerTurn: pacingConfig.maxFillersPerTurn ?? 3,
       pacingIntervalMs: pacingConfig.pacingIntervalMs ?? 15000,
+      dynamicAsidesEnabled: pacingConfig.dynamicAsidesEnabled ?? false,
+      dynamicAfterMs: pacingConfig.dynamicAfterMs ?? 15000,
+      candidateTtlMs: pacingConfig.candidateTtlMs ?? 15000,
+      maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 600,
+      experimentalOrganicPivots: pacingConfig.experimentalOrganicPivots ?? false,
     }
 
     const coordinator = new TurnPacingCoordinator({
@@ -112,6 +119,9 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
           return
         }
         await bridge.handleFillerArmed(category, phrase)
+      },
+      onArmDynamicAside: async (candidate, _budgetMs) => {
+        await bridge.handleDynamicAsideArmed(candidate)
       },
       onCancelFiller: (reason) => {
         bridge.cancel(reason)
@@ -152,11 +162,13 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       coordinator,
       playback: {
         schedule: item => playbackManager.schedule(item),
+        tryCommitFiller: playbackManager.tryCommitFiller ? item => playbackManager.tryCommitFiller!(item) : undefined,
         stopByIntent: (intentId, reason) => playbackManager.stopByIntent?.(intentId, reason),
         stopAll: reason => playbackManager.stopAll?.(reason),
         getCurrentTime: () => (playbackManager.getCurrentTime ? playbackManager.getCurrentTime() : (getAudioContext()?.currentTime ?? Date.now() / 1000)),
       },
       voiceParams,
+      synthesizeAudio: options.synthesizeAudio,
       getIntentContext: options.getIntentContext,
       decodeAudio: async (buffer: ArrayBuffer) => {
         const ctx = getAudioContext()
@@ -181,6 +193,12 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       visibility: 'hidden',
       at: Date.now(),
     })
+  }
+
+  function onDynamicAsideCue(cue: AsideCandidate) {
+    if (!activeCoordinator)
+      return
+    activeCoordinator.submitAsideCandidate(cue)
   }
 
   function onAnswerLiteral(literal: string) {
@@ -230,6 +248,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   return {
     startTurn,
     onReasoningChunk,
+    onDynamicAsideCue,
     onAnswerLiteral,
     onAnswerAudioScheduled,
     onAssistantEnd,

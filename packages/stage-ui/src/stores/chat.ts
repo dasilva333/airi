@@ -772,6 +772,14 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         onReasoningChunk: async (chunk) => {
           await hooks.emitReasoningChunkHooks(chunk, streamingMessageContext)
         },
+        onDynamicAsideCue: async (cue) => {
+          await hooks.emitDynamicAsideCueHooks(cue, streamingMessageContext)
+        },
+        turn: {
+          turnId: sessionId,
+          sessionId,
+          generation,
+        },
       })
       let streamPosition = 0
       const actorSliceState = createActorSliceState()
@@ -1566,6 +1574,7 @@ Format your output as a raw thought log.`
                 }
                 ;(buildingMessage as any).categorization.reasoning += healedText
                 updateUI()
+                categorizer.consumeReasoning(healedText)
                 await hooks.emitReasoningChunkHooks(healedText, streamingMessageContext)
                 break
               }
@@ -2143,6 +2152,7 @@ Format your output as a raw thought log.`
     emitChatTurnCompleteHooks: hooks.emitChatTurnCompleteHooks,
     emitGenerationStoppedHooks: hooks.emitGenerationStoppedHooks,
     emitReasoningChunkHooks: hooks.emitReasoningChunkHooks,
+    emitDynamicAsideCueHooks: hooks.emitDynamicAsideCueHooks,
 
     onBeforeMessageComposed: hooks.onBeforeMessageComposed,
     onAfterMessageComposed: hooks.onAfterMessageComposed,
@@ -2157,5 +2167,6 @@ Format your output as a raw thought log.`
     onGenerationStopped: hooks.onGenerationStopped,
     onWidget: hooks.onWidget,
     onReasoningChunk: hooks.onReasoningChunk,
+    onDynamicAsideCue: hooks.onDynamicAsideCue,
   }
 })

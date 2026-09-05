@@ -1,10 +1,12 @@
 import type {
+  AsideCandidate,
   Clock,
   InferenceEvent,
   PacingMetrics,
   PacingPolicyConfig,
   PacingState,
   ThinkingCategory,
+  TurnPhase,
 } from '../../types/pacing'
 
 import { BoundedCategoryClassifier } from './category-classifier'
@@ -17,13 +19,24 @@ export interface TurnPacingCoordinatorOptions {
   clock?: Clock
   historicalTtftSamples?: number[]
   classifier?: BoundedCategoryClassifier
-  onArmFiller?: (category: ThinkingCategory, deadlineMs: number) => void
+  onArmFiller?: (category: ThinkingCategory, deadlineMs: number, candidate?: AsideCandidate) => void
+  onArmDynamicAside?: (candidate: AsideCandidate, budgetMs: number) => void
   onCancelFiller?: (reason: string) => void
   onSettled?: (metrics: PacingMetrics) => void
 }
 
 export class TurnPacingCoordinator {
   public state: PacingState = 'IDLE'
+  public turnPhase: TurnPhase = 'waiting'
+  public pacingClosed: boolean = false
+  public terminalSeen: boolean = false
+  public committedCount: number = 0
+  public spokenCount: number = 0
+  public attemptsMade: number = 0
+  public nextEligibleAtMs?: number
+  public activeAttemptId?: string
+  public pendingCandidate: AsideCandidate | null = null
+
   public turnId: string
   public generation: number
   public providerKey: string
@@ -42,7 +55,8 @@ export class TurnPacingCoordinator {
   private usedCategories: Set<ThinkingCategory> = new Set()
 
   public metrics: PacingMetrics
-  private onArmFiller?: (category: ThinkingCategory, deadlineMs: number) => void
+  private onArmFiller?: (category: ThinkingCategory, deadlineMs: number, candidate?: AsideCandidate) => void
+  private onArmDynamicAside?: (candidate: AsideCandidate, budgetMs: number) => void
   private onCancelFiller?: (reason: string) => void
   private onSettled?: (metrics: PacingMetrics) => void
 
@@ -53,6 +67,7 @@ export class TurnPacingCoordinator {
     this.policy = options.policy
     this.classifier = options.classifier ?? new BoundedCategoryClassifier(this.policy)
     this.onArmFiller = options.onArmFiller
+    this.onArmDynamicAside = options.onArmDynamicAside
     this.onCancelFiller = options.onCancelFiller
     this.onSettled = options.onSettled
     this.clock = options.clock ?? {
@@ -60,6 +75,14 @@ export class TurnPacingCoordinator {
       setTimeout: (fn, delay) => setTimeout(fn, delay),
       clearTimeout: id => clearTimeout(id),
     }
+
+    this.turnPhase = 'waiting'
+    this.pacingClosed = false
+    this.terminalSeen = false
+    this.committedCount = 0
+    this.spokenCount = 0
+    this.attemptsMade = 0
+    this.pendingCandidate = null
 
     this.deadlineMs = this.calculateDeadline(options.historicalTtftSamples ?? [])
     this.metrics = {
@@ -70,6 +93,9 @@ export class TurnPacingCoordinator {
       interrupted: false,
       fillersSpokenCount: 0,
       categoriesSpoken: [],
+      committedCount: 0,
+      spokenCount: 0,
+      pacingClosed: false,
     }
   }
 
@@ -134,6 +160,44 @@ export class TurnPacingCoordinator {
     }, this.deadlineMs)
   }
 
+  public submitAsideCandidate(candidate: AsideCandidate, gen: number = this.generation): boolean {
+    if (gen !== this.generation)
+      return false
+    if (this.pacingClosed || this.state === 'SETTLED' || this.state === 'ANSWER_READY')
+      return false
+
+    const now = this.clock.now()
+    if (now >= candidate.expiresAtMs)
+      return false
+
+    // Check existing pending candidate
+    if (this.pendingCandidate) {
+      const existingStillFresh = now < this.pendingCandidate.expiresAtMs
+      if (existingStillFresh && this.pendingCandidate.source === 'explicit' && candidate.source === 'organic') {
+        // An organic cue cannot displace a fresh explicit cue
+        return false
+      }
+    }
+
+    this.pendingCandidate = candidate
+    return true
+  }
+
+  public getPendingAsideCandidate(): AsideCandidate | null {
+    if (!this.pendingCandidate)
+      return null
+    const now = this.clock.now()
+    if (now >= this.pendingCandidate.expiresAtMs) {
+      this.pendingCandidate = null
+      return null
+    }
+    return this.pendingCandidate
+  }
+
+  public clearPendingCandidate(): void {
+    this.pendingCandidate = null
+  }
+
   public onInferenceEvent(event: InferenceEvent, eventGen: number = this.generation): void {
     if (eventGen !== this.generation)
       return
@@ -141,6 +205,11 @@ export class TurnPacingCoordinator {
       return
 
     switch (event.type) {
+      case 'aside-cue': {
+        this.submitAsideCandidate(event.candidate, eventGen)
+        break
+      }
+
       case 'reasoning': {
         if (event.visibility === 'hidden') {
           if (this.classifier) {
@@ -190,10 +259,22 @@ export class TurnPacingCoordinator {
 
   private onDeadlineElapsed(): void {
     this.timerHandle = null
-    if (this.state !== 'STAGING')
+    if (this.pacingClosed || this.state !== 'STAGING')
       return
     if (this.answerAudioScheduled || this.fillerAttempted)
       return
+
+    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    if (this.committedCount >= maxFillers) {
+      this.pacingClosed = true
+      this.metrics.pacingClosed = true
+      return
+    }
+
+    const maxAttempts = 2 * maxFillers
+    if (this.attemptsMade >= maxAttempts) {
+      return
+    }
 
     let catToArm: ThinkingCategory = this.fillerCandidate
     if (this.classifier) {
@@ -203,43 +284,154 @@ export class TurnPacingCoordinator {
       }
     }
 
+    this.attemptsMade++
     this.state = 'FILLER_ARMED'
     this.fillerAttempted = true
     this.usedCategories.add(catToArm)
+    this.committedCount++
     this.fillersSpokenCount++
+    this.metrics.committedCount = this.committedCount
     this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.categoriesSpoken = Array.from(this.usedCategories)
     this.metrics.fillerCandidate = catToArm
-    this.metrics.fillerOutcome = 'none' // Will be updated to played, cache-miss, or canceled
+    this.metrics.fillerOutcome = 'none'
+
+    if (this.committedCount >= maxFillers) {
+      this.pacingClosed = true
+      this.metrics.pacingClosed = true
+    }
+
     this.onArmFiller?.(catToArm, this.deadlineMs)
   }
 
   private onIntervalFlushElapsed(): void {
     this.intervalTimerHandle = null
-    if (this.state !== 'STAGING')
+    if (this.pacingClosed || this.state !== 'STAGING')
       return
     if (this.answerAudioScheduled)
       return
 
     const maxFillers = this.policy.maxFillersPerTurn ?? 1
-    if (this.fillersSpokenCount >= maxFillers)
+    if (this.committedCount >= maxFillers) {
+      this.pacingClosed = true
+      this.metrics.pacingClosed = true
       return
-
-    let nextCat: ThinkingCategory = 'generic'
-    if (this.classifier) {
-      const top = this.classifier.getTopCategoryExcluding(this.usedCategories)
-      if (top) {
-        nextCat = top
-      }
     }
 
+    const maxAttempts = 2 * maxFillers
+    if (this.attemptsMade >= maxAttempts) {
+      return
+    }
+
+    const now = this.clock.now()
+    const dynamicAfterMs = this.policy.dynamicAfterMs ?? 15000
+    const timeSinceT0 = now - this.t0
+
+    // Priority 1: Dynamic Explicit Aside (<think_aloud>)
+    const candidate = this.getPendingAsideCandidate()
+    if (
+      this.policy.dynamicAsidesEnabled
+      && timeSinceT0 >= dynamicAfterMs
+      && candidate
+      && candidate.source === 'explicit'
+    ) {
+      this.attemptsMade++
+      this.pendingCandidate = null // Consumed atomically
+      this.state = 'FILLER_ARMED'
+      this.fillerAttempted = true
+      this.committedCount++
+      this.fillersSpokenCount++
+      this.metrics.committedCount = this.committedCount
+      this.metrics.fillersSpokenCount = this.fillersSpokenCount
+      this.metrics.dynamicCueSource = 'explicit'
+      this.metrics.fillerCandidate = 'generic'
+      this.metrics.fillerOutcome = 'none'
+
+      if (this.committedCount >= maxFillers) {
+        this.pacingClosed = true
+        this.metrics.pacingClosed = true
+      }
+
+      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
+      if (this.onArmDynamicAside) {
+        this.onArmDynamicAside(candidate, budgetMs)
+      }
+      else {
+        this.onArmFiller?.('generic', budgetMs, candidate)
+      }
+      return
+    }
+
+    // Priority 2: Organic Pivot
+    if (
+      this.policy.experimentalOrganicPivots
+      && timeSinceT0 >= dynamicAfterMs
+      && candidate
+      && candidate.source === 'organic'
+    ) {
+      this.attemptsMade++
+      this.pendingCandidate = null // Consumed atomically
+      this.state = 'FILLER_ARMED'
+      this.fillerAttempted = true
+      this.committedCount++
+      this.fillersSpokenCount++
+      this.metrics.committedCount = this.committedCount
+      this.metrics.fillersSpokenCount = this.fillersSpokenCount
+      this.metrics.dynamicCueSource = 'organic'
+      this.metrics.fillerCandidate = 'generic'
+      this.metrics.fillerOutcome = 'none'
+
+      if (this.committedCount >= maxFillers) {
+        this.pacingClosed = true
+        this.metrics.pacingClosed = true
+      }
+
+      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
+      if (this.onArmDynamicAside) {
+        this.onArmDynamicAside(candidate, budgetMs)
+      }
+      else {
+        this.onArmFiller?.('generic', budgetMs, candidate)
+      }
+      return
+    }
+
+    // Priority 3: Cached Category Winner
+    let nextCat: ThinkingCategory | null = null
+    if (this.classifier) {
+      nextCat = this.classifier.getTopCategoryExcluding(this.usedCategories)
+    }
+
+    if (!nextCat && !this.usedCategories.has('generic')) {
+      nextCat = 'generic'
+    }
+
+    if (!nextCat) {
+      // No category available; skip this opportunity and schedule next interval if not closed
+      const intervalMs = this.policy.pacingIntervalMs ?? 15000
+      this.nextEligibleAtMs = now + intervalMs
+      this.intervalTimerHandle = this.clock.setTimeout(() => {
+        this.onIntervalFlushElapsed()
+      }, intervalMs)
+      return
+    }
+
+    this.attemptsMade++
     this.state = 'FILLER_ARMED'
     this.usedCategories.add(nextCat)
+    this.committedCount++
     this.fillersSpokenCount++
+    this.metrics.committedCount = this.committedCount
     this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.categoriesSpoken = Array.from(this.usedCategories)
     this.metrics.fillerCandidate = nextCat
     this.metrics.fillerOutcome = 'none'
+
+    if (this.committedCount >= maxFillers) {
+      this.pacingClosed = true
+      this.metrics.pacingClosed = true
+    }
+
     const intervalMs = this.policy.pacingIntervalMs ?? 15000
     this.onArmFiller?.(nextCat, intervalMs)
   }
@@ -249,6 +441,11 @@ export class TurnPacingCoordinator {
       this.metrics.ttftMs = at - this.t0
     }
 
+    this.pacingClosed = true
+    this.metrics.pacingClosed = true
+    this.metrics.cutoffReason = 'answer-literal'
+    this.turnPhase = 'answering'
+    this.clearPendingCandidate()
     this.clearAllTimers()
 
     if (this.state === 'STAGING') {
@@ -276,6 +473,8 @@ export class TurnPacingCoordinator {
     }
 
     this.state = 'FILLER_ACTIVE'
+    this.spokenCount++
+    this.metrics.spokenCount = this.spokenCount
     this.metrics.fillerStartMs = at - this.t0
     this.metrics.fillerOutcome = 'played'
   }
@@ -290,10 +489,11 @@ export class TurnPacingCoordinator {
     }
 
     const maxFillers = this.policy.maxFillersPerTurn ?? 1
-    if (!this.answerAudioScheduled && this.fillersSpokenCount < maxFillers) {
+    if (!this.pacingClosed && !this.answerAudioScheduled && this.committedCount < maxFillers) {
       this.state = 'STAGING'
       this.classifier?.resetWindow()
       const intervalMs = this.policy.pacingIntervalMs ?? 15000
+      this.nextEligibleAtMs = at + intervalMs
       this.intervalTimerHandle = this.clock.setTimeout(() => {
         this.onIntervalFlushElapsed()
       }, intervalMs)
@@ -308,6 +508,11 @@ export class TurnPacingCoordinator {
 
   public notifyAnswerAudioScheduled(at: number = this.clock.now()): void {
     this.answerAudioScheduled = true
+    this.pacingClosed = true
+    this.metrics.pacingClosed = true
+    this.clearPendingCandidate()
+    this.clearAllTimers()
+
     if (!this.metrics.answerFirstAudioMs) {
       this.metrics.answerFirstAudioMs = at - this.t0
     }
@@ -342,6 +547,11 @@ export class TurnPacingCoordinator {
     if (this.state === 'SETTLED')
       return
 
+    this.pacingClosed = true
+    this.metrics.pacingClosed = true
+    this.metrics.cutoffReason = reason
+    this.turnPhase = 'canceled'
+    this.clearPendingCandidate()
     this.clearAllTimers()
 
     if (this.state === 'FILLER_ARMED') {
@@ -358,9 +568,15 @@ export class TurnPacingCoordinator {
     if (this.state === 'SETTLED')
       return
 
+    this.terminalSeen = true
+    this.pacingClosed = true
+    this.metrics.pacingClosed = true
+    this.turnPhase = 'draining'
+    this.clearPendingCandidate()
     this.clearAllTimers()
 
     this.state = 'SETTLED'
+    this.turnPhase = 'settled'
     this.onSettled?.(this.metrics)
   }
 }

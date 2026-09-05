@@ -1,4 +1,4 @@
-import type { Clock, PacingPolicyConfig } from '../../types/pacing'
+import type { AsideCandidate, Clock, PacingPolicyConfig } from '../../types/pacing'
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -449,5 +449,250 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     clock.advance(15000)
     expect(onArmFiller).toHaveBeenCalledTimes(1)
     expect(coordinator.state).toBe('ANSWER_READY')
+  })
+
+  describe('phase 6: Turn lifecycle, pacingClosed latch, and dynamic aside candidate management', () => {
+    it('latches pacingClosed permanently upon first answer literal and clears pending candidates', () => {
+      const clock = new VirtualClock()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-phase6-latch',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: defaultPolicy,
+        clock,
+      })
+
+      coordinator.dispatch()
+      expect(coordinator.pacingClosed).toBe(false)
+
+      const candidate: AsideCandidate = {
+        cueId: 'cue-1',
+        turn: { turnId: 'turn-phase6-latch', generation: 1 },
+        source: 'explicit',
+        text: 'Let me double check.',
+        phraseKey: 'let-me-double-check',
+        collectedAtMs: 500,
+        expiresAtMs: 20000,
+      }
+      coordinator.submitAsideCandidate(candidate)
+      expect(coordinator.getPendingAsideCandidate()).toEqual(candidate)
+
+      // Answer literal arrives
+      clock.advance(600)
+      coordinator.onInferenceEvent({ type: 'answer', text: 'Here is the result.', at: clock.now() })
+
+      expect(coordinator.pacingClosed).toBe(true)
+      expect(coordinator.metrics.pacingClosed).toBe(true)
+      expect(coordinator.metrics.cutoffReason).toBe('answer-literal')
+      expect(coordinator.getPendingAsideCandidate()).toBeNull()
+
+      // Late candidates submitted after closure are rejected
+      const lateCandidate: AsideCandidate = {
+        cueId: 'cue-2',
+        turn: { turnId: 'turn-phase6-latch', generation: 1 },
+        source: 'explicit',
+        text: 'Another aside.',
+        phraseKey: 'another-aside',
+        collectedAtMs: 700,
+        expiresAtMs: 25000,
+      }
+      expect(coordinator.submitAsideCandidate(lateCandidate)).toBe(false)
+    })
+
+    it('latches pacingClosed permanently when commit budget is exhausted', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-budget-exhaust',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: {
+          ...defaultPolicy,
+          maxFillersPerTurn: 1, // Only 1 filler allowed
+        },
+        clock,
+        onArmFiller,
+      })
+
+      coordinator.dispatch()
+      clock.advance(1800)
+
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+      expect(coordinator.committedCount).toBe(1)
+      expect(coordinator.pacingClosed).toBe(true)
+      expect(coordinator.metrics.pacingClosed).toBe(true)
+
+      // Even if filler finishes, no more repeat intervals are scheduled
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+
+      expect(coordinator.state).toBe('HANDOFF')
+      clock.advance(20000)
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+    })
+
+    it('manages candidate expiry and replacement rules correctly', () => {
+      const clock = new VirtualClock()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-cand-rules',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: defaultPolicy,
+        clock,
+      })
+
+      coordinator.dispatch()
+
+      // 1. Submit explicit candidate at 100ms, expiring at 2000ms
+      const cue1: AsideCandidate = {
+        cueId: 'cue-1',
+        turn: { turnId: 'turn-cand-rules', generation: 1 },
+        source: 'explicit',
+        text: 'Thinking through this.',
+        phraseKey: 'thinking-through-this',
+        collectedAtMs: 100,
+        expiresAtMs: 2000,
+      }
+      expect(coordinator.submitAsideCandidate(cue1)).toBe(true)
+
+      // 2. An organic cue at 500ms cannot displace the fresh explicit cue
+      const organicCue: AsideCandidate = {
+        cueId: 'cue-org-1',
+        turn: { turnId: 'turn-cand-rules', generation: 1 },
+        source: 'organic',
+        text: 'Wait, actually...',
+        phraseKey: 'wait-actually',
+        collectedAtMs: 500,
+        expiresAtMs: 15000,
+      }
+      expect(coordinator.submitAsideCandidate(organicCue)).toBe(false)
+      expect(coordinator.getPendingAsideCandidate()?.cueId).toBe('cue-1')
+
+      // 3. A newer explicit cue replaces the pending explicit cue
+      const cue2: AsideCandidate = {
+        cueId: 'cue-2',
+        turn: { turnId: 'turn-cand-rules', generation: 1 },
+        source: 'explicit',
+        text: 'Let me re-examine the steps.',
+        phraseKey: 'let-me-re-examine',
+        collectedAtMs: 800,
+        expiresAtMs: 10000,
+      }
+      expect(coordinator.submitAsideCandidate(cue2)).toBe(true)
+      expect(coordinator.getPendingAsideCandidate()?.cueId).toBe('cue-2')
+
+      // 4. Advance clock past expiry (10000ms)
+      clock.advance(10500)
+      expect(coordinator.getPendingAsideCandidate()).toBeNull()
+
+      // 5. Submit candidate already expired
+      const expiredCue: AsideCandidate = {
+        cueId: 'cue-old',
+        turn: { turnId: 'turn-cand-rules', generation: 1 },
+        source: 'explicit',
+        text: 'Too late.',
+        phraseKey: 'too-late',
+        collectedAtMs: 5000,
+        expiresAtMs: 10000,
+      }
+      expect(coordinator.submitAsideCandidate(expiredCue)).toBe(false)
+    })
+
+    it('first opportunity is cached-only; second opportunity chooses dynamic aside when eligible', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+      const onArmDynamicAside = vi.fn()
+
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-dynamic-pacing',
+        generation: 1,
+        providerKey: 'deepseek-r1',
+        policy: {
+          ...defaultPolicy,
+          maxFillersPerTurn: 3,
+          pacingIntervalMs: 15000,
+          dynamicAsidesEnabled: true,
+          dynamicAfterMs: 15000,
+          maxSynthesisBudgetMs: 600,
+        },
+        clock,
+        onArmFiller,
+        onArmDynamicAside,
+      })
+
+      coordinator.dispatch()
+
+      // Submit an explicit candidate during initial STAGING
+      const earlyAside: AsideCandidate = {
+        cueId: 'aside-early',
+        turn: { turnId: 'turn-dynamic-pacing', generation: 1 },
+        source: 'explicit',
+        text: 'Checking the math.',
+        phraseKey: 'checking-the-math',
+        collectedAtMs: 1000,
+        expiresAtMs: 30000,
+      }
+      coordinator.submitAsideCandidate(earlyAside)
+
+      // Advance to initial deadline (1800ms).
+      // SPEC §5.2: The first opportunity is CACHED-ONLY and must NOT consume the dynamic aside.
+      clock.advance(1800)
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+      expect(onArmFiller).toHaveBeenLastCalledWith('generic', 1800)
+      expect(onArmDynamicAside).not.toHaveBeenCalled()
+      // Candidate should still be pending
+      expect(coordinator.getPendingAsideCandidate()?.cueId).toBe('aside-early')
+
+      // First filler plays and finishes
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1200)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // Submit a fresh explicit aside during extended thinking
+      const liveAside: AsideCandidate = {
+        cueId: 'aside-live',
+        turn: { turnId: 'turn-dynamic-pacing', generation: 1 },
+        source: 'explicit',
+        text: 'This is taking a bit of computation.',
+        phraseKey: 'taking-computation',
+        collectedAtMs: 5000,
+        expiresAtMs: 35000,
+      }
+      coordinator.submitAsideCandidate(liveAside)
+
+      // Advance by 15000ms (clock reaches 18000ms total, which is > dynamicAfterMs = 15000)
+      clock.advance(15000)
+      expect(onArmDynamicAside).toHaveBeenCalledTimes(1)
+      expect(onArmDynamicAside).toHaveBeenCalledWith(liveAside, 600)
+      expect(coordinator.metrics.dynamicCueSource).toBe('explicit')
+      // Candidate is consumed atomically upon selection
+      expect(coordinator.getPendingAsideCandidate()).toBeNull()
+    })
+
+    it('enforces attempt ceiling maxAttemptsPerTurn = 2 * maxFillersPerTurn', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-attempt-ceiling',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: {
+          ...defaultPolicy,
+          maxFillersPerTurn: 1, // max attempts = 2
+          pacingIntervalMs: 5000,
+        },
+        clock,
+        onArmFiller,
+      })
+
+      coordinator.dispatch()
+      // Attempt 1 at initial deadline
+      clock.advance(1800)
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+      expect(coordinator.attemptsMade).toBe(1)
+    })
   })
 })

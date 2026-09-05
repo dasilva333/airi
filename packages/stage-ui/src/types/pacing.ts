@@ -6,6 +6,7 @@ export type InferenceEvent
     | { type: 'tool', phase: 'start' | 'end', at: number }
     | { type: 'finish', reason?: string, at: number }
     | { type: 'error', error: unknown, at: number }
+    | { type: 'aside-cue', candidate: AsideCandidate, at: number }
 
 export type ThinkingCategory = 'analytical' | 'memory' | 'emotional' | 'uncertain' | 'generic'
 
@@ -18,6 +19,36 @@ export type PacingState
     | 'FILLER_ACTIVE'
     | 'HANDOFF'
     | 'SETTLED'
+
+export type TurnPhase = 'waiting' | 'answering' | 'draining' | 'canceled' | 'settled'
+
+export type AttemptPhase = 'preparing' | 'ready' | 'committed' | 'playing' | 'ended' | 'discarded'
+
+export interface AsideCandidate {
+  cueId: string
+  turn: {
+    turnId: string
+    sessionId?: string
+    generation: number
+  }
+  source: 'explicit' | 'organic'
+  text: string
+  phraseKey: string
+  collectedAtMs: number
+  expiresAtMs: number
+}
+
+export interface PacingTurnState {
+  phase: TurnPhase
+  pacingClosed: boolean
+  terminalSeen: boolean
+  committedCount: number
+  spokenCount: number
+  attemptsMade: number
+  nextEligibleAtMs?: number
+  activeAttemptId?: string
+  pendingCueId?: string
+}
 
 export interface PacingMetrics {
   turnId: string
@@ -33,12 +64,19 @@ export interface PacingMetrics {
   interrupted: boolean
   fillersSpokenCount?: number
   categoriesSpoken?: ThinkingCategory[]
+  committedCount?: number
+  spokenCount?: number
+  pacingClosed?: boolean
+  cutoffReason?: string
+  prepareLatencyMs?: number
+  dynamicCueSource?: 'explicit' | 'organic'
 }
 
 export interface PacingPlaybackMeta {
   turnId: string
   role: 'thinking-filler' | 'assistant-answer'
   generation: number
+  attemptId?: string
 }
 
 export interface Clock {
@@ -57,6 +95,11 @@ export interface PacingPolicyConfig {
   kFast?: number
   maxFillersPerTurn?: number
   pacingIntervalMs?: number
+  dynamicAsidesEnabled?: boolean
+  dynamicAfterMs?: number
+  candidateTtlMs?: number
+  maxSynthesisBudgetMs?: number
+  experimentalOrganicPivots?: boolean
 }
 
 export interface ThinkingFillerPhrase {
@@ -79,10 +122,17 @@ export const DEFAULT_PACING_FILLERS: ThinkingFillerPhrase[] = [
 
 export const DEFAULT_PACING_POLICY: PacingPolicyConfig = {
   enabled: false,
-  armMinMs: 1200,
+  armMinMs: 900,
   armMaxMs: 3500,
-  maxFillerDurationMs: 1200,
+  maxFillerDurationMs: 2200,
   reasoningWindowMs: 900,
-  categoryThreshold: 1,
+  categoryThreshold: 2,
   kFast: 0.5,
+  maxFillersPerTurn: 3,
+  pacingIntervalMs: 15000,
+  dynamicAsidesEnabled: false,
+  dynamicAfterMs: 15000,
+  candidateTtlMs: 15000,
+  maxSynthesisBudgetMs: 600,
+  experimentalOrganicPivots: false,
 }

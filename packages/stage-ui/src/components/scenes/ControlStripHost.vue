@@ -90,6 +90,7 @@ const {
   onAssistantResponseEnd,
   onGenerationStopped,
   onReasoningChunk,
+  onDynamicAsideCue,
 } = useChatOrchestratorStore()
 const chatHookCleanups: Array<() => void> = []
 // WORKAROUND: clear previous handlers on unmount to avoid duplicate calls when this component remounts.
@@ -1522,6 +1523,10 @@ chatHookCleanups.push(onBeforeSend(async (_message, context) => {
 
 chatHookCleanups.push(onReasoningChunk(async (chunk: string) => {
   turnPacing.onReasoningChunk(chunk)
+}))
+
+chatHookCleanups.push(onDynamicAsideCue(async (cue) => {
+  turnPacing.onDynamicAsideCue(cue)
 }))
 
 chatHookCleanups.push(onTokenLiteral(async (literal) => {

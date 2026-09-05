@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { createStreamingCategorizer } from './response-categoriser'
+import {
+  createStreamingCategorizer,
+  createThinkAloudExtractor,
+  extractThinkAloudCues,
+  stripPacingEnvelopes,
+} from './response-categoriser'
 
 describe('createStreamingCategorizer', () => {
   it('should handle pure speech without tags', () => {
@@ -375,5 +380,138 @@ describe('createStreamingCategorizer', () => {
     expect(reasoningChunks.join('')).toBe('calculating the trajectory')
     const result = categorizer.end()
     expect(result.speech).toBe('Hello world!')
+  })
+})
+
+describe('think_aloud cue extraction and pacing envelope isolation', () => {
+  it('should extract a valid explicit aside from reasoning text', () => {
+    const text = 'Let me think about this physics problem. <think_aloud>Hold on, let me check that.</think_aloud> Now continuing equation derivation.'
+    const cues = extractThinkAloudCues(text, { turnId: 'turn-123', generation: 1 }, 15000)
+
+    expect(cues).toHaveLength(1)
+    expect(cues[0].source).toBe('explicit')
+    expect(cues[0].text).toBe('Hold on, let me check that.')
+    expect(cues[0].phraseKey).toBe('explicit:hold on, let me check that.')
+    expect(cues[0].turn.turnId).toBe('turn-123')
+    expect(cues[0].expiresAtMs).toBeGreaterThan(Date.now())
+  })
+
+  it('should handle tag split across chunk boundaries', () => {
+    const cues: any[] = []
+    const extractor = createThinkAloudExtractor({
+      onCue: cue => cues.push(cue),
+    })
+
+    extractor.consume('Thinking... <think_')
+    extractor.consume('aloud>Let me work through the steps.</think_')
+    extractor.consume('aloud> more private thoughts')
+
+    expect(cues).toHaveLength(1)
+    expect(cues[0].text).toBe('Let me work through the steps.')
+  })
+
+  it('should reject tags with attributes', () => {
+    const text = 'Reasoning <think_aloud lang="en">Wait a second.</think_aloud> more reasoning'
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should reject nested XML tags inside candidate payload', () => {
+    const text = 'Reasoning <think_aloud>Wait <b>what</b> is this</think_aloud> more reasoning'
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should reject XML entities inside candidate payload', () => {
+    const text = 'Reasoning <think_aloud>This &amp; that</think_aloud> more reasoning'
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should reject control markers inside candidate payload', () => {
+    const text = 'Reasoning <think_aloud>Hold on <|ACT:emotion="surprised"|> please</think_aloud> more reasoning'
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should reject overlong candidates exceeding 160 characters', () => {
+    const overlong = 'A'.repeat(161)
+    const text = `Reasoning <think_aloud>${overlong}</think_aloud> more reasoning`
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should reject overlong candidates exceeding 12 words', () => {
+    const thirteenWords = 'one two three four five six seven eight nine ten eleven twelve thirteen'
+    const text = `Reasoning <think_aloud>${thirteenWords}</think_aloud> more reasoning`
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should accept candidates with up to 12 words and <= 160 characters', () => {
+    const twelveWords = 'one two three four five six seven eight nine ten eleven twelve'
+    const text = `Reasoning <think_aloud>${twelveWords}</think_aloud> more reasoning`
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(1)
+    expect(cues[0].text).toBe(twelveWords)
+  })
+
+  it('should ignore <think_aloud> tags inside markdown fenced code blocks', () => {
+    const text = '```typescript\nconst cue = "<think_aloud>test</think_aloud>";\n```\n<think_aloud>Real cue</think_aloud>'
+    const cues = extractThinkAloudCues(text)
+
+    expect(cues).toHaveLength(1)
+    expect(cues[0].text).toBe('Real cue')
+  })
+
+  it('should emit nothing when stream terminates with an unclosed tag', () => {
+    const cues: any[] = []
+    const extractor = createThinkAloudExtractor({
+      onCue: cue => cues.push(cue),
+    })
+
+    extractor.consume('Reasoning... <think_aloud>Unfinished sentence')
+    expect(cues).toHaveLength(0)
+  })
+
+  it('should strip pacing envelopes cleanly from transcripts and reasoning projections', () => {
+    const raw = 'Before <think_aloud>This is an internal aside</think_aloud> After'
+    expect(stripPacingEnvelopes(raw).trim()).toBe('Before  After')
+
+    const categorized = createStreamingCategorizer()
+    categorized.consume('<think>Deep thoughts <think_aloud>Spoken aside</think_aloud> concluding thoughts</think>Final answer.')
+    const result = categorized.end()
+
+    expect(result.speech).toBe('Final answer.')
+    expect(result.reasoning).not.toContain('Spoken aside')
+    expect(result.reasoning).not.toContain('<think_aloud>')
+    expect(result.reasoning).toContain('Deep thoughts')
+    expect(result.reasoning).toContain('concluding thoughts')
+  })
+
+  it('should wire onDynamicAsideCue and consumeReasoning in createStreamingCategorizer', () => {
+    const cues: any[] = []
+    const reasoningChunks: string[] = []
+    const categorizer = createStreamingCategorizer({
+      onDynamicAsideCue: cue => cues.push(cue),
+      onReasoningChunk: chunk => reasoningChunks.push(chunk),
+    })
+
+    // 1. Through in-band reasoning tags
+    categorizer.consume('Hello <think>analyzing data... <think_aloud>Let me calculate this.</think_aloud> done</think> world!')
+    expect(cues).toHaveLength(1)
+    expect(cues[0].text).toBe('Let me calculate this.')
+
+    // 2. Through separate provider reasoning deltas (consumeReasoning)
+    categorizer.consumeReasoning('Second hop reasoning <think_aloud>Checking memory archives.</think_aloud> completed.')
+    expect(cues).toHaveLength(2)
+    expect(cues[1].text).toBe('Checking memory archives.')
   })
 })
