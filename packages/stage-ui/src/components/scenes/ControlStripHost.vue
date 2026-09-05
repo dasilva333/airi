@@ -243,6 +243,10 @@ const emotionsQueue = createQueue<EmotionPayload>({
 
       if (stageModelRenderer.value === 'vrm') {
         debug('[Stage] VRM emotion/motion processing (standalone window active):', { name: emotionName, intensity: ctx.data.intensity })
+        if (emotionName === 'fire' || emotionName === 'electric' || emotionName === 'magic' || emotionName === 'verdant') {
+          vrmStore.triggerVfx(emotionName, 4.0)
+        }
+
         const matchedOption = customVrmAnimationsStore.animationOptions.find(opt =>
           opt.value === emotionName
           || opt.label === emotionName

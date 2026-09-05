@@ -54,6 +54,15 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
       }
     }
 
+    // 3. VFX / Aura string
+    const vfxVal = payload?.vfx || payload?.aura
+    if (typeof vfxVal === 'string') {
+      const normalized = normalizeEmotionName(vfxVal)
+      if (normalized && !results.some(r => r.name === normalized)) {
+        results.push({ name: normalized, intensity: 1 })
+      }
+    }
+
     return results
   }
 
@@ -83,7 +92,7 @@ export function useSpecialTokenQueue(emotionsQueue: UseQueueReturn<EmotionPayloa
 
     // Attempt 3: Regex fallback for raw key-value pairs
     if (emotions.length === 0) {
-      const emotionMatch = /"?(?:emotion|motion)"?\s*[:=]\s*(?:\{?[\s\S]*?"name"\s*[:=]\s*)?(?:"([^"]+)"|'([^']+)'|([^"}\s,]+))/gi
+      const emotionMatch = /"?(?:emotion|motion|vfx|aura)"?\s*[:=]\s*(?:\{?[\s\S]*?"name"\s*[:=]\s*)?(?:"([^"]+)"|'([^']+)'|([^"}\s,]+))/gi
       let m
       while ((m = emotionMatch.exec(payloadText)) !== null) {
         const name = m[1] || m[2] || m[3]

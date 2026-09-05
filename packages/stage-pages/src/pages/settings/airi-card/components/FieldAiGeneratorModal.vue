@@ -156,6 +156,7 @@ const guidanceConfig: Record<string, FieldGuidance> = {
     templates: [
       { id: 'default', label: 'Short Format (Official)', prompt: 'Write instructions optimized for the Short Format: <|ACT:emotion="expression_name"|> and <|ACT:motion="action_cue"|> with values strictly quoted and using equal signs. Instruct using only available expressions and motions from the context list, sparingly (1-2 per response), and end with a dialogue example containing the tokens.' },
       { id: 'json', label: 'JSON Chaining Format', prompt: 'Write instructions optimized for the JSON Chaining Format: <|ACT:{"emotion":{"name":"expression_name","intensity":1},"motion":"action_cue"}|>. Instruct on chaining emotions and motions together and end with an example.' },
+      { id: 'elemental_vfx', label: 'Elemental VFX & Auras', prompt: 'Write instructions teaching the character to manifest elemental visual auras using <|ACT:vfx="fire">, <|ACT:vfx="electric">, <|ACT:vfx="magic">, or <|ACT:vfx="verdant"> at moments of intense emotion, concentration, or transformation, combined with expressions and motions.' },
     ],
   },
   actingSpeechExpression: {

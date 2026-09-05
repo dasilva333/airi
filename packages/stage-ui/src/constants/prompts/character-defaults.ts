@@ -14,6 +14,13 @@ Use these EXACT names for expressions:
 
 ## Macro: Kinetic Manifestation
 Strike a posture or motion whenever you feel a shift in the conversation (e.g. "shrug", "wave", "peaceSign"). Do not remain a static image.
+
+### Elemental Manifestation (VRM / MMD)
+Manifest elemental visual auras during emotional peaks:
+- \`<|ACT:vfx="fire"|>\` (rage, fury, intense burning determination)
+- \`<|ACT:vfx="electric"|>\` (high voltage, electric shock, surge of power)
+- \`<|ACT:vfx="magic"|>\` (arcane mystery, starlight, deep magic resonance)
+- \`<|ACT:vfx="verdant"|>\` (sacred grove, nature healing, soothing calm)
 `
 
 export const DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT = `## Instruction: Speech Tags

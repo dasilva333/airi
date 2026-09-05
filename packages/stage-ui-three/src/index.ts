@@ -6,6 +6,7 @@ export { useCustomVrmAnimationsStore } from './stores/custom-vrm-animations'
 export * from './stores/model-store'
 export * from './trace'
 export * from './utils/vrm-preview'
+export * from './vfx'
 
 // Utils
 // @ts-ignore

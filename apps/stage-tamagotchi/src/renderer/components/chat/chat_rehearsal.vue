@@ -355,17 +355,18 @@ The user wants to generate 4 dialogue acting presets.
 The avatar has the following acting capabilities:
 - Available Emotions: [ ${emotionsList.join(', ') || 'None'} ]
 - Available Motions: [ ${motionsList.join(', ') || 'None'} ]
+- Available Elemental VFX / Auras: [ fire, electric, magic, verdant ]
 
 Requirements for the dialogue presets:
 1. Generate exactly 4 presets.
-2. For each preset, create a short, punchy 1-2 word title (e.g., 'Shy Greeting', 'Surprised Gasps', 'Flustered Anger', 'Deep Thought').
-3. For each preset, write a natural dialogue line and embed <|ACT:emotion="key"|> or <|ACT:motion="key"|> tokens naturally inside the text.
-4. Try to make at least 2 presets use a single emotion/motion token, and 2 presets use a combination of both an emotion and a motion (if both lists have items).
-5. Only use the exact emotion and motion keys listed above. Do not invent new ones.
+2. For each preset, create a short, punchy 1-2 word title (e.g., 'Shy Greeting', 'Surprised Gasps', 'Flustered Anger', 'Deep Thought', 'Fire Fury', 'Verdant Peace').
+3. For each preset, write a natural dialogue line and embed <|ACT:emotion="key"|>, <|ACT:motion="key"|>, or <|ACT:vfx="key"|> tokens naturally inside the text.
+4. Try to make at least 2 presets use a single emotion/motion/vfx token, and 2 presets use a combination of both an emotion/motion and a VFX aura.
+5. Only use the exact emotion and motion keys listed above, or the 4 VFX keys (fire, electric, magic, verdant). Do not invent new ones.
 
 Example output structure:
 Preset 1: Title: 'Happy Wave', Dialogue: '<|ACT:emotion="happy"|> Hello there! <|ACT:motion="wave"|> I am so glad to see you!'
-Preset 2: Title: 'Flustered Shock', Dialogue: '<|ACT:emotion="surprised"|> Wait! What do you mean by that?!'`
+Preset 2: Title: 'Fire Ignition', Dialogue: '<|ACT:vfx="fire"|> Stand back! <|ACT:emotion="angry"|> Power is surging through me!'`
 
     const schema = v.object({
       suggestions: v.array(
@@ -450,6 +451,24 @@ const dynamicPresets = computed(() => {
       text: `<|ACT:emotion="${emotionsList[0]}",motion="${motionsList[0]}"|> Starting off... <|ACT:emotion="${emotionsList[1]}",motion="${motionsList[1]}"|> and transitioning.`,
     })
   }
+
+  // Elemental VFX & Aura Presets (VRM & MMD)
+  presets.push({
+    label: '🔥 Fire Aura',
+    text: '<|ACT:vfx="fire"|> Feel the fiery energy surging through!',
+  })
+  presets.push({
+    label: '⚡ Electric Surge',
+    text: '<|ACT:vfx="electric"|> Sparks crackle as the current arcs across the floor!',
+  })
+  presets.push({
+    label: '✨ Magic Arcane',
+    text: '<|ACT:vfx="magic"|> Ancient runes awaken beneath our feet.',
+  })
+  presets.push({
+    label: '🍃 Verdant Calm',
+    text: '<|ACT:vfx="verdant"|> Sacred flora and glowing spores drift into bloom.',
+  })
 
   return presets
 })

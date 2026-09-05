@@ -118,13 +118,13 @@ End the instruction block with multiple concrete, realistic multi-role dialogue 
       contextDescription = `Available Actors/Tokens:\n${actorTokensInfo}\n\nVisible Capabilities:\n- Available Emotions: [ ${props.activeEmotions.join(', ') || 'None'} ]\n- Available Motions: [ ${props.activeMotions.join(', ') || 'None'} ]`
     }
     else {
-      systemInstruction = `You are an expert AI actor manager. Help the user write a detailed system prompt instruction in markdown teaching the character when and how to inject \`<|ACT:emotion="expression_name"|>\` and \`<|ACT:motion="action_cue"|>\` tokens into their responses.
-- You MUST instruct the character to use only the exact expressions and motions listed in the context below.
-- You MUST instruct the character to strictly use the official format with double quotes: \`<|ACT:emotion="expression_name"|>\` and \`<|ACT:motion="action_cue"|>\`.
+      systemInstruction = `You are an expert AI actor manager. Help the user write a detailed system prompt instruction in markdown teaching the character when and how to inject \`<|ACT:emotion="expression_name"|>\`, \`<|ACT:motion="action_cue"|>\`, and elemental visual auras \`<|ACT:vfx="fire|electric|magic|verdant"|>\` tokens into their responses.
+- You MUST instruct the character to use only the exact expressions and motions listed in the context below, or the official elemental VFX keys (fire, electric, magic, verdant).
+- You MUST instruct the character to strictly use the official format with double quotes: \`<|ACT:emotion="expression_name"|>\`, \`<|ACT:motion="action_cue"|>\`, and \`<|ACT:vfx="aura_key"|>\`.
 - Instruct the character to place these tokens sparingly at natural emotional peaks or key actions in their response (insert only 1-2 per response).
-- Always end the instruction block with a clear usage example showing where the tokens should be placed (e.g. "Hello! <|ACT:emotion=\\"happy\\"|> How are you today?").`
+- Always end the instruction block with a clear usage example showing where the tokens should be placed (e.g. "Hello! <|ACT:emotion=\\"happy\\"|> How are you today?" or "<|ACT:vfx=\\"fire\\"|> Feel the heat rise!").`
 
-      contextDescription = `Active Actor Capabilities:\n- Available Emotions: [ ${props.activeEmotions.join(', ') || 'None'} ]\n- Available Motions: [ ${props.activeMotions.join(', ') || 'None'} ]`
+      contextDescription = `Active Actor Capabilities:\n- Available Emotions: [ ${props.activeEmotions.join(', ') || 'None'} ]\n- Available Motions: [ ${props.activeMotions.join(', ') || 'None'} ]\n- Available Elemental VFX: [ fire (rage/flames), electric (sparks/surge), magic (arcane/starlight), verdant (nature/healing) ]`
     }
 
     const systemPromptContent = `${systemInstruction}\n\nCore Character/Model Context:\n${contextDescription}\n\nCharacter Name: ${airiCardStore.activeCard?.name || 'Companion'}`

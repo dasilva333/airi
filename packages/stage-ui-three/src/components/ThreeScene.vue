@@ -9,7 +9,7 @@
 
 import type { VRM } from '@pixiv/three-vrm'
 import type { TresContext } from '@tresjs/core'
-import type { DirectionalLight, SphericalHarmonics3, Texture, WebGLRenderer, WebGLRenderTarget } from 'three'
+import type { DirectionalLight, Scene, SphericalHarmonics3, Texture, WebGLRenderer, WebGLRenderTarget } from 'three'
 
 import type { Vec3 } from '../stores/model-store'
 
@@ -31,6 +31,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 // From stage-ui-three package
 import { useRenderTargetRegionAtClientPoint } from '../composables/render-target'
 import { useModelStore } from '../stores/model-store'
+import { AuraController, DEFAULT_VFX_MAPPINGS, frame, VrmSocketResolver } from '../vfx'
 import { OrbitControls } from './Controls'
 import { SkyBox } from './Environment'
 import { VRMModel } from './Model'
@@ -206,6 +207,16 @@ function onVRMModelLoaded(value: { modelIdentity?: string, modelSrc: string }) {
   lastModelSrc.value = value.modelSrc
   lastModelIdentity.value = value.modelIdentity ?? value.modelSrc
   modelLoaded.value = true
+
+  const activeVrm = modelRef.value?.getVRM?.()
+  if (activeVrm) {
+    if (!auraController.value && tresCanvasRef.value?.scene.value) {
+      initAuraController(tresCanvasRef.value.scene.value)
+    }
+    else if (auraController.value) {
+      auraController.value.setResolver(new VrmSocketResolver(activeVrm))
+    }
+  }
 }
 
 // === sky box ===
@@ -219,19 +230,51 @@ function onSkyBoxReady(EnvPayload: {
   irrSHTex.value = EnvPayload.irrSH || null
 }
 
+// === VFX Aura Controller ===
+const auraController = shallowRef<AuraController | null>(null)
+
+function initAuraController(scene: Scene) {
+  if (auraController.value) {
+    auraController.value.dispose()
+    auraController.value = null
+  }
+  auraController.value = new AuraController({ scene })
+  const activeVrm = modelRef.value?.getVRM?.()
+  if (activeVrm) {
+    auraController.value.setResolver(new VrmSocketResolver(activeVrm))
+  }
+}
+
 // === Tres Canvas ===
 function onTresReady(context: TresContext) {
   tresCanvasRef.value = context
+  if (context.scene.value) {
+    initAuraController(context.scene.value)
+  }
 }
 
 let unsubscribeTriggerEmotion: (() => void) | undefined
 let unsubscribeTriggerMotion: (() => void) | undefined
+let unsubscribeTriggerVfx: (() => void) | undefined
 
 onMounted(() => {
   if (envSelect.value === 'skyBox') {
     skyBoxEnvRef.value?.reload(skyBoxSrc.value)
   }
   unsubscribeTriggerEmotion = modelStore.onTriggerEmotion((name, intensity) => {
+    const lower = name.toLowerCase()
+    if (lower === 'fire' || lower === 'electric' || lower === 'magic' || lower === 'verdant') {
+      auraController.value?.triggerAura(lower as any, 4.0)
+    }
+    else {
+      for (const [vfxKey, keywords] of Object.entries(DEFAULT_VFX_MAPPINGS)) {
+        if (keywords.includes(lower)) {
+          auraController.value?.triggerAura(vfxKey as any, 4.0)
+          break
+        }
+      }
+    }
+
     if (name === 'neutral') {
       modelRef.value?.setExpression(name, intensity)
     }
@@ -243,6 +286,11 @@ onMounted(() => {
   unsubscribeTriggerMotion = modelStore.onTriggerMotion((name) => {
     modelRef.value?.playTransientAnimation(name)
   })
+  unsubscribeTriggerVfx = modelStore.onTriggerVfx((name, duration) => {
+    if (auraController.value && (name === 'fire' || name === 'electric' || name === 'magic' || name === 'verdant')) {
+      auraController.value.triggerAura(name as any, duration)
+    }
+  })
 })
 
 onUnmounted(() => {
@@ -251,13 +299,33 @@ onUnmounted(() => {
     unsubscribeTriggerEmotion()
   if (unsubscribeTriggerMotion)
     unsubscribeTriggerMotion()
+  if (unsubscribeTriggerVfx)
+    unsubscribeTriggerVfx()
+  if (auraController.value) {
+    auraController.value.dispose()
+    auraController.value = null
+  }
 })
 
-const vrmFrameHook = shallowRef<((vrm: VRM, delta: number) => void) | undefined>(undefined)
+const externalVrmFrameHook = shallowRef<((vrm: VRM, delta: number) => void) | undefined>(undefined)
 const effectiveRenderScale = computed(() => props.renderScaleOverride ?? renderScale.value)
 
+function handleVrmFrame(vrm: VRM, delta: number) {
+  frame.uTime.value += delta
+  frame.uDelta.value = delta
+
+  if (auraController.value) {
+    if (!auraController.value.resolver && vrm) {
+      auraController.value.setResolver(new VrmSocketResolver(vrm))
+    }
+    auraController.value.update(delta)
+  }
+
+  externalVrmFrameHook.value?.(vrm, delta)
+}
+
 function applyVrmFrameHook() {
-  modelRef.value?.setVrmFrameHook(vrmFrameHook.value)
+  modelRef.value?.setVrmFrameHook(handleVrmFrame)
 }
 watch(modelRef, () => applyVrmFrameHook(), { immediate: true })
 
@@ -344,9 +412,9 @@ defineExpose({
     modelRef.value?.playTransientAnimation(key)
   },
   setVrmFrameHook: (hook?: (vrm: VRM, delta: number) => void) => {
-    vrmFrameHook.value = hook
-    applyVrmFrameHook()
+    externalVrmFrameHook.value = hook
   },
+  getAuraController: () => auraController.value,
   listExpressions: () => {
     return modelRef.value?.listExpressions() || []
   },

@@ -48,12 +48,15 @@ export interface DisplayModelCloud {
   motions?: string[]
   emotionMappings?: Record<string, string>
   motionMappings?: Record<string, string>
+  vfxMappings?: Record<string, string[]>
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
   outfits?: AiriOutfit[]
   _searchKey?: string
 }
+
+export { DEFAULT_VFX_MAPPINGS } from '@proj-airi/stage-ui-three/vfx'
 
 export type DisplayModel
   = | DisplayModelFile
@@ -84,6 +87,7 @@ export interface DisplayModelFile {
   motions?: string[]
   emotionMappings?: Record<string, string>
   motionMappings?: Record<string, string>
+  vfxMappings?: Record<string, string[]>
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
@@ -107,6 +111,7 @@ export interface DisplayModelURL {
   motions?: string[]
   emotionMappings?: Record<string, string>
   motionMappings?: Record<string, string>
+  vfxMappings?: Record<string, string[]>
   hiddenExpressions?: string[]
   hiddenMotions?: string[]
   favoriteExpressions?: string[]
@@ -282,6 +287,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
             motions: rawM.motions,
             emotionMappings: rawM.emotionMappings ? JSON.parse(JSON.stringify(rawM.emotionMappings)) : undefined,
             motionMappings: rawM.motionMappings ? JSON.parse(JSON.stringify(rawM.motionMappings)) : undefined,
+            vfxMappings: rawM.vfxMappings ? JSON.parse(JSON.stringify(rawM.vfxMappings)) : undefined,
             hiddenExpressions: rawM.hiddenExpressions ? [...rawM.hiddenExpressions] : undefined,
             hiddenMotions: rawM.hiddenMotions ? [...rawM.hiddenMotions] : undefined,
             favoriteExpressions: rawM.favoriteExpressions ? [...rawM.favoriteExpressions] : undefined,
@@ -373,6 +379,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
                 motions: val.motions,
                 emotionMappings: val.emotionMappings,
                 motionMappings: val.motionMappings,
+                vfxMappings: val.vfxMappings,
                 hiddenExpressions: val.hiddenExpressions,
                 hiddenMotions: val.hiddenMotions,
                 favoriteExpressions: val.favoriteExpressions,
@@ -1297,6 +1304,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     mappings: {
       emotionMappings?: Record<string, string>
       motionMappings?: Record<string, string>
+      vfxMappings?: Record<string, string[]>
       hiddenExpressions?: string[]
       hiddenMotions?: string[]
       favoriteExpressions?: string[]
@@ -1315,6 +1323,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       displayModel.emotionMappings = JSON.parse(JSON.stringify(mappings.emotionMappings))
     if (mappings.motionMappings)
       displayModel.motionMappings = JSON.parse(JSON.stringify(mappings.motionMappings))
+    if (mappings.vfxMappings)
+      displayModel.vfxMappings = JSON.parse(JSON.stringify(mappings.vfxMappings))
     if (mappings.hiddenExpressions)
       displayModel.hiddenExpressions = [...mappings.hiddenExpressions]
     if (mappings.hiddenMotions)
@@ -1335,6 +1345,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         target.emotionMappings = JSON.parse(JSON.stringify(mappings.emotionMappings))
       if (mappings.motionMappings)
         target.motionMappings = JSON.parse(JSON.stringify(mappings.motionMappings))
+      if (mappings.vfxMappings)
+        target.vfxMappings = JSON.parse(JSON.stringify(mappings.vfxMappings))
       if (mappings.hiddenExpressions)
         target.hiddenExpressions = [...mappings.hiddenExpressions]
       if (mappings.hiddenMotions)
@@ -1364,6 +1376,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         motions: displayModel.motions ? [...displayModel.motions] : undefined,
         emotionMappings: displayModel.emotionMappings ? JSON.parse(JSON.stringify(displayModel.emotionMappings)) : undefined,
         motionMappings: displayModel.motionMappings ? JSON.parse(JSON.stringify(displayModel.motionMappings)) : undefined,
+        vfxMappings: displayModel.vfxMappings ? JSON.parse(JSON.stringify(displayModel.vfxMappings)) : undefined,
         hiddenExpressions: displayModel.hiddenExpressions ? [...displayModel.hiddenExpressions] : undefined,
         hiddenMotions: displayModel.hiddenMotions ? [...displayModel.hiddenMotions] : undefined,
         favoriteExpressions: displayModel.favoriteExpressions ? [...displayModel.favoriteExpressions] : undefined,
@@ -1394,6 +1407,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         motions: rawModel.motions ? [...rawModel.motions] : undefined,
         emotionMappings: rawModel.emotionMappings ? JSON.parse(JSON.stringify(rawModel.emotionMappings)) : undefined,
         motionMappings: rawModel.motionMappings ? JSON.parse(JSON.stringify(rawModel.motionMappings)) : undefined,
+        vfxMappings: rawModel.vfxMappings ? JSON.parse(JSON.stringify(rawModel.vfxMappings)) : undefined,
         hiddenExpressions: rawModel.hiddenExpressions ? [...rawModel.hiddenExpressions] : undefined,
         hiddenMotions: rawModel.hiddenMotions ? [...rawModel.hiddenMotions] : undefined,
         favoriteExpressions: rawModel.favoriteExpressions ? [...rawModel.favoriteExpressions] : undefined,

@@ -18,7 +18,7 @@ import ExpressionCurationModal from '../../dialogs/ExpressionCurationModal.vue'
 import WardrobeMeshTreeNode from './components/WardrobeMeshTreeNode.vue'
 
 import { classifyExpression, isTrackingNoise } from '../../../../libs/character/expression-noise-gate'
-import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
+import { DEFAULT_VFX_MAPPINGS, DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useSettingsControlStrip } from '../../../../stores/settings/control-strip'
 import { Container } from '../../../data-pane'
@@ -110,6 +110,18 @@ const favoriteExpressions = ref<string[]>([])
 const hiddenExpressions = ref<string[]>([])
 const motionMappings = ref<Record<string, string>>({})
 const hiddenMotions = ref<string[]>([])
+const vfxMappings = ref<Record<string, string[]>>({
+  fire: [...DEFAULT_VFX_MAPPINGS.fire],
+  electric: [...DEFAULT_VFX_MAPPINGS.electric],
+  magic: [...DEFAULT_VFX_MAPPINGS.magic],
+  verdant: [...DEFAULT_VFX_MAPPINGS.verdant],
+})
+const newKeywordInputs = ref<Record<string, string>>({
+  fire: '',
+  electric: '',
+  magic: '',
+  verdant: '',
+})
 
 // Raw capability lists sourced from getOrLoadModelCapabilities
 // These are model-file-level, not renderer-runtime — works even when model is off-stage
@@ -127,6 +139,12 @@ function applyModelMappings(model?: any) {
   motionMappings.value = { ...model.motionMappings }
   hiddenMotions.value = [...(model.hiddenMotions || [])]
   modelOutfits.value = [...(model.outfits || [])]
+  if (model.vfxMappings) {
+    vfxMappings.value = JSON.parse(JSON.stringify(model.vfxMappings))
+  }
+  else {
+    vfxMappings.value = JSON.parse(JSON.stringify(DEFAULT_VFX_MAPPINGS))
+  }
 
   // Sync to store for stage window cross-process triggers
   live2dStore.motionMap = { ...motionMappings.value }
@@ -401,7 +419,7 @@ const rawMotions = computed<UnifiedMotion[]>(() => {
 })
 
 // Filter states
-const activeTab = ref<'expressions' | 'motions' | 'outfits'>('expressions')
+const activeTab = ref<'expressions' | 'motions' | 'outfits' | 'vfx'>('expressions')
 const showHidden = ref(false)
 const hideTrackingNoise = ref(true)
 const filterRenamedOnly = ref(false)
@@ -766,6 +784,128 @@ function triggerMotionEffect(key: string) {
   toast.info(`Triggered motion: ${key}`)
 }
 
+const VFX_EFFECTS = [
+  {
+    key: 'fire',
+    name: 'Fire Boost',
+    icon: 'i-solar:fire-bold-duotone',
+    accentColor: 'text-orange-500',
+    badgeBg: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    borderColor: 'border-orange-500/30 hover:border-orange-500/50',
+    summary: 'Molten cinder fracture ground decal, bone-tethered ascending flame tongues & rising ember sparks.',
+    tagColor: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/20',
+  },
+  {
+    key: 'electric',
+    name: 'Electric Boost',
+    icon: 'i-solar:bolt-bold-duotone',
+    accentColor: 'text-sky-500',
+    badgeBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+    borderColor: 'border-sky-500/30 hover:border-sky-500/50',
+    summary: 'Concentric high-voltage discharge ground ring, biological Fresnel rim & crackling arc sparks.',
+    tagColor: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/20',
+  },
+  {
+    key: 'magic',
+    name: 'Magic Boost',
+    icon: 'i-solar:stars-minimalistic-bold-duotone',
+    accentColor: 'text-purple-500',
+    badgeBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    borderColor: 'border-purple-500/30 hover:border-purple-500/50',
+    summary: 'Rotating arcane rune seal, ascending double-helical ribbons & floating starlight motes.',
+    tagColor: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20',
+  },
+  {
+    key: 'verdant',
+    name: 'Verdant Boost',
+    icon: 'i-solar:leaf-bold-duotone',
+    accentColor: 'text-emerald-500',
+    badgeBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    borderColor: 'border-emerald-500/30 hover:border-emerald-500/50',
+    summary: 'Sacred 8-fold lotus blossom mandala, creeping vine field, flora tendrils & drifting bio-spores.',
+    tagColor: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+  },
+]
+
+async function saveVfxMetadata() {
+  await displayModelsStore.updateDisplayModelMappings(props.modelId, {
+    vfxMappings: JSON.parse(JSON.stringify(vfxMappings.value)),
+  })
+}
+
+function addKeyword(vfxKey: string) {
+  const input = newKeywordInputs.value[vfxKey]?.trim().toLowerCase()
+  if (!input)
+    return
+  if (!vfxMappings.value[vfxKey])
+    vfxMappings.value[vfxKey] = []
+  if (!vfxMappings.value[vfxKey].includes(input)) {
+    vfxMappings.value[vfxKey].push(input)
+    void saveVfxMetadata()
+    toast.success(`Bound '${input}' to ${vfxKey}`)
+  }
+  newKeywordInputs.value[vfxKey] = ''
+}
+
+function removeKeyword(vfxKey: string, keyword: string) {
+  if (!vfxMappings.value[vfxKey])
+    return
+  vfxMappings.value[vfxKey] = vfxMappings.value[vfxKey].filter(k => k !== keyword)
+  void saveVfxMetadata()
+}
+
+function resetVfxDefaults(vfxKey: string) {
+  vfxMappings.value[vfxKey] = [...(DEFAULT_VFX_MAPPINGS[vfxKey] || [])]
+  void saveVfxMetadata()
+  toast.success(`Reset ${vfxKey} bindings to default`)
+}
+
+function triggerVfxEffect(key: string) {
+  if (!isStageOpen.value) {
+    toast.error('Stage or Stage-Mate window must be open to preview VFX effects.')
+    return
+  }
+  if (modelType.value === 'vrm') {
+    modelStore.triggerVfx(key, 4.0)
+    modelStore.triggerEmotion(key, 1.0)
+    if (stageMateEnabled.value && isElectron.value) {
+      import('@proj-airi/electron-vueuse').then(({ useElectronEventaInvoke }) => {
+        import('@proj-airi/stage-shared').then(({ electronStageMateTriggerExpression }) => {
+          const triggerExpr = useElectronEventaInvoke(electronStageMateTriggerExpression)
+          triggerExpr({ name: key, weight: 1.0, durationMs: 4000 })
+        })
+      }).catch(() => {})
+    }
+  }
+  else if (modelType.value === 'mmd') {
+    modelStore.triggerVfx(key, 4.0)
+    mmdStore.previewExpression = key
+    setTimeout(() => {
+      if (mmdStore.previewExpression === key)
+        mmdStore.previewExpression = null
+    }, 3000)
+  }
+  toast.info(`Triggered ${key} elemental preview`)
+}
+
+const vfxPromptTemplate = `### Kinetic & Elemental Manifestation
+When experiencing intense emotion or manifesting power, emit an ACT token with the effect cue:
+- Fire Boost: <|ACT:vfx="fire"|> (rage, intense heat, passionate fury)
+- Electric Boost: <|ACT:vfx="electric"|> (high energy, intense focus, shock)
+- Magic Boost: <|ACT:vfx="magic"|> (arcane resonance, mystic wonder, starlight)
+- Verdant Boost: <|ACT:vfx="verdant"|> (healing aura, sacred grove, serene calm)
+Place these tokens sparingly at dramatic emotional peaks (1-2 per response).`
+
+function copyVfxPromptTemplate() {
+  if (navigator?.clipboard?.writeText) {
+    void navigator.clipboard.writeText(vfxPromptTemplate)
+    toast.success('Copied VFX prompt instructions to clipboard!')
+  }
+  else {
+    toast.info('Clipboard access unavailable')
+  }
+}
+
 // Rename Label persisting
 function startEditing(key: string, currentDisplayName: string) {
   editingKey.value = key
@@ -902,8 +1042,8 @@ function toggleMotionCycle(key: string) {
         </div>
       </div>
 
-      <!-- Segment Toggle: Emotions / Motions / Outfits -->
-      <div v-if="rawMotions.length > 0 || modelType === 'vrm'" class="shrink-0 pb-1">
+      <!-- Segment Toggle: Emotions / Motions / Outfits / VFX -->
+      <div v-if="rawMotions.length > 0 || modelType === 'vrm' || modelType === 'mmd'" class="shrink-0 pb-1">
         <div class="flex rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800">
           <button
             class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
@@ -934,6 +1074,16 @@ function toggleMotionCycle(key: string) {
           >
             Outfits ({{ modelOutfits.length }})
           </button>
+          <button
+            v-if="modelType === 'vrm' || modelType === 'mmd'"
+            class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+            :class="activeTab === 'vfx'
+              ? 'bg-white text-neutral-800 shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'"
+            @click="activeTab = 'vfx'"
+          >
+            VFX & Auras (4)
+          </button>
         </div>
       </div>
 
@@ -944,7 +1094,7 @@ function toggleMotionCycle(key: string) {
       </div>
 
       <!-- Filter Controls (Emotions & Motions only) -->
-      <div v-if="!capabilitiesLoading && activeTab !== 'outfits'" class="flex shrink-0 items-center justify-between py-2">
+      <div v-if="!capabilitiesLoading && activeTab !== 'outfits' && activeTab !== 'vfx'" class="flex shrink-0 items-center justify-between py-2">
         <span class="text-[10px] text-neutral-400 font-bold tracking-wider uppercase">
           Filters
         </span>
@@ -1468,6 +1618,176 @@ function toggleMotionCycle(key: string) {
                   >
                     +{{ (slot.meshes || []).length - 4 }} more
                   </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ====== VFX & AURAS TAB ====== -->
+        <template v-else-if="activeTab === 'vfx'">
+          <div class="flex flex-col gap-3 pt-2">
+            <!-- Header explanation -->
+            <div class="flex items-center justify-between px-1">
+              <span class="text-xs text-neutral-500 dark:text-neutral-400">
+                4 Elemental Archetypes · Bind emotion keywords to trigger procedural auras
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div
+                v-for="vfx in VFX_EFFECTS"
+                :key="vfx.key"
+                class="flex flex-col justify-between border rounded-xl bg-white/70 p-3.5 shadow-sm transition-all dark:bg-neutral-900/60"
+                :class="vfx.borderColor"
+              >
+                <div>
+                  <!-- Card Header -->
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex items-center gap-2">
+                      <div class="size-7 flex shrink-0 items-center justify-center border rounded-lg" :class="vfx.badgeBg">
+                        <div :class="[vfx.icon, 'size-4']" />
+                      </div>
+                      <div class="truncate text-xs text-neutral-800 font-semibold dark:text-neutral-100">
+                        {{ vfx.name }}
+                      </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex shrink-0 items-center gap-1.5">
+                      <button
+                        v-if="props.showInsertActions"
+                        class="flex cursor-pointer items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 text-[11px] text-neutral-700 font-medium transition-colors dark:bg-neutral-800 hover:bg-primary-500/10 dark:text-neutral-200 hover:text-primary-600 dark:hover:text-primary-400"
+                        title="Insert ACT token into prompt"
+                        @click="emit('insert-token', `<|ACT:vfx=&quot;${vfx.key}&quot;|>`); toast.info(`Inserted <|ACT:vfx=&quot;${vfx.key}&quot;|> token`)"
+                      >
+                        <div class="i-solar:add-circle-bold-duotone size-3.5 text-primary-500" />
+                        <span>Insert</span>
+                      </button>
+
+                      <button
+                        class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors"
+                        :class="vfx.badgeBg"
+                        title="Preview this aura effect on the model"
+                        @click="triggerVfxEffect(vfx.key)"
+                      >
+                        <div class="i-solar:play-bold size-3" />
+                        <span>Preview</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Summary -->
+                  <p class="mt-2 text-[11px] text-neutral-500 leading-relaxed dark:text-neutral-400">
+                    {{ vfx.summary }}
+                  </p>
+
+                  <!-- ACT Token Subtext with Label -->
+                  <div class="mt-2 flex items-center gap-1.5 text-[10px]">
+                    <span class="text-neutral-400 font-medium dark:text-neutral-500">ACT Token:</span>
+                    <code class="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-600 font-mono dark:bg-neutral-800 dark:text-neutral-300">
+                      &lt;|ACT:vfx="{{ vfx.key }}"|&gt;
+                    </code>
+                  </div>
+
+                  <!-- Many-to-One Emotion Bindings -->
+                  <div class="mt-3 border-t border-neutral-100 pt-2.5 dark:border-neutral-800/80">
+                    <div class="mb-1.5 flex items-center justify-between text-[10px]">
+                      <span class="text-neutral-600 font-medium dark:text-neutral-300">
+                        Trigger Emotion Keywords (Many-to-One)
+                      </span>
+                      <button
+                        class="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600 dark:hover:text-neutral-200"
+                        title="Reset keywords to defaults"
+                        @click="resetVfxDefaults(vfx.key)"
+                      >
+                        Reset Defaults
+                      </button>
+                    </div>
+
+                    <!-- Tag Chips -->
+                    <div class="mb-2 flex flex-wrap gap-1">
+                      <span
+                        v-for="kw in (vfxMappings[vfx.key] || [])"
+                        :key="kw"
+                        class="inline-flex items-center gap-1 border rounded-md px-1.5 py-0.5 text-[10px] font-mono transition-colors"
+                        :class="vfx.tagColor"
+                      >
+                        <span>{{ kw }}</span>
+                        <button
+                          class="cursor-pointer text-[10px] leading-none hover:opacity-70"
+                          title="Remove keyword"
+                          @click="removeKeyword(vfx.key, kw)"
+                        >
+                          ×
+                        </button>
+                      </span>
+                      <span v-if="!vfxMappings[vfx.key]?.length" class="text-[10px] text-neutral-400 italic">
+                        No keywords bound
+                      </span>
+                    </div>
+
+                    <!-- Add Keyword Input -->
+                    <div class="flex gap-1">
+                      <input
+                        v-model="newKeywordInputs[vfx.key]"
+                        type="text"
+                        placeholder="+ Add keyword (e.g. anger)"
+                        class="dark:border-neutral-750 flex-1 border border-neutral-200 rounded bg-neutral-50 px-2 py-0.5 text-[11px] text-neutral-700 outline-none transition-colors focus:border-primary-500 dark:bg-neutral-950 dark:text-neutral-200"
+                        @keydown.enter.prevent="addKeyword(vfx.key)"
+                      >
+                      <button
+                        class="cursor-pointer rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600 transition-colors dark:bg-neutral-800 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                        :disabled="!newKeywordInputs[vfx.key]?.trim()"
+                        @click="addKeyword(vfx.key)"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom Educational Tip Banner -->
+            <div class="mt-2 border border-primary-500/20 rounded-xl bg-primary-500/5 p-3.5 text-xs text-neutral-700 dark:border-primary-900/40 dark:text-neutral-300">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 text-primary-600 font-bold dark:text-primary-400">
+                  <div class="i-solar:lightbulb-bolt-bold-duotone size-4" />
+                  <span>ACT Token Prompt Crafting & VFX Syntax</span>
+                </div>
+                <button
+                  class="flex cursor-pointer items-center gap-1 rounded bg-primary-500/10 px-2 py-1 text-[11px] text-primary-600 font-medium transition-colors hover:bg-primary-500/20 dark:text-primary-400"
+                  @click="copyVfxPromptTemplate"
+                >
+                  <div class="i-solar:copy-bold size-3" />
+                  <span>Copy Prompt Template</span>
+                </button>
+              </div>
+
+              <p class="mt-2 text-[11px] text-neutral-600 leading-relaxed dark:text-neutral-300">
+                You can instruct the character to manifest elemental effects using the official ACT token syntax in system prompts or acting instructions:
+              </p>
+
+              <div class="grid grid-cols-1 mt-2 gap-2 text-[11px] font-mono sm:grid-cols-2">
+                <div class="border border-neutral-200/60 rounded-lg bg-white/50 p-2 dark:border-neutral-800 dark:bg-neutral-900/50">
+                  <div class="mb-1 text-neutral-700 font-semibold dark:text-neutral-200">
+                    Direct VFX Tokens:
+                  </div>
+                  <div class="text-neutral-500 space-y-0.5 dark:text-neutral-400">
+                    <div>&lt;|ACT:vfx="fire"|&gt;</div>
+                    <div>&lt;|ACT:vfx="electric"|&gt;</div>
+                    <div>&lt;|ACT:vfx="magic"|&gt;</div>
+                    <div>&lt;|ACT:vfx="verdant"|&gt;</div>
+                  </div>
+                </div>
+                <div class="border border-neutral-200/60 rounded-lg bg-white/50 p-2 dark:border-neutral-800 dark:bg-neutral-900/50">
+                  <div class="mb-1 text-neutral-700 font-semibold dark:text-neutral-200">
+                    Automatic Emotion Fallthrough:
+                  </div>
+                  <p class="text-[10px] text-neutral-500 leading-normal font-sans dark:text-neutral-400">
+                    When the character emits standard emotion tokens (e.g. <code class="text-primary-500 font-mono">&lt;|ACT:emotion="angry"|&gt;</code>), any bound keywords above will automatically trigger the corresponding elemental boost on stage!
+                  </p>
                 </div>
               </div>
             </div>

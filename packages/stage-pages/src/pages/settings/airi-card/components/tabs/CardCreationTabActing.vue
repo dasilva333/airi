@@ -3,7 +3,7 @@ import type { SpeechCapabilitiesInfo } from '@proj-airi/stage-ui/stores/provider
 
 import { FieldInput } from '@proj-airi/ui'
 
-defineProps<{
+const props = defineProps<{
   actingModelEmotionOptions: string[]
   actingModelMotionOptions: string[]
   actingGroupedExpressionTags: { category: string, tags: { tag: string, description?: string }[] }[]
@@ -14,6 +14,7 @@ defineProps<{
   isLive2d: boolean
   insertModelEmotion: (name: string) => void
   insertModelMotion: (name: string) => void
+  insertModelVfx?: (name: string) => void
   insertSpeechTag: (tag: string, description?: string) => void
   insertSpeechMannerism: (id: string) => void
   actingIdleAnimationOptions: { label: string, value: string }[]
@@ -55,6 +56,26 @@ const CAPTION_FX_STRUCTURAL_TAGS = [
   { snippet: 'Nya~ meow!', tag: 'Cat Speech', description: 'Playful ➔ Dynamic Wagging Tail' },
   { snippet: 'belong to me... 🖤', tag: 'Yandere Cue', description: 'Possessive ➔ Dark Vignette & Heartbeat Outline Pulse' },
 ]
+
+const ELEMENTAL_VFX_OPTIONS = [
+  { key: 'fire', label: '🔥 Fire Boost', token: '<|ACT:vfx="fire"|>', desc: 'Molten cinder fracture ground decal, bone-tethered ascending flame tongues & rising ember sparks.' },
+  { key: 'electric', label: '⚡ Electric Boost', token: '<|ACT:vfx="electric"|>', desc: 'Concentric high-voltage discharge ground ring, biological Fresnel rim & crackling arc sparks.' },
+  { key: 'magic', label: '✨ Magic Boost', token: '<|ACT:vfx="magic"|>', desc: 'Rotating arcane rune seal, ascending double-helical ribbons & floating starlight motes.' },
+  { key: 'verdant', label: '🍃 Verdant Boost', token: '<|ACT:vfx="verdant"|>', desc: 'Sacred 8-fold lotus blossom mandala, creeping vine field & drifting bio-spores.' },
+]
+
+function onInsertVfx(vfxKey: string) {
+  if (props.insertModelVfx) {
+    props.insertModelVfx(vfxKey)
+  }
+  else {
+    const line = `- <|ACT:vfx="${vfxKey}"|>`
+    if (selectedActingModelExpressionPrompt.value?.includes(line))
+      return
+    const suffix = selectedActingModelExpressionPrompt.value?.endsWith('\n') || !selectedActingModelExpressionPrompt.value ? '' : '\n'
+    selectedActingModelExpressionPrompt.value = `${selectedActingModelExpressionPrompt.value || ''}${suffix}${line}\n`
+  }
+}
 </script>
 
 <template>
@@ -161,6 +182,29 @@ const CAPTION_FX_STRUCTURAL_TAGS = [
             </div>
             <div v-else class="text-xs text-neutral-400 italic">
               No motion cues surfaced for this model.
+            </div>
+          </div>
+
+          <!-- Elemental VFX & Auras Section -->
+          <div v-if="!isLive2d" class="flex flex-col gap-2">
+            <div class="flex items-center justify-between text-xs text-neutral-600 font-medium dark:text-neutral-300">
+              <div class="flex items-center gap-1.5">
+                <div class="i-solar:fire-bold-duotone text-orange-500" />
+                <span>✨ Elemental VFX & Auras (3D / VRM / MMD)</span>
+              </div>
+              <span class="text-[10px] text-neutral-400 font-normal">Kinetic Auras & Ground Decals</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="vfx in ELEMENTAL_VFX_OPTIONS"
+                :key="vfx.key"
+                class="flex cursor-pointer items-center gap-1.5 border border-orange-200/50 rounded-full bg-orange-50/40 px-3 py-1 text-xs text-orange-800 transition-colors dark:border-orange-900/40 hover:border-orange-400 dark:bg-orange-950/20 dark:text-orange-300 hover:text-orange-600"
+                :title="vfx.desc"
+                @click="onInsertVfx(vfx.key)"
+              >
+                <span>{{ vfx.label }}</span>
+                <span class="text-[10px] font-mono opacity-70">{{ vfx.token }}</span>
+              </button>
             </div>
           </div>
         </div>

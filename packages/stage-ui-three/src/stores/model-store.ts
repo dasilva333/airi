@@ -65,6 +65,7 @@ type BroadcastChannelEvents
   = | BroadcastChannelEventShouldUpdateView
     | BroadcastChannelEventTriggerEmotion
     | BroadcastChannelEventTriggerMotion
+    | BroadcastChannelEventTriggerVfx
     | BroadcastChannelEventSetMeshVisibility
 
 interface BroadcastChannelEventShouldUpdateView {
@@ -83,6 +84,12 @@ interface BroadcastChannelEventTriggerMotion {
   name: string
 }
 
+interface BroadcastChannelEventTriggerVfx {
+  type: 'trigger-vfx'
+  name: string
+  duration?: number
+}
+
 interface BroadcastChannelEventSetMeshVisibility {
   type: 'set-mesh-visibility'
   meshName: string
@@ -97,6 +104,7 @@ export const useModelStore = defineStore('modelStore', () => {
   const shouldUpdateViewHooks = ref(new Set<(reason?: string) => void>())
   const triggerEmotionHooks = ref(new Set<(name: string, intensity: number) => void>())
   const triggerMotionHooks = ref(new Set<(name: string) => void>())
+  const triggerVfxHooks = ref(new Set<(name: string, duration?: number) => void>())
 
   const onShouldUpdateView = (hook: (reason?: string) => void) => {
     shouldUpdateViewHooks.value.add(hook)
@@ -132,6 +140,18 @@ export const useModelStore = defineStore('modelStore', () => {
   function triggerMotion(name: string) {
     post({ type: 'trigger-motion', name })
     triggerMotionHooks.value.forEach(hook => hook(name))
+  }
+
+  const onTriggerVfx = (hook: (name: string, duration?: number) => void) => {
+    triggerVfxHooks.value.add(hook)
+    return () => {
+      triggerVfxHooks.value.delete(hook)
+    }
+  }
+
+  function triggerVfx(name: string, duration = 4.0) {
+    post({ type: 'trigger-vfx', name, duration })
+    triggerVfxHooks.value.forEach(hook => hook(name, duration))
   }
 
   const hiddenMeshes = ref<string[]>([])
@@ -232,6 +252,9 @@ export const useModelStore = defineStore('modelStore', () => {
     }
     else if (event.type === 'trigger-motion') {
       triggerMotionHooks.value.forEach(hook => hook(event.name))
+    }
+    else if (event.type === 'trigger-vfx') {
+      triggerVfxHooks.value.forEach(hook => hook(event.name, event.duration))
     }
     else if (event.type === 'set-mesh-visibility') {
       applyMeshVisibility(event.meshName, event.visible)
@@ -407,6 +430,8 @@ export const useModelStore = defineStore('modelStore', () => {
     triggerEmotion,
     onTriggerMotion,
     triggerMotion,
+    onTriggerVfx,
+    triggerVfx,
 
     resetModelStore,
   }
