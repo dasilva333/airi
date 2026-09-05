@@ -9,7 +9,7 @@ import { useBackupStore } from '@proj-airi/stage-ui/stores/backup'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
-import { clearMcpToolBridge, setMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
+import { clearMcpToolBridge, ensureMcpServersForAllowedTools, setMcpToolBridge } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useMemoryLifetimeStore } from '@proj-airi/stage-ui/stores/memory-lifetime'
 import { useShortTermMemoryStore } from '@proj-airi/stage-ui/stores/memory-short-term'
 import { useTextJournalStore } from '@proj-airi/stage-ui/stores/memory-text-journal'
@@ -35,9 +35,12 @@ import ResizeHandler from './components/ResizeHandler.vue'
 
 import {
   electronGetServerChannelConfig,
+  electronMcpApplyAndRestart,
   electronMcpCallTool,
+  electronMcpGetConfig,
   electronMcpGetRuntimeStatus,
   electronMcpListTools,
+  electronMcpUpdateConfig,
   electronOpenOnboarding,
   electronOpenSettings,
   electronPluginInspect,
@@ -133,6 +136,9 @@ const reportPluginCapability = useElectronEventaInvoke(electronPluginUpdateCapab
 const listMcpTools = useElectronEventaInvoke(electronMcpListTools)
 const callMcpTool = useElectronEventaInvoke(electronMcpCallTool)
 const getMcpRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
+const getMcpConfig = useElectronEventaInvoke(electronMcpGetConfig)
+const updateMcpConfig = useElectronEventaInvoke(electronMcpUpdateConfig)
+const applyAndRestartMcp = useElectronEventaInvoke(electronMcpApplyAndRestart)
 const setLocale = useElectronEventaInvoke(i18nSetLocale)
 const openOnboarding = useElectronEventaInvoke(electronOpenOnboarding)
 
@@ -152,7 +158,17 @@ setMcpToolBridge({
   listTools: () => listMcpTools(),
   callTool: payload => callMcpTool(payload),
   getRuntimeStatus: () => getMcpRuntimeStatus(),
+  getConfig: () => getMcpConfig(),
+  updateConfig: payload => updateMcpConfig(payload),
+  applyAndRestart: () => applyAndRestartMcp(),
 })
+
+watch(activeCard, (card) => {
+  const allowed = card?.extensions?.airi?.generation?.known?.allowedTools
+  if (allowed?.length) {
+    void ensureMcpServersForAllowedTools(allowed)
+  }
+}, { immediate: true })
 
 watch(language, () => {
   i18n.locale.value = language.value

@@ -64,7 +64,17 @@ const mcpConfigSchema = z.object({
 }).strict()
 
 const defaultMcpConfig: ElectronMcpStdioConfigFile = {
-  mcpServers: {},
+  mcpServers: {
+    'open-websearch': {
+      command: 'npx',
+      args: ['-y', 'open-websearch@latest'],
+      env: {
+        DEFAULT_SEARCH_ENGINE: 'duckduckgo',
+        SEARCH_MODE: 'auto',
+      },
+      enabled: true,
+    },
+  },
 }
 const toolNameSeparator = '::'
 const mcpRequestTimeoutMsec = 10_000

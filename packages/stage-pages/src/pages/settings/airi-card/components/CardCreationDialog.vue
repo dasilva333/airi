@@ -12,6 +12,7 @@ import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constan
 import { DEFAULT_ACTING_MODEL_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_EXPRESSION_PROMPT, DEFAULT_ACTING_SPEECH_MANNERISM_PROMPT, DEFAULT_ARTISTRY_INTRUSION_PROMPT, DEFAULT_DREAM_INTRUSION_PROMPT, DEFAULT_HEARTBEATS_PROMPT, DEFAULT_JOURNAL_INTRUSION_PROMPT, DEFAULT_POST_HISTORY_INSTRUCTIONS, DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/character-defaults'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { ensureMcpServersForAllowedTools } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
@@ -626,6 +627,10 @@ function insertModelMotion(name: string) {
   appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:motion="${name}"|>`)
 }
 
+function insertModelVfx(name: string) {
+  appendUniqueLine(selectedActingModelExpressionPrompt, `- <|ACT:vfx="${name}"|>`)
+}
+
 function insertSpeechTag(tag: string, description?: string) {
   const line = description
     ? `- \`[${tag}]\` - ${description}`
@@ -1016,6 +1021,12 @@ async function saveCard(card: Card): Promise<boolean> {
   else {
     // Create mode: add new card
     await cardStore.addCard(cardWithModules)
+  }
+
+  // Ensure MCP servers for allowed tools (e.g. open-websearch, filesystem)
+  const allowedTools = toRaw(generationAllowedTools.value)
+  if (allowedTools && allowedTools.length > 0) {
+    await ensureMcpServersForAllowedTools(allowedTools)
   }
 
   modelValue.value = false // Close this
@@ -1490,6 +1501,7 @@ function handleGeneratorSave(newValue: string) {
             :is-vrma-expression="isVrmaExpression"
             :insert-model-emotion="insertModelEmotion"
             :insert-model-motion="insertModelMotion"
+            :insert-model-vfx="insertModelVfx"
             :insert-speech-tag="insertSpeechTag"
             :insert-speech-mannerism="insertSpeechMannerism"
             @sparkle-click="openSparkleGenerator"

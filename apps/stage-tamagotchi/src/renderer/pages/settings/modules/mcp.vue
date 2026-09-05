@@ -389,15 +389,19 @@ async function handleInstall(server: RegistryServer) {
   isBusy.value = true
   lastActionMessage.value = ''
   try {
-    const rawSlug = server.package_name || server.name.toLowerCase().replace(/\s+/g, '-')
     let slug = rawSlug
     const command = 'npx'
     let args: string[] = ['-y']
+    let env: Record<string, string> | undefined
 
     // Specialized 0-key Web Search
     if (server.name.toLowerCase().includes('open web search') || rawSlug.includes('open-websearch')) {
       slug = 'open-websearch'
       args = ['-y', 'open-websearch@latest']
+      env = {
+        DEFAULT_SEARCH_ENGINE: 'duckduckgo',
+        SEARCH_MODE: 'auto',
+      }
     }
     // Specialized Official Filesystem MCP
     else if (server.name.toLowerCase().includes('filesystem') || rawSlug.includes('server-filesystem')) {
@@ -429,6 +433,7 @@ async function handleInstall(server: RegistryServer) {
         [slug]: {
           command,
           args,
+          ...(env ? { env } : {}),
           enabled: true,
         },
       },

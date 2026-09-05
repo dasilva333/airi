@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ensureMcpServersForAllowedTools } from '@proj-airi/stage-ui/stores/mcp-tool-bridge'
 import { FieldInput } from '@proj-airi/ui'
 import { computed } from 'vue'
 
@@ -54,6 +55,7 @@ const hasWebSearch = computed({
     if (checked) {
       if (!current.includes('web_search'))
         generationAllowedTools.value = [...current, 'web_search']
+      void ensureMcpServersForAllowedTools(['web_search'])
     }
     else {
       generationAllowedTools.value = current.filter(t => t !== 'web_search' && t !== 'mcp_web_search')
@@ -71,6 +73,7 @@ const hasFilesystem = computed({
     if (checked) {
       if (!current.includes('filesystem'))
         generationAllowedTools.value = [...current, 'filesystem']
+      void ensureMcpServersForAllowedTools(['filesystem'])
     }
     else {
       generationAllowedTools.value = current.filter(t => t !== 'filesystem' && t !== 'mcp_filesystem')

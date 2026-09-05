@@ -33,10 +33,118 @@ export interface McpRuntimeStatus {
   updatedAt: number
 }
 
-interface McpToolBridge {
+export interface McpStdioServerConfig {
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+  enabled?: boolean
+}
+
+export interface McpStdioConfigFile {
+  mcpServers: Record<string, McpStdioServerConfig>
+}
+
+export interface McpToolBridge {
   listTools: () => Promise<McpToolDescriptor[]>
   callTool: (payload: McpCallToolPayload) => Promise<McpCallToolResult>
   getRuntimeStatus: () => Promise<McpRuntimeStatus>
+  getConfig?: () => Promise<McpStdioConfigFile>
+  updateConfig?: (partial: Partial<McpStdioConfigFile>) => Promise<void>
+  applyAndRestart?: () => Promise<unknown>
+}
+
+export async function ensureMcpServersForAllowedTools(allowedTools: string[] | undefined): Promise<boolean> {
+  if (!allowedTools || !allowedTools.length)
+    return false
+
+  const bridge = tryGetMcpToolBridge()
+  if (!bridge?.getConfig || !bridge?.updateConfig) {
+    return false
+  }
+
+  try {
+    const currentConfig = await bridge.getConfig()
+    const servers = { ...currentConfig?.mcpServers }
+    let changed = false
+
+    const hasWebSearch = allowedTools.includes('web_search') || allowedTools.includes('mcp_web_search')
+    const hasFilesystem = allowedTools.includes('filesystem') || allowedTools.includes('mcp_filesystem')
+
+    // 1. Ensure open-websearch if web_search is enabled
+    if (hasWebSearch) {
+      if (!servers['open-websearch']) {
+        servers['open-websearch'] = {
+          command: 'npx',
+          args: ['-y', 'open-websearch@latest'],
+          env: {
+            DEFAULT_SEARCH_ENGINE: 'duckduckgo',
+            SEARCH_MODE: 'auto',
+          },
+          enabled: true,
+        }
+        changed = true
+      }
+      else {
+        const existing = servers['open-websearch']
+        const currentEnv = existing.env || {}
+        if (existing.enabled === false || !currentEnv.DEFAULT_SEARCH_ENGINE) {
+          servers['open-websearch'] = {
+            ...existing,
+            env: {
+              DEFAULT_SEARCH_ENGINE: 'duckduckgo',
+              SEARCH_MODE: 'auto',
+              ...currentEnv,
+            },
+            enabled: true,
+          }
+          changed = true
+        }
+      }
+    }
+
+    // 2. Ensure filesystem if filesystem is enabled
+    if (hasFilesystem) {
+      if (!servers.filesystem) {
+        const home = typeof process !== 'undefined' && process.env?.HOME ? process.env.HOME : '/Users'
+        servers.filesystem = {
+          command: 'npx',
+          args: [
+            '-y',
+            '@modelcontextprotocol/server-filesystem',
+            `${home}/Documents/Projects`,
+            `${home}/Downloads`,
+            `${home}/Desktop`,
+          ],
+          enabled: true,
+        }
+        changed = true
+      }
+      else if (servers.filesystem.enabled === false) {
+        servers.filesystem = {
+          ...servers.filesystem,
+          enabled: true,
+        }
+        changed = true
+      }
+    }
+
+    if (changed) {
+      console.log('[mcp-tool-bridge] 🛠️ Automatically updating mcp.json with required server configs:', Object.keys(servers))
+      await bridge.updateConfig({ mcpServers: servers })
+      if (bridge.applyAndRestart) {
+        bridge.applyAndRestart().catch((err) => {
+          console.warn('[mcp-tool-bridge] Background applyAndRestart encountered an error:', err)
+        })
+      }
+      return true
+    }
+  }
+  catch (error) {
+    console.error('[mcp-tool-bridge] Failed to ensure MCP servers for allowed tools:', error)
+  }
+
+  return false
 }
 
 let bridge: McpToolBridge | undefined
