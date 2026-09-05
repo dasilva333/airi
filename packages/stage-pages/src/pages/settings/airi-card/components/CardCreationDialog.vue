@@ -33,6 +33,7 @@ import {
 } from 'reka-ui'
 import { computed, onMounted, ref, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue-sonner'
 
 import FieldAiGeneratorModal from './FieldAiGeneratorModal.vue'
 import ImageTagExtractorModal from './ImageTagExtractorModal.vue'
@@ -658,6 +659,7 @@ function insertSpeechMannerism(id: string) {
 }
 
 onMounted(() => {
+  toast.dismiss('character-config-opening')
   displayModelsStore.loadDisplayModelsFromIndexedDB()
 })
 

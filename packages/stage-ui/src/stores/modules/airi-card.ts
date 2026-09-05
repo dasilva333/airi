@@ -310,6 +310,23 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   const cardsLoading = ref(true)
   const activeCardId = useLocalStorageManualReset<string>('airi-card-active-id', 'default')
 
+  // Store-driven modal intents to eliminate route-query race conditions
+  const pendingEditCardId = ref<string | null>(null)
+  const pendingViewCardId = ref<{ cardId: string, initialTab?: string } | null>(null)
+
+  function requestEditCard(cardId: string) {
+    pendingEditCardId.value = cardId
+  }
+
+  function requestViewCard(cardId: string, initialTab?: string) {
+    pendingViewCardId.value = { cardId, initialTab }
+  }
+
+  function clearPendingCardActions() {
+    pendingEditCardId.value = null
+    pendingViewCardId.value = null
+  }
+
   // One-time migration: move legacy localStorage airi-cards → IndexedDB, then clear the old key
   async function migrateFromLocalStorage() {
     const legacyRaw = localStorage.getItem('airi-cards')
@@ -1312,6 +1329,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   function resetState() {
     activeCardId.reset()
+    clearPendingCardActions()
     // Reload cards from IndexedDB (cards is no longer a ManualResetRefReturn)
     void loadCards()
     isModelSyncPrevented.reset()
@@ -1322,6 +1340,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     cardsLoading,
     activeCard,
     activeCardId,
+    pendingEditCardId,
+    pendingViewCardId,
+    requestEditCard,
+    requestViewCard,
+    clearPendingCardActions,
     activateCard,
     addCard,
     removeCard,

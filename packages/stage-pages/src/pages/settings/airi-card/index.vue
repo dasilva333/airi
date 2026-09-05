@@ -19,7 +19,7 @@ import { Button, InputFile } from '@proj-airi/ui'
 import { Select } from '@proj-airi/ui/components/form'
 import { storeToRefs } from 'pinia'
 import { safeParse } from 'valibot'
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -190,6 +190,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  toast.dismiss('character-config-opening')
   removeIpcListener()
   window.removeEventListener('dragover', onDragOver)
   window.removeEventListener('dragleave', onDragLeave)
@@ -199,31 +200,80 @@ onUnmounted(() => {
 // Initial tab for the detail dialog
 const initialTab = ref<string | undefined>(undefined)
 
-// Watch for deep-linking query parameters with asynchronous cards-load safety
-watch(
-  [() => route.query, () => cards.value.size, () => cardsLoading.value],
-  ([query, _size, loading]) => {
-    const cardId = query.cardId as string
-    const tab = query.tab as string
-    const edit = query.edit as string
+// Process opening intent from either store state or route query parameters
+async function processOpenIntent() {
+  if (cardsLoading.value)
+    return
 
-    if (!cardId || loading)
-      return
+  // 1. Check store-driven pending modal intents (eliminates route-query race conditions)
+  if (cardStore.pendingEditCardId) {
+    const targetId = cardStore.pendingEditCardId
+    cardStore.pendingEditCardId = null
 
-    if (cards.value.has(cardId)) {
-      if (edit === 'true') {
-        editingCardId.value = cardId
-        isCardCreationDialogOpen.value = true
-      }
-      else {
-        selectedCardId.value = cardId
-        initialTab.value = tab || undefined
-        isCardDialogOpen.value = true
-      }
+    if (!cards.value.has(targetId) && typeof cardStore.initialize === 'function') {
+      await cardStore.initialize()
+    }
 
-      // Clear query params after handling so refresh doesn't reopen unexpectedly
+    editingCardId.value = targetId
+    isCardCreationDialogOpen.value = true
+    return
+  }
+
+  if (cardStore.pendingViewCardId) {
+    const { cardId: targetId, initialTab: tab } = cardStore.pendingViewCardId
+    cardStore.pendingViewCardId = null
+
+    if (!cards.value.has(targetId) && typeof cardStore.initialize === 'function') {
+      await cardStore.initialize()
+    }
+
+    selectedCardId.value = targetId
+    initialTab.value = tab || undefined
+    isCardDialogOpen.value = true
+    return
+  }
+
+  // 2. Fallback to deep-linking route query parameters
+  const cardId = route.query.cardId as string
+  const tab = route.query.tab as string
+  const edit = route.query.edit as string
+
+  if (!cardId)
+    return
+
+  if (!cards.value.has(cardId) && typeof cardStore.initialize === 'function') {
+    await cardStore.initialize()
+  }
+
+  if (cards.value.has(cardId)) {
+    if (edit === 'true') {
+      editingCardId.value = cardId
+      isCardCreationDialogOpen.value = true
+    }
+    else {
+      selectedCardId.value = cardId
+      initialTab.value = tab || undefined
+      isCardDialogOpen.value = true
+    }
+
+    // Await nextTick to ensure the dialog state has mounted before clearing query parameters
+    await nextTick()
+    if (route.query.cardId || route.query.edit || route.query.tab) {
       void router.replace({ query: {} })
     }
+  }
+}
+
+watch(
+  [
+    () => cardStore.pendingEditCardId,
+    () => cardStore.pendingViewCardId,
+    () => route.query,
+    () => cards.value.size,
+    () => cardsLoading.value,
+  ],
+  () => {
+    void processOpenIntent()
   },
   { immediate: true },
 )
@@ -1090,6 +1140,7 @@ async function exportCardPng(cardId: string) {
 watch(isCardCreationDialogOpen, (isOpen) => {
   if (!isOpen) {
     editingCardId.value = ''
+    toast.dismiss('character-config-opening')
   }
 })
 

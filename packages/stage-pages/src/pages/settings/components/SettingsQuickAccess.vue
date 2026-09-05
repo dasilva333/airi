@@ -4,6 +4,7 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 interface QuickAccessItem {
   id: string
@@ -28,7 +29,7 @@ const row1Items = computed<QuickAccessItem[]>(() => [
     id: 'character-config',
     title: 'Character Config',
     icon: 'i-solar:pen-bold-duotone',
-    to: activeCardId.value ? `/settings/airi-card?cardId=${activeCardId.value}&edit=true` : '/settings/airi-card',
+    to: '/settings/airi-card',
   },
   {
     id: 'character-wizard',
@@ -91,8 +92,19 @@ const row2Items = computed<QuickAccessItem[]>(() => [
   },
 ])
 
-function navigate(to: string) {
-  router.push(to)
+function navigate(target: string | QuickAccessItem) {
+  if (typeof target === 'object') {
+    if (target.id === 'character-config') {
+      const targetId = activeCardId.value || 'default'
+      cardStore.requestEditCard(targetId)
+      toast.loading('Opening character configuration...', { id: 'character-config-opening', duration: 6000 })
+      router.push('/settings/airi-card')
+      return
+    }
+    router.push(target.to)
+    return
+  }
+  router.push(target)
 }
 </script>
 
@@ -111,7 +123,7 @@ function navigate(to: string) {
           'hover:bg-primary-500/8 dark:hover:bg-primary-500/15',
           'hover:-translate-y-0.5 hover:shadow-sm',
         ]"
-        @click="navigate(item.to)"
+        @click="navigate(item)"
       >
         <div
           :class="[
