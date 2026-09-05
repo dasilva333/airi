@@ -1,328 +1,605 @@
-# Architectural Proposal: Conversational Pacing, Dynamic Thinking Fillers & Post-CoT Text Velocity
+# Conversational Pacing and Thinking Fillers
 
-**Status:** Proposed Architecture & Research Specification
-**Authors:** AIRI Team (Richy / dasilva333) & AI Assistant
-**Target Components:**
-- `packages/stage-ui/src/stores/chat/session-store.ts` (Chat orchestration & SSE stream lifecycle)
-- `packages/stage-ui/src/stores/modules/speech.ts` (TTS playback queue & dynamic audio cache)
-- `packages/stage-ui/src/stores/modules/airi-card.ts` (Acting tab, Personality Thinking Bundles, Cue Keywords)
-- `packages/stage-ui/src/composables/llm-marker-parser.ts` (Streaming CoT & marker interceptors)
-- `packages/stage-ui/src/components/scenarios/chat/` (Chatbox message rendering, typing velocity & visual stutters)
-- `apps/stage-tamagotchi/src/renderer/pages/chat.vue` (Desktop chatbox container)
+**Status:** Production specification, implementation-ready after review
+**Scope:** Turn-based text/STT/proactivity responses that use the ordinary chat hook and speech-runtime path
+**Out of scope:** Gemini Live native PCM output (`outputMode: 'gemini'`), which owns its own audio clock and must not be mixed with custom TTS
 
-**Related Documentation & Skills:**
-- [`docs/arch-chat-stt-proactivity-pipelines.md`](./arch-chat-stt-proactivity-pipelines.md) — Core interaction pipelines & chat orchestration.
-- [`docs/data-catalog.md`](./data-catalog.md) — Local persistence keys and caching boundaries.
-- Skills: `airi-audio-pipeline`, `airi-acting-cue-act-tokens`, `airi-desktop-chatbox`, `airi-interaction-pipelines`, `airi-llm-dispatch-gateway`, `airi-character-rendering`.
+## 1. Executive Summary
 
----
+Conversational pacing is a coordination problem between four clocks:
 
-## 1. Problem Statement & Executive Summary
+1. Inference clock: request dispatch, provider events, first usable answer text, and final settlement.
+2. Speech clock: TTS synthesis, decoded audio duration, queued playback, and interruption.
+3. Presentation clock: avatar cues, captions, and transient visual rendering.
+4. Persistence clock: the final assistant message written to the chat session.
 
-In conversational AI and virtual companion interactions, conversational flow breaks down at two critical points:
+The system MUST have one authoritative turn coordinator and one speech intent per turn. Thinking fillers are optional audio items owned by that intent. They are never emitted as assistant text, never inserted into `rawContent`, and never create a second TTS engine or playback queue.
 
-```
-User Submits Message
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 🔴 THE DEAD SILENCE GAP (High TTFT / Deep Reasoning)   │
-│   • 2s to 8s+ of awkward silence while model computes. │  ===> Solved by: Pillar A
-│   • High cognitive dissonance for voice interactions.  │       (Dynamic Thinking Fillers)
-└────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 🔴 THE INSTANT TOKEN DUMP (Uncanny Text/Voice Velocity)│
-│   • Text streams at raw API token speed (robotic).     │  ===> Solved by: Pillar B
-│   • Emotionally flat (e.g. angry "what" dumps instantly│       (Post-CoT Text Velocity
-│     instead of a tense, deliberate "w-h-a-t.").        │        & Visual Hesitation)
-│   • No human typing hesitation, backspacing, or pauses.│
-└────────────────────────────────────────────────────────┘
-       │
-       ▼
-Final Rendered Message
-```
+The design has two pillars:
 
-This proposal establishes a unified architecture addressing both challenges:
-1. **Pillar A (Mature / Immediate Implementation)**: **Dynamic Thinking Fillers & Cascaded CoT Audio Cue Interception**. Masking high Time-to-First-Token (TTFT) and reasoning pauses by dynamically synthesizing and caching personality-aligned audio fillers, paired with an exact multi-tiered timing cascade for Chain-of-Thought (CoT) keyword extraction.
-2. **Pillar B (Exploratory / Complex UX Problems)**: **Post-CoT Expressive Text Pacing, Visual Hesitation & Non-Verbal Staging**. Rendering chatbox text with emotional velocity, simulated retyping/stuttering, visual deletion, and avatar non-verbal cues.
+- **Pillar A, bounded latency masking:** arm at an adaptive threshold, choose a filler only from evidence available before the deadline, and cancel or hand off through the existing speech intent.
+- **Pillar B, presentation pacing:** pace display-only text and visual hesitation independently from TTS, while persisting only the canonical assistant response.
 
----
+The design rejects several assumptions in the previous draft:
 
-## 2. Pillar A: Dynamic Thinking Fillers & Timing State Machine
+- Receiving an SSE header is not evidence that an answer is imminent. Only a usable answer literal suppresses a filler.
+- Chain-of-thought is provider-specific and is not a reliable personality or sentiment channel. It may be used only for coarse, explicitly configured categories and only when the provider adapter marks it as non-user-visible reasoning.
+- “Zero gap” is a measurable scheduling invariant, not a promise that any arbitrary browser/provider combination can satisfy. It requires decoded audio to be scheduled against the same `AudioContext` clock with a positive lead.
+- `speech.ts` is a settings/provider store, not the audio queue owner. Queue ownership belongs to the speech pipeline and intent runtime.
+- A cache key is not a data contract. The cache must define ownership, eviction, invalidation, and whether audio is synchronized. The default is local-only and non-syncing.
 
-### 2.1 The Dynamic Audio Cache (Zero-Bloat Architecture)
+## 2. Existing Architecture and Invariants
 
-A critical requirement is **preventing static asset bloat**. Rather than shipping bulky, pre-recorded audio files that cannot match custom user voices, AIRI leverages its existing active TTS engine to synthesize filler lines dynamically on demand or during first configuration:
+The implementation MUST fit these current paths:
 
-```
-                    ┌──────────────────────────────────────────┐
-                    │      Active TTS Engine / VoiceProfile    │
-                    │   (Kokoro, EdgeTTS, OpenAI, ElevenLabs)  │
-                    └─────────────────────┬────────────────────┘
-                                          │ (Dynamic Synthesis)
-                                          ▼
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│  IndexedDB / Localforage Audio Cache: `local:audio:thinking-cache/{voiceId}`     │
-├──────────────────────────────────────────────────────────────────────────────────┤
-│  • tsundere_01.mp3 ("Hmph... let me think...")                                   │
-│  • tsundere_02.mp3 ("Wait a second, don't rush me!")                             │
-│  • kuudere_01.mp3  ("Analyzing...")                                              │
-│  • custom_cue_richy.mp3 ("Richy...? Hold on...")                                │
-└──────────────────────────────────────────────────────────────────────────────────┘
+| Concern | Current authority | Required integration |
+| --- | --- | --- |
+| Turn generation, stream lifecycle, session inscription | `packages/stage-ui/src/stores/chat.ts` and `packages/stage-ui/src/stores/chat/session-store.ts` | `chat.ts` owns `performSend`, stream events, and generation invalidation; `session-store.ts` owns session records and inscription. Create one coordinator per generation. |
+| Cross-surface route map | `docs/arch-chat-stt-proactivity-pipelines.md` | Typed chat, STT, and proactivity converge on the ordinary chat path; all share the speech lane. |
+| Stream marker interception | `packages/stage-ui/src/composables/llm-marker-parser.ts` | Run before categorization and TTS. ACT/DELAY/ACTOR remain special tokens. |
+| Speech settings and active voice | `packages/stage-ui/src/stores/modules/speech.ts` | Read provider/model/voice/rate/pitch; do not add playback ownership here. |
+| TTS segmentation and playback scheduling | `packages/pipelines-audio/src/speech-pipeline.ts` | Extend intent metadata/playback ownership rather than creating a parallel queue. |
+| Speech host and cancellation | speech runtime/pipeline runtime and `ControlStripHost.vue` | One intent, one owner, explicit cancel on barge-in or generation invalidation. |
+| Acting prompts and card persistence | `card.schema.ts`, `airi-card.ts`, `CardCreationTabActing.vue` | Add validated pacing configuration under `extensions.airi.acting`. |
+| Chat persistence | chat session repo and `ChatAssistantMessage` | `content` is display text; `rawContent` retains model output and markers. Pacing metadata is not transcript content. |
+
+### 2.1 Non-negotiable invariants
+
+- Every turn has a unique `turnId`, `sessionId`, and captured `generation`.
+- Events from a stale generation MUST be ignored, including late provider events, timer callbacks, TTS completions, and playback callbacks.
+- There is at most one filler attempt and at most one filler playback item per turn.
+- A filler MUST NOT delay the first answer audio if answer audio is ready and the filler has not started.
+- Once filler audio has started, the answer is queued behind it or the filler is interrupted only by an explicit cancellation policy. It is never played concurrently.
+- `stream-end` flushes; `assistant-end` settles. This matches remote replay and speech-host lifecycle rules.
+- `NO_REPLY` produces no filler, no speech intent, and no persisted assistant message.
+- Native Gemini audio mode bypasses this subsystem entirely. Custom Gemini mode follows the normal marker/parser/TTS path but still cannot be mixed with native PCM.
+
+## 3. Formal Model
+
+Let `t0` be monotonic time at dispatch. Let `ta` be the time of the first answer literal after marker parsing and reasoning categorization. Let `tf` be the time filler playback begins, or `∞` if it never begins. Let `te` be answer settlement.
+
+The filler policy is a partial function:
+
+```text
+F(turn) ∈ {suppressed, armed, active, canceled, rejected}
 ```
 
-* **Storage Footprint**: Tiny text strings (< 1 KB) in character card / settings.
-* **Audio Availability**: Generated once in the background per voice profile; subsequent triggers load instantly from IndexedDB with 0ms synthesis overhead.
+The safety property is:
 
----
-
-### 2.2 Personality Thinking Bundles
-
-Character cards can define or select from preset "Thinking Bundles" in the **Acting Tab**:
-
-| Bundle Archetype | Example Thinking Fillers | Use Case |
-|---|---|---|
-| **Tsundere** | *"H-Hold on a second..."*, *"Don't rush me, baka!"*, *"Let me think..."* | Tsundere personas, defensive/flustered moments |
-| **Kuudere / Analytical** | *"Processing..."*, *"Give me a moment to review this..."*, *"Hmm..."* | Calm, analytical, robotic, or stoic characters |
-| **Yandere** | *"Fufu... let me see..."*, *"Thinking about what you just said..."* | Possessive, deliberate, intense personas |
-| **Genki / Playful** | *"Ooh, let me check!"*, *"Wait wait wait, thinking!"*, *"Hmm-hmm~"* | Energetic, cheerful, bouncy characters |
-| **Custom / User-Defined** | Custom text lines + associated trigger keywords | Tailored roleplay cards & specific creator prompts |
-
----
-
-### 2.3 Cascaded Timing State Machine
-
-To balance responsiveness, support for CoT reasoning models (e.g. DeepSeek R1, OpenAI o1/o3, Qwen-QWQ), and fallback compatibility with slow non-CoT models, execution follows an exact cascaded timeline:
-
+```text
+if ta < tf, then no filler audio is audible
 ```
-T0: User Sends Message
- │
- ├──▶ Start Timer 1: [Fallback Threshold: 3.0s]
- │    Start Avatar Non-Verbal Staging (Thinking Gaze / Puzzled Expression)
- │
- ▼
-T_SSE: SSE Stream Connects (First Chunk Arrives)
- │
- ├── If T_SSE < 3.0s:
- │    ├── Cancel 3.0s Fallback Timer
- │    └── Start Timer 2: [Reasoning Window: 1.0s]
- │
- ▼
-T_REASONING: Check for `reasoning_content` stream
- │
- ├── Case 1: `reasoning_content` detected within 1.0s window
- │    │
- │    ├── Start Timer 3: [CoT Cue Extraction Window: 1.0s]
- │    │
- │    ▼
- │    Scan incoming CoT tokens for registered Cue Keywords (e.g. "Richy", "angry", "math")
- │    │
- │    ├── [Match Found]: Play contextual/surrounding cue audio from cache
- │    └── [No Match / Timer 3 Expires]: Play generic personality bundle filler from cache
- │
- ├── Case 2: Direct `content` stream begins immediately (Fast non-CoT model)
- │    └── Discard filler entirely (Response is already generating; zero delay needed)
- │
- └── Case 3: SSE connected but stalled (No content or reasoning for > 1.0s)
-      └── Fallback: Play generic personality bundle filler from cache
+
+The race policy is:
+
+- If answer text arrives before filler playback begins, cancel the pending filler.
+- If answer text arrives after filler playback begins, enqueue answer audio behind the active filler, subject to `maxFillerDurationMs`.
+- If answer audio is already decoded and scheduled with a start time earlier than filler start, filler is rejected; the answer owns the next playback slot.
+
+The product objective is not “always fill silence.” It is to minimize perceived dead air subject to:
+
+```text
+P(filler audible | answer would have been ready first) ≤ falsePositiveBudget
 ```
+
+The initial default budget is 1% over a rolling 100-turn window, with a hard safety floor that disables fillers after repeated late starts.
+
+## 4. Provider Protocol Matrix
+
+The provider adapter MUST normalize provider output into a stream-neutral event contract. The coordinator MUST NOT inspect provider-specific object shapes.
+
+```ts
+type InferenceEvent
+  = | { type: 'connected', at: number }
+    | { type: 'reasoning', text: string, visibility: 'hidden' | 'visible', at: number }
+    | { type: 'answer', text: string, at: number }
+    | { type: 'special', token: string, at: number }
+    | { type: 'tool', phase: 'start' | 'end', at: number }
+    | { type: 'finish', reason?: string, at: number }
+    | { type: 'error', error: unknown, at: number }
+```
+
+| Provider behavior | Adapter normalization | Filler consequence |
+| --- | --- | --- |
+| Separate `reasoning_content` deltas | `reasoning`, `visibility: hidden` | Reasoning may inform a coarse category; it does not suppress filler. |
+| In-band `<think>`/`<thought>` | Delimiter adapter removes hidden block before normal categorization | The delimiter parser must be incremental and chunk-safe. |
+| Anthropic thinking events | `reasoning`, then `answer` | Same policy; event names never reach coordinator logic. |
+| Direct answer stream | `answer` after marker parsing | Suppress pending filler immediately. |
+| Slow non-reasoning model | No event until answer or finish | Adaptive deadline may arm generic filler; no fabricated CoT category. |
+| Ultra-fast model | `answer` before deadline | No filler synthesis or playback. |
+| Tool loop | `tool:start` pauses answer expectation but does not reset `t0` | A filler may play once; tool output cannot create another filler. |
+
+If an adapter cannot distinguish hidden reasoning from user-visible text, it MUST emit the data as `answer`. It MUST NOT guess that arbitrary XML is hidden reasoning.
+
+## 5. State Machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> RequestDispatched: User submits message (T0)
-
-    state RequestDispatched {
-        [*] --> SetFallbackTimer: Start 3.0s Fallback Timer
-        SetFallbackTimer --> AwaitingSSE
-    }
-
-    AwaitingSSE --> SSEConnected: First SSE Byte (< 3.0s)
-    AwaitingSSE --> PlayGenericFiller: 3.0s Timer Expires (No SSE / Slow Model)
-
-    state SSEConnected {
-        [*] --> CheckReasoningToken: Cancel 3.0s Timer, Start 1.0s Reasoning Window
-        CheckReasoningToken --> CoTDetected: reasoning_content stream detected
-        CheckReasoningToken --> DirectContent: content tokens start immediately
-        CheckReasoningToken --> PlayGenericFiller: 1.0s Reasoning Window Expires
-    }
-
-    DirectContent --> SuppressFiller: Fast answer ready, do not play filler
-
-    state CoTDetected {
-        [*] --> ScanCoTTokens: Start 1.0s Cue Extraction Window
-        ScanCoTTokens --> PlayContextualCue: Keyword matched in CoT stream
-        ScanCoTTokens --> PlayGenericFiller: 1.0s Window Expires (No keyword matched)
-    }
-
-    PlayGenericFiller --> AudioPlaybackLock: Play 1 cached snippet
-    PlayContextualCue --> AudioPlaybackLock: Play 1 cached snippet
-    AudioPlaybackLock --> MainTTSHandoff: Enforce Single-Clip Limit & Queue Main Stream
-    SuppressFiller --> MainTTSHandoff
-    MainTTSHandoff --> [*]
+    [*] --> IDLE
+    IDLE --> DISPATCHED: dispatch(turnId, generation)
+    DISPATCHED --> STAGING: first coordinator tick
+    STAGING --> SETTLED: NO_REPLY / disabled / stale / error
+    STAGING --> ANSWER_READY: answer event before deadline
+    STAGING --> FILLER_ARMED: adaptive deadline elapsed
+    STAGING --> STAGING: reasoning / connected / tool events
+    FILLER_ARMED --> ANSWER_READY: answer event before synthesis/playback
+    FILLER_ARMED --> FILLER_ACTIVE: cached filler scheduled and starts
+    FILLER_ARMED --> SETTLED: stale / cancel / answer audio scheduled first
+    FILLER_ACTIVE --> HANDOFF: filler ended and answer audio ready
+    FILLER_ACTIVE --> HANDOFF: filler ended, answer still synthesizing
+    FILLER_ACTIVE --> SETTLED: user barge-in / explicit cancel
+    ANSWER_READY --> HANDOFF: answer intent receives first literal
+    HANDOFF --> SETTLED: assistant-end and playback ownership released
+    DISPATCHED --> SETTLED: generation invalidated
+    STAGING --> SETTLED: generation invalidated
+    FILLER_ARMED --> SETTLED: generation invalidated
+    FILLER_ACTIVE --> SETTLED: generation invalidated
 ```
 
----
+`ANSWER_READY` is an internal state, not a second speech intent. The normal assistant speech intent remains the sole owner of answer TTS.
 
-### 2.4 Audio Queue & Concurrency Safeguards
+### 5.1 Transition rules
 
-1. **Single-Clip Limit**: Exactly **one** thinking audio clip is permitted per chat turn. Once a filler starts playing, the thinking state machine locks and prevents any secondary filler triggers.
-2. **Main TTS Handoff**:
-   - The main response TTS stream is queued behind the thinking filler.
-   - If the main response finishes generating while the filler is playing, it waits for the short filler snippet (typically 0.8s–1.8s) to conclude before speaking the main response.
-   - **No Engine Double-Triggering**: The speech runtime pipeline treats the thinking snippet as the initial item in the turn's speech queue, preventing audio driver restarts.
+| From | Event | Guard | Action |
+| --- | --- | --- | --- |
+| `DISPATCHED` | first tick | turn current | enter `STAGING`; emit optional nonverbal staging cue |
+| `STAGING` | answer literal | current | cancel arm timer; enter `ANSWER_READY`; send literal to ordinary intent |
+| `STAGING` | deadline | no answer audio scheduled; filler enabled | enter `FILLER_ARMED`; select cached clip only |
+| `FILLER_ARMED` | answer literal | filler not started | cancel clip; enter `ANSWER_READY` |
+| `FILLER_ARMED` | clip ready | current and no answer scheduled | schedule clip on same playback owner; enter `FILLER_ACTIVE` only on `onStart` |
+| `FILLER_ACTIVE` | answer literal | current | ordinary intent continues; playback remains serialized |
+| any non-settled | `assistant-end` | current | flush answer; settle after queue ownership is released |
+| any | cancel/barge-in | current | abort inference if supported, cancel intent, stop owned playback, settle as interrupted |
 
----
+The 1200 ms filler / 1400 ms answer race is therefore deterministic: if playback has not started, filler is canceled; if playback has started, answer is queued after the clip and the clip is never restarted.
 
-### 2.5 Event-Driven Lifecycle & Dynamic Duration Calibration
+## 6. Adaptive Timing
 
-While fixed wall-clock timers ($3.0\text{s}$ fallback, $1.0\text{s}$ CoT window) provide a predictable baseline model, real-world network conditions and model response profiles introduce significant timing variance. A rigid clock-only approach risks brittleness if a stream takes $3.1\text{s}$ to connect or if reasoning tokens take slightly longer to ramp up.
+Timers remain necessary because absence of an event is itself a signal. They are policy deadlines, not guesses about provider internals.
 
-To solve this, the execution architecture incorporates an **Event-Driven Transition Layer**:
+For each `(providerInstanceId, modelId, modality)` bucket, record successful TTFT samples `x_n` where TTFT is dispatch-to-first-answer-literal. Use a bounded EMA:
 
-1. **State-Driven Milestones**:
-   - `STREAM_DISPATCHED` ($T_0$): Dispatches request, triggers non-verbal avatar staging, starts adaptive safety timer.
-   - `SSE_HEADER_RECEIVED`: Marks stream connectivity; pauses/aborts fixed fallback timers immediately.
-   - `REASONING_CHUNK_DETECTED`: Shifts directly into active CoT scanning mode upon the first `reasoning_content` token.
-   - `CONTENT_CHUNK_DETECTED`: Indicates final speech/content generation has begun; immediately suppresses pending fillers if audio has not yet started playback.
-2. **Adaptive Latency Calibration**:
-   - Moving average tracking of provider Time-to-First-Token (TTFT) and Time-to-First-Reasoning (TTFR).
-   - If a provider consistently responds in $800\text{ms}$, the system dynamically tightens thresholds to avoid unnecessary filler scheduling.
-   - If a provider (e.g. deep local reasoning model) consistently takes $5\text{s}$, the fallback safely scales to avoid premature generic filler firing before reasoning stream extraction begins.
-
----
-
-### 2.6 TTS Velocity Variability & Audio Buffer Scheduling
-
-Different TTS engines exhibit drastically different synthesis speeds and playback velocities:
-- **Local WebGPU (Kokoro)**: Fast first-chunk synthesis (~200–400ms), fixed playback duration.
-- **EdgeTTS / Cloud Providers (OpenAI, Azure, ElevenLabs)**: Network round-trip latency (300–1200ms) with variable audio compression and pacing.
-- **Self-Hosted / Sidecar Engines (FastAPI / SGLang)**: Variable batching performance depending on local GPU VRAM pressure.
-
-#### Audio Buffer Coordination Contract
-To prevent race conditions where main speech audio arrives while a thinking filler is still playing:
-- **Audio Chaining Queue**: The speech pipeline (`packages/pipelines-audio/src/speech-pipeline.ts`) schedules the thinking snippet as `PlaybackItem[0]`.
-- **Pre-buffering Subsequent Chunks**: As the main LLM response generates and streams chunks via `chunkTTSInput()` or `chunkTtsInput()`, the main speech audio is synthesized and decoded in the background while `PlaybackItem[0]` is playing.
-- **Zero-Gap Handoff**: When `PlaybackItem[0].onEnd` fires, `PlaybackItem[1]` starts immediately with zero audio gap or driver reset.
-
----
-
-### 2.7 Situational & Conditional CoT Activation
-
-CoT audio cue scanning is not designed as a heavy, mandatory per-turn tax. Instead, it operates as a **situational capability**:
-- **Explicit Keyword Rules**: Evaluated against the lightweight streaming buffer without full JSON parsing.
-- **Card-Level Configuration**: Creators can toggle CoT scanning on or off per card or per personality archetype.
-- **Prompt Complexity Heuristics**: Lightweight heuristics (e.g., presence of analytical inquiries, decision-making, or complex questions) determine whether CoT extraction is prioritized or if direct fast response routing is favored.
-
----
-
-## 3. Pillar B: Post-CoT Text Velocity & Emotional Messaging (Exploratory)
-
-While Pillar A resolves the auditory and latency gap, the visual rendering of messages in the chatbox poses distinct challenges that extend beyond simple token streaming.
-
-### 3.1 Emotional Typing Velocity
-
-Currently, text appears at the rate the LLM streams tokens. In visual novels and rich chat interfaces, typing speed conveys emotion:
-
-| Emotional State | Target Typing Behavior | Visual VN / Chat Mechanics |
-|---|---|---|
-| **Anger / Tension** | Deliberate, slow, rhythmic cadence (e.g. *"w - h - a - t ."*) | Pauses between letters/words; heavy punctuation stops |
-| **Excitement / Panic** | High-velocity bursts followed by sudden pauses | Rapid burst of tokens, followed by ellipsis pause |
-| **Hesitation / Shyness** | Stuttering, micro-pauses before key words | Letter repetition (*"I-I just wanted to say..."*), comma delays |
-
----
-
-### 3.2 Visual Hesitation & Simulated Retyping (The "Draft & Delete" Problem)
-
-One of the most human interactions in chat messaging is seeing the other person type, stop, erase what they wrote, and rephrase:
-
-```
-[Visual Chat Preview During Stream]
-Step 1 (Drafting):  Airi is typing: "I really hate when you do that..."
-Step 2 (Hesitation): [Pause 600ms]
-Step 3 (Deleting):   Backspace animation: "I really..." -> "I..." -> ""
-Step 4 (Final Text): Airi: "It's not like I care, but please be careful next time."
+```text
+μ_n = α x_n + (1 - α) μ_(n-1)
+α = 2 / (N + 1), N ∈ [8, 32]
 ```
 
-#### Complexities & Open Problems
-* **Markdown Parser Stability**: Erasing characters during active Markdown/HTML parsing can cause malformed tags and visual glitches.
-* **Storage Invariance**: Visual backspacing must remain purely cosmetic in the transient UI renderer; the final persisted session message must only contain the clean final text.
-* **CoT-Driven Stutter Clues**: Extracting potential hesitation points by inspecting reasoning tokens (e.g. model reconsidering tone in CoT) without leaking raw chain-of-thought into the user's permanent transcript.
+Track dispersion with an EMA of absolute deviation:
 
----
-
-### 3.3 Avatar Non-Verbal Staging During Thinking
-
-When $T_0$ fires, the 3D (VRM) or 2D (Live2D) avatar should immediately break neutral idle:
-* **Gaze Shift**: Deflect gaze upwards or sideways (the universal human cue for cognitive retrieval).
-* **Head Tilt**: Subtle $5^\circ$ roll and pitch.
-* **Expression**: Blendshape transition into a subtle `thinking` / `puzzled` expression, relaxing back to neutral/target emotion when the main speech stream begins.
-
----
-
-## 4. UI & Configuration Placement
-
-The configuration will be integrated into the **Acting Tab** in Character Settings (`packages/stage-pages/src/pages/settings/airi-card/components/tabs/acting.vue`):
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 🎭 Conversational Pacing & Thinking Fillers                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ [X] Enable Dynamic Thinking Fillers (Masks response latency with audio)     │
-│                                                                             │
-│ Preset Thinking Bundle:                                                     │
-│ [ Tsundere (Baka, wait up!) ▼ ]  [ ⚡ Pre-cache Audio for Current Voice ]   │
-│                                                                             │
-│ Thinking Quotes:                                                            │
-│ ┌─────────────────────────────────────────────────────────────────────────┐ │
-│ │ • "Hold on a second..."                                             [X] │ │
-│ │ • "Don't rush me, let me think!"                                    [X] │ │
-│ │ • "Wait, what did you just say...?"                                 [X] │ │
-│ │ + [Add Custom Quote]                                                    │ │
-│ └─────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│ CoT Cue Keyword Interceptors:                                               │
-│ ┌─────────────────────────────────────────────────────────────────────────┐ │
-│ │ Keyword: [ Richy        ] ➔ Audio: [ "Richy...? Let me see..." ]    [X] │ │
-│ │ Keyword: [ math/calculate] ➔ Audio: [ "Hmm, let me do the math..."  ] [X] │ │
-│ │ + [Add Keyword Trigger]                                                 │ │
-│ └─────────────────────────────────────────────────────────────────────────┘ │
-│                                                                             │
-│ Advanced Timing Calibration:                                                │
-│ Fallback Timeout: [=====|=========] 3.0s                                    │
-│ CoT Extraction Window: [===|=============] 1.0s                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```text
+d_n = β |x_n - μ_n| + (1 - β) d_(n-1)
 ```
 
----
+The arm deadline is:
 
-## 5. Architectural Implementation Roadmap
-
-```mermaid
-gantt
-    title Conversational Pacing Implementation Roadmap
-    dateFormat  YYYY-MM-DD
-    section Pillar A (Thinking Fillers)
-    Audio Cache Repo (`local:audio:thinking-cache`)   :a1, 2026-09-01, 3d
-    Cascaded Timing State Machine in `session-store`   :a2, after a1, 4d
-    CoT Cue Scanner & Keyword Matcher                  :a3, after a2, 3d
-    Acting Tab UI (Bundle Picker & Audio Pre-cacher)   :a4, after a3, 4d
-
-    section Pillar B (Text Pacing & Exploration)
-    Visual Novel Typewriter Velocity Engine            :b1, after a4, 5d
-    Simulated Draft & Delete Component Experiment      :b2, after b1, 6d
-    Avatar Non-Verbal Thinking Pose Trigger            :b3, after b2, 3d
+```text
+D = clamp(μ - k_fast d, D_min, D_max)
 ```
 
----
+Defaults:
 
-## 6. Codebase Reference Index
+```text
+D_min = 900 ms
+D_max = 3500 ms
+k_fast = 0.5
+```
 
-| Subsystem | Path | Responsibility |
-|---|---|---|
-| **Chat Session Store** | [`packages/stage-ui/src/stores/chat/session-store.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-store.ts) | Message dispatch lifecycle, SSE timers, CoT chunk listening |
-| **Speech Module** | [`packages/stage-ui/src/stores/modules/speech.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/speech.ts) | TTS playback queue, dynamic audio cache generation |
-| **Acting Tab** | [`packages/stage-pages/src/pages/settings/airi-card/components/tabs/acting.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/settings/airi-card/components/tabs/acting.vue) | UI bundle configuration, keyword triggers, timing controls |
-| **Marker Parser** | [`packages/stage-ui/src/composables/llm-marker-parser.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/llm-marker-parser.ts) | CoT stream filtering, reasoning content isolation |
-| **Chat History / View**| [`packages/stage-ui/src/components/scenarios/chat/history.vue`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/chat/history.vue) | Visual chat rendering & typewriter velocity controls |
+The deadline MUST also satisfy a false-positive guard based on the empirical percentile when at least 20 samples exist:
+
+```text
+D = max(D, p10(TTFT))
+```
+
+For a cold bucket, use `D = 1800 ms`. For an ultra-fast bucket where `p90(TTFT) ≤ 700 ms`, the effective policy is disabled because the minimum arm deadline would provide no useful masking.
+
+The deadline is recalculated only between turns. It MUST NOT move while a turn is in flight. This prevents a settings/provider update from racing a timer callback.
+
+A filler is eligible only if:
+
+```text
+now - t0 ≥ D
+answerAudioScheduled = false
+fillerAttempted = false
+audioContext.state === 'running'
+cacheHit = true
+```
+
+No network TTS request may be made after the deadline to rescue a missed cache hit. A cache miss means “no filler this turn,” not “wait longer.”
+
+## 7. Streaming Interception and Cue Extraction
+
+### 7.1 Ordering
+
+Every answer stream MUST pass through the existing `useLlmmarkerParser` before categorization or speech. The stream adapter first normalizes provider reasoning events; the ordinary answer text then follows:
+
+```text
+provider events
+  -> protocol adapter
+  -> reasoning/delimiter normalizer
+  -> useLlmmarkerParser
+  -> streaming categorizer
+  -> chat hooks / speech intent
+```
+
+ACT, DELAY, ACTOR, and future special tokens remain special events. They must not enter the filler classifier or TTS literal stream.
+
+### 7.2 Incremental reasoning window
+
+The classifier is intentionally not sentiment analysis. It emits one of a small configured set:
+
+```ts
+type ThinkingCategory = 'analytical' | 'memory' | 'emotional' | 'uncertain' | 'generic'
+```
+
+The classifier consumes normalized hidden reasoning only, up to `maxReasoningChars = 1024` or `maxReasoningMs = 900`, whichever occurs first. It uses token-boundary-safe normalization:
+
+```ts
+function consumeReasoningChunk(chunk: string) {
+  window += chunk
+  window = window.slice(-1024)
+  const terms = tokenizeForMatching(window) // Unicode-aware, no regex over raw chunks
+  return scoreCategories(terms, configuredCategoryLexicon)
+}
+```
+
+`tokenizeForMatching` lowercases, folds punctuation, preserves negation tokens, and retains a rolling 3-token context. A category score is valid only when:
+
+```text
+positiveEvidence - negatedEvidence ≥ categoryThreshold
+```
+
+Negation is local and conservative: `not`, `never`, `don't`, `shouldn't`, and equivalent configured terms suppress a matching term within the next three normalized tokens. The classifier MUST NOT infer “angry” from a sentence such as “I should not sound angry.”
+
+Keyword matches are category evidence, not direct audio commands. Custom card configuration maps category to a filler clip; it cannot cause arbitrary text from reasoning to be spoken.
+
+If reasoning arrives split as `cal` + `cul` + `ate`, the rolling string buffer is classified only after a token boundary or the window deadline. No single chunk is assumed to be a token.
+
+### 7.3 Pseudocode
+
+```ts
+async function onInferenceEvent(event: InferenceEvent) {
+  if (!isCurrentTurn(event.at))
+    return
+
+  if (event.type === 'reasoning' && event.visibility === 'hidden') {
+    const category = classifier.consume(event.text)
+    if (category && coordinator.state === 'FILLER_ARMED')
+      coordinator.replaceCandidate(category)
+    return
+  }
+
+  if (event.type === 'answer') {
+    coordinator.cancelPendingFiller('answer-arrived')
+    parser.consume(event.text) // parser emits ordinary literal/special hooks
+    return
+  }
+
+  if (event.type === 'finish')
+    await coordinator.onAssistantEnd()
+}
+```
+
+The classifier is advisory. It never owns turn settlement, persistence, or playback.
+
+## 8. Speech Runtime and Zero-Gap Handoff
+
+### 8.1 Ownership contract
+
+The filler and answer MUST use the same speech intent owner and playback manager. The speech pipeline already serializes playback while allowing TTS generation concurrency. The implementation should add typed metadata, for example:
+
+```ts
+interface PacingPlaybackMeta {
+  turnId: string
+  role: 'thinking-filler' | 'assistant-answer'
+  generation: number
+}
+```
+
+`PlaybackItem` carries this metadata for observability and cancellation. It does not create a second queue.
+
+### 8.2 Scheduling invariant
+
+Let `C` be the `AudioContext.currentTime`, `s0` the filler start, `e0` its scheduled end, and `s1` the answer start. For zero-gap handoff:
+
+```text
+s1 = e0
+decodedAnswerBuffer.ready = true before e0 - lead
+lead ≥ max(2 render quanta, provider scheduling jitter)
+```
+
+In practice the playback manager MUST schedule the answer buffer against the same context clock before `e0`, not wait for an `onEnd` callback to start a new source. If the answer is not ready by `e0 - lead`, the system chooses continuity over the zero-gap claim: it ends the filler at its natural boundary and starts the answer when ready, recording an underrun metric.
+
+The filler clip MUST be short and bounded:
+
+```text
+minDurationMs ≤ durationMs ≤ maxFillerDurationMs
+default maxFillerDurationMs = 2200
+```
+
+The filler cannot be looped.
+
+### 8.3 Cache contract
+
+The prior draft's `local:audio:thinking-cache/{voiceId}` is not an approved catalog key. Structured `local:` writes sync through the outbox. Audio bytes belong in localforage, while a small manifest may use local storage only if it is explicitly marked non-syncing.
+
+Recommended local-only key:
+
+```text
+thinking-audio-{sha256(provider, model, voiceId, pitch, rate, language, text, format)}
+```
+
+Manifest fields:
+
+```ts
+interface ThinkingAudioEntry {
+  key: string
+  voiceFingerprint: string
+  category: ThinkingCategory
+  text: string
+  format: string
+  durationMs: number
+  byteLength: number
+  createdAt: number
+  lastUsedAt: number
+}
+```
+
+Cache rules:
+
+- Generate only from explicit pre-cache action, idle-time warming, or the first successful use outside the critical deadline.
+- Never synthesize a cache miss on the critical path.
+- Invalidate when provider, model, voice, pitch, rate, language, format, or text changes.
+- Cap total bytes and entry count; evict least-recently-used entries.
+- Do not sync raw audio or cache manifests across devices by default.
+- Store bytes with `localforage`; use `toRaw` for reactive data before persistence where applicable.
+
+### 8.4 Cancellation and barge-in
+
+Cancellation is generation-scoped. On user speech, explicit stop, session switch, or newer interrupting turn:
+
+1. Bump the chat session generation using the existing canonical mechanism.
+2. Abort the inference request where the provider supports `AbortSignal`.
+3. Cancel the speech intent with a reason.
+4. Stop playback items owned by the turn, including the filler.
+5. Do not persist transient filler text or visual draft state.
+6. Settle the interrupted turn exactly once.
+
+Cancellation MUST be idempotent. A late `onEnd` callback from the playback manager MUST be ignored if its generation is stale.
+
+## 9. Pillar B: Text and Visual Pacing
+
+Pillar B is presentation-only. It MUST NOT delay audio, mutate canonical message content, or infer permanent personality facts from hidden reasoning.
+
+### 9.1 Separate clocks
+
+The assistant response has three representations:
+
+```ts
+interface AssistantPresentation {
+  canonicalText: string
+  spokenText: string
+  displayText: string
+  transientDraft?: string
+  captionSegments: CaptionSegment[]
+}
+```
+
+- `canonicalText` is the clean final content persisted as `content`.
+- `spokenText` is the literal stream sent to TTS after marker/category filtering.
+- `displayText` is what the UI currently reveals.
+- `transientDraft` is renderer memory only and is never written to chat history.
+
+TTS timing is authoritative for captions that represent speech. A typewriter effect may reveal text earlier or later, but caption highlighting MUST use segment IDs and audio playback timestamps, not character index alone.
+
+If visual text lags behind audio, captions reveal the required segment immediately. If visual text leads audio, the UI may show unhighlighted text but MUST NOT claim it has been spoken.
+
+### 9.2 Draft/retype safety
+
+Draft and deletion effects operate on an ephemeral presentation store keyed by `turnId`. At `assistant-end`, only the final parser output is passed to `inscribeTurn`. The persistence layer MUST never receive `transientDraft`.
+
+Markdown is rendered only from `displayText` after a safe debounce or from canonical completed text. The effect engine MUST NOT mutate the persisted message object in place.
+
+Recommended default: ship typewriter pacing and caption alignment first; keep simulated backspace/retype behind an experimental flag until accessibility, markdown, and interruption tests pass.
+
+## 10. Card Schema and Settings Integration
+
+The configuration belongs under the existing `extensions.airi.acting` object. It is card-scoped policy; audio bytes remain device-local.
+
+Proposed Valibot shape:
+
+```ts
+const AiriThinkingFillerSchema = object({
+  text: pipe(string(), minLength(1), maxLength(160)),
+  category: union([
+    literal('generic'),
+    literal('analytical'),
+    literal('memory'),
+    literal('emotional'),
+    literal('uncertain'),
+  ]),
+  enabled: boolean(),
+})
+
+const AiriPacingSchema = object({
+  enabled: boolean(),
+  armMinMs: pipe(number(), integer(), minValue(900), maxValue(3500)),
+  armMaxMs: pipe(number(), integer(), minValue(900), maxValue(6000)),
+  maxFillerDurationMs: pipe(number(), integer(), minValue(400), maxValue(2200)),
+  reasoningWindowMs: pipe(number(), integer(), minValue(0), maxValue(1200)),
+  categoryThreshold: pipe(number(), minValue(1), maxValue(10)),
+  fillers: array(AiriThinkingFillerSchema),
+  visualTyping: optional(object({
+    enabled: boolean(),
+    minIntervalMs: pipe(number(), integer(), minValue(0), maxValue(1000)),
+    maxIntervalMs: pipe(number(), integer(), minValue(0), maxValue(2000)),
+    experimentalDraftRetype: boolean(),
+  })),
+})
+```
+
+The actual implementation should use the repository's current Valibot imports and preserve the existing required acting prompt fields. UI work belongs in `CardCreationTabActing.vue`, not a new settings store. The tab MUST explain that category matching is coarse, hidden reasoning may be unavailable, and cache generation is local to the selected voice.
+
+Validation MUST enforce `armMinMs ≤ armMaxMs` at the update boundary. Imported cards with invalid or absent pacing config use the disabled/default policy; they must not prevent card loading.
+
+## 11. Implementation Boundaries
+
+The implementation should introduce small focused modules rather than embed policy in the session store:
+
+```text
+packages/stage-ui/src/services/conversation-pacing/
+  types.ts                 normalized events, state, metrics
+  timing.ts                EMA and deadline policy
+  reasoning-classifier.ts  bounded streaming category classifier
+  filler-cache.ts          localforage bytes and eviction
+  coordinator.ts           generation-scoped state machine
+```
+
+Integration points:
+
+- `chat.ts` creates and settles the coordinator around the existing turn generation; `session-store.ts` remains the session-record/persistence authority.
+- The LLM dispatch/provider adapter emits normalized reasoning and answer events.
+- `useLlmmarkerParser` remains the first parser for answer text before hooks/TTS.
+- The speech host accepts a pacing playback item through the existing intent/runtime contract.
+- `speech.ts` exposes active voice/provider identity; it does not schedule playback.
+- The card store assembles acting prompts and pacing policy into the system prompt only where explicitly enabled. It must never inject raw cache metadata into prompts.
+
+## 12. Observability and Failure Policy
+
+Each turn records metrics in memory and debug logs, not chat history:
+
+```ts
+interface PacingMetrics {
+  turnId: string
+  providerKey: string
+  ttftMs?: number
+  deadlineMs: number
+  fillerCandidate?: ThinkingCategory
+  fillerOutcome: 'none' | 'cache-miss' | 'canceled' | 'played' | 'rejected'
+  fillerStartMs?: number
+  answerFirstAudioMs?: number
+  handoffGapMs?: number
+  interrupted: boolean
+}
+```
+
+Safe degradation is mandatory:
+
+- Missing cache: no filler, ordinary TTS continues.
+- Missing reasoning events: generic category only, never an error.
+- TTS/provider failure: cancel owned filler/answer as appropriate; do not retry filler on the hot path.
+- AudioContext unavailable: suppress filler and preserve normal chat.
+- Parser error: follow existing parser end behavior and prevent marker leakage; do not let pacing bypass parser safeguards.
+- Coordinator exception: disable pacing for the turn and leave the ordinary chat path usable.
+
+## 13. Verification Plan
+
+### 13.1 Unit tests
+
+- EMA convergence, cold start, clamping, and percentile guard.
+- State transition table for every event in every state.
+- Stale generation events cannot transition or schedule playback.
+- Answer at 899 ms, exactly at deadline, and after filler start.
+- One filler attempt invariant, including tool loops and repeated reasoning events.
+- Delimiter parsing across arbitrary chunk boundaries.
+- `cal` + `cul` + `ate` rolling classification.
+- Negation examples do not select contradictory categories.
+- ACT/DELAY/ACTOR never enter literal filler classification or TTS.
+- `NO_REPLY` never arms or plays a filler.
+- Cancellation is idempotent and settles once.
+- Cache fingerprint invalidates on every voice-affecting field.
+- Cache eviction is bounded and local-only.
+- `content`/`rawContent` and persisted session messages never contain filler or draft text.
+
+### 13.2 Deterministic latency bench
+
+Build a fake provider and fake playback clock. Run at least:
+
+| Scenario | Expected result |
+| --- | --- |
+| 200 ms direct answer | No filler; answer starts normally. |
+| 800 ms direct answer | No filler under default policy. |
+| 1800 ms silent non-reasoning | Generic cached filler may start once. |
+| 5000 ms hidden reasoning | One filler; category may refine before arm deadline only. |
+| Answer at 1400 ms, filler arm at 1200 ms but not started | Filler canceled; no audio. |
+| Answer at 1400 ms, filler started at 1200 ms | Answer queued; no overlap. |
+| Cache miss at arm deadline | No filler; no extra wait. |
+| User barge-in during filler | Generation bump, intent cancel, owned audio stops, no persistence leak. |
+| Proactivity followed by chat | Shared speech lane remains serialized and both turns settle. |
+| Gemini native PCM | Pacing coordinator is not instantiated. |
+
+### 13.3 Repository validation
+
+For implementation changes:
+
+```bash
+pnpm -F @proj-airi/stage-ui typecheck
+pnpm -F @proj-airi/stage-pages typecheck
+```
+
+Run the affected audio package typecheck if `packages/pipelines-audio` changes. A build is required if Electron entry points or packaging are changed. This proposal rewrite itself is documentation-only and does not require a typecheck.
+
+## 14. Phased Roadmap
+
+### Phase 0: Contracts and instrumentation
+
+- Define normalized inference events, turn IDs, metrics, and generation guards.
+- Add fake-clock tests without changing user behavior.
+- Confirm the actual LLM provider adapters that can expose hidden reasoning.
+
+### Phase 1: Safe filler coordinator
+
+- Implement EMA/deadline policy, local cache manifest/bytes, and one cached generic filler.
+- Integrate one speech intent owner and cancellation.
+- Ship disabled by default behind a feature flag.
+
+### Phase 2: Provider adapters and category selection
+
+- Add separate-field and delimiter adapters.
+- Add bounded category classifier with negation handling.
+- Add Acting tab configuration and schema validation.
+
+### Phase 3: Audio scheduling hardening
+
+- Add same-clock pre-scheduling and lead/underrun metrics.
+- Verify provider-specific TTS streaming behavior and browser AudioContext constraints.
+- Add barge-in wiring only after the existing generation/intent cancellation path is proven.
+
+### Phase 4: Visual pacing
+
+- Add typewriter and caption/audio reconciliation.
+- Add storage-invariant transient presentation state.
+- Keep draft/retype experimental until accessibility and markdown tests pass.
+
+### Phase 5: Controlled rollout
+
+- Enable for local cached voices first.
+- Compare false-positive filler rate, handoff gap, interruption correctness, and user disablement rate.
+- Expand provider coverage only when adapter telemetry proves event semantics.
+
+## 15. Acceptance Criteria
+
+The feature is production-ready only when all of the following hold:
+
+- Fast direct-answer turns never wait for or play a filler.
+- A filler cannot start after the first answer audio is scheduled.
+- At most one filler plays per turn, and it cannot overlap answer audio.
+- A stale or interrupted turn cannot produce late audio, avatar cues, or persistence writes.
+- Hidden reasoning is never shown, spoken, or persisted as assistant-visible content.
+- ACT markers remain governed by the existing parser and are never spoken.
+- Cache misses degrade to ordinary behavior without added latency.
+- The answer can be pre-buffered behind a filler using the shared playback clock; measured underruns are visible.
+- `content`, `rawContent`, captions, and transient visual state have clearly separated contracts.
+- Typed chat, STT, and proactivity use the same tested coordinator; Gemini native audio does not.
+
+## References
+
+- [`docs/arch-chat-stt-proactivity-pipelines.md`](./arch-chat-stt-proactivity-pipelines.md)
+- [`docs/rosetta-stone.md`](./rosetta-stone.md)
+- [`docs/data-catalog.md`](./data-catalog.md)
+- [`packages/stage-ui/src/stores/chat.ts`](../packages/stage-ui/src/stores/chat.ts)
+- [`packages/stage-ui/src/stores/chat/session-store.ts`](../packages/stage-ui/src/stores/chat/session-store.ts)
+- [`packages/stage-ui/src/stores/modules/speech.ts`](../packages/stage-ui/src/stores/modules/speech.ts)
+- [`packages/pipelines-audio/src/speech-pipeline.ts`](../packages/pipelines-audio/src/speech-pipeline.ts)
+- [`packages/stage-ui/src/composables/llm-marker-parser.ts`](../packages/stage-ui/src/composables/llm-marker-parser.ts)
+- [`packages/stage-ui/src/types/card.schema.ts`](../packages/stage-ui/src/types/card.schema.ts)
+- [`packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue`](../packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue)
