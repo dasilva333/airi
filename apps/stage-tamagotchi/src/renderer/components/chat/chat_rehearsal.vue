@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { ModelCustomizer, ModelPromptGeneratorModal } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
+import { useLlmmarkerParser } from '@proj-airi/stage-ui/composables/llm-marker-parser'
 import { useAnimaDexWizardStore } from '@proj-airi/stage-ui/stores/animadex-wizard'
 import { useChatOrchestratorStore } from '@proj-airi/stage-ui/stores/chat'
 import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
@@ -11,6 +12,8 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useTextToMotionStore } from '@proj-airi/stage-ui/stores/modules/text-to-motion'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { useSettingsControlStrip } from '@proj-airi/stage-ui/stores/settings/control-strip'
+import { useSpeechRuntimeStore } from '@proj-airi/stage-ui/stores/speech-runtime'
+import { useBroadcastChannel } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -27,11 +30,18 @@ const consciousnessStore = useConsciousnessStore()
 const providersStore = useProvidersStore()
 const orchestrator = useChatOrchestratorStore()
 const customVrmAnimationsStore = useCustomVrmAnimationsStore()
+const speechRuntimeStore = useSpeechRuntimeStore()
 
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { stageEnabled, stageMateEnabled } = storeToRefs(controlStripStore)
 const isStageOpen = computed(() => Boolean(stageEnabled.value || stageMateEnabled.value))
 const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
+
+interface SpeakingState {
+  mouthOpenSize: number
+  nowSpeaking: boolean
+}
+const { data: speakingState } = useBroadcastChannel<SpeakingState, SpeakingState>({ name: 'airi-speaking-state' })
 
 onMounted(async () => {
   if (wizardStore.characters.length === 0)
@@ -264,6 +274,12 @@ async function createMotion() {
   }
 }
 
+watch(() => speakingState.value?.nowSpeaking, (speaking) => {
+  if (!speaking && isRehearsing.value) {
+    isRehearsing.value = false
+  }
+})
+
 async function playRehearsal() {
   if (!isStageOpen.value) {
     toast.error('Stage or Stage-Mate window must be open to orchestrate rehearsals.')
@@ -271,11 +287,18 @@ async function playRehearsal() {
   }
   if (isRehearsing.value)
     return
+
+  const text = playgroundText.value.trim()
+  if (!text) {
+    toast.error('Please enter acting dialogue or ACT tokens in the sandbox.')
+    return
+  }
+
   isRehearsing.value = true
 
+  let intent: ReturnType<typeof speechRuntimeStore.openIntent> | null = null
   try {
-    const text = playgroundText.value.trim()
-    console.info('[Rehearsal Playback] Streaming via Chat Orchestrator hooks:', text)
+    console.info('[Rehearsal Playback] Streaming via Speech Runtime Intent:', text)
 
     const actorId = selectedModel.value?.key
     const dummyContext = {
@@ -285,6 +308,13 @@ async function playRehearsal() {
       actorId,
     }
 
+    // Open speech intent routed across windows to ControlStripHost / Stage
+    intent = speechRuntimeStore.openIntent({
+      ownerId: activeCardId.value || 'default',
+      priority: 0,
+      behavior: 'interrupt',
+    })
+
     // Start of response
     await orchestrator.emitBeforeSendHooks('', dummyContext as any)
 
@@ -292,27 +322,33 @@ async function playRehearsal() {
     if (selectedModel.value && !selectedModel.value.isFallback && actorId) {
       const actorToken = `<|ACTOR:${actorId}|>`
       console.info('[Rehearsal Playback] Emitting Selected Actor Tag:', actorToken)
+      intent.writeSpecial(actorToken)
       await orchestrator.emitTokenSpecialHooks(actorToken, dummyContext as any)
     }
 
-    // Split content into markers and text segments
-    const parts = text.split(/(<\|(?:ACT|DELAY|ACTOR)[^\r\n]*?(?:\|>|>))/gi)
-    for (const part of parts) {
-      if (!part)
-        continue
+    // Parse text and ACT/DELAY/ACTOR markers through canonical LLM marker parser
+    const parser = useLlmmarkerParser({
+      onLiteral: async (literal) => {
+        if (literal) {
+          console.info('[Rehearsal Playback] Emitting Literal Text:', literal)
+          intent?.writeLiteral(literal)
+          await orchestrator.emitTokenLiteralHooks(literal, dummyContext as any)
+        }
+      },
+      onSpecial: async (special) => {
+        if (special) {
+          console.info('[Rehearsal Playback] Emitting Special Tag:', special)
+          intent?.writeSpecial(special)
+          await orchestrator.emitTokenSpecialHooks(special, dummyContext as any)
+        }
+      },
+    })
 
-      // Delay slightly between streams to simulate standard streaming token rate
-      await new Promise(resolve => setTimeout(resolve, 80))
+    await parser.consume(text)
+    await parser.end()
 
-      if (part.startsWith('<|')) {
-        console.info('[Rehearsal Playback] Emitting Special Tag:', part)
-        await orchestrator.emitTokenSpecialHooks(part, dummyContext as any)
-      }
-      else {
-        console.info('[Rehearsal Playback] Emitting Literal Text:', part)
-        await orchestrator.emitTokenLiteralHooks(part, dummyContext as any)
-      }
-    }
+    intent.writeFlush()
+    intent.end()
 
     // End of stream
     await orchestrator.emitStreamEndHooks(dummyContext as any)
@@ -320,12 +356,21 @@ async function playRehearsal() {
     const content = text.replace(/<\|ACT:[^|]+\|>/g, '').trim()
     await orchestrator.emitAssistantResponseEndHooks(content, dummyContext as any)
 
+    toast.success('Rehearsal playback dispatched to Stage!')
+
+    // Safety fallback timeout in case speaking state never toggles
     setTimeout(() => {
-      isRehearsing.value = false
-    }, 1000)
+      if (isRehearsing.value && !speakingState.value?.nowSpeaking) {
+        isRehearsing.value = false
+      }
+    }, 2000)
   }
   catch (err) {
-    console.error('Rehearsal playback streaming failed:', err)
+    console.error('[Rehearsal Playback] Streaming failed:', err)
+    if (intent) {
+      intent.cancel(err instanceof Error ? err.message : String(err))
+    }
+    toast.error(`Rehearsal playback failed: ${err instanceof Error ? err.message : String(err)}`)
     isRehearsing.value = false
   }
 }

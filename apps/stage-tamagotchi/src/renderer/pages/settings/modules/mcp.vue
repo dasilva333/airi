@@ -389,6 +389,7 @@ async function handleInstall(server: RegistryServer) {
   isBusy.value = true
   lastActionMessage.value = ''
   try {
+    const rawSlug = server.package_name || server.name.toLowerCase().replace(/\s+/g, '-')
     let slug = rawSlug
     const command = 'npx'
     let args: string[] = ['-y']
