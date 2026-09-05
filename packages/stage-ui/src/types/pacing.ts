@@ -31,6 +31,8 @@ export interface PacingMetrics {
   answerFirstAudioMs?: number
   handoffGapMs?: number
   interrupted: boolean
+  fillersSpokenCount?: number
+  categoriesSpoken?: ThinkingCategory[]
 }
 
 export interface PacingPlaybackMeta {
@@ -53,6 +55,8 @@ export interface PacingPolicyConfig {
   reasoningWindowMs: number
   categoryThreshold: number
   kFast?: number
+  maxFillersPerTurn?: number
+  pacingIntervalMs?: number
 }
 
 export interface ThinkingFillerPhrase {

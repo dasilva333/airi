@@ -35,27 +35,36 @@ export interface ThinkingFillerCandidate {
 export function resolveFillerCandidate(
   fillers: ThinkingFillerCandidate[],
   category: ThinkingCategory,
+  usedPhrases?: Set<string>,
 ): string | null {
   const enabled = fillers.filter(f => f.enabled && f.text?.trim())
   if (enabled.length === 0)
     return null
 
+  // Filter out phrases already spoken in this turn, enforcing strict deduplication
+  const pool = usedPhrases && usedPhrases.size > 0
+    ? enabled.filter(f => !usedPhrases.has(f.text.trim()))
+    : enabled
+
+  if (pool.length === 0)
+    return null
+
   // 1. Direct match for category
-  const matches = enabled.filter(f => f.category === category)
+  const matches = pool.filter(f => f.category === category)
   if (matches.length > 0) {
     const picked = matches[Math.floor(Math.random() * matches.length)]
     return picked.text.trim()
   }
 
   // 2. Fallback to generic
-  const generics = enabled.filter(f => f.category === 'generic')
+  const generics = pool.filter(f => f.category === 'generic')
   if (generics.length > 0) {
     const picked = generics[Math.floor(Math.random() * generics.length)]
     return picked.text.trim()
   }
 
-  // 3. Fallback to any enabled filler
-  const picked = enabled[Math.floor(Math.random() * enabled.length)]
+  // 3. Fallback to any enabled filler in pool
+  const picked = pool[Math.floor(Math.random() * pool.length)]
   return picked.text.trim()
 }
 
@@ -70,6 +79,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
 
   public fillerScheduledEndTime: number = 0
   public activeFillerItemId: string | null = null
+  public usedPhrases: Set<string> = new Set()
 
   constructor(options: PacingPlaybackBridgeOptions<TAudio>) {
     this.coordinator = options.coordinator
@@ -148,6 +158,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       meta,
     }
 
+    this.usedPhrases.add(phraseText)
     this.coordinator.notifyFillerAudioStarted(now)
     this.playback.schedule(item)
     return true
@@ -193,6 +204,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
    */
   public cancel(reason: string): void {
     this.coordinator.cancel(reason)
+    this.usedPhrases.clear()
     if (this.activeFillerItemId && this.playback.stopByIntent) {
       this.playback.stopByIntent(`intent-${this.coordinator.turnId}`, reason)
       this.activeFillerItemId = null

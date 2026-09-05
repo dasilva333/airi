@@ -106,4 +106,35 @@ describe('boundedCategoryClassifier', () => {
     expect(r.scores.analytical.positive).toBe(0) // pushed out of buffer
     expect(r.scores.uncertain.positive).toBe(2)
   })
+
+  it('selects top category excluding previously spoken categories', () => {
+    const classifier = new BoundedCategoryClassifier({ categoryThreshold: 1 })
+    // Feed text with both analytical and memory keywords: "calculate solve remember recall"
+    classifier.consume('We need to calculate and solve this formula, but also remember and recall previous conversations. ')
+
+    // Both analytical (2) and memory (2) have matches
+    const top1 = classifier.getTopCategoryExcluding(new Set())
+    expect(['analytical', 'memory']).toContain(top1)
+
+    // Exclude whichever won first
+    const excluded = new Set([top1!])
+    const top2 = classifier.getTopCategoryExcluding(excluded)
+    expect(top2).not.toBe(top1)
+    expect(['analytical', 'memory']).toContain(top2)
+
+    // Exclude both
+    excluded.add(top2!)
+    const top3 = classifier.getTopCategoryExcluding(excluded)
+    expect(top3).toBeNull()
+  })
+
+  it('clears accumulated buffer on resetWindow()', () => {
+    const classifier = new BoundedCategoryClassifier()
+    classifier.consume('Let us calculate the optimal strategy. ')
+    expect(classifier.getTopCategoryExcluding(new Set())).toBe('analytical')
+
+    classifier.resetWindow()
+    // Buffer is now empty; without new tokens, getTopCategoryExcluding returns null
+    expect(classifier.getTopCategoryExcluding(new Set())).toBeNull()
+  })
 })

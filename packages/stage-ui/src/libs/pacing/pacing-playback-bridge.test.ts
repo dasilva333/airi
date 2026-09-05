@@ -295,4 +295,24 @@ describe('resolveFillerCandidate', () => {
     ]
     expect(resolveFillerCandidate(fillers, 'uncertain')).toBe('Let me compute that...')
   })
+
+  it('excludes phrases in usedPhrases to enforce per-turn deduplication', () => {
+    const fillers = [
+      { text: 'Let me compute that...', category: 'analytical' as const, enabled: true },
+      { text: 'Analyzing variables...', category: 'analytical' as const, enabled: true },
+      { text: 'Hmm...', category: 'generic' as const, enabled: true },
+    ]
+    const used = new Set<string>(['Let me compute that...'])
+
+    // Should choose the second analytical phrase
+    expect(resolveFillerCandidate(fillers, 'analytical', used)).toBe('Analyzing variables...')
+
+    // If both analytical are used, should fall back to unused generic
+    used.add('Analyzing variables...')
+    expect(resolveFillerCandidate(fillers, 'analytical', used)).toBe('Hmm...')
+
+    // If all are used, returns null
+    used.add('Hmm...')
+    expect(resolveFillerCandidate(fillers, 'analytical', used)).toBeNull()
+  })
 })

@@ -177,6 +177,8 @@ export const AiriPacingSchema = object({
   reasoningWindowMs: optional(pipe(number(), integer(), minValue(0), maxValue(1200))),
   categoryThreshold: optional(pipe(number(), minValue(1), maxValue(10))),
   kFast: optional(pipe(number(), minValue(0), maxValue(2))),
+  maxFillersPerTurn: optional(pipe(number(), integer(), minValue(1), maxValue(8))),
+  pacingIntervalMs: optional(pipe(number(), integer(), minValue(5000), maxValue(45000))),
   fillers: optional(array(AiriThinkingFillerSchema)),
   visualTyping: optional(object({
     enabled: boolean(),

@@ -52,6 +52,8 @@ const pacingArmMinMs = defineModel<number>('pacingArmMinMs', { default: 1200 })
 const pacingArmMaxMs = defineModel<number>('pacingArmMaxMs', { default: 3500 })
 const pacingMaxFillerDurationMs = defineModel<number>('pacingMaxFillerDurationMs', { default: 1200 })
 const pacingCategoryThreshold = defineModel<number>('pacingCategoryThreshold', { default: 1 })
+const pacingMaxFillersPerTurn = defineModel<number>('pacingMaxFillersPerTurn', { default: 3 })
+const pacingIntervalMs = defineModel<number>('pacingIntervalMs', { default: 15000 })
 const pacingFillers = defineModel<ThinkingFillerPhrase[]>('pacingFillers', {
   default: () => [...DEFAULT_PACING_FILLERS],
 })
@@ -832,6 +834,62 @@ function resetToDefaultFillers() {
                 <span>1 (Instant match)</span>
                 <span>3 (Moderate)</span>
                 <span>10 (Strict)</span>
+              </div>
+            </div>
+
+            <!-- Max Fillers Per Turn -->
+            <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                  Max Fillers Per Turn
+                </label>
+                <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                  {{ pacingMaxFillersPerTurn }} phrases
+                </span>
+              </div>
+              <p class="mb-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Maximum progression murmurs uttered during deep reasoning (1 for single-shot, 3–6 for deep CoT).
+              </p>
+              <input
+                v-model.number="pacingMaxFillersPerTurn"
+                type="range"
+                min="1"
+                max="8"
+                step="1"
+                class="h-1.5 w-full cursor-pointer accent-primary-500"
+              >
+              <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                <span>1 (Single-shot)</span>
+                <span>3 (Standard CoT)</span>
+                <span>8 (Deep CoT)</span>
+              </div>
+            </div>
+
+            <!-- Extended CoT Cadence -->
+            <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
+                  Extended CoT Cadence
+                </label>
+                <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
+                  {{ (pacingIntervalMs / 1000).toFixed(0) }}s
+                </span>
+              </div>
+              <p class="mb-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Spacing between milestone progression murmurs during long thinking phases.
+              </p>
+              <input
+                v-model.number="pacingIntervalMs"
+                type="range"
+                min="5000"
+                max="30000"
+                step="1000"
+                class="h-1.5 w-full cursor-pointer accent-primary-500"
+              >
+              <div class="flex items-center justify-between text-[10px] text-neutral-400">
+                <span>5s (Fast)</span>
+                <span>15s (Balanced)</span>
+                <span>30s (Spacious)</span>
               </div>
             </div>
           </div>

@@ -92,6 +92,8 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       reasoningWindowMs: pacingConfig.reasoningWindowMs ?? 900,
       categoryThreshold: pacingConfig.categoryThreshold ?? 2,
       kFast: pacingConfig.kFast ?? 0.5,
+      maxFillersPerTurn: pacingConfig.maxFillersPerTurn ?? 3,
+      pacingIntervalMs: pacingConfig.pacingIntervalMs ?? 15000,
     }
 
     const coordinator = new TurnPacingCoordinator({
@@ -101,7 +103,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       policy,
       historicalTtftSamples: samples,
       onArmFiller: async (category, _deadlineMs) => {
-        const phrase = resolveFillerCandidate(enabledFillers, category)
+        const phrase = resolveFillerCandidate(enabledFillers, category, bridge.usedPhrases)
         if (!phrase) {
           coordinator.notifyCacheMiss()
           return

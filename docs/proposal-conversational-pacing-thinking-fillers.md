@@ -1,6 +1,6 @@
 # Conversational Pacing and Thinking Fillers
 
-**Status:** In active implementation — Phases 0 through 3 completed, Phase 4 (Runtime Wiring & Chat Orchestrator Integration) in progress
+**Status:** In active implementation — Phases 0 through 4 completed, Phase 5 (Extended CoT Pacing & Dynamic Category Flushes) in design
 **Scope:** Turn-based text/STT/proactivity responses that use the ordinary chat hook and speech-runtime path
 **Out of scope:** Gemini Live native PCM output (`outputMode: 'gemini'`), which owns its own audio clock and must not be mixed with custom TTS
 
@@ -599,19 +599,40 @@ Run the affected audio package typecheck if `packages/pipelines-audio` changes. 
 - Implement batch audio pre-warming pipeline (`pacing-prewarm.ts`) with real-time percentage progress bar and local cache status chips.
 - Add inline audition audio playback to preview pre-rendered filler audio clips directly in the card editor.
 
-### Phase 4: Runtime Wiring & Chat Orchestrator Integration (Active Execution)
+### Phase 4: Runtime Wiring & Chat Orchestrator Integration (Completed)
 
-- Connect `TurnPacingCoordinator` and `PacingPlaybackBridge` to the live chat generation cycle via `use-turn-pacing.ts`.
-- Add `onReasoningChunk` chat hook to `packages/stage-ui/src/stores/chat/hooks.ts` and emit it from `chat.ts` for both in-band `<think>` chunks and out-of-band `reasoning-delta` chunks.
-- Connect into `ControlStripHost.vue`:
+- Connected `TurnPacingCoordinator` and `PacingPlaybackBridge` to the live chat generation cycle via `use-turn-pacing.ts`.
+- Added `onReasoningChunk` chat hook to `packages/stage-ui/src/stores/chat/hooks.ts` and emitted it from `chat.ts` for both in-band `<think>` chunks and out-of-band `reasoning-delta` chunks.
+- Connected into `ControlStripHost.vue`:
   - `onBeforeSend`: Dispatches turn pacing coordinator.
   - `onReasoningChunk`: Feeds reasoning text into classifier.
-  - `onTokenLiteral`: Notifies coordinator that answer text has arrived.
+  - `onTokenLiteral`: Feeds answer text into coordinator.
   - `onAssistantResponseEnd`: Flushes and settles coordinator.
-  - `onGenerationStopped`: Immediately cancels coordinator and stops active filler playback.
-- Route pre-warmed audio decoding through `AudioContext.decodeAudioData` and schedule directly into `playbackManager` for automatic lip sync and 0ms zero-gap handoff.
+  - `onGenerationStopped`: Immediately cancels coordinator and stops active playback.
+  - `playbackManager.onStart`: Signals `onFillerStarted()` when audio becomes audible.
+  - `playbackManager.onEnd`: Signals `onFillerEnded()` for clean handoff.
+- Routed pre-warmed audio decoding through `AudioContext.decodeAudioData` and scheduled into `playbackManager` with shared intent context.
+- Fixed deadline clamp math (`Math.max(minD, Math.min(maxD, deadline))` after `p10`) and zero-gap handoff metrics (`fillerEndMs`).
+- Added reasoning/silence guidance tip in `CardCreationTabActing.vue`.
 
-### Phase 5: Visual Presentation Pacing & Typing Simulation (Upcoming)
+### Phase 5: Extended Chain-of-Thought Pacing & Dynamic Category Flushes (Upcoming)
+
+- **The Long-CoT Problem**: Extended reasoning models (DeepSeek-R1, o1, Qwen-qwq, Claude Thinking) can spend 30s to 90s in heavy reasoning. A single initial filler leaves long periods of dead air.
+- **Rolling Category Hit Accumulator**: Accumulate category match scores in rolling windows across the streaming CoT tokens.
+- **"Once Per Category, Aggregate Winner" Selection**:
+  - At each interval flush, only categories that have *not yet spoken in this turn* are eligible.
+  - The eligible category with the highest aggregate score in that window wins the slot.
+  - Once a category speaks, it is checked off for that turn, preventing parrot loops and ensuring the spoken fillers mirror the evolving phases of the model's subconscious thought.
+  - Falls back to unused `generic` phrases when no semantic category is dominant.
+- **Strict Per-Turn Phrase Deduplication**:
+  - Maintain a set of used phrase IDs per turn so no phrase is ever repeated in the same turn.
+- **Configurable Hard Cap & Cadence Controls**:
+  - `maxFillersPerTurn` slider (1 to 8, default 3 or 4). When set to 1, preserves the original single-filler behavior.
+  - `pacingIntervalMs` slider (8s to 30s, default 15s) controlling cadence between CoT progression flushes.
+- **Answer Preemption Invariant**:
+  - When the real answer arrives at any point, the interval timer stops immediately. The answer audio starts smoothly at the natural end of the currently playing filler (or instantly if silent).
+
+### Phase 6: Visual Presentation Pacing & Typing Simulation (Upcoming)
 
 - Implement ephemeral presentation store for typewriter pacing and caption reconciliation.
 - Ensure safe transient draft buffer that never mutates canonical session history.

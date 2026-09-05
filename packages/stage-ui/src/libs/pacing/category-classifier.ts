@@ -285,4 +285,36 @@ export class BoundedCategoryClassifier {
       matchedTokens,
     }
   }
+
+  /**
+   * Returns the highest-scoring eligible category excluding already used categories.
+   * If no eligible category reaches the threshold, returns null.
+   */
+  public getTopCategoryExcluding(excludedCategories: Set<ThinkingCategory>): SpecificThinkingCategory | null {
+    const result = this.flush()
+    const categories: SpecificThinkingCategory[] = ['analytical', 'memory', 'emotional', 'uncertain']
+
+    let bestCategory: SpecificThinkingCategory | null = null
+    let highestNet = 0
+
+    for (const cat of categories) {
+      if (excludedCategories.has(cat))
+        continue
+
+      const net = result.scores[cat]?.net ?? 0
+      if (net >= this.threshold && net > highestNet) {
+        highestNet = net
+        bestCategory = cat
+      }
+    }
+
+    return bestCategory
+  }
+
+  /**
+   * Resets the classifier rolling buffer for a new CoT accumulation epoch.
+   */
+  public resetWindow(): void {
+    this.buffer = ''
+  }
 }

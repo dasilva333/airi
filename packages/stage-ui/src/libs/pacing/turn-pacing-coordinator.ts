@@ -34,9 +34,12 @@ export class TurnPacingCoordinator {
   private t0: number = 0
   private deadlineMs: number = 1800
   private timerHandle: any = null
+  private intervalTimerHandle: any = null
   private fillerCandidate: ThinkingCategory = 'generic'
   private answerAudioScheduled: boolean = false
   private fillerAttempted: boolean = false
+  private fillersSpokenCount: number = 0
+  private usedCategories: Set<ThinkingCategory> = new Set()
 
   public metrics: PacingMetrics
   private onArmFiller?: (category: ThinkingCategory, deadlineMs: number) => void
@@ -65,6 +68,8 @@ export class TurnPacingCoordinator {
       deadlineMs: this.deadlineMs,
       fillerOutcome: 'none',
       interrupted: false,
+      fillersSpokenCount: 0,
+      categoriesSpoken: [],
     }
   }
 
@@ -172,6 +177,17 @@ export class TurnPacingCoordinator {
     }
   }
 
+  private clearAllTimers(): void {
+    if (this.timerHandle) {
+      this.clock.clearTimeout(this.timerHandle)
+      this.timerHandle = null
+    }
+    if (this.intervalTimerHandle) {
+      this.clock.clearTimeout(this.intervalTimerHandle)
+      this.intervalTimerHandle = null
+    }
+  }
+
   private onDeadlineElapsed(): void {
     this.timerHandle = null
     if (this.state !== 'STAGING')
@@ -179,18 +195,53 @@ export class TurnPacingCoordinator {
     if (this.answerAudioScheduled || this.fillerAttempted)
       return
 
+    let catToArm: ThinkingCategory = this.fillerCandidate
     if (this.classifier) {
-      const flushed = this.classifier.flush()
-      if (flushed.category !== 'generic') {
-        this.replaceCandidate(flushed.category)
+      const top = this.classifier.getTopCategoryExcluding(this.usedCategories)
+      if (top) {
+        catToArm = top
       }
     }
 
     this.state = 'FILLER_ARMED'
     this.fillerAttempted = true
-    this.metrics.fillerCandidate = this.fillerCandidate
+    this.usedCategories.add(catToArm)
+    this.fillersSpokenCount++
+    this.metrics.fillersSpokenCount = this.fillersSpokenCount
+    this.metrics.categoriesSpoken = Array.from(this.usedCategories)
+    this.metrics.fillerCandidate = catToArm
     this.metrics.fillerOutcome = 'none' // Will be updated to played, cache-miss, or canceled
-    this.onArmFiller?.(this.fillerCandidate, this.deadlineMs)
+    this.onArmFiller?.(catToArm, this.deadlineMs)
+  }
+
+  private onIntervalFlushElapsed(): void {
+    this.intervalTimerHandle = null
+    if (this.state !== 'STAGING')
+      return
+    if (this.answerAudioScheduled)
+      return
+
+    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    if (this.fillersSpokenCount >= maxFillers)
+      return
+
+    let nextCat: ThinkingCategory = 'generic'
+    if (this.classifier) {
+      const top = this.classifier.getTopCategoryExcluding(this.usedCategories)
+      if (top) {
+        nextCat = top
+      }
+    }
+
+    this.state = 'FILLER_ARMED'
+    this.usedCategories.add(nextCat)
+    this.fillersSpokenCount++
+    this.metrics.fillersSpokenCount = this.fillersSpokenCount
+    this.metrics.categoriesSpoken = Array.from(this.usedCategories)
+    this.metrics.fillerCandidate = nextCat
+    this.metrics.fillerOutcome = 'none'
+    const intervalMs = this.policy.pacingIntervalMs ?? 15000
+    this.onArmFiller?.(nextCat, intervalMs)
   }
 
   private onAnswerLiteralReceived(at: number): void {
@@ -198,11 +249,9 @@ export class TurnPacingCoordinator {
       this.metrics.ttftMs = at - this.t0
     }
 
+    this.clearAllTimers()
+
     if (this.state === 'STAGING') {
-      if (this.timerHandle) {
-        this.clock.clearTimeout(this.timerHandle)
-        this.timerHandle = null
-      }
       this.state = 'ANSWER_READY'
       return
     }
@@ -217,7 +266,6 @@ export class TurnPacingCoordinator {
 
     if (this.state === 'FILLER_ACTIVE') {
       // Filler is actively speaking; answer literal continues normally, queue behind filler
-
     }
   }
 
@@ -235,10 +283,23 @@ export class TurnPacingCoordinator {
   public notifyFillerAudioEnded(at: number = this.clock.now()): void {
     if (this.state !== 'FILLER_ACTIVE')
       return
-    this.state = 'HANDOFF'
+
     this.metrics.fillerEndMs = at - this.t0
     if (this.metrics.answerFirstAudioMs != null) {
       this.metrics.handoffGapMs = this.metrics.answerFirstAudioMs - this.metrics.fillerEndMs
+    }
+
+    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    if (!this.answerAudioScheduled && this.fillersSpokenCount < maxFillers) {
+      this.state = 'STAGING'
+      this.classifier?.resetWindow()
+      const intervalMs = this.policy.pacingIntervalMs ?? 15000
+      this.intervalTimerHandle = this.clock.setTimeout(() => {
+        this.onIntervalFlushElapsed()
+      }, intervalMs)
+    }
+    else {
+      this.state = 'HANDOFF'
     }
   }
 
@@ -274,10 +335,7 @@ export class TurnPacingCoordinator {
     if (this.state === 'SETTLED')
       return
 
-    if (this.timerHandle) {
-      this.clock.clearTimeout(this.timerHandle)
-      this.timerHandle = null
-    }
+    this.clearAllTimers()
 
     if (this.state === 'FILLER_ARMED') {
       this.metrics.fillerOutcome = 'canceled'
@@ -293,10 +351,7 @@ export class TurnPacingCoordinator {
     if (this.state === 'SETTLED')
       return
 
-    if (this.timerHandle) {
-      this.clock.clearTimeout(this.timerHandle)
-      this.timerHandle = null
-    }
+    this.clearAllTimers()
 
     this.state = 'SETTLED'
     this.onSettled?.(this.metrics)

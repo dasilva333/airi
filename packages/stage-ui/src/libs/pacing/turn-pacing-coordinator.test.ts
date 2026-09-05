@@ -327,4 +327,127 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     expect(onSettled).toHaveBeenCalledTimes(1)
     expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ turnId: 'turn-callbacks' }))
   })
+
+  it('arms multiple fillers up to maxFillersPerTurn at pacingIntervalMs cadences during long CoT reasoning', () => {
+    const clock = new VirtualClock()
+    const onArmFiller = vi.fn()
+
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-multi-cot',
+      generation: 1,
+      providerKey: 'deepseek-r1',
+      policy: {
+        ...defaultPolicy,
+        maxFillersPerTurn: 3,
+        pacingIntervalMs: 15000,
+      },
+      clock,
+      onArmFiller,
+    })
+
+    coordinator.dispatch()
+
+    // 1. Initial reasoning chunk: analytical keywords (calculate, solve)
+    coordinator.onInferenceEvent({
+      type: 'reasoning',
+      text: 'Let us calculate and solve the optimal equation. ',
+      visibility: 'hidden',
+      at: clock.now(),
+    })
+
+    // Advance to deadline (1800ms)
+    clock.advance(1800)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+    expect(onArmFiller).toHaveBeenCalledTimes(1)
+    expect(onArmFiller).toHaveBeenLastCalledWith('analytical', 1800)
+    expect(coordinator.metrics.fillersSpokenCount).toBe(1)
+    expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical'])
+
+    // Filler 1 plays and finishes
+    coordinator.notifyFillerAudioStarted(clock.now())
+    clock.advance(1500)
+    coordinator.notifyFillerAudioEnded(clock.now())
+    // Should return to STAGING with interval timer scheduled
+    expect(coordinator.state).toBe('STAGING')
+
+    // 2. New reasoning arrives during extended CoT: memory keywords
+    coordinator.onInferenceEvent({
+      type: 'reasoning',
+      text: 'Wait, let us remember and recall the historical logs. ',
+      visibility: 'hidden',
+      at: clock.now(),
+    })
+
+    // Advance by pacingIntervalMs (15000ms)
+    clock.advance(15000)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+    expect(onArmFiller).toHaveBeenCalledTimes(2)
+    // Category 2 must be memory because analytical was already spoken
+    expect(onArmFiller).toHaveBeenLastCalledWith('memory', 15000)
+    expect(coordinator.metrics.fillersSpokenCount).toBe(2)
+    expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical', 'memory'])
+
+    // Filler 2 plays and finishes
+    coordinator.notifyFillerAudioStarted(clock.now())
+    clock.advance(1200)
+    coordinator.notifyFillerAudioEnded(clock.now())
+    expect(coordinator.state).toBe('STAGING')
+
+    // 3. Advance another 15000ms without new semantic keywords -> should fall back to generic
+    clock.advance(15000)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+    expect(onArmFiller).toHaveBeenCalledTimes(3)
+    expect(onArmFiller).toHaveBeenLastCalledWith('generic', 15000)
+    expect(coordinator.metrics.fillersSpokenCount).toBe(3)
+    expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical', 'memory', 'generic'])
+
+    // Filler 3 plays and finishes (maxFillersPerTurn = 3 reached)
+    coordinator.notifyFillerAudioStarted(clock.now())
+    clock.advance(1000)
+    coordinator.notifyFillerAudioEnded(clock.now())
+    // Should transition to HANDOFF because fillersSpokenCount >= maxFillersPerTurn
+    expect(coordinator.state).toBe('HANDOFF')
+
+    // Advancing further should NOT trigger a 4th filler
+    clock.advance(20000)
+    expect(onArmFiller).toHaveBeenCalledTimes(3)
+  })
+
+  it('cancels scheduled interval timer when answer arrives during extended STAGING', () => {
+    const clock = new VirtualClock()
+    const onArmFiller = vi.fn()
+
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-cancel-interval',
+      generation: 1,
+      providerKey: 'deepseek-r1',
+      policy: {
+        ...defaultPolicy,
+        maxFillersPerTurn: 3,
+        pacingIntervalMs: 15000,
+      },
+      clock,
+      onArmFiller,
+    })
+
+    coordinator.dispatch()
+    clock.advance(1800)
+    expect(onArmFiller).toHaveBeenCalledTimes(1)
+
+    // Filler 1 plays and finishes
+    coordinator.notifyFillerAudioStarted(clock.now())
+    clock.advance(1000)
+    coordinator.notifyFillerAudioEnded(clock.now())
+    expect(coordinator.state).toBe('STAGING')
+
+    // 5 seconds into the 15s interval, the model finishes thinking and emits answer
+    clock.advance(5000)
+    coordinator.onInferenceEvent({ type: 'answer', text: 'Here is the result.', at: clock.now() })
+    expect(coordinator.state).toBe('ANSWER_READY')
+
+    // Advancing past the remaining 10s should NOT fire the interval flush
+    clock.advance(15000)
+    expect(onArmFiller).toHaveBeenCalledTimes(1)
+    expect(coordinator.state).toBe('ANSWER_READY')
+  })
 })

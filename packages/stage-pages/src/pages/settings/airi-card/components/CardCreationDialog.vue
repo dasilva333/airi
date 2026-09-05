@@ -172,6 +172,8 @@ const pacingArmMinMs = ref<number>(1200)
 const pacingArmMaxMs = ref<number>(3500)
 const pacingMaxFillerDurationMs = ref<number>(1200)
 const pacingCategoryThreshold = ref<number>(1)
+const pacingMaxFillersPerTurn = ref<number>(3)
+const pacingIntervalMs = ref<number>(15000)
 const pacingFillers = ref<ThinkingFillerPhrase[]>([...DEFAULT_PACING_FILLERS])
 
 // Placeholder state variables for Tools tab
@@ -967,6 +969,8 @@ async function saveCard(card: Card): Promise<boolean> {
             armMaxMs: pacingArmMaxMs.value,
             maxFillerDurationMs: pacingMaxFillerDurationMs.value,
             categoryThreshold: pacingCategoryThreshold.value,
+            maxFillersPerTurn: pacingMaxFillersPerTurn.value,
+            pacingIntervalMs: pacingIntervalMs.value,
             fillers: pacingFillers.value.map(f => ({
               text: f.text,
               category: f.category,
@@ -1111,6 +1115,8 @@ function initializeCard(): Card {
   pacingArmMaxMs.value = airiExt?.acting?.pacing?.armMaxMs ?? 3500
   pacingMaxFillerDurationMs.value = airiExt?.acting?.pacing?.maxFillerDurationMs ?? 1200
   pacingCategoryThreshold.value = airiExt?.acting?.pacing?.categoryThreshold ?? 1
+  pacingMaxFillersPerTurn.value = airiExt?.acting?.pacing?.maxFillersPerTurn ?? 3
+  pacingIntervalMs.value = airiExt?.acting?.pacing?.pacingIntervalMs ?? 15000
   pacingFillers.value = airiExt?.acting?.pacing?.fillers && airiExt.acting.pacing.fillers.length > 0
     ? JSON.parse(JSON.stringify(airiExt.acting.pacing.fillers))
     : JSON.parse(JSON.stringify(DEFAULT_PACING_FILLERS))
@@ -1528,6 +1534,8 @@ function handleGeneratorSave(newValue: string) {
             v-model:pacing-arm-max-ms="pacingArmMaxMs"
             v-model:pacing-max-filler-duration-ms="pacingMaxFillerDurationMs"
             v-model:pacing-category-threshold="pacingCategoryThreshold"
+            v-model:pacing-max-fillers-per-turn="pacingMaxFillersPerTurn"
+            v-model:pacing-interval-ms="pacingIntervalMs"
             v-model:pacing-fillers="pacingFillers"
             :acting-idle-animation-options="actingIdleAnimationOptions"
             :acting-model-emotion-options="actingModelEmotionOptions"
