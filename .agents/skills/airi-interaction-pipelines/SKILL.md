@@ -1,7 +1,7 @@
 ---
 name: airi-interaction-pipelines
 description: >-
-  Use when tracing, extending, or debugging end-to-end AIRI interaction flows: text chat (desktop chatbox, WhisperDock/bar, web landscape, mobile portrait), microphone STT → LLM, Discord classic voice → STT → LLM, Discord/in-app Gemini Live Bidi, proactivity heartbeats, and the downstream hook → speech-runtime → TTS-playback chain. This is a map-of-maps skill: it owns the cross-pipeline overview, ingestion routing, hook/speech-runtime plumbing, and the stop/cancel-in-flight audit. Defers to airi-audio-pipeline (TTS/STT internals), airi-gemini-live-api (Bidi details), airi-proactivity-sensory-telemetry (heartbeat/sensor), airi-discord-integration (commands/gateway), airi-caption-subsystem (caption surfaces), airi-stage-ui-surfaces (host/window shell), airi-desktop-chatbox (chatbox UI), airi-prefix-cache-alignment (prompt layout). Cites arch-chat-stt-proactivity-pipelines.md as the ground-truth source for this surface.
+  Use when tracing, extending, or debugging end-to-end AIRI interaction flows: text chat (desktop chatbox, WhisperDock/bar, web landscape, mobile portrait), microphone STT → LLM, Discord classic voice → STT → LLM, Discord/in-app Gemini Live Bidi, proactivity heartbeats, streaming response processing (text-delta, reasoning-delta, in-band <think>/<thought>/<reasoning> tags, useLlmmarkerParser, createStreamingCategorizer), and the downstream hook → speech-runtime → TTS-playback chain. This is a map-of-maps skill: it owns the cross-pipeline overview, ingestion routing, hook/speech-runtime plumbing, reasoning normalization, and the stop/cancel-in-flight audit. Defers to airi-audio-pipeline (TTS/STT internals), airi-gemini-live-api (Bidi details), airi-proactivity-sensory-telemetry (heartbeat/sensor), airi-discord-integration (commands/gateway), airi-caption-subsystem (caption surfaces), airi-stage-ui-surfaces (host/window shell), airi-desktop-chatbox (chatbox UI), airi-prefix-cache-alignment (prompt layout). Cites arch-chat-stt-proactivity-pipelines.md as the ground-truth source for this surface.
 ---
 
 # AIRI Interaction Pipelines
@@ -43,11 +43,42 @@ Cross-cutting skill covering every route that feeds LLM inference and every rout
 
 - `shouldAbort()` = staleness check `chatSession.getSessionGeneration(sessionId) !== generation` (:425) fires at **every stream-event checkpoint** (:523, :704, :742, :920, :1027, :1045). Bumping the session generation is the canonical mid-flight termination lever (see §7).
 - The stream-level `new AbortController()` (:1400) is used **only** by the idle-timeout machinery (hard 600 s ceiling, `settingsChat.streamIdleTimeoutMs`, `stores/settings/chat.ts:10`). **No UI-facing abortSignal exists — in-flight streams cannot be cancelled by the user today.**
-- Delta chain: text-delta → `useLlmmarkerParser` → literal/special categorization (`createStreamingCategorizer`, speech-only category) → `emitTokenLiteralHooks` / `emitTokenSpecialHooks`.
+- Delta chain: `text-delta` → `useLlmmarkerParser` → literal/special categorization (`createStreamingCategorizer`, speech-only category) → `emitTokenLiteralHooks` / `emitTokenSpecialHooks`.
 - NO_REPLY sentinel drops the whole turn before downstream hooks (:1620-1624, also the in-stream variant at :1470-1530).
 - Hook emission sites: `emitBeforeMessageComposedHooks` (:324), `emitBeforeSendHooks` (:1395), `emitTokenLiteralHooks` (:726), `emitTokenSpecialHooks` (:1055), `emitStreamEndHooks` (:1642, :1684).
 
-### 2.3 Hooks bus — module-level (HMR lesson)
+### 2.3 Streaming Response Processing & Dual-Path Reasoning Normalization
+
+**CRITICAL: Do NOT reinvent `<think>` tag parsing or stream delimiter extractors.** AIRI already features dual-path normalization that isolates reasoning thoughts from spoken TTS output across all providers:
+
+1. **Out-of-Band Reasoning Deltas (`case 'reasoning-delta'`)**:
+   - Upstream providers streaming separate reasoning fields (DeepSeek-R1 via Ollama/OpenRouter, Gemini Thinking, Anthropic extended thinking) emit `reasoning-delta` events from `@xsai/stream-text` via `llmStore.stream` (`packages/stage-ui/src/stores/llm.ts:17`).
+   - Caught directly in `packages/stage-ui/src/stores/chat.ts` (`case 'reasoning-delta'`, :1557-1565).
+   - Normalized directly into `buildingMessage.categorization.reasoning += healedText`.
+   - Completely bypasses `useLlmmarkerParser` and speech hooks, rendering exclusively into collapsible thought UI blocks (`packages/stage-ui/src/components/scenarios/chat/response-part.vue`).
+
+2. **In-Band XML Tags (`<think>`, `<thought>`, `<reasoning>`)**:
+   - Models outputting reasoning in-band stream chunks through `case 'text-delta'` (`chat.ts:1524`).
+   - Text passes into `useLlmmarkerParser` (`packages/stage-ui/src/composables/llm-marker-parser.ts`), which separates orchestration markers (`<|ACT:...|>`, `<|DELAY:...|>`) as `'special'` and emits text literals to `literalInterceptor.consume()`.
+   - `literalInterceptor` forwards text to `categorizer.consume(text)` via `createStreamingCategorizer` (`packages/stage-ui/src/composables/response-categoriser.ts:234`).
+   - `createStreamingCategorizer` tracks tag states incrementally via `processChunkIncrementally(chunk)` (`'outside'` → `'in-opening-tag'` → `'in-content'` → `'in-closing-tag'`).
+   - `categorizer.filterToSpeech(text, streamPosition)` (:405) suppresses all text falling inside unclosed or closed thinking tags (`checkIncompleteTag()` :249) so that thinking text is **never sent to TTS** (`emitTokenLiteralHooks`).
+   - On segment end, `categorizer.getCurrent().reasoning` aggregates thought blocks into `buildingMessage.categorization.reasoning`.
+
+3. **Fallback Speech Rule (`reasoningFallback`)**:
+   - When a reasoning-only LLM (or a model that put its entire response inside `<think>` without speaking) finishes with empty speech (`!speechText.trim() && buildingMessage.categorization.reasoning`), `cardFallback !== false` (default `true`, `chat.ts:1662-1684`) triggers the fallback path:
+     - Sets `buildingMessage.content = fallbackText`, `fullText = fallbackText`, and `buildingMessage.categorization.speech = fallbackText`.
+     - Populates the text slice so TTS hooks and UI display the reasoning text rather than leaving a silent companion or empty bubble.
+     - Documented and verified in `docs/archive/journal-the-reasoning-content-bug.md` (Commit `e78e0d09d`).
+   - UI Deduplication: `response-part.vue` checks `hasReasoning = computed(() => ... && message.categorization.reasoning !== message.content)` so the thought accordion is hidden when fallback text is already displayed as the main bubble.
+
+4. **Pacing / Thinking-Filler Integration**:
+   - Pacing coordinators (e.g. `TurnPacingCoordinator`) and category classifiers subscribe to:
+     - `case 'reasoning-delta'` in `chat.ts` for out-of-band CoT.
+     - `onReasoningChunk` callback in `createStreamingCategorizer` for incremental in-band CoT.
+   - Neither path requires a second XML parser; both feed clean `InferenceEvent` reasoning text to the classifier.
+
+### 2.4 Hooks bus — module-level (HMR lesson)
 
 `createChatHooks()` in `packages/stage-ui/src/stores/chat/hooks.ts` defines `onBeforeMessageComposed`, `onBeforeSend`, `onTokenLiteral`, `onTokenSpecial`, `onStreamEnd`, `onAssistantResponseEnd`, `onAssistantMessage`, `onChatTurnComplete`, `onWidget` — every registration returns its own unregister function.
 

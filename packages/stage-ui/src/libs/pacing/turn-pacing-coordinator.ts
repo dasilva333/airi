@@ -7,6 +7,8 @@ import type {
   ThinkingCategory,
 } from '../../types/pacing'
 
+import { BoundedCategoryClassifier } from './category-classifier'
+
 export interface TurnPacingCoordinatorOptions {
   turnId: string
   generation: number
@@ -14,6 +16,7 @@ export interface TurnPacingCoordinatorOptions {
   policy: PacingPolicyConfig
   clock?: Clock
   historicalTtftSamples?: number[]
+  classifier?: BoundedCategoryClassifier
   onArmFiller?: (category: ThinkingCategory, deadlineMs: number) => void
   onCancelFiller?: (reason: string) => void
   onSettled?: (metrics: PacingMetrics) => void
@@ -26,6 +29,7 @@ export class TurnPacingCoordinator {
   public providerKey: string
   public policy: PacingPolicyConfig
   private clock: Clock
+  private classifier?: BoundedCategoryClassifier
 
   private t0: number = 0
   private deadlineMs: number = 1800
@@ -41,6 +45,7 @@ export class TurnPacingCoordinator {
     this.generation = options.generation
     this.providerKey = options.providerKey
     this.policy = options.policy
+    this.classifier = options.classifier ?? new BoundedCategoryClassifier(this.policy)
     this.clock = options.clock ?? {
       now: () => Date.now(),
       setTimeout: (fn, delay) => setTimeout(fn, delay),
@@ -127,8 +132,12 @@ export class TurnPacingCoordinator {
     switch (event.type) {
       case 'reasoning': {
         if (event.visibility === 'hidden') {
-          // Category candidate can be refined while in STAGING or FILLER_ARMED (before audio starts)
-          // Handled externally or via replaceCandidate
+          if (this.classifier) {
+            const result = this.classifier.consume(event.text)
+            if (result.category !== 'generic') {
+              this.replaceCandidate(result.category)
+            }
+          }
         }
         break
       }
@@ -163,6 +172,13 @@ export class TurnPacingCoordinator {
       return
     if (this.answerAudioScheduled || this.fillerAttempted)
       return
+
+    if (this.classifier) {
+      const flushed = this.classifier.flush()
+      if (flushed.category !== 'generic') {
+        this.replaceCandidate(flushed.category)
+      }
+    }
 
     this.state = 'FILLER_ARMED'
     this.fillerAttempted = true

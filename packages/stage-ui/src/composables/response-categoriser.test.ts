@@ -359,4 +359,21 @@ describe('createStreamingCategorizer', () => {
     const result = categorizer.end()
     expect(result.speech).toBe('Hello world!')
   })
+
+  it('should emit onReasoningChunk callback with incremental thinking text', () => {
+    const reasoningChunks: string[] = []
+    const categorizer = createStreamingCategorizer({
+      onReasoningChunk: (chunk) => {
+        reasoningChunks.push(chunk)
+      },
+    })
+
+    categorizer.consume('Hello <think>calculating')
+    categorizer.consume(' the trajectory')
+    categorizer.consume('</think> world!')
+
+    expect(reasoningChunks.join('')).toBe('calculating the trajectory')
+    const result = categorizer.end()
+    expect(result.speech).toBe('Hello world!')
+  })
 })

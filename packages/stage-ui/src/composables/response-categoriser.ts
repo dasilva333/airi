@@ -227,14 +227,30 @@ export function categorizeResponse(
   }
 }
 
+export interface StreamingCategorizerOptions {
+  providerId?: string
+  onSegment?: (segment: CategorizedSegment) => void
+  onReasoningChunk?: (chunk: string) => void
+}
+
 /**
  * Note: This receives literal text from useLlmmarkerParser (special tokens <|...|> are already extracted).
  * Only XML/HTML tags like <think>, <reasoning> need to be parsed here.
  */
 export function createStreamingCategorizer(
-  providerId?: string,
-  onSegment?: (segment: CategorizedSegment) => void,
+  providerIdOrOptions?: string | StreamingCategorizerOptions,
+  legacyOnSegment?: (segment: CategorizedSegment) => void,
 ) {
+  const options: StreamingCategorizerOptions = typeof providerIdOrOptions === 'object' && providerIdOrOptions !== null
+    ? providerIdOrOptions
+    : {
+        providerId: providerIdOrOptions,
+        onSegment: legacyOnSegment,
+      }
+  const providerId = options.providerId
+  const onSegment = options.onSegment
+  const onReasoningChunk = options.onReasoningChunk
+
   let buffer = ''
   let categorized: CategorizedResponse | null = null
   let lastEmittedSegmentIndex = -1
@@ -287,6 +303,7 @@ export function createStreamingCategorizer(
   // Returns true when the outermost tag just closed
   function processChunkIncrementally(chunk: string): boolean {
     let tagJustClosed = false
+    let reasoningDelta = ''
 
     for (let i = 0; i < chunk.length; i++) {
       const char = chunk[i]
@@ -323,6 +340,9 @@ export function createStreamingCategorizer(
               tagState = 'in-opening-tag'
             }
           }
+          else {
+            reasoningDelta += char
+          }
           break
         }
 
@@ -340,6 +360,10 @@ export function createStreamingCategorizer(
           break
         }
       }
+    }
+
+    if (reasoningDelta && onReasoningChunk) {
+      onReasoningChunk(reasoningDelta)
     }
 
     return tagJustClosed

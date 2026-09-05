@@ -247,4 +247,30 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     clock.advance(5000)
     expect(coordinator.state).toBe('STAGING')
   })
+
+  it('refines fillerCandidate when reasoning events arrive during STAGING', () => {
+    const clock = new VirtualClock()
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-10',
+      generation: 1,
+      providerKey: 'test-provider',
+      policy: defaultPolicy,
+      clock,
+    })
+
+    coordinator.dispatch()
+    expect(coordinator.state).toBe('STAGING')
+
+    // Reasoning arrives with analytical keywords
+    coordinator.onInferenceEvent({
+      type: 'reasoning',
+      text: 'I should calculate the optimal step. ',
+      visibility: 'hidden',
+      at: clock.now(),
+    })
+
+    clock.advance(1800)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+    expect(coordinator.metrics.fillerCandidate).toBe('analytical')
+  })
 })
