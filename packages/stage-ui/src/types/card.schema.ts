@@ -1,4 +1,27 @@
-import { array, boolean, intersect, literal, looseObject, number, object, optional, pipe, record, regex, string, union, unknown } from 'valibot'
+import type { InferOutput } from 'valibot'
+
+import {
+  array,
+  boolean,
+
+  integer,
+  intersect,
+  literal,
+  looseObject,
+  maxLength,
+  maxValue,
+  minLength,
+  minValue,
+  number,
+  object,
+  optional,
+  pipe,
+  record,
+  regex,
+  string,
+  union,
+  unknown,
+} from 'valibot'
 
 /**
  * Message Example Item Schema
@@ -134,6 +157,37 @@ const AiriOutfitSchema = object({
   defaultEnabled: optional(boolean()),
 })
 
+export const AiriThinkingFillerSchema = object({
+  text: pipe(string(), minLength(1), maxLength(160)),
+  category: union([
+    literal('generic'),
+    literal('analytical'),
+    literal('memory'),
+    literal('emotional'),
+    literal('uncertain'),
+  ]),
+  enabled: boolean(),
+})
+
+export const AiriPacingSchema = object({
+  enabled: boolean(),
+  armMinMs: optional(pipe(number(), integer(), minValue(900), maxValue(3500))),
+  armMaxMs: optional(pipe(number(), integer(), minValue(900), maxValue(6000))),
+  maxFillerDurationMs: optional(pipe(number(), integer(), minValue(400), maxValue(2200))),
+  reasoningWindowMs: optional(pipe(number(), integer(), minValue(0), maxValue(1200))),
+  categoryThreshold: optional(pipe(number(), minValue(1), maxValue(10))),
+  fillers: optional(array(AiriThinkingFillerSchema)),
+  visualTyping: optional(object({
+    enabled: boolean(),
+    minIntervalMs: optional(pipe(number(), integer(), minValue(0), maxValue(1000))),
+    maxIntervalMs: optional(pipe(number(), integer(), minValue(0), maxValue(2000))),
+    experimentalDraftRetype: optional(boolean()),
+  })),
+})
+
+export type AiriThinkingFiller = InferOutput<typeof AiriThinkingFillerSchema>
+export type AiriPacing = InferOutput<typeof AiriPacingSchema>
+
 const AiriExtensionSchema = looseObject({
   modules: optional(AiriModulesSchema),
   heartbeats: optional(AiriHeartbeatSchema),
@@ -172,6 +226,7 @@ const AiriExtensionSchema = looseObject({
     speechExpressionPrompt: string(),
     speechMannerismPrompt: string(),
     idleAnimations: optional(array(string())),
+    pacing: optional(AiriPacingSchema),
   })),
   outfits: optional(array(AiriOutfitSchema)),
   artistry: optional(looseObject({
