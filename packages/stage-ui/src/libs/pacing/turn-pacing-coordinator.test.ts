@@ -205,8 +205,17 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     expect(coordinator.state).toBe('FILLER_ARMED')
 
     coordinator.notifyCacheMiss()
-    expect(coordinator.state).toBe('ANSWER_READY')
+    // Attempt 1 miss returns to STAGING with repeat interval scheduled so long deliberating turns can recover
+    expect(coordinator.state).toBe('STAGING')
     expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
+    expect(coordinator.metrics.committedCount).toBe(0)
+
+    // Advance 15s to attempt 2
+    clock.advance(15000)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+    coordinator.notifyCacheMiss()
+    // Max attempts (2 * 1 = 2) exhausted, degrades to ANSWER_READY
+    expect(coordinator.state).toBe('ANSWER_READY')
   })
 
   it('handles barge-in / cancellation idempotently', () => {
@@ -360,11 +369,12 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     expect(coordinator.state).toBe('FILLER_ARMED')
     expect(onArmFiller).toHaveBeenCalledTimes(1)
     expect(onArmFiller).toHaveBeenLastCalledWith('analytical', 1800)
-    expect(coordinator.metrics.fillersSpokenCount).toBe(1)
+    expect(coordinator.metrics.committedCount).toBe(1)
     expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical'])
 
     // Filler 1 plays and finishes
     coordinator.notifyFillerAudioStarted(clock.now())
+    expect(coordinator.metrics.fillersSpokenCount).toBe(1)
     clock.advance(1500)
     coordinator.notifyFillerAudioEnded(clock.now())
     // Should return to STAGING with interval timer scheduled
@@ -384,11 +394,12 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     expect(onArmFiller).toHaveBeenCalledTimes(2)
     // Category 2 must be memory because analytical was already spoken
     expect(onArmFiller).toHaveBeenLastCalledWith('memory', 15000)
-    expect(coordinator.metrics.fillersSpokenCount).toBe(2)
+    expect(coordinator.metrics.committedCount).toBe(2)
     expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical', 'memory'])
 
     // Filler 2 plays and finishes
     coordinator.notifyFillerAudioStarted(clock.now())
+    expect(coordinator.metrics.fillersSpokenCount).toBe(2)
     clock.advance(1200)
     coordinator.notifyFillerAudioEnded(clock.now())
     expect(coordinator.state).toBe('STAGING')
@@ -398,11 +409,12 @@ describe('turnPacingCoordinator (Phase 0)', () => {
     expect(coordinator.state).toBe('FILLER_ARMED')
     expect(onArmFiller).toHaveBeenCalledTimes(3)
     expect(onArmFiller).toHaveBeenLastCalledWith('generic', 15000)
-    expect(coordinator.metrics.fillersSpokenCount).toBe(3)
+    expect(coordinator.metrics.committedCount).toBe(3)
     expect(coordinator.metrics.categoriesSpoken).toEqual(['analytical', 'memory', 'generic'])
 
     // Filler 3 plays and finishes (maxFillersPerTurn = 3 reached)
     coordinator.notifyFillerAudioStarted(clock.now())
+    expect(coordinator.metrics.fillersSpokenCount).toBe(3)
     clock.advance(1000)
     coordinator.notifyFillerAudioEnded(clock.now())
     // Should transition to HANDOFF because fillersSpokenCount >= maxFillersPerTurn
@@ -693,6 +705,70 @@ describe('turnPacingCoordinator (Phase 0)', () => {
       clock.advance(1800)
       expect(onArmFiller).toHaveBeenCalledTimes(1)
       expect(coordinator.attemptsMade).toBe(1)
+    })
+
+    it('rotates recurring generic fillers across intervals during long deliberation without specialized keywords', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-recurring-generic',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: {
+          ...defaultPolicy,
+          maxFillersPerTurn: 3,
+          pacingIntervalMs: 15000,
+        },
+        clock,
+        onArmFiller,
+      })
+
+      coordinator.dispatch()
+
+      // 1. Initial deadline (1800ms) arms generic filler 1
+      clock.advance(1800)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+      expect(onArmFiller).toHaveBeenLastCalledWith('generic', 1800)
+      expect(coordinator.metrics.committedCount).toBe(1)
+
+      // Filler 1 plays and finishes
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1500)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // 2. Advance 15s without any specialized category keywords -> arms generic filler 2
+      clock.advance(15000)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(2)
+      expect(onArmFiller).toHaveBeenLastCalledWith('generic', 15000)
+      expect(coordinator.metrics.committedCount).toBe(2)
+
+      // Filler 2 plays and finishes
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1200)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // 3. Advance another 15s -> arms generic filler 3 (max 3 reached)
+      clock.advance(15000)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(3)
+      expect(onArmFiller).toHaveBeenLastCalledWith('generic', 15000)
+      expect(coordinator.metrics.committedCount).toBe(3)
+
+      // Filler 3 plays and finishes
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('HANDOFF')
+      expect(coordinator.pacingClosed).toBe(true)
+
+      // Advancing further does not trigger filler 4
+      clock.advance(20000)
+      expect(onArmFiller).toHaveBeenCalledTimes(3)
     })
   })
 })

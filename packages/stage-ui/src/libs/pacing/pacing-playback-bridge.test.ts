@@ -106,7 +106,7 @@ describe('pacing-playback-bridge (Phase 1)', () => {
     expect(coordinator.state).toBe('HANDOFF')
   })
 
-  it('handles cache miss: cleanly degrades to ANSWER_READY with 0 audio scheduled', async () => {
+  it('handles cache miss: cleanly returns to STAGING with 0 audio scheduled', async () => {
     const clock = new VirtualClock()
     const coordinator = new TurnPacingCoordinator({
       turnId: 'turn-bridge-2',
@@ -134,7 +134,7 @@ describe('pacing-playback-bridge (Phase 1)', () => {
     const armedSuccess = await bridge.handleFillerArmed('generic')
     expect(armedSuccess).toBe(false)
     expect(playback.schedule).not.toHaveBeenCalled()
-    expect(coordinator.state).toBe('ANSWER_READY')
+    expect(coordinator.state).toBe('STAGING')
     expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
   })
 

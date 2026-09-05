@@ -150,8 +150,19 @@ export class TurnPacingCoordinator {
     // First tick transition to STAGING
     this.state = 'STAGING'
 
-    // If disabled by policy or ultra-fast, stay in STAGING without arm timer
-    if (!this.policy.enabled || this.deadlineMs <= 0) {
+    // If disabled by policy, return
+    if (!this.policy.enabled) {
+      return
+    }
+
+    if (this.deadlineMs <= 0) {
+      // Ultra-fast model: do not schedule initial arm deadline, but schedule repeat interval timer
+      // in case the model encounters a deep reasoning stall or unexpected delay.
+      const intervalMs = this.policy.pacingIntervalMs ?? 15000
+      this.nextEligibleAtMs = this.t0 + intervalMs
+      this.intervalTimerHandle = this.clock.setTimeout(() => {
+        this.onIntervalFlushElapsed()
+      }, intervalMs)
       return
     }
 
@@ -289,9 +300,7 @@ export class TurnPacingCoordinator {
     this.fillerAttempted = true
     this.usedCategories.add(catToArm)
     this.committedCount++
-    this.fillersSpokenCount++
     this.metrics.committedCount = this.committedCount
-    this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.categoriesSpoken = Array.from(this.usedCategories)
     this.metrics.fillerCandidate = catToArm
     this.metrics.fillerOutcome = 'none'
@@ -340,9 +349,7 @@ export class TurnPacingCoordinator {
       this.state = 'FILLER_ARMED'
       this.fillerAttempted = true
       this.committedCount++
-      this.fillersSpokenCount++
       this.metrics.committedCount = this.committedCount
-      this.metrics.fillersSpokenCount = this.fillersSpokenCount
       this.metrics.dynamicCueSource = 'explicit'
       this.metrics.fillerCandidate = 'generic'
       this.metrics.fillerOutcome = 'none'
@@ -374,9 +381,7 @@ export class TurnPacingCoordinator {
       this.state = 'FILLER_ARMED'
       this.fillerAttempted = true
       this.committedCount++
-      this.fillersSpokenCount++
       this.metrics.committedCount = this.committedCount
-      this.metrics.fillersSpokenCount = this.fillersSpokenCount
       this.metrics.dynamicCueSource = 'organic'
       this.metrics.fillerCandidate = 'generic'
       this.metrics.fillerOutcome = 'none'
@@ -396,33 +401,21 @@ export class TurnPacingCoordinator {
       return
     }
 
-    // Priority 3: Cached Category Winner
+    // Priority 3: Cached Category Winner (falls back to generic phrase pool)
     let nextCat: ThinkingCategory | null = null
     if (this.classifier) {
       nextCat = this.classifier.getTopCategoryExcluding(this.usedCategories)
     }
 
-    if (!nextCat && !this.usedCategories.has('generic')) {
-      nextCat = 'generic'
-    }
-
     if (!nextCat) {
-      // No category available; skip this opportunity and schedule next interval if not closed
-      const intervalMs = this.policy.pacingIntervalMs ?? 15000
-      this.nextEligibleAtMs = now + intervalMs
-      this.intervalTimerHandle = this.clock.setTimeout(() => {
-        this.onIntervalFlushElapsed()
-      }, intervalMs)
-      return
+      nextCat = 'generic'
     }
 
     this.attemptsMade++
     this.state = 'FILLER_ARMED'
     this.usedCategories.add(nextCat)
     this.committedCount++
-    this.fillersSpokenCount++
     this.metrics.committedCount = this.committedCount
-    this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.categoriesSpoken = Array.from(this.usedCategories)
     this.metrics.fillerCandidate = nextCat
     this.metrics.fillerOutcome = 'none'
@@ -474,7 +467,9 @@ export class TurnPacingCoordinator {
 
     this.state = 'FILLER_ACTIVE'
     this.spokenCount++
+    this.fillersSpokenCount++
     this.metrics.spokenCount = this.spokenCount
+    this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.fillerStartMs = at - this.t0
     this.metrics.fillerOutcome = 'played'
   }
@@ -537,7 +532,38 @@ export class TurnPacingCoordinator {
   public notifyCacheMiss(): void {
     if (this.state === 'FILLER_ARMED') {
       this.metrics.fillerOutcome = 'cache-miss'
-      this.state = 'ANSWER_READY'
+      // Rollback committedCount since filler was not committed to audio playback
+      if (this.committedCount > 0) {
+        this.committedCount--
+        this.metrics.committedCount = this.committedCount
+      }
+
+      if (this.metrics.fillerCandidate) {
+        this.usedCategories.delete(this.metrics.fillerCandidate)
+        this.metrics.categoriesSpoken = Array.from(this.usedCategories)
+      }
+
+      const maxFillers = this.policy.maxFillersPerTurn ?? 1
+      if (this.committedCount < maxFillers && !this.answerAudioScheduled && this.turnPhase !== 'answering') {
+        this.pacingClosed = false
+        this.metrics.pacingClosed = false
+      }
+
+      const maxAttempts = 2 * maxFillers
+      // If we haven't exhausted attempts and answer hasn't arrived, remain in STAGING and schedule next interval
+      if (!this.pacingClosed && this.attemptsMade < maxAttempts && !this.answerAudioScheduled && this.turnPhase !== 'answering') {
+        this.state = 'STAGING'
+        if (!this.intervalTimerHandle) {
+          const intervalMs = this.policy.pacingIntervalMs ?? 15000
+          this.nextEligibleAtMs = this.clock.now() + intervalMs
+          this.intervalTimerHandle = this.clock.setTimeout(() => {
+            this.onIntervalFlushElapsed()
+          }, intervalMs)
+        }
+      }
+      else {
+        this.state = 'ANSWER_READY'
+      }
     }
   }
 

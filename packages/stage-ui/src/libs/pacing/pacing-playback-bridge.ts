@@ -4,7 +4,7 @@ import type { AsideCandidate, Clock, PacingPlaybackMeta, ThinkingCategory } from
 import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 import type { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
-import { getThinkingAudio } from './pacing-cache'
+import { getThinkingAudio, saveThinkingAudio } from './pacing-cache'
 
 export interface PacingCommitReceipt {
   accepted: boolean
@@ -114,10 +114,61 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
    */
   public async handleFillerArmed(category: ThinkingCategory = 'generic', customText?: string): Promise<boolean> {
     const phraseText = customText || this.voiceParams.text || category
-    const cached = await getThinkingAudio({
+    let cached = await getThinkingAudio({
       ...this.voiceParams,
       text: phraseText,
     })
+
+    if (!cached && this.synthesizeAudio) {
+      // Dynamic fallback synthesis for uncached filler phrases
+      const abortController = new AbortController()
+      this.activeAbortController = abortController
+      const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 800
+      let timerHandle: any = null
+
+      try {
+        const synthesisPromise = this.synthesizeAudio(phraseText, abortController.signal)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timerHandle = this.clock.setTimeout(() => {
+            reject(new Error(`Filler synthesis timed out after ${budgetMs}ms`))
+          }, budgetMs)
+        })
+
+        const rawBuffer = await Promise.race([synthesisPromise, timeoutPromise])
+        if (rawBuffer && rawBuffer.byteLength > 0) {
+          let durationSec = 1.5
+          if (this.decodeAudio) {
+            try {
+              const decoded = await this.decodeAudio(rawBuffer)
+              if (decoded && typeof (decoded as any).duration === 'number') {
+                durationSec = (decoded as any).duration
+              }
+            }
+            catch {
+              // Ignore decode measurement failure, use default duration
+            }
+          }
+          const durationMs = durationSec * 1000
+          cached = {
+            audio: rawBuffer,
+            durationMs,
+          }
+          // Asynchronously persist to cache so subsequent turns are instant hits
+          void saveThinkingAudio({ ...this.voiceParams, text: phraseText }, rawBuffer, durationMs).catch(() => {})
+        }
+      }
+      catch {
+        abortController.abort()
+      }
+      finally {
+        if (timerHandle) {
+          this.clock.clearTimeout(timerHandle)
+        }
+        if (this.activeAbortController === abortController) {
+          this.activeAbortController = null
+        }
+      }
+    }
 
     if (!cached) {
       this.coordinator.notifyCacheMiss()

@@ -91,6 +91,18 @@ function safeAppendMannerismPrompt(template: string) {
   }
 }
 
+function onDynamicAsidesToggle(event: Event) {
+  const target = event.target as HTMLInputElement
+  const enabled = target.checked
+  pacingDynamicAsidesEnabled.value = enabled
+  if (enabled) {
+    const current = selectedActingSpeechMannerismPrompt.value?.trim() || ''
+    if (!current.includes('think_aloud')) {
+      safeAppendMannerismPrompt(THINK_ALOUD_TEMPLATE)
+    }
+  }
+}
+
 function toggleIdleAnimation(name: string) {
   if (selectedActingIdleAnimations.value.includes(name)) {
     selectedActingIdleAnimations.value = selectedActingIdleAnimations.value.filter(n => n !== name)
@@ -713,6 +725,15 @@ function resetToDefaultFillers() {
             :single-line="false"
           />
 
+          <!-- Warning banner if dynamic asides enabled without <think_aloud> in prompt -->
+          <div
+            v-if="pacingDynamicAsidesEnabled && !selectedActingSpeechMannerismPrompt?.includes('think_aloud')"
+            class="mt-2.5 flex items-center gap-2 border border-amber-200 rounded-lg bg-amber-50/80 px-3 py-2 text-xs text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-300"
+          >
+            <div class="i-solar:danger-triangle-bold shrink-0 text-sm" />
+            <span>Dynamic live asides are enabled, but your style & pacing prompt does not include instructions for <code>&lt;think_aloud&gt;</code>. Click "Insert &lt;think_aloud&gt; CoT Template" below to add them.</span>
+          </div>
+
           <!-- Action Chips & Provider Mannerisms -->
           <div class="mt-3 flex flex-col gap-2.5">
             <div class="text-[11px] text-neutral-500 font-medium dark:text-neutral-400">
@@ -757,9 +778,10 @@ function resetToDefaultFillers() {
                 <div class="flex items-center gap-2">
                   <input
                     id="dynamic-asides-toggle"
-                    v-model="pacingDynamicAsidesEnabled"
+                    :checked="pacingDynamicAsidesEnabled"
                     type="checkbox"
                     class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                    @change="onDynamicAsidesToggle"
                   >
                   <label for="dynamic-asides-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold tracking-wider uppercase dark:text-neutral-200">
                     Dynamic Live Asides (&lt;think_aloud&gt;)

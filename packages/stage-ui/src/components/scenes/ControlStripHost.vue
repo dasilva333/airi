@@ -825,12 +825,44 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
   ownerOverflowPolicy: 'steal-oldest',
 })
 
+async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise<ArrayBuffer> {
+  const provider = await providersStore.getProviderInstance(activeSpeechProvider.value) as any
+  if (!provider)
+    throw new Error('No speech provider available')
+  const targetProviderConfig = providersStore.getProviderConfig(activeSpeechProvider.value) as Record<string, any>
+  let model = activeSpeechModel.value || (targetProviderConfig?.model as string) || ''
+  let voiceId = activeSpeechVoice.value?.id || (targetProviderConfig?.voice as string) || (activeSpeechVoiceId.value as string) || 'alloy'
+
+  if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
+    model = model || (targetProviderConfig?.model as string) || 'tts-1'
+    voiceId = voiceId || 'alloy'
+  }
+
+  const transformedText = speechStore.transformTextForSpeech(text, activeSpeechProvider.value)
+  const input = ssmlEnabled.value
+    ? speechStore.generateSSML(transformedText, activeSpeechVoice.value || { id: voiceId } as any, { ...targetProviderConfig, pitch: pitch.value })
+    : transformedText
+
+  const res = await generateSpeech({
+    ...provider.speech(model, targetProviderConfig),
+    input,
+    voice: voiceId,
+    abortSignal: signal,
+  })
+
+  if (signal.aborted || !res || res.byteLength === 0)
+    throw new Error('Pacing synthesis aborted or empty')
+
+  return res
+}
+
 const turnPacing = useTurnPacing({
   activeCard,
   playbackManager,
   audioContext,
   speechStore,
   isPlaybackSuppressed,
+  synthesizeAudio: synthesizePacingAudio,
   getIntentContext: () => ({
     intentId: currentChatIntent?.intentId,
     streamId: currentChatIntent?.streamId,

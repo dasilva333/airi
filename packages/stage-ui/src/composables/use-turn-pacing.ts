@@ -3,6 +3,7 @@ import type { Ref } from 'vue'
 
 import type { ThinkingAudioFingerprintParams } from '../libs/pacing/pacing-cache'
 import type { AiriThinkingFiller } from '../types/card.schema'
+import type { ChatStreamEventContext } from '../types/chat'
 import type { AsideCandidate, PacingMetrics, PacingPolicyConfig } from '../types/pacing'
 
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
@@ -11,6 +12,7 @@ import { readonly, ref, toRaw } from 'vue'
 import { PacingPlaybackBridge, resolveFillerCandidate } from '../libs/pacing/pacing-playback-bridge'
 import { TurnPacingCoordinator } from '../libs/pacing/turn-pacing-coordinator'
 import { useAudioContext } from '../stores/audio'
+import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useSpeechStore } from '../stores/modules/speech'
 
 export interface UseTurnPacingOptions {
@@ -36,6 +38,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   const { activeCard, playbackManager, isPlaybackSuppressed } = options
 
   const speechStore = options.speechStore ?? useSpeechStore()
+  const consciousnessStore = useConsciousnessStore()
   const audioCtxStore = useAudioContext()
 
   function getAudioContext(): AudioContext | null {
@@ -43,15 +46,18 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   }
 
   const ttftSamplesByProvider = new Map<string, number[]>()
-  let currentGeneration = 0
-  let activeCoordinator: TurnPacingCoordinator | null = null
-  let activeBridge: PacingPlaybackBridge<AudioBuffer> | null = null
-
   const activePacingMetrics = ref<PacingMetrics | null>(null)
   const latestPacingMetrics = useLocalStorage<PacingMetrics | null>('airi:latest-pacing-metrics', null)
-  const { post: postPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({ name: 'airi:pacing-telemetry' })
 
-  function startTurn(turnId: string, _context?: any): TurnPacingCoordinator | null {
+  const { post: postPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({
+    name: 'airi:pacing-telemetry',
+  })
+
+  let activeCoordinator: TurnPacingCoordinator | null = null
+  let activeBridge: PacingPlaybackBridge<AudioBuffer> | null = null
+  let currentGeneration = 0
+
+  function startTurn(turnId: string, _context?: ChatStreamEventContext): TurnPacingCoordinator | null {
     const pacingConfig = activeCard.value?.extensions?.airi?.acting?.pacing
     if (!pacingConfig?.enabled) {
       activeCoordinator = null
@@ -86,7 +92,10 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     }
 
     const gen = ++currentGeneration
-    const providerKey = `${speechStore.activeSpeechProvider || 'unknown'}:${speechStore.activeSpeechModel || 'default'}`
+    const card = activeCard.value
+    const llmProvider = card?.extensions?.airi?.generation?.provider || consciousnessStore.activeProvider || 'unknown'
+    const llmModel = card?.extensions?.airi?.generation?.model || consciousnessStore.activeModel || 'default'
+    const providerKey = `${llmProvider}:${llmModel}`
     const samples = ttftSamplesByProvider.get(providerKey) || []
 
     const policy: PacingPolicyConfig = {
