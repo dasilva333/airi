@@ -45,6 +45,14 @@ export interface AuraState {
     elapsed: number
     palette: { core: string, inner: string, outer: string, halo: string }
   }
+  verdant: {
+    active: boolean
+    keepActive?: boolean
+    strength: number
+    duration: number
+    elapsed: number
+    palette: { core: string, leaf: string, vine: string, base: string }
+  }
 }
 
 export class AuraController {
@@ -90,6 +98,18 @@ export class AuraController {
         halo: '#29055C',
       },
     },
+    verdant: {
+      active: false,
+      strength: 0,
+      duration: 6.0,
+      elapsed: 0,
+      palette: {
+        core: '#A7F3D0',
+        leaf: '#10B981',
+        vine: '#059669',
+        base: '#042F2E',
+      },
+    },
   }
 
   // Flame meshes & materials
@@ -106,14 +126,23 @@ export class AuraController {
   private _magicGlowMesh: Mesh
   private _magicBandMesh: Mesh
 
+  // Verdant ribbon meshes & materials
+  private _verdantGeometry = createBoltRibbonGeometry(48, 6)
+  private _verdantGlowMat = createArcaneRibbonMaterial(RibbonPass.GLOW)
+  private _verdantBandMat = createArcaneRibbonMaterial(RibbonPass.BAND)
+  private _verdantGlowMesh: Mesh
+  private _verdantBandMesh: Mesh
+
   // Ground Decal meshes & materials
   private _groundGeometry = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2)
   private _fireGroundMat = createGroundDecalMaterial(GroundDecalType.FIRE)
   private _electricGroundMat = createGroundDecalMaterial(GroundDecalType.ELECTRIC)
   private _magicGroundMat = createGroundDecalMaterial(GroundDecalType.MAGIC)
+  private _verdantGroundMat = createGroundDecalMaterial(GroundDecalType.VERDANT)
   private _fireGroundMesh: Mesh
   private _electricGroundMesh: Mesh
   private _magicGroundMesh: Mesh
+  private _verdantGroundMesh: Mesh
 
   // Cached orientation vectors to prevent per-frame allocations
   private _staticRight = new Vector3(1, 0, 0)
@@ -128,6 +157,7 @@ export class AuraController {
   private _fireEmberEmitter = new RateEmitter(40)
   private _magicSparkEmitter = new RateEmitter(30)
   private _electricSparkEmitter = new RateEmitter(25)
+  private _verdantSporeEmitter = new RateEmitter(30)
 
   private _tmpPos = new Vector3()
   private _tmpDir = new Vector3(0, 1, 0)
@@ -174,6 +204,18 @@ export class AuraController {
     this.group.add(this._magicGlowMesh)
     this.group.add(this._magicBandMesh)
 
+    // Setup Verdant Meshes
+    this._verdantGlowMesh = new Mesh(this._verdantGeometry, this._verdantGlowMat)
+    this._verdantGlowMesh.frustumCulled = false
+    this._verdantGlowMesh.renderOrder = 12
+
+    this._verdantBandMesh = new Mesh(this._verdantGeometry, this._verdantBandMat)
+    this._verdantBandMesh.frustumCulled = false
+    this._verdantBandMesh.renderOrder = 14
+
+    this.group.add(this._verdantGlowMesh)
+    this.group.add(this._verdantBandMesh)
+
     // Setup Ground Decals (seated just above floor grid to prevent z-fighting)
     this._fireGroundMesh = new Mesh(this._groundGeometry, this._fireGroundMat)
     this._fireGroundMesh.frustumCulled = false
@@ -193,9 +235,16 @@ export class AuraController {
     this._magicGroundMesh.position.y = 0.005
     this._magicGroundMesh.visible = false
 
+    this._verdantGroundMesh = new Mesh(this._groundGeometry, this._verdantGroundMat)
+    this._verdantGroundMesh.frustumCulled = false
+    this._verdantGroundMesh.renderOrder = 6
+    this._verdantGroundMesh.position.y = 0.005
+    this._verdantGroundMesh.visible = false
+
     this.group.add(this._fireGroundMesh)
     this.group.add(this._electricGroundMesh)
     this.group.add(this._magicGroundMesh)
+    this.group.add(this._verdantGroundMesh)
 
     // Prepare Particle Pools
     const embers = this.particleEngine.get('aura_embers', {
@@ -235,13 +284,25 @@ export class AuraController {
       new Color(0.2, 0.5, 1),
       new Color(0.05, 0.1, 0.5),
     )
+
+    const spores = this.particleEngine.get('aura_verdant_spores', {
+      capacity: 1200,
+      shape: ParticleShape.SOFT,
+      additive: true,
+    })
+    spores.setGradient(
+      new Color(0.9, 1.0, 0.95),
+      new Color(0.2, 0.9, 0.5),
+      new Color(0.05, 0.6, 0.3),
+      new Color(0.01, 0.15, 0.08),
+    )
   }
 
   setResolver(resolver: AvatarSocketResolver | null) {
     this.resolver = resolver
   }
 
-  triggerAura(type: 'fire' | 'electric' | 'magic', duration?: number) {
+  triggerAura(type: 'fire' | 'electric' | 'magic' | 'verdant', duration?: number) {
     const aura = this.state[type]
     aura.active = true
     aura.elapsed = 0
@@ -249,7 +310,7 @@ export class AuraController {
       aura.duration = duration
   }
 
-  stopAura(type: 'fire' | 'electric' | 'magic') {
+  stopAura(type: 'fire' | 'electric' | 'magic' | 'verdant') {
     this.state[type].active = false
   }
 
@@ -273,6 +334,9 @@ export class AuraController {
 
     // 3. Magic Boost Lifecycle & Sync
     this._updateMagic(dt, time, rootPos, height)
+
+    // 4. Verdant Boost Lifecycle & Sync
+    this._updateVerdant(dt, time, rootPos, height)
 
     // Flush GPU particle buffers
     this.particleEngine.flush()
@@ -504,6 +568,106 @@ export class AuraController {
     }
   }
 
+  private _updateVerdant(dt: number, time: number, rootPos: Vector3, height: number) {
+    const v = this.state.verdant
+    if (v.keepActive) {
+      v.strength = Math.min(1.0, v.strength + dt * 3.0)
+    }
+    else if (v.active) {
+      v.elapsed += dt
+      if (v.elapsed < 0.4)
+        v.strength = v.elapsed / 0.4
+      else if (v.elapsed > v.duration - 0.7)
+        v.strength = Math.max(0, (v.duration - v.elapsed) / 0.7)
+      else
+        v.strength = 1.0
+
+      if (v.elapsed >= v.duration) {
+        v.active = false
+        v.strength = 0
+      }
+    }
+    else {
+      v.strength = Math.max(0, v.strength - dt * 2.0)
+    }
+
+    const visible = v.strength > 0.005
+    this._verdantGlowMesh.visible = visible
+    this._verdantBandMesh.visible = visible
+    this._verdantGroundMesh.visible = visible
+
+    if (visible) {
+      syncFresnelAura(v.strength, rootPos.y, height, {
+        colorRim: v.palette.leaf,
+        colorCore: v.palette.core,
+        colorVein: v.palette.vine,
+        fresnelGlow: 2.8,
+        veinSpeed: 0.8,
+        scanSpeed: 0.35,
+        veins: 0.45,
+      }, 'verdant')
+
+      const syncState = {
+        base: rootPos,
+        right: this._staticRight,
+        forward: this._staticForward,
+        height,
+        strength: v.strength,
+        palette: {
+          core: v.palette.core,
+          inner: v.palette.leaf,
+          outer: v.palette.vine,
+          halo: v.palette.base,
+        },
+      }
+      this._verdantGlowMat.userData.sync?.(syncState)
+      this._verdantBandMat.userData.sync?.(syncState)
+
+      // Sync sacred grove mandala ground decal
+      this._verdantGroundMesh.position.set(rootPos.x, 0.005, rootPos.z)
+      this._verdantGroundMesh.scale.set(3.4, 1, 3.4)
+      this._verdantGroundMat.userData.sync?.({
+        fade: v.strength,
+        radius: 1.7,
+        palette: {
+          char: v.palette.base,
+          crack: v.palette.vine,
+          ring: v.palette.leaf,
+          core: v.palette.core,
+        },
+      })
+
+      // Emit rising bio-luminescent spore motes
+      const sporeCount = this._verdantSporeEmitter.tick(dt, 28, v.strength)
+      if (sporeCount > 0) {
+        const ang = time * 1.2 + Math.random() * 6.28
+        const r = 0.2 + Math.random() * 0.45
+        this._tmpPos.set(
+          rootPos.x + Math.cos(ang) * r,
+          rootPos.y + height * (0.1 + Math.random() * 0.7),
+          rootPos.z + Math.sin(ang) * r,
+        )
+        this._emitScratch.position = this._tmpPos
+        this._emitScratch.radius = 0.06
+        this._emitScratch.direction = this._tmpDir.set(
+          Math.sin(time * 2.0 + this._tmpPos.y * 3.0) * 0.3,
+          0.9,
+          Math.cos(time * 2.0 + this._tmpPos.y * 3.0) * 0.3,
+        ).normalize()
+        this._emitScratch.speed = 0.4
+        this._emitScratch.speedVariance = 0.2
+        this._emitScratch.spread = 0.3
+        this._emitScratch.size = 0.11
+        this._emitScratch.life = 1.6
+        this._emitScratch.time = time
+        this.particleEngine.get('aura_verdant_spores').emit(sporeCount, this._emitScratch)
+      }
+    }
+    else {
+      syncFresnelAura(0, rootPos.y, height, undefined, 'verdant')
+    }
+  }
+
   dispose() {
     this.scene.remove(this.group)
     this._flameGeometry.dispose()
@@ -512,10 +676,14 @@ export class AuraController {
     this._magicGeometry.dispose()
     this._magicGlowMat.dispose()
     this._magicBandMat.dispose()
+    this._verdantGeometry.dispose()
+    this._verdantGlowMat.dispose()
+    this._verdantBandMat.dispose()
     this._groundGeometry.dispose()
     this._fireGroundMat.dispose()
     this._electricGroundMat.dispose()
     this._magicGroundMat.dispose()
+    this._verdantGroundMat.dispose()
     this.particleEngine.dispose()
   }
 }

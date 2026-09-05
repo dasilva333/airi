@@ -80,12 +80,15 @@ const tokenLogs = ref<{ text: string, time: string }[]>([])
 const keepFireActive = ref(false)
 const keepElectricActive = ref(false)
 const keepMagicActive = ref(false)
+const keepVerdantActive = ref(false)
 
 const flameHeight = ref(0.62)
 const flameCoreColor = ref('#FFF2BF')
 const flameColor = ref('#FF7314')
 const electricVeinColor = ref('#4A92FF')
 const magicCoreColor = ref('#FFDCFF')
+const verdantCoreColor = ref('#A7F3D0')
+const verdantLeafColor = ref('#10B981')
 
 const availableSockets = computed(() => {
   return socketResolver.value?.getAvailableSockets() || []
@@ -393,6 +396,10 @@ useRafFn(() => {
     ac.state.magic.keepActive = keepMagicActive.value
     ac.state.magic.palette.core = magicCoreColor.value
 
+    ac.state.verdant.keepActive = keepVerdantActive.value
+    ac.state.verdant.palette.core = verdantCoreColor.value
+    ac.state.verdant.palette.leaf = verdantLeafColor.value
+
     ac.update(dt)
   }
 
@@ -405,11 +412,11 @@ useRafFn(() => {
 })
 
 // Aura triggers
-function triggerAura(type: 'fire' | 'electric' | 'magic', duration = 5.0) {
+function triggerAura(type: 'fire' | 'electric' | 'magic' | 'verdant', duration = 5.0) {
   auraController.value?.triggerAura(type, duration)
 }
 
-function stopAura(type: 'fire' | 'electric' | 'magic') {
+function stopAura(type: 'fire' | 'electric' | 'magic' | 'verdant') {
   auraController.value?.stopAura(type)
 }
 
@@ -430,6 +437,9 @@ function dispatchActToken(token: string) {
   }
   else if (lower.includes('loving') || lower.includes('blushing') || lower.includes('magic')) {
     triggerAura('magic', 7.0)
+  }
+  else if (lower.includes('peaceful') || lower.includes('calm') || lower.includes('verdant') || lower.includes('nature') || lower.includes('healed')) {
+    triggerAura('verdant', 6.0)
   }
 }
 
@@ -676,6 +686,43 @@ onUnmounted(() => {
               </label>
             </div>
           </div>
+
+          <!-- Verdant Boost -->
+          <div class="flex flex-col gap-2 border border-emerald-500/20 rounded-lg bg-emerald-950/15 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-emerald-200 font-semibold">🍃 Verdant Boost (Sacred Grove & Bio-Spores)</span>
+              <div class="flex items-center gap-2">
+                <label class="flex cursor-pointer items-center gap-1 text-[11px] text-emerald-300/90">
+                  <input v-model="keepVerdantActive" type="checkbox" class="rounded accent-emerald-500">
+                  <span>Keep Active</span>
+                </label>
+                <div class="flex gap-1">
+                  <button
+                    class="rounded bg-emerald-600/80 px-2.5 py-1 text-xs text-white font-medium transition-colors hover:bg-emerald-500"
+                    @click="triggerAura('verdant', 6.0)"
+                  >
+                    Bloom
+                  </button>
+                  <button
+                    class="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+                    @click="stopAura('verdant')"
+                  >
+                    Cut
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] text-neutral-400">
+              <label class="flex flex-col gap-1">
+                <span>Core Color</span>
+                <input v-model="verdantCoreColor" type="color" class="h-6 w-full cursor-pointer border-0 rounded bg-neutral-800">
+              </label>
+              <label class="flex flex-col gap-1">
+                <span>Leaf Color</span>
+                <input v-model="verdantLeafColor" type="color" class="h-6 w-full cursor-pointer border-0 rounded bg-neutral-800">
+              </label>
+            </div>
+          </div>
         </div>
 
         <!-- Section: ACT Token Simulator -->
@@ -722,6 +769,12 @@ onUnmounted(() => {
               @click="dispatchActToken('<|ACT:emotion=\&quot;loving\&quot;|>')"
             >
               🌸 loving
+            </button>
+            <button
+              class="border border-emerald-500/30 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20"
+              @click="dispatchActToken('<|ACT:emotion=\&quot;peaceful\&quot;|>')"
+            >
+              🍃 peaceful
             </button>
           </div>
 

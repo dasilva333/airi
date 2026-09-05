@@ -13,6 +13,7 @@ export const GroundDecalType = {
   FIRE: 0,
   ELECTRIC: 1,
   MAGIC: 2,
+  VERDANT: 3,
 } as const
 
 export type GroundDecalStyle = typeof GroundDecalType[keyof typeof GroundDecalType]
@@ -37,6 +38,8 @@ export function createGroundDecalMaterial(style: GroundDecalStyle = GroundDecalT
     defines.DECAL_ELECTRIC = '1'
   else if (style === GroundDecalType.MAGIC)
     defines.DECAL_MAGIC = '1'
+  else if (style === GroundDecalType.VERDANT)
+    defines.DECAL_VERDANT = '1'
 
   const material = new ShaderMaterial({
     defines,
@@ -186,6 +189,39 @@ const GROUND_FRAGMENT = /* glsl */ `
     color = mix(color, uColorCore, (r1 + r2 + r3 + glyphMask + innerRing) * 1.4);
 
     alpha = boundary * uFade * ((r1 + r2 + r3 + glyphMask * 1.3 + innerRing) * 1.1 + 0.1);
+#endif
+
+#ifdef DECAL_VERDANT
+    // Sacred Lotus Mandala & Creeping Vine Field
+    // 8-fold flower / lotus petals using polar coordinates
+    float petalRot = angle + uTime * 0.15;
+    float petals = sin(petalRot * 8.0) * 0.12 + 0.58;
+    float petalEdge = smoothstep(0.025, 0.0, abs(dist - petals));
+
+    // Inner 16-fold delicate stamen ring
+    float innerPetals = sin((angle - uTime * 0.2) * 16.0) * 0.06 + 0.32;
+    float innerEdge = smoothstep(0.02, 0.0, abs(dist - innerPetals));
+
+    // Concentric sacred bio-rings
+    float rOuter = smoothstep(0.025, 0.0, abs(dist - 0.86));
+    float rCore = smoothstep(0.02, 0.0, abs(dist - 0.18));
+
+    // Organic creeping vine veins using domain-warped simplex noise
+    vec2 vineWarp = vec2(
+      snoise(vec3(p * 3.5, uTime * 0.1 + uSeed)),
+      snoise(vec3(p * 3.5 + 31.7, uTime * 0.1 + uSeed))
+    ) * 0.25;
+    float vines = abs(snoise(vec3((p + vineWarp) * 4.5, uSeed + 5.2)));
+    vines = pow(1.0 - clamp(vines, 0.0, 1.0), 3.0);
+    // Mask vines within the sacred circle
+    vines *= smoothstep(0.92, 0.2, dist);
+
+    float boundary = smoothstep(0.98, 0.75, dist);
+    vec3 baseMoss = mix(uColorChar, uColorCrack, dist * 0.8);
+    color = mix(baseMoss, uColorRing, (petalEdge + innerEdge + rOuter + rCore) * 0.9);
+    color = mix(color, uColorCore, (petalEdge * 1.2 + innerEdge * 1.5 + vines * 1.1 + rCore * 1.8));
+
+    alpha = boundary * uFade * ((petalEdge + innerEdge) * 1.3 + vines * 0.9 + rOuter * 1.1 + rCore * 1.5 + 0.12);
 #endif
 
     color *= uGlow;
