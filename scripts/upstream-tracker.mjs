@@ -18,7 +18,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
@@ -45,6 +45,7 @@ function resolveRepoRoot() {
 const REPO_ROOT = resolveRepoRoot()
 const STATE_FILE = path.join(REPO_ROOT, '.upstream-tracker-state.json')
 const RADAR_LOG_FILE = path.join(REPO_ROOT, 'docs', 'UPSTREAM_RADAR.md')
+const UPSTREAM_REPO = 'moeru-ai/airi'
 
 // 2. Subsystem Definitions & Selective-Sync Classification
 // Aligned with docs/project-selective-upstream-sync-protocol.md
@@ -176,7 +177,10 @@ function classifyFile(filePath) {
 function loadState() {
   if (fs.existsSync(STATE_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+      const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+      if (!parsed.tracked_prs)
+        parsed.tracked_prs = {}
+      return parsed
     }
     catch (err) {
       console.warn(`[UpstreamTracker] Could not parse state file: ${err.message}. Initializing fresh.`)
@@ -187,6 +191,7 @@ function loadState() {
     last_run_timestamp: null,
     remote: 'upstream',
     branch: 'main',
+    tracked_prs: {},
     history: [],
   }
 }
@@ -221,6 +226,153 @@ function fetchUpstream() {
 
 function getUpstreamHeadSha() {
   return runGit('rev-parse upstream/main')
+}
+
+// 5. GitHub PR Radar & Activity Queries
+const PR_GRAPHQL_QUERY = `
+query($owner: String!, $repo: String!, $limit: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        number
+        title
+        state
+        isDraft
+        author { login }
+        createdAt
+        updatedAt
+        mergedAt
+        closedAt
+        comments { totalCount }
+        url
+      }
+    }
+  }
+}
+`
+
+function fetchUpstreamPRs(repo = UPSTREAM_REPO, limit = 100) {
+  const [owner, name] = repo.split('/')
+  try {
+    const raw = execFileSync('gh', [
+      'api',
+      'graphql',
+      '-f',
+      `query=${PR_GRAPHQL_QUERY}`,
+      '-F',
+      `owner=${owner}`,
+      '-F',
+      `repo=${name}`,
+      '-F',
+      `limit=${limit}`,
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const data = JSON.parse(raw)
+    const nodes = data?.data?.repository?.pullRequests?.nodes || []
+    return nodes.map(node => ({
+      number: node.number,
+      title: node.title,
+      state: node.state,
+      isDraft: Boolean(node.isDraft),
+      author: node.author?.login || 'unknown',
+      createdAt: node.createdAt,
+      updatedAt: node.updatedAt,
+      mergedAt: node.mergedAt,
+      closedAt: node.closedAt,
+      commentsCount: node.comments?.totalCount || 0,
+      url: node.url || `https://github.com/${repo}/pull/${node.number}`,
+    }))
+  }
+  catch (err) {
+    const stderr = err.stderr ? err.stderr.toString().trim() : err.message
+    console.warn(`[UpstreamTracker] Warning: GitHub PR fetch via gh failed (${stderr}). Proceeding with Git commit checks only.`)
+    return null
+  }
+}
+
+function inspectPRDelta(trackedPrsMap, fetchedPrs, lastRunTimestamp) {
+  if (!fetchedPrs) {
+    return {
+      available: false,
+      newPrs: [],
+      statusChanges: [],
+      commentChanges: [],
+      totalChanges: 0,
+      nextTrackedMap: trackedPrsMap || {},
+    }
+  }
+
+  const hasTrackedBaseline = Boolean(trackedPrsMap && Object.keys(trackedPrsMap).length > 0)
+  const nextTrackedMap = { ...trackedPrsMap }
+
+  const newPrs = []
+  const statusChanges = []
+  const commentChanges = []
+
+  for (const pr of fetchedPrs) {
+    const key = String(pr.number)
+    const prev = hasTrackedBaseline ? trackedPrsMap[key] : null
+
+    if (!prev) {
+      if (!hasTrackedBaseline) {
+        // Initial baseline seed: flag only PRs created since lastRunTimestamp if known
+        if (lastRunTimestamp && new Date(pr.createdAt) >= new Date(lastRunTimestamp)) {
+          newPrs.push(pr)
+        }
+      }
+      else {
+        newPrs.push(pr)
+      }
+    }
+    else {
+      // Check for state / draft changes (Gap 3)
+      const stateChanged = prev.state !== pr.state
+      const draftChanged = prev.isDraft !== pr.isDraft
+      if (stateChanged || draftChanged) {
+        statusChanges.push({
+          ...pr,
+          prevState: prev.state,
+          toState: pr.state,
+          prevDraft: prev.isDraft,
+          toDraft: pr.isDraft,
+        })
+      }
+
+      // Check for comment count changes (Gap 4)
+      if (pr.commentsCount !== prev.commentsCount) {
+        commentChanges.push({
+          ...pr,
+          prevCount: prev.commentsCount,
+          newCount: pr.commentsCount,
+          delta: pr.commentsCount - prev.commentsCount,
+        })
+      }
+    }
+
+    // Always update snapshot entry
+    nextTrackedMap[key] = {
+      title: pr.title,
+      state: pr.state,
+      isDraft: pr.isDraft,
+      author: pr.author,
+      commentsCount: pr.commentsCount,
+      updatedAt: pr.updatedAt,
+      url: pr.url,
+    }
+  }
+
+  const totalChanges = newPrs.length + statusChanges.length + commentChanges.length
+
+  return {
+    available: true,
+    newPrs,
+    statusChanges,
+    commentChanges,
+    totalChanges,
+    nextTrackedMap,
+  }
 }
 
 // 5. Diff & Commit Analysis
@@ -296,38 +448,97 @@ function inspectDelta(fromSha, toSha) {
 }
 
 // 6. Formatting
-function formatTerminalBrief(delta) {
+function formatTerminalBrief(delta, prDelta) {
   const { fromSha, toSha, commits, filesCount, groupedSubsystems } = delta
   const lines = []
-  lines.push(`\n📡 UPSTREAM RADAR: Delta from ${fromSha.slice(0, 8)} to ${toSha.slice(0, 8)}`)
-  lines.push(`Found ${commits.length} new commit(s) across ${filesCount} file(s).\n`)
 
-  lines.push('📋 Commits:')
-  for (const c of commits) {
-    const prStr = c.prNumber ? `(PR #${c.prNumber})` : ''
-    lines.push(`  • [${c.shortSha}] ${c.subject} ${prStr} — ${c.author} (${c.date})`)
+  const prChangesCount = prDelta?.totalChanges || 0
+  const hasCommits = commits.length > 0
+  const hasPRChanges = prChangesCount > 0
+
+  if (hasCommits) {
+    lines.push(`\n📡 UPSTREAM RADAR: Delta from ${fromSha.slice(0, 8)} to ${toSha.slice(0, 8)}`)
+    lines.push(`Found ${commits.length} new commit(s) across ${filesCount} file(s).`)
+  }
+  else if (hasPRChanges) {
+    lines.push(`\n📡 UPSTREAM RADAR: No new commits on upstream/main (${toSha.slice(0, 8)}).`)
   }
 
-  lines.push('\n🔬 Affected Subsystems:')
-  for (const [subsystem, info] of Object.entries(groupedSubsystems)) {
-    lines.push(`  • ${subsystem} [${info.risk}]: ${info.files.length} file(s) (+${info.totalAdditions}/-${info.totalDeletions})`)
-    for (const f of info.files.slice(0, 5)) {
-      lines.push(`      - ${f.filePath} (+${f.additions}/-${f.deletions})`)
+  if (hasPRChanges) {
+    lines.push(`Detected ${prChangesCount} Pull Request update(s): ${prDelta.newPrs.length} new, ${prDelta.statusChanges.length} status change(s), ${prDelta.commentChanges.length} discussion change(s).\n`)
+  }
+  else {
+    lines.push('')
+  }
+
+  if (hasCommits) {
+    lines.push('📋 Commits:')
+    for (const c of commits) {
+      const prStr = c.prNumber ? `(PR #${c.prNumber})` : ''
+      lines.push(`  • [${c.shortSha}] ${c.subject} ${prStr} — ${c.author} (${c.date})`)
     }
-    if (info.files.length > 5) {
-      lines.push(`      ... and ${info.files.length - 5} more file(s)`)
+
+    lines.push('\n🔬 Affected Subsystems:')
+    for (const [subsystem, info] of Object.entries(groupedSubsystems)) {
+      lines.push(`  • ${subsystem} [${info.risk}]: ${info.files.length} file(s) (+${info.totalAdditions}/-${info.totalDeletions})`)
+      for (const f of info.files.slice(0, 5)) {
+        lines.push(`      - ${f.filePath} (+${f.additions}/-${f.deletions})`)
+      }
+      if (info.files.length > 5) {
+        lines.push(`      ... and ${info.files.length - 5} more file(s)`)
+      }
+    }
+  }
+
+  if (hasPRChanges) {
+    lines.push('\n📬 Pull Request Activity:')
+    if (prDelta.newPrs.length > 0) {
+      lines.push(`  🆕 New PRs Opened (${prDelta.newPrs.length}):`)
+      for (const pr of prDelta.newPrs) {
+        const draftStr = pr.isDraft ? ' [Draft]' : ''
+        lines.push(`      • #${pr.number}: ${pr.title} by @${pr.author}${draftStr} (${pr.commentsCount} comments)`)
+        lines.push(`        ${pr.url}`)
+      }
+    }
+    if (prDelta.statusChanges.length > 0) {
+      lines.push(`  🔄 Status & Lifecycle Changes (${prDelta.statusChanges.length}):`)
+      for (const pr of prDelta.statusChanges) {
+        const stateTransition = pr.prevState !== pr.toState ? `${pr.prevState} ➔ ${pr.toState}` : ''
+        const draftTransition = pr.prevDraft !== pr.toDraft ? (pr.toDraft ? '➔ Draft' : 'Draft ➔ Ready') : ''
+        const changeDesc = [stateTransition, draftTransition].filter(Boolean).join(', ')
+        lines.push(`      • #${pr.number}: ${pr.title} (${changeDesc})`)
+        lines.push(`        ${pr.url}`)
+      }
+    }
+    if (prDelta.commentChanges.length > 0) {
+      lines.push(`  💬 Discussion Activity (${prDelta.commentChanges.length}):`)
+      for (const pr of prDelta.commentChanges) {
+        const sign = pr.delta > 0 ? `+${pr.delta}` : `${pr.delta}`
+        lines.push(`      • #${pr.number}: ${pr.title} (${sign} new comments, total ${pr.newCount})`)
+        lines.push(`        ${pr.url}`)
+      }
     }
   }
 
   return lines.join('\n')
 }
 
-function formatMarkdownSection(delta, customNotes = '') {
+function formatMarkdownSection(delta, prDelta, customNotes = '') {
   const { fromSha, toSha, commits, filesCount, groupedSubsystems } = delta
   const today = new Date().toISOString().split('T')[0]
   const lines = []
 
-  lines.push(`\n## [${today}] Upstream Delta: \`${fromSha.slice(0, 8)}..${toSha.slice(0, 8)}\` (${commits.length} commits, ${filesCount} files)`)
+  const prChangesCount = prDelta?.totalChanges || 0
+  const hasCommits = commits.length > 0
+  const hasPRChanges = prChangesCount > 0
+
+  if (hasCommits) {
+    const prPart = hasPRChanges ? `, ${prChangesCount} PR update(s)` : ''
+    lines.push(`\n## [${today}] Upstream Delta: \`${fromSha.slice(0, 8)}..${toSha.slice(0, 8)}\` (${commits.length} commits, ${filesCount} files${prPart})`)
+  }
+  else {
+    lines.push(`\n## [${today}] Upstream PR Activity: \`${toSha.slice(0, 8)}\` (${prChangesCount} PR update(s))`)
+  }
   lines.push('')
 
   if (customNotes) {
@@ -336,22 +547,54 @@ function formatMarkdownSection(delta, customNotes = '') {
     lines.push('')
   }
 
-  lines.push('### 📋 Upstream Commits')
-  for (const c of commits) {
-    const prLink = c.prNumber
-      ? `[#${c.prNumber}](https://github.com/moeru-ai/airi/pull/${c.prNumber})`
-      : ''
-    lines.push(`- \`${c.shortSha}\` ${c.subject} ${prLink} _(${c.author}, ${c.date})_`)
-  }
-  lines.push('')
-
-  lines.push('### 🔬 Subsystem Breakdown')
-  for (const [subsystem, info] of Object.entries(groupedSubsystems)) {
-    lines.push(`#### ${subsystem} (\`${info.risk}\`) — ${info.files.length} file(s) (+${info.totalAdditions}/-${info.totalDeletions})`)
-    for (const f of info.files) {
-      lines.push(`- \`${f.filePath}\` *(+${f.additions}/-${f.deletions})*`)
+  if (hasCommits) {
+    lines.push('### 📋 Upstream Commits')
+    for (const c of commits) {
+      const prLink = c.prNumber
+        ? `[#${c.prNumber}](https://github.com/${UPSTREAM_REPO}/pull/${c.prNumber})`
+        : ''
+      lines.push(`- \`${c.shortSha}\` ${c.subject} ${prLink} _(${c.author}, ${c.date})_`)
     }
     lines.push('')
+
+    lines.push('### 🔬 Subsystem Breakdown')
+    for (const [subsystem, info] of Object.entries(groupedSubsystems)) {
+      lines.push(`#### ${subsystem} (\`${info.risk}\`) — ${info.files.length} file(s) (+${info.totalAdditions}/-${info.totalDeletions})`)
+      for (const f of info.files) {
+        lines.push(`- \`${f.filePath}\` *(+${f.additions}/-${f.deletions})*`)
+      }
+      lines.push('')
+    }
+  }
+
+  if (hasPRChanges) {
+    lines.push('### 📬 Upstream PR Radar')
+    if (prDelta.newPrs.length > 0) {
+      lines.push(`#### 🆕 New PRs Opened (${prDelta.newPrs.length})`)
+      for (const pr of prDelta.newPrs) {
+        const draftStr = pr.isDraft ? ' *(Draft)*' : ''
+        lines.push(`- [#${pr.number}](${pr.url}) \`${pr.title}\` by **@${pr.author}**${draftStr} *(${pr.commentsCount} comments)*`)
+      }
+      lines.push('')
+    }
+    if (prDelta.statusChanges.length > 0) {
+      lines.push(`#### 🔄 PR Status & Lifecycle Changes (${prDelta.statusChanges.length})`)
+      for (const pr of prDelta.statusChanges) {
+        const stateTransition = pr.prevState !== pr.toState ? `\`${pr.prevState}\` ➔ \`${pr.toState}\`` : ''
+        const draftTransition = pr.prevDraft !== pr.toDraft ? (pr.toDraft ? '➔ `Draft`' : '`Draft` ➔ `Ready`') : ''
+        const changeDesc = [stateTransition, draftTransition].filter(Boolean).join(', ')
+        lines.push(`- [#${pr.number}](${pr.url}) \`${pr.title}\` — ${changeDesc}`)
+      }
+      lines.push('')
+    }
+    if (prDelta.commentChanges.length > 0) {
+      lines.push(`#### 💬 Discussion Activity (${prDelta.commentChanges.length})`)
+      for (const pr of prDelta.commentChanges) {
+        const sign = pr.delta > 0 ? `+${pr.delta}` : `${pr.delta}`
+        lines.push(`- [#${pr.number}](${pr.url}) \`${pr.title}\` — *${sign} comments (${pr.prevCount} ➔ ${pr.newCount} total)*`)
+      }
+      lines.push('')
+    }
   }
 
   lines.push('---')
@@ -403,6 +646,7 @@ async function main() {
     'append-log': { type: 'boolean', default: false },
     'notes': { type: 'string', default: '' },
     'update-state': { type: 'boolean', default: false },
+    'skip-prs': { type: 'boolean', default: false },
     'json': { type: 'boolean', default: false },
     'help': { type: 'boolean', short: 'h', default: false },
   }
@@ -414,12 +658,13 @@ async function main() {
 Usage: node scripts/upstream-tracker.mjs [options]
 
 Commands:
-  --init                  Seed state file with current upstream/main HEAD.
+  --init                  Seed state file with current upstream/main HEAD and PR snapshot.
   --check                 Fetch upstream and check for delta since last snapshot.
   --since <sha>           Test diff from a specific commit instead of state file.
+  --skip-prs              Bypass GitHub PR checking (pure git commit checks only).
   --append-log            Append the delta summary to docs/UPSTREAM_RADAR.md.
   --notes <string>        Executive summary notes to embed in the radar log entry.
-  --update-state          Advance the baseline SHA in state file to current upstream HEAD.
+  --update-state          Advance baseline SHA and PR state to current upstream state.
   --json                  Output result in JSON format.
   --format <brief|md>     Output format (brief text or Markdown).
   --dry-run               Do not write to state file or UPSTREAM_RADAR.md.
@@ -436,11 +681,32 @@ Commands:
     const targetSha = values.sha || getUpstreamHeadSha()
     state.last_inspected_sha = targetSha
     state.last_run_timestamp = new Date().toISOString()
+
+    let prCount = 0
+    if (!values['skip-prs']) {
+      const prs = fetchUpstreamPRs()
+      if (prs) {
+        state.tracked_prs = {}
+        for (const pr of prs) {
+          state.tracked_prs[String(pr.number)] = {
+            title: pr.title,
+            state: pr.state,
+            isDraft: pr.isDraft,
+            author: pr.author,
+            commentsCount: pr.commentsCount,
+            updatedAt: pr.updatedAt,
+            url: pr.url,
+          }
+        }
+        prCount = prs.length
+      }
+    }
+
     if (!values['dry-run']) {
       saveState(state)
       ensureRadarLogHeader()
     }
-    console.log(`✅ [UpstreamTracker] Initialized snapshot baseline at: ${targetSha}`)
+    console.log(`✅ [UpstreamTracker] Initialized snapshot baseline at: ${targetSha} (tracking ${prCount} PRs)`)
     process.exit(0)
   }
 
@@ -462,31 +728,53 @@ Commands:
     baseSha = rawBaseSha
   }
 
-  if (baseSha === currentUpstreamSha) {
+  // PR Activity Check
+  const fetchedPrs = values['skip-prs'] ? null : fetchUpstreamPRs()
+  const prDelta = inspectPRDelta(state.tracked_prs, fetchedPrs, state.last_run_timestamp)
+
+  const isShaUnchanged = baseSha === currentUpstreamSha
+  const hasNoCommits = isShaUnchanged
+  const hasNoPRChanges = prDelta.totalChanges === 0
+
+  if (hasNoCommits && hasNoPRChanges) {
     if (values.json) {
-      console.log(JSON.stringify({ status: 'UP_TO_DATE', sha: currentUpstreamSha, commits: 0 }))
+      console.log(JSON.stringify({ status: 'UP_TO_DATE', sha: currentUpstreamSha, commits: 0, prChanges: 0 }))
     }
     else {
-      console.log(`🟢 UP_TO_DATE: Upstream is unchanged at ${currentUpstreamSha.slice(0, 8)}. 0 new commits since last check.`)
+      console.log(`🟢 UP_TO_DATE: Upstream is unchanged at ${currentUpstreamSha.slice(0, 8)}. 0 new commits and 0 PR changes since last check.`)
+    }
+    // Update baseline PR map if we just performed an initial baseline population
+    if (!values['dry-run'] && prDelta.available && Object.keys(state.tracked_prs).length === 0) {
+      state.tracked_prs = prDelta.nextTrackedMap
+      saveState(state)
     }
     process.exit(0)
   }
 
-  const delta = inspectDelta(baseSha, currentUpstreamSha)
+  const delta = isShaUnchanged
+    ? { fromSha: baseSha, toSha: currentUpstreamSha, commits: [], filesCount: 0, groupedSubsystems: {} }
+    : inspectDelta(baseSha, currentUpstreamSha)
 
   if (values.json) {
-    console.log(JSON.stringify({ status: 'NEW_COMMITS', ...delta }, null, 2))
+    console.log(JSON.stringify({
+      status: 'NEW_ACTIVITY',
+      sha: { from: baseSha, to: currentUpstreamSha },
+      commits: delta.commits,
+      filesCount: delta.filesCount,
+      subsystems: delta.groupedSubsystems,
+      prs: prDelta,
+    }, null, 2))
   }
   else if (values.format === 'md') {
-    const md = formatMarkdownSection(delta, values.notes)
+    const md = formatMarkdownSection(delta, prDelta, values.notes)
     console.log(md)
   }
   else {
-    console.log(formatTerminalBrief(delta))
+    console.log(formatTerminalBrief(delta, prDelta))
   }
 
   if (values['append-log'] && !values['dry-run']) {
-    const md = formatMarkdownSection(delta, values.notes)
+    const md = formatMarkdownSection(delta, prDelta, values.notes)
     appendToRadarLog(md)
     console.log(`\n📝 [UpstreamTracker] Prepending entry to ${path.relative(process.cwd(), RADAR_LOG_FILE)}`)
   }
@@ -495,15 +783,19 @@ Commands:
   if (shouldUpdateState) {
     state.last_inspected_sha = currentUpstreamSha
     state.last_run_timestamp = new Date().toISOString()
+    if (prDelta.available) {
+      state.tracked_prs = prDelta.nextTrackedMap
+    }
     state.history.push({
       date: new Date().toISOString(),
       from_sha: baseSha,
       to_sha: currentUpstreamSha,
       commits_count: delta.commits.length,
       files_count: delta.filesCount,
+      pr_changes_count: prDelta.totalChanges,
     })
     saveState(state)
-    console.log(`✅ [UpstreamTracker] Advanced baseline SHA to ${currentUpstreamSha.slice(0, 8)}`)
+    console.log(`✅ [UpstreamTracker] Advanced baseline SHA to ${currentUpstreamSha.slice(0, 8)} (tracking ${Object.keys(state.tracked_prs).length} PRs)`)
   }
 }
 
