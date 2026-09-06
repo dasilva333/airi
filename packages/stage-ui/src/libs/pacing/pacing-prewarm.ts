@@ -1,7 +1,7 @@
 import type { ThinkingFillerPhrase } from '../../types/pacing'
-import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 
 import {
+  createThinkingAudioFingerprintParams,
   getThinkingAudio,
   saveThinkingAudio,
 } from './pacing-cache'
@@ -30,17 +30,7 @@ export async function isThinkingAudioCached(
   voice: PrewarmVoiceConfig,
   text: string,
 ): Promise<boolean> {
-  const params: ThinkingAudioFingerprintParams = {
-    provider: voice.provider,
-    model: voice.model,
-    voiceId: voice.voiceId,
-    pitch: voice.pitch ?? 0,
-    rate: voice.rate ?? 1,
-    language: voice.language ?? 'en-US',
-    text: text.trim(),
-    format: 'audio/mp3',
-  }
-
+  const params = createThinkingAudioFingerprintParams(voice, text)
   const result = await getThinkingAudio(params)
   return Boolean(result && result.audio && result.audio.byteLength > 0)
 }
@@ -94,16 +84,7 @@ export async function prewarmThinkingFillers(options: {
     }
 
     const text = phrase.text.trim()
-    const params: ThinkingAudioFingerprintParams = {
-      provider: voice.provider,
-      model: voice.model,
-      voiceId: voice.voiceId,
-      pitch: voice.pitch ?? 0,
-      rate: voice.rate ?? 1,
-      language: voice.language ?? 'en-US',
-      text,
-      format: 'audio/mp3',
-    }
+    const params = createThinkingAudioFingerprintParams(voice, text)
 
     try {
       // 1. Check if already cached

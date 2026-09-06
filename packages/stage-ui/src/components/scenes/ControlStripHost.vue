@@ -829,11 +829,12 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
   let targetProviderId = activeSpeechProvider.value
   let targetModel = activeSpeechModel.value
   let targetVoice = activeSpeechVoice.value
+  let voiceId = targetVoice?.id || (activeSpeechVoiceId.value as string) || speechStore.activeSpeechVoiceId || ''
 
-  if (targetProviderId === 'virtual-audio-studio' && targetVoice) {
-    let profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id || p.name === targetVoice?.id)
+  if (targetProviderId === 'virtual-audio-studio') {
+    let profile = speechStore.savedVoiceProfiles.find(p => p.id === voiceId || p.name === voiceId)
     if (!profile && activeCard.value?.extensions?.airi?.voice_profiles) {
-      const cardProfile = activeCard.value.extensions.airi.voice_profiles.find((p: any) => p.id === targetVoice?.id || p.name === targetVoice?.id)
+      const cardProfile = activeCard.value.extensions.airi.voice_profiles.find((p: any) => p.id === voiceId || p.name === voiceId)
       if (cardProfile) {
         debug('[Stage:TTS] Found missing voice profile in active card extensions for pacing synthesis:', cardProfile.id)
         speechStore.saveVoiceProfile(cardProfile as any)
@@ -843,7 +844,8 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
 
     if (profile) {
       targetProviderId = profile.baseProvider
-      targetModel = profile.baseModel
+      targetModel = profile.baseModel || (providersStore.getProviderConfig(profile.baseProvider)?.model as string) || ''
+      voiceId = profile.baseVoice
 
       const baseVoices = speechStore.getVoicesForProvider(profile.baseProvider)
       const resolvedVoice = baseVoices.find(v => v.id === profile.baseVoice)
@@ -859,6 +861,9 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
         }
       }
     }
+    else {
+      throw new Error(`Virtual voice profile "${voiceId}" could not be resolved to a physical TTS provider`)
+    }
   }
 
   const targetProviderConfig = (targetProviderId ? providersStore.getProviderConfig(targetProviderId) : undefined) as Record<string, any> | undefined
@@ -868,7 +873,7 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
     throw new Error(`Speech provider "${targetProviderId}" is not available for pacing synthesis`)
 
   let model = targetModel || (targetProviderConfig?.model as string) || ''
-  let voiceId = targetVoice?.id || (targetProviderConfig?.voice as string) || (activeSpeechVoiceId.value as string) || 'alloy'
+  voiceId = voiceId || targetVoice?.id || (targetProviderConfig?.voice as string) || 'alloy'
 
   if (targetProviderId === 'openai-compatible-audio-speech') {
     model = model || (targetProviderConfig?.model as string) || 'tts-1'

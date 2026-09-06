@@ -1,5 +1,6 @@
 import type {
   AsideCandidate,
+  CacheMissDetails,
   Clock,
   InferenceEvent,
   PacingMetrics,
@@ -394,7 +395,7 @@ export class TurnPacingCoordinator {
       }
 
       this.logStateEvent(`Armed dynamic aside [explicit]`, `"${candidate.text.slice(0, 24)}"`)
-      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
+      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 2500
       if (this.onArmDynamicAside) {
         this.onArmDynamicAside(candidate, budgetMs)
       }
@@ -427,7 +428,7 @@ export class TurnPacingCoordinator {
       }
 
       this.logStateEvent(`Armed dynamic aside [organic]`, `"${candidate.text.slice(0, 24)}"`)
-      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
+      const budgetMs = this.policy.maxSynthesisBudgetMs ?? 2500
       if (this.onArmDynamicAside) {
         this.onArmDynamicAside(candidate, budgetMs)
       }
@@ -576,9 +577,17 @@ export class TurnPacingCoordinator {
     }
   }
 
-  public notifyCacheMiss(): void {
+  public notifyCacheMiss(details?: CacheMissDetails): void {
     if (this.state === 'FILLER_ARMED') {
       this.metrics.fillerOutcome = 'cache-miss'
+      if (details?.reason) {
+        this.metrics.cacheMissReason = details.reason
+        this.metrics.cutoffReason = details.reason
+      }
+      if (details?.error) {
+        this.metrics.cacheMissError = details.error
+      }
+
       // Rollback committedCount since filler was not committed to audio playback
       if (this.committedCount > 0) {
         this.committedCount--
@@ -614,11 +623,20 @@ export class TurnPacingCoordinator {
         this.intervalTimerHandle = this.clock.setTimeout(() => {
           this.onIntervalFlushElapsed()
         }, intervalMs)
-        this.logStateEvent('Cache miss / timeout ➔ Rescheduled next opportunity', `+${Math.round(intervalMs / 1000)}s`)
+
+        const reasonTag = details?.reason
+          ? `[${details.reason}${details.elapsedMs != null ? ` · ${details.elapsedMs}ms` : ''}]`
+          : 'Cache miss / timeout'
+        const errorDetail = details?.error ? `${details.error} ➔ ` : ''
+        this.logStateEvent(`${reasonTag} ➔ Rescheduled next opportunity`, `${errorDetail}+${Math.round(intervalMs / 1000)}s`)
       }
       else {
         this.state = 'ANSWER_READY'
-        this.logStateEvent('Cache miss (attempts exhausted)')
+        const reasonTag = details?.reason
+          ? `[${details.reason}${details.elapsedMs != null ? ` · ${details.elapsedMs}ms` : ''}] `
+          : ''
+        const errorDetail = details?.error ? ` (${details.error})` : ''
+        this.logStateEvent(`Cache miss (attempts exhausted)`, `${reasonTag}${errorDetail}`.trim() || undefined)
       }
     }
   }

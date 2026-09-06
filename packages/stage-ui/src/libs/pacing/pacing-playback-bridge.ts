@@ -1,6 +1,6 @@
 import type { PlaybackItem } from '@proj-airi/pipelines-audio'
 
-import type { AsideCandidate, Clock, PacingPlaybackMeta, ThinkingCategory } from '../../types/pacing'
+import type { AsideCandidate, CacheMissFailureReason, Clock, PacingPlaybackMeta, ThinkingCategory } from '../../types/pacing'
 import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 import type { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
@@ -114,23 +114,31 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
    */
   public async handleFillerArmed(category: ThinkingCategory = 'generic', customText?: string): Promise<boolean> {
     const phraseText = customText || this.voiceParams.text || category
+    const startLookupAt = this.clock.now()
     let cached = await getThinkingAudio({
       ...this.voiceParams,
       text: phraseText,
     })
 
+    let failureReason: CacheMissFailureReason = 'cache_not_found'
+    let failureError: string | undefined
+    let failureElapsedMs = this.clock.now() - startLookupAt
+
     if (!cached && this.synthesizeAudio) {
       // Dynamic fallback synthesis for uncached filler phrases
       const abortController = new AbortController()
       this.activeAbortController = abortController
-      const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 800
+      const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 2500
       let timerHandle: any = null
+      const synthStart = this.clock.now()
 
       try {
         const synthesisPromise = this.synthesizeAudio(phraseText, abortController.signal)
         const timeoutPromise = new Promise<never>((_, reject) => {
           timerHandle = this.clock.setTimeout(() => {
-            reject(new Error(`Filler synthesis timed out after ${budgetMs}ms`))
+            const err = new Error(`Filler synthesis timed out after ${budgetMs}ms`)
+            abortController.abort(err)
+            reject(err)
           }, budgetMs)
         })
 
@@ -157,7 +165,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
           void saveThinkingAudio({ ...this.voiceParams, text: phraseText }, rawBuffer, durationMs).catch(() => {})
         }
       }
-      catch (err) {
+      catch (err: any) {
+        const isTimeout = err?.message?.includes?.('timed out') || abortController.signal.reason?.message?.includes?.('timed out')
+        failureReason = isTimeout ? 'synthesis_timeout' : 'synthesis_failed'
+        failureError = err?.message || String(err)
+        failureElapsedMs = this.clock.now() - synthStart
         console.warn('[PacingPlaybackBridge] Fallback dynamic synthesis failed:', err)
         abortController.abort()
       }
@@ -172,7 +184,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     }
 
     if (!cached) {
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: failureReason,
+        error: failureError,
+        elapsedMs: failureElapsedMs,
+      })
       return false
     }
 
@@ -182,11 +198,16 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
 
     let audioData: TAudio
     if (this.decodeAudio) {
+      const decodeStart = this.clock.now()
       try {
         audioData = await this.decodeAudio(cached.audio)
       }
-      catch {
-        this.coordinator.notifyCacheMiss()
+      catch (err: any) {
+        this.coordinator.notifyCacheMiss({
+          reason: 'decode_failed',
+          error: err?.message || 'AudioContext decode error',
+          elapsedMs: this.clock.now() - decodeStart,
+        })
         return false
       }
     }
@@ -218,6 +239,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       turnId: this.coordinator.turnId,
       role: 'thinking-filler',
       generation: this.coordinator.generation,
+      attemptId: itemId,
     }
 
     const intentCtx = this.getIntentContext?.()
@@ -238,7 +260,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       const receipt = this.playback.tryCommitFiller(item, 100)
       if (!receipt.accepted) {
         this.activeFillerItemId = null
-        this.coordinator.notifyCacheMiss()
+        this.coordinator.notifyCacheMiss({
+          reason: 'synthesis_failed',
+          error: `Playback admission rejected: ${receipt.reason || 'queue full'}`,
+          elapsedMs: this.clock.now() - startLookupAt,
+        })
         return false
       }
       if (receipt.scheduledEndSec) {
@@ -266,16 +292,24 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
 
     const now = this.clock.now()
     if (now >= candidate.expiresAtMs) {
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: 'synthesis_failed',
+        error: 'Candidate expired before synthesis',
+        elapsedMs: 0,
+      })
       return false
     }
 
     if (!this.synthesizeAudio) {
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: 'synthesis_failed',
+        error: 'synthesizeAudio handler unavailable',
+        elapsedMs: 0,
+      })
       return false
     }
 
-    const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 600
+    const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 2500
     const abortController = new AbortController()
     this.activeAbortController = abortController
     const startSynthesizeAt = this.clock.now()
@@ -287,19 +321,25 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       const synthesisPromise = this.synthesizeAudio(candidate.text, abortController.signal)
       const timeoutPromise = new Promise<never>((_, reject) => {
         timerHandle = this.clock.setTimeout(() => {
-          abortController.abort(new Error('Synthesis timeout'))
-          reject(new Error('Synthesis timeout'))
+          const err = new Error(`Dynamic aside synthesis timed out after ${budgetMs}ms`)
+          abortController.abort(err)
+          reject(err)
         }, budgetMs)
       })
 
       rawBuffer = await Promise.race([synthesisPromise, timeoutPromise])
     }
-    catch {
+    catch (err: any) {
       abortController.abort()
       if (this.activeAbortController === abortController) {
         this.activeAbortController = null
       }
-      this.coordinator.notifyCacheMiss()
+      const isTimeout = err?.message?.includes?.('timed out') || abortController.signal.reason?.message?.includes?.('timed out')
+      this.coordinator.notifyCacheMiss({
+        reason: isTimeout ? 'synthesis_timeout' : 'synthesis_failed',
+        error: err?.message || String(err),
+        elapsedMs: this.clock.now() - startSynthesizeAt,
+      })
       return false
     }
     finally {
@@ -317,22 +357,35 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     }
 
     if (this.clock.now() >= candidate.expiresAtMs) {
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: 'synthesis_failed',
+        error: 'Candidate expired after synthesis',
+        elapsedMs: this.clock.now() - startSynthesizeAt,
+      })
       return false
     }
 
     if (!rawBuffer || rawBuffer.byteLength === 0) {
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: 'synthesis_failed',
+        error: 'Empty audio buffer returned from synthesis',
+        elapsedMs: this.clock.now() - startSynthesizeAt,
+      })
       return false
     }
 
     let audioData: TAudio
     if (this.decodeAudio) {
+      const decodeStart = this.clock.now()
       try {
         audioData = await this.decodeAudio(rawBuffer)
       }
-      catch {
-        this.coordinator.notifyCacheMiss()
+      catch (err: any) {
+        this.coordinator.notifyCacheMiss({
+          reason: 'decode_failed',
+          error: err?.message || 'AudioContext decode error',
+          elapsedMs: this.clock.now() - decodeStart,
+        })
         return false
       }
     }
@@ -356,7 +409,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
 
     if (!Number.isFinite(durationSec) || durationSec <= 0 || durationMs > maxDurationMs) {
       // Non-finite, zero, or overlong clip rejected per spec §8.2
-      this.coordinator.notifyCacheMiss()
+      this.coordinator.notifyCacheMiss({
+        reason: 'synthesis_failed',
+        error: `Clip duration invalid or exceeded max: ${Math.round(durationMs)}ms > ${maxDurationMs}ms`,
+        elapsedMs: this.clock.now() - startSynthesizeAt,
+      })
       return false
     }
 
@@ -394,7 +451,11 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       const receipt = this.playback.tryCommitFiller(item, 100)
       if (!receipt.accepted) {
         this.activeFillerItemId = null
-        this.coordinator.notifyCacheMiss()
+        this.coordinator.notifyCacheMiss({
+          reason: 'synthesis_failed',
+          error: `Playback admission rejected: ${receipt.reason || 'queue full'}`,
+          elapsedMs: this.clock.now() - startSynthesizeAt,
+        })
         return false
       }
       if (receipt.scheduledEndSec) {

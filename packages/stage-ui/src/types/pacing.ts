@@ -58,6 +58,14 @@ export interface PacingStateLogEntry {
   details?: string
 }
 
+export type CacheMissFailureReason = 'cache_not_found' | 'synthesis_timeout' | 'synthesis_failed' | 'decode_failed'
+
+export interface CacheMissDetails {
+  reason?: CacheMissFailureReason | string
+  error?: string
+  elapsedMs?: number
+}
+
 export interface PacingMetrics {
   turnId: string
   providerKey: string
@@ -76,6 +84,8 @@ export interface PacingMetrics {
   spokenCount?: number
   pacingClosed?: boolean
   cutoffReason?: string
+  cacheMissReason?: string
+  cacheMissError?: string
   prepareLatencyMs?: number
   dynamicCueSource?: 'explicit' | 'organic'
   stateLog?: PacingStateLogEntry[]

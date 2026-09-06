@@ -11,6 +11,37 @@ export interface ThinkingAudioFingerprintParams {
   format?: string
 }
 
+export interface ThinkingAudioFingerprintInput {
+  provider?: string
+  model?: string
+  voiceId?: string
+  pitch?: number
+  rate?: number
+  language?: string
+  text?: string
+  format?: string
+}
+
+/**
+ * Standardizes voice parameters and phrase into normalized fingerprint parameters.
+ * Eliminates fingerprint drift between prewarming, cache lookup, and playback bridge.
+ */
+export function createThinkingAudioFingerprintParams(
+  input: ThinkingAudioFingerprintInput,
+  textOverride?: string,
+): ThinkingAudioFingerprintParams {
+  return {
+    provider: (input.provider || '').trim(),
+    model: (input.model || '').trim(),
+    voiceId: (input.voiceId || '').trim(),
+    pitch: input.pitch ?? 0,
+    rate: input.rate ?? 1,
+    language: (input.language || 'en-US').trim(),
+    text: (textOverride !== undefined ? textOverride : (input.text || '')).trim(),
+    format: (input.format || 'audio/mp3').trim(),
+  }
+}
+
 export interface ThinkingAudioEntry {
   key: string
   fingerprint: string
@@ -80,15 +111,16 @@ export function setThinkingAudioStorage(storage: ThinkingAudioStorage | null): v
  * Any change to voice parameters, model, or text produces an entirely distinct fingerprint.
  */
 export async function computeThinkingAudioFingerprint(params: ThinkingAudioFingerprintParams): Promise<string> {
+  const norm = createThinkingAudioFingerprintParams(params)
   const payload = [
-    params.provider.trim(),
-    params.model.trim(),
-    params.voiceId.trim(),
-    params.pitch ?? 1,
-    params.rate ?? 1,
-    (params.language ?? '').trim(),
-    params.text.trim(),
-    (params.format ?? 'audio/mp3').trim(),
+    norm.provider,
+    norm.model,
+    norm.voiceId,
+    norm.pitch,
+    norm.rate,
+    norm.language,
+    norm.text,
+    norm.format,
   ].join('|')
 
   if (typeof crypto !== 'undefined' && crypto.subtle) {

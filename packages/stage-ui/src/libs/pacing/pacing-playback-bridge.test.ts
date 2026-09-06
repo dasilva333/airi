@@ -137,6 +137,45 @@ describe('pacing-playback-bridge (Phase 1)', () => {
     expect(playback.schedule).not.toHaveBeenCalled()
     expect(coordinator.state).toBe('STAGING')
     expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
+    expect(coordinator.metrics.cacheMissReason).toBe('cache_not_found')
+  })
+
+  it('reports synthesis_failed and error details when fallback dynamic synthesis throws', async () => {
+    const clock = new VirtualClock()
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'turn-bridge-synth-fail',
+      generation: 1,
+      providerKey: 'elevenlabs',
+      policy: defaultPolicy,
+      clock,
+    })
+
+    const playback = {
+      schedule: vi.fn(),
+    }
+
+    const bridge = new PacingPlaybackBridge({
+      coordinator,
+      playback,
+      voiceParams: { ...voiceParams, text: 'Uncached phrase' },
+      synthesizeAudio: vi.fn().mockRejectedValue(new Error('Virtual voice profile "voice-unknown" could not be resolved')),
+      clock,
+    })
+
+    coordinator.dispatch()
+    clock.advance(1800)
+    expect(coordinator.state).toBe('FILLER_ARMED')
+
+    const armedSuccess = await bridge.handleFillerArmed('generic')
+    expect(armedSuccess).toBe(false)
+    expect(coordinator.state).toBe('STAGING')
+    expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
+    expect(coordinator.metrics.cacheMissReason).toBe('synthesis_failed')
+    expect(coordinator.metrics.cacheMissError).toContain('Virtual voice profile')
+
+    const lastLog = coordinator.metrics.stateLog?.slice(-1)[0]
+    expect(lastLog?.event).toContain('[synthesis_failed')
+    expect(lastLog?.details).toContain('Virtual voice profile "voice-unknown" could not be resolved')
   })
 
   it('handles answer audio scheduling and preemption', async () => {

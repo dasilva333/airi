@@ -1,7 +1,6 @@
 import type { PlaybackItem } from '@proj-airi/pipelines-audio'
 import type { Ref } from 'vue'
 
-import type { ThinkingAudioFingerprintParams } from '../libs/pacing/pacing-cache'
 import type { AiriThinkingFiller } from '../types/card.schema'
 import type { ChatStreamEventContext } from '../types/chat'
 import type { AsideCandidate, PacingMetrics, PacingPolicyConfig } from '../types/pacing'
@@ -9,6 +8,7 @@ import type { AsideCandidate, PacingMetrics, PacingPolicyConfig } from '../types
 import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
 import { readonly, ref, toRaw } from 'vue'
 
+import { createThinkingAudioFingerprintParams } from '../libs/pacing/pacing-cache'
 import { PacingPlaybackBridge, resolveFillerCandidate } from '../libs/pacing/pacing-playback-bridge'
 import { TurnPacingCoordinator } from '../libs/pacing/turn-pacing-coordinator'
 import { useAudioContext } from '../stores/audio'
@@ -118,7 +118,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       semanticExtractorEnabled: pacingConfig.semanticExtractorEnabled ?? false,
       dynamicAfterMs: pacingConfig.dynamicAfterMs ?? 15000,
       candidateTtlMs: pacingConfig.candidateTtlMs ?? 15000,
-      maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 600,
+      maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 2500,
       experimentalOrganicPivots: pacingConfig.experimentalOrganicPivots ?? false,
     }
 
@@ -213,16 +213,14 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       }
     }, 1000)
 
-    const voiceParams: ThinkingAudioFingerprintParams = {
+    const voiceParams = createThinkingAudioFingerprintParams({
       provider: speechStore.activeSpeechProvider,
-      model: speechStore.activeSpeechModel || '',
-      voiceId: speechStore.activeSpeechVoice?.id || speechStore.activeSpeechVoiceId || '',
-      pitch: speechStore.pitch ?? 0,
-      rate: speechStore.rate ?? 1,
-      language: speechStore.selectedLanguage || 'en-US',
-      text: '',
-      format: 'audio/mp3',
-    }
+      model: speechStore.activeSpeechModel,
+      voiceId: speechStore.activeSpeechVoice?.id || speechStore.activeSpeechVoiceId,
+      pitch: speechStore.pitch,
+      rate: speechStore.rate,
+      language: speechStore.selectedLanguage,
+    })
 
     const bridge = new PacingPlaybackBridge<AudioBuffer>({
       coordinator,

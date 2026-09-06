@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   clearThinkingAudioCache,
   computeThinkingAudioFingerprint,
+  createThinkingAudioFingerprintParams,
   deleteThinkingAudio,
   getThinkingAudio,
   listThinkingAudioManifests,
   saveThinkingAudio,
-
 } from './pacing-cache'
 
 describe('pacing-cache (Phase 1)', () => {
@@ -97,5 +97,36 @@ describe('pacing-cache (Phase 1)', () => {
 
     const manifestsAfter = await listThinkingAudioManifests()
     expect(manifestsAfter.length).toBe(0)
+  })
+
+  it('normalizes parameters consistently via createThinkingAudioFingerprintParams', async () => {
+    const raw = {
+      provider: ' openai ',
+      model: ' tts-1 ',
+      voiceId: ' alloy ',
+    }
+    const normalized = createThinkingAudioFingerprintParams(raw, '  Hmm...  ')
+    expect(normalized).toEqual({
+      provider: 'openai',
+      model: 'tts-1',
+      voiceId: 'alloy',
+      pitch: 0,
+      rate: 1,
+      language: 'en-US',
+      text: 'Hmm...',
+      format: 'audio/mp3',
+    })
+
+    const fp1 = await computeThinkingAudioFingerprint(normalized)
+    const fp2 = await computeThinkingAudioFingerprint(createThinkingAudioFingerprintParams({
+      provider: 'openai',
+      model: 'tts-1',
+      voiceId: 'alloy',
+      pitch: 0,
+      rate: 1,
+      language: 'en-US',
+    }, 'Hmm...'))
+
+    expect(fp1).toBe(fp2)
   })
 })

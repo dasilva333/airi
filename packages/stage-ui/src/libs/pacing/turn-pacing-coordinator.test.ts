@@ -920,5 +920,36 @@ describe('turnPacingCoordinator (Phase 0)', () => {
       expect(coordinator.state).toBe('FILLER_ARMED')
       expect(onArmFiller).toHaveBeenCalledTimes(2)
     })
+
+    it('records granular failure details and elapsed times in notifyCacheMiss', () => {
+      const clock = new VirtualClock()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-diag-miss',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: { ...defaultPolicy, pacingIntervalMs: 15000 },
+        clock,
+      })
+
+      coordinator.dispatch()
+      clock.advance(1800)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+
+      coordinator.notifyCacheMiss({
+        reason: 'synthesis_timeout',
+        error: 'Dynamic synthesis timed out after 2500ms',
+        elapsedMs: 2500,
+      })
+
+      expect(coordinator.state).toBe('STAGING')
+      expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
+      expect(coordinator.metrics.cutoffReason).toBe('synthesis_timeout')
+      expect(coordinator.metrics.cacheMissReason).toBe('synthesis_timeout')
+      expect(coordinator.metrics.cacheMissError).toBe('Dynamic synthesis timed out after 2500ms')
+
+      const lastLog = coordinator.metrics.stateLog?.slice(-1)[0]
+      expect(lastLog?.event).toContain('[synthesis_timeout · 2500ms]')
+      expect(lastLog?.details).toContain('Dynamic synthesis timed out after 2500ms ➔ +5s')
+    })
   })
 })
