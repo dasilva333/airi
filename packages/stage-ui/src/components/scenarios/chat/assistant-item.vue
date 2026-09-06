@@ -655,6 +655,7 @@ const dynamicStyles = computed(() => {
     <ChatActionMenu
       :copy-text="copyText"
       :can-edit="true"
+      :full-width="hasReasoning"
       placement="right"
       @copy="handleCopy"
       @delete="handleDelete"
@@ -666,7 +667,7 @@ const dynamicStyles = computed(() => {
       @edit="handleEdit"
     >
       <template #default="{ setMeasuredElement }">
-        <div class="w-full flex flex-row gap-2">
+        <div class="min-w-0 w-full flex flex-row gap-2">
           <!-- Avatar space holding -->
           <!-- A static avatar can go here, leaving space on the left -->
           <!-- We rely on layout styling for this -->
@@ -674,8 +675,8 @@ const dynamicStyles = computed(() => {
             :ref="setMeasuredElement"
             flex="~ col" shadow="sm neutral-200/50 dark:none"
             h="unset <sm:fit" relative rounded-xl
-            class="max-w-full min-w-20 w-fit"
-            :class="boxClasses"
+            class="max-w-full"
+            :class="[boxClasses, hasReasoning ? 'min-w-0 w-full' : 'min-w-20 w-fit']"
             :style="boxStyle"
           >
             <!-- Render Label -->

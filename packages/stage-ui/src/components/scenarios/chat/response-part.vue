@@ -99,26 +99,12 @@ const durationDisplay = computed(() => {
   return ''
 })
 
-const rulerRef = ref<HTMLElement | null>(null)
 const snippetContainerRef = ref<HTMLElement | null>(null)
+const snippetTrackRef = ref<HTMLElement | null>(null)
 const { width: containerWidth } = useElementSize(snippetContainerRef)
-const { width: rulerWidth } = useElementSize(rulerRef)
-
-const charWidth = computed(() => {
-  if (rulerWidth.value > 0) {
-    return rulerWidth.value / 20
-  }
-  return 6.6
-})
-
-const charBudget = computed(() => {
-  const w = containerWidth.value
-  const cw = charWidth.value
-  if (!w || w <= 0) {
-    return 40
-  }
-  return Math.max(8, Math.floor(w / cw))
-})
+const { width: trackWidth } = useElementSize(snippetTrackRef)
+// Measurement only controls the fade; CSS owns the width and keeps the tail visible.
+const snippetOverflows = computed(() => containerWidth.value > 0 && trackWidth.value > containerWidth.value + 1)
 
 const cleanFullReasoning = computed(() => {
   const raw = props.message.categorization?.reasoning?.trim() || ''
@@ -128,20 +114,7 @@ const cleanFullReasoning = computed(() => {
   return raw.replace(/<\/?think_aloud(?:\s[^>]*)?>/gi, '').replace(/\s+/g, ' ').trim()
 })
 
-const reasoningSnippet = computed(() => {
-  const clean = cleanFullReasoning.value
-  if (!clean) {
-    return t('stage.chat.reasoning')
-  }
-
-  const budget = charBudget.value
-  if (clean.length <= budget) {
-    return clean
-  }
-
-  const tailChars = Math.max(1, budget - 3)
-  return `...${clean.slice(-tailChars)}`
-})
+const reasoningSnippet = computed(() => cleanFullReasoning.value || t('stage.chat.reasoning'))
 
 function toggleExpanded() {
   isExpanded.value = !isExpanded.value
@@ -220,15 +193,10 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
     class="dark:border-neutral-750/80 dark:bg-neutral-850/40 max-w-full w-full overflow-hidden border border-neutral-200/80 rounded-xl bg-neutral-100/40 backdrop-blur-sm transition-all duration-200"
     :class="[props.variant === 'mobile' ? 'text-xs' : 'text-sm']"
   >
-    <span
-      ref="rulerRef"
-      aria-hidden="true"
-      class="pointer-events-none invisible absolute text-[11px] font-mono"
-      style="width: 20ch;"
-    />
     <div
       role="button"
       tabindex="0"
+      :aria-expanded="isExpanded"
       class="max-w-full min-w-0 w-full flex cursor-pointer select-none items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-neutral-600 outline-none transition-colors hover:bg-neutral-200/40 dark:text-neutral-400 dark:hover:bg-neutral-800/40"
       @click="toggleExpanded"
       @keydown.enter.prevent="toggleExpanded"
@@ -243,10 +211,15 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
         <span
           v-show="!isExpanded"
           ref="snippetContainerRef"
-          class="dark:text-neutral-350 min-w-0 flex-1 truncate text-[11px] text-neutral-600 font-mono italic"
+          :class="[
+            'relative h-4 min-w-0 flex-1 overflow-hidden',
+            'text-[11px] text-neutral-600 leading-4 font-mono italic dark:text-neutral-350',
+          ]"
+          :style="snippetOverflows ? { maskImage: 'linear-gradient(to right, transparent, black 1rem)' } : undefined"
           :title="cleanFullReasoning || reasoningSnippet"
         >
-          {{ reasoningSnippet }}
+          <!-- Out of flow so the full stream cannot determine the bubble's intrinsic width. -->
+          <span ref="snippetTrackRef" class="absolute right-0 top-0 min-w-full w-max whitespace-nowrap text-left">{{ reasoningSnippet }}</span>
         </span>
         <!-- Expanded: hide repetitive preview, show label and optional metrics -->
         <span
@@ -264,7 +237,7 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
         <!-- Utterance count tag when expanded -->
         <span
           v-if="isExpanded && thinkAloudCount > 0"
-          class="ml-1 inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.2 text-[10px] text-amber-600 font-medium font-mono dark:bg-amber-400/15 dark:text-amber-300"
+          class="ml-1 min-w-0 inline-flex items-center gap-0.5 truncate rounded-full bg-amber-500/10 px-1.5 py-0.2 text-[10px] text-amber-600 font-medium font-mono dark:bg-amber-400/15 dark:text-amber-300"
         >
           {{ thinkAloudCount }} {{ thinkAloudCount === 1 ? 'utterance' : 'utterances' }}
         </span>
@@ -278,16 +251,16 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
     <div
       v-show="isExpanded"
       ref="scrollContainerRef"
-      class="dark:border-neutral-750/60 dark:text-neutral-350 h-[4.5rem] max-h-[4.5rem] select-text overflow-y-auto border-t border-neutral-200/60 px-2.5 py-2 text-xs text-neutral-600 leading-relaxed font-mono"
+      class="dark:border-neutral-750/60 dark:text-neutral-350 [overflow-wrap:anywhere] h-[4.5rem] max-h-[4.5rem] select-text overflow-x-hidden overflow-y-auto border-t border-neutral-200/60 px-2.5 py-2 text-xs text-neutral-600 leading-relaxed font-mono"
     >
       <template v-for="(seg, idx) in reasoningSegments" :key="idx">
         <span v-if="seg.type === 'text'" class="whitespace-pre-wrap">{{ seg.content }}</span>
         <span
           v-else-if="seg.type === 'think_aloud'"
-          class="my-0.5 inline-flex items-center gap-1 border border-amber-400/40 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 font-medium font-sans shadow-sm dark:border-amber-600/40 dark:bg-amber-400/20 dark:text-amber-200"
+          class="my-0.5 max-w-full min-w-0 inline-flex items-center gap-1 border border-amber-400/40 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 font-medium font-sans shadow-sm dark:border-amber-600/40 dark:bg-amber-400/20 dark:text-amber-200"
         >
           <span class="i-solar:chat-round-dots-bold size-3 shrink-0 text-amber-500 dark:text-amber-400" />
-          <span class="whitespace-pre-wrap font-mono">{{ seg.content }}</span>
+          <span class="min-w-0 whitespace-pre-wrap font-mono">{{ seg.content }}</span>
         </span>
       </template>
     </div>

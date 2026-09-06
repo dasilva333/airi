@@ -108,7 +108,8 @@ Concept-to-file-path index for rapid context retrieval. Use this to find where a
 | **Assistant Bubble** | `packages/stage-ui/src/components/scenarios/chat/assistant-item.vue` |
 | **User Bubble** | `packages/stage-ui/src/components/scenarios/chat/user-item.vue` |
 | **Bubble Actions Menu** | `packages/stage-ui/src/components/scenarios/chat/components/action-menu/index.vue` — Reka-based right-click/long-press menu offering copy, delete, edit, retry, fork, and journal moment options |
-| **Bubble Render Parts** | `packages/stage-ui/src/components/scenarios/chat/response-part.vue` (Text) | `packages/stage-ui/src/components/scenarios/chat/tool-call-block.vue` (Tools) |
+| **Bubble Render Parts** | `packages/stage-ui/src/components/scenarios/chat/response-part.vue` (Reasoning drawer); `packages/stage-ui/src/components/scenarios/chat/tool-call-block.vue` (Tools) |
+| **Reasoning Drawer Width** | `assistant-item.vue` gives reasoning-bearing bubbles and `ChatActionMenu` full width within the placement cap. `response-part.vue` clips an out-of-flow, right-anchored text track; measurements only toggle the leading fade. Do not derive a sliced preview from its own intrinsic width. |
 | **Director Note Bubble** | `packages/stage-ui/src/components/scenarios/chat/DirectorNoteBubble.vue` |
 | **Chat Layout (Widget)** | `packages/stage-layouts/src/components/Widgets/ChatArea.vue` — main chat container, ACT bubble styling, image attachment state |
 | **Journal Strip (Chips)** | `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` — scrollable image/text/episode previews |
