@@ -133,6 +133,10 @@ Model selector cards in both compact grid (`model-selector.vue`) and carousel li
    - **Spine**: Purple (`bg-purple-500/10 text-purple-600 dark:text-purple-400`).
    - **MMD**: Pink (`bg-pink-500/10 text-pink-600 dark:text-pink-400`).
 3. **Card Cleanliness**: Avoid redundant rows below the model title or inconsistent icons; use the top badge row to maintain tight vertical spacing.
+4. **Carousel View Mode One-Time Onboarding Popover**:
+   - Model selector defaults to `viewMode = 'compact'`. To ensure users discover the rich fluid lineup carousel view, an onboarding popover is attached to the carousel toggle button in `model-selector.vue`.
+   - **Pattern**: Mirrors the composer's magic wand onboarding in `InteractiveArea.vue` using `useLocalStorage('airi:onboarding:carousel-view-seen', false)` and `reka-ui`'s `PopoverRoot` + `PopoverAnchor`.
+   - Displays a pulsing badge on the carousel button until seen or manually dismissed, popping open on initial modal mount with a friendly explainer and "Try it out" shortcut that activates carousel mode and marks onboarding complete.
 
 ---
 

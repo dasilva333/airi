@@ -9,9 +9,9 @@ import { useMmd } from '@proj-airi/stage-ui-mmd/stores/mmd'
 import { extractMmdFromZip } from '@proj-airi/stage-ui-mmd/utils/mmd-zip-extractor'
 import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
-import { refDebounced, useFileDialog, useIntersectionObserver } from '@vueuse/core'
+import { refDebounced, useFileDialog, useIntersectionObserver, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
+import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverAnchor, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
@@ -70,6 +70,24 @@ function getFormatBadgeClass(format: DisplayModelFormat): string {
 
 // Redesign State
 const viewMode = ref<'carousel' | 'compact'>('compact')
+const carouselViewSeen = useLocalStorage('airi:onboarding:carousel-view-seen', false)
+const isCarouselTooltipOpen = ref(false)
+
+function dismissCarouselTooltip() {
+  carouselViewSeen.value = true
+  isCarouselTooltipOpen.value = false
+}
+
+function switchToCarousel() {
+  viewMode.value = 'carousel'
+  dismissCarouselTooltip()
+}
+
+watch(isCarouselTooltipOpen, (open) => {
+  if (!open) {
+    carouselViewSeen.value = true
+  }
+})
 const searchQuery = ref('')
 const debouncedSearchQuery = refDebounced(searchQuery, 150)
 const formatFilter = ref<'all' | 'live2d' | 'vrm' | 'spine' | 'mmd'>('all')
@@ -146,6 +164,14 @@ watch(currentTab, (newTab) => {
 onMounted(() => {
   const hasLoadedModels = displayModelStore.displayModels.length > 0
   void displayModelStore.loadDisplayModelsFromIndexedDB(hasLoadedModels)
+
+  if (!carouselViewSeen.value) {
+    setTimeout(() => {
+      if (!carouselViewSeen.value) {
+        isCarouselTooltipOpen.value = true
+      }
+    }, 450)
+  }
 })
 
 const marketplaces = [
@@ -1161,23 +1187,77 @@ async function runAutoLinkCatalog() {
 
       <div class="flex items-center gap-2">
         <!-- View Mode Toggle (Only for Library and Cloud) -->
-        <div v-if="currentTab === 'library' || currentTab === 'cloud'" class="mr-2 flex rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
-          <button
-            :class="[
-              viewMode === 'carousel' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
-              'p-1.5 rounded-md transition-all',
-            ]"
-            aria-label="Carousel Lineup View"
-            @click="viewMode = 'carousel'"
-          >
-            <div class="i-solar:gallery-wide-bold-duotone" />
-          </button>
+        <div v-if="currentTab === 'library' || currentTab === 'cloud'" class="mr-2 flex items-center rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
+          <PopoverRoot v-model:open="isCarouselTooltipOpen">
+            <PopoverAnchor as-child>
+              <button
+                :class="[
+                  viewMode === 'carousel' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
+                  'relative p-1.5 rounded-md transition-all cursor-pointer',
+                ]"
+                aria-label="Carousel Lineup View"
+                title="Carousel Lineup View"
+                @click="switchToCarousel"
+              >
+                <!-- Subtle indicator badge if not seen yet -->
+                <span
+                  v-if="!carouselViewSeen"
+                  class="absolute h-2 w-2 animate-ping rounded-full bg-primary-500 -right-0.5 -top-0.5"
+                />
+                <span
+                  v-if="!carouselViewSeen"
+                  class="absolute h-2 w-2 rounded-full bg-primary-500 -right-0.5 -top-0.5"
+                />
+                <div class="i-solar:gallery-wide-bold-duotone" />
+              </button>
+            </PopoverAnchor>
+            <PopoverPortal>
+              <PopoverContent
+                side="bottom"
+                align="center"
+                :side-offset="8"
+                class="animate-in fade-in slide-in-from-top-2 z-[10015] w-64 flex flex-col gap-2 border border-primary-200 rounded-xl bg-primary-50/95 p-3 text-xs text-primary-900 shadow-xl backdrop-blur-xl duration-200 dark:border-primary-800/60 dark:bg-neutral-900/95 dark:text-primary-100"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex select-none items-center gap-1.5 text-primary-700 font-bold dark:text-primary-400">
+                    <div class="i-solar:magic-stick-3-bold-duotone animate-pulse text-sm" />
+                    <span>New Lineup View!</span>
+                  </div>
+                  <button
+                    class="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-primary-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+                    title="Dismiss"
+                    @click="dismissCarouselTooltip"
+                  >
+                    <div class="i-ph:x-bold text-xs" />
+                  </button>
+                </div>
+                <p class="text-[11px] text-neutral-600 leading-relaxed dark:text-neutral-300">
+                  Switch to the full-bleed character lineup carousel to browse your models with fluid gestures, depth staging, and instant focus!
+                </p>
+                <div class="mt-1 flex items-center justify-end gap-2">
+                  <button
+                    class="cursor-pointer text-[10px] text-neutral-500 font-semibold dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                    @click="dismissCarouselTooltip"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    class="cursor-pointer rounded bg-primary-600 px-2.5 py-1 text-[10px] text-white font-bold transition-colors hover:bg-primary-700"
+                    @click="switchToCarousel"
+                  >
+                    Try it out
+                  </button>
+                </div>
+              </PopoverContent>
+            </PopoverPortal>
+          </PopoverRoot>
           <button
             :class="[
               viewMode === 'compact' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
-              'p-1.5 rounded-md transition-all',
+              'p-1.5 rounded-md transition-all cursor-pointer',
             ]"
             aria-label="Compact Grid View"
+            title="Compact Grid View"
             @click="viewMode = 'compact'"
           >
             <div class="i-solar:list-bold-duotone" />
