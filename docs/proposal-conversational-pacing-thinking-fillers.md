@@ -12,8 +12,8 @@ Make waiting feel attended to without delaying an answer unnecessarily. A short 
 Three pillars share one turn owner and one speech lane:
 
 1. **Cached pacing:** category-informed, pre-rendered phrases at an adaptive initial deadline and a bounded repeat cadence.
-2. **Dynamic asides:** short, listener-facing `<think_aloud>` cues prepared through the selected speech provider. Organic extraction from ordinary reasoning is an optional experiment, disabled by default.
-3. **Presentation:** transient captions, avatar cues, and later visual typing effects, separate from canonical conversation records.
+2. **Dynamic asides:** short, listener-facing spoken cues prepared through the selected speech provider. Formulated via a 3-tier cascade: explicit `<think_aloud>` cues, the on-device Needle WASM Semantic Extractor parsing raw reasoning streams, and keyword heuristics fallback.
+3. **Presentation:** transient captions, in-bubble streaming CoT drawer, avatar cues, and later visual typing effects, separate from canonical conversation records.
 
 The following product decisions are authoritative throughout this document:
 
@@ -24,6 +24,7 @@ The following product decisions are authoritative throughout this document:
 - **A filler before `NO_REPLY` is allowed.** A confirmed silence decision closes pacing and discards uncommitted work. It need not erase an acknowledgment already committed. No substantive answer is fabricated.
 - **All sources share one budget.** Cached phrases, explicit asides, and experimental pivots cannot each obtain separate cadence slots.
 - **Silence is a valid fallback.** Missing cache, expired cues, weak category evidence, slow synthesis, unsupported providers, and occupied speech lanes do not block the answer.
+- **Ephemeral CoT Storage Invariance.** Reasoning tokens (`reasoning_content`) and internal thinking traces are strictly transient in-memory UI artifacts. They are **NEVER** persisted to the database (`chat-sessions.repo` / IndexedDB).
 
 This replaces earlier references to “hardware onStart commitment,” a single filler per turn, fixed dispatch-anchored repeat intervals, and unconditional zero-gap playback.
 
@@ -311,11 +312,73 @@ Closing a tag creates a candidate, not a speech request. Keep one pending cue wi
 
 The first opportunity uses cached phrases only. Later opportunities, once `now - t0 >= dynamicAfterMs`, choose a valid explicit cue if dynamic synthesis is enabled and eligible; otherwise choose an experimental organic cue if enabled and eligible; otherwise use cached category selection. `dynamicAfterMs` defaults to 15000 ms. Never let tag arrival create another cadence opportunity.
 
-### 7.4 Organic pivots
+### 7.4 The 3-Tier Aside Extraction Cascade
 
-Organic extraction is disabled by default and subordinate to explicit cues. When enabled, consider only complete short sentences beginning with configured pivot phrases. Reject code, math markup, protocol markers, and configured meta-language; apply the same bounds, expiry, cadence, and duration rules as explicit cues.
+When frontier reasoning models (DeepSeek-R1, QwQ, Claude thinking, OpenAI o1/o3-mini) generate reasoning traces, explicit prompt compliance varies widely: models may ignore instructions to use `<think_aloud>` tags, emit reasoning entirely in Chinese/Japanese, or interleave math proofs. Conversely, rigid keyword pattern-matching fails whenever the character speaks in a non-standard register or a foreign language.
 
-These filters reject obvious unsuitable syntax; they do not prove semantic suitability. Keep this behavior separately configurable and labeled experimental. Missing or rejected pivots fall back to cached phrases at selection time. A failed preparation attempt waits until the next opportunity rather than immediately cascading through additional synthesis requests.
+To solve this, dynamic aside extraction uses a **3-Tier Priority Cascade**:
+
+```
+[Reasoning Buffer Available at dynamicAfterMs]
+                    │
+                    ▼
+       ┌─────────────────────────┐
+       │ Tier 1: Explicit Tags   │
+       │ Look for <think_aloud>  │
+       └────────────┬────────────┘
+                    │ (Not Found or Disabled)
+                    ▼
+       ┌─────────────────────────┐
+       │ Tier 2: Semantic        │
+       │         Extractor       │
+       │ (Needle WASM Runtime)   │
+       └────────────┬────────────┘
+                    │ (Failed, Low Conf, or Disabled)
+                    ▼
+       ┌─────────────────────────┐
+       │ Tier 3: Heuristics      │
+       │ Keyword / Pivot Dict    │
+       └────────────┬────────────┘
+                    │ (Miss)
+                    ▼
+          [Cached Pacing Fallback]
+```
+
+1. **Tier 1 (Explicit `<think_aloud>` Tags)**:
+   - Evaluates the reasoning stream for `<think_aloud>plain text</think_aloud>`.
+   - Highest priority: represents explicit, prompt-contracted intent from the primary model.
+2. **Tier 2 (Semantic Extractor / Needle 2 WASM)**:
+   - When Tier 1 yields no tags, the active reasoning buffer is evaluated by the local on-device **Needle 2** Simple Attention Network running in a WebAssembly worker.
+   - Extracts natural spoken hesitation phrases from raw unconstrained reasoning without requiring explicit model prompt compliance.
+   - Operates in ~150–250ms at 500+ tok/s, returning a constrained JSON candidate with confidence scoring.
+3. **Tier 3 (Heuristics / Keyword Fallback Dictionary)**:
+   - If Needle is disabled, encounters an error, or returns a sub-threshold candidate, the buffer scans against configured character pivot phrases and cue keywords.
+   - If all three tiers fail to produce a dynamic candidate, the opportunity falls back cleanly to pre-cached category pacing phrases.
+
+### 7.5 Needle 2 On-Device WASM Subconscious Runtime ("Daydreaming")
+
+To avoid platform divergence, dual-maintenance debt, and native FFI crashes across desktop (Electron), browser (Web Stage), and mobile (Capacitor iOS/Android), the Semantic Extractor runs strictly as **Option B: Pure WASM Web Worker** (`packages/stage-ui/src/workers/needle/semantic-extractor.ts`).
+
+- **Footprint**: 45M-parameter Simple Attention Network (SAN), 14 MB binary, ~28–60 MB session RAM.
+- **WASM Performance**: Powered by Walsh-Hadamard MLPs, engram hash tables, and 2-bit quantization, running at 500+ tokens/second on standard CPU threads without consuming GPU VRAM needed for Three.js / Live2D rendering.
+- **Constrained JSON Decoding**:
+  ```json
+  {
+    "name": "extract_spoken_aside",
+    "description": "Extract a short (2-10 word) listener-facing hesitation or thought from the reasoning buffer.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "spokenAside": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+      },
+      "required": ["spokenAside", "confidence"]
+    }
+  }
+  ```
+- **Architectural Specification**: Fully detailed in [`docs/design-needle-subconscious-runtime.md`](./design-needle-subconscious-runtime.md).
+
+---
 
 ## 8. Dynamic synthesis and preparation
 
@@ -454,6 +517,17 @@ The implementation must verify the actual assembly paths before writing this pro
 
 This revision does not introduce broad deletion of previously retained reasoning, existing diagnostic views, or `NO_REPLY` records. It prohibits new pacing leakage. Confirmed silence follows the established session policy; pacing independently receives its terminal event. Do not route aside text through ordinary chat-literal hooks, reasoning-to-speech fallback, memory ingestion, or remote assistant replay.
 
+#### The Sacred Ephemeral Storage Invariance Rule
+> [!IMPORTANT]
+> **CoT reasoning tokens (`reasoning_content`) are STRICTLY EPHEMERAL in-memory UI artifacts and must NEVER be persisted to the database.**
+>
+> 1. **Zero Database Footprint**: Reasoning tokens exist only in transient Vue component reactive state (`ref`/`shallowRef`) or in-memory Pinia session turn objects while the current session is loaded.
+> 2. **Persistence Boundary**: When a message turn is serialized and committed to `chat-sessions.repo` / unstorage (`local:chat/session:*`) or IndexedDB, all `reasoning_content` buffers and thinking traces are **completely omitted**.
+> 3. **Rationale**:
+>    - **Token Bloat**: Modern reasoning traces can span 2,000–8,000 tokens per turn. Persisting them would balloon local storage gigabytes over time.
+>    - **Context Window Pollution**: If reasoning tokens were saved in message history, subsequent prompt compilation passes would accidentally ingest obsolete internal chain-of-thought into the LLM context, degrading conversation quality and causing token-drift.
+>    - **Privacy & Cleanliness**: Transcripts remain clean, canonical records of user dialogue and assistant speech.
+
 ## 11. Card policy and editing experience
 
 Keep policy under `extensions.airi.acting.pacing`. Existing fields and defaults must normalize into a captured runtime policy; absence must not silently enable a new feature. The table defines the target schema, including new Phase 6 fields. Historical “implemented shape” claims should be checked against current code before migration.
@@ -474,17 +548,57 @@ Keep policy under `extensions.airi.acting.pacing`. Existing fields and defaults 
 | `dynamicAfterMs` | 15000 | Integer 5000–60000; only later opportunities |
 | `candidateTtlMs` | 15000 | Integer 1000–45000 |
 | `maxSynthesisBudgetMs` | 600 | Integer 100–2000; complete-clip preparation |
+| `asides.lookForThinkAloudTags` | true | Tier 1: Look for explicit `<think_aloud>` tags in reasoning |
+| `asides.useSemanticExtractor` | false | Tier 2: Use Needle WASM Semantic Extractor on reasoning buffer |
+| `asides.useHeuristicsFallback` | true | Tier 3: Fall back to keyword/pivot heuristics dictionary |
 | `experimentalOrganicPivots` | false | Requires dynamic asides enabled |
 | `visualTyping.enabled` | false | Presentation only |
 | `visualTyping.minIntervalMs` | 20 | Integer 0–1000 |
 | `visualTyping.maxIntervalMs` | 80 | Integer 0–2000; at least minimum |
 | `visualTyping.experimentalDraftRetype` | false | Separate experimental visual option |
+| `presentation.showLiveCotDrawer` | true | Show in-bubble collapsible CoT streaming drawer |
 
 Valibot validation must reject nonfinite values, validate category enums and phrase lengths, and enforce cross-field order. Trim phrase text and reject empty enabled phrases; cap the collection at 128 entries and each phrase at 160 code points. Detect duplicates without silently rewriting user prose. Runtime defaults do not overwrite imported source values. Preserve accepted historical timing values within these compatibility ranges rather than narrowing them because a UI slider changed.
 
 Invalid pacing configuration disables pacing for that card until corrected; it must not prevent the card from loading or ordinary chat from working. Preserve invalid imported data for repair. Do not silently substitute an enabled default. Adding optional Phase 6 fields must not erase unknown unrelated acting extensions. Implement these constraints through the current schema and update boundary, not a parallel persistence schema.
 
 Consolidate the acting editor into **Model Expressions**, **Speech Tags**, and **Pacing & Fillers**. Keep cadence, maximum fillers, phrase cache controls, dynamic enablement, and a small status explanation readily accessible; put statistical tuning in advanced settings. Explain that a maximum is not a promised count and that a short acknowledgment may precede a silence decision.
+
+### 11.1 Acting Tab UI Layout & Controls
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🎭 Conversational Pacing & Thinking Fillers                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [X] Enable Dynamic Thinking Fillers (Masks response latency with audio)     │
+│                                                                             │
+│ Preset Thinking Bundle:                                                     │
+│ [ Tsundere (Baka, wait up!) ▼ ]  [ ⚡ Pre-cache Audio for Current Voice ]   │
+│                                                                             │
+│ Thinking Quotes:                                                            │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ • "Hold on a second..."                                             [X] │ │
+│ │ • "Don't rush me, let me think!"                                    [X] │ │
+│ │ • "Wait, what did you just say...?"                                 [X] │ │
+│ │ + [Add Custom Quote]                                                    │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ 🧠 Late Reasoning & CoT Audio Extraction (Threshold Trigger):               │
+│ When thinking takes longer than the threshold, extract spoken thoughts:     │
+│                                                                             │
+│ Extraction Strategies (Cascaded Fallback):                                  │
+│   [X] Look for <think_aloud> tags                                           │
+│       Prompt contract: extracts explicit spoken thinking directives         │
+│   [X] Use Semantic Extractor (Needle WASM)                                  │
+│       Subconscious 45M SAN model parses raw unprompted CoT stream in 150ms  │
+│   [X] Use Heuristics Fallback                                               │
+│       Keyword matching dictionary fallback if model/tags are unavailable    │
+│                                                                             │
+│ Timing & Visual Controls:                                                   │
+│   Dynamic Synthesis Threshold: [=====|=========] 3.0s                        │
+│   [X] Show Live CoT Drawer in Chatbox (In-bubble thinking accordion)        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 Move the existing `speechMannerismPrompt` editing surface without deleting or reinterpreting stored text. Label it “Speech style and pacing instructions.” Templates append with a clear separator, skip duplicate insertion, and offer normal editor undo. They do not auto-enable dynamic speech. Preserve provider-reported mannerism helpers. Capability-specific generated instructions should be added to the effective prompt only on supported routes, without rewriting the saved field.
 
@@ -503,6 +617,32 @@ Each caption segment carries item/segment ID, actor identity, role (`answer` or 
 Transient asides may appear as transient captions so users who do not hear the audio can follow the same interaction. They must not enter the persistent assistant transcript. Clear on interruption and completion. Honor reduced-motion preferences and avoid repeatedly announcing typewriter character changes to assistive technology.
 
 Draft/backspace effects remain experimental. Render Markdown from a safe presentation projection; never mutate a persisted message to simulate deletion. Voice-only mode, text-only mode, streaming Markdown, multi-actor output, and remote replay need separate presentation fixtures before release.
+
+### 12.1 In-Bubble CoT Streaming Drawer (Killing DevTools Network Tab Debugging)
+
+A major friction point when using reasoning models (DeepSeek-R1, QwQ, Claude thinking, OpenAI o1/o3-mini) is opacity: when a turn takes 4–10 seconds to begin emitting spoken answer text, users and developers are left staring at a blank chatbox or bouncing loading indicators. Historically, diagnosing the delay required opening Browser/Electron DevTools (`F12`), navigating to the Network tab, finding the raw SSE event stream, and scrolling through JSON deltas.
+
+To solve this, the desktop and web chat surfaces (`apps/stage-tamagotchi/src/renderer/components/chat/MessageBubble.vue` and `packages/stage-ui/src/components/scenarios/chat/history.vue`) render an **In-Bubble CoT Streaming Drawer**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 💭 Thinking (3.2s)                                      [▼] │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ The user is asking about the math behind orbital decay. │ │
+│ │ Need to stay in character as Airi, slightly annoyed.    │ │
+│ │ <think_aloud>Wait, do you seriously expect me to do     │ │
+│ │ your physics homework?</think_aloud>                     │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
+│ "Wait, do you seriously expect me to do your physics        │
+│ homework? Fine, but you owe me an iced latte after this..." │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **In-Flight Live Streaming**: As `reasoning_content` deltas arrive, they stream directly into the active assistant message bubble within an expandable drawer (dimmed monospace/italic font, fixed max-height, auto-scrolling to bottom).
+- **Match Highlighting**: Detected `<think_aloud>` tags or Semantic Extractor matches are visually highlighted in amber/cyan directly inside the drawer, providing immediate confirmation of which aside was chosen for TTS synthesis.
+- **Auto-Collapse**: Upon answer onset, the drawer collapses into a discreet indicator (`💭 Thought for 3.2s [▶]`), preserving clean chat aesthetics while remaining expandable on click for active session inspection.
+- **Strict Ephemeral Lifetime**: Bound strictly to the Vue component's in-memory lifetime; discarded immediately when the message unmounts or serializes to storage.
 
 ## 13. Observability and acceptance measurements
 
@@ -588,14 +728,14 @@ Preserve historical numbering for continuity. “Reported complete” reflects t
 | 3 | Complete | Acting settings, cache prewarming and previews; preserve stored values |
 | 4 | Complete | Host integration, shared intent, clamp/metrics corrections; verify source-clock scheduling and terminal handling |
 | 5 | Complete | Repeated pacing and telemetry; reconcile end-anchored cadence, deduplication, and single settlement |
-| 6 | In design | Explicit asides, complete-clip preparation, deterministic cancellation and three-tab consolidation |
-| 7 | Planned | Visual typing, transient drafts, caption reconciliation and accessibility |
+| 6 | In design | Explicit asides, Needle WASM Semantic Extractor worker, complete-clip preparation, deterministic cancellation and three-tab consolidation |
+| 7 | Planned | Visual typing, in-bubble CoT drawer, transient drafts, caption reconciliation and accessibility |
 
 Implement Phase 6 in reviewable increments:
 
 1. Reconcile owner admission, cutoff latch, attempt IDs, and terminal settlement with Phases 4–5. Existing source compatibility takes precedence over mechanically copying example interfaces.
 2. Add parser fixtures and provider-aware canonical projection with dynamic playback disabled. Confirm ordinary answers and continuation artifacts remain correct.
-3. Enable explicit candidate preparation through the shared owner, with budgets, expiry, duration checks, and cancellation fixtures. Preserve cached-only behavior when disabled.
+3. Enable explicit candidate preparation and Tier 2 Needle WASM Semantic Extractor through the shared owner, with budgets, expiry, duration checks, and cancellation fixtures. Preserve cached-only behavior when disabled.
 4. Consolidate the editor, append-only templates, measured qualification status, and bounded diagnostics.
 5. Evaluate organic extraction separately under its experimental flag. It is not a prerequisite for releasing explicit asides.
 
@@ -639,6 +779,9 @@ Source integration references below are repository-relative so this file can rep
 - [Speech settings](../packages/stage-ui/src/stores/modules/speech.ts)
 - [Card schema](../packages/stage-ui/src/types/card.schema.ts)
 - [Acting editor](../packages/stage-pages/src/pages/settings/airi-card/components/tabs/CardCreationTabActing.vue)
+- [Needle subconscious runtime architecture](./design-needle-subconscious-runtime.md)
+- [Semantic Extractor WASM worker](../packages/stage-ui/src/workers/needle/semantic-extractor.ts)
+- [Message bubble CoT drawer](../apps/stage-tamagotchi/src/renderer/components/chat/MessageBubble.vue)
 - [Interaction architecture](./arch-chat-stt-proactivity-pipelines.md)
 - [Data catalog](./data-catalog.md)
 
