@@ -653,6 +653,14 @@ async function playFunction(item: Parameters<Parameters<typeof createPlaybackMan
 
   let provider = activeSpeechProvider.value
   let voice = activeSpeechVoice.value
+  if (activeSpeechVoiceId.value && (voice?.id !== activeSpeechVoiceId.value || voice?.provider !== provider)) {
+    voice = {
+      id: activeSpeechVoiceId.value,
+      name: activeSpeechVoiceId.value,
+      provider,
+      languages: [{ code: speechStore.selectedLanguage || 'en-US', title: '' }],
+    }
+  }
   const pitchVal = speechStore.pitch
   const rateVal = speechStore.rate
 
@@ -829,7 +837,10 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
   let targetProviderId = activeSpeechProvider.value
   let targetModel = activeSpeechModel.value
   let targetVoice = activeSpeechVoice.value
-  let voiceId = targetVoice?.id || (activeSpeechVoiceId.value as string) || speechStore.activeSpeechVoiceId || ''
+  let voiceId = activeSpeechVoiceId.value || targetVoice?.id || ''
+  let profileId: string | undefined
+  if (targetVoice?.id !== voiceId || targetVoice?.provider !== targetProviderId)
+    targetVoice = undefined
 
   if (targetProviderId === 'virtual-audio-studio') {
     let profile = speechStore.savedVoiceProfiles.find(p => p.id === voiceId || p.name === voiceId)
@@ -842,7 +853,8 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
       }
     }
 
-    if (profile) {
+    if (profile && profile.baseProvider && profile.baseProvider !== 'virtual-audio-studio' && profile.baseProvider !== 'speech-noop' && profile.baseVoice) {
+      profileId = profile.id
       targetProviderId = profile.baseProvider
       targetModel = profile.baseModel || (providersStore.getProviderConfig(profile.baseProvider)?.model as string) || ''
       voiceId = profile.baseVoice
@@ -880,9 +892,15 @@ async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise
     voiceId = voiceId || 'alloy'
   }
 
-  const transformedText = speechStore.transformTextForSpeech(text, targetProviderId)
+  if (signal.aborted)
+    throw new Error('Pacing synthesis aborted')
+
+  const transformedText = speechStore.transformTextForSpeech(text, profileId ? 'virtual-audio-studio' : targetProviderId, profileId)
+  if (!transformedText.trim())
+    throw new Error('Pacing text is empty after speech transformation')
+  targetVoice ??= { id: voiceId, name: voiceId, provider: targetProviderId, languages: [{ code: speechStore.selectedLanguage || 'en-US', title: '' }] }
   const input = ssmlEnabled.value
-    ? speechStore.generateSSML(transformedText, targetVoice || { id: voiceId } as any, { ...targetProviderConfig, pitch: pitch.value })
+    ? speechStore.generateSSML(transformedText, targetVoice, { ...targetProviderConfig, pitch: pitch.value })
     : transformedText
 
   const res = await generateSpeech({

@@ -64,6 +64,8 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       countdownTimer = null
     }
 
+    cancel('new-turn')
+
     const pacingConfig = activeCard.value?.extensions?.airi?.acting?.pacing
     if (!pacingConfig?.enabled) {
       activeCoordinator = null
@@ -92,11 +94,6 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       return null
     }
 
-    if (activeCoordinator) {
-      activeCoordinator.cancel('new-turn')
-      activeBridge?.cancel('new-turn')
-    }
-
     const gen = ++currentGeneration
     const card = activeCard.value
     const llmProvider = card?.extensions?.airi?.generation?.provider || consciousnessStore.activeProvider || 'unknown'
@@ -118,6 +115,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       semanticExtractorEnabled: pacingConfig.semanticExtractorEnabled ?? false,
       dynamicAfterMs: pacingConfig.dynamicAfterMs ?? 15000,
       candidateTtlMs: pacingConfig.candidateTtlMs ?? 15000,
+      maxFillerSynthesisBudgetMs: pacingConfig.maxFillerSynthesisBudgetMs ?? 2500,
       maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 2500,
       experimentalOrganicPivots: pacingConfig.experimentalOrganicPivots ?? false,
     }
@@ -140,7 +138,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
         await bridge.handleDynamicAsideArmed(candidate)
       },
       onCancelFiller: (reason) => {
-        bridge.cancel(reason)
+        bridge.cancelFiller(reason)
       },
       onStateChange: (state, log, nextInMs) => {
         const snapshot: PacingMetrics = {
@@ -216,7 +214,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
     const voiceParams = createThinkingAudioFingerprintParams({
       provider: speechStore.activeSpeechProvider,
       model: speechStore.activeSpeechModel,
-      voiceId: speechStore.activeSpeechVoice?.id || speechStore.activeSpeechVoiceId,
+      voiceId: speechStore.activeSpeechVoiceId || speechStore.activeSpeechVoice?.id,
       pitch: speechStore.pitch,
       rate: speechStore.rate,
       language: speechStore.selectedLanguage,

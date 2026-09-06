@@ -3,9 +3,10 @@ import type { PlaybackItem } from '@proj-airi/pipelines-audio'
 import type { AsideCandidate, Clock, PacingPlaybackMeta, PacingPolicyConfig } from '../../types/pacing'
 import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { clearThinkingAudioCache, saveThinkingAudio } from './pacing-cache'
+import * as pacingCache from './pacing-cache'
+import { clearThinkingAudioCache, getThinkingAudio, saveThinkingAudio } from './pacing-cache'
 import { PacingPlaybackBridge, resolveFillerCandidate } from './pacing-playback-bridge'
 import { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
@@ -588,4 +589,170 @@ describe('resolveFillerCandidate', () => {
     used.add('Hmm...')
     expect(resolveFillerCandidate(fillers, 'analytical', used)).toBeNull()
   })
+})
+
+
+describe('pacing preparation recovery', () => {
+  const voiceParams = { provider: 'test', model: 'tts', voiceId: 'voice', text: 'Hmm...' }
+  const bytes = new Uint8Array([1, 2, 3]).buffer
+
+  beforeEach(async () => { await clearThinkingAudioCache() })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  function setup(options: {
+    synthesizeAudio?: (text: string, signal: AbortSignal) => Promise<ArrayBuffer>
+    decodeAudio?: (buffer: ArrayBuffer) => Promise<{ duration: number }>
+  } = {}) {
+    const clock = new VirtualClock()
+    const playback = { schedule: vi.fn(), stopByIntent: vi.fn() }
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'recovery', generation: 1, providerKey: 'test',
+      policy: { ...defaultPolicy, maxFillersPerTurn: 3, maxSynthesisBudgetMs: 600 }, clock,
+      onCancelFiller: reason => bridge.cancelFiller(reason),
+    })
+    const bridge = new PacingPlaybackBridge({ coordinator, playback, voiceParams, clock, ...options })
+    coordinator.dispatch()
+    clock.advance(1800)
+    return { clock, playback, coordinator, bridge }
+  }
+
+  it.each(['cached', 'dynamic'])('plays a %s retry after a diagnosed miss', async (kind) => {
+    const { clock, playback, coordinator, bridge } = setup({ synthesizeAudio: async () => bytes })
+    coordinator.notifyCacheMiss({ reason: 'synthesis_timeout', error: 'temporary outage' })
+    if (kind === 'cached')
+      await saveThinkingAudio(voiceParams, bytes, 1000)
+    clock.advance(5000)
+    const candidate: AsideCandidate = {
+      cueId: 'retry', turn: { turnId: 'recovery', generation: 1 }, source: 'explicit',
+      text: 'Hmm...', phraseKey: 'hmm', collectedAtMs: 0, expiresAtMs: 30000,
+    }
+    const success = kind === 'cached'
+      ? await bridge.handleFillerArmed()
+      : await bridge.handleDynamicAsideArmed(candidate)
+    expect(success).toBe(true)
+    expect(playback.schedule).toHaveBeenCalledOnce()
+    expect(coordinator.metrics.cutoffReason).toBeUndefined()
+  })
+
+  it('does not turn normal answer preemption into a canceled turn', async () => {
+    let signal: AbortSignal | undefined
+    const { coordinator, bridge } = setup({
+      synthesizeAudio: async (_text, value) => {
+        signal = value
+        return new Promise((_resolve, reject) => value.addEventListener('abort', () => reject(value.reason)))
+      },
+    })
+    const preparing = bridge.handleFillerArmed()
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    coordinator.onInferenceEvent({ type: 'answer', text: 'Done', at: 2000 })
+    await preparing
+    expect(signal?.aborted).toBe(true)
+    expect(coordinator.turnPhase).toBe('answering')
+    expect(coordinator.state).toBe('ANSWER_READY')
+    expect(coordinator.metrics.interrupted).toBe(false)
+    expect(coordinator.metrics.cutoffReason).toBe('answer-literal')
+  })
+
+  it('does not start synthesis after an answer arrives during cache lookup', async () => {
+    let resolveLookup!: (value: null) => void
+    vi.spyOn(pacingCache, 'getThinkingAudio').mockImplementationOnce(() => new Promise(resolve => { resolveLookup = resolve }))
+    const synthesizeAudio = vi.fn(async () => bytes)
+    const { coordinator, bridge, playback } = setup({ synthesizeAudio })
+    const preparing = bridge.handleFillerArmed()
+    coordinator.onInferenceEvent({ type: 'answer', text: 'Done', at: 2000 })
+    resolveLookup(null)
+    expect(await preparing).toBe(false)
+    expect(synthesizeAudio).not.toHaveBeenCalled()
+    expect(playback.schedule).not.toHaveBeenCalled()
+  })
+
+  it('falls back to synthesis if IndexedDB rejects', async () => {
+    vi.spyOn(pacingCache, 'getThinkingAudio').mockRejectedValueOnce(new Error('IndexedDB unavailable'))
+    const synthesizeAudio = vi.fn(async () => bytes)
+    const { bridge, playback } = setup({ synthesizeAudio })
+    expect(await bridge.handleFillerArmed()).toBe(true)
+    expect(synthesizeAudio).toHaveBeenCalledOnce()
+    expect(playback.schedule).toHaveBeenCalledOnce()
+  })
+
+  it('does not cache undecodable synthesis and decodes only once per attempt', async () => {
+    const decodeAudio = vi.fn().mockRejectedValue(new Error('invalid audio'))
+    const { bridge, coordinator } = setup({ synthesizeAudio: async () => bytes, decodeAudio })
+    expect(await bridge.handleFillerArmed()).toBe(false)
+    expect(coordinator.metrics.cacheMissReason).toBe('decode_failed')
+    expect(decodeAudio).toHaveBeenCalledOnce()
+    expect(await getThinkingAudio(voiceParams)).toBeNull()
+  })
+
+  it('aborts preparation when the assistant ends without answer text', async () => {
+    let signal: AbortSignal | undefined
+    let finish!: (buffer: ArrayBuffer) => void
+    const { coordinator, bridge, playback } = setup({
+      synthesizeAudio: async (_text, value) => {
+        signal = value
+        return new Promise(resolve => { finish = resolve })
+      },
+    })
+    const preparing = bridge.handleFillerArmed()
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    await coordinator.onAssistantEnd()
+    expect(signal?.aborted).toBe(true)
+    finish(bytes)
+    expect(await preparing).toBe(false)
+    expect(playback.schedule).not.toHaveBeenCalled()
+  })
+
+  it('uses the cloud budget for uncached fillers, then recovers on the next attempt', async () => {
+    let signal: AbortSignal | undefined
+    const synthesizeAudio = vi.fn((_text: string, value: AbortSignal) => {
+      signal = value
+      return new Promise<ArrayBuffer>(() => {})
+    })
+    const { clock, coordinator, bridge, playback } = setup({ synthesizeAudio })
+    const preparing = bridge.handleFillerArmed()
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    clock.advance(2499)
+    expect(signal?.aborted).toBe(false)
+    clock.advance(1)
+    expect(await preparing).toBe(false)
+    expect(signal?.aborted).toBe(true)
+    expect(coordinator.metrics.cacheMissReason).toBe('synthesis_timeout')
+    expect(coordinator.state).toBe('STAGING')
+    synthesizeAudio.mockResolvedValue(bytes)
+    clock.advance(5000)
+    expect(await bridge.handleFillerArmed()).toBe(true)
+    expect(playback.schedule).toHaveBeenCalledOnce()
+  })
+
+  it('settles canceled dynamic synthesis even if the provider ignores abort', async () => {
+    const { coordinator, bridge, playback } = setup({ synthesizeAudio: () => new Promise(() => {}) })
+    const preparing = bridge.handleDynamicAsideArmed({
+      cueId: 'pending', turn: { turnId: 'recovery', generation: 1 }, source: 'explicit',
+      text: 'Hmm...', phraseKey: 'hmm', collectedAtMs: 0, expiresAtMs: 30000,
+    })
+    coordinator.onInferenceEvent({ type: 'answer', text: 'Done', at: 2000 })
+    expect(await preparing).toBe(false)
+    expect(playback.schedule).not.toHaveBeenCalled()
+    expect(coordinator.metrics.interrupted).toBe(false)
+  })
+
+  it('stops the real playback intent on turn cancellation', async () => {
+    const clock = new VirtualClock()
+    const coordinator = new TurnPacingCoordinator({
+      turnId: 'intent-test', generation: 1, providerKey: 'test', policy: defaultPolicy, clock,
+      onCancelFiller: reason => bridge.cancelFiller(reason),
+    })
+    const playback = { schedule: vi.fn(), stopByIntent: vi.fn() }
+    const bridge = new PacingPlaybackBridge({
+      coordinator, playback, voiceParams, clock,
+      getIntentContext: () => ({ intentId: 'real-chat-intent', streamId: 'real-chat-stream' }),
+    })
+    await saveThinkingAudio(voiceParams, bytes, 1000)
+    coordinator.dispatch()
+    clock.advance(1800)
+    expect(await bridge.handleFillerArmed()).toBe(true)
+    coordinator.cancel('user-interrupted')
+    expect(playback.stopByIntent).toHaveBeenCalledExactlyOnceWith('real-chat-intent', 'user-interrupted')
+  })
+
 })

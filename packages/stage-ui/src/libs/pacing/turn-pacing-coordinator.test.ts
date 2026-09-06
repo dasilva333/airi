@@ -943,7 +943,7 @@ describe('turnPacingCoordinator (Phase 0)', () => {
 
       expect(coordinator.state).toBe('STAGING')
       expect(coordinator.metrics.fillerOutcome).toBe('cache-miss')
-      expect(coordinator.metrics.cutoffReason).toBe('synthesis_timeout')
+      expect(coordinator.metrics.cutoffReason).toBeUndefined()
       expect(coordinator.metrics.cacheMissReason).toBe('synthesis_timeout')
       expect(coordinator.metrics.cacheMissError).toBe('Dynamic synthesis timed out after 2500ms')
 
