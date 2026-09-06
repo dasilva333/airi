@@ -20,7 +20,7 @@ withDefaults(
 </script>
 
 <template>
-  <div class="h-full w-full flex flex-col select-none items-center justify-center bg-neutral-100/90 p-6 backdrop-blur-md dark:bg-neutral-900/90">
+  <div class="h-full w-full flex flex-col select-none items-center justify-center bg-transparent p-6">
     <div
       :class="[
         'relative flex flex-col items-center justify-center gap-5 p-8 max-w-sm w-full rounded-2xl text-center transition-all duration-500',

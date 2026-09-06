@@ -14,7 +14,7 @@ import { useLiveSessionStore } from '@proj-airi/stage-ui/stores/modules/live-ses
 import { useBroadcastChannel, useLocalStorage, useWindowSize } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { computed, defineAsyncComponent, markRaw, nextTick, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, markRaw, nextTick, onUnmounted, ref, watch } from 'vue'
 
 import LogoDark from '../../../../../packages/stage-layouts/src/assets/logo-dark.svg'
 import ChatWorkspaceCoordinator from '../components/chat/ChatWorkspaceCoordinator.vue'
@@ -159,39 +159,126 @@ const isCurrentSurfaceReady = computed(() => loadedSurfaces.value.has(activeSurf
 const coordinatorProgress = ref(15)
 const coordinatorStatus = ref('Connecting to workspace...')
 
+let isSurfaceSignaledReady = false
+let pendingSurfaceReadyResolver: (() => void) | null = null
+let progressTweenInterval: ReturnType<typeof setInterval> | null = null
+
+function stopProgressTween() {
+  if (progressTweenInterval) {
+    clearInterval(progressTweenInterval)
+    progressTweenInterval = null
+  }
+}
+
+function startProgressTween(start: number, targetMax: number = 95, durationMs: number = 10000) {
+  stopProgressTween()
+  coordinatorProgress.value = start
+  const startTime = performance.now()
+
+  progressTweenInterval = setInterval(() => {
+    const elapsed = performance.now() - startTime
+    const ratio = Math.min(1, elapsed / durationMs)
+    // Ease-out cubic curve so progress advances dynamically and naturally decelerates near targetMax
+    const ease = 1 - (1 - ratio) ** 2.5
+    coordinatorProgress.value = Math.round(start + (targetMax - start) * ease)
+
+    // Dynamic contextual status text as it advances through the load
+    if (coordinatorProgress.value >= 82 && coordinatorStatus.value.startsWith('Mounting')) {
+      coordinatorStatus.value = 'Preparing workspace layout...'
+    }
+  }, 100)
+}
+
+onUnmounted(() => {
+  stopProgressTween()
+})
+
+function handleSurfaceReady() {
+  console.log('[Chat:Coordinator] Surface ready signal received for:', activeSurface.value)
+  isSurfaceSignaledReady = true
+  if (pendingSurfaceReadyResolver) {
+    pendingSurfaceReadyResolver()
+    pendingSurfaceReadyResolver = null
+  }
+}
+
+// Dual detection: watch the exposed ref from the sub-surface to guarantee detection even across async chunk boundaries
+watch(
+  interactiveAreaRef,
+  (instance) => {
+    if (instance && activeSurface.value === 'messages') {
+      console.log('[Chat:Coordinator] interactiveAreaRef detected in chat.vue')
+      handleSurfaceReady()
+    }
+  },
+  { immediate: true },
+)
+
 async function coordinateSurfaceLoad(surface: string) {
   if (loadedSurfaces.value.has(surface)) {
     return
   }
 
+  isSurfaceSignaledReady = false
+  stopProgressTween()
   const label = SURFACE_LABELS[surface] || 'Workspace'
-  coordinatorProgress.value = 25
+  coordinatorProgress.value = 20
   coordinatorStatus.value = `Connecting to ${label}...`
 
   // Yield to the event loop so the coordinator card renders immediately on first frame
   await new Promise(r => setTimeout(r, 60))
 
   if (surface === 'messages') {
-    coordinatorProgress.value = 50
+    coordinatorProgress.value = 45
     coordinatorStatus.value = 'Preparing conversation history...'
     if (!chatSessionStore.ready) {
       await chatSessionStore.initialize()
     }
   }
 
-  coordinatorProgress.value = 75
+  // Begin smooth simulated progress tweening from 60% towards 95% over the course of chunk fetching & mounting
+  startProgressTween(60, 95, 10000)
   coordinatorStatus.value = `Mounting ${label}...`
 
-  // Give the async component time to evaluate its chunk and mount into the DOM behind the overlay
+  // Wait for the sub-surface to mount and signal ready
   await nextTick()
   await new Promise(r => requestAnimationFrame(r))
-  await new Promise(r => setTimeout(r, 160))
-  await nextTick()
 
+  if (surface === 'messages') {
+    if (!isSurfaceSignaledReady && !interactiveAreaRef.value) {
+      await new Promise<void>((resolve) => {
+        let resolved = false
+        const done = () => {
+          if (!resolved) {
+            resolved = true
+            pendingSurfaceReadyResolver = null
+            resolve()
+          }
+        }
+        pendingSurfaceReadyResolver = done
+
+        // Bounded deadlock guard: 12s safety timeout to accommodate cold dev module compilation
+        setTimeout(() => {
+          if (!resolved) {
+            console.warn('[Chat:Coordinator] Surface ready timed out after 12s; proceeding with fallback.')
+            done()
+          }
+        }, 12000)
+      })
+    }
+  }
+  else {
+    // For other sub-surfaces, yield two frames for chunk evaluation
+    await new Promise(r => setTimeout(r, 120))
+    await nextTick()
+  }
+
+  stopProgressTween()
   coordinatorProgress.value = 100
   coordinatorStatus.value = 'Ready'
 
-  await new Promise(r => setTimeout(r, 100))
+  // Allow the progress bar animation (transition-all duration-300) to glide cleanly to 100%
+  await new Promise(r => setTimeout(r, 200))
   loadedSurfaces.value.add(surface)
 }
 
@@ -1544,6 +1631,7 @@ function selectSurface(surface: typeof activeSurface.value) {
           :key="`surface-${activeSurface}`"
           ref="activeSurfaceRef"
           class="h-full flex-1 overflow-hidden"
+          @ready="handleSurfaceReady"
         />
 
         <!-- Ambient Workspace Coordinator Overlay (Covers viewport while sub-surface mounts) -->

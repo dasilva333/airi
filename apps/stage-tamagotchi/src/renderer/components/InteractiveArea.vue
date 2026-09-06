@@ -43,6 +43,16 @@ import { toast } from 'vue-sonner'
 
 import { noticeWindowEventa } from '../../shared/eventa'
 
+const emit = defineEmits<{
+  (e: 'ready'): void
+}>()
+
+const isHistorySettled = ref(false)
+
+function handleHistorySettled() {
+  isHistorySettled.value = true
+}
+
 const messageInput = ref('')
 const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
 
@@ -752,7 +762,7 @@ const hasVisibleMessages = computed(() => {
 
 const isGreetMode = computed(() => !hasVisibleMessages.value && !messageInput.value.trim())
 
-onMounted(() => {
+onMounted(async () => {
   updateWindowTitle()
 
   const savedDraft = localStorage.getItem('airi-chatbox-draft')
@@ -772,6 +782,15 @@ onMounted(() => {
   }
 
   window.addEventListener('keydown', handleKeyDown)
+
+  // Yield to allow initial layout pass to complete before signaling readiness to parent coordinator
+  await nextTick()
+  emit('ready')
+
+  // Safety fallback: if no history needs settling or event is missed, ensure plank fades within 1.8s
+  setTimeout(() => {
+    isHistorySettled.value = true
+  }, 1800)
 })
 
 onUnmounted(() => {
@@ -905,7 +924,7 @@ defineExpose({
     @keydown.escape="closePreview"
   >
     <input ref="fileInput" type="file" accept="image/*" class="hidden" multiple @change="handleFileSelect">
-    <div w-full flex-1 overflow-hidden>
+    <div relative w-full flex-1 overflow-hidden>
       <ChatHistory
         :messages="historyMessages"
         :sending="sending"
@@ -913,6 +932,7 @@ defineExpose({
         @choose="handleChooseOption"
         @retry-producer="handleRetryProducer"
         @delete-producer="handleDeleteProducer"
+        @settled="handleHistorySettled"
       />
     </div>
 
@@ -1637,6 +1657,16 @@ defineExpose({
 
 .modal-fade-enter-from,
 .modal-fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 

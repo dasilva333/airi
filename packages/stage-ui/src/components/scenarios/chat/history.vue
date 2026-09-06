@@ -36,6 +36,7 @@ const emit = defineEmits<{
   (e: 'choose', choice: { title: string, message: string }, isPlaybackOnly?: boolean): void
   (e: 'retry-producer'): void
   (e: 'delete-producer'): void
+  (e: 'settled'): void
 }>()
 
 const chatSettings = useSettingsChat()
@@ -218,6 +219,7 @@ onMounted(async () => {
   setTimeout(() => {
     scrollToBottom(true)
     isInitialScrollSettled = true
+    emit('settled')
   }, 150)
 })
 
@@ -247,6 +249,7 @@ watch(activeSessionId, () => {
     setTimeout(() => {
       scrollToBottom(true)
       isInitialScrollSettled = true
+      emit('settled')
     }, 150)
   })
 })
@@ -261,6 +264,7 @@ watch(() => props.messages.length, (newLen, oldLen) => {
       setTimeout(() => {
         scrollToBottom(true)
         isInitialScrollSettled = true
+        emit('settled')
       }, 150)
     })
   }
