@@ -17,6 +17,7 @@ import { toast } from 'vue-sonner'
 
 import catalogUrl from '../../../../../public/assets/animadex-catalog.json?url'
 import Live2DReportModal from './Live2DReportModal.vue'
+import ModelSelectorCarousel from './ModelSelectorCarousel.vue'
 
 import { DisplayModelFormat, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useProvidersStore } from '../../../../stores/providers'
@@ -41,8 +42,18 @@ const providersStore = useProvidersStore()
 const syncStore = useSyncEngineStore()
 const { displayModelsFromIndexedDBLoading, displayModels, remoteModelsCatalog, remoteCatalogLoading } = storeToRefs(displayModelStore)
 
+const mapFormatRenderer: Record<DisplayModelFormat, string> = {
+  [DisplayModelFormat.Live2dZip]: 'Live2D',
+  [DisplayModelFormat.Live2dDirectory]: 'Live2D',
+  [DisplayModelFormat.VRM]: 'VRM',
+  [DisplayModelFormat.SpineZip]: 'Spine',
+  [DisplayModelFormat.PMXDirectory]: 'MMD',
+  [DisplayModelFormat.PMXZip]: 'MMD',
+  [DisplayModelFormat.PMD]: 'MMD',
+}
+
 // Redesign State
-const viewMode = ref<'grid' | 'compact'>('compact')
+const viewMode = ref<'carousel' | 'compact'>('compact')
 const searchQuery = ref('')
 const debouncedSearchQuery = refDebounced(searchQuery, 150)
 const formatFilter = ref<'all' | 'live2d' | 'vrm' | 'spine' | 'mmd'>('all')
@@ -683,16 +694,6 @@ async function handleAddVrmaAnimation(file: FileList | null) {
   }
 }
 
-const mapFormatRenderer: Record<DisplayModelFormat, string> = {
-  [DisplayModelFormat.Live2dZip]: 'Live2D',
-  [DisplayModelFormat.Live2dDirectory]: 'Live2D',
-  [DisplayModelFormat.VRM]: 'VRM',
-  [DisplayModelFormat.SpineZip]: 'Spine',
-  [DisplayModelFormat.PMXDirectory]: 'MMD',
-  [DisplayModelFormat.PMXZip]: 'MMD',
-  [DisplayModelFormat.PMD]: 'MMD',
-}
-
 const live2dDialog = useFileDialog({ accept: '.zip', multiple: true, reset: true })
 const vrmDialog = useFileDialog({ accept: '.vrm', multiple: true, reset: true })
 const vrmaDialog = useFileDialog({ accept: '.vrma', multiple: false, reset: true })
@@ -1051,13 +1052,13 @@ async function runAutoLinkCatalog() {
         <div v-if="currentTab === 'library' || currentTab === 'cloud'" class="mr-2 flex rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
           <button
             :class="[
-              viewMode === 'grid' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
+              viewMode === 'carousel' ? 'bg-white dark:bg-neutral-700 shadow-sm' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-50',
               'p-1.5 rounded-md transition-all',
             ]"
-            aria-label="Grid View"
-            @click="viewMode = 'grid'"
+            aria-label="Carousel Lineup View"
+            @click="viewMode = 'carousel'"
           >
-            <div class="i-solar:widget-2-bold-duotone" />
+            <div class="i-solar:gallery-wide-bold-duotone" />
           </button>
           <button
             :class="[
@@ -1504,20 +1505,37 @@ async function runAutoLinkCatalog() {
         Loading cloud catalog...
       </div>
 
-      <div class="flex-1 overflow-y-auto pr-1">
-        <div
-          class="w-full lg:max-h-80dvh"
-          :class="[
-            viewMode === 'grid' ? 'flex flex-col gap-2 md:grid lg:grid-cols-2 md:grid-cols-1' : 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2',
-          ]"
-        >
+      <!-- Carousel Lineup View -->
+      <div v-if="viewMode === 'carousel'" class="h-[58vh] max-h-[660px] min-h-[460px] w-full flex flex-1 flex-col overflow-hidden md:min-h-[540px] sm:min-h-[500px]">
+        <ModelSelectorCarousel
+          :models="filteredModels"
+          :active-model-id="highlightDisplayModelCard"
+          :is-downloaded="isDownloaded"
+          :is-available-on-cloud="isAvailableOnCloud"
+          :get-preview-src="getPreviewSrc"
+          :loading-previews="loadingPreviews"
+          :downloading-model-id="downloadingModelId"
+          :map-format-renderer="mapFormatRenderer"
+          @preview="m => highlightDisplayModelCard = m.id"
+          @pick="handlePick"
+          @download-and-pick="downloadAndPickModel"
+          @rename="openRenameDialog"
+          @groups="openGroupsDialog"
+          @toggle-nsfw="toggleModelNsfw"
+          @remove-local="handleRemoveLocalCopy"
+          @remove-model="handleRemoveModel"
+        />
+      </div>
+
+      <!-- Compact Grid View -->
+      <div v-else class="flex-1 overflow-y-auto pr-1">
+        <div class="grid grid-cols-2 w-full gap-2 lg:grid-cols-6 md:grid-cols-4 lg:max-h-80dvh">
           <!-- (Rest of Library Model Grid) -->
           <div
             v-for="(model) of paginatedModels"
             :key="model.id"
-            class="group relative transition-all duration-200"
+            class="group relative flex flex-col transition-all duration-200"
             :class="[
-              viewMode === 'grid' ? 'block h-full w-full md:flex md:flex-row gap-2' : 'flex flex-col',
               highlightDisplayModelCard === model.id ? 'z-10' : 'z-0',
             ]"
             @click="() => highlightDisplayModelCard = model.id"
@@ -1526,23 +1544,15 @@ async function runAutoLinkCatalog() {
             <div v-if="isDownloaded(model.id)" class="absolute right-2 top-2 z-10">
               <DropdownMenuRoot>
                 <DropdownMenuTrigger
-                  :class="[
-                    'bg-neutral-900/40 group-hover:bg-neutral-900/60 dark:bg-neutral-950/40 group-hover:dark:bg-neutral-900/80',
-                    viewMode === 'compact' ? 'h-5 w-5' : 'h-7 w-7',
-                    'text-white flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 ease-in-out shadow-sm',
-                  ]"
+                  class="h-5 w-5 flex items-center justify-center rounded-lg bg-neutral-900/40 text-white shadow-sm backdrop-blur-md transition-all duration-200 ease-in-out dark:bg-neutral-950/40 hover:bg-neutral-900/60 dark:hover:bg-neutral-900/80"
                   aria-label="Options for Display Models"
                   @click.stop
                 >
-                  <div :class="['i-solar:menu-dots-bold', viewMode === 'compact' ? 'text-xs' : 'text-base']" />
+                  <div class="i-solar:menu-dots-bold text-xs" />
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuContent
-                    :class="[
-                      'will-change-[opacity,transform] z-[10010] max-w-45 rounded-xl p-1 text-white shadow-2xl outline-none data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:text-black',
-                      'bg-neutral-900/90 dark:bg-neutral-100/90',
-                      'backdrop-blur-xl border border-white/10 dark:border-black/10',
-                    ]"
+                    class="will-change-[opacity,transform] z-[10010] max-w-45 border border-white/10 rounded-xl bg-neutral-900/90 p-1 text-white shadow-2xl outline-none backdrop-blur-xl data-[side=bottom]:animate-slideUpAndFade data-[side=left]:animate-slideRightAndFade data-[side=right]:animate-slideLeftAndFade data-[side=top]:animate-slideDownAndFade dark:border-black/10 dark:bg-neutral-100/90 dark:text-black"
                     transition="colors duration-200 ease-in-out"
                     align="start"
                     side="bottom"
@@ -1601,10 +1611,7 @@ async function runAutoLinkCatalog() {
 
             <!-- Preview Image Area -->
             <div
-              class="relative cursor-pointer overflow-hidden transition-all duration-300"
-              :class="[
-                viewMode === 'grid' ? 'h-50 md:h-60 w-full md:w-45 lg:w-50 shrink-0' : 'aspect-[3/4] w-full',
-              ]"
+              class="relative aspect-[3/4] w-full cursor-pointer overflow-hidden transition-all duration-300"
               @click="downloadingModelId === model.id ? null : (isDownloaded(model.id) ? handlePick(model) : downloadAndPickModel(model))"
             >
               <img
@@ -1647,10 +1654,7 @@ async function runAutoLinkCatalog() {
             </div>
 
             <!-- Labels Area -->
-            <div
-              class="flex flex-1 flex-col"
-              :class="[viewMode === 'grid' ? 'justify-between p-2' : 'p-1.5']"
-            >
+            <div class="flex flex-1 flex-col p-1.5">
               <div class="w-full">
                 <div class="mb-1 flex flex-wrap items-center gap-1">
                   <!-- Local vs Cloud Badge -->
@@ -1671,42 +1675,19 @@ async function runAutoLinkCatalog() {
                   </span>
                 </div>
                 <div
-                  class="font-bold transition-colors"
+                  class="line-clamp-1 text-sm font-bold transition-colors"
                   :class="[
-                    viewMode === 'grid' ? 'text-lg line-clamp-2 leading-tight' : 'text-sm line-clamp-1',
                     highlightDisplayModelCard === model.id ? 'text-primary-500' : '',
                   ]"
                 >
                   {{ model.name }}
                 </div>
-                <div
-                  class="mt-1 flex items-center gap-1 opacity-60"
-                  :class="[viewMode === 'grid' ? 'text-sm' : 'text-xs']"
-                >
+                <div class="mt-1 flex items-center gap-1 text-xs opacity-60">
                   <div v-if="model.format === DisplayModelFormat.VRM" class="i-solar:box-bold" />
                   <div v-else class="i-solar:mask-hachi-bold" />
                   <div>{{ mapFormatRenderer[model.format as DisplayModelFormat] }}</div>
                 </div>
               </div>
-
-              <!-- Pick / Download button for Grid View -->
-              <Button
-                v-if="viewMode === 'grid'"
-                variant="secondary"
-                class="mt-2 w-full !rounded-lg !py-1.5"
-                :disabled="downloadingModelId === model.id"
-                @click="isDownloaded(model.id) ? handlePick(model) : downloadAndPickModel(model)"
-              >
-                <span v-if="downloadingModelId === model.id" class="flex items-center justify-center gap-1">
-                  <span class="i-solar:refresh-bold animate-spin" />
-                  Downloading...
-                </span>
-                <span v-else-if="isDownloaded(model.id)">Pick</span>
-                <span v-else class="flex items-center justify-center gap-1">
-                  <span class="i-solar:cloud-download-bold" />
-                  Download & Pick
-                </span>
-              </Button>
             </div>
           </div>
 
@@ -1777,7 +1758,7 @@ async function runAutoLinkCatalog() {
         </div>
       </div>
     </template>
-    <Button class="block md:hidden" @click="handleMobilePick()">
+    <Button v-if="viewMode === 'compact'" class="block md:hidden" @click="handleMobilePick()">
       Confirm
     </Button>
   </div>
