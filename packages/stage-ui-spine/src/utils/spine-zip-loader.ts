@@ -272,6 +272,13 @@ function resolveAtlasTextures(atlasPath: string, entries: Record<string, string>
  * The returned `dispose()` revokes every blob URL — call it on unmount or
  * when reloading.
  */
+export function isMacOSJunk(path: string): boolean {
+  if (!path)
+    return false
+  const parts = path.split(/[\\/]/)
+  return parts.some(p => p === '__MACOSX' || p.startsWith('._') || p === '.DS_Store')
+}
+
 export async function loadSpineZip(file: File | Blob | ArrayBuffer): Promise<SpineLoadedAssets> {
   const zip = new JSZip()
   const archive = await zip.loadAsync(file)
@@ -283,7 +290,7 @@ export async function loadSpineZip(file: File | Blob | ArrayBuffer): Promise<Spi
   // Pass 1: inventory file paths and read atlas text bodies.
   await Promise.all(Object.keys(archive.files).map(async (name) => {
     const entry = archive.files[name]
-    if (entry.dir)
+    if (entry.dir || isMacOSJunk(name))
       return
 
     entries[name] = name
@@ -322,7 +329,7 @@ export async function loadSpineZip(file: File | Blob | ArrayBuffer): Promise<Spi
 
   // Collect all audio paths in the ZIP.
   for (const name of Object.keys(archive.files)) {
-    if (isAudioPath(name))
+    if (!isMacOSJunk(name) && isAudioPath(name))
       allAudioPaths.add(name)
   }
 

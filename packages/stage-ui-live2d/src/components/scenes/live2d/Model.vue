@@ -37,7 +37,7 @@ import { buildAdapterPorts, Live2DRuntimeAdapter } from '../../../runtime/live2d
 import { DSL_INTIMACY_MAX, useDslIntimacyStore } from '../../../stores/dsl-intimacy'
 import { useLive2d } from '../../../stores/live2d'
 import { getLive2DMotionControlModelOffset, useLive2DMotionControl } from '../../../stores/motion-control'
-import { setOnZipLoaded } from '../../../utils/live2d-zip-loader'
+import { isMacOSJunk, setOnZipLoaded } from '../../../utils/live2d-zip-loader'
 import { OPFSCacheV2 } from '../../../utils/opfs-loader'
 import { extractArtMeshColorsFromVTube, listVTubeColorRelatedKeys } from '../../../utils/vtube-artmesh-colors'
 
@@ -468,12 +468,17 @@ async function resolveMetadata() {
     try {
       const buffer = await props.modelFile.arrayBuffer()
       const zip = await JSZip.loadAsync(buffer)
-      const filePaths = Object.keys(zip.files)
+      const filePaths = Object.keys(zip.files).filter(f => !isMacOSJunk(f) && !zip.files[f].dir)
 
       const cdiPath = filePaths.find((f: string) => f.toLowerCase().endsWith('.cdi3.json'))
       if (cdiPath) {
-        const text = await zip.file(cdiPath)!.async('text')
-        cdiData = JSON.parse(text)
+        try {
+          const text = await zip.file(cdiPath)!.async('text')
+          cdiData = JSON.parse(text)
+        }
+        catch (e) {
+          console.warn('[Live2D Metadata] Failed to parse cdi3.json from uploaded ZIP:', e)
+        }
       }
 
       const jsonPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.json'))
@@ -521,16 +526,21 @@ async function resolveMetadata() {
       const cachedFiles = await OPFSCacheV2.get(props.modelId, props.modelSrc)
       if (cachedFiles) {
         // Sometimes OPFS stores the ZIP file itself, or individual files
-        const zipFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.zip'))
+        const zipFile = cachedFiles.find((f: File) => !isMacOSJunk(f.name) && f.name.toLowerCase().endsWith('.zip'))
         if (zipFile) {
           const buffer = await zipFile.arrayBuffer()
           const zip = await JSZip.loadAsync(buffer)
-          const filePaths = Object.keys(zip.files)
+          const filePaths = Object.keys(zip.files).filter(f => !isMacOSJunk(f) && !zip.files[f].dir)
 
           const cdiPath = filePaths.find((f: string) => f.toLowerCase().endsWith('.cdi3.json'))
           if (cdiPath) {
-            const text = await zip.file(cdiPath)!.async('text')
-            cdiData = JSON.parse(text)
+            try {
+              const text = await zip.file(cdiPath)!.async('text')
+              cdiData = JSON.parse(text)
+            }
+            catch (e) {
+              console.warn('[Live2D Metadata] Failed to parse cdi3.json from cached ZIP in OPFS:', e)
+            }
           }
 
           const jsonPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.json'))
@@ -565,13 +575,18 @@ async function resolveMetadata() {
         }
         else {
           // It's a flat directory of files
-          const cdiFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.cdi3.json'))
+          const cdiFile = cachedFiles.find((f: File) => !isMacOSJunk(f.name) && f.name.toLowerCase().endsWith('.cdi3.json'))
           if (cdiFile) {
-            const text = await cdiFile.text()
-            cdiData = JSON.parse(text)
+            try {
+              const text = await cdiFile.text()
+              cdiData = JSON.parse(text)
+            }
+            catch (e) {
+              console.warn('[Live2D Metadata] Failed to parse flat cdi3.json from OPFS:', e)
+            }
           }
 
-          const cachedJsonFiles = cachedFiles.filter((f: File) => f.name.toLowerCase().endsWith('.json'))
+          const cachedJsonFiles = cachedFiles.filter((f: File) => !isMacOSJunk(f.name) && f.name.toLowerCase().endsWith('.json'))
           for (const jsonFile of cachedJsonFiles) {
             const text = await jsonFile.text()
             try {
@@ -588,7 +603,7 @@ async function resolveMetadata() {
             catch {}
           }
 
-          const vtubeFile = cachedFiles.find((f: File) => f.name.toLowerCase().endsWith('.vtube.json'))
+          const vtubeFile = cachedFiles.find((f: File) => !isMacOSJunk(f.name) && f.name.toLowerCase().endsWith('.vtube.json'))
           if (vtubeFile) {
             try {
               const text = await vtubeFile.text()

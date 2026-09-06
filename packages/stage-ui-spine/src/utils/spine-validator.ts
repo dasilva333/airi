@@ -2,6 +2,8 @@ import JSZip from 'jszip'
 
 import { errorMessageFrom } from '@moeru/std'
 
+import { isMacOSJunk } from './spine-zip-loader'
+
 export type SpineValidationStatus = 'VALID' | 'INVALID'
 
 export interface SpineValidationReport {
@@ -41,7 +43,7 @@ export async function validateSpineZip(file: File): Promise<SpineValidationRepor
   try {
     const zip = new JSZip()
     const archive = await zip.loadAsync(file)
-    const files = Object.keys(archive.files).filter(name => !archive.files[name].dir)
+    const files = Object.keys(archive.files).filter(name => !archive.files[name].dir && !isMacOSJunk(name))
 
     const atlasCandidates = files.filter(name => /\.atlas(?:\.txt)?$/i.test(name))
     if (atlasCandidates.length === 0) {

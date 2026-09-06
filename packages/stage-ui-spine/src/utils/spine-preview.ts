@@ -28,7 +28,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
       ? detectSpineVersionFromBinary(assets.rawData[assets.layout.skeletonPath] as Uint8Array)
       : detectSpineVersionFromJson(assets.rawData[assets.layout.skeletonPath] as string)
 
-    console.log(`[Spine] Detected version for preview: ${detectedVersion}`)
+    console.info(`[Spine] Detected version for preview: ${detectedVersion}`)
 
     if (!detectedVersion) {
       console.warn('[Spine] Failed to detect version for preview. Aborting.')
@@ -121,113 +121,151 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
             // Position skeleton at 0,0 first to calculate local bounds
             skeleton.x = 0
             skeleton.y = 0
+            skeleton.scaleX = 1
+            skeleton.scaleY = 1
             if (spine.Physics && (spine.Physics as any).none !== undefined)
               (skeleton as any).updateWorldTransform((spine.Physics as any).none)
             else
               (skeleton as any).updateWorldTransform()
 
-            // Calculate actual bone-based boundaries to bypass artificial design canvas size limits
-            let minX = Infinity
-            let maxX = -Infinity
-            let minY = Infinity
-            let maxY = -Infinity
+            // 1. Calculate actual bone-based boundaries across all bones
+            let boneMinX = Infinity
+            let boneMaxX = -Infinity
+            let boneMinY = Infinity
+            let boneMaxY = -Infinity
             for (const bone of skeleton.bones) {
               if (bone.data.name === 'root' && skeleton.bones.length > 1)
                 continue
-              if (bone.worldX < minX)
-                minX = bone.worldX
-              if (bone.worldX > maxX)
-                maxX = bone.worldX
-              if (bone.worldY < minY)
-                minY = bone.worldY
-              if (bone.worldY > maxY)
-                maxY = bone.worldY
-            }
-            const bonesWidth = (maxX - minX) > 0 ? (maxX - minX) : 300
-            const bonesHeight = (maxY - minY) > 0 ? (maxY - minY) : 600
-            const bonesCenterX = (minX + maxX) / 2
-
-            // Find head/neck and hip/torso bones for portrait framing
-            const headBone = findBoneByNames(skeleton, ['head', 'face', 'neck', 'nose'])
-            const hipBone = findBoneByNames(skeleton, ['hip', 'pelvis', 'waist', 'spine', 'chest', 'torso', 'body'])
-
-            let localTopY = 0
-            let localBottomY = 0
-            let localCenterX = 0
-            let hasHumanoidBones = false
-
-            if (headBone && hipBone) {
-              localTopY = headBone.worldY
-              localBottomY = hipBone.worldY
-              // Center horizontally on the head/face to keep the head fully in frame for portrait crops
-              localCenterX = headBone.worldX
-              hasHumanoidBones = true
-            }
-            else if (headBone) {
-              localTopY = headBone.worldY
-              localBottomY = headBone.worldY - bonesHeight * 0.45
-              localCenterX = headBone.worldX
-              hasHumanoidBones = true
-            }
-            else if (skeletonData.height > 0) {
-              // Fallback to bounding box upper body (approx 40% to 90% of height)
-              localTopY = (skeletonData.y || 0) + skeletonData.height * 0.9
-              localBottomY = (skeletonData.y || 0) + skeletonData.height * 0.4
-              localCenterX = (skeletonData.x || 0) + (skeletonData.width || 0) / 2
-            }
-            else {
-              // Fallback to bone bounding box upper half
-              localTopY = maxY
-              localBottomY = minY + bonesHeight * 0.45
-              localCenterX = bonesCenterX
+              if (bone.worldX < boneMinX)
+                boneMinX = bone.worldX
+              if (bone.worldX > boneMaxX)
+                boneMaxX = bone.worldX
+              if (bone.worldY < boneMinY)
+                boneMinY = bone.worldY
+              if (bone.worldY > boneMaxY)
+                boneMaxY = bone.worldY
             }
 
-            const targetHeight = Math.max(50, localTopY - localBottomY)
-            // Scale to fit the target portrait height nicely
-            let fitScale = 1
-            const padding = 0.65 // Keep upper body occupying 65% of the canvas height
-            fitScale = (previewHeight * padding) / targetHeight
+            // 2. Try getting attachment mesh/region bounds with proper Vector2 instances if available
+            let attachMinX = Infinity
+            let attachMaxX = -Infinity
+            let attachMinY = Infinity
+            let attachMaxY = -Infinity
+            let hasAttachmentBounds = false
 
-            // Safe guard against extreme scales
-            if (skeletonData.width > 0 && skeletonData.height > 0) {
-              let maxScale = (previewHeight * 0.9) / skeletonData.height
-              if (hasHumanoidBones) {
-                // If we found humanoid bones, ignore the artificial design canvas height constraint
-                maxScale = 2.0
+            try {
+              if (typeof (skeleton as any).getBounds === 'function' && (spine as any).Vector2) {
+                const off = new (spine as any).Vector2()
+                const sz = new (spine as any).Vector2()
+                ;(skeleton as any).getBounds(off, sz, [])
+                if (sz.x > 10 && sz.y > 10) {
+                  attachMinX = off.x
+                  attachMaxX = off.x + sz.x
+                  attachMinY = off.y
+                  attachMaxY = off.y + sz.y
+                  hasAttachmentBounds = true
+                }
               }
-              fitScale = Math.min(fitScale, maxScale)
             }
-            // Safe guard against extreme scales using the actual bone width
-            let maxScaleX = (previewWidth * 0.85) / bonesWidth
-            if (hasHumanoidBones) {
-              // For humanoid figures, we care about the torso/head width rather than wing/weapon span.
-              // We can estimate the body width as roughly 80% of the target portrait height.
-              const bodyWidthEst = targetHeight * 0.8
-              maxScaleX = (previewWidth * 0.85) / bodyWidthEst
+            catch (e) {
+              console.warn('[Spine Preview] getBounds error:', e)
             }
-            fitScale = Math.min(fitScale, maxScaleX)
+
+            // 3. Unified model bounds: prioritize attachment bounds, falling back to skeletonData or bones only if unavailable
+            let charMinX = Infinity
+            let charMaxX = -Infinity
+            let charMinY = Infinity
+            let charMaxY = -Infinity
+
+            if (hasAttachmentBounds) {
+              charMinX = attachMinX
+              charMaxX = attachMaxX
+              charMinY = attachMinY
+              charMaxY = attachMaxY
+            }
+            else if (skeletonData.width > 10 && skeletonData.height > 10) {
+              charMinX = skeletonData.x
+              charMaxX = skeletonData.x + skeletonData.width
+              charMinY = skeletonData.y
+              charMaxY = skeletonData.y + skeletonData.height
+            }
+            else if (boneMinX !== Infinity && boneMaxX !== -Infinity) {
+              charMinX = boneMinX
+              charMaxX = boneMaxX
+              charMinY = boneMinY
+              charMaxY = boneMaxY
+            }
+
+            const charWidth = Math.max(50, charMaxX - charMinX)
+            const charHeight = Math.max(50, charMaxY - charMinY)
+            const charCenterX = (charMinX + charMaxX) / 2
+            const charCenterY = (charMinY + charMaxY) / 2
+
+            // Fit whole model inside 512x768 with ~7% breathing room
+            const padding = 0.86
+            const scaleX = (previewWidth * padding) / charWidth
+            const scaleY = (previewHeight * padding) / charHeight
+            const fitScale = Math.min(scaleX, scaleY)
 
             skeleton.scaleX = fitScale
             skeleton.scaleY = fitScale
 
-            skeleton.x = previewWidth / 2 - localCenterX * fitScale
-            skeleton.y = previewHeight / 2 - ((localBottomY + localTopY) / 2) * fitScale
+            // In Spine SceneRenderer with camera centered at (0, 0), placing an object
+            // at (-centerX * scale, -centerY * scale) puts its visual center exactly at the screen center (0, 0).
+            skeleton.x = -charCenterX * fitScale
+            skeleton.y = -charCenterY * fitScale
 
-            console.log('[Spine-Preview-Recon] Starting thumbnail generation')
-            console.log(`[Spine-Preview-Recon] Preview Canvas: ${previewWidth}x${previewHeight}`)
-            console.log(`[Spine-Preview-Recon] SkeletonData Bounds: x=${skeletonData.x}, y=${skeletonData.y}, width=${skeletonData.width}, height=${skeletonData.height}`)
-            console.log(`[Spine-Preview-Recon] Bone Bounds (world): minX=${minX}, maxX=${maxX}, minY=${minY}, maxY=${maxY}, width=${bonesWidth}, height=${bonesHeight}, centerX=${bonesCenterX}`)
-            console.log(`[Spine-Preview-Recon] Detected Bones: headBone=${headBone?.data.name} (${headBone ? `worldX=${headBone.worldX}, worldY=${headBone.worldY}` : 'N/A'}), hipBone=${hipBone?.data.name} (${hipBone ? `worldX=${hipBone.worldX}, worldY=${hipBone.worldY}` : 'N/A'})`)
-            console.log(`[Spine-Preview-Recon] Selected Region: localTopY=${localTopY}, localBottomY=${localBottomY}, localCenterX=${localCenterX}, targetHeight=${targetHeight}, hasHumanoidBones=${hasHumanoidBones}`)
-            console.log(`[Spine-Preview-Recon] Scaling: initialScale=${(previewHeight * padding) / targetHeight}, finalFitScale=${fitScale} (padding=${padding})`)
-            console.log(`[Spine-Preview-Recon] Final Placement: skeleton.x=${skeleton.x}, skeleton.y=${skeleton.y}, skeleton.scaleX=${skeleton.scaleX}, skeleton.scaleY=${skeleton.scaleY}`)
+            console.info('[Spine Preview] Full-character bounds framed:', {
+              charMinX,
+              charMaxX,
+              charMinY,
+              charMaxY,
+              charWidth,
+              charHeight,
+              charCenterX,
+              charCenterY,
+              fitScale,
+              skeletonX: skeleton.x,
+              skeletonY: skeleton.y,
+            })
 
-            ;(canvasApp as unknown as { __previewSkeleton: import('@esotericsoftware/spine-webgl').Skeleton }).__previewSkeleton = skeleton
+            // Set up animation state so the character assumes their natural standing/idle pose
+            let animationState: any
+            try {
+              if ((spine as any).AnimationStateData && (spine as any).AnimationState) {
+                const stateData = new (spine as any).AnimationStateData(skeletonData)
+                animationState = new (spine as any).AnimationState(stateData)
+                const idleAnim = skeletonData.findAnimation('idle')
+                  ?? skeletonData.findAnimation('stand')
+                  ?? skeletonData.animations[0]
+                if (idleAnim) {
+                  animationState.setAnimation(0, idleAnim.name, true)
+                }
+              }
+            }
+            catch (e) {
+              console.warn('[Spine Preview] Animation state setup error:', e)
+            }
+
+            const stateHolder = canvasApp as unknown as {
+              __previewSkeleton: import('@esotericsoftware/spine-webgl').Skeleton
+              __previewAnimState?: any
+            }
+            stateHolder.__previewSkeleton = skeleton
+            stateHolder.__previewAnimState = animationState
           },
-          update: (canvasApp: import('@esotericsoftware/spine-webgl').SpineCanvas, _delta: number) => {
-            const skeleton = (canvasApp as unknown as { __previewSkeleton?: import('@esotericsoftware/spine-webgl').Skeleton }).__previewSkeleton
+          update: (canvasApp: import('@esotericsoftware/spine-webgl').SpineCanvas, delta: number) => {
+            const stateHolder = canvasApp as unknown as {
+              __previewSkeleton?: import('@esotericsoftware/spine-webgl').Skeleton
+              __previewAnimState?: any
+            }
+            const skeleton = stateHolder.__previewSkeleton
+            const animState = stateHolder.__previewAnimState
             if (skeleton) {
-              // Disable physics for preview to avoid bloom/light expansion
+              if (animState) {
+                animState.update(delta)
+                animState.apply(skeleton)
+              }
               if (spine.Physics && (spine.Physics as any).none !== undefined)
                 skeleton.updateWorldTransform((spine.Physics as any).none)
               else
@@ -241,6 +279,12 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
 
             const renderer = canvasApp.renderer
             renderer.resize(spine.ResizeMode.Expand)
+
+            // Lock camera viewport to fixed previewWidth x previewHeight (512x768)
+            // so devicePixelRatio scaling does not change world-space framing
+            renderer.camera.setViewport(previewWidth, previewHeight)
+            renderer.camera.update()
+
             canvasApp.gl.clearColor(0, 0, 0, 0)
             canvasApp.gl.clear(canvasApp.gl.COLOR_BUFFER_BIT)
             renderer.begin()
@@ -274,7 +318,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
                 return
 
               // At frame 120, generate zip and download
-              console.log('[Spine] Reached 120 frames. Generating ZIP...')
+              console.info('[Spine] Reached 120 frames. Generating ZIP...')
               zip.generateAsync({ type: 'blob' }).then((blob) => {
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -284,7 +328,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
                 a.click()
                 document.body.removeChild(a)
                 URL.revokeObjectURL(url)
-                console.log('[Spine] Frames ZIP downloaded')
+                console.info('[Spine] Frames ZIP downloaded')
 
                 // Now finish the preview with frame 1
                 finish(frame1DataUrl)
@@ -294,15 +338,16 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
               })
             }
             else {
-              // Production mode: Capture frame 1 and exit immediately
-              if (frameCount === 1) {
+              // Settle frames: allow animation timelines, IK constraints, and WebGL buffers
+              // to settle for 15 frames (~250ms) before capturing (matching other model types)
+              if (frameCount >= 15) {
                 try {
-                  const dataUrl = canvas!.toDataURL('image/webp', 0.85)
+                  const dataUrl = repageToPortrait(canvas!, previewWidth, previewHeight, 0.88)
                   finish(dataUrl)
                 }
                 catch (err) {
-                  console.error('[Spine] Failed to capture preview frame:', err)
-                  finish(undefined)
+                  console.error('[Spine] Failed to capture/repage preview frame:', err)
+                  finish(canvas?.toDataURL('image/webp', 0.85))
                 }
                 canvasApp.dispose() // Stop the render loop
               }
@@ -317,7 +362,7 @@ export async function loadSpineModelPreview(file: File): Promise<string | undefi
           config: { app: import('@esotericsoftware/spine-webgl').SpineCanvasApp, pathPrefix?: string, webglConfig?: WebGLContextAttributes },
         ) => import('@esotericsoftware/spine-webgl').SpineCanvas
 
-        new SpineCanvasCtor(canvas!, {
+        void new SpineCanvasCtor(canvas!, {
           app,
           pathPrefix: '',
           webglConfig: { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true },
@@ -417,18 +462,96 @@ function patchAssetManagerForZipAssets(
   }
 }
 
-function findBoneByNames(skeleton: import('@esotericsoftware/spine-webgl').Skeleton, names: string[]) {
-  // Check exact match first
-  for (const name of names) {
-    const bone = skeleton.bones.find(b => b.data.name.toLowerCase() === name.toLowerCase())
-    if (bone)
-      return bone
+/**
+ * Crops out transparent pixels from an HTMLCanvasElement.
+ */
+function cropEmptyPixels(sourceCanvas: HTMLCanvasElement): HTMLCanvasElement {
+  const width = sourceCanvas.width
+  const height = sourceCanvas.height
+  const ctx = sourceCanvas.getContext('2d')
+
+  let imgData: ImageData | null = null
+  if (ctx) {
+    imgData = ctx.getImageData(0, 0, width, height)
   }
-  // Substring match fallback
-  for (const name of names) {
-    const bone = skeleton.bones.find(b => b.data.name.toLowerCase().includes(name.toLowerCase()))
-    if (bone)
-      return bone
+  else {
+    // If sourceCanvas is WebGL, copy to a 2D canvas first
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = width
+    tempCanvas.height = height
+    const tempCtx = tempCanvas.getContext('2d')
+    if (!tempCtx)
+      return sourceCanvas
+
+    tempCtx.drawImage(sourceCanvas, 0, 0)
+    imgData = tempCtx.getImageData(0, 0, width, height)
   }
-  return null
+
+  const data = imgData.data
+  let left = width
+  let top = height
+  let right = 0
+  let bottom = 0
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * 4
+      if (data[index + 3] > 0 || data[index] > 0 || data[index + 1] > 0 || data[index + 2] > 0) {
+        if (y < top)
+          top = y
+        if (x < left)
+          left = x
+        if (x > right)
+          right = x
+        if (y > bottom)
+          bottom = y
+      }
+    }
+  }
+
+  // If entirely empty/transparent, return a copy of source
+  if (right < left || bottom < top) {
+    const emptyCanvas = document.createElement('canvas')
+    emptyCanvas.width = width
+    emptyCanvas.height = height
+    emptyCanvas.getContext('2d')?.drawImage(sourceCanvas, 0, 0)
+    return emptyCanvas
+  }
+
+  const croppedWidth = right - left + 1
+  const croppedHeight = bottom - top + 1
+  const croppedCanvas = document.createElement('canvas')
+  croppedCanvas.width = croppedWidth
+  croppedCanvas.height = croppedHeight
+  const croppedCtx = croppedCanvas.getContext('2d')
+  if (!croppedCtx)
+    return sourceCanvas
+
+  croppedCtx.drawImage(sourceCanvas, left, top, croppedWidth, croppedHeight, 0, 0, croppedWidth, croppedHeight)
+  return croppedCanvas
+}
+
+/**
+ * Repages a canvas onto a target portrait canvas (512x768) centered with uniform padding.
+ */
+function repageToPortrait(sourceCanvas: HTMLCanvasElement, targetWidth = 512, targetHeight = 768, paddingFactor = 0.88): string {
+  const cropped = cropEmptyPixels(sourceCanvas)
+  const targetCanvas = document.createElement('canvas')
+  targetCanvas.width = targetWidth
+  targetCanvas.height = targetHeight
+  const ctx = targetCanvas.getContext('2d')
+  if (!ctx)
+    return sourceCanvas.toDataURL('image/webp', 0.85)
+
+  const maxFitW = targetWidth * paddingFactor
+  const maxFitH = targetHeight * paddingFactor
+  const scale = Math.min(maxFitW / cropped.width, maxFitH / cropped.height)
+
+  const drawW = cropped.width * scale
+  const drawH = cropped.height * scale
+  const drawX = (targetWidth - drawW) / 2
+  const drawY = (targetHeight - drawH) / 2
+
+  ctx.drawImage(cropped, drawX, drawY, drawW, drawH)
+  return targetCanvas.toDataURL('image/webp', 0.85)
 }

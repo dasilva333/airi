@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { DisplayModel } from '../../../../stores/display-models'
+import type { DisplayModel, DisplayModelFormat } from '../../../../stores/display-models'
 
 import { useElementSize } from '@vueuse/core'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-
-import { DisplayModelFormat } from '../../../../stores/display-models'
 
 interface Props {
   models: DisplayModel[]
@@ -29,6 +27,7 @@ const emits = defineEmits<{
   (e: 'rename', model: DisplayModel): void
   (e: 'groups', model: DisplayModel): void
   (e: 'toggleNsfw', model: DisplayModel): void
+  (e: 'refreshPreview', model: DisplayModel): void
   (e: 'removeLocal', model: DisplayModel): void
   (e: 'removeModel', model: DisplayModel): void
 }>()
@@ -76,6 +75,22 @@ const centerModel = computed(() => {
     return null
   return props.models[currentIndex.value] ?? null
 })
+
+function getFormatBadgeClass(format: DisplayModelFormat): string {
+  const renderer = props.mapFormatRenderer[format]
+  switch (renderer) {
+    case 'Live2D':
+      return 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
+    case 'VRM':
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+    case 'Spine':
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+    case 'MMD':
+      return 'bg-pink-500/10 text-pink-600 dark:text-pink-400'
+    default:
+      return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400'
+  }
+}
 
 function notifyActiveModel() {
   if (centerModel.value) {
@@ -403,18 +418,21 @@ onBeforeUnmount(() => {
             class="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-500 font-bold tracking-wider uppercase"
           >Cloud</span>
 
+          <!-- Format Badge -->
+          <span
+            :class="[
+              'rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase',
+              getFormatBadgeClass(centerModel.format),
+            ]"
+          >
+            {{ mapFormatRenderer[centerModel.format as DisplayModelFormat] }}
+          </span>
+
           <!-- NSFW Badge -->
           <span
             v-if="centerModel.nsfw"
             class="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] text-red-500 font-bold tracking-wider uppercase"
           >NSFW</span>
-
-          <!-- Format Badge -->
-          <span class="flex items-center gap-1 text-[10px] text-neutral-600 font-semibold dark:text-neutral-300">
-            <span v-if="centerModel.format === DisplayModelFormat.VRM" class="i-solar:box-bold text-xs" />
-            <span v-else class="i-solar:mask-hachi-bold text-xs" />
-            <span>{{ mapFormatRenderer[centerModel.format as DisplayModelFormat] }}</span>
-          </span>
 
           <span class="h-1 w-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
 
@@ -468,6 +486,15 @@ onBeforeUnmount(() => {
                     <div class="flex items-center gap-2">
                       <div :class="centerModel.nsfw ? 'i-solar:eye-closed-bold' : 'i-solar:eye-bold'" />
                       <div>{{ centerModel.nsfw ? 'Mark as SFW' : 'Mark as NSFW' }}</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    class="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm leading-none outline-none data-[highlighted]:bg-white/10 dark:data-[highlighted]:bg-black/10"
+                    @click="emits('refreshPreview', centerModel!)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <div class="i-solar:refresh-bold" />
+                      <div>Refresh Thumbnail</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem

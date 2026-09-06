@@ -11,7 +11,7 @@ import { useCustomVrmAnimationsStore } from '@proj-airi/stage-ui-three'
 import { Button } from '@proj-airi/ui'
 import { refDebounced, useFileDialog, useIntersectionObserver } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
+import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger, PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
@@ -50,6 +50,22 @@ const mapFormatRenderer: Record<DisplayModelFormat, string> = {
   [DisplayModelFormat.PMXDirectory]: 'MMD',
   [DisplayModelFormat.PMXZip]: 'MMD',
   [DisplayModelFormat.PMD]: 'MMD',
+}
+
+function getFormatBadgeClass(format: DisplayModelFormat): string {
+  const renderer = mapFormatRenderer[format]
+  switch (renderer) {
+    case 'Live2D':
+      return 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
+    case 'VRM':
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+    case 'Spine':
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+    case 'MMD':
+      return 'bg-pink-500/10 text-pink-600 dark:text-pink-400'
+    default:
+      return 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400'
+  }
 }
 
 // Redesign State
@@ -390,6 +406,18 @@ function confirmRename() {
   }
 }
 
+function handleRefreshPreview(model: DisplayModel) {
+  const modelName = model.name || 'model'
+  toast.promise(
+    displayModelStore.regenerateDisplayModelPreview(model.id),
+    {
+      loading: `Generating new thumbnail for ${modelName}…`,
+      success: `Thumbnail refreshed for ${modelName}!`,
+      error: (err: any) => `Failed to refresh thumbnail: ${err?.message || err || 'Unknown error'}`,
+    },
+  )
+}
+
 async function handleAddLive2DModel(files: FileList | null) {
   if (!files || files.length === 0)
     return
@@ -539,6 +567,58 @@ function isDownloaded(modelId: string) {
 
 function isAvailableOnCloud(modelId: string) {
   return cloudModelIdsSet.value.has(modelId)
+}
+
+// Reprocess gallery thumbnails queue & dialog state
+const showReprocessDialog = ref(false)
+const isReprocessingThumbs = ref(false)
+const viewableReprocessableModels = computed(() => filteredModels.value.filter(m => isDownloaded(m.id)))
+
+async function confirmReprocessThumbnails() {
+  showReprocessDialog.value = false
+  const targets = [...viewableReprocessableModels.value]
+  if (targets.length === 0 || isReprocessingThumbs.value)
+    return
+
+  isReprocessingThumbs.value = true
+  const toastId = toast.loading(`Starting thumbnail reprocessing for ${targets.length} model${targets.length > 1 ? 's' : ''}…`)
+
+  let successCount = 0
+  let failedCount = 0
+
+  try {
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i]
+      loadingPreviews.value[target.id] = true
+      try {
+        toast(`Reprocessing thumbnail ${i + 1}/${targets.length}: ${target.name}`, { id: toastId })
+        await displayModelStore.regenerateDisplayModelPreview(target.id)
+        successCount++
+      }
+      catch (err: any) {
+        console.error(`[Model Selector] Failed to reprocess thumbnail for ${target.name}:`, err)
+        failedCount++
+      }
+      finally {
+        loadingPreviews.value[target.id] = false
+      }
+      // Small breather to allow DOM update and GC cleanup of WebGL context
+      await new Promise(resolve => setTimeout(resolve, 60))
+    }
+
+    if (failedCount === 0) {
+      toast.success(`Successfully reprocessed all ${successCount} thumbnail${successCount > 1 ? 's' : ''}!`, { id: toastId })
+    }
+    else if (successCount > 0) {
+      toast.warning(`Reprocessed ${successCount} thumbnail${successCount > 1 ? 's' : ''} (${failedCount} failed).`, { id: toastId })
+    }
+    else {
+      toast.error('Failed to reprocess thumbnails. Check console for details.', { id: toastId })
+    }
+  }
+  finally {
+    isReprocessingThumbs.value = false
+  }
 }
 
 const downloadingModelId = ref<string | null>(null)
@@ -1001,6 +1081,38 @@ async function runAutoLinkCatalog() {
                   Save
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </DialogRoot>
+
+      <!-- Reprocess Gallery Thumbnails Confirmation Dialog -->
+      <DialogRoot v-model:open="showReprocessDialog">
+        <DialogPortal>
+          <DialogOverlay class="fixed inset-0 z-[10001] bg-black/50 backdrop-blur-sm" />
+          <DialogContent class="fixed left-1/2 top-1/2 z-[10001] max-w-md w-[90dvw] translate-x-[-50%] translate-y-[-50%] rounded-xl bg-white p-6 text-neutral-900 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
+            <DialogTitle class="text-lg font-bold">
+              Reprocess Thumbnails
+            </DialogTitle>
+            <DialogDescription class="mt-3 text-sm text-neutral-600 leading-relaxed dark:text-neutral-300">
+              Are you sure you want to reprocess the thumbnails in the viewable gallery? Doing so might take a few seconds to a few minutes depending on your collection. Apply if they previously got clipped or generated with a background color.
+            </DialogDescription>
+            <div v-if="viewableReprocessableModels.length > 0" class="mt-3 rounded-lg bg-neutral-100 p-2.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+              <span class="text-neutral-900 font-semibold dark:text-neutral-100">{{ viewableReprocessableModels.length }}</span> {{ viewableReprocessableModels.length === 1 ? 'model' : 'models' }} in current gallery view will be updated.
+            </div>
+            <div v-else class="mt-3 rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
+              No downloaded models found in the current gallery view to reprocess.
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+              <Button variant="secondary" :disabled="isReprocessingThumbs" @click="showReprocessDialog = false">
+                Cancel
+              </Button>
+              <Button
+                :disabled="isReprocessingThumbs || viewableReprocessableModels.length === 0"
+                @click="confirmReprocessThumbnails"
+              >
+                Apply
+              </Button>
             </div>
           </DialogContent>
         </DialogPortal>
@@ -1485,6 +1597,22 @@ async function runAutoLinkCatalog() {
           <span>Tag</span>
         </button>
 
+        <!-- Reprocess Thumbnails Button -->
+        <button
+          class="h-[32px] flex items-center justify-center gap-1.5 border border-transparent rounded-lg px-3 py-1 text-xs font-semibold outline-none transition-all active:scale-95"
+          :class="[
+            isReprocessingThumbs
+              ? 'bg-primary-500/10 text-primary-500 border-primary-500/20 dark:bg-primary-500/20 dark:text-primary-400'
+              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700',
+          ]"
+          :disabled="isReprocessingThumbs"
+          title="Reprocess Gallery Thumbnails"
+          @click="showReprocessDialog = true"
+        >
+          <div :class="[isReprocessingThumbs ? 'i-solar:refresh-bold animate-spin text-xs text-primary-500' : 'i-solar:gallery-bold-duotone text-xs']" />
+          <span>Thumbs</span>
+        </button>
+
         <!-- Manual Refresh Button (Only for Cloud Tab) -->
         <button
           v-if="currentTab === 'cloud'"
@@ -1522,6 +1650,7 @@ async function runAutoLinkCatalog() {
           @rename="openRenameDialog"
           @groups="openGroupsDialog"
           @toggle-nsfw="toggleModelNsfw"
+          @refresh-preview="handleRefreshPreview"
           @remove-local="handleRemoveLocalCopy"
           @remove-model="handleRemoveModel"
         />
@@ -1583,6 +1712,15 @@ async function runAutoLinkCatalog() {
                       <div class="flex items-center gap-2">
                         <div :class="model.nsfw ? 'i-solar:eye-closed-bold' : 'i-solar:eye-bold'" />
                         <div>{{ model.nsfw ? 'Mark as SFW' : 'Mark as NSFW' }}</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      class="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-base leading-none outline-none data-[highlighted]:bg-white/10 sm:text-sm dark:data-[highlighted]:bg-black/10"
+                      @click="handleRefreshPreview(model)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <div class="i-solar:refresh-bold" />
+                        <div>Refresh Thumbnail</div>
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -1660,6 +1798,15 @@ async function runAutoLinkCatalog() {
                   <!-- Local vs Cloud Badge -->
                   <span v-if="isDownloaded(model.id)" class="rounded bg-green-500/10 px-1 py-0.2 text-[8px] text-green-500 font-bold tracking-wider uppercase">Local</span>
                   <span v-else class="rounded bg-sky-500/10 px-1 py-0.2 text-[8px] text-sky-500 font-bold tracking-wider uppercase">Cloud</span>
+                  <!-- Format Badge -->
+                  <span
+                    :class="[
+                      'rounded px-1 py-0.2 text-[8px] font-bold tracking-wider uppercase',
+                      getFormatBadgeClass(model.format),
+                    ]"
+                  >
+                    {{ mapFormatRenderer[model.format as DisplayModelFormat] }}
+                  </span>
                   <!-- NSFW Badge -->
                   <span v-if="model.nsfw" class="rounded bg-red-500/10 px-1 py-0.2 text-[8px] text-red-500 font-bold tracking-wider uppercase">NSFW</span>
                   <!-- Group Badges -->
@@ -1681,11 +1828,6 @@ async function runAutoLinkCatalog() {
                   ]"
                 >
                   {{ model.name }}
-                </div>
-                <div class="mt-1 flex items-center gap-1 text-xs opacity-60">
-                  <div v-if="model.format === DisplayModelFormat.VRM" class="i-solar:box-bold" />
-                  <div v-else class="i-solar:mask-hachi-bold" />
-                  <div>{{ mapFormatRenderer[model.format as DisplayModelFormat] }}</div>
                 </div>
               </div>
             </div>

@@ -12,8 +12,10 @@ import { registerDslGroupsFromManifest } from '../runtime/dsl-capture'
  *  These are binary files in AppleDouble format — not real Live2D assets.
  */
 export function isMacOSJunk(path: string): boolean {
-  const parts = path.split('/')
-  return parts[0] === '__MACOSX' || parts.some(p => p.startsWith('._'))
+  if (!path)
+    return false
+  const parts = path.split(/[\\/]/)
+  return parts.some(p => p === '__MACOSX' || p.startsWith('._') || p === '.DS_Store')
 }
 
 let onZipLoaded: ((data: ArrayBuffer) => void) | null = null

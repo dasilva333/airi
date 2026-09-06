@@ -483,9 +483,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     return preset
   }
 
-  const loadLive2DModelPreview = (file: File) => generateLive2DPreview(file)
+  const loadLive2DModelPreview = (file: File | string) => generateLive2DPreview(file)
 
-  async function loadVrmModelPreview(file: File) {
+  async function loadVrmModelPreview(file: File | string) {
     return generateVrmPreview(file)
   }
 
@@ -505,6 +505,13 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     return stack.join('/')
   }
 
+  function isMacOSJunk(path: string): boolean {
+    if (!path)
+      return false
+    const parts = path.split(/[\\/]/)
+    return parts.some(p => p === '__MACOSX' || p.startsWith('._') || p === '.DS_Store')
+  }
+
   function getEntryCaseInsensitive(zipInstance: JSZip, zipPath: string) {
     const target = zipPath.toLowerCase().replace(/\\/g, '/')
     const exact = zipInstance.file(zipPath)
@@ -512,7 +519,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       return exact
 
     for (const key of Object.keys(zipInstance.files)) {
-      if (key.toLowerCase().replace(/\\/g, '/') === target && !zipInstance.files[key].dir) {
+      if (!isMacOSJunk(key) && key.toLowerCase().replace(/\\/g, '/') === target && !zipInstance.files[key].dir) {
         return zipInstance.files[key]
       }
     }
@@ -543,6 +550,9 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   }
 
   async function getModernModelDetails(entryName: string, zipInstance: JSZip) {
+    if (isMacOSJunk(entryName))
+      return null
+
     const fnLower = entryName.toLowerCase().split(/[\\/]/).pop()!
     const excludeSuffixes = [
       '.motion3.json',
@@ -590,7 +600,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         }
       }
     }
-    catch (e) {
+    catch {
       // ignore
     }
     return null
@@ -714,7 +724,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         for (const pathKey of allPaths) {
           if (zipInstance.files[pathKey].dir)
             continue
-          if (pathKey.includes('__MACOSX') || pathKey.includes('.DS_Store'))
+          if (isMacOSJunk(pathKey))
             continue
 
           if (pathKey.toLowerCase().endsWith('.json')) {
@@ -1068,6 +1078,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         const JSZipModule = (await import('jszip')).default
         const zip = await JSZipModule.loadAsync(targetFile)
         const iconFileName = Object.keys(zip.files).find((name) => {
+          if (isMacOSJunk(name))
+            return false
           const lower = name.toLowerCase()
           return lower.endsWith('icon.png') || lower.endsWith('icon.jpg')
         })
@@ -1426,6 +1438,116 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     }
   }
 
+  async function regenerateDisplayModelPreview(id: string): Promise<string | undefined> {
+    await until(displayModelsFromIndexedDBLoading).toBe(false)
+
+    // 1. Find the model metadata in memory
+    const metaModel = displayModels.value.find(m => m.id === id)
+
+    // 2. Fetch the actual model containing the File/Blob
+    let file: File | undefined
+    let rawRecord: DisplayModelFile | undefined
+
+    if (id.startsWith('display-model-')) {
+      rawRecord = (await localforage.getItem<DisplayModelFile>(id)) ?? undefined
+      if (rawRecord?.file) {
+        file = tryRewrapModelFile(rawRecord.file, rawRecord.name || `${id}.bin`)
+      }
+    }
+
+    // Fallback to in-memory cache if available
+    if (!file && displayModelCache.has(id)) {
+      const cached = displayModelCache.get(id)!.model
+      if (cached.type === 'file' && (cached as DisplayModelFile).file) {
+        file = tryRewrapModelFile((cached as DisplayModelFile).file, cached.name || `${id}.bin`)
+      }
+    }
+
+    const format = metaModel?.format || rawRecord?.format
+    if (!format) {
+      throw new Error(`Cannot determine format for display model "${id}"`)
+    }
+
+    let rawPreview: string | undefined
+
+    if (format === DisplayModelFormat.VRM) {
+      const input = file || (metaModel?.type === 'url' ? (metaModel as any).url : undefined)
+      if (!input) {
+        throw new Error(`VRM model file not found in storage for "${metaModel?.name || id}"`)
+      }
+      rawPreview = await loadVrmModelPreview(input)
+    }
+    else if (format === DisplayModelFormat.Live2dZip || format === DisplayModelFormat.Live2dDirectory) {
+      const input = file || (metaModel?.type === 'url' ? (metaModel as any).url : undefined)
+      if (!input) {
+        throw new Error(`Live2D model file not found in storage for "${metaModel?.name || id}"`)
+      }
+      rawPreview = await loadLive2DModelPreview(input)
+    }
+    else if (format === DisplayModelFormat.SpineZip) {
+      if (!file) {
+        throw new Error(`Spine model file not found in storage for "${metaModel?.name || id}"`)
+      }
+      rawPreview = await generateSpinePreview(file)
+    }
+    else if (
+      format === DisplayModelFormat.PMXZip
+      || format === DisplayModelFormat.PMXDirectory
+      || format === DisplayModelFormat.PMD
+    ) {
+      if (!file) {
+        throw new Error(`MMD model file not found in storage for "${metaModel?.name || id}"`)
+      }
+      const textureFiles = await getDisplayModelTextures(id)
+      rawPreview = await generateMmdPreview(file, textureFiles)
+    }
+    else {
+      throw new Error(`Unsupported model format "${format}" for preview generation`)
+    }
+
+    if (!rawPreview) {
+      throw new Error(`Failed to generate preview for "${metaModel?.name || id}"`)
+    }
+
+    // 3. Compress preview to preserve storage quotas
+    const compressedPreview = (await compressPreviewDataUrl(rawPreview, 768, 0.85)) || rawPreview
+
+    // 4. Update in-memory reactive catalog (shallowRef purity)
+    const index = displayModels.value.findIndex(m => m.id === id)
+    if (index !== -1) {
+      const updated = {
+        ...displayModels.value[index],
+        previewImage: compressedPreview,
+      }
+      const next = [...displayModels.value]
+      next[index] = updated
+      displayModels.value = next
+      triggerRef(displayModels)
+    }
+
+    // 5. Update LRU cache if populated
+    if (displayModelCache.has(id)) {
+      displayModelCache.get(id)!.model.previewImage = compressedPreview
+    }
+
+    // 6. Persist to IndexedDB if file-backed model
+    if (id.startsWith('display-model-')) {
+      const persistedRecord = rawRecord || await localforage.getItem<DisplayModelFile>(id)
+      if (persistedRecord) {
+        const cleanModel: DisplayModelFile = {
+          ...toRaw(persistedRecord),
+          previewImage: compressedPreview,
+          file: toRaw(persistedRecord.file),
+        }
+        await localforage.setItem(id, cleanModel)
+        await syncMetadataCacheFromMemory()
+        broadcastModelsSync(Date.now())
+      }
+    }
+
+    return compressedPreview
+  }
+
   async function removeDisplayModel(id: string) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     await localforage.removeItem(id)
@@ -1566,8 +1688,8 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         debug('[DisplayModels] getOrLoadModelCapabilities: ZIP loaded. Total files:', Object.keys(zipInstance.files).length)
 
         // Parse expressions directly by scanning zip files (Case 1 in resolveMetadata)
-        const filePaths = Object.keys(zipInstance.files)
-        const jsonPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.json') && !zipInstance.files[f].dir)
+        const filePaths = Object.keys(zipInstance.files).filter(f => !isMacOSJunk(f) && !zipInstance.files[f].dir)
+        const jsonPaths = filePaths.filter((f: string) => f.toLowerCase().endsWith('.json'))
 
         for (const jsonPath of jsonPaths) {
           try {
@@ -1584,43 +1706,48 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
         // Parse motions and fallbacks via model3.json FileReferences
         let modelJsonPath = ''
         for (const filename of filePaths) {
-          if (filename.toLowerCase().endsWith('.model3.json') && !zipInstance.files[filename].dir) {
+          if (filename.toLowerCase().endsWith('.model3.json')) {
             modelJsonPath = filename
             break
           }
         }
 
         if (modelJsonPath) {
-          const content = await zipInstance.files[modelJsonPath].async('text')
-          const data = JSON.parse(content)
-          const manifestDir = modelJsonPath.substring(0, modelJsonPath.lastIndexOf('/') + 1)
+          try {
+            const content = await zipInstance.files[modelJsonPath].async('text')
+            const data = JSON.parse(content)
+            const manifestDir = modelJsonPath.substring(0, modelJsonPath.lastIndexOf('/') + 1)
 
-          if (data && data.FileReferences) {
-            // Sourcing expressions from manifest as fallback if direct scan found nothing
-            if (expressions.length === 0 && Array.isArray(data.FileReferences.Expressions)) {
-              data.FileReferences.Expressions.forEach((exp: any) => {
-                const relativeFile = exp.File || exp.file
-                if (relativeFile) {
-                  // Resolve path relative to the manifest directory
-                  const fullPath = manifestDir ? `${manifestDir}${relativeFile}` : relativeFile
-                  expressions.push(fullPath.replace(/\\/g, '/'))
-                }
-              })
+            if (data && data.FileReferences) {
+              // Sourcing expressions from manifest as fallback if direct scan found nothing
+              if (expressions.length === 0 && Array.isArray(data.FileReferences.Expressions)) {
+                data.FileReferences.Expressions.forEach((exp: any) => {
+                  const relativeFile = exp.File || exp.file
+                  if (relativeFile) {
+                    // Resolve path relative to the manifest directory
+                    const fullPath = manifestDir ? `${manifestDir}${relativeFile}` : relativeFile
+                    expressions.push(fullPath.replace(/\\/g, '/'))
+                  }
+                })
+              }
+              if (data.FileReferences.Motions) {
+                Object.keys(data.FileReferences.Motions).forEach((groupName) => {
+                  const group = data.FileReferences.Motions[groupName]
+                  if (Array.isArray(group)) {
+                    group.forEach((m: any) => {
+                      const relativeFile = m.File || m.file
+                      if (relativeFile) {
+                        const fullPath = manifestDir ? `${manifestDir}${relativeFile}` : relativeFile
+                        motions.push(fullPath.replace(/\\/g, '/'))
+                      }
+                    })
+                  }
+                })
+              }
             }
-            if (data.FileReferences.Motions) {
-              Object.keys(data.FileReferences.Motions).forEach((groupName) => {
-                const group = data.FileReferences.Motions[groupName]
-                if (Array.isArray(group)) {
-                  group.forEach((m: any) => {
-                    const relativeFile = m.File || m.file
-                    if (relativeFile) {
-                      const fullPath = manifestDir ? `${manifestDir}${relativeFile}` : relativeFile
-                      motions.push(fullPath.replace(/\\/g, '/'))
-                    }
-                  })
-                }
-              })
-            }
+          }
+          catch (e) {
+            console.warn('[DisplayModels] Failed to parse model3.json in getOrLoadModelCapabilities:', e)
           }
         }
         debug('[DisplayModels] getOrLoadModelCapabilities parsed counts:', {
@@ -1699,13 +1826,11 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
       }
       else if (format.includes('spine')) {
         const zipInstance = await JSZip.loadAsync(arrayBuffer)
-        const filePaths = Object.keys(zipInstance.files)
+        const filePaths = Object.keys(zipInstance.files).filter(f => !isMacOSJunk(f) && !zipInstance.files[f].dir)
 
         const variantsMap = new Map<string, { skeletonPath?: string, model0Path?: string }>()
 
         for (const path of filePaths) {
-          if (zipInstance.files[path].dir)
-            continue
           const lower = path.toLowerCase()
           if (lower.endsWith('.skel') || (lower.endsWith('.json') && !lower.endsWith('model0.json'))) {
             const dir = path.substring(0, path.lastIndexOf('/') + 1)
@@ -1939,6 +2064,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     updateDisplayModelMeta,
     updateDisplayModelTags,
     updateDisplayModelMappings,
+    regenerateDisplayModelPreview,
     removeDisplayModel,
     resetDisplayModels,
 
