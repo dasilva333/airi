@@ -1,10 +1,10 @@
 import type { PlaybackItem } from '@proj-airi/pipelines-audio'
 
-import type { AsideCandidate, CacheMissFailureReason, Clock, PacingPlaybackMeta, ThinkingCategory } from '../../types/pacing'
+import type { AsideCandidate, Clock, PacingPlaybackMeta, ThinkingCategory } from '../../types/pacing'
 import type { ThinkingAudioFingerprintParams } from './pacing-cache'
 import type { TurnPacingCoordinator } from './turn-pacing-coordinator'
 
-import { getThinkingAudio, saveThinkingAudio } from './pacing-cache'
+import { computeThinkingAudioFingerprint, deleteThinkingAudio, getThinkingAudio, saveThinkingAudio } from './pacing-cache'
 
 export interface PacingCommitReceipt {
   accepted: boolean
@@ -86,6 +86,8 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
   private synthesizeAudio?: (text: string, signal: AbortSignal) => Promise<ArrayBuffer>
   private clock: Clock
   private activeAbortController: AbortController | null = null
+  private preparationGeneration = 0
+  private activeFillerIntentId: string | null = null
 
   private getIntentContext?: () => { intentId?: string, streamId?: string }
 
@@ -110,127 +112,125 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
   /**
    * Invoked when the coordinator transitions to FILLER_ARMED.
    * Attempts instant cache retrieval. On hit, decodes and schedules the filler.
-   * On miss, instantly notifies the coordinator to degrade cleanly to normal answer speech.
+   * On miss, attempts bounded synthesis before scheduling the next opportunity.
    */
   public async handleFillerArmed(category: ThinkingCategory = 'generic', customText?: string): Promise<boolean> {
+    if (this.coordinator.state !== 'FILLER_ARMED' || this.coordinator.metrics.cutoffReason)
+      return false
+
     const phraseText = customText || this.voiceParams.text || category
     const startLookupAt = this.clock.now()
-    let cached = await getThinkingAudio({
-      ...this.voiceParams,
-      text: phraseText,
-    })
+    const controller = new AbortController()
+    this.activeAbortController?.abort()
+    this.activeAbortController = controller
+    const isCurrent = () => !controller.signal.aborted
+      && this.coordinator.state === 'FILLER_ARMED' && !this.coordinator.metrics.cutoffReason
+    const params = { ...this.voiceParams, text: phraseText }
+    let audioData: TAudio
+    let durationSec: number
 
-    let failureReason: CacheMissFailureReason = 'cache_not_found'
-    let failureError: string | undefined
-    let failureElapsedMs = this.clock.now() - startLookupAt
-
-    if (!cached && this.synthesizeAudio) {
-      // Dynamic fallback synthesis for uncached filler phrases
-      const abortController = new AbortController()
-      this.activeAbortController = abortController
-      const budgetMs = this.coordinator.policy.maxSynthesisBudgetMs ?? 2500
-      let timerHandle: any = null
-      const synthStart = this.clock.now()
-
+    try {
+      let cached: Awaited<ReturnType<typeof getThinkingAudio>> = null
       try {
-        const synthesisPromise = this.synthesizeAudio(phraseText, abortController.signal)
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timerHandle = this.clock.setTimeout(() => {
-            const err = new Error(`Filler synthesis timed out after ${budgetMs}ms`)
-            abortController.abort(err)
-            reject(err)
-          }, budgetMs)
+        cached = await getThinkingAudio(params)
+      }
+      catch {
+        // NOTICE: IndexedDB availability must not prevent network fallback.
+      }
+      if (!isCurrent())
+        return false
+
+      let rawBuffer = cached?.audio
+      let synthesized = false
+      if (!rawBuffer?.byteLength) {
+        if (!this.synthesizeAudio) {
+          this.coordinator.notifyCacheMiss({ reason: 'cache_not_found', elapsedMs: this.clock.now() - startLookupAt })
+          return false
+        }
+        const synthStart = this.clock.now()
+        const budgetMs = this.coordinator.policy.maxFillerSynthesisBudgetMs ?? 2500
+        let timedOut = false
+        let timerHandle: any
+        let onAbort!: () => void
+        try {
+          const aborted = new Promise<never>((_resolve, reject) => {
+            onAbort = () => reject(controller.signal.reason)
+            controller.signal.addEventListener('abort', onAbort, { once: true })
+            timerHandle = this.clock.setTimeout(() => {
+              timedOut = true
+              controller.abort(new Error(`Filler synthesis timed out after ${budgetMs}ms`))
+            }, budgetMs)
+          })
+          rawBuffer = await Promise.race([this.synthesizeAudio(phraseText, controller.signal), aborted])
+          if (!rawBuffer?.byteLength)
+            throw new Error('Empty audio buffer returned from synthesis')
+          synthesized = true
+        }
+        catch (err) {
+          if (isCurrent() || timedOut) {
+            this.coordinator.notifyCacheMiss({
+              reason: timedOut ? 'synthesis_timeout' : 'synthesis_failed',
+              error: err instanceof Error ? err.message : String(err),
+              elapsedMs: this.clock.now() - synthStart,
+            })
+          }
+          return false
+        }
+        finally {
+          if (timerHandle != null)
+            this.clock.clearTimeout(timerHandle)
+          controller.signal.removeEventListener('abort', onAbort)
+        }
+      }
+      if (!isCurrent())
+        return false
+
+      const decodeStart = this.clock.now()
+      try {
+        // Decoders may detach their input buffer; preserve the bytes for persistence.
+        audioData = this.decodeAudio ? await this.decodeAudio(rawBuffer.slice(0)) : rawBuffer as unknown as TAudio
+      }
+      catch (err) {
+        if (!isCurrent())
+          return false
+        if (cached) {
+          // A corrupt hit must not poison every subsequent opportunity.
+          void computeThinkingAudioFingerprint(params).then(deleteThinkingAudio).catch(() => {})
+        }
+        this.coordinator.notifyCacheMiss({
+          reason: 'decode_failed',
+          error: err instanceof Error ? err.message : String(err),
+          elapsedMs: this.clock.now() - decodeStart,
         })
+        return false
+      }
+      if (!isCurrent())
+        return false
 
-        const rawBuffer = await Promise.race([synthesisPromise, timeoutPromise])
-        if (rawBuffer && rawBuffer.byteLength > 0) {
-          let durationSec = 1.5
-          if (this.decodeAudio) {
-            try {
-              const decoded = await this.decodeAudio(rawBuffer)
-              if (decoded && typeof (decoded as any).duration === 'number') {
-                durationSec = (decoded as any).duration
-              }
-            }
-            catch {
-              // Ignore decode measurement failure, use default duration
-            }
-          }
-          const durationMs = durationSec * 1000
-          cached = {
-            audio: rawBuffer,
-            durationMs,
-          }
-          // Asynchronously persist to cache so subsequent turns are instant hits
-          void saveThinkingAudio({ ...this.voiceParams, text: phraseText }, rawBuffer, durationMs).catch(() => {})
-        }
+      durationSec = (cached?.durationMs ?? 1500) / 1000
+      if (audioData && typeof (audioData as any).duration === 'number')
+        durationSec = (audioData as any).duration
+      const durationMs = durationSec * 1000
+      const maxDurationMs = this.coordinator.policy.maxFillerDurationMs ?? 2200
+      if (!Number.isFinite(durationSec) || durationSec <= 0 || durationMs > maxDurationMs) {
+        this.coordinator.notifyCacheMiss({
+          reason: 'synthesis_failed',
+          error: `Clip duration invalid or exceeded max: ${Math.round(durationMs)}ms > ${maxDurationMs}ms`,
+          elapsedMs: this.clock.now() - startLookupAt,
+        })
+        return false
       }
-      catch (err: any) {
-        const isTimeout = err?.message?.includes?.('timed out') || abortController.signal.reason?.message?.includes?.('timed out')
-        failureReason = isTimeout ? 'synthesis_timeout' : 'synthesis_failed'
-        failureError = err?.message || String(err)
-        failureElapsedMs = this.clock.now() - synthStart
-        console.warn('[PacingPlaybackBridge] Fallback dynamic synthesis failed:', err)
-        abortController.abort()
-      }
-      finally {
-        if (timerHandle) {
-          this.clock.clearTimeout(timerHandle)
-        }
-        if (this.activeAbortController === abortController) {
-          this.activeAbortController = null
-        }
-      }
+      if (synthesized)
+        void saveThinkingAudio(params, rawBuffer, durationMs).catch(() => {})
     }
-
-    if (!cached) {
-      this.coordinator.notifyCacheMiss({
-        reason: failureReason,
-        error: failureError,
-        elapsedMs: failureElapsedMs,
-      })
-      return false
+    finally {
+      if (this.activeAbortController === controller)
+        this.activeAbortController = null
     }
 
     const now = this.clock.now()
     const itemId = `pacing-filler-${this.coordinator.turnId}-${now}`
     this.activeFillerItemId = itemId
-
-    let audioData: TAudio
-    if (this.decodeAudio) {
-      const decodeStart = this.clock.now()
-      try {
-        audioData = await this.decodeAudio(cached.audio)
-      }
-      catch (err: any) {
-        this.coordinator.notifyCacheMiss({
-          reason: 'decode_failed',
-          error: err?.message || 'AudioContext decode error',
-          elapsedMs: this.clock.now() - decodeStart,
-        })
-        return false
-      }
-    }
-    else {
-      audioData = cached.audio as unknown as TAudio
-    }
-
-    // Check if turn was settled or answer arrived while decoding
-    if (this.coordinator.state !== 'FILLER_ARMED' || this.coordinator.metrics.cutoffReason) {
-      return false
-    }
-
-    let durationSec = (cached.durationMs || 1500) / 1000
-    if (audioData && typeof (audioData as any).duration === 'number') {
-      durationSec = (audioData as any).duration
-    }
-    const durationMs = durationSec * 1000
-    const maxDurationMs = this.coordinator.policy.maxFillerDurationMs ?? 2200
-
-    if (!Number.isFinite(durationSec) || durationSec <= 0 || durationMs > maxDurationMs) {
-      this.coordinator.notifyCacheMiss()
-      return false
-    }
 
     const currentTimeSec = this.playback.getCurrentTime ? this.playback.getCurrentTime() : now / 1000
     this.fillerScheduledEndTime = currentTimeSec + durationSec
@@ -256,10 +256,12 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       meta,
     }
 
+    this.activeFillerIntentId = item.intentId
     if (this.playback.tryCommitFiller) {
       const receipt = this.playback.tryCommitFiller(item, 100)
       if (!receipt.accepted) {
         this.activeFillerItemId = null
+        this.activeFillerIntentId = null
         this.coordinator.notifyCacheMiss({
           reason: 'synthesis_failed',
           error: `Playback admission rejected: ${receipt.reason || 'queue full'}`,
@@ -290,6 +292,9 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
       return false
     }
 
+    const preparationGeneration = this.preparationGeneration
+    const isCurrent = () => preparationGeneration === this.preparationGeneration
+      && this.coordinator.state === 'FILLER_ARMED' && !this.coordinator.metrics.cutoffReason
     const now = this.clock.now()
     if (now >= candidate.expiresAtMs) {
       this.coordinator.notifyCacheMiss({
@@ -316,43 +321,40 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
 
     let rawBuffer: ArrayBuffer
     let timerHandle: any = null
+    let timedOut = false
+    let onAbort!: () => void
 
     try {
-      const synthesisPromise = this.synthesizeAudio(candidate.text, abortController.signal)
-      const timeoutPromise = new Promise<never>((_, reject) => {
+      const aborted = new Promise<never>((_resolve, reject) => {
+        onAbort = () => reject(abortController.signal.reason)
+        abortController.signal.addEventListener('abort', onAbort, { once: true })
         timerHandle = this.clock.setTimeout(() => {
-          const err = new Error(`Dynamic aside synthesis timed out after ${budgetMs}ms`)
-          abortController.abort(err)
-          reject(err)
+          timedOut = true
+          abortController.abort(new Error(`Dynamic aside synthesis timed out after ${budgetMs}ms`))
         }, budgetMs)
       })
-
-      rawBuffer = await Promise.race([synthesisPromise, timeoutPromise])
+      rawBuffer = await Promise.race([this.synthesizeAudio(candidate.text, abortController.signal), aborted])
     }
-    catch (err: any) {
-      abortController.abort()
-      if (this.activeAbortController === abortController) {
-        this.activeAbortController = null
+    catch (err) {
+      if (isCurrent()) {
+        this.coordinator.notifyCacheMiss({
+          reason: timedOut ? 'synthesis_timeout' : 'synthesis_failed',
+          error: err instanceof Error ? err.message : String(err),
+          elapsedMs: this.clock.now() - startSynthesizeAt,
+        })
       }
-      const isTimeout = err?.message?.includes?.('timed out') || abortController.signal.reason?.message?.includes?.('timed out')
-      this.coordinator.notifyCacheMiss({
-        reason: isTimeout ? 'synthesis_timeout' : 'synthesis_failed',
-        error: err?.message || String(err),
-        elapsedMs: this.clock.now() - startSynthesizeAt,
-      })
       return false
     }
     finally {
-      if (timerHandle) {
+      if (timerHandle != null)
         this.clock.clearTimeout(timerHandle)
-      }
-      if (this.activeAbortController === abortController) {
+      abortController.signal.removeEventListener('abort', onAbort)
+      if (this.activeAbortController === abortController)
         this.activeAbortController = null
-      }
     }
 
     // Post-synthesis validity checks
-    if (this.coordinator.state !== 'FILLER_ARMED' || this.coordinator.metrics.cutoffReason) {
+    if (abortController.signal.aborted || !isCurrent()) {
       return false
     }
 
@@ -381,6 +383,8 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
         audioData = await this.decodeAudio(rawBuffer)
       }
       catch (err: any) {
+        if (!isCurrent())
+          return false
         this.coordinator.notifyCacheMiss({
           reason: 'decode_failed',
           error: err?.message || 'AudioContext decode error',
@@ -394,7 +398,7 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     }
 
     // Re-check after async decode
-    if (this.coordinator.state !== 'FILLER_ARMED' || this.coordinator.metrics.cutoffReason) {
+    if (!isCurrent()) {
       return false
     }
 
@@ -447,10 +451,12 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
     }
 
     // Atomic admission
+    this.activeFillerIntentId = item.intentId
     if (this.playback.tryCommitFiller) {
       const receipt = this.playback.tryCommitFiller(item, 100)
       if (!receipt.accepted) {
         this.activeFillerItemId = null
+        this.activeFillerIntentId = null
         this.coordinator.notifyCacheMiss({
           reason: 'synthesis_failed',
           error: `Playback admission rejected: ${receipt.reason || 'queue full'}`,
@@ -503,22 +509,27 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
   public handleFillerEnded(): void {
     const now = this.clock.now()
     this.activeFillerItemId = null
+    this.activeFillerIntentId = null
     this.coordinator.notifyFillerAudioEnded(now)
   }
 
   /**
    * Cancels any active filler playback on barge-in or turn cancellation.
    */
+  public cancelFiller(reason: string): void {
+    this.preparationGeneration++
+    this.activeAbortController?.abort()
+    this.activeAbortController = null
+    const intentId = this.activeFillerIntentId
+    this.activeFillerIntentId = null
+    this.activeFillerItemId = null
+    if (intentId)
+      this.playback.stopByIntent?.(intentId, reason)
+  }
+
   public cancel(reason: string): void {
-    if (this.activeAbortController) {
-      this.activeAbortController.abort()
-      this.activeAbortController = null
-    }
+    this.cancelFiller(reason)
     this.coordinator.cancel(reason)
     this.usedPhrases.clear()
-    if (this.activeFillerItemId && this.playback.stopByIntent) {
-      this.playback.stopByIntent(`intent-${this.coordinator.turnId}`, reason)
-      this.activeFillerItemId = null
-    }
   }
 }

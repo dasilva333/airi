@@ -13,7 +13,7 @@ import {
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
 import { DEFAULT_PACING_FILLERS } from '@proj-airi/stage-ui/types/pacing'
-import { FieldInput } from '@proj-airi/ui'
+import { FieldInput, FieldRange } from '@proj-airi/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -63,7 +63,8 @@ const pacingDynamicAsidesEnabled = defineModel<boolean>('pacingDynamicAsidesEnab
 const pacingSemanticExtractorEnabled = defineModel<boolean>('pacingSemanticExtractorEnabled', { default: false })
 const pacingDynamicAfterMs = defineModel<number>('pacingDynamicAfterMs', { default: 15000 })
 const pacingCandidateTtlMs = defineModel<number>('pacingCandidateTtlMs', { default: 15000 })
-const pacingMaxSynthesisBudgetMs = defineModel<number>('pacingMaxSynthesisBudgetMs', { default: 600 })
+const pacingMaxFillerSynthesisBudgetMs = defineModel<number>('pacingMaxFillerSynthesisBudgetMs', { default: 2500 })
+const pacingMaxSynthesisBudgetMs = defineModel<number>('pacingMaxSynthesisBudgetMs', { default: 2500 })
 const pacingExperimentalOrganicPivots = defineModel<boolean>('pacingExperimentalOrganicPivots', { default: false })
 
 // Sub-Tab Navigation (Consolidated 3 Hubs)
@@ -703,6 +704,16 @@ function resetToDefaultFillers() {
           </span>
         </div>
 
+        <FieldRange
+          v-model="pacingMaxFillerSynthesisBudgetMs"
+          label="Filler synthesis budget (ms)"
+          description="Maximum wait to generate an uncached filler phrase. Default: 2500ms."
+          :format-value="value => `${value}ms`"
+          :min="100"
+          :max="5000"
+          :step="100"
+        />
+
         <!-- Speech Style & Pacing Instructions Scratchpad -->
         <div class="border border-neutral-200 rounded-xl bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900/60">
           <div class="mb-3 flex flex-col gap-0.5">
@@ -939,7 +950,7 @@ function resetToDefaultFillers() {
               <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
                 <div class="flex items-center justify-between">
                   <label class="text-xs text-neutral-800 font-medium dark:text-neutral-200">
-                    TTS Synthesis Budget
+                    Dynamic Aside Synthesis Budget
                   </label>
                   <span class="text-xs text-primary-600 font-semibold font-mono dark:text-primary-400">
                     {{ pacingMaxSynthesisBudgetMs }}ms
@@ -952,14 +963,14 @@ function resetToDefaultFillers() {
                   v-model.number="pacingMaxSynthesisBudgetMs"
                   type="range"
                   min="200"
-                  max="2000"
+                  max="5000"
                   step="50"
                   class="h-1.5 w-full cursor-pointer accent-primary-500"
                 >
                 <div class="flex items-center justify-between text-[10px] text-neutral-400">
                   <span>200ms</span>
-                  <span>600ms (Default)</span>
-                  <span>2000ms</span>
+                  <span>2500ms (Default)</span>
+                  <span>5000ms</span>
                 </div>
               </div>
             </div>

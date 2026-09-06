@@ -184,7 +184,8 @@ export const AiriPacingSchema = object({
   semanticExtractorEnabled: optional(boolean()),
   dynamicAfterMs: optional(pipe(number(), integer(), minValue(5000), maxValue(60000))),
   candidateTtlMs: optional(pipe(number(), integer(), minValue(1000), maxValue(45000))),
-  maxSynthesisBudgetMs: optional(pipe(number(), integer(), minValue(100), maxValue(2000))),
+  maxFillerSynthesisBudgetMs: optional(pipe(number(), integer(), minValue(100), maxValue(5000))),
+  maxSynthesisBudgetMs: optional(pipe(number(), integer(), minValue(100), maxValue(5000))),
   experimentalOrganicPivots: optional(boolean()),
   visualTyping: optional(object({
     enabled: boolean(),

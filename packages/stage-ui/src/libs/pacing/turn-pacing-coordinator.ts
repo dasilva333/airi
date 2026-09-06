@@ -580,13 +580,8 @@ export class TurnPacingCoordinator {
   public notifyCacheMiss(details?: CacheMissDetails): void {
     if (this.state === 'FILLER_ARMED') {
       this.metrics.fillerOutcome = 'cache-miss'
-      if (details?.reason) {
-        this.metrics.cacheMissReason = details.reason
-        this.metrics.cutoffReason = details.reason
-      }
-      if (details?.error) {
-        this.metrics.cacheMissError = details.error
-      }
+      this.metrics.cacheMissReason = details?.reason
+      this.metrics.cacheMissError = details?.error
 
       // Rollback committedCount since filler was not committed to audio playback
       if (this.committedCount > 0) {
@@ -669,6 +664,7 @@ export class TurnPacingCoordinator {
     if (this.state === 'SETTLED')
       return
 
+    const wasPreparing = this.state === 'FILLER_ARMED'
     this.terminalSeen = true
     this.pacingClosed = true
     this.metrics.pacingClosed = true
@@ -678,6 +674,8 @@ export class TurnPacingCoordinator {
 
     this.state = 'SETTLED'
     this.turnPhase = 'settled'
+    if (wasPreparing)
+      this.onCancelFiller?.('assistant-ended')
     this.onSettled?.(this.metrics)
   }
 }

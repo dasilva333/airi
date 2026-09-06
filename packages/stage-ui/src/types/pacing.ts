@@ -121,6 +121,7 @@ export interface PacingPolicyConfig {
   semanticExtractorEnabled?: boolean
   dynamicAfterMs?: number
   candidateTtlMs?: number
+  maxFillerSynthesisBudgetMs?: number
   maxSynthesisBudgetMs?: number
   experimentalOrganicPivots?: boolean
 }
@@ -157,6 +158,7 @@ export const DEFAULT_PACING_POLICY: PacingPolicyConfig = {
   semanticExtractorEnabled: false,
   dynamicAfterMs: 15000,
   candidateTtlMs: 15000,
-  maxSynthesisBudgetMs: 600,
+  maxFillerSynthesisBudgetMs: 2500,
+  maxSynthesisBudgetMs: 2500,
   experimentalOrganicPivots: false,
 }

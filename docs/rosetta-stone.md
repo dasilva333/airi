@@ -260,6 +260,10 @@ Each module typically follows:
 LLM output text → VoiceProfile (effects + UST transforms) → SpeechProvider.speech().fetch() → Worker inference → PCM → WAV → Playback
 ```
 
+### Thinking filler recovery
+
+`libs/pacing/turn-pacing-coordinator.ts` keeps retry diagnostics (`cacheMissReason` / `cacheMissError`) separate from terminal `cutoffReason`; setting the latter on a recoverable miss prevents the playback bridge from admitting subsequent fillers. In `use-turn-pacing.ts`, coordinator cancellation callbacks stop bridge preparation/playback without recursively canceling the turn. `pacing-playback-bridge.ts` checks cancellation after cache lookup and decode, and persists fallback bytes only after successful decoding and duration validation. `maxFillerSynthesisBudgetMs` independently budgets uncached phrases, so saved `maxSynthesisBudgetMs` values only constrain dynamic asides. Keep the synthesis budget defaults and bounds aligned across `types/pacing.ts`, `types/card.schema.ts`, and the card editor.
+
 ### STT Flow (Input)
 ```
 Microphone → VadDetector → AudioBuffer → STTProvider inference → text → chatOrchestrator.ingest
