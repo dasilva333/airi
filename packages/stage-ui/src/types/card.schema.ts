@@ -181,6 +181,7 @@ export const AiriPacingSchema = object({
   pacingIntervalMs: optional(pipe(number(), integer(), minValue(5000), maxValue(45000))),
   fillers: optional(array(AiriThinkingFillerSchema)),
   dynamicAsidesEnabled: optional(boolean()),
+  semanticExtractorEnabled: optional(boolean()),
   dynamicAfterMs: optional(pipe(number(), integer(), minValue(5000), maxValue(60000))),
   candidateTtlMs: optional(pipe(number(), integer(), minValue(1000), maxValue(45000))),
   maxSynthesisBudgetMs: optional(pipe(number(), integer(), minValue(100), maxValue(2000))),

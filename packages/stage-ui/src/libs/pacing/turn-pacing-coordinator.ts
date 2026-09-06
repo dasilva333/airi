@@ -5,6 +5,7 @@ import type {
   PacingMetrics,
   PacingPolicyConfig,
   PacingState,
+  PacingStateLogEntry,
   ThinkingCategory,
   TurnPhase,
 } from '../../types/pacing'
@@ -23,6 +24,7 @@ export interface TurnPacingCoordinatorOptions {
   onArmDynamicAside?: (candidate: AsideCandidate, budgetMs: number) => void
   onCancelFiller?: (reason: string) => void
   onSettled?: (metrics: PacingMetrics) => void
+  onStateChange?: (state: PacingState, log: PacingStateLogEntry[], nextEligibleInMs?: number) => void
 }
 
 export class TurnPacingCoordinator {
@@ -36,6 +38,7 @@ export class TurnPacingCoordinator {
   public nextEligibleAtMs?: number
   public activeAttemptId?: string
   public pendingCandidate: AsideCandidate | null = null
+  public stateLog: PacingStateLogEntry[] = []
 
   public turnId: string
   public generation: number
@@ -59,6 +62,7 @@ export class TurnPacingCoordinator {
   private onArmDynamicAside?: (candidate: AsideCandidate, budgetMs: number) => void
   private onCancelFiller?: (reason: string) => void
   private onSettled?: (metrics: PacingMetrics) => void
+  private onStateChange?: (state: PacingState, log: PacingStateLogEntry[], nextEligibleInMs?: number) => void
 
   constructor(options: TurnPacingCoordinatorOptions) {
     this.turnId = options.turnId
@@ -70,6 +74,7 @@ export class TurnPacingCoordinator {
     this.onArmDynamicAside = options.onArmDynamicAside
     this.onCancelFiller = options.onCancelFiller
     this.onSettled = options.onSettled
+    this.onStateChange = options.onStateChange
     this.clock = options.clock ?? {
       now: () => Date.now(),
       setTimeout: (fn, delay) => setTimeout(fn, delay),
@@ -140,14 +145,40 @@ export class TurnPacingCoordinator {
     return Math.round(deadline)
   }
 
+  public logStateEvent(event: string, details?: string): void {
+    const now = this.clock.now()
+    const relTimeMs = this.t0 > 0 ? now - this.t0 : 0
+    const entry: PacingStateLogEntry = {
+      timestampMs: now,
+      relTimeMs,
+      state: this.state,
+      event,
+      details,
+    }
+    this.stateLog.push(entry)
+    this.metrics.stateLog = [...this.stateLog]
+    this.metrics.liveState = this.state
+    this.metrics.committedCount = this.committedCount
+    this.metrics.spokenCount = this.spokenCount
+    this.metrics.fillersSpokenCount = this.fillersSpokenCount
+    this.metrics.maxFillers = this.policy.maxFillersPerTurn ?? 3
+    if (this.nextEligibleAtMs && this.nextEligibleAtMs > now) {
+      this.metrics.nextOpportunityCountdownSec = Math.max(0, Math.ceil((this.nextEligibleAtMs - now) / 1000))
+    }
+    else {
+      this.metrics.nextOpportunityCountdownSec = undefined
+    }
+
+    const nextIn = (this.nextEligibleAtMs && this.nextEligibleAtMs > now) ? (this.nextEligibleAtMs - now) : undefined
+    this.onStateChange?.(this.state, this.stateLog, nextIn)
+  }
+
   public dispatch(): void {
     if (this.state !== 'IDLE')
       return
 
     this.t0 = this.clock.now()
     this.state = 'DISPATCHED'
-
-    // First tick transition to STAGING
     this.state = 'STAGING'
 
     // If disabled by policy, return
@@ -160,12 +191,14 @@ export class TurnPacingCoordinator {
       // in case the model encounters a deep reasoning stall or unexpected delay.
       const intervalMs = this.policy.pacingIntervalMs ?? 15000
       this.nextEligibleAtMs = this.t0 + intervalMs
+      this.logStateEvent('Ultra-fast model: initial filler bypassed', `Next interval in ${Math.round(intervalMs / 1000)}s`)
       this.intervalTimerHandle = this.clock.setTimeout(() => {
         this.onIntervalFlushElapsed()
       }, intervalMs)
       return
     }
 
+    this.logStateEvent('Turn dispatched ➔ Staging initial deadline', `Deadline: ${this.deadlineMs}ms`)
     this.timerHandle = this.clock.setTimeout(() => {
       this.onDeadlineElapsed()
     }, this.deadlineMs)
@@ -275,7 +308,7 @@ export class TurnPacingCoordinator {
     if (this.answerAudioScheduled || this.fillerAttempted)
       return
 
-    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    const maxFillers = this.policy.maxFillersPerTurn ?? 3
     if (this.committedCount >= maxFillers) {
       this.pacingClosed = true
       this.metrics.pacingClosed = true
@@ -310,6 +343,7 @@ export class TurnPacingCoordinator {
       this.metrics.pacingClosed = true
     }
 
+    this.logStateEvent(`Armed initial filler [${catToArm}]`, `Deadline: ${this.deadlineMs}ms`)
     this.onArmFiller?.(catToArm, this.deadlineMs)
   }
 
@@ -320,7 +354,7 @@ export class TurnPacingCoordinator {
     if (this.answerAudioScheduled)
       return
 
-    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    const maxFillers = this.policy.maxFillersPerTurn ?? 3
     if (this.committedCount >= maxFillers) {
       this.pacingClosed = true
       this.metrics.pacingClosed = true
@@ -359,6 +393,7 @@ export class TurnPacingCoordinator {
         this.metrics.pacingClosed = true
       }
 
+      this.logStateEvent(`Armed dynamic aside [explicit]`, `"${candidate.text.slice(0, 24)}"`)
       const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
       if (this.onArmDynamicAside) {
         this.onArmDynamicAside(candidate, budgetMs)
@@ -391,6 +426,7 @@ export class TurnPacingCoordinator {
         this.metrics.pacingClosed = true
       }
 
+      this.logStateEvent(`Armed dynamic aside [organic]`, `"${candidate.text.slice(0, 24)}"`)
       const budgetMs = this.policy.maxSynthesisBudgetMs ?? 600
       if (this.onArmDynamicAside) {
         this.onArmDynamicAside(candidate, budgetMs)
@@ -425,6 +461,7 @@ export class TurnPacingCoordinator {
       this.metrics.pacingClosed = true
     }
 
+    this.logStateEvent(`Armed interval filler [${nextCat}]`, `Opportunity ${this.committedCount}/${maxFillers}`)
     const intervalMs = this.policy.pacingIntervalMs ?? 15000
     this.onArmFiller?.(nextCat, intervalMs)
   }
@@ -443,6 +480,7 @@ export class TurnPacingCoordinator {
 
     if (this.state === 'STAGING') {
       this.state = 'ANSWER_READY'
+      this.logStateEvent('Answer literal received ➔ Pacing closed')
       return
     }
 
@@ -450,6 +488,7 @@ export class TurnPacingCoordinator {
       // Answer arrived before filler audio started -> cancel filler!
       this.state = 'ANSWER_READY'
       this.metrics.fillerOutcome = 'canceled'
+      this.logStateEvent('Answer arrived ➔ Preempted armed filler')
       this.onCancelFiller?.('answer-arrived')
       return
     }
@@ -472,6 +511,7 @@ export class TurnPacingCoordinator {
     this.metrics.fillersSpokenCount = this.fillersSpokenCount
     this.metrics.fillerStartMs = at - this.t0
     this.metrics.fillerOutcome = 'played'
+    this.logStateEvent('Filler playback started', `Spoken count: ${this.fillersSpokenCount}`)
   }
 
   public notifyFillerAudioEnded(at: number = this.clock.now()): void {
@@ -483,7 +523,7 @@ export class TurnPacingCoordinator {
       this.metrics.handoffGapMs = this.metrics.answerFirstAudioMs - this.metrics.fillerEndMs
     }
 
-    const maxFillers = this.policy.maxFillersPerTurn ?? 1
+    const maxFillers = this.policy.maxFillersPerTurn ?? 3
     if (!this.pacingClosed && !this.answerAudioScheduled && this.committedCount < maxFillers) {
       this.state = 'STAGING'
       this.classifier?.resetWindow()
@@ -492,9 +532,11 @@ export class TurnPacingCoordinator {
       this.intervalTimerHandle = this.clock.setTimeout(() => {
         this.onIntervalFlushElapsed()
       }, intervalMs)
+      this.logStateEvent('Filler playback ended ➔ Scheduled next interval', `+${Math.round(intervalMs / 1000)}s`)
     }
     else {
       this.state = 'HANDOFF'
+      this.logStateEvent('Filler playback ended ➔ Handoff to answer')
       if (this.answerAudioScheduled) {
         this.onSettled?.(this.metrics)
       }
@@ -524,6 +566,8 @@ export class TurnPacingCoordinator {
       this.onCancelFiller?.('answer-scheduled')
     }
 
+    this.logStateEvent('Answer audio scheduled ➔ Pacing closed')
+
     if (this.state === 'SETTLED' || this.state === 'HANDOFF') {
       this.onSettled?.(this.metrics)
     }
@@ -543,7 +587,7 @@ export class TurnPacingCoordinator {
         this.metrics.categoriesSpoken = Array.from(this.usedCategories)
       }
 
-      const maxFillers = this.policy.maxFillersPerTurn ?? 1
+      const maxFillers = this.policy.maxFillersPerTurn ?? 3
       if (this.committedCount < maxFillers && !this.answerAudioScheduled && this.turnPhase !== 'answering') {
         this.pacingClosed = false
         this.metrics.pacingClosed = false
@@ -553,16 +597,19 @@ export class TurnPacingCoordinator {
       // If we haven't exhausted attempts and answer hasn't arrived, remain in STAGING and schedule next interval
       if (!this.pacingClosed && this.attemptsMade < maxAttempts && !this.answerAudioScheduled && this.turnPhase !== 'answering') {
         this.state = 'STAGING'
-        if (!this.intervalTimerHandle) {
-          const intervalMs = this.policy.pacingIntervalMs ?? 15000
-          this.nextEligibleAtMs = this.clock.now() + intervalMs
-          this.intervalTimerHandle = this.clock.setTimeout(() => {
-            this.onIntervalFlushElapsed()
-          }, intervalMs)
+        const intervalMs = this.policy.pacingIntervalMs ?? 15000
+        this.nextEligibleAtMs = this.clock.now() + intervalMs
+        if (this.intervalTimerHandle) {
+          this.clock.clearTimeout(this.intervalTimerHandle)
         }
+        this.intervalTimerHandle = this.clock.setTimeout(() => {
+          this.onIntervalFlushElapsed()
+        }, intervalMs)
+        this.logStateEvent('Cache miss / timeout ➔ Rescheduled next opportunity', `+${Math.round(intervalMs / 1000)}s`)
       }
       else {
         this.state = 'ANSWER_READY'
+        this.logStateEvent('Cache miss (attempts exhausted)')
       }
     }
   }
@@ -586,6 +633,7 @@ export class TurnPacingCoordinator {
 
     this.metrics.interrupted = true
     this.state = 'SETTLED'
+    this.logStateEvent(`Pacing canceled: ${reason}`)
     this.onCancelFiller?.(reason)
     this.onSettled?.(this.metrics)
   }

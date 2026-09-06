@@ -176,6 +176,7 @@ const pacingMaxFillersPerTurn = ref<number>(3)
 const pacingIntervalMs = ref<number>(15000)
 const pacingFillers = ref<ThinkingFillerPhrase[]>([...DEFAULT_PACING_FILLERS])
 const pacingDynamicAsidesEnabled = ref<boolean>(false)
+const pacingSemanticExtractorEnabled = ref<boolean>(false)
 const pacingDynamicAfterMs = ref<number>(15000)
 const pacingCandidateTtlMs = ref<number>(15000)
 const pacingMaxSynthesisBudgetMs = ref<number>(600)
@@ -977,6 +978,7 @@ async function saveCard(card: Card): Promise<boolean> {
             maxFillersPerTurn: pacingMaxFillersPerTurn.value,
             pacingIntervalMs: pacingIntervalMs.value,
             dynamicAsidesEnabled: pacingDynamicAsidesEnabled.value,
+            semanticExtractorEnabled: pacingSemanticExtractorEnabled.value,
             dynamicAfterMs: pacingDynamicAfterMs.value,
             candidateTtlMs: pacingCandidateTtlMs.value,
             maxSynthesisBudgetMs: pacingMaxSynthesisBudgetMs.value,
@@ -1128,6 +1130,7 @@ function initializeCard(): Card {
   pacingMaxFillersPerTurn.value = airiExt?.acting?.pacing?.maxFillersPerTurn ?? 3
   pacingIntervalMs.value = airiExt?.acting?.pacing?.pacingIntervalMs ?? 15000
   pacingDynamicAsidesEnabled.value = airiExt?.acting?.pacing?.dynamicAsidesEnabled ?? false
+  pacingSemanticExtractorEnabled.value = airiExt?.acting?.pacing?.semanticExtractorEnabled ?? false
   pacingDynamicAfterMs.value = airiExt?.acting?.pacing?.dynamicAfterMs ?? 15000
   pacingCandidateTtlMs.value = airiExt?.acting?.pacing?.candidateTtlMs ?? 15000
   pacingMaxSynthesisBudgetMs.value = airiExt?.acting?.pacing?.maxSynthesisBudgetMs ?? 600
@@ -1553,6 +1556,7 @@ function handleGeneratorSave(newValue: string) {
             v-model:pacing-interval-ms="pacingIntervalMs"
             v-model:pacing-fillers="pacingFillers"
             v-model:pacing-dynamic-asides-enabled="pacingDynamicAsidesEnabled"
+            v-model:pacing-semantic-extractor-enabled="pacingSemanticExtractorEnabled"
             v-model:pacing-dynamic-after-ms="pacingDynamicAfterMs"
             v-model:pacing-candidate-ttl-ms="pacingCandidateTtlMs"
             v-model:pacing-max-synthesis-budget-ms="pacingMaxSynthesisBudgetMs"

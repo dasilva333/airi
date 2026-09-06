@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage } from '../../../types/chat'
+import type { PacingMetrics, PacingState, PacingStateLogEntry } from '../../../types/pacing'
 
-import { useElementSize, useIntervalFn } from '@vueuse/core'
+import { useBroadcastChannel, useElementSize, useIntervalFn } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useChatOrchestratorStore } from '../../../stores/chat'
+import { useAiriCardStore } from '../../../stores/modules/airi-card'
 
 const props = defineProps<{
   message: ChatAssistantMessage & { id?: string, createdAt?: number }
@@ -14,14 +16,103 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const chatOrchestrator = useChatOrchestratorStore()
+const airiCardStore = useAiriCardStore()
 
 const isExpanded = ref(false)
 const scrollContainerRef = ref<HTMLDivElement | null>(null)
+const pacingLedgerContainerRef = ref<HTMLDivElement | null>(null)
 const liveElapsedSec = ref<number>(0)
+
+const localPacingMetrics = ref<PacingMetrics | null>(null)
+if ((props.message.categorization as any)?.pacingMetrics) {
+  localPacingMetrics.value = (props.message.categorization as any).pacingMetrics
+}
+
+const { data: latestPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({
+  name: 'airi:pacing-telemetry',
+})
 
 const isStreamingThisMessage = computed(() => {
   return !!props.message.id && chatOrchestrator.streamingMessage?.id === props.message.id
 })
+
+watch(latestPacingTelemetry, (telemetry) => {
+  if (!telemetry)
+    return
+  if (telemetry.turnId === props.message.id || (isStreamingThisMessage.value && (!telemetry.turnId || telemetry.turnId === props.message.id))) {
+    localPacingMetrics.value = telemetry
+    if (props.message.categorization) {
+      ;(props.message.categorization as any).pacingMetrics = telemetry
+    }
+  }
+})
+
+const isPacingConfigured = computed(() => {
+  return !!airiCardStore.activeCard?.extensions?.airi?.acting?.pacing?.enabled
+})
+
+const isPacingActive = computed(() => {
+  if (localPacingMetrics.value != null) {
+    return true
+  }
+  return isPacingConfigured.value
+})
+
+const pacingStateLog = computed<PacingStateLogEntry[]>(() => {
+  return localPacingMetrics.value?.stateLog || []
+})
+
+const fillersCountText = computed(() => {
+  const spoken = localPacingMetrics.value?.fillersSpokenCount ?? localPacingMetrics.value?.spokenCount ?? thinkAloudCount.value ?? 0
+  const max = localPacingMetrics.value?.maxFillers ?? airiCardStore.activeCard?.extensions?.airi?.acting?.pacing?.maxFillersPerTurn ?? 3
+  return `${spoken}/${max} fillers`
+})
+
+const pacingStatusText = computed(() => {
+  if (!localPacingMetrics.value)
+    return ''
+  const state = localPacingMetrics.value.liveState
+  if (state === 'FILLER_ACTIVE') {
+    return ' · 🎙️ speaking'
+  }
+  if (state === 'FILLER_ARMED') {
+    return ' · ⏳ preparing'
+  }
+  if (state === 'HANDOFF') {
+    return ' · handoff'
+  }
+  if (state === 'STAGING') {
+    const cd = localPacingMetrics.value.nextOpportunityCountdownSec
+    if (typeof cd === 'number' && cd > 0) {
+      return ` · next in ${cd}s`
+    }
+  }
+  return ''
+})
+
+function formatRelTime(ms: number): string {
+  const totalSec = Math.max(0, ms / 1000)
+  const mins = Math.floor(totalSec / 60)
+  const secs = (totalSec % 60).toFixed(1)
+  return `[${String(mins).padStart(2, '0')}:${secs.padStart(4, '0')}]`
+}
+
+function getPacingStateBadgeClass(state: PacingState): string {
+  switch (state) {
+    case 'FILLER_ACTIVE':
+      return 'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/20 dark:text-emerald-300'
+    case 'FILLER_ARMED':
+      return 'bg-amber-500/15 text-amber-600 dark:bg-amber-400/20 dark:text-amber-300'
+    case 'STAGING':
+      return 'bg-blue-500/15 text-blue-600 dark:bg-blue-400/20 dark:text-blue-300'
+    case 'ANSWER_READY':
+    case 'HANDOFF':
+    case 'SETTLED':
+      return 'bg-neutral-500/15 text-neutral-600 dark:bg-neutral-400/20 dark:text-neutral-300'
+    default:
+      return 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400'
+  }
+}
 
 const hasContentText = computed(() => {
   const content = props.message.content
@@ -132,9 +223,24 @@ watch(() => props.message.categorization?.reasoning, () => {
   }
 })
 
+watch(() => pacingStateLog.value.length, () => {
+  if (isExpanded.value) {
+    nextTick(() => {
+      if (pacingLedgerContainerRef.value) {
+        pacingLedgerContainerRef.value.scrollTop = pacingLedgerContainerRef.value.scrollHeight
+      }
+    })
+  }
+})
+
 watch(isExpanded, (expanded) => {
   if (expanded) {
-    nextTick(scrollToBottom)
+    nextTick(() => {
+      scrollToBottom()
+      if (pacingLedgerContainerRef.value) {
+        pacingLedgerContainerRef.value.scrollTop = pacingLedgerContainerRef.value.scrollHeight
+      }
+    })
   }
 })
 
@@ -229,14 +335,22 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
           {{ t('stage.chat.reasoning') }}
         </span>
 
+        <!-- Pacing indicator (visible in both collapsed and expanded when pacing is enabled) -->
+        <template v-if="isPacingActive">
+          <span class="shrink-0 text-neutral-300 dark:text-neutral-600">|</span>
+          <span class="shrink-0 text-[11px] text-amber-600 font-medium font-mono tabular-nums dark:text-amber-400">
+            {{ fillersCountText }}<span v-if="pacingStatusText" class="text-neutral-500 font-normal dark:text-neutral-400">{{ pacingStatusText }}</span>
+          </span>
+        </template>
+
         <span v-if="durationDisplay" class="shrink-0 text-neutral-300 dark:text-neutral-600">|</span>
         <span v-if="durationDisplay" class="shrink-0 text-[11px] text-neutral-500 font-medium font-mono tabular-nums dark:text-neutral-400">
           {{ durationDisplay }}
         </span>
 
-        <!-- Utterance count tag when expanded -->
+        <!-- Utterance count tag when expanded and pacing is NOT enabled -->
         <span
-          v-if="isExpanded && thinkAloudCount > 0"
+          v-if="isExpanded && thinkAloudCount > 0 && !isPacingActive"
           class="ml-1 min-w-0 inline-flex items-center gap-0.5 truncate rounded-full bg-amber-500/10 px-1.5 py-0.2 text-[10px] text-amber-600 font-medium font-mono dark:bg-amber-400/15 dark:text-amber-300"
         >
           {{ thinkAloudCount }} {{ thinkAloudCount === 1 ? 'utterance' : 'utterances' }}
@@ -248,6 +362,7 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
       />
     </div>
 
+    <!-- Bipartite Drawer: Upper 3-row Preview Marquee -->
     <div
       v-show="isExpanded"
       ref="scrollContainerRef"
@@ -263,6 +378,33 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
           <span class="min-w-0 whitespace-pre-wrap font-mono">{{ seg.content }}</span>
         </span>
       </template>
+    </div>
+
+    <!-- Bipartite Drawer: Lower 3-line Pacing State Machine Ledger -->
+    <div
+      v-show="isExpanded && isPacingActive && pacingStateLog.length > 0"
+      ref="pacingLedgerContainerRef"
+      class="dark:border-neutral-750/60 h-[4.5rem] max-h-[4.5rem] select-text overflow-y-auto border-t border-neutral-200/60 bg-neutral-200/30 px-2.5 py-1.5 text-[10px] font-mono space-y-1 dark:bg-neutral-900/30"
+    >
+      <div
+        v-for="(entry, idx) in pacingStateLog"
+        :key="idx"
+        class="flex items-center gap-1.5 text-neutral-600 leading-tight dark:text-neutral-400"
+      >
+        <span class="shrink-0 text-neutral-400 font-semibold tabular-nums dark:text-neutral-500">
+          {{ formatRelTime(entry.relTimeMs) }}
+        </span>
+        <span
+          class="shrink-0 rounded px-1 py-0.2 text-[9px] font-medium"
+          :class="getPacingStateBadgeClass(entry.state)"
+        >
+          {{ entry.state }}
+        </span>
+        <span class="flex-1 truncate" :title="entry.details ? `${entry.event} (${entry.details})` : entry.event">
+          {{ entry.event }}
+          <span v-if="entry.details" class="text-neutral-400 font-normal dark:text-neutral-500">· {{ entry.details }}</span>
+        </span>
+      </div>
     </div>
   </div>
 </template>

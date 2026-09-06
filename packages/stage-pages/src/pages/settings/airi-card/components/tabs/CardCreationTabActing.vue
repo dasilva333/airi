@@ -60,6 +60,7 @@ const pacingFillers = defineModel<ThinkingFillerPhrase[]>('pacingFillers', {
 
 // Phase 6 Dynamic Pacing Models
 const pacingDynamicAsidesEnabled = defineModel<boolean>('pacingDynamicAsidesEnabled', { default: false })
+const pacingSemanticExtractorEnabled = defineModel<boolean>('pacingSemanticExtractorEnabled', { default: false })
 const pacingDynamicAfterMs = defineModel<number>('pacingDynamicAfterMs', { default: 15000 })
 const pacingCandidateTtlMs = defineModel<number>('pacingCandidateTtlMs', { default: 15000 })
 const pacingMaxSynthesisBudgetMs = defineModel<number>('pacingMaxSynthesisBudgetMs', { default: 600 })
@@ -770,40 +771,114 @@ function resetToDefaultFillers() {
           </div>
         </div>
 
-        <!-- Dynamic Live Asides (<think_aloud>) Settings -->
+        <!-- 3-Tier Aside Extraction Cascade Settings -->
         <div class="border border-neutral-200/80 rounded-xl bg-white p-4 shadow-sm dark:border-neutral-700/80 dark:bg-neutral-900/60">
           <div class="flex flex-col gap-3">
             <div class="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
               <div class="flex flex-col gap-0.5">
                 <div class="flex items-center gap-2">
-                  <input
-                    id="dynamic-asides-toggle"
-                    :checked="pacingDynamicAsidesEnabled"
-                    type="checkbox"
-                    class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
-                    @change="onDynamicAsidesToggle"
-                  >
-                  <label for="dynamic-asides-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold tracking-wider uppercase dark:text-neutral-200">
-                    Dynamic Live Asides (&lt;think_aloud&gt;)
-                  </label>
+                  <div class="i-solar:layers-bold-duotone text-base text-primary-500" />
+                  <h4 class="text-xs text-neutral-800 font-semibold tracking-wider uppercase dark:text-neutral-200">
+                    3-Tier Aside Extraction Cascade
+                  </h4>
                 </div>
-                <p class="pl-6 text-xs text-neutral-500 dark:text-neutral-400">
-                  Synthesizes on-the-fly vocalizations when the model emits intentional <code>&lt;think_aloud&gt;</code> markers during deep reasoning.
+                <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                  Multi-tier pipeline that extracts spoken thinking asides and vocalizations during deep reasoning.
                 </p>
               </div>
               <span
                 :class="[
                   'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
-                  pacingDynamicAsidesEnabled
+                  (pacingDynamicAsidesEnabled || pacingSemanticExtractorEnabled || pacingExperimentalOrganicPivots)
                     ? 'bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 border border-primary-200 dark:border-primary-800'
                     : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700',
                 ]"
               >
-                {{ pacingDynamicAsidesEnabled ? 'Enabled' : 'Disabled' }}
+                {{ (pacingDynamicAsidesEnabled || pacingSemanticExtractorEnabled || pacingExperimentalOrganicPivots) ? 'Active' : 'Disabled' }}
               </span>
             </div>
 
-            <div v-if="pacingDynamicAsidesEnabled" class="grid grid-cols-1 gap-4 pt-1 md:grid-cols-3">
+            <!-- The 3 Tiers Stack -->
+            <div class="flex flex-col gap-2.5 pt-1">
+              <!-- Tier 1: Explicit Cues (<think_aloud>) -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-start gap-2.5">
+                    <input
+                      id="tier-1-explicit-toggle"
+                      :checked="pacingDynamicAsidesEnabled"
+                      type="checkbox"
+                      class="mt-0.5 h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                      @change="onDynamicAsidesToggle"
+                    >
+                    <div class="flex flex-col gap-0.5">
+                      <label for="tier-1-explicit-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                        Tier 1: Explicit Intent Markers (<code>&lt;think_aloud&gt;</code>)
+                      </label>
+                      <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Synthesizes on-the-fly vocalizations when the model emits intentional <code>&lt;think_aloud&gt;</code> markers during deep reasoning.
+                      </p>
+                    </div>
+                  </div>
+                  <span class="shrink-0 border border-amber-300/40 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-600 font-medium font-mono dark:border-amber-700/40 dark:bg-amber-400/15 dark:text-amber-300">
+                    Zero Ambiguity
+                  </span>
+                </div>
+              </div>
+
+              <!-- Tier 2: Semantic Extractor (Needle 2 WASM) -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-start gap-2.5">
+                    <input
+                      id="tier-2-semantic-toggle"
+                      v-model="pacingSemanticExtractorEnabled"
+                      type="checkbox"
+                      class="mt-0.5 h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                    >
+                    <div class="flex flex-col gap-0.5">
+                      <label for="tier-2-semantic-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                        Tier 2: Semantic Extractor (Needle 2 Subconscious Runtime)
+                      </label>
+                      <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Runs on-device lightweight WebAssembly classifier to detect natural aside boundaries and internal deliberation shifts without requiring special tags.
+                      </p>
+                    </div>
+                  </div>
+                  <span class="shrink-0 border border-blue-300/40 rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] text-blue-600 font-medium font-mono dark:border-blue-700/40 dark:bg-blue-400/15 dark:text-blue-300">
+                    WASM Neural Gate
+                  </span>
+                </div>
+              </div>
+
+              <!-- Tier 3: Heuristic Keyword & Organic Pivots -->
+              <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3 dark:border-neutral-700/80 dark:bg-neutral-950/30">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-start gap-2.5">
+                    <input
+                      id="tier-3-heuristics-toggle"
+                      v-model="pacingExperimentalOrganicPivots"
+                      type="checkbox"
+                      class="mt-0.5 h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
+                    >
+                    <div class="flex flex-col gap-0.5">
+                      <label for="tier-3-heuristics-toggle" class="cursor-pointer text-xs text-neutral-800 font-semibold dark:text-neutral-200">
+                        Tier 3: Heuristic Pattern Matching & Organic Pivots
+                      </label>
+                      <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Detects organic thinking pivot sentences in raw CoT reasoning ("Wait, actually...", "Hmm, let me re-evaluate...") via pattern rules when higher tiers do not trigger.
+                      </p>
+                    </div>
+                  </div>
+                  <span class="shrink-0 border border-neutral-300/40 rounded bg-neutral-500/10 px-1.5 py-0.5 text-[9px] text-neutral-500 font-medium font-mono dark:border-neutral-700/40 dark:bg-neutral-400/15 dark:text-neutral-400">
+                    Regex / Keywords
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Aside Timing & Synthesis Sliders (visible if any tier active) -->
+            <div v-if="pacingDynamicAsidesEnabled || pacingSemanticExtractorEnabled || pacingExperimentalOrganicPivots" class="grid grid-cols-1 gap-4 pt-2 md:grid-cols-3">
               <!-- Activation Delay (dynamicAfterMs) -->
               <div class="border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
                 <div class="flex items-center justify-between">
@@ -886,24 +961,6 @@ function resetToDefaultFillers() {
                   <span>600ms (Default)</span>
                   <span>2000ms</span>
                 </div>
-              </div>
-
-              <!-- Experimental Organic Pivots -->
-              <div class="col-span-full border border-neutral-200/80 rounded-xl bg-neutral-50/60 p-3.5 dark:border-neutral-700/80 dark:bg-neutral-950/30">
-                <div class="flex items-center gap-2">
-                  <input
-                    id="organic-pivots-toggle"
-                    v-model="pacingExperimentalOrganicPivots"
-                    type="checkbox"
-                    class="h-4 w-4 border-gray-300 rounded text-primary-600 focus:ring-primary-500"
-                  >
-                  <label for="organic-pivots-toggle" class="cursor-pointer text-xs text-neutral-800 font-medium dark:text-neutral-200">
-                    Experimental: Extract Organic Thinking Pivots ("Wait, actually...", "Hmm, let me re-evaluate...")
-                  </label>
-                </div>
-                <p class="mt-1 pl-6 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  When enabled, detects short organic pivot sentences in raw CoT reasoning when explicit <code>&lt;think_aloud&gt;</code> cues are absent.
-                </p>
               </div>
             </div>
           </div>

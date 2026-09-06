@@ -45,6 +45,7 @@ const defaultPolicy: PacingPolicyConfig = {
   maxFillerDurationMs: 2200,
   reasoningWindowMs: 900,
   categoryThreshold: 2,
+  maxFillersPerTurn: 1,
 }
 
 describe('pacing-playback-bridge (Phase 1)', () => {

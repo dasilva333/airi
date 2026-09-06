@@ -196,7 +196,7 @@ describe('turnPacingCoordinator (Phase 0)', () => {
       turnId: 'turn-6',
       generation: 1,
       providerKey: 'test-provider',
-      policy: defaultPolicy,
+      policy: { ...defaultPolicy, maxFillersPerTurn: 1 },
       clock,
     })
 
@@ -769,6 +769,77 @@ describe('turnPacingCoordinator (Phase 0)', () => {
       // Advancing further does not trigger filler 4
       clock.advance(20000)
       expect(onArmFiller).toHaveBeenCalledTimes(3)
+    })
+
+    it('re-arms interval timer on cache miss in extended reasoning without deadlocking and records stateLog', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+      const onStateChange = vi.fn()
+
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-cache-miss-recovery',
+        generation: 1,
+        providerKey: 'deep-cot-provider',
+        policy: {
+          ...defaultPolicy,
+          maxFillersPerTurn: 3,
+          pacingIntervalMs: 15000,
+        },
+        clock,
+        onArmFiller,
+        onStateChange,
+      })
+
+      coordinator.dispatch()
+      clock.advance(1800)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+
+      // Simulate cache miss on filler 1
+      coordinator.notifyCacheMiss()
+      expect(coordinator.state).toBe('STAGING')
+      expect(coordinator.metrics.pacingClosed).toBe(false)
+      expect(coordinator.metrics.stateLog?.length).toBeGreaterThan(0)
+
+      // Advance 15s - interval timer should fire and arm next opportunity without deadlocking
+      clock.advance(15000)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(2)
+
+      // Filler 2 plays and ends
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // Advance 15s - arms filler 2 (committedCount becomes 2)
+      clock.advance(15000)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(3)
+
+      // Filler 2 plays and ends
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // Advance 15s - arms filler 3 (committedCount becomes 3 = maxFillersPerTurn)
+      clock.advance(15000)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(4)
+
+      // Filler 3 plays and ends -> reaches maxFillersPerTurn (3)
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('HANDOFF')
+      expect(coordinator.pacingClosed).toBe(true)
+
+      // Verify stateLog contains chronological records
+      const logs = coordinator.metrics.stateLog || []
+      expect(logs.some(l => l.event.includes('Cache miss'))).toBe(true)
+      expect(logs.some(l => l.event.includes('Filler playback started'))).toBe(true)
+      expect(logs.some(l => l.event.includes('Handoff'))).toBe(true)
     })
   })
 })

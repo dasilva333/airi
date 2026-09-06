@@ -50,6 +50,14 @@ export interface PacingTurnState {
   pendingCueId?: string
 }
 
+export interface PacingStateLogEntry {
+  timestampMs: number
+  relTimeMs: number
+  state: PacingState
+  event: string
+  details?: string
+}
+
 export interface PacingMetrics {
   turnId: string
   providerKey: string
@@ -70,6 +78,10 @@ export interface PacingMetrics {
   cutoffReason?: string
   prepareLatencyMs?: number
   dynamicCueSource?: 'explicit' | 'organic'
+  stateLog?: PacingStateLogEntry[]
+  liveState?: PacingState
+  nextOpportunityCountdownSec?: number
+  maxFillers?: number
 }
 
 export interface PacingPlaybackMeta {
@@ -96,6 +108,7 @@ export interface PacingPolicyConfig {
   maxFillersPerTurn?: number
   pacingIntervalMs?: number
   dynamicAsidesEnabled?: boolean
+  semanticExtractorEnabled?: boolean
   dynamicAfterMs?: number
   candidateTtlMs?: number
   maxSynthesisBudgetMs?: number
@@ -131,6 +144,7 @@ export const DEFAULT_PACING_POLICY: PacingPolicyConfig = {
   maxFillersPerTurn: 3,
   pacingIntervalMs: 15000,
   dynamicAsidesEnabled: false,
+  semanticExtractorEnabled: false,
   dynamicAfterMs: 15000,
   candidateTtlMs: 15000,
   maxSynthesisBudgetMs: 600,

@@ -56,8 +56,14 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   let activeCoordinator: TurnPacingCoordinator | null = null
   let activeBridge: PacingPlaybackBridge<AudioBuffer> | null = null
   let currentGeneration = 0
+  let countdownTimer: any = null
 
   function startTurn(turnId: string, _context?: ChatStreamEventContext): TurnPacingCoordinator | null {
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+
     const pacingConfig = activeCard.value?.extensions?.airi?.acting?.pacing
     if (!pacingConfig?.enabled) {
       activeCoordinator = null
@@ -109,6 +115,7 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       maxFillersPerTurn: pacingConfig.maxFillersPerTurn ?? 3,
       pacingIntervalMs: pacingConfig.pacingIntervalMs ?? 15000,
       dynamicAsidesEnabled: pacingConfig.dynamicAsidesEnabled ?? false,
+      semanticExtractorEnabled: pacingConfig.semanticExtractorEnabled ?? false,
       dynamicAfterMs: pacingConfig.dynamicAfterMs ?? 15000,
       candidateTtlMs: pacingConfig.candidateTtlMs ?? 15000,
       maxSynthesisBudgetMs: pacingConfig.maxSynthesisBudgetMs ?? 600,
@@ -135,7 +142,28 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
       onCancelFiller: (reason) => {
         bridge.cancel(reason)
       },
+      onStateChange: (state, log, nextInMs) => {
+        const snapshot: PacingMetrics = {
+          ...coordinator.metrics,
+          liveState: state,
+          stateLog: [...log],
+          committedCount: coordinator.committedCount,
+          spokenCount: coordinator.spokenCount,
+          fillersSpokenCount: coordinator.metrics.fillersSpokenCount,
+          maxFillers: policy.maxFillersPerTurn ?? 3,
+          nextOpportunityCountdownSec: nextInMs && nextInMs > 0 ? Math.ceil(nextInMs / 1000) : undefined,
+        }
+        activePacingMetrics.value = snapshot
+        try {
+          postPacingTelemetry(toRaw(snapshot))
+        }
+        catch {}
+      },
       onSettled: (metrics) => {
+        if (countdownTimer) {
+          clearInterval(countdownTimer)
+          countdownTimer = null
+        }
         activePacingMetrics.value = metrics
         const raw = toRaw(metrics)
         latestPacingMetrics.value = raw
@@ -155,6 +183,35 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
         }
       },
     })
+
+    countdownTimer = setInterval(() => {
+      if (!activeCoordinator || activeCoordinator.turnPhase === 'canceled' || activeCoordinator.turnPhase === 'settled' || activeCoordinator.pacingClosed) {
+        if (countdownTimer) {
+          clearInterval(countdownTimer)
+          countdownTimer = null
+        }
+        return
+      }
+
+      if (activeCoordinator.state === 'STAGING' && activeCoordinator.nextEligibleAtMs) {
+        const remSec = Math.max(0, Math.ceil((activeCoordinator.nextEligibleAtMs - Date.now()) / 1000))
+        const snapshot: PacingMetrics = {
+          ...activeCoordinator.metrics,
+          liveState: activeCoordinator.state,
+          stateLog: [...activeCoordinator.stateLog],
+          committedCount: activeCoordinator.committedCount,
+          spokenCount: activeCoordinator.spokenCount,
+          fillersSpokenCount: activeCoordinator.metrics.fillersSpokenCount,
+          maxFillers: policy.maxFillersPerTurn ?? 3,
+          nextOpportunityCountdownSec: remSec,
+        }
+        activePacingMetrics.value = snapshot
+        try {
+          postPacingTelemetry(toRaw(snapshot))
+        }
+        catch {}
+      }
+    }, 1000)
 
     const voiceParams: ThinkingAudioFingerprintParams = {
       provider: speechStore.activeSpeechProvider,
@@ -238,6 +295,10 @@ export function useTurnPacing(options: UseTurnPacingOptions) {
   }
 
   function cancel(reason: string) {
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
     if (activeCoordinator) {
       activeCoordinator.cancel(reason)
       activeBridge?.cancel(reason)

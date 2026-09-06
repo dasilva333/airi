@@ -220,6 +220,9 @@ After an opportunity is skipped or fails before commitment:
 nextEligibleAtMs = opportunityCompletedAtMs + pacingIntervalMs
 ```
 
+> [!IMPORTANT]
+> **Timer Re-Arming Invariant**: Whenever an opportunity fails before commitment (e.g. `notifyCacheMiss()`, synthesis timeout, empty candidate pool), the coordinator must immediately reschedule `intervalTimerHandle` for `now + pacingIntervalMs` as long as `committedCount < maxFillers` and `!pacingClosed`. Leaving the coordinator in `STAGING` without an active timer handle permanently halts conversational pacing for the turn.
+
 Do not also run dispatch-anchored interval timers. Never catch up missed intervals after a background-tab pause. A late timer evaluates at most one current opportunity and schedules the next from its completion. On resume, recheck context state, cue age, and turn validity first.
 
 Example with `D = 1800`, a 1200 ms first filler, and a 15000 ms interval: first playback ends near 3000 ms; the next opportunity is near 18000 ms. If that filler ends at 19200 ms, the next opportunity is near 34200 ms. Scheduling lead and preparation time may shift actual playback; the gap never becomes shorter to compensate.
@@ -622,26 +625,46 @@ Draft/backspace effects remain experimental. Render Markdown from a safe present
 
 A major friction point when using reasoning models (DeepSeek-R1, QwQ, Claude thinking, OpenAI o1/o3-mini) is opacity: when a turn takes 4–10 seconds to begin emitting spoken answer text, users and developers are left staring at a blank chatbox or bouncing loading indicators. Historically, diagnosing the delay required opening Browser/Electron DevTools (`F12`), navigating to the Network tab, finding the raw SSE event stream, and scrolling through JSON deltas.
 
-To solve this, the desktop and web chat surfaces (`apps/stage-tamagotchi/src/renderer/components/chat/MessageBubble.vue` and `packages/stage-ui/src/components/scenarios/chat/history.vue`) render an **In-Bubble CoT Streaming Drawer**:
+To solve this, the desktop and web chat surfaces (`packages/stage-ui/src/components/scenarios/chat/response-part.vue` inside `assistant-item.vue`) render an **In-Bubble CoT Streaming Drawer**:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ 💭 Thinking (3.2s)                                      [▼] │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ The user is asking about the math behind orbital decay. │ │
-│ │ Need to stay in character as Airi, slightly annoyed.    │ │
-│ │ <think_aloud>Wait, do you seriously expect me to do     │ │
-│ │ your physics homework?</think_aloud>                     │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ "Wait, do you seriously expect me to do your physics        │
-│ homework? Fine, but you owe me an iced latte after this..." │
-└─────────────────────────────────────────────────────────────┘
+Collapsed Header (when pacing is enabled):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 💡 ...tail of active reasoning stream | 1/3 fillers · next in 12s | 21.4s ∨ │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Expanded Bipartite Drawer (6-line view):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 💡 Reasoning | 1/3 fillers · next in 12s | 21.4s                          ∧ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ 3-Row Reasoning Preview Marquee (h-[4.5rem], auto-scroll, tail-follow) ┐ │
+│ │ The user is asking about the math behind orbital decay.                 │ │
+│ │ Need to stay in character as Airi, slightly annoyed.                    │ │
+│ │ <think_aloud>Wait, do you seriously expect me to do this?</think_aloud>  │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│ ┌─ 3-Line Pacing State Machine Ledger (h-[4.5rem], chronological stream) ─┐ │
+│ │ [00:01.8] Armed cached filler: "Hmm..." (Generic) ➔ OK (1.4s)           │ │
+│ │ [00:03.2] Playback ended ➔ Scheduled next interval (+15.0s)             │ │
+│ │ [00:18.2] Armed filler 2: "Let me see..." ➔ OK (1.8s) · Playing         │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **In-Flight Live Streaming**: As `reasoning_content` deltas arrive, they stream directly into the active assistant message bubble within an expandable drawer (dimmed monospace/italic font, fixed max-height, auto-scrolling to bottom).
-- **Match Highlighting**: Detected `<think_aloud>` tags or Semantic Extractor matches are visually highlighted in amber/cyan directly inside the drawer, providing immediate confirmation of which aside was chosen for TTS synthesis.
-- **Auto-Collapse**: Upon answer onset, the drawer collapses into a discreet indicator (`💭 Thought for 3.2s [▶]`), preserving clean chat aesthetics while remaining expandable on click for active session inspection.
+- **Live Header Pacing Counter & Real-Time Next Countdown**:
+  - Conditioned strictly on pacing being enabled for the card/turn.
+  - Displays live spoken/committed filler count: `1/3 fillers` or `2/3 fillers`.
+  - Displays a real-time 1-second ticking countdown to the next scheduled opportunity while in `STAGING`: `· next in 12s`.
+  - When a filler is actively speaking, shows `· 🎙️ speaking`.
+  - When the commit budget is reached or answer arrives, seamlessly collapses to `· handoff` or duration alone.
+- **Expanded Bipartite Layout (3 Rows Preview + 3 Lines State Ledger)**:
+  - **Top 3 Rows (`h-[4.5rem]` / 3-row marquee)**: The live reasoning text preview with tail-chasing autoscroll, out-of-flow text track, and `<think_aloud>` badge highlighting.
+  - **Bottom 3 Lines (`h-[4.5rem]` / 3-line rolling log)**: Dedicated chronological ledger of the Turn Pacing Coordinator state machine. Displays live events:
+    - Arm events with category and phrase text (`[00:01.8] Armed cached filler: "Hmm..."`).
+    - Cache hit / playback start / finish (`➔ OK (1.4s)`).
+    - Cache miss / synthesis timeouts (`➔ Cache miss (timeout 800ms) ➔ Rescheduled (+15.0s)`).
+    - Dynamic aside extraction cues from Tier 1, Tier 2 (Needle WASM), or Tier 3 (Heuristics).
+    - Conditioned on pacing being enabled; if pacing is disabled, only the top reasoning preview renders.
+- **In-Flight Live Streaming**: As `reasoning_content` deltas arrive, they stream directly into the active assistant message bubble within the drawer.
 - **Strict Ephemeral Lifetime**: Bound strictly to the Vue component's in-memory lifetime; discarded immediately when the message unmounts or serializes to storage.
 
 ## 13. Observability and acceptance measurements
