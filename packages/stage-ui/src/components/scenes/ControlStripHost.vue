@@ -826,21 +826,58 @@ const playbackManager = createPlaybackManager<AudioBuffer>({
 })
 
 async function synthesizePacingAudio(text: string, signal: AbortSignal): Promise<ArrayBuffer> {
-  const provider = await providersStore.getProviderInstance(activeSpeechProvider.value) as any
-  if (!provider)
-    throw new Error('No speech provider available')
-  const targetProviderConfig = providersStore.getProviderConfig(activeSpeechProvider.value) as Record<string, any>
-  let model = activeSpeechModel.value || (targetProviderConfig?.model as string) || ''
-  let voiceId = activeSpeechVoice.value?.id || (targetProviderConfig?.voice as string) || (activeSpeechVoiceId.value as string) || 'alloy'
+  let targetProviderId = activeSpeechProvider.value
+  let targetModel = activeSpeechModel.value
+  let targetVoice = activeSpeechVoice.value
 
-  if (activeSpeechProvider.value === 'openai-compatible-audio-speech') {
+  if (targetProviderId === 'virtual-audio-studio' && targetVoice) {
+    let profile = speechStore.savedVoiceProfiles.find(p => p.id === targetVoice?.id || p.name === targetVoice?.id)
+    if (!profile && activeCard.value?.extensions?.airi?.voice_profiles) {
+      const cardProfile = activeCard.value.extensions.airi.voice_profiles.find((p: any) => p.id === targetVoice?.id || p.name === targetVoice?.id)
+      if (cardProfile) {
+        debug('[Stage:TTS] Found missing voice profile in active card extensions for pacing synthesis:', cardProfile.id)
+        speechStore.saveVoiceProfile(cardProfile as any)
+        profile = cardProfile as any
+      }
+    }
+
+    if (profile) {
+      targetProviderId = profile.baseProvider
+      targetModel = profile.baseModel
+
+      const baseVoices = speechStore.getVoicesForProvider(profile.baseProvider)
+      const resolvedVoice = baseVoices.find(v => v.id === profile.baseVoice)
+      if (resolvedVoice) {
+        targetVoice = resolvedVoice
+      }
+      else {
+        targetVoice = {
+          id: profile.baseVoice,
+          name: profile.baseVoice,
+          provider: profile.baseProvider,
+          languages: [{ code: 'en', title: 'English' }],
+        }
+      }
+    }
+  }
+
+  const targetProviderConfig = (targetProviderId ? providersStore.getProviderConfig(targetProviderId) : undefined) as Record<string, any> | undefined
+
+  const provider = await providersStore.getProviderInstance(targetProviderId) as any
+  if (!provider)
+    throw new Error(`Speech provider "${targetProviderId}" is not available for pacing synthesis`)
+
+  let model = targetModel || (targetProviderConfig?.model as string) || ''
+  let voiceId = targetVoice?.id || (targetProviderConfig?.voice as string) || (activeSpeechVoiceId.value as string) || 'alloy'
+
+  if (targetProviderId === 'openai-compatible-audio-speech') {
     model = model || (targetProviderConfig?.model as string) || 'tts-1'
     voiceId = voiceId || 'alloy'
   }
 
-  const transformedText = speechStore.transformTextForSpeech(text, activeSpeechProvider.value)
+  const transformedText = speechStore.transformTextForSpeech(text, targetProviderId)
   const input = ssmlEnabled.value
-    ? speechStore.generateSSML(transformedText, activeSpeechVoice.value || { id: voiceId } as any, { ...targetProviderConfig, pitch: pitch.value })
+    ? speechStore.generateSSML(transformedText, targetVoice || { id: voiceId } as any, { ...targetProviderConfig, pitch: pitch.value })
     : transformedText
 
   const res = await generateSpeech({

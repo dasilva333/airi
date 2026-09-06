@@ -841,5 +841,84 @@ describe('turnPacingCoordinator (Phase 0)', () => {
       expect(logs.some(l => l.event.includes('Filler playback started'))).toBe(true)
       expect(logs.some(l => l.event.includes('Handoff'))).toBe(true)
     })
+
+    it('ensures notifyAnswerAudioScheduled is strictly idempotent across multi-chunk playback', () => {
+      const clock = new VirtualClock()
+      const onSettled = vi.fn()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-idempotency',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: { ...defaultPolicy, pacingIntervalMs: 15000 },
+        clock,
+        onSettled,
+      })
+
+      coordinator.dispatch()
+      clock.advance(1800)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+
+      coordinator.notifyFillerAudioStarted(clock.now())
+      clock.advance(1000)
+      coordinator.notifyFillerAudioEnded(clock.now())
+      expect(coordinator.state).toBe('STAGING')
+
+      // Answer text arrives
+      coordinator.onInferenceEvent({ type: 'answer', text: 'Sentence 1. Sentence 2. Sentence 3.', at: clock.now() })
+      expect(coordinator.state).toBe('ANSWER_READY')
+
+      // First answer audio chunk scheduled
+      coordinator.notifyAnswerAudioScheduled(clock.now())
+      const logCountAfterFirst = coordinator.metrics.stateLog?.length || 0
+
+      // Subsequent 5 sentence chunks scheduled during playback
+      coordinator.notifyAnswerAudioScheduled(clock.now() + 500)
+      coordinator.notifyAnswerAudioScheduled(clock.now() + 1000)
+      coordinator.notifyAnswerAudioScheduled(clock.now() + 1500)
+      coordinator.notifyAnswerAudioScheduled(clock.now() + 2000)
+      coordinator.notifyAnswerAudioScheduled(clock.now() + 2500)
+
+      // Verify no extra logs were added to stateLog
+      expect(coordinator.metrics.stateLog?.length).toBe(logCountAfterFirst)
+      const scheduledLogs = coordinator.metrics.stateLog?.filter(l => l.event.includes('Answer audio scheduled')) || []
+      expect(scheduledLogs.length).toBe(1)
+    })
+
+    it('uses adaptive 5s retry on initial cache miss instead of full 15s interval', () => {
+      const clock = new VirtualClock()
+      const onArmFiller = vi.fn()
+      const coordinator = new TurnPacingCoordinator({
+        turnId: 'turn-initial-miss',
+        generation: 1,
+        providerKey: 'test-provider',
+        policy: { ...defaultPolicy, pacingIntervalMs: 15000 },
+        clock,
+        onArmFiller,
+      })
+
+      coordinator.dispatch()
+      clock.advance(1800)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+
+      // Initial filler suffers a cache miss
+      coordinator.notifyCacheMiss()
+      expect(coordinator.state).toBe('STAGING')
+
+      // Verify log recorded adaptive retry
+      const logs = coordinator.metrics.stateLog || []
+      const missLog = logs.find(l => l.event.includes('Cache miss'))
+      expect(missLog?.details).toBe('+5s')
+
+      // Advance 4999ms - should still be staging
+      clock.advance(4999)
+      expect(coordinator.state).toBe('STAGING')
+      expect(onArmFiller).toHaveBeenCalledTimes(1)
+
+      // Advance remaining 1ms (total 5000ms from miss) - should fire second attempt
+      clock.advance(1)
+      expect(coordinator.state).toBe('FILLER_ARMED')
+      expect(onArmFiller).toHaveBeenCalledTimes(2)
+    })
   })
 })

@@ -24,9 +24,11 @@ const pacingLedgerContainerRef = ref<HTMLDivElement | null>(null)
 const liveElapsedSec = ref<number>(0)
 
 const localPacingMetrics = ref<PacingMetrics | null>(null)
-if ((props.message.categorization as any)?.pacingMetrics) {
-  localPacingMetrics.value = (props.message.categorization as any).pacingMetrics
-}
+watch(() => (props.message.categorization as any)?.pacingMetrics, (metrics) => {
+  if (metrics) {
+    localPacingMetrics.value = metrics
+  }
+}, { immediate: true })
 
 const { data: latestPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({
   name: 'airi:pacing-telemetry',
@@ -126,17 +128,7 @@ const hasContentText = computed(() => {
 })
 
 const hasReasoning = computed(() => {
-  const reasoning = props.message.categorization?.reasoning?.trim()
-  const content = props.message.content
-  let contentText = ''
-  if (typeof content === 'string') {
-    contentText = content.trim()
-  }
-  else if (Array.isArray(content)) {
-    const textPart = content.find(part => part && typeof part === 'object' && 'type' in part && part.type === 'text') as { text?: string } | undefined
-    contentText = textPart?.text?.trim() || ''
-  }
-  return !!reasoning && reasoning !== contentText
+  return !!props.message.categorization?.reasoning?.trim()
 })
 
 // Timer tracking for reasoning duration
@@ -161,13 +153,6 @@ watch([isStreamingThisMessage, hasContentText], ([streaming, hasText]) => {
     }
   }
 }, { immediate: true })
-
-// Auto-collapse on answer text onset if user had expanded it during thinking
-watch(hasContentText, (hasText, hadText) => {
-  if (hasText && !hadText && isExpanded.value) {
-    isExpanded.value = false
-  }
-})
 
 const durationSec = computed<number | null>(() => {
   const stored = (props.message.categorization as any)?.reasoningDurationSec

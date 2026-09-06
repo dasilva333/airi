@@ -664,8 +664,16 @@ Expanded Bipartite Drawer (6-line view):
     - Cache miss / synthesis timeouts (`➔ Cache miss (timeout 800ms) ➔ Rescheduled (+15.0s)`).
     - Dynamic aside extraction cues from Tier 1, Tier 2 (Needle WASM), or Tier 3 (Heuristics).
     - Conditioned on pacing being enabled; if pacing is disabled, only the top reasoning preview renders.
-- **In-Flight Live Streaming**: As `reasoning_content` deltas arrive, they stream directly into the active assistant message bubble within the drawer.
-- **Strict Ephemeral Lifetime**: Bound strictly to the Vue component's in-memory lifetime; discarded immediately when the message unmounts or serializes to storage.
+- **In-Flight Live Streaming & Settlement Retention**:
+  - As `reasoning_content` deltas arrive, they stream directly into the active assistant message bubble within the drawer.
+  - **Settlement Persistence (In-Memory)**: The reasoning drawer and its bipartite state machine ledger remain visible and inspectable after message generation settles. The legacy deduplication rule that hid the drawer when `reasoning === contentText` has been walked back.
+  - **User-Controlled Collapse**: The drawer does NOT automatically collapse upon answer text onset if the user manually opened it to inspect reasoning or pacing telemetry.
+  - **Telemetry Snapshot Retention**: Pacing metrics (`PacingMetrics` snapshot including `stateLog`, filler counts, `ttftMs`, and live state) are captured in `chat.ts` on `buildingMessage.categorization.pacingMetrics` so that when the message is committed to `sessionMessages`, the telemetry and rolling ledger remain intact across view re-renders.
+- **Idempotency Guard**:
+  - `notifyAnswerAudioScheduled()` in `TurnPacingCoordinator` is strictly idempotent (`if (this.answerAudioScheduled) return`). Multi-chunk sentence audio scheduling during streaming playback does not duplicate settlement stateLog events or flood telemetry channels.
+- **Adaptive Retry on Initial Cache Miss**:
+  - If the initial filler attempt (`attemptsMade <= 1 && committedCount === 0`) encounters a cache miss, the coordinator reschedules the next opportunity with an adaptive 5s retry (`Math.min(5000, pacingIntervalMs)`) instead of leaping 15s forward, ensuring mid-length CoT turns (5–12s) receive filler opportunities.
+- **Strict Ephemeral Lifetime**: Reasoning content and state machine telemetry are bound strictly to the in-memory session lifetime; they are excluded from persistent IndexedDB database serialization (`chat-sessions.repo`).
 
 ## 13. Observability and acceptance measurements
 

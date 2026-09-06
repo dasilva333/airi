@@ -544,6 +544,9 @@ export class TurnPacingCoordinator {
   }
 
   public notifyAnswerAudioScheduled(at: number = this.clock.now()): void {
+    if (this.answerAudioScheduled)
+      return
+
     this.answerAudioScheduled = true
     this.pacingClosed = true
     this.metrics.pacingClosed = true
@@ -597,7 +600,13 @@ export class TurnPacingCoordinator {
       // If we haven't exhausted attempts and answer hasn't arrived, remain in STAGING and schedule next interval
       if (!this.pacingClosed && this.attemptsMade < maxAttempts && !this.answerAudioScheduled && this.turnPhase !== 'answering') {
         this.state = 'STAGING'
-        const intervalMs = this.policy.pacingIntervalMs ?? 15000
+        const baseIntervalMs = this.policy.pacingIntervalMs ?? 15000
+        // NOTICE: For the initial filler attempt (attemptsMade <= 1 with 0 committed), use an adaptive
+        // faster retry (5s) instead of leaping 15s into the future, so that mid-length CoT turns (5-12s)
+        // have a chance to evaluate subsequent filler opportunities or synthesized audio.
+        const intervalMs = (this.attemptsMade <= 1 && this.committedCount === 0)
+          ? Math.min(5000, baseIntervalMs)
+          : baseIntervalMs
         this.nextEligibleAtMs = this.clock.now() + intervalMs
         if (this.intervalTimerHandle) {
           this.clock.clearTimeout(this.intervalTimerHandle)

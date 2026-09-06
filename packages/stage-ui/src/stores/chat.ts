@@ -3,6 +3,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
 
 import type { ChatAssistantMessage, ChatSlices, ChatStreamEventContext } from '../types/chat'
+import type { PacingMetrics } from '../types/pacing'
 import type { StreamEvent, StreamOptions } from './llm'
 
 import { debug, healMozibake, isStageTamagotchi } from '@proj-airi/stage-shared'
@@ -177,6 +178,27 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
   const activeSpokenText = ref('')
   const activeSpokenColor = ref('')
+
+  const { data: latestPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({
+    name: 'airi:pacing-telemetry',
+  })
+
+  watch(latestPacingTelemetry, (telemetry) => {
+    if (!telemetry?.turnId)
+      return
+    for (const [, handle] of activeSendHandles) {
+      if (handle.buildingMessage.id === telemetry.turnId) {
+        if (!handle.buildingMessage.categorization) {
+          handle.buildingMessage.categorization = { speech: '', reasoning: '' }
+        }
+        ;(handle.buildingMessage.categorization as any).pacingMetrics = telemetry
+        if (telemetry.ttftMs && !(handle.buildingMessage.categorization as any).reasoningDurationSec) {
+          ;(handle.buildingMessage.categorization as any).reasoningDurationSec = Number((telemetry.ttftMs / 1000).toFixed(1))
+        }
+        break
+      }
+    }
+  })
 
   if (isMainWindow) {
     watch(broadcastedInput, (payload) => {
@@ -1742,6 +1764,15 @@ Format your output as a raw thought log.`
         // <|ACTOR:|>, <|ACT:|>, <|DELAY:|>) so past turns fed back to the LLM retain
         // the tokens. This prevents behavioral drift where the model stops using tokens
         // because it never sees them in its own history.
+        if (latestPacingTelemetry.value?.turnId === buildingMessage.id) {
+          if (!(buildingMessage as any).categorization) {
+            ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
+          }
+          ;(buildingMessage as any).categorization.pacingMetrics = latestPacingTelemetry.value
+          if (latestPacingTelemetry.value.ttftMs && !(buildingMessage as any).categorization.reasoningDurationSec) {
+            ;(buildingMessage as any).categorization.reasoningDurationSec = Number((latestPacingTelemetry.value.ttftMs / 1000).toFixed(1))
+          }
+        }
         ;(buildingMessage as any).rawContent = rawFullText
         const currentMessages = chatSession.getSessionMessages(sessionId)
         chatSession.setSessionMessages(sessionId, [...currentMessages, toRaw(buildingMessage)])

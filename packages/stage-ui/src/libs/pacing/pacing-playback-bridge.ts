@@ -157,7 +157,8 @@ export class PacingPlaybackBridge<TAudio = AudioBuffer> {
           void saveThinkingAudio({ ...this.voiceParams, text: phraseText }, rawBuffer, durationMs).catch(() => {})
         }
       }
-      catch {
+      catch (err) {
+        console.warn('[PacingPlaybackBridge] Fallback dynamic synthesis failed:', err)
         abortController.abort()
       }
       finally {
