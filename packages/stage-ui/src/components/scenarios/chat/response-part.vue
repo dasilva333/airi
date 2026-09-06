@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatAssistantMessage } from '../../../types/chat'
 
-import { useIntervalFn } from '@vueuse/core'
+import { useElementSize, useIntervalFn } from '@vueuse/core'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -99,13 +99,48 @@ const durationDisplay = computed(() => {
   return ''
 })
 
-const reasoningSnippet = computed(() => {
+const rulerRef = ref<HTMLElement | null>(null)
+const snippetContainerRef = ref<HTMLElement | null>(null)
+const { width: containerWidth } = useElementSize(snippetContainerRef)
+const { width: rulerWidth } = useElementSize(rulerRef)
+
+const charWidth = computed(() => {
+  if (rulerWidth.value > 0) {
+    return rulerWidth.value / 20
+  }
+  return 6.6
+})
+
+const charBudget = computed(() => {
+  const w = containerWidth.value
+  const cw = charWidth.value
+  if (!w || w <= 0) {
+    return 40
+  }
+  return Math.max(8, Math.floor(w / cw))
+})
+
+const cleanFullReasoning = computed(() => {
   const raw = props.message.categorization?.reasoning?.trim() || ''
   if (!raw) {
+    return ''
+  }
+  return raw.replace(/<\/?think_aloud(?:\s[^>]*)?>/gi, '').replace(/\s+/g, ' ').trim()
+})
+
+const reasoningSnippet = computed(() => {
+  const clean = cleanFullReasoning.value
+  if (!clean) {
     return t('stage.chat.reasoning')
   }
-  const clean = raw.replace(/<\/?think_aloud(?:\s[^>]*)?>/gi, '').replace(/\s+/g, ' ').trim()
-  return clean || t('stage.chat.reasoning')
+
+  const budget = charBudget.value
+  if (clean.length <= budget) {
+    return clean
+  }
+
+  const tailChars = Math.max(1, budget - 3)
+  return `...${clean.slice(-tailChars)}`
 })
 
 function toggleExpanded() {
@@ -185,6 +220,12 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
     class="dark:border-neutral-750/80 dark:bg-neutral-850/40 max-w-full w-full overflow-hidden border border-neutral-200/80 rounded-xl bg-neutral-100/40 backdrop-blur-sm transition-all duration-200"
     :class="[props.variant === 'mobile' ? 'text-xs' : 'text-sm']"
   >
+    <span
+      ref="rulerRef"
+      aria-hidden="true"
+      class="pointer-events-none invisible absolute text-[11px] font-mono"
+      style="width: 20ch;"
+    />
     <div
       role="button"
       tabindex="0"
@@ -198,17 +239,18 @@ const thinkAloudCount = computed(() => reasoningSegments.value.filter(s => s.typ
           class="i-solar:lightbulb-bolt-bold-duotone size-3.5 shrink-0 text-amber-500 dark:text-amber-400"
           :class="{ 'animate-pulse': isStreamingThisMessage && !hasContentText }"
         />
-        <!-- Collapsed: 1-line arbitrary text CSS truncated with ellipsis to available space -->
+        <!-- Collapsed: 1-line dynamic tail-chasing text preview -->
         <span
-          v-if="!isExpanded"
+          v-show="!isExpanded"
+          ref="snippetContainerRef"
           class="dark:text-neutral-350 min-w-0 flex-1 truncate text-[11px] text-neutral-600 font-mono italic"
-          :title="reasoningSnippet"
+          :title="cleanFullReasoning || reasoningSnippet"
         >
           {{ reasoningSnippet }}
         </span>
         <!-- Expanded: hide repetitive preview, show label and optional metrics -->
         <span
-          v-else
+          v-show="isExpanded"
           class="dark:text-neutral-350 text-[11px] text-neutral-600 font-medium font-sans"
         >
           {{ t('stage.chat.reasoning') }}
