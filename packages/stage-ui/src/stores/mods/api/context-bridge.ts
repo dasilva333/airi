@@ -285,6 +285,12 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
 
           broadcastStreamEvent({ type: 'token-special', special, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
         }),
+        chatOrchestrator.onReasoningChunk(async (text, context) => {
+          if (isProcessingRemoteStream)
+            return
+
+          broadcastStreamEvent({ type: 'reasoning-chunk', text, sessionId: chatSession.activeSessionId, context: JSON.parse(JSON.stringify(toRaw(context))) })
+        }),
         chatOrchestrator.onStreamEnd(async (context) => {
           if (isProcessingRemoteStream)
             return
@@ -348,7 +354,7 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         if (!event)
           return
 
-        if (event.type !== 'token-literal' && event.type !== 'token-special') {
+        if (event.type !== 'token-literal' && event.type !== 'token-special' && event.type !== 'reasoning-chunk') {
           debug(`[PipelineTTS:Bridge] RECEIVED BROADCAST in ${window.location.hash || 'main'}:`, event.type)
         }
         isProcessingRemoteStream = true
@@ -368,6 +374,17 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               break
             case 'after-send':
               await chatOrchestrator.emitAfterSendHooks(event.message, event.context)
+              break
+            case 'reasoning-chunk':
+              {
+                const guard = ensureRemoteReplayGuard(event.sessionId, event.context?.assistantMessageId, event.context?.assistantMessageCreatedAt)
+                if (guard.sessionId !== event.sessionId)
+                  return
+                if (chatSession.getSessionGenerationValue(guard.sessionId) !== guard.generation)
+                  return
+                chatStream.appendStreamReasoning(event.text)
+                await chatOrchestrator.emitReasoningChunkHooks(event.text, event.context)
+              }
               break
             case 'token-literal':
               {

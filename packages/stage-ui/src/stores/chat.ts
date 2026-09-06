@@ -476,6 +476,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       tool_results: [],
       createdAt: Date.now(),
       id: nanoid(),
+      categorization: { speech: '', reasoning: '' },
     })
 
     streamingMessageContext.assistantMessageId = buildingMessage.id
@@ -770,6 +771,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
       const categorizer = createStreamingCategorizer({
         providerId: effectiveProviderId,
         onReasoningChunk: async (chunk) => {
+          if (!(buildingMessage as any).categorization) {
+            ;(buildingMessage as any).categorization = { speech: '', reasoning: '' }
+          }
+          ;(buildingMessage as any).categorization.reasoning += chunk
+          updateUI()
           await hooks.emitReasoningChunkHooks(chunk, streamingMessageContext)
         },
         onDynamicAsideCue: async (cue) => {
@@ -1781,7 +1787,7 @@ Format your output as a raw thought log.`
       // ---------------------------------------------------
 
       if (isForegroundSession()) {
-        streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+        streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [], categorization: { speech: '', reasoning: '' } }
       }
     }
     catch (error: any) {

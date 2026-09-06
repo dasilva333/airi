@@ -344,6 +344,7 @@ watch(isTouching, (val) => {
         :class="[
           'group/chat-action relative',
           props.fullWidth ? 'w-full' : 'w-fit',
+          props.placement === 'right' ? 'max-w-[calc(100%-4rem)]' : 'max-w-full',
           'transition-transform duration-150 ease-in-out',
         ]"
         :style="{

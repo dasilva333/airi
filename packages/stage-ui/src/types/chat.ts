@@ -90,6 +90,7 @@ export type ChatStreamEvent
     | { type: 'after-send', message: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'token-literal', literal: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'token-special', special: string, sessionId: string, context: ChatStreamEventContext }
+    | { type: 'reasoning-chunk', text: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'stream-end', sessionId: string, context: ChatStreamEventContext }
     | { type: 'assistant-end', message: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'assistant-message', message: ChatAssistantMessage, sessionId: string, messageText: string, context: ChatStreamEventContext }

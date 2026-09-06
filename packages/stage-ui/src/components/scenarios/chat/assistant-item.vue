@@ -3,7 +3,6 @@ import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices } from '../../..
 
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import JournalMomentModal from './JournalMomentModal.vue'
@@ -41,7 +40,6 @@ const showJournalModal = ref(false)
 
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
-const { t } = useI18n()
 
 const formattedTime = computed(() => {
   if (!props.message.createdAt)
@@ -324,17 +322,6 @@ async function handleCommitEdit() {
   }
 }
 
-const hasContentText = computed(() => {
-  const content = props.message.content
-  if (typeof content === 'string') {
-    return !!content.trim()
-  }
-  if (Array.isArray(content)) {
-    return content.some(part => part && typeof part === 'object' && 'type' in part && part.type === 'text' && !!(part as any).text?.trim())
-  }
-  return false
-})
-
 const isLatestAssistantMessage = computed(() => {
   const activeSessionId = chatSession.activeSessionId
   if (!activeSessionId)
@@ -348,8 +335,22 @@ const isLatestAssistantMessage = computed(() => {
   return false
 })
 
+const hasReasoning = computed(() => {
+  const reasoning = props.message.categorization?.reasoning?.trim()
+  const content = props.message.content
+  let contentText = ''
+  if (typeof content === 'string') {
+    contentText = content.trim()
+  }
+  else if (Array.isArray(content)) {
+    const textPart = content.find(part => part && typeof part === 'object' && 'type' in part && part.type === 'text') as { text?: string } | undefined
+    contentText = textPart?.text?.trim() || ''
+  }
+  return !!reasoning && reasoning !== contentText
+})
+
 // Visual FX state parsing (re-injected from main)
-const showLoader = computed(() => props.showPlaceholder)
+const showLoader = computed(() => props.showPlaceholder && !hasReasoning.value)
 
 function getMoodArchetype(text: string): string | null {
   if (!text || typeof text !== 'string')
@@ -673,7 +674,7 @@ const dynamicStyles = computed(() => {
             :ref="setMeasuredElement"
             flex="~ col" shadow="sm neutral-200/50 dark:none"
             h="unset <sm:fit" relative rounded-xl
-            class="max-w-[calc(100%-4rem)] min-w-20 w-fit"
+            class="max-w-full min-w-20 w-fit"
             :class="boxClasses"
             :style="boxStyle"
           >
@@ -681,6 +682,14 @@ const dynamicStyles = computed(() => {
             <div>
               <span text-sm text="black/60 dark:white/65" font-normal class="inline <sm:hidden">{{ label }}</span>
             </div>
+
+            <!-- In-Bubble CoT Streaming Drawer -->
+            <ChatResponsePart
+              v-if="hasReasoning"
+              :message="message"
+              :variant="variant"
+              class="my-1"
+            />
 
             <div v-if="message.content === 'NO_REPLY' || message.rawContent === 'NO_REPLY'" class="py-1 text-sm text-neutral-500/70 italic dark:text-neutral-400/70">
               The character chose not to respond in this turn
@@ -740,16 +749,6 @@ const dynamicStyles = computed(() => {
                 <div class="i-solar:check-circle-bold text-sm" />
               </button>
             </div>
-
-            <div v-if="message.categorization?.reasoning && !hasContentText" mt-1 text-xs text-neutral-500 font-normal italic dark:text-neutral-400>
-              {{ t('stage.chat.reasoning_only') }}
-            </div>
-
-            <ChatResponsePart
-              v-if="message.categorization"
-              :message="message"
-              :variant="variant"
-            />
 
             <!-- Formatted Timestamp -->
             <div

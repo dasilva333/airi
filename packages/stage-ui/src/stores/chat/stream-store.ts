@@ -8,7 +8,14 @@ import { useChatSessionStore } from './session-store'
 
 export const useChatStreamStore = defineStore('chat-stream', () => {
   const chatSession = useChatSessionStore()
-  const streamingMessage = ref<StreamingAssistantMessage>({ role: 'assistant', content: '', slices: [], tool_results: [], createdAt: Date.now() })
+  const streamingMessage = ref<StreamingAssistantMessage>({
+    role: 'assistant',
+    content: '',
+    slices: [],
+    tool_results: [],
+    createdAt: Date.now(),
+    categorization: { speech: '', reasoning: '' },
+  })
 
   function beginStream(messageId?: string, createdAt?: number) {
     streamingMessage.value = {
@@ -18,6 +25,7 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
       tool_results: [],
       createdAt: createdAt ?? Date.now(),
       id: messageId,
+      categorization: { speech: '', reasoning: '' },
     }
   }
 
@@ -27,6 +35,7 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
     const lastSlice = streamingMessage.value.slices.at(-1)
     if (lastSlice?.type === 'text') {
       lastSlice.text += literal
+      streamingMessage.value = { ...streamingMessage.value }
       return
     }
 
@@ -34,6 +43,15 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
       type: 'text',
       text: literal,
     })
+    streamingMessage.value = { ...streamingMessage.value }
+  }
+
+  function appendStreamReasoning(text: string) {
+    if (!streamingMessage.value.categorization) {
+      streamingMessage.value.categorization = { speech: '', reasoning: '' }
+    }
+    streamingMessage.value.categorization.reasoning += text
+    streamingMessage.value = { ...streamingMessage.value }
   }
 
   function finalizeStream(sessionId = chatSession.activeSessionId, fullText?: string) {
@@ -55,19 +73,20 @@ export const useChatStreamStore = defineStore('chat-stream', () => {
         sessionMessagesForSend.push(streamingMessage.value)
       }
     }
-    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [], categorization: { speech: '', reasoning: '' } }
     if (fullText)
       streamingMessage.value.content = fullText
   }
 
   function resetStream() {
-    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
+    streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [], categorization: { speech: '', reasoning: '' } }
   }
 
   return {
     streamingMessage,
     beginStream,
     appendStreamLiteral,
+    appendStreamReasoning,
     finalizeStream,
     resetStream,
   }
