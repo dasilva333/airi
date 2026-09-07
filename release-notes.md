@@ -1,39 +1,49 @@
-# 🚀 AIRI v0.9.29-stable.20260902 — Release Notes
+# 🚀 AIRI v0.9.30-stable.20260907 — Release Notes
 
-This release marks the **Official Production Graduation of the Proactivity & Screen Watching Engine**, alongside the **Complete Settings Architecture & Navigation Overhaul**, **Apple Core AI On-Device LLM Inference for iOS**, **Revamped Artistry Studio with Free Pollinations AI**, and **5 Progressive Tool Capability Packs**.
+This release introduces **Conversational Pacing & Dynamic Thinking Fillers (Phases 0–6 & Contract 2)** with in-bubble Chain-of-Thought streaming, the **3D Spotlight Character Carousel & Steam Workshop Avatar Extraction**, **Global Fallbacks & Faculty Defaults Matrix**, **Procedural Avatar Auras & VFX Shaders**, **Live2D Autoregressive Ambient Motion**, and the **Next-Gen Audio Pipeline with AIRI Audio Server**.
 
 ---
 
 ## ✨ Key Highlights
 
-### 🌟 Proactivity & Screen Watching: Graduating to Production
-* **Out of Preview Mode**: Proactivity has officially graduated from preview status! The experimental warning banners have been retired in favor of a polished, production-ready continuous companion loop.
-* **Zero-Leak WebGPU & Vision Tensor Engine**: Completely plugged WebGPU tensor memory leaks, eliminated duplicate image decoding overhead, and streamlined the screen watcher daemon for 24/7 background operation.
-* **Silero VAD & Audio Recorder Memory Cleanup**: Prevented audio buffer accumulation with bounded streaming buffers and lazy on-demand VAD model loading.
-* **Unified 4-Layer Attention Gate**: Multi-tier heuristic filtering intelligently balances screen changes, AFK presence detection, active conversation context, and transparent dream consolidation cycles without interrupting you.
+### ⏱️ Conversational Pacing & Dynamic Thinking Fillers
+* **Zero-Gap Conversational Flow**: Eliminated awkward delays between user input and assistant responses with an instant, zero-lag thinking audio pre-cache and playback bridge.
+* **Intentional Spoken Asides & Fillers**: Companions now naturally speak brief, context-aware thinking fillers (*"Hmm, let me see..."*, *"Looking into that..."*) while awaiting deep LLM reasoning, managed by a 4-state commitment lifecycle.
+* **One-Click Pacing Profiles**: Choose between **Snappy** (fast, minimal fillers), **Balanced** (natural conversational cadence), and **Deep CoT Explorer** (rich reasoning vocalization).
+* **Needle 2 On-Device Semantic Extractor**: Local model analyzes prompt complexity in real time to intelligently budget turn pacing and filler frequency.
+* **In-Bubble Chain-of-Thought (CoT) Streaming Drawer**: Live reasoning thoughts stream inside an expandable, tail-chasing glass drawer within the chat bubble, complete with reading-speed ambient crawl and salience snap viewing.
+* **Card Editor Pacing Controls**: Fine-tune maximum filler durations, customize character filler pools, and configure fail-safe voice profile fallbacks.
 
-### ⚙️ Settings Hub Overhaul & Master-Detail Navigation
-* **4-Cluster Modules Taxonomy**: Reorganized settings into 4 intuitive clusters (Sensory, Intelligence, Manifestation, Memory) with an architectural explainer banner and data-driven topology index.
-* **Master-Detail Layout & Live Avatar Viewport**: Redesigned companion settings into a responsive two-pane split featuring a live, expandable stage preview while editing character parameters.
-* **Omnibar Search & Subpage Discovery**: Added instant global settings search with deep hash-aware breadcrumb navigation.
-* **24-Color Theme Spectrum**: Customize your interface with a 24-color swatch palette and live vibrancy tuning.
-* **4-Tier In-Memory Card Gallery**: Ultra-fast character card browsing with cached author avatars and lazy dialog rendering.
+### 🎭 3D Spotlight Character Carousel & Avatar Discovery
+* **Fluid Character Lineup Carousel**: Replaced the legacy card grid with an interactive 3D character spotlight carousel featuring smooth swipe transitions and quick roster switching.
+* **Standalone "Discover Avatars" Surface**: Decoupled avatar exploration into a dedicated discovery hub with curated avatar archives and community showcase tips.
+* **Steam Workshop Extraction**: Directly inspect, extract, and import 3D VRM and Live2D avatars from Steam Workshop archives and local package bundles.
+* **Spine Model Framing & High-Res Previews**: Added dedicated camera framing for Spine 2D models, format badges (VRM, Live2D, Spine, MMD), and an automated gallery thumbnail reprocessor.
 
-### 🍎 Apple Core AI & CoreML On-Device Inference (iOS & Pocket)
-* **Native CoreLLMKit Runtime**: Run quantized LLMs 100% locally on Apple Silicon and iOS using the Apple Neural Engine (ANE) via a dedicated Swift native plugin.
-* **Prompt Delta Caching & Batched Prefill**: Deep memory residency optimizations ensuring rapid on-device token generation without draining mobile battery.
-* **Wizard Consciousness Integration**: Choose Apple Core AI directly as your character’s brain in the mobile onboarding flow.
+### 🛡️ Global Fallbacks & Faculty Defaults Matrix
+* **Centralized Faculty Defaults**: Unified fallback matrix for core companion faculties (LLM Brain, Speech TTS, Hearing STT, Vision VLM) with speech 3-tuples (provider, model, voice) to guarantee companions never fall mute when third-party services degrade.
+* **OpenCode Go Routing Affinity**: Added persistent session routing via `x-opencode-session` headers for seamless multi-turn conversations on OpenCode Go clusters.
 
-### 🎨 Artistry Studio Revamp & Free Pollinations AI
-* **Free Pollinations AI Provider**: Generate scene backgrounds and character art with 0 API keys required out-of-the-box.
-* **Segmented Artistry Tab**: Split character artistry into 3 clean sub-tabs (Presets, Autonomous Artistry, Backgrounds) for effortless image workflow management.
+### ✨ Procedural Avatar Auras & VFX Shaders
+* **Real-Time GLSL Aura Shaders**: Render procedural elemental auras directly onto 3D VRM and Live2D avatars via Three.js shaders and universal bone sockets.
+* **Kinetic Elemental Effects**: Added **Verdant Boost**, **Sacred Grove Mandala**, and glowing floating spores, triggerable via `<|ACT:...|>` kinetic tokens or the Model Customizer.
 
-### 🧰 5 Progressive Tool Capability Packs & 0-Key MCP Web Search
-* **5 Capability Packs**: Organized character tools into 5 progressive disclosure packs (Core, Web Search, Filesystem, Canvas, DevTools) with card-level ACL filtering.
-* **0-Key Open Web Search & Filesystem MCP**: Enable live web searching with zero API keys and manage character filesystem tools safely.
+### 🍃 Live2D Autoregressive Ambient Motion & Gaze Blending
+* **Natural Autoregressive Motion**: Integrated continuous, physics-based micro-movements, breathing, and natural head sways into the main stage and settings.
+* **Additive Mouse Cursor Tracking**: Smoothly blended cursor tracking on top of ambient motion, preventing rigid cursor fixation while maintaining realistic eye and head contact.
 
-### 🧠 User Memory Deletion & Sparkle Expression Gating
-* **Direct Record Deletion for STMM & Journals**: Full control to view, inspect, and selectively delete daily short-term continuity blocks and journal memories.
-* **Deterministic Expression Noise Gate**: Eliminates rapid facial expression flickering and adds a 3-step Sparkle AI curation wizard.
-* **Spoken Karaoke Highlights**: Resolved multi-instance text highlight deletion races in MarkdownRenderer during speech playback.
-* **Modern System Tray Menu**: Updated system tray with quick-launch links for the AnimaDex Wizard and Control Strip.
+### ⚡ Chatbox Performance & Fast-Boot Shell
+* **Fast-Boot Pre-Paint Shell**: The desktop chatbox now renders chrome instantly on launch, hydrating complex sub-surfaces asynchronously in the background.
+* **Zero-Jank Reverse-Scroll History**: Virtualized message list with inverted DOM windowing provides effortless scrolling through massive conversation histories.
+* **Desktop Theme Layers & Popovers**: Synced stage backdrops, blur-behind styling, and floating target switchers for the desktop chatbox.
+
+### 🎙️ Next-Gen Audio Pipeline & AIRI Audio Server
+* **5-Slot Concurrent TTS & Pause Aligner**: Multi-worker audio synthesis queue with sentence boundary pause alignment prevents speech clipping and robotic cadence.
+* **Tier 0 Prosodic Chunker**: Contextual clause chunker groups complete semantic thoughts before synthesis for human-like intonation.
+* **AIRI Audio Server Provider**: First-class integration with the dedicated AIRI Audio Server runtime, deprecating legacy browser-local speech.
+* **Voice Profile Synchronization by ID**: Multi-device sync merges voice profiles idempotently and automatically registers card voices.
+
+### 🌌 Stage Atmospheres & Cloudflare Ecosystem
+* **6 Atmospheric Particle Systems**: Added interactive floating Bubbles, Sakura Petals, Hearts, Stars, Musical Notes, and Crosses with a one-click Control Strip theme popover.
+* **Cloudflare Settings Hub & Connect Wizard**: Complete Cloudflare module in Settings with token validation, account health telemetry, and relay management.
+* **iPadOS Compatibility & Native Linux Packaging**: Official iPad screen and multitasking support on iOS, alongside native `.deb`, `.rpm`, and `.flatpak` distributions for Linux.

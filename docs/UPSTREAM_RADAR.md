@@ -6,6 +6,132 @@
 
 ---
 
+## [2026-09-07] Upstream Delta: `f166736a..52a9f429` (6 commits, 63 files, 13 PR update(s))
+
+### 🎯 Executive Highlights
+* **Active Focus**: Upstream merged 6 commits spanning mobile stage controls simplification (#2472, #2475), Live2D expression synchronization between Stage and Settings windows in Electron (#2451), Plugin Host lifecycle debug controls (#2476), and backend API error propagation (#2333). In flight on PR radar, upstream is embarking on a massive architectural rewrite of LLM inference context projection via the Responses API (#2477), Chrome Prompt API support (#2299), and commercial payment backends.
+* **Cherry-Pick Candidates**:
+  - ⭐ **PR #2451 / Commit `05ac66edf` (`fix(stage-tamagotchi): show Live2D expressions in settings`)**: High architectural value for cross-window Live2D expression state syncing via Eventa and owner ID validation. Recommended for surgical cherry-pick (avoiding direct merge of Model.vue).
+  - ⭐ **PR #2467 (`fix(stage-ui): persist speech provider settings`)**: Clean bug fix ensuring voice selections, base URLs, and API keys reliably persist in the synchronized provider store.
+  - 🔍 **PR #2299 (`feat(providers): add Prompt API Provider`)**: Adds Chrome/Chromium built-in Prompt API (Gemini Nano) local inference. Good reference if expanding local offline providers.
+  - 🔍 **Commit `52a9f429e` (`feat(plugin-host): add combined lifecycle controls (#2476)`)**: Adds combined 'Enable and Load' / 'Disable and Unload' actions to the devtools plugin host page.
+* **Divergence / Collision Warnings**:
+  - 🚨 **PR #2477 (`feat(inference): add native Responses API context projection`)**: CRITICAL ARCHITECTURAL DIVERGENCE (+2,333 / -562). Upstream is bypassing Chat Completions in favor of a Responses API context projection in `core-agent` and `stage-ui`. This fundamentally conflicts with our fork's custom cognitive architecture (`llm.ts`, `session-store.ts`, ACT token parser, STMM/LTMM/Lifetime memory injection, prefix-cache alignment). Do NOT merge upstream inference changes.
+  - ⚠️ **Commit `836941fda` (`InteractiveArea.vue` in PR #2472)**: Upstream removed the chat clear button and analytics. Directly merging this would clobber our fork's custom `InteractiveArea.vue` controls (Image Journal button, audio/speech hooks).
+  - ⚠️ **Commit `05ac66edf` (`Model.vue` in PR #2451)**: Live2D model loading changes collide with our fork's Live2D Scripting DSL VM, VarFloats heap, costume hot-swapping, and comic-bubble tethering.
+  - ⚪ **Server & Monetization PRs (#2420 Steam, #2368 Payment CORE, #2339 Apple IAP, #2333 Server errors)**: Commercial monetization and centralized server infrastructure are out of scope and rejected for our offline-first BYOS fork.
+
+### 📋 Upstream Commits
+- `52a9f429e` feat(plugin-host): add combined lifecycle controls (#2476) [#2476](https://github.com/moeru-ai/airi/pull/2476) _(leafyy, 2026-09-07)_
+- `0fd71bc1a` feat(stage-layouts): add mobile view adjustment mode (#2475) [#2475](https://github.com/moeru-ai/airi/pull/2475) _(RainbowBird, 2026-09-07)_
+- `05ac66edf` fix(stage-tamagotchi): show Live2D expressions in settings (#2451) [#2451](https://github.com/moeru-ai/airi/pull/2451) _(leafyy, 2026-09-07)_
+- `836941fda` feat(stage-layouts): simplify mobile stage controls (#2472) [#2472](https://github.com/moeru-ai/airi/pull/2472) _(RainbowBird, 2026-09-07)_
+- `b1170ea8c` docs(server): clarify adr delivery workflow  _(RainbowBird, 2026-09-07)_
+- `96b629165` fix(server): pass through final upstream errors (#2333) [#2333](https://github.com/moeru-ai/airi/pull/2333) _(RainbowBird, 2026-09-07)_
+
+### 🔬 Subsystem Breakdown
+#### Documentation & Scaffolding (`⚪ ignore`) — 4 file(s) (+41/-0)
+- `.agents/skills/create-pr/SKILL.md` *(+1/-0)*
+- `AGENTS.md` *(+1/-0)*
+- `docs/ai/context/ui-components.md` *(+27/-0)*
+- `server/AGENTS.md` *(+12/-0)*
+
+#### Mobile & Web Platforms (`⚪ ignore / low-priority`) — 2 file(s) (+0/-4)
+- `apps/stage-pocket/src/pages/index.vue` *(+0/-2)*
+- `apps/stage-web/src/pages/index.vue` *(+0/-2)*
+
+#### Electron Desktop Shell (`⚠️ hand-merge`) — 8 file(s) (+671/-84)
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.browser.test.ts` *(+300/-1)*
+- `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` *(+0/-24)*
+- `apps/stage-tamagotchi/src/renderer/composables/model-settings-runtime-owner.ts` *(+90/-0)*
+- `apps/stage-tamagotchi/src/renderer/composables/model-settings-runtime-snapshot.ts` *(+57/-26)*
+- `apps/stage-tamagotchi/src/renderer/composables/model-settings-runtime.browser.test.ts` *(+171/-0)*
+- `apps/stage-tamagotchi/src/renderer/pages/index.vue` *(+12/-27)*
+- `apps/stage-tamagotchi/src/renderer/pages/settings/models/index.vue` *(+2/-1)*
+- `apps/stage-tamagotchi/src/shared/model-settings-runtime.ts` *(+39/-5)*
+
+#### Localization (i18n) (`📦 import (additive only)`) — 4 file(s) (+64/-2)
+- `packages/i18n/src/locales/en/settings.yaml` *(+7/-0)*
+- `packages/i18n/src/locales/en/stage.yaml` *(+25/-1)*
+- `packages/i18n/src/locales/zh-Hans/settings.yaml` *(+7/-0)*
+- `packages/i18n/src/locales/zh-Hans/stage.yaml` *(+25/-1)*
+
+#### Stage Layouts & Shells (`🔍 inspect`) — 8 file(s) (+423/-193)
+- `packages/stage-layouts/src/components/Layouts/HeaderAvatar.vue` *(+11/-2)*
+- `packages/stage-layouts/src/components/Layouts/InteractiveArea/Actions/About.vue` *(+7/-2)*
+- `packages/stage-layouts/src/components/Layouts/InteractiveArea/Actions/ViewControls.vue` *(+53/-11)*
+- `packages/stage-layouts/src/components/Layouts/MobileHeader.vue` *(+8/-8)*
+- `packages/stage-layouts/src/components/Layouts/MobileHeaderLink.vue` *(+0/-35)*
+- `packages/stage-layouts/src/components/Layouts/MobileInteractiveArea.vue` *(+132/-107)*
+- `packages/stage-layouts/src/components/Layouts/mobile-settings-drawer.vue` *(+212/-0)*
+- `packages/stage-layouts/src/components/Widgets/ChatActionButtons.vue` *(+0/-28)*
+
+#### UI Primitives & Pages (`📦 import / inspect`) — 5 file(s) (+115/-6)
+- `packages/stage-pages/src/pages/devtools/plugin-host.vue` *(+36/-0)*
+- `packages/ui/package.json` *(+1/-0)*
+- `packages/ui/src/components/form/textarea/basic-text-area.vue` *(+5/-6)*
+- `packages/ui/src/components/layouts/bottom-drawer.vue` *(+72/-0)*
+- `packages/ui/src/components/layouts/index.ts` *(+1/-0)*
+
+#### 3D, Live2D & Motion (`🔍 inspect`) — 4 file(s) (+133/-23)
+- `packages/stage-ui-live2d/src/components/scenes/live2d/Model.vue` *(+16/-7)*
+- `packages/stage-ui-live2d/src/composables/live2d/expression-controller.test.ts` *(+41/-0)*
+- `packages/stage-ui-live2d/src/composables/live2d/expression-controller.ts` *(+4/-7)*
+- `packages/stage-ui-live2d/src/stores/expression-store.ts` *(+72/-9)*
+
+#### Other / Uncategorized (`🔍 inspect`) — 27 file(s) (+1241/-303)
+- `packages/stage-ui/src/components/misc/character-switcher-drawer.browser.test.ts` *(+94/-0)*
+- `packages/stage-ui/src/components/misc/character-switcher-drawer.vue` *(+132/-0)*
+- `packages/stage-ui/src/components/misc/index.ts` *(+1/-0)*
+- `packages/stage-ui/src/components/misc/mobile-composer-height.browser.test.ts` *(+37/-0)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-dialog.browser.test.ts` *(+45/-6)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-dialog.vue` *(+37/-105)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-drawer.browser.test.ts` *(+9/-2)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-drawer.vue` *(+4/-21)*
+- `packages/stage-ui/src/components/scenarios/chat/components/sessions-list.vue` *(+132/-0)*
+- `packages/stage-ui/src/components/scenarios/dialogs/bottom-drawer.browser.test.ts` *(+45/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d.browser.test.ts` *(+83/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/live2d.vue` *(+34/-33)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/panel.vue` *(+3/-0)*
+- `packages/stage-ui/src/components/scenarios/settings/model-settings/runtime.ts` *(+5/-0)*
+- `packages/stage-ui/src/stores/devtools/plugin-host-debug.test.ts` *(+135/-0)*
+- `packages/stage-ui/src/stores/devtools/plugin-host-debug.ts` *(+24/-0)*
+- `packages/stage-ui/vitest.config.ts` *(+16/-0)*
+- `server/apps/api/src/routes/openai/v1/http/response.test.ts` *(+22/-0)*
+- `server/apps/api/src/routes/openai/v1/http/response.ts` *(+20/-0)*
+- `server/apps/api/src/routes/openai/v1/operations/chat-completions/index.ts` *(+11/-4)*
+- `server/apps/api/src/services/adapters/tts/dashscope-cosyvoice.test.ts` *(+15/-5)*
+- `server/apps/api/src/services/adapters/tts/index.test.ts` *(+45/-22)*
+- `server/apps/api/src/services/adapters/tts/types.ts` *(+15/-3)*
+- `server/apps/api/src/services/adapters/tts/unspeech.ts` *(+5/-3)*
+- `server/apps/api/src/services/domain/llm-router/router.ts` *(+131/-58)*
+- `server/apps/api/src/services/domain/llm-router/tests/router.test.ts` *(+126/-40)*
+- `server/apps/api/src/services/domain/openai-speech/index.ts` *(+15/-1)*
+
+#### Root Build & Tooling (`🔍 inspect`) — 1 file(s) (+3/-0)
+- `pnpm-lock.yaml` *(+3/-0)*
+
+### 📬 Upstream PR Radar
+#### 🆕 New PRs Opened (6)
+- [#2477](https://github.com/moeru-ai/airi/pull/2477) `feat(inference): add native Responses API context projection` by **@luoling8192** *(2 comments)*
+- [#2474](https://github.com/moeru-ai/airi/pull/2474) `fix(stage-tamagotchi): prevent controls island overflow in small windows with scroll` by **@nayounsang** *(2 comments)*
+- [#2476](https://github.com/moeru-ai/airi/pull/2476) `feat(plugin-host): add combined lifecycle controls` by **@leaft** *(2 comments)*
+- [#2299](https://github.com/moeru-ai/airi/pull/2299) `feat(providers): add Prompt API Provider` by **@AdairLi2504** *(2 comments)*
+- [#2475](https://github.com/moeru-ai/airi/pull/2475) `feat(stage-layouts): add mobile view adjustment mode` by **@luoling8192** *(2 comments)*
+- [#2333](https://github.com/moeru-ai/airi/pull/2333) `fix(server): pass through final upstream errors` by **@luoling8192** *(2 comments)*
+
+#### 🔄 PR Status & Lifecycle Changes (2)
+- [#2451](https://github.com/moeru-ai/airi/pull/2451) `fix(stage-tamagotchi): show Live2D expressions in settings` — `OPEN` ➔ `MERGED`
+- [#2472](https://github.com/moeru-ai/airi/pull/2472) `feat(stage-layouts): simplify mobile stage controls` — `OPEN` ➔ `MERGED`
+
+#### 💬 Discussion Activity (5)
+- [#2203](https://github.com/moeru-ai/airi/pull/2203) `fix(desktop): restore off-screen main window` — *+1 comments (23 ➔ 24 total)*
+- [#2420](https://github.com/moeru-ai/airi/pull/2420) `feat(api): add Steam MicroTxn payment channel` — *+1 comments (1 ➔ 2 total)*
+- [#2368](https://github.com/moeru-ai/airi/pull/2368) `refactor(api): extract payment CORE to support other payment providers [2/2]` — *+1 comments (0 ➔ 1 total)*
+- [#2339](https://github.com/moeru-ai/airi/pull/2339) `feat(api): add Apple IAP payment channel backend` — *+1 comments (2 ➔ 3 total)*
+- [#2467](https://github.com/moeru-ai/airi/pull/2467) `fix(stage-ui): persist speech provider settings` — *+1 comments (1 ➔ 2 total)*
+
+---
 ## [2026-09-06] Upstream PR Activity: `f166736a` (6 PR update(s))
 
 ### 🎯 Executive Highlights
