@@ -242,6 +242,8 @@ export default defineConfig({
       '@proj-airi/stage-layouts': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-layouts', 'src')),
       '@proj-airi/stage-pages': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-pages', 'src')),
       '@proj-airi/stage-shared': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-shared', 'src')),
+      '@proj-airi/model-driver-magic-live2d': resolve(join(import.meta.dirname, '..', '..', 'packages', 'model-driver-magic-live2d', 'src')),
+      '@proj-airi/motion-driver-magic': resolve(join(import.meta.dirname, '..', '..', 'packages', 'motion-driver-magic', 'src')),
     },
   },
   server: {
