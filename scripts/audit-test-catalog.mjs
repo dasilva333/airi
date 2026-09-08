@@ -77,7 +77,13 @@ try {
   vitestSuites = [...uniqueVitestFiles]
 }
 catch (err) {
-  console.warn('⚠️ Could not run vitest list --json, falling back to filesystem scan.')
+  console.error('❌ Vitest test suite discovery failed:', err.message)
+  process.exit(1)
+}
+
+if (vitestSuites.length === 0) {
+  console.error('❌ Vitest discovery returned 0 test suites. Cannot verify catalog parity.')
+  process.exit(1)
 }
 
 let untrackedSuites = 0

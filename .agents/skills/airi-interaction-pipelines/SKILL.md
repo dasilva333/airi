@@ -16,7 +16,13 @@ Own connections between ingestion, inference, response processing, and output. S
 
 ## Boundaries
 
-`packages/stage-ui/src/stores/chat.ts` owns turn-based orchestration. `stores/modules/live-session.ts` is a parallel Gemini Live implementation; active Live text bypasses `performSend`.
+`packages/stage-ui/src/stores/chat.ts` owns turn-based orchestration (`ingest`, serial queue, provider streaming, and tool loop bounds). Pure computational seams are decomposed into dedicated helpers under `stores/chat/`:
+- `stores/chat/error-formatter.ts`: Markdown error cards and auth guidance (`formatChatError`).
+- `stores/chat/tool-bridge.ts`: 5-dialect marker syntax recognition (`recognizeToolMarker`) and lenient argument parsing (`parseBridgeArguments`, `tryParseLenientJson`).
+- `stores/chat/intrusions.ts`: Goal-driven Dating Sim climax calculation and dream/journal/artistry prompt interpolation (`formatClimaxPrompt`, `formatDreamPrompt`, `formatJournalPrompt`, `formatArtistryPrompt`).
+- `stores/chat/grounding-assembler.ts`: 8-source contextual grounding message formatters and deterministic builder (`buildGroundingMessages`).
+
+`stores/modules/live-session.ts` is a parallel Gemini Live implementation; active Live text bypasses `performSend`.
 
 Use [speech runtime](../airi-speech-runtime/SKILL.md) for intent scheduling/host lifecycle, [pacing](../airi-conversational-pacing/SKILL.md) for fillers, [audio pipeline](../airi-audio-pipeline/SKILL.md) for synthesis/devices, and [LLM dispatch](../airi-llm-dispatch-gateway/SKILL.md) for provider requests. Do not duplicate these subsystems inside an ingestion fix.
 

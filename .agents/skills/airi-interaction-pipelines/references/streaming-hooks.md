@@ -4,6 +4,8 @@
 
 - `packages/stage-ui/src/stores/chat.ts`: `performSend`, stream-event handling, hook emissions.
 - `packages/stage-ui/src/stores/chat/hooks.ts`: `createChatHooks`.
+- `packages/stage-ui/src/stores/chat/tool-bridge.ts`: `recognizeToolMarker`, `parseBridgeArguments`, `tryParseLenientJson`.
+- `packages/stage-ui/src/stores/chat/error-formatter.ts`: `formatChatError`.
 - `packages/stage-ui/src/composables/llm-marker-parser.ts`: `useLlmmarkerParser`.
 - `packages/stage-ui/src/composables/response-categoriser.ts`: `createStreamingCategorizer`.
 - `packages/stage-ui/src/components/scenes/ControlStripHost.vue`: speech/pacing hook consumers.

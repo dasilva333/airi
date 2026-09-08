@@ -14,12 +14,15 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-const activeCardRef = ref({
+const activeCardRef = ref<any>({
   name: 'Airi',
   extensions: {
     airi: {
       groundingEnabled: false,
+      groundingMemoryEnabled: false,
       groundingTopicsEnabled: false,
+      groundingDirectorScratchpadEnabled: false,
+      salienceGateEnabled: false,
       recentTopics: [] as Array<{ topic: string, weight: number }>,
       textJournal: {
         injectJournalContext: false,
@@ -79,6 +82,33 @@ vi.mock('../background', () => ({
   }),
 }))
 
+vi.mock('../memory-text-journal', () => ({
+  useTextJournalStore: () => ({
+    searchEntries: vi.fn(async () => [
+      { kind: 'journal', title: 'Summer Trip', content: 'Went to the beach.' },
+    ]),
+  }),
+}))
+
+vi.mock('../../database/repos/director-notes.repo', () => ({
+  directorNotesRepo: {
+    getNotes: vi.fn(async () => [
+      { createdAt: 1000, scratchpad: 'Holding a red mug in the cafe.' },
+    ]),
+  },
+}))
+
+vi.mock('./salience', () => ({
+  useChatSalienceStore: () => ({
+    probeTurn: vi.fn(async () => ({
+      hot: true,
+      lateLayerDeltas: [0.12, 0.34, 0.56],
+      lateLayerMean: 0.34,
+      controlMean: 0.1,
+    })),
+  }),
+}))
+
 describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', () => {
   let pinia: ReturnType<typeof createTestingPinia>
 
@@ -89,7 +119,10 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
     // Reset card extensions
     activeCardRef.value.extensions.airi = {
       groundingEnabled: false,
+      groundingMemoryEnabled: false,
       groundingTopicsEnabled: false,
+      groundingDirectorScratchpadEnabled: false,
+      salienceGateEnabled: false,
       recentTopics: [],
       textJournal: {
         injectJournalContext: false,
@@ -246,8 +279,8 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
     expect(typeof primaryUserMsg.content === 'string' || !primaryUserMsg.content.some((part: any) => part.type === 'image_url')).toBe(true)
   })
 
-  // P4: Grounding order preservation
-  it('p4: preserves deterministic order of grounding blocks (VLM -> Environmental -> Topics)', async () => {
+  // P4: Grounding order preservation across all 8 sources
+  it('p4: preserves deterministic order of all 8 grounding blocks (VLM -> Env -> STMM -> LTMM -> RAG -> Topics -> Scratchpad -> Salience)', async () => {
     const chatStore = useChatOrchestratorStore(pinia)
     const chatSession = useChatSessionStore(pinia)
     const llmStore = useLLM(pinia)
@@ -256,13 +289,21 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
     chatSession.activeSessionId = sessionId
     chatSession.setSessionMessages(sessionId, [])
 
-    // Enable sensors and recent topics on card
+    // Enable all grounding systems on card
     activeCardRef.value.extensions.airi.groundingEnabled = true
+    activeCardRef.value.extensions.airi.groundingMemoryEnabled = true
     activeCardRef.value.extensions.airi.groundingTopicsEnabled = true
+    activeCardRef.value.extensions.airi.groundingDirectorScratchpadEnabled = true
+    activeCardRef.value.extensions.airi.salienceGateEnabled = true
     activeCardRef.value.extensions.airi.recentTopics = [
       { topic: 'Quantum Computing', weight: 0.95 },
     ]
 
+    // 1.5 & 1.6: STMM & Lifetime memory mocks on chatSession
+    chatSession.buildShortTermMemoryContext = vi.fn(() => '[DAILY MEMORY CONTINUITY]\nToday was productive.')
+    chatSession.buildLifetimeMemoryContext = vi.fn(() => '[LIFETIME RECORD]\nLikes tea and coding.')
+
+    // 0: VLM forward inference mock
     llmStore.generate = vi.fn(async () => ({
       text: 'A diagram of a qubit circuit.',
       usage: {},
@@ -278,29 +319,42 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
       })
     })
 
-    await chatStore.ingest('Look at my diagram', {
+    await chatStore.ingest('Look at my diagram and tell me what you see', {
       triggerOnly: false,
       attachments: [{ type: 'image', mimeType: 'image/png', data: 'qubit-diag' }],
     }, sessionId)
 
-    // Locate grounding system messages
-    const imageIndex = capturedMessages.findIndex((m: any) => m.content?.startsWith('[IMAGE ANALYSIS]'))
-    // Notice: As characterized, sensor context is also included in the earlier combined context block.
-    // The dedicated grounding sequence block starts with '[ENVIRONMENTAL AWARENESS]'.
-    const envIndex = capturedMessages.findIndex((m: any, i: number) => i > imageIndex && m.content?.startsWith('[ENVIRONMENTAL AWARENESS]'))
-    const topicsIndex = capturedMessages.findIndex((m: any) => m.content?.startsWith('[RECENT TOPICS]'))
+    // Locate all 8 grounding system messages in the streamed prompt
+    const idx0 = capturedMessages.findIndex((m: any) => m.content?.includes('[IMAGE ANALYSIS]'))
+    const idx1 = capturedMessages.findIndex((m: any, i: number) => i > idx0 && m.content?.includes('[ENVIRONMENTAL AWARENESS]'))
+    const idx15 = capturedMessages.findIndex((m: any) => m.content?.includes('[DAILY MEMORY CONTINUITY]'))
+    const idx16 = capturedMessages.findIndex((m: any) => m.content?.includes('[LIFETIME RECORD]'))
+    const idx2 = capturedMessages.findIndex((m: any) => m.content?.includes('[GROUNDED LONG-TERM MEMORIES]'))
+    const idx3 = capturedMessages.findIndex((m: any) => m.content?.includes('[RECENT TOPICS]'))
+    const idx4 = capturedMessages.findIndex((m: any) => m.content?.includes('[VISUAL STATE BOARD]'))
+    const idx5 = capturedMessages.findIndex((m: any) => m.content?.includes('[SALIENCE TELEMETRY]'))
 
-    expect(imageIndex).toBeGreaterThan(-1)
-    expect(envIndex).toBeGreaterThan(-1)
-    expect(topicsIndex).toBeGreaterThan(-1)
+    expect(idx0).toBeGreaterThan(-1)
+    expect(idx1).toBeGreaterThan(-1)
+    expect(idx15).toBeGreaterThan(-1)
+    expect(idx16).toBeGreaterThan(-1)
+    expect(idx2).toBeGreaterThan(-1)
+    expect(idx3).toBeGreaterThan(-1)
+    expect(idx4).toBeGreaterThan(-1)
+    expect(idx5).toBeGreaterThan(-1)
 
-    // Assert exact 8-part sequence preservation: Image Analysis (idx 2) < Environmental (idx 3) < Recent Topics (idx 4)
-    expect(imageIndex).toBeLessThan(envIndex)
-    expect(envIndex).toBeLessThan(topicsIndex)
+    // Assert exact 8-part sequence preservation: 0 < 1 < 1.5 < 1.6 < 2 < 3 < 4 < 5
+    expect(idx0).toBeLessThan(idx1)
+    expect(idx1).toBeLessThan(idx15)
+    expect(idx15).toBeLessThan(idx16)
+    expect(idx16).toBeLessThan(idx2)
+    expect(idx2).toBeLessThan(idx3)
+    expect(idx3).toBeLessThan(idx4)
+    expect(idx4).toBeLessThan(idx5)
   })
 
   // Intrusions: Staging consumption & clearing
-  it('consumes and clears staged journal intrusion upon injection', async () => {
+  it('consumes and clears staged journal intrusion before model inference begins', async () => {
     const chatStore = useChatOrchestratorStore(pinia)
     const chatSession = useChatSessionStore(pinia)
     const llmStore = useLLM(pinia)
@@ -324,8 +378,11 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
     expect(pendingIntrusionStaging.journal).toBeDefined()
 
     let capturedMessages: any[] = []
+    let stagingClearedBeforeStream = false
 
     llmStore.stream = vi.fn(async (_model, _provider, msgs, options) => {
+      // ASSERT: At the moment llmStore.stream is called, staging must ALREADY be cleared!
+      stagingClearedBeforeStream = pendingIntrusionStaging.journal === undefined
       capturedMessages = structuredClone(msgs)
       await options.onStreamEvent({
         type: 'text-delta',
@@ -341,7 +398,54 @@ describe('chat orchestrator prompt & grounding contracts (P1-P4, Intrusions)', (
     )
     expect(journalBlock).toBeDefined()
 
-    // 2. Pending staging was cleared immediately after insertion
+    // 2. Pending staging was cleared before stream began
+    expect(stagingClearedBeforeStream).toBe(true)
     expect(pendingIntrusionStaging.journal).toBeUndefined()
+  })
+
+  it('clears staged journal intrusion even when entryText is empty string (preserving baseline staging parity)', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-intrusions-empty-entry'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    activeCardRef.value.extensions.airi.textJournal = {
+      injectJournalContext: true,
+      journalIntrusionPrompt: 'Reflect empty: {journalEntryText}',
+    }
+
+    stageJournalIntrusion({
+      entryText: '',
+      timestamp: Date.now(),
+    })
+
+    expect(pendingIntrusionStaging.journal).toBeDefined()
+
+    let stagingClearedBeforeStream = false
+    let capturedMessages: any[] = []
+
+    llmStore.stream = vi.fn(async (_model, _provider, msgs, options) => {
+      stagingClearedBeforeStream = pendingIntrusionStaging.journal === undefined
+      capturedMessages = structuredClone(msgs)
+      await options.onStreamEvent({
+        type: 'text-delta',
+        text: 'Empty staging cleared successfully.',
+      })
+    })
+
+    await chatStore.ingest('Hello', { triggerOnly: false }, sessionId)
+
+    // 1. Staging was cleared before stream began despite empty entry text
+    expect(stagingClearedBeforeStream).toBe(true)
+    expect(pendingIntrusionStaging.journal).toBeUndefined()
+
+    // 2. Formatted prompt was injected into system message
+    const journalBlock = capturedMessages.find(
+      (m: any) => m.role === 'system' && m.content?.includes('Reflect empty:'),
+    )
+    expect(journalBlock).toBeDefined()
   })
 })

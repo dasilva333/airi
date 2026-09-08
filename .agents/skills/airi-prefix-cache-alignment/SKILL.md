@@ -9,7 +9,7 @@ Stable prefix first, volatile tail last. The whole point is layout geometry: kee
 ## Key Files/Locations
 
 - `packages/stage-ui/src/stores/chat/session-store.ts` — `generateInitialMessageFromPrompt()` creates pure, frozen `messages[0]`; exports `buildShortTermMemoryContext` and `buildLifetimeMemoryContext`.
-- `packages/stage-ui/src/stores/chat.ts` — `performSend()` injects trailing `groundingMessages` (Sensors, STMM, Lifetime, RAG, Topics, Director Scratchpad, Salience) at the tail before the user turn.
+- `packages/stage-ui/src/stores/chat.ts` — `performSend()` uses `packages/stage-ui/src/stores/chat/grounding-assembler.ts` to format and assemble trailing `groundingMessages` across 8 sources in strict deterministic order (VLM -> Environmental -> STMM -> LTMM -> RAG -> Topics -> Scratchpad -> Salience) at the tail before the user turn.
 - `packages/stage-ui/src/stores/llm.ts` — `combineSystemMessagesIfNeeded()` preserves multi-system prompt blocks for OpenAI/DeepSeek/OpenRouter while merging for single-system providers (Google, WebLLM).
 - `scripts/validate-prefix-cache.js` — Empirical validator tool comparing two LLM payloads to measure exact prefix overlap and locate divergence boundaries.
 - `docs/proposal-prefix-cache-alignment.md` — The architectural specification for prefix cache alignment.

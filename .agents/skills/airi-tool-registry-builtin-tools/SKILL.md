@@ -45,7 +45,11 @@ Tool authoring conventions in repo: `tool({ name, description, parameters: zod s
 
 ### 2.1 ACT-Marker Tool Bridging (legacy-models path)
 
-`chat.ts` `tryBridgeMarker` (:795+) converts text-emitted pseudo-tool-call markers into first-class slices when the model does not natively tool-call. Recognizes `<|tool:args|>`, `[call_tool:tool, args]`, `<tool_call>...</tool_call>` (both keyed-args and JSON flavors), parses kwargs with a lenient kv regex + `tryParseLenientJson`, looks the tool up in the same `options.tools`/resolver set, and **enqueues a `tool-call` slice into `toolCallQueue`** (:891+) identical to a native call. Bridged calls are therefore subject to the same execution, result handling, and stop/cancel semantics as native tool calls — treat the two as one mechanism when tracing.
+Syntax parsing is isolated in `packages/stage-ui/src/stores/chat/tool-bridge.ts`. `chat.ts`'s `tryBridgeMarker` converts text-emitted pseudo-tool-call markers into first-class slices when the model does not natively tool-call:
+- **`recognizeToolMarker(input)`**: Recognizes 5 marker dialects (`<|tool:args|>`, `[call_tool:tool, args]`, `<tool_call>name(args)</tool_call>`, `<tool_call>{json}</tool_call>`, and unclosed variations), returning `{ kind: 'candidate', toolName, argumentsText, matchedText }` on valid candidates, `{ kind: 'malformed' }` on corrupted syntax, or `{ kind: 'none' }`.
+- **Malformed Marker Non-Consumption**: When `candidate.kind !== 'candidate'`, `tryBridgeMarker` returns `{ matchedText: '', bridged: false }` so outer streaming loops do not prematurely consume or strip corrupted text from the buffer.
+- **`parseBridgeArguments(argumentsText)` & `tryParseLenientJson`**: Handles key-value pairs (`foo="bar"`), unclosed quote repair, and delimiter balancing.
+- **Bridged Dispatch**: Looks up the tool in `options.tools`/`toolsResolver`, allocates a synthetic ID (`id: bridge-${nanoid()}` with strict `index: 0`), and **enqueues a `tool-call` slice into `toolCallQueue`** identical to a native call. Bridged calls are therefore subject to the same execution, result handling, and stop/cancel semantics as native tool calls — treat the two as one mechanism when tracing.
 
 ## 3. Card-Level Gating & Progressive Capability Packs
 

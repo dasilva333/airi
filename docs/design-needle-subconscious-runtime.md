@@ -1,66 +1,85 @@
-# Architectural Design: Needle 2 On-Device WASM Subconscious Runtime ("Daydreaming")
+# Architectural Design: Needle 2 Subconscious Runtime (Daydreaming & Toggle 4 Recent Topics)
 
 **Status:** Proposed Architecture & Design Specification
 **Authors:** AIRI Team & AI Assistant
-**Date:** 2026-09-06
+**Date:** 2026-09-08 (Updated to unify Daydreaming & Toggle 4)
 **Target Components:**
 - `packages/stage-ui/src/workers/needle/` (WASM worker host)
-- `packages/stage-ui/src/stores/daydream.ts` (subconscious state store)
-- `packages/stage-ui/src/stores/echo-chips.ts` (prospective tagging & map-reduce)
+- `packages/stage-ui/src/stores/daydream.ts` (subconscious state store & cadence governor)
+- `packages/stage-ui/src/stores/chat/recent-topics.ts` (ML-driven Toggle 4 state)
+- `packages/stage-ui/src/stores/chat/grounding-assembler.ts` (`formatRecentTopicsBlock` consumer)
+- `packages/stage-ui/src/components/scenarios/chat/` (Memories ribbon, column drawer, amber pre-flight panel)
+- `packages/stage-ui/src/database/repos/echo-chips.repo.ts` (persisted daydream chips)
 - `packages/stage-ui/src/composables/speech-runtime/` (TTS murmurs, asides, inner thoughts)
-- `packages/stage-ui/src/components/scenarios/chat/` (in-scene thought bubbles, grounding HUD)
-- `docs/proposal-attention-ecology-local-webgpu-guard.md` (Stage 2 cognitive gate)
 
 **Related Authoritative References:**
-- [`docs/project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md) — Phase 3 & 4 structured extraction failure modes.
-- [`docs/proposal-echo-chips-rwkv-synthesis.md`](./proposal-echo-chips-rwkv-synthesis.md) — Offline memory synthesis specification.
-- [`docs/proposal-attention-ecology-local-webgpu-guard.md`](./proposal-attention-ecology-local-webgpu-guard.md) — Cascaded salience gating & subconscious loop.
-- [`docs/design-contextual-streaming-tts-and-sentence-sync.md`](./design-contextual-streaming-tts-and-sentence-sync.md) — Sentence-sync audio player & captions.
-- [`docs/design-head-tethered-captions.md`](./design-head-tethered-captions.md) — In-scene floating caption plank & bubble mechanics.
+- [`docs/architecture-chat-orchestrator-decomposition.md`](./architecture-chat-orchestrator-decomposition.md) — Phase 4 `grounding-assembler.ts` seam for `[RECENT TOPICS]`.
+- [`docs/proposal-toggle4-rework-and-rwkv-harness.md`](./proposal-toggle4-rework-and-rwkv-harness.md) — Problem statement on stopword failure & Toggle 4 "Here & Now" requirements.
+- [`docs/proposal-dynamic-memory-rag-injection.md`](./proposal-dynamic-memory-rag-injection.md) — Original Toggle 4 context injection & Pre-Flight Grounding specification.
+- [`docs/proposal-echo-chips-rwkv-synthesis.md`](./proposal-echo-chips-rwkv-synthesis.md) — Original Echo Chips memory synthesis & ticker concepts.
+- [`docs/project-rwkv-cleanroom-harness-plan.md`](./project-rwkv-cleanroom-harness-plan.md) — Cleanroom test harness (`scripts/tests/rwkv-harness/`).
 - **Cactus Needle Architecture:** [arXiv:2607.18363](https://arxiv.org/abs/2607.18363) · [Hugging Face: Cactus-Compute/needle2](https://huggingface.co/Cactus-Compute/needle2)
 
 ---
 
-## 1. Executive Summary & The "Daydreaming" Duality
+## 1. Executive Summary: The Dual-Surface Subconscious Layer
 
-AIRI’s cognitive architecture has historically operated on two extreme scales:
-1. **Primary Consciousness (Cloud/Local LLMs):** 3B–70B+ parameter frontier models (Claude 3.5 Sonnet, GPT-4o, Gemini 1.5/2.0 Flash, Qwen 2.5). Capable of deep reasoning, emotional nuances, and creative roleplay, but high latency (800ms–3,000ms), expensive on tokens, and battery-intensive for continuous 24/7 loops.
-2. **Night Dreaming / Memory Consolidation (Batch Offline):** Scheduled sleep-cycle passes (e.g. at 3 AM or 1 hour post-session) that process accumulated chat history into short-term summaries (STMM) and text journals (LTMM).
+AIRI’s cognitive and memory architecture historically operated on two complementary scales:
+1. **Primary Consciousness (Frontier Cloud LLMs):** Heavy, 3B–70B+ models handling direct conversational turns. High latency (800ms–3,000ms) and token-expensive.
+2. **Dormant "Dreaming" (Echo Chips Batch Consolidation):** When you step away from the chat and the session goes idle, AIRI executes a background "Dreaming" pass (often surfaced in the UI simply as *Dreaming*). It runs in silence while the user is "out of it," processing recent dialogue into durable Echo Chips (`mood`, `flavor`, `journal_candidate`) so that when you return, there are fresh memory anchors waiting in the memories feed.
 
-What has been missing is an ultra-fast, zero-cost **Subconscious Layer ("Daydreaming")**: an on-device engine that runs continuously in the background *during* active conversation, evaluating beats in sub-second time without interrupting primary dialogue generation.
+**What was missing—and what "Daydreaming" introduces—is the active, real-time counterpart.**
+Echo Chips (Dreaming) is not being deprecated; it remains the authoritative dormant synthesis engine. However, users shouldn't have to step away and wait for silent night passes to see dynamic, living artifacts in the UI.
 
-### Why Needle 2 Fits This Role
-Needle 2 (developed by Cactus Compute) is an open **45M-parameter Simple Attention Network (SAN)** packaged into a single **14 MB self-contained binary** requiring only **~28–60 MB of session RAM**. By employing Walsh-Hadamard MLPs, engram hash tables, 2-bit quantization (CQ2-bit), and byte-level grammar compilation directly from JSON schemas, Needle runs in WebAssembly at **500+ tokens/second** on standard CPU threads.
+**"Daydreaming" happens while you are present and conversing.** Powered by **Needle 2** (an on-device 14 MB / CPU WASM model running in ~150ms between turns), it extracts novel tags dynamically between conversational turns.
+
+Crucially, **Daydreaming** and **Recent Topics (Toggle 4)** are two consumer surfaces of this exact same underlying subconscious engine, and **Daydreaming Chips live side-by-side with Echo Chips in the very same visual memories stream**:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       AIRI Cognitive Layering                               │
-├────────────────────────────────┬────────────────────────────────────────────┤
-│ 🌙 Night Dreams (Consolidation) │ ☀️ Daydreaming (Subconscious Runtime)       │
-├────────────────────────────────┼────────────────────────────────────────────┤
-│ • Heavy batch summarization    │ • Ultra-low-latency (~150ms per beat)      │
-│ • Runs post-session / sleep    │ • Runs concurrently during active chat     │
-│ • Cloud LLM (Claude / GPT-4o)  │ • Local WASM Web Worker (Needle 2, 14 MB)  │
-│ • Compresses STMM → LTMM       │ • Emits live murmurs, vibe HUD updates,    │
-│ • High token budget, slow      │   and prospective salience turn anchors    │
-└────────────────────────────────┴────────────────────────────────────────────┘
+                                  Active Conversation Turn
+                              (Sliding Window: Last 2–4 Turns)
+                                              │
+                                              ▼
+                               ┌─────────────────────────────┐
+                               │   Needle 2 Subconscious     │
+                               │   WASM Worker (14 MB / CPU) │
+                               └──────────────┬──────────────┘
+                                              │
+                                Extracts Beat Schema (150ms)
+                                • active_topics [{topic, weight}]
+                                • daydream_chip {text, type, score}
+                                • vibe & inner_thought
+                                              │
+               ┌──────────────────────────────┴──────────────────────────────┐
+               ▼                                                             ▼
+┌─────────────────────────────┐                               ┌─────────────────────────────┐
+│ Surface 1: Context Grounding│                               │ Surface 2: Visual UI Stream │
+│     (Toggle 4 Injection)    │                               │ (Daydreaming + Echo Chips)  │
+├─────────────────────────────┤                               ├─────────────────────────────┤
+│ • Amber PRE-FLIGHT panel    │                               │ • Shared Memories Ribbon &  │
+│ • Previews `[RECENT TOPICS]`│                               │   Vertical Column Drawer    │
+│ • Injects into LLM prompt   │                               │ • Co-exists with dormant    │
+│   via `grounding-assembler` │                               │   Echo Chips in same feed   │
+│ • Immediate conversational  │                               │ • See Echo Chips on return, │
+│   orientation for character │                               │   then Daydream chips stream│
+│                             │                               │   in as you chat            │
+└─────────────────────────────┘                               └─────────────────────────────┘
 ```
 
 ---
 
-## 2. Empirical Verification: RWKV-7 Baseline vs. Needle 2
+## 2. Empirical Verification: Needle 2 as an Extractor, Not a Generator
 
-To establish technical ground truth before designing application code, Needle 2 was evaluated against the exact cleanroom corpus and scoring metrics established in [`scripts/tests/rwkv-harness/experiments/03-echo-chip-eval.ts`](../scripts/tests/rwkv-harness/experiments/03-echo-chip-eval.ts).
+To establish technical ground truth before designing code, Needle 2 was evaluated against the cleanroom corpus established in [`scripts/tests/rwkv-harness/experiments/03-echo-chip-eval.ts`](../scripts/tests/rwkv-harness/experiments/03-echo-chip-eval.ts).
 
-### 2.1 The RWKV-7 Cleanroom Failure Modes (Phase 3 & 4)
-In earlier R&D, AIRI tested a WebGPU-native RWKV-7 0.1B base model (`DanielClough/rwkv7-g1-safetensors`, 364 MB) for offline memory extraction:
-* **Phase 3 (Raw Generation):** 0% schema compliance. The 0.1B base model hallucinated fake user turns (`\nUser:`), roleplayed instead of emitting JSON, and failed all 14 ground-truth test pills.
-* **Phase 4 (Logit Masking):** 33% schema compliance. Even with logit masks forcing valid enum tokens, the model suffered from **"Grammar Escape"**—the instant the masked slot ended, it broke out of JSON syntax into runaway prose.
+### 2.1 Cleanroom Comparison: RWKV-7 vs. Needle 2
 
-### 2.2 Measured Needle 2 Cleanroom Performance
-Running Needle 2 (v2.0.12 engine) against the same candidate transcripts produced the following results:
+In earlier tests, a WebGPU-native RWKV-7 0.1B base model was evaluated for memory extraction:
+* **RWKV-7 Raw Generation (Phase 3):** 0% schema compliance. It hallucinated fake user turns (`\nUser:`), roleplayed instead of emitting JSON, and failed all 14 ground-truth pills.
+* **RWKV-7 Logit Masking (Phase 4):** 33% schema compliance. It suffered from **"Grammar Escape"**—the instant the masked slot ended, it broke out of JSON syntax into runaway prose.
+* **Needle 2 (45M SAN, CQ2-bit, WASM):** Achieved **100% strict schema determinism** via its byte-level grammar compiler directly from JSON schemas, executing on CPU with **zero GPU overhead**.
 
-| Evaluation Metric | RWKV-7 0.1B (Phase 3/4) | Needle 2 (Direct Monolith) | Needle 2 (Action `save_echo_chip`) |
+| Evaluation Metric | RWKV-7 0.1B (Phase 3/4) | Needle 2 (Abstract Summary) | Needle 2 (Action Extractor) |
 | :--- | :---: | :---: | :---: |
 | **Model Size / Binary** | 364 MB (safetensors) | **14 MB** (CQ2-bit) | **14 MB** (CQ2-bit) |
 | **Active Session RAM** | ~380 MB | **52–66 MB** | **52–66 MB** |
@@ -71,105 +90,128 @@ Running Needle 2 (v2.0.12 engine) against the same candidate transcripts produce
 | **Per-Beat Latency** | 8,000–14,000 ms | 200–1,100 ms | **150–350 ms** |
 | **Ground Truth Accuracy** | 0 / 14 pills matched | 0 / 14 (Model Refusal) | **High Grounding (Direct Hits)** |
 
-### 2.3 Critical Architectural Insights Discovered
-1. **100% Grammar Determinism:** Needle’s byte-level grammar engine compiles directly from JSON schemas. Unlike RWKV, it is physically impossible for Needle to emit invalid JSON or escape syntax.
-2. **Schema Inlining Requirement:** In `libneedle` (v2.0.4), complex nested schemas using Pydantic `$defs` / `$ref` pointers trigger engine CPU hangs. Schemas must be sent as **flat, inlined JSON schemas**.
-3. **Action vs. Summarization Framing:** Needle 2 is an **agentic action model**, not a prose summarizer. When fed an 80-turn conversation asking for an abstract array of `pills: [...]`, its calibrated confidence head triggers an empty refusal (`pills: []`, confidence < 0.05). However, when framed as an immediate turn action (`save_echo_chip(content, type)`), it immediately extracts grounded moments (e.g. matching Ground Truth *"snuggles first"* and *"taiyaki from the freezer"*).
+### 2.2 The Fundamental Realization: Needle is an Extractor First
+
+The cleanroom experiments revealed an essential architectural principle:
+* When given an 80-turn conversation and asked for an abstract array of summaries (`pills: [...]`), Needle's calibrated confidence head triggers an empty refusal (`pills: []`, confidence < 0.05). **Needle is not an open-ended prose generator or macro-summarizer.**
+* However, when framed as an **action extractor over an immediate sliding window of 2–4 turns**, Needle excels: it instantly extracts grounded, high-salience phrases (matching ground truth like *"snuggles first"* and *"taiyaki from the freezer"*).
+* This makes Needle the **exact engine needed for Toggle 4 and Daydreaming**, which both require high-precision extraction over recent turns without running stopword dictionaries or heavy cloud models.
 
 ---
 
-## 3. Subsystem Applications in AIRI
+## 3. The Two Consumer Surfaces
 
-```
-                     Active Chat Turn (User / Assistant)
-                                      │
-                                      ▼
-                      ┌──────────────────────────────┐
-                      │    Needle WASM Web Worker    │
-                      │  (Window: Last 2–4 Turns)    │
-                      └──────────────┬───────────────┘
-                                     │
-           ┌─────────────────────────┼─────────────────────────┐
-           ▼                         ▼                         ▼
-┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
-│ 1. Living Vibe HUD  │   │ 2. Subvocal Murmurs │   │ 3. Prospective Tags │
-│ Real-time mood pill │   │ TTS asides, thought │   │ Pre-flags salient   │
-│ & ACT emotion cues  │   │ bubble in-scene fx  │   │ turns for night RAG │
-└─────────────────────┘   └─────────────────────┘   └─────────────────────┘
-```
+### 3.1 Surface 1: Toggle 4 Context Grounding (Prompt Injection)
 
-### 3.1 Living Vibe & Micro-Chips HUD
-* **Problem:** Currently, character mood and dynamic tags in `ChatGroundingPopover.vue` remain static or only update if a heavy cloud LLM call runs.
-* **Needle Solution:** After every dialogue turn, Needle evaluates the immediate emotional shift in 150ms. It updates an active `livingMood` ref in `packages/stage-ui/src/stores/daydream.ts` (e.g. `affectionate`, `flustered`, `playful`, `defensive`).
-* **Kinetics Trigger:** If the vibe changes drastically, the worker can emit a lightweight `<|ACT:emotion:...|>` cue directly to the avatar renderer (Live2D / VRM) before the user even types their next message.
+The original Toggle 4 (`recent-topics.ts`) was deprecated because its 270-line stopword list produced junk tags like `"going"` or `"think"` and mutated character cards continuously.
 
-### 3.2 Subvocalized Murmurs & Inner Thoughts
-* **Problem:** Characters in anime and visual novels constantly exhibit internal monologues, asides, and muttered reactions that humans relate to, but cloud LLMs cannot afford to generate on every turn without doubling token costs and latency.
-* **Needle Solution:**
-  * Needle generates a 3–6 word `inner_thought` string in parallel with turn completion.
-  * **Visual Surface:** Displayed via the head-tethered caption plank ([`design-head-tethered-captions.md`](./design-head-tethered-captions.md)) as a floating, translucent "thought bubble" distinct from spoken dialogue.
-  * **Audio Surface:** Passed to Kokoro TTS or Web Audio with a `[whisper]` filter, low gain (-12dB), and high stereo pan to simulate an intimate subconscious murmur.
+With Needle:
+1. **Sliding Window Ingestion:** On turn completion, the subconscious worker evaluates the last 2–4 turns.
+2. **Topic Extraction:** Needle returns 2–4 active topics with normalized weights (e.g. `[{ topic: "kitty corn bakery", weight: 0.95 }, { topic: "unicorn mythology", weight: 0.80 }]`).
+3. **Storage:** Stored in volatile session state (`useRecentTopicsStore`)—**never polluting the character card YAML/JSON**.
+4. **Pre-Flight UI Preview:** Displayed in the amber **`PRE-FLIGHT GROUNDING ACTIVE`** popover box above the chat composer alongside sensor and salience telemetry.
+5. **Prompt Assembly:** Injected cleanly into the 6th grounding slot via `formatRecentTopicsBlock()` in [`grounding-assembler.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/grounding-assembler.ts):
+   ```
+   [RECENT TOPICS]
+   You have the following topics and conceptual threads active in your recent memory. Use them to maintain awareness of what has been discussed lately:
+   ---
+   kitty corn bakery (weight: 0.95), unicorn mythology (weight: 0.80)
+   ```
 
-### 3.3 Prospective Memory Tagging (Solving the 80-Turn Problem)
-* **The Problem:** Night consolidation has to search through dozens of message objects to guess what was significant, often hallucinating or dropping critical nuances.
-* **The Needle Solution (Real-Time Curation):**
-  * As the conversation happens, Needle tags salient moments in real-time (`salient_moment: true`, with an evocative 2–5 word anchor tag).
-  * The active chat session records these indices into a lightweight `salienceAnchors` array attached to the session metadata.
-  * When the session closes, the heavy cloud model only needs to read the pre-flagged 3–5 salient anchors, reducing cloud token costs by **85%**.
+### 3.2 Surface 2: Visual UI Stream (Daydreaming & Echo Chips Co-Existence)
 
-### 3.4 Multipass Map-Reduce for Retrospective Sessions
-For historical logs that were not processed in real time:
-* **Inference Budget:** In a 3-second background budget, Needle can execute **15 to 20 passes**.
-* **Map:** Slice the 80-turn transcript into 15 overlapping 4-turn buckets. Needle evaluates each bucket in parallel/rapid serial passes.
-* **Reduce:** Discard empty/refusal calls, deduplicate overlapping concepts, and keep the top 3–5 highest-confidence chips.
+It is vital to state clearly: **Echo Chips (Dreaming) is NOT deprecated.** It has a permanent place in AIRI's memory architecture.
 
-### 3.5 Attention Ecology Local Cognitive Gatekeeper (Stage 2)
-In the Cascaded Salience Gate ([`docs/proposal-attention-ecology-local-webgpu-guard.md`](./proposal-attention-ecology-local-webgpu-guard.md)):
-* Stage 0 detects pixel/window changes via perceptual hash.
-* Stage 1 extracts CLIP embeddings and OCR snippets.
-* **Stage 2 (Needle WASM):** Replaces the proposed heavy RWKV-7 gatekeeper. Needle takes the OCR text and active window title, executing an action judgment: `PROMOTE` to cloud LLM, `NOTE` to diary, or `IGNORE`. Runs on CPU in 150ms without competing for GPU resources with Three.js / Pixi.js avatar rendering.
+The core distinction between the two is temporal context:
+* **Dreaming (Echo Chips):** Operates when you **step away**. In the quiet, dormant period while you are away, the background synthesizer processes the past conversation into reflective Echo Chips. When you come back to the chatbox, you are greeted with fresh memory pills that formed in silence while you were gone.
+* **Daydreaming:** Operates while you are **actively chatting**. It doesn't wait until you're gone. In the ~150ms gaps between dialogue turns, Needle extracts fresh, salient daydreaming chips dynamically as the conversation unfolds.
+
+**Both feed into the exact same visual stream:**
+* **The Horizontal Marquee Ribbon:** Located directly under the chat messages and above the composer (`MEMORIES 👁️`, horizontal carousel scrolling past daily summaries, journals, and chips).
+* **The Vertical Memories Drawer:** The right-hand column drawer displaying stacked cards.
+
+When you return to the chat after an absence, you see the **Echo Chips** that consolidated while you were away. Then, as you begin typing a message or two, you see fresh **Daydreaming Chips** appear right alongside the Echo Chips in the same unified stream!
 
 ---
 
-## 4. Web Worker Architecture & Platform Boundary
+## 4. Cadence Governance & Anti-Spam (The "Classy" Curation Engine)
 
-To eliminate technical debt and ensure strict workspace purity, AIRI will implement Needle **purely in WebAssembly via a dedicated Web Worker** (`packages/stage-ui/src/workers/needle/`).
+If the system dumped raw extracted tags into the visual Memories ribbon on every single turn, the UI would become noisy, repetitive, and mechanical.
+
+To maintain a refined, organic feel, the **Daydream Cadence Governor** in `packages/stage-ui/src/stores/daydream.ts` enforces four strict curation filters:
 
 ```
-Renderer UI / Pinia Stores (daydream.ts, chat.vue, InteractiveArea.vue)
-                           │
-                           │  Worker PostMessage / Eventa RPC
-                           ▼
-          ┌──────────────────────────────────────────────┐
-          │  packages/stage-ui/src/workers/needle/       │
-          │  ├── worker.ts     (Worker event loop)       │
-          │  ├── bridge.ts     (JS wrapper over Wasm)    │
-          │  └── needle.wasm   (14 MB precompiled binary)│
-          └──────────────────────────────────────────────┘
+                  Needle Extracted Beat Output
+                               │
+                               ▼
+               ┌───────────────────────────────┐
+               │ 1. Salience Score Threshold   │
+               │    (score >= 0.72)            │
+               └───────────────┬───────────────┘
+                               │ Pass
+                               ▼
+               ┌───────────────────────────────┐
+               │ 2. Deduplication & Semantic   │
+               │    Distance (Levenshtein/Sim) │
+               └───────────────┬───────────────┘
+                               │ Unique
+                               ▼
+               ┌───────────────────────────────┐
+               │ 3. Cadence Pacer              │
+               │    (Max 1 chip/turn;          │
+               │     avg 1 chip every 2–3 turns│
+               │     unless score > 0.90)      │
+               └───────────────┬───────────────┘
+                               │ Promoted
+                               ▼
+               ┌───────────────────────────────┐
+               │ 4. Smooth Ribbon Stream       │
+               │    Inserted into Memories     │
+               │    Ribbon & Marquee           │
+               └───────────────────────────────┘
 ```
 
-### 4.1 Why Reject Dual Native/WASM Implementations?
-* Electron desktop could run `libneedle.dll` natively via FFI, but doing so creates two parallel codebases, separate packaging pipelines for Windows/macOS/Linux, and platform-specific node-gyp build dependencies.
-* Cactus Compute already distributes pre-compiled `needle.wasm` in their Hugging Face repository ([`Cactus-Compute/needle2/wasm/`](https://huggingface.co/Cactus-Compute/needle2/tree/main/wasm)).
-* A single Web Worker runs identically across Electron (`apps/stage-tamagotchi`), Web (`apps/stage-web`), and Mobile (`apps/stage-pocket`).
+1. **Salience Score Threshold (`salience_score >= 0.72`):**
+   - Routine conversational chatter (e.g. *"okay thanks"*, *"what time is it"*) produces low scores (<0.50) and is silently dropped from the visual ribbon (though active topics may still update Toggle 4).
+   - Only distinctive narrative beats, nicknames, creative concepts, or emotional peaks score $\ge 0.72$.
 
-### 4.2 C ABI Interface
-The WASM module exports a lean 4-function C interface:
-```c
-// needle.h
-int needle_init(const char* system, const char* tools_json, const char* tool_index_path);
-int needle_complete(const char* text, int max_new_tokens, char* out_buffer, int buffer_size);
-void needle_reset();
-int needle_load(const char* weights_path);
-```
+2. **Deduplication & Similarity Filter:**
+   - Compares the candidate chip against the last 10 active chips in the session.
+   - If token overlap or edit distance is $> 0.60$ (e.g. *"unicorns"* vs *"unicorn mythology"*), the redundant chip is suppressed or merged by boosting the existing chip's recency.
 
-### 4.3 Data Contract: The Daydream Beat Schema
-The worker will register a flat, inlined schema specifically optimized for Needle's byte-level grammar compiler:
+3. **Cadence Governor (Sparse, Organic Timing):**
+   - **Hard Cap:** At most **1 chip per turn**.
+   - **Natural Rhythm:** On average, **1 chip every 2–3 turns**.
+   - **Breakthrough Exception:** If a turn triggers an exceptional milestone (`salience_score >= 0.92` or explicit user nickname/promise), it immediately breaks cadence and surfaces.
+
+4. **Decay & Ribbon Pruning:**
+   - The visual marquee maintains a sliding window of the top 8–12 most relevant daydream chips.
+   - Older chips gracefully fade out as new high-salience moments arrive.
+
+---
+
+## 5. Subvocal Murmurs & In-Scene Kinetics
+
+Beyond prompt injection and the memories ribbon, the subconscious beat outputs two multimedia signals:
+
+1. **Subvocal Murmurs & Thought Bubbles:**
+   - Needle emits a 3–6 word `inner_thought`.
+   - **Visual:** Displayed via the head-tethered caption plank as a translucent, floating thought bubble distinct from spoken dialogue.
+   - **Audio (Optional):** Routed to Kokoro TTS with a `[whisper]` filter, low gain (-12dB), and subtle stereo pan to simulate an intimate subconscious mutter.
+2. **Vibe & Kinetic Cues:**
+   - Needle extracts immediate emotional shift (`vibe`: `affectionate`, `flustered`, `playful`, `tense`, `melancholy`, `routine`).
+   - Dispatches micro-expressions directly to the Live2D/VRM renderer before the user finishes typing their next turn.
+
+---
+
+## 6. WASM Data Contract: The Subconscious Beat Schema
+
+The worker registers a flat, inlined JSON schema optimized for Needle's byte-level grammar compiler:
 
 ```json
 {
-  "name": "record_daydream",
-  "description": "Extract the immediate subconscious reaction and memory anchor for this turn beat.",
+  "name": "record_subconscious_beat",
+  "description": "Extract the immediate subconscious reaction, active topics, and memory anchor for this turn.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -181,67 +223,85 @@ The worker will register a flat, inlined schema specifically optimized for Needl
         "type": "string",
         "description": "Short 3 to 6 word internal murmur or reaction"
       },
-      "memory_tag": {
-        "type": "string",
-        "description": "Short evocative 2-5 word memory anchor phrase"
+      "active_topics": {
+        "type": "array",
+        "description": "Top 1 to 3 active conceptual threads for Toggle 4 grounding",
+        "items": {
+          "type": "object",
+          "properties": {
+            "topic": { "type": "string" },
+            "weight": { "type": "number" }
+          },
+          "required": ["topic", "weight"]
+        }
       },
-      "is_salient": {
-        "type": "boolean",
-        "description": "True if this turn represents a meaningful milestone, promise, or emotional peak"
+      "daydream_chip": {
+        "type": "object",
+        "description": "Candidate memory pill for the visual memories ribbon",
+        "properties": {
+          "text": { "type": "string", "description": "Evocative 2-5 word memory anchor phrase" },
+          "type": { "type": "string", "enum": ["flavor", "mood", "milestone"] },
+          "salience_score": { "type": "number", "description": "Significance from 0.00 to 1.00" }
+        },
+        "required": ["text", "salience_score"]
       }
     },
-    "required": ["vibe", "is_salient"]
+    "required": ["vibe", "active_topics"]
   }
 }
 ```
 
 ---
 
-## 5. Comprehensive File & Path Mapping Index
+## 7. Comprehensive File & Path Mapping Index
 
 | Subsystem / Layer | File Path | Role / Implementation Scope |
 |---|---|---|
-| **Needle WASM Binary** | `packages/stage-ui/src/workers/needle/needle.wasm` | 14 MB precompiled WASM engine (downloaded once from Hugging Face). |
-| **Needle Worker Script** | `packages/stage-ui/src/workers/needle/worker.ts` | Web Worker lifecycle, WASM linear memory management, message handler. |
-| **Worker Adapter Bridge** | `packages/stage-ui/src/libs/inference/adapters/needle.ts` | Eventa contract interface (`needleProbeBeatEvent`, `needleInitEvent`). |
-| **Daydream Pinia Store** | `packages/stage-ui/src/stores/daydream.ts` | Reactive state for living mood, latest inner thought, and salience anchors. |
-| **Chat Orchestration Hook** | `packages/stage-ui/src/stores/chat/orchestrator.ts` | Non-blocking dispatch to `daydreamStore.ingestBeat()` after turn delivery. |
-| **Echo Chips Integration** | `packages/stage-ui/src/stores/echo-chips.ts` | Map-reduce batch helper and consumer of pre-flagged `is_salient` anchors. |
-| **Speech Runtime Murmurs** | `packages/stage-ui/src/composables/speech-runtime/useSpeechCaptionPlayer.ts` | Subvocalized audio murmur playback and thought bubble timing. |
-| **In-Scene Caption Plank** | `packages/stage-ui/src/components/scenes/CaptionsOverlay.vue` | Rendering thought bubbles distinct from spoken dialogue text. |
-| **Pre-Flight Grounding UI** | `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` | Amber `Subconscious Active` badge and live vibe pill above chat input. |
-| **Attention Ecology Gate** | `packages/stage-ui/src/stores/proactivity.ts` | Stage 2 event routing (`PROMOTE` / `NOTE` / `IGNORE`). |
+| **Needle WASM Binary** | `packages/stage-ui/src/workers/needle/needle.wasm` | 14 MB precompiled WASM engine. |
+| **Needle Worker Script** | `packages/stage-ui/src/workers/needle/worker.ts` | Web Worker lifecycle, linear memory management, message handler. |
+| **Subconscious Adapter** | `packages/stage-ui/src/libs/inference/adapters/needle.ts` | Eventa contract interface (`needleProbeBeatEvent`, `needleInitEvent`). |
+| **Daydream Store & Governor** | `packages/stage-ui/src/stores/daydream.ts` | Manages rolling turn buffer, cadence governor, salience filtering, and living vibe. |
+| **Recent Topics Store** | `packages/stage-ui/src/stores/chat/recent-topics.ts` | Session-scoped active topic weights (replaces stopword parser). |
+| **Grounding Assembler Seam** | `packages/stage-ui/src/stores/chat/grounding-assembler.ts` | Consumes `recentTopics` to format `[RECENT TOPICS]` system block. |
+| **Pre-Flight Amber Panel** | `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` | Amber `PRE-FLIGHT GROUNDING ACTIVE` telemetry preview box. |
+| **Visual Memories Ribbon** | `packages/stage-ui/src/components/scenarios/chat/ChatMemoriesRibbon.vue` | Horizontal streaming marquee below chat messages. |
+| **Memories Column Drawer** | `packages/stage-ui/src/components/scenarios/chat/ChatMemoriesDrawer.vue` | Vertical right-hand sidebar for full journal/daydream cards. |
+| **In-Scene Caption Plank** | `packages/stage-ui/src/components/scenes/CaptionsOverlay.vue` | Ephemeral thought bubble rendering. |
 
 ---
 
-## 6. Phased Implementation Roadmap
+## 8. Phased Implementation Roadmap
 
 ```mermaid
 graph TD
-    P1["Phase 1: WASM Worker Substrate & Flat Schema Bridge"] --> P2["Phase 2: Daydream Store & Chat Orchestrator Hook"]
-    P2 --> P3["Phase 3: Living Vibe HUD & In-Scene Thought Captions"]
-    P3 --> P4["Phase 4: Subvocalized TTS Murmurs & ACT Cues"]
-    P4 --> P5["Phase 5: Prospective Salience Anchoring in Echo Chips"]
-    P5 --> P6["Phase 6: Attention Ecology Stage 2 Cognitive Guard"]
+    P1["Phase 1: WASM Worker Substrate & Grammar Bridge"] --> P2["Phase 2: Subconscious Worker Integration & Beat Pipeline"]
+    P2 --> P3["Phase 3: Toggle 4 Grounding Wire-Up (Amber Pre-Flight)"]
+    P2 --> P4["Phase 4: Cadence Governor & Memories Ribbon Stream"]
+    P4 --> P5["Phase 5: Thought Bubbles & Living Vibe Kinetics"]
+    P3 --> P6["Phase 6: End-to-End Grounding & Marquee Integration"]
 ```
 
 ### Phase 1: WASM Worker Substrate
-* Fetch official `needle.wasm` binary into `packages/stage-ui/src/workers/needle/`.
-* Implement `worker.ts` with `needle_init` and `needle_complete` bindings.
-* Benchmark in-browser WASM latency and verify zero-escape grammar compilation with flat schemas.
+* Place `needle.wasm` into `packages/stage-ui/src/workers/needle/`.
+* Implement `worker.ts` with WASM C ABI bindings (`needle_init`, `needle_complete`).
+* Verify 100% grammar compliance with the flat `record_subconscious_beat` schema on CPU threads.
 
-### Phase 2: Daydream Store & Chat Ingestion Hook
-* Create `packages/stage-ui/src/stores/daydream.ts` to manage rolling turn buffers.
-* Connect post-turn trigger in `chatOrchestrator` to dispatch recent turns to the worker asynchronously without blocking main response streaming.
+### Phase 2: Subconscious Worker Integration & Beat Pipeline
+* Wire asynchronous post-turn hook in `useChatOrchestratorStore` to pass the last 2–4 messages to the worker.
+* Ensure execution is non-blocking (runs in background without impeding speech or chat turn finalization).
 
-### Phase 3: Visual Expression & Thought Captions
-* Add living vibe pill and thought indicator to `InteractiveArea.vue` and `ChatGroundingPopover.vue`.
-* Render ephemeral inner thoughts in the in-scene caption plank as styled comic thought bubbles.
+### Phase 3: Toggle 4 Grounding Wire-Up
+* Refactor `packages/stage-ui/src/stores/chat/recent-topics.ts` to receive `active_topics` from Needle beats.
+* Wire into the amber `PRE-FLIGHT GROUNDING ACTIVE` panel in the UI.
+* Feed into `formatRecentTopicsBlock()` in `grounding-assembler.ts` (Phase 4 decomposition seam).
 
-### Phase 4: Audio Murmurs & Character Kinetics
-* Connect `inner_thought` output to speech runtime, routing occasional asides to low-gain whisper audio.
-* Trigger Live2D/VRM facial expression micro-adjustments from `vibe` shifts.
+### Phase 4: Cadence Governor & Memories Ribbon Stream
+* Implement the Cadence Governor in `packages/stage-ui/src/stores/daydream.ts` (salience threshold $\ge 0.72$, deduplication, max 1 per turn, average 1 per 2–3 turns).
+* Connect promoted chips to the horizontal Memories Ribbon marquee under the chatbox and the vertical Memories column.
 
-### Phase 5: Prospective Memory Integration
-* Store `is_salient` flags in the active session database (`chat-sessions.repo.ts`).
-* Update `echo-chips.ts` so end-of-session synthesis directly targets pre-flagged anchors instead of searching whole message histories.
+### Phase 5: Thought Bubbles & Living Vibe Kinetics
+* Connect `inner_thought` to the head-tethered caption plank for in-scene thought bubbles.
+* Trigger micro-expressions on Live2D/VRM avatars based on `vibe` shifts.
+
+### Phase 6: End-to-End Verification
+* Validate in desktop Electron: confirm that conversation naturally seeds the amber pre-flight panel and streams classy, non-spammy memory chips into the ribbon.

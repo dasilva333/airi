@@ -888,7 +888,7 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
         const candidate = recognizeToolMarker(input)
         if (candidate.kind !== 'candidate') {
-          return { matchedText: candidate.kind === 'malformed' ? candidate.matchedText : '', bridged: false }
+          return { matchedText: '', bridged: false }
         }
 
         const { matchedText, toolName, argumentsText } = candidate
@@ -1163,17 +1163,19 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         let climaxPrompt = ''
         try {
           const datingSim = (await import('@proj-airi/stage-ui/stores/dating-sim')).useDatingSimStore()
-          const msgs = chatSession.messages || []
-          const turns = msgs.filter((m: any) => m.role === 'assistant').length
-          climaxPrompt = formatClimaxPrompt({
-            enabled: datingSim.enabled,
-            gameMode: datingSim.settings?.gameMode,
-            positiveScore: datingSim.getVariable?.('positiveScore'),
-            negativeScore: datingSim.getVariable?.('negativeScore'),
-            maxScore: datingSim.settings?.maxScore,
-            maxTurns: datingSim.settings?.maxTurns,
-            assistantTurnCount: turns,
-          })
+          if (datingSim.enabled && datingSim.settings?.gameMode === 'goal_driven') {
+            const msgs = chatSession.messages || []
+            const turns = msgs.filter((m: any) => m.role === 'assistant').length
+            climaxPrompt = formatClimaxPrompt({
+              enabled: datingSim.enabled,
+              gameMode: datingSim.settings?.gameMode,
+              positiveScore: datingSim.getVariable?.('positiveScore'),
+              negativeScore: datingSim.getVariable?.('negativeScore'),
+              maxScore: datingSim.settings?.maxScore,
+              maxTurns: datingSim.settings?.maxTurns,
+              assistantTurnCount: turns,
+            })
+          }
         }
         catch (e) {
           debug('[ChatOrchestrator] Failed to evaluate Dating Sim climax state injection', e)
@@ -1197,11 +1199,13 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
           pendingJournalContent: pendingJournal?.entryText?.substring(0, 50),
         })
 
+        const now = Date.now()
         const dreamPrompt = formatDreamPrompt({
           injectDreamContext: dreamState?.injectDreamContext,
           pendingDreamChips: dreamState?.pendingDreamChips,
           pendingDreamTimestamp: dreamState?.pendingDreamTimestamp,
           template: dreamState?.dreamIntrusionPrompt,
+          nowMs: now,
         })
 
         if (textJournal?.injectJournalContext && pendingJournal) {
@@ -1209,13 +1213,16 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
         }
         const journalPrompt = formatJournalPrompt({
           injectJournalContext: textJournal?.injectJournalContext,
+          hasEntry: !!pendingJournal,
           entryText: pendingJournal?.entryText,
           timestamp: pendingJournal?.timestamp,
           template: textJournal?.journalIntrusionPrompt,
+          nowMs: now,
         })
 
         const artistryPrompt = formatArtistryPrompt({
           injectArtistryContext: artistry?.injectArtistryContext,
+          hasEntry: !!pendingArtistry,
           prompt: pendingArtistry?.prompt,
           template: artistry?.artistryIntrusionPrompt,
         })

@@ -27,7 +27,7 @@ the user is appropriate before any TTS/LLM output is produced.
   - **Polling loop:** `useIntervalFn(updateSensors, 10000)` (line 247), paused/resumed by
     `isProactivityLoopNeeded` (line 241).
   - **`sensorPayload` computed** (line 266) — compiles the environmental telemetry block (`Current Local Time: HH:MM`, `User Idle: Ns`, active program/window, CPU/GPU load, volume).
-  - **Prompt Grounding Integration (`packages/stage-ui/src/stores/chat.ts:L565-L572`):** When `groundingEnabled` is active, `chat.ts` calls `updateSensors()` and injects `sensorPayload` into the `[ENVIRONMENTAL AWARENESS]` system message on every user chat turn, allowing the companion to know the current time, active app, and idle state in real time.
+  - **Prompt Grounding Integration (`packages/stage-ui/src/stores/chat.ts` & `grounding-assembler.ts`):** When `groundingEnabled` is active, `chat.ts` calls `updateSensors()` and passes `sensorPayload` to `formatEnvironmentalBlock(sensorPayload)` from `grounding-assembler.ts` to inject the `[ENVIRONMENTAL AWARENESS]` system message on user chat turns, allowing the companion to know the current time, active app, and idle state in real time.
   - **`resolveRegisteredTools()`** (line 850) — flattens static + async-factory tools.
   - **`registerTools()`** (line 60) and `registeredTools` (line 58).
   - **`NO_REPLY` handling** (lines 698-702).

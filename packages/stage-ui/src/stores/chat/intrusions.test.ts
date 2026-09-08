@@ -129,10 +129,20 @@ describe('intrusions pure computational seams', () => {
   })
 
   describe('formatJournalPrompt', () => {
-    it('returns empty string when journal injection is disabled or entryText is missing', () => {
+    it('returns empty string when journal injection is disabled or entry is missing', () => {
       expect(formatJournalPrompt({ injectJournalContext: false, entryText: 'My thoughts' })).toBe('')
-      expect(formatJournalPrompt({ injectJournalContext: true, entryText: '' })).toBe('')
+      expect(formatJournalPrompt({ injectJournalContext: true, hasEntry: false })).toBe('')
       expect(formatJournalPrompt({ injectJournalContext: true, entryText: undefined })).toBe('')
+    })
+
+    it('formats template even for empty string entry when hasEntry is true (preserving baseline staging clear)', () => {
+      const prompt = formatJournalPrompt({
+        injectJournalContext: true,
+        hasEntry: true,
+        entryText: '',
+        template: 'Reflect on: {journalEntryText}',
+      })
+      expect(prompt).toBe('Reflect on: ')
     })
 
     it('interpolates default journal template with elapsed minutes and text', () => {
@@ -163,8 +173,18 @@ describe('intrusions pure computational seams', () => {
   describe('formatArtistryPrompt', () => {
     it('returns empty string when artistry injection is disabled or prompt is missing', () => {
       expect(formatArtistryPrompt({ injectArtistryContext: false, prompt: 'A cozy fireplace' })).toBe('')
-      expect(formatArtistryPrompt({ injectArtistryContext: true, prompt: '' })).toBe('')
+      expect(formatArtistryPrompt({ injectArtistryContext: true, hasEntry: false })).toBe('')
       expect(formatArtistryPrompt({ injectArtistryContext: true, prompt: undefined })).toBe('')
+    })
+
+    it('formats template even for empty string prompt when hasEntry is true', () => {
+      const prompt = formatArtistryPrompt({
+        injectArtistryContext: true,
+        hasEntry: true,
+        prompt: '',
+        template: 'Art generated: {imagePrompt}',
+      })
+      expect(prompt).toBe('Art generated: ')
     })
 
     it('interpolates default artistry template with image prompt', () => {

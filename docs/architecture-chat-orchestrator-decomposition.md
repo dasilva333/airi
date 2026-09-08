@@ -567,6 +567,19 @@ Maintain one concise record per checkpoint:
 | **Deviations** | None. All 5 execution phases completed with zero behavioral regressions. |
 | **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/rosetta-stone.md`. |
 
+#### Checkpoint 6 — Peer Review Parity Rectification & Hardening (2026-09-08)
+
+| Field | Content |
+| --- | --- |
+| **Source** | HEAD `a1db4ad3a`, working tree on `main` |
+| **Scope** | Peer-review rectification across 4 findings: malformed tool marker consumption parity, empty-string intrusion staging cleanup, test catalog auditor fail-fast integrity, and comprehensive 8-source grounding / pre-stream staging assertion hardening. |
+| **Evidence** | 85 passing tests across 10 suites in `packages/stage-ui/src/stores/chat/`. Full 8-part grounding order strictly asserted (0 < 1 < 1.5 < 1.6 < 2 < 3 < 4 < 5). In-stream staging clearance asserted before LLM streaming starts. Strict tool call ID equality asserted. Malformed marker non-consumption verified. `scripts/audit-test-catalog.mjs` exits with 0 errors and 0 uncataloged test suites (95 suites total). |
+| **Runner facts** | `@proj-airi/stage-ui`: 10 chat store test suites passed, 85 passed (0 failures). Typecheck: `vue-tsc --noEmit` passed with 0 errors. Test catalog auditor: 95/95 test suites matching catalog inventory (100% parity). |
+| **Request parity** | Exact parity restored for malformed marker bypass (`matchedText: ''` returned when `candidate.kind !== 'candidate'`) and empty-string intrusion template formatting/staging clearing (`hasEntry` flag / defined check). Explicit `nowMs` passed to intrusion formatters. Restored `datingSim.enabled && datingSim.settings?.gameMode === 'goal_driven'` caller gate. |
+| **Runtime limits** | Headless automated verification complete. Real Electron rendering and audible TTS playback pending interactive desktop smoke checks. |
+| **Deviations** | Corrected 2 behavioral edge cases discovered in peer review (malformed marker consumption and empty-string intrusion staging clearance). Hardened auditor script to fail-fast on discovery errors. |
+| **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/design-needle-subconscious-runtime.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/intrusions.ts`, `packages/stage-ui/src/stores/chat/intrusions.test.ts`, `packages/stage-ui/src/stores/chat/prompt-contracts.test.ts`, `packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts`, `scripts/audit-test-catalog.mjs`. |
+
 ### Stop conditions
 
 Stop the affected phase when:

@@ -195,10 +195,16 @@ describe('chat orchestrator bridged tool loop runtime contracts', () => {
     expect(round).toBe(2)
 
     // Round 2 request must contain assistant tool call and tool result message
+    const assistantMsgInRound2 = round2ReceivedMessages.find((m: any) => m.role === 'assistant' && m.tool_calls?.length)
+    expect(assistantMsgInRound2).toBeDefined()
+    const generatedCallId = assistantMsgInRound2.tool_calls[0].id
+    expect(generatedCallId).toBeDefined()
+    expect(generatedCallId).toMatch(/^bridge-/)
+
     const toolResultMsg = round2ReceivedMessages.find((m: any) => m.role === 'tool')
     expect(toolResultMsg).toBeDefined()
     expect(toolResultMsg.content).toContain('Weather in Tokyo is sunny 22C')
-    expect(toolResultMsg.tool_call_id).toBeDefined()
+    expect(toolResultMsg.tool_call_id).toBe(generatedCallId)
 
     // Final persisted history has assistant message with tool slices
     const history = chatSession.getSessionMessages(sessionId)
@@ -208,6 +214,7 @@ describe('chat orchestrator bridged tool loop runtime contracts', () => {
     expect(toolCallSlice).toBeDefined()
     expect(toolCallSlice?.state).toBe('done')
     expect(toolCallSlice?.result).toContain('sunny 22C')
+    expect((toolCallSlice as any)?.toolCall?.id).toBe(generatedCallId)
   })
 
   // Contract 4: Multi-dialect marker recognition
@@ -251,5 +258,48 @@ describe('chat orchestrator bridged tool loop runtime contracts', () => {
     }, sessionId)
 
     expect(executedTools).toContain('alpha')
+  })
+
+  // Contract 5: Parity with baseline for malformed marker recovery
+  it('does not consume malformed tool markers and recovers to bridge subsequent valid markers', async () => {
+    const chatStore = useChatOrchestratorStore(pinia)
+    const chatSession = useChatSessionStore(pinia)
+    const llmStore = useLLM(pinia)
+
+    const sessionId = 'session-tool-malformed-recovery'
+    chatSession.activeSessionId = sessionId
+    chatSession.setSessionMessages(sessionId, [])
+
+    const executedTools: string[] = []
+    const tools = [
+      {
+        type: 'function',
+        function: { name: 'tool_valid' },
+        execute: async () => { executedTools.push('valid'); return 'valid_ok' },
+      },
+    ]
+
+    llmStore.stream = vi.fn(async (_model, _provider, _msgs, options) => {
+      if (executedTools.length === 0) {
+        // Stream malformed tool marker followed by valid tool marker
+        await options.onStreamEvent({
+          type: 'text-delta',
+          text: '<tool_call>{"name": unquoted_broken}</tool_call> <|tool_valid:param="val"|>',
+        })
+      }
+      else {
+        await options.onStreamEvent({
+          type: 'text-delta',
+          text: 'Finished tool execution.',
+        })
+      }
+    })
+
+    await chatStore.ingest('Test malformed recovery', {
+      triggerOnly: false,
+      tools: tools as any,
+    }, sessionId)
+
+    expect(executedTools).toEqual(['valid'])
   })
 })

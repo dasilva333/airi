@@ -24,6 +24,7 @@ export interface DreamIntrusionInput {
 
 export interface JournalIntrusionInput {
   injectJournalContext?: boolean
+  hasEntry?: boolean
   entryText?: string
   timestamp?: number
   template?: string
@@ -32,6 +33,7 @@ export interface JournalIntrusionInput {
 
 export interface ArtistryIntrusionInput {
   injectArtistryContext?: boolean
+  hasEntry?: boolean
   prompt?: string
   template?: string
 }
@@ -85,7 +87,8 @@ export function formatDreamPrompt(input: DreamIntrusionInput): string {
  * Pure helper for interpolating text journal intrusion prompt template.
  */
 export function formatJournalPrompt(input: JournalIntrusionInput): string {
-  if (!input.injectJournalContext || !input.entryText)
+  const hasEntry = input.hasEntry ?? (input.entryText !== undefined)
+  if (!input.injectJournalContext || !hasEntry)
     return ''
 
   const now = input.nowMs ?? Date.now()
@@ -94,18 +97,19 @@ export function formatJournalPrompt(input: JournalIntrusionInput): string {
 
   return template
     .replace('{timeSinceJournal}', String(elapsedMinutes))
-    .replace('{journalEntryText}', input.entryText)
+    .replace('{journalEntryText}', input.entryText ?? '')
 }
 
 /**
  * Pure helper for interpolating artistry intrusion prompt template.
  */
 export function formatArtistryPrompt(input: ArtistryIntrusionInput): string {
-  if (!input.injectArtistryContext || !input.prompt)
+  const hasEntry = input.hasEntry ?? (input.prompt !== undefined)
+  if (!input.injectArtistryContext || !hasEntry)
     return ''
 
   const template = input.template || DEFAULT_ARTISTRY_INTRUSION_PROMPT
 
   return template
-    .replace('{imagePrompt}', input.prompt)
+    .replace('{imagePrompt}', input.prompt ?? '')
 }
