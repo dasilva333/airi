@@ -87,9 +87,9 @@ describe('intrusions pure computational seams', () => {
 
   describe('formatDreamPrompt', () => {
     it('returns empty string when dream injection is disabled or chips are empty', () => {
-      expect(formatDreamPrompt({ injectDreamContext: false, pendingDreamChips: ['stargazing'] })).toBe('')
-      expect(formatDreamPrompt({ injectDreamContext: true, pendingDreamChips: [] })).toBe('')
-      expect(formatDreamPrompt({ injectDreamContext: true, pendingDreamChips: undefined })).toBe('')
+      expect(formatDreamPrompt({ injectDreamContext: false, pendingDreamChips: ['stargazing'], nowMs: 1000 })).toBe('')
+      expect(formatDreamPrompt({ injectDreamContext: true, pendingDreamChips: [], nowMs: 1000 })).toBe('')
+      expect(formatDreamPrompt({ injectDreamContext: true, pendingDreamChips: undefined, nowMs: 1000 })).toBe('')
     })
 
     it('interpolates default dream template with elapsed minutes and chip list', () => {
@@ -130,9 +130,9 @@ describe('intrusions pure computational seams', () => {
 
   describe('formatJournalPrompt', () => {
     it('returns empty string when journal injection is disabled or entry is missing', () => {
-      expect(formatJournalPrompt({ injectJournalContext: false, entryText: 'My thoughts' })).toBe('')
-      expect(formatJournalPrompt({ injectJournalContext: true, hasEntry: false })).toBe('')
-      expect(formatJournalPrompt({ injectJournalContext: true, entryText: undefined })).toBe('')
+      expect(formatJournalPrompt({ injectJournalContext: false, entryText: 'My thoughts', nowMs: 1000 })).toBe('')
+      expect(formatJournalPrompt({ injectJournalContext: true, hasEntry: false, nowMs: 1000 })).toBe('')
+      expect(formatJournalPrompt({ injectJournalContext: true, entryText: undefined, nowMs: 1000 })).toBe('')
     })
 
     it('formats template even for empty string entry when hasEntry is true (preserving baseline staging clear)', () => {
@@ -141,6 +141,7 @@ describe('intrusions pure computational seams', () => {
         hasEntry: true,
         entryText: '',
         template: 'Reflect on: {journalEntryText}',
+        nowMs: 1000,
       })
       expect(prompt).toBe('Reflect on: ')
     })

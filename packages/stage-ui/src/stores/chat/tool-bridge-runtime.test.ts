@@ -301,5 +301,19 @@ describe('chat orchestrator bridged tool loop runtime contracts', () => {
     }, sessionId)
 
     expect(executedTools).toEqual(['valid'])
+
+    // Assert that the malformed marker remains unconsumed in the round 2 context and assistant message,
+    // protecting against regressions where malformed markers are incorrectly stripped from inference loops.
+    const round2ReceivedMessages = (llmStore.stream as any).mock.calls[1][2]
+    const round2AssistantMsg = round2ReceivedMessages.find((m: any) => m.role === 'assistant')
+    expect(round2AssistantMsg).toBeDefined()
+    expect(round2AssistantMsg.content).toContain('<tool_call>{"name": unquoted_broken}</tool_call>')
+
+    const history = chatSession.getSessionMessages(sessionId)
+    const assistantMsg = history.find(m => m.role === 'assistant')
+    expect(assistantMsg).toBeDefined()
+    expect((assistantMsg as any)?.rawContent).toContain('<tool_call>{"name": unquoted_broken}</tool_call>')
+    expect((assistantMsg as any)?.categorization?.reasoning).toContain('{"name": unquoted_broken}')
+    expect(assistantMsg?.content).toBe('Finished tool execution.')
   })
 })

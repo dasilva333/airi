@@ -19,7 +19,7 @@ export interface DreamIntrusionInput {
   pendingDreamChips?: string[]
   pendingDreamTimestamp?: number
   template?: string
-  nowMs?: number
+  nowMs: number
 }
 
 export interface JournalIntrusionInput {
@@ -28,7 +28,7 @@ export interface JournalIntrusionInput {
   entryText?: string
   timestamp?: number
   template?: string
-  nowMs?: number
+  nowMs: number
 }
 
 export interface ArtistryIntrusionInput {
@@ -73,8 +73,7 @@ export function formatDreamPrompt(input: DreamIntrusionInput): string {
   if (!input.injectDreamContext || !input.pendingDreamChips || input.pendingDreamChips.length === 0)
     return ''
 
-  const now = input.nowMs ?? Date.now()
-  const elapsedMinutes = Math.max(1, Math.round((now - (input.pendingDreamTimestamp || now)) / 60000))
+  const elapsedMinutes = Math.max(1, Math.round((input.nowMs - (input.pendingDreamTimestamp || input.nowMs)) / 60000))
   const template = input.template || DEFAULT_DREAM_INTRUSION_PROMPT
   const chipsText = input.pendingDreamChips.join(', ')
 
@@ -91,8 +90,7 @@ export function formatJournalPrompt(input: JournalIntrusionInput): string {
   if (!input.injectJournalContext || !hasEntry)
     return ''
 
-  const now = input.nowMs ?? Date.now()
-  const elapsedMinutes = Math.max(1, Math.round((now - (input.timestamp ?? now)) / 60000))
+  const elapsedMinutes = Math.max(1, Math.round((input.nowMs - (input.timestamp ?? input.nowMs)) / 60000))
   const template = input.template || DEFAULT_JOURNAL_INTRUSION_PROMPT
 
   return template
