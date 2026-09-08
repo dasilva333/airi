@@ -18,15 +18,18 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 
 ## 2. Key Code Paths
 
-- [`packages/stage-ui/src/stores/provider-catalog.ts`](packages/stage-ui/src/stores/provider-catalog.ts) - The Pinia store managing multi-instance configurations.
-- [`packages/stage-ui/src/database/repos/providers.repo.ts`](packages/stage-ui/src/database/repos/providers.repo.ts) - IndexedDB persistence layer.
-- [`packages/stage-ui/src/composables/use-provider-validation.ts`](packages/stage-ui/src/composables/use-provider-validation.ts) - Validation logic and debouncing.
-- [`docs/design-multi-instance-provider-studio.md`](docs/design-multi-instance-provider-studio.md) - Architecture design document.
+- [`packages/stage-ui/src/stores/providers/runtime/instance-store.ts`](packages/stage-ui/src/stores/providers/runtime/instance-store.ts) — Runtime multi-instance storage, persistence projections, legacy key alias migration (`api_key` → `apiKey`), and strict credential checks.
+- [`packages/stage-ui/src/stores/providers/runtime/instances.ts`](packages/stage-ui/src/stores/providers/runtime/instances.ts) — SDK instantiation lifecycle and client fail-fast guards.
+- [`packages/stage-ui/src/stores/providers/selectors/config.ts`](packages/stage-ui/src/stores/providers/selectors/config.ts) — Strict configuration presence validation (`isProviderConfigured`).
+- [`packages/stage-ui/src/stores/provider-catalog.ts`](packages/stage-ui/src/stores/provider-catalog.ts) — Pinia store for provider catalog configurations.
+- [`packages/stage-ui/src/database/repos/providers.repo.ts`](packages/stage-ui/src/database/repos/providers.repo.ts) — IndexedDB persistence layer.
+- [`packages/stage-ui/src/composables/use-provider-validation.ts`](packages/stage-ui/src/composables/use-provider-validation.ts) — Validation logic and debouncing.
+- [`docs/design-multi-instance-provider-studio.md`](docs/design-multi-instance-provider-studio.md) — Architecture design document.
 
 ## 3. Core SOPs & Guidelines
 
 ### 1. Store Management & Fetching
-- When adding or removing instances, always use the Pinia actions `addProvider`, `removeProvider`, and `commitProviderConfig` in `useProviderCatalogStore`.
+- When adding or removing instances, always use the Pinia actions `addProvider`, `removeProvider`, and `commitProviderConfig` in `useProviderCatalogStore` or `instance-store.ts`.
 - Do not mutate `configs.value` directly outside of the store actions.
 - Use `useLocalFirstRequest` when interacting with API endpoints to ensure the local repository (`providersRepo`) and the memory store update optimisticially.
 
@@ -44,12 +47,14 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 1. **Local-First Sync Desync:** When modifying providers, make sure both `local:` and `remote:` closures in `useLocalFirstRequest` perform identical updates to the application state to prevent jarring UI rewrites when the remote request resolves.
 2. **Credential Leaks:** Be extremely cautious to avoid logging or exposing `API Keys` within unhandled promise rejections or validation error bounds.
 3. **Reactivity Breakage:** Assigning a completely new object reference to an existing configuration dictionary can break reactivity if child components are bound to it. Always spread or Object.assign when mutating inner config properties.
+4. **Empty Credential Projections:** Unconfigured providers must resolve strictly to `undefined` rather than `{}` in `providerCredentials.value` getters to prevent unauthorized 401 calls on startup.
 
 ## 5. Verification Workflows
 
+- Run the multi-instance test suite: `pnpm -F @proj-airi/stage-ui test src/stores/providers/runtime/instance-store.phase5.test.ts --run`.
 - Validate `configs` reactivity updates dynamically when creating, editing, or deleting provider instances in the UI.
 - Verify `isValidating`, `isValid`, and `validationMessage` accurately reflect the state in `useProviderValidation`.
-- Run `pnpm -F stage-ui typecheck` after modifying any provider stores to guarantee interface integrity.
+- Run `pnpm -F @proj-airi/stage-ui typecheck` after modifying any provider stores to guarantee interface integrity.
 
 ### Authoritative Design & Architecture Documents
 
@@ -58,13 +63,13 @@ The multi-instance architecture resolves the "Single-Slot Constraint", allowing 
 - [docs/arch-provider-store-current-structure.md](docs/arch-provider-store-current-structure.md) — Provider store current structure architecture.
 - [docs/project-provider-store-restructuring-plan.md](docs/project-provider-store-restructuring-plan.md) — Provider store restructuring plan.
 - [docs/project-codex-provider-restructuring-plan.md](docs/project-codex-provider-restructuring-plan.md) — Codex provider restructuring plan.
-- [docs/project-provider-store-phase1-handoff.md](docs/project-provider-store-phase1-handoff.md) — Provider store phase 1 handoff.
-- [docs/project-provider-store-phase2-handoff.md](docs/project-provider-store-phase2-handoff.md) — Provider store phase 2 handoff.
-- [docs/project-provider-store-phase3-handoff.md](docs/project-provider-store-phase3-handoff.md) — Provider store phase 3 handoff.
-- [docs/project-provider-store-phase4-handoff.md](docs/project-provider-store-phase4-handoff.md) — Provider store phase 4 handoff.
-- [docs/project-provider-store-phase5-handoff.md](docs/project-provider-store-phase5-handoff.md) — Provider store phase 5 handoff.
+- [docs/archive/project-provider-store-phase1-handoff.md](docs/archive/project-provider-store-phase1-handoff.md) — Phase 1 handoff.
+- [docs/archive/project-provider-store-phase2-handoff.md](docs/archive/project-provider-store-phase2-handoff.md) — Phase 2 handoff.
+- [docs/archive/project-provider-store-phase3-handoff.md](docs/archive/project-provider-store-phase3-handoff.md) — Phase 3 handoff.
+- [docs/archive/project-provider-store-phase4-handoff.md](docs/archive/project-provider-store-phase4-handoff.md) — Phase 4 handoff.
+- [docs/archive/project-provider-store-phase5-handoff.md](docs/archive/project-provider-store-phase5-handoff.md) — Phase 5 handoff.
 - [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager guide.
 
 ## Related Skills & References
 
-- **Key Documents**: [[design-multi-instance-provider-studio]], [[provider-catalog]], [[arch-provider-store-current-structure]], [[project-provider-store-restructuring-plan]], [[project-codex-provider-restructuring-plan]], [[project-provider-store-phase1-handoff]], [[project-provider-store-phase2-handoff]], [[project-provider-store-phase3-handoff]], [[project-provider-store-phase4-handoff]], [[project-provider-store-phase5-handoff]], [[settings-yaml]]
+- **Key Documents**: [[design-multi-instance-provider-studio]], [[provider-catalog]], [[arch-provider-store-current-structure]], [[project-provider-store-restructuring-plan]], [[project-codex-provider-restructuring-plan]], [[settings-yaml]]

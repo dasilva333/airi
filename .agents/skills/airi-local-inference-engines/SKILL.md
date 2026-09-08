@@ -15,13 +15,14 @@ AIRI executes local neural models directly in the browser via dedicated Web Work
 - **Whisper STT Worker**: Local speech-to-text inference with Eventa server streaming (`packages/stage-ui/src/libs/workers/worker.ts`, adapter at `packages/stage-ui/src/libs/inference/adapters/whisper.ts`, provider `whisper-local`).
 - **WebLLM Worker**: Local LLM text generation (`packages/stage-ui/src/workers/web-llm/`).
 - **Web-RWKV Worker**: Local RWKV-7 RNN model execution (`packages/stage-ui/src/workers/web-rwkv/`).
+- **Apple Core AI Bridge**: Hardware-accelerated speculative dialogue and on-device vision via Apple Neural Engine (ANE) and Metal (`NativeAI` bridge).
 
-VRAM allocation, hardware feature detection, and worker load queues are coordinated by `GpuResourceCoordinator`.
+VRAM budget accounting, WebGPU hardware feature detection, memory pressure telemetry, and worker load queues are coordinated by `GpuResourceCoordinator`.
 
 ## 2. Key Code Paths
 
 ### Protocol & Coordinator
-- `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — `GpuResourceCoordinator`. Manages VRAM allocation telemetry, WebGPU device locks, and worker eviction under VRAM pressure.
+- `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — `GpuResourceCoordinator`. Manages estimated VRAM budget accounting, WebGPU device locks, memory pressure telemetry, and LRU worker eviction.
 - `packages/stage-ui/src/libs/inference/protocol.ts` — Message protocol schemas (`load-model`, `run-inference`, `progress`, `unload`).
 - `packages/stage-ui/src/libs/inference/adapters/` — Thin UI adapters bridging Pinia stores to underlying Web Workers (e.g. `whisper.ts`, `blip.ts`).
 

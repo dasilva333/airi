@@ -21,7 +21,7 @@ This skill provides step-by-step instructions for implementing, extending, and m
 
 ### Crucial File Paths
 
-- [`packages/stage-ui/src/libs/providers/types.ts`](packages/stage-ui/src/libs/providers/types.ts) — Source of truth for `ProviderDefinition`, `ProviderInstance`, `ModelInfo`, etc.
+- [`packages/stage-ui/src/libs/providers/types.ts`](packages/stage-ui/src/libs/providers/types.ts) — Source of truth for `ProviderDefinition`, `ProviderInstance`, `ModelInfo`, and framework-agnostic `ProviderTranslationFn`.
 - [`packages/stage-ui/src/libs/providers/providers/registry.ts`](packages/stage-ui/src/libs/providers/providers/registry.ts) — Central registry mapping IDs to ProviderDefinitions.
 - [`packages/stage-ui/src/stores/providers/registry/local-engines.ts`](packages/stage-ui/src/stores/providers/registry/local-engines.ts) — Local in-browser ML engine metadata (Web-RWKV, WebLLM, Local Vision).
 - [`packages/stage-ui/src/libs/inference/cache-utils.ts`](packages/stage-ui/src/libs/inference/cache-utils.ts) — Multi-backend storage inspection, formatting, and cache eviction.
@@ -33,35 +33,50 @@ This skill provides step-by-step instructions for implementing, extending, and m
 
 To ensure transparency and prevent silent multi-gigabyte disk usage, AIRI adheres to a strict **Storage Oversight Protocol** for all on-device inference weights.
 
-### 2.1 The Three Browser Storage Scopes
+### 2.1 The Four On-Device Storage Scopes
 
-In [`cache-utils.ts`](packages/stage-ui/src/libs/inference/cache-utils.ts), local models are routed to their optimal browser storage engine:
+In [`cache-utils.ts`](packages/stage-ui/src/libs/inference/cache-utils.ts) and native bridges, local models are routed to their optimal storage engine:
 
 | Storage Backend | Directory / Scope | Used By Engine | Model Types |
 | :--- | :--- | :--- | :--- |
+| **Native App Sandbox** | CoreML Model Storage | **Apple Core AI / Native ANE** | Gemma 4 E2B IT, Kokoro CoreML iOS, Pocket-TTS CoreML, CoreML Stable Diffusion 1.5 |
 | **OPFS** (Origin Private File System) | `web-rwkv/` | **Web-RWKV** | `rwkv7-g1d-*.safetensors`, `.state` cartridges |
-| **OPFS** | `nano-reader-browser-model-store` | **MOSS TTS** | `moss-tts-nano` weights |
-| **Cache Storage API** | `transformers-cache` | **Transformers.js / ONNX Runtime** | Kokoro TTS, Whisper STT, FlowMDM, BLIP Vision, WD14 |
-| **Cache Storage API** | `webllm/model`, `webllm/wasm`, `webllm/config` | **WebLLM** (`@mlc-ai/web-llm`) | Qwen-2.5-Coder, Ministral-3, Phi-4 |
+| **OPFS** | `nano-reader-browser-model-store` | **MOSS TTS** | `moss-tts-nano-100m` weights |
+| **Cache Storage API** | `transformers-cache` | **Transformers.js / ONNX Runtime** | Kokoro TTS, Whisper STT, FlowMDM, BLIP Vision, WD14, Moondream2, MODNet, CLIP |
+| **Cache Storage API** | `webllm/model`, `webllm/wasm`, `webllm/config` | **WebLLM** (`@mlc-ai/web-llm`) | Qwen 3.5 (0.8B/4B), Gemma 3 (1B), Ministral 3 Reasoning (3B), Phi 4 Mini (3.8B) |
+| **Cache Storage API** | `needle-cache` | **Needle 2 (WASM/CPU)** | 14 MB Cactus SAN 45M aside generator for conversational pacing |
 
 ### 2.2 Global Model Cache Manager (`ModelCacheManager.vue`)
 
-Mounted at the bottom of **`Settings > Providers`** (`providers/index.vue`). It reads the `knownModels` list:
+Mounted at the bottom of **`Settings > Providers`** (`providers/index.vue`). It manages the 18 known on-device models across four modalities:
 
 ```typescript
 const knownModels = [
-  { id: DEFAULT_WEB_RWKV_MODEL, name: 'RWKV LLM' },
-  { id: 'web-llm', name: 'WebLLM (Ministral 3 / Qwen 3.5 / Llama 3.2)' },
-  { id: 'onnx-community/Kokoro-82M-v1.0-ONNX', name: 'Kokoro TTS' },
-  { id: 'whisper', name: 'Whisper ASR' },
-  { id: 'Xenova/modnet', name: 'Background Removal' },
-  { id: 'onnx-community/blip-image-captioning-base', name: 'BLIP Vision' },
-  { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 Tagger' },
-  { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT Tagger' },
-  { id: 'onnx-community/blip2-opt-2.7b', name: 'BLIP-2 Vision' },
-  { id: 'moss-tts-nano', name: 'MOSS TTS (Nano)' },
-  { id: 'Xenova/clip-vit-base-patch32', name: 'CLIP Text Encoder (Motion)' },
-  { id: 'dasilva333/flowmdm-onnx', name: 'FlowMDM Denoiser (WebGPU)' },
+  // 1. LLMs
+  { id: 'okayuji/Gemma-4-E2B-it-coreml-speculative', name: 'Gemma 4 E2B IT (Speculative CoreML)', runtime: 'CoreML / ANE' },
+  { id: DEFAULT_WEB_RWKV_MODEL, name: 'RWKV-7 "Goose" (Web-RWKV)', runtime: 'Browser OPFS' },
+  { id: 'web-llm', name: 'WebLLM (Ministral 3 / Qwen 2.5 / Llama 3.2)', runtime: 'WebGPU (Cache API)' },
+  { id: 'needle-2', name: 'Needle 2 (Cactus SAN 45M)', runtime: 'WASM / CPU' },
+
+  // 2. Audio & Speech
+  { id: 'aoiandroid/kokoro-82m-coreml-ios', name: 'Kokoro 82M TTS (CoreML iOS)', runtime: 'CoreML / ANE' },
+  { id: 'theoracleguy/pocket-tts-coreml', name: 'Pocket-TTS (CoreML)', runtime: 'CoreML / ANE' },
+  { id: 'onnx-community/Kokoro-82M-v1.0-ONNX', name: 'Kokoro 82M TTS (ONNX Web)', runtime: 'Transformers.js' },
+  { id: 'whisper', name: 'Whisper ASR (Hearing & Transcription)', runtime: 'Transformers.js' },
+  { id: 'moss-tts-nano', name: 'MOSS TTS (Nano)', runtime: 'Browser OPFS' },
+
+  // 3. Vision & Artistry
+  { id: 'apple/coreml-stable-diffusion-v1-5', name: 'Stable Diffusion 1.5 (CoreML ANE)', runtime: 'CoreML / ANE' },
+  { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 Anime Tagger', runtime: 'Transformers.js' },
+  { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT Anime Tagger', runtime: 'Transformers.js' },
+  { id: 'onnx-community/blip-image-captioning-base', name: 'BLIP Vision Scene Captioner', runtime: 'Transformers.js' },
+  { id: 'onnx-community/blip2-opt-2.7b', name: 'BLIP-2 Vision', runtime: 'Transformers.js' },
+  { id: 'Xenova/moondream2', name: 'Moondream2 Scene VLM', runtime: 'Transformers.js' },
+  { id: 'Xenova/modnet', name: 'Background Removal (MODNet)', runtime: 'ONNX Web' },
+
+  // 4. Motion & Kinetics
+  { id: 'dasilva333/flowmdm-onnx', name: 'FlowMDM Motion Denoiser', runtime: 'WebGPU' },
+  { id: 'Xenova/clip-vit-base-patch32', name: 'CLIP Motion & Text Encoder', runtime: 'Transformers.js' },
 ]
 ```
 

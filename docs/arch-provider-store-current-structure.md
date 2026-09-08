@@ -2,164 +2,79 @@
 
 ## Purpose
 
-This document is the quick-reference guide for how `packages/stage-ui/src/stores/providers.ts` is structured today.
+This document is the quick-reference guide for how `packages/stage-ui/src/stores/providers.ts` and its supporting modules are structured today following the Phase 1–5 restructuring.
 
 Read this first if you need to work on the provider store.
 
-Read the planning docs only if you need migration context:
+For historical migration and handoff context, see:
+- `docs/archive/project-provider-store-phase1-handoff.md` through `phase5-handoff.md`
+- `docs/project-provider-store-restructuring-plan.md`
+- `docs/project-codex-provider-restructuring-plan.md`
 
-- `docs/project-provider-store-restructuring-plan.md` for the safe first-phase rollout
-- `docs/project-codex-provider-restructuring-plan.md` for the long-term target architecture
+---
 
 ## What `providers.ts` Does Today
 
-`packages/stage-ui/src/stores/providers.ts` is still the main Pinia store for provider orchestration.
+`packages/stage-ui/src/stores/providers.ts` is the runtime orchestration store (~392 lines). The old 3,000-line monolith has been decomposed into dedicated modules.
 
-It currently owns:
+`providers.ts` coordinates:
 
-- persisted provider credentials via `useLocalStorage`
-- persisted "added provider" state via `useLocalStorage`
-- provider runtime state
-- provider validation flow
-- provider instance caching and disposal
-- model loading and normalization
-- UI-facing derived provider lists
+- Multi-instance state and persistence projections (`runtime/instance-store.ts`)
+- Provider runtime state and reactive validation (`runtime/validation.ts`)
+- Provider instance caching and disposal (`runtime/instances.ts`)
+- Registry composition (`registry/index.ts`)
+- Computed selectors and model queries (`selectors/`)
+- UI-facing derived provider lists for the stage application
 
-It no longer needs to own every shared contract and helper directly.
+---
 
-## Extracted Seams
+## Architecture & Module Seams
 
-The following responsibilities have already been split into dedicated files:
+### 1. Pure Definition Layer (`packages/stage-ui/src/libs/providers/`)
+Completely decoupled from Pinia, UI, and `vue-i18n`:
+- `types.ts` — Framework-agnostic contracts (`ProviderDefinition`, `ProviderInstance`, `ProviderTranslationFn`).
+- `providers/registry.ts` — Central registry mapping IDs to `ProviderDefinition`s.
+- `providers/<id>/index.ts` — Modular cloud provider schemas (OpenAI, Anthropic, Gemini, DeepSeek, Ollama, etc.).
+- `validators/run.ts` — Generic config and connectivity validation plan execution.
 
-### Shared contracts
+### 2. Specialized Modality Registries (`packages/stage-ui/src/stores/providers/registry/`)
+- `speech.ts` — Speech (TTS) provider metadata and voice catalogs (Kokoro, Pocket TTS, MOSS TTS, ElevenLabs, Azure, Polly, etc.).
+- `transcription.ts` — Speech-to-text (STT) metadata and Whisper model catalog.
+- `local-engines.ts` — In-browser local WebGPU/WASM engines (Web-RWKV, WebLLM, BLIP Local, Apple Core AI).
+- `chat-local.ts` — Self-hosted chat servers (vLLM, Player2).
+- `index.ts` — Registry composer merging modular definitions with modality registries.
 
-- `packages/stage-ui/src/stores/providers/types.ts`
+### 3. Runtime Orchestration (`packages/stage-ui/src/stores/providers/runtime/`)
+- `instance-store.ts` — Multi-instance storage engine, IndexedDB persistence, legacy key alias migration (`api_key` → `apiKey`), and strict credential fallback handling.
+- `instances.ts` — SDK client instantiation, caching, and fail-fast unconfigured provider guards.
+- `validation.ts` — Validation runner, IPC reporting, toast notification, and debounced credential checking.
 
-This file holds shared provider-store types such as:
+### 4. Selectors & Derived State (`packages/stage-ui/src/stores/providers/selectors/`)
+- `config.ts` — `isProviderConfigured(providerId)` with strict credential presence checking.
+- `models.ts` — Normalized model resolution and capabilities querying.
+- `voices.ts` — Dynamic voice catalog filtering and formatting.
 
-- `ProviderMetadata`
-- `ProviderRuntimeState`
-- `ModelInfo`
-- `VoiceInfo`
-- `SpeechCapabilitiesInfo`
+### 5. Local Hardware & Inference Coordination (`packages/stage-ui/src/libs/inference/`)
+- `gpu-resource-coordinator.ts` — Estimated VRAM budget accounting, memory pressure telemetry, WebGPU device locks, and LRU worker eviction.
+- `cache-utils.ts` — Storage inspection and model cache eviction across OPFS, CacheStorage, and Native App Sandbox.
+- `constants.ts` — Model IDs, repo paths, timeout budgets, and catalog specifications.
 
-### Shared helpers
+---
 
-- `packages/stage-ui/src/stores/providers/helpers.ts`
+## Runtime Flow
 
-This file currently holds reusable provider-store helper logic such as:
+1. Initialize `useInstanceStore()`: loads multi-instance configurations from storage and runs legacy migration.
+2. Build the unified provider registry via `createProviderRegistry(t, ...)`.
+3. Set up reactive runtime state for added and configured providers.
+4. Auto-validate configured providers on change via `createProviderValidation()`.
+5. Create, cache, and dispose SDK instances on demand via `createProviderInstances()`.
+6. Expose derived metadata, categories, and model selectors to UI surfaces.
 
-- base URL normalization helpers
-- base URL validation helper
-- conditional debug logging helper
-- browser/local capability helper used for local browser providers
-
-### Unified registry composition
-
-- `packages/stage-ui/src/stores/providers/registry/index.ts`
-
-This file currently owns the composition step that merges:
-
-- existing inline legacy metadata from `providers.ts`
-- translated unified definitions from `packages/stage-ui/src/libs/providers`
-
-`providers.ts` now calls the registry composer rather than owning the merge logic inline.
-
-## What Is Still Inline In `providers.ts`
-
-The following major responsibility is still inline:
-
-- the large hand-written legacy provider metadata block, especially for speech and transcription providers
-
-This is intentional for now. It keeps behavior stable while the safer extraction seams are established first.
-
-## Current Runtime Flow
-
-Conceptually, the store behaves like this today:
-
-1. create persisted state for provider credentials and added providers
-2. define the legacy provider metadata block inline
-3. build the final provider registry through `createProviderRegistry(...)`
-4. initialize runtime state for providers
-5. validate providers as configs change
-6. create and cache provider instances on demand
-7. fetch and normalize model lists
-8. expose derived metadata and provider lists for UI consumers
-
-## Current File Roles
-
-### Main store
-
-- `packages/stage-ui/src/stores/providers.ts`
-
-This remains the runtime and orchestration center.
-
-### Registry conversion
-
-- `packages/stage-ui/src/stores/providers/converters.ts`
-
-This converts unified provider definitions from `libs/providers` into the metadata shape used by the store.
-
-### OpenAI-compatible metadata builder
-
-- `packages/stage-ui/src/stores/providers/openai-compatible-builder.ts`
-
-This is a reusable builder used by many provider definitions.
-
-It still depends on the shared provider metadata shape, but that shape now lives in `types.ts`.
-
-## Important Guardrails
-
-If you continue refactoring this area, preserve these constraints unless you are intentionally doing a larger architectural pass.
-
-### 1. Preserve persistence contracts
-
-Do not change:
-
-- `settings/credentials/providers`
-- `settings/providers/added`
-
-The current refactor is not a storage migration.
-
-### 2. Preserve provider capability behavior
-
-Do not casually change:
-
-- provider IDs
-- capability payload shapes
-- capability semantics for voices, models, presets, tags, or mannerisms
-
-Some of this behavior is relied on by adjacent systems such as Chatterbox-related UI and model/provider selection flows.
-
-### 3. Preserve speech/runtime integration
-
-Do not treat this as a speech pipeline refactor.
-
-Validation timing, watcher behavior, provider selection timing, and provider-facing runtime behavior should remain stable during the safe extraction phase.
-
-## Recommended Reading Order
-
-If you are new to this area:
-
-1. read this file
-2. inspect `packages/stage-ui/src/stores/providers.ts`
-3. inspect `packages/stage-ui/src/stores/providers/types.ts`
-4. inspect `packages/stage-ui/src/stores/providers/helpers.ts`
-5. inspect `packages/stage-ui/src/stores/providers/registry/index.ts`
-6. read `docs/project-provider-store-restructuring-plan.md` if you are continuing Phase 1
-7. read `docs/project-codex-provider-restructuring-plan.md` only if you are planning the later end-state architecture
-
-## Short Version
-
-The provider store is still mostly monolithic, but three low-risk seams now exist:
-
-- shared types
-- shared helpers
-- registry composition
-
-That is the current structure to build from.
+---
 
 ## Relevant Skills
 
+- [[airi-provider-core-registry]]
 - [[airi-provider-store-instances]]
 - [[airi-provider-ui-pages]]
+- [[airi-local-inference-engines]]
