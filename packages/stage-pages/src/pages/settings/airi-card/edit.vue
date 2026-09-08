@@ -38,7 +38,7 @@ function handleStudio(targetCardId: string) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl w-full py-4 pb-20">
+  <div class="mx-auto max-w-5xl w-full pb-20 pt-1">
     <CardEditorForm
       :card-id="cardId"
       mode="page"

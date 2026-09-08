@@ -1479,26 +1479,24 @@ function handleGeneratorSave(newValue: string) {
 </script>
 
 <template>
-  <div class="w-full flex flex-col gap-5">
+  <div class="w-full flex flex-col gap-3.5">
     <!-- Page Header (when mode === 'page') -->
-    <div v-if="mode === 'page'" class="mb-2 flex flex-col gap-4 border-b border-neutral-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800/80">
-      <div class="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          icon="i-solar:arrow-left-linear"
-          label="Back"
-          @click="emit('cancel')"
-        />
-        <div>
-          <h1 class="text-2xl text-neutral-900 font-bold dark:text-neutral-100">
-            {{ isEditMode ? t("settings.pages.card.edit_card") : t("settings.pages.card.create_card") }}
-          </h1>
-          <p v-if="card.name" class="text-xs text-neutral-500 font-mono dark:text-neutral-400">
-            {{ card.name }}
-          </p>
+    <div v-if="mode === 'page'" class="flex items-center justify-between gap-3 border-b border-neutral-200/80 pb-3 dark:border-neutral-800/80">
+      <!-- Character Identity Badge (Left) - responsive auto-width up to max container space with ellipsis -->
+      <div class="min-w-0 flex flex-1 items-center gap-2">
+        <div
+          class="h-8 max-w-xs min-w-0 flex items-center gap-2 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-2.5 py-1 text-xs lg:max-w-xl md:max-w-lg sm:max-w-md dark:border-neutral-800/80 dark:bg-neutral-900/60"
+          :title="card.name || (isEditMode ? t('settings.pages.card.edit_card') : t('settings.pages.card.create_card'))"
+        >
+          <div class="i-solar:user-bold-duotone shrink-0 text-sm text-primary-500" />
+          <span class="truncate text-neutral-800 font-medium font-mono dark:text-neutral-200">
+            {{ card.name || (isEditMode ? t('settings.pages.card.edit_card') : t('settings.pages.card.create_card')) }}
+          </span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+
+      <!-- Action Buttons (Right) -->
+      <div class="flex shrink-0 items-center gap-2">
         <Button
           v-if="isEditMode && props.cardId"
           variant="secondary"
@@ -1550,7 +1548,7 @@ function handleGeneratorSave(newValue: string) {
     </div>
 
     <!-- Dialog tabs -->
-    <div class="mt-4">
+    <div>
       <div class="border-b border-neutral-200 dark:border-neutral-700">
         <div class="flex flex-wrap justify-center gap-x-1 gap-y-1.5 -mb-px sm:justify-start">
           <button
