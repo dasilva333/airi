@@ -12,8 +12,13 @@ import type {
 } from '@xsai-ext/providers/utils'
 import type { ProgressInfo } from '@xsai-transformers/shared/types'
 import type { MaybePromise } from 'clustr'
-import type { ComposerTranslation } from 'vue-i18n'
 import type { $ZodType } from 'zod/v4/core'
+
+/**
+ * Generic translation function signature for runtime-neutral provider definitions and validators.
+ * Decouples provider metadata, schemas, and validators from framework-specific i18n libraries.
+ */
+export type ProviderTranslationFn = (key: string, ...args: any[]) => string
 
 export type ProviderInstance
   = | ChatProvider
@@ -56,14 +61,14 @@ export interface ProviderValidatorSchedule {
 export interface ProviderConfigValidator<TConfig> {
   id: string
   name: string
-  validator: (config: TConfig, contextOptions: { t: ComposerTranslation }) => MaybePromise<ProviderValidationResult>
+  validator: (config: TConfig, contextOptions: { t: ProviderTranslationFn }) => MaybePromise<ProviderValidationResult>
   schedule?: ProviderValidatorSchedule
 }
 
 export interface ProviderRuntimeValidator<TConfig> {
   id: string
   name: string
-  validator: (config: TConfig, provider: ProviderInstance, providerExtra: ProviderExtraMethods<TConfig>, contextOptions: { t: ComposerTranslation }) => MaybePromise<ProviderValidationResult>
+  validator: (config: TConfig, provider: ProviderInstance, providerExtra: ProviderExtraMethods<TConfig>, contextOptions: { t: ProviderTranslationFn }) => MaybePromise<ProviderValidationResult>
   schedule?: ProviderValidatorSchedule
   /**
    * Excluded from automatic validation runs.
@@ -141,13 +146,13 @@ export interface ProviderDefinition<TConfig extends any = any> {
    */
   isAvailableBy?: () => Promise<boolean> | boolean
 
-  createProviderConfig: (contextOptions: { t: ComposerTranslation }) => $ZodType<TConfig>
+  createProviderConfig: (contextOptions: { t: ProviderTranslationFn }) => $ZodType<TConfig>
   createProvider: (config: TConfig) => MaybePromise<ProviderInstance>
   extraMethods?: ProviderExtraMethods<TConfig>
   validationRequiredWhen?: (config: TConfig) => boolean
   validators?: {
-    validateConfig?: Array<(contextOptions: { t: ComposerTranslation }) => ProviderConfigValidator<TConfig>>
-    validateProvider?: Array<(contextOptions: { t: ComposerTranslation }) => ProviderRuntimeValidator<TConfig>>
+    validateConfig?: Array<(contextOptions: { t: ProviderTranslationFn }) => ProviderConfigValidator<TConfig>>
+    validateProvider?: Array<(contextOptions: { t: ProviderTranslationFn }) => ProviderRuntimeValidator<TConfig>>
   }
   capabilities?: {
     transcription?: {
@@ -157,7 +162,7 @@ export interface ProviderDefinition<TConfig extends any = any> {
       streamInput: boolean
     }
   }
-  business?: (contextOptions: { t: ComposerTranslation }) => {
+  business?: (contextOptions: { t: ProviderTranslationFn }) => {
     pricing?: 'free' | 'paid'
     deployment?: 'local' | 'cloud'
     beginnerRecommended?: boolean

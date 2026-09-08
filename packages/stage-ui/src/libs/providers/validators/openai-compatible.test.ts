@@ -1,5 +1,3 @@
-import type { ComposerTranslation } from 'vue-i18n'
-
 import type { ProviderExtraMethods, ProviderInstance } from '../types'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,7 +20,7 @@ vi.mock('@xsai/model', () => ({
   listModels: listModelsMock,
 }))
 
-const mockT = vi.fn((key: string) => key) as unknown as ComposerTranslation
+const mockT = vi.fn((key: string) => key)
 
 function getProviderValidators(options?: Parameters<typeof createOpenAICompatibleValidators>[0]) {
   const validators = createOpenAICompatibleValidators(options)

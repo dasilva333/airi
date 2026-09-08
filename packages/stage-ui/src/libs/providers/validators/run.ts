@@ -1,11 +1,10 @@
-import type { ComposerTranslation } from 'vue-i18n'
-
 import type {
   ProviderConfigValidator,
   ProviderDefinition,
   ProviderExtraMethods,
   ProviderInstance,
   ProviderRuntimeValidator,
+  ProviderTranslationFn,
 } from '../types'
 
 import { errorMessageFrom, merge } from '@moeru/std'
@@ -59,7 +58,7 @@ export function createProviderValidationSteps(providerValidators: ProviderRuntim
 
 export function getProviderValidationIntervalMs(options: {
   definition: ProviderDefinition
-  contextOptions: { t: ComposerTranslation }
+  contextOptions: { t: ProviderTranslationFn }
   defaultIntervalMs?: number
 }) {
   const validators = (options.definition.validators?.validateProvider || []).map(creator => creator(options.contextOptions))
@@ -79,7 +78,7 @@ export function getValidatorsOfProvider(options: {
   definition: ProviderDefinition
   config: Record<string, unknown>
   schemaDefaults: Record<string, unknown>
-  contextOptions: { t: ComposerTranslation }
+  contextOptions: { t: ProviderTranslationFn }
 }): ProviderValidationPlan {
   const { definition } = options
 
@@ -110,7 +109,7 @@ export function getValidatorsOfProvider(options: {
 
 export async function validateProvider(
   plan: ProviderValidationPlan,
-  contextOptions: { t: ComposerTranslation },
+  contextOptions: { t: ProviderTranslationFn },
   callbacks: ProviderValidationCallbacks = {},
 ) {
   const { configValidators, providerValidators, steps, config, definition, providerExtra } = plan
@@ -188,7 +187,7 @@ export async function validateProvider(
 
 export async function validateProviderManual(
   plan: ProviderValidationPlan,
-  contextOptions: { t: ComposerTranslation },
+  contextOptions: { t: ProviderTranslationFn },
   callbacks: ProviderValidationCallbacks = {},
 ) {
   const { manualProviderValidators, config, definition, providerExtra } = plan
