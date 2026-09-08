@@ -23,7 +23,7 @@
 
 | Package / Workspace | Test Suites (Files) | Total Tests | Primary Subsystem Focus |
 |---|:---:|:---:|---|
-| [`packages/stage-ui`](../packages/stage-ui) | 62 | 536 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
+| [`packages/stage-ui`](../packages/stage-ui) | 63 | 550 | Chat, Pacing, WebGPU Workers, BYOS Sync, Providers, Live2D, Memory |
 | [`packages/live2d-runtime`](../packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
 | [`packages/stage-pages`](../packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
 | [`apps/stage-tamagotchi`](../apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Bounds, Location, Widgets, Airi Plugins |
@@ -33,9 +33,9 @@
 | [`packages/cap-vite`](../packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
 | [`packages/plugin-sdk`](../packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core Lifecycle |
 | [`packages/server-runtime`](../packages/server-runtime) | 1 | 9 | Server Route Middleware |
-| **Monorepo Vitest Baseline** | **90 Suites** | **814 Tests** | **Automated Zero-Failure Headless Test Baseline** |
+| **Monorepo Vitest Baseline** | **91 Suites** | **828 Tests** | **Automated Zero-Failure Headless Test Baseline** |
 
-*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 94 total test files discovered).*
+*(Note: 4 additional test files across `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 95 total test files discovered).*
 
 ---
 
@@ -61,6 +61,7 @@
 | **Error Presentation Formatting** | [`packages/stage-ui/src/stores/chat/error-formatter.test.ts`](../packages/stage-ui/src/stores/chat/error-formatter.test.ts) | 6 | Node / Pure TS | Blocking in CI | Formats Markdown error cards, extracts JSON technical details, identifies 401/403/unauthorized auth errors, and provides suggested fixes. | Pure helper unit tests; does not mount Pinia stores or invoke UI renders. |
 | **Tool Syntax Recognition & Argument Parsing** | [`packages/stage-ui/src/stores/chat/tool-bridge.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge.test.ts) | 19 | Node / Pure TS | Blocking in CI | Marker syntax recognition across 5 dialects (`<\|...\|>`, `[call_tool:...]`, `<tool_call>`), lenient JSON parsing recovery, argument key-value decoding, and truncation tolerance. | Pure helper unit tests; does not mount Pinia stores or execute tools. |
 | **Intrusion & Climax Prompt Formatting** | [`packages/stage-ui/src/stores/chat/intrusions.test.ts`](../packages/stage-ui/src/stores/chat/intrusions.test.ts) | 16 | Node / Pure TS | Blocking in CI | Pure evaluation of goal-driven Dating Sim victory/defeat climax prompts, elapsed-minute calculation, and dream, journal, and artistry prompt template interpolation. | Pure helper unit tests; does not mount Pinia stores or access staging refs. |
+| **Grounding Context Formatting & Assembly** | [`packages/stage-ui/src/stores/chat/grounding-assembler.test.ts`](../packages/stage-ui/src/stores/chat/grounding-assembler.test.ts) | 14 | Node / Pure TS | Blocking in CI | Formatting of 8 contextual grounding blocks (VLM analysis, environmental awareness, STMM/lifetime pass-through, semantic memories, recent topic weights, director scratchpad, salience telemetry), order preservation, and null exclusion. | Pure helper unit tests; does not mount Pinia stores or execute async sensor/memory queries. |
 | **Prompt & Grounding Assembly** | [`packages/stage-ui/src/stores/chat/prompt-contracts.test.ts`](../packages/stage-ui/src/stores/chat/prompt-contracts.test.ts) | 5 | Node / Pinia | Blocking in CI | P1-P4, Intrusions: VLM forward timing, image stripping on failure, exact 8-part grounding order, and intrusion staging consumption. | Tests prompt assembly and staging clear timing. |
 | **Bridged Tool Runtime Loop** | [`packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts`](../packages/stage-ui/src/stores/chat/tool-bridge-runtime.test.ts) | 4 | Node / Pinia | Blocking in CI | Maximum 5-round outer bridged loop bound, early round-1 exit, multi-turn tool result association, and marker syntax dialects. | Tests outer bridged loop in performSend; does not test native provider loop in llm.ts. |
 

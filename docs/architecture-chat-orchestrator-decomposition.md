@@ -1,6 +1,6 @@
 # Chat Orchestrator Decomposition: Behavior Contracts and Phased Execution Plan
 
-**Status:** In Progress · Phases 0, 1, 2 & 3 Complete · Phase 4 Pending
+**Status:** In Progress · Phases 0, 1, 2, 3 & 4 Complete · Phase 5 Pending
 **Repository:** `dasilva333/airi`
 **Domain:** `@proj-airi/stage-ui`, ordinary turn-based chat orchestration
 **Reviewed source baseline:** `326aeb054524b5c7979bae5cc6e838c9fbe63da1`
@@ -440,13 +440,14 @@ Test ordinary and `triggerOnly` request insertion separately, including minimal 
 - Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
 - **Exit gate:** PASS (67/67 chat orchestrator tests passing across 9 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
-### Phase 4 — Extract grounding formatting
+### Phase 4 — Extract grounding formatting `[COMPLETED - 2026-09-08]`
 
-- Introduce pure block formatters at existing collection/push sites.
-- Preserve every await, selection gate, read site, local catch, and insertion position.
-- Consolidate ordered assembly only where equivalence is demonstrated.
-
-**Exit gate:** Pure block tests, exact provider-request fixtures, retrieval gating/failure tests, VLM ordering tests, affected workspace tests, and typecheck pass.
+- Added [`grounding-assembler.ts`](../packages/stage-ui/src/stores/chat/grounding-assembler.ts) pure helpers (`formatVlmBlock`, `formatEnvironmentalBlock`, `formatShortTermMemoryBlock`, `formatLifetimeMemoryBlock`, `formatSemanticMemoriesBlock`, `formatRecentTopicsBlock`, `formatDirectorScratchpadBlock`, `formatSalienceTelemetryBlock`, `formatGroundingBlock`, `buildGroundingMessages`) with zero Pinia/Vue dependencies.
+- Added unit tests in [`grounding-assembler.test.ts`](../packages/stage-ui/src/stores/chat/grounding-assembler.test.ts) (14 tests) covering all 8 block formatters, exact headers/separators, numeric precision (`toFixed(2)` for topic weights, `toFixed(3)` for salience deltas), uppercase kind fallback, and order preservation.
+- Wired helpers into `packages/stage-ui/src/stores/chat.ts` (lines 683–795), replacing inline object creations with calls to pure formatters.
+- Kept all async fetching (`updateSensors`, `searchEntries`, `getNotes`, `probeTurn`), toggle evaluation, try-catch error boundaries, and message splicing in `chat.ts`.
+- Cataloged suite in [`docs/project-testing-parity.md`](./project-testing-parity.md).
+- **Exit gate:** PASS (81/81 chat orchestrator tests passing across 10 suites, `@proj-airi/stage-ui` typecheck 0 errors).
 
 ### Phase 5 — Integrated verification and documentation
 
@@ -541,6 +542,19 @@ Maintain one concise record per checkpoint:
 | **Deviations** | Minimal effort isolation for Dating Sim climax calculation per alignment discussion. Zero prompt text or staging semantics altered. |
 | **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/intrusions.ts`, `packages/stage-ui/src/stores/chat/intrusions.test.ts`. |
 
+#### Checkpoint 4 — Phase 4 Grounding Formatting Extraction (2026-09-08)
+
+| Field | Content |
+| --- | --- |
+| **Source** | Baseline `84522e2eb`, working tree on `main` |
+| **Scope** | Extracted `grounding-assembler.ts` (pure formatters for all 8 grounding sources, `formatGroundingBlock`, `buildGroundingMessages`); wired into `stores/chat.ts` lines 683–795. |
+| **Evidence** | Block formatting across VLM, environmental sensors, STMM/lifetime context pass-through, semantic memory formatting, recent topics with `.toFixed(2)` weights, director scratchpad visual state, and salience telemetry with L9–L11 deltas and hot/elevated verdicts. Order preservation and null exclusion. 14 tests in `grounding-assembler.test.ts`. 81 tests across all 10 chat orchestrator test suites. |
+| **Runner facts** | `@proj-airi/stage-ui`: 63 test suites, 550 passing tests (0 failures, 1 model-gated skip). Typecheck: `vue-tsc --noEmit` passed with 0 errors. |
+| **Request parity** | Exact headers (`[IMAGE ANALYSIS]`, `[ENVIRONMENTAL AWARENESS]`, `[GROUNDED LONG-TERM MEMORIES]`, `[RECENT TOPICS]`, `[VISUAL STATE BOARD]`, `[SALIENCE TELEMETRY]`), separators, and payload formats match baseline byte-for-byte. |
+| **Runtime limits** | Asynchronous sensor syncing, journal semantic searching, dynamic repository imports, salience probing, independent try-catches, and message list splicing remain in `chat.ts`. |
+| **Deviations** | None. Recent Topics formatting preserved as pure least-effort extraction per alignment discussion. |
+| **Repository state** | `docs/architecture-chat-orchestrator-decomposition.md`, `docs/project-testing-parity.md`, `packages/stage-ui/src/stores/chat.ts`, `packages/stage-ui/src/stores/chat/grounding-assembler.ts`, `packages/stage-ui/src/stores/chat/grounding-assembler.test.ts`. |
+
 ### Stop conditions
 
 Stop the affected phase when:
@@ -556,11 +570,11 @@ Keep a failed phase isolated. Correct it within its bounded scope or return to t
 ### Completion checklist
 
 - [x] Baseline behavior tests were established before extraction (Phase 0 complete).
-- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError`, Phase 2 `tool-bridge`, Phase 3 `intrusions` complete).
-- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block, tool bridge, and intrusions wired).
+- [x] Each extracted helper has a single stated computational responsibility and no runtime store/browser dependencies (Phase 1 `formatChatError`, Phase 2 `tool-bridge`, Phase 3 `intrusions`, Phase 4 `grounding-assembler` complete).
+- [x] Existing runtime callers use the helpers; no duplicate legacy implementation remains (`chat.ts` error block, tool bridge, intrusions, and grounding formatters wired).
 - [x] Phase 2: Tool syntax extraction (`tool-bridge.ts` complete).
 - [x] Phase 3: Intrusion computation extraction (`intrusions.ts` complete).
-- [ ] Phase 4: Grounding formatting extraction (`grounding-assembler.ts`).
+- [x] Phase 4: Grounding formatting extraction (`grounding-assembler.ts` complete).
 - [x] Queue settlement, session navigation, and generation invalidation remain distinct.
 - [x] Normal, stopped, silent, failed, and multi-round lifecycle paths retain their contracts.
 - [x] Prompt bytes/order, marker handling, raw history, and staging timing remain equivalent for characterized cases.
