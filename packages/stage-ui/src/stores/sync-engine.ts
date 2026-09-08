@@ -3604,6 +3604,7 @@ export const useSyncEngineStore = defineStore('sync-engine', () => {
     validatePath,
     validateConnection,
     triggerSync,
+    processOutbox,
     getRemoteCatalog,
     fetchRemoteSyncManifestCatalog,
     fetchRemoteDisplayModelsManifest,

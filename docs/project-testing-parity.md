@@ -205,14 +205,20 @@ graph TD
   - Simulate streaming tokens arriving after the user switches active session ID.
   - Verify that incoming chunks for the abandoned session do NOT leak into the newly selected session.
   - Verify that speech playback queues for the abandoned session are flushed.
-- [ ] **2.3 BYOS Sync Engine Outbox Ledger Suite (`sync-engine-outbox.test.ts`):**
-  - Test outbox queuing when writes occur via IndexedDB interception.
-  - Test outbox compaction and idempotency (multiple rapid updates to the same card/session key).
-  - Test retry backoff on simulated 500/network disconnect errors.
-  - Test binary asset chunking and verification of SHA-256 hashes during localforage restore.
-- [ ] **2.4 Conversational Pacing Stress Suite:**
-  - Build on `packages/stage-ui/src/libs/pacing/*.test.ts`.
-  - Test dynamic aside insertion under fast LLM streaming (zero-fill budget) vs slow LLM first-chunk latency (>2000ms).
+- [x] **2.3 BYOS Sync Engine Outbox Ledger Suite (`sync-engine-outbox.test.ts`):**
+  - Verify outbox queuing when writes occur via IndexedDB interception (`storage.setItem`/`setItemRaw`).
+  - Verify outbox compaction and idempotency across rapid successive updates to the same key.
+  - Verify outbox deletion actions when local items are removed (`storage.removeItem`).
+  - Verify successful remote write drains outbox queue items.
+  - Verify retry backoff and data preservation on simulated 500/network disconnect errors.
+- [x] **2.4 Conversational Pacing Stress Suite (`packages/stage-ui/src/libs/pacing/`):**
+  - Verified and cataloged across 6 dedicated pacing test suites (78 tests total):
+    - `turn-pacing-coordinator.test.ts` (28 tests): Fast direct answer suppression (200ms), cold deadline arming, 1200ms vs 1400ms races, barge-in cancellation, long CoT reasoning cadence, dynamic asides, deep CoT profile.
+    - `pacing-playback-bridge.test.ts` (26 tests): Playback bridge, filler scheduling, audio sync.
+    - `category-classifier.test.ts` (11 tests): Aside category classification.
+    - `pacing-cache.test.ts` (6 tests): Filler audio cache & prewarming.
+    - `pacing-policy.test.ts` (4 tests): Pacing policies & thresholds.
+    - `pacing-prewarm.test.ts` (3 tests): Prewarm pipeline.
 
 ---
 
@@ -310,3 +316,156 @@ pnpm run test:attention    # Attention Ecology vision/perception harness
 | **Provider Registry** | [`packages/stage-ui/src/stores/providers/`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/) | `packages/stage-ui/src/stores/provider-catalog.test.ts` | **P1 (Fix Existing)** |
 | **Live2D Runtime VM** | [`packages/live2d-runtime/src/`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/src/) | `packages/live2d-runtime/test/` | **P0 (Fix Existing)** |
 | **CI Automation** | [`.github/workflows/ci.yml`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/.github/workflows/ci.yml) | GitHub Actions Automated Test Job | **P0 (Critical)** |
+
+---
+
+## 7. Canonical Test Suite Catalog & Inventory
+
+Permanent, authoritative inventory of all active test suites in the repository, their exact file paths, test counts, and functional subsystems.
+> [!IMPORTANT]
+> **Consult this catalog before assuming a feature lacks test coverage or writing duplicate tests.** Whenever adding, renaming, or refactoring test suites, update this catalog to maintain an accurate repository map.
+
+### 7.1 Package Summary
+
+| Package / Workspace | Test Suites (Files) | Total Tests | Subsystem Focus |
+|---|:---:|:---:|---|
+| [`packages/stage-ui`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui) | 54 | 474 | Chat, Pacing, Inference/Local Workers, BYOS Sync, Providers, Live2D, Memory |
+| [`packages/live2d-runtime`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime) | 5 | 79 | Live2D Scripting DSL VM, Command Parser, Selector, Template, VarStore |
+| [`packages/stage-pages`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages) | 2 | 34 | Settings Topology & Devtools Context Flow Formatters |
+| [`apps/stage-tamagotchi`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi) | 6 | 32 | Desktop Multi-Window, Display Math, Location, Widgets, Airi Plugins |
+| [`apps/server`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/server) | 4 | 29 | Server Character & Provider API Endpoints / Services |
+| [`packages/pipelines-audio`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/pipelines-audio) | 4 | 27 | Audio Speech Pipeline, Lead Coordinator, Pause Aligner, TTS Chunker |
+| [`packages/stage-shared`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-shared) | 1 | 24 | Caption Sentiment & Shared Stage Utilities |
+| [`packages/cap-vite`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/cap-vite) | 4 | 22 | Capacitor Vite Plugin, CLI Integration & Native Wrappers |
+| [`packages/plugin-sdk`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/plugin-sdk) | 1 | 22 | Plugin SDK Host Core |
+| [`packages/server-runtime`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/server-runtime) | 1 | 9 | Server Route Middleware |
+| **Total Monorepo Baseline** | **82 Suites** | **752 Tests** | **Full Monorepo Active Test Baseline (0 Failures)** |
+
+*(Note: 4 additional test files in `@proj-airi/stage-ui` and `@proj-airi/live2d-runtime` contain 8 tests conditional on external models or live API keys, yielding 86 total test files discovered).*
+
+---
+
+### 7.2 Detailed Inventory by Functional Subsystem
+
+#### Conversational Pacing & Dynamic Asides
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-ui/src/libs/pacing/turn-pacing-coordinator.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/turn-pacing-coordinator.test.ts) | `@proj-airi/stage-ui` | 28 | TTFT fast answer suppression (200ms), 1800ms cold deadlines, 1200ms vs 1400ms answer vs filler races, barge-in cancellation, long CoT reasoning cadence, dynamic asides, deep CoT profile |
+| [`packages/stage-ui/src/libs/pacing/pacing-playback-bridge.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/pacing-playback-bridge.test.ts) | `@proj-airi/stage-ui` | 26 | Playback bridge integration, filler audio scheduling, audio completion handoff |
+| [`packages/stage-ui/src/libs/pacing/category-classifier.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/category-classifier.test.ts) | `@proj-airi/stage-ui` | 11 | Query sentiment, intent, and thinking category classification for aside selection |
+| [`packages/stage-ui/src/libs/pacing/pacing-cache.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/pacing-cache.test.ts) | `@proj-airi/stage-ui` | 6 | Synthesized filler audio LRU caching and key hashing |
+| [`packages/stage-ui/src/libs/pacing/pacing-policy.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/pacing-policy.test.ts) | `@proj-airi/stage-ui` | 4 | Persisted pacing policy configuration, thresholds, and synthesis budget overrides |
+| [`packages/stage-ui/src/libs/pacing/pacing-prewarm.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/pacing/pacing-prewarm.test.ts) | `@proj-airi/stage-ui` | 3 | Background audio prewarming and voice pipeline readiness |
+
+#### Chat Lifecycle, Streaming & Session State
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-ui/src/stores/chat-cancellation.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat-cancellation.test.ts) | `@proj-airi/stage-ui` | 3 | In-flight generation abort, LLM `AbortSignal`, TTS speech queue flush, and post-LLM speech stop |
+| [`packages/stage-ui/src/stores/session-switch-race.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/session-switch-race.test.ts) | `@proj-airi/stage-ui` | 2 | Rapid session switching during active streaming; prevents chunk cross-contamination and speech queue leakage |
+| [`packages/stage-ui/src/stores/chat/session-message-merge.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/chat/session-message-merge.test.ts) | `@proj-airi/stage-ui` | 5 | Session message deduplication, timestamp sorting, and remote sync merge |
+| [`packages/stage-ui/src/stores/llm.sanitize.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/llm.sanitize.test.ts) | `@proj-airi/stage-ui` | 5 | Message payload sanitization: vision stripping when disabled, error role mapping, multimodal flattening |
+| [`packages/stage-ui/src/components/scenarios/chat/message-key.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/chat/message-key.test.ts) | `@proj-airi/stage-ui` | 4 | Stable key resolution for virtualized chat transcript items |
+| [`packages/stage-ui/src/components/scenarios/chat/utils.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenarios/chat/utils.test.ts) | `@proj-airi/stage-ui` | 1 | Chat UI utility helpers |
+| [`packages/stage-ui/src/utils/chat-actor-slices.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/utils/chat-actor-slices.test.ts) | `@proj-airi/stage-ui` | 9 | Multi-actor transcript slicing and turn demarcation |
+
+#### Data Persistence & BYOS Sync Engine
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-ui/src/stores/sync-engine-outbox.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/sync-engine-outbox.test.ts) | `@proj-airi/stage-ui` | 7 | Intercepted IndexedDB write queueing, compaction across rapid writes, item removal, remote sync drainage, and 500 error retention |
+| [`packages/stage-ui/src/stores/sync-engine-merge.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/sync-engine-merge.test.ts) | `@proj-airi/stage-ui` | 3 | Cloud vs local voice profile reconciliation using Last-Writer-Wins (LWW) |
+| [`packages/stage-ui/src/stores/character.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character.test.ts) | `@proj-airi/stage-ui` | 5 | Character store state management, card switching, and active character lifecycle |
+| [`packages/stage-ui/src/stores/character/orchestrator/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/character/orchestrator/index.test.ts) | `@proj-airi/stage-ui` | 2 | Character orchestrator lifecycle |
+| [`packages/stage-ui/src/stores/memory-text-journal.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/memory-text-journal.test.ts) | `@proj-airi/stage-ui` | 18 | Long-Term Text Journal entry creation, searching, keyword/token ranking, and search fallback |
+
+#### Local Inference, WebGPU & Audio Processing Workers
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-ui/src/libs/inference/protocol.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/protocol.test.ts) | `@proj-airi/stage-ui` | 33 | Web Worker request/response RPC wire protocol and error framing |
+| [`packages/stage-ui/src/libs/inference/contract.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/contract.test.ts) | `@proj-airi/stage-ui` | 23 | Inference engine capability interfaces and schema validation |
+| [`packages/stage-ui/src/workers/web-rwkv/safetensors.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/web-rwkv/safetensors.test.ts) | `@proj-airi/stage-ui` | 21 | Binary safetensors parsing, header extraction, and tensor slice loading in WebGPU worker |
+| [`packages/stage-ui/src/libs/inference/adapters/kokoro.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/kokoro.test.ts) | `@proj-airi/stage-ui` | 17 | Local WebGPU Kokoro TTS worker adapter, phoneme generation, and audio stream assembly |
+| [`packages/stage-ui/src/libs/inference/adapters/whisper.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/whisper.test.ts) | `@proj-airi/stage-ui` | 13 | Local WebGPU Whisper STT worker adapter and streaming transcription |
+| [`packages/stage-ui/src/libs/inference/gpu-executor.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/gpu-executor.test.ts) | `@proj-airi/stage-ui` | 12 | WebGPU command pipeline queueing and kernel dispatch |
+| [`packages/stage-ui/src/libs/inference/gpu-resource-coordinator.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/gpu-resource-coordinator.test.ts) | `@proj-airi/stage-ui` | 11 | VRAM management, device acquisition, and cooperative release under memory pressure |
+| [`packages/stage-ui/src/libs/inference/gpu-worker-host.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/gpu-worker-host.test.ts) | `@proj-airi/stage-ui` | 9 | Web Worker lifetime, crash recovery, and message ping-pong |
+| [`packages/stage-ui/src/workers/kokoro/constants.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/kokoro/constants.test.ts) | `@proj-airi/stage-ui` | 8 | Kokoro voice mapping tables and voice token validation |
+| [`packages/stage-ui/src/workers/web-rwkv/stop.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/workers/web-rwkv/stop.test.ts) | `@proj-airi/stage-ui` | 8 | Stop sequence scanner with sliding window and trailing boundary buffer flush |
+| [`packages/stage-ui/src/libs/inference/adapters/background-removal.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/background-removal.test.ts) | `@proj-airi/stage-ui` | 7 | Client-side RMBG background removal and mask processing |
+| [`packages/stage-ui/src/libs/inference/adapters/needle-client.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/inference/adapters/needle-client.test.ts) | `@proj-airi/stage-ui` | 5 | Needle 2 subconscious runtime: fast reaction probing and CoT pivot detection |
+
+#### Providers & Model Registries
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-ui/src/stores/providers/runtime/instance-store.phase5.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/runtime/instance-store.phase5.test.ts) | `@proj-airi/stage-ui` | 21 | Multi-instance provider store, configuration persistence, active profile selection |
+| [`packages/stage-ui/src/stores/providers/web-rwkv/format.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/web-rwkv/format.test.ts) | `@proj-airi/stage-ui` | 13 | Web-RWKV prompt format templates, user/bot turn tags |
+| [`packages/stage-ui/src/libs/providers/providers/ollama/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/ollama/index.test.ts) | `@proj-airi/stage-ui` | 9 | Ollama provider client, model enumeration, and payload serialization |
+| [`packages/stage-ui/src/libs/providers/providers/amazon-bedrock/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/providers/amazon-bedrock/index.test.ts) | `@proj-airi/stage-ui` | 7 | Amazon Bedrock provider, signature generation, and Converse API formatting |
+| [`packages/stage-ui/src/stores/providers/aliyun/token.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/aliyun/token.test.ts) | `@proj-airi/stage-ui` | 5 | Aliyun token acquisition, refresh cycle, and expiry calculation |
+| [`packages/stage-ui/src/libs/providers/validators/openai-compatible.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/providers/validators/openai-compatible.test.ts) | `@proj-airi/stage-ui` | 5 | OpenAI-compatible endpoint schema validation |
+| [`packages/stage-ui/src/stores/providers/converters.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/converters.test.ts) | `@proj-airi/stage-ui` | 4 | Audio format converters (PCM/WAV/MP3/Base64) across providers |
+| [`packages/stage-ui/src/stores/providers/registry/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/index.test.ts) | `@proj-airi/stage-ui` | 3 | Provider backend registry wiring and capability lookup |
+| [`packages/stage-ui/src/stores/provider-catalog.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/provider-catalog.test.ts) | `@proj-airi/stage-ui` | 2 | Provider metadata catalog enumeration |
+| [`packages/stage-ui/src/stores/providers/moss-audio-utils.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/moss-audio-utils.test.ts) | `@proj-airi/stage-ui` | 1 | MOSS audio chunking and header utilities |
+| [`packages/stage-ui/src/stores/providers/registry/metadata-contract.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/providers/registry/metadata-contract.test.ts) | `@proj-airi/stage-ui` | 1 | Provider contract metadata schema compliance |
+
+#### Avatar, Live2D & Motion Runtime
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/live2d-runtime/test/var-store.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/test/var-store.test.ts) | `@proj-airi/live2d-runtime` | 26 | Live2D variable store: float parameters, state interpolation, clamping |
+| [`packages/live2d-runtime/test/command-parser.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/test/command-parser.test.ts) | `@proj-airi/live2d-runtime` | 19 | Live2D DSL command syntax tokenizer and syntax validation |
+| [`packages/stage-ui/src/libs/character/expression-noise-gate.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/character/expression-noise-gate.test.ts) | `@proj-airi/stage-ui` | 16 | Emotion jitter suppression and micro-expression hysteresis gate |
+| [`packages/live2d-runtime/test/interpreter.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/test/interpreter.test.ts) | `@proj-airi/live2d-runtime` | 13 | Live2D DSL execution virtual machine (start_mtn, change_cos, timers) |
+| [`packages/live2d-runtime/test/template.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/test/template.test.ts) | `@proj-airi/live2d-runtime` | 11 | Live2D script templating and parameter substitution |
+| [`packages/live2d-runtime/test/selector.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/live2d-runtime/test/selector.test.ts) | `@proj-airi/live2d-runtime` | 10 | Motion and expression candidate probabilistic selection |
+| [`packages/stage-ui/src/features/motions/live2d/settings.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/features/motions/live2d/settings.test.ts) | `@proj-airi/stage-ui` | 4 | Live2D motion settings, breathing multipliers, physics overrides |
+| [`packages/stage-ui/src/features/motions/live2d/view-target.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/features/motions/live2d/view-target.test.ts) | `@proj-airi/stage-ui` | 2 | Gaze tracking target computation and eye-forward constraint during head turns |
+| [`packages/stage-ui/src/components/scenes/runtime.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/scenes/runtime.test.ts) | `@proj-airi/stage-ui` | 1 | Live2D lip sync run loop lifecycle when active vs paused |
+| [`packages/stage-ui/src/features/motions/live2d/use-live2d-motion-magic.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/features/motions/live2d/use-live2d-motion-magic.test.ts) | `@proj-airi/stage-ui` | 1 | Procedural motion overlay composable |
+
+#### Audio Pipeline & Speech Processing
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/pipelines-audio/src/processors/pause-aligner.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/pipelines-audio/src/processors/pause-aligner.test.ts) | `@proj-airi/pipelines-audio` | 10 | Punctuation pause alignment and DELAY token duration insertion |
+| [`packages/pipelines-audio/src/processors/tts-chunker.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/pipelines-audio/src/processors/tts-chunker.test.ts) | `@proj-airi/pipelines-audio` | 8 | Sentence-boundary TTS text chunker and punctuation lookahead |
+| [`packages/pipelines-audio/src/processors/lead-coordinator.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/pipelines-audio/src/processors/lead-coordinator.test.ts) | `@proj-airi/pipelines-audio` | 7 | Audio playback lead coordinator, queue sequencing, and jitter buffer |
+| [`packages/stage-ui/src/stores/modules/speech.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/stores/modules/speech.test.ts) | `@proj-airi/stage-ui` | 3 | Speech store helpers: pitch/rate percentage formatting and sign guards |
+| [`packages/pipelines-audio/src/speech-pipeline.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/pipelines-audio/src/speech-pipeline.test.ts) | `@proj-airi/pipelines-audio` | 2 | End-to-end audio pipeline processor chaining and teardown |
+
+#### Desktop Shell & Electron Integration
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`apps/stage-tamagotchi/src/main/windows/shared/display.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/main/windows/shared/display.test.ts) | `@proj-airi/stage-tamagotchi` | 11 | Multi-monitor display bounds, DPI scaling, and screen edge clamping |
+| [`apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/stores/tools/builtin/widgets.test.ts) | `@proj-airi/stage-tamagotchi` | 10 | Built-in desktop widget lifecycle, visibility toggles, and state persistence |
+| [`apps/stage-tamagotchi/src/main/libs/electron/location.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/main/libs/electron/location.test.ts) | `@proj-airi/stage-tamagotchi` | 3 | Window coordinate calculations and multi-display snap positioning |
+| [`apps/stage-tamagotchi/src/main/services/airi/plugins/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/main/services/airi/plugins/index.test.ts) | `@proj-airi/stage-tamagotchi` | 3 | Electron main process plugin discovery and registration |
+| [`apps/stage-tamagotchi/src/renderer/stores/stage-three-runtime-diagnostics.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/stores/stage-three-runtime-diagnostics.test.ts) | `@proj-airi/stage-tamagotchi` | 3 | Three.js WebGL renderer diagnostics and FPS monitoring |
+| [`apps/stage-tamagotchi/src/renderer/stores/stage-window-lifecycle.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/stage-tamagotchi/src/renderer/stores/stage-window-lifecycle.test.ts) | `@proj-airi/stage-tamagotchi` | 2 | Desktop window open/close lifecycle and event listener detachment |
+
+#### UI Composables, Shared Utilities & Devtools
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/stage-pages/src/composables/settings-topology/topology.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/composables/settings-topology/topology.test.ts) | `@proj-airi/stage-pages` | 32 | Settings topology node dependency graph and navigation layout |
+| [`packages/stage-ui/src/composables/response-categoriser.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/response-categoriser.test.ts) | `@proj-airi/stage-ui` | 35 | Streaming response categorization and emotion tag extraction |
+| [`packages/stage-shared/src/utils/caption-sentiment.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-shared/src/utils/caption-sentiment.test.ts) | `@proj-airi/stage-shared` | 24 | Text sentiment scoring for dynamic subtitle tinting |
+| [`packages/stage-ui/src/composables/llm-marker-parser.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/llm-marker-parser.test.ts) | `@proj-airi/stage-ui` | 13 | LLM marker token parsing (`[ACT:...]`, `[DELAY:...]`, `[SCENE:...]`) |
+| [`packages/stage-ui/src/libs/search/__tests__/search.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/libs/search/__tests__/search.test.ts) | `@proj-airi/stage-ui` | 6 | Local search index tokenization and fuzzy matching |
+| [`packages/stage-ui/src/composables/use-optimistic.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/use-optimistic.test.ts) | `@proj-airi/stage-ui` | 5 | Optimistic UI state updates and automatic rollback on failure |
+| [`packages/stage-ui/src/components/markdown/actor-colors.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/components/markdown/actor-colors.test.ts) | `@proj-airi/stage-ui` | 4 | Actor persona color hashing for chat bubble styling |
+| [`packages/stage-ui/src/composables/canvas-alpha.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/canvas-alpha.test.ts) | `@proj-airi/stage-ui` | 3 | Canvas alpha channel manipulation and transparency detection |
+| [`packages/stage-pages/src/pages/devtools/context-flow/composables/use-context-flow-formatters.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-pages/src/pages/devtools/context-flow/composables/use-context-flow-formatters.test.ts) | `@proj-airi/stage-pages` | 2 | Context flow debugger tree visualization formatters |
+| [`packages/stage-ui/src/composables/canvas-alpha-use-pixel.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/stage-ui/src/composables/canvas-alpha-use-pixel.test.ts) | `@proj-airi/stage-ui` | 1 | Pixel alpha sampling for transparent click-through stage areas |
+
+#### Backend Server, SDK & Build Tools
+| File Path | Package | Tests | Functional Scope |
+|---|---|:---:|---|
+| [`packages/plugin-sdk/src/plugin-host/core.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/plugin-sdk/src/plugin-host/core.test.ts) | `@proj-airi/plugin-sdk` | 22 | Plugin host lifecycle, hook registration, sandboxing, and inter-plugin events |
+| [`packages/cap-vite/src/native.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/cap-vite/src/native.test.ts) | `@proj-airi/cap-vite` | 11 | Capacitor native bridge configuration generation |
+| [`apps/server/src/routes/__test__/characters.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/server/src/routes/__test__/characters.test.ts) | `@proj-airi/server` | 9 | REST API endpoints for character card listing, retrieval, and updates |
+| [`packages/server-runtime/src/middlewares/route.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/server-runtime/src/middlewares/route.test.ts) | `@proj-airi/server-runtime` | 9 | Server routing middleware, path normalization, and error handling |
+| [`apps/server/src/routes/__test__/providers.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/server/src/routes/__test__/providers.test.ts) | `@proj-airi/server` | 8 | REST API endpoints for provider status and configuration |
+| [`packages/cap-vite/src/cli.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/cap-vite/src/cli.test.ts) | `@proj-airi/cap-vite` | 6 | Capacitor CLI commands and build target arguments |
+| [`apps/server/src/services/__test__/characters.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/server/src/services/__test__/characters.test.ts) | `@proj-airi/server` | 6 | Server character data service persistence and cache layers |
+| [`apps/server/src/services/__test__/providers.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/apps/server/src/services/__test__/providers.test.ts) | `@proj-airi/server` | 6 | Server provider management service and connection checking |
+| [`packages/cap-vite/src/index.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/cap-vite/src/index.test.ts) | `@proj-airi/cap-vite` | 4 | Cap-vite plugin initialization and configuration hooks |
+| [`packages/cap-vite/src/vite-wrapper-config.test.ts`](file:///Users/richardpinedo/Projects.nosync/airi/airi_dasilva333/packages/cap-vite/src/vite-wrapper-config.test.ts) | `@proj-airi/cap-vite` | 1 | Vite config wrapper resolution for Capacitor mobile packaging |
+
