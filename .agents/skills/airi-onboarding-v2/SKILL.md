@@ -45,28 +45,30 @@ Commit-history markers if you're digging through git: "implement functional Sens
 ### Step Suite (`v2/steps/`)
 | Step | File | Domain | Notes |
 |---|---|---|---|
-| 0 Welcome | `step-0-welcome.vue` | Welcome/hardware | `isWebGPUSupported()` detection; `ownNav` (has `[ Skip everything ]`) |
-| 0.5 Triage | `../step-start-choice.vue` (parent dir) | Path split | `onSelectPath('new' \| 'returning')`; Zero-Trust Cloudflare vs Local-First |
-| — Cloud Infra | `step-cloud-infrastructure.vue` | returning only | Edge CORS proxy + R2 provisioning |
-| — Cloud Restore | `step-cloud-restore.vue` | returning only | Snapshot hydration |
-| 1 Hearing | `step-1-hearing.vue` | STT | Provider grid + live mic playground; gate unlocks ONLY on real transcript text |
-| 2 Consciousness | `step-2-consciousness.vue` | LLM | WebLLM hero cards (`WEB_LLM_MODELS`) + cloud grid; loads via `getWebLlmAdapter().loadModel()` (progress-driven) |
-| 3 User Profile | `step-3-user-profile.vue` | Identity | `useSettingsUserProfile` (name, description, prompt, voiceProfileId) |
-| 4 Persona | `step-4-persona.vue` | Soul | Seed starters from `STARTER_CHARACTERS` (`constants/prompts/character-defaults.ts`); Anime archetype tier uses `assets/animadex-catalog.json`; community card webview interception; draft holds `cardId` or `importedCardDraft` |
-| 5 Vessel | `step-5-vessel.vue` | Body | Preset VRM/Live2D entries (default `preset-live2d-2`) + custom dropzone (`display-models.ts`) |
-| 6 Speech | `step-6-speech.vue` | TTS | Local heroes (Kokoro WebGPU, Pocket-TTS, Moss-Nano) + cloud grid; live preview playground; pitch/rate sliders constrained 0.75x–1.5x; speech engineered as Audio-Studio-style `VoiceProfile` tuple |
-| 7 Calibration | `step-7-calibration.vue` | Finale | `ownNav`; summary badges, live spoken greeting, **atomic AiriCard synthesis + production-store commit**, instant Stage launch |
+| 0 Welcome | `step-0-welcome.vue` | Welcome/hardware | `isWebGPUSupported()` early detection; Cold-Device Quick Start vs. Skip Permanently; `ownNav` |
+| 0.5 Triage | `../step-start-choice.vue` | 5 Use Cases | Local-First vs. Cloudflare Zero-Trust; handles auth cancel, empty vs. unreadable vaults |
+| — Cloud Restore | `step-cloud-restore.vue` | returning only | `RestoreResult` inbound hydration; direct **`[ 🚀 Launch Stage with Restored Companions ]`** (no gauntlet hostage loop) OR **`[ + Create an Additional Companion ]`** |
+| 1 Experience | `step-1-experience.vue` | Intent Bundles | 4 Standardized Hero Archetype Cards (*The Casual Companion*, *The Quiet Observer*, *The Executive Copilot*, *The Dynamic Performer*) + Customizer Deck |
+| 2 Soul & Persona | `step-4-persona.vue` | Soul (Emotional First) | Seed starters (`STARTER_CHARACTERS`), Animadex archetypes, SillyTavern community interceptor |
+| 3 Physical Vessel | `step-5-vessel.vue` | Body | `DiscoverCarousel.vue` 3D coverflow, starter presets (Hiyori Live2D, AvatarSample_A/B), custom dropzone |
+| 4 User Profile | `step-3-user-profile.vue` | Identity | `useSettingsUserProfile` (name, description, prompt, voiceProfileId) |
+| 5 Hearing | `step-1-hearing.vue` | STT (Conditional) | Whisper WebGPU / Web Speech; LevelMeter; unmount stops mic stream and VAD |
+| 6 Consciousness | `step-2-consciousness.vue` | LLM (Mind) | WebLLM hero cards (`WEB_LLM_MODELS`) + cloud grid; VRAM transparency; live inference ping |
+| 7 Voice Studio | `step-6-speech.vue` | TTS (Conditional) | Kokoro WebGPU / Pocket-TTS / Cloud; pitch/rate sliders 0.75x–1.5x; audio preview playground |
+| Extended Artistry | `step-artistry.vue` | Art / Vision | ComfyUI API endpoint + Pollinations fallback |
+| Finale Calibration | `step-7-calibration.vue` | Finale & Commit | Truthful Readiness Matrix, live first greeting with persistent Turn 0 in `useChatSessionStore`, strict atomic card commit |
 
-Shared step UI: `v2/components/` (`companion-bubble.vue`, `lock-key-picker.vue`, `provider-picker-grid.vue`, `stt-test-box.vue`); `onboarding/step-provider-configuration.vue` (shared inline credential pane for Steps 1 & 2 — no deep links into `/settings/providers`); `v2/whisper-loader.ts` (`ensureWhisperLoaded(modelId, onProgress)` shard/WASM loader gating Step 1 Next per Core Principle 1).
+Shared step UI: `v2/components/` (`companion-bubble.vue`, `lock-key-picker.vue`, `provider-picker-grid.vue`, `stt-test-box.vue`); shared presentation decks in `packages/stage-ui/src/components/modules/` (`HearingDeck`, `ConsciousnessDeck`, `VoiceStudioDeck`, `ArtistryDeck`); `v2/whisper-loader.ts`.
 
 ### Track Topology
 
 ```
-new / local-first:  welcome → triage → hearing → consciousness → profile → persona → vessel → speech → calibration      (9 stops)
-returning:          welcome → triage → cloud-infrastructure → cloud-restore → hearing → consciousness → profile → persona → vessel → speech → calibration      (11 stops)
+new / local-first:  welcome → triage → experience → persona → vessel → profile → [hearing] → consciousness → [speech] → [extended] → calibration
+returning:          welcome → triage → cloud-infrastructure → cloud-restore ──► [ 🚀 Launch Stage (Direct) ]
+                                                                             └──► [ + Build Another ] ──► experience → persona → ...
 ```
 
-(`STEPS` computed in `onboarding-v2.vue`; progress rail is clickable for free navigation by index.)
+(`STEPS` computed reactively in `onboarding-v2.vue` based on enabled capabilities; dynamic step rail displays `Step X of N`.)
 
 ## Gate Contract (footer control)
 
@@ -128,14 +130,15 @@ The orchestrator's NOTICE comment is load-bearing: V2 previewing must never muta
 
 ## Common Pitfalls
 
-- **Never commit from a step.** Steps write ONLY into `useOnboardingV2Draft`. Cancelling or navigating back must leave IndexedDB cards unmodified (Principle 6). Production writes happen once, in Step 7.
-- **Design-doc drift — Step 2 "bidirectional store sync."** `docs/project-onboarding-modernize.md` §Step 2 describes live patching of `consciousnessStore`/`activeCard.extensions.airi.modules.consciousness` from within the step. The shipped implementation is draft-only; **the code wins**. Do not implement that sync to "match the doc" without explicitly re-approving Principle 6.
+- **Never commit from a step.** Steps write ONLY into `useOnboardingV2Draft`. Cancelling or navigating back must leave IndexedDB cards unmodified (Principle 6). Production writes happen once, in Step Finale.
+- **Shared controls extraction boundary.** Settings and Onboarding both consume shared presentation controls (`HearingDeck`, `ConsciousnessDeck`, `VoiceStudioDeck`, `ArtistryDeck`). Never bind onboarding steps directly to production stores or attempt live store mutations with unmount-revert snapshots (as legacy Step 1 did). Onboarding adapters bind exclusively to `useOnboardingV2Draft`.
+- **Strict atomic commit in Finale.** In `step-7-calibration.vue`, never commit speech or provider settings before card creation. Follow the 8-step atomic sequence: schema validation → card write to `cardsRepo` → provider bindings → Chat Turn 0 commit → active card designation → mark completed. Retries must reuse `card.id` to prevent duplicate cards.
 - **Gate misuse.** Absent gate ≠ disabled Next; it means no gating at all. `skipLabel` must remain always-enabled. Use `onSkip` to veto (return `false`), not to run required work.
 - **Loaders are implementations, not abstractions.** `ensureWhisperLoaded` lives in `v2/whisper-loader.ts`; WebLLM progress comes straight from `getWebLlmAdapter().loadModel(model, { onProgress })` in the step component; Kokoro preview uses `getKokoroAdapter()`. No `ensureWebLlmLoaded` helper exists — do not import one.
-- **Step 2 WebGPU gate.** If `isWebGPUSupported()` is false, show the amber local-brain callout and steer to cloud cards; don't offer WebLLM hero cards as selectable.
+- **Step 6 WebGPU gate.** If `isWebGPUSupported()` is false, show the amber local-brain callout and steer to cloud cards; don't offer WebLLM hero cards as selectable.
 - **Two `index.ts` barrels.** `onboarding/index.ts` (barrel for `OnboardingDialog`) vs `onboarding/v2/index.ts` (barrel for `OnboardingV2`). Import from the right scope.
 - **Registering a new step.** New step files belong in `v2/steps/` and must be added to both the `STEPS` array AND the `v-if/v-else-if` chain in `onboarding-v2.vue` — forgetting the template branch renders a blank step.
-- **Clean up resources on unmount.** Step 1 stops mic monitoring/VAD/streaming sessions on unmount to avoid leaks into Step 2; keep any new resource-owning step to the same discipline.
+- **Clean up resources on unmount.** Resource-owning steps (Hearing mic capture, Voice audio preview, Artistry test generation) must stop active MediaStream tracks, close AudioContext source nodes, and signal abort on in-flight promises upon unmount to prevent background audio or memory leaks.
 - **Don't pollute `onboarding/v2-state`.** It is the resume coordinate only — keep unrelated state out of it.
 
 ### Authoritative Design & Architecture Documents
