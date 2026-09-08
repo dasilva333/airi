@@ -2,6 +2,7 @@
 import SelectiveSyncPanel from '@proj-airi/stage-ui/components/scenarios/providers/selective-sync-panel.vue'
 
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { useCloudflareStore } from '@proj-airi/stage-ui/stores/modules/cloudflare'
 import { useSyncEngineStore } from '@proj-airi/stage-ui/stores/sync-engine'
 import { storeToRefs } from 'pinia'
 import {
@@ -14,10 +15,34 @@ import {
 } from 'reka-ui'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const syncStore = useSyncEngineStore()
+const cloudflareStore = useCloudflareStore()
 const cardStore = useAiriCardStore()
+const isRestoringVault = ref(false)
+
+async function handleRestoreFromVault() {
+  if (isRestoringVault.value)
+    return
+  isRestoringVault.value = true
+  try {
+    const res = await cloudflareStore.autoRestoreEdgeVault()
+    if (res.success) {
+      toast.success(`Restored S3/R2 credentials from Edge Vault (Bucket: ${res.bucket || syncStore.s3Bucket})`)
+    }
+    else {
+      toast.error(res.error || 'No S3 credentials found in Cloudflare Edge Vault')
+    }
+  }
+  catch (e: any) {
+    toast.error(e?.message || 'Failed to restore credentials from Edge Vault')
+  }
+  finally {
+    isRestoringVault.value = false
+  }
+}
 
 const {
   syncEnabled,
@@ -278,6 +303,23 @@ function isMergeable(key: string): boolean {
         </div>
       </div>
 
+      <div v-if="cloudflareStore.isAuthenticated" class="flex flex-row items-center border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <div class="size-10 flex items-center justify-center rounded-full bg-cyan-500/10 text-cyan-500">
+          <div class="i-solar:cloud-download-bold-duotone text-xl" :class="{ 'animate-spin': isRestoringVault }" />
+        </div>
+        <div class="ml-3 flex flex-col">
+          <span class="text-neutral-700 font-semibold dark:text-neutral-300">Restore from Cloudflare Vault</span>
+          <span class="text-xs text-neutral-400 dark:text-neutral-500">Pull S3/R2 storage credentials from your linked Cloudflare Edge Vault into this session.</span>
+        </div>
+        <button
+          class="ml-auto rounded-xl bg-cyan-600 px-5 py-2.5 text-sm text-white font-semibold transition-colors duration-200 hover:bg-cyan-700 disabled:opacity-50 focus:outline-none"
+          :disabled="isRestoringVault || isSyncing"
+          @click="handleRestoreFromVault"
+        >
+          {{ isRestoringVault ? 'Restoring...' : 'Restore Vault' }}
+        </button>
+      </div>
+
       <div class="flex flex-row items-center border-t border-neutral-200 pt-4 dark:border-neutral-800">
         <div class="size-10 flex items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
           <div class="i-solar:shield-up-bold text-xl" />
@@ -424,15 +466,25 @@ function isMergeable(key: string): boolean {
     <DialogPortal>
       <DialogOverlay class="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm data-[state=closed]:animate-fadeOut data-[state=open]:animate-fadeIn" />
       <DialogContent
-        class="fixed left-1/2 top-1/2 z-100 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-y-auto border border-white/10 rounded-2xl bg-neutral-900/95 p-6 text-white shadow-2xl backdrop-blur-xl -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow focus:outline-none"
+        class="fixed left-1/2 top-1/2 z-100 max-h-[85vh] max-w-2xl w-[90vw] flex flex-col overflow-y-auto border border-neutral-200 rounded-2xl bg-white p-6 text-neutral-900 shadow-2xl backdrop-blur-xl -translate-x-1/2 -translate-y-1/2 data-[state=closed]:animate-contentHide data-[state=open]:animate-contentShow dark:border-neutral-800 dark:bg-neutral-900 dark:text-white focus:outline-none"
       >
-        <DialogTitle class="mb-1 w-full flex items-center gap-2 text-xl font-bold">
-          <div class="i-solar:shield-keyhole-bold-duotone text-2xl text-primary-400" />
-          <span>Selective Sync Scope</span>
-        </DialogTitle>
-        <DialogDescription class="mb-4 text-xs text-neutral-400">
-          Choose which databases and heavy media assets you want to synchronize with your storage backend. Required core metadata is always synced.
-        </DialogDescription>
+        <div class="mb-4 flex items-start justify-between">
+          <div>
+            <DialogTitle class="mb-1 w-full flex items-center gap-2 text-xl text-neutral-900 font-bold dark:text-white">
+              <div class="i-solar:shield-keyhole-bold-duotone text-2xl text-primary-500 dark:text-primary-400" />
+              <span>Selective Sync Scope</span>
+            </DialogTitle>
+            <DialogDescription class="text-xs text-neutral-500 dark:text-neutral-400">
+              Choose which databases and heavy media assets you want to synchronize with your storage backend. Required core metadata is always synced.
+            </DialogDescription>
+          </div>
+          <button
+            class="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            @click="isSelectiveSyncOpen = false"
+          >
+            <div class="i-solar:close-circle-bold-duotone text-2xl" />
+          </button>
+        </div>
 
         <SelectiveSyncPanel
           @cancel="isSelectiveSyncOpen = false"

@@ -114,6 +114,9 @@ export class S3StorageClient implements StorageClient {
   }
 
   private getS3Url(relPath: string): string {
+    if (!this.endpoint || !this.bucket) {
+      throw new Error('S3 storage is not configured (endpoint or bucket missing).')
+    }
     const cleanEndpoint = this.endpoint.replace(/\/+$/, '')
     const cleanPath = relPath.startsWith('/') ? relPath : `/${relPath}`
     if (cleanEndpoint.includes('amazonaws.com')) {
@@ -123,6 +126,9 @@ export class S3StorageClient implements StorageClient {
   }
 
   async validate(): Promise<{ success: boolean, error?: string }> {
+    if (!this.endpoint || !this.bucket) {
+      return { success: false, error: 'S3 storage is not configured (endpoint or bucket missing).' }
+    }
     try {
       const url = this.getS3Url('.byos-write-test')
       const putRes = await this.client.fetch(url, { method: 'PUT', body: 'test' })
@@ -138,6 +144,9 @@ export class S3StorageClient implements StorageClient {
   }
 
   async listFiles(): Promise<{ success: boolean, files?: Array<{ relPath: string, mtime: number, size: number }>, error?: string }> {
+    if (!this.endpoint || !this.bucket) {
+      return { success: false, error: 'S3 storage is not configured (endpoint or bucket missing).' }
+    }
     try {
       let continuationToken: string | null = null
       const files: Array<{ relPath: string, mtime: number, size: number }> = []
@@ -316,11 +325,13 @@ async function parallelLimit<T>(
 export { mergeVoiceProfiles }
 
 export const useSyncEngineStore = defineStore('sync-engine', () => {
+  const isDesktopElectron = typeof window !== 'undefined' && Boolean((window as any).electron?.ipcRenderer)
+
   // Sync Configuration State
   const syncEnabled = useLocalStorageManualReset<boolean>('settings/sync/enabled', false)
   const syncInterval = useLocalStorageManualReset<number>('settings/sync/interval', 30) // in minutes
-  const conflictStrategy = useLocalStorageManualReset<'lww' | 'remote-wins' | 'local-wins'>('settings/sync/conflict-strategy', 'lww')
-  const activeProvider = useLocalStorageManualReset<string>('settings/sync/active-provider', 'local-fs')
+  const conflictStrategy = useLocalStorageManualReset<'lww' | 'remote-wins' | 'local-wins'>('settings/sync/conflict-strategy', 'remote-wins')
+  const activeProvider = useLocalStorageManualReset<string>('settings/sync/active-provider', isDesktopElectron ? 'local-fs' : 's3')
   const fsBackupPath = useLocalStorageManualReset<string>('settings/sync/fs-path', '')
 
   const selectiveSyncEnabled = useLocalStorageManualReset<boolean>('settings/sync/selective-enabled', false)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CloudflareAccountHubDialog from '../scenarios/dialogs/cloudflare/CloudflareAccountHubDialog.vue'
@@ -17,11 +17,8 @@ const { t } = useI18n()
 const cloudflareStore = useCloudflareStore()
 const syncStore = useSyncEngineStore()
 
-const { isAuthenticated, isAuthenticating } = storeToRefs(cloudflareStore)
+const { isAuthenticated, isAuthenticating, isConnectOpen, isHubOpen } = storeToRefs(cloudflareStore)
 const { syncEnabled, selectiveSyncEnabled, isSyncing } = storeToRefs(syncStore)
-
-const isConnectOpen = ref(false)
-const isHubOpen = ref(false)
 
 // 5 Distinct States
 const state = computed<'syncing' | 'full-sync' | 'selective-sync' | 'edge-only' | 'disconnected'>(() => {

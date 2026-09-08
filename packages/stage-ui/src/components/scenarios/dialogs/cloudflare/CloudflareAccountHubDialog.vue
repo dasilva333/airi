@@ -9,7 +9,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
@@ -43,6 +43,51 @@ const {
 const isTestingCors = ref(false)
 const corsStatus = ref<'idle' | 'online' | 'offline'>('idle')
 const isSelectiveModalOpen = ref(false)
+const isRestoringVault = ref(false)
+
+async function handleAutoRestore(silent = false) {
+  if (isRestoringVault.value)
+    return
+  isRestoringVault.value = true
+  try {
+    const res = await cloudflareStore.autoRestoreEdgeVault()
+    if (res.success) {
+      if (!silent) {
+        toast.success(`Restored S3/R2 credentials (Bucket: ${res.bucket || syncStore.s3Bucket})`)
+      }
+    }
+    else if (!silent) {
+      toast.error(res.error || 'No S3 credentials found in Cloudflare Edge Vault')
+    }
+  }
+  catch (e: any) {
+    if (!silent) {
+      toast.error(e?.message || 'Failed to restore credentials from Edge Vault')
+    }
+  }
+  finally {
+    isRestoringVault.value = false
+  }
+}
+
+watch(showDialog, async (open) => {
+  if (open && cloudflareStore.isAuthenticated && !s3Bucket.value) {
+    await handleAutoRestore(true)
+  }
+})
+
+onMounted(async () => {
+  if (showDialog.value && cloudflareStore.isAuthenticated && !s3Bucket.value) {
+    await handleAutoRestore(true)
+  }
+})
+
+async function handleOpenSelectiveFilters() {
+  if (!s3Bucket.value && cloudflareStore.isAuthenticated) {
+    await handleAutoRestore(true)
+  }
+  isSelectiveModalOpen.value = true
+}
 
 const formattedLastSync = computed(() => {
   if (!lastSyncTime.value)
@@ -215,6 +260,33 @@ async function onSaveSelectiveSync(checkedIds: string[]) {
               </span>
             </div>
 
+            <!-- Missing S3 Credentials / Healing Banner -->
+            <div
+              v-if="!s3Bucket"
+              class="flex flex-col gap-2 border border-amber-500/30 rounded-xl bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 font-semibold">
+                  <div class="i-solar:shield-warning-bold text-amber-500" />
+                  <span>Cloud Storage Credentials Not Loaded</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  :disabled="isRestoringVault"
+                  class="h-7 px-2.5 text-xs font-bold"
+                  @click="handleAutoRestore(false)"
+                >
+                  <div v-if="isRestoringVault" class="i-solar:restart-circle-bold-duotone mr-1 animate-spin text-xs" />
+                  <div v-else class="i-solar:cloud-download-bold-duotone mr-1 text-xs" />
+                  <span>{{ isRestoringVault ? 'Restoring...' : 'Restore from Vault' }}</span>
+                </Button>
+              </div>
+              <p class="text-[11px] text-amber-700/90 dark:text-amber-300/90">
+                Your Cloudflare account is linked, but local S3/R2 credentials have not been loaded into this session.
+              </p>
+            </div>
+
             <!-- Sync Info -->
             <div class="grid grid-cols-2 gap-2 border border-neutral-200/50 rounded-xl bg-white/60 p-2.5 text-xs dark:border-neutral-800/50 dark:bg-neutral-900/60">
               <div>
@@ -249,10 +321,23 @@ async function onSaveSelectiveSync(checkedIds: string[]) {
                 size="sm"
                 variant="secondary"
                 class="text-xs font-semibold"
-                @click="isSelectiveModalOpen = true"
+                @click="handleOpenSelectiveFilters"
               >
                 <div class="i-solar:filter-bold-duotone mr-1 text-xs" />
                 <span>Selective Filters</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="secondary"
+                :disabled="isRestoringVault"
+                class="text-xs font-semibold"
+                title="Restore R2/S3 storage credentials from Edge KV"
+                @click="handleAutoRestore(false)"
+              >
+                <div v-if="isRestoringVault" class="i-solar:restart-circle-bold-duotone mr-1 animate-spin text-xs" />
+                <div v-else class="i-solar:cloud-download-bold-duotone mr-1 text-xs" />
+                <span>Restore Vault</span>
               </Button>
 
               <Button
