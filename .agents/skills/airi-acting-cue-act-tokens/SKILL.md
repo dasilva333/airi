@@ -61,9 +61,9 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 
 ## 4. The Cue Execution Chain
 
-1. **Marker parser** — `useLlmmarkerParser` (`llm-marker-parser.ts:248`) streams `onLiteral` / `onSpecial` out of the LLM delta stream; the chat orchestrator feeds every turn through it (per `airi-interaction-pipelines` §5 — the marker-parser-before-TTS rule).
+1. **Marker parser** — `useLlmmarkerParser` (`llm-marker-parser.ts:248`) streams `onLiteral` / `onSpecial` out of the LLM delta stream; the chat orchestrator feeds every turn through it (see [streaming and hooks](../airi-interaction-pipelines/references/streaming-hooks.md) for the marker-parser-before-TTS rule).
 2. **Categorization** — `response-categoriser.ts` `createStreamingCategorizer` splits speech vs reasoning; markers are excluded from the speech category so TTS never speaks them.
-3. **Chat hooks** — token events flow through the module-level hooks bus (`airi-interaction-pipelines` §2.3); the Stage-side speech pipeline's `onTokenSpecial` hook is the canonical consumer for locally streamed messages (see the mods-server NOTICE below).
+3. **Chat hooks** — token events flow through the module-level hooks bus ([streaming and hooks](../airi-interaction-pipelines/references/streaming-hooks.md)); the Stage-side speech pipeline's `onTokenSpecial` hook is the canonical consumer for locally streamed messages (see the mods-server NOTICE below).
 4. **Host dispatch** — `ControlStripHost.vue`: `processMarkers()` (:414-421) regexes `<\|(?:ACT|DELAY|ACTOR)...(?:\|>|>)` and enqueues via `playSpecialToken` (:407-410) into the special-token queue (`useSpecialTokenQueue`, :387-395) with `emotion` / `delay` / `actor` handler events.
 5. **Renderer execution** — the emotion/actor handlers trigger `vrmStore.triggerEmotion/triggerMotion` and `live2dStore.triggerEmotion/triggerMotion` (:~240-320), falling back through expression mappings → emotion-motion name map → motionMappings ground-truth lookup. Those mappings are authored in the Model Customizer (`airi-model-customizer`) — that is the sense in which the customizer "is built to support" ACT tokens. The host also synthesizes its own cue for caption/emotion display (`processMarkers(<|ACT:{"emotion":"..."}|>)`, :465).
 6. **Stage-local TTS enforcement** — the cue tokens are skipped by the STT/speech lane; caption displays the line (speech category only).
@@ -96,6 +96,30 @@ When history is replayed as inference context, `chat.ts` prefers `rawContent || 
 - Manual: chat a line → confirm `<|ACT:...|>`/`<|DELAY:...|>` never appear in rendered chat or TTS audio, DO fire an expression/motion on stage, and `rawContent` retains them (DevTools → IndexedDB).
 - Rehearsal Room: run one preset (single ACT, mixed, ACTOR) and confirm each cue fires.
 - Discord: confirm outbound replies contain no markers but tool-call rendering is intact.
+
+## Studio ownership and zero-token behavior
+
+Read `docs/content/en/docs/manual/config/studio.md` before changing actor authoring. Its three setups assign ownership differently:
+
+| Setup | Model switching | Scene/background |
+| --- | --- | --- |
+| A: coexisting Layer actors, place Base | ACTOR at playback | Director |
+| B: Base outfits, no ACTOR | Director applies Base model | Director |
+| C: mutually exclusive Base personalities, Director off | ACTOR | Concept's pinned background |
+
+ACTOR is optional. A generic single-character card or Setup B must render and speak without actor tags. Keep roster/identity instructions in the system prompt and exact emotion/motion vocabulary in Acting Model Expression Prompt. Studio expression variants act as persistent concept setters; they are not necessarily one-frame cosmetic effects. Verify persistence when changing expression handling.
+
+Keep parser actor identity separate from playback actor identity. Resolve upcoming voice configuration without activating that actor early; activate the model when its queued ACTOR item plays. See [Director orchestration](../airi-director-orchestration/SKILL.md) for Base/Layer resolution and [speech runtime](../airi-speech-runtime/SKILL.md) for playback ordering.
+
+`packages/stage-ui/src/utils/chat-actor-slices.ts` owns legacy actor-slice hydration, consumed by `assistant-item.vue`. Preserve raw history and ordered text/tool/text slices. Do not infer actor identity from ordinary prose or retrofit chips with a separate regex.
+
+Verify these cases with the existing parser/categorizer tests and `packages/stage-ui/src/utils/chat-actor-slices.test.ts` where applicable:
+
+- No ACTOR and no ACT: ordinary reply, no phantom actor chip, no dropped text.
+- ACT without ACTOR: expression applies to the current actor without requiring a roster.
+- Two ACTOR segments: correct text slices and voice/model changes at playback, including slow audio with fast generation.
+- Reloaded raw history and text/tool/text: hydration preserves order and tokens remain available for inference.
+- Studio A/B/C: Director/model ownership and expression setters survive the intended transition and save/reload.
 
 ## 8. Sources & Peer Skills
 

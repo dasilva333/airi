@@ -2,7 +2,7 @@
 
 Concept-to-file-path index for rapid context retrieval. Use this to find where anything lives — UI, data, providers, modules, audio, memory, or the integration plumbing between them.
 
-> **Relationship to `.agents/skills/`:** The skills directory contains ~52 deep-dive domain guides (staged entry points, pitfalls, SOPs). This Rosetta Stone is the dense index layer — use it to locate where something lives; load the corresponding skill for implementation procedure.
+> **Relationship to `.agents/skills/`:** The skills directory contains deep-dive domain guides (staged entry points, pitfalls, SOPs). This Rosetta Stone is the dense index layer — use it to locate where something lives; load the corresponding skill for implementation procedure.
 
 ---
 
@@ -202,7 +202,7 @@ interface ProviderMetadata {
 - **Coordinator**: `packages/stage-ui/src/libs/inference/coordinator.ts` — serialized model loads via `getLoadQueue()`.
 - **GPU Resource Coordinator**: `packages/stage-ui/src/libs/inference/gpu-resource-coordinator.ts` — VRAM bookkeeping, pressure telemetry, device-loss fallback.
 - **WebGPU detection**: `packages/stage-shared/src/webgpu/detect.ts`.
-- **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/whisper/`, not under `workers/`.
+- **Workers vs Adapters**: Worker implementations live in **`packages/stage-ui/src/workers/`** (`kokoro`, `web-llm`, `web-rwkv`, `vad`, `blip`, `attention-guard`, `background-removal`, `moss`, `pocket-tts`); thin **`adapters/`** in `libs/inference/` bridge workers → provider contract. **Exception**: `whisper` worker is at `libs/workers/worker.ts`, not under `workers/`.
 
 ### Local TTS Reference (Kokoro)
 - **Worker**: `packages/stage-ui/src/workers/kokoro/worker.ts`
@@ -260,6 +260,8 @@ Each module typically follows:
 LLM output text → VoiceProfile (effects + UST transforms) → SpeechProvider.speech().fetch() → Worker inference → PCM → WAV → Playback
 ```
 
+Implementation guides: [speech runtime](../.agents/skills/airi-speech-runtime/SKILL.md) owns intents, host lifetime, cancellation and playback ordering; [conversational pacing](../.agents/skills/airi-conversational-pacing/SKILL.md) owns filler policy, preparation and answer handoff.
+
 ### Thinking filler recovery
 
 `libs/pacing/turn-pacing-coordinator.ts` keeps retry diagnostics (`cacheMissReason` / `cacheMissError`) separate from terminal `cutoffReason`; setting the latter on a recoverable miss prevents the playback bridge from admitting subsequent fillers. In `use-turn-pacing.ts`, coordinator cancellation callbacks stop bridge preparation/playback without recursively canceling the turn. `pacing-playback-bridge.ts` checks cancellation after cache lookup and decode, and persists fallback bytes only after successful decoding and duration validation. `maxFillerSynthesisBudgetMs` independently budgets uncached phrases, so saved `maxSynthesisBudgetMs` values only constrain dynamic asides. Keep the synthesis budget defaults and bounds aligned across `types/pacing.ts`, `types/card.schema.ts`, and the card editor.
@@ -282,7 +284,7 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 | **Audio Studio** | [`feat-audio-studio.md`](./feat-audio-studio.md) — full spec for the voice profile management UI |
 | **Kokoro worker** | `packages/stage-ui/src/workers/kokoro/worker.ts` — reference local TTS implementation |
 | **Kokoro adapter** | `packages/stage-ui/src/libs/inference/adapters/kokoro.ts` — load queue, GPU coordinator, device-loss promotion, WAV encoding |
-| **Whisper worker** | `packages/stage-ui/src/libs/workers/whisper/` — reference local STT implementation (note: lives under `libs/workers/`, NOT `workers/`) |
+| **Whisper worker** | `packages/stage-ui/src/libs/workers/worker.ts` — reference local STT implementation (note: lives under `libs/workers/`, NOT `workers/`) |
 | **Whisper adapter** | `packages/stage-ui/src/libs/inference/adapters/whisper.ts` |
 | **Audio Studio UST proposal** | [`proposal-higgs-audio-v3-tts-integration.md`](./proposal-higgs-audio-v3-tts-integration.md) |
 | **MOSS-TTS-Nano proposal** | [`proposal-moss-tts-nano-provider-unified-webgpu.md`](./proposal-moss-tts-nano-provider-unified-webgpu.md) |
@@ -328,6 +330,9 @@ Microphone → VadDetector → AudioBuffer → STTProvider inference → text �
 - **Salience Gate (provenance)**: Echo-Chips now rides on a 0.1B RWKV-7 WebGPU state-vector salience sensor (Phase 4b provenance: L9–L11 Δh vote-2of3 @ 1.5× gave Recall 0.818 / Precision 0.90 / F1 0.857 / FPR 0.125). It marks high-intensity turns before the Echo-Chips batch is considered; the 0.1B model itself does **not** generate the tags (Phase 3 showed 0/14 structured output — capability ceiling on raw prompt completion).
 
 ### Director Notes
+
+Implementation guide: [Director orchestration](../.agents/skills/airi-director-orchestration/SKILL.md) covers Studio Base/Layer ownership, actor manifestations and decision/note lifecycle.
+
 - **Repo**: `packages/stage-ui/src/database/repos/director-notes.repo.ts` — `local:director/sessions/{sessionId}`
 - **Autonomous execution**: `packages/stage-ui/src/stores/modules/artistry-autonomous.ts`
 

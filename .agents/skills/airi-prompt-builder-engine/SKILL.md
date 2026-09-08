@@ -4,90 +4,30 @@ description: >-
   Compose/debug system prompts: character persona, acting/artistry instructions, dating-sim context, memory injection, head/tail pruning, producer roleplay suggestions. Marker execution uses airi-acting-cue-act-tokens; request dispatch uses airi-llm-dispatch-gateway.
 ---
 
-# AIRI Prompt Builder Engine
+# Prompt Builder Engine
 
-Composes the runtime system prompt from character-card fields plus overlays, then
-enriches it per-session with memory and environmental context, and parses special
-`<|ACT:...|>` action markers out of the LLM stream.
+Own prompt composition and refresh. Marker execution belongs to [ACT tokens](../airi-acting-cue-act-tokens/SKILL.md), response normalization to [interaction pipelines](../airi-interaction-pipelines/SKILL.md), and cache layout to [prefix cache alignment](../airi-prefix-cache-alignment/SKILL.md).
 
-## Key Files/Locations
+## Source map
 
-- `packages/stage-ui/src/stores/modules/airi-card.ts` — `buildSystemPrompt(card)` (~line 1407).
-  Composes, in order: `card.systemPrompt`, `Nickname: ...`, `card.description`,
-  `card.personality`, `card.scenario`, and `Greetings / Dialog Starters` bullets. Then
-  appends acting prompts from `card.extensions.airi.acting` (`modelExpressionPrompt`,
-  `speechExpressionPrompt`, `speechMannerismPrompt`), the artistry `widgetInstruction`
-  (gated by `allowedTools`/`provider !== 'none'`/`!autonomousEnabled`), and the
-  text-journal `widgetInstruction` (default `DEFAULT_TEXT_JOURNAL_WIDGET_INSTRUCTION`).
-  Exposed as the store computed `systemPrompt` (line 1403).
-- `packages/stage-ui/src/stores/chat/session-store.ts` —
-  `buildShortTermMemoryContext(characterId)` (line 210, slices daily summaries by
-  `windowSize ?? 3` into a `[Short-Term Memory]` block),
-  `buildLifetimeMemoryContext` (line 226, `[Lifetime Artifact]` block),
-  `generateInitialMessageFromPrompt` (line 240), and `refreshActiveSystemMessage()`
-  (line 805) which prunes persona blocks keeping only head + tail.
-- `packages/stage-ui/src/composables/llm-marker-parser.ts` — `useLlmmarkerParser`
-  streaming marker tokenizer splitting literal vs. special tokens.
-- `packages/stage-ui/src/stores/dating-sim.ts` — dating-sim game state (phases, mood,
-  choices) read by the prompt builder.
-- `packages/stage-ui/src/composables/use-producer.ts` — `DEFAULT_SYSTEM_PROMPT_TEMPLATE`
-  (line 70) and template substitution for interactive roleplay user-suggestion prompts.
+- `packages/stage-ui/src/stores/modules/airi-card.ts:buildSystemPrompt`: card persona and module instructions.
+- `packages/stage-ui/src/stores/chat/session-store.ts`: `buildShortTermMemoryContext`, `buildLifetimeMemoryContext`, `generateInitialMessageFromPrompt`, `refreshActiveSystemMessage`.
+- `packages/stage-ui/src/stores/dating-sim.ts`: active storyline overlay.
+- `packages/stage-ui/src/composables/use-producer.ts:DEFAULT_SYSTEM_PROMPT_TEMPLATE`: user-reply suggestion prompts.
 
-## When to Use
+## Composition contracts
 
-- Adding, reordering, or gating any block of the runtime system prompt.
-- Debugging why a persona/system message is missing, duplicated, or stale across sessions.
-- Touching dating-sim storyline, appearance, or scene injection into the prompt.
-- Working on `<|ACT:...|>` / `<|DELAY:...|>` / bridged tool-marker parsing or execution.
-- Constructing bridged tool-call objects for strict OpenAI/DeepSeek-compatible gateways.
-- Composing producer ("what could the user say next") roleplay suggestion prompts.
-
-## Common Pitfalls
-
-- **Dating sim disables `card.scenario`.** When `useDatingSimStore().enabled &&
-  activeStoryline` is truthy, `buildSystemPrompt` swaps `card.scenario` out (`isDatingSimActive
-  ? '' : card.scenario`, line 1432) and instead injects the storyline premise, appearance, and
-  scene (lines 1470-1480). Editing scenario while dating sim is active silently does nothing.
-- **Persona head/tail pruning.** `refreshActiveSystemMessage` keeps only the FIRST and LAST
-  system "Persona" blocks and prunes intermediates, but preserves blocks starting with
-  `These are the contextual information retrieved`, `[ENVIRONMENTAL AWARENESS]`, or containing
-  `[CONTEXT_AWARENESS]` (lines 836-884). Removing those prefixes reclassifies memory/context
-  blocks as persona and gets them pruned.
-- **Do NOT broadcast `session-refreshed` after pruning** — `setSessionMessages()` already
-  emits `session-updated`; an extra refresh triggers a cross-window force-reload loop
-  (NOTICE at lines 895-898).
-- **`index: 0` is mandatory on manually built tool calls** (Rosetta §16). When enqueueing a
-  bridged tool call (see `chat.ts` line ~864), the object MUST include `index: 0`, or strict
-  OpenAI/DeepSeek gateways (Console Go / OpenCode) return `400 Bad Request: Upstream request
-  failed`. Marker-bridges in `use-producer`-style flows and live-session follow the same rule.
-- **Marker tag variants.** The parser normalizes escaped `<{'|'}`, curly `|}`, and legacy `>`
-  closers, and only treats a bare `>` as legacy close for `<|ACT`, `<|DELAY`, `<|LLM_`
-  prefixes (lines 91-109). Don't assume a single close-tag shape.
-- **`buildSystemPrompt` swallows Pinia errors** (try/catch lines 1415-1425) so it can run
-  outside an active Pinia; dating-sim overlay silently drops in that case.
-
-
-### Authoritative Design & Architecture Documents
-
-- [docs/design-prompt-crafting-catalog.md](docs/design-prompt-crafting-catalog.md) — Prompt crafting catalog.
-- [docs/proposal-introspective-context-injection.md](docs/proposal-introspective-context-injection.md) — Introspective context injection proposal.
-- [docs/proposal-dynamic-memory-rag-injection.md](docs/proposal-dynamic-memory-rag-injection.md) — Dynamic memory RAG injection proposal.
-- [docs/design-character-configurable-llm.md](docs/design-character-configurable-llm.md) — Character-configurable LLM design.
-- [docs/design-director-producer-roles.md](docs/design-director-producer-roles.md) — Director/producer roles document.
-- [docs/proposal-core-agent-revamp.md](docs/proposal-core-agent-revamp.md) — Core agent revamp proposal.
-- [docs/journal-the-reasoning-content-bug.md](docs/journal-the-reasoning-content-bug.md) — Reasoning-content bug journal.
-- [docs/design-act-token-expression-system.md](docs/design-act-token-expression-system.md) — ACT token expression system design.
+1. Preserve persona ordering: system prompt, nickname, description, personality, scenario, greetings/dialog starters; then acting and permitted module instructions.
+2. Active Dating Sim replaces `card.scenario` with storyline context. Do not append both and create competing scenes. The guarded Pinia lookup permits use outside setup; verify whether the overlay is available in that context.
+3. Acting model/speech/mannerism instructions come from card configuration. Do not globally require ACTOR tags: ordinary cards and Studio Setup B work without them. See `docs/content/en/docs/manual/config/studio.md`.
+4. Artistry widget instructions require the allowed image tool, a non-`none` provider, and Autonomous Artistry disabled. Preserve the separate text-journal instruction gate.
+5. Memory injection must use the intended character/session context. Do not copy generated memory into permanent persona fields to make a preview look correct.
+6. `refreshActiveSystemMessage` prunes intermediate persona blocks while retaining first/last persona and recognized context blocks. Preserve classification contracts: `These are the contextual information retrieved`, `[ENVIRONMENTAL AWARENESS]`, and `[CONTEXT_AWARENESS]`. A renamed heading can cause context to be pruned.
+7. In that pruning path, `setSessionMessages` already emits session updates. Do not add another `session-refreshed` broadcast and cause cross-window reload loops. This is not a blanket ban on refresh events elsewhere.
+8. Producer prompts suggest what the user could say next. Keep their role and template substitutions separate from the talking assistant and Director.
 
 ## Verification
 
-- `pnpm -F @proj-airi/stage-ui typecheck` for any store/composable change.
-- Toggle dating sim on/off and confirm `card.scenario` alternates with storyline overlay in
-  the composed prompt.
-- Force-run `refreshActiveSystemMessage({ force: true })` and confirm only head+tail persona
-  blocks remain (check `[ChatSession] Successfully refreshed and pruned` debug log).
-- For bridged tool calls, confirm the outbound `tool_calls` chunk includes `index: 0` (a
-  missing index surfaces as a gateway 400).
+For store/composable changes, `pnpm -F @proj-airi/stage-ui typecheck`. Inspect the composed prompt with Dating Sim on/off, artistry autonomous/manual, tools enabled/disabled, memory present/absent, and no ACTOR configuration. Refresh repeatedly: preserve context, avoid duplicated persona, and check a second window for reload loops. Switch characters/sessions and confirm injected context follows the target.
 
-## Related Skills & References
-
-- **Key Documents**: [[design-prompt-crafting-catalog]], [[proposal-introspective-context-injection]], [[proposal-dynamic-memory-rag-injection]], [[design-character-configurable-llm]], [[design-director-producer-roles]], [[proposal-core-agent-revamp]], [[journal-the-reasoning-content-bug]], [[design-act-token-expression-system]]
+Design context: `docs/design-prompt-crafting-catalog.md`, `docs/design-director-producer-roles.md`, and `docs/proposal-dynamic-memory-rag-injection.md`. Proposals describe intended behavior; inspect current builders before implementing.

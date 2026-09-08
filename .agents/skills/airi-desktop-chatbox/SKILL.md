@@ -1,177 +1,30 @@
 ---
 name: airi-desktop-chatbox
 description: >-
-  Build/debug Electron chat UI: composer, bubbles, tool cards, menus, journal/echo chips, Pre-Flight Grounding, workspace navigation. Includes Director's Monitor, World Bible, Studio, Media Library, Notes, Rehearsal; end-to-end routing uses airi-interaction-pipelines.
+  Build/debug desktop chat workspace navigation, composer, attachments, transcript bubbles, action menus, grounding panel and journal chips. Input routing uses airi-interaction-pipelines; Studio decisions use airi-director-orchestration.
 ---
 
-# Airi Desktop Chatbox
+# Desktop Chatbox
 
-This skill is scoped to the **desktop (stage-tamagotchi Electron) chat experience**. AIRI has three genuinely distinct chatboxes (plus WhisperDock, documented under honor §3):
+Own desktop chat surfaces and shared transcript presentation. Read only the reference matching the change; load multiple for changes crossing those boundaries.
 
-1. **Desktop chatbox** — the full-featured Electron chat window. This document.
-2. **Web/Pocket portrait** — `MobileWhisperSheet` in `packages/stage-layouts/src/components/Layouts/MobileWhisperSheet.vue`; compact 4-posture phone experience.
-3. **Web/Pocket landscape** — edge-docked `packages/stage-layouts/src/components/Layouts/InteractiveArea.vue`; closest to desktop parity, and the only surface that still **lacks suggestions**.
+| Task | Reference |
+| --- | --- |
+| Workspace routes, subviews, window shell, right panel | [Workspace navigation](references/workspace-navigation.md) |
+| Drafts, send/stop buttons, attachments, suggestions, composer variants | [Composer](references/composer.md) |
+| Bubbles, action menus, grounding, journal chips, streaming performance | [Transcript rendering](references/transcript-rendering.md) |
 
-Shared primitives (`scenarios/chat/*`) are desktop-owned but consumed everywhere; they are documented here in §6.
+## Ownership
 
-## 1. The Three (+1) Chatbox Surfaces
+- Desktop shell: `apps/stage-tamagotchi/src/renderer/pages/chat.vue`.
+- Desktop input: `apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue`.
+- Shared rendering: `packages/stage-ui/src/components/scenarios/chat/`.
+- Input dispatch, hooks, cancellation: [interaction pipelines](../airi-interaction-pipelines/SKILL.md).
+- Actor grammar: [ACT tokens](../airi-acting-cue-act-tokens/SKILL.md); Studio decisions: [Director](../airi-director-orchestration/SKILL.md).
+- Memory generation/persistence belongs to the corresponding memory skill. A preview or grounding toggle is not the injection implementation.
 
-| Surface | Entry | Composer | Suggestions/Wand | History |
-| --- | --- | --- | --- | --- |
-| Desktop (Electron) | `apps/stage-tamagotchi/src/renderer/pages/chat.vue` | `components/InteractiveArea.vue` (own state) | Yes — magic wand + Suggest-Mode popover + Producer quick-suggests | Yes |
-| Web/Pocket portrait (md- && portrait) | `apps/stage-web/src/pages/index.vue:267`, `apps/stage-pocket/src/pages/index.vue:252` | `MobileWhisperSheet` → `WhisperComposerBar` (`useChatComposer`) | Yes — via `WhisperComposerBar` | Yes — 85dvh sheet in `history` posture |
-| Web/Pocket landscape | same index pages | `Layouts/InteractiveArea.vue` → `Widgets/ChatArea.vue` (`useChatComposer`) | **No — no wand/suggest UI** | Yes |
-| WhisperDock (honorable mention) | `apps/stage-tamagotchi/src/renderer/pages/actor.vue:~710` | `WhisperDock` → `WhisperComposerBar` | Yes (the bar's wand) | **No — input dock only, not a strict chatbox** |
+Paths in references are repository-relative. Verify source before applying older design documents. Desktop, portrait mobile, landscape web/pocket, and WhisperDock have different composition paths; do not assume shared bubbles mean shared input state.
 
-- Orientation routing: `isLandscape = useMediaQuery('(orientation: landscape)')` + `isPortraitMobile = breakpoints.smaller('md') && !isLandscape` (`apps/stage-web/src/pages/index.vue:72-73`; pocket identical at 258-267). `v-if="!isPortraitMobile"` mounts `Layouts/InteractiveArea.vue`, else `MobileWhisperSheet`.
-- `stage-web` and `stage-pocket` are twin mirrors of the same `index.vue` structure; fix both in lockstep.
-- Portrait sheet: `MobileWhisperSheet.vue` (~321 lines) composes `ChatHistory` + `WhisperComposerBar` with `MobilePosture` (`voice` | `composer` | `preview` | `history`, default `preview`, `stepPosture` up/down, grab-handle transitions) and `PresentationMode` (`translucent` | `frosted`, persisted at `airi:mobile-chat-presentation-mode`).
-- `WhisperComposerBar.vue` (520 lines, fully-featured) is the shared composer: `useChatComposer({ tools, onSendStart, onSendError })` at line 106 + its own Producer/wand logic (mirrors InteractiveArea pattern) + provider-config prompt; exposes `send()` (`defineExpose` at line 250).
+## Verification
 
-## 2. Chat Window Hub & Workspace Routes (Hamburger)
-
-Entry: `apps/stage-tamagotchi/src/renderer/pages/chat.vue`; window: `apps/stage-tamagotchi/src/main/windows/chat/index.ts` (label/tag `chat`, loaded at `:197`).
-
-- Inside the header: hamburger (`i-solar:hamburger-menu-bold`, around line 559) opens the **Workspace Routes drawer** (~line 1171); on desktop `md:+` there is also a persistent left sidebar (~line 1217) rendering the same entries.
-- Both render the route array `v-for="item in [...] as const"` — the drawer copy and the sidebar copy are **duplicated inline arrays**; new entries must be added (and kept in the same order) in both places.
-- The active surface is persisted to `localStorage['airi:chat:left-panel-active']` and resolved to a sub-surface component by `activeSurfaceComponent` (chat.vue ~lines 95-108). The `Settings` footer is not an entry in the array; it calls `selectSurface('messages')` in a separate footer block.
-- Window size presets (`mini` | `medium` | `large` | `full`) go through `electronApplySizePreset({ target: 'chat', preset })` (chat.vue:50-54).
-
-### 2.1 Workspace sub-views
-
-Route arrays inside the template of `pages/chat.vue` (drawer is around line 1178, sidebar around line 1225). Each sub-surface is a thin Electron wrapper at `apps/stage-tamagotchi/src/renderer/components/chat/<file>.vue` sitting on top of the shared stage-ui/stage-pages primitives.
-
-| Label (id) | Wrapper (`components/chat/`) | Reusable views / stores |
-| --- | --- | --- |
-| Chat View (`messages`) | `chat_messages.vue` — thin ref-forwarding wrapper around `components/InteractiveArea.vue`; only via `defineExpose({ interactiveAreaRef })` re-exposes it so that the right-panel actions of the hub can call into the host | the entire desktop chat experience (§3) |
-| Director's Monitor (`director`) | `chat_director.vue` | `DirectorMonitorView` (`packages/stage-ui/src/components/scenarios/chat/components/DirectorMonitorView.vue`) with `:session-id` — directive timeline, visual parameters, narrative pacing |
-| World Bible (`world`) | `chat_world.vue` | `CharacterContextView` (`packages/stage-ui/src/components/scenarios/chat/components/CharacterContextView.vue`) with `:character-id` — active prompts, rules, action hooks, injected dating sim |
-| Studio (`characters`) | `chat_studio.vue` | `useAnimaDexWizardStore` catalog + `useDisplayModelsStore` + `useBackgroundStore`; `electronOpenSettings` deep link (`/settings/airi-card?...&tab=studio`) |
-| Media Library (`media`) | `chat_media.vue` | `StageBackgroundPicker :card-id` (stage-ui scenarios/dialogs) — generated media/backgrounds per card |
-| Eternal Thread (`archives`) | `chat_lifetime.vue` | `useMemoryLifetimeStore` + `packages/stage-pages/src/pages/settings/modules/components/LifetimeHistoryModal.vue` / `LifetimeProvisioningModal.vue` — lifetime memory artifacts, provisioning, history |
-| Event Ledger (`event-log`) | `chat_event_log.vue` | `useEventLogStore` (`packages/stage-ui/src/stores/event-log.ts`) with category filters (`all / vision / tools / chat / proactivity / memory / stage / discord`), expandable event rows |
-| Notes (`notes`) | `chat_notes.vue` | **Placeholder stub** (template only, "Placeholder surface for workspace scratch notes") |
-| Rehearsal (`rehearsal`) | `chat_rehearsal.vue` | VRM + display model + artistry rehearsal loop: `useTextToMotionStore`, `useCustomVrmAnimationsStore`, `useAnimaDexWizardStore`, `useLLM`, `ModelCustomizer` / `ModelPromptGeneratorModal`, valibot-defined config |
-| Settings (footer only, button after `border-t`) | no wrapper — inside the hub itself | calls `selectSurface('messages')` |
-
-- Empty-state guards: `chat_director`, `chat_world`, `chat_media` all guard on `activeSessionId` / `activeCardId` and render a centered empty state if absent — follow that pattern for new surfaces.
-- Do **not** add window-level nav drawers or hamburger buttons inside the composer widgets (`InteractiveArea.vue` / `Widgets/ChatArea.vue`). Workspace entries belong in the route array of `chat.vue` + its component map.
-
-## 3. Desktop Composer Host — `InteractiveArea.vue`
-
-`apps/stage-tamagotchi/src/renderer/components/InteractiveArea.vue` (~1627 lines). **Manages its own `messageInput` / `attachments` state (lines 46-47) and does not use `useChatComposer`.**
-
-- `handleSend()` (line 535): optimistic clear + draft restore on failure, URL revocation; empty input with no messages ingests the `INVOKE_CHARACTER_FIRST` sentinel (lines 560, 568). `{ ingest, onAfterMessageComposed }` is destructured from the orchestrator at line 63.
-- Composer template: `<BasicTextarea>` at ~line 1217 (`sendMode` + `suggestMode` bindings, `@suggest` triggers `handleQuickSuggest`), `ChatImagesPopover` at ~line 1237, Producer magic-wand + Suggest-Mode popover + onboarding tooltip popovers at ~lines 1242-1340. Right-click on wand → `isWandMenuOpen`; wand tuning is localStorage-persisted (`airi:producer:context-depth`, `airi:producer:suggestion-count`, `airi:producer:short-replies`, lines 395-397), driving `useProducer().generateSuggestions` via `handleQuickSuggest()` (line 409); suggestions render as `producerSuggestion` choices (lines 389-452).
-- Image drop: `isDragging` (line 687) / `handleDrop` (line 702); drag enter/over/leave/drop attached at lines 880-884.
-- `messageInput` persists to localStorage via a watcher (line 764) — draft survives restarts.
-
-## 4. Shared Chat Primitives (desktop-owned, cross-surface)
-
-`packages/stage-ui/src/components/scenarios/chat/` — canonical barrel export `index.ts` (`ChatHistory`, `ChatAssistantItem`, `ChatUserItem`, `WhisperDock`, `WhisperComposerBar`, popovers/modals…).
-
-- `history.vue` (~221 lines) — message list; renders role bubbles, `ChatErrorItem`, `DirectorNoteBubble` (line 182). `variant`-aware (portrait sheet uses its own scroll behavior).
-- `assistant-item.vue` / `user-item.vue` — role bubbles; `response-part.vue` — one response slice (text/tool-call/etc); `tool-call-block.vue` — tool-call chip/progress.
-- ACT/Director/Producer: `DirectorNoteBubble.vue`, `ProducerChoiceBubble.vue`, `ProducerGuidanceModal.vue`.
-- Journal: `JournalMomentModal.vue`, `JournalPreviewModal.vue`. Popovers/modals: `ChatBrainPopover`, `BrainModelPicker`, `ChatGroundingPopover`, `ChatImagesPopover`, `ChatMemoryPopover`, `ChatSessionModal`.
-- Subdirs: `components/` (`action-menu/`, `CharacterContextView.vue`, `DirectorMonitorView.vue`), `composables/use-element-scroll.ts`; plus `constants.ts`, `message-key.ts(+ .test.ts)`, `utils.ts`, `error-item.vue`.
-
-### Action menu (right-click / long-press)
-
-- `components/action-menu/index.ts:1-81` — `ChatActionMenuAction` type (`copy | delete | delete-following | fork | fork-switch | edit | retry | journal`) + `createChatActionMenuItems(...)` builder (lines 11-79).
-- `components/action-menu/index.vue` (514 lines) — Reka `ContextMenu*` + `DropdownMenu*`, animejs `createTimeline` long-press scale (line 9), floating trigger visibility. Emits at 52-61 (`fork`/`fork-switch` take `universeId: string`); `menuItems` computed at 107; `handleAction` at 155; fork flow via `UniversePickerModal` (import line 26, template line 507). The template iterates the builder array at **three** render sites (lines 398, 455, 482).
-
-### Composer composable (shared ingestion)
-
-`packages/stage-ui/src/composables/use-chat-composer.ts:23` — `useChatComposer(options: { tools?, onSendStart?, onSendSuccess?, onSendError? })` returns `{ messageInput, attachments, isComposing, isImagineMode, isListening, trashConfirmOpen, handleFilePaste, handleFileSelect, removeAttachment, handleTrashClick, handleSaveAndClear, handleClearAnyway, handleSend, startListening, stopListening }` (lines 394-411). Calls `chatOrchestrator.ingest(...)` internally; `isImagineMode` short-circuits to `useAutonomousArtistryStore().runArtistTask(...)`; voice auto-send via `debouncedAutoSend` (~lines 60-103, 243); restores input + attachments on error. Exported via `packages/stage-ui/src/composables/index.ts:9`.
-
-**Consumers today:** `packages/stage-layouts/src/components/Widgets/ChatArea.vue:58` (landscape) and `scenarios/chat/WhisperComposerBar.vue:106` (portrait sheet + WhisperDock). Desktop `InteractiveArea.vue` ingests directly — composable changes never ripple there.
-
-## 5. Store Map (Pinia)
-
-- `useChatOrchestratorStore` (`packages/stage-ui/src/stores/chat.ts:98`) — central pipeline: `ingest(...)`, `onAfterMessageComposed(...)`, streaming, marker→tool bridging. ~2000-line setup store: `performSend` (243, treats `INVOKE_CHARACTER_FIRST` specially at :249), grounding system-block injection (~565-625), bridge loops (~1033, 1049, 1550), stream healing (1457, 1490). See the ~line 91 comment about Pinia setup-store re-runs during Vite HMR.
-- Chat family under `packages/stage-ui/src/stores/chat/`: `session-store.ts:32` (`useChatSessionStore`), `stream-store.ts:9` (`useChatStreamStore`), `maintenance.ts:9` (`useChatMaintenanceStore`), `compaction.ts`, `constants.ts` (`CHAT_STREAM_CHANNEL_NAME = 'airi-chat-stream'`, `CONTEXT_CHANNEL_NAME = 'airi-context-update'`), `context-store.ts` + `context-providers/`, `data-store.ts`, `hooks.ts`, `intrusion-staging.ts`, `recent-topics.ts`, `salience.ts`, `session-message-merge.ts(+.test.ts)`, `state.ts`.
-- Sub-surface stores: `useEventLogStore` (`stores/event-log.ts`), `useMemoryLifetimeStore` (`stores/memory-lifetime.ts`), `useAnimaDexWizardStore` (`stores/animadex-wizard.ts`), `useDisplayModelsStore` (`stores/display-models.ts`), `useTextToMotionStore` (`stores/modules/text-to-motion.ts`), `useCustomVrmAnimationsStore` (stage-ui-three).
-- `useSettingsChat` (`packages/stage-ui/src/stores/settings/chat.ts:7`) — `sendMode` + `suggestMode`. There is no `stores/settings.ts`; the barrel is `stores/settings/index.ts`.
-- `useAiriCardStore` (`stores/modules/airi-card.ts`) — card + `buildSystemPrompt` (used by ChatArea's context dialog).
-- `useConsciousnessStore` (`stores/modules/consciousness.ts`) — `activeModel` / `activeProvider`.
-- `useBackgroundStore` (`stores/background.ts`) — `journalEntries` backing InteractiveArea's media chips (lines 355-361).
-- `useJournalPreviewStore` (`stores/journal-preview.ts:12`) — `openTextPreview` / `openImagePreview` / `downloadImage`.
-- `useTextJournalStore` (`stores/memory-text-journal.ts`) — re-subscribes `CHAT_STREAM_CHANNEL_NAME` (:64) and `airi-intrusion-staging` (:70); `useShortTermMemoryStore` (`stores/memory-short-term.ts`).
-- `useEchoesStore` (`stores/echo-chips.ts`) — mood/flavor echo chips.
-
-## 6. Desktop-Focused SOPs
-
-### 6.1 Add a Workspace Route / sub-view
-1. Define `components/chat/<name>.vue` (thin wrapper; reuse a stage-ui view or stage-pages modal when the primitive already exists).
-2. Import into `pages/chat.vue` alongside the existing sub-surface imports.
-3. Add the `activeSurfaceComponent` map entry (~lines 95-108) with a matching id.
-4. Add the label/icon entry to **both** inline template arrays (drawer ~1178 and sidebar ~1225) — they're duplicated.
-5. Update the `useLocalStorage` union type on `airi:chat:left-panel-active` if you add a new id; also extend `EventCategoryFilter` etc. if your surface adds store filters.
-
-### 6.2 Add or remove an action menu item (e.g. "Pin")
-Keep both files in lockstep — the menu is driven by the **builder function**, not the template:
-1. Extend `ChatActionMenuAction` in `action-menu/index.ts:1`.
-2. Add a builder branch in `createChatActionMenuItems(...)` (11-79) with `action`, `label`, Iconify icon, optional `divider: true`, and `danger: true` if destructive; return `null` when your `canX` option is off — the trailing `.filter(Boolean)` drops it.
-3. In `action-menu/index.vue`: emit in `defineEmits` (52-61), `handleAction` branch (~155); only touch the template if you need custom layout — the three iteration sites (398, 455, 482) pick up new entries automatically.
-4. Wire the emit on the consumer (`assistant-item.vue` / `user-item.vue`).
-
-### 6.3 Composer / send-state handling
-- **Desktop host** (`InteractiveArea.vue`): local `messageInput`/`attachments` (46-47) + own `handleSend()` (535) with optimistic clear + URL revocation + draft restore, including the `INVOKE_CHARACTER_FIRST` empty-input path. Routing sends go through `chatOrchestrator.ingest(...)`. Do **not** bolt `useChatComposer` into here unless you deliberately intend unifying the surfaces.
-- **Shared/mobile widget path** (`Widgets/ChatArea.vue`): reuse `useChatComposer({ tools })` — owns `messageInput`, `attachments`, `handleSend`, trash-confirm, imagine mode, posting to `useChatOrchestratorStore().ingest(...)`. Note: this widget has **no wand/suggestions** — the only parity gap between landscape and desktop/portrait.
-- **WhisperDock / whisper bar**: the dock is lifecycle-only (open/close/proximity, `update:open`, `dismiss()`); sending lives in `WhisperComposerBar.vue` via `useChatComposer` with `onSendStart`/`onSendError`. Keep those intact when modifying the bar; don't "fix" WhisperDock expecting the send logic to live there.
-
-### 6.4 Journal / memory chips (desktop host)
-- Chips come from `groupedTextEntries` (line 327) / `latestImageEntries` (352). Group splitting into `'single' | 'echo-group'` at ~327-350; echo entries carry `echoType` from `useEchoesStore` (set at 271, 317). Click opens `useJournalPreviewStore().openTextPreview(...)` / `openImagePreview(...)` (bound at line 211, rendered at ~906-1060; collapsed flags `airi:chat:memories-collapsed` / `airi:chat:media-collapsed`).
-
-### 6.5 Pre-Flight Grounding Panel & Context Injections Popover
-- **Context Injections Trigger & Popover**: `ChatGroundingPopover.vue` (`packages/stage-ui/src/components/scenarios/chat/ChatGroundingPopover.vue`, ~294 lines). Mounted in header/composer with the CPU icon (`i-solar:cpu-bold-duotone`, amber `i-solar:cpu-bolt-bold-duotone` when any grounding toggle is active).
-  - **Option 1: System Sensors** (`groundingEnabled`): Toggles `activeCard.extensions.airi.groundingEnabled`. Injects `[ENVIRONMENTAL AWARENESS]` (active window, idle seconds, system load, volume, local time). Activating turns on main process OS tracking in the primary delegate; turning off stops tracking when heartbeats are also disabled.
-  - **Option 2: In-Context History**: (Disabled placeholder for future token sliding window).
-  - **Option 3: Long-Term Memory** (`groundingMemoryEnabled`): Toggles `activeCard.extensions.airi.groundingMemoryEnabled`. Real-time debounced hybrid search on `textJournalStore` (`searchEntries`) based on `messageInput`; injects `[GROUNDED LONG-TERM MEMORIES]`.
-  - **Option 4: Recent Topics** (`groundingTopicsEnabled`): Toggles `activeCard.extensions.airi.groundingTopicsEnabled`. Injects trending conversational topics from `useRecentTopicsStore` (`[RECENT TOPICS]`).
-  - **Option 5: Visual Scene State** (`groundingDirectorScratchpadEnabled`): Toggles `activeCard.extensions.airi.groundingDirectorScratchpadEnabled`. Injects the latest Director's scratchpad notes from `useAutonomousArtistryStore` (`[VISUAL STATE BOARD]`).
-  - **Option 6: Salience Gating (RWKV 0.1B)** (`salienceGateEnabled`): Toggles `activeCard.extensions.airi.salienceGateEnabled`. Fast local RWKV-7 / Delta-h hidden-state spike detector gating high-intensity emotional moments.
-- **Pre-Flight Grounding Panel (desktop host)**: `InteractiveArea.vue:~1077-1190` (amber `.grounding-preview-panel`, shown above composer when any grounding toggle is active).
-  - Debounced real-time search: `watchDebounced(messageInput, ..., { debounce: 1000 })` (155-184) → `textJournalStore.searchEntries({ query, limit: 3, characterId })` when `activeCard.extensions.airi.groundingMemoryEnabled`; sibling watcher (186-207) re-searches when the flag flips on.
-  - Telemetry sync: Watches `isGroundingPreviewExpanded` to trigger `proactivityStore.updateSensors()` on expand.
-  - Badges (1092-1108): `Sensors Active` (`groundingEnabled`), `Grounded Memories (N)`, `Recent Topics (N)` (`groundingTopicsEnabled && recentTopics.length`), salience pill (`salienceEnabled`; `Salience Vibe Active` only when `salienceHot && salienceHistory.length > 0`, else `Salience Standby`), `Visual Scene Active` (`groundingDirectorScratchpadEnabled && latestDirectorScratchpad`).
-  - Injection alignment: `performSend` in `stores/chat.ts` injects `[ENVIRONMENTAL AWARENESS]` (~570), `[GROUNDED LONG-TERM MEMORIES]` (~588), `[RECENT TOPICS]` (~605), `[VISUAL STATE BOARD]` (~620).
-
-### 6.6 Bubble / chip styling (desktop host)
-- Echo chips class-switch on `entry.echoType === 'mood' | 'flavor'` (else indigo) in the chip row at ~960-1000; the echo-group two-story ticker sits above the single-entry cards. Journal chip download handlers call `journalPreviewStore.downloadImage` (~line 1057).
-- On stage-layout surfaces, edit `Widgets/ChatArea.vue`. Prefer the existing UnoCSS patterns (`:class="[...]"` arrays, `bg-*`, `dark:*` tokens); no Tailwind-only utilities, no new color themes. Reuse existing keyframes/transitions before adding new ones.
-
-## 7. Known Pitfalls
-
-- **Composer divergence is real.** 4 surfaces, 2 ingestion paths. `useChatComposer` covers landscape `Widgets/ChatArea.vue` and `WhisperComposerBar`; `InteractiveArea.vue` and actor's page manage composer state by hand. A composable change never ripples into the desktop host — decide which surface you mean.
-- **Workspace Route arrays are duplicated inline** inside the `pages/chat.vue` template (drawer + sidebar). Update both, or entries silently show up in only one menu.
-- **`chat_messages.vue` exists only to forward a ref**: the right panel of the hub calls methods on `interactiveAreaRef` through it. Don't add logic there, don't delete it without rewiring `activeSurfaceRef?.interactiveAreaRef` (`chat.vue`:29-31).
-- **WhisperDock is not the sender** — a lifecycle shell around `WhisperComposerBar`. Sending behavior "inside WhisperDock" actually means the bar (or the composable).
-- **Per-window Pinia stores need BroadcastChannel sync.** Chat/Director state mutates independently in each Electron window; mutations must post canonical channels (see `docs/rosetta-stone.md` §13 for the full registry). From this surface: `airi:director-notes-sync` (publisher at `packages/stage-ui/src/stores/modules/artistry-autonomous.ts:58`), `airi-chat-input-bridge` (chat.ts:136), `airi-chat-stream` (constants.ts), `airi-intrusion-staging` (intrusion-staging.ts:18), `airi-chat-present` (ControlStripHost.vue:149). Match the channel strings exactly.
-- **`healMozibake` iterates by code point, not UTF-16 index.** In `packages/stage-shared/src/text.ts:71-133`, the byte-reconstruction loop uses `for (const char of healed)` + `char.codePointAt(0)`, re-encoding surrogate pairs with `TextEncoder`. Do **not** "simplify" to index-based `charCodeAt(i)` — it corrupts multi-byte characters.
-- **Avoid eager `{ deep: true }` watchers on session/stream data.** Streaming deltas constantly hit this surface; prefer `computed()` or narrow `watch(() => store.someField)`. Existing watchers in `InteractiveArea.vue` (lines 85, 186, 487, 764, 804) are deliberately non-deep.
-- **Synthetic tool calls need `index: 0`.** The marker bridge (chat.ts ~893-901) constructs `{ id: `bridge-${nanoid()}`, index: 0, type: 'function', function: {...} }`. Strict OpenAI/DeepSeek gateways reject synthetic calls without `index: 0`.
-- **Action menu entries go only through `createChatActionMenuItems(...)`** — the `.vue` renders the builder array at 3 sites (inline/hover, floating, context). Hand-adding a one-off menu item in the template patches only one site.
-- **`performSend` treats the `INVOKE_CHARACTER_FIRST` sentinel specially** (chat.ts:249 converts it to an empty message; ingest options carry `triggerOnly`). Don't trim/normalize the message before `performSend` without preserving that path.
-
-## 8. Verification
-
-- stage-ui only (chat components, composer, markdown renderer): `pnpm -F @proj-airi/stage-ui typecheck`
-- stage-layouts widgets (`Widgets/ChatArea.vue`, Layouts): `pnpm -F @proj-airi/stage-layouts typecheck`
-- Desktop chat host (`InteractiveArea.vue`, `pages/chat.vue`, `components/chat/*`, eventa contracts): `pnpm -F @proj-airi/stage-tamagotchi typecheck` (runs `tsc --noEmit -p tsconfig.node.json`, then `vue-tsc --noEmit -p tsconfig.web.json`)
-- UI-only class/copy changes usually need no script; run the above when TS logic, stores, imports, or the `createChatActionMenuItems` signature changed.
-
-## 9. Canonical Design & Architecture Docs
-
-- [docs/design-tamagotchi-chatbox-ux-improvements.md](docs/design-tamagotchi-chatbox-ux-improvements.md) — Tamagotchi chatbox UX improvements design.
-- [docs/design-chatbox-magic-wand-flow.md](docs/design-chatbox-magic-wand-flow.md) — Chatbox magic-wand flow design.
-- [docs/proposal-chatbox-revamp.md](docs/proposal-chatbox-revamp.md) — Chatbox revamp proposal.
-- [docs/proposal-chatbox-slash-commands.md](docs/proposal-chatbox-slash-commands.md) — Chatbox slash-commands proposal.
-- [docs/content/en/docs/showcase/05-chatbox-redesign.md](docs/content/en/docs/showcase/05-chatbox-redesign.md) — Chatbox redesign showcase.
-- [docs/linux-wayland-chat-cpu-spikes.md](docs/linux-wayland-chat-cpu-spikes.md) — Linux Wayland chat CPU spikes (performance failure mode).
-- [docs/rosetta-stone.md](docs/rosetta-stone.md) — canonical concept→path index; §13 BroadcastChannel registry.
-
-## Related Skills & References
-
-- **Key Documents**: [[rosetta-stone]], [[design-tamagotchi-chatbox-ux-improvements]], [[design-chatbox-magic-wand-flow]], [[proposal-chatbox-revamp]], [[proposal-chatbox-slash-commands]], [[05-chatbox-redesign]], [[linux-wayland-chat-cpu-spikes]]
+Check the affected surface with streaming text, tool output, empty history, and a switched character/session. For code changes, typecheck affected workspaces: `@proj-airi/stage-tamagotchi`, `@proj-airi/stage-ui`, or `@proj-airi/stage-layouts`, using `pnpm -F <workspace> typecheck`. Shared renderer changes also need a web/pocket smoke check. Use the selected reference's behavioral checks.
