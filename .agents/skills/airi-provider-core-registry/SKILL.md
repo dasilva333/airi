@@ -178,3 +178,11 @@ export const providerMyAi = defineProvider<ProviderConfig>({
 ## Related Skills & References
 
 - **Key Documents**: [[settings-yaml]], [[provider-catalog]], [[project-provider-metadata-catalog]], [[design-multi-instance-provider-studio]], [[proposal-generative-code-painting-rwkv-webllm]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/settings-yaml.md](docs/settings-yaml.md) — Canonical key→file map and yaml-manager guide (provider i18n keys).
+- [docs/provider-catalog.md](docs/provider-catalog.md) — Provider catalog reference.
+- [docs/project-provider-metadata-catalog.md](docs/project-provider-metadata-catalog.md) — Provider metadata catalog project.
+- [docs/design-multi-instance-provider-studio.md](docs/design-multi-instance-provider-studio.md) — Multi-instance provider studio design.
+- [docs/proposal-web-cors-proxy-bypass.md](docs/proposal-web-cors-proxy-bypass.md) — Web CORS proxy bypass proposal.

@@ -129,3 +129,19 @@ interface CloudRelayInstance {
 ## Related Skills & References
 
 - **Key Documents**: [[design-cloud-relay]], [[project-generic-cloudflare-framework-plan]], [[design-discord-control-plane]], [[design-discord-context-routing]], [[design-discord-cloud-relay]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-cloud-relay.md](docs/design-cloud-relay.md) — Master document for Cloud Relay Architecture.
+- [docs/project-byos-cloud-sync.md](docs/project-byos-cloud-sync.md) — BYOS cloud sync logic and S3/R2 reconciliations.
+- [docs/project-audit-cloudsync.md](docs/project-audit-cloudsync.md) — Cloud sync audit.
+- [docs/project-generic-cloudflare-framework-plan.md](docs/project-generic-cloudflare-framework-plan.md) — Generic Cloudflare framework plan.
+- [docs/brainstorms/2026-07-04-commercial-backend-subscription-requirements.md](docs/brainstorms/2026-07-04-commercial-backend-subscription-requirements.md) — Commercial backend subscription requirements brainstorm.
+- [docs/brainstorms/2026-07-06-commercial-backend-customer-acceptance-checklist.md](docs/brainstorms/2026-07-06-commercial-backend-customer-acceptance-checklist.md) — Commercial backend customer acceptance checklist.
+- [docs/superpowers/specs/2026-07-04-commercial-backend-phase-0-design.md](docs/superpowers/specs/2026-07-04-commercial-backend-phase-0-design.md) — Commercial backend phase 0 design.
+- [docs/superpowers/specs/2026-07-04-commercial-backend-phase-1-provider-data-boundary-design.md](docs/superpowers/specs/2026-07-04-commercial-backend-phase-1-provider-data-boundary-design.md) — Provider data boundary design.
+- [docs/superpowers/specs/2026-07-04-phase-1-hard-block-design.md](docs/superpowers/specs/2026-07-04-phase-1-hard-block-design.md) — Phase 1 hard block design.
+- [docs/superpowers/plans/2026-07-04-commercial-backend-phase-0-closure.md](docs/superpowers/plans/2026-07-04-commercial-backend-phase-0-closure.md) — Commercial backend phase 0 closure plan.
+- [docs/superpowers/plans/2026-07-04-commercial-backend-phase-1-provider-data-boundary.md](docs/superpowers/plans/2026-07-04-commercial-backend-phase-1-provider-data-boundary.md) — Provider data boundary plan.
+- [docs/arch-gateway-security-hardening.md](docs/arch-gateway-security-hardening.md) — Gateway security hardening architecture.
+- [docs/delivery/AIRI-customer-deployment-guide.zh-CN.md](docs/delivery/AIRI-customer-deployment-guide.zh-CN.md) — AIRI customer deployment guide.

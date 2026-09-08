@@ -185,3 +185,10 @@ Wiring: `use-control-strip-action.ts` handles `head-tethered-caption`, `caption-
 ## Related Skills & References
 
 - **Key Documents**: [[design-head-tethered-captions]], [[design-live2d-caption]], [[design-captions-widget-system]], [[catalog-control-strip]], [[rosetta-stone]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-head-tethered-captions.md](docs/design-head-tethered-captions.md) — Canonical design for head-tethered captions vs windowed captions.
+- [docs/design-live2d-caption.md](docs/design-live2d-caption.md) — Live2D caption pipeline design (motion Text/Language fields).
+- [docs/design-captions-widget-system.md](docs/design-captions-widget-system.md) — Captions widget system.
+- [docs/catalog-control-strip.md](docs/catalog-control-strip.md) — Control strip catalog (caption toggles, docking cyclers).

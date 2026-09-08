@@ -60,3 +60,7 @@ Multi-window AIRI (Electron chat + stage + caption + widgets, or web split panes
 
 - **Peer Skills**: [[airi-byos-cloud-sync]], [[airi-caption-subsystem]], [[airi-cloud-relay-infrastructure]], [[airi-dating-sim-engine]], [[airi-scenes-backgrounds]], [[airi-stage-ui-surfaces]]
 - **Key Documents**: [[rosetta-stone]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical BroadcastChannel registry (§13).

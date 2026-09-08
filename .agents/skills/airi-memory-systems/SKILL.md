@@ -79,3 +79,16 @@ Per `docs/design-timeline-flat.md`: a Universe (`universeId`) decouples chat thr
 
 - **Peer Skills**: [[airi-binary-safety]], [[airi-data-persistence]], [[airi-memory-chat-sessions]], [[airi-memory-consolidation-dreaming]], [[airi-memory-echo-chips]], [[airi-memory-event-log]], [[airi-memory-image-journal]], [[airi-memory-lifetime]], [[airi-memory-provisioning]], [[airi-memory-retrieval-engine]], [[airi-memory-short-term]], [[airi-memory-text-journal]], [[airi-memory-ui-pages]]
 - **Key Documents**: [[data-catalog]], [[design-timeline-flat]], [[design-timeline-nested]], [[rosetta-stone]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §9 memory-systems canonical path index.
+- [docs/arch-memory-system-overview.md](docs/arch-memory-system-overview.md) — Memory system architecture overview.
+- [docs/arch-long-term-memory-journal.md](docs/arch-long-term-memory-journal.md) — Long-term memory journal architecture.
+- [docs/arch-short-term-memory-summaries.md](docs/arch-short-term-memory-summaries.md) — Short-term memory summaries architecture.
+- [docs/design-text-journal-storage.md](docs/design-text-journal-storage.md) — Text journal storage design.
+- [docs/design-image-journal-storage.md](docs/design-image-journal-storage.md) — Image journal storage design.
+- [docs/memory_lab/state-of-system.md](docs/memory_lab/state-of-system.md) — Memory lab state-of-system document.
+- [docs/memory_lab/memory-engine-integration-plan.md](docs/memory_lab/memory-engine-integration-plan.md) — Memory engine integration plan.
+- [docs/memory_lab/production-transition-spec.md](docs/memory_lab/production-transition-spec.md) — Memory production transition spec.
+- [docs/proposal-echo-chips-rwkv-synthesis.md](docs/proposal-echo-chips-rwkv-synthesis.md) — Echo chips RWKV synthesis proposal.

@@ -26,6 +26,18 @@ Own prompt composition and refresh. Marker execution belongs to [ACT tokens](../
 7. In that pruning path, `setSessionMessages` already emits session updates. Do not add another `session-refreshed` broadcast and cause cross-window reload loops. This is not a blanket ban on refresh events elsewhere.
 8. Producer prompts suggest what the user could say next. Keep their role and template substitutions separate from the talking assistant and Director.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-prompt-crafting-catalog.md](docs/design-prompt-crafting-catalog.md) — Prompt crafting catalog.
+- [docs/proposal-introspective-context-injection.md](docs/proposal-introspective-context-injection.md) — Introspective context injection proposal.
+- [docs/proposal-dynamic-memory-rag-injection.md](docs/proposal-dynamic-memory-rag-injection.md) — Dynamic memory RAG injection proposal.
+- [docs/design-character-configurable-llm.md](docs/design-character-configurable-llm.md) — Character-configurable LLM design.
+- [docs/design-director-producer-roles.md](docs/design-director-producer-roles.md) — Director/producer roles document.
+- [docs/proposal-core-agent-revamp.md](docs/proposal-core-agent-revamp.md) — Core agent revamp proposal.
+- [docs/journal-the-reasoning-content-bug.md](docs/journal-the-reasoning-content-bug.md) — Reasoning-content bug journal.
+- [docs/design-act-token-expression-system.md](docs/design-act-token-expression-system.md) — ACT token expression system design.
+
 ## Verification
 
 For store/composable changes, `pnpm -F @proj-airi/stage-ui typecheck`. Inspect the composed prompt with Dating Sim on/off, artistry autonomous/manual, tools enabled/disabled, memory present/absent, and no ACTOR configuration. Refresh repeatedly: preserve context, avoid duplicated persona, and check a second window for reload loops. Switch characters/sessions and confirm injected context follows the target.

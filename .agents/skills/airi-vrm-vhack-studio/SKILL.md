@@ -66,3 +66,9 @@ GLB chunk-header math (offset = `20 + jsonBytes.length`, then 8-byte header + da
 
 - **Peer Skills**: [[airi-card-schema]], [[airi-character-rendering]]
 - **Key Documents**: [[design-vhack-studio]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-vhack-studio.md](docs/design-vhack-studio.md) — V-HACK DevTools design document.
+- [docs/research-vrm-cloth-interaction.md](docs/research-vrm-cloth-interaction.md) — VRM cloth interaction deep dive.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary-proxy lesson.

@@ -151,3 +151,13 @@ Expressions can be activated via three distinct pathways:
 ## Related Skills & References
 
 - **Key Documents**: [[design-model-customizer]], [[design-act-token-expression-system]], [[design-vrm-animation-ecosystem]], [[rosetta-stone]], [[research-vrm-cloth-interaction]]
+
+### Authoritative Design & Architecture Documents
+
+- [docs/design-vrm-animation-ecosystem.md](docs/design-vrm-animation-ecosystem.md) — VRM animation ecosystem design.
+- [docs/arch-live2d-wasm-optimization.md](docs/arch-live2d-wasm-optimization.md) — Live2D WASM optimization architecture.
+- [docs/design-act-token-expression-system.md](docs/design-act-token-expression-system.md) — ACT token expression system design.
+- [docs/research-vrm-cloth-interaction.md](docs/research-vrm-cloth-interaction.md) — VRM cloth interaction deep dive.
+- [docs/research-mmd-issues-and-regressions.md](docs/research-mmd-issues-and-regressions.md) — MMD issues and regressions.
+- [docs/design-spine-model.md](docs/design-spine-model.md) — Spine model design.
+- [docs/rosetta-stone.md](docs/rosetta-stone.md) — Canonical concept-to-path index; §16 binary-proxy lesson.

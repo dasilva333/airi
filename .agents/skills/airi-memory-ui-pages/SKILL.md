@@ -32,6 +32,14 @@ Paths below are relative to `packages/stage-pages/src/pages/settings/modules/`.
 - Long-term search uses debounced semantic search with keyword fallback. Keep stale-result handling and selected scope aligned; an empty semantic result must not leave results from another character visible.
 - Signals edits should patch the relevant `dreamState` slice. Avoid saving a stale whole card and overwriting unrelated settings.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/memory_lab/memory-settings-home-page-plan.md](docs/memory_lab/memory-settings-home-page-plan.md) — Memory settings home page plan.
+- [docs/memory_lab/rich-journal-mockups.md](docs/memory_lab/rich-journal-mockups.md) — Rich journal mockups.
+- [docs/memory_lab/archive-index.md](docs/memory_lab/archive-index.md) — Archive index.
+- [docs/memory_lab/in_progress.md](docs/memory_lab/in_progress.md) — In-progress items.
+
 ## Verification
 
 For page changes, `pnpm -F @proj-airi/stage-pages typecheck`. Exercise no artifacts, existing artifacts, search failure/fallback, a running job, an interrupted resumable job, and a failed job. Switch characters during work, close/reopen the modal, resume, and restart. Confirm scope in store calls and persisted results. Check deletions and re-synthesis retain the intended confirmation.

@@ -41,6 +41,21 @@ Preserve permission errors, device disappearance/reselection, old stream-track c
 
 For silence, distinguish suspended AudioContext, empty transformed text, synthesis failure, decode failure, cancelled intent, and wrong output route. `useAudioContext` unlocks on interaction; do not invent an `ensureContext` API. For stutter, inspect actual scheduling and PCM conversion at the host/transport; the cross-window runtime is not a PCM underrun buffer.
 
+
+### Authoritative Design & Architecture Documents
+
+- [docs/feat-audio-studio.md](docs/feat-audio-studio.md) — Audio studio feature spec (VoiceProfiles, UST).
+- [docs/design-openai-compatible-tts.md](docs/design-openai-compatible-tts.md) — OpenAI-compatible TTS.
+- [docs/blueprint-tts-universal-speech-transformer.md](docs/blueprint-tts-universal-speech-transformer.md) — TTS universal speech transformer blueprint.
+- [docs/blueprint-aws-polly-integration.md](docs/blueprint-aws-polly-integration.md) — AWS Polly integration blueprint.
+- [docs/analysis-pocket-tts-viability.md](docs/analysis-pocket-tts-viability.md) — Pocket TTS viability analysis.
+- [docs/analysis-gpt-sovits-onnx-webgpu-viability.md](docs/analysis-gpt-sovits-onnx-webgpu-viability.md) — GPT-SoVITS ONNX WebGPU viability analysis.
+- [docs/proposal-higgs-audio-v3-tts-integration.md](docs/proposal-higgs-audio-v3-tts-integration.md) — Higgs Audio V3 TTS integration proposal.
+- [docs/proposal-moss-tts-nano-provider-unified-webgpu.md](docs/proposal-moss-tts-nano-provider-unified-webgpu.md) — MOSS TTS nano provider unified WebGPU proposal.
+- [docs/project-multimodal-audio-transport.md](docs/project-multimodal-audio-transport.md) — Multimodal audio transport project.
+- [docs/tts.md](docs/tts.md) — TTS research reference.
+- [docs/lipsync.md](docs/lipsync.md) — Lipsync research reference.
+
 ## Verification
 
 Run relevant existing tests such as `pnpm exec vitest run packages/stage-ui/src/stores/modules/speech.test.ts` for transformation changes. Typecheck the affected workspace with `pnpm -F <workspace> typecheck`.
