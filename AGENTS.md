@@ -5,6 +5,7 @@ Read the relevant section of [`docs/rosetta-stone.md`](./docs/rosetta-stone.md) 
 
 - **Skills index**: [`docs/project-specialized-skills.md`](./docs/project-specialized-skills.md) is the glossary of every `.agents/skills/` domain guide. Consult it before static architecture exploration — a skill likely exists for the subsystem you are touching, and loading it beats rediscovery. Keep it in sync with the skills directory when adding a skill.
 - **Data catalog**: [`docs/data-catalog.md`](./docs/data-catalog.md) is the canonical inventory of every persisted key (IndexedDB `local:*`/`outbox:*`, localforage blob assets, localStorage settings). Consult it before adding or renaming a storage key, and keep it in sync when keys move — it drifts easily by design of the persistence layer.
+- **Test catalog**: [`docs/project-testing-parity.md`](./docs/project-testing-parity.md) is the canonical inventory of every active test suite, assertion boundary, and runner across the monorepo. Consult it before broad architecture changes, assuming missing test coverage, or authoring duplicate tests. Run `node scripts/audit-test-catalog.mjs` to verify integrity.
 
 ## Pair programming
 

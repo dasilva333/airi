@@ -48,6 +48,7 @@
     "test:attention:desktop": "tsx scripts/tests/attention-ecology-harness/live-desktop-observer.ts",
     "test:attention:dashboard": "tsx scripts/tests/attention-ecology-harness/live-desktop-dashboard.ts",
     "test:run": "vitest run",
+    "test:catalog:audit": "node scripts/audit-test-catalog.mjs",
     "lint": "moeru-lint .",
     "lint:fix": "moeru-lint --fix .",
     "lint:rust": "cargo fmt --check && cargo clippy --workspace",

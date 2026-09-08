@@ -31,6 +31,7 @@ Choose the smallest validation that gives useful confidence; validation is not a
 ### Authoritative Design & Architecture Documents
 
 - [docs/rosetta-stone.md](docs/rosetta-stone.md) — Known-failure-mode index.
+- [docs/project-testing-parity.md](docs/project-testing-parity.md) — Canonical test catalog, assertion boundaries, runner matrix, and regression protection blueprint.
 - [docs/project-specialized-skills.md](docs/project-specialized-skills.md) — Specialized skills project plan.
 - [docs/project-how-to-maintain-manual.md](docs/project-how-to-maintain-manual.md) — How-to-maintain manual.
 
@@ -44,4 +45,4 @@ Choose the smallest validation that gives useful confidence; validation is not a
 
 ## Related Skills & References
 
-- **Key Documents**: [[AGENTS]], [[rosetta-stone]], [[project-specialized-skills]], [[project-how-to-maintain-manual]]
+- **Key Documents**: [[AGENTS]], [[rosetta-stone]], [[project-testing-parity]], [[project-specialized-skills]], [[project-how-to-maintain-manual]]

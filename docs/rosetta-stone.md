@@ -516,6 +516,7 @@ Cross-window communication relies on named `BroadcastChannel` instances. This is
 | `docs/proposal-echo-chips-rwkv-synthesis.md` | Echo chips synthesis proposal |
 | `docs/memory_lab/` | Memory-lab experimental docs (rich journal, activation, STMM/LTMM specs) |
 | `docs/design-text-to-motion.md` | Supersedes `proposal-text-to-vrma-system.md` as canonical motion design |
+| `docs/project-testing-parity.md` | Canonical test suite catalog, assertion boundaries, runner matrix, and regression protection blueprint |
 
 ---
 
