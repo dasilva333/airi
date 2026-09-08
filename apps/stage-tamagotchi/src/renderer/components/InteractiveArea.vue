@@ -73,7 +73,7 @@ const { cleanupMessages } = useChatMaintenanceStore()
 const { ingest, onAfterMessageComposed, stopCurrentGeneration } = chatOrchestrator
 const { messages, activeSessionId } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
-const { sending } = storeToRefs(chatOrchestrator)
+const { sending, canStop } = storeToRefs(chatOrchestrator)
 const { activeCardId } = storeToRefs(airiCardStore)
 const { t } = useI18n()
 const providersStore = useProvidersStore()
@@ -1368,9 +1368,9 @@ defineExpose({
         <PopoverRoot v-model:open="isSendMenuOpen">
           <PopoverAnchor as-child>
             <button
-              v-if="sending"
+              v-if="canStop"
               class="ml-2.5 h-8 w-8 flex cursor-pointer items-center justify-center rounded-xl bg-red-600 text-white shadow-lg shadow-red-500/35 transition-all duration-250 active:scale-95 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
-              title="Stop Generating"
+              :title="sending ? 'Stop Generating' : 'Stop Speaking'"
               @click="handleStopGeneration"
             >
               <div class="i-solar:stop-bold-duotone text-base" />

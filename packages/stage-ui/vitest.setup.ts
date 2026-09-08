@@ -72,3 +72,13 @@ if (!globalThis.sessionStorage) {
 if (!globalThis.window.Live2DCubismCore) {
   (globalThis.window as any).Live2DCubismCore = {}
 }
+
+if (!globalThis.window.location) {
+  (globalThis.window as any).location = {
+    hash: '',
+    pathname: '/',
+    search: '',
+    origin: 'http://localhost',
+    href: 'http://localhost/',
+  }
+}

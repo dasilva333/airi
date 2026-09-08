@@ -11,7 +11,7 @@ import { createQueue } from '@proj-airi/stream-kit'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { reactive, ref, toRaw, watch } from 'vue'
+import { computed, reactive, ref, toRaw, watch } from 'vue'
 
 import { useAnalytics } from '../composables'
 import { createLlmJsonInterceptor } from '../composables/llm-json-interceptor'
@@ -75,6 +75,7 @@ interface ForkOptions {
 }
 
 interface QueuedSend {
+  id?: string
   sendingMessage: string
   options: SendOptions
   generation: number
@@ -128,10 +129,10 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   const { streamingMessage } = storeToRefs(chatStream)
 
   const isMainWindow = !isStageTamagotchi()
-    || (typeof window !== 'undefined' && (window.location.hash === '' || window.location.hash === '#/' || window.location.hash === '#'))
+    || (typeof window !== 'undefined' && (!window?.location?.hash || window.location.hash === '#/' || window.location.hash === '#'))
 
   const isChatWindow = typeof window !== 'undefined'
-    && window.location.hash.startsWith('#/chat')
+    && window?.location?.hash?.startsWith('#/chat')
 
   const shouldListenToCaptions = isMainWindow || isChatWindow
 
@@ -178,6 +179,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
 
   const activeSpokenText = ref('')
   const activeSpokenColor = ref('')
+
+  interface SpeakingBroadcastState {
+    mouthOpenSize: number
+    nowSpeaking: boolean
+  }
+
+  const { data: speakingState } = useBroadcastChannel<SpeakingBroadcastState, SpeakingBroadcastState>({
+    name: 'airi-speaking-state',
+  })
+
+  const isSpeaking = ref(false)
+
+  watch(speakingState, (state) => {
+    if (state && typeof state.nowSpeaking === 'boolean') {
+      isSpeaking.value = state.nowSpeaking
+    }
+  })
+
+  const canStop = computed(() => sending.value || isSpeaking.value)
 
   const { data: latestPacingTelemetry } = useBroadcastChannel<PacingMetrics, PacingMetrics>({
     name: 'airi:pacing-telemetry',
@@ -266,6 +286,25 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
     })
   }
 
+  // Resynchronize streamingMessage when switching active sessions so that
+  // background generations in abandoned sessions do NOT leak their UI bubbles
+  // into the newly selected session, while sessions with in-flight turns
+  // have their progress immediately restored when switched back to.
+  watch(activeSessionId, (nextSessionId) => {
+    if (!nextSessionId) {
+      chatStream.resetStream()
+      return
+    }
+
+    const handle = activeSendHandles.get(nextSessionId)
+    if (handle) {
+      streamingMessage.value = JSON.parse(JSON.stringify(toRaw(handle.buildingMessage)))
+    }
+    else {
+      chatStream.resetStream()
+    }
+  }, { flush: 'sync' })
+
   const sending = ref(false)
   const pendingQueuedSends = ref<QueuedSend[]>([])
 
@@ -298,7 +337,11 @@ export const useChatOrchestratorStore = defineStore('chat-orchestrator', () => {
   })
 
   sendQueue.on('dequeue', (queuedSend) => {
-    pendingQueuedSends.value = pendingQueuedSends.value.filter(item => item !== queuedSend)
+    pendingQueuedSends.value = pendingQueuedSends.value.filter((item) => {
+      if (item.id && queuedSend.id)
+        return item.id !== queuedSend.id
+      return toRaw(item) !== toRaw(queuedSend)
+    })
   })
 
   async function performSend(
@@ -2042,8 +2085,10 @@ Format your output as a raw thought log.`
 
     const generation = chatSession.getSessionGeneration(sessionId)
 
+    const queuedId = nanoid()
     return new Promise<void>((resolve, reject) => {
       sendQueue.enqueue({
+        id: queuedId,
         sendingMessage,
         options,
         generation,
@@ -2114,12 +2159,16 @@ Format your output as a raw thought log.`
 
     const handle = activeSendHandles.get(sessionId)
     if (!handle) {
-      // Nothing streaming; still drain anything queued behind it.
+      // Nothing actively streaming in LLM; still drain queued sends and stop active speech.
+      chatLog('stopCurrentGeneration: no active stream handle; stopping speech and draining queued sends', { sessionId })
       cancelPendingSends(sessionId)
+      isSpeaking.value = false
+      await hooks.emitGenerationStoppedHooks({ session: { id: sessionId } } as any)
       return
     }
 
     chatLog('stopCurrentGeneration: stopping in-flight generation', { sessionId })
+    isSpeaking.value = false
 
     // 1. Capture + persist the partial reply BEFORE bumping the generation so the
     //    in-flight performSend's stale-generation checks skip its own persistence paths.
@@ -2166,6 +2215,9 @@ Format your output as a raw thought log.`
   return {
     sending,
     streamingMessage,
+
+    isSpeaking,
+    canStop,
 
     activeSpokenText,
     activeSpokenColor,

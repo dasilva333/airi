@@ -196,12 +196,12 @@ graph TD
 ### Phase 2: High-Risk Companion Core Regressions (Sprint 1)
 **Objective:** Write targeted, deterministic unit and lifecycle tests for the highest-consequence async pathways in our fork.
 
-- [ ] **2.1 Stop & Cancellation Lifecycle Suite (`chat-cancellation.test.ts`):**
+- [x] **2.1 Stop & Cancellation Lifecycle Suite (`chat-cancellation.test.ts`):**
   - Verify that invoking `chatStore.stopGeneration()` triggers the LLM `AbortSignal`.
   - Verify that audio speech synthesis requests in flight are cancelled.
   - Verify that active Conversational Pacing thinking fillers are halted immediately.
   - Verify that the message status in the active session is finalized cleanly without dangling stream markers (`[ACT...]`).
-- [ ] **2.2 Session Switching During Active Generation (`session-switch-race.test.ts`):**
+- [x] **2.2 Session Switching During Active Generation (`session-switch-race.test.ts`):**
   - Simulate streaming tokens arriving after the user switches active session ID.
   - Verify that incoming chunks for the abandoned session do NOT leak into the newly selected session.
   - Verify that speech playback queues for the abandoned session are flushed.

@@ -7,8 +7,9 @@ export const storage = createStorage({
   driver: memoryDriver(),
 })
 
-storage.mount('local', indexedDbDriver({ base: 'airi-local' }))
-storage.mount('outbox', indexedDbDriver({ base: 'airi-sync-queue' }))
+const isIndexedDbAvailable = typeof indexedDB !== 'undefined'
+storage.mount('local', isIndexedDbAvailable ? indexedDbDriver({ base: 'airi-local' }) : memoryDriver())
+storage.mount('outbox', isIndexedDbAvailable ? indexedDbDriver({ base: 'airi-sync-queue' }) : memoryDriver())
 
 // Exportable state to bypass outbox enqueuing during remote reconciliation imports
 export const storageState = {

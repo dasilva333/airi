@@ -36,6 +36,7 @@ import { llmInferenceEndToken } from '../../constants'
 import { EMOTION_EmotionMotionName_value, EmotionThinkMotionName } from '../../constants/emotions'
 import { useAudioContext, useSpeakingStore } from '../../stores/audio'
 import { useChatOrchestratorStore } from '../../stores/chat'
+import { useChatSessionStore } from '../../stores/chat/session-store'
 import { DisplayModelFormat, useDisplayModelsStore } from '../../stores/display-models'
 import { useModsServerChannelStore } from '../../stores/mods/api/channel-server'
 import { useAiriCardStore } from '../../stores/modules'
@@ -1687,9 +1688,19 @@ chatHookCleanups.push(onAssistantResponseEnd(async (message) => {
 // it prevents the fallback-speech path from speaking the partial message.
 chatHookCleanups.push(onGenerationStopped(async () => {
   turnPacing.cancel('generation-stopped')
-  debug('[Stage] onGenerationStopped -> cancelling speech intent')
+  debug('[Stage] onGenerationStopped -> cancelling speech intent, pipeline, and playback')
   currentChatIntent?.cancel('generation-stopped')
   currentChatIntent = null
+  speechPipeline.stopAll('generation-stopped')
+  playbackManager.stopAll('generation-stopped')
+  nowSpeaking.value = false
+  mouthOpenSize.value = 0
+  try {
+    postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+  }
+  catch (error) {
+    debug('[Stage] Failed to post speaking state on stop', { error })
+  }
 
   assistantCaptionSegments.value = []
   try {
@@ -1699,6 +1710,36 @@ chatHookCleanups.push(onGenerationStopped(async () => {
     debug('[Stage] Failed to post caption reset on stop (channel may be closed)', { error })
   }
 }))
+
+const chatSessionStore = useChatSessionStore()
+const { activeSessionId } = storeToRefs(chatSessionStore)
+
+watch(activeSessionId, (newSessionId, oldSessionId) => {
+  if (oldSessionId && newSessionId !== oldSessionId) {
+    debug('[Stage] activeSessionId changed -> cancelling speech intent, pipeline, and playback for abandoned session', { oldSessionId, newSessionId })
+    turnPacing.cancel('session-switch')
+    currentChatIntent?.cancel('session-switch')
+    currentChatIntent = null
+    speechPipeline.stopAll('session-switch')
+    playbackManager.stopAll('session-switch')
+    nowSpeaking.value = false
+    mouthOpenSize.value = 0
+    try {
+      postSpeakingState({ mouthOpenSize: 0, nowSpeaking: false })
+    }
+    catch (error) {
+      debug('[Stage] Failed to post speaking state on session switch', { error })
+    }
+
+    assistantCaptionSegments.value = []
+    try {
+      postCaption({ type: 'caption-assistant', segments: [] })
+    }
+    catch (error) {
+      debug('[Stage] Failed to post caption reset on session switch', { error })
+    }
+  }
+})
 
 onUnmounted(() => {
   lipSyncStarted.value = false

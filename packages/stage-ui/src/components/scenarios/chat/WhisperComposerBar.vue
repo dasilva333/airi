@@ -49,7 +49,7 @@ const cardStore = useAiriCardStore()
 const chatSession = useChatSessionStore()
 const chatOrchestrator = useChatOrchestratorStore()
 const consciousnessStore = useConsciousnessStore()
-const { sending } = storeToRefs(chatOrchestrator)
+const { sending, isSpeaking, canStop } = storeToRefs(chatOrchestrator)
 const onboardingStore = useOnboardingStore()
 const { generateSuggestions } = useProducer()
 
@@ -234,9 +234,9 @@ async function onSubmit() {
   if (props.disabled)
     return
 
-  // While generating, the send button morphs into the Stop button — cancel the
-  // in-flight generation instead of swallowing the click.
-  if (sending.value) {
+  // While generating or speaking, the send button morphs into the Stop button — cancel the
+  // in-flight generation or active speech instead of swallowing the click.
+  if (canStop.value) {
     await chatOrchestrator.stopCurrentGeneration(chatSession.activeSessionId)
     return
   }
@@ -387,19 +387,19 @@ defineExpose({
         <!-- [✈] Send Button -->
         <button
           type="button"
-          :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !sending)"
+          :disabled="disabled || (!messageInput.trim() && attachments.length === 0 && !canStop)"
           :class="[
             'flex items-center justify-center size-8.5 rounded-full transition-all cursor-pointer shrink-0',
-            sending
+            canStop
               ? 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
               : messageInput.trim() || attachments.length > 0
                 ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30 hover:bg-primary-600'
                 : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500 cursor-not-allowed',
           ]"
-          :title="sending ? 'Stop Generating' : 'Send'"
+          :title="sending ? 'Stop Generating' : isSpeaking ? 'Stop Speaking' : 'Send'"
           @click="onSubmit"
         >
-          <div :class="[sending ? 'i-solar:stop-bold size-3.5' : 'i-solar:plain-bold size-4']" />
+          <div :class="[canStop ? 'i-solar:stop-bold size-3.5' : 'i-solar:plain-bold size-4']" />
         </button>
       </div>
     </div>
